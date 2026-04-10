@@ -37,7 +37,7 @@ import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import type { Logger } from "@/utils/logger";
 
 export const GET = withError("outlook/linking/callback", async (request) => {
-  const actorUserId = (await auth())?.user.id ?? null;
+  const actorUserId = (await auth(request.headers))?.user.id ?? null;
   let logger = request.logger.with({
     actorUserId,
     auditType: "oauth_linking",

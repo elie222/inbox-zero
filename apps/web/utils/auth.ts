@@ -660,8 +660,12 @@ export async function handleLinkAccount(account: Account) {
   }
 }
 
-export const auth = async () =>
-  betterAuthConfig.api.getSession({ headers: await headers() });
+export const auth = async (
+  requestHeaders?: Headers | Awaited<ReturnType<typeof headers>>,
+) =>
+  betterAuthConfig.api.getSession({
+    headers: requestHeaders ?? (await headers()),
+  });
 
 async function autoJoinOrganization(emailAccountId: string) {
   const orgs = await prisma.organization.findMany({
