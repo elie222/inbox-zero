@@ -224,8 +224,42 @@ function withMiddleware<T extends NextRequest>(
 async function authMiddleware(
   req: NextRequest,
 ): Promise<RequestWithAuth | Response> {
-  const session = await auth(req.headers);
+  const baseLogger = getLogger(req);
+
+  let session: Awaited<ReturnType<typeof auth>> = null;
+  let authError: unknown = null;
+  try {
+    session = await auth(req.headers);
+  } catch (error) {
+    authError = error;
+  }
+
   if (!session?.user) {
+    // Log enough context to diagnose *why* we're rejecting the request
+    // without leaking cookie values or tokens. `headers` / `authorization`
+    // as field names get auto-redacted by the logger, so we extract
+    // the facts we need as safe primitives first.
+    baseLogger.warn("Auth middleware returning 401", {
+      reason: authError
+        ? "auth_threw"
+        : session === null || session === undefined
+          ? "no_session"
+          : "session_without_user",
+      authErrorMessage:
+        authError instanceof Error ? authError.message : authError,
+      path: new URL(req.url).pathname,
+      method: req.method,
+      cookie: {
+        present: req.headers.has("cookie"),
+        // Just the cookie *names* so we can tell which cookies the
+        // client sent (session token name, cache cookie, etc.).
+        names: parseCookieNames(req.headers.get("cookie")),
+      },
+      hasAuthorization: req.headers.has("authorization"),
+      expoOrigin: req.headers.get("expo-origin") ?? null,
+      userAgent: req.headers.get("user-agent") ?? null,
+    });
+
     return NextResponse.json(
       { error: "Unauthorized", isKnownError: true },
       { status: 401 },
@@ -235,10 +269,17 @@ async function authMiddleware(
   const authReq = req.clone() as RequestWithAuth;
   authReq.auth = { userId: session.user.id };
 
-  const baseLogger = getLogger(req);
   authReq.logger = baseLogger.with({ userId: session.user.id });
 
   return authReq;
+}
+
+function parseCookieNames(cookieHeader: string | null): string[] {
+  if (!cookieHeader) return [];
+  return cookieHeader
+    .split(";")
+    .map((part) => part.split("=")[0]?.trim())
+    .filter((name): name is string => Boolean(name));
 }
 
 async function emailAccountMiddleware(
