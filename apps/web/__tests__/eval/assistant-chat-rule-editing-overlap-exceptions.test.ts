@@ -2,6 +2,10 @@ import type { ModelMessage } from "ai";
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   captureAssistantChatToolCalls,
+  hasActionType,
+  hasLabelAction,
+  isUpdateRuleActionsInput,
+  getLastMatchingToolCall,
   summarizeRecordedToolCalls,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
@@ -17,7 +21,8 @@ import {
   configureRuleMutationMocks,
   senderListHasValue,
 } from "@/__tests__/eval/assistant-chat-rule-eval-test-utils";
-import type { getEmailAccount } from "@/__tests__/helpers";
+import { getMockMessage, type getEmailAccount } from "@/__tests__/helpers";
+import type { MessageContext } from "@/app/api/chat/validation";
 import {
   ActionType,
   GroupItemType,
@@ -68,7 +73,78 @@ const keepInInboxRule = {
   ],
 };
 
-const ruleRows = [...defaultRuleRows, keepInInboxRule];
+const teamMailRule = {
+  id: "team-mail-rule-id",
+  name: "Team Mail",
+  instructions:
+    "Apply this rule to internal company emails, but exclude store@company.example.",
+  updatedAt: ruleUpdatedAt,
+  from: "@company.example",
+  to: null,
+  subject: null,
+  conditionalOperator: LogicalOperator.AND,
+  enabled: true,
+  runOnThreads: true,
+  systemType: null as SystemType | null,
+  actions: [
+    {
+      type: ActionType.LABEL,
+      content: null,
+      label: "Team",
+      to: null,
+      cc: null,
+      bcc: null,
+      subject: null,
+      url: null,
+      folderName: null,
+    },
+  ],
+};
+
+const shippingUpdatesRule = {
+  id: "shipping-updates-rule-id",
+  name: "Shipping Updates",
+  instructions: "Apply this rule to store receipts and shipping updates.",
+  updatedAt: ruleUpdatedAt,
+  from: "store@company.example",
+  to: null,
+  subject: null,
+  conditionalOperator: LogicalOperator.AND,
+  enabled: true,
+  runOnThreads: true,
+  systemType: null as SystemType | null,
+  actions: [
+    {
+      type: ActionType.LABEL,
+      content: null,
+      label: "Receipts",
+      to: null,
+      cc: null,
+      bcc: null,
+      subject: null,
+      url: null,
+      folderName: null,
+    },
+    {
+      type: ActionType.ARCHIVE,
+      content: null,
+      label: null,
+      to: null,
+      cc: null,
+      bcc: null,
+      subject: null,
+      url: null,
+      folderName: null,
+    },
+  ],
+};
+
+const ruleRows = [
+  ...defaultRuleRows,
+  keepInInboxRule,
+  teamMailRule,
+  shippingUpdatesRule,
+];
 
 const {
   mockCreateRule,
@@ -172,6 +248,25 @@ describe.runIf(shouldRunEval)("Eval: assistant chat overlap exceptions", () => {
             exclude: false,
           },
         ],
+        "Team Mail": [
+          {
+            type: GroupItemType.FROM,
+            value: "no-reply@company.example",
+            exclude: false,
+          },
+          {
+            type: GroupItemType.FROM,
+            value: "store@company.example",
+            exclude: true,
+          },
+        ],
+        "Shipping Updates": [
+          {
+            type: GroupItemType.FROM,
+            value: "store@company.example",
+            exclude: false,
+          },
+        ],
       },
     });
 
@@ -231,6 +326,49 @@ describe.runIf(shouldRunEval)("Eval: assistant chat overlap exceptions", () => {
         },
         TIMEOUT,
       );
+
+      test(
+        "fix-rule avoids creating an overlapping broad domain rule",
+        async () => {
+          const { toolCalls, actual } = await runAssistantChat({
+            emailAccount,
+            messages: [
+              {
+                role: "user",
+                content:
+                  "Create a new rule for emails like this: emails from our company domain should be labeled Action and should stay out of archive flows.",
+              },
+            ],
+            context: buildFixRuleContext(),
+          });
+
+          const updateActionsCall = getLastMatchingToolCall(
+            toolCalls,
+            "updateRuleActions",
+            isUpdateRuleActionsInput,
+          )?.input;
+
+          const pass =
+            !!updateActionsCall &&
+            updateActionsCall.ruleName === "Team Mail" &&
+            hasLabelAction(updateActionsCall.actions, "Action") &&
+            !hasActionType(updateActionsCall.actions, ActionType.ARCHIVE) &&
+            !toolCalls.some((toolCall) => toolCall.toolName === "createRule") &&
+            !toolCalls.some(
+              (toolCall) => toolCall.toolName === "updateLearnedPatterns",
+            );
+
+          evalReporter.record({
+            testName: "fix-rule avoids overlapping broad domain rule",
+            model: model.label,
+            pass,
+            actual,
+          });
+
+          expect(pass).toBe(true);
+        },
+        TIMEOUT,
+      );
     },
   );
 
@@ -256,15 +394,18 @@ type UpdateLearnedPatternsInput = {
 async function runAssistantChat({
   emailAccount,
   messages,
+  context,
 }: {
   emailAccount: ReturnType<typeof getEmailAccount>;
   messages: ModelMessage[];
+  context?: MessageContext;
 }) {
   const saveLearnedPatternsCallsBefore =
     mockSaveLearnedPatterns.mock.calls.length;
   const toolCalls = await captureAssistantChatToolCalls({
     messages,
     emailAccount,
+    context,
     logger,
   });
   const saveLearnedPatternsCallsAfter =
@@ -351,6 +492,48 @@ function hasExcludedFrom(
       !!pattern.exclude?.from &&
       senderListHasValue(pattern.exclude.from, expectedFrom),
   );
+}
+
+function buildFixRuleContext(): MessageContext {
+  const message = getMockMessage({
+    id: "message-fix-overlap",
+    threadId: "thread-fix-overlap",
+    from: "ops@company.example",
+    to: "user@test.com",
+    subject: "Quarterly planning update",
+    snippet: "Sharing the latest internal planning notes.",
+    textPlain:
+      "Hi team,\n\nSharing the latest internal planning notes for next quarter.\n\nThanks.",
+    textHtml:
+      "<p>Hi team,</p><p>Sharing the latest internal planning notes for next quarter.</p><p>Thanks.</p>",
+  });
+
+  return {
+    type: "fix-rule",
+    message: {
+      id: message.id,
+      threadId: message.threadId,
+      snippet: message.snippet,
+      textPlain: message.textPlain,
+      textHtml: message.textHtml,
+      headers: {
+        from: message.headers.from,
+        to: message.headers.to,
+        subject: message.headers.subject,
+        date: message.headers.date,
+      },
+      internalDate: message.date,
+    },
+    results: [
+      {
+        ruleName: "Team Mail",
+        systemType: null,
+        reason:
+          "Matched the Team Mail rule because the sender domain matches @company.example.",
+      },
+    ],
+    expected: "new",
+  };
 }
 
 function summarizeToolCall(toolCall: RecordedToolCall) {

@@ -2,6 +2,9 @@ import type { ModelMessage } from "ai";
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   captureAssistantChatToolCalls,
+  hasActionType,
+  hasLabelAction,
+  isUpdateRuleActionsInput,
   getLastMatchingToolCall,
   summarizeRecordedToolCalls,
   type RecordedToolCall,
@@ -257,53 +260,6 @@ async function runAssistantChat({
       (toolCall) => toolCall.toolName,
     ),
   };
-}
-
-type UpdateRuleActionsInput = {
-  ruleName: string;
-  actions: Array<{
-    type: ActionType;
-    fields?: {
-      label?: string | null;
-    } | null;
-    delayInMinutes?: number | null;
-  }>;
-};
-
-function isUpdateRuleActionsInput(
-  input: unknown,
-): input is UpdateRuleActionsInput {
-  if (!input || typeof input !== "object") return false;
-
-  const value = input as {
-    ruleName?: unknown;
-    actions?: unknown;
-  };
-
-  return typeof value.ruleName === "string" && Array.isArray(value.actions);
-}
-
-function hasActionType(
-  actions: Array<{ type: ActionType }>,
-  expectedActionType: ActionType,
-) {
-  return actions.some((action) => action.type === expectedActionType);
-}
-
-function hasLabelAction(
-  actions: Array<{
-    type: ActionType;
-    fields?: {
-      label?: string | null;
-    } | null;
-  }>,
-  expectedLabel: string,
-) {
-  return actions.some(
-    (action) =>
-      action.type === ActionType.LABEL &&
-      action.fields?.label === expectedLabel,
-  );
 }
 
 function getLastToolCallIndex(toolCalls: RecordedToolCall[], toolName: string) {

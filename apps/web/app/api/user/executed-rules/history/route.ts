@@ -62,6 +62,7 @@ async function getExecutedRules({
         actionItems: true,
         status: true,
         reason: true,
+        matchMetadata: true,
         automated: true,
         createdAt: true,
         rule: {

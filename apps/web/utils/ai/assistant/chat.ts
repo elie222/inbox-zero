@@ -41,6 +41,7 @@ import { createOrGetLabelTool, listLabelsTool } from "./chat-label-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
 import { getCalendarEventsTool } from "./chat-calendar-tools";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
+import type { SerializedMatchReason } from "@/utils/ai/choose-rule/types";
 import {
   buildFreshRuleContextMessage,
   buildRuleReadState,
@@ -410,15 +411,15 @@ General handling patterns:
                 3000,
               )}\n</email>\n\n` +
               `Rules that were applied:\n${context.results
-                .map((r) => `- ${r.ruleName ?? "None"}: ${r.reason}`)
+                .map((r) =>
+                  formatFixRuleResultContext({
+                    ruleName: r.ruleName ?? "None",
+                    reason: r.reason,
+                    matchMetadata: r.matchMetadata ?? undefined,
+                  }),
+                )
                 .join("\n")}\n\n` +
-              `Expected outcome: ${
-                context.expected === "new"
-                  ? "Create a new rule"
-                  : context.expected === "none"
-                    ? "No rule should be applied"
-                    : `Should match the "${context.expected.name}" rule`
-              }` +
+              `Expected outcome: ${formatFixRuleExpectedOutcome(context)}` +
               (isConversationStatusFixContext(context, expectedFixSystemType)
                 ? "\n\nThis fix is about conversation status classification. Prefer updating conversation rule instructions with updateRuleConditions (for example, To Reply/FYI rules)."
                 : ""),
@@ -665,6 +666,66 @@ function addAnthropicCacheControl(
       },
     };
   });
+}
+
+function formatFixRuleResultContext({
+  ruleName,
+  reason,
+  matchMetadata,
+}: {
+  ruleName: string;
+  reason: string;
+  matchMetadata?: SerializedMatchReason[];
+}) {
+  const structuredDetails = formatSerializedMatchMetadata(matchMetadata);
+  if (!structuredDetails.length) {
+    return `- ${ruleName}: ${reason}`;
+  }
+
+  return `- ${ruleName}: ${reason}\n  Structured match details:\n${structuredDetails.map((detail) => `  - ${detail}`).join("\n")}`;
+}
+
+function formatSerializedMatchMetadata(
+  matchMetadata?: SerializedMatchReason[],
+) {
+  if (!matchMetadata?.length) return [];
+
+  return matchMetadata.map((matchReason) => {
+    switch (matchReason.type) {
+      case "STATIC":
+        return "Matched by static sender, recipient, or subject conditions.";
+      case "AI":
+        return "Matched by AI instructions.";
+      case "PRESET":
+        return `Matched preset classification ${matchReason.systemType}.`;
+      case "LEARNED_PATTERN": {
+        const qualifier = matchReason.groupItem.exclude ? "exclude" : "include";
+        return `${matchReason.group.name} learned pattern ${qualifier} on ${matchReason.groupItem.type}: ${matchReason.groupItem.value}`;
+      }
+    }
+  });
+}
+
+function formatFixRuleExpectedOutcome(context: MessageContext) {
+  if (context.type !== "fix-rule") return "";
+
+  if (context.expected === "none") {
+    return "No rule should be applied";
+  }
+
+  if (context.expected !== "new") {
+    return `Should match the "${context.expected.name}" rule`;
+  }
+
+  const matchedRuleNames = context.results
+    .map((result) => result.ruleName)
+    .filter((ruleName): ruleName is string => Boolean(ruleName));
+
+  if (!matchedRuleNames.length) {
+    return 'The user selected "New rule" in the fix UI because the current behavior was wrong. Create a new rule only if no existing rule can be safely updated without causing overlap.';
+  }
+
+  return `The user selected "New rule" in the fix UI because the desired behavior changed. This email already matched ${matchedRuleNames.map((name) => `"${name}"`).join(", ")}. Treat that selection as user intent about the desired behavior, not as an instruction to duplicate a matching rule. Prefer updating the matched rule when it already covers the sender or domain scope, and create a new rule only if no existing rule can be safely updated without causing overlap.`;
 }
 
 function getChatProviderOptionsForCaching({ chatId }: { chatId?: string }) {

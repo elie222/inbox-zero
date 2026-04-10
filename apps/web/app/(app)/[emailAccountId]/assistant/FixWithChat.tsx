@@ -27,7 +27,15 @@ import {
   NEW_RULE_ID as CONST_NEW_RULE_ID,
   NONE_RULE_ID as CONST_NONE_RULE_ID,
 } from "@/app/(app)/[emailAccountId]/assistant/consts";
-import type { MessageContext } from "@/app/api/chat/validation";
+import {
+  serializedMatchMetadataSchema,
+  type MessageContext,
+} from "@/app/api/chat/validation";
+import {
+  serializeMatchReasons,
+  type MatchReason,
+  type SerializedMatchReason,
+} from "@/utils/ai/choose-rule/types";
 
 export function FixWithChat({
   setInput,
@@ -103,6 +111,7 @@ export function FixWithChat({
         ruleName: r.rule?.name ?? null,
         systemType: r.rule?.systemType ?? null,
         reason: r.reason ?? "",
+        matchMetadata: getMatchMetadataForContext(r),
       })),
       expected:
         selectedRuleId === CONST_NEW_RULE_ID
@@ -211,6 +220,21 @@ export function FixWithChat({
       </DialogContent>
     </Dialog>
   );
+}
+
+function getMatchMetadataForContext(result: {
+  matchMetadata?: unknown;
+  matchReasons?: MatchReason[];
+}): SerializedMatchReason[] | undefined {
+  const parsedMatchMetadata = serializedMatchMetadataSchema.safeParse(
+    result.matchMetadata,
+  );
+
+  if (parsedMatchMetadata.success) {
+    return parsedMatchMetadata.data;
+  }
+
+  return serializeMatchReasons(result.matchReasons) ?? undefined;
 }
 
 function RuleMismatch({

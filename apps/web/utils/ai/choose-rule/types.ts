@@ -59,7 +59,7 @@ export type RuleSelectionMetadata = {
 /**
  * Serializable version of MatchReason for database storage
  */
-type SerializedMatchReason =
+export type SerializedMatchReason =
   | { type: "STATIC" }
   | {
       type: "LEARNED_PATTERN";
