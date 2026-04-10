@@ -417,11 +417,7 @@ export const getBillingPortalUrlAction = actionClientUser
             stripeSubscriptionItemId: true,
             stripeSubscriptionStatus: true,
             users: {
-              select: {
-                emailAccounts: {
-                  select: { email: true },
-                },
-              },
+              select: { _count: { select: { emailAccounts: true } } },
             },
           },
         },
@@ -508,19 +504,13 @@ export const generateCheckoutSessionAction = actionClientUser
         where: { id: userId },
         select: {
           email: true,
-          emailAccounts: {
-            select: { email: true },
-          },
+          _count: { select: { emailAccounts: true } },
           premium: {
             select: {
               id: true,
               stripeCustomerId: true,
               users: {
-                select: {
-                  emailAccounts: {
-                    select: { email: true },
-                  },
-                },
+                select: { _count: { select: { emailAccounts: true } } },
               },
             },
           },
@@ -559,7 +549,7 @@ export const generateCheckoutSessionAction = actionClientUser
 
       const quantity = getStripeBillingQuantity({
         priceId,
-        users: user.premium?.users || [{ emailAccounts: user.emailAccounts }],
+        users: user.premium?.users || [{ _count: user._count }],
       });
 
       // ALWAYS create a checkout with a stripeCustomerId

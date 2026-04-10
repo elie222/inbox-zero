@@ -27,52 +27,40 @@ vi.mock("@/env", () => ({
 import { getStripeBillingQuantity } from "./billing";
 
 describe("getStripeBillingQuantity", () => {
-  it("includes one personal inbox for the new monthly prices", () => {
+  it("includes one extra email account per user on included-email prices", () => {
     expect(
       getStripeBillingQuantity({
         priceId: "price_current_starter_monthly",
-        users: [
-          {
-            emailAccounts: [
-              { email: "founder@company.com" },
-              { email: "founder@gmail.com" },
-            ],
-          },
-        ],
+        users: [{ _count: { emailAccounts: 2 } }],
       }),
     ).toBe(1);
   });
 
-  it("does not discount same-domain work inboxes", () => {
+  it("includes one extra email regardless of domain", () => {
     expect(
       getStripeBillingQuantity({
         priceId: "price_current_plus_monthly",
-        users: [
-          {
-            emailAccounts: [
-              { email: "founder@company.com" },
-              { email: "billing@company.com" },
-            ],
-          },
-        ],
+        users: [{ _count: { emailAccounts: 2 } }],
+      }),
+    ).toBe(1);
+  });
+
+  it("bills additional accounts beyond the included one", () => {
+    expect(
+      getStripeBillingQuantity({
+        priceId: "price_current_starter_monthly",
+        users: [{ _count: { emailAccounts: 3 } }],
       }),
     ).toBe(2);
   });
 
-  it("counts each shared user separately", () => {
+  it("applies the discount per user, not per team", () => {
     expect(
       getStripeBillingQuantity({
         priceId: "price_current_professional_monthly",
         users: [
-          {
-            emailAccounts: [
-              { email: "founder@company.com" },
-              { email: "founder@gmail.com" },
-            ],
-          },
-          {
-            emailAccounts: [{ email: "teammate@company.com" }],
-          },
+          { _count: { emailAccounts: 2 } },
+          { _count: { emailAccounts: 1 } },
         ],
       }),
     ).toBe(2);
@@ -82,15 +70,17 @@ describe("getStripeBillingQuantity", () => {
     expect(
       getStripeBillingQuantity({
         priceId: "price_1S5u73KGf8mwZWHn8VYFdALA",
-        users: [
-          {
-            emailAccounts: [
-              { email: "founder@company.com" },
-              { email: "founder@gmail.com" },
-            ],
-          },
-        ],
+        users: [{ _count: { emailAccounts: 2 } }],
       }),
     ).toBe(2);
+  });
+
+  it("returns at least 1 even with no accounts", () => {
+    expect(
+      getStripeBillingQuantity({
+        priceId: "price_current_starter_monthly",
+        users: [{ _count: { emailAccounts: 0 } }],
+      }),
+    ).toBe(1);
   });
 });

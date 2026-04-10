@@ -30,11 +30,7 @@ export async function syncPremiumSeats(premiumId: string) {
       stripeSubscriptionItemId: true,
       stripePriceId: true,
       users: {
-        select: {
-          emailAccounts: {
-            select: { email: true },
-          },
-        },
+        select: { _count: { select: { emailAccounts: true } } },
       },
     },
   });

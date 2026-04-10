@@ -268,9 +268,9 @@ const starterTier: Tier = {
       text: "Email analytics",
     },
     {
-      text: "Personal inbox included free on monthly plans",
+      text: "2 email accounts included per user",
       tooltip:
-        "Connect a personal email (Gmail, Outlook, etc.) alongside your work inbox at no extra cost. Additional work email accounts and extra team members are each billed at the standard per-seat rate.",
+        "Each user gets 2 email accounts included. Additional email accounts are billed at the standard per-seat rate.",
     },
     {
       text: "Pre-meeting briefings",
