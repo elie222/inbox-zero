@@ -1454,7 +1454,10 @@ function toCalendarPreviewMessage(
 function stripSlackFormatting(text: string) {
   return text
     .replace(/<([^|>]+)\|([^>]+)>/g, "$2: $1")
-    .replace(/\*([^*]+)\*/g, "$1");
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
 }
 
 function getLinkedProviderLimitationText({
