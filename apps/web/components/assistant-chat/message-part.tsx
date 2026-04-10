@@ -461,7 +461,7 @@ export function MessagePart({
                 updatedAbout ??
                 part.input?.about ??
                 "Personal instructions updated.",
-              mode: part.input?.mode ?? "replace",
+              mode: part.input?.mode ?? "append",
             }}
           />
         );
