@@ -46,11 +46,11 @@ export const BRIEF_MY_MEETING_PRICE_ID_MONTHLY =
 export const BRIEF_MY_MEETING_PRICE_ID_ANNUALLY =
   "price_1SjoawKGf8mwZWHnfAeShYhb";
 
-const INCLUDED_EMAIL_ACCOUNT_PRICE_IDS = getConfiguredPriceIds(
+const INCLUDED_EMAIL_ACCOUNT_PRICE_IDS = [
   env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
   env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID,
   env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
-);
+];
 
 const STRIPE_PRICE_ID_CONFIG: Record<
   PremiumTier,
@@ -67,7 +67,7 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   PRO_ANNUALLY: {},
   STARTER_MONTHLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
-    oldPriceIds: getConfiguredPriceIds(
+    oldPriceIds: [
       "price_1T9FhCKGf8mwZWHn1olNzv6X",
       "price_1S5u73KGf8mwZWHn8VYFdALA",
       "price_1RMSnIKGf8mwZWHnlHP0212n",
@@ -78,7 +78,7 @@ const STRIPE_PRICE_ID_CONFIG: Record<
       "price_1Rg0LEKGf8mwZWHndYXYg7ie",
       "price_1Rg03pKGf8mwZWHnWMNeQzLc",
       BRIEF_MY_MEETING_PRICE_ID_MONTHLY,
-    ),
+    ],
   },
   STARTER_ANNUALLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID,
@@ -99,10 +99,10 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   },
   PROFESSIONAL_MONTHLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
-    oldPriceIds: getConfiguredPriceIds(
+    oldPriceIds: [
       "price_1S5u6NKGf8mwZWHnZCfy4D5n",
       "price_1RMSoMKGf8mwZWHn5fAKBT19",
-    ),
+    ],
   },
   PROFESSIONAL_ANNUALLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID,
@@ -400,14 +400,3 @@ export function getLemonSubscriptionTier({
 
 export const tiers: Tier[] = [starterTier, plusTier, professionalTier];
 export { enterpriseTier };
-
-function getConfiguredPriceIds(
-  ...priceIds: Array<string | null | undefined>
-): string[] | undefined {
-  const configuredPriceIds = [
-    ...new Set(
-      priceIds.filter((priceId): priceId is string => Boolean(priceId)),
-    ),
-  ];
-  return configuredPriceIds.length ? configuredPriceIds : undefined;
-}
