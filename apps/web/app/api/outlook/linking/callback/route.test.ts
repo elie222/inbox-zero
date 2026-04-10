@@ -1,4 +1,3 @@
-import { EventEmitter } from "node:events";
 vi.mock("server-only", () => ({}));
 
 import { NextRequest } from "next/server";
@@ -14,7 +13,6 @@ const {
   mockClearOAuthCode,
   mockCaptureException,
   mockAuth,
-  mockHttpsRequest,
 } = vi.hoisted(() => ({
   mockValidateOAuthCallback: vi.fn(),
   mockHandleAccountLinking: vi.fn(),
@@ -24,7 +22,6 @@ const {
   mockClearOAuthCode: vi.fn(),
   mockCaptureException: vi.fn(),
   mockAuth: vi.fn(),
-  mockHttpsRequest: vi.fn(),
 }));
 
 vi.mock("@/env", () => ({
@@ -96,10 +93,6 @@ vi.mock("@/utils/prisma-helpers", () => ({
 
 vi.mock("@/utils/auth", () => ({
   auth: mockAuth,
-}));
-
-vi.mock("node:https", () => ({
-  request: mockHttpsRequest,
 }));
 
 vi.mock("@/utils/outlook/scopes", () => ({
@@ -355,6 +348,16 @@ describe("outlook linking callback route", () => {
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({
+            access_token: "access-token",
+            refresh_token: "refresh-token",
+            scope: "Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
+            token_type: "Bearer",
+            expires_in: 3600,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
             id: "provider-account-id",
             userPrincipalName: "user@example.com",
           }),
@@ -362,15 +365,6 @@ describe("outlook linking callback route", () => {
         .mockResolvedValueOnce({
           ok: false,
         }),
-    );
-    mockHttpsRequest.mockImplementation(
-      createHttpsJsonResponse({
-        access_token: "access-token",
-        refresh_token: "refresh-token",
-        scope: "Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
-        token_type: "Bearer",
-        expires_in: 3600,
-      }),
     );
 
     const response = await GET(
@@ -475,36 +469,4 @@ function createFetchFailedError(code: string) {
   error.cause = new AggregateError([connectError], `connect ${code}`);
 
   return error;
-}
-
-function createHttpsJsonResponse(payload: unknown, statusCode = 200) {
-  return (
-    _options: unknown,
-    callback: (
-      response: EventEmitter & {
-        statusCode: number;
-        headers: Record<string, string>;
-      },
-    ) => void,
-  ) => {
-    const response = new EventEmitter() as EventEmitter & {
-      statusCode: number;
-      headers: Record<string, string>;
-    };
-    response.statusCode = statusCode;
-    response.headers = { "content-type": "application/json" };
-
-    const request = new EventEmitter() as EventEmitter & {
-      write: (chunk: string | Buffer) => void;
-      end: () => void;
-    };
-    request.write = vi.fn();
-    request.end = () => {
-      callback(response);
-      response.emit("data", Buffer.from(JSON.stringify(payload)));
-      response.emit("end");
-    };
-
-    return request;
-  };
 }

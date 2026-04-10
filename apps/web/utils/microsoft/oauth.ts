@@ -1,5 +1,5 @@
 import { env } from "@/env";
-import { request as httpsRequest } from "node:https";
+import { Agent, type Dispatcher } from "undici";
 
 const MICROSOFT_LOGIN_BASE_URL = "https://login.microsoftonline.com";
 const MICROSOFT_GRAPH_BASE_URL = "https://graph.microsoft.com";
@@ -9,6 +9,9 @@ const MICROSOFT_IPV4_RETRY_HOSTS = new Set([
   new URL(MICROSOFT_GRAPH_BASE_URL).hostname,
 ]);
 const IPV6_UNREACHABLE_ERROR_CODES = new Set(["ENETUNREACH", "EHOSTUNREACH"]);
+const microsoftIpv4Dispatcher = new Agent({
+  connect: { family: 4 },
+});
 
 type MicrosoftGraphClientOptions = {
   baseUrl?: string;
@@ -20,6 +23,25 @@ type MicrosoftGraphClientOptions = {
     };
   };
 };
+
+export type MicrosoftUserProfile = {
+  id?: string | null;
+  mail?: string | null;
+  userPrincipalName?: string | null;
+  displayName?: string | null;
+  givenName?: string | null;
+  surname?: string | null;
+};
+
+export class MicrosoftUserProfileError extends Error {
+  readonly status?: number;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = "MicrosoftUserProfileError";
+    this.status = status;
+  }
+}
 
 export function isMicrosoftEmulationEnabled() {
   return !!getMicrosoftBaseUrl();
@@ -78,6 +100,30 @@ export function fetchMicrosoftGraph(path: string, init?: RequestInit) {
   return fetchMicrosoftUrl(getMicrosoftGraphUrl(path), init);
 }
 
+export async function fetchMicrosoftUserProfile(accessToken: string) {
+  const response = await fetchMicrosoftGraph("/me", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new MicrosoftUserProfileError(
+      "Failed to fetch Microsoft user profile",
+      response.status,
+    );
+  }
+
+  const profile = (await response.json()) as MicrosoftUserProfile;
+  const email = profile.mail || profile.userPrincipalName;
+
+  if (!email) {
+    throw new MicrosoftUserProfileError("Profile missing required email");
+  }
+
+  return { profile, email };
+}
+
 export function getMicrosoftGraphClientOptions(
   accessToken: string,
 ): MicrosoftGraphClientOptions {
@@ -108,7 +154,10 @@ async function fetchMicrosoftUrl(url: string, init?: RequestInit) {
       throw error;
     }
 
-    return fetchMicrosoftUrlOverIpv4(url, init);
+    return fetch(url, {
+      ...(init || {}),
+      dispatcher: microsoftIpv4Dispatcher,
+    } as RequestInit & { dispatcher: Dispatcher });
   }
 }
 
@@ -151,85 +200,4 @@ function collectErrorCodes(error: unknown, codes: Set<string>) {
   if ("cause" in error) {
     collectErrorCodes(error.cause, codes);
   }
-}
-
-async function fetchMicrosoftUrlOverIpv4(url: string, init?: RequestInit) {
-  const parsedUrl = new URL(url);
-  const body = await serializeRequestBody(init?.body);
-  const headers = Object.fromEntries(new Headers(init?.headers).entries());
-
-  return new Promise<Response>((resolve, reject) => {
-    const request = httpsRequest(
-      {
-        protocol: parsedUrl.protocol,
-        hostname: parsedUrl.hostname,
-        port: parsedUrl.port || undefined,
-        path: `${parsedUrl.pathname}${parsedUrl.search}`,
-        method: init?.method ?? "GET",
-        headers,
-        family: 4,
-      },
-      (response) => {
-        const chunks: Buffer[] = [];
-
-        response.on("error", reject);
-
-        response.on("data", (chunk) => {
-          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-        });
-
-        response.on("end", () => {
-          resolve(
-            new Response(Buffer.concat(chunks), {
-              status: response.statusCode ?? 500,
-              headers: toHeaders(response.headers),
-            }),
-          );
-        });
-      },
-    );
-
-    request.on("error", reject);
-
-    if (body) {
-      request.write(body);
-    }
-
-    request.end();
-  });
-}
-
-function toHeaders(
-  headers: Record<string, string | string[] | undefined>,
-): Headers {
-  const normalizedHeaders = new Headers();
-
-  for (const [key, value] of Object.entries(headers)) {
-    if (Array.isArray(value)) {
-      for (const headerValue of value) {
-        normalizedHeaders.append(key, headerValue);
-      }
-      continue;
-    }
-
-    if (value != null) {
-      normalizedHeaders.append(key, value);
-    }
-  }
-
-  return normalizedHeaders;
-}
-
-async function serializeRequestBody(body: RequestInit["body"]) {
-  if (!body) return null;
-  if (typeof body === "string") return body;
-  if (body instanceof URLSearchParams) return body.toString();
-  if (body instanceof ArrayBuffer) return Buffer.from(body);
-  if (ArrayBuffer.isView(body))
-    return Buffer.from(body.buffer, body.byteOffset, body.byteLength);
-  if (body instanceof Blob) {
-    return Buffer.from(await body.arrayBuffer());
-  }
-
-  throw new TypeError("Unsupported Microsoft fallback request body");
 }

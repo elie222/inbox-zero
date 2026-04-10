@@ -1,11 +1,4 @@
-import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const mockHttpsRequest = vi.hoisted(() => vi.fn());
-
-vi.mock("node:https", () => ({
-  request: mockHttpsRequest,
-}));
 
 describe("microsoft oauth helpers", () => {
   beforeEach(() => {
@@ -109,30 +102,61 @@ describe("microsoft oauth helpers", () => {
     const fetchMock = vi
       .fn()
       .mockRejectedValueOnce(createFetchFailedError("ENETUNREACH"))
-      .mockResolvedValueOnce({ ok: true });
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
     vi.stubGlobal("fetch", fetchMock);
-    mockHttpsRequest.mockImplementation(
-      createHttpsJsonResponse({
-        access_token: "access-token",
-      }),
-    );
 
     const response = await oauth.requestMicrosoftToken({
       client_id: "client-id",
       grant_type: "refresh_token",
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(mockHttpsRequest).toHaveBeenCalledTimes(1);
-    expect(mockHttpsRequest.mock.calls[0]?.[0]).toEqual(
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toEqual(
       expect.objectContaining({
-        hostname: "login.microsoftonline.com",
-        family: 4,
+        dispatcher: expect.any(Object),
         method: "POST",
       }),
     );
-    await expect(response.json()).resolves.toEqual({
-      access_token: "access-token",
+    await expect(response.json()).resolves.toEqual({});
+  });
+
+  it("returns the Microsoft user profile and derived email", async () => {
+    const oauth = await importMicrosoftOauthModule();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: "user-id",
+        userPrincipalName: "user@example.com",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      oauth.fetchMicrosoftUserProfile("access-token"),
+    ).resolves.toEqual({
+      profile: {
+        id: "user-id",
+        userPrincipalName: "user@example.com",
+      },
+      email: "user@example.com",
+    });
+  });
+
+  it("throws a typed error when the Microsoft profile request fails", async () => {
+    const oauth = await importMicrosoftOauthModule();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 503 }),
+    );
+
+    await expect(
+      oauth.fetchMicrosoftUserProfile("access-token"),
+    ).rejects.toMatchObject({
+      message: "Failed to fetch Microsoft user profile",
+      status: 503,
     });
   });
 });
@@ -163,36 +187,4 @@ function createFetchFailedError(code: string) {
   error.cause = new AggregateError([connectError], `connect ${code}`);
 
   return error;
-}
-
-function createHttpsJsonResponse(payload: unknown, statusCode = 200) {
-  return (
-    _options: unknown,
-    callback: (
-      response: EventEmitter & {
-        statusCode: number;
-        headers: Record<string, string>;
-      },
-    ) => void,
-  ) => {
-    const response = new EventEmitter() as EventEmitter & {
-      statusCode: number;
-      headers: Record<string, string>;
-    };
-    response.statusCode = statusCode;
-    response.headers = { "content-type": "application/json" };
-
-    const request = new EventEmitter() as EventEmitter & {
-      write: (chunk: string | Buffer) => void;
-      end: () => void;
-    };
-    request.write = vi.fn();
-    request.end = () => {
-      callback(response);
-      response.emit("data", Buffer.from(JSON.stringify(payload)));
-      response.emit("end");
-    };
-
-    return request;
-  };
 }

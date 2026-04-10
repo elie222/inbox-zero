@@ -24,6 +24,8 @@ import {
 } from "@/utils/oauth/microsoft-oauth";
 import {
   fetchMicrosoftGraph,
+  fetchMicrosoftUserProfile,
+  MicrosoftUserProfileError,
   requestMicrosoftToken,
 } from "@/utils/microsoft/oauth";
 import {
@@ -153,26 +155,37 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       throw new SafeError(errorDescription);
     }
 
-    // Get user profile using the access token
-    const profileResponse = await fetchMicrosoftGraph("/me", {
-      headers: {
-        Authorization: `Bearer ${tokens.access_token}`,
-      },
-    });
+    let profile: Awaited<
+      ReturnType<typeof fetchMicrosoftUserProfile>
+    >["profile"];
+    let providerEmail: string;
 
-    if (!profileResponse.ok) {
-      logger.error("Failed to fetch Microsoft user profile", {
-        targetUserId,
-        status: profileResponse.status,
-      });
-      throw new SafeError("Failed to fetch user profile");
+    try {
+      const result = await fetchMicrosoftUserProfile(tokens.access_token);
+      profile = result.profile;
+      providerEmail = result.email;
+    } catch (error) {
+      if (
+        error instanceof MicrosoftUserProfileError &&
+        typeof error.status === "number"
+      ) {
+        logger.error("Failed to fetch Microsoft user profile", {
+          targetUserId,
+          status: error.status,
+        });
+        throw new SafeError("Failed to fetch user profile");
+      }
+
+      if (error instanceof MicrosoftUserProfileError) {
+        throw new SafeError(error.message);
+      }
+
+      throw error;
     }
 
-    const profile = await profileResponse.json();
     const providerAccountId = profile.id;
-    const providerEmail = profile.mail || profile.userPrincipalName;
 
-    if (!providerAccountId || !providerEmail) {
+    if (!providerAccountId) {
       throw new SafeError("Profile missing required id or email");
     }
 
