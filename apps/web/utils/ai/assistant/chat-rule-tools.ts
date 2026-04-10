@@ -2,11 +2,10 @@ import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import {
-  addRequiredActionFieldIssues,
+  createRuleActionSchema,
   createRuleSchema,
   type CreateOrUpdateRuleSchema,
 } from "@/utils/ai/rule/create-rule-schema";
-import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import {
@@ -16,19 +15,15 @@ import {
   updateRuleActions,
 } from "@/utils/rule/rule";
 import {
-  ActionType,
+  type ActionType,
   GroupItemType,
   type LogicalOperator,
 } from "@/generated/prisma/enums";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { filterNullProperties } from "@/utils";
-import {
-  delayInMinutesLlmSchema,
-  updateRuleConditionSchema,
-} from "@/utils/actions/rule.validation";
+import { updateRuleConditionSchema } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
-import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 import {
   buildRuleReadState,
   getVisibleRulesFromSnapshot,
@@ -438,54 +433,7 @@ export const updateRuleActionsTool = ({
       "Update the actions of an existing rule. This replaces the existing actions. SEND_EMAIL and FORWARD require an explicit recipient in fields.to; use REPLY for inbound auto-responses.",
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
-      actions: z.array(
-        z
-          .object({
-            type: z.enum([
-              ActionType.ARCHIVE,
-              ActionType.LABEL,
-              ActionType.MOVE_FOLDER,
-              ...(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
-                ? []
-                : [ActionType.DRAFT_EMAIL]),
-              ActionType.FORWARD,
-              ActionType.REPLY,
-              ActionType.SEND_EMAIL,
-              ActionType.MARK_READ,
-              ActionType.MARK_SPAM,
-              ...(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false
-                ? [ActionType.CALL_WEBHOOK]
-                : []),
-              ActionType.DIGEST,
-            ]),
-            fields: z
-              .object({
-                label: z.string().nullish(),
-                content: z.string().nullish(),
-                webhookUrl: z.string().nullish(),
-                to: z.string().nullish(),
-                cc: z.string().nullish(),
-                bcc: z.string().nullish(),
-                subject: z.string().nullish(),
-                folderName: z.string().nullish(),
-              })
-              .partial()
-              .nullish(),
-            delayInMinutes: delayInMinutesLlmSchema,
-          })
-          .superRefine((action, ctx) => {
-            addMissingRecipientIssue({
-              actionType: action.type,
-              recipient: action.fields?.to,
-              ctx,
-              path: ["fields", "to"],
-              sendEmailMessage:
-                "SEND_EMAIL requires fields.to. Use REPLY for automatic responses.",
-              forwardMessage: "FORWARD requires fields.to.",
-            });
-            addRequiredActionFieldIssues({ action, ctx });
-          }),
-      ),
+      actions: z.array(createRuleActionSchema(provider)),
     }),
     execute: async ({ ruleName, actions }) => {
       trackToolCall({ tool: "update_rule_actions", email, logger });

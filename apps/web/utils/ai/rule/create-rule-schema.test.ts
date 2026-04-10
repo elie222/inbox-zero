@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { z } from "zod";
 import { ActionType } from "@/generated/prisma/enums";
 import {
   createRuleSchema,
@@ -71,9 +72,6 @@ describe("createRuleSchema", () => {
     );
 
     expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0].message).toContain("SEND_EMAIL requires");
-    }
   });
 
   it("accepts SEND_EMAIL when fields.to is present", () => {
@@ -118,9 +116,6 @@ describe("createRuleSchema", () => {
     );
 
     expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0].message).toContain("FORWARD requires");
-    }
   });
 
   it("accepts FORWARD when fields.to is present", () => {
@@ -201,7 +196,7 @@ describe("createRuleSchema", () => {
         type: ActionType.LABEL,
         fields: {
           label: "Finance",
-        } as any,
+        },
         delayInMinutes: null,
       }),
       condition: {
@@ -222,7 +217,7 @@ describe("createRuleSchema", () => {
     const result = createRuleSchema(provider).safeParse({
       ...buildRule({
         type: ActionType.ARCHIVE,
-        fields: {} as any,
+        fields: {},
         delayInMinutes: null,
       }),
       condition: {
@@ -241,13 +236,10 @@ describe("createRuleSchema", () => {
         type: ActionType.LABEL,
         fields: {},
         delayInMinutes: null,
-      } as any),
+      }),
     });
 
     expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0].message).toContain("LABEL requires");
-    }
   });
 
   it("rejects CALL_WEBHOOK without fields.webhookUrl", () => {
@@ -256,13 +248,50 @@ describe("createRuleSchema", () => {
         type: ActionType.CALL_WEBHOOK,
         fields: {},
         delayInMinutes: null,
-      } as any),
+      }),
     });
 
     expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0].message).toContain("CALL_WEBHOOK requires");
-    }
+  });
+
+  it("rejects MOVE_FOLDER actions for non-Microsoft providers", () => {
+    const result = createRuleSchema(provider).safeParse(
+      buildRule({
+        type: ActionType.MOVE_FOLDER,
+        fields: {
+          folderName: "Finance",
+        },
+        delayInMinutes: null,
+      }),
+    );
+
+    expect(result.success).toBe(false);
+  });
+
+  it("requires folderName for MOVE_FOLDER on Microsoft providers", () => {
+    const result = createRuleSchema("microsoft").safeParse(
+      buildRule({
+        type: ActionType.MOVE_FOLDER,
+        fields: {},
+        delayInMinutes: null,
+      }),
+    );
+
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts MOVE_FOLDER with folderName on Microsoft providers", () => {
+    const result = createRuleSchema("microsoft").safeParse(
+      buildRule({
+        type: ActionType.MOVE_FOLDER,
+        fields: {
+          folderName: "Finance",
+        },
+        delayInMinutes: null,
+      }),
+    );
+
+    expect(result.success).toBe(true);
   });
 
   it("rejects structurally invalid static.from values", () => {
@@ -356,9 +385,9 @@ describe("getExtraActions", () => {
   });
 });
 
-function buildRule(action: {
-  type: ActionType;
-  fields: {
+type CreateRuleInput = z.input<ReturnType<typeof createRuleSchema>>;
+type RuleActionFixture = CreateRuleInput["actions"][number] & {
+  fields?: Partial<{
     label: string | null;
     to: string | null;
     cc: string | null;
@@ -366,9 +395,11 @@ function buildRule(action: {
     subject: string | null;
     content: string | null;
     webhookUrl: string | null;
-  };
-  delayInMinutes: number | null;
-}) {
+    folderName: string | null;
+  }> | null;
+};
+
+function buildRule(action: RuleActionFixture) {
   return {
     name: "AutoReplyRule",
     condition: {

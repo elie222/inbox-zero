@@ -324,6 +324,42 @@ describe("aiProcessAssistantChat", () => {
     ).toBe(false);
   });
 
+  it("gates MOVE_FOLDER rule actions by provider", async () => {
+    const googleTools = await captureToolSet(true, "google");
+    vi.clearAllMocks();
+    const microsoftTools = await captureToolSet(true, "microsoft");
+
+    expect(
+      googleTools.updateRuleActions.inputSchema.safeParse({
+        ruleName: "Finance",
+        actions: [
+          {
+            type: ActionType.MOVE_FOLDER,
+            fields: {
+              folderName: "Archive",
+            },
+            delayInMinutes: null,
+          },
+        ],
+      }).success,
+    ).toBe(false);
+
+    expect(
+      microsoftTools.updateRuleActions.inputSchema.safeParse({
+        ruleName: "Finance",
+        actions: [
+          {
+            type: ActionType.MOVE_FOLDER,
+            fields: {
+              folderName: "Archive",
+            },
+            delayInMinutes: null,
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
   it("adds OpenAI prompt cache key when chatId is provided", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,
