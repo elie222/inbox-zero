@@ -93,5 +93,11 @@ describe("getStripeBillingQuantity", () => {
         users: [{ _count: { emailAccounts: 2 } }],
       }),
     ).toBe(2);
+    expect(
+      getStripeBillingQuantity({
+        priceId: "price_1S5u6NKGf8mwZWHnZCfy4D5n",
+        users: [{ _count: { emailAccounts: 2 } }],
+      }),
+    ).toBe(2);
   });
 });

@@ -156,6 +156,9 @@ describe("monthly pricing config", () => {
     expect(
       hasIncludedEmailAccountsStripePriceId("price_current_starter_annual"),
     ).toBe(false);
+    expect(
+      hasIncludedEmailAccountsStripePriceId("price_1S5u6NKGf8mwZWHnZCfy4D5n"),
+    ).toBe(false);
   });
 });
 
