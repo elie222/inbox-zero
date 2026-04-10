@@ -235,6 +235,36 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("rejects LABEL actions without fields.label", () => {
+    const result = createRuleSchema(provider).safeParse({
+      ...buildRule({
+        type: ActionType.LABEL,
+        fields: {},
+        delayInMinutes: null,
+      } as any),
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain("LABEL requires");
+    }
+  });
+
+  it("rejects CALL_WEBHOOK without fields.webhookUrl", () => {
+    const result = createRuleSchema(provider).safeParse({
+      ...buildRule({
+        type: ActionType.CALL_WEBHOOK,
+        fields: {},
+        delayInMinutes: null,
+      } as any),
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain("CALL_WEBHOOK requires");
+    }
+  });
+
   it("rejects structurally invalid static.from values", () => {
     const result = createRuleSchema(provider).safeParse({
       ...buildRule({

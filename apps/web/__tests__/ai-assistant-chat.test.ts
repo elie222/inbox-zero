@@ -294,6 +294,36 @@ describe("aiProcessAssistantChat", () => {
     ).toBe(true);
   });
 
+  it("rejects updateRuleActions payloads that omit required action fields", async () => {
+    const tools = await captureToolSet(true);
+
+    expect(
+      tools.updateRuleActions.inputSchema.safeParse({
+        ruleName: "Finance",
+        actions: [
+          {
+            type: ActionType.LABEL,
+            fields: {},
+            delayInMinutes: null,
+          },
+        ],
+      }).success,
+    ).toBe(false);
+
+    expect(
+      tools.updateRuleActions.inputSchema.safeParse({
+        ruleName: "Webhook",
+        actions: [
+          {
+            type: ActionType.CALL_WEBHOOK,
+            fields: {},
+            delayInMinutes: null,
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
   it("adds OpenAI prompt cache key when chatId is provided", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,

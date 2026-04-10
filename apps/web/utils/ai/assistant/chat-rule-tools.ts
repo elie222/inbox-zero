@@ -2,6 +2,7 @@ import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import {
+  addRequiredActionFieldIssues,
   createRuleSchema,
   type CreateOrUpdateRuleSchema,
 } from "@/utils/ai/rule/create-rule-schema";
@@ -482,6 +483,7 @@ export const updateRuleActionsTool = ({
                 "SEND_EMAIL requires fields.to. Use REPLY for automatic responses.",
               forwardMessage: "FORWARD requires fields.to.",
             });
+            addRequiredActionFieldIssues({ action, ctx });
           }),
       ),
     }),

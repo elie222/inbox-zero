@@ -11,6 +11,7 @@ import {
   isInvalidStaticFromValue,
   STATIC_FROM_CONDITION_DESCRIPTION,
 } from "@/utils/ai/rule/rule-condition-descriptions";
+import type { RefinementCtx } from "zod";
 
 const conditionSchema = z
   .object({
@@ -44,6 +45,51 @@ const conditionSchema = z
       ),
   })
   .describe("The conditions to match");
+
+function addRequiredActionFieldIssues({
+  action,
+  ctx,
+}: {
+  action: {
+    type: ActionType;
+    fields?: {
+      label?: string | null;
+      webhookUrl?: string | null;
+      folderName?: string | null;
+    } | null;
+  };
+  ctx: RefinementCtx;
+}) {
+  if (action.type === ActionType.LABEL && !action.fields?.label?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "LABEL requires fields.label.",
+      path: ["fields", "label"],
+    });
+  }
+
+  if (
+    action.type === ActionType.CALL_WEBHOOK &&
+    !action.fields?.webhookUrl?.trim()
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "CALL_WEBHOOK requires fields.webhookUrl.",
+      path: ["fields", "webhookUrl"],
+    });
+  }
+
+  if (
+    action.type === ActionType.MOVE_FOLDER &&
+    !action.fields?.folderName?.trim()
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "MOVE_FOLDER requires fields.folderName.",
+      path: ["fields", "folderName"],
+    });
+  }
+}
 
 export function getAvailableActions(provider: string) {
   const availableActions: ActionType[] = [
@@ -139,6 +185,7 @@ const actionSchema = (provider: string) =>
           "SEND_EMAIL requires a recipient in fields.to. Use REPLY for auto-responses.",
         forwardMessage: "FORWARD requires a recipient in fields.to.",
       });
+      addRequiredActionFieldIssues({ action, ctx });
     });
 
 export const createRuleSchema = (provider: string) =>
@@ -156,3 +203,4 @@ export type CreateRuleSchema = z.infer<ReturnType<typeof createRuleSchema>>;
 export type CreateOrUpdateRuleSchema = CreateRuleSchema & {
   ruleId?: string;
 };
+export { addRequiredActionFieldIssues };
