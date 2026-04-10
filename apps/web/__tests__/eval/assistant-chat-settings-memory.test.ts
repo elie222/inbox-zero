@@ -46,8 +46,33 @@ const scenarios: EvalScenario[] = [
     prompt: "Turn on multi-rule selection for me.",
     expectation: {
       kind: "assistant_settings",
-      changePath: "assistant.multiRuleSelection.enabled",
-      value: true,
+      changes: [
+        {
+          path: "assistant.multiRuleSelection.enabled",
+          value: true,
+        },
+      ],
+      forbiddenTools: ["updateAssistantSettingsCompat"],
+    },
+  },
+  {
+    title:
+      "uses structured updateAssistantSettings changes for multi-setting writes",
+    reportName: "multi-setting change uses structured updateAssistantSettings",
+    prompt:
+      "Turn on meeting briefs and auto-file attachments for me in one go.",
+    expectation: {
+      kind: "assistant_settings",
+      changes: [
+        {
+          path: "assistant.meetingBriefs.enabled",
+          value: true,
+        },
+        {
+          path: "assistant.attachmentFiling.enabled",
+          value: true,
+        },
+      ],
       forbiddenTools: ["updateAssistantSettingsCompat"],
     },
   },
@@ -311,8 +336,10 @@ type ScenarioExpectation =
     }
   | {
       kind: "assistant_settings";
-      changePath: string;
-      value: unknown;
+      changes: Array<{
+        path: string;
+        value: unknown;
+      }>;
       forbiddenTools: string[];
     }
   | {
@@ -418,10 +445,12 @@ async function evaluateScenario(
       return {
         pass:
           !!settingsCall &&
-          settingsCall.changes.some(
-            (change) =>
-              change.path === expectation.changePath &&
-              change.value === expectation.value,
+          expectation.changes.every((expectedChange) =>
+            settingsCall.changes.some(
+              (change) =>
+                change.path === expectedChange.path &&
+                change.value === expectedChange.value,
+            ),
           ) &&
           hasNoToolCalls(result.toolCalls, expectation.forbiddenTools),
         judgeOutput: null,

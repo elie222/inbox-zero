@@ -457,22 +457,25 @@ export const updateRuleActionsTool = ({
                 : []),
               ActionType.DIGEST,
             ]),
-            fields: z.object({
-              label: z.string().nullish(),
-              content: z.string().nullish(),
-              webhookUrl: z.string().nullish(),
-              to: z.string().nullish(),
-              cc: z.string().nullish(),
-              bcc: z.string().nullish(),
-              subject: z.string().nullish(),
-              folderName: z.string().nullish(),
-            }),
+            fields: z
+              .object({
+                label: z.string().nullish(),
+                content: z.string().nullish(),
+                webhookUrl: z.string().nullish(),
+                to: z.string().nullish(),
+                cc: z.string().nullish(),
+                bcc: z.string().nullish(),
+                subject: z.string().nullish(),
+                folderName: z.string().nullish(),
+              })
+              .partial()
+              .nullish(),
             delayInMinutes: delayInMinutesLlmSchema,
           })
           .superRefine((action, ctx) => {
             addMissingRecipientIssue({
               actionType: action.type,
-              recipient: action.fields.to,
+              recipient: action.fields?.to,
               ctx,
               path: ["fields", "to"],
               sendEmailMessage:

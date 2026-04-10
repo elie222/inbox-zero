@@ -243,6 +243,57 @@ describe("aiProcessAssistantChat", () => {
     ).toBe(false);
   });
 
+  it("accepts sparse rule action fields for createRule and updateRuleActions", async () => {
+    const tools = await captureToolSet(true);
+
+    expect(
+      tools.createRule.inputSchema.safeParse({
+        name: "Finance",
+        condition: {
+          conditionalOperator: null,
+          aiInstructions: null,
+          static: {
+            from: "@billing.example",
+          },
+        },
+        actions: [
+          {
+            type: ActionType.LABEL,
+            fields: {
+              label: "Finance",
+            },
+            delayInMinutes: null,
+          },
+          {
+            type: ActionType.ARCHIVE,
+            fields: {},
+            delayInMinutes: null,
+          },
+        ],
+      }).success,
+    ).toBe(true);
+
+    expect(
+      tools.updateRuleActions.inputSchema.safeParse({
+        ruleName: "Finance",
+        actions: [
+          {
+            type: ActionType.LABEL,
+            fields: {
+              label: "Finance",
+            },
+            delayInMinutes: null,
+          },
+          {
+            type: ActionType.ARCHIVE,
+            fields: {},
+            delayInMinutes: null,
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
   it("adds OpenAI prompt cache key when chatId is provided", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,

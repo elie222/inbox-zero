@@ -80,50 +80,50 @@ const actionSchema = (provider: string) =>
         .object({
           label: z
             .string()
-            .nullable()
+            .nullish()
             .transform((v) => v ?? null)
             .describe("The label to apply to the email"),
           to: z
             .string()
-            .nullable()
+            .nullish()
             .transform((v) => v ?? null)
             .describe(
               "The recipient email address. Required for SEND_EMAIL and FORWARD. Use REPLY when responding to the triggering inbound email.",
             ),
           cc: z
             .string()
-            .nullable()
+            .nullish()
             .transform((v) => v ?? null)
             .describe("The cc email address to send the email to"),
           bcc: z
             .string()
-            .nullable()
+            .nullish()
             .transform((v) => v ?? null)
             .describe("The bcc email address to send the email to"),
           subject: z
             .string()
-            .nullable()
+            .nullish()
             .transform((v) => v ?? null)
             .describe("The subject of the email"),
           content: z
             .string()
-            .nullable()
+            .nullish()
             .transform((v) => v ?? null)
             .describe("The content of the email"),
           webhookUrl: z
             .string()
-            .nullable()
+            .nullish()
             .transform((v) => v ?? null)
             .describe("The webhook URL to call"),
           ...(isMicrosoftProvider(provider) && {
             folderName: z
               .string()
-              .nullable()
+              .nullish()
               .transform((v) => v ?? null)
               .describe("The folder to move the email to"),
           }),
         })
-        .nullable()
+        .nullish()
         .describe(
           "The fields to use for the action. Static text can be combined with dynamic values using double braces {{}}. For example: 'Hi {{sender's name}}' or 'Re: {{subject}}' or '{{when I'm available for a meeting}}'. Dynamic values will be replaced with actual email data when the rule is executed. Dynamic values are generated in real time by the AI. Only use dynamic values where absolutely necessary. Otherwise, use plain static text. A field can be also be fully static or fully dynamic.",
         ),

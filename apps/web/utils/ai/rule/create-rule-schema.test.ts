@@ -195,6 +195,46 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts LABEL actions when only the label field is provided", () => {
+    const result = createRuleSchema(provider).safeParse({
+      ...buildRule({
+        type: ActionType.LABEL,
+        fields: {
+          label: "Finance",
+        } as any,
+        delayInMinutes: null,
+      }),
+      condition: {
+        conditionalOperator: null,
+        aiInstructions: null,
+        static: {
+          from: "@billing.example",
+          to: null,
+          subject: null,
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts ARCHIVE actions with an empty fields object", () => {
+    const result = createRuleSchema(provider).safeParse({
+      ...buildRule({
+        type: ActionType.ARCHIVE,
+        fields: {} as any,
+        delayInMinutes: null,
+      }),
+      condition: {
+        conditionalOperator: null,
+        aiInstructions: "Archive recurring newsletters",
+        static: null,
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it("rejects structurally invalid static.from values", () => {
     const result = createRuleSchema(provider).safeParse({
       ...buildRule({
