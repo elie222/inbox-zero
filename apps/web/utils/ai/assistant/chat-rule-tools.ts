@@ -742,12 +742,12 @@ export const updatePersonalInstructionsTool = ({
       about: z.string(),
       mode: z
         .enum(["replace", "append"])
-        .default("replace")
+        .default("append")
         .describe(
           "Use 'append' to add to existing instructions, 'replace' to overwrite entirely.",
         ),
     }),
-    execute: async ({ about, mode }) => {
+    execute: async ({ about, mode = "append" }) => {
       trackToolCall({ tool: "update_personal_instructions", email, logger });
       try {
         const existing = await prisma.emailAccount.findUnique({
