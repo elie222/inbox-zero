@@ -96,7 +96,7 @@ async function getUser({
 // Not using withAuth — unauthenticated requests return 401 with isKnownError
 // so the client can distinguish "not logged in" from real errors without Sentry noise
 export const GET = withError("user/me", async (request) => {
-  const session = await auth();
+  const session = await auth(request.headers);
   const userId = session?.user.id;
   if (!userId)
     return NextResponse.json(

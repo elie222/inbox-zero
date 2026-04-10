@@ -224,7 +224,7 @@ function withMiddleware<T extends NextRequest>(
 async function authMiddleware(
   req: NextRequest,
 ): Promise<RequestWithAuth | Response> {
-  const session = await auth();
+  const session = await auth(req.headers);
   if (!session?.user) {
     return NextResponse.json(
       { error: "Unauthorized", isKnownError: true },
@@ -308,7 +308,7 @@ async function emailAccountMiddleware(
           }),
       });
 
-      if (!targetMember || !targetMember.allowOrgAdminAnalytics) {
+      if (!targetMember?.allowOrgAdminAnalytics) {
         emailAccountLogger.error(
           "Member has not enabled org admin analytics access",
         );
