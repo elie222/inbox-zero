@@ -14,7 +14,10 @@ import {
   cancelPremiumLemon,
   upgradeToPremiumLemon,
 } from "@/utils/premium/server";
-import { syncPremiumSeats } from "@/utils/premium/seats";
+import {
+  getStripeBillingQuantity,
+  syncPremiumSeats,
+} from "@/utils/premium/seats";
 import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
 import {
   activateLemonLicenseKey,
@@ -23,7 +26,6 @@ import {
 import { PremiumTier } from "@/generated/prisma/enums";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
 import { getStripePriceId } from "@/app/(app)/premium/config";
-import { getStripeBillingQuantity } from "@/utils/premium/billing";
 import {
   actionClientUser,
   adminActionClient,

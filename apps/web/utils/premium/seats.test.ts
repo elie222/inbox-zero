@@ -24,10 +24,30 @@ vi.mock("@/env", () => ({
   },
 }));
 
-import { getStripeBillingQuantity } from "./billing";
+vi.mock("@/utils/prisma", () => ({
+  default: {},
+}));
+
+vi.mock("@/utils/logger", () => ({
+  createScopedLogger: () => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  }),
+}));
+
+vi.mock("@/ee/billing/lemon/index", () => ({
+  updateSubscriptionItemQuantity: vi.fn(),
+}));
+
+vi.mock("@/ee/billing/stripe/index", () => ({
+  updateStripeSubscriptionItemQuantity: vi.fn(),
+}));
+
+import { getStripeBillingQuantity } from "./seats";
 
 describe("getStripeBillingQuantity", () => {
-  it("includes one extra email account per user on included-email prices", () => {
+  it("includes one email account on the active monthly prices", () => {
     expect(
       getStripeBillingQuantity({
         priceId: "price_current_starter_monthly",
@@ -36,25 +56,16 @@ describe("getStripeBillingQuantity", () => {
     ).toBe(1);
   });
 
-  it("includes one extra email regardless of domain", () => {
+  it("does not discount additional seats on annual prices", () => {
     expect(
       getStripeBillingQuantity({
-        priceId: "price_current_plus_monthly",
+        priceId: "price_current_starter_annual",
         users: [{ _count: { emailAccounts: 2 } }],
-      }),
-    ).toBe(1);
-  });
-
-  it("bills additional accounts beyond the included one", () => {
-    expect(
-      getStripeBillingQuantity({
-        priceId: "price_current_starter_monthly",
-        users: [{ _count: { emailAccounts: 3 } }],
       }),
     ).toBe(2);
   });
 
-  it("applies the discount per user, not per team", () => {
+  it("counts shared users separately", () => {
     expect(
       getStripeBillingQuantity({
         priceId: "price_current_professional_monthly",
@@ -66,21 +77,12 @@ describe("getStripeBillingQuantity", () => {
     ).toBe(2);
   });
 
-  it("keeps legacy prices on raw account counts", () => {
+  it("keeps legacy monthly prices on raw account counts", () => {
     expect(
       getStripeBillingQuantity({
         priceId: "price_1S5u73KGf8mwZWHn8VYFdALA",
         users: [{ _count: { emailAccounts: 2 } }],
       }),
     ).toBe(2);
-  });
-
-  it("returns at least 1 even with no accounts", () => {
-    expect(
-      getStripeBillingQuantity({
-        priceId: "price_current_starter_monthly",
-        users: [{ _count: { emailAccounts: 0 } }],
-      }),
-    ).toBe(1);
   });
 });

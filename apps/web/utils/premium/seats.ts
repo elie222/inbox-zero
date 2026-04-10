@@ -1,8 +1,9 @@
+import sumBy from "lodash/sumBy";
+import { hasIncludedEmailAccountsStripePriceId } from "@/app/(app)/premium/config";
 import { updateSubscriptionItemQuantity } from "@/ee/billing/lemon/index";
 import { updateStripeSubscriptionItemQuantity } from "@/ee/billing/stripe/index";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { getStripeBillingQuantity } from "@/utils/premium/billing";
 
 const logger = createScopedLogger("premium");
 
@@ -135,4 +136,22 @@ export async function updateAccountSeatsForPremium(
       logger,
     });
   }
+}
+
+export function getStripeBillingQuantity({
+  priceId,
+  users,
+}: {
+  priceId: string | null | undefined;
+  users: { _count: { emailAccounts: number } }[];
+}): number {
+  const totalSeats = hasIncludedEmailAccountsStripePriceId(priceId)
+    ? sumBy(users, (user) =>
+        user._count.emailAccounts <= 1
+          ? user._count.emailAccounts
+          : user._count.emailAccounts - 1,
+      )
+    : sumBy(users, (user) => user._count.emailAccounts);
+
+  return Math.max(1, totalSeats);
 }
