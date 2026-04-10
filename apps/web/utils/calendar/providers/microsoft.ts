@@ -2,7 +2,7 @@ import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import {
-  getMicrosoftGraphUrl,
+  fetchMicrosoftGraph,
   requestMicrosoftToken,
 } from "@/utils/microsoft/oauth";
 import {
@@ -41,7 +41,7 @@ export function createMicrosoftCalendarProvider(
       }
 
       // Get user profile using the access token
-      const profileResponse = await fetch(getMicrosoftGraphUrl("/me"), {
+      const profileResponse = await fetchMicrosoftGraph("/me", {
         headers: {
           Authorization: `Bearer ${tokens.access_token}`,
         },

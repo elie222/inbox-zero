@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 vi.mock("server-only", () => ({}));
 
 import { NextRequest } from "next/server";
@@ -13,6 +14,7 @@ const {
   mockClearOAuthCode,
   mockCaptureException,
   mockAuth,
+  mockHttpsRequest,
 } = vi.hoisted(() => ({
   mockValidateOAuthCallback: vi.fn(),
   mockHandleAccountLinking: vi.fn(),
@@ -22,6 +24,7 @@ const {
   mockClearOAuthCode: vi.fn(),
   mockCaptureException: vi.fn(),
   mockAuth: vi.fn(),
+  mockHttpsRequest: vi.fn(),
 }));
 
 vi.mock("@/env", () => ({
@@ -93,6 +96,10 @@ vi.mock("@/utils/prisma-helpers", () => ({
 
 vi.mock("@/utils/auth", () => ({
   auth: mockAuth,
+}));
+
+vi.mock("node:https", () => ({
+  request: mockHttpsRequest,
 }));
 
 vi.mock("@/utils/outlook/scopes", () => ({
@@ -333,6 +340,50 @@ describe("outlook linking callback route", () => {
     expect(mockClearOAuthCode).toHaveBeenCalledWith("valid-auth-code");
   });
 
+  it("retries Microsoft token exchange with IPv4 when the first request fails with ENETUNREACH", async () => {
+    mockHandleAccountLinking.mockResolvedValue({
+      type: "continue_create",
+    });
+    prisma.account.create.mockResolvedValue({
+      id: "account-123",
+    } as Awaited<ReturnType<typeof prisma.account.create>>);
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockRejectedValueOnce(createFetchFailedError("ENETUNREACH"))
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            id: "provider-account-id",
+            userPrincipalName: "user@example.com",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+        }),
+    );
+    mockHttpsRequest.mockImplementation(
+      createHttpsJsonResponse({
+        access_token: "access-token",
+        refresh_token: "refresh-token",
+        scope: "Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
+        token_type: "Bearer",
+        expires_in: 3600,
+      }),
+    );
+
+    const response = await GET(
+      createRequest("http://localhost:3000/api/outlook/linking/callback"),
+    );
+
+    expect(response.headers.get("location")).toContain(
+      "success=account_created_and_linked",
+    );
+    expect(mockHandleAccountLinking).toHaveBeenCalled();
+    expect(prisma.account.create).toHaveBeenCalled();
+  });
+
   it("sanitizes unmapped Microsoft token errors before redirecting", async () => {
     vi.stubGlobal(
       "fetch",
@@ -414,3 +465,46 @@ describe("outlook linking callback route", () => {
     consoleWarn.mockRestore();
   });
 });
+
+function createFetchFailedError(code: string) {
+  const connectError = Object.assign(new Error(`connect ${code}`), { code });
+  const error = new TypeError("fetch failed") as TypeError & {
+    cause: AggregateError;
+  };
+
+  error.cause = new AggregateError([connectError], `connect ${code}`);
+
+  return error;
+}
+
+function createHttpsJsonResponse(payload: unknown, statusCode = 200) {
+  return (
+    _options: unknown,
+    callback: (
+      response: EventEmitter & {
+        statusCode: number;
+        headers: Record<string, string>;
+      },
+    ) => void,
+  ) => {
+    const response = new EventEmitter() as EventEmitter & {
+      statusCode: number;
+      headers: Record<string, string>;
+    };
+    response.statusCode = statusCode;
+    response.headers = { "content-type": "application/json" };
+
+    const request = new EventEmitter() as EventEmitter & {
+      write: (chunk: string | Buffer) => void;
+      end: () => void;
+    };
+    request.write = vi.fn();
+    request.end = () => {
+      callback(response);
+      response.emit("data", Buffer.from(JSON.stringify(payload)));
+      response.emit("end");
+    };
+
+    return request;
+  };
+}

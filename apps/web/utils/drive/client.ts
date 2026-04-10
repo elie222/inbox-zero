@@ -6,7 +6,7 @@ import {
   isGoogleOauthEmulationEnabled,
 } from "@/utils/google/oauth";
 import {
-  getMicrosoftGraphUrl,
+  fetchMicrosoftGraph,
   getMicrosoftOauthAuthorizeUrl,
   requestMicrosoftToken,
 } from "@/utils/microsoft/oauth";
@@ -153,7 +153,7 @@ export async function exchangeMicrosoftDriveCode(code: string) {
   }
 
   // Get user email from Microsoft Graph
-  const profileResponse = await fetch(getMicrosoftGraphUrl("/me"), {
+  const profileResponse = await fetchMicrosoftGraph("/me", {
     headers: {
       Authorization: `Bearer ${tokens.access_token}`,
     },

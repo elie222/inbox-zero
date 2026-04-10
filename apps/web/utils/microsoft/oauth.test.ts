@@ -1,4 +1,11 @@
+import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mockHttpsRequest = vi.hoisted(() => vi.fn());
+
+vi.mock("node:https", () => ({
+  request: mockHttpsRequest,
+}));
 
 describe("microsoft oauth helpers", () => {
   beforeEach(() => {
@@ -96,6 +103,38 @@ describe("microsoft oauth helpers", () => {
       },
     );
   });
+
+  it("retries Microsoft token requests with IPv4 after an IPv6 reachability failure", async () => {
+    const oauth = await importMicrosoftOauthModule();
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(createFetchFailedError("ENETUNREACH"))
+      .mockResolvedValueOnce({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+    mockHttpsRequest.mockImplementation(
+      createHttpsJsonResponse({
+        access_token: "access-token",
+      }),
+    );
+
+    const response = await oauth.requestMicrosoftToken({
+      client_id: "client-id",
+      grant_type: "refresh_token",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(mockHttpsRequest).toHaveBeenCalledTimes(1);
+    expect(mockHttpsRequest.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        hostname: "login.microsoftonline.com",
+        family: 4,
+        method: "POST",
+      }),
+    );
+    await expect(response.json()).resolves.toEqual({
+      access_token: "access-token",
+    });
+  });
 });
 
 async function importMicrosoftOauthModule(
@@ -113,4 +152,47 @@ async function importMicrosoftOauthModule(
   }));
 
   return import("./oauth");
+}
+
+function createFetchFailedError(code: string) {
+  const connectError = Object.assign(new Error(`connect ${code}`), { code });
+  const error = new TypeError("fetch failed") as TypeError & {
+    cause: AggregateError;
+  };
+
+  error.cause = new AggregateError([connectError], `connect ${code}`);
+
+  return error;
+}
+
+function createHttpsJsonResponse(payload: unknown, statusCode = 200) {
+  return (
+    _options: unknown,
+    callback: (
+      response: EventEmitter & {
+        statusCode: number;
+        headers: Record<string, string>;
+      },
+    ) => void,
+  ) => {
+    const response = new EventEmitter() as EventEmitter & {
+      statusCode: number;
+      headers: Record<string, string>;
+    };
+    response.statusCode = statusCode;
+    response.headers = { "content-type": "application/json" };
+
+    const request = new EventEmitter() as EventEmitter & {
+      write: (chunk: string | Buffer) => void;
+      end: () => void;
+    };
+    request.write = vi.fn();
+    request.end = () => {
+      callback(response);
+      response.emit("data", Buffer.from(JSON.stringify(payload)));
+      response.emit("end");
+    };
+
+    return request;
+  };
 }

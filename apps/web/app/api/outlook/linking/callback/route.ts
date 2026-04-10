@@ -23,7 +23,7 @@ import {
   parseMicrosoftScopes,
 } from "@/utils/oauth/microsoft-oauth";
 import {
-  getMicrosoftGraphUrl,
+  fetchMicrosoftGraph,
   requestMicrosoftToken,
 } from "@/utils/microsoft/oauth";
 import {
@@ -154,7 +154,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     }
 
     // Get user profile using the access token
-    const profileResponse = await fetch(getMicrosoftGraphUrl("/me"), {
+    const profileResponse = await fetchMicrosoftGraph("/me", {
       headers: {
         Authorization: `Bearer ${tokens.access_token}`,
       },
@@ -237,14 +237,11 @@ export const GET = withError("outlook/linking/callback", async (request) => {
 
       let profileImage = null;
       try {
-        const photoResponse = await fetch(
-          getMicrosoftGraphUrl("/me/photo/$value"),
-          {
-            headers: {
-              Authorization: `Bearer ${tokens.access_token}`,
-            },
+        const photoResponse = await fetchMicrosoftGraph("/me/photo/$value", {
+          headers: {
+            Authorization: `Bearer ${tokens.access_token}`,
           },
-        );
+        });
 
         if (photoResponse.ok) {
           const photoBuffer = await photoResponse.arrayBuffer();
