@@ -1751,6 +1751,29 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 
+  it("updatePersonalInstructions defaults to append mode", async () => {
+    const tools = await captureToolSet();
+
+    mockPrisma.emailAccount.findUnique.mockResolvedValue({
+      about: "Existing instructions",
+    });
+    mockPrisma.emailAccount.update.mockResolvedValue({});
+
+    const result = await tools.updatePersonalInstructions.execute({
+      about: "Additional preference",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.updatedAbout).toBe(
+      "Existing instructions\nAdditional preference",
+    );
+    expect(mockPrisma.emailAccount.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { about: "Existing instructions\nAdditional preference" },
+      }),
+    );
+  });
+
   it("updatePersonalInstructions in append mode with no existing about sets new content", async () => {
     const tools = await captureToolSet();
 

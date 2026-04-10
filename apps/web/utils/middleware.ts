@@ -225,39 +225,37 @@ async function authMiddleware(
   req: NextRequest,
 ): Promise<RequestWithAuth | Response> {
   const baseLogger = getLogger(req);
+  const authLogContext = {
+    path: new URL(req.url).pathname,
+    method: req.method,
+    hasCookie: req.headers.has("cookie"),
+    cookieNames: parseCookieNames(req.headers.get("cookie")),
+    hasAuthorization: req.headers.has("authorization"),
+    expoOrigin: req.headers.get("expo-origin") ?? null,
+    userAgent: req.headers.get("user-agent") ?? null,
+  };
 
-  let session: Awaited<ReturnType<typeof auth>> = null;
-  let authError: unknown = null;
+  let session: Awaited<ReturnType<typeof auth>>;
   try {
     session = await auth(req.headers);
   } catch (error) {
-    authError = error;
+    baseLogger.warn("Auth middleware failed", {
+      ...authLogContext,
+      authError:
+        error instanceof Error
+          ? { name: error.name, message: error.message }
+          : error,
+    });
+    throw error;
   }
 
   if (!session?.user) {
-    // Log enough context to diagnose *why* we're rejecting the request
-    // without leaking cookie values or tokens. `headers` / `authorization`
-    // as field names get auto-redacted by the logger, so we extract
-    // the facts we need as safe primitives first.
     baseLogger.warn("Auth middleware returning 401", {
-      reason: authError
-        ? "auth_threw"
-        : session === null || session === undefined
+      ...authLogContext,
+      reason:
+        session === null || session === undefined
           ? "no_session"
           : "session_without_user",
-      authErrorMessage:
-        authError instanceof Error ? authError.message : authError,
-      path: new URL(req.url).pathname,
-      method: req.method,
-      cookie: {
-        present: req.headers.has("cookie"),
-        // Just the cookie *names* so we can tell which cookies the
-        // client sent (session token name, cache cookie, etc.).
-        names: parseCookieNames(req.headers.get("cookie")),
-      },
-      hasAuthorization: req.headers.has("authorization"),
-      expoOrigin: req.headers.get("expo-origin") ?? null,
-      userAgent: req.headers.get("user-agent") ?? null,
     });
 
     return NextResponse.json(

@@ -31,6 +31,9 @@ module.exports = {
     // v4 has breaking changes with Tinybird and other integrations
     "zod",
 
+    // v5 imports zod/v4/core; keep this pinned while the app stays on Zod 3
+    "@hookform/resolvers",
+
     "@types/node",
   ],
 };
