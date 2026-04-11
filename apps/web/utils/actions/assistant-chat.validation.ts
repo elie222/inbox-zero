@@ -139,6 +139,31 @@ export type ConfirmAssistantCreateRuleBody = z.infer<
   typeof confirmAssistantCreateRuleBody
 >;
 
+export const pendingSaveMemoryToolOutputSchema = z.object({
+  success: z.literal(true),
+  actionType: z.literal("save_memory"),
+  requiresConfirmation: z.literal(true),
+  confirmationState: z.enum(["pending", "processing", "confirmed"]),
+  confirmationProcessingAt: z.string().optional(),
+  content: z.string().trim().min(1),
+  reason: z.string().trim().min(1).optional(),
+  confirmationResult: z
+    .object({
+      content: z.string().trim().min(1),
+      confirmedAt: z.string().min(1),
+      deduplicated: z.boolean().optional(),
+    })
+    .optional(),
+});
+export type PendingSaveMemoryToolOutput = z.infer<
+  typeof pendingSaveMemoryToolOutputSchema
+>;
+
+export const confirmAssistantSaveMemoryBody = confirmAssistantActionBaseBody;
+export type ConfirmAssistantSaveMemoryBody = z.infer<
+  typeof confirmAssistantSaveMemoryBody
+>;
+
 const assistantChatTextPartSchema = z.object({
   type: z.literal("text"),
   text: z.string().min(1).max(3000),

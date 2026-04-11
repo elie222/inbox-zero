@@ -350,7 +350,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat core tools", () => {
     );
 
     test(
-      "calls updateInboxFeatures to turn on meeting briefs",
+      "calls updateAssistantSettings to turn on meeting briefs",
       async () => {
         prisma.emailAccount.findUnique.mockResolvedValue({
           ...baseAccountSnapshot,
@@ -367,27 +367,18 @@ describe.runIf(shouldRunEval)("Eval: assistant chat core tools", () => {
           ],
         });
 
-        const updateCall = getLastMatchingToolCall(
-          toolCalls,
-          "updateInboxFeatures",
-          isUpdateInboxFeaturesInput,
-        );
         const settingsCall = getLastMatchingToolCall(
           toolCalls,
           "updateAssistantSettings",
           isUpdateAssistantSettingsInput,
         );
 
-        const usedUpdateInboxFeatures =
-          !!updateCall && updateCall.input.meetingBriefsEnabled === true;
-        const usedAssistantSettings =
+        const pass =
           !!settingsCall &&
           settingsCall.input.changes.some(
             (c: { path: string; value: unknown }) =>
               c.path === "assistant.meetingBriefs.enabled" && c.value === true,
           );
-
-        const pass = usedUpdateInboxFeatures || usedAssistantSettings;
 
         evalReporter.record({
           testName: "turn on meeting briefs",
@@ -402,7 +393,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat core tools", () => {
     );
 
     test(
-      "calls updateInboxFeatures or updateAssistantSettings to enable auto-file attachments",
+      "calls updateAssistantSettings to enable auto-file attachments",
       async () => {
         const { toolCalls, actual } = await runAssistantChat({
           emailAccount,
@@ -414,28 +405,19 @@ describe.runIf(shouldRunEval)("Eval: assistant chat core tools", () => {
           ],
         });
 
-        const updateCall = getLastMatchingToolCall(
-          toolCalls,
-          "updateInboxFeatures",
-          isUpdateInboxFeaturesInput,
-        );
         const settingsCall = getLastMatchingToolCall(
           toolCalls,
           "updateAssistantSettings",
           isUpdateAssistantSettingsInput,
         );
 
-        const usedUpdateInboxFeatures =
-          !!updateCall && updateCall.input.filingEnabled === true;
-        const usedAssistantSettings =
+        const pass =
           !!settingsCall &&
           settingsCall.input.changes.some(
             (c: { path: string; value: unknown }) =>
               c.path === "assistant.attachmentFiling.enabled" &&
               c.value === true,
           );
-
-        const pass = usedUpdateInboxFeatures || usedAssistantSettings;
 
         evalReporter.record({
           testName: "enable auto-file attachments",
@@ -707,11 +689,6 @@ type ReadEmailInput = {
   messageId: string;
 };
 
-type UpdateInboxFeaturesInput = {
-  meetingBriefsEnabled?: boolean | null;
-  filingEnabled?: boolean | null;
-};
-
 type UpdateAssistantSettingsInput = {
   changes: Array<{
     path: string;
@@ -743,12 +720,6 @@ function isReadEmailInput(input: unknown): input is ReadEmailInput {
     typeof input === "object" &&
     typeof (input as { messageId?: unknown }).messageId === "string"
   );
-}
-
-function isUpdateInboxFeaturesInput(
-  input: unknown,
-): input is UpdateInboxFeaturesInput {
-  return !!input && typeof input === "object";
 }
 
 function isUpdateAssistantSettingsInput(

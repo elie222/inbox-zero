@@ -10,6 +10,7 @@ import prisma from "@/utils/prisma";
 import { convertNewlinesToBr, escapeHtml } from "@/utils/string";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import {
+  confirmAssistantSaveMemoryBody,
   type AssistantEmailConfirmationResult,
   type AssistantPendingEmailActionType,
   type AssistantPendingEmailToolOutput,
@@ -18,6 +19,7 @@ import {
   pendingCreateRuleToolOutputSchema,
   pendingForwardEmailToolOutputSchema,
   pendingReplyEmailToolOutputSchema,
+  pendingSaveMemoryToolOutputSchema,
   pendingSendEmailToolOutputSchema,
   type PendingForwardEmailToolOutput,
   type PendingReplyEmailToolOutput,
@@ -26,7 +28,7 @@ import {
 import {
   buildCreateRuleSchemaFromChatToolInput,
   type ChatCreateRuleToolInvocation,
-} from "@/utils/ai/assistant/chat-rule-tools";
+} from "@/utils/ai/assistant/tools/rules/shared";
 import { createRule } from "@/utils/rule/rule";
 
 const CONFIRMATION_IN_PROGRESS_ERROR =
@@ -102,6 +104,23 @@ export const confirmAssistantCreateRule = actionClient
         toolCallId,
         emailAccountId,
         provider,
+        logger,
+      }),
+  );
+
+export const confirmAssistantSaveMemory = actionClient
+  .metadata({ name: "confirmAssistantSaveMemory" })
+  .inputSchema(confirmAssistantSaveMemoryBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { chatId, chatMessageId, toolCallId },
+    }) =>
+      confirmAssistantSaveMemoryForAccount({
+        chatId,
+        chatMessageId,
+        toolCallId,
+        emailAccountId,
         logger,
       }),
   );
@@ -340,6 +359,103 @@ export async function confirmAssistantCreateRuleForAccount({
   };
 }
 
+export async function confirmAssistantSaveMemoryForAccount({
+  chatId,
+  chatMessageId,
+  toolCallId,
+  emailAccountId,
+  logger,
+}: {
+  chatId: string;
+  chatMessageId: string;
+  toolCallId: string;
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  const reservation = await reservePendingAssistantSaveMemory({
+    chatId,
+    chatMessageId,
+    toolCallId,
+    emailAccountId,
+    logger,
+  });
+
+  if (reservation.status === "confirmed") {
+    return {
+      success: true,
+      confirmationState: "confirmed" as const,
+      content: reservation.content,
+      confirmationResult: reservation.confirmationResult,
+    };
+  }
+
+  const content = reservation.output.content;
+  const existing = await prisma.chatMemory.findFirst({
+    where: { emailAccountId, content },
+    select: { id: true },
+  });
+
+  const confirmedAt = new Date().toISOString();
+
+  try {
+    if (!existing) {
+      await prisma.chatMemory.create({
+        data: {
+          content,
+          chatId,
+          emailAccountId,
+        },
+      });
+    }
+  } catch (error) {
+    await clearPendingPartProcessing({
+      chatMessageId: reservation.chatMessageId,
+      emailAccountId,
+      findPart: (parts) =>
+        findPendingAssistantSaveMemoryPart({ parts, toolCallId }),
+    }).catch((processingError) => {
+      logger.error("Failed to clear processing state for save memory", {
+        error: processingError,
+      });
+    });
+    logger.error("Failed to confirm assistant save memory", { error, content });
+    throw new SafeError("Failed to save memory");
+  }
+
+  const confirmationResult = {
+    content,
+    confirmedAt,
+    ...(existing ? { deduplicated: true } : {}),
+  };
+
+  try {
+    await persistConfirmedAssistantSaveMemoryPart({
+      chatMessageId: reservation.chatMessageId,
+      emailAccountId,
+      toolCallId,
+      content,
+      confirmedAt,
+      deduplicated: Boolean(existing),
+      logger,
+    });
+  } catch (persistError) {
+    logger.error("Failed to persist confirmed assistant save memory", {
+      error: persistError,
+      content,
+    });
+    throw new SafeError(
+      "Memory was saved but confirmation state could not be saved. Please refresh and try again.",
+    );
+  }
+
+  return {
+    success: true,
+    confirmationState: "confirmed" as const,
+    content,
+    confirmationResult,
+  };
+}
+
 async function executeAssistantEmailAction({
   output,
   emailProvider,
@@ -525,6 +641,43 @@ function findPendingAssistantCreateRulePart({
 
     const out = parsed.data;
     if (!out.requiresConfirmation || out.actionType !== "create_rule") {
+      continue;
+    }
+
+    return {
+      index,
+      output: out,
+      parts,
+      toolInput: part.input,
+    };
+  }
+
+  return null;
+}
+
+function findPendingAssistantSaveMemoryPart({
+  parts,
+  toolCallId,
+}: {
+  parts: unknown;
+  toolCallId: string;
+}) {
+  if (!Array.isArray(parts)) return null;
+
+  for (const [index, part] of parts.entries()) {
+    if (
+      !isRecord(part) ||
+      part.type !== "tool-saveMemory" ||
+      part.toolCallId !== toolCallId
+    ) {
+      continue;
+    }
+
+    const parsed = pendingSaveMemoryToolOutputSchema.safeParse(part.output);
+    if (!parsed.success) continue;
+
+    const out = parsed.data;
+    if (!out.requiresConfirmation || out.actionType !== "save_memory") {
       continue;
     }
 
@@ -1039,6 +1192,131 @@ function hasProcessingLeaseExpired(processingAt?: string | null) {
   return Date.now() - processingTime >= CONFIRMATION_PROCESSING_LEASE_MS;
 }
 
+async function reservePendingAssistantSaveMemory({
+  chatId,
+  chatMessageId,
+  toolCallId,
+  emailAccountId,
+  logger,
+}: {
+  chatId: string;
+  chatMessageId: string;
+  toolCallId: string;
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  const matchSaveMemoryParts = (parts: unknown) =>
+    !!findPendingAssistantSaveMemoryPart({ parts, toolCallId });
+
+  const chatMessage = await findChatMessageForPendingAction({
+    chatId,
+    chatMessageId,
+    emailAccountId,
+    logger,
+    matchParts: matchSaveMemoryParts,
+    logPrefix: "Assistant save memory confirmation",
+  });
+
+  if (!chatMessage) {
+    logger.warn("Assistant save memory confirmation: chat message not found", {
+      chatMessageId,
+      toolCallId,
+    });
+    throw new SafeError("Chat message not found");
+  }
+
+  const lookup = findPendingAssistantSaveMemoryPart({
+    parts: chatMessage.parts,
+    toolCallId,
+  });
+
+  if (!lookup) {
+    logger.warn("Assistant save memory confirmation: pending not found", {
+      chatMessageId: chatMessage.id,
+      toolCallId,
+    });
+    throw new SafeError("Pending memory save not found");
+  }
+
+  if (
+    lookup.output.confirmationState === "confirmed" &&
+    lookup.output.confirmationResult
+  ) {
+    return {
+      status: "confirmed" as const,
+      content: lookup.output.confirmationResult.content,
+      confirmationResult: lookup.output.confirmationResult,
+    };
+  }
+
+  if (
+    lookup.output.confirmationState === "processing" &&
+    !hasProcessingLeaseExpired(lookup.output.confirmationProcessingAt)
+  ) {
+    throw new SafeError(CONFIRMATION_IN_PROGRESS_ERROR);
+  }
+
+  const processingAt = new Date().toISOString();
+  const processingParts = updateAssistantEmailPartWithProcessing({
+    parts: lookup.parts,
+    partIndex: lookup.index,
+    processingAt,
+  });
+
+  const claim = await prisma.chatMessage.updateMany({
+    where: {
+      id: chatMessage.id,
+      chatId: chatMessage.chatId,
+      updatedAt: chatMessage.updatedAt,
+    },
+    data: {
+      parts: processingParts as Prisma.InputJsonValue,
+    },
+  });
+
+  if (claim.count === 1) {
+    return {
+      status: "reserved" as const,
+      chatMessageId: chatMessage.id,
+      output: lookup.output,
+      parts: processingParts,
+      partIndex: lookup.index,
+      toolInput: lookup.toolInput,
+    };
+  }
+
+  const latestMessage = await findChatMessageForPendingAction({
+    chatId,
+    chatMessageId,
+    emailAccountId,
+    logger,
+    matchParts: matchSaveMemoryParts,
+    logPrefix: "Assistant save memory confirmation",
+  });
+
+  if (!latestMessage) {
+    throw new SafeError("Chat message not found");
+  }
+
+  const latestLookup = findPendingAssistantSaveMemoryPart({
+    parts: latestMessage.parts,
+    toolCallId,
+  });
+
+  if (
+    latestLookup?.output.confirmationState === "confirmed" &&
+    latestLookup.output.confirmationResult
+  ) {
+    return {
+      status: "confirmed" as const,
+      content: latestLookup.output.confirmationResult.content,
+      confirmationResult: latestLookup.output.confirmationResult,
+    };
+  }
+
+  throw new SafeError(CONFIRMATION_IN_PROGRESS_ERROR);
+}
+
 async function reservePendingAssistantCreateRule({
   chatId,
   chatMessageId,
@@ -1199,6 +1477,46 @@ async function persistConfirmedAssistantCreateRulePart({
   });
 }
 
+async function persistConfirmedAssistantSaveMemoryPart({
+  chatMessageId,
+  emailAccountId,
+  toolCallId,
+  content,
+  confirmedAt,
+  deduplicated,
+  logger,
+}: {
+  chatMessageId: string;
+  emailAccountId: string;
+  toolCallId: string;
+  content: string;
+  confirmedAt: string;
+  deduplicated: boolean;
+  logger: Logger;
+}) {
+  await persistConfirmedAssistantPart({
+    chatMessageId,
+    emailAccountId,
+    logger: logger.with({ chatMessageId, toolCallId, content }),
+    findPart: (parts) =>
+      findPendingAssistantSaveMemoryPart({
+        parts,
+        toolCallId,
+      }),
+    isConfirmed: (lookup) =>
+      lookup.output.confirmationState === "confirmed" &&
+      lookup.output.confirmationResult?.content === content,
+    buildParts: ({ parts, partIndex }) =>
+      buildConfirmedAssistantSaveMemoryParts({
+        parts,
+        partIndex,
+        content,
+        confirmedAt,
+        deduplicated,
+      }),
+  });
+}
+
 async function persistConfirmedAssistantPart<
   TLookup extends { index: number; parts: unknown[] },
 >({
@@ -1282,6 +1600,38 @@ async function persistConfirmedAssistantPart<
   }
 
   throw lastError ?? new Error("Failed to persist confirmed assistant action");
+}
+
+function buildConfirmedAssistantSaveMemoryParts({
+  parts,
+  partIndex,
+  content,
+  confirmedAt,
+  deduplicated,
+}: {
+  parts: unknown[];
+  partIndex: number;
+  content: string;
+  confirmedAt: string;
+  deduplicated: boolean;
+}) {
+  return updateAssistantEmailPartOutput({
+    parts,
+    partIndex,
+    outputPatch: {
+      success: true,
+      saved: true,
+      actionType: "save_memory",
+      requiresConfirmation: true,
+      confirmationState: "confirmed",
+      content,
+      confirmationResult: {
+        content,
+        confirmedAt,
+        ...(deduplicated ? { deduplicated: true } : {}),
+      },
+    },
+  });
 }
 
 function buildConfirmedAssistantCreateRuleParts({

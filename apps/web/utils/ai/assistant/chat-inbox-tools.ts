@@ -489,7 +489,7 @@ export const manageInboxTool = ({
 
   return tool({
     description:
-      "Run inbox actions: archive threads, trash/delete threads, label threads, mark threads read/unread, bulk archive by sender, or unsubscribe senders. Trash moves emails to the trash folder.",
+      "Run inbox actions. archive_threads, trash_threads, label_threads, and mark_read_threads operate on specific threadIds. label_threads also requires labelName. bulk_archive_senders and unsubscribe_senders operate on fromEmails and affect all matching emails from those senders server-side, not just the currently visible results. Trash moves emails to the trash folder.",
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });

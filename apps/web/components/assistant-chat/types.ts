@@ -17,7 +17,6 @@ import type {
   SearchMemoriesTool,
   SendEmailTool,
   UpdateAssistantSettingsTool,
-  UpdateInboxFeaturesTool,
   UpdatePersonalInstructionsTool,
   UpdateLearnedPatternsTool,
   UpdateRuleActionsTool,
@@ -37,7 +36,6 @@ export type ChatTools = {
   searchInbox: SearchInboxTool;
   readEmail: ReadEmailTool;
   manageInbox: ManageInboxTool;
-  updateInboxFeatures: UpdateInboxFeaturesTool;
   getUserRulesAndSettings: GetUserRulesAndSettingsTool;
   getLearnedPatterns: GetLearnedPatternsTool;
   createRule: CreateRuleTool;

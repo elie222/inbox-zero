@@ -7,11 +7,11 @@ import {
 import { createScopedLogger } from "@/utils/logger";
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
+import { getAssistantCapabilitiesTool } from "./tools/settings/get-assistant-capabilities-tool";
 import {
-  getAssistantCapabilitiesTool,
   updateAssistantSettingsCompatTool,
   updateAssistantSettingsTool,
-} from "./chat-settings-tools";
+} from "./tools/settings/update-assistant-settings-tool";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");

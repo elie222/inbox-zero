@@ -95,6 +95,32 @@ async function loadAssistantChatModule({
   return await import("@/utils/ai/assistant/chat");
 }
 
+async function buildSystemPrompt({
+  emailSend,
+  provider = "google",
+  responseSurface = "web",
+  messagingPlatform,
+}: {
+  emailSend: boolean;
+  provider?: "google" | "microsoft";
+  responseSurface?: "web" | "messaging";
+  messagingPlatform?: "slack" | "teams" | "telegram";
+}) {
+  const { buildResolvedSystemPrompt } = await loadAssistantChatModule({
+    emailSend,
+  });
+
+  return buildResolvedSystemPrompt({
+    emailSendToolsEnabled: emailSend,
+    webhookActionsEnabled: true,
+    provider,
+    responseSurface,
+    messagingPlatform,
+    userTimezone: "America/Los_Angeles",
+    currentTimestamp: "2026-04-12T09:30:00.000Z",
+  });
+}
+
 async function captureToolSet(
   emailSend = true,
   provider: "google" | "microsoft" = "google",
@@ -157,7 +183,6 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.createOrGetLabel).toBeDefined();
     expect(args.tools.manageInbox).toBeDefined();
     expect(args.tools.updateAssistantSettings).toBeDefined();
-    expect(args.tools.updateInboxFeatures).toBeDefined();
     expect(args.tools.sendEmail).toBeDefined();
     expect(args.tools.forwardEmail).toBeDefined();
   }, 15_000);
@@ -190,6 +215,41 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.sendEmail).toBeDefined();
     expect(args.tools.replyEmail).toBeDefined();
     expect(args.tools.forwardEmail).toBeDefined();
+  });
+
+  it("builds a google prompt without the removed tool-parameter duplication", async () => {
+    const prompt = await buildSystemPrompt({
+      emailSend: true,
+      provider: "google",
+    });
+
+    expect(prompt).toContain("Use Gmail search syntax");
+    expect(prompt).toContain("For inbox triage, default to `is:unread`");
+    expect(prompt).not.toContain("Use KQL syntax");
+    expect(prompt).not.toContain(
+      "updateAssistantSettings expects changes that specify the setting path and value",
+    );
+    expect(prompt).not.toContain(
+      "saveMemory expects content, source, and userEvidence",
+    );
+    expect(prompt).not.toContain(
+      "Use the field name about, not personalInstructions",
+    );
+  });
+
+  it("builds a microsoft send-disabled prompt with provider-specific triage guidance", async () => {
+    const prompt = await buildSystemPrompt({
+      emailSend: false,
+      provider: "microsoft",
+      responseSurface: "messaging",
+      messagingPlatform: "slack",
+    });
+
+    expect(prompt).toContain("Use KQL syntax for search");
+    expect(prompt).toContain("include the literal token `unread`");
+    expect(prompt).toContain("Email sending actions are disabled");
+    expect(prompt).not.toContain("Use Gmail search syntax");
+    expect(prompt).not.toContain("prepare a pending action");
   });
 
   it("omits sendEmail tool when email sending is disabled", async () => {
@@ -1244,38 +1304,6 @@ describe("aiProcessAssistantChat", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain("Rule state changed since the last read");
   });
-  it("returns cleared filing prompt in updateInboxFeatures response", async () => {
-    const tools = await captureToolSet(true, "google");
-
-    mockPrisma.emailAccount.findUnique.mockResolvedValue({
-      meetingBriefingsEnabled: true,
-      meetingBriefingsMinutesBefore: 30,
-      meetingBriefsSendEmail: true,
-      filingEnabled: true,
-      filingPrompt: "Old prompt",
-    });
-    mockPrisma.emailAccount.update.mockResolvedValue({});
-
-    const result = await tools.updateInboxFeatures.execute({
-      filingPrompt: null,
-    });
-
-    expect(mockPrisma.emailAccount.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          filingPrompt: null,
-        }),
-      }),
-    );
-    expect(result).toEqual(
-      expect.objectContaining({
-        success: true,
-        updated: expect.objectContaining({
-          filingPrompt: null,
-        }),
-      }),
-    );
-  });
 
   it("returns messages from searchMessages", async () => {
     const tools = await captureToolSet(true, "google");
@@ -1573,7 +1601,9 @@ describe("aiProcessAssistantChat", () => {
 
     expect(result.success).toBe(true);
     expect(result.saved).toBe(false);
+    expect(result.actionType).toBe("save_memory");
     expect(result.requiresConfirmation).toBe(true);
+    expect(result.confirmationState).toBe("pending");
     expect(mockPrisma.chatMemory.create).not.toHaveBeenCalled();
   });
 
@@ -1586,6 +1616,36 @@ describe("aiProcessAssistantChat", () => {
     });
 
     expect(parsed.success).toBe(true);
+  });
+
+  it("searchMemories supports empty query for broad recall", async () => {
+    const tools = await captureToolSet();
+    mockPrisma.chatMemory.findMany.mockResolvedValue([
+      {
+        content: "User likes batching newsletters in the afternoon.",
+        createdAt: new Date("2026-03-15T08:00:00.000Z"),
+      },
+    ]);
+
+    const result = await tools.searchMemories.execute({ query: "" });
+
+    expect(mockPrisma.chatMemory.findMany).toHaveBeenCalledWith({
+      where: { emailAccountId: "email-account-id" },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: {
+        content: true,
+        createdAt: true,
+      },
+    });
+    expect(result).toEqual({
+      memories: [
+        {
+          content: "User likes batching newsletters in the afternoon.",
+          date: "2026-03-15",
+        },
+      ],
+    });
   });
 
   it("saveMemory uses pre-compaction conversation messages when provided", async () => {

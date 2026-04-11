@@ -1,4 +1,3 @@
-import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
 import type { Logger } from "@/utils/logger";
@@ -26,7 +25,7 @@ import {
   createAutomationJob,
 } from "@/utils/actions/automation-jobs.helpers";
 
-const emptyInputSchema = z.object({}).describe("No parameters required");
+export const emptyInputSchema = z.object({}).describe("No parameters required");
 
 const scheduledCheckInsConfigSchema = z
   .object({
@@ -42,14 +41,21 @@ const scheduledCheckInsConfigSchema = z
       value.messagingChannelId != null ||
       value.prompt !== undefined,
     { message: "At least one scheduled check-ins field must be provided." },
+  )
+  .describe(
+    "Scheduled check-ins configuration. Use this only when the schedule and destination context are clear; otherwise inspect capabilities first instead of guessing.",
   );
 
-const draftKnowledgeUpsertSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  content: z.string().trim().min(1).max(20_000),
-});
+const draftKnowledgeUpsertSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    content: z.string().trim().min(1).max(20_000),
+  })
+  .describe(
+    "Draft knowledge base item to create or update. Use this through updateAssistantSettings rather than addToKnowledgeBase.",
+  );
 
-const settingsPathSchema = z.enum([
+export const settingsPathSchema = z.enum([
   "assistant.personalInstructions.about",
   "assistant.multiRuleSelection.enabled",
   "assistant.meetingBriefs.enabled",
@@ -62,7 +68,7 @@ const settingsPathSchema = z.enum([
   "assistant.draftKnowledgeBase.delete",
 ]);
 
-const settingsChangeSchema = z.discriminatedUnion("path", [
+export const settingsChangeSchema = z.discriminatedUnion("path", [
   z.object({
     path: z.literal("assistant.personalInstructions.about"),
     value: z.string().max(20_000),
@@ -87,7 +93,9 @@ const settingsChangeSchema = z.discriminatedUnion("path", [
   }),
   z.object({
     path: z.literal("assistant.meetingBriefs.sendEmail"),
-    value: z.boolean(),
+    value: z
+      .boolean()
+      .describe("Enable or disable emailing meeting briefs to the user."),
   }),
   z.object({
     path: z.literal("assistant.attachmentFiling.enabled"),
@@ -117,7 +125,7 @@ const settingsChangeSchema = z.discriminatedUnion("path", [
   }),
 ]);
 
-const updateAssistantSettingsInputSchema = z.object({
+export const updateAssistantSettingsInputSchema = z.object({
   dryRun: z
     .boolean()
     .default(false)
@@ -129,7 +137,7 @@ const updateAssistantSettingsInputSchema = z.object({
     .describe("Structured settings changes to apply."),
 });
 
-const updateAssistantSettingsCompatChangeSchema = z
+export const updateAssistantSettingsCompatChangeSchema = z
   .object({
     path: z
       .string()
@@ -151,7 +159,7 @@ const updateAssistantSettingsCompatChangeSchema = z
   })
   .strict();
 
-const updateAssistantSettingsCompatInputSchema = z.object({
+export const updateAssistantSettingsCompatInputSchema = z.object({
   dryRun: z
     .boolean()
     .default(false)
@@ -163,7 +171,7 @@ const updateAssistantSettingsCompatInputSchema = z.object({
     .describe("Structured settings changes to apply."),
 });
 
-type AccountSettingsSnapshot = {
+export type AccountSettingsSnapshot = {
   id: string;
   email: string;
   timezone: string | null;
@@ -396,131 +404,7 @@ const readOnlyCapabilities = [
   },
 ] as const;
 
-export const getAssistantCapabilitiesTool = ({
-  email,
-  emailAccountId,
-  provider,
-  logger,
-}: {
-  email: string;
-  emailAccountId: string;
-  provider: string;
-  logger: Logger;
-}) =>
-  tool({
-    description:
-      "Get a capability snapshot showing which assistant/account settings can be read or updated from chat.",
-    inputSchema: emptyInputSchema,
-    execute: async () => {
-      trackToolCall({ tool: "get_assistant_capabilities", email, logger });
-      try {
-        const snapshot = await loadAccountSettingsSnapshot(emailAccountId);
-        if (!snapshot) return { error: "Email account not found" };
-
-        return {
-          snapshotVersion: "2026-02-20",
-          account: {
-            email: snapshot.email,
-            provider,
-            timezone: snapshot.timezone,
-          },
-          capabilities: [
-            ...getWritableCapabilities(snapshot),
-            ...getReadOnlyCapabilities(snapshot),
-          ],
-          writablePaths: settingsPathSchema.options,
-        };
-      } catch (error) {
-        logger.error("Failed to load assistant capabilities", { error });
-        return {
-          error: "Failed to load assistant capabilities",
-        };
-      }
-    },
-  });
-
-export type GetAssistantCapabilitiesTool = InferUITool<
-  ReturnType<typeof getAssistantCapabilitiesTool>
->;
-
-export const updateAssistantSettingsTool = ({
-  email,
-  emailAccountId,
-  userId,
-  logger,
-}: {
-  email: string;
-  emailAccountId: string;
-  userId: string;
-  logger: Logger;
-}) =>
-  tool({
-    description:
-      "Update supported assistant settings using a structured patch. Use getAssistantCapabilities first when unsure.",
-    inputSchema: updateAssistantSettingsInputSchema,
-    execute: async ({ changes, dryRun }) => {
-      trackToolCall({ tool: "update_assistant_settings", email, logger });
-      return executeUpdateAssistantSettings({
-        emailAccountId,
-        userId,
-        logger,
-        changes,
-        dryRun,
-      });
-    },
-  });
-
-export const updateAssistantSettingsCompatTool = ({
-  email,
-  emailAccountId,
-  userId,
-  logger,
-}: {
-  email: string;
-  emailAccountId: string;
-  userId: string;
-  logger: Logger;
-}) =>
-  tool({
-    description:
-      "Update supported assistant settings using a compact payload. Use getAssistantCapabilities first when unsure.",
-    inputSchema: updateAssistantSettingsCompatInputSchema,
-    execute: async ({ changes, dryRun }) => {
-      trackToolCall({
-        tool: "update_assistant_settings_compat",
-        email,
-        logger,
-      });
-
-      const normalizedChanges = changes.map((c) => ({
-        ...c,
-        mode: c.mode ?? undefined,
-      }));
-      const parsedInput = updateAssistantSettingsInputSchema.safeParse({
-        changes: normalizedChanges,
-        dryRun,
-      });
-      if (!parsedInput.success) {
-        return {
-          error: getUpdateAssistantSettingsValidationError(parsedInput.error),
-        };
-      }
-
-      return executeUpdateAssistantSettings({
-        emailAccountId,
-        userId,
-        logger,
-        changes: parsedInput.data.changes,
-        dryRun: parsedInput.data.dryRun,
-      });
-    },
-  });
-
-export type UpdateAssistantSettingsTool = InferUITool<
-  ReturnType<typeof updateAssistantSettingsTool>
->;
-
-async function trackToolCall({
+export async function trackSettingsToolCall({
   tool,
   email,
   logger,
@@ -533,7 +417,7 @@ async function trackToolCall({
   return posthogCaptureEvent(email, "AI Assistant Chat Tool Call", { tool });
 }
 
-async function executeUpdateAssistantSettings({
+export async function executeUpdateAssistantSettings({
   emailAccountId,
   userId,
   logger,
@@ -783,7 +667,7 @@ async function executeUpdateAssistantSettings({
   }
 }
 
-function getUpdateAssistantSettingsValidationError(error: z.ZodError) {
+export function getUpdateAssistantSettingsValidationError(error: z.ZodError) {
   const issueSummary = error.issues
     .slice(0, 3)
     .map((issue) => {
@@ -880,7 +764,7 @@ function getCurrentValue({
   }
 }
 
-function getWritableCapabilities(snapshot: AccountSettingsSnapshot) {
+export function getWritableCapabilities(snapshot: AccountSettingsSnapshot) {
   return [
     {
       path: "assistant.personalInstructions.about",
@@ -960,7 +844,7 @@ function getWritableCapabilities(snapshot: AccountSettingsSnapshot) {
   ] as const;
 }
 
-function getReadOnlyCapabilities(snapshot: AccountSettingsSnapshot) {
+export function getReadOnlyCapabilities(snapshot: AccountSettingsSnapshot) {
   return readOnlyCapabilities.map((capability) => ({
     ...capability,
     canRead: true,
@@ -1232,7 +1116,7 @@ function isDisableOnlyScheduledCheckInsChange({
   );
 }
 
-async function loadAccountSettingsSnapshot(emailAccountId: string) {
+export async function loadAccountSettingsSnapshot(emailAccountId: string) {
   const [emailAccount, automationJob] = await Promise.all([
     loadAccountSettingsSnapshotRaw(emailAccountId),
     loadScheduledCheckInsAutomationJob(emailAccountId),

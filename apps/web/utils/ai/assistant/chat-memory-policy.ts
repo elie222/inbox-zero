@@ -17,6 +17,14 @@ export function validateUserMemoryEvidence({
     };
   }
 
+  if (!hasSpecificMemoryDetail(normalizedEvidence)) {
+    return {
+      pass: false,
+      reason:
+        "Memory save requires the user to restate the specific fact or preference in chat instead of referring to it indirectly.",
+    };
+  }
+
   const normalizedUserMessages = getUserConversationTexts(conversationMessages);
   const evidenceFoundInUserMessage = normalizedUserMessages.some((message) =>
     message.includes(normalizedEvidence),
@@ -36,6 +44,14 @@ export function validateUserMemoryEvidence({
       pass: false,
       reason:
         "Memory save content must use the user's exact wording from chat.",
+    };
+  }
+
+  if (!hasSpecificMemoryDetail(normalizedContent)) {
+    return {
+      pass: false,
+      reason:
+        "Memory save content must capture the specific fact or preference, not just a generic reference to it.",
     };
   }
 
@@ -86,4 +102,11 @@ export function normalizeMemoryText(value: string) {
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function hasSpecificMemoryDetail(value: string) {
+  const tokens = value.match(/[\p{L}\p{N}]+/gu) || [];
+  const informativeTokens = tokens.filter((token) => token.length >= 4);
+
+  return tokens.length >= 4 && informativeTokens.length >= 3;
 }

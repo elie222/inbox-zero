@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
-import { confirmAssistantEmailAction } from "@/utils/actions/assistant-chat";
+import {
+  confirmAssistantEmailAction,
+  confirmAssistantSaveMemory,
+} from "@/utils/actions/assistant-chat";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -848,6 +851,99 @@ describe("confirmAssistantEmailAction", () => {
   });
 });
 
+describe("confirmAssistantSaveMemory", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("persists a pending memory after confirmation", async () => {
+    (prisma.emailAccount.findUnique as any).mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    });
+
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildPendingSaveMemoryPart()],
+    } as any);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+    prisma.chatMemory.findFirst.mockResolvedValue(null);
+    prisma.chatMemory.create.mockResolvedValue({ id: "memory-1" } as any);
+
+    const result = await confirmAssistantSaveMemory(
+      "ea_1" as any,
+      {
+        chatId: "chat-1",
+        chatMessageId: "chat-message-1",
+        toolCallId: "tool-1",
+      } as any,
+    );
+
+    expect(prisma.chatMemory.create).toHaveBeenCalledWith({
+      data: {
+        content: "Prefer formal replies with the standard confidential footer.",
+        chatId: "chat-1",
+        emailAccountId: "ea_1",
+      },
+    });
+    expect(result?.data?.confirmationState).toBe("confirmed");
+    expect(result?.data?.confirmationResult).toEqual(
+      expect.objectContaining({
+        content: "Prefer formal replies with the standard confidential footer.",
+      }),
+    );
+
+    const processingParts = (
+      prisma.chatMessage.updateMany.mock.calls[0][0] as any
+    ).data.parts as any[];
+    expect(processingParts[0].output.confirmationState).toBe("processing");
+
+    const confirmedParts = (
+      prisma.chatMessage.updateMany.mock.calls[1][0] as any
+    ).data.parts as any[];
+    expect(confirmedParts[0].output.confirmationState).toBe("confirmed");
+    expect(confirmedParts[0].output.confirmationResult.content).toBe(
+      "Prefer formal replies with the standard confidential footer.",
+    );
+  });
+
+  it("marks confirmed memory as deduplicated when it already exists", async () => {
+    (prisma.emailAccount.findUnique as any).mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    });
+
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildPendingSaveMemoryPart()],
+    } as any);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+    prisma.chatMemory.findFirst.mockResolvedValue({ id: "existing-memory" });
+
+    const result = await confirmAssistantSaveMemory(
+      "ea_1" as any,
+      {
+        chatId: "chat-1",
+        chatMessageId: "chat-message-1",
+        toolCallId: "tool-1",
+      } as any,
+    );
+
+    expect(prisma.chatMemory.create).not.toHaveBeenCalled();
+    expect(result?.data?.confirmationResult).toEqual(
+      expect.objectContaining({
+        deduplicated: true,
+      }),
+    );
+  });
+});
+
 function buildPendingSendPart() {
   return {
     type: "tool-sendEmail",
@@ -932,6 +1028,22 @@ function buildPendingForwardPart() {
         from: "sender@example.com",
         subject: "Original subject",
       },
+    },
+  };
+}
+
+function buildPendingSaveMemoryPart() {
+  return {
+    type: "tool-saveMemory",
+    toolCallId: "tool-1",
+    state: "output-available",
+    output: {
+      success: true,
+      actionType: "save_memory",
+      requiresConfirmation: true,
+      confirmationState: "pending",
+      content: "Prefer formal replies with the standard confidential footer.",
+      reason: "Confirmation required before saving inferred memory.",
     },
   };
 }

@@ -12,6 +12,7 @@ import {
   AddToKnowledgeBase,
   BasicToolInfo,
   CreatedRuleToolCard,
+  PendingSaveMemoryToolCard,
   PendingCreateRuleToolCard,
   ForwardEmailResult,
   getManageInboxActionLabel,
@@ -247,16 +248,6 @@ export function MessagePart({
     }
   }
 
-  if (part.type === "tool-updateInboxFeatures") {
-    return renderToolStatus({
-      part,
-      loadingText: "Updating inbox features...",
-      renderSuccess: ({ toolCallId }) => (
-        <BasicToolInfo key={toolCallId} text="Updated inbox features" />
-      ),
-    });
-  }
-
   if (part.type === "tool-sendEmail") {
     return renderPendingEmailAction({
       part,
@@ -486,27 +477,36 @@ export function MessagePart({
   }
 
   if (part.type === "tool-saveMemory") {
-    return renderToolStatus({
-      part,
-      loadingText: "Saving memory...",
-      renderSuccess: ({ toolCallId, output }) => {
-        const requiresConfirmation = getOutputField<boolean>(
-          output,
-          "requiresConfirmation",
+    const { toolCallId, state } = part;
+
+    if (state === "input-available") {
+      return <BasicToolInfo key={toolCallId} text="Saving memory..." />;
+    }
+
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+      }
+
+      const requiresConfirmation =
+        getOutputField<boolean>(output, "requiresConfirmation") === true &&
+        getOutputField<string>(output, "actionType") === "save_memory";
+
+      if (requiresConfirmation) {
+        return (
+          <PendingSaveMemoryToolCard
+            key={toolCallId}
+            output={output}
+            chatMessageId={messageId}
+            toolCallId={toolCallId}
+            disableConfirm={disableConfirm}
+          />
         );
+      }
 
-        if (requiresConfirmation) {
-          return (
-            <BasicToolInfo
-              key={toolCallId}
-              text="Confirmation needed before saving memory"
-            />
-          );
-        }
-
-        return <BasicToolInfo key={toolCallId} text="Memory saved" />;
-      },
-    });
+      return <BasicToolInfo key={toolCallId} text="Memory saved" />;
+    }
   }
 
   if (part.type === "tool-searchMemories") {

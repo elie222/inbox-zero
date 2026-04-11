@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType, GroupItemType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
-import { createRuleTool } from "./chat-rule-tools";
+import { createRuleTool } from "./tools/rules/create-rule-tool";
 
 vi.mock("server-only", () => ({}));
 
