@@ -722,10 +722,10 @@ function formatFixRuleExpectedOutcome(context: MessageContext) {
     .filter((ruleName): ruleName is string => Boolean(ruleName));
 
   if (!matchedRuleNames.length) {
-    return 'The user selected "New rule" in the fix UI because the current behavior was wrong. Create a new rule only if no existing rule can be safely updated without causing overlap.';
+    return "The user wants new rule behavior because the current behavior was wrong. Create a new rule only if no existing rule can be safely updated without causing overlap.";
   }
 
-  return `The user selected "New rule" in the fix UI because the desired behavior changed. This email already matched ${matchedRuleNames.map((name) => `"${name}"`).join(", ")}. Treat that selection as user intent about the desired behavior, not as an instruction to duplicate a matching rule. Prefer updating the matched rule when it already covers the sender or domain scope, and create a new rule only if no existing rule can be safely updated without causing overlap.`;
+  return `The user wants new rule behavior for this email. This email already matched ${matchedRuleNames.map((name) => `"${name}"`).join(", ")}. Treat that as intent about the desired behavior, not as an instruction to duplicate a matching rule. Prefer updating the matched rule when it already covers the sender or domain scope, and create a new rule only if no existing rule can be safely updated without causing overlap.`;
 }
 
 function getChatProviderOptionsForCaching({ chatId }: { chatId?: string }) {

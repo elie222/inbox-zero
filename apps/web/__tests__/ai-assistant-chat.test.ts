@@ -607,7 +607,7 @@ describe("aiProcessAssistantChat", () => {
     expect(content).toMatch(/static/i);
     expect(content).toMatch(/learned pattern/i);
     expect(content).toMatch(/new rule/i);
-    expect(content).toMatch(/user intent/i);
+    expect(content).toMatch(/intent/i);
     expect(content).toMatch(/existing rule/i);
     expect(content).toMatch(/overlap/i);
   });
