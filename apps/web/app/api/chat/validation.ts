@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { GroupItemType } from "@/generated/prisma/enums";
 import { SystemType } from "@/generated/prisma/enums";
+import type { SerializedMatchReason } from "@/utils/ai/choose-rule/types";
 
 const parsedMessageSchema = z.object({
   id: z.string(),
@@ -19,34 +19,6 @@ const parsedMessageSchema = z.object({
   internalDate: z.string().optional().nullable(),
 });
 
-const serializedMatchReasonSchema = z.union([
-  z.object({
-    type: z.literal("STATIC"),
-  }),
-  z.object({
-    type: z.literal("LEARNED_PATTERN"),
-    group: z.object({
-      id: z.string(),
-      name: z.string(),
-    }),
-    groupItem: z.object({
-      id: z.string(),
-      type: z.nativeEnum(GroupItemType),
-      value: z.string(),
-      exclude: z.boolean(),
-    }),
-  }),
-  z.object({
-    type: z.literal("AI"),
-  }),
-  z.object({
-    type: z.literal("PRESET"),
-    systemType: z.nativeEnum(SystemType),
-  }),
-]);
-
-const serializedMatchMetadataSchema = z.array(serializedMatchReasonSchema);
-
 export const messageContextSchema = z.object({
   type: z.literal("fix-rule"),
   message: parsedMessageSchema,
@@ -55,7 +27,7 @@ export const messageContextSchema = z.object({
       ruleName: z.string().nullable(),
       systemType: z.nativeEnum(SystemType).nullable().optional(),
       reason: z.string(),
-      matchMetadata: serializedMatchMetadataSchema.nullish(),
+      matchMetadata: z.custom<SerializedMatchReason[] | null>().nullish(),
     }),
   ),
   expected: z.union([
