@@ -92,7 +92,7 @@ export const getAccountOverviewTool = ({
 }) =>
   tool({
     description:
-      "Get account context for inbox operations: provider, labels, meeting briefs settings, and auto-filing attachment settings.",
+      "Get account context for inbox operations such as provider details and label availability. Use this for inbox context, not for label browsing, and not for direct writes to known settings like meeting briefs or attachment filing.",
     inputSchema: emptyInputSchema,
     execute: async () => {
       trackToolCall({ tool: "get_account_overview", email, logger });
@@ -699,139 +699,6 @@ export const manageInboxTool = ({
 };
 
 export type ManageInboxTool = InferUITool<ReturnType<typeof manageInboxTool>>;
-
-const updateInboxFeaturesInputSchema = z
-  .object({
-    meetingBriefsEnabled: z
-      .boolean()
-      .nullish()
-      .describe("Enable or disable meeting briefs."),
-    meetingBriefsMinutesBefore: z
-      .number()
-      .int()
-      .min(1)
-      .max(2880)
-      .nullish()
-      .describe(
-        "Minutes before a meeting to send a brief (1-2880). Applies when meeting briefs are enabled.",
-      ),
-    meetingBriefsSendEmail: z
-      .boolean()
-      .nullish()
-      .describe("Enable or disable email delivery for meeting briefs."),
-    filingEnabled: z
-      .boolean()
-      .nullish()
-      .describe("Enable or disable auto-file attachments."),
-    filingPrompt: z
-      .string()
-      .max(6000)
-      .nullish()
-      .nullable()
-      .describe(
-        "Custom filing instructions. Set null to clear existing instructions.",
-      ),
-  })
-  .refine(
-    (value) =>
-      value.meetingBriefsEnabled !== undefined ||
-      value.meetingBriefsMinutesBefore !== undefined ||
-      value.meetingBriefsSendEmail !== undefined ||
-      value.filingEnabled !== undefined ||
-      value.filingPrompt !== undefined,
-    { message: "At least one field must be provided." },
-  );
-
-export const updateInboxFeaturesTool = ({
-  email,
-  emailAccountId,
-  logger,
-}: {
-  email: string;
-  emailAccountId: string;
-  logger: Logger;
-}) =>
-  tool({
-    description:
-      "Update account-level inbox features, including meeting briefs and auto-file attachments.",
-    inputSchema: updateInboxFeaturesInputSchema,
-    execute: async ({
-      meetingBriefsEnabled,
-      meetingBriefsMinutesBefore,
-      meetingBriefsSendEmail,
-      filingEnabled,
-      filingPrompt,
-    }) => {
-      trackToolCall({ tool: "update_inbox_features", email, logger });
-      try {
-        const existing = await prisma.emailAccount.findUnique({
-          where: { id: emailAccountId },
-          select: {
-            meetingBriefingsEnabled: true,
-            meetingBriefingsMinutesBefore: true,
-            meetingBriefsSendEmail: true,
-            filingEnabled: true,
-            filingPrompt: true,
-          },
-        });
-
-        if (!existing) return { error: "Email account not found" };
-
-        await prisma.emailAccount.update({
-          where: { id: emailAccountId },
-          data: {
-            ...(meetingBriefsEnabled != null && {
-              meetingBriefingsEnabled: meetingBriefsEnabled,
-            }),
-            ...(meetingBriefsMinutesBefore != null && {
-              meetingBriefingsMinutesBefore: meetingBriefsMinutesBefore,
-            }),
-            ...(meetingBriefsSendEmail != null && {
-              meetingBriefsSendEmail,
-            }),
-            ...(filingEnabled != null && {
-              filingEnabled,
-            }),
-            ...(filingPrompt !== undefined && {
-              filingPrompt,
-            }),
-          },
-        });
-
-        return {
-          success: true,
-          previous: {
-            meetingBriefsEnabled: existing.meetingBriefingsEnabled,
-            meetingBriefsMinutesBefore: existing.meetingBriefingsMinutesBefore,
-            meetingBriefsSendEmail: existing.meetingBriefsSendEmail,
-            filingEnabled: existing.filingEnabled,
-            filingPrompt: existing.filingPrompt,
-          },
-          updated: {
-            meetingBriefsEnabled:
-              meetingBriefsEnabled ?? existing.meetingBriefingsEnabled,
-            meetingBriefsMinutesBefore:
-              meetingBriefsMinutesBefore ??
-              existing.meetingBriefingsMinutesBefore,
-            meetingBriefsSendEmail:
-              meetingBriefsSendEmail ?? existing.meetingBriefsSendEmail,
-            filingEnabled: filingEnabled ?? existing.filingEnabled,
-            filingPrompt:
-              filingPrompt !== undefined ? filingPrompt : existing.filingPrompt,
-          },
-        };
-      } catch (error) {
-        logger.error("Failed to update inbox features", { error });
-        return {
-          error: "Failed to update inbox features",
-        };
-      }
-    },
-  });
-
-export type UpdateInboxFeaturesTool = InferUITool<
-  ReturnType<typeof updateInboxFeaturesTool>
->;
 
 export const sendEmailTool = ({
   email,

@@ -27,7 +27,7 @@ export const listLabelsTool = ({
 }) =>
   tool({
     description:
-      "List all existing labels or categories for this account. Use this when the user asks to browse or inspect their labels and has not already given an exact label name.",
+      "List all existing labels or categories for this account. Use this when the user wants to browse or inspect their labels after the labels capability is activated. Do not use getAccountOverview for label browsing.",
     inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({ tool: "list_labels", email, logger });
