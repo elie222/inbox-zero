@@ -83,6 +83,8 @@ type NotificationContent = {
   title: string;
 };
 
+type NotificationContentFormat = "plain" | "slack";
+
 type NotificationOpenLink = {
   label: string;
   url: string;
@@ -218,6 +220,7 @@ async function sendSlackRuleNotificationWithContext({
     email,
     systemType: context.executedRule.rule?.systemType ?? null,
     draftContent: context.content,
+    format: "slack",
   });
 
   const rootMessageId =
@@ -307,6 +310,7 @@ async function sendLinkedRuleNotification({
     email,
     systemType: context.executedRule.rule?.systemType ?? null,
     draftContent: context.content,
+    format: "plain",
   });
   const text = buildMessagingRuleNotificationText({
     actionType: context.type,
@@ -475,6 +479,7 @@ export async function handleSlackRuleNotificationModalSubmit({
     email: await getSourceMessageSummary(context, logger),
     systemType: context.executedRule.rule?.systemType ?? null,
     draftContent: nextContent,
+    format: "slack",
   });
 
   if (event.relatedMessage) {
@@ -531,6 +536,7 @@ async function handleDraftSend({
       email: sourceMessageSummary,
       systemType: context.executedRule.rule?.systemType ?? null,
       draftContent: finalDraftContent,
+      format: "slack",
     });
 
     if (siblingDraftAction?.draftId) {
@@ -963,11 +969,13 @@ function buildNotificationContent({
   email,
   systemType,
   draftContent,
+  format,
 }: {
   actionType: ActionType;
   email: NotificationEmailPreview;
   systemType: SystemType | string | null;
   draftContent?: string | null;
+  format: NotificationContentFormat;
 }): NotificationContent {
   if (isDraftReplyActionType(actionType)) {
     const senderName = escapeSlackText(
@@ -991,11 +999,11 @@ function buildNotificationContent({
 
     const details: string[] = [];
     if (emailPreview) {
-      const quotedPreview = emailPreview
-        .split("\n")
-        .map((line) => `> ${line}`)
-        .join("\n");
-      details.push(`💬 *They wrote:*\n${quotedPreview}`);
+      const preview =
+        format === "slack"
+          ? buildSlackQuotedPreview(emailPreview)
+          : emailPreview;
+      details.push(`💬 *They wrote:*\n${preview}`);
     }
     details.push(`✍️ *I drafted a reply for you:*\n${draftPreview}`);
 
@@ -1207,6 +1215,13 @@ function buildNotificationDetailSection({
   if (!normalizedValue) return null;
 
   return `*${label}*\n${normalizedValue}`;
+}
+
+function buildSlackQuotedPreview(text: string) {
+  return text
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
 }
 
 function createProviderForContext(
