@@ -27,7 +27,7 @@ export const messageContextSchema = z.object({
       ruleName: z.string().nullable(),
       systemType: z.nativeEnum(SystemType).nullable().optional(),
       reason: z.string(),
-      matchMetadata: z.custom<SerializedMatchReason[] | null>().nullish(),
+      matchMetadata: z.unknown().nullish(),
     }),
   ),
   expected: z.union([
@@ -44,4 +44,17 @@ export const messageContextSchema = z.object({
     ]),
   ]),
 });
-export type MessageContext = z.infer<typeof messageContextSchema>;
+
+type MessageContextResult = Omit<
+  z.infer<typeof messageContextSchema>["results"][number],
+  "matchMetadata"
+> & {
+  matchMetadata?: SerializedMatchReason[] | null;
+};
+
+export type MessageContext = Omit<
+  z.infer<typeof messageContextSchema>,
+  "results"
+> & {
+  results: MessageContextResult[];
+};
