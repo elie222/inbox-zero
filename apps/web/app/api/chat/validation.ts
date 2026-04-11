@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { SystemType } from "@/generated/prisma/enums";
-import type { SerializedMatchReason } from "@/utils/ai/choose-rule/types";
+import { GroupItemType, SystemType } from "@/generated/prisma/enums";
 
 const parsedMessageSchema = z.object({
   id: z.string(),
@@ -27,7 +26,35 @@ export const messageContextSchema = z.object({
       ruleName: z.string().nullable(),
       systemType: z.nativeEnum(SystemType).nullable().optional(),
       reason: z.string(),
-      matchMetadata: z.unknown().nullish(),
+      matchMetadata: z
+        .array(
+          z.union([
+            z.object({
+              type: z.literal("STATIC"),
+            }),
+            z.object({
+              type: z.literal("LEARNED_PATTERN"),
+              group: z.object({
+                id: z.string(),
+                name: z.string(),
+              }),
+              groupItem: z.object({
+                id: z.string(),
+                type: z.nativeEnum(GroupItemType),
+                value: z.string(),
+                exclude: z.boolean(),
+              }),
+            }),
+            z.object({
+              type: z.literal("AI"),
+            }),
+            z.object({
+              type: z.literal("PRESET"),
+              systemType: z.nativeEnum(SystemType),
+            }),
+          ]),
+        )
+        .nullish(),
     }),
   ),
   expected: z.union([
@@ -44,17 +71,4 @@ export const messageContextSchema = z.object({
     ]),
   ]),
 });
-
-type MessageContextResult = Omit<
-  z.infer<typeof messageContextSchema>["results"][number],
-  "matchMetadata"
-> & {
-  matchMetadata?: SerializedMatchReason[] | null;
-};
-
-export type MessageContext = Omit<
-  z.infer<typeof messageContextSchema>,
-  "results"
-> & {
-  results: MessageContextResult[];
-};
+export type MessageContext = z.infer<typeof messageContextSchema>;
