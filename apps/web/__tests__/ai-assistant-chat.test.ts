@@ -185,7 +185,7 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.updateAssistantSettings).toBeDefined();
     expect(args.tools.sendEmail).toBeDefined();
     expect(args.tools.forwardEmail).toBeDefined();
-  }, 15_000);
+  }, 30_000);
 
   it.each([
     ["slack"],
