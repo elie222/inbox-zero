@@ -14,6 +14,7 @@ import {
   InlineEmailCard,
   InlineEmailList,
 } from "@/components/assistant-chat/inline-email-card";
+import { getEmailUrlForMessage } from "@/utils/url";
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -180,7 +181,12 @@ describe("InlineEmailCard", () => {
     );
 
     expect(screen.getByRole("link").getAttribute("href")).toBe(
-      "https://mail.google.com/mail/u/user@example.com/#all/msg-1",
+      getEmailUrlForMessage(
+        "msg-1",
+        "19cdca06580b38e9",
+        "user@example.com",
+        "google",
+      ),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Archive" }));
