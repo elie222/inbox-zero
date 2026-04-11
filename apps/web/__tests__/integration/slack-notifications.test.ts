@@ -307,7 +307,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       const postArgs = postMessageSpy.mock.calls[0]?.[0];
 
       expect(message).toBeDefined();
-      expect(message?.text).toContain("Draft reply");
+      expect(message?.text).toContain("New email — reply drafted");
       expect(message?.text).toContain("*sender@example.com*");
       expect(message?.text).toContain(`about "${subject}"`);
       expect(message?.text).toContain("They wrote:");
@@ -942,7 +942,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
 
       expect(message).toBeDefined();
-      expect(message?.text).toContain("Draft reply");
+      expect(message?.text).toContain("New email — reply drafted");
       expect(prisma.executedAction.update).toHaveBeenCalledWith({
         where: { id: executedActionId },
         data: {
