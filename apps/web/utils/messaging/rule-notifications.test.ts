@@ -138,7 +138,7 @@ describe("handleSlackRuleNotificationAction", () => {
     const [, , card] = editMessage.mock.calls[0];
     const cardText = JSON.stringify(card);
 
-    expect(cardText).toContain("Draft reply");
+    expect(cardText).toContain("New email — reply drafted");
     expect(cardText).toContain("*sender@example.com*");
     expect(cardText).toContain('about \\"Test subject\\"');
     expect(cardText).toContain("They wrote:");
@@ -441,7 +441,7 @@ describe("buildMessagingRuleNotificationText", () => {
     const text = buildMessagingRuleNotificationText({
       actionType: ActionType.DRAFT_MESSAGING_CHANNEL,
       content: {
-        title: "Draft reply",
+        title: "New email — reply drafted",
         summary: '📩 You got an email from *Sender* about "Test".',
         details: [
           "✍️ *I drafted a reply for you:*\nSee <https://example.com|details>.",
@@ -450,7 +450,7 @@ describe("buildMessagingRuleNotificationText", () => {
       provider: MessagingProvider.TELEGRAM,
     });
 
-    expect(text).toContain("Draft reply");
+    expect(text).toContain("New email — reply drafted");
     expect(text).toContain('You got an email from Sender about "Test".');
     expect(text).toContain("details: https://example.com");
     expect(text).toContain("Slack-only");
@@ -464,7 +464,7 @@ describe("buildMessagingRuleNotificationText", () => {
     const text = buildMessagingRuleNotificationText({
       actionType: ActionType.DRAFT_MESSAGING_CHANNEL,
       content: {
-        title: "Draft reply",
+        title: "New email — reply drafted",
         summary:
           '📩 You got an email from *Tom &amp; Jerry* about "A &lt;B&gt;".',
         details: ["💬 *They wrote:*\nHello &amp; welcome"],

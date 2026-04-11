@@ -47,7 +47,7 @@ import { extractDraftPlainText } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
 import he from "he";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
-import { extractNameFromEmail } from "@/utils/email";
+import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import {
   isGoogleProvider,
   isMicrosoftProvider,
@@ -973,6 +973,13 @@ function buildNotificationContent({
     const senderName = escapeSlackText(
       extractNameFromEmail(email.headers.from),
     );
+    const senderEmail = escapeSlackText(
+      extractEmailAddress(email.headers.from),
+    );
+    const senderDisplay =
+      senderEmail && senderName !== senderEmail
+        ? `${senderName} (${senderEmail})`
+        : senderName;
     const subject = escapeSlackText(
       truncate(he.decode(email.headers.subject), 80),
     );
@@ -980,16 +987,20 @@ function buildNotificationContent({
     const emailPreview = buildEmailPreview(email);
     const draftPreview = buildDraftPreview(draftContent);
 
-    const summary = `📩 You got an email from *${senderName}* about "${subject}".`;
+    const summary = `📩 You got an email from *${senderDisplay}* about "${subject}".`;
 
     const details: string[] = [];
     if (emailPreview) {
-      details.push(`💬 *They wrote:*\n${emailPreview}`);
+      const quotedPreview = emailPreview
+        .split("\n")
+        .map((line) => `> ${line}`)
+        .join("\n");
+      details.push(`💬 *They wrote:*\n${quotedPreview}`);
     }
     details.push(`✍️ *I drafted a reply for you:*\n${draftPreview}`);
 
     return {
-      title: "Draft reply",
+      title: "New email — reply drafted",
       summary,
       details,
     };
