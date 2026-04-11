@@ -234,7 +234,7 @@ function getMatchMetadataForContext(result: {
     return parsedMatchMetadata.data;
   }
 
-  return serializeMatchReasons(result.matchReasons) ?? undefined;
+  return serializeMatchReasons(result.matchReasons);
 }
 
 function RuleMismatch({

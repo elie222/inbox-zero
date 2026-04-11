@@ -909,12 +909,7 @@ async function findSenderOnlyOverlapConflict({
   emailAccountId: string;
   condition: CreateOrUpdateRuleSchema["condition"];
 }) {
-  if (
-    condition.aiInstructions ||
-    condition.static?.to ||
-    condition.static?.subject ||
-    !condition.static?.from
-  ) {
+  if (!condition.static?.from) {
     return null;
   }
 
@@ -929,7 +924,6 @@ async function findSenderOnlyOverlapConflict({
     },
     select: {
       name: true,
-      enabled: true,
       instructions: true,
       from: true,
       to: true,
@@ -952,7 +946,6 @@ async function findSenderOnlyOverlapConflict({
 
   for (const existingRule of existingRules) {
     if (
-      !existingRule.enabled ||
       existingRule.instructions ||
       existingRule.to ||
       existingRule.subject ||

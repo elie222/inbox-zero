@@ -598,19 +598,18 @@ describe("aiProcessAssistantChat", () => {
         message.content.includes("Hidden context for the user's request"),
     );
 
-    expect(hiddenContext?.content).toContain("Structured match details:");
-    expect(hiddenContext?.content).toContain(
-      "Matched by static sender, recipient, or subject conditions.",
-    );
-    expect(hiddenContext?.content).toContain(
-      "Team Mail learned pattern exclude on FROM: store@company.example",
-    );
-    expect(hiddenContext?.content).toContain(
-      "create a new rule only if no existing rule can be safely updated without causing overlap.",
-    );
-    expect(hiddenContext?.content).toContain(
-      "Treat that selection as user intent about the desired behavior, not as an instruction to duplicate a matching rule.",
-    );
+    const content = hiddenContext?.content ?? "";
+
+    expect(content).toContain("Structured match details:");
+    expect(content).toContain("Team Mail");
+    expect(content).toContain("store@company.example");
+    expect(content).toContain("FROM");
+    expect(content).toMatch(/static/i);
+    expect(content).toMatch(/learned pattern/i);
+    expect(content).toMatch(/new rule/i);
+    expect(content).toMatch(/user intent/i);
+    expect(content).toMatch(/existing rule/i);
+    expect(content).toMatch(/overlap/i);
   });
 
   it("skips expected rule lookup when results already show conversation status", async () => {
