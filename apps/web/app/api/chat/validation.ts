@@ -18,6 +18,36 @@ const parsedMessageSchema = z.object({
   internalDate: z.string().optional().nullable(),
 });
 
+const serializedMatchReasonSchema = z.union([
+  z.object({
+    type: z.literal("STATIC"),
+  }),
+  z.object({
+    type: z.literal("LEARNED_PATTERN"),
+    group: z.object({
+      id: z.string(),
+      name: z.string(),
+    }),
+    groupItem: z.object({
+      id: z.string(),
+      type: z.nativeEnum(GroupItemType),
+      value: z.string(),
+      exclude: z.boolean(),
+    }),
+  }),
+  z.object({
+    type: z.literal("AI"),
+  }),
+  z.object({
+    type: z.literal("PRESET"),
+    systemType: z.nativeEnum(SystemType),
+  }),
+]);
+
+export const serializedMatchMetadataSchema = z
+  .array(serializedMatchReasonSchema)
+  .nullish();
+
 export const messageContextSchema = z.object({
   type: z.literal("fix-rule"),
   message: parsedMessageSchema,
@@ -26,35 +56,7 @@ export const messageContextSchema = z.object({
       ruleName: z.string().nullable(),
       systemType: z.nativeEnum(SystemType).nullable().optional(),
       reason: z.string(),
-      matchMetadata: z
-        .array(
-          z.union([
-            z.object({
-              type: z.literal("STATIC"),
-            }),
-            z.object({
-              type: z.literal("LEARNED_PATTERN"),
-              group: z.object({
-                id: z.string(),
-                name: z.string(),
-              }),
-              groupItem: z.object({
-                id: z.string(),
-                type: z.nativeEnum(GroupItemType),
-                value: z.string(),
-                exclude: z.boolean(),
-              }),
-            }),
-            z.object({
-              type: z.literal("AI"),
-            }),
-            z.object({
-              type: z.literal("PRESET"),
-              systemType: z.nativeEnum(SystemType),
-            }),
-          ]),
-        )
-        .nullish(),
+      matchMetadata: serializedMatchMetadataSchema,
     }),
   ),
   expected: z.union([
