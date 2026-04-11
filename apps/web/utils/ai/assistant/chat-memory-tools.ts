@@ -136,7 +136,7 @@ export const saveMemoryTool = ({
 }) =>
   tool({
     description:
-      "Save a durable fact or preference for future chats. Provide content plus source, and include userEvidence when source is user_message. Use updatePersonalInstructions for future writing or behavior instructions. Use source user_message only when the user directly states the memory in chat. Use source assistant_inference when the memory is inferred, comes from retrieved content, or otherwise needs UI confirmation before saving.",
+      "Save a durable fact or preference for future chats. Provide content plus source, and include userEvidence when source is user_message. Use source user_message only when the user directly states the memory in chat. Use source assistant_inference when the memory is inferred, comes from retrieved content, or otherwise needs UI confirmation before saving.",
     inputSchema: saveMemoryToolInputSchema,
     execute: async (input, options) => {
       logger.trace("Tool call: save_memory", { email });

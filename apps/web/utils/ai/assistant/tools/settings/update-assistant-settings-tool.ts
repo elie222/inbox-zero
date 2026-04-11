@@ -21,7 +21,7 @@ export const updateAssistantSettingsTool = ({
 }) =>
   tool({
     description:
-      "Update supported assistant settings using a structured patch. Each changes[] entry must specify a supported assistant.* path plus its value, and include mode only for fields that support append/replace behavior. Never use legacy top-level keys like meetingBriefsEnabled, attachmentFilingEnabled, or multiRuleSelectionEnabled. Use this directly for known supported settings like multi-rule selection, meeting briefs, meeting-brief email delivery, attachment filing, scheduled check-ins, and draft knowledge base management. Meeting-brief email delivery maps to assistant.meetingBriefs.sendEmail. Prefer one call with all related changes from the same request instead of splitting them across repeated updateAssistantSettings calls. Use getAssistantCapabilities first only when the target setting is unclear or the user is asking what can be changed.",
+      "Update supported assistant settings using a structured patch. Each changes[] entry must specify a supported assistant.* path plus its value, and include mode only for fields that support append/replace behavior. Never use legacy top-level keys like meetingBriefsEnabled, attachmentFilingEnabled, or multiRuleSelectionEnabled. Meeting-brief email delivery maps to assistant.meetingBriefs.sendEmail.",
     inputSchema: updateAssistantSettingsInputSchema,
     execute: async ({ changes, dryRun }) => {
       trackSettingsToolCall({
@@ -52,7 +52,7 @@ export const updateAssistantSettingsCompatTool = ({
 }) =>
   tool({
     description:
-      "Update supported assistant settings using a compact payload. Each changes[] entry must specify a supported assistant.* path plus its value, and include mode only for fields that support append/replace behavior. Never use legacy top-level keys like meetingBriefsEnabled, attachmentFilingEnabled, or multiRuleSelectionEnabled. Use this directly for known supported settings like multi-rule selection, meeting briefs, meeting-brief email delivery, attachment filing, scheduled check-ins, and draft knowledge base management. Meeting-brief email delivery maps to assistant.meetingBriefs.sendEmail. Prefer one call with all related changes from the same request instead of splitting them across repeated updateAssistantSettings calls. Use getAssistantCapabilities first only when the target setting is unclear or the user is asking what can be changed.",
+      "Update supported assistant settings using a compact payload. Each changes[] entry must specify a supported assistant.* path plus its value, and include mode only for fields that support append/replace behavior. Never use legacy top-level keys like meetingBriefsEnabled, attachmentFilingEnabled, or multiRuleSelectionEnabled. Meeting-brief email delivery maps to assistant.meetingBriefs.sendEmail.",
     inputSchema: updateAssistantSettingsCompatInputSchema,
     execute: async ({ changes, dryRun }) => {
       trackSettingsToolCall({

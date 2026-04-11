@@ -51,6 +51,8 @@
 ## LLM Features
 - Stay AI-first: fix general failure modes, not exact eval wording, and avoid brittle keyword or regex rules unless the product needs a hard guard.
 - Never gate context injection or tool behavior on ad hoc user-text keyword matching; use structured state, metadata, or explicit events instead.
+- For assistant chat tools, tool descriptions should only define what the tool does, what its parameters mean, and tool-local constraints on those parameters.
+- Keep tool-selection guidance and cross-tool safety policy in the system prompt, not duplicated inside tool descriptions.
 
 ## Component Guidelines
 - Use shadcn/ui components when available

@@ -26,8 +26,7 @@ export const listLabelsTool = ({
   logger: Logger;
 }) =>
   tool({
-    description:
-      "List all existing labels or categories for this account. Use this when the user wants to browse or inspect their labels after the labels capability is activated. Do not use getAccountOverview for label browsing.",
+    description: "List all existing labels or categories for this account.",
     inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({ tool: "list_labels", email, logger });
@@ -65,7 +64,7 @@ export const createOrGetLabelTool = ({
 }) =>
   tool({
     description:
-      "Reuse an existing label by exact name or create it if it does not exist yet. Use this when the user gives a specific label name they want to use.",
+      "Reuse an existing label by exact name or create it if it does not exist yet.",
     inputSchema: createOrGetLabelInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "create_or_get_label", email, logger });

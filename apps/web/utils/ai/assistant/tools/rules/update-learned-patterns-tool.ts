@@ -19,8 +19,7 @@ export const updateLearnedPatternsTool = ({
   getRuleReadState?: () => RuleReadState | null;
 }) =>
   tool({
-    description:
-      "Update the learned patterns of an existing rule. Use this when a matching category rule already exists and the user wants a recurring sender added to or removed from it.",
+    description: "Update the learned patterns of an existing rule.",
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
       learnedPatterns: z

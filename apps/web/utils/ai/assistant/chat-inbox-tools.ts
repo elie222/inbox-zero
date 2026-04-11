@@ -92,7 +92,7 @@ export const getAccountOverviewTool = ({
 }) =>
   tool({
     description:
-      "Get account context for inbox operations such as provider details and label availability. Use this for inbox context, not for label browsing, and not for direct writes to known settings like meeting briefs or attachment filing.",
+      "Get account context for inbox operations such as provider details, label availability, meeting-brief settings, and attachment-filing settings.",
     inputSchema: emptyInputSchema,
     execute: async () => {
       trackToolCall({ tool: "get_account_overview", email, logger });
@@ -284,7 +284,7 @@ export const readEmailTool = ({
 }) =>
   tool({
     description:
-      "Read the content of an email by message ID (up to 4000 characters, HTML converted to plain text). Use after searchInbox when you need more than the snippet.",
+      "Read the content of an email by message ID, up to 4000 characters with HTML converted to plain text.",
     inputSchema: readEmailInputSchema,
     execute: async ({ messageId }) => {
       trackToolCall({ tool: "read_email", email, logger });

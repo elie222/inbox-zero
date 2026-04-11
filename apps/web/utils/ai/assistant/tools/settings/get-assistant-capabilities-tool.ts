@@ -22,7 +22,7 @@ export const getAssistantCapabilitiesTool = ({
 }) =>
   tool({
     description:
-      "Get a capability snapshot showing which assistant/account settings can be read or updated from chat. Use this for capability discovery or when the target setting is unclear, not for direct on/off requests for known supported settings like multi-rule selection, attachment filing, meeting briefs, or meeting-brief email delivery.",
+      "Get a capability snapshot showing which assistant/account settings can be read or updated from chat.",
     inputSchema: emptyInputSchema,
     execute: async () => {
       trackSettingsToolCall({

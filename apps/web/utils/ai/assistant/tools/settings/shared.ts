@@ -42,18 +42,14 @@ const scheduledCheckInsConfigSchema = z
       value.prompt !== undefined,
     { message: "At least one scheduled check-ins field must be provided." },
   )
-  .describe(
-    "Scheduled check-ins configuration. Use this only when the schedule and destination context are clear; otherwise inspect capabilities first instead of guessing.",
-  );
+  .describe("Scheduled check-ins configuration payload.");
 
 const draftKnowledgeUpsertSchema = z
   .object({
     title: z.string().trim().min(1).max(200),
     content: z.string().trim().min(1).max(20_000),
   })
-  .describe(
-    "Draft knowledge base item to create or update. Use this through updateAssistantSettings rather than addToKnowledgeBase.",
-  );
+  .describe("Draft knowledge base item to create or update.");
 
 export const settingsPathSchema = z.enum([
   "assistant.personalInstructions.about",
