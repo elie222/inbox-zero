@@ -15,7 +15,7 @@ describe("getEmailUrl", () => {
     it("builds Gmail URL with email address", () => {
       const result = getEmailUrl("msg123", "user@gmail.com", "google");
       expect(result).toBe(
-        "https://mail.google.com/mail/u/user@gmail.com/#all/msg123",
+        "https://mail.google.com/mail/u/0/?authuser=user%40gmail.com/#all/msg123",
       );
     });
 
@@ -55,21 +55,21 @@ describe("getEmailUrl", () => {
     it("uses Gmail format when provider is undefined", () => {
       const result = getEmailUrl("msg123", "user@gmail.com");
       expect(result).toBe(
-        "https://mail.google.com/mail/u/user@gmail.com/#all/msg123",
+        "https://mail.google.com/mail/u/0/?authuser=user%40gmail.com/#all/msg123",
       );
     });
 
     it("falls back to default for unknown provider", () => {
       const result = getEmailUrl("msg123", "user@gmail.com", "unknown");
       expect(result).toBe(
-        "https://mail.google.com/mail/u/user@gmail.com/#all/msg123",
+        "https://mail.google.com/mail/u/0/?authuser=user%40gmail.com/#all/msg123",
       );
     });
 
     it("falls back to default for empty provider", () => {
       const result = getEmailUrl("msg123", "user@gmail.com", "");
       expect(result).toBe(
-        "https://mail.google.com/mail/u/user@gmail.com/#all/msg123",
+        "https://mail.google.com/mail/u/0/?authuser=user%40gmail.com/#all/msg123",
       );
     });
   });
@@ -164,7 +164,7 @@ describe("getGmailSearchUrl", () => {
   it("builds advanced search URL with from parameter", () => {
     const result = getGmailSearchUrl("sender@example.com", "user@gmail.com");
     expect(result).toBe(
-      "https://mail.google.com/mail/u/user@gmail.com/#advanced-search/from=sender%40example.com",
+      "https://mail.google.com/mail/u/0/?authuser=user%40gmail.com/#advanced-search/from=sender%40example.com",
     );
   });
 
@@ -190,7 +190,7 @@ describe("getEmailSearchUrl", () => {
       "google",
     );
     expect(result).toBe(
-      "https://mail.google.com/mail/u/user@gmail.com/#advanced-search/from=sender%40example.com",
+      "https://mail.google.com/mail/u/0/?authuser=user%40gmail.com/#advanced-search/from=sender%40example.com",
     );
   });
 
@@ -212,7 +212,7 @@ describe("getEmailSearchUrl", () => {
       "",
     );
     expect(result).toBe(
-      "https://mail.google.com/mail/u/user@gmail.com/#advanced-search/from=sender%40example.com",
+      "https://mail.google.com/mail/u/0/?authuser=user%40gmail.com/#advanced-search/from=sender%40example.com",
     );
   });
 
@@ -223,7 +223,7 @@ describe("getEmailSearchUrl", () => {
       "unknown-provider",
     );
     expect(result).toBe(
-      "https://mail.google.com/mail/u/user@gmail.com/#advanced-search/from=sender%40example.com",
+      "https://mail.google.com/mail/u/0/?authuser=user%40gmail.com/#advanced-search/from=sender%40example.com",
     );
   });
 });
@@ -232,7 +232,7 @@ describe("getGmailBasicSearchUrl", () => {
   it("builds search URL with query", () => {
     const result = getGmailBasicSearchUrl("user@gmail.com", "is:unread");
     expect(result).toBe(
-      "https://mail.google.com/mail/u/user@gmail.com/#search/is%3Aunread",
+      "https://mail.google.com/mail/u/0/?authuser=user%40gmail.com/#search/is%3Aunread",
     );
   });
 
@@ -259,7 +259,7 @@ describe("getGmailFilterSettingsUrl", () => {
   it("builds filter settings URL with email address", () => {
     const result = getGmailFilterSettingsUrl("user@gmail.com");
     expect(result).toBe(
-      "https://mail.google.com/mail/u/user@gmail.com/#settings/filters",
+      "https://mail.google.com/mail/u/0/?authuser=user%40gmail.com/#settings/filters",
     );
   });
 

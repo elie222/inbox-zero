@@ -1,5 +1,7 @@
 function getGmailBaseUrl(emailAddress?: string | null) {
-  return `https://mail.google.com/mail/u/${emailAddress || 0}`;
+  const base = "https://mail.google.com/mail/u/0";
+  if (!emailAddress) return base;
+  return `${base}/?authuser=${encodeURIComponent(emailAddress)}`;
 }
 
 function getOutlookBaseUrl() {
