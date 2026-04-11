@@ -28,6 +28,14 @@ import {
   NONE_RULE_ID as CONST_NONE_RULE_ID,
 } from "@/app/(app)/[emailAccountId]/assistant/consts";
 import type { MessageContext } from "@/app/api/chat/validation";
+import {
+  serializeMatchReasons,
+  type SerializedMatchReason,
+} from "@/utils/ai/choose-rule/types";
+
+type FixWithChatResult = RunRulesResult & {
+  matchMetadata?: SerializedMatchReason[] | null;
+};
 
 export function FixWithChat({
   setInput,
@@ -36,7 +44,7 @@ export function FixWithChat({
 }: {
   setInput: (input: string) => void;
   message: ParsedMessage;
-  results: RunRulesResult[];
+  results: FixWithChatResult[];
 }) {
   const { data, isLoading, error } = useRules();
   const { isModalOpen, setIsModalOpen } = useModal();
@@ -103,6 +111,7 @@ export function FixWithChat({
         ruleName: r.rule?.name ?? null,
         systemType: r.rule?.systemType ?? null,
         reason: r.reason ?? "",
+        matchMetadata: r.matchMetadata ?? serializeMatchReasons(r.matchReasons),
       })),
       expected:
         selectedRuleId === CONST_NEW_RULE_ID
@@ -218,7 +227,7 @@ function RuleMismatch({
   rules,
   onSelectExpectedRuleId,
 }: {
-  results: RunRulesResult[];
+  results: FixWithChatResult[];
   rules: RulesResponse;
   onSelectExpectedRuleId: (ruleId: string | null) => void;
 }) {

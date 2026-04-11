@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelMessage } from "ai";
 import { getEmailAccount, getMockMessage } from "@/__tests__/helpers";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, GroupItemType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));
@@ -529,6 +529,87 @@ describe("aiProcessAssistantChat", () => {
     expect(hiddenContext?.content).toContain(
       "This fix is about conversation status classification",
     );
+  });
+
+  it("includes structured match details in fix-rule hidden context", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: [
+        {
+          role: "user",
+          content:
+            "Create a new rule for emails like this: internal planning updates should be labeled Action.",
+        },
+      ],
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+      context: {
+        type: "fix-rule",
+        message: {
+          id: "message-1",
+          threadId: "thread-1",
+          snippet: "test snippet",
+          headers: {
+            from: "sender@example.com",
+            to: "user@example.com",
+            subject: "Subject",
+            date: new Date().toISOString(),
+          },
+        },
+        results: [
+          {
+            ruleName: "Team Mail",
+            systemType: null,
+            reason: "Matched existing team rule.",
+            matchMetadata: [
+              { type: "STATIC" },
+              {
+                type: "LEARNED_PATTERN",
+                group: {
+                  id: "group-1",
+                  name: "Team Mail",
+                },
+                groupItem: {
+                  id: "group-item-1",
+                  type: GroupItemType.FROM,
+                  value: "store@company.example",
+                  exclude: true,
+                },
+              },
+            ],
+          },
+        ],
+        expected: "new",
+      },
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    const hiddenContext = args.messages.find(
+      (message: { role: string; content: string }) =>
+        message.role === "user" &&
+        message.content.includes("Hidden context for the user's request"),
+    );
+
+    const content = hiddenContext?.content ?? "";
+
+    expect(content).toContain("Structured match details:");
+    expect(content).toContain("Team Mail");
+    expect(content).toContain("store@company.example");
+    expect(content).toContain("FROM");
+    expect(content).toMatch(/static/i);
+    expect(content).toMatch(/learned pattern/i);
+    expect(content).toMatch(/new rule/i);
+    expect(content).toMatch(/intent/i);
+    expect(content).toMatch(/existing rule/i);
+    expect(content).toMatch(/overlap/i);
   });
 
   it("skips expected rule lookup when results already show conversation status", async () => {

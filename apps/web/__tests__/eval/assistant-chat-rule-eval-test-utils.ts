@@ -132,6 +132,30 @@ export function configureRuleEvalPrisma({
       },
     };
   });
+
+  prisma.rule.findMany.mockImplementation(async ({ select }) => {
+    if (
+      select?.name &&
+      select?.from &&
+      select?.to &&
+      select?.subject &&
+      select?.enabled
+    ) {
+      return ruleRows.map((rule) => ({
+        name: rule.name,
+        enabled: rule.enabled,
+        instructions: rule.instructions,
+        from: rule.from,
+        to: rule.to,
+        subject: rule.subject,
+        group: {
+          items: groupItemsByRuleName?.[rule.name] ?? [],
+        },
+      }));
+    }
+
+    return ruleRows;
+  });
 }
 
 export function configureRuleEvalProvider({

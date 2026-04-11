@@ -1,11 +1,24 @@
 import type { ModelMessage } from "ai";
+import { ActionType } from "@/generated/prisma/enums";
 import type { getEmailAccount } from "@/__tests__/helpers";
+import type { MessageContext } from "@/app/api/chat/validation";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
 
 export type RecordedToolCall = {
   toolName: string;
   input: unknown;
+};
+
+export type UpdateRuleActionsInput = {
+  ruleName: string;
+  actions: Array<{
+    type: ActionType;
+    fields?: {
+      label?: string | null;
+    } | null;
+    delayInMinutes?: number | null;
+  }>;
 };
 
 export type AssistantChatTrace = {
@@ -18,11 +31,13 @@ export async function captureAssistantChatTrace({
   messages,
   logger,
   inboxStats,
+  context,
 }: {
   emailAccount: ReturnType<typeof getEmailAccount>;
   messages: ModelMessage[];
   logger: Logger;
   inboxStats?: { total: number; unread: number } | null;
+  context?: MessageContext;
 }) {
   const recordedToolCalls: RecordedToolCall[] = [];
   const stepTexts: string[] = [];
@@ -32,6 +47,7 @@ export async function captureAssistantChatTrace({
     emailAccountId: emailAccount.id,
     user: emailAccount,
     inboxStats,
+    context,
     logger,
     onStepFinish: async ({ text, toolCalls }) => {
       if (text?.trim()) {
@@ -107,4 +123,35 @@ export function getLastMatchingToolCall<TInput>(
   }
 
   return null;
+}
+
+export function isUpdateRuleActionsInput(
+  input: unknown,
+): input is UpdateRuleActionsInput {
+  if (!input || typeof input !== "object") return false;
+
+  const value = input as {
+    ruleName?: unknown;
+    actions?: unknown;
+  };
+
+  return typeof value.ruleName === "string" && Array.isArray(value.actions);
+}
+
+export function hasActionType(
+  actions: Array<{ type: ActionType }>,
+  expectedActionType: ActionType,
+) {
+  return actions.some((action) => action.type === expectedActionType);
+}
+
+export function hasLabelAction(
+  actions: UpdateRuleActionsInput["actions"],
+  expectedLabel: string,
+) {
+  return actions.some(
+    (action) =>
+      action.type === ActionType.LABEL &&
+      action.fields?.label === expectedLabel,
+  );
 }

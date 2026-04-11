@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import groupBy from "lodash/groupBy";
+import { serializedMatchMetadataSchema } from "@/app/api/chat/validation";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { ExecutedRuleStatus } from "@/generated/prisma/enums";
@@ -62,6 +63,7 @@ async function getExecutedRules({
         actionItems: true,
         status: true,
         reason: true,
+        matchMetadata: true,
         automated: true,
         createdAt: true,
         rule: {
@@ -91,7 +93,12 @@ async function getExecutedRules({
     .map(([messageId, groupedExecutedRules]) => ({
       messageId,
       threadId: groupedExecutedRules[0].threadId,
-      executedRules: groupedExecutedRules,
+      executedRules: groupedExecutedRules.map((executedRule) => ({
+        ...executedRule,
+        matchMetadata:
+          serializedMatchMetadataSchema.safeParse(executedRule.matchMetadata)
+            .data ?? null,
+      })),
     }));
 
   return {
