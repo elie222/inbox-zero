@@ -4,6 +4,7 @@ import React, { createElement, type ReactNode } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Response } from "@/components/ai-elements/response";
+import { getEmailUrlForMessage } from "@/utils/url";
 
 const mockUseAccount = vi.fn();
 const mockUseEmailLookup = vi.fn();
@@ -86,7 +87,12 @@ describe("Response", () => {
     );
 
     expect(screen.getByRole("link").getAttribute("href")).toBe(
-      "https://mail.google.com/mail/u/user@example.com/#all/msg-thread-1",
+      getEmailUrlForMessage(
+        "msg-thread-1",
+        "thread-1",
+        "user@example.com",
+        "google",
+      ),
     );
     expect(screen.getByRole("button", { name: "Archive" })).toBeTruthy();
   });

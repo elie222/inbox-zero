@@ -353,6 +353,61 @@ describe("sendMessagingRuleNotification", () => {
     });
   });
 
+  it("sends plain draft previews through the linked messaging fallback", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.TEAMS,
+          isConnected: true,
+          teamId: "tenant-1",
+          providerUserId: "29:teams-user",
+          accessToken: null,
+          channelId: null,
+        },
+      }) as never,
+    );
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "First line\nSecond line",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockSendAutomationMessage).toHaveBeenCalledWith({
+      channel: expect.objectContaining({
+        provider: MessagingProvider.TEAMS,
+        providerUserId: "29:teams-user",
+      }),
+      route: {
+        purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+        targetId: "29:teams-user",
+        targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+      },
+      text: expect.stringContaining("💬 They wrote:\nFirst line\nSecond line"),
+      logger: expect.anything(),
+    });
+
+    const [{ text }] = mockSendAutomationMessage.mock.calls[0];
+    expect(text).not.toContain("\n> First line");
+    expect(text).toContain("Slack-only");
+  });
+
   it("skips linked notifications when provider routing data is incomplete", async () => {
     prisma.executedAction.findUnique.mockResolvedValue(
       getNotificationContext({
