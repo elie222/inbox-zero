@@ -19,7 +19,7 @@ const parsedMessageSchema = z.object({
   internalDate: z.string().optional().nullable(),
 });
 
-export const serializedMatchReasonSchema = z.union([
+const serializedMatchReasonSchema = z.union([
   z.object({
     type: z.literal("STATIC"),
   }),
@@ -45,9 +45,7 @@ export const serializedMatchReasonSchema = z.union([
   }),
 ]);
 
-export const serializedMatchMetadataSchema = z.array(
-  serializedMatchReasonSchema,
-);
+const serializedMatchMetadataSchema = z.array(serializedMatchReasonSchema);
 
 export const messageContextSchema = z.object({
   type: z.literal("fix-rule"),

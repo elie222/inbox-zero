@@ -4,6 +4,7 @@ import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { ExecutedRuleStatus } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
+import type { SerializedMatchReason } from "@/utils/ai/choose-rule/types";
 
 const LIMIT = 50;
 
@@ -92,7 +93,12 @@ async function getExecutedRules({
     .map(([messageId, groupedExecutedRules]) => ({
       messageId,
       threadId: groupedExecutedRules[0].threadId,
-      executedRules: groupedExecutedRules,
+      executedRules: groupedExecutedRules.map((executedRule) => ({
+        ...executedRule,
+        matchMetadata: executedRule.matchMetadata as
+          | SerializedMatchReason[]
+          | null,
+      })),
     }));
 
   return {

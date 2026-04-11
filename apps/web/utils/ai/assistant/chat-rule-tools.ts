@@ -909,7 +909,12 @@ async function findSenderOnlyOverlapConflict({
   emailAccountId: string;
   condition: CreateOrUpdateRuleSchema["condition"];
 }) {
-  if (!condition.static?.from) {
+  if (
+    condition.aiInstructions ||
+    condition.static?.to ||
+    condition.static?.subject ||
+    !condition.static?.from
+  ) {
     return null;
   }
 
