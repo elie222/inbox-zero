@@ -42,6 +42,7 @@ import {
 import { analyzeCalendarEvent } from "@/utils/parse/calender-event";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveActionAttachments } from "@/utils/ai/action-attachments";
+import { quotePlainTextContent } from "@/utils/email/quoted-plain-text";
 import { formatReplySubject } from "@/utils/email/subject";
 import { extractDraftPlainText } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
@@ -1001,7 +1002,7 @@ function buildNotificationContent({
     if (emailPreview) {
       const preview =
         format === "slack"
-          ? buildSlackQuotedPreview(emailPreview)
+          ? quotePlainTextContent(emailPreview) || emailPreview
           : emailPreview;
       details.push(`💬 *They wrote:*\n${preview}`);
     }
@@ -1215,13 +1216,6 @@ function buildNotificationDetailSection({
   if (!normalizedValue) return null;
 
   return `*${label}*\n${normalizedValue}`;
-}
-
-function buildSlackQuotedPreview(text: string) {
-  return text
-    .split("\n")
-    .map((line) => `> ${line}`)
-    .join("\n");
 }
 
 function createProviderForContext(
