@@ -7,7 +7,7 @@ import {
 } from "@/__tests__/helpers";
 import { SystemType } from "@/generated/prisma/enums";
 
-// Run with: pnpm test-ai determine-thread-status
+// Run with: pnpm test-ai eval/single-model/determine-thread-status
 
 vi.mock("server-only", () => ({}));
 
