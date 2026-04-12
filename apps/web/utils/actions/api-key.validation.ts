@@ -13,3 +13,8 @@ export type CreateApiKeyBody = z.infer<typeof createApiKeyBody>;
 
 export const deactivateApiKeyBody = z.object({ id: z.string() });
 export type DeactivateApiKeyBody = z.infer<typeof deactivateApiKeyBody>;
+
+export const updateMcpServerAccessBody = z.object({ enabled: z.boolean() });
+export type UpdateMcpServerAccessBody = z.infer<
+  typeof updateMcpServerAccessBody
+>;

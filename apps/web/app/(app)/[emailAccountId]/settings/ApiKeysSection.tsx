@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback } from "react";
+import { useAction } from "next-safe-action/hooks";
 import {
   Table,
   TableBody,
@@ -17,8 +19,10 @@ import {
   ItemContent,
   ItemTitle,
   ItemActions,
+  ItemDescription,
 } from "@/components/ui/item";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -30,19 +34,74 @@ import { useApiKeys } from "@/hooks/useApiKeys";
 import { LoadingContent } from "@/components/LoadingContent";
 import { formatApiKeyScope } from "@/utils/api-key-scopes";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { toastError, toastSuccess } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
+import { updateMcpServerAccessAction } from "@/utils/actions/api-key";
 
 export function ApiKeysSection() {
   const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } = useApiKeys();
 
   const keyCount = data?.apiKeys.length ?? 0;
+  const mcpEnabled = data?.mcpServerEnabled ?? false;
+  const mcpAvailable = data?.mcpServerAvailable ?? false;
+
+  const { execute: executeUpdateMcpServerAccess, isExecuting } = useAction(
+    updateMcpServerAccessAction,
+    {
+      onSuccess: ({ data }) => {
+        if (!data) return;
+
+        toastSuccess({
+          description: data.enabled
+            ? "MCP access enabled!"
+            : "MCP access disabled!",
+        });
+      },
+      onError: (error) => {
+        mutate();
+        toastError({
+          description: getActionErrorMessage(error.error, {
+            prefix: "Failed to update MCP access",
+          }),
+        });
+      },
+      onSettled: () => {
+        mutate();
+      },
+    },
+  );
+
+  const handleToggleMcp = useCallback(
+    (checked: boolean) => {
+      if (!data) return;
+
+      mutate({ ...data, mcpServerEnabled: checked }, false);
+      executeUpdateMcpServerAccess({ enabled: checked });
+    },
+    [data, executeUpdateMcpServerAccess, mutate],
+  );
 
   return (
     <Item size="sm">
       <ItemContent>
-        <ItemTitle>API Keys</ItemTitle>
+        <ItemTitle>API Access</ItemTitle>
+        <ItemDescription>
+          Manage API keys and optionally allow MCP clients to connect to your
+          account.
+        </ItemDescription>
       </ItemContent>
       <ItemActions>
+        {mcpAvailable && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">MCP</span>
+            <Switch
+              checked={mcpEnabled}
+              onCheckedChange={handleToggleMcp}
+              disabled={isLoading || isExecuting}
+            />
+          </div>
+        )}
         <Dialog>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
