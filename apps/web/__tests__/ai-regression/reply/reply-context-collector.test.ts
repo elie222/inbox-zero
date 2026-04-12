@@ -4,7 +4,7 @@ import type { EmailForLLM, ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { getEmailAccount } from "@/__tests__/helpers";
 
-// Run with: pnpm test-ai eval/single-model/reply/reply-context-collector
+// Run with: pnpm test-ai ai-regression/reply/reply-context-collector
 
 vi.mock("server-only", () => ({}));
 

@@ -4,7 +4,7 @@ import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { ActionType } from "@/generated/prisma/enums";
 import { getEmailAccount } from "@/__tests__/helpers";
 
-// Run with: pnpm test-ai eval/single-model/ai-prompt-to-rules
+// Run with: pnpm test-ai ai-regression/ai-prompt-to-rules
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 

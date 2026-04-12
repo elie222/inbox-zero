@@ -4,7 +4,7 @@ import { ActionType } from "@/generated/prisma/enums";
 import { getEmail, getEmailAccount, getRule } from "@/__tests__/helpers";
 import { createScopedLogger } from "@/utils/logger";
 
-// Run with: pnpm test-ai eval/single-model/ai-choose-rule
+// Run with: pnpm test-ai ai-regression/ai-choose-rule
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 const logger = createScopedLogger("test");

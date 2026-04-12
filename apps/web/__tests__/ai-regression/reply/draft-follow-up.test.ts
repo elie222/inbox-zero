@@ -5,7 +5,7 @@ import { getEmailAccount } from "@/__tests__/helpers";
 
 const TIMEOUT = 60_000;
 
-// Run with: pnpm test-ai eval/single-model/reply/draft-follow-up
+// Run with: pnpm test-ai ai-regression/reply/draft-follow-up
 
 vi.mock("server-only", () => ({}));
 

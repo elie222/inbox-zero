@@ -2,7 +2,7 @@ import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiAnalyzeWritingStyle } from "@/utils/ai/knowledge/writing-style";
 import { getEmailAccount } from "@/__tests__/helpers";
 
-// Run with: pnpm test-ai eval/single-model/ai-writing-style
+// Run with: pnpm test-ai ai-regression/ai-writing-style
 
 const TIMEOUT = 15_000;
 

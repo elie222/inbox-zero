@@ -5,7 +5,7 @@ Eval tests compare AI function output across multiple models using binary pass/f
 ## File Location
 
 Place matrix or judge-based eval test files in `apps/web/__tests__/eval/` (e.g., `categorize-senders.test.ts`).
-Place single-model AI tests that use `RUN_AI_TESTS` but do not use the eval matrix in `apps/web/__tests__/eval/single-model/`.
+Place live AI regression tests that use `RUN_AI_TESTS` but do not use the eval helpers in `apps/web/__tests__/ai-regression/`.
 
 ## Template
 

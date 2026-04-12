@@ -8,7 +8,7 @@ import type { BusyPeriod } from "@/utils/calendar/availability-types";
 
 const logger = createTestLogger();
 
-// Run with: pnpm test-ai eval/single-model/ai-calendar-availability
+// Run with: pnpm test-ai ai-regression/ai-calendar-availability
 
 vi.mock("server-only", () => ({}));
 

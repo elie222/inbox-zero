@@ -4,7 +4,7 @@ import { defaultCategory } from "@/utils/categories";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { getEmailAccount } from "@/__tests__/helpers";
 
-// Run with: pnpm test-ai eval/single-model/ai-categorize-senders
+// Run with: pnpm test-ai ai-regression/ai-categorize-senders
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 

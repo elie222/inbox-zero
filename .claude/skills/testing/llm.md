@@ -4,16 +4,16 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
 
 ## Test File Structure
 
-1. Place single-model LLM-related tests in `apps/web/__tests__/eval/single-model/`:
+1. Place live AI regression tests in `apps/web/__tests__/ai-regression/`:
 
    ```
-   apps/web/__tests__/eval/single-model/
+   apps/web/__tests__/ai-regression/
    │ └── your-feature.test.ts
    │ └── another-feature.test.ts
    └── ...
    ```
 
-   Use `apps/web/__tests__/eval/` for matrix or judge-based evals that rely on the shared eval helpers.
+   Use `apps/web/__tests__/eval/` for benchmark-style eval suites that rely on the shared eval helpers, model matrix, or judge utilities.
 
 2. Basic test file template:
 
@@ -21,7 +21,7 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
    import { describe, expect, test, vi, beforeEach } from "vitest";
    import { yourFunction } from "@/utils/ai/your-feature";
 
-// Run with: pnpm test-ai eval/single-model/your-feature
+// Run with: pnpm test-ai ai-regression/your-feature
 
    vi.mock("server-only", () => ({}));
 
@@ -151,7 +151,7 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
 Run AI tests with:
 
    ```bash
-   pnpm test-ai eval/single-model/your-feature
+   pnpm test-ai ai-regression/your-feature
    ```
 
 ## Eval Tests

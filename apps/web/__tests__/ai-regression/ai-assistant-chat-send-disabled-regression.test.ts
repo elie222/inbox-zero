@@ -4,7 +4,7 @@ import { getEmailAccount, getMockMessage } from "@/__tests__/helpers";
 import { ActionType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 
-// Run with: pnpm test-ai eval/single-model/ai-assistant-chat-send-disabled-regression
+// Run with: pnpm test-ai ai-regression/ai-assistant-chat-send-disabled-regression
 
 vi.mock("server-only", () => ({}));
 

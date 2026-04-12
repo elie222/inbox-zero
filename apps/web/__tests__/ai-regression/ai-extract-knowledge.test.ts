@@ -6,7 +6,7 @@ import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 const TIMEOUT = 30_000;
 const logger = createTestLogger();
 
-// Run with: pnpm test-ai eval/single-model/ai-extract-knowledge
+// Run with: pnpm test-ai ai-regression/ai-extract-knowledge
 
 vi.mock("server-only", () => ({}));
 

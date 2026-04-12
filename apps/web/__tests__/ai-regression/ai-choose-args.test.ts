@@ -9,7 +9,7 @@ import {
 } from "@/__tests__/helpers";
 import { ActionType, DraftReplyConfidence } from "@/generated/prisma/enums";
 
-// Run with: pnpm test-ai eval/single-model/ai-choose-args
+// Run with: pnpm test-ai ai-regression/ai-choose-args
 
 const logger = createTestLogger();
 

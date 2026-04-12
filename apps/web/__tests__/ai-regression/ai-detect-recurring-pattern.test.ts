@@ -7,7 +7,7 @@ import { SystemType } from "@/generated/prisma/enums";
 import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { formatUtcDate } from "@/utils/date";
 
-// Run with: pnpm test-ai eval/single-model/ai-detect-recurring-pattern
+// Run with: pnpm test-ai ai-regression/ai-detect-recurring-pattern
 
 const TIMEOUT = 15_000;
 const logger = createTestLogger();

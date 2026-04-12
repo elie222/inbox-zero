@@ -10,7 +10,7 @@ import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { getEmailAccount, getMockMessage } from "@/__tests__/helpers";
 import { createScopedLogger } from "@/utils/logger";
 
-// Run with: pnpm test-ai eval/single-model/ai-meeting-briefing
+// Run with: pnpm test-ai ai-regression/ai-meeting-briefing
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
