@@ -83,10 +83,33 @@ function getOutputField<T>(output: unknown, field: string): T | undefined {
 }
 
 export function BasicToolInfo({ text }: { text: string }) {
+  return <div className="text-xs text-muted-foreground">{text}</div>;
+}
+
+function SubtleToolCollapsible({
+  title,
+  children,
+}: {
+  title: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <ToolCard>
-      <div className="text-sm">{text}</div>
-    </ToolCard>
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
+        <ChevronRightIcon
+          className={cn(
+            "size-3 shrink-0 transition-transform duration-200",
+            open && "rotate-90",
+          )}
+        />
+        <span>{title}</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="mt-2 space-y-3 rounded-md border p-3">{children}</div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -156,7 +179,7 @@ export function SearchInboxResult({ output }: { output: unknown }) {
   >(output, "messages");
 
   return (
-    <CollapsibleToolCard title="Search Inbox">
+    <SubtleToolCollapsible title="Search Inbox">
       {queryUsed && (
         <ToolDetailRow
           label="Query"
@@ -164,7 +187,7 @@ export function SearchInboxResult({ output }: { output: unknown }) {
         />
       )}
       {messages && messages.length > 0 && <ToolEmailRows emails={messages} />}
-    </CollapsibleToolCard>
+    </SubtleToolCollapsible>
   );
 }
 
@@ -317,7 +340,7 @@ export function ReadEmailResult({ output }: { output: unknown }) {
     : null;
 
   return (
-    <CollapsibleToolCard title="Read Email" initialOpen={false}>
+    <SubtleToolCollapsible title="Read Email">
       <div className="space-y-3 text-sm">
         {(subject || from || to || formattedDate) && (
           <div className="space-y-1">
@@ -346,7 +369,7 @@ export function ReadEmailResult({ output }: { output: unknown }) {
           </ToolExternalLink>
         )}
       </div>
-    </CollapsibleToolCard>
+    </SubtleToolCollapsible>
   );
 }
 
