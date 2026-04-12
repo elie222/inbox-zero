@@ -1,40 +1,199 @@
 import { describe, it, expect, vi } from "vitest";
+import { z } from "zod";
 import {
   combineActionsWithAiArgs,
   filterIncompleteDraftActions,
+  getParameterFieldsForAction,
+  parseTemplate,
 } from "./choose-args";
 import { ActionType } from "@/generated/prisma/enums";
 import type { Action } from "@/generated/prisma/client";
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 
+// Run with: pnpm test apps/web/utils/ai/choose-rule/choose-args.test.ts
+
 vi.mock("server-only", () => ({}));
 
-// Helper function to create a mock Action object
-function createMockAction(overrides: Partial<Action> = {}): Action {
-  return {
-    id: "test-action-id",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    type: ActionType.DRAFT_EMAIL,
-    ruleId: "test-rule-id",
-    to: null,
-    subject: null,
-    label: null,
-    content: null,
-    cc: null,
-    bcc: null,
-    url: null,
-    folderName: null,
-    folderId: null,
-    delayInMinutes: null,
-    ...overrides,
-  };
-}
+describe("getParameterFieldsForAction", () => {
+  it("creates schema for simple field", () => {
+    const action = {
+      label: "{{write label}}",
+      subject: "",
+      content: "",
+      to: "",
+      cc: "",
+      bcc: "",
+      url: "",
+    };
+
+    const result = getParameterFieldsForAction(action);
+
+    expect(result.label).toBeDefined();
+    expect(result.label?.shape).toEqual({
+      var1: expect.any(z.ZodString),
+    });
+    const description =
+      (result.label as any)?.description ||
+      (result.label as any)?._def?.description;
+    expect(description).toContain("{{var1: write label}}");
+  });
+
+  it("creates schema for field with multiple variables", () => {
+    const action = {
+      label: "",
+      content: "Dear {{write greeting}},\n\n{{draft response}}\n\nBest",
+      subject: "",
+      to: "",
+      cc: "",
+      bcc: "",
+      url: "",
+    };
+
+    const result = getParameterFieldsForAction(action);
+
+    expect(result.content).toBeDefined();
+    expect(result.content?.shape).toEqual({
+      var1: expect.any(z.ZodString),
+      var2: expect.any(z.ZodString),
+    });
+    const description =
+      (result.content as any)?.description ||
+      (result.content as any)?._def?.description;
+    expect(description).toContain("{{var1: write greeting}}");
+    expect(description).toContain("{{var2: draft response}}");
+    expect(description).toContain("Return ONLY the value for each variable");
+  });
+
+  it("ignores fields without template variables", () => {
+    const action = {
+      label: "Simple label",
+      subject: "",
+      content: "",
+      to: "",
+      cc: "",
+      bcc: "",
+      url: "",
+    };
+
+    const result = getParameterFieldsForAction(action);
+
+    expect(result.label).toBeUndefined();
+  });
+
+  it("handles multiple fields with template variables", () => {
+    const action = {
+      label: "{{write label}}",
+      subject: "Re: {{write subject}}",
+      content: "{{write content}}",
+      to: "{{recipient}}",
+      cc: "",
+      bcc: "",
+      url: "",
+    };
+
+    const result = getParameterFieldsForAction(action);
+
+    expect(Object.keys(result)).toHaveLength(4);
+
+    expect(result.label).toBeDefined();
+    const labelDesc =
+      (result.label as any)?.description ||
+      (result.label as any)?._def?.description;
+    expect(labelDesc).toContain("{{var1: write label}}");
+
+    expect(result.subject).toBeDefined();
+    const subjectDesc =
+      (result.subject as any)?.description ||
+      (result.subject as any)?._def?.description;
+    expect(subjectDesc).toContain("Re: {{var1: write subject}}");
+
+    expect(result.to).toBeDefined();
+    const toDesc =
+      (result.to as any)?.description || (result.to as any)?._def?.description;
+    expect(toDesc).toContain("{{var1: recipient}}");
+  });
+});
+
+describe("parseTemplate", () => {
+  it("handles adjacent template variables with no gap", () => {
+    const template = "start{{x}}{{y}}end";
+    const result = parseTemplate(template);
+
+    expect(result).toEqual({
+      aiPrompts: ["x", "y"],
+      fixedParts: ["start", "", "end"],
+    });
+  });
+
+  it("handles multiple edge cases", () => {
+    const cases = [
+      {
+        template: "{{x}}{{y}}",
+        expected: {
+          aiPrompts: ["x", "y"],
+          fixedParts: ["", "", ""],
+        },
+      },
+      {
+        template: "{{x}}text{{y}}{{z}}",
+        expected: {
+          aiPrompts: ["x", "y", "z"],
+          fixedParts: ["", "text", "", ""],
+        },
+      },
+    ];
+
+    cases.forEach(({ template, expected }) => {
+      expect(parseTemplate(template)).toEqual(expected);
+    });
+  });
+
+  it("handles multi-line AI prompts", () => {
+    const template = `{{Determine which single label to apply based on these criteria:
+1. If action is needed from Alice -> 'Action needed'
+2. If a question is asked directly to Alice (excluding X emails) -> 'Answer needed'
+3. If email is high priority but doesn't match above conditions -> 'High Priority'
+Only return ONE of these three labels based on the most appropriate match.}}`;
+
+    const result = parseTemplate(template);
+
+    expect(result).toEqual({
+      aiPrompts: [
+        `Determine which single label to apply based on these criteria:
+1. If action is needed from Alice -> 'Action needed'
+2. If a question is asked directly to Alice (excluding X emails) -> 'Answer needed'
+3. If email is high priority but doesn't match above conditions -> 'High Priority'
+Only return ONE of these three labels based on the most appropriate match.`,
+      ],
+      fixedParts: ["", ""],
+    });
+  });
+
+  it("handles multi-line AI prompts with surrounding text", () => {
+    const template = `Label: {{Determine which single label to apply based on these criteria:
+1. If action is needed from Alice -> 'Action needed'
+2. If a question is asked directly to Alice (excluding X emails) -> 'Answer needed'
+3. If email is high priority but doesn't match above conditions -> 'High Priority'
+Only return ONE of these three labels based on the most appropriate match.}} (Auto-generated)`;
+
+    const result = parseTemplate(template);
+
+    expect(result).toEqual({
+      aiPrompts: [
+        `Determine which single label to apply based on these criteria:
+1. If action is needed from Alice -> 'Action needed'
+2. If a question is asked directly to Alice (excluding X emails) -> 'Answer needed'
+3. If email is high priority but doesn't match above conditions -> 'High Priority'
+Only return ONE of these three labels based on the most appropriate match.`,
+      ],
+      fixedParts: ["Label: ", " (Auto-generated)"],
+    });
+  });
+});
 
 describe("combineActionsWithAiArgs", () => {
   describe("DRAFT_EMAIL action with template content", () => {
-    it("should replace template variables in content when AI args are provided", () => {
-      // This test ensures template variables are replaced with AI-generated content
+    it("replaces template variables in content when AI args are provided", () => {
       const actions = [
         createMockAction({
           id: "1",
@@ -54,7 +213,6 @@ describe("combineActionsWithAiArgs", () => {
 
       const result = combineActionsWithAiArgs(actions, aiArgs, null);
 
-      // Verify that template variables are properly replaced
       expect(result[0].content).toBe(
         "Dear Mr. Johnson,\n\nThank you for your email. I'd be happy to help with your request.\n\nBest regards",
       );
@@ -99,8 +257,7 @@ describe("combineActionsWithAiArgs", () => {
       });
     });
 
-    it("should handle DRAFT_EMAIL action without content (full draft generation)", () => {
-      // This test shows the working case where no template exists
+    it("handles DRAFT_EMAIL action without content", () => {
       const actions = [
         createMockAction({
           id: "2",
@@ -113,12 +270,10 @@ describe("combineActionsWithAiArgs", () => {
 
       const result = combineActionsWithAiArgs(actions, undefined, fullDraft);
 
-      // This case works correctly - the full draft is added
       expect(result[0].content).toBe(fullDraft);
     });
 
-    it("should not skip content field processing when draft exists but action has template", () => {
-      // This test ensures that templates with variables are processed even when a draft exists
+    it("still processes template content when a separate draft exists", () => {
       const actions = [
         createMockAction({
           id: "3",
@@ -136,25 +291,20 @@ describe("combineActionsWithAiArgs", () => {
         },
       };
 
-      // Even if draft is provided, template processing should still happen
-      // This draft represents content from another action, not this one
-      const draftFromAnotherAction = "Some other draft";
-
       const result = combineActionsWithAiArgs(
         actions,
         aiArgs,
-        draftFromAnotherAction,
+        "Some other draft",
       );
 
-      // Verify that template variables are processed correctly
       expect(result[0].content).toBe(
         "Hello Alice, I hope this email finds you well.",
       );
     });
   });
 
-  describe("Other action types with templates", () => {
-    it("should process template variables in labels", () => {
+  describe("other action types with templates", () => {
+    it("processes template variables in labels", () => {
       const actions = [
         createMockAction({
           id: "4",
@@ -211,3 +361,24 @@ describe("filterIncompleteDraftActions", () => {
     expect(result[0].id).toBe("draft-filled");
   });
 });
+
+function createMockAction(overrides: Partial<Action> = {}): Action {
+  return {
+    id: "test-action-id",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    type: ActionType.DRAFT_EMAIL,
+    ruleId: "test-rule-id",
+    to: null,
+    subject: null,
+    label: null,
+    content: null,
+    cc: null,
+    bcc: null,
+    url: null,
+    folderName: null,
+    folderId: null,
+    delayInMinutes: null,
+    ...overrides,
+  };
+}
