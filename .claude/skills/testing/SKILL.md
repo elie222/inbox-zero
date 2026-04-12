@@ -23,6 +23,6 @@ Prefer behavior-focused assertions; avoid freezing prompt copy or internal call 
 pnpm test -- path/to/file.test.ts   # Single unit test
 pnpm test --run                      # All unit tests
 pnpm test-integration                # Integration tests (emulator)
-pnpm test-ai your-feature            # AI test (real LLM)
+pnpm test-ai ai-regression/your-feature  # Live AI regression test
 EVAL_MODELS=all pnpm test-ai eval/your-feature  # Eval across models
 ```

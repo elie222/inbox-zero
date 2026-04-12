@@ -5,7 +5,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 
 const TIMEOUT = 30_000;
 
-// Run with: pnpm test-ai ai-persona
+// Run with: pnpm test-ai ai-regression/ai-persona
 
 vi.mock("server-only", () => ({}));
 

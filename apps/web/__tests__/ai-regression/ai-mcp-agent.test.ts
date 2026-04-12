@@ -5,7 +5,7 @@ import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getEmailAccount, getEmail } from "@/__tests__/helpers";
 
-// Run with: pnpm test-ai ai-mcp-agent
+// Run with: pnpm test-ai ai-regression/ai-mcp-agent
 
 vi.mock("server-only", () => ({}));
 

@@ -7,7 +7,7 @@ const TIMEOUT = 15_000;
 
 type EmailAccountForDigest = EmailAccountWithAI & { name: string | null };
 
-// Run with: pnpm test-ai ai-summarize-email-for-digest
+// Run with: pnpm test-ai ai-regression/ai-summarize-email-for-digest
 
 vi.mock("server-only", () => ({}));
 

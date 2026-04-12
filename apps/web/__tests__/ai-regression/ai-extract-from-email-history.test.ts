@@ -4,7 +4,7 @@ import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-ema
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 
-// pnpm test-ai extract-from-email-history
+// Run with: pnpm test-ai ai-regression/ai-extract-from-email-history
 
 const TIMEOUT = 15_000;
 const logger = createTestLogger();
