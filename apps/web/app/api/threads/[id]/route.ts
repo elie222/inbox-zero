@@ -32,7 +32,6 @@ export const GET = withEmailProvider(
   "threads/detail",
   async (request, context) => {
     const { emailProvider } = request;
-    const { emailAccountId } = request.auth;
 
     const params = await context.params;
     const { id } = threadQuery.parse(params);
@@ -40,19 +39,7 @@ export const GET = withEmailProvider(
     const { searchParams } = new URL(request.url);
     const includeDrafts = searchParams.get("includeDrafts") === "true";
 
-    try {
-      const thread = await getThread(id, includeDrafts, emailProvider);
-      return NextResponse.json(thread);
-    } catch (error) {
-      request.logger.error("Error fetching thread", {
-        error,
-        emailAccountId,
-        threadId: id,
-      });
-      return NextResponse.json(
-        { error: "Failed to fetch thread" },
-        { status: 500 },
-      );
-    }
+    const thread = await getThread(id, includeDrafts, emailProvider);
+    return NextResponse.json(thread);
   },
 );
