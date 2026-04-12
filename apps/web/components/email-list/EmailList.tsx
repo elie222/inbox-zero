@@ -4,7 +4,7 @@ import { useCallback, useRef, useState, useMemo } from "react";
 import { useQueryState } from "nuqs";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ChevronsDownIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronsDownIcon } from "lucide-react";
 import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
@@ -340,7 +340,6 @@ export function EmailList({
           .map(([id]) => threads.find((t) => t.id === id)!);
 
         runAiRules(emailAccountId, selectedThreads, false);
-        // runAiRules(threadIds, () => refetch(threadIds));
       },
       {
         success: "Running AI rules...",
@@ -349,7 +348,72 @@ export function EmailList({
     );
   }, [emailAccountId, selectedRows, threads]);
 
+  const isMobile = useIsMobile();
   const isEmpty = threads.length === 0;
+
+  const listContent = (
+    <ul
+      className="divide-y divide-border overflow-y-auto scroll-smooth"
+      ref={listRef}
+    >
+      {threads.map((thread) => {
+        const onOpen = () => {
+          const alreadyOpen = !!openThreadId;
+          setOpenThreadId(thread.id);
+
+          if (!alreadyOpen) scrollToId(thread.id);
+
+          markReadThreads({
+            threadIds: [thread.id],
+            onSuccess: () => refetch(),
+            emailAccountId,
+          });
+        };
+
+        return (
+          <EmailListItem
+            key={thread.id}
+            ref={(node) => {
+              const map = getMap();
+              if (node) {
+                map.set(thread.id, node);
+              } else {
+                map.delete(thread.id);
+              }
+            }}
+            userEmail={userEmail}
+            provider={provider}
+            thread={thread}
+            opened={openThreadId === thread.id}
+            closePanel={closePanel}
+            selected={selectedRows[thread.id]}
+            onSelected={onSetSelectedRow}
+            splitView={!!openThreadId}
+            onClick={onOpen}
+            onPlanAiAction={onPlanAiAction}
+            onArchive={onArchive}
+            refetch={refetch}
+          />
+        );
+      })}
+      {showLoadMore && (
+        <Button
+          variant="outline"
+          className="mb-2 w-full"
+          size={"sm"}
+          onClick={handleLoadMore}
+          disabled={isLoadingMore}
+        >
+          {isLoadingMore ? (
+            <ButtonLoader />
+          ) : (
+            <ChevronsDownIcon className="mr-2 h-4 w-4" />
+          )}
+          <span>Load more</span>
+        </Button>
+      )}
+    </ul>
+  );
 
   return (
     <>
@@ -368,27 +432,6 @@ export function EmailList({
               onDelete={onTrashBulk}
             />
           </div>
-          {/* <div className="ml-auto gap-1 flex items-center">
-            <Button variant="ghost" size='icon'>
-              <ChevronLeftIcon className='h-4 w-4' />
-            </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost">Today</Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem>All</DropdownMenuItem>
-                <DropdownMenuItem>Today</DropdownMenuItem>
-                <DropdownMenuItem>Yesterday</DropdownMenuItem>
-                <DropdownMenuItem>Last week</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button variant="ghost" size='icon'>
-              <ChevronRightIcon className='h-4 w-4' />
-            </Button>
-          </div> */}
         </div>
       )}
 
@@ -402,73 +445,7 @@ export function EmailList({
         </div>
       ) : (
         <ResizeGroup
-          left={
-            <ul
-              className="divide-y divide-border overflow-y-auto scroll-smooth"
-              ref={listRef}
-            >
-              {threads.map((thread) => {
-                const onOpen = () => {
-                  const alreadyOpen = !!openThreadId;
-                  setOpenThreadId(thread.id);
-
-                  if (!alreadyOpen) scrollToId(thread.id);
-
-                  markReadThreads({
-                    threadIds: [thread.id],
-                    onSuccess: () => refetch(),
-                    emailAccountId,
-                  });
-                };
-
-                return (
-                  <EmailListItem
-                    key={thread.id}
-                    ref={(node) => {
-                      const map = getMap();
-                      if (node) {
-                        map.set(thread.id, node);
-                      } else {
-                        map.delete(thread.id);
-                      }
-                    }}
-                    userEmail={userEmail}
-                    provider={provider}
-                    thread={thread}
-                    opened={openThreadId === thread.id}
-                    closePanel={closePanel}
-                    selected={selectedRows[thread.id]}
-                    onSelected={onSetSelectedRow}
-                    splitView={!!openThreadId}
-                    onClick={onOpen}
-                    onPlanAiAction={onPlanAiAction}
-                    onArchive={onArchive}
-                    refetch={refetch}
-                  />
-                );
-              })}
-              {showLoadMore && (
-                <Button
-                  variant="outline"
-                  className="mb-2 w-full"
-                  size={"sm"}
-                  onClick={handleLoadMore}
-                  disabled={isLoadingMore}
-                >
-                  {
-                    <>
-                      {isLoadingMore ? (
-                        <ButtonLoader />
-                      ) : (
-                        <ChevronsDownIcon className="mr-2 h-4 w-4" />
-                      )}
-                      <span>Load more</span>
-                    </>
-                  }
-                </Button>
-              )}
-            </ul>
-          }
+          left={listContent}
           right={
             !!(openThreadId && openedRow) && (
               <EmailPanel
@@ -481,6 +458,8 @@ export function EmailList({
               />
             )
           }
+          onBack={closePanel}
+          isMobile={isMobile}
         />
       )}
     </>
@@ -490,16 +469,39 @@ export function EmailList({
 function ResizeGroup({
   left,
   right,
+  onBack,
+  isMobile,
 }: {
   left: React.ReactNode;
   right?: React.ReactNode;
+  onBack: () => void;
+  isMobile: boolean;
 }) {
-  const isMobile = useIsMobile();
-
   if (!right) return left;
 
+  // ── Mobile: full-screen detail with a Back button ──────────────────
+  if (isMobile) {
+    return (
+      <div className="flex h-full flex-col overflow-hidden">
+        <div className="flex shrink-0 items-center border-b border-border px-2 py-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            className="flex items-center gap-1"
+          >
+            <ChevronLeftIcon className="h-4 w-4" />
+            Back
+          </Button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto">{right}</div>
+      </div>
+    );
+  }
+
+  // ── Desktop: original side-by-side split view ──────────────────────
   return (
-    <ResizablePanelGroup direction={isMobile ? "vertical" : "horizontal"}>
+    <ResizablePanelGroup direction="horizontal">
       <ResizablePanel style={{ overflow: "auto" }} defaultSize={50} minSize={0}>
         {left}
       </ResizablePanel>
