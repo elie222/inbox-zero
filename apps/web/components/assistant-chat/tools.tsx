@@ -93,20 +93,34 @@ function CollapsibleToolCard({
   description,
   children,
   initialOpen = false,
+  compactWhenClosed = false,
 }: {
   title: React.ReactNode;
   badge?: React.ReactNode;
   description?: React.ReactNode;
   children: React.ReactNode;
   initialOpen?: boolean;
+  compactWhenClosed?: boolean;
 }) {
   const [open, setOpen] = useState(initialOpen);
+  const useCompactClosedState = compactWhenClosed && !open;
 
   return (
-    <Card className="overflow-hidden">
+    <Card
+      className={cn(
+        "overflow-hidden transition-all",
+        useCompactClosedState && "border-0 bg-transparent shadow-none",
+      )}
+    >
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger className="w-full text-left">
-          <CardHeader className={cn("px-4 py-3.5", open && "border-b")}>
+          <CardHeader
+            className={cn(
+              "px-4 py-3.5",
+              open && "border-b",
+              useCompactClosedState && "px-0 py-2.5",
+            )}
+          >
             <div className="flex items-center gap-3">
               <ChevronRightIcon
                 className={cn(
@@ -116,10 +130,17 @@ function CollapsibleToolCard({
               />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-sm font-medium leading-snug">{title}</h3>
+                  <h3
+                    className={cn(
+                      "text-sm font-medium leading-snug",
+                      useCompactClosedState && "text-muted-foreground",
+                    )}
+                  >
+                    {title}
+                  </h3>
                   {badge}
                 </div>
-                {description && (
+                {description && !useCompactClosedState && (
                   <div className="mt-1 text-xs text-muted-foreground">
                     {description}
                   </div>
@@ -153,7 +174,7 @@ export function SearchInboxResult({ output }: { output: unknown }) {
   >(output, "messages");
 
   return (
-    <CollapsibleToolCard title="Search Inbox">
+    <CollapsibleToolCard title="Search Inbox" compactWhenClosed>
       {queryUsed && (
         <ToolDetailRow
           label="Query"
