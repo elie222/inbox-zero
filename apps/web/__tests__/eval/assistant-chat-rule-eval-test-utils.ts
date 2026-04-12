@@ -99,6 +99,7 @@ export function configureRuleEvalPrisma({
     if (select?.rules) {
       return {
         about,
+        rulesRevision: 1,
         rules: ruleRows,
       };
     }

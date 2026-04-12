@@ -25,7 +25,7 @@ import {
 } from "@/utils/senders/unsubscribe";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
-const emptyInputSchema = z.object({}).describe("No parameters required");
+const emptyInputSchema = z.object({});
 const recipientListSchema = z
   .string()
   .trim()
@@ -55,8 +55,12 @@ const recipientFieldsSchema = {
 const sendEmailToolInputSchema = z
   .object({
     ...recipientFieldsSchema,
-    subject: z.string().trim().min(1).max(300),
-    messageHtml: z.string().trim().min(1),
+    subject: z.string().trim().min(1).max(300).describe("Email subject line."),
+    messageHtml: z
+      .string()
+      .trim()
+      .min(1)
+      .describe("HTML body content for the email draft."),
   })
   .strict();
 const replyEmailToolInputSchema = z
@@ -68,14 +72,30 @@ const replyEmailToolInputSchema = z
       .describe(
         "Message ID to reply to. Use a messageId returned by searchInbox.",
       ),
-    content: z.string().trim().min(1).max(10_000),
+    content: z
+      .string()
+      .trim()
+      .min(1)
+      .max(10_000)
+      .describe("Reply body content to include in the draft."),
   })
   .strict();
 const forwardEmailToolInputSchema = z
   .object({
-    messageId: z.string().trim().min(1),
+    messageId: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(
+        "Message ID to forward. Use a messageId returned by searchInbox.",
+      ),
     ...recipientFieldsSchema,
-    content: z.string().trim().max(5000).nullish(),
+    content: z
+      .string()
+      .trim()
+      .max(5000)
+      .nullish()
+      .describe("Optional note to add above the forwarded message."),
   })
   .strict();
 
@@ -92,7 +112,7 @@ export const getAccountOverviewTool = ({
 }) =>
   tool({
     description:
-      "Get account context for inbox operations: provider, labels, meeting briefs settings, and auto-filing attachment settings.",
+      "Get account context for inbox operations such as provider details, label availability, meeting-brief settings, and attachment-filing settings.",
     inputSchema: emptyInputSchema,
     execute: async () => {
       trackToolCall({ tool: "get_account_overview", email, logger });
@@ -284,7 +304,7 @@ export const readEmailTool = ({
 }) =>
   tool({
     description:
-      "Read the content of an email by message ID (up to 4000 characters, HTML converted to plain text). Use after searchInbox when you need more than the snippet.",
+      "Read the full content of an email by message ID, up to 4000 characters with HTML converted to plain text.",
     inputSchema: readEmailInputSchema,
     execute: async ({ messageId }) => {
       trackToolCall({ tool: "read_email", email, logger });
@@ -363,8 +383,33 @@ export const readAttachmentTool = ({
       trackToolCall({ tool: "read_attachment", email, logger });
 
       try {
-        const resolvedMimeType = inputMimeType ?? "application/octet-stream";
-        const resolvedFilename = inputFilename ?? "unknown";
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+
+        let resolvedMimeType = inputMimeType;
+        let resolvedFilename = inputFilename;
+
+        if (!resolvedMimeType || !resolvedFilename) {
+          try {
+            const message = await emailProvider.getMessage(messageId);
+            const matchedAttachment = message.attachments?.find(
+              (attachment) => attachment.attachmentId === attachmentId,
+            );
+
+            resolvedMimeType ??= matchedAttachment?.mimeType ?? undefined;
+            resolvedFilename ??= matchedAttachment?.filename ?? undefined;
+          } catch (error) {
+            logger.warn("Failed to load attachment metadata from message", {
+              error,
+            });
+          }
+        }
+
+        resolvedMimeType ??= "application/octet-stream";
+        resolvedFilename ??= "unknown";
 
         if (!isExtractableMimeType(resolvedMimeType)) {
           return {
@@ -375,12 +420,6 @@ export const readAttachmentTool = ({
               "This attachment type cannot be read as text. Only PDF, DOCX, plain text, CSV, and HTML are supported.",
           };
         }
-
-        const emailProvider = await createEmailProvider({
-          emailAccountId,
-          provider,
-          logger,
-        });
 
         const attachment = await emailProvider.getAttachment(
           messageId,
@@ -444,11 +483,15 @@ function getManageInboxLabelDescription(provider: string) {
 
 function manageInboxInputSchema(provider: string) {
   return z.object({
-    action: z.enum(manageInboxActions).describe("Inbox action to run."),
+    action: z
+      .enum(manageInboxActions)
+      .describe(
+        "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. label_threads: apply a label (requires labelName). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
+      ),
     threadIds: threadIdsSchema
       .nullish()
       .describe(
-        "Thread IDs to archive, label, or mark read/unread. Use IDs from searchInbox results or explicit thread IDs the user already provided.",
+        "Required for archive_threads, trash_threads, label_threads, and mark_read_threads. Use IDs from searchInbox results or thread IDs the user already provided.",
       ),
     label: z
       .string()
@@ -470,7 +513,9 @@ function manageInboxInputSchema(provider: string) {
       .describe("For mark_read_threads: true for read, false for unread."),
     fromEmails: senderEmailsSchema
       .nullish()
-      .describe("Sender email addresses to bulk archive or unsubscribe."),
+      .describe(
+        "Required for bulk_archive_senders and unsubscribe_senders. Sender email addresses to act on.",
+      ),
   });
 }
 
@@ -488,8 +533,7 @@ export const manageInboxTool = ({
   const inputSchema = manageInboxInputSchema(provider);
 
   return tool({
-    description:
-      "Run inbox actions: archive threads, trash/delete threads, label threads, mark threads read/unread, bulk archive by sender, or unsubscribe senders. Trash moves emails to the trash folder.",
+    description: "Run inbox actions on threads or senders.",
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });
@@ -700,139 +744,6 @@ export const manageInboxTool = ({
 
 export type ManageInboxTool = InferUITool<ReturnType<typeof manageInboxTool>>;
 
-const updateInboxFeaturesInputSchema = z
-  .object({
-    meetingBriefsEnabled: z
-      .boolean()
-      .nullish()
-      .describe("Enable or disable meeting briefs."),
-    meetingBriefsMinutesBefore: z
-      .number()
-      .int()
-      .min(1)
-      .max(2880)
-      .nullish()
-      .describe(
-        "Minutes before a meeting to send a brief (1-2880). Applies when meeting briefs are enabled.",
-      ),
-    meetingBriefsSendEmail: z
-      .boolean()
-      .nullish()
-      .describe("Enable or disable email delivery for meeting briefs."),
-    filingEnabled: z
-      .boolean()
-      .nullish()
-      .describe("Enable or disable auto-file attachments."),
-    filingPrompt: z
-      .string()
-      .max(6000)
-      .nullish()
-      .nullable()
-      .describe(
-        "Custom filing instructions. Set null to clear existing instructions.",
-      ),
-  })
-  .refine(
-    (value) =>
-      value.meetingBriefsEnabled !== undefined ||
-      value.meetingBriefsMinutesBefore !== undefined ||
-      value.meetingBriefsSendEmail !== undefined ||
-      value.filingEnabled !== undefined ||
-      value.filingPrompt !== undefined,
-    { message: "At least one field must be provided." },
-  );
-
-export const updateInboxFeaturesTool = ({
-  email,
-  emailAccountId,
-  logger,
-}: {
-  email: string;
-  emailAccountId: string;
-  logger: Logger;
-}) =>
-  tool({
-    description:
-      "Update account-level inbox features, including meeting briefs and auto-file attachments.",
-    inputSchema: updateInboxFeaturesInputSchema,
-    execute: async ({
-      meetingBriefsEnabled,
-      meetingBriefsMinutesBefore,
-      meetingBriefsSendEmail,
-      filingEnabled,
-      filingPrompt,
-    }) => {
-      trackToolCall({ tool: "update_inbox_features", email, logger });
-      try {
-        const existing = await prisma.emailAccount.findUnique({
-          where: { id: emailAccountId },
-          select: {
-            meetingBriefingsEnabled: true,
-            meetingBriefingsMinutesBefore: true,
-            meetingBriefsSendEmail: true,
-            filingEnabled: true,
-            filingPrompt: true,
-          },
-        });
-
-        if (!existing) return { error: "Email account not found" };
-
-        await prisma.emailAccount.update({
-          where: { id: emailAccountId },
-          data: {
-            ...(meetingBriefsEnabled != null && {
-              meetingBriefingsEnabled: meetingBriefsEnabled,
-            }),
-            ...(meetingBriefsMinutesBefore != null && {
-              meetingBriefingsMinutesBefore: meetingBriefsMinutesBefore,
-            }),
-            ...(meetingBriefsSendEmail != null && {
-              meetingBriefsSendEmail,
-            }),
-            ...(filingEnabled != null && {
-              filingEnabled,
-            }),
-            ...(filingPrompt !== undefined && {
-              filingPrompt,
-            }),
-          },
-        });
-
-        return {
-          success: true,
-          previous: {
-            meetingBriefsEnabled: existing.meetingBriefingsEnabled,
-            meetingBriefsMinutesBefore: existing.meetingBriefingsMinutesBefore,
-            meetingBriefsSendEmail: existing.meetingBriefsSendEmail,
-            filingEnabled: existing.filingEnabled,
-            filingPrompt: existing.filingPrompt,
-          },
-          updated: {
-            meetingBriefsEnabled:
-              meetingBriefsEnabled ?? existing.meetingBriefingsEnabled,
-            meetingBriefsMinutesBefore:
-              meetingBriefsMinutesBefore ??
-              existing.meetingBriefingsMinutesBefore,
-            meetingBriefsSendEmail:
-              meetingBriefsSendEmail ?? existing.meetingBriefsSendEmail,
-            filingEnabled: filingEnabled ?? existing.filingEnabled,
-            filingPrompt:
-              filingPrompt !== undefined ? filingPrompt : existing.filingPrompt,
-          },
-        };
-      } catch (error) {
-        logger.error("Failed to update inbox features", { error });
-        return {
-          error: "Failed to update inbox features",
-        };
-      }
-    },
-  });
-
-export type UpdateInboxFeaturesTool = InferUITool<
-  ReturnType<typeof updateInboxFeaturesTool>
->;
-
 export const sendEmailTool = ({
   email,
   emailAccountId,
@@ -846,7 +757,7 @@ export const sendEmailTool = ({
 }) =>
   tool({
     description:
-      "Prepare a new email to send. This does NOT send immediately. It returns a confirmation payload that must be approved by the user in the UI.",
+      "Prepare a new email to send. This does NOT send immediately — it returns a confirmation payload for the user to approve.",
     inputSchema: sendEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "send_email", email, logger });
@@ -889,7 +800,7 @@ export const replyEmailTool = ({
 }) =>
   tool({
     description:
-      "Prepare a reply to an existing email by message ID. This does NOT send immediately. It returns a confirmation payload that must be approved by the user in the UI.",
+      "Prepare a reply to an existing email by message ID. This does NOT send immediately — it returns a confirmation payload for the user to approve. Do not recreate replies with sendEmail.",
     inputSchema: replyEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "reply_email", email, logger });
@@ -932,7 +843,7 @@ export const forwardEmailTool = ({
 }) =>
   tool({
     description:
-      "Prepare a forward for an existing email by message ID. This does NOT send immediately. It returns a confirmation payload that must be approved by the user in the UI.",
+      "Prepare a forward for an existing email by message ID. This does NOT send immediately — it returns a confirmation payload for the user to approve. Do not recreate forwards with sendEmail.",
     inputSchema: forwardEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "forward_email", email, logger });

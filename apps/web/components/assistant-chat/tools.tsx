@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { useQueryState } from "nuqs";
+import type { AddToKnowledgeBaseTool } from "@/utils/ai/assistant/tools/rules/add-to-knowledge-base-tool";
+import type { CreateRuleTool } from "@/utils/ai/assistant/tools/rules/create-rule-tool";
+import type { UpdatePersonalInstructionsTool } from "@/utils/ai/assistant/tools/rules/update-personal-instructions-tool";
+import type { UpdateLearnedPatternsTool } from "@/utils/ai/assistant/tools/rules/update-learned-patterns-tool";
 import type {
-  UpdateRuleConditionsTool,
-  UpdateRuleConditionsOutput,
-  UpdateRuleActionsTool,
   UpdateRuleActionsOutput,
-  UpdateLearnedPatternsTool,
-  UpdatePersonalInstructionsTool,
-  AddToKnowledgeBaseTool,
-  CreateRuleTool,
-  ManageInboxTool,
-} from "@/utils/ai/assistant/chat";
+  UpdateRuleActionsTool,
+} from "@/utils/ai/assistant/tools/rules/update-rule-actions-tool";
+import type {
+  UpdateRuleConditionsOutput,
+  UpdateRuleConditionsTool,
+} from "@/utils/ai/assistant/tools/rules/update-rule-conditions-tool";
+import type { ManageInboxTool } from "@/utils/ai/assistant/chat-inbox-tools";
 import { cn } from "@/utils";
 import { isDefined } from "@/utils/types";
 import {
@@ -39,6 +41,7 @@ import { Tooltip } from "@/components/Tooltip";
 import {
   confirmAssistantCreateRule,
   confirmAssistantEmailAction,
+  confirmAssistantSaveMemory,
 } from "@/utils/actions/assistant-chat";
 import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
 import { useAction } from "next-safe-action/hooks";
@@ -830,6 +833,142 @@ export function PendingCreateRulePreviewCard({
   );
 }
 
+export function PendingSaveMemoryToolCard({
+  output,
+  chatMessageId,
+  toolCallId,
+  disableConfirm,
+}: {
+  output: unknown;
+  chatMessageId: string;
+  toolCallId: string;
+  disableConfirm: boolean;
+}) {
+  const { emailAccountId } = useAccount();
+  const { chatId } = useChat();
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [confirmedAtOverride, setConfirmedAtOverride] = useState<string | null>(
+    null,
+  );
+  const [deduplicatedOverride, setDeduplicatedOverride] = useState<
+    boolean | null
+  >(null);
+
+  const content = getOutputField<string>(output, "content") || "";
+  const reason = getOutputField<string>(output, "reason");
+  const requiresConfirmation =
+    getOutputField<boolean>(output, "requiresConfirmation") === true;
+  const confirmationState =
+    getOutputField<string>(output, "confirmationState") || "pending";
+  const confirmationResult = getOutputField<Record<string, unknown>>(
+    output,
+    "confirmationResult",
+  );
+  const isProcessing = confirmationState === "processing";
+  const confirmedAt =
+    confirmedAtOverride ||
+    (typeof confirmationResult?.confirmedAt === "string"
+      ? confirmationResult.confirmedAt
+      : null);
+  const deduplicated =
+    deduplicatedOverride ??
+    (typeof confirmationResult?.deduplicated === "boolean"
+      ? confirmationResult.deduplicated
+      : false);
+  const isConfirmed = confirmationState === "confirmed" || Boolean(confirmedAt);
+
+  const handleConfirm = async () => {
+    setIsConfirming(true);
+    try {
+      if (!chatId) {
+        toastError({ description: "Could not save this memory." });
+        return;
+      }
+
+      const input = { chatId, chatMessageId, toolCallId };
+      const result = await confirmAssistantSaveMemory(emailAccountId, input);
+
+      if (result?.serverError) {
+        toastError({ description: result.serverError });
+        return;
+      }
+
+      const confirmationResult = result?.data?.confirmationResult;
+      if (!confirmationResult?.confirmedAt) {
+        toastError({ description: "Could not save this memory." });
+        return;
+      }
+
+      setConfirmedAtOverride(confirmationResult.confirmedAt);
+      setDeduplicatedOverride(Boolean(confirmationResult.deduplicated));
+      toastSuccess({
+        description: confirmationResult.deduplicated
+          ? "Memory was already saved."
+          : "Memory saved.",
+      });
+    } catch {
+      toastError({ description: "Could not save this memory." });
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="px-4 py-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-medium">Save memory</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {isConfirmed
+                ? deduplicated
+                  ? "Already saved in memory"
+                  : "Saved for future conversations"
+                : "Pending confirmation"}
+            </p>
+          </div>
+          {confirmedAt && (
+            <Badge color={deduplicated ? "gray" : "green"} className="text-xs">
+              {deduplicated ? "Already saved" : "Saved"}
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-3 px-4 py-3.5">
+        <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+          {content}
+        </div>
+        {reason && !isConfirmed && (
+          <p className="text-xs text-muted-foreground">{reason}</p>
+        )}
+      </CardContent>
+
+      {!isConfirmed && requiresConfirmation && (
+        <CardFooter className="justify-end border-t px-4 py-3">
+          <Button
+            onClick={handleConfirm}
+            disabled={disableConfirm || isConfirming || isProcessing}
+            size="sm"
+            className="gap-2"
+          >
+            {isProcessing ? (
+              "Saving..."
+            ) : isConfirming ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Confirm save"
+            )}
+          </Button>
+        </CardFooter>
+      )}
+    </Card>
+  );
+}
+
 function PendingCreateRuleCardContent({
   args,
   disableConfirm,
@@ -1078,7 +1217,9 @@ export function UpdatePersonalInstructions({
 }) {
   return (
     <ExpandedToolCard title="Updated Personal Instructions">
-      <ToolPanel className="text-sm leading-relaxed">{args.about}</ToolPanel>
+      <ToolPanel className="text-sm leading-relaxed">
+        {args.personalInstructions}
+      </ToolPanel>
     </ExpandedToolCard>
   );
 }

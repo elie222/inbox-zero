@@ -30,88 +30,53 @@ type EvalScenario = {
   title: string;
   reportName: string;
   prompt: string;
-  expectation:
-    | {
-        kind: "activate_then_use";
-        expectedCapabilities: string[];
-        expectedFollowUpTool: string;
-      }
-    | {
-        kind: "core_tool_no_activation";
-        expectedTool: string;
-      };
+  expectedTool: string;
   timeout?: number;
 };
 
 const scenarios: EvalScenario[] = [
   {
-    title: "activates labels capability before listing labels",
-    reportName: "list labels activates labels capability",
+    title: "calls listLabels for label listing requests",
+    reportName: "list labels calls listLabels",
     prompt: "List my labels",
-    expectation: {
-      kind: "activate_then_use",
-      expectedCapabilities: ["labels"],
-      expectedFollowUpTool: "listLabels",
-    },
+    expectedTool: "listLabels",
   },
   {
-    title: "activates knowledge capability before adding to knowledge base",
-    reportName: "save to knowledge base activates knowledge capability",
+    title: "calls addToKnowledgeBase for knowledge base requests",
+    reportName: "save to knowledge base calls addToKnowledgeBase",
     prompt: "Save this to my knowledge base: always reply with bullet points",
-    expectation: {
-      kind: "activate_then_use",
-      expectedCapabilities: ["knowledge"],
-      expectedFollowUpTool: "addToKnowledgeBase",
-    },
+    expectedTool: "addToKnowledgeBase",
   },
   {
-    title: "activates memory capability before saving memory",
-    reportName: "remember preference activates memory capability",
+    title: "calls saveMemory for remember requests",
+    reportName: "remember preference calls saveMemory",
     prompt: "Remember that I prefer morning summaries",
-    expectation: {
-      kind: "activate_then_use",
-      expectedCapabilities: ["memory"],
-      expectedFollowUpTool: "saveMemory",
-    },
+    expectedTool: "saveMemory",
     timeout: 120_000,
   },
   {
-    title: "activates settings capability for feature toggle",
-    reportName: "toggle setting activates settings capability",
+    title: "calls updateAssistantSettings for feature toggle",
+    reportName: "toggle setting calls updateAssistantSettings",
     prompt: "Turn on auto-file attachments",
-    expectation: {
-      kind: "activate_then_use",
-      expectedCapabilities: ["settings"],
-      expectedFollowUpTool: "updateAssistantSettings",
-    },
+    expectedTool: "updateAssistantSettings",
   },
   {
-    title: "activates calendar capability before fetching events",
-    reportName: "calendar query activates calendar capability",
+    title: "calls getCalendarEvents for calendar queries",
+    reportName: "calendar query calls getCalendarEvents",
     prompt: "What's on my calendar tomorrow?",
-    expectation: {
-      kind: "activate_then_use",
-      expectedCapabilities: ["calendar"],
-      expectedFollowUpTool: "getCalendarEvents",
-    },
+    expectedTool: "getCalendarEvents",
   },
   {
-    title: "does not need activateTools for core inbox management",
-    reportName: "archive emails uses core tool without activation",
+    title: "calls manageInbox for archive requests",
+    reportName: "archive emails calls manageInbox",
     prompt: "Archive emails from newsletters@example.com",
-    expectation: {
-      kind: "core_tool_no_activation",
-      expectedTool: "manageInbox",
-    },
+    expectedTool: "manageInbox",
   },
   {
-    title: "does not need activateTools for core search",
-    reportName: "search inbox uses core tool without activation",
+    title: "calls searchInbox for search requests",
+    reportName: "search inbox calls searchInbox",
     prompt: "Search my inbox for emails from John",
-    expectation: {
-      kind: "core_tool_no_activation",
-      expectedTool: "searchInbox",
-    },
+    expectedTool: "searchInbox",
   },
 ];
 
@@ -254,7 +219,7 @@ describe.runIf(shouldRunEval)(
 
               const pass = evaluateScenario(
                 result.toolCalls,
-                scenario.expectation,
+                scenario.expectedTool,
               );
 
               evalReporter.record({
@@ -299,62 +264,11 @@ async function runAssistantChat({
 
 function evaluateScenario(
   toolCalls: RecordedToolCall[],
-  expectation: EvalScenario["expectation"],
+  expectedTool: string,
 ): boolean {
-  switch (expectation.kind) {
-    case "activate_then_use": {
-      const activateIndex = toolCalls.findIndex(
-        (tc) =>
-          tc.toolName === "activateTools" &&
-          isActivateToolsInput(tc.input) &&
-          expectation.expectedCapabilities.every((cap) =>
-            (tc.input as ActivateToolsInput).capabilities.includes(cap),
-          ),
-      );
-
-      if (activateIndex < 0) return false;
-
-      const followUpIndex = toolCalls.findIndex(
-        (tc, i) =>
-          i > activateIndex && tc.toolName === expectation.expectedFollowUpTool,
-      );
-
-      return followUpIndex > activateIndex;
-    }
-
-    case "core_tool_no_activation": {
-      const hasActivateCall = toolCalls.some(
-        (tc) => tc.toolName === "activateTools",
-      );
-      const hasCoreToolCall = toolCalls.some(
-        (tc) => tc.toolName === expectation.expectedTool,
-      );
-
-      return !hasActivateCall && hasCoreToolCall;
-    }
-  }
-}
-
-type ActivateToolsInput = {
-  capabilities: string[];
-};
-
-function isActivateToolsInput(input: unknown): input is ActivateToolsInput {
-  if (!input || typeof input !== "object") return false;
-  const value = input as { capabilities?: unknown };
-  return (
-    Array.isArray(value.capabilities) &&
-    value.capabilities.every((c: unknown) => typeof c === "string")
-  );
+  return toolCalls.some((tc) => tc.toolName === expectedTool);
 }
 
 function summarizeToolCall(toolCall: RecordedToolCall) {
-  if (
-    toolCall.toolName === "activateTools" &&
-    isActivateToolsInput(toolCall.input)
-  ) {
-    return `activateTools([${toolCall.input.capabilities.join(", ")}])`;
-  }
-
   return toolCall.toolName;
 }

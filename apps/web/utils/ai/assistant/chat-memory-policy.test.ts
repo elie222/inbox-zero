@@ -54,4 +54,20 @@ describe("chat-memory-policy", () => {
     expect(result.pass).toBe(false);
     expect(result.reason).toContain("same user chat message");
   });
+
+  it("rejects generic wrapper phrasing without a specific restated detail", () => {
+    const result = validateUserMemoryEvidence({
+      content: "Remember that.",
+      userEvidence: "Remember that.",
+      conversationMessages: [
+        {
+          role: "user",
+          content: "Remember that.",
+        },
+      ],
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.reason).toContain("specific fact or preference");
+  });
 });

@@ -32,8 +32,7 @@ export const getCalendarEventsTool = ({
   logger: Logger;
 }) =>
   tool({
-    description:
-      "Fetch calendar events for a date range. Use this when the user asks about their schedule, meetings, or calendar.",
+    description: "Fetch calendar events for a date range.",
     inputSchema: getCalendarEventsInputSchema,
     execute: async ({ startDate, endDate, maxResults }) => {
       trackToolCall({ tool: "get_calendar_events", email, logger });
