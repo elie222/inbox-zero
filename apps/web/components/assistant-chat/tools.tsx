@@ -275,7 +275,9 @@ export function ManageInboxResult({
       )}
 
       {resolvedThreads && resolvedThreads.length > 0 && (
-        <ToolEmailRows emails={resolvedThreads} />
+        <div className="-mx-4">
+          <ToolEmailRows emails={resolvedThreads} />
+        </div>
       )}
 
       {senders && senders.length > 0 && (
@@ -1859,7 +1861,7 @@ function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
 
   return (
     <EmailLookupProvider value={lookup}>
-      <div className="overflow-hidden rounded-md border bg-background">
+      <div className="overflow-hidden">
         {uniqueEmails.map((email) => (
           <InlineEmailCard
             key={email.threadId}
