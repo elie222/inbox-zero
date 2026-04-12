@@ -680,10 +680,7 @@ describe("chat settings tools", () => {
     expect(prisma.emailAccount.update).not.toHaveBeenCalled();
   });
 
-  it("ignores compat changes with null values for non-nullable paths", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
-    prisma.emailAccount.update.mockResolvedValue({});
-
+  it("rejects compat changes with null values for non-nullable paths", async () => {
     const toolInstance = updateAssistantSettingsCompatTool({
       email: "user@example.com",
       emailAccountId: "email-account-1",
@@ -704,14 +701,9 @@ describe("chat settings tools", () => {
       ],
     });
 
-    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
-      where: { id: "email-account-1" },
-      data: {
-        multiRuleSelectionEnabled: true,
-      },
-    });
+    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
     expect(result).toMatchObject({
-      success: true,
+      error: expect.stringContaining("cannot be set to null"),
     });
   });
 });

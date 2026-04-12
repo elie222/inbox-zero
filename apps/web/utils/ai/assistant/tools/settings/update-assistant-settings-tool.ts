@@ -61,18 +61,23 @@ export const updateAssistantSettingsCompatTool = ({
         logger,
       });
 
-      const normalizedChanges = changes.flatMap((change) => {
-        if (change.value === null && !isNullableSettingsPath(change.path)) {
-          return [];
-        }
+      const nonNullablePaths = changes
+        .filter(
+          (change) =>
+            change.value === null && !isNullableSettingsPath(change.path),
+        )
+        .map((change) => change.path);
 
-        return [
-          {
-            ...change,
-            mode: change.mode ?? undefined,
-          },
-        ];
-      });
+      if (nonNullablePaths.length > 0) {
+        return {
+          error: `These settings cannot be set to null: ${nonNullablePaths.join(", ")}. Provide a valid value instead.`,
+        };
+      }
+
+      const normalizedChanges = changes.map((change) => ({
+        ...change,
+        mode: change.mode ?? undefined,
+      }));
       const parsedInput = updateAssistantSettingsInputSchema.safeParse({
         changes: normalizedChanges,
       });

@@ -666,33 +666,33 @@ export async function executeUpdateAssistantSettings({
       });
     }
 
-    await Promise.all(
-      knowledgeOperations.map((operation) =>
-        operation.type === "upsert"
-          ? prisma.knowledge.upsert({
-              where: {
-                emailAccountId_title: {
-                  emailAccountId,
-                  title: operation.title,
-                },
-              },
-              create: {
-                emailAccountId,
-                title: operation.title,
-                content: operation.content,
-              },
-              update: {
-                content: operation.content,
-              },
-            })
-          : prisma.knowledge.deleteMany({
-              where: {
-                emailAccountId,
-                title: operation.title,
-              },
-            }),
-      ),
-    );
+    for (const operation of knowledgeOperations) {
+      if (operation.type === "upsert") {
+        await prisma.knowledge.upsert({
+          where: {
+            emailAccountId_title: {
+              emailAccountId,
+              title: operation.title,
+            },
+          },
+          create: {
+            emailAccountId,
+            title: operation.title,
+            content: operation.content,
+          },
+          update: {
+            content: operation.content,
+          },
+        });
+      } else {
+        await prisma.knowledge.deleteMany({
+          where: {
+            emailAccountId,
+            title: operation.title,
+          },
+        });
+      }
+    }
 
     return {
       success: true,
