@@ -12,7 +12,7 @@ import { emptyInputSchema, trackRuleToolCall } from "./shared";
 
 type GetUserRulesAndSettingsOutput =
   | {
-      about: string;
+      personalInstructions: string;
       rules:
         | Array<{
             name: string;
@@ -78,7 +78,7 @@ export const getUserRulesAndSettingsTool = ({
         onRulesStateExposed?.(snapshot.rulesRevision);
 
         return {
-          about: snapshot.about,
+          personalInstructions: snapshot.about,
           rules: getVisibleRulesFromSnapshot(snapshot),
         };
       } catch (error) {

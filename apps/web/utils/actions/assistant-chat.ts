@@ -33,6 +33,8 @@ import { createRule } from "@/utils/rule/rule";
 
 const CONFIRMATION_IN_PROGRESS_ERROR =
   "Email action confirmation already in progress";
+const SAVE_MEMORY_CONFIRMATION_IN_PROGRESS_ERROR =
+  "Memory save confirmation already in progress";
 const CONFIRMATION_PROCESSING_LEASE_MS = 5 * 60 * 1000;
 const CONFIRMATION_PERSIST_MAX_ATTEMPTS = 3;
 const SENT_MESSAGE_RESOLVE_MAX_ATTEMPTS = 5;
@@ -1253,7 +1255,7 @@ async function reservePendingAssistantSaveMemory({
     lookup.output.confirmationState === "processing" &&
     !hasProcessingLeaseExpired(lookup.output.confirmationProcessingAt)
   ) {
-    throw new SafeError(CONFIRMATION_IN_PROGRESS_ERROR);
+    throw new SafeError(SAVE_MEMORY_CONFIRMATION_IN_PROGRESS_ERROR);
   }
 
   const processingAt = new Date().toISOString();
@@ -1314,7 +1316,7 @@ async function reservePendingAssistantSaveMemory({
     };
   }
 
-  throw new SafeError(CONFIRMATION_IN_PROGRESS_ERROR);
+  throw new SafeError(SAVE_MEMORY_CONFIRMATION_IN_PROGRESS_ERROR);
 }
 
 async function reservePendingAssistantCreateRule({

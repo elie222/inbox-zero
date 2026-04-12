@@ -3,6 +3,7 @@ import type { Logger } from "@/utils/logger";
 import {
   executeUpdateAssistantSettings,
   getUpdateAssistantSettingsValidationError,
+  isNullableSettingsPath,
   trackSettingsToolCall,
   updateAssistantSettingsCompatInputSchema,
   updateAssistantSettingsInputSchema,
@@ -21,9 +22,9 @@ export const updateAssistantSettingsTool = ({
 }) =>
   tool({
     description:
-      "Update supported assistant settings using a structured patch. Each changes[] entry must specify a supported assistant.* path plus its value, and include mode only for fields that support append/replace behavior. Never use legacy top-level keys like meetingBriefsEnabled, attachmentFilingEnabled, or multiRuleSelectionEnabled. Meeting-brief email delivery maps to assistant.meetingBriefs.sendEmail.",
+      "Update supported assistant settings. This is the primary tool for writing account settings — always prefer this over updateAssistantSettingsCompat. Batch multiple setting changes into one call when possible. Supported categories: meeting briefs, attachment filing, multi-rule selection, scheduled check-ins, and draft knowledge base. For personal instruction changes, use the dedicated updatePersonalInstructions tool instead.",
     inputSchema: updateAssistantSettingsInputSchema,
-    execute: async ({ changes, dryRun }) => {
+    execute: async ({ changes }) => {
       trackSettingsToolCall({
         tool: "update_assistant_settings",
         email,
@@ -34,7 +35,6 @@ export const updateAssistantSettingsTool = ({
         userId,
         logger,
         changes,
-        dryRun,
       });
     },
   });
@@ -52,22 +52,29 @@ export const updateAssistantSettingsCompatTool = ({
 }) =>
   tool({
     description:
-      "Update supported assistant settings using a compact payload. Each changes[] entry must specify a supported assistant.* path plus its value, and include mode only for fields that support append/replace behavior. Never use legacy top-level keys like meetingBriefsEnabled, attachmentFilingEnabled, or multiRuleSelectionEnabled. Meeting-brief email delivery maps to assistant.meetingBriefs.sendEmail.",
+      "Fallback for updating assistant settings when updateAssistantSettings fails due to schema constraints. Do not use this as the first choice — always try updateAssistantSettings first.",
     inputSchema: updateAssistantSettingsCompatInputSchema,
-    execute: async ({ changes, dryRun }) => {
+    execute: async ({ changes }) => {
       trackSettingsToolCall({
         tool: "update_assistant_settings_compat",
         email,
         logger,
       });
 
-      const normalizedChanges = changes.map((c) => ({
-        ...c,
-        mode: c.mode ?? undefined,
-      }));
+      const normalizedChanges = changes.flatMap((change) => {
+        if (change.value === null && !isNullableSettingsPath(change.path)) {
+          return [];
+        }
+
+        return [
+          {
+            ...change,
+            mode: change.mode ?? undefined,
+          },
+        ];
+      });
       const parsedInput = updateAssistantSettingsInputSchema.safeParse({
         changes: normalizedChanges,
-        dryRun,
       });
       if (!parsedInput.success) {
         return {
@@ -80,7 +87,6 @@ export const updateAssistantSettingsCompatTool = ({
         userId,
         logger,
         changes: parsedInput.data.changes,
-        dryRun: parsedInput.data.dryRun,
       });
     },
   });

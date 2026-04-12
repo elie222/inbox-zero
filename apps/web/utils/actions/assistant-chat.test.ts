@@ -942,6 +942,35 @@ describe("confirmAssistantSaveMemory", () => {
       }),
     );
   });
+
+  it("returns a save-memory specific in-progress error", async () => {
+    (prisma.emailAccount.findUnique as any).mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    });
+
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildProcessingSaveMemoryPart()],
+    } as any);
+
+    const result = await confirmAssistantSaveMemory(
+      "ea_1" as any,
+      {
+        chatId: "chat-1",
+        chatMessageId: "chat-message-1",
+        toolCallId: "tool-1",
+      } as any,
+    );
+
+    expect(result?.serverError).toBe(
+      "Memory save confirmation already in progress",
+    );
+    expect(prisma.chatMessage.updateMany).not.toHaveBeenCalled();
+    expect(prisma.chatMemory.create).not.toHaveBeenCalled();
+  });
 });
 
 function buildPendingSendPart() {
@@ -1044,6 +1073,21 @@ function buildPendingSaveMemoryPart() {
       confirmationState: "pending",
       content: "Prefer formal replies with the standard confidential footer.",
       reason: "Confirmation required before saving inferred memory.",
+    },
+  };
+}
+
+function buildProcessingSaveMemoryPart({
+  processingAt = new Date().toISOString(),
+}: {
+  processingAt?: string;
+} = {}) {
+  return {
+    ...buildPendingSaveMemoryPart(),
+    output: {
+      ...buildPendingSaveMemoryPart().output,
+      confirmationState: "processing",
+      confirmationProcessingAt: processingAt,
     },
   };
 }

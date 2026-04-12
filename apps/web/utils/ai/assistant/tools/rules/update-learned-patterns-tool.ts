@@ -19,26 +19,44 @@ export const updateLearnedPatternsTool = ({
   getRuleReadState?: () => RuleReadState | null;
 }) =>
   tool({
-    description: "Update the learned patterns of an existing rule.",
+    description:
+      "Update the learned patterns of an existing inbox rule after you have identified the exact rule to change. Use when an existing category rule already fits and the user wants recurring senders added or removed, instead of creating a new rule or editing static from/to fields. If a recurring sender should move from one rule to another, update both rules with learned-pattern includes and excludes.",
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
       learnedPatterns: z
         .array(
-          z.object({
-            include: z
-              .object({
-                from: z.string().nullish(),
-                subject: z.string().nullish(),
-              })
-              .nullish(),
-            exclude: z
-              .object({
-                from: z.string().nullish(),
-                subject: z.string().nullish(),
-              })
-              .nullish(),
-          }),
+          z
+            .object({
+              include: z
+                .object({
+                  from: z
+                    .string()
+                    .nullish()
+                    .describe("Sender pattern to include in the rule."),
+                  subject: z
+                    .string()
+                    .nullish()
+                    .describe("Subject pattern to include in the rule."),
+                })
+                .describe("Patterns that should match the rule.")
+                .nullish(),
+              exclude: z
+                .object({
+                  from: z
+                    .string()
+                    .nullish()
+                    .describe("Sender pattern to exclude from the rule."),
+                  subject: z
+                    .string()
+                    .nullish()
+                    .describe("Subject pattern to exclude from the rule."),
+                })
+                .describe("Patterns that should not match the rule.")
+                .nullish(),
+            })
+            .describe("One learned-pattern update entry."),
         )
+        .describe("Learned sender and subject patterns to save for the rule.")
         .min(1, "At least one learned pattern is required"),
     }),
     execute: async ({ ruleName, learnedPatterns }) => {
@@ -132,12 +150,19 @@ export const updateLearnedPatternsTool = ({
         }
 
         if (patternsToSave.length > 0) {
-          await saveLearnedPatterns({
+          const result = await saveLearnedPatterns({
             emailAccountId,
             ruleName: rule.name,
             patterns: patternsToSave,
             logger,
           });
+
+          if (result?.error) {
+            return {
+              success: false,
+              error: result.error,
+            };
+          }
         }
 
         return { success: true, ruleId: rule.id };

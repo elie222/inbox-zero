@@ -212,7 +212,7 @@ describe("chat settings tools", () => {
     });
   });
 
-  it("ensures writable capabilities map to valid writable paths", async () => {
+  it("does not include writablePaths in capabilities output", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
 
     const toolInstance = getAssistantCapabilitiesTool({
@@ -224,18 +224,25 @@ describe("chat settings tools", () => {
 
     const result = await toolInstance.execute({});
 
-    const invalidWritableCapability = result.capabilities.find((capability) => {
-      if (!capability.canWrite) return false;
+    expect(result).not.toHaveProperty("writablePaths");
+  });
 
-      const writePaths =
-        "writePaths" in capability && Array.isArray(capability.writePaths)
-          ? capability.writePaths
-          : [capability.path];
+  it("does not include personal instructions in writable capabilities", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
 
-      return writePaths.some((path) => !result.writablePaths.includes(path));
+    const toolInstance = getAssistantCapabilitiesTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
     });
 
-    expect(invalidWritableCapability).toBeUndefined();
+    const result = await toolInstance.execute({});
+
+    const personalInstructionsCapability = result.capabilities.find(
+      (c) => c.path === "assistant.personalInstructions.about",
+    );
+    expect(personalInstructionsCapability).toBeUndefined();
   });
 
   it("applies deduped settings updates with last-write-wins semantics", async () => {
@@ -250,7 +257,6 @@ describe("chat settings tools", () => {
     });
 
     const result = await toolInstance.execute({
-      dryRun: false,
       changes: [
         {
           path: "assistant.multiRuleSelection.enabled",
@@ -276,108 +282,8 @@ describe("chat settings tools", () => {
     });
     expect(result).toMatchObject({
       success: true,
-      dryRun: false,
     });
     expect(result.appliedChanges).toHaveLength(2);
-  });
-
-  it("returns a dry-run preview without writing and appends about by default", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
-
-    const toolInstance = updateAssistantSettingsTool({
-      email: "user@example.com",
-      emailAccountId: "email-account-1",
-      userId: "user-1",
-      logger,
-    });
-
-    const result = await toolInstance.execute({
-      dryRun: true,
-      changes: [
-        {
-          path: "assistant.personalInstructions.about",
-          value: "Use short bullet points.",
-        },
-      ],
-    });
-
-    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      success: true,
-      dryRun: true,
-    });
-    expect(result.appliedChanges).toEqual([
-      {
-        path: "assistant.personalInstructions.about",
-        previous: "Keep replies concise.",
-        next: "Keep replies concise.\nUse short bullet points.",
-      },
-    ]);
-  });
-
-  it("replaces about when mode is replace", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
-    prisma.emailAccount.update.mockResolvedValue({});
-
-    const toolInstance = updateAssistantSettingsTool({
-      email: "user@example.com",
-      emailAccountId: "email-account-1",
-      userId: "user-1",
-      logger,
-    });
-
-    const result = await toolInstance.execute({
-      dryRun: false,
-      changes: [
-        {
-          path: "assistant.personalInstructions.about",
-          value: "Replace existing instructions.",
-          mode: "replace",
-        },
-      ],
-    });
-
-    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
-      where: { id: "email-account-1" },
-      data: {
-        about: "Replace existing instructions.",
-      },
-    });
-    expect(result.appliedChanges).toEqual([
-      {
-        path: "assistant.personalInstructions.about",
-        previous: "Keep replies concise.",
-        next: "Replace existing instructions.",
-      },
-    ]);
-  });
-
-  it("returns no-op when all values already match", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
-
-    const toolInstance = updateAssistantSettingsTool({
-      email: "user@example.com",
-      emailAccountId: "email-account-1",
-      userId: "user-1",
-      logger,
-    });
-
-    const result = await toolInstance.execute({
-      dryRun: false,
-      changes: [
-        {
-          path: "assistant.personalInstructions.about",
-          value: "Keep replies concise.",
-        },
-      ],
-    });
-
-    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      success: true,
-      message: "No setting changes were needed.",
-      appliedChanges: [],
-    });
   });
 
   it("updates scheduled check-ins configuration", async () => {
@@ -394,7 +300,6 @@ describe("chat settings tools", () => {
     });
 
     const result = await toolInstance.execute({
-      dryRun: false,
       changes: [
         {
           path: "assistant.scheduledCheckIns.config",
@@ -416,7 +321,6 @@ describe("chat settings tools", () => {
     });
     expect(result).toMatchObject({
       success: true,
-      dryRun: false,
     });
     expect(mockGetUserPremium).not.toHaveBeenCalled();
   });
@@ -434,7 +338,6 @@ describe("chat settings tools", () => {
     });
 
     const result = await toolInstance.execute({
-      dryRun: false,
       changes: [
         {
           path: "assistant.scheduledCheckIns.config",
@@ -473,7 +376,6 @@ describe("chat settings tools", () => {
     });
 
     const result = await toolInstance.execute({
-      dryRun: false,
       changes: [
         {
           path: "assistant.scheduledCheckIns.config",
@@ -529,7 +431,6 @@ describe("chat settings tools", () => {
     });
 
     const result = await toolInstance.execute({
-      dryRun: false,
       changes: [
         {
           path: "assistant.scheduledCheckIns.config",
@@ -542,7 +443,6 @@ describe("chat settings tools", () => {
 
     expect(result).toMatchObject({
       success: true,
-      dryRun: false,
     });
     expect(prisma.automationJob.update).toHaveBeenCalledWith({
       where: { id: "automation-job-1" },
@@ -568,7 +468,6 @@ describe("chat settings tools", () => {
     });
 
     await toolInstance.execute({
-      dryRun: false,
       changes: [
         {
           path: "assistant.draftKnowledgeBase.upsert",
@@ -624,7 +523,6 @@ describe("chat settings tools", () => {
     });
 
     await toolInstance.execute({
-      dryRun: false,
       changes: [
         {
           path: "assistant.draftKnowledgeBase.delete",
@@ -679,7 +577,6 @@ describe("chat settings tools", () => {
     });
 
     await toolInstance.execute({
-      dryRun: false,
       changes: [
         {
           path: "assistant.draftKnowledgeBase.upsert",
@@ -739,7 +636,6 @@ describe("chat settings tools", () => {
     });
 
     const result = await toolInstance.execute({
-      dryRun: false,
       changes: [
         {
           path: "assistant.multiRuleSelection.enabled",
@@ -756,7 +652,6 @@ describe("chat settings tools", () => {
     });
     expect(result).toMatchObject({
       success: true,
-      dryRun: false,
     });
   });
 
@@ -771,7 +666,6 @@ describe("chat settings tools", () => {
     });
 
     const result = await toolInstance.execute({
-      dryRun: false,
       changes: [
         {
           path: "assistant.meetingBriefs.minutesBefore",
@@ -784,5 +678,40 @@ describe("chat settings tools", () => {
       error: expect.stringContaining("Invalid settings update payload."),
     });
     expect(prisma.emailAccount.update).not.toHaveBeenCalled();
+  });
+
+  it("ignores compat changes with null values for non-nullable paths", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
+    prisma.emailAccount.update.mockResolvedValue({});
+
+    const toolInstance = updateAssistantSettingsCompatTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      userId: "user-1",
+      logger,
+    });
+
+    const result = await toolInstance.execute({
+      changes: [
+        {
+          path: "assistant.meetingBriefs.enabled",
+          value: null,
+        },
+        {
+          path: "assistant.multiRuleSelection.enabled",
+          value: true,
+        },
+      ],
+    });
+
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+      where: { id: "email-account-1" },
+      data: {
+        multiRuleSelectionEnabled: true,
+      },
+    });
+    expect(result).toMatchObject({
+      success: true,
+    });
   });
 });

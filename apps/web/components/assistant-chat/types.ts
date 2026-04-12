@@ -1,27 +1,29 @@
 import type { UIMessage } from "ai";
+import type { AddToKnowledgeBaseTool } from "@/utils/ai/assistant/tools/rules/add-to-knowledge-base-tool";
+import type { CreateRuleTool } from "@/utils/ai/assistant/tools/rules/create-rule-tool";
+import type { GetLearnedPatternsTool } from "@/utils/ai/assistant/tools/rules/get-learned-patterns-tool";
+import type { GetUserRulesAndSettingsTool } from "@/utils/ai/assistant/tools/rules/get-user-rules-and-settings-tool";
+import type { UpdatePersonalInstructionsTool } from "@/utils/ai/assistant/tools/rules/update-personal-instructions-tool";
+import type { UpdateLearnedPatternsTool } from "@/utils/ai/assistant/tools/rules/update-learned-patterns-tool";
+import type { UpdateRuleActionsTool } from "@/utils/ai/assistant/tools/rules/update-rule-actions-tool";
+import type { UpdateRuleConditionsTool } from "@/utils/ai/assistant/tools/rules/update-rule-conditions-tool";
+import type { GetAssistantCapabilitiesTool } from "@/utils/ai/assistant/tools/settings/get-assistant-capabilities-tool";
+import type { UpdateAssistantSettingsTool } from "@/utils/ai/assistant/tools/settings/update-assistant-settings-tool";
 import type {
-  AddToKnowledgeBaseTool,
-  CreateRuleTool,
   ForwardEmailTool,
   GetAccountOverviewTool,
-  GetAssistantCapabilitiesTool,
-  GetCalendarEventsTool,
-  GetLearnedPatternsTool,
-  GetUserRulesAndSettingsTool,
   ManageInboxTool,
   ReadAttachmentTool,
   ReadEmailTool,
   ReplyEmailTool,
   SearchInboxTool,
+  SendEmailTool,
+} from "@/utils/ai/assistant/chat-inbox-tools";
+import type {
   SaveMemoryTool,
   SearchMemoriesTool,
-  SendEmailTool,
-  UpdateAssistantSettingsTool,
-  UpdatePersonalInstructionsTool,
-  UpdateLearnedPatternsTool,
-  UpdateRuleActionsTool,
-  UpdateRuleConditionsTool,
-} from "@/utils/ai/assistant/chat";
+} from "@/utils/ai/assistant/chat-memory-tools";
+import type { GetCalendarEventsTool } from "@/utils/ai/assistant/chat-calendar-tools";
 
 // export type DataPart = { type: "append-message"; message: string };
 

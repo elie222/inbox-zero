@@ -27,7 +27,9 @@ export const updateRuleActionsTool = ({
       "Update the actions of an existing rule. This replaces the existing actions. SEND_EMAIL and FORWARD require an explicit recipient in fields.to; use REPLY for inbound auto-responses.",
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
-      actions: z.array(createRuleActionSchema(provider)),
+      actions: z
+        .array(createRuleActionSchema(provider))
+        .describe("The full replacement list of actions for the rule."),
     }),
     execute: async ({ ruleName, actions }) => {
       trackRuleToolCall({ tool: "update_rule_actions", email, logger });

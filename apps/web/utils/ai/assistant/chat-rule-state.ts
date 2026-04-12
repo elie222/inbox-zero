@@ -162,7 +162,7 @@ export function buildFreshRuleContextMessage(
       "[Fresh rule state update — not a message from the user] Rule-related settings changed since this chat last saw them. Use this as the latest source of truth.\n\n```json\n" +
       JSON.stringify(
         {
-          about: snapshot.about,
+          personalInstructions: snapshot.about,
           rulesRevision: snapshot.rulesRevision,
           rules: snapshot.rules.map(stripRuleUpdatedAt),
         },

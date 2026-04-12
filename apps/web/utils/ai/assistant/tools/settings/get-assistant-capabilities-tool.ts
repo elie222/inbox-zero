@@ -1,13 +1,14 @@
 import { type InferUITool, tool } from "ai";
+import { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import {
-  emptyInputSchema,
   getReadOnlyCapabilities,
   getWritableCapabilities,
   loadAccountSettingsSnapshot,
-  settingsPathSchema,
   trackSettingsToolCall,
 } from "./shared";
+
+const emptyInputSchema = z.object({});
 
 export const getAssistantCapabilitiesTool = ({
   email,
@@ -45,7 +46,6 @@ export const getAssistantCapabilitiesTool = ({
             ...getWritableCapabilities(snapshot),
             ...getReadOnlyCapabilities(snapshot),
           ],
-          writablePaths: settingsPathSchema.options,
         };
       } catch (error) {
         logger.error("Failed to load assistant capabilities", { error });

@@ -64,7 +64,7 @@ export const createOrGetLabelTool = ({
 }) =>
   tool({
     description:
-      "Reuse an existing label by exact name or create it if it does not exist yet.",
+      "Reuse an existing label by exact name or create it if it does not exist yet. Do not call listLabels first — this tool handles the check-and-create in one step.",
     inputSchema: createOrGetLabelInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "create_or_get_label", email, logger });

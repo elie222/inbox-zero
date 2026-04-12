@@ -286,20 +286,11 @@ function evaluateScenario(
   result: Awaited<ReturnType<typeof runAssistantChat>>,
   expectation: ScenarioExpectation,
 ) {
-  const hasActivate = hasActivateCalendar(result.toolCalls);
   const hasCalendarQuery = result.toolCalls.some(
     (tc) => tc.toolName === "getCalendarEvents",
   );
-  const correctOrder = hasActivateBeforeCalendarQuery(result.toolCalls);
 
-  if (expectation.requiresActivateCalendar && !hasActivate) return false;
   if (expectation.requiresGetCalendarEvents && !hasCalendarQuery) return false;
-  if (
-    expectation.requiresActivateCalendar &&
-    expectation.requiresGetCalendarEvents &&
-    !correctOrder
-  )
-    return false;
 
   if (expectation.expectedStartDateContains) {
     const calendarCall = getFirstMatchingToolCall(

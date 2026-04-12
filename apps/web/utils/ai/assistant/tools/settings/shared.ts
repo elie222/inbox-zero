@@ -25,14 +25,28 @@ import {
   createAutomationJob,
 } from "@/utils/actions/automation-jobs.helpers";
 
-export const emptyInputSchema = z.object({}).describe("No parameters required");
-
 const scheduledCheckInsConfigSchema = z
   .object({
-    enabled: z.boolean().nullish(),
-    cronExpression: z.string().trim().min(1).nullish(),
-    messagingChannelId: z.string().cuid().nullish(),
-    prompt: z.string().max(4000).nullish(),
+    enabled: z
+      .boolean()
+      .nullish()
+      .describe("Whether scheduled check-ins are enabled."),
+    cronExpression: z
+      .string()
+      .trim()
+      .min(1)
+      .nullish()
+      .describe("Cron expression for the scheduled check-in cadence."),
+    messagingChannelId: z
+      .string()
+      .cuid()
+      .nullish()
+      .describe("Messaging channel ID to deliver scheduled check-ins to."),
+    prompt: z
+      .string()
+      .max(4000)
+      .nullish()
+      .describe("Prompt used to generate scheduled check-in content."),
   })
   .refine(
     (value) =>
@@ -46,86 +60,129 @@ const scheduledCheckInsConfigSchema = z
 
 const draftKnowledgeUpsertSchema = z
   .object({
-    title: z.string().trim().min(1).max(200),
-    content: z.string().trim().min(1).max(20_000),
+    title: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .describe("Draft knowledge item title."),
+    content: z
+      .string()
+      .trim()
+      .min(1)
+      .max(20_000)
+      .describe("Draft knowledge item content."),
   })
   .describe("Draft knowledge base item to create or update.");
 
-export const settingsPathSchema = z.enum([
-  "assistant.personalInstructions.about",
-  "assistant.multiRuleSelection.enabled",
-  "assistant.meetingBriefs.enabled",
-  "assistant.meetingBriefs.minutesBefore",
-  "assistant.meetingBriefs.sendEmail",
-  "assistant.attachmentFiling.enabled",
-  "assistant.attachmentFiling.prompt",
-  "assistant.scheduledCheckIns.config",
-  "assistant.draftKnowledgeBase.upsert",
-  "assistant.draftKnowledgeBase.delete",
-]);
+export const settingsPathSchema = z
+  .enum([
+    "assistant.multiRuleSelection.enabled",
+    "assistant.meetingBriefs.enabled",
+    "assistant.meetingBriefs.minutesBefore",
+    "assistant.meetingBriefs.sendEmail",
+    "assistant.attachmentFiling.enabled",
+    "assistant.attachmentFiling.prompt",
+    "assistant.scheduledCheckIns.config",
+    "assistant.draftKnowledgeBase.upsert",
+    "assistant.draftKnowledgeBase.delete",
+  ])
+  .describe("Writable assistant settings path.");
 
 export const settingsChangeSchema = z.discriminatedUnion("path", [
   z.object({
-    path: z.literal("assistant.personalInstructions.about"),
-    value: z.string().max(20_000),
-    mode: z
-      .enum(["append", "replace"])
-      .default("append")
-      .describe(
-        "How to update about. append adds to existing content, replace overwrites.",
-      ),
+    path: z
+      .literal("assistant.multiRuleSelection.enabled")
+      .describe("Update multi-rule selection support."),
+    value: z.boolean().describe("Whether multi-rule selection is enabled."),
   }),
   z.object({
-    path: z.literal("assistant.multiRuleSelection.enabled"),
-    value: z.boolean(),
+    path: z
+      .literal("assistant.meetingBriefs.enabled")
+      .describe("Update whether meeting briefs are enabled."),
+    value: z.boolean().describe("Whether meeting briefs are enabled."),
   }),
   z.object({
-    path: z.literal("assistant.meetingBriefs.enabled"),
-    value: z.boolean(),
+    path: z
+      .literal("assistant.meetingBriefs.minutesBefore")
+      .describe("Update how many minutes before a meeting to generate briefs."),
+    value: z
+      .number()
+      .int()
+      .min(1)
+      .max(2880)
+      .describe("Minutes before the meeting to generate briefs."),
   }),
   z.object({
-    path: z.literal("assistant.meetingBriefs.minutesBefore"),
-    value: z.number().int().min(1).max(2880),
-  }),
-  z.object({
-    path: z.literal("assistant.meetingBriefs.sendEmail"),
+    path: z
+      .literal("assistant.meetingBriefs.sendEmail")
+      .describe("Update whether meeting briefs are emailed to the user."),
     value: z
       .boolean()
       .describe("Enable or disable emailing meeting briefs to the user."),
   }),
   z.object({
-    path: z.literal("assistant.attachmentFiling.enabled"),
-    value: z.boolean(),
+    path: z
+      .literal("assistant.attachmentFiling.enabled")
+      .describe("Update whether attachment filing is enabled."),
+    value: z.boolean().describe("Whether attachment filing is enabled."),
   }),
   z.object({
-    path: z.literal("assistant.attachmentFiling.prompt"),
-    value: z.string().max(6000).nullable(),
+    path: z
+      .literal("assistant.attachmentFiling.prompt")
+      .describe("Update the attachment filing prompt."),
+    value: z
+      .string()
+      .max(6000)
+      .nullable()
+      .describe("Prompt used to file attachments."),
   }),
   z.object({
-    path: z.literal("assistant.scheduledCheckIns.config"),
-    value: scheduledCheckInsConfigSchema,
+    path: z
+      .literal("assistant.scheduledCheckIns.config")
+      .describe("Update scheduled check-ins configuration."),
+    value: scheduledCheckInsConfigSchema.describe(
+      "Scheduled check-ins configuration payload.",
+    ),
   }),
   z.object({
-    path: z.literal("assistant.draftKnowledgeBase.upsert"),
-    value: draftKnowledgeUpsertSchema,
+    path: z
+      .literal("assistant.draftKnowledgeBase.upsert")
+      .describe("Create or update a draft knowledge base item."),
+    value: draftKnowledgeUpsertSchema.describe(
+      "Draft knowledge base item to create or update.",
+    ),
     mode: z
       .enum(["replace", "append"])
       .default("replace")
       .describe("Use append to add to existing content by title."),
   }),
   z.object({
-    path: z.literal("assistant.draftKnowledgeBase.delete"),
-    value: z.object({
-      title: z.string().trim().min(1).max(200),
-    }),
+    path: z
+      .literal("assistant.draftKnowledgeBase.delete")
+      .describe("Delete a draft knowledge base item."),
+    value: z
+      .object({
+        title: z
+          .string()
+          .trim()
+          .min(1)
+          .max(200)
+          .describe("Title of the draft knowledge item to delete."),
+      })
+      .describe("Draft knowledge base delete payload."),
   }),
 ]);
 
+const NULLABLE_SETTINGS_PATHS = new Set<string>([
+  "assistant.attachmentFiling.prompt",
+]);
+
+export function isNullableSettingsPath(path: string): boolean {
+  return NULLABLE_SETTINGS_PATHS.has(path);
+}
+
 export const updateAssistantSettingsInputSchema = z.object({
-  dryRun: z
-    .boolean()
-    .default(false)
-    .describe("If true, return the change preview without applying updates."),
   changes: z
     .array(settingsChangeSchema)
     .min(1)
@@ -156,10 +213,6 @@ export const updateAssistantSettingsCompatChangeSchema = z
   .strict();
 
 export const updateAssistantSettingsCompatInputSchema = z.object({
-  dryRun: z
-    .boolean()
-    .default(false)
-    .describe("If true, return the change preview without applying updates."),
   changes: z
     .array(updateAssistantSettingsCompatChangeSchema)
     .min(1)
@@ -418,13 +471,11 @@ export async function executeUpdateAssistantSettings({
   userId,
   logger,
   changes,
-  dryRun,
 }: {
   emailAccountId: string;
   userId: string;
   logger: Logger;
   changes: Array<z.infer<typeof settingsChangeSchema>>;
-  dryRun: boolean;
 }) {
   try {
     const existing = await loadAccountSettingsSnapshot(emailAccountId);
@@ -468,7 +519,7 @@ export async function executeUpdateAssistantSettings({
     for (const change of normalizedChanges) {
       if (change.path === "assistant.draftKnowledgeBase.upsert") {
         const existingItem = draftKnowledgeByTitle.get(change.value.title);
-        const nextContent = resolveKnowledgeContent({
+        const nextContent = mergeAppendableText({
           existingContent: existingItem?.content ?? null,
           incomingContent: change.value.content,
           mode: change.mode,
@@ -567,9 +618,6 @@ export async function executeUpdateAssistantSettings({
       });
 
       switch (change.path) {
-        case "assistant.personalInstructions.about":
-          data.about = resolvedNextValue as string;
-          break;
         case "assistant.multiRuleSelection.enabled":
           data.multiRuleSelectionEnabled = resolvedNextValue as boolean;
           break;
@@ -598,61 +646,56 @@ export async function executeUpdateAssistantSettings({
     if (appliedChanges.length === 0) {
       return {
         success: true,
-        dryRun,
         message: "No setting changes were needed.",
         appliedChanges: [],
       };
     }
 
-    if (!dryRun) {
-      if (Object.keys(data).length > 0) {
-        await prisma.emailAccount.update({
-          where: { id: emailAccountId },
-          data,
-        });
-      }
+    if (Object.keys(data).length > 0) {
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data,
+      });
+    }
 
-      if (scheduledCheckInsConfig) {
-        await applyScheduledCheckInsConfig({
-          emailAccountId,
-          current: existing.scheduledCheckIns,
-          config: scheduledCheckInsConfig,
-        });
-      }
+    if (scheduledCheckInsConfig) {
+      await applyScheduledCheckInsConfig({
+        emailAccountId,
+        current: existing.scheduledCheckIns,
+        config: scheduledCheckInsConfig,
+      });
+    }
 
-      for (const operation of knowledgeOperations) {
-        if (operation.type === "upsert") {
-          await prisma.knowledge.upsert({
-            where: {
-              emailAccountId_title: {
+    await Promise.all(
+      knowledgeOperations.map((operation) =>
+        operation.type === "upsert"
+          ? prisma.knowledge.upsert({
+              where: {
+                emailAccountId_title: {
+                  emailAccountId,
+                  title: operation.title,
+                },
+              },
+              create: {
+                emailAccountId,
+                title: operation.title,
+                content: operation.content,
+              },
+              update: {
+                content: operation.content,
+              },
+            })
+          : prisma.knowledge.deleteMany({
+              where: {
                 emailAccountId,
                 title: operation.title,
               },
-            },
-            create: {
-              emailAccountId,
-              title: operation.title,
-              content: operation.content,
-            },
-            update: {
-              content: operation.content,
-            },
-          });
-          continue;
-        }
-
-        await prisma.knowledge.deleteMany({
-          where: {
-            emailAccountId,
-            title: operation.title,
-          },
-        });
-      }
-    }
+            }),
+      ),
+    );
 
     return {
       success: true,
-      dryRun,
       appliedChanges,
     };
   } catch (error) {
@@ -714,14 +757,6 @@ function resolveNextValue({
     });
   }
 
-  if (change.path === "assistant.personalInstructions.about") {
-    return mergeAppendableText({
-      existingContent: snapshot.about,
-      incomingContent: change.value,
-      mode: change.mode,
-    });
-  }
-
   return change.value;
 }
 
@@ -733,8 +768,6 @@ function getCurrentValue({
   path: z.infer<typeof settingsPathSchema>;
 }) {
   switch (path) {
-    case "assistant.personalInstructions.about":
-      return snapshot.about ?? "";
     case "assistant.multiRuleSelection.enabled":
       return snapshot.multiRuleSelectionEnabled;
     case "assistant.meetingBriefs.enabled":
@@ -762,13 +795,6 @@ function getCurrentValue({
 
 export function getWritableCapabilities(snapshot: AccountSettingsSnapshot) {
   return [
-    {
-      path: "assistant.personalInstructions.about",
-      title: "Personal instructions",
-      canRead: true,
-      canWrite: true,
-      value: snapshot.about ?? "",
-    },
     {
       path: "assistant.multiRuleSelection.enabled",
       title: "Multi-rule selection",
@@ -879,18 +905,6 @@ function getReadOnlyValue({
 
 function areValuesEqual(left: unknown, right: unknown) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function resolveKnowledgeContent({
-  existingContent,
-  incomingContent,
-  mode,
-}: {
-  existingContent: string | null;
-  incomingContent: string;
-  mode: "replace" | "append";
-}) {
-  return mergeAppendableText({ existingContent, incomingContent, mode });
 }
 
 function mergeAppendableText({

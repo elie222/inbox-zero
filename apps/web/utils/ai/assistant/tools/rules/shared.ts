@@ -8,7 +8,7 @@ import { posthogCaptureEvent } from "@/utils/posthog";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import type { RuleReadState } from "../../chat-rule-state";
 
-export const emptyInputSchema = z.object({}).describe("No parameters required");
+export const emptyInputSchema = z.object({});
 
 const RULE_READ_FRESHNESS_WINDOW_MS = 2 * 60 * 1000;
 

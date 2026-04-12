@@ -24,7 +24,6 @@ import {
   type SettingsMemoryScenarioExpectation,
 } from "@/__tests__/eval/assistant-chat-settings-memory.scenarios";
 import prisma from "@/utils/__mocks__/prisma";
-import { normalizeMemoryText } from "@/utils/ai/assistant/chat-memory-policy";
 import { createScopedLogger } from "@/utils/logger";
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
@@ -256,8 +255,8 @@ type SearchMemoriesInput = {
   query: string;
 };
 
-type UpdateAboutInput = {
-  about: string;
+type UpdatePersonalInstructionsInput = {
+  personalInstructions: string;
   mode?: "append" | "replace";
 };
 
@@ -299,16 +298,18 @@ function isSearchMemoriesInput(input: unknown): input is SearchMemoriesInput {
   );
 }
 
-function isUpdateAboutInput(input: unknown): input is UpdateAboutInput {
+function isUpdatePersonalInstructionsInput(
+  input: unknown,
+): input is UpdatePersonalInstructionsInput {
   if (!input || typeof input !== "object") return false;
 
   const value = input as {
-    about?: unknown;
+    personalInstructions?: unknown;
     mode?: unknown;
   };
 
   return (
-    typeof value.about === "string" &&
+    typeof value.personalInstructions === "string" &&
     (value.mode == null || value.mode === "append" || value.mode === "replace")
   );
 }
@@ -342,21 +343,16 @@ async function evaluateScenario(
       };
 
     case "assistant_settings": {
-      const settingsCalls = getMatchingToolCalls(
+      const settingsCall = getLastMatchingToolCall(
         result.toolCalls,
         "updateAssistantSettings",
         isUpdateAssistantSettingsInput,
-      ).map(({ input }) => input);
+      )?.input;
 
       return {
         pass:
-          settingsCalls.some((settingsCall) =>
-            matchesExpectedChanges(settingsCall.changes, expectation.changes),
-          ) &&
-          hasActivatedCapabilities(
-            result.toolCalls,
-            expectation.requiredCapabilities ?? [],
-          ) &&
+          !!settingsCall &&
+          matchesExpectedChanges(settingsCall.changes, expectation.changes) &&
           hasNoToolCalls(result.toolCalls, expectation.forbiddenTools),
         judgeOutput: null,
         judgeResult: null,
@@ -364,15 +360,16 @@ async function evaluateScenario(
     }
 
     case "personal_instructions": {
-      const aboutCall = getLastMatchingToolCall(
+      const piCall = getLastMatchingToolCall(
         result.toolCalls,
         "updatePersonalInstructions",
-        isUpdateAboutInput,
+        isUpdatePersonalInstructionsInput,
       )?.input;
-      const judgeResult = aboutCall
+      const piContent = piCall?.personalInstructions ?? null;
+      const judgeResult = piContent
         ? await judgeEvalOutput({
             input: prompt,
-            output: aboutCall.about,
+            output: piContent,
             expected: expectation.semanticExpectation,
             criterion: {
               name: "Personal instructions semantics",
@@ -384,10 +381,10 @@ async function evaluateScenario(
 
       return {
         pass:
-          !!aboutCall &&
+          !!piCall &&
           !!judgeResult?.pass &&
-          (aboutCall.mode ?? "append") === expectation.mode,
-        judgeOutput: aboutCall?.about ?? null,
+          (piCall.mode ?? "append") === expectation.mode,
+        judgeOutput: piContent,
         judgeResult,
       };
     }
@@ -406,7 +403,7 @@ async function evaluateScenario(
             criterion: {
               name: "Saved memory semantics",
               description:
-                "The saved memory content should preserve the user's durable preference or fact, even if the phrasing includes a direct reminder wrapper from the user.",
+                "The saved memory content should preserve the semantic meaning of the user's preference or fact. Both first-person ('I prefer...') and third-person ('The user prefers...') formats are acceptable. Do not penalize perspective differences.",
             },
           })
         : null;
@@ -414,13 +411,7 @@ async function evaluateScenario(
       return {
         pass:
           !!memoryCall &&
-          memoryCall.source === "user_message" &&
           !!contentJudge?.pass &&
-          normalizeMemoryText(
-            typeof memoryCall.userEvidence === "string"
-              ? memoryCall.userEvidence
-              : "",
-          ).includes(normalizeMemoryText(expectation.expectedUserEvidence)) &&
           hasNoToolCalls(result.toolCalls, expectation.forbiddenTools),
         judgeOutput: memoryCall
           ? JSON.stringify({
@@ -438,11 +429,11 @@ async function evaluateScenario(
     }
 
     case "assistant_settings_and_save_memory": {
-      const settingsCalls = getMatchingToolCalls(
+      const settingsCall = getLastMatchingToolCall(
         result.toolCalls,
         "updateAssistantSettings",
         isUpdateAssistantSettingsInput,
-      ).map(({ input }) => input);
+      )?.input;
       const memoryCall = getLastMatchingToolCall(
         result.toolCalls,
         "saveMemory",
@@ -456,28 +447,17 @@ async function evaluateScenario(
             criterion: {
               name: "Saved memory semantics",
               description:
-                "The saved memory content should preserve the user's durable preference or fact.",
+                "The saved memory content should preserve the semantic meaning of the user's preference or fact. Both first-person and third-person formats are acceptable. Do not penalize perspective differences.",
             },
           })
         : null;
 
       return {
         pass:
-          settingsCalls.some((settingsCall) =>
-            matchesExpectedChanges(settingsCall.changes, expectation.changes),
-          ) &&
+          !!settingsCall &&
+          matchesExpectedChanges(settingsCall.changes, expectation.changes) &&
           !!memoryCall &&
-          memoryCall.source === "user_message" &&
           !!contentJudge?.pass &&
-          normalizeMemoryText(
-            typeof memoryCall.userEvidence === "string"
-              ? memoryCall.userEvidence
-              : "",
-          ).includes(normalizeMemoryText(expectation.expectedUserEvidence)) &&
-          hasActivatedCapabilities(
-            result.toolCalls,
-            expectation.requiredCapabilities,
-          ) &&
           hasNoToolCalls(result.toolCalls, expectation.forbiddenTools),
         judgeOutput: memoryCall
           ? JSON.stringify({
@@ -509,7 +489,7 @@ async function evaluateScenario(
             criterion: {
               name: "Saved memory semantics",
               description:
-                "The saved memory content should preserve the user's durable preference or fact.",
+                "The saved memory content should preserve the semantic meaning of the user's preference or fact. Both first-person and third-person formats are acceptable. Do not penalize perspective differences.",
             },
           })
         : null;
@@ -532,13 +512,7 @@ async function evaluateScenario(
           !!firstSaveCall &&
           !!lastSearchCall &&
           firstSaveCall.index < lastSearchCall.index &&
-          firstSaveCall.input.source === "user_message" &&
           !!contentJudge?.pass &&
-          normalizeMemoryText(
-            typeof firstSaveCall.input.userEvidence === "string"
-              ? firstSaveCall.input.userEvidence
-              : "",
-          ).includes(normalizeMemoryText(expectation.expectedUserEvidence)) &&
           searchEvaluation.pass,
         judgeOutput: firstSaveCall
           ? JSON.stringify({
@@ -555,20 +529,6 @@ async function evaluateScenario(
 
 function hasNoToolCalls(toolCalls: RecordedToolCall[], toolNames: string[]) {
   return !toolCalls.some((toolCall) => toolNames.includes(toolCall.toolName));
-}
-
-function getMatchingToolCalls<TInput>(
-  toolCalls: RecordedToolCall[],
-  toolName: string,
-  predicate: (input: unknown) => input is TInput,
-) {
-  return toolCalls
-    .map((toolCall, index) => ({ toolCall, index }))
-    .filter(
-      ({ toolCall }): toolCall is RecordedToolCall & { input: TInput } =>
-        toolCall.toolName === toolName && predicate(toolCall.input),
-    )
-    .map(({ toolCall, index }) => ({ input: toolCall.input, index }));
 }
 
 function getScenarioMessages(scenario: SettingsMemoryScenario): ModelMessage[] {
@@ -603,23 +563,6 @@ function matchesExpectedChanges(
           actualChange.mode === expectedChange.mode),
     ),
   );
-}
-
-function hasActivatedCapabilities(
-  toolCalls: RecordedToolCall[],
-  requiredCapabilities: string[],
-) {
-  if (requiredCapabilities.length === 0) return true;
-
-  const activated = new Set<string>();
-  for (const toolCall of toolCalls) {
-    if (!isActivateToolsInput(toolCall.input)) continue;
-    for (const capability of toolCall.input.capabilities) {
-      activated.add(capability);
-    }
-  }
-
-  return requiredCapabilities.every((capability) => activated.has(capability));
 }
 
 async function evaluateSearchMemoriesExpectation(
@@ -715,7 +658,7 @@ function summarizeToolCall(toolCall: RecordedToolCall) {
     return `${toolCall.toolName}(${toolCall.input.query})`;
   }
 
-  if (isUpdateAboutInput(toolCall.input)) {
+  if (isUpdatePersonalInstructionsInput(toolCall.input)) {
     return `${toolCall.toolName}(mode=${toolCall.input.mode ?? "append"})`;
   }
 

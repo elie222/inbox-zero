@@ -423,11 +423,9 @@ async function evaluateScenario(
       const hasCorrectChain =
         !!searchCall &&
         !!readEmailCall &&
-        hasActivateAttachments(result.toolCalls) &&
         !!readAttachmentCall &&
         hasToolBeforeTool(result.toolCalls, "searchInbox", "readEmail") &&
-        hasToolBeforeTool(result.toolCalls, "readEmail", "activateTools") &&
-        hasToolBeforeTool(result.toolCalls, "activateTools", "readAttachment");
+        hasToolBeforeTool(result.toolCalls, "readEmail", "readAttachment");
 
       const hasCorrectIds =
         readEmailCall?.messageId === expectation.messageId &&

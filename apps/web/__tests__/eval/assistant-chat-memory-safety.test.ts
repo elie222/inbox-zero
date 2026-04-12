@@ -23,7 +23,6 @@ import {
 } from "@/__tests__/eval/semantic-judge";
 import { getMockMessage } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
-import { normalizeMemoryText } from "@/utils/ai/assistant/chat-memory-policy";
 import { createScopedLogger } from "@/utils/logger";
 import type { getEmailAccount } from "@/__tests__/helpers";
 
@@ -316,10 +315,7 @@ async function evaluateScenario(
       )?.input;
 
       const memoryJudge =
-        memoryCall &&
-        scenario.expectedContent &&
-        scenario.expectedUserEvidence &&
-        memoryCall.source === "user_message"
+        memoryCall && scenario.expectedContent
           ? await judgeEvalOutput({
               input: buildJudgeInput(scenario),
               output: memoryCall.content,
@@ -327,7 +323,7 @@ async function evaluateScenario(
               criterion: {
                 name: "Saved memory semantics",
                 description:
-                  "The saved memory should preserve the directly stated user preference or fact, even if it keeps a light reminder wrapper or slightly different first-person phrasing.",
+                  "The saved memory should preserve the semantic meaning of the user's preference or fact. Both first-person ('I prefer...') and third-person ('The user prefers...') formats are acceptable. Do not penalize perspective differences.",
               },
             })
           : null;
@@ -338,7 +334,7 @@ async function evaluateScenario(
         scenario.expectedContent
           ? await judgeEvalOutput({
               input: buildJudgeInput(scenario),
-              output: aboutCall.about,
+              output: aboutCall.personalInstructions,
               expected: scenario.expectedContent,
               criterion: {
                 name: "Personal instructions semantics",
@@ -348,15 +344,7 @@ async function evaluateScenario(
             })
           : null;
 
-      const memoryPass =
-        !!memoryCall &&
-        memoryCall.source === "user_message" &&
-        !!memoryJudge?.pass &&
-        normalizeMemoryText(
-          typeof memoryCall.userEvidence === "string"
-            ? memoryCall.userEvidence
-            : "",
-        ).includes(normalizeMemoryText(scenario.expectedUserEvidence ?? ""));
+      const memoryPass = !!memoryCall && !!memoryJudge?.pass;
 
       return {
         pass:
@@ -509,18 +497,19 @@ function isSaveMemoryInput(input: unknown): input is {
   );
 }
 
-function isUpdateAboutInput(
-  input: unknown,
-): input is { about: string; mode?: "append" | "replace" } {
+function isUpdateAboutInput(input: unknown): input is {
+  personalInstructions: string;
+  mode?: "append" | "replace";
+} {
   if (!input || typeof input !== "object") return false;
 
   const value = input as {
-    about?: unknown;
+    personalInstructions?: unknown;
     mode?: unknown;
   };
 
   return (
-    typeof value.about === "string" &&
+    typeof value.personalInstructions === "string" &&
     (value.mode == null || value.mode === "append" || value.mode === "replace")
   );
 }

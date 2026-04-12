@@ -1,5 +1,4 @@
 import { type InferUITool, tool } from "ai";
-import type { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { filterNullProperties } from "@/utils";
@@ -7,10 +6,6 @@ import { updateRuleConditionSchema } from "@/utils/actions/rule.validation";
 import { partialUpdateRule } from "@/utils/rule/rule";
 import type { RuleReadState } from "../../chat-rule-state";
 import { trackRuleToolCall, validateRuleWasReadRecently } from "./shared";
-
-export type UpdateRuleConditionSchema = z.infer<
-  typeof updateRuleConditionSchema
->;
 
 export const updateRuleConditionsTool = ({
   email,
@@ -25,7 +20,7 @@ export const updateRuleConditionsTool = ({
 }) =>
   tool({
     description:
-      "Update the conditions of an existing rule. For sender-only or domain-only matching, put the sender list in condition.static.from and leave condition.aiInstructions empty. If the user also adds semantic matching like urgency, keep the sender list in condition.static.from and describe the narrower semantic subset in condition.aiInstructions. For mixed sender-plus-semantic rules, condition.aiInstructions should usually restate the sender in natural language, for example 'Match urgent emails from alerts@partner.example', while condition.static.from still holds the exact sender/domain match.",
+      "Update the conditions of an existing rule. Conversation-status corrections (To Reply, FYI, Awaiting Reply, Actioned) should use this tool to update the existing conversation rule instead of creating a new rule. Keep conversation rule instructions self-contained and preserve the core intent when editing them.",
     inputSchema: updateRuleConditionSchema,
     execute: async ({ ruleName, condition }) => {
       trackRuleToolCall({ tool: "update_rule_conditions", email, logger });

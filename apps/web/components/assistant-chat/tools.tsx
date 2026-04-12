@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { useQueryState } from "nuqs";
+import type { AddToKnowledgeBaseTool } from "@/utils/ai/assistant/tools/rules/add-to-knowledge-base-tool";
+import type { CreateRuleTool } from "@/utils/ai/assistant/tools/rules/create-rule-tool";
+import type { UpdatePersonalInstructionsTool } from "@/utils/ai/assistant/tools/rules/update-personal-instructions-tool";
+import type { UpdateLearnedPatternsTool } from "@/utils/ai/assistant/tools/rules/update-learned-patterns-tool";
 import type {
-  UpdateRuleConditionsTool,
-  UpdateRuleConditionsOutput,
-  UpdateRuleActionsTool,
   UpdateRuleActionsOutput,
-  UpdateLearnedPatternsTool,
-  UpdatePersonalInstructionsTool,
-  AddToKnowledgeBaseTool,
-  CreateRuleTool,
-  ManageInboxTool,
-} from "@/utils/ai/assistant/chat";
+  UpdateRuleActionsTool,
+} from "@/utils/ai/assistant/tools/rules/update-rule-actions-tool";
+import type {
+  UpdateRuleConditionsOutput,
+  UpdateRuleConditionsTool,
+} from "@/utils/ai/assistant/tools/rules/update-rule-conditions-tool";
+import type { ManageInboxTool } from "@/utils/ai/assistant/chat-inbox-tools";
 import { cn } from "@/utils";
 import { isDefined } from "@/utils/types";
 import {
@@ -926,7 +928,7 @@ export function PendingSaveMemoryToolCard({
             </p>
           </div>
           {confirmedAt && (
-            <Badge variant="outline" className="text-xs">
+            <Badge color={deduplicated ? "gray" : "green"} className="text-xs">
               {deduplicated ? "Already saved" : "Saved"}
             </Badge>
           )}
@@ -1215,7 +1217,9 @@ export function UpdatePersonalInstructions({
 }) {
   return (
     <ExpandedToolCard title="Updated Personal Instructions">
-      <ToolPanel className="text-sm leading-relaxed">{args.about}</ToolPanel>
+      <ToolPanel className="text-sm leading-relaxed">
+        {args.personalInstructions}
+      </ToolPanel>
     </ExpandedToolCard>
   );
 }

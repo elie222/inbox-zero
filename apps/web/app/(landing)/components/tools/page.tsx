@@ -362,7 +362,7 @@ export default function ToolsPage() {
           <SectionHeader>Settings & Knowledge</SectionHeader>
           <UpdatePersonalInstructions
             args={{
-              about:
+              personalInstructions:
                 "I prefer concise responses and want newsletters archived by default.",
               mode: "replace",
             }}
@@ -735,7 +735,9 @@ function ruleAction(
   };
 }
 
-function buildRuleActionFields(fields?: Partial<RuleActionFields>): RuleActionFields {
+function buildRuleActionFields(
+  fields?: Partial<RuleActionFields>,
+): RuleActionFields {
   return {
     label: fields?.label ?? null,
     content: fields?.content ?? null,

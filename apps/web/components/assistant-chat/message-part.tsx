@@ -144,7 +144,6 @@ export function MessagePart({
       part,
       loadingText: "Updating settings...",
       renderSuccess: ({ toolCallId, output }) => {
-        const dryRun = getOutputField<boolean>(output, "dryRun");
         const appliedChanges = getOutputField<Array<unknown>>(
           output,
           "appliedChanges",
@@ -155,7 +154,7 @@ export function MessagePart({
         return (
           <BasicToolInfo
             key={toolCallId}
-            text={`${dryRun ? "Prepared settings changes" : "Updated settings"}${
+            text={`Updated settings${
               appliedChangesCount !== null
                 ? ` (${appliedChangesCount} change${
                     appliedChangesCount === 1 ? "" : "s"
@@ -443,14 +442,14 @@ export function MessagePart({
       part,
       loadingText: "Updating personal instructions...",
       renderSuccess: ({ toolCallId, output }) => {
-        const updatedAbout = getOutputField<string>(output, "updatedAbout");
+        const updated = getOutputField<string>(output, "updated");
         return (
           <UpdatePersonalInstructions
             key={toolCallId}
             args={{
-              about:
-                updatedAbout ??
-                part.input?.about ??
+              personalInstructions:
+                updated ??
+                part.input?.personalInstructions ??
                 "Personal instructions updated.",
               mode: part.input?.mode ?? "append",
             }}

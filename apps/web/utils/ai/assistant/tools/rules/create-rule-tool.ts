@@ -26,8 +26,7 @@ export const createRuleTool = ({
   logger: Logger;
 }) =>
   tool({
-    description:
-      'Create a new rule. For sender-only or domain-only matching, put the sender list in condition.static.from and leave condition.aiInstructions empty. If the user also adds semantic matching like urgency, keep the sender list in condition.static.from and describe the narrower semantic subset in condition.aiInstructions. For mixed sender-plus-semantic rules, condition.aiInstructions should usually restate the sender in natural language, for example "Match urgent emails from alerts@partner.example", while condition.static.from still holds the exact sender/domain match. Example: condition.static.from="@sender.com" with no condition.aiInstructions for sender-only matching.',
+    description: "Create a new rule.",
     inputSchema: createRuleSchema(provider),
     execute: async ({ name, condition, actions }) => {
       trackRuleToolCall({ tool: "create_rule", email, logger });
