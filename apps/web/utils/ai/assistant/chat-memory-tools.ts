@@ -89,7 +89,7 @@ const userEvidenceSchema = z
   .max(500)
   .describe("A short exact quote from a user-authored chat message.");
 
-const saveMemoryToolInputSchema = z.discriminatedUnion("source", [
+const saveMemoryToolInputSchema = z.union([
   z.object({
     content: memoryContentSchema,
     source: z

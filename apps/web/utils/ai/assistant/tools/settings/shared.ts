@@ -89,7 +89,7 @@ export const settingsPathSchema = z
   ])
   .describe("Writable assistant settings path.");
 
-export const settingsChangeSchema = z.discriminatedUnion("path", [
+export const settingsChangeSchema = z.union([
   z.object({
     path: z
       .literal("assistant.multiRuleSelection.enabled")
