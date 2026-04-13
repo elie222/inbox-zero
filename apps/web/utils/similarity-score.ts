@@ -43,7 +43,13 @@ function decodeHtmlEntities(text: string): string {
  * Uses parseReply to extract the reply, decodes HTML entities, and strips quoted content.
  */
 function normalizeForGmail(content: string): string {
-  const reply = parseReply(content);
+  const plainText = /<\/?[a-z][^>]*>/i.test(content)
+    ? convertEmailHtmlToText({
+        htmlText: content.replace(/\n/g, "<br>"),
+        includeLinks: false,
+      })
+    : content;
+  const reply = parseReply(plainText);
   const decoded = decodeHtmlEntities(reply);
   return decoded.toLowerCase().trim();
 }
