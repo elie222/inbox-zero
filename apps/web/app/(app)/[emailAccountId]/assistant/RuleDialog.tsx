@@ -15,6 +15,7 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import type { RulesResponse } from "@/app/api/user/rules/route";
+import { SUPPORT_EMAIL } from "@/utils/branding";
 import { RuleLoader } from "./RuleLoader";
 
 interface RuleDialogProps {
@@ -135,8 +136,11 @@ function RuleDialogErrorState({ onClose }: { onClose: () => void }) {
   return (
     <div className="space-y-4 py-4">
       <p className="text-sm text-muted-foreground">
-        We couldn&apos;t open this rule. Close the dialog and try again without
-        losing the rest of the page.
+        An error occurred while opening this rule. Please contact support at{" "}
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="underline">
+          {SUPPORT_EMAIL}
+        </a>{" "}
+        if the problem persists.
       </p>
       <div className="flex justify-end">
         <Button type="button" onClick={onClose}>

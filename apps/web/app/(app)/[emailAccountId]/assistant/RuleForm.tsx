@@ -435,7 +435,6 @@ export function RuleForm({
             conditionFields={conditionFields}
             conditionalOperator={conditionalOperator}
             removeCondition={removeCondition}
-            control={control}
             watch={watch}
             setValue={setValue}
             register={register}
