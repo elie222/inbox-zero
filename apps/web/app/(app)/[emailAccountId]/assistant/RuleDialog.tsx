@@ -1,7 +1,5 @@
 "use client";
 
-import * as Sentry from "@sentry/nextjs";
-import { Component } from "react";
 import { useCallback, useMemo } from "react";
 import {
   Dialog,
@@ -10,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RuleForm } from "./RuleForm";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { useDialogState } from "@/hooks/useDialogState";
@@ -17,7 +16,6 @@ import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { RuleLoader } from "./RuleLoader";
-import { createClientLogger } from "@/utils/logger-client";
 
 interface RuleDialogProps {
   duplicateRule?: RulesResponse[number];
@@ -79,10 +77,12 @@ export function RuleDialog({
         <DialogHeader className={ruleId ? "sr-only" : ""}>
           <DialogTitle>{ruleId ? "Edit Rule" : "Create Rule"}</DialogTitle>
         </DialogHeader>
-        <RuleDialogBoundary
+        <ErrorBoundary
           key={dialogContentKey}
-          ruleId={ruleId}
+          extra={{ component: "RuleDialog", ruleId }}
           fallback={<RuleDialogErrorState onClose={onClose} />}
+          logMessage="Rule dialog crashed"
+          logScope="rule-dialog-error-boundary"
         >
           <div>
             {ruleId ? (
@@ -125,51 +125,10 @@ export function RuleDialog({
               />
             )}
           </div>
-        </RuleDialogBoundary>
+        </ErrorBoundary>
       </DialogContent>
     </Dialog>
   );
-}
-
-class RuleDialogBoundary extends Component<
-  {
-    children: React.ReactNode;
-    fallback: React.ReactNode;
-    ruleId?: string;
-  },
-  { hasError: boolean }
-> {
-  state = { hasError: false };
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    const logger = createClientLogger("rule-dialog-error-boundary");
-
-    logger.error("Rule dialog crashed", {
-      component: "RuleDialog",
-      errorMessage: error.message,
-      errorName: error.name,
-      ruleId: this.props.ruleId,
-    });
-    logger.flush().catch(() => undefined);
-
-    Sentry.captureException(error, {
-      extra: {
-        component: "RuleDialog",
-        componentStack: errorInfo.componentStack,
-        ruleId: this.props.ruleId,
-      },
-    });
-  }
-
-  render() {
-    if (this.state.hasError) return this.props.fallback;
-
-    return this.props.children;
-  }
 }
 
 function RuleDialogErrorState({ onClose }: { onClose: () => void }) {
