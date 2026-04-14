@@ -5,7 +5,7 @@ import {
   markOwnedLockProcessed,
 } from "@/utils/redis/owned-lock";
 
-const OUTBOUND_PROCESSING_TTL_SECONDS = 60 * 5;
+const OUTBOUND_PROCESSING_TTL_SECONDS = 60 * 30;
 const OUTBOUND_PROCESSED_TTL_SECONDS = 60 * 60 * 24 * 30;
 const OUTBOUND_PROCESSED_STATUS = "processed";
 

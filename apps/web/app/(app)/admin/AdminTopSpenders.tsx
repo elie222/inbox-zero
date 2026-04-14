@@ -65,7 +65,7 @@ export function AdminTopSpenders() {
                       {spender.email}
                     </TableCell>
                     <TableCell>
-                      {spender.userEmailAccountCount || "-"}
+                      {spender.userEmailAccountCount ?? "-"}
                     </TableCell>
                     <TableCell>
                       {spender.nanoLimitedBySpendGuard ? (

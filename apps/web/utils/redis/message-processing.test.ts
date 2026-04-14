@@ -51,7 +51,7 @@ describe("message-processing redis locks", () => {
     expect(redis.set).toHaveBeenCalledWith(
       "reply-tracker:outbound-message:account-1:message-1",
       "lock-uuid",
-      { ex: 300, nx: true },
+      { ex: 1800, nx: true },
     );
   });
 

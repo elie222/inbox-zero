@@ -37,7 +37,7 @@ describe("outbound-thread-status redis locks", () => {
     expect(redis.set).toHaveBeenCalledWith(
       "reply-tracker:outbound-thread-status:account-1:thread-1:message-1",
       "lock-uuid",
-      { ex: 300, nx: true },
+      { ex: 1800, nx: true },
     );
   });
 
