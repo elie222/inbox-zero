@@ -62,6 +62,7 @@ describe("mobile review sign-in route", () => {
 
     expect(createMobileReviewSessionMock).toHaveBeenCalledWith({
       code: "review-code",
+      logger: request.logger,
     });
     expect(body).toEqual({ success: true });
     expect(body.setCookie).toBeUndefined();
