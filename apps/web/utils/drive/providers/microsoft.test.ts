@@ -77,4 +77,37 @@ describe("OneDriveProvider", () => {
     expect(header).toHaveBeenCalledWith("Content-Type", "application/pdf");
     expect(put).toHaveBeenCalledWith(content);
   });
+
+  it("uses a fallback name when uploading a blank filename", async () => {
+    const content = Buffer.from("pdf-binary");
+    const put = vi.fn(async () => ({
+      id: "file-1",
+      name: "untitled",
+      file: { mimeType: "application/pdf" },
+      parentReference: { id: "folder-1" },
+      size: content.length,
+    }));
+    const header = vi.fn(() => ({ put }));
+    const api = vi.fn(() => ({ header }));
+
+    vi.mocked(Client.init).mockReturnValue({ api } as any);
+
+    const provider = new OneDriveProvider(
+      "token",
+      createScopedLogger("onedrive-provider-test"),
+    );
+
+    await provider.uploadFile({
+      filename: "   ",
+      mimeType: "application/pdf",
+      content,
+      folderId: "folder-1",
+    });
+
+    expect(api).toHaveBeenCalledWith(
+      "/me/drive/items/folder-1:/untitled:/content",
+    );
+    expect(header).toHaveBeenCalledWith("Content-Type", "application/pdf");
+    expect(put).toHaveBeenCalledWith(content);
+  });
 });
