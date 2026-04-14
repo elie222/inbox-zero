@@ -34,17 +34,17 @@ describe("buildThreadStatusMessagesForLLM", () => {
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
       1,
       messages[0],
-      expect.objectContaining({ maxLength: 400 }),
+      expect.objectContaining({ maxLength: 500 }),
     );
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
       2,
       messages[1],
-      expect.objectContaining({ maxLength: 400 }),
+      expect.objectContaining({ maxLength: 500 }),
     );
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
       3,
       messages[2],
-      expect.objectContaining({ maxLength: 1200 }),
+      expect.objectContaining({ maxLength: 2000 }),
     );
   });
 
@@ -73,7 +73,7 @@ describe("buildThreadStatusMessagesForLLM", () => {
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
       1,
       messages[0],
-      expect.objectContaining({ maxLength: 400 }),
+      expect.objectContaining({ maxLength: 500 }),
     );
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
       2,
@@ -83,17 +83,17 @@ describe("buildThreadStatusMessagesForLLM", () => {
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
       5,
       messages[4],
-      expect.objectContaining({ maxLength: 400 }),
+      expect.objectContaining({ maxLength: 500 }),
     );
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
       6,
       messages[5],
-      expect.objectContaining({ maxLength: 400 }),
+      expect.objectContaining({ maxLength: 500 }),
     );
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
       12,
       messages[11],
-      expect.objectContaining({ maxLength: 1200 }),
+      expect.objectContaining({ maxLength: 2000 }),
     );
   });
 });
