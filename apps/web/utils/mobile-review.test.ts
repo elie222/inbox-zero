@@ -2,6 +2,7 @@ vi.mock("server-only", () => ({}));
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
+import { createScopedLogger } from "@/utils/logger";
 
 const { mockAuthContext, mockMakeSignature } = vi.hoisted(() => ({
   mockAuthContext: {
@@ -64,9 +65,11 @@ describe("createMobileReviewSession", () => {
 
   it("creates a signed Better Auth session cookie", async () => {
     const { createMobileReviewSession } = await import("./mobile-review");
+    const logger = createScopedLogger("mobile-review-test");
 
     const result = await createMobileReviewSession({
       code: "review-code",
+      logger,
     });
 
     expect(mockAuthContext.internalAdapter.createSession).toHaveBeenCalledWith(
@@ -96,6 +99,52 @@ describe("createMobileReviewSession", () => {
       },
       userEmail: "demo@example.com",
       userId: "user-1",
+    });
+  });
+
+  it("logs a warning when the review code is invalid", async () => {
+    const { createMobileReviewSession } = await import("./mobile-review");
+    const logger = createScopedLogger("mobile-review-test");
+    const warnSpy = vi.spyOn(logger, "warn");
+
+    await expect(
+      createMobileReviewSession({
+        code: "wrong-code",
+        logger,
+      }),
+    ).rejects.toMatchObject({
+      message: "Invalid review access code",
+      statusCode: 401,
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith("Mobile review sign-in rejected", {
+      reason: "invalid_review_demo_code",
+    });
+  });
+
+  it("logs a warning when the review user has no email account", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      email: "demo@example.com",
+      id: "user-1",
+      emailAccounts: [],
+    } as never);
+
+    const { createMobileReviewSession } = await import("./mobile-review");
+    const logger = createScopedLogger("mobile-review-test");
+    const warnSpy = vi.spyOn(logger, "warn");
+
+    await expect(
+      createMobileReviewSession({
+        code: "review-code",
+        logger,
+      }),
+    ).rejects.toMatchObject({
+      message: "Review access is unavailable",
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith("Mobile review sign-in unavailable", {
+      hasUser: true,
+      reason: "review_user_missing_email_account",
     });
   });
 });

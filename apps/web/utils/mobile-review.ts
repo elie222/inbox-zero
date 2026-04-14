@@ -3,6 +3,7 @@ import { makeSignature } from "better-auth/crypto";
 import { env } from "@/env";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
+import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
 export function isMobileReviewEnabled(): boolean {
@@ -13,8 +14,14 @@ export function isMobileReviewEnabled(): boolean {
   );
 }
 
-export async function createMobileReviewSession(input: { code: string }) {
-  if (!isMobileReviewEnabled()) {
+export async function createMobileReviewSession(input: {
+  code: string;
+  logger: Logger;
+}) {
+  if (!env.APP_REVIEW_DEMO_ENABLED) {
+    input.logger.warn("Mobile review sign-in unavailable", {
+      reason: "review_demo_disabled",
+    });
     throw new SafeError("Review access is unavailable");
   }
 
@@ -22,10 +29,18 @@ export async function createMobileReviewSession(input: { code: string }) {
   const reviewDemoEmail = env.APP_REVIEW_DEMO_EMAIL?.trim().toLowerCase();
 
   if (!reviewDemoCode || !reviewDemoEmail) {
+    input.logger.warn("Mobile review sign-in unavailable", {
+      hasReviewDemoCode: Boolean(reviewDemoCode),
+      hasReviewDemoEmail: Boolean(reviewDemoEmail),
+      reason: "review_demo_misconfigured",
+    });
     throw new SafeError("Review access is unavailable");
   }
 
   if (!codesMatch(input.code, reviewDemoCode)) {
+    input.logger.warn("Mobile review sign-in rejected", {
+      reason: "invalid_review_demo_code",
+    });
     throw new SafeError("Invalid review access code", 401);
   }
 
@@ -47,6 +62,10 @@ export async function createMobileReviewSession(input: { code: string }) {
   });
 
   if (!user?.emailAccounts.length) {
+    input.logger.warn("Mobile review sign-in unavailable", {
+      hasUser: Boolean(user),
+      reason: "review_user_missing_email_account",
+    });
     throw new SafeError("Review access is unavailable");
   }
 
