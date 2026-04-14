@@ -1,8 +1,8 @@
 vi.mock("server-only", () => ({}));
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createTestLogger } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
 
 const { mockAuthContext, mockMakeSignature } = vi.hoisted(() => ({
   mockAuthContext: {
@@ -65,7 +65,7 @@ describe("createMobileReviewSession", () => {
 
   it("creates a signed Better Auth session cookie", async () => {
     const { createMobileReviewSession } = await import("./mobile-review");
-    const logger = createScopedLogger("mobile-review-test");
+    const logger = createTestLogger();
 
     const result = await createMobileReviewSession({
       code: "review-code",
@@ -104,7 +104,7 @@ describe("createMobileReviewSession", () => {
 
   it("logs a warning when the review code is invalid", async () => {
     const { createMobileReviewSession } = await import("./mobile-review");
-    const logger = createScopedLogger("mobile-review-test");
+    const logger = createTestLogger();
     const warnSpy = vi.spyOn(logger, "warn");
 
     await expect(
@@ -130,7 +130,7 @@ describe("createMobileReviewSession", () => {
     } as never);
 
     const { createMobileReviewSession } = await import("./mobile-review");
-    const logger = createScopedLogger("mobile-review-test");
+    const logger = createTestLogger();
     const warnSpy = vi.spyOn(logger, "warn");
 
     await expect(
