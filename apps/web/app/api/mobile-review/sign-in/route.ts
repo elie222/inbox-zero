@@ -15,6 +15,7 @@ export const POST = withError("mobile-review/sign-in", async (request) => {
   });
 
   request.logger.info("Created mobile review session", {
+    reviewUserEmail: result.userEmail,
     reviewUserId: result.userId,
     reviewEmailAccountId: result.emailAccountId,
   });
