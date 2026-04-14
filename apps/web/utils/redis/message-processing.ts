@@ -1,23 +1,13 @@
-import { randomUUID } from "node:crypto";
 import { redis } from "@/utils/redis";
+import {
+  acquireOwnedLock,
+  clearOwnedLock,
+  markOwnedLockProcessed,
+} from "@/utils/redis/owned-lock";
 
 const OUTBOUND_PROCESSING_TTL_SECONDS = 60 * 5;
 const OUTBOUND_PROCESSED_TTL_SECONDS = 60 * 60 * 24 * 30;
 const OUTBOUND_PROCESSED_STATUS = "processed";
-const MARK_PROCESSED_IF_OWNED_SCRIPT = `
-if redis.call("GET", KEYS[1]) ~= ARGV[1] then
-  return 0
-end
-redis.call("SET", KEYS[1], "${OUTBOUND_PROCESSED_STATUS}", "EX", tonumber(ARGV[2]))
-return 1
-`;
-const CLEAR_LOCK_IF_OWNED_SCRIPT = `
-if redis.call("GET", KEYS[1]) ~= ARGV[1] then
-  return 0
-end
-redis.call("DEL", KEYS[1])
-return 1
-`;
 
 function getProcessingKey({
   userEmail,
@@ -59,17 +49,10 @@ export async function acquireOutboundMessageLock({
   emailAccountId,
   messageId,
 }: OutboundMessageKey): Promise<string | null> {
-  const lockToken = randomUUID();
-  const result = await redis.set(
-    getOutboundMessageKey({ emailAccountId, messageId }),
-    lockToken,
-    {
-      ex: OUTBOUND_PROCESSING_TTL_SECONDS,
-      nx: true,
-    },
-  );
-
-  return result === "OK" ? lockToken : null;
+  return acquireOwnedLock({
+    key: getOutboundMessageKey({ emailAccountId, messageId }),
+    processingTtlSeconds: OUTBOUND_PROCESSING_TTL_SECONDS,
+  });
 }
 
 export async function markOutboundMessageProcessed({
@@ -77,15 +60,12 @@ export async function markOutboundMessageProcessed({
   messageId,
   lockToken,
 }: OutboundMessageKey): Promise<boolean> {
-  if (!lockToken) return false;
-
-  const result = await redis.eval<string[], number>(
-    MARK_PROCESSED_IF_OWNED_SCRIPT,
-    [getOutboundMessageKey({ emailAccountId, messageId })],
-    [lockToken, OUTBOUND_PROCESSED_TTL_SECONDS.toString()],
-  );
-
-  return result === 1;
+  return markOwnedLockProcessed({
+    key: getOutboundMessageKey({ emailAccountId, messageId }),
+    lockToken,
+    processedStatus: OUTBOUND_PROCESSED_STATUS,
+    processedTtlSeconds: OUTBOUND_PROCESSED_TTL_SECONDS,
+  });
 }
 
 export async function clearOutboundMessageLock({
@@ -93,15 +73,10 @@ export async function clearOutboundMessageLock({
   messageId,
   lockToken,
 }: OutboundMessageKey): Promise<boolean> {
-  if (!lockToken) return false;
-
-  const result = await redis.eval<string[], number>(
-    CLEAR_LOCK_IF_OWNED_SCRIPT,
-    [getOutboundMessageKey({ emailAccountId, messageId })],
-    [lockToken],
-  );
-
-  return result === 1;
+  return clearOwnedLock({
+    key: getOutboundMessageKey({ emailAccountId, messageId }),
+    lockToken,
+  });
 }
 
 function getOutboundMessageKey({

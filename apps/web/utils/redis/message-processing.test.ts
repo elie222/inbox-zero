@@ -68,7 +68,7 @@ describe("message-processing redis locks", () => {
     expect(redis.eval).toHaveBeenCalledWith(
       expect.stringContaining('redis.call("SET"'),
       ["reply-tracker:outbound-message:account-1:message-1"],
-      ["lock-token-1", "2592000"],
+      ["lock-token-1", "processed", "2592000"],
     );
   });
 
