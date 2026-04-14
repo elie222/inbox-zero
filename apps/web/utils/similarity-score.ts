@@ -3,8 +3,21 @@ import { convertEmailHtmlToText, parseReply } from "@/utils/mail";
 import { stripQuotedContent } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
 
-const HTML_CONTENT_REGEX =
-  /<!doctype\s+html\b|<(?:html|head|body|div|p|br|a|span|table|tr|td|blockquote|meta)\b[^>]*>|<\/(?:html|head|body|div|p|a|span|table|tr|td|blockquote)>/i;
+const HTML_TAG_NAMES = [
+  "html",
+  "head",
+  "body",
+  "div",
+  "p",
+  "br",
+  "a",
+  "span",
+  "table",
+  "tr",
+  "td",
+  "blockquote",
+  "meta",
+];
 
 /**
  * Normalizes content for Outlook (HTML) comparison.
@@ -46,7 +59,7 @@ function decodeHtmlEntities(text: string): string {
  * Uses parseReply to extract the reply, decodes HTML entities, and strips quoted content.
  */
 function normalizeForGmail(content: string): string {
-  const plainText = HTML_CONTENT_REGEX.test(content)
+  const plainText = looksLikeHtmlContent(content)
     ? convertEmailHtmlToText({
         htmlText: content.replace(/\n/g, "<br>"),
         includeLinks: false,
@@ -101,4 +114,15 @@ export function calculateSimilarity(
   }
 
   return stringSimilarity.compareTwoStrings(normalized1, normalized2);
+}
+
+function looksLikeHtmlContent(content: string): boolean {
+  const lowerContent = content.toLowerCase();
+
+  if (lowerContent.includes("<!doctype html")) return true;
+
+  return HTML_TAG_NAMES.some(
+    (tag) =>
+      lowerContent.includes(`<${tag}`) || lowerContent.includes(`</${tag}>`),
+  );
 }
