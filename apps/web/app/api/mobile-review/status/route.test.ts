@@ -29,7 +29,7 @@ describe("mobile review status route", () => {
     vi.clearAllMocks();
   });
 
-  it("returns the validated review access status without caching", async () => {
+  it("returns the validated review access status", async () => {
     getMobileReviewAccessStatusMock.mockResolvedValueOnce({ enabled: false });
 
     const request = new NextRequest(
@@ -50,6 +50,5 @@ describe("mobile review status route", () => {
       logger: request.logger,
     });
     expect(body).toEqual({ enabled: false });
-    expect(response.headers.get("cache-control")).toBe("no-store");
   });
 });

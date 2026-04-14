@@ -56,7 +56,17 @@ export async function getMobileReviewAccessStatus(input: { logger: Logger }) {
     return { enabled: false as const };
   }
 
-  const reviewUser = await getMobileReviewUser(config.reviewDemoEmail);
+  let reviewUser: MobileReviewUserResult;
+  try {
+    reviewUser = await getMobileReviewUser(config.reviewDemoEmail);
+  } catch (error) {
+    input.logger.warn("Mobile review access unavailable", {
+      reason: "review_user_lookup_failed",
+      error,
+    });
+    return { enabled: false as const };
+  }
+
   if (!reviewUser.ok) {
     input.logger.warn("Mobile review access unavailable", reviewUser);
     return { enabled: false as const };

@@ -123,6 +123,23 @@ describe("mobile review access", () => {
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
+  it("reports disabled status when the review user lookup fails", async () => {
+    const logger = createLogger();
+    const error = new Error("database unavailable");
+    userFindUniqueMock.mockRejectedValueOnce(error);
+
+    const result = await getMobileReviewAccessStatus({ logger } as never);
+
+    expect(result).toEqual({ enabled: false });
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Mobile review access unavailable",
+      expect.objectContaining({
+        error,
+        reason: "review_user_lookup_failed",
+      }),
+    );
+  });
+
   it("rejects invalid review codes before querying the database", async () => {
     const logger = createLogger();
 

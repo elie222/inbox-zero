@@ -6,9 +6,5 @@ export const GET = withError("mobile-review/status", async (request) => {
   const { enabled } = await getMobileReviewAccessStatus({
     logger: request.logger,
   });
-
-  const response = NextResponse.json({ enabled });
-  response.headers.set("Cache-Control", "no-store");
-
-  return response;
+  return NextResponse.json({ enabled });
 });
