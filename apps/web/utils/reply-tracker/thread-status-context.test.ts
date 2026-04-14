@@ -19,15 +19,14 @@ describe("buildThreadStatusMessagesForLLM", () => {
     }));
   });
 
-  it("keeps the full thread when it is already within the limit", () => {
+  it("uses larger limits for the first and latest messages", () => {
     const messages = Array.from({ length: 3 }, (_, index) =>
       getMockMessage({ id: `msg-${index + 1}` }),
     );
 
     const result = buildThreadStatusMessagesForLLM(messages as any);
 
-    expect(result.omittedMessageCount).toBe(0);
-    expect(result.threadMessages.map((message) => message.id)).toEqual([
+    expect(result.map((message) => message.id)).toEqual([
       "msg-1",
       "msg-2",
       "msg-3",
@@ -35,30 +34,33 @@ describe("buildThreadStatusMessagesForLLM", () => {
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
       1,
       messages[0],
-      expect.objectContaining({ maxLength: 300 }),
+      expect.objectContaining({ maxLength: 400 }),
     );
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
       2,
       messages[1],
-      expect.objectContaining({ maxLength: 300 }),
+      expect.objectContaining({ maxLength: 400 }),
     );
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
       3,
       messages[2],
-      expect.objectContaining({ maxLength: 2000 }),
+      expect.objectContaining({ maxLength: 1200 }),
     );
   });
 
-  it("keeps the first message and the recent tail when the thread is long", () => {
+  it("keeps all messages and compresses the middle of long threads", () => {
     const messages = Array.from({ length: 12 }, (_, index) =>
       getMockMessage({ id: `msg-${index + 1}` }),
     );
 
     const result = buildThreadStatusMessagesForLLM(messages as any);
 
-    expect(result.omittedMessageCount).toBe(4);
-    expect(result.threadMessages.map((message) => message.id)).toEqual([
+    expect(result.map((message) => message.id)).toEqual([
       "msg-1",
+      "msg-2",
+      "msg-3",
+      "msg-4",
+      "msg-5",
       "msg-6",
       "msg-7",
       "msg-8",
@@ -67,11 +69,31 @@ describe("buildThreadStatusMessagesForLLM", () => {
       "msg-11",
       "msg-12",
     ]);
-    expect(getEmailForLLM).toHaveBeenCalledTimes(8);
+    expect(getEmailForLLM).toHaveBeenCalledTimes(12);
     expect(getEmailForLLM).toHaveBeenNthCalledWith(
-      8,
+      1,
+      messages[0],
+      expect.objectContaining({ maxLength: 400 }),
+    );
+    expect(getEmailForLLM).toHaveBeenNthCalledWith(
+      2,
+      messages[1],
+      expect.objectContaining({ maxLength: 120 }),
+    );
+    expect(getEmailForLLM).toHaveBeenNthCalledWith(
+      5,
+      messages[4],
+      expect.objectContaining({ maxLength: 400 }),
+    );
+    expect(getEmailForLLM).toHaveBeenNthCalledWith(
+      6,
+      messages[5],
+      expect.objectContaining({ maxLength: 400 }),
+    );
+    expect(getEmailForLLM).toHaveBeenNthCalledWith(
+      12,
       messages[11],
-      expect.objectContaining({ maxLength: 2000 }),
+      expect.objectContaining({ maxLength: 1200 }),
     );
   });
 });

@@ -55,8 +55,7 @@ export async function determineConversationStatus({
   }
 
   const sortedMessages = [...threadMessages].sort(sortByInternalDate());
-  const { threadMessages: threadMessagesForLLM, omittedMessageCount } =
-    buildThreadStatusMessagesForLLM(sortedMessages);
+  const threadMessagesForLLM = buildThreadStatusMessagesForLLM(sortedMessages);
 
   // Check if the user sent the last email in the thread
   const lastMessage = sortedMessages.at(-1);
@@ -67,7 +66,6 @@ export async function determineConversationStatus({
   const { status, rationale } = await aiDetermineThreadStatus({
     emailAccount,
     threadMessages: threadMessagesForLLM,
-    omittedMessageCount,
     modelType,
     userSentLastEmail,
     conversationRules,

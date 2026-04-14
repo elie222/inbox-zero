@@ -11,14 +11,12 @@ import { getRuleConfig } from "@/utils/rule/consts";
 export async function aiDetermineThreadStatus({
   emailAccount,
   threadMessages,
-  omittedMessageCount = 0,
   modelType,
   userSentLastEmail = false,
   conversationRules = [],
 }: {
   emailAccount: EmailAccountWithAI;
   threadMessages: EmailForLLM[];
-  omittedMessageCount?: number;
   modelType?: ModelType;
   userSentLastEmail?: boolean;
   conversationRules?: RuleWithActions[];
@@ -119,14 +117,6 @@ ${conversationPreferences}
 Apply these preferences when determining the thread status.
 If these preferences conflict with default status criteria, the user's preferences take priority.
 `
-    : ""
-}
-${
-  omittedMessageCount > 0
-    ? `
-NOTE: ${omittedMessageCount} middle ${
-        omittedMessageCount === 1 ? "message was" : "messages were"
-      } omitted from this thread to keep the prompt focused. The first message and the most recent messages are included below.`
     : ""
 }
 Email thread (in chronological order, oldest to newest):

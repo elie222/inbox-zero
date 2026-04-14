@@ -82,7 +82,7 @@ export async function handleOutboundReply({
       );
     }
 
-    const { threadMessages: threadMessagesForLLM, omittedMessageCount } =
+    const threadMessagesForLLM =
       buildThreadStatusMessagesForLLM(sortedMessages);
 
     if (!threadMessagesForLLM.length) {
@@ -93,7 +93,6 @@ export async function handleOutboundReply({
     const aiResult = await aiDetermineThreadStatus({
       emailAccount,
       threadMessages: threadMessagesForLLM,
-      omittedMessageCount,
       userSentLastEmail: true,
     });
 
