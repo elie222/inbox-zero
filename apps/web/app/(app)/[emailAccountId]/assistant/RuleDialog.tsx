@@ -1,5 +1,7 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
+import { Component } from "react";
 import { useCallback, useMemo } from "react";
 import {
   Dialog,
@@ -7,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { RuleForm } from "./RuleForm";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { useDialogState } from "@/hooks/useDialogState";
@@ -14,6 +17,7 @@ import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { RuleLoader } from "./RuleLoader";
+import { createClientLogger } from "@/utils/logger-client";
 
 interface RuleDialogProps {
   duplicateRule?: RulesResponse[number];
@@ -64,54 +68,123 @@ export function RuleDialog({
 
   // Use duplicateInitialRule if provided, otherwise use initialRule
   const finalInitialRule = duplicateInitialRule || initialRule;
+  const dialogContentKey = ruleId || duplicateRule?.id || "new-rule";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+      <DialogContent
+        className="max-h-[90vh] max-w-4xl overflow-y-auto"
+        aria-describedby={undefined}
+      >
         <DialogHeader className={ruleId ? "sr-only" : ""}>
           <DialogTitle>{ruleId ? "Edit Rule" : "Create Rule"}</DialogTitle>
         </DialogHeader>
-        <div>
-          {ruleId ? (
-            <RuleLoader ruleId={ruleId}>
-              {({ rule, mutate }) => (
-                <RuleForm
-                  rule={rule}
-                  alwaysEditMode={editMode}
-                  onSuccess={handleSuccess}
-                  isDialog={true}
-                  mutate={mutate}
-                  onCancel={onClose}
-                />
-              )}
-            </RuleLoader>
-          ) : (
-            <RuleForm
-              rule={{
-                name: "",
-                conditions: [
-                  {
-                    type: ConditionType.AI,
-                  },
-                ],
-                actions: [
-                  {
-                    type: ActionType.LABEL,
-                  },
-                ],
-                runOnThreads: true,
-                conditionalOperator: LogicalOperator.AND,
-                ...finalInitialRule,
-              }}
-              alwaysEditMode={true}
-              onSuccess={handleSuccess}
-              isDialog={true}
-              onCancel={onClose}
-            />
-          )}
-        </div>
+        <RuleDialogBoundary
+          key={dialogContentKey}
+          ruleId={ruleId}
+          fallback={<RuleDialogErrorState onClose={onClose} />}
+        >
+          <div>
+            {ruleId ? (
+              <RuleLoader ruleId={ruleId}>
+                {({ rule, mutate }) => (
+                  <RuleForm
+                    key={rule.id}
+                    rule={rule}
+                    alwaysEditMode={editMode}
+                    onSuccess={handleSuccess}
+                    isDialog={true}
+                    mutate={mutate}
+                    onCancel={onClose}
+                  />
+                )}
+              </RuleLoader>
+            ) : (
+              <RuleForm
+                key={dialogContentKey}
+                rule={{
+                  name: "",
+                  conditions: [
+                    {
+                      type: ConditionType.AI,
+                    },
+                  ],
+                  actions: [
+                    {
+                      type: ActionType.LABEL,
+                    },
+                  ],
+                  runOnThreads: true,
+                  conditionalOperator: LogicalOperator.AND,
+                  ...finalInitialRule,
+                }}
+                alwaysEditMode={true}
+                onSuccess={handleSuccess}
+                isDialog={true}
+                onCancel={onClose}
+              />
+            )}
+          </div>
+        </RuleDialogBoundary>
       </DialogContent>
     </Dialog>
+  );
+}
+
+class RuleDialogBoundary extends Component<
+  {
+    children: React.ReactNode;
+    fallback: React.ReactNode;
+    ruleId?: string;
+  },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    const logger = createClientLogger("rule-dialog-error-boundary");
+
+    logger.error("Rule dialog crashed", {
+      component: "RuleDialog",
+      errorMessage: error.message,
+      errorName: error.name,
+      ruleId: this.props.ruleId,
+    });
+    logger.flush().catch(() => undefined);
+
+    Sentry.captureException(error, {
+      extra: {
+        component: "RuleDialog",
+        componentStack: errorInfo.componentStack,
+        ruleId: this.props.ruleId,
+      },
+    });
+  }
+
+  render() {
+    if (this.state.hasError) return this.props.fallback;
+
+    return this.props.children;
+  }
+}
+
+function RuleDialogErrorState({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="space-y-4 py-4">
+      <p className="text-sm text-muted-foreground">
+        We couldn&apos;t open this rule. Close the dialog and try again without
+        losing the rest of the page.
+      </p>
+      <div className="flex justify-end">
+        <Button type="button" onClick={onClose}>
+          Close
+        </Button>
+      </div>
+    </div>
   );
 }
 
