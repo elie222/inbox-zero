@@ -16,13 +16,14 @@ function createMockFolder(id: string, name: string): DriveFolder {
 
 function createMockProvider(
   existingFolders: Map<string | undefined, DriveFolder[]> = new Map(),
+  providerName: DriveProvider["name"] = "google",
 ): DriveProvider {
   const createdFolders: DriveFolder[] = [];
   let folderId = 1;
 
   return {
-    name: "google",
-    toJSON: () => ({ name: "google", type: "drive" }),
+    name: providerName,
+    toJSON: () => ({ name: providerName, type: "drive" }),
     getAccessToken: () => "mock-token",
     listFolders: vi.fn(async (parentId?: string) => {
       const existing = existingFolders.get(parentId) || [];
@@ -148,5 +149,19 @@ describe("createFolderPath", () => {
     await expect(createFolderPath(provider, "", logger)).rejects.toThrow(
       "Failed to create folder path",
     );
+  });
+
+  it("should match existing normalized microsoft folders", async () => {
+    const existingFolders = new Map<string | undefined, DriveFolder[]>([
+      [undefined, [createMockFolder("existing-1", "Plans-2026")]],
+    ]);
+    const provider = createMockProvider(existingFolders, "microsoft");
+
+    const result = await createFolderPath(provider, "Plans:2026", logger);
+
+    expect(result.folder.id).toBe("existing-1");
+    expect(result.folder.name).toBe("Plans-2026");
+    expect(result.allFolders[0].path).toBe("Plans-2026");
+    expect(provider.createFolder).not.toHaveBeenCalled();
   });
 });
