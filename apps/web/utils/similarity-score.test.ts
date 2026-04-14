@@ -243,6 +243,14 @@ On Tue, 1 Apr 2026 at 10:00, Sender <sender@example.com> wrote:
       expect(score).toBe(1.0);
     });
 
+    it("should preserve plain text angle brackets that are not real HTML", () => {
+      const storedContent = "Daily Updates <updates@example.com>";
+      const gmailMessage = createParsedMessage("Daily Updates <attachment>");
+
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBeLessThan(1.0);
+    });
+
     it.each([
       { emoji: "👋", decimal: "128075", name: "waving hand" },
       { emoji: "😀", decimal: "128512", name: "grinning face" },

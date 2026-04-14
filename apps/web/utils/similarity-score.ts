@@ -3,6 +3,9 @@ import { convertEmailHtmlToText, parseReply } from "@/utils/mail";
 import { stripQuotedContent } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
 
+const HTML_CONTENT_REGEX =
+  /<!doctype\s+html\b|<(?:html|head|body|div|p|br|a|span|table|tr|td|blockquote|meta)\b[^>]*>|<\/(?:html|head|body|div|p|a|span|table|tr|td|blockquote)>/i;
+
 /**
  * Normalizes content for Outlook (HTML) comparison.
  * Converts \n to <br> and then to plain text, strips quoted content.
@@ -43,7 +46,7 @@ function decodeHtmlEntities(text: string): string {
  * Uses parseReply to extract the reply, decodes HTML entities, and strips quoted content.
  */
 function normalizeForGmail(content: string): string {
-  const plainText = /<\/?[a-z][^>]*>/i.test(content)
+  const plainText = HTML_CONTENT_REGEX.test(content)
     ? convertEmailHtmlToText({
         htmlText: content.replace(/\n/g, "<br>"),
         includeLinks: false,
