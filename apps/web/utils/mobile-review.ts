@@ -34,7 +34,7 @@ type MobileReviewUserResult =
     }
   | {
       ok: false;
-      hasUser: boolean;
+      hasEmailAccount: boolean;
       reason: "review_user_missing_email_account";
     };
 
@@ -192,27 +192,24 @@ function getMobileReviewConfig(): MobileReviewConfigResult {
 async function getMobileReviewUser(
   reviewDemoEmail: string,
 ): Promise<MobileReviewUserResult> {
-  const user = await prisma.user.findUnique({
+  const emailAccount = await prisma.emailAccount.findUnique({
     where: { email: reviewDemoEmail },
     select: {
       email: true,
       id: true,
-      emailAccounts: {
+      user: {
         select: {
+          email: true,
           id: true,
-        },
-        take: 1,
-        orderBy: {
-          createdAt: "asc",
         },
       },
     },
   });
 
-  if (!user?.emailAccounts.length) {
+  if (!emailAccount) {
     return {
       ok: false,
-      hasUser: Boolean(user),
+      hasEmailAccount: false,
       reason: "review_user_missing_email_account",
     };
   }
@@ -220,9 +217,9 @@ async function getMobileReviewUser(
   return {
     ok: true,
     user: {
-      email: user.email,
-      emailAccountId: user.emailAccounts[0].id,
-      id: user.id,
+      email: emailAccount.user.email,
+      emailAccountId: emailAccount.id,
+      id: emailAccount.user.id,
     },
   };
 }

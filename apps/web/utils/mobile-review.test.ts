@@ -2,17 +2,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { createSessionMock, makeSignatureMock, mockedEnv, userFindUniqueMock } =
-  vi.hoisted(() => ({
-    createSessionMock: vi.fn(),
-    makeSignatureMock: vi.fn(),
-    mockedEnv: {
-      APP_REVIEW_DEMO_CODE: "review-code",
-      APP_REVIEW_DEMO_EMAIL: "review@example.com",
-      APP_REVIEW_DEMO_ENABLED: true,
-    },
-    userFindUniqueMock: vi.fn(),
-  }));
+const {
+  createSessionMock,
+  emailAccountFindUniqueMock,
+  makeSignatureMock,
+  mockedEnv,
+} = vi.hoisted(() => ({
+  createSessionMock: vi.fn(),
+  emailAccountFindUniqueMock: vi.fn(),
+  makeSignatureMock: vi.fn(),
+  mockedEnv: {
+    APP_REVIEW_DEMO_CODE: "review-code",
+    APP_REVIEW_DEMO_EMAIL: "review@example.com",
+    APP_REVIEW_DEMO_ENABLED: true,
+  },
+}));
 
 vi.mock("better-auth/crypto", () => ({
   makeSignature: (...args: unknown[]) => makeSignatureMock(...args),
@@ -49,8 +53,8 @@ vi.mock("@/utils/auth", () => ({
 
 vi.mock("@/utils/prisma", () => ({
   default: {
-    user: {
-      findUnique: (...args: unknown[]) => userFindUniqueMock(...args),
+    emailAccount: {
+      findUnique: (...args: unknown[]) => emailAccountFindUniqueMock(...args),
     },
   },
 }));
@@ -90,11 +94,7 @@ describe("mobile review access", () => {
 
   it("reports disabled status when the configured review account has no email account", async () => {
     const logger = createLogger();
-    userFindUniqueMock.mockResolvedValueOnce({
-      email: "review@example.com",
-      emailAccounts: [],
-      id: "user-1",
-    });
+    emailAccountFindUniqueMock.mockResolvedValueOnce(null);
 
     const result = await getMobileReviewAccessStatus({ logger } as never);
 
@@ -102,7 +102,7 @@ describe("mobile review access", () => {
     expect(logger.warn).toHaveBeenCalledWith(
       "Mobile review access unavailable",
       expect.objectContaining({
-        hasUser: true,
+        hasEmailAccount: false,
         ok: false,
         reason: "review_user_missing_email_account",
       }),
@@ -111,10 +111,13 @@ describe("mobile review access", () => {
 
   it("reports enabled status when the configured review account is usable", async () => {
     const logger = createLogger();
-    userFindUniqueMock.mockResolvedValueOnce({
+    emailAccountFindUniqueMock.mockResolvedValueOnce({
       email: "review@example.com",
-      emailAccounts: [{ id: "account-1" }],
-      id: "user-1",
+      id: "account-1",
+      user: {
+        email: "owner@example.com",
+        id: "user-1",
+      },
     });
 
     const result = await getMobileReviewAccessStatus({ logger } as never);
@@ -126,7 +129,7 @@ describe("mobile review access", () => {
   it("reports disabled status when the review user lookup fails", async () => {
     const logger = createLogger();
     const error = new Error("database unavailable");
-    userFindUniqueMock.mockRejectedValueOnce(error);
+    emailAccountFindUniqueMock.mockRejectedValueOnce(error);
 
     const result = await getMobileReviewAccessStatus({ logger } as never);
 
@@ -151,7 +154,7 @@ describe("mobile review access", () => {
       statusCode: 401,
     });
 
-    expect(userFindUniqueMock).not.toHaveBeenCalled();
+    expect(emailAccountFindUniqueMock).not.toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith("Mobile review sign-in rejected", {
       reason: "invalid_review_demo_code",
     });
@@ -159,11 +162,7 @@ describe("mobile review access", () => {
 
   it("rejects valid review codes when the configured review account cannot create a session", async () => {
     const logger = createLogger();
-    userFindUniqueMock.mockResolvedValueOnce({
-      email: "review@example.com",
-      emailAccounts: [],
-      id: "user-1",
-    });
+    emailAccountFindUniqueMock.mockResolvedValueOnce(null);
 
     await expect(
       createMobileReviewSession({ code: "review-code", logger } as never),
@@ -175,7 +174,7 @@ describe("mobile review access", () => {
     expect(logger.warn).toHaveBeenCalledWith(
       "Mobile review sign-in unavailable",
       expect.objectContaining({
-        hasUser: true,
+        hasEmailAccount: false,
         ok: false,
         reason: "review_user_missing_email_account",
       }),
