@@ -21,6 +21,9 @@ vi.mock("./draft-tracking", () => ({
 vi.mock("./outbound", () => ({
   handleOutboundReply: vi.fn(),
 }));
+vi.mock("./error-logging", () => ({
+  logReplyTrackerError: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("@/utils/follow-up/labels", () => ({
   clearFollowUpLabel: vi.fn(),
 }));
