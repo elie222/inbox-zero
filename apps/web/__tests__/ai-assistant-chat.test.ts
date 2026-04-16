@@ -1618,6 +1618,17 @@ describe("aiProcessAssistantChat", () => {
     expect(parsed.success).toBe(true);
   });
 
+  it("saveMemory schema requires userEvidence for user_message", async () => {
+    const tools = await captureToolSet();
+
+    const parsed = (tools.saveMemory as any).inputSchema.safeParse({
+      content: "I prefer concise responses.",
+      source: "user_message",
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+
   it("searchMemories supports empty query for broad recall", async () => {
     const tools = await captureToolSet();
     mockPrisma.chatMemory.findMany.mockResolvedValue([
