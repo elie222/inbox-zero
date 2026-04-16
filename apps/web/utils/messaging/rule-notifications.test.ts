@@ -16,6 +16,7 @@ vi.mock("@/utils/prisma");
 const mockCreateEmailProvider = vi.fn();
 const mockSendAutomationMessage = vi.fn();
 const mockSlackPostMessage = vi.fn();
+const mockSlackUpdate = vi.fn();
 const mockSlackJoin = vi.fn();
 const mockTelegramOpenDm = vi.fn();
 const mockTelegramPostMessage = vi.fn();
@@ -33,6 +34,7 @@ vi.mock("@/utils/messaging/providers/slack/client", () => ({
   createSlackClient: () => ({
     chat: {
       postMessage: (...args: unknown[]) => mockSlackPostMessage(...args),
+      update: (...args: unknown[]) => mockSlackUpdate(...args),
     },
     conversations: {
       join: (...args: unknown[]) => mockSlackJoin(...args),
@@ -60,6 +62,7 @@ describe("handleRuleNotificationAction", () => {
       messageId: "teams-message-1",
     });
     mockSlackPostMessage.mockResolvedValue({ ts: "slack-ts-1" });
+    mockSlackUpdate.mockResolvedValue({});
     mockSlackJoin.mockResolvedValue({});
     mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
     mockTelegramPostMessage.mockResolvedValue({ id: "telegram-message-1" });
@@ -908,12 +911,99 @@ describe("buildMessagingRuleNotificationText", () => {
   });
 });
 
+describe("replaceSlackDraftNotificationsWithHandledOnWebState", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSlackUpdate.mockResolvedValue({});
+  });
+
+  it("collapses an active Slack draft notification after a web reply", async () => {
+    prisma.executedAction.findMany.mockResolvedValue([
+      { id: "action-1" },
+    ] as never);
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+        messagingMessageId: "slack-ts-1",
+        messagingMessageStatus: MessagingMessageStatus.SENT,
+      }) as never,
+    );
+    prisma.executedAction.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const { replaceSlackDraftNotificationsWithHandledOnWebState } =
+      await import("./rule-notifications");
+
+    await replaceSlackDraftNotificationsWithHandledOnWebState({
+      executedRuleId: "executed-rule-1",
+      logger: createScopedLogger("test"),
+    });
+
+    expect(prisma.executedAction.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "action-1",
+        messagingMessageStatus: {
+          in: [
+            MessagingMessageStatus.SENT,
+            MessagingMessageStatus.DRAFT_EDITED,
+          ],
+        },
+      },
+      data: {
+        messagingMessageStatus: MessagingMessageStatus.EXPIRED,
+      },
+    });
+    expect(mockSlackUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "C123",
+        ts: "slack-ts-1",
+        text: expect.stringContaining("Already replied on the web."),
+      }),
+    );
+
+    const [args] = mockSlackUpdate.mock.calls[0];
+    expect(JSON.stringify(args.blocks)).toContain(
+      "Already replied on the web.",
+    );
+    expect(JSON.stringify(args.blocks)).not.toContain("Send reply");
+  });
+
+  it("keeps Slack-sent draft notifications unchanged", async () => {
+    prisma.executedAction.findMany.mockResolvedValue([
+      { id: "action-1" },
+    ] as never);
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+        messagingMessageId: "slack-ts-1",
+        messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
+      }) as never,
+    );
+
+    const { replaceSlackDraftNotificationsWithHandledOnWebState } =
+      await import("./rule-notifications");
+
+    await replaceSlackDraftNotificationsWithHandledOnWebState({
+      executedRuleId: "executed-rule-1",
+      logger: createScopedLogger("test"),
+    });
+
+    expect(prisma.executedAction.updateMany).not.toHaveBeenCalled();
+    expect(mockSlackUpdate).not.toHaveBeenCalled();
+  });
+});
+
 function getNotificationContext({
   id,
   type,
   content,
   messagingChannel,
   accountProvider = "google",
+  messagingMessageId = null,
+  messagingMessageStatus = null,
 }: {
   id: string;
   type: ActionType;
@@ -934,6 +1024,8 @@ function getNotificationContext({
     }>;
   };
   accountProvider?: "google" | "microsoft" | "imap";
+  messagingMessageId?: string | null;
+  messagingMessageStatus?: MessagingMessageStatus | null;
 }) {
   const defaultRoutes =
     messagingChannel?.routes ??
@@ -968,7 +1060,8 @@ function getNotificationContext({
     draftId: null,
     staticAttachments: null,
     messagingChannelId: "channel-1",
-    messagingMessageStatus: null,
+    messagingMessageId,
+    messagingMessageStatus,
     executedRule: {
       id: "executed-rule-1",
       ruleId: "rule-1",

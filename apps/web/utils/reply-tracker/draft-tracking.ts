@@ -11,6 +11,7 @@ import {
   saveDraftSendLogReplyMemory,
   syncReplyMemoriesFromDraftSendLogs,
 } from "@/utils/ai/reply/reply-memory";
+import { replaceSlackDraftNotificationsWithHandledOnWebState } from "@/utils/messaging/rule-notifications";
 import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
 import { logReplyTrackerError } from "./error-logging";
 
@@ -55,6 +56,7 @@ export async function trackSentDraftStatus({
       id: true,
       content: true,
       draftId: true,
+      executedRuleId: true,
     },
   });
 
@@ -107,6 +109,10 @@ export async function trackSentDraftStatus({
       "Created draft send log and marked action as not sent (draft still exists)",
       { executedActionId },
     );
+    await replaceSlackDraftNotificationsWithHandledOnWebState({
+      executedRuleId: executedAction.executedRuleId,
+      logger,
+    });
     queueReplyMemoryLearning({
       emailAccountId,
       executedActionId,
@@ -152,6 +158,11 @@ export async function trackSentDraftStatus({
     "Successfully created draft send log and updated action status via transaction",
     { executedActionId },
   );
+
+  await replaceSlackDraftNotificationsWithHandledOnWebState({
+    executedRuleId: executedAction.executedRuleId,
+    logger,
+  });
 
   queueReplyMemoryLearning({
     emailAccountId,

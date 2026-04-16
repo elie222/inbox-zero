@@ -127,6 +127,38 @@ export async function sendMessagingRuleNotification({
   return result.delivered;
 }
 
+export async function replaceSlackDraftNotificationsWithHandledOnWebState({
+  executedRuleId,
+  logger,
+}: {
+  executedRuleId: string;
+  logger: Logger;
+}) {
+  const notificationActions = await prisma.executedAction.findMany({
+    where: {
+      executedRuleId,
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      messagingMessageId: { not: null },
+      messagingChannel: {
+        provider: MessagingProvider.SLACK,
+        isConnected: true,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  await Promise.all(
+    notificationActions.map(({ id }) =>
+      replaceSlackDraftNotificationWithHandledOnWebState({
+        executedActionId: id,
+        logger,
+      }),
+    ),
+  );
+}
+
 export async function getMessagingRuleNotificationResult({
   executedActionId,
   email,
@@ -1067,6 +1099,7 @@ async function getNotificationContext(executedActionId: string) {
       draftId: true,
       staticAttachments: true,
       messagingChannelId: true,
+      messagingMessageId: true,
       messagingMessageStatus: true,
       executedRule: {
         select: {
@@ -1588,6 +1621,98 @@ async function postSlackCard({
     }
 
     throw error;
+  }
+}
+
+async function replaceSlackDraftNotificationWithHandledOnWebState({
+  executedActionId,
+  logger,
+}: {
+  executedActionId: string;
+  logger: Logger;
+}) {
+  const context = await getNotificationContext(executedActionId);
+
+  if (
+    !context?.messagingMessageId ||
+    !context.messagingChannel?.isConnected ||
+    context.messagingChannel.provider !== MessagingProvider.SLACK ||
+    !context.messagingChannel.accessToken
+  ) {
+    return;
+  }
+
+  if (
+    context.messagingMessageStatus !== MessagingMessageStatus.SENT &&
+    context.messagingMessageStatus !== MessagingMessageStatus.DRAFT_EDITED
+  ) {
+    return;
+  }
+
+  const route = getMessagingRoute(
+    context.messagingChannel.routes,
+    MessagingRoutePurpose.RULE_NOTIFICATIONS,
+  );
+
+  if (!route) {
+    logger.warn("Skipping Slack draft notification cleanup with no route", {
+      executedActionId: context.id,
+      messagingChannelId: context.messagingChannelId,
+    });
+    return;
+  }
+
+  const destinationChannelId = await resolveSlackRouteDestination({
+    accessToken: context.messagingChannel.accessToken,
+    route,
+  });
+
+  if (!destinationChannelId) {
+    logger.warn(
+      "Skipping Slack draft notification cleanup with no destination",
+      {
+        executedActionId: context.id,
+        messagingChannelId: context.messagingChannelId,
+      },
+    );
+    return;
+  }
+
+  const updated = await prisma.executedAction.updateMany({
+    where: {
+      id: context.id,
+      messagingMessageStatus: {
+        in: [MessagingMessageStatus.SENT, MessagingMessageStatus.DRAFT_EDITED],
+      },
+    },
+    data: {
+      messagingMessageStatus: MessagingMessageStatus.EXPIRED,
+    },
+  });
+
+  if (updated.count === 0) {
+    return;
+  }
+
+  const card = buildTerminalCard({
+    title: "Draft reply",
+    message: "Already replied on the web.",
+  });
+
+  try {
+    await createSlackClient(context.messagingChannel.accessToken).chat.update(
+      disableSlackLinkUnfurls({
+        channel: destinationChannelId,
+        ts: context.messagingMessageId,
+        text: cardToFallbackText(card),
+        blocks: cardToBlockKit(card),
+      }),
+    );
+  } catch (error) {
+    logger.warn("Failed to collapse Slack draft notification after web reply", {
+      executedActionId: context.id,
+      error,
+    });
   }
 }
 
