@@ -1103,6 +1103,57 @@ describe("replaceMessagingDraftNotificationsWithHandledOnWebState", () => {
     expect(mockTeamsEditMessage).not.toHaveBeenCalled();
     expect(mockTelegramEditMessage).not.toHaveBeenCalled();
   });
+
+  it("continues collapsing other draft notifications when one lookup fails", async () => {
+    prisma.executedAction.findMany.mockResolvedValue([
+      { id: "action-1" },
+      { id: "action-2" },
+    ] as never);
+    prisma.executedAction.findUnique.mockImplementation(async ({ where }) => {
+      if (where?.id === "action-1") {
+        throw new Error("lookup failed");
+      }
+
+      if (where?.id === "action-2") {
+        return getNotificationContext({
+          id: "action-2",
+          type: ActionType.DRAFT_MESSAGING_CHANNEL,
+          content: "Draft body",
+          messagingMessageId: "teams-message-1",
+          messagingMessageStatus: MessagingMessageStatus.SENT,
+          messagingChannel: {
+            id: "channel-1",
+            provider: MessagingProvider.TEAMS,
+            isConnected: true,
+            teamId: "teams-tenant-1",
+            providerUserId: "29:teams-user",
+            accessToken: null,
+            channelId: null,
+          },
+        }) as never;
+      }
+
+      return null as never;
+    });
+    prisma.executedAction.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const { replaceMessagingDraftNotificationsWithHandledOnWebState } =
+      await import("./rule-notifications");
+
+    await expect(
+      replaceMessagingDraftNotificationsWithHandledOnWebState({
+        executedRuleId: "executed-rule-1",
+        logger: createScopedLogger("test"),
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(mockTeamsOpenDm).toHaveBeenCalledWith("29:teams-user");
+    expect(mockTeamsEditMessage).toHaveBeenCalledWith(
+      "teams-thread-1",
+      "teams-message-1",
+      "Already replied on the web.",
+    );
+  });
 });
 
 function getNotificationContext({

@@ -148,7 +148,7 @@ export async function replaceMessagingDraftNotificationsWithHandledOnWebState({
     },
   });
 
-  await Promise.all(
+  const results = await Promise.allSettled(
     notificationActions.map(({ id }) =>
       replaceMessagingDraftNotificationWithHandledOnWebState({
         executedActionId: id,
@@ -156,6 +156,15 @@ export async function replaceMessagingDraftNotificationsWithHandledOnWebState({
       }),
     ),
   );
+
+  for (const result of results) {
+    if (result.status === "rejected") {
+      logger.warn("Failed to collapse one messaging draft notification", {
+        executedRuleId,
+        error: result.reason,
+      });
+    }
+  }
 }
 
 export async function getMessagingRuleNotificationResult({
