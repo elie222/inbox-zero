@@ -18,8 +18,11 @@ const mockSendAutomationMessage = vi.fn();
 const mockSlackPostMessage = vi.fn();
 const mockSlackUpdate = vi.fn();
 const mockSlackJoin = vi.fn();
+const mockTeamsOpenDm = vi.fn();
+const mockTeamsEditMessage = vi.fn();
 const mockTelegramOpenDm = vi.fn();
 const mockTelegramPostMessage = vi.fn();
+const mockTelegramEditMessage = vi.fn();
 
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: (...args: unknown[]) => mockCreateEmailProvider(...args),
@@ -46,9 +49,14 @@ vi.mock("@/utils/messaging/chat-sdk/adapters", () => ({
   getMessagingAdapterRegistry: () => ({
     adapters: {},
     typedAdapters: {
+      teams: {
+        openDM: (...args: unknown[]) => mockTeamsOpenDm(...args),
+        editMessage: (...args: unknown[]) => mockTeamsEditMessage(...args),
+      },
       telegram: {
         openDM: (...args: unknown[]) => mockTelegramOpenDm(...args),
         postMessage: (...args: unknown[]) => mockTelegramPostMessage(...args),
+        editMessage: (...args: unknown[]) => mockTelegramEditMessage(...args),
       },
     },
   }),
@@ -64,8 +72,11 @@ describe("handleRuleNotificationAction", () => {
     mockSlackPostMessage.mockResolvedValue({ ts: "slack-ts-1" });
     mockSlackUpdate.mockResolvedValue({});
     mockSlackJoin.mockResolvedValue({});
+    mockTeamsOpenDm.mockResolvedValue("teams-thread-1");
+    mockTeamsEditMessage.mockResolvedValue({ id: "teams-message-1" });
     mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
     mockTelegramPostMessage.mockResolvedValue({ id: "telegram-message-1" });
+    mockTelegramEditMessage.mockResolvedValue({ id: "telegram-message-1" });
   });
 
   it("keeps the draft preview visible after sending from Slack", async () => {
@@ -475,8 +486,11 @@ describe("sendMessagingRuleNotification", () => {
     });
     mockSlackPostMessage.mockResolvedValue({ ts: "slack-ts-1" });
     mockSlackJoin.mockResolvedValue({});
+    mockTeamsOpenDm.mockResolvedValue("teams-thread-1");
+    mockTeamsEditMessage.mockResolvedValue({ id: "teams-message-1" });
     mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
     mockTelegramPostMessage.mockResolvedValue({ id: "telegram-message-1" });
+    mockTelegramEditMessage.mockResolvedValue({ id: "telegram-message-1" });
   });
 
   it("adds an Open in Gmail button for Slack draft notifications on Google accounts", async () => {
@@ -911,10 +925,14 @@ describe("buildMessagingRuleNotificationText", () => {
   });
 });
 
-describe("replaceSlackDraftNotificationsWithHandledOnWebState", () => {
+describe("replaceMessagingDraftNotificationsWithHandledOnWebState", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSlackUpdate.mockResolvedValue({});
+    mockTeamsOpenDm.mockResolvedValue("teams-thread-1");
+    mockTeamsEditMessage.mockResolvedValue({ id: "teams-message-1" });
+    mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
+    mockTelegramEditMessage.mockResolvedValue({ id: "telegram-message-1" });
   });
 
   it("collapses an active Slack draft notification after a web reply", async () => {
@@ -932,10 +950,10 @@ describe("replaceSlackDraftNotificationsWithHandledOnWebState", () => {
     );
     prisma.executedAction.updateMany.mockResolvedValue({ count: 1 } as never);
 
-    const { replaceSlackDraftNotificationsWithHandledOnWebState } =
+    const { replaceMessagingDraftNotificationsWithHandledOnWebState } =
       await import("./rule-notifications");
 
-    await replaceSlackDraftNotificationsWithHandledOnWebState({
+    await replaceMessagingDraftNotificationsWithHandledOnWebState({
       executedRuleId: "executed-rule-1",
       logger: createScopedLogger("test"),
     });
@@ -969,7 +987,94 @@ describe("replaceSlackDraftNotificationsWithHandledOnWebState", () => {
     expect(JSON.stringify(args.blocks)).not.toContain("Send reply");
   });
 
-  it("keeps Slack-sent draft notifications unchanged", async () => {
+  it("collapses a Teams draft notification after a web reply", async () => {
+    prisma.executedAction.findMany.mockResolvedValue([
+      { id: "action-1" },
+    ] as never);
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+        messagingMessageId: "teams-message-1",
+        messagingMessageStatus: MessagingMessageStatus.SENT,
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.TEAMS,
+          isConnected: true,
+          teamId: "teams-tenant-1",
+          providerUserId: "29:teams-user",
+          accessToken: null,
+          channelId: null,
+        },
+      }) as never,
+    );
+    prisma.executedAction.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const { replaceMessagingDraftNotificationsWithHandledOnWebState } =
+      await import("./rule-notifications");
+
+    await replaceMessagingDraftNotificationsWithHandledOnWebState({
+      executedRuleId: "executed-rule-1",
+      logger: createScopedLogger("test"),
+    });
+
+    expect(mockTeamsOpenDm).toHaveBeenCalledWith("29:teams-user");
+    expect(mockTeamsEditMessage).toHaveBeenCalledWith(
+      "teams-thread-1",
+      "teams-message-1",
+      "Already replied on the web.",
+    );
+  });
+
+  it("collapses a Telegram draft notification after a web reply", async () => {
+    prisma.executedAction.findMany.mockResolvedValue([
+      { id: "action-1" },
+    ] as never);
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+        messagingMessageId: "telegram-message-1",
+        messagingMessageStatus: MessagingMessageStatus.SENT,
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.TELEGRAM,
+          isConnected: true,
+          teamId: "telegram-chat-1",
+          providerUserId: "telegram-user-1",
+          accessToken: null,
+          channelId: null,
+          routes: [
+            {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              targetId: "telegram-chat-1",
+              targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+            },
+          ],
+        },
+      }) as never,
+    );
+    prisma.executedAction.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const { replaceMessagingDraftNotificationsWithHandledOnWebState } =
+      await import("./rule-notifications");
+
+    await replaceMessagingDraftNotificationsWithHandledOnWebState({
+      executedRuleId: "executed-rule-1",
+      logger: createScopedLogger("test"),
+    });
+
+    expect(mockTelegramOpenDm).toHaveBeenCalledWith("telegram-chat-1");
+    expect(mockTelegramEditMessage).toHaveBeenCalledWith(
+      "telegram-thread-1",
+      "telegram-message-1",
+      "Already replied on the web.",
+    );
+  });
+
+  it("keeps chat-sent draft notifications unchanged", async () => {
     prisma.executedAction.findMany.mockResolvedValue([
       { id: "action-1" },
     ] as never);
@@ -983,16 +1088,18 @@ describe("replaceSlackDraftNotificationsWithHandledOnWebState", () => {
       }) as never,
     );
 
-    const { replaceSlackDraftNotificationsWithHandledOnWebState } =
+    const { replaceMessagingDraftNotificationsWithHandledOnWebState } =
       await import("./rule-notifications");
 
-    await replaceSlackDraftNotificationsWithHandledOnWebState({
+    await replaceMessagingDraftNotificationsWithHandledOnWebState({
       executedRuleId: "executed-rule-1",
       logger: createScopedLogger("test"),
     });
 
     expect(prisma.executedAction.updateMany).not.toHaveBeenCalled();
     expect(mockSlackUpdate).not.toHaveBeenCalled();
+    expect(mockTeamsEditMessage).not.toHaveBeenCalled();
+    expect(mockTelegramEditMessage).not.toHaveBeenCalled();
   });
 });
 

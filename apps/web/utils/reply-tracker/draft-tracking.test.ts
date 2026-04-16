@@ -19,7 +19,7 @@ vi.mock("@/utils/ai/reply/reply-memory", () => ({
   syncReplyMemoriesFromDraftSendLogs: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/utils/messaging/rule-notifications", () => ({
-  replaceSlackDraftNotificationsWithHandledOnWebState: vi
+  replaceMessagingDraftNotificationsWithHandledOnWebState: vi
     .fn()
     .mockResolvedValue(undefined),
 }));
@@ -30,7 +30,7 @@ import {
   saveDraftSendLogReplyMemory,
   syncReplyMemoriesFromDraftSendLogs,
 } from "@/utils/ai/reply/reply-memory";
-import { replaceSlackDraftNotificationsWithHandledOnWebState } from "@/utils/messaging/rule-notifications";
+import { replaceMessagingDraftNotificationsWithHandledOnWebState } from "@/utils/messaging/rule-notifications";
 
 const logger = createScopedLogger("draft-tracking-test");
 
@@ -86,7 +86,7 @@ describe("trackSentDraftStatus", () => {
       }),
     );
     expect(
-      replaceSlackDraftNotificationsWithHandledOnWebState,
+      replaceMessagingDraftNotificationsWithHandledOnWebState,
     ).toHaveBeenCalledWith({
       executedRuleId: "executed-rule-1",
       logger,
@@ -119,7 +119,7 @@ describe("trackSentDraftStatus", () => {
     });
 
     expect(
-      replaceSlackDraftNotificationsWithHandledOnWebState,
+      replaceMessagingDraftNotificationsWithHandledOnWebState,
     ).toHaveBeenCalledWith({
       executedRuleId: "executed-rule-1",
       logger,
@@ -159,7 +159,7 @@ describe("trackSentDraftStatus", () => {
     expect(saveDraftSendLogReplyMemory).not.toHaveBeenCalled();
     expect(syncReplyMemoriesFromDraftSendLogs).not.toHaveBeenCalled();
     expect(
-      replaceSlackDraftNotificationsWithHandledOnWebState,
+      replaceMessagingDraftNotificationsWithHandledOnWebState,
     ).toHaveBeenCalledWith({
       executedRuleId: "executed-rule-1",
       logger,

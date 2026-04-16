@@ -127,7 +127,7 @@ export async function sendMessagingRuleNotification({
   return result.delivered;
 }
 
-export async function replaceSlackDraftNotificationsWithHandledOnWebState({
+export async function replaceMessagingDraftNotificationsWithHandledOnWebState({
   executedRuleId,
   logger,
 }: {
@@ -140,7 +140,6 @@ export async function replaceSlackDraftNotificationsWithHandledOnWebState({
       type: ActionType.DRAFT_MESSAGING_CHANNEL,
       messagingMessageId: { not: null },
       messagingChannel: {
-        provider: MessagingProvider.SLACK,
         isConnected: true,
       },
     },
@@ -151,7 +150,7 @@ export async function replaceSlackDraftNotificationsWithHandledOnWebState({
 
   await Promise.all(
     notificationActions.map(({ id }) =>
-      replaceSlackDraftNotificationWithHandledOnWebState({
+      replaceMessagingDraftNotificationWithHandledOnWebState({
         executedActionId: id,
         logger,
       }),
@@ -1624,7 +1623,7 @@ async function postSlackCard({
   }
 }
 
-async function replaceSlackDraftNotificationWithHandledOnWebState({
+async function replaceMessagingDraftNotificationWithHandledOnWebState({
   executedActionId,
   logger,
 }: {
@@ -1636,8 +1635,8 @@ async function replaceSlackDraftNotificationWithHandledOnWebState({
   if (
     !context?.messagingMessageId ||
     !context.messagingChannel?.isConnected ||
-    context.messagingChannel.provider !== MessagingProvider.SLACK ||
-    !context.messagingChannel.accessToken
+    (context.messagingChannel.provider === MessagingProvider.SLACK &&
+      !context.messagingChannel.accessToken)
   ) {
     return;
   }
@@ -1659,22 +1658,6 @@ async function replaceSlackDraftNotificationWithHandledOnWebState({
       executedActionId: context.id,
       messagingChannelId: context.messagingChannelId,
     });
-    return;
-  }
-
-  const destinationChannelId = await resolveSlackRouteDestination({
-    accessToken: context.messagingChannel.accessToken,
-    route,
-  });
-
-  if (!destinationChannelId) {
-    logger.warn(
-      "Skipping Slack draft notification cleanup with no destination",
-      {
-        executedActionId: context.id,
-        messagingChannelId: context.messagingChannelId,
-      },
-    );
     return;
   }
 
@@ -1700,19 +1683,119 @@ async function replaceSlackDraftNotificationWithHandledOnWebState({
   });
 
   try {
-    await createSlackClient(context.messagingChannel.accessToken).chat.update(
-      disableSlackLinkUnfurls({
-        channel: destinationChannelId,
-        ts: context.messagingMessageId,
-        text: cardToFallbackText(card),
-        blocks: cardToBlockKit(card),
-      }),
-    );
+    switch (context.messagingChannel.provider) {
+      case MessagingProvider.SLACK: {
+        const destinationChannelId = await resolveSlackRouteDestination({
+          accessToken: context.messagingChannel.accessToken!,
+          route,
+        });
+
+        if (!destinationChannelId) {
+          logger.warn(
+            "Skipping Slack draft notification cleanup with no destination",
+            {
+              executedActionId: context.id,
+              messagingChannelId: context.messagingChannelId,
+            },
+          );
+          return;
+        }
+
+        await createSlackClient(
+          context.messagingChannel.accessToken!,
+        ).chat.update(
+          disableSlackLinkUnfurls({
+            channel: destinationChannelId,
+            ts: context.messagingMessageId,
+            text: cardToFallbackText(card),
+            blocks: cardToBlockKit(card),
+          }),
+        );
+        break;
+      }
+      case MessagingProvider.TEAMS: {
+        const providerUserId =
+          route.targetType === MessagingRouteTargetType.DIRECT_MESSAGE
+            ? route.targetId
+            : context.messagingChannel.providerUserId;
+
+        if (!providerUserId) {
+          logger.warn(
+            "Skipping Teams draft notification cleanup with no destination user",
+            {
+              executedActionId: context.id,
+              messagingChannelId: context.messagingChannelId,
+            },
+          );
+          return;
+        }
+
+        const teamsAdapter = getMessagingAdapterRegistry().typedAdapters.teams;
+        if (!teamsAdapter) {
+          logger.warn(
+            "Skipping Teams draft notification cleanup without adapter",
+            {
+              executedActionId: context.id,
+              messagingChannelId: context.messagingChannelId,
+            },
+          );
+          return;
+        }
+
+        const threadId = await teamsAdapter.openDM(providerUserId);
+        await teamsAdapter.editMessage(
+          threadId,
+          context.messagingMessageId,
+          "Already replied on the web.",
+        );
+        break;
+      }
+      case MessagingProvider.TELEGRAM: {
+        const destination = route.targetId || context.messagingChannel.teamId;
+        if (!destination) {
+          logger.warn(
+            "Skipping Telegram draft notification cleanup with no destination",
+            {
+              executedActionId: context.id,
+              messagingChannelId: context.messagingChannelId,
+            },
+          );
+          return;
+        }
+
+        const telegramAdapter =
+          getMessagingAdapterRegistry().typedAdapters.telegram;
+        if (!telegramAdapter) {
+          logger.warn(
+            "Skipping Telegram draft notification cleanup without adapter",
+            {
+              executedActionId: context.id,
+              messagingChannelId: context.messagingChannelId,
+            },
+          );
+          return;
+        }
+
+        const threadId = await telegramAdapter.openDM(destination);
+        await telegramAdapter.editMessage(
+          threadId,
+          context.messagingMessageId,
+          "Already replied on the web.",
+        );
+        break;
+      }
+      default:
+        return;
+    }
   } catch (error) {
-    logger.warn("Failed to collapse Slack draft notification after web reply", {
-      executedActionId: context.id,
-      error,
-    });
+    logger.warn(
+      "Failed to collapse messaging draft notification after web reply",
+      {
+        executedActionId: context.id,
+        provider: context.messagingChannel.provider,
+        error,
+      },
+    );
   }
 }
 
