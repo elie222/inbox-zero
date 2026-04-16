@@ -67,20 +67,29 @@ export async function backfillRecentOutlookMessages({
     subscriptionId,
   });
 
+  let processedCount = 0;
   for (const message of unseenMessages) {
-    await processHistoryForUser({
-      emailAddress,
-      subscriptionId,
-      resourceData: {
-        id: message.id,
-        conversationId: message.threadId,
-      },
-      logger: logger.with({ messageId: message.id }),
-    });
+    try {
+      await processHistoryForUser({
+        emailAddress,
+        subscriptionId,
+        resourceData: {
+          id: message.id,
+          conversationId: message.threadId,
+        },
+        logger: logger.with({ messageId: message.id }),
+      });
+      processedCount++;
+    } catch (error) {
+      logger.error("Failed to process message during backfill", {
+        messageId: message.id,
+        error,
+      });
+    }
   }
 
   return {
-    processedCount: unseenMessages.length,
+    processedCount,
     candidateCount: candidateMessages.length,
   };
 }

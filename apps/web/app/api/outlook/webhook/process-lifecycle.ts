@@ -32,7 +32,6 @@ export async function processOutlookLifecycleNotification({
     lifecycleEvent: notification.lifecycleEvent,
     email: emailAccount?.email,
     emailAccountId: emailAccount?.id,
-    subscriptionId: notification.subscriptionId,
   });
 
   if (!emailAccount) {

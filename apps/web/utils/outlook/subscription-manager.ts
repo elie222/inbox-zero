@@ -102,17 +102,6 @@ export class OutlookSubscriptionManager {
     }
   }
 
-  async ensureSubscription(): Promise<Date | null> {
-    return (await this.createAndPersistSubscription())?.expirationDate ?? null;
-  }
-
-  async refreshSubscription(): Promise<Date | null> {
-    return (
-      (await this.createAndPersistSubscription({ forceRefresh: true }))
-        ?.expirationDate ?? null
-    );
-  }
-
   /**
    * Creates (or reuses) a subscription, persists it to the DB when changed,
    * and cleans up orphaned subscriptions on DB failure.
