@@ -1654,9 +1654,10 @@ async function replaceMessagingDraftNotificationWithHandledOnWebState({
   );
 
   if (!route) {
-    logger.warn("Skipping Slack draft notification cleanup with no route", {
+    logger.warn("Skipping messaging draft notification cleanup with no route", {
       executedActionId: context.id,
       messagingChannelId: context.messagingChannelId,
+      provider: context.messagingChannel.provider,
     });
     return;
   }
@@ -1995,7 +1996,9 @@ function getLinkedProviderLimitationText({
     provider === MessagingProvider.TEAMS ? "Teams" : "Telegram";
 
   if (isDraftReplyActionType(actionType)) {
-    return "One-click draft editing and sending are Slack-only right now. Use Inbox Zero or Slack if you want to edit or send this draft from chat.";
+    return provider === MessagingProvider.TEAMS
+      ? "One-click draft editing and sending aren't available in Teams yet. Use Inbox Zero to review or send this draft."
+      : "Draft editing isn't available in Telegram yet. You can send this draft from Telegram or use Inbox Zero to revise it first.";
   }
 
   return `Quick actions like archive and mark read are Slack-only right now, so this ${providerName} message is view-only.`;

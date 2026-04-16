@@ -731,7 +731,9 @@ describe("sendMessagingRuleNotification", () => {
 
     const [{ text }] = mockSendAutomationMessage.mock.calls[0];
     expect(text).not.toContain("\n> First line");
-    expect(text).toContain("Slack-only");
+    expect(text).toContain(
+      "One-click draft editing and sending aren't available in Teams yet.",
+    );
   });
 
   it("sends Telegram draft notifications with a Send reply action", async () => {
@@ -877,7 +879,7 @@ describe("sendMessagingRuleNotification", () => {
 });
 
 describe("buildMessagingRuleNotificationText", () => {
-  it("adds a Slack-only caveat for Telegram draft fallbacks", async () => {
+  it("adds a Telegram-specific draft caveat for Telegram fallbacks", async () => {
     const { buildMessagingRuleNotificationText } = await import(
       "./rule-notifications"
     );
@@ -897,7 +899,7 @@ describe("buildMessagingRuleNotificationText", () => {
     expect(text).toContain("New email — reply drafted");
     expect(text).toContain('You got an email from Sender about "Test".');
     expect(text).toContain("details: https://example.com");
-    expect(text).toContain("Slack-only");
+    expect(text).toContain("Draft editing isn't available in Telegram yet.");
   });
 
   it("unescapes Slack entities for Teams fallback", async () => {

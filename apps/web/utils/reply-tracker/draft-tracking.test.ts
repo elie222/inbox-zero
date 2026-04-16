@@ -98,7 +98,7 @@ describe("trackSentDraftStatus", () => {
     });
   });
 
-  it("collapses Slack draft notifications when the user replies on the web", async () => {
+  it("collapses stale messaging draft notifications when the user replies on the web", async () => {
     vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
       id: "action-1",
       draftId: "draft-1",
