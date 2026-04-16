@@ -107,19 +107,20 @@ export function RuleForm({
   onCancel?: () => void;
 }) {
   const { emailAccountId, provider } = useAccount();
+  const ruleEditorActions = getRuleEditorActions(rule.actions);
 
   const form = useForm<CreateRuleBody>({
     resolver: zodResolver(createRuleBody),
     defaultValues: rule
       ? {
           ...rule,
-          digest: rule.actions.some(
+          digest: ruleEditorActions.some(
             (action) => action.type === ActionType.DIGEST,
           ),
           actions: [
             ...normalizeDraftReplyActions(
               sortActionsByPriority(
-                rule.actions
+                ruleEditorActions
                   .filter((action) => action.type !== ActionType.DIGEST)
                   .map((action) => ({
                     ...action,
@@ -350,8 +351,8 @@ export function RuleForm({
   const conditionalOperator = watch("conditionalOperator");
   const terminology = getEmailTerminology(provider);
   const existingActionTypes = useMemo(
-    () => rule.actions.map((action) => action.type),
-    [rule.actions],
+    () => ruleEditorActions.map((action) => action.type),
+    [ruleEditorActions],
   );
 
   const formErrors = useMemo(() => {
@@ -701,6 +702,14 @@ function restorePersistedActionSequence({
   );
 
   return [...existing, ...added];
+}
+
+function getRuleEditorActions(actions: CreateRuleBody["actions"]) {
+  if (env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED === false) {
+    return actions.filter((action) => action.type !== ActionType.CALL_WEBHOOK);
+  }
+
+  return actions;
 }
 
 type ActionTypeOption = {
