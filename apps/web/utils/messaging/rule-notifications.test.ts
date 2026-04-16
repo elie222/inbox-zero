@@ -963,12 +963,17 @@ describe("replaceMessagingDraftNotificationsWithHandledOnWebState", () => {
     expect(prisma.executedAction.updateMany).toHaveBeenCalledWith({
       where: {
         id: "action-1",
-        messagingMessageStatus: {
-          in: [
-            MessagingMessageStatus.SENT,
-            MessagingMessageStatus.DRAFT_EDITED,
-          ],
-        },
+        OR: [
+          { messagingMessageStatus: null },
+          {
+            messagingMessageStatus: {
+              in: [
+                MessagingMessageStatus.SENT,
+                MessagingMessageStatus.DRAFT_EDITED,
+              ],
+            },
+          },
+        ],
       },
       data: {
         messagingMessageStatus: MessagingMessageStatus.EXPIRED,
@@ -1093,15 +1098,129 @@ describe("replaceMessagingDraftNotificationsWithHandledOnWebState", () => {
     const { replaceMessagingDraftNotificationsWithHandledOnWebState } =
       await import("./rule-notifications");
 
+    prisma.executedAction.updateMany.mockResolvedValue({ count: 0 } as never);
+
     await replaceMessagingDraftNotificationsWithHandledOnWebState({
       executedRuleId: "executed-rule-1",
       logger: createScopedLogger("test"),
     });
 
-    expect(prisma.executedAction.updateMany).not.toHaveBeenCalled();
+    expect(prisma.executedAction.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "action-1",
+        OR: [
+          { messagingMessageStatus: null },
+          {
+            messagingMessageStatus: {
+              in: [
+                MessagingMessageStatus.SENT,
+                MessagingMessageStatus.DRAFT_EDITED,
+              ],
+            },
+          },
+        ],
+      },
+      data: {
+        messagingMessageStatus: MessagingMessageStatus.EXPIRED,
+      },
+    });
     expect(mockSlackUpdate).not.toHaveBeenCalled();
     expect(mockTeamsEditMessage).not.toHaveBeenCalled();
     expect(mockTelegramEditMessage).not.toHaveBeenCalled();
+  });
+
+  it("expires locally when a Slack notification cannot be edited remotely", async () => {
+    prisma.executedAction.findMany.mockResolvedValue([
+      { id: "action-1" },
+    ] as never);
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+        messagingMessageId: "slack-ts-1",
+        messagingMessageStatus: MessagingMessageStatus.SENT,
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.SLACK,
+          isConnected: true,
+          teamId: "team-1",
+          providerUserId: null,
+          accessToken: null,
+          channelId: "C123",
+        },
+      }) as never,
+    );
+    prisma.executedAction.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const { replaceMessagingDraftNotificationsWithHandledOnWebState } =
+      await import("./rule-notifications");
+
+    await replaceMessagingDraftNotificationsWithHandledOnWebState({
+      executedRuleId: "executed-rule-1",
+      logger: createScopedLogger("test"),
+    });
+
+    expect(prisma.executedAction.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "action-1",
+        OR: [
+          { messagingMessageStatus: null },
+          {
+            messagingMessageStatus: {
+              in: [
+                MessagingMessageStatus.SENT,
+                MessagingMessageStatus.DRAFT_EDITED,
+              ],
+            },
+          },
+        ],
+      },
+      data: {
+        messagingMessageStatus: MessagingMessageStatus.EXPIRED,
+      },
+    });
+    expect(mockSlackUpdate).not.toHaveBeenCalled();
+  });
+
+  it("expires legacy draft notifications with a null status", async () => {
+    prisma.executedAction.findMany.mockResolvedValue([
+      { id: "action-1" },
+    ] as never);
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+        messagingMessageId: "teams-message-1",
+        messagingMessageStatus: null,
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.TEAMS,
+          isConnected: true,
+          teamId: "teams-tenant-1",
+          providerUserId: "29:teams-user",
+          accessToken: null,
+          channelId: null,
+        },
+      }) as never,
+    );
+    prisma.executedAction.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const { replaceMessagingDraftNotificationsWithHandledOnWebState } =
+      await import("./rule-notifications");
+
+    await replaceMessagingDraftNotificationsWithHandledOnWebState({
+      executedRuleId: "executed-rule-1",
+      logger: createScopedLogger("test"),
+    });
+
+    expect(mockTeamsOpenDm).toHaveBeenCalledWith("29:teams-user");
+    expect(mockTeamsEditMessage).toHaveBeenCalledWith(
+      "teams-thread-1",
+      "teams-message-1",
+      "Already replied on the web.",
+    );
   });
 
   it("continues collapsing other draft notifications when one lookup fails", async () => {

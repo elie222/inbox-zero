@@ -1641,19 +1641,57 @@ async function replaceMessagingDraftNotificationWithHandledOnWebState({
 }) {
   const context = await getNotificationContext(executedActionId);
 
-  if (
-    !context?.messagingMessageId ||
-    !context.messagingChannel?.isConnected ||
-    (context.messagingChannel.provider === MessagingProvider.SLACK &&
-      !context.messagingChannel.accessToken)
-  ) {
+  if (!context?.messagingMessageId) {
+    return;
+  }
+
+  const updated = await prisma.executedAction.updateMany({
+    where: {
+      id: context.id,
+      OR: [
+        { messagingMessageStatus: null },
+        {
+          messagingMessageStatus: {
+            in: [
+              MessagingMessageStatus.SENT,
+              MessagingMessageStatus.DRAFT_EDITED,
+            ],
+          },
+        },
+      ],
+    },
+    data: {
+      messagingMessageStatus: MessagingMessageStatus.EXPIRED,
+    },
+  });
+
+  if (updated.count === 0) {
+    return;
+  }
+
+  if (!context.messagingChannel?.isConnected) {
+    logger.warn(
+      "Skipping messaging draft notification cleanup for disconnected channel",
+      {
+        executedActionId: context.id,
+        messagingChannelId: context.messagingChannelId,
+        provider: context.messagingChannel?.provider,
+      },
+    );
     return;
   }
 
   if (
-    context.messagingMessageStatus !== MessagingMessageStatus.SENT &&
-    context.messagingMessageStatus !== MessagingMessageStatus.DRAFT_EDITED
+    context.messagingChannel.provider === MessagingProvider.SLACK &&
+    !context.messagingChannel.accessToken
   ) {
+    logger.warn(
+      "Skipping Slack draft notification cleanup with no access token",
+      {
+        executedActionId: context.id,
+        messagingChannelId: context.messagingChannelId,
+      },
+    );
     return;
   }
 
@@ -1668,22 +1706,6 @@ async function replaceMessagingDraftNotificationWithHandledOnWebState({
       messagingChannelId: context.messagingChannelId,
       provider: context.messagingChannel.provider,
     });
-    return;
-  }
-
-  const updated = await prisma.executedAction.updateMany({
-    where: {
-      id: context.id,
-      messagingMessageStatus: {
-        in: [MessagingMessageStatus.SENT, MessagingMessageStatus.DRAFT_EDITED],
-      },
-    },
-    data: {
-      messagingMessageStatus: MessagingMessageStatus.EXPIRED,
-    },
-  });
-
-  if (updated.count === 0) {
     return;
   }
 
