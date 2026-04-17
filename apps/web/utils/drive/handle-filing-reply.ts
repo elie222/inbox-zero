@@ -271,8 +271,9 @@ async function handleMove({
 }
 
 /**
- * Find the filing by walking the thread to find a message whose
- * notificationMessageId matches one of the thread's message IDs.
+ * Find the filing by walking the thread and matching against either the
+ * stored notification message ID (Gmail path) or the source email's message
+ * ID (Outlook path, where Graph does not return sent message IDs).
  */
 async function findFilingFromThread({
   message,
@@ -293,7 +294,10 @@ async function findFilingFromThread({
   return prisma.documentFiling.findFirst({
     where: {
       emailAccountId,
-      notificationMessageId: { in: messageIds },
+      OR: [
+        { notificationMessageId: { in: messageIds } },
+        { messageId: { in: messageIds } },
+      ],
     },
     include: { driveConnection: true },
   });
