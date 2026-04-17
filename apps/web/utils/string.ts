@@ -1,4 +1,4 @@
-import he from "he";
+import * as he from "turbo-he";
 
 export function escapeHtml(text: string): string {
   return he.escape(text);

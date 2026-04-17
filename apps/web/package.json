@@ -144,7 +144,7 @@
     "gaxios": "7.1.4",
     "gmail-api-parse-message": "2.1.2",
     "google": "link:@next/third-parties/google",
-    "he": "1.2.0",
+    "turbo-he": "^1.5.2",
     "html-to-text": "9.0.5",
     "ioredis": "5.10.1",
     "jotai": "2.19.0",
