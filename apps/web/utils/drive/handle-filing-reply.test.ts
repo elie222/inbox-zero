@@ -50,19 +50,10 @@ describe("processFilingReply", () => {
     };
 
     prisma.documentFiling.findFirst.mockImplementation(async (args: any) => {
-      const orClauses = args?.where?.OR ?? [];
-      for (const clause of orClauses) {
-        if (clause.messageId?.in?.includes(filingRow.messageId))
-          return filingRow as any;
-        if (
-          filingRow.notificationMessageId &&
-          clause.notificationMessageId?.in?.includes(
-            filingRow.notificationMessageId,
-          )
-        )
-          return filingRow as any;
-      }
-      return null;
+      const messageIdIn: string[] = args?.where?.messageId?.in ?? [];
+      return messageIdIn.includes(filingRow.messageId)
+        ? (filingRow as any)
+        : null;
     });
 
     const emailProvider = createMockEmailProvider({
