@@ -193,13 +193,17 @@ export const testAiCustomContentAction = actionClient
         },
       });
 
+      const testId = `testMessageId-${Date.now()}`;
+
       const result = await runRules({
         isTest: true,
         provider: emailProvider,
         logger,
         message: {
-          id: `testMessageId-${Date.now()}`,
-          threadId: `testThreadId-${Date.now()}`,
+          id: testId,
+          // Match id so Gmail's isReplyInThread (which compares id !== threadId)
+          // treats this synthetic test message as the first message in a thread.
+          threadId: testId,
           snippet: content,
           textPlain: content,
           headers: {
