@@ -82,36 +82,22 @@ const memoryContentSchema = z
   .max(1000)
   .describe("The memory content to save.");
 
-const userEvidenceSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(500)
-  .describe("A short exact quote from a user-authored chat message.");
-
-const saveMemoryToolInputSchema = z.discriminatedUnion("source", [
-  z.object({
-    content: memoryContentSchema,
-    source: z
-      .literal("user_message")
-      .describe("The memory content came from a user-authored chat message."),
-    userEvidence: userEvidenceSchema,
-  }),
-  z.object({
-    content: memoryContentSchema,
-    source: z
-      .literal("assistant_inference")
-      .describe(
-        "The memory content was inferred by the assistant and requires confirmation before saving.",
-      ),
-    userEvidence: z
-      .string()
-      .trim()
-      .max(500)
-      .optional()
-      .describe("Optional supporting quote when available."),
-  }),
-]);
+const saveMemoryToolInputSchema = z.object({
+  content: memoryContentSchema,
+  source: z
+    .enum(["user_message", "assistant_inference"])
+    .describe(
+      'Use "user_message" when the user directly states a fact or preference. Use "assistant_inference" for details inferred by the assistant.',
+    ),
+  userEvidence: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .describe(
+      'A short exact quote from a user-authored chat message. Required when source is "user_message".',
+    ),
+});
 
 export const saveMemoryTool = ({
   email,
