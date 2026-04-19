@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 import prisma from "@/utils/prisma";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
@@ -32,6 +32,12 @@ describe("processOutlookLifecycleNotification", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-16T12:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("reconciles recent messages when Microsoft reports missed notifications", async () => {
