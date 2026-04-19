@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import {
   createOrganizationBody,
@@ -172,14 +173,16 @@ export const handleInvitationAction = actionClientUser
 
     await acceptInvitation({ emailAccountId, invitationId });
 
-    await posthogCaptureEvent(
-      invitation.email,
-      "organization_invitation_accepted",
-      {
-        organizationId: invitation.organizationId,
-        role: invitation.role,
-        inviterId: invitation.inviterId,
-      },
+    after(() =>
+      posthogCaptureEvent(
+        invitation.email,
+        "organization_invitation_accepted",
+        {
+          organizationId: invitation.organizationId,
+          role: invitation.role,
+          inviterId: invitation.inviterId,
+        },
+      ),
     );
 
     return { organizationId: invitation.organizationId };

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { ArrowRightIcon, UsersIcon } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
@@ -17,7 +16,7 @@ import {
 import { isValidEmail } from "@/utils/email";
 
 type InviteFormValues = {
-  emails: { value: string }[];
+  emails: { email: string }[];
 };
 
 export function StepInviteTeam({
@@ -34,60 +33,50 @@ export function StepInviteTeam({
   onSkip: () => void;
 }) {
   const posthog = usePostHog();
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
     register,
     handleSubmit,
     control,
     watch,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<InviteFormValues>({
     defaultValues: {
-      emails: [{ value: "" }, { value: "" }, { value: "" }],
+      emails: [{ email: "" }, { email: "" }, { email: "" }],
     },
   });
 
-  const { fields } = useFieldArray({
-    name: "emails",
-    control,
-  });
+  const { fields } = useFieldArray({ name: "emails", control });
 
-  const watchedEmails = watch("emails");
-  const filledEmailCount = watchedEmails.filter(
-    (e) => e.value.trim().length > 0,
+  const filledEmailCount = watch("emails").filter(
+    (e) => e.email.trim().length > 0,
   ).length;
 
   const onSubmit = handleSubmit(async (data) => {
     const emails = data.emails
-      .map((e) => e.value.trim().toLowerCase())
+      .map((e) => e.email.trim().toLowerCase())
       .filter(Boolean);
 
     if (emails.length === 0) return;
 
-    setIsSubmitting(true);
+    let successCount = 0;
+    let errorCount = 0;
 
-    const captureSubmitted = (
-      successfulInvites: number,
-      failedInvites: number,
-    ) => {
-      if (successfulInvites === 0) return;
-      posthog.capture("onboarding_invite_team_submitted", {
-        variant: "onboarding",
-        inviteCount: emails.length,
-        successfulInvites,
-        failedInvites,
-        hasExistingOrganization: Boolean(organizationId),
-      });
-    };
-
-    if (!organizationId) {
+    if (organizationId) {
+      const results = await Promise.all(
+        emails.map((email) =>
+          inviteMemberAction({ email, role: "member", organizationId }),
+        ),
+      );
+      for (const result of results) {
+        if (result?.serverError || result?.validationErrors) errorCount++;
+        else successCount++;
+      }
+    } else {
       const result = await createOrganizationAndInviteAction(emailAccountId, {
         emails,
         userName,
       });
-
-      setIsSubmitting(false);
 
       if (result?.serverError || result?.validationErrors) {
         toastError({
@@ -96,62 +85,33 @@ export function StepInviteTeam({
         return;
       }
 
-      if (result?.data) {
-        const successCount = result.data.results.filter(
-          (r) => r.success,
-        ).length;
-        const errorCount = result.data.results.filter((r) => !r.success).length;
+      if (!result?.data) return;
 
-        if (successCount > 0) {
-          toastSuccess({
-            description: `${successCount} invitation${successCount > 1 ? "s" : ""} sent successfully!`,
-          });
-        }
-        if (errorCount > 0) {
-          toastError({
-            description: `Failed to send ${errorCount} invitation${errorCount > 1 ? "s" : ""}`,
-          });
-        }
-
-        captureSubmitted(successCount, errorCount);
-        onNext();
-      }
-
-      return;
+      successCount = result.data.results.filter((r) => r.success).length;
+      errorCount = result.data.results.filter((r) => !r.success).length;
     }
-
-    let successCount = 0;
-    let errorCount = 0;
-
-    for (const email of emails) {
-      const result = await inviteMemberAction({
-        email,
-        role: "member",
-        organizationId,
-      });
-
-      if (result?.serverError || result?.validationErrors) {
-        errorCount++;
-      } else {
-        successCount++;
-      }
-    }
-
-    setIsSubmitting(false);
 
     if (successCount > 0) {
       toastSuccess({
         description: `${successCount} invitation${successCount > 1 ? "s" : ""} sent successfully!`,
       });
     }
-
     if (errorCount > 0) {
       toastError({
         description: `Failed to send ${errorCount} invitation${errorCount > 1 ? "s" : ""}`,
       });
     }
 
-    captureSubmitted(successCount, errorCount);
+    if (successCount > 0) {
+      posthog.capture("onboarding_invite_team_submitted", {
+        variant: "onboarding",
+        inviteCount: emails.length,
+        successfulInvites: successCount,
+        failedInvites: errorCount,
+        hasExistingOrganization: Boolean(organizationId),
+      });
+    }
+
     onNext();
   });
 
@@ -168,18 +128,18 @@ export function StepInviteTeam({
         </TypographyP>
 
         <form onSubmit={onSubmit}>
-          <div className="mt-6 w-full mx-auto space-y-2 text-left">
+          <div className="mt-6 max-w-md mx-auto space-y-2 text-left">
             {fields.map((field, i) => (
               <Input
                 key={field.id}
                 type="email"
-                name={`emails.${i}.value`}
-                registerProps={register(`emails.${i}.value`, {
+                name={`emails.${i}.email`}
+                registerProps={register(`emails.${i}.email`, {
                   validate: (v) =>
                     !v || isValidEmail(v) || "Enter a valid email",
                 })}
                 placeholder="name@company.com"
-                error={errors.emails?.[i]?.value}
+                error={errors.emails?.[i]?.email}
               />
             ))}
           </div>

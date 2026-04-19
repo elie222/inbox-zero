@@ -16,9 +16,9 @@ describe("getVisibleOnboardingStepKeys", () => {
     ).toEqual([
       STEP_KEYS.WELCOME,
       STEP_KEYS.EMAILS_SORTED,
+      STEP_KEYS.CHAT,
       STEP_KEYS.DRAFT_REPLIES,
       STEP_KEYS.BULK_UNSUBSCRIBE,
-      STEP_KEYS.FEATURES,
       STEP_KEYS.WHO,
       STEP_KEYS.COMPANY_SIZE,
       STEP_KEYS.HOW_YOU_HEARD,
@@ -39,8 +39,8 @@ describe("getVisibleOnboardingStepKeys", () => {
     ).toEqual([
       STEP_KEYS.WELCOME,
       STEP_KEYS.EMAILS_SORTED,
+      STEP_KEYS.CHAT,
       STEP_KEYS.BULK_UNSUBSCRIBE,
-      STEP_KEYS.FEATURES,
       STEP_KEYS.WHO,
       STEP_KEYS.COMPANY_SIZE,
       STEP_KEYS.HOW_YOU_HEARD,
