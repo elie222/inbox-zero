@@ -2,6 +2,7 @@ import { prefixPath } from "@/utils/path";
 
 export const STEP_KEYS = {
   WELCOME: "welcome",
+  CHAT: "chat",
   EMAILS_SORTED: "emailsSorted",
   DRAFT_REPLIES: "draftReplies",
   BULK_UNSUBSCRIBE: "bulkUnsubscribe",
@@ -21,9 +22,10 @@ export type StepKey = (typeof STEP_KEYS)[keyof typeof STEP_KEYS];
 const onboardingStepOrder: readonly StepKey[] = [
   STEP_KEYS.WELCOME,
   STEP_KEYS.EMAILS_SORTED,
+  STEP_KEYS.CHAT,
   STEP_KEYS.DRAFT_REPLIES,
   STEP_KEYS.BULK_UNSUBSCRIBE,
-  STEP_KEYS.FEATURES,
+  // STEP_KEYS.FEATURES,
   STEP_KEYS.WHO,
   STEP_KEYS.COMPANY_SIZE,
   STEP_KEYS.HOW_YOU_HEARD,

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { StepWho } from "@/app/(app)/[emailAccountId]/onboarding/StepWho";
 import { StepWelcome } from "@/app/(app)/[emailAccountId]/onboarding/StepWelcome";
+import { StepChat } from "@/app/(app)/[emailAccountId]/onboarding/StepChat";
 import { StepEmailsSorted } from "@/app/(app)/[emailAccountId]/onboarding/StepEmailsSorted";
 import { StepDraftReplies } from "@/app/(app)/[emailAccountId]/onboarding/StepDraftReplies";
 import { StepBulkUnsubscribe } from "@/app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe";
@@ -61,6 +62,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
 
   const stepMap: Record<string, (() => React.ReactNode) | undefined> = {
     [STEP_KEYS.WELCOME]: () => <StepWelcome onNext={onNext} />,
+    [STEP_KEYS.CHAT]: () => <StepChat onNext={onNext} />,
     [STEP_KEYS.EMAILS_SORTED]: () => <StepEmailsSorted onNext={onNext} />,
     [STEP_KEYS.DRAFT_REPLIES]: env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
       ? undefined
@@ -130,9 +132,8 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   );
 
   const getOnboardingStepPath = useCallback(
-    (stepKey: string) => {
-      return getOnboardingStepHref(emailAccountId, stepKey as StepKey);
-    },
+    (stepKey: string) =>
+      getOnboardingStepHref(emailAccountId, stepKey as StepKey),
     [emailAccountId],
   );
 
@@ -155,13 +156,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
       totalSteps,
       isOptional: isOptionalOnboardingStep(currentStepKey),
     });
-  }, [
-    analytics,
-    clampedStep,
-    currentStepKey,
-    isMembershipLoading,
-    totalSteps,
-  ]);
+  }, [analytics, clampedStep, currentStepKey, isMembershipLoading, totalSteps]);
 
   const onNext = useCallback(async () => {
     if (!currentStepKey) return;
