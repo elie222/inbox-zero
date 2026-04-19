@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Mail, Sparkles } from "lucide-react";
+import { Mail } from "lucide-react";
 
 const EASE = [0.25, 0.46, 0.45, 0.94] as const;
 
@@ -21,11 +21,8 @@ export function ChatIllustration() {
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4, delay: 0.7, ease: EASE }}
-        className="flex items-start gap-2 self-start max-w-[85%]"
+        className="self-start max-w-[85%]"
       >
-        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-blue-500">
-          <Sparkles className="h-3 w-3 text-white" />
-        </div>
         <div className="rounded-2xl rounded-tl-sm border border-gray-200 bg-white px-3 py-2 text-left shadow-sm dark:border-gray-700 dark:bg-slate-800">
           <div className="text-[11px] leading-snug text-gray-800 dark:text-gray-200">
             Found 12 newsletters from last week. Archiving now.
@@ -53,8 +50,9 @@ export function ChatIllustration() {
         className="mt-2 flex items-center justify-center gap-1.5 self-center rounded-full border border-gray-200 bg-white px-2.5 py-1 shadow-sm dark:border-gray-700 dark:bg-slate-800"
       >
         <SlackIcon className="h-3 w-3" />
+        <TelegramIcon className="h-3 w-3" />
         <span className="text-[10px] font-medium text-gray-700 dark:text-gray-300">
-          Also available in Slack
+          Also in Slack and Telegram
         </span>
       </motion.div>
     </div>
@@ -84,6 +82,23 @@ function SlackIcon({ className }: { className?: string }) {
       <path
         fill="#ECB22E"
         d="M15.161 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.161 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.272a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.317A2.527 2.527 0 0 1 24 15.161a2.528 2.528 0 0 1-2.522 2.523h-6.317z"
+      />
+    </svg>
+  );
+}
+
+function TelegramIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="12" fill="#2AABEE" />
+      <path
+        fill="#fff"
+        d="M5.491 11.74l11.57-4.461c.537-.194 1.006.131.832.943l.001-.001-1.97 9.281c-.146.658-.537.818-1.084.508l-3-2.211-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.334-.373-.121l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953z"
       />
     </svg>
   );

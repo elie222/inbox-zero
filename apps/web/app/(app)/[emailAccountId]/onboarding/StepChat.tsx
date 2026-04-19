@@ -13,11 +13,11 @@ export function StepChat({ onNext }: { onNext: () => void }) {
           <ChatIllustration />
         </div>
 
-        <PageHeading className="mb-3">Chat with your inbox</PageHeading>
+        <PageHeading className="mb-3">A chat that runs your email</PageHeading>
 
         <TypographyP className="text-muted-foreground mb-8">
-          Ask questions, triage messages, and take action in natural language —
-          right here or from Slack.
+          Clean up, draft replies, set up rules. Works in Slack, Telegram, or
+          here, and pings you when you're needed.
         </TypographyP>
 
         <div className="flex flex-col gap-2 w-full max-w-xs">
