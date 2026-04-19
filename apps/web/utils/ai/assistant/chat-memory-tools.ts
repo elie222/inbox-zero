@@ -82,22 +82,32 @@ const memoryContentSchema = z
   .max(1000)
   .describe("The memory content to save.");
 
-const saveMemoryToolInputSchema = z.object({
-  content: memoryContentSchema,
-  source: z
-    .enum(["user_message", "assistant_inference"])
-    .describe(
-      'Use "user_message" when the user directly states a fact or preference. Use "assistant_inference" for details inferred by the assistant.',
-    ),
-  userEvidence: z
-    .string()
-    .trim()
-    .max(500)
-    .optional()
-    .describe(
-      'A short exact quote from a user-authored chat message. Required when source is "user_message".',
-    ),
-});
+const saveMemoryToolInputSchema = z
+  .object({
+    content: memoryContentSchema,
+    source: z
+      .enum(["user_message", "assistant_inference"])
+      .describe(
+        'Use "user_message" when the user directly states a fact or preference. Use "assistant_inference" for details inferred by the assistant.',
+      ),
+    userEvidence: z
+      .string()
+      .trim()
+      .max(500)
+      .optional()
+      .describe(
+        'A short exact quote from a user-authored chat message. Required when source is "user_message".',
+      ),
+  })
+  .superRefine((val, ctx) => {
+    if (val.source === "user_message" && !val.userEvidence) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "userEvidence is required when source is user_message",
+        path: ["userEvidence"],
+      });
+    }
+  });
 
 export const saveMemoryTool = ({
   email,
