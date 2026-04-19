@@ -88,7 +88,7 @@ const saveMemoryToolInputSchema = z
     source: z
       .enum(["user_message", "assistant_inference"])
       .describe(
-        'Use "user_message" when the user directly states a fact or preference. Use "assistant_inference" for details inferred by the assistant.',
+        'Use "user_message" when the user directly states a fact or preference — userEvidence is required in this case. Use "assistant_inference" for details inferred by the assistant — userEvidence is optional.',
       ),
     userEvidence: z
       .string()
