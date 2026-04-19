@@ -157,6 +157,54 @@ describe("createGenerateObject repairText", () => {
     expect(JSON.parse(repaired)).toEqual({ category: "updates" });
   });
 
+  it("extracts JSON object when text has a prose preamble", async () => {
+    const repairText = await getRepairText();
+    const repaired = await repairText({
+      text: 'Here is the answer: {"foo":"bar"}',
+    });
+
+    expect(JSON.parse(repaired)).toEqual({ foo: "bar" });
+  });
+
+  it("extracts JSON array when text has a prose preamble and trailing text", async () => {
+    const repairText = await getRepairText();
+    const repaired = await repairText({
+      text: 'The JSON is: [{"a":1},{"a":2}] and more',
+    });
+
+    expect(JSON.parse(repaired)).toEqual([{ a: 1 }, { a: 2 }]);
+  });
+
+  it("skips bracketed prose tokens and extracts the actual JSON payload", async () => {
+    const repairText = await getRepairText();
+    const repaired = await repairText({
+      text: 'Step [1]: here is the JSON {"foo":"bar"}',
+    });
+
+    expect(JSON.parse(repaired)).toEqual({ foo: "bar" });
+  });
+
+  it("extracts the longer balanced array when brackets also appear in prose", async () => {
+    const repairText = await getRepairText();
+    const repaired = await repairText({
+      text: "[note] The result: [1,2,3,4]",
+    });
+
+    expect(JSON.parse(repaired)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("extracts nested JSON object when surrounded by prose", async () => {
+    const repairText = await getRepairText();
+    const repaired = await repairText({
+      text: 'Sure! {"category": "updates", "nested": {"x": 1}} thanks',
+    });
+
+    expect(JSON.parse(repaired)).toEqual({
+      category: "updates",
+      nested: { x: 1 },
+    });
+  });
+
   it("injects centralized hardening into the object generation system prompt", async () => {
     const generateObject = await createTestGenerateObject();
 

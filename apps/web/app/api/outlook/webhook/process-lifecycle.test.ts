@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 import prisma from "@/utils/prisma";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
@@ -30,14 +38,17 @@ vi.mock("@/utils/outlook/backfill-recent-messages", () => ({
 describe("processOutlookLifecycleNotification", () => {
   const logger = createTestLogger();
 
-  beforeEach(() => {
-    vi.clearAllMocks();
+  beforeAll(() => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-04-16T12:00:00.000Z"));
+    vi.setSystemTime(new Date("2026-04-16T11:30:00.000Z"));
   });
 
-  afterEach(() => {
+  afterAll(() => {
     vi.useRealTimers();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
   it("reconciles recent messages when Microsoft reports missed notifications", async () => {
