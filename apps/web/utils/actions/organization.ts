@@ -22,6 +22,7 @@ import {
 } from "@/utils/premium/seats";
 import { env } from "@/env";
 import { slugify } from "@/utils/string";
+import { posthogCaptureEvent } from "@/utils/posthog";
 
 export const createOrganizationAction = actionClient
   .metadata({ name: "createOrganization" })
@@ -170,6 +171,16 @@ export const handleInvitationAction = actionClientUser
     const emailAccountId = emailAccount.id;
 
     await acceptInvitation({ emailAccountId, invitationId });
+
+    await posthogCaptureEvent(
+      invitation.email,
+      "organization_invitation_accepted",
+      {
+        organizationId: invitation.organizationId,
+        role: invitation.role,
+        inviterId: invitation.inviterId,
+      },
+    );
 
     return { organizationId: invitation.organizationId };
   });
@@ -537,7 +548,7 @@ export const createOrganizationAndInviteAction = actionClient
   );
 
 function getRandomId(): string {
-  return Math.random().toString(36).substring(2, 8);
+  return Math.random().toString(36).slice(2, 8);
 }
 
 async function generateUniqueSlug(baseSlug: string): Promise<string> {
