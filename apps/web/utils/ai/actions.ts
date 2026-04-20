@@ -1,9 +1,13 @@
 import { after } from "next/server";
 import { ActionType, MessagingMessageStatus } from "@/generated/prisma/enums";
-import type { ExecutedRule } from "@/generated/prisma/client";
 import type { Logger } from "@/utils/logger";
 import { callWebhook } from "@/utils/webhook";
-import type { ActionItem, EmailForAction } from "@/utils/ai/types";
+import type {
+  ActionExecutionEmailAccount,
+  ActionItem,
+  EmailForAction,
+  ExecutedRuleForAction,
+} from "@/utils/ai/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { enqueueDigestItem } from "@/utils/digest/index";
 import { filterNullProperties } from "@/utils";
@@ -24,17 +28,11 @@ import { isMessagingDraftActionType } from "@/utils/actions/draft-reply";
 
 const MODULE = "ai-actions";
 
-type ExecutedRuleForAction = ExecutedRule & {
-  actionItems?: Pick<ActionItem, "type">[];
-};
-
 type ActionFunction<T extends Partial<Omit<ActionItem, "type">>> = (options: {
   client: EmailProvider;
   email: EmailForAction;
   args: T & Pick<ActionItem, "id">;
-  userEmail: string;
-  userId: string;
-  emailAccountId: string;
+  emailAccount: ActionExecutionEmailAccount;
   executedRule: ExecutedRuleForAction;
   logger: Logger;
 }) => Promise<unknown>;
@@ -43,18 +41,16 @@ export const runActionFunction = async (options: {
   client: EmailProvider;
   email: EmailForAction;
   action: ActionItem;
-  userEmail: string;
-  userId: string;
-  emailAccountId: string;
+  emailAccount: ActionExecutionEmailAccount;
   executedRule: ExecutedRuleForAction;
   logger: Logger;
 }) => {
-  const { action, userEmail, logger } = options;
+  const { action, emailAccount, logger } = options;
   const log = logger.with({ module: MODULE });
 
   log.info("Running action", {
     actionType: action.type,
-    userEmail,
+    userEmail: emailAccount.email,
     id: action.id,
   });
   log.trace("Running action", () => filterNullProperties(action));
@@ -105,15 +101,15 @@ export const runActionFunction = async (options: {
 const archive: ActionFunction<Record<string, unknown>> = async ({
   client,
   email,
-  userEmail,
+  emailAccount,
 }) => {
-  await client.archiveThread(email.threadId, userEmail);
+  await client.archiveThread(email.threadId, emailAccount.email);
 };
 
 const label: ActionFunction<{
   label?: string | null;
   labelId?: string | null;
-}> = async ({ client, email, args, emailAccountId, logger }) => {
+}> = async ({ client, email, args, emailAccount, logger }) => {
   logger.info("Label action started", {
     label: args.label,
     labelId: args.labelId,
@@ -151,7 +147,7 @@ const label: ActionFunction<{
     messageId: email.id,
     labelId: labelIdToUse,
     labelName: args.label || null,
-    emailAccountId,
+    emailAccountId: emailAccount.id,
     logger,
   });
 
@@ -160,7 +156,7 @@ const label: ActionFunction<{
       lazyUpdateActionLabelId({
         labelName: args.label!,
         labelId: labelIdToUse!,
-        emailAccountId,
+        emailAccountId: emailAccount.id,
         logger,
       }),
     );
@@ -175,16 +171,7 @@ const draft: ActionFunction<{
   cc?: string | null;
   bcc?: string | null;
   staticAttachments?: ActionItem["staticAttachments"];
-}> = async ({
-  client,
-  email,
-  args,
-  userEmail,
-  userId,
-  emailAccountId,
-  executedRule,
-  logger,
-}) => {
+}> = async ({ client, email, args, emailAccount, executedRule, logger }) => {
   if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) return;
 
   if (
@@ -220,9 +207,8 @@ const draft: ActionFunction<{
 
   const attachments = await resolveActionAttachments({
     email,
-    emailAccountId,
+    emailAccount,
     executedRule,
-    userId,
     logger,
     staticAttachments: args.staticAttachments,
     includeAiSelectedAttachments: true,
@@ -254,7 +240,7 @@ const draft: ActionFunction<{
       attachments: email.attachments,
     },
     draftArgs,
-    userEmail,
+    emailAccount.email,
     executedRule,
   );
   return { draftId: result.draftId };
@@ -325,22 +311,13 @@ const reply: ActionFunction<{
   cc?: string | null;
   bcc?: string | null;
   staticAttachments?: ActionItem["staticAttachments"];
-}> = async ({
-  client,
-  email,
-  args,
-  userId,
-  emailAccountId,
-  executedRule,
-  logger,
-}) => {
+}> = async ({ client, email, args, emailAccount, executedRule, logger }) => {
   if (!args.content) return;
 
   const attachments = await resolveActionAttachments({
     email,
-    emailAccountId,
+    emailAccount,
     executedRule,
-    userId,
     logger,
     staticAttachments: args.staticAttachments,
     includeAiSelectedAttachments: false,
@@ -372,22 +349,13 @@ const send_email: ActionFunction<{
   cc?: string | null;
   bcc?: string | null;
   staticAttachments?: ActionItem["staticAttachments"];
-}> = async ({
-  client,
-  args,
-  email,
-  userId,
-  emailAccountId,
-  executedRule,
-  logger,
-}) => {
+}> = async ({ client, args, email, emailAccount, executedRule, logger }) => {
   if (!args.to || !args.subject || !args.content) return;
 
   const attachments = await resolveActionAttachments({
     email,
-    emailAccountId,
+    emailAccount,
     executedRule,
-    userId,
     logger,
     staticAttachments: args.staticAttachments,
     includeAiSelectedAttachments: false,
@@ -447,7 +415,7 @@ const mark_spam: ActionFunction<Record<string, unknown>> = async ({
 const call_webhook: ActionFunction<{ url?: string | null }> = async ({
   email,
   args,
-  userId,
+  emailAccount,
   executedRule,
 }) => {
   if (!args.url) return;
@@ -471,7 +439,7 @@ const call_webhook: ActionFunction<{ url?: string | null }> = async ({
     },
   };
 
-  await callWebhook(userId, args.url, payload);
+  await callWebhook(emailAccount.userId, args.url, payload);
 };
 
 const mark_read: ActionFunction<Record<string, unknown>> = async ({
@@ -483,19 +451,24 @@ const mark_read: ActionFunction<Record<string, unknown>> = async ({
 
 const digest: ActionFunction<{ id?: string }> = async ({
   email,
-  emailAccountId,
+  emailAccount,
   args,
   logger,
 }) => {
   if (!args.id) return;
   const actionId = args.id;
-  await enqueueDigestItem({ email, emailAccountId, actionId, logger });
+  await enqueueDigestItem({
+    email,
+    emailAccountId: emailAccount.id,
+    actionId,
+    logger,
+  });
 };
 
 const move_folder: ActionFunction<{
   folderId?: string | null;
   folderName?: string | null;
-}> = async ({ client, email, userEmail, emailAccountId, args, logger }) => {
+}> = async ({ client, email, emailAccount, args, logger }) => {
   const originalFolderId = args.folderId;
   let folderIdToUse = originalFolderId;
 
@@ -519,7 +492,11 @@ const move_folder: ActionFunction<{
 
   if (!folderIdToUse) return;
 
-  await client.moveThreadToFolder(email.threadId, userEmail, folderIdToUse);
+  await client.moveThreadToFolder(
+    email.threadId,
+    emailAccount.email,
+    folderIdToUse,
+  );
 
   // lazy-update the folderId in the database for future runs
   if (!originalFolderId && folderIdToUse && args.folderName) {
@@ -527,7 +504,7 @@ const move_folder: ActionFunction<{
       lazyUpdateActionFolderId({
         folderName: args.folderName!,
         folderId: folderIdToUse!,
-        emailAccountId,
+        emailAccountId: emailAccount.id,
         logger,
       }),
     );
@@ -536,8 +513,7 @@ const move_folder: ActionFunction<{
 
 const notify_sender: ActionFunction<Record<string, unknown>> = async ({
   email,
-  emailAccountId,
-  userEmail,
+  emailAccount,
   logger,
 }) => {
   const senderEmail = extractEmailAddress(email.headers.from);
@@ -548,7 +524,7 @@ const notify_sender: ActionFunction<Record<string, unknown>> = async ({
 
   const result = await sendColdEmailNotification({
     senderEmail,
-    recipientEmail: userEmail,
+    recipientEmail: emailAccount.email,
     originalSubject: email.headers.subject,
     originalMessageId: email.headers["message-id"],
     logger,
@@ -570,7 +546,7 @@ const notify_sender: ActionFunction<Record<string, unknown>> = async ({
     captureException(
       new Error(result.error ?? "Cold email notification failed"),
       {
-        emailAccountId,
+        emailAccountId: emailAccount.id,
         extra: { actionType: ActionType.NOTIFY_SENDER },
         sampleRate: 0.01,
       },

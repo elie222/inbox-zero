@@ -35,7 +35,10 @@ vi.mock("@/utils/email/provider", () => ({
 }));
 
 vi.mock("@/utils/redis/message-processing", () => ({
+  acquireOutboundMessageLock: vi.fn().mockResolvedValue("lock-token-1"),
+  clearOutboundMessageLock: vi.fn().mockResolvedValue(true),
   markMessageAsProcessing: vi.fn(),
+  markOutboundMessageProcessed: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@/utils/webhook/process-history-item", () => ({

@@ -17,6 +17,8 @@ const mockCreateEmailProvider = vi.fn();
 const mockSendAutomationMessage = vi.fn();
 const mockSlackPostMessage = vi.fn();
 const mockSlackJoin = vi.fn();
+const mockTelegramOpenDm = vi.fn();
+const mockTelegramPostMessage = vi.fn();
 
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: (...args: unknown[]) => mockCreateEmailProvider(...args),
@@ -38,7 +40,19 @@ vi.mock("@/utils/messaging/providers/slack/client", () => ({
   }),
 }));
 
-describe("handleSlackRuleNotificationAction", () => {
+vi.mock("@/utils/messaging/chat-sdk/adapters", () => ({
+  getMessagingAdapterRegistry: () => ({
+    adapters: {},
+    typedAdapters: {
+      telegram: {
+        openDM: (...args: unknown[]) => mockTelegramOpenDm(...args),
+        postMessage: (...args: unknown[]) => mockTelegramPostMessage(...args),
+      },
+    },
+  }),
+}));
+
+describe("handleRuleNotificationAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSendAutomationMessage.mockResolvedValue({
@@ -47,6 +61,8 @@ describe("handleSlackRuleNotificationAction", () => {
     });
     mockSlackPostMessage.mockResolvedValue({ ts: "slack-ts-1" });
     mockSlackJoin.mockResolvedValue({});
+    mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
+    mockTelegramPostMessage.mockResolvedValue({ id: "telegram-message-1" });
   });
 
   it("keeps the draft preview visible after sending from Slack", async () => {
@@ -123,11 +139,11 @@ describe("handleSlackRuleNotificationAction", () => {
       thread: { postEphemeral: vi.fn() },
     } as any;
 
-    const { handleSlackRuleNotificationAction } = await import(
+    const { handleRuleNotificationAction } = await import(
       "./rule-notifications"
     );
 
-    await handleSlackRuleNotificationAction({
+    await handleRuleNotificationAction({
       event,
       logger: createScopedLogger("test"),
     });
@@ -154,6 +170,297 @@ describe("handleSlackRuleNotificationAction", () => {
       "https://mail.google.com/mail/u/0/?authuser=user%40example.com/#all/message-1",
     );
   });
+
+  it("sends Telegram draft replies from the notification Send button", async () => {
+    const provider = {
+      sendDraft: vi.fn().mockResolvedValue(undefined),
+      getDraft: vi.fn().mockResolvedValue({
+        id: "draft-1",
+        threadId: "thread-1",
+        textPlain: "Thanks for checking in.",
+        subject: "Re: Test subject",
+        date: new Date().toISOString(),
+        snippet: "Thanks for checking in.",
+        historyId: "1",
+        internalDate: "1",
+        headers: {
+          from: "user@example.com",
+          to: "sender@example.com",
+          subject: "Re: Test subject",
+          date: "Mon, 1 Jan 2024 12:00:00 +0000",
+        },
+        labelIds: [],
+        inline: [],
+      } satisfies ParsedMessage),
+      getMessage: vi.fn().mockResolvedValue({
+        id: "message-1",
+        threadId: "thread-1",
+        textPlain: "Original message body",
+        textHtml: "<p>Original message body</p>",
+        subject: "Test subject",
+        date: new Date().toISOString(),
+        snippet: "Original message body",
+        historyId: "2",
+        internalDate: "2",
+        headers: {
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Test subject",
+          date: "Mon, 1 Jan 2024 11:00:00 +0000",
+          "message-id": "<message-1@example.com>",
+        },
+        attachments: [],
+        labelIds: [],
+        inline: [],
+      } satisfies ParsedMessage),
+    };
+
+    mockCreateEmailProvider.mockResolvedValue(provider);
+
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Thanks for checking in.",
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.TELEGRAM,
+          isConnected: true,
+          teamId: "telegram-chat-1",
+          providerUserId: "telegram-user-1",
+          accessToken: null,
+          channelId: null,
+          routes: [
+            {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              targetId: "telegram-chat-1",
+              targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+            },
+          ],
+        },
+      }) as never,
+    );
+    prisma.executedAction.findFirst.mockResolvedValue({
+      id: "draft-action-1",
+      draftId: "draft-1",
+      subject: "Re: Test subject",
+    } as never);
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const editMessage = vi.fn().mockResolvedValue(undefined);
+    const event = {
+      actionId: "rule_draft_send",
+      value: "action-1",
+      user: { userId: "telegram-user-1" },
+      raw: {
+        callback_query: {
+          message: {
+            chat: { id: "telegram-chat-1" },
+          },
+        },
+      },
+      threadId: "telegram:telegram-chat-1",
+      messageId: "telegram-message-1",
+      adapter: {
+        name: "telegram",
+        decodeThreadId: vi.fn().mockReturnValue({ chatId: "telegram-chat-1" }),
+        editMessage,
+      },
+      thread: { post: vi.fn() },
+    } as any;
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+
+    await handleRuleNotificationAction({
+      event,
+      logger: createScopedLogger("test"),
+    });
+
+    expect(provider.sendDraft).toHaveBeenCalledWith("draft-1");
+    expect(editMessage).toHaveBeenCalledTimes(1);
+
+    const [, , card] = editMessage.mock.calls[0];
+    const cardText = JSON.stringify(card);
+
+    expect(cardText).toContain("Status: Reply sent.");
+    expect(cardText).toContain("Open in Gmail");
+  });
+
+  it("authorizes Telegram send actions against the notification route target", async () => {
+    const provider = {
+      sendDraft: vi.fn().mockResolvedValue(undefined),
+      getDraft: vi.fn().mockResolvedValue({
+        id: "draft-1",
+        threadId: "thread-1",
+        textPlain: "Thanks for checking in.",
+        subject: "Re: Test subject",
+        date: new Date().toISOString(),
+        snippet: "Thanks for checking in.",
+        historyId: "1",
+        internalDate: "1",
+        headers: {
+          from: "user@example.com",
+          to: "sender@example.com",
+          subject: "Re: Test subject",
+          date: "Mon, 1 Jan 2024 12:00:00 +0000",
+        },
+        labelIds: [],
+        inline: [],
+      } satisfies ParsedMessage),
+      getMessage: vi.fn().mockResolvedValue({
+        id: "message-1",
+        threadId: "thread-1",
+        textPlain: "Original message body",
+        textHtml: "<p>Original message body</p>",
+        subject: "Test subject",
+        date: new Date().toISOString(),
+        snippet: "Original message body",
+        historyId: "2",
+        internalDate: "2",
+        headers: {
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Test subject",
+          date: "Mon, 1 Jan 2024 11:00:00 +0000",
+          "message-id": "<message-1@example.com>",
+        },
+        attachments: [],
+        labelIds: [],
+        inline: [],
+      } satisfies ParsedMessage),
+    };
+
+    mockCreateEmailProvider.mockResolvedValue(provider);
+
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Thanks for checking in.",
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.TELEGRAM,
+          isConnected: true,
+          teamId: "telegram-workspace-id",
+          providerUserId: "telegram-user-1",
+          accessToken: null,
+          channelId: null,
+          routes: [
+            {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              targetId: "telegram-chat-1",
+              targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+            },
+          ],
+        },
+      }) as never,
+    );
+    prisma.executedAction.findFirst.mockResolvedValue({
+      id: "draft-action-1",
+      draftId: "draft-1",
+      subject: "Re: Test subject",
+    } as never);
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const editMessage = vi.fn().mockResolvedValue(undefined);
+    const event = {
+      actionId: "rule_draft_send",
+      value: "action-1",
+      user: { userId: "telegram-user-1" },
+      raw: {
+        callback_query: {
+          message: {
+            chat: { id: "telegram-chat-1" },
+          },
+        },
+      },
+      threadId: "telegram:telegram-chat-1",
+      messageId: "telegram-message-1",
+      adapter: {
+        name: "telegram",
+        decodeThreadId: vi.fn().mockReturnValue({ chatId: "telegram-chat-1" }),
+        editMessage,
+      },
+      thread: { post: vi.fn() },
+    } as any;
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+
+    await handleRuleNotificationAction({
+      event,
+      logger: createScopedLogger("test"),
+    });
+
+    expect(provider.sendDraft).toHaveBeenCalledWith("draft-1");
+    expect(editMessage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("buildNotificationReplySendBody", () => {
+  it("includes the formatted sender when provided", async () => {
+    const { buildNotificationReplySendBody } = await import(
+      "./rule-notifications"
+    );
+
+    const body = buildNotificationReplySendBody({
+      sourceMessage: {
+        id: "message-1",
+        threadId: "thread-1",
+        headers: {
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Test subject",
+          date: "Mon, 1 Jan 2024 11:00:00 +0000",
+          "message-id": "<message-1@example.com>",
+        },
+      } as ParsedMessage,
+      fallbackThreadId: "thread-fallback",
+      content: "Thanks for checking in.",
+      formattedFrom: "Elie Steinbock <elie@getinboxzero.com>",
+      attachments: [],
+    });
+
+    expect(body).toEqual(
+      expect.objectContaining({
+        from: "Elie Steinbock <elie@getinboxzero.com>",
+      }),
+    );
+  });
+
+  it("falls back to the stored thread id when the source message omits it", async () => {
+    const { buildNotificationReplySendBody } = await import(
+      "./rule-notifications"
+    );
+
+    const body = buildNotificationReplySendBody({
+      sourceMessage: {
+        id: "message-1",
+        threadId: "",
+        headers: {
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Test subject",
+          date: "Mon, 1 Jan 2024 11:00:00 +0000",
+          "message-id": "<message-1@example.com>",
+        },
+      } as ParsedMessage,
+      fallbackThreadId: "thread-1",
+      content: "Thanks for checking in.",
+      attachments: [],
+    });
+
+    expect(body).toEqual(
+      expect.objectContaining({
+        replyToEmail: expect.objectContaining({
+          threadId: "thread-1",
+        }),
+      }),
+    );
+  });
 });
 
 describe("sendMessagingRuleNotification", () => {
@@ -165,6 +472,8 @@ describe("sendMessagingRuleNotification", () => {
     });
     mockSlackPostMessage.mockResolvedValue({ ts: "slack-ts-1" });
     mockSlackJoin.mockResolvedValue({});
+    mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
+    mockTelegramPostMessage.mockResolvedValue({ id: "telegram-message-1" });
   });
 
   it("adds an Open in Gmail button for Slack draft notifications on Google accounts", async () => {
@@ -406,6 +715,69 @@ describe("sendMessagingRuleNotification", () => {
     const [{ text }] = mockSendAutomationMessage.mock.calls[0];
     expect(text).not.toContain("\n> First line");
     expect(text).toContain("Slack-only");
+  });
+
+  it("sends Telegram draft notifications with a Send reply action", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.TELEGRAM,
+          isConnected: true,
+          teamId: "telegram-chat-1",
+          providerUserId: "telegram-user-1",
+          accessToken: null,
+          channelId: null,
+          routes: [
+            {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              targetId: "telegram-chat-1",
+              targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+            },
+          ],
+        },
+      }) as never,
+    );
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockSendAutomationMessage).not.toHaveBeenCalled();
+    expect(mockTelegramOpenDm).toHaveBeenCalledWith("telegram-chat-1");
+    expect(mockTelegramPostMessage).toHaveBeenCalledTimes(1);
+
+    const [, card] = mockTelegramPostMessage.mock.calls[0];
+    const serializedCard = JSON.stringify(card);
+
+    expect(serializedCard).toContain("Send reply");
+    expect(serializedCard).toContain("Open in Gmail");
+    expect(serializedCard).not.toContain("Edit draft");
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        messagingMessageId: "telegram-message-1",
+        messagingMessageSentAt: expect.any(Date),
+        messagingMessageStatus: MessagingMessageStatus.SENT,
+      },
+    });
   });
 
   it("skips linked notifications when provider routing data is incomplete", async () => {

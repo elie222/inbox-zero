@@ -90,7 +90,14 @@ export async function findMatchingRules({
     if (coldEmailResult.isColdEmail) {
       const coldRule = await prisma.rule.findUniqueOrThrow({
         where: { id: coldEmailRule.id },
-        include: { actions: true },
+        include: {
+          actions: true,
+          _count: {
+            select: {
+              attachmentSources: true,
+            },
+          },
+        },
       });
 
       return {

@@ -48,6 +48,7 @@ export function Chat({ open }: { open: boolean }) {
     chat,
     chatId,
     input,
+    persistedMessageIds,
     setInput,
     handleSubmit,
     setNewChat,
@@ -275,6 +276,7 @@ export function Chat({ open }: { open: boolean }) {
         <ChatMessagesView
           status={status}
           messages={messages}
+          persistedMessageIds={persistedMessageIds}
           setMessages={setMessages}
           setInput={setInput}
           regenerate={regenerate}
@@ -302,6 +304,7 @@ export function Chat({ open }: { open: boolean }) {
 function ChatMessagesView({
   status,
   messages,
+  persistedMessageIds,
   setMessages,
   setInput,
   regenerate,
@@ -311,6 +314,7 @@ function ChatMessagesView({
 }: {
   status: UseChatHelpers<ChatMessage>["status"];
   messages: ChatMessage[];
+  persistedMessageIds: Set<string>;
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   setInput: (input: string) => void;
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
@@ -324,6 +328,7 @@ function ChatMessagesView({
       <Messages
         status={status}
         messages={messages}
+        persistedMessageIds={persistedMessageIds}
         setMessages={setMessages}
         setInput={setInput}
         regenerate={regenerate}

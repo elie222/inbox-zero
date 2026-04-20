@@ -9,6 +9,10 @@ import {
   addCurrentSubscriptionToHistory,
 } from "@/utils/outlook/subscription-history";
 
+const OUTLOOK_SUBSCRIPTION_RENEWAL_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+const OUTLOOK_MAX_REUSE_AGE_MS = 24 * 60 * 60 * 1000;
+const OUTLOOK_SUBSCRIPTION_LIFETIME_MS = 3 * 24 * 60 * 60 * 1000;
+
 /**
  * Manages Outlook subscriptions, ensuring only one active subscription per email account
  * by canceling old subscriptions before creating new ones.
@@ -35,11 +39,13 @@ export class OutlookSubscriptionManager {
 
       if (existing?.subscriptionId && existing.expirationDate) {
         const now = new Date();
-        const renewalThresholdMs = 24 * 60 * 60 * 1000; // 24 hours
         const timeUntilExpiry =
           new Date(existing.expirationDate).getTime() - now.getTime();
 
-        if (timeUntilExpiry > renewalThresholdMs) {
+        if (
+          timeUntilExpiry > OUTLOOK_SUBSCRIPTION_RENEWAL_THRESHOLD_MS &&
+          !shouldRenewAgedSubscription(existing.expirationDate, now)
+        ) {
           this.logger.info("Existing subscription is valid; reuse", {
             subscriptionId: existing.subscriptionId,
             expirationDate: existing.expirationDate,
@@ -51,10 +57,17 @@ export class OutlookSubscriptionManager {
           };
         }
 
-        this.logger.info("Existing subscription near expiry; renewing", {
-          subscriptionId: existing.subscriptionId,
-          expirationDate: existing.expirationDate,
-        });
+        if (timeUntilExpiry <= OUTLOOK_SUBSCRIPTION_RENEWAL_THRESHOLD_MS) {
+          this.logger.info("Existing subscription near expiry; renewing", {
+            subscriptionId: existing.subscriptionId,
+            expirationDate: existing.expirationDate,
+          });
+        } else {
+          this.logger.info("Existing subscription reached max age; renewing", {
+            subscriptionId: existing.subscriptionId,
+            expirationDate: existing.expirationDate,
+          });
+        }
       } else {
         this.logger.info("No existing subscription found; creating new");
       }
@@ -282,6 +295,15 @@ export class OutlookSubscriptionManager {
         )
     `;
   }
+}
+
+function shouldRenewAgedSubscription(expirationDate: Date, now: Date) {
+  const subscriptionStartedAt = new Date(
+    expirationDate.getTime() - OUTLOOK_SUBSCRIPTION_LIFETIME_MS,
+  );
+  const subscriptionAgeMs = now.getTime() - subscriptionStartedAt.getTime();
+
+  return subscriptionAgeMs >= OUTLOOK_MAX_REUSE_AGE_MS;
 }
 
 export async function createManagedOutlookSubscription({

@@ -234,7 +234,7 @@ export const searchInboxTool = ({
 }) =>
   tool({
     description:
-      "Search inbox messages and return concise message metadata for triage and summarization.",
+      "Search inbox messages and return concise message metadata. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion.",
     inputSchema: searchInboxInputSchema(provider),
     execute: async ({ query, limit, pageToken }) => {
       trackToolCall({ tool: "search_inbox", email, logger });
@@ -269,6 +269,7 @@ export const searchInboxTool = ({
           queryUsed: query,
           totalReturned: items.length,
           nextPageToken,
+          hasMore: Boolean(nextPageToken),
           summary: summarizeSearchResults(items),
           messages: items,
         };
@@ -533,7 +534,8 @@ export const manageInboxTool = ({
   const inputSchema = manageInboxInputSchema(provider);
 
   return tool({
-    description: "Run inbox actions on threads or senders.",
+    description:
+      "Run inbox actions on threads or senders. Thread actions accept up to 100 threadIds per call, so bulk requests require repeated manageInbox calls over paginated searchInbox results. For sender-wide cleanup, prefer bulk_archive_senders or unsubscribe_senders with fromEmails.",
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });

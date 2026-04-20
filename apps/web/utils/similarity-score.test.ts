@@ -222,6 +222,35 @@ On Tue, 27 Jan 2026 at 2:59, Test User <test@example.com> wrote:
       expect(score).toBe(1.0);
     });
 
+    it("should return 1.0 when stored content has an HTML referral footer and Gmail has plain text", () => {
+      const storedContent = `Checking on the usage numbers now (scanned vs drafted). Should have those soon.
+
+Took a look at the doc. Option 2 seems like a good middle ground for balancing the unit economics. Happy to jam on the specifics once I pull the data.
+
+Drafted by <a href="https://www.getinboxzero.com/?ref=ABC123">Inbox Zero</a>.`;
+      const gmailMessage = createParsedMessage(
+        `Checking on the usage numbers now (scanned vs drafted). Should have those soon.
+
+Took a look at the doc. Option 2 seems like a good middle ground for balancing the unit economics. Happy to jam on the specifics once I pull the data.
+
+Drafted by Inbox Zero.
+
+On Tue, 1 Apr 2026 at 10:00, Sender <sender@example.com> wrote:
+> Previous message`,
+      );
+
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBe(1.0);
+    });
+
+    it("should preserve plain text angle brackets that are not real HTML", () => {
+      const storedContent = "Daily Updates <updates@example.com>";
+      const gmailMessage = createParsedMessage("Daily Updates <attachment>");
+
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBeLessThan(1.0);
+    });
+
     it.each([
       { emoji: "👋", decimal: "128075", name: "waving hand" },
       { emoji: "😀", decimal: "128512", name: "grinning face" },

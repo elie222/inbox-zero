@@ -3,12 +3,12 @@ import type { ModelType } from "@/utils/llms/model";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { aiDetermineThreadStatus } from "@/utils/ai/reply/determine-thread-status";
-import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { createScopedLogger } from "@/utils/logger";
 import { SystemType, ThreadTrackerType } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { sortByInternalDate } from "@/utils/date";
 import { withPrismaRetry } from "@/utils/prisma-retry";
+import { buildThreadStatusMessagesForLLM } from "@/utils/reply-tracker/thread-status-context";
 
 const logger = createScopedLogger("conversation-status-handler");
 
@@ -55,14 +55,7 @@ export async function determineConversationStatus({
   }
 
   const sortedMessages = [...threadMessages].sort(sortByInternalDate());
-
-  const threadMessagesForLLM = sortedMessages.map((m, index) =>
-    getEmailForLLM(m, {
-      maxLength: index === sortedMessages.length - 1 ? 2000 : 500,
-      extractReply: true,
-      removeForwarded: false,
-    }),
-  );
+  const threadMessagesForLLM = buildThreadStatusMessagesForLLM(sortedMessages);
 
   // Check if the user sent the last email in the thread
   const lastMessage = sortedMessages.at(-1);

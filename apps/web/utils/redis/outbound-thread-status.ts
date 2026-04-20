@@ -1,23 +1,12 @@
-import { randomUUID } from "node:crypto";
-import { redis } from "@/utils/redis";
+import {
+  acquireOwnedLock,
+  clearOwnedLock,
+  markOwnedLockProcessed,
+} from "@/utils/redis/owned-lock";
 
-const PROCESSING_TTL_SECONDS = 60 * 5;
+const PROCESSING_TTL_SECONDS = 60 * 30;
 const PROCESSED_TTL_SECONDS = 60 * 60 * 24 * 30;
 const PROCESSED_STATUS = "processed";
-const MARK_PROCESSED_IF_OWNED_SCRIPT = `
-if redis.call("GET", KEYS[1]) ~= ARGV[1] then
-  return 0
-end
-redis.call("SET", KEYS[1], "${PROCESSED_STATUS}", "EX", tonumber(ARGV[2]))
-return 1
-`;
-const CLEAR_LOCK_IF_OWNED_SCRIPT = `
-if redis.call("GET", KEYS[1]) ~= ARGV[1] then
-  return 0
-end
-redis.call("DEL", KEYS[1])
-return 1
-`;
 
 type OutboundThreadStatusKey = {
   emailAccountId: string;
@@ -31,17 +20,10 @@ export async function acquireOutboundThreadStatusLock({
   threadId,
   messageId,
 }: OutboundThreadStatusKey): Promise<string | null> {
-  const lockToken = randomUUID();
-  const result = await redis.set(
-    getOutboundThreadStatusKey({ emailAccountId, threadId, messageId }),
-    lockToken,
-    {
-      ex: PROCESSING_TTL_SECONDS,
-      nx: true,
-    },
-  );
-
-  return result === "OK" ? lockToken : null;
+  return acquireOwnedLock({
+    key: getOutboundThreadStatusKey({ emailAccountId, threadId, messageId }),
+    processingTtlSeconds: PROCESSING_TTL_SECONDS,
+  });
 }
 
 export async function markOutboundThreadStatusProcessed({
@@ -50,15 +32,12 @@ export async function markOutboundThreadStatusProcessed({
   messageId,
   lockToken,
 }: OutboundThreadStatusKey): Promise<boolean> {
-  if (!lockToken) return false;
-
-  const result = await redis.eval<string[], number>(
-    MARK_PROCESSED_IF_OWNED_SCRIPT,
-    [getOutboundThreadStatusKey({ emailAccountId, threadId, messageId })],
-    [lockToken, PROCESSED_TTL_SECONDS.toString()],
-  );
-
-  return result === 1;
+  return markOwnedLockProcessed({
+    key: getOutboundThreadStatusKey({ emailAccountId, threadId, messageId }),
+    lockToken,
+    processedStatus: PROCESSED_STATUS,
+    processedTtlSeconds: PROCESSED_TTL_SECONDS,
+  });
 }
 
 export async function clearOutboundThreadStatusLock({
@@ -67,15 +46,10 @@ export async function clearOutboundThreadStatusLock({
   messageId,
   lockToken,
 }: OutboundThreadStatusKey): Promise<boolean> {
-  if (!lockToken) return false;
-
-  const result = await redis.eval<string[], number>(
-    CLEAR_LOCK_IF_OWNED_SCRIPT,
-    [getOutboundThreadStatusKey({ emailAccountId, threadId, messageId })],
-    [lockToken],
-  );
-
-  return result === 1;
+  return clearOwnedLock({
+    key: getOutboundThreadStatusKey({ emailAccountId, threadId, messageId }),
+    lockToken,
+  });
 }
 
 function getOutboundThreadStatusKey({

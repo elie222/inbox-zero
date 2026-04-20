@@ -418,6 +418,25 @@ describe("chat route rule freshness persistence", () => {
       consoleErrorSpy.mockRestore();
     }
   });
+
+  it("does not persist empty assistant messages", async () => {
+    streamState.finishMessages = [
+      {
+        id: "assistant-empty",
+        role: "assistant",
+        parts: [],
+      },
+    ];
+    mockAiProcessAssistantChat.mockResolvedValueOnce(
+      createAssistantStreamResult({
+        finishMessage: streamState.finishMessages[0],
+      }),
+    );
+
+    await POST(createRequest());
+
+    expect(prisma.chatMessage.createMany).not.toHaveBeenCalled();
+  });
 });
 
 function createRequest() {
@@ -437,7 +456,11 @@ function createRequest() {
   });
 }
 
-function createAssistantStreamResult() {
+function createAssistantStreamResult({
+  finishMessage = streamState.finishMessages[0] ?? null,
+}: {
+  finishMessage?: (typeof streamState.finishMessages)[number] | null;
+} = {}) {
   return {
     toUIMessageStream: ({
       onFinish,
@@ -448,7 +471,7 @@ function createAssistantStreamResult() {
     }) =>
       (async function* () {
         onFinish?.({
-          responseMessage: streamState.finishMessages[0] ?? null,
+          responseMessage: finishMessage,
         });
         yield { type: "text-start", id: "part-1" };
         yield { type: "text-end", id: "part-1" };

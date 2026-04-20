@@ -35,6 +35,7 @@ export const POST = withEmailAccount(
       toolCallId: data.toolCallId,
       actionType: data.actionType,
       contentOverride: data.contentOverride,
+      waitForPersistence: true,
       emailAccountId,
       provider: user.account.provider,
       logger: request.logger,

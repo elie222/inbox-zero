@@ -14,6 +14,10 @@ describe("validateLabelNameBasic", () => {
         "Project Alpha",
         "2024 Taxes",
         "Follow Up",
+        "* Marketing",
+        "Work+Items",
+        "Work\\Items",
+        "Work`Items",
         "a".repeat(225), // Max length
         // Nested labels with forward slash are valid
         "Inbox Zero/Archived",
@@ -80,29 +84,23 @@ describe("validateLabelNameBasic", () => {
     });
   });
 
-  describe("invalid characters", () => {
-    it("should reject labels with backslash", () => {
+  describe("supported characters", () => {
+    it("should accept labels with backslash", () => {
       const result = validateLabelNameBasic("Work\\Items");
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain("\\");
+      expect(result.valid).toBe(true);
+      expect(result.error).toBeUndefined();
     });
 
-    it("should reject labels with asterisk", () => {
-      const result = validateLabelNameBasic("Work*Items");
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain("*");
-    });
-
-    it("should reject labels with plus sign", () => {
+    it("should accept labels with plus sign", () => {
       const result = validateLabelNameBasic("Work+Items");
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain("+");
+      expect(result.valid).toBe(true);
+      expect(result.error).toBeUndefined();
     });
 
-    it("should reject labels with backtick", () => {
+    it("should accept labels with backtick", () => {
       const result = validateLabelNameBasic("Work`Items");
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain("`");
+      expect(result.valid).toBe(true);
+      expect(result.error).toBeUndefined();
     });
   });
 });
@@ -116,6 +114,10 @@ describe("validateGmailLabelName", () => {
         "Project Alpha",
         "2024 Taxes",
         "Follow Up",
+        "* Marketing",
+        "Work+Items",
+        "Work\\Items",
+        "Work`Items",
         "CATEGORY_PERSONAL",
       ];
 

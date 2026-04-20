@@ -7,6 +7,11 @@ import { handleOutboundReply } from "./outbound";
 import { cleanupThreadAIDrafts, trackSentDraftStatus } from "./draft-tracking";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
 import { logReplyTrackerError } from "./error-logging";
+import {
+  acquireOutboundMessageLock,
+  clearOutboundMessageLock,
+  markOutboundMessageProcessed,
+} from "@/utils/redis/message-processing";
 
 export async function handleOutboundMessage({
   emailAccount,
@@ -34,42 +39,67 @@ export async function handleOutboundMessage({
     messageTo: message.headers.to,
     messageSubject: message.headers.subject,
   });
-  await Promise.allSettled([
-    trackSentDraftStatus({
-      emailAccountId: emailAccount.id,
-      message,
-      provider,
-      logger,
-    }).catch((error) =>
-      logReplyTrackerError({
+  const lockToken = await acquireOutboundMessageLock({
+    emailAccountId: emailAccount.id,
+    messageId: message.id,
+  });
+  if (!lockToken) {
+    logger.info(
+      "Outbound message already processed or currently processing, skipping.",
+    );
+    return;
+  }
+
+  let processedSuccessfully = false;
+
+  try {
+    const results = await Promise.allSettled([
+      trackSentDraftStatus({
+        emailAccountId: emailAccount.id,
+        message,
+        provider,
+        logger,
+      }),
+      handleOutboundReply({
+        emailAccount,
+        message,
+        provider,
+        logger,
+      }),
+    ]);
+
+    const [trackSentDraftStatusResult, handleOutboundReplyResult] = results;
+
+    if (trackSentDraftStatusResult.status === "rejected") {
+      await logReplyTrackerError({
         logger,
         emailAccountId: emailAccount.id,
         scope: "handle-outbound",
         message: "Error tracking sent draft status",
         operation: "track-sent-draft-status",
-        error,
+        error: trackSentDraftStatusResult.reason,
         capture: true,
-      }),
-    ),
-    handleOutboundReply({
-      emailAccount,
-      message,
-      provider,
-      logger,
-    }).catch((error) =>
-      logReplyTrackerError({
+      });
+    }
+
+    if (handleOutboundReplyResult.status === "rejected") {
+      await logReplyTrackerError({
         logger,
         emailAccountId: emailAccount.id,
         scope: "handle-outbound",
         message: "Error handling outbound reply",
         operation: "handle-outbound-reply",
-        error,
+        error: handleOutboundReplyResult.reason,
         capture: true,
-      }),
-    ),
-  ]);
+      });
+    }
 
-  try {
+    // Persist the processed marker once the expensive reply-tracking work
+    // completes so follow-up cleanup failures do not trigger duplicate replays.
+    processedSuccessfully = results.every(
+      (result) => result.status === "fulfilled",
+    );
+
     await cleanupThreadAIDrafts({
       threadId: message.threadId,
       emailAccountId: emailAccount.id,
@@ -93,5 +123,35 @@ export async function handleOutboundMessage({
   } catch (error) {
     logger.error("Error removing follow-up label", { error });
     captureException(error, { emailAccountId: emailAccount.id });
+  } finally {
+    if (processedSuccessfully) {
+      const markedAsProcessed = await markOutboundMessageProcessed({
+        emailAccountId: emailAccount.id,
+        messageId: message.id,
+        lockToken,
+      }).catch((error) => {
+        logger.error("Failed to mark outbound message as processed", { error });
+        return false;
+      });
+      if (!markedAsProcessed) {
+        logger.warn(
+          "Skipped marking outbound message as processed because lock was no longer owned.",
+        );
+      }
+    } else {
+      const lockCleared = await clearOutboundMessageLock({
+        emailAccountId: emailAccount.id,
+        messageId: message.id,
+        lockToken,
+      }).catch((error) => {
+        logger.error("Failed to clear outbound message lock", { error });
+        return false;
+      });
+      if (!lockCleared) {
+        logger.warn(
+          "Skipped clearing outbound message lock because lock was no longer owned.",
+        );
+      }
+    }
   }
 }

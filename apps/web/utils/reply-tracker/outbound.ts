@@ -3,7 +3,6 @@ import type { ParsedMessage } from "@/utils/types";
 import { aiDetermineThreadStatus } from "@/utils/ai/reply/determine-thread-status";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
-import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { internalDateToDate, sortByInternalDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
 import { applyThreadStatusLabel } from "./label-helpers";
@@ -17,6 +16,7 @@ import {
   clearOutboundThreadStatusLock,
   markOutboundThreadStatusProcessed,
 } from "@/utils/redis/outbound-thread-status";
+import { buildThreadStatusMessagesForLLM } from "@/utils/reply-tracker/thread-status-context";
 
 export async function handleOutboundReply({
   emailAccount,
@@ -82,14 +82,8 @@ export async function handleOutboundReply({
       );
     }
 
-    // Prepare thread messages for AI analysis (chronological order, oldest to newest)
-    const threadMessagesForLLM = sortedMessages.map((m, index) =>
-      getEmailForLLM(m, {
-        maxLength: index === sortedMessages.length - 1 ? 2000 : 500, // Give more context for the latest message
-        extractReply: true,
-        removeForwarded: false,
-      }),
-    );
+    const threadMessagesForLLM =
+      buildThreadStatusMessagesForLLM(sortedMessages);
 
     if (!threadMessagesForLLM.length) {
       logger.error("No messages for AI analysis");

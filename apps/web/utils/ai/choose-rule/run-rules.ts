@@ -496,11 +496,16 @@ async function executeMatchedRule(
     if (immediateActions?.length > 0) {
       await executeAct({
         client,
-        userEmail: emailAccount.email,
+        emailAccount: {
+          email: emailAccount.email,
+          id: emailAccount.id,
+          userId: emailAccount.userId,
+        },
         logger,
-        userId: emailAccount.userId,
-        emailAccountId: emailAccount.id,
-        executedRule,
+        executedRule: {
+          ...executedRule,
+          hasAttachmentSources: getRuleHasAttachmentSources(rule),
+        },
         message,
       });
     } else if (!delayedActions?.length) {
@@ -526,6 +531,35 @@ async function executeMatchedRule(
     matchReasons,
     createdAt: batchTimestamp,
   };
+}
+
+function getRuleHasAttachmentSources(rule: RuleWithActions) {
+  if (hasAttachmentSourceCount(rule)) {
+    return rule._count.attachmentSources > 0;
+  }
+
+  if (hasAttachmentSourcesArray(rule)) {
+    return rule.attachmentSources.length > 0;
+  }
+
+  return undefined;
+}
+
+function hasAttachmentSourceCount(
+  rule: RuleWithActions,
+): rule is RuleWithActions & { _count: { attachmentSources: number } } {
+  return (
+    typeof (rule as { _count?: { attachmentSources?: unknown } })._count
+      ?.attachmentSources === "number"
+  );
+}
+
+function hasAttachmentSourcesArray(
+  rule: RuleWithActions,
+): rule is RuleWithActions & { attachmentSources: unknown[] } {
+  return Array.isArray(
+    (rule as { attachmentSources?: unknown }).attachmentSources,
+  );
 }
 
 async function analyzeSenderPatternIfAiMatch({

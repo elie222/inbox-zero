@@ -20,6 +20,7 @@ interface MessagesProps {
   footer?: ReactNode;
   isArtifactVisible: boolean;
   messages: Array<ChatMessage>;
+  persistedMessageIds: Set<string>;
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   setInput: (input: string) => void;
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
@@ -29,6 +30,7 @@ interface MessagesProps {
 export function Messages({
   status,
   messages,
+  persistedMessageIds,
   setInput,
   footer,
 }: MessagesProps) {
@@ -66,6 +68,9 @@ export function Messages({
                           }
                           disableConfirm={disableConfirm}
                           hideInlineEmailCards={hideInlineEmailCards}
+                          isPersistedMessage={persistedMessageIds.has(
+                            message.id,
+                          )}
                           messageId={message.id}
                           partIndex={partIndex}
                           threadLookup={emailLookup}

@@ -869,6 +869,10 @@ async function getCostControlledModelOptions({
   emailAccountId?: string;
   label: string;
 }): Promise<SelectModel> {
+  if (label === "assistant-chat") {
+    return modelOptions;
+  }
+
   const guard = await shouldForceNanoModel({
     userEmail,
     hasUserApiKey: modelOptions.hasUserApiKey,
@@ -877,7 +881,9 @@ async function getCostControlledModelOptions({
     emailAccountId,
   });
 
-  if (!guard.shouldForce) return modelOptions;
+  if (!guard.shouldForce) {
+    return modelOptions;
+  }
 
   try {
     const nanoModelOptions = getModel(NO_USER_AI_FIELDS, "nano");
@@ -948,7 +954,10 @@ async function resolveModelCandidates({
   userId?: string;
   emailAccountId?: string;
   label: string;
-}): Promise<{ modelOptions: SelectModel; modelCandidates: ResolvedModel[] }> {
+}): Promise<{
+  modelOptions: SelectModel;
+  modelCandidates: ResolvedModel[];
+}> {
   const effectiveModelOptions = await getCostControlledModelOptions({
     modelOptions,
     userEmail,

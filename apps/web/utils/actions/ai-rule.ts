@@ -119,7 +119,14 @@ export const runRulesAction = actionClient
             emailAccountId,
             enabled: true,
           },
-          include: { actions: true },
+          include: {
+            actions: true,
+            _count: {
+              select: {
+                attachmentSources: true,
+              },
+            },
+          },
         })
         .catch((error) => {
           logger.error("Failed to load enabled rules for execution", { error });
@@ -186,7 +193,14 @@ export const testAiCustomContentAction = actionClient
           enabled: true,
           instructions: { not: null },
         },
-        include: { actions: true },
+        include: {
+          actions: true,
+          _count: {
+            select: {
+              attachmentSources: true,
+            },
+          },
+        },
       });
 
       const result = await runRules({

@@ -41,7 +41,10 @@ const TEST_CATEGORY_NAME = process.env.TEST_CATEGORY_NAME || "To Reply";
 vi.mock("server-only", () => ({}));
 
 vi.mock("@/utils/redis/message-processing", () => ({
+  acquireOutboundMessageLock: vi.fn().mockResolvedValue("lock-token-1"),
+  clearOutboundMessageLock: vi.fn().mockResolvedValue(true),
   markMessageAsProcessing: vi.fn().mockResolvedValue(true),
+  markOutboundMessageProcessed: vi.fn().mockResolvedValue(true),
 }));
 
 // Mock Next.js after() to run synchronously and await in tests
@@ -472,7 +475,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
       console.log(`      Subject: ${draft?.subject || "(no subject)"}`);
       console.log("      Content:");
       console.log(
-        `        ${draft?.textPlain?.substring(0, 200).replace(/\n/g, "\n        ") || "(empty)"}`,
+        `        ${draft?.textPlain?.slice(0, 200).replace(/\n/g, "\n        ") || "(empty)"}`,
       );
       if (draft?.textPlain && draft.textPlain.length > 200) {
         console.log(`        ... (${draft.textPlain.length} total characters)`);
@@ -516,7 +519,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
     console.log(`      Draft ID: ${draftResult.draftId}`);
     console.log(`      Fetched ID: ${fetchedDraft?.id}`);
     console.log(
-      `      Content preview: ${fetchedDraft?.textPlain?.substring(0, 50) || "(empty)"}...`,
+      `      Content preview: ${fetchedDraft?.textPlain?.slice(0, 50) || "(empty)"}...`,
     );
 
     // Clean up - delete the test draft

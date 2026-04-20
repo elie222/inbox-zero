@@ -6,8 +6,7 @@
  *
  * Sources:
  * - https://developers.google.com/workspace/gmail/api/guides/labels
- * - Observed errors in production (e.g., VOICEMAIL)
- * - Code analysis (e.g., CHAT labels filtered in report.ts)
+ * - Observed errors in production (e.g., reserved system labels)
  */
 
 /**
@@ -49,19 +48,6 @@ const GMAIL_RESERVED_LABELS = [
 ] as const;
 
 /**
- * Invalid characters that cannot be used in Gmail label names
- *
- * Note: Forward slash (/) is NOT included here because it's used to create
- * nested labels (e.g., "Inbox Zero/Archived")
- */
-const GMAIL_LABEL_INVALID_CHARS = [
-  "\\", // Backslash
-  "*", // Asterisk
-  "+", // Plus sign
-  "`", // Backtick
-] as const;
-
-/**
  * Maximum length for a Gmail label name
  */
 const GMAIL_LABEL_MAX_LENGTH = 225;
@@ -82,7 +68,7 @@ type LabelValidationResult = {
  */
 export function validateLabelNameBasic(name: string): LabelValidationResult {
   // Check if empty
-  if (!name || !name.trim()) {
+  if (!name?.trim()) {
     return { valid: false, error: "Label name cannot be empty" };
   }
 
@@ -106,16 +92,6 @@ export function validateLabelNameBasic(name: string): LabelValidationResult {
   // Check for double spaces
   if (name.includes("  ")) {
     return { valid: false, error: "Label name cannot contain double spaces" };
-  }
-
-  // Check for invalid characters
-  for (const char of GMAIL_LABEL_INVALID_CHARS) {
-    if (name.includes(char)) {
-      return {
-        valid: false,
-        error: `Label name cannot contain the character: ${char}`,
-      };
-    }
   }
 
   return { valid: true };

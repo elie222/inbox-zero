@@ -7,6 +7,7 @@ import {
   forwardEmailTool,
   manageInboxTool,
   replyEmailTool,
+  searchInboxTool,
   sendEmailTool,
 } from "./chat-inbox-tools";
 
@@ -489,5 +490,105 @@ describe("chat inbox tools", () => {
       requestedCount: 1,
       failedThreadIds: ["thread-1"],
     });
+  });
+});
+
+describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("searchInbox description tells the model to paginate for bulk 'all matching' requests", () => {
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const description = toolInstance.description ?? "";
+    expect(description.toLowerCase()).toMatch(/paginat|nextpagetoken/);
+    expect(description.toLowerCase()).toMatch(/all/);
+  });
+
+  it("searchInbox result signals when more pages remain (hasMore)", async () => {
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages: vi.fn().mockResolvedValue({
+        messages: [
+          {
+            id: "m1",
+            threadId: "t1",
+            snippet: "",
+            historyId: "",
+            inline: [],
+            headers: {
+              from: "a@b.com",
+              to: TEST_EMAIL,
+              subject: "hi",
+              date: "2026-01-01T00:00:00.000Z",
+            },
+            subject: "hi",
+            textPlain: "",
+            textHtml: "",
+            labelIds: [],
+            internalDate: "0",
+          },
+        ],
+        nextPageToken: "PAGE_TOKEN_2",
+      }),
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "older_than:3y is:unread",
+      limit: 20,
+    });
+
+    expect(result.nextPageToken).toBe("PAGE_TOKEN_2");
+    expect(result.hasMore).toBe(true);
+  });
+
+  it("searchInbox result reports hasMore=false when no more pages", async () => {
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages: vi.fn().mockResolvedValue({
+        messages: [],
+        nextPageToken: undefined,
+      }),
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "older_than:10y",
+      limit: 20,
+    });
+
+    expect(result.hasMore).toBe(false);
+  });
+
+  it("manageInbox description calls out the 100-threadId cap per call", () => {
+    const toolInstance = manageInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const description = toolInstance.description ?? "";
+    expect(description).toMatch(/100/);
+    expect(description.toLowerCase()).toMatch(/thread/);
   });
 });

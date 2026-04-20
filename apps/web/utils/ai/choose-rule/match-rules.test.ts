@@ -2844,7 +2844,7 @@ describe("findMatchingRules - Integration Tests", () => {
 
     // Ensure potentialAiMatches includes aiOnlyRule
     vi.mocked(aiChooseRule).mockResolvedValue({
-      rules: [aiOnlyRule as any],
+      rules: [{ rule: aiOnlyRule as any, isPrimary: true }],
       reason: "AI reasoning here",
     });
 

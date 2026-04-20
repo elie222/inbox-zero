@@ -2,7 +2,7 @@ import type { Message } from "@microsoft/microsoft-graph-types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createScopedLogger } from "@/utils/logger";
-import { sendEmailWithHtml } from "./mail";
+import { forwardEmail, sendEmailWithHtml } from "./mail";
 
 vi.mock("@/utils/mail", () => ({
   ensureEmailSendingEnabled: vi.fn(),
@@ -524,8 +524,115 @@ describe("sendEmailWithHtml", () => {
   });
 });
 
+describe("forwardEmail", () => {
+  it("creates a forward draft, applies the formatted sender, and sends it", async () => {
+    const getMessage = vi.fn(async () => {
+      return {
+        id: "message-1",
+        conversationId: "conversation-1",
+        subject: "Original subject",
+        bodyPreview: "Original preview",
+        body: { content: "<p>Original body</p>" },
+        from: {
+          emailAddress: {
+            address: "sender@example.com",
+            name: "Sender Name",
+          },
+        },
+        toRecipients: [
+          {
+            emailAddress: {
+              address: "recipient@example.com",
+              name: "Recipient Name",
+            },
+          },
+        ],
+        receivedDateTime: "2025-02-06T22:35:00.000Z",
+      } as Message;
+    });
+    const createForwardDraft = vi.fn(async () => {
+      return {
+        id: "draft-1",
+        conversationId: "conversation-1",
+        from: {
+          emailAddress: {
+            address: "owner@example.com",
+          },
+        },
+      } as Message;
+    });
+    const updateDraft = vi.fn(async () => ({}));
+    const sendDraft = vi.fn(async () => ({}));
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages/message-1") return { get: getMessage };
+      if (path === "/me/messages/message-1/createForward") {
+        return { post: createForwardDraft };
+      }
+      if (path === "/me/messages/draft-1") return { patch: updateDraft };
+      if (path === "/me/messages/draft-1/send") return { post: sendDraft };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await forwardEmail(
+      client,
+      {
+        messageId: "message-1",
+        to: "Recipient Name <recipient@example.com>",
+        cc: "CC Person <cc@example.com>",
+        bcc: "bcc@example.com",
+        content: "Forwarding this",
+        from: "Owner Name <owner@example.com>",
+      },
+      createScopedLogger("outlook-mail-test"),
+    );
+
+    expect(createForwardDraft).toHaveBeenCalledWith({});
+    expect(updateDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toRecipients: [
+          {
+            emailAddress: {
+              address: "recipient@example.com",
+              name: "Recipient Name",
+            },
+          },
+        ],
+        ccRecipients: [
+          {
+            emailAddress: {
+              address: "cc@example.com",
+              name: "CC Person",
+            },
+          },
+        ],
+        bccRecipients: [
+          {
+            emailAddress: {
+              address: "bcc@example.com",
+            },
+          },
+        ],
+        from: {
+          emailAddress: {
+            address: "owner@example.com",
+            name: "Owner Name",
+          },
+        },
+        subject: "Fwd: Original subject",
+        body: expect.objectContaining({
+          contentType: "html",
+          content: expect.stringContaining("Forwarding this"),
+        }),
+      }),
+    );
+    expect(sendDraft).toHaveBeenCalledTimes(1);
+  });
+});
+
 function createMockOutlookClient(
   getEndpoint: (path: string) => {
+    get?: () => Promise<unknown>;
     post?: (body: unknown) => Promise<unknown>;
     patch?: (body: unknown) => Promise<unknown>;
   },
@@ -533,6 +640,7 @@ function createMockOutlookClient(
   const api = vi.fn((path: string) => {
     const endpoint = getEndpoint(path);
     return {
+      get: endpoint.get ?? vi.fn(async () => ({})),
       post: endpoint.post ?? vi.fn(async () => ({})),
       patch: endpoint.patch ?? vi.fn(async () => ({})),
     };

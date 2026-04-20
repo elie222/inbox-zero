@@ -7,7 +7,7 @@ export function SettingCard({
   right,
   collapseOnMobile = false,
 }: {
-  title: string;
+  title: React.ReactNode;
   description: string;
   right: React.ReactNode;
   collapseOnMobile?: boolean;

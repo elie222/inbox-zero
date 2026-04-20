@@ -455,7 +455,7 @@ function EmailActionResult({
   disableConfirm: boolean;
 }) {
   const { emailAccountId, provider, userEmail } = useAccount();
-  const { chatId } = useChat();
+  const { chatId, persistedMessageIds } = useChat();
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmationResultOverride, setConfirmationResultOverride] =
     useState<EmailConfirmationResult | null>(null);
@@ -481,6 +481,7 @@ function EmailActionResult({
     confirmationResultOverride || parsedConfirmationResult;
   const isProcessing = confirmationState === "processing";
   const isChatBusy = disableConfirm;
+  const isPersistedMessage = persistedMessageIds.has(chatMessageId);
   const isConfirmed =
     confirmationState === "confirmed" ||
     Boolean(confirmationResult) ||
@@ -543,20 +544,12 @@ function EmailActionResult({
       const hasEdits = editedBody && editedBody !== body;
       const input = {
         chatId,
-        chatMessageId,
         toolCallId,
         actionType,
         ...(hasEdits ? { contentOverride: editedBody } : {}),
       };
 
-      let result = await confirmAssistantEmailAction(emailAccountId, input);
-
-      // Message may not be persisted yet if clicked right after
-      // streaming finished. Retry once after a short wait.
-      if (result?.serverError === "Chat message not found") {
-        await new Promise((r) => setTimeout(r, 2000));
-        result = await confirmAssistantEmailAction(emailAccountId, input);
-      }
+      const result = await confirmAssistantEmailAction(emailAccountId, input);
 
       if (result?.serverError) {
         toastError({ description: result.serverError });
@@ -717,6 +710,8 @@ function EmailActionResult({
                   <Loader2 className="size-4 animate-spin" />
                   Sending...
                 </>
+              ) : !isPersistedMessage ? (
+                "Saving..."
               ) : (
                 <>
                   <SendIcon className="hidden size-3.5 sm:inline" />
@@ -1413,10 +1408,6 @@ function LearnedPatternsActions({ ruleId }: { ruleId: string }) {
       />
     </>
   );
-}
-
-function ToolCard({ children }: { children: React.ReactNode }) {
-  return <Card className="space-y-3 p-4">{children}</Card>;
 }
 
 function RuleToolCardHeader({

@@ -137,6 +137,66 @@ describe("OutlookSubscriptionManager", () => {
       // Assert
       expect(result).toBeNull();
     });
+
+    it("should renew a subscription once it is older than a day", async () => {
+      const now = new Date("2026-04-14T12:00:00Z");
+      vi.useFakeTimers();
+      vi.setSystemTime(now);
+
+      vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+        watchEmailsSubscriptionId: "aged-subscription-id",
+        watchEmailsExpirationDate: new Date("2026-04-15T11:00:00Z"),
+        watchEmailsSubscriptionHistory: null,
+        createdAt: new Date("2026-03-01T00:00:00Z"),
+      } as any);
+
+      const newSubscription = {
+        subscriptionId: "replacement-subscription-id",
+        expirationDate: new Date("2026-04-17T12:00:00Z"),
+      };
+      vi.mocked(mockProvider.watchEmails).mockResolvedValue(newSubscription);
+
+      const result = await manager.createSubscription();
+
+      expect(mockProvider.unwatchEmails).toHaveBeenCalledWith(
+        "aged-subscription-id",
+      );
+      expect(mockProvider.watchEmails).toHaveBeenCalled();
+      expect(result).toEqual(
+        expect.objectContaining({
+          subscriptionId: "replacement-subscription-id",
+          changed: true,
+        }),
+      );
+
+      vi.useRealTimers();
+    });
+
+    it("should reuse a subscription that is less than a day old", async () => {
+      const now = new Date("2026-04-14T12:00:00Z");
+      vi.useFakeTimers();
+      vi.setSystemTime(now);
+
+      vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+        watchEmailsSubscriptionId: "fresh-subscription-id",
+        watchEmailsExpirationDate: new Date("2026-04-17T06:00:00Z"),
+        watchEmailsSubscriptionHistory: null,
+        createdAt: new Date("2026-03-01T00:00:00Z"),
+      } as any);
+
+      const result = await manager.createSubscription();
+
+      expect(mockProvider.unwatchEmails).not.toHaveBeenCalled();
+      expect(mockProvider.watchEmails).not.toHaveBeenCalled();
+      expect(result).toEqual(
+        expect.objectContaining({
+          subscriptionId: "fresh-subscription-id",
+          changed: false,
+        }),
+      );
+
+      vi.useRealTimers();
+    });
   });
 
   describe("updateSubscriptionInDatabase", () => {

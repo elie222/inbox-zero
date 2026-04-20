@@ -26,18 +26,6 @@ const MAX_GRAPH_ATTACHMENT_SIZE_BYTES = 3 * 1024 * 1024;
 const MAX_GRAPH_UPLOAD_SESSION_SIZE_BYTES = 150 * 1024 * 1024;
 const GRAPH_UPLOAD_CHUNK_SIZE_BYTES = 320 * 1024;
 
-interface OutlookMessageRequest {
-  bccRecipients?: GraphRecipient[];
-  body: {
-    contentType: string;
-    content: string;
-  };
-  ccRecipients?: GraphRecipient[];
-  replyTo?: GraphRecipient[];
-  subject: string;
-  toRecipients: GraphRecipient[];
-}
-
 type SentEmailResult = Pick<Message, "id" | "conversationId">;
 
 export async function sendEmailWithHtml(
@@ -133,20 +121,10 @@ export async function replyToEmail(
     logger,
   );
 
-  // Build the from field if a display name is provided
-  const fromField = options?.from
-    ? {
-        from: {
-          emailAddress: {
-            name: extractNameFromEmail(options.from),
-            address:
-              extractEmailAddress(options.from) ||
-              replyDraft.from?.emailAddress?.address ||
-              "",
-          },
-        },
-      }
-    : {};
+  const fromField = buildGraphFromField(
+    options?.from,
+    replyDraft.from?.emailAddress?.address,
+  );
 
   // Update the draft with our content
   await withOutlookRetry(
@@ -159,7 +137,7 @@ export async function replyToEmail(
             contentType: "html",
             content: html,
           },
-          ...fromField,
+          ...(fromField ? { from: fromField } : {}),
           ...(options?.replyTo
             ? {
                 replyTo: [{ emailAddress: { address: options.replyTo } }],
@@ -199,12 +177,18 @@ export async function forwardEmail(
     cc?: string;
     bcc?: string;
     content?: string;
+    from?: string;
   },
   logger: Logger,
 ) {
   ensureEmailSendingEnabled();
 
   if (!options.to.trim()) throw new Error("Recipient address is required");
+
+  const toRecipients = buildGraphRecipients(options.to);
+  if (!toRecipients?.length) throw new Error("Recipient address is required");
+  const ccRecipients = buildGraphRecipients(options.cc);
+  const bccRecipients = buildGraphRecipients(options.bcc);
 
   // Get the original message
   const originalMessage: Message = await withOutlookRetry(
@@ -232,31 +216,52 @@ export async function forwardEmail(
     conversationIndex: originalMessage.conversationId || "",
   };
 
-  const forwardMessage: OutlookMessageRequest = {
-    toRecipients: [{ emailAddress: { address: options.to } }],
-    ...(options.cc
-      ? { ccRecipients: [{ emailAddress: { address: options.cc } }] }
-      : {}),
-    ...(options.bcc
-      ? { bccRecipients: [{ emailAddress: { address: options.bcc } }] }
-      : {}),
-    subject: forwardEmailSubject(message.headers.subject),
-    body: {
-      contentType: "html",
-      content: forwardEmailHtml({ content: options.content ?? "", message }),
-    },
-  };
-
-  const result = await withOutlookRetry(
+  const forwardDraft: Message = await withOutlookRetry(
     () =>
       client
         .getClient()
-        .api(`/me/messages/${options.messageId}/forward`)
-        .post({ message: forwardMessage }),
+        .api(`/me/messages/${options.messageId}/createForward`)
+        .post({}),
     logger,
   );
 
-  return result;
+  const fromField = buildGraphFromField(
+    options.from,
+    forwardDraft.from?.emailAddress?.address,
+  );
+
+  await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/messages/${forwardDraft.id}`)
+        .patch({
+          toRecipients,
+          ...(ccRecipients ? { ccRecipients } : {}),
+          ...(bccRecipients ? { bccRecipients } : {}),
+          ...(fromField ? { from: fromField } : {}),
+          subject: forwardEmailSubject(message.headers.subject),
+          body: {
+            contentType: "html",
+            content: forwardEmailHtml({
+              content: options.content ?? "",
+              message,
+            }),
+          },
+        }),
+    logger,
+  );
+
+  await withOutlookRetry(
+    () =>
+      client.getClient().api(`/me/messages/${forwardDraft.id}/send`).post({}),
+    logger,
+  );
+
+  return {
+    id: "",
+    conversationId: forwardDraft.conversationId,
+  };
 }
 
 export async function draftEmail(
@@ -503,6 +508,25 @@ function buildGraphRecipients(
     seen.add(key);
     return true;
   });
+}
+
+function buildGraphFromField(
+  formattedFrom?: string,
+  fallbackAddress?: string | null,
+) {
+  if (!formattedFrom) return undefined;
+
+  const address = extractEmailAddress(formattedFrom) || fallbackAddress;
+  if (!address) return undefined;
+
+  const name = extractNameFromEmail(formattedFrom).trim();
+
+  return {
+    emailAddress: {
+      address,
+      ...(name && name !== address ? { name } : {}),
+    },
+  };
 }
 
 async function addAttachmentsToDraft({

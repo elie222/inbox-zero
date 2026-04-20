@@ -8,6 +8,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -39,6 +40,7 @@ type ChatContextType = {
   chat: Chat;
   input: string;
   chatId: string | null;
+  persistedMessageIds: Set<string>;
   setInput: (input: string) => void;
   setChatId: (chatId: string | null) => void;
   setNewChat: () => void;
@@ -65,6 +67,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const previousChatIdRef = useRef(chatId);
 
   const { data } = useChatMessages(chatId);
+  const persistedMessageIds = useMemo(
+    () => new Set(data?.messages.map((message) => message.id) ?? []),
+    [data?.messages],
+  );
 
   const setNewChat = useCallback(() => {
     setChatId(generateUUID());
@@ -101,9 +107,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // messages: initialMessages, // NOTE: couldn't get this to work
     experimental_throttle: 100,
     generateId: generateUUID,
-    onFinish: () => {
+    onFinish: async () => {
       pendingInlineActionsRef.current = null;
-      mutate("/api/user/rules");
+      await Promise.all([
+        mutate("/api/user/rules"),
+        chatId ? mutate(`/api/chats/${chatId}`) : Promise.resolve(),
+      ]);
     },
     onError: (error) => {
       const pendingInlineActions = pendingInlineActionsRef.current;
@@ -178,6 +187,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         chat,
         chatId,
         input,
+        persistedMessageIds,
         setInput,
         setChatId,
         setNewChat,

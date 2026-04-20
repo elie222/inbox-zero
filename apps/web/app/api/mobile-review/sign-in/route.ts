@@ -11,6 +11,7 @@ export const POST = withError("mobile-review/sign-in", async (request) => {
   const body = signInSchema.parse(await request.json());
   const result = await createMobileReviewSession({
     code: body.code,
+    logger: request.logger,
   });
 
   request.logger.info("Created mobile review session", {

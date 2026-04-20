@@ -34,6 +34,7 @@ import { requiresThreadIds } from "@/utils/ai/assistant/manage-inbox-actions";
 interface MessagePartProps {
   disableConfirm: boolean;
   hideInlineEmailCards: boolean;
+  isPersistedMessage: boolean;
   isStreaming: boolean;
   messageId: string;
   part: ChatMessage["parts"][0];
@@ -61,6 +62,7 @@ export function MessagePart({
   isStreaming,
   disableConfirm,
   hideInlineEmailCards,
+  isPersistedMessage,
   messageId,
   partIndex,
   threadLookup,
@@ -251,6 +253,7 @@ export function MessagePart({
     return renderPendingEmailAction({
       part,
       disableConfirm,
+      isPersistedMessage,
       messageId,
       preparingText: "Preparing email...",
       ResultComponent: SendEmailResult,
@@ -261,6 +264,7 @@ export function MessagePart({
     return renderPendingEmailAction({
       part,
       disableConfirm,
+      isPersistedMessage,
       messageId,
       preparingText: "Preparing reply...",
       ResultComponent: ReplyEmailResult,
@@ -271,6 +275,7 @@ export function MessagePart({
     return renderPendingEmailAction({
       part,
       disableConfirm,
+      isPersistedMessage,
       messageId,
       preparingText: "Preparing forward...",
       ResultComponent: ForwardEmailResult,
@@ -328,7 +333,7 @@ export function MessagePart({
             output={output}
             chatMessageId={messageId}
             toolCallId={toolCallId}
-            disableConfirm={disableConfirm}
+            disableConfirm={disableConfirm || !isPersistedMessage}
           />
         );
       }
@@ -499,7 +504,7 @@ export function MessagePart({
             output={output}
             chatMessageId={messageId}
             toolCallId={toolCallId}
-            disableConfirm={disableConfirm}
+            disableConfirm={disableConfirm || !isPersistedMessage}
           />
         );
       }
@@ -603,6 +608,7 @@ function renderToolStatus({
 function renderPendingEmailAction({
   part,
   disableConfirm,
+  isPersistedMessage,
   messageId,
   preparingText,
   ResultComponent,
@@ -613,6 +619,7 @@ function renderPendingEmailAction({
     output?: unknown;
   };
   disableConfirm: boolean;
+  isPersistedMessage: boolean;
   messageId: string;
   preparingText: string;
   ResultComponent: (props: {
@@ -639,7 +646,7 @@ function renderPendingEmailAction({
         output={part.output}
         chatMessageId={messageId}
         toolCallId={toolCallId}
-        disableConfirm={disableConfirm}
+        disableConfirm={disableConfirm || !isPersistedMessage}
       />
     );
   }
