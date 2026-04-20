@@ -65,14 +65,13 @@ model User {
   sessions      Session[]
 
   // additional fields
-  completedOnboardingAt    DateTime? // questions about the user. e.g. their role
-  completedAppOnboardingAt DateTime? // how to use the app
-  onboardingAnswers        Json?
-  lastLogin                DateTime?
-  utms                     Json?
-  errorMessages            Json? // eg. user set incorrect AI API key
-  announcementDismissedAt  DateTime?
-  dismissedHints           String[]  @default([])
+  completedOnboardingAt   DateTime? // questions about the user. e.g. their role
+  onboardingAnswers       Json?
+  lastLogin               DateTime?
+  utms                    Json?
+  errorMessages           Json? // eg. user set incorrect AI API key
+  announcementDismissedAt DateTime?
+  dismissedHints          String[]  @default([])
 
   // survey answers (extracted from onboardingAnswers for easier querying)
   surveyFeatures     String[] // multiple choice: features user is interested in
@@ -375,6 +374,7 @@ model Premium {
   stripeCancelAtPeriodEnd      Boolean? // If true, the subscription is set to cancel automatically at the end of the current billing period, rather than renew.
   stripeRenewsAt               DateTime? // Timestamp for when the current billing period ends and the subscription attempts renewal (if not canceling). Derived from `current_period_end`.
   stripeTrialEnd               DateTime? // Timestamp for when the free trial period ends (if applicable). Important for managing trial-to-paid transitions.
+  stripeTrialConvertedAt       DateTime? // Timestamp for when a Stripe trial converted from `trialing` to `active`. Historical data.
   stripeCanceledAt             DateTime? // Timestamp for when the subscription was definitively marked as canceled in Stripe (might be immediate or after period end). Historical data.
   stripeEndedAt                DateTime? // Timestamp for when the subscription ended permanently for any reason (cancellation, final payment failure). Historical data.
   stripeAiOverageLastInvoiceId String?

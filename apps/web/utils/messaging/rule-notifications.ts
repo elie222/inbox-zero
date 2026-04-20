@@ -54,6 +54,10 @@ import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
+import {
+  isMessagingChannelOperational,
+  isOperationalSlackChannel,
+} from "@/utils/messaging/channel-validity";
 import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters";
 import { getMessagingRoute } from "@/utils/messaging/routes";
 import { getEmailUrlForOptionalMessage } from "@/utils/url";
@@ -127,6 +131,46 @@ export async function sendMessagingRuleNotification({
   return result.delivered;
 }
 
+export async function replaceMessagingDraftNotificationsWithHandledOnWebState({
+  executedRuleId,
+  logger,
+}: {
+  executedRuleId: string;
+  logger: Logger;
+}) {
+  const notificationActions = await prisma.executedAction.findMany({
+    where: {
+      executedRuleId,
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      messagingMessageId: { not: null },
+      messagingChannel: {
+        isConnected: true,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  const results = await Promise.allSettled(
+    notificationActions.map(({ id }) =>
+      replaceMessagingDraftNotificationWithHandledOnWebState({
+        executedActionId: id,
+        logger,
+      }),
+    ),
+  );
+
+  for (const result of results) {
+    if (result.status === "rejected") {
+      logger.warn("Failed to collapse one messaging draft notification", {
+        executedRuleId,
+        error: result.reason,
+      });
+    }
+  }
+}
+
 export async function getMessagingRuleNotificationResult({
   executedActionId,
   email,
@@ -192,9 +236,8 @@ async function sendSlackRuleNotificationWithContext({
   logger: Logger;
 }): Promise<MessagingRuleNotificationResult> {
   if (
-    !context.messagingChannel?.isConnected ||
-    context.messagingChannel.provider !== MessagingProvider.SLACK ||
-    !context.messagingChannel.accessToken
+    !context.messagingChannel ||
+    !isOperationalSlackChannel(context.messagingChannel)
   ) {
     logger.warn("Skipping messaging notification with inactive Slack channel", {
       executedActionId: context.id,
@@ -288,7 +331,8 @@ async function sendLinkedRuleNotification({
   logger: Logger;
 }): Promise<MessagingRuleNotificationResult> {
   if (
-    !context.messagingChannel?.isConnected ||
+    !context.messagingChannel ||
+    !isMessagingChannelOperational(context.messagingChannel) ||
     (context.messagingChannel.provider !== MessagingProvider.TEAMS &&
       context.messagingChannel.provider !== MessagingProvider.TELEGRAM)
   ) {
@@ -948,8 +992,7 @@ async function getAuthorizedSlackNotificationContext({
 
   if (
     !context?.messagingChannel ||
-    context.messagingChannel.provider !== MessagingProvider.SLACK ||
-    !context.messagingChannel.isConnected
+    !isOperationalSlackChannel(context.messagingChannel)
   ) {
     if (event) {
       await postNotificationFeedback({
@@ -1067,6 +1110,7 @@ async function getNotificationContext(executedActionId: string) {
       draftId: true,
       staticAttachments: true,
       messagingChannelId: true,
+      messagingMessageId: true,
       messagingMessageStatus: true,
       executedRule: {
         select: {
@@ -1591,6 +1635,194 @@ async function postSlackCard({
   }
 }
 
+async function replaceMessagingDraftNotificationWithHandledOnWebState({
+  executedActionId,
+  logger,
+}: {
+  executedActionId: string;
+  logger: Logger;
+}) {
+  const context = await getNotificationContext(executedActionId);
+
+  if (!context?.messagingMessageId) {
+    return;
+  }
+
+  const updated = await prisma.executedAction.updateMany({
+    where: {
+      id: context.id,
+      OR: [
+        { messagingMessageStatus: null },
+        {
+          messagingMessageStatus: {
+            in: [
+              MessagingMessageStatus.SENT,
+              MessagingMessageStatus.DRAFT_EDITED,
+            ],
+          },
+        },
+      ],
+    },
+    data: {
+      messagingMessageStatus: MessagingMessageStatus.EXPIRED,
+    },
+  });
+
+  if (updated.count === 0) {
+    return;
+  }
+
+  if (
+    !context.messagingChannel ||
+    !isMessagingChannelOperational(context.messagingChannel)
+  ) {
+    logger.warn(
+      "Skipping messaging draft notification cleanup for disconnected channel",
+      {
+        executedActionId: context.id,
+        messagingChannelId: context.messagingChannelId,
+        provider: context.messagingChannel?.provider,
+      },
+    );
+    return;
+  }
+
+  const route = getMessagingRoute(
+    context.messagingChannel.routes,
+    MessagingRoutePurpose.RULE_NOTIFICATIONS,
+  );
+
+  if (!route) {
+    logger.warn("Skipping messaging draft notification cleanup with no route", {
+      executedActionId: context.id,
+      messagingChannelId: context.messagingChannelId,
+      provider: context.messagingChannel.provider,
+    });
+    return;
+  }
+
+  const card = buildTerminalCard({
+    title: "Draft reply",
+    message: "Already replied on the web.",
+  });
+
+  try {
+    switch (context.messagingChannel.provider) {
+      case MessagingProvider.SLACK: {
+        const destinationChannelId = await resolveSlackRouteDestination({
+          accessToken: context.messagingChannel.accessToken,
+          route,
+        });
+
+        if (!destinationChannelId) {
+          logger.warn(
+            "Skipping Slack draft notification cleanup with no destination",
+            {
+              executedActionId: context.id,
+              messagingChannelId: context.messagingChannelId,
+            },
+          );
+          return;
+        }
+
+        await createSlackClient(
+          context.messagingChannel.accessToken,
+        ).chat.update(
+          disableSlackLinkUnfurls({
+            channel: destinationChannelId,
+            ts: context.messagingMessageId,
+            text: cardToFallbackText(card),
+            blocks: cardToBlockKit(card),
+          }),
+        );
+        break;
+      }
+      case MessagingProvider.TEAMS: {
+        const providerUserId =
+          route.targetType === MessagingRouteTargetType.DIRECT_MESSAGE
+            ? route.targetId
+            : context.messagingChannel.providerUserId;
+
+        if (!providerUserId) {
+          logger.warn(
+            "Skipping Teams draft notification cleanup with no destination user",
+            {
+              executedActionId: context.id,
+              messagingChannelId: context.messagingChannelId,
+            },
+          );
+          return;
+        }
+
+        const teamsAdapter = getMessagingAdapterRegistry().typedAdapters.teams;
+        if (!teamsAdapter) {
+          logger.warn(
+            "Skipping Teams draft notification cleanup without adapter",
+            {
+              executedActionId: context.id,
+              messagingChannelId: context.messagingChannelId,
+            },
+          );
+          return;
+        }
+
+        const threadId = await teamsAdapter.openDM(providerUserId);
+        await teamsAdapter.editMessage(
+          threadId,
+          context.messagingMessageId,
+          "Already replied on the web.",
+        );
+        break;
+      }
+      case MessagingProvider.TELEGRAM: {
+        const destination = route.targetId || context.messagingChannel.teamId;
+        if (!destination) {
+          logger.warn(
+            "Skipping Telegram draft notification cleanup with no destination",
+            {
+              executedActionId: context.id,
+              messagingChannelId: context.messagingChannelId,
+            },
+          );
+          return;
+        }
+
+        const telegramAdapter =
+          getMessagingAdapterRegistry().typedAdapters.telegram;
+        if (!telegramAdapter) {
+          logger.warn(
+            "Skipping Telegram draft notification cleanup without adapter",
+            {
+              executedActionId: context.id,
+              messagingChannelId: context.messagingChannelId,
+            },
+          );
+          return;
+        }
+
+        const threadId = await telegramAdapter.openDM(destination);
+        await telegramAdapter.editMessage(
+          threadId,
+          context.messagingMessageId,
+          "Already replied on the web.",
+        );
+        break;
+      }
+      default:
+        return;
+    }
+  } catch (error) {
+    logger.warn(
+      "Failed to collapse messaging draft notification after web reply",
+      {
+        executedActionId: context.id,
+        provider: context.messagingChannel.provider,
+        error,
+      },
+    );
+  }
+}
+
 async function expireNotificationCard({
   event,
   logger,
@@ -1787,7 +2019,9 @@ function getLinkedProviderLimitationText({
     provider === MessagingProvider.TEAMS ? "Teams" : "Telegram";
 
   if (isDraftReplyActionType(actionType)) {
-    return "One-click draft editing and sending are Slack-only right now. Use Inbox Zero or Slack if you want to edit or send this draft from chat.";
+    return provider === MessagingProvider.TEAMS
+      ? "One-click draft editing and sending aren't available in Teams yet. Use Inbox Zero to review or send this draft."
+      : "Draft editing isn't available in Telegram yet. You can send this draft from Telegram or use Inbox Zero to revise it first.";
   }
 
   return `Quick actions like archive and mark read are Slack-only right now, so this ${providerName} message is view-only.`;

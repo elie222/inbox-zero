@@ -2,13 +2,14 @@
 
 import React from "react";
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 
@@ -18,7 +19,10 @@ const mockUseMessagingChannels = vi.fn();
 const mockUseFolders = vi.fn();
 const mockUseRouter = vi.fn();
 const mockUsePostHog = vi.fn();
-const { mockUpdateRuleAction } = vi.hoisted(() => ({
+const { mockEnv, mockUpdateRuleAction } = vi.hoisted(() => ({
+  mockEnv: {
+    webhookActionsEnabled: true,
+  },
   mockUpdateRuleAction: vi.fn(),
 }));
 
@@ -64,7 +68,9 @@ vi.mock("@/env", () => ({
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
     NEXT_PUBLIC_DIGEST_ENABLED: true,
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
-    NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: true,
+    get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
+      return mockEnv.webhookActionsEnabled;
+    },
     NEXT_PUBLIC_IS_RESEND_CONFIGURED: true,
     NEXT_PUBLIC_SUPPORT_EMAIL: "support@example.com",
     EMAIL_ENCRYPT_SECRET: "test-secret",
@@ -95,8 +101,13 @@ vi.mock("@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns", () => ({
 import { RuleForm } from "./RuleForm";
 
 describe("RuleForm", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnv.webhookActionsEnabled = true;
 
     mockUseAccount.mockReturnValue({
       emailAccountId: "18d9553a-5182-4347-8cfa-75c76c72f51e",
@@ -194,6 +205,101 @@ describe("RuleForm", () => {
       screen.getByDisplayValue("Secure link to log in to Claude.ai"),
     ).toBeTruthy();
     expect(screen.getAllByDisplayValue(/@?example\.com/)).toHaveLength(4);
+  });
+
+  function renderLabelRuleAndOpenActionTypeDropdown() {
+    render(
+      <RuleForm
+        alwaysEditMode
+        rule={{
+          id: "cmjzoasfv000004ld2qar07t3",
+          name: "Label rule",
+          instructions: null,
+          groupId: null,
+          runOnThreads: false,
+          digest: false,
+          conditionalOperator: LogicalOperator.AND,
+          conditions: [
+            {
+              type: ConditionType.STATIC,
+              from: "sender@example.com",
+              to: null,
+              subject: null,
+              body: null,
+              instructions: null,
+            },
+          ],
+          actions: [
+            {
+              id: "action-label",
+              type: ActionType.LABEL,
+              labelId: { value: "label-1", name: "Follow up" },
+            },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByRole("combobox")[0]);
+  }
+
+  it("shows Call webhook in the action type dropdown when webhook actions are enabled", () => {
+    mockEnv.webhookActionsEnabled = true;
+
+    renderLabelRuleAndOpenActionTypeDropdown();
+
+    expect(screen.queryAllByText("Call webhook").length).toBeGreaterThan(0);
+  });
+
+  it("hides Call webhook from the action type dropdown when webhook actions are disabled", () => {
+    mockEnv.webhookActionsEnabled = false;
+
+    renderLabelRuleAndOpenActionTypeDropdown();
+
+    expect(screen.queryAllByText("Call webhook")).toHaveLength(0);
+  });
+
+  it("hides existing webhook actions when webhook actions are disabled", () => {
+    mockEnv.webhookActionsEnabled = false;
+
+    render(
+      <RuleForm
+        alwaysEditMode
+        rule={{
+          id: "cmjzoasfv000004ld2qar07t3",
+          name: "Webhook rule",
+          instructions: null,
+          groupId: null,
+          runOnThreads: false,
+          digest: false,
+          conditionalOperator: LogicalOperator.AND,
+          conditions: [
+            {
+              type: ConditionType.STATIC,
+              from: "alerts@example.com",
+              to: null,
+              subject: null,
+              body: null,
+              instructions: null,
+            },
+          ],
+          actions: [
+            {
+              id: "action-webhook",
+              type: ActionType.CALL_WEBHOOK,
+              url: { value: "https://example.com/webhook" },
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(
+      screen.queryByPlaceholderText("https://example.com/webhook"),
+    ).toBeNull();
+    expect(
+      screen.queryByDisplayValue("https://example.com/webhook"),
+    ).toBeNull();
   });
 
   it("keeps draft reply destinations grouped when persisted actions arrive out of order", () => {

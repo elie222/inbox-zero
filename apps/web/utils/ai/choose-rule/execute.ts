@@ -7,17 +7,13 @@ import type { ParsedMessage } from "@/utils/types";
 import { updateExecutedActionWithDraftId } from "@/utils/ai/choose-rule/draft-management";
 import type { EmailProvider } from "@/utils/email/types";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
-import type {
-  ActionExecutionEmailAccount,
-  ExecutedRuleForAction,
-} from "@/utils/ai/types";
+import type { ActionExecutionEmailAccount } from "@/utils/ai/types";
 
 const MODULE = "ai-execute-act";
 
 type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
   include: { actionItems: true };
-}> &
-  Pick<ExecutedRuleForAction, "hasAttachmentSources">;
+}>;
 
 type ActionFailure = {
   type: ActionType;

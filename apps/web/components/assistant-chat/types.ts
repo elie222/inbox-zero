@@ -12,12 +12,16 @@ import type { UpdateAssistantSettingsTool } from "@/utils/ai/assistant/tools/set
 import type {
   ForwardEmailTool,
   GetAccountOverviewTool,
+  GetSenderCategorizationStatusTool,
+  GetSenderCategoryOverviewTool,
   ManageInboxTool,
+  ManageSenderCategoryTool,
   ReadAttachmentTool,
   ReadEmailTool,
   ReplyEmailTool,
   SearchInboxTool,
   SendEmailTool,
+  StartSenderCategorizationTool,
 } from "@/utils/ai/assistant/chat-inbox-tools";
 import type {
   SaveMemoryTool,
@@ -35,6 +39,10 @@ export type ChatTools = {
   getAssistantCapabilities: GetAssistantCapabilitiesTool;
   updateAssistantSettings: UpdateAssistantSettingsTool;
   getAccountOverview: GetAccountOverviewTool;
+  getSenderCategoryOverview: GetSenderCategoryOverviewTool;
+  startSenderCategorization: StartSenderCategorizationTool;
+  getSenderCategorizationStatus: GetSenderCategorizationStatusTool;
+  manageSenderCategory: ManageSenderCategoryTool;
   searchInbox: SearchInboxTool;
   readEmail: ReadEmailTool;
   manageInbox: ManageInboxTool;

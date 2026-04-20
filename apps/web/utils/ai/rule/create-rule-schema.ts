@@ -54,7 +54,8 @@ export function getAvailableActions(provider: string) {
   return availableActions as [ActionType, ...ActionType[]];
 }
 
-export const getExtraActions = () => getExtraAvailableActionsForRuleEditor();
+export const getExtraActions = (existingActionTypes: ActionType[] = []) =>
+  getExtraAvailableActionsForRuleEditor(existingActionTypes);
 
 export const createRuleActionSchema = (provider: string) => {
   const allowedActionTypes = new Set([

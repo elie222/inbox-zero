@@ -248,6 +248,52 @@ describe("GET /api/user/messaging-channels", () => {
       }),
     ]);
   });
+
+  it("marks invalid Slack and Teams connections as disconnected", async () => {
+    const channels = [
+      {
+        id: "channel-1",
+        provider: "SLACK",
+        teamName: "Workspace",
+        teamId: "team-1",
+        providerUserId: null,
+        accessToken: "xoxb-shared-token",
+        isConnected: true,
+        routes: [],
+        actions: [],
+      },
+      {
+        id: "channel-2",
+        provider: "TEAMS",
+        teamName: "Workspace",
+        teamId: "team-2",
+        providerUserId: null,
+        accessToken: null,
+        isConnected: true,
+        routes: [],
+        actions: [],
+      },
+    ] satisfies MessagingChannelRecord[];
+    prisma.messagingChannel.findMany.mockResolvedValue(channels);
+
+    const response = await GET(createRequest("email-account-1"));
+    const body = await response.json();
+
+    expect(createSlackClient).not.toHaveBeenCalled();
+    expect(listChannels).not.toHaveBeenCalled();
+    expect(body.channels).toEqual([
+      expect.objectContaining({
+        id: "channel-1",
+        isConnected: false,
+        canSendAsDm: false,
+      }),
+      expect.objectContaining({
+        id: "channel-2",
+        isConnected: false,
+        canSendAsDm: false,
+      }),
+    ]);
+  });
 });
 
 function createRequest(emailAccountId: string): RequestWithEmailAccount {

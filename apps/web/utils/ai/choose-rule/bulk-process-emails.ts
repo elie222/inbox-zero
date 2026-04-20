@@ -38,11 +38,6 @@ export async function bulkProcessInboxEmails({
         },
         include: {
           actions: true,
-          _count: {
-            select: {
-              attachmentSources: true,
-            },
-          },
         },
       }),
     ]);

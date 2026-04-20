@@ -5,6 +5,7 @@ import {
   confirmAssistantEmailAction,
   confirmAssistantEmailActionForAccount,
   confirmAssistantSaveMemory,
+  confirmAssistantSaveMemoryForAccount,
 } from "@/utils/actions/assistant-chat";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -1043,9 +1044,9 @@ describe("confirmAssistantEmailAction", () => {
       parts: [buildPendingSendPart()],
     };
 
-    prisma.chatMessage.findFirst.mockImplementation(async () => {
-      return { ...storedMessage } as any;
-    });
+    prisma.chatMessage.findFirst.mockImplementation(
+      async () => ({ ...storedMessage }) as any,
+    );
 
     prisma.chatMessage.updateMany.mockImplementation(async (args) => {
       const where = args.where as { updatedAt?: Date };
@@ -1120,9 +1121,9 @@ describe("confirmAssistantEmailAction", () => {
       parts: [buildPendingSendPart()],
     };
 
-    prisma.chatMessage.findFirst.mockImplementation(async () => {
-      return { ...storedMessage } as any;
-    });
+    prisma.chatMessage.findFirst.mockImplementation(
+      async () => ({ ...storedMessage }) as any,
+    );
 
     let persistAttempts = 0;
     prisma.chatMessage.updateMany.mockImplementation(async (args) => {
@@ -1176,6 +1177,99 @@ describe("confirmAssistantEmailAction", () => {
 describe("confirmAssistantSaveMemory", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("waits for pending memory persistence when waitForPersistence is enabled", async () => {
+    vi.useFakeTimers();
+
+    prisma.chatMessage.findMany
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([
+        {
+          id: "assistant-message-1",
+          chatId: "chat-1",
+          updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+          parts: [buildPendingSaveMemoryPart()],
+        },
+      ] as any);
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "assistant-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildProcessingSaveMemoryPart()],
+    } as any);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+    prisma.chatMemory.findFirst.mockResolvedValue(null);
+    prisma.chatMemory.create.mockResolvedValue({ id: "memory-1" } as any);
+
+    const resultPromise = confirmAssistantSaveMemoryForAccount({
+      chatId: "chat-1",
+      toolCallId: "tool-1",
+      waitForPersistence: true,
+      emailAccountId: "ea_1",
+      logger: createScopedLogger("test/assistant-save-memory-confirmation"),
+    });
+
+    await vi.runAllTimersAsync();
+
+    const result = await resultPromise;
+
+    expect(result.confirmationState).toBe("confirmed");
+    expect(prisma.chatMessage.findMany).toHaveBeenCalledTimes(3);
+    expect(prisma.chatMemory.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for pending memory persistence in the web confirmation action", async () => {
+    vi.useFakeTimers();
+
+    (prisma.emailAccount.findUnique as any).mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    });
+
+    prisma.chatMessage.findMany
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([
+        {
+          id: "assistant-message-1",
+          chatId: "chat-1",
+          updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+          parts: [buildPendingSaveMemoryPart()],
+        },
+      ] as any);
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "assistant-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildProcessingSaveMemoryPart()],
+    } as any);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+    prisma.chatMemory.findFirst.mockResolvedValue(null);
+    prisma.chatMemory.create.mockResolvedValue({ id: "memory-1" } as any);
+
+    const resultPromise = confirmAssistantSaveMemory(
+      "ea_1" as any,
+      {
+        chatId: "chat-1",
+        toolCallId: "tool-1",
+      } as any,
+    );
+
+    await vi.runAllTimersAsync();
+
+    const result = await resultPromise;
+
+    expect(result?.data?.confirmationState).toBe("confirmed");
+    expect(prisma.chatMessage.findMany).toHaveBeenCalledTimes(3);
+    expect(prisma.chatMemory.create).toHaveBeenCalledTimes(1);
   });
 
   it("persists a pending memory after confirmation", async () => {

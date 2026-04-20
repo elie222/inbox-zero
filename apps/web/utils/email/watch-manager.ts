@@ -231,7 +231,8 @@ async function watchEmails({
         logger,
       });
 
-      if (result) return { success: true, expirationDate: result };
+      if (result)
+        return { success: true, expirationDate: result.expirationDate };
     } else {
       const result = await provider.watchEmails();
 

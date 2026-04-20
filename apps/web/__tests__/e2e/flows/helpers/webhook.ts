@@ -50,13 +50,8 @@ export async function setupTestWebhookSubscription(
       });
 
       if (result) {
-        expirationDate = result;
-        // Get the subscription ID from the database (set by subscription manager)
-        const emailAccount = await prisma.emailAccount.findUnique({
-          where: { id: account.id },
-          select: { watchEmailsSubscriptionId: true },
-        });
-        subscriptionId = emailAccount?.watchEmailsSubscriptionId || undefined;
+        expirationDate = result.expirationDate;
+        subscriptionId = result.subscriptionId;
       }
     } else {
       // For Gmail, use the provider's watchEmails directly

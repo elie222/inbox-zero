@@ -12,10 +12,12 @@ import {
   SendIcon,
   SparklesIcon,
   UserIcon,
+  UsersIcon,
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
 import { AppearanceSection } from "@/app/(app)/settings/AppearanceSection";
+import { TeamSection } from "@/app/(app)/settings/TeamSection";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/CleanupDraftsSection";
 import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
@@ -125,6 +127,12 @@ export default function SettingsPage() {
             </ItemCard>
           </SettingsGroup>
         )}
+
+        <SettingsGroup icon={<UsersIcon className="size-5" />} title="Team">
+          <ItemCard>
+            <TeamSection />
+          </ItemCard>
+        </SettingsGroup>
 
         <SettingsGroup
           icon={<SparklesIcon className="size-5" />}

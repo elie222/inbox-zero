@@ -96,7 +96,6 @@ export const footerNavigation = {
       href: "https://security.getinboxzero.com",
       target: "_blank",
     },
-    { name: "Sitemap", href: "/sitemap.xml" },
   ],
   social: [
     {

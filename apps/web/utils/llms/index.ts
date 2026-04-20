@@ -76,7 +76,7 @@ const NO_USER_AI_FIELDS: UserAIFields = {
 };
 
 type LLMProviderOptions = Record<string, Record<string, JSONValue>>;
-type RepairCandidateKind = "original" | "trimmed" | "unwrapped";
+type RepairCandidateKind = "original" | "trimmed" | "unwrapped" | "extracted";
 type RepairResultKind = "object-or-array" | "string-wrapped-object-or-array";
 type RepairAttemptState = {
   inputLength: number;
@@ -100,6 +100,14 @@ type UsageMetadata = {
   providerCostSource?: ProviderCostSource;
   stepCount?: number;
   toolCallCount?: number;
+};
+
+export type ToolCallAgentResolvedModel = {
+  excludedTools: string[];
+  modelName?: string;
+  provider: string;
+  providerOptions: LLMProviderOptions;
+  replacedTools: string[];
 };
 
 const commonOptions: {
@@ -592,6 +600,8 @@ export async function toolCallAgentStream({
   providerOptions: requestProviderOptions,
   onFinish,
   onStepFinish,
+  onModelResolved,
+  temperature,
 }: {
   userAi: UserAIFields;
   modelType?: ModelType;
@@ -608,6 +618,8 @@ export async function toolCallAgentStream({
   providerOptions?: LLMProviderOptions;
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
+  onModelResolved?: (resolvedModel: ToolCallAgentResolvedModel) => void;
+  temperature?: number;
 }) {
   const { modelOptions, modelCandidates } = await resolveModelCandidates({
     modelOptions: getModel(userAi, modelType),
@@ -670,6 +682,14 @@ export async function toolCallAgentStream({
       });
     }
 
+    onModelResolved?.({
+      provider: candidate.provider,
+      modelName: candidate.modelName,
+      providerOptions,
+      replacedTools,
+      excludedTools,
+    });
+
     const agent = new ToolLoopAgent({
       model,
       tools: candidateTools,
@@ -678,6 +698,7 @@ export async function toolCallAgentStream({
         | undefined,
       prepareStep,
       stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
+      temperature,
       ...commonOptions,
       providerOptions,
       onFinish: async (result) => {
@@ -1196,12 +1217,88 @@ function repairObjectText(text: string, label: string) {
 function getRepairCandidates(text: string) {
   const trimmed = text.trim();
   const unwrapped = unwrapQuotedJson(trimmed);
+  const extracted = extractBalancedJsonRegions(trimmed);
 
   return dedupeRepairCandidates([
     { kind: "unwrapped", text: unwrapped },
+    ...extracted.map((region) => ({
+      kind: "extracted" as const,
+      text: region,
+    })),
     { kind: "trimmed", text: trimmed },
     { kind: "original", text },
   ]);
+}
+
+function extractBalancedJsonRegions(text: string): string[] {
+  const regions: string[] = [];
+  let i = 0;
+
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === "{" || ch === "[") {
+      const region = walkBalancedJsonFrom(text, i);
+      if (region) {
+        regions.push(region);
+        i += region.length;
+        continue;
+      }
+    }
+    i++;
+  }
+
+  return regions.sort((a, b) => {
+    if (a.length !== b.length) return b.length - a.length;
+    if (a[0] === b[0]) return 0;
+    return a[0] === "{" ? -1 : 1;
+  });
+}
+
+function walkBalancedJsonFrom(
+  text: string,
+  openIdx: number,
+): string | undefined {
+  const openChar = text[openIdx];
+  const closeChar = openChar === "{" ? "}" : "]";
+  let depth = 0;
+  let inString = false;
+  let stringChar: string | undefined;
+  let escaped = false;
+
+  for (let i = openIdx; i < text.length; i++) {
+    const ch = text[i];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (inString) {
+      if (ch === "\\") {
+        escaped = true;
+      } else if (ch === stringChar) {
+        inString = false;
+        stringChar = undefined;
+      }
+      continue;
+    }
+
+    if (ch === '"' || ch === "'" || ch === "`") {
+      inString = true;
+      stringChar = ch;
+      continue;
+    }
+
+    if (ch === "{" || ch === "[") {
+      depth++;
+    } else if (ch === "}" || ch === "]") {
+      depth--;
+      if (depth === 0) {
+        if (ch !== closeChar) return;
+        return text.slice(openIdx, i + 1);
+      }
+    }
+  }
 }
 
 function unwrapQuotedJson(text: string) {

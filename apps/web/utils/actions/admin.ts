@@ -37,10 +37,12 @@ export const adminProcessHistoryAction = adminActionClient
       parsedInput: { emailAddress, historyId, startHistoryId },
       ctx: { logger },
     }) => {
+      const normalizedEmailAddress = emailAddress.toLowerCase();
       const emailAccount = await prisma.emailAccount.findUnique({
-        where: { email: emailAddress.toLowerCase() },
+        where: { email: normalizedEmailAddress },
         select: {
           id: true,
+          email: true,
           account: {
             select: {
               provider: true,
@@ -60,17 +62,33 @@ export const adminProcessHistoryAction = adminActionClient
         throw new SafeError("No provider found for email account");
       }
 
+      logger.info("Starting admin process history", {
+        emailAccountId: emailAccount.id,
+        provider,
+        historyId,
+        startHistoryId,
+      });
+
       await processProviderHistory({
         provider,
-        emailAddress,
+        emailAddress: normalizedEmailAddress,
         historyId,
         startHistoryId,
         subscriptionId: emailAccount.watchEmailsSubscriptionId || undefined,
-        resourceData: {
-          id: historyId?.toString() || "0",
-          conversationId: startHistoryId?.toString(),
-        },
+        resourceData: historyId
+          ? {
+              id: historyId.toString(),
+              conversationId: startHistoryId?.toString(),
+            }
+          : undefined,
         logger,
+      });
+
+      logger.info("Finished admin process history", {
+        emailAccountId: emailAccount.id,
+        provider,
+        historyId,
+        startHistoryId,
       });
     },
   );

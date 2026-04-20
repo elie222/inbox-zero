@@ -1,3 +1,4 @@
+import { NextResponse, after } from "next/server";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -5,8 +6,8 @@ import {
   type UIMessage,
 } from "ai";
 import { withEmailAccount } from "@/utils/middleware";
+import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
 import { getEmailAccountWithAi } from "@/utils/user/get";
-import { NextResponse } from "next/server";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -88,6 +89,13 @@ export const POST = withEmailAccount("chat", async (request) => {
     role: "user",
     parts: message.parts,
   });
+
+  after(() =>
+    trackFirstTimeEvent({
+      emailAccountId,
+      event: FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE,
+    }),
+  );
 
   const latestCompaction = chat.compactions[0];
 

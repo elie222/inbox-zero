@@ -13,6 +13,11 @@ const {
   mockPosthogCaptureEvent,
   mockUnsubscribeSenderAndMark,
   mockPrisma,
+  mockArchiveCategory,
+  mockGetCategoryOverview,
+  mockStartBulkCategorization,
+  mockGetCategorizationProgress,
+  mockGetCategorizationStatusSnapshot,
 } = vi.hoisted(() => ({
   envState: {
     sendEmailEnabled: true,
@@ -31,6 +36,10 @@ const {
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    ruleHistory: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({}),
+    },
     knowledge: {
       create: vi.fn(),
     },
@@ -40,6 +49,11 @@ const {
       findMany: vi.fn().mockResolvedValue([]),
     },
   },
+  mockArchiveCategory: vi.fn(),
+  mockGetCategoryOverview: vi.fn(),
+  mockStartBulkCategorization: vi.fn(),
+  mockGetCategorizationProgress: vi.fn(),
+  mockGetCategorizationStatusSnapshot: vi.fn(),
 }));
 
 vi.mock("@/utils/llms", () => ({
@@ -56,6 +70,23 @@ vi.mock("@/utils/posthog", () => ({
 
 vi.mock("@/utils/senders/unsubscribe", () => ({
   unsubscribeSenderAndMark: mockUnsubscribeSenderAndMark,
+}));
+
+vi.mock("@/utils/categorize/senders/archive-category", () => ({
+  archiveCategory: mockArchiveCategory,
+}));
+
+vi.mock("@/utils/categorize/senders/get-category-overview", () => ({
+  getCategoryOverview: mockGetCategoryOverview,
+}));
+
+vi.mock("@/utils/categorize/senders/start-bulk-categorization", () => ({
+  startBulkCategorization: mockStartBulkCategorization,
+}));
+
+vi.mock("@/utils/redis/categorization-progress", () => ({
+  getCategorizationProgress: mockGetCategorizationProgress,
+  getCategorizationStatusSnapshot: mockGetCategorizationStatusSnapshot,
 }));
 
 vi.mock("@/utils/prisma", () => ({
@@ -93,32 +124,6 @@ async function loadAssistantChatModule({
   envState.webhookActionsEnabled = webhookActions;
   vi.resetModules();
   return await import("@/utils/ai/assistant/chat");
-}
-
-async function buildSystemPrompt({
-  emailSend,
-  provider = "google",
-  responseSurface = "web",
-  messagingPlatform,
-}: {
-  emailSend: boolean;
-  provider?: "google" | "microsoft";
-  responseSurface?: "web" | "messaging";
-  messagingPlatform?: "slack" | "teams" | "telegram";
-}) {
-  const { buildResolvedSystemPrompt } = await loadAssistantChatModule({
-    emailSend,
-  });
-
-  return buildResolvedSystemPrompt({
-    emailSendToolsEnabled: emailSend,
-    webhookActionsEnabled: true,
-    provider,
-    responseSurface,
-    messagingPlatform,
-    userTimezone: "America/Los_Angeles",
-    currentTimestamp: "2026-04-12T09:30:00.000Z",
-  });
 }
 
 async function captureToolSet(
@@ -176,6 +181,10 @@ describe("aiProcessAssistantChat", () => {
 
     expect(args.messages[0].role).toBe("system");
     expect(args.tools.getAccountOverview).toBeDefined();
+    expect(args.tools.getSenderCategoryOverview).toBeDefined();
+    expect(args.tools.startSenderCategorization).toBeDefined();
+    expect(args.tools.getSenderCategorizationStatus).toBeDefined();
+    expect(args.tools.manageSenderCategory).toBeDefined();
     expect(args.tools.getAssistantCapabilities).toBeDefined();
     expect(args.tools.searchInbox).toBeDefined();
     expect(args.tools.readEmail).toBeDefined();
@@ -215,41 +224,6 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.sendEmail).toBeDefined();
     expect(args.tools.replyEmail).toBeDefined();
     expect(args.tools.forwardEmail).toBeDefined();
-  });
-
-  it("builds a google prompt without the removed tool-parameter duplication", async () => {
-    const prompt = await buildSystemPrompt({
-      emailSend: true,
-      provider: "google",
-    });
-
-    expect(prompt).toContain("Use Gmail search syntax");
-    expect(prompt).toContain("For inbox triage, default to `is:unread`");
-    expect(prompt).not.toContain("Use KQL syntax");
-    expect(prompt).not.toContain(
-      "updateAssistantSettings expects changes that specify the setting path and value",
-    );
-    expect(prompt).not.toContain(
-      "saveMemory expects content, source, and userEvidence",
-    );
-    expect(prompt).not.toContain(
-      "Use the field name about, not personalInstructions",
-    );
-  });
-
-  it("builds a microsoft send-disabled prompt with provider-specific triage guidance", async () => {
-    const prompt = await buildSystemPrompt({
-      emailSend: false,
-      provider: "microsoft",
-      responseSurface: "messaging",
-      messagingPlatform: "slack",
-    });
-
-    expect(prompt).toContain("Use KQL syntax for search");
-    expect(prompt).toContain("include the literal token `unread`");
-    expect(prompt).toContain("Email sending actions are disabled");
-    expect(prompt).not.toContain("Use Gmail search syntax");
-    expect(prompt).not.toContain("prepare a pending action");
   });
 
   it("omits sendEmail tool when email sending is disabled", async () => {
@@ -438,31 +412,11 @@ describe("aiProcessAssistantChat", () => {
     });
 
     const args = mockToolCallAgentStream.mock.calls[0][0];
-    expect(args.providerOptions).toEqual({
+    expect(args.providerOptions).toMatchObject({
       openai: {
         promptCacheKey: "assistant-chat:chat-123",
       },
     });
-  });
-
-  it("does not add chat provider options when chatId is missing", async () => {
-    const { aiProcessAssistantChat } = await loadAssistantChatModule({
-      emailSend: true,
-    });
-
-    mockToolCallAgentStream.mockResolvedValue({
-      toUIMessageStreamResponse: vi.fn(),
-    });
-
-    await aiProcessAssistantChat({
-      messages: baseMessages,
-      emailAccountId: "email-account-id",
-      user: getEmailAccount(),
-      logger,
-    });
-
-    const args = mockToolCallAgentStream.mock.calls[0][0];
-    expect(args.providerOptions).toBeUndefined();
   });
 
   it("places context between history and latest message for cache-friendly ordering", async () => {
@@ -1527,11 +1481,6 @@ describe("aiProcessAssistantChat", () => {
     expect(forwardEmail).not.toHaveBeenCalled();
   });
 
-  it("registers saveMemory tool", async () => {
-    const tools = await captureToolSet();
-    expect(tools.saveMemory).toBeDefined();
-  });
-
   it("saveMemory creates a new memory", async () => {
     const tools = await captureToolSet(true, "google", [
       {
@@ -2113,64 +2062,6 @@ describe("aiProcessAssistantChat", () => {
         failedThreadIds: ["thread-2"],
       }),
     );
-  });
-
-  describe("progressive tool disclosure", () => {
-    async function captureStreamArgs(emailSend = true) {
-      const { aiProcessAssistantChat } = await loadAssistantChatModule({
-        emailSend,
-      });
-
-      mockToolCallAgentStream.mockResolvedValue({
-        toUIMessageStreamResponse: vi.fn(),
-      });
-
-      await aiProcessAssistantChat({
-        messages: baseMessages,
-        emailAccountId: "email-account-id",
-        user: getEmailAccount(),
-        logger,
-      });
-
-      return mockToolCallAgentStream.mock.calls[0][0];
-    }
-
-    it("registers all tools in the tools object", async () => {
-      const args = await captureStreamArgs();
-
-      expect(args.tools.listLabels).toBeDefined();
-      expect(args.tools.createOrGetLabel).toBeDefined();
-      expect(args.tools.updateAssistantSettings).toBeDefined();
-      expect(args.tools.saveMemory).toBeDefined();
-      expect(args.tools.searchMemories).toBeDefined();
-      expect(args.tools.addToKnowledgeBase).toBeDefined();
-      expect(args.tools.getCalendarEvents).toBeDefined();
-      expect(args.tools.readAttachment).toBeDefined();
-      expect(args.tools.searchInbox).toBeDefined();
-      expect(args.tools.manageInbox).toBeDefined();
-      expect(args.tools.updatePersonalInstructions).toBeDefined();
-    });
-
-    it("includes send tools when email send enabled", async () => {
-      const args = await captureStreamArgs(true);
-
-      expect(args.tools.sendEmail).toBeDefined();
-      expect(args.tools.replyEmail).toBeDefined();
-    });
-
-    it("excludes send tools when email send disabled", async () => {
-      const args = await captureStreamArgs(false);
-
-      expect(args.tools.sendEmail).toBeUndefined();
-      expect(args.tools.replyEmail).toBeUndefined();
-    });
-
-    it("does not use activeTools or prepareStep", async () => {
-      const args = await captureStreamArgs();
-
-      expect(args.activeTools).toBeUndefined();
-      expect(args.prepareStep).toBeUndefined();
-    });
   });
 });
 

@@ -3,6 +3,8 @@ import type { Properties } from "posthog-js";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
 import { hash } from "@/utils/hash";
+import prisma from "@/utils/prisma";
+import { redis } from "@/utils/redis";
 
 const logger = createScopedLogger("posthog");
 let posthogLlmClient: PostHog | undefined;
@@ -344,6 +346,71 @@ export async function trackStripeEvent(email: string, data: any) {
 
 export async function trackUserDeleted(userId: string) {
   return posthogCaptureEvent("anonymous", "User deleted", { userId }, false);
+}
+
+export const FIRST_TIME_EVENTS = {
+  FIRST_AUTOMATED_RULE_RUN: "First automated rule run",
+  FIRST_DRAFT_SENT: "First AI draft sent",
+  FIRST_CHAT_MESSAGE: "First chat message",
+} as const;
+
+type FirstTimeEvent =
+  (typeof FIRST_TIME_EVENTS)[keyof typeof FIRST_TIME_EVENTS];
+
+const firedFirstTimeEvents = new Set<string>();
+
+/**
+ * Uses User.email as distinctId (not EmailAccount.email) so the event attaches
+ * to the same PostHog person as signup/billing events.
+ */
+export async function trackFirstTimeEvent({
+  emailAccountId,
+  event,
+  properties,
+}: {
+  emailAccountId: string;
+  event: FirstTimeEvent;
+  properties?: Record<string, unknown>;
+}) {
+  const key = `first-event:${emailAccountId}:${event}`;
+  if (firedFirstTimeEvents.has(key)) return;
+
+  try {
+    const firstTime = await redis.set(key, "1", { nx: true });
+    firedFirstTimeEvents.add(key);
+    if (!firstTime) return;
+
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { user: { select: { email: true } } },
+    });
+    const userEmail = emailAccount?.user?.email;
+    if (!userEmail) return;
+
+    await posthogCaptureEvent(userEmail, event, {
+      emailAccountId,
+      ...properties,
+    });
+  } catch (error) {
+    logger.error("Error tracking first-time event", { error, event });
+  }
+}
+
+export async function trackOnboardingAnswer(
+  email: string,
+  answers: {
+    surveyFeatures?: string[];
+    surveyRole?: string;
+    surveyGoal?: string;
+    surveyCompanySize?: number;
+    surveySource?: string;
+    surveyImprovements?: string;
+  },
+) {
+  return posthogCaptureEvent(email, "Onboarding answer submitted", {
+    ...answers,
+    $set: answers,
+  });
 }
 
 function getPosthogLlmEvalApprovedEmails() {

@@ -7,9 +7,10 @@
 - Format: Biome (`pnpm check` / `pnpm fix` via ultracite)
 - Run all tests: `pnpm test`
 - Run integration tests: `pnpm test-integration`
-- Run AI tests: `pnpm test-ai`
+- Run AI tests: `pnpm --filter inbox-zero-ai test-ai`
 - Run single test: `pnpm test __tests__/test-file.test.ts`
-- Run specific AI test: `pnpm test-ai ai-categorize-senders`
+- Run specific AI/eval test: `pnpm --filter inbox-zero-ai test-ai __tests__/eval/your-test.test.ts`
+- Evals in `apps/web/__tests__/eval/` must be run from repo root with `pnpm --filter inbox-zero-ai test-ai` (not `pnpm test`)
 - Type-check build (skips Prisma migrate): `pnpm --filter inbox-zero-ai exec next build`
 - Do not use root `tsc --noEmit`; it is not a supported validation step in this monorepo and surfaces unrelated repo-wide debt. If you need the app's CI-aligned type/build check, use `pnpm --filter inbox-zero-ai build:ci` instead, and only when explicitly asked.
 - Do not run `dev` or `build` unless explicitly asked

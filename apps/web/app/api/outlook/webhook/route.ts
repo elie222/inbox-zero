@@ -1,10 +1,13 @@
-import type { z } from "zod";
 import { after, NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
+import { processOutlookLifecycleNotification } from "@/app/api/outlook/webhook/process-lifecycle";
 import type { Logger } from "@/utils/logger";
 import { env } from "@/env";
-import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
+import {
+  type OutlookWebhookNotification,
+  webhookBodySchema,
+} from "@/app/api/outlook/webhook/types";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
@@ -88,18 +91,38 @@ export const POST = withError("outlook/webhook", async (request) => {
 });
 
 async function processNotificationsAsync(
-  notifications: z.infer<typeof webhookBodySchema>["value"],
+  notifications: OutlookWebhookNotification[],
   log: Logger,
 ) {
   for (const notification of notifications) {
-    const { subscriptionId, resourceData } = notification;
-    const logger = log.with({ subscriptionId, messageId: resourceData.id });
-
-    logger.info("Processing notification", {
-      changeType: notification.changeType,
+    const { subscriptionId } = notification;
+    const logger = log.with({
+      subscriptionId,
+      ...(notification.resourceData?.id
+        ? { messageId: notification.resourceData.id }
+        : {}),
     });
 
     try {
+      if (notification.lifecycleEvent) {
+        await processOutlookLifecycleNotification({
+          notification,
+          logger,
+        });
+        continue;
+      }
+
+      if (!notification.resourceData) {
+        logger.warn("Skipping Outlook notification without resource data");
+        continue;
+      }
+
+      const { resourceData } = notification;
+
+      logger.info("Processing notification", {
+        changeType: notification.changeType,
+      });
+
       await processHistoryForUser({
         subscriptionId,
         resourceData,

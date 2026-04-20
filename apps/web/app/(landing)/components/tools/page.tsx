@@ -13,6 +13,7 @@ import {
   UpdatedLearnedPatterns,
   ForwardEmailResult,
   ManageInboxResult,
+  ManageSenderCategoryResult,
   ReadEmailResult,
   ReplyEmailResult,
   SearchInboxResult,
@@ -357,6 +358,89 @@ export default function ToolsPage() {
           />
         </section>
 
+        {/* Sender Category Results */}
+        <section className="space-y-4">
+          <SectionHeader>Sender Category Results</SectionHeader>
+
+          <MutedText>Archived a small category:</MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: "cat-1", name: "Newsletters" },
+              sendersCount: 4,
+              senders: [
+                "updates@example.com",
+                "news@example.com",
+                "digest@example.com",
+                "weekly@example.com",
+              ],
+              message: 'Archived mail from 4 senders in "Newsletters".',
+            }}
+          />
+
+          <MutedText>
+            Archived a large category (scrollable list inside the card):
+          </MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: "cat-2", name: "Promotions" },
+              sendersCount: 60,
+              senders: buildFakeSenderList(60, "promo"),
+              message: 'Archived mail from 60 senders in "Promotions".',
+            }}
+          />
+
+          <MutedText>
+            Archived with server-side cap hit ("+ N more not shown"):
+          </MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: "cat-4", name: "Marketing" },
+              sendersCount: 237,
+              senders: buildFakeSenderList(100, "marketing"),
+              message: 'Archived mail from 237 senders in "Marketing".',
+            }}
+          />
+
+          <MutedText>Uncategorized senders:</MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: null, name: "Uncategorized" },
+              sendersCount: 8,
+              senders: [
+                "random@example.com",
+                "other@example.com",
+                "misc@example.com",
+                "ping@example.com",
+                "alerts@example.com",
+                "hello@example.com",
+                "team@example.com",
+                "support@example.com",
+              ],
+              message: 'Archived mail from 8 senders in "Uncategorized".',
+            }}
+          />
+
+          <MutedText>Empty category (no senders):</MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: "cat-3", name: "Receipts" },
+              sendersCount: 0,
+              senders: [],
+              message: 'No senders are currently assigned to "Receipts".',
+            }}
+          />
+        </section>
+
         {/* Settings & Knowledge */}
         <section className="space-y-4">
           <SectionHeader>Settings & Knowledge</SectionHeader>
@@ -408,6 +492,10 @@ export default function ToolsPage() {
             <BasicToolInfo text="Adding to knowledge base..." />
             <BasicToolInfo text="Saving memory..." />
             <BasicToolInfo text="Searching memories..." />
+            <BasicToolInfo text="Checking sender categories..." />
+            <BasicToolInfo text="Starting sender categorization..." />
+            <BasicToolInfo text="Checking categorization progress..." />
+            <BasicToolInfo text='Archiving "Newsletters" category...' />
           </div>
 
           <MutedText>Output states (completion messages):</MutedText>
@@ -420,6 +508,12 @@ export default function ToolsPage() {
             <BasicToolInfo text="Read learned patterns" />
             <BasicToolInfo text="Memory saved" />
             <BasicToolInfo text="Found 2 memories" />
+            <BasicToolInfo text="Found 5 categories, 12 uncategorized senders" />
+            <BasicToolInfo text="Categorizing 43 senders" />
+            <BasicToolInfo text="Sender categorization already in progress" />
+            <BasicToolInfo text="Categorizing senders (12 of 43)" />
+            <BasicToolInfo text="Categorization complete" />
+            <BasicToolInfo text="Categorization hasn't started" />
           </div>
         </section>
       </div>
@@ -747,4 +841,11 @@ function buildRuleActionFields(
     subject: fields?.subject ?? null,
     webhookUrl: fields?.webhookUrl ?? null,
   };
+}
+
+function buildFakeSenderList(count: number, prefix: string): string[] {
+  return Array.from(
+    { length: count },
+    (_, i) => `${prefix}-${String(i + 1).padStart(3, "0")}@example.com`,
+  );
 }

@@ -23,7 +23,7 @@ import {
   type Tier,
   tiers,
 } from "@/app/(app)/premium/config";
-import { AlertBasic, AlertWithButton } from "@/components/Alert";
+import { AlertBasic } from "@/components/Alert";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { toastError } from "@/components/Toast";
 import {
@@ -125,35 +125,12 @@ export default function Pricing(props: PricingProps) {
             <ManageSubscription premium={premium ?? null} />
 
             {userPremiumTier && (
-              <>
-                <Button className="ml-2" asChild>
-                  <Link href="/setup">
-                    <SparklesIcon className="mr-2 h-4 w-4" />
-                    Go to app
-                  </Link>
-                </Button>
-                <div className="mx-auto mt-4 max-w-md">
-                  {userPremiumTier === "STARTER_MONTHLY" ||
-                  userPremiumTier === "STARTER_ANNUALLY" ||
-                  userPremiumTier === "PLUS_MONTHLY" ||
-                  userPremiumTier === "PLUS_ANNUALLY" ? (
-                    <AlertWithButton
-                      className="bg-background"
-                      variant="blue"
-                      title="Need multiple accounts?"
-                      description="Individual plans are designed for single users. Contact our support team for custom pricing on multiple accounts."
-                      icon={null}
-                      button={
-                        <div className="ml-4 whitespace-nowrap">
-                          <Button asChild>
-                            <Link href="/support">Contact Support</Link>
-                          </Button>
-                        </div>
-                      }
-                    />
-                  ) : null}
-                </div>
-              </>
+              <Button className="ml-2" asChild>
+                <Link href="/setup">
+                  <SparklesIcon className="mr-2 h-4 w-4" />
+                  Go to app
+                </Link>
+              </Button>
             )}
 
             {hasActiveAppleManagedSubscription && (
@@ -195,25 +172,23 @@ export default function Pricing(props: PricingProps) {
               : "max-w-7xl lg:mx-0 lg:max-w-none lg:grid-cols-3",
           )}
         >
-          {displayedTiers.map((tier) => {
-            return (
-              <PriceTier
-                key={tier.name}
-                tier={tier}
-                userPremiumTier={userPremiumTier}
-                frequency={frequency}
-                stripeSubscriptionId={premium?.stripeSubscriptionId}
-                stripeSubscriptionStatus={premium?.stripeSubscriptionStatus}
-                hasActiveAppleManagedSubscription={
-                  hasActiveAppleManagedSubscription
-                }
-                isLoggedIn={isLoggedIn}
-                router={router}
-                userId={data?.id}
-                pricingSource={pricingSource}
-              />
-            );
-          })}
+          {displayedTiers.map((tier) => (
+            <PriceTier
+              key={tier.name}
+              tier={tier}
+              userPremiumTier={userPremiumTier}
+              frequency={frequency}
+              stripeSubscriptionId={premium?.stripeSubscriptionId}
+              stripeSubscriptionStatus={premium?.stripeSubscriptionStatus}
+              hasActiveAppleManagedSubscription={
+                hasActiveAppleManagedSubscription
+              }
+              isLoggedIn={isLoggedIn}
+              router={router}
+              userId={data?.id}
+              pricingSource={pricingSource}
+            />
+          ))}
         </div>
       </div>
     </LoadingContent>

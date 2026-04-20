@@ -182,15 +182,6 @@ async function executeDelayedAction({
     where: { id: scheduledAction.executedRuleId },
     include: {
       actionItems: true,
-      rule: {
-        select: {
-          _count: {
-            select: {
-              attachmentSources: true,
-            },
-          },
-        },
-      },
     },
   });
 
@@ -220,13 +211,7 @@ async function executeDelayedAction({
     email,
     action: executedAction,
     emailAccount,
-    executedRule: {
-      ...executedRule,
-      hasAttachmentSources:
-        executedRule.rule?._count.attachmentSources != null
-          ? executedRule.rule._count.attachmentSources > 0
-          : undefined,
-    },
+    executedRule,
     logger: log,
   });
 

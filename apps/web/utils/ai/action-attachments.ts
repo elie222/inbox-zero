@@ -4,6 +4,7 @@ import {
   attachmentSourceInputSchema,
 } from "@/utils/attachments/source-schema";
 import { resolveDraftAttachments } from "@/utils/attachments/draft-attachments";
+import prisma from "@/utils/prisma";
 import type {
   ActionExecutionEmailAccount,
   ActionItem,
@@ -32,9 +33,7 @@ export async function resolveActionAttachments({
 
   if (
     staticSelectedAttachments.length === 0 &&
-    (!includeAiSelectedAttachments ||
-      executedRule.hasAttachmentSources === false ||
-      !executedRule.ruleId)
+    (!includeAiSelectedAttachments || !executedRule.ruleId)
   ) {
     return [];
   }
@@ -92,6 +91,13 @@ async function getDraftSelectedAttachments({
   logger: Logger;
 }): Promise<SelectedAttachment[]> {
   if (!executedRule.ruleId) return [];
+
+  const attachmentSource = await prisma.attachmentSource.findFirst({
+    where: { ruleId: executedRule.ruleId },
+    select: { id: true },
+  });
+
+  if (!attachmentSource) return [];
 
   const cachedDraft = await getReplyWithConfidence({
     emailAccountId,

@@ -197,6 +197,33 @@ describe("OutlookSubscriptionManager", () => {
 
       vi.useRealTimers();
     });
+    it("should force refresh a valid subscription when requested", async () => {
+      vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+        watchEmailsSubscriptionId: "current-subscription-id",
+        watchEmailsExpirationDate: new Date("2026-04-17T12:00:00Z"),
+        watchEmailsSubscriptionHistory: null,
+        createdAt: new Date("2026-03-01T00:00:00Z"),
+      } as any);
+
+      const newSubscription = {
+        subscriptionId: "replacement-subscription-id",
+        expirationDate: new Date("2026-04-18T12:00:00Z"),
+      };
+      vi.mocked(mockProvider.watchEmails).mockResolvedValue(newSubscription);
+
+      const result = await manager.createSubscription({ forceRefresh: true });
+
+      expect(mockProvider.unwatchEmails).toHaveBeenCalledWith(
+        "current-subscription-id",
+      );
+      expect(mockProvider.watchEmails).toHaveBeenCalled();
+      expect(result).toEqual(
+        expect.objectContaining({
+          subscriptionId: "replacement-subscription-id",
+          changed: true,
+        }),
+      );
+    });
   });
 
   describe("updateSubscriptionInDatabase", () => {

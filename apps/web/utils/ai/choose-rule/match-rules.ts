@@ -92,11 +92,6 @@ export async function findMatchingRules({
         where: { id: coldEmailRule.id },
         include: {
           actions: true,
-          _count: {
-            select: {
-              attachmentSources: true,
-            },
-          },
         },
       });
 

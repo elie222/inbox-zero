@@ -107,6 +107,7 @@ export const confirmAssistantCreateRule = actionClient
         chatId,
         chatMessageId,
         toolCallId,
+        waitForPersistence: true,
         emailAccountId,
         provider,
         logger,
@@ -125,6 +126,7 @@ export const confirmAssistantSaveMemory = actionClient
         chatId,
         chatMessageId,
         toolCallId,
+        waitForPersistence: true,
         emailAccountId,
         logger,
       }),
@@ -236,6 +238,7 @@ export async function confirmAssistantCreateRuleForAccount({
   chatId,
   chatMessageId,
   toolCallId,
+  waitForPersistence,
   emailAccountId,
   provider,
   logger,
@@ -243,6 +246,7 @@ export async function confirmAssistantCreateRuleForAccount({
   chatId: string;
   chatMessageId?: string;
   toolCallId: string;
+  waitForPersistence?: boolean;
   emailAccountId: string;
   provider: string;
   logger: Logger;
@@ -252,6 +256,7 @@ export async function confirmAssistantCreateRuleForAccount({
     chatMessageId,
     toolCallId,
     emailAccountId,
+    waitForPersistence,
     logger,
   });
 
@@ -371,12 +376,14 @@ export async function confirmAssistantSaveMemoryForAccount({
   chatId,
   chatMessageId,
   toolCallId,
+  waitForPersistence,
   emailAccountId,
   logger,
 }: {
   chatId: string;
   chatMessageId?: string;
   toolCallId: string;
+  waitForPersistence?: boolean;
   emailAccountId: string;
   logger: Logger;
 }) {
@@ -385,6 +392,7 @@ export async function confirmAssistantSaveMemoryForAccount({
     chatMessageId,
     toolCallId,
     emailAccountId,
+    waitForPersistence,
     logger,
   });
 
@@ -1294,16 +1302,21 @@ async function reservePendingAssistantSaveMemory({
   chatMessageId,
   toolCallId,
   emailAccountId,
+  waitForPersistence,
   logger,
 }: {
   chatId: string;
   chatMessageId?: string;
   toolCallId: string;
   emailAccountId: string;
+  waitForPersistence?: boolean;
   logger: Logger;
 }) {
   const matchSaveMemoryParts = (parts: unknown) =>
     !!findPendingAssistantSaveMemoryPart({ parts, toolCallId });
+  const waitForPersistenceMs = waitForPersistence
+    ? PENDING_ACTION_PERSIST_WAIT_MS
+    : undefined;
 
   const chatMessage = await findChatMessageForPendingAction({
     chatId,
@@ -1312,6 +1325,7 @@ async function reservePendingAssistantSaveMemory({
     logger,
     matchParts: matchSaveMemoryParts,
     logPrefix: "Assistant save memory confirmation",
+    waitForPersistenceMs,
   });
 
   if (!chatMessage) {
@@ -1389,6 +1403,7 @@ async function reservePendingAssistantSaveMemory({
     logger,
     matchParts: matchSaveMemoryParts,
     logPrefix: "Assistant save memory confirmation",
+    waitForPersistenceMs,
   });
 
   if (!latestMessage) {
@@ -1419,16 +1434,21 @@ async function reservePendingAssistantCreateRule({
   chatMessageId,
   toolCallId,
   emailAccountId,
+  waitForPersistence,
   logger,
 }: {
   chatId: string;
   chatMessageId?: string;
   toolCallId: string;
   emailAccountId: string;
+  waitForPersistence?: boolean;
   logger: Logger;
 }) {
   const matchCreateRuleParts = (parts: unknown) =>
     !!findPendingAssistantCreateRulePart({ parts, toolCallId });
+  const waitForPersistenceMs = waitForPersistence
+    ? PENDING_ACTION_PERSIST_WAIT_MS
+    : undefined;
 
   const chatMessage = await findChatMessageForPendingAction({
     chatId,
@@ -1437,6 +1457,7 @@ async function reservePendingAssistantCreateRule({
     logger,
     matchParts: matchCreateRuleParts,
     logPrefix: "Assistant create rule confirmation",
+    waitForPersistenceMs,
   });
 
   if (!chatMessage) {
@@ -1510,6 +1531,7 @@ async function reservePendingAssistantCreateRule({
     logger,
     matchParts: matchCreateRuleParts,
     logPrefix: "Assistant create rule confirmation",
+    waitForPersistenceMs,
   });
 
   if (!latestMessage) {

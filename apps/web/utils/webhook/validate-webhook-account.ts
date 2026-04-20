@@ -47,11 +47,6 @@ const webhookEmailAccountSelect = {
     where: { enabled: true },
     include: {
       actions: true,
-      _count: {
-        select: {
-          attachmentSources: true,
-        },
-      },
     },
   },
   user: {

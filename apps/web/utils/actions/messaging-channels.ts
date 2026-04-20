@@ -21,7 +21,15 @@ import {
 } from "@/generated/prisma/enums";
 import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
 import { env } from "@/env";
-import { getChannelInfo } from "@/utils/messaging/providers/slack/channels";
+import {
+  getMessagingChannelReconnectMessage,
+  isOperationalSlackChannel,
+  isMessagingChannelOperational,
+} from "@/utils/messaging/channel-validity";
+import {
+  getChannelInfo,
+  listPrivateChannelsForUser,
+} from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 import { sendChannelConfirmation } from "@/utils/messaging/providers/slack/send";
 import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
@@ -54,6 +62,7 @@ export const updateSlackRouteAction = actionClient
       const channel = await prisma.messagingChannel.findUnique({
         where,
         select: {
+          id: true,
           provider: true,
           isConnected: true,
           accessToken: true,
@@ -70,12 +79,10 @@ export const updateSlackRouteAction = actionClient
         throw new SafeError("Messaging channel is not Slack");
       }
 
-      if (!channel.isConnected) {
-        throw new SafeError("Messaging channel is not connected");
-      }
-
-      if (!channel.accessToken) {
-        throw new SafeError("Messaging channel has no access token");
+      if (!isOperationalSlackChannel(channel)) {
+        throw new SafeError(
+          getMessagingChannelReconnectMessage(channel.provider),
+        );
       }
 
       const target = await resolveSlackRouteTarget({
@@ -133,7 +140,10 @@ export const updateMessagingFeatureRouteAction = actionClient
         where,
         select: {
           id: true,
+          provider: true,
           isConnected: true,
+          accessToken: true,
+          providerUserId: true,
           routes: {
             select: {
               purpose: true,
@@ -148,8 +158,10 @@ export const updateMessagingFeatureRouteAction = actionClient
         throw new SafeError("Messaging channel not found");
       }
 
-      if (!channel.isConnected) {
-        throw new SafeError("Messaging channel is not connected");
+      if (!isMessagingChannelOperational(channel)) {
+        throw new SafeError(
+          getMessagingChannelReconnectMessage(channel.provider),
+        );
       }
 
       await syncMessagingFeatureRoute({
@@ -364,6 +376,8 @@ export const toggleRuleChannelAction = actionClient
           select: {
             isConnected: true,
             provider: true,
+            accessToken: true,
+            providerUserId: true,
             routes: {
               select: {
                 purpose: true,
@@ -393,8 +407,10 @@ export const toggleRuleChannelAction = actionClient
       }
 
       if (enabled) {
-        if (!channel.isConnected) {
-          throw new SafeError("Messaging channel is not connected");
+        if (!isMessagingChannelOperational(channel)) {
+          throw new SafeError(
+            getMessagingChannelReconnectMessage(channel.provider),
+          );
         }
         if (
           !hasMessagingRoute(
@@ -502,6 +518,32 @@ async function resolveSlackRouteTarget({
     logger.error("Slack channel target is not private", { targetId });
     throw new SafeError(
       "Only private channels are allowed. Please select a private channel.",
+    );
+  }
+
+  if (!providerUserId) {
+    logger.error("Slack channel target cannot be validated without user id", {
+      targetId,
+    });
+    throw new SafeError(
+      "Please reconnect Slack before selecting a private channel.",
+    );
+  }
+
+  const availablePrivateChannels = await listPrivateChannelsForUser(
+    client,
+    providerUserId,
+  );
+  const isAvailableToUser = availablePrivateChannels.some(
+    (channel) => channel.id === targetId,
+  );
+
+  if (!isAvailableToUser) {
+    logger.error("Slack channel target is unavailable to user", {
+      targetId,
+    });
+    throw new SafeError(
+      "Only private channels you are a member of are allowed. Please select one of your private channels.",
     );
   }
 

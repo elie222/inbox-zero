@@ -25,6 +25,7 @@ import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
 import { filterNullProperties } from "@/utils";
 import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
+import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
 import {
   scheduleDelayedActions,
   cancelScheduledActions,
@@ -439,6 +440,13 @@ async function executeMatchedRule(
     { logger },
   );
 
+  after(() =>
+    trackFirstTimeEvent({
+      emailAccountId: emailAccount.id,
+      event: FIRST_TIME_EVENTS.FIRST_AUTOMATED_RULE_RUN,
+    }),
+  );
+
   if (rule.systemType === SystemType.COLD_EMAIL) {
     const from =
       extractEmailAddress(message.headers.from) || message.headers.from;
@@ -502,10 +510,7 @@ async function executeMatchedRule(
           userId: emailAccount.userId,
         },
         logger,
-        executedRule: {
-          ...executedRule,
-          hasAttachmentSources: getRuleHasAttachmentSources(rule),
-        },
+        executedRule,
         message,
       });
     } else if (!delayedActions?.length) {
@@ -531,35 +536,6 @@ async function executeMatchedRule(
     matchReasons,
     createdAt: batchTimestamp,
   };
-}
-
-function getRuleHasAttachmentSources(rule: RuleWithActions) {
-  if (hasAttachmentSourceCount(rule)) {
-    return rule._count.attachmentSources > 0;
-  }
-
-  if (hasAttachmentSourcesArray(rule)) {
-    return rule.attachmentSources.length > 0;
-  }
-
-  return undefined;
-}
-
-function hasAttachmentSourceCount(
-  rule: RuleWithActions,
-): rule is RuleWithActions & { _count: { attachmentSources: number } } {
-  return (
-    typeof (rule as { _count?: { attachmentSources?: unknown } })._count
-      ?.attachmentSources === "number"
-  );
-}
-
-function hasAttachmentSourcesArray(
-  rule: RuleWithActions,
-): rule is RuleWithActions & { attachmentSources: unknown[] } {
-  return Array.isArray(
-    (rule as { attachmentSources?: unknown }).attachmentSources,
-  );
 }
 
 async function analyzeSenderPatternIfAiMatch({

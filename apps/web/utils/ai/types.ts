@@ -43,5 +43,4 @@ export type ActionExecutionEmailAccount = Pick<
 
 export type ExecutedRuleForAction = ExecutedRule & {
   actionItems?: Pick<ActionItem, "type">[];
-  hasAttachmentSources?: boolean;
 };
