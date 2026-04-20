@@ -69,6 +69,8 @@ const RULE_DRAFT_EDIT_ACTION_ID = "rule_draft_edit";
 const RULE_DRAFT_DISMISS_ACTION_ID = "rule_draft_dismiss";
 const RULE_NOTIFY_ARCHIVE_ACTION_ID = "rule_notify_archive";
 const RULE_NOTIFY_MARK_READ_ACTION_ID = "rule_notify_mark_read";
+const RULE_NOTIFY_TRASH_ACTION_ID = "rule_notify_trash";
+const RULE_NOTIFY_MARK_SPAM_ACTION_ID = "rule_notify_mark_spam";
 export const SLACK_DRAFT_EDIT_MODAL_ID = "rule_draft_edit_modal";
 const SLACK_DRAFT_EDIT_FIELD_ID = "draft_content";
 
@@ -78,6 +80,8 @@ export const RULE_NOTIFICATION_ACTION_IDS = [
   RULE_DRAFT_DISMISS_ACTION_ID,
   RULE_NOTIFY_ARCHIVE_ACTION_ID,
   RULE_NOTIFY_MARK_READ_ACTION_ID,
+  RULE_NOTIFY_TRASH_ACTION_ID,
+  RULE_NOTIFY_MARK_SPAM_ACTION_ID,
 ] as const;
 
 type NotificationContext = NonNullable<
@@ -551,6 +555,12 @@ export async function handleRuleNotificationAction({
     case RULE_NOTIFY_MARK_READ_ACTION_ID:
       await handleMarkReadNotification({ context, event, logger });
       return;
+    case RULE_NOTIFY_TRASH_ACTION_ID:
+      await handleTrashNotification({ context, event, logger });
+      return;
+    case RULE_NOTIFY_MARK_SPAM_ACTION_ID:
+      await handleMarkSpamNotification({ context, event, logger });
+      return;
     default:
       await postNotificationFeedback({
         event,
@@ -975,6 +985,60 @@ async function handleMarkReadNotification({
   );
 }
 
+async function handleTrashNotification({
+  context,
+  event,
+  logger,
+}: {
+  context: NotificationContext;
+  event: ActionEvent;
+  logger: Logger;
+}) {
+  const provider = await createProviderForContext(context, logger);
+
+  await provider.trashThread(
+    context.executedRule.threadId,
+    context.executedRule.emailAccount.email,
+    "user",
+  );
+
+  await event.adapter.editMessage(
+    event.threadId,
+    event.messageId,
+    buildTerminalCard({
+      title: getInfoNotificationTitle(
+        context.executedRule.rule?.systemType ?? null,
+      ),
+      message: "Moved to trash.",
+    }),
+  );
+}
+
+async function handleMarkSpamNotification({
+  context,
+  event,
+  logger,
+}: {
+  context: NotificationContext;
+  event: ActionEvent;
+  logger: Logger;
+}) {
+  const provider = await createProviderForContext(context, logger);
+
+  await provider.markSpam(context.executedRule.threadId);
+
+  await event.adapter.editMessage(
+    event.threadId,
+    event.messageId,
+    buildTerminalCard({
+      title: getInfoNotificationTitle(
+        context.executedRule.rule?.systemType ?? null,
+      ),
+      message: "Marked as spam.",
+    }),
+  );
+}
+
 async function getAuthorizedSlackNotificationContext({
   executedActionId,
   logger,
@@ -1364,6 +1428,16 @@ function buildNotificationCard({
             Button({
               id: RULE_NOTIFY_MARK_READ_ACTION_ID,
               label: "Mark read",
+              value: actionId,
+            }),
+            Button({
+              id: RULE_NOTIFY_TRASH_ACTION_ID,
+              label: "Delete",
+              value: actionId,
+            }),
+            Button({
+              id: RULE_NOTIFY_MARK_SPAM_ACTION_ID,
+              label: "Spam",
               value: actionId,
             }),
           ],
