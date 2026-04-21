@@ -125,7 +125,6 @@ export async function checkHasAccess({
           appleRevokedAt: true,
           appleSubscriptionStatus: true,
           tier: true,
-          stripeCancelAtPeriodEnd: true,
           stripeSubscriptionStatus: true,
           lemonSqueezyRenewsAt: true,
         },

@@ -60,7 +60,6 @@ const webhookEmailAccountSelect = {
           appleRevokedAt: true,
           appleSubscriptionStatus: true,
           lemonSqueezyRenewsAt: true,
-          stripeCancelAtPeriodEnd: true,
           stripeSubscriptionStatus: true,
           tier: true,
         },

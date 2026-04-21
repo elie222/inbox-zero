@@ -1,9 +1,5 @@
 import prisma from "@/utils/prisma";
-import {
-  hasAiAccess,
-  getPremiumUserFilter,
-  isPremiumRecord,
-} from "@/utils/premium";
+import { hasAiAccess, getPremiumUserFilter } from "@/utils/premium";
 import type { Logger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
 import { captureException } from "@/utils/error";
@@ -64,12 +60,8 @@ async function getEmailAccountsToWatch(userIds: string[] | null) {
           aiApiKey: true,
           premium: {
             select: {
-              appleExpiresAt: true,
-              appleRevokedAt: true,
-              appleSubscriptionStatus: true,
               tier: true,
               lemonSqueezyRenewsAt: true,
-              stripeCancelAtPeriodEnd: true,
               stripeSubscriptionStatus: true,
             },
           },
@@ -138,10 +130,10 @@ async function watchEmailAccount(
   logger: Logger,
 ): Promise<WatchEmailAccountResult | null> {
   const { account, user, watchEmailsExpirationDate } = emailAccount;
-  const isUserPremium = isPremiumRecord(user.premium);
-
-  const userHasAiAccess =
-    isUserPremium && hasAiAccess(user.premium?.tier || null, !!user.aiApiKey);
+  const userHasAiAccess = hasAiAccess(
+    user.premium?.tier || null,
+    !!user.aiApiKey,
+  );
 
   if (!userHasAiAccess) {
     logger.info("User does not have access to AI or cold email");
