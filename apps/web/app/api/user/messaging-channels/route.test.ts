@@ -139,6 +139,18 @@ describe("GET /api/user/messaging-channels", () => {
             targetLabel: null,
             isDm: false,
           },
+          digests: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+          followUps: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
         },
       },
     ]);
@@ -221,6 +233,18 @@ describe("GET /api/user/messaging-channels", () => {
             targetLabel: null,
             isDm: false,
           },
+          digests: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+          followUps: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
         },
       }),
       expect.objectContaining({
@@ -239,6 +263,18 @@ describe("GET /api/user/messaging-channels", () => {
             isDm: false,
           },
           documentFilings: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+          digests: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+          followUps: {
             enabled: false,
             targetId: null,
             targetLabel: null,
