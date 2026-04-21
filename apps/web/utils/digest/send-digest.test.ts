@@ -132,8 +132,9 @@ describe("sendDigest", () => {
       { ...slackChannel, accessToken: null },
     ] as any);
 
-    await sendDigest(baseArgs);
-
+    await expect(sendDigest(baseArgs)).rejects.toThrow(
+      /No deliverable digest channels/,
+    );
     expect(sendDigestToSlack).not.toHaveBeenCalled();
   });
 });

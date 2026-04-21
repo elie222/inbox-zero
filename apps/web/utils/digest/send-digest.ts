@@ -128,6 +128,14 @@ export async function sendDigest({
   }
 
   if (deliveryPromises.length === 0) {
+    if (channels.length > 0) {
+      // Email is off and every configured messaging channel was skipped
+      // (non-operational or missing credentials). Throw so the caller
+      // doesn't mark the digest SENT and redact its items.
+      throw new Error(
+        "No deliverable digest channels: email delivery is disabled and all configured messaging channels are non-operational",
+      );
+    }
     logger.info("No delivery channels configured, skipping digest");
     return;
   }

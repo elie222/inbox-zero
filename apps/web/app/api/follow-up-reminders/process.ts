@@ -14,6 +14,7 @@ import {
   sendFollowUpNotification,
   type FollowUpNotificationChannel,
 } from "@/utils/follow-up/send-follow-up-notification";
+import { isMessagingChannelOperational } from "@/utils/messaging/channel-validity";
 import { ThreadTrackerType, SystemType } from "@/generated/prisma/enums";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
@@ -192,11 +193,19 @@ export async function processAccountFollowUps({
     logger,
   });
 
-  const [dbLabels, providerLabels, notificationChannels] = await Promise.all([
-    getLabelsFromDb(emailAccountId),
-    provider.getLabels({ includeHidden: true }),
-    getFollowUpNotificationChannels(emailAccountId),
-  ]);
+  const [dbLabels, providerLabels, rawNotificationChannels] = await Promise.all(
+    [
+      getLabelsFromDb(emailAccountId),
+      provider.getLabels({ includeHidden: true }),
+      getFollowUpNotificationChannels(emailAccountId),
+    ],
+  );
+  // Only operational channels count toward the stricter ledger condition —
+  // otherwise broken connections would cause every cron run to reprocess the
+  // same threads because followUpNotifiedAt can never be set.
+  const notificationChannels = rawNotificationChannels.filter((channel) =>
+    isMessagingChannelOperational(channel),
+  );
   const followUpLabel = await getOrCreateFollowUpLabel(
     provider,
     providerLabels,
