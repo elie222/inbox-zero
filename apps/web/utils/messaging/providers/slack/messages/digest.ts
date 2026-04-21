@@ -1,4 +1,8 @@
 import type { KnownBlock, Block } from "@slack/types";
+import {
+  DIGEST_MAX_ITEMS_PER_RULE,
+  formatDigestDate,
+} from "@/utils/digest/format";
 import { escapeSlackText } from "@/utils/messaging/providers/slack/format";
 
 type DigestItem = {
@@ -13,8 +17,6 @@ export type DigestBlocksParams = {
   unsubscribeUrl?: string;
 };
 
-const MAX_ITEMS_PER_RULE = 5;
-
 export function buildDigestBlocks({
   date,
   ruleNames,
@@ -26,7 +28,7 @@ export function buildDigestBlocks({
       type: "header",
       text: {
         type: "plain_text",
-        text: `Your Inbox Zero digest — ${formatDate(date)}`,
+        text: `Your Inbox Zero digest — ${formatDigestDate(date)}`,
         emoji: true,
       },
     },
@@ -39,7 +41,7 @@ export function buildDigestBlocks({
   for (const [index, ruleKey] of ruleKeys.entries()) {
     const items = itemsByRule[ruleKey] ?? [];
     const displayName = ruleNames[ruleKey] ?? ruleKey;
-    const visible = items.slice(0, MAX_ITEMS_PER_RULE);
+    const visible = items.slice(0, DIGEST_MAX_ITEMS_PER_RULE);
     const overflow = items.length - visible.length;
 
     const lines = visible.map(
@@ -74,12 +76,4 @@ export function buildDigestBlocks({
   });
 
   return blocks;
-}
-
-function formatDate(date: Date) {
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
 }
