@@ -12,10 +12,7 @@ export function getToolFailureWarning(
   const parts = message?.parts;
   if (!parts?.length) return null;
 
-  const hasToolError = parts.some(isToolPartWithError);
-  if (!hasToolError) return null;
-
-  return TOOL_FAILURE_WARNING;
+  return parts.some(isToolPartWithError) ? TOOL_FAILURE_WARNING : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

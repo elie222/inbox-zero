@@ -48,6 +48,9 @@ const {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
     },
+    executedRule: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
   mockArchiveCategory: vi.fn(),
   mockGetCategoryOverview: vi.fn(),
@@ -1257,6 +1260,106 @@ describe("aiProcessAssistantChat", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("Rule state changed since the last read");
+  });
+
+  it("returns rules and settings without ambient execution history", async () => {
+    const tools = await captureToolSet(true, "google");
+
+    mockPrisma.emailAccount.findUnique.mockResolvedValue({
+      about: "Keep replies concise.",
+      rulesRevision: 1,
+      rules: [],
+    });
+
+    const result = await tools.getUserRulesAndSettings.execute({});
+
+    expect(result).toEqual({
+      personalInstructions: "Keep replies concise.",
+      rules: [],
+    });
+  });
+
+  it("returns exact rule execution reasoning for a specific message", async () => {
+    const tools = await captureToolSet(true, "google");
+
+    mockPrisma.executedRule.findMany.mockResolvedValue([
+      {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        createdAt: new Date("2026-04-20T10:00:00.000Z"),
+        reason: "Matched the sender-specific rule for this thread.",
+        matchMetadata: [{ type: "STATIC" }],
+        automated: true,
+        rule: {
+          id: "rule-1",
+          name: "Priority Sender",
+        },
+      },
+      {
+        id: "executed-rule-2",
+        threadId: "thread-1",
+        createdAt: new Date("2026-04-20T09:00:00.000Z"),
+        reason: "Matched by AI instructions.",
+        matchMetadata: [{ type: "AI" }],
+        automated: false,
+        rule: {
+          id: "rule-2",
+          name: "Needs Review",
+        },
+      },
+    ]);
+
+    const result = await tools.getRuleExecutionForMessage.execute({
+      messageId: "message-1",
+    });
+
+    expect(mockPrisma.executedRule.findMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "email-account-id",
+        messageId: "message-1",
+        status: "APPLIED",
+        rule: { isNot: null },
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        threadId: true,
+        createdAt: true,
+        reason: true,
+        matchMetadata: true,
+        automated: true,
+        rule: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+    expect(result).toEqual({
+      messageId: "message-1",
+      threadId: "thread-1",
+      executions: [
+        {
+          executedRuleId: "executed-rule-1",
+          ruleId: "rule-1",
+          ruleName: "Priority Sender",
+          appliedAt: "2026-04-20T10:00:00.000Z",
+          reason: "Matched the sender-specific rule for this thread.",
+          matchMetadata: [{ type: "STATIC" }],
+          automated: true,
+        },
+        {
+          executedRuleId: "executed-rule-2",
+          ruleId: "rule-2",
+          ruleName: "Needs Review",
+          appliedAt: "2026-04-20T09:00:00.000Z",
+          reason: "Matched by AI instructions.",
+          matchMetadata: [{ type: "AI" }],
+          automated: false,
+        },
+      ],
+    });
   });
 
   it("returns messages from searchMessages", async () => {

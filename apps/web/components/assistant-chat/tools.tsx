@@ -79,7 +79,6 @@ function getOutputField<T>(output: unknown, field: string): T | undefined {
   if (typeof output === "object" && output !== null && field in output) {
     return (output as Record<string, unknown>)[field] as T;
   }
-  return undefined;
 }
 
 export function BasicToolInfo({ text }: { text: string }) {
@@ -165,6 +164,7 @@ function CollapsibleToolCard({
 }
 
 export function SearchInboxResult({ output }: { output: unknown }) {
+  const error = getOutputField<string | null>(output, "error");
   const queryUsed = getOutputField<string | null>(output, "queryUsed");
   const messages = getOutputField<
     Array<{
@@ -185,6 +185,12 @@ export function SearchInboxResult({ output }: { output: unknown }) {
           label="Query"
           value={<span className="font-mono text-xs">{queryUsed}</span>}
         />
+      )}
+      {error && (
+        <div className="space-y-1 text-sm text-muted-foreground">
+          <p>Search results were unavailable for that request.</p>
+          <p className="text-xs">{error}</p>
+        </div>
       )}
       {messages && messages.length > 0 && <ToolEmailRows emails={messages} />}
     </SubtleToolCollapsible>
@@ -237,7 +243,7 @@ export function ManageInboxResult({
     ? threadIds
         .map((threadId) => {
           const thread = threadLookup.get(threadId);
-          if (!thread) return undefined;
+          if (!thread) return;
           return { threadId, ...thread };
         })
         .filter(isDefined)
@@ -1716,7 +1722,7 @@ function getPendingString(
   source: Record<string, unknown> | undefined,
   key: string,
 ) {
-  if (!source) return undefined;
+  if (!source) return;
   return trimToNonEmptyString(source[key]);
 }
 
@@ -1741,11 +1747,11 @@ function getActionBodyText({
   actionType: PendingEmailActionType;
   pendingAction?: Record<string, unknown>;
 }) {
-  if (!pendingAction) return undefined;
+  if (!pendingAction) return;
 
   if (actionType === "send_email") {
     const messageHtml = getPendingString(pendingAction, "messageHtml");
-    if (!messageHtml) return undefined;
+    if (!messageHtml) return;
     return htmlToText(messageHtml);
   }
 

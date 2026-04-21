@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import {
+  buildOutlookSearchFallbackQuery,
   convertMessage,
   sanitizeOutlookSearchQuery,
   sanitizeKqlValue,
@@ -360,5 +361,38 @@ describe("sanitizeOutlookSearchQuery", () => {
       expect(result.sanitized).toBe('"Loren Rock RockMedical Rock Medical"');
       expect(result.wasSanitized).toBe(true);
     });
+  });
+});
+
+describe("buildOutlookSearchFallbackQuery", () => {
+  it("falls back from a fielded sender lookup to a plain-text sender search", () => {
+    expect(buildOutlookSearchFallbackQuery("from:sender@example.com")).toBe(
+      '"sender@example.com"',
+    );
+  });
+
+  it("drops trailing helper filters when collapsing an Outlook sender query", () => {
+    expect(
+      buildOutlookSearchFallbackQuery(
+        "from:sender@example.com received>=2026-04-20 unread",
+      ),
+    ).toBe('"sender@example.com"');
+  });
+
+  it("falls back from a subject field query to plain text", () => {
+    expect(
+      buildOutlookSearchFallbackQuery('subject:"Quarterly planning notes"'),
+    ).toBe('"Quarterly planning notes"');
+  });
+
+  it("preserves read-state words when they are part of the quoted subject text", () => {
+    expect(
+      sanitizeOutlookSearchQuery('subject:"Unread weekly report" unread')
+        .sanitized,
+    ).toBe('"Unread weekly report"');
+  });
+
+  it("returns null when the fallback would not change the query", () => {
+    expect(buildOutlookSearchFallbackQuery("sender@example.com")).toBeNull();
   });
 });

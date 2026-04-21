@@ -669,6 +669,192 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
 
     expect(result.hasMore).toBe(false);
   });
+
+  it("searchInbox retries Microsoft fielded sender searches with a plain-text fallback", async () => {
+    const searchMessages = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Search syntax failed"))
+      .mockResolvedValueOnce({
+        messages: [
+          {
+            id: "m1",
+            threadId: "t1",
+            snippet: "Can you take a look?",
+            historyId: "",
+            inline: [],
+            headers: {
+              from: "sender@example.com",
+              to: TEST_EMAIL,
+              subject: "Review request",
+              date: "2026-01-01T00:00:00.000Z",
+            },
+            subject: "Review request",
+            textPlain: "",
+            textHtml: "",
+            labelIds: [],
+            internalDate: "0",
+          },
+        ],
+        nextPageToken: undefined,
+      });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "from:sender@example.com",
+      limit: 20,
+    });
+
+    expect(searchMessages).toHaveBeenNthCalledWith(1, {
+      query: "from:sender@example.com",
+      maxResults: 20,
+      pageToken: undefined,
+    });
+    expect(searchMessages).toHaveBeenNthCalledWith(2, {
+      query: '"sender@example.com"',
+      maxResults: 20,
+      pageToken: undefined,
+    });
+    expect(result.messages).toHaveLength(1);
+    expect(result.queryUsed).toBe('"sender@example.com"');
+  });
+
+  it("searchInbox returns structured Microsoft failure feedback when every attempt fails", async () => {
+    const searchMessages = vi.fn().mockRejectedValue(
+      Object.assign(new Error("Unsupported search clause"), {
+        statusCode: 400,
+        code: "BadRequest",
+      }),
+    );
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "from:sender@example.com",
+      limit: 20,
+    });
+
+    expect(result).toMatchObject({
+      queryUsed: "from:sender@example.com",
+      error: "Failed to search inbox",
+      provider: "microsoft",
+      microsoftSearchFeedback: {
+        failureType: "query_failed",
+        summary:
+          "Outlook did not return results for the attempted search query. Retry with one simpler Outlook clause at a time.",
+        suggestedNextStep:
+          'Retry with one simpler Outlook query. Start with "sender@example.com" and keep it to a single clause.',
+        fallbackAttempted: true,
+        likelyCause: "Retry with one simpler Outlook clause at a time.",
+        removedTerms: [],
+        retryQueries: ["sender@example.com"],
+      },
+    });
+    expect(result.microsoftSearchFeedback.attempts).toEqual([
+      {
+        query: "from:sender@example.com",
+        status: 400,
+        code: "BadRequest",
+        message: "Unsupported search clause",
+      },
+      {
+        query: '"sender@example.com"',
+        status: 400,
+        code: "BadRequest",
+        message: "Unsupported search clause",
+      },
+    ]);
+    expect(searchMessages).toHaveBeenCalledTimes(2);
+  });
+
+  it("searchInbox suggests concrete simpler retries for complex Microsoft queries", async () => {
+    const searchMessages = vi.fn().mockRejectedValue(
+      Object.assign(new Error("Unsupported search clause"), {
+        statusCode: 400,
+        code: "BadRequest",
+      }),
+    );
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: 'unread sender@example.com subject:"weekly site report"',
+      limit: 20,
+    });
+
+    expect(result.microsoftSearchFeedback).toMatchObject({
+      failureType: "query_failed",
+      likelyCause:
+        "The failed query mixed a read-state term with other filters. Retry with one simpler clause.",
+      removedTerms: ["unread"],
+      retryQueries: [
+        "sender@example.com",
+        'subject:"weekly site report"',
+        '"weekly site report"',
+      ],
+      suggestedNextStep:
+        'Retry with one simpler Outlook query. Start with "sender@example.com" and keep it to a single clause.',
+    });
+  });
+
+  it("searchInbox keeps the generic Google failure payload unchanged", async () => {
+    const searchMessages = vi
+      .fn()
+      .mockRejectedValue(new Error("Search syntax failed"));
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "from:sender@example.com",
+      limit: 20,
+    });
+
+    expect(result).toEqual({
+      queryUsed: "from:sender@example.com",
+      error: "Failed to search inbox",
+    });
+    expect(searchMessages).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("chat inbox tools - sender categories", () => {

@@ -17,6 +17,11 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
 import { runWithBoundedConcurrency } from "@/utils/async";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
+import {
+  buildOutlookSearchFallbackQuery,
+  getStandaloneOutlookStateTerms,
+  stripStandaloneOutlookStateTerms,
+} from "@/utils/outlook/message";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { sleep } from "@/utils/sleep";
 import { archiveCategory } from "@/utils/categorize/senders/archive-category";
@@ -36,6 +41,7 @@ import {
   getCategorizationProgress,
   getCategorizationStatusSnapshot,
 } from "@/utils/redis/categorization-progress";
+import { extractErrorInfo, isRetryableError } from "@/utils/outlook/retry";
 
 const SEARCH_INBOX_MAX_RESULTS = 20;
 const MAX_SENDER_CATEGORIZATION_WAIT_MS = 1500;
@@ -410,7 +416,7 @@ export type ManageSenderCategoryTool = InferUITool<
 
 function getSearchQueryDescription(provider: string): string {
   if (isMicrosoftProvider(provider)) {
-    return "Search query using KQL syntax. Supports: unread, read, from:, to:, subject:, received>=YYYY-MM-DD, keyword search. For unread inbox triage, use unread. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.";
+    return "Search query using Outlook search syntax. Supports: unread, read, subject:, keyword search, and plain sender email lookups. Prefer a plain sender email like sender@example.com when searching by sender. Keep Outlook retries to one simple clause at a time. If you use from:, keep it as a simple standalone filter. If the tool returns microsoftSearchFeedback.retryQueries after a failed search, use the first retryQueries value verbatim for the next retry. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.";
   }
   return "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.";
 }
@@ -462,17 +468,66 @@ export const searchInboxTool = ({
           logger,
         });
 
-        const [searchResult, labels] = await Promise.all([
-          emailProvider.searchMessages({
-            query,
-            maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
-            pageToken: pageToken ?? undefined,
-          }),
-          emailProvider.getLabels().catch((error) => {
-            logger.warn("Failed to load labels for search results", { error });
-            return [] as Array<{ id: string; name: string }>;
-          }),
-        ]);
+        const searchQueries = [query];
+        if (isMicrosoftProvider(provider)) {
+          const fallbackQuery = buildOutlookSearchFallbackQuery(query);
+          if (fallbackQuery) searchQueries.push(fallbackQuery);
+        }
+
+        const labelsPromise = emailProvider.getLabels().catch((error) => {
+          logger.warn("Failed to load labels for search results", { error });
+          return [] as Array<{ id: string; name: string }>;
+        });
+
+        let searchResult:
+          | Awaited<ReturnType<typeof emailProvider.searchMessages>>
+          | undefined;
+        let queryUsed = query;
+        let lastError: unknown;
+        const microsoftSearchFailures: Array<{
+          query: string;
+          error: unknown;
+        }> = [];
+
+        for (let i = 0; i < searchQueries.length; i++) {
+          const candidateQuery = searchQueries[i];
+          try {
+            searchResult = await emailProvider.searchMessages({
+              query: candidateQuery,
+              maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
+              pageToken: pageToken ?? undefined,
+            });
+            queryUsed = candidateQuery;
+            break;
+          } catch (error) {
+            lastError = error;
+            if (isMicrosoftProvider(provider)) {
+              microsoftSearchFailures.push({
+                query: candidateQuery,
+                error,
+              });
+            }
+            if (i === searchQueries.length - 1) break;
+
+            logger.warn("Search query failed; retrying with Outlook fallback", {
+              query: candidateQuery,
+              fallbackQuery: searchQueries[i + 1],
+              error,
+            });
+          }
+        }
+
+        if (!searchResult) {
+          logger.error("Failed to search inbox", { error: lastError, query });
+          return isMicrosoftProvider(provider)
+            ? buildMicrosoftSearchErrorResult({
+                query,
+                failures: microsoftSearchFailures,
+              })
+            : { queryUsed: query, error: "Failed to search inbox" };
+        }
+
+        const labels = await labelsPromise;
 
         const { messages, nextPageToken } = searchResult;
         const labelsById = createLabelLookupMap(labels);
@@ -482,7 +537,7 @@ export const searchInboxTool = ({
         );
 
         return {
-          queryUsed: query,
+          queryUsed,
           totalReturned: items.length,
           nextPageToken,
           hasMore: Boolean(nextPageToken),
@@ -490,8 +545,13 @@ export const searchInboxTool = ({
           messages: items,
         };
       } catch (error) {
-        logger.error("Failed to search inbox", { error });
-        return { error: "Failed to search inbox" };
+        logger.error("Failed to search inbox", { error, query });
+        return isMicrosoftProvider(provider)
+          ? buildMicrosoftSearchErrorResult({
+              query,
+              failures: [{ query, error }],
+            })
+          : { queryUsed: query, error: "Failed to search inbox" };
       }
     },
   });
@@ -1464,6 +1524,257 @@ async function getSenderUnsubscribeSource({
   }
 
   return {};
+}
+
+const MICROSOFT_SEARCH_FAILURE_MESSAGES = {
+  rate_limited: {
+    summary: "Outlook rate-limited the search request.",
+    suggestedNextStep:
+      "Wait briefly, then retry once with a simpler Outlook query if needed.",
+  },
+  provider_unavailable: {
+    summary: "Outlook search failed before returning results.",
+    suggestedNextStep:
+      "Retry once after the provider recovers instead of reusing the same query immediately.",
+  },
+  query_failed: {
+    summary: "Outlook did not return results for the attempted search query.",
+    suggestedNextStep:
+      "Retry with a simpler Outlook query such as one bare sender email, one keyword, or one simple subject: term.",
+  },
+} as const;
+
+type MicrosoftSearchFailureType =
+  keyof typeof MICROSOFT_SEARCH_FAILURE_MESSAGES;
+
+function buildMicrosoftSearchErrorResult({
+  query,
+  failures,
+}: {
+  query: string;
+  failures: Array<{
+    query: string;
+    error: unknown;
+  }>;
+}) {
+  const errorInfos = failures.map(({ error }) => extractErrorInfo(error));
+
+  const attempts = failures.map(({ query }, i) => ({
+    query,
+    status: errorInfos[i].status,
+    code: errorInfos[i].code,
+    message: errorInfos[i].errorMessage || "Microsoft search request failed",
+  }));
+
+  const failureType = getMicrosoftSearchFailureType(errorInfos);
+  const retryGuidance = getMicrosoftSearchRetryGuidance({
+    query,
+    failureType,
+    attemptedQueries: attempts.map((attempt) => attempt.query),
+  });
+
+  return {
+    queryUsed: query,
+    error: "Failed to search inbox",
+    provider: "microsoft" as const,
+    microsoftSearchFeedback: {
+      failureType,
+      summary: getMicrosoftSearchFailureSummary(failureType, retryGuidance),
+      suggestedNextStep: getMicrosoftSearchSuggestedNextStep(
+        failureType,
+        retryGuidance,
+      ),
+      fallbackAttempted: failures.length > 1,
+      attempts,
+      likelyCause: retryGuidance.likelyCause,
+      removedTerms: retryGuidance.removedTerms,
+      retryQueries: retryGuidance.retryQueries,
+    },
+  };
+}
+
+function getMicrosoftSearchFailureType(
+  errorInfos: Array<ReturnType<typeof extractErrorInfo>>,
+): MicrosoftSearchFailureType {
+  if (errorInfos.some((errorInfo) => isRetryableError(errorInfo).isRateLimit)) {
+    return "rate_limited";
+  }
+
+  if (
+    errorInfos.some((errorInfo) => {
+      const retryability = isRetryableError(errorInfo);
+      return retryability.isServerError || retryability.retryable;
+    })
+  ) {
+    return "provider_unavailable";
+  }
+
+  return "query_failed";
+}
+
+function getMicrosoftSearchFailureSummary(
+  failureType: MicrosoftSearchFailureType,
+  retryGuidance: ReturnType<typeof getMicrosoftSearchRetryGuidance>,
+) {
+  const baseSummary = MICROSOFT_SEARCH_FAILURE_MESSAGES[failureType].summary;
+  if (
+    failureType !== "query_failed" ||
+    !retryGuidance.likelyCause ||
+    retryGuidance.likelyCause === baseSummary
+  ) {
+    return baseSummary;
+  }
+
+  return `${baseSummary} ${retryGuidance.likelyCause}`;
+}
+
+function getMicrosoftSearchSuggestedNextStep(
+  failureType: MicrosoftSearchFailureType,
+  retryGuidance: ReturnType<typeof getMicrosoftSearchRetryGuidance>,
+) {
+  if (failureType !== "query_failed") {
+    return MICROSOFT_SEARCH_FAILURE_MESSAGES[failureType].suggestedNextStep;
+  }
+
+  if (retryGuidance.retryQueries.length === 0) {
+    return MICROSOFT_SEARCH_FAILURE_MESSAGES.query_failed.suggestedNextStep;
+  }
+
+  return `Retry with one simpler Outlook query. Start with ${JSON.stringify(
+    retryGuidance.retryQueries[0],
+  )} and keep it to a single clause.`;
+}
+
+function getMicrosoftSearchRetryGuidance({
+  query,
+  failureType,
+  attemptedQueries,
+}: {
+  query: string;
+  failureType: MicrosoftSearchFailureType;
+  attemptedQueries: string[];
+}) {
+  if (failureType !== "query_failed") {
+    return {
+      likelyCause: undefined,
+      removedTerms: [] as string[],
+      retryQueries: [] as string[],
+    };
+  }
+
+  const stateTerms = getStandaloneOutlookStateTerms(query);
+  const comparisonTerms = Array.from(
+    query.matchAll(/\b\w+\s*(?:>=|<=|>|<)\s*\S+/gi),
+    (match) => match[0].trim(),
+  );
+  const senderEmails = extractEmailAddressesFromMicrosoftSearchQuery(query);
+  const subjectTerms = extractMicrosoftSubjectTerms(query);
+  const attemptedQuerySet = new Set(
+    attemptedQueries.map((attempt) => normalizeMicrosoftRetryQuery(attempt)),
+  );
+  const retryQueries = [
+    ...senderEmails,
+    ...subjectTerms.map(formatMicrosoftSubjectRetryQuery),
+    ...getMicrosoftKeywordRetryQueries(query),
+  ].filter((candidate, index, candidates) => {
+    const normalized = normalizeMicrosoftRetryQuery(candidate);
+
+    return (
+      normalized.length > 0 &&
+      !attemptedQuerySet.has(normalized) &&
+      candidates.findIndex(
+        (queryCandidate) =>
+          normalizeMicrosoftRetryQuery(queryCandidate) === normalized,
+      ) === index
+    );
+  });
+
+  return {
+    likelyCause: getMicrosoftSearchLikelyCause({
+      query,
+      stateTerms,
+      comparisonTerms,
+      senderEmails,
+      subjectTerms,
+    }),
+    removedTerms: [...new Set([...stateTerms, ...comparisonTerms])],
+    retryQueries: retryQueries.slice(0, 3),
+  };
+}
+
+function getMicrosoftSearchLikelyCause({
+  query,
+  stateTerms,
+  comparisonTerms,
+  senderEmails,
+  subjectTerms,
+}: {
+  query: string;
+  stateTerms: string[];
+  comparisonTerms: string[];
+  senderEmails: string[];
+  subjectTerms: string[];
+}) {
+  if (comparisonTerms.length > 0) {
+    return "The failed query used comparison filters, which Outlook search often rejects.";
+  }
+
+  if (
+    stateTerms.length > 0 &&
+    (senderEmails.length > 0 || subjectTerms.length > 0)
+  ) {
+    return "The failed query mixed a read-state term with other filters. Retry with one simpler clause.";
+  }
+
+  if (senderEmails.length > 0 && subjectTerms.length > 0) {
+    return "The failed query mixed sender and subject filters. Retry with one simpler clause.";
+  }
+
+  if (query.trim().split(/\s+/).length > 3) {
+    return "The failed query was too complex for Outlook search. Retry with one simpler clause.";
+  }
+
+  return "Retry with one simpler Outlook clause at a time.";
+}
+
+function extractMicrosoftSubjectTerms(query: string) {
+  return Array.from(
+    query.matchAll(/\bsubject:(?:"([^"]+)"|(\S+))/gi),
+    (match) => (match[1] ?? match[2] ?? "").trim(),
+  ).filter(Boolean);
+}
+
+function formatMicrosoftSubjectRetryQuery(subject: string) {
+  const escapedSubject = subject.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return subject.includes(" ")
+    ? `subject:"${escapedSubject}"`
+    : `subject:${escapedSubject}`;
+}
+
+function getMicrosoftKeywordRetryQueries(query: string) {
+  const subjectTerms = extractMicrosoftSubjectTerms(query);
+  if (subjectTerms.length > 0) {
+    return subjectTerms.map((subject) => `"${subject.replace(/"/g, '\\"')}"`);
+  }
+
+  const cleanedQuery = stripStandaloneOutlookStateTerms(query)
+    .replace(/\bsubject:(?:"[^"]+"|\S+)/gi, " ")
+    .replace(/\b\w+\s*(?:>=|<=|>|<)\s*\S+/gi, " ")
+    .replace(/[()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleanedQuery.length > 0 ? [cleanedQuery] : [];
+}
+
+function normalizeMicrosoftRetryQuery(query: string) {
+  return query.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function extractEmailAddressesFromMicrosoftSearchQuery(query: string) {
+  return [
+    ...new Set(query.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? []),
+  ];
 }
 
 function getManageInboxValidationError(error: z.ZodError) {

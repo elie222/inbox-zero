@@ -267,6 +267,26 @@ export default function ToolsPage() {
           <ReadEmailResult output={getAssistantReadEmailOutput()} />
         </section>
 
+        {/* Error States */}
+        <section className="space-y-4">
+          <SectionHeader>Error States</SectionHeader>
+
+          <MutedText>
+            Search error (inline in the search result card):
+          </MutedText>
+          <SearchInboxResult output={getAssistantSearchInboxErrorOutput()} />
+
+          <MutedText>
+            Generic tool errors (used by most other failed tools):
+          </MutedText>
+          <div className="grid gap-2 md:grid-cols-2">
+            <ToolErrorCardPreview error="Failed to read email" />
+            <ToolErrorCardPreview error="Failed to update rule conditions" />
+            <ToolErrorCardPreview error="Missing rule ID in response" />
+            <ToolErrorCardPreview error="Failed to load rule execution for message" />
+          </div>
+        </section>
+
         {/* Manage Inbox Results */}
         <section className="space-y-4">
           <SectionHeader>Manage Inbox Results</SectionHeader>
@@ -682,6 +702,13 @@ function getAssistantSearchInboxOutput() {
   };
 }
 
+function getAssistantSearchInboxErrorOutput() {
+  return {
+    queryUsed: "from:updates@example.com received>=2026-01-10",
+    error: "Failed to search inbox",
+  };
+}
+
 function getAssistantReadEmailOutput() {
   return {
     messageId: "message-3",
@@ -694,6 +721,10 @@ function getAssistantReadEmailOutput() {
     date: "2026-01-10T15:20:00.000Z",
     attachments: [{ filename: "follow-up.pdf" }],
   };
+}
+
+function ToolErrorCardPreview({ error }: { error: string }) {
+  return <div className="text-xs text-muted-foreground">Error: {error}</div>;
 }
 
 function getAssistantSendEmailOutput(state: EmailActionState) {
