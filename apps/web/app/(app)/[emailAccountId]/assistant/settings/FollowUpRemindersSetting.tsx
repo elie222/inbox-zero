@@ -4,6 +4,8 @@ import { useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { SettingCard } from "@/components/SettingCard";
+import { DeliveryChannelsSetting } from "@/components/messaging/DeliveryChannelsSetting";
+import { MessagingRoutePurpose } from "@/generated/prisma/enums";
 import {
   Dialog,
   DialogContent,
@@ -82,46 +84,58 @@ function FollowUpRemindersSettingContent() {
   );
 
   return (
-    <SettingCard
-      title="Follow-up reminders"
-      description="Label emails where you haven't heard back or haven't replied."
-      right={
-        isLoading ? (
-          <Skeleton className="h-5 w-9" />
-        ) : (
-          <div className="flex items-center gap-2">
-            {enabled && (
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    Configure
-                  </Button>
-                </DialogTrigger>
-                <FollowUpSettingsDialog
-                  emailAccountId={data?.id ?? ""}
-                  emailAddress={data?.email ?? ""}
-                  followUpAwaitingReplyDays={data?.followUpAwaitingReplyDays}
-                  followUpNeedsReplyDays={data?.followUpNeedsReplyDays}
-                  followUpAutoDraftEnabled={
-                    data?.followUpAutoDraftEnabled ?? true
-                  }
-                  onSuccess={() => {
-                    mutate();
-                    setOpen(false);
-                  }}
-                />
-              </Dialog>
-            )}
-            <Toggle
-              name="follow-up-enabled"
-              enabled={enabled}
-              onChange={handleToggle}
-              disabled={!data}
-            />
-          </div>
-        )
-      }
-    />
+    <div className="space-y-4">
+      <SettingCard
+        title="Follow-up reminders"
+        description="Label emails where you haven't heard back or haven't replied."
+        right={
+          isLoading ? (
+            <Skeleton className="h-5 w-9" />
+          ) : (
+            <div className="flex items-center gap-2">
+              {enabled && (
+                <Dialog open={open} onOpenChange={setOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Configure
+                    </Button>
+                  </DialogTrigger>
+                  <FollowUpSettingsDialog
+                    emailAccountId={data?.id ?? ""}
+                    emailAddress={data?.email ?? ""}
+                    followUpAwaitingReplyDays={data?.followUpAwaitingReplyDays}
+                    followUpNeedsReplyDays={data?.followUpNeedsReplyDays}
+                    followUpAutoDraftEnabled={
+                      data?.followUpAutoDraftEnabled ?? true
+                    }
+                    onSuccess={() => {
+                      mutate();
+                      setOpen(false);
+                    }}
+                  />
+                </Dialog>
+              )}
+              <Toggle
+                name="follow-up-enabled"
+                enabled={enabled}
+                onChange={handleToggle}
+                disabled={!data}
+              />
+            </div>
+          )
+        }
+      />
+
+      {enabled && (
+        <DeliveryChannelsSetting
+          title="Follow-up notifications"
+          description="Get pinged in Slack, Teams, or Telegram when an email needs a follow-up."
+          purpose={MessagingRoutePurpose.FOLLOW_UPS}
+          featureLabel="follow-up nudges"
+          connectSlackCta="Want follow-up nudges in Slack?"
+        />
+      )}
+    </div>
   );
 }
 

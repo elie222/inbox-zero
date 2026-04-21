@@ -84,6 +84,16 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
               MessagingRoutePurpose.DOCUMENT_FILINGS,
               slackTargetNamesByChannelId[channel.id],
             ),
+            digests: getMessagingRouteSummary(
+              routes,
+              MessagingRoutePurpose.DIGESTS,
+              slackTargetNamesByChannelId[channel.id],
+            ),
+            followUps: getMessagingRouteSummary(
+              routes,
+              MessagingRoutePurpose.FOLLOW_UPS,
+              slackTargetNamesByChannelId[channel.id],
+            ),
           },
         };
       },

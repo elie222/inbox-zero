@@ -11,12 +11,15 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useRules } from "@/hooks/useRules";
+import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
+import { DeliveryChannelsSetting } from "@/components/messaging/DeliveryChannelsSetting";
+import { updateDigestEmailDeliveryAction } from "@/utils/actions/messaging-channels";
 import {
   updateDigestItemsAction,
   updateDigestScheduleAction,
 } from "@/utils/actions/settings";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, MessagingRoutePurpose } from "@/generated/prisma/enums";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetDigestSettingsResponse } from "@/app/api/user/digest-settings/route";
 import type { GetDigestScheduleResponse } from "@/app/api/user/digest-schedule/route";
@@ -336,10 +339,50 @@ export function DigestSettingsForm({ onSuccess }: { onSuccess?: () => void }) {
             </Button>
           </form>
         </LoadingContent>
+
+        <DigestDeliveryChannels emailAccountId={emailAccountId} />
       </div>
 
       <EmailPreview selectedDigestItems={selectedDigestItems} />
     </div>
+  );
+}
+
+function DigestDeliveryChannels({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const { data: account, isLoading, mutate } = useEmailAccountFull();
+
+  const { execute } = useAction(
+    updateDigestEmailDeliveryAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Settings saved" });
+        mutate();
+      },
+      onError: (error) => {
+        toastError({
+          description: getActionErrorMessage(error.error) ?? "Failed to update",
+        });
+      },
+    },
+  );
+
+  return (
+    <DeliveryChannelsSetting
+      title="Delivery Channels"
+      description="Choose where to receive digests"
+      purpose={MessagingRoutePurpose.DIGESTS}
+      featureLabel="digests"
+      email={{
+        enabled: account?.digestSendEmail ?? true,
+        isLoading,
+        onChange: (sendEmail) => execute({ sendEmail }),
+      }}
+      connectSlackCta="Want to receive digests in Slack?"
+    />
   );
 }
 

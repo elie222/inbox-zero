@@ -164,7 +164,8 @@ model EmailAccount {
   followUpNeedsReplyDays    Float?
   followUpAutoDraftEnabled  Boolean @default(true)
 
-  digestSchedule Schedule?
+  digestSendEmail Boolean @default(true)
+  digestSchedule  Schedule?
   learnedWritingStyle String?
 
   userId    String
@@ -839,8 +840,9 @@ model ThreadTracker {
   resolved  Boolean           @default(false)
   type      ThreadTrackerType
 
-  followUpAppliedAt DateTime?
-  followUpDraftId   String?
+  followUpAppliedAt  DateTime?
+  followUpNotifiedAt DateTime?
+  followUpDraftId    String?
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -1672,8 +1674,8 @@ enum MessagingRoutePurpose {
   RULE_NOTIFICATIONS
   MEETING_BRIEFS
   DOCUMENT_FILINGS
-  // DIGESTS
-  // FOLLOW_UPS
+  DIGESTS
+  FOLLOW_UPS
 }
 
 enum MessagingRouteTargetType {

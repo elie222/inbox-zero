@@ -8,6 +8,8 @@ export const updateSlackRouteBody = z.object({
     MessagingRoutePurpose.RULE_NOTIFICATIONS,
     MessagingRoutePurpose.MEETING_BRIEFS,
     MessagingRoutePurpose.DOCUMENT_FILINGS,
+    MessagingRoutePurpose.DIGESTS,
+    MessagingRoutePurpose.FOLLOW_UPS,
   ]),
   targetId: z.string().min(1),
 });
@@ -17,11 +19,17 @@ export const updateMessagingFeatureRouteBody = z.object({
   purpose: z.enum([
     MessagingRoutePurpose.MEETING_BRIEFS,
     MessagingRoutePurpose.DOCUMENT_FILINGS,
+    MessagingRoutePurpose.DIGESTS,
+    MessagingRoutePurpose.FOLLOW_UPS,
   ]),
   enabled: z.boolean(),
 });
 
-export const updateEmailDeliveryBody = z.object({
+export const updateMeetingBriefsEmailDeliveryBody = z.object({
+  sendEmail: z.boolean(),
+});
+
+export const updateDigestEmailDeliveryBody = z.object({
   sendEmail: z.boolean(),
 });
 
