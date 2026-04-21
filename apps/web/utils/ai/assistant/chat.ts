@@ -701,7 +701,8 @@ export function buildResolvedSystemPrompt({
     getProviderSearchSyntaxPolicy(provider),
     `Search strategy:
 - If the user names a sender or brand but the actual email address is not known yet, search first, inspect the returned \`from\` values, and then refine with \`from:\` before writing when needed.
-- When the sender or domain is known, prefer the provider's sender-focused syntax over a broad bare keyword.`,
+- When the sender or domain is known, prefer the provider's sender-focused syntax over a broad bare keyword.
+- If \`searchInbox\` returns an error or provider search feedback instead of results, explicitly say the lookup failed and that you could not verify the specific email. Do not phrase a failed lookup as if you confirmed the email was absent or "couldn't find a record". Separate any confirmed claims from other tools, such as rule settings, from the unverified email-specific lookup.`,
     getProviderInboxTriagePolicy(provider),
     `Inbox workflows:
 - For inbox updates, "what came in today?", or recent-attention requests, search first with a tight time range in the user's timezone, then summarize into must handle now, can wait, and can archive or mark read.
