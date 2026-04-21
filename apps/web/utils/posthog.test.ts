@@ -115,4 +115,53 @@ describe("trackFirstTimeEvent", () => {
 
     expect(captureMock).not.toHaveBeenCalled();
   });
+
+  it("after Redis NX miss, does not retry Redis on a second in-process call", async () => {
+    vi.mocked(redis.set).mockResolvedValue(null);
+
+    await trackFirstTimeEvent({
+      emailAccountId: "acct-nx-miss",
+      event: FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE,
+    });
+
+    vi.mocked(redis.set).mockResolvedValue("OK");
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      user: { email: "late@example.com" },
+    } as any);
+
+    await trackFirstTimeEvent({
+      emailAccountId: "acct-nx-miss",
+      event: FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE,
+    });
+
+    expect(redis.set).toHaveBeenCalledTimes(1);
+    expect(prisma.emailAccount.findUnique).not.toHaveBeenCalled();
+    expect(captureMock).not.toHaveBeenCalled();
+  });
+
+  it("after missing user email, does not retry Redis or Prisma on a second in-process call", async () => {
+    vi.mocked(redis.set).mockResolvedValue("OK");
+
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      user: { email: null },
+    } as any);
+
+    await trackFirstTimeEvent({
+      emailAccountId: "acct-no-user-email",
+      event: FIRST_TIME_EVENTS.FIRST_AUTOMATED_RULE_RUN,
+    });
+
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      user: { email: "fixed@example.com" },
+    } as any);
+
+    await trackFirstTimeEvent({
+      emailAccountId: "acct-no-user-email",
+      event: FIRST_TIME_EVENTS.FIRST_AUTOMATED_RULE_RUN,
+    });
+
+    expect(redis.set).toHaveBeenCalledTimes(1);
+    expect(prisma.emailAccount.findUnique).toHaveBeenCalledTimes(1);
+    expect(captureMock).not.toHaveBeenCalled();
+  });
 });
