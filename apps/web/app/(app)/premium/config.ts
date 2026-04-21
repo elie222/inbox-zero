@@ -180,6 +180,7 @@ export function hasLegacyStripePriceId({
 
   const tierConfig = STRIPE_PRICE_ID_CONFIG[resolvedTier];
   if (!tierConfig) return false;
+  // We sometimes reuse a historical price as the active price again.
   if (tierConfig.priceId === priceId) return false;
 
   return tierConfig.oldPriceIds?.includes(priceId) ?? false;
