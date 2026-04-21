@@ -91,6 +91,16 @@ const CHANNEL_FEATURES: Array<{
     name: "Document filing alerts",
     description: "Notifications when documents are auto-filed.",
   },
+  {
+    purpose: MessagingRoutePurpose.DIGESTS,
+    name: "Digests",
+    description: "Receive your scheduled digest in chat.",
+  },
+  {
+    purpose: MessagingRoutePurpose.FOLLOW_UPS,
+    name: "Follow-up reminders",
+    description: "Get nudged about emails that need a follow-up.",
+  },
 ];
 
 type ChannelFromResponse = GetMessagingChannelsResponse["channels"][number];

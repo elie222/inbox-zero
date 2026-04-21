@@ -7,19 +7,20 @@ import { z } from "zod";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { TimePicker } from "@/components/TimePicker";
+import { Toggle } from "@/components/Toggle";
+import { MutedText } from "@/components/Typography";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useRules } from "@/hooks/useRules";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
-import { DeliveryChannelsSetting } from "@/components/messaging/DeliveryChannelsSetting";
 import { updateDigestEmailDeliveryAction } from "@/utils/actions/messaging-channels";
 import {
   updateDigestItemsAction,
   updateDigestScheduleAction,
 } from "@/utils/actions/settings";
-import { ActionType, MessagingRoutePurpose } from "@/generated/prisma/enums";
+import { ActionType } from "@/generated/prisma/enums";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetDigestSettingsResponse } from "@/app/api/user/digest-settings/route";
 import type { GetDigestScheduleResponse } from "@/app/api/user/digest-schedule/route";
@@ -371,18 +372,20 @@ function DigestDeliveryChannels({
   );
 
   return (
-    <DeliveryChannelsSetting
-      title="Delivery Channels"
-      description="Choose where to receive digests"
-      purpose={MessagingRoutePurpose.DIGESTS}
-      featureLabel="digests"
-      email={{
-        enabled: account?.digestSendEmail ?? true,
-        isLoading,
-        onChange: (sendEmail) => execute({ sendEmail }),
-      }}
-      connectSlackCta="Want to receive digests in Slack?"
-    />
+    <div className="flex items-center justify-between gap-3 pt-2">
+      <div>
+        <Label>Send digest to email</Label>
+        <MutedText className="text-xs">
+          Deliver digests to chat apps from the Channels page.
+        </MutedText>
+      </div>
+      <Toggle
+        name="digestSendEmail"
+        enabled={account?.digestSendEmail ?? true}
+        disabled={isLoading}
+        onChange={(sendEmail) => execute({ sendEmail })}
+      />
+    </div>
   );
 }
 
