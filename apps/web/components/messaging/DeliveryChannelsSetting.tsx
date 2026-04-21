@@ -43,7 +43,7 @@ const PROVIDER_CONFIG: Record<
   },
 };
 
-export type EmailDeliveryProps = {
+type EmailDeliveryProps = {
   enabled: boolean;
   isLoading: boolean;
   onChange: (enabled: boolean) => void;
