@@ -5,14 +5,23 @@ import { createElement, memo, type ComponentProps } from "react";
 import { Streamdown } from "streamdown";
 import {
   InlineEmailCard,
+  InlineEmailDetail,
   InlineEmailList,
 } from "@/components/assistant-chat/inline-email-card";
 
 type AssistantInlineEmailResponseProps = ComponentProps<typeof Streamdown>;
 
-const allowedTags = { emails: [], email: ["id", "threadid"] };
-const components = { emails: InlineEmailList, email: InlineEmailCard };
-const literalTagContent = ["email"];
+const allowedTags = {
+  emails: [],
+  email: ["id", "threadid"],
+  "email-detail": ["id", "threadid"],
+};
+const components = {
+  emails: InlineEmailList,
+  email: InlineEmailCard,
+  "email-detail": InlineEmailDetail,
+};
+const literalTagContent = ["email", "email-detail"];
 
 export const AssistantInlineEmailResponse = memo(
   ({ className, ...props }: AssistantInlineEmailResponseProps) =>

@@ -420,6 +420,70 @@ export function InlineEmailCard({
   );
 }
 
+export function InlineEmailDetail({
+  id,
+  threadid,
+  children,
+}: {
+  id?: string;
+  threadid?: string;
+  children?: ReactNode;
+}) {
+  const emailLookup = useEmailLookup();
+  const { provider, userEmail } = useAccount();
+  const threadId = resolveInlineEmailThreadId({ id, threadid });
+  const meta = threadId ? emailLookup.get(threadId) : undefined;
+  const externalUrl = threadId
+    ? getEmailUrlForMessage(
+        meta?.messageId ?? threadId,
+        threadId,
+        userEmail,
+        provider,
+      )
+    : null;
+
+  return (
+    <div className="my-2 overflow-hidden rounded-lg border bg-card shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b px-3 py-2">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium">
+            {meta?.subject || "Email"}
+          </div>
+          {meta ? (
+            <div className="text-xs text-muted-foreground">
+              {meta.from}
+              {" · "}
+              {formatShortDate(new Date(meta.date), { lowercase: true })}
+            </div>
+          ) : null}
+          {children ? (
+            <div className="mt-1 text-xs text-muted-foreground">{children}</div>
+          ) : null}
+        </div>
+        {externalUrl ? (
+          <Tooltip content="Open in email">
+            <a
+              href={externalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <ExternalLinkIcon className="size-3.5" />
+            </a>
+          </Tooltip>
+        ) : null}
+      </div>
+      {threadId ? (
+        <EmailPreview threadId={threadId} />
+      ) : (
+        <div className="px-3 py-2 text-xs text-muted-foreground">
+          No email content found.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function collectThreadIds(children: ReactNode): string[] {
   const ids: string[] = [];
   Children.forEach(children, (child) => {
@@ -504,7 +568,7 @@ function resolveInlineEmailThreadId({
   threadid?: string;
 }) {
   if (threadid) return threadid;
-  if (!id) return undefined;
+  if (!id) return;
   if (id.startsWith("user-content-")) {
     return id.slice("user-content-".length) || undefined;
   }

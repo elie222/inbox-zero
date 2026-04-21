@@ -580,7 +580,7 @@ function getSendEmailSurfacePolicy({
     "- When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.",
     "- Only send emails when the user clearly asks to send now.",
     '- After calling these tools, briefly say the email is ready in the pending email card for review and send. Do not mention card position like "below" or "above". Do not ask follow-up questions about CC, BCC, or whether to proceed because the UI handles confirmation.',
-    "- Do not include <email> or <emails> blocks in responses that use sendEmail, replyEmail, or forwardEmail. The pending email card is the only email UI surface for those flows.",
+    "- After sendEmail, replyEmail, or forwardEmail, do not also render email widgets for that same action in the text; the pending email card is already the UI for it.",
     "- Do not re-prepare or re-call the tool unless the user explicitly asks for changes.",
     '- Do not treat a pending email action as "sent".',
   ];
@@ -771,10 +771,13 @@ Inline email cards:
 <emails>
 <email threadid="THREAD_ID">Brief context</email>
 </emails>
+- To show one email or thread in detail, use:
+<email-detail threadid="THREAD_ID">Brief context</email-detail>
 - The threadid attribute must be a threadId from searchInbox results. Do not use the HTML id attribute.
 - Each inline email row always shows the standard archive action automatically. Do not add an action attribute to control it.
 - The inner text is your brief context or recommendation (e.g. "Subscription cancellation — confirm and outline next steps").
 - The UI automatically resolves the full email metadata (sender, subject, date) from the thread ID, so do NOT repeat those details in the tag content.
 - Use a separate <emails> block per category group, with a markdown header (##) before each block.
-- Only use <email> tags for triage and inbox summary flows, not for every search result.`;
+- Use <emails> for grouped list views and <email-detail> when you want to show a single email or thread in detail.
+- Only use email widgets when they add clarity, not for every search result.`;
 }
