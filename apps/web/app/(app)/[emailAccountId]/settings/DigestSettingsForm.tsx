@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
@@ -15,6 +16,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { useRules } from "@/hooks/useRules";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
+import { prefixPath } from "@/utils/path";
 import { updateDigestEmailDeliveryAction } from "@/utils/actions/messaging-channels";
 import {
   updateDigestItemsAction,
@@ -372,19 +374,26 @@ function DigestDeliveryChannels({
   );
 
   return (
-    <div className="flex items-center justify-between gap-3 pt-2">
-      <div>
+    <div className="space-y-2 pt-2">
+      <div className="flex items-center justify-between gap-3">
         <Label>Send digest to email</Label>
-        <MutedText className="text-xs">
-          Deliver digests to chat apps from the Channels page.
-        </MutedText>
+        <Toggle
+          name="digestSendEmail"
+          enabled={account?.digestSendEmail ?? true}
+          disabled={isLoading}
+          onChange={(sendEmail) => execute({ sendEmail })}
+        />
       </div>
-      <Toggle
-        name="digestSendEmail"
-        enabled={account?.digestSendEmail ?? true}
-        disabled={isLoading}
-        onChange={(sendEmail) => execute({ sendEmail })}
-      />
+      <MutedText>
+        Want digests in your chat app?{" "}
+        <Link
+          href={prefixPath(emailAccountId, "/channels")}
+          className="text-foreground underline"
+        >
+          Configure on the Channels page
+        </Link>
+        .
+      </MutedText>
     </div>
   );
 }
