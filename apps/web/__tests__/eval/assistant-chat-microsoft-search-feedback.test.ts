@@ -329,11 +329,17 @@ describe.runIf(shouldRunEval)(
                 result.output.microsoftSearchFeedback?.failureType ===
                   "query_failed",
             );
+            const lookedUpRules = trace.toolCalls.some(
+              (toolCall) => toolCall.toolName === "getUserRulesAndSettings",
+            );
             const assistantJudge = assistantText
               ? await judgeEvalOutput({
                   input: [
                     "A user asked why a reply draft was not generated for a specific email.",
                     "The assistant attempted to search a Microsoft inbox, and every search attempt failed.",
+                    lookedUpRules
+                      ? "The assistant also checked the account rule settings and found no active rules configured."
+                      : "The assistant did not retrieve any rule configuration details.",
                     failedSearch?.output.microsoftSearchFeedback
                       ? `Tool feedback: ${JSON.stringify({
                           failureType:
@@ -351,11 +357,11 @@ describe.runIf(shouldRunEval)(
                   ].join("\n"),
                   output: assistantText,
                   expected:
-                    "A response that clearly says the assistant could not verify the specific email because inbox search failed, does not claim it found the email or prepared a draft, and treats any explanation as a general possibility rather than a confirmed fact.",
+                    "A response that clearly says the assistant could not verify the specific email because inbox search failed, does not claim it found the email or prepared a draft, and treats any explanation as a general possibility rather than a confirmed fact. If it explicitly checked the account rules and found none, it may say that no active rules are configured.",
                   criterion: {
                     name: "No hallucinated email lookup after search failure",
                     description:
-                      "When inbox search fails, the assistant must not claim it found the message, knows the message contents, knows which rule applied, or already prepared a draft. It should acknowledge the failed lookup and keep any explanation explicitly unverified.",
+                      "When inbox search fails, the assistant must not claim it found the message, knows the message contents, knows which rule applied, or already prepared a draft. It should acknowledge the failed lookup and keep any email-specific explanation explicitly unverified. Claims that are directly supported by separate tool results, such as explicitly checking account rules and finding none, are allowed.",
                   },
                 })
               : null;
