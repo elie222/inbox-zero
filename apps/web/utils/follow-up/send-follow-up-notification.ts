@@ -168,8 +168,10 @@ async function sendFollowUpViaSlack({
   });
 
   if (!destination) {
-    logger.warn("No Slack destination resolved for follow-up notification");
-    return;
+    // Throw so the outer Promise.allSettled records this as a failure;
+    // otherwise anySucceeded would flip true and followUpNotifiedAt would
+    // be set, permanently suppressing retries for this thread+message.
+    throw new Error("No Slack destination resolved for follow-up notification");
   }
 
   await sendFollowUpReminderToSlack({

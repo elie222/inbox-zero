@@ -204,8 +204,10 @@ async function sendDigestViaSlack({
   });
 
   if (!destination) {
-    logger.warn("No Slack destination resolved for digest");
-    return;
+    // Throw so this counts as a channel failure in Promise.allSettled;
+    // otherwise a Slack-only digest could be marked SENT without actually
+    // delivering.
+    throw new Error("No Slack destination resolved for digest");
   }
 
   logger.info("Sending digest to Slack");
