@@ -36,7 +36,7 @@ describe("Apple premium helpers", () => {
   it("treats active Apple subscriptions as premium even when the expiry is past", () => {
     const expiredDate = new Date(Date.now() - 60_000).toISOString();
 
-    expect(isPremium(null, null, expiredDate, null, "ACTIVE")).toBe(true);
+    expect(isPremium(null, null, null, expiredDate, null, "ACTIVE")).toBe(true);
   });
 
   it("treats active Apple premium records as premium even when the expiry is past", () => {
@@ -66,6 +66,40 @@ describe("Apple premium helpers", () => {
         stripeSubscriptionStatus: null,
       }),
     ).toBe("STARTER_MONTHLY");
+  });
+
+  it("treats canceled Stripe trials as not premium", () => {
+    expect(
+      isPremiumRecord({
+        lemonSqueezyRenewsAt: null,
+        stripeCancelAtPeriodEnd: true,
+        stripeSubscriptionStatus: "trialing",
+      }),
+    ).toBe(false);
+  });
+
+  it("preserves access for paid Stripe subscriptions that cancel at period end", () => {
+    expect(
+      isPremiumRecord({
+        lemonSqueezyRenewsAt: null,
+        stripeCancelAtPeriodEnd: true,
+        stripeSubscriptionStatus: "active",
+      }),
+    ).toBe(true);
+  });
+
+  it("clears the user tier for canceled Stripe trials", () => {
+    expect(
+      getUserTier({
+        tier: "STARTER_MONTHLY",
+        lemonSqueezyRenewsAt: null,
+        stripeCancelAtPeriodEnd: true,
+        stripeSubscriptionStatus: "trialing",
+        appleExpiresAt: null,
+        appleRevokedAt: null,
+        appleSubscriptionStatus: null,
+      }),
+    ).toBeNull();
   });
 
   it("treats missing premium records as premium when bypass checks are enabled", () => {

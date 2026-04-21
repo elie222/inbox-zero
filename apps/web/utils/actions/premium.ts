@@ -56,6 +56,7 @@ export const decrementUnsubscribeCreditAction = actionClientUser
             appleRevokedAt: true,
             appleSubscriptionStatus: true,
             lemonSqueezyRenewsAt: true,
+            stripeCancelAtPeriodEnd: true,
             stripeSubscriptionStatus: true,
           },
         },

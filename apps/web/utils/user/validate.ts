@@ -29,6 +29,7 @@ export async function validateUserAndAiAccess({
               appleSubscriptionStatus: true,
               tier: true,
               lemonSqueezyRenewsAt: true,
+              stripeCancelAtPeriodEnd: true,
               stripeSubscriptionStatus: true,
             },
           },

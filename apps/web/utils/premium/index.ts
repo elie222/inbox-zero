@@ -14,6 +14,18 @@ function isPremiumStripe(stripeSubscriptionStatus: string | null): boolean {
   return activeStatuses.includes(stripeSubscriptionStatus);
 }
 
+function isCanceledStripeTrial({
+  stripeSubscriptionStatus,
+  stripeCancelAtPeriodEnd,
+}: {
+  stripeSubscriptionStatus: string | null;
+  stripeCancelAtPeriodEnd?: boolean | null;
+}) {
+  return (
+    stripeSubscriptionStatus === "trialing" && stripeCancelAtPeriodEnd === true
+  );
+}
+
 function isPremiumLemonSqueezy(
   lemonSqueezyRenewsAt: Date | string | null,
 ): boolean {
@@ -43,11 +55,21 @@ export function hasActiveAppleSubscription(
 export const isPremium = (
   lemonSqueezyRenewsAt: Date | string | null,
   stripeSubscriptionStatus: string | null,
+  stripeCancelAtPeriodEnd?: boolean | null,
   appleExpiresAt?: Date | string | null,
   appleRevokedAt?: Date | string | null,
   appleSubscriptionStatus?: string | null,
 ): boolean => {
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
+
+  if (
+    isCanceledStripeTrial({
+      stripeSubscriptionStatus,
+      stripeCancelAtPeriodEnd,
+    })
+  ) {
+    return false;
+  }
 
   return (
     isPremiumStripe(stripeSubscriptionStatus) ||
@@ -65,6 +87,7 @@ type PremiumStatusRecord = {
   appleRevokedAt?: Date | string | null;
   appleSubscriptionStatus?: string | null;
   lemonSqueezyRenewsAt?: Date | string | null;
+  stripeCancelAtPeriodEnd?: boolean | null;
   stripeSubscriptionStatus?: string | null;
 };
 
@@ -77,6 +100,7 @@ export const isPremiumRecord = (
   return isPremium(
     premium.lemonSqueezyRenewsAt ?? null,
     premium.stripeSubscriptionStatus ?? null,
+    premium.stripeCancelAtPeriodEnd ?? null,
     premium.appleExpiresAt ?? null,
     premium.appleRevokedAt ?? null,
     premium.appleSubscriptionStatus ?? null,
@@ -109,6 +133,7 @@ export const getUserTier = (
     | "appleSubscriptionStatus"
     | "tier"
     | "lemonSqueezyRenewsAt"
+    | "stripeCancelAtPeriodEnd"
     | "stripeSubscriptionStatus"
   > | null,
 ) => {
@@ -218,7 +243,18 @@ export function getPremiumUserFilter() {
             ],
           },
           { lemonSqueezyRenewsAt: { gt: new Date() } },
-          { stripeSubscriptionStatus: { in: ["active", "trialing"] } },
+          { stripeSubscriptionStatus: "active" },
+          {
+            AND: [
+              { stripeSubscriptionStatus: "trialing" },
+              {
+                OR: [
+                  { stripeCancelAtPeriodEnd: false },
+                  { stripeCancelAtPeriodEnd: null },
+                ],
+              },
+            ],
+          },
         ],
       },
     },

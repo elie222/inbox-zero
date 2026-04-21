@@ -3,7 +3,11 @@ import prisma from "@/utils/prisma";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { withError } from "@/utils/middleware";
 import { captureException } from "@/utils/error";
-import { hasAiAccess, getPremiumUserFilter } from "@/utils/premium";
+import {
+  hasAiAccess,
+  getPremiumUserFilter,
+  isPremiumRecord,
+} from "@/utils/premium";
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
 import type { Logger } from "@/utils/logger";
 
@@ -53,7 +57,14 @@ async function watchAllEmails(logger: Logger) {
       user: {
         select: {
           aiApiKey: true,
-          premium: { select: { tier: true } },
+          premium: {
+            select: {
+              tier: true,
+              lemonSqueezyRenewsAt: true,
+              stripeCancelAtPeriodEnd: true,
+              stripeSubscriptionStatus: true,
+            },
+          },
         },
       },
     },
@@ -71,10 +82,12 @@ async function watchAllEmails(logger: Logger) {
         email: emailAccount.email,
       });
 
-      const userHasAiAccess = hasAiAccess(
-        emailAccount.user.premium?.tier || null,
-        !!emailAccount.user.aiApiKey,
-      );
+      const userHasAiAccess =
+        isPremiumRecord(emailAccount.user.premium) &&
+        hasAiAccess(
+          emailAccount.user.premium?.tier || null,
+          !!emailAccount.user.aiApiKey,
+        );
 
       if (!userHasAiAccess) {
         logger.info("User does not have access to AI", {
