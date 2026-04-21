@@ -1,4 +1,5 @@
 import type { KnownBlock, Block } from "@slack/types";
+import { escapeSlackText } from "@/utils/messaging/providers/slack/format";
 
 type DigestItem = {
   from: string;
@@ -42,7 +43,8 @@ export function buildDigestBlocks({
     const overflow = items.length - visible.length;
 
     const lines = visible.map(
-      (item) => `• _${escapeSlack(item.from)}_ — ${escapeSlack(item.subject)}`,
+      (item) =>
+        `• _${escapeSlackText(item.from)}_ — ${escapeSlackText(item.subject)}`,
     );
 
     if (overflow > 0) {
@@ -53,7 +55,7 @@ export function buildDigestBlocks({
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*${escapeSlack(displayName)}* (${items.length})\n${lines.join("\n")}`,
+        text: `*${escapeSlackText(displayName)}* (${items.length})\n${lines.join("\n")}`,
       },
     });
 
@@ -80,11 +82,4 @@ function formatDate(date: Date) {
     month: "short",
     day: "numeric",
   });
-}
-
-function escapeSlack(text: string) {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
 }

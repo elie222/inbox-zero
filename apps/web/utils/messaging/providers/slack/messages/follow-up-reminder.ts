@@ -1,5 +1,6 @@
 import type { KnownBlock, Block } from "@slack/types";
 import { ThreadTrackerType } from "@/generated/prisma/enums";
+import { escapeSlackText } from "@/utils/messaging/providers/slack/format";
 
 export type FollowUpReminderBlocksParams = {
   subject: string;
@@ -36,7 +37,7 @@ export function buildFollowUpReminderBlocks({
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*${escapeSlack(subject)}*\nfrom _${escapeSlack(sender)}_ · ${sentenceVerb}`,
+        text: `*${escapeSlackText(subject)}*\nfrom _${escapeSlackText(sender)}_ · ${sentenceVerb}`,
       },
     },
   ];
@@ -60,11 +61,4 @@ export function buildFollowUpReminderBlocks({
   });
 
   return blocks;
-}
-
-function escapeSlack(text: string) {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
 }
