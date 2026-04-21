@@ -296,7 +296,7 @@ function FollowUpSettingsDialog({
           </Button>
         </div>
 
-        <MutedText className="text-xs">
+        <MutedText>
           Want Slack, Teams, or Telegram pings?{" "}
           <Link
             href={prefixPath(emailAccountId, "/channels")}
