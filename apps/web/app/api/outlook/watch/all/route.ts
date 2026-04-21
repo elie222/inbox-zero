@@ -59,6 +59,9 @@ async function watchAllEmails(logger: Logger) {
           aiApiKey: true,
           premium: {
             select: {
+              appleExpiresAt: true,
+              appleRevokedAt: true,
+              appleSubscriptionStatus: true,
               tier: true,
               lemonSqueezyRenewsAt: true,
               stripeCancelAtPeriodEnd: true,

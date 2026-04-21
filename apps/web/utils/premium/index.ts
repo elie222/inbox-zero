@@ -62,17 +62,12 @@ export const isPremium = (
 ): boolean => {
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
 
-  if (
-    isCanceledStripeTrial({
-      stripeSubscriptionStatus,
-      stripeCancelAtPeriodEnd,
-    })
-  ) {
-    return false;
-  }
-
   return (
-    isPremiumStripe(stripeSubscriptionStatus) ||
+    (isPremiumStripe(stripeSubscriptionStatus) &&
+      !isCanceledStripeTrial({
+        stripeSubscriptionStatus,
+        stripeCancelAtPeriodEnd,
+      })) ||
     isPremiumLemonSqueezy(lemonSqueezyRenewsAt) ||
     hasActiveAppleSubscription(
       appleExpiresAt || null,

@@ -88,6 +88,31 @@ describe("Apple premium helpers", () => {
     ).toBe(true);
   });
 
+  it("preserves premium access when a canceled Stripe trial coexists with Lemon access", () => {
+    expect(
+      isPremiumRecord({
+        lemonSqueezyRenewsAt: new Date(Date.now() + 60_000).toISOString(),
+        stripeCancelAtPeriodEnd: true,
+        stripeSubscriptionStatus: "trialing",
+      }),
+    ).toBe(true);
+  });
+
+  it("preserves premium access when a canceled Stripe trial coexists with Apple access", () => {
+    const expiredDate = new Date(Date.now() - 60_000).toISOString();
+
+    expect(
+      isPremiumRecord({
+        appleExpiresAt: expiredDate,
+        appleRevokedAt: null,
+        appleSubscriptionStatus: "ACTIVE",
+        lemonSqueezyRenewsAt: null,
+        stripeCancelAtPeriodEnd: true,
+        stripeSubscriptionStatus: "trialing",
+      }),
+    ).toBe(true);
+  });
+
   it("clears the user tier for canceled Stripe trials", () => {
     expect(
       getUserTier({

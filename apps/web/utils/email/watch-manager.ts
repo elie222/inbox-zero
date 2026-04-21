@@ -64,6 +64,9 @@ async function getEmailAccountsToWatch(userIds: string[] | null) {
           aiApiKey: true,
           premium: {
             select: {
+              appleExpiresAt: true,
+              appleRevokedAt: true,
+              appleSubscriptionStatus: true,
               tier: true,
               lemonSqueezyRenewsAt: true,
               stripeCancelAtPeriodEnd: true,
