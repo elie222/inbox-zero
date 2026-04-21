@@ -297,7 +297,7 @@ function FollowUpSettingsDialog({
         </div>
 
         <MutedText>
-          Want Slack, Teams, or Telegram pings?{" "}
+          Want pings in your chat app?{" "}
           <Link
             href={prefixPath(emailAccountId, "/channels")}
             className="text-foreground underline"
