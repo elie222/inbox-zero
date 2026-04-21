@@ -2,8 +2,6 @@
 
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { Response } from "@/components/ai-elements/response";
-import { stripInlineEmailSections } from "@/components/assistant-chat/inline-email-sections";
 import { AssistantInlineEmailResponse } from "@/components/assistant-chat/assistant-inline-email-response";
 import {
   Reasoning,
@@ -37,7 +35,6 @@ import { pluralize } from "@/utils/string";
 
 interface MessagePartProps {
   disableConfirm: boolean;
-  hideInlineEmailCards: boolean;
   isPersistedMessage: boolean;
   isStreaming: boolean;
   messageId: string;
@@ -64,7 +61,6 @@ export function MessagePart({
   part,
   isStreaming,
   disableConfirm,
-  hideInlineEmailCards,
   isPersistedMessage,
   messageId,
   partIndex,
@@ -86,10 +82,6 @@ export function MessagePart({
   if (part.type === "text") {
     const text = part.text;
     if (!text) return null;
-    if (hideInlineEmailCards) {
-      return <Response key={key}>{stripInlineEmailSections(text)}</Response>;
-    }
-
     return (
       <AssistantInlineEmailResponse key={key}>
         {text}
