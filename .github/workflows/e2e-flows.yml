@@ -154,8 +154,6 @@ jobs:
             -e QSTASH_NEXT_SIGNING_KEY="${{ secrets.QSTASH_NEXT_SIGNING_KEY }}" \
             -e TINYBIRD_TOKEN="${{ secrets.TINYBIRD_TOKEN }}" \
             -e TINYBIRD_BASE_URL="${{ secrets.TINYBIRD_BASE_URL }}" \
-            -e TINYBIRD_ENCRYPT_SECRET="${{ secrets.TINYBIRD_ENCRYPT_SECRET }}" \
-            -e TINYBIRD_ENCRYPT_SALT="${{ secrets.TINYBIRD_ENCRYPT_SALT }}" \
             -e NEXT_PUBLIC_BASE_URL="http://localhost:3000" \
             -e NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS="${{ secrets.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS }}" \
             -e NEXT_PUBLIC_IS_RESEND_CONFIGURED="${{ secrets.NEXT_PUBLIC_IS_RESEND_CONFIGURED }}" \
@@ -258,8 +256,6 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           TINYBIRD_TOKEN: ${{ secrets.TINYBIRD_TOKEN }}
           TINYBIRD_BASE_URL: ${{ secrets.TINYBIRD_BASE_URL }}
-          TINYBIRD_ENCRYPT_SECRET: ${{ secrets.TINYBIRD_ENCRYPT_SECRET }}
-          TINYBIRD_ENCRYPT_SALT: ${{ secrets.TINYBIRD_ENCRYPT_SALT }}
 
       - name: Collect Docker logs
         if: always()
