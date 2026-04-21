@@ -9,7 +9,6 @@ vi.mock("@/env", () => ({
     NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID: 5,
     NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID: 6,
     NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID: 7,
-    // This current price also exists in oldPriceIds, which is the case under test.
     NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID:
       "price_1S5u73KGf8mwZWHn8VYFdALA",
     NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID:
