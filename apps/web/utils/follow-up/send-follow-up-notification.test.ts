@@ -30,7 +30,7 @@ const logger = createScopedLogger("send-follow-up-test");
 
 const baseArgs = {
   subject: "Project update",
-  sender: "Alex",
+  counterparty: "Alex",
   trackerType: ThreadTrackerType.AWAITING,
   daysSinceSent: 3,
   threadLink: "https://mail.example/thread",
@@ -75,70 +75,47 @@ describe("sendFollowUpNotification", () => {
     (resolveSlackRouteDestination as any).mockResolvedValue("C1");
   });
 
-  it("returns anySucceeded=false when no channels are provided", async () => {
-    const result = await sendFollowUpNotification({
-      channels: [],
-      ...baseArgs,
-    });
-    expect(result.anySucceeded).toBe(false);
+  it("no-ops when no channels are provided", async () => {
+    await sendFollowUpNotification({ channels: [], ...baseArgs });
     expect(sendFollowUpReminderToSlack).not.toHaveBeenCalled();
     expect(sendAutomationMessage).not.toHaveBeenCalled();
   });
 
   it("delivers to Slack channels", async () => {
-    const result = await sendFollowUpNotification({
-      channels: [slackChannel],
-      ...baseArgs,
-    });
-    expect(result.anySucceeded).toBe(true);
+    await sendFollowUpNotification({ channels: [slackChannel], ...baseArgs });
     expect(sendFollowUpReminderToSlack).toHaveBeenCalledTimes(1);
   });
 
   it("delivers to Teams/Telegram via automation adapter", async () => {
-    const result = await sendFollowUpNotification({
-      channels: [teamsChannel],
-      ...baseArgs,
-    });
-    expect(result.anySucceeded).toBe(true);
+    await sendFollowUpNotification({ channels: [teamsChannel], ...baseArgs });
     expect(sendAutomationMessage).toHaveBeenCalledTimes(1);
   });
 
   it("fans out across multiple channels in parallel", async () => {
-    const result = await sendFollowUpNotification({
+    await sendFollowUpNotification({
       channels: [slackChannel, teamsChannel],
       ...baseArgs,
     });
-    expect(result.anySucceeded).toBe(true);
     expect(sendFollowUpReminderToSlack).toHaveBeenCalledTimes(1);
     expect(sendAutomationMessage).toHaveBeenCalledTimes(1);
   });
 
-  it("returns anySucceeded=true if any channel succeeds", async () => {
-    (sendFollowUpReminderToSlack as any).mockRejectedValue(new Error("boom"));
-    (sendAutomationMessage as any).mockResolvedValue({});
-    const result = await sendFollowUpNotification({
-      channels: [slackChannel, teamsChannel],
-      ...baseArgs,
-    });
-    expect(result.anySucceeded).toBe(true);
-  });
-
-  it("returns anySucceeded=false when every channel fails", async () => {
+  it("swallows per-channel failures so the caller continues", async () => {
     (sendFollowUpReminderToSlack as any).mockRejectedValue(new Error("boom"));
     (sendAutomationMessage as any).mockRejectedValue(new Error("boom"));
-    const result = await sendFollowUpNotification({
-      channels: [slackChannel, teamsChannel],
-      ...baseArgs,
-    });
-    expect(result.anySucceeded).toBe(false);
+    await expect(
+      sendFollowUpNotification({
+        channels: [slackChannel, teamsChannel],
+        ...baseArgs,
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it("skips Slack channel when access token is missing", async () => {
-    const result = await sendFollowUpNotification({
+    await sendFollowUpNotification({
       channels: [{ ...slackChannel, accessToken: null }],
       ...baseArgs,
     });
-    expect(result.anySucceeded).toBe(false);
     expect(sendFollowUpReminderToSlack).not.toHaveBeenCalled();
   });
 });

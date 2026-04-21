@@ -14,7 +14,6 @@ import {
   sendFollowUpNotification,
   type FollowUpNotificationChannel,
 } from "@/utils/follow-up/send-follow-up-notification";
-import { isMessagingChannelOperational } from "@/utils/messaging/channel-validity";
 import { ThreadTrackerType, SystemType } from "@/generated/prisma/enums";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
@@ -193,19 +192,11 @@ export async function processAccountFollowUps({
     logger,
   });
 
-  const [dbLabels, providerLabels, rawNotificationChannels] = await Promise.all(
-    [
-      getLabelsFromDb(emailAccountId),
-      provider.getLabels({ includeHidden: true }),
-      getFollowUpNotificationChannels(emailAccountId),
-    ],
-  );
-  // Only operational channels count toward the stricter ledger condition —
-  // otherwise broken connections would cause every cron run to reprocess the
-  // same threads because followUpNotifiedAt can never be set.
-  const notificationChannels = rawNotificationChannels.filter((channel) =>
-    isMessagingChannelOperational(channel),
-  );
+  const [dbLabels, providerLabels, notificationChannels] = await Promise.all([
+    getLabelsFromDb(emailAccountId),
+    provider.getLabels({ includeHidden: true }),
+    getFollowUpNotificationChannels(emailAccountId),
+  ]);
   const followUpLabel = await getOrCreateFollowUpLabel(
     provider,
     providerLabels,
@@ -309,7 +300,6 @@ async function processFollowUpsForType({
   now: Date;
   logger: Logger;
 }) {
-  const hasChannels = notificationChannels.length > 0;
   if (thresholdDays === null) return;
 
   const dbLabelInfo = dbLabels[systemType as keyof LabelIds];
@@ -354,7 +344,6 @@ async function processFollowUpsForType({
   const processedLedger = await getProcessedFollowUpLedger({
     emailAccountId: emailAccount.id,
     threadIds,
-    hasChannels,
   });
 
   let processedCount = 0;
@@ -422,7 +411,6 @@ async function processFollowUpsForType({
               messageId: lastMessage.id,
               sentAt: messageDate,
               followUpAppliedAt: now,
-              followUpNotifiedAt: null,
             },
           });
         } catch (error) {
@@ -440,7 +428,6 @@ async function processFollowUpsForType({
                 type: trackerType,
                 sentAt: messageDate,
                 followUpAppliedAt: now,
-                followUpNotifiedAt: null,
               },
             });
           } else {
@@ -474,7 +461,6 @@ async function processFollowUpsForType({
                 type: trackerType,
                 sentAt: messageDate,
                 followUpAppliedAt: now,
-                followUpNotifiedAt: null,
               },
             });
           } else {
@@ -510,13 +496,15 @@ async function processFollowUpsForType({
         }
       }
 
-      let notificationSent = false;
-      if (hasChannels) {
+      if (notificationChannels.length > 0) {
+        // Fire-and-forget: we try once per (threadId, messageId) and rely on
+        // the ledger to skip next run. Retrying would burn provider rate
+        // limits (Gmail re-labeling, Slack API) if a channel is misconfigured.
         try {
-          const { anySucceeded } = await sendFollowUpNotification({
+          await sendFollowUpNotification({
             channels: notificationChannels,
             subject: lastMessage.subject || "(no subject)",
-            sender: resolveFollowUpSender({
+            counterparty: resolveFollowUpCounterparty({
               trackerType,
               fromHeader: lastMessage.headers.from,
               toHeader: lastMessage.headers.to,
@@ -532,13 +520,6 @@ async function processFollowUpsForType({
               }) ?? undefined,
             logger: threadLogger,
           });
-          if (anySucceeded) {
-            await prisma.threadTracker.update({
-              where: { id: tracker.id },
-              data: { followUpNotifiedAt: now },
-            });
-            notificationSent = true;
-          }
         } catch (notifyError) {
           threadLogger.error(
             "Follow-up notification failed, label still applied",
@@ -548,10 +529,7 @@ async function processFollowUpsForType({
         }
       }
 
-      threadLogger.info("Processed follow-up", {
-        draftCreated,
-        notificationSent,
-      });
+      threadLogger.info("Processed follow-up", { draftCreated });
       processedCount++;
     } catch (error) {
       errorCount++;
@@ -597,31 +575,20 @@ function getThresholdWithWindow(threshold: Date, windowMinutes: number): Date {
 async function getProcessedFollowUpLedger({
   emailAccountId,
   threadIds,
-  hasChannels,
 }: {
   emailAccountId: string;
   threadIds: string[];
-  hasChannels: boolean;
 }): Promise<Map<string, Set<string>>> {
   if (threadIds.length === 0) return new Map();
-
-  // When channels are configured, we also require notification to be sent
-  // before considering a thread fully processed — so a failed notification
-  // can retry on the next run. Draft creation alone is always terminal.
-  const labelProcessedCondition = hasChannels
-    ? {
-        AND: [
-          { followUpAppliedAt: { not: null } },
-          { followUpNotifiedAt: { not: null } },
-        ],
-      }
-    : { followUpAppliedAt: { not: null } };
 
   const existingTrackers = await prisma.threadTracker.findMany({
     where: {
       emailAccountId,
       threadId: { in: threadIds },
-      OR: [labelProcessedCondition, { followUpDraftId: { not: null } }],
+      OR: [
+        { followUpAppliedAt: { not: null } },
+        { followUpDraftId: { not: null } },
+      ],
     },
     select: { threadId: true, messageId: true },
   });
@@ -717,7 +684,7 @@ function isMessageFromUser(
   return isSameEmailAddress(message.headers.from, userEmail);
 }
 
-function resolveFollowUpSender({
+function resolveFollowUpCounterparty({
   trackerType,
   fromHeader,
   toHeader,
@@ -726,6 +693,8 @@ function resolveFollowUpSender({
   fromHeader: string;
   toHeader: string;
 }) {
+  // AWAITING: user emailed someone — return the recipient.
+  // NEEDS_REPLY: someone emailed the user — return the sender.
   const header =
     trackerType === ThreadTrackerType.AWAITING ? toHeader : fromHeader;
   return extractNameFromEmail(header || "") || header || "someone";

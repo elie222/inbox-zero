@@ -167,7 +167,7 @@ export async function sendFollowUpReminderToSlack({
   accessToken,
   channelId,
   subject,
-  sender,
+  counterparty,
   trackerType,
   daysSinceSent,
   threadLink,
@@ -175,7 +175,7 @@ export async function sendFollowUpReminderToSlack({
   const client = createSlackClient(accessToken);
   const blocks = buildFollowUpReminderBlocks({
     subject,
-    sender,
+    counterparty,
     trackerType,
     daysSinceSent,
     threadLink,

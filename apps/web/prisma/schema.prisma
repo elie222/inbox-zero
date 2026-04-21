@@ -840,9 +840,8 @@ model ThreadTracker {
   resolved  Boolean           @default(false)
   type      ThreadTrackerType
 
-  followUpAppliedAt  DateTime?
-  followUpNotifiedAt DateTime?
-  followUpDraftId    String?
+  followUpAppliedAt DateTime?
+  followUpDraftId   String?
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)

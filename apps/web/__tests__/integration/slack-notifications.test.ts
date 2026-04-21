@@ -279,7 +279,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         accessToken: "emulator-token",
         channelId: notifChannelId,
         subject: "Contract terms",
-        sender: "jane@partner.com",
+        counterparty: "jane@partner.com",
         trackerType: ThreadTrackerType.AWAITING,
         daysSinceSent: 4,
         threadLink: "https://mail.example.com/thread/awaiting",
@@ -289,7 +289,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         accessToken: "emulator-token",
         channelId: notifChannelId,
         subject: "Onboarding questions",
-        sender: "alex@customer.com",
+        counterparty: "alex@customer.com",
         trackerType: ThreadTrackerType.NEEDS_REPLY,
         daysSinceSent: 1,
         threadLink: "https://mail.example.com/thread/needs-reply",
@@ -317,6 +317,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       const awaitingBlocks = JSON.stringify(awaitingCall![0].blocks);
       expect(awaitingBlocks).toContain("Follow-up nudge");
       expect(awaitingBlocks).toContain("sent 4 days ago");
+      // AWAITING: the user emailed jane — preposition must be "to", not "from"
+      expect(awaitingBlocks).toContain("to _jane@partner.com_");
+      expect(awaitingBlocks).not.toContain("from _jane@partner.com_");
       expect(awaitingBlocks).toContain(
         "https://mail.example.com/thread/awaiting",
       );
@@ -324,6 +327,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       const needsReplyBlocks = JSON.stringify(needsReplyCall![0].blocks);
       expect(needsReplyBlocks).toContain("Reply needed");
       expect(needsReplyBlocks).toContain("received 1 day ago");
+      expect(needsReplyBlocks).toContain("from _alex@customer.com_");
     });
 
     test("addReaction/removeReaction manages processing indicator", async () => {

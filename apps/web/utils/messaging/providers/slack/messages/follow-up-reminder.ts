@@ -4,7 +4,7 @@ import { escapeSlackText } from "@/utils/messaging/providers/slack/format";
 
 export type FollowUpReminderBlocksParams = {
   subject: string;
-  sender: string;
+  counterparty: string;
   trackerType: ThreadTrackerType;
   daysSinceSent: number;
   threadLink?: string;
@@ -12,21 +12,21 @@ export type FollowUpReminderBlocksParams = {
 
 export function buildFollowUpReminderBlocks({
   subject,
-  sender,
+  counterparty,
   trackerType,
   daysSinceSent,
   threadLink,
 }: FollowUpReminderBlocksParams): (KnownBlock | Block)[] {
-  const headerText =
-    trackerType === ThreadTrackerType.AWAITING
-      ? "Follow-up nudge"
-      : "Reply needed";
+  const isAwaiting = trackerType === ThreadTrackerType.AWAITING;
+  const headerText = isAwaiting ? "Follow-up nudge" : "Reply needed";
 
   const dayLabel = daysSinceSent === 1 ? "day" : "days";
-  const sentenceVerb =
-    trackerType === ThreadTrackerType.AWAITING
-      ? `sent ${daysSinceSent} ${dayLabel} ago`
-      : `received ${daysSinceSent} ${dayLabel} ago`;
+  const sentenceVerb = isAwaiting
+    ? `sent ${daysSinceSent} ${dayLabel} ago`
+    : `received ${daysSinceSent} ${dayLabel} ago`;
+  // AWAITING: the user emailed `counterparty` — they are the recipient.
+  // NEEDS_REPLY: `counterparty` emailed the user — they are the sender.
+  const preposition = isAwaiting ? "to" : "from";
 
   const blocks: (KnownBlock | Block)[] = [
     {
@@ -37,7 +37,7 @@ export function buildFollowUpReminderBlocks({
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*${escapeSlackText(subject)}*\nfrom _${escapeSlackText(sender)}_ · ${sentenceVerb}`,
+        text: `*${escapeSlackText(subject)}*\n${preposition} _${escapeSlackText(counterparty)}_ · ${sentenceVerb}`,
       },
     },
   ];

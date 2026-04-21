@@ -57,7 +57,7 @@ export async function getFollowUpNotificationChannels(
 export async function sendFollowUpNotification({
   channels,
   subject,
-  sender,
+  counterparty,
   trackerType,
   daysSinceSent,
   threadLink,
@@ -65,12 +65,12 @@ export async function sendFollowUpNotification({
 }: {
   channels: FollowUpNotificationChannel[];
   subject: string;
-  sender: string;
+  counterparty: string;
   trackerType: ThreadTrackerType;
   daysSinceSent: number;
   threadLink?: string;
   logger: Logger;
-}): Promise<{ anySucceeded: boolean }> {
+}): Promise<void> {
   const deliveryPromises: Promise<void>[] = [];
 
   for (const channel of channels) {
@@ -98,7 +98,7 @@ export async function sendFollowUpNotification({
             accessToken: channel.accessToken,
             route,
             subject,
-            sender,
+            counterparty,
             trackerType,
             daysSinceSent,
             threadLink,
@@ -113,7 +113,7 @@ export async function sendFollowUpNotification({
             channel,
             route,
             subject,
-            sender,
+            counterparty,
             trackerType,
             daysSinceSent,
             threadLink,
@@ -124,30 +124,23 @@ export async function sendFollowUpNotification({
     }
   }
 
-  if (deliveryPromises.length === 0) {
-    return { anySucceeded: false };
-  }
+  if (deliveryPromises.length === 0) return;
 
   const results = await Promise.allSettled(deliveryPromises);
-  let anySucceeded = false;
   for (const result of results) {
-    if (result.status === "fulfilled") {
-      anySucceeded = true;
-    } else {
+    if (result.status === "rejected") {
       logger.error("Follow-up delivery channel failed", {
         reason: result.reason,
       });
     }
   }
-
-  return { anySucceeded };
 }
 
 async function sendFollowUpViaSlack({
   accessToken,
   route,
   subject,
-  sender,
+  counterparty,
   trackerType,
   daysSinceSent,
   threadLink,
@@ -156,7 +149,7 @@ async function sendFollowUpViaSlack({
   accessToken: string;
   route: { targetId: string; targetType: MessagingRouteTargetType };
   subject: string;
-  sender: string;
+  counterparty: string;
   trackerType: ThreadTrackerType;
   daysSinceSent: number;
   threadLink?: string;
@@ -168,17 +161,15 @@ async function sendFollowUpViaSlack({
   });
 
   if (!destination) {
-    // Throw so the outer Promise.allSettled records this as a failure;
-    // otherwise anySucceeded would flip true and followUpNotifiedAt would
-    // be set, permanently suppressing retries for this thread+message.
-    throw new Error("No Slack destination resolved for follow-up notification");
+    logger.warn("No Slack destination resolved for follow-up notification");
+    return;
   }
 
   await sendFollowUpReminderToSlack({
     accessToken,
     channelId: destination,
     subject,
-    sender,
+    counterparty,
     trackerType,
     daysSinceSent,
     threadLink,
@@ -189,7 +180,7 @@ async function sendFollowUpViaMessagingApp({
   channel,
   route,
   subject,
-  sender,
+  counterparty,
   trackerType,
   daysSinceSent,
   threadLink,
@@ -203,7 +194,7 @@ async function sendFollowUpViaMessagingApp({
   };
   route: { targetId: string; targetType: MessagingRouteTargetType };
   subject: string;
-  sender: string;
+  counterparty: string;
   trackerType: ThreadTrackerType;
   daysSinceSent: number;
   threadLink?: string;
@@ -214,7 +205,7 @@ async function sendFollowUpViaMessagingApp({
     route,
     text: formatFollowUpText({
       subject,
-      sender,
+      counterparty,
       trackerType,
       daysSinceSent,
       threadLink,
@@ -225,33 +216,30 @@ async function sendFollowUpViaMessagingApp({
 
 function formatFollowUpText({
   subject,
-  sender,
+  counterparty,
   trackerType,
   daysSinceSent,
   threadLink,
 }: {
   subject: string;
-  sender: string;
+  counterparty: string;
   trackerType: ThreadTrackerType;
   daysSinceSent: number;
   threadLink?: string;
 }): string {
-  const header =
-    trackerType === ThreadTrackerType.AWAITING
-      ? "Follow-up nudge"
-      : "Reply needed";
+  const isAwaiting = trackerType === ThreadTrackerType.AWAITING;
+  const header = isAwaiting ? "Follow-up nudge" : "Reply needed";
   const dayLabel = daysSinceSent === 1 ? "day" : "days";
-  const verb = trackerType === ThreadTrackerType.AWAITING ? "sent" : "received";
+  const verb = isAwaiting ? "sent" : "received";
+  const preposition = isAwaiting ? "to" : "from";
 
   const lines = [
     header,
-    `${subject}`,
-    `from ${sender} · ${verb} ${daysSinceSent} ${dayLabel} ago`,
+    subject,
+    `${preposition} ${counterparty} · ${verb} ${daysSinceSent} ${dayLabel} ago`,
   ];
 
-  if (threadLink) {
-    lines.push(`Open: ${threadLink}`);
-  }
+  if (threadLink) lines.push(`Open: ${threadLink}`);
 
   return lines.join("\n");
 }
