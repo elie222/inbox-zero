@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
@@ -7,11 +8,16 @@ import { z } from "zod";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { TimePicker } from "@/components/TimePicker";
+import { Toggle } from "@/components/Toggle";
+import { MutedText } from "@/components/Typography";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useRules } from "@/hooks/useRules";
+import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
+import { prefixPath } from "@/utils/path";
+import { updateDigestEmailDeliveryAction } from "@/utils/actions/messaging-channels";
 import {
   updateDigestItemsAction,
   updateDigestScheduleAction,
@@ -336,9 +342,58 @@ export function DigestSettingsForm({ onSuccess }: { onSuccess?: () => void }) {
             </Button>
           </form>
         </LoadingContent>
+
+        <DigestDeliveryChannels emailAccountId={emailAccountId} />
       </div>
 
       <EmailPreview selectedDigestItems={selectedDigestItems} />
+    </div>
+  );
+}
+
+function DigestDeliveryChannels({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const { data: account, isLoading, mutate } = useEmailAccountFull();
+
+  const { execute } = useAction(
+    updateDigestEmailDeliveryAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Settings saved" });
+        mutate();
+      },
+      onError: (error) => {
+        toastError({
+          description: getActionErrorMessage(error.error) ?? "Failed to update",
+        });
+      },
+    },
+  );
+
+  return (
+    <div className="space-y-2 pt-2">
+      <div className="flex items-center justify-between gap-3">
+        <Label>Send digest to email</Label>
+        <Toggle
+          name="digestSendEmail"
+          enabled={account?.digestSendEmail ?? true}
+          disabled={isLoading}
+          onChange={(sendEmail) => execute({ sendEmail })}
+        />
+      </div>
+      <MutedText>
+        Want digests in your chat app?{" "}
+        <Link
+          href={prefixPath(emailAccountId, "/channels")}
+          className="text-foreground underline"
+        >
+          Configure on the Channels page
+        </Link>
+        .
+      </MutedText>
     </div>
   );
 }

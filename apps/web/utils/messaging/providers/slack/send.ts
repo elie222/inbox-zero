@@ -12,6 +12,11 @@ import {
   type DocumentFiledBlocksParams,
   type DocumentAskBlocksParams,
 } from "./messages/document-filing";
+import { buildDigestBlocks, type DigestBlocksParams } from "./messages/digest";
+import {
+  buildFollowUpReminderBlocks,
+  type FollowUpReminderBlocksParams,
+} from "./messages/follow-up-reminder";
 
 export type SlackBriefingParams = MeetingBriefingBlocksParams & {
   accessToken: string;
@@ -123,6 +128,62 @@ export async function sendDocumentAskToSlack({
   await postMessageWithJoin(client, channelId, {
     blocks,
     text: `Where should I file ${filename}?`,
+  });
+}
+
+export type SlackDigestParams = DigestBlocksParams & {
+  accessToken: string;
+  channelId: string;
+};
+
+export async function sendDigestToSlack({
+  accessToken,
+  channelId,
+  date,
+  ruleNames,
+  itemsByRule,
+  unsubscribeUrl,
+}: SlackDigestParams): Promise<void> {
+  const client = createSlackClient(accessToken);
+  const blocks = buildDigestBlocks({
+    date,
+    ruleNames,
+    itemsByRule,
+    unsubscribeUrl,
+  });
+
+  await postMessageWithJoin(client, channelId, {
+    blocks,
+    text: "Your Inbox Zero digest",
+  });
+}
+
+export type SlackFollowUpReminderParams = FollowUpReminderBlocksParams & {
+  accessToken: string;
+  channelId: string;
+};
+
+export async function sendFollowUpReminderToSlack({
+  accessToken,
+  channelId,
+  subject,
+  counterparty,
+  trackerType,
+  daysSinceSent,
+  threadLink,
+}: SlackFollowUpReminderParams): Promise<void> {
+  const client = createSlackClient(accessToken);
+  const blocks = buildFollowUpReminderBlocks({
+    subject,
+    counterparty,
+    trackerType,
+    daysSinceSent,
+    threadLink,
+  });
+
+  await postMessageWithJoin(client, channelId, {
+    blocks,
+    text: `Follow-up: ${subject}`,
   });
 }
 

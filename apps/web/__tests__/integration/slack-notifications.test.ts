@@ -220,6 +220,116 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(msg).toBeDefined();
     });
 
+    test("sendDigestToSlack delivers rule-grouped digest with items", async () => {
+      const { sendDigestToSlack } = await import(
+        "@/utils/messaging/providers/slack/send"
+      );
+      const postMessageSpy = vi.spyOn(emulatorClient.chat, "postMessage");
+
+      await sendDigestToSlack({
+        accessToken: "emulator-token",
+        channelId: notifChannelId,
+        date: new Date("2026-04-21T09:00:00Z"),
+        ruleNames: {
+          newsletters: "Newsletters",
+          receipts: "Receipts",
+        },
+        itemsByRule: {
+          newsletters: [
+            { from: "Acme Weekly", subject: "This week in tech", content: "" },
+            {
+              from: "Morning Brew",
+              subject: "Morning Brew · Apr 21",
+              content: "",
+            },
+          ],
+          receipts: [
+            { from: "Stripe", subject: "Your receipt from Acme", content: "" },
+          ],
+        },
+        unsubscribeUrl: "https://example.com/api/unsubscribe?token=abc",
+      });
+
+      const history = await emulatorClient.conversations.history({
+        channel: notifChannelId,
+      });
+      expect(
+        history.messages!.some((m) =>
+          m.text?.includes("Your Inbox Zero digest"),
+        ),
+      ).toBe(true);
+
+      const posted = postMessageSpy.mock.calls.at(-1)?.[0];
+      const blocks = JSON.stringify(posted?.blocks ?? []);
+      expect(blocks).toContain("Newsletters");
+      expect(blocks).toContain("Receipts");
+      expect(blocks).toContain("Morning Brew");
+      expect(blocks).toContain("Your receipt from Acme");
+      expect(blocks).toContain("https://example.com/api/unsubscribe?token=abc");
+    });
+
+    test("sendFollowUpReminderToSlack surfaces AWAITING vs NEEDS_REPLY header", async () => {
+      const { sendFollowUpReminderToSlack } = await import(
+        "@/utils/messaging/providers/slack/send"
+      );
+      const { ThreadTrackerType } = await import("@/generated/prisma/enums");
+      const postMessageSpy = vi.spyOn(emulatorClient.chat, "postMessage");
+
+      await sendFollowUpReminderToSlack({
+        accessToken: "emulator-token",
+        channelId: notifChannelId,
+        subject: "Contract terms",
+        counterparty: "jane@partner.com",
+        trackerType: ThreadTrackerType.AWAITING,
+        daysSinceSent: 4,
+        threadLink: "https://mail.example.com/thread/awaiting",
+      });
+
+      await sendFollowUpReminderToSlack({
+        accessToken: "emulator-token",
+        channelId: notifChannelId,
+        subject: "Onboarding questions",
+        counterparty: "alex@customer.com",
+        trackerType: ThreadTrackerType.NEEDS_REPLY,
+        daysSinceSent: 1,
+        threadLink: "https://mail.example.com/thread/needs-reply",
+      });
+
+      const history = await emulatorClient.conversations.history({
+        channel: notifChannelId,
+      });
+      expect(
+        history.messages!.some((m) => m.text?.includes("Contract terms")),
+      ).toBe(true);
+      expect(
+        history.messages!.some((m) => m.text?.includes("Onboarding questions")),
+      ).toBe(true);
+
+      const awaitingCall = postMessageSpy.mock.calls.find((c) =>
+        c[0].text?.includes("Contract terms"),
+      );
+      const needsReplyCall = postMessageSpy.mock.calls.find((c) =>
+        c[0].text?.includes("Onboarding questions"),
+      );
+      expect(awaitingCall).toBeDefined();
+      expect(needsReplyCall).toBeDefined();
+
+      const awaitingBlocks = JSON.stringify(awaitingCall![0].blocks);
+      expect(awaitingBlocks).toContain("Follow-up nudge");
+      expect(awaitingBlocks).toContain("sent 4 days ago");
+      // AWAITING: the user emailed jane — preposition must be "to", not "from"
+      expect(awaitingBlocks).toContain("to _jane@partner.com_");
+      expect(awaitingBlocks).not.toContain("from _jane@partner.com_");
+      expect(awaitingBlocks).toContain(
+        "https://mail.example.com/thread/awaiting",
+      );
+
+      const needsReplyBlocks = JSON.stringify(needsReplyCall![0].blocks);
+      expect(needsReplyBlocks).toContain("Reply needed");
+      expect(needsReplyBlocks).toContain("received 1 day ago");
+      expect(needsReplyBlocks).toContain("from _alex@customer.com_");
+    });
+
     test("addReaction/removeReaction manages processing indicator", async () => {
       const { addReaction, removeReaction } = await import(
         "@/utils/messaging/providers/slack/reactions"

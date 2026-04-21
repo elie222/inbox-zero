@@ -26,6 +26,9 @@ vi.mock("@/utils/prisma", () => ({
       create: vi.fn().mockResolvedValue({ id: "tracker-1" }),
       update: vi.fn().mockResolvedValue({ id: "tracker-1" }),
     },
+    messagingChannel: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -136,9 +139,8 @@ function createMockProvider(
 
   if (!provider.getLatestMessageFromThreadSnapshot) {
     provider.getLatestMessageFromThreadSnapshot = vi.fn(
-      async (thread: { id: string }) => {
-        return provider.getLatestMessageInThread(thread.id);
-      },
+      async (thread: { id: string }) =>
+        provider.getLatestMessageInThread(thread.id),
     );
   }
 

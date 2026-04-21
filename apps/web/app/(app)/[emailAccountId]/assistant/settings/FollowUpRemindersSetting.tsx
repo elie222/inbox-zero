@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { SettingCard } from "@/components/SettingCard";
+import { MutedText } from "@/components/Typography";
+import { prefixPath } from "@/utils/path";
 import {
   Dialog,
   DialogContent,
@@ -292,6 +295,17 @@ function FollowUpSettingsDialog({
             Find follow-ups
           </Button>
         </div>
+
+        <MutedText>
+          Want pings in your chat app?{" "}
+          <Link
+            href={prefixPath(emailAccountId, "/channels")}
+            className="text-foreground underline"
+          >
+            Configure on the Channels page
+          </Link>
+          .
+        </MutedText>
       </form>
     </DialogContent>
   );

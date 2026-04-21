@@ -164,7 +164,8 @@ model EmailAccount {
   followUpNeedsReplyDays    Float?
   followUpAutoDraftEnabled  Boolean @default(true)
 
-  digestSchedule Schedule?
+  digestSendEmail Boolean @default(true)
+  digestSchedule  Schedule?
   learnedWritingStyle String?
 
   userId    String
@@ -1672,8 +1673,8 @@ enum MessagingRoutePurpose {
   RULE_NOTIFICATIONS
   MEETING_BRIEFS
   DOCUMENT_FILINGS
-  // DIGESTS
-  // FOLLOW_UPS
+  DIGESTS
+  FOLLOW_UPS
 }
 
 enum MessagingRouteTargetType {

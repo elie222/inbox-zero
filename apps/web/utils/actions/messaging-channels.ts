@@ -4,7 +4,8 @@ import { actionClient } from "@/utils/actions/safe-action";
 import {
   updateSlackRouteBody,
   updateMessagingFeatureRouteBody,
-  updateEmailDeliveryBody,
+  updateMeetingBriefsEmailDeliveryBody,
+  updateDigestEmailDeliveryBody,
   disconnectChannelBody,
   linkSlackWorkspaceBody,
   createMessagingLinkCodeBody,
@@ -173,13 +174,23 @@ export const updateMessagingFeatureRouteAction = actionClient
     },
   );
 
-export const updateEmailDeliveryAction = actionClient
-  .metadata({ name: "updateEmailDelivery" })
-  .inputSchema(updateEmailDeliveryBody)
+export const updateMeetingBriefsEmailDeliveryAction = actionClient
+  .metadata({ name: "updateMeetingBriefsEmailDelivery" })
+  .inputSchema(updateMeetingBriefsEmailDeliveryBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { sendEmail } }) => {
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
       data: { meetingBriefsSendEmail: sendEmail },
+    });
+  });
+
+export const updateDigestEmailDeliveryAction = actionClient
+  .metadata({ name: "updateDigestEmailDelivery" })
+  .inputSchema(updateDigestEmailDeliveryBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { sendEmail } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { digestSendEmail: sendEmail },
     });
   });
 
@@ -453,7 +464,7 @@ export const toggleRuleChannelAction = actionClient
   );
 
 async function getTelegramBotUrl() {
-  if (!env.TELEGRAM_BOT_TOKEN) return undefined;
+  if (!env.TELEGRAM_BOT_TOKEN) return;
 
   try {
     const result = await callTelegramBotApi<{ username?: string }>({
@@ -463,11 +474,11 @@ async function getTelegramBotUrl() {
     });
 
     const username = result.username?.trim().replace(/^@+/, "");
-    if (!username) return undefined;
+    if (!username) return;
 
     return `https://t.me/${username}`;
   } catch {
-    return undefined;
+    return;
   }
 }
 
