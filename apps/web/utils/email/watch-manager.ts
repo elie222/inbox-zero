@@ -130,6 +130,7 @@ async function watchEmailAccount(
   logger: Logger,
 ): Promise<WatchEmailAccountResult | null> {
   const { account, user, watchEmailsExpirationDate } = emailAccount;
+
   const userHasAiAccess = hasAiAccess(
     user.premium?.tier || null,
     !!user.aiApiKey,
