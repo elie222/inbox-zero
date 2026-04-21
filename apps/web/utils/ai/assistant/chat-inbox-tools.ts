@@ -19,8 +19,11 @@ import { runWithBoundedConcurrency } from "@/utils/async";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import {
   buildOutlookSearchFallbackQuery,
+  getOutlookComparisonFilters,
   getStandaloneOutlookStateTerms,
+  sanitizeKqlTextQuery,
   stripStandaloneOutlookStateTerms,
+  stripOutlookComparisonFilters,
 } from "@/utils/outlook/message";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { sleep } from "@/utils/sleep";
@@ -1663,10 +1666,7 @@ function getMicrosoftSearchRetryGuidance({
   }
 
   const stateTerms = getStandaloneOutlookStateTerms(query);
-  const comparisonTerms = Array.from(
-    query.matchAll(/\b\w+\s*(?:>=|<=|>|<)\s*\S+/gi),
-    (match) => match[0].trim(),
-  );
+  const comparisonTerms = getOutlookComparisonFilters(query);
   const senderEmails = extractEmailAddressesFromMicrosoftSearchQuery(query);
   const subjectTerms = extractMicrosoftSubjectTerms(query);
   const attemptedQuerySet = new Set(
@@ -1754,12 +1754,13 @@ function formatMicrosoftSubjectRetryQuery(subject: string) {
 function getMicrosoftKeywordRetryQueries(query: string) {
   const subjectTerms = extractMicrosoftSubjectTerms(query);
   if (subjectTerms.length > 0) {
-    return subjectTerms.map((subject) => `"${subject.replace(/"/g, '\\"')}"`);
+    return subjectTerms.map((subject) => sanitizeKqlTextQuery(subject));
   }
 
-  const cleanedQuery = stripStandaloneOutlookStateTerms(query)
+  const cleanedQuery = stripOutlookComparisonFilters(
+    stripStandaloneOutlookStateTerms(query),
+  )
     .replace(/\bsubject:(?:"[^"]+"|\S+)/gi, " ")
-    .replace(/\b\w+\s*(?:>=|<=|>|<)\s*\S+/gi, " ")
     .replace(/[()]/g, " ")
     .replace(/\s+/g, " ")
     .trim();

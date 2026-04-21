@@ -173,7 +173,8 @@ const KQL_GROUPING_DETECTION_PATTERN = /[()]/;
 const KQL_GROUPING_PATTERN = /[()]/g;
 // Stripped only when degrading a failed KQL query to free-text fallback, since
 // comparison filters and read-state terms hurt keyword recall there.
-const OUTLOOK_COMPARISON_FILTER_PATTERN = /\b\w+\s*(?:>=|<=|>|<)\s*\S+/gi;
+const OUTLOOK_COMPARISON_FILTER_PATTERN =
+  /\b(?:received(?:DateTime)?|sent(?:DateTime)?)\s*(?:>=|<=|>|<)\s*\S+/gi;
 
 /**
  * Sanitizes a value for use in KQL queries.
@@ -350,6 +351,17 @@ export function getStandaloneOutlookStateTerms(query: string) {
   return splitOutlookQueryTerms(query)
     .map((term) => term.replace(/^[()]+|[()]+$/g, "").toLowerCase())
     .filter((term) => term === "read" || term === "unread");
+}
+
+export function getOutlookComparisonFilters(query: string) {
+  return Array.from(
+    query.matchAll(OUTLOOK_COMPARISON_FILTER_PATTERN),
+    (match) => match[0].trim(),
+  );
+}
+
+export function stripOutlookComparisonFilters(query: string) {
+  return query.replace(OUTLOOK_COMPARISON_FILTER_PATTERN, " ");
 }
 
 function splitOutlookQueryTerms(query: string) {

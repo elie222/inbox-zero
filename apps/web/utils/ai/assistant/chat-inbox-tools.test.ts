@@ -827,6 +827,36 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
   });
 
+  it("searchInbox preserves backslashes when generating Microsoft keyword retry queries", async () => {
+    const searchMessages = vi.fn().mockRejectedValue(
+      Object.assign(new Error("Unsupported search clause"), {
+        statusCode: 400,
+        code: "BadRequest",
+      }),
+    );
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: String.raw`subject:"Folder \ Review" unread`,
+      limit: 20,
+    });
+
+    expect(result.microsoftSearchFeedback.retryQueries).toContain(
+      String.raw`"Folder \\ Review"`,
+    );
+  });
+
   it("searchInbox keeps the generic Google failure payload unchanged", async () => {
     const searchMessages = vi
       .fn()

@@ -31,7 +31,6 @@ export const AssistantInlineEmailResponse = memo(
       normalizeHtmlIndentation: true,
       ...props,
     }),
-  (prevProps, nextProps) => prevProps.children === nextProps.children,
 );
 
 AssistantInlineEmailResponse.displayName = "AssistantInlineEmailResponse";

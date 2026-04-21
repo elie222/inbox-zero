@@ -392,6 +392,13 @@ describe("buildOutlookSearchFallbackQuery", () => {
     ).toBe('"Unread weekly report"');
   });
 
+  it("does not strip plain keyword text that happens to contain a comparison", () => {
+    expect(buildOutlookSearchFallbackQuery('"price < 5"')).toBeNull();
+    expect(sanitizeOutlookSearchQuery('"price < 5"').sanitized).toBe(
+      '"price < 5"',
+    );
+  });
+
   it("returns null when the fallback would not change the query", () => {
     expect(buildOutlookSearchFallbackQuery("sender@example.com")).toBeNull();
   });
