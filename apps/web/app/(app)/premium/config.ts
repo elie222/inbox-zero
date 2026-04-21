@@ -21,7 +21,7 @@ const pricing: Record<PremiumTier, number> = {
   BASIC_ANNUALLY: 8,
   PRO_MONTHLY: 16,
   PRO_ANNUALLY: 10,
-  STARTER_MONTHLY: 25,
+  STARTER_MONTHLY: 20,
   STARTER_ANNUALLY: 18,
   PLUS_MONTHLY: 35,
   PLUS_ANNUALLY: 28,
@@ -178,10 +178,11 @@ export function hasLegacyStripePriceId({
   const resolvedTier = tier || getStripeSubscriptionTier({ priceId });
   if (!resolvedTier) return false;
 
-  return (
-    STRIPE_PRICE_ID_CONFIG[resolvedTier]?.oldPriceIds?.includes(priceId) ??
-    false
-  );
+  const tierConfig = STRIPE_PRICE_ID_CONFIG[resolvedTier];
+  if (!tierConfig) return false;
+  if (tierConfig.priceId === priceId) return false;
+
+  return tierConfig.oldPriceIds?.includes(priceId) ?? false;
 }
 
 export function shouldShowLegacyStripePricingNotice(
