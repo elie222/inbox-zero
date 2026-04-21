@@ -2,6 +2,7 @@ import type { ModelMessage } from "ai";
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   captureAssistantChatTrace,
+  getFirstMatchingToolCall,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
 import {
@@ -113,6 +114,7 @@ describe.runIf(shouldRunEval)(
       });
 
       mockGetMessage.mockResolvedValue(successfulMessage);
+      prisma.executedRule.findMany.mockResolvedValue([]);
 
       mockSearchMessages.mockImplementation(async ({ query }) => {
         const normalized = query.trim();
@@ -297,6 +299,626 @@ describe.runIf(shouldRunEval)(
           },
           TIMEOUT,
         );
+
+        test(
+          "does not hallucinate a found email or draft after microsoft search failure",
+          async () => {
+            mockSearchMessages.mockRejectedValue(
+              Object.assign(new Error("Unsupported search clause"), {
+                statusCode: 400,
+                code: "BadRequest",
+              }),
+            );
+
+            const trace = await runAssistantChat({
+              emailAccount: withMicrosoftProvider(emailAccount),
+              messages: [
+                {
+                  role: "user",
+                  content:
+                    "Why didn't you draft a reply to the email from updates@status.example about the weekly status report?",
+                },
+              ],
+            });
+
+            const searchResults = getSearchInboxResults(trace);
+            const assistantText = getAssistantText(trace);
+            const failedSearch = searchResults.find(
+              (result) =>
+                result.output.error &&
+                result.output.microsoftSearchFeedback?.failureType ===
+                  "query_failed",
+            );
+            const assistantJudge = assistantText
+              ? await judgeEvalOutput({
+                  input: [
+                    "A user asked why a reply draft was not generated for a specific email.",
+                    "The assistant attempted to search a Microsoft inbox, and every search attempt failed.",
+                    failedSearch?.output.microsoftSearchFeedback
+                      ? `Tool feedback: ${JSON.stringify({
+                          failureType:
+                            failedSearch.output.microsoftSearchFeedback
+                              .failureType,
+                          attempts:
+                            failedSearch.output.microsoftSearchFeedback.attempts.map(
+                              (attempt) => attempt.query,
+                            ),
+                          retryQueries:
+                            failedSearch.output.microsoftSearchFeedback
+                              .retryQueries,
+                        })}`
+                      : "Tool feedback: none",
+                  ].join("\n"),
+                  output: assistantText,
+                  expected:
+                    "A response that clearly says the assistant could not verify the specific email because inbox search failed, does not claim it found the email or prepared a draft, and treats any explanation as a general possibility rather than a confirmed fact.",
+                  criterion: {
+                    name: "No hallucinated email lookup after search failure",
+                    description:
+                      "When inbox search fails, the assistant must not claim it found the message, knows the message contents, knows which rule applied, or already prepared a draft. It should acknowledge the failed lookup and keep any explanation explicitly unverified.",
+                  },
+                })
+              : null;
+
+            const pass =
+              !!failedSearch &&
+              searchResults.length >= 1 &&
+              searchResults.every(
+                (result) =>
+                  result.output.error === "Failed to search inbox" &&
+                  !result.output.messages?.length,
+              ) &&
+              !hasLookupDependentToolCalls(trace.toolCalls) &&
+              !hasWriteToolCalls(trace.toolCalls) &&
+              !!assistantJudge?.pass;
+
+            evalReporter.record({
+              testName:
+                "microsoft search failure does not hallucinate a found email or draft",
+              model: model.label,
+              pass,
+              actual: [
+                summarizeToolCalls(trace.toolCalls),
+                failedSearch?.output.microsoftSearchFeedback
+                  ? `feedback=${JSON.stringify({
+                      failureType:
+                        failedSearch.output.microsoftSearchFeedback.failureType,
+                      attempts:
+                        failedSearch.output.microsoftSearchFeedback.attempts.map(
+                          (attempt) => attempt.query,
+                        ),
+                      retryQueries:
+                        failedSearch.output.microsoftSearchFeedback
+                          .retryQueries,
+                    })}`
+                  : null,
+                assistantJudge && assistantText
+                  ? formatSemanticJudgeActual(assistantText, assistantJudge)
+                  : assistantText
+                    ? `assistant=${JSON.stringify(assistantText)}`
+                    : "no assistant text",
+              ]
+                .filter(Boolean)
+                .join(" | "),
+              criteria: assistantJudge ? [assistantJudge] : [],
+            });
+
+            expect(pass).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test(
+          "searches, loads executed rule details, and explains why no draft was generated",
+          async () => {
+            const explanationMessage = getMockMessage({
+              id: "msg-microsoft-feedback-2",
+              threadId: "thread-microsoft-feedback-2",
+              from: "updates@status.example",
+              subject: "Weekly status report",
+              snippet: "Status update and rollout summary.",
+              labelIds: ["UNREAD"],
+            });
+
+            mockGetMessage.mockResolvedValue(explanationMessage);
+            mockSearchMessages.mockImplementation(async ({ query }) => {
+              const normalized = query.trim().toLowerCase();
+              if (
+                normalized.includes("updates@status.example") ||
+                normalized.includes("weekly status report")
+              ) {
+                return {
+                  messages: [explanationMessage],
+                  nextPageToken: undefined,
+                };
+              }
+
+              return {
+                messages: [],
+                nextPageToken: undefined,
+              };
+            });
+            prisma.executedRule.findMany.mockResolvedValue([
+              {
+                id: "executed-rule-why-no-draft-1",
+                threadId: explanationMessage.threadId,
+                createdAt: new Date("2026-04-20T10:00:00.000Z"),
+                reason:
+                  'Matched the "FYI Updates" rule, which files status updates for review and does not prepare a reply draft.',
+                matchMetadata: [{ type: "STATIC" }],
+                automated: true,
+                rule: {
+                  id: "rule-fyi-updates",
+                  name: "FYI Updates",
+                },
+              },
+            ]);
+
+            const trace = await runAssistantChat({
+              emailAccount: withMicrosoftProvider(emailAccount),
+              messages: [
+                {
+                  role: "user",
+                  content:
+                    "Why didn't you draft a reply to the email from updates@status.example about the weekly status report?",
+                },
+              ],
+            });
+
+            const searchResults = getSearchInboxResults(trace);
+            const firstSuccessfulSearch = searchResults.find(
+              (result) =>
+                Array.isArray(result.output.messages) &&
+                result.output.messages.some(
+                  (message) => message.messageId === explanationMessage.id,
+                ),
+            );
+            const executionCall = getFirstMatchingToolCall(
+              trace.toolCalls,
+              "getRuleExecutionForMessage",
+              isGetRuleExecutionInput,
+            );
+            const assistantText = getAssistantText(trace);
+            const explanationJudge = assistantText
+              ? await judgeEvalOutput({
+                  input: [
+                    "The user asked why a reply draft was not generated for a specific email.",
+                    "The assistant successfully found the email and then loaded the exact executed rule history for that message.",
+                    'Retrieved execution: ruleName="FYI Updates"; reason="Matched the FYI Updates rule, which files status updates for review and does not prepare a reply draft."',
+                  ].join("\n"),
+                  output: assistantText,
+                  expected:
+                    'A concise explanation that says the email matched the "FYI Updates" rule and that this rule does not prepare a reply draft, without inventing extra unsupported causes.',
+                  criterion: {
+                    name: "Grounded explanation from exact rule execution",
+                    description:
+                      "After finding the message and reading its exact rule execution, the assistant should explain the no-draft outcome using that retrieved evidence. It should connect the matched rule to the absence of a draft and avoid unsupported speculation.",
+                  },
+                })
+              : null;
+
+            const pass =
+              !!firstSuccessfulSearch &&
+              !!executionCall &&
+              executionCall.input.messageId === explanationMessage.id &&
+              !hasWriteToolCalls(trace.toolCalls) &&
+              !!explanationJudge?.pass &&
+              prisma.executedRule.findMany.mock.calls.some(
+                ([args]) =>
+                  args?.where?.messageId === explanationMessage.id &&
+                  args?.where?.emailAccountId === emailAccount.id,
+              );
+
+            evalReporter.record({
+              testName:
+                "search finds email and exact rule execution explains no draft",
+              model: model.label,
+              pass,
+              actual: [
+                summarizeToolCalls(trace.toolCalls),
+                assistantText && explanationJudge
+                  ? formatSemanticJudgeActual(assistantText, explanationJudge)
+                  : assistantText
+                    ? `assistant=${JSON.stringify(assistantText)}`
+                    : "no assistant text",
+              ].join(" | "),
+              criteria: explanationJudge ? [explanationJudge] : [],
+            });
+
+            expect(pass).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test(
+          "searches, loads executed rule details, and explains why a draft was prepared",
+          async () => {
+            const explanationMessage = getMockMessage({
+              id: "msg-microsoft-feedback-3",
+              threadId: "thread-microsoft-feedback-3",
+              from: "requests@customer.example",
+              subject: "Question about the contract terms",
+              snippet: "Can you clarify the next step for approval?",
+              labelIds: ["UNREAD", "Label_To Reply"],
+            });
+
+            mockGetMessage.mockResolvedValue(explanationMessage);
+            mockSearchMessages.mockImplementation(async ({ query }) => {
+              const normalized = query.trim().toLowerCase();
+              if (
+                normalized.includes("requests@customer.example") ||
+                normalized.includes("contract") ||
+                normalized.includes("approval")
+              ) {
+                return {
+                  messages: [explanationMessage],
+                  nextPageToken: undefined,
+                };
+              }
+
+              return {
+                messages: [],
+                nextPageToken: undefined,
+              };
+            });
+            prisma.executedRule.findMany.mockResolvedValue([
+              {
+                id: "executed-rule-draft-expected-1",
+                threadId: explanationMessage.threadId,
+                createdAt: new Date("2026-04-20T11:00:00.000Z"),
+                reason:
+                  'Matched the "Customer Requests" rule, which prepares a reply draft for direct customer questions that need a response.',
+                matchMetadata: [{ type: "AI" }],
+                automated: true,
+                rule: {
+                  id: "rule-customer-requests",
+                  name: "Customer Requests",
+                },
+              },
+            ]);
+
+            const trace = await runAssistantChat({
+              emailAccount: withMicrosoftProvider(emailAccount),
+              messages: [
+                {
+                  role: "user",
+                  content:
+                    "Why did you draft a reply to the email from requests@customer.example about the contract terms?",
+                },
+              ],
+            });
+
+            const searchResults = getSearchInboxResults(trace);
+            const firstSuccessfulSearch = searchResults.find(
+              (result) =>
+                Array.isArray(result.output.messages) &&
+                result.output.messages.some(
+                  (message) => message.messageId === explanationMessage.id,
+                ),
+            );
+            const searchCall = getFirstMatchingToolCall(
+              trace.toolCalls,
+              "searchInbox",
+              isSearchInboxInput,
+            );
+            const executionCall = getFirstMatchingToolCall(
+              trace.toolCalls,
+              "getRuleExecutionForMessage",
+              isGetRuleExecutionInput,
+            );
+            const assistantText = getAssistantText(trace);
+            const explanationJudge = assistantText
+              ? await judgeEvalOutput({
+                  input: [
+                    "The user asked why a reply draft was prepared for a specific email.",
+                    "The assistant successfully found the email and then loaded the exact executed rule history for that message.",
+                    'Retrieved execution: ruleName="Customer Requests"; reason="Matched the Customer Requests rule, which prepares a reply draft for direct customer questions that need a response."',
+                  ].join("\n"),
+                  output: assistantText,
+                  expected:
+                    'A concise explanation that says the email matched the "Customer Requests" rule and that this rule prepares reply drafts for messages like this.',
+                  criterion: {
+                    name: "Grounded explanation for expected draft",
+                    description:
+                      "After finding the message and reading its exact rule execution, the assistant should explain that a draft was prepared because the matched rule is intended to draft replies for this type of message.",
+                  },
+                })
+              : null;
+
+            const pass =
+              !!firstSuccessfulSearch &&
+              !!searchCall &&
+              !!executionCall &&
+              searchCall.index < executionCall.index &&
+              executionCall.input.messageId === explanationMessage.id &&
+              !hasWriteToolCalls(trace.toolCalls) &&
+              !!explanationJudge?.pass &&
+              prisma.executedRule.findMany.mock.calls.some(
+                ([args]) =>
+                  args?.where?.messageId === explanationMessage.id &&
+                  args?.where?.emailAccountId === emailAccount.id,
+              );
+
+            evalReporter.record({
+              testName:
+                "search finds email and exact rule execution explains expected draft",
+              model: model.label,
+              pass,
+              actual: [
+                summarizeToolCalls(trace.toolCalls),
+                assistantText && explanationJudge
+                  ? formatSemanticJudgeActual(assistantText, explanationJudge)
+                  : assistantText
+                    ? `assistant=${JSON.stringify(assistantText)}`
+                    : "no assistant text",
+              ].join(" | "),
+              criteria: explanationJudge ? [explanationJudge] : [],
+            });
+
+            expect(pass).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test(
+          "notes the mismatch when history says a draft should have happened but the user says none appeared",
+          async () => {
+            const explanationMessage = getMockMessage({
+              id: "msg-microsoft-feedback-4",
+              threadId: "thread-microsoft-feedback-4",
+              from: "requests@customer.example",
+              subject: "Question about the renewal quote",
+              snippet: "Can you confirm the pricing and renewal timing?",
+              labelIds: ["UNREAD", "Label_To Reply"],
+            });
+
+            mockGetMessage.mockResolvedValue(explanationMessage);
+            mockSearchMessages.mockImplementation(async ({ query }) => {
+              const normalized = query.trim().toLowerCase();
+              if (
+                normalized.includes("requests@customer.example") ||
+                normalized.includes("renewal") ||
+                normalized.includes("pricing")
+              ) {
+                return {
+                  messages: [explanationMessage],
+                  nextPageToken: undefined,
+                };
+              }
+
+              return {
+                messages: [],
+                nextPageToken: undefined,
+              };
+            });
+            prisma.executedRule.findMany.mockResolvedValue([
+              {
+                id: "executed-rule-draft-mismatch-1",
+                threadId: explanationMessage.threadId,
+                createdAt: new Date("2026-04-20T12:00:00.000Z"),
+                reason:
+                  'Matched the "Customer Requests" rule and prepared a reply draft for follow-up.',
+                matchMetadata: [{ type: "AI" }],
+                automated: true,
+                rule: {
+                  id: "rule-customer-requests",
+                  name: "Customer Requests",
+                },
+              },
+            ]);
+
+            const trace = await runAssistantChat({
+              emailAccount: withMicrosoftProvider(emailAccount),
+              messages: [
+                {
+                  role: "user",
+                  content:
+                    "Why didn't you draft a reply to the email from requests@customer.example about the renewal quote?",
+                },
+              ],
+            });
+
+            const searchResults = getSearchInboxResults(trace);
+            const firstSuccessfulSearch = searchResults.find(
+              (result) =>
+                Array.isArray(result.output.messages) &&
+                result.output.messages.some(
+                  (message) => message.messageId === explanationMessage.id,
+                ),
+            );
+            const searchCall = getFirstMatchingToolCall(
+              trace.toolCalls,
+              "searchInbox",
+              isSearchInboxInput,
+            );
+            const executionCall = getFirstMatchingToolCall(
+              trace.toolCalls,
+              "getRuleExecutionForMessage",
+              isGetRuleExecutionInput,
+            );
+            const assistantText = getAssistantText(trace);
+            const mismatchJudge = assistantText
+              ? await judgeEvalOutput({
+                  input: [
+                    "The user says no reply draft appeared for a specific email.",
+                    "The assistant found the email and loaded the exact executed rule history for that message.",
+                    'Retrieved execution: ruleName="Customer Requests"; reason="Matched the Customer Requests rule and prepared a reply draft for follow-up."',
+                  ].join("\n"),
+                  output: assistantText,
+                  expected:
+                    "A response that explicitly notes the mismatch: the recorded execution says a draft should have been prepared, so the user's report does not line up with the retrieved history. It may suggest an automation or delivery issue, but should avoid pretending to know the root cause for certain.",
+                  criterion: {
+                    name: "Detects mismatch when expected draft is missing",
+                    description:
+                      "When the user's reported outcome conflicts with the retrieved execution history, the assistant should call out that mismatch clearly instead of forcing the evidence into a wrong explanation.",
+                  },
+                })
+              : null;
+
+            const pass =
+              !!firstSuccessfulSearch &&
+              !!searchCall &&
+              !!executionCall &&
+              searchCall.index < executionCall.index &&
+              executionCall.input.messageId === explanationMessage.id &&
+              !hasWriteToolCalls(trace.toolCalls) &&
+              !!mismatchJudge?.pass &&
+              prisma.executedRule.findMany.mock.calls.some(
+                ([args]) =>
+                  args?.where?.messageId === explanationMessage.id &&
+                  args?.where?.emailAccountId === emailAccount.id,
+              );
+
+            evalReporter.record({
+              testName:
+                "history says a draft should exist and assistant calls out mismatch",
+              model: model.label,
+              pass,
+              actual: [
+                summarizeToolCalls(trace.toolCalls),
+                assistantText && mismatchJudge
+                  ? formatSemanticJudgeActual(assistantText, mismatchJudge)
+                  : assistantText
+                    ? `assistant=${JSON.stringify(assistantText)}`
+                    : "no assistant text",
+              ].join(" | "),
+              criteria: mismatchJudge ? [mismatchJudge] : [],
+            });
+
+            expect(pass).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test(
+          "notes the mismatch when history says no draft should have happened but the user says one did",
+          async () => {
+            const explanationMessage = getMockMessage({
+              id: "msg-microsoft-feedback-5",
+              threadId: "thread-microsoft-feedback-5",
+              from: "updates@status.example",
+              subject: "Weekly rollout summary",
+              snippet: "Review-only status update for this week.",
+              labelIds: ["UNREAD"],
+            });
+
+            mockGetMessage.mockResolvedValue(explanationMessage);
+            mockSearchMessages.mockImplementation(async ({ query }) => {
+              const normalized = query.trim().toLowerCase();
+              if (
+                normalized.includes("updates@status.example") ||
+                normalized.includes("rollout") ||
+                normalized.includes("summary")
+              ) {
+                return {
+                  messages: [explanationMessage],
+                  nextPageToken: undefined,
+                };
+              }
+
+              return {
+                messages: [],
+                nextPageToken: undefined,
+              };
+            });
+            prisma.executedRule.findMany.mockResolvedValue([
+              {
+                id: "executed-rule-no-draft-mismatch-1",
+                threadId: explanationMessage.threadId,
+                createdAt: new Date("2026-04-20T13:00:00.000Z"),
+                reason:
+                  'Matched the "FYI Updates" rule, which files rollout summaries for review and does not prepare a reply draft.',
+                matchMetadata: [{ type: "STATIC" }],
+                automated: true,
+                rule: {
+                  id: "rule-fyi-updates",
+                  name: "FYI Updates",
+                },
+              },
+            ]);
+
+            const trace = await runAssistantChat({
+              emailAccount: withMicrosoftProvider(emailAccount),
+              messages: [
+                {
+                  role: "user",
+                  content:
+                    "Why did you draft a reply to the email from updates@status.example about the weekly rollout summary?",
+                },
+              ],
+            });
+
+            const searchResults = getSearchInboxResults(trace);
+            const firstSuccessfulSearch = searchResults.find(
+              (result) =>
+                Array.isArray(result.output.messages) &&
+                result.output.messages.some(
+                  (message) => message.messageId === explanationMessage.id,
+                ),
+            );
+            const searchCall = getFirstMatchingToolCall(
+              trace.toolCalls,
+              "searchInbox",
+              isSearchInboxInput,
+            );
+            const executionCall = getFirstMatchingToolCall(
+              trace.toolCalls,
+              "getRuleExecutionForMessage",
+              isGetRuleExecutionInput,
+            );
+            const assistantText = getAssistantText(trace);
+            const mismatchJudge = assistantText
+              ? await judgeEvalOutput({
+                  input: [
+                    "The user says a reply draft appeared for a specific email.",
+                    "The assistant found the email and loaded the exact executed rule history for that message.",
+                    'Retrieved execution: ruleName="FYI Updates"; reason="Matched the FYI Updates rule, which files rollout summaries for review and does not prepare a reply draft."',
+                  ].join("\n"),
+                  output: assistantText,
+                  expected:
+                    "A response that explicitly notes the mismatch: the recorded execution says this email should have been filed for review without drafting, so the user's report of a draft does not line up with the retrieved history. It may suggest an unexpected automation or UI issue, but should not invent certainty.",
+                  criterion: {
+                    name: "Detects mismatch when unexpected draft appears",
+                    description:
+                      "When the user's reported draft conflicts with retrieved execution history that says no draft should have been prepared, the assistant should point out that inconsistency clearly and avoid inventing a confident cause.",
+                  },
+                })
+              : null;
+
+            const pass =
+              !!firstSuccessfulSearch &&
+              !!searchCall &&
+              !!executionCall &&
+              searchCall.index < executionCall.index &&
+              executionCall.input.messageId === explanationMessage.id &&
+              !hasWriteToolCalls(trace.toolCalls) &&
+              !!mismatchJudge?.pass &&
+              prisma.executedRule.findMany.mock.calls.some(
+                ([args]) =>
+                  args?.where?.messageId === explanationMessage.id &&
+                  args?.where?.emailAccountId === emailAccount.id,
+              );
+
+            evalReporter.record({
+              testName:
+                "history says no draft should exist and assistant calls out mismatch",
+              model: model.label,
+              pass,
+              actual: [
+                summarizeToolCalls(trace.toolCalls),
+                assistantText && mismatchJudge
+                  ? formatSemanticJudgeActual(assistantText, mismatchJudge)
+                  : assistantText
+                    ? `assistant=${JSON.stringify(assistantText)}`
+                    : "no assistant text",
+              ].join(" | "),
+              criteria: mismatchJudge ? [mismatchJudge] : [],
+            });
+
+            expect(pass).toBe(true);
+          },
+          TIMEOUT,
+        );
       },
     );
 
@@ -324,6 +946,10 @@ type SearchInboxInput = {
   query: string;
   limit?: number;
   pageToken?: string | null;
+};
+
+type GetRuleExecutionInput = {
+  messageId: string;
 };
 
 type SearchInboxOutput = {
@@ -429,6 +1055,12 @@ function isSearchInboxOutput(value: unknown): value is SearchInboxOutput {
   );
 }
 
+function isGetRuleExecutionInput(
+  value: unknown,
+): value is GetRuleExecutionInput {
+  return isRecord(value) && typeof value.messageId === "string";
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -465,6 +1097,19 @@ function hasWriteToolCalls(toolCalls: RecordedToolCall[]) {
   return toolCalls.some((toolCall) => writeToolNames.has(toolCall.toolName));
 }
 
+function hasLookupDependentToolCalls(toolCalls: RecordedToolCall[]) {
+  const lookupDependentToolNames = new Set([
+    "readEmail",
+    "replyEmail",
+    "forwardEmail",
+    "getRuleExecutionForMessage",
+  ]);
+
+  return toolCalls.some((toolCall) =>
+    lookupDependentToolNames.has(toolCall.toolName),
+  );
+}
+
 function summarizeToolCalls(toolCalls: RecordedToolCall[]) {
   return toolCalls.length > 0
     ? toolCalls
@@ -478,6 +1123,13 @@ function summarizeToolCalls(toolCalls: RecordedToolCall[]) {
 
 function normalizeQuery(query: string) {
   return query.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function getAssistantText(trace: Awaited<ReturnType<typeof runAssistantChat>>) {
+  const stepText = trace.stepTexts.join("\n\n").trim();
+  if (stepText) return stepText;
+
+  return trace.finalText.trim();
 }
 
 function buildRetryJudgeInput({
