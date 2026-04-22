@@ -54,6 +54,16 @@ export async function upsertStripeInvoicePayment({
     return;
   }
 
+  if (invoice.total === 0) {
+    logger.info("Skipping zero-amount Stripe invoice for Payment sync", {
+      invoiceId,
+      customerId,
+      status: invoice.status ?? "unknown",
+      ...context,
+    });
+    return;
+  }
+
   const premium = await prisma.premium.findUnique({
     where: { stripeCustomerId: customerId },
     select: { id: true },

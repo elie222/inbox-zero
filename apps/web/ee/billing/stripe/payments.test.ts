@@ -118,6 +118,32 @@ describe("syncStripeInvoicePayment", () => {
     expect(mockFindUnique).not.toHaveBeenCalled();
     expect(mockUpsert).not.toHaveBeenCalled();
   });
+
+  it("skips zero-amount invoices", async () => {
+    const { syncStripeInvoicePayment } = await import("./payments");
+
+    await syncStripeInvoicePayment({
+      event: invoiceEvent({
+        data: {
+          object: {
+            id: "in_zero",
+            customer: "cus_123",
+            created: 1_700_000_000,
+            currency: "usd",
+            total: 0,
+            status: "paid",
+            billing_reason: "subscription_cycle",
+            total_taxes: [],
+            status_transitions: {},
+          },
+        },
+      }),
+      logger,
+    });
+
+    expect(mockFindUnique).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
 });
 
 function invoiceEvent(overrides: Partial<Stripe.Event>): Stripe.Event {
