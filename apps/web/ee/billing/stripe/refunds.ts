@@ -98,10 +98,7 @@ export async function getStripeInvoiceForRefundEvent({
 }
 
 export function getStripeRefundState(invoice: Stripe.Invoice) {
-  const charge =
-    invoice.charge && typeof invoice.charge !== "string"
-      ? invoice.charge
-      : null;
+  const charge = getInvoiceCharge(invoice);
   const refundedAmount = charge?.amount_refunded ?? 0;
   const chargedAmount = charge?.amount ?? null;
 
@@ -135,8 +132,9 @@ function getLatestRefundedAt(charge: Stripe.Charge | null) {
   }
 
   let latestRefundTimestamp = 0;
+  const refunds = charge.refunds?.data ?? [];
 
-  for (const refund of charge.refunds.data) {
+  for (const refund of refunds) {
     if (refund.status === "failed") {
       continue;
     }
@@ -154,6 +152,20 @@ function getChargeInvoiceId(charge: Stripe.Charge) {
     (charge as Stripe.Charge & { invoice?: string | { id: string } | null })
       .invoice,
   );
+}
+
+function getInvoiceCharge(invoice: Stripe.Invoice) {
+  const charge = (
+    invoice as Stripe.Invoice & {
+      charge?: string | Stripe.Charge | null;
+    }
+  ).charge;
+
+  if (!charge || typeof charge === "string") {
+    return null;
+  }
+
+  return charge;
 }
 
 function getPaymentIntentInvoiceId(paymentIntent: Stripe.PaymentIntent) {
