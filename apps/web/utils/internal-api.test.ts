@@ -4,12 +4,10 @@ async function loadInternalApiModule({
   nextPublicBaseUrl = "https://mail.example.com",
   internalApiUrl = "https://www.getinboxzero.com",
   internalApiKey = "expected-internal-key",
-  internalApiCallerId,
 }: {
   nextPublicBaseUrl?: string;
   internalApiUrl?: string;
   internalApiKey?: string;
-  internalApiCallerId?: string;
 } = {}) {
   vi.resetModules();
 
@@ -19,7 +17,6 @@ async function loadInternalApiModule({
       EMAIL_ENCRYPT_SALT: "test-email-encrypt-salt",
       ENABLE_DEBUG_LOGS: false,
       INTERNAL_API_KEY: internalApiKey,
-      INTERNAL_API_CALLER_ID: internalApiCallerId,
       INTERNAL_API_URL: internalApiUrl,
       NEXT_PUBLIC_BASE_URL: nextPublicBaseUrl,
       NEXT_PUBLIC_LOG_SCOPES: undefined,
@@ -48,7 +45,6 @@ describe("internal-api", () => {
 
   it("includes a compact caller identity for self-hosted callers", async () => {
     const { getInternalApiHeaders } = await loadInternalApiModule({
-      internalApiCallerId: "self-hosted-acme",
       nextPublicBaseUrl: "https://mail.example.com",
       internalApiUrl: "https://www.getinboxzero.com",
     });
@@ -57,7 +53,7 @@ describe("internal-api", () => {
 
     expect(headers).toMatchObject({
       "x-api-key": "expected-internal-key",
-      "x-inbox-zero-caller-id": "self-hosted-acme",
+      "x-inbox-zero-caller-id": "mail.example.com",
       "x-inbox-zero-caller-app": "inbox-zero-web",
       "x-inbox-zero-caller-runtime": "self-hosted",
       "x-inbox-zero-caller-base-url-host": "mail.example.com",

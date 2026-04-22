@@ -207,7 +207,6 @@ const parsedEnv = createEnv({
     WEBHOOK_URL: z.string().optional(),
     INTERNAL_API_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string(),
-    INTERNAL_API_CALLER_ID: z.string().optional(),
     WHITELIST_FROM: z.string().optional(),
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),

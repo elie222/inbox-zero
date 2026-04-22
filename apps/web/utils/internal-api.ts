@@ -84,7 +84,7 @@ function getInternalCallerMetadata() {
   const baseUrlHost = getHost(env.NEXT_PUBLIC_BASE_URL);
 
   return {
-    id: env.INTERNAL_API_CALLER_ID?.trim() || baseUrlHost || "inbox-zero-web",
+    id: baseUrlHost || "inbox-zero-web",
     app: "inbox-zero-web",
     runtime: process.env.VERCEL === "1" ? "vercel" : "self-hosted",
     baseUrlHost,
