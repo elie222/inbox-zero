@@ -9,7 +9,11 @@ export const stripeRefundEvents = [
 ] as const satisfies ReadonlyArray<Stripe.Event.Type>;
 
 export function isStripeRefundEventType(eventType: Stripe.Event.Type) {
-  return stripeRefundEvents.includes(eventType);
+  return (
+    eventType === "refund.created" ||
+    eventType === "refund.updated" ||
+    eventType === "refund.failed"
+  );
 }
 
 export async function getStripeCustomerIdForRefund(refund: Stripe.Refund) {
