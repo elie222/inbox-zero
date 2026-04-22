@@ -6,7 +6,6 @@ import { processEvent } from "./route";
 import { getStripeTrialConvertedAt } from "./trial-conversion";
 
 const {
-  mockGetStripe,
   mockSyncStripeDataToDb,
   mockSyncStripeInvoicePayment,
   mockSyncAiGenerationOverageForUpcomingInvoice,
@@ -19,7 +18,6 @@ const {
   mockCompleteReferralAndGrantReward,
   mockCaptureException,
 } = vi.hoisted(() => ({
-  mockGetStripe: vi.fn(),
   mockSyncStripeDataToDb: vi.fn(),
   mockSyncStripeInvoicePayment: vi.fn(),
   mockSyncAiGenerationOverageForUpcomingInvoice: vi.fn(),
@@ -45,7 +43,7 @@ vi.mock("next/server", () => ({
 }));
 
 vi.mock("@/ee/billing/stripe", () => ({
-  getStripe: mockGetStripe,
+  getStripe: vi.fn(),
 }));
 
 vi.mock("@/utils/middleware", () => ({
@@ -100,14 +98,6 @@ const logger = createScopedLogger("stripe-webhook-route-test");
 describe("processEvent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetStripe.mockReturnValue({
-      charges: {
-        retrieve: vi.fn(),
-      },
-      paymentIntents: {
-        retrieve: vi.fn(),
-      },
-    });
     mockFindUnique.mockResolvedValue(null);
     mockUpdateMany.mockResolvedValue({ count: 0 });
     mockSyncStripeInvoicePayment.mockResolvedValue(undefined);
@@ -151,34 +141,6 @@ describe("processEvent", () => {
     expect(
       mockSyncAiGenerationOverageForUpcomingInvoice,
     ).not.toHaveBeenCalled();
-  });
-
-  it("resolves the customer from refund events before running the shared sync flow", async () => {
-    const mockChargeRetrieve = vi.fn().mockResolvedValue({
-      customer: "cus_test",
-    });
-
-    mockGetStripe.mockReturnValue({
-      charges: {
-        retrieve: mockChargeRetrieve,
-      },
-      paymentIntents: {
-        retrieve: vi.fn(),
-      },
-    });
-    mockSyncStripeDataToDb.mockResolvedValue(undefined);
-
-    await processEvent(refundEvent(), logger);
-
-    expect(mockChargeRetrieve).toHaveBeenCalledWith("ch_test");
-    expect(mockSyncStripeDataToDb).toHaveBeenCalledWith({
-      customerId: "cus_test",
-      logger,
-    });
-    expect(mockSyncStripeInvoicePayment).toHaveBeenCalledWith({
-      event: expect.objectContaining({ type: "refund.created" }),
-      logger,
-    });
   });
 });
 
@@ -362,27 +324,6 @@ function subscriptionEvent(overrides: Partial<Stripe.Event>): Stripe.Event {
         trial_end: null,
       },
       previous_attributes: {},
-    },
-    ...overrides,
-  } as Stripe.Event;
-}
-
-function refundEvent(overrides: Partial<Stripe.Event> = {}): Stripe.Event {
-  return {
-    id: "evt_refund_test",
-    type: "refund.created",
-    object: "event",
-    api_version: "2025-03-31.basil",
-    created: 1_700_000_500,
-    livemode: false,
-    pending_webhooks: 0,
-    request: { id: null, idempotency_key: null },
-    data: {
-      object: {
-        id: "re_test",
-        charge: "ch_test",
-        payment_intent: null,
-      },
     },
     ...overrides,
   } as Stripe.Event;

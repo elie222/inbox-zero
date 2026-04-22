@@ -2,6 +2,11 @@ import type Stripe from "stripe";
 import { headers } from "next/headers";
 import { after, NextResponse } from "next/server";
 import { getStripe } from "@/ee/billing/stripe";
+import {
+  getStripeCustomerIdForRefund,
+  isStripeRefundEventType,
+  stripeRefundEvents,
+} from "@/ee/billing/stripe/refunds";
 import { withError } from "@/utils/middleware";
 import type { Logger } from "@/utils/logger";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
@@ -84,9 +89,7 @@ const allowedEvents: Stripe.Event.Type[] = [
   "payment_intent.succeeded",
   "payment_intent.payment_failed",
   "payment_intent.canceled",
-  "refund.created",
-  "refund.updated",
-  "refund.failed",
+  ...stripeRefundEvents,
 ];
 
 export async function processEvent(event: Stripe.Event, logger: Logger) {
@@ -262,26 +265,11 @@ async function getStripeCustomerIdForEvent(event: Stripe.Event) {
     return customerId;
   }
 
-  if (!event.type.startsWith("refund.")) {
+  if (!isStripeRefundEventType(event.type)) {
     return null;
   }
 
-  const refund = object as Stripe.Refund;
-  const stripe = getStripe();
-
-  const chargeId = normalizeStripeId(refund.charge);
-  if (chargeId) {
-    const charge = await stripe.charges.retrieve(chargeId);
-    return normalizeStripeId(charge.customer);
-  }
-
-  const paymentIntentId = normalizeStripeId(refund.payment_intent);
-  if (paymentIntentId) {
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-    return normalizeStripeId(paymentIntent.customer);
-  }
-
-  return null;
+  return await getStripeCustomerIdForRefund(object as Stripe.Refund);
 }
 
 function normalizeStripeId(value: string | { id: string } | null | undefined) {

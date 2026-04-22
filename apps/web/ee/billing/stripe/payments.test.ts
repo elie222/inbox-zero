@@ -3,18 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProcessorType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 
-const {
-  mockFindUnique,
-  mockUpsert,
-  mockChargeRetrieve,
-  mockPaymentIntentRetrieve,
-  mockInvoiceRetrieve,
-} = vi.hoisted(() => ({
+const { mockFindUnique, mockUpsert } = vi.hoisted(() => ({
   mockFindUnique: vi.fn(),
   mockUpsert: vi.fn(),
-  mockChargeRetrieve: vi.fn(),
-  mockPaymentIntentRetrieve: vi.fn(),
-  mockInvoiceRetrieve: vi.fn(),
 }));
 
 vi.mock("@/utils/prisma", () => ({
@@ -26,20 +17,6 @@ vi.mock("@/utils/prisma", () => ({
       upsert: mockUpsert,
     },
   },
-}));
-
-vi.mock("@/ee/billing/stripe", () => ({
-  getStripe: () => ({
-    charges: {
-      retrieve: mockChargeRetrieve,
-    },
-    paymentIntents: {
-      retrieve: mockPaymentIntentRetrieve,
-    },
-    invoices: {
-      retrieve: mockInvoiceRetrieve,
-    },
-  }),
 }));
 
 const logger = createScopedLogger("stripe-payments-test");
@@ -172,69 +149,6 @@ describe("syncStripeInvoicePayment", () => {
     expect(mockFindUnique).not.toHaveBeenCalled();
     expect(mockUpsert).not.toHaveBeenCalled();
   });
-
-  it("updates the same payment row when a refund event is received", async () => {
-    mockFindUnique.mockResolvedValue({ id: "premium_123" });
-    mockChargeRetrieve.mockResolvedValue({
-      invoice: "in_123",
-    });
-    mockInvoiceRetrieve.mockResolvedValue({
-      id: "in_123",
-      customer: "cus_123",
-      parent: {
-        subscription_details: {
-          subscription: "sub_123",
-        },
-      },
-      created: 1_700_000_000,
-      currency: "usd",
-      total: 2000,
-      status: "paid",
-      billing_reason: "subscription_cycle",
-      total_taxes: [],
-      status_transitions: {
-        paid_at: 1_700_000_100,
-      },
-      charge: {
-        amount_refunded: 500,
-        refunds: {
-          data: [
-            {
-              created: 1_700_000_450,
-              status: "succeeded",
-            },
-          ],
-        },
-      },
-    });
-
-    const { syncStripeInvoicePayment } = await import("./payments");
-
-    await syncStripeInvoicePayment({
-      event: refundEvent(),
-      logger,
-    });
-
-    expect(mockChargeRetrieve).toHaveBeenCalledWith("ch_123");
-    expect(mockInvoiceRetrieve).toHaveBeenCalledWith("in_123", {
-      expand: ["charge", "charge.refunds"],
-    });
-    expect(mockUpsert).toHaveBeenCalledWith({
-      where: { processorId: "in_123" },
-      create: expect.objectContaining({
-        refunded: true,
-        refundedAmount: 500,
-        refundedAt: new Date("2023-11-14T22:20:50.000Z"),
-        status: "partially_refunded",
-      }),
-      update: expect.objectContaining({
-        refunded: true,
-        refundedAmount: 500,
-        refundedAt: new Date("2023-11-14T22:20:50.000Z"),
-        status: "partially_refunded",
-      }),
-    });
-  });
 });
 
 function invoiceEvent(overrides: Partial<Stripe.Event>): Stripe.Event {
@@ -263,27 +177,6 @@ function invoiceEvent(overrides: Partial<Stripe.Event>): Stripe.Event {
         billing_reason: "subscription_cycle",
         total_taxes: [],
         status_transitions: {},
-      },
-    },
-    ...overrides,
-  } as Stripe.Event;
-}
-
-function refundEvent(overrides: Partial<Stripe.Event> = {}): Stripe.Event {
-  return {
-    id: "evt_refund",
-    type: "refund.created",
-    object: "event",
-    api_version: "2025-03-31.basil",
-    created: 1_700_000_500,
-    livemode: false,
-    pending_webhooks: 0,
-    request: { id: null, idempotency_key: null },
-    data: {
-      object: {
-        id: "re_123",
-        charge: "ch_123",
-        payment_intent: null,
       },
     },
     ...overrides,

@@ -1,6 +1,11 @@
 import type Stripe from "stripe";
 import { ProcessorType } from "@/generated/prisma/enums";
-import { getStripe } from "@/ee/billing/stripe";
+import {
+  getStripeInvoiceForRefundEvent,
+  getStripeRefundState,
+  isStripeRefundEventType,
+  stripeRefundEvents,
+} from "@/ee/billing/stripe/refunds";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 
@@ -10,9 +15,7 @@ const stripeInvoicePaymentEvents = new Set<Stripe.Event.Type>([
   "invoice.payment_failed",
   "invoice.payment_action_required",
   "invoice.marked_uncollectible",
-  "refund.created",
-  "refund.updated",
-  "refund.failed",
+  ...stripeRefundEvents,
 ]);
 
 export async function syncStripeInvoicePayment({
@@ -100,7 +103,7 @@ export async function getStripeInvoiceForPaymentSync(
 ) {
   if (!stripeInvoicePaymentEvents.has(event.type)) return null;
 
-  if (event.type.startsWith("refund.")) {
+  if (isStripeRefundEventType(event.type)) {
     return await getStripeInvoiceForRefundEvent({
       refund: event.data.object as Stripe.Refund,
       logger,
@@ -128,11 +131,7 @@ export function buildStripePaymentData({
     invoice.parent?.subscription_details?.subscription ?? null,
   );
   const tax = getStripeInvoiceTaxAmount(invoice);
-  const charge =
-    invoice.charge && typeof invoice.charge !== "string"
-      ? invoice.charge
-      : null;
-  const refundedAmount = charge?.amount_refunded ?? 0;
+  const refundState = getStripeRefundState(invoice);
 
   return {
     premiumId,
@@ -146,14 +145,14 @@ export function buildStripePaymentData({
     processorCustomerId: customerId,
     amount: invoice.total,
     currency: invoice.currency.toUpperCase(),
-    status: getStripePaymentStatus(invoice, refundedAmount),
+    status: refundState.status,
     tax,
     // Stripe invoice payloads do not expose a single reliable invoice-level
     // inclusive/exclusive boolean without expanded line-price inspection.
     taxInclusive: false,
-    refunded: refundedAmount > 0,
-    refundedAt: refundedAmount > 0 ? getLatestRefundedAt(charge) : null,
-    refundedAmount: refundedAmount > 0 ? refundedAmount : null,
+    refunded: refundState.refunded,
+    refundedAt: refundState.refundedAt,
+    refundedAmount: refundState.refundedAmount,
     billingReason: invoice.billing_reason ?? null,
   };
 }
@@ -178,104 +177,6 @@ function getStripeInvoiceUpdatedAtUnix(
     eventCreated ??
     invoice.created
   );
-}
-
-async function getStripeInvoiceForRefundEvent({
-  refund,
-  logger,
-  eventType,
-}: {
-  refund: Stripe.Refund;
-  logger: Logger;
-  eventType: Stripe.Event.Type;
-}) {
-  const stripe = getStripe();
-
-  const chargeId = normalizeStripeId(refund.charge);
-  if (chargeId) {
-    const charge = await stripe.charges.retrieve(chargeId);
-    const invoiceId = normalizeStripeId(charge.invoice);
-    if (!invoiceId) {
-      logger.warn(
-        "Skipping Stripe refund payment sync due to missing invoice",
-        {
-          refundId: refund.id,
-          chargeId,
-          eventType,
-        },
-      );
-      return null;
-    }
-
-    return await stripe.invoices.retrieve(invoiceId, {
-      expand: ["charge", "charge.refunds"],
-    });
-  }
-
-  const paymentIntentId = normalizeStripeId(refund.payment_intent);
-  if (paymentIntentId) {
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-    const invoiceId = normalizeStripeId(paymentIntent.invoice);
-    if (!invoiceId) {
-      logger.warn(
-        "Skipping Stripe refund payment sync due to missing invoice",
-        {
-          refundId: refund.id,
-          paymentIntentId,
-          eventType,
-        },
-      );
-      return null;
-    }
-
-    return await stripe.invoices.retrieve(invoiceId, {
-      expand: ["charge", "charge.refunds"],
-    });
-  }
-
-  logger.warn(
-    "Skipping Stripe refund payment sync due to missing payment link",
-    {
-      refundId: refund.id,
-      eventType,
-    },
-  );
-  return null;
-}
-
-function getStripePaymentStatus(
-  invoice: Stripe.Invoice,
-  refundedAmount: number,
-) {
-  if (refundedAmount >= invoice.total && refundedAmount > 0) {
-    return "refunded";
-  }
-
-  if (refundedAmount > 0) {
-    return "partially_refunded";
-  }
-
-  return invoice.status ?? "unknown";
-}
-
-function getLatestRefundedAt(charge: Stripe.Charge | null) {
-  if (!charge) {
-    return null;
-  }
-
-  let latestRefundTimestamp = 0;
-
-  for (const refund of charge.refunds.data) {
-    if (refund.status === "failed") {
-      continue;
-    }
-
-    if (refund.created > latestRefundTimestamp) {
-      latestRefundTimestamp = refund.created;
-    }
-  }
-
-  return latestRefundTimestamp ? new Date(latestRefundTimestamp * 1000) : null;
 }
 
 function normalizeStripeId(
