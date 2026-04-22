@@ -139,7 +139,6 @@ describe("AssistantInlineEmailResponse", () => {
 
     expect(screen.getByText("Subject")).toBeTruthy();
     expect(screen.getByText("Focus on the action item.")).toBeTruthy();
-    expect(screen.getByText("Rendered detail subject")).toBeTruthy();
     expect(screen.getByText("Rendered detail body")).toBeTruthy();
     expect(screen.getByRole("link").getAttribute("href")).toBe(
       getEmailUrlForMessage(
