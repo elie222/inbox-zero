@@ -21,6 +21,7 @@ const {
 } = vi.hoisted(() => ({
   envState: {
     sendEmailEnabled: true,
+    autoDraftDisabled: false,
     webhookActionsEnabled: true,
   },
   mockToolCallAgentStream: vi.fn(),
@@ -101,6 +102,9 @@ vi.mock("@/env", () => ({
     get NEXT_PUBLIC_EMAIL_SEND_ENABLED() {
       return envState.sendEmailEnabled;
     },
+    get NEXT_PUBLIC_AUTO_DRAFT_DISABLED() {
+      return envState.autoDraftDisabled;
+    },
     get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
       return envState.webhookActionsEnabled;
     },
@@ -118,12 +122,15 @@ const baseMessages: ModelMessage[] = [
 
 async function loadAssistantChatModule({
   emailSend,
+  autoDraftDisabled = false,
   webhookActions = true,
 }: {
   emailSend: boolean;
+  autoDraftDisabled?: boolean;
   webhookActions?: boolean;
 }) {
   envState.sendEmailEnabled = emailSend;
+  envState.autoDraftDisabled = autoDraftDisabled;
   envState.webhookActionsEnabled = webhookActions;
   vi.resetModules();
   return await import("@/utils/ai/assistant/chat");
@@ -159,6 +166,7 @@ describe("aiProcessAssistantChat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envState.sendEmailEnabled = true;
+    envState.autoDraftDisabled = false;
     envState.webhookActionsEnabled = true;
   });
 
@@ -248,6 +256,105 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     expect(args.tools.sendEmail).toBeUndefined();
     expect(args.tools.forwardEmail).toBeUndefined();
+  });
+
+  it("uses one email-capabilities block when send and draft-reply are both disabled", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: false,
+      autoDraftDisabled: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const systemPrompt = String(
+      mockToolCallAgentStream.mock.calls[0][0].messages[0].content,
+    );
+
+    expect(systemPrompt).toContain("Email capabilities:");
+    expect(systemPrompt).toContain(
+      "Email sending actions are disabled in this environment. sendEmail, replyEmail, and forwardEmail tools are unavailable.",
+    );
+    expect(systemPrompt).toContain(
+      "Draft reply rule actions are disabled in this environment.",
+    );
+    expect(systemPrompt).not.toContain("Email sending:");
+    expect(systemPrompt).not.toContain("Draft replies in rules:");
+  });
+
+  it("uses the same email-capabilities block when send is disabled but draft-reply rules remain available", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: false,
+      autoDraftDisabled: false,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const systemPrompt = String(
+      mockToolCallAgentStream.mock.calls[0][0].messages[0].content,
+    );
+
+    expect(systemPrompt).toContain("Email capabilities:");
+    expect(systemPrompt).toContain(
+      "Draft reply rule actions are available for automation.",
+    );
+    expect(systemPrompt).toContain(
+      "Do not treat rule-based draft actions as a substitute for disabled chat send tools unless the user explicitly asks for automation.",
+    );
+    expect(systemPrompt).not.toContain("Email sending:");
+    expect(systemPrompt).not.toContain("Draft replies in rules:");
+  });
+
+  it("keeps send guidance but removes draft-reply rule guidance when draft replies are disabled", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+      autoDraftDisabled: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const systemPrompt = String(
+      mockToolCallAgentStream.mock.calls[0][0].messages[0].content,
+    );
+
+    expect(systemPrompt).toContain("Email capabilities:");
+    expect(systemPrompt).toContain(
+      "sendEmail, replyEmail, and forwardEmail prepare a pending action.",
+    );
+    expect(systemPrompt).toContain(
+      "Draft reply rule actions are disabled in this environment.",
+    );
+    expect(systemPrompt).toContain(
+      "Do not create or suggest draft-reply automation.",
+    );
+    expect(systemPrompt).not.toContain("Email sending:");
+    expect(systemPrompt).not.toContain("Draft replies in rules:");
   });
 
   it("does not expose webhook rule actions when webhook actions are disabled", async () => {
@@ -1279,17 +1386,47 @@ describe("aiProcessAssistantChat", () => {
     });
   });
 
-  it("returns exact rule execution reasoning for a specific message", async () => {
+  it("returns exact rule execution history for a specific message", async () => {
     const tools = await captureToolSet(true, "google");
 
     mockPrisma.executedRule.findMany.mockResolvedValue([
       {
         id: "executed-rule-1",
+        ruleId: "rule-1",
         threadId: "thread-1",
         createdAt: new Date("2026-04-20T10:00:00.000Z"),
+        status: "APPLIED",
         reason: "Matched the sender-specific rule for this thread.",
         matchMetadata: [{ type: "STATIC" }],
         automated: true,
+        actionItems: [
+          {
+            type: "DRAFT_EMAIL",
+            label: null,
+            labelId: null,
+            subject: "Re: Priority sender",
+            to: "sender@example.com",
+            cc: null,
+            bcc: null,
+            url: null,
+            folderName: null,
+            draftId: "draft-1",
+            wasDraftSent: false,
+          },
+          {
+            type: "LABEL",
+            label: "To Reply",
+            labelId: "label-1",
+            subject: null,
+            to: null,
+            cc: null,
+            bcc: null,
+            url: null,
+            folderName: null,
+            draftId: null,
+            wasDraftSent: null,
+          },
+        ],
         rule: {
           id: "rule-1",
           name: "Priority Sender",
@@ -1297,15 +1434,15 @@ describe("aiProcessAssistantChat", () => {
       },
       {
         id: "executed-rule-2",
+        ruleId: null,
         threadId: "thread-1",
         createdAt: new Date("2026-04-20T09:00:00.000Z"),
+        status: "SKIPPED",
         reason: "Matched by AI instructions.",
         matchMetadata: [{ type: "AI" }],
         automated: false,
-        rule: {
-          id: "rule-2",
-          name: "Needs Review",
-        },
+        actionItems: [],
+        rule: null,
       },
     ]);
 
@@ -1317,17 +1454,32 @@ describe("aiProcessAssistantChat", () => {
       where: {
         emailAccountId: "email-account-id",
         messageId: "message-1",
-        status: "APPLIED",
-        rule: { isNot: null },
       },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
+        ruleId: true,
         threadId: true,
         createdAt: true,
+        status: true,
         reason: true,
         matchMetadata: true,
         automated: true,
+        actionItems: {
+          select: {
+            type: true,
+            label: true,
+            labelId: true,
+            subject: true,
+            to: true,
+            cc: true,
+            bcc: true,
+            url: true,
+            folderName: true,
+            draftId: true,
+            wasDraftSent: true,
+          },
+        },
         rule: {
           select: {
             id: true,
@@ -1344,19 +1496,50 @@ describe("aiProcessAssistantChat", () => {
           executedRuleId: "executed-rule-1",
           ruleId: "rule-1",
           ruleName: "Priority Sender",
-          appliedAt: "2026-04-20T10:00:00.000Z",
+          status: "APPLIED",
+          executedAt: "2026-04-20T10:00:00.000Z",
           reason: "Matched the sender-specific rule for this thread.",
           matchMetadata: [{ type: "STATIC" }],
           automated: true,
+          actions: [
+            {
+              type: "DRAFT_EMAIL",
+              label: null,
+              labelId: null,
+              subject: "Re: Priority sender",
+              to: "sender@example.com",
+              cc: null,
+              bcc: null,
+              url: null,
+              folderName: null,
+              draftId: "draft-1",
+              wasDraftSent: false,
+            },
+            {
+              type: "LABEL",
+              label: "To Reply",
+              labelId: "label-1",
+              subject: null,
+              to: null,
+              cc: null,
+              bcc: null,
+              url: null,
+              folderName: null,
+              draftId: null,
+              wasDraftSent: null,
+            },
+          ],
         },
         {
           executedRuleId: "executed-rule-2",
-          ruleId: "rule-2",
-          ruleName: "Needs Review",
-          appliedAt: "2026-04-20T09:00:00.000Z",
+          ruleId: null,
+          ruleName: null,
+          status: "SKIPPED",
+          executedAt: "2026-04-20T09:00:00.000Z",
           reason: "Matched by AI instructions.",
           matchMetadata: [{ type: "AI" }],
           automated: false,
+          actions: [],
         },
       ],
     });

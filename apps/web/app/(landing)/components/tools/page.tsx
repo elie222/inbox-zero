@@ -1,6 +1,9 @@
 "use client";
 
 import { Suspense } from "react";
+import { SWRConfig } from "swr";
+import { AssistantInlineEmailResponse } from "@/components/assistant-chat/assistant-inline-email-response";
+import { EmailLookupProvider } from "@/components/assistant-chat/email-lookup-context";
 import { Container } from "@/components/Container";
 import { PageHeading, SectionHeader, MutedText } from "@/components/Typography";
 import {
@@ -265,6 +268,34 @@ export default function ToolsPage() {
           <SectionHeader>Search & Read Results</SectionHeader>
           <SearchInboxResult output={getAssistantSearchInboxOutput()} />
           <ReadEmailResult output={getAssistantReadEmailOutput()} />
+        </section>
+
+        <section className="space-y-4">
+          <SectionHeader>Inline Email Views</SectionHeader>
+
+          <EmailLookupProvider value={assistantToolThreadLookup}>
+            <SWRConfig
+              value={{
+                fallback: {
+                  [getThreadDetailFallbackKey("thread-3")]:
+                    getAssistantInlineEmailDetailThread(),
+                },
+                revalidateIfStale: false,
+                revalidateOnFocus: false,
+                revalidateOnMount: false,
+              }}
+            >
+              <MutedText>Inline email list:</MutedText>
+              <AssistantInlineEmailResponse>
+                {getAssistantInlineEmailListMarkup()}
+              </AssistantInlineEmailResponse>
+
+              <MutedText>Inline email detail:</MutedText>
+              <AssistantInlineEmailResponse>
+                {getAssistantInlineEmailDetailMarkup()}
+              </AssistantInlineEmailResponse>
+            </SWRConfig>
+          </EmailLookupProvider>
         </section>
 
         {/* Error States */}
@@ -657,6 +688,50 @@ function getAssistantToolThreadLookup(): ThreadLookup {
   ]);
 }
 
+function getAssistantInlineEmailDetailThread() {
+  return {
+    thread: {
+      id: "thread-3",
+      messages: [
+        {
+          id: "message-3",
+          threadId: "thread-3",
+          subject: "Ticket follow-up",
+          snippet: "Checking in on your request",
+          date: "2026-01-10T15:20:00.000Z",
+          internalDate: `${Date.parse("2026-01-10T15:20:00.000Z")}`,
+          historyId: "history-3",
+          inline: [],
+          headers: {
+            from: "Support <support@example.com>",
+            to: "you@example.com",
+            date: "2026-01-10T15:20:00.000Z",
+            subject: "Ticket follow-up",
+          },
+          textPlain:
+            "Hi there,\n\nChecking in on your request. The action item is to confirm whether the issue is resolved.\n\nBest,\nSupport Team",
+        },
+      ],
+    },
+  };
+}
+
+function getAssistantInlineEmailListMarkup() {
+  return `
+<emails>
+  <email threadid="thread-1">Daily summary</email>
+  <email threadid="thread-2">Release notes</email>
+  <email threadid="thread-3">Ticket follow-up</email>
+</emails>
+`.trim();
+}
+
+function getAssistantInlineEmailDetailMarkup() {
+  return `
+<email-detail threadid="thread-3">Focus on the action item and current status.</email-detail>
+`.trim();
+}
+
 function getAssistantSearchInboxOutput() {
   return {
     queryUsed: "newer_than:7d in:inbox",
@@ -721,6 +796,10 @@ function getAssistantReadEmailOutput() {
     date: "2026-01-10T15:20:00.000Z",
     attachments: [{ filename: "follow-up.pdf" }],
   };
+}
+
+function getThreadDetailFallbackKey(threadId: string) {
+  return `/api/threads/${threadId}?`;
 }
 
 function ToolErrorCardPreview({ error }: { error: string }) {

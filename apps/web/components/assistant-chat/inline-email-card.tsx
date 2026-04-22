@@ -474,7 +474,7 @@ export function InlineEmailDetail({
         ) : null}
       </div>
       {threadId ? (
-        <EmailPreview threadId={threadId} />
+        <EmailPreview threadId={threadId} compact />
       ) : (
         <div className="px-3 py-2 text-xs text-muted-foreground">
           No email content found.
@@ -497,7 +497,13 @@ function collectThreadIds(children: ReactNode): string[] {
   return ids;
 }
 
-function EmailPreview({ threadId }: { threadId: string }) {
+function EmailPreview({
+  threadId,
+  compact = false,
+}: {
+  threadId: string;
+  compact?: boolean;
+}) {
   const { data, isLoading, error } = useThread({ id: threadId });
 
   if (isLoading) {
@@ -523,6 +529,40 @@ function EmailPreview({ threadId }: { threadId: string }) {
   }
 
   const lastMessage = data.thread.messages[data.thread.messages.length - 1];
+  const hasMultipleMessages = data.thread.messages.length > 1;
+
+  const body = (
+    <>
+      {lastMessage.textHtml ? (
+        <HtmlEmail html={lastMessage.textHtml} />
+      ) : (
+        <PlainEmail
+          text={
+            lastMessage.textPlain ||
+            lastMessage.snippet ||
+            "No content available."
+          }
+        />
+      )}
+
+      {lastMessage.attachments?.length ? (
+        <EmailAttachments message={lastMessage} />
+      ) : null}
+    </>
+  );
+
+  if (compact) {
+    return (
+      <div className="max-h-[32rem] overflow-auto">
+        {hasMultipleMessages ? (
+          <div className="border-b px-4 py-2 text-xs text-muted-foreground">
+            Showing the latest message in this thread.
+          </div>
+        ) : null}
+        <div className="px-4 py-3">{body}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-h-[32rem] overflow-auto border-t bg-muted/20 p-4">
@@ -531,7 +571,7 @@ function EmailPreview({ threadId }: { threadId: string }) {
           <div className="text-sm font-semibold text-foreground">
             {lastMessage.headers?.subject || lastMessage.subject}
           </div>
-          {data.thread.messages.length > 1 ? (
+          {hasMultipleMessages ? (
             <div className="mt-1 text-xs text-muted-foreground">
               Showing the latest message in this thread.
             </div>
@@ -540,21 +580,7 @@ function EmailPreview({ threadId }: { threadId: string }) {
 
         <EmailDetails message={lastMessage} />
 
-        {lastMessage.textHtml ? (
-          <HtmlEmail html={lastMessage.textHtml} />
-        ) : (
-          <PlainEmail
-            text={
-              lastMessage.textPlain ||
-              lastMessage.snippet ||
-              "No content available."
-            }
-          />
-        )}
-
-        {lastMessage.attachments?.length ? (
-          <EmailAttachments message={lastMessage} />
-        ) : null}
+        {body}
       </article>
     </div>
   );

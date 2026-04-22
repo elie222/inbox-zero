@@ -1,7 +1,7 @@
 import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import type { Logger } from "@/utils/logger";
-import { ExecutedRuleStatus } from "@/generated/prisma/enums";
+import type { ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { serializedMatchMetadataSchema } from "@/app/api/chat/validation";
 import prisma from "@/utils/prisma";
 import { trackRuleToolCall } from "./shared";
@@ -22,12 +22,26 @@ type GetRuleExecutionForMessageOutput =
       threadId: string | null;
       executions: Array<{
         executedRuleId: string;
-        ruleId: string;
-        ruleName: string;
-        appliedAt: string;
+        ruleId: string | null;
+        ruleName: string | null;
+        status: ExecutedRuleStatus;
+        executedAt: string;
         reason: string | null;
         matchMetadata: z.infer<typeof serializedMatchMetadataSchema>;
         automated: boolean;
+        actions: Array<{
+          type: string;
+          label: string | null;
+          labelId: string | null;
+          subject: string | null;
+          to: string | null;
+          cc: string | null;
+          bcc: string | null;
+          url: string | null;
+          folderName: string | null;
+          draftId: string | null;
+          wasDraftSent: boolean | null;
+        }>;
       }>;
     }
   | {
@@ -49,7 +63,7 @@ export const getRuleExecutionForMessageTool = ({
     GetRuleExecutionForMessageOutput
   >({
     description:
-      "Fetch the exact rule execution reasoning for a specific processed email by message ID. Use this only when the user is asking why a particular email was processed a certain way.",
+      "Fetch the recorded rule executions for a specific processed email by message ID. Returns the executions for that message, including status, matched rule, reason, and the actions that were taken such as drafting, labeling, archiving, or forwarding. Use this when the user is asking what happened to a particular email, why it was processed a certain way, or whether multiple rules matched.",
     inputSchema: getRuleExecutionForMessageInputSchema,
     execute: async ({ messageId }) => {
       trackRuleToolCall({
@@ -63,17 +77,32 @@ export const getRuleExecutionForMessageTool = ({
           where: {
             emailAccountId,
             messageId,
-            status: ExecutedRuleStatus.APPLIED,
-            rule: { isNot: null },
           },
           orderBy: { createdAt: "desc" },
           select: {
             id: true,
+            ruleId: true,
             threadId: true,
             createdAt: true,
+            status: true,
             reason: true,
             matchMetadata: true,
             automated: true,
+            actionItems: {
+              select: {
+                type: true,
+                label: true,
+                labelId: true,
+                subject: true,
+                to: true,
+                cc: true,
+                bcc: true,
+                url: true,
+                folderName: true,
+                draftId: true,
+                wasDraftSent: true,
+              },
+            },
             rule: {
               select: {
                 id: true,
@@ -85,14 +114,28 @@ export const getRuleExecutionForMessageTool = ({
 
         const executions = executedRules.map((executedRule) => ({
           executedRuleId: executedRule.id,
-          ruleId: executedRule.rule!.id,
-          ruleName: executedRule.rule!.name,
-          appliedAt: executedRule.createdAt.toISOString(),
+          ruleId: executedRule.ruleId,
+          ruleName: executedRule.rule?.name ?? null,
+          status: executedRule.status,
+          executedAt: executedRule.createdAt.toISOString(),
           reason: executedRule.reason,
           matchMetadata:
             serializedMatchMetadataSchema.safeParse(executedRule.matchMetadata)
               .data ?? null,
           automated: executedRule.automated,
+          actions: executedRule.actionItems.map((action) => ({
+            type: action.type,
+            label: action.label,
+            labelId: action.labelId,
+            subject: action.subject,
+            to: action.to,
+            cc: action.cc,
+            bcc: action.bcc,
+            url: action.url,
+            folderName: action.folderName,
+            draftId: action.draftId,
+            wasDraftSent: action.wasDraftSent,
+          })),
         }));
 
         return {

@@ -447,12 +447,15 @@ describe.runIf(shouldRunEval)(
             prisma.executedRule.findMany.mockResolvedValue([
               {
                 id: "executed-rule-why-no-draft-1",
+                ruleId: "rule-fyi-updates",
                 threadId: explanationMessage.threadId,
                 createdAt: new Date("2026-04-20T10:00:00.000Z"),
+                status: "APPLIED",
                 reason:
                   'Matched the "FYI Updates" rule, which files status updates for review and does not prepare a reply draft.',
                 matchMetadata: [{ type: "STATIC" }],
                 automated: true,
+                actionItems: [],
                 rule: {
                   id: "rule-fyi-updates",
                   name: "FYI Updates",
@@ -570,12 +573,29 @@ describe.runIf(shouldRunEval)(
             prisma.executedRule.findMany.mockResolvedValue([
               {
                 id: "executed-rule-draft-expected-1",
+                ruleId: "rule-customer-requests",
                 threadId: explanationMessage.threadId,
                 createdAt: new Date("2026-04-20T11:00:00.000Z"),
+                status: "APPLIED",
                 reason:
                   'Matched the "Customer Requests" rule, which prepares a reply draft for direct customer questions that need a response.',
                 matchMetadata: [{ type: "AI" }],
                 automated: true,
+                actionItems: [
+                  {
+                    type: "DRAFT_EMAIL",
+                    label: null,
+                    labelId: null,
+                    subject: "Re: Question about the contract terms",
+                    to: "requests@customer.example",
+                    cc: null,
+                    bcc: null,
+                    url: null,
+                    folderName: null,
+                    draftId: "draft-contract-terms-1",
+                    wasDraftSent: false,
+                  },
+                ],
                 rule: {
                   id: "rule-customer-requests",
                   name: "Customer Requests",
@@ -700,12 +720,29 @@ describe.runIf(shouldRunEval)(
             prisma.executedRule.findMany.mockResolvedValue([
               {
                 id: "executed-rule-draft-mismatch-1",
+                ruleId: "rule-customer-requests",
                 threadId: explanationMessage.threadId,
                 createdAt: new Date("2026-04-20T12:00:00.000Z"),
+                status: "APPLIED",
                 reason:
                   'Matched the "Customer Requests" rule and prepared a reply draft for follow-up.',
                 matchMetadata: [{ type: "AI" }],
                 automated: true,
+                actionItems: [
+                  {
+                    type: "DRAFT_EMAIL",
+                    label: null,
+                    labelId: null,
+                    subject: "Re: Question about the renewal quote",
+                    to: "requests@customer.example",
+                    cc: null,
+                    bcc: null,
+                    url: null,
+                    folderName: null,
+                    draftId: "draft-renewal-quote-1",
+                    wasDraftSent: false,
+                  },
+                ],
                 rule: {
                   id: "rule-customer-requests",
                   name: "Customer Requests",
@@ -830,12 +867,15 @@ describe.runIf(shouldRunEval)(
             prisma.executedRule.findMany.mockResolvedValue([
               {
                 id: "executed-rule-no-draft-mismatch-1",
+                ruleId: "rule-fyi-updates",
                 threadId: explanationMessage.threadId,
                 createdAt: new Date("2026-04-20T13:00:00.000Z"),
+                status: "APPLIED",
                 reason:
                   'Matched the "FYI Updates" rule, which files rollout summaries for review and does not prepare a reply draft.',
                 matchMetadata: [{ type: "STATIC" }],
                 automated: true,
+                actionItems: [],
                 rule: {
                   id: "rule-fyi-updates",
                   name: "FYI Updates",
