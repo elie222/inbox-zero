@@ -103,9 +103,10 @@ export function getStripeRefundState(invoice: Stripe.Invoice) {
       ? invoice.charge
       : null;
   const refundedAmount = charge?.amount_refunded ?? 0;
+  const chargedAmount = charge?.amount ?? null;
 
   return {
-    status: getStripePaymentStatus(invoice, refundedAmount),
+    status: getStripePaymentStatus(invoice, refundedAmount, chargedAmount),
     refunded: refundedAmount > 0,
     refundedAt: refundedAmount > 0 ? getLatestRefundedAt(charge) : null,
     refundedAmount: refundedAmount > 0 ? refundedAmount : null,
@@ -115,8 +116,9 @@ export function getStripeRefundState(invoice: Stripe.Invoice) {
 function getStripePaymentStatus(
   invoice: Stripe.Invoice,
   refundedAmount: number,
+  chargedAmount: number | null,
 ) {
-  if (refundedAmount >= invoice.total && refundedAmount > 0) {
+  if (chargedAmount && refundedAmount >= chargedAmount && refundedAmount > 0) {
     return "refunded";
   }
 

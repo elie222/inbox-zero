@@ -124,6 +124,34 @@ describe("getStripeRefundState", () => {
       refundedAmount: 500,
     });
   });
+
+  it("treats a fully refunded discounted charge as refunded", async () => {
+    const { getStripeRefundState } = await import("./refunds");
+
+    expect(
+      getStripeRefundState({
+        total: 2000,
+        status: "paid",
+        charge: {
+          amount: 1500,
+          amount_refunded: 1500,
+          refunds: {
+            data: [
+              {
+                created: 1_700_000_450,
+                status: "succeeded",
+              },
+            ],
+          },
+        },
+      } as Stripe.Invoice),
+    ).toEqual({
+      status: "refunded",
+      refunded: true,
+      refundedAt: new Date("2023-11-14T22:20:50.000Z"),
+      refundedAmount: 1500,
+    });
+  });
 });
 
 function refund(overrides: Partial<Stripe.Refund> = {}): Stripe.Refund {
