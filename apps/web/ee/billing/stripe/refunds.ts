@@ -48,7 +48,7 @@ export async function getStripeInvoiceForRefundEvent({
   const chargeId = normalizeStripeId(refund.charge);
   if (chargeId) {
     const charge = await stripe.charges.retrieve(chargeId);
-    const invoiceId = normalizeStripeId(charge.invoice);
+    const invoiceId = getChargeInvoiceId(charge);
     if (!invoiceId) {
       logger.warn(
         "Skipping Stripe refund payment sync due to missing invoice",
@@ -147,6 +147,13 @@ function getLatestRefundedAt(charge: Stripe.Charge | null) {
   }
 
   return latestRefundTimestamp ? new Date(latestRefundTimestamp * 1000) : null;
+}
+
+function getChargeInvoiceId(charge: Stripe.Charge) {
+  return normalizeStripeId(
+    (charge as Stripe.Charge & { invoice?: string | { id: string } | null })
+      .invoice,
+  );
 }
 
 function normalizeStripeId(value: string | { id: string } | null | undefined) {
