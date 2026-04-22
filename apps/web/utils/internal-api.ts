@@ -63,7 +63,7 @@ export const isValidInternalApiKey = (
     const userAgent = headers.get("user-agent");
 
     logger.error("Invalid API key", {
-      invalidApiKeyHash: hash(apiKey),
+      invalidApiKeyHash: apiKey ? hash(apiKey) : null,
       invalidApiKeyLength: apiKey?.length,
       origin,
       referer,
