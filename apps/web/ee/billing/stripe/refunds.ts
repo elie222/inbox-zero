@@ -69,7 +69,7 @@ export async function getStripeInvoiceForRefundEvent({
   const paymentIntentId = normalizeStripeId(refund.payment_intent);
   if (paymentIntentId) {
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-    const invoiceId = normalizeStripeId(paymentIntent.invoice);
+    const invoiceId = getPaymentIntentInvoiceId(paymentIntent);
     if (!invoiceId) {
       logger.warn(
         "Skipping Stripe refund payment sync due to missing invoice",
@@ -153,6 +153,16 @@ function getChargeInvoiceId(charge: Stripe.Charge) {
   return normalizeStripeId(
     (charge as Stripe.Charge & { invoice?: string | { id: string } | null })
       .invoice,
+  );
+}
+
+function getPaymentIntentInvoiceId(paymentIntent: Stripe.PaymentIntent) {
+  return normalizeStripeId(
+    (
+      paymentIntent as Stripe.PaymentIntent & {
+        invoice?: string | { id: string } | null;
+      }
+    ).invoice,
   );
 }
 
