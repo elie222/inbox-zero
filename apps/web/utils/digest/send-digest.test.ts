@@ -86,6 +86,11 @@ describe("sendDigest", () => {
 
     expect(sendDigestEmail).not.toHaveBeenCalled();
     expect(sendDigestToSlack).toHaveBeenCalledTimes(1);
+    expect(sendDigestToSlack).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        unsubscribeUrl: expect.any(String),
+      }),
+    );
   });
 
   it("sends to both email and channels in parallel", async () => {

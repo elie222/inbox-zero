@@ -142,14 +142,12 @@ export async function sendDigestToSlack({
   date,
   ruleNames,
   itemsByRule,
-  unsubscribeUrl,
 }: SlackDigestParams): Promise<void> {
   const client = createSlackClient(accessToken);
   const blocks = buildDigestBlocks({
     date,
     ruleNames,
     itemsByRule,
-    unsubscribeUrl,
   });
 
   await postMessageWithJoin(client, channelId, {
