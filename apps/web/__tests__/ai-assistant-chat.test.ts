@@ -345,7 +345,7 @@ describe("aiProcessAssistantChat", () => {
 
     expect(systemPrompt).toContain("Email capabilities:");
     expect(systemPrompt).toContain(
-      "sendEmail, replyEmail, and forwardEmail prepare a pending action.",
+      "sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.",
     );
     expect(systemPrompt).toContain(
       "Draft reply rule actions are disabled in this environment.",

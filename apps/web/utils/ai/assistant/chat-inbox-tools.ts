@@ -419,7 +419,7 @@ export type ManageSenderCategoryTool = InferUITool<
 
 function getSearchQueryDescription(provider: string): string {
   if (isMicrosoftProvider(provider)) {
-    return "Search query using Outlook search syntax. Supports: unread, read, subject:, keyword search, and plain sender email lookups. Prefer a plain sender email like sender@example.com when searching by sender. Keep Outlook retries to one simple clause at a time. If you use from:, keep it as a simple standalone filter. If the tool returns microsoftSearchFeedback.retryQueries after a failed search, use the first retryQueries value verbatim for the next retry. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.";
+    return "Search query using Outlook search syntax. Supports: unread, read, subject:, keyword search, and plain sender email lookups. Prefer a plain sender email like sender@example.com when searching by sender. Keep Outlook retries to one simple clause at a time. If you use from:, keep it as a simple standalone filter. If the tool returns microsoftSearchFeedback.retryQueries after a failed search, prefer one suggested simpler retry query instead of repeating the same query shape. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.";
   }
   return "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.";
 }
