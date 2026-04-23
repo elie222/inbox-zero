@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "main": "src/index.ts",
   "dependencies": {
-    "@chronark/zod-bird": "0.3.10",
+    "@chronark/zod-bird": "1.0.0",
     "p-retry": "8.0.0",
-    "zod": "3.25.76"
+    "zod": "4.2.1"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

@@ -57,7 +57,26 @@ export function getAvailableActions(provider: string) {
 export const getExtraActions = (existingActionTypes: ActionType[] = []) =>
   getExtraAvailableActionsForRuleEditor(existingActionTypes);
 
-export const createRuleActionSchema = (provider: string) => {
+export type RuleActionFields = {
+  label?: string | null;
+  to?: string | null;
+  cc?: string | null;
+  bcc?: string | null;
+  subject?: string | null;
+  content?: string | null;
+  webhookUrl?: string | null;
+  folderName?: string | null;
+};
+
+export type RuleAction = {
+  type: ActionType;
+  fields?: RuleActionFields | null;
+  delayInMinutes?: number | null;
+};
+
+export const createRuleActionSchema = (
+  provider: string,
+): z.ZodType<RuleAction> => {
   const allowedActionTypes = new Set([
     ...getAvailableActionsForRuleEditor({ provider }),
     ...getExtraAvailableActionsForRuleEditor(),
@@ -113,7 +132,7 @@ export const createRuleActionSchema = (provider: string) => {
       : []),
   ];
 
-  return z.union(actionSchemas);
+  return z.union(actionSchemas) as z.ZodType<RuleAction>;
 };
 
 export const createRuleSchema = (provider: string) =>
