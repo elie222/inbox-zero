@@ -192,13 +192,23 @@ jobs:
           echo "Tunnel URL: $NGROK_URL"
 
       - name: Run E2E Flow Tests
+        shell: bash
         run: |
-          if [ -n "${{ github.event.inputs.test_file }}" ]; then
-            pnpm -F inbox-zero-ai test-e2e:flows ${{ github.event.inputs.test_file }}
+          if [ -n "$E2E_FLOW_TEST_FILE" ]; then
+            if [[ "$E2E_FLOW_TEST_FILE" == -* ]] ||
+              [[ "$E2E_FLOW_TEST_FILE" == /* ]] ||
+              [[ "$E2E_FLOW_TEST_FILE" == *..* ]] ||
+              ! [[ "$E2E_FLOW_TEST_FILE" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+              echo "::error::Invalid test_file input. Use a relative E2E flow test name or path containing only letters, numbers, dots, underscores, hyphens, and slashes."
+              exit 1
+            fi
+
+            pnpm -F inbox-zero-ai test-e2e:flows -- "$E2E_FLOW_TEST_FILE"
           else
             pnpm -F inbox-zero-ai test-e2e:flows
           fi
         env:
+          E2E_FLOW_TEST_FILE: ${{ github.event.inputs.test_file }}
           NEXT_PUBLIC_BASE_URL: ${{ env.NGROK_URL }}
           # Test control
           RUN_E2E_FLOW_TESTS: "true"
