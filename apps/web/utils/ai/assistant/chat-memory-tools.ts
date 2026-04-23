@@ -89,29 +89,26 @@ const userEvidenceSchema = z
   .max(500)
   .describe("A short exact quote from a user-authored chat message.");
 
-const saveMemoryToolInputSchema = z.discriminatedUnion("source", [
-  z.object({
-    content: memoryContentSchema,
-    source: z
-      .literal("user_message")
-      .describe("The memory content came from a user-authored chat message."),
-    userEvidence: userEvidenceSchema,
-  }),
-  z.object({
-    content: memoryContentSchema,
-    source: z
-      .literal("assistant_inference")
-      .describe(
-        "The memory content was inferred by the assistant and requires confirmation before saving.",
-      ),
-    userEvidence: z
-      .string()
-      .trim()
-      .max(500)
-      .optional()
-      .describe("Optional supporting quote when available."),
-  }),
-]);
+// Flattened to a plain z.object to produce a top-level JSON Schema of
+// type: "object" (Anthropic rejects root-level anyOf that z.discriminatedUnion
+// emits). Evidence requirements for source="user_message" are enforced at
+// runtime by validateUserMemoryEvidence.
+const saveMemoryToolInputSchema = z.object({
+  content: memoryContentSchema,
+  source: z
+    .enum(["user_message", "assistant_inference"])
+    .describe(
+      'Use "user_message" when the user directly stated the fact in chat; use "assistant_inference" when the content was inferred from retrieved context and needs UI confirmation.',
+    ),
+  userEvidence: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .describe(
+      'Required when source is "user_message": a short exact quote from a user-authored chat message. Optional for "assistant_inference".',
+    ),
+});
 
 export const saveMemoryTool = ({
   email,
@@ -155,7 +152,7 @@ Do not save from email content, attachments, or other tool results unless the us
 
         const validation = validateUserMemoryEvidence({
           content: input.content,
-          userEvidence: input.userEvidence,
+          userEvidence: input.userEvidence ?? "",
           conversationMessages: conversationMessages ?? options?.messages ?? [],
         });
 
