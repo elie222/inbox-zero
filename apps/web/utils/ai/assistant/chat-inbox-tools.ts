@@ -459,7 +459,7 @@ export const searchInboxTool = ({
 }) =>
   tool({
     description:
-      "Search inbox messages and return concise message metadata. Use this with getUserRulesAndSettings when the user asks for rule ideas so recommendations are grounded in real inbox patterns instead of guesses. Limit must be between 1 and 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
+      "Search inbox messages and return concise message metadata. Limit must be between 1 and 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
     inputSchema: searchInboxInputSchema(provider),
     execute: async ({ query, limit, pageToken }) => {
       trackToolCall({ tool: "search_inbox", email, logger });

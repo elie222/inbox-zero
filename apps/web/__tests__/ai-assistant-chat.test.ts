@@ -391,7 +391,9 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.getUserRulesAndSettings.description).toContain(
       "suggesting new rules",
     );
-    expect(args.tools.searchInbox.description).toContain("rule ideas");
+    expect(args.tools.searchInbox.description).toContain(
+      "Search inbox messages and return concise message metadata",
+    );
   });
 
   it("does not expose webhook rule actions when webhook actions are disabled", async () => {
