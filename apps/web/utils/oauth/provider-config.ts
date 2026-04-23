@@ -25,6 +25,14 @@ export function hasMicrosoftOauthConfig() {
   );
 }
 
+export function isMicrosoftOauthEnabled() {
+  return env.MICROSOFT_OAUTH_ENABLED;
+}
+
+export function canUseMicrosoftOauth() {
+  return hasMicrosoftOauthConfig() && isMicrosoftOauthEnabled();
+}
+
 export function isConfiguredOauthValue(value: string | undefined) {
   return isConfiguredValue(value);
 }

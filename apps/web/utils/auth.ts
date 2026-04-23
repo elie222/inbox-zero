@@ -42,13 +42,13 @@ import {
   updateAccountSeats,
 } from "@/utils/premium/seats";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
-import { hasMicrosoftOauthConfig } from "@/utils/oauth/provider-config";
+import { canUseMicrosoftOauth } from "@/utils/oauth/provider-config";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
 const useGoogleOauthEmulator = isGoogleOauthEmulationEnabled();
 const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();
-const hasMicrosoftConfig = hasMicrosoftOauthConfig();
+const hasMicrosoftConfig = canUseMicrosoftOauth();
 
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]

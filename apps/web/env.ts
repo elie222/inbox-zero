@@ -70,6 +70,7 @@ const parsedEnv = createEnv({
     MICROSOFT_BASE_URL: z.string().url().optional(),
     MICROSOFT_CLIENT_ID: z.string().optional(),
     MICROSOFT_CLIENT_SECRET: z.string().optional(),
+    MICROSOFT_OAUTH_ENABLED: booleanString.optional().default(true),
     MICROSOFT_TENANT_ID: z.string().optional().default("common"),
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
