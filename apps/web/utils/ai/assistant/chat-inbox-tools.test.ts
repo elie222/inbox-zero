@@ -484,6 +484,7 @@ describe("chat inbox tools", () => {
     expect(result).toEqual({
       error:
         'Label "Finance" does not exist. Use createOrGetLabel first if you want to create it.',
+      toolErrorVisibility: "hidden",
     });
     expect(getLabelByName).toHaveBeenCalledWith("Finance");
     expect(getLabelByName).toHaveBeenCalledTimes(1);

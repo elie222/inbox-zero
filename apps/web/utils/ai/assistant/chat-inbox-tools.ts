@@ -35,6 +35,7 @@ import {
   requiresSenderEmails,
   requiresThreadIds,
 } from "@/utils/ai/assistant/manage-inbox-actions";
+import { hideToolErrorFromUser } from "@/utils/ai/assistant/tool-error-visibility";
 import {
   type AutomaticUnsubscribeResult,
   unsubscribeSenderAndMark,
@@ -960,12 +961,12 @@ export const manageInboxTool = ({
               error,
               labelName: parsedInput.labelName,
             });
-            return {
+            return hideToolErrorFromUser({
               error:
                 error instanceof Error
                   ? error.message
                   : "Failed to resolve label",
-            };
+            });
           }
         }
 

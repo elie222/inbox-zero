@@ -31,6 +31,7 @@ import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { ThreadLookup } from "@/components/assistant-chat/tools";
 import { formatToolLabel } from "@/components/assistant-chat/tool-label";
 import { requiresThreadIds } from "@/utils/ai/assistant/manage-inbox-actions";
+import { getUserVisibleToolFailureMessage } from "@/utils/ai/assistant/chat-response-guard";
 import { pluralize } from "@/utils/string";
 
 interface MessagePartProps {
@@ -45,6 +46,13 @@ interface MessagePartProps {
 
 function ErrorToolCard({ error }: { error: string }) {
   return <div className="text-xs text-muted-foreground">Error: {error}</div>;
+}
+
+function renderToolError(toolCallId: string, output: unknown) {
+  const failureMessage = getToolFailureMessage(output);
+  return failureMessage ? (
+    <ErrorToolCard key={toolCallId} error={failureMessage} />
+  ) : null;
 }
 
 function isOutputWithError(output: unknown): output is { error: unknown } {
@@ -187,7 +195,7 @@ export function MessagePart({
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+        return renderToolError(toolCallId, output);
       }
       return <ReadEmailResult key={toolCallId} output={output} />;
     }
@@ -227,7 +235,7 @@ export function MessagePart({
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+        return renderToolError(toolCallId, output);
       }
       return (
         <ManageInboxResult
@@ -321,7 +329,7 @@ export function MessagePart({
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+        return renderToolError(toolCallId, output);
       }
       const requiresRuleConfirmation =
         getOutputField<boolean>(output, "requiresConfirmation") === true &&
@@ -367,7 +375,7 @@ export function MessagePart({
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+        return renderToolError(toolCallId, output);
       }
       const ruleId = getOutputField<string>(output, "ruleId");
       if (!ruleId)
@@ -399,7 +407,7 @@ export function MessagePart({
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+        return renderToolError(toolCallId, output);
       }
       const ruleId = getOutputField<string>(output, "ruleId");
       if (!ruleId)
@@ -431,7 +439,7 @@ export function MessagePart({
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+        return renderToolError(toolCallId, output);
       }
       const ruleId = getOutputField<string>(output, "ruleId");
       if (!ruleId)
@@ -480,7 +488,7 @@ export function MessagePart({
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+        return renderToolError(toolCallId, output);
       }
       return <AddToKnowledgeBase key={toolCallId} args={part.input} />;
     }
@@ -496,7 +504,7 @@ export function MessagePart({
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+        return renderToolError(toolCallId, output);
       }
 
       const requiresConfirmation =
@@ -718,23 +726,7 @@ function renderPendingEmailAction({
 }
 
 function getToolFailureMessage(output: unknown): string | null {
-  if (typeof output !== "object" || output === null) return null;
-
-  const record = output as Record<string, unknown>;
-  if (isOutputWithError(output)) {
-    return toMessageString(record.error);
-  }
-
-  if (record.success === false) {
-    return (
-      toMessageString(record.message) ??
-      toMessageString(record.reason) ??
-      toMessageString(record.error) ??
-      "Operation failed"
-    );
-  }
-
-  return null;
+  return getUserVisibleToolFailureMessage(output);
 }
 
 function getToolSuccessMessage(output: unknown): string | null {
