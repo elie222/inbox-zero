@@ -1966,7 +1966,12 @@ async function resolveSlackMessagingContext({
       emailAccountId: true,
       routes: {
         where: {
-          purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+          purpose: {
+            in: [
+              MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+            ],
+          },
         },
         select: {
           purpose: true,

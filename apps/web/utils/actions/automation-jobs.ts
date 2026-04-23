@@ -11,6 +11,7 @@ import {
   AutomationJobRunStatus,
   MessagingProvider,
   MessagingRoutePurpose,
+  type MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { hasMessagingRoute } from "@/utils/messaging/routes";
@@ -29,9 +30,14 @@ import {
 import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
 import {
   isAutomationMessagingChannelReady,
+  isAutomationMessagingChannelSetupReady,
   isSupportedAutomationMessagingProvider,
   SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS,
 } from "@/utils/automation-jobs/messaging-channel";
+import {
+  ensureScheduledCheckInsRoute,
+  withScheduledCheckInsRoute,
+} from "@/utils/automation-jobs/destination";
 
 const AUTOMATION_JOBS_TOPIC = "automation-jobs-execute";
 
@@ -46,6 +52,11 @@ export const toggleAutomationJobAction = actionClient
 
       const existingJob = await prisma.automationJob.findUnique({
         where: { emailAccountId },
+        select: {
+          id: true,
+          cronExpression: true,
+          messagingChannelId: true,
+        },
       });
 
       if (!enabled) {
@@ -60,6 +71,16 @@ export const toggleAutomationJobAction = actionClient
       }
 
       if (existingJob) {
+        const channel = await getAutomationMessagingChannel({
+          emailAccountId,
+          messagingChannelId: existingJob.messagingChannelId,
+        });
+        if (!channel) throw new SafeError("Messaging channel not found");
+
+        const validationError =
+          await prepareAutomationMessagingChannel(channel);
+        if (validationError) throw new SafeError(validationError);
+
         await prisma.automationJob.update({
           where: { id: existingJob.id },
           data: {
@@ -98,25 +119,9 @@ export const saveAutomationJobAction = actionClient
         throw new SafeError("Invalid schedule");
       }
 
-      const channel = await prisma.messagingChannel.findUnique({
-        where: {
-          id_emailAccountId: {
-            id: messagingChannelId,
-            emailAccountId,
-          },
-        },
-        select: {
-          id: true,
-          provider: true,
-          isConnected: true,
-          accessToken: true,
-          routes: {
-            select: {
-              purpose: true,
-              targetId: true,
-            },
-          },
-        },
+      const channel = await getAutomationMessagingChannel({
+        emailAccountId,
+        messagingChannelId,
       });
 
       if (!channel) {
@@ -127,8 +132,7 @@ export const saveAutomationJobAction = actionClient
         throw new SafeError("Messaging provider is not supported");
       }
 
-      const validationError =
-        getAutomationMessagingChannelValidationError(channel);
+      const validationError = await prepareAutomationMessagingChannel(channel);
       if (validationError) {
         throw new SafeError(validationError);
       }
@@ -183,12 +187,15 @@ export const triggerTestCheckInAction = actionClient
         enabled: true,
         messagingChannel: {
           select: {
+            id: true,
             provider: true,
             isConnected: true,
             accessToken: true,
+            providerUserId: true,
             routes: {
               select: {
                 purpose: true,
+                targetType: true,
                 targetId: true,
               },
             },
@@ -205,8 +212,7 @@ export const triggerTestCheckInAction = actionClient
     }
 
     const channel = job.messagingChannel;
-    const validationError =
-      getAutomationMessagingChannelValidationError(channel);
+    const validationError = await prepareAutomationMessagingChannel(channel);
     if (validationError) {
       throw new SafeError(validationError);
     }
@@ -246,9 +252,11 @@ async function getDefaultMessagingChannel(emailAccountId: string) {
       provider: true,
       isConnected: true,
       accessToken: true,
+      providerUserId: true,
       routes: {
         select: {
           purpose: true,
+          targetType: true,
           targetId: true,
         },
       },
@@ -257,7 +265,7 @@ async function getDefaultMessagingChannel(emailAccountId: string) {
   });
 
   const channel = channels.find((candidate) =>
-    isAutomationMessagingChannelReady(candidate),
+    isAutomationMessagingChannelSetupReady(candidate),
   );
 
   if (!channel) {
@@ -269,15 +277,72 @@ async function getDefaultMessagingChannel(emailAccountId: string) {
   return channel;
 }
 
-function getAutomationMessagingChannelValidationError(channel: {
-  provider: MessagingProvider;
-  isConnected: boolean;
-  accessToken: string | null;
-  routes: Array<{
-    purpose: MessagingRoutePurpose;
-    targetId: string;
-  }>;
+async function getAutomationMessagingChannel({
+  emailAccountId,
+  messagingChannelId,
+}: {
+  emailAccountId: string;
+  messagingChannelId: string;
 }) {
+  return prisma.messagingChannel.findUnique({
+    where: {
+      id_emailAccountId: {
+        id: messagingChannelId,
+        emailAccountId,
+      },
+    },
+    select: {
+      id: true,
+      provider: true,
+      isConnected: true,
+      accessToken: true,
+      providerUserId: true,
+      routes: {
+        select: {
+          purpose: true,
+          targetType: true,
+          targetId: true,
+        },
+      },
+    },
+  });
+}
+
+async function prepareAutomationMessagingChannel(
+  channel: AutomationMessagingChannelForValidation,
+) {
+  const setupValidationError = getAutomationMessagingChannelValidationError(
+    channel,
+    { allowRuleNotificationFallback: true },
+  );
+  if (setupValidationError) return setupValidationError;
+
+  const scheduledRoute = await ensureScheduledCheckInsRoute({
+    messagingChannelId: channel.id,
+    routes: channel.routes,
+  });
+  if (!scheduledRoute) return "Select a messaging destination first";
+
+  return getAutomationMessagingChannelValidationError({
+    ...channel,
+    routes: withScheduledCheckInsRoute(channel.routes, scheduledRoute),
+  });
+}
+
+function getAutomationMessagingChannelValidationError(
+  channel: {
+    provider: MessagingProvider;
+    isConnected: boolean;
+    accessToken: string | null;
+    providerUserId?: string | null;
+    routes: Array<{
+      purpose: MessagingRoutePurpose;
+      targetType: unknown;
+      targetId: string;
+    }>;
+  },
+  options: { allowRuleNotificationFallback?: boolean } = {},
+) {
   if (!isSupportedAutomationMessagingProvider(channel.provider)) {
     return "Messaging provider is not supported";
   }
@@ -289,14 +354,40 @@ function getAutomationMessagingChannelValidationError(channel: {
   }
 
   if (
-    !hasMessagingRoute(channel.routes, MessagingRoutePurpose.RULE_NOTIFICATIONS)
+    !hasMessagingRoute(
+      channel.routes,
+      MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+    ) &&
+    !(
+      options.allowRuleNotificationFallback &&
+      hasMessagingRoute(
+        channel.routes,
+        MessagingRoutePurpose.RULE_NOTIFICATIONS,
+      )
+    )
   ) {
     return "Select a messaging destination first";
   }
 
-  if (!isAutomationMessagingChannelReady(channel)) {
+  const isReady = options.allowRuleNotificationFallback
+    ? isAutomationMessagingChannelSetupReady(channel)
+    : isAutomationMessagingChannelReady(channel);
+  if (!isReady) {
     return "Messaging channel is not connected";
   }
 
   return null;
 }
+
+type AutomationMessagingChannelForValidation = {
+  id: string;
+  provider: MessagingProvider;
+  isConnected: boolean;
+  accessToken: string | null;
+  providerUserId: string | null;
+  routes: Array<{
+    purpose: MessagingRoutePurpose;
+    targetType: MessagingRouteTargetType;
+    targetId: string;
+  }>;
+};

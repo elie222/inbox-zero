@@ -21,13 +21,31 @@ describe("automation job messaging channel helpers", () => {
     ).toBe(true);
   });
 
-  it("requires a rule notification route before a channel is ready", () => {
+  it("requires a scheduled check-in route before a channel is ready", () => {
     expect(
       isAutomationMessagingChannelReady(
         createAutomationChannel({
           provider: MessagingProvider.SLACK,
           accessToken: "xoxb-token",
           routes: [],
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("does not treat a rule-only route as ready for execution", () => {
+    expect(
+      isAutomationMessagingChannelReady(
+        createAutomationChannel({
+          provider: MessagingProvider.SLACK,
+          accessToken: "xoxb-token",
+          providerUserId: "U123",
+          routes: [
+            {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              targetId: "destination-1",
+            },
+          ],
         }),
       ),
     ).toBe(false);
@@ -105,7 +123,7 @@ function createAutomationChannel({
   providerUserId = null,
   routes = [
     {
-      purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+      purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
       targetId: "destination-1",
     },
   ],

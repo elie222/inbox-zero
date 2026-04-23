@@ -1671,6 +1671,7 @@ enum MessagingProvider {
 
 enum MessagingRoutePurpose {
   RULE_NOTIFICATIONS
+  SCHEDULED_CHECK_INS
   MEETING_BRIEFS
   DOCUMENT_FILINGS
   DIGESTS

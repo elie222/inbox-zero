@@ -6,6 +6,7 @@ export const updateSlackRouteBody = z.object({
   channelId: z.string().min(1),
   purpose: z.enum([
     MessagingRoutePurpose.RULE_NOTIFICATIONS,
+    MessagingRoutePurpose.SCHEDULED_CHECK_INS,
     MessagingRoutePurpose.MEETING_BRIEFS,
     MessagingRoutePurpose.DOCUMENT_FILINGS,
     MessagingRoutePurpose.DIGESTS,

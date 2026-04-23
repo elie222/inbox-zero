@@ -328,6 +328,61 @@ describe("updateSlackRouteAction", () => {
     expect(listPrivateChannelsForUser).not.toHaveBeenCalled();
     expect(prisma.messagingRoute.upsert).not.toHaveBeenCalled();
   });
+
+  it("upserts scheduled check-in Slack routes", async () => {
+    prisma.messagingChannel.findUnique.mockResolvedValue({
+      id: "channel-1",
+      provider: "SLACK",
+      isConnected: true,
+      accessToken: "xoxb-token",
+      providerUserId: "U123",
+      botUserId: "B123",
+    } as any);
+    vi.mocked(createSlackClient).mockReturnValue({} as never);
+    vi.mocked(getChannelInfo).mockResolvedValue({
+      id: "C123",
+      name: "check-ins",
+      isPrivate: true,
+    });
+    vi.mocked(listPrivateChannelsForUser).mockResolvedValue([
+      {
+        id: "C123",
+        name: "check-ins",
+        isPrivate: true,
+      },
+    ]);
+
+    const result = await updateSlackRouteAction("email-account-1" as any, {
+      channelId: "channel-1",
+      purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+      targetId: "C123",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.messagingRoute.upsert).toHaveBeenCalledWith({
+      where: {
+        messagingChannelId_purpose: {
+          messagingChannelId: "channel-1",
+          purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+        },
+      },
+      update: {
+        targetType: MessagingRouteTargetType.CHANNEL,
+        targetId: "C123",
+      },
+      create: {
+        messagingChannelId: "channel-1",
+        purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+        targetType: MessagingRouteTargetType.CHANNEL,
+        targetId: "C123",
+      },
+    });
+    expect(sendChannelConfirmation).toHaveBeenCalledWith({
+      accessToken: "xoxb-token",
+      channelId: "C123",
+      botUserId: "B123",
+    });
+  });
 });
 
 describe("toggleRuleChannelAction", () => {

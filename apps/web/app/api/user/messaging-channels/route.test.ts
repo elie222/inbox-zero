@@ -94,6 +94,11 @@ describe("GET /api/user/messaging-channels", () => {
             targetType: "DIRECT_MESSAGE",
             targetId: "U123",
           },
+          {
+            purpose: "SCHEDULED_CHECK_INS",
+            targetType: "CHANNEL",
+            targetId: "C456",
+          },
         ],
         actions: [],
       },
@@ -104,6 +109,11 @@ describe("GET /api/user/messaging-channels", () => {
       {
         id: "C123",
         name: "ops-alerts",
+        isPrivate: true,
+      },
+      {
+        id: "C456",
+        name: "check-ins",
         isPrivate: true,
       },
     ]);
@@ -125,6 +135,12 @@ describe("GET /api/user/messaging-channels", () => {
             enabled: true,
             targetId: "C123",
             targetLabel: "#ops-alerts",
+            isDm: false,
+          },
+          scheduledCheckIns: {
+            enabled: true,
+            targetId: "C456",
+            targetLabel: "#check-ins",
             isDm: false,
           },
           meetingBriefs: {
@@ -221,6 +237,12 @@ describe("GET /api/user/messaging-channels", () => {
             targetLabel: "#ops-alerts",
             isDm: false,
           },
+          scheduledCheckIns: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
           meetingBriefs: {
             enabled: false,
             targetId: null,
@@ -254,6 +276,12 @@ describe("GET /api/user/messaging-channels", () => {
             enabled: true,
             targetId: "C123",
             targetLabel: "#ops-alerts",
+            isDm: false,
+          },
+          scheduledCheckIns: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
             isDm: false,
           },
           meetingBriefs: {

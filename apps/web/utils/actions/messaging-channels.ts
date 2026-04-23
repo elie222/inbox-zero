@@ -109,7 +109,8 @@ export const updateSlackRouteAction = actionClient
       });
 
       if (
-        purpose === MessagingRoutePurpose.RULE_NOTIFICATIONS &&
+        (purpose === MessagingRoutePurpose.RULE_NOTIFICATIONS ||
+          purpose === MessagingRoutePurpose.SCHEDULED_CHECK_INS) &&
         target.targetType === MessagingRouteTargetType.CHANNEL
       ) {
         try {

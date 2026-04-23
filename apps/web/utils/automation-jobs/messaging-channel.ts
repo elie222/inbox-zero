@@ -35,9 +35,26 @@ export function isAutomationMessagingChannelReady(
   if (!isMessagingChannelOperational(channel)) return false;
   if (!isSupportedAutomationMessagingProvider(channel.provider)) return false;
   if (
-    !hasMessagingRoute(channel.routes, MessagingRoutePurpose.RULE_NOTIFICATIONS)
+    !hasMessagingRoute(
+      channel.routes,
+      MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+    )
   ) {
     return false;
   }
   return true;
+}
+
+export function isAutomationMessagingChannelSetupReady(
+  channel: AutomationMessagingChannel,
+) {
+  if (!isMessagingChannelOperational(channel)) return false;
+  if (!isSupportedAutomationMessagingProvider(channel.provider)) return false;
+  return (
+    hasMessagingRoute(
+      channel.routes,
+      MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+    ) ||
+    hasMessagingRoute(channel.routes, MessagingRoutePurpose.RULE_NOTIFICATIONS)
+  );
 }

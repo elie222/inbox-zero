@@ -33,6 +33,11 @@ const slackRulesRoute = {
   targetType: MessagingRouteTargetType.CHANNEL,
   targetId: "C123",
 };
+const slackScheduledCheckInsRoute = {
+  purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+  targetType: MessagingRouteTargetType.CHANNEL,
+  targetId: "C456",
+};
 
 const baseAccountSnapshot = {
   id: "email-account-1",
@@ -83,7 +88,7 @@ const baseAccountSnapshot = {
     messagingChannel: {
       provider: "SLACK",
       teamName: "Acme",
-      routes: [slackRulesRoute],
+      routes: [slackRulesRoute, slackScheduledCheckInsRoute],
     },
   },
   messagingChannels: [
@@ -93,7 +98,7 @@ const baseAccountSnapshot = {
       teamName: "Acme",
       isConnected: true,
       accessToken: "token-1",
-      routes: [slackRulesRoute],
+      routes: [slackRulesRoute, slackScheduledCheckInsRoute],
     },
   ],
   knowledge: [
@@ -185,6 +190,13 @@ describe("chat settings tools", () => {
         enabled: true,
         cronExpression: "0 9 * * 1-5",
         messagingChannelId: "channel-1",
+        messagingChannelName: "#C456 (Acme)",
+        availableChannels: [
+          {
+            id: "channel-1",
+            label: "#C456 (Acme)",
+          },
+        ],
       },
       writePaths: ["assistant.scheduledCheckIns.config"],
     });
@@ -393,6 +405,101 @@ describe("chat settings tools", () => {
     expect(prisma.automationJob.create).not.toHaveBeenCalled();
   });
 
+  it("exposes rule-only channels as scheduled check-in bootstrap candidates", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      ...baseAccountSnapshot,
+      messagingChannels: [
+        {
+          ...baseAccountSnapshot.messagingChannels[0],
+          routes: [slackRulesRoute],
+        },
+      ],
+    });
+    prisma.automationJob.findUnique.mockResolvedValue(null);
+
+    const toolInstance = getAssistantCapabilitiesTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await toolInstance.execute({});
+    const scheduledCheckInsCapability = result.capabilities.find(
+      (capability) => capability.path === "assistant.scheduledCheckIns",
+    );
+
+    expect(scheduledCheckInsCapability).toMatchObject({
+      value: {
+        availableChannels: [
+          {
+            id: "channel-1",
+            label: "#C123 (Acme)",
+          },
+        ],
+      },
+    });
+  });
+
+  it("bootstraps a scheduled route when enabling scheduled check-ins", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      ...baseAccountSnapshot,
+      messagingChannels: [
+        {
+          ...baseAccountSnapshot.messagingChannels[0],
+          routes: [slackRulesRoute],
+        },
+      ],
+    });
+    prisma.automationJob.findUnique.mockResolvedValue(null);
+    prisma.messagingChannel.findUnique.mockResolvedValue({
+      id: "channel-1",
+      routes: [slackRulesRoute],
+    } as any);
+    prisma.automationJob.create.mockResolvedValue({});
+
+    const toolInstance = updateAssistantSettingsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      userId: "user-1",
+      logger,
+    });
+
+    const result = await toolInstance.execute({
+      changes: [
+        {
+          path: "assistant.scheduledCheckIns.config",
+          value: {
+            enabled: true,
+            messagingChannelId: "channel-1",
+          },
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+    });
+    expect(prisma.messagingRoute.create).toHaveBeenCalledWith({
+      data: {
+        messagingChannelId: "channel-1",
+        purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+        targetType: MessagingRouteTargetType.CHANNEL,
+        targetId: "C123",
+      },
+    });
+    expect(prisma.automationJob.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        enabled: true,
+        name: "Scheduled check-ins",
+        cronExpression: "0 9,14 * * 1-5",
+        prompt: null,
+        messagingChannelId: "channel-1",
+        emailAccountId: "email-account-1",
+      }),
+    });
+  });
+
   it("allows disabling scheduled check-ins even when current channel is stale", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       ...baseAccountSnapshot,
@@ -414,7 +521,7 @@ describe("chat settings tools", () => {
         teamName: "Acme",
         routes: [
           {
-            purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+            purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
             targetType: MessagingRouteTargetType.CHANNEL,
             targetId: "C999",
           },

@@ -4,6 +4,7 @@ import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
 import { getNextAutomationJobRunAt } from "@/utils/automation-jobs/cron";
 import { getDefaultAutomationJobName } from "@/utils/automation-jobs/defaults";
+import { ensureScheduledCheckInsRouteForChannel } from "@/utils/automation-jobs/destination";
 
 export async function canEnableAutomationJobs(userId: string) {
   const premium = await getUserPremium({ userId });
@@ -27,6 +28,14 @@ export async function createAutomationJob({
   messagingChannelId: string;
   prompt?: string | null;
 }) {
+  const route = await ensureScheduledCheckInsRouteForChannel({
+    emailAccountId,
+    messagingChannelId,
+  });
+  if (!route) {
+    throw new SafeError("Select a messaging destination first");
+  }
+
   const nextRunAt = getNextAutomationJobRunAt({
     cronExpression,
     fromDate: new Date(),

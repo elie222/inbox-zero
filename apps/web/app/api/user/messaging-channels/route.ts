@@ -74,6 +74,11 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
               MessagingRoutePurpose.RULE_NOTIFICATIONS,
               slackTargetNamesByChannelId[channel.id],
             ),
+            scheduledCheckIns: getMessagingRouteSummary(
+              routes,
+              MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+              slackTargetNamesByChannelId[channel.id],
+            ),
             meetingBriefs: getMessagingRouteSummary(
               routes,
               MessagingRoutePurpose.MEETING_BRIEFS,

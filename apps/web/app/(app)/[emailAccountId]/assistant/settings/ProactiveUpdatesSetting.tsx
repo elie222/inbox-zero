@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingCard } from "@/components/SettingCard";
+import { SlackNotificationTargetSelect } from "@/components/SlackNotificationTargetSelect";
 import { Toggle } from "@/components/Toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +35,7 @@ import {
   toggleAutomationJobAction,
   triggerTestCheckInAction,
 } from "@/utils/actions/automation-jobs";
+import { MessagingRoutePurpose } from "@/generated/prisma/enums";
 import { createSettingActionErrorHandler } from "@/utils/actions/error-handling";
 import {
   AUTOMATION_CRON_PRESETS,
@@ -41,7 +43,11 @@ import {
 } from "@/utils/automation-jobs/defaults";
 import { describeCronSchedule } from "@/utils/automation-jobs/describe";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
-import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
+import {
+  canSetupScheduledCheckInsRoute,
+  getConnectedScheduledCheckInsSetupChannels,
+  getScheduledCheckInsSetupDestination,
+} from "@/utils/messaging/routes";
 import { cn } from "@/utils";
 
 export function ProactiveUpdatesSetting({
@@ -69,11 +75,38 @@ export function ProactiveUpdatesSetting({
   } = useMessagingChannels(emailAccountIdProp);
 
   const connectedMessagingChannels = useMemo(
-    () => getConnectedRuleNotificationChannels(channelsData?.channels),
+    () => getConnectedScheduledCheckInsSetupChannels(channelsData?.channels),
     [channelsData?.channels],
   );
+  const selectedMessagingChannel = useMemo(
+    () =>
+      channelsData?.channels.find(
+        (channel) => channel.id === messagingChannelId,
+      ) ?? null,
+    [channelsData?.channels, messagingChannelId],
+  );
+  const selectableMessagingChannels = useMemo(() => {
+    if (
+      !selectedMessagingChannel ||
+      connectedMessagingChannels.some(
+        (channel) => channel.id === selectedMessagingChannel.id,
+      )
+    ) {
+      return connectedMessagingChannels;
+    }
+
+    return [selectedMessagingChannel, ...connectedMessagingChannels];
+  }, [connectedMessagingChannels, selectedMessagingChannel]);
 
   const hasConnectedMessagingChannel = connectedMessagingChannels.length > 0;
+  const selectedDestination =
+    selectedMessagingChannel &&
+    getScheduledCheckInsSetupDestination(selectedMessagingChannel.destinations);
+  const selectedChannelNeedsReconfiguration = Boolean(
+    messagingChannelId &&
+      (!selectedMessagingChannel?.isConnected ||
+        !canSetupScheduledCheckInsRoute(selectedMessagingChannel.destinations)),
+  );
   const job = data?.job ?? null;
   const enabled = Boolean(job?.enabled);
 
@@ -97,11 +130,7 @@ export function ProactiveUpdatesSetting({
   useEffect(() => {
     if (!open) return;
 
-    const hasSelectedConnectedChannel = connectedMessagingChannels.some(
-      (channel) => channel.id === messagingChannelId,
-    );
-
-    if (hasSelectedConnectedChannel) return;
+    if (messagingChannelId) return;
 
     const fallbackChannelId = connectedMessagingChannels[0]?.id ?? "";
     if (messagingChannelId === fallbackChannelId) return;
@@ -159,13 +188,13 @@ export function ProactiveUpdatesSetting({
     [emailAccountId, hasConnectedMessagingChannel, executeToggle],
   );
 
-  const selectedPreset = useMemo(() => {
-    return (
+  const selectedPreset = useMemo(
+    () =>
       AUTOMATION_CRON_PRESETS.find(
         (preset) => preset.cronExpression === cronExpression,
-      ) ?? null
-    );
-  }, [cronExpression]);
+      ) ?? null,
+    [cronExpression],
+  );
 
   const scheduleText = useMemo(
     () => describeCronSchedule(cronExpression),
@@ -228,13 +257,42 @@ export function ProactiveUpdatesSetting({
                           <SelectValue placeholder="Select a destination" />
                         </SelectTrigger>
                         <SelectContent>
-                          {connectedMessagingChannels.map((channel) => (
-                            <SelectItem key={channel.id} value={channel.id}>
+                          {selectableMessagingChannels.map((channel) => (
+                            <SelectItem
+                              key={channel.id}
+                              value={channel.id}
+                              disabled={
+                                !channel.isConnected ||
+                                !canSetupScheduledCheckInsRoute(
+                                  channel.destinations,
+                                )
+                              }
+                            >
                               {formatMessagingChannelLabel(channel)}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      {selectedChannelNeedsReconfiguration && (
+                        <p className="text-xs text-destructive">
+                          Reconnect this channel or select another destination.
+                        </p>
+                      )}
+                      {selectedMessagingChannel?.provider === "SLACK" &&
+                        selectedMessagingChannel.isConnected &&
+                        selectedDestination && (
+                          <SlackNotificationTargetSelect
+                            emailAccountId={emailAccountId}
+                            messagingChannelId={selectedMessagingChannel.id}
+                            purpose={MessagingRoutePurpose.SCHEDULED_CHECK_INS}
+                            targetId={selectedDestination.targetId}
+                            targetLabel={selectedDestination.targetLabel}
+                            isDm={selectedDestination.isDm}
+                            canSendAsDm={selectedMessagingChannel.canSendAsDm}
+                            onUpdate={mutateChannels}
+                            className="h-8 w-full"
+                          />
+                        )}
                     </div>
 
                     <div className="space-y-3">
@@ -329,7 +387,9 @@ export function ProactiveUpdatesSetting({
                         <Button
                           onClick={handleSave}
                           disabled={
-                            !messagingChannelId || saveStatus === "executing"
+                            !messagingChannelId ||
+                            selectedChannelNeedsReconfiguration ||
+                            saveStatus === "executing"
                           }
                         >
                           {saveStatus === "executing" ? "Saving..." : "Save"}
@@ -364,11 +424,16 @@ function formatMessagingChannelLabel(channel: {
     ruleNotifications: {
       targetLabel: string | null;
     };
+    scheduledCheckIns: {
+      targetLabel: string | null;
+    };
   };
   teamName: string | null;
 }) {
   const provider = getMessagingProviderName(channel.provider);
-  const targetLabel = channel.destinations.ruleNotifications.targetLabel;
+  const targetLabel =
+    channel.destinations.scheduledCheckIns.targetLabel ??
+    channel.destinations.ruleNotifications.targetLabel;
   if (targetLabel) {
     return `${provider} · ${targetLabel}`;
   }
