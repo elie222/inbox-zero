@@ -9,7 +9,9 @@ import {
   canSetupScheduledCheckInsRoute,
   getConnectedRuleNotificationChannels,
   getConnectedScheduledCheckInsSetupChannels,
+  getMessagingChannelTargetRouteWhere,
   getMessagingRouteSummary,
+  hasMessagingChannelTargetRoute,
 } from "./routes";
 
 const routes = [
@@ -77,6 +79,21 @@ describe("getMessagingRouteSummary", () => {
       targetId: null,
       targetLabel: null,
       isDm: false,
+    });
+  });
+});
+
+describe("messaging channel target route helpers", () => {
+  it("matches channel routes without caring about their purpose", () => {
+    expect(hasMessagingChannelTargetRoute(routes, "C123")).toBe(true);
+    expect(hasMessagingChannelTargetRoute(routes, "C456")).toBe(true);
+    expect(hasMessagingChannelTargetRoute(routes, "U123")).toBe(false);
+  });
+
+  it("builds a purpose-agnostic channel target filter", () => {
+    expect(getMessagingChannelTargetRouteWhere("C123")).toEqual({
+      targetType: MessagingRouteTargetType.CHANNEL,
+      targetId: "C123",
     });
   });
 });

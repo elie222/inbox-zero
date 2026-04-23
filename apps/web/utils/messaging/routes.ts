@@ -11,6 +11,10 @@ type MessagingRouteLike = {
 };
 
 type MessagingRoutePurposeLike = Pick<MessagingRouteLike, "purpose">;
+type MessagingRouteTargetLike = Pick<
+  MessagingRouteLike,
+  "targetType" | "targetId"
+>;
 
 export type MessagingRouteSummary = {
   enabled: boolean;
@@ -75,6 +79,27 @@ export function getMessagingRouteWhere(
       },
     },
   };
+}
+
+export function getMessagingChannelTargetRouteWhere(
+  targetId: string,
+): Prisma.MessagingRouteWhereInput {
+  return {
+    targetType: MessagingRouteTargetType.CHANNEL,
+    targetId,
+  };
+}
+
+export function hasMessagingChannelTargetRoute(
+  routes: MessagingRouteTargetLike[] | null | undefined,
+  targetId: string,
+) {
+  if (!routes) return false;
+  return routes.some(
+    (route) =>
+      route.targetType === MessagingRouteTargetType.CHANNEL &&
+      route.targetId === targetId,
+  );
 }
 
 export function isDirectMessageRoute(route: MessagingRouteLike | null) {
