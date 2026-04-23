@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { type SubmitHandler, useFieldArray, useForm } from "react-hook-form";
+import { type SubmitHandler, useFieldArray, useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { usePostHog } from "posthog-js/react";
 import { env } from "@/env";
@@ -355,10 +355,34 @@ export function RuleForm({
     [ruleEditorActions],
   );
 
-  const formErrors = useMemo(() => {
-    return Object.values(formState.errors)
-      .filter((error): error is { message: string } => Boolean(error.message))
-      .map((error) => error.message);
+  // Collect all top-level form error messages into a single list
+  function getErrorMessages(errors: FieldErrors<CreateRuleBody>): string[] {
+    const messages: string[] = [];
+
+    if (!errors) return messages;
+
+    if (typeof errors.name?.message === "string") {
+      messages.push(errors.name.message);
+    }
+
+    const actionsMessage =
+      errors.actions?.root?.message ?? errors.actions?.message;
+    if (typeof actionsMessage === "string") {
+      messages.push(actionsMessage);
+    }
+
+    const conditionsMessage =
+      errors.conditions?.root?.message ?? errors.conditions?.message;
+    if (typeof conditionsMessage === "string") {
+      messages.push(conditionsMessage);
+    }
+
+    return messages;
+  }
+
+  const errorMessages = useMemo(() => {
+    return getErrorMessages(errors);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Must be [formState], NOT [errors] — React Hook Form uses a Proxy
   }, [formState]);
 
   const typeOptions = useMemo(() => {
@@ -398,13 +422,13 @@ export function RuleForm({
   return (
     <Form {...form}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {isSubmitted && formErrors.length > 0 && (
+        {isSubmitted && errorMessages.length > 0 && (
           <div className="mt-4">
             <AlertError
               title="Error"
               description={
-                <ul className="list-disc">
-                  {formErrors.map((message) => (
+                <ul className="list-inside list-disc">
+                  {errorMessages.map((message) => (
                     <li key={message}>{message}</li>
                   ))}
                 </ul>
