@@ -1002,7 +1002,6 @@ model Payment {
   // Metadata
   billingReason String? // initial, renewal, update, etc.
 
-  @@index([premiumId])
   @@index([premiumId, createdAt])
 }
 
