@@ -1,11 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import { Settings2Icon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SettingCard } from "@/components/SettingCard";
 import { SlackNotificationTargetSelect } from "@/components/SlackNotificationTargetSelect";
+import { Tooltip } from "@/components/Tooltip";
 import { Toggle } from "@/components/Toggle";
+import { toastError, toastSuccess } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,93 +14,75 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from "@/components/ui/item";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { toastSuccess } from "@/components/Toast";
 import { useAutomationJob } from "@/hooks/useAutomationJob";
-import { useMessagingChannels } from "@/hooks/useMessagingChannels";
-import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   saveAutomationJobAction,
   toggleAutomationJobAction,
   triggerTestCheckInAction,
 } from "@/utils/actions/automation-jobs";
-import {
-  MessagingProvider,
-  MessagingRoutePurpose,
-} from "@/generated/prisma/enums";
 import { createSettingActionErrorHandler } from "@/utils/actions/error-handling";
 import {
   AUTOMATION_CRON_PRESETS,
   DEFAULT_AUTOMATION_JOB_CRON,
 } from "@/utils/automation-jobs/defaults";
 import { describeCronSchedule } from "@/utils/automation-jobs/describe";
+import { getActionErrorMessage } from "@/utils/error";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
 import { cn } from "@/utils";
+import {
+  MessagingProvider,
+  MessagingRoutePurpose,
+} from "@/generated/prisma/enums";
+
+type ChannelLike = {
+  id: string;
+  provider: MessagingProvider;
+  teamName: string | null;
+  isConnected: boolean;
+  canSendAsDm: boolean;
+  destinations: {
+    scheduledCheckIns: {
+      enabled: boolean;
+      targetId: string | null;
+      targetLabel: string | null;
+      isDm: boolean;
+    };
+  };
+};
 
 export function ProactiveUpdatesSetting({
-  emailAccountId: emailAccountIdProp,
+  channel,
+  emailAccountId,
+  onUpdate,
 }: {
-  emailAccountId?: string;
-} = {}) {
+  channel: ChannelLike;
+  emailAccountId: string;
+  onUpdate: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [cronExpression, setCronExpression] = useState(
     DEFAULT_AUTOMATION_JOB_CRON,
   );
-  const [messagingChannelId, setMessagingChannelId] = useState("");
-  const [scheduledCheckInsTargetId, setScheduledCheckInsTargetId] = useState<
-    string | null
-  >(null);
   const [prompt, setPrompt] = useState("");
   const [showCronEditor, setShowCronEditor] = useState(false);
   const [showCustomPrompt, setShowCustomPrompt] = useState(false);
   const isDialogFormInitializedRef = useRef(false);
-  const lastTargetChannelIdRef = useRef<string | null>(null);
 
-  const { emailAccountId: emailAccountIdFromContext } = useAccount();
-  const emailAccountId = emailAccountIdProp ?? emailAccountIdFromContext;
-  const { data, isLoading, mutate } = useAutomationJob(emailAccountIdProp);
-  const {
-    data: channelsData,
-    isLoading: isLoadingChannels,
-    mutate: mutateChannels,
-  } = useMessagingChannels(emailAccountIdProp);
-
-  const connectedMessagingChannels = useMemo(
-    () =>
-      (channelsData?.channels ?? []).filter((channel) => channel.isConnected),
-    [channelsData?.channels],
-  );
-  const selectedMessagingChannel = useMemo(
-    () =>
-      channelsData?.channels.find(
-        (channel) => channel.id === messagingChannelId,
-      ) ?? null,
-    [channelsData?.channels, messagingChannelId],
-  );
-  const hasConnectedMessagingChannel = connectedMessagingChannels.length > 0;
-  const selectedDestination =
-    selectedMessagingChannel?.destinations.scheduledCheckIns;
-  const selectedChannelNeedsReconfiguration = Boolean(
-    messagingChannelId && !selectedMessagingChannel?.isConnected,
-  );
-  const selectableMessagingChannels =
-    selectedMessagingChannel && selectedChannelNeedsReconfiguration
-      ? [selectedMessagingChannel, ...connectedMessagingChannels]
-      : connectedMessagingChannels;
+  const { data, isLoading, mutate } = useAutomationJob(emailAccountId);
   const job = data?.job ?? null;
-  const enabled = Boolean(job?.enabled);
+  const activeForChannel = job?.messagingChannelId === channel.id;
+  const enabled = activeForChannel && Boolean(job?.enabled);
 
   useEffect(() => {
     if (!open) {
@@ -113,43 +96,16 @@ export function ProactiveUpdatesSetting({
     setPrompt(job?.prompt ?? "");
     setShowCustomPrompt(Boolean(job?.prompt?.trim()));
     setShowCronEditor(false);
-    setMessagingChannelId(job?.messagingChannelId ?? "");
-    setScheduledCheckInsTargetId(null);
-    lastTargetChannelIdRef.current = null;
 
     isDialogFormInitializedRef.current = true;
   }, [open, job]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (messagingChannelId) return;
-
-    const fallbackChannelId = connectedMessagingChannels[0]?.id;
-    if (!fallbackChannelId) return;
-
-    setMessagingChannelId(fallbackChannelId);
-  }, [open, connectedMessagingChannels, messagingChannelId]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (
-      !selectedMessagingChannel ||
-      selectedMessagingChannel.id === lastTargetChannelIdRef.current
-    ) {
-      return;
-    }
-
-    lastTargetChannelIdRef.current = selectedMessagingChannel.id;
-    setScheduledCheckInsTargetId(
-      getScheduledCheckInsTargetValue(selectedMessagingChannel),
-    );
-  }, [open, selectedMessagingChannel]);
 
   const { execute: executeToggle, status: toggleStatus } = useAction(
     toggleAutomationJobAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         mutate();
+        onUpdate();
         toastSuccess({ description: "Scheduled check-ins updated" });
       },
       onError: createSettingActionErrorHandler({
@@ -164,7 +120,7 @@ export function ProactiveUpdatesSetting({
     {
       onSuccess: () => {
         mutate();
-        mutateChannels();
+        onUpdate();
         setOpen(false);
         toastSuccess({ description: "Scheduled check-in settings saved" });
       },
@@ -180,19 +136,30 @@ export function ProactiveUpdatesSetting({
       onSuccess: () => {
         toastSuccess({ description: "Test check-in sent" });
       },
-      onError: createSettingActionErrorHandler({
-        defaultMessage: "Failed to send test check-in",
-      }),
+      onError: (error) => {
+        const description =
+          getActionErrorMessage(error.error) ?? "Failed to send test check-in";
+        toastError({ description });
+      },
     },
   );
 
   const handleToggle = useCallback(
     (nextEnabled: boolean) => {
-      if (!emailAccountId || (!hasConnectedMessagingChannel && nextEnabled))
+      if (!nextEnabled) {
+        if (!enabled) return;
+        executeToggle({ enabled: false });
         return;
-      executeToggle({ enabled: nextEnabled });
+      }
+
+      if (activeForChannel && job) {
+        executeToggle({ enabled: true });
+        return;
+      }
+
+      setOpen(true);
     },
-    [emailAccountId, hasConnectedMessagingChannel, executeToggle],
+    [activeForChannel, enabled, executeToggle, job],
   );
 
   const selectedPreset = useMemo(
@@ -207,276 +174,208 @@ export function ProactiveUpdatesSetting({
     () => describeCronSchedule(cronExpression),
     [cronExpression],
   );
+  const destinationLabel = getScheduledCheckInsDestinationLabel(channel);
+  const summaryText =
+    activeForChannel && job
+      ? `${scheduleText}. ${destinationLabel}`
+      : "Get periodic summaries in chat.";
 
   const handleSave = useCallback(() => {
-    if (!messagingChannelId) return;
-
     executeSave({
       cronExpression,
-      messagingChannelId,
-      scheduledCheckInsTargetId,
+      messagingChannelId: channel.id,
       prompt,
     });
-  }, [
-    cronExpression,
-    messagingChannelId,
-    prompt,
-    scheduledCheckInsTargetId,
-    executeSave,
-  ]);
-
-  const showLoading = isLoading || isLoadingChannels;
+  }, [channel.id, cronExpression, executeSave, prompt]);
 
   return (
-    <SettingCard
-      title="Scheduled check-ins"
-      description="Get periodic updates sent to your connected chat app."
-      right={
-        showLoading ? (
-          <Skeleton className="h-5 w-24" />
-        ) : (
-          <div className="flex items-center gap-2">
-            {!hasConnectedMessagingChannel && (
-              <Button asChild variant="outline" size="sm">
-                <Link href="/settings">Connect channel</Link>
-              </Button>
-            )}
-
-            {(hasConnectedMessagingChannel || job) && (
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    Configure
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Scheduled check-ins</DialogTitle>
-                    <DialogDescription>
-                      Get notified about important emails and take action
-                      directly from your connected chat app.
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="scheduled-checkins-channel">
-                        Send to
-                      </Label>
-                      <Select
-                        value={messagingChannelId}
-                        onValueChange={setMessagingChannelId}
-                      >
-                        <SelectTrigger id="scheduled-checkins-channel">
-                          <SelectValue placeholder="Select a destination" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {selectableMessagingChannels.map((channel) => (
-                            <SelectItem
-                              key={channel.id}
-                              value={channel.id}
-                              disabled={!channel.isConnected}
-                            >
-                              {formatMessagingChannelLabel(channel)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {selectedChannelNeedsReconfiguration && (
-                        <p className="text-xs text-destructive">
-                          Reconnect this channel or select another destination.
-                        </p>
-                      )}
-                      {selectedMessagingChannel?.provider ===
-                        MessagingProvider.SLACK &&
-                        selectedMessagingChannel.isConnected && (
-                          <SlackNotificationTargetSelect
-                            emailAccountId={emailAccountId}
-                            messagingChannelId={selectedMessagingChannel.id}
-                            purpose={MessagingRoutePurpose.SCHEDULED_CHECK_INS}
-                            value={scheduledCheckInsTargetId}
-                            targetId={selectedDestination?.targetId ?? null}
-                            targetLabel={
-                              selectedDestination?.targetLabel ?? null
-                            }
-                            isDm={selectedDestination?.isDm ?? false}
-                            canSendAsDm={selectedMessagingChannel.canSendAsDm}
-                            onUpdate={mutateChannels}
-                            onValueChange={setScheduledCheckInsTargetId}
-                            className="h-8 w-full"
-                            disabled={saveStatus === "executing"}
-                          />
-                        )}
-                    </div>
-
-                    <div className="space-y-3">
-                      <Label>Schedule</Label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {AUTOMATION_CRON_PRESETS.map((preset) => (
-                          <Button
-                            key={preset.id}
-                            type="button"
-                            variant="outline"
-                            className={cn(
-                              "w-full",
-                              selectedPreset?.id === preset.id &&
-                                "border-primary ring-1 ring-primary",
-                            )}
-                            onClick={() => {
-                              setCronExpression(preset.cronExpression);
-                              setShowCronEditor(false);
-                            }}
-                          >
-                            {preset.label}
-                          </Button>
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{scheduleText}</span>
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          onClick={() => setShowCronEditor((value) => !value)}
-                        >
-                          {showCronEditor ? "done" : "edit"}
-                        </Button>
-                      </div>
-                      {showCronEditor && (
-                        <>
-                          <Input
-                            value={cronExpression}
-                            onChange={(event) =>
-                              setCronExpression(event.target.value)
-                            }
-                            placeholder="Cron expression in UTC"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            This is a cron expression (UTC). Ask ChatGPT or
-                            Claude to generate one for your preferred schedule.
-                          </p>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowCustomPrompt((value) => !value)}
-                      >
-                        + Add check-in instructions
-                      </Button>
-                      {showCustomPrompt && (
-                        <Textarea
-                          id="scheduled-checkins-prompt"
-                          placeholder="Example: Only include emails that need a reply today or have a deadline in the next 2 days. Skip newsletters, receipts, and FYI updates."
-                          value={prompt}
-                          onChange={(event) => setPrompt(event.target.value)}
-                        />
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2">
-                      {job ? (
-                        <Button
-                          variant="ghost"
-                          disabled={testCheckInStatus === "executing"}
-                          onClick={() => executeTestCheckIn({})}
-                        >
-                          {testCheckInStatus === "executing"
-                            ? "Sending..."
-                            : "Send test check-in"}
-                        </Button>
-                      ) : (
-                        <div />
-                      )}
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => setOpen(false)}
-                          disabled={saveStatus === "executing"}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={handleSave}
-                          disabled={
-                            !messagingChannelId ||
-                            (selectedMessagingChannel?.provider ===
-                              MessagingProvider.SLACK &&
-                              selectedMessagingChannel.isConnected &&
-                              !scheduledCheckInsTargetId) ||
-                            selectedChannelNeedsReconfiguration ||
-                            saveStatus === "executing"
-                          }
-                        >
-                          {saveStatus === "executing" ? "Saving..." : "Save"}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
-
-            <Toggle
-              name="proactive-updates-enabled"
-              enabled={enabled}
-              onChange={handleToggle}
-              disabled={
-                toggleStatus === "executing" ||
-                !emailAccountId ||
-                (!hasConnectedMessagingChannel && !enabled)
-              }
+    <>
+      <Item size="sm">
+        <ItemContent>
+          <ItemTitle>Scheduled check-ins</ItemTitle>
+          <ItemDescription>{summaryText}</ItemDescription>
+        </ItemContent>
+        <ItemActions>
+          {channel.provider === MessagingProvider.SLACK ? (
+            <SlackNotificationTargetSelect
+              emailAccountId={emailAccountId}
+              messagingChannelId={channel.id}
+              purpose={MessagingRoutePurpose.SCHEDULED_CHECK_INS}
+              value={getSlackScheduledCheckInsTargetValue(channel)}
+              targetId={channel.destinations.scheduledCheckIns.targetId}
+              targetLabel={channel.destinations.scheduledCheckIns.targetLabel}
+              isDm={channel.destinations.scheduledCheckIns.isDm}
+              canSendAsDm={channel.canSendAsDm}
+              onUpdate={onUpdate}
+              disabled={saveStatus === "executing"}
+              className="h-8 min-w-[170px]"
             />
+          ) : (
+            <div className="min-w-[120px] text-right text-sm text-muted-foreground">
+              {destinationLabel}
+            </div>
+          )}
+          <Tooltip content="Configure">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setOpen(true)}
+            >
+              <Settings2Icon className="h-4 w-4" />
+            </Button>
+          </Tooltip>
+          <Toggle
+            name={`scheduled-checkins-${channel.id}`}
+            enabled={enabled}
+            disabled={toggleStatus === "executing" || isLoading}
+            onChange={handleToggle}
+          />
+        </ItemActions>
+      </Item>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Scheduled check-ins</DialogTitle>
+            <DialogDescription>
+              Configure when Inbox Zero sends scheduled summaries to{" "}
+              {getMessagingProviderName(channel.provider)}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Label>Destination</Label>
+              <div className="text-sm text-muted-foreground">
+                {destinationLabel}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label>Schedule</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {AUTOMATION_CRON_PRESETS.map((preset) => (
+                  <Button
+                    key={preset.id}
+                    type="button"
+                    variant="outline"
+                    className={cn(
+                      "w-full",
+                      selectedPreset?.id === preset.id &&
+                        "border-primary ring-1 ring-primary",
+                    )}
+                    onClick={() => {
+                      setCronExpression(preset.cronExpression);
+                      setShowCronEditor(false);
+                    }}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{scheduleText}</span>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => setShowCronEditor((value) => !value)}
+                >
+                  {showCronEditor ? "done" : "edit"}
+                </Button>
+              </div>
+              {showCronEditor && (
+                <>
+                  <Input
+                    value={cronExpression}
+                    onChange={(event) => setCronExpression(event.target.value)}
+                    placeholder="Cron expression in UTC"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This is a cron expression (UTC). Ask ChatGPT or Claude to
+                    generate one for your preferred schedule.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCustomPrompt((value) => !value)}
+              >
+                + Add check-in instructions
+              </Button>
+              {showCustomPrompt && (
+                <Textarea
+                  id={`scheduled-checkins-prompt-${channel.id}`}
+                  placeholder="Example: Only include emails that need a reply today or have a deadline in the next 2 days. Skip newsletters, receipts, and FYI updates."
+                  value={prompt}
+                  onChange={(event) => setPrompt(event.target.value)}
+                />
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              {activeForChannel && job ? (
+                <Button
+                  variant="ghost"
+                  disabled={testCheckInStatus === "executing"}
+                  onClick={() => executeTestCheckIn({})}
+                >
+                  {testCheckInStatus === "executing"
+                    ? "Sending..."
+                    : "Send test check-in"}
+                </Button>
+              ) : (
+                <div />
+              )}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setOpen(false)}
+                  disabled={saveStatus === "executing"}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  disabled={saveStatus === "executing"}
+                >
+                  {saveStatus === "executing" ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </div>
           </div>
-        )
-      }
-    />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
-function getScheduledCheckInsTargetValue(channel: {
-  provider: MessagingProvider;
-  isConnected: boolean;
-  canSendAsDm: boolean;
-  destinations: {
-    scheduledCheckIns: {
-      targetId: string | null;
-      isDm: boolean;
-    };
-  };
-}) {
+function getSlackScheduledCheckInsTargetValue(channel: ChannelLike) {
   const destination = channel.destinations.scheduledCheckIns;
   if (destination.isDm) return "dm";
   if (destination.targetId) return destination.targetId;
-
-  if (
-    channel.provider === MessagingProvider.SLACK &&
-    channel.isConnected &&
-    channel.canSendAsDm
-  ) {
-    return "dm";
-  }
-
+  if (channel.canSendAsDm) return "dm";
   return null;
 }
 
-function formatMessagingChannelLabel(channel: {
-  provider: MessagingProvider;
-  destinations: {
-    scheduledCheckIns: {
-      targetLabel: string | null;
-    };
-  };
-  teamName: string | null;
-}) {
-  const provider = getMessagingProviderName(channel.provider);
-  const targetLabel = channel.destinations.scheduledCheckIns.targetLabel;
-  if (targetLabel) {
-    return `${provider} · ${targetLabel}`;
+function getScheduledCheckInsDestinationLabel(channel: ChannelLike) {
+  const destination = channel.destinations.scheduledCheckIns;
+  if (destination.targetLabel) return destination.targetLabel;
+  if (
+    channel.destinations.scheduledCheckIns.isDm ||
+    channel.provider !== MessagingProvider.SLACK ||
+    channel.canSendAsDm
+  ) {
+    return "Direct message";
   }
-  if (channel.teamName) return `${provider} · ${channel.teamName}`;
-  if (channel.provider === MessagingProvider.SLACK) return "Slack workspace";
-  return provider;
+
+  if (channel.teamName) {
+    return `${getMessagingProviderName(channel.provider)} workspace`;
+  }
+
+  return "Select destination";
 }

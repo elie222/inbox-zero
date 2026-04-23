@@ -204,12 +204,6 @@ export function Channels() {
                 <MutedText>No channels available.</MutedText>
               </ItemCard>
             )}
-
-          {connectedChannels.length > 0 && (
-            <SectionGroup title="Scheduled check-ins">
-              <ProactiveUpdatesSetting />
-            </SectionGroup>
-          )}
         </div>
       </LoadingContent>
     </div>
@@ -381,6 +375,12 @@ function ConnectedChannelSection({
       </ItemCard>
 
       <ItemCard>
+        <ProactiveUpdatesSetting
+          channel={channel}
+          emailAccountId={emailAccountId}
+          onUpdate={onUpdate}
+        />
+        <ItemSeparator />
         {CHANNEL_FEATURES.map((feature, index) => {
           const destination = getMessagingFeatureRouteSummary(
             channel.destinations,
