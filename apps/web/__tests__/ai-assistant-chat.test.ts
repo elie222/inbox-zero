@@ -383,10 +383,10 @@ describe("aiProcessAssistantChat", () => {
 
     expect(systemPrompt).toContain("Rule suggestions:");
     expect(systemPrompt).toContain(
-      "Most users already have generic newsletter, marketing, receipt, and notification handling",
+      "Check whether this user already has generic newsletter, marketing, receipt, or notification handling",
     );
     expect(systemPrompt).toContain(
-      "Suggest account-specific patterns that appear repeatedly in the inbox",
+      "ask whether the relevant inbox items are important, low-priority, safe to archive, or need attention",
     );
     expect(args.tools.getUserRulesAndSettings.description).toContain(
       "Retrieve the latest rules and personal instructions for the user",

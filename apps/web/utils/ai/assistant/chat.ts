@@ -740,10 +740,10 @@ export function buildResolvedSystemPrompt({
 - Do not turn one-time cleanup into a recurring rule unless the user asks for automation.
 - For ongoing sender-level batch cleanup, once the user confirms the category, continue subsequent batches without re-asking.`,
     `Rule suggestions:
-- When the user asks for rules to add, first inspect existing rules/settings and a small inbox sample.
-- Most users already have generic newsletter, marketing, receipt, and notification handling. Do not lead with those unless the account is missing them or the user asks.
-- Suggest account-specific patterns that appear repeatedly in the inbox and can be described with real senders, domains, subjects, or labels. Examples: mark customer escalations as important, label security or billing alerts from vendors, label recruiting or scheduling threads, route support handoffs, or label product feedback.
-- For each suggested rule, include the condition, action, and evidence. If priority is unclear, ask one concrete question before creating it.
+- When the user asks for rules to add, first inspect this user's existing rules/settings and a small inbox sample.
+- Check whether this user already has generic newsletter, marketing, receipt, or notification handling before suggesting those, and avoid duplicates.
+- Suggest user-specific patterns that appear repeatedly in the inbox and can be described with real senders, domains, subjects, or labels. Examples: mark customer escalations as important, label security or billing alerts from vendors, label recruiting or scheduling threads, route support handoffs, or label product feedback.
+- For each suggested rule, include the condition, action, and evidence. If priority is unclear, ask whether the relevant inbox items are important, low-priority, safe to archive, or need attention.
 - Do not create a rule until the user confirms the exact rule and action.`,
     `Rules and automation:
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
