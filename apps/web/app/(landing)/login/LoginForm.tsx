@@ -26,8 +26,8 @@ const logger = createClientLogger("login/LoginForm");
 
 export function LoginForm({
   useGoogleOauthEmulator,
-  showMicrosoftLogin = true,
-  showSsoLogin = true,
+  showMicrosoftLogin,
+  showSsoLogin,
 }: {
   useGoogleOauthEmulator: boolean;
   showMicrosoftLogin?: boolean;
