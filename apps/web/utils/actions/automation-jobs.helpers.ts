@@ -4,7 +4,7 @@ import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
 import { getNextAutomationJobRunAt } from "@/utils/automation-jobs/cron";
 import { getDefaultAutomationJobName } from "@/utils/automation-jobs/defaults";
-import { ensureScheduledCheckInsRouteForChannel } from "@/utils/automation-jobs/destination";
+import { ensureScheduledCheckInsRoute } from "@/utils/automation-jobs/destination";
 import { isMessagingChannelOperational } from "@/utils/messaging/channel-validity";
 import { isSupportedAutomationMessagingProvider } from "@/utils/automation-jobs/messaging-channel";
 
@@ -38,10 +38,19 @@ export async function createAutomationJob({
       },
     },
     select: {
+      id: true,
       provider: true,
       isConnected: true,
       accessToken: true,
       providerUserId: true,
+      teamId: true,
+      routes: {
+        select: {
+          purpose: true,
+          targetType: true,
+          targetId: true,
+        },
+      },
     },
   });
 
@@ -53,9 +62,9 @@ export async function createAutomationJob({
     throw new SafeError("Messaging channel is not connected");
   }
 
-  const route = await ensureScheduledCheckInsRouteForChannel({
-    emailAccountId,
-    messagingChannelId,
+  const route = await ensureScheduledCheckInsRoute({
+    channel,
+    routes: channel.routes,
   });
   if (!route) {
     throw new SafeError("Select a messaging destination first");

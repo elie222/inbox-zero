@@ -84,25 +84,16 @@ export function ProactiveUpdatesSetting({
       ) ?? null,
     [channelsData?.channels, messagingChannelId],
   );
-  const selectableMessagingChannels = useMemo(() => {
-    if (
-      !selectedMessagingChannel ||
-      connectedMessagingChannels.some(
-        (channel) => channel.id === selectedMessagingChannel.id,
-      )
-    ) {
-      return connectedMessagingChannels;
-    }
-
-    return [selectedMessagingChannel, ...connectedMessagingChannels];
-  }, [connectedMessagingChannels, selectedMessagingChannel]);
-
   const hasConnectedMessagingChannel = connectedMessagingChannels.length > 0;
   const selectedDestination =
     selectedMessagingChannel?.destinations.scheduledCheckIns;
   const selectedChannelNeedsReconfiguration = Boolean(
     messagingChannelId && !selectedMessagingChannel?.isConnected,
   );
+  const selectableMessagingChannels =
+    selectedMessagingChannel && selectedChannelNeedsReconfiguration
+      ? [selectedMessagingChannel, ...connectedMessagingChannels]
+      : connectedMessagingChannels;
   const job = data?.job ?? null;
   const enabled = Boolean(job?.enabled);
 
@@ -125,11 +116,10 @@ export function ProactiveUpdatesSetting({
 
   useEffect(() => {
     if (!open) return;
-
     if (messagingChannelId) return;
 
-    const fallbackChannelId = connectedMessagingChannels[0]?.id ?? "";
-    if (messagingChannelId === fallbackChannelId) return;
+    const fallbackChannelId = connectedMessagingChannels[0]?.id;
+    if (!fallbackChannelId) return;
 
     setMessagingChannelId(fallbackChannelId);
   }, [open, connectedMessagingChannels, messagingChannelId]);
@@ -224,7 +214,7 @@ export function ProactiveUpdatesSetting({
               </Button>
             )}
 
-            {(enabled || hasConnectedMessagingChannel || job) && (
+            {(hasConnectedMessagingChannel || job) && (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm">

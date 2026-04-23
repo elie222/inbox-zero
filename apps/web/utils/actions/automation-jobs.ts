@@ -7,12 +7,7 @@ import {
   triggerTestCheckInBody,
 } from "@/utils/actions/automation-jobs.validation";
 import { SafeError } from "@/utils/error";
-import {
-  AutomationJobRunStatus,
-  MessagingProvider,
-  type MessagingRoutePurpose,
-  type MessagingRouteTargetType,
-} from "@/generated/prisma/enums";
+import { AutomationJobRunStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import {
   getNextAutomationJobRunAt,
@@ -308,10 +303,14 @@ async function getAutomationMessagingChannel({
 }
 
 async function prepareAutomationMessagingChannel(
-  channel: AutomationMessagingChannelForValidation,
+  channel: AutomationMessagingChannel,
 ) {
-  const validationError = getAutomationMessagingChannelValidationError(channel);
-  if (validationError) return validationError;
+  if (!isSupportedAutomationMessagingProvider(channel.provider)) {
+    return "Messaging provider is not supported";
+  }
+  if (!isMessagingChannelOperational(channel)) {
+    return "Messaging channel is not connected";
+  }
 
   const route = await ensureScheduledCheckInsRoute({
     channel,
@@ -322,38 +321,6 @@ async function prepareAutomationMessagingChannel(
   return null;
 }
 
-function getAutomationMessagingChannelValidationError(
-  channel: AutomationMessagingChannelForValidation,
-) {
-  if (!isSupportedAutomationMessagingProvider(channel.provider)) {
-    return "Messaging provider is not supported";
-  }
-
-  if (
-    channel.provider === MessagingProvider.SLACK &&
-    channel.isConnected &&
-    !channel.accessToken
-  ) {
-    return "Slack channel is not connected";
-  }
-
-  if (!isMessagingChannelOperational(channel)) {
-    return "Messaging channel is not connected";
-  }
-
-  return null;
-}
-
-type AutomationMessagingChannelForValidation = {
-  id: string;
-  provider: MessagingProvider;
-  isConnected: boolean;
-  accessToken: string | null;
-  providerUserId: string | null;
-  teamId: string;
-  routes: Array<{
-    purpose: MessagingRoutePurpose;
-    targetType: MessagingRouteTargetType;
-    targetId: string;
-  }>;
-};
+type AutomationMessagingChannel = NonNullable<
+  Awaited<ReturnType<typeof getAutomationMessagingChannel>>
+>;
