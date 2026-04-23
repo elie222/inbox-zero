@@ -42,11 +42,13 @@ import {
   updateAccountSeats,
 } from "@/utils/premium/seats";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
+import { hasMicrosoftOauthConfig } from "@/utils/oauth/provider-config";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
 const useGoogleOauthEmulator = isGoogleOauthEmulationEnabled();
 const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();
+const hasMicrosoftConfig = hasMicrosoftOauthConfig();
 
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
@@ -65,18 +67,19 @@ const googleSocialProvider = !useGoogleOauthEmulator
       }),
     }
   : null;
-const microsoftSocialProvider = !useMicrosoftOauthEmulator
-  ? {
-      clientId: env.MICROSOFT_CLIENT_ID || "",
-      clientSecret: env.MICROSOFT_CLIENT_SECRET || "",
-      scope: [...OUTLOOK_SCOPES],
-      tenantId: env.MICROSOFT_TENANT_ID,
-      disableIdTokenSignIn: true,
-      ...(env.OAUTH_PROXY_URL && {
-        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
-      }),
-    }
-  : null;
+const microsoftSocialProvider =
+  hasMicrosoftConfig && !useMicrosoftOauthEmulator
+    ? {
+        clientId: env.MICROSOFT_CLIENT_ID!,
+        clientSecret: env.MICROSOFT_CLIENT_SECRET!,
+        scope: [...OUTLOOK_SCOPES],
+        tenantId: env.MICROSOFT_TENANT_ID,
+        disableIdTokenSignIn: true,
+        ...(env.OAUTH_PROXY_URL && {
+          redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
+        }),
+      }
+    : null;
 const genericOauthConfig: GenericOAuthConfig[] = [
   ...(useGoogleOauthEmulator
     ? [
@@ -96,14 +99,14 @@ const genericOauthConfig: GenericOAuthConfig[] = [
         },
       ]
     : []),
-  ...(useMicrosoftOauthEmulator
+  ...(hasMicrosoftConfig && useMicrosoftOauthEmulator
     ? [
         {
           providerId: "microsoft",
           discoveryUrl: getMicrosoftOauthDiscoveryUrl(),
           issuer: getMicrosoftOauthIssuer(),
-          clientId: env.MICROSOFT_CLIENT_ID || "",
-          clientSecret: env.MICROSOFT_CLIENT_SECRET || "",
+          clientId: env.MICROSOFT_CLIENT_ID!,
+          clientSecret: env.MICROSOFT_CLIENT_SECRET!,
           scopes: [...OUTLOOK_SCOPES],
           pkce: true,
           prompt: "consent" as const,

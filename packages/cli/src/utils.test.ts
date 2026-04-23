@@ -77,6 +77,25 @@ LLM_API_KEY=
     expect(result).toContain("GOOGLE_CLIENT_ID=google-id");
   });
 
+  it("should write self-host login feature flags", () => {
+    const templateWithFeatureFlag = `${baseTemplate}
+# NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED=true
+`;
+
+    const result = generateEnvFile({
+      env: {
+        ...baseEnv,
+        NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED: "false",
+      },
+      useDockerInfra: false,
+      llmProvider: "anthropic",
+      template: templateWithFeatureFlag,
+    });
+
+    expect(result).toContain("NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED=false");
+    expect(result).not.toContain("# NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED=");
+  });
+
   it("should set Docker-specific values when useDockerInfra is true", () => {
     const dockerEnv: EnvConfig = {
       ...baseEnv,

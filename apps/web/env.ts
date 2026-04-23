@@ -306,6 +306,9 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED: booleanString
       .optional()
       .default(false),
+    NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED: booleanString
+      .optional()
+      .default(true),
     NEXT_PUBLIC_AXIOM_DATASET: z.string().optional(),
     NEXT_PUBLIC_AXIOM_TOKEN: z.string().optional(),
     NEXT_PUBLIC_LOG_SCOPES: z
@@ -401,6 +404,8 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_CRISP_WEBSITE_ID: process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID,
     NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED:
       process.env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED,
+    NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED:
+      process.env.NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED,
     NEXT_PUBLIC_AXIOM_DATASET: process.env.NEXT_PUBLIC_AXIOM_DATASET,
     NEXT_PUBLIC_AXIOM_TOKEN: process.env.NEXT_PUBLIC_AXIOM_TOKEN,
     NEXT_PUBLIC_LOG_SCOPES: process.env.NEXT_PUBLIC_LOG_SCOPES,

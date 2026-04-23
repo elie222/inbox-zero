@@ -533,11 +533,11 @@ async function runSetupQuick(options: { name?: string }) {
       message: "Google Pub/Sub Topic Name",
       placeholder: "projects/your-project-id/topics/inbox-zero-emails",
       validate: (v) => {
-        if (!v) return undefined;
+        if (!v) return;
         if (!v.startsWith("projects/") || !v.includes("/topics/")) {
           return "Topic name must be in format: projects/PROJECT_ID/topics/TOPIC_NAME";
         }
-        return undefined;
+        return;
       },
     });
 
@@ -546,6 +546,22 @@ async function runSetupQuick(options: { name?: string }) {
       process.exit(0);
     }
     pubsubTopic = pubsubTopicResult;
+  }
+
+  p.note(
+    "SAML SSO is configured separately from Google and Microsoft OAuth.\n" +
+      "Hide the SSO button if you do not plan to use organization SSO on the login page.",
+    "Login Options",
+  );
+
+  const showSsoLoginButton = await p.confirm({
+    message: "Show the SSO button on the login screen?",
+    initialValue: false,
+  });
+
+  if (p.isCancel(showSsoLoginButton)) {
+    p.cancel("Setup cancelled.");
+    process.exit(0);
   }
 
   // ── Generate config ──
@@ -629,6 +645,7 @@ async function runSetupQuick(options: { name?: string }) {
     // App
     NEXT_PUBLIC_BASE_URL: `http://localhost:${webPort}`,
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true",
+    NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED: showSsoLoginButton ? "true" : "false",
   };
 
   env.DIRECT_URL = env.DATABASE_URL;
@@ -992,11 +1009,11 @@ Full guide: https://docs.getinboxzero.com/self-hosting/google-pubsub`,
       message: "Google Pub/Sub Topic Name",
       placeholder: "projects/your-project-id/topics/inbox-zero-emails",
       validate: (v) => {
-        if (!v) return undefined; // Allow empty to skip
+        if (!v) return; // Allow empty to skip
         if (!v.startsWith("projects/") || !v.includes("/topics/")) {
           return "Topic name must be in format: projects/PROJECT_ID/topics/TOPIC_NAME";
         }
-        return undefined;
+        return;
       },
     });
 
@@ -1062,6 +1079,22 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
       microsoftOAuth.clientSecret || "your-microsoft-client-secret";
     env.MICROSOFT_TENANT_ID = microsoftOAuth.tenantId || "common";
     env.MICROSOFT_WEBHOOK_CLIENT_STATE = generateSecret(32);
+  }
+
+  p.note(
+    "SAML SSO is configured separately from Google and Microsoft OAuth.\n" +
+      "Hide the SSO button if you do not plan to use organization SSO on the login page.",
+    "Login Options",
+  );
+
+  const showSsoLoginButton = await p.confirm({
+    message: "Show the SSO button on the login screen?",
+    initialValue: false,
+  });
+
+  if (p.isCancel(showSsoLoginButton)) {
+    p.cancel("Setup cancelled.");
+    process.exit(0);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1147,6 +1180,9 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   // App config
   env.NEXT_PUBLIC_BASE_URL = `http://localhost:${webPort}`;
   env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = "true";
+  env.NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED = showSsoLoginButton
+    ? "true"
+    : "false";
 
   spinner.stop("Configuration generated");
 
@@ -1593,7 +1629,11 @@ const CONFIG_CATEGORIES: Record<
   },
   "App Settings": {
     description: "Application URL and feature flags",
-    keys: ["NEXT_PUBLIC_BASE_URL", "NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS"],
+    keys: [
+      "NEXT_PUBLIC_BASE_URL",
+      "NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS",
+      "NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED",
+    ],
   },
 };
 
@@ -1801,7 +1841,7 @@ function logPortConflictGuidance() {
 }
 
 function readExistingDbPassword(envFile: string): string | undefined {
-  if (!existsSync(envFile)) return undefined;
+  if (!existsSync(envFile)) return;
   const existing = parseEnvFile(readFileSync(envFile, "utf-8"));
   return existing.POSTGRES_PASSWORD || undefined;
 }

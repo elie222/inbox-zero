@@ -26,8 +26,12 @@ const logger = createClientLogger("login/LoginForm");
 
 export function LoginForm({
   useGoogleOauthEmulator,
+  showMicrosoftLogin = true,
+  showSsoLogin = true,
 }: {
   useGoogleOauthEmulator: boolean;
+  showMicrosoftLogin?: boolean;
+  showSsoLogin?: boolean;
 }) {
   const searchParams = useSearchParams();
   const next = searchParams?.get("next");
@@ -128,31 +132,35 @@ export function LoginForm({
         </DialogContent>
       </Dialog>
 
-      <Button
-        size="2xl"
-        loading={loadingMicrosoft}
-        onClick={handleMicrosoftSignIn}
-      >
-        <span className="flex items-center justify-center">
-          <Image
-            src="/images/microsoft.svg"
-            alt="Microsoft"
-            width={24}
-            height={24}
-            unoptimized
-          />
-          <span className="ml-2">Sign in with Microsoft</span>
-        </span>
-      </Button>
+      {showMicrosoftLogin ? (
+        <Button
+          size="2xl"
+          loading={loadingMicrosoft}
+          onClick={handleMicrosoftSignIn}
+        >
+          <span className="flex items-center justify-center">
+            <Image
+              src="/images/microsoft.svg"
+              alt="Microsoft"
+              width={24}
+              height={24}
+              unoptimized
+            />
+            <span className="ml-2">Sign in with Microsoft</span>
+          </span>
+        </Button>
+      ) : null}
 
-      <UIButton
-        variant="ghost"
-        size="lg"
-        className="w-full hover:scale-105 transition-transform"
-        asChild
-      >
-        <Link href="/login/sso">Sign in with SSO</Link>
-      </UIButton>
+      {showSsoLogin ? (
+        <UIButton
+          variant="ghost"
+          size="lg"
+          className="w-full hover:scale-105 transition-transform"
+          asChild
+        >
+          <Link href="/login/sso">Sign in with SSO</Link>
+        </UIButton>
+      ) : null}
     </div>
   );
 }
