@@ -31,6 +31,8 @@ Use one of these values for `*_LLM_PROVIDER`:
 | [AWS Bedrock](https://ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock) | `bedrock` |
 | [Ollama](https://ollama.com/) | `ollama` |
 | OpenAI-compatible (LM Studio, vLLM, LiteLLM, etc.) | `openai-compatible` |
+| Codex CLI (experimental, self-host only) | `codex-cli` |
+| Claude Code (experimental, self-host only) | `claude-code` |
 
 ## Tiers
 
@@ -60,3 +62,43 @@ The app also has **Settings → AI** for per-user keys/models, but self-hosted d
 ## Provider-specific details
 
 - `openai-compatible` also requires `OPENAI_COMPATIBLE_BASE_URL`.
+
+### CLI LLM providers
+
+`codex-cli` and `claude-code` are experimental self-host options. They use
+third-party community AI SDK provider packages that spawn local CLI tools, so
+they are disabled unless `CLI_LLM_ENABLED=true`.
+
+Use them only on trusted self-hosted deployments. Review the provider package
+source, pin exact package versions, and make sure you comply with the relevant
+OpenAI or Anthropic terms for your authentication method.
+
+Codex example:
+
+```bash
+cd apps/web
+pnpm add ai-sdk-provider-codex-cli@1.1.0
+pnpm add -g @openai/codex
+codex login
+```
+
+```env
+CLI_LLM_ENABLED=true
+DEFAULT_LLM_PROVIDER=codex-cli
+DEFAULT_LLM_MODEL=gpt-5.3-codex
+CODEX_CLI_ALLOW_NPX=false
+```
+
+Claude Code example:
+
+```bash
+cd apps/web
+pnpm add ai-sdk-provider-claude-code@3.1.0
+claude auth login
+```
+
+```env
+CLI_LLM_ENABLED=true
+DEFAULT_LLM_PROVIDER=claude-code
+DEFAULT_LLM_MODEL=sonnet
+```

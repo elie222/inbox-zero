@@ -34,12 +34,12 @@ export const POST = withError("outlook/webhook", async (request) => {
   if (!parseResult.success) {
     logger.error("Invalid webhook payload", {
       body: rawBody,
-      errors: parseResult.error.errors,
+      errors: parseResult.error.issues,
     });
     return NextResponse.json(
       {
         error: "Invalid webhook payload",
-        details: parseResult.error.errors,
+        details: parseResult.error.issues,
       },
       { status: 400 },
     );

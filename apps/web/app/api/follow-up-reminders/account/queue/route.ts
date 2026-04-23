@@ -18,7 +18,7 @@ export const POST = handleCallback<z.infer<typeof queuePayloadSchema>>(
     const parseResult = queuePayloadSchema.safeParse(message);
     if (!parseResult.success) {
       logger.error("Invalid follow-up reminder queue payload", {
-        errors: parseResult.error.errors,
+        errors: parseResult.error.issues,
         queueMessageId: metadata.messageId,
       });
       return;
@@ -50,12 +50,10 @@ export const POST = handleCallback<z.infer<typeof queuePayloadSchema>>(
   },
   {
     visibilityTimeoutSeconds: 780,
-    retry: (_error, metadata) => {
-      return {
-        afterSeconds: getQueueRetryBackoffSeconds({
-          deliveryCount: metadata.deliveryCount,
-        }),
-      };
-    },
+    retry: (_error, metadata) => ({
+      afterSeconds: getQueueRetryBackoffSeconds({
+        deliveryCount: metadata.deliveryCount,
+      }),
+    }),
   },
 );

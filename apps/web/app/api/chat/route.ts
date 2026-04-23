@@ -52,7 +52,7 @@ export const POST = withEmailAccount("chat", async (request) => {
   const json = await request.json();
   const { data, error } = assistantInputSchema.safeParse(json);
 
-  if (error) return NextResponse.json({ error: error.errors }, { status: 400 });
+  if (error) return NextResponse.json({ error: error.issues }, { status: 400 });
 
   const chat =
     (await getChatWithCompactions(data.id)) ||
@@ -323,7 +323,7 @@ async function createNewChat({
     return newChat;
   } catch (error) {
     logger.error("Failed to create new chat", { error, emailAccountId });
-    return undefined;
+    return;
   }
 }
 

@@ -73,6 +73,9 @@
         "OLLAMA_MODEL",
         "OPENAI_COMPATIBLE_BASE_URL",
         "OPENAI_COMPATIBLE_MODEL",
+        "CLI_LLM_ENABLED",
+        "CODEX_CLI_ALLOW_NPX",
+        "CODEX_CLI_PATH",
         "PERPLEXITY_API_KEY",
 
         "UPSTASH_REDIS_URL",

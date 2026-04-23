@@ -15,6 +15,8 @@ const llmProviderEnum = z.enum([
   "aigateway",
   "ollama",
   "openai-compatible",
+  "codex-cli",
+  "claude-code",
 ]);
 
 /** For Vercel preview deployments, auto-detect from VERCEL_URL. */
@@ -124,6 +126,9 @@ const parsedEnv = createEnv({
     OLLAMA_MODEL: z.string().optional(),
     OPENAI_COMPATIBLE_BASE_URL: z.string().optional(),
     OPENAI_COMPATIBLE_MODEL: z.string().optional(),
+    CLI_LLM_ENABLED: booleanString.optional().default(false),
+    CODEX_CLI_ALLOW_NPX: booleanString.optional().default(false),
+    CODEX_CLI_PATH: z.string().optional(),
 
     OPENAI_ZERO_DATA_RETENTION: booleanString.optional().default(false),
 

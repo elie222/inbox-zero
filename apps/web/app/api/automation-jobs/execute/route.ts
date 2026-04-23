@@ -17,7 +17,7 @@ export const POST = withError(
 
     if (!validation.success) {
       logger.error("Invalid automation job execute payload", {
-        errors: validation.error.errors,
+        errors: validation.error.issues,
       });
       return new Response("Invalid payload", { status: 400 });
     }
