@@ -63,7 +63,7 @@ export const getUserRulesAndSettingsTool = ({
 }) =>
   tool<z.infer<typeof emptyInputSchema>, GetUserRulesAndSettingsOutput>({
     description:
-      "Retrieve the latest rules and personal instructions for the user. Use this before editing rules, suggesting new rules, or comparing proposed automation against the user's current rules.",
+      "Retrieve the latest rules and personal instructions for the user.",
     inputSchema: emptyInputSchema,
     execute: async () => {
       trackRuleToolCall({

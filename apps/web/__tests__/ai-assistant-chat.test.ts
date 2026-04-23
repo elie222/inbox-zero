@@ -389,7 +389,7 @@ describe("aiProcessAssistantChat", () => {
       "Suggest account-specific patterns that appear repeatedly in the inbox",
     );
     expect(args.tools.getUserRulesAndSettings.description).toContain(
-      "suggesting new rules",
+      "Retrieve the latest rules and personal instructions for the user",
     );
     expect(args.tools.searchInbox.description).toContain(
       "Search inbox messages and return concise message metadata",
