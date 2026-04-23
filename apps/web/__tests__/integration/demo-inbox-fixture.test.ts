@@ -9,6 +9,7 @@ import {
 vi.mock("server-only", () => ({}));
 
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS;
+const TEST_PORT = 4120;
 
 describe.skipIf(!RUN_INTEGRATION_TESTS)(
   "demo inbox fixture Gmail emulator adapter",
@@ -18,14 +19,14 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
     beforeAll(async () => {
       harness = await createGmailTestHarness({
-        port: 4111,
+        port: TEST_PORT,
         email: saasFounderMixedInbox.mailbox.email,
         messages: toGmailSeedMessages(saasFounderMixedInbox),
       });
     });
 
-    afterAll(() => {
-      harness?.emulator.close();
+    afterAll(async () => {
+      await harness?.emulator.close();
     });
 
     test("searches and reads a message from the shared fixture", async () => {

@@ -72,6 +72,26 @@ describe("demo inbox fixture adapters", () => {
     );
   });
 
+  test("preserves internal hyphens while dropping negative search terms", () => {
+    const followUp = searchFixtureMessages({
+      fixture: saasFounderMixedInbox,
+      query: "follow-up",
+      maxResults: 10,
+    });
+    const deployment = searchFixtureMessages({
+      fixture: saasFounderMixedInbox,
+      query: "inbox-zero-ai -security",
+      maxResults: 10,
+    });
+
+    expect(followUp.messages.map((message) => message.subject)).toContain(
+      "Follow-up on Q2 metrics",
+    );
+    expect(deployment.messages.map((message) => message.subject)).toContain(
+      "Production deployment succeeded",
+    );
+  });
+
   test("builds default system rules alongside eval-provided rules", () => {
     const rules = toRuleRows({
       rules: [

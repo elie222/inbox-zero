@@ -362,7 +362,7 @@ function getOperatorValue(query: string, operator: string) {
 
 function getFreeTextTerms(query: string) {
   return query
-    .replace(/-\S+/g, " ")
+    .replace(/(^|\s)-("[^"]+"|'[^']+'|\S+)/g, " ")
     .replace(/\b(from|to|subject|label):("[^"]+"|'[^']+'|\S+)/g, " ")
     .replace(/\b(is|in|after|before|newer_than|older_than):\S+/g, " ")
     .replace(/[()"']/g, " ")
