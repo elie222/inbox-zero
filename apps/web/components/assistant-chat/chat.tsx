@@ -85,8 +85,8 @@ export function Chat({ open }: { open: boolean }) {
   }, []);
 
   const readFileAsDataUrl = useCallback(
-    (file: File): Promise<Attachment | undefined> => {
-      return new Promise((resolve) => {
+    (file: File): Promise<Attachment | undefined> =>
+      new Promise((resolve) => {
         if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
           resolve(undefined);
           return;
@@ -107,8 +107,7 @@ export function Chat({ open }: { open: boolean }) {
         };
         reader.onerror = () => resolve(undefined);
         reader.readAsDataURL(file);
-      });
-    },
+      }),
     [],
   );
 
@@ -362,6 +361,7 @@ function ChatMessagesView({
 
 const CHAT_EXAMPLES = [
   "Help me handle my inbox today",
+  "Suggest rules I should add",
   "Clean up my inbox",
   "Auto-archive newsletters for me",
 ];

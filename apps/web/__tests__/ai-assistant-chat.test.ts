@@ -357,6 +357,43 @@ describe("aiProcessAssistantChat", () => {
     expect(systemPrompt).not.toContain("Draft replies in rules:");
   });
 
+  it("guides rule recommendations through existing rules and inbox evidence", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: [
+        {
+          role: "user",
+          content: "Give me some ideas of rules I could add.",
+        },
+      ],
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    const systemPrompt = String(args.messages[0].content);
+
+    expect(systemPrompt).toContain("Rule discovery workflow:");
+    expect(systemPrompt).toContain(
+      "inspect the latest rules/settings and search a representative inbox sample",
+    );
+    expect(systemPrompt).toContain(
+      "ask one focused calibration question before creating broad automation",
+    );
+    expect(args.tools.getUserRulesAndSettings.description).toContain(
+      "suggesting new rules",
+    );
+    expect(args.tools.searchInbox.description).toContain("rule ideas");
+  });
+
   it("does not expose webhook rule actions when webhook actions are disabled", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,

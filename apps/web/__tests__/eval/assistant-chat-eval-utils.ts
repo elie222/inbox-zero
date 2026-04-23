@@ -83,6 +83,7 @@ export async function captureAssistantChatTrace({
   });
 
   await result.consumeStream();
+  const finalText = await Promise.resolve(result.text);
 
   const debugArtifactPath = writeEvalDebugArtifact({
     kind: "assistant-chat-trace",
@@ -96,13 +97,13 @@ export async function captureAssistantChatTrace({
       resolvedModels,
       steps,
       toolCalls: recordedToolCalls,
-      finalText: result.text,
+      finalText,
     },
   });
 
   return {
     debugArtifactPath,
-    finalText: result.text,
+    finalText,
     resolvedModels,
     steps,
     toolCalls: recordedToolCalls,
