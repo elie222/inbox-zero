@@ -74,7 +74,6 @@ export function generateEnvFile(config: {
     "NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS",
     env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS,
   );
-  setValue("SSO_LOGIN_ENABLED", env.SSO_LOGIN_ENABLED);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Secrets

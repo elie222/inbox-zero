@@ -548,22 +548,6 @@ async function runSetupQuick(options: { name?: string }) {
     pubsubTopic = pubsubTopicResult;
   }
 
-  p.note(
-    "SAML SSO is configured separately from Google and Microsoft OAuth.\n" +
-      "Hide the SSO button if you do not plan to use organization SSO on the login page.",
-    "Login Options",
-  );
-
-  const showSsoLoginButton = await p.confirm({
-    message: "Show the SSO button on the login screen?",
-    initialValue: false,
-  });
-
-  if (p.isCancel(showSsoLoginButton)) {
-    p.cancel("Setup cancelled.");
-    process.exit(0);
-  }
-
   // ── Generate config ──
 
   // Determine file paths first so we can read existing config
@@ -645,7 +629,6 @@ async function runSetupQuick(options: { name?: string }) {
     // App
     NEXT_PUBLIC_BASE_URL: `http://localhost:${webPort}`,
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true",
-    SSO_LOGIN_ENABLED: showSsoLoginButton ? "true" : "false",
   };
 
   env.DIRECT_URL = env.DATABASE_URL;
@@ -1081,22 +1064,6 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     env.MICROSOFT_WEBHOOK_CLIENT_STATE = generateSecret(32);
   }
 
-  p.note(
-    "SAML SSO is configured separately from Google and Microsoft OAuth.\n" +
-      "Hide the SSO button if you do not plan to use organization SSO on the login page.",
-    "Login Options",
-  );
-
-  const showSsoLoginButton = await p.confirm({
-    message: "Show the SSO button on the login screen?",
-    initialValue: false,
-  });
-
-  if (p.isCancel(showSsoLoginButton)) {
-    p.cancel("Setup cancelled.");
-    process.exit(0);
-  }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // LLM Provider
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1180,7 +1147,6 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   // App config
   env.NEXT_PUBLIC_BASE_URL = `http://localhost:${webPort}`;
   env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = "true";
-  env.SSO_LOGIN_ENABLED = showSsoLoginButton ? "true" : "false";
 
   spinner.stop("Configuration generated");
 
@@ -1627,11 +1593,7 @@ const CONFIG_CATEGORIES: Record<
   },
   "App Settings": {
     description: "Application URL and feature flags",
-    keys: [
-      "NEXT_PUBLIC_BASE_URL",
-      "NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS",
-      "SSO_LOGIN_ENABLED",
-    ],
+    keys: ["NEXT_PUBLIC_BASE_URL", "NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS"],
   },
 };
 
