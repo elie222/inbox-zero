@@ -383,7 +383,10 @@ describe("aiProcessAssistantChat", () => {
 
     expect(systemPrompt).toContain("Rule suggestions:");
     expect(systemPrompt).toContain(
-      "Check whether this user already has generic newsletter, marketing, receipt, or notification handling",
+      "Check what this user already has handled before suggesting a category or rule",
+    );
+    expect(systemPrompt).toContain(
+      "Do not suggest rules just to create more automation",
     );
     expect(systemPrompt).toContain(
       "ask whether the relevant inbox items are important, low-priority, safe to archive, or need attention",

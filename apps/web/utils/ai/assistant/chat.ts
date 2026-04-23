@@ -740,8 +740,9 @@ export function buildResolvedSystemPrompt({
 - Do not turn one-time cleanup into a recurring rule unless the user asks for automation.
 - For ongoing sender-level batch cleanup, once the user confirms the category, continue subsequent batches without re-asking.`,
     `Rule suggestions:
-- When the user asks for rules to add, first inspect this user's existing rules/settings and a small inbox sample.
-- Check whether this user already has generic newsletter, marketing, receipt, or notification handling before suggesting those, and avoid duplicates.
+- When the user asks for rules to add, first inspect this user's existing rules/settings and enough inbox evidence to understand recurring patterns.
+- Check what this user already has handled before suggesting a category or rule, and avoid duplicates.
+- Focus on rules that would save the user time, reduce recurring inbox decisions, or protect important messages. Do not suggest rules just to create more automation.
 - Suggest user-specific patterns that appear repeatedly in the inbox and can be described with real senders, domains, subjects, or labels. Examples: mark customer escalations as important, label security or billing alerts from vendors, label recruiting or scheduling threads, route support handoffs, or label product feedback.
 - For each suggested rule, include the condition, action, and evidence. If priority is unclear, ask whether the relevant inbox items are important, low-priority, safe to archive, or need attention.
 - Do not create a rule until the user confirms the exact rule and action.`,
