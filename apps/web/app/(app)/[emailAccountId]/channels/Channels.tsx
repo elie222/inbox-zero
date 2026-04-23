@@ -1,12 +1,22 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckIcon, LogOutIcon, MoreVerticalIcon } from "lucide-react";
+import Link from "next/link";
+import {
+  ArrowUpRightIcon,
+  CheckIcon,
+  LogOutIcon,
+  MoreVerticalIcon,
+  Settings2Icon,
+} from "lucide-react";
 import Image from "next/image";
 import { useAction } from "next-safe-action/hooks";
+import { DigestSettingsDialogContent } from "@/app/(app)/[emailAccountId]/assistant/settings/DigestSetting";
+import { FollowUpSettingsDialogContent } from "@/app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting";
 import { SlackNotificationTargetSelect } from "@/components/SlackNotificationTargetSelect";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingContent } from "@/components/LoadingContent";
+import { Tooltip } from "@/components/Tooltip";
 import { Toggle } from "@/components/Toggle";
 import { MutedText } from "@/components/Typography";
 import { Badge } from "@/components/Badge";
@@ -62,6 +72,7 @@ import {
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import type { MessagingActionType } from "@/utils/actions/messaging-channels.validation";
+import { prefixPath } from "@/utils/path";
 
 type LinkableProvider = "TEAMS" | "TELEGRAM";
 
@@ -87,11 +98,6 @@ const CHANNEL_FEATURES: Array<{
     description: "Get a summary before your meetings.",
   },
   {
-    purpose: MessagingRoutePurpose.DOCUMENT_FILINGS,
-    name: "Document filing alerts",
-    description: "Notifications when documents are auto-filed.",
-  },
-  {
     purpose: MessagingRoutePurpose.DIGESTS,
     name: "Digests",
     description: "Receive your scheduled digest in chat.",
@@ -100,6 +106,11 @@ const CHANNEL_FEATURES: Array<{
     purpose: MessagingRoutePurpose.FOLLOW_UPS,
     name: "Follow-up reminders",
     description: "Get nudged about emails that need a follow-up.",
+  },
+  {
+    purpose: MessagingRoutePurpose.DOCUMENT_FILINGS,
+    name: "Document filing alerts",
+    description: "Notifications when documents are auto-filed.",
   },
 ];
 
@@ -710,6 +721,10 @@ function FeatureRouteToggle({
       </ItemContent>
       <ItemActions>
         <div className="flex items-center gap-2">
+          <FeatureRouteAction
+            purpose={purpose}
+            emailAccountId={emailAccountId}
+          />
           {showTargetSelect && (
             <SlackNotificationTargetSelect
               emailAccountId={emailAccountId}
@@ -734,6 +749,64 @@ function FeatureRouteToggle({
         </div>
       </ItemActions>
     </Item>
+  );
+}
+
+function FeatureRouteAction({
+  purpose,
+  emailAccountId,
+}: {
+  purpose: MessagingFeatureRoutePurpose;
+  emailAccountId: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (
+    purpose === MessagingRoutePurpose.MEETING_BRIEFS ||
+    purpose === MessagingRoutePurpose.DOCUMENT_FILINGS
+  ) {
+    const href =
+      purpose === MessagingRoutePurpose.MEETING_BRIEFS
+        ? prefixPath(emailAccountId, "/briefs")
+        : prefixPath(emailAccountId, "/drive");
+
+    return (
+      <Tooltip content="Open settings">
+        <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+          <Link href={href}>
+            <ArrowUpRightIcon className="h-4 w-4" />
+          </Link>
+        </Button>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <>
+      <Tooltip content="Configure">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => setOpen(true)}
+        >
+          <Settings2Icon className="h-4 w-4" />
+        </Button>
+      </Tooltip>
+      <Dialog open={open} onOpenChange={setOpen}>
+        {purpose === MessagingRoutePurpose.DIGESTS ? (
+          <DigestSettingsDialogContent
+            onSuccess={() => setOpen(false)}
+            showChannelsHint={false}
+          />
+        ) : (
+          <FollowUpSettingsDialogContent
+            onSuccess={() => setOpen(false)}
+            showChannelsHint={false}
+          />
+        )}
+      </Dialog>
+    </>
   );
 }
 

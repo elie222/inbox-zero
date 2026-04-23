@@ -100,14 +100,8 @@ function FollowUpRemindersSettingContent() {
                     Configure
                   </Button>
                 </DialogTrigger>
-                <FollowUpSettingsDialog
-                  emailAccountId={data?.id ?? ""}
-                  emailAddress={data?.email ?? ""}
-                  followUpAwaitingReplyDays={data?.followUpAwaitingReplyDays}
-                  followUpNeedsReplyDays={data?.followUpNeedsReplyDays}
-                  followUpAutoDraftEnabled={
-                    data?.followUpAutoDraftEnabled ?? true
-                  }
+                <FollowUpSettingsDialogContent
+                  showChannelsHint
                   onSuccess={() => {
                     mutate();
                     setOpen(false);
@@ -128,12 +122,37 @@ function FollowUpRemindersSettingContent() {
   );
 }
 
+export function FollowUpSettingsDialogContent({
+  onSuccess,
+  showChannelsHint = true,
+}: {
+  onSuccess: () => void;
+  showChannelsHint?: boolean;
+}) {
+  const { data } = useEmailAccountFull();
+
+  if (!data) return null;
+
+  return (
+    <FollowUpSettingsDialog
+      emailAccountId={data.id}
+      emailAddress={data.email ?? ""}
+      followUpAwaitingReplyDays={data.followUpAwaitingReplyDays}
+      followUpNeedsReplyDays={data.followUpNeedsReplyDays}
+      followUpAutoDraftEnabled={data.followUpAutoDraftEnabled ?? true}
+      showChannelsHint={showChannelsHint}
+      onSuccess={onSuccess}
+    />
+  );
+}
+
 function FollowUpSettingsDialog({
   emailAccountId,
   emailAddress,
   followUpAwaitingReplyDays,
   followUpNeedsReplyDays,
   followUpAutoDraftEnabled,
+  showChannelsHint,
   onSuccess,
 }: {
   emailAccountId: string;
@@ -141,6 +160,7 @@ function FollowUpSettingsDialog({
   followUpAwaitingReplyDays: number | null | undefined;
   followUpNeedsReplyDays: number | null | undefined;
   followUpAutoDraftEnabled: boolean;
+  showChannelsHint: boolean;
   onSuccess: () => void;
 }) {
   const { provider } = useAccount();
@@ -296,16 +316,18 @@ function FollowUpSettingsDialog({
           </Button>
         </div>
 
-        <MutedText>
-          Want pings in your chat app?{" "}
-          <Link
-            href={prefixPath(emailAccountId, "/channels")}
-            className="text-foreground underline"
-          >
-            Configure on the Channels page
-          </Link>
-          .
-        </MutedText>
+        {showChannelsHint && (
+          <MutedText>
+            Want pings in your chat app?{" "}
+            <Link
+              href={prefixPath(emailAccountId, "/channels")}
+              className="text-foreground underline"
+            >
+              Configure on the Channels page
+            </Link>
+            .
+          </MutedText>
+        )}
       </form>
     </DialogContent>
   );

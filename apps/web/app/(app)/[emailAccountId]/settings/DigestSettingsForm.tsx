@@ -65,7 +65,13 @@ const daysOfWeek = [
   { value: "6", label: "Saturday" },
 ];
 
-export function DigestSettingsForm({ onSuccess }: { onSuccess?: () => void }) {
+export function DigestSettingsForm({
+  onSuccess,
+  showChannelsHint = true,
+}: {
+  onSuccess?: () => void;
+  showChannelsHint?: boolean;
+}) {
   const { emailAccountId } = useAccount();
   const {
     data: rules,
@@ -343,7 +349,10 @@ export function DigestSettingsForm({ onSuccess }: { onSuccess?: () => void }) {
           </form>
         </LoadingContent>
 
-        <DigestDeliveryChannels emailAccountId={emailAccountId} />
+        <DigestDeliveryChannels
+          emailAccountId={emailAccountId}
+          showChannelsHint={showChannelsHint}
+        />
       </div>
 
       <EmailPreview selectedDigestItems={selectedDigestItems} />
@@ -353,8 +362,10 @@ export function DigestSettingsForm({ onSuccess }: { onSuccess?: () => void }) {
 
 function DigestDeliveryChannels({
   emailAccountId,
+  showChannelsHint,
 }: {
   emailAccountId: string;
+  showChannelsHint: boolean;
 }) {
   const { data: account, isLoading, mutate } = useEmailAccountFull();
 
@@ -384,16 +395,18 @@ function DigestDeliveryChannels({
           onChange={(sendEmail) => execute({ sendEmail })}
         />
       </div>
-      <MutedText>
-        Want digests in your chat app?{" "}
-        <Link
-          href={prefixPath(emailAccountId, "/channels")}
-          className="text-foreground underline"
-        >
-          Configure on the Channels page
-        </Link>
-        .
-      </MutedText>
+      {showChannelsHint && (
+        <MutedText>
+          Want digests in your chat app?{" "}
+          <Link
+            href={prefixPath(emailAccountId, "/channels")}
+            className="text-foreground underline"
+          >
+            Configure on the Channels page
+          </Link>
+          .
+        </MutedText>
+      )}
     </div>
   );
 }

@@ -177,7 +177,7 @@ export function ProactiveUpdatesSetting({
   const destinationLabel = getScheduledCheckInsDestinationLabel(channel);
   const summaryText =
     activeForChannel && job
-      ? `${scheduleText}. ${destinationLabel}`
+      ? `${describeCronSchedule(job.cronExpression ?? DEFAULT_AUTOMATION_JOB_CRON)}. ${destinationLabel}`
       : "Get periodic summaries in chat.";
 
   const handleSave = useCallback(() => {
@@ -196,6 +196,16 @@ export function ProactiveUpdatesSetting({
           <ItemDescription>{summaryText}</ItemDescription>
         </ItemContent>
         <ItemActions>
+          <Tooltip content="Configure">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setOpen(true)}
+            >
+              <Settings2Icon className="h-4 w-4" />
+            </Button>
+          </Tooltip>
           {channel.provider === MessagingProvider.SLACK ? (
             <SlackNotificationTargetSelect
               emailAccountId={emailAccountId}
@@ -215,16 +225,6 @@ export function ProactiveUpdatesSetting({
               {destinationLabel}
             </div>
           )}
-          <Tooltip content="Configure">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setOpen(true)}
-            >
-              <Settings2Icon className="h-4 w-4" />
-            </Button>
-          </Tooltip>
           <Toggle
             name={`scheduled-checkins-${channel.id}`}
             enabled={enabled}
@@ -245,13 +245,6 @@ export function ProactiveUpdatesSetting({
           </DialogHeader>
 
           <div className="space-y-6">
-            <div className="space-y-2">
-              <Label>Destination</Label>
-              <div className="text-sm text-muted-foreground">
-                {destinationLabel}
-              </div>
-            </div>
-
             <div className="space-y-3">
               <Label>Schedule</Label>
               <div className="grid grid-cols-3 gap-2">
