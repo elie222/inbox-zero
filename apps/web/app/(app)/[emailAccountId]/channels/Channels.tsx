@@ -98,14 +98,14 @@ const CHANNEL_FEATURES: Array<{
     description: "Get a summary before your meetings.",
   },
   {
-    purpose: MessagingRoutePurpose.DIGESTS,
-    name: "Digests",
-    description: "Receive your scheduled digest in chat.",
-  },
-  {
     purpose: MessagingRoutePurpose.FOLLOW_UPS,
     name: "Follow-up reminders",
     description: "Get nudged about emails that need a follow-up.",
+  },
+  {
+    purpose: MessagingRoutePurpose.DIGESTS,
+    name: "Digests",
+    description: "Receive your scheduled digest in chat.",
   },
   {
     purpose: MessagingRoutePurpose.DOCUMENT_FILINGS,
@@ -386,12 +386,6 @@ function ConnectedChannelSection({
       </ItemCard>
 
       <ItemCard>
-        <ProactiveUpdatesSetting
-          channel={channel}
-          emailAccountId={emailAccountId}
-          onUpdate={onUpdate}
-        />
-        <ItemSeparator />
         {CHANNEL_FEATURES.map((feature, index) => {
           const destination = getMessagingFeatureRouteSummary(
             channel.destinations,
@@ -401,6 +395,16 @@ function ConnectedChannelSection({
           return (
             <div key={feature.purpose}>
               {index > 0 && <ItemSeparator />}
+              {index === 1 && (
+                <>
+                  <ProactiveUpdatesSetting
+                    channel={channel}
+                    emailAccountId={emailAccountId}
+                    onUpdate={onUpdate}
+                  />
+                  <ItemSeparator />
+                </>
+              )}
               <FeatureRouteToggle
                 name={feature.name}
                 description={feature.description}
