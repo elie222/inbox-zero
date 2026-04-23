@@ -32,10 +32,7 @@ export function BillingSection() {
 
   return (
     <LoadingContent loading={isLoading}>
-      {premium &&
-      (isPremium ||
-        premium.lemonSqueezyCustomerId ||
-        premium.stripeSubscriptionId) ? (
+      {premium && isPremium ? (
         <Item size="sm">
           <ItemContent>
             <ItemTitle>{getPremiumTierName(premium.tier)} plan</ItemTitle>
