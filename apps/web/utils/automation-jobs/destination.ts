@@ -9,7 +9,7 @@ import { getMessagingRoute } from "@/utils/messaging/routes";
 import { isMessagingChannelOperational } from "@/utils/messaging/channel-validity";
 import { isSupportedAutomationMessagingProvider } from "@/utils/automation-jobs/messaging-channel";
 
-export type AutomationMessagingRoute = {
+type AutomationMessagingRoute = {
   purpose: MessagingRoutePurpose;
   targetType: MessagingRouteTargetType;
   targetId: string;
