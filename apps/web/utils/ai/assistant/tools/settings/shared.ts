@@ -333,16 +333,6 @@ const accountSettingsSnapshotRawSelect = {
       provider: {
         in: SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS,
       },
-      routes: {
-        some: {
-          purpose: {
-            in: [
-              MessagingRoutePurpose.SCHEDULED_CHECK_INS,
-              MessagingRoutePurpose.RULE_NOTIFICATIONS,
-            ],
-          },
-        },
-      },
       OR: [
         {
           provider: MessagingProvider.SLACK,
@@ -1008,10 +998,13 @@ async function applyScheduledCheckInsConfig({
 }) {
   const cronExpression = config.cronExpression ?? DEFAULT_AUTOMATION_JOB_CRON;
 
-  if (current.jobId && config.enabled && config.messagingChannelId) {
+  const messagingChannelId =
+    config.messagingChannelId ?? current.messagingChannelId;
+
+  if (current.jobId && config.enabled && messagingChannelId) {
     const route = await ensureScheduledCheckInsRouteForChannel({
       emailAccountId,
-      messagingChannelId: config.messagingChannelId,
+      messagingChannelId,
     });
     if (!route) {
       throw new Error(
@@ -1056,18 +1049,19 @@ async function applyScheduledCheckInsConfig({
 function buildScheduledCheckInsSnapshot(
   emailAccount: ScheduledCheckInsSnapshotSource,
 ) {
-  const availableChannels = emailAccount.messagingChannels
-    .filter((channel) => hasScheduledCheckInsSetupRoute(channel.routes))
-    .map((channel) => ({
-      id: channel.id,
-      label: formatMessagingChannelLabel({
-        provider: channel.provider,
-        teamName: channel.teamName,
-        routeLabel: formatRouteTargetLabel(
-          getScheduledCheckInsSetupRoute(channel.routes),
+  const availableChannels = emailAccount.messagingChannels.map((channel) => ({
+    id: channel.id,
+    label: formatMessagingChannelLabel({
+      provider: channel.provider,
+      teamName: channel.teamName,
+      routeLabel: formatRouteTargetLabel(
+        getMessagingRoute(
+          channel.routes,
+          MessagingRoutePurpose.SCHEDULED_CHECK_INS,
         ),
-      }),
-    }));
+      ),
+    }),
+  }));
 
   return {
     jobId: emailAccount.automationJob?.id ?? null,
@@ -1084,8 +1078,9 @@ function buildScheduledCheckInsSnapshot(
           provider: emailAccount.automationJob.messagingChannel.provider,
           teamName: emailAccount.automationJob.messagingChannel.teamName,
           routeLabel: formatRouteTargetLabel(
-            getScheduledCheckInsSetupRoute(
+            getMessagingRoute(
               emailAccount.automationJob.messagingChannel.routes,
+              MessagingRoutePurpose.SCHEDULED_CHECK_INS,
             ),
           ),
         })
@@ -1111,21 +1106,6 @@ function formatMessagingChannelLabel({
   if (provider === MessagingProvider.TELEGRAM) return "Telegram destination";
 
   return "Slack workspace";
-}
-
-function hasScheduledCheckInsSetupRoute(
-  routes: ScheduledCheckInsAutomationJob["messagingChannel"]["routes"],
-) {
-  return Boolean(getScheduledCheckInsSetupRoute(routes));
-}
-
-function getScheduledCheckInsSetupRoute(
-  routes: ScheduledCheckInsAutomationJob["messagingChannel"]["routes"],
-) {
-  return (
-    getMessagingRoute(routes, MessagingRoutePurpose.SCHEDULED_CHECK_INS) ??
-    getMessagingRoute(routes, MessagingRoutePurpose.RULE_NOTIFICATIONS)
-  );
 }
 
 function requiresScheduledCheckInsPremium({

@@ -155,23 +155,6 @@ export function hasScheduledCheckInsRoute(
   return destinations.scheduledCheckIns.enabled;
 }
 
-export function canSetupScheduledCheckInsRoute(
-  destinations: MessagingChannelDestinations,
-) {
-  return (
-    hasScheduledCheckInsRoute(destinations) ||
-    hasRuleNotificationRoute(destinations)
-  );
-}
-
-export function getScheduledCheckInsSetupDestination(
-  destinations: MessagingChannelDestinations,
-) {
-  return hasScheduledCheckInsRoute(destinations)
-    ? destinations.scheduledCheckIns
-    : destinations.ruleNotifications;
-}
-
 export function canEnableMessagingFeatureRoute(
   destinations: MessagingChannelDestinations,
   purpose: MessagingFeatureRoutePurpose,
@@ -188,15 +171,5 @@ export function getConnectedRuleNotificationChannels<
   return (channels ?? []).filter(
     (channel) =>
       channel.isConnected && hasRuleNotificationRoute(channel.destinations),
-  );
-}
-
-export function getConnectedScheduledCheckInsSetupChannels<
-  T extends ConnectedMessagingChannelLike,
->(channels: T[] | null | undefined) {
-  return (channels ?? []).filter(
-    (channel) =>
-      channel.isConnected &&
-      canSetupScheduledCheckInsRoute(channel.destinations),
   );
 }

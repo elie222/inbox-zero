@@ -44,10 +44,10 @@ describe("automation job actions", () => {
     } as any);
   });
 
-  it("bootstraps a scheduled check-in route from the existing rule route when saving", async () => {
+  it("creates a scheduled check-in direct route when saving", async () => {
     prisma.messagingChannel.findUnique.mockResolvedValue(
       createSlackChannel({
-        routes: [createRuleRoute()],
+        routes: [],
       }),
     );
     prisma.automationJob.findUnique.mockResolvedValue({
@@ -65,8 +65,8 @@ describe("automation job actions", () => {
       data: {
         messagingChannelId: CHANNEL_ID,
         purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
-        targetType: MessagingRouteTargetType.CHANNEL,
-        targetId: "C123",
+        targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+        targetId: "U123",
       },
     });
     expect(prisma.automationJob.update).toHaveBeenCalledWith({
@@ -81,9 +81,9 @@ describe("automation job actions", () => {
     });
   });
 
-  it("rejects saving when no scheduled check-in setup route exists", async () => {
+  it("rejects saving when the selected channel is disconnected", async () => {
     prisma.messagingChannel.findUnique.mockResolvedValue(
-      createSlackChannel({ routes: [] }),
+      createSlackChannel({ isConnected: false, routes: [] }),
     );
 
     const result = await saveAutomationJobAction("email-account-1" as any, {
@@ -92,13 +92,13 @@ describe("automation job actions", () => {
       prompt: null,
     });
 
-    expect(result?.serverError).toBe("Select a messaging destination first");
+    expect(result?.serverError).toBe("Messaging channel is not connected");
     expect(prisma.messagingRoute.create).not.toHaveBeenCalled();
     expect(prisma.automationJob.update).not.toHaveBeenCalled();
     expect(prisma.automationJob.create).not.toHaveBeenCalled();
   });
 
-  it("validates and bootstraps the existing channel before toggling on", async () => {
+  it("validates and creates a scheduled route before toggling on", async () => {
     prisma.automationJob.findUnique.mockResolvedValue({
       id: "automation-job-1",
       cronExpression: "0 9 * * 1-5",
@@ -106,7 +106,7 @@ describe("automation job actions", () => {
     } as any);
     prisma.messagingChannel.findUnique.mockResolvedValue(
       createSlackChannel({
-        routes: [createRuleRoute()],
+        routes: [],
       }),
     );
 
@@ -119,8 +119,8 @@ describe("automation job actions", () => {
       data: {
         messagingChannelId: CHANNEL_ID,
         purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
-        targetType: MessagingRouteTargetType.CHANNEL,
-        targetId: "C123",
+        targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+        targetId: "U123",
       },
     });
     expect(prisma.automationJob.update).toHaveBeenCalledWith({
@@ -166,6 +166,7 @@ function createSlackChannel({
     isConnected,
     accessToken: "xoxb-token",
     providerUserId: "U123",
+    teamId: "T123",
     routes,
   } as any;
 }

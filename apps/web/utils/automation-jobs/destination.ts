@@ -1,10 +1,13 @@
 import {
+  MessagingProvider,
   MessagingRoutePurpose,
-  type MessagingRouteTargetType,
+  MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { getMessagingRoute } from "@/utils/messaging/routes";
+import { isMessagingChannelOperational } from "@/utils/messaging/channel-validity";
+import { isSupportedAutomationMessagingProvider } from "@/utils/automation-jobs/messaging-channel";
 
 export type AutomationMessagingRoute = {
   purpose: MessagingRoutePurpose;
@@ -13,31 +16,38 @@ export type AutomationMessagingRoute = {
 };
 
 export async function ensureScheduledCheckInsRoute({
-  messagingChannelId,
+  channel,
   routes,
 }: {
-  messagingChannelId: string;
+  channel: {
+    id: string;
+    provider: MessagingProvider;
+    isConnected: boolean;
+    accessToken: string | null;
+    teamId: string;
+    providerUserId: string | null;
+  };
   routes: AutomationMessagingRoute[];
 }) {
+  if (!isSupportedAutomationMessagingProvider(channel.provider)) return null;
+  if (!isMessagingChannelOperational(channel)) return null;
+
   const existingRoute = getMessagingRoute(
     routes,
     MessagingRoutePurpose.SCHEDULED_CHECK_INS,
   );
   if (existingRoute) return existingRoute;
 
-  const sourceRoute = getMessagingRoute(
-    routes,
-    MessagingRoutePurpose.RULE_NOTIFICATIONS,
-  );
-  if (!sourceRoute) return null;
+  const targetId = getDirectMessageTargetId(channel);
+  if (!targetId) return null;
 
   try {
     await prisma.messagingRoute.create({
       data: {
-        messagingChannelId,
+        messagingChannelId: channel.id,
         purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
-        targetType: sourceRoute.targetType,
-        targetId: sourceRoute.targetId,
+        targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+        targetId,
       },
     });
   } catch (error) {
@@ -46,8 +56,8 @@ export async function ensureScheduledCheckInsRoute({
 
   return {
     purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
-    targetType: sourceRoute.targetType,
-    targetId: sourceRoute.targetId,
+    targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+    targetId,
   };
 }
 
@@ -67,6 +77,11 @@ export async function ensureScheduledCheckInsRouteForChannel({
     },
     select: {
       id: true,
+      provider: true,
+      isConnected: true,
+      accessToken: true,
+      teamId: true,
+      providerUserId: true,
       routes: {
         select: {
           purpose: true,
@@ -80,7 +95,16 @@ export async function ensureScheduledCheckInsRouteForChannel({
   if (!channel) return null;
 
   return ensureScheduledCheckInsRoute({
-    messagingChannelId: channel.id,
+    channel,
     routes: channel.routes,
   });
+}
+
+function getDirectMessageTargetId(channel: {
+  provider: MessagingProvider;
+  teamId: string;
+  providerUserId: string | null;
+}) {
+  if (channel.provider === MessagingProvider.TELEGRAM) return channel.teamId;
+  return channel.providerUserId;
 }

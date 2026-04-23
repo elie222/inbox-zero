@@ -10,11 +10,10 @@ import { SafeError } from "@/utils/error";
 import {
   AutomationJobRunStatus,
   MessagingProvider,
-  MessagingRoutePurpose,
+  type MessagingRoutePurpose,
   type MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
-import { hasMessagingRoute } from "@/utils/messaging/routes";
 import {
   getNextAutomationJobRunAt,
   validateAutomationCronExpression,
@@ -29,11 +28,11 @@ import {
 } from "@/utils/actions/automation-jobs.helpers";
 import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
 import {
-  isAutomationMessagingChannelSetupReady,
   isSupportedAutomationMessagingProvider,
   SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS,
 } from "@/utils/automation-jobs/messaging-channel";
 import { ensureScheduledCheckInsRoute } from "@/utils/automation-jobs/destination";
+import { isMessagingChannelOperational } from "@/utils/messaging/channel-validity";
 
 const AUTOMATION_JOBS_TOPIC = "automation-jobs-execute";
 
@@ -128,11 +127,6 @@ export const saveAutomationJobAction = actionClient
         throw new SafeError("Messaging provider is not supported");
       }
 
-      const validationError = await prepareAutomationMessagingChannel(channel);
-      if (validationError) {
-        throw new SafeError(validationError);
-      }
-
       const existingJob = await prisma.automationJob.findUnique({
         where: { emailAccountId },
         select: { id: true },
@@ -147,6 +141,12 @@ export const saveAutomationJobAction = actionClient
       const name = getDefaultAutomationJobName();
 
       if (existingJob) {
+        const validationError =
+          await prepareAutomationMessagingChannel(channel);
+        if (validationError) {
+          throw new SafeError(validationError);
+        }
+
         await prisma.automationJob.update({
           where: { id: existingJob.id },
           data: {
@@ -188,6 +188,7 @@ export const triggerTestCheckInAction = actionClient
             isConnected: true,
             accessToken: true,
             providerUserId: true,
+            teamId: true,
             routes: {
               select: {
                 purpose: true,
@@ -249,6 +250,7 @@ async function getDefaultMessagingChannel(emailAccountId: string) {
       isConnected: true,
       accessToken: true,
       providerUserId: true,
+      teamId: true,
       routes: {
         select: {
           purpose: true,
@@ -261,7 +263,7 @@ async function getDefaultMessagingChannel(emailAccountId: string) {
   });
 
   const channel = channels.find((candidate) =>
-    isAutomationMessagingChannelSetupReady(candidate),
+    isMessagingChannelOperational(candidate),
   );
 
   if (!channel) {
@@ -293,6 +295,7 @@ async function getAutomationMessagingChannel({
       isConnected: true,
       accessToken: true,
       providerUserId: true,
+      teamId: true,
       routes: {
         select: {
           purpose: true,
@@ -310,10 +313,11 @@ async function prepareAutomationMessagingChannel(
   const validationError = getAutomationMessagingChannelValidationError(channel);
   if (validationError) return validationError;
 
-  await ensureScheduledCheckInsRoute({
-    messagingChannelId: channel.id,
+  const route = await ensureScheduledCheckInsRoute({
+    channel,
     routes: channel.routes,
   });
+  if (!route) return "Select a messaging destination first";
 
   return null;
 }
@@ -325,23 +329,15 @@ function getAutomationMessagingChannelValidationError(
     return "Messaging provider is not supported";
   }
 
-  if (!channel.isConnected) return "Messaging channel is not connected";
-
-  if (channel.provider === MessagingProvider.SLACK && !channel.accessToken) {
+  if (
+    channel.provider === MessagingProvider.SLACK &&
+    channel.isConnected &&
+    !channel.accessToken
+  ) {
     return "Slack channel is not connected";
   }
 
-  if (
-    !hasMessagingRoute(
-      channel.routes,
-      MessagingRoutePurpose.SCHEDULED_CHECK_INS,
-    ) &&
-    !hasMessagingRoute(channel.routes, MessagingRoutePurpose.RULE_NOTIFICATIONS)
-  ) {
-    return "Select a messaging destination first";
-  }
-
-  if (!isAutomationMessagingChannelSetupReady(channel)) {
+  if (!isMessagingChannelOperational(channel)) {
     return "Messaging channel is not connected";
   }
 
@@ -354,6 +350,7 @@ type AutomationMessagingChannelForValidation = {
   isConnected: boolean;
   accessToken: string | null;
   providerUserId: string | null;
+  teamId: string;
   routes: Array<{
     purpose: MessagingRoutePurpose;
     targetType: MessagingRouteTargetType;

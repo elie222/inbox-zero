@@ -405,7 +405,7 @@ describe("chat settings tools", () => {
     expect(prisma.automationJob.create).not.toHaveBeenCalled();
   });
 
-  it("exposes rule-only channels as scheduled check-in bootstrap candidates", async () => {
+  it("exposes connected channels as scheduled check-in candidates", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       ...baseAccountSnapshot,
       messagingChannels: [
@@ -434,14 +434,14 @@ describe("chat settings tools", () => {
         availableChannels: [
           {
             id: "channel-1",
-            label: "#C123 (Acme)",
+            label: "Acme",
           },
         ],
       },
     });
   });
 
-  it("bootstraps a scheduled route when enabling scheduled check-ins", async () => {
+  it("creates a scheduled route directly when enabling scheduled check-ins", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       ...baseAccountSnapshot,
       messagingChannels: [
@@ -454,7 +454,12 @@ describe("chat settings tools", () => {
     prisma.automationJob.findUnique.mockResolvedValue(null);
     prisma.messagingChannel.findUnique.mockResolvedValue({
       id: "channel-1",
-      routes: [slackRulesRoute],
+      provider: "SLACK",
+      isConnected: true,
+      accessToken: "token-1",
+      providerUserId: "U123",
+      teamId: "T123",
+      routes: [],
     } as any);
     prisma.automationJob.create.mockResolvedValue({});
 
@@ -484,8 +489,8 @@ describe("chat settings tools", () => {
       data: {
         messagingChannelId: "channel-1",
         purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
-        targetType: MessagingRouteTargetType.CHANNEL,
-        targetId: "C123",
+        targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+        targetId: "U123",
       },
     });
     expect(prisma.automationJob.create).toHaveBeenCalledWith({

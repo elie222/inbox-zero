@@ -46,11 +46,6 @@ import {
 } from "@/utils/automation-jobs/defaults";
 import { describeCronSchedule } from "@/utils/automation-jobs/describe";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
-import {
-  canSetupScheduledCheckInsRoute,
-  getConnectedScheduledCheckInsSetupChannels,
-  getScheduledCheckInsSetupDestination,
-} from "@/utils/messaging/routes";
 import { cn } from "@/utils";
 
 export function ProactiveUpdatesSetting({
@@ -78,7 +73,8 @@ export function ProactiveUpdatesSetting({
   } = useMessagingChannels(emailAccountIdProp);
 
   const connectedMessagingChannels = useMemo(
-    () => getConnectedScheduledCheckInsSetupChannels(channelsData?.channels),
+    () =>
+      (channelsData?.channels ?? []).filter((channel) => channel.isConnected),
     [channelsData?.channels],
   );
   const selectedMessagingChannel = useMemo(
@@ -103,12 +99,9 @@ export function ProactiveUpdatesSetting({
 
   const hasConnectedMessagingChannel = connectedMessagingChannels.length > 0;
   const selectedDestination =
-    selectedMessagingChannel &&
-    getScheduledCheckInsSetupDestination(selectedMessagingChannel.destinations);
+    selectedMessagingChannel?.destinations.scheduledCheckIns;
   const selectedChannelNeedsReconfiguration = Boolean(
-    messagingChannelId &&
-      (!selectedMessagingChannel?.isConnected ||
-        !canSetupScheduledCheckInsRoute(selectedMessagingChannel.destinations)),
+    messagingChannelId && !selectedMessagingChannel?.isConnected,
   );
   const job = data?.job ?? null;
   const enabled = Boolean(job?.enabled);
@@ -231,7 +224,7 @@ export function ProactiveUpdatesSetting({
               </Button>
             )}
 
-            {enabled && (
+            {(enabled || hasConnectedMessagingChannel || job) && (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm">
@@ -264,12 +257,7 @@ export function ProactiveUpdatesSetting({
                             <SelectItem
                               key={channel.id}
                               value={channel.id}
-                              disabled={
-                                !channel.isConnected ||
-                                !canSetupScheduledCheckInsRoute(
-                                  channel.destinations,
-                                )
-                              }
+                              disabled={!channel.isConnected}
                             >
                               {formatMessagingChannelLabel(channel)}
                             </SelectItem>
@@ -425,9 +413,6 @@ export function ProactiveUpdatesSetting({
 function formatMessagingChannelLabel(channel: {
   provider: MessagingProvider;
   destinations: {
-    ruleNotifications: {
-      targetLabel: string | null;
-    };
     scheduledCheckIns: {
       targetLabel: string | null;
     };
@@ -435,9 +420,7 @@ function formatMessagingChannelLabel(channel: {
   teamName: string | null;
 }) {
   const provider = getMessagingProviderName(channel.provider);
-  const targetLabel =
-    channel.destinations.scheduledCheckIns.targetLabel ??
-    channel.destinations.ruleNotifications.targetLabel;
+  const targetLabel = channel.destinations.scheduledCheckIns.targetLabel;
   if (targetLabel) {
     return `${provider} · ${targetLabel}`;
   }
