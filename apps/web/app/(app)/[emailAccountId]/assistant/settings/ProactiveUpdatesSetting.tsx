@@ -44,29 +44,16 @@ import {
   MessagingProvider,
   MessagingRoutePurpose,
 } from "@/generated/prisma/enums";
+import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 
-type ChannelLike = {
-  id: string;
-  provider: MessagingProvider;
-  teamName: string | null;
-  isConnected: boolean;
-  canSendAsDm: boolean;
-  destinations: {
-    scheduledCheckIns: {
-      enabled: boolean;
-      targetId: string | null;
-      targetLabel: string | null;
-      isDm: boolean;
-    };
-  };
-};
+type Channel = GetMessagingChannelsResponse["channels"][number];
 
 export function ProactiveUpdatesSetting({
   channel,
   emailAccountId,
   onUpdate,
 }: {
-  channel: ChannelLike;
+  channel: Channel;
   emailAccountId: string;
   onUpdate: () => void;
 }) {
@@ -347,7 +334,7 @@ export function ProactiveUpdatesSetting({
   );
 }
 
-function getSlackScheduledCheckInsTargetValue(channel: ChannelLike) {
+function getSlackScheduledCheckInsTargetValue(channel: Channel) {
   const destination = channel.destinations.scheduledCheckIns;
   if (destination.isDm) return "dm";
   if (destination.targetId) return destination.targetId;
@@ -355,7 +342,7 @@ function getSlackScheduledCheckInsTargetValue(channel: ChannelLike) {
   return null;
 }
 
-function getScheduledCheckInsDestinationLabel(channel: ChannelLike) {
+function getScheduledCheckInsDestinationLabel(channel: Channel) {
   const destination = channel.destinations.scheduledCheckIns;
   if (destination.targetLabel) return destination.targetLabel;
   if (

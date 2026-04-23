@@ -395,7 +395,7 @@ function ConnectedChannelSection({
           return (
             <div key={feature.purpose}>
               {index > 0 && <ItemSeparator />}
-              {index === 1 && (
+              {feature.purpose === MessagingRoutePurpose.FOLLOW_UPS && (
                 <>
                   <ProactiveUpdatesSetting
                     channel={channel}
