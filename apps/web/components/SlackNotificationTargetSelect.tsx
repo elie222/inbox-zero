@@ -28,7 +28,7 @@ export function SlackNotificationTargetSelect({
   onUpdate,
   onValueChange,
   placeholder = "Select channel",
-  className = "h-8 w-[180px]",
+  className = "h-8 w-[180px] [&>span]:min-w-0 [&>span]:text-left",
   disabled = false,
 }: {
   emailAccountId: string;

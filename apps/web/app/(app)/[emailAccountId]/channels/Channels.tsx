@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowUpRightIcon,
   CheckIcon,
+  ChevronRightIcon,
   LogOutIcon,
   MoreVerticalIcon,
   Settings2Icon,
@@ -328,15 +328,15 @@ function ConnectedChannelSection({
         </div>
       }
     >
-      {isSlack && (
-        <ItemCard>
-          <Item size="sm">
-            <ItemContent>
-              <ItemTitle>Rule notifications</ItemTitle>
-              <ItemDescription>
-                Choose where rule notifications and chat replies go.
-              </ItemDescription>
-            </ItemContent>
+      <ItemCard>
+        <Item size="sm">
+          <ItemContent>
+            <ItemTitle>Rule notifications</ItemTitle>
+            <ItemDescription>
+              Choose which rules send notifications and where they go.
+            </ItemDescription>
+          </ItemContent>
+          {isSlack && (
             <ItemActions>
               <SlackNotificationTargetSelect
                 emailAccountId={emailAccountId}
@@ -349,18 +349,7 @@ function ConnectedChannelSection({
                 onUpdate={onUpdate}
               />
             </ItemActions>
-          </Item>
-        </ItemCard>
-      )}
-
-      <ItemCard>
-        <Item size="sm">
-          <ItemContent>
-            <ItemTitle>Rules</ItemTitle>
-            <ItemDescription>
-              Choose which rules send notifications to this channel.
-            </ItemDescription>
-          </ItemContent>
+          )}
         </Item>
         <ItemSeparator />
         <div className="max-h-80 overflow-y-auto">
@@ -778,7 +767,7 @@ function FeatureRouteAction({
       <Tooltip content="Open settings">
         <Button asChild variant="ghost" size="icon" className="h-8 w-8">
           <Link href={href}>
-            <ArrowUpRightIcon className="h-4 w-4" />
+            <ChevronRightIcon className="h-4 w-4" />
           </Link>
         </Button>
       </Tooltip>

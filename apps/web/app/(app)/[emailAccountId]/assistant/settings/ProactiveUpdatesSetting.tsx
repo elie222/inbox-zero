@@ -161,11 +161,16 @@ export function ProactiveUpdatesSetting({
     () => describeCronSchedule(cronExpression),
     [cronExpression],
   );
-  const destinationLabel = getScheduledCheckInsDestinationLabel(channel);
-  const summaryText =
-    activeForChannel && job
-      ? `${describeCronSchedule(job.cronExpression ?? DEFAULT_AUTOMATION_JOB_CRON)}. ${destinationLabel}`
-      : "Get periodic summaries in chat.";
+  const isSlack = channel.provider === MessagingProvider.SLACK;
+  let summaryText = "Get periodic summaries in chat.";
+  if (activeForChannel && job) {
+    const schedule = describeCronSchedule(
+      job.cronExpression ?? DEFAULT_AUTOMATION_JOB_CRON,
+    );
+    summaryText = isSlack
+      ? `${schedule}. ${getScheduledCheckInsDestinationLabel(channel)}`
+      : schedule;
+  }
 
   const handleSave = useCallback(() => {
     executeSave({
@@ -193,7 +198,7 @@ export function ProactiveUpdatesSetting({
               <Settings2Icon className="h-4 w-4" />
             </Button>
           </Tooltip>
-          {channel.provider === MessagingProvider.SLACK ? (
+          {isSlack && (
             <SlackNotificationTargetSelect
               emailAccountId={emailAccountId}
               messagingChannelId={channel.id}
@@ -205,12 +210,7 @@ export function ProactiveUpdatesSetting({
               canSendAsDm={channel.canSendAsDm}
               onUpdate={onUpdate}
               disabled={saveStatus === "executing"}
-              className="h-8 min-w-[170px]"
             />
-          ) : (
-            <div className="min-w-[120px] text-right text-sm text-muted-foreground">
-              {destinationLabel}
-            </div>
           )}
           <Toggle
             name={`scheduled-checkins-${channel.id}`}
@@ -345,17 +345,6 @@ function getSlackScheduledCheckInsTargetValue(channel: Channel) {
 function getScheduledCheckInsDestinationLabel(channel: Channel) {
   const destination = channel.destinations.scheduledCheckIns;
   if (destination.targetLabel) return destination.targetLabel;
-  if (
-    channel.destinations.scheduledCheckIns.isDm ||
-    channel.provider !== MessagingProvider.SLACK ||
-    channel.canSendAsDm
-  ) {
-    return "Direct message";
-  }
-
-  if (channel.teamName) {
-    return `${getMessagingProviderName(channel.provider)} workspace`;
-  }
-
+  if (destination.isDm || channel.canSendAsDm) return "Direct message";
   return "Select destination";
 }
