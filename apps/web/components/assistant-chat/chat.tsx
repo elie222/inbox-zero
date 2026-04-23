@@ -361,9 +361,8 @@ function ChatMessagesView({
 
 const CHAT_EXAMPLES = [
   "Help me handle my inbox today",
-  "Suggest rules I should add",
   "Clean up my inbox",
-  "Auto-archive newsletters for me",
+  "Suggest rules I should add",
 ];
 
 function NewChatView({
