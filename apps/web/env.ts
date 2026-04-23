@@ -70,7 +70,6 @@ const parsedEnv = createEnv({
     MICROSOFT_BASE_URL: z.string().url().optional(),
     MICROSOFT_CLIENT_ID: z.string().optional(),
     MICROSOFT_CLIENT_SECRET: z.string().optional(),
-    MICROSOFT_OAUTH_ENABLED: booleanString.optional().default(true),
     MICROSOFT_TENANT_ID: z.string().optional().default("common"),
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
@@ -253,6 +252,7 @@ const parsedEnv = createEnv({
     APP_REVIEW_DEMO_ENABLED: booleanString.optional().default(false),
     APP_REVIEW_DEMO_CODE: z.string().optional(),
     APP_REVIEW_DEMO_EMAIL: z.string().email().optional(),
+    SSO_LOGIN_ENABLED: booleanString.optional().default(false),
   },
   client: {
     // stripe
@@ -305,9 +305,6 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_GTM_ID: z.string().optional(),
     NEXT_PUBLIC_CRISP_WEBSITE_ID: z.string().optional(),
     NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED: booleanString
-      .optional()
-      .default(false),
-    NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED: booleanString
       .optional()
       .default(false),
     NEXT_PUBLIC_AXIOM_DATASET: z.string().optional(),
@@ -405,8 +402,6 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_CRISP_WEBSITE_ID: process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID,
     NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED:
       process.env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED,
-    NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED:
-      process.env.NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED,
     NEXT_PUBLIC_AXIOM_DATASET: process.env.NEXT_PUBLIC_AXIOM_DATASET,
     NEXT_PUBLIC_AXIOM_TOKEN: process.env.NEXT_PUBLIC_AXIOM_TOKEN,
     NEXT_PUBLIC_LOG_SCOPES: process.env.NEXT_PUBLIC_LOG_SCOPES,

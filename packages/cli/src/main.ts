@@ -645,7 +645,7 @@ async function runSetupQuick(options: { name?: string }) {
     // App
     NEXT_PUBLIC_BASE_URL: `http://localhost:${webPort}`,
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true",
-    NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED: showSsoLoginButton ? "true" : "false",
+    SSO_LOGIN_ENABLED: showSsoLoginButton ? "true" : "false",
   };
 
   env.DIRECT_URL = env.DATABASE_URL;
@@ -1180,9 +1180,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   // App config
   env.NEXT_PUBLIC_BASE_URL = `http://localhost:${webPort}`;
   env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = "true";
-  env.NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED = showSsoLoginButton
-    ? "true"
-    : "false";
+  env.SSO_LOGIN_ENABLED = showSsoLoginButton ? "true" : "false";
 
   spinner.stop("Configuration generated");
 
@@ -1632,7 +1630,7 @@ const CONFIG_CATEGORIES: Record<
     keys: [
       "NEXT_PUBLIC_BASE_URL",
       "NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS",
-      "NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED",
+      "SSO_LOGIN_ENABLED",
     ],
   },
 };

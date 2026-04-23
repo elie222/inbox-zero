@@ -79,21 +79,21 @@ LLM_API_KEY=
 
   it("should write self-host login feature flags", () => {
     const templateWithFeatureFlag = `${baseTemplate}
-# NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED=true
+# SSO_LOGIN_ENABLED=true
 `;
 
     const result = generateEnvFile({
       env: {
         ...baseEnv,
-        NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED: "false",
+        SSO_LOGIN_ENABLED: "false",
       },
       useDockerInfra: false,
       llmProvider: "anthropic",
       template: templateWithFeatureFlag,
     });
 
-    expect(result).toContain("NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED=false");
-    expect(result).not.toContain("# NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED=");
+    expect(result).toContain("SSO_LOGIN_ENABLED=false");
+    expect(result).not.toContain("# SSO_LOGIN_ENABLED=");
   });
 
   it("should set Docker-specific values when useDockerInfra is true", () => {
