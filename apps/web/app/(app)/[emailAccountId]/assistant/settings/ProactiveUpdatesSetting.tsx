@@ -58,10 +58,14 @@ export function ProactiveUpdatesSetting({
     DEFAULT_AUTOMATION_JOB_CRON,
   );
   const [messagingChannelId, setMessagingChannelId] = useState("");
+  const [scheduledCheckInsTargetId, setScheduledCheckInsTargetId] = useState<
+    string | null
+  >(null);
   const [prompt, setPrompt] = useState("");
   const [showCronEditor, setShowCronEditor] = useState(false);
   const [showCustomPrompt, setShowCustomPrompt] = useState(false);
   const isDialogFormInitializedRef = useRef(false);
+  const lastTargetChannelIdRef = useRef<string | null>(null);
 
   const { emailAccountId: emailAccountIdFromContext } = useAccount();
   const emailAccountId = emailAccountIdProp ?? emailAccountIdFromContext;
@@ -110,6 +114,8 @@ export function ProactiveUpdatesSetting({
     setShowCustomPrompt(Boolean(job?.prompt?.trim()));
     setShowCronEditor(false);
     setMessagingChannelId(job?.messagingChannelId ?? "");
+    setScheduledCheckInsTargetId(null);
+    lastTargetChannelIdRef.current = null;
 
     isDialogFormInitializedRef.current = true;
   }, [open, job]);
@@ -123,6 +129,21 @@ export function ProactiveUpdatesSetting({
 
     setMessagingChannelId(fallbackChannelId);
   }, [open, connectedMessagingChannels, messagingChannelId]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (
+      !selectedMessagingChannel ||
+      selectedMessagingChannel.id === lastTargetChannelIdRef.current
+    ) {
+      return;
+    }
+
+    lastTargetChannelIdRef.current = selectedMessagingChannel.id;
+    setScheduledCheckInsTargetId(
+      getScheduledCheckInsTargetValue(selectedMessagingChannel),
+    );
+  }, [open, selectedMessagingChannel]);
 
   const { execute: executeToggle, status: toggleStatus } = useAction(
     toggleAutomationJobAction.bind(null, emailAccountId),
@@ -193,9 +214,16 @@ export function ProactiveUpdatesSetting({
     executeSave({
       cronExpression,
       messagingChannelId,
+      scheduledCheckInsTargetId,
       prompt,
     });
-  }, [cronExpression, messagingChannelId, prompt, executeSave]);
+  }, [
+    cronExpression,
+    messagingChannelId,
+    prompt,
+    scheduledCheckInsTargetId,
+    executeSave,
+  ]);
 
   const showLoading = isLoading || isLoadingChannels;
 
@@ -261,18 +289,22 @@ export function ProactiveUpdatesSetting({
                       )}
                       {selectedMessagingChannel?.provider ===
                         MessagingProvider.SLACK &&
-                        selectedMessagingChannel.isConnected &&
-                        selectedDestination && (
+                        selectedMessagingChannel.isConnected && (
                           <SlackNotificationTargetSelect
                             emailAccountId={emailAccountId}
                             messagingChannelId={selectedMessagingChannel.id}
                             purpose={MessagingRoutePurpose.SCHEDULED_CHECK_INS}
-                            targetId={selectedDestination.targetId}
-                            targetLabel={selectedDestination.targetLabel}
-                            isDm={selectedDestination.isDm}
+                            value={scheduledCheckInsTargetId}
+                            targetId={selectedDestination?.targetId ?? null}
+                            targetLabel={
+                              selectedDestination?.targetLabel ?? null
+                            }
+                            isDm={selectedDestination?.isDm ?? false}
                             canSendAsDm={selectedMessagingChannel.canSendAsDm}
                             onUpdate={mutateChannels}
+                            onValueChange={setScheduledCheckInsTargetId}
                             className="h-8 w-full"
+                            disabled={saveStatus === "executing"}
                           />
                         )}
                     </div>
@@ -370,6 +402,10 @@ export function ProactiveUpdatesSetting({
                           onClick={handleSave}
                           disabled={
                             !messagingChannelId ||
+                            (selectedMessagingChannel?.provider ===
+                              MessagingProvider.SLACK &&
+                              selectedMessagingChannel.isConnected &&
+                              !scheduledCheckInsTargetId) ||
                             selectedChannelNeedsReconfiguration ||
                             saveStatus === "executing"
                           }
@@ -398,6 +434,32 @@ export function ProactiveUpdatesSetting({
       }
     />
   );
+}
+
+function getScheduledCheckInsTargetValue(channel: {
+  provider: MessagingProvider;
+  isConnected: boolean;
+  canSendAsDm: boolean;
+  destinations: {
+    scheduledCheckIns: {
+      targetId: string | null;
+      isDm: boolean;
+    };
+  };
+}) {
+  const destination = channel.destinations.scheduledCheckIns;
+  if (destination.isDm) return "dm";
+  if (destination.targetId) return destination.targetId;
+
+  if (
+    channel.provider === MessagingProvider.SLACK &&
+    channel.isConnected &&
+    channel.canSendAsDm
+  ) {
+    return "dm";
+  }
+
+  return null;
 }
 
 function formatMessagingChannelLabel(channel: {

@@ -7,7 +7,11 @@ import {
   triggerTestCheckInBody,
 } from "@/utils/actions/automation-jobs.validation";
 import { SafeError } from "@/utils/error";
-import { AutomationJobRunStatus } from "@/generated/prisma/enums";
+import {
+  AutomationJobRunStatus,
+  MessagingProvider,
+  MessagingRoutePurpose,
+} from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import {
   getNextAutomationJobRunAt,
@@ -28,6 +32,7 @@ import {
 } from "@/utils/automation-jobs/messaging-channel";
 import { ensureScheduledCheckInsRoute } from "@/utils/automation-jobs/destination";
 import { isMessagingChannelOperational } from "@/utils/messaging/channel-validity";
+import { upsertSlackRoute } from "@/utils/messaging/slack-routes";
 
 const AUTOMATION_JOBS_TOPIC = "automation-jobs-execute";
 
@@ -35,7 +40,10 @@ export const toggleAutomationJobAction = actionClient
   .metadata({ name: "toggleAutomationJob" })
   .inputSchema(toggleAutomationJobBody)
   .action(
-    async ({ ctx: { emailAccountId, userId }, parsedInput: { enabled } }) => {
+    async ({
+      ctx: { emailAccountId, userId, logger },
+      parsedInput: { enabled },
+    }) => {
       if (enabled) {
         await assertCanEnableAutomationJobs(userId);
       }
@@ -67,8 +75,10 @@ export const toggleAutomationJobAction = actionClient
         });
         if (!channel) throw new SafeError("Messaging channel not found");
 
-        const validationError =
-          await prepareAutomationMessagingChannel(channel);
+        const validationError = await prepareAutomationMessagingChannel({
+          channel,
+          logger,
+        });
         if (validationError) throw new SafeError(validationError);
 
         await prisma.automationJob.update({
@@ -89,6 +99,7 @@ export const toggleAutomationJobAction = actionClient
         emailAccountId,
         cronExpression: DEFAULT_AUTOMATION_JOB_CRON,
         messagingChannelId: defaultChannel.id,
+        logger,
       });
     },
   );
@@ -98,8 +109,13 @@ export const saveAutomationJobAction = actionClient
   .inputSchema(saveAutomationJobBody)
   .action(
     async ({
-      ctx: { emailAccountId, userId },
-      parsedInput: { cronExpression, messagingChannelId, prompt },
+      ctx: { emailAccountId, userId, logger },
+      parsedInput: {
+        cronExpression,
+        messagingChannelId,
+        scheduledCheckInsTargetId,
+        prompt,
+      },
     }) => {
       await assertCanEnableAutomationJobs(userId);
 
@@ -136,8 +152,11 @@ export const saveAutomationJobAction = actionClient
       const name = getDefaultAutomationJobName();
 
       if (existingJob) {
-        const validationError =
-          await prepareAutomationMessagingChannel(channel);
+        const validationError = await prepareAutomationMessagingChannel({
+          channel,
+          scheduledCheckInsTargetId,
+          logger,
+        });
         if (validationError) {
           throw new SafeError(validationError);
         }
@@ -161,6 +180,8 @@ export const saveAutomationJobAction = actionClient
         cronExpression,
         prompt: normalizedPrompt,
         messagingChannelId,
+        scheduledCheckInsTargetId,
+        logger,
       });
     },
   );
@@ -183,6 +204,7 @@ export const triggerTestCheckInAction = actionClient
             isConnected: true,
             accessToken: true,
             providerUserId: true,
+            botUserId: true,
             teamId: true,
             routes: {
               select: {
@@ -204,7 +226,10 @@ export const triggerTestCheckInAction = actionClient
     }
 
     const channel = job.messagingChannel;
-    const validationError = await prepareAutomationMessagingChannel(channel);
+    const validationError = await prepareAutomationMessagingChannel({
+      channel,
+      logger,
+    });
     if (validationError) {
       throw new SafeError(validationError);
     }
@@ -245,6 +270,7 @@ async function getDefaultMessagingChannel(emailAccountId: string) {
       isConnected: true,
       accessToken: true,
       providerUserId: true,
+      botUserId: true,
       teamId: true,
       routes: {
         select: {
@@ -290,6 +316,7 @@ async function getAutomationMessagingChannel({
       isConnected: true,
       accessToken: true,
       providerUserId: true,
+      botUserId: true,
       teamId: true,
       routes: {
         select: {
@@ -302,14 +329,37 @@ async function getAutomationMessagingChannel({
   });
 }
 
-async function prepareAutomationMessagingChannel(
-  channel: AutomationMessagingChannel,
-) {
+async function prepareAutomationMessagingChannel({
+  channel,
+  scheduledCheckInsTargetId,
+  logger,
+}: {
+  channel: AutomationMessagingChannel;
+  scheduledCheckInsTargetId?: string | null;
+  logger: Parameters<typeof upsertSlackRoute>[0]["logger"];
+}) {
   if (!isSupportedAutomationMessagingProvider(channel.provider)) {
     return "Messaging provider is not supported";
   }
   if (!isMessagingChannelOperational(channel)) {
     return "Messaging channel is not connected";
+  }
+
+  if (
+    channel.provider === MessagingProvider.SLACK &&
+    scheduledCheckInsTargetId
+  ) {
+    await upsertSlackRoute({
+      messagingChannelId: channel.id,
+      purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+      targetId: scheduledCheckInsTargetId,
+      accessToken: channel.accessToken,
+      providerUserId: channel.providerUserId,
+      botUserId: channel.botUserId,
+      logger,
+    });
+
+    return null;
   }
 
   const route = await ensureScheduledCheckInsRoute({

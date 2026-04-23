@@ -36,9 +36,35 @@ export async function ensureScheduledCheckInsRoute({
     routes,
     MessagingRoutePurpose.SCHEDULED_CHECK_INS,
   );
-  if (existingRoute) return existingRoute;
-
   const targetId = getDirectMessageTargetId(channel);
+  if (existingRoute) {
+    if (existingRoute.targetType === MessagingRouteTargetType.CHANNEL) {
+      return existingRoute;
+    }
+
+    if (!targetId) return null;
+    if (existingRoute.targetId === targetId) return existingRoute;
+
+    await prisma.messagingRoute.update({
+      where: {
+        messagingChannelId_purpose: {
+          messagingChannelId: channel.id,
+          purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+        },
+      },
+      data: {
+        targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+        targetId,
+      },
+    });
+
+    return {
+      purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+      targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+      targetId,
+    };
+  }
+
   if (!targetId) return null;
 
   try {

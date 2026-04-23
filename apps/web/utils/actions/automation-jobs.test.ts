@@ -7,6 +7,7 @@ import {
 } from "@/generated/prisma/enums";
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
+import { upsertSlackRoute } from "@/utils/messaging/slack-routes";
 import {
   saveAutomationJobAction,
   toggleAutomationJobAction,
@@ -25,9 +26,13 @@ vi.mock("@/utils/premium", () => ({
 vi.mock("@/utils/user/get", () => ({
   getUserPremium: vi.fn(),
 }));
+vi.mock("@/utils/messaging/slack-routes", () => ({
+  upsertSlackRoute: vi.fn(),
+}));
 
 const mockGetUserPremium = vi.mocked(getUserPremium);
 const mockIsActivePremium = vi.mocked(isActivePremium);
+const mockUpsertSlackRoute = vi.mocked(upsertSlackRoute);
 const CHANNEL_ID = "cmessagingchannel1234567890123";
 
 describe("automation job actions", () => {
@@ -96,6 +101,34 @@ describe("automation job actions", () => {
     expect(prisma.messagingRoute.create).not.toHaveBeenCalled();
     expect(prisma.automationJob.update).not.toHaveBeenCalled();
     expect(prisma.automationJob.create).not.toHaveBeenCalled();
+  });
+
+  it("persists a staged Slack destination only on save", async () => {
+    prisma.messagingChannel.findUnique.mockResolvedValue(
+      createSlackChannel({
+        routes: [],
+      }),
+    );
+    prisma.automationJob.findUnique.mockResolvedValue({
+      id: "automation-job-1",
+    } as any);
+
+    const result = await saveAutomationJobAction("email-account-1" as any, {
+      cronExpression: "0 9 * * 1-5",
+      messagingChannelId: CHANNEL_ID,
+      scheduledCheckInsTargetId: "C999",
+      prompt: null,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(mockUpsertSlackRoute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messagingChannelId: CHANNEL_ID,
+        purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+        targetId: "C999",
+      }),
+    );
+    expect(prisma.messagingRoute.create).not.toHaveBeenCalled();
   });
 
   it("validates and creates a scheduled route before toggling on", async () => {

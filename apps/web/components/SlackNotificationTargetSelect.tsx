@@ -20,24 +20,30 @@ export function SlackNotificationTargetSelect({
   emailAccountId,
   messagingChannelId,
   purpose,
+  value,
   targetId,
   targetLabel,
   isDm,
   canSendAsDm,
   onUpdate,
+  onValueChange,
   placeholder = "Select channel",
   className = "h-8 w-[180px]",
+  disabled = false,
 }: {
   emailAccountId: string;
   messagingChannelId: string;
   purpose: MessagingRoutePurpose;
+  value?: string | null;
   targetId: string | null;
   targetLabel: string | null;
   isDm: boolean;
   canSendAsDm: boolean;
   onUpdate: () => void;
+  onValueChange?: (value: string) => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }) {
   const {
     data: targetsData,
@@ -48,9 +54,13 @@ export function SlackNotificationTargetSelect({
 
   const privateTargets = targetsData?.targets ?? [];
   const hasError = Boolean(error || targetsData?.error);
+  const selectedValue = value ?? (isDm ? "dm" : (targetId ?? ""));
+  const selectedIsDm = selectedValue === "dm";
+  const selectedTargetId =
+    selectedValue && selectedValue !== "dm" ? selectedValue : targetId;
   const selectedTargetLabel = getSelectedTargetLabel({
-    isDm,
-    targetId,
+    isDm: selectedIsDm,
+    targetId: selectedTargetId,
     targetLabel,
     privateTargets,
     isLoading,
@@ -75,15 +85,20 @@ export function SlackNotificationTargetSelect({
 
   return (
     <Select
-      value={isDm ? "dm" : (targetId ?? "")}
+      value={selectedValue}
       onValueChange={(value) => {
+        if (onValueChange) {
+          onValueChange(value);
+          return;
+        }
+
         execute({
           channelId: messagingChannelId,
           purpose,
           targetId: value === "dm" ? "dm" : value,
         });
       }}
-      disabled={isLoading || status === "executing"}
+      disabled={disabled || isLoading || status === "executing"}
     >
       <SelectTrigger className={className}>
         <SelectValue
