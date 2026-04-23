@@ -381,12 +381,12 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const systemPrompt = String(args.messages[0].content);
 
-    expect(systemPrompt).toContain("Rule discovery workflow:");
+    expect(systemPrompt).toContain("Rule suggestions:");
     expect(systemPrompt).toContain(
-      "inspect the latest rules/settings and search a representative inbox sample",
+      "Most users already have generic newsletter, marketing, receipt, and notification handling",
     );
     expect(systemPrompt).toContain(
-      "ask one focused calibration question before creating broad automation",
+      "Suggest account-specific patterns that appear repeatedly in the inbox",
     );
     expect(args.tools.getUserRulesAndSettings.description).toContain(
       "suggesting new rules",

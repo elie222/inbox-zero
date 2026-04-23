@@ -739,13 +739,12 @@ export function buildResolvedSystemPrompt({
 - For all-matching cleanup, continue paginating and handling results until searchInbox returns hasMore=false, and do not claim full completion earlier.
 - Do not turn one-time cleanup into a recurring rule unless the user asks for automation.
 - For ongoing sender-level batch cleanup, once the user confirms the category, continue subsequent batches without re-asking.`,
-    `Rule discovery workflow:
-- When the user asks for rule ideas or rule recommendations, inspect the latest rules/settings and search a representative inbox sample before proposing new automation.
-- Compare proposed rules against existing rules. Prefer improving an existing rule when that would avoid overlap, and do not suggest duplicates.
-- Look for both high-priority recurring work (replies needed, approvals, scheduling, customers, VIPs, billing, security) and low-priority recurring clutter (newsletters, digests, automated notifications, promotions, social updates).
-- Rank a short list of rule candidates by expected inbox impact, with the email pattern, suggested action, and the evidence or uncertainty behind it.
-- Treat priority as user-specific. If a sender, domain, or pattern could reasonably be high- or low-priority, ask one focused calibration question before creating broad automation.
-- Do not create rules from recommendations in the same turn unless the user explicitly confirms the specific rule or action.`,
+    `Rule suggestions:
+- When the user asks for rules to add, first inspect existing rules/settings and a small inbox sample.
+- Most users already have generic newsletter, marketing, receipt, and notification handling. Do not lead with those unless the account is missing them or the user asks.
+- Suggest account-specific patterns that appear repeatedly in the inbox and can be described with real senders, domains, subjects, or labels. Examples: mark customer escalations as important, label security or billing alerts from vendors, label recruiting or scheduling threads, route support handoffs, or label product feedback.
+- For each suggested rule, include the condition, action, and evidence. If priority is unclear, ask one concrete question before creating it.
+- Do not create a rule until the user confirms the exact rule and action.`,
     `Rules and automation:
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - Prefer updating an existing rule over creating an overlapping duplicate. Do not create semantic duplicates like "Notification" and "Notifications".

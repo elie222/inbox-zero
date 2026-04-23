@@ -141,7 +141,7 @@ const scenarios: Scenario[] = [
   {
     name: "open-ended rule ideas from a mixed inbox sample",
     expected:
-      "Gemini should inspect existing rules and inbox samples, propose a ranked mix of high-priority and low-priority rule ideas, avoid creating rules, and ask one calibration question.",
+      "Gemini should inspect existing rules and inbox samples, avoid generic defaults, propose account-specific rule ideas with evidence, and ask one concrete question when priority is unclear.",
     fixture: saasFounderRuleSuggestionFixture.inbox,
     account: saasFounderRuleSuggestionFixture.account,
     inboxStats: { total: 1840, unread: 73 },
@@ -157,7 +157,7 @@ const scenarios: Scenario[] = [
   {
     name: "avoid duplicate default rules and find custom opportunities",
     expected:
-      "Gemini should notice newsletters, marketing, receipts, and notifications are already covered, then focus on custom candidates like customer escalations, security/compliance, and auditor requests.",
+      "Gemini should notice newsletters, marketing, receipts, and notifications are already covered, then focus on account-specific candidates like customer escalations, security/compliance, and auditor requests.",
     fixture: saasFounderRuleSuggestionFixture.inbox,
     account: saasFounderRuleSuggestionFixture.account,
     inboxStats: { total: 2310, unread: 118 },
