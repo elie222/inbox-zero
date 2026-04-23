@@ -35,7 +35,10 @@ import {
   toggleAutomationJobAction,
   triggerTestCheckInAction,
 } from "@/utils/actions/automation-jobs";
-import { MessagingRoutePurpose } from "@/generated/prisma/enums";
+import {
+  MessagingProvider,
+  MessagingRoutePurpose,
+} from "@/generated/prisma/enums";
 import { createSettingActionErrorHandler } from "@/utils/actions/error-handling";
 import {
   AUTOMATION_CRON_PRESETS,
@@ -278,7 +281,8 @@ export function ProactiveUpdatesSetting({
                           Reconnect this channel or select another destination.
                         </p>
                       )}
-                      {selectedMessagingChannel?.provider === "SLACK" &&
+                      {selectedMessagingChannel?.provider ===
+                        MessagingProvider.SLACK &&
                         selectedMessagingChannel.isConnected &&
                         selectedDestination && (
                           <SlackNotificationTargetSelect
@@ -419,7 +423,7 @@ export function ProactiveUpdatesSetting({
 }
 
 function formatMessagingChannelLabel(channel: {
-  provider: "SLACK" | "TEAMS" | "TELEGRAM";
+  provider: MessagingProvider;
   destinations: {
     ruleNotifications: {
       targetLabel: string | null;
@@ -438,6 +442,6 @@ function formatMessagingChannelLabel(channel: {
     return `${provider} · ${targetLabel}`;
   }
   if (channel.teamName) return `${provider} · ${channel.teamName}`;
-  if (channel.provider === "SLACK") return "Slack workspace";
+  if (channel.provider === MessagingProvider.SLACK) return "Slack workspace";
   return provider;
 }

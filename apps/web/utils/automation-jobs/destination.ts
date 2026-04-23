@@ -84,14 +84,3 @@ export async function ensureScheduledCheckInsRouteForChannel({
     routes: channel.routes,
   });
 }
-
-export function withScheduledCheckInsRoute(
-  routes: AutomationMessagingRoute[],
-  route: AutomationMessagingRoute,
-) {
-  if (getMessagingRoute(routes, MessagingRoutePurpose.SCHEDULED_CHECK_INS)) {
-    return routes;
-  }
-
-  return [...routes, route];
-}

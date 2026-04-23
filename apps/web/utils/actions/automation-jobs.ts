@@ -29,15 +29,11 @@ import {
 } from "@/utils/actions/automation-jobs.helpers";
 import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
 import {
-  isAutomationMessagingChannelReady,
   isAutomationMessagingChannelSetupReady,
   isSupportedAutomationMessagingProvider,
   SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS,
 } from "@/utils/automation-jobs/messaging-channel";
-import {
-  ensureScheduledCheckInsRoute,
-  withScheduledCheckInsRoute,
-} from "@/utils/automation-jobs/destination";
+import { ensureScheduledCheckInsRoute } from "@/utils/automation-jobs/destination";
 
 const AUTOMATION_JOBS_TOPIC = "automation-jobs-execute";
 
@@ -311,37 +307,19 @@ async function getAutomationMessagingChannel({
 async function prepareAutomationMessagingChannel(
   channel: AutomationMessagingChannelForValidation,
 ) {
-  const setupValidationError = getAutomationMessagingChannelValidationError(
-    channel,
-    { allowRuleNotificationFallback: true },
-  );
-  if (setupValidationError) return setupValidationError;
+  const validationError = getAutomationMessagingChannelValidationError(channel);
+  if (validationError) return validationError;
 
-  const scheduledRoute = await ensureScheduledCheckInsRoute({
+  await ensureScheduledCheckInsRoute({
     messagingChannelId: channel.id,
     routes: channel.routes,
   });
-  if (!scheduledRoute) return "Select a messaging destination first";
 
-  return getAutomationMessagingChannelValidationError({
-    ...channel,
-    routes: withScheduledCheckInsRoute(channel.routes, scheduledRoute),
-  });
+  return null;
 }
 
 function getAutomationMessagingChannelValidationError(
-  channel: {
-    provider: MessagingProvider;
-    isConnected: boolean;
-    accessToken: string | null;
-    providerUserId?: string | null;
-    routes: Array<{
-      purpose: MessagingRoutePurpose;
-      targetType: unknown;
-      targetId: string;
-    }>;
-  },
-  options: { allowRuleNotificationFallback?: boolean } = {},
+  channel: AutomationMessagingChannelForValidation,
 ) {
   if (!isSupportedAutomationMessagingProvider(channel.provider)) {
     return "Messaging provider is not supported";
@@ -358,21 +336,12 @@ function getAutomationMessagingChannelValidationError(
       channel.routes,
       MessagingRoutePurpose.SCHEDULED_CHECK_INS,
     ) &&
-    !(
-      options.allowRuleNotificationFallback &&
-      hasMessagingRoute(
-        channel.routes,
-        MessagingRoutePurpose.RULE_NOTIFICATIONS,
-      )
-    )
+    !hasMessagingRoute(channel.routes, MessagingRoutePurpose.RULE_NOTIFICATIONS)
   ) {
     return "Select a messaging destination first";
   }
 
-  const isReady = options.allowRuleNotificationFallback
-    ? isAutomationMessagingChannelSetupReady(channel)
-    : isAutomationMessagingChannelReady(channel);
-  if (!isReady) {
+  if (!isAutomationMessagingChannelSetupReady(channel)) {
     return "Messaging channel is not connected";
   }
 
