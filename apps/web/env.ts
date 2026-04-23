@@ -309,7 +309,7 @@ const parsedEnv = createEnv({
       .default(false),
     NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED: booleanString
       .optional()
-      .default(true),
+      .default(false),
     NEXT_PUBLIC_AXIOM_DATASET: z.string().optional(),
     NEXT_PUBLIC_AXIOM_TOKEN: z.string().optional(),
     NEXT_PUBLIC_LOG_SCOPES: z

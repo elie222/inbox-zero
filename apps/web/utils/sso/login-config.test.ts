@@ -9,15 +9,15 @@ describe("hasSsoLoginButtonEnabled", () => {
     env.NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED = originalValue;
   });
 
-  it("defaults to true", () => {
-    env.NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED = true;
-
-    expect(hasSsoLoginButtonEnabled()).toBe(true);
-  });
-
   it("returns false when the login button is disabled", () => {
     env.NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED = false;
 
     expect(hasSsoLoginButtonEnabled()).toBe(false);
+  });
+
+  it("returns true when the login button is enabled", () => {
+    env.NEXT_PUBLIC_SSO_LOGIN_BUTTON_ENABLED = true;
+
+    expect(hasSsoLoginButtonEnabled()).toBe(true);
   });
 });
