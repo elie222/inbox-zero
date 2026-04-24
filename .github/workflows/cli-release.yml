@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   id-token: write
+  pull-requests: write
 
 jobs:
   build:
@@ -177,10 +178,15 @@ jobs:
           print(content)
           EOF
 
-      - name: Commit formula update
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add Formula/inbox-zero.rb
-          git diff --staged --quiet || git commit -m "chore: update Homebrew formula for ${{ steps.version.outputs.tag }}"
-          git push origin HEAD:main
+      - name: Create formula update pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          add-paths: Formula/inbox-zero.rb
+          branch: automation/homebrew-formula-${{ steps.version.outputs.version }}
+          base: main
+          commit-message: "chore: update Homebrew formula for ${{ steps.version.outputs.tag }}"
+          title: "chore: update Homebrew formula for ${{ steps.version.outputs.tag }}"
+          body: |
+            Update the Homebrew formula for the new CLI release.
+          delete-branch: true
