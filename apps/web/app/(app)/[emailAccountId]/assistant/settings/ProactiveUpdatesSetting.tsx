@@ -164,12 +164,9 @@ export function ProactiveUpdatesSetting({
   const isSlack = channel.provider === MessagingProvider.SLACK;
   let summaryText = "Get periodic summaries in chat.";
   if (activeForChannel && job) {
-    const schedule = describeCronSchedule(
+    summaryText = describeCronSchedule(
       job.cronExpression ?? DEFAULT_AUTOMATION_JOB_CRON,
     );
-    summaryText = isSlack
-      ? `${schedule}. ${getScheduledCheckInsDestinationLabel(channel)}`
-      : schedule;
   }
 
   const handleSave = useCallback(() => {
@@ -340,11 +337,4 @@ function getSlackScheduledCheckInsTargetValue(channel: Channel) {
   if (destination.targetId) return destination.targetId;
   if (channel.canSendAsDm) return "dm";
   return null;
-}
-
-function getScheduledCheckInsDestinationLabel(channel: Channel) {
-  const destination = channel.destinations.scheduledCheckIns;
-  if (destination.targetLabel) return destination.targetLabel;
-  if (destination.isDm || channel.canSendAsDm) return "Direct message";
-  return "Select destination";
 }
