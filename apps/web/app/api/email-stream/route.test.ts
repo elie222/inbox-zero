@@ -148,41 +148,50 @@ describe("email-stream route", () => {
   });
 
   it("only streams thread events for the authenticated email account", async () => {
-    const responseA = await GET(createRequest("account-a"));
-    const responseB = await GET(createRequest("account-b"));
+    const abortControllerA = new AbortController();
+    const abortControllerB = new AbortController();
+    const responseA = await GET(createRequest("account-a", abortControllerA));
+    const responseB = await GET(createRequest("account-b", abortControllerB));
+    const readerA = getStreamReader(responseA);
+    const readerB = getStreamReader(responseB);
 
-    const readA = readThreadEvent(responseA);
-    const readB = readThreadEvent(responseB);
+    try {
+      const readA = readThreadEvent(readerA);
+      const readB = readThreadEvent(readerB);
 
-    subscriberState.emit(
-      "pmessage",
-      "thread:account-a:*",
-      "thread:account-a:thread-1",
-      JSON.stringify({ id: "message-a" }),
-    );
-    subscriberState.emit(
-      "pmessage",
-      "thread:account-b:*",
-      "thread:account-b:thread-1",
-      JSON.stringify({ id: "message-b" }),
-    );
+      subscriberState.emit(
+        "pmessage",
+        "thread:account-a:*",
+        "thread:account-a:thread-1",
+        JSON.stringify({ id: "message-a" }),
+      );
+      subscriberState.emit(
+        "pmessage",
+        "thread:account-b:*",
+        "thread:account-b:thread-1",
+        JSON.stringify({ id: "message-b" }),
+      );
 
-    expect(await readA).toContain('"message-a"');
-    expect(await readB).toContain('"message-b"');
+      expect(await readA).toContain('"message-a"');
+      expect(await readB).toContain('"message-b"');
+    } finally {
+      abortControllerA.abort();
+      abortControllerB.abort();
+      await Promise.all([readerA.read(), readerB.read()]);
+    }
   });
 
   it("removes the Redis listener when the request is aborted", async () => {
     const abortController = new AbortController();
     const response = await GET(createRequest("account-a", abortController));
-    const reader = response.body?.getReader();
+    const reader = getStreamReader(response);
 
-    expect(reader).toBeDefined();
     expect(subscriberState.listenerCount("pmessage")).toBe(1);
 
     abortController.abort();
     await Promise.resolve();
 
-    expect(await reader?.read()).toEqual({ done: true, value: undefined });
+    expect(await reader.read()).toEqual({ done: true, value: undefined });
     expect(subscriberState.listenerCount("pmessage")).toBe(0);
   });
 
@@ -210,11 +219,15 @@ function createRequest(
   );
 }
 
-async function readThreadEvent(response: Response) {
+function getStreamReader(response: Response) {
   const reader = response.body?.getReader();
-
   if (!reader) throw new Error("Expected SSE response body");
+  return reader;
+}
 
+async function readThreadEvent(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+) {
   const chunk = await reader.read();
 
   if (chunk.done || !chunk.value) throw new Error("Expected SSE event chunk");
