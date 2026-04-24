@@ -149,7 +149,7 @@ describe("handleRuleNotificationAction", () => {
       raw: { team: { id: "team-1" } },
       threadId: "slack-thread-1",
       messageId: "slack-message-1",
-      adapter: { editMessage },
+      adapter: { name: "slack", editMessage },
       thread: { postEphemeral: vi.fn() },
     } as any;
 
@@ -412,6 +412,156 @@ describe("handleRuleNotificationAction", () => {
     expect(provider.sendDraft).toHaveBeenCalledWith("draft-1");
     expect(editMessage).toHaveBeenCalledTimes(1);
   });
+
+  it("moves Slack notification messages to trash from the More menu", async () => {
+    const provider = {
+      trashThread: vi.fn().mockResolvedValue(undefined),
+    };
+
+    mockCreateEmailProvider.mockResolvedValue(provider);
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        content: null,
+      }) as never,
+    );
+
+    const editMessage = vi.fn().mockResolvedValue(undefined);
+    const event = {
+      actionId: "rule_notify_more",
+      value: "rule_notify_trash:action-1",
+      user: { userId: "user-1" },
+      raw: { team: { id: "team-1" } },
+      threadId: "slack-thread-1",
+      messageId: "slack-message-1",
+      adapter: { name: "slack", editMessage },
+      thread: { postEphemeral: vi.fn() },
+    } as any;
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+
+    await handleRuleNotificationAction({
+      event,
+      logger: createScopedLogger("test"),
+    });
+
+    expect(provider.trashThread).toHaveBeenCalledWith(
+      "thread-1",
+      "user@example.com",
+      "user",
+    );
+    expect(editMessage).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(editMessage.mock.calls[0][2])).toContain(
+      "Moved to trash.",
+    );
+  });
+
+  it("marks Slack notification messages as spam from the More menu", async () => {
+    const provider = {
+      markSpam: vi.fn().mockResolvedValue(undefined),
+    };
+
+    mockCreateEmailProvider.mockResolvedValue(provider);
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        content: null,
+      }) as never,
+    );
+
+    const editMessage = vi.fn().mockResolvedValue(undefined);
+    const event = {
+      actionId: "rule_notify_more",
+      value: "rule_notify_mark_spam:action-1",
+      user: { userId: "user-1" },
+      raw: { team: { id: "team-1" } },
+      threadId: "slack-thread-1",
+      messageId: "slack-message-1",
+      adapter: { editMessage },
+      thread: { postEphemeral: vi.fn() },
+    } as any;
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+
+    await handleRuleNotificationAction({
+      event,
+      logger: createScopedLogger("test"),
+    });
+
+    expect(provider.markSpam).toHaveBeenCalledWith("thread-1");
+    expect(editMessage).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(editMessage.mock.calls[0][2])).toContain(
+      "Marked as spam.",
+    );
+  });
+
+  it("rejects unsupported Slack More menu selections before loading context", async () => {
+    const postEphemeral = vi.fn().mockResolvedValue(undefined);
+    const event = {
+      actionId: "rule_notify_more",
+      value: "rule_notify_archive:action-1",
+      user: { userId: "user-1" },
+      raw: { team: { id: "team-1" } },
+      threadId: "slack-thread-1",
+      messageId: "slack-message-1",
+      adapter: { name: "slack", editMessage: vi.fn() },
+      thread: { postEphemeral },
+    } as any;
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+
+    await handleRuleNotificationAction({
+      event,
+      logger: createScopedLogger("test"),
+    });
+
+    expect(prisma.executedAction.findUnique).not.toHaveBeenCalled();
+    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
+    expect(postEphemeral).toHaveBeenCalledWith(
+      event.user,
+      "That notification is invalid or expired.",
+      { fallbackToDM: false },
+    );
+  });
+
+  it("rejects direct destructive Slack action IDs before loading context", async () => {
+    const postEphemeral = vi.fn().mockResolvedValue(undefined);
+    const event = {
+      actionId: "rule_notify_trash",
+      value: "action-1",
+      user: { userId: "user-1" },
+      raw: { team: { id: "team-1" } },
+      threadId: "slack-thread-1",
+      messageId: "slack-message-1",
+      adapter: { name: "slack", editMessage: vi.fn() },
+      thread: { postEphemeral },
+    } as any;
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+
+    await handleRuleNotificationAction({
+      event,
+      logger: createScopedLogger("test"),
+    });
+
+    expect(prisma.executedAction.findUnique).not.toHaveBeenCalled();
+    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
+    expect(postEphemeral).toHaveBeenCalledWith(
+      event.user,
+      "That notification is invalid or expired.",
+      { fallbackToDM: false },
+    );
+  });
 });
 
 describe("buildNotificationReplySendBody", () => {
@@ -616,6 +766,71 @@ describe("sendMessagingRuleNotification", () => {
 
     expect(serializedBlocks).not.toContain("Open in Gmail");
     expect(serializedBlocks).not.toContain("Open in Outlook");
+  });
+
+  it("puts destructive Slack notification actions behind a More menu", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        content: null,
+      }) as never,
+    );
+    prisma.executedAction.findFirst.mockResolvedValue(null as never);
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockSlackPostMessage).toHaveBeenCalledTimes(1);
+
+    const [args] = mockSlackPostMessage.mock.calls[0];
+    const actionsBlock = args.blocks.find(
+      (block: { type: string }) => block.type === "actions",
+    );
+    const elements = actionsBlock.elements;
+    const buttonLabels = elements
+      .filter((element: { type: string }) => element.type === "button")
+      .map((element: { text: { text: string } }) => element.text.text);
+    const moreMenu = elements.find(
+      (element: { action_id: string }) =>
+        element.action_id === "rule_notify_more",
+    );
+
+    expect(buttonLabels).toEqual(["Archive", "Mark read"]);
+    expect(moreMenu).toEqual(
+      expect.objectContaining({
+        type: "static_select",
+        placeholder: {
+          type: "plain_text",
+          text: "More actions",
+        },
+        options: [
+          expect.objectContaining({
+            text: { type: "plain_text", text: "Delete" },
+            value: "rule_notify_trash:action-1",
+          }),
+          expect.objectContaining({
+            text: { type: "plain_text", text: "Spam" },
+            value: "rule_notify_mark_spam:action-1",
+          }),
+        ],
+      }),
+    );
   });
 
   it("delivers Teams notifications through the linked messaging fallback", async () => {
