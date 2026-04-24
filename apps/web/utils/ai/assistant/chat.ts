@@ -20,10 +20,7 @@ import { updateLearnedPatternsTool } from "./tools/rules/update-learned-patterns
 import { updateRuleActionsTool } from "./tools/rules/update-rule-actions-tool";
 import { updateRuleConditionsTool } from "./tools/rules/update-rule-conditions-tool";
 import { getAssistantCapabilitiesTool } from "./tools/settings/get-assistant-capabilities-tool";
-import {
-  updateAssistantSettingsCompatTool,
-  updateAssistantSettingsTool,
-} from "./tools/settings/update-assistant-settings-tool";
+import { updateAssistantSettingsTool } from "./tools/settings/update-assistant-settings-tool";
 import {
   forwardEmailTool,
   getAccountOverviewTool,
@@ -276,8 +273,6 @@ export async function aiProcessAssistantChat({
     createOrGetLabel: createOrGetLabelTool(toolOptions),
     // Settings
     updateAssistantSettings: updateAssistantSettingsTool(toolOptions),
-    updateAssistantSettingsCompat:
-      updateAssistantSettingsCompatTool(toolOptions),
     // Memory
     searchMemories: searchMemoriesTool(toolOptions),
     saveMemory: saveMemoryTool({

@@ -5,9 +5,9 @@ import {
   getUpdateAssistantSettingsValidationError,
   isNullableSettingsPath,
   trackSettingsToolCall,
-  type UpdateAssistantSettingsCompatInput,
-  updateAssistantSettingsCompatInputSchema,
   updateAssistantSettingsInputSchema,
+  type UpdateAssistantSettingsLlmInput,
+  updateAssistantSettingsLlmInputSchema,
 } from "./shared";
 
 export const updateAssistantSettingsTool = ({
@@ -23,8 +23,8 @@ export const updateAssistantSettingsTool = ({
 }) =>
   tool({
     description:
-      "Update supported assistant settings. Batch multiple setting changes into one call when possible. Supported paths and values: assistant.multiRuleSelection.enabled boolean; assistant.meetingBriefs.enabled boolean; assistant.meetingBriefs.minutesBefore integer minutes from 1 to 2880; assistant.meetingBriefs.sendEmail boolean; assistant.attachmentFiling.enabled boolean; assistant.attachmentFiling.prompt string or null; assistant.scheduledCheckIns.config object with enabled, cronExpression, messagingChannelId, or prompt; assistant.draftKnowledgeBase.upsert object with title and content plus optional mode append or replace; assistant.draftKnowledgeBase.delete object with title. For personal instruction changes, use the dedicated updatePersonalInstructions tool instead.",
-    inputSchema: updateAssistantSettingsCompatInputSchema,
+      "Update supported assistant settings. This is the primary tool for writing account settings. Batch multiple setting changes into one call when possible. Supported categories: meeting briefs, attachment filing, multi-rule selection, scheduled check-ins, and draft knowledge base. For personal instruction changes, use the dedicated updatePersonalInstructions tool instead.",
+    inputSchema: updateAssistantSettingsLlmInputSchema,
     execute: async ({ changes }) => {
       trackSettingsToolCall({
         tool: "update_assistant_settings",
@@ -43,46 +43,12 @@ export const updateAssistantSettingsTool = ({
     },
   });
 
-export const updateAssistantSettingsCompatTool = ({
-  email,
-  emailAccountId,
-  userId,
-  logger,
-}: {
-  email: string;
-  emailAccountId: string;
-  userId: string;
-  logger: Logger;
-}) =>
-  tool({
-    description:
-      "Fallback for updating assistant settings when updateAssistantSettings fails due to schema constraints. Do not use this as the first choice — always try updateAssistantSettings first.",
-    inputSchema: updateAssistantSettingsCompatInputSchema,
-    execute: async ({ changes }) => {
-      trackSettingsToolCall({
-        tool: "update_assistant_settings_compat",
-        email,
-        logger,
-      });
-
-      const parsedInput = parseUpdateAssistantSettingsChanges(changes);
-      if ("error" in parsedInput) return parsedInput;
-
-      return executeUpdateAssistantSettings({
-        emailAccountId,
-        userId,
-        logger,
-        changes: parsedInput.changes,
-      });
-    },
-  });
-
 export type UpdateAssistantSettingsTool = InferUITool<
   ReturnType<typeof updateAssistantSettingsTool>
 >;
 
 function parseUpdateAssistantSettingsChanges(
-  changes: UpdateAssistantSettingsCompatInput["changes"],
+  changes: UpdateAssistantSettingsLlmInput["changes"],
 ) {
   const nonNullablePaths = changes
     .filter(

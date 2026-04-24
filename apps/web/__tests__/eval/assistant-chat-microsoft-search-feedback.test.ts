@@ -1132,7 +1132,6 @@ function hasWriteToolCalls(toolCalls: RecordedToolCall[]) {
     "updateLearnedPatterns",
     "updatePersonalInstructions",
     "updateAssistantSettings",
-    "updateAssistantSettingsCompat",
     "sendEmail",
     "replyEmail",
     "forwardEmail",

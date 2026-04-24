@@ -65,7 +65,6 @@ import {
   withNetworkRetry,
   withLLMRetry,
 } from "./retry";
-import { filterUnsupportedToolsForModel } from "./unsupported-tools";
 
 const logger = createScopedLogger("llms");
 
@@ -658,15 +657,9 @@ export async function toolCallAgentStream({
       provider: candidate.provider,
       modelName: candidate.modelName,
     });
-    const {
-      tools: candidateTools,
-      excludedTools,
-      replacedTools,
-    } = filterUnsupportedToolsForModel({
-      provider: candidate.provider,
-      modelName: candidate.modelName,
-      tools,
-    });
+    const candidateTools = tools;
+    const excludedTools: string[] = [];
+    const replacedTools: string[] = [];
 
     if (replacedTools.length > 0) {
       logger.warn("Replacing incompatible tools for model", {

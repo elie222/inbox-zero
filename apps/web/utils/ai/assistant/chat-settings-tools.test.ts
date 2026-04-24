@@ -8,10 +8,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
 import { getAssistantCapabilitiesTool } from "./tools/settings/get-assistant-capabilities-tool";
-import {
-  updateAssistantSettingsCompatTool,
-  updateAssistantSettingsTool,
-} from "./tools/settings/update-assistant-settings-tool";
+import { updateAssistantSettingsTool } from "./tools/settings/update-assistant-settings-tool";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -759,41 +756,10 @@ describe("chat settings tools", () => {
     });
   });
 
-  it("applies valid changes through updateAssistantSettingsCompat", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
-    prisma.emailAccount.update.mockResolvedValue({});
-
-    const toolInstance = updateAssistantSettingsCompatTool({
-      email: "user@example.com",
-      emailAccountId: "email-account-1",
-      userId: "user-1",
-      logger,
-    });
-
-    const result = await toolInstance.execute({
-      changes: [
-        {
-          path: "assistant.multiRuleSelection.enabled",
-          value: true,
-        },
-      ],
-    });
-
-    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
-      where: { id: "email-account-1" },
-      data: {
-        multiRuleSelectionEnabled: true,
-      },
-    });
-    expect(result).toMatchObject({
-      success: true,
-    });
-  });
-
-  it("returns a validation error for invalid compat payload values", async () => {
+  it("returns a validation error for invalid loosely typed payload values", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
 
-    const toolInstance = updateAssistantSettingsCompatTool({
+    const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
       emailAccountId: "email-account-1",
       userId: "user-1",
@@ -815,8 +781,8 @@ describe("chat settings tools", () => {
     expect(prisma.emailAccount.update).not.toHaveBeenCalled();
   });
 
-  it("rejects compat changes with null values for non-nullable paths", async () => {
-    const toolInstance = updateAssistantSettingsCompatTool({
+  it("rejects loosely typed changes with null values for non-nullable paths", async () => {
+    const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
       emailAccountId: "email-account-1",
       userId: "user-1",

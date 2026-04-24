@@ -677,7 +677,6 @@ const sensitiveWriteToolNames = new Set([
   "addToKnowledgeBase",
   "updatePersonalInstructions",
   "updateAssistantSettings",
-  "updateAssistantSettingsCompat",
   "createRule",
   "updateRuleConditions",
   "updateRuleActions",
@@ -687,7 +686,6 @@ const sensitiveWriteToolNames = new Set([
 const durableWriteToolNames = new Set([
   "addToKnowledgeBase",
   "updateAssistantSettings",
-  "updateAssistantSettingsCompat",
   "createRule",
   "updateRuleConditions",
   "updateRuleActions",

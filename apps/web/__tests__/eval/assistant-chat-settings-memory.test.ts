@@ -333,11 +333,7 @@ async function evaluateScenario(
         pass:
           result.toolCalls.some(
             (toolCall) => toolCall.toolName === "getAssistantCapabilities",
-          ) &&
-          hasNoToolCalls(result.toolCalls, [
-            "updateAssistantSettings",
-            "updateAssistantSettingsCompat",
-          ]),
+          ) && hasNoToolCalls(result.toolCalls, ["updateAssistantSettings"]),
         judgeOutput: null,
         judgeResult: null,
       };
