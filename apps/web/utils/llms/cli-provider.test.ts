@@ -87,7 +87,7 @@ describe("createCliLanguageModel", () => {
 
   it("surfaces a clear error when the provider package is missing its factory export", async () => {
     const { createCliLanguageModel } = await loadCliProviderModule({
-      codexModule: {},
+      codexModule: { codexExec: undefined },
     });
 
     const model = createCliLanguageModel({
