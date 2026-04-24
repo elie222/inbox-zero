@@ -481,7 +481,7 @@ describe("handleRuleNotificationAction", () => {
       raw: { team: { id: "team-1" } },
       threadId: "slack-thread-1",
       messageId: "slack-message-1",
-      adapter: { editMessage },
+      adapter: { name: "slack", editMessage },
       thread: { postEphemeral: vi.fn() },
     } as any;
 
@@ -532,8 +532,21 @@ describe("handleRuleNotificationAction", () => {
     );
   });
 
-  it("rejects direct destructive Slack action IDs before loading context", async () => {
-    const postEphemeral = vi.fn().mockResolvedValue(undefined);
+  it("supports legacy direct destructive Slack action IDs", async () => {
+    const provider = {
+      trashThread: vi.fn().mockResolvedValue(undefined),
+    };
+
+    mockCreateEmailProvider.mockResolvedValue(provider);
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        content: null,
+      }) as never,
+    );
+
+    const editMessage = vi.fn().mockResolvedValue(undefined);
     const event = {
       actionId: "rule_notify_trash",
       value: "action-1",
@@ -541,8 +554,8 @@ describe("handleRuleNotificationAction", () => {
       raw: { team: { id: "team-1" } },
       threadId: "slack-thread-1",
       messageId: "slack-message-1",
-      adapter: { name: "slack", editMessage: vi.fn() },
-      thread: { postEphemeral },
+      adapter: { name: "slack", editMessage },
+      thread: { postEphemeral: vi.fn() },
     } as any;
 
     const { handleRuleNotificationAction } = await import(
@@ -554,12 +567,14 @@ describe("handleRuleNotificationAction", () => {
       logger: createScopedLogger("test"),
     });
 
-    expect(prisma.executedAction.findUnique).not.toHaveBeenCalled();
-    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
-    expect(postEphemeral).toHaveBeenCalledWith(
-      event.user,
-      "That notification is invalid or expired.",
-      { fallbackToDM: false },
+    expect(provider.trashThread).toHaveBeenCalledWith(
+      "thread-1",
+      "user@example.com",
+      "user",
+    );
+    expect(editMessage).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(editMessage.mock.calls[0][2])).toContain(
+      "Moved to trash.",
     );
   });
 });

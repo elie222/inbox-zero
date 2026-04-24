@@ -84,6 +84,9 @@ export const RULE_NOTIFICATION_ACTION_IDS = [
   RULE_NOTIFY_ARCHIVE_ACTION_ID,
   RULE_NOTIFY_MARK_READ_ACTION_ID,
   RULE_NOTIFY_MORE_ACTION_ID,
+  // Keep legacy direct listeners for Slack cards posted before destructive actions moved into More.
+  RULE_NOTIFY_TRASH_ACTION_ID,
+  RULE_NOTIFY_MARK_SPAM_ACTION_ID,
 ] as const;
 
 type NotificationContext = NonNullable<
@@ -711,7 +714,9 @@ function isDirectRuleNotificationActionId(actionId: string) {
     actionId === RULE_DRAFT_EDIT_ACTION_ID ||
     actionId === RULE_DRAFT_DISMISS_ACTION_ID ||
     actionId === RULE_NOTIFY_ARCHIVE_ACTION_ID ||
-    actionId === RULE_NOTIFY_MARK_READ_ACTION_ID
+    actionId === RULE_NOTIFY_MARK_READ_ACTION_ID ||
+    actionId === RULE_NOTIFY_TRASH_ACTION_ID ||
+    actionId === RULE_NOTIFY_MARK_SPAM_ACTION_ID
   );
 }
 
