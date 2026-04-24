@@ -194,14 +194,9 @@ export const updateAssistantSettingsInputSchema = z.object({
 
 export const updateAssistantSettingsCompatChangeSchema = z
   .object({
-    path: z
-      .string()
-      .trim()
-      .min(1)
-      .max(120)
-      .describe(
-        "Writable settings path (use a path returned by getAssistantCapabilities).",
-      ),
+    path: settingsPathSchema.describe(
+      "Writable settings path (use a path returned by getAssistantCapabilities).",
+    ),
     value: z
       .unknown()
       .describe(
@@ -221,6 +216,10 @@ export const updateAssistantSettingsCompatInputSchema = z.object({
     .max(20)
     .describe("Structured settings changes to apply."),
 });
+
+export type UpdateAssistantSettingsCompatInput = z.infer<
+  typeof updateAssistantSettingsCompatInputSchema
+>;
 
 export type AccountSettingsSnapshot = {
   id: string;

@@ -4,7 +4,7 @@ import { Provider } from "@/utils/llms/config";
 import { filterUnsupportedToolsForModel } from "./unsupported-tools";
 
 describe("filterUnsupportedToolsForModel", () => {
-  it("replaces updateAssistantSettings with compat implementation for OpenRouter Grok models", () => {
+  it("removes internal compat tool for OpenRouter Grok models", () => {
     const primaryTool = {} as Tool;
     const compatTool = {} as Tool;
     const tools = {
@@ -20,10 +20,10 @@ describe("filterUnsupportedToolsForModel", () => {
     });
 
     expect(result.excludedTools).toEqual([]);
-    expect(result.replacedTools).toEqual(["updateAssistantSettings"]);
+    expect(result.replacedTools).toEqual([]);
     expect(result.tools).toEqual({
       searchInbox: tools.searchInbox,
-      updateAssistantSettings: compatTool,
+      updateAssistantSettings: primaryTool,
     });
   });
 
@@ -50,7 +50,7 @@ describe("filterUnsupportedToolsForModel", () => {
     });
   });
 
-  it("replaces updateAssistantSettings for mixed-case Grok model names", () => {
+  it("keeps primary updateAssistantSettings for mixed-case Grok model names", () => {
     const primaryTool = {} as Tool;
     const compatTool = {} as Tool;
     const tools = {
@@ -66,14 +66,14 @@ describe("filterUnsupportedToolsForModel", () => {
     });
 
     expect(result.excludedTools).toEqual([]);
-    expect(result.replacedTools).toEqual(["updateAssistantSettings"]);
+    expect(result.replacedTools).toEqual([]);
     expect(result.tools).toEqual({
       searchInbox: tools.searchInbox,
-      updateAssistantSettings: compatTool,
+      updateAssistantSettings: primaryTool,
     });
   });
 
-  it("excludes updateAssistantSettings for Grok when compat tool is unavailable", () => {
+  it("keeps updateAssistantSettings for Grok when compat tool is unavailable", () => {
     const tools = {
       searchInbox: {} as Tool,
       updateAssistantSettings: {} as Tool,
@@ -85,9 +85,12 @@ describe("filterUnsupportedToolsForModel", () => {
       tools,
     });
 
-    expect(result.excludedTools).toEqual(["updateAssistantSettings"]);
+    expect(result.excludedTools).toEqual([]);
     expect(result.replacedTools).toEqual([]);
-    expect(result.tools).toEqual({ searchInbox: tools.searchInbox });
+    expect(result.tools).toEqual({
+      searchInbox: tools.searchInbox,
+      updateAssistantSettings: tools.updateAssistantSettings,
+    });
   });
 
   it("keeps all tools for non-OpenRouter providers", () => {

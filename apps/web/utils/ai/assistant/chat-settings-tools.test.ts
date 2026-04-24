@@ -84,7 +84,7 @@ const baseAccountSnapshot = {
     cronExpression: "0 9 * * 1-5",
     prompt: "Highlight urgent items.",
     nextRunAt: new Date("2026-02-21T09:00:00.000Z"),
-    messagingChannelId: "channel-1",
+    messagingChannelId: "c000000000000000000000000",
     messagingChannel: {
       provider: "SLACK",
       teamName: "Acme",
@@ -93,7 +93,7 @@ const baseAccountSnapshot = {
   },
   messagingChannels: [
     {
-      id: "channel-1",
+      id: "c000000000000000000000000",
       provider: "SLACK",
       teamName: "Acme",
       isConnected: true,
@@ -189,11 +189,11 @@ describe("chat settings tools", () => {
       value: {
         enabled: true,
         cronExpression: "0 9 * * 1-5",
-        messagingChannelId: "channel-1",
+        messagingChannelId: "c000000000000000000000000",
         messagingChannelName: "#C456 (Acme)",
         availableChannels: [
           {
-            id: "channel-1",
+            id: "c000000000000000000000000",
             label: "#C456 (Acme)",
           },
         ],
@@ -298,6 +298,29 @@ describe("chat settings tools", () => {
     expect(result.appliedChanges).toHaveLength(2);
   });
 
+  it("returns a validation error for invalid updateAssistantSettings payload values", async () => {
+    const toolInstance = updateAssistantSettingsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      userId: "user-1",
+      logger,
+    });
+
+    const result = await toolInstance.execute({
+      changes: [
+        {
+          path: "assistant.meetingBriefs.minutesBefore",
+          value: "soon",
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      error: expect.stringContaining("Invalid settings update payload."),
+    });
+    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
+  });
+
   it("updates scheduled check-ins configuration", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
     mockGetUserPremium.mockResolvedValue(null);
@@ -328,7 +351,7 @@ describe("chat settings tools", () => {
         enabled: false,
         cronExpression: "0 9 * * 1-5",
         prompt: "Highlight urgent items.",
-        messagingChannelId: "channel-1",
+        messagingChannelId: "c000000000000000000000000",
       },
     });
     expect(result).toMatchObject({
@@ -433,7 +456,7 @@ describe("chat settings tools", () => {
       value: {
         availableChannels: [
           {
-            id: "channel-1",
+            id: "c000000000000000000000000",
             label: "Acme",
           },
         ],
@@ -453,7 +476,7 @@ describe("chat settings tools", () => {
     });
     prisma.automationJob.findUnique.mockResolvedValue(null);
     prisma.messagingChannel.findUnique.mockResolvedValue({
-      id: "channel-1",
+      id: "c000000000000000000000000",
       provider: "SLACK",
       isConnected: true,
       accessToken: "token-1",
@@ -476,7 +499,7 @@ describe("chat settings tools", () => {
           path: "assistant.scheduledCheckIns.config",
           value: {
             enabled: true,
-            messagingChannelId: "channel-1",
+            messagingChannelId: "c000000000000000000000000",
           },
         },
       ],
@@ -487,7 +510,7 @@ describe("chat settings tools", () => {
     });
     expect(prisma.messagingRoute.create).toHaveBeenCalledWith({
       data: {
-        messagingChannelId: "channel-1",
+        messagingChannelId: "c000000000000000000000000",
         purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
         targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
         targetId: "U123",
@@ -499,7 +522,7 @@ describe("chat settings tools", () => {
         name: "Scheduled check-ins",
         cronExpression: "0 9,14 * * 1-5",
         prompt: null,
-        messagingChannelId: "channel-1",
+        messagingChannelId: "c000000000000000000000000",
         emailAccountId: "email-account-1",
       }),
     });
