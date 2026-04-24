@@ -2,6 +2,7 @@ import { RedisSubscriber } from "@/utils/redis/subscriber";
 import { withAuth } from "@/utils/middleware";
 import { NextResponse } from "next/server";
 import { getEmailAccount } from "@/utils/redis/account-validation";
+import { assertCleanerApiEnabled } from "@/utils/cleaner-feature";
 
 export const maxDuration = 300;
 
@@ -9,6 +10,8 @@ export const maxDuration = 300;
 const INACTIVITY_TIMEOUT = 5 * 60 * 1000;
 
 export const GET = withAuth("email-stream", async (request) => {
+  assertCleanerApiEnabled();
+
   const { userId } = request.auth;
 
   const url = new URL(request.url);

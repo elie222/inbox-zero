@@ -1,9 +1,10 @@
 vi.mock("server-only", () => ({}));
 
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SafeError } from "@/utils/error";
 
-const { mockGetEmailAccount, subscriberState } = vi.hoisted(() => {
+const { cleanerEnv, mockGetEmailAccount, subscriberState } = vi.hoisted(() => {
   const listeners = new Map<
     string,
     Set<(...args: [string, string, string]) => void>
@@ -49,6 +50,9 @@ const { mockGetEmailAccount, subscriberState } = vi.hoisted(() => {
   };
 
   return {
+    cleanerEnv: {
+      NEXT_PUBLIC_CLEANER_ENABLED: true,
+    },
     mockGetEmailAccount: vi.fn(),
     subscriberState: {
       subscriber,
@@ -72,6 +76,10 @@ const { mockGetEmailAccount, subscriberState } = vi.hoisted(() => {
   };
 });
 
+vi.mock("@/env", () => ({
+  env: cleanerEnv,
+}));
+
 vi.mock("@/utils/middleware", () => ({
   withAuth:
     (
@@ -83,7 +91,7 @@ vi.mock("@/utils/middleware", () => ({
         },
       ) => Promise<Response>,
     ) =>
-    (request: NextRequest) => {
+    async (request: NextRequest) => {
       const authRequest = request as NextRequest & {
         auth: { userId: string };
         logger: typeof mockLogger;
@@ -92,7 +100,18 @@ vi.mock("@/utils/middleware", () => ({
       authRequest.auth = { userId: "user-1" };
       authRequest.logger = mockLogger;
 
-      return handler(authRequest);
+      try {
+        return await handler(authRequest);
+      } catch (error) {
+        if (error instanceof SafeError) {
+          return NextResponse.json(
+            { error: error.safeMessage, isKnownError: true },
+            { status: error.statusCode ?? 400 },
+          );
+        }
+
+        throw error;
+      }
     },
 }));
 
@@ -119,6 +138,7 @@ const mockLogger = {
 describe("email-stream route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    cleanerEnv.NEXT_PUBLIC_CLEANER_ENABLED = true;
     subscriberState.reset();
     mockGetEmailAccount.mockImplementation(
       async ({ emailAccountId }: { emailAccountId: string }) => ({
@@ -164,6 +184,19 @@ describe("email-stream route", () => {
 
     expect(await reader?.read()).toEqual({ done: true, value: undefined });
     expect(subscriberState.listenerCount("pmessage")).toBe(0);
+  });
+
+  it("returns a not found error when cleaner is disabled on self-hosted", async () => {
+    cleanerEnv.NEXT_PUBLIC_CLEANER_ENABLED = false;
+
+    const response = await GET(createRequest("account-a"));
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      error: "Cleaner is not enabled",
+      isKnownError: true,
+    });
+    expect(subscriberState.subscriber.psubscribe).not.toHaveBeenCalled();
   });
 });
 
