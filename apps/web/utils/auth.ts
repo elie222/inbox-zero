@@ -42,12 +42,16 @@ import {
   updateAccountSeats,
 } from "@/utils/premium/seats";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
-import { hasMicrosoftOauthConfig } from "@/utils/oauth/provider-config";
+import {
+  hasAppleOauthConfig,
+  hasMicrosoftOauthConfig,
+} from "@/utils/oauth/provider-config";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
 const useGoogleOauthEmulator = isGoogleOauthEmulationEnabled();
 const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();
+const hasAppleConfig = hasAppleOauthConfig();
 const hasMicrosoftConfig = hasMicrosoftOauthConfig();
 
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
@@ -80,6 +84,16 @@ const microsoftSocialProvider =
         }),
       }
     : null;
+const appleSocialProvider = hasAppleConfig
+  ? {
+      clientId: env.APPLE_CLIENT_ID!,
+      clientSecret: env.APPLE_CLIENT_SECRET!,
+      disableIdTokenSignIn: true,
+      ...(env.OAUTH_PROXY_URL && {
+        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/apple`,
+      }),
+    }
+  : null;
 const genericOauthConfig: GenericOAuthConfig[] = [
   ...(useGoogleOauthEmulator
     ? [
@@ -125,6 +139,7 @@ const genericOauthPlugin =
     : null;
 
 const socialProviders = {
+  ...(appleSocialProvider ? { apple: appleSocialProvider } : {}),
   ...(googleSocialProvider ? { google: googleSocialProvider } : {}),
   ...(microsoftSocialProvider ? { microsoft: microsoftSocialProvider } : {}),
 };
@@ -207,7 +222,7 @@ export const betterAuthConfig = betterAuth({
     storeStateStrategy: "cookie", // Required for oAuthProxy to encrypt state
     accountLinking: {
       enabled: true,
-      trustedProviders: ["google", "microsoft"],
+      trustedProviders: ["apple", "google", "microsoft"],
     },
   },
   verification: {

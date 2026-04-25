@@ -80,4 +80,22 @@ describe("LoginForm", () => {
       });
     });
   });
+
+  it("starts Apple sign-in when the Apple option is shown", async () => {
+    mockSignInSocial.mockResolvedValue(undefined);
+
+    render(<LoginForm showAppleLogin useGoogleOauthEmulator />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /sign in with apple/i }),
+    );
+
+    await waitFor(() => {
+      expect(mockSignInSocial).toHaveBeenCalledWith({
+        provider: "apple",
+        callbackURL: "/welcome-redirect",
+        errorCallbackURL: "/login/error",
+      });
+    });
+  });
 });

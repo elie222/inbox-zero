@@ -18,6 +18,13 @@ export function hasGoogleOauthConfig() {
   );
 }
 
+export function hasAppleOauthConfig() {
+  return (
+    isConfiguredValue(env.APPLE_CLIENT_ID) &&
+    isConfiguredValue(env.APPLE_CLIENT_SECRET)
+  );
+}
+
 export function hasMicrosoftOauthConfig() {
   return (
     isConfiguredValue(env.MICROSOFT_CLIENT_ID) &&

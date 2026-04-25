@@ -1,7 +1,30 @@
-import { describe, expect, it } from "vitest";
-import { isConfiguredOauthValue } from "./provider-config";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mockedEnv = vi.hoisted(() => ({
+  APPLE_CLIENT_ID: "",
+  APPLE_CLIENT_SECRET: "",
+  GOOGLE_CLIENT_ID: "",
+  GOOGLE_CLIENT_SECRET: "",
+  MICROSOFT_CLIENT_ID: "",
+  MICROSOFT_CLIENT_SECRET: "",
+}));
+
+vi.mock("@/env", () => ({
+  env: mockedEnv,
+}));
+
+import { hasAppleOauthConfig, isConfiguredOauthValue } from "./provider-config";
 
 describe("isConfiguredOauthValue", () => {
+  beforeEach(() => {
+    mockedEnv.APPLE_CLIENT_ID = "";
+    mockedEnv.APPLE_CLIENT_SECRET = "";
+    mockedEnv.GOOGLE_CLIENT_ID = "";
+    mockedEnv.GOOGLE_CLIENT_SECRET = "";
+    mockedEnv.MICROSOFT_CLIENT_ID = "";
+    mockedEnv.MICROSOFT_CLIENT_SECRET = "";
+  });
+
   it("returns false for undefined and empty values", () => {
     expect(isConfiguredOauthValue(undefined)).toBe(false);
     expect(isConfiguredOauthValue("")).toBe(false);
@@ -17,5 +40,13 @@ describe("isConfiguredOauthValue", () => {
   it("returns true for credential-like values", () => {
     expect(isConfiguredOauthValue("abc123")).toBe(true);
     expect(isConfiguredOauthValue("GOCSPX-1234")).toBe(true);
+  });
+
+  it("requires both Apple OAuth credentials", () => {
+    mockedEnv.APPLE_CLIENT_ID = "com.example.web";
+    expect(hasAppleOauthConfig()).toBe(false);
+
+    mockedEnv.APPLE_CLIENT_SECRET = "secret-value";
+    expect(hasAppleOauthConfig()).toBe(true);
   });
 });

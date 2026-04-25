@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { AppleIcon } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Button as UIButton } from "@/components/ui/button";
 import {
@@ -25,10 +26,12 @@ import { createClientLogger } from "@/utils/logger-client";
 const logger = createClientLogger("login/LoginForm");
 
 export function LoginForm({
+  showAppleLogin,
   useGoogleOauthEmulator,
   showMicrosoftLogin,
   showSsoLogin,
 }: {
+  showAppleLogin?: boolean;
   useGoogleOauthEmulator: boolean;
   showMicrosoftLogin?: boolean;
   showSsoLogin?: boolean;
@@ -37,6 +40,7 @@ export function LoginForm({
   const next = searchParams?.get("next");
   const { callbackURL, errorCallbackURL } = getAuthCallbackUrls(next);
 
+  const [loadingApple, setLoadingApple] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
@@ -87,6 +91,27 @@ export function LoginForm({
 
   return (
     <div className="flex flex-col justify-center gap-2 px-4 sm:px-16">
+      {showAppleLogin ? (
+        <Button
+          size="2xl"
+          loading={loadingApple}
+          onClick={() =>
+            handleSocialSignIn({
+              provider: "apple",
+              providerName: "Apple",
+              callbackURL,
+              errorCallbackURL,
+              setLoading: setLoadingApple,
+            })
+          }
+        >
+          <span className="flex items-center justify-center">
+            <AppleIcon className="size-6" />
+            <span className="ml-2">Sign in with Apple</span>
+          </span>
+        </Button>
+      ) : null}
+
       <Dialog>
         <DialogTrigger asChild>
           <Button size="2xl">
@@ -161,6 +186,13 @@ export function LoginForm({
           <Link href="/login/sso">Sign in with SSO</Link>
         </UIButton>
       ) : null}
+
+      {showAppleLogin ? (
+        <p className="px-4 pt-2 text-center text-sm text-muted-foreground">
+          Sign in with Apple creates your account. You&apos;ll connect Gmail or
+          Outlook next.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -186,8 +218,8 @@ async function handleSocialSignIn({
   errorCallbackURL,
   setLoading,
 }: {
-  provider: "google" | "microsoft";
-  providerName: "Google" | "Microsoft";
+  provider: "apple" | "google" | "microsoft";
+  providerName: "Apple" | "Google" | "Microsoft";
   callbackURL: string;
   errorCallbackURL: string;
   setLoading: (loading: boolean) => void;

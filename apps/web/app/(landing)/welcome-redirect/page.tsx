@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/utils/auth";
 import prisma from "@/utils/prisma";
+import { getWelcomeRedirectPath } from "@/utils/welcome-redirect";
 
 export default async function WelcomeRedirectPage(props: {
   searchParams: Promise<{ force?: boolean }>;
@@ -12,12 +13,19 @@ export default async function WelcomeRedirectPage(props: {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { completedOnboardingAt: true, utms: true },
+    select: {
+      completedOnboardingAt: true,
+      _count: { select: { emailAccounts: true } },
+    },
   });
 
   // Session exists but user doesn't - invalid state, log out
   if (!user) redirect("/logout");
-  if (searchParams.force) redirect("/onboarding");
-  if (user.completedOnboardingAt) redirect("/setup");
-  redirect("/onboarding");
+  redirect(
+    getWelcomeRedirectPath({
+      completedOnboardingAt: user.completedOnboardingAt,
+      emailAccountCount: user._count.emailAccounts,
+      forceOnboarding: !!searchParams.force,
+    }),
+  );
 }
