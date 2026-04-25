@@ -43,16 +43,16 @@ import {
 } from "@/utils/premium/seats";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
 import {
-  hasAppleOauthConfig,
   hasMicrosoftOauthConfig,
+  hasAppleOauthConfig,
 } from "@/utils/oauth/provider-config";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
 const useGoogleOauthEmulator = isGoogleOauthEmulationEnabled();
 const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();
-const hasAppleConfig = hasAppleOauthConfig();
 const hasMicrosoftConfig = hasMicrosoftOauthConfig();
+const hasAppleConfig = hasAppleOauthConfig();
 
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
@@ -139,9 +139,9 @@ const genericOauthPlugin =
     : null;
 
 const socialProviders = {
-  ...(appleSocialProvider ? { apple: appleSocialProvider } : {}),
   ...(googleSocialProvider ? { google: googleSocialProvider } : {}),
   ...(microsoftSocialProvider ? { microsoft: microsoftSocialProvider } : {}),
+  ...(appleSocialProvider ? { apple: appleSocialProvider } : {}),
 };
 
 export const betterAuthConfig = betterAuth({
@@ -222,7 +222,7 @@ export const betterAuthConfig = betterAuth({
     storeStateStrategy: "cookie", // Required for oAuthProxy to encrypt state
     accountLinking: {
       enabled: true,
-      trustedProviders: ["apple", "google", "microsoft"],
+      trustedProviders: ["google", "microsoft", "apple"],
     },
   },
   verification: {

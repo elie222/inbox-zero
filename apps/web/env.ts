@@ -68,13 +68,13 @@ const parsedEnv = createEnv({
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     // Local Google emulation only; used for both OAuth and resource APIs.
     GOOGLE_BASE_URL: z.string().url().optional(),
-    APPLE_CLIENT_ID: z.string().optional(),
-    APPLE_CLIENT_SECRET: z.string().optional(),
     // Local Microsoft emulation only; used for both OAuth and Microsoft Graph APIs.
     MICROSOFT_BASE_URL: z.string().url().optional(),
     MICROSOFT_CLIENT_ID: z.string().optional(),
     MICROSOFT_CLIENT_SECRET: z.string().optional(),
     MICROSOFT_TENANT_ID: z.string().optional().default("common"),
+    APPLE_CLIENT_ID: z.string().optional(),
+    APPLE_CLIENT_SECRET: z.string().optional(),
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
 
