@@ -2610,14 +2610,14 @@ export function buildPendingEmailCardFallbackText(normalizedText: string) {
   return `${normalizedText}\n\n${failureGuidance}`;
 }
 
-function isAffirmativeReactionEvent(event: ReactionEvent) {
+export function isAffirmativeReactionEvent(event: ReactionEvent) {
   return (
     isAffirmativeReactionToken(event.rawEmoji) ||
     isAffirmativeReactionToken(event.emoji.name)
   );
 }
 
-function isAffirmativeReactionToken(token: string) {
+export function isAffirmativeReactionToken(token: string) {
   const trimmed = token.trim();
   if (!trimmed) return false;
 

@@ -9,6 +9,8 @@ import {
   buildPendingEmailSummary,
   ensureSlackTeamInstallation,
   hasUnsupportedMessagingAttachment,
+  isAffirmativeReactionEvent,
+  isAffirmativeReactionToken,
   normalizeMessagingAssistantText,
   normalizeMessagingUserText,
   stripLeadingSlackMention,
@@ -130,6 +132,55 @@ describe("buildAffirmativeReactionMessage", () => {
     expect(message.author.userId).toBe("user-1");
     expect(message.raw).toEqual({ type: "messageReaction" });
     expect(message.id).toContain("thumbs_up");
+  });
+});
+
+describe("affirmative reaction helpers", () => {
+  it.each([
+    "+1",
+    "thumbsup",
+    "thumbs_up",
+    "white_check_mark",
+    "check",
+  ])("accepts affirmative alias %s", (token) => {
+    expect(isAffirmativeReactionToken(token)).toBe(true);
+  });
+
+  it("normalizes emoji presentation selectors and skin tones", () => {
+    expect(isAffirmativeReactionToken("✅\uFE0F")).toBe(true);
+    expect(isAffirmativeReactionToken("👍🏽")).toBe(true);
+  });
+
+  it("rejects unrelated or empty reactions", () => {
+    expect(isAffirmativeReactionToken("")).toBe(false);
+    expect(isAffirmativeReactionToken("  ")).toBe(false);
+    expect(isAffirmativeReactionToken("👎")).toBe(false);
+    expect(isAffirmativeReactionToken("thinking_face")).toBe(false);
+  });
+
+  it("accepts a reaction event when either raw emoji or alias is affirmative", () => {
+    expect(
+      isAffirmativeReactionEvent({
+        rawEmoji: "👎",
+        emoji: { name: "thumbs_up" },
+      } as any),
+    ).toBe(true);
+
+    expect(
+      isAffirmativeReactionEvent({
+        rawEmoji: "✅",
+        emoji: { name: "x" },
+      } as any),
+    ).toBe(true);
+  });
+
+  it("rejects reaction events with no affirmative token", () => {
+    expect(
+      isAffirmativeReactionEvent({
+        rawEmoji: "👎",
+        emoji: { name: "x" },
+      } as any),
+    ).toBe(false);
   });
 });
 
