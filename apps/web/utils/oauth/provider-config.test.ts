@@ -3,10 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockedEnv = vi.hoisted(() => ({
   APPLE_CLIENT_ID: "",
   APPLE_CLIENT_SECRET: "",
-  GOOGLE_CLIENT_ID: "",
-  GOOGLE_CLIENT_SECRET: "",
-  MICROSOFT_CLIENT_ID: "",
-  MICROSOFT_CLIENT_SECRET: "",
 }));
 
 vi.mock("@/env", () => ({
@@ -19,10 +15,6 @@ describe("isConfiguredOauthValue", () => {
   beforeEach(() => {
     mockedEnv.APPLE_CLIENT_ID = "";
     mockedEnv.APPLE_CLIENT_SECRET = "";
-    mockedEnv.GOOGLE_CLIENT_ID = "";
-    mockedEnv.GOOGLE_CLIENT_SECRET = "";
-    mockedEnv.MICROSOFT_CLIENT_ID = "";
-    mockedEnv.MICROSOFT_CLIENT_SECRET = "";
   });
 
   it("returns false for undefined and empty values", () => {

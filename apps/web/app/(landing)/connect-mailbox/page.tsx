@@ -4,6 +4,7 @@ import { AddAccount } from "@/app/(app)/accounts/AddAccount";
 import { MutedText } from "@/components/Typography";
 import { auth } from "@/utils/auth";
 import { BRAND_NAME, getBrandTitle } from "@/utils/branding";
+import { WELCOME_PATH } from "@/utils/config";
 import prisma from "@/utils/prisma";
 
 export const metadata: Metadata = {
@@ -25,7 +26,7 @@ export default async function ConnectMailboxPage() {
   });
 
   if (!user) redirect("/logout");
-  if (user._count.emailAccounts > 0) redirect("/welcome-redirect");
+  if (user._count.emailAccounts > 0) redirect(WELCOME_PATH);
 
   return (
     <div className="flex min-h-screen flex-col justify-center text-foreground">
