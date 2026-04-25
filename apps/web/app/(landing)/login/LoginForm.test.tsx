@@ -93,7 +93,7 @@ describe("LoginForm", () => {
     await waitFor(() => {
       expect(mockSignInSocial).toHaveBeenCalledWith({
         provider: "apple",
-        callbackURL: "/welcome-redirect",
+        callbackURL: "/connect-mailbox",
         errorCallbackURL: "/login/error",
       });
     });

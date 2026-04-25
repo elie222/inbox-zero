@@ -24,6 +24,7 @@ import { AlertBasic } from "@/components/Alert";
 import { createClientLogger } from "@/utils/logger-client";
 
 const logger = createClientLogger("login/LoginForm");
+const CONNECT_MAILBOX_PATH = "/connect-mailbox";
 
 export function LoginForm({
   showAppleLogin,
@@ -99,7 +100,7 @@ export function LoginForm({
             handleSocialSignIn({
               provider: "apple",
               providerName: "Apple",
-              callbackURL,
+              callbackURL: CONNECT_MAILBOX_PATH,
               errorCallbackURL,
               setLoading: setLoadingApple,
             })
