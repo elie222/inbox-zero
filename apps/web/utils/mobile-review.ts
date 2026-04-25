@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { makeSignature } from "better-auth/crypto";
+import { z } from "zod";
 import { env } from "@/env";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
@@ -9,8 +10,7 @@ import prisma from "@/utils/prisma";
 type MobileReviewConfigResult =
   | {
       ok: true;
-      reviewDemoCode: string;
-      reviewDemoEmail: string;
+      reviewDemoAccounts: MobileReviewAccount[];
     }
   | {
       ok: false;
@@ -18,8 +18,7 @@ type MobileReviewConfigResult =
     }
   | {
       ok: false;
-      hasReviewDemoCode: boolean;
-      hasReviewDemoEmail: boolean;
+      hasReviewDemoAccounts: boolean;
       reason: "review_demo_misconfigured";
     };
 
@@ -38,11 +37,21 @@ type MobileReviewUserResult =
       reason: "review_user_missing_email_account";
     };
 
+type MobileReviewAccount = {
+  code: string;
+  email: string;
+};
+
+const reviewDemoAccountsSchema = z.array(
+  z.object({
+    code: z.string().trim().min(1),
+    email: z.string().trim().toLowerCase().email(),
+  }),
+);
+
 export function isMobileReviewEnabled(): boolean {
   return Boolean(
-    env.APP_REVIEW_DEMO_ENABLED &&
-      env.APP_REVIEW_DEMO_CODE?.trim() &&
-      env.APP_REVIEW_DEMO_EMAIL?.trim(),
+    env.APP_REVIEW_DEMO_ENABLED && getConfiguredReviewAccounts().length > 0,
   );
 }
 
@@ -56,9 +65,9 @@ export async function getMobileReviewAccessStatus(input: { logger: Logger }) {
     return { enabled: false as const };
   }
 
-  let reviewUser: MobileReviewUserResult;
+  let reviewUsers: MobileReviewUserResult[];
   try {
-    reviewUser = await getMobileReviewUser(config.reviewDemoEmail);
+    reviewUsers = await getMobileReviewUsers(config.reviewDemoAccounts);
   } catch (error) {
     input.logger.warn("Mobile review access unavailable", {
       reason: "review_user_lookup_failed",
@@ -67,8 +76,12 @@ export async function getMobileReviewAccessStatus(input: { logger: Logger }) {
     return { enabled: false as const };
   }
 
-  if (!reviewUser.ok) {
-    input.logger.warn("Mobile review access unavailable", reviewUser);
+  const missingReviewUsers = reviewUsers.filter((reviewUser) => !reviewUser.ok);
+  if (missingReviewUsers.length) {
+    input.logger.warn("Mobile review access unavailable", {
+      count: missingReviewUsers.length,
+      reasons: missingReviewUsers,
+    });
     return { enabled: false as const };
   }
 
@@ -77,6 +90,7 @@ export async function getMobileReviewAccessStatus(input: { logger: Logger }) {
 
 export async function createMobileReviewSession(input: {
   code: string;
+  email: string;
   logger: Logger;
 }) {
   const config = getMobileReviewConfig();
@@ -88,14 +102,20 @@ export async function createMobileReviewSession(input: {
     throw new SafeError("Review access is unavailable");
   }
 
-  if (!codesMatch(input.code, config.reviewDemoCode)) {
+  const reviewDemoAccount = getMatchingReviewAccount({
+    code: input.code,
+    email: input.email,
+    reviewDemoAccounts: config.reviewDemoAccounts,
+  });
+
+  if (!reviewDemoAccount) {
     input.logger.warn("Mobile review sign-in rejected", {
       reason: "invalid_review_demo_code",
     });
     throw new SafeError("Invalid review access code", 401);
   }
 
-  const reviewUser = await getMobileReviewUser(config.reviewDemoEmail);
+  const reviewUser = (await getMobileReviewUsers([reviewDemoAccount]))[0];
   if (!reviewUser.ok) {
     input.logger.warn("Mobile review sign-in unavailable", reviewUser);
     throw new SafeError("Review access is unavailable");
@@ -170,30 +190,61 @@ function getMobileReviewConfig(): MobileReviewConfigResult {
     return { ok: false, reason: "review_demo_disabled" };
   }
 
-  const reviewDemoCode = env.APP_REVIEW_DEMO_CODE?.trim();
-  const reviewDemoEmail = env.APP_REVIEW_DEMO_EMAIL?.trim().toLowerCase();
+  const reviewDemoAccounts = getConfiguredReviewAccounts();
 
-  if (!reviewDemoCode || !reviewDemoEmail) {
+  if (!reviewDemoAccounts.length) {
     return {
       ok: false,
-      hasReviewDemoCode: Boolean(reviewDemoCode),
-      hasReviewDemoEmail: Boolean(reviewDemoEmail),
+      hasReviewDemoAccounts: false,
       reason: "review_demo_misconfigured",
     };
   }
 
   return {
     ok: true,
-    reviewDemoCode,
-    reviewDemoEmail,
+    reviewDemoAccounts,
   };
 }
 
-async function getMobileReviewUser(
-  reviewDemoEmail: string,
-): Promise<MobileReviewUserResult> {
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { email: reviewDemoEmail },
+function getConfiguredReviewAccounts(): MobileReviewAccount[] {
+  return parseReviewDemoAccounts(env.APP_REVIEW_DEMO_ACCOUNTS);
+}
+
+function parseReviewDemoAccounts(
+  value: string | undefined,
+): MobileReviewAccount[] {
+  if (!value?.trim()) return [];
+
+  try {
+    const parsed = reviewDemoAccountsSchema.safeParse(JSON.parse(value));
+    return parsed.success ? parsed.data : [];
+  } catch {
+    return [];
+  }
+}
+
+function getMatchingReviewAccount(input: {
+  code: string;
+  email: string;
+  reviewDemoAccounts: MobileReviewAccount[];
+}) {
+  const normalizedEmail = input.email.trim().toLowerCase();
+
+  return input.reviewDemoAccounts.find((account) => {
+    if (account.email !== normalizedEmail) return false;
+    return codesMatch(input.code, account.code);
+  });
+}
+
+async function getMobileReviewUsers(
+  reviewDemoAccounts: MobileReviewAccount[],
+): Promise<MobileReviewUserResult[]> {
+  const emailAccounts = await prisma.emailAccount.findMany({
+    where: {
+      email: {
+        in: reviewDemoAccounts.map((account) => account.email),
+      },
+    },
     select: {
       email: true,
       id: true,
@@ -206,20 +257,27 @@ async function getMobileReviewUser(
     },
   });
 
-  if (!emailAccount) {
-    return {
-      ok: false,
-      hasEmailAccount: false,
-      reason: "review_user_missing_email_account",
-    };
-  }
+  const accountsByEmail = new Map(
+    emailAccounts.map((account) => [account.email.toLowerCase(), account]),
+  );
 
-  return {
-    ok: true,
-    user: {
-      email: emailAccount.user.email,
-      emailAccountId: emailAccount.id,
-      id: emailAccount.user.id,
-    },
-  };
+  return reviewDemoAccounts.map((reviewDemoAccount) => {
+    const emailAccount = accountsByEmail.get(reviewDemoAccount.email);
+    if (!emailAccount) {
+      return {
+        ok: false,
+        hasEmailAccount: false,
+        reason: "review_user_missing_email_account",
+      };
+    }
+
+    return {
+      ok: true,
+      user: {
+        email: emailAccount.user.email,
+        emailAccountId: emailAccount.id,
+        id: emailAccount.user.id,
+      },
+    };
+  });
 }

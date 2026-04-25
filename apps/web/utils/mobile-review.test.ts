@@ -4,16 +4,15 @@ vi.mock("server-only", () => ({}));
 
 const {
   createSessionMock,
-  emailAccountFindUniqueMock,
+  emailAccountFindManyMock,
   makeSignatureMock,
   mockedEnv,
 } = vi.hoisted(() => ({
   createSessionMock: vi.fn(),
-  emailAccountFindUniqueMock: vi.fn(),
+  emailAccountFindManyMock: vi.fn(),
   makeSignatureMock: vi.fn(),
   mockedEnv: {
-    APP_REVIEW_DEMO_CODE: "review-code",
-    APP_REVIEW_DEMO_EMAIL: "review@example.com",
+    APP_REVIEW_DEMO_ACCOUNTS: undefined as string | undefined,
     APP_REVIEW_DEMO_ENABLED: true,
   },
 }));
@@ -54,7 +53,7 @@ vi.mock("@/utils/auth", () => ({
 vi.mock("@/utils/prisma", () => ({
   default: {
     emailAccount: {
-      findUnique: (...args: unknown[]) => emailAccountFindUniqueMock(...args),
+      findMany: (...args: unknown[]) => emailAccountFindManyMock(...args),
     },
   },
 }));
@@ -83,8 +82,9 @@ describe("mobile review access", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedEnv.APP_REVIEW_DEMO_ENABLED = true;
-    mockedEnv.APP_REVIEW_DEMO_CODE = "review-code";
-    mockedEnv.APP_REVIEW_DEMO_EMAIL = "review@example.com";
+    mockedEnv.APP_REVIEW_DEMO_ACCOUNTS = JSON.stringify([
+      { email: "review@example.com", code: "review-code" },
+    ]);
     makeSignatureMock.mockResolvedValue("signed-token");
     createSessionMock.mockResolvedValue({
       expiresAt: new Date("2026-05-01T00:00:00.000Z"),
@@ -94,7 +94,7 @@ describe("mobile review access", () => {
 
   it("reports disabled status when the configured review account has no email account", async () => {
     const logger = createLogger();
-    emailAccountFindUniqueMock.mockResolvedValueOnce(null);
+    emailAccountFindManyMock.mockResolvedValueOnce([]);
 
     const result = await getMobileReviewAccessStatus({ logger } as never);
 
@@ -102,23 +102,30 @@ describe("mobile review access", () => {
     expect(logger.warn).toHaveBeenCalledWith(
       "Mobile review access unavailable",
       expect.objectContaining({
-        hasEmailAccount: false,
-        ok: false,
-        reason: "review_user_missing_email_account",
+        count: 1,
+        reasons: [
+          expect.objectContaining({
+            hasEmailAccount: false,
+            ok: false,
+            reason: "review_user_missing_email_account",
+          }),
+        ],
       }),
     );
   });
 
   it("reports enabled status when the configured review account is usable", async () => {
     const logger = createLogger();
-    emailAccountFindUniqueMock.mockResolvedValueOnce({
-      email: "review@example.com",
-      id: "account-1",
-      user: {
-        email: "owner@example.com",
-        id: "user-1",
+    emailAccountFindManyMock.mockResolvedValueOnce([
+      {
+        email: "review@example.com",
+        id: "account-1",
+        user: {
+          email: "owner@example.com",
+          id: "user-1",
+        },
       },
-    });
+    ]);
 
     const result = await getMobileReviewAccessStatus({ logger } as never);
 
@@ -129,7 +136,7 @@ describe("mobile review access", () => {
   it("reports disabled status when the review user lookup fails", async () => {
     const logger = createLogger();
     const error = new Error("database unavailable");
-    emailAccountFindUniqueMock.mockRejectedValueOnce(error);
+    emailAccountFindManyMock.mockRejectedValueOnce(error);
 
     const result = await getMobileReviewAccessStatus({ logger } as never);
 
@@ -143,18 +150,76 @@ describe("mobile review access", () => {
     );
   });
 
+  it("reports disabled status when review account config is invalid", async () => {
+    const logger = createLogger();
+    mockedEnv.APP_REVIEW_DEMO_ACCOUNTS = JSON.stringify([
+      { email: "not-an-email", code: "review-code" },
+    ]);
+
+    const result = await getMobileReviewAccessStatus({ logger } as never);
+
+    expect(result).toEqual({ enabled: false });
+    expect(emailAccountFindManyMock).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Mobile review access unavailable",
+      expect.objectContaining({
+        hasReviewDemoAccounts: false,
+        reason: "review_demo_misconfigured",
+      }),
+    );
+  });
+
+  it("reports disabled status when any configured review account is missing", async () => {
+    const logger = createLogger();
+    mockedEnv.APP_REVIEW_DEMO_ACCOUNTS = JSON.stringify([
+      { email: "active-review@example.com", code: "active-code" },
+      { email: "expired-review@example.com", code: "expired-code" },
+    ]);
+    emailAccountFindManyMock.mockResolvedValueOnce([
+      {
+        email: "active-review@example.com",
+        id: "account-active",
+        user: {
+          email: "active-owner@example.com",
+          id: "user-active",
+        },
+      },
+    ]);
+
+    const result = await getMobileReviewAccessStatus({ logger } as never);
+
+    expect(result).toEqual({ enabled: false });
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Mobile review access unavailable",
+      expect.objectContaining({
+        count: 1,
+        reasons: [
+          expect.objectContaining({
+            hasEmailAccount: false,
+            ok: false,
+            reason: "review_user_missing_email_account",
+          }),
+        ],
+      }),
+    );
+  });
+
   it("rejects invalid review codes before querying the database", async () => {
     const logger = createLogger();
 
     await expect(
-      createMobileReviewSession({ code: "wrong-code", logger } as never),
+      createMobileReviewSession({
+        code: "wrong-code",
+        email: "review@example.com",
+        logger,
+      } as never),
     ).rejects.toMatchObject({
       message: "Invalid review access code",
       safeMessage: "Invalid review access code",
       statusCode: 401,
     });
 
-    expect(emailAccountFindUniqueMock).not.toHaveBeenCalled();
+    expect(emailAccountFindManyMock).not.toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith("Mobile review sign-in rejected", {
       reason: "invalid_review_demo_code",
     });
@@ -162,10 +227,14 @@ describe("mobile review access", () => {
 
   it("rejects valid review codes when the configured review account cannot create a session", async () => {
     const logger = createLogger();
-    emailAccountFindUniqueMock.mockResolvedValueOnce(null);
+    emailAccountFindManyMock.mockResolvedValueOnce([]);
 
     await expect(
-      createMobileReviewSession({ code: "review-code", logger } as never),
+      createMobileReviewSession({
+        code: "review-code",
+        email: "review@example.com",
+        logger,
+      } as never),
     ).rejects.toMatchObject({
       message: "Review access is unavailable",
       safeMessage: "Review access is unavailable",
@@ -179,5 +248,45 @@ describe("mobile review access", () => {
         reason: "review_user_missing_email_account",
       }),
     );
+  });
+
+  it("creates a session for the matching configured review account", async () => {
+    const logger = createLogger();
+    mockedEnv.APP_REVIEW_DEMO_ACCOUNTS = JSON.stringify([
+      { email: "active-review@example.com", code: "active-code" },
+      { email: "expired-review@example.com", code: "expired-code" },
+    ]);
+    emailAccountFindManyMock.mockResolvedValueOnce([
+      {
+        email: "expired-review@example.com",
+        id: "account-expired",
+        user: {
+          email: "expired-owner@example.com",
+          id: "user-expired",
+        },
+      },
+    ]);
+
+    const result = await createMobileReviewSession({
+      code: "expired-code",
+      email: "Expired-Review@Example.com",
+      logger,
+    } as never);
+
+    expect(emailAccountFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          email: {
+            in: ["expired-review@example.com"],
+          },
+        },
+      }),
+    );
+    expect(createSessionMock).toHaveBeenCalledWith("user-expired", false, {});
+    expect(result).toMatchObject({
+      emailAccountId: "account-expired",
+      userEmail: "expired-owner@example.com",
+      userId: "user-expired",
+    });
   });
 });

@@ -211,8 +211,7 @@
         "NEXT_PUBLIC_AUTO_DRAFT_DISABLED",
         "SUPERWALL_APP_STORE_CONNECT_FORWARD_URL",
         "APP_REVIEW_DEMO_ENABLED",
-        "APP_REVIEW_DEMO_CODE",
-        "APP_REVIEW_DEMO_EMAIL",
+        "APP_REVIEW_DEMO_ACCOUNTS",
         "SSO_LOGIN_ENABLED"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
@@ -292,8 +291,7 @@
         "NEXT_PUBLIC_AUTO_DRAFT_DISABLED",
         "SUPERWALL_APP_STORE_CONNECT_FORWARD_URL",
         "APP_REVIEW_DEMO_ENABLED",
-        "APP_REVIEW_DEMO_CODE",
-        "APP_REVIEW_DEMO_EMAIL",
+        "APP_REVIEW_DEMO_ACCOUNTS",
         "SSO_LOGIN_ENABLED"
       ],
       "outputs": [".next/**", "!.next/cache/**"]

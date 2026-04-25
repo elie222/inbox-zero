@@ -255,8 +255,7 @@ const parsedEnv = createEnv({
     TELEGRAM_BOT_TOKEN: z.string().optional(),
     TELEGRAM_BOT_SECRET_TOKEN: z.string().optional(),
     APP_REVIEW_DEMO_ENABLED: booleanString.optional().default(false),
-    APP_REVIEW_DEMO_CODE: z.string().optional(),
-    APP_REVIEW_DEMO_EMAIL: z.string().email().optional(),
+    APP_REVIEW_DEMO_ACCOUNTS: z.string().optional(),
     SSO_LOGIN_ENABLED: booleanString.optional().default(false),
   },
   client: {
