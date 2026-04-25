@@ -7,10 +7,7 @@ import { getRequiresReconsentDescription } from "@/app/(landing)/login/messages"
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { isGoogleOauthEmulationEnabled } from "@/utils/google/oauth";
-import {
-  hasAppleOauthConfig,
-  hasMicrosoftOauthConfig,
-} from "@/utils/oauth/provider-config";
+import { hasMicrosoftOauthConfig } from "@/utils/oauth/provider-config";
 import { AlertBasic } from "@/components/Alert";
 import { Button } from "@/components/ui/button";
 import { WELCOME_PATH } from "@/utils/config";
@@ -53,7 +50,7 @@ export default async function AuthenticationPage(props: {
         <div className="mt-4">
           <Suspense>
             <LoginForm
-              showAppleLogin={hasAppleOauthConfig()}
+              showAppleLogin={env.NEXT_PUBLIC_SHOW_APPLE_LOGIN_ON_WEB}
               useGoogleOauthEmulator={isGoogleOauthEmulationEnabled()}
               showMicrosoftLogin={hasMicrosoftOauthConfig()}
               showSsoLogin={env.SSO_LOGIN_ENABLED}
