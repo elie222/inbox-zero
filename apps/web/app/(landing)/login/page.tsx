@@ -50,7 +50,7 @@ export default async function AuthenticationPage(props: {
         <div className="mt-4">
           <Suspense>
             <LoginForm
-              showAppleLogin={env.NEXT_PUBLIC_SHOW_APPLE_LOGIN_ON_WEB}
+              showAppleLogin={env.NEXT_PUBLIC_SHOW_APPLE_LOGIN}
               useGoogleOauthEmulator={isGoogleOauthEmulationEnabled()}
               showMicrosoftLogin={hasMicrosoftOauthConfig()}
               showSsoLogin={env.SSO_LOGIN_ENABLED}
