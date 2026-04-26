@@ -249,14 +249,12 @@ export async function validateWebhookAccount(
     return { success: false, response: NextResponse.json({ ok: true }) };
   }
 
-  const userHasAiAccess = hasAiAccess(
-    getUserTier(premium),
-    !!emailAccount.user.aiApiKey,
-  );
+  const tier = getUserTier(premium);
+  const userHasAiAccess = hasAiAccess(tier, !!emailAccount.user.aiApiKey);
 
   if (!userHasAiAccess) {
     logger.info("Does not have ai access - unwatching", {
-      tier: getUserTier(premium),
+      tier,
       hasApiKey: !!emailAccount.user.aiApiKey,
     });
     await unwatchEmails({

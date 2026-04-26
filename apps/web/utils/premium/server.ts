@@ -103,23 +103,23 @@ export async function grantPremiumAdmin(options: {
     throw new Error("User not found");
   }
 
+  const grantData = {
+    adminGrantTier: data.tier,
+    adminGrantExpiresAt: data.adminGrantExpiresAt,
+    emailAccountsAccess: data.emailAccountsAccess,
+  };
+
   const premiumRecord = user.premiumId
     ? await prisma.premium.update({
         where: { id: user.premiumId },
-        data: {
-          adminGrantTier: data.tier,
-          adminGrantExpiresAt: data.adminGrantExpiresAt,
-          emailAccountsAccess: data.emailAccountsAccess,
-        },
+        data: grantData,
         select: { users: { select: { id: true, email: true } } },
       })
     : await prisma.premium.create({
         data: {
           users: { connect: { id: userId } },
           admins: { connect: { id: userId } },
-          adminGrantTier: data.tier,
-          adminGrantExpiresAt: data.adminGrantExpiresAt,
-          emailAccountsAccess: data.emailAccountsAccess,
+          ...grantData,
         },
         select: { users: { select: { id: true, email: true } } },
       });

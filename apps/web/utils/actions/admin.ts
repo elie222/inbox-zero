@@ -403,8 +403,7 @@ export const adminGetUserInfoAction = adminActionClient
             subscriptionStatus:
               user.premium.stripeSubscriptionStatus ||
               user.premium.lemonSubscriptionStatus ||
-              (hasActiveAdminGrant ? "admin_grant" : null) ||
-              null,
+              (hasActiveAdminGrant ? "admin_grant" : null),
             adminGrantTier: user.premium.adminGrantTier,
             adminGrantExpiresAt: user.premium.adminGrantExpiresAt,
           }
