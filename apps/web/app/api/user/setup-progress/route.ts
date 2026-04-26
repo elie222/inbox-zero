@@ -24,7 +24,7 @@ export const GET = withEmailAccount("user/setup-progress", async (request) => {
   }
 });
 
-async function getSetupProgress({
+export async function getSetupProgress({
   emailAccountId,
 }: {
   emailAccountId: string;
