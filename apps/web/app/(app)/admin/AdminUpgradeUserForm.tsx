@@ -166,7 +166,7 @@ export const AdminUpgradeUserForm = () => {
       <Input
         type="number"
         name="count"
-        label="Grant duration"
+        label="Months/Years"
         registerProps={register("count", { valueAsNumber: true })}
         error={errors.count}
       />
@@ -184,7 +184,7 @@ export const AdminUpgradeUserForm = () => {
             });
           }}
         >
-          Grant
+          Upgrade
         </Button>
         <Button
           type="button"
@@ -199,7 +199,7 @@ export const AdminUpgradeUserForm = () => {
             });
           }}
         >
-          Revoke grant
+          Downgrade
         </Button>
       </div>
     </form>
