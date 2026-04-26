@@ -297,7 +297,16 @@ function getWebhookAccountPremium(
   emailAccount: NonNullable<ValidatedWebhookAccountData>,
 ) {
   return env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS
-    ? { tier: "PROFESSIONAL_ANNUALLY" as const }
+    ? {
+        tier: "PROFESSIONAL_ANNUALLY" as const,
+        stripeSubscriptionStatus: "active",
+        lemonSqueezyRenewsAt: null,
+        appleSubscriptionStatus: null,
+        appleExpiresAt: null,
+        appleRevokedAt: null,
+        adminGrantExpiresAt: null,
+        adminGrantTier: null,
+      }
     : isPremiumRecord(emailAccount.user.premium)
       ? emailAccount.user.premium
       : undefined;
