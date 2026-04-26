@@ -309,6 +309,11 @@ const plusTier: Tier = {
         "Forward important emails and notifications to your Slack channels automatically.",
     },
     {
+      text: "Email digests",
+      tooltip:
+        "Group emails from selected rules into a scheduled summary instead of reading each message individually.",
+    },
+    {
       text: "Auto-file attachments",
       tooltip:
         "Automatically organize and file email attachments to your preferred storage.",
