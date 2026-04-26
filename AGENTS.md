@@ -37,8 +37,10 @@
 - Prefer the `EmailProvider` abstraction; only use provider-type checks (`isGoogleProvider`, `isMicrosoftProvider`) at true provider boundary/integration code.
 - Infer types from Zod schemas using `z.infer<typeof schema>` instead of duplicating as separate interfaces
 - Avoid premature abstraction. Duplicating 2-3 times is fine; extract when a stable pattern emerges.
-- Don't extract single-use helper functions that just rename and forward parameters; inline the logic at the call site.
-- Avoid large nested ternaries. Prefer a small helper or other straightforward control flow when it improves readability.
+- Default to inlining and co-locating logic at the call site.
+- Extract a helper when doing so makes the call site clearly easier to read — e.g., a non-obvious computation gets a name, or a nested branch becomes a clean lookup. The bar is "the call site is better," not "the helper looks nice."
+- Don't extract helpers that just rename and forward parameters; that's a layer without meaning.
+- Avoid large/nested ternaries. Prefer a small helper, an early-return cascade, or a lookup table.
 - No barrel files. Import directly from source files.
 - Colocate page components next to their `page.tsx`. No nested `components/` subfolders in route directories.
 - Reusable components shared across pages go in `apps/web/components/`
