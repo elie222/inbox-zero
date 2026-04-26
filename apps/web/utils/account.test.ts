@@ -53,4 +53,21 @@ describe("redirectToEmailAccountPath", () => {
       "/connect-mailbox?next=%2Fsetup",
     );
   });
+
+  it("preserves search params when sending users to mailbox connection", async () => {
+    mocks.findFirst.mockResolvedValue(null);
+
+    await expect(
+      redirectToEmailAccountPath("/setup", {
+        source: "checkout",
+        step: ["one", "two"],
+      }),
+    ).rejects.toThrow(
+      "redirect:/connect-mailbox?next=%2Fsetup%3Fsource%3Dcheckout%26step%3Done%26step%3Dtwo",
+    );
+
+    expect(mocks.redirect).toHaveBeenCalledWith(
+      "/connect-mailbox?next=%2Fsetup%3Fsource%3Dcheckout%26step%3Done%26step%3Dtwo",
+    );
+  });
 });

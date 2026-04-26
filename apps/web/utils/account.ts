@@ -31,7 +31,11 @@ export async function redirectToEmailAccountPath(
   }
 
   if (!emailAccountId) {
-    redirect(buildRedirectUrl("/connect-mailbox", { next: path }));
+    redirect(
+      buildRedirectUrl("/connect-mailbox", {
+        next: buildRedirectUrl(path, searchParams),
+      }),
+    );
   }
 
   const redirectUrl = buildRedirectUrl(

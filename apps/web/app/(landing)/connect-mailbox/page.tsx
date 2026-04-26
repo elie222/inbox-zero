@@ -4,8 +4,7 @@ import { AddAccount } from "@/app/(app)/accounts/AddAccount";
 import { MutedText } from "@/components/Typography";
 import { auth } from "@/utils/auth";
 import { BRAND_NAME, getBrandTitle } from "@/utils/branding";
-import { WELCOME_PATH } from "@/utils/config";
-import { normalizeInternalPath } from "@/utils/path";
+import { getConnectMailboxNextPath } from "@/utils/connect-mailbox";
 import prisma from "@/utils/prisma";
 
 export const metadata: Metadata = {
@@ -22,7 +21,7 @@ export default async function ConnectMailboxPage(props: {
 
   if (!session?.user) redirect("/login");
 
-  const nextPath = getNextPath(searchParams?.next);
+  const nextPath = getConnectMailboxNextPath(searchParams?.next);
   const emailAccount = await prisma.emailAccount.findFirst({
     where: { userId: session.user.id },
     select: { id: true },
@@ -50,11 +49,4 @@ export default async function ConnectMailboxPage(props: {
       </div>
     </div>
   );
-}
-
-function getNextPath(next: string | string[] | undefined) {
-  const nextValue = Array.isArray(next) ? next[0] : next;
-  const nextPath = normalizeInternalPath(nextValue);
-  if (!nextPath || nextPath === "/connect-mailbox") return WELCOME_PATH;
-  return nextPath;
 }
