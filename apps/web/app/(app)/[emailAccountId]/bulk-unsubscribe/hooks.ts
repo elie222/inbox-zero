@@ -212,18 +212,24 @@ async function blockSender({
   labelId,
   labelName,
   queueArchiveSenders,
+  successDescription = "Sender blocked. Future emails will be archived.",
+  showSuccessToast = true,
 }: {
   sender: string;
   emailAccountId: string;
   labelId?: string;
   labelName?: string;
   queueArchiveSenders: QueueArchiveSendersFn;
+  successDescription?: string;
+  showSuccessToast?: boolean;
 }) {
   await onAutoArchive({
     emailAccountId,
     from: sender,
     gmailLabelId: labelId,
     labelName,
+    successDescription,
+    showSuccessToast,
   });
   await setNewsletterStatusAction(emailAccountId, {
     newsletterEmail: sender,
@@ -360,6 +366,28 @@ export function useBulkUnsubscribe<T extends Row>({
       if (!hasUnsubscribeAccess) return;
       posthog.capture("Clicked Bulk Unsubscribe");
 
+      const hasAutomaticUnsubscribeItems = items.some((item) =>
+        getAutomaticUnsubscribeLink(item.unsubscribeLink),
+      );
+      const hasBlockFallbackItems = items.some(
+        (item) => !getAutomaticUnsubscribeLink(item.unsubscribeLink),
+      );
+      const isMixedUnsubscribeAndBlock =
+        hasAutomaticUnsubscribeItems && hasBlockFallbackItems;
+      let loadingMessage = "Unsubscribing from";
+      let successMessage = "unsubscribed";
+      let errorMessage = "Failed to unsubscribe from";
+
+      if (isMixedUnsubscribeAndBlock) {
+        loadingMessage = "Processing";
+        successMessage = "processed";
+        errorMessage = "Failed to process";
+      } else if (hasBlockFallbackItems) {
+        loadingMessage = "Blocking";
+        successMessage = "blocked";
+        errorMessage = "Failed to block";
+      }
+
       await executeBulkOperation({
         items,
         mutate,
@@ -370,15 +398,16 @@ export function useBulkUnsubscribe<T extends Row>({
           getAutomaticUnsubscribeLink(item.unsubscribeLink)
             ? NewsletterStatus.UNSUBSCRIBED
             : NewsletterStatus.AUTO_ARCHIVED,
-        loadingMessage: "Unsubscribing from",
-        successMessage: "unsubscribed",
-        errorMessage: "Failed to unsubscribe from",
+        loadingMessage,
+        successMessage,
+        errorMessage,
         processItem: async (item) => {
           if (!getAutomaticUnsubscribeLink(item.unsubscribeLink)) {
             await blockSender({
               sender: item.name,
               emailAccountId,
               queueArchiveSenders,
+              showSuccessToast: false,
             });
             return;
           }
@@ -439,6 +468,7 @@ async function autoArchive({
     labelId,
     labelName,
     queueArchiveSenders,
+    successDescription: "Auto archive enabled!",
   });
   await mutate();
   await refetchPremium();
@@ -580,6 +610,7 @@ export function useBulkAutoArchive<T extends Row>({
             from: item.name,
             gmailLabelId: undefined,
             labelName: undefined,
+            showSuccessToast: false,
           });
           await setNewsletterStatusAction(emailAccountId, {
             newsletterEmail: item.name,
