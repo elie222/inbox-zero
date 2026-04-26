@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockedEnv = vi.hoisted(() => ({
+  APPLE_APP_BUNDLE_IDENTIFIER: "",
   APPLE_CLIENT_ID: "",
   APPLE_KEY_ID: "",
   APPLE_PRIVATE_KEY: "",
@@ -15,6 +16,7 @@ import { hasAppleOauthConfig, isConfiguredOauthValue } from "./provider-config";
 
 describe("isConfiguredOauthValue", () => {
   beforeEach(() => {
+    mockedEnv.APPLE_APP_BUNDLE_IDENTIFIER = "";
     mockedEnv.APPLE_CLIENT_ID = "";
     mockedEnv.APPLE_KEY_ID = "";
     mockedEnv.APPLE_PRIVATE_KEY = "";
@@ -38,7 +40,7 @@ describe("isConfiguredOauthValue", () => {
     expect(isConfiguredOauthValue("GOCSPX-1234")).toBe(true);
   });
 
-  it("requires all Apple OAuth signing credentials", () => {
+  it("requires all Apple mobile OAuth values", () => {
     mockedEnv.APPLE_CLIENT_ID = "com.example.web";
     expect(hasAppleOauthConfig()).toBe(false);
 
@@ -49,6 +51,9 @@ describe("isConfiguredOauthValue", () => {
     expect(hasAppleOauthConfig()).toBe(false);
 
     mockedEnv.APPLE_PRIVATE_KEY = "private-key-value";
+    expect(hasAppleOauthConfig()).toBe(false);
+
+    mockedEnv.APPLE_APP_BUNDLE_IDENTIFIER = "com.example.app";
     expect(hasAppleOauthConfig()).toBe(true);
   });
 });

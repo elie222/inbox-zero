@@ -438,9 +438,6 @@ importers:
       ioredis:
         specifier: 5.10.1
         version: 5.10.1
-      jose:
-        specifier: 6.2.2
-        version: 6.2.2
       jotai:
         specifier: 2.19.1
         version: 2.19.1(@babel/core@7.29.0)(@babel/template@7.28.6)(@types/react@19.2.14)(react@19.2.5)

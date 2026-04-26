@@ -1,3 +1,4 @@
+import { createPrivateKey, createSign } from "node:crypto";
 import { sso } from "@better-auth/sso";
 import { expo } from "@better-auth/expo";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
@@ -9,7 +10,6 @@ import type { Account, AuthContext } from "better-auth";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
-import { importPKCS8, SignJWT } from "jose";
 import { cookies, headers } from "next/headers";
 import { env } from "@/env";
 import {
@@ -54,13 +54,15 @@ const useGoogleOauthEmulator = isGoogleOauthEmulationEnabled();
 const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();
 const hasMicrosoftConfig = hasMicrosoftOauthConfig();
 const hasAppleConfig = hasAppleOauthConfig();
+const appleTokenAudience = "https://appleid.apple.com";
+const appleClientSecretTtlSeconds = 180 * 24 * 60 * 60;
 
 type AppleProfile = {
   email?: string;
   sub: string;
 };
 
-async function generateAppleClientSecret() {
+function generateAppleClientSecret() {
   const privateKey = env.APPLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
   if (
     !env.APPLE_CLIENT_ID ||
@@ -71,17 +73,44 @@ async function generateAppleClientSecret() {
     return null;
   }
 
-  const key = await importPKCS8(privateKey, "ES256");
   const now = Math.floor(Date.now() / 1000);
 
-  return new SignJWT({})
-    .setProtectedHeader({ alg: "ES256", kid: env.APPLE_KEY_ID })
-    .setIssuer(env.APPLE_TEAM_ID)
-    .setSubject(env.APPLE_CLIENT_ID)
-    .setAudience("https://appleid.apple.com")
-    .setIssuedAt(now)
-    .setExpirationTime(now + 180 * 24 * 60 * 60)
-    .sign(key);
+  return signAppleJwt(
+    {
+      iss: env.APPLE_TEAM_ID,
+      sub: env.APPLE_CLIENT_ID,
+      aud: appleTokenAudience,
+      iat: now,
+      exp: now + appleClientSecretTtlSeconds,
+    },
+    privateKey,
+  );
+}
+
+function signAppleJwt(
+  payload: Record<string, string | number>,
+  privateKeyPem: string,
+) {
+  const encodedHeader = base64UrlEncode(
+    JSON.stringify({ alg: "ES256", kid: env.APPLE_KEY_ID, typ: "JWT" }),
+  );
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const signingInput = `${encodedHeader}.${encodedPayload}`;
+  const signer = createSign("SHA256");
+
+  signer.update(signingInput);
+  signer.end();
+
+  const signature = signer.sign({
+    key: createPrivateKey(privateKeyPem),
+    dsaEncoding: "ieee-p1363",
+  });
+
+  return `${signingInput}.${base64UrlEncode(signature)}`;
+}
+
+function base64UrlEncode(input: string | Buffer) {
+  return Buffer.from(input).toString("base64url");
 }
 
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
@@ -114,7 +143,7 @@ const microsoftSocialProvider =
         }),
       }
     : null;
-const appleClientSecret = await generateAppleClientSecret();
+const appleClientSecret = generateAppleClientSecret();
 const appleSocialProvider = hasAppleConfig
   ? {
       clientId: env.APPLE_CLIENT_ID!,
