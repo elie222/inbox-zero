@@ -2,9 +2,12 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/utils/prisma";
-import { CALENDAR_STATE_COOKIE_NAME } from "@/utils/calendar/constants";
-import { parseOAuthState } from "@/utils/oauth/state";
-import { prefixPath } from "@/utils/path";
+import {
+  CALENDAR_ONBOARDING_RETURN_COOKIE,
+  CALENDAR_STATE_COOKIE_NAME,
+} from "@/utils/calendar/constants";
+import { validateSignedOAuthState } from "@/utils/oauth/state";
+import { normalizeInternalPath, prefixPath } from "@/utils/path";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import type {
@@ -39,24 +42,36 @@ export async function validateOAuthCallback(
   const response = NextResponse.redirect(baseRedirectUrl);
 
   response.cookies.delete(CALENDAR_STATE_COOKIE_NAME);
+  response.cookies.delete(CALENDAR_ONBOARDING_RETURN_COOKIE);
 
-  if (!storedState || !receivedState || storedState !== receivedState) {
+  const stateValidation = validateSignedOAuthState<{
+    emailAccountId: string;
+    type: "calendar";
+  }>({
+    receivedState,
+    storedState,
+  });
+  if (!stateValidation.success) {
     logger.warn("Invalid state during calendar callback", {
       receivedState,
       hasStoredState: !!storedState,
+      error: stateValidation.error,
     });
-    baseRedirectUrl.searchParams.set("error", "invalid_state");
+    baseRedirectUrl.searchParams.set("error", stateValidation.error);
     throw new RedirectError(baseRedirectUrl, response.headers);
   }
 
   const calendarState = parseAndValidateCalendarState(
-    receivedState,
+    stateValidation.state,
     logger,
     baseRedirectUrl,
     response.headers,
   );
 
-  const redirectUrl = buildCalendarRedirectUrl(calendarState.emailAccountId);
+  const redirectUrl = buildCalendarRedirectUrl(
+    calendarState.emailAccountId,
+    request.cookies.get(CALENDAR_ONBOARDING_RETURN_COOKIE)?.value,
+  );
 
   if (oauthError) {
     const aadstsCode = extractAadstsCode(errorDescription);
@@ -93,24 +108,15 @@ export async function validateOAuthCallback(
  * Parse and validate the OAuth state
  */
 export function parseAndValidateCalendarState(
-  storedState: string,
+  rawState: unknown,
   logger: Logger,
   redirectUrl: URL,
   responseHeaders: Headers,
 ): CalendarOAuthState {
-  let rawState: unknown;
-  try {
-    rawState = parseOAuthState<Omit<CalendarOAuthState, "nonce">>(storedState);
-  } catch (error) {
-    logger.error("Failed to decode state", { error });
-    redirectUrl.searchParams.set("error", "invalid_state_format");
-    throw new RedirectError(redirectUrl, responseHeaders);
-  }
-
   const validationResult = calendarOAuthStateSchema.safeParse(rawState);
   if (!validationResult.success) {
     logger.error("State validation failed", {
-      errors: validationResult.error.errors,
+      errors: validationResult.error.issues,
     });
     redirectUrl.searchParams.set("error", "invalid_state_format");
     throw new RedirectError(redirectUrl, responseHeaders);
@@ -120,13 +126,49 @@ export function parseAndValidateCalendarState(
 }
 
 /**
- * Build redirect URL with emailAccountId
+ * Build redirect URL with emailAccountId, optionally using the onboarding
+ * return path if it belongs to the same account.
  */
-export function buildCalendarRedirectUrl(emailAccountId: string): URL {
+export function buildCalendarRedirectUrl(
+  emailAccountId: string,
+  onboardingReturnPath?: string,
+): URL {
   return new URL(
-    prefixPath(emailAccountId, "/calendars"),
+    getCalendarRedirectPath(emailAccountId, onboardingReturnPath),
     env.NEXT_PUBLIC_BASE_URL,
   );
+}
+
+export function getCalendarRedirectPath(
+  emailAccountId: string,
+  onboardingReturnPath?: string,
+): string {
+  const defaultPath = prefixPath(emailAccountId, "/calendars");
+  if (!onboardingReturnPath) return defaultPath;
+
+  let decodedPath: string;
+  try {
+    decodedPath = decodeURIComponent(onboardingReturnPath);
+  } catch {
+    return defaultPath;
+  }
+
+  const internalPath = normalizeInternalPath(decodedPath);
+  if (!internalPath) return defaultPath;
+
+  // Normalize to prevent path traversal (e.g. /acc_123/../acc_456/briefs)
+  const normalizedUrl = new URL(internalPath, env.NEXT_PUBLIC_BASE_URL);
+  const normalizedPath = normalizedUrl.pathname;
+
+  // Only allow return paths scoped to the same email account
+  if (
+    normalizedPath !== `/${emailAccountId}` &&
+    !normalizedPath.startsWith(`/${emailAccountId}/`)
+  ) {
+    return defaultPath;
+  }
+
+  return `${normalizedPath}${normalizedUrl.search}${normalizedUrl.hash}`;
 }
 
 /**

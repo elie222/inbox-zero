@@ -1,16 +1,7 @@
-import {
-  createSlackAdapter,
-  type SlackAdapter,
-  type SlackEvent,
-} from "@chat-adapter/slack";
+import type { SlackAdapter, SlackEvent } from "@chat-adapter/slack";
 import { createIoRedisState } from "@chat-adapter/state-ioredis";
 import { createMemoryState } from "@chat-adapter/state-memory";
-import { createTeamsAdapter, type TeamsAdapter } from "@chat-adapter/teams";
-import {
-  createTelegramAdapter,
-  type TelegramRawMessage,
-  type TelegramAdapter,
-} from "@chat-adapter/telegram";
+import type { TelegramRawMessage } from "@chat-adapter/telegram";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 import {
@@ -29,17 +20,26 @@ import {
   type Adapter,
   type Attachment,
   type CardChild,
-  type Message,
+  Message,
+  type ReactionEvent,
   type Thread,
 } from "chat";
 import { env } from "@/env";
 import type { Prisma } from "@/generated/prisma/client";
-import { MessagingProvider } from "@/generated/prisma/enums";
+import {
+  MessagingProvider,
+  MessagingRoutePurpose,
+  MessagingRouteTargetType,
+} from "@/generated/prisma/enums";
 import { confirmAssistantEmailActionForAccount } from "@/utils/actions/assistant-chat";
 import type { AssistantPendingEmailActionType } from "@/utils/actions/assistant-chat.validation";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import { getRecentChatMemories } from "@/utils/ai/assistant/get-recent-chat-memories";
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
+import {
+  mergeSeenRulesRevision,
+  saveLastSeenRulesRevision,
+} from "@/utils/ai/assistant/chat-seen-rules-revision";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { consumeMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code-consume";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
@@ -51,9 +51,26 @@ import {
   getHelpText,
   isHelpCommand,
 } from "@/utils/messaging/prompt-commands";
+import {
+  handleRuleNotificationAction,
+  handleSlackRuleNotificationModalSubmit,
+  RULE_NOTIFICATION_ACTION_IDS,
+  SLACK_DRAFT_EDIT_MODAL_ID,
+} from "@/utils/messaging/rule-notifications";
+import {
+  getMessagingChannelTargetRouteWhere,
+  hasMessagingChannelTargetRoute,
+} from "@/utils/messaging/routes";
+import {
+  getMessagingAdapterRegistry,
+  type MessagingAdapters,
+} from "@/utils/messaging/chat-sdk/adapters";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
-import { getEmailUrlForMessage } from "@/utils/url";
+import {
+  getEmailUrlForMessage,
+  getEmailUrlForOptionalMessage,
+} from "@/utils/url";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const MAX_CHAT_CONTEXT_MESSAGES = 12;
@@ -63,6 +80,15 @@ const CONNECT_COMMAND_REGEX =
 const PENDING_EMAIL_CONFIRM_ACTION_ID = "acpe";
 const LEGACY_PENDING_EMAIL_CONFIRM_ACTION_ID =
   "assistant_confirm_pending_email";
+const AFFIRMATIVE_REACTION_EMOJI_TOKENS = new Set(["👍", "✅", "☑", "✔"]);
+const AFFIRMATIVE_REACTION_ALIASES = new Set([
+  "+1",
+  "thumbsup",
+  "thumbs_up",
+  "white_check_mark",
+  "check",
+  "heavy_check_mark",
+]);
 const UNSUPPORTED_MESSAGING_ATTACHMENT_MESSAGE =
   "I can process images, but I can't access other file types (documents, videos, audio) sent here yet. I can still draft the email text if you share what to write.";
 
@@ -79,12 +105,7 @@ const SLACK_ASSISTANT_SUGGESTED_PROMPTS = [
 ];
 
 type SupportedPlatform = MessagingPlatform;
-
-type MessagingAdapters = {
-  slack?: SlackAdapter;
-  teams?: TeamsAdapter;
-  telegram?: TelegramAdapter;
-};
+type MessagingThread = Thread<unknown, unknown>;
 
 type MessagingChatSdkContext = {
   bot: Chat<Record<string, Adapter>>;
@@ -96,7 +117,10 @@ type SlackCandidate = {
   accessToken: string | null;
   botUserId: string | null;
   emailAccountId: string;
-  channelId: string | null;
+  routes: Array<{
+    targetId: string;
+    targetType: MessagingRouteTargetType;
+  }>;
 };
 
 type LinkedProviderCandidate = {
@@ -113,6 +137,7 @@ type ImagePart = {
 type ResolvedMessagingContext = {
   chatId: string;
   emailAccountId: string;
+  hasMultipleAccounts: boolean;
   hasUnsupportedAttachments: boolean;
   imageParts: ImagePart[];
   messageText: string;
@@ -331,51 +356,7 @@ export async function syncSlackInstallation({
 }
 
 function createMessagingChatSdkBot(): MessagingChatSdkContext {
-  const adapters: Record<string, Adapter> = {};
-  const typedAdapters: MessagingAdapters = {};
-
-  if (env.SLACK_SIGNING_SECRET) {
-    const slackAdapterConfig: Parameters<typeof createSlackAdapter>[0] = {
-      signingSecret: env.SLACK_SIGNING_SECRET,
-    };
-
-    if (env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET) {
-      slackAdapterConfig.clientId = env.SLACK_CLIENT_ID;
-      slackAdapterConfig.clientSecret = env.SLACK_CLIENT_SECRET;
-    }
-
-    const slackAdapter = createSlackAdapter(slackAdapterConfig);
-    adapters.slack = slackAdapter;
-    typedAdapters.slack = slackAdapter;
-  }
-
-  if (env.TEAMS_BOT_APP_ID && env.TEAMS_BOT_APP_PASSWORD) {
-    const teamsAdapter = createTeamsAdapter({
-      appId: env.TEAMS_BOT_APP_ID,
-      appPassword: env.TEAMS_BOT_APP_PASSWORD,
-      appTenantId: env.TEAMS_BOT_APP_TENANT_ID,
-      ...(env.TEAMS_BOT_APP_TYPE ? { appType: env.TEAMS_BOT_APP_TYPE } : {}),
-    });
-
-    adapters.teams = teamsAdapter;
-    typedAdapters.teams = teamsAdapter;
-  }
-
-  if (env.TELEGRAM_BOT_TOKEN) {
-    const telegramAdapter = createTelegramAdapter({
-      botToken: env.TELEGRAM_BOT_TOKEN,
-      secretToken: env.TELEGRAM_BOT_SECRET_TOKEN,
-    });
-
-    adapters.telegram = telegramAdapter;
-    typedAdapters.telegram = telegramAdapter;
-  }
-
-  if (!Object.keys(adapters).length) {
-    throw new Error(
-      "No messaging adapters configured. Configure Slack, Teams, or Telegram credentials.",
-    );
-  }
+  const { adapters, typedAdapters } = getMessagingAdapterRegistry();
 
   const bot = new Chat<Record<string, Adapter>>({
     userName: "inboxzero",
@@ -441,6 +422,29 @@ function registerMessagingHandlers({
     });
   });
 
+  bot.onReaction(async (event) => {
+    if (!event.added) return;
+    if (!isAffirmativeReactionEvent(event)) return;
+
+    const provider = getSupportedPlatform(event.thread.adapter.name);
+    if (!provider) return;
+
+    const handlerLogger = getHandlerLogger();
+    const handled = await processMessagingAssistantMessage({
+      adapters,
+      thread: event.thread,
+      message: buildAffirmativeReactionMessage({ event }),
+      logger: handlerLogger,
+    });
+
+    if (handled) {
+      await subscribeMessagingThreadSafely({
+        thread: event.thread,
+        logger: handlerLogger,
+      });
+    }
+  });
+
   bot.onAction(
     [PENDING_EMAIL_CONFIRM_ACTION_ID, LEGACY_PENDING_EMAIL_CONFIRM_ACTION_ID],
     async (event) => {
@@ -448,6 +452,22 @@ function registerMessagingHandlers({
       await handlePendingEmailConfirmAction({ event, logger: handlerLogger });
     },
   );
+
+  bot.onAction([...RULE_NOTIFICATION_ACTION_IDS], async (event) => {
+    const handlerLogger = getHandlerLogger();
+    await handleRuleNotificationAction({
+      event,
+      logger: handlerLogger,
+    });
+  });
+
+  bot.onModalSubmit(SLACK_DRAFT_EDIT_MODAL_ID, async (event) => {
+    const handlerLogger = getHandlerLogger();
+    return handleSlackRuleNotificationModalSubmit({
+      event,
+      logger: handlerLogger,
+    });
+  });
 
   if (adapters.slack) {
     bot.onAssistantThreadStarted(async ({ channelId, threadTs }) => {
@@ -471,7 +491,7 @@ async function subscribeMessagingThreadSafely({
   thread,
   logger,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   logger: Logger;
 }) {
   try {
@@ -492,7 +512,7 @@ async function processMessagingAssistantMessage({
   logger,
 }: {
   adapters: MessagingAdapters;
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
   logger: Logger;
 }): Promise<boolean> {
@@ -574,9 +594,15 @@ async function processMessagingAssistantMessage({
       update: {},
       select: {
         id: true,
+        lastSeenRulesRevision: true,
         messages: {
           orderBy: { createdAt: "desc" },
           take: MAX_CHAT_CONTEXT_MESSAGES,
+        },
+        compactions: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { id: true },
         },
       },
     });
@@ -648,6 +674,7 @@ async function processMessagingAssistantMessage({
       }
 
       const inboxStats = await inboxStatsPromise;
+      let seenRulesRevision: number | null = null;
       const result = await aiProcessAssistantChat({
         messages: await convertToModelMessages([
           ...existingMessages,
@@ -656,10 +683,19 @@ async function processMessagingAssistantMessage({
         emailAccountId: context.emailAccountId,
         user: emailAccountUser,
         chatId: chat.id,
+        chatLastSeenRulesRevision: chat.lastSeenRulesRevision,
+        chatHasHistory:
+          existingMessages.length > 0 || chat.compactions.length > 0,
         memories: await memoriesPromise,
         inboxStats,
         responseSurface: "messaging",
         messagingPlatform: context.provider,
+        onRulesStateExposed: (rulesRevision) => {
+          seenRulesRevision = mergeSeenRulesRevision(
+            seenRulesRevision,
+            rulesRevision,
+          );
+        },
         logger: threadLogger,
       });
 
@@ -675,8 +711,12 @@ async function processMessagingAssistantMessage({
         );
       }
 
-      const fullText = normalizeMessagingAssistantText({
-        text: getUiMessageText(assistantUiMessage),
+      const fullText = prependAccountIndicator({
+        text: normalizeMessagingAssistantText({
+          text: getUiMessageText(assistantUiMessage),
+        }),
+        email: emailAccountUser.email,
+        hasMultipleAccounts: context.hasMultipleAccounts,
       });
       const pendingToolPart = getPendingEmailToolPart(
         assistantUiMessage.parts || [],
@@ -700,6 +740,14 @@ async function processMessagingAssistantMessage({
           return true;
         }
         throw error;
+      }
+
+      if (seenRulesRevision != null) {
+        await saveLastSeenRulesRevision({
+          chatId: chat.id,
+          rulesRevision: seenRulesRevision,
+          logger: threadLogger,
+        });
       }
 
       if (pendingToolPart) {
@@ -877,12 +925,19 @@ async function handlePendingEmailConfirmAction({
     return;
   }
 
+  const pendingToolPart = await getPendingEmailToolPartForAction({
+    chatId,
+    chatMessageId: pendingAction.chatMessageId,
+    toolCallId: pendingAction.toolCallId,
+  });
+
   try {
     const confirmation = await confirmAssistantEmailActionForAccount({
       chatId,
       chatMessageId: pendingAction.chatMessageId,
       toolCallId: pendingAction.toolCallId,
       actionType: pendingAction.actionType,
+      waitForPersistence: true,
       emailAccountId: chat.emailAccountId,
       provider: emailAccount.account.provider,
       logger,
@@ -893,6 +948,20 @@ async function handlePendingEmailConfirmAction({
       accountEmail: emailAccount.email,
       accountProvider: emailAccount.account.provider,
     });
+
+    if (
+      pendingToolPart &&
+      (await replacePendingEmailConfirmationCard({
+        accountEmail: emailAccount.email,
+        accountProvider: emailAccount.account.provider,
+        confirmationResult: confirmation.confirmationResult,
+        event,
+        logger,
+        part: pendingToolPart,
+      }))
+    ) {
+      return;
+    }
 
     await postPendingEmailActionFeedback({
       event,
@@ -922,7 +991,7 @@ async function postPendingEmailCard({
   provider,
   logger,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   chatMessageId: string;
   part: PendingEmailToolPart;
   provider: SupportedPlatform;
@@ -976,6 +1045,44 @@ async function postPendingEmailCard({
       error,
       provider,
       actionType,
+    });
+    return false;
+  }
+}
+
+async function replacePendingEmailConfirmationCard({
+  accountEmail,
+  accountProvider,
+  confirmationResult,
+  event,
+  logger,
+  part,
+}: {
+  accountEmail?: string | null;
+  accountProvider?: string | null;
+  confirmationResult?: {
+    messageId?: string | null;
+    threadId?: string | null;
+  } | null;
+  event: ActionEvent;
+  logger: Logger;
+  part: PendingEmailToolPart;
+}) {
+  try {
+    await event.adapter.editMessage(
+      event.threadId,
+      event.messageId,
+      buildHandledPendingEmailCard({
+        accountEmail,
+        accountProvider,
+        confirmationResult,
+        part,
+      }),
+    );
+    return true;
+  } catch (error) {
+    logger.warn("Failed to replace messaging pending email confirmation card", {
+      error,
     });
     return false;
   }
@@ -1111,12 +1218,103 @@ function buildPendingEmailSuccessFeedback({
   accountEmail?: string | null;
   accountProvider?: string | null;
 }) {
+  const emailUrl = getEmailUrlForOptionalMessage({
+    messageId: confirmationResult?.messageId,
+    threadId: confirmationResult?.threadId,
+    emailAddress: accountEmail,
+    provider: accountProvider || undefined,
+  });
+  if (!emailUrl) return "Sent.";
+
+  return `Sent. Open message: ${emailUrl}`;
+}
+
+function buildHandledPendingEmailCard({
+  accountEmail,
+  accountProvider,
+  confirmationResult,
+  part,
+}: {
+  accountEmail?: string | null;
+  accountProvider?: string | null;
+  confirmationResult?: {
+    messageId?: string | null;
+    threadId?: string | null;
+  } | null;
+  part: PendingEmailToolPart;
+}) {
+  const actionType = pendingActionTypeFromToolPartType(part.type);
+  const subject = part.output?.pendingAction?.subject?.trim();
+  const to = part.output?.pendingAction?.to?.trim();
+  const referenceFrom = part.output?.reference?.from?.trim() || undefined;
+  const referenceSubject = part.output?.reference?.subject?.trim() || undefined;
+  const summary = buildPendingEmailSummary({
+    actionType,
+    to,
+    subject,
+    referenceFrom,
+    referenceSubject,
+  });
+  const preview = buildPendingEmailPreview(part);
+  const children: CardChild[] = [CardText(summary)];
+
+  if (preview) {
+    children.push(CardText(preview));
+  }
+
+  children.push(
+    CardText(`Status: ${getPendingEmailHandledStatus(actionType)}`),
+  );
+
+  const openText = getPendingEmailHandledOpenText({
+    accountEmail,
+    accountProvider,
+    confirmationResult,
+  });
+  if (openText) {
+    children.push(CardText(openText));
+  }
+
+  return Card({
+    title: getPendingEmailHandledTitle(actionType),
+    children,
+  });
+}
+
+export function getPendingEmailHandledTitle(
+  actionType: AssistantPendingEmailActionType,
+) {
+  if (actionType === "send_email") return "Email sent";
+  if (actionType === "reply_email") return "Reply sent";
+  return "Email forwarded";
+}
+
+export function getPendingEmailHandledStatus(
+  actionType: AssistantPendingEmailActionType,
+) {
+  if (actionType === "send_email") return "Email sent.";
+  if (actionType === "reply_email") return "Reply sent.";
+  return "Email forwarded.";
+}
+
+export function getPendingEmailHandledOpenText({
+  accountEmail,
+  accountProvider,
+  confirmationResult,
+}: {
+  accountEmail?: string | null;
+  accountProvider?: string | null;
+  confirmationResult?: {
+    messageId?: string | null;
+    threadId?: string | null;
+  } | null;
+}) {
   const messageId = confirmationResult?.messageId || undefined;
   const threadId = confirmationResult?.threadId || undefined;
   const resolvedMessageId = messageId || threadId;
   const resolvedThreadId = threadId || messageId;
 
-  if (!resolvedMessageId || !resolvedThreadId) return "Sent.";
+  if (!resolvedMessageId || !resolvedThreadId) return null;
 
   const emailUrl = getEmailUrlForMessage(
     resolvedMessageId,
@@ -1126,7 +1324,7 @@ function buildPendingEmailSuccessFeedback({
   );
   const mailbox = accountProvider === "microsoft" ? "Outlook" : "Gmail";
 
-  return `Sent. Open in ${mailbox}: ${emailUrl}`;
+  return `Open in ${mailbox}: ${emailUrl}`;
 }
 
 function getSlackTeamIdFromActionRaw(raw: unknown): string | null {
@@ -1339,6 +1537,47 @@ async function resolvePendingEmailActionFromToken({
   return null;
 }
 
+async function getPendingEmailToolPartForAction({
+  chatId,
+  chatMessageId,
+  toolCallId,
+}: {
+  chatId: string;
+  chatMessageId: string;
+  toolCallId: string;
+}): Promise<PendingEmailToolPart | null> {
+  const chatMessage = await prisma.chatMessage.findFirst({
+    where: { id: chatMessageId, chatId },
+    select: { parts: true },
+  });
+
+  if (!chatMessage || !Array.isArray(chatMessage.parts)) return null;
+
+  return getEmailToolPartByToolCallId(chatMessage.parts, toolCallId);
+}
+
+function getEmailToolPartByToolCallId(
+  parts: unknown[],
+  toolCallId: string,
+): PendingEmailToolPart | null {
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index] as PendingEmailToolPart | undefined;
+    if (!part || part.state !== "output-available") continue;
+    if (part.toolCallId !== toolCallId) continue;
+    if (
+      part.type !== "tool-sendEmail" &&
+      part.type !== "tool-replyEmail" &&
+      part.type !== "tool-forwardEmail"
+    ) {
+      continue;
+    }
+
+    return part;
+  }
+
+  return null;
+}
+
 async function startSlackProcessingReaction({
   adapters,
   thread,
@@ -1346,7 +1585,7 @@ async function startSlackProcessingReaction({
   logger,
 }: {
   adapters: MessagingAdapters;
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
   logger: Logger;
 }): Promise<(() => Promise<void>) | null> {
@@ -1400,7 +1639,7 @@ async function handleMessagingLinkCommand({
   message,
   logger,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
   logger: Logger;
 }): Promise<boolean> {
@@ -1452,7 +1691,7 @@ async function handleMessagingLinkCommand({
     return true;
   }
 
-  await prisma.messagingChannel.upsert({
+  const messagingChannel = await prisma.messagingChannel.upsert({
     where: {
       emailAccountId_provider_teamId: {
         emailAccountId: emailAccount.id,
@@ -1472,6 +1711,27 @@ async function handleMessagingLinkCommand({
       providerUserId: identity.providerUserId,
       emailAccountId: emailAccount.id,
       isConnected: true,
+    },
+  });
+
+  await prisma.messagingRoute.upsert({
+    where: {
+      messagingChannelId_purpose: {
+        messagingChannelId: messagingChannel.id,
+        purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+      },
+    },
+    update: {
+      targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+      targetId:
+        provider === "telegram" ? identity.teamId : identity.providerUserId,
+    },
+    create: {
+      messagingChannelId: messagingChannel.id,
+      purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+      targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+      targetId:
+        provider === "telegram" ? identity.teamId : identity.providerUserId,
     },
   });
 
@@ -1496,7 +1756,7 @@ async function handleSwitchCommand({
   message,
   logger,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
   logger: Logger;
 }): Promise<boolean> {
@@ -1609,7 +1869,7 @@ async function handleHelpCommand({
   message,
   logger,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
   logger: Logger;
 }): Promise<boolean> {
@@ -1640,7 +1900,7 @@ async function resolveMessagingContext({
   logger,
 }: {
   adapters: MessagingAdapters;
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
   logger: Logger;
 }): Promise<ResolvedMessagingContext | null> {
@@ -1680,7 +1940,7 @@ async function resolveSlackMessagingContext({
   logger,
 }: {
   slackAdapter: SlackAdapter | undefined;
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
   logger: Logger;
 }): Promise<ResolvedMessagingContext | null> {
@@ -1690,26 +1950,38 @@ async function resolveSlackMessagingContext({
   const teamId = rawEvent.team_id ?? rawEvent.team;
   const userId = message.author.userId;
 
-  if (!teamId || !userId) return null;
+  if (!userId) return null;
 
   const { channel, threadTs } = slackAdapter.decodeThreadId(thread.id);
 
-  const candidates = await prisma.messagingChannel.findMany({
+  let candidates = await prisma.messagingChannel.findMany({
     where: {
       provider: MessagingProvider.SLACK,
-      teamId,
       isConnected: true,
       accessToken: { not: null },
       providerUserId: userId,
+      ...(teamId ? { teamId } : {}),
     },
     select: {
       id: true,
       accessToken: true,
       botUserId: true,
       emailAccountId: true,
-      channelId: true,
+      routes: {
+        where: getMessagingChannelTargetRouteWhere(channel),
+        select: {
+          targetType: true,
+          targetId: true,
+        },
+      },
     },
   });
+
+  if (!teamId && !thread.isDM) {
+    candidates = candidates.filter((candidate) =>
+      hasMessagingChannelTargetRoute(candidate.routes, channel),
+    );
+  }
 
   if (candidates.length === 0) {
     await sendUnauthorizedMessage({ thread, teamId, logger });
@@ -1732,6 +2004,7 @@ async function resolveSlackMessagingContext({
   if (rawEvent.type === "app_mention") {
     messageText = stripLeadingSlackMention(messageText);
   }
+  messageText = normalizeMessagingUserText({ text: messageText });
 
   const hasUnsupportedAttachments = hasUnsupportedMessagingAttachment({
     provider: "slack",
@@ -1746,6 +2019,7 @@ async function resolveSlackMessagingContext({
   return {
     provider: "slack",
     emailAccountId: messagingChannel.emailAccountId,
+    hasMultipleAccounts: false,
     hasUnsupportedAttachments,
     imageParts,
     messageText,
@@ -1764,7 +2038,7 @@ async function resolveLinkedProviderMessagingContext({
   provider: "teams" | "telegram";
   identity: LinkedProviderIdentity | null;
   message: Message;
-  thread: Thread;
+  thread: MessagingThread;
   logger: Logger;
 }): Promise<ResolvedMessagingContext | null> {
   if (!identity) return null;
@@ -1831,6 +2105,8 @@ async function resolveLinkedProviderMessagingContext({
   return {
     provider,
     emailAccountId: linkedChannel.emailAccountId,
+    hasMultipleAccounts:
+      new Set(candidates.map((c) => c.emailAccountId)).size > 1,
     hasUnsupportedAttachments: identity.hasUnsupportedAttachments,
     imageParts,
     messageText: identity.messageText,
@@ -1848,10 +2124,12 @@ function resolveTeamsIdentity({
   thread,
   message,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   message: Message;
 }): LinkedProviderIdentity | null {
-  const messageText = expandPromptCommand(message.text.trim());
+  const messageText = normalizeMessagingUserText({
+    text: expandPromptCommand(message.text.trim()),
+  });
   const hasAttachments = message.attachments.length > 0;
   if (!messageText && !hasAttachments) return null;
 
@@ -1904,11 +2182,15 @@ function resolveTelegramIdentity({
 }
 
 function getTelegramMessageText(message: Message): string {
-  const plainText = expandPromptCommand(message.text.trim());
+  const plainText = normalizeMessagingUserText({
+    text: expandPromptCommand(message.text.trim()),
+  });
   if (plainText) return plainText;
 
   const rawMessage = message.raw as TelegramRawMessage;
-  return expandPromptCommand(rawMessage.caption?.trim() || "");
+  return normalizeMessagingUserText({
+    text: expandPromptCommand(rawMessage.caption?.trim() || ""),
+  });
 }
 
 const SUPPORTED_IMAGE_MIME_TYPES = new Set([
@@ -1941,8 +2223,7 @@ export function hasUnsupportedMessagingAttachment({
     const rawEvent = message.raw as SlackEvent;
     const files = rawEvent.files || [];
     return files.some(
-      (f: { mimetype?: string }) =>
-        !f.mimetype || !f.mimetype.startsWith("image/"),
+      (f: { mimetype?: string }) => !f.mimetype?.startsWith("image/"),
     );
   }
 
@@ -2061,12 +2342,12 @@ async function resolveSlackMessagingChannel({
   chatThreadTs: string | undefined;
   isDirectMessage: boolean;
   logger: Logger;
-  teamId: string;
-  thread: Thread;
+  teamId?: string | null;
+  thread: MessagingThread;
 }): Promise<SlackCandidate | null> {
   if (!isDirectMessage) {
-    const channelMatch = candidates.find(
-      (candidate) => candidate.channelId === channel,
+    const channelMatch = candidates.find((candidate) =>
+      hasMessagingChannelTargetRoute(candidate.routes, channel),
     );
     if (channelMatch) return channelMatch;
 
@@ -2133,8 +2414,8 @@ async function sendUnauthorizedMessage({
   teamId,
   logger,
 }: {
-  thread: Thread;
-  teamId: string;
+  thread: MessagingThread;
+  teamId?: string | null;
   logger: Logger;
 }): Promise<void> {
   await postMessagingThreadMessage({
@@ -2146,7 +2427,9 @@ async function sendUnauthorizedMessage({
     logMeta: { teamId },
   });
 
-  logger.info("Unauthorized messaging user attempted bot access", { teamId });
+  logger.info("Unauthorized messaging user attempted bot access", {
+    ...(teamId ? { teamId } : {}),
+  });
 }
 
 async function sendLinkRequiredMessage({
@@ -2155,7 +2438,7 @@ async function sendLinkRequiredMessage({
   logger,
 }: {
   provider: "teams" | "telegram";
-  thread: Thread;
+  thread: MessagingThread;
   logger: Logger;
 }): Promise<void> {
   const providerName = provider === "teams" ? "Teams" : "Telegram";
@@ -2175,7 +2458,7 @@ async function sendDmRequiredMessage({
   logger,
 }: {
   provider: "teams" | "telegram";
-  thread: Thread;
+  thread: MessagingThread;
   logger: Logger;
 }): Promise<void> {
   const providerName = provider === "teams" ? "Teams" : "Telegram";
@@ -2193,7 +2476,7 @@ async function sendUnlinkedChannelMessage({
   thread,
   logger,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   logger: Logger;
 }): Promise<void> {
   await postMessagingThreadMessage({
@@ -2212,7 +2495,7 @@ async function postMessagingThreadMessage({
   errorLogMessage,
   logMeta,
 }: {
-  thread: Thread;
+  thread: MessagingThread;
   logger: Logger;
   message: string;
   errorLogMessage: string;
@@ -2279,6 +2562,39 @@ export function normalizeMessagingAssistantText({ text }: { text: string }) {
   return normalized;
 }
 
+export function buildAffirmativeReactionMessage({
+  event,
+}: {
+  event: ReactionEvent;
+}) {
+  return new Message({
+    id: `reaction:${event.threadId}:${event.messageId}:${event.user.userId}:${event.emoji.name}`,
+    threadId: event.threadId,
+    text: "yes",
+    formatted: {
+      type: "root",
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", value: "yes" }],
+        },
+      ],
+    },
+    raw: event.raw,
+    author: event.user,
+    metadata: {
+      dateSent: new Date(),
+      edited: false,
+    },
+    attachments: [],
+    links: [],
+  });
+}
+
+export function normalizeMessagingUserText({ text }: { text: string }) {
+  return text.trim();
+}
+
 export function buildPendingEmailCardFallbackText(normalizedText: string) {
   const failureGuidance =
     "I couldn't show the Send button right now. Ask me to prepare the draft again.";
@@ -2292,6 +2608,27 @@ export function buildPendingEmailCardFallbackText(normalizedText: string) {
   }
 
   return `${normalizedText}\n\n${failureGuidance}`;
+}
+
+function isAffirmativeReactionEvent(event: ReactionEvent) {
+  return (
+    isAffirmativeReactionToken(event.rawEmoji) ||
+    isAffirmativeReactionToken(event.emoji.name)
+  );
+}
+
+function isAffirmativeReactionToken(token: string) {
+  const trimmed = token.trim();
+  if (!trimmed) return false;
+
+  const alias = trimmed.toLowerCase();
+  if (AFFIRMATIVE_REACTION_ALIASES.has(alias)) return true;
+
+  const normalized = alias
+    .replaceAll("\uFE0F", "")
+    .replace(/[\u{1F3FB}-\u{1F3FF}]/gu, "");
+
+  return AFFIRMATIVE_REACTION_EMOJI_TOKENS.has(normalized);
 }
 
 function getMessagingAssistantPostPayload({
@@ -2316,4 +2653,17 @@ function toMessagingProvider(provider: SupportedPlatform) {
   if (provider === "slack") return MessagingProvider.SLACK;
   if (provider === "teams") return MessagingProvider.TEAMS;
   return MessagingProvider.TELEGRAM;
+}
+
+function prependAccountIndicator({
+  text,
+  email,
+  hasMultipleAccounts,
+}: {
+  text: string;
+  email: string;
+  hasMultipleAccounts: boolean;
+}) {
+  if (!hasMultipleAccounts) return text;
+  return `[${email}]\n${text}`;
 }

@@ -9,10 +9,15 @@ SCHEMA >
     `reasoningTokens` UInt64 `json:$.reasoningTokens`,
     `cost` Float32 `json:$.cost`,
     `estimatedCost` Nullable(Float32) `json:$.estimatedCost`,
+    `providerReportedCost` Nullable(Float32) `json:$.providerReportedCost`,
+    `providerUpstreamInferenceCost` Nullable(Float32) `json:$.providerUpstreamInferenceCost`,
+    `providerCostSource` Nullable(String) `json:$.providerCostSource`,
     `isUserApiKey` Nullable(UInt8) `json:$.isUserApiKey`,
     `model` String `json:$.model`,
     `provider` String `json:$.provider`,
     `label` Nullable(String) `json:$.label`,
+    `stepCount` Nullable(UInt32) `json:$.stepCount`,
+    `toolCallCount` Nullable(UInt32) `json:$.toolCallCount`,
     `data` Nullable(String) `json:$.data`
 
 ENGINE "MergeTree"

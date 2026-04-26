@@ -6,7 +6,7 @@ import {
   GroupItemSource,
   SystemType,
 } from "@/generated/prisma/enums";
-import type { Rule } from "@/generated/prisma/client";
+import type { Prisma, Rule } from "@/generated/prisma/client";
 import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
 import {
@@ -16,12 +16,16 @@ import {
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import prisma from "@/utils/prisma";
 import { withPrismaRetry } from "@/utils/prisma-retry";
-import type { MatchReason } from "@/utils/ai/choose-rule/types";
+import type {
+  MatchReason,
+  RuleSelectionMetadata,
+} from "@/utils/ai/choose-rule/types";
 import { serializeMatchReasons } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
 import { filterNullProperties } from "@/utils";
 import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
+import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
 import {
   scheduleDelayedActions,
   cancelScheduledActions,
@@ -42,6 +46,11 @@ import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { internalDateToDate } from "@/utils/date";
 import { ConditionType } from "@/utils/config";
 import type { Logger } from "@/utils/logger";
+import {
+  getBlockedLowTrustStaticFromActionTypes,
+  LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE,
+} from "@/utils/rule/static-from-risk";
+import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 
 const MODULE = "ai/choose-rule";
 
@@ -63,11 +72,29 @@ export type RunRulesResult = {
   reason?: string | null;
   status: ExecutedRuleStatus;
   matchReasons?: MatchReason[];
+  selectionMetadata?: RuleSelectionMetadata;
   existing?: boolean;
   createdAt: Date;
 };
 
 export const CONVERSATION_TRACKING_META_RULE_ID = "conversation-tracking-meta";
+
+export const CONVERSATION_TRACKING_INSTRUCTIONS = `Conversations and communication with real people. This covers all conversation states: emails you need to reply to, emails you're awaiting replies on, FYI updates from people, and resolved discussions.
+
+Match when:
+- Questions or requests for information/action
+- Updates or FYI information from real people
+- Follow-ups on ongoing conversations
+- Conversations that have been resolved or concluded
+
+EXCLUDE:
+- All automated notifications (LinkedIn, GitHub, Slack, Figma, Jira, Facebook, social media platforms, marketing)
+- System emails (order confirmations, receipts, calendar invites)
+- Emails with List-Unsubscribe headers or unsubscribe links are a strong signal of mass/automated emails
+
+IMPORTANT:
+- Only use this rule for human-to-human communication. If an email is automated or system-generated and another rule is a better fit, do not use this rule.
+- When this rule matches, it should typically be the primary match.`;
 
 export async function runRules({
   provider,
@@ -186,6 +213,7 @@ export async function runRules({
         rule: null,
         reason,
         status: ExecutedRuleStatus.SKIPPED,
+        selectionMetadata: results.selectionMetadata,
         createdAt: batchTimestamp,
       },
     ];
@@ -225,7 +253,11 @@ export async function runRules({
 
     executedRules.push({
       ...executedRule,
-      status: executedRule.executedRule?.status || ExecutedRuleStatus.APPLIED,
+      selectionMetadata: results.selectionMetadata,
+      status:
+        executedRule.status ||
+        executedRule.executedRule?.status ||
+        ExecutedRuleStatus.APPLIED,
     });
   }
 
@@ -252,19 +284,7 @@ function prepareRulesWithMetaRule(rules: RuleWithActions[]): {
       ...template,
       id: CONVERSATION_TRACKING_META_RULE_ID,
       name: "Conversations",
-      instructions: `Conversations and communication with real people. This covers all conversation states: emails you need to reply to, emails you're awaiting replies on, FYI updates from people, and resolved discussions.
-
-Match when:
-- Questions or requests for information/action
-- Updates or FYI information from real people
-- Follow-ups on ongoing conversations
-- Conversations that have been resolved or concluded
-
-EXCLUDE:
-- All automated notifications (LinkedIn, GitHub, Slack, Figma, Jira, Facebook, social media platforms, marketing)
-- System emails (order confirmations, receipts, calendar invites)
-
-NOTE: When this rule matches, it should typically be the primary match.`,
+      instructions: CONVERSATION_TRACKING_INSTRUCTIONS,
       enabled: true,
       runOnThreads: true,
       systemType: null,
@@ -290,20 +310,67 @@ async function executeMatchedRule(
   logger: Logger,
   skipArchive?: boolean,
 ) {
-  let actionItems = await getActionItemsWithAiArgs({
-    message,
-    emailAccount,
-    selectedRule: rule,
-    client,
-    modelType,
-    logger,
-    isTest,
-  });
+  const blockedActionTypes = getBlockedLowTrustStaticFromActionTypes(
+    rule.from,
+    rule.actions.map((action) => action.type),
+  );
+
+  let actionItems: Awaited<ReturnType<typeof getActionItemsWithAiArgs>> = [];
+
+  if (blockedActionTypes.length < rule.actions.length) {
+    actionItems = await getActionItemsWithAiArgs({
+      message,
+      emailAccount,
+      selectedRule: rule,
+      client,
+      modelType,
+      logger,
+      isTest,
+    });
+
+    if (blockedActionTypes.length) {
+      const blockedSet = new Set(blockedActionTypes);
+      actionItems = actionItems.filter((item) => !blockedSet.has(item.type));
+    }
+  }
 
   if (skipArchive) {
     actionItems = actionItems.filter(
       (item) => item.type !== ActionType.ARCHIVE,
     );
+  }
+
+  if (actionItems.length === 0 && blockedActionTypes.length) {
+    const reasonToUse = reason
+      ? `${reason}. ${LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE}`
+      : LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE;
+    let executedRule = null;
+
+    if (!isTest) {
+      executedRule = await prisma.executedRule.create({
+        data: {
+          messageId: message.id,
+          threadId: message.threadId,
+          automated: true,
+          status: ExecutedRuleStatus.SKIPPED,
+          reason: reasonToUse,
+          matchMetadata: serializeMatchReasons(matchReasons),
+          rule: rule?.id ? { connect: { id: rule.id } } : undefined,
+          emailAccount: { connect: { id: emailAccount.id } },
+          createdAt: batchTimestamp,
+        },
+      });
+    }
+
+    return {
+      rule,
+      actionItems: [],
+      executedRule,
+      reason: reasonToUse,
+      status: ExecutedRuleStatus.SKIPPED,
+      matchReasons,
+      createdAt: batchTimestamp,
+    };
   }
 
   const { immediateActions, delayedActions } = groupBy(actionItems, (item) =>
@@ -323,7 +390,9 @@ async function executeMatchedRule(
     };
   }
 
-  const executedRule = await withPrismaRetry(
+  const executedRule: Prisma.ExecutedRuleGetPayload<{
+    include: { actionItems: true };
+  }> = await withPrismaRetry(
     () =>
       prisma.executedRule.create({
         data: {
@@ -336,7 +405,23 @@ async function executeMatchedRule(
                     delayInMinutes: _delayInMinutes,
                     ...executedActionFields
                   } = sanitizeActionFields(item);
-                  return executedActionFields;
+                  return {
+                    ...executedActionFields,
+                    staticAttachments:
+                      item.staticAttachments != null
+                        ? (item.staticAttachments as Prisma.InputJsonValue)
+                        : undefined,
+                    draftModelProvider: item.draftModelProvider ?? null,
+                    draftModelName: item.draftModelName ?? null,
+                    draftPipelineVersion: isDraftReplyActionType(item.type)
+                      ? (item.draftPipelineVersion ?? null)
+                      : null,
+                    draftContextMetadata:
+                      isDraftReplyActionType(item.type) &&
+                      item.draftContextMetadata
+                        ? (item.draftContextMetadata as Prisma.InputJsonValue)
+                        : undefined,
+                  };
                 }) || [],
             },
           },
@@ -353,6 +438,13 @@ async function executeMatchedRule(
         include: { actionItems: true },
       }),
     { logger },
+  );
+
+  after(() =>
+    trackFirstTimeEvent({
+      emailAccountId: emailAccount.id,
+      event: FIRST_TIME_EVENTS.FIRST_AUTOMATED_RULE_RUN,
+    }),
   );
 
   if (rule.systemType === SystemType.COLD_EMAIL) {
@@ -412,10 +504,12 @@ async function executeMatchedRule(
     if (immediateActions?.length > 0) {
       await executeAct({
         client,
-        userEmail: emailAccount.email,
+        emailAccount: {
+          email: emailAccount.email,
+          id: emailAccount.id,
+          userId: emailAccount.userId,
+        },
         logger,
-        userId: emailAccount.userId,
-        emailAccountId: emailAccount.id,
         executedRule,
         message,
       });
@@ -657,20 +751,22 @@ function isConversationRule(ruleId: string): boolean {
 }
 
 /**
- * Limits the number of draft email actions to a single selection.
- * If there are multiple draft email actions, we prefer static drafts (with fixed content)
- * over fully dynamic drafts (no fixed content). When multiple static drafts exist, we
- * select the first one encountered.
- * If there are no draft email actions, we return the matches as is.
- * If there is only one draft email action, we return the matches as is.
+ * Limits drafting to a single rule selection.
+ * If there are multiple rules with draft reply actions, we prefer the first static
+ * drafting rule (fixed content) over a fully dynamic drafting rule. Once a rule is
+ * selected, all of its draft reply actions are preserved so the generated draft can
+ * fan out to multiple destinations.
+ * If there are no draft reply actions, we return the matches as is.
+ * If only one rule contains draft reply actions, we return the matches as is.
  */
 export function limitDraftEmailActions<
   T extends { rule: RuleWithActions; matchReasons?: MatchReason[] },
 >(matches: T[], logger: Logger): T[] {
   const draftCandidates = matches.flatMap((match) =>
     match.rule.actions
-      .filter((action) => action.type === ActionType.DRAFT_EMAIL)
+      .filter((action) => isDraftReplyActionType(action.type))
       .map((action) => ({
+        ruleId: match.rule.id,
         action,
         hasFixedContent: Boolean(action.content?.trim()),
       })),
@@ -686,17 +782,20 @@ export function limitDraftEmailActions<
     draftCandidates.find((candidate) => candidate.hasFixedContent) ||
     draftCandidates[0];
 
-  const selectedDraftId = preferredCandidate.action.id;
+  const selectedDraftRuleId = preferredCandidate.ruleId;
 
-  logger.info("Limiting draft actions to a single selection", {
+  logger.info("Limiting draft actions to a single rule selection", {
     module: MODULE,
-    selectedDraftId,
+    selectedDraftRuleId,
   });
 
   return matches.map((match) => {
-    const hasExtraDrafts = match.rule.actions.some(
-      (action) =>
-        action.type === ActionType.DRAFT_EMAIL && action.id !== selectedDraftId,
+    if (match.rule.id === selectedDraftRuleId) {
+      return match;
+    }
+
+    const hasExtraDrafts = match.rule.actions.some((action) =>
+      isDraftReplyActionType(action.type),
     );
 
     if (!hasExtraDrafts) {
@@ -708,9 +807,7 @@ export function limitDraftEmailActions<
       rule: {
         ...match.rule,
         actions: match.rule.actions.filter(
-          (action) =>
-            action.type !== ActionType.DRAFT_EMAIL ||
-            action.id === selectedDraftId,
+          (action) => !isDraftReplyActionType(action.type),
         ),
       },
     };

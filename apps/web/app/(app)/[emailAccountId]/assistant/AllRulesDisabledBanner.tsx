@@ -6,11 +6,10 @@ import { Button } from "@/components/ui/button";
 import { ActionCard } from "@/components/ui/card";
 import { useRules } from "@/hooks/useRules";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { prefixPath } from "@/utils/path";
 import {
   STEP_KEYS,
-  getStepNumber,
-} from "@/app/(app)/[emailAccountId]/onboarding/steps";
+  getOnboardingStepHref,
+} from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 
 export function AllRulesDisabledBanner() {
   const { data: rules, isLoading } = useRules();
@@ -32,10 +31,9 @@ export function AllRulesDisabledBanner() {
       action={
         <Button asChild variant="primaryBlack">
           <Link
-            href={prefixPath(
-              emailAccountId,
-              `/onboarding?step=${getStepNumber(STEP_KEYS.LABELS)}&force=true`,
-            )}
+            href={getOnboardingStepHref(emailAccountId, STEP_KEYS.LABELS, {
+              force: true,
+            })}
           >
             Set up rules
           </Link>

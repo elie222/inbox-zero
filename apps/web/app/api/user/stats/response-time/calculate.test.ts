@@ -4,12 +4,12 @@ import {
   calculateSummaryStats,
   calculateDistribution,
 } from "./calculate";
-import { createScopedLogger } from "@/utils/logger";
 import { getMockMessage as getMockMessageHelper } from "../../../../../__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe("Response Time Stats", () => {
   describe("calculateResponseTimes", () => {

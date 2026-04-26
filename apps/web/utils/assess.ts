@@ -6,7 +6,7 @@ import { getEmailClient } from "@/utils/mail";
 import { isDefined } from "@/utils/types";
 import type { Logger } from "@/utils/logger";
 import { GmailLabel } from "@/utils/gmail/label";
-import { OutlookLabel } from "@/utils/outlook/label";
+import { OutlookLabel } from "@/utils/outlook/constants";
 import { getFilters, getForwardingAddresses } from "@/utils/gmail/settings";
 
 export async function assessUser({
@@ -66,7 +66,7 @@ async function getUnreadEmailCount(client: EmailProvider) {
   }
 }
 
-export async function getInboxCount(client: EmailProvider) {
+async function getInboxCount(client: EmailProvider) {
   if (client instanceof GmailProvider) {
     const label = await client.getLabelById(GmailLabel.INBOX);
     return label?.threadsTotal || 0;
@@ -76,7 +76,7 @@ export async function getInboxCount(client: EmailProvider) {
   }
 }
 
-export async function getUnreadCount(client: EmailProvider) {
+async function getUnreadCount(client: EmailProvider) {
   if (client instanceof GmailProvider) {
     const label = await client.getLabelById(GmailLabel.UNREAD);
     return label?.threadsTotal || 0;

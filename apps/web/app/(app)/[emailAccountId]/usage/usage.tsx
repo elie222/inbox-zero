@@ -3,10 +3,10 @@
 import { BotIcon, CoinsIcon, CpuIcon } from "lucide-react";
 import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
-import { usePremium } from "@/components/PremiumAlert";
+import { usePremium } from "@/hooks/usePremium";
 import { LoadingContent } from "@/components/LoadingContent";
 import { env } from "@/env";
-import { isPremium } from "@/utils/premium";
+import { isPremiumRecord } from "@/utils/premium";
 import type { RedisUsage } from "@/utils/redis/usage";
 
 export function Usage(props: { usage: RedisUsage | null }) {
@@ -18,10 +18,7 @@ export function Usage(props: { usage: RedisUsage | null }) {
         stats={[
           {
             name: "Unsubscribe Credits",
-            value: isPremium(
-              premium?.lemonSqueezyRenewsAt || null,
-              premium?.stripeSubscriptionStatus || null,
-            )
+            value: isPremiumRecord(premium)
               ? "Unlimited"
               : formatStat(
                   premium?.unsubscribeCredits ??

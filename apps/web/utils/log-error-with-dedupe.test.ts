@@ -5,6 +5,7 @@ const { mockedEnv } = vi.hoisted(() => ({
     NODE_ENV: "production",
     UPSTASH_REDIS_URL: "https://redis.example.com",
     UPSTASH_REDIS_TOKEN: "token",
+    AXIOM_TOKEN: undefined,
     NEXT_PUBLIC_AXIOM_TOKEN: undefined,
     NEXT_PUBLIC_LOG_SCOPES: undefined,
     ENABLE_DEBUG_LOGS: false,
@@ -24,8 +25,8 @@ vi.mock("@/utils/redis", () => ({
 }));
 
 import { redis } from "@/utils/redis";
-import { createScopedLogger } from "@/utils/logger";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import { createTestLogger } from "@/__tests__/helpers";
 
 describe("logErrorWithDedupe", () => {
   beforeEach(() => {
@@ -37,7 +38,7 @@ describe("logErrorWithDedupe", () => {
 
   it("logs immediately when dedupe is disabled", async () => {
     mockedEnv.NODE_ENV = "test";
-    const logger = createScopedLogger("test");
+    const logger = createTestLogger();
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
 
     await logErrorWithDedupe({
@@ -57,7 +58,7 @@ describe("logErrorWithDedupe", () => {
     vi.mocked(redis.set)
       .mockResolvedValueOnce("OK")
       .mockResolvedValueOnce("OK");
-    const logger = createScopedLogger("test");
+    const logger = createTestLogger();
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
 
     await logErrorWithDedupe({
@@ -92,7 +93,7 @@ describe("logErrorWithDedupe", () => {
       .mockResolvedValueOnce(null);
     vi.mocked(redis.incr).mockResolvedValue(2);
     vi.mocked(redis.expire).mockResolvedValue(1);
-    const logger = createScopedLogger("test");
+    const logger = createTestLogger();
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
 
     await logErrorWithDedupe({
@@ -115,7 +116,7 @@ describe("logErrorWithDedupe", () => {
       .mockResolvedValueOnce("OK");
     vi.mocked(redis.incr).mockResolvedValue(7);
     vi.mocked(redis.expire).mockResolvedValue(1);
-    const logger = createScopedLogger("test");
+    const logger = createTestLogger();
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
 
     await logErrorWithDedupe({
@@ -140,7 +141,7 @@ describe("logErrorWithDedupe", () => {
 
   it("falls back to normal logging when redis access fails", async () => {
     vi.mocked(redis.set).mockRejectedValue(new Error("redis down"));
-    const logger = createScopedLogger("test");
+    const logger = createTestLogger();
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
 
     await logErrorWithDedupe({

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { MessagingProvider } from "@/generated/prisma/enums";
 import {
-  hasAutomationMessagingDestination,
+  MessagingProvider,
+  MessagingRoutePurpose,
+} from "@/generated/prisma/enums";
+import {
   isAutomationMessagingChannelReady,
   isSupportedAutomationMessagingProvider,
 } from "@/utils/automation-jobs/messaging-channel";
@@ -19,95 +21,126 @@ describe("automation job messaging channel helpers", () => {
     ).toBe(true);
   });
 
-  it("requires slack destination via DM user or channel", () => {
+  it("requires a scheduled check-in route before a channel is ready", () => {
     expect(
-      hasAutomationMessagingDestination({
-        provider: MessagingProvider.SLACK,
-        providerUserId: null,
-        channelId: "C123",
-      }),
-    ).toBe(true);
-    expect(
-      hasAutomationMessagingDestination({
-        provider: MessagingProvider.SLACK,
-        providerUserId: "U123",
-        channelId: null,
-      }),
-    ).toBe(true);
-    expect(
-      hasAutomationMessagingDestination({
-        provider: MessagingProvider.SLACK,
-        providerUserId: null,
-        channelId: null,
-      }),
+      isAutomationMessagingChannelReady(
+        createAutomationChannel({
+          provider: MessagingProvider.SLACK,
+          accessToken: "xoxb-token",
+          routes: [],
+        }),
+      ),
     ).toBe(false);
   });
 
-  it("requires providerUserId for Teams and Telegram destinations", () => {
+  it("does not treat a rule-only route as ready for execution", () => {
     expect(
-      hasAutomationMessagingDestination({
-        provider: MessagingProvider.TEAMS,
-        providerUserId: "29:teams-user",
-        channelId: null,
-      }),
-    ).toBe(true);
-    expect(
-      hasAutomationMessagingDestination({
-        provider: MessagingProvider.TELEGRAM,
-        providerUserId: "12345",
-        channelId: null,
-      }),
-    ).toBe(true);
-    expect(
-      hasAutomationMessagingDestination({
-        provider: MessagingProvider.TEAMS,
-        providerUserId: null,
-        channelId: "channel-id-is-not-enough",
-      }),
+      isAutomationMessagingChannelReady(
+        createAutomationChannel({
+          provider: MessagingProvider.SLACK,
+          accessToken: "xoxb-token",
+          providerUserId: "U123",
+          routes: [
+            {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              targetId: "destination-1",
+            },
+          ],
+        }),
+      ),
     ).toBe(false);
   });
 
-  it("requires access token for Slack readiness", () => {
+  it("requires an access token for Slack readiness", () => {
     expect(
-      isAutomationMessagingChannelReady({
-        provider: MessagingProvider.SLACK,
-        isConnected: true,
-        accessToken: "xoxb-token",
-        providerUserId: "U123",
-        channelId: null,
-      }),
+      isAutomationMessagingChannelReady(
+        createAutomationChannel({
+          provider: MessagingProvider.SLACK,
+          accessToken: "xoxb-token",
+          providerUserId: "U123",
+        }),
+      ),
     ).toBe(true);
 
     expect(
-      isAutomationMessagingChannelReady({
-        provider: MessagingProvider.SLACK,
-        isConnected: true,
-        accessToken: null,
-        providerUserId: "U123",
-        channelId: null,
-      }),
+      isAutomationMessagingChannelReady(
+        createAutomationChannel({
+          provider: MessagingProvider.SLACK,
+          accessToken: null,
+          providerUserId: "U123",
+        }),
+      ),
+    ).toBe(false);
+
+    expect(
+      isAutomationMessagingChannelReady(
+        createAutomationChannel({
+          provider: MessagingProvider.SLACK,
+          accessToken: "xoxb-token",
+          providerUserId: null,
+        }),
+      ),
     ).toBe(false);
   });
 
-  it("treats Teams and Telegram as ready when connected with destination", () => {
+  it("requires a provider user id for Teams readiness", () => {
     expect(
-      isAutomationMessagingChannelReady({
-        provider: MessagingProvider.TEAMS,
-        isConnected: true,
-        accessToken: null,
-        providerUserId: "29:teams-user",
-        channelId: null,
-      }),
+      isAutomationMessagingChannelReady(
+        createAutomationChannel({
+          provider: MessagingProvider.TEAMS,
+          accessToken: null,
+          providerUserId: "29:teams-user",
+        }),
+      ),
     ).toBe(true);
 
     expect(
-      isAutomationMessagingChannelReady({
-        provider: MessagingProvider.TELEGRAM,
-        isConnected: true,
-        accessToken: null,
-        providerUserId: "12345",
-        channelId: null,
-      }),
+      isAutomationMessagingChannelReady(
+        createAutomationChannel({
+          provider: MessagingProvider.TEAMS,
+          accessToken: null,
+          providerUserId: null,
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("treats Telegram as ready when connected with a route", () => {
+    expect(
+      isAutomationMessagingChannelReady(
+        createAutomationChannel({
+          provider: MessagingProvider.TELEGRAM,
+          accessToken: null,
+        }),
+      ),
     ).toBe(true);
   });
 });
+
+function createAutomationChannel({
+  provider,
+  accessToken,
+  providerUserId = null,
+  routes = [
+    {
+      purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+      targetId: "destination-1",
+    },
+  ],
+}: {
+  provider: MessagingProvider;
+  accessToken: string | null;
+  providerUserId?: string | null;
+  routes?: Array<{
+    purpose: MessagingRoutePurpose;
+    targetId: string;
+  }>;
+}) {
+  return {
+    provider,
+    isConnected: true,
+    accessToken,
+    providerUserId,
+    routes,
+  };
+}

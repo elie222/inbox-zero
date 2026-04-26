@@ -10,6 +10,7 @@ import { SafeError } from "@/utils/error";
 import {
   AutomationJobRunStatus,
   MessagingProvider,
+  MessagingRoutePurpose,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import {
@@ -26,10 +27,12 @@ import {
 } from "@/utils/actions/automation-jobs.helpers";
 import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
 import {
-  isAutomationMessagingChannelReady,
   isSupportedAutomationMessagingProvider,
   SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS,
 } from "@/utils/automation-jobs/messaging-channel";
+import { ensureScheduledCheckInsRoute } from "@/utils/automation-jobs/destination";
+import { isMessagingChannelOperational } from "@/utils/messaging/channel-validity";
+import { upsertSlackRoute } from "@/utils/messaging/slack-routes";
 
 const AUTOMATION_JOBS_TOPIC = "automation-jobs-execute";
 
@@ -37,13 +40,21 @@ export const toggleAutomationJobAction = actionClient
   .metadata({ name: "toggleAutomationJob" })
   .inputSchema(toggleAutomationJobBody)
   .action(
-    async ({ ctx: { emailAccountId, userId }, parsedInput: { enabled } }) => {
+    async ({
+      ctx: { emailAccountId, userId, logger },
+      parsedInput: { enabled },
+    }) => {
       if (enabled) {
         await assertCanEnableAutomationJobs(userId);
       }
 
       const existingJob = await prisma.automationJob.findUnique({
         where: { emailAccountId },
+        select: {
+          id: true,
+          cronExpression: true,
+          messagingChannelId: true,
+        },
       });
 
       if (!enabled) {
@@ -58,6 +69,18 @@ export const toggleAutomationJobAction = actionClient
       }
 
       if (existingJob) {
+        const channel = await getAutomationMessagingChannel({
+          emailAccountId,
+          messagingChannelId: existingJob.messagingChannelId,
+        });
+        if (!channel) throw new SafeError("Messaging channel not found");
+
+        const validationError = await prepareAutomationMessagingChannel({
+          channel,
+          logger,
+        });
+        if (validationError) throw new SafeError(validationError);
+
         await prisma.automationJob.update({
           where: { id: existingJob.id },
           data: {
@@ -76,6 +99,7 @@ export const toggleAutomationJobAction = actionClient
         emailAccountId,
         cronExpression: DEFAULT_AUTOMATION_JOB_CRON,
         messagingChannelId: defaultChannel.id,
+        logger,
       });
     },
   );
@@ -85,8 +109,13 @@ export const saveAutomationJobAction = actionClient
   .inputSchema(saveAutomationJobBody)
   .action(
     async ({
-      ctx: { emailAccountId, userId },
-      parsedInput: { cronExpression, messagingChannelId, prompt },
+      ctx: { emailAccountId, userId, logger },
+      parsedInput: {
+        cronExpression,
+        messagingChannelId,
+        scheduledCheckInsTargetId,
+        prompt,
+      },
     }) => {
       await assertCanEnableAutomationJobs(userId);
 
@@ -96,31 +125,17 @@ export const saveAutomationJobAction = actionClient
         throw new SafeError("Invalid schedule");
       }
 
-      const channel = await prisma.messagingChannel.findUnique({
-        where: { id: messagingChannelId },
-        select: {
-          id: true,
-          emailAccountId: true,
-          provider: true,
-          isConnected: true,
-          accessToken: true,
-          providerUserId: true,
-          channelId: true,
-        },
+      const channel = await getAutomationMessagingChannel({
+        emailAccountId,
+        messagingChannelId,
       });
 
-      if (!channel || channel.emailAccountId !== emailAccountId) {
+      if (!channel) {
         throw new SafeError("Messaging channel not found");
       }
 
       if (!isSupportedAutomationMessagingProvider(channel.provider)) {
         throw new SafeError("Messaging provider is not supported");
-      }
-
-      const validationError =
-        getAutomationMessagingChannelValidationError(channel);
-      if (validationError) {
-        throw new SafeError(validationError);
       }
 
       const existingJob = await prisma.automationJob.findUnique({
@@ -137,6 +152,15 @@ export const saveAutomationJobAction = actionClient
       const name = getDefaultAutomationJobName();
 
       if (existingJob) {
+        const validationError = await prepareAutomationMessagingChannel({
+          channel,
+          scheduledCheckInsTargetId,
+          logger,
+        });
+        if (validationError) {
+          throw new SafeError(validationError);
+        }
+
         await prisma.automationJob.update({
           where: { id: existingJob.id },
           data: {
@@ -156,6 +180,8 @@ export const saveAutomationJobAction = actionClient
         cronExpression,
         prompt: normalizedPrompt,
         messagingChannelId,
+        scheduledCheckInsTargetId,
+        logger,
       });
     },
   );
@@ -173,11 +199,20 @@ export const triggerTestCheckInAction = actionClient
         enabled: true,
         messagingChannel: {
           select: {
+            id: true,
             provider: true,
             isConnected: true,
             accessToken: true,
             providerUserId: true,
-            channelId: true,
+            botUserId: true,
+            teamId: true,
+            routes: {
+              select: {
+                purpose: true,
+                targetType: true,
+                targetId: true,
+              },
+            },
           },
         },
       },
@@ -191,8 +226,10 @@ export const triggerTestCheckInAction = actionClient
     }
 
     const channel = job.messagingChannel;
-    const validationError =
-      getAutomationMessagingChannelValidationError(channel);
+    const validationError = await prepareAutomationMessagingChannel({
+      channel,
+      logger,
+    });
     if (validationError) {
       throw new SafeError(validationError);
     }
@@ -233,13 +270,21 @@ async function getDefaultMessagingChannel(emailAccountId: string) {
       isConnected: true,
       accessToken: true,
       providerUserId: true,
-      channelId: true,
+      botUserId: true,
+      teamId: true,
+      routes: {
+        select: {
+          purpose: true,
+          targetType: true,
+          targetId: true,
+        },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
 
   const channel = channels.find((candidate) =>
-    isAutomationMessagingChannelReady(candidate),
+    isMessagingChannelOperational(candidate),
   );
 
   if (!channel) {
@@ -251,30 +296,81 @@ async function getDefaultMessagingChannel(emailAccountId: string) {
   return channel;
 }
 
-function getAutomationMessagingChannelValidationError(channel: {
-  provider: MessagingProvider;
-  isConnected: boolean;
-  accessToken: string | null;
-  providerUserId: string | null;
-  channelId: string | null;
+async function getAutomationMessagingChannel({
+  emailAccountId,
+  messagingChannelId,
+}: {
+  emailAccountId: string;
+  messagingChannelId: string;
+}) {
+  return prisma.messagingChannel.findUnique({
+    where: {
+      id_emailAccountId: {
+        id: messagingChannelId,
+        emailAccountId,
+      },
+    },
+    select: {
+      id: true,
+      provider: true,
+      isConnected: true,
+      accessToken: true,
+      providerUserId: true,
+      botUserId: true,
+      teamId: true,
+      routes: {
+        select: {
+          purpose: true,
+          targetType: true,
+          targetId: true,
+        },
+      },
+    },
+  });
+}
+
+async function prepareAutomationMessagingChannel({
+  channel,
+  scheduledCheckInsTargetId,
+  logger,
+}: {
+  channel: AutomationMessagingChannel;
+  scheduledCheckInsTargetId?: string | null;
+  logger: Parameters<typeof upsertSlackRoute>[0]["logger"];
 }) {
   if (!isSupportedAutomationMessagingProvider(channel.provider)) {
     return "Messaging provider is not supported";
   }
-
-  if (!channel.isConnected) return "Messaging channel is not connected";
-
-  if (channel.provider === MessagingProvider.SLACK && !channel.accessToken) {
-    return "Slack channel is not connected";
-  }
-
-  if (!channel.providerUserId && !channel.channelId) {
-    return "Select a messaging destination first";
-  }
-
-  if (!isAutomationMessagingChannelReady(channel)) {
+  if (!isMessagingChannelOperational(channel)) {
     return "Messaging channel is not connected";
   }
 
+  if (
+    channel.provider === MessagingProvider.SLACK &&
+    scheduledCheckInsTargetId
+  ) {
+    await upsertSlackRoute({
+      messagingChannelId: channel.id,
+      purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+      targetId: scheduledCheckInsTargetId,
+      accessToken: channel.accessToken,
+      providerUserId: channel.providerUserId,
+      botUserId: channel.botUserId,
+      logger,
+    });
+
+    return null;
+  }
+
+  const route = await ensureScheduledCheckInsRoute({
+    channel,
+    routes: channel.routes,
+  });
+  if (!route) return "Select a messaging destination first";
+
   return null;
 }
+
+type AutomationMessagingChannel = NonNullable<
+  Awaited<ReturnType<typeof getAutomationMessagingChannel>>
+>;

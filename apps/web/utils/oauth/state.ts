@@ -4,32 +4,6 @@ import crypto from "node:crypto";
 
 const OAUTH_STATE_DEFAULT_MAX_AGE_MS = 10 * 60 * 1000;
 
-/**
- * Generates a secure OAuth state parameter
- * @param data - The data to encode in the state
- * @returns Base64URL encoded state string
- */
-export function generateOAuthState<T extends Record<string, unknown>>(
-  data: T & { nonce?: string },
-): string {
-  const stateObject = {
-    ...data,
-    nonce: data.nonce || crypto.randomUUID(),
-  };
-  return Buffer.from(JSON.stringify(stateObject)).toString("base64url");
-}
-
-/**
- * Parses an OAuth state parameter
- * @param state - Base64URL encoded state string
- * @returns The decoded state object
- */
-export function parseOAuthState<T extends Record<string, unknown>>(
-  state: string,
-): T & { nonce: string } {
-  return JSON.parse(Buffer.from(state, "base64url").toString("utf8"));
-}
-
 export function generateSignedOAuthState<T extends Record<string, unknown>>(
   data: T & { nonce?: string; issuedAt?: number },
 ): string {
@@ -92,6 +66,47 @@ export function parseSignedOAuthState<T extends Record<string, unknown>>(
   return payload as T & { nonce: string; issuedAt: number };
 }
 
+export function validateSignedOAuthState<
+  T extends Record<string, unknown>,
+>(params: {
+  receivedState: string | null;
+  storedState: string | undefined;
+  maxAgeMs?: number;
+}):
+  | {
+      success: true;
+      state: T & { nonce: string; issuedAt: number };
+    }
+  | {
+      success: false;
+      error: "invalid_state" | "invalid_state_format";
+    } {
+  if (
+    !params.storedState ||
+    !params.receivedState ||
+    params.storedState !== params.receivedState
+  ) {
+    return {
+      success: false,
+      error: "invalid_state",
+    };
+  }
+
+  try {
+    return {
+      success: true,
+      state: parseSignedOAuthState<T>(params.storedState, {
+        maxAgeMs: params.maxAgeMs,
+      }),
+    };
+  } catch {
+    return {
+      success: false,
+      error: "invalid_state_format",
+    };
+  }
+}
+
 /**
  * Default secure cookie options for OAuth state
  */
@@ -120,5 +135,12 @@ function signOAuthStatePayload(payloadEncoded: string): string {
 }
 
 function getOAuthStateSigningSecret(): string {
-  return env.AUTH_SECRET || env.NEXTAUTH_SECRET || env.INTERNAL_API_KEY;
+  const secret = env.AUTH_SECRET || env.NEXTAUTH_SECRET;
+  if (!secret) {
+    throw new Error(
+      "Either AUTH_SECRET or NEXTAUTH_SECRET environment variable must be defined",
+    );
+  }
+
+  return secret;
 }

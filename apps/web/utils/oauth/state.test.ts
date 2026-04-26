@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { generateSignedOAuthState, parseSignedOAuthState } from "./state";
+import {
+  generateSignedOAuthState,
+  parseSignedOAuthState,
+  validateSignedOAuthState,
+} from "./state";
 
 describe("signed OAuth state", () => {
   afterEach(() => {
@@ -52,5 +56,73 @@ describe("signed OAuth state", () => {
     expect(() =>
       parseSignedOAuthState<{ emailAccountId: string; type: "slack" }>(state),
     ).toThrow("OAuth state expired");
+  });
+
+  it("validates matching signed state values", () => {
+    const state = generateSignedOAuthState({
+      emailAccountId: "acc_123",
+      type: "slack" as const,
+    });
+
+    const result = validateSignedOAuthState<{
+      emailAccountId: string;
+      type: "slack";
+    }>({
+      receivedState: state,
+      storedState: state,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.state.emailAccountId).toBe("acc_123");
+      expect(result.state.type).toBe("slack");
+    }
+  });
+
+  it("rejects mismatched signed state values", () => {
+    const storedState = generateSignedOAuthState({
+      emailAccountId: "acc_123",
+      type: "slack" as const,
+    });
+    const receivedState = generateSignedOAuthState({
+      emailAccountId: "acc_123",
+      type: "slack" as const,
+    });
+
+    const result = validateSignedOAuthState<{
+      emailAccountId: string;
+      type: "slack";
+    }>({
+      receivedState,
+      storedState,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "invalid_state",
+    });
+  });
+
+  it("rejects malformed signed state values", () => {
+    const unsignedState = Buffer.from(
+      JSON.stringify({
+        emailAccountId: "acc_123",
+        type: "slack",
+        nonce: "12345678",
+      }),
+    ).toString("base64url");
+
+    const result = validateSignedOAuthState<{
+      emailAccountId: string;
+      type: "slack";
+    }>({
+      receivedState: unsignedState,
+      storedState: unsignedState,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "invalid_state_format",
+    });
   });
 });

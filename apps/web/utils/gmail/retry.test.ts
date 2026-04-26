@@ -80,6 +80,18 @@ describe("Gmail retry helpers", () => {
       expect(result.isServerError).toBe(false);
     });
 
+    it("should identify RESOURCE_EXHAUSTED concurrent request errors as retryable", () => {
+      const errorInfo = {
+        googleErrorStatus: "RESOURCE_EXHAUSTED",
+        errorMessage: "Too many concurrent requests for user",
+      };
+      const result = isRetryableError(errorInfo);
+
+      expect(result.retryable).toBe(true);
+      expect(result.isRateLimit).toBe(true);
+      expect(result.isServerError).toBe(false);
+    });
+
     it("should identify fetch failed as network error", () => {
       const errorInfo = { errorMessage: "fetch failed" };
       const result = isRetryableError(errorInfo);
@@ -130,9 +142,11 @@ describe("Gmail retry helpers", () => {
   });
 
   describe("calculateRetryDelay", () => {
-    it("should return 30 seconds for rate limit errors", () => {
-      const delay = calculateRetryDelay(true, false, false, 1);
-      expect(delay).toBe(30_000);
+    it("should use short exponential backoff for rate limit errors", () => {
+      expect(calculateRetryDelay(true, false, false, 1)).toBe(1000);
+      expect(calculateRetryDelay(true, false, false, 2)).toBe(2000);
+      expect(calculateRetryDelay(true, false, false, 4)).toBe(8000);
+      expect(calculateRetryDelay(true, false, false, 5)).toBe(10_000);
     });
 
     it("should use exponential backoff for server errors", () => {
@@ -145,7 +159,7 @@ describe("Gmail retry helpers", () => {
       const pastDate = new Date(Date.now() - 10_000).toISOString();
       const errorMessage = `Rate limit exceeded. Retry after ${pastDate}`;
 
-      // Should fall back to 30s for rate limit
+      // Should fall back to rate-limit backoff
       const delay = calculateRetryDelay(
         true,
         false,
@@ -154,7 +168,7 @@ describe("Gmail retry helpers", () => {
         undefined,
         errorMessage,
       );
-      expect(delay).toBe(30_000);
+      expect(delay).toBe(1000);
     });
 
     it("should use fallback delay when Retry-After header is stale", () => {
@@ -220,6 +234,29 @@ describe("Gmail retry helpers", () => {
       expect(info.status).toBe(404);
       expect(info.reason).toBe("notFound");
       expect(info.errorMessage).toBe("Invalid label: FAKE_LABEL_ID_123");
+    });
+
+    it("should extract numeric status from RESOURCE_EXHAUSTED payloads", () => {
+      const error = {
+        cause: {
+          response: {
+            data: {
+              error: {
+                code: "429",
+                status: "RESOURCE_EXHAUSTED",
+                message: "Too many concurrent requests for user",
+              },
+            },
+          },
+        },
+      };
+
+      const info = extractErrorInfo(error);
+
+      expect(info.status).toBe(429);
+      expect(info.code).toBe("429");
+      expect(info.googleErrorStatus).toBe("RESOURCE_EXHAUSTED");
+      expect(info.errorMessage).toBe("Too many concurrent requests for user");
     });
 
     it("should fall back to top-level error string when message missing", () => {

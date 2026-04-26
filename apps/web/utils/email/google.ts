@@ -1,4 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
+import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import type { MessageWithPayload, ParsedMessage } from "@/utils/types";
 import { parseMessage } from "@/utils/gmail/message";
 import {
@@ -64,7 +65,6 @@ import {
   deleteFilter,
   createAutoArchiveFilter,
 } from "@/utils/gmail/filter";
-import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
 import { watchGmail, unwatchGmail } from "@/utils/gmail/watch";
 import type {
   EmailProvider,
@@ -76,6 +76,7 @@ import type {
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
+import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 
 /**
  * Build a raw RFC 2822 message and encode it as base64url for Gmail API
@@ -147,14 +148,17 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
-  async getLabels(): Promise<EmailLabel[]> {
+  async getLabels(options?: {
+    includeHidden?: boolean;
+  }): Promise<EmailLabel[]> {
     return this.withRateLimitTracking("get-labels", async () => {
       const labels = await getLabels(this.client, { logger: this.logger });
       return (labels || [])
         .filter(
           (label) =>
             label.type === "user" &&
-            label.labelListVisibility !== labelVisibility.labelHide,
+            (options?.includeHidden ||
+              label.labelListVisibility !== labelVisibility.labelHide),
         )
         .map((label) => ({
           id: label.id!,
@@ -355,15 +359,19 @@ export class GmailProvider implements EmailProvider {
     senders: string[],
     ownerEmail: string,
     emailAccountId: string,
-  ): Promise<void> {
+    options?: { continueOnError?: boolean },
+  ): Promise<number> {
     const log = this.logger.with({
       action: "archiveMessagesFromSenders",
       emailAccountId,
       email: ownerEmail,
       sendersCount: senders.length,
     });
+    const continueOnError = options?.continueOnError ?? true;
 
-    if (senders.length === 0) return;
+    if (senders.length === 0) return 0;
+
+    let archivedMessagesCount = 0;
 
     for (const sender of senders) {
       if (!sender) continue;
@@ -387,6 +395,7 @@ export class GmailProvider implements EmailProvider {
 
           if (batchMessageIds.length > 0) {
             await this.archiveMessagesBulk(batchMessageIds);
+            archivedMessagesCount += batchMessageIds.length;
 
             const newThreadIds = Array.from(batchThreadIds).filter(
               (threadId) => !publishedThreadIds.has(threadId),
@@ -424,6 +433,9 @@ export class GmailProvider implements EmailProvider {
             sender,
             error,
           });
+          if (!continueOnError) {
+            throw error;
+          }
           // continue processing remaining pages
           nextPageToken = undefined;
         }
@@ -431,6 +443,7 @@ export class GmailProvider implements EmailProvider {
     }
 
     log.info("Completed bulk archive from senders");
+    return archivedMessagesCount;
   }
 
   private async trashThreadsFromSenders(
@@ -556,6 +569,21 @@ export class GmailProvider implements EmailProvider {
       ownerEmail,
       emailAccountId,
     );
+  }
+
+  async bulkArchiveSenderOrThrow(
+    fromEmail: string,
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<number> {
+    return this.withRateLimitTracking("bulk-archive-sender", async () => {
+      return await this.archiveMessagesFromSenders(
+        [fromEmail],
+        ownerEmail,
+        emailAccountId,
+        { continueOnError: false },
+      );
+    });
   }
 
   async bulkTrashFromSenders(
@@ -770,10 +798,15 @@ export class GmailProvider implements EmailProvider {
       content: string;
       cc?: string;
       bcc?: string;
+      attachments?: MailAttachment[];
     },
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
   ): Promise<{ draftId: string }> {
+    if (shouldSkipAutoDraft({ logger: this.logger, source: "google" })) {
+      return { draftId: "" };
+    }
+
     this.logger.info("Creating Gmail draft", {
       hasExecutedRule: Boolean(executedRule),
       contentLength: args.content?.length,
@@ -813,7 +846,11 @@ export class GmailProvider implements EmailProvider {
   async replyToEmail(
     email: ParsedMessage,
     content: string,
-    options?: { replyTo?: string; from?: string },
+    options?: {
+      replyTo?: string;
+      from?: string;
+      attachments?: MailAttachment[];
+    },
   ): Promise<void> {
     await replyToEmail(this.client, email, content, options?.from, options);
   }
@@ -824,6 +861,7 @@ export class GmailProvider implements EmailProvider {
     bcc?: string;
     subject: string;
     messageText: string;
+    attachments?: MailAttachment[];
   }): Promise<void> {
     await sendEmailWithPlainText(this.client, args);
   }
@@ -856,7 +894,13 @@ export class GmailProvider implements EmailProvider {
 
   async forwardEmail(
     email: ParsedMessage,
-    args: { to: string; cc?: string; bcc?: string; content?: string },
+    args: {
+      to: string;
+      cc?: string;
+      bcc?: string;
+      content?: string;
+      from?: string;
+    },
   ): Promise<void> {
     const parsedMessage = await this.getMessage(email.id);
 
@@ -1446,29 +1490,6 @@ export class GmailProvider implements EmailProvider {
       this.getAccessToken(),
       sender,
       limit,
-    );
-  }
-
-  async processHistory(options: {
-    emailAddress: string;
-    historyId?: number;
-    startHistoryId?: number;
-    subscriptionId?: string;
-    resourceData?: {
-      id: string;
-      conversationId?: string;
-    };
-    logger?: Logger;
-  }): Promise<void> {
-    await processHistoryForUser(
-      {
-        emailAddress: options.emailAddress,
-        historyId: options.historyId || 0,
-      },
-      {
-        startHistoryId: options.startHistoryId?.toString(),
-      },
-      options.logger || this.logger,
     );
   }
 

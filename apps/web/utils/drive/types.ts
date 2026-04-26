@@ -17,6 +17,7 @@ export interface DriveFile {
   folderId?: string;
   id: string;
   mimeType: string;
+  modifiedAt?: Date;
   name: string;
   size?: number;
   webUrl?: string; // Link to open in browser
@@ -48,6 +49,13 @@ export interface DriveProvider {
   createFolder(name: string, parentId?: string): Promise<DriveFolder>;
 
   /**
+   * Download file contents by ID
+   */
+  downloadFile(
+    fileId: string,
+  ): Promise<{ content: Buffer; file: DriveFile } | null>;
+
+  /**
    * Get the current access token (may trigger refresh if expired)
    */
   getAccessToken(): string;
@@ -61,6 +69,14 @@ export interface DriveProvider {
    * Get a specific folder by ID
    */
   getFolder(folderId: string): Promise<DriveFolder | null>;
+
+  /**
+   * List files in a parent folder (or root if no parentId)
+   */
+  listFiles(
+    parentId?: string,
+    options?: { mimeTypes?: string[] },
+  ): Promise<DriveFile[]>;
 
   /**
    * List folders in a parent folder (or root if no parentId)

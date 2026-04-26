@@ -10,6 +10,7 @@ import type { Logger } from "@/utils/logger";
 import { CleanAction } from "@/generated/prisma/enums";
 import { updateThread } from "@/utils/redis/clean";
 import { withQstashOrInternal } from "@/utils/qstash";
+import { assertCleanerApiEnabled } from "@/utils/cleaner-feature";
 
 const cleanGmailSchema = z.object({
   emailAccountId: z.string(),
@@ -140,6 +141,8 @@ async function saveToDatabase({
 export const POST = withError(
   "clean/gmail",
   withQstashOrInternal(async (request: RequestWithLogger) => {
+    assertCleanerApiEnabled();
+
     const json = await request.json();
     const body = cleanGmailSchema.parse(json);
 

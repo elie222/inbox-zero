@@ -197,7 +197,7 @@ async function getOrCreateGroupForRule({
 
   // Handle duplicate: check if rule was concurrently updated with a group
   const updatedRule = await prisma.rule.findUnique({
-    where: { id: ruleId },
+    where: { id: ruleId, emailAccountId },
     select: { groupId: true },
   });
   if (updatedRule?.groupId) return updatedRule.groupId;
@@ -211,7 +211,10 @@ async function getOrCreateGroupForRule({
   if (existingGroup) {
     // Attempt to link it (ignore failures from concurrent updates)
     await prisma.rule
-      .update({ where: { id: ruleId }, data: { groupId: existingGroup.id } })
+      .update({
+        where: { id: ruleId, emailAccountId },
+        data: { groupId: existingGroup.id },
+      })
       .catch((error) => {
         logger.warn(
           "Failed to link existing group to rule (likely concurrent update)",

@@ -1,21 +1,31 @@
-import { MessagingProvider } from "@/generated/prisma/enums";
-import type { AutomationMessagingChannel } from "@/utils/automation-jobs/messaging-channel";
+import {
+  MessagingProvider,
+  MessagingRouteTargetType,
+} from "@/generated/prisma/enums";
 import {
   AutomationJobConfigurationError,
   sendAutomationMessageToSlack,
 } from "@/utils/automation-jobs/slack";
 import type { Logger } from "@/utils/logger";
-import { getMessagingChatSdkBot } from "@/utils/messaging/chat-sdk/bot";
+import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters";
 
 export async function sendAutomationMessage({
   channel,
+  route,
   text,
   logger,
 }: {
-  channel: Pick<
-    AutomationMessagingChannel,
-    "provider" | "accessToken" | "providerUserId" | "channelId"
-  >;
+  channel: {
+    provider: MessagingProvider;
+    accessToken: string | null;
+    botUserId?: string | null;
+    providerUserId?: string | null;
+    teamId?: string | null;
+  };
+  route?: {
+    targetId: string;
+    targetType: MessagingRouteTargetType;
+  } | null;
   text: string;
   logger: Logger;
 }) {
@@ -23,20 +33,31 @@ export async function sendAutomationMessage({
     case MessagingProvider.SLACK: {
       return sendAutomationMessageToSlack({
         channel,
+        route,
         text,
         logger,
       });
     }
     case MessagingProvider.TEAMS: {
       return sendAutomationMessageToTeams({
-        providerUserId: channel.providerUserId,
+        providerUserId:
+          route?.targetType === MessagingRouteTargetType.DIRECT_MESSAGE
+            ? route.targetId
+            : (channel.providerUserId ?? null),
         text,
         logger,
       });
     }
     case MessagingProvider.TELEGRAM: {
       return sendAutomationMessageToTelegram({
-        providerUserId: channel.providerUserId,
+        teamId:
+          route?.targetType === MessagingRouteTargetType.DIRECT_MESSAGE
+            ? route.targetId
+            : (channel.teamId ?? null),
+        providerUserId:
+          route?.targetType === MessagingRouteTargetType.DIRECT_MESSAGE
+            ? route.targetId
+            : (channel.providerUserId ?? null),
         text,
         logger,
       });
@@ -65,10 +86,10 @@ async function sendAutomationMessageToTeams({
   }
 
   let teamsAdapter: ReturnType<
-    typeof getMessagingChatSdkBot
-  >["adapters"]["teams"];
+    typeof getMessagingAdapterRegistry
+  >["typedAdapters"]["teams"];
   try {
-    teamsAdapter = getMessagingChatSdkBot().adapters.teams;
+    teamsAdapter = getMessagingAdapterRegistry().typedAdapters.teams;
   } catch {
     throw new AutomationJobConfigurationError(
       "Teams adapter is not configured",
@@ -100,25 +121,29 @@ async function sendAutomationMessageToTeams({
 }
 
 async function sendAutomationMessageToTelegram({
+  teamId,
   providerUserId,
   text,
   logger,
 }: {
+  teamId: string | null | undefined;
   providerUserId: string | null;
   text: string;
   logger: Logger;
 }) {
-  if (!providerUserId) {
+  const destination = teamId || providerUserId;
+
+  if (!destination) {
     throw new AutomationJobConfigurationError(
-      "Telegram channel is missing provider user ID",
+      "Telegram channel is missing a direct-message target",
     );
   }
 
   let telegramAdapter: ReturnType<
-    typeof getMessagingChatSdkBot
-  >["adapters"]["telegram"];
+    typeof getMessagingAdapterRegistry
+  >["typedAdapters"]["telegram"];
   try {
-    telegramAdapter = getMessagingChatSdkBot().adapters.telegram;
+    telegramAdapter = getMessagingAdapterRegistry().typedAdapters.telegram;
   } catch {
     throw new AutomationJobConfigurationError(
       "Telegram adapter is not configured",
@@ -133,12 +158,12 @@ async function sendAutomationMessageToTelegram({
 
   const telegramLogger = logger.with({
     component: "sendAutomationMessageToTelegram",
-    destination: providerUserId,
+    destination,
   });
 
   telegramLogger.info("Sending Telegram automation message");
 
-  const threadId = await telegramAdapter.openDM(providerUserId);
+  const threadId = await telegramAdapter.openDM(destination);
   const response = await telegramAdapter.postMessage(threadId, text);
 
   telegramLogger.info("Telegram automation message sent");

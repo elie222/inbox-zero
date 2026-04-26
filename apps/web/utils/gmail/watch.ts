@@ -4,6 +4,12 @@ import { env } from "@/env";
 import { withGmailRetry } from "@/utils/gmail/retry";
 
 export async function watchGmail(gmail: gmail_v1.Gmail) {
+  if (env.GOOGLE_PUBSUB_VERIFICATION_TOKEN == null) {
+    throw new Error(
+      "GOOGLE_PUBSUB_VERIFICATION_TOKEN is required to watch Gmail",
+    );
+  }
+
   const res = await withGmailRetry(() =>
     gmail.users.watch({
       userId: "me",

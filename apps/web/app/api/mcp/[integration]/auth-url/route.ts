@@ -7,11 +7,15 @@ import {
   getMcpPkceCookieName,
   getMcpStateCookieName,
   getMcpOAuthStateType,
+  generateSignedOAuthState,
 } from "@/utils/oauth/state";
 import { getIntegration } from "@/utils/mcp/integrations";
-import { generateOAuthState } from "@/utils/oauth/state";
 import { generateOAuthUrl } from "@/utils/mcp/oauth";
-import { hasTierAccess } from "@/utils/premium";
+import {
+  getUserTier,
+  hasTierAccess,
+  premiumEntitlementSelect,
+} from "@/utils/premium";
 import prisma from "@/utils/prisma";
 
 export type GetMcpAuthUrlResponse = { url: string };
@@ -30,12 +34,16 @@ export const GET = withEmailAccount(
     // Check premium tier - integrations require Business Plus
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { premium: { select: { tier: true } } },
+      select: {
+        premium: {
+          select: premiumEntitlementSelect,
+        },
+      },
     });
 
     if (
       !hasTierAccess({
-        tier: user?.premium?.tier ?? null,
+        tier: getUserTier(user?.premium),
         minimumTier: "PLUS_MONTHLY",
       })
     ) {
@@ -57,7 +65,7 @@ export const GET = withEmailAccount(
     try {
       const redirectUri = `${env.NEXT_PUBLIC_BASE_URL}/api/mcp/${integration}/callback`;
 
-      const state = generateOAuthState({
+      const state = generateSignedOAuthState({
         userId,
         emailAccountId,
         type: getMcpOAuthStateType(integration),

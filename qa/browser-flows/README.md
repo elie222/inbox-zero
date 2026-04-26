@@ -26,6 +26,8 @@ Each flow is a Markdown file with YAML front matter and core sections.
 
 - `id` (required) Unique slug for the flow. Must match filename.
 - `title` (required) Short, human-friendly name.
+- `group` (optional) Feature area for organization (e.g., `assistant`, `api`, `rules`, `email`, `integrations`). Used by `--group` filter.
+- `priority` (optional) `high` (default) or `low`. High-priority flows run in every QA pass. Low-priority flows only run when explicitly included via `--all` or `--only`.
 - `resources` (required) List of shared resources that this flow mutates or depends on.
   - Examples: `assistant-settings`, `conversation-rules`, `gmail-account`, `outlook-account`.
 - `parallel_safe` (optional) Set to `true` only if the flow can run in parallel. Omit to default to `false`.

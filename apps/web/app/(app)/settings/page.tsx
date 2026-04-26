@@ -7,20 +7,20 @@ import {
   CreditCardIcon,
   MailIcon,
   MessageCircleIcon,
+  MessagesSquareIcon,
   PlugIcon,
   SendIcon,
-  SlackIcon,
   SparklesIcon,
+  UserIcon,
+  UsersIcon,
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
-import { ProactiveUpdatesSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting";
+import { AppearanceSection } from "@/app/(app)/settings/AppearanceSection";
+import { TeamSection } from "@/app/(app)/settings/TeamSection";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/CleanupDraftsSection";
-import {
-  ConnectedAppsSection,
-  useSlackNotifications,
-} from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
+import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
 import { OrgAnalyticsConsentSection } from "@/app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection";
@@ -34,18 +34,12 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Item,
   ItemCard,
   ItemContent,
+  ItemDescription,
   ItemSeparator,
   ItemTitle,
   ItemActions,
@@ -134,6 +128,12 @@ export default function SettingsPage() {
           </SettingsGroup>
         )}
 
+        <SettingsGroup icon={<UsersIcon className="size-5" />} title="Team">
+          <ItemCard>
+            <TeamSection />
+          </ItemCard>
+        </SettingsGroup>
+
         <SettingsGroup
           icon={<SparklesIcon className="size-5" />}
           title="AI Model"
@@ -143,20 +143,45 @@ export default function SettingsPage() {
           </ItemCard>
         </SettingsGroup>
 
-        <SettingsGroup
-          icon={<WebhookIcon className="size-5" />}
-          title="Developer"
-        >
+        {(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false ||
+          env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) && (
+          <SettingsGroup
+            icon={<WebhookIcon className="size-5" />}
+            title="Developer"
+          >
+            <ItemCard>
+              {env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false && (
+                <WebhookSection />
+              )}
+              {env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false &&
+                env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && <ItemSeparator />}
+              {env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && <ApiKeysSection />}
+            </ItemCard>
+          </SettingsGroup>
+        )}
+
+        <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
           <ItemCard>
-            <WebhookSection />
+            <AppearanceSection />
             <ItemSeparator />
-            <ApiKeysSection />
+            <Item size="sm">
+              <ItemContent>
+                <ItemTitle>Beta Features</ItemTitle>
+                <ItemDescription>
+                  Try experimental features that are still in progress.
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/early-access">Open</Link>
+                </Button>
+              </ItemActions>
+            </Item>
+          </ItemCard>
+          <ItemCard>
+            <DeleteSection />
           </ItemCard>
         </SettingsGroup>
-
-        <ItemCard>
-          <DeleteSection />
-        </ItemCard>
       </div>
     </div>
   );
@@ -188,10 +213,17 @@ function EmailAccountSettingsCard({
 
   return (
     <ItemCard>
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left"
         onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
       >
         <Avatar className="size-8 rounded-full">
           <AvatarImage
@@ -214,17 +246,18 @@ function EmailAccountSettingsCard({
           </Badge>
         ))}
         {hasUnconnectedProvider && (
-          <Badge
-            variant="outline"
-            className="gap-1 text-xs font-normal cursor-pointer hover:bg-muted"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!expanded) onToggle();
-            }}
+          <Link
+            href={`/${emailAccount.id}/channels`}
+            onClick={(e) => e.stopPropagation()}
           >
-            <PlugIcon className="size-3" />
-            Connect Apps
-          </Badge>
+            <Badge
+              variant="outline"
+              className="gap-1 text-xs font-normal cursor-pointer hover:bg-muted"
+            >
+              <PlugIcon className="size-3" />
+              Connect Apps
+            </Badge>
+          </Link>
         )}
         <ChevronRightIcon
           className={cn(
@@ -232,19 +265,20 @@ function EmailAccountSettingsCard({
             expanded && "rotate-90",
           )}
         />
-      </button>
+      </div>
 
       {expanded && (
         <>
-          <ConnectedAppsSection emailAccountId={emailAccount.id} />
-          <div className="px-4 py-3">
-            <ProactiveUpdatesSetting emailAccountId={emailAccount.id} />
-          </div>
-          <AdvancedSettingsSection
+          <OrgAnalyticsConsentSection emailAccountId={emailAccount.id} />
+          <ToggleAllRulesSection emailAccountId={emailAccount.id} />
+          <RuleImportExportSetting emailAccountId={emailAccount.id} />
+          <CopyRulesSection
             emailAccountId={emailAccount.id}
             emailAccountEmail={emailAccount.email}
             allAccounts={allAccounts}
           />
+          <CleanupDraftsSection emailAccountId={emailAccount.id} />
+          <ResetAnalyticsSection emailAccountId={emailAccount.id} />
         </>
       )}
     </ItemCard>
@@ -266,7 +300,7 @@ function ProviderIcon({
 }) {
   switch (provider) {
     case "SLACK":
-      return <SlackIcon className={className} />;
+      return <MessagesSquareIcon className={className} />;
     case "TEAMS":
       return <MessageCircleIcon className={className} />;
     case "TELEGRAM":
@@ -274,53 +308,6 @@ function ProviderIcon({
     default:
       return <PlugIcon className={className} />;
   }
-}
-
-function AdvancedSettingsSection({
-  emailAccountId,
-  emailAccountEmail,
-  allAccounts,
-}: {
-  emailAccountId: string;
-  emailAccountEmail: string;
-  allAccounts: GetEmailAccountsResponse["emailAccounts"];
-}) {
-  return (
-    <>
-      <ItemSeparator />
-      <Item size="sm">
-        <ItemContent>
-          <ItemTitle>Advanced</ItemTitle>
-        </ItemContent>
-        <ItemActions>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                View
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Advanced Settings</DialogTitle>
-              </DialogHeader>
-              <ItemCard className="[&>[data-slot=item-separator]:first-child]:hidden">
-                <OrgAnalyticsConsentSection emailAccountId={emailAccountId} />
-                <ToggleAllRulesSection emailAccountId={emailAccountId} />
-                <RuleImportExportSetting emailAccountId={emailAccountId} />
-                <CopyRulesSection
-                  emailAccountId={emailAccountId}
-                  emailAccountEmail={emailAccountEmail}
-                  allAccounts={allAccounts}
-                />
-                <CleanupDraftsSection emailAccountId={emailAccountId} />
-                <ResetAnalyticsSection emailAccountId={emailAccountId} />
-              </ItemCard>
-            </DialogContent>
-          </Dialog>
-        </ItemActions>
-      </Item>
-    </>
-  );
 }
 
 function SettingsGroup({

@@ -28,6 +28,11 @@ function setRequiredTestEnv() {
   setEnvDefault("GOOGLE_CLIENT_ID", "test-google-client-id");
   setEnvDefault("GOOGLE_CLIENT_SECRET", "test-google-client-secret");
   setEnvDefault("GOOGLE_PUBSUB_TOPIC_NAME", "projects/test/topics/inbox-zero");
+  setEnvDefault(
+    "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
+    "test-google-webhook-token",
+  );
+  setEnvDefault("AUTH_SECRET", "test-auth-secret");
   setEnvDefault("EMAIL_ENCRYPT_SECRET", "test-email-encrypt-secret");
   setEnvDefault("EMAIL_ENCRYPT_SALT", "test-email-encrypt-salt");
   setEnvDefault("INTERNAL_API_KEY", "test-internal-api-key");

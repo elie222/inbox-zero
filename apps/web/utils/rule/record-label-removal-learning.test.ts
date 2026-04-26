@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GroupItemSource, SystemType } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { recordLabelRemovalLearning } from "./record-label-removal-learning";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPattern: vi.fn().mockResolvedValue(undefined),
 }));
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe("recordLabelRemovalLearning", () => {
   beforeEach(() => {

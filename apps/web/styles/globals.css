@@ -105,3 +105,89 @@
 * {
   font-variant-ligatures: none;
 }
+
+/* Bulk unsubscribe table → card layout on mobile */
+@media (max-width: 640px) {
+  /* Constrain the wrapper div that the Table component adds */
+  :has(> .bulk-unsub-table) {
+    overflow: hidden !important;
+  }
+
+  .bulk-unsub-table,
+  .bulk-unsub-table thead,
+  .bulk-unsub-table tbody,
+  .bulk-unsub-table tbody tr {
+    max-width: 100%;
+  }
+
+  .bulk-unsub-table,
+  .bulk-unsub-table thead,
+  .bulk-unsub-table tbody {
+    display: block;
+  }
+
+  .bulk-unsub-table thead {
+    display: none;
+  }
+
+  .bulk-unsub-table tbody tr {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 12px;
+    margin: 8px 0;
+    border: 1px solid hsl(var(--border)) !important;
+    border-radius: 8px;
+  }
+
+  /* Checkbox: top-right of card */
+  .bulk-unsub-table td[data-cell="checkbox"] {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: auto;
+    padding: 0;
+    border: none;
+  }
+
+  /* From: full width row */
+  .bulk-unsub-table td[data-cell="from"] {
+    width: 100%;
+    min-width: 0;
+    max-width: calc(100vw - 80px);
+    padding: 0 40px 8px 0;
+    overflow: hidden;
+    border: none;
+  }
+
+  /* Stat cells: inline, side by side */
+  .bulk-unsub-table td[data-label] {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    padding: 0;
+    margin-right: 12px;
+    font-size: 0.8125rem;
+    border: none;
+  }
+
+  .bulk-unsub-table td[data-label]::before {
+    color: hsl(var(--muted-foreground));
+    content: attr(data-label) ":";
+  }
+
+  /* Actions: push to the right on the stats row */
+  .bulk-unsub-table td[data-cell="actions"] {
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    margin-left: auto;
+    border: none;
+  }
+
+  .bulk-unsub-table td[data-cell="actions"] > div {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}

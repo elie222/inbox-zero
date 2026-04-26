@@ -25,8 +25,6 @@ const documentAnalysisSchema = z
       ),
     confidence: z
       .number()
-      .min(0)
-      .max(1)
       .describe(
         "Confidence score from 0 to 1. Use 0.9+ only when very certain.",
       ),
@@ -50,7 +48,12 @@ const documentAnalysisSchema = z
 export type DocumentAnalysisResult = z.infer<typeof documentAnalysisSchema>;
 
 type EmailContext = { subject: string; sender: string };
-type AttachmentContext = { filename: string; content: string };
+type AttachmentContext = {
+  filename: string;
+  mimeType: string;
+  size: number;
+  content: string;
+};
 type DriveFolder = {
   id: string;
   name: string;
@@ -75,6 +78,7 @@ export async function analyzeDocument({
     emailAccount,
     label: "Document filing",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "compact" },
   });
 
   const result = await generateObject({
@@ -127,7 +131,8 @@ function buildPrompt({
   attachment: AttachmentContext;
   folders: DriveFolder[];
 }): string {
-  const cleanedText = cleanExtractedText(attachment.content);
+  const hasContent = attachment.content.trim().length > 0;
+  const cleanedText = hasContent ? cleanExtractedText(attachment.content) : "";
   const truncatedText =
     cleanedText.length > 8000
       ? `${cleanedText.slice(0, 8000)}\n\n[... document truncated ...]`
@@ -143,21 +148,29 @@ function buildPrompt({
           .join("\n")
       : "No existing folders found.";
 
+  const contentSection = hasContent
+    ? `<document_content>
+${truncatedText}
+</document_content>`
+    : `<document_content>
+No text content available for this file type. Use the filename, MIME type, file size, email subject, and sender to decide where to file it.
+</document_content>`;
+
   return `Decide where to file this document:
 
 <document_metadata>
 <filename>${attachment.filename}</filename>
+<mime_type>${attachment.mimeType}</mime_type>
+<size_bytes>${attachment.size}</size_bytes>
 <email_subject>${email.subject}</email_subject>
 <email_sender>${email.sender}</email_sender>
 </document_metadata>
 
-<document_content>
-${truncatedText}
-</document_content>
+${contentSection}
 
 <existing_folders>
 ${foldersText}
 </existing_folders>
 
-Based on the user's filing preferences and the document content, decide where this document should be filed.`;
+Based on the user's filing preferences and the document metadata${hasContent ? " and content" : ""}, decide where this document should be filed.`;
 }

@@ -7,9 +7,9 @@ import {
 import type { CalendarEventProvider } from "@/utils/calendar/event-types";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("@/utils/calendar/event-provider");
 vi.mock("@/utils/date", () => ({

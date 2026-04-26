@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import {
+  buildOutlookSearchFallbackQuery,
   convertMessage,
   sanitizeOutlookSearchQuery,
   sanitizeKqlValue,
@@ -341,5 +342,64 @@ describe("sanitizeOutlookSearchQuery", () => {
         "participants:john.doe@company.example.com",
       );
     });
+
+    it("falls back to plain text when a field query also includes extra terms", () => {
+      const query = 'from:"Loren Rock" RockMedical "user list" OR userlist';
+      const result = sanitizeOutlookSearchQuery(query);
+
+      expect(result.sanitized).toBe(
+        '"Loren Rock RockMedical user list userlist"',
+      );
+      expect(result.wasSanitized).toBe(true);
+    });
+
+    it("drops helper-only boolean field filters when collapsing complex queries", () => {
+      const query =
+        'from:"Loren Rock" (RockMedical OR "Rock Medical") hasattachments:true';
+      const result = sanitizeOutlookSearchQuery(query);
+
+      expect(result.sanitized).toBe('"Loren Rock RockMedical Rock Medical"');
+      expect(result.wasSanitized).toBe(true);
+    });
+  });
+});
+
+describe("buildOutlookSearchFallbackQuery", () => {
+  it("falls back from a fielded sender lookup to a plain-text sender search", () => {
+    expect(buildOutlookSearchFallbackQuery("from:sender@example.com")).toBe(
+      '"sender@example.com"',
+    );
+  });
+
+  it("drops trailing helper filters when collapsing an Outlook sender query", () => {
+    expect(
+      buildOutlookSearchFallbackQuery(
+        "from:sender@example.com received>=2026-04-20 unread",
+      ),
+    ).toBe('"sender@example.com"');
+  });
+
+  it("falls back from a subject field query to plain text", () => {
+    expect(
+      buildOutlookSearchFallbackQuery('subject:"Quarterly planning notes"'),
+    ).toBe('"Quarterly planning notes"');
+  });
+
+  it("preserves read-state words when they are part of the quoted subject text", () => {
+    expect(
+      sanitizeOutlookSearchQuery('subject:"Unread weekly report" unread')
+        .sanitized,
+    ).toBe('"Unread weekly report"');
+  });
+
+  it("does not strip plain keyword text that happens to contain a comparison", () => {
+    expect(buildOutlookSearchFallbackQuery('"price < 5"')).toBeNull();
+    expect(sanitizeOutlookSearchQuery('"price < 5"').sanitized).toBe(
+      '"price < 5"',
+    );
+  });
+
+  it("returns null when the fallback would not change the query", () => {
+    expect(buildOutlookSearchFallbackQuery("sender@example.com")).toBeNull();
   });
 });

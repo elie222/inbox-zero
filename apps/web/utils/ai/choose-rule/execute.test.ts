@@ -4,8 +4,8 @@ import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import type { EmailProvider } from "@/utils/email/types";
-import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
@@ -22,8 +22,13 @@ vi.mock("@/utils/prisma", () => ({
 }));
 
 describe("executeAct", () => {
-  const logger = createScopedLogger("test");
+  const logger = createTestLogger();
   const mockClient = {} as EmailProvider;
+  const emailAccount = {
+    email: "recipient@example.com",
+    id: "email-account-1",
+    userId: "user-1",
+  };
   const message: ParsedMessage = {
     id: "message-id-1",
     threadId: "thread-id-1",
@@ -78,9 +83,7 @@ describe("executeAct", () => {
       client: mockClient,
       executedRule,
       message,
-      userEmail: "recipient@example.com",
-      userId: "user-1",
-      emailAccountId: "email-account-1",
+      emailAccount,
       logger,
     });
 
@@ -107,9 +110,7 @@ describe("executeAct", () => {
       client: mockClient,
       executedRule,
       message,
-      userEmail: "recipient@example.com",
-      userId: "user-1",
-      emailAccountId: "email-account-1",
+      emailAccount,
       logger,
     });
 
@@ -133,9 +134,7 @@ describe("executeAct", () => {
         client: mockClient,
         executedRule,
         message,
-        userEmail: "recipient@example.com",
-        userId: "user-1",
-        emailAccountId: "email-account-1",
+        emailAccount,
         logger,
       }),
     ).rejects.toThrow("boom");

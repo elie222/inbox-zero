@@ -46,6 +46,10 @@ if [ -n "$NEXT_PUBLIC_CLEANER_ENABLED" ]; then
     /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_CLEANER_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_CLEANER_ENABLED"
 fi
 
+# Always replace — the placeholder is a non-empty string that would be coerced
+# to true by booleanString, incorrectly disabling drafting by default
+/app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_AUTO_DRAFT_DISABLED_PLACEHOLDER" "${NEXT_PUBLIC_AUTO_DRAFT_DISABLED:-false}"
+
 if [ -n "$NEXT_PUBLIC_MEETING_BRIEFS_ENABLED" ]; then
     /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_MEETING_BRIEFS_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_MEETING_BRIEFS_ENABLED"
 fi
@@ -56,6 +60,10 @@ fi
 
 if [ -n "$NEXT_PUBLIC_DIGEST_ENABLED" ]; then
     /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_DIGEST_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_DIGEST_ENABLED"
+fi
+
+if [ -n "$NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED" ]; then
+    /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED"
 fi
 
 if [ -n "$DATABASE_URL" ] || [ -n "$PREVIEW_DATABASE_URL_UNPOOLED" ] || [ -n "$DIRECT_URL" ]; then

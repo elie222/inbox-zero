@@ -66,6 +66,7 @@ Determine the action and write a reply.`;
     emailAccount,
     label: "Parse filing reply",
     modelOptions,
+    promptHardening: { trust: "trusted" },
   });
 
   const result = await generateObject({

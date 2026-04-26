@@ -2,7 +2,7 @@ import type { ComponentProps } from "react";
 import Link from "next/link";
 import { env } from "@/env";
 import { EXTENSION_URL } from "@/utils/config";
-import { BRAND_NAME, SUPPORT_EMAIL } from "@/utils/branding";
+import { BRAND_NAME } from "@/utils/branding";
 
 export const footerNavigation = {
   main: [
@@ -12,6 +12,10 @@ export const footerNavigation = {
       target: "_blank",
     },
     { name: "AI Email Assistant", href: "/ai-automation" },
+    { name: "AI Chat for Slack & Telegram", href: "/ai-assistant-chat" },
+    { name: "Slack AI Assistant", href: "/slack-integration" },
+    { name: "Telegram AI Assistant", href: "/telegram-integration" },
+    { name: "Teams AI Assistant", href: "/teams-integration" },
     { name: "Brief My Meeting", href: "/brief-my-meeting" },
     { name: "Reply Zero", href: "/reply-zero-ai" },
     { name: "Bulk Email Unsubscriber", href: "/bulk-email-unsubscriber" },
@@ -19,6 +23,7 @@ export const footerNavigation = {
     { name: "Cold Email Blocker", href: "/block-cold-emails" },
     { name: "Email Analytics", href: "/email-analytics" },
     { name: "Auto Forward Emails", href: "/auto-forward-emails" },
+    { name: "Auto-File Attachments", href: "/auto-file-email-attachments" },
     { name: "Open Source", href: "/github", target: "_blank" },
   ],
   useCases: [
@@ -26,7 +31,7 @@ export const footerNavigation = {
     { name: "Small Business", href: "/small-business" },
     { name: "Content Creator", href: "/creator" },
     { name: "Realtor", href: "/real-estate" },
-    { name: "Customer Support", href: "/support" },
+    { name: "Customer Support", href: "/customer-support" },
     { name: "E-commerce", href: "/ecommerce" },
   ],
   industries: [
@@ -57,11 +62,7 @@ export const footerNavigation = {
   ],
   support: [
     { name: "Pricing", href: "/pricing" },
-    {
-      name: "Contact",
-      href: `mailto:${SUPPORT_EMAIL}`,
-      target: "_blank",
-    },
+    { name: "Support", href: "/support" },
     {
       name: "Documentation",
       href: "https://docs.getinboxzero.com",
@@ -74,6 +75,8 @@ export const footerNavigation = {
       href: "https://inbox-zero.openstatus.dev/",
       target: "_blank",
     },
+    { name: "CLI", href: "/cli" },
+    { name: "OpenClaw Skill", href: "/openclaw" },
   ],
   company: [
     { name: "Affiliates", href: "/affiliates", target: "_blank" },
@@ -93,7 +96,6 @@ export const footerNavigation = {
       href: "https://security.getinboxzero.com",
       target: "_blank",
     },
-    { name: "Sitemap", href: "/sitemap.xml" },
   ],
   social: [
     {
@@ -205,38 +207,40 @@ export function Footer() {
   return (
     <footer className="relative">
       <div className="mx-auto max-w-7xl overflow-hidden px-6 py-20 sm:py-24 lg:px-8">
-        <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-5 xl:col-span-2 xl:mt-0">
-          <div>
-            <FooterList title="Product" items={footerNavigation.main} />
-          </div>
-          <div>
-            <FooterList title="Use Cases" items={footerNavigation.useCases} />
-
-            <div className="mt-6">
-              <FooterList
-                title="Industries"
-                items={footerNavigation.industries}
-              />
+        <nav aria-label="Footer">
+          <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-5 xl:col-span-2 xl:mt-0">
+            <div>
+              <FooterList title="Product" items={footerNavigation.main} />
             </div>
+            <div>
+              <FooterList title="Use Cases" items={footerNavigation.useCases} />
 
-            <div className="mt-6">
-              <FooterList title="Compare" items={footerNavigation.compare} />
+              <div className="mt-6">
+                <FooterList
+                  title="Industries"
+                  items={footerNavigation.industries}
+                />
+              </div>
+
+              <div className="mt-6">
+                <FooterList title="Compare" items={footerNavigation.compare} />
+              </div>
+            </div>
+            <div>
+              <FooterList title="Support" items={footerNavigation.support} />
+
+              <div className="mt-6">
+                <FooterList title="Free Tools" items={footerNavigation.tools} />
+              </div>
+            </div>
+            <div>
+              <FooterList title="Company" items={footerNavigation.company} />
+            </div>
+            <div>
+              <FooterList title="Legal" items={footerNavigation.legal} />
             </div>
           </div>
-          <div>
-            <FooterList title="Support" items={footerNavigation.support} />
-
-            <div className="mt-6">
-              <FooterList title="Free Tools" items={footerNavigation.tools} />
-            </div>
-          </div>
-          <div>
-            <FooterList title="Company" items={footerNavigation.company} />
-          </div>
-          <div>
-            <FooterList title="Legal" items={footerNavigation.legal} />
-          </div>
-        </div>
+        </nav>
 
         <div className="mt-16 flex justify-center space-x-10">
           {footerNavigation.social.map((item) => (

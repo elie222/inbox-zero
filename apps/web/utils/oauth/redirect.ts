@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { env } from "@/env";
 
 /**
  * Custom error class for OAuth redirect responses.
@@ -11,7 +12,7 @@ export class RedirectError extends Error {
   constructor(redirectUrl: URL, responseHeaders: Headers) {
     super("Redirect required");
     this.name = "RedirectError";
-    this.redirectUrl = redirectUrl;
+    this.redirectUrl = sanitizeRedirectUrl(redirectUrl);
     this.responseHeaders = responseHeaders;
   }
 }
@@ -25,7 +26,9 @@ export function redirectWithMessage(
   responseHeaders: Headers,
 ): NextResponse {
   redirectUrl.searchParams.set("message", message);
-  return NextResponse.redirect(redirectUrl, { headers: responseHeaders });
+  return NextResponse.redirect(sanitizeRedirectUrl(redirectUrl), {
+    headers: responseHeaders,
+  });
 }
 
 /**
@@ -37,5 +40,16 @@ export function redirectWithError(
   responseHeaders: Headers,
 ): NextResponse {
   redirectUrl.searchParams.set("error", error);
-  return NextResponse.redirect(redirectUrl, { headers: responseHeaders });
+  return NextResponse.redirect(sanitizeRedirectUrl(redirectUrl), {
+    headers: responseHeaders,
+  });
+}
+
+function sanitizeRedirectUrl(redirectUrl: URL): URL {
+  // OAuth callbacks should always land back on this app, even if a caller
+  // hands us an absolute URL from outside our origin.
+  return new URL(
+    `/${redirectUrl.pathname.replace(/^\/+/u, "")}${redirectUrl.search}${redirectUrl.hash}`,
+    env.NEXT_PUBLIC_BASE_URL,
+  );
 }

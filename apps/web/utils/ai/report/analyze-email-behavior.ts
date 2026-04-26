@@ -2,10 +2,7 @@ import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
-import { createScopedLogger } from "@/utils/logger";
 import { getModel } from "@/utils/llms/model";
-
-const logger = createScopedLogger("email-report-email-behavior");
 
 const emailBehaviorSchema = z.object({
   timingPatterns: z.object({
@@ -63,6 +60,7 @@ Analyze the email patterns and identify:
     emailAccount,
     label: "email-report-email-behavior",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "none" },
   });
 
   const result = await generateObject({

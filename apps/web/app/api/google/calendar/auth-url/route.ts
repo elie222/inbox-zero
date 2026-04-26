@@ -4,7 +4,7 @@ import { getCalendarOAuth2Client } from "@/utils/calendar/client";
 import { CALENDAR_STATE_COOKIE_NAME } from "@/utils/calendar/constants";
 import { CALENDAR_SCOPES } from "@/utils/gmail/scopes";
 import {
-  generateOAuthState,
+  generateSignedOAuthState,
   oauthStateCookieOptions,
 } from "@/utils/oauth/state";
 
@@ -13,7 +13,7 @@ export type GetCalendarAuthUrlResponse = { url: string };
 const getAuthUrl = ({ emailAccountId }: { emailAccountId: string }) => {
   const oauth2Client = getCalendarOAuth2Client();
 
-  const state = generateOAuthState({
+  const state = generateSignedOAuthState({
     emailAccountId,
     type: "calendar",
   });

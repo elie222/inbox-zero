@@ -14,4 +14,5 @@ export const SLACK_SCOPES = [
   "reactions:write",
   "users:read",
   "users:read.email",
+  "commands",
 ].join(",");

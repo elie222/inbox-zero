@@ -4,6 +4,11 @@ import type { EmailProvider } from "@/utils/email/types";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import type { Action, Prisma } from "@/generated/prisma/client";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { createScopedLogger } from "@/utils/logger";
+
+export function createTestLogger() {
+  return createScopedLogger("test");
+}
 
 type EmailAccountSelect = {
   id: string;
@@ -36,6 +41,7 @@ export function getEmailAccount(
     multiRuleSelectionEnabled: overrides.multiRuleSelectionEnabled ?? false,
     timezone: null,
     calendarBookingLink: null,
+    draftReplyConfidence: overrides.draftReplyConfidence ?? "MEDIUM",
     user: {
       aiModel: null,
       aiProvider: null,
@@ -74,6 +80,7 @@ export function getEmail({
   replyTo,
   cc,
   date,
+  listUnsubscribe,
 }: Partial<EmailForLLM> = {}): EmailForLLM {
   return {
     id: "email-id",
@@ -84,6 +91,7 @@ export function getEmail({
     ...(replyTo && { replyTo }),
     ...(cc && { cc }),
     ...(date && { date }),
+    ...(listUnsubscribe && { listUnsubscribe }),
   };
 }
 
@@ -151,7 +159,9 @@ export function getAction(overrides: Partial<Action> = {}): Action {
     url: null,
     folderName: null,
     folderId: null,
+    messagingChannelId: null,
     delayInMinutes: null,
+    staticAttachments: null,
     ...overrides,
   };
 }

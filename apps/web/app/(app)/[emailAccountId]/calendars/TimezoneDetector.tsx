@@ -7,6 +7,11 @@ import { useAction } from "next-safe-action/hooks";
 import { updateEmailAccountTimezoneAction } from "@/utils/actions/calendar";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
+  addDismissedPrompt,
+  shouldShowTimezonePrompt,
+  type DismissedPrompt,
+} from "./TimezoneDetector.utils";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -16,14 +21,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toastSuccess } from "@/components/Toast";
-
-export type DismissedPrompt = {
-  saved: string;
-  detected: string;
-  dismissedAt: number; // timestamp
-};
-
-export const DISMISSAL_EXPIRY_DAYS = 30;
 
 export function TimezoneDetector() {
   const { emailAccountId } = useAccount();
@@ -119,56 +116,4 @@ export function TimezoneDetector() {
       </DialogContent>
     </Dialog>
   );
-}
-
-/**
- * Check if a timezone prompt should be shown based on dismissal history
- */
-export function shouldShowTimezonePrompt(
-  savedTimezone: string,
-  detectedTimezone: string,
-  dismissedPrompts: DismissedPrompt[],
-): boolean {
-  // If timezones match, don't show prompt
-  if (savedTimezone === detectedTimezone) {
-    return false;
-  }
-
-  // Check if this combination was recently dismissed
-  const now = Date.now();
-  const expiryMs = DISMISSAL_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-
-  const recentlyDismissed = dismissedPrompts.some(
-    (prompt) =>
-      prompt.saved === savedTimezone &&
-      prompt.detected === detectedTimezone &&
-      now - prompt.dismissedAt < expiryMs,
-  );
-
-  return !recentlyDismissed;
-}
-
-/**
- * Add a new dismissal to the list, replacing any existing one for the same timezone combination
- */
-export function addDismissedPrompt(
-  dismissedPrompts: DismissedPrompt[],
-  savedTimezone: string,
-  detectedTimezone: string,
-): DismissedPrompt[] {
-  // Remove any old dismissals for this combination
-  const filtered = dismissedPrompts.filter(
-    (prompt) =>
-      !(prompt.saved === savedTimezone && prompt.detected === detectedTimezone),
-  );
-
-  // Add the new dismissal
-  return [
-    ...filtered,
-    {
-      saved: savedTimezone,
-      detected: detectedTimezone,
-      dismissedAt: Date.now(),
-    },
-  ];
 }

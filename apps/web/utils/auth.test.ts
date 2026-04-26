@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { cookies } from "next/headers";
 import { createReferral } from "@/utils/referral/referral-code";
 import { captureException } from "@/utils/error";
-import { handleReferralOnSignUp, saveTokens } from "@/utils/auth";
+import { saveTokens } from "@/utils/auth/save-tokens";
+import { handleLinkAccount, handleReferralOnSignUp } from "@/utils/auth";
 import prisma from "@/utils/__mocks__/prisma";
 import { clearSpecificErrorMessages } from "@/utils/error-messages";
 
@@ -185,5 +186,39 @@ describe("saveTokens", () => {
         errorTypes: ["Account disconnected"],
       }),
     );
+  });
+});
+
+describe("handleLinkAccount", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("skips auth-only providers without requiring an access token", async () => {
+    await expect(
+      handleLinkAccount({
+        id: "account_1",
+        userId: "user_1",
+        providerId: "company-saml",
+        accessToken: null,
+      } as any),
+    ).resolves.toBeUndefined();
+
+    expect(prisma.emailAccount.findUnique).not.toHaveBeenCalled();
+    expect(prisma.emailAccount.upsert).not.toHaveBeenCalled();
+    expect(clearSpecificErrorMessages).not.toHaveBeenCalled();
+  });
+
+  it("still requires an access token for mailbox providers", async () => {
+    await expect(
+      handleLinkAccount({
+        id: "account_1",
+        userId: "user_1",
+        providerId: "google",
+        accessToken: null,
+      } as any),
+    ).rejects.toThrow("Missing access token during account linking.");
+
+    expect(prisma.emailAccount.findUnique).not.toHaveBeenCalled();
   });
 });

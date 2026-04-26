@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { sendDigestEmail } from "@inboxzero/resend";
 import { withEmailAccount, withError } from "@/utils/middleware";
-import { env } from "@/env";
 import { captureException, SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
@@ -10,6 +8,7 @@ import {
   getDigestScheduleProgression,
   isDigestScheduleDue,
 } from "@/utils/digest/schedule";
+import { sendDigest } from "@/utils/digest/send-digest";
 import type { ParsedMessage } from "@/utils/types";
 import {
   sendDigestEmailBody,
@@ -116,12 +115,17 @@ async function sendEmail({
     where: { id: emailAccountId },
     select: {
       email: true,
-      account: { select: { provider: true } },
+      account: { select: { provider: true, refresh_token: true } },
     },
   });
 
   if (!emailAccount) {
     throw new Error("Email account not found");
+  }
+
+  if (!emailAccount.account.refresh_token) {
+    logger.warn("Skipping digest: account has no refresh token");
+    return { success: false, message: "Account has no refresh token" };
   }
 
   const emailProvider = await createEmailProvider({
@@ -313,23 +317,19 @@ async function sendEmail({
 
     const token = await createUnsubscribeToken({ emailAccountId });
 
-    logger.info("Sending digest email");
+    logger.info("Sending digest");
 
-    // First, send the digest email and wait for it to complete
-    await sendDigestEmail({
-      from: env.RESEND_FROM_EMAIL,
-      to: emailAccount.email,
-      emailProps: {
-        baseUrl: env.NEXT_PUBLIC_BASE_URL,
-        unsubscribeToken: token,
-        date: new Date(),
-        ruleNames: Object.fromEntries(ruleNameMap),
-        ...executedRulesByRule,
-        emailAccountId,
-      },
+    await sendDigest({
+      emailAccountId,
+      userEmail: emailAccount.email,
+      unsubscribeToken: token,
+      date: new Date(),
+      ruleNames: Object.fromEntries(ruleNameMap),
+      itemsByRule: executedRulesByRule,
+      logger,
     });
 
-    logger.info("Digest email sent");
+    logger.info("Digest sent");
 
     // Only update database if email sending succeeded
     // Use a transaction to ensure atomicity - all updates succeed or none are applied

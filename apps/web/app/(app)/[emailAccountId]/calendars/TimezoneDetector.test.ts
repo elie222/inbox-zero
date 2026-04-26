@@ -4,7 +4,7 @@ import {
   addDismissedPrompt,
   DISMISSAL_EXPIRY_DAYS,
   type DismissedPrompt,
-} from "./TimezoneDetector";
+} from "./TimezoneDetector.utils";
 
 vi.mock("server-only", () => ({}));
 

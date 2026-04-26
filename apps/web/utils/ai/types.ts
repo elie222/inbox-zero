@@ -1,5 +1,9 @@
 import type { ParsedMessage } from "@/utils/types";
-import type { ExecutedAction } from "@/generated/prisma/client";
+import type {
+  EmailAccount,
+  ExecutedAction,
+  ExecutedRule,
+} from "@/generated/prisma/client";
 
 export type EmailForAction = Pick<
   ParsedMessage,
@@ -17,6 +21,7 @@ export type EmailForAction = Pick<
 export type ActionItem = {
   id: ExecutedAction["id"];
   type: ExecutedAction["type"];
+  messagingChannelId?: ExecutedAction["messagingChannelId"];
   label?: ExecutedAction["label"];
   labelId?: ExecutedAction["labelId"];
   subject?: ExecutedAction["subject"];
@@ -28,4 +33,14 @@ export type ActionItem = {
   folderName?: ExecutedAction["folderName"];
   folderId?: ExecutedAction["folderId"];
   delayInMinutes?: number | null;
+  staticAttachments?: ExecutedAction["staticAttachments"];
+};
+
+export type ActionExecutionEmailAccount = Pick<
+  EmailAccount,
+  "email" | "id" | "userId"
+>;
+
+export type ExecutedRuleForAction = ExecutedRule & {
+  actionItems?: Pick<ActionItem, "type">[];
 };

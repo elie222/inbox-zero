@@ -28,11 +28,13 @@ import {
   Badge,
   type BadgeVariant,
 } from "@/components/new-landing/common/Badge";
+import { BrandScroller } from "@/components/new-landing/BrandScroller";
 
 interface HeroProps {
   badge?: React.ReactNode;
   badgeVariant?: BadgeVariant;
   children?: React.ReactNode;
+  cta?: React.ReactNode;
   subtitle?: React.ReactNode;
   title?: React.ReactNode;
 }
@@ -43,6 +45,7 @@ export function Hero({
   badge,
   badgeVariant = "blue",
   children,
+  cta,
 }: HeroProps) {
   return (
     <Section className={badge ? "mt-7 md:mt-7" : "mt-10 md:mt-20"}>
@@ -62,7 +65,7 @@ export function Hero({
       <SectionContent noMarginTop className="mt-6 md:mt-8">
         <div className="space-y-3 mb-8">
           <BlurFade duration={0.4} delay={0.125 * 7}>
-            <CallToAction />
+            {cta ?? <CallToAction />}
           </BlurFade>
           <BlurFade duration={0.4} delay={0.125 * 8}>
             <div className="mb-12 flex items-center gap-2 justify-center">
@@ -122,5 +125,14 @@ export function HeroVideoPlayer() {
         </div>
       </div>
     </BlurFade>
+  );
+}
+
+export function HeroContent() {
+  return (
+    <>
+      <BrandScroller />
+      <HeroVideoPlayer />
+    </>
   );
 }

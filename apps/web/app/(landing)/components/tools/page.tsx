@@ -1,20 +1,30 @@
 "use client";
 
 import { Suspense } from "react";
+import { SWRConfig } from "swr";
+import { AssistantInlineEmailResponse } from "@/components/assistant-chat/assistant-inline-email-response";
+import { EmailLookupProvider } from "@/components/assistant-chat/email-lookup-context";
 import { Container } from "@/components/Container";
-import { MutedText } from "@/components/Typography";
+import { PageHeading, SectionHeader, MutedText } from "@/components/Typography";
 import {
   AddToKnowledgeBase,
   BasicToolInfo,
+  CreatedRuleToolCard,
+  PendingCreateRulePreviewCard,
+  UpdatedRuleConditions,
+  UpdatedRuleActions,
+  UpdatedLearnedPatterns,
   ForwardEmailResult,
   ManageInboxResult,
+  ManageSenderCategoryResult,
   ReadEmailResult,
   ReplyEmailResult,
   SearchInboxResult,
   SendEmailResult,
   type ThreadLookup,
-  UpdateAbout,
+  UpdatePersonalInstructions,
 } from "@/components/assistant-chat/tools";
+import { ActionType } from "@/generated/prisma/enums";
 import { ChatProvider } from "@/providers/ChatProvider";
 
 export default function ToolsPage() {
@@ -22,11 +32,491 @@ export default function ToolsPage() {
 
   return (
     <Container>
-      <div className="space-y-8 py-8">
-        <h1>Assistant Tools</h1>
+      <div className="space-y-10 py-8">
+        <PageHeading>Assistant Tools</PageHeading>
 
-        <div className="mt-4 space-y-4">
-          <MutedText>Input states:</MutedText>
+        {/* Rule Cards */}
+        <section className="space-y-4">
+          <SectionHeader>Rule Cards</SectionHeader>
+
+          <MutedText>Created rules:</MutedText>
+          <CreatedRuleToolCard
+            preview
+            args={{
+              name: "Hiring",
+              condition: {
+                aiInstructions:
+                  "Emails related to hiring, job applications, or candidate communication",
+                static: null,
+                conditionalOperator: null,
+              },
+              actions: [
+                ruleAction(ActionType.FORWARD, { to: "jim@company.com" }),
+                ruleAction(ActionType.LABEL, { label: "Recruiting" }),
+              ],
+            }}
+          />
+          <CreatedRuleToolCard
+            preview
+            args={{
+              name: "Newsletter Archive",
+              condition: {
+                aiInstructions: "Newsletter and marketing emails",
+                static: {
+                  from: "newsletter@example.com",
+                  to: null,
+                  subject: null,
+                },
+                conditionalOperator: "OR",
+              },
+              actions: [
+                ruleAction(ActionType.ARCHIVE),
+                ruleAction(ActionType.LABEL, { label: "Newsletter" }),
+                ruleAction(ActionType.MARK_READ),
+              ],
+            }}
+          />
+          <CreatedRuleToolCard
+            preview
+            args={{
+              name: "Billing Alerts",
+              condition: {
+                aiInstructions: null,
+                static: {
+                  from: "billing@stripe.com",
+                  to: null,
+                  subject: "invoice",
+                },
+                conditionalOperator: null,
+              },
+              actions: [
+                ruleAction(ActionType.LABEL, { label: "Billing" }),
+                ruleAction(ActionType.FORWARD, {
+                  to: "finance@company.com",
+                }),
+              ],
+            }}
+          />
+
+          <MutedText>Pending confirmation:</MutedText>
+          <PendingCreateRulePreviewCard
+            args={{
+              name: "AutoReply VIP",
+              condition: {
+                aiInstructions: null,
+                static: {
+                  from: "vip-client@example.com",
+                  to: null,
+                  subject: null,
+                },
+                conditionalOperator: null,
+              },
+              actions: [
+                ruleAction(ActionType.REPLY, {
+                  content:
+                    "{{Draft a short reply that answers the sender and proposes a next step}}",
+                }),
+              ],
+            }}
+            riskMessages={[
+              "High Risk: The AI can automatically generate and send any email content. A malicious actor could potentially trick the AI into generating unwanted or inappropriate content.",
+            ]}
+          />
+
+          <MutedText>Updated conditions (no diff):</MutedText>
+          <UpdatedRuleConditions
+            preview
+            ruleId="demo-rule"
+            args={{
+              ruleName: "Hiring",
+              condition: {
+                aiInstructions:
+                  "Emails related to hiring, job applications, or candidate communication",
+                static: { from: "hr@company.com", to: null, subject: null },
+                conditionalOperator: "AND",
+              },
+            }}
+            actions={[
+              ruleAction(ActionType.FORWARD, { to: "jim@company.com" }),
+              ruleAction(ActionType.LABEL, { label: "Recruiting" }),
+            ]}
+          />
+
+          <MutedText>Updated conditions (with diff):</MutedText>
+          <UpdatedRuleConditions
+            preview
+            ruleId="demo-rule"
+            args={{
+              ruleName: "Newsletter",
+              condition: {
+                aiInstructions:
+                  "Emails that are newsletters, marketing, or promotional content",
+                static: null,
+                conditionalOperator: null,
+              },
+            }}
+            actions={[
+              ruleAction(ActionType.ARCHIVE),
+              ruleAction(ActionType.LABEL, { label: "Newsletter" }),
+              ruleAction(ActionType.MARK_READ),
+            ]}
+            originalConditions={{
+              aiInstructions: "Emails that look like newsletters or marketing",
+              conditionalOperator: null,
+            }}
+            updatedConditions={{
+              aiInstructions:
+                "Emails that are newsletters, marketing, or promotional content",
+              conditionalOperator: null,
+            }}
+          />
+
+          <MutedText>Updated actions:</MutedText>
+          <UpdatedRuleActions
+            preview
+            ruleId="demo-rule"
+            args={{
+              ruleName: "Newsletter Archive",
+              actions: [
+                ruleAction(ActionType.ARCHIVE),
+                ruleAction(ActionType.LABEL, { label: "Newsletter" }),
+                ruleAction(ActionType.MARK_READ),
+              ],
+            }}
+            condition={{
+              aiInstructions: "Newsletter and marketing emails",
+              static: {
+                from: "newsletter@example.com",
+              },
+              conditionalOperator: "OR",
+            }}
+          />
+          <UpdatedRuleActions
+            preview
+            ruleId="demo-rule"
+            args={{
+              ruleName: "Hiring",
+              actions: [
+                ruleAction(ActionType.FORWARD, { to: "jim@company.com" }),
+                ruleAction(ActionType.LABEL, { label: "Recruiting" }),
+              ],
+            }}
+            condition={{
+              aiInstructions:
+                "Emails related to hiring, job applications, or candidate communication",
+            }}
+            originalActions={[
+              {
+                type: ActionType.LABEL,
+                fields: buildRuleActionFields({ label: "Recruiting" }),
+              },
+            ]}
+            updatedActions={[
+              {
+                type: ActionType.FORWARD,
+                fields: buildRuleActionFields({ to: "jim@company.com" }),
+                delayInMinutes: null,
+              },
+              {
+                type: ActionType.LABEL,
+                fields: buildRuleActionFields({ label: "Recruiting" }),
+                delayInMinutes: null,
+              },
+            ]}
+          />
+
+          <MutedText>Updated learned patterns:</MutedText>
+          <UpdatedLearnedPatterns
+            preview
+            ruleId="demo-rule"
+            args={{
+              ruleName: "Newsletter",
+              learnedPatterns: [
+                {
+                  include: {
+                    from: "@substack.com",
+                    subject: null,
+                  },
+                  exclude: null,
+                },
+                {
+                  include: null,
+                  exclude: {
+                    from: "team@company.com",
+                    subject: null,
+                  },
+                },
+              ],
+            }}
+          />
+        </section>
+
+        {/* Email Actions */}
+        <section className="space-y-4">
+          <SectionHeader>Email Actions</SectionHeader>
+          <Suspense
+            fallback={<BasicToolInfo text="Loading email action states..." />}
+          >
+            <ChatProvider>
+              <AssistantEmailActionStates />
+            </ChatProvider>
+          </Suspense>
+        </section>
+
+        {/* Search & Read Results */}
+        <section className="space-y-4">
+          <SectionHeader>Search & Read Results</SectionHeader>
+          <SearchInboxResult output={getAssistantSearchInboxOutput()} />
+          <ReadEmailResult output={getAssistantReadEmailOutput()} />
+        </section>
+
+        <section className="space-y-4">
+          <SectionHeader>Inline Email Views</SectionHeader>
+
+          <EmailLookupProvider value={assistantToolThreadLookup}>
+            <SWRConfig
+              value={{
+                fallback: {
+                  [getThreadDetailFallbackKey("thread-3")]:
+                    getAssistantInlineEmailDetailThread(),
+                },
+                revalidateIfStale: false,
+                revalidateOnFocus: false,
+                revalidateOnMount: false,
+              }}
+            >
+              <MutedText>Inline email list:</MutedText>
+              <AssistantInlineEmailResponse>
+                {getAssistantInlineEmailListMarkup()}
+              </AssistantInlineEmailResponse>
+
+              <MutedText>Inline email detail:</MutedText>
+              <AssistantInlineEmailResponse>
+                {getAssistantInlineEmailDetailMarkup()}
+              </AssistantInlineEmailResponse>
+            </SWRConfig>
+          </EmailLookupProvider>
+        </section>
+
+        {/* Error States */}
+        <section className="space-y-4">
+          <SectionHeader>Error States</SectionHeader>
+
+          <MutedText>
+            Search error (inline in the search result card):
+          </MutedText>
+          <SearchInboxResult output={getAssistantSearchInboxErrorOutput()} />
+
+          <MutedText>
+            Generic tool errors (used by most other failed tools):
+          </MutedText>
+          <div className="grid gap-2 md:grid-cols-2">
+            <ToolErrorCardPreview error="Failed to read email" />
+            <ToolErrorCardPreview error="Failed to update rule conditions" />
+            <ToolErrorCardPreview error="Missing rule ID in response" />
+            <ToolErrorCardPreview error="Failed to load rule execution for message" />
+          </div>
+        </section>
+
+        {/* Manage Inbox Results */}
+        <section className="space-y-4">
+          <SectionHeader>Manage Inbox Results</SectionHeader>
+          <ManageInboxResult
+            input={{
+              action: "archive_threads",
+              threadIds: ["thread-1", "thread-2"],
+            }}
+            output={{
+              action: "archive_threads",
+              requestedCount: 2,
+              successCount: 2,
+              failedCount: 0,
+            }}
+            threadIds={["thread-1", "thread-2"]}
+            threadLookup={assistantToolThreadLookup}
+          />
+          <ManageInboxResult
+            input={{
+              action: "archive_threads",
+              threadIds: ["thread-1", "thread-2", "thread-3"],
+              label: "Newsletter",
+            }}
+            output={{
+              action: "archive_threads",
+              requestedCount: 3,
+              successCount: 2,
+              failedCount: 1,
+              failedThreadIds: ["thread-3"],
+            }}
+            threadIds={["thread-1", "thread-2", "thread-3"]}
+            threadLookup={assistantToolThreadLookup}
+          />
+          <ManageInboxResult
+            input={{
+              action: "mark_read_threads",
+              threadIds: ["thread-1", "thread-3"],
+              read: true,
+            }}
+            output={{
+              action: "mark_read_threads",
+              requestedCount: 2,
+              successCount: 2,
+              failedCount: 0,
+            }}
+            threadIds={["thread-1", "thread-3"]}
+            threadLookup={assistantToolThreadLookup}
+          />
+          <ManageInboxResult
+            input={{
+              action: "mark_read_threads",
+              threadIds: ["thread-2"],
+              read: false,
+            }}
+            output={{
+              action: "mark_read_threads",
+              requestedCount: 1,
+              successCount: 1,
+              failedCount: 0,
+            }}
+            threadIds={["thread-2"]}
+            threadLookup={assistantToolThreadLookup}
+          />
+          <ManageInboxResult
+            input={{
+              action: "bulk_archive_senders",
+              fromEmails: ["updates@example.com", "news@example.com"],
+            }}
+            output={{
+              action: "bulk_archive_senders",
+              sendersCount: 2,
+              senders: ["updates@example.com", "news@example.com"],
+            }}
+            threadLookup={assistantToolThreadLookup}
+          />
+          <ManageInboxResult
+            input={{
+              action: "unsubscribe_senders",
+              fromEmails: ["updates@example.com", "deals@example.com"],
+            }}
+            output={{
+              action: "unsubscribe_senders",
+              sendersCount: 2,
+              senders: ["updates@example.com", "deals@example.com"],
+              successCount: 2,
+              failedCount: 0,
+            }}
+            threadLookup={assistantToolThreadLookup}
+          />
+        </section>
+
+        {/* Sender Category Results */}
+        <section className="space-y-4">
+          <SectionHeader>Sender Category Results</SectionHeader>
+
+          <MutedText>Archived a small category:</MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: "cat-1", name: "Newsletters" },
+              sendersCount: 4,
+              senders: [
+                "updates@example.com",
+                "news@example.com",
+                "digest@example.com",
+                "weekly@example.com",
+              ],
+              message: 'Archived mail from 4 senders in "Newsletters".',
+            }}
+          />
+
+          <MutedText>
+            Archived a large category (scrollable list inside the card):
+          </MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: "cat-2", name: "Promotions" },
+              sendersCount: 60,
+              senders: buildFakeSenderList(60, "promo"),
+              message: 'Archived mail from 60 senders in "Promotions".',
+            }}
+          />
+
+          <MutedText>
+            Archived with server-side cap hit ("+ N more not shown"):
+          </MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: "cat-4", name: "Marketing" },
+              sendersCount: 237,
+              senders: buildFakeSenderList(100, "marketing"),
+              message: 'Archived mail from 237 senders in "Marketing".',
+            }}
+          />
+
+          <MutedText>Uncategorized senders:</MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: null, name: "Uncategorized" },
+              sendersCount: 8,
+              senders: [
+                "random@example.com",
+                "other@example.com",
+                "misc@example.com",
+                "ping@example.com",
+                "alerts@example.com",
+                "hello@example.com",
+                "team@example.com",
+                "support@example.com",
+              ],
+              message: 'Archived mail from 8 senders in "Uncategorized".',
+            }}
+          />
+
+          <MutedText>Empty category (no senders):</MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: "cat-3", name: "Receipts" },
+              sendersCount: 0,
+              senders: [],
+              message: 'No senders are currently assigned to "Receipts".',
+            }}
+          />
+        </section>
+
+        {/* Settings & Knowledge */}
+        <section className="space-y-4">
+          <SectionHeader>Settings & Knowledge</SectionHeader>
+          <UpdatePersonalInstructions
+            args={{
+              personalInstructions:
+                "I prefer concise responses and want newsletters archived by default.",
+              mode: "replace",
+            }}
+          />
+          <Suspense>
+            <AddToKnowledgeBase
+              args={{
+                title: "Escalation preference",
+                content:
+                  "Escalate billing emails quickly and keep status updates short.",
+              }}
+            />
+          </Suspense>
+        </section>
+
+        {/* Basic Tool Info States */}
+        <section className="space-y-4">
+          <SectionHeader>Basic Tool Info States</SectionHeader>
+          <MutedText>Input states (loading indicators):</MutedText>
           <div className="grid gap-2 md:grid-cols-2">
             <BasicToolInfo text="Loading account overview..." />
             <BasicToolInfo text="Loading assistant capabilities..." />
@@ -53,131 +543,30 @@ export default function ToolsPage() {
             <BasicToolInfo text="Adding to knowledge base..." />
             <BasicToolInfo text="Saving memory..." />
             <BasicToolInfo text="Searching memories..." />
+            <BasicToolInfo text="Checking sender categories..." />
+            <BasicToolInfo text="Starting sender categorization..." />
+            <BasicToolInfo text="Checking categorization progress..." />
+            <BasicToolInfo text='Archiving "Newsletters" category...' />
           </div>
 
-          <MutedText>Output states:</MutedText>
-          <div className="space-y-4">
+          <MutedText>Output states (completion messages):</MutedText>
+          <div className="grid gap-2 md:grid-cols-2">
             <BasicToolInfo text="Loaded account overview" />
             <BasicToolInfo text="Loaded assistant capabilities" />
             <BasicToolInfo text="Updated settings (2 changes)" />
-            <SearchInboxResult output={getAssistantSearchInboxOutput()} />
-            <ReadEmailResult output={getAssistantReadEmailOutput()} />
-            <ManageInboxResult
-              input={{
-                action: "archive_threads",
-                threadIds: ["thread-1", "thread-2"],
-              }}
-              output={{
-                action: "archive_threads",
-                requestedCount: 2,
-                successCount: 2,
-                failedCount: 0,
-              }}
-              threadIds={["thread-1", "thread-2"]}
-              threadLookup={assistantToolThreadLookup}
-            />
-            <ManageInboxResult
-              input={{
-                action: "archive_threads",
-                threadIds: ["thread-1", "thread-2", "thread-3"],
-                labelId: "label-newsletter",
-              }}
-              output={{
-                action: "archive_threads",
-                requestedCount: 3,
-                successCount: 2,
-                failedCount: 1,
-                failedThreadIds: ["thread-3"],
-              }}
-              threadIds={["thread-1", "thread-2", "thread-3"]}
-              threadLookup={assistantToolThreadLookup}
-            />
-            <ManageInboxResult
-              input={{
-                action: "mark_read_threads",
-                threadIds: ["thread-1", "thread-3"],
-                read: true,
-              }}
-              output={{
-                action: "mark_read_threads",
-                requestedCount: 2,
-                successCount: 2,
-                failedCount: 0,
-              }}
-              threadIds={["thread-1", "thread-3"]}
-              threadLookup={assistantToolThreadLookup}
-            />
-            <ManageInboxResult
-              input={{
-                action: "mark_read_threads",
-                threadIds: ["thread-2"],
-                read: false,
-              }}
-              output={{
-                action: "mark_read_threads",
-                requestedCount: 1,
-                successCount: 1,
-                failedCount: 0,
-              }}
-              threadIds={["thread-2"]}
-              threadLookup={assistantToolThreadLookup}
-            />
-            <ManageInboxResult
-              input={{
-                action: "bulk_archive_senders",
-                fromEmails: ["updates@example.com", "news@example.com"],
-              }}
-              output={{
-                action: "bulk_archive_senders",
-                sendersCount: 2,
-                senders: ["updates@example.com", "news@example.com"],
-              }}
-              threadLookup={assistantToolThreadLookup}
-            />
-            <ManageInboxResult
-              input={{
-                action: "unsubscribe_senders",
-                fromEmails: ["updates@example.com", "deals@example.com"],
-              }}
-              output={{
-                action: "unsubscribe_senders",
-                sendersCount: 2,
-                senders: ["updates@example.com", "deals@example.com"],
-                successCount: 2,
-                failedCount: 0,
-              }}
-              threadLookup={assistantToolThreadLookup}
-            />
             <BasicToolInfo text="Updated inbox features" />
-            <Suspense
-              fallback={<BasicToolInfo text="Loading email action states..." />}
-            >
-              <ChatProvider>
-                <AssistantEmailActionStates />
-              </ChatProvider>
-            </Suspense>
             <BasicToolInfo text="Read rules and settings" />
             <BasicToolInfo text="Read learned patterns" />
-            <UpdateAbout
-              args={{
-                about:
-                  "I prefer concise responses and want newsletters archived by default.",
-                mode: "replace",
-              }}
-            />
-            <Suspense>
-              <AddToKnowledgeBase
-                args={{
-                  title: "Escalation preference",
-                  content:
-                    "Escalate billing emails quickly and keep status updates short.",
-                }}
-              />
-            </Suspense>
             <BasicToolInfo text="Memory saved" />
             <BasicToolInfo text="Found 2 memories" />
+            <BasicToolInfo text="Found 5 categories, 12 uncategorized senders" />
+            <BasicToolInfo text="Categorizing 43 senders" />
+            <BasicToolInfo text="Sender categorization already in progress" />
+            <BasicToolInfo text="Categorizing senders (12 of 43)" />
+            <BasicToolInfo text="Categorization complete" />
+            <BasicToolInfo text="Categorization hasn't started" />
           </div>
-        </div>
+        </section>
       </div>
     </Container>
   );
@@ -185,74 +574,75 @@ export default function ToolsPage() {
 
 function AssistantEmailActionStates() {
   return (
-    <div className="space-y-2">
-      <MutedText>Email action states:</MutedText>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="space-y-2">
-          <MutedText>Send</MutedText>
-          <SendEmailResult
-            output={getAssistantSendEmailOutput("pending")}
-            chatMessageId="assistant-demo-send-pending"
-            toolCallId="assistant-demo-send-pending"
-            disableConfirm={true}
-          />
-          <SendEmailResult
-            output={getAssistantSendEmailOutput("processing")}
-            chatMessageId="assistant-demo-send-processing"
-            toolCallId="assistant-demo-send-processing"
-            disableConfirm={true}
-          />
-          <SendEmailResult
-            output={getAssistantSendEmailOutput("confirmed")}
-            chatMessageId="assistant-demo-send-confirmed"
-            toolCallId="assistant-demo-send-confirmed"
-            disableConfirm={true}
-          />
-        </div>
+    <div className="space-y-4">
+      <div className="space-y-3">
+        <MutedText>Send — pending</MutedText>
+        <SendEmailResult
+          output={getAssistantSendEmailOutput("pending")}
+          chatMessageId="assistant-demo-send-pending"
+          toolCallId="assistant-demo-send-pending"
+          disableConfirm={true}
+        />
+      </div>
 
-        <div className="space-y-2">
-          <MutedText>Reply</MutedText>
-          <ReplyEmailResult
-            output={getAssistantReplyEmailOutput("pending")}
-            chatMessageId="assistant-demo-reply-pending"
-            toolCallId="assistant-demo-reply-pending"
-            disableConfirm={true}
-          />
-          <ReplyEmailResult
-            output={getAssistantReplyEmailOutput("processing")}
-            chatMessageId="assistant-demo-reply-processing"
-            toolCallId="assistant-demo-reply-processing"
-            disableConfirm={true}
-          />
-          <ReplyEmailResult
-            output={getAssistantReplyEmailOutput("confirmed")}
-            chatMessageId="assistant-demo-reply-confirmed"
-            toolCallId="assistant-demo-reply-confirmed"
-            disableConfirm={true}
-          />
-        </div>
+      <div className="space-y-3">
+        <MutedText>Send — processing</MutedText>
+        <SendEmailResult
+          output={getAssistantSendEmailOutput("processing")}
+          chatMessageId="assistant-demo-send-processing"
+          toolCallId="assistant-demo-send-processing"
+          disableConfirm={true}
+        />
+      </div>
 
-        <div className="space-y-2">
-          <MutedText>Forward</MutedText>
-          <ForwardEmailResult
-            output={getAssistantForwardEmailOutput("pending")}
-            chatMessageId="assistant-demo-forward-pending"
-            toolCallId="assistant-demo-forward-pending"
-            disableConfirm={true}
-          />
-          <ForwardEmailResult
-            output={getAssistantForwardEmailOutput("processing")}
-            chatMessageId="assistant-demo-forward-processing"
-            toolCallId="assistant-demo-forward-processing"
-            disableConfirm={true}
-          />
-          <ForwardEmailResult
-            output={getAssistantForwardEmailOutput("confirmed")}
-            chatMessageId="assistant-demo-forward-confirmed"
-            toolCallId="assistant-demo-forward-confirmed"
-            disableConfirm={true}
-          />
-        </div>
+      <div className="space-y-3">
+        <MutedText>Send — confirmed</MutedText>
+        <SendEmailResult
+          output={getAssistantSendEmailOutput("confirmed")}
+          chatMessageId="assistant-demo-send-confirmed"
+          toolCallId="assistant-demo-send-confirmed"
+          disableConfirm={true}
+        />
+      </div>
+
+      <div className="space-y-3">
+        <MutedText>Reply — pending</MutedText>
+        <ReplyEmailResult
+          output={getAssistantReplyEmailOutput("pending")}
+          chatMessageId="assistant-demo-reply-pending"
+          toolCallId="assistant-demo-reply-pending"
+          disableConfirm={true}
+        />
+      </div>
+
+      <div className="space-y-3">
+        <MutedText>Reply — confirmed</MutedText>
+        <ReplyEmailResult
+          output={getAssistantReplyEmailOutput("confirmed")}
+          chatMessageId="assistant-demo-reply-confirmed"
+          toolCallId="assistant-demo-reply-confirmed"
+          disableConfirm={true}
+        />
+      </div>
+
+      <div className="space-y-3">
+        <MutedText>Forward — pending</MutedText>
+        <ForwardEmailResult
+          output={getAssistantForwardEmailOutput("pending")}
+          chatMessageId="assistant-demo-forward-pending"
+          toolCallId="assistant-demo-forward-pending"
+          disableConfirm={true}
+        />
+      </div>
+
+      <div className="space-y-3">
+        <MutedText>Forward — confirmed</MutedText>
+        <ForwardEmailResult
+          output={getAssistantForwardEmailOutput("confirmed")}
+          chatMessageId="assistant-demo-forward-confirmed"
+          toolCallId="assistant-demo-forward-confirmed"
+          disableConfirm={true}
+        />
       </div>
     </div>
   );
@@ -265,28 +655,81 @@ function getAssistantToolThreadLookup(): ThreadLookup {
     [
       "thread-1",
       {
+        messageId: "msg-1",
         from: "Daily Updates <updates@example.com>",
         subject: "Daily summary",
         snippet: "Your summary is ready",
+        date: "2026-03-09T10:00:00Z",
+        isUnread: true,
       },
     ],
     [
       "thread-2",
       {
+        messageId: "msg-2",
         from: "Product Team <product@example.com>",
         subject: "Release notes",
         snippet: "New changes shipped today",
+        date: "2026-03-09T09:00:00Z",
+        isUnread: false,
       },
     ],
     [
       "thread-3",
       {
+        messageId: "msg-3",
         from: "Support <support@example.com>",
         subject: "Ticket follow-up",
         snippet: "Checking in on your request",
+        date: "2026-03-08T15:00:00Z",
+        isUnread: true,
       },
     ],
   ]);
+}
+
+function getAssistantInlineEmailDetailThread() {
+  return {
+    thread: {
+      id: "thread-3",
+      messages: [
+        {
+          id: "message-3",
+          threadId: "thread-3",
+          subject: "Ticket follow-up",
+          snippet: "Checking in on your request",
+          date: "2026-01-10T15:20:00.000Z",
+          internalDate: `${Date.parse("2026-01-10T15:20:00.000Z")}`,
+          historyId: "history-3",
+          inline: [],
+          headers: {
+            from: "Support <support@example.com>",
+            to: "you@example.com",
+            date: "2026-01-10T15:20:00.000Z",
+            subject: "Ticket follow-up",
+          },
+          textPlain:
+            "Hi there,\n\nChecking in on your request. The action item is to confirm whether the issue is resolved.\n\nBest,\nSupport Team",
+        },
+      ],
+    },
+  };
+}
+
+function getAssistantInlineEmailListMarkup() {
+  return `
+<emails>
+  <email threadid="thread-1">Daily summary</email>
+  <email threadid="thread-2">Release notes</email>
+  <email threadid="thread-3">Ticket follow-up</email>
+</emails>
+`.trim();
+}
+
+function getAssistantInlineEmailDetailMarkup() {
+  return `
+<email-detail threadid="thread-3">Focus on the action item and current status.</email-detail>
+`.trim();
 }
 
 function getAssistantSearchInboxOutput() {
@@ -305,6 +748,7 @@ function getAssistantSearchInboxOutput() {
     messages: [
       {
         messageId: "message-1",
+        threadId: "thread-1",
         subject: "Daily summary",
         from: "Daily Updates <updates@example.com>",
         snippet: "Your summary is ready",
@@ -313,6 +757,7 @@ function getAssistantSearchInboxOutput() {
       },
       {
         messageId: "message-2",
+        threadId: "thread-2",
         subject: "Release notes",
         from: "Product Team <product@example.com>",
         snippet: "New changes shipped today",
@@ -321,6 +766,7 @@ function getAssistantSearchInboxOutput() {
       },
       {
         messageId: "message-3",
+        threadId: "thread-3",
         subject: "Ticket follow-up",
         from: "Support <support@example.com>",
         snippet: "Checking in on your request",
@@ -328,6 +774,13 @@ function getAssistantSearchInboxOutput() {
         isUnread: true,
       },
     ],
+  };
+}
+
+function getAssistantSearchInboxErrorOutput() {
+  return {
+    queryUsed: "from:updates@example.com received>=2026-01-10",
+    error: "Failed to search inbox",
   };
 }
 
@@ -343,6 +796,14 @@ function getAssistantReadEmailOutput() {
     date: "2026-01-10T15:20:00.000Z",
     attachments: [{ filename: "follow-up.pdf" }],
   };
+}
+
+function getThreadDetailFallbackKey(threadId: string) {
+  return `/api/threads/${threadId}?`;
+}
+
+function ToolErrorCardPreview({ error }: { error: string }) {
+  return <div className="text-xs text-muted-foreground">Error: {error}</div>;
 }
 
 function getAssistantSendEmailOutput(state: EmailActionState) {
@@ -436,4 +897,65 @@ function getAssistantForwardEmailOutput(state: EmailActionState) {
         }
       : {}),
   };
+}
+
+type RuleActionFields = {
+  label: string | null;
+  content: string | null;
+  to: string | null;
+  cc: string | null;
+  bcc: string | null;
+  subject: string | null;
+  webhookUrl: string | null;
+};
+
+type DemoRuleActionType =
+  | typeof ActionType.ARCHIVE
+  | typeof ActionType.LABEL
+  | typeof ActionType.REPLY
+  | typeof ActionType.SEND_EMAIL
+  | typeof ActionType.FORWARD
+  | typeof ActionType.DRAFT_EMAIL
+  | typeof ActionType.MARK_SPAM
+  | typeof ActionType.CALL_WEBHOOK
+  | typeof ActionType.MARK_READ
+  | typeof ActionType.DIGEST
+  | typeof ActionType.MOVE_FOLDER;
+
+type DemoRuleAction = {
+  type: DemoRuleActionType;
+  fields: RuleActionFields;
+  delayInMinutes: number | null;
+};
+
+function ruleAction(
+  type: DemoRuleActionType,
+  fields?: Partial<RuleActionFields>,
+): DemoRuleAction {
+  return {
+    type,
+    fields: buildRuleActionFields(fields),
+    delayInMinutes: null,
+  };
+}
+
+function buildRuleActionFields(
+  fields?: Partial<RuleActionFields>,
+): RuleActionFields {
+  return {
+    label: fields?.label ?? null,
+    content: fields?.content ?? null,
+    to: fields?.to ?? null,
+    cc: fields?.cc ?? null,
+    bcc: fields?.bcc ?? null,
+    subject: fields?.subject ?? null,
+    webhookUrl: fields?.webhookUrl ?? null,
+  };
+}
+
+function buildFakeSenderList(count: number, prefix: string): string[] {
+  return Array.from(
+    { length: count },
+    (_, i) => `${prefix}-${String(i + 1).padStart(3, "0")}@example.com`,
+  );
 }

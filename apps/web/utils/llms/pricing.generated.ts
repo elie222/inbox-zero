@@ -109,16 +109,6 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.000_003,
     cachedInput: 5e-8,
   },
-  "gemini-3-pro": {
-    input: 0.000_002,
-    output: 0.000_012,
-    cachedInput: 2e-7,
-  },
-  "gemini-3-pro-preview": {
-    input: 0.000_002,
-    output: 0.000_012,
-    cachedInput: 2e-7,
-  },
   "google/gemini-2.0-flash-001": {
     input: 1e-7,
     output: 4e-7,
@@ -178,6 +168,26 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     input: 0.000_001_25,
     output: 0.000_01,
     cachedInput: 1.25e-7,
+  },
+  "gemini-3-pro": {
+    input: 0.000_002,
+    output: 0.000_012,
+    cachedInput: 2e-7,
+  },
+  "gemini-3-pro-preview": {
+    input: 0.000_002,
+    output: 0.000_012,
+    cachedInput: 2e-7,
+  },
+  "gpt-5.4-mini": {
+    input: 7.5e-7,
+    output: 0.000_004_5,
+    cachedInput: 7.5e-8,
+  },
+  "gpt-5.4-nano": {
+    input: 2e-7,
+    output: 0.000_001_25,
+    cachedInput: 2e-8,
   },
   "grok-4-fast": {
     input: 2e-7,

@@ -3,20 +3,25 @@
 import { z } from "zod";
 import { after } from "next/server";
 import uniq from "lodash/uniq";
-import sumBy from "lodash/sumBy";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
-import { isAdminForPremium, isOnHigherTier, isPremium } from "@/utils/premium";
 import {
-  cancelPremiumLemon,
-  syncPremiumSeats,
+  getUserTier,
+  isAdminForPremium,
+  isOnHigherTier,
+  isPremiumRecord,
+  premiumEntitlementSelect,
+} from "@/utils/premium";
+import {
+  grantPremiumAdmin,
   upgradeToPremiumLemon,
 } from "@/utils/premium/server";
-import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
 import {
-  activateLemonLicenseKey,
-  getLemonCustomer,
-} from "@/ee/billing/lemon/index";
+  getStripeBillingQuantity,
+  syncPremiumSeats,
+} from "@/utils/premium/seats";
+import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
+import { activateLemonLicenseKey } from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@/generated/prisma/enums";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
 import { getStripePriceId } from "@/app/(app)/premium/config";
@@ -46,8 +51,7 @@ export const decrementUnsubscribeCreditAction = actionClientUser
             id: true,
             unsubscribeCredits: true,
             unsubscribeMonth: true,
-            lemonSqueezyRenewsAt: true,
-            stripeSubscriptionStatus: true,
+            ...premiumEntitlementSelect,
           },
         },
       },
@@ -55,10 +59,7 @@ export const decrementUnsubscribeCreditAction = actionClientUser
 
     if (!user) throw new SafeError("User not found");
 
-    const isUserPremium = isPremium(
-      user.premium?.lemonSqueezyRenewsAt || null,
-      user.premium?.stripeSubscriptionStatus || null,
-    );
+    const isUserPremium = isPremiumRecord(user.premium);
     if (isUserPremium) return;
 
     const currentMonth = new Date().getMonth() + 1;
@@ -101,7 +102,7 @@ export const updateMultiAccountPremiumAction = actionClientUser
         premium: {
           select: {
             id: true,
-            tier: true,
+            ...premiumEntitlementSelect,
             lemonSqueezySubscriptionItemId: true,
             stripeSubscriptionItemId: true,
             emailAccountsAccess: true,
@@ -132,7 +133,9 @@ export const updateMultiAccountPremiumAction = actionClientUser
 
     // make sure that the users being added to this plan are not on higher tiers already
     for (const userToAdd of otherUsers) {
-      if (isOnHigherTier(userToAdd.premium?.tier, premium.tier)) {
+      if (
+        isOnHigherTier(getUserTier(userToAdd.premium), getUserTier(premium))
+      ) {
         throw new SafeError(
           "One of the users you are adding to your plan already has premium and cannot be added.",
         );
@@ -273,14 +276,7 @@ export const adminChangePremiumStatusAction = adminActionClient
   .inputSchema(changePremiumStatusSchema)
   .action(
     async ({
-      parsedInput: {
-        email,
-        period,
-        count,
-        emailAccountsAccess,
-        lemonSqueezyCustomerId,
-        upgrade,
-      },
+      parsedInput: { email, period, count, emailAccountsAccess, upgrade },
     }) => {
       const userToUpgrade = await prisma.emailAccount.findUnique({
         where: { email },
@@ -292,34 +288,8 @@ export const adminChangePremiumStatusAction = adminActionClient
 
       if (!userToUpgrade?.user) throw new SafeError("User not found");
 
-      let lemonSqueezySubscriptionId: number | null = null;
-      let lemonSqueezySubscriptionItemId: number | null = null;
-      let lemonSqueezyOrderId: number | null = null;
-      let lemonSqueezyProductId: number | null = null;
-      let lemonSqueezyVariantId: number | null = null;
-
       if (upgrade) {
-        if (lemonSqueezyCustomerId) {
-          const lemonCustomer = await getLemonCustomer(
-            lemonSqueezyCustomerId.toString(),
-          );
-          if (!lemonCustomer.data)
-            throw new SafeError("Lemon customer not found");
-          const subscription = lemonCustomer.data.included?.find(
-            (i) => i.type === "subscriptions",
-          );
-          if (!subscription) throw new SafeError("Subscription not found");
-          lemonSqueezySubscriptionId = Number.parseInt(subscription.id);
-          const attributes = subscription.attributes as any;
-          lemonSqueezyOrderId = Number.parseInt(attributes.order_id);
-          lemonSqueezyProductId = Number.parseInt(attributes.product_id);
-          lemonSqueezyVariantId = Number.parseInt(attributes.variant_id);
-          lemonSqueezySubscriptionItemId = attributes.first_subscription_item.id
-            ? Number.parseInt(attributes.first_subscription_item.id)
-            : null;
-        }
-
-        const getRenewsAt = (period: PremiumTier): Date | null => {
+        const getGrantExpiresAt = (period: PremiumTier): Date | null => {
           const now = new Date();
           switch (period) {
             case PremiumTier.BASIC_ANNUALLY:
@@ -342,22 +312,19 @@ export const adminChangePremiumStatusAction = adminActionClient
           }
         };
 
-        await upgradeToPremiumLemon({
+        await grantPremiumAdmin({
           userId: userToUpgrade.user.id,
           tier: period,
-          lemonSqueezyCustomerId: lemonSqueezyCustomerId || null,
-          lemonSqueezySubscriptionId,
-          lemonSqueezySubscriptionItemId,
-          lemonSqueezyOrderId,
-          lemonSqueezyProductId,
-          lemonSqueezyVariantId,
-          lemonSqueezyRenewsAt: getRenewsAt(period),
+          adminGrantExpiresAt: getGrantExpiresAt(period),
           emailAccountsAccess,
         });
       } else if (userToUpgrade.user.premiumId) {
-        await cancelPremiumLemon({
-          premiumId: userToUpgrade.user.premiumId,
-          lemonSqueezyEndsAt: new Date(),
+        await prisma.premium.update({
+          where: { id: userToUpgrade.user.premiumId },
+          data: {
+            adminGrantExpiresAt: null,
+            adminGrantTier: null,
+          },
         });
       } else {
         throw new SafeError("User not premium.");
@@ -400,6 +367,9 @@ export const getBillingPortalUrlAction = actionClientUser
             stripeSubscriptionId: true,
             stripeSubscriptionItemId: true,
             stripeSubscriptionStatus: true,
+            users: {
+              select: { _count: { select: { emailAccounts: true } } },
+            },
           },
         },
       },
@@ -430,6 +400,11 @@ export const getBillingPortalUrlAction = actionClientUser
       return { url: null };
     }
 
+    const quantity = getStripeBillingQuantity({
+      priceId,
+      users: user.premium?.users || [],
+    });
+
     const { url } = await stripe.billingPortal.sessions.create({
       customer: user.premium.stripeCustomerId,
       return_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
@@ -446,6 +421,7 @@ export const getBillingPortalUrlAction = actionClientUser
                   {
                     id: user.premium.stripeSubscriptionItemId,
                     price: priceId,
+                    quantity,
                   },
                 ],
               },
@@ -479,14 +455,13 @@ export const generateCheckoutSessionAction = actionClientUser
         where: { id: userId },
         select: {
           email: true,
+          _count: { select: { emailAccounts: true } },
           premium: {
             select: {
               id: true,
               stripeCustomerId: true,
               users: {
-                select: {
-                  _count: { select: { emailAccounts: true } },
-                },
+                select: { _count: { select: { emailAccounts: true } } },
               },
             },
           },
@@ -523,8 +498,10 @@ export const generateCheckoutSessionAction = actionClientUser
         });
       }
 
-      const quantity =
-        sumBy(user.premium?.users || [], (u) => u._count.emailAccounts) || 1;
+      const quantity = getStripeBillingQuantity({
+        priceId,
+        users: user.premium?.users || [{ _count: user._count }],
+      });
 
       // ALWAYS create a checkout with a stripeCustomerId
       const checkout = await stripe.checkout.sessions.create({
@@ -541,7 +518,13 @@ export const generateCheckoutSessionAction = actionClientUser
         },
       });
 
-      after(() => trackStripeCheckoutCreated(user.email));
+      after(() =>
+        trackStripeCheckoutCreated(user.email, {
+          billingProvider: "stripe",
+          quantity,
+          tier,
+        }),
+      );
 
       return { url: checkout.url };
     },

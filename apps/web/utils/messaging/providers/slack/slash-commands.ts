@@ -8,9 +8,14 @@ import { MessagingProvider } from "@/generated/prisma/enums";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import { getRecentChatMemories } from "@/utils/ai/assistant/get-recent-chat-memories";
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
+import {
+  mergeSeenRulesRevision,
+  saveLastSeenRulesRevision,
+} from "@/utils/ai/assistant/chat-seen-rules-revision";
 import type { Logger } from "@/utils/logger";
 import { normalizeMessagingAssistantText } from "@/utils/messaging/chat-sdk/bot";
 import { PROMPT_COMMANDS } from "@/utils/messaging/prompt-commands";
+import { disableSlackLinkUnfurls } from "@/utils/messaging/providers/slack/send";
 import prisma from "@/utils/prisma";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
@@ -130,9 +135,15 @@ async function runSlackSlashCommandAi({
     update: {},
     select: {
       id: true,
+      lastSeenRulesRevision: true,
       messages: {
         orderBy: { createdAt: "desc" },
         take: MAX_CHAT_CONTEXT_MESSAGES,
+      },
+      compactions: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { id: true },
       },
     },
   });
@@ -162,6 +173,7 @@ async function runSlackSlashCommandAi({
   });
 
   const assistantMessageId = `${userMessageId}-assistant`;
+  let seenRulesRevision: number | null = null;
 
   const [inboxStats, memories] = await Promise.all([
     getInboxStatsForChatContext({
@@ -184,10 +196,18 @@ async function runSlackSlashCommandAi({
     emailAccountId,
     user: emailAccountUser,
     chatId: chat.id,
+    chatLastSeenRulesRevision: chat.lastSeenRulesRevision,
+    chatHasHistory: existingMessages.length > 0 || chat.compactions.length > 0,
     memories,
     inboxStats,
     responseSurface: "messaging",
     messagingPlatform: "slack",
+    onRulesStateExposed: (rulesRevision) => {
+      seenRulesRevision = mergeSeenRulesRevision(
+        seenRulesRevision,
+        rulesRevision,
+      );
+    },
     logger,
   });
 
@@ -221,6 +241,14 @@ async function runSlackSlashCommandAi({
     },
   });
 
+  if (seenRulesRevision != null) {
+    await saveLastSeenRulesRevision({
+      chatId: chat.id,
+      rulesRevision: seenRulesRevision,
+      logger,
+    });
+  }
+
   return normalizeMessagingAssistantText({ text: fullText || "Done." });
 }
 
@@ -236,7 +264,7 @@ async function postToSlackResponseUrl(
   const response = await fetch(responseUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(disableSlackLinkUnfurls(body)),
   });
 
   if (!response.ok) {

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { GroupItemSource, SystemType } from "@/generated/prisma/enums";
 import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
 import { learnFromOutlookLabelRemoval } from "./learn-label-removal";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
@@ -23,7 +23,7 @@ vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPattern: vi.fn().mockResolvedValue(undefined),
 }));
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe("learnFromOutlookLabelRemoval", () => {
   beforeEach(() => {

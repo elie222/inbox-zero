@@ -1,3 +1,5 @@
+import { normalizeInternalPath } from "@/utils/path";
+
 export function buildRedirectUrl(
   basePath: string,
   searchParams?: Record<string, string | string[] | undefined>,
@@ -15,4 +17,11 @@ export function buildRedirectUrl(
   }
   const qs = params.toString();
   return qs ? `${basePath}?${qs}` : basePath;
+}
+
+export function buildLoginRedirectUrl(nextPath: string | null | undefined) {
+  const normalizedNextPath = normalizeInternalPath(nextPath);
+  if (!normalizedNextPath) return "/login";
+
+  return buildRedirectUrl("/login", { next: normalizedNextPath });
 }

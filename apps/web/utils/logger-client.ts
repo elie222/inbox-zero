@@ -18,6 +18,15 @@ export function createClientLogger(scope: string) {
         log.error(message, { scope, ...(args ?? {}) }),
       warn: (message: string, args?: Record<string, unknown>) =>
         log.warn(message, { scope, ...(args ?? {}) }),
+      trace: (
+        message: string,
+        args?: Record<string, unknown> | (() => Record<string, unknown>),
+      ) => {
+        log.debug(message, {
+          scope,
+          ...(resolveTraceArgs(args) ?? {}),
+        });
+      },
       flush: () => log.flush(),
     };
   }
@@ -29,6 +38,16 @@ export function createClientLogger(scope: string) {
       console.error(`[${scope}]:`, message, args ?? ""),
     warn: (message: string, args?: Record<string, unknown>) =>
       console.warn(`[${scope}]:`, message, args ?? ""),
+    trace: (
+      message: string,
+      args?: Record<string, unknown> | (() => Record<string, unknown>),
+    ) => console.debug(`[${scope}]:`, message, resolveTraceArgs(args) ?? ""),
     flush: () => Promise.resolve(),
   };
+}
+
+function resolveTraceArgs(
+  args?: Record<string, unknown> | (() => Record<string, unknown>),
+) {
+  return typeof args === "function" ? args() : args;
 }

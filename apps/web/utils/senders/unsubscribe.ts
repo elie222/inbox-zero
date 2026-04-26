@@ -1,10 +1,16 @@
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
+import type { IncomingHttpHeaders } from "node:http";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import {
   extractEmailOrThrow,
   upsertSenderRecord,
 } from "@/utils/senders/record";
-import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
+import {
+  isSafeExternalHttpUrl,
+  resolveSafeExternalHttpUrl,
+} from "@/utils/network/safe-http-url";
 import { getHttpUnsubscribeLink } from "@/utils/parse/unsubscribe";
 
 const ONE_CLICK_REQUEST_BODY = "List-Unsubscribe=One-Click";
@@ -172,12 +178,6 @@ async function sendUnsubscribeRequest({
   statusCode?: number;
   reason?: AutomaticUnsubscribeResult["reason"];
 }> {
-  const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    UNSUBSCRIBE_REQUEST_TIMEOUT_MS,
-  );
-
   try {
     let currentUrl = unsubscribeUrl;
     let currentMethod = method;
@@ -187,23 +187,22 @@ async function sendUnsubscribeRequest({
       redirectCount <= MAX_UNSUBSCRIBE_REDIRECTS;
       redirectCount += 1
     ) {
-      const response = await fetch(currentUrl, {
+      const response = await sendPinnedUnsubscribeRequest({
         method: currentMethod,
-        headers: {
-          Accept: "*/*",
-          ...(currentMethod === "POST"
-            ? { "Content-Type": "application/x-www-form-urlencoded" }
-            : {}),
-        },
-        ...(currentMethod === "POST" ? { body: ONE_CLICK_REQUEST_BODY } : {}),
-        signal: controller.signal,
-        redirect: "manual",
+        unsubscribeUrl: currentUrl,
       });
 
-      if (!isRedirectStatusCode(response.status)) {
+      if (response.blocked) {
+        return {
+          success: false,
+          reason: "unsafe_unsubscribe_url",
+        };
+      }
+
+      if (!isRedirectStatusCode(response.statusCode)) {
         return {
           success: response.ok,
-          statusCode: response.status,
+          statusCode: response.statusCode,
           reason: response.ok ? undefined : "request_rejected",
         };
       }
@@ -211,19 +210,19 @@ async function sendUnsubscribeRequest({
       if (redirectCount === MAX_UNSUBSCRIBE_REDIRECTS) {
         return {
           success: false,
-          statusCode: response.status,
+          statusCode: response.statusCode,
           reason: "request_rejected",
         };
       }
 
-      const redirectedUrl = getSafeRedirectUrl({
+      const redirectedUrl = getRedirectUrl({
         currentUrl,
-        location: response.headers.get("location"),
+        location: getHeaderValue(response.headers.location),
       });
       if (!redirectedUrl) {
         return {
           success: false,
-          statusCode: response.status,
+          statusCode: response.statusCode,
           reason: "unsafe_unsubscribe_url",
         };
       }
@@ -231,7 +230,7 @@ async function sendUnsubscribeRequest({
       currentUrl = redirectedUrl;
       currentMethod = getRedirectMethod({
         currentMethod,
-        statusCode: response.status,
+        statusCode: response.statusCode,
       });
     }
 
@@ -240,17 +239,89 @@ async function sendUnsubscribeRequest({
       reason: "request_rejected",
     };
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
+    if (isRequestTimeoutError(error)) {
       return { success: false, reason: "request_timeout" };
     }
 
     return { success: false, reason: "request_failed" };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
-function getSafeRedirectUrl({
+async function sendPinnedUnsubscribeRequest({
+  method,
+  unsubscribeUrl,
+}: {
+  method: "POST" | "GET";
+  unsubscribeUrl: string;
+}): Promise<{
+  blocked: boolean;
+  ok: boolean;
+  statusCode: number;
+  headers: IncomingHttpHeaders;
+}> {
+  const resolvedUrl = await resolveSafeExternalHttpUrl(unsubscribeUrl);
+  if (!resolvedUrl) {
+    return {
+      blocked: true,
+      ok: false,
+      statusCode: 0,
+      headers: {} as IncomingHttpHeaders,
+    };
+  }
+
+  const requestBody = method === "POST" ? ONE_CLICK_REQUEST_BODY : undefined;
+
+  return new Promise<{
+    blocked: boolean;
+    ok: boolean;
+    statusCode: number;
+    headers: IncomingHttpHeaders;
+  }>((resolve, reject) => {
+    const request = (
+      resolvedUrl.url.protocol === "https:" ? httpsRequest : httpRequest
+    )(
+      resolvedUrl.url,
+      {
+        method,
+        lookup: resolvedUrl.lookup,
+        headers: {
+          Accept: "*/*",
+          ...(requestBody
+            ? {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": Buffer.byteLength(requestBody).toString(),
+              }
+            : {}),
+        },
+      },
+      (response) => {
+        response.resume();
+        response.on("error", reject);
+        response.on("end", () =>
+          resolve({
+            blocked: false,
+            ok:
+              (response.statusCode || 0) >= 200 &&
+              (response.statusCode || 0) < 300,
+            statusCode: response.statusCode || 0,
+            headers: response.headers,
+          }),
+        );
+      },
+    );
+
+    request.setTimeout(UNSUBSCRIBE_REQUEST_TIMEOUT_MS, () => {
+      request.destroy(new Error("Unsubscribe request timed out"));
+    });
+
+    request.on("error", reject);
+
+    if (requestBody) request.write(requestBody);
+    request.end();
+  });
+}
+
+function getRedirectUrl({
   currentUrl,
   location,
 }: {
@@ -265,6 +336,13 @@ function getSafeRedirectUrl({
   } catch {
     return null;
   }
+}
+
+function getHeaderValue(
+  headerValue: string | string[] | undefined,
+): string | null {
+  if (!headerValue) return null;
+  return Array.isArray(headerValue) ? headerValue[0] || null : headerValue;
 }
 
 function isRedirectStatusCode(statusCode: number) {
@@ -292,4 +370,10 @@ function getRedirectMethod({
   }
 
   return currentMethod;
+}
+
+function isRequestTimeoutError(error: unknown) {
+  return (
+    error instanceof Error && error.message.toLowerCase().includes("timed out")
+  );
 }

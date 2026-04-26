@@ -1,53 +1,28 @@
 ---
 name: testing
-description: Guidelines for testing the application with Vitest
+description: Guidelines for testing the application with Vitest, including unit tests, integration tests (emulator), AI tests, and eval suites for LLM features
 ---
-# Testing Guidelines
+# Testing
 
-## Testing Framework
-- `vitest` is used for testing
-- Run tests using `cd apps/web && pnpm test --run` (not `npx vitest`). Don't use sandbox or the test won't run.
-- Tests are colocated next to the tested file
-  - Example: `dir/format.ts` and `dir/format.test.ts`
-- AI tests are placed in the `__tests__` directory and are not run by default (they use a real LLM)
+All testing guidance lives in this directory. Read the relevant file for your task:
 
-## Common Mocks
+| Type | File | When to use |
+|------|------|-------------|
+| Unit tests | [unit.md](unit.md) | Framework setup, mocks, colocated tests |
+| Writing tests | [write-tests.md](write-tests.md) | What to test, what to skip, workflow |
+| LLM tests | [llm.md](llm.md) | Tests that call real LLMs (`pnpm test-ai`) |
+| Eval suite | [eval.md](eval.md) | Cross-model comparison, LLM-as-judge |
+| Integration | [integration.md](integration.md) | Emulator-backed tests (`pnpm test-integration`) |
+| E2E tests | [e2e.md](e2e.md) | Real email workflow tests from inbox-zero-e2e repo |
 
-### Server-Only Mock
-```ts
-vi.mock("server-only", () => ({}));
+Prefer behavior-focused assertions; avoid freezing prompt copy or internal call shapes unless those exact values are the contract under test.
+
+## Quick Commands
+
+```bash
+pnpm test -- path/to/file.test.ts   # Single unit test
+pnpm test --run                      # All unit tests
+pnpm test-integration                # Integration tests (emulator)
+pnpm test-ai ai-regression/your-feature  # Live AI regression test
+EVAL_MODELS=all pnpm test-ai eval/your-feature  # Eval across models
 ```
-
-### Prisma Mock
-```ts
-import { beforeEach } from "vitest";
-import prisma from "@/utils/__mocks__/prisma";
-
-vi.mock("@/utils/prisma");
-
-describe("example", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("test", async () => {
-    prisma.group.findMany.mockResolvedValue([]);
-  });
-});
-```
-
-### Helpers
-
-You can get mocks for emails, accounts, and rules here:
-
-```tsx
-import { getEmail, getEmailAccount, getRule } from "@/__tests__/helpers";
-```
-
-## Best Practices
-- Each test should be independent
-- Use descriptive test names
-- Mock external dependencies
-- Clean up mocks between tests
-- Avoid testing implementation details
-- Do not mock the Logger

@@ -28,15 +28,13 @@ import {
   createRuleBody,
 } from "@/utils/actions/rule.validation";
 import { Toggle } from "@/components/Toggle";
-import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { useLabels } from "@/hooks/useLabels";
+import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { AlertError } from "@/components/Alert";
 import { LearnedPatternsDialog } from "@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
-import { useRule } from "@/hooks/useRule";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { getEmailTerminology } from "@/utils/terminology";
 import {
   Dialog,
@@ -52,6 +50,20 @@ import { isConversationStatusType } from "@/utils/reply-tracker/conversation-sta
 import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSectionCard";
 import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
 import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
+import { RuleLoader } from "@/app/(app)/[emailAccountId]/assistant/RuleLoader";
+import {
+  getAvailableActionsForRuleEditor,
+  getExtraAvailableActionsForRuleEditor,
+} from "@/utils/ai/rule/action-availability";
+import { handleRuleAttachmentSourceSave } from "@/utils/attachments/rule";
+import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
+import { sortActionsByPriority } from "@/utils/action-sort";
+import {
+  denormalizeDraftReplyActions,
+  normalizeDraftReplyActions,
+} from "@/app/(app)/[emailAccountId]/assistant/draftReplyActions";
+import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 
 export function Rule({
   ruleId,
@@ -60,18 +72,12 @@ export function Rule({
   ruleId: string;
   alwaysEditMode?: boolean;
 }) {
-  const { data, isLoading, error, mutate } = useRule(ruleId);
-
   return (
-    <LoadingContent loading={isLoading} error={error}>
-      {data && (
-        <RuleForm
-          rule={data.rule}
-          alwaysEditMode={alwaysEditMode}
-          mutate={mutate}
-        />
+    <RuleLoader ruleId={ruleId}>
+      {({ rule, mutate }) => (
+        <RuleForm rule={rule} alwaysEditMode={alwaysEditMode} mutate={mutate} />
       )}
-    </LoadingContent>
+    </RuleLoader>
   );
 }
 
@@ -83,7 +89,16 @@ export function RuleForm({
   mutate,
   onCancel,
 }: {
-  rule: CreateRuleBody & { id?: string };
+  rule: CreateRuleBody & {
+    id?: string;
+    attachmentSources?: Array<{
+      driveConnectionId: string;
+      name: string;
+      sourceId: string;
+      sourcePath: string | null;
+      type: AttachmentSourceInput["type"];
+    }>;
+  };
   alwaysEditMode?: boolean;
   onSuccess?: () => void;
   isDialog?: boolean;
@@ -92,28 +107,33 @@ export function RuleForm({
   onCancel?: () => void;
 }) {
   const { emailAccountId, provider } = useAccount();
+  const ruleEditorActions = getRuleEditorActions(rule.actions);
 
   const form = useForm<CreateRuleBody>({
     resolver: zodResolver(createRuleBody),
     defaultValues: rule
       ? {
           ...rule,
-          digest: rule.actions.some(
+          digest: ruleEditorActions.some(
             (action) => action.type === ActionType.DIGEST,
           ),
           actions: [
-            ...rule.actions
-              .filter((action) => action.type !== ActionType.DIGEST)
-              .map((action) => ({
-                ...action,
-                delayInMinutes: action.delayInMinutes,
-                content: {
-                  ...action.content,
-                  setManually: !!action.content?.value,
-                },
-                folderName: action.folderName,
-                folderId: action.folderId,
-              })),
+            ...normalizeDraftReplyActions(
+              sortActionsByPriority(
+                ruleEditorActions
+                  .filter((action) => action.type !== ActionType.DIGEST)
+                  .map((action) => ({
+                    ...action,
+                    delayInMinutes: action.delayInMinutes,
+                    content: {
+                      ...action.content,
+                      setManually: !!action.content?.value,
+                    },
+                    folderName: action.folderName,
+                    folderId: action.folderId,
+                  })),
+              ),
+            ),
           ],
         }
       : undefined,
@@ -143,32 +163,63 @@ export function RuleForm({
     fields: actionFields,
     append,
     remove,
+    replace,
   } = useFieldArray({ control, name: "actions" });
 
   const { userLabels, isLoading, mutate: mutateLabels } = useLabels();
+  const { data: messagingChannelsData } = useMessagingChannels(emailAccountId);
   const { folders, isLoading: foldersLoading } = useFolders(provider);
   const router = useRouter();
 
   const posthog = usePostHog();
+  const [attachmentSources, setAttachmentSources] = useState<
+    AttachmentSourceInput[]
+  >(
+    rule.attachmentSources?.map((source) => ({
+      driveConnectionId: source.driveConnectionId,
+      name: source.name,
+      sourceId: source.sourceId,
+      sourcePath: source.sourcePath,
+      type: source.type,
+    })) || [],
+  );
 
   const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
     async (data) => {
       // set content to empty string if it's not set manually
       for (const action of data.actions) {
-        if (action.type === ActionType.DRAFT_EMAIL) {
+        if (isDraftReplyActionType(action.type)) {
           if (!action.content?.setManually) {
             action.content = { value: "", ai: false };
           }
         }
       }
 
+      const normalizedActions = denormalizeDraftReplyActions(data.actions);
+
+      const hasDraftAction = normalizedActions.some((action) =>
+        isDraftReplyActionType(action.type),
+      );
+
       // Add DIGEST action if digest is enabled
-      const actionsToSubmit = [...data.actions];
+      const actionsToSubmit = [...normalizedActions];
       if (data.digest) {
-        actionsToSubmit.push({ type: ActionType.DIGEST });
+        const existingDigestAction = rule.actions.find(
+          (action) => action.type === ActionType.DIGEST,
+        );
+
+        actionsToSubmit.push({
+          id: existingDigestAction?.id,
+          type: ActionType.DIGEST,
+        });
       }
 
       if (data.id) {
+        const orderedActionsToSubmit = restorePersistedActionSequence({
+          actions: actionsToSubmit,
+          originalActions: rule.actions,
+        });
+
         if (mutate) {
           // mutate delayInMinutes optimistically to keep the UI consistent
           // in case the modal is reopened immediately after saving
@@ -186,7 +237,7 @@ export function RuleForm({
 
         const res = await updateRuleAction(emailAccountId, {
           ...data,
-          actions: actionsToSubmit,
+          actions: orderedActionsToSubmit,
           id: data.id,
         });
 
@@ -200,12 +251,21 @@ export function RuleForm({
           });
           if (mutate) mutate();
         } else {
-          toastSuccess({ description: "Saved!" });
+          await handleRuleAttachmentSourceSave({
+            emailAccountId,
+            ruleId: res.data.rule.id,
+            attachmentSources,
+            shouldSave: hasDraftAction,
+            successMessage: "Saved!",
+            partialErrorMessage:
+              "Rule saved, but draft attachment sources could not be updated.",
+          });
+
           // Revalidate to get the real data from server
           if (mutate) mutate();
           posthog.capture("User updated AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
-            actions: actionsToSubmit.map((action) => action.type),
+            actions: orderedActionsToSubmit.map((action) => action.type),
             runOnThreads: data.runOnThreads,
             digest: data.digest,
           });
@@ -229,7 +289,16 @@ export function RuleForm({
             description: "There was an error creating the rule.",
           });
         } else {
-          toastSuccess({ description: "Created!" });
+          await handleRuleAttachmentSourceSave({
+            emailAccountId,
+            ruleId: res.data.rule.id,
+            attachmentSources,
+            shouldSave: hasDraftAction,
+            successMessage: "Created!",
+            partialErrorMessage:
+              "Rule created, but draft attachment sources could not be saved.",
+          });
+
           posthog.capture("User created AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
             actions: actionsToSubmit.map((action) => action.type),
@@ -247,7 +316,16 @@ export function RuleForm({
         }
       }
     },
-    [router, posthog, emailAccountId, isDialog, onSuccess, mutate, rule],
+    [
+      attachmentSources,
+      router,
+      posthog,
+      emailAccountId,
+      isDialog,
+      onSuccess,
+      mutate,
+      rule,
+    ],
   );
 
   const conditions = watch("conditions");
@@ -263,7 +341,8 @@ export function RuleForm({
       const actionError =
         formState.errors?.actions?.[index]?.url?.root?.message ||
         formState.errors?.actions?.[index]?.labelId?.root?.message ||
-        formState.errors?.actions?.[index]?.to?.root?.message;
+        formState.errors?.actions?.[index]?.to?.root?.message ||
+        formState.errors?.actions?.[index]?.messagingChannelId?.message;
       if (actionError) actionErrors.push(actionError);
     });
     return actionErrors;
@@ -271,6 +350,10 @@ export function RuleForm({
 
   const conditionalOperator = watch("conditionalOperator");
   const terminology = getEmailTerminology(provider);
+  const existingActionTypes = useMemo(
+    () => ruleEditorActions.map((action) => action.type),
+    [ruleEditorActions],
+  );
 
   const formErrors = useMemo(() => {
     return Object.values(formState.errors)
@@ -279,84 +362,29 @@ export function RuleForm({
   }, [formState]);
 
   const typeOptions = useMemo(() => {
-    const options: {
-      label: string;
-      value: ActionType;
-      icon: React.ElementType;
-    }[] = [
-      {
-        label: terminology.label.action,
-        value: ActionType.LABEL,
-        icon: getActionIcon(ActionType.LABEL),
-      },
-      ...(isMicrosoftProvider(provider)
-        ? [
-            {
-              label: "Move to folder",
-              value: ActionType.MOVE_FOLDER,
-              icon: getActionIcon(ActionType.MOVE_FOLDER),
-            },
-          ]
-        : []),
-      {
-        label: "Draft reply",
-        value: ActionType.DRAFT_EMAIL,
-        icon: getActionIcon(ActionType.DRAFT_EMAIL),
-      },
-      {
-        label: "Archive",
-        value: ActionType.ARCHIVE,
-        icon: getActionIcon(ActionType.ARCHIVE),
-      },
-      {
-        label: "Mark read",
-        value: ActionType.MARK_READ,
-        icon: getActionIcon(ActionType.MARK_READ),
-      },
-      ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
-        ? [
-            {
-              label: "Reply",
-              value: ActionType.REPLY,
-              icon: getActionIcon(ActionType.REPLY),
-            },
-            {
-              label: "Send email",
-              value: ActionType.SEND_EMAIL,
-              icon: getActionIcon(ActionType.SEND_EMAIL),
-            },
-            {
-              label: "Forward",
-              value: ActionType.FORWARD,
-              icon: getActionIcon(ActionType.FORWARD),
-            },
-          ]
-        : []),
-      {
-        label: "Mark spam",
-        value: ActionType.MARK_SPAM,
-        icon: getActionIcon(ActionType.MARK_SPAM),
-      },
-      {
-        label: "Call webhook",
-        value: ActionType.CALL_WEBHOOK,
-        icon: getActionIcon(ActionType.CALL_WEBHOOK),
-      },
-      // NOTIFY_SENDER is only available for cold email rules
-      ...(rule.systemType === SystemType.COLD_EMAIL &&
-      env.NEXT_PUBLIC_IS_RESEND_CONFIGURED
-        ? [
-            {
-              label: "Notify sender",
-              value: ActionType.NOTIFY_SENDER,
-              icon: getActionIcon(ActionType.NOTIFY_SENDER),
-            },
-          ]
-        : []),
-    ];
-
-    return options;
-  }, [provider, terminology.label.action, rule.systemType]);
+    const connectedMessagingChannels = getConnectedRuleNotificationChannels(
+      messagingChannelsData?.channels,
+    );
+    return getRuleActionTypeOptions({
+      provider,
+      labelActionText: terminology.label.action,
+      hasConnectedMessagingChannels: connectedMessagingChannels.length > 0,
+      hasAvailableMessagingProviders:
+        (messagingChannelsData?.availableProviders.length ?? 0) > 0,
+      systemType: rule.systemType,
+      existingActionTypes,
+    }).map((option) => ({
+      ...option,
+      icon: getActionIcon(option.value),
+    }));
+  }, [
+    existingActionTypes,
+    messagingChannelsData?.channels,
+    messagingChannelsData?.availableProviders,
+    provider,
+    terminology.label.action,
+    rule.systemType,
+  ]);
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -423,7 +451,6 @@ export function RuleForm({
             conditionFields={conditionFields}
             conditionalOperator={conditionalOperator}
             removeCondition={removeCondition}
-            control={control}
             watch={watch}
             setValue={setValue}
             register={register}
@@ -460,6 +487,7 @@ export function RuleForm({
             setValue={setValue}
             append={append}
             remove={remove}
+            replaceActions={replace}
             control={control}
             errors={errors}
             userLabels={userLabels}
@@ -469,6 +497,12 @@ export function RuleForm({
             typeOptions={typeOptions}
             folders={folders}
             foldersLoading={foldersLoading}
+            messagingChannels={messagingChannelsData?.channels ?? []}
+            availableMessagingProviders={
+              messagingChannelsData?.availableProviders ?? []
+            }
+            attachmentSources={attachmentSources}
+            onAttachmentSourcesChange={setAttachmentSources}
           />
         </RuleSectionCard>
 
@@ -527,7 +561,7 @@ export function RuleForm({
                   </div>
                 )}
 
-                {rule.id && (
+                {rule.id && !rule.systemType && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -578,6 +612,12 @@ export function RuleForm({
                     Delete rule
                   </Button>
                 )}
+
+                {rule.id && rule.systemType && (
+                  <p className="text-sm text-muted-foreground">
+                    Default rules can be disabled from the rules list.
+                  </p>
+                )}
               </div>
             </DialogContent>
           </Dialog>
@@ -625,4 +665,166 @@ function allowMultipleConditions(systemType: SystemType | null | undefined) {
     systemType !== SystemType.COLD_EMAIL &&
     !isConversationStatusType(systemType)
   );
+}
+
+function restorePersistedActionSequence({
+  actions,
+  originalActions,
+}: {
+  actions: CreateRuleBody["actions"];
+  originalActions: CreateRuleBody["actions"];
+}) {
+  const originalIndexById = new Map(
+    originalActions.flatMap((action, index) =>
+      action.id ? [[action.id, index] as const] : [],
+    ),
+  );
+
+  if (originalIndexById.size === 0) return actions;
+
+  const existing: CreateRuleBody["actions"] = [];
+  const added: CreateRuleBody["actions"] = [];
+
+  for (const action of actions) {
+    if (action.id && originalIndexById.has(action.id)) {
+      existing.push(action);
+    } else {
+      added.push(action);
+    }
+  }
+
+  if (existing.length === 0) return actions;
+
+  existing.sort(
+    (a, b) =>
+      (originalIndexById.get(a.id ?? "") ?? 0) -
+      (originalIndexById.get(b.id ?? "") ?? 0),
+  );
+
+  return [...existing, ...added];
+}
+
+function getRuleEditorActions(actions: CreateRuleBody["actions"]) {
+  if (env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED === false) {
+    return actions.filter((action) => action.type !== ActionType.CALL_WEBHOOK);
+  }
+
+  return actions;
+}
+
+type ActionTypeOption = {
+  label: string;
+  value: ActionType;
+};
+
+export function getRuleActionTypeOptions({
+  provider,
+  labelActionText,
+  hasConnectedMessagingChannels,
+  hasAvailableMessagingProviders,
+  systemType,
+  existingActionTypes,
+}: {
+  provider: string;
+  labelActionText: string;
+  hasConnectedMessagingChannels: boolean;
+  hasAvailableMessagingProviders: boolean;
+  systemType: SystemType | null | undefined;
+  existingActionTypes: ActionType[];
+}): ActionTypeOption[] {
+  const messagingIsAvailable =
+    hasConnectedMessagingChannels || hasAvailableMessagingProviders;
+  const availableActions = new Set(
+    getAvailableActionsForRuleEditor({
+      provider,
+      existingActionTypes,
+    }),
+  );
+  const extraActions = new Set(getExtraAvailableActionsForRuleEditor());
+
+  return [
+    {
+      label: labelActionText,
+      value: ActionType.LABEL,
+    },
+    ...(availableActions.has(ActionType.MOVE_FOLDER)
+      ? [
+          {
+            label: "Move to folder",
+            value: ActionType.MOVE_FOLDER,
+          },
+        ]
+      : []),
+    ...(availableActions.has(ActionType.DRAFT_EMAIL)
+      ? [
+          {
+            label: "Draft reply",
+            value: ActionType.DRAFT_EMAIL,
+          },
+        ]
+      : []),
+    {
+      label: "Archive",
+      value: ActionType.ARCHIVE,
+    },
+    {
+      label: "Mark read",
+      value: ActionType.MARK_READ,
+    },
+    ...(availableActions.has(ActionType.REPLY)
+      ? [
+          {
+            label: "Reply",
+            value: ActionType.REPLY,
+          },
+        ]
+      : []),
+    ...(availableActions.has(ActionType.SEND_EMAIL)
+      ? [
+          {
+            label: "Send email",
+            value: ActionType.SEND_EMAIL,
+          },
+        ]
+      : []),
+    ...(availableActions.has(ActionType.FORWARD)
+      ? [
+          {
+            label: "Forward",
+            value: ActionType.FORWARD,
+          },
+        ]
+      : []),
+    {
+      label: "Mark spam",
+      value: ActionType.MARK_SPAM,
+    },
+    ...(extraActions.has(ActionType.CALL_WEBHOOK)
+      ? [
+          {
+            label: "Call webhook",
+            value: ActionType.CALL_WEBHOOK,
+          },
+        ]
+      : []),
+    ...(messagingIsAvailable ||
+    existingActionTypes.includes(ActionType.NOTIFY_MESSAGING_CHANNEL)
+      ? [
+          {
+            label: "Notify via chat app",
+            value: ActionType.NOTIFY_MESSAGING_CHANNEL,
+          },
+        ]
+      : []),
+    ...((systemType === SystemType.COLD_EMAIL &&
+      env.NEXT_PUBLIC_IS_RESEND_CONFIGURED) ||
+    existingActionTypes.includes(ActionType.NOTIFY_SENDER)
+      ? [
+          {
+            label: "Notify sender",
+            value: ActionType.NOTIFY_SENDER,
+          },
+        ]
+      : []),
+  ];
 }

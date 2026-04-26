@@ -6,8 +6,7 @@ import { actionClient, adminActionClient } from "@/utils/actions/safe-action";
 import {
   getGmailAndAccessTokenForEmail,
   getOutlookClientForEmail,
-} from "@/utils/account";
-import { isLocalBypassEmailAccount } from "@/utils/auth/local-bypass-email-account";
+} from "@/utils/email-account-client";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import {
@@ -19,10 +18,6 @@ import type { Logger } from "@/utils/logger";
 export const checkPermissionsAction = actionClient
   .metadata({ name: "checkPermissions" })
   .action(async ({ ctx: { emailAccountId, provider, logger } }) => {
-    if (await isLocalBypassEmailAccount(emailAccountId)) {
-      return { hasAllPermissions: true, hasRefreshToken: true };
-    }
-
     if (isMicrosoftProvider(provider)) {
       return checkOutlookPermissions({ emailAccountId, logger });
     }
@@ -44,6 +39,7 @@ export const checkPermissionsAction = actionClient
         accessToken,
         refreshToken: tokens.refreshToken,
         emailAccountId,
+        grantedScope: tokens.scope,
       });
 
       if (error) throw new SafeError(error);
@@ -73,10 +69,6 @@ export const adminCheckPermissionsAction = adminActionClient
       if (!emailAccount) throw new SafeError("Email account not found");
       const emailAccountId = emailAccount.id;
 
-      if (await isLocalBypassEmailAccount(emailAccountId)) {
-        return { hasAllPermissions: true };
-      }
-
       if (isMicrosoftProvider(emailAccount.account.provider)) {
         return checkOutlookPermissions({ emailAccountId, logger });
       }
@@ -95,6 +87,7 @@ export const adminCheckPermissionsAction = adminActionClient
         accessToken,
         refreshToken: tokens.refreshToken,
         emailAccountId,
+        grantedScope: tokens.scope,
       });
       if (error) throw new SafeError(error);
       return { hasAllPermissions };

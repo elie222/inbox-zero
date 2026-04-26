@@ -69,7 +69,12 @@ async function enqueueDueAutomationJobs(logger: Logger) {
           isConnected: true,
           accessToken: true,
           providerUserId: true,
-          channelId: true,
+          routes: {
+            select: {
+              purpose: true,
+              targetId: true,
+            },
+          },
         },
       },
     },

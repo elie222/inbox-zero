@@ -1,0 +1,120 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+
+# Reply Memory Feature
+
+## Overview
+
+The reply memory system improves future draft replies from prior user corrections.
+
+It does two jobs:
+
+- act as a lightweight runtime corrective layer for drafting
+- automatically build useful knowledge for users who do not maintain a manual knowledge base
+
+The system does not treat all learned data the same way.
+Some learned items are always-on writing preferences.
+Some are conditional facts or procedures.
+Some are raw draft/send correction signals on `ReplyMemorySource`, plus short-lived sent-text evidence on `DraftSendLog`, which stay useful for analysis and debugging but are not injected directly into prompts.
+
+## Core Principles
+
+### Atomic Memories
+
+Each memory should be one atomic fragment in a single canonical `content` field.
+
+The memory itself should already be a prompt-ready instruction or fact.
+
+### Memory Types
+
+The current system uses these conceptual types:
+
+- `fact`
+  - durable business knowledge, routing rules, pricing, policies
+- `preference`
+  - writing style, formatting, greeting/sign-off habits
+- `procedure`
+  - how to handle a recurring class of replies
+- raw evidence
+  - draft/send correction signals used for analysis, consolidation, and evals
+
+### Small Prompt Footprint
+
+The drafting prompt stays small.
+
+- style/preferences should be compact and mostly always-on
+- facts/procedures should be selected conditionally
+- raw evidence should usually stay out of the prompt
+
+## Retrieval Model
+
+### Main Drafter
+
+The main drafting path should receive:
+
+- manual writing style
+- learned style profile
+- a small selected set of relevant facts/procedures
+
+It does not rely on a large memory dump.
+
+## Knowledge Base Relationship
+
+Most users do not have a manual knowledge base.
+
+The reply memory system can serve as an automatic KB for those users.
+
+That means:
+
+- `fact` and `procedure` items are effectively auto-KB entries
+- `preference` items are user-specific drafting bias
+- raw evidence is the learning substrate that feeds both
+
+The system does not assume manual KB coverage.
+
+## Evidence and Retention
+
+Raw draft/send evidence is useful for:
+
+- improving prompts
+- consolidating memories
+- validating conflicts
+
+Temporary retention is acceptable, and the current system:
+
+- keeps raw sent-text evidence for about a week
+- lazily cleans it up when reply-memory sync runs
+- keeps durable memories longer than raw evidence
+
+## Current Implementation Notes
+
+- `ReplyMemory` stores one canonical `content` field plus `kind`, `scopeType`, and `scopeValue`
+- promptable memories are `fact` and `procedure`
+- `preference` memories are account-level and feed learned writing style
+- learned writing style is stored separately on `EmailAccount`
+- raw evidence lives on `ReplyMemorySource` and keeps draft/send examples for short-term analysis
+
+## Future Notes
+
+Potential follow-up ideas:
+
+- subagent memory CAG with tag-based progressive disclosure and optional free-form search
+- better conflict handling through reinforcement, recency, and stale-memory detection
+- stronger analysis and eval generation from repeated residual draft mistakes
+
+Key files:
+
+- `apps/web/prisma/schema.prisma`
+- `apps/web/utils/ai/reply/extract-reply-memories.ts`
+- `apps/web/utils/ai/reply/reply-memory.ts`
+- `apps/web/utils/ai/reply/summarize-learned-writing-style.ts`
+
+## Key Design Rule
+
+The memory system is a residual improvement layer.
+
+Search, inbox context, relationships, and KB retrieval should continue to do most of the factual heavy lifting.
+Memory should capture what repeatedly goes wrong or what the user reliably corrects.

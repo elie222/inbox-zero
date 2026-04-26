@@ -14,10 +14,16 @@ import type { Action } from "@/generated/prisma/client";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/__mocks__/prisma";
 import type { RuleWithActions } from "@/utils/types";
-import { getAction, getEmailAccount, getEmail } from "@/__tests__/helpers";
-import { createScopedLogger } from "@/utils/logger";
+import {
+  getAction,
+  getEmail,
+  getEmailAccount,
+  createTestLogger,
+} from "@/__tests__/helpers";
+import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
+import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
 vi.mock("server-only", () => ({}));
@@ -249,6 +255,290 @@ describe("ensureConversationRuleContinuity", () => {
   });
 });
 
+describe("runRules draft attribution persistence", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("persists generated draft attribution on executed draft actions", async () => {
+    const draftRule = createRule("draft-rule", SystemType.TO_REPLY, [
+      getAction({
+        id: "draft-action-1",
+        type: ActionType.DRAFT_EMAIL,
+      }),
+    ]);
+
+    vi.mocked(findMatchingRules).mockResolvedValue({
+      matches: [{ rule: draftRule, matchReasons: [] }],
+      reasoning: "Matched draft rule",
+    } as any);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    vi.mocked(getActionItemsWithAiArgs).mockResolvedValue([
+      {
+        ...getAction({
+          id: "draft-action-1",
+          type: ActionType.DRAFT_EMAIL,
+          content: "Generated draft content",
+        }),
+        draftModelProvider: "openai",
+        draftModelName: "gpt-5.1",
+        draftPipelineVersion: 1,
+      } as any,
+    ]);
+
+    const createSpy = prisma.executedRule.create.mockResolvedValue({
+      id: "exec-1",
+      status: ExecutedRuleStatus.APPLYING,
+      ruleId: draftRule.id,
+      threadId,
+      messageId: "message-1",
+      actionItems: [],
+    } as any);
+
+    await runRules({
+      provider: {} as any,
+      message: {
+        ...getEmail(),
+        id: "message-1",
+        threadId,
+        snippet: "",
+        historyId: "history-1",
+        inline: [],
+        attachments: [],
+        headers: {
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Subject",
+          date: "Mon, 1 Jan 2026 12:00:00 +0000",
+          "message-id": "<message-1>",
+        },
+      } as any,
+      rules: [draftRule],
+      emailAccount: getEmailAccount(),
+      isTest: false,
+      modelType: "default" as any,
+      logger,
+    });
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    const createdActions =
+      createSpy.mock.calls[0]?.[0]?.data?.actionItems?.createMany?.data;
+    expect(createdActions).toEqual([
+      expect.objectContaining({
+        type: ActionType.DRAFT_EMAIL,
+        content: "Generated draft content",
+        draftModelProvider: "openai",
+        draftModelName: "gpt-5.1",
+        draftPipelineVersion: 1,
+      }),
+    ]);
+  });
+
+  it("persists a null draft pipeline version when draft attribution is missing", async () => {
+    const draftRule = createRule("draft-rule", SystemType.TO_REPLY, [
+      getAction({
+        id: "draft-action-1",
+        type: ActionType.DRAFT_EMAIL,
+      }),
+    ]);
+
+    vi.mocked(findMatchingRules).mockResolvedValue({
+      matches: [{ rule: draftRule, matchReasons: [] }],
+      reasoning: "Matched draft rule",
+    } as any);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    vi.mocked(getActionItemsWithAiArgs).mockResolvedValue([
+      {
+        ...getAction({
+          id: "draft-action-1",
+          type: ActionType.DRAFT_EMAIL,
+          content: "Generated draft content",
+        }),
+        draftModelProvider: null,
+        draftModelName: null,
+        draftPipelineVersion: null,
+      } as any,
+    ]);
+
+    const createSpy = prisma.executedRule.create.mockResolvedValue({
+      id: "exec-1",
+      status: ExecutedRuleStatus.APPLYING,
+      ruleId: draftRule.id,
+      threadId,
+      messageId: "message-1",
+      actionItems: [],
+    } as any);
+
+    await runRules({
+      provider: {} as any,
+      message: {
+        ...getEmail(),
+        id: "message-1",
+        threadId,
+        snippet: "",
+        historyId: "history-1",
+        inline: [],
+        attachments: [],
+        headers: {
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Subject",
+          date: "Mon, 1 Jan 2026 12:00:00 +0000",
+          "message-id": "<message-1>",
+        },
+      } as any,
+      rules: [draftRule],
+      emailAccount: getEmailAccount(),
+      isTest: false,
+      modelType: "default" as any,
+      logger,
+    });
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    const createdActions =
+      createSpy.mock.calls[0]?.[0]?.data?.actionItems?.createMany?.data;
+    expect(createdActions).toHaveLength(1);
+    expect(createdActions?.[0]).toEqual(
+      expect.objectContaining({
+        type: ActionType.DRAFT_EMAIL,
+        content: "Generated draft content",
+        draftModelProvider: null,
+        draftModelName: null,
+        draftPipelineVersion: null,
+      }),
+    );
+  });
+});
+
+describe("runRules outbound guardrails", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("skips legacy low-trust from rules with FORWARD actions", async () => {
+    const forwardRule = {
+      ...createRule("forward-rule", null, [
+        getAction({
+          id: "forward-action-1",
+          type: ActionType.FORWARD,
+          to: "forward@example.com",
+        }),
+      ]),
+      from: "Team *",
+    };
+
+    vi.mocked(findMatchingRules).mockResolvedValue({
+      matches: [
+        { rule: forwardRule, matchReasons: [{ type: ConditionType.STATIC }] },
+      ],
+      reasoning: "Matched forward rule",
+    } as any);
+
+    const createSpy = prisma.executedRule.create.mockResolvedValue({
+      id: "exec-guard-1",
+      status: ExecutedRuleStatus.SKIPPED,
+      ruleId: forwardRule.id,
+      threadId,
+      messageId: "message-1",
+      actionItems: [],
+    } as any);
+
+    const result = await runRules({
+      provider: {} as any,
+      message: {
+        ...getEmail(),
+        id: "message-1",
+        threadId,
+        snippet: "",
+        historyId: "history-1",
+        inline: [],
+        attachments: [],
+        headers: {
+          from: "Team Billing <billing@example.com>",
+          to: "user@example.com",
+          subject: "Subject",
+          date: "Mon, 1 Jan 2026 12:00:00 +0000",
+          "message-id": "<message-1>",
+        },
+      } as any,
+      rules: [forwardRule],
+      emailAccount: getEmailAccount(),
+      isTest: false,
+      modelType: "default" as any,
+      logger,
+    });
+
+    expect(getActionItemsWithAiArgs).not.toHaveBeenCalled();
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: ExecutedRuleStatus.SKIPPED,
+        }),
+      }),
+    );
+    expect(result[0]?.status).toBe(ExecutedRuleStatus.SKIPPED);
+    expect(result[0]?.reason).toContain(
+      "email- or domain-based From condition",
+    );
+  });
+});
+
+describe("runRules selection metadata", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("preserves skipped-thread metadata on no-match results", async () => {
+    vi.mocked(findMatchingRules).mockResolvedValue({
+      matches: [],
+      reasoning: "No rules matched",
+      selectionMetadata: {
+        isThread: true,
+        skippedThreadRuleNames: ["Notification"],
+        continuedThreadRuleNames: [],
+        learnedPatternExcludedRules: [],
+        filteredConversationRuleNames: [],
+        conversationFilterReason: undefined,
+        remainingAiRuleNames: [],
+      },
+    } as any);
+
+    const result = await runRules({
+      provider: {} as any,
+      message: {
+        ...getEmail(),
+        id: "message-1",
+        threadId,
+        snippet: "",
+        historyId: "history-1",
+        inline: [],
+        attachments: [],
+        headers: {
+          from: "alerts@example.com",
+          to: "user@example.com",
+          subject: "Subject",
+          date: "Mon, 1 Jan 2026 12:00:00 +0000",
+          "message-id": "<message-1>",
+        },
+      } as any,
+      rules: [regularRule],
+      emailAccount: getEmailAccount(),
+      isTest: true,
+      modelType: "default" as any,
+      logger,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      status: ExecutedRuleStatus.SKIPPED,
+      selectionMetadata: {
+        isThread: true,
+        skippedThreadRuleNames: ["Notification"],
+      },
+    });
+  });
+});
+
 describe("limitDraftEmailActions", () => {
   it("returns original matches when there are no draft actions", () => {
     const matches = [
@@ -288,7 +578,7 @@ describe("limitDraftEmailActions", () => {
       },
     ];
 
-    const result = limitDraftEmailActions(matches, createScopedLogger("test"));
+    const result = limitDraftEmailActions(matches, createTestLogger());
 
     expect(result).toBe(matches);
   });
@@ -518,6 +808,48 @@ describe("limitDraftEmailActions", () => {
     expect(typedResult[0].isConversationRule).toBe(false);
     expect(typedResult[1].isConversationRule).toBe(true);
     expect(typedResult[1].resolvedReason).toBe("Needs reply");
+  });
+
+  it("keeps every DRAFT_EMAIL action on the selected drafting rule", () => {
+    const guestsRule = createRule("guests-rule", null, [
+      getAction({
+        id: "draft-email",
+        type: ActionType.DRAFT_EMAIL,
+        content: "Thanks for your note.",
+        ruleId: "guests-rule",
+      }),
+      getAction({
+        id: "draft-slack",
+        type: ActionType.DRAFT_EMAIL,
+        content: "Thanks for your note.",
+        ruleId: "guests-rule",
+      }),
+    ]);
+
+    const toReplyRuleResolved = createRule(
+      "to-reply-resolved",
+      SystemType.TO_REPLY,
+      [
+        getAction({
+          id: "draft-to-reply",
+          type: ActionType.DRAFT_EMAIL,
+          content: null,
+          ruleId: "to-reply-resolved",
+        }),
+      ],
+    );
+
+    const result = limitDraftEmailActions(
+      [{ rule: guestsRule }, { rule: toReplyRuleResolved }],
+      logger,
+    );
+
+    expect(
+      result[0].rule.actions.filter((a) => a.type === ActionType.DRAFT_EMAIL),
+    ).toHaveLength(2);
+    expect(
+      result[1].rule.actions.some((a) => a.type === ActionType.DRAFT_EMAIL),
+    ).toBe(false);
   });
 
   it("keeps first draft when both rules have AI-generated DRAFT_EMAIL", () => {

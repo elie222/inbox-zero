@@ -1,9 +1,5 @@
 import type { AnalyzeSenderPatternBody } from "@/app/api/ai/analyze-sender-pattern/route";
-import {
-  INTERNAL_API_KEY_HEADER,
-  getInternalApiUrl,
-} from "@/utils/internal-api";
-import { env } from "@/env";
+import { getInternalApiHeaders, getInternalApiUrl } from "@/utils/internal-api";
 import type { Logger } from "@/utils/logger";
 
 export async function analyzeSenderPattern(
@@ -18,7 +14,7 @@ export async function analyzeSenderPattern(
         body: JSON.stringify(body),
         headers: {
           "Content-Type": "application/json",
-          [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
+          ...getInternalApiHeaders(),
         },
       },
     );

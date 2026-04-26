@@ -9,7 +9,7 @@ import {
 import { processFilingReply } from "@/utils/drive/handle-filing-reply";
 import {
   processAttachment,
-  getExtractableAttachments,
+  getFilableAttachments,
 } from "@/utils/drive/filing-engine";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
 import { cleanupThreadAIDrafts } from "@/utils/reply-tracker/draft-tracking";
@@ -34,7 +34,11 @@ export type SharedProcessHistoryOptions = {
   emailAccount: EmailAccountForDrafting &
     Pick<
       EmailAccount,
-      "autoCategorizeSenders" | "filingEnabled" | "filingPrompt" | "email"
+      | "autoCategorizeSenders"
+      | "filingEnabled"
+      | "filingPrompt"
+      | "filingConfirmationSendEmail"
+      | "email"
     >;
   logger: Logger;
 };
@@ -212,8 +216,7 @@ export async function processHistoryItem(
         runWithBackgroundLoggerFlush({
           logger,
           task: async () => {
-            const extractableAttachments =
-              getExtractableAttachments(parsedMessage);
+            const extractableAttachments = getFilableAttachments(parsedMessage);
 
             if (extractableAttachments.length > 0) {
               logger.info("Processing attachments for filing", {
@@ -227,6 +230,8 @@ export async function processHistoryItem(
                     ...emailAccount,
                     filingEnabled: emailAccount.filingEnabled,
                     filingPrompt: emailAccount.filingPrompt,
+                    filingConfirmationSendEmail:
+                      emailAccount.filingConfirmationSendEmail,
                     email: emailAccount.email,
                   },
                   message: parsedMessage,

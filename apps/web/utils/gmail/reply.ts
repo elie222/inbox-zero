@@ -1,4 +1,8 @@
 import type { ParsedMessage } from "@/utils/types";
+import {
+  buildQuotedPlainText,
+  quotePlainTextContent,
+} from "@/utils/email/quoted-plain-text";
 import { convertNewlinesToBr, escapeHtml } from "@/utils/string";
 
 export const createReplyContent = ({
@@ -21,11 +25,12 @@ export const createReplyContent = ({
   const dirAttribute = `dir="${textDirection}"`;
 
   // Format plain text version with proper quoting
-  const quotedContent = message.textPlain
-    ?.split("\n")
-    .map((line) => `> ${line}`)
-    .join("\n");
-  const plainText = `${textContent}\n\n${quotedHeader}\n\n${quotedContent}`;
+  const quotedContent = quotePlainTextContent(message.textPlain);
+  const plainText = buildQuotedPlainText({
+    textContent,
+    quotedHeader,
+    quotedContent,
+  });
 
   const messageContent =
     message.textHtml ||

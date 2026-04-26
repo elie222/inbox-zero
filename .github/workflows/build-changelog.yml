@@ -1,0 +1,21 @@
+name: Validate Changelog
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/changelog-entries/**"
+      - "docs/changelog.mdx"
+      - "docs/scripts/build-changelog.mjs"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build changelog.mdx from entries
+        run: node docs/scripts/build-changelog.mjs
+
+      - name: Verify generated changelog is up to date
+        run: git diff --exit-code -- docs/changelog.mdx

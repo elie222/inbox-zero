@@ -10,6 +10,10 @@ import {
   extractNameFromEmail,
 } from "@/utils/email";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
+import {
+  cleanUnsubscribeLink,
+  parseListUnsubscribeHeader,
+} from "@/utils/parse/unsubscribe";
 import { internalDateToDate } from "@/utils/date";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
@@ -61,7 +65,7 @@ export const loadEmailStatsAction = actionClient
     },
   );
 
-async function loadEmails(
+export async function loadEmails(
   {
     emailAccountId,
     emailProvider,
@@ -71,9 +75,16 @@ async function loadEmails(
     emailProvider: EmailProvider;
     logger: Logger;
   },
-  { loadBefore }: { loadBefore: boolean },
+  {
+    loadBefore,
+    maxPages = MAX_PAGES,
+  }: { loadBefore: boolean; maxPages?: number },
 ) {
   let pages = 0;
+  let loadedAfterMessages = 0;
+  let loadedBeforeMessages = 0;
+  let hasMoreAfter = false;
+  let hasMoreBefore = false;
 
   const newestEmailSaved = await prisma.emailMessage.findFirst({
     where: { emailAccountId },
@@ -85,7 +96,7 @@ async function loadEmails(
 
   // First pagination loop - load emails after the newest saved email
   let nextPageToken: string | undefined;
-  while (pages < MAX_PAGES) {
+  while (pages < maxPages) {
     logger.info("After Page", { pages, nextPageToken });
     const res = await saveBatch({
       emailAccountId,
@@ -97,17 +108,34 @@ async function loadEmails(
     });
 
     nextPageToken = res.data.nextPageToken ?? undefined;
+    loadedAfterMessages += res.data.messages?.length || 0;
 
-    if (!res.data.messages || res.data.messages.length < PAGE_SIZE) break;
+    if (!res.data.messages || res.data.messages.length < PAGE_SIZE) {
+      hasMoreAfter = false;
+      break;
+    }
 
     pages++;
 
-    if (!nextPageToken) break;
+    if (!nextPageToken) {
+      hasMoreAfter = false;
+      break;
+    }
+
+    hasMoreAfter = true;
   }
 
   logger.info("Completed emails after", { after, pages });
 
-  if (!loadBefore || !newestEmailSaved) return { pages };
+  if (!loadBefore || !newestEmailSaved) {
+    return {
+      pages,
+      loadedAfterMessages,
+      loadedBeforeMessages,
+      hasMoreAfter,
+      hasMoreBefore,
+    };
+  }
 
   const oldestEmailSaved = await prisma.emailMessage.findFirst({
     where: { emailAccountId },
@@ -118,12 +146,20 @@ async function loadEmails(
   logger.info("Loading emails before", { before });
 
   // shouldn't happen, but prevents TS errors
-  if (!before) return { pages };
+  if (!before) {
+    return {
+      pages,
+      loadedAfterMessages,
+      loadedBeforeMessages,
+      hasMoreAfter,
+      hasMoreBefore,
+    };
+  }
 
   // Second pagination loop - load emails before the oldest saved email
   // Reset nextPageToken for this new pagination sequence
   nextPageToken = undefined;
-  while (pages < MAX_PAGES) {
+  while (pages < maxPages) {
     logger.info("Before Page", { pages, nextPageToken });
     const res = await saveBatch({
       emailAccountId,
@@ -135,20 +171,35 @@ async function loadEmails(
     });
 
     nextPageToken = res.data.nextPageToken ?? undefined;
+    loadedBeforeMessages += res.data.messages?.length || 0;
 
-    if (!res.data.messages || res.data.messages.length < PAGE_SIZE) break;
+    if (!res.data.messages || res.data.messages.length < PAGE_SIZE) {
+      hasMoreBefore = false;
+      break;
+    }
 
     pages++;
 
-    if (!nextPageToken) break;
+    if (!nextPageToken) {
+      hasMoreBefore = false;
+      break;
+    }
+
+    hasMoreBefore = true;
   }
 
   logger.info("Completed emails before", { before, pages });
 
-  return { pages };
+  return {
+    pages,
+    loadedAfterMessages,
+    loadedBeforeMessages,
+    hasMoreAfter,
+    hasMoreBefore,
+  };
 }
 
-async function saveBatch({
+export async function saveBatch({
   emailAccountId,
   emailProvider,
   logger,
@@ -172,14 +223,14 @@ async function saveBatch({
     after,
   });
 
-  const messages = await emailProvider.getMessagesBatch(
-    res.messages?.map((m) => m.id).filter(isDefined) || [],
-  );
+  const messages = res.messages ?? [];
 
   const emailsToSave = messages
     .map((m) => {
-      const unsubscribeLink =
-        findUnsubscribeLink(m.textHtml) || m.headers["list-unsubscribe"];
+      const unsubscribeLink = mergeUnsubscribeSources({
+        htmlUnsubscribeLink: findUnsubscribeLink(m.textHtml),
+        listUnsubscribeHeader: m.headers["list-unsubscribe"],
+      });
 
       const date = internalDateToDate(m.internalDate);
       if (!date) {
@@ -221,4 +272,22 @@ async function saveBatch({
       nextPageToken: res.nextPageToken,
     },
   };
+}
+
+function mergeUnsubscribeSources({
+  htmlUnsubscribeLink,
+  listUnsubscribeHeader,
+}: {
+  htmlUnsubscribeLink?: string | null;
+  listUnsubscribeHeader?: string | null;
+}) {
+  if (!listUnsubscribeHeader) return cleanUnsubscribeLink(htmlUnsubscribeLink);
+
+  const normalizedHtmlLink = cleanUnsubscribeLink(htmlUnsubscribeLink);
+  if (!normalizedHtmlLink) return listUnsubscribeHeader;
+
+  const headerLinks = parseListUnsubscribeHeader(listUnsubscribeHeader);
+  if (headerLinks.includes(normalizedHtmlLink)) return listUnsubscribeHeader;
+
+  return `${listUnsubscribeHeader}, <${normalizedHtmlLink}>`;
 }

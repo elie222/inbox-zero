@@ -12,6 +12,17 @@ import { notFound } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { auth } from "@/utils/auth";
 import { getEmailTerminology } from "@/utils/terminology";
+import type { RuleHistoryTrigger } from "@/utils/rule/rule-history";
+
+const triggerTypeLabels: Record<RuleHistoryTrigger, string> = {
+  created: "Created",
+  updated: "Updated",
+  actions_updated: "Actions Updated",
+  conditions_updated: "Conditions Updated",
+  instructions_updated: "Instructions Updated",
+  enabled_updated: "Enabled Toggled",
+  run_on_threads_updated: "Thread Mode Updated",
+};
 
 export default async function RuleHistoryPage(props: {
   params: Promise<{ emailAccountId: string; ruleId: string }>;
@@ -50,15 +61,6 @@ export default async function RuleHistoryPage(props: {
     },
   });
 
-  const triggerTypeLabels: Record<string, string> = {
-    ai_update: "AI Update",
-    manual_update: "Manual Update",
-    ai_creation: "AI Creation",
-    manual_creation: "Manual Creation",
-    system_creation: "System Creation",
-    system_update: "System Update",
-  };
-
   return (
     <div className="container mx-auto p-4">
       <PageHeading>Rule History: {rule.name}</PageHeading>
@@ -77,8 +79,9 @@ export default async function RuleHistoryPage(props: {
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">
-                      {triggerTypeLabels[history.triggerType] ||
-                        history.triggerType}
+                      {triggerTypeLabels[
+                        history.triggerType as RuleHistoryTrigger
+                      ] ?? history.triggerType}
                     </Badge>
                     <MutedText>
                       {formatDistanceToNow(history.createdAt, {
@@ -195,7 +198,7 @@ export default async function RuleHistoryPage(props: {
                             )}
                             {action.content && (
                               <span>
-                                Content: {action.content.substring(0, 50)}...
+                                Content: {action.content.slice(0, 50)}...
                               </span>
                             )}
                             {action.to && <span>To: {action.to}</span>}

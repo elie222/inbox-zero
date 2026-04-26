@@ -90,8 +90,13 @@ export function isTransientNetworkError(error: unknown): boolean {
 }
 
 /**
- * Retries an async function on transient network errors with exponential backoff.
- * Also supports custom retry conditions (e.g., validation errors).
+ * Escape hatch for lower-level calls that do not already go through our shared
+ * `createGenerateText()` / `createGenerateObject()` wrappers. Most LLM call
+ * sites should not use this directly because those wrappers already apply
+ * network and provider-level retries.
+ *
+ * Retries an async function on transient network errors with exponential
+ * backoff. Also supports custom retry conditions (e.g., validation errors).
  */
 export async function withNetworkRetry<T>(
   fn: () => Promise<T>,

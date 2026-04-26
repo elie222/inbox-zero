@@ -25,7 +25,7 @@ import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/utils";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { usePremium } from "@/components/PremiumAlert";
+import { usePremium } from "@/hooks/usePremium";
 import { hasTierAccess } from "@/utils/premium";
 import { AlertWithButton } from "@/components/Alert";
 import { KNOWLEDGE_BASIC_MAX_ITEMS } from "@/utils/config";

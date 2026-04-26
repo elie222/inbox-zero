@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ComponentProps } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   SidebarMenu,
@@ -13,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 type NavItem = {
   name: string;
   href: string;
-  icon: LucideIcon | ((props: any) => React.ReactNode);
+  icon: LucideIcon | ((props: ComponentProps<"svg">) => React.ReactNode);
   target?: "_blank";
   count?: number;
   hideInMail?: boolean;
@@ -29,7 +30,7 @@ export function SideNavMenu({
   items: NavItem[];
   activeHref: string;
 }) {
-  const { isMobile, setOpenMobile } = useSidebar();
+  const { closeMobileSidebar } = useSidebar();
 
   return (
     <SidebarMenu>
@@ -44,13 +45,7 @@ export function SideNavMenu({
           >
             <Link
               href={item.href}
-              onClick={() => {
-                if (isMobile) {
-                  setOpenMobile((prev) =>
-                    prev.filter((name) => name !== "left-sidebar"),
-                  );
-                }
-              }}
+              onClick={() => closeMobileSidebar("left-sidebar")}
             >
               <item.icon />
               <span>{item.name}</span>

@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   id-token: write
+  pull-requests: write
 
 jobs:
   build:
@@ -27,9 +28,9 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: latest
 
@@ -47,7 +48,7 @@ jobs:
           tar -czvf ${{ matrix.artifact }}.tar.gz ${{ matrix.artifact }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.artifact }}
           path: packages/cli/dist/${{ matrix.artifact }}.tar.gz
@@ -56,13 +57,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: latest
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
@@ -84,17 +85,26 @@ jobs:
         run: cd packages/cli && bun run build
 
       - name: Publish to npm
-        run: cd packages/cli && npm publish --provenance --access public || echo "Version may already be published"
+        run: |
+          cd packages/cli
+          VERSION=$(node -p "require('./package.json').version")
+
+          if npm view "@inbox-zero/cli@$VERSION" version >/dev/null 2>&1; then
+            echo "Version $VERSION is already published, skipping."
+            exit 0
+          fi
+
+          npm publish --provenance --access public
 
   release:
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: artifacts
 
@@ -117,7 +127,7 @@ jobs:
           echo "linux_x64=$(sha256sum artifacts/inbox-zero-linux-x64/inbox-zero-linux-x64.tar.gz | cut -d ' ' -f 1)" >> $GITHUB_OUTPUT
 
       - name: Upload to Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           files: |
@@ -168,10 +178,15 @@ jobs:
           print(content)
           EOF
 
-      - name: Commit formula update
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add Formula/inbox-zero.rb
-          git diff --staged --quiet || git commit -m "chore: update Homebrew formula for ${{ steps.version.outputs.tag }}"
-          git push origin HEAD:main
+      - name: Create formula update pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          add-paths: Formula/inbox-zero.rb
+          branch: automation/homebrew-formula-${{ steps.version.outputs.version }}
+          base: main
+          commit-message: "chore: update Homebrew formula for ${{ steps.version.outputs.tag }}"
+          title: "chore: update Homebrew formula for ${{ steps.version.outputs.tag }}"
+          body: |
+            Update the Homebrew formula for the new CLI release.
+          delete-branch: true

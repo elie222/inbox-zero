@@ -1,48 +1,34 @@
 import { NextResponse } from "next/server";
-import { withError } from "@/utils/middleware";
-import { validateApiKeyAndGetEmailProvider } from "@/utils/api-auth";
-import { getEmailAccountId } from "@/app/api/v1/helpers";
+import { withStatsApiKey } from "@/utils/api-middleware";
 import { getResponseTimeStats } from "@/app/api/user/stats/response-time/controller";
 import { responseTimeQuerySchema } from "./validation";
 
-export const GET = withError("v1/stats/response-time", async (request) => {
-  const { emailProvider, userId, accountId } =
-    await validateApiKeyAndGetEmailProvider(request);
-
-  const { searchParams } = new URL(request.url);
-  const queryResult = responseTimeQuerySchema.safeParse(
-    Object.fromEntries(searchParams),
-  );
-
-  if (!queryResult.success) {
-    return NextResponse.json(
-      { error: "Invalid query parameters" },
-      { status: 400 },
+export const GET = withStatsApiKey(
+  "v1/stats/response-time",
+  async (request) => {
+    const { emailAccountId } = request.apiAuth;
+    const { searchParams } = new URL(request.url);
+    const queryResult = responseTimeQuerySchema.safeParse(
+      Object.fromEntries(searchParams),
     );
-  }
 
-  const { fromDate, toDate, email } = queryResult.data;
+    if (!queryResult.success) {
+      return NextResponse.json(
+        { error: "Invalid query parameters" },
+        { status: 400 },
+      );
+    }
 
-  const emailAccountId = await getEmailAccountId({
-    email,
-    accountId,
-    userId,
-  });
+    const { fromDate, toDate } = queryResult.data;
 
-  if (!emailAccountId) {
-    return NextResponse.json(
-      { error: "Email account not found" },
-      { status: 400 },
-    );
-  }
+    const result = await getResponseTimeStats({
+      fromDate,
+      toDate,
+      emailAccountId,
+      emailProvider: request.emailProvider,
+      logger: request.logger,
+    });
 
-  const result = await getResponseTimeStats({
-    fromDate,
-    toDate,
-    emailAccountId,
-    emailProvider,
-    logger: request.logger,
-  });
-
-  return NextResponse.json(result);
-});
+    return NextResponse.json(result);
+  },
+);

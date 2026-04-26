@@ -39,8 +39,8 @@ import {
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import {
-  addToArchiveSenderQueue,
   useArchiveSenderStatus,
+  useArchiveSenderQueueActions,
 } from "@/store/archive-sender-queue";
 import { getEmailUrl, getGmailSearchUrl } from "@/utils/url";
 import { MessageText } from "@/components/Typography";
@@ -73,6 +73,7 @@ export function GroupedTable({
   categories: CategoryWithRules[];
 }) {
   const { emailAccountId, userEmail } = useAccount();
+  const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
 
   const categoryMap = useMemo(() => {
     return categories.reduce<Record<string, CategoryWithRules>>(
@@ -148,7 +149,12 @@ export function GroupedTable({
       {
         accessorKey: "preview",
         cell: ({ row }) => {
-          return <ArchiveStatusCell sender={row.original.address} />;
+          return (
+            <ArchiveStatusCell
+              emailAccountId={emailAccountId}
+              sender={row.original.address}
+            />
+          );
         },
       },
       {
@@ -205,12 +211,9 @@ export function GroupedTable({
             const isCategoryExpanded = expanded?.includes(categoryName);
 
             const onArchiveAll = async () => {
-              for (const sender of senders) {
-                await addToArchiveSenderQueue({
-                  sender: sender.address,
-                  emailAccountId,
-                });
-              }
+              await queueArchiveSenders({
+                senders: senders.map((sender) => sender.address),
+              });
             };
 
             const onEditCategory = () => {
@@ -462,7 +465,9 @@ function SenderRows({
             <TableCell
               key={cell.id}
               style={{
-                width: (cell.column.columnDef.meta as any)?.size || "auto",
+                width:
+                  (cell.column.columnDef.meta as { size?: string } | undefined)
+                    ?.size || "auto",
               }}
               className="py-1"
             >
@@ -553,28 +558,34 @@ function ExpandedRows({
   );
 }
 
-function ArchiveStatusCell({ sender }: { sender: string }) {
-  const status = useArchiveSenderStatus(sender);
+function ArchiveStatusCell({
+  emailAccountId,
+  sender,
+}: {
+  emailAccountId: string;
+  sender: string;
+}) {
+  const status = useArchiveSenderStatus(emailAccountId, sender);
 
   switch (status?.status) {
-    case "completed":
-      if (status.threadsTotal) {
-        return (
-          <span className="text-green-500">
-            Archived {status.threadsTotal} emails!
-          </span>
-        );
-      }
-      return <span className="text-muted-foreground">Archived</span>;
+    case "pending":
+      return <span className="text-muted-foreground">Queued</span>;
     case "processing":
       return (
         <span className="text-blue-500">
-          Archiving... {status.threadsTotal - status.threadIds.length} /{" "}
-          {status.threadsTotal}
+          {status.threadsTotal
+            ? `${status.threadsTotal - status.threadIds.length} / ${status.threadsTotal}`
+            : "Archiving..."}
         </span>
       );
-    case "pending":
-      return <span className="text-muted-foreground">Pending...</span>;
+    case "completed":
+      return (
+        <span className="text-muted-foreground">
+          {status.threadsTotal ? `Archived ${status.threadsTotal}` : "Archived"}
+        </span>
+      );
+    case "failed":
+      return <span className="text-red-500">Failed</span>;
     default:
       return null;
   }

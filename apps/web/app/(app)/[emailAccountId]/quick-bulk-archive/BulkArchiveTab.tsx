@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import Link from "next/link";
 import {
   ArchiveIcon,
-  CheckIcon,
   ChevronDownIcon,
   InboxIcon,
   MailIcon,
@@ -26,9 +25,10 @@ import { EmailCell } from "@/components/EmailCell";
 import { LoadingContent } from "@/components/LoadingContent";
 import { cn } from "@/utils";
 import {
-  addToArchiveSenderQueue,
   useArchiveSenderStatus,
+  useArchiveSenderQueueActions,
 } from "@/store/archive-sender-queue";
+import { ArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useThreads } from "@/hooks/useThreads";
 import { formatShortDate } from "@/utils/date";
@@ -75,6 +75,7 @@ const confidenceConfig = {
 
 export function BulkArchiveTab() {
   const { emailAccountId, userEmail } = useAccount();
+  const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
 
   const { data, error, isLoading } = useSWR<CategorizedSendersResponse>(
     "/api/user/categorize/senders/categorized",
@@ -105,7 +106,6 @@ export function BulkArchiveTab() {
     low: false,
   });
   const [isArchiving, setIsArchiving] = useState(false);
-  const [archiveComplete, setArchiveComplete] = useState(false);
   const [hasInitializedSelection, setHasInitializedSelection] = useState(false);
 
   const candidates = useMemo(
@@ -195,13 +195,12 @@ export function BulkArchiveTab() {
     const toArchive = candidates.filter((c) => selectedSenders[c.address]);
 
     try {
-      for (const candidate of toArchive) {
-        await addToArchiveSenderQueue({
-          sender: candidate.address,
-          emailAccountId,
-        });
+      const queuedSenders = await queueArchiveSenders({
+        senders: toArchive.map((candidate) => candidate.address),
+      });
+      if (!queuedSenders) {
+        toast.info("No new senders to archive");
       }
-      setArchiveComplete(true);
     } catch {
       toast.error("Failed to archive some senders. Please try again.");
     } finally {
@@ -225,38 +224,6 @@ export function BulkArchiveTab() {
     );
   }
 
-  if (archiveComplete) {
-    return (
-      <div className="py-4">
-        <Card className="border-green-200 bg-green-50 p-8 text-center dark:border-green-900 dark:bg-green-950/30">
-          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
-            <CheckIcon className="size-8 text-green-600" />
-          </div>
-          <h2 className="mb-2 text-xl font-semibold text-green-900 dark:text-green-100">
-            Archive Started!
-          </h2>
-          <p className="mb-4 text-green-700 dark:text-green-300">
-            {selectedCount} senders are being archived in the background.
-          </p>
-          <p className="text-sm text-green-600 dark:text-green-400">
-            Emails are archived, not deleted. You can find them in Gmail
-            anytime.
-          </p>
-          <Button
-            variant="outline"
-            className="mt-6"
-            onClick={() => {
-              setArchiveComplete(false);
-              setSelectedSenders({});
-            }}
-          >
-            Done
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
   if (totalCount === 0) {
     return (
       <div className="py-4">
@@ -276,6 +243,8 @@ export function BulkArchiveTab() {
 
   return (
     <div className="py-4">
+      <ArchiveProgress />
+
       {/* Hero Card */}
       <Card className="mb-6 overflow-hidden">
         <div className="p-6">
@@ -440,6 +409,7 @@ export function BulkArchiveTab() {
                   {senders.map((candidate) => (
                     <SenderRow
                       key={candidate.address}
+                      emailAccountId={emailAccountId}
                       candidate={candidate}
                       isSelected={!!selectedSenders[candidate.address]}
                       isExpanded={!!expandedSenders[candidate.address]}
@@ -463,6 +433,7 @@ export function BulkArchiveTab() {
 }
 
 function SenderRow({
+  emailAccountId,
   candidate,
   isSelected,
   isExpanded,
@@ -470,6 +441,7 @@ function SenderRow({
   onToggleExpanded,
   userEmail,
 }: {
+  emailAccountId: string;
   candidate: ArchiveCandidate;
   isSelected: boolean;
   isExpanded: boolean;
@@ -477,12 +449,12 @@ function SenderRow({
   onToggleExpanded: () => void;
   userEmail: string;
 }) {
-  const status = useArchiveSenderStatus(candidate.address);
+  const status = useArchiveSenderStatus(emailAccountId, candidate.address);
 
   return (
     <div className={cn(!isSelected && "opacity-50")}>
       <div
-        className="flex cursor-pointer items-center gap-3 p-4 transition-colors hover:bg-muted/50"
+        className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
         onClick={onToggleExpanded}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -505,9 +477,10 @@ function SenderRow({
           <EmailCell
             emailAddress={candidate.address}
             className={cn(
-              "flex flex-col",
+              "min-w-0",
               !isSelected && "text-muted-foreground line-through",
             )}
+            singleLine
           />
         </div>
         <div className="flex items-center gap-3">
@@ -537,24 +510,24 @@ function ArchiveStatus({
   status: ReturnType<typeof useArchiveSenderStatus>;
 }) {
   switch (status?.status) {
-    case "completed":
-      if (status.threadsTotal) {
-        return (
-          <span className="text-sm text-green-600">
-            Archived {status.threadsTotal}!
-          </span>
-        );
-      }
-      return <span className="text-sm text-muted-foreground">Archived</span>;
+    case "pending":
+      return <span className="text-sm text-muted-foreground">Queued</span>;
     case "processing":
       return (
         <span className="text-sm text-blue-600">
-          {status.threadsTotal - status.threadIds.length} /{" "}
-          {status.threadsTotal}
+          {status.threadsTotal
+            ? `${status.threadsTotal - status.threadIds.length} / ${status.threadsTotal}`
+            : "Archiving..."}
         </span>
       );
-    case "pending":
-      return <span className="text-sm text-muted-foreground">Pending...</span>;
+    case "completed":
+      return (
+        <span className="text-sm text-muted-foreground">
+          {status.threadsTotal ? `Archived ${status.threadsTotal}` : "Archived"}
+        </span>
+      );
+    case "failed":
+      return <span className="text-sm text-red-600">Failed</span>;
     default:
       return null;
   }

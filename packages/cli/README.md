@@ -53,6 +53,24 @@ inbox-zero setup-terraform --yes --region us-east-1
 The generated Terraform uses AWS SSM Parameter Store for secrets and outputs the
 service URL after `terraform apply`.
 
+### `inbox-zero setup-vercel`
+
+Links a Vercel project for `apps/web`, provisions Neon and Upstash Redis using
+Vercel Marketplace integrations, and seeds the required environment variables.
+
+```bash
+# Interactive Vercel setup
+inbox-zero setup-vercel
+
+# Skip provisioning an integration you already have
+inbox-zero setup-vercel --skip-neon
+
+# Non-interactive setup with defaults and placeholder provider credentials
+inbox-zero setup-vercel --yes
+```
+
+Use `--deploy` if you want the CLI to trigger `vercel deploy --prod` after setup.
+
 ### `inbox-zero start`
 
 Pulls the latest Docker image and starts all containers:

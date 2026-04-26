@@ -4,7 +4,7 @@ import {
   sanitizeActionFields,
   actionInputs,
 } from "./action-item";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, AttachmentSourceType } from "@/generated/prisma/enums";
 
 describe("actionInputs", () => {
   it("has configuration for all action types", () => {
@@ -36,10 +36,27 @@ describe("actionInputs", () => {
     expect(fieldNames).toContain("bcc");
   });
 
+  it("DRAFT_MESSAGING_CHANNEL has subject, content, to, cc, bcc fields", () => {
+    const fieldNames = actionInputs[
+      ActionType.DRAFT_MESSAGING_CHANNEL
+    ].fields.map((f) => f.name);
+    expect(fieldNames).toContain("subject");
+    expect(fieldNames).toContain("content");
+    expect(fieldNames).toContain("to");
+    expect(fieldNames).toContain("cc");
+    expect(fieldNames).toContain("bcc");
+  });
+
   it("CALL_WEBHOOK has url field", () => {
     const fields = actionInputs[ActionType.CALL_WEBHOOK].fields;
     expect(fields).toHaveLength(1);
     expect(fields[0].name).toBe("url");
+  });
+
+  it("NOTIFY_MESSAGING_CHANNEL has no fields", () => {
+    expect(actionInputs[ActionType.NOTIFY_MESSAGING_CHANNEL].fields).toEqual(
+      [],
+    );
   });
 });
 
@@ -131,6 +148,14 @@ describe("sanitizeActionFields", () => {
       const result = sanitizeActionFields({ type: ActionType.NOTIFY_SENDER });
       expect(result.type).toBe(ActionType.NOTIFY_SENDER);
     });
+
+    it("returns base fields for NOTIFY_MESSAGING_CHANNEL", () => {
+      const result = sanitizeActionFields({
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+      });
+      expect(result.type).toBe(ActionType.NOTIFY_MESSAGING_CHANNEL);
+      expect(result.messagingChannelId).toBeNull();
+    });
   });
 
   describe("LABEL action", () => {
@@ -193,6 +218,26 @@ describe("sanitizeActionFields", () => {
       expect(result.to).toBeNull();
       expect(result.content).toBe("Content");
     });
+
+    it("preserves static attachments", () => {
+      const attachments = [
+        {
+          driveConnectionId: "drive-1",
+          name: "lease.pdf",
+          sourceId: "file-1",
+          sourcePath: "/Docs",
+          type: AttachmentSourceType.FILE,
+        },
+      ];
+
+      const result = sanitizeActionFields({
+        type: ActionType.REPLY,
+        content: "Content",
+        staticAttachments: attachments,
+      });
+
+      expect(result.staticAttachments).toEqual(attachments);
+    });
   });
 
   describe("SEND_EMAIL action", () => {
@@ -210,6 +255,28 @@ describe("sanitizeActionFields", () => {
       expect(result.to).toBe("to@test.com");
       expect(result.cc).toBe("cc@test.com");
       expect(result.bcc).toBe("bcc@test.com");
+    });
+
+    it("preserves static attachments", () => {
+      const attachments = [
+        {
+          driveConnectionId: "drive-1",
+          name: "quote.pdf",
+          sourceId: "file-2",
+          sourcePath: "/Docs",
+          type: AttachmentSourceType.FILE,
+        },
+      ];
+
+      const result = sanitizeActionFields({
+        type: ActionType.SEND_EMAIL,
+        subject: "Subject",
+        content: "Content",
+        to: "to@test.com",
+        staticAttachments: attachments,
+      });
+
+      expect(result.staticAttachments).toEqual(attachments);
     });
   });
 
@@ -253,6 +320,83 @@ describe("sanitizeActionFields", () => {
       expect(result.to).toBe("draft@test.com");
       expect(result.cc).toBe("cc@test.com");
       expect(result.bcc).toBe("bcc@test.com");
+      expect(result.messagingChannelId).toBeNull();
+    });
+
+    it("preserves static attachments", () => {
+      const attachments = [
+        {
+          driveConnectionId: "drive-1",
+          name: "brief.pdf",
+          sourceId: "file-3",
+          sourcePath: "/Docs",
+          type: AttachmentSourceType.FILE,
+        },
+      ];
+
+      const result = sanitizeActionFields({
+        type: ActionType.DRAFT_EMAIL,
+        content: "Draft Content",
+        staticAttachments: attachments,
+      });
+
+      expect(result.staticAttachments).toEqual(attachments);
+    });
+  });
+
+  describe("DRAFT_MESSAGING_CHANNEL action", () => {
+    it("preserves messagingChannelId and draft fields", () => {
+      const result = sanitizeActionFields({
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "channel-1",
+        subject: "Draft Subject",
+        content: "Draft Content",
+        to: "draft@test.com",
+        cc: "cc@test.com",
+        bcc: "bcc@test.com",
+      });
+
+      expect(result.type).toBe(ActionType.DRAFT_MESSAGING_CHANNEL);
+      expect(result.subject).toBe("Draft Subject");
+      expect(result.content).toBe("Draft Content");
+      expect(result.to).toBe("draft@test.com");
+      expect(result.cc).toBe("cc@test.com");
+      expect(result.bcc).toBe("bcc@test.com");
+      expect(result.messagingChannelId).toBe("channel-1");
+    });
+
+    it("preserves static attachments", () => {
+      const attachments = [
+        {
+          driveConnectionId: "drive-1",
+          name: "brief.pdf",
+          sourceId: "file-4",
+          sourcePath: "/Docs",
+          type: AttachmentSourceType.FILE,
+        },
+      ];
+
+      const result = sanitizeActionFields({
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "channel-1",
+        content: "Draft Content",
+        staticAttachments: attachments,
+      });
+
+      expect(result.staticAttachments).toEqual(attachments);
+    });
+  });
+
+  describe("NOTIFY_MESSAGING_CHANNEL action", () => {
+    it("preserves messagingChannelId", () => {
+      const result = sanitizeActionFields({
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        messagingChannelId: "channel-1",
+        content: "should be cleared",
+      });
+
+      expect(result.messagingChannelId).toBe("channel-1");
+      expect(result.content).toBeNull();
     });
   });
 

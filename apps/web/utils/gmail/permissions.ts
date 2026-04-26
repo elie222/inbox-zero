@@ -3,6 +3,10 @@ import {
   getAccessTokenFromClient,
   getGmailClientWithRefresh,
 } from "@/utils/gmail/client";
+import {
+  getGoogleTokenInfoUrl,
+  isGoogleOauthEmulationEnabled,
+} from "@/utils/google/oauth";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
@@ -12,9 +16,11 @@ const logger = createScopedLogger("Gmail Permissions");
 async function checkGmailPermissions({
   accessToken,
   emailAccountId,
+  grantedScope,
 }: {
   accessToken: string;
   emailAccountId: string;
+  grantedScope?: string | null;
 }): Promise<{
   hasAllPermissions: boolean;
   missingScopes: string[];
@@ -29,10 +35,38 @@ async function checkGmailPermissions({
     };
   }
 
-  try {
-    const response = await fetch(
-      `https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`,
+  if (isGoogleOauthEmulationEnabled()) {
+    if (!grantedScope?.trim()) {
+      logger.warn(
+        "Missing stored Gmail scope in emulation, assuming permissions granted",
+        { emailAccountId },
+      );
+      return {
+        hasAllPermissions: true,
+        missingScopes: [],
+      };
+    }
+
+    const grantedScopes = grantedScope.split(" ").filter(Boolean);
+    const missingScopes = SCOPES.filter(
+      (scope) => !grantedScopes.includes(scope),
     );
+
+    if (missingScopes.length > 0) {
+      logger.info("Missing Gmail permissions", {
+        emailAccountId,
+        missingScopes,
+      });
+    }
+
+    return {
+      hasAllPermissions: missingScopes.length === 0,
+      missingScopes,
+    };
+  }
+
+  try {
+    const response = await fetch(getGoogleTokenInfoUrl(accessToken));
 
     const data = await response.json();
 
@@ -76,14 +110,17 @@ export async function handleGmailPermissionsCheck({
   accessToken,
   refreshToken,
   emailAccountId,
+  grantedScope,
 }: {
   accessToken: string;
   refreshToken: string | null | undefined;
   emailAccountId: string;
+  grantedScope?: string | null;
 }) {
   const permissionsBeforeRefresh = await checkGmailPermissions({
     accessToken,
     emailAccountId,
+    grantedScope,
   });
 
   if (
@@ -112,6 +149,7 @@ export async function handleGmailPermissionsCheck({
         const permissionsAfterRefresh = await checkGmailPermissions({
           accessToken,
           emailAccountId,
+          grantedScope,
         });
 
         if (

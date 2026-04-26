@@ -4,6 +4,7 @@ import {
   containsUnsubscribeKeyword,
   containsUnsubscribeUrlPattern,
   getHttpUnsubscribeLink,
+  getUserFacingUnsubscribeLink,
   parseListUnsubscribeHeader,
 } from "./unsubscribe";
 
@@ -256,5 +257,42 @@ describe("getHttpUnsubscribeLink", () => {
         unsubscribeLink: "mailto:alt@example.com",
       }),
     ).toBeUndefined();
+  });
+
+  it("finds HTTP URLs in stored mixed unsubscribe data", () => {
+    expect(
+      getHttpUnsubscribeLink({
+        unsubscribeLink:
+          "<mailto:unsubscribe@example.com>, <https://example.com/unsub?id=1>",
+      }),
+    ).toBe("https://example.com/unsub?id=1");
+  });
+});
+
+describe("getUserFacingUnsubscribeLink", () => {
+  it("returns the first safe manual unsubscribe link from a mixed header", () => {
+    expect(
+      getUserFacingUnsubscribeLink({
+        listUnsubscribeHeader:
+          "<javascript:alert(1)>, <mailto:unsubscribe@example.com>, <https://example.com/unsub?id=1>",
+      }),
+    ).toBe("mailto:unsubscribe@example.com");
+  });
+
+  it("returns undefined when every unsubscribe link uses an unsafe scheme", () => {
+    expect(
+      getUserFacingUnsubscribeLink({
+        unsubscribeLink: "javascript:alert(1)",
+      }),
+    ).toBeUndefined();
+  });
+
+  it("treats a direct unsubscribe URL with commas as a single link", () => {
+    expect(
+      getUserFacingUnsubscribeLink({
+        unsubscribeLink:
+          "https://example.com/unsub?tags=product-updates,weekly-digest",
+      }),
+    ).toBe("https://example.com/unsub?tags=product-updates,weekly-digest");
   });
 });

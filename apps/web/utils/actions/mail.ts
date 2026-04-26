@@ -25,11 +25,16 @@ export const archiveThreadAction = actionClient
         logger,
       });
 
-      await emailProvider.archiveThreadWithLabel(
-        threadId,
-        emailAccount.email,
-        labelId,
-      );
+      try {
+        await emailProvider.archiveThreadWithLabel(
+          threadId,
+          emailAccount.email,
+          labelId,
+        );
+      } catch (error) {
+        logger.error("Failed to archive thread", { error });
+        throw new SafeError("Failed to archive email. Please try again.");
+      }
     },
   );
 
@@ -47,7 +52,12 @@ export const trashThreadAction = actionClient
         logger,
       });
 
-      await emailProvider.trashThread(threadId, emailAccount.email, "user");
+      try {
+        await emailProvider.trashThread(threadId, emailAccount.email, "user");
+      } catch (error) {
+        logger.error("Failed to trash thread", { error });
+        throw new SafeError("Failed to delete email. Please try again.");
+      }
     },
   );
 
@@ -65,7 +75,14 @@ export const markReadThreadAction = actionClient
         logger,
       });
 
-      await emailProvider.markReadThread(threadId, read);
+      try {
+        await emailProvider.markReadThread(threadId, read);
+      } catch (error) {
+        logger.error("Failed to mark thread read state", { error });
+        throw new SafeError(
+          `Failed to mark email as ${read ? "read" : "unread"}. Please try again.`,
+        );
+      }
     },
   );
 

@@ -9,7 +9,7 @@ export function LegalPage(props: {
   const { date, title, content } = props;
 
   return (
-    <article className="mx-auto max-w-xl py-8">
+    <article className="mx-auto max-w-xl px-4 py-8 sm:px-0">
       <div className="mb-8 text-center">
         <time dateTime={date} className="mb-1 text-xs text-gray-600">
           {format(parseISO(date), "LLLL d, yyyy")}

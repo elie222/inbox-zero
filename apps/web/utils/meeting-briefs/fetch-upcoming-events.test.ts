@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
-import { createScopedLogger } from "@/utils/logger";
 import type {
   CalendarEvent,
   CalendarEventProvider,
 } from "@/utils/calendar/event-types";
 import { fetchUpcomingEvents } from "./fetch-upcoming-events";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/calendar/event-provider");
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe("fetchUpcomingEvents", () => {
   beforeEach(() => {

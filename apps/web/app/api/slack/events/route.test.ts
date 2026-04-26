@@ -9,6 +9,8 @@ const {
   slackWebhookMock,
   withMessagingRequestLoggerMock,
   validateSlackWebhookRequestMock,
+  publishAppHomeMock,
+  handleSlackAppUninstalledMock,
 } = vi.hoisted(() => ({
   validateSlackWebhookRequestMock: vi.fn(),
   ensureSlackTeamInstallationMock: vi.fn(),
@@ -17,6 +19,8 @@ const {
   withMessagingRequestLoggerMock: vi.fn(
     ({ fn }: { fn: () => Promise<Response> }) => fn(),
   ),
+  publishAppHomeMock: vi.fn(),
+  handleSlackAppUninstalledMock: vi.fn(),
 }));
 
 vi.mock("@/utils/middleware", () => ({
@@ -37,9 +41,26 @@ vi.mock("@/env", () => ({
   },
 }));
 
+vi.mock("next/server", async (importOriginal) => {
+  const original = await importOriginal<typeof import("next/server")>();
+  return {
+    ...original,
+    after: (fn: () => void) => fn(),
+  };
+});
+
 vi.mock("@/utils/messaging/providers/slack/verify-signature", () => ({
   validateSlackWebhookRequest: (...args: unknown[]) =>
     validateSlackWebhookRequestMock(...args),
+}));
+
+vi.mock("@/utils/messaging/providers/slack/app-home", () => ({
+  publishAppHome: (...args: unknown[]) => publishAppHomeMock(...args),
+}));
+
+vi.mock("@/utils/messaging/providers/slack/uninstall", () => ({
+  handleSlackAppUninstalled: (...args: unknown[]) =>
+    handleSlackAppUninstalledMock(...args),
 }));
 
 vi.mock("@/utils/messaging/chat-sdk/bot", () => ({
@@ -171,6 +192,121 @@ describe("Slack events route", () => {
     expect(request.logger.warn).toHaveBeenCalledWith(
       "Failed to seed Slack installation for Chat SDK",
       expect.objectContaining({ teamId: "T-TEAM" }),
+    );
+  });
+
+  it("intercepts app_home_opened and calls publishAppHome", async () => {
+    publishAppHomeMock.mockResolvedValue(true);
+    const body = JSON.stringify({
+      type: "event_callback",
+      team_id: "T-TEAM",
+      event: { type: "app_home_opened", user: "U-USER", tab: "home" },
+    });
+    const request = createRequest({ body });
+
+    const response = await POST(request as any, context);
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toEqual({ ok: true });
+    expect(publishAppHomeMock).toHaveBeenCalledWith({
+      teamId: "T-TEAM",
+      userId: "U-USER",
+      logger: request.logger,
+    });
+    expect(slackWebhookMock).not.toHaveBeenCalled();
+  });
+
+  it("skips publishAppHome for app_home_opened on messages tab", async () => {
+    const body = JSON.stringify({
+      type: "event_callback",
+      team_id: "T-TEAM",
+      event: { type: "app_home_opened", user: "U-USER", tab: "messages" },
+    });
+    const request = createRequest({ body });
+
+    const response = await POST(request as any, context);
+
+    expect(response.status).toBe(200);
+    expect(publishAppHomeMock).not.toHaveBeenCalled();
+    expect(slackWebhookMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("intercepts app_uninstalled and calls handleSlackAppUninstalled", async () => {
+    handleSlackAppUninstalledMock.mockResolvedValue(undefined);
+    const body = JSON.stringify({
+      type: "event_callback",
+      team_id: "T-TEAM",
+      event: { type: "app_uninstalled" },
+    });
+    const request = createRequest({ body });
+
+    const response = await POST(request as any, context);
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toEqual({ ok: true });
+    expect(handleSlackAppUninstalledMock).toHaveBeenCalledWith({
+      teamId: "T-TEAM",
+      logger: request.logger,
+    });
+    expect(slackWebhookMock).not.toHaveBeenCalled();
+  });
+
+  it("intercepts tokens_revoked and calls handleSlackAppUninstalled", async () => {
+    handleSlackAppUninstalledMock.mockResolvedValue(undefined);
+    const body = JSON.stringify({
+      type: "event_callback",
+      team_id: "T-TEAM",
+      event: { type: "tokens_revoked" },
+    });
+    const request = createRequest({ body });
+
+    const response = await POST(request as any, context);
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toEqual({ ok: true });
+    expect(handleSlackAppUninstalledMock).toHaveBeenCalledWith({
+      teamId: "T-TEAM",
+      logger: request.logger,
+    });
+    expect(slackWebhookMock).not.toHaveBeenCalled();
+  });
+
+  it("forwards non-intercepted events to Chat SDK bot", async () => {
+    const body = JSON.stringify({
+      type: "event_callback",
+      team_id: "T-TEAM",
+      event: { type: "message", user: "U-USER", text: "hello" },
+    });
+    const request = createRequest({ body });
+
+    const response = await POST(request as any, context);
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toEqual({ ok: true });
+    expect(publishAppHomeMock).not.toHaveBeenCalled();
+    expect(handleSlackAppUninstalledMock).not.toHaveBeenCalled();
+    expect(slackWebhookMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("handles publishAppHome failure gracefully", async () => {
+    publishAppHomeMock.mockRejectedValue(new Error("DB down"));
+    const body = JSON.stringify({
+      type: "event_callback",
+      team_id: "T-TEAM",
+      event: { type: "app_home_opened", user: "U-USER", tab: "home" },
+    });
+    const request = createRequest({ body });
+
+    const response = await POST(request as any, context);
+
+    expect(response.status).toBe(200);
+    expect(request.logger.warn).toHaveBeenCalledWith(
+      "Failed to publish App Home",
+      expect.objectContaining({ error: expect.any(Error) }),
     );
   });
 });

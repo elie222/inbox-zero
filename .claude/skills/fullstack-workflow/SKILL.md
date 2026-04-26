@@ -46,7 +46,17 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
 
 ## 2. Server Action
 
-For mutations. Use `next-safe-action` with proper validation:
+For mutations. Use `next-safe-action` with proper validation.
+
+**Action clients** (defined in `apps/web/utils/actions/safe-action.ts`):
+
+| Client | Context | Use when |
+|--------|---------|----------|
+| `actionClientUser` | `ctx.userId` | Only need authenticated user |
+| `actionClient` | `ctx.emailAccountId`, `ctx.userId` | Need user + email account (most mutations) |
+| `adminActionClient` | `ctx.logger` | Admin-only actions (no userId in ctx) |
+
+Always use `.metadata({ name: "actionName" })` for Sentry instrumentation. Use `SafeError` for expected errors.
 
 **Validation Schema** (`apps/web/utils/actions/example.validation.ts`):
 ```typescript

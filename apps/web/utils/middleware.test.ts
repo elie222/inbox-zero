@@ -163,6 +163,36 @@ describe("Middleware", () => {
       });
     });
 
+    it("should respect SafeError status codes", async () => {
+      const safeError = new SafeError("Slow down", 429);
+      const handler = vi.fn().mockRejectedValue(safeError);
+      const wrappedHandler = withError(handler);
+
+      const response = await wrappedHandler(mockReq, mockContext);
+      const responseBody = await response.json();
+
+      expect(response.status).toBe(429);
+      expect(responseBody).toEqual({
+        error: "Slow down",
+        isKnownError: true,
+      });
+    });
+
+    it("should ignore non-error SafeError status codes", async () => {
+      const safeError = new SafeError("User-friendly message", 200);
+      const handler = vi.fn().mockRejectedValue(safeError);
+      const wrappedHandler = withError(handler);
+
+      const response = await wrappedHandler(mockReq, mockContext);
+      const responseBody = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(responseBody).toEqual({
+        error: "User-friendly message",
+        isKnownError: true,
+      });
+    });
+
     it("should handle common errors using checkCommonErrors", async () => {
       const commonError = { message: "API Error", code: 409, type: "Conflict" };
       mockCheckCommonErrors.mockReturnValue(commonError);
@@ -266,6 +296,26 @@ describe("Middleware", () => {
       expect(responseBody).toEqual({
         error: "Unauthorized",
         isKnownError: true,
+      });
+    });
+
+    it("should return 500 if auth throws", async () => {
+      const authError = new Error("Session lookup failed");
+      mockAuth.mockRejectedValue(authError);
+      const handler: NextHandler<RequestWithAuth> = vi.fn();
+      const wrappedHandler = withAuth(handler);
+
+      const response = await wrappedHandler(mockReq, mockContext);
+      const responseBody = await response.json();
+
+      expect(auth).toHaveBeenCalledTimes(1);
+      expect(handler).not.toHaveBeenCalled();
+      expect(mockCaptureException).toHaveBeenCalledWith(authError, {
+        extra: { url: mockReq.url },
+      });
+      expect(response.status).toBe(500);
+      expect(responseBody).toEqual({
+        error: "An unexpected error occurred",
       });
     });
   });

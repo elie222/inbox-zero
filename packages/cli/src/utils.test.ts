@@ -56,7 +56,7 @@ LLM_API_KEY=
     MICROSOFT_CLIENT_ID: "microsoft-id",
     MICROSOFT_CLIENT_SECRET: "microsoft-secret",
     DEFAULT_LLM_PROVIDER: "anthropic",
-    DEFAULT_LLM_MODEL: "claude-sonnet-4-5-20250929",
+    DEFAULT_LLM_MODEL: "claude-sonnet-4-6",
     ECONOMY_LLM_PROVIDER: "anthropic",
     ECONOMY_LLM_MODEL: "claude-haiku-4-5-20251001",
     LLM_API_KEY: "sk-ant-xxx",
@@ -151,7 +151,7 @@ WEB_PORT=
     const bedrockEnv: EnvConfig = {
       ...baseEnv,
       DEFAULT_LLM_PROVIDER: "bedrock",
-      DEFAULT_LLM_MODEL: "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      DEFAULT_LLM_MODEL: "global.anthropic.claude-sonnet-4-6",
       BEDROCK_ACCESS_KEY: "AKIA-xxx",
       BEDROCK_SECRET_KEY: "secret-xxx",
       BEDROCK_REGION: "us-west-2",
@@ -365,7 +365,7 @@ UPSTASH_REDIS_TOKEN=
       MICROSOFT_WEBHOOK_CLIENT_STATE: "webhook-state-hex",
       // LLM
       DEFAULT_LLM_PROVIDER: "anthropic",
-      DEFAULT_LLM_MODEL: "claude-sonnet-4-5-20250929",
+      DEFAULT_LLM_MODEL: "claude-sonnet-4-6",
       ECONOMY_LLM_PROVIDER: "anthropic",
       ECONOMY_LLM_MODEL: "claude-haiku-4-5-20251001",
       LLM_API_KEY: "sk-ant-api-key-value",
@@ -423,7 +423,7 @@ MICROSOFT_WEBHOOK_CLIENT_STATE=webhook-state-hex
 # LLM Configuration
 # =============================================================================
 DEFAULT_LLM_PROVIDER=anthropic
-DEFAULT_LLM_MODEL=claude-sonnet-4-5-20250929
+DEFAULT_LLM_MODEL=claude-sonnet-4-6
 ECONOMY_LLM_PROVIDER=anthropic
 ECONOMY_LLM_MODEL=claude-haiku-4-5-20251001
 LLM_API_KEY=sk-ant-api-key-value

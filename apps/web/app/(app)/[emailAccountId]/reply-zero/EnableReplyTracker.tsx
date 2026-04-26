@@ -19,6 +19,7 @@ import {
   toggleRuleAction,
 } from "@/utils/actions/rule";
 import { CONVERSATION_STATUS_TYPES } from "@/utils/reply-tracker/conversation-status-config";
+import { env } from "@/env";
 
 export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
   const router = useRouter();
@@ -49,10 +50,12 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
             - emails where you're waiting for a response.
           </SectionDescription>
 
-          <SectionDescription className="mt-4">
-            You can also enable auto-drafting of replies that appear in your
-            inbox.
-          </SectionDescription>
+          {!env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED && (
+            <SectionDescription className="mt-4">
+              You can also enable auto-drafting of replies that appear in your
+              inbox.
+            </SectionDescription>
+          )}
         </div>
       }
       imageSrc="/images/illustrations/communication.svg"
@@ -73,7 +76,9 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
               systemType,
             }),
           ),
-          enableDraftRepliesAction(emailAccountId, { enable: true }),
+          ...(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
+            ? []
+            : [enableDraftRepliesAction(emailAccountId, { enable: true })]),
         ];
 
         const result = await Promise.race(promises);

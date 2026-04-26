@@ -4,15 +4,14 @@ import prisma from "@/utils/prisma";
 import { createGoogleAvailabilityProvider } from "./providers/google-availability";
 import { createMicrosoftAvailabilityProvider } from "./providers/microsoft-availability";
 import type { BusyPeriod } from "./availability-types";
-import { getCalendarConnection } from "@/__tests__/helpers";
-import { createScopedLogger } from "@/utils/logger";
+import { getCalendarConnection, createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("./providers/google-availability");
 vi.mock("./providers/microsoft-availability");
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe("getUnifiedCalendarAvailability", () => {
   const emailAccountId = "test-account-id";

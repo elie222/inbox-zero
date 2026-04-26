@@ -8,7 +8,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/assistant/constants";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { getEmailTerminology } from "@/utils/terminology";
-import type { EmailLabel } from "@/providers/EmailProvider";
+import type { EmailLabel } from "@/providers/email-label-types";
 import { BRAND_NAME } from "@/utils/branding";
 
 export function ActionSummaryCard({
@@ -53,7 +53,8 @@ export function ActionSummaryCard({
       break;
     }
 
-    case ActionType.DRAFT_EMAIL: {
+    case ActionType.DRAFT_EMAIL:
+    case ActionType.DRAFT_MESSAGING_CHANNEL: {
       if (action.content?.setManually) {
         const contentValue = action.content?.value || "";
         summaryContent = (
@@ -202,6 +203,10 @@ export function ActionSummaryCard({
 
     case ActionType.MOVE_FOLDER:
       summaryContent = `Folder: ${action.folderName?.value || "unset"}`;
+      break;
+
+    case ActionType.NOTIFY_MESSAGING_CHANNEL:
+      summaryContent = "Notify via chat app";
       break;
 
     case ActionType.NOTIFY_SENDER:

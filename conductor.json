@@ -1,5 +1,6 @@
 {
   "scripts": {
-    "run": "pnpm dev"
+    "run": "pnpm dev-setup dev --url conductor",
+    "archive": "pnpm dev-setup clean"
   }
 }

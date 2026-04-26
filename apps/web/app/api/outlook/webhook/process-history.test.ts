@@ -8,12 +8,12 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
 import { captureException } from "@/utils/error";
-import { createScopedLogger } from "@/utils/logger";
 import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
 import { learnFromOutlookLabelRemoval } from "./learn-label-removal";
 import prisma from "@/utils/prisma";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 vi.spyOn(logger, "with").mockReturnValue(logger);
 
 vi.mock("server-only", () => ({}));
@@ -35,7 +35,10 @@ vi.mock("@/utils/email/provider", () => ({
 }));
 
 vi.mock("@/utils/redis/message-processing", () => ({
+  acquireOutboundMessageLock: vi.fn().mockResolvedValue("lock-token-1"),
+  clearOutboundMessageLock: vi.fn().mockResolvedValue(true),
   markMessageAsProcessing: vi.fn(),
+  markOutboundMessageProcessed: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@/utils/webhook/process-history-item", () => ({
@@ -122,6 +125,25 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
       expect.any(Object),
     );
     expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
+  });
+
+  it("looks up the account by email when no subscription ID is provided", async () => {
+    const inboxMessage = getMockParsedMessage({ labelIds: ["INBOX"] });
+    const mockProvider = {
+      getMessage: vi.fn().mockResolvedValue(inboxMessage),
+    };
+    vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
+
+    await processHistoryForUser({
+      emailAddress: "user@test.com",
+      resourceData: mockResourceData as any,
+      logger,
+    });
+
+    expect(getWebhookEmailAccount).toHaveBeenCalledWith(
+      { email: "user@test.com" },
+      logger,
+    );
   });
 
   it("processes messages in SENT folder", async () => {

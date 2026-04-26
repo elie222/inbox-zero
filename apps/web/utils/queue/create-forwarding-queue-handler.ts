@@ -16,6 +16,7 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
   invalidPayloadMessage,
   visibilityTimeoutSeconds,
   getLoggerContext,
+  getTraceContext,
 }: {
   loggerScope: string;
   schema: TSchema;
@@ -23,6 +24,10 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
   invalidPayloadMessage: string;
   visibilityTimeoutSeconds: number;
   getLoggerContext?: (
+    payload: z.infer<TSchema>,
+    metadata: QueueMetadata,
+  ) => Record<string, unknown>;
+  getTraceContext?: (
     payload: z.infer<TSchema>,
     metadata: QueueMetadata,
   ) => Record<string, unknown>;
@@ -34,7 +39,7 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
       const parseResult = schema.safeParse(message);
       if (!parseResult.success) {
         logger.error(invalidPayloadMessage, {
-          errors: parseResult.error.errors,
+          errors: parseResult.error.issues,
           queueMessageId: metadata.messageId,
         });
         return;
@@ -46,6 +51,11 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
         deliveryCount: metadata.deliveryCount,
       });
 
+      const traceContext = getTraceContext?.(parseResult.data, metadata);
+      if (traceContext) {
+        runLogger.trace("Forwarding queue message", traceContext);
+      }
+
       await forwardQueueMessageToInternalApi({
         path,
         body: parseResult.data,
@@ -54,13 +64,11 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
     },
     {
       visibilityTimeoutSeconds,
-      retry: (_error, metadata) => {
-        return {
-          afterSeconds: getQueueRetryBackoffSeconds({
-            deliveryCount: metadata.deliveryCount,
-          }),
-        };
-      },
+      retry: (_error, metadata) => ({
+        afterSeconds: getQueueRetryBackoffSeconds({
+          deliveryCount: metadata.deliveryCount,
+        }),
+      }),
     },
   );
 }

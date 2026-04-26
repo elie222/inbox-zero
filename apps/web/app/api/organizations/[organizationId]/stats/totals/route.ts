@@ -1,35 +1,15 @@
-import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
-import { withAuth } from "@/utils/middleware";
-import { fetchAndCheckIsAdmin } from "@/utils/organizations/access";
 import { Prisma } from "@/generated/prisma/client";
-import { type OrgStatsParams, orgStatsParams } from "../types";
+import {
+  buildDateClause,
+  createOrgStatsRoute,
+  getOrgAnalyticsMemberFilter,
+} from "../utils";
+import type { OrgStatsParams } from "../types";
 
 export type OrgTotalsResponse = Awaited<ReturnType<typeof getTotals>>;
 
-export const GET = withAuth(
-  "organizations/stats/totals",
-  async (request, { params }) => {
-    const { userId } = request.auth;
-    const { organizationId } = await params;
-
-    await fetchAndCheckIsAdmin({ organizationId, userId });
-
-    const { searchParams } = new URL(request.url);
-    const queryParams = orgStatsParams.parse({
-      fromDate: searchParams.get("fromDate"),
-      toDate: searchParams.get("toDate"),
-    });
-
-    const result = await getTotals({
-      organizationId,
-      fromDate: queryParams.fromDate ?? undefined,
-      toDate: queryParams.toDate ?? undefined,
-    });
-
-    return NextResponse.json(result);
-  },
-);
+export const GET = createOrgStatsRoute("organizations/stats/totals", getTotals);
 
 async function getTotals({
   organizationId,
@@ -42,33 +22,15 @@ async function getTotals({
     active_members: bigint;
   };
 
-  // Build date conditions for emails
-  const emailDateConditions: Prisma.Sql[] = [];
-  if (fromDate) {
-    emailDateConditions.push(Prisma.sql`em.date >= ${new Date(fromDate)}`);
-  }
-  if (toDate) {
-    emailDateConditions.push(Prisma.sql`em.date <= ${new Date(toDate)}`);
-  }
-  const emailDateClause =
-    emailDateConditions.length > 0
-      ? Prisma.sql` AND ${Prisma.join(emailDateConditions, " AND ")}`
-      : Prisma.sql``;
-
-  // Build date conditions for rules
-  const rulesDateConditions: Prisma.Sql[] = [];
-  if (fromDate) {
-    rulesDateConditions.push(
-      Prisma.sql`er."createdAt" >= ${new Date(fromDate)}`,
-    );
-  }
-  if (toDate) {
-    rulesDateConditions.push(Prisma.sql`er."createdAt" <= ${new Date(toDate)}`);
-  }
-  const rulesDateClause =
-    rulesDateConditions.length > 0
-      ? Prisma.sql` AND ${Prisma.join(rulesDateConditions, " AND ")}`
-      : Prisma.sql``;
+  const emailDateClause = buildDateClause(Prisma.sql`em.date`, {
+    fromDate,
+    toDate,
+  });
+  const rulesDateClause = buildDateClause(Prisma.sql`er."createdAt"`, {
+    fromDate,
+    toDate,
+  });
+  const memberFilter = getOrgAnalyticsMemberFilter(organizationId);
 
   const result = await prisma.$queryRaw<TotalsResult[]>`
     SELECT
@@ -76,18 +38,18 @@ async function getTotals({
         SELECT COUNT(*)
         FROM "EmailMessage" em
         JOIN "Member" m ON m."emailAccountId" = em."emailAccountId"
-        WHERE m."organizationId" = ${organizationId} AND m."allowOrgAdminAnalytics" = true AND em.sent = false${emailDateClause}
+        WHERE ${memberFilter} AND em.sent = false${emailDateClause}
       ) as total_emails,
       (
         SELECT COUNT(*)
         FROM "ExecutedRule" er
         JOIN "Member" m ON m."emailAccountId" = er."emailAccountId"
-        WHERE m."organizationId" = ${organizationId} AND m."allowOrgAdminAnalytics" = true${rulesDateClause}
+        WHERE ${memberFilter}${rulesDateClause}
       ) as total_rules,
       (
         SELECT COUNT(DISTINCT m."emailAccountId")
         FROM "Member" m
-        WHERE m."organizationId" = ${organizationId} AND m."allowOrgAdminAnalytics" = true
+        WHERE ${memberFilter}
       ) as active_members
   `;
 

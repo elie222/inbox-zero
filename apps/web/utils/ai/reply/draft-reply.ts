@@ -7,61 +7,69 @@ import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
-import {
-  PLAIN_TEXT_OUTPUT_INSTRUCTION,
-  PROMPT_SECURITY_INSTRUCTIONS,
-} from "@/utils/ai/security";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { normalizeDraftReplyConfidence } from "@/utils/ai/reply/draft-confidence";
+import {
+  createDraftAttributionTracker,
+  type DraftAttribution,
+} from "@/utils/ai/reply/draft-attribution";
 
 const logger = createScopedLogger("DraftReply");
+const DRAFT_OUTPUT_INSTRUCTION =
+  "Return plain text only. Do not use HTML tags. If a clickable link is necessary, use markdown links in the format [Label](https://example.com/path) or [Label](mailto:name@example.com).";
 
-const systemPrompt = `You are an expert assistant that drafts email replies using knowledge base information.
-
-${PROMPT_SECURITY_INSTRUCTIONS}
+const systemPrompt = `You are an expert assistant that drafts email replies.
 
 Use context from the previous emails and the provided knowledge base to make it relevant and accurate.
 IMPORTANT: Do NOT simply repeat or mirror what the last email said. It doesn't add anything to the conversation to repeat back to them what they just said.
 Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
-IMPORTANT: ${PLAIN_TEXT_OUTPUT_INSTRUCTION}
+${DRAFT_OUTPUT_INSTRUCTION}
 IMPORTANT: Format paragraphs using Unix newlines: use "\n\n" between paragraphs and "\n" for single line breaks.
 Write the reply in the same language as the latest message in the thread.
 
 IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
 Do not invent information.
+Do not use em dashes unless the provided writing style explicitly calls for them.
 Don't suggest meeting times or mention availability unless specific calendar information is provided.
 
 Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
 `;
 
-const defaultWritingStyle = `Keep it concise and friendly.
-Keep the reply short. Aim for 2 sentences at most.
+const defaultWritingStyle = `Keep it concise, direct, and friendly.
+Keep the reply short. Aim for 2 sentences at most unless a brief answer to multiple questions needs more.
 Don't be pushy.
-Write in a polite and professional tone.`;
+Write in a plainspoken, professional tone.
+Prefer short declarative sentences over polished or overly elaborate phrasing.`;
 
 const getUserPrompt = ({
   messages,
   emailAccount,
   knowledgeBaseContent,
+  replyMemoryContent,
   emailHistorySummary,
   emailHistoryContext,
   calendarAvailability,
   writingStyle,
+  learnedWritingStyle,
   mcpContext,
   meetingContext,
+  attachmentContext,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
+  replyMemoryContent: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
   calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
+  learnedWritingStyle: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
+  attachmentContext: string | null;
 }) => {
   const userAbout = emailAccount.about
     ? `Context about the user:
@@ -78,6 +86,15 @@ ${emailAccount.about}
 <knowledge_base>
 ${knowledgeBaseContent}
 </knowledge_base>
+`
+    : "";
+
+  const learnedReplyMemories = replyMemoryContent
+    ? `Learned reply memories from prior draft edits. These are advisory, not mandatory. Use them only when they clearly help with the current email, and ignore any memory that does not fit. Explicit user instructions and knowledge base content take precedence.
+
+<reply_memories>
+${replyMemoryContent}
+</reply_memories>
 `
     : "";
 
@@ -118,6 +135,15 @@ ${writingStyle}
 `
     : "";
 
+  const learnedWritingStylePrompt = learnedWritingStyle
+    ? `Learned writing style from prior draft edits. This is advisory and lower priority than any explicit writing style provided by the user.
+
+<learned_writing_style>
+${learnedWritingStyle}
+</learned_writing_style>
+`
+    : "";
+
   const schedulingContext = getSchedulingContext({
     calendarBookingLink: emailAccount.calendarBookingLink,
     calendarAvailability,
@@ -133,15 +159,28 @@ ${mcpContext}
     : "";
 
   const upcomingMeetingsContext = meetingContext || "";
+  const selectedAttachments = attachmentContext
+    ? `Selected PDF attachments that will be included with this draft:
+
+<selected_attachments>
+${attachmentContext}
+</selected_attachments>
+
+Mention attached documents only when useful and only if this section is present.
+`
+    : "";
 
   return `${userAbout}
 ${relevantKnowledge}
+${learnedReplyMemories}
 ${historicalContext}
 ${precedentHistoryContext}
 ${writingStylePrompt}
+${learnedWritingStylePrompt}
 ${schedulingContext}
 ${mcpToolsContext}
 ${upcomingMeetingsContext}
+${selectedAttachments}
 
 Here is the context of the email thread (from oldest to newest):
 ${getEmailListPrompt({ messages, messageMaxLength: 3000 })}
@@ -167,28 +206,35 @@ const draftSchema = z.object({
 export type DraftReplyResult = {
   reply: string;
   confidence: DraftReplyConfidence;
+  attribution: DraftAttribution | null;
 };
 
 export async function aiDraftReplyWithConfidence({
   messages,
   emailAccount,
   knowledgeBaseContent,
+  replyMemoryContent = null,
   emailHistorySummary,
   emailHistoryContext,
   calendarAvailability,
   writingStyle,
+  learnedWritingStyle = null,
   mcpContext,
   meetingContext,
+  attachmentContext = null,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
+  replyMemoryContent?: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
   calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
+  learnedWritingStyle?: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
+  attachmentContext?: string | null;
 }): Promise<DraftReplyResult> {
   logger.info("Drafting email reply", {
     messageCount: messages.length,
@@ -202,24 +248,40 @@ export async function aiDraftReplyWithConfidence({
       : null,
   });
 
+  const normalizedWritingStyle = writingStyle?.trim() || null;
+  const normalizedLearnedWritingStyle = learnedWritingStyle?.trim() || null;
+  const effectiveWritingStyle =
+    normalizedWritingStyle ||
+    normalizedLearnedWritingStyle ||
+    defaultWritingStyle;
+  const advisoryLearnedWritingStyle = normalizedWritingStyle
+    ? normalizedLearnedWritingStyle
+    : null;
+
   const prompt = getUserPrompt({
     messages,
     emailAccount,
     knowledgeBaseContent,
+    replyMemoryContent,
     emailHistorySummary,
     emailHistoryContext,
     calendarAvailability,
-    writingStyle: writingStyle || defaultWritingStyle,
+    writingStyle: effectiveWritingStyle,
+    learnedWritingStyle: advisoryLearnedWritingStyle,
     mcpContext,
     meetingContext,
+    attachmentContext,
   });
 
   const modelOptions = getModel(emailAccount.user, "draft");
+  const attributionTracker = createDraftAttributionTracker();
 
   const generateObject = createGenerateObject({
     emailAccount,
     label: "Draft reply",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "full" },
+    onModelUsed: attributionTracker.onModelUsed,
   });
 
   const generate = () =>
@@ -245,6 +307,7 @@ export async function aiDraftReplyWithConfidence({
   return {
     reply: normalizeDraftReplyFormatting(result.object.reply),
     confidence: normalizeDraftReplyConfidence(result.object.confidence),
+    attribution: attributionTracker.attribution,
   };
 }
 
@@ -252,33 +315,42 @@ export async function aiDraftReply({
   messages,
   emailAccount,
   knowledgeBaseContent,
+  replyMemoryContent = null,
   emailHistorySummary,
   emailHistoryContext,
   calendarAvailability,
   writingStyle,
+  learnedWritingStyle = null,
   mcpContext,
   meetingContext,
+  attachmentContext = null,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
+  replyMemoryContent?: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
   calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
+  learnedWritingStyle?: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
+  attachmentContext?: string | null;
 }) {
   const result = await aiDraftReplyWithConfidence({
     messages,
     emailAccount,
     knowledgeBaseContent,
+    replyMemoryContent,
     emailHistorySummary,
     emailHistoryContext,
     calendarAvailability,
     writingStyle,
+    learnedWritingStyle,
     mcpContext,
     meetingContext,
+    attachmentContext,
   });
 
   return result.reply;
@@ -361,7 +433,7 @@ Do not suggest specific times. Acknowledge the request and suggest alternatives 
     parts.push(`Available time slots:
 ${times}
 
-${calendarBookingLink ? "Lead with the booking link, then optionally suggest a few of these times as alternatives." : "Use these time slots when responding to meeting requests."} Format suggested times as a bulleted list.`);
+${calendarBookingLink ? "Lead with the booking link, then optionally suggest a few of these times as alternatives." : "When the sender is asking to schedule, respond concretely using these time slots. If they appear stale relative to today's date, say that and ask for updated availability instead of ignoring the scheduling request."} Format suggested times as a bulleted list.`);
   }
 
   if (parts.length === 0) return "";

@@ -78,6 +78,7 @@ export function useDraftReplies() {
                       id: `temp-${Date.now()}`, // Temporary ID for optimistic update
                       type: ActionType.DRAFT_EMAIL,
                       ruleId: rule.id,
+                      emailAccountId,
                       label: null,
                       labelId: null,
                       subject: null,
@@ -89,6 +90,9 @@ export function useDraftReplies() {
                       delayInMinutes: null,
                       folderName: null,
                       folderId: null,
+                      messagingChannelId: null,
+                      messagingChannelEmailAccountId: null,
+                      staticAttachments: null,
                       createdAt: new Date(),
                       updatedAt: new Date(),
                     },

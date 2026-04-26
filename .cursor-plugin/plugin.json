@@ -1,0 +1,20 @@
+{
+  "name": "inbox-zero-api",
+  "version": "1.0.0",
+  "description": "Use the Inbox Zero API CLI (inbox-zero-api) from Cursor: rules, stats, OpenAPI schema, and safe mutations. Same skill source as OpenClaw / ClawHub (clawhub/inbox-zero-api).",
+  "author": {
+    "name": "Inbox Zero"
+  },
+  "homepage": "https://www.getinboxzero.com/api-reference/cli",
+  "repository": "https://github.com/elie222/inbox-zero",
+  "license": "AGPL-3.0",
+  "keywords": [
+    "inbox-zero",
+    "email",
+    "api",
+    "cli",
+    "automation",
+    "rules",
+    "openclaw"
+  ]
+}

@@ -114,16 +114,14 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
   const response = toRecord(cause.response);
   const responseData = toRecord(response.data);
   const responseError = toRecord(responseData.error);
-  const status =
-    (cause?.status as number) ??
-    (cause?.code as number) ??
-    (response.status as number) ??
-    undefined;
-  const code =
-    (err?.code as string) ??
-    (cause?.code as string) ??
-    (responseError.code as string) ??
-    undefined;
+  const status = getNumericStatus(
+    cause.status,
+    cause.code,
+    response.status,
+    responseError.code,
+    err.code,
+  );
+  const code = getCodeValue(err.code, cause.code, responseError.code);
   const reason =
     getFirstErrorValue(cause.errors, "reason") ??
     getFirstErrorValue(responseError.errors, "reason") ??
@@ -153,17 +151,21 @@ export function isRetryableError(errorInfo: ErrorInfo): {
   isServerError: boolean;
   isFailedPrecondition: boolean;
 } {
-  const { status, reason, errorMessage } = errorInfo;
+  const { status, reason, errorMessage, googleErrorStatus } = errorInfo;
 
   // Broad rate-limit detection: 429, 403 + known reasons, or well-known messages
   const isRateLimit =
     status === 429 ||
+    googleErrorStatus === "RESOURCE_EXHAUSTED" ||
     (status === 403 &&
       ["rateLimitExceeded", "userRateLimitExceeded", "quotaExceeded"].includes(
         String(reason),
       )) ||
     /(^|[\s-])rate limit exceeded/i.test(errorMessage) ||
-    /quota exceeded/i.test(errorMessage);
+    /user-rate limit exceeded/i.test(errorMessage) ||
+    /quota exceeded/i.test(errorMessage) ||
+    /resource exhausted/i.test(errorMessage) ||
+    /too many concurrent requests for user/i.test(errorMessage);
 
   // Temporary server errors that should be retried
   const isServerError =
@@ -238,8 +240,8 @@ export function calculateRetryDelay(
   }
 
   if (isRateLimit) {
-    // Fixed delay for rate limits (30 seconds as per Gmail's error message)
-    return 30_000;
+    // Short exponential backoff keeps retries within request lifetimes unless Gmail provides an explicit retry time.
+    return Math.min(1000 * 2 ** (attemptNumber - 1), 10_000);
   }
 
   if (isFailedPrecondition) {
@@ -302,6 +304,37 @@ function getFirstErrorValue(
   if (!firstError || typeof firstError !== "object") return undefined;
   const value = (firstError as Record<string, unknown>)[key];
   return typeof value === "string" ? value : undefined;
+}
+
+function getNumericStatus(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    const normalized = normalizeNumericValue(value);
+    if (normalized !== undefined) return normalized;
+  }
+
+  return undefined;
+}
+
+function normalizeNumericValue(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return undefined;
+}
+
+function getCodeValue(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value;
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+
+  return undefined;
 }
 
 function getRetryAttemptError(attempt: unknown): unknown {

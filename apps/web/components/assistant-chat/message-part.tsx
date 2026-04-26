@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { Response } from "@/components/ai-elements/response";
+import { AssistantInlineEmailResponse } from "@/components/assistant-chat/assistant-inline-email-response";
 import {
   Reasoning,
   ReasoningContent,
@@ -12,13 +12,17 @@ import {
   AddToKnowledgeBase,
   BasicToolInfo,
   CreatedRuleToolCard,
+  PendingSaveMemoryToolCard,
+  PendingCreateRuleToolCard,
   ForwardEmailResult,
+  getManageInboxActionLabel,
   ManageInboxResult,
+  ManageSenderCategoryResult,
   ReadEmailResult,
   ReplyEmailResult,
   SearchInboxResult,
   SendEmailResult,
-  UpdateAbout,
+  UpdatePersonalInstructions,
   UpdatedLearnedPatterns,
   UpdatedRuleActions,
   UpdatedRuleConditions,
@@ -26,9 +30,13 @@ import {
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { ThreadLookup } from "@/components/assistant-chat/tools";
 import { formatToolLabel } from "@/components/assistant-chat/tool-label";
+import { requiresThreadIds } from "@/utils/ai/assistant/manage-inbox-actions";
+import { getUserVisibleToolFailureMessage } from "@/utils/ai/assistant/chat-response-guard";
+import { pluralize } from "@/utils/string";
 
 interface MessagePartProps {
   disableConfirm: boolean;
+  isPersistedMessage: boolean;
   isStreaming: boolean;
   messageId: string;
   part: ChatMessage["parts"][0];
@@ -37,7 +45,14 @@ interface MessagePartProps {
 }
 
 function ErrorToolCard({ error }: { error: string }) {
-  return <div className="rounded border p-2 text-red-500">Error: {error}</div>;
+  return <div className="text-xs text-muted-foreground">Error: {error}</div>;
+}
+
+function renderToolError(toolCallId: string, output: unknown) {
+  const failureMessage = getToolFailureMessage(output);
+  return failureMessage ? (
+    <ErrorToolCard key={toolCallId} error={failureMessage} />
+  ) : null;
 }
 
 function isOutputWithError(output: unknown): output is { error: unknown } {
@@ -48,13 +63,13 @@ function getOutputField<T>(output: unknown, field: string): T | undefined {
   if (typeof output === "object" && output !== null && field in output) {
     return (output as Record<string, unknown>)[field] as T;
   }
-  return undefined;
 }
 
 export function MessagePart({
   part,
   isStreaming,
   disableConfirm,
+  isPersistedMessage,
   messageId,
   partIndex,
   threadLookup,
@@ -73,8 +88,13 @@ export function MessagePart({
   }
 
   if (part.type === "text") {
-    if (!part.text) return null;
-    return <Response key={key}>{part.text}</Response>;
+    const text = part.text;
+    if (!text) return null;
+    return (
+      <AssistantInlineEmailResponse key={key}>
+        {text}
+      </AssistantInlineEmailResponse>
+    );
   }
 
   if (part.type === "file") {
@@ -134,7 +154,6 @@ export function MessagePart({
       part,
       loadingText: "Updating settings...",
       renderSuccess: ({ toolCallId, output }) => {
-        const dryRun = getOutputField<boolean>(output, "dryRun");
         const appliedChanges = getOutputField<Array<unknown>>(
           output,
           "appliedChanges",
@@ -145,7 +164,7 @@ export function MessagePart({
         return (
           <BasicToolInfo
             key={toolCallId}
-            text={`${dryRun ? "Prepared settings changes" : "Updated settings"}${
+            text={`Updated settings${
               appliedChangesCount !== null
                 ? ` (${appliedChangesCount} change${
                     appliedChangesCount === 1 ? "" : "s"
@@ -164,11 +183,7 @@ export function MessagePart({
       return <BasicToolInfo key={toolCallId} text="Searching inbox..." />;
     }
     if (state === "output-available") {
-      const { output } = part;
-      if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return <SearchInboxResult key={toolCallId} output={output} />;
+      return <SearchInboxResult key={toolCallId} output={part.output} />;
     }
   }
 
@@ -180,7 +195,7 @@ export function MessagePart({
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+        return renderToolError(toolCallId, output);
       }
       return <ReadEmailResult key={toolCallId} output={output} />;
     }
@@ -205,26 +220,22 @@ export function MessagePart({
         );
       }
 
-      let actionText = "Updating emails...";
-      if (part.input.action === "archive_threads") {
-        actionText = part.input.labelId
-          ? "Archiving and labeling emails..."
-          : "Archiving emails...";
-      } else if (part.input.action === "mark_read_threads") {
-        actionText =
-          part.input.read === false
-            ? "Marking emails as unread..."
-            : "Marking emails as read...";
-      } else if (part.input.action === "unsubscribe_senders") {
-        actionText = "Unsubscribing senders...";
-      }
+      const actionText = getManageInboxActionLabel({
+        action: part.input.action,
+        read: part.input.read ?? true,
+        labelApplied:
+          part.input.action === "archive_threads"
+            ? Boolean(part.input.label)
+            : Boolean(part.input.label || part.input.labelName),
+        inProgress: true,
+      });
 
       return <BasicToolInfo key={toolCallId} text={actionText} />;
     }
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+        return renderToolError(toolCallId, output);
       }
       return (
         <ManageInboxResult
@@ -232,8 +243,7 @@ export function MessagePart({
           input={part.input}
           output={output}
           threadIds={
-            part.input.action === "archive_threads" ||
-            part.input.action === "mark_read_threads"
+            requiresThreadIds(part.input.action)
               ? (part.input.threadIds ?? undefined)
               : undefined
           }
@@ -243,20 +253,11 @@ export function MessagePart({
     }
   }
 
-  if (part.type === "tool-updateInboxFeatures") {
-    return renderToolStatus({
-      part,
-      loadingText: "Updating inbox features...",
-      renderSuccess: ({ toolCallId }) => (
-        <BasicToolInfo key={toolCallId} text="Updated inbox features" />
-      ),
-    });
-  }
-
   if (part.type === "tool-sendEmail") {
     return renderPendingEmailAction({
       part,
       disableConfirm,
+      isPersistedMessage,
       messageId,
       preparingText: "Preparing email...",
       ResultComponent: SendEmailResult,
@@ -267,6 +268,7 @@ export function MessagePart({
     return renderPendingEmailAction({
       part,
       disableConfirm,
+      isPersistedMessage,
       messageId,
       preparingText: "Preparing reply...",
       ResultComponent: ReplyEmailResult,
@@ -277,6 +279,7 @@ export function MessagePart({
     return renderPendingEmailAction({
       part,
       disableConfirm,
+      isPersistedMessage,
       messageId,
       preparingText: "Preparing forward...",
       ResultComponent: ForwardEmailResult,
@@ -289,6 +292,16 @@ export function MessagePart({
       loadingText: "Reading rules and settings...",
       renderSuccess: ({ toolCallId }) => (
         <BasicToolInfo key={toolCallId} text="Read rules and settings" />
+      ),
+    });
+  }
+
+  if (part.type === "tool-getRuleExecutionForMessage") {
+    return renderToolStatus({
+      part,
+      loadingText: "Reading rule execution details...",
+      renderSuccess: ({ toolCallId }) => (
+        <BasicToolInfo key={toolCallId} text="Read rule execution details" />
       ),
     });
   }
@@ -316,7 +329,27 @@ export function MessagePart({
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+        return renderToolError(toolCallId, output);
+      }
+      const requiresRuleConfirmation =
+        getOutputField<boolean>(output, "requiresConfirmation") === true &&
+        getOutputField<string>(output, "actionType") === "create_rule";
+      const confirmationState =
+        getOutputField<string>(output, "confirmationState") || "";
+      if (
+        requiresRuleConfirmation &&
+        (confirmationState === "pending" || confirmationState === "processing")
+      ) {
+        return (
+          <PendingCreateRuleToolCard
+            key={toolCallId}
+            args={part.input}
+            output={output}
+            chatMessageId={messageId}
+            toolCallId={toolCallId}
+            disableConfirm={disableConfirm || !isPersistedMessage}
+          />
+        );
       }
       const ruleId = getOutputField<string>(output, "ruleId");
       return (
@@ -342,7 +375,7 @@ export function MessagePart({
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+        return renderToolError(toolCallId, output);
       }
       const ruleId = getOutputField<string>(output, "ruleId");
       if (!ruleId)
@@ -374,7 +407,7 @@ export function MessagePart({
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+        return renderToolError(toolCallId, output);
       }
       const ruleId = getOutputField<string>(output, "ruleId");
       if (!ruleId)
@@ -406,7 +439,7 @@ export function MessagePart({
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+        return renderToolError(toolCallId, output);
       }
       const ruleId = getOutputField<string>(output, "ruleId");
       if (!ruleId)
@@ -423,18 +456,26 @@ export function MessagePart({
     }
   }
 
-  if (part.type === "tool-updateAbout") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Updating about..." />;
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return <UpdateAbout key={toolCallId} args={part.input} />;
-    }
+  if (part.type === "tool-updatePersonalInstructions") {
+    return renderToolStatus({
+      part,
+      loadingText: "Updating personal instructions...",
+      renderSuccess: ({ toolCallId, output }) => {
+        const updated = getOutputField<string>(output, "updated");
+        return (
+          <UpdatePersonalInstructions
+            key={toolCallId}
+            args={{
+              personalInstructions:
+                updated ??
+                part.input?.personalInstructions ??
+                "Personal instructions updated.",
+              mode: part.input?.mode ?? "append",
+            }}
+          />
+        );
+      },
+    });
   }
 
   if (part.type === "tool-addToKnowledgeBase") {
@@ -447,20 +488,43 @@ export function MessagePart({
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+        return renderToolError(toolCallId, output);
       }
       return <AddToKnowledgeBase key={toolCallId} args={part.input} />;
     }
   }
 
   if (part.type === "tool-saveMemory") {
-    return renderToolStatus({
-      part,
-      loadingText: "Saving memory...",
-      renderSuccess: ({ toolCallId }) => (
-        <BasicToolInfo key={toolCallId} text="Memory saved" />
-      ),
-    });
+    const { toolCallId, state } = part;
+
+    if (state === "input-available") {
+      return <BasicToolInfo key={toolCallId} text="Saving memory..." />;
+    }
+
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return renderToolError(toolCallId, output);
+      }
+
+      const requiresConfirmation =
+        getOutputField<boolean>(output, "requiresConfirmation") === true &&
+        getOutputField<string>(output, "actionType") === "save_memory";
+
+      if (requiresConfirmation) {
+        return (
+          <PendingSaveMemoryToolCard
+            key={toolCallId}
+            output={output}
+            chatMessageId={messageId}
+            toolCallId={toolCallId}
+            disableConfirm={disableConfirm || !isPersistedMessage}
+          />
+        );
+      }
+
+      return <BasicToolInfo key={toolCallId} text="Memory saved" />;
+    }
   }
 
   if (part.type === "tool-searchMemories") {
@@ -483,6 +547,72 @@ export function MessagePart({
     });
   }
 
+  if (part.type === "tool-getSenderCategoryOverview") {
+    return renderToolStatus({
+      part,
+      loadingText: "Checking sender categories...",
+      renderSuccess: ({ toolCallId, output }) => (
+        <BasicToolInfo
+          key={toolCallId}
+          text={getSenderCategoryOverviewSuccessText(output)}
+        />
+      ),
+    });
+  }
+
+  if (part.type === "tool-startSenderCategorization") {
+    return renderToolStatus({
+      part,
+      loadingText: "Starting sender categorization...",
+      renderSuccess: ({ toolCallId, output }) => (
+        <BasicToolInfo
+          key={toolCallId}
+          text={getStartSenderCategorizationSuccessText(output)}
+        />
+      ),
+    });
+  }
+
+  if (part.type === "tool-getSenderCategorizationStatus") {
+    return renderToolStatus({
+      part,
+      loadingText: "Checking categorization progress...",
+      renderSuccess: ({ toolCallId, output }) => (
+        <BasicToolInfo
+          key={toolCallId}
+          text={getSenderCategorizationStatusSuccessText(output)}
+        />
+      ),
+    });
+  }
+
+  if (part.type === "tool-manageSenderCategory") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      const categoryName = part.input.categoryName?.trim();
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={
+            categoryName
+              ? `Archiving "${categoryName}" category...`
+              : "Archiving category..."
+          }
+        />
+      );
+    }
+    if (state === "output-available") {
+      const failureMessage = getToolFailureMessage(part.output);
+      if (failureMessage) {
+        return <ErrorToolCard key={toolCallId} error={failureMessage} />;
+      }
+      return (
+        <ManageSenderCategoryResult key={toolCallId} output={part.output} />
+      );
+    }
+    return null;
+  }
+
   if (part.type.startsWith("tool-")) {
     const toolPart = part as {
       type: `tool-${string}`;
@@ -494,8 +624,11 @@ export function MessagePart({
     return renderToolStatus({
       part: toolPart,
       loadingText: `Running ${toolLabel}...`,
-      renderSuccess: ({ toolCallId }) => (
-        <BasicToolInfo key={toolCallId} text={`Completed ${toolLabel}`} />
+      renderSuccess: ({ toolCallId, output }) => (
+        <BasicToolInfo
+          key={toolCallId}
+          text={getToolSuccessMessage(output) ?? `Completed ${toolLabel}`}
+        />
       ),
     });
   }
@@ -546,6 +679,7 @@ function renderToolStatus({
 function renderPendingEmailAction({
   part,
   disableConfirm,
+  isPersistedMessage,
   messageId,
   preparingText,
   ResultComponent,
@@ -556,6 +690,7 @@ function renderPendingEmailAction({
     output?: unknown;
   };
   disableConfirm: boolean;
+  isPersistedMessage: boolean;
   messageId: string;
   preparingText: string;
   ResultComponent: (props: {
@@ -582,7 +717,7 @@ function renderPendingEmailAction({
         output={part.output}
         chatMessageId={messageId}
         toolCallId={toolCallId}
-        disableConfirm={disableConfirm}
+        disableConfirm={disableConfirm || !isPersistedMessage}
       />
     );
   }
@@ -591,26 +726,66 @@ function renderPendingEmailAction({
 }
 
 function getToolFailureMessage(output: unknown): string | null {
-  if (typeof output !== "object" || output === null) return null;
-
-  const record = output as Record<string, unknown>;
-  if (isOutputWithError(output)) {
-    return toFailureMessage(record.error);
-  }
-
-  if (record.success === false) {
-    return (
-      toFailureMessage(record.message) ??
-      toFailureMessage(record.reason) ??
-      toFailureMessage(record.error) ??
-      "Operation failed"
-    );
-  }
-
-  return null;
+  return getUserVisibleToolFailureMessage(output);
 }
 
-function toFailureMessage(value: unknown): string | null {
+function getToolSuccessMessage(output: unknown): string | null {
+  if (typeof output !== "object" || output === null) return null;
+  return toMessageString((output as Record<string, unknown>).message);
+}
+
+function getSenderCategoryOverviewSuccessText(output: unknown): string {
+  const categories = getOutputField<Array<unknown>>(output, "categories");
+  const categoryCount = Array.isArray(categories) ? categories.length : 0;
+  const uncategorized =
+    getOutputField<number>(output, "uncategorizedSenderCount") ?? 0;
+
+  if (categoryCount === 0 && uncategorized === 0) {
+    return "No sender categories yet";
+  }
+
+  const parts: string[] = [];
+  if (categoryCount > 0) {
+    parts.push(
+      `${categoryCount} ${pluralize(categoryCount, "category", "categories")}`,
+    );
+  }
+  if (uncategorized > 0) {
+    parts.push(
+      `${uncategorized} uncategorized ${pluralize(uncategorized, "sender", "senders")}`,
+    );
+  }
+  return `Found ${parts.join(", ")}`;
+}
+
+function getStartSenderCategorizationSuccessText(output: unknown): string {
+  const alreadyRunning = getOutputField<boolean>(output, "alreadyRunning");
+  const totalQueued = getOutputField<number>(output, "totalQueuedSenders") ?? 0;
+
+  if (alreadyRunning) {
+    return "Sender categorization already in progress";
+  }
+  if (totalQueued > 0) {
+    return `Categorizing ${totalQueued} ${pluralize(totalQueued, "sender", "senders")}`;
+  }
+  return "No senders to categorize";
+}
+
+function getSenderCategorizationStatusSuccessText(output: unknown): string {
+  const status = getOutputField<string>(output, "status");
+  const total = getOutputField<number>(output, "totalItems") ?? 0;
+  const completed = getOutputField<number>(output, "completedItems") ?? 0;
+
+  if (status === "completed") {
+    return "Categorization complete";
+  }
+  if (status === "running") {
+    return `Categorizing senders (${completed} of ${total})`;
+  }
+  return "Categorization hasn't started";
+}
+
+function toMessageString(value: unknown): string | null {
   if (typeof value === "string" && value.trim().length > 0) return value;
   if (
     typeof value === "object" &&

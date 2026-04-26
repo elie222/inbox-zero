@@ -99,6 +99,7 @@ ${getEmailListPrompt({ messages: emails, messageMaxLength: 1000 })}
     emailAccount,
     label: "Persona Analysis",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "none" },
   });
 
   const result = await generateObject({

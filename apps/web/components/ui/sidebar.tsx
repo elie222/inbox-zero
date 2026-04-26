@@ -32,6 +32,7 @@ type SidebarContext = {
   setOpen: React.Dispatch<React.SetStateAction<string[]>>;
   openMobile: string[];
   setOpenMobile: React.Dispatch<React.SetStateAction<string[]>>;
+  closeMobileSidebar: (name: string) => void;
   isMobile: boolean;
   toggleSidebar: (names: string[]) => void;
 };
@@ -118,6 +119,12 @@ const SidebarProvider = React.forwardRef<
       [isMobile, setOpen, setOpenMobile],
     );
 
+    const closeMobileSidebar = React.useCallback((name: string) => {
+      setOpenMobile((prev) =>
+        prev.filter((sidebarName) => sidebarName !== name),
+      );
+    }, []);
+
     // Adds a keyboard shortcut to toggle the sidebar.
     React.useEffect(() => {
       const handleKeyDown = (event: KeyboardEvent) => {
@@ -147,6 +154,7 @@ const SidebarProvider = React.forwardRef<
         isMobile,
         openMobile,
         setOpenMobile,
+        closeMobileSidebar,
         toggleSidebar,
       }),
       [
@@ -156,6 +164,7 @@ const SidebarProvider = React.forwardRef<
         isMobile,
         openMobile,
         setOpenMobile,
+        closeMobileSidebar,
         toggleSidebar,
       ],
     );

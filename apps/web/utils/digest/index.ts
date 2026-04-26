@@ -1,9 +1,9 @@
 import type { Logger } from "@/utils/logger";
-import { emailToContent } from "@/utils/mail";
 import type { DigestBody } from "@/app/api/ai/digest/validation";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
 import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
+import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
 
 const AI_DIGEST_TOPIC = "ai-digest";
 
@@ -30,7 +30,7 @@ export async function enqueueDigestItem({
           from: email.headers.from,
           to: email.headers.to || "",
           subject: email.headers.subject,
-          content: emailToContent(email),
+          content: emailToContentForAI(email),
         },
       },
       qstash: {

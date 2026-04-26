@@ -6,16 +6,14 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { createAndSaveFilingFolder } from "@/utils/drive/folder-utils";
-import {
-  extractTextFromDocument,
-  isExtractableMimeType,
-} from "@/utils/drive/document-extraction";
+import { extractTextFromDocument } from "@/utils/drive/document-extraction";
 import { analyzeDocument } from "@/utils/ai/document-filing/analyze-document";
 import {
   sendFiledNotification,
   sendAskNotification,
 } from "@/utils/drive/filing-notifications";
-import { sendFilingSlackNotifications } from "@/utils/drive/filing-slack-notifications";
+import { sendFilingMessagingNotifications } from "@/utils/drive/filing-messaging-notifications";
+import { extractEmailAddress } from "@/utils/email";
 
 // ============================================================================
 // Types
@@ -43,6 +41,7 @@ export interface ProcessAttachmentOptions {
   emailAccount: EmailAccountWithAI & {
     filingEnabled: boolean;
     filingPrompt: string | null;
+    filingConfirmationSendEmail: boolean;
     email: string;
   };
   emailProvider: EmailProvider;
@@ -106,7 +105,7 @@ export async function processAttachment({
     );
     const buffer = Buffer.from(attachmentData.data, "base64");
 
-    // Step 2: Extract text
+    // Step 2: Extract text (optional - some file types like images can be filed by filename alone)
     log.info("Extracting text from document");
     const extraction = await extractTextFromDocument(
       buffer,
@@ -115,8 +114,9 @@ export async function processAttachment({
     );
 
     if (!extraction) {
-      log.warn("Could not extract text from document");
-      return { success: false, error: "Could not extract text" };
+      log.info(
+        "No text extraction available, will file based on filename and email metadata",
+      );
     }
 
     // Step 3: Get saved filing folders (user-selected, not all folders)
@@ -151,7 +151,9 @@ export async function processAttachment({
       },
       attachment: {
         filename: attachment.filename,
-        content: extraction.text,
+        mimeType: attachment.mimeType,
+        size: attachment.size,
+        content: extraction?.text ?? "",
       },
       folders: allFolders,
     });
@@ -259,8 +261,14 @@ export async function processAttachment({
       wasAsked: shouldAsk,
     });
 
+    const shouldSendAskNotification = sendNotification && shouldAsk;
+    const shouldSendFiledNotification =
+      sendNotification &&
+      !shouldAsk &&
+      emailAccount.filingConfirmationSendEmail;
+
     // Step 10: Send notification email as a reply to the source email
-    if (sendNotification) {
+    if (shouldSendAskNotification || shouldSendFiledNotification) {
       const sourceMessage = {
         threadId: message.threadId,
         headerMessageId: message.headers["message-id"] || "",
@@ -268,7 +276,7 @@ export async function processAttachment({
       };
 
       try {
-        if (shouldAsk) {
+        if (shouldSendAskNotification) {
           await sendAskNotification({
             emailProvider,
             userEmail: emailAccount.email,
@@ -292,13 +300,16 @@ export async function processAttachment({
     }
 
     try {
-      await sendFilingSlackNotifications({
+      await sendFilingMessagingNotifications({
         emailAccountId: emailAccount.id,
         filingId: filing.id,
+        senderEmail: extractEmailAddress(message.headers.from),
         logger: log,
       });
-    } catch (slackError) {
-      log.error("Failed to send Slack notification", { error: slackError });
+    } catch (messagingError) {
+      log.error("Failed to send messaging notification", {
+        error: messagingError,
+      });
     }
 
     return {
@@ -323,14 +334,13 @@ export async function processAttachment({
 }
 
 /**
- * Get all extractable attachments from a message.
+ * Get all filable attachments from a message.
+ * All attachment types are supported - text-extractable files (PDF, DOCX, TXT)
+ * get full content analysis, while other types (images, spreadsheets, etc.)
+ * are filed based on filename and email metadata.
  */
-export function getExtractableAttachments(
-  message: ParsedMessage,
-): Attachment[] {
-  return (message.attachments || []).filter((a) =>
-    isExtractableMimeType(a.mimeType),
-  );
+export function getFilableAttachments(message: ParsedMessage): Attachment[] {
+  return message.attachments || [];
 }
 
 // ============================================================================

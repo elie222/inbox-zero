@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
+import type { Logger } from "@/utils/logger";
 import { MessagingProvider } from "@/generated/prisma/enums";
-import { listChannels } from "@/utils/messaging/providers/slack/channels";
+import { getMessagingChannelReconnectMessage } from "@/utils/messaging/channel-validity";
+import { listPrivateChannelsForUser } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 
 export type GetChannelTargetsResponse = Awaited<ReturnType<typeof getData>>;
@@ -28,7 +30,7 @@ async function getData({
 }: {
   emailAccountId: string;
   channelId: string;
-  logger: { error: (msg: string, ctx?: Record<string, unknown>) => void };
+  logger: Logger;
 }) {
   const channel = await prisma.messagingChannel.findFirst({
     where: {
@@ -39,18 +41,29 @@ async function getData({
     select: {
       provider: true,
       accessToken: true,
+      providerUserId: true,
     },
   });
 
-  if (!channel || !channel.accessToken) {
+  if (!channel?.accessToken) {
     return { targets: [], error: "Channel not found or not connected" };
   }
 
   try {
     switch (channel.provider) {
       case MessagingProvider.SLACK: {
+        if (!channel.providerUserId) {
+          return {
+            targets: [],
+            error: getMessagingChannelReconnectMessage(MessagingProvider.SLACK),
+          };
+        }
+
         const client = createSlackClient(channel.accessToken);
-        const channels = await listChannels(client);
+        const channels = await listPrivateChannelsForUser(
+          client,
+          channel.providerUserId,
+        );
         return {
           targets: channels.map((c) => ({
             id: c.id,

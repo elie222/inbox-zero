@@ -15,6 +15,10 @@ export const updateFilingEnabledBody = z.object({
 });
 export type UpdateFilingEnabledBody = z.infer<typeof updateFilingEnabledBody>;
 
+export const updateFilingConfirmationEmailBody = z.object({
+  sendEmail: z.boolean(),
+});
+
 const filingFolderSchema = z.object({
   folderId: z.string(),
   folderName: z.string(),
@@ -68,3 +72,7 @@ export const fileAttachmentBody = z.object({
   filename: z.string(),
 });
 export type FileAttachmentBody = z.infer<typeof fileAttachmentBody>;
+
+export const getDriveSourceChildrenQuerySchema = z.object({
+  driveConnectionId: z.string(),
+});

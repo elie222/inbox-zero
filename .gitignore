@@ -30,9 +30,13 @@ yarn-error.log*
 # local env files - ignore ALL .env files except .env.example
 .env*
 !.env.example
+/json.env
 
 # vercel
 .vercel
+.wrangler
+.dev.vars
+.dev.vars.*
 
 # typescript
 *.tsbuildinfo
@@ -99,3 +103,11 @@ qa/browser-flows/results/*
 # local skills
 .claude/skills/local/
 .agents/skills/local/
+
+# local claude hooks (personal nested repo)
+.claude/local/
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+
+# eval reports
+eval-results/

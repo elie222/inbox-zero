@@ -2,7 +2,6 @@
 
 import prisma from "@/utils/prisma";
 import { GroupItemSource } from "@/generated/prisma/enums";
-import { emailToContent } from "@/utils/mail";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import {
   coldEmailBlockerBody,
@@ -15,6 +14,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { getColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 import { internalDateToDate } from "@/utils/date";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
 
 export const markNotColdEmailAction = actionClient
   .metadata({ name: "markNotColdEmail" })
@@ -110,7 +110,7 @@ export const testColdEmailAction = actionClient
         logger,
       });
 
-      const content = emailToContent({
+      const content = emailToContentForAI({
         textHtml: textHtml || undefined,
         textPlain: textPlain || undefined,
         snippet: snippet || "",

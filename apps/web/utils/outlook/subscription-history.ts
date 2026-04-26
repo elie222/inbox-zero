@@ -8,9 +8,6 @@ export type SubscriptionHistoryEntry = {
 
 export type SubscriptionHistory = SubscriptionHistoryEntry[];
 
-/**
- * Parse subscription history from unknown JSONB data
- */
 export function parseSubscriptionHistory(
   rawHistory: unknown,
   logger?: Logger,
@@ -47,10 +44,7 @@ export function parseSubscriptionHistory(
   return [];
 }
 
-/**
- * Create a new history entry
- */
-export function createHistoryEntry(
+function createHistoryEntry(
   subscriptionId: string,
   createdAt: string,
   replacedAt: string,
@@ -62,9 +56,6 @@ export function createHistoryEntry(
   };
 }
 
-/**
- * Remove history entries older than the specified number of days
- */
 export function cleanupOldHistoryEntries(
   history: SubscriptionHistory,
   daysToKeep = 30,
@@ -73,9 +64,6 @@ export function cleanupOldHistoryEntries(
   return history.filter((entry) => new Date(entry.replacedAt) > cutoffDate);
 }
 
-/**
- * Check if a subscription ID exists in the history
- */
 export function isSubscriptionInHistory(
   subscriptionId: string,
   rawHistory: unknown,
@@ -84,9 +72,6 @@ export function isSubscriptionInHistory(
   return history.some((entry) => entry.subscriptionId === subscriptionId);
 }
 
-/**
- * Add a subscription to history with timestamps
- */
 export function addToHistory(
   currentHistory: unknown,
   subscriptionId: string,
@@ -99,9 +84,6 @@ export function addToHistory(
   return [...parsed, newEntry];
 }
 
-/**
- * Add current subscription to history, estimating createdAt from history or fallback date
- */
 export function addCurrentSubscriptionToHistory(
   currentHistory: unknown,
   subscriptionId: string,

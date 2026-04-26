@@ -38,24 +38,39 @@ export async function categorizeSender(
     categories,
   });
 
-  if (aiResult) {
-    const { newsletter } = await updateSenderCategory({
-      sender: senderAddress,
-      senderName,
-      categories,
-      categoryName: aiResult.category,
-      emailAccountId: emailAccount.id,
-    });
+  const fallbackCategory = categories.find(
+    (category) => category.name === defaultCategory.OTHER.name,
+  );
+  const categoryName = aiResult?.category ?? fallbackCategory?.name;
 
-    return { categoryId: newsletter.categoryId };
+  if (!categoryName) {
+    logger.info(
+      "AI categorization abstained with no Other category available",
+      {
+        userEmail: emailAccount.email,
+        senderAddress,
+      },
+    );
+
+    return { categoryId: undefined };
   }
 
-  logger.error("No AI result for sender", {
-    userEmail: emailAccount.email,
-    senderAddress,
+  const { newsletter } = await updateSenderCategory({
+    sender: senderAddress,
+    senderName,
+    categories,
+    categoryName,
+    emailAccountId: emailAccount.id,
   });
 
-  return { categoryId: undefined };
+  if (!aiResult) {
+    logger.info("AI categorization abstained; defaulting sender to Other", {
+      userEmail: emailAccount.email,
+      senderAddress,
+    });
+  }
+
+  return { categoryId: newsletter.categoryId };
 }
 
 export async function updateSenderCategory({

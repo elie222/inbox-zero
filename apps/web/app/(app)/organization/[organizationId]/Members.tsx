@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -12,6 +12,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -25,12 +31,14 @@ import {
   MoreHorizontal,
   BarChart3,
   BarChartIcon,
+  ShieldIcon,
   XIcon,
 } from "lucide-react";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
 import {
   cancelInvitationAction,
   removeMemberAction,
+  updateMemberRoleAction,
 } from "@/utils/actions/organization";
 import { toastSuccess, toastError } from "@/components/Toast";
 import type { OrganizationMembersResponse } from "@/app/api/organizations/[organizationId]/members/route";
@@ -43,12 +51,12 @@ type Member = OrganizationMembersResponse["members"][0];
 type PendingInvitation = OrganizationMembersResponse["pendingInvitations"][0];
 
 export function Members({ organizationId }: { organizationId: string }) {
-  const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } =
     useOrganizationMembers(organizationId);
   const { data: executedRulesData } = useExecutedRulesCount(organizationId);
   const { data: membership } = useOrganizationMembership();
   const isAdmin = hasOrganizationAdminRole(membership?.role ?? "");
+  const [pendingMemberId, setPendingMemberId] = useState<string | null>(null);
 
   // Create a Map for O(1) lookups instead of O(n) Array.find for each member
   const executedRulesCountMap = useMemo(() => {
@@ -64,11 +72,14 @@ export function Members({ organizationId }: { organizationId: string }) {
 
   const handleAction = useCallback(
     async (
+      memberId: string | null,
       action: () => Promise<{ serverError?: string } | undefined>,
       errorTitle: string,
       successMessage: string,
       errorMessage: string,
     ) => {
+      setPendingMemberId(memberId);
+
       try {
         const result = await action();
 
@@ -79,13 +90,15 @@ export function Members({ organizationId }: { organizationId: string }) {
           });
         } else {
           toastSuccess({ description: successMessage });
-          mutate();
+          await mutate();
         }
       } catch (err) {
         toastError({
           title: errorTitle,
           description: err instanceof Error ? err.message : errorMessage,
         });
+      } finally {
+        setPendingMemberId(null);
       }
     },
     [mutate],
@@ -94,6 +107,7 @@ export function Members({ organizationId }: { organizationId: string }) {
   const handleRemoveMember = useCallback(
     (memberId: string) =>
       handleAction(
+        memberId,
         () => removeMemberAction({ memberId }),
         "Error removing member",
         "Member removed successfully",
@@ -105,10 +119,23 @@ export function Members({ organizationId }: { organizationId: string }) {
   const handleCancelInvitation = useCallback(
     (invitationId: string) =>
       handleAction(
+        null,
         () => cancelInvitationAction({ invitationId }),
         "Error cancelling invitation",
         "Invitation cancelled successfully",
         "Failed to cancel invitation",
+      ),
+    [handleAction],
+  );
+
+  const handleUpdateRole = useCallback(
+    (memberId: string, role: "admin" | "member") =>
+      handleAction(
+        memberId,
+        () => updateMemberRoleAction({ memberId, role }),
+        "Error updating role",
+        `Role updated to ${capitalizeRole(role)}`,
+        "Failed to update role",
       ),
     [handleAction],
   );
@@ -126,7 +153,7 @@ export function Members({ organizationId }: { organizationId: string }) {
           )}
         </div>
 
-        <div className="space-y-4 mt-4">
+        <div className="space-y-2 mt-4">
           {data?.members.map((member) => {
             const executedRulesCount = executedRulesCountMap.get(
               member.emailAccount.id,
@@ -137,8 +164,10 @@ export function Members({ organizationId }: { organizationId: string }) {
                 key={member.id}
                 member={member}
                 onRemove={handleRemoveMember}
+                onUpdateRole={handleUpdateRole}
                 executedRulesCount={executedRulesCount}
                 isAdmin={isAdmin}
+                isPending={pendingMemberId === member.id}
               />
             );
           })}
@@ -159,7 +188,7 @@ export function Members({ organizationId }: { organizationId: string }) {
             <TypographyH3>
               Pending Invitations ({data.pendingInvitations.length})
             </TypographyH3>
-            <div className="space-y-4">
+            <div className="space-y-2">
               {data.pendingInvitations.map((invitation) => (
                 <PendingInvitationCard
                   key={invitation.id}
@@ -198,15 +227,20 @@ function CardWrapper({
 function MemberCard({
   member,
   onRemove,
+  onUpdateRole,
   executedRulesCount,
   isAdmin,
+  isPending,
 }: {
   member: Member;
   onRemove: (memberId: string) => void;
+  onUpdateRole: (memberId: string, role: "admin" | "member") => void;
   executedRulesCount?: number;
   isAdmin: boolean;
+  isPending: boolean;
 }) {
   const { emailAccountId } = useAccount();
+  const canChangeRole = member.role !== "owner";
 
   return (
     <CardWrapper
@@ -241,15 +275,11 @@ function MemberCard({
         member.emailAccount.id && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" disabled={isPending}>
                 <MoreHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onRemove(member.id)}>
-                <TrashIcon className="mr-2 size-4" />
-                Remove
-              </DropdownMenuItem>
               {member.allowOrgAdminAnalytics && (
                 <>
                   <DropdownMenuItem asChild>
@@ -266,6 +296,41 @@ function MemberCard({
                   </DropdownMenuItem>
                 </>
               )}
+              {canChangeRole && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger disabled={isPending}>
+                    <ShieldIcon className="mr-2 size-4" />
+                    Role
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuRadioGroup
+                      value={member.role}
+                      onValueChange={(value) => {
+                        if (value === member.role) return;
+                        onUpdateRole(member.id, value as "admin" | "member");
+                      }}
+                    >
+                      <DropdownMenuRadioItem
+                        value="member"
+                        disabled={isPending}
+                      >
+                        Member
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="admin" disabled={isPending}>
+                        Admin
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => onRemove(member.id)}
+                className="text-red-600 hover:!bg-red-50 hover:!text-red-600"
+              >
+                <TrashIcon className="mr-2 size-4" />
+                Remove
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )
@@ -274,7 +339,9 @@ function MemberCard({
       <div className="flex items-center space-x-3">
         <p className="font-medium">{member.emailAccount.name || "No name"}</p>
         <Badge
-          variant={member.role === "admin" ? "default" : "secondary"}
+          variant={
+            hasOrganizationAdminRole(member.role) ? "default" : "secondary"
+          }
           className="text-xs"
         >
           {capitalizeRole(member.role)}

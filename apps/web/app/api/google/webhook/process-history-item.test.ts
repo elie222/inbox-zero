@@ -8,11 +8,10 @@ import {
 import type { gmail_v1 } from "@googleapis/gmail";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { GmailLabel } from "@/utils/gmail/label";
-import { getEmailAccount } from "@/__tests__/helpers";
+import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
-import { createScopedLogger } from "@/utils/logger";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({
@@ -20,7 +19,10 @@ vi.mock("next/server", () => ({
 }));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/redis/message-processing", () => ({
+  acquireOutboundMessageLock: vi.fn().mockResolvedValue("lock-token-1"),
+  clearOutboundMessageLock: vi.fn().mockResolvedValue(true),
   markMessageAsProcessing: vi.fn().mockResolvedValue(true),
+  markOutboundMessageProcessed: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@/utils/gmail/thread", () => ({
@@ -150,6 +152,7 @@ describe("processHistoryItem", () => {
       autoCategorizeSenders: false,
       filingEnabled: false,
       filingPrompt: null,
+      filingConfirmationSendEmail: true,
       draftReplyConfidence: DraftReplyConfidence.ALL_EMAILS,
     };
   }

@@ -46,6 +46,11 @@ export const BRIEF_MY_MEETING_PRICE_ID_MONTHLY =
 export const BRIEF_MY_MEETING_PRICE_ID_ANNUALLY =
   "price_1SjoawKGf8mwZWHnfAeShYhb";
 
+const INCLUDED_EMAIL_ACCOUNT_PRICE_IDS = [
+  env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID,
+  env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
+];
+
 const STRIPE_PRICE_ID_CONFIG: Record<
   PremiumTier,
   {
@@ -62,6 +67,7 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   STARTER_MONTHLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
     oldPriceIds: [
+      "price_1T9FhCKGf8mwZWHn1olNzv6X",
       "price_1S5u73KGf8mwZWHn8VYFdALA",
       "price_1RMSnIKGf8mwZWHnlHP0212n",
       "price_1RfoILKGf8mwZWHnDiUMj6no",
@@ -70,7 +76,6 @@ const STRIPE_PRICE_ID_CONFIG: Record<
       "price_1Rg0QfKGf8mwZWHnDsiocBVD",
       "price_1Rg0LEKGf8mwZWHndYXYg7ie",
       "price_1Rg03pKGf8mwZWHnWMNeQzLc",
-      // brief my meeting
       BRIEF_MY_MEETING_PRICE_ID_MONTHLY,
     ],
   },
@@ -109,6 +114,11 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   LIFETIME: {},
 };
 
+const APPLE_PRODUCT_ID_CONFIG: Partial<Record<PremiumTier, string>> = {
+  STARTER_MONTHLY: env.NEXT_PUBLIC_APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID,
+  STARTER_ANNUALLY: env.NEXT_PUBLIC_APPLE_IAP_STARTER_ANNUALLY_PRODUCT_ID,
+};
+
 export function getStripeSubscriptionTier({
   priceId,
 }: {
@@ -130,6 +140,94 @@ export function getStripePriceId({
   tier: PremiumTier;
 }): string | null {
   return STRIPE_PRICE_ID_CONFIG[tier]?.priceId ?? null;
+}
+
+export function hasIncludedEmailAccountsStripePriceId(
+  priceId: string | null | undefined,
+): boolean {
+  if (!priceId) return false;
+
+  return INCLUDED_EMAIL_ACCOUNT_PRICE_IDS?.includes(priceId) ?? false;
+}
+
+export function getAppleSubscriptionTier({
+  productId,
+}: {
+  productId: string;
+}): PremiumTier | null {
+  for (const [tier, configuredProductId] of Object.entries(
+    APPLE_PRODUCT_ID_CONFIG,
+  )) {
+    if (configuredProductId === productId) {
+      return tier as PremiumTier;
+    }
+  }
+
+  return null;
+}
+
+export function hasLegacyStripePriceId({
+  tier,
+  priceId,
+}: {
+  tier: PremiumTier | null | undefined;
+  priceId: string | null | undefined;
+}): boolean {
+  if (!priceId) return false;
+
+  const resolvedTier = tier || getStripeSubscriptionTier({ priceId });
+  if (!resolvedTier) return false;
+
+  const tierConfig = STRIPE_PRICE_ID_CONFIG[resolvedTier];
+  if (!tierConfig) return false;
+  // We sometimes reuse a historical price as the active price again.
+  if (tierConfig.priceId === priceId) return false;
+
+  return tierConfig.oldPriceIds?.includes(priceId) ?? false;
+}
+
+export function shouldShowLegacyStripePricingNotice(
+  premium:
+    | {
+        tier: PremiumTier | null | undefined;
+        stripePriceId: string | null | undefined;
+        stripeSubscriptionStatus: string | null | undefined;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!premium?.stripeSubscriptionStatus) return false;
+  if (!["active", "trialing"].includes(premium.stripeSubscriptionStatus)) {
+    return false;
+  }
+
+  return hasLegacyStripePriceId({
+    tier: premium.tier,
+    priceId: premium.stripePriceId,
+  });
+}
+
+export function getPremiumTierName(
+  tier: PremiumTier | null | undefined,
+): string {
+  if (!tier) return "Premium";
+
+  const tierMap: Partial<Record<PremiumTier, string>> = {
+    STARTER_MONTHLY: "Starter",
+    STARTER_ANNUALLY: "Starter",
+    PLUS_MONTHLY: "Plus",
+    PLUS_ANNUALLY: "Plus",
+    PROFESSIONAL_MONTHLY: "Professional",
+    PROFESSIONAL_ANNUALLY: "Professional",
+    COPILOT_MONTHLY: "Enterprise",
+    BASIC_MONTHLY: "Basic",
+    BASIC_ANNUALLY: "Basic",
+    PRO_MONTHLY: "Pro",
+    PRO_ANNUALLY: "Pro",
+    LIFETIME: "Lifetime",
+  };
+
+  return tierMap[tier] ?? "Premium";
 }
 
 function discount(monthly: number, annually: number) {
@@ -201,9 +299,19 @@ const plusTier: Tier = {
       text: "Everything in Starter, plus:",
     },
     {
+      text: "2 email accounts included per user",
+      tooltip:
+        "Each user gets 2 email accounts included. Additional email accounts are billed at the standard per-seat rate.",
+    },
+    {
       text: "Slack integration",
       tooltip:
         "Forward important emails and notifications to your Slack channels automatically.",
+    },
+    {
+      text: "Email digests",
+      tooltip:
+        "Group emails from selected rules into a scheduled summary instead of reading each message individually.",
     },
     {
       text: "Auto-file attachments",

@@ -5,11 +5,11 @@ import {
   getWebhookEmailAccount,
   validateWebhookAccount,
 } from "@/utils/webhook/validate-webhook-account";
-import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 // Mock logger.with to return the same logger instance so spies work
 vi.spyOn(logger, "with").mockReturnValue(logger);
 

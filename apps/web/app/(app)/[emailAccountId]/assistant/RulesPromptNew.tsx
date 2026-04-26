@@ -24,7 +24,7 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { useRules } from "@/hooks/useRules";
 import { ExamplesGrid } from "@/app/(app)/[emailAccountId]/assistant/ExamplesList";
 import { CreatedRulesModal } from "@/app/(app)/[emailAccountId]/assistant/CreatedRulesModal";
-import type { CreateRuleResult } from "@/utils/rule/types";
+import type { RuleWithRelations } from "@/utils/rule/types";
 import { toastError } from "@/components/Toast";
 import { AvailableActionsPanel } from "@/app/(app)/[emailAccountId]/assistant/AvailableActionsPanel";
 
@@ -80,7 +80,7 @@ function RulesPromptForm({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProcessingDialogOpen, setIsProcessingDialogOpen] = useState(false);
-  const [createdRules, setCreatedRules] = useState<CreateRuleResult[] | null>(
+  const [createdRules, setCreatedRules] = useState<RuleWithRelations[] | null>(
     null,
   );
   const [showCreatedRulesModal, setShowCreatedRulesModal] = useState(false);
@@ -137,6 +137,7 @@ function RulesPromptForm({
           return `${rules.length} rules created!`;
         },
         error: (err) => {
+          setIsProcessingDialogOpen(false);
           return `Error creating rules: ${err.message}`;
         },
       },

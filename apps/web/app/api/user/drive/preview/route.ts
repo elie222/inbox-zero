@@ -3,7 +3,7 @@ import prisma from "@/utils/prisma";
 import { withEmailProvider } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import {
-  getExtractableAttachments,
+  getFilableAttachments,
   processAttachment,
 } from "@/utils/drive/filing-engine";
 import type { ParsedMessage, Attachment } from "@/utils/types";
@@ -60,6 +60,7 @@ async function getPreviewData({
       calendarBookingLink: true,
       filingEnabled: true,
       filingPrompt: true,
+      filingConfirmationSendEmail: true,
       user: {
         select: {
           aiProvider: true,
@@ -113,12 +114,12 @@ async function getPreviewData({
       .slice(0, 10),
   });
 
-  const messagesWithAttachments = findMessagesWithExtractableAttachments(
+  const messagesWithAttachments = findMessagesWithFilableAttachments(
     messages,
     MAX_FILINGS,
   );
 
-  logger.info("Extractable attachments found", {
+  logger.info("Filable attachments found", {
     count: messagesWithAttachments.length,
     files: messagesWithAttachments
       .flatMap((m) => m.attachments)
@@ -126,7 +127,7 @@ async function getPreviewData({
   });
 
   if (messagesWithAttachments.length === 0) {
-    logger.info("No extractable attachments found - returning empty");
+    logger.info("No filable attachments found - returning empty");
     return { filings: [], noAttachmentsFound: true };
   }
 
@@ -147,7 +148,7 @@ async function getPreviewData({
   };
 }
 
-function findMessagesWithExtractableAttachments(
+function findMessagesWithFilableAttachments(
   messages: ParsedMessage[],
   limit: number,
 ): Array<{ message: ParsedMessage; attachments: Attachment[] }> {
@@ -155,7 +156,7 @@ function findMessagesWithExtractableAttachments(
     [];
 
   for (const message of messages) {
-    const extractable = getExtractableAttachments(message);
+    const extractable = getFilableAttachments(message);
     if (extractable.length > 0) {
       result.push({ message, attachments: extractable });
       if (result.length >= limit) break;

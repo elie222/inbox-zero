@@ -5,6 +5,7 @@ import {
   disconnectDriveBody,
   updateFilingPromptBody,
   updateFilingEnabledBody,
+  updateFilingConfirmationEmailBody,
   addFilingFolderBody,
   removeFilingFolderBody,
   cleanupStaleFilingFoldersBody,
@@ -18,7 +19,7 @@ import { SafeError } from "@/utils/error";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
-  getExtractableAttachments,
+  getFilableAttachments,
   processAttachment,
 } from "@/utils/drive/filing-engine";
 import type { DriveProviderType } from "@/utils/drive/types";
@@ -70,6 +71,16 @@ export const updateFilingEnabledAction = actionClient
       });
     },
   );
+
+export const updateFilingConfirmationEmailAction = actionClient
+  .metadata({ name: "updateFilingConfirmationEmail" })
+  .inputSchema(updateFilingConfirmationEmailBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { sendEmail } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { filingConfirmationSendEmail: sendEmail },
+    });
+  });
 
 export const addFilingFolderAction = actionClient
   .metadata({ name: "addFilingFolder" })
@@ -273,6 +284,7 @@ export const fileAttachmentAction = actionClient
           calendarBookingLink: true,
           filingEnabled: true,
           filingPrompt: true,
+          filingConfirmationSendEmail: true,
           user: {
             select: {
               aiProvider: true,
@@ -309,13 +321,13 @@ export const fileAttachmentAction = actionClient
         throw new SafeError("Message not found");
       }
 
-      const extractableAttachments = getExtractableAttachments(message);
-      const attachment = extractableAttachments.find(
+      const filableAttachments = getFilableAttachments(message);
+      const attachment = filableAttachments.find(
         (a) => a.filename === filename,
       );
 
       if (!attachment) {
-        throw new SafeError("Attachment not found or not extractable");
+        throw new SafeError("Attachment not found");
       }
 
       logger.info("Processing attachment", { filename: attachment.filename });

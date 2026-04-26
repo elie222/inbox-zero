@@ -88,6 +88,7 @@ Reference @AGENTS.md for project conventions. Apply those patterns as review cri
 - `logger.trace()` for PII fields?
 - Test changes follow `.claude/skills/testing/SKILL.md`?
 - Tests avoid mocking `@/utils/logger`?
+- If draft-generation prompt, retrieval, routing, or post-processing changed, was `apps/web/utils/ai/reply/draft-attribution.ts` `DRAFT_PIPELINE_VERSION` bumped for analytics?
 
 ### Learnings check
 - Did this change teach us something that should be captured in `AGENTS.md` or this review file?

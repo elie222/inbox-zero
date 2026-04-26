@@ -4,6 +4,10 @@ import type { Logger } from "@/utils/logger";
 import { CALENDAR_SCOPES as GOOGLE_CALENDAR_SCOPES } from "@/utils/gmail/scopes";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
+import {
+  getGoogleApiRootUrl,
+  getGoogleOauthClientOptions,
+} from "@/utils/google/oauth";
 
 type AuthOptions = {
   accessToken?: string | null;
@@ -12,10 +16,7 @@ type AuthOptions = {
 };
 
 const getAuth = ({ accessToken, refreshToken, expiresAt }: AuthOptions) => {
-  const googleAuth = new auth.OAuth2({
-    clientId: env.GOOGLE_CLIENT_ID,
-    clientSecret: env.GOOGLE_CLIENT_SECRET,
-  });
+  const googleAuth = new auth.OAuth2(getGoogleOauthClientOptions());
   googleAuth.setCredentials({
     access_token: accessToken,
     refresh_token: refreshToken,
@@ -27,11 +28,11 @@ const getAuth = ({ accessToken, refreshToken, expiresAt }: AuthOptions) => {
 };
 
 export function getCalendarOAuth2Client() {
-  return new auth.OAuth2({
-    clientId: env.GOOGLE_CLIENT_ID,
-    clientSecret: env.GOOGLE_CLIENT_SECRET,
-    redirectUri: `${env.NEXT_PUBLIC_BASE_URL}/api/google/calendar/callback`,
-  });
+  return new auth.OAuth2(
+    getGoogleOauthClientOptions(
+      `${env.NEXT_PUBLIC_BASE_URL}/api/google/calendar/callback`,
+    ),
+  );
 }
 
 export const getCalendarClientWithRefresh = async ({
@@ -55,12 +56,12 @@ export const getCalendarClientWithRefresh = async ({
   // Check if token is still valid
   if (expiresAt && expiresAt > Date.now()) {
     const auth = getAuth({ accessToken, refreshToken, expiresAt });
-    return calendar({ version: "v3", auth });
+    return calendar({ version: "v3", auth, rootUrl: getGoogleApiRootUrl() });
   }
 
   // Token is expired or missing, need to refresh
   const auth = getAuth({ accessToken, refreshToken });
-  const cal = calendar({ version: "v3", auth });
+  const cal = calendar({ version: "v3", auth, rootUrl: getGoogleApiRootUrl() });
 
   // may throw `invalid_grant` error
   try {

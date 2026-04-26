@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense, useEffect } from "react";
+import { getRequiresReconsentDescription } from "@/app/(landing)/login/messages";
 import { Button } from "@/components/ui/button";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 import { ErrorPage } from "@/components/ErrorPage";
@@ -20,6 +21,11 @@ const errorMessages: Record<string, { title: string; description: string }> = {
     description:
       "Your account is not authorized to access this application. This may be because your email is not part of the allowed organization. Please contact your administrator or try signing in with a different account.",
   },
+  signup_not_allowed: {
+    title: "Sign-up Restricted",
+    description:
+      "This deployment only allows sign-up from specific email addresses or domains. Please contact your administrator or try signing in with a different account.",
+  },
   email_already_linked: {
     title: "Email Already Linked",
     description: `This email address is already linked to another ${BRAND_NAME} account. Please sign in with the original account, or use a different email address.`,
@@ -33,6 +39,10 @@ const errorMessages: Record<string, { title: string; description: string }> = {
     title: "Sign-in Session Expired",
     description:
       "Your sign-in link is no longer valid. This can happen if the login flow was opened twice, timed out, or already used. Please start sign-in again from the login page.",
+  },
+  requiresreconsent: {
+    title: "Permissions need to be refreshed",
+    description: getRequiresReconsentDescription(),
   },
 };
 

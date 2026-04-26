@@ -5,7 +5,6 @@ import type { Logger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { DriveConnection } from "@/generated/prisma/client";
 import { extractEmailAddress } from "@/utils/email";
-import { emailToContent } from "@/utils/mail";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { createAndSaveFilingFolder } from "@/utils/drive/folder-utils";
 import { aiParseFilingReply } from "@/utils/ai/document-filing/parse-filing-reply";
@@ -13,6 +12,7 @@ import {
   getFilebotFrom,
   getFilebotReplyTo,
 } from "@/utils/filebot/is-filebot-email";
+import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
 
 interface ProcessFilingReplyArgs {
   emailAccount: EmailAccountWithAI;
@@ -68,7 +68,9 @@ export async function processFilingReply({
 
   logger = logger.with({ filingId: filing.id });
 
-  const replyContent = emailToContent(message, { extractReply: true }).trim();
+  const replyContent = emailToContentForAI(message, {
+    extractReply: true,
+  }).trim();
 
   if (!replyContent) {
     return;
@@ -269,8 +271,9 @@ async function handleMove({
 }
 
 /**
- * Find the filing by walking the thread to find a message whose
- * notificationMessageId matches one of the thread's message IDs.
+ * Find the filing by matching the source email's message ID against the
+ * reply thread. The notification is sent as a reply to the source email, so
+ * both live in the same thread as any subsequent reply from the user.
  */
 async function findFilingFromThread({
   message,
@@ -291,7 +294,7 @@ async function findFilingFromThread({
   return prisma.documentFiling.findFirst({
     where: {
       emailAccountId,
-      notificationMessageId: { in: messageIds },
+      messageId: { in: messageIds },
     },
     include: { driveConnection: true },
   });

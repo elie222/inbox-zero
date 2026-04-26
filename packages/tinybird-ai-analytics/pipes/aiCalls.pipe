@@ -19,6 +19,28 @@ SQL >
 
 
 
+NODE provider_cost_breakdown
+SQL >
+
+    SELECT
+      countIf(NOT isNull(providerReportedCost)) AS providerReportedCostRows,
+      countIf(NOT isNull(providerUpstreamInferenceCost)) AS providerUpstreamCostRows,
+      sumIf(providerReportedCost, isUserApiKey = 0) AS platformProviderReportedCost,
+      sumIf(providerReportedCost, isUserApiKey = 1) AS userApiKeyProviderReportedCost,
+      sumIf(providerUpstreamInferenceCost, isUserApiKey = 0) AS platformProviderUpstreamInferenceCost,
+      sumIf(providerUpstreamInferenceCost, isUserApiKey = 1) AS userApiKeyProviderUpstreamInferenceCost,
+      sumIf(
+        ifNull(providerReportedCost, 0) + ifNull(providerUpstreamInferenceCost, 0),
+        isUserApiKey = 0
+      ) AS platformProviderTotalCost,
+      sumIf(
+        ifNull(providerReportedCost, 0) + ifNull(providerUpstreamInferenceCost, 0),
+        isUserApiKey = 1
+      ) AS userApiKeyProviderTotalCost
+    FROM aiCall
+
+
+
 NODE cost_per_label
 SQL >
 

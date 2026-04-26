@@ -8,10 +8,23 @@ import MeetingBriefingEmail, {
   type BriefingContent,
   type InternalTeamMember,
 } from "@inboxzero/resend/emails/meeting-briefing";
-import { MessagingProvider } from "@/generated/prisma/enums";
+import {
+  MessagingProvider,
+  MessagingRoutePurpose,
+  type MessagingRouteTargetType,
+} from "@/generated/prisma/enums";
+import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
-import { sendMeetingBriefingToSlack } from "@/utils/messaging/providers/slack/send";
+import {
+  resolveSlackRouteDestination,
+  sendMeetingBriefingToSlack,
+} from "@/utils/messaging/providers/slack/send";
+import {
+  getMessagingRoute,
+  getMessagingRouteWhere,
+} from "@/utils/messaging/routes";
+import { isMessagingChannelOperational } from "@/utils/messaging/channel-validity";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { formatTimeInUserTimezone } from "@/utils/date";
 import prisma from "@/utils/prisma";
@@ -57,13 +70,22 @@ export async function sendBriefing({
     where: {
       emailAccountId,
       isConnected: true,
-      sendMeetingBriefs: true,
-      channelId: { not: null },
+      ...getMessagingRouteWhere(MessagingRoutePurpose.MEETING_BRIEFS),
     },
     select: {
+      id: true,
       provider: true,
+      isConnected: true,
       accessToken: true,
-      channelId: true,
+      teamId: true,
+      providerUserId: true,
+      routes: {
+        select: {
+          purpose: true,
+          targetType: true,
+          targetId: true,
+        },
+      },
     },
   });
 
@@ -84,14 +106,41 @@ export async function sendBriefing({
   }
 
   for (const channel of channels) {
-    if (!channel.accessToken || !channel.channelId) continue;
+    const route = getMessagingRoute(
+      channel.routes,
+      MessagingRoutePurpose.MEETING_BRIEFS,
+    );
+    if (!route) continue;
+    if (!isMessagingChannelOperational(channel)) {
+      logger.warn("Skipping briefing delivery for invalid messaging channel", {
+        messagingChannelId: channel.id,
+        provider: channel.provider,
+      });
+      continue;
+    }
 
     switch (channel.provider) {
       case MessagingProvider.SLACK:
+        if (!channel.accessToken) continue;
         deliveryPromises.push(
           sendBriefingViaSlack({
             accessToken: channel.accessToken,
-            channelId: channel.channelId,
+            route,
+            meetingTitle: event.title,
+            formattedTime,
+            videoConferenceLink: event.videoConferenceLink ?? undefined,
+            eventUrl: event.eventUrl ?? undefined,
+            briefingContent: briefingContentWithTeam,
+            logger,
+          }),
+        );
+        break;
+      case MessagingProvider.TEAMS:
+      case MessagingProvider.TELEGRAM:
+        deliveryPromises.push(
+          sendBriefingViaMessagingApp({
+            channel,
+            route,
             meetingTitle: event.title,
             formattedTime,
             videoConferenceLink: event.videoConferenceLink ?? undefined,
@@ -193,7 +242,7 @@ async function sendBriefingViaEmail({
 
 async function sendBriefingViaSlack({
   accessToken,
-  channelId,
+  route,
   meetingTitle,
   formattedTime,
   videoConferenceLink,
@@ -202,7 +251,10 @@ async function sendBriefingViaSlack({
   logger,
 }: {
   accessToken: string;
-  channelId: string;
+  route: {
+    targetId: string;
+    targetType: MessagingRouteTargetType;
+  };
   meetingTitle: string;
   formattedTime: string;
   videoConferenceLink?: string;
@@ -210,10 +262,20 @@ async function sendBriefingViaSlack({
   briefingContent: BriefingContent;
   logger: Logger;
 }): Promise<void> {
+  const destination = await resolveSlackRouteDestination({
+    accessToken,
+    route,
+  });
+
+  if (!destination) {
+    logger.warn("No Slack destination resolved for briefing");
+    return;
+  }
+
   logger.info("Sending briefing to Slack");
   await sendMeetingBriefingToSlack({
     accessToken,
-    channelId,
+    channelId: destination,
     meetingTitle,
     formattedTime,
     videoConferenceLink,
@@ -221,4 +283,108 @@ async function sendBriefingViaSlack({
     briefingContent,
   });
   logger.info("Briefing sent successfully to Slack");
+}
+
+async function sendBriefingViaMessagingApp({
+  channel,
+  route,
+  meetingTitle,
+  formattedTime,
+  videoConferenceLink,
+  eventUrl,
+  briefingContent,
+  logger,
+}: {
+  channel: {
+    id: string;
+    provider: MessagingProvider;
+    accessToken: string | null;
+    teamId: string | null;
+    providerUserId: string | null;
+    routes: Array<{
+      purpose: MessagingRoutePurpose;
+      targetId: string;
+      targetType: MessagingRouteTargetType;
+    }>;
+  };
+  route: {
+    targetId: string;
+    targetType: MessagingRouteTargetType;
+  };
+  meetingTitle: string;
+  formattedTime: string;
+  videoConferenceLink?: string;
+  eventUrl?: string;
+  briefingContent: BriefingContent;
+  logger: Logger;
+}) {
+  logger.info("Sending briefing to messaging app", {
+    provider: channel.provider,
+  });
+
+  await sendAutomationMessage({
+    channel,
+    route,
+    text: formatMeetingBriefingText({
+      meetingTitle,
+      formattedTime,
+      videoConferenceLink,
+      eventUrl,
+      briefingContent,
+    }),
+    logger,
+  });
+
+  logger.info("Briefing sent successfully to messaging app", {
+    provider: channel.provider,
+  });
+}
+
+function formatMeetingBriefingText({
+  meetingTitle,
+  formattedTime,
+  videoConferenceLink,
+  eventUrl,
+  briefingContent,
+}: {
+  meetingTitle: string;
+  formattedTime: string;
+  videoConferenceLink?: string;
+  eventUrl?: string;
+  briefingContent: BriefingContent;
+}) {
+  const sections = [
+    `Briefing for ${meetingTitle}`,
+    `Starting at ${formattedTime}`,
+  ];
+
+  if (videoConferenceLink) {
+    sections.push(`Join link: ${videoConferenceLink}`);
+  }
+
+  if (eventUrl) {
+    sections.push(`Calendar link: ${eventUrl}`);
+  }
+
+  for (const guest of briefingContent.guests) {
+    sections.push(
+      [guest.name ? `${guest.name} (${guest.email})` : guest.email]
+        .concat(guest.bullets.map((bullet) => `- ${bullet}`))
+        .join("\n"),
+    );
+  }
+
+  if (briefingContent.internalTeamMembers?.length) {
+    sections.push(
+      `Also attending: ${briefingContent.internalTeamMembers
+        .map((member) => member.name || member.email)
+        .join(", ")} (internal team)`,
+    );
+  }
+
+  sections.push(
+    "AI-generated briefing from Inbox Zero. May contain inaccuracies.",
+  );
+
+  return sections.join("\n\n");
 }

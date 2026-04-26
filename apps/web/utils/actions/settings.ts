@@ -18,7 +18,9 @@ import { actionClientUser } from "@/utils/actions/safe-action";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
+import { SafeError } from "@/utils/error";
 import { env } from "@/env";
+import { addActionOwnershipToInput } from "@/utils/rule/rule";
 
 export const updateEmailSettingsAction = actionClient
   .metadata({ name: "updateEmailSettings" })
@@ -52,25 +54,52 @@ export const updateAiSettingsAction = actionClientUser
         );
       }
 
-      await prisma.user.update({
+      const providedAiApiKey = aiApiKey?.trim() || null;
+
+      let nextAiApiKey: string | null = providedAiApiKey;
+
+      if (!nextAiApiKey && aiProvider !== DEFAULT_PROVIDER) {
+        const existingUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { aiProvider: true, aiApiKey: true },
+        });
+
+        if (!existingUser) throw new SafeError("User not found");
+
+        nextAiApiKey =
+          existingUser.aiProvider === aiProvider ? existingUser.aiApiKey : null;
+
+        if (!nextAiApiKey) {
+          throw new SafeError("You must provide an API key for this provider");
+        }
+      }
+
+      const result = await prisma.user.updateMany({
         where: { id: userId },
         data:
           aiProvider === DEFAULT_PROVIDER
             ? { aiProvider: null, aiModel: null, aiApiKey: null }
-            : { aiProvider, aiModel, aiApiKey },
+            : { aiProvider, aiModel, aiApiKey: nextAiApiKey },
       });
+
+      if (result.count === 0) {
+        throw new SafeError("User not found");
+      }
 
       // Clear AI-related error messages when user updates their settings
       // This allows them to be notified again if the new settings are also invalid
       await clearSpecificErrorMessages({
         userId,
         errorTypes: [
-          ErrorType.INCORRECT_OPENAI_API_KEY,
+          ErrorType.INCORRECT_API_KEY,
           ErrorType.INVALID_AI_MODEL,
-          ErrorType.OPENAI_API_KEY_DEACTIVATED,
+          ErrorType.API_KEY_DEACTIVATED,
           ErrorType.AI_QUOTA_ERROR,
-          ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
           ErrorType.INSUFFICIENT_CREDITS,
+          // Legacy keys for old stored errors
+          ErrorType.INCORRECT_OPENAI_API_KEY,
+          ErrorType.OPENAI_API_KEY_DEACTIVATED,
+          ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
         ],
         logger,
       });
@@ -138,10 +167,13 @@ export const updateDigestItemsAction = actionClient
           if (enabled && !hasDigestAction) {
             // Add DIGEST action
             await prisma.action.create({
-              data: {
-                ruleId: rule.id,
-                type: ActionType.DIGEST,
-              },
+              data: addActionOwnershipToInput(
+                {
+                  ruleId: rule.id,
+                  type: ActionType.DIGEST,
+                },
+                emailAccountId,
+              ),
             });
           } else if (!enabled && hasDigestAction) {
             // Remove DIGEST action
@@ -200,7 +232,13 @@ export const toggleDigestAction = actionClient
           !newsletterRule.actions.some((a) => a.type === ActionType.DIGEST)
         ) {
           await prisma.action.create({
-            data: { ruleId: newsletterRule.id, type: ActionType.DIGEST },
+            data: addActionOwnershipToInput(
+              {
+                ruleId: newsletterRule.id,
+                type: ActionType.DIGEST,
+              },
+              emailAccountId,
+            ),
           });
         }
       } else {

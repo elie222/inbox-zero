@@ -3,9 +3,9 @@ import type { Logger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { aiDraftFollowUp } from "@/utils/ai/reply/draft-follow-up";
 import { getWritingStyle } from "@/utils/user/get";
-import { internalDateToDate } from "@/utils/date";
+import { internalDateToDate, sortByInternalDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { extractEmailAddress } from "@/utils/email";
+import { isSameEmailAddress } from "@/utils/email";
 import { escapeHtml } from "@/utils/string";
 import prisma from "@/utils/prisma";
 import { withPrismaRetry } from "@/utils/prisma-retry";
@@ -13,6 +13,7 @@ import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
 import { generateReferralLink } from "@/utils/referral/referral-link";
+import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 
 /**
  * Generates a follow-up draft for a thread that's awaiting a reply.
@@ -21,17 +22,21 @@ import { generateReferralLink } from "@/utils/referral/referral-link";
 export async function generateFollowUpDraft({
   emailAccount,
   threadId,
+  messageId,
   trackerId,
   provider,
   logger,
 }: {
   emailAccount: EmailAccountWithAI;
   threadId: string;
+  messageId: string;
   trackerId: string;
   provider: EmailProvider;
   logger: Logger;
 }): Promise<void> {
-  logger.info("Generating follow-up draft", { threadId });
+  if (shouldSkipAutoDraft({ logger, source: "follow-up" })) return;
+
+  logger.info("Generating follow-up draft", { threadId, messageId });
 
   try {
     const thread = await provider.getThread(threadId);
@@ -40,47 +45,40 @@ export async function generateFollowUpDraft({
       return;
     }
 
-    // Find the last message from an external sender (not the current user)
-    const lastExternalMessage = thread.messages
-      .slice()
-      .reverse()
-      .find(
-        (msg) =>
-          extractEmailAddress(msg.headers.from).toLowerCase() !==
-          emailAccount.email.toLowerCase(),
+    const threadMessages = [...thread.messages].sort(sortByInternalDate());
+    const trackedMessage = threadMessages.find((msg) => msg.id === messageId);
+    if (!trackedMessage) {
+      logger.warn(
+        "Skipping follow-up draft because the tracked message was not found in the thread",
+        { threadId, messageId },
       );
-
-    // Find the user's last sent message (for cases where user initiated the thread)
-    const userLastSentMessage = thread.messages
-      .slice()
-      .reverse()
-      .find(
-        (msg) =>
-          extractEmailAddress(msg.headers.from).toLowerCase() ===
-          emailAccount.email.toLowerCase(),
-      );
-
-    // Determine which message to use for drafting and the recipient
-    // If there's an external message, reply to that sender
-    // If not, follow up on the user's sent message to its original recipients
-    const messageForDraft = lastExternalMessage ?? userLastSentMessage;
-    const recipientOverride =
-      !lastExternalMessage && userLastSentMessage
-        ? userLastSentMessage.headers.to
-        : undefined;
-
-    if (!messageForDraft) {
-      logger.warn("No messages found in thread, skipping draft generation", {
-        threadId,
-      });
       return;
     }
 
+    const latestMessage = threadMessages.at(-1);
+    if (latestMessage?.id !== trackedMessage.id) {
+      logger.info(
+        "Skipping follow-up draft because the tracked message is no longer the latest message in the thread",
+        { threadId, messageId, latestMessageId: latestMessage?.id },
+      );
+      return;
+    }
+
+    if (!isMessageFromUser(trackedMessage, emailAccount.email)) {
+      logger.info(
+        "Skipping follow-up draft because the tracked message was not sent by the user",
+        { threadId, messageId },
+      );
+      return;
+    }
+
+    const recipientOverride = trackedMessage.headers.to || undefined;
+
     // Convert messages to LLM format
-    const messages = thread.messages.map((msg, index) => ({
+    const messages = threadMessages.map((msg, index) => ({
       date: internalDateToDate(msg.internalDate),
       ...getEmailForLLM(msg, {
-        maxLength: index === thread.messages!.length - 1 ? 2000 : 500,
+        maxLength: index === threadMessages.length - 1 ? 2000 : 500,
         extractReply: true,
         removeForwarded: false,
       }),
@@ -128,7 +126,7 @@ export async function generateFollowUpDraft({
     }
 
     const { draftId } = await provider.draftEmail(
-      messageForDraft,
+      trackedMessage,
       {
         to: recipientOverride,
         content: draftContent,
@@ -183,4 +181,11 @@ export async function generateFollowUpDraft({
     logger.error("Failed to generate follow-up draft", { threadId, error });
     throw error;
   }
+}
+
+function isMessageFromUser(
+  message: { headers: { from: string } },
+  userEmail: string,
+) {
+  return isSameEmailAddress(message.headers.from, userEmail);
 }

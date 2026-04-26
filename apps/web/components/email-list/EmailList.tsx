@@ -504,7 +504,11 @@ function ResizeGroup({
         {left}
       </ResizablePanel>
       <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={50} minSize={0}>
+      <ResizablePanel
+        defaultSize={50}
+        minSize={0}
+        className="min-w-0"
+      >
         {right}
       </ResizablePanel>
     </ResizablePanelGroup>

@@ -7,9 +7,9 @@ import {
 } from "@/utils/ai/choose-rule/draft-management";
 import prisma from "@/utils/prisma";
 import { ActionType } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
@@ -29,7 +29,7 @@ describe("handlePreviousDraftDeletion", () => {
     getDraft: mockGetDraft,
     deleteDraft: mockDeleteDraft,
   } as unknown as EmailProvider;
-  const logger = createScopedLogger("test");
+  const logger = createTestLogger();
   const mockExecutedRule = {
     id: "rule-123",
     threadId: "thread-456",
@@ -551,7 +551,7 @@ describe("stripQuotedContent", () => {
 });
 
 describe("isDraftUnmodified", () => {
-  const logger = createScopedLogger("test");
+  const logger = createTestLogger();
 
   it("should return true when content matches exactly", () => {
     const originalContent = "Hello, this is a test";

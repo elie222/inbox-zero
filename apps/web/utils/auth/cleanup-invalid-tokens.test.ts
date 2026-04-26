@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { cleanupInvalidTokens } from "./cleanup-invalid-tokens";
 import { sendReconnectionEmail } from "@inboxzero/resend";
-import { createScopedLogger } from "@/utils/logger";
 import { addUserErrorMessage } from "@/utils/error-messages";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
 vi.mock("@inboxzero/resend", () => ({

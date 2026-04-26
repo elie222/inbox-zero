@@ -1,47 +1,44 @@
 import type { KnownBlock, Block } from "@slack/types";
+import { getDriveFileUrl } from "@/utils/drive/url";
+import type { DriveProviderType } from "@/utils/drive/types";
 
 export type DocumentFiledBlocksParams = {
   filename: string;
   folderPath: string;
   driveProvider: string;
+  senderEmail?: string | null;
+  fileId?: string | null;
 };
 
 export type DocumentAskBlocksParams = {
   filename: string;
   reasoning: string | null;
+  senderEmail?: string | null;
 };
 
 export function buildDocumentFiledBlocks({
   filename,
   folderPath,
   driveProvider,
+  senderEmail,
+  fileId,
 }: DocumentFiledBlocksParams): (KnownBlock | Block)[] {
-  const driveName = driveProvider === "google" ? "Google Drive" : "OneDrive";
+  const fileLink =
+    fileId && (driveProvider === "google" || driveProvider === "microsoft")
+      ? getDriveFileUrl(fileId, driveProvider as DriveProviderType)
+      : null;
+
+  const fileDisplay = fileLink ? `<${fileLink}|${filename}>` : `*${filename}*`;
+
+  const fromPart = senderEmail ? ` from *${senderEmail}*` : "";
 
   return [
-    {
-      type: "header",
-      text: {
-        type: "plain_text",
-        text: `Filed: ${filename}`,
-        emoji: true,
-      },
-    },
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*Folder:* ${folderPath}`,
+        text: `📨 Filed ${fileDisplay}${fromPart} to *${folderPath}*`,
       },
-    },
-    {
-      type: "context",
-      elements: [
-        {
-          type: "mrkdwn",
-          text: `_${driveName} \u2022 Auto-filed by Inbox Zero_`,
-        },
-      ],
     },
   ];
 }
@@ -49,37 +46,18 @@ export function buildDocumentFiledBlocks({
 export function buildDocumentAskBlocks({
   filename,
   reasoning,
+  senderEmail,
 }: DocumentAskBlocksParams): (KnownBlock | Block)[] {
-  const blocks: (KnownBlock | Block)[] = [
-    {
-      type: "header",
-      text: {
-        type: "plain_text",
-        text: `Where should I file ${filename}?`,
-        emoji: true,
-      },
-    },
-  ];
+  const fromPart = senderEmail ? ` from *${senderEmail}*` : "";
+  const reasonPart = reasoning ? ` — ${reasoning}` : "";
 
-  if (reasoning) {
-    blocks.push({
+  return [
+    {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: reasoning,
+        text: `📄 Where should I file *${filename}*${fromPart}?${reasonPart}`,
       },
-    });
-  }
-
-  blocks.push({
-    type: "context",
-    elements: [
-      {
-        type: "mrkdwn",
-        text: "_Reply to the email notification to tell me where to put it._",
-      },
-    ],
-  });
-
-  return blocks;
+    },
+  ];
 }

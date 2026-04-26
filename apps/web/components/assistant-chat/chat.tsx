@@ -48,6 +48,7 @@ export function Chat({ open }: { open: boolean }) {
     chat,
     chatId,
     input,
+    persistedMessageIds,
     setInput,
     handleSubmit,
     setNewChat,
@@ -84,8 +85,8 @@ export function Chat({ open }: { open: boolean }) {
   }, []);
 
   const readFileAsDataUrl = useCallback(
-    (file: File): Promise<Attachment | undefined> => {
-      return new Promise((resolve) => {
+    (file: File): Promise<Attachment | undefined> =>
+      new Promise((resolve) => {
         if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
           resolve(undefined);
           return;
@@ -106,8 +107,7 @@ export function Chat({ open }: { open: boolean }) {
         };
         reader.onerror = () => resolve(undefined);
         reader.readAsDataURL(file);
-      });
-    },
+      }),
     [],
   );
 
@@ -198,6 +198,7 @@ export function Chat({ open }: { open: boolean }) {
       )}
 
       <PromptInputTextarea
+        data-testid="chat-input"
         value={input}
         placeholder="Ask me anything"
         onChange={(e) => setInput(e.currentTarget.value)}
@@ -274,6 +275,7 @@ export function Chat({ open }: { open: boolean }) {
         <ChatMessagesView
           status={status}
           messages={messages}
+          persistedMessageIds={persistedMessageIds}
           setMessages={setMessages}
           setInput={setInput}
           regenerate={regenerate}
@@ -301,6 +303,7 @@ export function Chat({ open }: { open: boolean }) {
 function ChatMessagesView({
   status,
   messages,
+  persistedMessageIds,
   setMessages,
   setInput,
   regenerate,
@@ -310,6 +313,7 @@ function ChatMessagesView({
 }: {
   status: UseChatHelpers<ChatMessage>["status"];
   messages: ChatMessage[];
+  persistedMessageIds: Set<string>;
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   setInput: (input: string) => void;
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
@@ -323,6 +327,7 @@ function ChatMessagesView({
       <Messages
         status={status}
         messages={messages}
+        persistedMessageIds={persistedMessageIds}
         setMessages={setMessages}
         setInput={setInput}
         regenerate={regenerate}
@@ -357,7 +362,7 @@ function ChatMessagesView({
 const CHAT_EXAMPLES = [
   "Help me handle my inbox today",
   "Clean up my inbox",
-  "Auto-archive newsletters for me",
+  "Suggest rules I should add",
 ];
 
 function NewChatView({

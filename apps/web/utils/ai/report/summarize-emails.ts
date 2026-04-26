@@ -86,6 +86,7 @@ Return the analysis as a JSON array of objects.`;
     emailAccount,
     label: "email-report-summary-generation",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "none" },
   });
 
   const result = await generateObject({

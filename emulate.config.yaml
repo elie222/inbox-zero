@@ -1,0 +1,27 @@
+google:
+  users:
+    - email: developer@example.com
+      name: Developer
+  oauth_clients:
+    - client_id: emulate-google-client.apps.googleusercontent.com
+      client_secret: emulate-google-secret
+      redirect_uris:
+        - http://localhost:3000/api/auth/oauth2/callback/google
+        - http://localhost:3000/api/auth/callback/google
+        - http://localhost:3000/api/google/linking/callback
+        - http://localhost:3000/api/google/calendar/callback
+        - http://localhost:3000/api/google/drive/callback
+
+microsoft:
+  users:
+    - email: developer@outlook.test
+      name: Developer
+  oauth_clients:
+    - client_id: emulate-microsoft-client-id
+      client_secret: emulate-microsoft-secret
+      redirect_uris:
+        - http://localhost:3000/api/auth/oauth2/callback/microsoft
+        - http://localhost:3000/api/auth/callback/microsoft
+        - http://localhost:3000/api/outlook/linking/callback
+        - http://localhost:3000/api/outlook/calendar/callback
+        - http://localhost:3000/api/outlook/drive/callback

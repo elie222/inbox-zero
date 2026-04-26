@@ -54,6 +54,7 @@ ${getEmailListPrompt({ messages: sentEmails, messageMaxLength: 2000 })}`;
     emailAccount,
     label: "ai-find-snippets",
     modelOptions,
+    promptHardening: { trust: "trusted" },
   });
 
   const aiResponse = await generateObject({

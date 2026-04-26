@@ -10,14 +10,20 @@ import { getActionErrorMessage } from "@/utils/error";
 export function RegenerateSecretButton({
   hasSecret,
   mutate,
+  onGenerated,
 }: {
   hasSecret: boolean;
   mutate: () => void;
+  onGenerated: (secret: string) => void;
 }) {
   const { execute, isExecuting } = useAction(regenerateWebhookSecretAction, {
-    onSuccess: () => {
+    onSuccess: ({ data }) => {
+      if (!data?.webhookSecret) return;
+      onGenerated(data.webhookSecret);
       toastSuccess({
-        description: "Webhook secret regenerated",
+        description: hasSecret
+          ? "Webhook secret regenerated. Copy it now, it will not be shown again."
+          : "Webhook secret generated. Copy it now, it will not be shown again.",
       });
     },
     onError: (error) => {

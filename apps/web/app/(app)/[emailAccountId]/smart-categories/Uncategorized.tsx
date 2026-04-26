@@ -17,7 +17,8 @@ import {
 } from "@/store/ai-categorize-sender-queue";
 import { SectionDescription } from "@/components/Typography";
 import { ButtonLoader } from "@/components/Loading";
-import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
+import { PremiumTooltip } from "@/components/PremiumAlert";
+import { usePremium } from "@/hooks/usePremium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { Toggle } from "@/components/Toggle";
 import { setAutoCategorizeAction } from "@/utils/actions/categorize";

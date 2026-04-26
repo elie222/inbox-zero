@@ -12,6 +12,8 @@ export const Provider = {
   AI_GATEWAY: "aigateway",
   OLLAMA: "ollama",
   OPENAI_COMPATIBLE: "openai-compatible",
+  CODEX_CLI: "codex-cli",
+  CLAUDE_CODE: "claude-code",
   PERPLEXITY: "perplexity",
 };
 

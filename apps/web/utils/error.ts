@@ -2,7 +2,7 @@ import {
   captureException as sentryCaptureException,
   setUser,
 } from "@sentry/nextjs";
-import { APICallError, RetryError } from "ai";
+import { APICallError, NoObjectGeneratedError, RetryError } from "ai";
 import type { FlattenedValidationErrors } from "next-safe-action";
 import {
   getProviderRateLimitApiErrorType,
@@ -52,6 +52,43 @@ export type CaptureExceptionContext = {
   sampleRate?: number;
 };
 
+export type LlmRepairMetadata = {
+  attempted: true;
+  successful: boolean;
+  label: string;
+  provider: string;
+  model: string;
+  inputLength: number;
+  inputFingerprint: string;
+  startsWithQuote: boolean;
+  startsWithBrace: boolean;
+  startsWithBracket: boolean;
+  looksCodeFenced: boolean;
+  candidateKindsTried: string[];
+  successfulCandidateKind?: string;
+};
+
+const LLM_REPAIR_METADATA_KEY = "__llmRepairMetadata";
+
+export function attachLlmRepairMetadata(
+  error: unknown,
+  metadata: LlmRepairMetadata | undefined,
+) {
+  if (!metadata || typeof error !== "object" || error === null) return;
+
+  const target = error as Record<string, unknown>;
+
+  // Diagnostic metadata must never turn the original model error into a
+  // webhook-processing failure for frozen or otherwise immutable errors.
+  if (!Object.isExtensible(target)) return;
+
+  try {
+    target[LLM_REPAIR_METADATA_KEY] = metadata;
+  } catch {
+    return;
+  }
+}
+
 export function captureException(
   error: unknown,
   context: CaptureExceptionContext = {},
@@ -73,8 +110,10 @@ export function captureException(
 
   if (userEmail) setUser({ email: userEmail });
 
+  const llmRepair = getLlmRepairMetadata(error);
   const sentryExtra = {
     ...extra,
+    ...(llmRepair ? { llmRepair } : {}),
     ...(emailAccountId && { emailAccountId }),
     ...(userId && { userId }),
   };
@@ -82,6 +121,15 @@ export function captureException(
   sentryCaptureException(error, {
     extra: Object.keys(sentryExtra).length > 0 ? sentryExtra : undefined,
   });
+}
+
+function getLlmRepairMetadata(error: unknown): LlmRepairMetadata | undefined {
+  if (typeof error !== "object" || error === null) return;
+
+  const metadata = (error as Record<string, unknown>)[LLM_REPAIR_METADATA_KEY];
+  if (!metadata || typeof metadata !== "object") return;
+
+  return metadata as LlmRepairMetadata;
 }
 
 export type ActionError<E extends object = Record<string, unknown>> = {
@@ -117,15 +165,15 @@ export function isGmailQuotaExceededError(error: unknown): boolean {
   return (error as any)?.errors?.[0]?.reason === "quotaExceeded";
 }
 
-export function isIncorrectOpenAIAPIKeyError(error: APICallError): boolean {
-  return error.message.includes("Incorrect API key provided");
-}
-
-export function isInvalidOpenAIModelError(error: APICallError): boolean {
-  return error.message.includes(
-    "does not exist or you do not have access to it",
+function isIncorrectAPIKeyError(error: APICallError): boolean {
+  return (
+    error.message.includes("Incorrect API key provided") ||
+    error.statusCode === 401
   );
 }
+
+/** @deprecated Use isIncorrectAPIKeyError */
+export const isIncorrectOpenAIAPIKeyError = isIncorrectAPIKeyError;
 
 export function isInvalidAIModelError(error: APICallError): boolean {
   // OpenAI: "The model `xyz` does not exist or you do not have access to it"
@@ -138,12 +186,30 @@ export function isInvalidAIModelError(error: APICallError): boolean {
   if (error.statusCode === 404 && error.message.includes("not_found_error")) {
     return true;
   }
+  // Bedrock: error message is just the model ID (e.g., "model: anthropic.claude-...")
+  if (/^model:\s*\S+$/.test(error.message.trim())) {
+    return true;
+  }
+  // OpenRouter: model deprecated or unavailable
+  if (error.message.includes("testing period")) {
+    return true;
+  }
+  // Generic model-not-found patterns
+  if (
+    error.message.includes("model is not available") ||
+    error.message.includes("model not found")
+  ) {
+    return true;
+  }
   return false;
 }
 
-export function isOpenAIAPIKeyDeactivatedError(error: APICallError): boolean {
+function isAPIKeyDeactivatedError(error: APICallError): boolean {
   return error.message.includes("this API key has been deactivated");
 }
+
+/** @deprecated Use isAPIKeyDeactivatedError */
+export const isOpenAIAPIKeyDeactivatedError = isAPIKeyDeactivatedError;
 
 export function isAnthropicInsufficientBalanceError(
   error: APICallError,
@@ -160,6 +226,7 @@ export function isInsufficientCreditsError(error: APICallError): boolean {
 const HANDLED_USER_KEY_ERROR = "__handledUserKeyError";
 
 export function markAsHandledUserKeyError(error: unknown): void {
+  if (typeof error !== "object" || error === null) return;
   (error as Record<string, unknown>)[HANDLED_USER_KEY_ERROR] = true;
 }
 
@@ -230,8 +297,15 @@ export function isKnownOutlookError(error: unknown): boolean {
   );
 }
 
-export function isAICallError(error: unknown): error is APICallError {
-  return APICallError.isInstance(error);
+// Provider content moderation refused to produce structured output. Retrying
+// the same model is futile; a fallback model may succeed. Handles p-retry
+// context wrappers that expose the real error on an `error` property.
+export function isContentFilterRefusal(error: unknown): boolean {
+  const unwrapped = (error as { error?: unknown })?.error ?? error;
+  return (
+    NoObjectGeneratedError.isInstance(unwrapped) &&
+    unwrapped.finishReason === "content-filter"
+  );
 }
 
 // we don't want to capture these errors in Sentry
@@ -242,12 +316,14 @@ export function isKnownApiError(error: unknown): boolean {
     isGmailRateLimitExceededError(error) ||
     isGmailQuotaExceededError(error) ||
     isKnownOutlookError(error) ||
+    isContentFilterRefusal(error) ||
     (APICallError.isInstance(error) &&
-      (isIncorrectOpenAIAPIKeyError(error) ||
+      (isIncorrectAPIKeyError(error) ||
         isInvalidAIModelError(error) ||
-        isOpenAIAPIKeyDeactivatedError(error) ||
+        isAPIKeyDeactivatedError(error) ||
         isAnthropicInsufficientBalanceError(error))) ||
-    (RetryError.isInstance(error) && isAiQuotaExceededError(error))
+    (RetryError.isInstance(error) && isAiQuotaExceededError(error)) ||
+    (error instanceof Error && isKnownAIErrorMessage(error.message))
   );
 }
 
@@ -347,13 +423,13 @@ export function getErrorMessage(error: unknown): string | undefined {
   if (error instanceof Error) return error.message;
 
   const outer = asRecord(error);
-  if (!outer) return undefined;
+  if (!outer) return;
 
   const directMessage = getStringProp(outer, "message");
   if (directMessage) return directMessage;
 
   const nested = asRecord(outer.error);
-  if (!nested) return undefined;
+  if (!nested) return;
 
   return getStringProp(nested, "message");
 }
@@ -473,4 +549,19 @@ function getValidationMessages(
   const all = [...formErrors, ...Object.values(fieldErrors).flat()];
 
   return all.length > 0 ? all.join(". ") : null;
+}
+
+// Message-based fallback for AI errors that may lose their APICallError type
+// (e.g., when wrapped by middleware like PostHog AI)
+function isKnownAIErrorMessage(message: string): boolean {
+  const patterns = [
+    "Incorrect API key provided",
+    "does not exist or you do not have access to it",
+    "this API key has been deactivated",
+    "credit balance is too low",
+    "testing period",
+    "model is not available",
+    "model not found",
+  ];
+  return patterns.some((p) => message.includes(p));
 }

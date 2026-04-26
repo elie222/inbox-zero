@@ -1,11 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  buildAffirmativeReactionMessage,
   buildPendingEmailCardFallbackText,
+  getPendingEmailHandledOpenText,
+  getPendingEmailHandledStatus,
+  getPendingEmailHandledTitle,
   buildPendingEmailSummary,
   ensureSlackTeamInstallation,
   hasUnsupportedMessagingAttachment,
   normalizeMessagingAssistantText,
+  normalizeMessagingUserText,
   stripLeadingSlackMention,
 } from "@/utils/messaging/chat-sdk/bot";
 
@@ -82,6 +87,52 @@ describe("normalizeMessagingAssistantText", () => {
   });
 });
 
+describe("normalizeMessagingUserText", () => {
+  it("leaves emoji-only messages unchanged", () => {
+    expect(normalizeMessagingUserText({ text: "👍🏽" })).toBe("👍🏽");
+    expect(normalizeMessagingUserText({ text: ":thumbsup:" })).toBe(
+      ":thumbsup:",
+    );
+  });
+
+  it("does not treat plain words as emoji aliases", () => {
+    expect(normalizeMessagingUserText({ text: "check" })).toBe("check");
+    expect(normalizeMessagingUserText({ text: "thumbsup" })).toBe("thumbsup");
+  });
+
+  it("leaves regular text unchanged", () => {
+    expect(
+      normalizeMessagingUserText({ text: "yes please summarize my inbox" }),
+    ).toBe("yes please summarize my inbox");
+  });
+});
+
+describe("buildAffirmativeReactionMessage", () => {
+  it("converts a reaction event into a synthetic yes message", () => {
+    const message = buildAffirmativeReactionMessage({
+      event: {
+        threadId: "teams:conversation-1",
+        messageId: "message-1",
+        emoji: { name: "thumbs_up" },
+        raw: { type: "messageReaction" },
+        user: {
+          userId: "user-1",
+          userName: "User One",
+          fullName: "User One",
+          isBot: false,
+          isMe: false,
+        },
+      } as any,
+    });
+
+    expect(message.text).toBe("yes");
+    expect(message.threadId).toBe("teams:conversation-1");
+    expect(message.author.userId).toBe("user-1");
+    expect(message.raw).toEqual({ type: "messageReaction" });
+    expect(message.id).toContain("thumbs_up");
+  });
+});
+
 describe("buildPendingEmailSummary", () => {
   it("includes reply target context when available", () => {
     expect(
@@ -120,6 +171,38 @@ describe("buildPendingEmailCardFallbackText", () => {
     const input =
       "This draft is pending confirmation.\n\nI couldn't show the Send button right now. Ask me to prepare the draft again.";
     expect(buildPendingEmailCardFallbackText(input)).toBe(input);
+  });
+});
+
+describe("pending email handled state helpers", () => {
+  it("uses reply-specific sent copy", () => {
+    expect(getPendingEmailHandledTitle("reply_email")).toBe("Reply sent");
+    expect(getPendingEmailHandledStatus("reply_email")).toBe("Reply sent.");
+  });
+
+  it("builds a mailbox deep link when confirmation ids are present", () => {
+    expect(
+      getPendingEmailHandledOpenText({
+        accountEmail: "user@example.com",
+        accountProvider: "google",
+        confirmationResult: {
+          messageId: "message-1",
+          threadId: "thread-1",
+        },
+      }),
+    ).toBe(
+      "Open in Gmail: https://mail.google.com/mail/u/0/?authuser=user%40example.com/#all/message-1",
+    );
+  });
+
+  it("returns null when the sent message ids are unavailable", () => {
+    expect(
+      getPendingEmailHandledOpenText({
+        accountEmail: "user@example.com",
+        accountProvider: "google",
+        confirmationResult: null,
+      }),
+    ).toBeNull();
   });
 });
 

@@ -13,11 +13,11 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
           <BulkUnsubscribeIllustration />
         </div>
 
-        <PageHeading className="mb-3">Bulk Unsubscriber & Archiver</PageHeading>
+        <PageHeading className="mb-3">Bulk unsubscribe and archive</PageHeading>
 
         <TypographyP className="text-muted-foreground mb-8">
-          See which emails you never read, and one-click unsubscribe and archive
-          them.
+          See which emails you never read. One-click unsubscribe and archive
+          them in bulk.
         </TypographyP>
 
         <div className="flex flex-col gap-2 w-full max-w-xs">

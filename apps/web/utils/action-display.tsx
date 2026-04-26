@@ -31,6 +31,7 @@ export function getActionDisplay(
   const terminology = getEmailTerminology(provider);
   switch (action.type) {
     case ActionType.DRAFT_EMAIL:
+    case ActionType.DRAFT_MESSAGING_CHANNEL:
       if (action.content) {
         return `Draft Reply: ${truncate(action.content, 10)}`;
       }
@@ -77,6 +78,8 @@ export function getActionDisplay(
       return "Digest";
     case ActionType.CALL_WEBHOOK:
       return "Call Webhook";
+    case ActionType.NOTIFY_MESSAGING_CHANNEL:
+      return "Notify via chat app";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
     default: {
@@ -95,6 +98,7 @@ export function getActionIcon(actionType: ActionType) {
     case ActionType.MOVE_FOLDER:
       return FolderInputIcon;
     case ActionType.DRAFT_EMAIL:
+    case ActionType.DRAFT_MESSAGING_CHANNEL:
       return FileTextIcon;
     case ActionType.REPLY:
       return ReplyIcon;
@@ -110,6 +114,8 @@ export function getActionIcon(actionType: ActionType) {
       return WebhookIcon;
     case ActionType.DIGEST:
       return NewspaperIcon;
+    case ActionType.NOTIFY_MESSAGING_CHANNEL:
+      return BellIcon;
     case ActionType.NOTIFY_SENDER:
       return BellIcon;
     default: {

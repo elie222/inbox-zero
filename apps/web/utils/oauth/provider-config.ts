@@ -25,6 +25,13 @@ export function hasMicrosoftOauthConfig() {
   );
 }
 
+export function hasAppleOauthConfig() {
+  return (
+    isConfiguredValue(env.APPLE_CLIENT_ID) &&
+    isConfiguredValue(env.APPLE_CLIENT_SECRET)
+  );
+}
+
 export function isConfiguredOauthValue(value: string | undefined) {
   return isConfiguredValue(value);
 }

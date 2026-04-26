@@ -3,7 +3,6 @@ import { z } from "zod";
 export const responseTimeQuerySchema = z.object({
   fromDate: z.coerce.number().optional(),
   toDate: z.coerce.number().optional(),
-  email: z.string().optional(),
 });
 
 export const responseTimeResponseSchema = z.object({

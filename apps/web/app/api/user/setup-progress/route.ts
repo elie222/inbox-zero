@@ -81,6 +81,9 @@ async function getSetupProgress({
   const calendarConnectedDismissed = emailAccount.user.dismissedHints.includes(
     `setup:calendarConnected:${emailAccountId}`,
   );
+  const tabsExtensionCompleted = emailAccount.user.dismissedHints.includes(
+    `setup:tabsExtension:${emailAccountId}`,
+  );
 
   const teamInviteCompleted =
     hasTeamMembers || hasPendingInvitations || teamInviteDismissed;
@@ -108,6 +111,7 @@ async function getSetupProgress({
     completed,
     total,
     isComplete: completed === total,
+    tabsExtensionCompleted,
     teamInvite: showTeamInviteStep
       ? {
           completed: teamInviteCompleted,

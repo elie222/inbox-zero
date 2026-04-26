@@ -1,0 +1,165 @@
+---
+title: "Changelog"
+description: "Latest updates and improvements to Inbox Zero"
+---
+
+<Update label="April 22, 2026" description="Digests and Follow-Ups Everywhere">
+  Your daily digests and follow-up reminders now go wherever you work — Slack, Teams, or Telegram. Enable multi-channel delivery in settings and get notified in the apps you already have open, alongside (or instead of) email.
+
+  - Smarter cold email detection now correctly treats introduction emails from mutual contacts as non-cold, so they won't get filtered out
+</Update>
+
+<Update label="April 17, 2026" description="Clean Up Your Inbox by Category">
+  Your chat assistant can now help you clean up large inboxes using sender categories. Ask it to show a category overview, categorize your senders, and then archive an entire category at once — perfect for clearing out newsletters, notifications, or marketing emails in bulk.
+
+  - Draft notification cards in Slack, Teams, and Telegram now collapse to a "handled" state when you reply from the web, keeping your channels tidy
+  - Slack notification targets are now limited to private channels you belong to, so you won't accidentally route alerts to channels you can't see
+</Update>
+
+<Update label="April 16, 2026" description="Send Replies from Telegram">
+  When your rules draft a reply, Telegram now shows an interactive card with a "Send reply" button — you can review and send the draft right from the notification without switching to your inbox.
+
+  - Smarter reply tracking: threads where you've already responded are now correctly marked as handled, reducing false "needs reply" alerts
+  - Fixed an issue where reply and forward actions could lose sender information or thread context
+</Update>
+
+<Update label="April 15, 2026" description="Bulk Email Actions in Chat">
+  Your chat assistant can now handle large bulk operations — like "archive all unread older than 3 years" — across your entire inbox. Previously it stopped after the first page of results; now it pages through every matching email so nothing gets left behind.
+
+  - Thumbs-up and checkmark emoji replies in Slack, Teams, and Telegram now count as "yes" confirmations, so you can approve actions with a quick reaction
+  - OneDrive file and folder names with special characters are now handled properly instead of failing on upload
+  - Fixed a crash in the rule editor when opening rules with multiple conditions
+</Update>
+
+<Update label="April 14, 2026" description="React to Confirm">
+  You can now react with a thumbs-up or checkmark emoji in Slack, Teams, or Telegram to confirm an action — no need to type "yes" anymore. The messaging bot recognizes affirmative reactions and treats them just like a text confirmation.
+
+  - Rule editor now keeps your saved actions visible while account capabilities load, so options no longer briefly disappear
+  - Fixed an issue where the assistant chat could return blank responses instead of retrying
+  - Gmail labels with special characters like `*`, `+`, or `\` can now be saved and edited in rules again
+</Update>
+
+<Update label="April 7, 2026" description="Multi-Destination Draft Replies">
+  Assistant rules can now send draft replies to multiple messaging channels at once. Pick several Slack destinations on any draft reply action, and each channel gets an interactive card when the rule fires — so different teams can review and act on the same email without extra setup.
+
+  - Per-purpose notification routing lets you choose different channels for automation alerts, meeting briefs, and document filing notifications
+  - Channel names now load instantly in the destination picker instead of briefly flashing raw IDs
+  - Fixed horizontal overflow in the split-view reading pane for emails with wide tables or images
+</Update>
+
+<Update label="March 31, 2026" description="Manage All Your Channels in One Place">
+  A new Channels page lives right in your sidebar, giving you a single hub to manage every messaging integration — Slack, Teams, and Telegram. You can toggle which rules send notifications to each channel, configure meeting briefs and document filing, and connect new apps without jumping between settings screens.
+
+  - Draft reply rules now show Slack review options inline, so you can set up delivery without leaving the rule dialog
+  - Slack notifications properly @mention the Inbox Zero bot, making it easier to spot and interact with automated messages
+</Update>
+
+<Update label="March 30, 2026" description="Rule Notifications in Slack">
+  Your automation rules can now deliver notifications and draft replies straight to Slack. Pick a channel on any draft or notify action, and when the rule fires you'll get an interactive card right in Slack — with buttons to send, edit, dismiss, archive, or mark as read.
+
+  - Route draft replies and notifications to any connected Slack channel from the rule editor
+  - Interactive Slack cards let you act on emails without switching back to your inbox
+  - Draft preference step restored in the onboarding flow so you can enable draft replies during setup
+</Update>
+
+<Update label="March 28, 2026" description="Your Labels Teach the AI">
+  Inbox Zero now learns from how you organize your emails. When you drag a message into a label or folder in Gmail, that action is picked up as a classification signal — helping the AI make smarter automation decisions for that sender in the future. This is especially useful for senders like Amazon that mix receipts and marketing.
+
+  - Rule test results now show which rules were skipped due to learned patterns, so you can see exactly how the AI is making decisions
+  - The assistant keeps its rule knowledge fresh across longer conversations, so you always get up-to-date suggestions
+  - Clearer error messages in the assistant chat when an action doesn't go through
+</Update>
+
+<Update label="March 22, 2026" description="Replies That Sound Like You">
+  Your assistant now learns your writing style from the edits you make to drafts. Over time, it builds a picture of how you communicate and uses that to write replies that match your tone and preferences.
+
+  - Choose whether to receive confirmation emails when attachments are automatically filed to Google Drive
+  - The assistant now asks for confirmation before creating automation rules that send, reply, or forward emails on your behalf
+  - Fixed an issue where creating rules through the assistant could fail with certain AI providers
+</Update>
+
+<Update label="March 19, 2026" description="Ask Your Assistant About Attachments and Calendar">
+  Your assistant just got a lot more capable. You can now ask it to read email attachments — PDFs, Word docs, CSVs, and more — right inside the chat. Need to check your schedule? The assistant can pull up your calendar events too.
+
+  - Delete or trash emails directly from the assistant chat
+  - The assistant now shows only the tools it needs, keeping conversations focused and loading additional capabilities on demand
+  - Fixed an issue where the assistant would sometimes add unwanted delays to rule actions
+</Update>
+
+<Update label="March 18, 2026" description="Replies That Learn Your Style">
+  Draft replies now learn from your edits. When you adjust a suggested reply before sending, the AI remembers your preferences — your tone, facts about you, and how you handle specific topics — and applies them to future drafts automatically.
+
+  - More accurate rule creation when you ask the assistant to handle specific senders or domains
+</Update>
+
+<Update label="March 17, 2026" description="AI Drafts with Drive Attachments">
+  Your automation rules can now pull files from Google Drive or OneDrive and attach them to AI-generated replies. Approve specific files or folders as attachment sources, and the AI will pick the most relevant documents to include when drafting a response.
+
+  - New setting to control whether AI drafts use hidden link text or show visible URLs, with automatic detection of mismatched link destinations
+  - Drive attachment picker available in the rule editor for selecting approved sources
+</Update>
+
+<Update label="March 15, 2026" description="Command-Line Automation">
+  You can now manage your inbox from the terminal with the new Inbox Zero CLI. Install it via npm to automate rules, check stats, and control your setup without opening the browser.
+
+  - AI reply drafts are better grounded — unsupported details are no longer presented as facts
+  - CC and BCC fields grouped side by side in the rule editor
+  - Legacy plan subscribers see a clear pricing notice in billing settings
+</Update>
+
+<Update label="March 14, 2026" description="Automate with the Rules API">
+  You can now manage your automation rules through a REST API — create, update, and delete rules programmatically. API keys can be scoped to a specific inbox and set to expire, so you stay in control.
+
+  - Account-scoped API keys with per-inbox permissions in your settings
+  - Setup checklist responds instantly when you complete a step
+  - Clearer error messages when connecting Microsoft accounts with missing permissions
+</Update>
+
+<Update label="March 13, 2026" description="Assistant Stays in Sync">
+  The AI assistant now tracks actions you take directly in your inbox — archiving or marking emails as read updates the chat so it won't suggest work you've already done.
+
+  - Clickable links preserved in draft replies
+  - Receive Slack check-ins as a DM instead of a channel post
+  - Marketing emails with personal tone no longer misclassified as conversations
+</Update>
+
+<Update label="March 12, 2026" description="Richer Chat Previews">
+  The assistant chat now renders full email previews — headers, body, and attachments — right in the conversation, so you can read and act on emails without switching to your inbox.
+
+  - Redesigned rule cards in chat with a clearer WHEN/THEN layout and colored action badges
+  - Organization admins can change member roles directly from the members page
+  - Dark mode and account settings consolidated into the main settings page
+</Update>
+
+<Update label="March 11, 2026" description="Auto-File Every Attachment">
+  Auto-filing now handles all attachment types — images, spreadsheets, archives, and more — not just PDFs and documents. Files without extractable text are filed based on their filename and email metadata.
+
+  - Sync your label rules to the Inbox Zero Tabs browser extension with one click
+  - AI chat defaults to searching unread emails so you can triage faster
+  - Chat replies are now drafted in the email thread's language, not your chat language
+  - Multi-account users see which account is active in Telegram and Teams responses
+</Update>
+
+<Update label="March 10, 2026" description="Act on Emails Right from Chat">
+  The AI assistant now shows interactive email cards when triaging your inbox. You can preview, archive, and reply to emails without leaving the conversation — and when the assistant drafts an email, you can edit it inline before sending.
+
+  - Bulk archive and mark-read controls on email lists in chat
+  - Cold email filter learns when you mark messages as junk in your mail client
+</Update>
+
+<Update label="March 5, 2026" description="Chat Everywhere">
+  Your AI assistant now works across **Telegram and Slack** — not just the web app. Send and receive messages, share images, and use slash commands from whichever platform you already use.
+
+  - Image attachments in Slack, Telegram, and web chat
+  - Slash commands for Slack
+  - Preview drafts before they send from messaging platforms
+  - Unsubscribe directly from assistant chat
+</Update>
+
+<Update label="March 3, 2026" description="Draft Confidence & Smarter Scheduling">
+  Previously, the assistant would draft a reply for every message that needed one. Now you can set a confidence threshold — the assistant will only draft replies when it's confident enough, so you're not reviewing low-quality drafts. Plus, scheduling suggestions are smarter with calendar links and formatted times.
+
+  - Draft confidence presets so you control when the assistant auto-drafts
+  - Calendar-aware scheduling with direct links
+  - Reorganized assistant settings
+</Update>

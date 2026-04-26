@@ -14,94 +14,30 @@ import {
   categorizeSender,
   updateCategoryForSender,
 } from "@/utils/categorize/senders/categorize";
+import { startBulkCategorization } from "@/utils/categorize/senders/start-bulk-categorization";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { SafeError } from "@/utils/error";
-import {
-  deleteEmptyCategorizeSendersQueues,
-  publishToAiCategorizeSendersQueue,
-} from "@/utils/upstash/categorize-senders";
-import { saveCategorizationTotalItems } from "@/utils/redis/categorization-progress";
-import { getUncategorizedSenders } from "@/app/api/user/categorize/senders/uncategorized/get-uncategorized-senders";
 import { actionClient } from "@/utils/actions/safe-action";
 import { prefixPath } from "@/utils/path";
 
 export const bulkCategorizeSendersAction = actionClient
   .metadata({ name: "bulkCategorizeSenders" })
-  .action(async ({ ctx: { emailAccountId, logger } }) => {
+  .action(async ({ ctx: { emailAccountId, logger, provider } }) => {
     await validateUserAndAiAccess({ emailAccountId });
 
-    // Ensure default categories exist before categorizing
-    const categoriesToCreate = Object.values(defaultCategory)
-      .filter((c) => c.enabled)
-      .map((c) => ({
-        emailAccountId,
-        name: c.name,
-        description: c.description,
-      }));
-
-    await prisma.category.createMany({
-      data: categoriesToCreate,
-      skipDuplicates: true,
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
+      logger,
     });
 
-    // Enable auto-categorization for this email account
-    await prisma.emailAccount.update({
-      where: { id: emailAccountId },
-      data: { autoCategorizeSenders: true },
+    const result = await startBulkCategorization({
+      emailAccountId,
+      emailProvider,
+      logger,
     });
 
-    // Delete empty queues as Qstash has a limit on how many queues we can have
-    // We could run this in a cron too but simplest to do here for now
-    deleteEmptyCategorizeSendersQueues({
-      skipEmailAccountId: emailAccountId,
-    }).catch((error) => {
-      logger.error("Error deleting empty queues", { error });
-    });
-
-    const LIMIT = 100;
-    const MAX_SENDERS = 2000;
-
-    let totalUncategorizedSenders = 0;
-    let currentOffset: number | undefined = 0;
-
-    while (currentOffset !== undefined) {
-      const result = await getUncategorizedSenders({
-        emailAccountId,
-        limit: LIMIT,
-        offset: currentOffset,
-      });
-
-      logger.trace("Got uncategorized senders", {
-        uncategorizedSenders: result.uncategorizedSenders.length,
-      });
-
-      if (result.uncategorizedSenders.length > 0) {
-        totalUncategorizedSenders += result.uncategorizedSenders.length;
-
-        await saveCategorizationTotalItems({
-          emailAccountId,
-          totalItems: totalUncategorizedSenders,
-        });
-
-        await publishToAiCategorizeSendersQueue({
-          emailAccountId,
-          senders: result.uncategorizedSenders,
-        });
-      }
-
-      if (totalUncategorizedSenders >= MAX_SENDERS) {
-        logger.info("Reached max senders limit", { MAX_SENDERS });
-        break;
-      }
-
-      currentOffset = result.nextOffset;
-    }
-
-    logger.info("Queued senders for categorization", {
-      totalUncategorizedSenders,
-    });
-
-    return { totalUncategorizedSenders };
+    return { totalUncategorizedSenders: result.totalQueuedSenders };
   });
 
 export const categorizeSenderAction = actionClient

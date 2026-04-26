@@ -30,15 +30,26 @@ export function findMatchingGroup(
   const excludeMatch = findExclusionMatch(message.headers, group.items);
   if (excludeMatch) {
     // If any exclusion pattern matches, this rule is completely excluded
-    return { group: null, matchingItem: null, excluded: true };
+    return {
+      group,
+      matchingItem: null,
+      excluded: true,
+      excludedItem: excludeMatch,
+    };
   }
 
   // If no exclusion patterns matched, check for inclusion patterns
   const matchingItem = findInclusionMatch(message.headers, group.items);
-  if (matchingItem) return { group, matchingItem, excluded: false };
+  if (matchingItem)
+    return { group, matchingItem, excluded: false, excludedItem: null };
 
   // No matches at all
-  return { group: null, matchingItem: null, excluded: false };
+  return {
+    group: null,
+    matchingItem: null,
+    excluded: false,
+    excludedItem: null,
+  };
 }
 
 function matchesPattern<T extends Pick<GroupItem, "type" | "value">>(
@@ -74,7 +85,7 @@ function matchesPattern<T extends Pick<GroupItem, "type" | "value">>(
 function findExclusionMatch<
   T extends Pick<GroupItem, "type" | "value" | "exclude">,
 >(headers: { from: string; subject: string }, groupItems: T[]) {
-  return groupItems.some(
+  return groupItems.find(
     (item) => item.exclude && matchesPattern(item, headers),
   );
 }

@@ -3,10 +3,17 @@ import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { auth } from "@/utils/auth";
+import { premiumEntitlementSelect } from "@/utils/premium";
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
 
-async function getUser({ userId }: { userId: string }) {
+async function getUser({
+  userId,
+  includeImage,
+}: {
+  userId: string;
+  includeImage: boolean;
+}) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -16,18 +23,17 @@ async function getUser({ userId }: { userId: string }) {
       aiModel: true,
       aiApiKey: true,
       webhookSecret: true,
-      referralCode: true,
       announcementDismissedAt: true,
       dismissedHints: true,
       premium: {
         select: {
+          ...premiumEntitlementSelect,
           lemonSqueezyCustomerId: true,
           lemonSqueezySubscriptionId: true,
-          lemonSqueezyRenewsAt: true,
+          stripeCustomerId: true,
+          stripePriceId: true,
           stripeSubscriptionId: true,
-          stripeSubscriptionStatus: true,
           unsubscribeCredits: true,
-          tier: true,
           emailAccountsAccess: true,
           lemonLicenseKey: true,
           pendingInvites: true,
@@ -38,6 +44,7 @@ async function getUser({ userId }: { userId: string }) {
           id: true,
           email: true,
           name: true,
+          ...(includeImage && { image: true }),
           members: {
             select: {
               organizationId: true,
@@ -63,19 +70,40 @@ async function getUser({ userId }: { userId: string }) {
     })),
   );
 
+  const { aiApiKey, webhookSecret, emailAccounts } = user;
+
   return {
-    ...user,
+    id: user.id,
+    createdAt: user.createdAt,
+    aiProvider: user.aiProvider,
+    aiModel: user.aiModel,
+    announcementDismissedAt: user.announcementDismissedAt,
+    dismissedHints: user.dismissedHints,
+    premium: user.premium,
+    emailAccounts: emailAccounts.map(({ members: _members, ...account }) => ({
+      ...account,
+    })),
+    hasAiApiKey: !!aiApiKey,
+    hasWebhookSecret: !!webhookSecret,
     members,
   };
 }
 
-// Intentionally not using withAuth because we want to return null if the user is not authenticated
-export const GET = withError("user/me", async () => {
-  const session = await auth();
+// Not using withAuth — unauthenticated requests return 401 with isKnownError
+// so the client can distinguish "not logged in" from real errors without Sentry noise
+export const GET = withError("user/me", async (request) => {
+  const session = await auth(request.headers);
   const userId = session?.user.id;
-  if (!userId) return NextResponse.json(null);
+  if (!userId)
+    return NextResponse.json(
+      { error: "Not authenticated", isKnownError: true },
+      { status: 401 },
+    );
 
-  const user = await getUser({ userId });
+  const includeImage =
+    request.nextUrl.searchParams.get("includeImage") === "true";
+
+  const user = await getUser({ userId, includeImage });
 
   return NextResponse.json(user);
 });

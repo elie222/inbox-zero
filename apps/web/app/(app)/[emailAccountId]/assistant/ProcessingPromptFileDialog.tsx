@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/Loading";
-import type { CreateRuleResult } from "@/utils/rule/types";
+import type { RuleWithRelations } from "@/utils/rule/types";
 import { CreatedRulesContent } from "@/app/(app)/[emailAccountId]/assistant/CreatedRulesModal";
 
 type StepProps = {
@@ -32,7 +32,7 @@ export function ProcessingPromptFileDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  result: CreateRuleResult[] | null;
+  result: RuleWithRelations[] | null;
   setViewedProcessingPromptFileDialog: (viewed: boolean) => void;
 }) {
   const [currentStep, setCurrentStep] = useState(0);

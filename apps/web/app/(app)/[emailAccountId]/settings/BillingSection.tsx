@@ -1,36 +1,61 @@
 "use client";
 
 import Link from "next/link";
-import { usePremium } from "@/components/PremiumAlert";
-import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";
+import { usePremium } from "@/hooks/usePremium";
+import {
+  ManageSubscription,
+  ViewInvoicesButton,
+} from "@/app/(app)/premium/ManageSubscription";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import {
   Item,
   ItemContent,
   ItemTitle,
+  ItemDescription,
   ItemActions,
 } from "@/components/ui/item";
-import type { PremiumTier } from "@/generated/prisma/enums";
+import {
+  getPremiumTierName,
+  shouldShowLegacyStripePricingNotice,
+} from "@/app/(app)/premium/config";
+import { hasActiveAppleSubscription } from "@/utils/premium";
 
 export function BillingSection() {
-  const { premium, isPremium, isLoading } = usePremium();
+  const { premium, isPremium, isLoading, tier } = usePremium();
+  const isLegacyStripePlan = shouldShowLegacyStripePricingNotice(premium);
+  const hasAppleSubscription = hasActiveAppleSubscription(
+    premium?.appleExpiresAt || null,
+    premium?.appleRevokedAt || null,
+    premium?.appleSubscriptionStatus || null,
+  );
 
   return (
     <LoadingContent loading={isLoading}>
-      {premium &&
-      (isPremium ||
-        premium.lemonSqueezyCustomerId ||
-        premium.stripeSubscriptionId) ? (
+      {premium && isPremium ? (
         <Item size="sm">
           <ItemContent>
-            <ItemTitle>{getPlanDisplayName(premium.tier)} plan</ItemTitle>
+            <ItemTitle>{getPremiumTierName(tier)} plan</ItemTitle>
+            {hasAppleSubscription ? (
+              <ItemDescription>
+                This subscription is billed through Apple. Manage or cancel it
+                from your iPhone or iPad subscription settings.
+              </ItemDescription>
+            ) : isLegacyStripePlan ? (
+              <ItemDescription>
+                You&apos;re on grandfathered Stripe pricing. The current plan
+                prices shown elsewhere in the app are for new subscriptions.
+              </ItemDescription>
+            ) : null}
           </ItemContent>
           <ItemActions>
             <ManageSubscription premium={premium} />
-            <Button asChild variant="outline" size="sm">
-              <Link href="/premium">Change plan</Link>
-            </Button>
+            <ViewInvoicesButton premium={premium} />
+            {!hasAppleSubscription && (
+              <Button asChild variant="outline" size="sm">
+                <Link href="/premium">Change plan</Link>
+              </Button>
+            )}
           </ItemActions>
         </Item>
       ) : (
@@ -39,6 +64,7 @@ export function BillingSection() {
             <ItemTitle>No active plan</ItemTitle>
           </ItemContent>
           <ItemActions>
+            {premium && <ViewInvoicesButton premium={premium} />}
             <Button asChild variant="outline" size="sm">
               <Link href="/premium">Upgrade</Link>
             </Button>
@@ -47,25 +73,4 @@ export function BillingSection() {
       )}
     </LoadingContent>
   );
-}
-
-function getPlanDisplayName(tier: PremiumTier | null | undefined): string {
-  if (!tier) return "Premium";
-
-  const tierMap: Partial<Record<PremiumTier, string>> = {
-    STARTER_MONTHLY: "Starter",
-    STARTER_ANNUALLY: "Starter",
-    PLUS_MONTHLY: "Plus",
-    PLUS_ANNUALLY: "Plus",
-    PROFESSIONAL_MONTHLY: "Professional",
-    PROFESSIONAL_ANNUALLY: "Professional",
-    COPILOT_MONTHLY: "Enterprise",
-    BASIC_MONTHLY: "Basic",
-    BASIC_ANNUALLY: "Basic",
-    PRO_MONTHLY: "Pro",
-    PRO_ANNUALLY: "Pro",
-    LIFETIME: "Lifetime",
-  };
-
-  return tierMap[tier] ?? "Premium";
 }

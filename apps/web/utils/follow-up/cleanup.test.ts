@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { cleanupStaleDrafts } from "./cleanup";
-import { createScopedLogger } from "@/utils/logger";
 import { createMockEmailProvider } from "@/__tests__/mocks/email-provider.mock";
 import { subDays } from "date-fns/subDays";
 
@@ -12,10 +11,11 @@ vi.mock("./labels", () => ({
 }));
 
 import { hasFollowUpLabel } from "./labels";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const mockHasFollowUpLabel = vi.mocked(hasFollowUpLabel);
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe("cleanupStaleDrafts", () => {
   beforeEach(() => {

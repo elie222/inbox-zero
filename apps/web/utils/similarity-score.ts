@@ -3,6 +3,27 @@ import { convertEmailHtmlToText, parseReply } from "@/utils/mail";
 import { stripQuotedContent } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
 
+const HTML_TAG_NAMES = [
+  "html",
+  "head",
+  "body",
+  "div",
+  "p",
+  "br",
+  "a",
+  "span",
+  "table",
+  "tr",
+  "td",
+  "blockquote",
+  "meta",
+];
+
+const HTML_TAG_PATTERN = new RegExp(
+  `<\\/?(?:${HTML_TAG_NAMES.join("|")})(?:\\s|\\/|>)`,
+  "i",
+);
+
 /**
  * Normalizes content for Outlook (HTML) comparison.
  * Converts \n to <br> and then to plain text, strips quoted content.
@@ -43,7 +64,13 @@ function decodeHtmlEntities(text: string): string {
  * Uses parseReply to extract the reply, decodes HTML entities, and strips quoted content.
  */
 function normalizeForGmail(content: string): string {
-  const reply = parseReply(content);
+  const plainText = looksLikeHtmlContent(content)
+    ? convertEmailHtmlToText({
+        htmlText: content.replace(/\n/g, "<br>"),
+        includeLinks: false,
+      })
+    : content;
+  const reply = parseReply(plainText);
   const decoded = decodeHtmlEntities(reply);
   return decoded.toLowerCase().trim();
 }
@@ -92,4 +119,9 @@ export function calculateSimilarity(
   }
 
   return stringSimilarity.compareTwoStrings(normalized1, normalized2);
+}
+
+function looksLikeHtmlContent(content: string): boolean {
+  if (/<!doctype html/i.test(content)) return true;
+  return HTML_TAG_PATTERN.test(content);
 }

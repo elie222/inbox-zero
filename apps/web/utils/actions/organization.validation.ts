@@ -40,6 +40,13 @@ export const removeMemberBody = z.object({
 
 export type RemoveMemberBody = z.infer<typeof removeMemberBody>;
 
+export const updateMemberRoleBody = z.object({
+  memberId: z.string().min(1, "Member ID is required"),
+  role: z.enum(["admin", "member"]),
+});
+
+export type UpdateMemberRoleBody = z.infer<typeof updateMemberRoleBody>;
+
 export const cancelInvitationBody = z.object({
   invitationId: z.string().min(1, "Invitation ID is required"),
 });

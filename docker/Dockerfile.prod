@@ -4,11 +4,15 @@ FROM node:24-alpine AS builder
 WORKDIR /app
 
 RUN apk add --no-cache openssl
-RUN npm install -g pnpm@10.22.0
+RUN npm install -g pnpm@10.33.0
 
 # Copy lockfiles/workspace manifests for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 COPY apps/web/package.json apps/web/package.json
+COPY apps/worker/package.json apps/worker/package.json
+COPY apps/image-proxy/package.json apps/image-proxy/package.json
+COPY apps/image-proxy-aws/package.json apps/image-proxy-aws/package.json
+COPY packages/image-proxy/package.json packages/image-proxy/package.json
 COPY packages/loops/package.json packages/loops/package.json
 COPY packages/resend/package.json packages/resend/package.json
 COPY packages/tinybird/package.json packages/tinybird/package.json
@@ -39,12 +43,16 @@ ARG NEXT_PUBLIC_EMAIL_SEND_ENABLED="NEXT_PUBLIC_EMAIL_SEND_ENABLED_PLACEHOLDER"
 ENV NEXT_PUBLIC_EMAIL_SEND_ENABLED=${NEXT_PUBLIC_EMAIL_SEND_ENABLED}
 ARG NEXT_PUBLIC_CLEANER_ENABLED="NEXT_PUBLIC_CLEANER_ENABLED_PLACEHOLDER"
 ENV NEXT_PUBLIC_CLEANER_ENABLED=${NEXT_PUBLIC_CLEANER_ENABLED}
+ARG NEXT_PUBLIC_AUTO_DRAFT_DISABLED="NEXT_PUBLIC_AUTO_DRAFT_DISABLED_PLACEHOLDER"
+ENV NEXT_PUBLIC_AUTO_DRAFT_DISABLED=${NEXT_PUBLIC_AUTO_DRAFT_DISABLED}
 ARG NEXT_PUBLIC_MEETING_BRIEFS_ENABLED="NEXT_PUBLIC_MEETING_BRIEFS_ENABLED_PLACEHOLDER"
 ENV NEXT_PUBLIC_MEETING_BRIEFS_ENABLED=${NEXT_PUBLIC_MEETING_BRIEFS_ENABLED}
 ARG NEXT_PUBLIC_INTEGRATIONS_ENABLED="NEXT_PUBLIC_INTEGRATIONS_ENABLED_PLACEHOLDER"
 ENV NEXT_PUBLIC_INTEGRATIONS_ENABLED=${NEXT_PUBLIC_INTEGRATIONS_ENABLED}
 ARG NEXT_PUBLIC_DIGEST_ENABLED="NEXT_PUBLIC_DIGEST_ENABLED_PLACEHOLDER"
 ENV NEXT_PUBLIC_DIGEST_ENABLED=${NEXT_PUBLIC_DIGEST_ENABLED}
+ARG NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED="NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED_PLACEHOLDER"
+ENV NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED=${NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED}
 
 # Provide safe dummy envs so Next build can complete at image build time
 ENV DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
@@ -72,6 +80,8 @@ RUN npx prisma generate --schema=apps/web/prisma/schema.prisma \
  && cd apps/web \
  && pnpm exec next build \
  && cd ../.. \
+ && pnpm --filter @inboxzero/worker deploy --legacy --prod /tmp/apps/worker \
+ && cd /app \
  && rm -rf apps/web/.next/cache
 
 FROM node:24-alpine AS runner
@@ -87,6 +97,7 @@ COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder /app/apps/web/prisma ./apps/web/prisma
+COPY --from=builder /tmp/apps/worker ./apps/worker
 
 # Copy runtime scripts
 COPY docker/scripts /app/docker/scripts

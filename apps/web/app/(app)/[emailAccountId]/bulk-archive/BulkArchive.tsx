@@ -17,6 +17,7 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { PageHeading } from "@/components/Typography";
+import { EmailStatsPreloader } from "@/components/EmailStatsPreloader";
 
 export function BulkArchive() {
   const { isBulkCategorizing } = useCategorizeProgress();
@@ -58,6 +59,7 @@ export function BulkArchive() {
 
   return (
     <LoadingContent loading={isLoading} error={error}>
+      <EmailStatsPreloader />
       <PageWrapper>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

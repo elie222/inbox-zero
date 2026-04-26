@@ -100,6 +100,7 @@ ${getEmailListPrompt({ messages: emails, messageMaxLength: 500 })}
       emailAccount,
       label: "Detect recurring pattern",
       modelOptions,
+      promptHardening: { trust: "untrusted", level: "compact" },
     });
 
     const aiResponse = await generateObject({

@@ -36,7 +36,8 @@ export function AdminTopSpenders() {
         <CardTitle>Top Spenders</CardTitle>
         <CardDescription>
           Last 7 days (same window as spend limiter). Nano-Limited shows who is
-          currently forced onto nano via the Redis spend guard.
+          currently forced onto nano via the Redis spend guard. User Accounts
+          shows how many current email accounts that user has connected.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -48,6 +49,7 @@ export function AdminTopSpenders() {
                   <TableHead className="w-16">Rank</TableHead>
                   <TableHead>Email Account ID</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>User Accounts</TableHead>
                   <TableHead>Nano-Limited</TableHead>
                   <TableHead className="text-right">Cost</TableHead>
                 </TableRow>
@@ -61,6 +63,9 @@ export function AdminTopSpenders() {
                     </TableCell>
                     <TableCell className="font-mono text-xs sm:text-sm">
                       {spender.email}
+                    </TableCell>
+                    <TableCell>
+                      {spender.userEmailAccountCount ?? "-"}
                     </TableCell>
                     <TableCell>
                       {spender.nanoLimitedBySpendGuard ? (

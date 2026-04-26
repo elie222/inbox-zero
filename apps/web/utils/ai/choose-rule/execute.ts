@@ -7,6 +7,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { updateExecutedActionWithDraftId } from "@/utils/ai/choose-rule/draft-management";
 import type { EmailProvider } from "@/utils/email/types";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import type { ActionExecutionEmailAccount } from "@/utils/ai/types";
 
 const MODULE = "ai-execute-act";
 
@@ -22,18 +23,14 @@ type ActionFailure = {
 export async function executeAct({
   client,
   executedRule,
-  userEmail,
-  userId,
-  emailAccountId,
+  emailAccount,
   message,
   logger,
 }: {
   client: EmailProvider;
   executedRule: ExecutedRuleWithActionItems;
   message: ParsedMessage;
-  userEmail: string;
-  userId: string;
-  emailAccountId: string;
+  emailAccount: ActionExecutionEmailAccount;
   logger: Logger;
 }) {
   const log = logger.with({
@@ -52,9 +49,7 @@ export async function executeAct({
         client,
         email: message,
         action,
-        userEmail,
-        userId,
-        emailAccountId,
+        emailAccount,
         executedRule,
         logger: log,
       });
@@ -64,10 +59,15 @@ export async function executeAct({
         actionFailures.push(actionFailure);
       }
 
-      if (action.type === ActionType.DRAFT_EMAIL && actionResult?.draftId) {
+      const draftId =
+        action.type === ActionType.DRAFT_EMAIL
+          ? getDraftId(actionResult)
+          : null;
+
+      if (draftId) {
         await updateExecutedActionWithDraftId({
           actionId: action.id,
-          draftId: actionResult.draftId,
+          draftId,
           logger,
         });
       }
@@ -78,7 +78,7 @@ export async function executeAct({
         error,
         dedupeKeyParts: {
           scope: "ai/choose-rule/execute",
-          emailAccountId,
+          emailAccountId: emailAccount.id,
           actionType: action.type,
         },
       });
@@ -173,4 +173,17 @@ function buildFailureReason(
 
   if (!existingReason) return failureReason;
   return `${existingReason}\n${failureReason}`;
+}
+
+function getDraftId(actionResult: unknown): string | null {
+  if (
+    !actionResult ||
+    typeof actionResult !== "object" ||
+    !("draftId" in actionResult) ||
+    typeof actionResult.draftId !== "string"
+  ) {
+    return null;
+  }
+
+  return actionResult.draftId;
 }

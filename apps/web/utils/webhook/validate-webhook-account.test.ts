@@ -1,29 +1,35 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
+  cleanupWebhookAccountOnRateLimitSkip,
   getWebhookEmailAccount,
   validateWebhookAccount,
 } from "./validate-webhook-account";
 import type { ValidatedWebhookAccountData } from "./validate-webhook-account";
 import { DraftReplyConfidence, PremiumTier } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("@/utils/premium");
 vi.mock("@/app/api/watch/controller");
 vi.mock("@/utils/email/provider");
 vi.mock("@/utils/email/watch-manager");
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/email-account-client", () => ({
+  getGmailClientForEmail: vi.fn(),
+  getOutlookClientForEmail: vi.fn(),
+}));
 vi.mock("@/utils/log-error-with-dedupe", () => ({
   logErrorWithDedupe: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
 
-import { isPremium, hasAiAccess } from "@/utils/premium";
+import { hasAiAccess, isPremiumRecord } from "@/utils/premium";
 import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import { getGmailClientForEmail } from "@/utils/email-account-client";
 
 describe("validateWebhookAccount", () => {
   const mockEmailProvider = { type: "google" as const };
@@ -32,6 +38,7 @@ describe("validateWebhookAccount", () => {
     vi.clearAllMocks();
     vi.mocked(createEmailProvider).mockResolvedValue(mockEmailProvider as any);
     vi.mocked(unwatchEmails).mockResolvedValue(undefined);
+    vi.mocked(getGmailClientForEmail).mockResolvedValue({} as any);
   });
 
   function createMockEmailAccount(
@@ -84,6 +91,8 @@ describe("validateWebhookAccount", () => {
         aiModel: null,
         aiApiKey: null,
         premium: {
+          appleExpiresAt: null,
+          appleRevokedAt: null,
           lemonSqueezyRenewsAt: new Date(Date.now() + 86_400_000), // Tomorrow
           stripeSubscriptionStatus: "active",
           tier: PremiumTier.PRO_MONTHLY,
@@ -94,6 +103,8 @@ describe("validateWebhookAccount", () => {
         overrides.draftReplyConfidence ?? DraftReplyConfidence.ALL_EMAILS,
       filingEnabled: overrides.filingEnabled ?? false,
       filingPrompt: overrides.filingPrompt ?? null,
+      filingConfirmationSendEmail:
+        overrides.filingConfirmationSendEmail ?? true,
     };
   }
 
@@ -105,6 +116,35 @@ describe("validateWebhookAccount", () => {
       if (!result.success) {
         expect(await result.response.json()).toEqual({ ok: true });
       }
+    });
+  });
+
+  describe("cleanupWebhookAccountOnRateLimitSkip", () => {
+    it("unwatches non-premium accounts even while rate-limited", async () => {
+      const emailAccount = createMockEmailAccount({
+        user: {
+          aiProvider: null,
+          aiModel: null,
+          aiApiKey: null,
+          premium: null,
+        },
+      });
+
+      vi.mocked(isPremiumRecord).mockReturnValue(false);
+
+      await cleanupWebhookAccountOnRateLimitSkip(emailAccount, logger);
+
+      expect(getGmailClientForEmail).toHaveBeenCalledWith({
+        emailAccountId: "account-id",
+        logger,
+      });
+      expect(unwatchEmails).toHaveBeenCalledWith(
+        expect.objectContaining({
+          emailAccountId: "account-id",
+          subscriptionId: "subscription-id",
+          provider: expect.objectContaining({ name: "google" }),
+        }),
+      );
     });
   });
 
@@ -140,7 +180,7 @@ describe("validateWebhookAccount", () => {
         },
       });
 
-      vi.mocked(isPremium).mockReturnValue(false);
+      vi.mocked(isPremiumRecord).mockReturnValue(false);
 
       const result = await validateWebhookAccount(emailAccount, logger);
 
@@ -167,7 +207,7 @@ describe("validateWebhookAccount", () => {
     it("should unwatch emails and return failure", async () => {
       const emailAccount = createMockEmailAccount();
 
-      vi.mocked(isPremium).mockReturnValue(true);
+      vi.mocked(isPremiumRecord).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(false);
 
       const result = await validateWebhookAccount(emailAccount, logger);
@@ -192,7 +232,7 @@ describe("validateWebhookAccount", () => {
         rules: [],
       });
 
-      vi.mocked(isPremium).mockReturnValue(true);
+      vi.mocked(isPremiumRecord).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(true);
 
       const result = await validateWebhookAccount(emailAccount, logger);
@@ -201,6 +241,25 @@ describe("validateWebhookAccount", () => {
       expect(unwatchEmails).not.toHaveBeenCalled();
       if (!result.success) {
         expect(await result.response.json()).toEqual({ ok: true });
+      }
+    });
+
+    it("should succeed when filing is enabled with a prompt but no rules", async () => {
+      const emailAccount = createMockEmailAccount({
+        rules: [],
+        filingEnabled: true,
+        filingPrompt: "File newsletters under Newsletters",
+      });
+
+      vi.mocked(isPremiumRecord).mockReturnValue(true);
+      vi.mocked(hasAiAccess).mockReturnValue(true);
+
+      const result = await validateWebhookAccount(emailAccount, logger);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.hasAutomationRules).toBe(false);
+        expect(result.data.emailAccount).toEqual(emailAccount);
       }
     });
   });
@@ -217,7 +276,7 @@ describe("validateWebhookAccount", () => {
         },
       });
 
-      vi.mocked(isPremium).mockReturnValue(true);
+      vi.mocked(isPremiumRecord).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(true);
 
       const result = await validateWebhookAccount(emailAccount, logger);
@@ -241,7 +300,7 @@ describe("validateWebhookAccount", () => {
         },
       });
 
-      vi.mocked(isPremium).mockReturnValue(true);
+      vi.mocked(isPremiumRecord).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(true);
 
       const result = await validateWebhookAccount(emailAccount, logger);
@@ -260,7 +319,7 @@ describe("validateWebhookAccount", () => {
         account: null,
       } as any as ValidatedWebhookAccountData;
 
-      vi.mocked(isPremium).mockReturnValue(true);
+      vi.mocked(isPremiumRecord).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(true);
 
       const result = await validateWebhookAccount(emailAccount, logger);
@@ -276,7 +335,7 @@ describe("validateWebhookAccount", () => {
     it("should return success with validated data", async () => {
       const emailAccount = createMockEmailAccount();
 
-      vi.mocked(isPremium).mockReturnValue(true);
+      vi.mocked(isPremiumRecord).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(true);
 
       const result = await validateWebhookAccount(emailAccount, logger);
@@ -334,5 +393,30 @@ describe("getWebhookEmailAccount", () => {
         }),
       }),
     );
+  });
+
+  it("resolves the account when the subscription id only exists in watch history", async () => {
+    const historicalAccount = {
+      id: "resolved-account-id",
+      email: "user@example.com",
+      watchEmailsSubscriptionId: "new-subscription-id",
+    };
+
+    vi.mocked(prisma.emailAccount.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([
+      { id: "resolved-account-id" },
+    ]);
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      historicalAccount as any,
+    );
+
+    const result = await getWebhookEmailAccount(
+      { watchEmailsSubscriptionId: "old-rotated-sub-id" },
+      logger,
+    );
+
+    expect(result).toEqual(historicalAccount);
+    expect(prisma.$queryRaw).toHaveBeenCalled();
+    expect(logErrorWithDedupe).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 import { withAxiom } from "next-axiom";
 import nextMdx from "@next/mdx";
 import withSerwistInit from "@serwist/next";
+import path from "node:path";
 import { env } from "./env";
 import type { NextConfig } from "next";
 
@@ -11,15 +12,56 @@ const withMDX = nextMdx({
   },
 });
 
+const isDevelopment = process.env.NODE_ENV === "development";
+const isProductionBuild = process.env.NODE_ENV === "production";
+const repoRoot = path.resolve(import.meta.dirname, "../..");
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  allowedDevOrigins: ["127.0.0.1"],
+  logging: {
+    browserToTerminal: true,
+  },
+  experimental:
+    isDevelopment || isProductionBuild
+      ? {
+          ...(isDevelopment
+            ? {
+                // This app has a large route graph. Avoid front-loading all
+                // route modules into memory at startup during local
+                // development.
+                preloadEntriesOnStart: false,
+              }
+            : {}),
+          ...(isProductionBuild
+            ? {
+                // Keep the static build from fanning out too many workers at
+                // once. This trades a bit of build time for lower peak RAM.
+                staticGenerationMaxConcurrency: 4,
+                staticGenerationMinPagesPerWorker: 100,
+              }
+            : {}),
+        }
+      : undefined,
+  onDemandEntries: isDevelopment
+    ? {
+        maxInactiveAge: 25 * 1000,
+        pagesBufferLength: 2,
+      }
+    : undefined,
   output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
   // Skip TypeScript checking during E2E CI builds to save memory
   typescript: {
     ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === "true",
   },
-  serverExternalPackages: ["@sentry/nextjs", "@sentry/node"],
+  serverExternalPackages: [
+    "@sentry/nextjs",
+    "@sentry/node",
+    "mammoth",
+    "unpdf",
+  ],
   turbopack: {
+    root: repoRoot,
     rules: {
       "*.svg": {
         loaders: ["@svgr/webpack"],
@@ -94,6 +136,11 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/roadmap",
+        destination: "https://go.getinboxzero.com/feature-requests",
+        permanent: true,
+      },
+      {
         source: "/feedback",
         destination: "https://go.getinboxzero.com/feedback",
         permanent: true,
@@ -121,6 +168,11 @@ const nextConfig: NextConfig = {
       {
         source: "/linkedin",
         destination: "https://go.getinboxzero.com/linkedin",
+        permanent: true,
+      },
+      {
+        source: "/contact",
+        destination: "/support",
         permanent: true,
       },
       {
@@ -154,6 +206,11 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/api-reference/cli",
+        destination: "https://docs.getinboxzero.com",
+        permanent: true,
+      },
+      {
         source: "/request-access",
         destination: "/early-access",
         permanent: true,
@@ -162,6 +219,11 @@ const nextConfig: NextConfig = {
         source: "/reply-tracker",
         destination: "/reply-zero",
         permanent: false,
+      },
+      {
+        source: "/new-senders",
+        destination: "/",
+        permanent: true,
       },
       {
         source: "/game",

@@ -6,7 +6,7 @@ import prisma from "@/utils/prisma";
 import { deleteUser } from "@/utils/user/delete";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
-import { updateAccountSeats } from "@/utils/premium/server";
+import { updateAccountSeats } from "@/utils/premium/seats";
 import { betterAuthConfig } from "@/utils/auth";
 import { headers } from "next/headers";
 import {

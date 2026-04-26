@@ -8,7 +8,6 @@ import type {
   ExecutedAction,
   Rule,
 } from "@/generated/prisma/client";
-import { truncate } from "@/utils/string";
 import { getEmailTerminology } from "@/utils/terminology";
 import { sortActionsByPriority } from "@/utils/action-sort";
 
@@ -82,81 +81,6 @@ export function PlanBadge(props: { plan?: Plan; provider: string }) {
   );
 }
 
-export function ActionBadge({
-  type,
-  provider,
-}: {
-  type: ActionType;
-  provider: string;
-}) {
-  return (
-    <Badge color={getActionColor(type)}>{getActionLabel(type, provider)}</Badge>
-  );
-}
-
-export function ActionBadgeExpanded({
-  action,
-  provider,
-}: {
-  action: ExecutedAction;
-  provider: string;
-}) {
-  switch (action.type) {
-    case ActionType.ARCHIVE:
-      return <ActionBadge type={ActionType.ARCHIVE} provider={provider} />;
-    case ActionType.LABEL:
-      return (
-        <Badge color="blue">
-          {getEmailTerminology(provider).label.action}: "{action.label}"
-        </Badge>
-      );
-    case ActionType.REPLY:
-      return (
-        <div>
-          <Badge color="indigo">Reply</Badge>
-          <ActionContent action={action} />
-        </div>
-      );
-    case ActionType.SEND_EMAIL:
-      return (
-        <div>
-          <Badge color="indigo">Send email</Badge>
-          <ActionContent action={action} />
-        </div>
-      );
-    case ActionType.FORWARD:
-      return (
-        <div>
-          <Badge color="indigo">Forward email</Badge>
-          <ActionContent action={action} />
-        </div>
-      );
-    case ActionType.DRAFT_EMAIL:
-      return (
-        <div>
-          <Badge color="pink">Draft reply</Badge>
-          <ActionContent action={action} />
-        </div>
-      );
-    case ActionType.MARK_SPAM:
-      return <ActionBadge type={ActionType.MARK_SPAM} provider={provider} />;
-    case ActionType.CALL_WEBHOOK:
-      return <ActionBadge type={ActionType.CALL_WEBHOOK} provider={provider} />;
-    case ActionType.MARK_READ:
-      return <ActionBadge type={ActionType.MARK_READ} provider={provider} />;
-    default:
-      return <ActionBadge type={action.type} provider={provider} />;
-  }
-}
-
-function ActionContent({ action }: { action: ExecutedAction }) {
-  return (
-    !!action.content && (
-      <div className="mt-1">{truncate(action.content, 280)}</div>
-    )
-  );
-}
-
 function getActionLabel(type: ActionType, provider: string) {
   const terminology = getEmailTerminology(provider);
 
@@ -172,6 +96,7 @@ function getActionLabel(type: ActionType, provider: string) {
     case ActionType.SEND_EMAIL:
       return "Send";
     case ActionType.DRAFT_EMAIL:
+    case ActionType.DRAFT_MESSAGING_CHANNEL:
       return "Draft";
     case ActionType.CALL_WEBHOOK:
       return "Webhook";
@@ -179,6 +104,8 @@ function getActionLabel(type: ActionType, provider: string) {
       return "Mark as spam";
     case ActionType.MARK_READ:
       return "Mark as read";
+    case ActionType.NOTIFY_MESSAGING_CHANNEL:
+      return "Notify via chat app";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
     default:
@@ -213,6 +140,7 @@ export function getActionColor(actionType: ActionType): Color {
     case ActionType.FORWARD:
     case ActionType.SEND_EMAIL:
     case ActionType.DRAFT_EMAIL:
+    case ActionType.DRAFT_MESSAGING_CHANNEL:
       return "green";
     case ActionType.ARCHIVE:
     case ActionType.MARK_READ:
@@ -226,6 +154,7 @@ export function getActionColor(actionType: ActionType): Color {
     case ActionType.CALL_WEBHOOK:
     case ActionType.DIGEST:
       return "purple";
+    case ActionType.NOTIFY_MESSAGING_CHANNEL:
     case ActionType.NOTIFY_SENDER:
       return "purple";
     default: {
@@ -245,6 +174,7 @@ function getPlanColor(plan: Plan | null, executed: boolean): Color {
     case ActionType.FORWARD:
     case ActionType.SEND_EMAIL:
     case ActionType.DRAFT_EMAIL:
+    case ActionType.DRAFT_MESSAGING_CHANNEL:
       return "blue";
     case ActionType.ARCHIVE:
       return "yellow";

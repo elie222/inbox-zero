@@ -249,7 +249,7 @@ function TestimonialCard({
           <Image
             className="size-14 md:size-10 rounded-full bg-gray-50 border-2 border-[#E3E3E3]"
             src={testimonial.author.imageUrl}
-            alt=""
+            alt={testimonial.author.name}
             width={100}
             height={100}
           />
@@ -266,7 +266,7 @@ function TestimonialCard({
           <Image
             className="h-8 w-auto flex-none"
             src={testimonial.author.logoUrl}
-            alt=""
+            alt={testimonial.author.name}
             height={32}
             width={98}
             unoptimized

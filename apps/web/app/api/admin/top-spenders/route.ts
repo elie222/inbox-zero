@@ -22,6 +22,12 @@ async function getData() {
   });
 
   const userIds = [...new Set(emailAccounts.map((account) => account.userId))];
+  const allUserEmailAccounts = userIds.length
+    ? await prisma.emailAccount.findMany({
+        where: { userId: { in: userIds } },
+        select: { id: true, email: true, userId: true },
+      })
+    : [];
   const usersWithApiKey = userIds.length
     ? await prisma.user.findMany({
         where: {
@@ -35,6 +41,15 @@ async function getData() {
   const emailAccountByEmail = new Map(
     emailAccounts.map((account) => [account.email, account]),
   );
+  const emailAccountsByUserId = new Map<
+    string,
+    Array<{ id: string; email: string }>
+  >();
+  for (const account of allUserEmailAccounts) {
+    const existingAccounts = emailAccountsByUserId.get(account.userId) ?? [];
+    existingAccounts.push({ id: account.id, email: account.email });
+    emailAccountsByUserId.set(account.userId, existingAccounts);
+  }
   const userIdsWithApiKey = new Set(usersWithApiKey.map((user) => user.id));
 
   const nanoWeeklySpendLimitUsd = env.AI_NANO_WEEKLY_SPEND_LIMIT_USD ?? null;
@@ -52,6 +67,9 @@ async function getData() {
       return {
         ...spender,
         emailAccountId: emailAccount?.id ?? null,
+        userEmailAccountCount: emailAccount
+          ? (emailAccountsByUserId.get(emailAccount.userId)?.length ?? 0)
+          : 0,
         nanoLimitedBySpendGuard:
           nanoLimiterEnabled &&
           nanoWeeklySpendLimitUsd !== null &&

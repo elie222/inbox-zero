@@ -2,10 +2,7 @@ import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
 import { getModel } from "@/utils/llms/model";
-
-const logger = createScopedLogger("email-report-response-patterns");
 
 const responsePatternsSchema = z.object({
   commonResponses: z.array(
@@ -94,6 +91,7 @@ Only suggest categories that are meaningful and provide clear organizational val
     emailAccount,
     label: "email-report-response-patterns",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "none" },
   });
 
   const result = await generateObject({

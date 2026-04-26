@@ -1,6 +1,6 @@
 "use client";
 
-import { SlackIcon, XIcon } from "lucide-react";
+import { MessagesSquareIcon, XIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/useUser";
@@ -43,7 +43,7 @@ export function MessagingChannelHint() {
 
   return (
     <div className="mb-2 flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3 text-sm">
-      <SlackIcon className="size-4 flex-shrink-0" />
+      <MessagesSquareIcon className="size-4 flex-shrink-0" />
       <span className="flex-1 text-muted-foreground">
         You can also chat with your assistant on Slack.
       </span>

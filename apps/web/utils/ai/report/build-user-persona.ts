@@ -70,6 +70,7 @@ Analyze the data and identify:
     emailAccount,
     label: "email-report-user-persona",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "none" },
   });
 
   const result = await generateObject({

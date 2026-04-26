@@ -31,12 +31,13 @@ import { useThreads } from "@/hooks/useThreads";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { onAutoArchive } from "@/utils/actions/client";
 import { COLORS } from "@/utils/colors";
+import { getUserFacingUnsubscribeLink } from "@/utils/parse/unsubscribe";
 
 export function NewsletterModal(props: {
   newsletter?: Pick<Row, "name" | "unsubscribeLink" | "autoArchived">;
   onClose: (isOpen: boolean) => void;
   refreshInterval?: number;
-  mutate: () => Promise<any>;
+  mutate: () => Promise<unknown>;
 }) {
   const { newsletter, refreshInterval, onClose, mutate } = props;
 
@@ -45,6 +46,11 @@ export function NewsletterModal(props: {
   const { userLabels } = useLabels();
 
   const posthog = usePostHog();
+  const unsubscribeLink = newsletter
+    ? getUserFacingUnsubscribeLink({
+        unsubscribeLink: newsletter.unsubscribeLink,
+      })
+    : undefined;
 
   return (
     <Dialog open={!!newsletter} onOpenChange={onClose}>
@@ -58,9 +64,9 @@ export function NewsletterModal(props: {
             <div className="flex space-x-2">
               <Button size="sm" variant="outline">
                 <a
-                  href={newsletter.unsubscribeLink || undefined}
-                  target="_blank"
-                  rel="noreferrer"
+                  href={unsubscribeLink || undefined}
+                  target={unsubscribeLink ? "_blank" : undefined}
+                  rel="noopener noreferrer"
                 >
                   Unsubscribe
                 </a>
@@ -133,11 +139,24 @@ function useSenderEmails(props: {
   const { data, isLoading, error } = useSWR<
     SenderEmailsResponse,
     { error: string }
-  >(`/api/user/stats/sender-emails/?${new URLSearchParams(params as any)}`, {
+  >(`/api/user/stats/sender-emails/?${toSearchParams(params)}`, {
     refreshInterval: props.refreshInterval,
   });
 
   return { data, isLoading, error };
+}
+
+function toSearchParams(
+  params: Record<string, string | number | undefined | null>,
+) {
+  const searchParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue;
+    searchParams.set(key, String(value));
+  }
+
+  return searchParams.toString();
 }
 
 function EmailsChart(props: {

@@ -11,6 +11,9 @@ type Context = {
   userEmail: string;
   isLoading: boolean;
   provider: string;
+  providerRateLimit:
+    | GetEmailAccountsResponse["emailAccounts"][number]["providerRateLimit"]
+    | null;
 };
 
 const EmailAccountContext = createContext<Context | undefined>(undefined);
@@ -75,6 +78,7 @@ export function EmailAccountProvider({
         emailAccountId: resolvedEmailAccountId,
         userEmail: emailAccount?.email ?? "",
         provider: emailAccount?.account?.provider ?? "",
+        providerRateLimit: emailAccount?.providerRateLimit ?? null,
       }}
     >
       {children}

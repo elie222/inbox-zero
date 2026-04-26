@@ -1,11 +1,24 @@
-import { describe, it, expect } from "vitest";
-import { APICallError } from "ai";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { APICallError, NoObjectGeneratedError } from "ai";
 import { createScopedLogger } from "@/utils/logger";
+const { mockSentryCaptureException, mockSetUser } = vi.hoisted(() => ({
+  mockSentryCaptureException: vi.fn(),
+  mockSetUser: vi.fn(),
+}));
+
+vi.mock("@sentry/nextjs", () => ({
+  captureException: mockSentryCaptureException,
+  setUser: mockSetUser,
+}));
+
 import {
+  attachLlmRepairMetadata,
+  captureException,
   checkCommonErrors,
   getActionErrorMessage,
   getUserFacingErrorMessage,
   isInsufficientCreditsError,
+  isContentFilterRefusal,
   isHandledUserKeyError,
   isKnownApiError,
   isKnownOutlookError,
@@ -67,6 +80,87 @@ describe("getUserFacingErrorMessage", () => {
   });
 });
 
+describe("captureException", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("forwards attached LLM repair metadata to Sentry extra context", () => {
+    const error = new Error("generation failed");
+    attachLlmRepairMetadata(error, {
+      attempted: true,
+      successful: false,
+      label: "Categorize sender",
+      provider: "openai",
+      model: "gpt-test",
+      inputLength: 12,
+      inputFingerprint: "abc123",
+      startsWithQuote: true,
+      startsWithBrace: false,
+      startsWithBracket: false,
+      looksCodeFenced: false,
+      candidateKindsTried: ["trimmed", "original"],
+    });
+
+    captureException(error, {
+      userEmail: "user@example.com",
+      extra: { operation: "test" },
+    });
+
+    expect(mockSetUser).toHaveBeenCalledWith({ email: "user@example.com" });
+    expect(mockSentryCaptureException).toHaveBeenCalledWith(error, {
+      extra: {
+        operation: "test",
+        llmRepair: {
+          attempted: true,
+          successful: false,
+          label: "Categorize sender",
+          provider: "openai",
+          model: "gpt-test",
+          inputLength: 12,
+          inputFingerprint: "abc123",
+          startsWithQuote: true,
+          startsWithBrace: false,
+          startsWithBracket: false,
+          looksCodeFenced: false,
+          candidateKindsTried: ["trimmed", "original"],
+        },
+      },
+    });
+  });
+
+  it("ignores LLM repair metadata for non-extensible errors", () => {
+    const error = Object.preventExtensions(new Error("generation failed"));
+
+    expect(() =>
+      attachLlmRepairMetadata(error, {
+        attempted: true,
+        successful: false,
+        label: "Categorize sender",
+        provider: "openai",
+        model: "gpt-test",
+        inputLength: 12,
+        inputFingerprint: "abc123",
+        startsWithQuote: true,
+        startsWithBrace: false,
+        startsWithBracket: false,
+        looksCodeFenced: false,
+        candidateKindsTried: ["trimmed", "original"],
+      }),
+    ).not.toThrow();
+
+    captureException(error, {
+      extra: { operation: "test" },
+    });
+
+    expect(mockSentryCaptureException).toHaveBeenCalledWith(error, {
+      extra: {
+        operation: "test",
+      },
+    });
+  });
+});
+
 function createAPICallError({
   message,
   statusCode,
@@ -81,6 +175,22 @@ function createAPICallError({
     statusCode,
     responseHeaders: {},
     responseBody: "",
+  });
+}
+
+function createNoObjectGeneratedError({
+  finishReason,
+  text,
+}: {
+  finishReason: "content-filter" | "stop" | "length" | "tool-calls" | "other";
+  text: string;
+}): NoObjectGeneratedError {
+  return new NoObjectGeneratedError({
+    message: "No object generated: could not parse the response.",
+    text,
+    response: { id: "id", timestamp: new Date(), modelId: "test" },
+    usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+    finishReason,
   });
 }
 
@@ -447,6 +557,44 @@ describe("isKnownApiError", () => {
       provider: "google",
     });
     expect(isKnownApiError(error)).toBe(true);
+  });
+
+  it("treats LLM content-filter refusals as known errors", () => {
+    const error = createNoObjectGeneratedError({
+      finishReason: "content-filter",
+      text: "I'm sorry, but I cannot assist with that request.",
+    });
+    expect(isKnownApiError(error)).toBe(true);
+  });
+});
+
+describe("isContentFilterRefusal", () => {
+  it("returns true for NoObjectGeneratedError with content-filter finish reason", () => {
+    const error = createNoObjectGeneratedError({
+      finishReason: "content-filter",
+      text: "I'm sorry, but I cannot assist with that request.",
+    });
+    expect(isContentFilterRefusal(error)).toBe(true);
+  });
+
+  it("returns false for NoObjectGeneratedError with other finish reasons", () => {
+    const stopError = createNoObjectGeneratedError({
+      finishReason: "stop",
+      text: "not json",
+    });
+    expect(isContentFilterRefusal(stopError)).toBe(false);
+
+    const lengthError = createNoObjectGeneratedError({
+      finishReason: "length",
+      text: "truncated",
+    });
+    expect(isContentFilterRefusal(lengthError)).toBe(false);
+  });
+
+  it("returns false for unrelated errors", () => {
+    expect(isContentFilterRefusal(new Error("boom"))).toBe(false);
+    expect(isContentFilterRefusal(null)).toBe(false);
+    expect(isContentFilterRefusal(undefined)).toBe(false);
   });
 });
 

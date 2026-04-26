@@ -28,8 +28,11 @@ import {
 } from "@/components/ui/dialog";
 import { useApiKeys } from "@/hooks/useApiKeys";
 import { LoadingContent } from "@/components/LoadingContent";
+import { formatApiKeyScope } from "@/utils/api-key-scopes";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function ApiKeysSection() {
+  const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } = useApiKeys();
 
   const keyCount = data?.apiKeys.length ?? 0;
@@ -46,17 +49,23 @@ export function ApiKeysSection() {
               View keys{keyCount > 0 ? ` (${keyCount})` : ""}
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>API Keys</DialogTitle>
             </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Keys created here are limited to the current inbox account.
+            </p>
             <LoadingContent loading={isLoading} error={error}>
               {keyCount > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
+                      <TableHead>Permissions</TableHead>
                       <TableHead>Created</TableHead>
+                      <TableHead>Expires</TableHead>
+                      <TableHead>Last used</TableHead>
                       <TableHead />
                     </TableRow>
                   </TableHeader>
@@ -65,11 +74,25 @@ export function ApiKeysSection() {
                       <TableRow key={apiKey.id}>
                         <TableCell>{apiKey.name}</TableCell>
                         <TableCell>
-                          {apiKey.createdAt.toLocaleString()}
+                          {apiKey.scopes.map(formatApiKeyScope).join(", ")}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(apiKey.createdAt).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          {apiKey.expiresAt
+                            ? new Date(apiKey.expiresAt).toLocaleString()
+                            : "Never"}
+                        </TableCell>
+                        <TableCell>
+                          {apiKey.lastUsedAt
+                            ? new Date(apiKey.lastUsedAt).toLocaleString()
+                            : "Never"}
                         </TableCell>
                         <TableCell>
                           <ApiKeysDeactivateButton
                             id={apiKey.id}
+                            emailAccountId={emailAccountId}
                             mutate={mutate}
                           />
                         </TableCell>

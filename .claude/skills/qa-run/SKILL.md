@@ -13,11 +13,25 @@ Usage:
 - `/qa-run --list`
 - `/qa-run --all [--parallel] [--max-parallel=3]`
 - `/qa-run --only=flow-a,flow-b [--parallel] [--max-parallel=3]`
+- `/qa-run --group=api [--parallel]`
+- `/qa-run --all --base-url=http://localhost:3000`
+
+Base URL:
+- `--base-url=<url>` sets the Inbox Zero app URL (e.g. `http://localhost:3000`, `https://www.getinboxzero.com`, or any self-hosted URL).
+- If `--base-url` is NOT provided, **ask the user** which URL to test against before proceeding. Do not assume production or localhost.
+- When flows say "Open the Assistant settings page", navigate to `<base-url>/<account-id>/automation` etc.
+- Gmail/Outlook URLs (mail.google.com, outlook.live.com) are unaffected by this flag.
+
+Filtering:
+- By default (without `--all` or `--only`), only `priority: high` flows run. Low-priority flows are skipped.
+- `--all` includes all flows regardless of priority.
+- `--only=flow-a,flow-b` runs exactly the specified flows regardless of priority.
+- `--group=<name>` filters to flows matching that `group` front matter value. Combinable with priority filtering.
 
 Process:
 1. Read `qa/browser-flows/README.md` and the selected flow files.
-2. If `--list`, print each flow id + title + resources and stop.
-3. Determine run mode (`all` or `only`). Fail fast if any requested ids are missing.
+2. If `--list`, print each flow id + title + group + priority + resources and stop.
+3. Determine run mode (`all`, `only`, or default high-priority). Apply `--group` filter if present. Fail fast if any requested ids are missing.
 4. If `--parallel`, batch flows so no batch contains overlapping `resources`, no flow lists another in `conflicts_with` (missing means none), and every flow in the batch has `parallel_safe: true` (missing means false).
    If batching is not possible, run sequentially.
 5. Execute each flow exactly as written. Use deliberate waits when moving between Gmail, Outlook, and Inbox Zero.

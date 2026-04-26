@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
+import type { ParsedMessage } from "@/utils/types";
+import { formatEmailDate } from "@/utils/gmail/reply";
 
 vi.mock("server-only", () => ({}));
 
-import { convertTextToHtmlParagraphs } from "@/utils/gmail/mail";
+import {
+  buildReplyMessageText,
+  convertTextToHtmlParagraphs,
+} from "@/utils/gmail/mail";
 
 describe("convertTextToHtmlParagraphs", () => {
   it("preserves paragraph spacing with double newlines", () => {
@@ -46,5 +51,35 @@ describe("convertTextToHtmlParagraphs", () => {
     const input = "Just one line";
     const result = convertTextToHtmlParagraphs(input);
     expect(result).toBe("<html><body><p>Just one line</p></body></html>");
+  });
+
+  it("builds a plain-text alternative from rendered reply html", () => {
+    const message: Pick<ParsedMessage, "headers" | "textPlain" | "textHtml"> = {
+      headers: {
+        date: "Thu, 6 Feb 2025 23:23:47 +0200",
+        from: "John Doe <john@example.com>",
+        subject: "Test Email",
+        to: "jane@example.com",
+        "message-id": "<123@example.com>",
+      },
+      textPlain: "Original message content",
+      textHtml: "<div>Original message content</div>",
+    };
+
+    const plainText = buildReplyMessageText({
+      textContent:
+        'Use <a href="https://example.com/login">the login page</a>\n\n<p>Best regards,<br>John</p>',
+      message,
+    });
+
+    expect(plainText).toContain(
+      "Use the login page [https://example.com/login]",
+    );
+    expect(plainText).toContain("Best regards,\nJohn");
+    const quotedHeader = `\n\nOn ${formatEmailDate(new Date(message.headers.date))}, John Doe <john@example.com> wrote:\n\n`;
+    expect(plainText).toContain(quotedHeader);
+    expect(plainText).toContain("John Doe <john@example.com> wrote:");
+    expect(plainText).toContain("> Original message content");
+    expect(plainText).not.toContain("<a href=");
   });
 });

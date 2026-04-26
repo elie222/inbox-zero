@@ -1,5 +1,6 @@
 {
   "recommendations": [
+    "biomejs.biome",
     "bradlc.vscode-tailwindcss",
     "austenc.tailwind-docs",
     "prisma.prisma",

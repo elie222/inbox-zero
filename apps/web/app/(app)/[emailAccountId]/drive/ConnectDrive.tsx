@@ -153,10 +153,6 @@ export function ConnectDrive() {
                 <p className="text-xs text-muted-foreground">
                   Use your existing folders
                 </p>
-                <p className="mt-1 text-xs text-amber-600">
-                  Google will show a warning — we&apos;re working on
-                  verification
-                </p>
               </div>
               <Button
                 size="sm"

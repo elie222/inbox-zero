@@ -10,20 +10,54 @@ import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
+import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
+import {
+  isWebhookActionEnabled,
+  WEBHOOK_ACTION_DISABLED_MESSAGE,
+} from "@/utils/webhook-action";
+import {
+  AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
+  INVALID_STATIC_FROM_MESSAGE,
+  isInvalidStaticFromValue,
+  STATIC_FROM_CONDITION_DESCRIPTION,
+} from "@/utils/ai/rule/rule-condition-descriptions";
 
 export const delayInMinutesSchema = z
   .number()
   .min(1, "Minimum supported delay is 1 minute")
   .max(NINETY_DAYS_MINUTES, "Maximum supported delay is 90 days")
-  .nullish();
+  .nullish()
+  .describe(
+    "Minutes to wait before executing this action. Only add when the user asks for a delay.",
+  );
+
+// LLM-safe version: no .min()/.max() (Anthropic structured output rejects them).
+// Constraints are conveyed via .describe() instead.
+export const delayInMinutesLlmSchema = z
+  .number()
+  .nullish()
+  .describe(
+    `Minutes to wait before executing this action (minimum 1, maximum ${NINETY_DAYS_MINUTES}). Only add when the user asks for a delay.`,
+  );
 
 export const updateRuleConditionSchema = z.object({
   ruleName: z.string().describe("The name of the rule to update"),
   condition: z.object({
-    aiInstructions: z.string().optional(),
+    aiInstructions: z
+      .string()
+      .nullish()
+      .transform((v) => (v?.trim() ? v : null))
+      .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION),
     static: z
       .object({
-        from: z.string().nullish(),
+        from: z
+          .string()
+          .nullish()
+          .transform((v) => (v?.trim() ? v : null))
+          .refine((value) => !isInvalidStaticFromValue(value), {
+            message: INVALID_STATIC_FROM_MESSAGE,
+          })
+          .describe(STATIC_FROM_CONDITION_DESCRIPTION),
         to: z.string().nullish(),
         subject: z.string().nullish(),
       })
@@ -37,9 +71,11 @@ export const updateRuleConditionSchema = z.object({
 const zodActionType = z.enum([
   ActionType.ARCHIVE,
   ActionType.DRAFT_EMAIL,
+  ActionType.DRAFT_MESSAGING_CHANNEL,
   ActionType.FORWARD,
   ActionType.LABEL,
   ActionType.MARK_SPAM,
+  ActionType.NOTIFY_MESSAGING_CHANNEL,
   ActionType.REPLY,
   ActionType.SEND_EMAIL,
   ActionType.CALL_WEBHOOK,
@@ -97,6 +133,7 @@ const zodAction = z
   .object({
     id: z.string().optional(),
     type: zodActionType,
+    messagingChannelId: z.string().cuid().nullish(),
     labelId: zodField,
     subject: zodField,
     content: zodField,
@@ -107,8 +144,18 @@ const zodAction = z
     folderName: zodField,
     folderId: zodField,
     delayInMinutes: delayInMinutesSchema,
+    staticAttachments: z.array(attachmentSourceInputSchema).optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.type === ActionType.CALL_WEBHOOK && !isWebhookActionEnabled()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: WEBHOOK_ACTION_DISABLED_MESSAGE,
+        path: ["type"],
+      });
+      return;
+    }
+
     if (data.type === ActionType.LABEL) {
       const labelValue =
         data.labelId?.value?.trim() || data.labelId?.name?.trim();
@@ -147,6 +194,28 @@ const zodAction = z
         code: z.ZodIssueCode.custom,
         message: "Please enter a webhook URL",
         path: ["url"],
+      });
+    }
+
+    if (
+      data.type === ActionType.DRAFT_MESSAGING_CHANNEL &&
+      !data.messagingChannelId
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please choose a chat destination",
+        path: ["messagingChannelId"],
+      });
+    }
+
+    if (
+      data.type === ActionType.NOTIFY_MESSAGING_CHANNEL &&
+      !data.messagingChannelId
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please choose a chat destination",
+        path: ["messagingChannelId"],
       });
     }
     if (
@@ -231,9 +300,6 @@ export const updateRuleBody = createRuleBody.extend({ id: z.string() });
 export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
 
 export const deleteRuleBody = z.object({ id: z.string() });
-
-export const saveRulesPromptBody = z.object({ rulesPrompt: z.string().trim() });
-export type SaveRulesPromptBody = z.infer<typeof saveRulesPromptBody>;
 
 export const createRulesBody = z.object({ prompt: z.string().trim() });
 export type CreateRulesBody = z.infer<typeof createRulesBody>;
@@ -324,6 +390,15 @@ const importedAction = z
     delayInMinutes: delayInMinutesSchema,
   })
   .superRefine((data, ctx) => {
+    if (data.type === ActionType.CALL_WEBHOOK && !isWebhookActionEnabled()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: WEBHOOK_ACTION_DISABLED_MESSAGE,
+        path: ["type"],
+      });
+      return;
+    }
+
     if (data.type === ActionType.LABEL) {
       const labelValue = data.label?.trim();
 

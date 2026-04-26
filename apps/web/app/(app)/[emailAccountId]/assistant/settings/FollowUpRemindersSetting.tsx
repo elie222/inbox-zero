@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { SettingCard } from "@/components/SettingCard";
+import { MutedText } from "@/components/Typography";
+import { prefixPath } from "@/utils/path";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +39,7 @@ import { getEmailTerminology } from "@/utils/terminology";
 import { getGmailBasicSearchUrl } from "@/utils/url";
 import { FOLLOW_UP_LABEL } from "@/utils/label";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { env } from "@/env";
 
 export function FollowUpRemindersSetting() {
   const isFeatureEnabled = useFollowUpRemindersEnabled();
@@ -96,14 +100,8 @@ function FollowUpRemindersSettingContent() {
                     Configure
                   </Button>
                 </DialogTrigger>
-                <FollowUpSettingsDialog
-                  emailAccountId={data?.id ?? ""}
-                  emailAddress={data?.email ?? ""}
-                  followUpAwaitingReplyDays={data?.followUpAwaitingReplyDays}
-                  followUpNeedsReplyDays={data?.followUpNeedsReplyDays}
-                  followUpAutoDraftEnabled={
-                    data?.followUpAutoDraftEnabled ?? true
-                  }
+                <FollowUpSettingsDialogContent
+                  showChannelsHint
                   onSuccess={() => {
                     mutate();
                     setOpen(false);
@@ -124,12 +122,37 @@ function FollowUpRemindersSettingContent() {
   );
 }
 
+export function FollowUpSettingsDialogContent({
+  onSuccess,
+  showChannelsHint = true,
+}: {
+  onSuccess: () => void;
+  showChannelsHint?: boolean;
+}) {
+  const { data } = useEmailAccountFull();
+
+  if (!data) return null;
+
+  return (
+    <FollowUpSettingsDialog
+      emailAccountId={data.id}
+      emailAddress={data.email ?? ""}
+      followUpAwaitingReplyDays={data.followUpAwaitingReplyDays}
+      followUpNeedsReplyDays={data.followUpNeedsReplyDays}
+      followUpAutoDraftEnabled={data.followUpAutoDraftEnabled ?? true}
+      showChannelsHint={showChannelsHint}
+      onSuccess={onSuccess}
+    />
+  );
+}
+
 function FollowUpSettingsDialog({
   emailAccountId,
   emailAddress,
   followUpAwaitingReplyDays,
   followUpNeedsReplyDays,
   followUpAutoDraftEnabled,
+  showChannelsHint,
   onSuccess,
 }: {
   emailAccountId: string;
@@ -137,10 +160,12 @@ function FollowUpSettingsDialog({
   followUpAwaitingReplyDays: number | null | undefined;
   followUpNeedsReplyDays: number | null | undefined;
   followUpAutoDraftEnabled: boolean;
+  showChannelsHint: boolean;
   onSuccess: () => void;
 }) {
   const { provider } = useAccount();
   const terminology = getEmailTerminology(provider);
+  const autoDraftDisabled = env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED;
 
   const {
     register,
@@ -152,7 +177,9 @@ function FollowUpSettingsDialog({
     defaultValues: {
       followUpAwaitingReplyDays: followUpAwaitingReplyDays?.toString() ?? "",
       followUpNeedsReplyDays: followUpNeedsReplyDays?.toString() ?? "",
-      followUpAutoDraftEnabled,
+      followUpAutoDraftEnabled: autoDraftDisabled
+        ? false
+        : followUpAutoDraftEnabled,
     },
   });
 
@@ -203,7 +230,9 @@ function FollowUpSettingsDialog({
       followUpNeedsReplyDays: formData.followUpNeedsReplyDays
         ? Number(formData.followUpNeedsReplyDays)
         : null,
-      followUpAutoDraftEnabled: formData.followUpAutoDraftEnabled,
+      followUpAutoDraftEnabled: autoDraftDisabled
+        ? false
+        : formData.followUpAutoDraftEnabled,
     });
   };
 
@@ -244,24 +273,26 @@ function FollowUpSettingsDialog({
           rightText="days"
         />
 
-        <div className="flex items-center justify-between">
-          <div>
-            <label
-              htmlFor="followUpAutoDraftEnabled"
-              className="block text-sm font-medium text-foreground"
-            >
-              Auto-generate drafts
-            </label>
-            <p className="text-muted-foreground text-sm">
-              Draft a nudge when you haven't heard back.
-            </p>
+        {!autoDraftDisabled && (
+          <div className="flex items-center justify-between">
+            <div>
+              <label
+                htmlFor="followUpAutoDraftEnabled"
+                className="block text-sm font-medium text-foreground"
+              >
+                Auto-generate drafts
+              </label>
+              <p className="text-muted-foreground text-sm">
+                Draft a nudge when you haven't heard back.
+              </p>
+            </div>
+            <Toggle
+              name="followUpAutoDraftEnabled"
+              enabled={autoDraftValue}
+              onChange={(value) => setValue("followUpAutoDraftEnabled", value)}
+            />
           </div>
-          <Toggle
-            name="followUpAutoDraftEnabled"
-            enabled={autoDraftValue}
-            onChange={(value) => setValue("followUpAutoDraftEnabled", value)}
-          />
-        </div>
+        )}
 
         <div className="flex items-center gap-2">
           <Button type="submit" size="sm" loading={isExecuting}>
@@ -284,6 +315,19 @@ function FollowUpSettingsDialog({
             Find follow-ups
           </Button>
         </div>
+
+        {showChannelsHint && (
+          <MutedText>
+            Want pings in your chat app?{" "}
+            <Link
+              href={prefixPath(emailAccountId, "/channels")}
+              className="text-foreground underline"
+            >
+              Configure on the Channels page
+            </Link>
+            .
+          </MutedText>
+        )}
       </form>
     </DialogContent>
   );

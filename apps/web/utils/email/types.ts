@@ -2,7 +2,7 @@ import type { ParsedMessage } from "@/utils/types";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
 import type { OutlookFolder } from "@/utils/outlook/folders";
-import type { Logger } from "@/utils/logger";
+import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 
 export interface EmailThread {
   historyId?: string;
@@ -94,13 +94,20 @@ export interface EmailProvider {
       content: string;
       cc?: string;
       bcc?: string;
+      attachments?: MailAttachment[];
     },
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
   ): Promise<{ draftId: string }>;
   forwardEmail(
     email: ParsedMessage,
-    args: { to: string; cc?: string; bcc?: string; content?: string },
+    args: {
+      to: string;
+      cc?: string;
+      bcc?: string;
+      content?: string;
+      from?: string;
+    },
   ): Promise<void>;
   getAccessToken(): string;
   getAttachment(
@@ -115,7 +122,7 @@ export interface EmailProvider {
   getInboxStats(): Promise<{ total: number; unread: number }>;
   getLabelById(labelId: string): Promise<EmailLabel | null>;
   getLabelByName(name: string): Promise<EmailLabel | null>;
-  getLabels(): Promise<EmailLabel[]>;
+  getLabels(options?: { includeHidden?: boolean }): Promise<EmailLabel[]>;
   getLatestMessageFromThreadSnapshot(
     thread: Pick<EmailThread, "id" | "messages">,
   ): Promise<ParsedMessage | null>;
@@ -219,23 +226,16 @@ export interface EmailProvider {
     folderName: string,
   ): Promise<void>;
   readonly name: "google" | "microsoft";
-  processHistory(options: {
-    emailAddress: string;
-    historyId?: number;
-    startHistoryId?: number;
-    subscriptionId?: string;
-    resourceData?: {
-      id: string;
-      conversationId?: string;
-    };
-    logger?: Logger;
-  }): Promise<void>;
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   removeThreadLabels(threadId: string, labelIds: string[]): Promise<void>;
   replyToEmail(
     email: ParsedMessage,
     content: string,
-    options?: { replyTo?: string; from?: string },
+    options?: {
+      replyTo?: string;
+      from?: string;
+      attachments?: MailAttachment[];
+    },
   ): Promise<void>;
   searchMessages(options: {
     query: string;
@@ -252,6 +252,7 @@ export interface EmailProvider {
     bcc?: string;
     subject: string;
     messageText: string;
+    attachments?: MailAttachment[];
   }): Promise<void>;
   sendEmailWithHtml(body: {
     replyToEmail?: {

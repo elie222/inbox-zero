@@ -3,6 +3,7 @@ import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import { MICROSOFT_DRIVE_SCOPES } from "@/utils/drive/scopes";
+import { requestMicrosoftToken } from "@/utils/microsoft/oauth";
 import {
   saveDriveTokens,
   markDriveConnectionAsDisconnected,
@@ -24,22 +25,13 @@ export async function refreshMicrosoftDriveToken(
     throw new Error("Microsoft login not enabled - missing credentials");
   }
 
-  const response = await fetch(
-    `https://login.microsoftonline.com/${env.MICROSOFT_TENANT_ID}/oauth2/v2.0/token`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        client_id: env.MICROSOFT_CLIENT_ID,
-        client_secret: env.MICROSOFT_CLIENT_SECRET,
-        refresh_token: refreshToken,
-        grant_type: "refresh_token",
-        scope: MICROSOFT_DRIVE_SCOPES.join(" "),
-      }),
-    },
-  );
+  const response = await requestMicrosoftToken({
+    client_id: env.MICROSOFT_CLIENT_ID,
+    client_secret: env.MICROSOFT_CLIENT_SECRET,
+    refresh_token: refreshToken,
+    grant_type: "refresh_token",
+    scope: MICROSOFT_DRIVE_SCOPES.join(" "),
+  });
 
   const tokens = await response.json();
 

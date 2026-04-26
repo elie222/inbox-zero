@@ -1,5 +1,7 @@
 function getGmailBaseUrl(emailAddress?: string | null) {
-  return `https://mail.google.com/mail/u/${emailAddress || 0}`;
+  const base = "https://mail.google.com/mail/u/0";
+  if (!emailAddress) return base;
+  return `${base}/?authuser=${encodeURIComponent(emailAddress)}`;
 }
 
 function getOutlookBaseUrl() {
@@ -9,6 +11,7 @@ function getOutlookBaseUrl() {
 const PROVIDER_CONFIG: Record<
   string,
   {
+    requiresMessageId: boolean;
     buildUrl: (
       messageOrThreadId: string,
       emailAddress?: string | null,
@@ -18,19 +21,21 @@ const PROVIDER_CONFIG: Record<
   }
 > = {
   microsoft: {
+    requiresMessageId: true,
     buildUrl: (messageOrThreadId: string, _emailAddress?: string | null) => {
       // Outlook URL format: https://outlook.live.com/mail/0/inbox/id/ENCODED_MESSAGE_ID
       // The message ID needs to be URL-encoded for Outlook
       const encodedMessageId = encodeURIComponent(messageOrThreadId);
       return `${getOutlookBaseUrl()}/inbox/id/${encodedMessageId}`;
     },
-    selectId: (_messageId: string, threadId: string) => threadId,
+    selectId: (messageId: string, _threadId: string) => messageId,
     buildSearchUrl: (from: string, _emailAddress?: string | null) => {
       const query = encodeURIComponent(`from:${from}`);
       return `${getOutlookBaseUrl()}/search/q/${query}`;
     },
   },
   google: {
+    requiresMessageId: false,
     buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
       `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`,
     selectId: (messageId: string, _threadId: string) => messageId,
@@ -40,6 +45,7 @@ const PROVIDER_CONFIG: Record<
       )}/#advanced-search/from=${encodeURIComponent(from)}`,
   },
   default: {
+    requiresMessageId: false,
     buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
       `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`,
     selectId: (_messageId: string, threadId: string) => threadId,
@@ -81,6 +87,32 @@ export function getEmailUrlForMessage(
   const idToUse = config?.selectId(messageId, threadId);
 
   return getEmailUrl(idToUse, emailAddress, provider);
+}
+
+export function getEmailUrlForOptionalMessage({
+  messageId,
+  threadId,
+  emailAddress,
+  provider,
+}: {
+  messageId?: string | null;
+  threadId?: string | null;
+  emailAddress?: string | null;
+  provider?: string;
+}) {
+  const config = getProviderConfig(provider);
+  if (config.requiresMessageId && !messageId) return null;
+
+  const resolvedMessageId = messageId || threadId;
+  const resolvedThreadId = threadId || messageId;
+  if (!resolvedMessageId || !resolvedThreadId) return null;
+
+  return getEmailUrlForMessage(
+    resolvedMessageId,
+    resolvedThreadId,
+    emailAddress,
+    provider,
+  );
 }
 
 // Keep the old function name for backward compatibility

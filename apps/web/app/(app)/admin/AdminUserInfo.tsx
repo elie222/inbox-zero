@@ -79,6 +79,18 @@ export function AdminUserInfo() {
               value={data.premium?.tier || "None"}
             />
             <InfoRow
+              label="Admin Grant Tier"
+              value={data.premium?.adminGrantTier || "None"}
+            />
+            <InfoRow
+              label="Admin Grant Expires"
+              value={
+                data.premium?.adminGrantExpiresAt
+                  ? formatDate(data.premium.adminGrantExpiresAt)
+                  : "N/A"
+              }
+            />
+            <InfoRow
               label="Subscription Status"
               value={data.premium?.subscriptionStatus || "N/A"}
             />

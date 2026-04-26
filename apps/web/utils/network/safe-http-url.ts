@@ -1,3 +1,9 @@
+import { lookup } from "node:dns/promises";
+import type {
+  LookupAddress,
+  LookupAllOptions,
+  LookupOneOptions,
+} from "node:dns";
 import { isIP } from "node:net";
 
 const BLOCKED_HOSTNAMES = new Set([
@@ -6,6 +12,24 @@ const BLOCKED_HOSTNAMES = new Set([
   "ip6-localhost",
   "ip6-loopback",
 ]);
+
+type ResolvedAddress = {
+  address: string;
+  family: 4 | 6;
+};
+
+export type ResolvedSafeExternalHttpUrl = {
+  lookup: (
+    hostname: string,
+    options: number | LookupOneOptions | LookupAllOptions | undefined,
+    callback: (
+      error: NodeJS.ErrnoException | null,
+      address: string | LookupAddress[],
+      family?: number,
+    ) => void,
+  ) => void;
+  url: URL;
+};
 
 export function isSafeExternalHttpUrl(url: string) {
   try {
@@ -28,6 +52,34 @@ export function isSafeExternalHttpUrl(url: string) {
   } catch {
     return false;
   }
+}
+
+export async function resolveSafeExternalHttpUrl(
+  url: string,
+): Promise<ResolvedSafeExternalHttpUrl | null> {
+  if (!isSafeExternalHttpUrl(url)) return null;
+
+  const parsed = new URL(url);
+  const hostname = normalizeHostname(parsed.hostname);
+  const ipAddress = stripIpv6Brackets(hostname);
+  const ipVersion = isIP(ipAddress);
+
+  if (ipVersion === 4 || ipVersion === 6) {
+    return {
+      url: parsed,
+      lookup: createPinnedLookup([
+        { address: ipAddress, family: ipVersion as 4 | 6 },
+      ]),
+    };
+  }
+
+  const resolvedAddresses = await resolvePublicAddresses(hostname);
+  if (!resolvedAddresses) return null;
+
+  return {
+    url: parsed,
+    lookup: createPinnedLookup(resolvedAddresses),
+  };
 }
 
 function isPrivateIpv4(hostname: string) {
@@ -105,4 +157,86 @@ function getMappedIpv4Address(ipv6Address: string) {
   const low = Number.parseInt(lowHex, 16);
 
   return `${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`;
+}
+
+async function resolvePublicAddresses(
+  hostname: string,
+): Promise<ResolvedAddress[] | null> {
+  const results = await lookup(hostname, {
+    all: true,
+    verbatim: true,
+  });
+
+  if (!results.length) {
+    throw Object.assign(new Error("DNS lookup returned no results"), {
+      code: "ENOTFOUND",
+    });
+  }
+
+  const addresses = results.map((result) => ({
+    address: stripIpv6Brackets(result.address),
+    family: result.family as 4 | 6,
+  }));
+
+  if (addresses.some((result) => isResolvedAddressPrivate(result.address))) {
+    return null;
+  }
+
+  return addresses;
+}
+
+function isResolvedAddressPrivate(address: string) {
+  const ipVersion = isIP(address);
+  if (ipVersion === 4) return isPrivateIpv4(address);
+  if (ipVersion === 6) return isPrivateIpv6(address);
+  return true;
+}
+
+function createPinnedLookup(addresses: ResolvedAddress[]) {
+  let nextIndex = 0;
+
+  return (
+    _hostname: string,
+    options: number | LookupOneOptions | LookupAllOptions | undefined,
+    callback: (
+      error: NodeJS.ErrnoException | null,
+      address: string | LookupAddress[],
+      family?: number,
+    ) => void,
+  ) => {
+    const normalizedOptions =
+      typeof options === "number" ? { family: options } : options || {};
+    const requestedFamily = normalizedOptions.family;
+
+    const matchingAddresses =
+      requestedFamily === 4 || requestedFamily === 6
+        ? addresses.filter((result) => result.family === requestedFamily)
+        : addresses;
+
+    if (!matchingAddresses.length) {
+      callback(
+        Object.assign(new Error("No safe address available"), {
+          code: "ENOTFOUND",
+        }),
+        "",
+      );
+      return;
+    }
+
+    if ("all" in normalizedOptions && normalizedOptions.all) {
+      callback(
+        null,
+        matchingAddresses.map((result) => ({
+          address: result.address,
+          family: result.family,
+        })),
+      );
+      return;
+    }
+
+    const selected = matchingAddresses[nextIndex % matchingAddresses.length];
+    nextIndex += 1;
+
+    callback(null, selected.address, selected.family);
+  };
 }

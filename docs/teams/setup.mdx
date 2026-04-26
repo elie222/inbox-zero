@@ -158,3 +158,15 @@ Quick checks:
 3. A normal DM message gets an assistant response
 
 If linking fails, generate a new code — codes are one-time and expire after 10 minutes.
+
+<Tip>
+
+You can also set up most of this integration with the Azure CLI (`az`) instead of clicking through the Azure portal. If you already have `az` installed and are logged in, an agentic coding tool like Claude Code or Codex can usually create the Entra app registration, client secret, resource group, Azure Bot resource, messaging endpoint, and Teams channel for you. You will still need to complete the browser-authenticated steps yourself, such as accepting Teams channel terms if prompted and uploading/installing the Teams app package.
+
+Example prompt:
+
+```text
+Use Azure CLI to set up the Microsoft Teams integration for Inbox Zero. Create a single-tenant Entra app registration with a client secret, create an Azure Bot resource on the F0 tier, point it at https://<your-domain>/api/teams/events, enable the Teams channel, and then tell me exactly which environment variables and manual Azure/Teams UI steps are left for me to complete.
+```
+
+</Tip>

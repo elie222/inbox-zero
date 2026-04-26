@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handleAccountLinking } from "./account-linking";
 import prisma from "@/utils/__mocks__/prisma";
-import { getMockEmailAccountSelect } from "@/__tests__/helpers";
-import { createScopedLogger } from "@/utils/logger";
+import {
+  getMockEmailAccountSelect,
+  createTestLogger,
+} from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("@/env", () => ({
   env: {
@@ -17,6 +19,7 @@ vi.mock("@/utils/user/orphaned-account");
 describe("handleAccountLinking", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.user.findUnique.mockResolvedValue({ id: "target-user-id" } as any);
   });
 
   it("should cleanup orphaned account and continue create", async () => {
@@ -116,5 +119,27 @@ describe("handleAccountLinking", () => {
         "account_already_exists_use_merge",
       );
     }
+  });
+
+  it("redirects to logout when the linking session user no longer exists", async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+
+    const result = await handleAccountLinking({
+      existingAccountId: null,
+      hasEmailAccount: false,
+      existingUserId: null,
+      targetUserId: "deleted-user-id",
+      provider: "google",
+      providerEmail: "new@gmail.com",
+      logger,
+    });
+
+    expect(result.type).toBe("redirect");
+    if (result.type === "redirect") {
+      expect(result.response.headers.get("location")).toBe(
+        "http://localhost:3000/logout",
+      );
+    }
+    expect(prisma.emailAccount.findUnique).not.toHaveBeenCalled();
   });
 });

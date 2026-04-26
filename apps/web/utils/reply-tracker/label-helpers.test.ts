@@ -1,10 +1,10 @@
-import { describe, expect, test, vi, beforeEach } from "vitest";
+import { describe, expect, test, vi, beforeEach, afterEach } from "vitest";
 import { applyThreadStatusLabel } from "./label-helpers";
 import type { EmailProvider } from "@/utils/email/types";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -14,20 +14,28 @@ describe("applyThreadStatusLabel", () => {
   const emailAccountId = "test-account-id";
   const threadId = "test-thread-id";
   const messageId = "test-message-id";
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     // Mock email provider methods
     mockProvider = {
       removeThreadLabels: vi.fn().mockResolvedValue(undefined),
-      labelMessage: vi.fn().mockResolvedValue(undefined),
+      labelMessage: vi.fn().mockResolvedValue({}),
       getLabels: vi.fn().mockResolvedValue([
         { id: "label-to-reply", name: "To Reply", type: "user" },
         { id: "label-awaiting-reply", name: "Awaiting Reply", type: "user" },
         { id: "label-fyi", name: "FYI", type: "user" },
         { id: "label-actioned", name: "Actioned", type: "user" },
       ]),
+      getLabelById: vi.fn().mockResolvedValue(null),
+      getLabelByName: vi.fn().mockResolvedValue(null),
       createLabel: vi.fn().mockImplementation(async (name: string) => ({
         id: `label-${name.toLowerCase().replace(/ /g, "-")}`,
         name,
@@ -60,6 +68,12 @@ describe("applyThreadStatusLabel", () => {
         actions: [{ id: "action-4", type: "LABEL", labelId: "label-actioned" }],
       },
     ] as any);
+  });
+
+  afterEach(() => {
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 
   test("removes other labels from thread and adds target label to message for TO_REPLY", async () => {
@@ -166,12 +180,11 @@ describe("applyThreadStatusLabel", () => {
     });
   });
 
-  test("handles errors gracefully", async () => {
+  test("does not log success when removing conflicting labels fails", async () => {
     vi.mocked(mockProvider.removeThreadLabels).mockRejectedValueOnce(
       new Error("Failed to remove labels"),
     );
 
-    // Should not throw
     await expect(
       applyThreadStatusLabel({
         emailAccountId,
@@ -181,7 +194,41 @@ describe("applyThreadStatusLabel", () => {
         provider: mockProvider,
         logger,
       }),
-    ).resolves.not.toThrow();
+    ).resolves.toBeUndefined();
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to remove conflicting thread labels"),
+    );
+    expect(logSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("Removed conflicting thread status labels"),
+    );
+    expect(logSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("Thread status label applied successfully"),
+    );
+  });
+
+  test("does not log success when adding the target label fails", async () => {
+    vi.mocked(mockProvider.labelMessage).mockRejectedValueOnce(
+      new Error("Failed to add label"),
+    );
+
+    await expect(
+      applyThreadStatusLabel({
+        emailAccountId,
+        threadId,
+        messageId,
+        systemType: "TO_REPLY",
+        provider: mockProvider,
+        logger,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to apply thread status label"),
+    );
+    expect(logSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("Thread status label applied successfully"),
+    );
   });
 
   test("uses provider label when label ID not in database", async () => {
@@ -223,6 +270,62 @@ describe("applyThreadStatusLabel", () => {
         "label-awaiting-reply",
         "label-fyi", // From provider labels, not DB
         "label-actioned",
+      ]),
+    );
+  });
+
+  test("uses hidden provider label when visible labels omit the DB label ID", async () => {
+    vi.mocked(prisma.rule.findMany).mockResolvedValue([
+      {
+        id: "rule-1",
+        systemType: "TO_REPLY",
+        actions: [{ id: "action-1", type: "LABEL", labelId: "label-to-reply" }],
+      },
+      {
+        id: "rule-2",
+        systemType: "AWAITING_REPLY",
+        actions: [
+          { id: "action-2", type: "LABEL", labelId: "label-awaiting-reply" },
+        ],
+      },
+      {
+        id: "rule-3",
+        systemType: "FYI",
+        actions: [{ id: "action-3", type: "LABEL", labelId: "label-fyi" }],
+      },
+      {
+        id: "rule-4",
+        systemType: "ACTIONED",
+        actions: [{ id: "action-4", type: "LABEL", labelId: "label-actioned" }],
+      },
+    ] as any);
+
+    vi.mocked(mockProvider.getLabels).mockResolvedValue([
+      { id: "label-to-reply", name: "To Reply", type: "user" },
+      { id: "label-awaiting-reply", name: "Awaiting Reply", type: "user" },
+      { id: "label-actioned", name: "Actioned", type: "user" },
+    ]);
+    vi.mocked(mockProvider.getLabelById).mockImplementation(async (labelId) =>
+      labelId === "label-fyi"
+        ? { id: "label-fyi", name: "FYI", type: "user" }
+        : null,
+    );
+
+    await applyThreadStatusLabel({
+      emailAccountId,
+      threadId,
+      messageId,
+      systemType: "ACTIONED",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(mockProvider.removeThreadLabels).toHaveBeenCalledWith(
+      threadId,
+      expect.arrayContaining([
+        "label-to-reply",
+        "label-awaiting-reply",
+        "label-fyi",
       ]),
     );
   });
@@ -318,7 +421,7 @@ describe("applyThreadStatusLabel", () => {
 
   test("executes remove and add operations in parallel", async () => {
     const removePromise = vi.fn().mockResolvedValue(undefined);
-    const labelPromise = vi.fn().mockResolvedValue(undefined);
+    const labelPromise = vi.fn().mockResolvedValue({});
 
     vi.mocked(mockProvider.removeThreadLabels).mockImplementation(
       removePromise,

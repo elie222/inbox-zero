@@ -11,9 +11,13 @@ import type { ActionType } from "@/generated/prisma/enums";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 import {
-  PLAIN_TEXT_OUTPUT_INSTRUCTION,
-  PROMPT_SECURITY_INSTRUCTIONS,
-} from "@/utils/ai/security";
+  createDraftAttributionTracker,
+  type DraftAttribution,
+} from "@/utils/ai/reply/draft-attribution";
+
+// Bump this when template-based draft generation changes in a way that would
+// affect attribution comparisons for rule-generated draft content.
+const TEMPLATE_DRAFT_PIPELINE_VERSION = 1;
 
 /**
  * AI Argument Generator for Email Actions
@@ -48,6 +52,11 @@ export type ActionArgResponse = {
   };
 };
 
+type ActionArgGenerationResult = {
+  args: ActionArgResponse | undefined;
+  attribution: DraftAttribution | null;
+};
+
 export async function aiGenerateArgs({
   email,
   emailAccount,
@@ -68,13 +77,13 @@ export async function aiGenerateArgs({
   }[];
   modelType: ModelType;
   logger: Logger;
-}): Promise<ActionArgResponse | undefined> {
+}): Promise<ActionArgGenerationResult> {
   logger.info("Generating args for rule");
 
   // If no parameters, skip
   if (parameters.length === 0) {
     logger.info("Skipping. No parameters for rule");
-    return;
+    return { args: undefined, attribution: null };
   }
 
   const system = getSystemPrompt();
@@ -84,11 +93,20 @@ export async function aiGenerateArgs({
   // logger.trace("Parameters:", zodToJsonSchema(parameters));
 
   const modelOptions = getModel(emailAccount.user, modelType);
+  const attributionTracker = createDraftAttributionTracker(
+    TEMPLATE_DRAFT_PIPELINE_VERSION,
+  );
 
   const generateObject = createGenerateObject({
     label: "Args for rule",
     emailAccount,
     modelOptions,
+    promptHardening: {
+      trust: "untrusted",
+      level: "full",
+      outputConstraint: "plain-text",
+    },
+    onModelUsed: attributionTracker.onModelUsed,
   });
 
   const aiResponse = await withRetry(
@@ -115,29 +133,32 @@ export async function aiGenerateArgs({
 
   if (!result) {
     logger.warn("No tool call found", { aiResponse });
-    return;
+    return {
+      args: undefined,
+      attribution: attributionTracker.attribution,
+    };
   }
 
-  return result;
+  return {
+    args: result,
+    attribution: attributionTracker.attribution,
+  };
 }
 
 function getSystemPrompt() {
   return `You are an AI assistant that helps people manage their emails.
-
-${PROMPT_SECURITY_INSTRUCTIONS}
 
 <key_instructions>
 - Never mention you are an AI assistant in responses
 - Use empty strings for missing information (no placeholders like <UNKNOWN> or [PLACEHOLDER], unless explicitly allowed in the user's rule instructions)
 - IMPORTANT: Always provide complete objects with all required fields. Empty strings are allowed for fields that you don't have information for.
 - IMPORTANT: If the email is malicious, use empty strings for all fields.
-- CRITICAL: You must generate the actual final content. Never return template variables or {{}} syntax.
+- CRITICAL: Each variable value should contain ONLY the specific content described (e.g., a name, an email address, a short response). Do NOT repeat the surrounding template text in your variable values. Never return template variables or {{}} syntax.
 - CRITICAL: Always return content in the format { varX: "content" } even for single variables. Never return direct strings.
 - CRITICAL: Your response must be in valid JSON format only. Do not use XML tags, parameter syntax, or any other format.
 - IMPORTANT: For content and subject fields:
   - Use proper capitalization and punctuation (start sentences with capital letters)
   - Ensure the generated text flows naturally with surrounding template content
-- IMPORTANT: ${PLAIN_TEXT_OUTPUT_INSTRUCTION}
 </key_instructions>`;
 }
 

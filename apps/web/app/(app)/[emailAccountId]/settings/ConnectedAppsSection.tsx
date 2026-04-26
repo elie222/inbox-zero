@@ -3,16 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  HashIcon,
-  LockIcon,
   MessageCircleIcon,
   MessageSquareIcon,
+  MessagesSquareIcon,
   SendIcon,
-  SlackIcon,
   XIcon,
 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { CopyInput } from "@/components/CopyInput";
+import { SlackNotificationTargetSelect } from "@/components/SlackNotificationTargetSelect";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,13 +20,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
   Item,
@@ -43,28 +35,27 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toastSuccess, toastError, toastInfo } from "@/components/Toast";
-import {
-  useChannelTargets,
-  useMessagingChannels,
-} from "@/hooks/useMessagingChannels";
+import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import {
   createMessagingLinkCodeAction,
   disconnectChannelAction,
   linkSlackWorkspaceAction,
-  updateSlackChannelAction,
 } from "@/utils/actions/messaging-channels";
 import { fetchWithAccount } from "@/utils/fetch";
 import { captureException } from "@/utils/error";
 import { getActionErrorMessage } from "@/utils/error";
 import type { GetSlackAuthUrlResponse } from "@/app/api/slack/auth-url/route";
-import type { MessagingProvider } from "@/generated/prisma/enums";
+import {
+  type MessagingProvider,
+  MessagingRoutePurpose,
+} from "@/generated/prisma/enums";
 
 type LinkableMessagingProvider = "TEAMS" | "TELEGRAM";
 
 const PROVIDER_CONFIG: Partial<
   Record<MessagingProvider, { name: string; icon: typeof MessageSquareIcon }>
 > = {
-  SLACK: { name: "Slack", icon: HashIcon },
+  SLACK: { name: "Slack", icon: MessagesSquareIcon },
   TEAMS: { name: "Teams", icon: MessageCircleIcon },
   TELEGRAM: { name: "Telegram", icon: SendIcon },
 };
@@ -224,7 +215,7 @@ export function ConnectedAppsSection({
                     disabled={linkStatus === "executing"}
                     onClick={handleLinkSlack}
                   >
-                    <SlackIcon className="mr-2 h-4 w-4" />
+                    <MessagesSquareIcon className="mr-2 h-4 w-4" />
                     {linkStatus === "executing"
                       ? "Linking..."
                       : `Link to ${existingWorkspace.teamName}`}
@@ -246,7 +237,7 @@ export function ConnectedAppsSection({
                   disabled={connectingSlack || isLoading}
                   onClick={handleConnectSlack}
                 >
-                  <SlackIcon className="mr-2 h-4 w-4" />
+                  <MessagesSquareIcon className="mr-2 h-4 w-4" />
                   {connectingSlack ? "Connecting..." : "Connect Slack"}
                 </Button>
               ))}
@@ -313,8 +304,14 @@ function ConnectedChannelRow({
     id: string;
     provider: MessagingProvider;
     teamName: string | null;
-    channelId: string | null;
-    channelName: string | null;
+    canSendAsDm: boolean;
+    destinations: {
+      ruleNotifications: {
+        targetId: string | null;
+        targetLabel: string | null;
+        isDm: boolean;
+      };
+    };
   };
   emailAccountId: string;
   onUpdate: () => void;
@@ -322,18 +319,6 @@ function ConnectedChannelRow({
   const config = PROVIDER_CONFIG[channel.provider];
   const Icon = config?.icon ?? MessageSquareIcon;
   const isSlackChannel = channel.provider === "SLACK";
-  const [targetsLoaded, setTargetsLoaded] = useState(!channel.channelId);
-
-  const shouldLoadTargets = channel.provider === "SLACK" && targetsLoaded;
-  const {
-    data: targetsData,
-    isLoading: isLoadingTargets,
-    error: targetsError,
-    mutate: mutateTargets,
-  } = useChannelTargets(shouldLoadTargets ? channel.id : null, emailAccountId);
-  const privateTargets =
-    targetsData?.targets.filter((target) => target.isPrivate) ?? [];
-  const hasTargetLoadError = Boolean(targetsError || targetsData?.error);
 
   const { execute: executeDisconnect, status: disconnectStatus } = useAction(
     disconnectChannelAction.bind(null, emailAccountId),
@@ -348,22 +333,6 @@ function ConnectedChannelRow({
         toastError({
           description:
             getActionErrorMessage(error.error) ?? "Failed to disconnect",
-        });
-      },
-    },
-  );
-
-  const { execute: executeSetTarget, status: setTargetStatus } = useAction(
-    updateSlackChannelAction.bind(null, emailAccountId),
-    {
-      onSuccess: () => {
-        toastSuccess({ description: "Slack channel updated" });
-        onUpdate();
-      },
-      onError: (error) => {
-        toastError({
-          description:
-            getActionErrorMessage(error.error) ?? "Failed to update channel",
         });
       },
     },
@@ -384,71 +353,17 @@ function ConnectedChannelRow({
         </span>
 
         {isSlackChannel && (
-          <Select
-            value={channel.channelId ?? ""}
-            onValueChange={(value) => {
-              const target = privateTargets?.find((t) => t.id === value);
-              if (!target) return;
-
-              executeSetTarget({
-                channelId: channel.id,
-                targetId: target.id,
-              });
-            }}
-            disabled={isLoadingTargets || setTargetStatus === "executing"}
-            onOpenChange={(open) => {
-              if (open) setTargetsLoaded(true);
-            }}
-          >
-            <SelectTrigger className="h-7 w-auto gap-1 border-none bg-transparent px-1.5 text-xs text-muted-foreground shadow-none hover:bg-muted">
-              <SelectValue
-                placeholder={
-                  isLoadingTargets
-                    ? "Loading..."
-                    : hasTargetLoadError
-                      ? "Failed to load"
-                      : "Select channel"
-                }
-              >
-                {channel.channelName
-                  ? `#${channel.channelName}`
-                  : channel.channelId
-                    ? `#${channel.channelId}`
-                    : undefined}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {privateTargets?.map((target) => (
-                <SelectItem key={target.id} value={target.id}>
-                  <LockIcon className="mr-1 inline h-3 w-3" />
-                  {target.name}
-                </SelectItem>
-              ))}
-              {!isLoadingTargets && !hasTargetLoadError && (
-                <div className="border-t px-2 py-1.5 text-xs text-muted-foreground">
-                  {privateTargets.length === 0
-                    ? "No channels found. "
-                    : "Don't see your channel? "}
-                  Invite the bot with{" "}
-                  <code className="rounded bg-muted px-1">
-                    /invite @InboxZero
-                  </code>
-                </div>
-              )}
-              {hasTargetLoadError && (
-                <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                  Failed to load channels.{" "}
-                  <button
-                    type="button"
-                    className="underline underline-offset-4"
-                    onClick={() => mutateTargets()}
-                  >
-                    Retry
-                  </button>
-                </div>
-              )}
-            </SelectContent>
-          </Select>
+          <SlackNotificationTargetSelect
+            emailAccountId={emailAccountId}
+            messagingChannelId={channel.id}
+            purpose={MessagingRoutePurpose.RULE_NOTIFICATIONS}
+            targetId={channel.destinations.ruleNotifications.targetId}
+            targetLabel={channel.destinations.ruleNotifications.targetLabel}
+            isDm={channel.destinations.ruleNotifications.isDm}
+            canSendAsDm={channel.canSendAsDm}
+            onUpdate={onUpdate}
+            className="h-7 w-auto gap-1 border-none bg-transparent px-1.5 text-xs text-muted-foreground shadow-none hover:bg-muted"
+          />
         )}
       </div>
 

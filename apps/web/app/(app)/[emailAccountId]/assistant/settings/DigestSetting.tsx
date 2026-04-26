@@ -71,17 +71,7 @@ export function DigestSetting() {
                     Configure
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Digest settings</DialogTitle>
-                    <DialogDescription>
-                      Configure when your digest emails are sent and which rules
-                      are included.
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <DigestSettingsForm onSuccess={() => setOpen(false)} />
-                </DialogContent>
+                <DigestSettingsDialogContent onSuccess={() => setOpen(false)} />
               </Dialog>
             )}
             <Toggle
@@ -93,5 +83,30 @@ export function DigestSetting() {
         )
       }
     />
+  );
+}
+
+export function DigestSettingsDialogContent({
+  onSuccess,
+  showChannelsHint = true,
+}: {
+  onSuccess?: () => void;
+  showChannelsHint?: boolean;
+}) {
+  return (
+    <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>Digest settings</DialogTitle>
+        <DialogDescription>
+          Configure when your digest emails are sent and which rules are
+          included.
+        </DialogDescription>
+      </DialogHeader>
+
+      <DigestSettingsForm
+        onSuccess={onSuccess}
+        showChannelsHint={showChannelsHint}
+      />
+    </DialogContent>
   );
 }

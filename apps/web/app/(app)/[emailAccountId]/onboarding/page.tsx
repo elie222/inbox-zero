@@ -17,26 +17,25 @@ export const metadata: Metadata = {
 
 export default async function OnboardingPage(props: {
   params: Promise<{ emailAccountId: string }>;
-  searchParams: Promise<{ step?: string; force?: string }>;
+  searchParams: Promise<{
+    step?: string | string[];
+    force?: string | string[];
+  }>;
 }) {
   const [searchParams, { emailAccountId }, cookieStore] = await Promise.all([
     props.searchParams,
     props.params,
     cookies(),
   ]);
-
-  const step = searchParams.step ? Number.parseInt(searchParams.step, 10) : 1;
+  const step = getSingleSearchParamValue(searchParams.step);
+  const force = getSingleSearchParamValue(searchParams.force);
 
   const utmValues = registerUtmTracking({
     authPromise: auth(),
     cookieStore,
   });
 
-  if (
-    utmValues.utmSource === "briefmymeeting" &&
-    !searchParams.force &&
-    !searchParams.step
-  ) {
+  if (utmValues.utmSource === "briefmymeeting" && !force && !step) {
     redirect(`/${emailAccountId}/onboarding-brief`);
   }
 
@@ -45,4 +44,8 @@ export default async function OnboardingPage(props: {
       <OnboardingContent step={step} />
     </Suspense>
   );
+}
+
+function getSingleSearchParamValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
 }

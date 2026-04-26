@@ -67,3 +67,14 @@ export function useTestimonialsVariant() {
     "control"
   );
 }
+
+export type WelcomePricingVariant = "control" | "two-tiers";
+
+export function useWelcomePricingVariant() {
+  return (
+    (useFeatureFlagVariantKey(
+      "welcome-pricing-tiers",
+    ) as WelcomePricingVariant) || "control"
+  );
+}
+

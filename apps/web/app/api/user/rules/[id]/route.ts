@@ -4,6 +4,7 @@ import { withEmailAccount } from "@/utils/middleware";
 import { getConditions } from "@/utils/condition";
 import { hasVariables } from "@/utils/template";
 import { SafeError } from "@/utils/error";
+import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 
 export type RuleResponse = Awaited<ReturnType<typeof getRule>>;
 
@@ -18,6 +19,7 @@ async function getRule({
     where: { id: ruleId, emailAccountId },
     include: {
       actions: true,
+      attachmentSources: true,
     },
   });
 
@@ -40,7 +42,11 @@ async function getRule({
       url: { value: action.url },
       folderName: { value: action.folderName },
       folderId: { value: action.folderId },
+      staticAttachments: Array.isArray(action.staticAttachments)
+        ? (action.staticAttachments as AttachmentSourceInput[])
+        : undefined,
     })),
+    attachmentSources: rule.attachmentSources,
     conditions: getConditions(rule),
   };
 

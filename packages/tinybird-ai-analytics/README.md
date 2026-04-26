@@ -37,7 +37,12 @@ tb push pipes
 
 ## AI Cost Fields
 
-- `cost`: platform-billed estimated cost (user API key traffic is `0`)
-- `estimatedCost`: estimated cost regardless of who paid
+- `cost`: platform-paid estimated cost from our local pricing table (user API key traffic is `0`)
+- `estimatedCost`: estimated cost regardless of who paid, from our local pricing table
+- `providerReportedCost`: exact provider-reported cost when available
+- `providerUpstreamInferenceCost`: exact upstream provider cost when available
+- `providerCostSource`: internal source key describing how provider-side cost was derived
 - `isUserApiKey`: `1` for user-provided API keys, `0` for platform keys
+- `stepCount`: total number of steps reported by the AI SDK result
+- `toolCallCount`: total number of tool calls across all reported steps
 - Legacy rows (before this schema change) have `NULL` for `estimatedCost` and `isUserApiKey`

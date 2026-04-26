@@ -27,6 +27,7 @@ import { CategorizeSendersProgress } from "@/app/(app)/[emailAccountId]/smart-ca
 import { getCategorizationProgress } from "@/utils/redis/categorization-progress";
 import { prefixPath } from "@/utils/path";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
+import { EmailStatsPreloader } from "@/components/EmailStatsPreloader";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -65,6 +66,7 @@ export default async function CategoriesPage({
 
       <ClientOnly>
         <ArchiveProgress />
+        <EmailStatsPreloader />
         <CategorizeSendersProgress refresh={!!progress} />
       </ClientOnly>
 

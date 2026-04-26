@@ -17,10 +17,12 @@ const CrispWithNoSSR = dynamic(() => import("@/components/CrispChat"));
 
 function ContentWrapper({ children }: { children: React.ReactNode }) {
   const { state } = useSidebar();
-  const isRightSidebarOpen = state.includes("chat-sidebar");
   const pathname = usePathname();
+  const isAssistantRoute = pathname?.includes("/assistant");
+  const isRightSidebarOpen =
+    !isAssistantRoute && state.includes("chat-sidebar");
 
-  const noTopPadding = pathname?.includes("/assistant");
+  const noTopPadding = isAssistantRoute;
 
   return (
     <div
@@ -55,6 +57,8 @@ export function SideNavWithTopNav({
 
   if (!pathname) return null;
 
+  const isAssistantRoute = pathname.includes("/assistant");
+
   // Ugly code. May change the onboarding path later so we don't need to do this.
   // Only return children for the onboarding or onboarding-brief pages: /[emailAccountId]/onboarding or /[emailAccountId]/onboarding-brief
   const segments = pathname.split("/").filter(Boolean);
@@ -72,7 +76,7 @@ export function SideNavWithTopNav({
       <MobileHeader />
       <SideNav name="left-sidebar" />
       <ContentWrapper>{children}</ContentWrapper>
-      <SidebarRight name="chat-sidebar" />
+      {!isAssistantRoute ? <SidebarRight name="chat-sidebar" /> : null}
     </SidebarProvider>
   );
 }

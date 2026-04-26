@@ -69,6 +69,13 @@ export function extractEmailAddress(email: string): string {
   return "";
 }
 
+export function isSameEmailAddress(left: string, right: string) {
+  return (
+    extractEmailAddress(left).trim().toLowerCase() ===
+    extractEmailAddress(right).trim().toLowerCase()
+  );
+}
+
 export function isValidEmail(email: string): boolean {
   return emailSchema.safeParse(email).success;
 }
@@ -85,6 +92,22 @@ export function normalizeEmailAddress(email: string) {
   // Remove all dots and whitespace from local part
   const normalizedLocal = localPart.trim().replace(/[\s.]+/g, "");
   return `${normalizedLocal}@${domain}`;
+}
+
+export function extractUniqueEmailAddresses(
+  emails: string[],
+  options?: { lowercase?: boolean },
+) {
+  const lowercase = options?.lowercase ?? false;
+
+  return [
+    ...new Set(
+      emails
+        .map((email) => extractEmailAddress(email))
+        .filter(Boolean)
+        .map((email) => (lowercase ? email.toLowerCase() : email)),
+    ),
+  ];
 }
 
 // Converts "Name <hey@domain.com>" to "domain.com"

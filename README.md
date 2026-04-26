@@ -1,11 +1,11 @@
-[![](apps/web/app/opengraph-image.png)](https://www.getinboxzero.com)
+[![](apps/web/app/opengraph-image.jpg)](https://www.getinboxzero.com)
 
 <p align="center">
   <a href="https://www.getinboxzero.com">
     <h1 align="center">Inbox Zero - your 24/7 AI email assistant</h1>
   </a>
   <p align="center">
-    Organizes your inbox, pre-drafts replies, and tracks follow‑ups - so you reach inbox zero faster. Open source alternative to Fyxer, but more customisable and secure.
+    Organizes your inbox, pre-drafts replies, manages your calendar, and organizes attachments. Chat with it from Slack or Telegram to manage your inbox on the go. Open source alternative to Fyxer, but more customizable and secure.
     <br />
     <a href="https://www.getinboxzero.com">Website</a>
     ·
@@ -30,10 +30,6 @@
 
 To help you spend less time in your inbox, so you can focus on what matters most.
 
-<br />
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Felie222%2Finbox-zero&env=AUTH_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,MICROSOFT_CLIENT_ID,MICROSOFT_CLIENT_SECRET,EMAIL_ENCRYPT_SECRET,EMAIL_ENCRYPT_SALT,UPSTASH_REDIS_URL,UPSTASH_REDIS_TOKEN,GOOGLE_PUBSUB_TOPIC_NAME,DATABASE_URL,NEXT_PUBLIC_BASE_URL)
-
 ## Features
 
 - **AI Personal Assistant:** Organizes your inbox and pre-drafts replies in your tone and style.
@@ -45,9 +41,14 @@ To help you spend less time in your inbox, so you can focus on what matters most
 - **Email Analytics:** Track your activity and trends over time.
 - **Meeting Briefs:** Get personalized briefings before every meeting, pulling context from your email and calendar.
 - **Smart Filing:** Automatically save email attachments to Google Drive or OneDrive.
+- **Slack & Telegram Integration:** Chat with your AI assistant from Slack or Telegram to manage your inbox without leaving the apps you already use.
 
 
 Learn more in our [docs](https://docs.getinboxzero.com).
+
+### Cursor plugin (API CLI)
+
+This repo is packaged as a [Cursor plugin](https://cursor.com/docs/reference/plugins) (`.cursor-plugin/plugin.json`): install from the directory to use the **inbox-zero-api** skill and agent. Skill source lives in [`clawhub/inbox-zero-api`](clawhub/inbox-zero-api) (same as OpenClaw); `skills/inbox-zero-api` is a symlink for discovery. Requires [`@inbox-zero/api`](https://www.getinboxzero.com/api-reference/cli); set `INBOX_ZERO_API_KEY` for authenticated CLI commands (e.g. rules, stats). `openapi --json` does not need a key.
 
 ## Feature Screenshots
 
@@ -113,6 +114,34 @@ pnpm dev
 ```
 
 Open http://localhost:3000
+
+After `pnpm install`, if you want to use the local Google emulator, start it with:
+
+```bash
+docker compose -f docker-compose.dev.yml --profile google-emulator up -d
+```
+
+Then point `apps/web/.env` at it with:
+
+```bash
+GOOGLE_BASE_URL=http://localhost:4002
+GOOGLE_CLIENT_ID=emulate-google-client.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=emulate-google-secret
+```
+
+If you want to use the local Microsoft emulator, start it with:
+
+```bash
+docker compose -f docker-compose.dev.yml --profile microsoft-emulator up -d
+```
+
+Then point `apps/web/.env` at it with:
+
+```bash
+MICROSOFT_BASE_URL=http://localhost:4003
+MICROSOFT_CLIENT_ID=emulate-microsoft-client-id
+MICROSOFT_CLIENT_SECRET=emulate-microsoft-secret
+```
 
 See the **[Contributing Guide](https://docs.getinboxzero.com/contributing)** for more details including devcontainer setup.
 

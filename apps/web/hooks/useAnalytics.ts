@@ -2,19 +2,78 @@ import { usePostHog } from "posthog-js/react";
 import { useMemo } from "react";
 import type { PostHog } from "posthog-js";
 
+type OnboardingAnalyticsProps = {
+  step?: number;
+  stepKey?: string;
+  totalSteps?: number;
+  nextStep?: number;
+  nextStepKey?: string;
+  destination?: string;
+  isOptional?: boolean;
+  skipped?: boolean;
+};
+
 export function useOnboardingAnalytics(variant: "onboarding" | "welcome") {
   const posthog = usePostHog();
 
   return useMemo(() => {
+    const getProperties = (
+      properties?: number | OnboardingAnalyticsProps,
+    ): OnboardingAnalyticsProps =>
+      typeof properties === "number"
+        ? { step: properties }
+        : (properties ?? {});
+
+    const safeCapture = (
+      event: string,
+      properties?: OnboardingAnalyticsProps | Record<string, unknown>,
+    ) => {
+      try {
+        posthog.capture(event, properties);
+      } catch {}
+    };
+
     return {
-      onStart: () => {
-        posthog.capture("onboarding_started", { variant });
+      onStart: (properties?: number | OnboardingAnalyticsProps) => {
+        safeCapture("onboarding_started", {
+          variant,
+          ...getProperties(properties),
+        });
       },
-      onNext: (step: number) => {
-        posthog.capture("onboarding_next", { variant, step });
+      onStepViewed: (properties?: number | OnboardingAnalyticsProps) => {
+        safeCapture("onboarding_step_viewed", {
+          variant,
+          ...getProperties(properties),
+        });
       },
-      onComplete: () => {
-        posthog.capture("onboarding_completed", { variant });
+      onNext: (properties?: number | OnboardingAnalyticsProps) => {
+        const stepProperties = getProperties(properties);
+
+        safeCapture("onboarding_next", { variant, ...stepProperties });
+        safeCapture("onboarding_step_completed", {
+          variant,
+          ...stepProperties,
+        });
+      },
+      onSkip: (properties?: number | OnboardingAnalyticsProps) => {
+        const stepProperties = getProperties(properties);
+
+        safeCapture("onboarding_step_skipped", {
+          variant,
+          ...stepProperties,
+          skipped: true,
+        });
+        safeCapture("onboarding_step_completed", {
+          variant,
+          ...stepProperties,
+          skipped: true,
+        });
+      },
+      onComplete: (properties?: OnboardingAnalyticsProps) => {
+        safeCapture("onboarding_completed", {
+          variant,
+          ...getProperties(properties),
+        });
       },
     };
   }, [posthog, variant]);

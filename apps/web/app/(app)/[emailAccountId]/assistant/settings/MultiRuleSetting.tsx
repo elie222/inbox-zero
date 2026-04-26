@@ -9,6 +9,7 @@ import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useAction } from "next-safe-action/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingContent } from "@/components/LoadingContent";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 export function MultiRuleSetting() {
   const { data, isLoading, error, mutate } = useEmailAccountFull();
@@ -45,7 +46,15 @@ export function MultiRuleSetting() {
 
   return (
     <SettingCard
-      title="Multi-rule selection"
+      title={
+        <div className="flex items-center gap-1.5">
+          <span>Multi-rule selection</span>
+          <TooltipExplanation
+            side="top"
+            text="Turning this off stops the AI from intentionally choosing multiple custom rules for one email. Inbox Zero can still apply more than one rule in a few special cases."
+          />
+        </div>
+      }
       description="Allow the AI to select multiple rules for a single email when appropriate."
       right={
         <LoadingContent

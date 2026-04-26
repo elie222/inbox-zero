@@ -1,7 +1,10 @@
 import { PostHog } from "posthog-node";
+import type { Properties } from "posthog-js";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
 import { hash } from "@/utils/hash";
+import prisma from "@/utils/prisma";
+import { redis } from "@/utils/redis";
 
 const logger = createScopedLogger("posthog");
 let posthogLlmClient: PostHog | undefined;
@@ -22,6 +25,15 @@ export function getPosthogLlmClient() {
   }
 
   return posthogLlmClient;
+}
+
+export function isPosthogLlmEvalApproved(email: string) {
+  if (env.NODE_ENV !== "development") return false;
+
+  const approvedEmails = getPosthogLlmEvalApprovedEmails();
+  if (!approvedEmails.length) return false;
+
+  return approvedEmails.includes(email.trim().toLowerCase());
 }
 
 async function getPosthogUserId(options: { email: string }) {
@@ -167,12 +179,18 @@ export async function trackStripeCustomerCreated(
   );
 }
 
-export async function trackStripeCheckoutCreated(email: string) {
-  return posthogCaptureEvent(email, "Stripe checkout created");
+export async function trackStripeCheckoutCreated(
+  email: string,
+  properties?: Properties,
+) {
+  return posthogCaptureEvent(email, "Stripe checkout created", properties);
 }
 
-export async function trackStripeCheckoutCompleted(email: string) {
-  return posthogCaptureEvent(email, "Stripe checkout completed");
+export async function trackStripeCheckoutCompleted(
+  email: string,
+  properties?: Properties,
+) {
+  return posthogCaptureEvent(email, "Stripe checkout completed", properties);
 }
 
 export async function trackError({
@@ -220,6 +238,20 @@ export async function trackSubscriptionTrialStarted(
   attributes: any,
 ) {
   return posthogCaptureEvent(email, "Premium subscription trial started", {
+    ...attributes,
+    $set: {
+      premium: true,
+      premiumTier: "subscription",
+      premiumStatus: "on_trial",
+    },
+  });
+}
+
+export async function trackBillingTrialStarted(
+  email: string,
+  attributes: Properties,
+) {
+  return posthogCaptureEvent(email, "billing_trial_started", {
     ...attributes,
     $set: {
       premium: true,
@@ -314,4 +346,77 @@ export async function trackStripeEvent(email: string, data: any) {
 
 export async function trackUserDeleted(userId: string) {
   return posthogCaptureEvent("anonymous", "User deleted", { userId }, false);
+}
+
+export const FIRST_TIME_EVENTS = {
+  FIRST_AUTOMATED_RULE_RUN: "First automated rule run",
+  FIRST_DRAFT_SENT: "First AI draft sent",
+  FIRST_CHAT_MESSAGE: "First chat message",
+} as const;
+
+type FirstTimeEvent =
+  (typeof FIRST_TIME_EVENTS)[keyof typeof FIRST_TIME_EVENTS];
+
+const firedFirstTimeEvents = new Set<string>();
+
+/**
+ * Uses User.email as distinctId (not EmailAccount.email) so the event attaches
+ * to the same PostHog person as signup/billing events.
+ */
+export async function trackFirstTimeEvent({
+  emailAccountId,
+  event,
+  properties,
+}: {
+  emailAccountId: string;
+  event: FirstTimeEvent;
+  properties?: Record<string, unknown>;
+}) {
+  const key = `first-event:${emailAccountId}:${event}`;
+  if (firedFirstTimeEvents.has(key)) return;
+
+  try {
+    const firstTime = await redis.set(key, "1", { nx: true });
+    firedFirstTimeEvents.add(key);
+    if (!firstTime) return;
+
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { user: { select: { email: true } } },
+    });
+    const userEmail = emailAccount?.user?.email;
+    if (!userEmail) return;
+
+    await posthogCaptureEvent(userEmail, event, {
+      emailAccountId,
+      ...properties,
+    });
+  } catch (error) {
+    logger.error("Error tracking first-time event", { error, event });
+  }
+}
+
+export async function trackOnboardingAnswer(
+  email: string,
+  answers: {
+    surveyFeatures?: string[];
+    surveyRole?: string;
+    surveyGoal?: string;
+    surveyCompanySize?: number;
+    surveySource?: string;
+    surveyImprovements?: string;
+  },
+) {
+  return posthogCaptureEvent(email, "Onboarding answer submitted", {
+    ...answers,
+    $set: answers,
+  });
+}
+
+function getPosthogLlmEvalApprovedEmails() {
+  return (
+    env.POSTHOG_LLM_EVALS_APPROVED_EMAILS?.split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean) ?? []
+  );
 }

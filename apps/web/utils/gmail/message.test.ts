@@ -105,4 +105,46 @@ describe("getMessagesBatch", () => {
     expect(result[0].id).toBe("id1");
     expect(getBatch).toHaveBeenCalledTimes(2);
   });
+
+  it("should retry rate-limited messages in smaller chunks", async () => {
+    const messageIds = Array.from(
+      { length: 12 },
+      (_, index) => `id${index + 1}`,
+    );
+    const accessToken = "token";
+
+    vi.mocked(getBatch)
+      .mockResolvedValueOnce(
+        messageIds.map(() => ({
+          error: {
+            code: 429,
+            message: "Too many concurrent requests for user",
+            errors: [{ reason: "rateLimitExceeded" }],
+            status: "RESOURCE_EXHAUSTED",
+          },
+        })),
+      )
+      .mockResolvedValueOnce(
+        messageIds.slice(0, 10).map((id) => ({
+          id,
+          threadId: `${id}-thread`,
+          payload: { headers: [] },
+        })),
+      )
+      .mockResolvedValueOnce(
+        messageIds.slice(10).map((id) => ({
+          id,
+          threadId: `${id}-thread`,
+          payload: { headers: [] },
+        })),
+      );
+
+    const result = await getMessagesBatch({ messageIds, accessToken });
+
+    expect(result).toHaveLength(12);
+    expect(getBatch).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(getBatch).mock.calls.map(([ids]) => ids.length)).toEqual([
+      12, 10, 2,
+    ]);
+  });
 });

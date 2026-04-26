@@ -1,4 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
+import chunk from "lodash/chunk";
 import {
   type BatchError,
   type MessageWithPayload,
@@ -18,6 +19,7 @@ import parse from "gmail-api-parse-message";
 import { isRetryableError, withGmailRetry } from "@/utils/gmail/retry";
 
 const logger = createScopedLogger("gmail/message");
+const RATE_LIMIT_RETRY_BATCH_SIZE = 10;
 
 export function parseMessage(
   message: MessageWithPayload,
@@ -133,6 +135,7 @@ export async function getMessagesBatch({
   );
 
   const missingMessageIds = new Set<string>();
+  let shouldRetryInSmallerBatches = false;
 
   if (batch.some((m) => isBatchError(m) && m.error.code === 401)) {
     logger.error("Error fetching messages", { firstBatchItem: batch?.[0] });
@@ -143,9 +146,9 @@ export async function getMessagesBatch({
     .map((message, i) => {
       if (isBatchError(message)) {
         const { code, message: errorMessage, errors } = message.error;
-        const reason = (errors?.[0] as any)?.reason;
+        const reason = errors?.[0]?.reason;
 
-        const { retryable } = isRetryableError({
+        const { retryable, isRateLimit } = isRetryableError({
           status: code,
           reason,
           errorMessage,
@@ -166,6 +169,7 @@ export async function getMessagesBatch({
           error: errorMessage,
           reason,
         });
+        if (isRateLimit) shouldRetryInSmallerBatches = true;
         missingMessageIds.add(messageIds[i]);
         return;
       }
@@ -176,16 +180,24 @@ export async function getMessagesBatch({
 
   // if we errored, then try to refetch the missing messages
   if (missingMessageIds.size > 0) {
+    const missingIds = Array.from(missingMessageIds);
     logger.info("Missing messages", {
-      missingMessageIds: Array.from(missingMessageIds),
+      missingMessageIds: missingIds,
+      retryMode: shouldRetryInSmallerBatches ? "chunked" : "batch",
     });
     const nextRetryCount = retryCount + 1;
     await sleep(1000 * nextRetryCount);
-    const missingMessages = await getMessagesBatch({
-      messageIds: Array.from(missingMessageIds),
-      accessToken,
-      retryCount: nextRetryCount,
-    });
+    const missingMessages = shouldRetryInSmallerBatches
+      ? await getMessagesBatchInRetryChunks({
+          messageIds: missingIds,
+          accessToken,
+          retryCount: nextRetryCount,
+        })
+      : await getMessagesBatch({
+          messageIds: missingIds,
+          accessToken,
+          retryCount: nextRetryCount,
+        });
     return [...messages, ...missingMessages];
   }
 
@@ -345,4 +357,28 @@ export async function getSentMessages(gmail: gmail_v1.Gmail, maxResults = 20) {
     maxResults,
   });
   return messages.messages;
+}
+
+async function getMessagesBatchInRetryChunks({
+  messageIds,
+  accessToken,
+  retryCount,
+}: {
+  messageIds: string[];
+  accessToken: string;
+  retryCount: number;
+}) {
+  const chunkedMessages = chunk(messageIds, RATE_LIMIT_RETRY_BATCH_SIZE);
+  const messages: ParsedMessage[] = [];
+
+  for (const messageIdsChunk of chunkedMessages) {
+    const chunkMessages = await getMessagesBatch({
+      messageIds: messageIdsChunk,
+      accessToken,
+      retryCount,
+    });
+    messages.push(...chunkMessages);
+  }
+
+  return messages;
 }

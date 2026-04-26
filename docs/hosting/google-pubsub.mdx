@@ -47,6 +47,8 @@ Set these in your `.env` file:
 - `GOOGLE_PUBSUB_TOPIC_NAME` — the full topic name (e.g., `projects/your-project-id/topics/inbox-zero-emails`)
 - `GOOGLE_PUBSUB_VERIFICATION_TOKEN` — the value of `TOKEN` you used in the webhook URL above
 
+If your deployment protects `/api/google/webhook` with upstream authentication, you can set `GOOGLE_PUBSUB_VERIFICATION_TOKEN` to an empty string to intentionally disable query-parameter verification. Leaving it unset is treated as a misconfiguration.
+
 ### For local development
 
 Use ngrok to expose your local server:

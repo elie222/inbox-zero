@@ -12,7 +12,11 @@ import {
 import { env } from "@/env";
 import { BRAND_NAME } from "@/utils/branding";
 
-const pricingFaqs = [
+const pricingFaqs: {
+  question: string;
+  answer: React.ReactNode;
+  answerText?: string;
+}[] = [
   {
     question: `Can I try ${BRAND_NAME} for free?`,
     answer: "Yes! All plans include a 7-day free trial.",
@@ -40,6 +44,8 @@ const pricingFaqs = [
         and we&apos;ll set up a discounted plan for you.
       </span>
     ),
+    answerText:
+      "Yes! Send us an email and we'll set up a discounted plan for you.",
   },
   {
     question: "What happens if I cancel?",
@@ -55,6 +61,8 @@ const pricingFaqs = [
         within 14 days of upgrading and we&apos;ll refund you.
       </span>
     ),
+    answerText:
+      "Yes, if you don't think we provided you with value send us an email within 14 days of upgrading and we'll refund you.",
   },
   {
     question: "Need a custom plan for your enterprise?",
@@ -66,12 +74,35 @@ const pricingFaqs = [
         for custom pricing, SSO, on-premise deployment, and dedicated support.
       </span>
     ),
+    answerText:
+      "Contact our sales team for custom pricing, SSO, on-premise deployment, and dedicated support.",
   },
 ];
+
+const pricingFaqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: pricingFaqs
+    .map((faq) => {
+      const text = typeof faq.answer === "string" ? faq.answer : faq.answerText;
+      if (!text) return null;
+      return {
+        "@type": "Question" as const,
+        name: faq.question,
+        acceptedAnswer: { "@type": "Answer" as const, text },
+      };
+    })
+    .filter(Boolean),
+};
 
 export function PricingFAQs() {
   return (
     <Section>
+      <script
+        type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON.stringify on controlled object is safe
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingFaqJsonLd) }}
+      />
       <SectionHeading>Pricing FAQ</SectionHeading>
       <SectionContent>
         <CardWrapper>

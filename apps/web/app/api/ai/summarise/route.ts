@@ -3,8 +3,8 @@ import { summarise } from "@/app/api/ai/summarise/controller";
 import { withEmailAccount } from "@/utils/middleware";
 import { summariseBody } from "@/app/api/ai/summarise/validation";
 import { getSummary } from "@/utils/redis/summary";
-import { emailToContent } from "@/utils/mail";
 import { getEmailAccountWithAi } from "@/utils/user/get";
+import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
 
 export const POST = withEmailAccount(async (request) => {
   const emailAccountId = request.auth.emailAccountId;
@@ -12,7 +12,7 @@ export const POST = withEmailAccount(async (request) => {
   const json = await request.json();
   const body = summariseBody.parse(json);
 
-  const prompt = emailToContent({
+  const prompt = emailToContentForAI({
     textHtml: body.textHtml || undefined,
     textPlain: body.textPlain || undefined,
     snippet: "",
