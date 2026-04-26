@@ -359,8 +359,8 @@ export async function draftEmail(
           content: html,
         },
         toRecipients: [toRecipient],
-        ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
-        ...(bccRecipients.length > 0 ? { bccRecipients } : {}),
+        ccRecipients,
+        bccRecipients,
       }),
     logger,
   );
@@ -479,7 +479,7 @@ async function sendReplyUsingCreateReply(
 function buildGraphRecipients(
   recipientList?: string,
 ): GraphRecipient[] | undefined {
-  if (!recipientList) return undefined;
+  if (!recipientList) return;
 
   const parts = recipientList.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
   const recipients = parts
@@ -499,7 +499,7 @@ function buildGraphRecipients(
     })
     .filter((recipient): recipient is GraphRecipient => recipient !== null);
 
-  if (!recipients.length) return undefined;
+  if (!recipients.length) return;
 
   const seen = new Set<string>();
   return recipients.filter((recipient) => {
@@ -514,10 +514,10 @@ function buildGraphFromField(
   formattedFrom?: string,
   fallbackAddress?: string | null,
 ) {
-  if (!formattedFrom) return undefined;
+  if (!formattedFrom) return;
 
   const address = extractEmailAddress(formattedFrom) || fallbackAddress;
-  if (!address) return undefined;
+  if (!address) return;
 
   const name = extractNameFromEmail(formattedFrom).trim();
 

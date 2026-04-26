@@ -393,6 +393,29 @@ describe("buildReplyAllRecipients", () => {
     expect(result.cc).toContain("simple@company.com");
     expect(result.cc).toHaveLength(4);
   });
+
+  it("should exclude the current user from CC regardless of address casing", () => {
+    const headers: ParsedMessageHeaders = {
+      from: "sender@example.com",
+      to: "User Name <User@Example.com>, colleague@example.com",
+      cc: "USER@example.com, manager@example.com",
+      subject: "Test",
+      date: "2024-01-01",
+    };
+
+    const result = buildReplyAllRecipients(
+      headers,
+      undefined,
+      "user@example.com",
+    );
+
+    expect(result.to).toBe("sender@example.com");
+    expect(result.cc).not.toContain("User@Example.com");
+    expect(result.cc).not.toContain("USER@example.com");
+    expect(result.cc).toContain("colleague@example.com");
+    expect(result.cc).toContain("manager@example.com");
+    expect(result.cc).toHaveLength(2);
+  });
 });
 
 describe("formatCcList", () => {
