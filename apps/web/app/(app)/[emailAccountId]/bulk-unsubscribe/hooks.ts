@@ -605,19 +605,12 @@ export function useBulkAutoArchive<T extends Row>({
         successMessage: "set to auto archive",
         errorMessage: "Failed to set auto archive for",
         processItem: async (item) => {
-          await onAutoArchive({
+          await blockSender({
+            sender: item.name,
             emailAccountId,
-            from: item.name,
-            gmailLabelId: undefined,
-            labelName: undefined,
+            queueArchiveSenders,
             showSuccessToast: false,
           });
-          await setNewsletterStatusAction(emailAccountId, {
-            newsletterEmail: item.name,
-            status: NewsletterStatus.AUTO_ARCHIVED,
-          });
-          await decrementUnsubscribeCreditAction();
-          await queueArchiveSenders({ senders: [item.name] });
         },
         onComplete: refetchPremium,
       });
