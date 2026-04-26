@@ -19,7 +19,6 @@ import { toastError } from "@/components/Toast";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { usePremium } from "@/hooks/usePremium";
 import { SetDateDropdown } from "@/app/(app)/[emailAccountId]/assistant/SetDateDropdown";
-import { useThreads } from "@/hooks/useThreads";
 import { useBeforeUnload } from "@/hooks/useBeforeUnload";
 import { useAiQueueState, clearAiQueueAtom } from "@/store/ai-queue";
 import {
@@ -47,8 +46,6 @@ export function BulkRunRules() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [state, dispatch] = useReducer(bulkRunReducer, initialBulkRunState);
-
-  const { data, isLoading, error } = useThreads({ type: "inbox" });
 
   const queue = useAiQueueState();
 
@@ -153,125 +150,113 @@ export function BulkRunRules() {
               yet.
             </DialogDescription>
           </DialogHeader>
-          <LoadingContent loading={isLoading} error={error}>
-            {data && (
-              <>
-                {progressMessage && (
-                  <div className="rounded-md border border-green-200 bg-green-50 px-2 py-1.5 dark:border-green-800 dark:bg-green-950">
-                    <SectionDescription className="mt-0">
-                      {progressMessage}
-                    </SectionDescription>
-                  </div>
+          {progressMessage && (
+            <div className="rounded-md border border-green-200 bg-green-50 px-2 py-1.5 dark:border-green-800 dark:bg-green-950">
+              <SectionDescription className="mt-0">
+                {progressMessage}
+              </SectionDescription>
+            </div>
+          )}
+          <LoadingContent loading={isLoadingPremium}>
+            <div className="flex min-w-0 flex-col space-y-4 overflow-hidden">
+              <PremiumAlertWithData className="mr-auto" />
+
+              <div className="grid grid-cols-2 gap-2">
+                <SetDateDropdown
+                  onChange={(date) => {
+                    setStartDate(date);
+                    dispatch({ type: "RESET" });
+                  }}
+                  value={startDate}
+                  placeholder="Set start date"
+                  disabled={isProcessing}
+                />
+                <SetDateDropdown
+                  onChange={(date) => {
+                    setEndDate(date);
+                    dispatch({ type: "RESET" });
+                  }}
+                  value={endDate}
+                  placeholder="Set end date (optional)"
+                  disabled={isProcessing}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <Toggle
+                  name="include-read"
+                  label="Include read emails"
+                  enabled={includeRead}
+                  onChange={(enabled) => setIncludeRead(enabled)}
+                  disabled={isProcessing || !isBusinessPlusTier}
+                />
+                {!isBusinessPlusTier && hasAiAccess && (
+                  <Link
+                    href="/premium"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      openModal();
+                    }}
+                    className="text-sm text-primary hover:underline whitespace-nowrap"
+                  >
+                    Upgrade to Professional to enable
+                  </Link>
                 )}
-                <LoadingContent loading={isLoadingPremium}>
-                  <div className="flex min-w-0 flex-col space-y-4 overflow-hidden">
-                    <PremiumAlertWithData className="mr-auto" />
+              </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <SetDateDropdown
-                        onChange={(date) => {
-                          setStartDate(date);
-                          dispatch({ type: "RESET" });
-                        }}
-                        value={startDate}
-                        placeholder="Set start date"
-                        disabled={isProcessing}
-                      />
-                      <SetDateDropdown
-                        onChange={(date) => {
-                          setEndDate(date);
-                          dispatch({ type: "RESET" });
-                        }}
-                        value={endDate}
-                        placeholder="Set end date (optional)"
-                        disabled={isProcessing}
-                      />
-                    </div>
+              {(state.status !== "idle" ||
+                state.processedThreadIds.size > 0) && (
+                <BulkProcessActivityLog
+                  threads={Array.from(state.fetchedThreads.values())}
+                  processedThreadIds={state.processedThreadIds}
+                  aiQueue={queue}
+                  paused={isPaused}
+                  loading={
+                    state.status === "processing" &&
+                    state.processedThreadIds.size === 0
+                  }
+                />
+              )}
 
-                    <div className="flex items-center justify-between gap-4">
-                      <Toggle
-                        name="include-read"
-                        label="Include read emails"
-                        enabled={includeRead}
-                        onChange={(enabled) => setIncludeRead(enabled)}
-                        disabled={isProcessing || !isBusinessPlusTier}
-                      />
-                      {!isBusinessPlusTier && hasAiAccess && (
-                        <Link
-                          href="/premium"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            openModal();
-                          }}
-                          className="text-sm text-primary hover:underline whitespace-nowrap"
-                        >
-                          Upgrade to Professional to enable
-                        </Link>
-                      )}
-                    </div>
-
-                    {(state.status !== "idle" ||
-                      state.processedThreadIds.size > 0) && (
-                      <BulkProcessActivityLog
-                        threads={Array.from(state.fetchedThreads.values())}
-                        processedThreadIds={state.processedThreadIds}
-                        aiQueue={queue}
-                        paused={isPaused}
-                        loading={
-                          state.status === "processing" &&
-                          state.processedThreadIds.size === 0
-                        }
-                      />
+              {(state.status === "idle" || state.status === "stopped") &&
+                !isProcessing && (
+                  <Button
+                    type="button"
+                    disabled={!startDate || !emailAccountId || !hasAiAccess}
+                    onClick={handleStart}
+                  >
+                    Process Emails
+                  </Button>
+                )}
+              {isBusy && (
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" onClick={handlePauseResume}>
+                    {isPaused ? (
+                      <>
+                        <PlayIcon className="mr-1.5 h-3.5 w-3.5" />
+                        Resume
+                      </>
+                    ) : (
+                      <>
+                        <PauseIcon className="mr-1.5 h-3.5 w-3.5" />
+                        Pause
+                      </>
                     )}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleStop}>
+                    <SquareIcon className="mr-1.5 h-3.5 w-3.5" />
+                    Stop
+                  </Button>
+                </div>
+              )}
 
-                    {(state.status === "idle" || state.status === "stopped") &&
-                      !isProcessing && (
-                        <Button
-                          type="button"
-                          disabled={
-                            !startDate || !emailAccountId || !hasAiAccess
-                          }
-                          onClick={handleStart}
-                        >
-                          Process Emails
-                        </Button>
-                      )}
-                    {isBusy && (
-                      <div className="flex justify-end gap-2">
-                        <Button size="sm" onClick={handlePauseResume}>
-                          {isPaused ? (
-                            <>
-                              <PlayIcon className="mr-1.5 h-3.5 w-3.5" />
-                              Resume
-                            </>
-                          ) : (
-                            <>
-                              <PauseIcon className="mr-1.5 h-3.5 w-3.5" />
-                              Pause
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleStop}
-                        >
-                          <SquareIcon className="mr-1.5 h-3.5 w-3.5" />
-                          Stop
-                        </Button>
-                      </div>
-                    )}
-
-                    {state.runResult && state.runResult.count === 0 && (
-                      <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
-                        No {includeRead ? "" : "unread "}emails found in the
-                        selected date range.
-                      </div>
-                    )}
-                  </div>
-                </LoadingContent>
-              </>
-            )}
+              {state.runResult && state.runResult.count === 0 && (
+                <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
+                  No {includeRead ? "" : "unread "}emails found in the selected
+                  date range.
+                </div>
+              )}
+            </div>
           </LoadingContent>
         </DialogContent>
       </Dialog>
