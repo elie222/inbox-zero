@@ -19,6 +19,7 @@ import { signIn, signInWithOauth2 } from "@/utils/auth-client";
 import { WELCOME_PATH } from "@/utils/config";
 import { toastError } from "@/components/Toast";
 import { normalizeInternalPath } from "@/utils/path";
+import { buildRedirectUrl } from "@/utils/redirect";
 import { getPossessiveBrandName } from "@/utils/branding";
 import { AlertBasic } from "@/components/Alert";
 import { createClientLogger } from "@/utils/logger-client";
@@ -40,6 +41,7 @@ export function LoginForm({
   const searchParams = useSearchParams();
   const next = searchParams?.get("next");
   const { callbackURL, errorCallbackURL } = getAuthCallbackUrls(next);
+  const appleCallbackURL = buildConnectMailboxUrl(callbackURL);
 
   const [loadingApple, setLoadingApple] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
@@ -100,7 +102,7 @@ export function LoginForm({
             handleSocialSignIn({
               provider: "apple",
               providerName: "Apple",
-              callbackURL: CONNECT_MAILBOX_PATH,
+              callbackURL: appleCallbackURL,
               errorCallbackURL,
               setLoading: setLoadingApple,
             })
@@ -205,6 +207,11 @@ function getAuthCallbackUrls(next: string | null) {
     : "/login/error";
 
   return { callbackURL, errorCallbackURL };
+}
+
+function buildConnectMailboxUrl(nextPath: string) {
+  if (nextPath === CONNECT_MAILBOX_PATH) return CONNECT_MAILBOX_PATH;
+  return buildRedirectUrl(CONNECT_MAILBOX_PATH, { next: nextPath });
 }
 
 function isOrganizationInvitationPath(path: string) {

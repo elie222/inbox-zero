@@ -10,10 +10,14 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
  */
 export async function getAccountLinkingUrl(
   provider: "google" | "microsoft",
+  options: { returnTo?: string } = {},
 ): Promise<string> {
   const apiProvider = provider === "microsoft" ? "outlook" : "google";
+  const url = options.returnTo
+    ? `/api/${apiProvider}/linking/auth-url?returnTo=${encodeURIComponent(options.returnTo)}`
+    : `/api/${apiProvider}/linking/auth-url`;
 
-  const response = await fetch(`/api/${apiProvider}/linking/auth-url`, {
+  const response = await fetch(url, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   });

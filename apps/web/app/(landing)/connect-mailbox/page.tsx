@@ -4,6 +4,9 @@ import { AddAccount } from "@/app/(app)/accounts/AddAccount";
 import { MutedText } from "@/components/Typography";
 import { auth } from "@/utils/auth";
 import { BRAND_NAME, getBrandTitle } from "@/utils/branding";
+import { WELCOME_PATH } from "@/utils/config";
+import { normalizeInternalPath } from "@/utils/path";
+import prisma from "@/utils/prisma";
 
 export const metadata: Metadata = {
   title: getBrandTitle("Connect Mailbox"),
@@ -11,10 +14,21 @@ export const metadata: Metadata = {
   alternates: { canonical: "/connect-mailbox" },
 };
 
-export default async function ConnectMailboxPage() {
+export default async function ConnectMailboxPage(props: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const searchParams = await props.searchParams;
   const session = await auth();
 
   if (!session?.user) redirect("/login");
+
+  const nextPath = getNextPath(searchParams?.next);
+  const emailAccount = await prisma.emailAccount.findFirst({
+    where: { userId: session.user.id },
+    select: { id: true },
+  });
+
+  if (emailAccount) redirect(nextPath);
 
   return (
     <div className="flex min-h-screen flex-col justify-center text-foreground">
@@ -24,12 +38,14 @@ export default async function ConnectMailboxPage() {
             Connect your mailbox
           </h1>
           <p className="mt-4 text-muted-foreground">
-            Sign in with Apple created your account. Connect Gmail or Outlook to
-            start using {BRAND_NAME}.
+            Connect Gmail or Outlook to start using {BRAND_NAME}.
           </p>
         </div>
 
-        <AddAccount helperText="You can add more mailboxes later from Accounts." />
+        <AddAccount
+          helperText="You can add more mailboxes later from Accounts."
+          returnTo={nextPath}
+        />
 
         <MutedText className="text-center">
           Google and Microsoft are used here only to connect your inbox data.
@@ -37,4 +53,11 @@ export default async function ConnectMailboxPage() {
       </div>
     </div>
   );
+}
+
+function getNextPath(next: string | string[] | undefined) {
+  const nextValue = Array.isArray(next) ? next[0] : next;
+  const nextPath = normalizeInternalPath(nextValue);
+  if (!nextPath || nextPath === "/connect-mailbox") return WELCOME_PATH;
+  return nextPath;
 }

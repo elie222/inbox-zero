@@ -43,12 +43,14 @@ describe("redirectToEmailAccountPath", () => {
     mocks.findFirst.mockResolvedValue(null);
 
     await expect(redirectToEmailAccountPath("/setup")).rejects.toThrow(
-      "redirect:/connect-mailbox",
+      "redirect:/connect-mailbox?next=%2Fsetup",
     );
 
     expect(mocks.findFirst).toHaveBeenCalledWith({
       where: { userId: "user_123" },
     });
-    expect(mocks.redirect).toHaveBeenCalledWith("/connect-mailbox");
+    expect(mocks.redirect).toHaveBeenCalledWith(
+      "/connect-mailbox?next=%2Fsetup",
+    );
   });
 });

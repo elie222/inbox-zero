@@ -11,8 +11,10 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function AddAccount({
   helperText = "You will be billed for each account.",
+  returnTo,
 }: {
   helperText?: ReactNode;
+  returnTo?: string;
 }) {
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [isLoadingMicrosoft, setIsLoadingMicrosoft] = useState(false);
@@ -24,7 +26,7 @@ export function AddAccount({
     setLoading(true);
 
     try {
-      const url = await getAccountLinkingUrl(provider);
+      const url = await getAccountLinkingUrl(provider, { returnTo });
       window.location.href = url;
     } catch (error) {
       console.error(`Error initiating ${provider} link:`, error);

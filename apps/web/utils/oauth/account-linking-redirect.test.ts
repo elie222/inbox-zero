@@ -33,4 +33,15 @@ describe("createAccountLinkingRedirect", () => {
     );
     expect(response.cookies.getAll()).toEqual([]);
   });
+
+  it("supports a safe custom redirect path", () => {
+    const response = createAccountLinkingRedirect({
+      query: { success: "account_created_and_linked" },
+      redirectPath: "/organizations/invitations/invite_123/accept",
+    });
+
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:3000/organizations/invitations/invite_123/accept?success=account_created_and_linked",
+    );
+  });
 });

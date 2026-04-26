@@ -75,6 +75,7 @@ describe("validateOAuthCallback", () => {
       userId: "user-id",
       nonce: "nonce",
       issuedAt: 123,
+      returnTo: "/setup",
     });
 
     const result = validateOAuthCallback({
@@ -90,6 +91,7 @@ describe("validateOAuthCallback", () => {
       expect(result.targetUserId).toBe("user-id");
       expect(result.stateNonce).toBe("nonce");
       expect(result.code).toBe("valid-code");
+      expect(result.returnTo).toBe("/setup");
     }
   });
 });
