@@ -37,7 +37,7 @@
 - Prefer the `EmailProvider` abstraction; only use provider-type checks (`isGoogleProvider`, `isMicrosoftProvider`) at true provider boundary/integration code.
 - Infer types from Zod schemas using `z.infer<typeof schema>` instead of duplicating as separate interfaces
 - Default to inlining and co-locating logic at the call site.
-- Avoid premature abstraction. Small duplicated expressions are fine when extraction would add indirection without clearer meaning.
+- Avoid premature abstraction. Small duplicated expressions are usually fine; extracting them often adds indirection without meaning.
 - Do not duplicate substantial logic or correctness-sensitive rules. If copied code must stay in sync to avoid bugs, extract or centralize it early.
 - Extract helpers when they make surrounding code clearer, name a meaningful domain concept, or keep shared behavior consistent across flows.
 - Don't extract helpers that just rename and forward parameters; that's a layer without meaning.
