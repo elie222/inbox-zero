@@ -395,6 +395,10 @@ model Premium {
   appleExpiresAt                  DateTime?
   appleRevokedAt                  DateTime?
 
+  // manually granted by admin
+  adminGrantExpiresAt DateTime?
+  adminGrantTier      PremiumTier?
+
   tier PremiumTier?
 
   emailAccountsAccess Int?

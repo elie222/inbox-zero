@@ -98,7 +98,7 @@ export function MultiAccountSection() {
                 <div className="mt-4">
                   <MultiAccountForm
                     emailAddresses={data.emailAccounts}
-                    isLifetime={premium?.tier === "LIFETIME"}
+                    isLifetime={premiumTier === "LIFETIME"}
                     emailAccountsAccess={premium?.emailAccountsAccess || 0}
                     pendingInvites={premium?.pendingInvites || []}
                     onUpdate={mutate}

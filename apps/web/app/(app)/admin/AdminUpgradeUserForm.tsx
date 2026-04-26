@@ -80,7 +80,6 @@ export const AdminUpgradeUserForm = () => {
       changePremiumStatus({
         ...data,
         count: data.count || 1,
-        lemonSqueezyCustomerId: data.lemonSqueezyCustomerId || undefined,
         emailAccountsAccess: data.emailAccountsAccess || undefined,
       });
     },
@@ -97,15 +96,6 @@ export const AdminUpgradeUserForm = () => {
         label="Email"
         registerProps={register("email", { required: true })}
         error={errors.email}
-      />
-      <Input
-        type="number"
-        name="lemonSqueezyCustomerId"
-        label="Lemon Squeezy Customer Id"
-        registerProps={register("lemonSqueezyCustomerId", {
-          valueAsNumber: true,
-        })}
-        error={errors.lemonSqueezyCustomerId}
       />
       <Input
         type="number"
@@ -176,7 +166,7 @@ export const AdminUpgradeUserForm = () => {
       <Input
         type="number"
         name="count"
-        label="Months/Years"
+        label="Grant duration"
         registerProps={register("count", { valueAsNumber: true })}
         error={errors.count}
       />
@@ -187,7 +177,6 @@ export const AdminUpgradeUserForm = () => {
           onClick={() => {
             onSubmit({
               email: getValues("email"),
-              lemonSqueezyCustomerId: getValues("lemonSqueezyCustomerId"),
               emailAccountsAccess: getValues("emailAccountsAccess"),
               period,
               count: getValues("count"),
@@ -195,7 +184,7 @@ export const AdminUpgradeUserForm = () => {
             });
           }}
         >
-          Upgrade
+          Grant
         </Button>
         <Button
           type="button"
@@ -210,7 +199,7 @@ export const AdminUpgradeUserForm = () => {
             });
           }}
         >
-          Downgrade
+          Revoke grant
         </Button>
       </div>
     </form>

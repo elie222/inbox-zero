@@ -8,6 +8,7 @@ import { adminActionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { getStripe } from "@/ee/billing/stripe";
+import { premiumEntitlementSelect } from "@/utils/premium";
 import { createEmailProvider } from "@/utils/email/provider";
 import { processProviderHistory } from "@/utils/webhook/process-history";
 import { hash } from "@/utils/hash";
@@ -382,6 +383,9 @@ export const adminGetUserInfoAction = adminActionClient
     const lastExecutedMap = new Map(
       lastExecutedRules.map((r) => [r.emailAccountId, r._max.createdAt]),
     );
+    const hasActiveAdminGrant =
+      user.premium?.adminGrantExpiresAt &&
+      user.premium.adminGrantExpiresAt > new Date();
 
     return {
       id: user.id,
@@ -394,11 +398,15 @@ export const adminGetUserInfoAction = adminActionClient
             renewsAt:
               user.premium.stripeRenewsAt ||
               user.premium.lemonSqueezyRenewsAt ||
+              user.premium.adminGrantExpiresAt ||
               null,
             subscriptionStatus:
               user.premium.stripeSubscriptionStatus ||
               user.premium.lemonSubscriptionStatus ||
+              (hasActiveAdminGrant ? "admin_grant" : null) ||
               null,
+            adminGrantTier: user.premium.adminGrantTier,
+            adminGrantExpiresAt: user.premium.adminGrantExpiresAt,
           }
         : null,
       emailAccounts: user.emailAccounts.map((ea) => ({
@@ -513,10 +521,8 @@ async function findUserWithDetails(email?: string, userId?: string) {
       lastLogin: true,
       premium: {
         select: {
-          tier: true,
-          lemonSqueezyRenewsAt: true,
+          ...premiumEntitlementSelect,
           stripeRenewsAt: true,
-          stripeSubscriptionStatus: true,
           lemonSubscriptionStatus: true,
         },
       },

@@ -1,5 +1,10 @@
 import prisma from "@/utils/prisma";
-import { hasAiAccess, getPremiumUserFilter } from "@/utils/premium";
+import {
+  getPremiumUserFilter,
+  getUserTier,
+  hasAiAccess,
+  premiumEntitlementSelect,
+} from "@/utils/premium";
 import type { Logger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
 import { captureException } from "@/utils/error";
@@ -59,11 +64,7 @@ async function getEmailAccountsToWatch(userIds: string[] | null) {
           id: true,
           aiApiKey: true,
           premium: {
-            select: {
-              tier: true,
-              lemonSqueezyRenewsAt: true,
-              stripeSubscriptionStatus: true,
-            },
+            select: premiumEntitlementSelect,
           },
         },
       },
@@ -132,7 +133,7 @@ async function watchEmailAccount(
   const { account, user, watchEmailsExpirationDate } = emailAccount;
 
   const userHasAiAccess = hasAiAccess(
-    user.premium?.tier || null,
+    getUserTier(user.premium),
     !!user.aiApiKey,
   );
 

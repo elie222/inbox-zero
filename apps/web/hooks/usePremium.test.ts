@@ -75,4 +75,32 @@ describe("usePremium", () => {
     expect(result.current.isPremium).toBe(true);
     expect(result.current.hasAiAccess).toBe(true);
   });
+
+  it("uses the active admin grant tier for AI access", () => {
+    mockUseUser.mockReturnValue({
+      data: {
+        premium: {
+          tier: "BASIC_MONTHLY",
+          stripeSubscriptionStatus: null,
+          lemonSqueezyRenewsAt: null,
+          appleExpiresAt: null,
+          appleRevokedAt: null,
+          appleSubscriptionStatus: null,
+          adminGrantExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+          adminGrantTier: "STARTER_MONTHLY",
+          unsubscribeCredits: 0,
+        },
+        hasAiApiKey: false,
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: vi.fn(),
+    });
+
+    const { result } = renderHook(() => usePremium());
+
+    expect(result.current.isPremium).toBe(true);
+    expect(result.current.tier).toBe("STARTER_MONTHLY");
+    expect(result.current.hasAiAccess).toBe(true);
+  });
 });

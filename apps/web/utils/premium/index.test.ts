@@ -69,6 +69,47 @@ describe("Apple premium helpers", () => {
     ).toBe("STARTER_MONTHLY");
   });
 
+  it("treats active admin grants as premium", () => {
+    const futureDate = new Date(Date.now() + 60_000).toISOString();
+
+    expect(
+      isPremiumRecord({
+        adminGrantExpiresAt: futureDate,
+        adminGrantTier: "PLUS_MONTHLY",
+        lemonSqueezyRenewsAt: null,
+        stripeSubscriptionStatus: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("uses the active admin grant tier when it is higher than the processor tier", () => {
+    const futureDate = new Date(Date.now() + 60_000).toISOString();
+
+    expect(
+      getUserTier({
+        tier: "STARTER_MONTHLY",
+        stripeSubscriptionStatus: "trialing",
+        adminGrantExpiresAt: futureDate,
+        adminGrantTier: "PROFESSIONAL_MONTHLY",
+        lemonSqueezyRenewsAt: null,
+      }),
+    ).toBe("PROFESSIONAL_MONTHLY");
+  });
+
+  it("ignores expired admin grant tiers", () => {
+    const pastDate = new Date(Date.now() - 60_000).toISOString();
+
+    expect(
+      getUserTier({
+        tier: "STARTER_MONTHLY",
+        stripeSubscriptionStatus: "active",
+        adminGrantExpiresAt: pastDate,
+        adminGrantTier: "PROFESSIONAL_MONTHLY",
+        lemonSqueezyRenewsAt: null,
+      }),
+    ).toBe("STARTER_MONTHLY");
+  });
+
   it("treats missing premium records as premium when bypass checks are enabled", () => {
     envMock.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = true;
 
@@ -84,15 +125,41 @@ describe("digest access", () => {
   it("filters premium users by minimum tier when requested", () => {
     const filter = getPremiumUserFilter({ minimumTier: "PLUS_MONTHLY" });
 
-    expect(filter.user.premium.tier).toEqual({
-      in: [
-        "PLUS_MONTHLY",
-        "PLUS_ANNUALLY",
-        "PROFESSIONAL_MONTHLY",
-        "PROFESSIONAL_ANNUALLY",
-        "COPILOT_MONTHLY",
-        "LIFETIME",
-      ],
-    });
+    expect(filter.user.premium.OR).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          AND: expect.arrayContaining([
+            {
+              tier: {
+                in: [
+                  "PLUS_MONTHLY",
+                  "PLUS_ANNUALLY",
+                  "PROFESSIONAL_MONTHLY",
+                  "PROFESSIONAL_ANNUALLY",
+                  "COPILOT_MONTHLY",
+                  "LIFETIME",
+                ],
+              },
+            },
+          ]),
+        }),
+        expect.objectContaining({
+          AND: expect.arrayContaining([
+            {
+              adminGrantTier: {
+                in: [
+                  "PLUS_MONTHLY",
+                  "PLUS_ANNUALLY",
+                  "PROFESSIONAL_MONTHLY",
+                  "PROFESSIONAL_ANNUALLY",
+                  "COPILOT_MONTHLY",
+                  "LIFETIME",
+                ],
+              },
+            },
+          ]),
+        }),
+      ]),
+    );
   });
 });

@@ -3,6 +3,7 @@
 import { env } from "@/env";
 import { useUser } from "@/hooks/useUser";
 import {
+  getUserTier,
   hasAiAccess,
   hasUnsubscribeAccess,
   isPremiumRecord,
@@ -28,10 +29,10 @@ export function usePremium() {
   }
 
   const isUserPremium = isPremiumRecord(premium);
+  const tier = getUserTier(premium);
 
   const isProPlanWithoutApiKey =
-    (premium?.tier === "PRO_MONTHLY" || premium?.tier === "PRO_ANNUALLY") &&
-    !hasAiApiKey;
+    (tier === "PRO_MONTHLY" || tier === "PRO_ANNUALLY") && !hasAiApiKey;
 
   return {
     ...swrResponse,
@@ -39,10 +40,9 @@ export function usePremium() {
     isPremium: isUserPremium,
     hasUnsubscribeAccess:
       isUserPremium ||
-      hasUnsubscribeAccess(premium?.tier || null, premium?.unsubscribeCredits),
-    hasAiAccess:
-      isUserPremium && hasAiAccess(premium?.tier || null, hasAiApiKey),
+      hasUnsubscribeAccess(tier || null, premium?.unsubscribeCredits),
+    hasAiAccess: isUserPremium && hasAiAccess(tier || null, hasAiApiKey),
     isProPlanWithoutApiKey,
-    tier: premium?.tier,
+    tier,
   };
 }

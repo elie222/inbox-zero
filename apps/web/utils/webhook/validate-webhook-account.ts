@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
-import { hasAiAccess, isPremiumRecord } from "@/utils/premium";
+import {
+  getUserTier,
+  hasAiAccess,
+  isPremiumRecord,
+  premiumEntitlementSelect,
+} from "@/utils/premium";
 import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
@@ -55,14 +60,7 @@ const webhookEmailAccountSelect = {
       aiModel: true,
       aiApiKey: true,
       premium: {
-        select: {
-          appleExpiresAt: true,
-          appleRevokedAt: true,
-          appleSubscriptionStatus: true,
-          lemonSqueezyRenewsAt: true,
-          stripeSubscriptionStatus: true,
-          tier: true,
-        },
+        select: premiumEntitlementSelect,
       },
     },
   },
@@ -166,7 +164,7 @@ export async function cleanupWebhookAccountOnRateLimitSkip(
 
   const premium = getWebhookAccountPremium(emailAccount);
   const userHasAiAccess = hasAiAccess(
-    premium?.tier || null,
+    getUserTier(premium),
     !!emailAccount.user.aiApiKey,
   );
   const shouldUnwatch =
@@ -252,13 +250,13 @@ export async function validateWebhookAccount(
   }
 
   const userHasAiAccess = hasAiAccess(
-    premium.tier,
+    getUserTier(premium),
     !!emailAccount.user.aiApiKey,
   );
 
   if (!userHasAiAccess) {
     logger.info("Does not have ai access - unwatching", {
-      tier: premium.tier,
+      tier: getUserTier(premium),
       hasApiKey: !!emailAccount.user.aiApiKey,
     });
     await unwatchEmails({
