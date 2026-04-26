@@ -88,7 +88,30 @@ const appleSocialProvider = hasAppleConfig
   ? {
       clientId: env.APPLE_CLIENT_ID!,
       clientSecret: env.APPLE_CLIENT_SECRET!,
-      disableIdTokenSignIn: true,
+      appBundleIdentifier: env.APPLE_APP_BUNDLE_IDENTIFIER,
+      mapProfileToUser: async (profile) => {
+        if (profile.email) return {};
+
+        const existingAppleAccount = await prisma.account.findUnique({
+          where: {
+            provider_providerAccountId: {
+              provider: "apple",
+              providerAccountId: profile.sub,
+            },
+          },
+          select: {
+            user: {
+              select: {
+                email: true,
+              },
+            },
+          },
+        });
+
+        return existingAppleAccount?.user.email
+          ? { email: existingAppleAccount.user.email }
+          : {};
+      },
       ...(env.OAUTH_PROXY_URL && {
         redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/apple`,
       }),
@@ -166,6 +189,7 @@ export const betterAuthConfig = betterAuth({
   baseURL: env.NEXT_PUBLIC_BASE_URL,
   trustedOrigins: [
     env.NEXT_PUBLIC_BASE_URL,
+    "https://appleid.apple.com",
     ...(env.OAUTH_PROXY_URL ? [env.OAUTH_PROXY_URL] : []),
     ...(env.ADDITIONAL_TRUSTED_ORIGINS ?? []),
     ...mobileAuthOrigins,
