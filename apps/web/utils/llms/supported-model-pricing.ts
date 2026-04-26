@@ -134,6 +134,15 @@ export const STATIC_MODEL_PRICING: Record<string, ModelPricing> = {
     input: 0.59 / 1_000_000,
     output: 0.79 / 1_000_000,
   },
+  // https://docs.perplexity.ai/docs/pricing
+  "sonar-pro": {
+    input: 3 / 1_000_000,
+    output: 15 / 1_000_000,
+  },
+  sonar: {
+    input: 1 / 1_000_000,
+    output: 1 / 1_000_000,
+  },
 };
 
 // Source model ids to use when fetching OpenRouter pricing for our supported models.

@@ -15,6 +15,7 @@ const llmProviderEnum = z.enum([
   "aigateway",
   "ollama",
   "openai-compatible",
+  "perplexity",
 ]);
 
 /** For Vercel preview deployments, auto-detect from VERCEL_URL. */

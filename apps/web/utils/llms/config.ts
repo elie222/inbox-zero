@@ -12,6 +12,7 @@ export const Provider = {
   AI_GATEWAY: "aigateway",
   OLLAMA: "ollama",
   OPENAI_COMPATIBLE: "openai-compatible",
+  PERPLEXITY: "perplexity",
 };
 
 export const providerOptions: { label: string; value: string }[] = [
@@ -23,4 +24,5 @@ export const providerOptions: { label: string; value: string }[] = [
   { label: "Groq", value: Provider.GROQ },
   { label: "OpenRouter", value: Provider.OPENROUTER },
   { label: "Vercel AI Gateway", value: Provider.AI_GATEWAY },
+  { label: "Perplexity", value: Provider.PERPLEXITY },
 ];

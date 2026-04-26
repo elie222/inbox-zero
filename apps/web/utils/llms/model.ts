@@ -7,6 +7,7 @@ import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createVertex } from "@ai-sdk/google-vertex";
 import { createGroq } from "@ai-sdk/groq";
+import { createPerplexity } from "@ai-sdk/perplexity";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
 import { createOllama } from "ollama-ai-provider-v2";
@@ -185,6 +186,16 @@ function selectModel(
         modelName,
         model: createGroq({
           apiKey: resolveApiKey(aiApiKey, env.GROQ_API_KEY),
+        })(modelName),
+      };
+    }
+    case Provider.PERPLEXITY: {
+      const modelName = aiModel || "sonar-pro";
+      return {
+        provider: Provider.PERPLEXITY,
+        modelName,
+        model: createPerplexity({
+          apiKey: resolveApiKey(aiApiKey, env.PERPLEXITY_API_KEY),
         })(modelName),
       };
     }
@@ -524,6 +535,7 @@ function getProviderApiKey(provider: string) {
       ? "vertex-credentials"
       : undefined,
     [Provider.GROQ]: resolveApiKey(null, env.GROQ_API_KEY),
+    [Provider.PERPLEXITY]: resolveApiKey(null, env.PERPLEXITY_API_KEY),
     [Provider.OPENROUTER]: resolveApiKey(null, env.OPENROUTER_API_KEY),
     [Provider.AI_GATEWAY]: resolveApiKey(null, env.AI_GATEWAY_API_KEY),
     [Provider.OLLAMA]: "ollama-local",
