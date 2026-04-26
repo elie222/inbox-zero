@@ -54,6 +54,11 @@ const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();
 const hasMicrosoftConfig = hasMicrosoftOauthConfig();
 const hasAppleConfig = hasAppleOauthConfig();
 
+type AppleProfile = {
+  email?: string;
+  sub: string;
+};
+
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
   : [];
@@ -89,7 +94,7 @@ const appleSocialProvider = hasAppleConfig
       clientId: env.APPLE_CLIENT_ID!,
       clientSecret: env.APPLE_CLIENT_SECRET!,
       appBundleIdentifier: env.APPLE_APP_BUNDLE_IDENTIFIER,
-      mapProfileToUser: async (profile) => {
+      mapProfileToUser: async (profile: AppleProfile) => {
         if (profile.email) return {};
 
         const existingAppleAccount = await prisma.account.findUnique({
