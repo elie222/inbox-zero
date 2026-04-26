@@ -2,7 +2,6 @@ import type { NextResponse } from "next/server";
 import type { Logger } from "@/utils/logger";
 import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
 import { parseSignedOAuthState } from "@/utils/oauth/state";
-import { normalizeInternalPath } from "@/utils/path";
 
 interface ValidateCallbackParams {
   code: string | null;
@@ -18,7 +17,6 @@ type ValidationResult =
       targetUserId: string;
       stateNonce: string;
       code: string;
-      returnTo?: string;
     }
   | {
       success: false;
@@ -63,7 +61,6 @@ export function validateOAuthCallback({
     targetUserId: stateValidation.targetUserId,
     stateNonce: stateValidation.stateNonce,
     code,
-    returnTo: stateValidation.returnTo,
   };
 }
 
@@ -84,7 +81,6 @@ function validateMatchingSignedOAuthState(params: {
       success: true;
       targetUserId: string;
       stateNonce: string;
-      returnTo?: string;
     }
   | {
       success: false;
@@ -106,10 +102,9 @@ function validateMatchingSignedOAuthState(params: {
   }
 
   try {
-    const payload = parseSignedOAuthState<{
-      userId: string;
-      returnTo?: string;
-    }>(params.storedState);
+    const payload = parseSignedOAuthState<{ userId: string }>(
+      params.storedState,
+    );
 
     if (typeof payload.userId !== "string") {
       params.logger.error("Failed to decode OAuth callback state", {
@@ -125,7 +120,6 @@ function validateMatchingSignedOAuthState(params: {
       success: true,
       targetUserId: payload.userId,
       stateNonce: payload.nonce,
-      returnTo: normalizeInternalPath(payload.returnTo) ?? undefined,
     };
   } catch (error) {
     params.logger.error("Failed to verify OAuth callback state", {

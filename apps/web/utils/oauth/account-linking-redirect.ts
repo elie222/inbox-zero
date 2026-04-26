@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
-import { normalizeInternalPath } from "@/utils/path";
 
 export function createAccountLinkingRedirect(params?: {
   query?: Record<string, string | null | undefined>;
-  redirectPath?: string;
   stateCookieName?: string;
 }) {
-  const redirectPath =
-    normalizeInternalPath(params?.redirectPath) ?? "/accounts";
-  const redirectUrl = new URL(redirectPath, env.NEXT_PUBLIC_BASE_URL);
+  const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
 
   for (const [key, value] of Object.entries(params?.query ?? {})) {
     if (value != null) {

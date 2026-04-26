@@ -24,28 +24,6 @@ describe("getAccountLinkingUrl", () => {
     });
   });
 
-  it("passes return target to the auth URL endpoint", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        url: "https://login.microsoftonline.com/oauth2/v2.0/authorize",
-      }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    await getAccountLinkingUrl("microsoft", {
-      returnTo: "/organizations/invitations/invite_123/accept",
-    });
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/outlook/linking/auth-url?returnTo=%2Forganizations%2Finvitations%2Finvite_123%2Faccept",
-      {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-  });
-
   it("returns the redirect URL when the server asks the client to log out", async () => {
     vi.stubGlobal(
       "fetch",

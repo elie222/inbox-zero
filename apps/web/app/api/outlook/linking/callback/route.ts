@@ -90,7 +90,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     return validation.response;
   }
 
-  const { targetUserId, code, stateNonce, returnTo } = validation;
+  const { targetUserId, code, stateNonce } = validation;
   logger = logOAuthLinkingCallbackValidation({
     actorUserId,
     logger,
@@ -113,7 +113,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     });
     return createAccountLinkingRedirect({
       query: cachedResult.params,
-      redirectPath: returnTo,
       stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
     });
   }
@@ -330,7 +329,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       await setOAuthCodeResult(code, { success: "account_created_and_linked" });
       return createAccountLinkingRedirect({
         query: { success: "account_created_and_linked" },
-        redirectPath: returnTo,
         stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
       });
     }
@@ -362,7 +360,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       await setOAuthCodeResult(code, { success: "tokens_updated" });
       return createAccountLinkingRedirect({
         query: { success: "tokens_updated" },
-        redirectPath: returnTo,
         stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
       });
     }
@@ -402,7 +399,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     await setOAuthCodeResult(code, { success: successMessage });
     return createAccountLinkingRedirect({
       query: { success: successMessage },
-      redirectPath: returnTo,
       stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
     });
   } catch (error) {

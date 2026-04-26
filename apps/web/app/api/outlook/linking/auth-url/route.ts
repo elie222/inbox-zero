@@ -10,23 +10,12 @@ import {
   generateSignedOAuthState,
   oauthStateCookieOptions,
 } from "@/utils/oauth/state";
-import { normalizeInternalPath } from "@/utils/path";
 
 export type GetOutlookAuthLinkUrlResponse = { url: string };
 
-const getAuthUrl = ({
-  returnTo,
-  userId,
-}: {
-  returnTo?: string;
-  userId: string;
-}) => {
+const getAuthUrl = ({ userId }: { userId: string }) => {
   const stateNonce = randomUUID();
-  const state = generateSignedOAuthState({
-    userId,
-    nonce: stateNonce,
-    ...(returnTo ? { returnTo } : {}),
-  });
+  const state = generateSignedOAuthState({ userId, nonce: stateNonce });
 
   const baseUrl = getLinkingOAuth2Url();
   const url = `${baseUrl}&state=${state}`;
@@ -36,9 +25,6 @@ const getAuthUrl = ({
 
 export const GET = withAuth("outlook/linking/auth-url", async (request) => {
   const userId = request.auth.userId;
-  const returnTo =
-    normalizeInternalPath(request.nextUrl.searchParams.get("returnTo")) ??
-    undefined;
   const hasActiveUser = await hasActiveAccountLinkingUser({
     targetUserId: userId,
     logger: request.logger,
@@ -51,7 +37,7 @@ export const GET = withAuth("outlook/linking/auth-url", async (request) => {
     );
   }
 
-  const { url: authUrl, state, stateNonce } = getAuthUrl({ returnTo, userId });
+  const { url: authUrl, state, stateNonce } = getAuthUrl({ userId });
   const parsedAuthUrl = new URL(authUrl);
   const logger = createOAuthLinkingAuditLogger({
     actorUserId: userId,

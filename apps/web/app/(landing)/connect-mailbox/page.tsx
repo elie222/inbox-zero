@@ -42,10 +42,7 @@ export default async function ConnectMailboxPage(props: {
           </p>
         </div>
 
-        <AddAccount
-          helperText="You can add more mailboxes later from Accounts."
-          returnTo={nextPath}
-        />
+        <AddAccount helperText="You can add more mailboxes later from Accounts." />
 
         <MutedText className="text-center">
           Google and Microsoft are used here only to connect your inbox data.
