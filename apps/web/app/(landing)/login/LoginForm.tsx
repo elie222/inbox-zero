@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { AppleIcon } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Button as UIButton } from "@/components/ui/button";
 import {
@@ -109,7 +108,13 @@ export function LoginForm({
           }
         >
           <span className="flex items-center justify-center">
-            <AppleIcon className="size-6" />
+            <Image
+              src="/images/apple.svg"
+              alt="Apple"
+              width={24}
+              height={24}
+              unoptimized
+            />
             <span className="ml-2">Sign in with Apple</span>
           </span>
         </Button>
@@ -188,13 +193,6 @@ export function LoginForm({
         >
           <Link href="/login/sso">Sign in with SSO</Link>
         </UIButton>
-      ) : null}
-
-      {showAppleLogin ? (
-        <p className="px-4 pt-2 text-center text-sm text-muted-foreground">
-          Sign in with Apple creates your account. You&apos;ll connect Gmail or
-          Outlook next.
-        </p>
       ) : null}
     </div>
   );
