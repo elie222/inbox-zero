@@ -25,6 +25,7 @@ import {
   sendMessagingRuleNotification,
 } from "@/utils/messaging/rule-notifications";
 import { isMessagingDraftActionType } from "@/utils/actions/draft-reply";
+import { checkHasAccess } from "@/utils/premium/server";
 
 const MODULE = "ai-actions";
 
@@ -456,6 +457,15 @@ const digest: ActionFunction<{ id?: string }> = async ({
   logger,
 }) => {
   if (!args.id) return;
+  const hasDigestAccess = await checkHasAccess({
+    userId: emailAccount.userId,
+    minimumTier: "PLUS_MONTHLY",
+  });
+  if (!hasDigestAccess) {
+    logger.info("Skipping digest action because plan does not include it");
+    return;
+  }
+
   const actionId = args.id;
   await enqueueDigestItem({
     email,

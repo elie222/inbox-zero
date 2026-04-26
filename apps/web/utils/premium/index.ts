@@ -147,6 +147,14 @@ const tierRanking = {
   LIFETIME: 12,
 };
 
+function getTiersAtOrAbove(minimumTier: PremiumTier): PremiumTier[] {
+  const minimumRanking = tierRanking[minimumTier];
+
+  return Object.entries(tierRanking)
+    .filter(([, ranking]) => ranking >= minimumRanking)
+    .map(([tier]) => tier as PremiumTier);
+}
+
 export const hasUnsubscribeAccess = (
   tier: PremiumTier | null,
   unsubscribeCredits?: number | null,
@@ -204,12 +212,19 @@ export function isOnHigherTier(
   return tier1Rank > tier2Rank;
 }
 
-export function getPremiumUserFilter() {
+export function getPremiumUserFilter({
+  minimumTier,
+}: {
+  minimumTier?: PremiumTier;
+} = {}) {
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return {};
 
   return {
     user: {
       premium: {
+        ...(minimumTier
+          ? { tier: { in: getTiersAtOrAbove(minimumTier) } }
+          : {}),
         OR: [
           {
             AND: [

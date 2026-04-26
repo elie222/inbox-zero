@@ -11,6 +11,7 @@ vi.mock("@/env", () => ({
 }));
 
 import {
+  getPremiumUserFilter,
   getUserTier,
   hasActiveAppleSubscription,
   isPremium,
@@ -72,5 +73,26 @@ describe("Apple premium helpers", () => {
     envMock.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = true;
 
     expect(isPremiumRecord(null)).toBe(true);
+  });
+});
+
+describe("digest access", () => {
+  afterEach(() => {
+    envMock.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = false;
+  });
+
+  it("filters premium users by minimum tier when requested", () => {
+    const filter = getPremiumUserFilter({ minimumTier: "PLUS_MONTHLY" });
+
+    expect(filter.user.premium.tier).toEqual({
+      in: [
+        "PLUS_MONTHLY",
+        "PLUS_ANNUALLY",
+        "PROFESSIONAL_MONTHLY",
+        "PROFESSIONAL_ANNUALLY",
+        "COPILOT_MONTHLY",
+        "LIFETIME",
+      ],
+    });
   });
 });
