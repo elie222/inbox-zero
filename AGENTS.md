@@ -38,9 +38,10 @@
 - Infer types from Zod schemas using `z.infer<typeof schema>` instead of duplicating as separate interfaces
 - Avoid premature abstraction. Duplicating 2-3 times is fine; extract when a stable pattern emerges.
 - Default to inlining and co-locating logic at the call site.
-- Extract a helper when doing so makes the call site clearly easier to read — e.g., a non-obvious computation gets a name, or a nested branch becomes a clean lookup. The bar is "the call site is better," not "the helper looks nice."
+- Extract a helper when it makes the call site clearly easier to read, names a meaningful domain concept, or centralizes shared behavior that should stay consistent across flows.
+- The bar is that the surrounding code gets clearer or safer, not that the helper looks nice in isolation.
 - Don't extract helpers that just rename and forward parameters; that's a layer without meaning.
-- Avoid large/nested ternaries. Prefer a small helper, an early-return cascade, or a lookup table.
+- Avoid large/nested ternaries. Prefer straightforward control flow, a small helper, or a lookup table when it improves readability.
 - No barrel files. Import directly from source files.
 - Colocate page components next to their `page.tsx`. No nested `components/` subfolders in route directories.
 - Reusable components shared across pages go in `apps/web/components/`
