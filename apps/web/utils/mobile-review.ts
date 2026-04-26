@@ -50,42 +50,7 @@ const reviewDemoAccountsSchema = z.array(
 );
 
 export function isMobileReviewEnabled(): boolean {
-  return Boolean(
-    env.APP_REVIEW_DEMO_ENABLED && getConfiguredReviewAccounts().length > 0,
-  );
-}
-
-export async function getMobileReviewAccessStatus(input: { logger: Logger }) {
-  const config = getMobileReviewConfig();
-  if (!config.ok) {
-    input.logger.warn("Mobile review access unavailable", {
-      ...config,
-      ok: undefined,
-    });
-    return { enabled: false as const };
-  }
-
-  let reviewUsers: MobileReviewUserResult[];
-  try {
-    reviewUsers = await getMobileReviewUsers(config.reviewDemoAccounts);
-  } catch (error) {
-    input.logger.warn("Mobile review access unavailable", {
-      reason: "review_user_lookup_failed",
-      error,
-    });
-    return { enabled: false as const };
-  }
-
-  const missingReviewUsers = reviewUsers.filter((reviewUser) => !reviewUser.ok);
-  if (missingReviewUsers.length) {
-    input.logger.warn("Mobile review access unavailable", {
-      count: missingReviewUsers.length,
-      reasons: missingReviewUsers,
-    });
-    return { enabled: false as const };
-  }
-
-  return { enabled: true as const };
+  return env.APP_REVIEW_DEMO_ENABLED;
 }
 
 export async function createMobileReviewSession(input: {

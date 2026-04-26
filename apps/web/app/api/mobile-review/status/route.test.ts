@@ -3,13 +3,12 @@ vi.mock("server-only", () => ({}));
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getMobileReviewAccessStatusMock } = vi.hoisted(() => ({
-  getMobileReviewAccessStatusMock: vi.fn(),
+const { isMobileReviewEnabledMock } = vi.hoisted(() => ({
+  isMobileReviewEnabledMock: vi.fn(),
 }));
 
 vi.mock("@/utils/mobile-review", () => ({
-  getMobileReviewAccessStatus: (...args: unknown[]) =>
-    getMobileReviewAccessStatusMock(...args),
+  isMobileReviewEnabled: () => isMobileReviewEnabledMock(),
 }));
 
 vi.mock("@/utils/middleware", () => ({
@@ -29,26 +28,17 @@ describe("mobile review status route", () => {
     vi.clearAllMocks();
   });
 
-  it("returns the validated review access status", async () => {
-    getMobileReviewAccessStatusMock.mockResolvedValueOnce({ enabled: false });
+  it("returns the configured review access status", async () => {
+    isMobileReviewEnabledMock.mockReturnValueOnce(false);
 
     const request = new NextRequest(
       "http://localhost/api/mobile-review/status",
-    ) as NextRequest & {
-      logger: {
-        warn: ReturnType<typeof vi.fn>;
-      };
-    };
-    request.logger = {
-      warn: vi.fn(),
-    };
+    );
 
     const response = await GET(request, {} as never);
     const body = await response.json();
 
-    expect(getMobileReviewAccessStatusMock).toHaveBeenCalledWith({
-      logger: request.logger,
-    });
+    expect(isMobileReviewEnabledMock).toHaveBeenCalledOnce();
     expect(body).toEqual({ enabled: false });
   });
 });

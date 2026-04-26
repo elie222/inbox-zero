@@ -60,7 +60,7 @@ vi.mock("@/utils/prisma", () => ({
 
 import {
   createMobileReviewSession,
-  getMobileReviewAccessStatus,
+  isMobileReviewEnabled,
 } from "./mobile-review";
 
 function createLogger() {
@@ -92,116 +92,18 @@ describe("mobile review access", () => {
     });
   });
 
-  it("reports disabled status when the configured review account has no email account", async () => {
-    const logger = createLogger();
-    emailAccountFindManyMock.mockResolvedValueOnce([]);
+  it("reports enabled status from the env flag without validating accounts", () => {
+    mockedEnv.APP_REVIEW_DEMO_ACCOUNTS = "not-json";
 
-    const result = await getMobileReviewAccessStatus({ logger } as never);
-
-    expect(result).toEqual({ enabled: false });
-    expect(logger.warn).toHaveBeenCalledWith(
-      "Mobile review access unavailable",
-      expect.objectContaining({
-        count: 1,
-        reasons: [
-          expect.objectContaining({
-            hasEmailAccount: false,
-            ok: false,
-            reason: "review_user_missing_email_account",
-          }),
-        ],
-      }),
-    );
-  });
-
-  it("reports enabled status when the configured review account is usable", async () => {
-    const logger = createLogger();
-    emailAccountFindManyMock.mockResolvedValueOnce([
-      {
-        email: "review@example.com",
-        id: "account-1",
-        user: {
-          email: "owner@example.com",
-          id: "user-1",
-        },
-      },
-    ]);
-
-    const result = await getMobileReviewAccessStatus({ logger } as never);
-
-    expect(result).toEqual({ enabled: true });
-    expect(logger.warn).not.toHaveBeenCalled();
-  });
-
-  it("reports disabled status when the review user lookup fails", async () => {
-    const logger = createLogger();
-    const error = new Error("database unavailable");
-    emailAccountFindManyMock.mockRejectedValueOnce(error);
-
-    const result = await getMobileReviewAccessStatus({ logger } as never);
-
-    expect(result).toEqual({ enabled: false });
-    expect(logger.warn).toHaveBeenCalledWith(
-      "Mobile review access unavailable",
-      expect.objectContaining({
-        error,
-        reason: "review_user_lookup_failed",
-      }),
-    );
-  });
-
-  it("reports disabled status when review account config is invalid", async () => {
-    const logger = createLogger();
-    mockedEnv.APP_REVIEW_DEMO_ACCOUNTS = JSON.stringify([
-      { email: "not-an-email", code: "review-code" },
-    ]);
-
-    const result = await getMobileReviewAccessStatus({ logger } as never);
-
-    expect(result).toEqual({ enabled: false });
+    expect(isMobileReviewEnabled()).toBe(true);
     expect(emailAccountFindManyMock).not.toHaveBeenCalled();
-    expect(logger.warn).toHaveBeenCalledWith(
-      "Mobile review access unavailable",
-      expect.objectContaining({
-        hasReviewDemoAccounts: false,
-        reason: "review_demo_misconfigured",
-      }),
-    );
   });
 
-  it("reports disabled status when any configured review account is missing", async () => {
-    const logger = createLogger();
-    mockedEnv.APP_REVIEW_DEMO_ACCOUNTS = JSON.stringify([
-      { email: "active-review@example.com", code: "active-code" },
-      { email: "expired-review@example.com", code: "expired-code" },
-    ]);
-    emailAccountFindManyMock.mockResolvedValueOnce([
-      {
-        email: "active-review@example.com",
-        id: "account-active",
-        user: {
-          email: "active-owner@example.com",
-          id: "user-active",
-        },
-      },
-    ]);
+  it("reports disabled status when the env flag is off", () => {
+    mockedEnv.APP_REVIEW_DEMO_ENABLED = false;
 
-    const result = await getMobileReviewAccessStatus({ logger } as never);
-
-    expect(result).toEqual({ enabled: false });
-    expect(logger.warn).toHaveBeenCalledWith(
-      "Mobile review access unavailable",
-      expect.objectContaining({
-        count: 1,
-        reasons: [
-          expect.objectContaining({
-            hasEmailAccount: false,
-            ok: false,
-            reason: "review_user_missing_email_account",
-          }),
-        ],
-      }),
-    );
+    expect(isMobileReviewEnabled()).toBe(false);
+    expect(emailAccountFindManyMock).not.toHaveBeenCalled();
   });
 
   it("rejects invalid review codes before querying the database", async () => {
