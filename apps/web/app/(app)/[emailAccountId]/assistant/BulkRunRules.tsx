@@ -252,8 +252,8 @@ export function BulkRunRules() {
 
               {state.runResult && state.runResult.count === 0 && (
                 <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
-                  No {includeRead ? "" : "unread "}emails found in the selected
-                  date range.
+                  No {includeRead ? "" : "unread, "}unprocessed emails found
+                  in the selected date range.
                 </div>
               )}
             </div>
