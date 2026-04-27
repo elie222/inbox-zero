@@ -182,7 +182,11 @@ describe("InlineEmailCard", () => {
 
     openMoreActions();
 
-    expect((await screen.findByText("Open in email")).closest("a")?.href).toBe(
+    expect(
+      screen
+        .getByRole("menuitem", { name: "Open in email" })
+        .getAttribute("href"),
+    ).toBe(
       getEmailUrlForMessage(
         "msg-1",
         "19cdca06580b38e9",
@@ -191,7 +195,7 @@ describe("InlineEmailCard", () => {
       ),
     );
 
-    fireEvent.click(screen.getByText("Archive"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Archive" }));
 
     await waitFor(() => {
       expect(mockArchiveThreadAction).toHaveBeenCalledWith("account-1", {
@@ -258,7 +262,7 @@ describe("InlineEmailCard", () => {
 
     openMoreActions();
 
-    expect(await screen.findByText("Archive")).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Archive" })).toBeTruthy();
   });
 
   it("renders the preview when message headers are missing", () => {
@@ -353,20 +357,30 @@ describe("InlineEmailList", () => {
     ]);
   });
 
-  it("collapses archived rows into the completed summary", async () => {
-    render(
-      <InlineEmailList>
-        <InlineEmailCard threadid="thread-1">First</InlineEmailCard>
-        <InlineEmailCard threadid="thread-2">Second</InlineEmailCard>
-      </InlineEmailList>,
-    );
+  it("disables archive all after archive all succeeds", async () => {
+    vi.useFakeTimers();
 
-    fireEvent.click(screen.getAllByRole("button")[0]);
+    try {
+      render(
+        <InlineEmailList>
+          <InlineEmailCard threadid="thread-1">First</InlineEmailCard>
+          <InlineEmailCard threadid="thread-2">Second</InlineEmailCard>
+        </InlineEmailList>,
+      );
 
-    await waitFor(() => {
-      expect(screen.getByText("Completed emails")).toBeTruthy();
-      expect(screen.getByText("2 archived")).toBeTruthy();
-    });
+      const archiveAllButton = screen.getAllByRole("button")[0];
+
+      fireEvent.click(archiveAllButton);
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect((archiveAllButton as HTMLButtonElement).disabled).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("collapses fully archived sections into a compact summary", async () => {

@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState, useRef } from "react";
-import { useLocalStorage } from "usehooks-ts";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useState,
+  useRef,
+} from "react";
 import { PlusIcon, UserPenIcon } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { createRulesAction } from "@/utils/actions/ai-rule";
 import {
   SimpleRichTextEditor,
   type SimpleRichTextEditorRef,
@@ -14,7 +17,6 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { getPersonas } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/assistant/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
-import { ProcessingPromptFileDialog } from "@/app/(app)/[emailAccountId]/assistant/ProcessingPromptFileDialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,13 +25,14 @@ import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useRules } from "@/hooks/useRules";
 import { ExamplesGrid } from "@/app/(app)/[emailAccountId]/assistant/ExamplesList";
-import { CreatedRulesModal } from "@/app/(app)/[emailAccountId]/assistant/CreatedRulesModal";
-import type { RuleWithRelations } from "@/utils/rule/types";
 import { toastError } from "@/components/Toast";
 import { AvailableActionsPanel } from "@/app/(app)/[emailAccountId]/assistant/AvailableActionsPanel";
+import { useChat } from "@/providers/ChatProvider";
+import { useSidebar } from "@/components/ui/sidebar";
+import { convertMentionsToLabels } from "@/utils/mention";
 
-export function RulesPrompt() {
-  const { emailAccountId, provider } = useAccount();
+export function RulesPrompt({ onSubmitted }: { onSubmitted?: () => void }) {
+  const { provider } = useAccount();
   const { isModalOpen, setIsModalOpen } = useModal();
   const onOpenPersonaDialog = useCallback(
     () => setIsModalOpen(true),
@@ -46,11 +49,11 @@ export function RulesPrompt() {
   return (
     <>
       <RulesPromptForm
-        emailAccountId={emailAccountId}
         provider={provider}
         examples={examples}
         onOpenPersonaDialog={onOpenPersonaDialog}
         onHideExamples={() => setPersona(null)}
+        onSubmitted={onSubmitted}
       />
       <PersonaDialog
         isOpen={isModalOpen}
@@ -63,31 +66,24 @@ export function RulesPrompt() {
 }
 
 function RulesPromptForm({
-  emailAccountId,
   provider,
   examples,
   onOpenPersonaDialog,
   onHideExamples,
+  onSubmitted,
 }: {
-  emailAccountId: string;
   provider: string;
   examples?: string[];
   onOpenPersonaDialog: () => void;
   onHideExamples: () => void;
+  onSubmitted?: () => void;
 }) {
   const { mutate } = useRules();
   const { userLabels, isLoading: isLoadingLabels } = useLabels();
+  const { chat, submitTextMessage } = useChat();
+  const { isMobile, setOpen, setOpenMobile } = useSidebar();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isProcessingDialogOpen, setIsProcessingDialogOpen] = useState(false);
-  const [createdRules, setCreatedRules] = useState<RuleWithRelations[] | null>(
-    null,
-  );
-  const [showCreatedRulesModal, setShowCreatedRulesModal] = useState(false);
-  const [
-    viewedProcessingPromptFileDialog,
-    setViewedProcessingPromptFileDialog,
-  ] = useLocalStorage("viewedProcessingPromptFileDialog", false);
 
   const ruleDialog = useDialogState();
 
@@ -96,59 +92,42 @@ function RulesPromptForm({
   const onSubmit = useCallback(async () => {
     const markdown = editorRef.current?.getMarkdown();
     if (typeof markdown !== "string") return;
-    if (markdown.trim() === "") {
+    const prompt = convertMentionsToLabels(markdown).trim();
+    if (prompt === "") {
       toastError({
         description: "Please enter a prompt to create rules",
       });
       return;
     }
 
-    setIsSubmitting(true);
-    if (!viewedProcessingPromptFileDialog) setIsProcessingDialogOpen(true);
-    setCreatedRules(null);
-
-    toast.promise(
-      async () => {
-        const result = await createRulesAction(emailAccountId, {
-          prompt: markdown,
-        }).finally(() => {
-          setIsSubmitting(false);
-        });
-
-        if (result?.serverError) throw new Error(result.serverError);
-
-        mutate();
-
-        return result;
-      },
-      {
-        loading: "Creating rules...",
-        success: (result) => {
-          const { rules = [], errors = [] } = result?.data || {};
-          setCreatedRules(rules);
-
-          if (errors.length > 0) {
-            const errorDetails = errors
-              .map((e) => `${e.ruleName}: ${e.error}`)
-              .join(", ");
-            return `${rules.length} rules created. ${errors.length} failed: ${errorDetails}`;
-          }
-
-          return `${rules.length} rules created!`;
-        },
-        error: (err) => {
-          setIsProcessingDialogOpen(false);
-          return `Error creating rules: ${err.message}`;
-        },
-      },
-    );
-  }, [mutate, viewedProcessingPromptFileDialog, emailAccountId]);
-
-  useEffect(() => {
-    if (createdRules && createdRules.length > 0 && !isProcessingDialogOpen) {
-      setShowCreatedRulesModal(true);
+    if (chat.status !== "ready") {
+      toastError({
+        description: "Please wait for the current chat response to finish.",
+      });
+      return;
     }
-  }, [createdRules, isProcessingDialogOpen]);
+
+    setIsSubmitting(true);
+    openChatSidebar({ isMobile, setOpen, setOpenMobile });
+
+    let submitted = false;
+    try {
+      await submitTextMessage(`Create these email rules:\n\n${prompt}`);
+      submitted = true;
+      onSubmitted?.();
+    } catch {
+      toastError({ description: "Could not send this prompt to chat." });
+    } finally {
+      if (!submitted || !onSubmitted) setIsSubmitting(false);
+    }
+  }, [
+    chat.status,
+    isMobile,
+    onSubmitted,
+    setOpen,
+    setOpenMobile,
+    submitTextMessage,
+  ]);
 
   const addExamplePrompt = useCallback((example: string) => {
     editorRef.current?.appendText(`\n* ${example.trim()}`);
@@ -159,9 +138,9 @@ function RulesPromptForm({
       <div className="grid grid-cols-1 lg:grid-cols-[1fr,250px] gap-6">
         <div className="grid gap-4">
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              onSubmit();
+              await onSubmit();
             }}
           >
             <Label className="font-title text-xl leading-7">
@@ -189,6 +168,7 @@ function RulesPromptForm({
                 </Button>
 
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
                   onClick={examples ? onHideExamples : onOpenPersonaDialog}
@@ -198,6 +178,7 @@ function RulesPromptForm({
                 </Button>
 
                 <Button
+                  type="button"
                   className="ml-auto w-full sm:w-auto"
                   variant="outline"
                   size="sm"
@@ -238,28 +219,27 @@ function RulesPromptForm({
         }}
         editMode={false}
       />
-
-      <ProcessingPromptFileDialog
-        open={isProcessingDialogOpen}
-        result={createdRules}
-        onOpenChange={setIsProcessingDialogOpen}
-        setViewedProcessingPromptFileDialog={
-          setViewedProcessingPromptFileDialog
-        }
-      />
-
-      <CreatedRulesModal
-        open={showCreatedRulesModal}
-        onOpenChange={(open) => {
-          setShowCreatedRulesModal(open);
-
-          // Clear results when modal closes to prevent re-showing
-          if (!open) {
-            setCreatedRules(null);
-          }
-        }}
-        rules={createdRules}
-      />
     </div>
   );
+}
+
+function openChatSidebar({
+  isMobile,
+  setOpen,
+  setOpenMobile,
+}: {
+  isMobile: boolean;
+  setOpen: Dispatch<SetStateAction<string[]>>;
+  setOpenMobile: Dispatch<SetStateAction<string[]>>;
+}) {
+  const openChat = (openSidebars: string[]) =>
+    openSidebars.includes("chat-sidebar")
+      ? openSidebars
+      : [...openSidebars, "chat-sidebar"];
+
+  if (isMobile) {
+    setOpenMobile(openChat);
+  } else {
+    setOpen(openChat);
+  }
 }

@@ -300,9 +300,6 @@ export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
 
 export const deleteRuleBody = z.object({ id: z.string() });
 
-export const createRulesBody = z.object({ prompt: z.string().trim() });
-export type CreateRulesBody = z.infer<typeof createRulesBody>;
-
 export const updateRuleSettingsBody = z.object({
   id: z.string(),
   instructions: z.string(),

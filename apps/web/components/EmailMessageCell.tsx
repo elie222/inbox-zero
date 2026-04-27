@@ -1,11 +1,11 @@
 "use client";
 
-import { ExternalLinkIcon } from "lucide-react";
+import { ExternalLinkIcon, MailIcon } from "lucide-react";
 import Link from "next/link";
-import { MessageText } from "@/components/Typography";
 import { getEmailUrlForMessage } from "@/utils/url";
 import { decodeSnippet } from "@/utils/gmail/decode";
-import { ViewEmailButton } from "@/components/ViewEmailButton";
+import { Tooltip } from "@/components/Tooltip";
+import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useThread } from "@/hooks/useThread";
 import { snippetRemoveReply } from "@/utils/gmail/snippet";
 import { extractNameFromEmail } from "@/utils/email";
@@ -17,6 +17,8 @@ import { isDefined } from "@/utils/types";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
+
+const MAX_VISIBLE_LABELS = 2;
 
 export function EmailMessageCell({
   sender,
@@ -41,6 +43,7 @@ export function EmailMessageCell({
 }) {
   const { userLabels } = useEmail();
   const { provider } = useAccount();
+  const { showEmail } = useDisplayedEmail();
 
   const labelsToDisplay = useMemo(() => {
     const labels = labelIds
@@ -85,16 +88,48 @@ export function EmailMessageCell({
     return labels;
   }, [labelIds, userLabels, filterReplyTrackerLabels]);
 
+  const showIcons = !hideViewEmailButton && isGoogleProvider(provider);
+  const visibleLabels = labelsToDisplay?.slice(0, MAX_VISIBLE_LABELS) ?? [];
+  const overflowLabels = labelsToDisplay?.slice(MAX_VISIBLE_LABELS) ?? [];
+
   return (
-    <div className="min-w-0 break-words">
-      <MessageText className="flex items-center">
-        <span className="max-w-[300px] truncate">
+    <div className="min-w-0 break-words text-sm text-slate-700 dark:text-foreground">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="order-1 max-w-[240px] shrink-0 truncate font-semibold">
           {extractNameFromEmail(sender)}
         </span>
-        {!hideViewEmailButton && isGoogleProvider(provider) && (
-          <>
+        <span className="order-4 min-w-0 max-w-full basis-full truncate sm:order-2 sm:max-w-md sm:basis-auto">
+          {subject}
+        </span>
+        {visibleLabels.length > 0 && (
+          <div className="order-5 flex shrink-0 items-center gap-1 sm:order-3">
+            {visibleLabels.map((label) => (
+              <Badge
+                variant="outline"
+                key={label.id}
+                className="max-w-[140px] truncate font-normal text-muted-foreground"
+              >
+                {label.name}
+              </Badge>
+            ))}
+            {overflowLabels.length > 0 && (
+              <Tooltip content={overflowLabels.map((l) => l.name).join(", ")}>
+                <span>
+                  <Badge
+                    variant="outline"
+                    className="font-normal text-muted-foreground"
+                  >
+                    +{overflowLabels.length}
+                  </Badge>
+                </span>
+              </Tooltip>
+            )}
+          </div>
+        )}
+        {showIcons && (
+          <div className="order-2 ml-auto flex shrink-0 items-center gap-2 text-muted-foreground sm:order-4 sm:ml-0">
             <Link
-              className="ml-2 hover:text-foreground"
+              className="hover:text-foreground"
               href={getEmailUrlForMessage(
                 messageId,
                 threadId,
@@ -102,31 +137,26 @@ export function EmailMessageCell({
                 provider,
               )}
               target="_blank"
+              aria-label="Open in Gmail"
             >
               <ExternalLinkIcon className="h-4 w-4" />
             </Link>
-            <ViewEmailButton
-              threadId={threadId}
-              messageId={messageId}
-              size="xs"
-              className="ml-1.5"
-            />
-          </>
+            <Tooltip content="View email">
+              <button
+                type="button"
+                className="hover:text-foreground"
+                onClick={() => showEmail({ threadId, messageId })}
+                aria-label="View email"
+              >
+                <MailIcon className="h-4 w-4" />
+              </button>
+            </Tooltip>
+          </div>
         )}
-        {labelsToDisplay && labelsToDisplay.length > 0 && (
-          <span className="ml-2 flex flex-wrap items-center gap-1">
-            {labelsToDisplay.map((label) => (
-              <Badge variant="secondary" key={label.id}>
-                {label.name}
-              </Badge>
-            ))}
-          </span>
-        )}
-      </MessageText>
-      <MessageText className="mt-1 truncate font-bold">{subject}</MessageText>
-      <MessageText className="mt-1 line-clamp-2 break-all">
+      </div>
+      <p className="mt-1 line-clamp-2 max-w-2xl break-all text-sm text-muted-foreground">
         {snippetRemoveReply(decodeSnippet(snippet)).trim()}
-      </MessageText>
+      </p>
     </div>
   );
 }

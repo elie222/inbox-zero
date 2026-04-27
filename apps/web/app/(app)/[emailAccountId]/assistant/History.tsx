@@ -1,23 +1,15 @@
 "use client";
 
-import Link from "next/link";
-import { ExternalLinkIcon } from "lucide-react";
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
+import { format, isToday, isYesterday } from "date-fns";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { GetExecutedRulesResponse } from "@/app/api/user/executed-rules/history/route";
 import { AlertBasic } from "@/components/Alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { TablePagination } from "@/components/TablePagination";
 import { Badge } from "@/components/Badge";
 import { RulesSelect } from "@/app/(app)/[emailAccountId]/assistant/RulesSelect";
@@ -25,14 +17,12 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useChat } from "@/providers/ChatProvider";
 import { useExecutedRules } from "@/hooks/useExecutedRules";
 import { useMessagesBatch } from "@/hooks/useMessagesBatch";
-import { decodeSnippet } from "@/utils/gmail/decode";
 import type { ParsedMessage } from "@/utils/types";
-import { ViewEmailButton } from "@/components/ViewEmailButton";
+import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import { ResultsDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
-import { DateCell } from "@/app/(app)/[emailAccountId]/assistant/DateCell";
-import { isGoogleProvider } from "@/utils/email/provider-types";
-import { getEmailUrlForMessage } from "@/utils/url";
+
+type ExecutedRuleResult = GetExecutedRulesResponse["results"][number];
 
 export function History() {
   const [page] = useQueryState("page", parseAsInteger.withDefault(1));
@@ -94,49 +84,55 @@ function HistoryTable({
 }) {
   const { userEmail } = useAccount();
   const { setInput } = useChat();
+  const groups = useMemo(() => groupByDate(data), [data]);
 
   return (
     <div>
       <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Email</TableHead>
-            <TableHead className="text-right">Rule</TableHead>
-          </TableRow>
-        </TableHeader>
         <TableBody>
-          {data.map((er) => {
-            const message = messagesById[er.messageId];
-            const isMessageLoading = !message && messagesLoading;
-
-            return (
-              <TableRow key={er.messageId}>
-                <TableCell>
-                  <EmailCell
-                    message={message}
-                    messageId={er.messageId}
-                    threadId={er.threadId}
-                    userEmail={userEmail}
-                    createdAt={er.executedRules[0]?.createdAt}
-                    isMessageLoading={isMessageLoading}
-                  />
-                  {!er.executedRules[0]?.automated && (
-                    <Badge color="yellow" className="mt-2">
-                      Applied manually
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <RuleCell
-                    executedRules={er.executedRules}
-                    message={message}
-                    setInput={setInput}
-                    isMessageLoading={isMessageLoading}
-                  />
+          {groups.map((group) => (
+            <Fragment key={group.key}>
+              <TableRow className="hover:bg-transparent">
+                <TableCell
+                  colSpan={2}
+                  className="bg-muted/40 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  {formatDateGroupLabel(group.date)}
                 </TableCell>
               </TableRow>
-            );
-          })}
+              {group.items.map((er) => {
+                const message = messagesById[er.messageId];
+                const isMessageLoading = !message && messagesLoading;
+
+                return (
+                  <TableRow key={er.messageId}>
+                    <TableCell>
+                      <EmailCell
+                        message={message}
+                        messageId={er.messageId}
+                        threadId={er.threadId}
+                        userEmail={userEmail}
+                        isMessageLoading={isMessageLoading}
+                      />
+                      {!er.executedRules[0]?.automated && (
+                        <Badge color="yellow" className="mt-2">
+                          Applied manually
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <RuleCell
+                        executedRules={er.executedRules}
+                        message={message}
+                        setInput={setInput}
+                        isMessageLoading={isMessageLoading}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </Fragment>
+          ))}
         </TableBody>
       </Table>
 
@@ -150,60 +146,40 @@ function EmailCell({
   threadId,
   messageId,
   userEmail,
-  createdAt,
   isMessageLoading,
 }: {
   message?: ParsedMessage;
   threadId: string;
   messageId: string;
   userEmail: string;
-  createdAt: Date;
   isMessageLoading: boolean;
 }) {
+  if (message) {
+    return (
+      <EmailMessageCell
+        sender={message.headers.from}
+        subject={message.headers.subject}
+        snippet={message.snippet}
+        userEmail={userEmail}
+        threadId={threadId}
+        messageId={messageId}
+        labelIds={message.labelIds}
+      />
+    );
+  }
+
+  if (isMessageLoading) {
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-5 w-48" />
+        <Skeleton className="h-4 w-72" />
+        <Skeleton className="h-4 w-80" />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-1 flex-col justify-center">
-      <div className="flex items-center justify-between">
-        <div className="font-semibold">
-          {message ? (
-            message.headers.from
-          ) : isMessageLoading ? (
-            <Skeleton className="h-5 w-48" />
-          ) : (
-            <span className="text-muted-foreground">Email unavailable</span>
-          )}
-        </div>
-        <DateCell createdAt={createdAt} />
-      </div>
-      <div className="mt-1 flex items-center font-medium">
-        {message ? (
-          <span>{message.headers.subject}</span>
-        ) : isMessageLoading ? (
-          <Skeleton className="h-4 w-64" />
-        ) : (
-          <span className="text-muted-foreground">Subject unavailable</span>
-        )}
-        <OpenInGmailButton
-          messageId={messageId}
-          threadId={threadId}
-          userEmail={userEmail}
-        />
-        <ViewEmailButton
-          threadId={threadId}
-          messageId={messageId}
-          size="xs"
-          className="ml-2"
-        />
-      </div>
-      <div className="mt-1 text-muted-foreground">
-        {message ? (
-          decodeSnippet(message.snippet)
-        ) : isMessageLoading ? (
-          <Skeleton className="h-4 w-80" />
-        ) : (
-          "Preview unavailable"
-        )}
-      </div>
-    </div>
+    <span className="text-sm text-muted-foreground">Email unavailable</span>
   );
 }
 
@@ -240,35 +216,39 @@ function RuleCell({
   );
 }
 
-function OpenInGmailButton({
-  messageId,
-  threadId,
-  userEmail,
-}: {
-  messageId: string;
-  threadId: string;
-  userEmail: string;
-}) {
-  const { provider } = useAccount();
-
-  if (!isGoogleProvider(provider)) {
-    return null;
-  }
-
-  return (
-    <Link
-      href={getEmailUrlForMessage(messageId, threadId, userEmail, provider)}
-      target="_blank"
-      className="ml-2 text-muted-foreground hover:text-foreground"
-    >
-      <ExternalLinkIcon className="h-4 w-4" />
-    </Link>
-  );
-}
-
 function mapMessagesById(messages: ParsedMessage[]) {
   return messages.reduce<Record<string, ParsedMessage>>((acc, message) => {
     acc[message.id] = message;
     return acc;
   }, {});
+}
+
+function groupByDate(items: ExecutedRuleResult[]) {
+  const groups: {
+    key: string;
+    date: Date | null;
+    items: ExecutedRuleResult[];
+  }[] = [];
+  for (const item of items) {
+    const createdAt = item.executedRules[0]?.createdAt;
+    const date = createdAt ? new Date(createdAt) : null;
+    const key = date ? format(date, "yyyy-MM-dd") : "unknown";
+    const last = groups[groups.length - 1];
+    if (last?.key === key) {
+      last.items.push(item);
+    } else {
+      groups.push({ key, date, items: [item] });
+    }
+  }
+  return groups;
+}
+
+function formatDateGroupLabel(date: Date | null) {
+  if (!date) return "Unknown date";
+  if (isToday(date)) return "Today";
+  if (isYesterday(date)) return "Yesterday";
+  if (date.getFullYear() === new Date().getFullYear()) {
+    return format(date, "EEEE, MMM d");
+  }
+  return format(date, "EEEE, MMM d, yyyy");
 }
