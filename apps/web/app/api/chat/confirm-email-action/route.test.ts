@@ -86,6 +86,7 @@ describe("confirm email action route", () => {
     await expect(response.json()).resolves.toEqual({ success: true });
     expect(mockConfirmAssistantEmailActionForAccount).toHaveBeenCalledWith({
       ...body,
+      waitForPersistence: true,
       emailAccountId: "email-account-1",
       logger: request.logger,
       provider: "google",

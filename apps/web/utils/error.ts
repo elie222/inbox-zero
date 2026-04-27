@@ -2,7 +2,7 @@ import {
   captureException as sentryCaptureException,
   setUser,
 } from "@sentry/nextjs";
-import { APICallError, RetryError } from "ai";
+import { APICallError, NoObjectGeneratedError, RetryError } from "ai";
 import type { FlattenedValidationErrors } from "next-safe-action";
 import {
   getProviderRateLimitApiErrorType,
@@ -297,6 +297,17 @@ export function isKnownOutlookError(error: unknown): boolean {
   );
 }
 
+// Provider content moderation refused to produce structured output. Retrying
+// the same model is futile; a fallback model may succeed. Handles p-retry
+// context wrappers that expose the real error on an `error` property.
+export function isContentFilterRefusal(error: unknown): boolean {
+  const unwrapped = (error as { error?: unknown })?.error ?? error;
+  return (
+    NoObjectGeneratedError.isInstance(unwrapped) &&
+    unwrapped.finishReason === "content-filter"
+  );
+}
+
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
   return (
@@ -305,6 +316,7 @@ export function isKnownApiError(error: unknown): boolean {
     isGmailRateLimitExceededError(error) ||
     isGmailQuotaExceededError(error) ||
     isKnownOutlookError(error) ||
+    isContentFilterRefusal(error) ||
     (APICallError.isInstance(error) &&
       (isIncorrectAPIKeyError(error) ||
         isInvalidAIModelError(error) ||
@@ -411,13 +423,13 @@ export function getErrorMessage(error: unknown): string | undefined {
   if (error instanceof Error) return error.message;
 
   const outer = asRecord(error);
-  if (!outer) return undefined;
+  if (!outer) return;
 
   const directMessage = getStringProp(outer, "message");
   if (directMessage) return directMessage;
 
   const nested = asRecord(outer.error);
-  if (!nested) return undefined;
+  if (!nested) return;
 
   return getStringProp(nested, "message");
 }

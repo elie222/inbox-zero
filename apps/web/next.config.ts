@@ -2,6 +2,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 import { withAxiom } from "next-axiom";
 import nextMdx from "@next/mdx";
 import withSerwistInit from "@serwist/next";
+import path from "node:path";
 import { env } from "./env";
 import type { NextConfig } from "next";
 
@@ -13,6 +14,8 @@ const withMDX = nextMdx({
 
 const isDevelopment = process.env.NODE_ENV === "development";
 const isProductionBuild = process.env.NODE_ENV === "production";
+const repoRoot = path.resolve(import.meta.dirname, "../..");
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   allowedDevOrigins: ["127.0.0.1"],
@@ -58,6 +61,7 @@ const nextConfig: NextConfig = {
     "unpdf",
   ],
   turbopack: {
+    root: repoRoot,
     rules: {
       "*.svg": {
         loaders: ["@svgr/webpack"],

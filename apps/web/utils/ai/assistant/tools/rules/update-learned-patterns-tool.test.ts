@@ -20,6 +20,34 @@ describe("updateLearnedPatternsTool", () => {
     vi.clearAllMocks();
   });
 
+  it("marks stale-read guidance as hidden from user display", async () => {
+    const toolInstance = updateLearnedPatternsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      logger,
+      getRuleReadState: () => null,
+    });
+
+    const result = await toolInstance.execute({
+      ruleName: "VIP senders",
+      learnedPatterns: [
+        {
+          include: {
+            from: "vip@example.com",
+          },
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error:
+        "No rule was changed. Call getUserRulesAndSettings immediately before updating this rule.",
+      toolErrorVisibility: "hidden",
+    });
+    expect(prisma.rule.findUnique).not.toHaveBeenCalled();
+  });
+
   it("returns a failure when saving learned patterns fails", async () => {
     prisma.rule.findUnique
       .mockResolvedValueOnce({

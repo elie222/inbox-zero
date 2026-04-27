@@ -1,20 +1,23 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useForm, useFieldArray } from "react-hook-form";
 import { ArrowRightIcon, UsersIcon } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { Button } from "@/components/ui/button";
-import { TagInput } from "@/components/TagInput";
+import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import {
   inviteMemberAction,
   createOrganizationAndInviteAction,
 } from "@/utils/actions/organization";
 import { isValidEmail } from "@/utils/email";
-import { BRAND_NAME } from "@/utils/branding";
+
+type InviteFormValues = {
+  emails: { email: string }[];
+};
 
 export function StepInviteTeam({
   emailAccountId,
@@ -30,41 +33,50 @@ export function StepInviteTeam({
   onSkip: () => void;
 }) {
   const posthog = usePostHog();
-  const [emails, setEmails] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleEmailsChange = useCallback((newEmails: string[]) => {
-    setEmails(newEmails.map((e) => e.toLowerCase()));
-  }, []);
-
-  const captureInviteSubmitted = useCallback(
-    (successfulInvites: number, failedInvites: number) => {
-      if (successfulInvites === 0) return;
-      posthog.capture("onboarding_invite_team_submitted", {
-        variant: "onboarding",
-        inviteCount: emails.length,
-        successfulInvites,
-        failedInvites,
-        hasExistingOrganization: Boolean(organizationId),
-      });
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<InviteFormValues>({
+    defaultValues: {
+      emails: [{ email: "" }, { email: "" }, { email: "" }],
     },
-    [posthog, emails.length, organizationId],
-  );
+  });
 
-  const handleInviteAndContinue = useCallback(async () => {
-    if (emails.length === 0) {
-      return;
-    }
+  const { fields } = useFieldArray({ name: "emails", control });
 
-    setIsSubmitting(true);
+  const filledEmailCount = watch("emails").filter(
+    (e) => e.email.trim().length > 0,
+  ).length;
 
-    if (!organizationId) {
+  const onSubmit = handleSubmit(async (data) => {
+    const emails = data.emails
+      .map((e) => e.email.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (emails.length === 0) return;
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    if (organizationId) {
+      const results = await Promise.all(
+        emails.map((email) =>
+          inviteMemberAction({ email, role: "member", organizationId }),
+        ),
+      );
+      for (const result of results) {
+        if (result?.serverError || result?.validationErrors) errorCount++;
+        else successCount++;
+      }
+    } else {
       const result = await createOrganizationAndInviteAction(emailAccountId, {
         emails,
         userName,
       });
-
-      setIsSubmitting(false);
 
       if (result?.serverError || result?.validationErrors) {
         toastError({
@@ -73,64 +85,35 @@ export function StepInviteTeam({
         return;
       }
 
-      if (result?.data) {
-        const successCount = result.data.results.filter(
-          (r) => r.success,
-        ).length;
-        const errorCount = result.data.results.filter((r) => !r.success).length;
+      if (!result?.data) return;
 
-        if (successCount > 0) {
-          toastSuccess({
-            description: `${successCount} invitation${successCount > 1 ? "s" : ""} sent successfully!`,
-          });
-        }
-        if (errorCount > 0) {
-          toastError({
-            description: `Failed to send ${errorCount} invitation${errorCount > 1 ? "s" : ""}`,
-          });
-        }
-
-        captureInviteSubmitted(successCount, errorCount);
-        onNext();
-      }
-
-      return;
+      successCount = result.data.results.filter((r) => r.success).length;
+      errorCount = result.data.results.filter((r) => !r.success).length;
     }
-
-    let successCount = 0;
-    let errorCount = 0;
-
-    for (const email of emails) {
-      const result = await inviteMemberAction({
-        email,
-        role: "member",
-        organizationId,
-      });
-
-      if (result?.serverError || result?.validationErrors) {
-        errorCount++;
-      } else {
-        successCount++;
-      }
-    }
-
-    setIsSubmitting(false);
 
     if (successCount > 0) {
       toastSuccess({
         description: `${successCount} invitation${successCount > 1 ? "s" : ""} sent successfully!`,
       });
     }
-
     if (errorCount > 0) {
       toastError({
         description: `Failed to send ${errorCount} invitation${errorCount > 1 ? "s" : ""}`,
       });
     }
 
-    captureInviteSubmitted(successCount, errorCount);
+    if (successCount > 0) {
+      posthog.capture("onboarding_invite_team_submitted", {
+        variant: "onboarding",
+        inviteCount: emails.length,
+        successfulInvites: successCount,
+        failedInvites: errorCount,
+        hasExistingOrganization: Boolean(organizationId),
+      });
+    }
+
     onNext();
-  }, [emails, emailAccountId, organizationId, userName, onNext, posthog, captureInviteSubmitted]);
+  });
 
   return (
     <OnboardingWrapper className="py-0">
@@ -141,49 +124,54 @@ export function StepInviteTeam({
       <div className="text-center mt-4">
         <PageHeading>Invite your team</PageHeading>
         <TypographyP className="mt-2 max-w-lg mx-auto">
-          {`Collaborate with your team on ${BRAND_NAME}. You can always add more members later.`}
+          Add more anytime from settings.
         </TypographyP>
 
-        <TagInput
-          value={emails}
-          onChange={handleEmailsChange}
-          validate={(email) =>
-            isValidEmail(email) ? null : "Please enter a valid email address"
-          }
-          label="Email addresses"
-          id="email-input"
-          placeholder="Enter email addresses separated by commas"
-          className="mt-6 max-w-md mx-auto text-left"
-        />
+        <form onSubmit={onSubmit}>
+          <div className="mt-6 max-w-md mx-auto space-y-2 text-left">
+            {fields.map((field, i) => (
+              <Input
+                key={field.id}
+                type="email"
+                name={`emails.${i}.email`}
+                registerProps={register(`emails.${i}.email`, {
+                  validate: (v) =>
+                    !v || isValidEmail(v) || "Enter a valid email",
+                })}
+                placeholder="name@company.com"
+                error={errors.emails?.[i]?.email}
+              />
+            ))}
+          </div>
 
-        <div className="flex flex-col gap-2 w-full max-w-xs mx-auto mt-6">
-          <Button
-            type="button"
-            className="w-full"
-            onClick={handleInviteAndContinue}
-            loading={isSubmitting}
-            disabled={emails.length === 0}
-          >
-            Invite & Continue
-            <ArrowRightIcon className="size-4 ml-2" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full"
-            onClick={() => {
-              posthog.capture("onboarding_invite_team_skipped", {
-                variant: "onboarding",
-                inviteCount: emails.length,
-                hasExistingOrganization: Boolean(organizationId),
-              });
-              onSkip();
-            }}
-            disabled={isSubmitting}
-          >
-            Skip
-          </Button>
-        </div>
+          <div className="flex flex-col gap-2 w-full max-w-xs mx-auto mt-6">
+            <Button
+              type="submit"
+              className="w-full"
+              loading={isSubmitting}
+              disabled={filledEmailCount === 0}
+            >
+              Send invites
+              <ArrowRightIcon className="size-4 ml-2" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={() => {
+                posthog.capture("onboarding_invite_team_skipped", {
+                  variant: "onboarding",
+                  inviteCount: filledEmailCount,
+                  hasExistingOrganization: Boolean(organizationId),
+                });
+                onSkip();
+              }}
+              disabled={isSubmitting}
+            >
+              Skip
+            </Button>
+          </div>
+        </form>
       </div>
     </OnboardingWrapper>
   );

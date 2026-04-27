@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
+import { assertCleanerApiEnabled } from "@/utils/cleaner-feature";
 
 export type CleanHistoryResponse = Awaited<ReturnType<typeof getCleanHistory>>;
 
@@ -14,6 +15,8 @@ async function getCleanHistory({ emailAccountId }: { emailAccountId: string }) {
 }
 
 export const GET = withEmailAccount("clean/history", async (request) => {
+  assertCleanerApiEnabled();
+
   const emailAccountId = request.auth.emailAccountId;
 
   const result = await getCleanHistory({ emailAccountId });

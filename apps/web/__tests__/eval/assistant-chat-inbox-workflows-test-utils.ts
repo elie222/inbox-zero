@@ -48,7 +48,6 @@ const writeToolNames = new Set([
   "updateLearnedPatterns",
   "updatePersonalInstructions",
   "updateAssistantSettings",
-  "updateAssistantSettingsCompat",
   "sendEmail",
   "replyEmail",
   "forwardEmail",

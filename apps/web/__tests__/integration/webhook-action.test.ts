@@ -222,9 +222,11 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         client: harness.provider,
         executedRule,
         message,
-        userEmail: TEST_EMAIL,
-        userId: "test-user-id",
-        emailAccountId: "test-account-id",
+        emailAccount: {
+          email: TEST_EMAIL,
+          id: "test-account-id",
+          userId: "test-user-id",
+        },
         logger: createTestLogger(),
       });
 
@@ -340,9 +342,11 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         client: harness.provider,
         executedRule,
         message,
-        userEmail: TEST_EMAIL,
-        userId: "test-user-id",
-        emailAccountId: "test-account-id",
+        emailAccount: {
+          email: TEST_EMAIL,
+          id: "test-account-id",
+          userId: "test-user-id",
+        },
         logger: createTestLogger(),
       });
 

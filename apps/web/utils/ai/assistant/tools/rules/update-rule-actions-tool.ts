@@ -6,6 +6,7 @@ import { filterNullProperties } from "@/utils";
 import { createRuleActionSchema } from "@/utils/ai/rule/create-rule-schema";
 import { updateRuleActions } from "@/utils/rule/rule";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
 import { trackRuleToolCall, validateRuleWasReadRecently } from "./shared";
 
@@ -40,10 +41,10 @@ export const updateRuleActionsTool = ({
         });
 
         if (readValidationError) {
-          return {
+          return hideToolErrorFromUser({
             success: false,
             error: readValidationError,
-          };
+          });
         }
 
         const rule = await prisma.rule.findUnique({
@@ -89,10 +90,10 @@ export const updateRuleActionsTool = ({
           currentRuleUpdatedAt: rule.updatedAt,
         });
         if (staleReadError) {
-          return {
+          return hideToolErrorFromUser({
             success: false,
             error: staleReadError,
-          };
+          });
         }
 
         const originalActions = rule.actions.map((action) => ({

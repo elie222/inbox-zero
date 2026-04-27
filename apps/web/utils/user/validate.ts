@@ -1,5 +1,10 @@
 import { SafeError } from "@/utils/error";
-import { hasAiAccess, isPremiumRecord } from "@/utils/premium";
+import {
+  getUserTier,
+  hasAiAccess,
+  isPremiumRecord,
+  premiumEntitlementSelect,
+} from "@/utils/premium";
 import prisma from "@/utils/prisma";
 
 export async function validateUserAndAiAccess({
@@ -23,14 +28,7 @@ export async function validateUserAndAiAccess({
           aiModel: true,
           aiApiKey: true,
           premium: {
-            select: {
-              appleExpiresAt: true,
-              appleRevokedAt: true,
-              appleSubscriptionStatus: true,
-              tier: true,
-              lemonSqueezyRenewsAt: true,
-              stripeSubscriptionStatus: true,
-            },
+            select: premiumEntitlementSelect,
           },
         },
       },
@@ -43,7 +41,7 @@ export async function validateUserAndAiAccess({
   if (!isUserPremium) throw new SafeError("Please upgrade for AI access");
 
   const userHasAiAccess = hasAiAccess(
-    emailAccount.user.premium?.tier || null,
+    getUserTier(emailAccount.user.premium),
     !!emailAccount.user.aiApiKey,
   );
   if (!userHasAiAccess) throw new SafeError("Please upgrade for AI access");

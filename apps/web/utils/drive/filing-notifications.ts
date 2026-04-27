@@ -78,7 +78,7 @@ export async function sendFiledNotification({
     await prisma.documentFiling.update({
       where: { id: filingId },
       data: {
-        notificationMessageId: result.messageId,
+        notificationMessageId: result.messageId || null,
         notificationSentAt: new Date(),
       },
     });
@@ -135,7 +135,7 @@ export async function sendAskNotification({
     await prisma.documentFiling.update({
       where: { id: filingId },
       data: {
-        notificationMessageId: result.messageId,
+        notificationMessageId: result.messageId || null,
         notificationSentAt: new Date(),
       },
     });

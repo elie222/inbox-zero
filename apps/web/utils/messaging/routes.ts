@@ -11,6 +11,10 @@ type MessagingRouteLike = {
 };
 
 type MessagingRoutePurposeLike = Pick<MessagingRouteLike, "purpose">;
+type MessagingRouteTargetLike = Pick<
+  MessagingRouteLike,
+  "targetType" | "targetId"
+>;
 
 export type MessagingRouteSummary = {
   enabled: boolean;
@@ -21,13 +25,28 @@ export type MessagingRouteSummary = {
 
 export type MessagingChannelDestinations = {
   ruleNotifications: MessagingRouteSummary;
+  scheduledCheckIns: MessagingRouteSummary;
   meetingBriefs: MessagingRouteSummary;
   documentFilings: MessagingRouteSummary;
+  digests: MessagingRouteSummary;
+  followUps: MessagingRouteSummary;
 };
 
 export type MessagingFeatureRoutePurpose =
   | typeof MessagingRoutePurpose.MEETING_BRIEFS
-  | typeof MessagingRoutePurpose.DOCUMENT_FILINGS;
+  | typeof MessagingRoutePurpose.DOCUMENT_FILINGS
+  | typeof MessagingRoutePurpose.DIGESTS
+  | typeof MessagingRoutePurpose.FOLLOW_UPS;
+
+const FEATURE_ROUTE_DESTINATION_KEYS: Record<
+  MessagingFeatureRoutePurpose,
+  keyof MessagingChannelDestinations
+> = {
+  [MessagingRoutePurpose.MEETING_BRIEFS]: "meetingBriefs",
+  [MessagingRoutePurpose.DOCUMENT_FILINGS]: "documentFilings",
+  [MessagingRoutePurpose.DIGESTS]: "digests",
+  [MessagingRoutePurpose.FOLLOW_UPS]: "followUps",
+};
 
 type ConnectedMessagingChannelLike = {
   isConnected: boolean;
@@ -60,6 +79,27 @@ export function getMessagingRouteWhere(
       },
     },
   };
+}
+
+export function getMessagingChannelTargetRouteWhere(
+  targetId: string,
+): Prisma.MessagingRouteWhereInput {
+  return {
+    targetType: MessagingRouteTargetType.CHANNEL,
+    targetId,
+  };
+}
+
+export function hasMessagingChannelTargetRoute(
+  routes: MessagingRouteTargetLike[] | null | undefined,
+  targetId: string,
+) {
+  if (!routes) return false;
+  return routes.some(
+    (route) =>
+      route.targetType === MessagingRouteTargetType.CHANNEL &&
+      route.targetId === targetId,
+  );
 }
 
 export function isDirectMessageRoute(route: MessagingRouteLike | null) {
@@ -100,17 +140,19 @@ export function getMessagingFeatureRouteSummary(
   destinations: MessagingChannelDestinations,
   purpose: MessagingFeatureRoutePurpose,
 ): MessagingRouteSummary {
-  if (purpose === MessagingRoutePurpose.MEETING_BRIEFS) {
-    return destinations.meetingBriefs;
-  }
-
-  return destinations.documentFilings;
+  return destinations[FEATURE_ROUTE_DESTINATION_KEYS[purpose]];
 }
 
 export function hasRuleNotificationRoute(
   destinations: MessagingChannelDestinations,
 ) {
   return destinations.ruleNotifications.enabled;
+}
+
+export function hasScheduledCheckInsRoute(
+  destinations: MessagingChannelDestinations,
+) {
+  return destinations.scheduledCheckIns.enabled;
 }
 
 export function canEnableMessagingFeatureRoute(

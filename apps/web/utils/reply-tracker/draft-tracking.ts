@@ -11,7 +11,9 @@ import {
   saveDraftSendLogReplyMemory,
   syncReplyMemoriesFromDraftSendLogs,
 } from "@/utils/ai/reply/reply-memory";
+import { replaceMessagingDraftNotificationsWithHandledOnWebState } from "@/utils/messaging/rule-notifications";
 import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
+import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
 import { logReplyTrackerError } from "./error-logging";
 
 /**
@@ -55,6 +57,7 @@ export async function trackSentDraftStatus({
       id: true,
       content: true,
       draftId: true,
+      executedRuleId: true,
     },
   });
 
@@ -107,6 +110,10 @@ export async function trackSentDraftStatus({
       "Created draft send log and marked action as not sent (draft still exists)",
       { executedActionId },
     );
+    await replaceMessagingDraftNotificationsWithHandledOnWebState({
+      executedRuleId: executedAction.executedRuleId,
+      logger,
+    });
     queueReplyMemoryLearning({
       emailAccountId,
       executedActionId,
@@ -152,6 +159,18 @@ export async function trackSentDraftStatus({
     "Successfully created draft send log and updated action status via transaction",
     { executedActionId },
   );
+
+  after(() =>
+    trackFirstTimeEvent({
+      emailAccountId,
+      event: FIRST_TIME_EVENTS.FIRST_DRAFT_SENT,
+    }),
+  );
+
+  await replaceMessagingDraftNotificationsWithHandledOnWebState({
+    executedRuleId: executedAction.executedRuleId,
+    logger,
+  });
 
   queueReplyMemoryLearning({
     emailAccountId,

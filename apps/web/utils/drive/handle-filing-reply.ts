@@ -271,8 +271,9 @@ async function handleMove({
 }
 
 /**
- * Find the filing by walking the thread to find a message whose
- * notificationMessageId matches one of the thread's message IDs.
+ * Find the filing by matching the source email's message ID against the
+ * reply thread. The notification is sent as a reply to the source email, so
+ * both live in the same thread as any subsequent reply from the user.
  */
 async function findFilingFromThread({
   message,
@@ -293,7 +294,7 @@ async function findFilingFromThread({
   return prisma.documentFiling.findFirst({
     where: {
       emailAccountId,
-      notificationMessageId: { in: messageIds },
+      messageId: { in: messageIds },
     },
     include: { driveConnection: true },
   });

@@ -106,6 +106,11 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     let gmailClient: GmailTestHarness["gmailClient"];
     let provider: GmailTestHarness["provider"];
     let threadIds: GmailTestHarness["threadIds"];
+    const emailAccount = {
+      email: TEST_EMAIL,
+      id: "test-account-id",
+      userId: "test-user-id",
+    };
 
     beforeAll(async () => {
       harness = await createGmailTestHarness({
@@ -209,9 +214,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         client: provider,
         executedRule,
         message,
-        userEmail: TEST_EMAIL,
-        userId: "test-user-id",
-        emailAccountId: "test-account-id",
+        emailAccount,
         logger: createTestLogger(),
       });
 
@@ -258,9 +261,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         client: provider,
         executedRule,
         message,
-        userEmail: TEST_EMAIL,
-        userId: "test-user-id",
-        emailAccountId: "test-account-id",
+        emailAccount,
         logger: createTestLogger(),
       });
 
@@ -292,9 +293,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         client: provider,
         executedRule,
         message,
-        userEmail: TEST_EMAIL,
-        userId: "test-user-id",
-        emailAccountId: "test-account-id",
+        emailAccount,
         logger: createTestLogger(),
       });
 
@@ -321,9 +320,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         client: provider,
         executedRule,
         message,
-        userEmail: TEST_EMAIL,
-        userId: "test-user-id",
-        emailAccountId: "test-account-id",
+        emailAccount,
         logger: createTestLogger(),
       });
 
