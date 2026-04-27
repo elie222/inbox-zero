@@ -111,6 +111,12 @@ describe("normalizeMessagingUserText", () => {
         convertEmojiOnlyResponses: false,
       }),
     ).toBe("👍");
+    expect(
+      normalizeMessagingUserText({
+        text: ":thumbsup:",
+        convertEmojiOnlyResponses: false,
+      }),
+    ).toBe(":thumbsup:");
   });
 
   it("leaves regular text unchanged", () => {

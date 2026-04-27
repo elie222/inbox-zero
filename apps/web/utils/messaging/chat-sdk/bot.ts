@@ -2015,7 +2015,7 @@ async function resolveSlackMessagingContext({
   }
   messageText = normalizeMessagingUserText({
     text: messageText,
-    convertEmojiOnlyResponses: rawEvent.type !== "app_mention",
+    convertEmojiOnlyResponses: false,
   });
 
   const hasUnsupportedAttachments = hasUnsupportedMessagingAttachment({
