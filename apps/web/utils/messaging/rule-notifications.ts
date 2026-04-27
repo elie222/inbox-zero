@@ -281,11 +281,16 @@ async function sendSlackRuleNotificationWithContext({
     return { delivered: false, kind: "none" };
   }
 
+  const draftContent = await getNotificationDraftContent({
+    context,
+    logger,
+  });
+
   const content = buildNotificationContent({
     actionType: context.type,
     email,
     systemType: context.executedRule.rule?.systemType ?? null,
-    draftContent: context.content,
+    draftContent,
     format: "slack",
   });
 
@@ -372,11 +377,16 @@ async function sendLinkedRuleNotification({
     return { delivered: false, kind: "none" };
   }
 
+  const draftContent = await getNotificationDraftContent({
+    context,
+    logger,
+  });
+
   const content = buildNotificationContent({
     actionType: context.type,
     email,
     systemType: context.executedRule.rule?.systemType ?? null,
-    draftContent: context.content,
+    draftContent,
     format: "plain",
   });
   const text = buildMessagingRuleNotificationText({
@@ -464,11 +474,16 @@ async function sendTelegramRuleNotificationWithContext({
     return { delivered: false, kind: "none" };
   }
 
+  const draftContent = await getNotificationDraftContent({
+    context,
+    logger,
+  });
+
   const content = buildNotificationContent({
     actionType: context.type,
     email,
     systemType: context.executedRule.rule?.systemType ?? null,
-    draftContent: context.content,
+    draftContent,
     format: "plain",
   });
 
@@ -611,25 +626,22 @@ export async function handleSlackRuleNotificationModalSubmit({
     return { action: "close" };
   }
 
-  const siblingDraftAction = await getSiblingEmailDraftAction({
-    executedActionId: context.id,
-    executedRuleId: context.executedRule.id,
-  });
+  const mailboxDraftAction = getMailboxDraftActionForMessagingDraft(context);
 
-  if (siblingDraftAction?.draftId) {
+  if (mailboxDraftAction?.draftId) {
     try {
       const provider = await createProviderForContext(context, logger);
 
-      await provider.updateDraft(siblingDraftAction.draftId, {
+      await provider.updateDraft(mailboxDraftAction.draftId, {
         messageHtml: convertNewlinesToBr(escapeHtml(nextContent)),
-        ...(siblingDraftAction.subject
-          ? { subject: siblingDraftAction.subject }
+        ...(mailboxDraftAction.subject
+          ? { subject: mailboxDraftAction.subject }
           : {}),
       });
     } catch (error) {
       logger.warn("Failed to sync edited Slack draft back to email draft", {
         executedActionId: context.id,
-        siblingDraftActionId: siblingDraftAction.id,
+        mailboxDraftActionId: mailboxDraftAction.id,
         error,
       });
     }
@@ -638,7 +650,7 @@ export async function handleSlackRuleNotificationModalSubmit({
   await prisma.executedAction.updateMany({
     where: {
       id: {
-        in: [context.id, siblingDraftAction?.id].filter(Boolean) as string[],
+        in: [context.id, mailboxDraftAction?.id].filter(Boolean) as string[],
       },
     },
     data: {
@@ -740,16 +752,13 @@ async function handleDraftSend({
 
   const provider = await createProviderForContext(context, logger);
 
-  const siblingDraftAction = await getSiblingEmailDraftAction({
-    executedActionId: context.id,
-    executedRuleId: context.executedRule.id,
-  });
+  const mailboxDraftAction = getMailboxDraftActionForMessagingDraft(context);
 
   try {
     const finalDraftContent = await getEditableDraftContent({
       context,
       provider,
-      siblingDraftAction,
+      mailboxDraftAction,
     });
     const sourceMessageSummary = await getSourceMessageSummaryForProvider({
       context,
@@ -763,8 +772,8 @@ async function handleDraftSend({
       format: "slack",
     });
 
-    if (siblingDraftAction?.draftId) {
-      await provider.sendDraft(siblingDraftAction.draftId);
+    if (mailboxDraftAction?.draftId) {
+      await provider.sendDraft(mailboxDraftAction.draftId);
     } else {
       const sourceMessage = await provider.getMessage(
         context.executedRule.messageId,
@@ -827,9 +836,9 @@ async function handleDraftSend({
       },
     });
 
-    if (siblingDraftAction?.id) {
+    if (mailboxDraftAction?.id) {
       await prisma.executedAction.update({
-        where: { id: siblingDraftAction.id },
+        where: { id: mailboxDraftAction.id },
         data: {
           wasDraftSent: true,
         },
@@ -920,14 +929,11 @@ async function handleDraftEdit({
 
   const provider = await createProviderForContext(context, logger);
 
-  const siblingDraftAction = await getSiblingEmailDraftAction({
-    executedActionId: context.id,
-    executedRuleId: context.executedRule.id,
-  });
+  const mailboxDraftAction = getMailboxDraftActionForMessagingDraft(context);
   const initialContent = await getEditableDraftContent({
     context,
     provider,
-    siblingDraftAction,
+    mailboxDraftAction,
   });
 
   await event.openModal({
@@ -1249,6 +1255,22 @@ async function getNotificationContext(executedActionId: string) {
               systemType: true,
             },
           },
+          actionItems: {
+            where: {
+              id: { not: executedActionId },
+              type: ActionType.DRAFT_EMAIL,
+              draftId: { not: null },
+            },
+            select: {
+              id: true,
+              draftId: true,
+              subject: true,
+            },
+            orderBy: {
+              createdAt: "asc",
+            },
+            take: 1,
+          },
         },
       },
       messagingChannel: {
@@ -1273,43 +1295,24 @@ async function getNotificationContext(executedActionId: string) {
   });
 }
 
-async function getSiblingEmailDraftAction({
-  executedActionId,
-  executedRuleId,
-}: {
-  executedActionId: string;
-  executedRuleId: string;
-}) {
-  return prisma.executedAction.findFirst({
-    where: {
-      executedRuleId,
-      id: { not: executedActionId },
-      type: ActionType.DRAFT_EMAIL,
-      draftId: { not: null },
-    },
-    select: {
-      id: true,
-      draftId: true,
-      subject: true,
-    },
-    orderBy: {
-      createdAt: "asc",
-    },
-  });
+function getMailboxDraftActionForMessagingDraft(context: NotificationContext) {
+  return context.executedRule.actionItems?.[0] ?? null;
 }
 
 async function getEditableDraftContent({
   context,
   provider,
-  siblingDraftAction,
+  mailboxDraftAction,
 }: {
   context: NotificationContext;
   provider: Awaited<ReturnType<typeof createEmailProvider>>;
-  siblingDraftAction: Awaited<ReturnType<typeof getSiblingEmailDraftAction>>;
+  mailboxDraftAction: Awaited<
+    ReturnType<typeof getMailboxDraftActionForMessagingDraft>
+  >;
 }) {
-  if (siblingDraftAction?.draftId) {
+  if (mailboxDraftAction?.draftId) {
     try {
-      const latestDraft = await provider.getDraft(siblingDraftAction.draftId);
+      const latestDraft = await provider.getDraft(mailboxDraftAction.draftId);
       if (latestDraft) {
         const text = extractDraftPlainText(latestDraft).trim();
         if (text) return text;
@@ -1320,6 +1323,40 @@ async function getEditableDraftContent({
   }
 
   return context.content || "";
+}
+
+async function getNotificationDraftContent({
+  context,
+  logger,
+}: {
+  context: NotificationContext;
+  logger: Logger;
+}) {
+  if (!isDraftReplyActionType(context.type)) return context.content;
+
+  const mailboxDraftAction = getMailboxDraftActionForMessagingDraft(context);
+
+  if (!mailboxDraftAction?.draftId) return context.content;
+
+  try {
+    const provider = await createProviderForContext(context, logger);
+
+    return await getEditableDraftContent({
+      context,
+      provider,
+      mailboxDraftAction,
+    });
+  } catch (error) {
+    logger.warn(
+      "Failed to load synced mailbox draft for notification preview",
+      {
+        executedActionId: context.id,
+        mailboxDraftActionId: mailboxDraftAction.id,
+        error,
+      },
+    );
+    return context.content;
+  }
 }
 
 async function getSourceMessageSummary(

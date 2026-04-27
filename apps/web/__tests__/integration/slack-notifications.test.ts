@@ -477,6 +477,14 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           replyToMessageId: sourceMessage.id,
         });
 
+        const siblingDraftActionState = {
+          id: "email-draft-action-edit-send",
+          draftId: createdDraft.id,
+          subject: `Re: ${subject}`,
+          content: "Initial draft body.",
+          wasDraftSent: false,
+        };
+
         const slackActionState = {
           id: "draft-action-edit-send",
           type: ActionType.DRAFT_MESSAGING_CHANNEL,
@@ -507,6 +515,13 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
             rule: {
               systemType: null,
             },
+            actionItems: [
+              {
+                id: siblingDraftActionState.id,
+                draftId: siblingDraftActionState.draftId,
+                subject: siblingDraftActionState.subject,
+              },
+            ],
           },
           messagingChannel: {
             id: "channel-1",
@@ -524,14 +539,6 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
               },
             ],
           },
-        };
-
-        const siblingDraftActionState = {
-          id: "email-draft-action-edit-send",
-          draftId: createdDraft.id,
-          subject: `Re: ${subject}`,
-          content: "Initial draft body.",
-          wasDraftSent: false,
         };
 
         prisma.executedAction.findUnique.mockImplementation(
@@ -1111,6 +1118,7 @@ function getNotificationContext({
       rule: {
         systemType: null,
       },
+      actionItems: [],
     },
     messagingChannel: messagingChannelId
       ? {
