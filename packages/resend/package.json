@@ -6,13 +6,13 @@
     "dev": "email dev --port 3010"
   },
   "dependencies": {
-    "@react-email/components": "1.0.11",
-    "@react-email/render": "2.0.5",
-    "nanoid": "5.1.7",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-email": "5.2.10",
-    "resend": "6.10.0"
+    "@react-email/components": "1.0.12",
+    "@react-email/render": "2.0.7",
+    "nanoid": "5.1.9",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
+    "react-email": "6.0.0",
+    "resend": "6.12.0"
   },
   "devDependencies": {
     "@react-email/preview-server": "5.2.10",
@@ -20,6 +20,6 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "tsconfig": "workspace:*",
-    "typescript": "6.0.2"
+    "typescript": "6.0.3"
   }
 }

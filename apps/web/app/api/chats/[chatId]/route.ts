@@ -52,7 +52,7 @@ export const PATCH = withEmailAccount(
 
     const { data, error } = updateChatSchema.safeParse(body);
     if (error) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      return NextResponse.json({ error: error.issues }, { status: 400 });
     }
 
     if (data.name === undefined) {

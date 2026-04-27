@@ -15,7 +15,7 @@ export async function onAutoArchive({
   from: string;
   gmailLabelId?: string;
   labelName?: string;
-}) {
+}): Promise<boolean> {
   const result = await createAutoArchiveFilterAction(emailAccountId, {
     from,
     gmailLabelId,
@@ -27,11 +27,9 @@ export async function onAutoArchive({
       description:
         `There was an error enabling auto archive. ${result.serverError || ""}`.trim(),
     });
-  } else {
-    toastSuccess({
-      description: "Auto archive enabled!",
-    });
+    return false;
   }
+  return true;
 }
 
 export async function onDeleteFilter({

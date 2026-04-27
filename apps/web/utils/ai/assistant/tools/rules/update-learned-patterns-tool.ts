@@ -4,6 +4,7 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { GroupItemType } from "@/generated/prisma/enums";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
+import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
 import { trackRuleToolCall, validateRuleWasReadRecently } from "./shared";
 
@@ -68,10 +69,10 @@ export const updateLearnedPatternsTool = ({
         });
 
         if (readValidationError) {
-          return {
+          return hideToolErrorFromUser({
             success: false,
             error: readValidationError,
-          };
+          });
         }
 
         const rule = await prisma.rule.findUnique({
@@ -103,10 +104,10 @@ export const updateLearnedPatternsTool = ({
           currentRuleUpdatedAt: rule.updatedAt,
         });
         if (staleReadError) {
-          return {
+          return hideToolErrorFromUser({
             success: false,
             error: staleReadError,
-          };
+          });
         }
 
         const patternsToSave: Array<{

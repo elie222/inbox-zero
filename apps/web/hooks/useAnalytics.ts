@@ -10,7 +10,7 @@ type OnboardingAnalyticsProps = {
   nextStepKey?: string;
   destination?: string;
   isOptional?: boolean;
-  flowVariant?: string;
+  skipped?: boolean;
 };
 
 export function useOnboardingAnalytics(variant: "onboarding" | "welcome") {
@@ -56,9 +56,17 @@ export function useOnboardingAnalytics(variant: "onboarding" | "welcome") {
         });
       },
       onSkip: (properties?: number | OnboardingAnalyticsProps) => {
+        const stepProperties = getProperties(properties);
+
         safeCapture("onboarding_step_skipped", {
           variant,
-          ...getProperties(properties),
+          ...stepProperties,
+          skipped: true,
+        });
+        safeCapture("onboarding_step_completed", {
+          variant,
+          ...stepProperties,
+          skipped: true,
         });
       },
       onComplete: (properties?: OnboardingAnalyticsProps) => {

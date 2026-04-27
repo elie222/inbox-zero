@@ -19,6 +19,11 @@ const HTML_TAG_NAMES = [
   "meta",
 ];
 
+const HTML_TAG_PATTERN = new RegExp(
+  `<\\/?(?:${HTML_TAG_NAMES.join("|")})(?:\\s|\\/|>)`,
+  "i",
+);
+
 /**
  * Normalizes content for Outlook (HTML) comparison.
  * Converts \n to <br> and then to plain text, strips quoted content.
@@ -117,12 +122,6 @@ export function calculateSimilarity(
 }
 
 function looksLikeHtmlContent(content: string): boolean {
-  const lowerContent = content.toLowerCase();
-
-  if (lowerContent.includes("<!doctype html")) return true;
-
-  return HTML_TAG_NAMES.some(
-    (tag) =>
-      lowerContent.includes(`<${tag}`) || lowerContent.includes(`</${tag}>`),
-  );
+  if (/<!doctype html/i.test(content)) return true;
+  return HTML_TAG_PATTERN.test(content);
 }

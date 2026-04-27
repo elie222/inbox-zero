@@ -383,6 +383,14 @@ describe("getExtraActions", () => {
 
     expect(getExtraActions()).not.toContain(ActionType.CALL_WEBHOOK);
   });
+
+  it("omits CALL_WEBHOOK for persisted actions when webhook actions are disabled", () => {
+    mockEnv.webhookActionsEnabled = false;
+
+    expect(getExtraActions([ActionType.CALL_WEBHOOK])).not.toContain(
+      ActionType.CALL_WEBHOOK,
+    );
+  });
 });
 
 type CreateRuleInput = z.input<ReturnType<typeof createRuleSchema>>;

@@ -39,7 +39,7 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
       const parseResult = schema.safeParse(message);
       if (!parseResult.success) {
         logger.error(invalidPayloadMessage, {
-          errors: parseResult.error.errors,
+          errors: parseResult.error.issues,
           queueMessageId: metadata.messageId,
         });
         return;
@@ -64,13 +64,11 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
     },
     {
       visibilityTimeoutSeconds,
-      retry: (_error, metadata) => {
-        return {
-          afterSeconds: getQueueRetryBackoffSeconds({
-            deliveryCount: metadata.deliveryCount,
-          }),
-        };
-      },
+      retry: (_error, metadata) => ({
+        afterSeconds: getQueueRetryBackoffSeconds({
+          deliveryCount: metadata.deliveryCount,
+        }),
+      }),
     },
   );
 }

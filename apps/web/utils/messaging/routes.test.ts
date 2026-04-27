@@ -7,7 +7,9 @@ import {
 import {
   canEnableMessagingFeatureRoute,
   getConnectedRuleNotificationChannels,
+  getMessagingChannelTargetRouteWhere,
   getMessagingRouteSummary,
+  hasMessagingChannelTargetRoute,
 } from "./routes";
 
 const routes = [
@@ -21,7 +23,19 @@ const routes = [
     targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
     targetId: "U123",
   },
+  {
+    purpose: MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+    targetType: MessagingRouteTargetType.CHANNEL,
+    targetId: "C456",
+  },
 ];
+
+const disabledRoute = {
+  enabled: false,
+  targetId: null,
+  targetLabel: null,
+  isDm: false,
+};
 
 describe("getMessagingRouteSummary", () => {
   it("builds a display-ready summary for a configured route", () => {
@@ -67,6 +81,21 @@ describe("getMessagingRouteSummary", () => {
   });
 });
 
+describe("messaging channel target route helpers", () => {
+  it("matches channel routes without caring about their purpose", () => {
+    expect(hasMessagingChannelTargetRoute(routes, "C123")).toBe(true);
+    expect(hasMessagingChannelTargetRoute(routes, "C456")).toBe(true);
+    expect(hasMessagingChannelTargetRoute(routes, "U123")).toBe(false);
+  });
+
+  it("builds a purpose-agnostic channel target filter", () => {
+    expect(getMessagingChannelTargetRouteWhere("C123")).toEqual({
+      targetType: MessagingRouteTargetType.CHANNEL,
+      targetId: "C123",
+    });
+  });
+});
+
 describe("canEnableMessagingFeatureRoute", () => {
   it("allows a feature toggle when the feature route already exists", () => {
     expect(
@@ -78,18 +107,16 @@ describe("canEnableMessagingFeatureRoute", () => {
             targetLabel: null,
             isDm: false,
           },
+          scheduledCheckIns: disabledRoute,
           meetingBriefs: {
             enabled: true,
             targetId: "U123",
             targetLabel: "Direct message",
             isDm: true,
           },
-          documentFilings: {
-            enabled: false,
-            targetId: null,
-            targetLabel: null,
-            isDm: false,
-          },
+          documentFilings: disabledRoute,
+          digests: disabledRoute,
+          followUps: disabledRoute,
         },
         MessagingRoutePurpose.MEETING_BRIEFS,
       ),
@@ -100,24 +127,12 @@ describe("canEnableMessagingFeatureRoute", () => {
     expect(
       canEnableMessagingFeatureRoute(
         {
-          ruleNotifications: {
-            enabled: false,
-            targetId: null,
-            targetLabel: null,
-            isDm: false,
-          },
-          meetingBriefs: {
-            enabled: false,
-            targetId: null,
-            targetLabel: null,
-            isDm: false,
-          },
-          documentFilings: {
-            enabled: false,
-            targetId: null,
-            targetLabel: null,
-            isDm: false,
-          },
+          ruleNotifications: disabledRoute,
+          scheduledCheckIns: disabledRoute,
+          meetingBriefs: disabledRoute,
+          documentFilings: disabledRoute,
+          digests: disabledRoute,
+          followUps: disabledRoute,
         },
         MessagingRoutePurpose.DOCUMENT_FILINGS,
       ),
@@ -140,18 +155,11 @@ describe("getConnectedRuleNotificationChannels", () => {
               targetLabel: "#C123",
               isDm: false,
             },
-            meetingBriefs: {
-              enabled: false,
-              targetId: null,
-              targetLabel: null,
-              isDm: false,
-            },
-            documentFilings: {
-              enabled: false,
-              targetId: null,
-              targetLabel: null,
-              isDm: false,
-            },
+            scheduledCheckIns: disabledRoute,
+            meetingBriefs: disabledRoute,
+            documentFilings: disabledRoute,
+            digests: disabledRoute,
+            followUps: disabledRoute,
           },
         },
         {
@@ -165,18 +173,11 @@ describe("getConnectedRuleNotificationChannels", () => {
               targetLabel: "Direct message",
               isDm: true,
             },
-            meetingBriefs: {
-              enabled: false,
-              targetId: null,
-              targetLabel: null,
-              isDm: false,
-            },
-            documentFilings: {
-              enabled: false,
-              targetId: null,
-              targetLabel: null,
-              isDm: false,
-            },
+            scheduledCheckIns: disabledRoute,
+            meetingBriefs: disabledRoute,
+            documentFilings: disabledRoute,
+            digests: disabledRoute,
+            followUps: disabledRoute,
           },
         },
       ]),

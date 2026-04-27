@@ -15,6 +15,8 @@ const llmProviderEnum = z.enum([
   "aigateway",
   "ollama",
   "openai-compatible",
+  "codex-cli",
+  "claude-code",
 ]);
 
 /** For Vercel preview deployments, auto-detect from VERCEL_URL. */
@@ -71,6 +73,11 @@ const parsedEnv = createEnv({
     MICROSOFT_CLIENT_ID: z.string().optional(),
     MICROSOFT_CLIENT_SECRET: z.string().optional(),
     MICROSOFT_TENANT_ID: z.string().optional().default("common"),
+    APPLE_CLIENT_ID: z.string().optional(),
+    APPLE_TEAM_ID: z.string().optional(),
+    APPLE_KEY_ID: z.string().optional(),
+    APPLE_PRIVATE_KEY: z.string().optional(),
+    APPLE_APP_BUNDLE_IDENTIFIER: z.string().optional(),
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
 
@@ -124,6 +131,9 @@ const parsedEnv = createEnv({
     OLLAMA_MODEL: z.string().optional(),
     OPENAI_COMPATIBLE_BASE_URL: z.string().optional(),
     OPENAI_COMPATIBLE_MODEL: z.string().optional(),
+    CLI_LLM_ENABLED: booleanString.optional().default(false),
+    CODEX_CLI_ALLOW_NPX: booleanString.optional().default(false),
+    CODEX_CLI_PATH: z.string().optional(),
 
     OPENAI_ZERO_DATA_RETENTION: booleanString.optional().default(false),
 
@@ -183,8 +193,6 @@ const parsedEnv = createEnv({
 
     TINYBIRD_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
-    TINYBIRD_ENCRYPT_SECRET: z.string().optional(),
-    TINYBIRD_ENCRYPT_SALT: z.string().optional(),
 
     API_KEY_SALT: z.string().optional(),
 
@@ -252,8 +260,8 @@ const parsedEnv = createEnv({
     TELEGRAM_BOT_TOKEN: z.string().optional(),
     TELEGRAM_BOT_SECRET_TOKEN: z.string().optional(),
     APP_REVIEW_DEMO_ENABLED: booleanString.optional().default(false),
-    APP_REVIEW_DEMO_CODE: z.string().optional(),
-    APP_REVIEW_DEMO_EMAIL: z.string().email().optional(),
+    APP_REVIEW_DEMO_ACCOUNTS: z.string().optional(),
+    SSO_LOGIN_ENABLED: booleanString.optional().default(false),
   },
   client: {
     // stripe
@@ -298,6 +306,7 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_CONTACTS_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: booleanString.default(true),
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: booleanString.optional().default(true),
+    NEXT_PUBLIC_SHOW_APPLE_LOGIN: booleanString.optional().default(false),
     NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
     NEXT_PUBLIC_SUPPORT_EMAIL: z
       .string()
@@ -395,6 +404,7 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: process.env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED:
       process.env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED,
+    NEXT_PUBLIC_SHOW_APPLE_LOGIN: process.env.NEXT_PUBLIC_SHOW_APPLE_LOGIN,
     NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS:
       process.env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS,
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,

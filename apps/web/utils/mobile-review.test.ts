@@ -1,150 +1,194 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 vi.mock("server-only", () => ({}));
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestLogger } from "@/__tests__/helpers";
-import prisma from "@/utils/__mocks__/prisma";
-
-const { mockAuthContext, mockMakeSignature } = vi.hoisted(() => ({
-  mockAuthContext: {
-    authCookies: {
-      sessionToken: {
-        name: "__Secure-better-auth.session_token",
-        attributes: {
-          domain: "example.com",
-          httpOnly: true,
-          maxAge: 60 * 60,
-          path: "/",
-          sameSite: "lax" as const,
-          secure: true,
-        },
-      },
-    },
-    internalAdapter: {
-      createSession: vi.fn(),
-    },
-    secret: "test-secret",
+const {
+  createSessionMock,
+  emailAccountFindManyMock,
+  makeSignatureMock,
+  mockedEnv,
+} = vi.hoisted(() => ({
+  createSessionMock: vi.fn(),
+  emailAccountFindManyMock: vi.fn(),
+  makeSignatureMock: vi.fn(),
+  mockedEnv: {
+    APP_REVIEW_DEMO_ACCOUNTS: undefined as string | undefined,
+    APP_REVIEW_DEMO_ENABLED: true,
   },
-  mockMakeSignature: vi.fn(),
+}));
+
+vi.mock("better-auth/crypto", () => ({
+  makeSignature: (...args: unknown[]) => makeSignatureMock(...args),
 }));
 
 vi.mock("@/env", () => ({
-  env: {
-    APP_REVIEW_DEMO_ENABLED: true,
-    APP_REVIEW_DEMO_CODE: "review-code",
-    APP_REVIEW_DEMO_EMAIL: "demo@example.com",
-    UPSTASH_REDIS_URL: "https://redis.example.com",
-    UPSTASH_REDIS_TOKEN: "redis-token",
-  },
+  env: mockedEnv,
 }));
 
 vi.mock("@/utils/auth", () => ({
   betterAuthConfig: {
-    $context: Promise.resolve(mockAuthContext),
+    $context: Promise.resolve({
+      authCookies: {
+        sessionToken: {
+          attributes: {
+            domain: undefined,
+            httpOnly: true,
+            maxAge: undefined,
+            partitioned: false,
+            path: "/",
+            sameSite: "lax",
+            secure: true,
+          },
+          name: "__Secure-better-auth.session_token",
+        },
+      },
+      internalAdapter: {
+        createSession: (...args: unknown[]) => createSessionMock(...args),
+      },
+      secret: "test-secret",
+    }),
   },
 }));
 
-vi.mock("@/utils/prisma");
-vi.mock("better-auth/crypto", () => ({
-  makeSignature: mockMakeSignature,
+vi.mock("@/utils/prisma", () => ({
+  default: {
+    emailAccount: {
+      findMany: (...args: unknown[]) => emailAccountFindManyMock(...args),
+    },
+  },
 }));
 
-describe("createMobileReviewSession", () => {
+import {
+  createMobileReviewSession,
+  isMobileReviewEnabled,
+} from "./mobile-review";
+
+function createLogger() {
+  const logger = {
+    error: vi.fn(),
+    flush: vi.fn().mockResolvedValue(undefined),
+    info: vi.fn(),
+    trace: vi.fn(),
+    warn: vi.fn(),
+    with: vi.fn(),
+  };
+
+  logger.with.mockReturnValue(logger);
+
+  return logger;
+}
+
+describe("mobile review access", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    prisma.user.findUnique.mockResolvedValue({
-      email: "demo@example.com",
-      id: "user-1",
-      emailAccounts: [{ id: "account-1" }],
-    } as never);
-    mockAuthContext.internalAdapter.createSession.mockResolvedValue({
+    mockedEnv.APP_REVIEW_DEMO_ENABLED = true;
+    mockedEnv.APP_REVIEW_DEMO_ACCOUNTS = JSON.stringify([
+      { email: "review@example.com", code: "review-code" },
+    ]);
+    makeSignatureMock.mockResolvedValue("signed-token");
+    createSessionMock.mockResolvedValue({
       expiresAt: new Date("2026-05-01T00:00:00.000Z"),
       token: "session-token",
     });
-    mockMakeSignature.mockResolvedValue("cookie-signature");
   });
 
-  it("creates a signed Better Auth session cookie", async () => {
-    const { createMobileReviewSession } = await import("./mobile-review");
-    const logger = createTestLogger();
+  it("reports enabled status from the env flag without validating accounts", () => {
+    mockedEnv.APP_REVIEW_DEMO_ACCOUNTS = "not-json";
 
-    const result = await createMobileReviewSession({
-      code: "review-code",
-      logger,
-    });
-
-    expect(mockAuthContext.internalAdapter.createSession).toHaveBeenCalledWith(
-      "user-1",
-      false,
-      {},
-    );
-    expect(mockMakeSignature).toHaveBeenCalledWith(
-      "session-token",
-      "test-secret",
-    );
-    expect(result).toEqual({
-      emailAccountId: "account-1",
-      sessionCookie: {
-        name: "__Secure-better-auth.session_token",
-        options: {
-          domain: "example.com",
-          expires: new Date("2026-05-01T00:00:00.000Z"),
-          httpOnly: true,
-          maxAge: 60 * 60,
-          partitioned: undefined,
-          path: "/",
-          sameSite: "lax",
-          secure: true,
-        },
-        value: "session-token.cookie-signature",
-      },
-      userEmail: "demo@example.com",
-      userId: "user-1",
-    });
+    expect(isMobileReviewEnabled()).toBe(true);
+    expect(emailAccountFindManyMock).not.toHaveBeenCalled();
   });
 
-  it("logs a warning when the review code is invalid", async () => {
-    const { createMobileReviewSession } = await import("./mobile-review");
-    const logger = createTestLogger();
-    const warnSpy = vi.spyOn(logger, "warn");
+  it("reports disabled status when the env flag is off", () => {
+    mockedEnv.APP_REVIEW_DEMO_ENABLED = false;
+
+    expect(isMobileReviewEnabled()).toBe(false);
+    expect(emailAccountFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid review codes before querying the database", async () => {
+    const logger = createLogger();
 
     await expect(
       createMobileReviewSession({
         code: "wrong-code",
+        email: "review@example.com",
         logger,
-      }),
+      } as never),
     ).rejects.toMatchObject({
       message: "Invalid review access code",
+      safeMessage: "Invalid review access code",
       statusCode: 401,
     });
 
-    expect(warnSpy).toHaveBeenCalledWith("Mobile review sign-in rejected", {
+    expect(emailAccountFindManyMock).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith("Mobile review sign-in rejected", {
       reason: "invalid_review_demo_code",
     });
   });
 
-  it("logs a warning when the review user has no email account", async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      email: "demo@example.com",
-      id: "user-1",
-      emailAccounts: [],
-    } as never);
-
-    const { createMobileReviewSession } = await import("./mobile-review");
-    const logger = createTestLogger();
-    const warnSpy = vi.spyOn(logger, "warn");
+  it("rejects valid review codes when the configured review account cannot create a session", async () => {
+    const logger = createLogger();
+    emailAccountFindManyMock.mockResolvedValueOnce([]);
 
     await expect(
       createMobileReviewSession({
         code: "review-code",
+        email: "review@example.com",
         logger,
-      }),
+      } as never),
     ).rejects.toMatchObject({
       message: "Review access is unavailable",
+      safeMessage: "Review access is unavailable",
     });
 
-    expect(warnSpy).toHaveBeenCalledWith("Mobile review sign-in unavailable", {
-      hasUser: true,
-      reason: "review_user_missing_email_account",
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Mobile review sign-in unavailable",
+      expect.objectContaining({
+        hasEmailAccount: false,
+        ok: false,
+        reason: "review_user_missing_email_account",
+      }),
+    );
+  });
+
+  it("creates a session for the matching configured review account", async () => {
+    const logger = createLogger();
+    mockedEnv.APP_REVIEW_DEMO_ACCOUNTS = JSON.stringify([
+      { email: "active-review@example.com", code: "active-code" },
+      { email: "expired-review@example.com", code: "expired-code" },
+    ]);
+    emailAccountFindManyMock.mockResolvedValueOnce([
+      {
+        email: "expired-review@example.com",
+        id: "account-expired",
+        user: {
+          email: "expired-owner@example.com",
+          id: "user-expired",
+        },
+      },
+    ]);
+
+    const result = await createMobileReviewSession({
+      code: "expired-code",
+      email: "Expired-Review@Example.com",
+      logger,
+    } as never);
+
+    expect(emailAccountFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          email: {
+            in: ["expired-review@example.com"],
+          },
+        },
+      }),
+    );
+    expect(createSessionMock).toHaveBeenCalledWith("user-expired", false, {});
+    expect(result).toMatchObject({
+      emailAccountId: "account-expired",
+      userEmail: "expired-owner@example.com",
+      userId: "user-expired",
     });
   });
 });

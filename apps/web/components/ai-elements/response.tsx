@@ -3,16 +3,7 @@
 import { cn } from "@/utils/index";
 import { createElement, type ComponentProps, memo } from "react";
 import { Streamdown } from "streamdown";
-import {
-  InlineEmailCard,
-  InlineEmailList,
-} from "@/components/assistant-chat/inline-email-card";
-
 type ResponseProps = ComponentProps<typeof Streamdown>;
-
-const customAllowedTags = { emails: [], email: ["id", "threadid"] };
-const customComponents = { emails: InlineEmailList, email: InlineEmailCard };
-const customLiteralContent = ["email"];
 
 export const Response = memo(
   ({ className, ...props }: ResponseProps) =>
@@ -25,9 +16,6 @@ export const Response = memo(
         "[&_a]:!text-inherit [&_a]:underline [&_a]:underline-offset-2 [&_a:hover]:opacity-80",
         className,
       ),
-      allowedTags: customAllowedTags,
-      components: customComponents,
-      literalTagContent: customLiteralContent,
       normalizeHtmlIndentation: true,
       ...props,
     }),

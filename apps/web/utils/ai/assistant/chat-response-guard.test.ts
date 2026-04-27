@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getToolFailureWarning } from "./chat-response-guard";
+import {
+  getToolFailureWarning,
+  getUserVisibleToolFailureMessage,
+} from "./chat-response-guard";
+import { hideToolErrorFromUser } from "./tool-error-visibility";
 
 describe("getToolFailureWarning", () => {
   it("returns null when there are no tool errors", () => {
@@ -19,8 +23,7 @@ describe("getToolFailureWarning", () => {
             type: "tool-updateRuleConditions",
             state: "output-available",
             output: {
-              error:
-                "No rule was changed. Call getUserRulesAndSettings immediately before updating this rule.",
+              error: "Failed to update rule conditions",
             },
           },
         ],
@@ -40,8 +43,7 @@ describe("getToolFailureWarning", () => {
             type: "tool-updateRuleConditions",
             state: "output-available",
             output: {
-              error:
-                "No rule was changed. Call getUserRulesAndSettings immediately before updating this rule.",
+              error: "Failed to update rule conditions",
             },
           },
         ],
@@ -68,5 +70,64 @@ describe("getToolFailureWarning", () => {
         ],
       }),
     ).toContain("Some tool calls failed during this request.");
+  });
+
+  it("does not warn for internal corrective tool errors", () => {
+    expect(
+      getToolFailureWarning({
+        parts: [
+          {
+            type: "tool-manageInbox",
+            state: "output-available",
+            output: hideToolErrorFromUser({
+              error:
+                'Label "Security" does not exist. Use createOrGetLabel first if you want to create it.',
+            }),
+          },
+          {
+            type: "tool-updateRuleConditions",
+            state: "output-available",
+            output: hideToolErrorFromUser({
+              success: false,
+              error:
+                "No rule was changed. Call getUserRulesAndSettings immediately before updating this rule.",
+            }),
+          },
+        ],
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("getUserVisibleToolFailureMessage", () => {
+  it("hides tool errors marked as internal", () => {
+    expect(
+      getUserVisibleToolFailureMessage(
+        hideToolErrorFromUser({
+          error:
+            'Label "Security" does not exist. Use createOrGetLabel first if you want to create it.',
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it("returns unmarked label creation instructions", () => {
+    expect(
+      getUserVisibleToolFailureMessage({
+        error:
+          'Label "Security" does not exist. Use createOrGetLabel first if you want to create it.',
+      }),
+    ).toBe(
+      'Label "Security" does not exist. Use createOrGetLabel first if you want to create it.',
+    );
+  });
+
+  it("returns real failure messages", () => {
+    expect(
+      getUserVisibleToolFailureMessage({
+        success: false,
+        error: "Failed to update emails",
+      }),
+    ).toBe("Failed to update emails");
   });
 });

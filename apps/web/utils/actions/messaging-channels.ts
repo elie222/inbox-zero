@@ -4,7 +4,8 @@ import { actionClient } from "@/utils/actions/safe-action";
 import {
   updateSlackRouteBody,
   updateMessagingFeatureRouteBody,
-  updateEmailDeliveryBody,
+  updateMeetingBriefsEmailDeliveryBody,
+  updateDigestEmailDeliveryBody,
   disconnectChannelBody,
   linkSlackWorkspaceBody,
   createMessagingLinkCodeBody,
@@ -17,22 +18,25 @@ import {
   ActionType,
   MessagingProvider,
   MessagingRoutePurpose,
-  MessagingRouteTargetType,
+  type MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
 import { env } from "@/env";
-import { getChannelInfo } from "@/utils/messaging/providers/slack/channels";
-import { createSlackClient } from "@/utils/messaging/providers/slack/client";
-import { sendChannelConfirmation } from "@/utils/messaging/providers/slack/send";
-import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
-import { lookupSlackUserByEmail } from "@/utils/messaging/providers/slack/users";
-import { callTelegramBotApi } from "@/utils/messaging/providers/telegram/api";
-import type { Logger } from "@/utils/logger";
+import {
+  getMessagingChannelReconnectMessage,
+  isOperationalSlackChannel,
+  isMessagingChannelOperational,
+} from "@/utils/messaging/channel-validity";
 import {
   getMessagingRoute,
   hasMessagingRoute,
   type MessagingFeatureRoutePurpose,
 } from "@/utils/messaging/routes";
+import { createSlackClient } from "@/utils/messaging/providers/slack/client";
+import { upsertSlackRoute } from "@/utils/messaging/slack-routes";
+import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
+import { lookupSlackUserByEmail } from "@/utils/messaging/providers/slack/users";
+import { callTelegramBotApi } from "@/utils/messaging/providers/telegram/api";
 
 const MESSAGING_ACTION_TYPES = [
   ActionType.NOTIFY_MESSAGING_CHANNEL,
@@ -54,6 +58,7 @@ export const updateSlackRouteAction = actionClient
       const channel = await prisma.messagingChannel.findUnique({
         where,
         select: {
+          id: true,
           provider: true,
           isConnected: true,
           accessToken: true,
@@ -70,50 +75,21 @@ export const updateSlackRouteAction = actionClient
         throw new SafeError("Messaging channel is not Slack");
       }
 
-      if (!channel.isConnected) {
-        throw new SafeError("Messaging channel is not connected");
+      if (!isOperationalSlackChannel(channel)) {
+        throw new SafeError(
+          getMessagingChannelReconnectMessage(channel.provider),
+        );
       }
 
-      if (!channel.accessToken) {
-        throw new SafeError("Messaging channel has no access token");
-      }
-
-      const target = await resolveSlackRouteTarget({
+      await upsertSlackRoute({
+        messagingChannelId: channelId,
+        purpose,
+        targetId,
         accessToken: channel.accessToken,
         providerUserId: channel.providerUserId,
-        targetId,
+        botUserId: channel.botUserId,
         logger,
       });
-
-      await prisma.messagingRoute.upsert({
-        where: {
-          messagingChannelId_purpose: {
-            messagingChannelId: channelId,
-            purpose,
-          },
-        },
-        update: target,
-        create: {
-          messagingChannelId: channelId,
-          purpose,
-          ...target,
-        },
-      });
-
-      if (
-        purpose === MessagingRoutePurpose.RULE_NOTIFICATIONS &&
-        target.targetType === MessagingRouteTargetType.CHANNEL
-      ) {
-        try {
-          await sendChannelConfirmation({
-            accessToken: channel.accessToken,
-            channelId: target.targetId,
-            botUserId: channel.botUserId,
-          });
-        } catch (error) {
-          logger.error("Failed to send channel confirmation", { error });
-        }
-      }
     },
   );
 
@@ -133,7 +109,10 @@ export const updateMessagingFeatureRouteAction = actionClient
         where,
         select: {
           id: true,
+          provider: true,
           isConnected: true,
+          accessToken: true,
+          providerUserId: true,
           routes: {
             select: {
               purpose: true,
@@ -148,8 +127,10 @@ export const updateMessagingFeatureRouteAction = actionClient
         throw new SafeError("Messaging channel not found");
       }
 
-      if (!channel.isConnected) {
-        throw new SafeError("Messaging channel is not connected");
+      if (!isMessagingChannelOperational(channel)) {
+        throw new SafeError(
+          getMessagingChannelReconnectMessage(channel.provider),
+        );
       }
 
       await syncMessagingFeatureRoute({
@@ -161,13 +142,23 @@ export const updateMessagingFeatureRouteAction = actionClient
     },
   );
 
-export const updateEmailDeliveryAction = actionClient
-  .metadata({ name: "updateEmailDelivery" })
-  .inputSchema(updateEmailDeliveryBody)
+export const updateMeetingBriefsEmailDeliveryAction = actionClient
+  .metadata({ name: "updateMeetingBriefsEmailDelivery" })
+  .inputSchema(updateMeetingBriefsEmailDeliveryBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { sendEmail } }) => {
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
       data: { meetingBriefsSendEmail: sendEmail },
+    });
+  });
+
+export const updateDigestEmailDeliveryAction = actionClient
+  .metadata({ name: "updateDigestEmailDelivery" })
+  .inputSchema(updateDigestEmailDeliveryBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { sendEmail } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { digestSendEmail: sendEmail },
     });
   });
 
@@ -364,6 +355,8 @@ export const toggleRuleChannelAction = actionClient
           select: {
             isConnected: true,
             provider: true,
+            accessToken: true,
+            providerUserId: true,
             routes: {
               select: {
                 purpose: true,
@@ -393,8 +386,10 @@ export const toggleRuleChannelAction = actionClient
       }
 
       if (enabled) {
-        if (!channel.isConnected) {
-          throw new SafeError("Messaging channel is not connected");
+        if (!isMessagingChannelOperational(channel)) {
+          throw new SafeError(
+            getMessagingChannelReconnectMessage(channel.provider),
+          );
         }
         if (
           !hasMessagingRoute(
@@ -437,7 +432,7 @@ export const toggleRuleChannelAction = actionClient
   );
 
 async function getTelegramBotUrl() {
-  if (!env.TELEGRAM_BOT_TOKEN) return undefined;
+  if (!env.TELEGRAM_BOT_TOKEN) return;
 
   try {
     const result = await callTelegramBotApi<{ username?: string }>({
@@ -447,68 +442,12 @@ async function getTelegramBotUrl() {
     });
 
     const username = result.username?.trim().replace(/^@+/, "");
-    if (!username) return undefined;
+    if (!username) return;
 
     return `https://t.me/${username}`;
   } catch {
-    return undefined;
+    return;
   }
-}
-
-async function resolveSlackRouteTarget({
-  accessToken,
-  providerUserId,
-  targetId,
-  logger,
-}: {
-  accessToken: string;
-  providerUserId: string | null;
-  targetId: string;
-  logger: Logger;
-}) {
-  if (targetId === "dm") {
-    logger.trace("Resolving Slack direct-message target", {
-      hasProviderUserId: Boolean(providerUserId),
-    });
-
-    if (!providerUserId) {
-      logger.error("Slack direct-message target is unavailable");
-      throw new SafeError("Direct messages are not available for this channel");
-    }
-
-    return {
-      targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
-      targetId: providerUserId,
-    };
-  }
-
-  const client = createSlackClient(accessToken);
-  logger.trace("Resolving Slack channel target", { targetId });
-
-  let channelInfo: Awaited<ReturnType<typeof getChannelInfo>> = null;
-  try {
-    channelInfo = await getChannelInfo(client, targetId);
-  } catch (error) {
-    logger.error("Failed to resolve Slack channel target", { error, targetId });
-    throw error;
-  }
-
-  if (!channelInfo) {
-    logger.error("Slack channel target not found", { targetId });
-    throw new SafeError("Could not find the selected Slack channel");
-  }
-
-  if (!channelInfo.isPrivate) {
-    logger.error("Slack channel target is not private", { targetId });
-    throw new SafeError(
-      "Only private channels are allowed. Please select a private channel.",
-    );
-  }
-
-  return {
-    targetType: MessagingRouteTargetType.CHANNEL,
-    targetId,
-  };
 }
 
 async function syncMessagingFeatureRoute({

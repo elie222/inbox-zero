@@ -1,3 +1,4 @@
+import { NextResponse, after } from "next/server";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -5,8 +6,8 @@ import {
   type UIMessage,
 } from "ai";
 import { withEmailAccount } from "@/utils/middleware";
+import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
 import { getEmailAccountWithAi } from "@/utils/user/get";
-import { NextResponse } from "next/server";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -51,7 +52,7 @@ export const POST = withEmailAccount("chat", async (request) => {
   const json = await request.json();
   const { data, error } = assistantInputSchema.safeParse(json);
 
-  if (error) return NextResponse.json({ error: error.errors }, { status: 400 });
+  if (error) return NextResponse.json({ error: error.issues }, { status: 400 });
 
   const chat =
     (await getChatWithCompactions(data.id)) ||
@@ -88,6 +89,13 @@ export const POST = withEmailAccount("chat", async (request) => {
     role: "user",
     parts: message.parts,
   });
+
+  after(() =>
+    trackFirstTimeEvent({
+      emailAccountId,
+      event: FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE,
+    }),
+  );
 
   const latestCompaction = chat.compactions[0];
 
@@ -315,7 +323,7 @@ async function createNewChat({
     return newChat;
   } catch (error) {
     logger.error("Failed to create new chat", { error, emailAccountId });
-    return undefined;
+    return;
   }
 }
 
@@ -339,10 +347,31 @@ async function saveChatMessages(
   logger: Logger,
 ) {
   try {
-    return prisma.chatMessage.createMany({
-      data: mapUiMessagesToChatMessageRows(messages, chatId),
+    const rows = mapUiMessagesToChatMessageRows(messages, chatId);
+    const assistantMessages = messages.filter(
+      (message) => message.role === "assistant",
+    );
+
+    logger.info("Persisting chat messages", {
+      chatId,
+      messageCount: messages.length,
+      assistantMessageIds: assistantMessages.map((message) => message.id),
+      assistantToolCallIds: assistantMessages.flatMap((message) =>
+        getToolCallIdsFromUiParts(message.parts),
+      ),
+    });
+
+    const result = await prisma.chatMessage.createMany({
+      data: rows,
       skipDuplicates: true,
     });
+
+    logger.info("Persisted chat messages", {
+      chatId,
+      insertedCount: result.count,
+    });
+
+    return result;
   } catch (error) {
     logger.error("Failed to save chat messages", { error, chatId });
     captureException(error, { extra: { chatId } });
@@ -379,4 +408,11 @@ function hasRenderableAssistantResponse(
     if (part.type !== "text") return true;
     return part.text.trim().length > 0;
   });
+}
+
+function getToolCallIdsFromUiParts(parts: UIMessage["parts"] | undefined) {
+  return (
+    parts?.flatMap((part) => ("toolCallId" in part ? [part.toolCallId] : [])) ||
+    []
+  );
 }

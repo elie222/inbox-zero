@@ -24,8 +24,8 @@
   },
   "devDependencies": {
     "@types/node": "24.10.1",
-    "typescript": "6.0.2",
-    "vitest": "4.1.2"
+    "typescript": "6.0.3",
+    "vitest": "4.1.4"
   },
   "files": [
     "bin"

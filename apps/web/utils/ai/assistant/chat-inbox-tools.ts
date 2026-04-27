@@ -4,7 +4,11 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createEmailProvider } from "@/utils/email/provider";
-import { extractEmailAddress, splitRecipientList } from "@/utils/email";
+import {
+  extractEmailAddress,
+  extractUniqueEmailAddresses,
+  splitRecipientList,
+} from "@/utils/email";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import type { EmailProvider } from "@/utils/email/types";
@@ -13,19 +17,39 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
 import { runWithBoundedConcurrency } from "@/utils/async";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
+import {
+  buildOutlookSearchFallbackQuery,
+  getOutlookComparisonFilters,
+  getStandaloneOutlookStateTerms,
+  sanitizeKqlTextQuery,
+  stripStandaloneOutlookStateTerms,
+  stripOutlookComparisonFilters,
+} from "@/utils/outlook/message";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
+import { sleep } from "@/utils/sleep";
+import { archiveCategory } from "@/utils/categorize/senders/archive-category";
+import { getCategoryOverview } from "@/utils/categorize/senders/get-category-overview";
+import { startBulkCategorization } from "@/utils/categorize/senders/start-bulk-categorization";
 import {
   manageInboxActions,
   requiresSenderEmails,
   requiresThreadIds,
 } from "@/utils/ai/assistant/manage-inbox-actions";
+import { hideToolErrorFromUser } from "@/utils/ai/assistant/tool-error-visibility";
 import {
   type AutomaticUnsubscribeResult,
   unsubscribeSenderAndMark,
 } from "@/utils/senders/unsubscribe";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import {
+  getCategorizationProgress,
+  getCategorizationStatusSnapshot,
+} from "@/utils/redis/categorization-progress";
+import { extractErrorInfo, isRetryableError } from "@/utils/outlook/retry";
 
-const emptyInputSchema = z.object({});
+const SEARCH_INBOX_MAX_RESULTS = 20;
+const MAX_SENDER_CATEGORIZATION_WAIT_MS = 1500;
+
 const recipientListSchema = z
   .string()
   .trim()
@@ -113,7 +137,7 @@ export const getAccountOverviewTool = ({
   tool({
     description:
       "Get account context for inbox operations such as provider details, label availability, meeting-brief settings, and attachment-filing settings.",
-    inputSchema: emptyInputSchema,
+    inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({ tool: "get_account_overview", email, logger });
       try {
@@ -192,9 +216,211 @@ export type GetAccountOverviewTool = InferUITool<
   ReturnType<typeof getAccountOverviewTool>
 >;
 
+const getSenderCategorizationStatusInputSchema = z.object({
+  waitMs: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_SENDER_CATEGORIZATION_WAIT_MS)
+    .default(0)
+    .describe(
+      "Optional server-side wait before reading progress. Use for short bounded polling only.",
+    ),
+});
+
+const manageSenderCategoryInputSchema = z
+  .object({
+    action: z
+      .literal("archive_category")
+      .describe("Category cleanup action. Only archive_category is supported."),
+    categoryId: z
+      .string()
+      .trim()
+      .min(1)
+      .nullish()
+      .describe(
+        "Exact category ID from getSenderCategoryOverview. Prefer this when available.",
+      ),
+    categoryName: z
+      .string()
+      .trim()
+      .min(1)
+      .nullish()
+      .describe(
+        'Exact category name from getSenderCategoryOverview. Supports the special name "Uncategorized".',
+      ),
+  })
+  .refine((value) => Boolean(value.categoryId || value.categoryName), {
+    message: "categoryId or categoryName is required",
+  });
+
+export const getSenderCategoryOverviewTool = ({
+  email,
+  emailAccountId,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Inspect sender categories for the current account. Returns exact category names, sender counts, sample senders, uncategorized sender count, and current categorization progress. Use this before any category-based cleanup, and prefer it over searchInbox when the user asks to clean up by category. If the user only wants the threads already shown or a small explicit set of emails, stay with searchInbox and manageInbox instead.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      trackToolCall({ tool: "get_sender_category_overview", email, logger });
+
+      try {
+        return await getCategoryOverview({ emailAccountId });
+      } catch (error) {
+        logger.error("Failed to load sender category overview", { error });
+        return {
+          error: "Failed to load sender category overview",
+        };
+      }
+    },
+  });
+
+export type GetSenderCategoryOverviewTool = InferUITool<
+  ReturnType<typeof getSenderCategoryOverviewTool>
+>;
+
+export const startSenderCategorizationTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Start sender categorization for the current account. This creates default categories if needed, enables automatic sender categorization, queues uncategorized senders for AI categorization, and returns current progress. Use this only when category cleanup is needed and getSenderCategoryOverview shows category coverage is not ready. After starting, poll getSenderCategorizationStatus only briefly before deciding whether cleanup can continue. Safe to call again: if a run is already active, it returns the existing run instead of starting a duplicate job.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      trackToolCall({ tool: "start_sender_categorization", email, logger });
+
+      try {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+
+        return await startBulkCategorization({
+          emailAccountId,
+          emailProvider,
+          logger,
+        });
+      } catch (error) {
+        logger.error("Failed to start sender categorization", { error });
+        return {
+          error: "Failed to start sender categorization",
+        };
+      }
+    },
+  });
+
+export type StartSenderCategorizationTool = InferUITool<
+  ReturnType<typeof startSenderCategorizationTool>
+>;
+
+export const getSenderCategorizationStatusTool = ({
+  email,
+  emailAccountId,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  logger: Logger;
+}) =>
+  tool({
+    description: `Check sender categorization progress. Use this after startSenderCategorization to show progress in chat or to poll briefly before deciding whether category cleanup can continue. Keep polling bounded to short waits only, with at most 3 polls and waitMs no higher than ${MAX_SENDER_CATEGORIZATION_WAIT_MS} per poll. If categorization is still running after that bounded polling, stop and report the progress instead of falling back to manual searchInbox pagination. waitMs optionally delays the read server-side. This does not change inbox state.`,
+    inputSchema: getSenderCategorizationStatusInputSchema,
+    execute: async ({ waitMs }) => {
+      trackToolCall({
+        tool: "get_sender_categorization_status",
+        email,
+        logger,
+      });
+
+      try {
+        const boundedWaitMs = Math.min(
+          waitMs,
+          MAX_SENDER_CATEGORIZATION_WAIT_MS,
+        );
+
+        if (boundedWaitMs > 0) {
+          await sleep(boundedWaitMs);
+        }
+
+        const progress = await getCategorizationProgress({ emailAccountId });
+        return getCategorizationStatusSnapshot(progress);
+      } catch (error) {
+        logger.error("Failed to load sender categorization status", { error });
+        return {
+          error: "Failed to load sender categorization status",
+        };
+      }
+    },
+  });
+
+export type GetSenderCategorizationStatusTool = InferUITool<
+  ReturnType<typeof getSenderCategorizationStatusTool>
+>;
+
+export const manageSenderCategoryTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      'Archive all mail from senders currently assigned to one sender category. Use this only after getSenderCategoryOverview confirmed the exact category ID or exact category name the user wants. Prefer categoryId when available. Supports the special category name "Uncategorized". If the requested category name does not exactly exist, do not guess; list the available category names and ask a brief clarification question instead. Do not use this for thread-level cleanup or arbitrary search results; use manageInbox instead.',
+    inputSchema: manageSenderCategoryInputSchema,
+    execute: async ({ categoryId, categoryName }) => {
+      trackToolCall({ tool: "manage_sender_category", email, logger });
+
+      try {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+
+        return await archiveCategory({
+          email,
+          emailAccountId,
+          emailProvider,
+          logger,
+          categoryId,
+          categoryName,
+        });
+      } catch (error) {
+        logger.error("Failed to manage sender category", { error });
+        return {
+          error: "Failed to manage sender category",
+        };
+      }
+    },
+  });
+
+export type ManageSenderCategoryTool = InferUITool<
+  ReturnType<typeof manageSenderCategoryTool>
+>;
+
 function getSearchQueryDescription(provider: string): string {
   if (isMicrosoftProvider(provider)) {
-    return "Search query using KQL syntax. Supports: unread, read, from:, to:, subject:, received>=YYYY-MM-DD, keyword search. For unread inbox triage, use unread. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.";
+    return "Search query using Outlook search syntax. Supports: unread, read, subject:, keyword search, and plain sender email lookups. Prefer a plain sender email like sender@example.com when searching by sender. Keep Outlook retries to one simple clause at a time. If you use from:, keep it as a simple standalone filter. If the tool returns microsoftSearchFeedback.retryQueries after a failed search, prefer one suggested simpler retry query instead of repeating the same query shape. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.";
   }
   return "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.";
 }
@@ -211,8 +437,8 @@ function searchInboxInputSchema(provider: string) {
       .number()
       .int()
       .min(1)
-      .max(50)
-      .default(20)
+      .max(SEARCH_INBOX_MAX_RESULTS)
+      .default(SEARCH_INBOX_MAX_RESULTS)
       .describe("Maximum number of messages to return."),
     pageToken: z
       .string()
@@ -234,7 +460,7 @@ export const searchInboxTool = ({
 }) =>
   tool({
     description:
-      "Search inbox messages and return concise message metadata for triage and summarization.",
+      "Search inbox messages and return concise message metadata. Limit must be between 1 and 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
     inputSchema: searchInboxInputSchema(provider),
     execute: async ({ query, limit, pageToken }) => {
       trackToolCall({ tool: "search_inbox", email, logger });
@@ -246,35 +472,90 @@ export const searchInboxTool = ({
           logger,
         });
 
-        const { messages, nextPageToken } = await emailProvider.searchMessages({
-          query,
-          maxResults: limit,
-          pageToken: pageToken ?? undefined,
-        });
-
-        let labels: Array<{ id: string; name: string }> = [];
-        try {
-          labels = await emailProvider.getLabels();
-        } catch (error) {
-          logger.warn("Failed to load labels for search results", { error });
+        const searchQueries = [query];
+        if (isMicrosoftProvider(provider)) {
+          const fallbackQuery = buildOutlookSearchFallbackQuery(query);
+          if (fallbackQuery) searchQueries.push(fallbackQuery);
         }
 
+        const labelsPromise = emailProvider.getLabels().catch((error) => {
+          logger.warn("Failed to load labels for search results", { error });
+          return [] as Array<{ id: string; name: string }>;
+        });
+
+        let searchResult:
+          | Awaited<ReturnType<typeof emailProvider.searchMessages>>
+          | undefined;
+        let queryUsed = query;
+        let lastError: unknown;
+        const microsoftSearchFailures: Array<{
+          query: string;
+          error: unknown;
+        }> = [];
+
+        for (let i = 0; i < searchQueries.length; i++) {
+          const candidateQuery = searchQueries[i];
+          try {
+            searchResult = await emailProvider.searchMessages({
+              query: candidateQuery,
+              maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
+              pageToken: pageToken ?? undefined,
+            });
+            queryUsed = candidateQuery;
+            break;
+          } catch (error) {
+            lastError = error;
+            if (isMicrosoftProvider(provider)) {
+              microsoftSearchFailures.push({
+                query: candidateQuery,
+                error,
+              });
+            }
+            if (i === searchQueries.length - 1) break;
+
+            logger.warn("Search query failed; retrying with Outlook fallback", {
+              query: candidateQuery,
+              fallbackQuery: searchQueries[i + 1],
+              error,
+            });
+          }
+        }
+
+        if (!searchResult) {
+          logger.error("Failed to search inbox", { error: lastError, query });
+          return isMicrosoftProvider(provider)
+            ? buildMicrosoftSearchErrorResult({
+                query,
+                failures: microsoftSearchFailures,
+              })
+            : { queryUsed: query, error: "Failed to search inbox" };
+        }
+
+        const labels = await labelsPromise;
+
+        const { messages, nextPageToken } = searchResult;
         const labelsById = createLabelLookupMap(labels);
 
-        const items = messages
-          .slice(0, limit)
-          .map((message) => mapMessageForSearchResult(message, labelsById));
+        const items = messages.map((message) =>
+          mapMessageForSearchResult(message, labelsById),
+        );
 
         return {
-          queryUsed: query,
+          queryUsed,
           totalReturned: items.length,
           nextPageToken,
+          hasMore: Boolean(nextPageToken),
           summary: summarizeSearchResults(items),
           messages: items,
         };
       } catch (error) {
-        logger.error("Failed to search inbox", { error });
-        return { error: "Failed to search inbox" };
+        logger.error("Failed to search inbox", { error, query });
+        return isMicrosoftProvider(provider)
+          ? buildMicrosoftSearchErrorResult({
+              query,
+              failures: [{ query, error }],
+            })
+          : { queryUsed: query, error: "Failed to search inbox" };
       }
     },
   });
@@ -486,7 +767,7 @@ function manageInboxInputSchema(provider: string) {
     action: z
       .enum(manageInboxActions)
       .describe(
-        "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. label_threads: apply a label (requires labelName). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
+        "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. label_threads: apply a label (requires labelName). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide after the user confirms that broad scope (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
       ),
     threadIds: threadIdsSchema
       .nullish()
@@ -533,7 +814,8 @@ export const manageInboxTool = ({
   const inputSchema = manageInboxInputSchema(provider);
 
   return tool({
-    description: "Run inbox actions on threads or senders.",
+    description:
+      "Run inbox actions on threads or senders. For emails already shown or found in this turn, prefer thread actions with threadIds. Do not widen a limited thread-level request into sender-wide cleanup. Only use sender-wide cleanup with fromEmails when the user clearly wants all mail from that sender, and get confirmation before doing broad sender-wide cleanup.",
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });
@@ -679,12 +961,12 @@ export const manageInboxTool = ({
               error,
               labelName: parsedInput.labelName,
             });
-            return {
+            return hideToolErrorFromUser({
               error:
                 error instanceof Error
                   ? error.message
                   : "Failed to resolve label",
-            };
+            });
           }
         }
 
@@ -1248,6 +1530,255 @@ async function getSenderUnsubscribeSource({
   return {};
 }
 
+const MICROSOFT_SEARCH_FAILURE_MESSAGES = {
+  rate_limited: {
+    summary: "Outlook rate-limited the search request.",
+    suggestedNextStep:
+      "Wait briefly, then retry once with a simpler Outlook query if needed.",
+  },
+  provider_unavailable: {
+    summary: "Outlook search failed before returning results.",
+    suggestedNextStep:
+      "Retry once after the provider recovers instead of reusing the same query immediately.",
+  },
+  query_failed: {
+    summary: "Outlook did not return results for the attempted search query.",
+    suggestedNextStep:
+      "Retry with a simpler Outlook query such as one bare sender email, one keyword, or one simple subject: term.",
+  },
+} as const;
+
+type MicrosoftSearchFailureType =
+  keyof typeof MICROSOFT_SEARCH_FAILURE_MESSAGES;
+
+function buildMicrosoftSearchErrorResult({
+  query,
+  failures,
+}: {
+  query: string;
+  failures: Array<{
+    query: string;
+    error: unknown;
+  }>;
+}) {
+  const errorInfos = failures.map(({ error }) => extractErrorInfo(error));
+
+  const attempts = failures.map(({ query }, i) => ({
+    query,
+    status: errorInfos[i].status,
+    code: errorInfos[i].code,
+    message: errorInfos[i].errorMessage || "Microsoft search request failed",
+  }));
+
+  const failureType = getMicrosoftSearchFailureType(errorInfos);
+  const retryGuidance = getMicrosoftSearchRetryGuidance({
+    query,
+    failureType,
+    attemptedQueries: attempts.map((attempt) => attempt.query),
+  });
+
+  return {
+    queryUsed: query,
+    error: "Failed to search inbox",
+    provider: "microsoft" as const,
+    microsoftSearchFeedback: {
+      failureType,
+      summary: getMicrosoftSearchFailureSummary(failureType, retryGuidance),
+      suggestedNextStep: getMicrosoftSearchSuggestedNextStep(
+        failureType,
+        retryGuidance,
+      ),
+      fallbackAttempted: failures.length > 1,
+      attempts,
+      likelyCause: retryGuidance.likelyCause,
+      removedTerms: retryGuidance.removedTerms,
+      retryQueries: retryGuidance.retryQueries,
+    },
+  };
+}
+
+function getMicrosoftSearchFailureType(
+  errorInfos: Array<ReturnType<typeof extractErrorInfo>>,
+): MicrosoftSearchFailureType {
+  if (errorInfos.some((errorInfo) => isRetryableError(errorInfo).isRateLimit)) {
+    return "rate_limited";
+  }
+
+  if (
+    errorInfos.some((errorInfo) => {
+      const retryability = isRetryableError(errorInfo);
+      return retryability.isServerError || retryability.retryable;
+    })
+  ) {
+    return "provider_unavailable";
+  }
+
+  return "query_failed";
+}
+
+function getMicrosoftSearchFailureSummary(
+  failureType: MicrosoftSearchFailureType,
+  retryGuidance: ReturnType<typeof getMicrosoftSearchRetryGuidance>,
+) {
+  const baseSummary = MICROSOFT_SEARCH_FAILURE_MESSAGES[failureType].summary;
+  if (
+    failureType !== "query_failed" ||
+    !retryGuidance.likelyCause ||
+    retryGuidance.likelyCause === baseSummary
+  ) {
+    return baseSummary;
+  }
+
+  return `${baseSummary} ${retryGuidance.likelyCause}`;
+}
+
+function getMicrosoftSearchSuggestedNextStep(
+  failureType: MicrosoftSearchFailureType,
+  retryGuidance: ReturnType<typeof getMicrosoftSearchRetryGuidance>,
+) {
+  if (failureType !== "query_failed") {
+    return MICROSOFT_SEARCH_FAILURE_MESSAGES[failureType].suggestedNextStep;
+  }
+
+  if (retryGuidance.retryQueries.length === 0) {
+    return MICROSOFT_SEARCH_FAILURE_MESSAGES.query_failed.suggestedNextStep;
+  }
+
+  return `Retry with one simpler Outlook query. Start with ${JSON.stringify(
+    retryGuidance.retryQueries[0],
+  )} and keep it to a single clause.`;
+}
+
+function getMicrosoftSearchRetryGuidance({
+  query,
+  failureType,
+  attemptedQueries,
+}: {
+  query: string;
+  failureType: MicrosoftSearchFailureType;
+  attemptedQueries: string[];
+}) {
+  if (failureType !== "query_failed") {
+    return {
+      likelyCause: undefined,
+      removedTerms: [] as string[],
+      retryQueries: [] as string[],
+    };
+  }
+
+  const stateTerms = getStandaloneOutlookStateTerms(query);
+  const comparisonTerms = getOutlookComparisonFilters(query);
+  const senderEmails = extractEmailAddressesFromMicrosoftSearchQuery(query);
+  const subjectTerms = extractMicrosoftSubjectTerms(query);
+  const attemptedQuerySet = new Set(
+    attemptedQueries.map((attempt) => normalizeMicrosoftRetryQuery(attempt)),
+  );
+  const retryQueries = [
+    ...senderEmails,
+    ...subjectTerms.map(formatMicrosoftSubjectRetryQuery),
+    ...getMicrosoftKeywordRetryQueries(query),
+  ].filter((candidate, index, candidates) => {
+    const normalized = normalizeMicrosoftRetryQuery(candidate);
+
+    return (
+      normalized.length > 0 &&
+      !attemptedQuerySet.has(normalized) &&
+      candidates.findIndex(
+        (queryCandidate) =>
+          normalizeMicrosoftRetryQuery(queryCandidate) === normalized,
+      ) === index
+    );
+  });
+
+  return {
+    likelyCause: getMicrosoftSearchLikelyCause({
+      query,
+      stateTerms,
+      comparisonTerms,
+      senderEmails,
+      subjectTerms,
+    }),
+    removedTerms: [...new Set([...stateTerms, ...comparisonTerms])],
+    retryQueries: retryQueries.slice(0, 3),
+  };
+}
+
+function getMicrosoftSearchLikelyCause({
+  query,
+  stateTerms,
+  comparisonTerms,
+  senderEmails,
+  subjectTerms,
+}: {
+  query: string;
+  stateTerms: string[];
+  comparisonTerms: string[];
+  senderEmails: string[];
+  subjectTerms: string[];
+}) {
+  if (comparisonTerms.length > 0) {
+    return "The failed query used comparison filters, which Outlook search often rejects.";
+  }
+
+  if (
+    stateTerms.length > 0 &&
+    (senderEmails.length > 0 || subjectTerms.length > 0)
+  ) {
+    return "The failed query mixed a read-state term with other filters. Retry with one simpler clause.";
+  }
+
+  if (senderEmails.length > 0 && subjectTerms.length > 0) {
+    return "The failed query mixed sender and subject filters. Retry with one simpler clause.";
+  }
+
+  if (query.trim().split(/\s+/).length > 3) {
+    return "The failed query was too complex for Outlook search. Retry with one simpler clause.";
+  }
+
+  return "Retry with one simpler Outlook clause at a time.";
+}
+
+function extractMicrosoftSubjectTerms(query: string) {
+  return Array.from(
+    query.matchAll(/\bsubject:(?:"([^"]+)"|(\S+))/gi),
+    (match) => (match[1] ?? match[2] ?? "").trim(),
+  ).filter(Boolean);
+}
+
+function formatMicrosoftSubjectRetryQuery(subject: string) {
+  const escapedSubject = subject.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return subject.includes(" ")
+    ? `subject:"${escapedSubject}"`
+    : `subject:${escapedSubject}`;
+}
+
+function getMicrosoftKeywordRetryQueries(query: string) {
+  const subjectTerms = extractMicrosoftSubjectTerms(query);
+  if (subjectTerms.length > 0) {
+    return subjectTerms.map((subject) => sanitizeKqlTextQuery(subject));
+  }
+
+  const cleanedQuery = stripOutlookComparisonFilters(
+    stripStandaloneOutlookStateTerms(query),
+  )
+    .replace(/\bsubject:(?:"[^"]+"|\S+)/gi, " ")
+    .replace(/[()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleanedQuery.length > 0 ? [cleanedQuery] : [];
+}
+
+function normalizeMicrosoftRetryQuery(query: string) {
+  return query.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function extractEmailAddressesFromMicrosoftSearchQuery(query: string) {
+  return [
+    ...new Set(query.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? []),
+  ];
+}
+
 function getManageInboxValidationError(error: z.ZodError) {
   const firstIssue = error.issues[0];
   if (!firstIssue) return "Invalid manageInbox input";
@@ -1288,13 +1819,7 @@ function hasOnlyValidRecipients(recipientList: string) {
 }
 
 function normalizeSenderEmails(fromEmails: string[]) {
-  return [
-    ...new Set(
-      fromEmails
-        .map((fromEmail) => extractEmailAddress(fromEmail))
-        .filter((fromEmail): fromEmail is string => Boolean(fromEmail)),
-    ),
-  ];
+  return extractUniqueEmailAddresses(fromEmails);
 }
 
 const LABEL_MESSAGE_CONCURRENCY = 1;

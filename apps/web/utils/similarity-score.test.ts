@@ -251,6 +251,24 @@ On Tue, 1 Apr 2026 at 10:00, Sender <sender@example.com> wrote:
       expect(score).toBeLessThan(1.0);
     });
 
+    it("should not strip email addresses whose local part starts with an HTML tag letter", () => {
+      const storedContent = "Please contact <alice@example.com>";
+      const gmailMessage = createParsedMessage(
+        "Please contact <alex@example.com>",
+      );
+
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBeLessThan(1.0);
+    });
+
+    it("should not misclassify plain text starting with <a... as HTML", () => {
+      const storedContent = "The <apple> is red";
+      const gmailMessage = createParsedMessage("The <banana> is yellow");
+
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBeLessThan(1.0);
+    });
+
     it.each([
       { emoji: "👋", decimal: "128075", name: "waving hand" },
       { emoji: "😀", decimal: "128512", name: "grinning face" },

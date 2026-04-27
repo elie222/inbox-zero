@@ -119,7 +119,9 @@ export const runRulesAction = actionClient
             emailAccountId,
             enabled: true,
           },
-          include: { actions: true },
+          include: {
+            actions: true,
+          },
         })
         .catch((error) => {
           logger.error("Failed to load enabled rules for execution", { error });
@@ -186,16 +188,22 @@ export const testAiCustomContentAction = actionClient
           enabled: true,
           instructions: { not: null },
         },
-        include: { actions: true },
+        include: {
+          actions: true,
+        },
       });
+
+      const testId = `testMessageId-${Date.now()}`;
 
       const result = await runRules({
         isTest: true,
         provider: emailProvider,
         logger,
         message: {
-          id: `testMessageId-${Date.now()}`,
-          threadId: `testThreadId-${Date.now()}`,
+          id: testId,
+          // Match id so Gmail's isReplyInThread (which compares id !== threadId)
+          // treats this synthetic test message as the first message in a thread.
+          threadId: testId,
           snippet: content,
           textPlain: content,
           headers: {

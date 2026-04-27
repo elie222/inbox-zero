@@ -17,7 +17,7 @@ export const POST = handleCallback<z.infer<typeof executeAutomationJobBody>>(
     const parseResult = executeAutomationJobBody.safeParse(message);
     if (!parseResult.success) {
       logger.error("Invalid automation jobs queue payload", {
-        errors: parseResult.error.errors,
+        errors: parseResult.error.issues,
         queueMessageId: metadata.messageId,
       });
       return;
@@ -48,12 +48,10 @@ export const POST = handleCallback<z.infer<typeof executeAutomationJobBody>>(
   },
   {
     visibilityTimeoutSeconds: 330,
-    retry: (_error, metadata) => {
-      return {
-        afterSeconds: getQueueRetryBackoffSeconds({
-          deliveryCount: metadata.deliveryCount,
-        }),
-      };
-    },
+    retry: (_error, metadata) => ({
+      afterSeconds: getQueueRetryBackoffSeconds({
+        deliveryCount: metadata.deliveryCount,
+      }),
+    }),
   },
 );

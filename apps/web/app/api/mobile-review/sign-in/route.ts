@@ -5,12 +5,14 @@ import { createMobileReviewSession } from "@/utils/mobile-review";
 
 const signInSchema = z.object({
   code: z.string().trim().min(1).max(128),
+  email: z.string().trim().email(),
 });
 
 export const POST = withError("mobile-review/sign-in", async (request) => {
   const body = signInSchema.parse(await request.json());
   const result = await createMobileReviewSession({
     code: body.code,
+    email: body.email,
     logger: request.logger,
   });
 

@@ -22,7 +22,7 @@ import {
 import { hasActiveAppleSubscription } from "@/utils/premium";
 
 export function BillingSection() {
-  const { premium, isPremium, isLoading } = usePremium();
+  const { premium, isPremium, isLoading, tier } = usePremium();
   const isLegacyStripePlan = shouldShowLegacyStripePricingNotice(premium);
   const hasAppleSubscription = hasActiveAppleSubscription(
     premium?.appleExpiresAt || null,
@@ -32,13 +32,10 @@ export function BillingSection() {
 
   return (
     <LoadingContent loading={isLoading}>
-      {premium &&
-      (isPremium ||
-        premium.lemonSqueezyCustomerId ||
-        premium.stripeSubscriptionId) ? (
+      {premium && isPremium ? (
         <Item size="sm">
           <ItemContent>
-            <ItemTitle>{getPremiumTierName(premium.tier)} plan</ItemTitle>
+            <ItemTitle>{getPremiumTierName(tier)} plan</ItemTitle>
             {hasAppleSubscription ? (
               <ItemDescription>
                 This subscription is billed through Apple. Manage or cancel it

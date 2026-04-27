@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { generateObject } from "ai";
+import { writeEvalDebugArtifact } from "@/__tests__/eval/debug-artifacts";
 import { getModel } from "@/utils/llms/model";
 import type { UserAIFields } from "@/utils/llms/types";
 
@@ -59,12 +60,48 @@ export async function judgeBinary(options: {
       providerOptions,
     });
 
+    writeEvalDebugArtifact({
+      kind: "judge-result",
+      data: {
+        criterion: options.criterion,
+        input: options.input,
+        output: options.output,
+        expected: options.expected,
+        judgeModel: options.judgeUserAi ?? {
+          aiProvider: null,
+          aiModel: null,
+        },
+        providerOptions,
+        system,
+        prompt,
+        result,
+      },
+    });
+
     return {
       criterion: options.criterion.name,
       pass: result.object.pass,
       reasoning: result.object.reasoning,
     };
   } catch (error) {
+    writeEvalDebugArtifact({
+      kind: "judge-error",
+      data: {
+        criterion: options.criterion,
+        input: options.input,
+        output: options.output,
+        expected: options.expected,
+        judgeModel: options.judgeUserAi ?? {
+          aiProvider: null,
+          aiModel: null,
+        },
+        providerOptions,
+        system,
+        prompt,
+        error,
+      },
+    });
+
     return {
       criterion: options.criterion.name,
       pass: false,

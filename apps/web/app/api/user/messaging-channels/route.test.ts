@@ -94,6 +94,11 @@ describe("GET /api/user/messaging-channels", () => {
             targetType: "DIRECT_MESSAGE",
             targetId: "U123",
           },
+          {
+            purpose: "SCHEDULED_CHECK_INS",
+            targetType: "CHANNEL",
+            targetId: "C456",
+          },
         ],
         actions: [],
       },
@@ -104,6 +109,11 @@ describe("GET /api/user/messaging-channels", () => {
       {
         id: "C123",
         name: "ops-alerts",
+        isPrivate: true,
+      },
+      {
+        id: "C456",
+        name: "check-ins",
         isPrivate: true,
       },
     ]);
@@ -127,6 +137,12 @@ describe("GET /api/user/messaging-channels", () => {
             targetLabel: "#ops-alerts",
             isDm: false,
           },
+          scheduledCheckIns: {
+            enabled: true,
+            targetId: "C456",
+            targetLabel: "#check-ins",
+            isDm: false,
+          },
           meetingBriefs: {
             enabled: true,
             targetId: "U123",
@@ -134,6 +150,18 @@ describe("GET /api/user/messaging-channels", () => {
             isDm: true,
           },
           documentFilings: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+          digests: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+          followUps: {
             enabled: false,
             targetId: null,
             targetLabel: null,
@@ -209,6 +237,12 @@ describe("GET /api/user/messaging-channels", () => {
             targetLabel: "#ops-alerts",
             isDm: false,
           },
+          scheduledCheckIns: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
           meetingBriefs: {
             enabled: false,
             targetId: null,
@@ -216,6 +250,18 @@ describe("GET /api/user/messaging-channels", () => {
             isDm: false,
           },
           documentFilings: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+          digests: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+          followUps: {
             enabled: false,
             targetId: null,
             targetLabel: null,
@@ -232,6 +278,12 @@ describe("GET /api/user/messaging-channels", () => {
             targetLabel: "#ops-alerts",
             isDm: false,
           },
+          scheduledCheckIns: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
           meetingBriefs: {
             enabled: false,
             targetId: null,
@@ -244,7 +296,65 @@ describe("GET /api/user/messaging-channels", () => {
             targetLabel: null,
             isDm: false,
           },
+          digests: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+          followUps: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
         },
+      }),
+    ]);
+  });
+
+  it("marks invalid Slack and Teams connections as disconnected", async () => {
+    const channels = [
+      {
+        id: "channel-1",
+        provider: "SLACK",
+        teamName: "Workspace",
+        teamId: "team-1",
+        providerUserId: null,
+        accessToken: "xoxb-shared-token",
+        isConnected: true,
+        routes: [],
+        actions: [],
+      },
+      {
+        id: "channel-2",
+        provider: "TEAMS",
+        teamName: "Workspace",
+        teamId: "team-2",
+        providerUserId: null,
+        accessToken: null,
+        isConnected: true,
+        routes: [],
+        actions: [],
+      },
+    ] satisfies MessagingChannelRecord[];
+    prisma.messagingChannel.findMany.mockResolvedValue(channels);
+
+    const response = await GET(createRequest("email-account-1"));
+    const body = await response.json();
+
+    expect(createSlackClient).not.toHaveBeenCalled();
+    expect(listChannels).not.toHaveBeenCalled();
+    expect(body.channels).toEqual([
+      expect.objectContaining({
+        id: "channel-1",
+        isConnected: false,
+        canSendAsDm: false,
+      }),
+      expect.objectContaining({
+        id: "channel-2",
+        isConnected: false,
+        canSendAsDm: false,
       }),
     ]);
   });

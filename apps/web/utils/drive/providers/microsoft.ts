@@ -112,12 +112,13 @@ export class OneDriveProvider implements DriveProvider {
     this.logger.info("Creating folder", { name, parentId });
 
     try {
+      const normalizedName = normalizeOneDriveItemName(name);
       const endpoint = parentId
         ? `/me/drive/items/${parentId}/children`
         : "/me/drive/root/children";
 
       const item: DriveItem = await this.client.api(endpoint).post({
-        name,
+        name: normalizedName,
         folder: {},
         "@microsoft.graph.conflictBehavior": "rename", // Rename if exists
       });
@@ -161,9 +162,10 @@ export class OneDriveProvider implements DriveProvider {
 
       // Use the PUT endpoint for simple upload
       // Path: /me/drive/items/{parent-id}:/{filename}:/content
+      const normalizedFilename = normalizeOneDriveItemName(filename);
       const item: DriveItem = await this.client
         .api(
-          `/me/drive/items/${folderId}:/${encodeURIComponent(filename)}:/content`,
+          `/me/drive/items/${folderId}:/${encodeURIComponent(normalizedFilename)}:/content`,
         )
         .header("Content-Type", mimeType)
         .put(content);
@@ -338,4 +340,15 @@ export class OneDriveProvider implements DriveProvider {
 
     return items;
   }
+}
+
+const INVALID_ONEDRIVE_NAME_CHARS = /[\\/:*?"<>|]/g;
+
+function normalizeOneDriveItemName(name: string) {
+  const normalizedName = name
+    .replace(INVALID_ONEDRIVE_NAME_CHARS, "-")
+    .trim()
+    .replace(/[. ]+$/g, "");
+
+  return normalizedName || "untitled";
 }

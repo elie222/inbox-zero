@@ -7,6 +7,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { updateExecutedActionWithDraftId } from "@/utils/ai/choose-rule/draft-management";
 import type { EmailProvider } from "@/utils/email/types";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import type { ActionExecutionEmailAccount } from "@/utils/ai/types";
 
 const MODULE = "ai-execute-act";
 
@@ -22,18 +23,14 @@ type ActionFailure = {
 export async function executeAct({
   client,
   executedRule,
-  userEmail,
-  userId,
-  emailAccountId,
+  emailAccount,
   message,
   logger,
 }: {
   client: EmailProvider;
   executedRule: ExecutedRuleWithActionItems;
   message: ParsedMessage;
-  userEmail: string;
-  userId: string;
-  emailAccountId: string;
+  emailAccount: ActionExecutionEmailAccount;
   logger: Logger;
 }) {
   const log = logger.with({
@@ -52,9 +49,7 @@ export async function executeAct({
         client,
         email: message,
         action,
-        userEmail,
-        userId,
-        emailAccountId,
+        emailAccount,
         executedRule,
         logger: log,
       });
@@ -83,7 +78,7 @@ export async function executeAct({
         error,
         dedupeKeyParts: {
           scope: "ai/choose-rule/execute",
-          emailAccountId,
+          emailAccountId: emailAccount.id,
           actionType: action.type,
         },
       });
