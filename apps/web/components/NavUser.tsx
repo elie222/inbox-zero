@@ -31,23 +31,19 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EXTENSION_URL } from "@/utils/config";
-import { useUser } from "@/hooks/useUser";
+import { useCurrentOrganization } from "@/hooks/useCurrentOrganization";
 import { env } from "@/env";
 import { Referrals } from "@/components/ReferralDialog";
 
 export function NavUser() {
   const { emailAccountId, emailAccount, provider } = useAccount();
   const { closeMobileSidebar, isMobile, state } = useSidebar();
-  const { data: user } = useUser();
   const [isReferralDialogOpen, setIsReferralDialogOpen] = useState(false);
 
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
-  const currentEmailAccountMembers =
-    user?.members?.filter(
-      (member) => member.emailAccountId === currentEmailAccountId,
-    ) || [];
-  const hasOrganization = currentEmailAccountMembers.length > 0;
-  const organizationName = currentEmailAccountMembers[0]?.organization?.name;
+  const organization = useCurrentOrganization();
+  const hasOrganization = !!organization;
+  const organizationName = organization?.name;
 
   const isExpandedSidebar = state.includes("left-sidebar");
 

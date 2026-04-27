@@ -3,6 +3,7 @@ import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { auth } from "@/utils/auth";
+import { premiumEntitlementSelect } from "@/utils/premium";
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
 
@@ -26,18 +27,13 @@ async function getUser({
       dismissedHints: true,
       premium: {
         select: {
-          appleExpiresAt: true,
-          appleRevokedAt: true,
-          appleSubscriptionStatus: true,
+          ...premiumEntitlementSelect,
           lemonSqueezyCustomerId: true,
           lemonSqueezySubscriptionId: true,
-          lemonSqueezyRenewsAt: true,
           stripeCustomerId: true,
           stripePriceId: true,
           stripeSubscriptionId: true,
-          stripeSubscriptionStatus: true,
           unsubscribeCredits: true,
-          tier: true,
           emailAccountsAccess: true,
           lemonLicenseKey: true,
           pendingInvites: true,

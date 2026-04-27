@@ -1,8 +1,4 @@
-import { env } from "@/env";
-import {
-  INTERNAL_API_KEY_HEADER,
-  getInternalApiUrl,
-} from "@/utils/internal-api";
+import { getInternalApiHeaders, getInternalApiUrl } from "@/utils/internal-api";
 import type { Logger } from "@/utils/logger";
 
 export async function forwardQueueMessageToInternalApi<T>({
@@ -21,7 +17,7 @@ export async function forwardQueueMessageToInternalApi<T>({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
+        ...getInternalApiHeaders(),
       },
       body: JSON.stringify(body),
     });
@@ -55,6 +51,6 @@ async function getResponseBody(response: Response) {
   try {
     return await response.text();
   } catch {
-    return undefined;
+    return;
   }
 }

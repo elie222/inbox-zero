@@ -7,9 +7,10 @@
 - Format: Biome (`pnpm check` / `pnpm fix` via ultracite)
 - Run all tests: `pnpm test`
 - Run integration tests: `pnpm test-integration`
-- Run AI tests: `pnpm test-ai`
+- Run AI tests: `pnpm --filter inbox-zero-ai test-ai`
 - Run single test: `pnpm test __tests__/test-file.test.ts`
-- Run specific AI test: `pnpm test-ai ai-categorize-senders`
+- Run specific AI/eval test: `pnpm --filter inbox-zero-ai test-ai __tests__/eval/your-test.test.ts`
+- Evals in `apps/web/__tests__/eval/` must be run from repo root with `pnpm --filter inbox-zero-ai test-ai` (not `pnpm test`)
 - Type-check build (skips Prisma migrate): `pnpm --filter inbox-zero-ai exec next build`
 - Do not use root `tsc --noEmit`; it is not a supported validation step in this monorepo and surfaces unrelated repo-wide debt. If you need the app's CI-aligned type/build check, use `pnpm --filter inbox-zero-ai build:ci` instead, and only when explicitly asked.
 - Do not run `dev` or `build` unless explicitly asked
@@ -35,9 +36,12 @@
 - No re-export patterns. Import from the original source.
 - Prefer the `EmailProvider` abstraction; only use provider-type checks (`isGoogleProvider`, `isMicrosoftProvider`) at true provider boundary/integration code.
 - Infer types from Zod schemas using `z.infer<typeof schema>` instead of duplicating as separate interfaces
-- Avoid premature abstraction. Duplicating 2-3 times is fine; extract when a stable pattern emerges.
-- Don't extract single-use helper functions that just rename and forward parameters; inline the logic at the call site.
-- Avoid large nested ternaries. Prefer a small helper or other straightforward control flow when it improves readability.
+- Default to inlining and co-locating logic at the call site.
+- Avoid premature abstraction. Small duplicated expressions are usually fine; extracting them often adds indirection without meaning.
+- Do not duplicate substantial logic or correctness-sensitive rules. If copied code must stay in sync to avoid bugs, extract or centralize it early.
+- Extract helpers when they make surrounding code clearer, name a meaningful domain concept, or keep shared behavior consistent across flows.
+- Don't extract helpers that just rename and forward parameters; that's a layer without meaning.
+- Avoid large/nested ternaries. Prefer straightforward control flow, a small helper, or a lookup table when it improves readability.
 - No barrel files. Import directly from source files.
 - Colocate page components next to their `page.tsx`. No nested `components/` subfolders in route directories.
 - Reusable components shared across pages go in `apps/web/components/`

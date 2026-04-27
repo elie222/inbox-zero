@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getMessagesBatch } from "./message";
+import {
+  getMessagesBatch,
+  hasPreviousCommunicationsWithSenderOrDomain,
+} from "./message";
 import { getBatch } from "@/utils/gmail/batch";
 
 vi.mock("server-only", () => ({}));
@@ -146,5 +149,78 @@ describe("getMessagesBatch", () => {
     expect(vi.mocked(getBatch).mock.calls.map(([ids]) => ids.length)).toEqual([
       12, 10, 2,
     ]);
+  });
+});
+
+describe("hasPreviousCommunicationsWithSenderOrDomain", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("counts prior sent history for public-email senders by searching both from and to", async () => {
+    const listMessages = vi.fn().mockResolvedValue({
+      data: {
+        messages: [
+          { id: "current-message", threadId: "thread-1" },
+          { id: "prior-sent-message", threadId: "thread-2" },
+        ],
+      },
+    });
+    const gmail = {
+      users: {
+        messages: {
+          list: listMessages,
+        },
+      },
+    } as any;
+    const date = new Date("2026-04-22T12:34:56.789Z");
+    const beforeTimestamp = Math.floor(date.getTime() / 1000);
+
+    const result = await hasPreviousCommunicationsWithSenderOrDomain(gmail, {
+      from: "mutual.contact@gmail.com",
+      date,
+      messageId: "current-message",
+    });
+
+    expect(result).toBe(true);
+    expect(listMessages).toHaveBeenCalledWith({
+      userId: "me",
+      maxResults: 4,
+      q: `(from:mutual.contact@gmail.com OR to:mutual.contact@gmail.com) before:${beforeTimestamp}`,
+      pageToken: undefined,
+      labelIds: undefined,
+    });
+  });
+
+  it("searches company senders by domain and ignores the current message", async () => {
+    const listMessages = vi.fn().mockResolvedValue({
+      data: {
+        messages: [{ id: "current-message", threadId: "thread-1" }],
+      },
+    });
+    const gmail = {
+      users: {
+        messages: {
+          list: listMessages,
+        },
+      },
+    } as any;
+    const date = new Date("2026-04-22T12:34:56.789Z");
+    const beforeTimestamp = Math.floor(date.getTime() / 1000);
+
+    const result = await hasPreviousCommunicationsWithSenderOrDomain(gmail, {
+      from: "introducer@acme.example",
+      date,
+      messageId: "current-message",
+    });
+
+    expect(result).toBe(false);
+    expect(listMessages).toHaveBeenCalledWith({
+      userId: "me",
+      maxResults: 4,
+      q: `(from:acme.example OR to:acme.example) before:${beforeTimestamp}`,
+      pageToken: undefined,
+      labelIds: undefined,
+    });
   });
 });

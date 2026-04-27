@@ -7,6 +7,7 @@ Emails that are NOT cold emails include:
 - Email from an investor that wants to learn more or invest in the company
 - Email from a friend or colleague
 - Email from someone you met at a conference
+- Intro emails where someone is introducing you to another person
 - Email from a customer
 - Newsletter
 - Password reset

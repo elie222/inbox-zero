@@ -102,7 +102,7 @@ export type AssistantPendingEmailToolOutput =
 
 const confirmAssistantActionBaseBody = z.object({
   chatId: z.string().trim().min(1),
-  chatMessageId: z.string().trim().min(1),
+  chatMessageId: z.string().trim().min(1).optional(),
   toolCallId: z.string().trim().min(1),
 });
 

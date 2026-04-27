@@ -106,6 +106,8 @@ export async function syncStripeDataToDb({
     const product = price.product;
 
     const tier = getStripeSubscriptionTier({ priceId: price.id });
+    const stripeSubscriptionStatus =
+      getEffectiveStripeSubscriptionStatus(subscription);
 
     const newTrialEnd = subscription.trial_end
       ? new Date(subscription.trial_end * 1000)
@@ -117,7 +119,7 @@ export async function syncStripeDataToDb({
       stripeSubscriptionItemId: subscriptionItem.id,
       stripePriceId: price.id,
       stripeProductId: typeof product === "string" ? product : product.id,
-      stripeSubscriptionStatus: subscription.status,
+      stripeSubscriptionStatus,
       stripeRenewsAt: subscriptionItem.current_period_end
         ? new Date(subscriptionItem.current_period_end * 1000)
         : null,
@@ -131,11 +133,11 @@ export async function syncStripeDataToDb({
         : null,
     };
 
-    if (currentPremium?.stripeSubscriptionStatus !== subscription.status) {
+    if (currentPremium?.stripeSubscriptionStatus !== stripeSubscriptionStatus) {
       logger.info("Stripe subscription status changing", {
         customerId,
         previousStatus: currentPremium?.stripeSubscriptionStatus,
-        newStatus: subscription.status,
+        newStatus: stripeSubscriptionStatus,
         subscriptionId: subscription.id,
       });
     }
@@ -171,7 +173,7 @@ export async function syncStripeDataToDb({
       const userIds = updatedPremium.users.map((user) => user.id);
 
       const statusChanged =
-        currentPremium?.stripeSubscriptionStatus !== subscription.status;
+        currentPremium?.stripeSubscriptionStatus !== stripeSubscriptionStatus;
       const tierChanged = currentPremium?.tier !== tier;
 
       if (userIds.length && (!currentPremium || statusChanged || tierChanged)) {
@@ -190,3 +192,14 @@ export async function syncStripeDataToDb({
     throw error;
   }
 }
+
+function getEffectiveStripeSubscriptionStatus(subscription: {
+  status: string;
+  cancel_at_period_end: boolean;
+}) {
+  return subscription.status === "trialing" && subscription.cancel_at_period_end
+    ? "canceled"
+    : subscription.status;
+}
+
+export { getEffectiveStripeSubscriptionStatus };

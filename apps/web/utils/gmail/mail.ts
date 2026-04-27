@@ -212,6 +212,7 @@ export async function forwardEmail(
     cc?: string;
     bcc?: string;
     content?: string;
+    from?: string;
   },
 ) {
   ensureEmailSendingEnabled();
@@ -241,6 +242,7 @@ export async function forwardEmail(
 
   const raw = await createRawMailMessage({
     to: options.to,
+    from: options.from,
     cc: options.cc,
     bcc: options.bcc,
     subject: forwardEmailSubject(message.headers.subject),

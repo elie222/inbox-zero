@@ -131,6 +131,14 @@ Everything outside the `{{...}}` placeholders will remain exactly as written.
 
 When "Apply to Threads" is disabled on a rule, that rule is skipped for replies and only runs on the first email in a conversation. This is useful for rules that target standalone emails like newsletters or receipts — disabling it means the AI evaluates fewer rules on threaded emails, improving speed and accuracy.
 
+#### When Multiple Rules Can Apply
+
+If multi-rule selection is off, the AI normally chooses one rule. A few automatic behaviors can still add another label:
+
+* A static rule, like `From` contains `@company.com`, can label an email as `Team` while `To Reply` adds a draft if the message needs a response.
+* If a thread was already marked `To Reply` or `Awaiting Reply`, replies in that thread can keep the conversation moving between those labels.
+* A message like "Does Wednesday at 2pm work?" can be labeled `Calendar` and also `To Reply`, so you get a draft response. Calendar invite files and event reminders stay `Calendar` only.
+
 ### Test Rules
 
 You can test your rules by going to the [Test](https://www.getinboxzero.com/automation?tab=test) tab.
@@ -154,4 +162,3 @@ If a rule isn't behaving as expected (e.g., incorrectly marking emails as "to re
 5. The AI will adjust the rule accordingly
 
 Alternatively, use the [AI Chat](/essentials/ai-chat) to describe the issue and get help fixing it.
-

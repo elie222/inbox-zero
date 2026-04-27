@@ -2,12 +2,20 @@ import type Stripe from "stripe";
 import { headers } from "next/headers";
 import { after, NextResponse } from "next/server";
 import { getStripe } from "@/ee/billing/stripe";
+import {
+  getStripeCustomerIdForRefund,
+  isStripeRefundEventType,
+  stripeRefundEvents,
+} from "@/ee/billing/stripe/refunds";
 import { withError } from "@/utils/middleware";
 import type { Logger } from "@/utils/logger";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { getStripeTrialStartedProperties } from "@/ee/billing/stripe/posthog-events";
+import { syncStripeInvoicePayment } from "@/ee/billing/stripe/payments";
 import { syncAiGenerationOverageForUpcomingInvoice } from "@/ee/billing/stripe/ai-overage";
 import { env } from "@/env";
+import { getStripeCancellationInitiatedAt } from "./cancellation-initiated";
+import { getStripeTrialConvertedAt } from "./trial-conversion";
 import {
   trackBillingTrialStarted,
   trackStripeEvent,
@@ -81,14 +89,13 @@ const allowedEvents: Stripe.Event.Type[] = [
   "payment_intent.succeeded",
   "payment_intent.payment_failed",
   "payment_intent.canceled",
+  ...stripeRefundEvents,
 ];
 
-async function processEvent(event: Stripe.Event, logger: Logger) {
+export async function processEvent(event: Stripe.Event, logger: Logger) {
   if (!allowedEvents.includes(event.type)) return;
 
-  // All the events we track have a customerId
-  const customerId =
-    "customer" in event.data.object ? event.data.object.customer : null;
+  const customerId = await getStripeCustomerIdForEvent(event);
 
   if (!customerId || typeof customerId !== "string") {
     logger.error("ID isn't string", { event });
@@ -107,13 +114,15 @@ async function processEvent(event: Stripe.Event, logger: Logger) {
     trackEvent(email, event),
     trackBillingMilestones(email, event, customerId),
     handleReferralCompletion(customerId, event, logger),
+    recordCancellationInitiated(customerId, event, logger),
   ];
 
   if (stripeSync.status === "fulfilled") {
+    tasks.push(syncStripeInvoicePayment({ event, logger }));
     tasks.push(syncAiGenerationOverageForUpcomingInvoice({ event, logger }));
   } else {
     logger.error(
-      "Skipping AI overage sync because Stripe customer sync failed",
+      "Skipping dependent Stripe billing syncs because customer sync failed",
       {
         customerId,
         eventType: event.type,
@@ -130,38 +139,45 @@ async function handleReferralCompletion(
   event: Stripe.Event,
   logger: Logger,
 ) {
-  // Only process subscription updates
-  if (event.type !== "customer.subscription.updated") return;
+  const trialConvertedAt = getStripeTrialConvertedAt(event);
+  if (!trialConvertedAt) return;
 
-  const subscription = event.data.object as Stripe.Subscription;
-  const previousAttributes = event.data
-    .previous_attributes as Partial<Stripe.Subscription>;
-
-  // Check if this is a trial that just converted to active
-  const isTrialConversion =
-    previousAttributes.status === "trialing" &&
-    subscription.status === "active" &&
-    subscription.trial_end &&
-    subscription.trial_end < Math.floor(Date.now() / 1000);
-
-  if (!isTrialConversion) return;
-
-  // Find the user associated with this customer
   const premium = await prisma.premium.findUnique({
     where: { stripeCustomerId: customerId },
-    select: { users: { select: { id: true } } },
+    select: { id: true, users: { select: { id: true } } },
   });
 
-  const userIds = premium?.users.map((user) => user.id);
-  if (!userIds) {
+  if (!premium) {
     logger.warn("No user found for customer during referral completion", {
       customerId,
     });
     return;
   }
 
+  const updateResult = await prisma.premium.updateMany({
+    where: {
+      id: premium.id,
+      stripeTrialConvertedAt: null,
+    },
+    data: {
+      stripeTrialConvertedAt: trialConvertedAt,
+    },
+  });
+
+  if (updateResult.count === 0) return;
+
+  const userIds = premium.users.map((user) => user.id);
+  if (userIds.length === 0) {
+    logger.warn("No users linked to premium during referral completion", {
+      customerId,
+      premiumId: premium.id,
+    });
+    return;
+  }
+
   logger.info("Trial converted to paid subscription, completing referral", {
     customerId,
+    trialConvertedAt,
     userIds,
   });
 
@@ -169,6 +185,32 @@ async function handleReferralCompletion(
   for (const userId of userIds) {
     await completeReferralAndGrantReward(userId, logger);
   }
+}
+
+async function recordCancellationInitiated(
+  customerId: string,
+  event: Stripe.Event,
+  logger: Logger,
+) {
+  const initiatedAt = getStripeCancellationInitiatedAt(event);
+  if (!initiatedAt) return;
+
+  const updateResult = await prisma.premium.updateMany({
+    where: { stripeCustomerId: customerId },
+    data: { stripeCancellationInitiatedAt: initiatedAt },
+  });
+
+  if (updateResult.count === 0) {
+    logger.warn("No premium found for customer during cancellation record", {
+      customerId,
+    });
+    return;
+  }
+
+  logger.info("Recorded user-initiated cancellation timestamp", {
+    customerId,
+    initiatedAt,
+  });
 }
 
 async function trackEvent(email: string | undefined, event: Stripe.Event) {
@@ -212,4 +254,28 @@ async function getCustomerEmail(customerId: string) {
   });
 
   return premium?.users[0]?.email;
+}
+
+async function getStripeCustomerIdForEvent(event: Stripe.Event) {
+  const object = event.data.object;
+  const customerId =
+    "customer" in object ? normalizeStripeId(object.customer) : null;
+
+  if (customerId) {
+    return customerId;
+  }
+
+  if (!isStripeRefundEventType(event.type)) {
+    return null;
+  }
+
+  return await getStripeCustomerIdForRefund(object as Stripe.Refund);
+}
+
+function normalizeStripeId(value: string | { id: string } | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  return typeof value === "string" ? value : value.id;
 }

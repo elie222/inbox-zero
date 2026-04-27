@@ -46,7 +46,7 @@ async function sendDigestAllUpdate(logger: Logger) {
       digestSchedule: {
         nextOccurrenceAt: { lte: now },
       },
-      ...getPremiumUserFilter(),
+      ...getPremiumUserFilter({ minimumTier: "PLUS_MONTHLY" }),
       createdAt: {
         lt: subDays(now, 1),
       },

@@ -94,6 +94,22 @@ export function normalizeEmailAddress(email: string) {
   return `${normalizedLocal}@${domain}`;
 }
 
+export function extractUniqueEmailAddresses(
+  emails: string[],
+  options?: { lowercase?: boolean },
+) {
+  const lowercase = options?.lowercase ?? false;
+
+  return [
+    ...new Set(
+      emails
+        .map((email) => extractEmailAddress(email))
+        .filter(Boolean)
+        .map((email) => (lowercase ? email.toLowerCase() : email)),
+    ),
+  ];
+}
+
 // Converts "Name <hey@domain.com>" to "domain.com"
 export function extractDomainFromEmail(email: string): string {
   if (!email) return "";

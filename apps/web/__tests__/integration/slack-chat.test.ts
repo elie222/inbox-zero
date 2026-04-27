@@ -63,10 +63,10 @@ vi.mock("@/utils/user/get", () => ({
 }));
 
 vi.mock("@/utils/messaging/rule-notifications", () => ({
-  handleSlackRuleNotificationAction: vi.fn(),
+  handleRuleNotificationAction: vi.fn(),
   handleSlackRuleNotificationModalSubmit: vi.fn(),
   SLACK_DRAFT_EDIT_MODAL_ID: "slack-draft-edit-modal",
-  SLACK_RULE_NOTIFICATION_ACTION_IDS: [],
+  RULE_NOTIFICATION_ACTION_IDS: [],
 }));
 
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS === "true";

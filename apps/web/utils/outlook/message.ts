@@ -171,6 +171,10 @@ const KQL_BOOLEAN_OPERATOR_PATTERN = /\b(?:AND|OR|NOT)\b/i;
 const KQL_BOOLEAN_PATTERN = /\b(?:AND|OR|NOT)\b/gi;
 const KQL_GROUPING_DETECTION_PATTERN = /[()]/;
 const KQL_GROUPING_PATTERN = /[()]/g;
+// Stripped only when degrading a failed KQL query to free-text fallback, since
+// comparison filters and read-state terms hurt keyword recall there.
+const OUTLOOK_COMPARISON_FILTER_PATTERN =
+  /\b(?:received(?:DateTime)?|sent(?:DateTime)?)\s*(?:>=|<=|>|<)\s*\S+/gi;
 
 /**
  * Sanitizes a value for use in KQL queries.
@@ -196,8 +200,8 @@ export function sanitizeKqlFieldQuery(query: string): string {
   const colonIndex = query.indexOf(":");
   if (colonIndex === -1) return query;
 
-  const field = query.substring(0, colonIndex);
-  const value = query.substring(colonIndex + 1);
+  const field = query.slice(0, colonIndex);
+  const value = query.slice(colonIndex + 1);
 
   if (!value) {
     return `${field}:`;
@@ -236,25 +240,22 @@ export function sanitizeKqlTextQuery(query: string): string {
 }
 
 function sanitizeComplexKqlQueryAsText(query: string): string {
-  const collapsedToText = query
-    .replace(
-      KQL_FIELD_TOKEN_PATTERN,
-      (_match, field: string, quotedValue?: string, bareValue?: string) => {
-        const value = quotedValue ?? bareValue ?? "";
-        if (
-          /^(true|false)$/i.test(value) &&
-          /^(hasattachments?|attachment|isread|read|unread)$/i.test(field)
-        ) {
-          return " ";
-        }
-
-        return ` ${value} `;
-      },
-    )
-    .replace(KQL_GROUPING_PATTERN, " ")
-    .replace(KQL_BOOLEAN_PATTERN, " ");
+  const collapsedToText = collapseOutlookSearchQueryToText(query);
 
   return sanitizeKqlTextQuery(collapsedToText);
+}
+
+export function buildOutlookSearchFallbackQuery(query: string): string | null {
+  const normalized = query.trim();
+  if (!normalized) return null;
+
+  const collapsedToText = collapseOutlookSearchQueryToText(normalized);
+  if (!collapsedToText) return null;
+
+  const fallbackQuery = sanitizeKqlTextQuery(collapsedToText);
+  const currentQuery = sanitizeOutlookSearchQuery(normalized).sanitized;
+
+  return fallbackQuery === currentQuery ? null : fallbackQuery;
 }
 
 function hasTrailingContentAfterQuotedFieldValue(value: string): boolean {
@@ -312,6 +313,85 @@ export function sanitizeOutlookSearchQuery(query: string): {
     sanitized: sanitizeKqlTextQuery(normalized),
     wasSanitized: true,
   };
+}
+
+function collapseOutlookSearchQueryToText(query: string): string {
+  return stripStandaloneOutlookStateTerms(query)
+    .replace(
+      KQL_FIELD_TOKEN_PATTERN,
+      (_match, field: string, quotedValue?: string, bareValue?: string) => {
+        const value = quotedValue ?? bareValue ?? "";
+        if (
+          /^(true|false)$/i.test(value) &&
+          /^(hasattachments?|attachment|isread|read|unread)$/i.test(field)
+        ) {
+          return " ";
+        }
+
+        return ` ${value} `;
+      },
+    )
+    .replace(OUTLOOK_COMPARISON_FILTER_PATTERN, " ")
+    .replace(KQL_GROUPING_PATTERN, " ")
+    .replace(KQL_BOOLEAN_PATTERN, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function stripStandaloneOutlookStateTerms(query: string) {
+  return splitOutlookQueryTerms(query)
+    .filter((term) => {
+      const normalized = term.replace(/^[()]+|[()]+$/g, "").toLowerCase();
+      return normalized !== "read" && normalized !== "unread";
+    })
+    .join(" ");
+}
+
+export function getStandaloneOutlookStateTerms(query: string) {
+  return splitOutlookQueryTerms(query)
+    .map((term) => term.replace(/^[()]+|[()]+$/g, "").toLowerCase())
+    .filter((term) => term === "read" || term === "unread");
+}
+
+export function getOutlookComparisonFilters(query: string) {
+  return Array.from(
+    query.matchAll(OUTLOOK_COMPARISON_FILTER_PATTERN),
+    (match) => match[0].trim(),
+  );
+}
+
+export function stripOutlookComparisonFilters(query: string) {
+  return query.replace(OUTLOOK_COMPARISON_FILTER_PATTERN, " ");
+}
+
+function splitOutlookQueryTerms(query: string) {
+  const terms: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (const char of query) {
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      current += char;
+      continue;
+    }
+
+    if (!inQuotes && /\s/.test(char)) {
+      if (current) {
+        terms.push(current);
+        current = "";
+      }
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current) {
+    terms.push(current);
+  }
+
+  return terms;
 }
 
 export async function queryBatchMessages(
@@ -744,7 +824,7 @@ function formatRecipientsList(
     | null
     | undefined,
 ): string | undefined {
-  if (!recipients || recipients.length === 0) return undefined;
+  if (!recipients || recipients.length === 0) return;
 
   const formatted = recipients
     .map((recipient) =>
@@ -823,7 +903,7 @@ function convertAttachments(
   graphAttachments: GraphAttachment[] | undefined | null,
 ): Attachment[] | undefined {
   if (!graphAttachments || graphAttachments.length === 0) {
-    return undefined;
+    return;
   }
 
   return graphAttachments.map((attachment) => ({

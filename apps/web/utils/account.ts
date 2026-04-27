@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { auth } from "@/utils/auth";
 import { redirect } from "next/navigation";
@@ -32,7 +31,11 @@ export async function redirectToEmailAccountPath(
   }
 
   if (!emailAccountId) {
-    notFound();
+    redirect(
+      buildRedirectUrl("/connect-mailbox", {
+        next: buildRedirectUrl(path, searchParams),
+      }),
+    );
   }
 
   const redirectUrl = buildRedirectUrl(

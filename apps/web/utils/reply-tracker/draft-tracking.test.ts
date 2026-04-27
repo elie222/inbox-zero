@@ -18,6 +18,11 @@ vi.mock("@/utils/ai/reply/reply-memory", () => ({
   saveDraftSendLogReplyMemory: vi.fn().mockResolvedValue(undefined),
   syncReplyMemoriesFromDraftSendLogs: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("@/utils/messaging/rule-notifications", () => ({
+  replaceMessagingDraftNotificationsWithHandledOnWebState: vi
+    .fn()
+    .mockResolvedValue(undefined),
+}));
 
 import { calculateSimilarity } from "@/utils/similarity-score";
 import {
@@ -25,6 +30,7 @@ import {
   saveDraftSendLogReplyMemory,
   syncReplyMemoriesFromDraftSendLogs,
 } from "@/utils/ai/reply/reply-memory";
+import { replaceMessagingDraftNotificationsWithHandledOnWebState } from "@/utils/messaging/rule-notifications";
 
 const logger = createScopedLogger("draft-tracking-test");
 
@@ -46,6 +52,7 @@ describe("trackSentDraftStatus", () => {
       id: "action-1",
       draftId: "draft-1",
       content: "Thanks for reaching out.",
+      executedRuleId: "executed-rule-1",
     } as any);
     vi.mocked(calculateSimilarity).mockReturnValue(0.52);
     vi.mocked(isMeaningfulDraftEdit).mockReturnValue(true);
@@ -78,10 +85,55 @@ describe("trackSentDraftStatus", () => {
         sentText: "Please include pricing for seat counts.",
       }),
     );
+    expect(
+      replaceMessagingDraftNotificationsWithHandledOnWebState,
+    ).toHaveBeenCalledWith({
+      executedRuleId: "executed-rule-1",
+      logger,
+    });
     expect(syncReplyMemoriesFromDraftSendLogs).toHaveBeenCalledWith({
       emailAccountId: "account-1",
       provider,
       logger,
+    });
+  });
+
+  it("collapses stale messaging draft notifications when the user replies on the web", async () => {
+    vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
+      id: "action-1",
+      draftId: "draft-1",
+      content: "Thanks for reaching out.",
+      executedRuleId: "executed-rule-1",
+    } as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(0.14);
+
+    await trackSentDraftStatus({
+      emailAccountId: "account-1",
+      message: createSentMessage(),
+      provider: {
+        getDraft: vi.fn().mockResolvedValue({
+          id: "draft-1",
+        }),
+      } as any,
+      logger,
+    });
+
+    expect(
+      replaceMessagingDraftNotificationsWithHandledOnWebState,
+    ).toHaveBeenCalledWith({
+      executedRuleId: "executed-rule-1",
+      logger,
+    });
+    expect(prisma.draftSendLog.create).toHaveBeenCalledWith({
+      data: {
+        executedActionId: "action-1",
+        sentMessageId: "sent-1",
+        similarityScore: 0.14,
+      },
+    });
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: { wasDraftSent: false },
     });
   });
 
@@ -90,6 +142,7 @@ describe("trackSentDraftStatus", () => {
       id: "action-1",
       draftId: "draft-1",
       content: "Thanks for reaching out.",
+      executedRuleId: "executed-rule-1",
     } as any);
     vi.mocked(calculateSimilarity).mockReturnValue(0.98);
     vi.mocked(isMeaningfulDraftEdit).mockReturnValue(false);
@@ -105,6 +158,12 @@ describe("trackSentDraftStatus", () => {
 
     expect(saveDraftSendLogReplyMemory).not.toHaveBeenCalled();
     expect(syncReplyMemoriesFromDraftSendLogs).not.toHaveBeenCalled();
+    expect(
+      replaceMessagingDraftNotificationsWithHandledOnWebState,
+    ).toHaveBeenCalledWith({
+      executedRuleId: "executed-rule-1",
+      logger,
+    });
   });
 });
 

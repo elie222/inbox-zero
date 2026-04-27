@@ -1,7 +1,10 @@
-function getGmailBaseUrl(emailAddress?: string | null) {
-  const base = "https://mail.google.com/mail/u/0";
-  if (!emailAddress) return base;
-  return `${base}/?authuser=${encodeURIComponent(emailAddress)}`;
+function getGmailUrlForFragment(
+  fragment: string,
+  emailAddress?: string | null,
+) {
+  if (!emailAddress) return `https://mail.google.com/mail/u/0/#${fragment}`;
+
+  return `https://mail.google.com/mail/u/?authuser=${encodeURIComponent(emailAddress)}#${fragment}`;
 }
 
 function getOutlookBaseUrl() {
@@ -37,22 +40,24 @@ const PROVIDER_CONFIG: Record<
   google: {
     requiresMessageId: false,
     buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
-      `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`,
+      getGmailUrlForFragment(`all/${messageOrThreadId}`, emailAddress),
     selectId: (messageId: string, _threadId: string) => messageId,
     buildSearchUrl: (from: string, emailAddress?: string | null) =>
-      `${getGmailBaseUrl(
+      getGmailUrlForFragment(
+        `advanced-search/from=${encodeURIComponent(from)}`,
         emailAddress,
-      )}/#advanced-search/from=${encodeURIComponent(from)}`,
+      ),
   },
   default: {
     requiresMessageId: false,
     buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
-      `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`,
+      getGmailUrlForFragment(`all/${messageOrThreadId}`, emailAddress),
     selectId: (_messageId: string, threadId: string) => threadId,
     buildSearchUrl: (from: string, emailAddress?: string | null) =>
-      `${getGmailBaseUrl(
+      getGmailUrlForFragment(
+        `advanced-search/from=${encodeURIComponent(from)}`,
         emailAddress,
-      )}/#advanced-search/from=${encodeURIComponent(from)}`,
+      ),
   },
 } as const;
 
@@ -140,9 +145,10 @@ export function getEmailSearchUrl(
 }
 
 export function getGmailBasicSearchUrl(emailAddress: string, query: string) {
-  return `${getGmailBaseUrl(emailAddress)}/#search/${encodeURIComponent(
-    query,
-  )}`;
+  return getGmailUrlForFragment(
+    `search/${encodeURIComponent(query)}`,
+    emailAddress,
+  );
 }
 
 // export function getGmailCreateFilterUrl(
@@ -156,5 +162,5 @@ export function getGmailBasicSearchUrl(emailAddress: string, query: string) {
 // }
 
 export function getGmailFilterSettingsUrl(emailAddress?: string | null) {
-  return `${getGmailBaseUrl(emailAddress)}/#settings/filters`;
+  return getGmailUrlForFragment("settings/filters", emailAddress);
 }

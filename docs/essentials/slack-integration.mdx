@@ -8,14 +8,21 @@ icon: 'hashtag'
 
 Connect your Slack workspace to Inbox Zero to receive notifications and interact with your AI email assistant directly from Slack. You can get meeting briefings delivered to a channel, receive auto-filing notifications, and chat with the AI by sending it a direct message or @mentioning it.
 
+<Warning>
+**AI disclaimer.** Inbox Zero is powered by AI and may produce inaccurate outputs. Review all AI-generated content before acting. Inbox Zero requests approval before sending replies or taking other high-impact actions in your inbox or Slack workspace.
+</Warning>
+
 ## Connecting Slack
 
-1. Go to **Settings** in the left sidebar
-2. Under **Connected Apps**, click **Connect Slack**
-3. Authorize Inbox Zero in the Slack OAuth flow
-4. Select which Slack channel to use for notifications
+The "Add to Slack" button lives inside your Inbox Zero account, so you'll install the app from the Channels page.
 
-Once connected, you'll see your workspace name under Connected Apps.
+1. Sign up for a free Inbox Zero account at [getinboxzero.com](https://www.getinboxzero.com) and connect your Gmail or Outlook email account
+2. Click **Channels** in the left sidebar
+3. Find Slack in the list and click **Connect**
+4. Authorize Inbox Zero in the Slack OAuth flow (Slack will show the requested permissions and an **Allow** button)
+5. After redirect, pick the Slack channel you want to use for notifications and meeting briefs
+
+Once connected, your workspace will appear in the Channels list with a green **Connected** badge.
 
 ## Features
 
@@ -24,8 +31,8 @@ Once connected, you'll see your workspace name under Connected Apps.
 Receive your [Meeting Briefs](/essentials/meeting-briefs) in a Slack channel instead of (or in addition to) email.
 
 To set this up:
-1. Go to **Briefs** in the left sidebar
-2. Under **Delivery Channels**, select your Slack channel
+1. Go to **Channels** in the left sidebar
+2. Select your Slack channel for meeting brief delivery
 3. Toggle on Slack delivery
 
 Briefings appear as formatted Slack messages with attendee details, meeting links, and key context.
@@ -56,7 +63,7 @@ Conversations are threaded, so you can have multiple ongoing chats.
 
 After connecting Slack, choose which channel receives notifications:
 
-1. Go to **Briefs** and select a channel from the dropdown
+1. Go to **Channels** and select a channel from the dropdown
 2. The bot will automatically join the selected channel
 3. A confirmation message will be sent to verify the connection
 
@@ -65,7 +72,7 @@ You can change the channel at any time. Both public and private channels are sup
 ## Disconnecting
 
 To disconnect Slack:
-1. Go to **Settings**
-2. Under **Connected Apps**, click **Disconnect** next to your Slack workspace
+1. Go to **Channels** in the left sidebar
+2. Click the menu (⋮) next to your Slack workspace and choose **Disconnect Slack**
 
 This removes the connection and stops all Slack notifications.

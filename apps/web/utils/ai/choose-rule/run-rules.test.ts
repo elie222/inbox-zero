@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   ensureConversationRuleContinuity,
+  ensureConversationRuleForAiCalendarMatch,
   CONVERSATION_TRACKING_META_RULE_ID,
   limitDraftEmailActions,
   runRules,
@@ -252,6 +253,144 @@ describe("ensureConversationRuleContinuity", () => {
       },
       select: { id: true },
     });
+  });
+});
+
+describe("ensureConversationRuleForAiCalendarMatch", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("adds the conversation meta rule for AI-selected calendar matches", () => {
+    const calendarRule = createRule("calendar-rule", SystemType.CALENDAR);
+    const matches = [
+      {
+        rule: calendarRule,
+        matchReasons: [{ type: ConditionType.AI }],
+      },
+    ];
+
+    const result = ensureConversationRuleForAiCalendarMatch({
+      conversationRules: [toReplyRule],
+      regularRules: [calendarRule, conversationMetaRule],
+      matches,
+      logger,
+    });
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual(matches[0]);
+    expect(result[1]).toEqual({
+      rule: conversationMetaRule,
+      matchReasons: [{ type: ConditionType.STATIC }],
+    });
+  });
+
+  it("does not add the conversation meta rule for preset calendar matches", () => {
+    const calendarRule = createRule("calendar-rule", SystemType.CALENDAR);
+    const matches = [
+      {
+        rule: calendarRule,
+        matchReasons: [
+          { type: ConditionType.PRESET, systemType: SystemType.CALENDAR },
+        ],
+      },
+    ];
+
+    const result = ensureConversationRuleForAiCalendarMatch({
+      conversationRules: [toReplyRule],
+      regularRules: [calendarRule, conversationMetaRule],
+      matches,
+      logger,
+    });
+
+    expect(result).toEqual(matches);
+  });
+
+  it("does not add the conversation meta rule when a preset calendar match also has an AI reason", () => {
+    const calendarRule = createRule("calendar-rule", SystemType.CALENDAR);
+    const matches = [
+      {
+        rule: calendarRule,
+        matchReasons: [
+          { type: ConditionType.PRESET, systemType: SystemType.CALENDAR },
+          { type: ConditionType.AI },
+        ],
+      },
+    ];
+
+    const result = ensureConversationRuleForAiCalendarMatch({
+      conversationRules: [toReplyRule],
+      regularRules: [calendarRule, conversationMetaRule],
+      matches,
+      logger,
+    });
+
+    expect(result).toEqual(matches);
+  });
+
+  it("does not add the conversation meta rule when conversation rules are disabled", () => {
+    const calendarRule = createRule("calendar-rule", SystemType.CALENDAR);
+    const disabledToReplyRule = {
+      ...toReplyRule,
+      enabled: false,
+    };
+    const matches = [
+      {
+        rule: calendarRule,
+        matchReasons: [{ type: ConditionType.AI }],
+      },
+    ];
+
+    const result = ensureConversationRuleForAiCalendarMatch({
+      conversationRules: [disabledToReplyRule],
+      regularRules: [calendarRule, conversationMetaRule],
+      matches,
+      logger,
+    });
+
+    expect(result).toEqual(matches);
+  });
+
+  it("does not add a duplicate conversation meta rule", () => {
+    const calendarRule = createRule("calendar-rule", SystemType.CALENDAR);
+    const matches = [
+      {
+        rule: calendarRule,
+        matchReasons: [{ type: ConditionType.AI }],
+      },
+      {
+        rule: conversationMetaRule,
+        matchReasons: [{ type: ConditionType.STATIC }],
+      },
+    ];
+
+    const result = ensureConversationRuleForAiCalendarMatch({
+      conversationRules: [toReplyRule],
+      regularRules: [calendarRule, conversationMetaRule],
+      matches,
+      logger,
+    });
+
+    expect(result).toEqual(matches);
+  });
+
+  it("does not add the conversation meta rule for non-calendar AI matches", () => {
+    const marketingRule = createRule("marketing-rule", SystemType.MARKETING);
+    const matches = [
+      {
+        rule: marketingRule,
+        matchReasons: [{ type: ConditionType.AI }],
+      },
+    ];
+
+    const result = ensureConversationRuleForAiCalendarMatch({
+      conversationRules: [toReplyRule],
+      regularRules: [marketingRule, conversationMetaRule],
+      matches,
+      logger,
+    });
+
+    expect(result).toEqual(matches);
   });
 });
 
@@ -889,6 +1028,216 @@ describe("limitDraftEmailActions", () => {
 describe("runRules - double draft prevention", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("keeps a reply draft when an AI-selected calendar message needs a response", async () => {
+    const { findMatchingRules } = await import(
+      "@/utils/ai/choose-rule/match-rules"
+    );
+    const { determineConversationStatus } = await import(
+      "@/utils/reply-tracker/handle-conversation-status"
+    );
+    const { getActionItemsWithAiArgs } = await import(
+      "@/utils/ai/choose-rule/choose-args"
+    );
+
+    const calendarRule = createRule("calendar-rule", SystemType.CALENDAR, [
+      getAction({
+        id: "label-calendar",
+        type: ActionType.LABEL,
+        label: "Calendar",
+        ruleId: "calendar-rule",
+      }),
+    ]);
+    const toReplyWithDraft = createRule("to-reply-rule", SystemType.TO_REPLY, [
+      getAction({
+        id: "label-to-reply",
+        type: ActionType.LABEL,
+        label: "To Reply",
+        ruleId: "to-reply-rule",
+      }),
+      getAction({
+        id: "draft-to-reply",
+        type: ActionType.DRAFT_EMAIL,
+        content: null,
+        ruleId: "to-reply-rule",
+      }),
+    ]);
+
+    vi.mocked(findMatchingRules).mockResolvedValue({
+      matches: [
+        {
+          rule: calendarRule,
+          matchReasons: [{ type: ConditionType.AI }],
+        },
+      ],
+      reasoning: "Scheduling conversation",
+    });
+
+    vi.mocked(determineConversationStatus).mockResolvedValue({
+      rule: toReplyWithDraft,
+      reason: "Email needs a reply",
+    });
+
+    vi.mocked(getActionItemsWithAiArgs).mockImplementation(
+      async ({ selectedRule }) =>
+        selectedRule.actions.map((action) => ({
+          ...action,
+          type: action.type as ActionType,
+        })),
+    );
+
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+
+    const createdActionTypes: ActionType[][] = [];
+    (prisma.executedRule.create as any).mockImplementation(
+      async (args: any) => {
+        const actionItems = args.data.actionItems?.createMany?.data || [];
+        createdActionTypes.push(actionItems.map((action: any) => action.type));
+        return {
+          id: `exec-${createdActionTypes.length}`,
+          status: ExecutedRuleStatus.APPLYING,
+          ruleId: args.data.rule?.connect?.id ?? null,
+          threadId: args.data.threadId,
+          messageId: args.data.messageId,
+          actionItems: actionItems.map((action: any, index: number) => ({
+            ...action,
+            id: action.id || `action-${createdActionTypes.length}-${index}`,
+            executedRuleId: `exec-${createdActionTypes.length}`,
+          })),
+        };
+      },
+    );
+
+    await runRules({
+      provider: {} as any,
+      message: {
+        ...getEmail(),
+        id: "message-1",
+        threadId,
+        snippet: "",
+        historyId: "history-1",
+        inline: [],
+        attachments: [],
+        headers: {
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Lunch next week?",
+          date: "Mon, 1 Jan 2026 12:00:00 +0000",
+          "message-id": "<message-1>",
+        },
+      } as any,
+      rules: [calendarRule, toReplyWithDraft],
+      emailAccount: getEmailAccount(),
+      isTest: false,
+      modelType: "default" as any,
+      logger,
+    });
+
+    expect(createdActionTypes).toEqual([
+      [ActionType.LABEL],
+      [ActionType.LABEL, ActionType.DRAFT_EMAIL],
+    ]);
+  });
+
+  it("does not resolve conversation status for calendar invite preset matches", async () => {
+    const { findMatchingRules } = await import(
+      "@/utils/ai/choose-rule/match-rules"
+    );
+    const { determineConversationStatus } = await import(
+      "@/utils/reply-tracker/handle-conversation-status"
+    );
+    const { getActionItemsWithAiArgs } = await import(
+      "@/utils/ai/choose-rule/choose-args"
+    );
+
+    const calendarRule = createRule("calendar-rule", SystemType.CALENDAR, [
+      getAction({
+        id: "label-calendar",
+        type: ActionType.LABEL,
+        label: "Calendar",
+        ruleId: "calendar-rule",
+      }),
+    ]);
+    const toReplyWithDraft = createRule("to-reply-rule", SystemType.TO_REPLY, [
+      getAction({
+        id: "draft-to-reply",
+        type: ActionType.DRAFT_EMAIL,
+        content: null,
+        ruleId: "to-reply-rule",
+      }),
+    ]);
+
+    vi.mocked(findMatchingRules).mockResolvedValue({
+      matches: [
+        {
+          rule: calendarRule,
+          matchReasons: [
+            { type: ConditionType.PRESET, systemType: SystemType.CALENDAR },
+            { type: ConditionType.AI },
+          ],
+        },
+      ],
+      reasoning: "Calendar invite",
+    });
+
+    vi.mocked(getActionItemsWithAiArgs).mockImplementation(
+      async ({ selectedRule }) =>
+        selectedRule.actions.map((action) => ({
+          ...action,
+          type: action.type as ActionType,
+        })),
+    );
+
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+
+    const createdActionTypes: ActionType[][] = [];
+    (prisma.executedRule.create as any).mockImplementation(
+      async (args: any) => {
+        const actionItems = args.data.actionItems?.createMany?.data || [];
+        createdActionTypes.push(actionItems.map((action: any) => action.type));
+        return {
+          id: `exec-${createdActionTypes.length}`,
+          status: ExecutedRuleStatus.APPLYING,
+          ruleId: args.data.rule?.connect?.id ?? null,
+          threadId: args.data.threadId,
+          messageId: args.data.messageId,
+          actionItems: actionItems.map((action: any, index: number) => ({
+            ...action,
+            id: action.id || `action-${createdActionTypes.length}-${index}`,
+            executedRuleId: `exec-${createdActionTypes.length}`,
+          })),
+        };
+      },
+    );
+
+    await runRules({
+      provider: {} as any,
+      message: {
+        ...getEmail(),
+        id: "message-1",
+        threadId,
+        snippet: "",
+        historyId: "history-1",
+        inline: [],
+        attachments: [],
+        headers: {
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Calendar invite",
+          date: "Mon, 1 Jan 2026 12:00:00 +0000",
+          "message-id": "<message-1>",
+        },
+      } as any,
+      rules: [calendarRule, toReplyWithDraft],
+      emailAccount: getEmailAccount(),
+      isTest: false,
+      modelType: "default" as any,
+      logger,
+    });
+
+    expect(determineConversationStatus).not.toHaveBeenCalled();
+    expect(createdActionTypes).toEqual([[ActionType.LABEL]]);
   });
 
   it("executes only one DRAFT_EMAIL when custom rule and TO_REPLY both have drafts", async () => {

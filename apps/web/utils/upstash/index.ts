@@ -1,10 +1,7 @@
 import { Client, type FlowControl, type HeadersInit } from "@upstash/qstash";
 import { after } from "next/server";
+import { getInternalApiHeaders, getInternalApiUrl } from "@/utils/internal-api";
 import { env } from "@/env";
-import {
-  INTERNAL_API_KEY_HEADER,
-  getInternalApiUrl,
-} from "@/utils/internal-api";
 import { createScopedLogger } from "@/utils/logger";
 import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
 
@@ -147,7 +144,9 @@ async function fallbackPublishToQstash<T>(
           : headers,
   );
   internalHeaders.set("Content-Type", "application/json");
-  internalHeaders.set(INTERNAL_API_KEY_HEADER, env.INTERNAL_API_KEY);
+  for (const [key, value] of Object.entries(getInternalApiHeaders())) {
+    internalHeaders.set(key, value);
+  }
 
   after(async () => {
     try {
