@@ -51,6 +51,9 @@ type ActionState = "idle" | "loading" | "done";
 const iconButtonClass =
   "inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
 
+const iconIndicatorClass =
+  "inline-flex h-7 w-7 items-center justify-center text-muted-foreground";
+
 type InlineEmailListState = {
   archivedThreadIds: Set<string>;
   readThreadIds: Set<string>;
@@ -275,7 +278,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
 }
 
 function numberInlineEmailCards(children: ReactNode): ReactNode {
-  let positional = 0;
+  let nextIndex = 0;
   return Children.map(children, (child) => {
     if (
       !isValidElement<{
@@ -287,9 +290,15 @@ function numberInlineEmailCards(children: ReactNode): ReactNode {
       return child;
     }
     if (!resolveInlineEmailThreadId(child.props)) return child;
-    positional += 1;
-    if (child.props.index !== undefined) return child;
-    return cloneElement(child, { index: positional });
+    if (child.props.index !== undefined) {
+      const explicit = Number(child.props.index);
+      if (Number.isFinite(explicit)) {
+        nextIndex = Math.max(nextIndex, explicit);
+      }
+      return child;
+    }
+    nextIndex += 1;
+    return cloneElement(child, { index: nextIndex });
   });
 }
 
@@ -310,12 +319,14 @@ export function InlineEmailCard({
   const inlineEmailActionContext = useInlineEmailActionContext();
   const { emailAccountId, provider, userEmail } = useAccount();
   const [actionState, setActionState] = useState<ActionState>("idle");
+  const [markReadState, setMarkReadState] = useState<ActionState>("idle");
   const [expanded, setExpanded] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const threadId = resolveInlineEmailThreadId({ id, threadid });
 
   const meta = threadId ? emailLookup.get(threadId) : undefined;
   const isArchived = !!threadId && !!listState?.archivedThreadIds.has(threadId);
+  const isMarkedRead = !!threadId && !!listState?.readThreadIds.has(threadId);
 
   const externalUrl = threadId
     ? getEmailUrlForMessage(
@@ -349,7 +360,8 @@ export function InlineEmailCard({
   }
 
   async function handleMarkRead() {
-    if (!threadId) return;
+    if (!threadId || markReadState !== "idle") return;
+    setMarkReadState("loading");
     try {
       const result = await markReadThreadAction(emailAccountId, {
         threadId,
@@ -357,13 +369,16 @@ export function InlineEmailCard({
       });
       if (result?.serverError) {
         toastError({ description: result.serverError });
+        setMarkReadState("idle");
         return;
       }
       listState?.markRead([threadId]);
       inlineEmailActionContext?.queueAction("mark_read_threads", [threadId]);
       toastSuccess({ description: "Marked as read" });
+      setMarkReadState("done");
     } catch {
       toastError({ description: "Failed to mark as read" });
+      setMarkReadState("idle");
     }
   }
 
@@ -445,9 +460,22 @@ export function InlineEmailCard({
                     {isDone ? "Archived" : "Archive"}
                   </DropdownMenuItem>
                 ) : null}
-                <DropdownMenuItem onClick={handleMarkRead}>
-                  <MailOpenIcon className="mr-2 size-4" />
-                  Mark as read
+                <DropdownMenuItem
+                  disabled={
+                    isMarkedRead ||
+                    markReadState === "loading" ||
+                    markReadState === "done"
+                  }
+                  onClick={handleMarkRead}
+                >
+                  {isMarkedRead || markReadState === "done" ? (
+                    <CheckIcon className="mr-2 size-4" />
+                  ) : (
+                    <MailOpenIcon className="mr-2 size-4" />
+                  )}
+                  {isMarkedRead || markReadState === "done"
+                    ? "Marked read"
+                    : "Mark as read"}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
@@ -475,7 +503,7 @@ export function InlineEmailCard({
           ) : null}
 
           {threadId ? (
-            <span className={iconButtonClass} aria-hidden="true">
+            <span className={iconIndicatorClass} aria-hidden="true">
               {expanded ? (
                 <ChevronDownIcon className="size-3.5" />
               ) : (
