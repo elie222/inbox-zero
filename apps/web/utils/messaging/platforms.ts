@@ -12,3 +12,13 @@ export function getMessagingProviderName(
 ): string {
   return PROVIDER_NAMES[provider.toUpperCase() as MessagingProvider];
 }
+
+export function getConnectAppLabel(
+  providers: ReadonlyArray<MessagingProvider | MessagingPlatform>,
+): string {
+  const names = providers.map(getMessagingProviderName);
+  if (names.length === 0) return "Connect app";
+  if (names.length === 1) return `Connect ${names[0]}`;
+  if (names.length === 2) return `Connect ${names[0]} or ${names[1]}`;
+  return `Connect ${names.slice(0, -1).join(", ")}, or ${names.at(-1)}`;
+}
