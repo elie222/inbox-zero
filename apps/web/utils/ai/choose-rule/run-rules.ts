@@ -50,7 +50,10 @@ import {
   getBlockedLowTrustStaticFromActionTypes,
   LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE,
 } from "@/utils/rule/static-from-risk";
-import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
+import {
+  isDraftReplyActionType,
+  isMessagingChannelActionType,
+} from "@/utils/actions/draft-reply";
 
 const MODULE = "ai/choose-rule";
 
@@ -626,13 +629,6 @@ function removeUnconfiguredMessagingChannelActions<
 
     return false;
   });
-}
-
-function isMessagingChannelActionType(actionType: ActionType) {
-  return (
-    actionType === ActionType.NOTIFY_MESSAGING_CHANNEL ||
-    actionType === ActionType.DRAFT_MESSAGING_CHANNEL
-  );
 }
 
 async function analyzeSenderPatternIfAiMatch({

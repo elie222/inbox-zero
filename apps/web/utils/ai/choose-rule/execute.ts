@@ -91,42 +91,52 @@ export async function executeAct({
   }
 
   if (actionFailures.length > 0) {
-    try {
-      await prisma.executedRule.update({
-        where: { id: executedRule.id },
-        data: {
-          status: ExecutedRuleStatus.ERROR,
-          reason: buildFailureReason(executedRule.reason, actionFailures),
-        },
-      });
-      log.warn("ExecutedRule status updated to ERROR due to action failures", {
-        actionFailures: actionFailures.map((failure) => ({
-          type: failure.type,
-          errorCode: failure.errorCode,
-        })),
-      });
-    } catch (error) {
-      log.error("Failed to update executed rule", { error });
-      throw error;
-    }
-
+    await updateExecutedRuleOrThrow({
+      log,
+      executedRuleId: executedRule.id,
+      data: {
+        status: ExecutedRuleStatus.ERROR,
+        reason: buildFailureReason(executedRule.reason, actionFailures),
+      },
+    });
+    log.warn("ExecutedRule status updated to ERROR due to action failures", {
+      actionFailures: actionFailures.map((failure) => ({
+        type: failure.type,
+        errorCode: failure.errorCode,
+      })),
+    });
     return ExecutedRuleStatus.ERROR;
   }
 
+  await updateExecutedRuleOrThrow({
+    log,
+    executedRuleId: executedRule.id,
+    data: { status: ExecutedRuleStatus.APPLIED },
+  });
+  log.info("ExecutedRule status updated to APPLIED", {
+    executedRuleId: executedRule.id,
+  });
+  return ExecutedRuleStatus.APPLIED;
+}
+
+async function updateExecutedRuleOrThrow({
+  log,
+  executedRuleId,
+  data,
+}: {
+  log: Logger;
+  executedRuleId: string;
+  data: Prisma.ExecutedRuleUpdateInput;
+}) {
   try {
     await prisma.executedRule.update({
-      where: { id: executedRule.id },
-      data: { status: ExecutedRuleStatus.APPLIED },
-    });
-    log.info("ExecutedRule status updated to APPLIED", {
-      executedRuleId: executedRule.id,
+      where: { id: executedRuleId },
+      data,
     });
   } catch (error) {
     log.error("Failed to update executed rule", { error });
     throw error;
   }
-
-  return ExecutedRuleStatus.APPLIED;
 }
 
 function getActionFailure(

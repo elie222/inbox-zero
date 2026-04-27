@@ -21,6 +21,7 @@ import {
   type MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
+import { MESSAGING_CHANNEL_ACTION_TYPES } from "@/utils/actions/draft-reply";
 import { env } from "@/env";
 import {
   getMessagingChannelReconnectMessage,
@@ -37,11 +38,6 @@ import { upsertSlackRoute } from "@/utils/messaging/slack-routes";
 import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
 import { lookupSlackUserByEmail } from "@/utils/messaging/providers/slack/users";
 import { callTelegramBotApi } from "@/utils/messaging/providers/telegram/api";
-
-const MESSAGING_ACTION_TYPES = [
-  ActionType.NOTIFY_MESSAGING_CHANNEL,
-  ActionType.DRAFT_MESSAGING_CHANNEL,
-] as const;
 
 export const updateSlackRouteAction = actionClient
   .metadata({ name: "updateSlackRoute" })
@@ -406,7 +402,7 @@ export const toggleRuleChannelAction = actionClient
           where: {
             ruleId,
             messagingChannelId,
-            type: { in: [...MESSAGING_ACTION_TYPES] },
+            type: { in: [...MESSAGING_CHANNEL_ACTION_TYPES] },
           },
         });
 
@@ -424,7 +420,7 @@ export const toggleRuleChannelAction = actionClient
           where: {
             ruleId,
             messagingChannelId,
-            type: { in: [...MESSAGING_ACTION_TYPES] },
+            type: { in: [...MESSAGING_CHANNEL_ACTION_TYPES] },
           },
         });
       }
