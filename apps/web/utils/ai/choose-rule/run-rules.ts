@@ -127,13 +127,20 @@ export async function runRules({
     logger,
   });
 
+  const calendarAwareMatches = ensureConversationRuleForAiCalendarMatch({
+    conversationRules,
+    regularRules,
+    matches: results.matches,
+    logger,
+  });
+
   // Auto-reapply conversation tracking for thread continuity
   const conversationAwareMatches = await ensureConversationRuleContinuity({
     emailAccountId: emailAccount.id,
     threadId: message.threadId,
     conversationRules,
     regularRules,
-    matches: results.matches,
+    matches: calendarAwareMatches,
     logger,
   });
 
@@ -295,6 +302,60 @@ function prepareRulesWithMetaRule(rules: RuleWithActions[]): {
   }
 
   return { regularRules, conversationRules };
+}
+
+export function ensureConversationRuleForAiCalendarMatch<
+  T extends { rule: RuleWithActions; matchReasons?: MatchReason[] },
+>({
+  conversationRules,
+  regularRules,
+  matches,
+  logger,
+}: {
+  conversationRules: RuleWithActions[];
+  regularRules: RuleWithActions[];
+  matches: T[];
+  logger: Logger;
+}): T[] {
+  if (!conversationRules.some((rule) => rule.enabled)) {
+    return matches;
+  }
+
+  const hasAiCalendarMatch = matches.some(
+    (match) =>
+      match.rule.systemType === SystemType.CALENDAR &&
+      !match.matchReasons?.some(
+        (reason) =>
+          reason.type === ConditionType.PRESET &&
+          reason.systemType === SystemType.CALENDAR,
+      ) &&
+      match.matchReasons?.some((reason) => reason.type === ConditionType.AI),
+  );
+
+  if (!hasAiCalendarMatch) {
+    return matches;
+  }
+
+  if (matches.some((match) => isConversationRule(match.rule.id))) {
+    return matches;
+  }
+
+  const metaRule = regularRules.find((rule) => isConversationRule(rule.id));
+  if (!metaRule) {
+    return matches;
+  }
+
+  logger.info("Adding conversation meta rule for AI-selected calendar match", {
+    module: MODULE,
+  });
+
+  return [
+    ...matches,
+    {
+      rule: metaRule,
+      matchReasons: [{ type: ConditionType.STATIC }],
+    } as T,
+  ];
 }
 
 async function executeMatchedRule(
