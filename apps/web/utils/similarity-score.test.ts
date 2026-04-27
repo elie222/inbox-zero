@@ -195,6 +195,20 @@ On Mon, Jan 1, 2024 at 10:00 AM Sender <sender@example.com> wrote:
       expect(score).toBe(1.0);
     });
 
+    it("should strip converted Gmail HTML quote blocks before comparing drafts", () => {
+      const storedContent = `Checking on this now.
+
+Drafted by <a href="https://www.getinboxzero.com/?ref=ABC123">Inbox Zero</a>.`;
+      const gmailMessage = {
+        ...createParsedMessage(""),
+        textPlain: undefined,
+        textHtml: `<div dir="ltr">Checking on this now.<br><br>Drafted by <a href="https://www.getinboxzero.com/?ref=ABC123">Inbox Zero</a>.</div><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">Le lun. 27 avr. 2026, Sender &lt;<a href="mailto:sender@example.com">sender@example.com</a>&gt; a écrit:<br></div><blockquote class="gmail_quote"><div dir="ltr">Previous message</div></blockquote></div>`,
+      };
+
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBe(1.0);
+    });
+
     it.each([
       { emoji: "👋", hex: "&#x1F44B;", name: "waving hand" },
       { emoji: "😀", hex: "&#x1F600;", name: "grinning face" },

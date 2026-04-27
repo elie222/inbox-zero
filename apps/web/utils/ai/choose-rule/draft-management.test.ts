@@ -3,6 +3,7 @@ import {
   handlePreviousDraftDeletion,
   extractDraftPlainText,
   stripQuotedContent,
+  stripQuotedHtmlContent,
   isDraftUnmodified,
 } from "@/utils/ai/choose-rule/draft-management";
 import prisma from "@/utils/prisma";
@@ -550,6 +551,18 @@ describe("stripQuotedContent", () => {
   });
 });
 
+describe("stripQuotedHtmlContent", () => {
+  it("removes Gmail quote containers without reading localized header text", () => {
+    const html = `<div dir="ltr">My reply</div><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">Le lun. 27 avr. 2026, Sender a écrit:<br></div><blockquote class="gmail_quote"><div>Quoted content</div></blockquote></div>`;
+
+    const result = stripQuotedHtmlContent(html);
+
+    expect(result).toContain("My reply");
+    expect(result).not.toContain("Le lun.");
+    expect(result).not.toContain("Quoted content");
+  });
+});
+
 describe("isDraftUnmodified", () => {
   const logger = createTestLogger();
 
@@ -639,6 +652,40 @@ describe("isDraftUnmodified", () => {
       labelIds: [],
       inline: [],
       bodyContentType: "html",
+    };
+
+    const result = isDraftUnmodified({
+      originalContent,
+      currentDraft,
+      logger,
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("should compare Gmail drafts using structural HTML when available", () => {
+    const originalContent =
+      'My reply\n\nDrafted by <a href="http://localhost:3000/?ref=ABC">Inbox Zero</a>.';
+    const currentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain:
+        "My reply\n\nDrafted by Inbox Zero [http://localhost:3000/?ref=ABC].\n\nLe lun. 27 avr. 2026, Sender a écrit:\nQuoted content",
+      textHtml:
+        '<div dir="ltr">My reply<br><br>Drafted by <a href="http://localhost:3000/?ref=ABC">Inbox Zero</a>.</div><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">Le lun. 27 avr. 2026, Sender a écrit:<br></div><blockquote class="gmail_quote"><div>Quoted content</div></blockquote></div>',
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
     };
 
     const result = isDraftUnmodified({

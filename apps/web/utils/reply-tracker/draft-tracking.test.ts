@@ -3,7 +3,7 @@ import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { ActionType } from "@/generated/prisma/enums";
-import { trackSentDraftStatus } from "./draft-tracking";
+import { cleanupThreadAIDrafts, trackSentDraftStatus } from "./draft-tracking";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -12,6 +12,9 @@ vi.mock("@/utils/prisma-retry", () => ({
 }));
 vi.mock("@/utils/similarity-score", () => ({
   calculateSimilarity: vi.fn(),
+}));
+vi.mock("@/utils/ai/choose-rule/draft-management", () => ({
+  isDraftUnmodified: vi.fn(),
 }));
 vi.mock("@/utils/ai/reply/reply-memory", () => ({
   isMeaningfulDraftEdit: vi.fn(),
@@ -25,6 +28,7 @@ vi.mock("@/utils/messaging/rule-notifications", () => ({
 }));
 
 import { calculateSimilarity } from "@/utils/similarity-score";
+import { isDraftUnmodified } from "@/utils/ai/choose-rule/draft-management";
 import {
   isMeaningfulDraftEdit,
   saveDraftSendLogReplyMemory,
@@ -167,6 +171,85 @@ describe("trackSentDraftStatus", () => {
   });
 });
 
+describe("cleanupThreadAIDrafts", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.executedAction.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+  });
+
+  it("deletes stale drafts only when the generated reply is unchanged", async () => {
+    const draftDetails = createDraftMessage({
+      textPlain: "Generated reply\n\nOn Monday wrote:\n> Quote",
+    });
+    vi.mocked(prisma.executedAction.findMany).mockResolvedValue([
+      {
+        id: "action-1",
+        draftId: "draft-1",
+        content: "Generated reply",
+      },
+    ] as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(0.93);
+    vi.mocked(isDraftUnmodified).mockReturnValue(true);
+
+    const provider = {
+      getDraft: vi.fn().mockResolvedValue(draftDetails),
+      deleteDraft: vi.fn().mockResolvedValue(undefined),
+    };
+
+    await cleanupThreadAIDrafts({
+      threadId: "thread-1",
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+      excludeMessageId: "message-2",
+    });
+
+    expect(isDraftUnmodified).toHaveBeenCalledWith({
+      originalContent: "Generated reply",
+      currentDraft: draftDetails,
+      logger,
+    });
+    expect(provider.deleteDraft).toHaveBeenCalledWith("draft-1");
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: { wasDraftSent: false },
+    });
+  });
+
+  it("keeps stale drafts when the generated reply was edited", async () => {
+    vi.mocked(prisma.executedAction.findMany).mockResolvedValue([
+      {
+        id: "action-1",
+        draftId: "draft-1",
+        content: "Generated reply",
+      },
+    ] as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(1);
+    vi.mocked(isDraftUnmodified).mockReturnValue(false);
+
+    const provider = {
+      getDraft: vi.fn().mockResolvedValue(
+        createDraftMessage({
+          textPlain: "Generated reply\n\nUser edit",
+        }),
+      ),
+      deleteDraft: vi.fn().mockResolvedValue(undefined),
+    };
+
+    await cleanupThreadAIDrafts({
+      threadId: "thread-1",
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+      excludeMessageId: "message-2",
+    });
+
+    expect(provider.deleteDraft).not.toHaveBeenCalled();
+    expect(prisma.executedAction.update).not.toHaveBeenCalled();
+  });
+});
+
 function createSentMessage(): ParsedMessage {
   return {
     id: "sent-1",
@@ -181,5 +264,28 @@ function createSentMessage(): ParsedMessage {
     },
     textPlain: "Please include pricing for seat counts.",
     textHtml: "<p>Please include pricing for seat counts.</p>",
+  } as ParsedMessage;
+}
+
+function createDraftMessage({
+  textPlain,
+  textHtml,
+}: {
+  textPlain?: string;
+  textHtml?: string;
+}): ParsedMessage {
+  return {
+    id: "draft-message-1",
+    threadId: "thread-1",
+    internalDate: "1710000000000",
+    headers: {
+      from: "user@example.com",
+      to: "sales@example.com",
+      subject: "Re: Pricing question",
+      date: "2026-03-17T10:10:00.000Z",
+      "message-id": "<draft-message-1@example.com>",
+    },
+    textPlain,
+    textHtml,
   } as ParsedMessage;
 }

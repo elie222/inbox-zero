@@ -1,6 +1,9 @@
 import * as stringSimilarity from "string-similarity";
 import { convertEmailHtmlToText, parseReply } from "@/utils/mail";
-import { stripQuotedContent } from "@/utils/ai/choose-rule/draft-management";
+import {
+  stripQuotedContent,
+  stripQuotedHtmlContent,
+} from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
 
 const HTML_TAG_NAMES = [
@@ -31,7 +34,7 @@ const HTML_TAG_PATTERN = new RegExp(
 function normalizeForOutlook(content: string): string {
   const withBr = content.replace(/\n/g, "<br>");
   const plainText = convertEmailHtmlToText({
-    htmlText: withBr,
+    htmlText: stripQuotedHtmlContent(withBr),
     includeLinks: false,
   });
   return stripQuotedContent(plainText).toLowerCase().trim();
@@ -66,13 +69,13 @@ function decodeHtmlEntities(text: string): string {
 function normalizeForGmail(content: string): string {
   const plainText = looksLikeHtmlContent(content)
     ? convertEmailHtmlToText({
-        htmlText: content.replace(/\n/g, "<br>"),
+        htmlText: stripQuotedHtmlContent(content.replace(/\n/g, "<br>")),
         includeLinks: false,
       })
     : content;
   const reply = parseReply(plainText);
   const decoded = decodeHtmlEntities(reply);
-  return decoded.toLowerCase().trim();
+  return stripQuotedContent(decoded).toLowerCase().trim();
 }
 
 /**
@@ -101,7 +104,7 @@ export function calculateSimilarity(
   } else {
     // ParsedMessage - check bodyContentType to determine normalization strategy
     const isOutlook = providerMessage.bodyContentType === "html";
-    const text = providerMessage.textPlain || providerMessage.textHtml || "";
+    const text = providerMessage.textHtml || providerMessage.textPlain || "";
 
     if (isOutlook) {
       // Outlook: use HTML-aware normalization for both

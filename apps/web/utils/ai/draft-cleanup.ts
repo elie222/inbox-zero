@@ -1,7 +1,7 @@
 import prisma from "@/utils/prisma";
 import { ActionType } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
-import { calculateSimilarity } from "@/utils/similarity-score";
+import { isDraftUnmodified } from "@/utils/ai/choose-rule/draft-management";
 import type { Logger } from "@/utils/logger";
 
 const STALE_DAYS = 3;
@@ -70,9 +70,15 @@ export async function cleanupAIDraftsForAccount({
         continue;
       }
 
-      const similarityScore = calculateSimilarity(action.content, draftDetails);
+      const isUnmodified = action.content
+        ? isDraftUnmodified({
+            originalContent: action.content,
+            currentDraft: draftDetails,
+            logger,
+          })
+        : false;
 
-      if (similarityScore !== 1.0) {
+      if (!isUnmodified) {
         skippedModified++;
         continue;
       }

@@ -4,6 +4,7 @@ import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { withPrismaRetry } from "@/utils/prisma-retry";
 import { calculateSimilarity } from "@/utils/similarity-score";
+import { isDraftUnmodified } from "@/utils/ai/choose-rule/draft-management";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import {
@@ -269,7 +270,13 @@ export async function cleanupThreadAIDrafts({
             action.content,
             draftDetails,
           );
-          const isUnmodified = similarityScore === 1.0;
+          const isUnmodified = action.content
+            ? isDraftUnmodified({
+                originalContent: action.content,
+                currentDraft: draftDetails,
+                logger,
+              })
+            : false;
 
           logger.info("Checked existing draft for modification", {
             ...actionLoggerOptions,

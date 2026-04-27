@@ -1,3 +1,4 @@
+import { load } from "cheerio";
 import prisma from "@/utils/prisma";
 import { ActionType } from "@/generated/prisma/enums";
 import type { ExecutedRule } from "@/generated/prisma/client";
@@ -54,7 +55,7 @@ export async function handlePreviousDraftDeletion({
       previousDraftAction.draftId,
     );
 
-    if (!currentDraftDetails?.textPlain) {
+    if (!currentDraftDetails?.textPlain && !currentDraftDetails?.textHtml) {
       logger.warn(
         "Could not fetch current draft details or content, skipping deletion.",
         { previousDraftId: previousDraftAction.draftId },
@@ -126,12 +127,27 @@ export function extractDraftPlainText(draft: ParsedMessage): string {
   if (draft.bodyContentType === "html") {
     return draft.textPlain
       ? convertEmailHtmlToText({
-          htmlText: draft.textPlain,
+          htmlText: stripQuotedHtmlContent(draft.textPlain),
           includeLinks: false,
         })
       : "";
   }
   return draft.textPlain || "";
+}
+
+export function stripQuotedHtmlContent(html: string): string {
+  const $ = load(html, null, false);
+
+  $(
+    [
+      ".gmail_quote_container",
+      ".gmail_quote",
+      ".gmail_attr",
+      "blockquote[type='cite']",
+    ].join(", "),
+  ).remove();
+
+  return $.root().html() || html;
 }
 
 /**
@@ -169,7 +185,8 @@ export function isDraftUnmodified({
   currentDraft: ParsedMessage;
   logger: Logger;
 }): boolean {
-  const currentText = extractDraftPlainText(currentDraft);
+  const { text: currentText, source: comparisonSource } =
+    extractDraftComparisonText(currentDraft);
   const currentReplyContent = stripQuotedContent(currentText);
 
   const originalWithBr = originalContent.replace(/\n/g, "<br>");
@@ -178,11 +195,43 @@ export function isDraftUnmodified({
     includeLinks: false,
   });
   const originalContentTrimmed = originalContentPlain.trim();
+  const isUnmodified = originalContentTrimmed === currentReplyContent;
+
+  logger.info("Checked draft unmodified status", {
+    comparisonSource,
+    hasTextHtml: !!currentDraft.textHtml,
+    hasTextPlain: !!currentDraft.textPlain,
+    bodyContentType: currentDraft.bodyContentType,
+    originalLength: originalContentTrimmed.length,
+    currentLength: currentReplyContent.length,
+    isUnmodified,
+  });
 
   logger.trace("Comparing draft content", {
+    comparisonSource,
     original: originalContentTrimmed,
     current: currentReplyContent,
   });
 
-  return originalContentTrimmed === currentReplyContent;
+  return isUnmodified;
+}
+
+function extractDraftComparisonText(draft: ParsedMessage): {
+  text: string;
+  source: "textHtml" | "textPlain";
+} {
+  if (draft.textHtml) {
+    return {
+      text: convertEmailHtmlToText({
+        htmlText: stripQuotedHtmlContent(draft.textHtml),
+        includeLinks: false,
+      }),
+      source: "textHtml",
+    };
+  }
+
+  return {
+    text: extractDraftPlainText(draft),
+    source: "textPlain",
+  };
 }
