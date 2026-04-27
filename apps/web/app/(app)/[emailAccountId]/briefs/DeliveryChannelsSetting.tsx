@@ -8,9 +8,11 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { MessagingRoutePurpose } from "@/generated/prisma/enums";
 import { updateMeetingBriefsEmailDeliveryAction } from "@/utils/actions/messaging-channels";
 import { getActionErrorMessage } from "@/utils/error";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 export function DeliveryChannelsSetting() {
   const { emailAccountId } = useAccount();
+  const analytics = useProductAnalytics("meeting_briefs");
   const {
     data: briefSettings,
     isLoading: isLoadingBriefSettings,
@@ -21,6 +23,7 @@ export function DeliveryChannelsSetting() {
     updateMeetingBriefsEmailDeliveryAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
+        analytics.captureAction("meeting_briefs_email_delivery_saved");
         toastSuccess({ description: "Settings saved" });
         mutateBriefSettings();
       },
@@ -41,7 +44,12 @@ export function DeliveryChannelsSetting() {
       email={{
         enabled: briefSettings?.meetingBriefsSendEmail ?? true,
         isLoading: isLoadingBriefSettings,
-        onChange: (sendEmail) => executeEmailDelivery({ sendEmail }),
+        onChange: (sendEmail) => {
+          analytics.captureAction("meeting_briefs_email_delivery_toggled", {
+            enabled: sendEmail,
+          });
+          executeEmailDelivery({ sendEmail });
+        },
       }}
       connectSlackCta="Want to receive briefs in Slack?"
     />

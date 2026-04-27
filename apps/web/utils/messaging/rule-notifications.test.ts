@@ -132,13 +132,13 @@ describe("handleRuleNotificationAction", () => {
         type: ActionType.DRAFT_MESSAGING_CHANNEL,
         content:
           'Thanks for the note.\n\nTry opening the &quot;Test&quot; tab.\n\nDrafted by <a href="https://getinboxzero.com/?ref=ABC">Inbox Zero</a>.',
+        mailboxDraftAction: {
+          id: "draft-action-1",
+          draftId: "draft-1",
+          subject: "Re: Test subject",
+        },
       }) as never,
     );
-    prisma.executedAction.findFirst.mockResolvedValue({
-      id: "draft-action-1",
-      draftId: "draft-1",
-      subject: "Re: Test subject",
-    } as never);
     prisma.executedAction.update.mockResolvedValue({} as never);
 
     const editMessage = vi.fn().mockResolvedValue(undefined);
@@ -252,13 +252,13 @@ describe("handleRuleNotificationAction", () => {
             },
           ],
         },
+        mailboxDraftAction: {
+          id: "draft-action-1",
+          draftId: "draft-1",
+          subject: "Re: Test subject",
+        },
       }) as never,
     );
-    prisma.executedAction.findFirst.mockResolvedValue({
-      id: "draft-action-1",
-      draftId: "draft-1",
-      subject: "Re: Test subject",
-    } as never);
     prisma.executedAction.update.mockResolvedValue({} as never);
 
     const editMessage = vi.fn().mockResolvedValue(undefined);
@@ -369,13 +369,13 @@ describe("handleRuleNotificationAction", () => {
             },
           ],
         },
+        mailboxDraftAction: {
+          id: "draft-action-1",
+          draftId: "draft-1",
+          subject: "Re: Test subject",
+        },
       }) as never,
     );
-    prisma.executedAction.findFirst.mockResolvedValue({
-      id: "draft-action-1",
-      draftId: "draft-1",
-      subject: "Re: Test subject",
-    } as never);
     prisma.executedAction.update.mockResolvedValue({} as never);
 
     const editMessage = vi.fn().mockResolvedValue(undefined);
@@ -666,7 +666,6 @@ describe("sendMessagingRuleNotification", () => {
         content: "Draft body",
       }) as never,
     );
-    prisma.executedAction.findFirst.mockResolvedValue(null as never);
     prisma.executedAction.update.mockResolvedValue({} as never);
 
     const { sendMessagingRuleNotification } = await import(
@@ -705,6 +704,111 @@ describe("sendMessagingRuleNotification", () => {
     });
   });
 
+  it("previews the synced mailbox draft for Slack draft notifications", async () => {
+    const provider = {
+      getDraft: vi.fn().mockResolvedValue({
+        id: "draft-1",
+        threadId: "thread-1",
+        textPlain: "Mailbox draft body",
+        subject: "Re: Test subject",
+        date: new Date().toISOString(),
+        snippet: "Mailbox draft body",
+        historyId: "1",
+        internalDate: "1",
+        headers: {
+          from: "user@example.com",
+          to: "sender@example.com",
+          subject: "Re: Test subject",
+          date: "Mon, 1 Jan 2024 12:00:00 +0000",
+        },
+        labelIds: [],
+        inline: [],
+      } satisfies ParsedMessage),
+    };
+
+    mockCreateEmailProvider.mockResolvedValue(provider);
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Messaging draft body",
+        mailboxDraftAction: {
+          id: "draft-action-1",
+          draftId: "draft-1",
+          subject: "Re: Test subject",
+        },
+      }) as never,
+    );
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(provider.getDraft).toHaveBeenCalledWith("draft-1");
+    expect(mockSlackPostMessage).toHaveBeenCalledTimes(1);
+
+    const [args] = mockSlackPostMessage.mock.calls[0];
+    const serializedBlocks = JSON.stringify(args.blocks);
+
+    expect(serializedBlocks).toContain("Mailbox draft body");
+    expect(serializedBlocks).not.toContain("Messaging draft body");
+  });
+
+  it("falls back to stored draft content when synced mailbox draft lookup fails", async () => {
+    mockCreateEmailProvider.mockRejectedValue(new Error("provider failed"));
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Messaging draft body",
+        mailboxDraftAction: {
+          id: "draft-action-1",
+          draftId: "draft-1",
+          subject: "Re: Test subject",
+        },
+      }) as never,
+    );
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockSlackPostMessage).toHaveBeenCalledTimes(1);
+
+    const [args] = mockSlackPostMessage.mock.calls[0];
+    const serializedBlocks = JSON.stringify(args.blocks);
+
+    expect(serializedBlocks).toContain("Messaging draft body");
+  });
+
   it("adds an Open in Outlook button for Slack draft notifications on Microsoft accounts", async () => {
     prisma.executedAction.findUnique.mockResolvedValue(
       getNotificationContext({
@@ -714,7 +818,6 @@ describe("sendMessagingRuleNotification", () => {
         accountProvider: "microsoft",
       }) as never,
     );
-    prisma.executedAction.findFirst.mockResolvedValue(null as never);
     prisma.executedAction.update.mockResolvedValue({} as never);
 
     const { sendMessagingRuleNotification } = await import(
@@ -754,7 +857,6 @@ describe("sendMessagingRuleNotification", () => {
         accountProvider: "imap",
       }) as never,
     );
-    prisma.executedAction.findFirst.mockResolvedValue(null as never);
     prisma.executedAction.update.mockResolvedValue({} as never);
 
     const { sendMessagingRuleNotification } = await import(
@@ -791,7 +893,6 @@ describe("sendMessagingRuleNotification", () => {
         content: null,
       }) as never,
     );
-    prisma.executedAction.findFirst.mockResolvedValue(null as never);
     prisma.executedAction.update.mockResolvedValue({} as never);
 
     const { sendMessagingRuleNotification } = await import(
@@ -1513,6 +1614,7 @@ function getNotificationContext({
   accountProvider = "google",
   messagingMessageId = null,
   messagingMessageStatus = null,
+  mailboxDraftAction = null,
 }: {
   id: string;
   type: ActionType;
@@ -1535,6 +1637,11 @@ function getNotificationContext({
   accountProvider?: "google" | "microsoft" | "imap";
   messagingMessageId?: string | null;
   messagingMessageStatus?: MessagingMessageStatus | null;
+  mailboxDraftAction?: {
+    id: string;
+    draftId: string;
+    subject: string | null;
+  } | null;
 }) {
   const defaultRoutes =
     messagingChannel?.routes ??
@@ -1587,6 +1694,7 @@ function getNotificationContext({
       rule: {
         systemType: null,
       },
+      actionItems: mailboxDraftAction ? [mailboxDraftAction] : [],
     },
     messagingChannel: messagingChannel
       ? {

@@ -20,6 +20,7 @@ import { LayoutGrid } from "lucide-react";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CardBasic } from "@/components/ui/card";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -31,6 +32,7 @@ const selectOptions = [
 const defaultSelected = selectOptions[1];
 
 export function Stats() {
+  const analytics = useProductAnalytics("analytics");
   const [dateDropdown, setDateDropdown] = useState<string>(
     defaultSelected.label,
   );
@@ -50,6 +52,10 @@ export function Stats() {
   const onSetDateDropdown = useCallback(
     (option: { label: string; value: string }) => {
       const { label, value } = option;
+      analytics.captureAction("analytics_date_range_changed", {
+        range_label: label,
+        range_days: Number.parseInt(value),
+      });
       setDateDropdown(label);
 
       if (value === "7") {
@@ -60,7 +66,7 @@ export function Stats() {
         setPeriod("month");
       }
     },
-    [period],
+    [analytics, period],
   );
 
   const { isLoading, onLoad } = useStatLoader();
@@ -95,22 +101,42 @@ export function Stats() {
             {
               label: "Day",
               checked: period === "day",
-              setChecked: () => setPeriod("day"),
+              setChecked: () => {
+                analytics.captureAction("analytics_grouping_changed", {
+                  period: "day",
+                });
+                setPeriod("day");
+              },
             },
             {
               label: "Week",
               checked: period === "week",
-              setChecked: () => setPeriod("week"),
+              setChecked: () => {
+                analytics.captureAction("analytics_grouping_changed", {
+                  period: "week",
+                });
+                setPeriod("week");
+              },
             },
             {
               label: "Month",
               checked: period === "month",
-              setChecked: () => setPeriod("month"),
+              setChecked: () => {
+                analytics.captureAction("analytics_grouping_changed", {
+                  period: "month",
+                });
+                setPeriod("month");
+              },
             },
             {
               label: "Year",
               checked: period === "year",
-              setChecked: () => setPeriod("year"),
+              setChecked: () => {
+                analytics.captureAction("analytics_grouping_changed", {
+                  period: "year",
+                });
+                setPeriod("year");
+              },
             },
           ]}
         />

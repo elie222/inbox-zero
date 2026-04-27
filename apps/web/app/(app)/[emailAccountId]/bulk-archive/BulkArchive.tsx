@@ -18,8 +18,10 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { PageHeading } from "@/components/Typography";
 import { EmailStatsPreloader } from "@/components/EmailStatsPreloader";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 export function BulkArchive() {
+  const analytics = useProductAnalytics("bulk_archive");
   const { isBulkCategorizing } = useCategorizeProgress();
   const [onboarding] = useQueryState("onboarding", parseAsBoolean);
   const [bulkAction, setBulkAction] = useState<BulkActionType>("archive");
@@ -47,8 +49,9 @@ export function BulkArchive() {
   );
 
   const handleProgressComplete = useCallback(() => {
+    analytics.captureAction("bulk_archive_categorization_completed");
     mutate();
-  }, [mutate]);
+  }, [analytics, mutate]);
 
   const [setupDismissed, setSetupDismissed] = useState(false);
 
@@ -69,7 +72,12 @@ export function BulkArchive() {
           <div className="flex items-center gap-2">
             <BulkArchiveSettingsModal
               selectedAction={bulkAction}
-              onActionChange={setBulkAction}
+              onActionChange={(action) => {
+                analytics.captureAction("bulk_archive_action_changed", {
+                  action,
+                });
+                setBulkAction(action);
+              }}
             />
             <CategorizeWithAiButton
               buttonProps={{ variant: "outline", size: "sm" }}
@@ -87,6 +95,9 @@ export function BulkArchive() {
       <AutoCategorizationSetup
         open={shouldShowSetup}
         onOpenChange={(open) => {
+          analytics.captureAction("bulk_archive_setup_dialog_toggled", {
+            open,
+          });
           if (!open) setSetupDismissed(true);
         }}
       />

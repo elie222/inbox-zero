@@ -153,7 +153,7 @@ export function combineActionsWithAiArgs(
   return actions.map((action) => {
     const updatedAction: ActionWithDraftAttribution = { ...action };
 
-    // Add draft content to DRAFT_EMAIL actions if available
+    // Add draft content to draft reply actions if available
     if (draft && isDraftReplyActionType(action.type)) {
       updatedAction.content = draft;
       updatedAction.draftModelProvider = draftAttribution?.provider ?? null;
@@ -180,8 +180,9 @@ export function combineActionsWithAiArgs(
 
     // Merge variables for each field that has AI-generated content
     for (const [field, vars] of Object.entries(aiAction)) {
-      // Skip content field only if the action originally had no content and we've already set a draft
-      if (field === "content" && draft && !action.content) continue;
+      if (field === "content" && draft && isDraftReplyActionType(action.type)) {
+        continue;
+      }
 
       // Only process fields that we know can contain template strings
       if (

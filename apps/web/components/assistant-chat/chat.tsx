@@ -33,6 +33,7 @@ import { useSession } from "@/utils/auth-client";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { MessageContext } from "@/app/api/chat/validation";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 const MAX_FILES = 5;
@@ -44,6 +45,7 @@ const ACCEPTED_IMAGE_TYPES = [
 ];
 
 export function Chat({ open }: { open: boolean }) {
+  const analytics = useProductAnalytics("assistant_chat");
   const {
     chat,
     chatId,
@@ -121,10 +123,15 @@ export function Chat({ open }: { open: boolean }) {
       const results = await Promise.all(filesToProcess.map(readFileAsDataUrl));
       const valid = results.filter((a): a is Attachment => a !== undefined);
 
+      analytics.captureAction("chat_attachments_added", {
+        requested_file_count: files.length,
+        accepted_file_count: valid.length,
+        existing_attachment_count: attachments.length,
+      });
       setAttachments((prev) => [...prev, ...valid]);
       setUploadQueue([]);
     },
-    [attachments.length, readFileAsDataUrl, setAttachments],
+    [analytics, attachments.length, readFileAsDataUrl, setAttachments],
   );
 
   const handleFileChange = useCallback(
@@ -170,6 +177,12 @@ export function Chat({ open }: { open: boolean }) {
       onSubmit={(e) => {
         e.preventDefault();
         if (hasContent && status === "ready") {
+          analytics.captureAction("chat_message_submitted", {
+            has_text: input.trim().length > 0,
+            attachment_count: attachments.length,
+            has_context: Boolean(context),
+            message_count: messages.length,
+          });
           handleSubmit();
           setLocalStorageInput("");
         }
@@ -223,7 +236,12 @@ export function Chat({ open }: { open: boolean }) {
             variant="ghost"
             size="icon"
             className="size-9 rounded-full text-muted-foreground hover:text-foreground"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => {
+              analytics.captureAction("chat_attach_button_clicked", {
+                attachment_count: attachments.length,
+              });
+              fileInputRef.current?.click();
+            }}
             disabled={attachments.length >= MAX_FILES}
           >
             <PaperclipIcon className="size-4" />
@@ -242,6 +260,9 @@ export function Chat({ open }: { open: boolean }) {
           className="h-9 w-9 rounded-full bg-blue-500 text-white hover:bg-blue-600"
           onClick={(e) => {
             if (status === "streaming" || status === "submitted") {
+              analytics.captureAction("chat_generation_stopped", {
+                status,
+              });
               e.preventDefault();
               stop();
               setMessages((messages) => messages);
@@ -288,6 +309,9 @@ export function Chat({ open }: { open: boolean }) {
           firstName={firstName}
           inputArea={inputArea}
           onSuggestionClick={(text) => {
+            analytics.captureAction("chat_suggestion_clicked", {
+              suggestion_index: CHAT_EXAMPLES.indexOf(text),
+            });
             chat.sendMessage({
               role: "user",
               parts: [{ type: "text", text }],

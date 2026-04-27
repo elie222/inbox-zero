@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConnectCalendar } from "@/app/(app)/[emailAccountId]/calendars/ConnectCalendar";
 import { TypographyP } from "@/components/Typography";
 import { toastError } from "@/components/Toast";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 export function CalendarConnections() {
   useCalendarNotifications();
@@ -72,6 +73,7 @@ function useCalendarNotifications() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const analytics = useProductAnalytics("calendars");
 
   useEffect(() => {
     const errorParam = searchParams.get("error");
@@ -135,7 +137,10 @@ function useCalendarNotifications() {
       title: errorMessage.title,
       description: errorMessage.description,
     });
+    analytics.captureAction("calendar_connect_failed", {
+      error_code: errorParam,
+    });
 
     router.replace(pathname);
-  }, [pathname, router, searchParams]);
+  }, [analytics, pathname, router, searchParams]);
 }

@@ -273,17 +273,22 @@ describe("combineActionsWithAiArgs", () => {
       expect(result[0].content).toBe(fullDraft);
     });
 
-    it("still processes template content when a separate draft exists", () => {
+    it("uses one generated draft for every draft reply action", () => {
       const actions = [
         createMockAction({
           id: "3",
           type: ActionType.DRAFT_EMAIL,
+          content: null,
+        }),
+        createMockAction({
+          id: "4",
+          type: ActionType.DRAFT_MESSAGING_CHANNEL,
           content: "Hello {{name}}, {{message}}",
         }),
       ];
 
       const aiArgs = {
-        "DRAFT_EMAIL-3": {
+        "DRAFT_MESSAGING_CHANNEL-4": {
           content: {
             var1: "Alice",
             var2: "I hope this email finds you well.",
@@ -297,9 +302,10 @@ describe("combineActionsWithAiArgs", () => {
         "Some other draft",
       );
 
-      expect(result[0].content).toBe(
-        "Hello Alice, I hope this email finds you well.",
-      );
+      expect(result.map((action) => action.content)).toEqual([
+        "Some other draft",
+        "Some other draft",
+      ]);
     });
   });
 

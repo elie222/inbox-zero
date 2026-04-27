@@ -14,6 +14,7 @@ import { LayoutGroup, motion } from "motion/react";
 import Link from "next/link";
 import { type Dispatch, type SetStateAction, useId } from "react";
 import { ArrowUpRight } from "lucide-react";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 const tabSelectButtonVariants = cva("p-4 transition-colors duration-75", {
   variants: {
@@ -54,6 +55,7 @@ export function TabSelect<T extends string>({
   className?: string;
 }) {
   const layoutGroupId = useId();
+  const analytics = useProductAnalytics();
 
   return (
     <div className={cn("flex text-sm", className)}>
@@ -70,7 +72,14 @@ export function TabSelect<T extends string>({
             >
               <button
                 type="button"
-                {...(onSelect && !href && { onClick: () => onSelect(id) })}
+                onClick={() => {
+                  analytics.captureAction("tab_selected", {
+                    tab: id,
+                    tab_label: label,
+                    has_href: Boolean(href),
+                  });
+                  if (onSelect && !href) onSelect(id);
+                }}
                 className={cn(
                   tabSelectButtonVariants({ variant }),
                   target === "_blank" && "group flex items-center gap-1.5",

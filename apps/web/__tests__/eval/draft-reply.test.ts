@@ -395,6 +395,60 @@ Also, what model or provider does the assistant use by default?`,
       );
     });
 
+    describe("confidence calibration", () => {
+      test(
+        "missing business context is not high confidence",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Dana Lee <dana@clientcorp.com>",
+                to: emailAccount.email,
+                subject: "Security questionnaire",
+                content: `Hi,
+
+Could you send the final security questionnaire answers today and confirm whether the DPA redlines are approved?
+
+Thanks,
+Dana`,
+              }),
+              date: new Date("2026-03-15T12:00:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const pass = result.confidence !== "HIGH_CONFIDENCE";
+          const testName = "missing business context confidence";
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected:
+              "STANDARD or ALL_EMAILS because the draft lacks facts needed to answer",
+            actual: `confidence=${result.confidence} | reply=${JSON.stringify(result.reply)}`,
+          });
+
+          expect(
+            pass,
+            `Draft should not be marked high confidence without questionnaire or DPA facts.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+    });
+
     describe("punctuation defaults", () => {
       test(
         "does not use em dash when writing style does not ask for it",

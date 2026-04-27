@@ -2,13 +2,16 @@ import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { deleteContact as deleteResendContact } from "@inboxzero/resend";
 import prisma from "@/utils/prisma";
 import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
-import { deletePosthogUser, trackUserDeleted } from "@/utils/posthog";
+import {
+  deletePosthogUser,
+  trackUserDeleted,
+  trackUserDeletionRequested,
+} from "@/utils/posthog";
 import { captureException } from "@/utils/error";
 import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
-import { sleep } from "@/utils/sleep";
 import { clearCachedResearchForUser } from "@/utils/redis/research-cache";
 
 export async function deleteUser({
@@ -60,6 +63,11 @@ export async function deleteUser({
   logger.info("Deleting user resources");
 
   try {
+    await trackUserDeletionRequested(userId).catch((error) => {
+      logger.error("Error tracking user deletion request", { error });
+      captureException(error);
+    });
+
     deleteTinybirdAiCalls({ userId }).catch((error) => {
       logger.error("Error deleting Tinybird AI calls", {
         error,
@@ -137,7 +145,7 @@ async function deleteResources({
     logger.info("Deleting user");
     await prisma.user.delete({ where: { id: userId } });
 
-    // posthod track deleted events
+    // PostHog tracks the completed delete after the database delete succeeds.
     await trackUserDeleted(userId);
   } catch (error) {
     logger.error("Error during database user deletion process", {
@@ -155,7 +163,7 @@ async function deleteResources({
  */
 async function deleteExecutedRulesInBatches({
   emailAccountId,
-  batchSize = 100,
+  batchSize = 1000,
   logger,
 }: {
   emailAccountId: string;
@@ -181,24 +189,28 @@ async function deleteExecutedRulesInBatches({
 
     const ruleIds = executedRules.map((rule) => rule.id);
 
-    // 2. Delete ExecutedActions for these rules
-    await prisma.executedAction.deleteMany({
-      where: { executedRuleId: { in: ruleIds } },
-    });
+    const { count: deletedScheduledActionCount } =
+      await prisma.scheduledAction.deleteMany({
+        where: { executedRuleId: { in: ruleIds } },
+      });
 
-    // 3. Delete the ExecutedRules
-    const { count } = await prisma.executedRule.deleteMany({
-      where: { id: { in: ruleIds } },
-    });
+    const { count: deletedExecutedActionCount } =
+      await prisma.executedAction.deleteMany({
+        where: { executedRuleId: { in: ruleIds } },
+      });
 
-    deletedTotal += count;
+    const { count: deletedExecutedRuleCount } =
+      await prisma.executedRule.deleteMany({
+        where: { id: { in: ruleIds } },
+      });
+
+    deletedTotal += deletedExecutedRuleCount;
     logger.info("Deleted batch of ExecutedRules", {
-      deletedCount: count,
+      deletedCount: deletedExecutedRuleCount,
+      deletedExecutedActionCount,
+      deletedScheduledActionCount,
       total: deletedTotal,
     });
-
-    // Small delay to prevent database overload (optional)
-    await sleep(100);
   }
 
   return deletedTotal;

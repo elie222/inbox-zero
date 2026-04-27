@@ -7,6 +7,10 @@ import { useSession } from "@/utils/auth-client";
 import { usePathname, useSearchParams } from "next/navigation";
 import { env } from "@/env";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import {
+  getAppPageViewProperties,
+  PRODUCT_ANALYTICS_EVENTS,
+} from "@/utils/analytics/product";
 
 // based on: https://posthog.com/docs/libraries/next-js
 
@@ -23,6 +27,14 @@ export function PostHogPageview() {
       posthog.capture("$pageview", {
         $current_url: url,
       });
+
+      const appPageProperties = getAppPageViewProperties({
+        pathname,
+        searchParams,
+      });
+      if (appPageProperties) {
+        posthog.capture(PRODUCT_ANALYTICS_EVENTS.pageViewed, appPageProperties);
+      }
     }
   }, [pathname, searchParams]);
 
