@@ -743,7 +743,7 @@ function ActionCard({
         delivery={draftReplyDelivery}
         selectedChannels={selectedMessagingChannels}
         connectedChannels={connectedMessagingChannels}
-        availableProviders={availableMessagingProviders}
+        connectAppLabel={getConnectAppLabel(availableMessagingProviders)}
         errorMessage={deliveryErrorMessage}
         onChange={handleDraftReplyDeliveryChange}
       />
@@ -935,7 +935,7 @@ function DraftReplyReviewChannelsSection({
   delivery,
   selectedChannels,
   connectedChannels,
-  availableProviders,
+  connectAppLabel,
   errorMessage,
   onChange,
 }: {
@@ -943,7 +943,7 @@ function DraftReplyReviewChannelsSection({
   delivery: DraftReplyDelivery;
   selectedChannels: MessagingChannelOption[];
   connectedChannels: MessagingChannelOption[];
-  availableProviders: MessagingProviderOption[];
+  connectAppLabel: string;
   errorMessage?: string;
   onChange: (value: {
     includeEmail: boolean;
@@ -1048,7 +1048,7 @@ function DraftReplyReviewChannelsSection({
       {!hasConnectedMessagingDestination ? (
         <Button asChild size="sm" variant="outline" className="w-fit">
           <Link href={prefixPath(emailAccountId, "/channels")}>
-            {getConnectAppLabel(availableProviders)}
+            {connectAppLabel}
           </Link>
         </Button>
       ) : null}

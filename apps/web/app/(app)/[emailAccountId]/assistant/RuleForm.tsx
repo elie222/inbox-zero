@@ -530,121 +530,125 @@ export function RuleForm({
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="rounded-md border divide-y">
-              <AdvancedRow
-                title="Apply to threads"
-                description="Run on every reply in a conversation, not just the first message."
-              >
-                <Tooltip
-                  content="This can't be changed for this rule type."
-                  hide={allowMultipleConditions(rule.systemType)}
-                >
-                  <span>
-                    <Toggle
-                      name="runOnThreads"
-                      enabled={watch("runOnThreads") || false}
-                      onChange={(enabled) => {
-                        setValue("runOnThreads", enabled);
-                      }}
-                      disabled={!allowMultipleConditions(rule.systemType)}
-                    />
-                  </span>
-                </Tooltip>
-              </AdvancedRow>
-
-              {env.NEXT_PUBLIC_DIGEST_ENABLED && (
+            {isAdvancedOpen ? (
+              <div className="rounded-md border divide-y">
                 <AdvancedRow
-                  title="Include in digest"
-                  description="Show matched emails in your digest summary."
-                >
-                  <Toggle
-                    name="digest"
-                    enabled={watch("digest") || false}
-                    onChange={(enabled) => {
-                      setValue("digest", enabled);
-                    }}
-                  />
-                </AdvancedRow>
-              )}
-
-              {!!rule.id && (
-                <AdvancedRow
-                  title="Learned patterns"
-                  description="Patterns inferred from your corrections."
+                  title="Apply to threads"
+                  description="Run on every reply in a conversation, not just the first message."
                 >
                   <Tooltip
-                    content="Learned patterns aren't available for this rule type."
-                    hide={!isConversationStatusType(rule.systemType)}
+                    content="This can't be changed for this rule type."
+                    hide={allowMultipleConditions(rule.systemType)}
                   >
                     <span>
-                      <LearnedPatternsDialog
-                        ruleId={rule.id}
-                        groupId={rule.groupId || null}
-                        disabled={isConversationStatusType(rule.systemType)}
-                        label="View"
+                      <Toggle
+                        name="runOnThreads"
+                        enabled={watch("runOnThreads") || false}
+                        onChange={(enabled) => {
+                          setValue("runOnThreads", enabled);
+                        }}
+                        disabled={!allowMultipleConditions(rule.systemType)}
                       />
                     </span>
                   </Tooltip>
                 </AdvancedRow>
-              )}
 
-              {rule.id && !rule.systemType && (
-                <AdvancedRow
-                  title="Delete rule"
-                  description="Permanently remove this rule."
-                >
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    Icon={TrashIcon}
-                    loading={isDeleting}
-                    disabled={isSubmitting}
-                    onClick={async () => {
-                      const yes = confirm(
-                        "Are you sure you want to delete this rule?",
-                      );
-                      if (yes) {
-                        try {
-                          setIsDeleting(true);
-                          const result = await deleteRuleAction(
-                            emailAccountId,
-                            {
-                              id: rule.id!,
-                            },
-                          );
-                          if (result?.serverError) {
-                            toastError({
-                              description: result.serverError,
-                            });
-                          } else {
-                            toastSuccess({
-                              description: "The rule has been deleted.",
-                            });
-
-                            if (isDialog && onSuccess) {
-                              onSuccess();
-                            }
-
-                            router.push(
-                              prefixPath(
-                                emailAccountId,
-                                "/automation?tab=rules",
-                              ),
-                            );
-                          }
-                        } catch {
-                          toastError({ description: "Failed to delete rule." });
-                        } finally {
-                          setIsDeleting(false);
-                        }
-                      }
-                    }}
+                {env.NEXT_PUBLIC_DIGEST_ENABLED && (
+                  <AdvancedRow
+                    title="Include in digest"
+                    description="Show matched emails in your digest summary."
                   >
-                    Delete
-                  </Button>
-                </AdvancedRow>
-              )}
-            </div>
+                    <Toggle
+                      name="digest"
+                      enabled={watch("digest") || false}
+                      onChange={(enabled) => {
+                        setValue("digest", enabled);
+                      }}
+                    />
+                  </AdvancedRow>
+                )}
+
+                {!!rule.id && (
+                  <AdvancedRow
+                    title="Learned patterns"
+                    description="Patterns inferred from your corrections."
+                  >
+                    <Tooltip
+                      content="Learned patterns aren't available for this rule type."
+                      hide={!isConversationStatusType(rule.systemType)}
+                    >
+                      <span>
+                        <LearnedPatternsDialog
+                          ruleId={rule.id}
+                          groupId={rule.groupId || null}
+                          disabled={isConversationStatusType(rule.systemType)}
+                          label="View"
+                        />
+                      </span>
+                    </Tooltip>
+                  </AdvancedRow>
+                )}
+
+                {rule.id && !rule.systemType && (
+                  <AdvancedRow
+                    title="Delete rule"
+                    description="Permanently remove this rule."
+                  >
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      Icon={TrashIcon}
+                      loading={isDeleting}
+                      disabled={isSubmitting}
+                      onClick={async () => {
+                        const yes = confirm(
+                          "Are you sure you want to delete this rule?",
+                        );
+                        if (yes) {
+                          try {
+                            setIsDeleting(true);
+                            const result = await deleteRuleAction(
+                              emailAccountId,
+                              {
+                                id: rule.id!,
+                              },
+                            );
+                            if (result?.serverError) {
+                              toastError({
+                                description: result.serverError,
+                              });
+                            } else {
+                              toastSuccess({
+                                description: "The rule has been deleted.",
+                              });
+
+                              if (isDialog && onSuccess) {
+                                onSuccess();
+                              }
+
+                              router.push(
+                                prefixPath(
+                                  emailAccountId,
+                                  "/automation?tab=rules",
+                                ),
+                              );
+                            }
+                          } catch {
+                            toastError({
+                              description: "Failed to delete rule.",
+                            });
+                          } finally {
+                            setIsDeleting(false);
+                          }
+                        }
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </AdvancedRow>
+                )}
+              </div>
+            ) : null}
           </CollapsibleContent>
         </Collapsible>
 
