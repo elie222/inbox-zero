@@ -32,7 +32,7 @@ export async function executeAct({
   message: ParsedMessage;
   emailAccount: ActionExecutionEmailAccount;
   logger: Logger;
-}) {
+}): Promise<ExecutedRuleStatus> {
   const log = logger.with({
     module: MODULE,
     executedRuleId: executedRule.id,
@@ -82,11 +82,10 @@ export async function executeAct({
           actionType: action.type,
         },
       });
-      await prisma.executedRule.update({
-        where: { id: executedRule.id },
-        data: { status: ExecutedRuleStatus.ERROR },
+      actionFailures.push({
+        type: action.type,
+        errorCode: "ACTION_ERROR",
       });
-      throw error;
     }
   }
 
@@ -114,7 +113,7 @@ export async function executeAct({
         log.error("Failed to update executed rule", { error });
       });
 
-    return;
+    return ExecutedRuleStatus.ERROR;
   }
 
   await prisma.executedRule
@@ -130,6 +129,8 @@ export async function executeAct({
     .catch((error) => {
       log.error("Failed to update executed rule", { error });
     });
+
+  return ExecutedRuleStatus.APPLIED;
 }
 
 function getActionFailure(

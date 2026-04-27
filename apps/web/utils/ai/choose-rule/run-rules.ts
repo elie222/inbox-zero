@@ -562,8 +562,10 @@ async function executeMatchedRule(
     }
 
     // Execute immediate actions if any
+    let finalStatus: ExecutedRuleStatus | undefined;
+
     if (immediateActions?.length > 0) {
-      await executeAct({
+      finalStatus = await executeAct({
         client,
         emailAccount: {
           email: emailAccount.email,
@@ -584,7 +586,18 @@ async function executeMatchedRule(
           }),
         { logger },
       );
+      finalStatus = ExecutedRuleStatus.APPLIED;
     }
+
+    return {
+      rule,
+      actionItems,
+      executedRule,
+      reason,
+      matchReasons,
+      status: finalStatus,
+      createdAt: batchTimestamp,
+    };
   }
 
   // Note: If there are ONLY delayed actions (no immediate), status stays APPLYING
