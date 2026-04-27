@@ -25,7 +25,7 @@ export const updateRuleActionsTool = ({
 }) =>
   tool({
     description:
-      "Update the actions of an existing rule. This replaces the existing actions. Do not use this tool to remove, disable, or delete a rule; use updateRuleState instead. SEND_EMAIL and FORWARD require an explicit recipient in fields.to; use REPLY for inbound auto-responses.",
+      "Update the actions of an existing rule. This replaces the existing actions. SEND_EMAIL and FORWARD require an explicit recipient in fields.to; use REPLY for inbound auto-responses.",
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
       actions: z

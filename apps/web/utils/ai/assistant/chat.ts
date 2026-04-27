@@ -746,8 +746,7 @@ export function buildResolvedSystemPrompt({
     `Rules and automation:
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - Prefer updating an existing rule over creating an overlapping duplicate. Do not create semantic duplicates like "Notification" and "Notifications".
-- Use updateRuleState to disable, enable, or delete rules. Never remove all actions as a proxy for disabling or deleting a rule.
-- Deleting a rule requires UI confirmation. If updateRuleState returns requiresConfirmation, explain that deletion is pending confirmation and nothing has been deleted yet.
+- Use updateRuleState to disable, enable, or delete rules.
 - If multiple fetched rules are similar, ask the user which one to update instead of guessing.
 - Use short concise rule names and real sender or domain values. Ask when required data is missing.
 - Rules can use {{variables}} in action fields to insert AI-generated content.`,
