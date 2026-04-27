@@ -224,7 +224,11 @@ function mapMessagesById(messages: ParsedMessage[]) {
 }
 
 function groupByDate(items: ExecutedRuleResult[]) {
-  const groups: { key: string; date: Date; items: ExecutedRuleResult[] }[] = [];
+  const groups: {
+    key: string;
+    date: Date | null;
+    items: ExecutedRuleResult[];
+  }[] = [];
   for (const item of items) {
     const createdAt = item.executedRules[0]?.createdAt;
     const date = createdAt ? new Date(createdAt) : null;
@@ -233,14 +237,14 @@ function groupByDate(items: ExecutedRuleResult[]) {
     if (last?.key === key) {
       last.items.push(item);
     } else {
-      groups.push({ key, date: date ?? new Date(0), items: [item] });
+      groups.push({ key, date, items: [item] });
     }
   }
   return groups;
 }
 
-function formatDateGroupLabel(date: Date) {
-  if (date.getTime() === 0) return "Unknown date";
+function formatDateGroupLabel(date: Date | null) {
+  if (!date) return "Unknown date";
   if (isToday(date)) return "Today";
   if (isYesterday(date)) return "Yesterday";
   if (date.getFullYear() === new Date().getFullYear()) {

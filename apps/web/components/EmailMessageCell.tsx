@@ -18,6 +18,8 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 
+const MAX_VISIBLE_LABELS = 2;
+
 export function EmailMessageCell({
   sender,
   userEmail,
@@ -158,8 +160,6 @@ export function EmailMessageCell({
     </div>
   );
 }
-
-const MAX_VISIBLE_LABELS = 2;
 
 export function EmailMessageCellWithData({
   sender,
