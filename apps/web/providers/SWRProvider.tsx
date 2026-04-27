@@ -17,6 +17,7 @@ import {
   NO_REFRESH_TOKEN_ERROR_CODE,
 } from "@/utils/config";
 import { prefixPath } from "@/utils/path";
+import { getSWRFetchErrorMessage } from "./swr-error";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
 const fetcher = async (
@@ -77,9 +78,7 @@ const fetcher = async (
       }
     }
 
-    const errorMessage =
-      (errorData.message as string) ||
-      "An error occurred while fetching the data.";
+    const errorMessage = getSWRFetchErrorMessage(errorData);
     const error: Error & { info?: Record<string, unknown>; status?: number } =
       new Error(errorMessage);
 
