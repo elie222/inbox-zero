@@ -79,7 +79,7 @@ describe("executeAct", () => {
       actionItems: [{ id: "action-1", type: ActionType.NOTIFY_SENDER }],
     } as any;
 
-    await executeAct({
+    const result = await executeAct({
       client: mockClient,
       executedRule,
       message,
@@ -87,6 +87,7 @@ describe("executeAct", () => {
       logger,
     });
 
+    expect(result).toBe(ExecutedRuleStatus.ERROR);
     expect(mockExecutedRuleUpdate).toHaveBeenCalledTimes(1);
     expect(mockExecutedRuleUpdate).toHaveBeenCalledWith({
       where: { id: "executed-rule-1" },
@@ -106,7 +107,7 @@ describe("executeAct", () => {
       actionItems: [{ id: "action-1", type: ActionType.NOTIFY_SENDER }],
     } as any;
 
-    await executeAct({
+    const result = await executeAct({
       client: mockClient,
       executedRule,
       message,
@@ -114,6 +115,7 @@ describe("executeAct", () => {
       logger,
     });
 
+    expect(result).toBe(ExecutedRuleStatus.APPLIED);
     expect(mockExecutedRuleUpdate).toHaveBeenCalledTimes(1);
     expect(mockExecutedRuleUpdate).toHaveBeenCalledWith({
       where: { id: "executed-rule-1" },

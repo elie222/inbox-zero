@@ -23,6 +23,7 @@ import {
 } from "@/__tests__/helpers";
 import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
+import { executeAct } from "@/utils/ai/choose-rule/execute";
 
 const logger = createTestLogger();
 
@@ -636,6 +637,70 @@ describe("runRules draft attribution persistence", () => {
         messagingChannelId: "channel-1",
       }),
     ]);
+  });
+
+  it("returns the final status after immediate actions execute", async () => {
+    const draftRule = createRule("draft-rule", SystemType.TO_REPLY, [
+      getAction({
+        id: "draft-action-1",
+        type: ActionType.DRAFT_EMAIL,
+      }),
+    ]);
+
+    vi.mocked(findMatchingRules).mockResolvedValue({
+      matches: [{ rule: draftRule, matchReasons: [] }],
+      reasoning: "Matched draft rule",
+    } as any);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    vi.mocked(getActionItemsWithAiArgs).mockResolvedValue([
+      getAction({
+        id: "draft-action-1",
+        type: ActionType.DRAFT_EMAIL,
+        content: "Generated draft content",
+      }),
+    ] as any);
+    vi.mocked(executeAct).mockResolvedValue(ExecutedRuleStatus.APPLIED);
+    prisma.executedRule.create.mockResolvedValue({
+      id: "exec-1",
+      status: ExecutedRuleStatus.APPLYING,
+      ruleId: draftRule.id,
+      threadId,
+      messageId: "message-1",
+      actionItems: [
+        getAction({
+          id: "draft-action-1",
+          type: ActionType.DRAFT_EMAIL,
+          content: "Generated draft content",
+        }),
+      ],
+    } as any);
+
+    const results = await runRules({
+      provider: {} as any,
+      message: {
+        ...getEmail(),
+        id: "message-1",
+        threadId,
+        snippet: "",
+        historyId: "history-1",
+        inline: [],
+        attachments: [],
+        headers: {
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Subject",
+          date: "Mon, 1 Jan 2026 12:00:00 +0000",
+          "message-id": "<message-1>",
+        },
+      } as any,
+      rules: [draftRule],
+      emailAccount: getEmailAccount(),
+      isTest: false,
+      modelType: "default" as any,
+      logger,
+    });
+
+    expect(results[0]?.status).toBe(ExecutedRuleStatus.APPLIED);
   });
 });
 

@@ -547,6 +547,8 @@ async function executeMatchedRule(
     ]);
   }
 
+  let finalStatus: ExecutedRuleStatus | undefined;
+
   if (executedRule) {
     if (delayedActions?.length > 0) {
       // Cancels existing scheduled actions to avoid duplicates
@@ -568,7 +570,7 @@ async function executeMatchedRule(
 
     // Execute immediate actions if any
     if (immediateActions?.length > 0) {
-      await executeAct({
+      finalStatus = await executeAct({
         client,
         emailAccount: {
           email: emailAccount.email,
@@ -589,6 +591,7 @@ async function executeMatchedRule(
           }),
         { logger },
       );
+      finalStatus = ExecutedRuleStatus.APPLIED;
     }
   }
 
@@ -600,6 +603,7 @@ async function executeMatchedRule(
     executedRule,
     reason,
     matchReasons,
+    status: finalStatus,
     createdAt: batchTimestamp,
   };
 }
