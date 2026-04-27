@@ -15,7 +15,7 @@ import { env } from "@/env";
 import {
   PencilIcon,
   TrashIcon,
-  MailIcon,
+  InboxIcon,
   ZapIcon,
   ChevronRightIcon,
 } from "lucide-react";
@@ -443,7 +443,7 @@ export function RuleForm({
         </div>
 
         <RuleSectionCard
-          icon={MailIcon}
+          icon={InboxIcon}
           color="blue"
           title="When I get an email"
           className="!mt-6"
