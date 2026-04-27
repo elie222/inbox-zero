@@ -45,6 +45,7 @@ import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-ad
 import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import { quotePlainTextContent } from "@/utils/email/quoted-plain-text";
 import { formatReplySubject } from "@/utils/email/subject";
+import { emailToContent } from "@/utils/mail";
 import { extractDraftPlainText } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
 import he from "he";
@@ -1668,8 +1669,21 @@ function buildEmailSummary(email: {
   ].join("\n");
 }
 
-function buildEmailPreview(email: { snippet: string; textPlain?: string }) {
-  const rawPreview = email.textPlain || email.snippet || "";
+function buildEmailPreview(email: {
+  snippet: string;
+  textPlain?: string;
+  textHtml?: string;
+}) {
+  const rawPreview =
+    email.textPlain ||
+    (email.textHtml
+      ? emailToContent(
+          { textHtml: email.textHtml, textPlain: "", snippet: "" },
+          { maxLength: 0 },
+        )
+      : "") ||
+    email.snippet ||
+    "";
   const preview = escapeSlackText(
     removeExcessiveWhitespace(he.decode(rawPreview)).trim(),
   );
