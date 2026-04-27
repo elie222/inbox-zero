@@ -199,7 +199,7 @@ const draftSchema = z.object({
   confidence: z
     .nativeEnum(DraftReplyConfidence)
     .describe(
-      "Required value: ALL_EMAILS, STANDARD, or HIGH_CONFIDENCE. Use ALL_EMAILS when uncertain or context is missing, STANDARD for solid drafts with minor uncertainty, and HIGH_CONFIDENCE only when intent and response are clear.",
+      "Required value: ALL_EMAILS, STANDARD, or HIGH_CONFIDENCE. Use ALL_EMAILS when uncertain, context is missing, or the draft must ask/check/follow up because requested facts are unavailable. Use STANDARD for solid drafts with minor uncertainty. Use HIGH_CONFIDENCE only when the sender's intent and the complete factual response are clear from the provided context.",
     ),
 });
 
@@ -433,7 +433,7 @@ Do not suggest specific times. Acknowledge the request and suggest alternatives 
     parts.push(`Available time slots:
 ${times}
 
-${calendarBookingLink ? "Lead with the booking link, then optionally suggest a few of these times as alternatives." : "When the sender is asking to schedule, respond concretely using these time slots. If they appear stale relative to today's date, say that and ask for updated availability instead of ignoring the scheduling request."} Format suggested times as a bulleted list.`);
+${calendarBookingLink ? "Lead with the booking link, then optionally suggest a few of these times as alternatives." : "When the sender is asking to schedule, respond concretely using these time slots. Treat supplied slots on or after today's date as valid; only ask for updated availability if every supplied slot is before today's date."} Format suggested times as a bulleted list.`);
   }
 
   if (parts.length === 0) return "";
