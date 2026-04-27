@@ -332,7 +332,7 @@ export function ConditionSteps({
 
         return (
           <div
-            className={`pl-3 ${shouldIndent ? "ml-14" : ""}`}
+            className={shouldIndent ? "ml-14" : undefined}
             key={condition.id}
           >
             <RuleStep
