@@ -171,6 +171,16 @@ export async function executeAutomationJobRun({
       return new Response("Messaging channel disconnected", { status: 200 });
     }
 
+    const route = getMessagingRoute(
+      run.automationJob.messagingChannel.routes,
+      MessagingRoutePurpose.SCHEDULED_CHECK_INS,
+    );
+    if (!route) {
+      throw new AutomationJobConfigurationError(
+        "Scheduled check-in destination is not configured",
+      );
+    }
+
     const provider =
       run.automationJob.messagingChannel.emailAccount.account.provider;
     if (!provider) {
@@ -191,10 +201,6 @@ export async function executeAutomationJobRun({
       emailAccount: run.automationJob.messagingChannel.emailAccount,
       logger: runLogger,
     });
-    const route = getMessagingRoute(
-      run.automationJob.messagingChannel.routes,
-      MessagingRoutePurpose.RULE_NOTIFICATIONS,
-    );
 
     const messagingResult = await sendAutomationMessage({
       channel: run.automationJob.messagingChannel,

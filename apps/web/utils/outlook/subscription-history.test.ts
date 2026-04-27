@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   parseSubscriptionHistory,
-  createHistoryEntry,
   cleanupOldHistoryEntries,
   isSubscriptionInHistory,
   addCurrentSubscriptionToHistory,
@@ -55,22 +54,6 @@ describe("subscription-history", () => {
     it("should handle non-array input", () => {
       const result = parseSubscriptionHistory({ not: "an array" });
       expect(result).toEqual([]);
-    });
-  });
-
-  describe("createHistoryEntry", () => {
-    it("should create a valid history entry", () => {
-      const entry = createHistoryEntry(
-        "sub-123",
-        "2024-01-01T00:00:00Z",
-        "2024-01-05T00:00:00Z",
-      );
-
-      expect(entry).toEqual({
-        subscriptionId: "sub-123",
-        createdAt: "2024-01-01T00:00:00Z",
-        replacedAt: "2024-01-05T00:00:00Z",
-      });
     });
   });
 

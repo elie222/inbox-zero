@@ -41,7 +41,7 @@ test("google emulator completes onboarding and reaches app pages", async ({
     })
     .toContain(APP_BASE_URL);
 
-  await page.goto("/onboarding?step=1&force=true");
+  await page.goto("/onboarding?step=welcome&force=true");
 
   await expect
     .poll(() => isOnboardingPage(page.url()), {
@@ -56,7 +56,7 @@ test("google emulator completes onboarding and reaches app pages", async ({
 });
 
 async function completeOnboardingFlow(page: Page) {
-  const maxSteps = 60;
+  const maxSteps = 20;
 
   for (let step = 0; step < maxSteps; step++) {
     const currentUrl = page.url();
@@ -64,62 +64,7 @@ async function completeOnboardingFlow(page: Page) {
       return;
     }
 
-    if (
-      await clickIfVisible(
-        page,
-        page.getByRole("button", { name: /^Founder\b/ }),
-        1000,
-      )
-    ) {
-      await waitForOnboardingUpdate(page, currentUrl, 10_000);
-      await clickIfVisible(
-        page,
-        page.getByRole("button", { name: /^Continue\b/ }),
-        5000,
-      );
-      continue;
-    }
-
-    if (
-      await clickIfVisible(
-        page,
-        page.getByRole("button", { name: "Only me" }),
-        1000,
-      )
-    ) {
-      await waitForOnboardingUpdate(page, currentUrl, 10_000);
-      continue;
-    }
-
-    if (
-      await clickIfVisible(
-        page,
-        page.getByRole("button", { name: "No, thanks" }),
-        1000,
-      )
-    ) {
-      await waitForOnboardingUpdate(page, currentUrl, 10_000);
-      continue;
-    }
-
-    if (
-      await clickIfVisible(
-        page,
-        page.getByRole("button", { name: "Skip" }),
-        1000,
-      )
-    ) {
-      await waitForOnboardingUpdate(page, currentUrl, 10_000);
-      continue;
-    }
-
-    if (
-      await clickIfVisible(
-        page,
-        page.getByRole("button", { name: /^Continue\b/ }),
-        5000,
-      )
-    ) {
+    if (await completeCurrentOnboardingStep(page, currentUrl)) {
       await waitForOnboardingUpdate(page, currentUrl, 10_000);
       continue;
     }
@@ -130,6 +75,104 @@ async function completeOnboardingFlow(page: Page) {
   if (isOnboardingPage(page.url())) {
     throw new Error(`Unable to complete onboarding from URL: ${page.url()}`);
   }
+}
+
+async function completeCurrentOnboardingStep(page: Page, currentUrl: string) {
+  if (
+    await clickStepButton(page, "What do you do?", /^Founder\b/, currentUrl)
+  ) {
+    return clickIfVisible(
+      page,
+      page.getByRole("button", { name: /^Continue\b/ }),
+      5000,
+    );
+  }
+
+  const stepActions = [
+    {
+      heading: "Get to know Inbox Zero",
+      button: /^Continue\b/,
+    },
+    {
+      heading: "Your inbox, automatically sorted",
+      button: /^Continue\b/,
+    },
+    {
+      heading: "A chat that runs your email",
+      button: /^Continue\b/,
+    },
+    {
+      heading: "Drafts ready to send",
+      button: /^Continue\b/,
+    },
+    {
+      heading: "Bulk unsubscribe and archive",
+      button: /^Continue\b/,
+    },
+    {
+      heading: "What's the size of your company?",
+      button: "Only me",
+    },
+    {
+      heading: "How did you hear about Inbox Zero?",
+      button: "Search",
+    },
+    {
+      heading: "How do you want your inbox organized?",
+      button: /^Continue\b/,
+    },
+    {
+      heading: "Should we draft replies for you?",
+      button: "No, thanks",
+    },
+    {
+      heading: "Custom rules",
+      button: /^Continue\b/,
+    },
+    {
+      heading: "Invite your team",
+      button: "Skip",
+    },
+    {
+      heading: "Labels and drafts are ready",
+      button: /^Continue\b/,
+    },
+  ] satisfies { heading: string; button: string | RegExp }[];
+
+  for (const { heading, button } of stepActions) {
+    if (await clickStepButton(page, heading, button, currentUrl)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+async function clickStepButton(
+  page: Page,
+  heading: string,
+  button: string | RegExp,
+  currentUrl: string,
+) {
+  if (
+    !(await waitForVisible(page.getByRole("heading", { name: heading }), 250))
+  ) {
+    return false;
+  }
+
+  const clicked = await clickIfVisible(
+    page,
+    page.getByRole("button", { name: button }),
+    5000,
+  );
+
+  if (!clicked) {
+    throw new Error(
+      `Unable to complete onboarding step "${heading}" from URL: ${currentUrl}`,
+    );
+  }
+
+  return true;
 }
 
 async function clickIfVisible(page: Page, locator: Locator, timeout: number) {

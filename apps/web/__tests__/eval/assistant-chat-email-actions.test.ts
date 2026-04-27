@@ -75,6 +75,33 @@ const scenarios: EvalScenario[] = [
   },
   {
     title:
+      "uses replyEmail instead of fabricated inline email markup when explaining and drafting a missed reply",
+    reportName: "missed reply explanation still uses replyEmail",
+    prompt:
+      "Why didn't you draft a reply to the email from ops@partner.example? Draft one now saying Tuesday at 2pm works for me.",
+    searchMessages: [
+      getMockMessage({
+        id: "msg-reply-1",
+        threadId: "thread-reply-1",
+        from: "ops@partner.example",
+        subject: "Question on the revised plan",
+        snippet: "Can you send your answer today?",
+        labelIds: ["UNREAD"],
+      }),
+    ],
+    expectation: {
+      kind: "reply_email",
+      searchExpectation:
+        "A search query focused on finding the email from ops@partner.example about the revised plan.",
+      messageId: "msg-reply-1",
+      contentExpectation:
+        "Reply content that clearly says Tuesday at 2pm works for the sender.",
+      disallowedTools: ["sendEmail"],
+      forbidInlineEmailMarkup: true,
+    },
+  },
+  {
+    title:
       "uses searchInbox then forwardEmail for forwarding an existing message",
     reportName: "forward uses search then forwardEmail",
     prompt:

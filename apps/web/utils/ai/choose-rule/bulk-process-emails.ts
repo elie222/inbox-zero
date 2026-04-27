@@ -36,7 +36,9 @@ export async function bulkProcessInboxEmails({
           emailAccountId: emailAccount.id,
           enabled: true,
         },
-        include: { actions: true },
+        include: {
+          actions: true,
+        },
       }),
     ]);
 

@@ -12,10 +12,35 @@ import {
   SectionSubtitle,
 } from "@/components/new-landing/common/Typography";
 
-const platforms = [
-  { name: "Slack", src: "/images/slack.svg" },
-  { name: "Telegram", src: "/images/telegram.svg" },
-] as const;
+const platforms: {
+  name: string;
+  icon: React.ReactNode;
+  comingSoon?: boolean;
+}[] = [
+  {
+    name: "Slack",
+    icon: (
+      <Image src="/images/slack.svg" alt="Slack" width={56} height={56} />
+    ),
+  },
+  {
+    name: "Telegram",
+    icon: (
+      <Image src="/images/telegram.svg" alt="Telegram" width={56} height={56} />
+    ),
+  },
+  {
+    name: "Teams",
+    icon: (
+      <Image src="/images/teams.png" alt="Teams" width={56} height={56} />
+    ),
+    comingSoon: true,
+  },
+  {
+    name: "Web",
+    icon: <Globe className="size-10 text-gray-600" strokeWidth={1.5} />,
+  },
+];
 
 export function ManageFromAnywhere() {
   return (
@@ -31,20 +56,6 @@ export function ManageFromAnywhere() {
             {platforms.map((platform) => (
               <PlatformIcon key={platform.name} {...platform} />
             ))}
-            <PlatformIcon name="Teams" src="/images/teams.png" comingSoon />
-            <div className="flex flex-col items-center gap-3">
-              <CardWrapper padding="xs-2" rounded="full">
-                <Card variant="circle">
-                  <div className="p-4">
-                    <Globe
-                      className="size-12 text-gray-600"
-                      strokeWidth={1.5}
-                    />
-                  </div>
-                </Card>
-              </CardWrapper>
-              <span className="text-sm font-medium text-gray-500">Web</span>
-            </div>
           </div>
         </BlurFade>
       </SectionContent>
@@ -54,20 +65,18 @@ export function ManageFromAnywhere() {
 
 function PlatformIcon({
   name,
-  src,
+  icon,
   comingSoon,
 }: {
   name: string;
-  src: string;
+  icon: React.ReactNode;
   comingSoon?: boolean;
 }) {
   return (
     <div className="flex flex-col items-center gap-3">
       <CardWrapper padding="xs-2" rounded="full">
         <Card variant="circle">
-          <div className="p-3">
-            <Image src={src} alt={name} width={56} height={56} />
-          </div>
+          <div className="flex size-20 items-center justify-center">{icon}</div>
         </Card>
       </CardWrapper>
       <span className="text-sm font-medium text-gray-500">{name}</span>

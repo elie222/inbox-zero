@@ -20,6 +20,7 @@ vi.mock("next/server", async (importOriginal) => {
 vi.mock("@sentry/nextjs", () => ({
   setTag: vi.fn(),
   setUser: vi.fn(),
+  captureException: vi.fn(),
   withServerActionInstrumentation: vi.fn(
     async (_name: string, callback: () => Promise<unknown>) => callback(),
   ),
@@ -48,9 +49,9 @@ describe("updateEmailAccountRoleAction", () => {
         provider: "google",
       },
     } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
-    prisma.$transaction.mockImplementation(async (operations) => {
-      return Promise.all(operations as Promise<unknown>[]);
-    });
+    prisma.$transaction.mockImplementation(async (operations) =>
+      Promise.all(operations as Promise<unknown>[]),
+    );
     prisma.emailAccount.update.mockResolvedValue({
       id: "email-account-1",
     } as any);
@@ -79,5 +80,16 @@ describe("updateEmailAccountRoleAction", () => {
       email: "user@example.com",
       role: "Founder",
     });
+  });
+
+  it("does not schedule the Loops role update when the DB transaction fails", async () => {
+    prisma.$transaction.mockRejectedValue(new Error("db down"));
+
+    const result = await updateEmailAccountRoleAction("email-account-1", {
+      role: "Founder",
+    });
+
+    expect(result?.serverError).toBeDefined();
+    expect(updateContactRoleMock).not.toHaveBeenCalled();
   });
 });

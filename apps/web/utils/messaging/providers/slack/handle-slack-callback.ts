@@ -279,7 +279,7 @@ function parseAndValidateSlackState(
   const validationResult = slackOAuthStateSchema.safeParse(rawState);
   if (!validationResult.success) {
     logger.error("State validation failed", {
-      errors: validationResult.error.errors,
+      errors: validationResult.error.issues,
     });
     redirectUrl.searchParams.set("error", "invalid_state_format");
     throw new RedirectError(redirectUrl, responseHeaders);

@@ -26,7 +26,7 @@ export const POST = withEmailAccount(
 
     const { data, error } = confirmAssistantEmailActionBody.safeParse(json);
     if (error) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      return NextResponse.json({ error: error.issues }, { status: 400 });
     }
 
     const result = await confirmAssistantEmailActionForAccount({
@@ -35,6 +35,7 @@ export const POST = withEmailAccount(
       toolCallId: data.toolCallId,
       actionType: data.actionType,
       contentOverride: data.contentOverride,
+      waitForPersistence: true,
       emailAccountId,
       provider: user.account.provider,
       logger: request.logger,

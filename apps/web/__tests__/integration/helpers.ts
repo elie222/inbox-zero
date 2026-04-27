@@ -9,6 +9,7 @@
 import { createEmulator, type Emulator } from "emulate";
 import { gmail, auth } from "@googleapis/gmail";
 import { Client } from "@microsoft/microsoft-graph-client";
+import { createServer } from "node:net";
 import { createTestLogger } from "@/__tests__/helpers";
 import { GmailProvider } from "@/utils/email/google";
 import { OutlookProvider } from "@/utils/email/microsoft";
@@ -77,13 +78,14 @@ export async function createGmailTestHarness({
   email,
   messages,
 }: {
-  port: number;
+  port?: number;
   email: string;
   messages: GmailSeedMessage[];
 }): Promise<GmailTestHarness> {
+  const emulatorPort = port ?? (await getAvailablePort());
   const emulator = await createEmulator({
     service: "google",
-    port,
+    port: emulatorPort,
     seed: {
       google: {
         users: [{ email, name: "Test User" }],
@@ -141,14 +143,15 @@ export async function createOutlookTestHarness({
   messages,
   categories,
 }: {
-  port: number;
+  port?: number;
   email: string;
   messages: OutlookSeedMessage[];
   categories?: Array<{ display_name: string; color?: string }>;
 }): Promise<OutlookTestHarness> {
+  const emulatorPort = port ?? (await getAvailablePort());
   const emulator = await createEmulator({
     service: "microsoft",
-    port,
+    port: emulatorPort,
     seed: {
       microsoft: {
         users: [{ email, name: "Test User" }],
@@ -215,4 +218,30 @@ export async function createOutlookTestHarness({
   const provider = new OutlookProvider(outlookClient, logger);
 
   return { emulator, graphClient, provider, restoreFetch };
+}
+
+async function getAvailablePort() {
+  return new Promise<number>((resolve, reject) => {
+    const server = createServer();
+
+    server.unref();
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        if (typeof address === "object" && address?.port) {
+          resolve(address.port);
+          return;
+        }
+
+        reject(new Error("Failed to allocate an emulator port"));
+      });
+    });
+  });
 }

@@ -2,7 +2,6 @@ import type { ParsedMessage } from "@/utils/types";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
 import type { OutlookFolder } from "@/utils/outlook/folders";
-import type { Logger } from "@/utils/logger";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 
 export interface EmailThread {
@@ -102,7 +101,13 @@ export interface EmailProvider {
   ): Promise<{ draftId: string }>;
   forwardEmail(
     email: ParsedMessage,
-    args: { to: string; cc?: string; bcc?: string; content?: string },
+    args: {
+      to: string;
+      cc?: string;
+      bcc?: string;
+      content?: string;
+      from?: string;
+    },
   ): Promise<void>;
   getAccessToken(): string;
   getAttachment(

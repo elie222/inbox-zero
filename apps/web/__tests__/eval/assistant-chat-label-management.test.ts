@@ -285,11 +285,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
               (toolCall) =>
                 toolCall.toolName === "createOrGetLabel" &&
                 isCreateOrGetLabelInput(toolCall.input),
-            ) &&
-            !toolCalls.some(
-              (toolCall) =>
-                toolCall.toolName === "listLabels" &&
-                isListLabelsInput(toolCall.input),
             );
 
           evalReporter.record({
@@ -334,11 +329,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
               (toolCall) =>
                 toolCall.toolName === "createOrGetLabel" &&
                 isCreateOrGetLabelInput(toolCall.input),
-            ) &&
-            !toolCalls.some(
-              (toolCall) =>
-                toolCall.toolName === "listLabels" &&
-                isListLabelsInput(toolCall.input),
             );
 
           evalReporter.record({

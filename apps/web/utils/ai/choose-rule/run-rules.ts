@@ -25,6 +25,7 @@ import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
 import { filterNullProperties } from "@/utils";
 import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
+import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
 import {
   scheduleDelayedActions,
   cancelScheduledActions,
@@ -126,13 +127,20 @@ export async function runRules({
     logger,
   });
 
+  const calendarAwareMatches = ensureConversationRuleForAiCalendarMatch({
+    conversationRules,
+    regularRules,
+    matches: results.matches,
+    logger,
+  });
+
   // Auto-reapply conversation tracking for thread continuity
   const conversationAwareMatches = await ensureConversationRuleContinuity({
     emailAccountId: emailAccount.id,
     threadId: message.threadId,
     conversationRules,
     regularRules,
-    matches: results.matches,
+    matches: calendarAwareMatches,
     logger,
   });
 
@@ -296,6 +304,60 @@ function prepareRulesWithMetaRule(rules: RuleWithActions[]): {
   return { regularRules, conversationRules };
 }
 
+export function ensureConversationRuleForAiCalendarMatch<
+  T extends { rule: RuleWithActions; matchReasons?: MatchReason[] },
+>({
+  conversationRules,
+  regularRules,
+  matches,
+  logger,
+}: {
+  conversationRules: RuleWithActions[];
+  regularRules: RuleWithActions[];
+  matches: T[];
+  logger: Logger;
+}): T[] {
+  if (!conversationRules.some((rule) => rule.enabled)) {
+    return matches;
+  }
+
+  const hasAiCalendarMatch = matches.some(
+    (match) =>
+      match.rule.systemType === SystemType.CALENDAR &&
+      !match.matchReasons?.some(
+        (reason) =>
+          reason.type === ConditionType.PRESET &&
+          reason.systemType === SystemType.CALENDAR,
+      ) &&
+      match.matchReasons?.some((reason) => reason.type === ConditionType.AI),
+  );
+
+  if (!hasAiCalendarMatch) {
+    return matches;
+  }
+
+  if (matches.some((match) => isConversationRule(match.rule.id))) {
+    return matches;
+  }
+
+  const metaRule = regularRules.find((rule) => isConversationRule(rule.id));
+  if (!metaRule) {
+    return matches;
+  }
+
+  logger.info("Adding conversation meta rule for AI-selected calendar match", {
+    module: MODULE,
+  });
+
+  return [
+    ...matches,
+    {
+      rule: metaRule,
+      matchReasons: [{ type: ConditionType.STATIC }],
+    } as T,
+  ];
+}
+
 async function executeMatchedRule(
   rule: RuleWithActions,
   message: ParsedMessage,
@@ -439,6 +501,13 @@ async function executeMatchedRule(
     { logger },
   );
 
+  after(() =>
+    trackFirstTimeEvent({
+      emailAccountId: emailAccount.id,
+      event: FIRST_TIME_EVENTS.FIRST_AUTOMATED_RULE_RUN,
+    }),
+  );
+
   if (rule.systemType === SystemType.COLD_EMAIL) {
     const from =
       extractEmailAddress(message.headers.from) || message.headers.from;
@@ -496,10 +565,12 @@ async function executeMatchedRule(
     if (immediateActions?.length > 0) {
       await executeAct({
         client,
-        userEmail: emailAccount.email,
+        emailAccount: {
+          email: emailAccount.email,
+          id: emailAccount.id,
+          userId: emailAccount.userId,
+        },
         logger,
-        userId: emailAccount.userId,
-        emailAccountId: emailAccount.id,
         executedRule,
         message,
       });

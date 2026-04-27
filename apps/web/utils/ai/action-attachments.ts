@@ -1,41 +1,53 @@
-import type { ExecutedRule } from "@/generated/prisma/client";
 import { AttachmentSourceType } from "@/generated/prisma/enums";
 import {
   type SelectedAttachment,
   attachmentSourceInputSchema,
 } from "@/utils/attachments/source-schema";
 import { resolveDraftAttachments } from "@/utils/attachments/draft-attachments";
-import type { ActionItem, EmailForAction } from "@/utils/ai/types";
+import prisma from "@/utils/prisma";
+import type {
+  ActionExecutionEmailAccount,
+  ActionItem,
+  EmailForAction,
+  ExecutedRuleForAction,
+} from "@/utils/ai/types";
 import type { Logger } from "@/utils/logger";
 import { getReplyWithConfidence } from "@/utils/redis/reply";
 
 export async function resolveActionAttachments({
   email,
-  emailAccountId,
+  emailAccount,
   executedRule,
-  userId,
   logger,
   staticAttachments,
   includeAiSelectedAttachments,
 }: {
   email: EmailForAction;
-  emailAccountId: string;
-  executedRule: ExecutedRule;
-  userId: string;
+  emailAccount: ActionExecutionEmailAccount;
+  executedRule: ExecutedRuleForAction;
   logger: Logger;
   staticAttachments?: ActionItem["staticAttachments"];
   includeAiSelectedAttachments: boolean;
 }) {
+  const staticSelectedAttachments = parseStaticAttachments(staticAttachments);
+
+  if (
+    staticSelectedAttachments.length === 0 &&
+    (!includeAiSelectedAttachments || !executedRule.ruleId)
+  ) {
+    return [];
+  }
+
   const [aiSelectedAttachments, staticSelected] = await Promise.all([
     includeAiSelectedAttachments
       ? getDraftSelectedAttachments({
           email,
-          emailAccountId,
+          emailAccountId: emailAccount.id,
           executedRule,
           logger,
         })
       : Promise.resolve([]),
-    Promise.resolve(parseStaticAttachments(staticAttachments)),
+    Promise.resolve(staticSelectedAttachments),
   ]);
 
   const allSelected = [
@@ -50,8 +62,8 @@ export async function resolveActionAttachments({
   if (allSelected.length === 0) return [];
 
   const attachments = await resolveDraftAttachments({
-    emailAccountId,
-    userId,
+    emailAccountId: emailAccount.id,
+    userId: emailAccount.userId,
     selectedAttachments: allSelected,
     logger,
   });
@@ -75,10 +87,17 @@ async function getDraftSelectedAttachments({
 }: {
   email: EmailForAction;
   emailAccountId: string;
-  executedRule: ExecutedRule;
+  executedRule: ExecutedRuleForAction;
   logger: Logger;
 }): Promise<SelectedAttachment[]> {
   if (!executedRule.ruleId) return [];
+
+  const attachmentSource = await prisma.attachmentSource.findFirst({
+    where: { ruleId: executedRule.ruleId },
+    select: { id: true },
+  });
+
+  if (!attachmentSource) return [];
 
   const cachedDraft = await getReplyWithConfidence({
     emailAccountId,

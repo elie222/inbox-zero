@@ -108,7 +108,15 @@ function addHeaderRecipientsToCcSet({
 
   const headerEmails = splitRecipientList(headerValue)
     .map((entry) => extractEmailAddress(entry))
-    .filter((email) => email && email !== replyTo && email !== currentUser);
+    .filter((email) => {
+      if (!email) return false;
+
+      const normalizedEmail = email.toLowerCase();
+      return (
+        normalizedEmail !== replyTo.toLowerCase() &&
+        normalizedEmail !== currentUser.toLowerCase()
+      );
+    });
 
   for (const email of headerEmails) {
     const key = email.toLowerCase();

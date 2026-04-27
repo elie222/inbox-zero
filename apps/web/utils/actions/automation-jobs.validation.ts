@@ -8,6 +8,7 @@ export type ToggleAutomationJobBody = z.infer<typeof toggleAutomationJobBody>;
 export const saveAutomationJobBody = z.object({
   cronExpression: z.string().trim().min(1),
   messagingChannelId: z.string().cuid(),
+  scheduledCheckInsTargetId: z.string().trim().min(1).nullish(),
   prompt: z.string().max(4000).nullish(),
 });
 export type SaveAutomationJobBody = z.infer<typeof saveAutomationJobBody>;

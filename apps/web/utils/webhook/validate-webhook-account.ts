@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
-import { hasAiAccess, isPremiumRecord } from "@/utils/premium";
+import {
+  getUserTier,
+  hasAiAccess,
+  isPremiumRecord,
+  premiumEntitlementSelect,
+} from "@/utils/premium";
 import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
@@ -45,7 +50,9 @@ const webhookEmailAccountSelect = {
   },
   rules: {
     where: { enabled: true },
-    include: { actions: true },
+    include: {
+      actions: true,
+    },
   },
   user: {
     select: {
@@ -53,14 +60,7 @@ const webhookEmailAccountSelect = {
       aiModel: true,
       aiApiKey: true,
       premium: {
-        select: {
-          appleExpiresAt: true,
-          appleRevokedAt: true,
-          appleSubscriptionStatus: true,
-          lemonSqueezyRenewsAt: true,
-          stripeSubscriptionStatus: true,
-          tier: true,
-        },
+        select: premiumEntitlementSelect,
       },
     },
   },
@@ -164,7 +164,7 @@ export async function cleanupWebhookAccountOnRateLimitSkip(
 
   const premium = getWebhookAccountPremium(emailAccount);
   const userHasAiAccess = hasAiAccess(
-    premium?.tier || null,
+    getUserTier(premium),
     !!emailAccount.user.aiApiKey,
   );
   const shouldUnwatch =
@@ -249,14 +249,12 @@ export async function validateWebhookAccount(
     return { success: false, response: NextResponse.json({ ok: true }) };
   }
 
-  const userHasAiAccess = hasAiAccess(
-    premium.tier,
-    !!emailAccount.user.aiApiKey,
-  );
+  const tier = getUserTier(premium);
+  const userHasAiAccess = hasAiAccess(tier, !!emailAccount.user.aiApiKey);
 
   if (!userHasAiAccess) {
     logger.info("Does not have ai access - unwatching", {
-      tier: premium.tier,
+      tier,
       hasApiKey: !!emailAccount.user.aiApiKey,
     });
     await unwatchEmails({
@@ -299,7 +297,16 @@ function getWebhookAccountPremium(
   emailAccount: NonNullable<ValidatedWebhookAccountData>,
 ) {
   return env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS
-    ? { tier: "PROFESSIONAL_ANNUALLY" as const }
+    ? {
+        tier: "PROFESSIONAL_ANNUALLY" as const,
+        stripeSubscriptionStatus: "active",
+        lemonSqueezyRenewsAt: null,
+        appleSubscriptionStatus: null,
+        appleExpiresAt: null,
+        appleRevokedAt: null,
+        adminGrantExpiresAt: null,
+        adminGrantTier: null,
+      }
     : isPremiumRecord(emailAccount.user.premium)
       ? emailAccount.user.premium
       : undefined;

@@ -2,6 +2,7 @@ import { RedisSubscriber } from "@/utils/redis/subscriber";
 import { withAuth } from "@/utils/middleware";
 import { NextResponse } from "next/server";
 import { getEmailAccount } from "@/utils/redis/account-validation";
+import { assertCleanerApiEnabled } from "@/utils/cleaner-feature";
 
 export const maxDuration = 300;
 
@@ -9,6 +10,8 @@ export const maxDuration = 300;
 const INACTIVITY_TIMEOUT = 5 * 60 * 1000;
 
 export const GET = withAuth("email-stream", async (request) => {
+  assertCleanerApiEnabled();
+
   const { userId } = request.auth;
 
   const url = new URL(request.url);
@@ -35,7 +38,7 @@ export const GET = withAuth("email-stream", async (request) => {
   });
 
   const pattern = `thread:${emailAccountId}:*`;
-  const redisSubscriber = RedisSubscriber.getInstance();
+  const redisSubscriber = RedisSubscriber.createInstance();
 
   redisSubscriber.psubscribe(pattern, (err) => {
     if (err)
@@ -60,6 +63,7 @@ export const GET = withAuth("email-stream", async (request) => {
     async start(controller) {
       let inactivityTimer: NodeJS.Timeout;
       let isControllerClosed = false;
+      let isCleanedUp = false;
 
       const resetInactivityTimer = () => {
         if (inactivityTimer) clearTimeout(inactivityTimer);
@@ -71,40 +75,52 @@ export const GET = withAuth("email-stream", async (request) => {
             isControllerClosed = true;
             controller.close();
           }
-          redisSubscriber.punsubscribe(pattern);
+          cleanup();
         }, INACTIVITY_TIMEOUT);
+      };
+
+      const handleMessage = (
+        matchedPattern: string,
+        _channel: string,
+        message: string,
+      ) => {
+        if (matchedPattern !== pattern || isControllerClosed) return;
+
+        try {
+          controller.enqueue(
+            encoder.encode(`event: thread\ndata: ${message}\n\n`),
+          );
+          resetInactivityTimer();
+        } catch (error) {
+          request.logger.error("Error enqueueing message", { error });
+          isControllerClosed = true;
+          cleanup();
+        }
+      };
+
+      const cleanup = () => {
+        if (isCleanedUp) return;
+
+        isCleanedUp = true;
+        clearTimeout(inactivityTimer);
+        redisSubscriber.off("pmessage", handleMessage);
+        redisSubscriber.disconnect();
       };
 
       // Start initial inactivity timer
       resetInactivityTimer();
 
-      redisSubscriber.on("pmessage", (_pattern, _channel, message) => {
-        // Only enqueue if controller is not closed
-        if (!isControllerClosed) {
-          try {
-            controller.enqueue(
-              encoder.encode(`event: thread\ndata: ${message}\n\n`),
-            );
-            resetInactivityTimer(); // Reset timer on message
-          } catch (error) {
-            request.logger.error("Error enqueueing message", { error });
-            // If we hit an error, mark controller as closed and clean up
-            isControllerClosed = true;
-            redisSubscriber.punsubscribe(pattern);
-          }
-        }
-      });
+      redisSubscriber.on("pmessage", handleMessage);
 
       request.signal.addEventListener("abort", () => {
         request.logger.info("Cleaning up Redis subscription", {
           emailAccountId,
         });
-        clearTimeout(inactivityTimer);
         if (!isControllerClosed) {
           isControllerClosed = true;
           controller.close();
         }
-        redisSubscriber.punsubscribe(pattern);
+        cleanup();
       });
     },
   });

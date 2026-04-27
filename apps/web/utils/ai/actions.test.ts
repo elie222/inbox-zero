@@ -16,6 +16,7 @@ import {
   sendMessagingRuleNotification,
 } from "@/utils/messaging/rule-notifications";
 import type { ParsedMessage } from "@/utils/types";
+import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 vi.mock("server-only", () => ({}));
 
@@ -39,8 +40,24 @@ vi.mock("@/utils/messaging/rule-notifications", () => ({
   sendMessagingRuleNotification: vi.fn().mockResolvedValue(true),
 }));
 
+vi.mock("@/utils/prisma", () => ({
+  default: {
+    attachmentSource: {
+      findFirst: vi.fn().mockResolvedValue({ id: "attachment-source-1" }),
+    },
+    executedAction: {
+      update: vi.fn().mockResolvedValue({}),
+    },
+  },
+}));
+
 describe("runActionFunction", () => {
   const logger = createTestLogger();
+  const emailAccount = {
+    email: "user@example.com",
+    id: "account-1",
+    userId: "user-1",
+  };
   const email = {
     id: "message-1",
     threadId: "thread-1",
@@ -60,6 +77,10 @@ describe("runActionFunction", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.attachmentSource.findFirst).mockResolvedValue({
+      id: "attachment-source-1",
+    });
+    vi.mocked(prisma.executedAction.update).mockResolvedValue({});
     vi.mocked(getMessagingRuleNotificationResult).mockResolvedValue({
       delivered: true,
       kind: "interactive",
@@ -98,9 +119,7 @@ describe("runActionFunction", () => {
         type: ActionType.DRAFT_EMAIL,
         content: "Attached the requested PDF.",
       },
-      userEmail: "user@example.com",
-      userId: "user-1",
-      emailAccountId: "account-1",
+      emailAccount,
       executedRule: {
         id: "executed-rule-1",
         threadId: "thread-1",
@@ -114,6 +133,10 @@ describe("runActionFunction", () => {
       emailAccountId: "account-1",
       messageId: "message-1",
       ruleId: "rule-1",
+    });
+    expect(prisma.attachmentSource.findFirst).toHaveBeenCalledWith({
+      where: { ruleId: "rule-1" },
+      select: { id: true },
     });
 
     expect(resolveDraftAttachments).toHaveBeenCalledWith({
@@ -142,7 +165,7 @@ describe("runActionFunction", () => {
           }),
         ],
       }),
-      "user@example.com",
+      emailAccount.email,
       expect.objectContaining({ id: "executed-rule-1" }),
     );
   });
@@ -160,9 +183,7 @@ describe("runActionFunction", () => {
         type: ActionType.DRAFT_EMAIL,
         content: "Attached the requested PDF.",
       },
-      userEmail: "user@example.com",
-      userId: "user-1",
-      emailAccountId: "account-1",
+      emailAccount,
       executedRule: {
         id: "executed-rule-1",
         threadId: "thread-1",
@@ -180,7 +201,7 @@ describe("runActionFunction", () => {
         content: "Attached the requested PDF.",
         attachments: [],
       }),
-      "user@example.com",
+      emailAccount.email,
       expect.objectContaining({ id: "executed-rule-1" }),
     );
   });
@@ -197,9 +218,7 @@ describe("runActionFunction", () => {
         messagingChannelId: "channel-1",
         content: "Draft in chat",
       },
-      userEmail: "user@example.com",
-      userId: "user-1",
-      emailAccountId: "account-1",
+      emailAccount,
       executedRule: {
         id: "executed-rule-1",
         threadId: "thread-1",
@@ -229,9 +248,7 @@ describe("runActionFunction", () => {
         messagingChannelId: "channel-1",
         content: "Draft in chat",
       },
-      userEmail: "user@example.com",
-      userId: "user-1",
-      emailAccountId: "account-1",
+      emailAccount,
       executedRule: {
         id: "executed-rule-1",
         threadId: "thread-1",
@@ -261,9 +278,7 @@ describe("runActionFunction", () => {
         messagingChannelId: "channel-1",
         content: "Draft in chat",
       },
-      userEmail: "user@example.com",
-      userId: "user-1",
-      emailAccountId: "account-1",
+      emailAccount,
       executedRule: {
         id: "executed-rule-1",
         threadId: "thread-1",
@@ -293,9 +308,7 @@ describe("runActionFunction", () => {
         messagingChannelId: "channel-1",
         content: "Draft in chat",
       },
-      userEmail: "user@example.com",
-      userId: "user-1",
-      emailAccountId: "account-1",
+      emailAccount,
       executedRule: {
         id: "executed-rule-1",
         threadId: "thread-1",
@@ -323,9 +336,7 @@ describe("runActionFunction", () => {
           messagingChannelId: "channel-1",
           content: "Draft in chat",
         },
-        userEmail: "user@example.com",
-        userId: "user-1",
-        emailAccountId: "account-1",
+        emailAccount,
         executedRule: {
           id: "executed-rule-1",
           threadId: "thread-1",
@@ -348,9 +359,7 @@ describe("runActionFunction", () => {
         type: ActionType.NOTIFY_MESSAGING_CHANNEL,
         messagingChannelId: "channel-1",
       },
-      userEmail: "user@example.com",
-      userId: "user-1",
-      emailAccountId: "account-1",
+      emailAccount,
       executedRule: {
         id: "executed-rule-1",
         threadId: "thread-1",
@@ -379,9 +388,7 @@ describe("runActionFunction", () => {
           type: ActionType.NOTIFY_MESSAGING_CHANNEL,
           messagingChannelId: null,
         },
-        userEmail: "user@example.com",
-        userId: "user-1",
-        emailAccountId: "account-1",
+        emailAccount,
         executedRule: {
           id: "executed-rule-1",
           threadId: "thread-1",
@@ -421,9 +428,7 @@ describe("runActionFunction", () => {
           },
         ],
       },
-      userEmail: "user@example.com",
-      userId: "user-1",
-      emailAccountId: "account-1",
+      emailAccount,
       executedRule: {
         id: "executed-rule-1",
         threadId: "thread-1",
@@ -491,9 +496,7 @@ describe("runActionFunction", () => {
           },
         ],
       },
-      userEmail: "user@example.com",
-      userId: "user-1",
-      emailAccountId: "account-1",
+      emailAccount,
       executedRule: {
         id: "executed-rule-1",
         threadId: "thread-1",
@@ -530,5 +533,36 @@ describe("runActionFunction", () => {
         ],
       }),
     );
+  });
+
+  it("skips cache lookup when drafts have no attachment sources", async () => {
+    const client = createMockEmailProvider();
+    vi.mocked(prisma.attachmentSource.findFirst).mockResolvedValue(null);
+
+    await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.DRAFT_EMAIL,
+        content: "No attachments.",
+      },
+      emailAccount,
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(getReplyWithConfidence).not.toHaveBeenCalled();
+    expect(resolveDraftAttachments).not.toHaveBeenCalled();
+    expect(prisma.attachmentSource.findFirst).toHaveBeenCalledWith({
+      where: { ruleId: "rule-1" },
+      select: { id: true },
+    });
+    expect(client.draftEmail).toHaveBeenCalled();
   });
 });

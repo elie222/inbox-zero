@@ -52,11 +52,15 @@ import {
   isHelpCommand,
 } from "@/utils/messaging/prompt-commands";
 import {
-  handleSlackRuleNotificationAction,
+  handleRuleNotificationAction,
   handleSlackRuleNotificationModalSubmit,
+  RULE_NOTIFICATION_ACTION_IDS,
   SLACK_DRAFT_EDIT_MODAL_ID,
-  SLACK_RULE_NOTIFICATION_ACTION_IDS,
 } from "@/utils/messaging/rule-notifications";
+import {
+  getMessagingChannelTargetRouteWhere,
+  hasMessagingChannelTargetRoute,
+} from "@/utils/messaging/routes";
 import {
   getMessagingAdapterRegistry,
   type MessagingAdapters,
@@ -114,7 +118,6 @@ type SlackCandidate = {
   botUserId: string | null;
   emailAccountId: string;
   routes: Array<{
-    purpose: MessagingRoutePurpose;
     targetId: string;
     targetType: MessagingRouteTargetType;
   }>;
@@ -450,9 +453,9 @@ function registerMessagingHandlers({
     },
   );
 
-  bot.onAction([...SLACK_RULE_NOTIFICATION_ACTION_IDS], async (event) => {
+  bot.onAction([...RULE_NOTIFICATION_ACTION_IDS], async (event) => {
     const handlerLogger = getHandlerLogger();
-    await handleSlackRuleNotificationAction({
+    await handleRuleNotificationAction({
       event,
       logger: handlerLogger,
     });
@@ -934,6 +937,7 @@ async function handlePendingEmailConfirmAction({
       chatMessageId: pendingAction.chatMessageId,
       toolCallId: pendingAction.toolCallId,
       actionType: pendingAction.actionType,
+      waitForPersistence: true,
       emailAccountId: chat.emailAccountId,
       provider: emailAccount.account.provider,
       logger,
@@ -1964,11 +1968,8 @@ async function resolveSlackMessagingContext({
       botUserId: true,
       emailAccountId: true,
       routes: {
-        where: {
-          purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
-        },
+        where: getMessagingChannelTargetRouteWhere(channel),
         select: {
-          purpose: true,
           targetType: true,
           targetId: true,
         },
@@ -1978,11 +1979,7 @@ async function resolveSlackMessagingContext({
 
   if (!teamId && !thread.isDM) {
     candidates = candidates.filter((candidate) =>
-      candidate.routes.some(
-        (route) =>
-          route.targetType === MessagingRouteTargetType.CHANNEL &&
-          route.targetId === channel,
-      ),
+      hasMessagingChannelTargetRoute(candidate.routes, channel),
     );
   }
 
@@ -2350,11 +2347,7 @@ async function resolveSlackMessagingChannel({
 }): Promise<SlackCandidate | null> {
   if (!isDirectMessage) {
     const channelMatch = candidates.find((candidate) =>
-      candidate.routes.some(
-        (route) =>
-          route.targetType === MessagingRouteTargetType.CHANNEL &&
-          route.targetId === channel,
-      ),
+      hasMessagingChannelTargetRoute(candidate.routes, channel),
     );
     if (channelMatch) return channelMatch;
 
