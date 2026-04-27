@@ -29,7 +29,12 @@ vi.mock("@/utils/redis", () => ({
 
 vi.mock("@/utils/prisma");
 
-import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "./posthog";
+import {
+  FIRST_TIME_EVENTS,
+  trackFirstTimeEvent,
+  trackUserDeleted,
+  trackUserDeletionRequested,
+} from "./posthog";
 import { redis } from "@/utils/redis";
 
 describe("trackFirstTimeEvent", () => {
@@ -114,5 +119,35 @@ describe("trackFirstTimeEvent", () => {
     });
 
     expect(captureMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("user deletion events", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("captures deletion requested with an anonymous distinct id", async () => {
+    await trackUserDeletionRequested("user-1");
+
+    expect(captureMock).toHaveBeenCalledWith({
+      distinctId: "anonymous",
+      event: "User deletion requested",
+      properties: { userId: "user-1" },
+      sendFeatureFlags: false,
+    });
+    expect(shutdownMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("captures deletion completed with an anonymous distinct id", async () => {
+    await trackUserDeleted("user-1");
+
+    expect(captureMock).toHaveBeenCalledWith({
+      distinctId: "anonymous",
+      event: "User deleted",
+      properties: { userId: "user-1" },
+      sendFeatureFlags: false,
+    });
+    expect(shutdownMock).toHaveBeenCalledTimes(1);
   });
 });
