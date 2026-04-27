@@ -2013,7 +2013,10 @@ async function resolveSlackMessagingContext({
   if (rawEvent.type === "app_mention") {
     messageText = stripLeadingSlackMention(messageText);
   }
-  messageText = normalizeMessagingUserText({ text: messageText });
+  messageText = normalizeMessagingUserText({
+    text: messageText,
+    convertEmojiOnlyResponses: false,
+  });
 
   const hasUnsupportedAttachments = hasUnsupportedMessagingAttachment({
     provider: "slack",
@@ -2600,8 +2603,16 @@ export function buildAffirmativeReactionMessage({
   });
 }
 
-export function normalizeMessagingUserText({ text }: { text: string }) {
+export function normalizeMessagingUserText({
+  text,
+  convertEmojiOnlyResponses = true,
+}: {
+  text: string;
+  convertEmojiOnlyResponses?: boolean;
+}) {
   const trimmed = text.trim();
+  if (!convertEmojiOnlyResponses) return trimmed;
+
   const emojiResponse = getEmojiOnlyUserResponse(trimmed);
 
   return emojiResponse ?? trimmed;
