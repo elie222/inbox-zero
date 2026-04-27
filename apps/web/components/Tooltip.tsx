@@ -13,6 +13,7 @@ interface TooltipProps {
   content?: string;
   contentComponent?: React.ReactNode;
   hide?: boolean;
+  side?: "top" | "right" | "bottom" | "left";
 }
 
 export const Tooltip = ({
@@ -20,6 +21,7 @@ export const Tooltip = ({
   content,
   contentComponent,
   hide,
+  side,
 }: TooltipProps) => {
   // Make tooltip work on mobile with a click
   const [isOpen, setIsOpen] = useState(false);
@@ -32,7 +34,7 @@ export const Tooltip = ({
         <TooltipTrigger asChild onClick={() => setIsOpen(!isOpen)}>
           {children}
         </TooltipTrigger>
-        <TooltipContent>
+        <TooltipContent side={side}>
           {contentComponent || <p className="max-w-xs">{content}</p>}
         </TooltipContent>
       </ShadcnTooltip>

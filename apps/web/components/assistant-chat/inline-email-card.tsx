@@ -1,12 +1,13 @@
 "use client";
 
-import React, {
+import {
   Children,
   createContext,
   useEffect,
   isValidElement,
   useState,
   useContext,
+  cloneElement,
   type ReactNode,
 } from "react";
 import {
@@ -15,8 +16,16 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   ExternalLinkIcon,
+  InfoIcon,
   MailOpenIcon,
+  MoreVerticalIcon,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useEmailLookup } from "@/components/assistant-chat/email-lookup-context";
 import { useInlineEmailActionContext } from "@/components/assistant-chat/inline-email-action-context";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -27,15 +36,20 @@ import {
 import { normalizeInlineEmailThreadIds } from "@/utils/ai/assistant/inline-email-actions";
 import { getEmailUrlForMessage } from "@/utils/url";
 import { formatShortDate } from "@/utils/date";
+import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
 import { EmailAttachments } from "@/components/email-list/EmailAttachments";
-import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
+import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { useThread } from "@/hooks/useThread";
+import { LoadingMiniSpinner } from "@/components/Loading";
 
 type ActionState = "idle" | "loading" | "done";
+
+const iconButtonClass =
+  "inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
 
 type InlineEmailListState = {
   archivedThreadIds: Set<string>;
@@ -253,21 +267,42 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
               </Tooltip>
             </div>
           )}
-          {children}
+          {numberInlineEmailCards(children)}
         </div>
       )}
     </InlineEmailListContext.Provider>
   );
 }
 
+function numberInlineEmailCards(children: ReactNode): ReactNode {
+  let positional = 0;
+  return Children.map(children, (child) => {
+    if (
+      !isValidElement<{
+        id?: string;
+        threadid?: string;
+        index?: number | string;
+      }>(child)
+    ) {
+      return child;
+    }
+    if (!resolveInlineEmailThreadId(child.props)) return child;
+    positional += 1;
+    if (child.props.index !== undefined) return child;
+    return cloneElement(child, { index: positional });
+  });
+}
+
 export function InlineEmailCard({
   id,
   threadid,
+  index,
   children,
 }: {
   id?: string;
   threadid?: string;
   action?: string;
+  index?: number | string;
   children?: ReactNode;
 }) {
   const emailLookup = useEmailLookup();
@@ -276,12 +311,11 @@ export function InlineEmailCard({
   const { emailAccountId, provider, userEmail } = useAccount();
   const [actionState, setActionState] = useState<ActionState>("idle");
   const [expanded, setExpanded] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const threadId = resolveInlineEmailThreadId({ id, threadid });
 
   const meta = threadId ? emailLookup.get(threadId) : undefined;
   const isArchived = !!threadId && !!listState?.archivedThreadIds.has(threadId);
-  const isMarkedRead = !!threadId && !!listState?.readThreadIds.has(threadId);
-  const isUnread = !!meta?.isUnread && !isMarkedRead && !isArchived;
 
   const externalUrl = threadId
     ? getEmailUrlForMessage(
@@ -292,8 +326,7 @@ export function InlineEmailCard({
       )
     : null;
 
-  async function handleArchive(e: React.MouseEvent) {
-    e.stopPropagation();
+  async function handleArchive() {
     if (!threadId || actionState !== "idle") return;
     setActionState("loading");
     try {
@@ -315,6 +348,25 @@ export function InlineEmailCard({
     }
   }
 
+  async function handleMarkRead() {
+    if (!threadId) return;
+    try {
+      const result = await markReadThreadAction(emailAccountId, {
+        threadId,
+        read: true,
+      });
+      if (result?.serverError) {
+        toastError({ description: result.serverError });
+        return;
+      }
+      listState?.markRead([threadId]);
+      inlineEmailActionContext?.queueAction("mark_read_threads", [threadId]);
+      toastSuccess({ description: "Marked as read" });
+    } catch {
+      toastError({ description: "Failed to mark as read" });
+    }
+  }
+
   const isDone = actionState === "done" || isArchived;
   const showArchive = Boolean(threadId);
 
@@ -323,7 +375,7 @@ export function InlineEmailCard({
       <div
         role={threadId ? "button" : undefined}
         tabIndex={threadId ? 0 : undefined}
-        className={`group flex items-center border-b border-border/40 px-3 py-2 text-sm last:border-b-0 ${threadId ? "cursor-pointer" : ""} ${isDone ? "bg-muted/30 line-through opacity-50" : "hover:bg-muted/50"}`}
+        className={`group flex items-center gap-2 border-b border-border/40 py-3 pl-2 pr-3 text-sm last:border-b-0 ${threadId ? "cursor-pointer" : ""} ${isDone ? "bg-muted/30 line-through opacity-50" : "hover:bg-muted/50"}`}
         onClick={() => threadId && setExpanded(!expanded)}
         onKeyDown={(e) => {
           if (threadId && (e.key === "Enter" || e.key === " ")) {
@@ -332,90 +384,111 @@ export function InlineEmailCard({
           }
         }}
       >
-        {threadId && (
-          <div className="mr-1 flex w-4 shrink-0 justify-center text-muted-foreground">
-            {expanded ? (
-              <ChevronDownIcon className="size-3.5" />
-            ) : (
-              <ChevronRightIcon className="size-3.5" />
-            )}
-          </div>
-        )}
+        {index !== undefined ? (
+          <span className="w-5 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+            {index}.
+          </span>
+        ) : null}
 
         {meta ? (
-          <>
-            <div className="flex w-4 shrink-0 justify-center">
-              {isUnread ? (
-                <div className="size-2 rounded-full bg-blue-500" />
-              ) : null}
-            </div>
-
-            <span
-              className={`w-40 shrink-0 truncate pr-3 text-xs ${isUnread ? "font-semibold" : ""}`}
-            >
-              {meta.from}
-            </span>
-
-            <span className="min-w-0 flex-1 truncate">
-              <span className={isUnread ? "font-medium" : ""}>
-                {meta.subject}
-              </span>
-              {children ? (
-                <span className="ml-2 text-muted-foreground/60">
-                  {" "}
-                  — {children}
+          <div className="min-w-0 flex-1">
+            {children ? (
+              <div className="text-sm text-foreground">{children}</div>
+            ) : null}
+            <div className="mt-1 truncate text-xs text-muted-foreground">
+              <Tooltip
+                content={extractEmailAddress(meta.from) || meta.from}
+                side="right"
+              >
+                <span className="font-medium">
+                  {extractNameFromEmail(meta.from)}
                 </span>
-              ) : null}
-            </span>
-
-            <span className="shrink-0 px-2 text-xs text-muted-foreground">
-              {formatShortDate(new Date(meta.date), { lowercase: true })}
-            </span>
-          </>
+              </Tooltip>
+              {" · "}
+              <span className="tabular-nums">
+                {formatShortDate(new Date(meta.date), { lowercase: true })}
+              </span>
+            </div>
+          </div>
         ) : (
           <span className="min-w-0 flex-1 truncate">{children}</span>
         )}
 
-        <div
-          className="flex shrink-0 items-center gap-1"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
-          {externalUrl ? (
-            <Tooltip content="Open in email">
-              <a
-                href={externalUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
-              >
-                <ExternalLinkIcon className="size-3.5" />
-              </a>
-            </Tooltip>
+        <div className="flex shrink-0 items-center gap-0.5">
+          {threadId ? (
+            <DropdownMenu>
+              <Tooltip content="More actions">
+                <DropdownMenuTrigger
+                  className={iconButtonClass}
+                  aria-label="More actions"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.stopPropagation();
+                    }
+                  }}
+                >
+                  <MoreVerticalIcon className="size-3.5" />
+                </DropdownMenuTrigger>
+              </Tooltip>
+              <DropdownMenuContent align="end" className="w-48">
+                {showArchive ? (
+                  <DropdownMenuItem
+                    disabled={isDone || actionState === "loading"}
+                    onClick={handleArchive}
+                  >
+                    {isDone ? (
+                      <CheckIcon className="mr-2 size-4" />
+                    ) : (
+                      <ArchiveIcon className="mr-2 size-4" />
+                    )}
+                    {isDone ? "Archived" : "Archive"}
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem onClick={handleMarkRead}>
+                  <MailOpenIcon className="mr-2 size-4" />
+                  Mark as read
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setShowDetails((v) => !v);
+                    if (!expanded) setExpanded(true);
+                  }}
+                >
+                  <InfoIcon className="mr-2 size-4" />
+                  {showDetails ? "Hide details" : "Show details"}
+                </DropdownMenuItem>
+                {externalUrl ? (
+                  <DropdownMenuItem asChild>
+                    <a
+                      href={externalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLinkIcon className="mr-2 size-4" />
+                      Open in email
+                    </a>
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : null}
 
-          {showArchive ? (
-            isDone ? (
-              <span className="flex items-center gap-1 px-2 text-xs text-muted-foreground">
-                <CheckIcon className="size-3" />
-                Archived
-              </span>
-            ) : (
-              <Button
-                variant="outline"
-                size="xs"
-                loading={actionState === "loading"}
-                onClick={handleArchive}
-                Icon={ArchiveIcon}
-              >
-                Archive
-              </Button>
-            )
+          {threadId ? (
+            <span className={iconButtonClass} aria-hidden="true">
+              {expanded ? (
+                <ChevronDownIcon className="size-3.5" />
+              ) : (
+                <ChevronRightIcon className="size-3.5" />
+              )}
+            </span>
           ) : null}
         </div>
       </div>
 
-      {expanded && threadId && <EmailPreview threadId={threadId} />}
+      {expanded && threadId && (
+        <EmailPreview threadId={threadId} showDetails={showDetails} />
+      )}
     </div>
   );
 }
@@ -500,15 +573,19 @@ function collectThreadIds(children: ReactNode): string[] {
 function EmailPreview({
   threadId,
   compact = false,
+  showDetails = false,
 }: {
   threadId: string;
   compact?: boolean;
+  showDetails?: boolean;
 }) {
   const { data, isLoading, error } = useThread({ id: threadId });
 
   if (isLoading) {
     return (
-      <div className="px-3 py-2 text-xs text-muted-foreground">Loading…</div>
+      <div className="flex justify-center px-3 py-4 text-muted-foreground">
+        <LoadingMiniSpinner />
+      </div>
     );
   }
 
@@ -529,7 +606,6 @@ function EmailPreview({
   }
 
   const lastMessage = data.thread.messages[data.thread.messages.length - 1];
-  const hasMultipleMessages = data.thread.messages.length > 1;
 
   const body = (
     <>
@@ -552,36 +628,17 @@ function EmailPreview({
   );
 
   if (compact) {
-    return (
-      <div className="max-h-[32rem] overflow-auto">
-        {hasMultipleMessages ? (
-          <div className="border-b px-4 py-2 text-xs text-muted-foreground">
-            Showing the latest message in this thread.
-          </div>
-        ) : null}
-        <div className="px-4 py-3">{body}</div>
-      </div>
-    );
+    return <div className="max-h-[32rem] overflow-auto px-4 py-3">{body}</div>;
   }
 
   return (
-    <div className="max-h-[32rem] overflow-auto border-t bg-muted/20 p-4">
-      <article className="rounded-lg bg-background p-4 shadow-sm">
-        <div className="mb-4">
-          <div className="text-sm font-semibold text-foreground">
-            {lastMessage.headers?.subject || lastMessage.subject}
-          </div>
-          {hasMultipleMessages ? (
-            <div className="mt-1 text-xs text-muted-foreground">
-              Showing the latest message in this thread.
-            </div>
-          ) : null}
+    <div className="max-h-[32rem] overflow-auto border-t bg-muted/20 px-4 py-3">
+      {showDetails ? (
+        <div className="mb-3">
+          <EmailDetails message={lastMessage} />
         </div>
-
-        <EmailDetails message={lastMessage} />
-
-        {body}
-      </article>
+      ) : null}
+      {body}
     </div>
   );
 }

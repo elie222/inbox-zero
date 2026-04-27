@@ -13,7 +13,7 @@ type AssistantInlineEmailResponseProps = ComponentProps<typeof Streamdown>;
 
 const allowedTags = {
   emails: [],
-  email: ["id", "threadid"],
+  email: ["id", "threadid", "index"],
   "email-detail": ["id", "threadid"],
 };
 const components = {

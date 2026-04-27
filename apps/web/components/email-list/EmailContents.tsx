@@ -159,6 +159,7 @@ function getIframeHtml(
       }
       body {
         background-color: white;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       }
       table { max-width: 100% !important; overflow-x: auto; }
       img { max-width: 100% !important; height: auto; }
@@ -184,9 +185,11 @@ function getIframeHtml(
       table { max-width: 100% !important; overflow-x: auto; }
       img { max-width: 100% !important; height: auto; }
 
-      /* Base styles with low specificity - only apply to completely unstyled content */
-      body:not([style]):not([bgcolor]) {
+      /* Base styles - apply our font as a baseline; inline styles on inner elements still win */
+      body {
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+      body:not([style]):not([bgcolor]) {
         margin: 0;
         color: hsl(var(--foreground));
         background-color: hsl(var(--background));

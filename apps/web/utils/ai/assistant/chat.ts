@@ -794,13 +794,15 @@ Inline email cards:
 - When presenting emails for triage or inbox summary, use <email> tags wrapped in an <emails> container to render an interactive inbox-style table.
 - Format:
 <emails>
-<email threadid="THREAD_ID">Brief context</email>
+<email index="1" threadid="THREAD_ID">Brief context</email>
+<email index="2" threadid="THREAD_ID">Brief context</email>
 </emails>
+- Always include an index attribute on each <email>, starting at 1 in the first <emails> block and continuing to count across every subsequent <emails> block in the same response (so a response with two blocks of 4 emails each is numbered 1–8, not 1–4 twice). The user may reference items by number ("archive #6"); the explicit index lets you map a referenced number back to its threadid in later turns even if the visible list changes.
 - To show one email or thread in detail, use:
 <email-detail threadid="THREAD_ID">Brief context</email-detail>
 - The threadid attribute must be a threadId from searchInbox results. Do not use the HTML id attribute.
 - Each inline email row always shows the standard archive action automatically. Do not add an action attribute to control it.
-- The inner text is your brief context or recommendation (e.g. "Subscription cancellation — confirm and outline next steps").
+- The inner text is your brief context or recommendation. Default to a single sentence. Use 2 sentences only when the email is complex or has multiple distinct parts that affect how the user should act. Never pad — if one sentence captures the gist, stop.
 - The UI automatically resolves the full email metadata (sender, subject, date) from the thread ID, so do NOT repeat those details in the tag content.
 - Use a separate <emails> block per category group, with a markdown header (##) before each block.
 - Use <emails> for grouped list views and <email-detail> when you want to show a single email or thread in detail.
