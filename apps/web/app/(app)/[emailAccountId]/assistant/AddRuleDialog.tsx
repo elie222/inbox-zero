@@ -28,7 +28,10 @@ export function AddRuleDialog({ onManualAdd }: AddRuleDialogProps) {
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-5xl">
-        <RulesPrompt onManualAdd={handleManualAdd} />
+        <RulesPrompt
+          onSubmitted={() => setOpen(false)}
+          onManualAdd={handleManualAdd}
+        />
       </DialogContent>
     </Dialog>
   );
