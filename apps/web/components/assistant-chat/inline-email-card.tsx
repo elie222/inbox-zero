@@ -7,6 +7,7 @@ import {
   isValidElement,
   useState,
   useContext,
+  useMemo,
   cloneElement,
   type ReactNode,
 } from "react";
@@ -75,6 +76,10 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
   );
   const [readThreadIds, setReadThreadIds] = useState<Set<string>>(
     () => new Set(),
+  );
+  const numberedChildren = useMemo(
+    () => numberInlineEmailCards(children),
+    [children],
   );
   const threadIds = normalizeInlineEmailThreadIds(collectThreadIds(children));
   const remainingArchiveThreadIds = threadIds.filter(
@@ -270,7 +275,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
               </Tooltip>
             </div>
           )}
-          {numberInlineEmailCards(children)}
+          {numberedChildren}
         </div>
       )}
     </InlineEmailListContext.Provider>
@@ -310,7 +315,6 @@ export function InlineEmailCard({
 }: {
   id?: string;
   threadid?: string;
-  action?: string;
   index?: number | string;
   children?: ReactNode;
 }) {
@@ -383,6 +387,7 @@ export function InlineEmailCard({
   }
 
   const isDone = actionState === "done" || isArchived;
+  const markReadComplete = isMarkedRead || markReadState === "done";
   const showArchive = Boolean(threadId);
   const hasSummary = !!children;
 
@@ -435,13 +440,9 @@ export function InlineEmailCard({
                   {extractNameFromEmail(meta.from)}
                 </span>
               </Tooltip>
-              {meta.subject ? (
-                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
-                  {meta.subject}
-                </span>
-              ) : (
-                <span className="min-w-0 flex-1" />
-              )}
+              <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                {meta.subject}
+              </span>
               <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                 {formatShortDate(new Date(meta.date), { lowercase: true })}
               </span>
@@ -483,21 +484,15 @@ export function InlineEmailCard({
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuItem
-                  disabled={
-                    isMarkedRead ||
-                    markReadState === "loading" ||
-                    markReadState === "done"
-                  }
+                  disabled={markReadComplete || markReadState === "loading"}
                   onClick={handleMarkRead}
                 >
-                  {isMarkedRead || markReadState === "done" ? (
+                  {markReadComplete ? (
                     <CheckIcon className="mr-2 size-4" />
                   ) : (
                     <MailOpenIcon className="mr-2 size-4" />
                   )}
-                  {isMarkedRead || markReadState === "done"
-                    ? "Marked read"
-                    : "Mark as read"}
+                  {markReadComplete ? "Marked read" : "Mark as read"}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
