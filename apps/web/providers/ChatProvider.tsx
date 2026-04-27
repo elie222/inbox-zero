@@ -44,6 +44,7 @@ type ChatContextType = {
   setInput: (input: string) => void;
   setChatId: (chatId: string | null) => void;
   setNewChat: () => void;
+  submitTextMessage: (text: string) => Promise<void>;
   handleSubmit: () => void;
   context: MessageContext | null;
   setContext: (context: MessageContext | null) => void;
@@ -147,15 +148,48 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setInlineActions([]);
   }, [chatId]);
 
+  const sendMessageParts = useCallback(
+    async (
+      parts: Array<
+        | { type: "file"; url: string; filename: string; mediaType: string }
+        | { type: "text"; text: string }
+      >,
+    ) => {
+      if (!chatId) setChatId(chat.id);
+
+      pendingInlineActionsRef.current = inlineActionsRef.current.length
+        ? inlineActionsRef.current
+        : null;
+
+      if (pendingInlineActionsRef.current) {
+        setInlineActions([]);
+      }
+
+      await chat.sendMessage({ role: "user", parts });
+    },
+    [chat.id, chat.sendMessage, chatId, setChatId],
+  );
+
+  const submitTextMessage = useCallback(
+    async (text: string) => {
+      const trimmedText = text.trim();
+      if (!trimmedText) return;
+
+      await sendMessageParts([{ type: "text", text: trimmedText }]);
+      setInput("");
+    },
+    [sendMessageParts],
+  );
+
   const handleSubmit = useCallback(() => {
     const text = input.trim();
     if (!text && attachments.length === 0) return;
 
-    const fileParts = attachments.map((a) => ({
+    const fileParts = attachments.map((attachment) => ({
       type: "file" as const,
-      url: a.url,
-      filename: a.name,
-      mediaType: a.contentType,
+      url: attachment.url,
+      filename: attachment.name,
+      mediaType: attachment.contentType,
     }));
 
     const parts: Array<
@@ -167,19 +201,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       parts.push({ type: "text", text });
     }
 
-    pendingInlineActionsRef.current = inlineActionsRef.current.length
-      ? inlineActionsRef.current
-      : null;
-
-    if (pendingInlineActionsRef.current) {
-      setInlineActions([]);
-    }
-
-    chat.sendMessage({ role: "user", parts });
-
+    sendMessageParts(parts).catch(captureException);
     setAttachments([]);
     setInput("");
-  }, [chat.sendMessage, input, attachments]);
+  }, [attachments, input, sendMessageParts]);
 
   return (
     <ChatContext.Provider
@@ -191,6 +216,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setInput,
         setChatId,
         setNewChat,
+        submitTextMessage,
         handleSubmit,
         context,
         setContext,

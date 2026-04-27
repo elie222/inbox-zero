@@ -68,10 +68,10 @@ export function Chat({ open }: { open: boolean }) {
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
 
   useEffect(() => {
-    if (open && !chatId) {
+    if (open && !chatId && status === "ready" && messages.length === 0) {
       setNewChat();
     }
-  }, [open, chatId, setNewChat]);
+  }, [open, chatId, messages.length, setNewChat, status]);
 
   // Sync input with localStorage
   useEffect(() => {
