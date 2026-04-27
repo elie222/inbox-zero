@@ -109,6 +109,51 @@ vi.mock("@/components/email-list/EmailAttachments", () => ({
   EmailAttachments: () => <div>Attachments</div>,
 }));
 
+vi.mock("@/components/ui/dropdown-menu", () => ({
+  DropdownMenu: ({ children }: { children: ReactNode }) => <>{children}</>,
+  DropdownMenuTrigger: ({
+    children,
+    "aria-label": ariaLabel,
+  }: {
+    children?: ReactNode;
+    "aria-label"?: string;
+  }) =>
+    createElement(
+      "button",
+      { type: "button", "aria-label": ariaLabel },
+      children,
+    ),
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuItem: ({
+    children,
+    onClick,
+    disabled,
+    asChild,
+  }: {
+    children?: ReactNode;
+    onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
+    disabled?: boolean;
+    asChild?: boolean;
+  }) => {
+    if (asChild) return <>{children}</>;
+    return createElement(
+      "button",
+      {
+        type: "button",
+        disabled,
+        role: "menuitem",
+        onClick: (event: MouseEvent<HTMLButtonElement>) => {
+          event.stopPropagation();
+          onClick?.(event);
+        },
+      },
+      children,
+    );
+  },
+}));
+
 afterEach(() => {
   cleanup();
 });
@@ -175,7 +220,7 @@ describe("InlineEmailCard", () => {
     render(
       createElement(
         InlineEmailCard,
-        { id: "user-content-19cdca06580b38e9", action: "archive" },
+        { id: "user-content-19cdca06580b38e9" },
         "Follow up",
       ),
     );
@@ -189,7 +234,7 @@ describe("InlineEmailCard", () => {
       ),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Archive/ }));
 
     await waitFor(() => {
       expect(mockArchiveThreadAction).toHaveBeenCalledWith("account-1", {
@@ -231,30 +276,24 @@ describe("InlineEmailCard", () => {
       error: null,
     });
 
-    render(
-      <InlineEmailCard threadid="thread-1" action="none">
-        Second
-      </InlineEmailCard>,
-    );
+    render(<InlineEmailCard threadid="thread-1">Second</InlineEmailCard>);
 
-    fireEvent.click(screen.getByText("Subject Two"));
+    fireEvent.click(screen.getByRole("button", { name: /Second/ }));
 
-    expect(screen.getByText("Rendered Subject")).toBeTruthy();
+    expect(screen.getByText("Rendered plain body")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("menuitem", { name: /Show details/ }));
+
     expect(screen.getByText("From:")).toBeTruthy();
     expect(
       screen.getByText("Sender Two <sender-two@example.com>"),
     ).toBeTruthy();
-    expect(screen.getByText("Rendered plain body")).toBeTruthy();
   });
 
-  it("shows the archive action even when action is none", () => {
-    render(
-      <InlineEmailCard threadid="thread-1" action="none">
-        Second
-      </InlineEmailCard>,
-    );
+  it("renders the archive action in the row menu", () => {
+    render(<InlineEmailCard threadid="thread-1">Second</InlineEmailCard>);
 
-    expect(screen.getByRole("button", { name: "Archive" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Archive/ })).toBeTruthy();
   });
 
   it("renders the preview when message headers are missing", () => {
@@ -280,15 +319,10 @@ describe("InlineEmailCard", () => {
       error: null,
     });
 
-    render(
-      <InlineEmailCard threadid="thread-1" action="none">
-        Second
-      </InlineEmailCard>,
-    );
+    render(<InlineEmailCard threadid="thread-1">Second</InlineEmailCard>);
 
-    fireEvent.click(screen.getByText("Subject Two"));
+    fireEvent.click(screen.getByRole("button", { name: /Second/ }));
 
-    expect(screen.getByText("Fallback Subject")).toBeTruthy();
     expect(screen.getByText("Fallback body")).toBeTruthy();
   });
 });

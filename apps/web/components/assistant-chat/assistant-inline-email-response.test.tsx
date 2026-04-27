@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import React, { createElement, type ReactNode } from "react";
+import React, { createElement, type MouseEvent, type ReactNode } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AssistantInlineEmailResponse } from "@/components/assistant-chat/assistant-inline-email-response";
@@ -41,6 +41,51 @@ vi.mock("@/utils/actions/mail", () => ({
 
 vi.mock("@/hooks/useThread", () => ({
   useThread: (...args: unknown[]) => mockUseThread(...args),
+}));
+
+vi.mock("@/components/ui/dropdown-menu", () => ({
+  DropdownMenu: ({ children }: { children: ReactNode }) => <>{children}</>,
+  DropdownMenuTrigger: ({
+    children,
+    "aria-label": ariaLabel,
+  }: {
+    children?: ReactNode;
+    "aria-label"?: string;
+  }) =>
+    createElement(
+      "button",
+      { type: "button", "aria-label": ariaLabel },
+      children,
+    ),
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuItem: ({
+    children,
+    onClick,
+    disabled,
+    asChild,
+  }: {
+    children?: ReactNode;
+    onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
+    disabled?: boolean;
+    asChild?: boolean;
+  }) => {
+    if (asChild) return <>{children}</>;
+    return createElement(
+      "button",
+      {
+        type: "button",
+        disabled,
+        role: "menuitem",
+        onClick: (event: MouseEvent<HTMLButtonElement>) => {
+          event.stopPropagation();
+          onClick?.(event);
+        },
+      },
+      children,
+    );
+  },
 }));
 
 afterEach(() => {
@@ -97,7 +142,7 @@ describe("AssistantInlineEmailResponse", () => {
         "google",
       ),
     );
-    expect(screen.getByRole("button", { name: "Archive" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Archive/ })).toBeTruthy();
   });
 
   it("renders inline email detail views", () => {
