@@ -604,13 +604,13 @@ async function executeMatchedRule(
   };
 }
 
-function removeUnconfiguredMessagingChannelActions({
-  actionItems,
-  logger,
-}: {
-  actionItems: ActionItem[];
-  logger: Logger;
-}) {
+function removeUnconfiguredMessagingChannelActions<
+  TAction extends {
+    id: string;
+    type: ActionType;
+    messagingChannelId?: string | null;
+  },
+>({ actionItems, logger }: { actionItems: TAction[]; logger: Logger }) {
   return actionItems.filter((action) => {
     if (!isMessagingChannelActionType(action.type)) return true;
     if (action.messagingChannelId?.trim()) return true;
