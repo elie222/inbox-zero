@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
-import { BrainIcon } from "lucide-react";
 import { ViewLearnedPatterns } from "@/app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns";
 import {
   Dialog,
@@ -23,10 +22,12 @@ export function LearnedPatternsDialog({
   ruleId,
   groupId,
   disabled,
+  label = "View learned patterns",
 }: {
   ruleId: string;
   groupId: string | null;
   disabled?: boolean;
+  label?: string;
 }) {
   const { emailAccountId } = useAccount();
 
@@ -60,7 +61,6 @@ export function LearnedPatternsDialog({
         <Button
           variant="outline"
           size="sm"
-          Icon={BrainIcon}
           disabled={disabled}
           onClick={async () => {
             if (!ruleId) return;
@@ -70,7 +70,7 @@ export function LearnedPatternsDialog({
             execute({ ruleId });
           }}
         >
-          View learned patterns
+          {label}
         </Button>
       </DialogTrigger>
 

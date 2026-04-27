@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { type SubmitHandler, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,7 +17,7 @@ import {
   TrashIcon,
   MailIcon,
   BotIcon,
-  SettingsIcon,
+  ChevronDownIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -28,7 +34,7 @@ import {
   createRuleBody,
 } from "@/utils/actions/rule.validation";
 import { Toggle } from "@/components/Toggle";
-import { TooltipExplanation } from "@/components/TooltipExplanation";
+import { Tooltip } from "@/components/Tooltip";
 import { useLabels } from "@/hooks/useLabels";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { AlertError } from "@/components/Alert";
@@ -37,13 +43,12 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { getEmailTerminology } from "@/utils/terminology";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Form } from "@/components/ui/form";
+import { cn } from "@/utils";
 import { getActionIcon } from "@/utils/action-display";
 import { useFolders } from "@/hooks/useFolders";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
@@ -390,6 +395,7 @@ export function RuleForm({
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   const toggleNameEditMode = useCallback(() => {
     if (!alwaysEditMode) {
@@ -439,7 +445,7 @@ export function RuleForm({
         <RuleSectionCard
           icon={MailIcon}
           color="blue"
-          title="When you get an email"
+          title="When I get an email"
           errors={
             errors.conditions?.root?.message ? (
               <AlertError
@@ -508,157 +514,188 @@ export function RuleForm({
           />
         </RuleSectionCard>
 
-        <div className="flex justify-between items-center">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" Icon={SettingsIcon}>
-                Advanced Settings
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Advanced Settings</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Toggle
-                    name="runOnThreads"
-                    labelRight="Apply to threads"
-                    enabled={watch("runOnThreads") || false}
-                    onChange={(enabled) => {
-                      setValue("runOnThreads", enabled);
-                    }}
-                    disabled={!allowMultipleConditions(rule.systemType)}
-                  />
-
-                  <ThreadsExplanation size="md" />
-                </div>
+        <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 py-2 text-sm font-medium text-left text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronDownIcon
+                className={cn(
+                  "size-4 transition-transform",
+                  isAdvancedOpen && "rotate-180",
+                )}
+              />
+              Advanced options
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            {isAdvancedOpen ? (
+              <div className="rounded-md border divide-y">
+                <AdvancedRow
+                  title="Apply to threads"
+                  description="Run on every reply in a conversation, not just the first message."
+                >
+                  <Tooltip
+                    content="This can't be changed for this rule type."
+                    hide={allowMultipleConditions(rule.systemType)}
+                  >
+                    <span>
+                      <Toggle
+                        name="runOnThreads"
+                        enabled={watch("runOnThreads") || false}
+                        onChange={(enabled) => {
+                          setValue("runOnThreads", enabled);
+                        }}
+                        disabled={!allowMultipleConditions(rule.systemType)}
+                      />
+                    </span>
+                  </Tooltip>
+                </AdvancedRow>
 
                 {env.NEXT_PUBLIC_DIGEST_ENABLED && (
-                  <div className="flex items-center space-x-2">
+                  <AdvancedRow
+                    title="Include in digest"
+                    description="Show matched emails in your digest summary."
+                  >
                     <Toggle
                       name="digest"
-                      labelRight="Include in daily digest"
                       enabled={watch("digest") || false}
                       onChange={(enabled) => {
                         setValue("digest", enabled);
                       }}
                     />
-
-                    <TooltipExplanation
-                      size="md"
-                      side="right"
-                      text="When enabled you will receive a summary of the emails that match this rule in your digest email."
-                    />
-                  </div>
+                  </AdvancedRow>
                 )}
 
                 {!!rule.id && (
-                  <div className="flex">
-                    <LearnedPatternsDialog
-                      ruleId={rule.id}
-                      groupId={rule.groupId || null}
-                      disabled={isConversationStatusType(rule.systemType)}
-                    />
-                  </div>
+                  <AdvancedRow
+                    title="Learned patterns"
+                    description="Patterns inferred from your corrections."
+                  >
+                    <Tooltip
+                      content="Learned patterns aren't available for this rule type."
+                      hide={!isConversationStatusType(rule.systemType)}
+                    >
+                      <span>
+                        <LearnedPatternsDialog
+                          ruleId={rule.id}
+                          groupId={rule.groupId || null}
+                          disabled={isConversationStatusType(rule.systemType)}
+                          label="View"
+                        />
+                      </span>
+                    </Tooltip>
+                  </AdvancedRow>
                 )}
 
                 {rule.id && !rule.systemType && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    Icon={TrashIcon}
-                    loading={isDeleting}
-                    disabled={isSubmitting}
-                    onClick={async () => {
-                      const yes = confirm(
-                        "Are you sure you want to delete this rule?",
-                      );
-                      if (yes) {
-                        try {
-                          setIsDeleting(true);
-                          const result = await deleteRuleAction(
-                            emailAccountId,
-                            {
-                              id: rule.id!,
-                            },
-                          );
-                          if (result?.serverError) {
-                            toastError({
-                              description: result.serverError,
-                            });
-                          } else {
-                            toastSuccess({
-                              description: "The rule has been deleted.",
-                            });
-
-                            if (isDialog && onSuccess) {
-                              onSuccess();
-                            }
-
-                            router.push(
-                              prefixPath(
-                                emailAccountId,
-                                "/automation?tab=rules",
-                              ),
-                            );
-                          }
-                        } catch {
-                          toastError({ description: "Failed to delete rule." });
-                        } finally {
-                          setIsDeleting(false);
-                        }
-                      }
-                    }}
+                  <AdvancedRow
+                    title="Delete rule"
+                    description="Permanently remove this rule."
                   >
-                    Delete rule
-                  </Button>
-                )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      Icon={TrashIcon}
+                      loading={isDeleting}
+                      disabled={isSubmitting}
+                      onClick={async () => {
+                        const yes = confirm(
+                          "Are you sure you want to delete this rule?",
+                        );
+                        if (yes) {
+                          try {
+                            setIsDeleting(true);
+                            const result = await deleteRuleAction(
+                              emailAccountId,
+                              {
+                                id: rule.id!,
+                              },
+                            );
+                            if (result?.serverError) {
+                              toastError({
+                                description: result.serverError,
+                              });
+                            } else {
+                              toastSuccess({
+                                description: "The rule has been deleted.",
+                              });
 
-                {rule.id && rule.systemType && (
-                  <p className="text-sm text-muted-foreground">
-                    Default rules can be disabled from the rules list.
-                  </p>
+                              if (isDialog && onSuccess) {
+                                onSuccess();
+                              }
+
+                              router.push(
+                                prefixPath(
+                                  emailAccountId,
+                                  "/automation?tab=rules",
+                                ),
+                              );
+                            }
+                          } catch {
+                            toastError({
+                              description: "Failed to delete rule.",
+                            });
+                          } finally {
+                            setIsDeleting(false);
+                          }
+                        }
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </AdvancedRow>
                 )}
               </div>
-            </DialogContent>
-          </Dialog>
+            ) : null}
+          </CollapsibleContent>
+        </Collapsible>
 
-          <div className="flex space-x-2">
-            {onCancel && (
-              <Button variant="outline" size="sm" onClick={onCancel}>
-                Cancel
-              </Button>
-            )}
+        <div className="flex justify-end space-x-2">
+          {onCancel && (
+            <Button variant="outline" size="sm" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
 
-            {rule.id ? (
-              <Button
-                type="submit"
-                size="sm"
-                loading={isSubmitting}
-                disabled={isDeleting}
-              >
-                Save
-              </Button>
-            ) : (
-              <Button type="submit" size="sm" loading={isSubmitting}>
-                Create
-              </Button>
-            )}
-          </div>
+          {rule.id ? (
+            <Button
+              type="submit"
+              size="sm"
+              loading={isSubmitting}
+              disabled={isDeleting}
+            >
+              Save
+            </Button>
+          ) : (
+            <Button type="submit" size="sm" loading={isSubmitting}>
+              Create
+            </Button>
+          )}
         </div>
       </form>
     </Form>
   );
 }
 
-function ThreadsExplanation({ size }: { size: "sm" | "md" }) {
+function AdvancedRow({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
   return (
-    <TooltipExplanation
-      size={size}
-      side="right"
-      text="When enabled, this rule can apply to the first email and any subsequent replies in a conversation. When disabled, it can only apply to the first email."
-    />
+    <div className="flex items-center justify-between gap-4 px-4 py-3">
+      <div>
+        <p className="text-sm font-medium">{title}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
   );
 }
 

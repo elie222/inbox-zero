@@ -50,7 +50,10 @@ import { MutedText } from "@/components/Typography";
 import { BRAND_NAME } from "@/utils/branding";
 import { ActionAttachmentsField } from "@/app/(app)/[emailAccountId]/assistant/ActionAttachmentsField";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
-import { getMessagingProviderName } from "@/utils/messaging/platforms";
+import {
+  getConnectAppLabel,
+  getMessagingProviderName,
+} from "@/utils/messaging/platforms";
 import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import { prefixPath } from "@/utils/path";
@@ -740,6 +743,7 @@ function ActionCard({
         delivery={draftReplyDelivery}
         selectedChannels={selectedMessagingChannels}
         connectedChannels={connectedMessagingChannels}
+        connectAppLabel={getConnectAppLabel(availableMessagingProviders)}
         errorMessage={deliveryErrorMessage}
         onChange={handleDraftReplyDeliveryChange}
       />
@@ -901,7 +905,7 @@ function ActionCard({
                 <div className="flex flex-wrap gap-2">
                   <Button asChild size="sm" variant="outline">
                     <Link href={prefixPath(emailAccountId, "/channels")}>
-                      Connect app
+                      {getConnectAppLabel(availableMessagingProviders)}
                     </Link>
                   </Button>
                 </div>
@@ -931,6 +935,7 @@ function DraftReplyReviewChannelsSection({
   delivery,
   selectedChannels,
   connectedChannels,
+  connectAppLabel,
   errorMessage,
   onChange,
 }: {
@@ -938,6 +943,7 @@ function DraftReplyReviewChannelsSection({
   delivery: DraftReplyDelivery;
   selectedChannels: MessagingChannelOption[];
   connectedChannels: MessagingChannelOption[];
+  connectAppLabel: string;
   errorMessage?: string;
   onChange: (value: {
     includeEmail: boolean;
@@ -1042,7 +1048,7 @@ function DraftReplyReviewChannelsSection({
       {!hasConnectedMessagingDestination ? (
         <Button asChild size="sm" variant="outline" className="w-fit">
           <Link href={prefixPath(emailAccountId, "/channels")}>
-            Connect app
+            {connectAppLabel}
           </Link>
         </Button>
       ) : null}
