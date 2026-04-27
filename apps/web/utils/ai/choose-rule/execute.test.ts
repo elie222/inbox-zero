@@ -121,7 +121,7 @@ describe("executeAct", () => {
     });
   });
 
-  it("marks executed rule as ERROR when an action throws", async () => {
+  it("keeps throwing for unexpected action exceptions", async () => {
     mockRunActionFunction.mockRejectedValueOnce(new Error("boom"));
 
     const executedRule = {
@@ -129,61 +129,20 @@ describe("executeAct", () => {
       actionItems: [{ id: "action-1", type: ActionType.LABEL }],
     } as any;
 
-    await executeAct({
-      client: mockClient,
-      executedRule,
-      message,
-      emailAccount,
-      logger,
-    });
+    await expect(
+      executeAct({
+        client: mockClient,
+        executedRule,
+        message,
+        emailAccount,
+        logger,
+      }),
+    ).rejects.toThrow("boom");
 
     expect(mockExecutedRuleUpdate).toHaveBeenCalledTimes(1);
     expect(mockExecutedRuleUpdate).toHaveBeenCalledWith({
       where: { id: "executed-rule-1" },
-      data: {
-        status: ExecutedRuleStatus.ERROR,
-        reason: "Rule matched\nAction failures: LABEL:ACTION_ERROR",
-      },
-    });
-  });
-
-  it("continues to later messaging notifications when a mailbox action fails", async () => {
-    mockRunActionFunction
-      .mockRejectedValueOnce(new Error("mailbox action failed"))
-      .mockResolvedValueOnce(undefined);
-
-    const executedRule = {
-      ...baseExecutedRule,
-      actionItems: [
-        { id: "action-1", type: ActionType.ARCHIVE },
-        { id: "action-2", type: ActionType.NOTIFY_MESSAGING_CHANNEL },
-      ],
-    } as any;
-
-    await executeAct({
-      client: mockClient,
-      executedRule,
-      message,
-      emailAccount,
-      logger,
-    });
-
-    expect(mockRunActionFunction).toHaveBeenCalledTimes(2);
-    expect(mockRunActionFunction).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        action: expect.objectContaining({
-          id: "action-2",
-          type: ActionType.NOTIFY_MESSAGING_CHANNEL,
-        }),
-      }),
-    );
-    expect(mockExecutedRuleUpdate).toHaveBeenCalledWith({
-      where: { id: "executed-rule-1" },
-      data: {
-        status: ExecutedRuleStatus.ERROR,
-        reason: "Rule matched\nAction failures: ARCHIVE:ACTION_ERROR",
-      },
+      data: { status: ExecutedRuleStatus.ERROR },
     });
   });
 });

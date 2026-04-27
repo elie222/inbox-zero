@@ -547,6 +547,96 @@ describe("runRules draft attribution persistence", () => {
       }),
     );
   });
+
+  it("skips draft messaging channel actions without a channel", async () => {
+    const draftRule = createRule("draft-rule", SystemType.TO_REPLY, [
+      getAction({
+        id: "draft-action-1",
+        type: ActionType.DRAFT_EMAIL,
+      }),
+      getAction({
+        id: "stale-channel-action",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: null,
+      }),
+      getAction({
+        id: "channel-action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "channel-1",
+      }),
+    ]);
+
+    vi.mocked(findMatchingRules).mockResolvedValue({
+      matches: [{ rule: draftRule, matchReasons: [] }],
+      reasoning: "Matched draft rule",
+    } as any);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    vi.mocked(getActionItemsWithAiArgs).mockResolvedValue([
+      getAction({
+        id: "draft-action-1",
+        type: ActionType.DRAFT_EMAIL,
+        content: "Generated draft content",
+      }),
+      getAction({
+        id: "stale-channel-action",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: null,
+        content: "Generated draft content",
+      }),
+      getAction({
+        id: "channel-action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "channel-1",
+        content: "Generated draft content",
+      }),
+    ] as any);
+
+    const createSpy = prisma.executedRule.create.mockResolvedValue({
+      id: "exec-1",
+      status: ExecutedRuleStatus.APPLYING,
+      ruleId: draftRule.id,
+      threadId,
+      messageId: "message-1",
+      actionItems: [],
+    } as any);
+
+    await runRules({
+      provider: {} as any,
+      message: {
+        ...getEmail(),
+        id: "message-1",
+        threadId,
+        snippet: "",
+        historyId: "history-1",
+        inline: [],
+        attachments: [],
+        headers: {
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Subject",
+          date: "Mon, 1 Jan 2026 12:00:00 +0000",
+          "message-id": "<message-1>",
+        },
+      } as any,
+      rules: [draftRule],
+      emailAccount: getEmailAccount(),
+      isTest: false,
+      modelType: "default" as any,
+      logger,
+    });
+
+    const createdActions =
+      createSpy.mock.calls[0]?.[0]?.data?.actionItems?.createMany?.data;
+    expect(createdActions).toEqual([
+      expect.objectContaining({
+        type: ActionType.DRAFT_EMAIL,
+      }),
+      expect.objectContaining({
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "channel-1",
+      }),
+    ]);
+  });
 });
 
 describe("runRules outbound guardrails", () => {

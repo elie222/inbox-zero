@@ -401,6 +401,11 @@ async function executeMatchedRule(
     );
   }
 
+  actionItems = removeUnconfiguredMessagingChannelActions({
+    actionItems,
+    logger,
+  });
+
   if (actionItems.length === 0 && blockedActionTypes.length) {
     const reasonToUse = reason
       ? `${reason}. ${LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE}`
@@ -562,10 +567,8 @@ async function executeMatchedRule(
     }
 
     // Execute immediate actions if any
-    let finalStatus: ExecutedRuleStatus | undefined;
-
     if (immediateActions?.length > 0) {
-      finalStatus = await executeAct({
+      await executeAct({
         client,
         emailAccount: {
           email: emailAccount.email,
@@ -586,18 +589,7 @@ async function executeMatchedRule(
           }),
         { logger },
       );
-      finalStatus = ExecutedRuleStatus.APPLIED;
     }
-
-    return {
-      rule,
-      actionItems,
-      executedRule,
-      reason,
-      matchReasons,
-      status: finalStatus,
-      createdAt: batchTimestamp,
-    };
   }
 
   // Note: If there are ONLY delayed actions (no immediate), status stays APPLYING
@@ -610,6 +602,33 @@ async function executeMatchedRule(
     matchReasons,
     createdAt: batchTimestamp,
   };
+}
+
+function removeUnconfiguredMessagingChannelActions({
+  actionItems,
+  logger,
+}: {
+  actionItems: ActionItem[];
+  logger: Logger;
+}) {
+  return actionItems.filter((action) => {
+    if (!isMessagingChannelActionType(action.type)) return true;
+    if (action.messagingChannelId?.trim()) return true;
+
+    logger.warn("Skipping messaging channel action without channel", {
+      actionId: action.id,
+      actionType: action.type,
+    });
+
+    return false;
+  });
+}
+
+function isMessagingChannelActionType(actionType: ActionType) {
+  return (
+    actionType === ActionType.NOTIFY_MESSAGING_CHANNEL ||
+    actionType === ActionType.DRAFT_MESSAGING_CHANNEL
+  );
 }
 
 async function analyzeSenderPatternIfAiMatch({
