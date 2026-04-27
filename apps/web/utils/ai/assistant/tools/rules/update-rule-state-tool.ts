@@ -23,7 +23,7 @@ export const updateRuleStateTool = ({
 }) =>
   tool({
     description:
-      "Enable, disable, or request deletion of an existing rule. Use this for rule removal or pausing. Do not clear a rule's actions as a substitute for disabling or deleting it. Deleting a rule returns a pending confirmation payload; the rule is not deleted until the user confirms in the UI. If deletion returns requiresConfirmation, explain that deletion is pending confirmation and nothing has been deleted yet. Default/system rules cannot be deleted; disable them instead.",
+      "Enable, disable, or request deletion of an existing rule. Use this when the user wants to turn a rule on or off, pause it, remove it, or delete it. Delete requests return requiresConfirmation; explain that deletion is pending and no rule has been deleted until the user confirms in the UI. Default/system rules cannot be deleted; disable them instead.",
     inputSchema: z.object({
       ruleName: z.string().describe("The exact name of the rule to update"),
       operation: ruleStateOperationSchema.describe(
