@@ -73,6 +73,7 @@ import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-chan
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import type { MessagingActionType } from "@/utils/actions/messaging-channels.validation";
 import { prefixPath } from "@/utils/path";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 type LinkableProvider = "TEAMS" | "TELEGRAM";
 
@@ -152,7 +153,10 @@ export function Channels() {
       sortRulesForAutomation((rulesData ?? []).filter((rule) => rule.enabled)),
     [rulesData],
   );
-  const connectedProviders = new Set(connectedChannels.map((c) => c.provider));
+  const connectedProviders = useMemo(
+    () => new Set(connectedChannels.map((c) => c.provider)),
+    [connectedChannels],
+  );
   const unconnectedProviders = sortProviders(
     availableProviders.filter((p) => !connectedProviders.has(p)),
   );
@@ -255,6 +259,7 @@ function ConnectedChannelSection({
   emailAccountId: string;
   onUpdate: () => void;
 }) {
+  const analytics = useProductAnalytics("channels");
   const config = PROVIDER_CONFIG[channel.provider];
   const isSlack = channel.provider === "SLACK";
 
@@ -262,6 +267,9 @@ function ConnectedChannelSection({
     disconnectChannelAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
+        analytics.captureAction("channel_disconnected", {
+          provider: channel.provider,
+        });
         toastSuccess({ description: `${config.name} disconnected` });
         onUpdate();
       },
@@ -429,6 +437,7 @@ function UnconnectedProviderSection({
   onConnected: () => void;
 }) {
   const config = PROVIDER_CONFIG[provider];
+  const analytics = useProductAnalytics("channels");
   const { connect: connectSlack, connecting: connectingSlack } =
     useSlackConnect({ emailAccountId, onConnected });
 
@@ -443,6 +452,9 @@ function UnconnectedProviderSection({
     {
       onSuccess: ({ data }) => {
         if (!data?.code || !data.provider) return;
+        analytics.captureAction("channel_link_code_created", {
+          provider: data.provider,
+        });
         setLinkCodeDialog({
           provider: data.provider,
           code: data.code,
@@ -459,6 +471,7 @@ function UnconnectedProviderSection({
   );
 
   const handleConnect = () => {
+    analytics.captureAction("channel_connect_started", { provider });
     if (provider === "SLACK") {
       connectSlack();
     } else {
@@ -569,6 +582,7 @@ function RuleToggle({
   emailAccountId: string;
   onUpdate: () => void;
 }) {
+  const analytics = useProductAnalytics("channels");
   const enabled = currentActionType !== null;
   const isDraft = currentActionType === "DRAFT_MESSAGING_CHANNEL";
 
@@ -599,6 +613,10 @@ function RuleToggle({
 
   const switchMode = (newType: MessagingActionType) => {
     if (newType === currentActionType) return;
+    analytics.captureAction("rule_channel_mode_changed", {
+      action_type: newType,
+      was_enabled: enabled,
+    });
     execute({
       ruleId: rule.id,
       messagingChannelId: channelId,
@@ -653,14 +671,18 @@ function RuleToggle({
             name={`rule-${rule.id}-${channelId}`}
             enabled={enabled}
             disabled={isExecuting}
-            onChange={(value) =>
+            onChange={(value) => {
+              analytics.captureAction("rule_channel_toggled", {
+                enabled: value,
+                action_type: value ? defaultActionType : currentActionType,
+              });
               execute({
                 ruleId: rule.id,
                 messagingChannelId: channelId,
                 enabled: value,
                 actionType: value ? defaultActionType : undefined,
-              })
-            }
+              });
+            }}
           />
         </div>
       </ItemActions>
@@ -691,6 +713,7 @@ function FeatureRouteToggle({
   onUpdate: () => void;
   disabled?: boolean;
 }) {
+  const analytics = useProductAnalytics("channels");
   const { execute, status } = useAction(
     updateMessagingFeatureRouteAction.bind(null, emailAccountId),
     {
@@ -736,6 +759,10 @@ function FeatureRouteToggle({
             disabled={disabled || status === "executing"}
             onChange={(enabled) => {
               if (disabled) return;
+              analytics.captureAction("feature_route_toggled", {
+                purpose,
+                enabled,
+              });
               execute({ channelId: messagingChannelId, purpose, enabled });
             }}
           />

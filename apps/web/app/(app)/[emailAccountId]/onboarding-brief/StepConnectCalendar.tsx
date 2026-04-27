@@ -45,6 +45,7 @@ export function StepConnectCalendar({ onNext }: { onNext: () => void }) {
           </>
         ) : (
           <ConnectCalendar
+            analyticsPage="meeting_briefs"
             onboardingReturnPath={prefixPath(
               emailAccountId,
               "/onboarding-brief?step=2",

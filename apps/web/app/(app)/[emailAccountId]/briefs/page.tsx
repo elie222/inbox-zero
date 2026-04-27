@@ -17,9 +17,11 @@ import { UpcomingMeetings } from "@/app/(app)/[emailAccountId]/briefs/UpcomingMe
 import { BriefsOnboarding } from "@/app/(app)/[emailAccountId]/briefs/Onboarding";
 import { IntegrationsSetting } from "@/app/(app)/[emailAccountId]/briefs/IntegrationsSetting";
 import { DeliveryChannelsSetting } from "@/app/(app)/[emailAccountId]/briefs/DeliveryChannelsSetting";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 export default function MeetingBriefsPage() {
   const { emailAccountId } = useAccount();
+  const analytics = useProductAnalytics("meeting_briefs");
   const { data: calendarsData, isLoading: isLoadingCalendars } = useCalendars();
   const { data, isLoading, error, mutate } = useMeetingBriefSettings();
 
@@ -30,6 +32,7 @@ export default function MeetingBriefsPage() {
     updateMeetingBriefsEnabledAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
+        analytics.captureAction("meeting_briefs_enabled_saved");
         toastSuccess({ description: "Settings saved!" });
         mutate();
       },
@@ -54,7 +57,12 @@ export default function MeetingBriefsPage() {
       <BriefsOnboarding
         emailAccountId={emailAccountId}
         hasCalendarConnected={hasCalendarConnected}
-        onEnable={() => execute({ enabled: true })}
+        onEnable={() => {
+          analytics.captureAction("meeting_briefs_enable_started", {
+            has_calendar_connected: Boolean(hasCalendarConnected),
+          });
+          execute({ enabled: true });
+        }}
         isEnabling={status === "executing"}
       />
     );
@@ -76,7 +84,12 @@ export default function MeetingBriefsPage() {
                 <Toggle
                   name="enabled"
                   enabled={!!data?.enabled}
-                  onChange={(enabled) => execute({ enabled })}
+                  onChange={(enabled) => {
+                    analytics.captureAction("meeting_briefs_toggled", {
+                      enabled,
+                    });
+                    execute({ enabled });
+                  }}
                   disabled={!hasCalendarConnected}
                 />
               }

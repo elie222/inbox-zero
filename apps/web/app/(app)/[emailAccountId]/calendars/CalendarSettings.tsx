@@ -22,6 +22,7 @@ import {
   updateBookingLinkBody,
 } from "@/utils/actions/calendar.validation";
 import { Select } from "@/components/Select";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 const BASE_TIMEZONES = [
   { label: "Samoa (GMT-11)", value: "Pacific/Samoa" },
@@ -56,6 +57,7 @@ const BASE_TIMEZONES = [
 
 export function CalendarSettings() {
   const { emailAccountId } = useAccount();
+  const analytics = useProductAnalytics("calendars");
   const { data, isLoading, error, mutate } = useCalendars();
   const timezone = data?.timezone || null;
   const calendarBookingLink = data?.calendarBookingLink || null;
@@ -86,6 +88,9 @@ export function CalendarSettings() {
   const { execute: executeUpdateTimezone, isExecuting: isUpdatingTimezone } =
     useAction(updateEmailAccountTimezoneAction.bind(null, emailAccountId), {
       onSuccess: () => {
+        analytics.captureAction("calendar_timezone_saved", {
+          had_existing_timezone: Boolean(timezone),
+        });
         toastSuccess({ description: "Timezone updated!" });
         mutate();
       },
@@ -96,6 +101,9 @@ export function CalendarSettings() {
     isExecuting: isUpdatingBookingLink,
   } = useAction(updateCalendarBookingLinkAction.bind(null, emailAccountId), {
     onSuccess: () => {
+      analytics.captureAction("calendar_booking_link_saved", {
+        had_existing_booking_link: Boolean(calendarBookingLink),
+      });
       toastSuccess({ description: "Booking link updated!" });
       mutate();
     },
@@ -141,6 +149,9 @@ export function CalendarSettings() {
   const onSubmitTimezone: SubmitHandler<z.infer<typeof updateTimezoneBody>> =
     useCallback(
       (data) => {
+        analytics.captureAction("calendar_timezone_save_started", {
+          auto_detect: data.timezone === "auto-detect",
+        });
         // If user selected "auto-detect", detect and save the actual timezone
         if (data.timezone === "auto-detect") {
           const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -149,16 +160,19 @@ export function CalendarSettings() {
           executeUpdateTimezone(data);
         }
       },
-      [executeUpdateTimezone],
+      [analytics, executeUpdateTimezone],
     );
 
   const onSubmitBookingLink: SubmitHandler<
     z.infer<typeof updateBookingLinkBody>
   > = useCallback(
     (data) => {
+      analytics.captureAction("calendar_booking_link_save_started", {
+        has_booking_link: Boolean(data.bookingLink),
+      });
       executeUpdateBookingLink(data);
     },
-    [executeUpdateBookingLink],
+    [analytics, executeUpdateBookingLink],
   );
 
   return (

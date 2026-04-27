@@ -34,6 +34,7 @@ import {
   getHttpUnsubscribeLink,
   getUserFacingUnsubscribeLink,
 } from "@/utils/parse/unsubscribe";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 // Shared type for SWR mutate function
 type MutateFn = (
@@ -260,6 +261,7 @@ export function useUnsubscribe<T extends Row>({
   posthog: PostHog;
   refetchPremium: () => Promise<UserResponse | null | undefined>;
 }) {
+  const analytics = useProductAnalytics("bulk_unsubscribe");
   const [unsubscribeLoading, setUnsubscribeLoading] = useState(false);
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
   const automaticUnsubscribeLink = getAutomaticUnsubscribeLink(
@@ -276,6 +278,11 @@ export function useUnsubscribe<T extends Row>({
 
     try {
       posthog.capture("Clicked Unsubscribe");
+      analytics.captureAction("unsubscribe_sender_started", {
+        status: item.status,
+        has_automatic_unsubscribe_link: Boolean(automaticUnsubscribeLink),
+        has_user_facing_unsubscribe_link: Boolean(userFacingUnsubscribeLink),
+      });
 
       if (item.status === NewsletterStatus.UNSUBSCRIBED) {
         await setNewsletterStatusAction(emailAccountId, {
@@ -291,6 +298,9 @@ export function useUnsubscribe<T extends Row>({
             queueArchiveSenders,
           });
           if (ok) {
+            analytics.captureAction("unsubscribe_sender_completed", {
+              outcome: "blocked_sender",
+            });
             toastSuccess({
               description: "Sender blocked. Future emails will be archived.",
             });
@@ -311,7 +321,14 @@ export function useUnsubscribe<T extends Row>({
           queueArchiveSenders,
         });
         if (!unsubscribed) {
+          analytics.captureAction("unsubscribe_sender_failed", {
+            reason: "automatic_unsubscribe_failed",
+          });
           toast.error(`Could not automatically unsubscribe from ${item.name}`);
+        } else {
+          analytics.captureAction("unsubscribe_sender_completed", {
+            outcome: "unsubscribed_and_archived",
+          });
         }
       }
     } catch (error) {
@@ -325,6 +342,7 @@ export function useUnsubscribe<T extends Row>({
     item.status,
     item.unsubscribeLink,
     automaticUnsubscribeLink,
+    analytics,
     mutate,
     refetchPremium,
     posthog,
@@ -360,12 +378,17 @@ export function useBulkUnsubscribe<T extends Row>({
   onDeselectItem?: (id: string) => void;
   filter: NewsletterFilterType;
 }) {
+  const analytics = useProductAnalytics("bulk_unsubscribe");
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
 
   const onBulkUnsubscribe = useCallback(
     async (items: T[]) => {
       if (!hasUnsubscribeAccess) return;
       posthog.capture("Clicked Bulk Unsubscribe");
+      analytics.captureAction("bulk_unsubscribe_started", {
+        item_count: items.length,
+        filter,
+      });
 
       const messages = getBulkUnsubscribeMessages(items);
 
@@ -407,6 +430,10 @@ export function useBulkUnsubscribe<T extends Row>({
           await refetchPremium();
         },
       });
+      analytics.captureAction("bulk_unsubscribe_completed", {
+        item_count: items.length,
+        filter,
+      });
     },
     [
       hasUnsubscribeAccess,
@@ -416,6 +443,7 @@ export function useBulkUnsubscribe<T extends Row>({
       emailAccountId,
       onDeselectItem,
       filter,
+      analytics,
       queueArchiveSenders,
     ],
   );

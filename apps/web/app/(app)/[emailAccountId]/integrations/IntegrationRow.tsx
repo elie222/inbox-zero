@@ -27,6 +27,7 @@ import { fetchWithAccount } from "@/utils/fetch";
 import { RequestAccessDialog } from "./RequestAccessDialog";
 import { truncate } from "@/utils/string";
 import { Notice } from "@/components/Notice";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 interface IntegrationRowProps {
   integration: GetIntegrationsResponse["integrations"][number];
@@ -38,6 +39,7 @@ export function IntegrationRow({
   onConnectionChange,
 }: IntegrationRowProps) {
   const { emailAccountId } = useAccount();
+  const analytics = useProductAnalytics("integrations");
   const [disconnecting, setDisconnecting] = useState(false);
   const [expandedTools, setExpandedTools] = useState(false);
 
@@ -51,7 +53,16 @@ export function IntegrationRow({
   const tools = conn?.tools || [];
 
   const handleConnect = async () => {
+    analytics.captureAction("integration_connect_started", {
+      integration: integration.name,
+      auth_type: integration.authType,
+    });
+
     if (integration.authType === "api-token") {
+      analytics.captureAction("integration_connect_failed", {
+        integration: integration.name,
+        reason: "unsupported_auth_type",
+      });
       toastError({
         title: "Error connecting to integration",
         description: "API token connections are not supported yet",
@@ -72,6 +83,10 @@ export function IntegrationRow({
       const data: GetMcpAuthUrlResponse = await response.json();
       window.location.href = data.url;
     } catch (error) {
+      analytics.captureAction("integration_connect_failed", {
+        integration: integration.name,
+        reason: "auth_url_error",
+      });
       console.error(
         `Failed to initiate ${integration.name} connection:`,
         error,
@@ -86,6 +101,10 @@ export function IntegrationRow({
 
   const handleToggle = async (enabled: boolean) => {
     if (!connectionId) return;
+    analytics.captureAction("integration_toggled", {
+      integration: integration.name,
+      enabled,
+    });
 
     try {
       const result = await toggleMcpConnectionAction(emailAccountId, {
@@ -113,6 +132,11 @@ export function IntegrationRow({
   };
 
   const handleToggleTool = async (toolId: string, isEnabled: boolean) => {
+    analytics.captureAction("integration_tool_toggled", {
+      integration: integration.name,
+      enabled: isEnabled,
+    });
+
     try {
       const result = await toggleMcpToolAction(emailAccountId, {
         toolId,
@@ -147,6 +171,9 @@ export function IntegrationRow({
 
     if (!connectionId) return;
 
+    analytics.captureAction("integration_disconnect_started", {
+      integration: integration.name,
+    });
     setDisconnecting(true);
 
     try {
@@ -160,6 +187,9 @@ export function IntegrationRow({
           description: result.serverError,
         });
       } else {
+        analytics.captureAction("integration_disconnected", {
+          integration: integration.name,
+        });
         toastSuccess({
           title: "Disconnected successfully",
           description: `Disconnected from ${integration.displayName}`,
@@ -225,7 +255,15 @@ export function IntegrationRow({
               variant="ghost"
               size="sm"
               className="flex items-center gap-1"
-              onClick={() => setExpandedTools(!expandedTools)}
+              onClick={() => {
+                analytics.captureAction("integration_tools_toggled", {
+                  integration: integration.name,
+                  expanded: !expandedTools,
+                  enabled_tool_count: toolsCount,
+                  total_tool_count: totalTools,
+                });
+                setExpandedTools(!expandedTools);
+              }}
             >
               {expandedTools ? (
                 <ChevronDown className="h-4 w-4" />
@@ -263,7 +301,15 @@ export function IntegrationRow({
               <DropdownMenuContent align="end">
                 {tools.length > 0 && (
                   <DropdownMenuItem
-                    onClick={() => setExpandedTools(!expandedTools)}
+                    onClick={() => {
+                      analytics.captureAction("integration_tools_toggled", {
+                        integration: integration.name,
+                        expanded: !expandedTools,
+                        enabled_tool_count: toolsCount,
+                        total_tool_count: totalTools,
+                      });
+                      setExpandedTools(!expandedTools);
+                    }}
                     className="sm:hidden"
                   >
                     {expandedTools ? "Hide tools" : "Manage tools"}

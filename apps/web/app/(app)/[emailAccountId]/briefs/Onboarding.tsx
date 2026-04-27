@@ -55,7 +55,10 @@ export function BriefsOnboarding({
       ) : (
         <>
           <MessageText>Connect your calendar to get started:</MessageText>
-          <ConnectCalendar onboardingReturnPath={`/${emailAccountId}/briefs`} />
+          <ConnectCalendar
+            analyticsPage="meeting_briefs"
+            onboardingReturnPath={`/${emailAccountId}/briefs`}
+          />
         </>
       )}
     </SetupCard>
