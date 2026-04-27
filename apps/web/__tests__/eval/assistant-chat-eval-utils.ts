@@ -9,6 +9,7 @@ import type { Logger } from "@/utils/logger";
 export type RecordedToolCall = {
   toolName: string;
   input: unknown;
+  output?: unknown;
 };
 
 export type UpdateRuleActionsInput = {
@@ -71,9 +72,14 @@ export async function captureAssistantChatTrace({
       }
 
       for (const toolCall of toolCalls || []) {
+        const output = step.toolResults?.find(
+          (toolResult) => toolResult.toolCallId === toolCall.toolCallId,
+        )?.output;
+
         recordedToolCalls.push({
           toolName: toolCall.toolName,
           input: toolCall.input,
+          output,
         });
       }
     },
