@@ -736,7 +736,7 @@ function hasRuleScopeUpdate(data: Partial<Rule>) {
 }
 
 function mergeRuleScope<T extends Record<RuleScopeKey, string | null>>(
-  data: Partial<Rule>,
+  data: Partial<Record<RuleScopeKey, string | null | undefined>>,
   existingRule: T,
 ): Record<RuleScopeKey, string | null> {
   return Object.fromEntries(
