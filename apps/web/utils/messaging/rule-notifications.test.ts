@@ -181,7 +181,7 @@ describe("handleRuleNotificationAction", () => {
     expect(cardText).toContain("Status: Reply sent.");
     expect(cardText).toContain("Open in Gmail");
     expect(cardText).toContain(
-      "https://mail.google.com/mail/u/0/?authuser=user%40example.com/#all/message-1",
+      "https://mail.google.com/mail/u/?authuser=user%40example.com#all/message-1",
     );
   });
 
@@ -693,7 +693,7 @@ describe("sendMessagingRuleNotification", () => {
 
     expect(serializedBlocks).toContain("Open in Gmail");
     expect(serializedBlocks).toContain(
-      "https://mail.google.com/mail/u/0/?authuser=user%40example.com/#all/message-1",
+      "https://mail.google.com/mail/u/?authuser=user%40example.com#all/message-1",
     );
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
