@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ExternalLinkIcon } from "lucide-react";
-import { useMemo } from "react";
+import { ChevronRightIcon, ExternalLinkIcon } from "lucide-react";
+import { Fragment, useMemo, useState } from "react";
 import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { GetExecutedRulesResponse } from "@/app/api/user/executed-rules/history/route";
@@ -34,6 +34,9 @@ import { DateCell } from "@/app/(app)/[emailAccountId]/assistant/DateCell";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { getEmailUrlForMessage } from "@/utils/url";
 
+type HistoryMessage =
+  GetExecutedRulesResponse["results"][number]["messages"][number];
+
 export function History() {
   const [page] = useQueryState("page", parseAsInteger.withDefault(1));
   const [ruleId] = useQueryState("ruleId", parseAsString.withDefault("all"));
@@ -42,7 +45,10 @@ export function History() {
   const results = data?.results ?? [];
   const totalPages = data?.totalPages ?? 1;
   const messageIds = useMemo(
-    () => results.map((result) => result.messageId),
+    () =>
+      results.flatMap((thread) =>
+        thread.messages.map((message) => message.messageId),
+      ),
     [results],
   );
   const { data: messagesData, isLoading: isMessagesLoading } = useMessagesBatch(
@@ -94,6 +100,21 @@ function HistoryTable({
 }) {
   const { userEmail } = useAccount();
   const { setInput } = useChat();
+  const [expandedThreadIds, setExpandedThreadIds] = useState<Set<string>>(
+    new Set(),
+  );
+
+  function toggleThread(threadId: string) {
+    setExpandedThreadIds((current) => {
+      const next = new Set(current);
+      if (next.has(threadId)) {
+        next.delete(threadId);
+      } else {
+        next.add(threadId);
+      }
+      return next;
+    });
+  }
 
   return (
     <div>
@@ -105,36 +126,111 @@ function HistoryTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data.map((er) => {
-            const message = messagesById[er.messageId];
+          {data.map((thread) => {
+            const latestMessage = thread.messages[0];
+            if (!latestMessage) return null;
+
+            const message = messagesById[latestMessage.messageId];
             const isMessageLoading = !message && messagesLoading;
+            const canExpand = thread.messages.length > 1;
+            const isExpanded = expandedThreadIds.has(thread.threadId);
 
             return (
-              <TableRow key={er.messageId}>
-                <TableCell>
-                  <EmailCell
-                    message={message}
-                    messageId={er.messageId}
-                    threadId={er.threadId}
-                    userEmail={userEmail}
-                    createdAt={er.executedRules[0]?.createdAt}
-                    isMessageLoading={isMessageLoading}
-                  />
-                  {!er.executedRules[0]?.automated && (
-                    <Badge color="yellow" className="mt-2">
-                      Applied manually
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <RuleCell
-                    executedRules={er.executedRules}
-                    message={message}
-                    setInput={setInput}
-                    isMessageLoading={isMessageLoading}
-                  />
-                </TableCell>
-              </TableRow>
+              <Fragment key={thread.threadId}>
+                <TableRow>
+                  <TableCell>
+                    <div className="flex items-start gap-2">
+                      {canExpand ? (
+                        <Button
+                          variant="ghost"
+                          size="iconSm"
+                          className="mt-1"
+                          aria-label={
+                            isExpanded ? "Collapse thread" : "Expand thread"
+                          }
+                          onClick={() => toggleThread(thread.threadId)}
+                        >
+                          <ChevronRightIcon
+                            className={`size-4 transition-transform ${
+                              isExpanded ? "rotate-90" : ""
+                            }`}
+                          />
+                        </Button>
+                      ) : (
+                        <div className="w-8 shrink-0" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <EmailCell
+                          message={message}
+                          messageId={latestMessage.messageId}
+                          threadId={thread.threadId}
+                          userEmail={userEmail}
+                          createdAt={latestMessage.executedRules[0]?.createdAt}
+                          isMessageLoading={isMessageLoading}
+                        />
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {thread.messages.length > 1 && (
+                            <Badge color="blue">
+                              {thread.messages.length} messages handled
+                            </Badge>
+                          )}
+                          {!latestMessage.executedRules[0]?.automated && (
+                            <Badge color="yellow">Applied manually</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <RuleCell
+                      executedRules={latestMessage.executedRules}
+                      message={message}
+                      setInput={setInput}
+                      isMessageLoading={isMessageLoading}
+                    />
+                  </TableCell>
+                </TableRow>
+
+                {isExpanded &&
+                  thread.messages.map((threadMessage) => {
+                    const innerMessage = messagesById[threadMessage.messageId];
+                    const isInnerMessageLoading =
+                      !innerMessage && messagesLoading;
+
+                    return (
+                      <TableRow
+                        key={`${thread.threadId}-${threadMessage.messageId}`}
+                        className="bg-muted/30 hover:bg-muted/50"
+                      >
+                        <TableCell className="pl-14">
+                          <EmailCell
+                            message={innerMessage}
+                            messageId={threadMessage.messageId}
+                            threadId={thread.threadId}
+                            userEmail={userEmail}
+                            createdAt={
+                              threadMessage.executedRules[0]?.createdAt
+                            }
+                            isMessageLoading={isInnerMessageLoading}
+                          />
+                          {!threadMessage.executedRules[0]?.automated && (
+                            <Badge color="yellow" className="mt-2">
+                              Applied manually
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <RuleCell
+                            executedRules={threadMessage.executedRules}
+                            message={innerMessage}
+                            setInput={setInput}
+                            isMessageLoading={isInnerMessageLoading}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+              </Fragment>
             );
           })}
         </TableBody>
@@ -157,7 +253,7 @@ function EmailCell({
   threadId: string;
   messageId: string;
   userEmail: string;
-  createdAt: Date;
+  createdAt?: Date | string;
   isMessageLoading: boolean;
 }) {
   return (
@@ -172,7 +268,7 @@ function EmailCell({
             <span className="text-muted-foreground">Email unavailable</span>
           )}
         </div>
-        <DateCell createdAt={createdAt} />
+        {createdAt && <DateCell createdAt={new Date(createdAt)} />}
       </div>
       <div className="mt-1 flex items-center font-medium">
         {message ? (
@@ -213,7 +309,7 @@ function RuleCell({
   setInput,
   isMessageLoading,
 }: {
-  executedRules: GetExecutedRulesResponse["results"][number]["executedRules"];
+  executedRules: HistoryMessage["executedRules"];
   message?: ParsedMessage;
   setInput: (input: string) => void;
   isMessageLoading: boolean;
