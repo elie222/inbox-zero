@@ -171,7 +171,7 @@ describe("InlineEmailCard", () => {
     });
   });
 
-  it("normalizes legacy prefixed ids for the Gmail link and archive action", async () => {
+  it("normalizes legacy prefixed ids for the email link and archive action", async () => {
     render(
       createElement(
         InlineEmailCard,
@@ -208,7 +208,7 @@ describe("InlineEmailCard", () => {
     ]);
   });
 
-  it("renders the app email preview when expanded", () => {
+  it("renders the app email preview details from the menu", async () => {
     mockUseThread.mockReturnValue({
       data: {
         thread: {
@@ -243,12 +243,17 @@ describe("InlineEmailCard", () => {
       </InlineEmailCard>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Second/ }));
+    openMoreActions();
+    fireEvent.click(await screen.findByText("Show details"));
 
+    expect(screen.getByText("From:")).toBeTruthy();
+    expect(
+      screen.getByText("Sender Two <sender-two@example.com>"),
+    ).toBeTruthy();
     expect(screen.getByText("Rendered plain body")).toBeTruthy();
   });
 
-  it("shows the archive action even when action is none", () => {
+  it("shows the archive action even when action is none", async () => {
     render(
       <InlineEmailCard threadid="thread-1" action="none">
         Second

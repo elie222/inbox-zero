@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import React, { createElement, type ReactNode } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AssistantInlineEmailResponse } from "@/components/assistant-chat/assistant-inline-email-response";
 import { getEmailUrlForMessage } from "@/utils/url";
@@ -80,7 +80,7 @@ describe("AssistantInlineEmailResponse", () => {
     });
   });
 
-  it("renders inline email cards", () => {
+  it("renders inline email cards", async () => {
     render(
       createElement(
         AssistantInlineEmailResponse,
@@ -89,7 +89,9 @@ describe("AssistantInlineEmailResponse", () => {
       ),
     );
 
-    expect(screen.getByRole("link").getAttribute("href")).toBe(
+    openMoreActions();
+
+    expect((await screen.findByText("Open in email")).closest("a")?.href).toBe(
       getEmailUrlForMessage(
         "msg-thread-1",
         "thread-1",
@@ -97,7 +99,7 @@ describe("AssistantInlineEmailResponse", () => {
         "google",
       ),
     );
-    expect(screen.getByRole("button", { name: "Archive" })).toBeTruthy();
+    expect(screen.getByText("Archive")).toBeTruthy();
   });
 
   it("renders inline email detail views", () => {
@@ -150,3 +152,10 @@ describe("AssistantInlineEmailResponse", () => {
     );
   });
 });
+
+function openMoreActions() {
+  fireEvent.pointerDown(screen.getByRole("button", { name: "More actions" }), {
+    button: 0,
+    ctrlKey: false,
+  });
+}
