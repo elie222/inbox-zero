@@ -30,6 +30,7 @@ import {
   ensureWebhookActionEnabled,
   hasWebhookAction,
 } from "@/utils/webhook-action";
+import { assertNoSenderOnlyOverlap } from "@/utils/rule/sender-scope-overlap";
 
 type CreateRuleEnablement =
   | { source: "default" }
@@ -144,7 +145,7 @@ async function updateRuleAndQueueHistory({
   return rule;
 }
 
-export function partialUpdateRule({
+export async function partialUpdateRule({
   ruleId,
   emailAccountId,
   data,
@@ -153,6 +154,39 @@ export function partialUpdateRule({
   emailAccountId: string;
   data: Partial<Rule>;
 }) {
+  if (hasRuleScopeUpdate(data)) {
+    const existingRule = await prisma.rule.findUnique({
+      where: { id: ruleId, emailAccountId },
+      select: {
+        instructions: true,
+        from: true,
+        to: true,
+        subject: true,
+        body: true,
+        groupId: true,
+      },
+    });
+
+    if (!existingRule) throw new Error("Rule not found");
+
+    await assertNoSenderOnlyOverlap({
+      emailAccountId,
+      excludeRuleId: ruleId,
+      rule: {
+        instructions: getUpdatedRuleScopeValue(
+          data,
+          existingRule,
+          "instructions",
+        ),
+        from: getUpdatedRuleScopeValue(data, existingRule, "from"),
+        to: getUpdatedRuleScopeValue(data, existingRule, "to"),
+        subject: getUpdatedRuleScopeValue(data, existingRule, "subject"),
+        body: getUpdatedRuleScopeValue(data, existingRule, "body"),
+        groupId: getUpdatedRuleScopeValue(data, existingRule, "groupId"),
+      },
+    });
+  }
+
   return updateRuleAndQueueHistory({
     ruleId,
     emailAccountId,
@@ -216,12 +250,18 @@ export async function createRuleWithResolvedActions({
   emailAccountId,
   data,
   actions,
+  skipSenderOnlyOverlapCheck = false,
 }: {
   emailAccountId: string;
   data: RuleRecordData & { name: string };
   actions: RuleActionCreateData[];
+  skipSenderOnlyOverlapCheck?: boolean;
 }): Promise<RuleWithRelations> {
   assertWebhookActionsAllowed(actions);
+
+  if (!skipSenderOnlyOverlapCheck) {
+    await assertNoSenderOnlyOverlap({ emailAccountId, rule: data });
+  }
 
   validateLowTrustStaticFromOutboundActions({
     from: data.from,
@@ -263,13 +303,48 @@ export async function replaceRuleWithResolvedActions({
   emailAccountId,
   data,
   actions,
+  skipSenderOnlyOverlapCheck = false,
 }: {
   ruleId: string;
   emailAccountId: string;
   data: RuleRecordData;
   actions: RuleActionCreateData[];
+  skipSenderOnlyOverlapCheck?: boolean;
 }): Promise<RuleWithRelations> {
   assertWebhookActionsAllowed(actions);
+
+  const existingRule = await prisma.rule.findUnique({
+    where: { id: ruleId, emailAccountId },
+    select: {
+      instructions: true,
+      from: true,
+      to: true,
+      subject: true,
+      body: true,
+      groupId: true,
+    },
+  });
+
+  if (!skipSenderOnlyOverlapCheck) {
+    await assertNoSenderOnlyOverlap({
+      emailAccountId,
+      excludeRuleId: ruleId,
+      rule: existingRule
+        ? {
+            instructions: getUpdatedRuleScopeValue(
+              data,
+              existingRule,
+              "instructions",
+            ),
+            from: getUpdatedRuleScopeValue(data, existingRule, "from"),
+            to: getUpdatedRuleScopeValue(data, existingRule, "to"),
+            subject: getUpdatedRuleScopeValue(data, existingRule, "subject"),
+            body: getUpdatedRuleScopeValue(data, existingRule, "body"),
+            groupId: getUpdatedRuleScopeValue(data, existingRule, "groupId"),
+          }
+        : data,
+    });
+  }
 
   validateLowTrustStaticFromOutboundActions({
     from: data.from,
@@ -277,11 +352,6 @@ export async function replaceRuleWithResolvedActions({
   });
 
   validateWebhookUrlsInActions(actions);
-
-  const existingRule = await prisma.rule.findUnique({
-    where: { id: ruleId, emailAccountId },
-    select: { groupId: true },
-  });
 
   const rule = await prisma.rule.update({
     where: { id: ruleId, emailAccountId },
@@ -343,6 +413,16 @@ export async function createRule({
 
     assertWebhookActionsAllowed(result.actions);
 
+    await assertNoSenderOnlyOverlap({
+      emailAccountId,
+      rule: {
+        instructions: result.condition.aiInstructions,
+        from: result.condition.static?.from,
+        to: result.condition.static?.to,
+        subject: result.condition.static?.subject,
+      },
+    });
+
     validateLowTrustStaticFromOutboundActions({
       from: result.condition.static?.from,
       actionTypes: result.actions.map((action) => action.type),
@@ -380,6 +460,7 @@ export async function createRule({
         subject: result.condition.static?.subject,
       },
       actions: mappedActions,
+      skipSenderOnlyOverlapCheck: true,
     });
 
     queueRuleHistory({ rule, triggerType: "created" });
@@ -665,6 +746,39 @@ function shouldEnable(
   );
   return riskLevels.every((level) => level === "low");
 }
+
+type RuleScopeKey =
+  | "instructions"
+  | "from"
+  | "to"
+  | "subject"
+  | "body"
+  | "groupId";
+
+function hasRuleScopeUpdate(data: Partial<Rule>) {
+  return RULE_SCOPE_KEYS.some((key) => hasOwn(data, key));
+}
+
+function getUpdatedRuleScopeValue<
+  T extends Record<RuleScopeKey, string | null>,
+>(data: Partial<Rule>, existingRule: T, key: RuleScopeKey) {
+  return hasOwn(data, key)
+    ? ((data[key] as string | null | undefined) ?? null)
+    : existingRule[key];
+}
+
+function hasOwn<T extends object>(object: T, key: PropertyKey) {
+  return Object.hasOwn(object, key);
+}
+
+const RULE_SCOPE_KEYS = [
+  "instructions",
+  "from",
+  "to",
+  "subject",
+  "body",
+  "groupId",
+] satisfies RuleScopeKey[];
 
 function validateLowTrustStaticFromOutboundActions({
   from,

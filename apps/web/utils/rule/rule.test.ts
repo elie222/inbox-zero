@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, GroupItemType } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
 import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
 import { getActionRiskLevel } from "@/utils/risk";
@@ -177,6 +177,65 @@ describe("outbound action guardrails", () => {
 
     expect(prisma.rule.create).not.toHaveBeenCalled();
     expect(createEmailProvider).not.toHaveBeenCalled();
+  });
+
+  it("rejects creating a duplicate sender-only rule", async () => {
+    prisma.rule.findMany.mockResolvedValue([
+      {
+        name: "Existing sender rule",
+        instructions: null,
+        from: "sender@example.com",
+        to: null,
+        subject: null,
+        body: null,
+        group: {
+          items: [
+            {
+              value: "sender@example.com",
+              exclude: false,
+              type: GroupItemType.FROM,
+            },
+          ],
+        },
+      },
+    ] as any);
+    prisma.rule.create.mockResolvedValue({
+      id: "new-rule-id",
+      actions: [],
+      group: null,
+    } as any);
+
+    await expect(
+      createRule({
+        result: {
+          name: "Duplicate sender rule",
+          condition: {
+            aiInstructions: null,
+            conditionalOperator: null,
+            static: {
+              from: "sender@example.com",
+              to: null,
+              subject: null,
+            },
+          },
+          actions: [
+            {
+              type: ActionType.ARCHIVE,
+              fields: null,
+              delayInMinutes: null,
+            },
+          ],
+        },
+        emailAccountId: "email-account-id",
+        provider: "gmail",
+        runOnThreads: true,
+        logger,
+      }),
+    ).rejects.toThrow(
+      'Cannot create this rule because it overlaps the existing "Existing sender rule" rule',
+    );
+
+    expect(prisma.rule.create).not.toHaveBeenCalled();
   });
 
   it("rejects updating a low-trust from rule before mapping action fields", async () => {
@@ -392,6 +451,14 @@ describe("outbound action guardrails", () => {
   });
 
   it("scopes partial rule updates to the email account", async () => {
+    prisma.rule.findUnique.mockResolvedValue({
+      instructions: "old instructions",
+      from: null,
+      to: null,
+      subject: null,
+      body: null,
+      groupId: null,
+    } as any);
     prisma.rule.update.mockResolvedValue({
       id: "rule-id",
       actions: [],
@@ -480,7 +547,7 @@ describe("replaceRuleWithResolvedActions", () => {
 
     expect(prisma.rule.findUnique).toHaveBeenCalledWith({
       where: { id: "rule-id", emailAccountId: "email-account-id" },
-      select: { groupId: true },
+      select: expect.objectContaining({ groupId: true }),
     });
     expect(prisma.group.deleteMany).toHaveBeenCalledWith({
       where: { id: "old-group-id", emailAccountId: "email-account-id" },

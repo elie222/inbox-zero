@@ -834,6 +834,8 @@ function mapActionToSanitizedFields(action: {
 }
 
 function handleRuleError(error: unknown, logger: Logger) {
+  if (error instanceof SafeError) throw error;
+
   if (isDuplicateError(error, "name")) {
     throw new SafeError("Rule name already exists");
   }
