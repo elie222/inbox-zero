@@ -7,7 +7,6 @@ import {
   cloneEmailAccountForProvider,
   getFirstSearchInboxCall,
   getLastMatchingToolCall,
-  hasNoWriteToolCalls,
   hasSearchBeforeFirstWrite,
   inboxWorkflowProviders,
   isBulkArchiveSendersInput,
@@ -33,8 +32,89 @@ describe.runIf(shouldRunEval)(
     describeEvalMatrix(
       "assistant-chat inbox workflows actions",
       (model, emailAccount) => {
+        test.each(
+          inboxWorkflowProviders,
+        )("paginates bulk archive requests until all matching threads are covered [$label]", async ({
+          provider,
+          label,
+        }) => {
+          mockSearchMessages
+            .mockResolvedValueOnce({
+              messages: buildBulkArchiveMessages(20, 0),
+              nextPageToken: "PAGE_TOKEN_2",
+            })
+            .mockResolvedValueOnce({
+              messages: buildBulkArchiveMessages(20, 20),
+              nextPageToken: "PAGE_TOKEN_3",
+            })
+            .mockResolvedValueOnce({
+              messages: buildBulkArchiveMessages(20, 40),
+              nextPageToken: "PAGE_TOKEN_4",
+            })
+            .mockResolvedValueOnce({
+              messages: buildBulkArchiveMessages(20, 60),
+              nextPageToken: "PAGE_TOKEN_5",
+            })
+            .mockResolvedValueOnce({
+              messages: buildBulkArchiveMessages(20, 80),
+              nextPageToken: "PAGE_TOKEN_6",
+            })
+            .mockResolvedValueOnce({
+              messages: buildBulkArchiveMessages(20, 100),
+              nextPageToken: undefined,
+            });
+
+          const { toolCalls, actual } = await runAssistantChat({
+            emailAccount: cloneEmailAccountForProvider(emailAccount, provider),
+            messages: [
+              {
+                role: "user",
+                content:
+                  "Archive all unread emails older than 3 years in my inbox.",
+              },
+            ],
+          });
+
+          const searchCalls = getSearchInboxCalls(toolCalls);
+          const firstSearchCall = searchCalls[0];
+          const archiveCalls = getManageInboxArchiveCalls(toolCalls);
+          const archivedThreadIds = new Set(
+            archiveCalls.flatMap((call) => call.threadIds),
+          );
+
+          const pass =
+            !!firstSearchCall &&
+            isBulkArchiveSearchQuery(firstSearchCall.query, provider) &&
+            hasSearchBeforeFirstWrite(toolCalls) &&
+            searchCalls.length >= 6 &&
+            !searchCalls[0]?.pageToken &&
+            searchCalls.some((call) => call.pageToken === "PAGE_TOKEN_2") &&
+            searchCalls.some((call) => call.pageToken === "PAGE_TOKEN_3") &&
+            archiveCalls.length >= 2 &&
+            archiveCalls.every((call) => call.threadIds.length <= 100) &&
+            archivedThreadIds.size === 120 &&
+            archivedThreadIds.has("thread-bulk-1") &&
+            archivedThreadIds.has("thread-bulk-120") &&
+            !toolCalls.some(
+              (toolCall) =>
+                toolCall.toolName === "manageInbox" &&
+                isBulkArchiveSendersInput(toolCall.input),
+            );
+
+          evalReporter.record({
+            testName: `bulk archive paginates across all matches (${label})`,
+            model: model.label,
+            pass,
+            actual: firstSearchCall
+              ? `${actual} | query=${firstSearchCall.query}`
+              : actual,
+          });
+
+          expect(pass).toBe(true);
+        }, 180_000);
+
         test.each(inboxWorkflowProviders)(
-          "does not bulk archive sender cleanup before the user confirms [$label]",
+          "executes explicit sender cleanup after search [$label]",
           async ({ provider, label }) => {
             mockSearchMessages.mockResolvedValueOnce({
               messages: [
@@ -86,13 +166,14 @@ describe.runIf(shouldRunEval)(
               !!searchCall &&
               !!searchJudge?.pass &&
               hasSearchBeforeFirstWrite(toolCalls) &&
-              !toolCalls.some(
-                (toolCall) => toolCall.toolName === "manageInbox",
-              ) &&
-              hasNoWriteToolCalls(toolCalls);
+              toolCalls.some(
+                (toolCall) =>
+                  toolCall.toolName === "manageInbox" &&
+                  isBulkArchiveSendersInput(toolCall.input),
+              );
 
             evalReporter.record({
-              testName: `sender cleanup requires confirmation before write (${label})`,
+              testName: `explicit sender cleanup executes after search (${label})`,
               model: model.label,
               pass,
               actual:
@@ -293,3 +374,118 @@ describe.runIf(shouldRunEval)(
     });
   },
 );
+
+type SearchInboxInput = {
+  query: string;
+  pageToken?: string | null;
+};
+
+function getSearchInboxCalls(
+  toolCalls: Array<{ toolName: string; input: unknown }>,
+) {
+  return toolCalls
+    .filter(
+      (
+        toolCall,
+      ): toolCall is {
+        toolName: "searchInbox";
+        input: SearchInboxInput;
+      } =>
+        toolCall.toolName === "searchInbox" &&
+        isSearchInboxInput(toolCall.input),
+    )
+    .map((toolCall) => toolCall.input);
+}
+
+function getManageInboxArchiveCalls(
+  toolCalls: Array<{ toolName: string; input: unknown }>,
+) {
+  return toolCalls
+    .filter(
+      (
+        toolCall,
+      ): toolCall is {
+        toolName: "manageInbox";
+        input: {
+          action: "archive_threads";
+          threadIds: string[];
+        };
+      } =>
+        toolCall.toolName === "manageInbox" &&
+        isManageInboxThreadActionInput(toolCall.input) &&
+        toolCall.input.action === "archive_threads",
+    )
+    .map((toolCall) => toolCall.input);
+}
+
+function isSearchInboxInput(input: unknown): input is SearchInboxInput {
+  return (
+    !!input &&
+    typeof input === "object" &&
+    typeof (input as { query?: unknown }).query === "string"
+  );
+}
+
+function buildBulkArchiveMessages(count: number, startIndex: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const messageNumber = startIndex + index + 1;
+
+    return getMockMessage({
+      id: `msg-bulk-${messageNumber}`,
+      threadId: `thread-bulk-${messageNumber}`,
+      from: `archive-${messageNumber}@updates.example`,
+      subject: `Unread archive candidate ${messageNumber}`,
+      snippet: `Unread archive candidate ${messageNumber}`,
+      labelIds: ["UNREAD", "INBOX"],
+    });
+  });
+}
+
+function isBulkArchiveSearchQuery(
+  query: string,
+  provider: "google" | "microsoft",
+) {
+  const normalizedQuery = query.toLowerCase();
+
+  if (provider === "microsoft") {
+    const receivedDateMatch = normalizedQuery.match(
+      /received\s*(?:<=|<)\s*(\d{4}-\d{2}-\d{2})(?:t[\d:.+-]+z?)?/,
+    );
+
+    return (
+      normalizedQuery.includes("unread") &&
+      !!receivedDateMatch?.[1] &&
+      isApproxThreeYearsAgo(receivedDateMatch[1], "-")
+    );
+  }
+
+  const beforeDateMatch = normalizedQuery.match(/before:(\d{4}\/\d{2}\/\d{2})/);
+
+  return (
+    normalizedQuery.includes("is:unread") &&
+    (normalizedQuery.includes("older_than:3y") ||
+      (!!beforeDateMatch?.[1] &&
+        isApproxThreeYearsAgo(beforeDateMatch[1], "/")))
+  );
+}
+
+function isApproxThreeYearsAgo(
+  dateString: string,
+  separator: "-" | "/",
+  maxDayDelta = 2,
+) {
+  const parts = dateString.split(separator).map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return false;
+
+  const [year, month, day] = parts;
+  const actual = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(actual.getTime())) return false;
+
+  const expected = new Date();
+  expected.setUTCHours(0, 0, 0, 0);
+  expected.setUTCFullYear(expected.getUTCFullYear() - 3);
+
+  const dayDelta = Math.abs(actual.getTime() - expected.getTime()) / 86_400_000;
+
+  return dayDelta <= maxDayDelta;
+}

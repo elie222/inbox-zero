@@ -62,6 +62,10 @@ if [ -n "$NEXT_PUBLIC_DIGEST_ENABLED" ]; then
     /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_DIGEST_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_DIGEST_ENABLED"
 fi
 
+if [ -n "$NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED" ]; then
+    /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED"
+fi
+
 if [ -n "$DATABASE_URL" ] || [ -n "$PREVIEW_DATABASE_URL_UNPOOLED" ] || [ -n "$DIRECT_URL" ]; then
     echo "🔄 Running database migrations..."
     # Prisma 7 requires config file for migrations (schema no longer supports url)

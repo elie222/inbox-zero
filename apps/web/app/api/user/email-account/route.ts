@@ -40,6 +40,7 @@ async function getEmailAccount({
       followUpAwaitingReplyDays: true,
       followUpNeedsReplyDays: true,
       followUpAutoDraftEnabled: true,
+      digestSendEmail: true,
     },
   });
 

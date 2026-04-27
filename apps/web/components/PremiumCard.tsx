@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/utils";
 import { HoverCard } from "@/components/HoverCard";
 import { MutedText } from "@/components/Typography";
+import type { PremiumTier } from "@/generated/prisma/enums";
 
 interface PremiumData {
   appleExpiresAt?: Date | string | null;
@@ -19,7 +20,7 @@ interface PremiumData {
   lemonSqueezySubscriptionId?: number | string | null;
   stripeSubscriptionId?: string | null;
   stripeSubscriptionStatus?: string | null;
-  tier?: string | null;
+  tier?: PremiumTier | null;
 }
 
 interface PremiumExpiredCardProps {

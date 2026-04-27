@@ -37,7 +37,7 @@ DETAILED CRITERIA:
 - The user needs to provide specific input
 - Someone follows up on a conversation requiring the user's response
 - There are ANY unanswered questions/requests in the thread that the user hasn't addressed yet
-- The user made a promise/commitment to get back to someone or deliver something and hasn't followed through yet
+- The user promised to send a follow-up reply, answer, or deliverable back to someone and hasn't sent that follow-up yet
 - IMPORTANT: In multi-person threads, track the USER'S specific commitments even if other people are having separate conversations
 - CRITICAL: If the user asked a clarifying question AND got an answer BUT still has a pending commitment/deliverable, it's TO_REPLY (not AWAITING_REPLY) - the answered question was just to help complete the commitment
 
@@ -73,20 +73,21 @@ CRITICAL RULES - READ CAREFULLY:
 2. **Unanswered questions persist**: If an earlier message contains an unanswered question or request, and a later message contains only informational content, the status is still determined by the unanswered question/request
 3. **Promises from different perspectives**: 
    - If SOMEONE ELSE promised to do something → AWAITING_REPLY (waiting for them)
-   - If YOU promised to do something → TO_REPLY (you need to follow through)
+   - If YOU promised a future reply, answer, or deliverable back to the sender → TO_REPLY
 4. **Multi-person threads**: In threads with multiple participants, focus ONLY on what the user (the perspective being analyzed) needs to do. Ignore conversations between other people that don't involve the user's commitments.
 5. **Request fulfillment**: If the user asked for something (information, help, etc.) and received it, AND the user has no pending commitments/deliverables, they are no longer awaiting a reply. The status should be ${userSentLastEmail ? "ACTIONED (if fully resolved)" : "FYI (if informational) or ACTIONED (if fully resolved)"}. However, if the user still has a pending commitment, see Rule 6.
 6. **Clarifying questions don't cancel commitments**: If the user has a pending commitment/deliverable and asks a clarifying question that gets answered, the status is TO_REPLY (not AWAITING_REPLY). The user needs to complete their original commitment now that they have the clarification.
-7. **User sends info/recommendations**: When the user SENDS informational content, advice, or recommendations without asking questions or expecting specific actions, it's ACTIONED (not AWAITING_REPLY). The user completed their action and isn't waiting for anything.
-8. **Latest message context matters**: If the latest message is purely informational but there are unresolved items earlier in the thread, prioritize the unresolved items${
+7. **Taking ownership can fulfill the request**: If the sender asked the user to do something and the user's latest reply takes ownership of it ("I'll handle it", "I'll take care of it", "I'll get that fixed"), treat the request as fulfilled and classify ACTIONED unless that reply clearly promises another email update, answer, or deliverable later.
+8. **User sends info/recommendations**: When the user SENDS informational content, advice, or recommendations without asking questions or expecting specific actions, it's ACTIONED (not AWAITING_REPLY). The user completed their action and isn't waiting for anything.
+9. **Latest message context matters**: If the latest message is purely informational but there are unresolved items earlier in the thread, prioritize the unresolved items${
     userSentLastEmail
       ? ""
       : `
-9. **FYI is only when nothing is pending**: Use FYI ONLY when there are absolutely no questions, requests, or pending actions in the entire thread`
+10. **FYI is only when nothing is pending**: Use FYI ONLY when there are absolutely no questions, requests, or pending actions in the entire thread`
   }${
     userSentLastEmail
       ? `
-9. **User sent last email**: Since the user sent the last email, FYI is NOT an option. Choose AWAITING_REPLY if waiting for a response, or ACTIONED if the thread is complete.`
+10. **User sent last email**: Since the user sent the last email, FYI is NOT an option. Choose AWAITING_REPLY if waiting for a response, or ACTIONED if the thread is complete.`
       : ""
   }
 

@@ -1,0 +1,214 @@
+---
+title: 'GCP + Cloudflare Tunnel'
+description: 'Deploy Inbox Zero on Google Cloud Compute Engine with Cloudflare Tunnel for HTTPS — no reverse proxy or SSL certificates required'
+---
+
+This guide covers deploying Inbox Zero on a GCP Compute Engine VM using Cloudflare Tunnel for secure HTTPS access. Cloudflare Tunnel eliminates the need for a reverse proxy (Nginx/Caddy) and SSL certificate management — the tunnel connects outbound from your VM to Cloudflare's edge, so no inbound firewall ports need to be opened.
+
+**Why Cloudflare Tunnel?**
+- HTTPS with no Nginx, Caddy, or Let's Encrypt setup
+- No public inbound ports required — the VM only makes outbound connections
+- Free on Cloudflare's free plan
+- Pairs naturally with GCP VMs running Gmail-integrated apps (same Google Cloud project)
+
+## Prerequisites
+
+- A [Google Cloud](https://console.cloud.google.com) account with billing enabled
+- A [Cloudflare](https://cloudflare.com) account (free tier) with a domain managed by Cloudflare DNS
+- SSH access to GCP (via `gcloud` CLI or browser-based SSH)
+
+## 1. Create the Compute Engine VM
+
+1. Go to **Compute Engine → VM instances → Create instance**
+2. **Name:** `inbox-zero` (or your choice)
+3. **Region/Zone:** choose one close to your users
+4. **Machine configuration:**
+   - Minimum: `e2-medium` (2 vCPU, 4 GB RAM) — add swap if using this size
+   - Recommended: `e2-standard-2` (2 vCPU, 8 GB RAM)
+5. **Boot disk:**
+   - OS: **Debian 12** or **Ubuntu 24.04 LTS**
+   - Size: **20 GB** minimum (Docker images + logs)
+6. **Firewall:** leave HTTP and HTTPS checkboxes **unchecked** — Cloudflare Tunnel handles all ingress
+7. Click **Create**
+
+### Optional: Reserve a static external IP
+
+GCP external IPs change if the VM is stopped. If you need SSH access from a fixed address, reserve a static IP under **VPC network → IP addresses** and attach it to the VM. Cloudflare Tunnel does not require a static IP.
+
+## 2. Install Docker and Docker Compose
+
+SSH into the VM and run:
+
+```bash
+# Update packages
+sudo apt-get update && sudo apt-get upgrade -y
+
+# Install Docker Engine
+curl -fsSL https://get.docker.com | sudo sh
+
+# Allow your user to run docker without sudo
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Verify
+docker --version
+docker compose version
+```
+
+### Add swap (required for e2-medium)
+
+If you're using `e2-medium` (4 GB RAM), add swap to avoid OOM kills:
+
+```bash
+sudo dd if=/dev/zero of=/swapfile bs=128M count=32
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
+```
+
+## 3. Set Up Cloudflare Tunnel
+
+### Create the tunnel
+
+In the **Cloudflare dashboard**:
+
+1. Go to **Zero Trust → Networks → Tunnels → Add a tunnel**
+2. Choose **Cloudflared** as the connector type
+3. Name the tunnel (e.g. `inbox-zero`)
+4. Follow the install instructions for **Debian** — copy the `cloudflared` install command shown in the dashboard and run it on your VM:
+
+```bash
+# Example — copy the exact command from the Cloudflare dashboard
+curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared.deb
+```
+
+5. Run the service install command shown in the dashboard. It looks like:
+
+```bash
+sudo cloudflared service install <YOUR_TUNNEL_TOKEN>
+```
+
+This registers `cloudflared` as a `systemd` service that starts automatically on boot.
+
+### Configure the public hostname
+
+Back in the Cloudflare dashboard tunnel settings:
+
+1. Go to the **Public Hostnames** tab
+2. Click **Add a public hostname**
+3. **Subdomain:** e.g. `inbox` (resulting in `inbox.yourdomain.com`)
+4. **Domain:** your Cloudflare-managed domain
+5. **Service:** `http://localhost:3000`
+6. Save — Cloudflare automatically adds a CNAME DNS record
+
+Your app will be reachable at `https://inbox.yourdomain.com` once the tunnel is running and the app is started.
+
+## 4. Set Up Inbox Zero
+
+### Option A: CLI (recommended)
+
+```bash
+# Install Node.js (required for the setup CLI)
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Run the setup wizard
+npx @inbox-zero/cli setup
+```
+
+When prompted, enter your full Cloudflare Tunnel URL as the base URL (e.g. `https://inbox.yourdomain.com`).
+
+### Option B: Manual
+
+```bash
+git clone https://github.com/elie222/inbox-zero.git
+cd inbox-zero
+cp apps/web/.env.example apps/web/.env
+nano apps/web/.env
+```
+
+Key variables to set:
+
+```env
+# Your Cloudflare Tunnel public hostname
+NEXT_PUBLIC_BASE_URL=https://inbox.yourdomain.com
+
+# Google OAuth
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+
+# LLM provider (pick one)
+DEFAULT_LLM_PROVIDER=anthropic
+DEFAULT_LLM_MODEL=claude-sonnet-4-5-20250929
+ANTHROPIC_API_KEY=...
+```
+
+See the [Environment Variables reference](/hosting/environment-variables) for the full list.
+
+## 5. Start the Application
+
+```bash
+NEXT_PUBLIC_BASE_URL=https://inbox.yourdomain.com docker compose --profile all up -d
+```
+
+Check that all containers are up:
+
+```bash
+docker ps
+docker logs inbox-zero-services-web-1 -f
+```
+
+Startup takes 30–60 seconds. Once the web container logs show the Next.js server is ready, visit your Cloudflare URL.
+
+## 6. Update Google OAuth Redirect URIs
+
+In [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials), open your OAuth client and add:
+
+```
+https://inbox.yourdomain.com/api/auth/callback/google
+```
+
+to the **Authorized redirect URIs** list.
+
+## Maintenance
+
+### Restart after a VM reboot
+
+Both Docker (with `--restart unless-stopped` / Compose) and `cloudflared` run as systemd services and restart automatically. Verify with:
+
+```bash
+systemctl status cloudflared
+docker ps
+```
+
+### Update to the latest image
+
+```bash
+docker compose pull
+NEXT_PUBLIC_BASE_URL=https://inbox.yourdomain.com docker compose --profile all up -d
+```
+
+### View logs
+
+```bash
+docker logs inbox-zero-services-web-1 -f
+journalctl -u cloudflared -f
+```
+
+## Troubleshooting
+
+**Tunnel shows as "Healthy" but site returns 502:**
+- The app container may still be starting up — wait 60 seconds and refresh
+- Check `docker logs inbox-zero-services-web-1` for startup errors
+
+**Cloudflare Tunnel disconnected:**
+- Check `journalctl -u cloudflared` for errors
+- Verify the VM has outbound internet access (should work by default on GCP)
+
+**Google OAuth redirect_uri_mismatch:**
+- Ensure `NEXT_PUBLIC_BASE_URL` exactly matches the redirect URI registered in Google Cloud Console
+- Must match the Cloudflare hostname including `https://`
+
+For other issues, see the [Troubleshooting guide](/hosting/troubleshooting).

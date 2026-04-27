@@ -48,7 +48,10 @@ describe("mobile review sign-in route", () => {
     const request = new NextRequest(
       "http://localhost/api/mobile-review/sign-in",
       {
-        body: JSON.stringify({ code: "review-code" }),
+        body: JSON.stringify({
+          code: "review-code",
+          email: "review@example.com",
+        }),
         headers: {
           "content-type": "application/json",
         },
@@ -62,6 +65,7 @@ describe("mobile review sign-in route", () => {
 
     expect(createMobileReviewSessionMock).toHaveBeenCalledWith({
       code: "review-code",
+      email: "review@example.com",
       logger: request.logger,
     });
     expect(body).toEqual({ success: true });
@@ -78,5 +82,22 @@ describe("mobile review sign-in route", () => {
         reviewUserId: "user-1",
       },
     );
+  });
+
+  it("rejects sign-in requests without an email", async () => {
+    const request = new NextRequest(
+      "http://localhost/api/mobile-review/sign-in",
+      {
+        body: JSON.stringify({ code: "review-code" }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+    ) as NextRequest & { logger: { info: typeof loggerInfoMock } };
+    request.logger = { info: loggerInfoMock };
+
+    await expect(POST(request, {} as never)).rejects.toThrow();
+    expect(createMobileReviewSessionMock).not.toHaveBeenCalled();
   });
 });

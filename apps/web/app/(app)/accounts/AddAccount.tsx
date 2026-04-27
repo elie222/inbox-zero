@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import Image from "next/image";
@@ -8,7 +9,11 @@ import { MutedText } from "@/components/Typography";
 import { getAccountLinkingUrl } from "@/utils/account-linking";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 
-export function AddAccount() {
+export function AddAccount({
+  helperText = "You will be billed for each account.",
+}: {
+  helperText?: ReactNode;
+}) {
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [isLoadingMicrosoft, setIsLoadingMicrosoft] = useState(false);
 
@@ -68,7 +73,7 @@ export function AddAccount() {
         </Button>
       </div>
 
-      <MutedText>You will be billed for each account.</MutedText>
+      <MutedText>{helperText}</MutedText>
     </div>
   );
 }

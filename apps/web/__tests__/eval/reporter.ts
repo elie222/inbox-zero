@@ -29,7 +29,7 @@ class EvalReporter {
     console.log(`\n${this.generateConsoleReport()}`);
 
     if (process.env.EVAL_REPORT_PATH) {
-      this.writeReport(process.env.EVAL_REPORT_PATH);
+      this.writeReport(resolveEvalReportPath(process.env.EVAL_REPORT_PATH));
     }
   }
 
@@ -196,4 +196,30 @@ class EvalReporter {
 
 export function createEvalReporter(): EvalReporter {
   return new EvalReporter();
+}
+
+function resolveEvalReportPath(filePath: string): string {
+  if (path.isAbsolute(filePath)) return filePath;
+
+  return path.join(findWorkspaceRoot(process.cwd()), filePath);
+}
+
+function findWorkspaceRoot(startDir: string): string {
+  let currentDir = startDir;
+
+  while (true) {
+    if (
+      fs.existsSync(path.join(currentDir, "pnpm-workspace.yaml")) ||
+      fs.existsSync(path.join(currentDir, ".git"))
+    ) {
+      return currentDir;
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      return startDir;
+    }
+
+    currentDir = parentDir;
+  }
 }

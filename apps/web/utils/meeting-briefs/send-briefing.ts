@@ -24,6 +24,7 @@ import {
   getMessagingRoute,
   getMessagingRouteWhere,
 } from "@/utils/messaging/routes";
+import { isMessagingChannelOperational } from "@/utils/messaging/channel-validity";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { formatTimeInUserTimezone } from "@/utils/date";
 import prisma from "@/utils/prisma";
@@ -74,6 +75,7 @@ export async function sendBriefing({
     select: {
       id: true,
       provider: true,
+      isConnected: true,
       accessToken: true,
       teamId: true,
       providerUserId: true,
@@ -109,6 +111,13 @@ export async function sendBriefing({
       MessagingRoutePurpose.MEETING_BRIEFS,
     );
     if (!route) continue;
+    if (!isMessagingChannelOperational(channel)) {
+      logger.warn("Skipping briefing delivery for invalid messaging channel", {
+        messagingChannelId: channel.id,
+        provider: channel.provider,
+      });
+      continue;
+    }
 
     switch (channel.provider) {
       case MessagingProvider.SLACK:

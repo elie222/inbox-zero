@@ -92,6 +92,9 @@ vi.mock("@/env", () => ({
     OLLAMA_MODEL: "llama3",
     OPENAI_COMPATIBLE_BASE_URL: "http://localhost:1234/v1",
     OPENAI_COMPATIBLE_MODEL: "llama-3.2-3b-instruct",
+    CLI_LLM_ENABLED: false,
+    CODEX_CLI_ALLOW_NPX: false,
+    CODEX_CLI_PATH: undefined,
     BEDROCK_REGION: "us-west-2",
     BEDROCK_ACCESS_KEY: "",
     BEDROCK_SECRET_KEY: "",
@@ -134,6 +137,9 @@ describe("Models", () => {
     vi.mocked(env).OLLAMA_MODEL = "llama3";
     vi.mocked(env).OPENAI_COMPATIBLE_BASE_URL = "http://localhost:1234/v1";
     vi.mocked(env).OPENAI_COMPATIBLE_MODEL = "llama-3.2-3b-instruct";
+    vi.mocked(env).CLI_LLM_ENABLED = false;
+    vi.mocked(env).CODEX_CLI_ALLOW_NPX = false;
+    vi.mocked(env).CODEX_CLI_PATH = undefined;
     vi.mocked(env).BEDROCK_ACCESS_KEY = "";
     vi.mocked(env).BEDROCK_SECRET_KEY = "";
   });
@@ -1078,6 +1084,81 @@ describe("Models", () => {
         provider: Provider.OPENAI_COMPATIBLE,
         modelName: "llama3",
       });
+    });
+
+    it("should require explicit enablement for CLI LLM providers", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = Provider.CODEX_CLI;
+      vi.mocked(env).DEFAULT_LLM_MODEL = "gpt-5.3-codex";
+      vi.mocked(env).CLI_LLM_ENABLED = false;
+
+      expect(() => getModel(userAi)).toThrow(
+        'CLI LLM provider "codex-cli" is disabled',
+      );
+    });
+
+    it("should configure Codex CLI provider when explicitly enabled", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = Provider.CODEX_CLI;
+      vi.mocked(env).DEFAULT_LLM_MODEL = "gpt-5.3-codex";
+      vi.mocked(env).CLI_LLM_ENABLED = true;
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.CODEX_CLI);
+      expect(result.modelName).toBe("gpt-5.3-codex");
+      expect(result.model).toMatchObject({
+        provider: Provider.CODEX_CLI,
+        modelId: "gpt-5.3-codex",
+      });
+    });
+
+    it("should configure Claude Code provider when explicitly enabled", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = Provider.CLAUDE_CODE;
+      vi.mocked(env).DEFAULT_LLM_MODEL = "sonnet";
+      vi.mocked(env).CLI_LLM_ENABLED = true;
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.CLAUDE_CODE);
+      expect(result.modelName).toBe("sonnet");
+      expect(result.model).toMatchObject({
+        provider: Provider.CLAUDE_CODE,
+        modelId: "sonnet",
+      });
+    });
+
+    it("should skip CLI fallback providers when CLI LLMs are disabled", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "gpt-5.1";
+      vi.mocked(env).DEFAULT_LLM_FALLBACKS = "codex-cli:gpt-5.3-codex";
+      vi.mocked(env).CLI_LLM_ENABLED = false;
+
+      const result = getModel(userAi);
+
+      expect(result.fallbackModels).toEqual([]);
     });
   });
 });

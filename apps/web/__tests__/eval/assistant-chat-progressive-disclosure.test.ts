@@ -26,6 +26,22 @@ const TIMEOUT = 60_000;
 const evalReporter = createEvalReporter();
 const logger = createScopedLogger("eval-assistant-chat-progressive-disclosure");
 
+const { mockCreateEmailProvider, mockPosthogCaptureEvent, mockRedis } =
+  vi.hoisted(() => ({
+    mockCreateEmailProvider: vi.fn(),
+    mockPosthogCaptureEvent: vi.fn(),
+    mockRedis: {
+      set: vi.fn(),
+      rpush: vi.fn(),
+      hincrby: vi.fn(),
+      expire: vi.fn(),
+      keys: vi.fn().mockResolvedValue([]),
+      get: vi.fn().mockResolvedValue(null),
+      llen: vi.fn().mockResolvedValue(0),
+      lrange: vi.fn().mockResolvedValue([]),
+    },
+  }));
+
 type EvalScenario = {
   title: string;
   reportName: string;
@@ -80,20 +96,6 @@ const scenarios: EvalScenario[] = [
   },
 ];
 
-const { mockPosthogCaptureEvent, mockRedis } = vi.hoisted(() => ({
-  mockPosthogCaptureEvent: vi.fn(),
-  mockRedis: {
-    set: vi.fn(),
-    rpush: vi.fn(),
-    hincrby: vi.fn(),
-    expire: vi.fn(),
-    keys: vi.fn().mockResolvedValue([]),
-    get: vi.fn().mockResolvedValue(null),
-    llen: vi.fn().mockResolvedValue(0),
-    lrange: vi.fn().mockResolvedValue([]),
-  },
-}));
-
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: mockPosthogCaptureEvent,
   getPosthogLlmClient: () => null,
@@ -111,7 +113,7 @@ vi.mock("@/utils/user/get", () => ({
   getUserPremium: vi.fn(),
 }));
 vi.mock("@/utils/email/provider", () => ({
-  createEmailProvider: vi.fn(),
+  createEmailProvider: mockCreateEmailProvider,
 }));
 
 vi.mock("@/env", () => ({
@@ -203,6 +205,47 @@ describe.runIf(shouldRunEval)(
       prisma.chatMemory.findFirst.mockResolvedValue(null);
       prisma.chatMemory.create.mockResolvedValue({});
       prisma.knowledge.upsert.mockResolvedValue({});
+      mockCreateEmailProvider.mockResolvedValue({
+        searchMessages: vi.fn().mockResolvedValue({
+          messages: [
+            {
+              id: "msg-newsletter-1",
+              threadId: "thread-newsletter-1",
+              headers: {
+                from: "newsletters@example.com",
+                to: "user@test.com",
+                subject: "Weekly roundup",
+                date: new Date().toISOString(),
+              },
+              snippet: "This week's updates.",
+              textPlain: "This week's updates.",
+              textHtml: "<p>This week's updates.</p>",
+              attachments: [],
+              inline: [],
+              labelIds: ["INBOX"],
+              subject: "Weekly roundup",
+              date: new Date().toISOString(),
+            },
+          ],
+          nextPageToken: undefined,
+        }),
+        getMessagesWithPagination: vi.fn().mockResolvedValue({
+          messages: [],
+          nextPageToken: undefined,
+        }),
+        getLabels: vi.fn().mockResolvedValue([
+          { id: "INBOX", name: "INBOX" },
+          { id: "UNREAD", name: "UNREAD" },
+        ]),
+        getThreadMessages: vi
+          .fn()
+          .mockImplementation(async (threadId: string) => [
+            { id: `${threadId}-message-1`, threadId },
+          ]),
+        archiveThreadWithLabel: vi.fn().mockResolvedValue(undefined),
+        markReadThread: vi.fn().mockResolvedValue(undefined),
+        bulkArchiveFromSenders: vi.fn().mockResolvedValue(undefined),
+      });
     });
 
     describeEvalMatrix(

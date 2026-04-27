@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review AI Prompt Changes"
+  short_description: "Audit prompt and tool-description diffs"
+  default_prompt: "Use $review-ai-prompt-changes to review this branch for prompt, tool-description, and eval-shaped instruction changes."
