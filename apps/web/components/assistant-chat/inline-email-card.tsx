@@ -384,13 +384,14 @@ export function InlineEmailCard({
 
   const isDone = actionState === "done" || isArchived;
   const showArchive = Boolean(threadId);
+  const hasSummary = !!children;
 
   return (
     <div>
       <div
         role={threadId ? "button" : undefined}
         tabIndex={threadId ? 0 : undefined}
-        className={`group flex items-center gap-2 border-b border-border/40 py-3 pl-2 pr-3 text-sm last:border-b-0 ${threadId ? "cursor-pointer" : ""} ${isDone ? "bg-muted/30 line-through opacity-50" : "hover:bg-muted/50"}`}
+        className={`group flex items-center gap-2 border-b border-border/40 pl-2 pr-3 text-sm last:border-b-0 ${hasSummary ? "py-3" : "py-1.5"} ${threadId ? "cursor-pointer" : ""} ${isDone ? "bg-muted/30 line-through opacity-50" : "hover:bg-muted/50"}`}
         onClick={() => threadId && setExpanded(!expanded)}
         onKeyDown={(e) => {
           if (threadId && (e.key === "Enter" || e.key === " ")) {
@@ -406,25 +407,46 @@ export function InlineEmailCard({
         ) : null}
 
         {meta ? (
-          <div className="min-w-0 flex-1">
-            {children ? (
+          hasSummary ? (
+            <div className="min-w-0 flex-1">
               <div className="text-sm text-foreground">{children}</div>
-            ) : null}
-            <div className="mt-1 truncate text-xs text-muted-foreground">
+              <div className="mt-1 truncate text-xs text-muted-foreground">
+                <Tooltip
+                  content={extractEmailAddress(meta.from) || meta.from}
+                  side="right"
+                >
+                  <span className="font-medium">
+                    {extractNameFromEmail(meta.from)}
+                  </span>
+                </Tooltip>
+                {" · "}
+                <span className="tabular-nums">
+                  {formatShortDate(new Date(meta.date), { lowercase: true })}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <Tooltip
                 content={extractEmailAddress(meta.from) || meta.from}
                 side="right"
               >
-                <span className="font-medium">
+                <span className="w-40 shrink-0 truncate text-sm font-medium">
                   {extractNameFromEmail(meta.from)}
                 </span>
               </Tooltip>
-              {" · "}
-              <span className="tabular-nums">
+              {meta.subject ? (
+                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                  {meta.subject}
+                </span>
+              ) : (
+                <span className="min-w-0 flex-1" />
+              )}
+              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                 {formatShortDate(new Date(meta.date), { lowercase: true })}
               </span>
             </div>
-          </div>
+          )
         ) : (
           <span className="min-w-0 flex-1 truncate">{children}</span>
         )}
