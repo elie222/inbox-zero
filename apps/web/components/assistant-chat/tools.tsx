@@ -281,7 +281,7 @@ export function ManageInboxResult({
       )}
 
       {resolvedThreads && resolvedThreads.length > 0 && (
-        <div className="-mx-4">
+        <div className="-mx-4 -my-3.5">
           <ToolEmailRows emails={resolvedThreads} />
         </div>
       )}
