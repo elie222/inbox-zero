@@ -1921,11 +1921,7 @@ function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
     <EmailLookupProvider value={lookup}>
       <div className="overflow-hidden">
         {uniqueEmails.map((email) => (
-          <InlineEmailCard
-            key={email.threadId}
-            threadid={email.threadId}
-            action="none"
-          />
+          <InlineEmailCard key={email.threadId} threadid={email.threadId} />
         ))}
       </div>
     </EmailLookupProvider>
