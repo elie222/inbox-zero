@@ -15,9 +15,9 @@ import { env } from "@/env";
 import {
   PencilIcon,
   TrashIcon,
-  MailIcon,
-  BotIcon,
-  ChevronDownIcon,
+  InboxIcon,
+  ZapIcon,
+  ChevronRightIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -405,7 +405,7 @@ export function RuleForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-10">
         {isSubmitted && formErrors.length > 0 && (
           <div className="mt-4">
             <AlertError
@@ -443,9 +443,10 @@ export function RuleForm({
         </div>
 
         <RuleSectionCard
-          icon={MailIcon}
+          icon={InboxIcon}
           color="blue"
           title="When I get an email"
+          className="!mt-6"
           errors={
             errors.conditions?.root?.message ? (
               <AlertError
@@ -470,9 +471,9 @@ export function RuleForm({
         </RuleSectionCard>
 
         <RuleSectionCard
-          icon={BotIcon}
+          icon={ZapIcon}
           color="green"
-          title="Then:"
+          title="Then"
           errors={
             actionErrors.length > 0 ? (
               <AlertError
@@ -520,10 +521,10 @@ export function RuleForm({
               type="button"
               className="flex w-full items-center gap-2 py-2 text-sm font-medium text-left text-muted-foreground hover:text-foreground transition-colors"
             >
-              <ChevronDownIcon
+              <ChevronRightIcon
                 className={cn(
                   "size-4 transition-transform",
-                  isAdvancedOpen && "rotate-180",
+                  isAdvancedOpen && "rotate-90",
                 )}
               />
               Advanced options
@@ -652,7 +653,7 @@ export function RuleForm({
           </CollapsibleContent>
         </Collapsible>
 
-        <div className="flex justify-end space-x-2">
+        <div className="flex justify-end space-x-2 !mt-6">
           {onCancel && (
             <Button variant="outline" size="sm" onClick={onCancel}>
               Cancel
