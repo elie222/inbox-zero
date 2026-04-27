@@ -88,11 +88,15 @@ describe("normalizeMessagingAssistantText", () => {
 });
 
 describe("normalizeMessagingUserText", () => {
-  it("leaves emoji-only messages unchanged", () => {
-    expect(normalizeMessagingUserText({ text: "👍🏽" })).toBe("👍🏽");
-    expect(normalizeMessagingUserText({ text: ":thumbsup:" })).toBe(
-      ":thumbsup:",
-    );
+  it("converts emoji-only affirmative messages into plain yes", () => {
+    expect(normalizeMessagingUserText({ text: "👍🏽" })).toBe("yes");
+    expect(normalizeMessagingUserText({ text: ":thumbsup:" })).toBe("yes");
+  });
+
+  it("converts emoji-only negative messages into plain no", () => {
+    expect(normalizeMessagingUserText({ text: "❌" })).toBe("no");
+    expect(normalizeMessagingUserText({ text: "👎" })).toBe("no");
+    expect(normalizeMessagingUserText({ text: ":thumbsdown:" })).toBe("no");
   });
 
   it("does not treat plain words as emoji aliases", () => {

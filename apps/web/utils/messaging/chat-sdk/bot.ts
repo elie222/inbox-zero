@@ -89,6 +89,15 @@ const AFFIRMATIVE_REACTION_ALIASES = new Set([
   "check",
   "heavy_check_mark",
 ]);
+const NEGATIVE_REACTION_EMOJI_TOKENS = new Set(["👎", "❌", "✖", "✕", "☒"]);
+const NEGATIVE_REACTION_ALIASES = new Set([
+  "-1",
+  "thumbsdown",
+  "thumbs_down",
+  "x",
+  "negative_squared_cross_mark",
+  "heavy_multiplication_x",
+]);
 const UNSUPPORTED_MESSAGING_ATTACHMENT_MESSAGE =
   "I can process images, but I can't access other file types (documents, videos, audio) sent here yet. I can still draft the email text if you share what to write.";
 
@@ -2592,7 +2601,10 @@ export function buildAffirmativeReactionMessage({
 }
 
 export function normalizeMessagingUserText({ text }: { text: string }) {
-  return text.trim();
+  const trimmed = text.trim();
+  const emojiResponse = getEmojiOnlyUserResponse(trimmed);
+
+  return emojiResponse ?? trimmed;
 }
 
 export function buildPendingEmailCardFallbackText(normalizedText: string) {
@@ -2621,14 +2633,54 @@ function isAffirmativeReactionToken(token: string) {
   const trimmed = token.trim();
   if (!trimmed) return false;
 
-  const alias = trimmed.toLowerCase();
-  if (AFFIRMATIVE_REACTION_ALIASES.has(alias)) return true;
+  if (isAffirmativeReactionAlias(trimmed)) return true;
 
-  const normalized = alias
+  return isAffirmativeReactionEmoji(trimmed);
+}
+
+function getEmojiOnlyUserResponse(text: string): "yes" | "no" | null {
+  if (!text) return null;
+
+  const slackAlias = getSlackEmojiAlias(text);
+  if (slackAlias) {
+    if (isAffirmativeReactionAlias(slackAlias)) return "yes";
+    if (isNegativeReactionAlias(slackAlias)) return "no";
+    return null;
+  }
+
+  if (isAffirmativeReactionEmoji(text)) return "yes";
+  if (isNegativeReactionEmoji(text)) return "no";
+
+  return null;
+}
+
+function getSlackEmojiAlias(text: string): string | null {
+  const match = /^:([A-Za-z0-9_+-]+):$/.exec(text);
+  return match?.[1] ?? null;
+}
+
+function isAffirmativeReactionAlias(token: string) {
+  return AFFIRMATIVE_REACTION_ALIASES.has(token.trim().toLowerCase());
+}
+
+function isNegativeReactionAlias(token: string) {
+  return NEGATIVE_REACTION_ALIASES.has(token.trim().toLowerCase());
+}
+
+function isAffirmativeReactionEmoji(token: string) {
+  return AFFIRMATIVE_REACTION_EMOJI_TOKENS.has(normalizeReactionEmoji(token));
+}
+
+function isNegativeReactionEmoji(token: string) {
+  return NEGATIVE_REACTION_EMOJI_TOKENS.has(normalizeReactionEmoji(token));
+}
+
+function normalizeReactionEmoji(token: string) {
+  return token
+    .trim()
+    .toLowerCase()
     .replaceAll("\uFE0F", "")
     .replace(/[\u{1F3FB}-\u{1F3FF}]/gu, "");
-
-  return AFFIRMATIVE_REACTION_EMOJI_TOKENS.has(normalized);
 }
 
 function getMessagingAssistantPostPayload({
