@@ -89,7 +89,7 @@ function RulesPromptForm({
 
   const editorRef = useRef<SimpleRichTextEditorRef>(null);
 
-  const onSubmit = useCallback(() => {
+  const onSubmit = useCallback(async () => {
     const markdown = editorRef.current?.getMarkdown();
     if (typeof markdown !== "string") return;
     const prompt = convertMentionsToLabels(markdown).trim();
@@ -110,17 +110,16 @@ function RulesPromptForm({
     setIsSubmitting(true);
     openChatSidebar({ isMobile, setOpen, setOpenMobile });
 
-    const closesAfterSubmit = Boolean(onSubmitted);
-
-    submitTextMessage(`Create these email rules:\n\n${prompt}`)
-      .catch(() => {
-        toastError({ description: "Could not send this prompt to chat." });
-      })
-      .finally(() => {
-        if (!closesAfterSubmit) setIsSubmitting(false);
-      });
-
-    onSubmitted?.();
+    let submitted = false;
+    try {
+      await submitTextMessage(`Create these email rules:\n\n${prompt}`);
+      submitted = true;
+      onSubmitted?.();
+    } catch {
+      toastError({ description: "Could not send this prompt to chat." });
+    } finally {
+      if (!submitted || !onSubmitted) setIsSubmitting(false);
+    }
   }, [
     chat.status,
     isMobile,
@@ -139,9 +138,9 @@ function RulesPromptForm({
       <div className="grid grid-cols-1 lg:grid-cols-[1fr,250px] gap-6">
         <div className="grid gap-4">
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              onSubmit();
+              await onSubmit();
             }}
           >
             <Label className="font-title text-xl leading-7">
