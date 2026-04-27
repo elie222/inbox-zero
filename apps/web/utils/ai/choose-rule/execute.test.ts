@@ -123,6 +123,31 @@ describe("executeAct", () => {
     });
   });
 
+  it("does not report APPLIED when persisting the final status fails", async () => {
+    mockRunActionFunction.mockResolvedValueOnce({ success: true });
+    mockExecutedRuleUpdate.mockRejectedValueOnce(new Error("db unavailable"));
+
+    const executedRule = {
+      ...baseExecutedRule,
+      actionItems: [{ id: "action-1", type: ActionType.NOTIFY_SENDER }],
+    } as any;
+
+    await expect(
+      executeAct({
+        client: mockClient,
+        executedRule,
+        message,
+        emailAccount,
+        logger,
+      }),
+    ).rejects.toThrow("db unavailable");
+
+    expect(mockExecutedRuleUpdate).toHaveBeenCalledWith({
+      where: { id: "executed-rule-1" },
+      data: { status: ExecutedRuleStatus.APPLIED },
+    });
+  });
+
   it("keeps throwing for unexpected action exceptions", async () => {
     mockRunActionFunction.mockRejectedValueOnce(new Error("boom"));
 
