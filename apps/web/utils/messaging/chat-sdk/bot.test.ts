@@ -104,6 +104,15 @@ describe("normalizeMessagingUserText", () => {
     expect(normalizeMessagingUserText({ text: "thumbsup" })).toBe("thumbsup");
   });
 
+  it("can preserve emoji-only messages", () => {
+    expect(
+      normalizeMessagingUserText({
+        text: "👍",
+        convertEmojiOnlyResponses: false,
+      }),
+    ).toBe("👍");
+  });
+
   it("leaves regular text unchanged", () => {
     expect(
       normalizeMessagingUserText({ text: "yes please summarize my inbox" }),
