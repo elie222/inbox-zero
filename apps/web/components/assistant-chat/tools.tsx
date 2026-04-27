@@ -1353,6 +1353,7 @@ export function PendingDeleteRuleToolCard({
   );
   const ruleId = output.ruleId;
   const ruleName = output.ruleName || args.ruleName;
+  const wasEnabled = output.wasEnabled ?? true;
 
   const handleDelete = async () => {
     if (!ruleId) {
@@ -1391,6 +1392,9 @@ export function PendingDeleteRuleToolCard({
           <Badge color="green" className="shrink-0">
             Deleted
           </Badge>
+        )}
+        {!deleted && ruleId && (
+          <RuleEditToggleActions ruleId={ruleId} initialEnabled={wasEnabled} />
         )}
       </CardHeader>
 
@@ -1440,6 +1444,7 @@ export function PendingDeleteRulePreviewCard({
 }) {
   const deleted = output.confirmationState === "confirmed";
   const ruleName = output.ruleName || args.ruleName;
+  const wasEnabled = output.wasEnabled ?? true;
 
   return (
     <Card>
@@ -1456,6 +1461,7 @@ export function PendingDeleteRulePreviewCard({
             Deleted
           </Badge>
         )}
+        {!deleted && <RuleEditToggleActionsPreview enabled={wasEnabled} />}
       </CardHeader>
 
       {!deleted && (
@@ -1537,6 +1543,50 @@ function RuleActions({
   initialEnabled?: boolean;
 }) {
   const { emailAccountId } = useAccount();
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <RuleEditToggleActions ruleId={ruleId} initialEnabled={initialEnabled} />
+      <Tooltip content="Delete rule">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-muted-foreground"
+          onClick={async () => {
+            const yes = confirm("Are you sure you want to delete this rule?");
+            if (yes) {
+              try {
+                const result = await deleteRuleAction(emailAccountId, {
+                  id: ruleId,
+                });
+                if (result?.serverError) {
+                  toastError({ description: result.serverError });
+                } else {
+                  toastSuccess({
+                    description: "The rule has been deleted.",
+                  });
+                }
+              } catch {
+                toastError({ description: "Failed to delete rule." });
+              }
+            }
+          }}
+        >
+          <TrashIcon className="size-4" />
+        </Button>
+      </Tooltip>
+    </div>
+  );
+}
+
+function RuleEditToggleActions({
+  ruleId,
+  initialEnabled = true,
+}: {
+  ruleId: string;
+  initialEnabled?: boolean;
+}) {
+  const { emailAccountId } = useAccount();
   const ruleDialog = useDialogState<{ ruleId: string }>();
   const [enabled, setEnabled] = useState(initialEnabled);
   const { executeAsync: toggleRule } = useAction(
@@ -1545,66 +1595,36 @@ function RuleActions({
 
   return (
     <>
-      <div className="flex items-center gap-1.5">
-        <Tooltip content="Edit rule">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 text-muted-foreground"
-            onClick={() => ruleDialog.onOpen({ ruleId })}
-          >
-            <PencilIcon className="size-4" />
-          </Button>
-        </Tooltip>
-        <Tooltip content="Delete rule">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 text-muted-foreground"
-            onClick={async () => {
-              const yes = confirm("Are you sure you want to delete this rule?");
-              if (yes) {
-                try {
-                  const result = await deleteRuleAction(emailAccountId, {
-                    id: ruleId,
-                  });
-                  if (result?.serverError) {
-                    toastError({ description: result.serverError });
-                  } else {
-                    toastSuccess({
-                      description: "The rule has been deleted.",
-                    });
-                  }
-                } catch {
-                  toastError({ description: "Failed to delete rule." });
-                }
-              }
-            }}
-          >
-            <TrashIcon className="size-4" />
-          </Button>
-        </Tooltip>
-        <Switch
-          checked={enabled}
-          onCheckedChange={async (checked) => {
-            setEnabled(checked);
-            try {
-              const result = await toggleRule({ ruleId, enabled: checked });
-              if (result?.serverError) {
-                setEnabled(!checked);
-                toastError({
-                  description: `Failed to ${checked ? "enable" : "disable"} rule.`,
-                });
-              }
-            } catch {
+      <Tooltip content="Edit rule">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-muted-foreground"
+          onClick={() => ruleDialog.onOpen({ ruleId })}
+        >
+          <PencilIcon className="size-4" />
+        </Button>
+      </Tooltip>
+      <Switch
+        checked={enabled}
+        onCheckedChange={async (checked) => {
+          setEnabled(checked);
+          try {
+            const result = await toggleRule({ ruleId, enabled: checked });
+            if (result?.serverError) {
               setEnabled(!checked);
               toastError({
                 description: `Failed to ${checked ? "enable" : "disable"} rule.`,
               });
             }
-          }}
-        />
-      </div>
+          } catch {
+            setEnabled(!checked);
+            toastError({
+              description: `Failed to ${checked ? "enable" : "disable"} rule.`,
+            });
+          }
+        }}
+      />
 
       <RuleDialog
         ruleId={ruleDialog.data?.ruleId}
@@ -1619,15 +1639,7 @@ function RuleActions({
 function RuleActionsPreview({ enabled = true }: { enabled?: boolean }) {
   return (
     <div className="flex items-center gap-1.5">
-      <Tooltip content="Edit rule">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 text-muted-foreground"
-        >
-          <PencilIcon className="size-4" />
-        </Button>
-      </Tooltip>
+      <RuleEditToggleActionsPreview enabled={enabled} />
       <Tooltip content="Delete rule">
         <Button
           variant="ghost"
@@ -1637,8 +1649,28 @@ function RuleActionsPreview({ enabled = true }: { enabled?: boolean }) {
           <TrashIcon className="size-4" />
         </Button>
       </Tooltip>
-      <Switch checked={enabled} />
     </div>
+  );
+}
+
+function RuleEditToggleActionsPreview({
+  enabled = true,
+}: {
+  enabled?: boolean;
+}) {
+  return (
+    <>
+      <Tooltip content="Edit rule">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-muted-foreground"
+        >
+          <PencilIcon className="size-4" />
+        </Button>
+      </Tooltip>
+      <Switch checked={enabled} />
+    </>
   );
 }
 
