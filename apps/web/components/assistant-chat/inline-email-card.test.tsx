@@ -171,7 +171,7 @@ describe("InlineEmailCard", () => {
     });
   });
 
-  it("normalizes legacy prefixed ids for the Gmail link and archive action", async () => {
+  it("normalizes legacy prefixed ids for the email link and archive action", async () => {
     render(
       createElement(
         InlineEmailCard,
@@ -180,7 +180,9 @@ describe("InlineEmailCard", () => {
       ),
     );
 
-    expect(screen.getByRole("link").getAttribute("href")).toBe(
+    openMoreActions();
+
+    expect((await screen.findByText("Open in email")).closest("a")?.href).toBe(
       getEmailUrlForMessage(
         "msg-1",
         "19cdca06580b38e9",
@@ -189,7 +191,7 @@ describe("InlineEmailCard", () => {
       ),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+    fireEvent.click(screen.getByText("Archive"));
 
     await waitFor(() => {
       expect(mockArchiveThreadAction).toHaveBeenCalledWith("account-1", {
@@ -202,7 +204,7 @@ describe("InlineEmailCard", () => {
     ]);
   });
 
-  it("renders the app email preview when expanded", () => {
+  it("renders the app email preview details from the menu", async () => {
     mockUseThread.mockReturnValue({
       data: {
         thread: {
@@ -237,9 +239,9 @@ describe("InlineEmailCard", () => {
       </InlineEmailCard>,
     );
 
-    fireEvent.click(screen.getByText("Subject Two"));
+    openMoreActions();
+    fireEvent.click(await screen.findByText("Show details"));
 
-    expect(screen.getByText("Rendered Subject")).toBeTruthy();
     expect(screen.getByText("From:")).toBeTruthy();
     expect(
       screen.getByText("Sender Two <sender-two@example.com>"),
@@ -247,14 +249,16 @@ describe("InlineEmailCard", () => {
     expect(screen.getByText("Rendered plain body")).toBeTruthy();
   });
 
-  it("shows the archive action even when action is none", () => {
+  it("shows the archive action even when action is none", async () => {
     render(
       <InlineEmailCard threadid="thread-1" action="none">
         Second
       </InlineEmailCard>,
     );
 
-    expect(screen.getByRole("button", { name: "Archive" })).toBeTruthy();
+    openMoreActions();
+
+    expect(await screen.findByText("Archive")).toBeTruthy();
   });
 
   it("renders the preview when message headers are missing", () => {
@@ -286,9 +290,8 @@ describe("InlineEmailCard", () => {
       </InlineEmailCard>,
     );
 
-    fireEvent.click(screen.getByText("Subject Two"));
+    fireEvent.click(screen.getByRole("button", { name: /Second/ }));
 
-    expect(screen.getByText("Fallback Subject")).toBeTruthy();
     expect(screen.getByText("Fallback body")).toBeTruthy();
   });
 });
@@ -350,7 +353,7 @@ describe("InlineEmailList", () => {
     ]);
   });
 
-  it("updates each row inline after archive all succeeds", async () => {
+  it("collapses archived rows into the completed summary", async () => {
     render(
       <InlineEmailList>
         <InlineEmailCard threadid="thread-1">First</InlineEmailCard>
@@ -361,7 +364,8 @@ describe("InlineEmailList", () => {
     fireEvent.click(screen.getAllByRole("button")[0]);
 
     await waitFor(() => {
-      expect(screen.getAllByText("Archived").length).toBe(2);
+      expect(screen.getByText("Completed emails")).toBeTruthy();
+      expect(screen.getByText("2 archived")).toBeTruthy();
     });
   });
 
@@ -435,3 +439,10 @@ describe("InlineEmailList", () => {
     }
   });
 });
+
+function openMoreActions() {
+  fireEvent.pointerDown(screen.getByRole("button", { name: "More actions" }), {
+    button: 0,
+    ctrlKey: false,
+  });
+}
