@@ -1674,16 +1674,7 @@ function buildEmailPreview(email: {
   textPlain?: string;
   textHtml?: string;
 }) {
-  const rawPreview =
-    email.textPlain ||
-    (email.textHtml
-      ? emailToContent(
-          { textHtml: email.textHtml, textPlain: "", snippet: "" },
-          { maxLength: 0 },
-        )
-      : "") ||
-    email.snippet ||
-    "";
+  const rawPreview = emailToContent(email, { maxLength: 0 });
   const preview = escapeSlackText(
     removeExcessiveWhitespace(he.decode(rawPreview)).trim(),
   );

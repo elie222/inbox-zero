@@ -1092,6 +1092,45 @@ describe("sendMessagingRuleNotification", () => {
     expect(serializedBlocks).not.toContain("image.png");
   });
 
+  it("prefers converted HTML over plain text for Slack notification previews", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        content: null,
+      }) as never,
+    );
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Short snippet",
+        textPlain: "Plain fallback body",
+        textHtml: "<p>Rendered HTML body</p>",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockSlackPostMessage).toHaveBeenCalledTimes(1);
+
+    const [args] = mockSlackPostMessage.mock.calls[0];
+    const serializedBlocks = JSON.stringify(args.blocks);
+
+    expect(serializedBlocks).toContain("Rendered HTML body");
+    expect(serializedBlocks).not.toContain("Plain fallback body");
+    expect(serializedBlocks).not.toContain("Short snippet");
+  });
+
   it("delivers Teams notifications through the linked messaging fallback", async () => {
     prisma.executedAction.findUnique.mockResolvedValue(
       getNotificationContext({
