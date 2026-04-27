@@ -643,6 +643,39 @@ In your specific case I'd recommend adding custom rules to get the most out of i
   );
 
   test(
+    "identifies ACTIONED when user confirms they will handle the request",
+    async () => {
+      const emailAccount = getEmailAccount();
+      const messages = [
+        getEmail({
+          from: "customer@example.com",
+          to: emailAccount.email,
+          subject: "Please stop the renewal charge",
+          content: "Please stop trying to charge for renewal.",
+        }),
+        getEmail({
+          from: emailAccount.email,
+          to: "customer@example.com",
+          subject: "Re: Please stop the renewal charge",
+          content:
+            "Really sorry about that. I'll make sure the renewal is cancelled.",
+        }),
+      ];
+
+      const result = await aiDetermineThreadStatus({
+        emailAccount,
+        threadMessages: messages,
+        userSentLastEmail: true,
+      });
+
+      console.debug("Result:", result);
+      expect(result.status).toBe(SystemType.ACTIONED);
+      expect(result.rationale).toBeDefined();
+    },
+    TIMEOUT,
+  );
+
+  test(
     "auto-converts FYI to ACTIONED when user sends the last email",
     async () => {
       const emailAccount = getEmailAccount();

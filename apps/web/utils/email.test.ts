@@ -3,6 +3,7 @@ import {
   extractNameFromEmail,
   extractEmailAddress,
   extractEmailAddresses,
+  extractUniqueEmailAddresses,
   splitRecipientList,
   extractDomainFromEmail,
   participant,
@@ -150,6 +151,34 @@ describe("email utils", () => {
 
     it("handles all invalid emails", () => {
       expect(extractEmailAddresses("invalid, also-invalid")).toEqual([]);
+    });
+  });
+
+  describe("extractUniqueEmailAddresses", () => {
+    it("deduplicates extracted addresses while preserving first-match casing", () => {
+      expect(
+        extractUniqueEmailAddresses([
+          "First <Sender@example.com>",
+          "sender@example.com",
+          "invalid-value",
+          "Second <other@example.com>",
+        ]),
+      ).toEqual([
+        "Sender@example.com",
+        "sender@example.com",
+        "other@example.com",
+      ]);
+    });
+
+    it("can lowercase the deduplicated addresses", () => {
+      expect(
+        extractUniqueEmailAddresses(
+          ["First <Sender@example.com>", "sender@example.com"],
+          {
+            lowercase: true,
+          },
+        ),
+      ).toEqual(["sender@example.com"]);
     });
   });
 

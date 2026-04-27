@@ -59,8 +59,11 @@ async function loadUpstashModule({
   }));
 
   vi.doMock("@/utils/internal-api", () => ({
-    INTERNAL_API_KEY_HEADER: "x-api-key",
     getInternalApiUrl: () => internalApiUrl,
+    getInternalApiHeaders: () => ({
+      "x-api-key": "internal-api-key",
+      "x-inbox-zero-caller-id": "public.example.com",
+    }),
   }));
 
   return import("./index");

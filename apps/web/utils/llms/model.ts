@@ -16,6 +16,7 @@ import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "../error";
+import { assertCliLlmEnabled, createCliLanguageModel } from "./cli-provider";
 
 const DEFAULT_GOOGLE_THINKING_BUDGET = 128;
 
@@ -257,6 +258,28 @@ function selectModel(
         provider: Provider.OPENAI_COMPATIBLE,
         modelName,
         model: openaiCompatible(modelName),
+      };
+    }
+    case Provider.CODEX_CLI: {
+      const modelName = aiModel || "gpt-5.3-codex";
+      return {
+        provider: Provider.CODEX_CLI,
+        modelName,
+        model: createCliLanguageModel({
+          provider: Provider.CODEX_CLI,
+          modelName,
+        }),
+      };
+    }
+    case Provider.CLAUDE_CODE: {
+      const modelName = aiModel || "sonnet";
+      return {
+        provider: Provider.CLAUDE_CODE,
+        modelName,
+        model: createCliLanguageModel({
+          provider: Provider.CLAUDE_CODE,
+          modelName,
+        }),
       };
     }
 
@@ -536,9 +559,20 @@ function getProviderApiKey(provider: string) {
     // Returns a placeholder so the fallback chain doesn't skip this provider
     // when no API key is configured (many OpenAI-compatible servers don't require one)
     [Provider.OPENAI_COMPATIBLE]: env.LLM_API_KEY || "not-required",
+    [Provider.CODEX_CLI]: getCliProviderAvailability(Provider.CODEX_CLI),
+    [Provider.CLAUDE_CODE]: getCliProviderAvailability(Provider.CLAUDE_CODE),
   };
 
   return providerApiKeys[provider];
+}
+
+function getCliProviderAvailability(provider: string) {
+  try {
+    assertCliLlmEnabled(provider);
+    return "cli-provider";
+  } catch {
+    return;
+  }
 }
 
 function resolveApiKey(

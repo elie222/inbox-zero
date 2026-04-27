@@ -24,6 +24,7 @@ import { CleanAction } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 import { isActivePremium } from "@/utils/premium";
 import { withQstashOrInternal } from "@/utils/qstash";
+import { assertCleanerApiEnabled } from "@/utils/cleaner-feature";
 
 const cleanThreadBody = z.object({
   emailAccountId: z.string(),
@@ -295,6 +296,8 @@ function getPublish({
 
 export const POST = withError(
   withQstashOrInternal(async (request: RequestWithLogger) => {
+    assertCleanerApiEnabled();
+
     const json = await request.json();
     const body = cleanThreadBody.parse(json);
 

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
 import type { PostHog } from "posthog-js/react";
 import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
+import { toastSuccess } from "@/components/Toast";
 import {
   setNewsletterStatusAction,
   unsubscribeSenderAction,
@@ -218,8 +219,8 @@ async function blockSender({
   labelId?: string;
   labelName?: string;
   queueArchiveSenders: QueueArchiveSendersFn;
-}) {
-  await onAutoArchive({
+}): Promise<boolean> {
+  const ok = await onAutoArchive({
     emailAccountId,
     from: sender,
     gmailLabelId: labelId,
@@ -237,10 +238,11 @@ async function blockSender({
       labelId,
       emailAccountId,
     });
-    return;
+  } else {
+    await queueArchiveSenders({ senders: [sender] });
   }
 
-  await queueArchiveSenders({ senders: [sender] });
+  return ok;
 }
 
 export function useUnsubscribe<T extends Row>({
@@ -283,11 +285,16 @@ export function useUnsubscribe<T extends Row>({
         await mutate();
       } else {
         if (!userFacingUnsubscribeLink) {
-          await blockSender({
+          const ok = await blockSender({
             sender: item.name,
             emailAccountId,
             queueArchiveSenders,
           });
+          if (ok) {
+            toastSuccess({
+              description: "Sender blocked. Future emails will be archived.",
+            });
+          }
           await mutate();
           await refetchPremium();
           return;
@@ -360,6 +367,8 @@ export function useBulkUnsubscribe<T extends Row>({
       if (!hasUnsubscribeAccess) return;
       posthog.capture("Clicked Bulk Unsubscribe");
 
+      const messages = getBulkUnsubscribeMessages(items);
+
       await executeBulkOperation({
         items,
         mutate,
@@ -370,9 +379,7 @@ export function useBulkUnsubscribe<T extends Row>({
           getAutomaticUnsubscribeLink(item.unsubscribeLink)
             ? NewsletterStatus.UNSUBSCRIBED
             : NewsletterStatus.AUTO_ARCHIVED,
-        loadingMessage: "Unsubscribing from",
-        successMessage: "unsubscribed",
-        errorMessage: "Failed to unsubscribe from",
+        ...messages,
         processItem: async (item) => {
           if (!getAutomaticUnsubscribeLink(item.unsubscribeLink)) {
             await blockSender({
@@ -433,13 +440,16 @@ async function autoArchive({
   emailAccountId: string;
   queueArchiveSenders: QueueArchiveSendersFn;
 }) {
-  await blockSender({
+  const ok = await blockSender({
     sender: name,
     emailAccountId,
     labelId,
     labelName,
     queueArchiveSenders,
   });
+  if (ok) {
+    toastSuccess({ description: "Auto archive enabled!" });
+  }
   await mutate();
   await refetchPremium();
 }
@@ -575,18 +585,11 @@ export function useBulkAutoArchive<T extends Row>({
         successMessage: "set to auto archive",
         errorMessage: "Failed to set auto archive for",
         processItem: async (item) => {
-          await onAutoArchive({
+          await blockSender({
+            sender: item.name,
             emailAccountId,
-            from: item.name,
-            gmailLabelId: undefined,
-            labelName: undefined,
+            queueArchiveSenders,
           });
-          await setNewsletterStatusAction(emailAccountId, {
-            newsletterEmail: item.name,
-            status: NewsletterStatus.AUTO_ARCHIVED,
-          });
-          await decrementUnsubscribeCreditAction();
-          await queueArchiveSenders({ senders: [item.name] });
         },
         onComplete: refetchPremium,
       });
@@ -969,6 +972,8 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
           onAutoArchive({
             emailAccountId,
             from: item.name,
+          }).then((ok) => {
+            if (ok) toastSuccess({ description: "Auto archive enabled!" });
           });
           await setNewsletterStatusAction(emailAccountId, {
             newsletterEmail: item.name,
@@ -990,11 +995,16 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
           );
 
           if (!userFacingUnsubscribeLink) {
-            await blockSender({
+            const ok = await blockSender({
               sender: item.name,
               emailAccountId,
               queueArchiveSenders,
             });
+            if (ok) {
+              toastSuccess({
+                description: "Sender blocked. Future emails will be archived.",
+              });
+            }
             await mutate();
             await refetchPremium();
             return;
@@ -1107,4 +1117,33 @@ function getManualUnsubscribeLink(unsubscribeLink?: string | null) {
   return getUserFacingUnsubscribeLink({
     unsubscribeLink,
   });
+}
+
+function getBulkUnsubscribeMessages<T extends Row>(items: T[]) {
+  const hasAutomatic = items.some((item) =>
+    getAutomaticUnsubscribeLink(item.unsubscribeLink),
+  );
+  const hasBlock = items.some(
+    (item) => !getAutomaticUnsubscribeLink(item.unsubscribeLink),
+  );
+
+  if (hasAutomatic && hasBlock) {
+    return {
+      loadingMessage: "Processing",
+      successMessage: "processed",
+      errorMessage: "Failed to process",
+    };
+  }
+  if (hasBlock) {
+    return {
+      loadingMessage: "Blocking",
+      successMessage: "blocked",
+      errorMessage: "Failed to block",
+    };
+  }
+  return {
+    loadingMessage: "Unsubscribing from",
+    successMessage: "unsubscribed",
+    errorMessage: "Failed to unsubscribe from",
+  };
 }

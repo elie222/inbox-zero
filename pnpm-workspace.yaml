@@ -1,3 +1,21 @@
 packages:
 - packages/*
 - apps/*
+
+# Supply-chain hardening: block versions published <24h ago. Malicious npm releases
+# are typically yanked within hours, so the cooldown blocks the attack window.
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+- "@inboxzero/*"
+
+# pnpm 10 blocks install scripts by default. Only packages listed here may run them.
+onlyBuiltDependencies:
+- "@prisma/engines"
+- "@sentry/cli"
+- core-js
+- esbuild
+- msgpackr-extract
+- prisma
+- protobufjs
+- sharp
+- workerd

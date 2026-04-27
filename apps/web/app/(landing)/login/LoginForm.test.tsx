@@ -1,8 +1,14 @@
 /** @vitest-environment jsdom */
 
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockUseSearchParams = vi.fn();
 const mockSignInWithOauth2 = vi.fn();
@@ -54,6 +60,10 @@ describe("LoginForm", () => {
     });
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   it("shows an inline error when emulator sign-in fails", async () => {
     mockSignInWithOauth2.mockRejectedValue(
       new Error("Failed to connect to Google sign-in."),
@@ -77,6 +87,47 @@ describe("LoginForm", () => {
       expect(mockToastError).toHaveBeenCalledWith({
         title: "Error signing in with Google",
         description: "Failed to connect to Google sign-in.",
+      });
+    });
+  });
+
+  it("starts Apple sign-in when the Apple option is shown", async () => {
+    mockSignInSocial.mockResolvedValue(undefined);
+
+    render(<LoginForm showAppleLogin useGoogleOauthEmulator />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /sign in with apple/i }),
+    );
+
+    await waitFor(() => {
+      expect(mockSignInSocial).toHaveBeenCalledWith({
+        provider: "apple",
+        callbackURL: "/connect-mailbox?next=%2Fwelcome-redirect",
+        errorCallbackURL: "/login/error",
+      });
+    });
+  });
+
+  it("preserves next path for Apple sign-in", async () => {
+    mockUseSearchParams.mockReturnValue({
+      get: (key: string) =>
+        key === "next" ? "/organizations/invitations/invite_123/accept" : null,
+    });
+    mockSignInSocial.mockResolvedValue(undefined);
+
+    render(<LoginForm showAppleLogin useGoogleOauthEmulator />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /sign in with apple/i }),
+    );
+
+    await waitFor(() => {
+      expect(mockSignInSocial).toHaveBeenCalledWith({
+        provider: "apple",
+        callbackURL:
+          "/connect-mailbox?next=%2Forganizations%2Finvitations%2Finvite_123%2Faccept",
+        errorCallbackURL: "/login/error?reason=org_invite",
       });
     });
   });

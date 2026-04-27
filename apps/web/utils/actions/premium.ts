@@ -6,12 +6,14 @@ import uniq from "lodash/uniq";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import {
+  getUserTier,
   isAdminForPremium,
   isOnHigherTier,
   isPremiumRecord,
+  premiumEntitlementSelect,
 } from "@/utils/premium";
 import {
-  cancelPremiumLemon,
+  grantPremiumAdmin,
   upgradeToPremiumLemon,
 } from "@/utils/premium/server";
 import {
@@ -19,10 +21,7 @@ import {
   syncPremiumSeats,
 } from "@/utils/premium/seats";
 import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
-import {
-  activateLemonLicenseKey,
-  getLemonCustomer,
-} from "@/ee/billing/lemon/index";
+import { activateLemonLicenseKey } from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@/generated/prisma/enums";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
 import { getStripePriceId } from "@/app/(app)/premium/config";
@@ -52,11 +51,7 @@ export const decrementUnsubscribeCreditAction = actionClientUser
             id: true,
             unsubscribeCredits: true,
             unsubscribeMonth: true,
-            appleExpiresAt: true,
-            appleRevokedAt: true,
-            appleSubscriptionStatus: true,
-            lemonSqueezyRenewsAt: true,
-            stripeSubscriptionStatus: true,
+            ...premiumEntitlementSelect,
           },
         },
       },
@@ -107,7 +102,7 @@ export const updateMultiAccountPremiumAction = actionClientUser
         premium: {
           select: {
             id: true,
-            tier: true,
+            ...premiumEntitlementSelect,
             lemonSqueezySubscriptionItemId: true,
             stripeSubscriptionItemId: true,
             emailAccountsAccess: true,
@@ -138,7 +133,9 @@ export const updateMultiAccountPremiumAction = actionClientUser
 
     // make sure that the users being added to this plan are not on higher tiers already
     for (const userToAdd of otherUsers) {
-      if (isOnHigherTier(userToAdd.premium?.tier, premium.tier)) {
+      if (
+        isOnHigherTier(getUserTier(userToAdd.premium), getUserTier(premium))
+      ) {
         throw new SafeError(
           "One of the users you are adding to your plan already has premium and cannot be added.",
         );
@@ -279,14 +276,7 @@ export const adminChangePremiumStatusAction = adminActionClient
   .inputSchema(changePremiumStatusSchema)
   .action(
     async ({
-      parsedInput: {
-        email,
-        period,
-        count,
-        emailAccountsAccess,
-        lemonSqueezyCustomerId,
-        upgrade,
-      },
+      parsedInput: { email, period, count, emailAccountsAccess, upgrade },
     }) => {
       const userToUpgrade = await prisma.emailAccount.findUnique({
         where: { email },
@@ -298,46 +288,8 @@ export const adminChangePremiumStatusAction = adminActionClient
 
       if (!userToUpgrade?.user) throw new SafeError("User not found");
 
-      let lemonSqueezySubscriptionId: number | null = null;
-      let lemonSqueezySubscriptionItemId: number | null = null;
-      let lemonSqueezyOrderId: number | null = null;
-      let lemonSqueezyProductId: number | null = null;
-      let lemonSqueezyVariantId: number | null = null;
-
       if (upgrade) {
-        if (lemonSqueezyCustomerId) {
-          const lemonCustomer = await getLemonCustomer(
-            lemonSqueezyCustomerId.toString(),
-          );
-          if (!lemonCustomer.data)
-            throw new SafeError("Lemon customer not found");
-          const subscription = lemonCustomer.data.included?.find(
-            (i) => i.type === "subscriptions",
-          );
-          if (!subscription) throw new SafeError("Subscription not found");
-          lemonSqueezySubscriptionId = Number.parseInt(subscription.id);
-          const attributes = subscription.attributes as {
-            first_subscription_item?: { id?: string | null };
-            order_id?: string;
-            product_id?: string;
-            variant_id?: string;
-          };
-          lemonSqueezyOrderId = attributes.order_id
-            ? Number.parseInt(attributes.order_id)
-            : null;
-          lemonSqueezyProductId = attributes.product_id
-            ? Number.parseInt(attributes.product_id)
-            : null;
-          lemonSqueezyVariantId = attributes.variant_id
-            ? Number.parseInt(attributes.variant_id)
-            : null;
-          lemonSqueezySubscriptionItemId = attributes.first_subscription_item
-            ?.id
-            ? Number.parseInt(attributes.first_subscription_item.id)
-            : null;
-        }
-
-        const getRenewsAt = (period: PremiumTier): Date | null => {
+        const getGrantExpiresAt = (period: PremiumTier): Date | null => {
           const now = new Date();
           switch (period) {
             case PremiumTier.BASIC_ANNUALLY:
@@ -360,22 +312,19 @@ export const adminChangePremiumStatusAction = adminActionClient
           }
         };
 
-        await upgradeToPremiumLemon({
+        await grantPremiumAdmin({
           userId: userToUpgrade.user.id,
           tier: period,
-          lemonSqueezyCustomerId: lemonSqueezyCustomerId || null,
-          lemonSqueezySubscriptionId,
-          lemonSqueezySubscriptionItemId,
-          lemonSqueezyOrderId,
-          lemonSqueezyProductId,
-          lemonSqueezyVariantId,
-          lemonSqueezyRenewsAt: getRenewsAt(period),
+          adminGrantExpiresAt: getGrantExpiresAt(period),
           emailAccountsAccess,
         });
       } else if (userToUpgrade.user.premiumId) {
-        await cancelPremiumLemon({
-          premiumId: userToUpgrade.user.premiumId,
-          lemonSqueezyEndsAt: new Date(),
+        await prisma.premium.update({
+          where: { id: userToUpgrade.user.premiumId },
+          data: {
+            adminGrantExpiresAt: null,
+            adminGrantTier: null,
+          },
         });
       } else {
         throw new SafeError("User not premium.");

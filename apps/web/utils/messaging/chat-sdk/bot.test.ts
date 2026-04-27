@@ -191,7 +191,7 @@ describe("pending email handled state helpers", () => {
         },
       }),
     ).toBe(
-      "Open in Gmail: https://mail.google.com/mail/u/0/?authuser=user%40example.com/#all/message-1",
+      "Open in Gmail: https://mail.google.com/mail/u/?authuser=user%40example.com#all/message-1",
     );
   });
 

@@ -533,11 +533,11 @@ async function runSetupQuick(options: { name?: string }) {
       message: "Google Pub/Sub Topic Name",
       placeholder: "projects/your-project-id/topics/inbox-zero-emails",
       validate: (v) => {
-        if (!v) return undefined;
+        if (!v) return;
         if (!v.startsWith("projects/") || !v.includes("/topics/")) {
           return "Topic name must be in format: projects/PROJECT_ID/topics/TOPIC_NAME";
         }
-        return undefined;
+        return;
       },
     });
 
@@ -992,11 +992,11 @@ Full guide: https://docs.getinboxzero.com/self-hosting/google-pubsub`,
       message: "Google Pub/Sub Topic Name",
       placeholder: "projects/your-project-id/topics/inbox-zero-emails",
       validate: (v) => {
-        if (!v) return undefined; // Allow empty to skip
+        if (!v) return; // Allow empty to skip
         if (!v.startsWith("projects/") || !v.includes("/topics/")) {
           return "Topic name must be in format: projects/PROJECT_ID/topics/TOPIC_NAME";
         }
-        return undefined;
+        return;
       },
     });
 
@@ -1801,7 +1801,7 @@ function logPortConflictGuidance() {
 }
 
 function readExistingDbPassword(envFile: string): string | undefined {
-  if (!existsSync(envFile)) return undefined;
+  if (!existsSync(envFile)) return;
   const existing = parseEnvFile(readFileSync(envFile, "utf-8"));
   return existing.POSTGRES_PASSWORD || undefined;
 }

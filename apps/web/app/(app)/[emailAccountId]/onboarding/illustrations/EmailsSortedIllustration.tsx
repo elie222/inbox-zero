@@ -34,10 +34,18 @@ const emails = [
   },
 ];
 
-export function EmailsSortedIllustration() {
-  const [showLabels, setShowLabels] = useState([false, false, false]);
+export function EmailsSortedIllustration({
+  animated = true,
+}: {
+  animated?: boolean;
+}) {
+  const [showLabels, setShowLabels] = useState(() =>
+    animated ? [false, false, false] : [true, true, true],
+  );
 
   useEffect(() => {
+    if (!animated) return;
+
     const labelDelays = [1200, 1800, 2400];
     const timeouts: NodeJS.Timeout[] = [];
 
@@ -54,14 +62,14 @@ export function EmailsSortedIllustration() {
     });
 
     return () => timeouts.forEach(clearTimeout);
-  }, []);
+  }, [animated]);
 
   return (
     <div className="flex h-[200px] w-full max-w-[360px] flex-col justify-center gap-2 sm:w-[420px] sm:max-w-none">
       {emails.map((email, index) => (
         <motion.div
           key={email.id}
-          initial={{ opacity: 0, x: -20 }}
+          initial={animated ? { opacity: 0, x: -20 } : false}
           animate={{ opacity: 1, x: 0 }}
           transition={{
             duration: 0.5,
@@ -83,7 +91,7 @@ export function EmailsSortedIllustration() {
 
           <div className="flex h-5 shrink-0 items-center px-2 ml-auto sm:ml-0">
             <motion.span
-              initial={{ opacity: 0, scale: 0.8 }}
+              initial={animated ? { opacity: 0, scale: 0.8 } : false}
               animate={{
                 opacity: showLabels[index] ? 1 : 0,
                 scale: showLabels[index] ? 1 : 0.8,

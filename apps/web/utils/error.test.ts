@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { APICallError } from "ai";
+import { APICallError, NoObjectGeneratedError } from "ai";
 import { createScopedLogger } from "@/utils/logger";
 const { mockSentryCaptureException, mockSetUser } = vi.hoisted(() => ({
   mockSentryCaptureException: vi.fn(),
@@ -18,6 +18,7 @@ import {
   getActionErrorMessage,
   getUserFacingErrorMessage,
   isInsufficientCreditsError,
+  isContentFilterRefusal,
   isHandledUserKeyError,
   isKnownApiError,
   isKnownOutlookError,
@@ -174,6 +175,22 @@ function createAPICallError({
     statusCode,
     responseHeaders: {},
     responseBody: "",
+  });
+}
+
+function createNoObjectGeneratedError({
+  finishReason,
+  text,
+}: {
+  finishReason: "content-filter" | "stop" | "length" | "tool-calls" | "other";
+  text: string;
+}): NoObjectGeneratedError {
+  return new NoObjectGeneratedError({
+    message: "No object generated: could not parse the response.",
+    text,
+    response: { id: "id", timestamp: new Date(), modelId: "test" },
+    usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+    finishReason,
   });
 }
 
@@ -540,6 +557,44 @@ describe("isKnownApiError", () => {
       provider: "google",
     });
     expect(isKnownApiError(error)).toBe(true);
+  });
+
+  it("treats LLM content-filter refusals as known errors", () => {
+    const error = createNoObjectGeneratedError({
+      finishReason: "content-filter",
+      text: "I'm sorry, but I cannot assist with that request.",
+    });
+    expect(isKnownApiError(error)).toBe(true);
+  });
+});
+
+describe("isContentFilterRefusal", () => {
+  it("returns true for NoObjectGeneratedError with content-filter finish reason", () => {
+    const error = createNoObjectGeneratedError({
+      finishReason: "content-filter",
+      text: "I'm sorry, but I cannot assist with that request.",
+    });
+    expect(isContentFilterRefusal(error)).toBe(true);
+  });
+
+  it("returns false for NoObjectGeneratedError with other finish reasons", () => {
+    const stopError = createNoObjectGeneratedError({
+      finishReason: "stop",
+      text: "not json",
+    });
+    expect(isContentFilterRefusal(stopError)).toBe(false);
+
+    const lengthError = createNoObjectGeneratedError({
+      finishReason: "length",
+      text: "truncated",
+    });
+    expect(isContentFilterRefusal(lengthError)).toBe(false);
+  });
+
+  it("returns false for unrelated errors", () => {
+    expect(isContentFilterRefusal(new Error("boom"))).toBe(false);
+    expect(isContentFilterRefusal(null)).toBe(false);
+    expect(isContentFilterRefusal(undefined)).toBe(false);
   });
 });
 

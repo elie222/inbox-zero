@@ -128,7 +128,7 @@ export function describeEvalMatrix(
   const models = getEvalModels();
 
   if (models.length === 0) {
-    const fallback = EVAL_MODEL_CATALOG["gemini-3.1-flash-lite"];
+    const fallback = EVAL_MODEL_CATALOG["gemini-3-flash"];
     describe(name, () => {
       fn(fallback, getEmailAccountForModel(fallback, overrides));
     });

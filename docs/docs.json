@@ -110,6 +110,12 @@
             ]
           },
           {
+            "group": "GCP Deployment",
+            "pages": [
+              "hosting/gcp-cloudflare-tunnel"
+            ]
+          },
+          {
             "group": "Contributing",
             "pages": [
               "contributing"

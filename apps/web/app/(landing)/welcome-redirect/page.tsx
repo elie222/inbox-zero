@@ -12,7 +12,7 @@ export default async function WelcomeRedirectPage(props: {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { completedOnboardingAt: true, utms: true },
+    select: { completedOnboardingAt: true },
   });
 
   // Session exists but user doesn't - invalid state, log out

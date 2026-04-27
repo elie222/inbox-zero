@@ -20,26 +20,28 @@ export async function createFolderPath(
   let parentId: string | undefined;
   let currentFolder: DriveFolder | null = null;
   const allFolders: { folder: DriveFolder; path: string }[] = [];
+  const resolvedPathParts: string[] = [];
 
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
+  for (const part of parts) {
+    const normalizedPart = normalizeFolderPathPart(provider, part);
     const existingFolders = await provider.listFolders(parentId);
     const existing = existingFolders.find(
-      (f) => f.name.toLowerCase() === part.toLowerCase(),
+      (f) => f.name.toLowerCase() === normalizedPart.toLowerCase(),
     );
 
     if (existing) {
       currentFolder = existing;
       parentId = existing.id;
     } else {
-      logger.info("Creating folder", { name: part, parentId });
-      currentFolder = await provider.createFolder(part, parentId);
+      logger.info("Creating folder", { name: normalizedPart, parentId });
+      currentFolder = await provider.createFolder(normalizedPart, parentId);
       parentId = currentFolder.id;
     }
 
+    resolvedPathParts.push(currentFolder.name);
     allFolders.push({
       folder: currentFolder,
-      path: parts.slice(0, i + 1).join("/"),
+      path: resolvedPathParts.join("/"),
     });
   }
 
@@ -94,4 +96,19 @@ export async function createAndSaveFilingFolder({
   });
 
   return folder;
+}
+
+const INVALID_ONEDRIVE_NAME_CHARS = /[\\/:*?"<>|]/g;
+
+function normalizeFolderPathPart(provider: DriveProvider, part: string) {
+  if (provider.name !== "microsoft") {
+    return part;
+  }
+
+  const normalizedPart = part
+    .replace(INVALID_ONEDRIVE_NAME_CHARS, "-")
+    .trim()
+    .replace(/[. ]+$/g, "");
+
+  return normalizedPart || "untitled";
 }

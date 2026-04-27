@@ -23,15 +23,6 @@ export const updateEmailAccountRoleAction = actionClient
       ctx: { emailAccountId, userEmail, userId, logger },
       parsedInput: { role },
     }) => {
-      after(async () => {
-        await updateContactRole({
-          email: userEmail,
-          role,
-        }).catch((error) => {
-          logger.error("Loops: Error updating role", { error });
-        });
-      });
-
       await prisma.$transaction([
         prisma.emailAccount.update({
           where: { id: emailAccountId },
@@ -45,6 +36,15 @@ export const updateEmailAccountRoleAction = actionClient
           },
         }),
       ]);
+
+      after(async () => {
+        await updateContactRole({
+          email: userEmail,
+          role,
+        }).catch((error) => {
+          logger.error("Loops: Error updating role", { error });
+        });
+      });
     },
   );
 

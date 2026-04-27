@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createScopedLogger } from "@/utils/logger";
 
 const createRuleMock = vi.hoisted(() => vi.fn());
@@ -72,6 +72,112 @@ describe("confirmAssistantCreateRule", () => {
       id: "rule-created-1",
       actions: [],
     } as Awaited<ReturnType<typeof createRuleMock>>);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("waits for pending rule persistence when waitForPersistence is enabled", async () => {
+    vi.useFakeTimers();
+
+    prisma.chatMessage.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "assistant-message-1",
+          chatId: "chat-1",
+          updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+          parts: [buildPendingCreateRulePart()],
+        },
+      ] as never);
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "assistant-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [
+        buildPendingCreateRulePart({
+          output: {
+            confirmationState: "processing",
+            confirmationProcessingAt: "2026-02-23T00:00:00.000Z",
+          },
+        }),
+      ],
+    } as never);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const resultPromise = confirmAssistantCreateRuleForAccount({
+      chatId: "chat-1",
+      toolCallId: "tool-cr-1",
+      waitForPersistence: true,
+      emailAccountId: "ea_1",
+      provider: "google",
+      logger: createScopedLogger("assistant-chat-create-rule.test"),
+    });
+
+    await vi.runAllTimersAsync();
+
+    const result = await resultPromise;
+
+    expect(result.confirmationState).toBe("confirmed");
+    expect(prisma.chatMessage.findMany).toHaveBeenCalledTimes(3);
+    expect(createRuleMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for pending rule persistence in the web confirmation action", async () => {
+    vi.useFakeTimers();
+
+    (
+      prisma.emailAccount.findUnique as ReturnType<typeof vi.fn>
+    ).mockResolvedValueOnce({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    });
+
+    prisma.chatMessage.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "assistant-message-1",
+          chatId: "chat-1",
+          updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+          parts: [buildPendingCreateRulePart()],
+        },
+      ] as never);
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "assistant-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [
+        buildPendingCreateRulePart({
+          output: {
+            confirmationState: "processing",
+            confirmationProcessingAt: "2026-02-23T00:00:00.000Z",
+          },
+        }),
+      ],
+    } as never);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const resultPromise = confirmAssistantCreateRule(
+      "ea_1" as never,
+      {
+        chatId: "chat-1",
+        toolCallId: "tool-cr-1",
+      } as never,
+    );
+
+    await vi.runAllTimersAsync();
+
+    const result = await resultPromise;
+
+    expect(result?.data?.confirmationState).toBe("confirmed");
+    expect(prisma.chatMessage.findMany).toHaveBeenCalledTimes(3);
+    expect(createRuleMock).toHaveBeenCalledTimes(1);
   });
 
   it("creates rule with chat risk confirmation and persists assistant part", async () => {

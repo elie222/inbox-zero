@@ -79,7 +79,6 @@ function getOutputField<T>(output: unknown, field: string): T | undefined {
   if (typeof output === "object" && output !== null && field in output) {
     return (output as Record<string, unknown>)[field] as T;
   }
-  return undefined;
 }
 
 export function BasicToolInfo({ text }: { text: string }) {
@@ -165,6 +164,7 @@ function CollapsibleToolCard({
 }
 
 export function SearchInboxResult({ output }: { output: unknown }) {
+  const error = getOutputField<string | null>(output, "error");
   const queryUsed = getOutputField<string | null>(output, "queryUsed");
   const messages = getOutputField<
     Array<{
@@ -185,6 +185,12 @@ export function SearchInboxResult({ output }: { output: unknown }) {
           label="Query"
           value={<span className="font-mono text-xs">{queryUsed}</span>}
         />
+      )}
+      {error && (
+        <div className="space-y-1 text-sm text-muted-foreground">
+          <p>Search results were unavailable for that request.</p>
+          <p className="text-xs">{error}</p>
+        </div>
       )}
       {messages && messages.length > 0 && <ToolEmailRows emails={messages} />}
     </SubtleToolCollapsible>
@@ -237,7 +243,7 @@ export function ManageInboxResult({
     ? threadIds
         .map((threadId) => {
           const thread = threadLookup.get(threadId);
-          if (!thread) return undefined;
+          if (!thread) return;
           return { threadId, ...thread };
         })
         .filter(isDefined)
@@ -307,6 +313,67 @@ export function ManageInboxResult({
           </div>
         </ToolSection>
       )}
+    </CollapsibleToolCard>
+  );
+}
+
+export function ManageSenderCategoryResult({ output }: { output: unknown }) {
+  const { provider, userEmail } = useAccount();
+  const category = getOutputField<{ id: string | null; name: string }>(
+    output,
+    "category",
+  );
+  const sendersCount = getOutputField<number>(output, "sendersCount") ?? 0;
+  const senders = getOutputField<string[]>(output, "senders") ?? [];
+  const categoryName = category?.name?.trim() || "Category";
+
+  if (senders.length === 0) {
+    return (
+      <BasicToolInfo text={`No senders to archive in "${categoryName}"`} />
+    );
+  }
+
+  const hiddenCount = Math.max(sendersCount - senders.length, 0);
+
+  return (
+    <CollapsibleToolCard
+      title={`Archived "${categoryName}" category`}
+      badge={
+        <Badge color="green" className="text-[10px]">
+          {sendersCount} sender{sendersCount === 1 ? "" : "s"}
+        </Badge>
+      }
+    >
+      <ToolSection label="Senders">
+        <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
+          {senders.map((sender) => (
+            <ToolPanel
+              key={sender}
+              className="flex items-center justify-between gap-3"
+            >
+              <span className="min-w-0 truncate text-sm text-foreground">
+                {sender}
+              </span>
+              <a
+                href={getEmailSearchUrl(sender, userEmail, provider)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+                aria-label={`View ${sender} in ${
+                  provider === "microsoft" ? "Outlook" : "Gmail"
+                }`}
+              >
+                <ExternalLinkIcon className="size-3.5" />
+              </a>
+            </ToolPanel>
+          ))}
+        </div>
+        {hiddenCount > 0 && (
+          <div className="text-xs text-muted-foreground">
+            + {hiddenCount} more sender{hiddenCount === 1 ? "" : "s"} not shown
+          </div>
+        )}
+      </ToolSection>
     </CollapsibleToolCard>
   );
 }
@@ -455,7 +522,7 @@ function EmailActionResult({
   disableConfirm: boolean;
 }) {
   const { emailAccountId, provider, userEmail } = useAccount();
-  const { chatId } = useChat();
+  const { chatId, persistedMessageIds } = useChat();
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmationResultOverride, setConfirmationResultOverride] =
     useState<EmailConfirmationResult | null>(null);
@@ -481,6 +548,7 @@ function EmailActionResult({
     confirmationResultOverride || parsedConfirmationResult;
   const isProcessing = confirmationState === "processing";
   const isChatBusy = disableConfirm;
+  const isPersistedMessage = persistedMessageIds.has(chatMessageId);
   const isConfirmed =
     confirmationState === "confirmed" ||
     Boolean(confirmationResult) ||
@@ -543,20 +611,12 @@ function EmailActionResult({
       const hasEdits = editedBody && editedBody !== body;
       const input = {
         chatId,
-        chatMessageId,
         toolCallId,
         actionType,
         ...(hasEdits ? { contentOverride: editedBody } : {}),
       };
 
-      let result = await confirmAssistantEmailAction(emailAccountId, input);
-
-      // Message may not be persisted yet if clicked right after
-      // streaming finished. Retry once after a short wait.
-      if (result?.serverError === "Chat message not found") {
-        await new Promise((r) => setTimeout(r, 2000));
-        result = await confirmAssistantEmailAction(emailAccountId, input);
-      }
+      const result = await confirmAssistantEmailAction(emailAccountId, input);
 
       if (result?.serverError) {
         toastError({ description: result.serverError });
@@ -717,6 +777,8 @@ function EmailActionResult({
                   <Loader2 className="size-4 animate-spin" />
                   Sending...
                 </>
+              ) : !isPersistedMessage ? (
+                "Saving..."
               ) : (
                 <>
                   <SendIcon className="hidden size-3.5 sm:inline" />
@@ -1415,10 +1477,6 @@ function LearnedPatternsActions({ ruleId }: { ruleId: string }) {
   );
 }
 
-function ToolCard({ children }: { children: React.ReactNode }) {
-  return <Card className="space-y-3 p-4">{children}</Card>;
-}
-
 function RuleToolCardHeader({
   title,
   actions,
@@ -1664,7 +1722,7 @@ function getPendingString(
   source: Record<string, unknown> | undefined,
   key: string,
 ) {
-  if (!source) return undefined;
+  if (!source) return;
   return trimToNonEmptyString(source[key]);
 }
 
@@ -1689,11 +1747,11 @@ function getActionBodyText({
   actionType: PendingEmailActionType;
   pendingAction?: Record<string, unknown>;
 }) {
-  if (!pendingAction) return undefined;
+  if (!pendingAction) return;
 
   if (actionType === "send_email") {
     const messageHtml = getPendingString(pendingAction, "messageHtml");
-    if (!messageHtml) return undefined;
+    if (!messageHtml) return;
     return htmlToText(messageHtml);
   }
 
