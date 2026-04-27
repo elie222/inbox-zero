@@ -23,11 +23,12 @@ export function RuleSteps({
         <Tooltip hide={!addButtonTooltip} content={addButtonTooltip || ""}>
           <span>
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={onAdd}
               disabled={addButtonDisabled}
               Icon={PlusIcon}
+              className="border-dashed text-muted-foreground hover:text-foreground"
             >
               {addButtonLabel}
             </Button>
