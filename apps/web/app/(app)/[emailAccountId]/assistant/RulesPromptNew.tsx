@@ -29,6 +29,7 @@ import { toastError } from "@/components/Toast";
 import { AvailableActionsPanel } from "@/app/(app)/[emailAccountId]/assistant/AvailableActionsPanel";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
+import { convertMentionsToLabels } from "@/utils/mention";
 
 export function RulesPrompt({ onSubmitted }: { onSubmitted?: () => void }) {
   const { provider } = useAccount();
@@ -91,7 +92,7 @@ function RulesPromptForm({
   const onSubmit = useCallback(() => {
     const markdown = editorRef.current?.getMarkdown();
     if (typeof markdown !== "string") return;
-    const prompt = markdown.trim();
+    const prompt = convertMentionsToLabels(markdown).trim();
     if (prompt === "") {
       toastError({
         description: "Please enter a prompt to create rules",
