@@ -159,6 +159,7 @@ describe("updateRuleAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(createEmailProvider).mockResolvedValue({} as any);
+    prisma.rule.findMany.mockResolvedValue([]);
   });
 
   it("scopes the rule update to the bound email account", async () => {

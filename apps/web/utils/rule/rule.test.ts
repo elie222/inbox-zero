@@ -73,6 +73,7 @@ describe("deleteRule", () => {
       level: "low",
       message: "safe",
     });
+    prisma.rule.findMany.mockResolvedValue([]);
   });
 
   it("deletes the group first and relies on cascade delete for grouped rules", async () => {
@@ -135,6 +136,7 @@ describe("outbound action guardrails", () => {
       level: "low",
       message: "safe",
     });
+    prisma.rule.findMany.mockResolvedValue([]);
   });
 
   it("rejects creating a low-trust from rule with FORWARD", async () => {
@@ -236,6 +238,76 @@ describe("outbound action guardrails", () => {
     );
 
     expect(prisma.rule.create).not.toHaveBeenCalled();
+  });
+
+  it("allows sender-only rules when an overlapping existing rule is grouped", async () => {
+    const existingGroupedRule = {
+      name: "Existing grouped rule",
+      instructions: null,
+      from: "@example.com",
+      to: null,
+      subject: null,
+      body: null,
+      groupId: "group-id",
+      group: { items: [] },
+    };
+
+    prisma.rule.findMany.mockImplementation(async (args) => {
+      const select = (args as { select?: Record<string, unknown> }).select;
+
+      return [
+        {
+          name: existingGroupedRule.name,
+          instructions: existingGroupedRule.instructions,
+          from: existingGroupedRule.from,
+          to: existingGroupedRule.to,
+          subject: existingGroupedRule.subject,
+          body: existingGroupedRule.body,
+          groupId: select?.groupId ? existingGroupedRule.groupId : undefined,
+          group: existingGroupedRule.group,
+        },
+      ] as never;
+    });
+    prisma.rule.create.mockResolvedValue({
+      id: "new-rule-id",
+      actions: [],
+      group: null,
+    } as any);
+
+    await expect(
+      createRule({
+        result: {
+          name: "New sender rule",
+          condition: {
+            aiInstructions: null,
+            conditionalOperator: null,
+            static: {
+              from: "sender@example.com",
+              to: null,
+              subject: null,
+            },
+          },
+          actions: [
+            {
+              type: ActionType.ARCHIVE,
+              fields: null,
+              delayInMinutes: null,
+            },
+          ],
+        },
+        emailAccountId: "email-account-id",
+        provider: "gmail",
+        runOnThreads: true,
+        logger,
+      }),
+    ).resolves.toMatchObject({ id: "new-rule-id" });
+
+    expect(prisma.rule.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ groupId: true }),
+      }),
+    );
+    expect(prisma.rule.create).toHaveBeenCalled();
   });
 
   it("rejects updating a low-trust from rule before mapping action fields", async () => {
@@ -524,6 +596,7 @@ describe("replaceRuleWithResolvedActions", () => {
       level: "low",
       message: "safe",
     });
+    prisma.rule.findMany.mockResolvedValue([]);
   });
 
   it("deletes the previous learned pattern group when the rule is detached from it", async () => {
@@ -584,6 +657,7 @@ describe("rule history snapshots", () => {
       level: "low",
       message: "safe",
     });
+    prisma.rule.findMany.mockResolvedValue([]);
   });
 
   it("writes history when updating instructions", async () => {

@@ -51,36 +51,36 @@ export async function findSenderOnlyOverlapConflict({
   const proposedPatterns = parseSenderScopePatterns(rule.from);
   if (!proposedPatterns.length) return null;
 
-  const existingRules =
-    (await prisma.rule.findMany({
-      where: {
-        emailAccountId,
-        enabled: true,
-        from: { not: null },
-        ...(excludeRuleId && { id: { not: excludeRuleId } }),
-      },
-      select: {
-        name: true,
-        instructions: true,
-        from: true,
-        to: true,
-        subject: true,
-        body: true,
-        group: {
-          select: {
-            items: {
-              where: {
-                type: GroupItemType.FROM,
-              },
-              select: {
-                value: true,
-                exclude: true,
-              },
+  const existingRules = await prisma.rule.findMany({
+    where: {
+      emailAccountId,
+      enabled: true,
+      from: { not: null },
+      ...(excludeRuleId && { id: { not: excludeRuleId } }),
+    },
+    select: {
+      name: true,
+      instructions: true,
+      from: true,
+      to: true,
+      subject: true,
+      body: true,
+      groupId: true,
+      group: {
+        select: {
+          items: {
+            where: {
+              type: GroupItemType.FROM,
+            },
+            select: {
+              value: true,
+              exclude: true,
             },
           },
         },
       },
-    })) ?? [];
+    },
+  });
 
   for (const existingRule of existingRules) {
     if (!isSenderOnlyScope(existingRule)) continue;
