@@ -19,6 +19,7 @@ import { updatePersonalInstructionsTool } from "./tools/rules/update-personal-in
 import { updateLearnedPatternsTool } from "./tools/rules/update-learned-patterns-tool";
 import { updateRuleActionsTool } from "./tools/rules/update-rule-actions-tool";
 import { updateRuleConditionsTool } from "./tools/rules/update-rule-conditions-tool";
+import { updateRuleStateTool } from "./tools/rules/update-rule-state-tool";
 import { getAssistantCapabilitiesTool } from "./tools/settings/get-assistant-capabilities-tool";
 import { updateAssistantSettingsTool } from "./tools/settings/update-assistant-settings-tool";
 import {
@@ -252,6 +253,7 @@ export async function aiProcessAssistantChat({
     createRule: createRuleTool(toolOptions),
     updateRuleConditions: updateRuleConditionsTool(toolOptions),
     updateRuleActions: updateRuleActionsTool(toolOptions),
+    updateRuleState: updateRuleStateTool(toolOptions),
     updateLearnedPatterns: updateLearnedPatternsTool(toolOptions),
     updatePersonalInstructions: updatePersonalInstructionsTool(toolOptions),
 
@@ -744,6 +746,8 @@ export function buildResolvedSystemPrompt({
     `Rules and automation:
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - Prefer updating an existing rule over creating an overlapping duplicate. Do not create semantic duplicates like "Notification" and "Notifications".
+- Use updateRuleState to disable, enable, or delete rules. Never remove all actions as a proxy for disabling or deleting a rule.
+- Deleting a rule requires UI confirmation. If updateRuleState returns requiresConfirmation, explain that deletion is pending confirmation and nothing has been deleted yet.
 - If multiple fetched rules are similar, ask the user which one to update instead of guessing.
 - Use short concise rule names and real sender or domain values. Ask when required data is missing.
 - Rules can use {{variables}} in action fields to insert AI-generated content.`,

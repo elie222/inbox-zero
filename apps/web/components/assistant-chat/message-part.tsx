@@ -12,6 +12,7 @@ import {
   AddToKnowledgeBase,
   BasicToolInfo,
   CreatedRuleToolCard,
+  PendingDeleteRuleToolCard,
   PendingSaveMemoryToolCard,
   PendingCreateRuleToolCard,
   ForwardEmailResult,
@@ -26,6 +27,7 @@ import {
   UpdatedLearnedPatterns,
   UpdatedRuleActions,
   UpdatedRuleConditions,
+  UpdatedRuleState,
 } from "@/components/assistant-chat/tools";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { ThreadLookup } from "@/components/assistant-chat/tools";
@@ -422,6 +424,53 @@ export function MessagePart({
           originalActions={getOutputField(output, "originalActions")}
           updatedActions={getOutputField(output, "updatedActions")}
         />
+      );
+    }
+  }
+
+  if (part.type === "tool-updateRuleState") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      const verb =
+        part.input.operation === "delete"
+          ? "Preparing to delete"
+          : part.input.operation === "enable"
+            ? "Enabling"
+            : "Disabling";
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={`${verb} rule "${part.input.ruleName}"...`}
+        />
+      );
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return renderToolError(toolCallId, output);
+      }
+      const ruleId = getOutputField<string>(output, "ruleId");
+      if (!ruleId)
+        return (
+          <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />
+        );
+
+      const requiresDeleteConfirmation =
+        getOutputField<boolean>(output, "requiresConfirmation") === true &&
+        getOutputField<string>(output, "actionType") === "delete_rule";
+      if (requiresDeleteConfirmation) {
+        return (
+          <PendingDeleteRuleToolCard
+            key={toolCallId}
+            args={part.input}
+            output={output}
+            disableConfirm={disableConfirm || !isPersistedMessage}
+          />
+        );
+      }
+
+      return (
+        <UpdatedRuleState key={toolCallId} args={part.input} output={output} />
       );
     }
   }

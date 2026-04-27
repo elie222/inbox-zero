@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ActionType, GroupItemType } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  GroupItemType,
+  SystemType,
+} from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import { createRuleTool } from "./tools/rules/create-rule-tool";
+import { updateRuleStateTool } from "./tools/rules/update-rule-state-tool";
 
 vi.mock("server-only", () => ({}));
 
@@ -9,12 +14,15 @@ const {
   mockCreateRule,
   mockOutboundActionsNeedChatRiskConfirmation,
   mockPrisma,
+  mockSetRuleEnabled,
 } = vi.hoisted(() => ({
   mockCreateRule: vi.fn(),
   mockOutboundActionsNeedChatRiskConfirmation: vi.fn(),
+  mockSetRuleEnabled: vi.fn(),
   mockPrisma: {
     rule: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
     },
   },
 }));
@@ -31,6 +39,7 @@ vi.mock("@/utils/rule/rule", async (importOriginal) => {
     createRule: mockCreateRule,
     outboundActionsNeedChatRiskConfirmation:
       mockOutboundActionsNeedChatRiskConfirmation,
+    setRuleEnabled: mockSetRuleEnabled,
   };
 });
 
@@ -111,5 +120,112 @@ describe("createRuleTool overlap guard", () => {
 
     expect(result).toEqual({ success: true, ruleId: "new-rule-id" });
     expect(mockCreateRule).toHaveBeenCalledOnce();
+  });
+});
+
+describe("updateRuleStateTool", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSetRuleEnabled.mockResolvedValue({ id: "rule-id", enabled: false });
+    mockPrisma.rule.findUnique.mockResolvedValue({
+      id: "rule-id",
+      name: "Team Mail",
+      enabled: true,
+      systemType: null,
+      updatedAt: new Date("2026-04-27T00:00:00.000Z"),
+      emailAccount: { rulesRevision: 3 },
+    });
+  });
+
+  it("disables a rule without clearing its actions", async () => {
+    const result = await updateRuleStateTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["Team Mail", "2026-04-27T00:00:00.000Z"],
+        ]),
+      }),
+    }).execute({
+      ruleName: "Team Mail",
+      operation: "disable",
+    });
+
+    expect(result).toEqual({
+      success: true,
+      ruleId: "rule-id",
+      ruleName: "Team Mail",
+      operation: "disable",
+      enabled: false,
+      previousEnabled: true,
+    });
+    expect(mockSetRuleEnabled).toHaveBeenCalledWith({
+      ruleId: "rule-id",
+      emailAccountId: "email-account-id",
+      enabled: false,
+    });
+  });
+
+  it("returns a pending confirmation for deleting a custom rule", async () => {
+    const result = await updateRuleStateTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["Team Mail", "2026-04-27T00:00:00.000Z"],
+        ]),
+      }),
+    }).execute({
+      ruleName: "Team Mail",
+      operation: "delete",
+    });
+
+    expect(result).toEqual({
+      success: true,
+      actionType: "delete_rule",
+      requiresConfirmation: true,
+      confirmationState: "pending",
+      ruleId: "rule-id",
+      ruleName: "Team Mail",
+      wasEnabled: true,
+    });
+    expect(mockSetRuleEnabled).not.toHaveBeenCalled();
+  });
+
+  it("blocks deleting default rules", async () => {
+    mockPrisma.rule.findUnique.mockResolvedValue({
+      id: "rule-id",
+      name: "To Reply",
+      enabled: true,
+      systemType: SystemType.TO_REPLY,
+      updatedAt: new Date("2026-04-27T00:00:00.000Z"),
+      emailAccount: { rulesRevision: 3 },
+    });
+
+    const result = await updateRuleStateTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["To Reply", "2026-04-27T00:00:00.000Z"],
+        ]),
+      }),
+    }).execute({
+      ruleName: "To Reply",
+      operation: "delete",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Default rules cannot be deleted");
+    expect(mockSetRuleEnabled).not.toHaveBeenCalled();
   });
 });

@@ -11,9 +11,11 @@ import {
   BasicToolInfo,
   CreatedRuleToolCard,
   PendingCreateRulePreviewCard,
+  PendingDeleteRulePreviewCard,
   UpdatedRuleConditions,
   UpdatedRuleActions,
   UpdatedLearnedPatterns,
+  UpdatedRuleState,
   ForwardEmailResult,
   ManageInboxResult,
   ManageSenderCategoryResult,
@@ -225,6 +227,55 @@ export default function ToolsPage() {
             ]}
           />
 
+          <MutedText>Updated rule state:</MutedText>
+          <UpdatedRuleState
+            preview
+            args={{
+              ruleName: "Newsletter Archive",
+              operation: "disable",
+            }}
+            output={{
+              success: true,
+              ruleId: "demo-rule",
+              ruleName: "Newsletter Archive",
+              operation: "disable",
+              enabled: false,
+              previousEnabled: true,
+            }}
+          />
+          <UpdatedRuleState
+            preview
+            args={{
+              ruleName: "Billing Alerts",
+              operation: "enable",
+            }}
+            output={{
+              success: true,
+              ruleId: "demo-rule",
+              ruleName: "Billing Alerts",
+              operation: "enable",
+              enabled: true,
+              previousEnabled: false,
+            }}
+          />
+
+          <MutedText>Pending delete confirmation:</MutedText>
+          <PendingDeleteRulePreviewCard
+            args={{
+              ruleName: "Old Vendor Alerts",
+              operation: "delete",
+            }}
+            output={{
+              success: true,
+              actionType: "delete_rule",
+              requiresConfirmation: true,
+              confirmationState: "pending",
+              ruleId: "demo-rule",
+              ruleName: "Old Vendor Alerts",
+              wasEnabled: true,
+            }}
+          />
+
           <MutedText>Updated learned patterns:</MutedText>
           <UpdatedLearnedPatterns
             preview
@@ -313,6 +364,7 @@ export default function ToolsPage() {
           <div className="grid gap-2 md:grid-cols-2">
             <ToolErrorCardPreview error="Failed to read email" />
             <ToolErrorCardPreview error="Failed to update rule conditions" />
+            <ToolErrorCardPreview error="Failed to update rule state" />
             <ToolErrorCardPreview error="Missing rule ID in response" />
             <ToolErrorCardPreview error="Failed to load rule execution for message" />
           </div>
@@ -538,6 +590,9 @@ export default function ToolsPage() {
             <BasicToolInfo text='Creating rule "Newsletters"...' />
             <BasicToolInfo text='Updating rule "Newsletters" conditions...' />
             <BasicToolInfo text='Updating rule "Newsletters" actions...' />
+            <BasicToolInfo text='Disabling rule "Newsletters"...' />
+            <BasicToolInfo text='Enabling rule "Newsletters"...' />
+            <BasicToolInfo text='Preparing to delete rule "Newsletters"...' />
             <BasicToolInfo text='Updating learned patterns for rule "Newsletters"...' />
             <BasicToolInfo text="Updating about..." />
             <BasicToolInfo text="Adding to knowledge base..." />
