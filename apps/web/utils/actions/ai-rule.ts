@@ -2,7 +2,6 @@
 
 import { z } from "zod";
 import prisma from "@/utils/prisma";
-import { isDuplicateError } from "@/utils/prisma-helpers";
 import {
   runRules,
   type RunRulesResult,
@@ -11,15 +10,12 @@ import {
   runRulesBody,
   testAiCustomContentBody,
 } from "@/utils/actions/ai-rule.validation";
-import { createRulesBody } from "@/utils/actions/rule.validation";
-import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
-import { createRule, setRuleRunOnThreads } from "@/utils/rule/rule";
+import { setRuleRunOnThreads } from "@/utils/rule/rule";
 import { actionClient } from "@/utils/actions/safe-action";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
-import type { RuleWithRelations } from "@/utils/rule/types";
 
 export const runRulesAction = actionClient
   .metadata({ name: "runRules" })
@@ -247,93 +243,5 @@ export const setRuleRunOnThreadsAction = actionClient
       parsedInput: { ruleId, runOnThreads },
     }) => {
       await setRuleRunOnThreads({ ruleId, emailAccountId, runOnThreads });
-    },
-  );
-
-export const createRulesAction = actionClient
-  .metadata({ name: "createRules" })
-  .inputSchema(createRulesBody)
-  .action(
-    async ({ ctx: { emailAccountId, logger }, parsedInput: { prompt } }) => {
-      const emailAccount = await prisma.emailAccount.findUnique({
-        where: { id: emailAccountId },
-        select: {
-          id: true,
-          email: true,
-          userId: true,
-          about: true,
-          multiRuleSelectionEnabled: true,
-          timezone: true,
-          calendarBookingLink: true,
-          categories: { select: { id: true, name: true } },
-          user: {
-            select: {
-              aiProvider: true,
-              aiModel: true,
-              aiApiKey: true,
-            },
-          },
-          account: {
-            select: {
-              provider: true,
-            },
-          },
-        },
-      });
-
-      if (!emailAccount) {
-        logger.error("Email account not found");
-        throw new SafeError("Email account not found");
-      }
-
-      const addedRules = await aiPromptToRules({
-        emailAccount,
-        promptFile: prompt,
-      });
-
-      logger.info("Rules to be added", { count: addedRules?.length || 0 });
-
-      const createdRules: RuleWithRelations[] = [];
-      const errors: { ruleName: string; error: string }[] = [];
-
-      for (const rule of addedRules || []) {
-        logger.info("Creating rule", { ruleName: rule.name });
-
-        try {
-          const createdRule = await createRule({
-            result: rule,
-            emailAccountId,
-            provider: emailAccount.account.provider,
-            runOnThreads: true,
-            logger,
-          });
-          createdRules.push(createdRule);
-        } catch (error) {
-          if (isDuplicateError(error, "name")) {
-            logger.info("Skipping duplicate rule", { ruleName: rule.name });
-          } else {
-            const errorMessage =
-              error instanceof Error ? error.message : String(error);
-            logger.error("Failed to create rule", {
-              ruleName: rule.name,
-              error,
-            });
-            errors.push({
-              ruleName: rule.name,
-              error: errorMessage,
-            });
-          }
-        }
-      }
-
-      logger.info("Completed", {
-        createdRules: createdRules.length,
-        failedRules: errors.length,
-      });
-
-      return {
-        rules: createdRules,
-        errors: errors.length > 0 ? errors : undefined,
-      };
     },
   );
