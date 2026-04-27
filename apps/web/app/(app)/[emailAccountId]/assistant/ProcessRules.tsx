@@ -1,12 +1,20 @@
 "use client";
 
-import { useCallback, useState, useRef, useMemo } from "react";
+import {
+  Fragment,
+  useCallback,
+  useState,
+  useRef,
+  useMemo,
+  type ReactNode,
+} from "react";
 import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import PQueue from "p-queue";
 import {
   BookOpenCheckIcon,
+  ChevronRightIcon,
   SparklesIcon,
   PenSquareIcon,
   PauseIcon,
@@ -36,12 +44,14 @@ import { useChat } from "@/providers/ChatProvider";
 import { MutedText } from "@/components/Typography";
 import { createClientLogger } from "@/utils/logger-client";
 import { isDefined } from "@/utils/types";
+import { Badge } from "@/components/Badge";
 import {
   getSelectionMetadataTraceDetails,
   summarizeSelectionMetadata,
 } from "@/utils/ai/choose-rule/selection-metadata-summary";
 
 type Message = MessagesResponse["messages"][number];
+type MessageThread = { threadId: string; messages: Message[] };
 
 const logger = createClientLogger("automation-test");
 
@@ -88,18 +98,15 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   // Check if we have more data to load
   const hasMore = data?.[data.length - 1]?.nextPageToken != null;
 
-  // filter out messages in same thread
-  // only keep the most recent message in each thread
-  const messages = useMemo(() => {
-    const threadIds = new Set();
+  const messageThreads = useMemo(() => {
     const messages = data?.flatMap((page) => page.messages) || [];
-    return messages.filter((message) => {
-      // works because messages are sorted by date descending
-      if (threadIds.has(message.threadId)) return false;
-      threadIds.add(message.threadId);
-      return true;
-    });
+    return groupMessagesByThread(messages);
   }, [data]);
+
+  const messages = useMemo(
+    () => messageThreads.flatMap((thread) => thread.messages),
+    [messageThreads],
+  );
 
   const { data: rules } = useSWR<RulesResponse>("/api/user/rules");
   const { emailAccountId, userEmail } = useAccount();
@@ -128,7 +135,22 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const [resultsMap, setResultsMap] = useState<
     Record<string, RunRulesResult[]>
   >({});
+  const [expandedThreadIds, setExpandedThreadIds] = useState<Set<string>>(
+    new Set(),
+  );
   const handledThreadsRef = useRef(new Set<string>());
+
+  function toggleThread(threadId: string) {
+    setExpandedThreadIds((current) => {
+      const next = new Set(current);
+      if (next.has(threadId)) {
+        next.delete(threadId);
+      } else {
+        next.add(threadId);
+      }
+      return next;
+    });
+  }
 
   // Merge existing rules with results
   const allResults = useMemo(() => {
@@ -316,24 +338,77 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
       )}
 
       <LoadingContent loading={isLoading} error={error}>
-        {messages.length === 0 ? (
+        {messageThreads.length === 0 ? (
           <MutedText className="p-4 text-center">No emails found</MutedText>
         ) : (
           <Card>
             <Table>
               <TableBody>
-                {messages.map((message) => (
-                  <ProcessRulesRow
-                    key={message.id}
-                    message={message}
-                    userEmail={userEmail}
-                    isRunning={isRunning[message.id]}
-                    results={allResults[message.id]}
-                    onRun={(rerun) => onRun(message, rerun)}
-                    testMode={testMode}
-                    setInput={setInput}
-                  />
-                ))}
+                {messageThreads.map((thread) => {
+                  const latestMessage = thread.messages[0];
+                  if (!latestMessage) return null;
+
+                  const canExpand = thread.messages.length > 1;
+                  const isExpanded = expandedThreadIds.has(thread.threadId);
+
+                  return (
+                    <Fragment key={thread.threadId}>
+                      <ProcessRulesRow
+                        message={latestMessage}
+                        userEmail={userEmail}
+                        isRunning={isRunning[latestMessage.id]}
+                        results={allResults[latestMessage.id]}
+                        onRun={(rerun) => onRun(latestMessage, rerun)}
+                        testMode={testMode}
+                        setInput={setInput}
+                        leading={
+                          canExpand ? (
+                            <Button
+                              variant="ghost"
+                              size="iconSm"
+                              aria-label={
+                                isExpanded ? "Collapse thread" : "Expand thread"
+                              }
+                              onClick={() => toggleThread(thread.threadId)}
+                            >
+                              <ChevronRightIcon
+                                className={cn(
+                                  "size-4 transition-transform",
+                                  isExpanded && "rotate-90",
+                                )}
+                              />
+                            </Button>
+                          ) : (
+                            <div className="w-8 shrink-0" />
+                          )
+                        }
+                        summary={
+                          thread.messages.length > 1 ? (
+                            <Badge color="blue">
+                              {thread.messages.length} messages in thread
+                            </Badge>
+                          ) : null
+                        }
+                      />
+
+                      {isExpanded &&
+                        thread.messages.map((message) => (
+                          <ProcessRulesRow
+                            key={`${thread.threadId}-${message.id}`}
+                            message={message}
+                            userEmail={userEmail}
+                            isRunning={isRunning[message.id]}
+                            results={allResults[message.id]}
+                            onRun={(rerun) => onRun(message, rerun)}
+                            testMode={testMode}
+                            setInput={setInput}
+                            className="bg-muted/30 hover:bg-muted/50"
+                            cellClassName="pl-14"
+                          />
+                        ))}
+                    </Fragment>
+                  );
+                })}
               </TableBody>
             </Table>
 
@@ -384,6 +459,10 @@ function ProcessRulesRow({
   onRun,
   testMode,
   setInput,
+  leading,
+  summary,
+  className,
+  cellClassName,
 }: {
   message: Message;
   userEmail: string;
@@ -392,25 +471,34 @@ function ProcessRulesRow({
   onRun: (rerun?: boolean) => void;
   testMode: boolean;
   setInput: (input: string) => void;
+  leading?: ReactNode;
+  summary?: ReactNode;
+  className?: string;
+  cellClassName?: string;
 }) {
   return (
     <TableRow
-      className={
-        isRunning ? "animate-pulse bg-blue-50 dark:bg-blue-950/20" : undefined
-      }
+      className={cn(
+        isRunning && "animate-pulse bg-blue-50 dark:bg-blue-950/20",
+        className,
+      )}
     >
-      <TableCell>
+      <TableCell className={cellClassName}>
         <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <EmailMessageCell
-              sender={message.headers.from}
-              subject={message.headers.subject}
-              snippet={message.snippet}
-              userEmail={userEmail}
-              threadId={message.threadId}
-              messageId={message.id}
-              labelIds={message.labelIds}
-            />
+          <div className="flex min-w-0 flex-1 items-start gap-2">
+            {leading}
+            <div className="min-w-0 flex-1">
+              <EmailMessageCell
+                sender={message.headers.from}
+                subject={message.headers.subject}
+                snippet={message.snippet}
+                userEmail={userEmail}
+                threadId={message.threadId}
+                messageId={message.id}
+                labelIds={message.labelIds}
+              />
+              {summary && <div className="mt-2 flex flex-wrap">{summary}</div>}
+            </div>
           </div>
           <div className="ml-4 flex shrink-0 items-center gap-1">
             {results ? (
@@ -449,4 +537,22 @@ function ProcessRulesRow({
       </TableCell>
     </TableRow>
   );
+}
+
+function groupMessagesByThread(messages: Message[]): MessageThread[] {
+  const threadsById = new Map<string, MessageThread>();
+
+  for (const message of messages) {
+    const thread = threadsById.get(message.threadId);
+    if (thread) {
+      thread.messages.push(message);
+    } else {
+      threadsById.set(message.threadId, {
+        threadId: message.threadId,
+        messages: [message],
+      });
+    }
+  }
+
+  return Array.from(threadsById.values());
 }
