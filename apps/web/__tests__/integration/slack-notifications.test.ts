@@ -796,9 +796,14 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(message).toBeDefined();
       expect(message?.text).toContain("Email notification");
       expect(message?.text).toContain(`*Subject:* ${subject}`);
-      expect(getActionLabels(postArgs?.blocks)).toEqual(
-        expect.arrayContaining(["Archive", "Mark read"]),
-      );
+      expect(getActionLabels(postArgs?.blocks)).toEqual([
+        "Archive",
+        "Mark read",
+        "Delete",
+        "Spam",
+        "Open in Gmail",
+        "Dismiss",
+      ]);
     });
 
     test("sendMessagingRuleNotification replies in a thread for later actions on the same email thread", async () => {

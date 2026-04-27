@@ -501,6 +501,52 @@ describe("handleRuleNotificationAction", () => {
     );
   });
 
+  it("dismisses Slack notification messages", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        content: null,
+      }) as never,
+    );
+
+    const editMessage = vi.fn().mockResolvedValue(undefined);
+    const event = {
+      actionId: "rule_draft_dismiss",
+      value: "action-1",
+      user: { userId: "user-1" },
+      raw: { team: { id: "team-1" } },
+      threadId: "slack-thread-1",
+      messageId: "slack-message-1",
+      adapter: { name: "slack", editMessage },
+      thread: { postEphemeral: vi.fn() },
+    } as any;
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+
+    await handleRuleNotificationAction({
+      event,
+      logger: createScopedLogger("test"),
+    });
+
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        messagingMessageStatus: MessagingMessageStatus.DISMISSED,
+      },
+    });
+    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
+    expect(editMessage).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(editMessage.mock.calls[0][2])).toContain(
+      "Email notification",
+    );
+    expect(JSON.stringify(editMessage.mock.calls[0][2])).toContain(
+      "Dismissed.",
+    );
+  });
+
   it("rejects unsupported Slack More menu selections before loading context", async () => {
     const postEphemeral = vi.fn().mockResolvedValue(undefined);
     const event = {
@@ -885,7 +931,7 @@ describe("sendMessagingRuleNotification", () => {
     expect(serializedBlocks).not.toContain("Open in Outlook");
   });
 
-  it("puts destructive Slack notification actions behind a More menu", async () => {
+  it("shows consistent standalone Slack notification actions", async () => {
     prisma.executedAction.findUnique.mockResolvedValue(
       getNotificationContext({
         id: "action-1",
@@ -922,31 +968,87 @@ describe("sendMessagingRuleNotification", () => {
     const buttonLabels = elements
       .filter((element: { type: string }) => element.type === "button")
       .map((element: { text: { text: string } }) => element.text.text);
-    const moreMenu = elements.find(
-      (element: { action_id: string }) =>
-        element.action_id === "rule_notify_more",
+
+    expect(buttonLabels).toEqual([
+      "Archive",
+      "Mark read",
+      "Delete",
+      "Spam",
+      "Open in Gmail",
+      "Dismiss",
+    ]);
+    expect(elements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "button",
+          action_id: "rule_notify_trash",
+          value: "action-1",
+          style: "danger",
+        }),
+        expect.objectContaining({
+          type: "button",
+          action_id: "rule_notify_mark_spam",
+          value: "action-1",
+          style: "danger",
+        }),
+        expect.objectContaining({
+          type: "button",
+          action_id: expect.stringContaining("mail.google.com"),
+          url: "https://mail.google.com/mail/u/?authuser=user%40example.com#all/message-1",
+        }),
+        expect.objectContaining({
+          type: "button",
+          action_id: "rule_draft_dismiss",
+          value: "action-1",
+        }),
+      ]),
+    );
+    expect(elements).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "static_select",
+        }),
+      ]),
+    );
+  });
+
+  it("uses the full plain text body for Slack notification previews", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        content: null,
+      }) as never,
+    );
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
     );
 
-    expect(buttonLabels).toEqual(["Archive", "Mark read"]);
-    expect(moreMenu).toEqual(
-      expect.objectContaining({
-        type: "static_select",
-        placeholder: {
-          type: "plain_text",
-          text: "More actions",
+    const longBody = "Full body ".repeat(80).trim();
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
         },
-        options: [
-          expect.objectContaining({
-            text: { type: "plain_text", text: "Delete" },
-            value: "rule_notify_trash:action-1",
-          }),
-          expect.objectContaining({
-            text: { type: "plain_text", text: "Spam" },
-            value: "rule_notify_mark_spam:action-1",
-          }),
-        ],
-      }),
-    );
+        snippet: "Short snippet",
+        textPlain: longBody,
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockSlackPostMessage).toHaveBeenCalledTimes(1);
+
+    const [args] = mockSlackPostMessage.mock.calls[0];
+    const serializedBlocks = JSON.stringify(args.blocks);
+
+    expect(serializedBlocks).toContain(longBody);
+    expect(serializedBlocks).not.toContain("Short snippet");
   });
 
   it("delivers Teams notifications through the linked messaging fallback", async () => {
