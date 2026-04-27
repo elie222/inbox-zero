@@ -29,7 +29,7 @@ export function extractEmailReply(html: string): {
         html.indexOf("<br>") < html.indexOf("gmail_quote")
       ) {
         // Get the content before the <br> that precedes the gmail_quote
-        const _replyPart = html.substring(0, html.indexOf("<br>"));
+        const _replyPart = html.slice(0, html.indexOf("<br>"));
 
         // Use the original document and just return the outerHTML of the first div[dir="ltr"]
         const topLevelReplyDiv = doc.querySelector('div[dir="ltr"]');

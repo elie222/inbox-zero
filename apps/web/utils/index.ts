@@ -8,6 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 /**
  * Removes null and undefined properties from an object
  */
+// biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
 export function filterNullProperties<T extends Record<string, any>>(
   obj: T,
 ): Partial<T> {

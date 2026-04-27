@@ -258,14 +258,13 @@ export const createRuleBody = z.object({
         );
 
         // Filter out empty static conditions (where the active field has no value)
-        const nonEmptyStaticConditions = staticConditions.filter((c) => {
-          return (
+        const nonEmptyStaticConditions = staticConditions.filter(
+          (c) =>
             c.from?.trim() ||
             c.to?.trim() ||
             c.subject?.trim() ||
-            c.body?.trim()
-          );
-        });
+            c.body?.trim(),
+        );
 
         if (nonEmptyStaticConditions.length <= 1) {
           return true; // No duplicates possible

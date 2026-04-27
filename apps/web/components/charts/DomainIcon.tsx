@@ -15,9 +15,9 @@ interface FallbackIconProps {
 }
 
 export function FallbackIcon({ seed, size = 20 }: FallbackIconProps) {
-  const hash = seed.split("").reduce((acc, char) => {
-    return acc + char.charCodeAt(0);
-  }, 0);
+  const hash = seed
+    .split("")
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
 
   const gradients = [
     "from-blue-300 to-blue-700",

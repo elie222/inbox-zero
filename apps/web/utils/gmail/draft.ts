@@ -62,8 +62,7 @@ export async function getDraft(draftId: string, gmail: gmail_v1.Gmail) {
 
 function isNotFoundError(error: unknown): boolean {
   if (isGmailError(error) && error.code === 404) return true;
-
-  // biome-ignore lint/suspicious/noExplicitAny: simple
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   const err = error as any;
 
   const statusCode =

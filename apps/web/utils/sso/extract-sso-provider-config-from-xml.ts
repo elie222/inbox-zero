@@ -39,9 +39,8 @@ export function extractSSOProviderConfigFromXML(
     obj: Record<string, unknown>,
     prefixedKey: string,
     unprefixedKey: string,
-  ): T | undefined => {
-    return (obj?.[prefixedKey] ?? obj?.[unprefixedKey]) as T | undefined;
-  };
+  ): T | undefined =>
+    (obj?.[prefixedKey] ?? obj?.[unprefixedKey]) as T | undefined;
 
   const getArrayValue = <T = unknown>(
     obj: Record<string, unknown>,

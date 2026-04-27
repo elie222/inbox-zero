@@ -13,15 +13,14 @@ export function useTableKeyboardNavigation<T>({
   const [rowRefs] = useState<Map<number, HTMLElement>>(new Map());
 
   const getRefCallback = useCallback(
-    (index: number): RefCallback<HTMLElement> => {
-      return (element) => {
+    (index: number): RefCallback<HTMLElement> =>
+      (element) => {
         if (element) {
           rowRefs.set(index, element);
         } else {
           rowRefs.delete(index);
         }
-      };
-    },
+      },
     [rowRefs],
   );
 

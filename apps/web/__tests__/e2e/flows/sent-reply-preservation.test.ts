@@ -130,7 +130,7 @@ describe.skipIf(!shouldRunFlowTests())("Sent Reply Preservation", () => {
       logStep("Draft content retrieved", {
         draftId: aiDraftId,
         hasContent: !!draft?.textPlain,
-        contentPreview: draft?.textPlain?.substring(0, 100),
+        contentPreview: draft?.textPlain?.slice(0, 100),
       });
 
       // Actually send the draft via provider API (simulating user clicking send)
@@ -375,7 +375,7 @@ describe.skipIf(!shouldRunFlowTests())("Sent Reply Preservation", () => {
       logStep("Draft content retrieved", {
         draftId: aiDraftId,
         hasContent: !!draft?.textPlain,
-        contentPreview: draft?.textPlain?.substring(0, 100),
+        contentPreview: draft?.textPlain?.slice(0, 100),
       });
 
       // Actually send the draft via provider API (simulating user clicking send)

@@ -22,9 +22,9 @@ export type EmailReportData = Awaited<ReturnType<typeof getEmailReportData>>;
 export const generateReportAction = actionClient
   .metadata({ name: "generateReport" })
   .inputSchema(z.object({}))
-  .action(async ({ ctx: { emailAccountId, logger } }) => {
-    return getEmailReportData({ emailAccountId, logger });
-  });
+  .action(async ({ ctx: { emailAccountId, logger } }) =>
+    getEmailReportData({ emailAccountId, logger }),
+  );
 
 async function getEmailReportData({
   emailAccountId,

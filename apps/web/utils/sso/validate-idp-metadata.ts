@@ -15,7 +15,7 @@ export function validateIdpMetadata(xml: string): boolean {
       obj: Record<string, unknown> | undefined,
       localName: string,
     ): T | undefined => {
-      if (!obj || typeof obj !== "object") return undefined;
+      if (!obj || typeof obj !== "object") return;
 
       if (obj[localName]) return obj[localName] as T;
 
@@ -25,7 +25,7 @@ export function validateIdpMetadata(xml: string): boolean {
         }
       }
 
-      return undefined;
+      return;
     };
 
     const getElementArray = <T = Record<string, unknown>>(
@@ -56,7 +56,7 @@ export function validateIdpMetadata(xml: string): boolean {
       }
     }
 
-    if (!entityDescriptor || !entityDescriptor["@_entityID"]) {
+    if (!entityDescriptor?.["@_entityID"]) {
       return false;
     }
 

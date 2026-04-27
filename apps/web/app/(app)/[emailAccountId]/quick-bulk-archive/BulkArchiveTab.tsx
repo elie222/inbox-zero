@@ -138,9 +138,10 @@ export function BulkArchiveTab() {
     return grouped;
   }, [candidates]);
 
-  const selectedCount = useMemo(() => {
-    return Object.values(selectedSenders).filter(Boolean).length;
-  }, [selectedSenders]);
+  const selectedCount = useMemo(
+    () => Object.values(selectedSenders).filter(Boolean).length,
+    [selectedSenders],
+  );
 
   const totalCount = candidates.length;
 
@@ -185,10 +186,8 @@ export function BulkArchiveTab() {
     });
   };
 
-  const getSelectedInSection = (level: ConfidenceLevel) => {
-    return groupedByConfidence[level].filter((c) => selectedSenders[c.address])
-      .length;
-  };
+  const getSelectedInSection = (level: ConfidenceLevel) =>
+    groupedByConfidence[level].filter((c) => selectedSenders[c.address]).length;
 
   const archiveSelected = async () => {
     setIsArchiving(true);

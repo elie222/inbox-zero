@@ -2,9 +2,7 @@ import { formatEmailDate } from "@/utils/gmail/reply";
 import type { ParsedMessage } from "@/utils/types";
 import { escapeHtml } from "@/utils/string";
 
-export const forwardEmailSubject = (subject: string) => {
-  return `Fwd: ${subject}`;
-};
+export const forwardEmailSubject = (subject: string) => `Fwd: ${subject}`;
 
 export const forwardEmailHtml = ({
   content,
@@ -34,8 +32,7 @@ export const forwardEmailText = ({
 }: {
   content: string;
   message: ParsedMessage;
-}) => {
-  return `${content}
+}) => `${content}
         
 ---------- Forwarded message ----------
 From: ${message.headers.from}
@@ -44,7 +41,6 @@ Subject: ${message.headers.subject}
 To: ${message.headers.to}
 
 ${message.textPlain}`;
-};
 
 const formatFromEmailWithName = (emailHeader: string) => {
   const match = emailHeader?.match(/(.*?)\s*<([^>]+)>/);

@@ -109,6 +109,7 @@ async function getLabelCount(client: EmailProvider) {
 
 async function getFiltersCount(client: EmailProvider) {
   if (client instanceof GmailProvider) {
+    // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
     const gmail = (client as any).client; // Access the internal Gmail client
     const filters = await getFilters(gmail);
     return filters.length;
@@ -123,6 +124,7 @@ async function getForwardingAddressesCount(
 ) {
   if (client instanceof GmailProvider) {
     try {
+      // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
       const gmail = (client as any).client; // Access the internal Gmail client
       const forwardingAddresses = await getForwardingAddresses(gmail);
       return forwardingAddresses.length;

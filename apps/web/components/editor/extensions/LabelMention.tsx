@@ -14,6 +14,7 @@ interface MarkdownNode {
   attrs: {
     id?: string;
     label?: string;
+    // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
     [key: string]: any;
   };
 }
@@ -28,6 +29,7 @@ interface MarkdownItState {
 interface MarkdownItToken {
   attrs: Array<[string, string]>;
   content?: string;
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   [key: string]: any;
 }
 
@@ -286,9 +288,7 @@ export const createLabelMentionExtension = (labels: EmailLabel[]) => {
                 return `<span class="mention-label" data-type="mention" data-id="${id}" data-label="${label}" data-mention-suggestion-char="@" contenteditable="false">`;
               };
 
-              markdownIt.renderer.rules.mention_close = () => {
-                return "</span>";
-              };
+              markdownIt.renderer.rules.mention_close = () => "</span>";
             },
           },
         },

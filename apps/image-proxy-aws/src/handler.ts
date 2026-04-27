@@ -114,7 +114,7 @@ async function toLambdaResponse(
 }
 
 function getRequestBody(event: LambdaEvent) {
-  if (!event.body) return undefined;
+  if (!event.body) return;
 
   if (event.isBase64Encoded) {
     return Uint8Array.from(atob(event.body), (char) => char.charCodeAt(0));

@@ -10,6 +10,7 @@ async function main() {
     "Attaching payment methods to ALL Stripe subscriptions without payment methods...",
   );
 
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   let allSubscriptions: any[] = [];
   let hasMore = true;
   let startingAfter: string | undefined;
@@ -115,6 +116,7 @@ async function main() {
             try {
               // Get the original subscription items (prices/products)
               const originalItems = subscription.items.data.map(
+                // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
                 (item: any) => ({
                   price: item.price.id,
                   quantity: item.quantity,

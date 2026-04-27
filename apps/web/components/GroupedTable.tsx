@@ -75,15 +75,14 @@ export function GroupedTable({
   const { emailAccountId, userEmail } = useAccount();
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
 
-  const categoryMap = useMemo(() => {
-    return categories.reduce<Record<string, CategoryWithRules>>(
-      (acc, category) => {
+  const categoryMap = useMemo(
+    () =>
+      categories.reduce<Record<string, CategoryWithRules>>((acc, category) => {
         acc[category.name] = category;
         return acc;
-      },
-      {},
-    );
-  }, [categories]);
+      }, {}),
+    [categories],
+  );
 
   const groupedEmails = useMemo(() => {
     const grouped = groupBy(
@@ -111,8 +110,8 @@ export function GroupedTable({
     () => [
       {
         id: "expander",
-        cell: ({ row }) => {
-          return row.getCanExpand() ? (
+        cell: ({ row }) =>
+          row.getCanExpand() ? (
             <button
               type="button"
               onClick={row.getToggleExpandedHandler()}
@@ -125,8 +124,7 @@ export function GroupedTable({
                 )}
               />
             </button>
-          ) : null;
-        },
+          ) : null,
         meta: { size: "20px" },
       },
       {
@@ -148,14 +146,12 @@ export function GroupedTable({
       },
       {
         accessorKey: "preview",
-        cell: ({ row }) => {
-          return (
-            <ArchiveStatusCell
-              emailAccountId={emailAccountId}
-              sender={row.original.address}
-            />
-          );
-        },
+        cell: ({ row }) => (
+          <ArchiveStatusCell
+            emailAccountId={emailAccountId}
+            sender={row.original.address}
+          />
+        ),
       },
       {
         accessorKey: "date",
@@ -303,8 +299,8 @@ export function SendersTable({
     () => [
       {
         id: "expander",
-        cell: ({ row }) => {
-          return row.getCanExpand() ? (
+        cell: ({ row }) =>
+          row.getCanExpand() ? (
             <button
               type="button"
               onClick={row.getToggleExpandedHandler()}
@@ -317,8 +313,7 @@ export function SendersTable({
                 )}
               />
             </button>
-          ) : null;
-        },
+          ) : null,
         meta: { size: "20px" },
       },
       {
@@ -338,16 +333,14 @@ export function SendersTable({
       },
       {
         accessorKey: "category",
-        cell: ({ row }) => {
-          return (
-            <CategorySelect
-              emailAccountId={emailAccountId}
-              sender={row.original.address}
-              senderCategory={row.original.category}
-              categories={categories}
-            />
-          );
-        },
+        cell: ({ row }) => (
+          <CategorySelect
+            emailAccountId={emailAccountId}
+            sender={row.original.address}
+            senderCategory={row.original.category}
+            categories={categories}
+          />
+        ),
       },
     ],
     [categories, emailAccountId],

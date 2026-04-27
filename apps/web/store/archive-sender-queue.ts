@@ -44,7 +44,7 @@ const progressAtom = atom((get) => {
       }
     }
 
-    if (!totalItems) return undefined;
+    if (!totalItems) return;
 
     return { totalItems, completedItems };
   };

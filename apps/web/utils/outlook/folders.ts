@@ -90,10 +90,10 @@ async function findOutlookFolderByName(
     if (response.value && response.value.length > 0) {
       return convertMailFolderToOutlookFolder(response.value[0]);
     }
-    return undefined;
+    return;
   } catch (error) {
     logger.warn("Error finding folder by name", { folderName, error });
-    return undefined;
+    return;
   }
 }
 
@@ -193,7 +193,7 @@ export async function getOrCreateOutlookFolderIdByName(
   } catch (error) {
     // If folder already exists (race condition or created between check and create),
     // fetch folders again and return the existing folder ID
-    // biome-ignore lint/suspicious/noExplicitAny: simplest
+    // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
     const err = error as any;
     if (err?.code === "ErrorFolderExists" || err?.statusCode === 409) {
       logger.info("Folder already exists, fetching existing folder", {

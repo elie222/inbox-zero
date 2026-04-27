@@ -133,7 +133,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Calendar Integration Tests", () => {
       );
       console.log(`   ⏰ Time range: ${timeMin} to ${timeMax}`);
       console.log(
-        `   📋 Calendar IDs (${enabledCalendars.length}): ${enabledCalendars.map((c) => `${c.calendarId.substring(0, 20)}...`).join(", ")}`,
+        `   📋 Calendar IDs (${enabledCalendars.length}): ${enabledCalendars.map((c) => `${c.calendarId.slice(0, 20)}...`).join(", ")}`,
       );
 
       // Use the Microsoft availability provider

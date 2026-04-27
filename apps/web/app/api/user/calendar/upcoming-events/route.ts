@@ -30,9 +30,7 @@ async function getData({
   const providers = await createCalendarEventProviders(emailAccountId, logger);
 
   const providerEvents = await Promise.all(
-    providers.map(async (provider) => {
-      return provider.fetchEvents({ maxResults: 3 });
-    }),
+    providers.map(async (provider) => provider.fetchEvents({ maxResults: 3 })),
   );
 
   return {

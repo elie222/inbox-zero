@@ -4,9 +4,7 @@ import { useMemo } from "react";
 
 const aiQueueAtom = atom<Set<string>>(new Set([]));
 
-export const useAiQueueState = () => {
-  return useAtomValue(aiQueueAtom);
-};
+export const useAiQueueState = () => useAtomValue(aiQueueAtom);
 
 export const pushToAiQueueAtom = (pushIds: string[]) => {
   jotaiStore.set(aiQueueAtom, (prev) => {

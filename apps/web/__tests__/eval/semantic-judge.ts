@@ -42,7 +42,7 @@ export function getEvalJudgeUserAi() {
     process.env.EVAL_JUDGE_PROVIDER || DEFAULT_EVAL_JUDGE_PROVIDER;
   const aiModel = process.env.EVAL_JUDGE_MODEL || DEFAULT_EVAL_JUDGE_MODEL;
   const aiApiKey = getEvalJudgeApiKey(aiProvider);
-  if (!aiApiKey) return undefined;
+  if (!aiApiKey) return;
 
   return {
     aiProvider,

@@ -151,7 +151,7 @@ interface LLMErrorInfo {
  * Also handles p-retry's FailedAttemptError wrapper.
  */
 export function extractLLMErrorInfo(error: unknown): LLMErrorInfo {
-  // biome-ignore lint/suspicious/noExplicitAny: error shapes vary across providers
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   const err = error as any;
   const original = err?.error ?? err;
   const cause = original?.cause ?? original;

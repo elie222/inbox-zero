@@ -7,19 +7,19 @@ import { generateSecret } from "./utils";
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface GcloudPrerequisites {
-  installed: boolean;
   authenticated: boolean;
+  installed: boolean;
   projectId: string | null;
 }
 
 interface SetupResult {
-  success: boolean;
   error?: string;
+  success: boolean;
 }
 
 export interface GoogleSetupOptions {
-  projectId?: string;
   domain?: string;
+  projectId?: string;
   skipOauth?: boolean;
   skipPubsub?: boolean;
 }
@@ -95,9 +95,9 @@ export async function runGoogleSetup(options: GoogleSetupOptions) {
         "Enter your app domain (for OAuth redirects and Pub/Sub webhook):",
       placeholder: "app.example.com",
       validate: (v) => {
-        if (!v) return undefined; // Allow empty for localhost development
+        if (!v) return; // Allow empty for localhost development
         if (!v.includes(".")) return "Enter a valid domain";
-        return undefined;
+        return;
       },
     });
 
@@ -212,11 +212,11 @@ The console will open in your browser.`,
             message: "Paste your Google Client ID:",
             placeholder: "123456789012-abc.apps.googleusercontent.com",
             validate: (v) => {
-              if (!v) return undefined; // Allow empty to skip
+              if (!v) return; // Allow empty to skip
               if (!v.endsWith(".apps.googleusercontent.com")) {
                 return "Client ID should end with .apps.googleusercontent.com";
               }
-              return undefined;
+              return;
             },
           }),
         clientSecret: () =>

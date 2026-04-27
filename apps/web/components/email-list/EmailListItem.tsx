@@ -42,9 +42,10 @@ export const EmailListItem = forwardRef(
 
     const lastMessage = thread.messages?.[thread.messages.length - 1];
 
-    const isUnread = useMemo(() => {
-      return lastMessage?.labelIds?.includes("UNREAD");
-    }, [lastMessage?.labelIds]);
+    const isUnread = useMemo(
+      () => lastMessage?.labelIds?.includes("UNREAD"),
+      [lastMessage?.labelIds],
+    );
 
     const preventPropagation = useCallback(
       (e: React.MouseEvent | React.KeyboardEvent) => e.stopPropagation(),
@@ -80,6 +81,7 @@ export const EmailListItem = forwardRef(
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
+              // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
               props.onClick(e as any);
             }
           }}

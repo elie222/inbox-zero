@@ -11,6 +11,7 @@ import {
 } from "@/utils/email/rate-limit-mode-error";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 
+// biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
 export type ErrorMessage = { error: string; data?: any };
 export type ZodError = {
   error: { issues: { code: string; message: string }[] };
@@ -24,6 +25,7 @@ export type ApiErrorType = {
 const RATE_LIMIT_MESSAGE_TEMPLATE =
   "{provider} is temporarily limiting requests. Please try again shortly.";
 
+// biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
 export function isError(value: any): value is ErrorMessage | ZodError {
   return value?.error;
 }
@@ -34,7 +36,9 @@ export function isGmailError(
   return (
     typeof error === "object" &&
     error !== null &&
+    // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
     Array.isArray((error as any).errors) &&
+    // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
     (error as any).errors.length > 0
   );
 }
@@ -48,6 +52,7 @@ export type CaptureExceptionContext = {
   emailAccountId?: string | null;
   userId?: string | null;
   userEmail?: string;
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   extra?: Record<string, any>;
   sampleRate?: number;
 };
@@ -154,14 +159,17 @@ export class SafeError extends Error {
 }
 
 export function isGmailInsufficientPermissionsError(error: unknown): boolean {
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   return (error as any)?.errors?.[0]?.reason === "insufficientPermissions";
 }
 
 export function isGmailRateLimitExceededError(error: unknown): boolean {
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   return (error as any)?.errors?.[0]?.reason === "rateLimitExceeded";
 }
 
 export function isGmailQuotaExceededError(error: unknown): boolean {
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   return (error as any)?.errors?.[0]?.reason === "quotaExceeded";
 }
 
@@ -360,6 +368,7 @@ export function checkCommonErrors(
   if (isGmailRateLimitExceededError(error)) {
     logger.warn("Gmail rate limit exceeded for url", { url });
     const errorMessage =
+      // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
       (error as any)?.errors?.[0]?.message ?? "Unknown error";
     return {
       type: getProviderRateLimitApiErrorType("google"),

@@ -764,9 +764,6 @@ describe("calculateNextScheduleDate - Bug Fix Tests", () => {
         lastOccurrenceAt: createTestDate("2024-01-15T00:00:00Z"), // Last sent at midnight
       };
 
-      // Simulate the bug: if we used current time (12:36 PM) instead of lastOccurrenceAt
-      const currentTime = createTestDate("2024-01-15T12:36:00Z"); // 12:36 PM
-
       // With the fix: should calculate from lastOccurrenceAt (midnight)
       const result = calculateNextScheduleDate(schedule);
 
@@ -819,7 +816,6 @@ describe("calculateNextScheduleDate - Bug Fix Tests", () => {
     it("should prevent schedule drift in digest processing scenario", () => {
       // Simulate the exact scenario from the bug report
       const originalScheduledTime = createTestDate("2024-01-15T00:00:00Z"); // Midnight
-      const processingTime = createTestDate("2024-01-15T12:36:40Z"); // 12:36 PM (when cron processed it)
 
       const schedule = {
         intervalDays: 1,

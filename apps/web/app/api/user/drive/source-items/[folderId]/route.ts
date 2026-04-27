@@ -1,4 +1,4 @@
-import { z } from "zod";
+import type { z } from "zod";
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
@@ -56,7 +56,10 @@ async function getData({
 
   if (!driveConnection) throw new SafeError("Drive connection not found");
 
-  const provider = await createDriveProviderWithRefresh(driveConnection, logger);
+  const provider = await createDriveProviderWithRefresh(
+    driveConnection,
+    logger,
+  );
   const [folders, files] = await Promise.all([
     provider.listFolders(folderId),
     provider.listFiles(folderId, { mimeTypes: ["application/pdf"] }),

@@ -114,18 +114,16 @@ MutedText.displayName = "MutedText";
 
 type LinkProps = React.ComponentProps<typeof Link>;
 const TextLink = forwardRef<HTMLAnchorElement, LinkProps>(
-  ({ className, ...props }, ref) => {
-    return (
-      <Link
-        ref={ref}
-        className={cn(
-          "font-semibold text-blue-600 hover:underline dark:text-primary",
-          className,
-        )}
-        {...props}
-      />
-    );
-  },
+  ({ className, ...props }, ref) => (
+    <Link
+      ref={ref}
+      className={cn(
+        "font-semibold text-blue-600 hover:underline dark:text-primary",
+        className,
+      )}
+      {...props}
+    />
+  ),
 );
 
 TextLink.displayName = "TextLink";

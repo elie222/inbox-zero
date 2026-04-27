@@ -158,22 +158,20 @@ export function CategoriesSetup({
           <>
             <SectionHeader className="mt-8">SUGGESTED FOR YOU</SectionHeader>
             <div className="grid grid-cols-1 gap-2">
-              {suggestedCategories.map((category, index) => {
-                return (
-                  <CategoryCard
-                    key={category.name}
-                    index={index}
-                    label={category.name}
-                    Icon={icons[index % icons.length]}
-                    iconColor="blue"
-                    description={category.description}
-                    update={updateSuggestedCategory}
-                    value={category.action}
-                    useTooltip={false}
-                    provider={provider}
-                  />
-                );
-              })}
+              {suggestedCategories.map((category, index) => (
+                <CategoryCard
+                  key={category.name}
+                  index={index}
+                  label={category.name}
+                  Icon={icons[index % icons.length]}
+                  iconColor="blue"
+                  description={category.description}
+                  update={updateSuggestedCategory}
+                  value={category.action}
+                  useTooltip={false}
+                  provider={provider}
+                />
+              ))}
               <CustomCategoryCard />
             </div>
           </>

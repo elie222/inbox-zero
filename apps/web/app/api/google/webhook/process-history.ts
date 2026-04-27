@@ -315,7 +315,7 @@ const isInboxOrSentMessage = (message: {
 };
 
 function isHistoryIdExpiredError(error: unknown): boolean {
-  // biome-ignore lint/suspicious/noExplicitAny: simple
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   const err = error as any;
   const statusCode =
     err.response?.data?.error?.code ??

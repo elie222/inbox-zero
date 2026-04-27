@@ -57,6 +57,7 @@ type ActionFunction = ({
 }: {
   threadId: string;
   labelId?: string;
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
 }) => Promise<any>;
 
 const addThreadsToQueue = ({

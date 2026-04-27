@@ -132,6 +132,7 @@ export async function aliasPosthogUser({
 export async function posthogCaptureEvent(
   email: string,
   event: string,
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   properties?: Record<string, any>,
   sendFeatureFlags?: boolean,
 ) {
@@ -211,6 +212,7 @@ export async function trackError({
   });
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
 export async function trackTrialStarted(email: string, attributes: any) {
   return posthogCaptureEvent(email, "Premium trial started", {
     ...attributes,
@@ -222,6 +224,7 @@ export async function trackTrialStarted(email: string, attributes: any) {
   });
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
 export async function trackUpgradedToPremium(email: string, attributes: any) {
   return posthogCaptureEvent(email, "Upgraded to premium", {
     ...attributes,
@@ -235,6 +238,7 @@ export async function trackUpgradedToPremium(email: string, attributes: any) {
 
 export async function trackSubscriptionTrialStarted(
   email: string,
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   attributes: any,
 ) {
   return posthogCaptureEvent(email, "Premium subscription trial started", {
@@ -264,6 +268,7 @@ export async function trackBillingTrialStarted(
 export async function trackSubscriptionCustom(
   email: string,
   status: string,
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   attributes: any,
 ) {
   const event = `Premium subscription ${status}`;
@@ -280,6 +285,7 @@ export async function trackSubscriptionCustom(
 
 export async function trackSubscriptionStatusChanged(
   email: string,
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   attributes: any,
 ) {
   return posthogCaptureEvent(email, "Subscription status changed", {
@@ -295,6 +301,7 @@ export async function trackSubscriptionStatusChanged(
 export async function trackSubscriptionCancelled(
   email: string,
   status: string,
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   attributes: any,
 ) {
   return posthogCaptureEvent(email, "Cancelled premium subscription", {
@@ -310,6 +317,7 @@ export async function trackSubscriptionCancelled(
 export async function trackSwitchedPremiumPlan(
   email: string,
   status: string,
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   attributes: any,
 ) {
   return posthogCaptureEvent(email, "Switched premium plan", {
@@ -340,6 +348,7 @@ export async function trackPaymentSuccess({
   });
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
 export async function trackStripeEvent(email: string, data: any) {
   return posthogCaptureEvent(email, "Stripe event", data);
 }

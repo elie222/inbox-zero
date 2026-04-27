@@ -101,10 +101,7 @@ export function ActionAttachmentsField({
     }
   };
 
-  const toggleAiSource = (
-    source: AttachmentSourceInput,
-    checked: boolean,
-  ) => {
+  const toggleAiSource = (source: AttachmentSourceInput, checked: boolean) => {
     const key = getSourceKey(source);
     if (checked) {
       onAttachmentSourcesChange(
@@ -141,7 +138,12 @@ export function ActionAttachmentsField({
             <p className="text-sm text-muted-foreground">
               Connect your cloud storage to attach files to your emails.
             </p>
-            <Button asChild variant="link" size="sm" className="mt-1 h-auto p-0 text-sm">
+            <Button
+              asChild
+              variant="link"
+              size="sm"
+              className="mt-1 h-auto p-0 text-sm"
+            >
               <Link href={`/${emailAccountId}/drive`}>Connect Drive</Link>
             </Button>
           </div>
@@ -171,7 +173,10 @@ export function ActionAttachmentsField({
           </button>
 
           {isExpanded && hasAttachments && (
-            <SourceList items={value} onRemove={(source) => toggleSource(source, false)} />
+            <SourceList
+              items={value}
+              onRemove={(source) => toggleSource(source, false)}
+            />
           )}
 
           <Dialog open={isPickerOpen} onOpenChange={setIsPickerOpen}>
@@ -205,7 +210,9 @@ export function ActionAttachmentsField({
           <button
             type="button"
             className="flex items-center gap-1.5 text-xs text-muted-foreground"
-            onClick={() => hasAiSources && setIsSourcesExpanded(!isSourcesExpanded)}
+            onClick={() =>
+              hasAiSources && setIsSourcesExpanded(!isSourcesExpanded)
+            }
           >
             <span className="font-medium">AI-selected sources</span>
             {hasAiSources && (
@@ -229,7 +236,10 @@ export function ActionAttachmentsField({
             />
           )}
 
-          <Dialog open={isSourcePickerOpen} onOpenChange={setIsSourcePickerOpen}>
+          <Dialog
+            open={isSourcePickerOpen}
+            onOpenChange={setIsSourcePickerOpen}
+          >
             <DialogTrigger asChild>
               <Button
                 type="button"

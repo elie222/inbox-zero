@@ -32,8 +32,7 @@ const getUserPrompt = ({
   currentThreadMessages: EmailForLLM[];
   historicalMessages: EmailForLLM[];
   emailAccount: EmailAccountWithAI;
-}) => {
-  return `<current_email_thread>
+}) => `<current_email_thread>
 ${getEmailListPrompt({ messages: currentThreadMessages, messageMaxLength: 10_000 })}
 </current_email_thread>
 
@@ -49,7 +48,6 @@ ${getUserInfoPrompt({ emailAccount })}
 
 ${getTodayForLLM()}
 Analyze the historical email threads and extract any relevant information that would be helpful for drafting a response to the current email thread. Provide a concise summary of the key historical context.`;
-};
 
 const schema = z.object({
   hasHistoricalContext: z

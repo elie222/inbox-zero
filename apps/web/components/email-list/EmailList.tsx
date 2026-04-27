@@ -50,9 +50,10 @@ export function List({
   const { emailAccountId } = useAccount();
   const [selectedTab] = useQueryState("tab", { defaultValue: "all" });
 
-  const planned = useMemo(() => {
-    return emails.filter((email) => email.plan?.rule);
-  }, [emails]);
+  const planned = useMemo(
+    () => emails.filter((email) => email.plan?.rule),
+    [emails],
+  );
 
   const tabs = useMemo(
     () => [
@@ -181,9 +182,10 @@ export function EmailList({
     setSelectedRows((s) => ({ ...s, [id]: !s[id] }));
   }, []);
 
-  const isAllSelected = useMemo(() => {
-    return threads.every((thread) => selectedRows[thread.id]);
-  }, [threads, selectedRows]);
+  const isAllSelected = useMemo(
+    () => threads.every((thread) => selectedRows[thread.id]),
+    [threads, selectedRows],
+  );
 
   const onToggleSelectAll = useCallback(() => {
     const newState = { ...selectedRows };
@@ -504,11 +506,7 @@ function ResizeGroup({
         {left}
       </ResizablePanel>
       <ResizableHandle withHandle />
-      <ResizablePanel
-        defaultSize={50}
-        minSize={0}
-        className="min-w-0"
-      >
+      <ResizablePanel defaultSize={50} minSize={0} className="min-w-0">
         {right}
       </ResizablePanel>
     </ResizablePanelGroup>

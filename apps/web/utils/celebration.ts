@@ -8,6 +8,5 @@ const urls = [
   "https://illustrations.popsy.co/amber/backpacking.svg",
 ];
 
-export const getCelebrationImage = () => {
-  return urls[Math.floor(Math.random() * urls.length)];
-};
+export const getCelebrationImage = () =>
+  urls[Math.floor(Math.random() * urls.length)];

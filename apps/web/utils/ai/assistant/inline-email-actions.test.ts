@@ -58,12 +58,14 @@ describe("mergeInlineEmailActions", () => {
   });
 
   it("caps merged thread IDs to the schema maximum", () => {
-    const existingThreadIds = Array.from({ length: 150 }, (_, index) => {
-      return `existing-${index}`;
-    });
-    const nextThreadIds = Array.from({ length: 150 }, (_, index) => {
-      return `next-${index}`;
-    });
+    const existingThreadIds = Array.from(
+      { length: 150 },
+      (_, index) => `existing-${index}`,
+    );
+    const nextThreadIds = Array.from(
+      { length: 150 },
+      (_, index) => `next-${index}`,
+    );
 
     const actions = mergeInlineEmailActions(
       [
@@ -85,9 +87,10 @@ describe("mergeInlineEmailActions", () => {
   });
 
   it("prioritizes newer archive thread IDs when the archive list is full", () => {
-    const existingArchiveThreadIds = Array.from({ length: 200 }, (_, index) => {
-      return `archive-${index}`;
-    });
+    const existingArchiveThreadIds = Array.from(
+      { length: 200 },
+      (_, index) => `archive-${index}`,
+    );
 
     const actions = mergeInlineEmailActions(
       [

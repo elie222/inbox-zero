@@ -5,6 +5,7 @@ import { ErrorDisplay } from "@/components/ErrorDisplay";
 import { Button } from "@/components/ui/button";
 import { captureException } from "@/utils/error";
 
+// biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
 export default function GlobalError({ error }: any) {
   useEffect(() => {
     captureException(error);

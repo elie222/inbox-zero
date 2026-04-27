@@ -126,25 +126,27 @@ export function useEmailStream(
     setIsPaused((prev) => !prev);
   }, []);
 
-  const emails = useMemo(() => {
-    return emailOrder.reduce<(typeof emailsMap)[string][]>((acc, id) => {
-      const email = emailsMap[id];
-      if (!email) return acc;
+  const emails = useMemo(
+    () =>
+      emailOrder.reduce<(typeof emailsMap)[string][]>((acc, id) => {
+        const email = emailsMap[id];
+        if (!email) return acc;
 
-      if (!filter) {
-        acc.push(email);
+        if (!filter) {
+          acc.push(email);
+          return acc;
+        }
+
+        if (filter === "keep" && !email.archive && !email.label) {
+          acc.push(email);
+        } else if (filter === "archived" && email.archive === true) {
+          acc.push(email);
+        }
+
         return acc;
-      }
-
-      if (filter === "keep" && !email.archive && !email.label) {
-        acc.push(email);
-      } else if (filter === "archived" && email.archive === true) {
-        acc.push(email);
-      }
-
-      return acc;
-    }, []);
-  }, [emailsMap, emailOrder, filter]);
+      }, []),
+    [emailsMap, emailOrder, filter],
+  );
 
   return {
     emails,

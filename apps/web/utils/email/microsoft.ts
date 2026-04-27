@@ -126,6 +126,7 @@ export class OutlookProvider implements EmailProvider {
       this.logger.error("getThread failed", {
         threadId,
         error,
+        // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
         errorCode: (error as any)?.code,
       });
       throw error;
@@ -759,6 +760,7 @@ export class OutlookProvider implements EmailProvider {
       );
       return messages;
     } catch (error) {
+      // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
       const err = error as any;
       this.logger.error("getThreadMessages failed", {
         threadId,
@@ -1245,7 +1247,9 @@ export class OutlookProvider implements EmailProvider {
           conversationId,
           participantEmail,
           error,
+          // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
           errorCode: (error as any)?.code,
+          // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
           errorStatusCode: (error as any)?.statusCode,
         });
       }
@@ -2036,7 +2040,7 @@ function getRequiredOutlookThreadLabelIds({
 
   switch (type) {
     case "all":
-      return undefined;
+      return;
     case "archive":
       return ["ARCHIVE"];
     case "draft":
@@ -2110,7 +2114,7 @@ function getDefaultOutlookThreadFolderFilter({
         ? `parentFolderId eq '${escapeODataString(folderIds.inbox)}'`
         : undefined;
     default:
-      return undefined;
+      return;
   }
 }
 
@@ -2221,13 +2225,13 @@ async function resolveOutlookThreadQueryFilter({
     logger.warn("Outlook label lookup returned no displayName", {
       labelId,
     });
-    return undefined;
+    return;
   } catch (error) {
     logger.warn("Failed to resolve Outlook category filter", {
       labelId,
       error,
     });
-    return undefined;
+    return;
   }
 }
 
@@ -2385,7 +2389,7 @@ function parseOutlookThreadPageToken(
   pageToken?: string,
 ): OutlookThreadPageToken | undefined {
   if (!pageToken?.startsWith(OUTLOOK_THREAD_PAGE_TOKEN_PREFIX)) {
-    return undefined;
+    return;
   }
 
   try {
@@ -2405,6 +2409,6 @@ function parseOutlookThreadPageToken(
         : [],
     };
   } catch {
-    return undefined;
+    return;
   }
 }

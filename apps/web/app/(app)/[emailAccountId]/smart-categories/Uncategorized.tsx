@@ -41,9 +41,11 @@ export function Uncategorized({
 
   const senders = useMemo(
     () =>
-      senderAddresses?.map((sender) => {
-        return { address: sender.email, name: sender.name, category: null };
-      }),
+      senderAddresses?.map((sender) => ({
+        address: sender.email,
+        name: sender.name,
+        category: null,
+      })),
     [senderAddresses],
   );
 
@@ -183,9 +185,10 @@ function useSenders() {
   }, [setSize, size]);
 
   // Combine all senders from all pages
-  const allSenders = useMemo(() => {
-    return data?.flatMap((page) => page.uncategorizedSenders);
-  }, [data]);
+  const allSenders = useMemo(
+    () => data?.flatMap((page) => page.uncategorizedSenders),
+    [data],
+  );
 
   // Check if there's more data to load by looking at the last page
   const hasMore = !!data?.[data.length - 1]?.nextOffset;

@@ -127,9 +127,9 @@ ${getTodayForLLM()}`;
                   after: sixMonthsAgo,
                 });
 
-              const emails = messages.map((message) => {
-                return getEmailForLLM(message, { maxLength: 2000 });
-              });
+              const emails = messages.map((message) =>
+                getEmailForLLM(message, { maxLength: 2000 }),
+              );
 
               logger.info("Found emails", { emails: emails.length });
               // logger.trace("Found emails", { emails });

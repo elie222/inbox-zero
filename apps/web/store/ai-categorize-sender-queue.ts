@@ -58,9 +58,7 @@ const hasProcessingItemsAtom = atom((get) => {
   );
 });
 
-export const useHasProcessingItems = () => {
-  return useAtomValue(hasProcessingItemsAtom);
-};
+export const useHasProcessingItems = () => useAtomValue(hasProcessingItemsAtom);
 
 function processAiCategorizeSenderQueue({
   senders,

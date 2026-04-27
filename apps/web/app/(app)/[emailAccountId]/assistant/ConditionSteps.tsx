@@ -55,7 +55,7 @@ function getUIConditionType(
   if (condition.subject !== null) return "subject";
   if (condition.body !== null) return "subject"; // body maps to subject in UI
   // Return undefined if no field is populated (new/unselected condition)
-  return undefined;
+  return;
 }
 
 function allowMultipleConditions(systemType: SystemType | null | undefined) {

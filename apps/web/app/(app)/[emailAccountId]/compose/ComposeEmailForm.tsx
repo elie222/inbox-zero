@@ -375,7 +375,7 @@ function getReplyToEmailPayload(
   const threadId = replyingToEmail?.threadId?.trim();
   const headerMessageId = replyingToEmail?.headerMessageId?.trim();
 
-  if (!threadId || !headerMessageId) return undefined;
+  if (!threadId || !headerMessageId) return;
 
   return {
     threadId,

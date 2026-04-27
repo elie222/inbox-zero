@@ -143,7 +143,7 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
 
       logStep("Draft created", {
         draftId: draftInfo.draftId,
-        contentPreview: draftInfo.content?.substring(0, 100),
+        contentPreview: draftInfo.content?.slice(0, 100),
       });
 
       // ========================================
@@ -448,7 +448,7 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
 
       logStep("Draft created", {
         draftId: draftInfo.draftId,
-        contentPreview: draftInfo.content?.substring(0, 100),
+        contentPreview: draftInfo.content?.slice(0, 100),
       });
 
       // ========================================

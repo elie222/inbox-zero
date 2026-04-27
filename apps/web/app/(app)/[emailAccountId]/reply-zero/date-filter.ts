@@ -7,7 +7,7 @@ export function getDateFilter(timeRange: TimeRange) {
   const now = new Date();
   switch (timeRange) {
     case "all":
-      return undefined;
+      return;
     case "3d":
       return { lte: subDays(now, 3) };
     case "1w":

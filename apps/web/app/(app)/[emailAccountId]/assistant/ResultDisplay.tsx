@@ -26,9 +26,9 @@ export function ResultsDisplay({
   results: RunRulesResult[];
   showFullContent?: boolean;
 }) {
-  const groupedResults = groupBy(results, (result) => {
-    return result.createdAt.toString();
-  });
+  const groupedResults = groupBy(results, (result) =>
+    result.createdAt.toString(),
+  );
 
   const sortedBatches = sortBy(
     Object.entries(groupedResults),

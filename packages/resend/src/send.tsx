@@ -113,8 +113,8 @@ export const sendSummaryEmail = async ({
   to: string;
   test?: boolean;
   emailProps: SummaryEmailProps;
-}) => {
-  return sendEmail({
+}) =>
+  sendEmail({
     from,
     to,
     subject: "Your weekly email summary",
@@ -129,7 +129,6 @@ export const sendSummaryEmail = async ({
       },
     ],
   });
-};
 
 export const sendDigestEmail = async ({
   from,
@@ -141,8 +140,8 @@ export const sendDigestEmail = async ({
   to: string;
   test?: boolean;
   emailProps: DigestEmailProps;
-}) => {
-  return sendEmail({
+}) =>
+  sendEmail({
     from,
     to,
     subject: generateDigestSubject(emailProps),
@@ -157,7 +156,6 @@ export const sendDigestEmail = async ({
       },
     ],
   });
-};
 
 export const sendInvitationEmail = async ({
   from,
@@ -169,8 +167,8 @@ export const sendInvitationEmail = async ({
   to: string;
   test?: boolean;
   emailProps: InvitationEmailProps;
-}) => {
-  return sendEmail({
+}) =>
+  sendEmail({
     from,
     to,
     subject: `You're invited to join ${emailProps.organizationName} on Inbox Zero`,
@@ -185,7 +183,6 @@ export const sendInvitationEmail = async ({
       },
     ],
   });
-};
 
 export const sendReconnectionEmail = async ({
   from,
@@ -197,8 +194,8 @@ export const sendReconnectionEmail = async ({
   to: string;
   test?: boolean;
   emailProps: ReconnectionEmailProps;
-}) => {
-  return sendEmail({
+}) =>
+  sendEmail({
     from,
     to,
     subject: `Reconnect your email account: ${emailProps.email}`,
@@ -213,7 +210,6 @@ export const sendReconnectionEmail = async ({
       },
     ],
   });
-};
 
 export const sendActionRequiredEmail = async ({
   from,
@@ -225,8 +221,8 @@ export const sendActionRequiredEmail = async ({
   to: string;
   test?: boolean;
   emailProps: ActionRequiredEmailProps;
-}) => {
-  return sendEmail({
+}) =>
+  sendEmail({
     from,
     to,
     subject: `Action Required: ${emailProps.errorType}`,
@@ -241,7 +237,6 @@ export const sendActionRequiredEmail = async ({
       },
     ],
   });
-};
 
 export const sendMeetingBriefingEmail = async ({
   from,
@@ -253,8 +248,8 @@ export const sendMeetingBriefingEmail = async ({
   to: string;
   test?: boolean;
   emailProps: MeetingBriefingEmailProps;
-}) => {
-  return sendEmail({
+}) =>
+  sendEmail({
     from,
     to,
     subject: generateMeetingBriefingSubject(emailProps),
@@ -269,7 +264,6 @@ export const sendMeetingBriefingEmail = async ({
       },
     ],
   });
-};
 
 /**
  * Send a notification to a cold emailer informing them their email was filtered.

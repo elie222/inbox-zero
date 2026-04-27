@@ -38,7 +38,7 @@ import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 // Shared type for SWR mutate function
 type MutateFn = (
-  // biome-ignore lint/suspicious/noExplicitAny: SWR mutate signature
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   data?: any,
   opts?: { revalidate?: boolean },
 ) => Promise<unknown>;
@@ -114,17 +114,17 @@ async function executeBulkOperation<T extends Row>({
   const updateItemOptimistically = (item: T) => {
     const optimisticStatus = getNewStatus ? getNewStatus(item) : newStatus;
     mutate(
-      // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
+      // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
       (currentData: any) => {
         if (!currentData?.newsletters) return currentData;
         return {
           ...currentData,
           newsletters: currentData.newsletters
-            // biome-ignore lint/suspicious/noExplicitAny: newsletter type
+            // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
             .map((n: any) =>
               n.name === item.name ? { ...n, status: optimisticStatus } : n,
             )
-            // biome-ignore lint/suspicious/noExplicitAny: newsletter type
+            // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
             .filter((n: any) => itemMatchesFilter(n.status, filter)),
         };
       },
@@ -645,11 +645,11 @@ export function useApproveButton<T extends Row>({
 }: {
   item: T;
   mutate: (
-    // biome-ignore lint/suspicious/noExplicitAny: SWR mutate signature
+    // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
     data?: any,
     opts?: {
       revalidate?: boolean;
-      // biome-ignore lint/suspicious/noExplicitAny: SWR optimisticData can be any shape
+      // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
       optimisticData?: any;
       rollbackOnError?: boolean;
     },
@@ -679,18 +679,17 @@ export function useApproveButton<T extends Row>({
     setOptimisticStatus(newStatus);
 
     // Optimistically update status and filter out items that no longer match the current view
-    // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
+    // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
     const optimisticUpdate = (currentData: any) => {
       if (!currentData?.newsletters) return currentData;
       return {
         ...currentData,
         newsletters: currentData.newsletters
-          .map(
-            // biome-ignore lint/suspicious/noExplicitAny: newsletter type
-            (n: any) =>
-              n.name === item.name ? { ...n, status: newStatus } : n,
+          // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
+          .map((n: any) =>
+            n.name === item.name ? { ...n, status: newStatus } : n,
           )
-          // biome-ignore lint/suspicious/noExplicitAny: newsletter type
+          // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
           .filter((n: any) => itemMatchesFilter(n.status, filter)),
       };
     };
@@ -957,7 +956,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   onOpenNewsletter: (row: T) => void;
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   hasUnsubscribeAccess: boolean;
-  // biome-ignore lint/suspicious/noExplicitAny: simplest
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   mutate: () => Promise<any>;
   emailAccountId: string;
   userEmail: string;

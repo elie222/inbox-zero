@@ -19,28 +19,22 @@ export function PlanExplanation(props: { provider: string; thread: Thread }) {
         <div className="ml-2">{plan.rule?.instructions}</div>
       </div>
       <div className="mt-4 space-y-2">
-        {plan.actionItems?.map((action, i) => {
-          return (
-            <div key={i}>
-              <Badge color={getActionColor(action.type)}>
-                {capitalCase(action.type)}
-              </Badge>
+        {plan.actionItems?.map((action, i) => (
+          <div key={i}>
+            <Badge color={getActionColor(action.type)}>
+              {capitalCase(action.type)}
+            </Badge>
 
-              <div className="mt-1">
-                {Object.entries(getActionFields(action)).map(([key, value]) => {
-                  return (
-                    <div key={key}>
-                      <strong>{capitalCase(key)}: </strong>
-                      <span className="whitespace-pre-wrap">
-                        {value as string}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="mt-1">
+              {Object.entries(getActionFields(action)).map(([key, value]) => (
+                <div key={key}>
+                  <strong>{capitalCase(key)}: </strong>
+                  <span className="whitespace-pre-wrap">{value as string}</span>
+                </div>
+              ))}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </div>
   );

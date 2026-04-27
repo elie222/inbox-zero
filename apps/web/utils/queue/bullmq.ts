@@ -75,7 +75,7 @@ function getBullmqConnection() {
 }
 
 function normalizeHeaders(headers?: HeadersInit) {
-  if (!headers) return undefined;
+  if (!headers) return;
 
   const normalized = new Headers(headers);
   const record: Record<string, string> = {};

@@ -1,7 +1,7 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Logger } from "@/utils/logger";
 import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
-import { OutlookLabel, WELL_KNOWN_FOLDERS } from "./constants";
+import { WELL_KNOWN_FOLDERS } from "./constants";
 import { extractErrorInfo, withOutlookRetry } from "@/utils/outlook/retry";
 import {
   processThreadMessagesFallback,

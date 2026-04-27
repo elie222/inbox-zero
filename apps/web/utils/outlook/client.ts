@@ -240,9 +240,8 @@ export const getOutlookClientWithRefresh = async ({
   }
 };
 
-export const getAccessTokenFromClient = (client: OutlookClient): string => {
-  return client.getAccessToken();
-};
+export const getAccessTokenFromClient = (client: OutlookClient): string =>
+  client.getAccessToken();
 
 // Helper function to get the OAuth2 URL for linking accounts
 export function getLinkingOAuth2Url() {

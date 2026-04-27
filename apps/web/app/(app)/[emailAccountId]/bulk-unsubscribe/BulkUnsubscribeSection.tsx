@@ -180,7 +180,7 @@ export function BulkUnsubscribe() {
     ...getDateRangeParams(dateRange),
     ...(search ? { search } : {}),
   };
-  // biome-ignore lint/suspicious/noExplicitAny: simplest
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   const urlParams = new URLSearchParams(params as any);
   const { data, isLoading, isValidating, error, mutate } = useSWR<
     NewsletterStatsResponse,

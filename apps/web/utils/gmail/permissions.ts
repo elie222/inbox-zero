@@ -184,7 +184,7 @@ export async function handleGmailPermissionsCheck({
         }
 
         return permissionsAfterRefresh;
-      } catch (_) {
+      } catch {
         return {
           hasAllPermissions: false,
           error: "Gmail access expired. Please reconnect your account.",

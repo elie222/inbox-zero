@@ -77,7 +77,7 @@ function getMatchingUnsubscribeLink(
     if (normalizedLink) return normalizedLink;
   }
 
-  return undefined;
+  return;
 }
 
 function parseStoredUnsubscribeLinks(unsubscribeLink?: string | null) {
@@ -101,10 +101,10 @@ function normalizeAllowedUnsubscribeLink(
 ) {
   try {
     const url = new URL(link);
-    if (!allowedProtocols.includes(url.protocol)) return undefined;
+    if (!allowedProtocols.includes(url.protocol)) return;
     return url.toString();
   } catch {
-    return undefined;
+    return;
   }
 }
 

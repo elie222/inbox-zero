@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 
 interface TooltipProps {
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   children: React.ReactElement<any>;
   content?: string;
   contentComponent?: React.ReactNode;

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.2/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.12/schema.json",
   "linter": {
     "enabled": true,
     "rules": {
@@ -115,6 +115,16 @@
     }
   },
   "overrides": [
+    {
+      "includes": ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    },
     {
       "includes": [
         "**/__tests__/**",

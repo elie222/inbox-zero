@@ -58,30 +58,24 @@ export function ErrorDisplay(props: {
   return null;
 }
 
-export const NotLoggedIn = () => {
-  return (
-    <div className="flex flex-col items-center justify-center sm:p-20 md:p-32">
-      <div className="text-lg text-gray-700">You are not signed in 😞</div>
-      <Button
-        variant="outline"
-        className="mt-2"
-        onClick={() => logOut("/login")}
-      >
-        Sign in
-      </Button>
-      <div className="mt-8">
-        <Image
-          src="/images/illustrations/falling.svg"
-          alt=""
-          width={400}
-          height={400}
-          unoptimized
-          className="dark:brightness-90 dark:invert"
-        />
-      </div>
+export const NotLoggedIn = () => (
+  <div className="flex flex-col items-center justify-center sm:p-20 md:p-32">
+    <div className="text-lg text-gray-700">You are not signed in 😞</div>
+    <Button variant="outline" className="mt-2" onClick={() => logOut("/login")}>
+      Sign in
+    </Button>
+    <div className="mt-8">
+      <Image
+        src="/images/illustrations/falling.svg"
+        alt=""
+        width={400}
+        height={400}
+        unoptimized
+        className="dark:brightness-90 dark:invert"
+      />
     </div>
-  );
-};
+  </div>
+);
 
 const safeErrorToString = (
   error: string | object | undefined,

@@ -36,8 +36,7 @@ export default function Mail(props: {
     if (pageIndex > 0 && previousPageData?.nextPageToken) {
       query.nextPageToken = previousPageData.nextPageToken;
     }
-
-    // biome-ignore lint/suspicious/noExplicitAny: params
+    // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
     const queryParams = new URLSearchParams(query as any);
 
     return `/api/threads?${queryParams.toString()}`;

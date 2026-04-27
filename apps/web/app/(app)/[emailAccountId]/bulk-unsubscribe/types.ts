@@ -27,7 +27,7 @@ export interface RowProps {
   hasUnsubscribeAccess: boolean;
   item: Newsletter;
   labels: EmailLabel[];
-  // biome-ignore lint/suspicious/noExplicitAny: simplest
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   mutate: () => Promise<any>;
   onDoubleClick: () => void;
 

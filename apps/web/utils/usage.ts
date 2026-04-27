@@ -129,7 +129,7 @@ function getModelPricing(options: {
     }
   }
 
-  return undefined;
+  return;
 }
 
 function buildModelLookupCandidates({

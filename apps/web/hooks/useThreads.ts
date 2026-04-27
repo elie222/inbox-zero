@@ -21,8 +21,7 @@ export function useThreads({
   if (fromEmail) query.fromEmail = fromEmail;
   if (limit) query.limit = limit;
   if (type) query.type = type;
-
-  // biome-ignore lint/suspicious/noExplicitAny: params
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   const url = `/api/threads?${new URLSearchParams(query as any).toString()}`;
   return useSWR<ThreadsResponse>(url, { refreshInterval });
 }

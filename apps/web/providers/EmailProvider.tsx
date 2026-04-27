@@ -22,9 +22,10 @@ const EmailContext = createContext<Context>({
 
 export const useEmail = () => useContext<Context>(EmailContext);
 
+// biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
 function mapLabelColor(provider: string, label: any): EmailLabel["color"] {
   if (!provider) {
-    return undefined;
+    return;
   }
 
   if (isGoogleProvider(provider)) {

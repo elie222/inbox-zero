@@ -77,9 +77,9 @@ export const deleteAccountAction = actionClientUser
 
 export const cleanupAIDraftsAction = actionClient
   .metadata({ name: "cleanupAIDrafts" })
-  .action(async ({ ctx: { emailAccountId, provider, logger } }) => {
-    return cleanupAIDraftsForAccount({ emailAccountId, provider, logger });
-  });
+  .action(async ({ ctx: { emailAccountId, provider, logger } }) =>
+    cleanupAIDraftsForAccount({ emailAccountId, provider, logger }),
+  );
 
 export const deleteEmailAccountAction = actionClientUser
   .metadata({ name: "deleteEmailAccount" })

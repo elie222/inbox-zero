@@ -656,7 +656,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi
         .fn()
-        .mockResolvedValue([{ id: "thread-awaiting-notify", messages: [], snippet: "" }]),
+        .mockResolvedValue([
+          { id: "thread-awaiting-notify", messages: [], snippet: "" },
+        ]),
       getLatestMessageInThread: vi.fn().mockResolvedValue({
         ...mockAwaitingMessage("msg-awaiting-notify", OLD_DATE),
         subject: "Pricing follow-up",
@@ -752,7 +754,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi
         .fn()
-        .mockResolvedValue([{ id: "thread-empty-header", messages: [], snippet: "" }]),
+        .mockResolvedValue([
+          { id: "thread-empty-header", messages: [], snippet: "" },
+        ]),
       getLatestMessageInThread: vi.fn().mockResolvedValue({
         ...mockAwaitingMessage("msg-empty-header", OLD_DATE),
         subject: "Missing recipient header",

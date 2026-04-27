@@ -258,18 +258,16 @@ export function FolderSelector({
                 <>
                   <CommandEmpty>No folder found.</CommandEmpty>
                   <CommandGroup>
-                    {filteredFolders.map(({ folder, displayPath }) => {
-                      return (
-                        <FolderItem
-                          key={folder.id}
-                          folder={folder}
-                          level={0}
-                          value={value}
-                          onSelect={handleFolderSelect}
-                          displayPath={displayPath}
-                        />
-                      );
-                    })}
+                    {filteredFolders.map(({ folder, displayPath }) => (
+                      <FolderItem
+                        key={folder.id}
+                        folder={folder}
+                        level={0}
+                        value={value}
+                        onSelect={handleFolderSelect}
+                        displayPath={displayPath}
+                      />
+                    ))}
                   </CommandGroup>
                 </>
               )}

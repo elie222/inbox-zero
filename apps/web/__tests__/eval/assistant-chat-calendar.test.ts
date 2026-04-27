@@ -258,30 +258,6 @@ function isGetCalendarEventsInput(
   );
 }
 
-function hasActivateCalendar(toolCalls: RecordedToolCall[]) {
-  return toolCalls.some((tc) => {
-    if (tc.toolName !== "activateTools") return false;
-    if (!isActivateToolsInput(tc.input)) return false;
-    return tc.input.capabilities.includes("calendar");
-  });
-}
-
-function hasActivateBeforeCalendarQuery(toolCalls: RecordedToolCall[]) {
-  const activateIndex = toolCalls.findIndex(
-    (tc) =>
-      tc.toolName === "activateTools" &&
-      isActivateToolsInput(tc.input) &&
-      tc.input.capabilities.includes("calendar"),
-  );
-  const calendarIndex = toolCalls.findIndex(
-    (tc) => tc.toolName === "getCalendarEvents",
-  );
-
-  return (
-    activateIndex >= 0 && calendarIndex >= 0 && activateIndex < calendarIndex
-  );
-}
-
 function evaluateScenario(
   result: Awaited<ReturnType<typeof runAssistantChat>>,
   expectation: ScenarioExpectation,

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // Parses boolean env vars: "false" → false, any other value → true, unset → uses .default()
 export const booleanString = z.preprocess((val) => {
-  if (!val) return undefined;
+  if (!val) return;
   if (String(val).toLowerCase() === "false") return false;
   return true;
 }, z.boolean().optional());

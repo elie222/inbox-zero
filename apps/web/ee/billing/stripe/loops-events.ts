@@ -19,6 +19,7 @@ export async function handleLoopsEvents({
     users: { email: string; name: string | null }[];
     admins: { email: string; name: string | null }[];
   } | null;
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   newSubscription: any;
   newTier: string | null;
   logger: Logger;

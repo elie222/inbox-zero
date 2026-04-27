@@ -275,7 +275,7 @@ function parseRetryTime(errorMessage: string): Date | null {
 
 function trimErrorMessage(errorMessage: string): string | undefined {
   const trimmed = errorMessage.trim();
-  if (!trimmed) return undefined;
+  if (!trimmed) return;
   if (trimmed.length <= 500) return trimmed;
   return `${trimmed.slice(0, 497)}...`;
 }
@@ -299,9 +299,9 @@ function getFirstErrorValue(
   errors: unknown,
   key: "reason" | "message",
 ): string | undefined {
-  if (!Array.isArray(errors)) return undefined;
+  if (!Array.isArray(errors)) return;
   const firstError = errors[0];
-  if (!firstError || typeof firstError !== "object") return undefined;
+  if (!firstError || typeof firstError !== "object") return;
   const value = (firstError as Record<string, unknown>)[key];
   return typeof value === "string" ? value : undefined;
 }
@@ -312,7 +312,7 @@ function getNumericStatus(...values: unknown[]): number | undefined {
     if (normalized !== undefined) return normalized;
   }
 
-  return undefined;
+  return;
 }
 
 function normalizeNumericValue(value: unknown): number | undefined {
@@ -323,7 +323,7 @@ function normalizeNumericValue(value: unknown): number | undefined {
     if (Number.isFinite(parsed)) return parsed;
   }
 
-  return undefined;
+  return;
 }
 
 function getCodeValue(...values: unknown[]): string | undefined {
@@ -334,7 +334,7 @@ function getCodeValue(...values: unknown[]): string | undefined {
     }
   }
 
-  return undefined;
+  return;
 }
 
 function getRetryAttemptError(attempt: unknown): unknown {
@@ -372,8 +372,8 @@ function toErrorInstance(error: unknown, fallbackMessage: string): Error {
 
 function getAbortOriginalError(error: unknown): unknown | undefined {
   const errorRecord = toRecord(error);
-  if (errorRecord.name !== "AbortError") return undefined;
-  if (!("originalError" in errorRecord)) return undefined;
+  if (errorRecord.name !== "AbortError") return;
+  if (!("originalError" in errorRecord)) return;
   return errorRecord.originalError;
 }
 

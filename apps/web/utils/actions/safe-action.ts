@@ -134,8 +134,8 @@ export const actionClient = baseClient
     });
     logger.info("Calling action");
 
-    return withServerActionInstrumentation(metadata.name, async () => {
-      return next({
+    return withServerActionInstrumentation(metadata.name, async () =>
+      next({
         ctx: {
           ...ctx,
           logger,
@@ -146,8 +146,8 @@ export const actionClient = baseClient
           emailAccount,
           provider: emailAccount.account.provider,
         },
-      });
-    });
+      }),
+    );
   });
 
 // doesn't bind to a specific email
@@ -169,11 +169,11 @@ export const actionClientUser = baseClient.use(
     const logger = ctx.logger.with({ userId, userEmail });
     logger.info("Calling action");
 
-    return withServerActionInstrumentation(metadata?.name, async () => {
-      return next({
+    return withServerActionInstrumentation(metadata?.name, async () =>
+      next({
         ctx: { ...ctx, userId, userEmail, logger },
-      });
-    });
+      }),
+    );
   },
 );
 
@@ -186,8 +186,8 @@ export const adminActionClient = baseClient.use(
 
     const logger = ctx.logger.with({ admin: true });
 
-    return withServerActionInstrumentation(metadata?.name, async () => {
-      return next({ ctx: { ...ctx, logger } });
-    });
+    return withServerActionInstrumentation(metadata?.name, async () =>
+      next({ ctx: { ...ctx, logger } }),
+    );
   },
 );

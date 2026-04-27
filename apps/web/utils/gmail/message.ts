@@ -46,9 +46,9 @@ export function parseMessages(
   } = {},
 ) {
   const messages =
-    thread.messages?.map((message: MessageWithPayload) => {
-      return parseMessage(message);
-    }) || [];
+    thread.messages?.map((message: MessageWithPayload) =>
+      parseMessage(message),
+    ) || [];
 
   if (withoutIgnoredSenders || withoutDrafts) {
     const filteredMessages = messages.filter((message) => {

@@ -31,16 +31,17 @@ interface RuleDialogProps {
 export function useRuleDialog() {
   const ruleDialog = useDialogState<{ ruleId: string }>();
 
-  const RuleDialogComponent = useCallback(() => {
-    return (
+  const RuleDialogComponent = useCallback(
+    () => (
       <RuleDialog
         ruleId={ruleDialog.data?.ruleId}
         isOpen={ruleDialog.isOpen}
         onClose={ruleDialog.onClose}
         editMode={false}
       />
-    );
-  }, [ruleDialog.data?.ruleId, ruleDialog.isOpen, ruleDialog.onClose]);
+    ),
+    [ruleDialog.data?.ruleId, ruleDialog.isOpen, ruleDialog.onClose],
+  );
 
   return { ruleDialog, RuleDialogComponent };
 }
@@ -61,7 +62,7 @@ export function RuleDialog({
 
   // Transform duplicateRule to initialRule format
   const duplicateInitialRule = useMemo(() => {
-    if (!duplicateRule) return undefined;
+    if (!duplicateRule) return;
     return transformRuleForDuplication(duplicateRule);
   }, [duplicateRule]);
 

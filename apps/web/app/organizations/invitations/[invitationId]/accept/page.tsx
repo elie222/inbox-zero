@@ -129,7 +129,10 @@ export default function AcceptInvitationPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => router.push(WELCOME_PATH)} className="w-full">
+            <Button
+              onClick={() => router.push(WELCOME_PATH)}
+              className="w-full"
+            >
               Continue
             </Button>
           </CardContent>

@@ -23,8 +23,7 @@ export const GET = withEmailAccount("api/ai/models", async (req) => {
   });
 
   if (
-    !emailAccount ||
-    !emailAccount.user.aiApiKey ||
+    !emailAccount?.user.aiApiKey ||
     emailAccount.user.aiProvider !== Provider.OPEN_AI
   )
     return NextResponse.json([]);

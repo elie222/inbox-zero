@@ -26,18 +26,16 @@ export interface TagProps
 }
 
 export const Tag = forwardRef<HTMLDivElement, TagProps>(
-  ({ variant = "green", customColors, className, ...props }, ref) => {
-    return (
-      <div
-        ref={ref}
-        {...props}
-        className={cn(tagVariants({ variant, className }))}
-        style={{
-          color: customColors?.textColor ?? undefined,
-          backgroundColor: customColors?.backgroundColor ?? undefined,
-        }}
-      />
-    );
-  },
+  ({ variant = "green", customColors, className, ...props }, ref) => (
+    <div
+      ref={ref}
+      {...props}
+      className={cn(tagVariants({ variant, className }))}
+      style={{
+        color: customColors?.textColor ?? undefined,
+        backgroundColor: customColors?.backgroundColor ?? undefined,
+      }}
+    />
+  ),
 );
 Tag.displayName = "Tag";

@@ -363,8 +363,8 @@ Representative edits:
   });
 
   it("returns the actual provider and model used for the successful draft generation", async () => {
-    mockCreateGenerateObject.mockImplementationOnce(({ onModelUsed }) => {
-      return vi.fn().mockImplementationOnce(async () => {
+    mockCreateGenerateObject.mockImplementationOnce(({ onModelUsed }) =>
+      vi.fn().mockImplementationOnce(async () => {
         await onModelUsed?.({
           provider: "openai",
           modelName: "gpt-5-mini",
@@ -376,8 +376,8 @@ Representative edits:
             confidence: DraftReplyConfidence.STANDARD,
           },
         };
-      });
-    });
+      }),
+    );
 
     const result = await aiDraftReplyWithConfidence(getDraftParams());
 

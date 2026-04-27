@@ -69,7 +69,7 @@ function parseBatchResponse(batchResponse: string, contentType: string | null) {
     if (jsonStartIndex === -1) return; // Skip if no JSON data found
 
     // Extract the JSON string
-    const jsonResponse = part.substring(jsonStartIndex);
+    const jsonResponse = part.slice(jsonStartIndex);
 
     // Parse the JSON string
     try {

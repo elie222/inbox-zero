@@ -27,6 +27,7 @@ export const saveOnboardingAnswersAction = actionClientUser
       parsedInput: { surveyId, questions, answers },
       ctx: { userId, userEmail, logger },
     }) => {
+      // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
       function extractSurveyAnswers(questions: any[], answers: any) {
         const result: {
           surveyFeatures?: string[];

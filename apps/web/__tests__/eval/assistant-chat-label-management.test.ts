@@ -107,12 +107,17 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
         labels = [...labels, createdLabel];
         return createdLabel;
       }),
-      getLabelById: vi.fn().mockImplementation(async (id: string) => {
-        return labels.find((label) => label.id === id) ?? null;
-      }),
-      getLabelByName: vi.fn().mockImplementation(async (name: string) => {
-        return labels.find((label) => label.name === name) ?? null;
-      }),
+      getLabelById: vi
+        .fn()
+        .mockImplementation(
+          async (id: string) => labels.find((label) => label.id === id) ?? null,
+        ),
+      getLabelByName: vi
+        .fn()
+        .mockImplementation(
+          async (name: string) =>
+            labels.find((label) => label.name === name) ?? null,
+        ),
       getThreadMessages: vi
         .fn()
         .mockImplementation(async (threadId: string) => [

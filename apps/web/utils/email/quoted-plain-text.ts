@@ -15,7 +15,7 @@ export function buildQuotedPlainText({
 }
 
 export function quotePlainTextContent(content?: string) {
-  if (!content) return undefined;
+  if (!content) return;
 
   return content
     .split("\n")

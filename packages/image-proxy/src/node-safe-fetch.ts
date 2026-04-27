@@ -160,7 +160,7 @@ async function fetchWithPinnedLookup(
 }
 
 function toNodeHeaders(headersInit?: HeadersInit) {
-  if (!headersInit) return undefined;
+  if (!headersInit) return;
 
   const headers = new Headers(headersInit);
   return Object.fromEntries(headers.entries());

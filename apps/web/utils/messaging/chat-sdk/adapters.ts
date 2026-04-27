@@ -1,7 +1,4 @@
-import {
-  createSlackAdapter,
-  type SlackAdapter,
-} from "@chat-adapter/slack";
+import { createSlackAdapter, type SlackAdapter } from "@chat-adapter/slack";
 import { createTeamsAdapter, type TeamsAdapter } from "@chat-adapter/teams";
 import {
   createTelegramAdapter,

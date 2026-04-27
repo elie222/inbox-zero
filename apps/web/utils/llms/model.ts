@@ -28,6 +28,7 @@ export type ResolvedModel = {
   provider: string;
   modelName: string;
   model: LanguageModelV3;
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   providerOptions?: Record<string, any>;
 };
 
@@ -101,6 +102,7 @@ function selectModel(
     aiModel: string | null;
     aiApiKey: string | null;
   },
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   providerOptions?: Record<string, any>,
   online = false,
 ): ResolvedModel {
@@ -324,6 +326,7 @@ function selectModel(
 function createOpenRouterProviderOptions(
   providers: string,
   modelName?: string | null,
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
 ): Record<string, any> {
   const order = providers
     .split(",")
@@ -364,6 +367,7 @@ function selectEconomyModel(
     }
 
     // Configure OpenRouter provider options if using OpenRouter for economy
+    // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
     let providerOptions: Record<string, any> | undefined;
     if (
       env.ECONOMY_LLM_PROVIDER === Provider.OPENROUTER &&
@@ -403,6 +407,7 @@ function selectChatModel(userAi: UserAIFields, online = false): ResolvedModel {
     }
 
     // Configure OpenRouter provider options if using OpenRouter for chat
+    // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
     let providerOptions: Record<string, any> | undefined;
     if (
       env.CHAT_LLM_PROVIDER === Provider.OPENROUTER &&
@@ -488,6 +493,7 @@ function selectDefaultModel(
   let aiModel: string | null = null;
   const aiApiKey = userAi.aiApiKey;
 
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   const providerOptions: Record<string, any> = {};
 
   // If user has not api key set, then use default model
@@ -723,6 +729,7 @@ function getConfiguredFallbacksByType(
 function getOpenRouterProviderOptionsByType(
   modelType: ModelType,
   modelName?: string | null,
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
 ): Record<string, any> | undefined {
   const providersByType: Record<ModelType, string | undefined> = {
     default: env.DEFAULT_OPENROUTER_PROVIDERS,

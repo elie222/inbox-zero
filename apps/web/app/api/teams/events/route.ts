@@ -4,13 +4,13 @@ import { handleMessagingWebhookRoute } from "@/utils/messaging/chat-sdk/webhook-
 
 export const maxDuration = 120;
 
-export const POST = withError("teams/events", async (request) => {
-  return handleMessagingWebhookRoute({
+export const POST = withError("teams/events", async (request) =>
+  handleMessagingWebhookRoute({
     request,
     platform: "teams",
     isConfigured: Boolean(env.TEAMS_BOT_APP_ID && env.TEAMS_BOT_APP_PASSWORD),
     notConfiguredError: "Teams not configured",
     adapterUnavailableError: "Teams adapter unavailable",
     webhookUnavailableError: "Teams webhook unavailable",
-  });
-});
+  }),
+);

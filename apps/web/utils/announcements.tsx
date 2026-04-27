@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
 
-const DETAIL_ICON_CLASS = "h-4 w-4 text-gray-600 dark:text-gray-400";
-
 export interface AnnouncementDetail {
   description: string;
   icon: ReactNode;

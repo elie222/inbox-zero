@@ -168,7 +168,7 @@ function getSimpleErrorMessage(error: unknown): string | undefined {
   }
 
   if (!hasMessageField(error) && !hasNestedErrorField(error)) {
-    return undefined;
+    return;
   }
 
   if (hasMessageField(error) && typeof error.message === "string") {
@@ -182,7 +182,7 @@ function getSimpleErrorMessage(error: unknown): string | undefined {
     }
   }
 
-  return undefined;
+  return;
 }
 
 function hasMessageField(value: unknown): value is { message?: unknown } {

@@ -21,6 +21,7 @@ export function useDriveFolders(emailAccountId?: string) {
     cleanupStaleFilingFoldersAction(emailAccountId, {
       filingFolderIds: staleFolderDbIds,
     }).catch((error) => {
+      // biome-ignore lint/suspicious/noConsole: background cleanup failure should stay visible in development
       console.error("Failed to cleanup stale filing folders", error);
     });
   }, [emailAccountId, staleFolderCleanupKey, staleFolderDbIds]);

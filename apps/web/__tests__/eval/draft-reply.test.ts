@@ -365,7 +365,6 @@ Also, what model or provider does the assistant use by default?`,
           console.log(`\n[${model.label}] ${testName}\n${result.reply}\n`);
 
           const judgeResult = await maybeJudgeGroundedReply({
-            emailAccount,
             messages,
             reply: result.reply,
           });
@@ -559,17 +558,9 @@ function formatDraftEvalActual(
 }
 
 async function maybeJudgeGroundedReply({
-  emailAccount,
   messages,
   reply,
 }: {
-  emailAccount: {
-    user: {
-      aiProvider: string | null;
-      aiModel: string | null;
-      aiApiKey: string | null;
-    };
-  };
   messages: { content: string }[];
   reply: string;
 }) {

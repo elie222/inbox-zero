@@ -1270,7 +1270,7 @@ function getMessagingChannelError({
     if (errorMessage) return errorMessage;
   }
 
-  return undefined;
+  return;
 }
 
 function formatDraftReplyDeliverySummary({

@@ -22,15 +22,15 @@ type EmailItem = {
 };
 
 export interface SummaryEmailProps {
+  awaitingReply?: EmailItem[];
+  awaitingReplyCount?: number;
   baseUrl: string;
   coldEmailers: EmailItem[];
-  // Reply tracker stats
-  needsReplyCount?: number;
-  awaitingReplyCount?: number;
+  needsAction?: EmailItem[];
   needsActionCount?: number;
   needsReply?: EmailItem[];
-  awaitingReply?: EmailItem[];
-  needsAction?: EmailItem[];
+  // Reply tracker stats
+  needsReplyCount?: number;
   unsubscribeToken: string;
 }
 

@@ -38,9 +38,10 @@ export function findUnsubscribeLink(html?: string | null) {
   // nodeType of 3 represents a text node, which is the actual text inside an element or attribute.
   const textNodes = $("*")
     .contents()
-    .filter((_index, content) => {
-      return content.nodeType === 3 && content.data.includes("unsubscribe");
-    });
+    .filter(
+      (_index, content) =>
+        content.nodeType === 3 && content.data.includes("unsubscribe"),
+    );
 
   textNodes.each((_index, textNode) => {
     // Find the closest parent that has an 'a' tag

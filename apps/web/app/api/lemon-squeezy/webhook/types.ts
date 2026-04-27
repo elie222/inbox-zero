@@ -44,6 +44,7 @@ export interface Attributes {
   first_subscription_item?: FirstSubscriptionItem;
   order_id: number;
   order_item_id: number;
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   pause: any;
   product_id: number;
   product_name: string;

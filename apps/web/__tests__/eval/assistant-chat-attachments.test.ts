@@ -375,14 +375,6 @@ function hasToolBeforeTool(
   return firstIndex >= 0 && secondIndex >= 0 && firstIndex < secondIndex;
 }
 
-function hasActivateAttachments(toolCalls: RecordedToolCall[]) {
-  return toolCalls.some((tc) => {
-    if (tc.toolName !== "activateTools") return false;
-    if (!isActivateToolsInput(tc.input)) return false;
-    return tc.input.capabilities.includes("attachments");
-  });
-}
-
 async function evaluateScenario(
   result: Awaited<ReturnType<typeof runAssistantChat>>,
   prompt: string,

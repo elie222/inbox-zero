@@ -102,7 +102,7 @@ export function RuleForm({
   alwaysEditMode?: boolean;
   onSuccess?: () => void;
   isDialog?: boolean;
-  // biome-ignore lint/suspicious/noExplicitAny: lazy
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   mutate?: (data?: any, options?: any) => void;
   onCancel?: () => void;
 }) {
@@ -355,11 +355,13 @@ export function RuleForm({
     [ruleEditorActions],
   );
 
-  const formErrors = useMemo(() => {
-    return Object.values(formState.errors)
-      .filter((error): error is { message: string } => Boolean(error.message))
-      .map((error) => error.message);
-  }, [formState]);
+  const formErrors = useMemo(
+    () =>
+      Object.values(formState.errors)
+        .filter((error): error is { message: string } => Boolean(error.message))
+        .map((error) => error.message),
+    [formState],
+  );
 
   const typeOptions = useMemo(() => {
     const connectedMessagingChannels = getConnectedRuleNotificationChannels(

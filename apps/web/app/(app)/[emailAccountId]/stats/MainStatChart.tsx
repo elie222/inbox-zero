@@ -32,22 +32,24 @@ export function MainStatChart(props: {
   const [activeChart, setActiveChart] =
     React.useState<keyof typeof chartConfig>("received");
 
-  const chartData = React.useMemo(() => {
-    return props.data.result.map((item) => {
-      const date = parse(item.startOfPeriod, "MMM dd, yyyy", new Date());
-      const dateStr = format(date, "yyyy-MM-dd");
+  const chartData = React.useMemo(
+    () =>
+      props.data.result.map((item) => {
+        const date = parse(item.startOfPeriod, "MMM dd, yyyy", new Date());
+        const dateStr = format(date, "yyyy-MM-dd");
 
-      return {
-        date: dateStr,
-        received: item.All,
-        read: item.Read,
-        sent: item.Sent,
-        archived: item.Archived,
-        unread: item.Unread,
-        inbox: item.Unarchived,
-      };
-    });
-  }, [props.data]);
+        return {
+          date: dateStr,
+          received: item.All,
+          read: item.Read,
+          sent: item.Sent,
+          archived: item.Archived,
+          unread: item.Unread,
+          inbox: item.Unarchived,
+        };
+      }),
+    [props.data],
+  );
 
   const total = React.useMemo(
     () => ({

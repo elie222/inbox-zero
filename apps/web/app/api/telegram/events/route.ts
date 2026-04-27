@@ -4,13 +4,13 @@ import { handleMessagingWebhookRoute } from "@/utils/messaging/chat-sdk/webhook-
 
 export const maxDuration = 120;
 
-export const POST = withError("telegram/events", async (request) => {
-  return handleMessagingWebhookRoute({
+export const POST = withError("telegram/events", async (request) =>
+  handleMessagingWebhookRoute({
     request,
     platform: "telegram",
     isConfigured: Boolean(env.TELEGRAM_BOT_TOKEN),
     notConfiguredError: "Telegram not configured",
     adapterUnavailableError: "Telegram adapter unavailable",
     webhookUnavailableError: "Telegram webhook unavailable",
-  });
-});
+  }),
+);

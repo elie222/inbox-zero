@@ -157,6 +157,6 @@ export function getStaticCredentials(
     //     clientSecret: env.HUBSPOT_MCP_CLIENT_SECRET,
     //   };
     default:
-      return undefined;
+      return;
   }
 }

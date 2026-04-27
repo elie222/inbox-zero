@@ -38,8 +38,7 @@ export const getUserRulesPrompt = ({
   rules,
 }: {
   rules: { name: string; instructions: string }[];
-}) => {
-  return `<user_rules>
+}) => `<user_rules>
 ${rules
   .map(
     (rule) => `<rule>
@@ -49,7 +48,6 @@ ${rules
   )
   .join("\n")}
 </user_rules>`;
-};
 
 export const getEmailListPrompt = ({
   messages,

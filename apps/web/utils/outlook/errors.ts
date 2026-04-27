@@ -5,7 +5,7 @@
  * (e.g., filter, category, etc.)
  */
 export function isAlreadyExistsError(error: unknown): boolean {
-  // biome-ignore lint/suspicious/noExplicitAny: simplest
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   const errorMessage = (error as any)?.message || "";
   return (
     errorMessage.includes("already exists") ||

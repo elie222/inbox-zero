@@ -45,7 +45,11 @@ describe("resolveActionAttachments", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(resolveDraftAttachments).mockResolvedValue([
-      { filename: "a.pdf", content: Buffer.from("x"), contentType: "application/pdf" },
+      {
+        filename: "a.pdf",
+        content: Buffer.from("x"),
+        contentType: "application/pdf",
+      },
     ]);
     vi.mocked(prisma.attachmentSource.findFirst).mockResolvedValue({
       id: "as-1",
@@ -122,9 +126,9 @@ describe("resolveActionAttachments", () => {
         ]),
       }),
     );
-    expect(vi.mocked(resolveDraftAttachments).mock.calls[0]?.[0].selectedAttachments).toHaveLength(
-      1,
-    );
+    expect(
+      vi.mocked(resolveDraftAttachments).mock.calls[0]?.[0].selectedAttachments,
+    ).toHaveLength(1);
   });
 
   it("skips resolveDraftAttachments when the draft cache is empty and there are no static attachments", async () => {

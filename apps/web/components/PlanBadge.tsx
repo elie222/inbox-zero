@@ -53,18 +53,16 @@ export function PlanBadge(props: { plan?: Plan; provider: string }) {
             </div>
           ) : null}
           <div className="mt-4 space-y-2">
-            {sortActionsByPriority(plan.actionItems || []).map((action, i) => {
-              return (
-                <div key={i}>
-                  <Badge
-                    color={getActionColor(action.type)}
-                    className="whitespace-pre-wrap"
-                  >
-                    {getActionMessage(action, provider)}
-                  </Badge>
-                </div>
-              );
-            })}
+            {sortActionsByPriority(plan.actionItems || []).map((action, i) => (
+              <div key={i}>
+                <Badge
+                  color={getActionColor(action.type)}
+                  className="whitespace-pre-wrap"
+                >
+                  {getActionMessage(action, provider)}
+                </Badge>
+              </div>
+            ))}
           </div>
         </div>
       }

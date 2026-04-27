@@ -36,9 +36,9 @@ describe("redis usage weekly cost tracking", () => {
       "usage-weekly-cost:user@example.com:2026-02-22": { cost: "0.25" },
     };
 
-    vi.mocked(redis.hgetall).mockImplementation(async (key: string) => {
-      return costsByKey[key] ?? {};
-    });
+    vi.mocked(redis.hgetall).mockImplementation(
+      async (key: string) => costsByKey[key] ?? {},
+    );
 
     const weeklyCost = await getWeeklyUsageCost({ email, now });
 
@@ -74,9 +74,9 @@ describe("redis usage weekly cost tracking", () => {
       "usage-weekly-cost:carol@example.com:2026-02-10": { cost: "8.0" },
     };
 
-    vi.mocked(redis.hgetall).mockImplementation(async (key: string) => {
-      return costsByKey[key] ?? {};
-    });
+    vi.mocked(redis.hgetall).mockImplementation(
+      async (key: string) => costsByKey[key] ?? {},
+    );
 
     const topSpenders = await getTopWeeklyUsageCosts({ limit: 2, now });
 

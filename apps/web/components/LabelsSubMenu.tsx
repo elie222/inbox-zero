@@ -19,13 +19,11 @@ export function LabelsSubMenu({
   return (
     <DropdownMenuSubContent className="max-h-[415px] overflow-auto">
       {labels.length ? (
-        labels.map((label) => {
-          return (
-            <DropdownMenuItem key={label.id} onClick={() => onClick(label)}>
-              {label.name}
-            </DropdownMenuItem>
-          );
-        })
+        labels.map((label) => (
+          <DropdownMenuItem key={label.id} onClick={() => onClick(label)}>
+            {label.name}
+          </DropdownMenuItem>
+        ))
       ) : (
         <DropdownMenuItem>
           You don't have any {terminology.label.plural} yet.

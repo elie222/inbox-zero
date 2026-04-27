@@ -36,6 +36,7 @@ export async function getThread(
       return dateB - dateA; // desc order (newest first)
     });
   } catch (error) {
+    // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
     const err = error as any;
 
     logger.error("getThread failed", {

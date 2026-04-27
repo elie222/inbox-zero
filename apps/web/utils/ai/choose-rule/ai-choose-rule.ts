@@ -51,7 +51,7 @@ export async function aiChooseRule<
 
   const rulesWithMetadata = aiResponse.matchedRules
     .map((match) => {
-      if (!match.ruleName) return undefined;
+      if (!match.ruleName) return;
       const rule = orderedRules.find(
         (r) => r.name.toLowerCase() === match.ruleName.toLowerCase(),
       );

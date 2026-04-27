@@ -75,15 +75,14 @@ export function BulkArchiveCards({
     Record<string, boolean>
   >({});
 
-  const categoryMap = useMemo(() => {
-    return categories.reduce<Record<string, CategoryWithRules>>(
-      (acc, category) => {
+  const categoryMap = useMemo(
+    () =>
+      categories.reduce<Record<string, CategoryWithRules>>((acc, category) => {
         acc[category.name] = category;
         return acc;
-      },
-      {},
-    );
-  }, [categories]);
+      }, {}),
+    [categories],
+  );
 
   // Get the names of default categories to determine which categories to show as separate tabs
   const defaultCategoryNames = useMemo(
@@ -119,15 +118,17 @@ export function BulkArchiveCards({
   }, [emailGroups, categoryMap, defaultCategoryNames]);
 
   // Sort categories alphabetically, but always put Other and Uncategorized last
-  const sortedCategoryEntries = useMemo(() => {
-    return Object.entries(groupedEmails).sort(([a], [b]) => {
-      if (a === "Uncategorized") return 1;
-      if (b === "Uncategorized") return -1;
-      if (a === defaultCategory.OTHER.name) return 1;
-      if (b === defaultCategory.OTHER.name) return -1;
-      return a.localeCompare(b);
-    });
-  }, [groupedEmails]);
+  const sortedCategoryEntries = useMemo(
+    () =>
+      Object.entries(groupedEmails).sort(([a], [b]) => {
+        if (a === "Uncategorized") return 1;
+        if (b === "Uncategorized") return -1;
+        if (a === defaultCategory.OTHER.name) return 1;
+        if (b === defaultCategory.OTHER.name) return -1;
+        return a.localeCompare(b);
+      }),
+    [groupedEmails],
+  );
 
   const toggleCategory = (categoryName: string) => {
     if (expandedCategory !== categoryName) {
@@ -243,7 +244,7 @@ export function BulkArchiveCards({
       if (bulkAction === "markRead") {
         setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
       }
-    } catch (_error) {
+    } catch {
       toastError({
         description: `Failed to ${bulkAction === "markRead" ? "mark as read" : "archive"} some senders. Please try again.`,
       });

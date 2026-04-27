@@ -30,8 +30,8 @@ export const useGmail = () => useContext<Context>(GmailContext);
 export function GmailProvider(props: { children: React.ReactNode }) {
   const { userLabels: gmailUserLabels, isLoading } = useLabels();
 
-  const userLabels = useMemo(() => {
-    return (
+  const userLabels = useMemo(
+    () =>
       gmailUserLabels?.reduce((acc, label) => {
         if (label.id && label.name) {
           acc[label.id] = {
@@ -42,9 +42,9 @@ export function GmailProvider(props: { children: React.ReactNode }) {
           };
         }
         return acc;
-      }, {} as GmailLabels) || {}
-    );
-  }, [gmailUserLabels]);
+      }, {} as GmailLabels) || {},
+    [gmailUserLabels],
+  );
 
   const value = useMemo(
     () => ({ userLabels, labelsIsLoading: isLoading }),

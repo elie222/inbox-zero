@@ -1,9 +1,9 @@
 import { spawnSync } from "node:child_process";
 
 export interface AwsCommandResult {
-  success: boolean;
-  stdout: string;
   stderr: string;
+  stdout: string;
+  success: boolean;
 }
 
 export function runAwsCommand(

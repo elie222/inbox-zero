@@ -152,6 +152,7 @@ function EnhancedListItem({
   ...props
 }: React.ComponentPropsWithoutRef<"li"> & {
   href: string;
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   icon: React.ComponentType<any>;
   iconColor: string;
   gradient: string;

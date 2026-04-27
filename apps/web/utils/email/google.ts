@@ -576,14 +576,16 @@ export class GmailProvider implements EmailProvider {
     ownerEmail: string,
     emailAccountId: string,
   ): Promise<number> {
-    return this.withRateLimitTracking("bulk-archive-sender", async () => {
-      return await this.archiveMessagesFromSenders(
-        [fromEmail],
-        ownerEmail,
-        emailAccountId,
-        { continueOnError: false },
-      );
-    });
+    return this.withRateLimitTracking(
+      "bulk-archive-sender",
+      async () =>
+        await this.archiveMessagesFromSenders(
+          [fromEmail],
+          ownerEmail,
+          emailAccountId,
+          { continueOnError: false },
+        ),
+    );
   }
 
   async bulkTrashFromSenders(
@@ -1421,9 +1423,9 @@ export class GmailProvider implements EmailProvider {
           case "unread":
             return [GmailLabel.UNREAD];
           case "archive":
-            return undefined;
+            return;
           case "all":
-            return undefined;
+            return;
           default:
             if (!type || type === "undefined" || type === "null")
               return [GmailLabel.INBOX];

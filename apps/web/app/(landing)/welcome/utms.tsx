@@ -49,7 +49,7 @@ export function extractUtmValues(cookies: ReadonlyRequestCookies): UtmValues {
 }
 
 function decodeCookieValue(value: string | undefined): string | undefined {
-  if (!value) return undefined;
+  if (!value) return;
   try {
     return decodeURIComponent(value);
   } catch {

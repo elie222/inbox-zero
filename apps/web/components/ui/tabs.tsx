@@ -13,6 +13,7 @@ interface Context {
   searchParam: string;
   selected: string;
 }
+// biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
 const TabsContext = React.createContext<Context>(null as any);
 
 export function Tabs(props: {

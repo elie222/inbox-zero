@@ -80,7 +80,7 @@ export type SerializedMatchReason =
 export function serializeMatchReasons(
   matchReasons?: MatchReason[],
 ): SerializedMatchReason[] | undefined {
-  if (!matchReasons || matchReasons.length === 0) return undefined;
+  if (!matchReasons || matchReasons.length === 0) return;
 
   return matchReasons.map((reason): SerializedMatchReason => {
     switch (reason.type) {

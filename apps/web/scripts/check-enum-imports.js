@@ -76,9 +76,7 @@ try {
     // Normalize multiline imports to single line for easier parsing
     const normalizedContent = content.replace(
       /import\s+\{[\s\S]*?\}\s+from\s+"[^"]+"/g,
-      (match) => {
-        return match.replace(/\s+/g, " ");
-      },
+      (match) => match.replace(/\s+/g, " "),
     );
 
     // Find all imports from @/generated/prisma/client
@@ -106,9 +104,7 @@ try {
 
         if (valueImportPattern.test(importedItems)) {
           // Find the line number in original content
-          const lineNumber = content
-            .substring(0, match.index)
-            .split("\n").length;
+          const lineNumber = content.slice(0, match.index).split("\n").length;
 
           problematicFiles.push({
             file: file.replace("./", ""),

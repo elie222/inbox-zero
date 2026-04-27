@@ -185,5 +185,5 @@ function getString(
   const result = value?.[key];
   if (typeof result === "string") return result;
   if (typeof result === "number") return result.toString();
-  return undefined;
+  return;
 }

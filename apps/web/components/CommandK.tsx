@@ -53,9 +53,8 @@ export function CommandK() {
       const threadIds = [threadId];
       archiveEmails({
         threadIds,
-        onSuccess: () => {
-          return refreshEmailList?.refetch({ removedThreadIds: threadIds });
-        },
+        onSuccess: () =>
+          refreshEmailList?.refetch({ removedThreadIds: threadIds }),
         emailAccountId,
       });
       showEmail(null);
@@ -84,9 +83,10 @@ export function CommandK() {
   }, [threadId, onArchive]);
 
   // combine action commands with dynamic commands
-  const allCommands = React.useMemo(() => {
-    return [...actionCommands, ...commands];
-  }, [actionCommands, commands]);
+  const allCommands = React.useMemo(
+    () => [...actionCommands, ...commands],
+    [actionCommands, commands],
+  );
 
   // filter commands with fuzzy search
   const filteredCommands = React.useMemo(() => {

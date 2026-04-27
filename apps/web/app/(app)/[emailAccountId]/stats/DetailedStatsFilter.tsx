@@ -59,20 +59,18 @@ export function DetailedStatsFilter(props: {
           keepOpenOnSelect ? () => setIsOpen(false) : undefined
         }
       >
-        {props.columns.map((column) => {
-          return (
-            <React.Fragment key={column.label}>
-              <DropdownMenuCheckboxItem
-                className="capitalize"
-                checked={column.checked}
-                onCheckedChange={column.setChecked}
-              >
-                {column.label}
-              </DropdownMenuCheckboxItem>
-              {column.separatorAfter && <Separator />}
-            </React.Fragment>
-          );
-        })}
+        {props.columns.map((column) => (
+          <React.Fragment key={column.label}>
+            <DropdownMenuCheckboxItem
+              className="capitalize"
+              checked={column.checked}
+              onCheckedChange={column.setChecked}
+            >
+              {column.label}
+            </DropdownMenuCheckboxItem>
+            {column.separatorAfter && <Separator />}
+          </React.Fragment>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -242,7 +242,6 @@ export function ApiKeysDeactivateButton({
   emailAccountId: string;
   mutate: () => void;
 }) {
-
   const { execute, isExecuting } = useAction(
     deactivateApiKeyAction.bind(null, emailAccountId),
     {

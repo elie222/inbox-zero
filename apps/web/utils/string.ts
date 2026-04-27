@@ -9,7 +9,7 @@ export function truncate(str: string, length: number) {
 }
 
 export function trimToNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
+  if (typeof value !== "string") return;
 
   const trimmedValue = value.trim();
   return trimmedValue.length > 0 ? trimmedValue : undefined;

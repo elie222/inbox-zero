@@ -23,6 +23,7 @@ export interface InputProps {
   onClickAdd?: () => void;
   onClickRemove?: () => void;
   placeholder?: string;
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   registerProps?: any; // TODO
   rightText?: string;
   rows?: number;
@@ -113,77 +114,71 @@ export const Input = (props: InputProps) => {
 
 type LabelProps = Pick<InputProps, "name" | "label" | "tooltipText">;
 
-export const Label = (props: LabelProps) => {
-  return (
-    <label
-      htmlFor={props.name}
-      className="block text-sm font-medium text-slate-700 dark:text-slate-200"
-    >
-      {props.tooltipText ? (
-        <span className="flex items-center space-x-1">
-          <span>{props.label}</span>
-          <TooltipExplanation text={props.tooltipText} />
-        </span>
-      ) : (
-        props.label
-      )}
-    </label>
-  );
-};
+export const Label = (props: LabelProps) => (
+  <label
+    htmlFor={props.name}
+    className="block text-sm font-medium text-slate-700 dark:text-slate-200"
+  >
+    {props.tooltipText ? (
+      <span className="flex items-center space-x-1">
+        <span>{props.label}</span>
+        <TooltipExplanation text={props.tooltipText} />
+      </span>
+    ) : (
+      props.label
+    )}
+  </label>
+);
 
-export const ExplainText = (props: { children: React.ReactNode }) => {
-  return (
-    <div className="mt-1 text-sm leading-snug text-muted-foreground dark:text-slate-400">
-      {props.children}
-    </div>
-  );
-};
+export const ExplainText = (props: { children: React.ReactNode }) => (
+  <div className="mt-1 text-sm leading-snug text-muted-foreground dark:text-slate-400">
+    {props.children}
+  </div>
+);
 
-export const ErrorMessage = (props: { message: string }) => {
-  return <div className="mt-0.5 text-sm text-red-400">{props.message}</div>;
-};
+export const ErrorMessage = (props: { message: string }) => (
+  <div className="mt-0.5 text-sm text-red-400">{props.message}</div>
+);
 
 const InputWithLeftFixedText = (props: {
   leftText: string;
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   inputProps: any;
   className?: string;
-}) => {
-  return (
-    <div className="flex rounded-md shadow-sm">
-      <span className="inline-flex max-w-[150px] flex-shrink items-center rounded-l-md border border-r-0 border-slate-300 bg-slate-50 px-3 text-muted-foreground dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 sm:max-w-full sm:text-sm">
-        {props.leftText}
-      </span>
-      <input
-        {...props.inputProps}
-        className={cn(
-          "block w-[120px] flex-1 rounded-none rounded-r-md border-slate-300 bg-background focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground disabled:ring-slate-200 dark:border-slate-700 dark:text-slate-100 dark:focus:border-slate-400 dark:focus:ring-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 dark:disabled:ring-slate-700 sm:w-full sm:min-w-[150px] sm:max-w-full sm:text-sm",
-          props.className,
-        )}
-      />
-    </div>
-  );
-};
+}) => (
+  <div className="flex rounded-md shadow-sm">
+    <span className="inline-flex max-w-[150px] flex-shrink items-center rounded-l-md border border-r-0 border-slate-300 bg-slate-50 px-3 text-muted-foreground dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 sm:max-w-full sm:text-sm">
+      {props.leftText}
+    </span>
+    <input
+      {...props.inputProps}
+      className={cn(
+        "block w-[120px] flex-1 rounded-none rounded-r-md border-slate-300 bg-background focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground disabled:ring-slate-200 dark:border-slate-700 dark:text-slate-100 dark:focus:border-slate-400 dark:focus:ring-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 dark:disabled:ring-slate-700 sm:w-full sm:min-w-[150px] sm:max-w-full sm:text-sm",
+        props.className,
+      )}
+    />
+  </div>
+);
 
 const InputWithRightFixedText = (props: {
   rightText: string;
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   inputProps: any;
   className?: string;
-}) => {
-  return (
-    <div className="flex rounded-md shadow-sm">
-      <input
-        {...props.inputProps}
-        className={cn(
-          "block w-full min-w-0 flex-1 rounded-none rounded-l-md border-slate-300 bg-background focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground disabled:ring-slate-200 dark:border-slate-700 dark:text-slate-100 dark:focus:border-slate-400 dark:focus:ring-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 dark:disabled:ring-slate-700 sm:text-sm",
-          props.className,
-        )}
-      />
-      <span className="inline-flex items-center rounded-r-md border border-l-0 border-slate-300 bg-slate-50 px-3 text-muted-foreground dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 sm:text-sm">
-        {props.rightText}
-      </span>
-    </div>
-  );
-};
+}) => (
+  <div className="flex rounded-md shadow-sm">
+    <input
+      {...props.inputProps}
+      className={cn(
+        "block w-full min-w-0 flex-1 rounded-none rounded-l-md border-slate-300 bg-background focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground disabled:ring-slate-200 dark:border-slate-700 dark:text-slate-100 dark:focus:border-slate-400 dark:focus:ring-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 dark:disabled:ring-slate-700 sm:text-sm",
+        props.className,
+      )}
+    />
+    <span className="inline-flex items-center rounded-r-md border border-l-0 border-slate-300 bg-slate-50 px-3 text-muted-foreground dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 sm:text-sm">
+      {props.rightText}
+    </span>
+  </div>
+);
 
 export const AddRemoveButtons = (props: {
   onClickAdd?: () => void;

@@ -220,11 +220,10 @@ describe.runIf(isAiTest)("AI Sender Categorization", () => {
   });
 });
 
-const getEnabledCategories = () => {
-  return Object.entries(defaultCategory)
+const getEnabledCategories = () =>
+  Object.entries(defaultCategory)
     .filter(([_, value]) => value.enabled)
     .map(([_, value]) => ({
       name: value.name,
       description: value.description,
     }));
-};

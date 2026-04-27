@@ -24,10 +24,8 @@ export async function publishEmailAction(
 }
 
 // Helper functions for specific actions
-export const publishArchive = (params: Omit<TinybirdEmailAction, "action">) => {
-  return publishEmailAction({ ...params, action: "archive" });
-};
+export const publishArchive = (params: Omit<TinybirdEmailAction, "action">) =>
+  publishEmailAction({ ...params, action: "archive" });
 
-export const publishDelete = (params: Omit<TinybirdEmailAction, "action">) => {
-  return publishEmailAction({ ...params, action: "delete" });
-};
+export const publishDelete = (params: Omit<TinybirdEmailAction, "action">) =>
+  publishEmailAction({ ...params, action: "delete" });

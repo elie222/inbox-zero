@@ -16,12 +16,15 @@ export function LemonScript() {
       onLoad={() => {
         if (!window) return;
 
+        // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
         (window as any).lemonSqueezyAffiliateConfig = {
           store: env.NEXT_PUBLIC_LEMON_STORE_ID,
           debug: true,
         };
 
+        // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
         if ((window as any).createLemonSqueezyAffiliate)
+          // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
           (window as any).createLemonSqueezyAffiliate();
       }}
     />

@@ -132,9 +132,7 @@ export const SimpleRichTextEditor = forwardRef<
             editor.commands.setContent(newContent);
           }
         },
-        getMarkdown: () => {
-          return editor?.storage.markdown.getMarkdown() || "";
-        },
+        getMarkdown: () => editor?.storage.markdown.getMarkdown() || "",
       }),
       [editor],
     );

@@ -19,9 +19,7 @@ const platforms: {
 }[] = [
   {
     name: "Slack",
-    icon: (
-      <Image src="/images/slack.svg" alt="Slack" width={56} height={56} />
-    ),
+    icon: <Image src="/images/slack.svg" alt="Slack" width={56} height={56} />,
   },
   {
     name: "Telegram",
@@ -31,9 +29,7 @@ const platforms: {
   },
   {
     name: "Teams",
-    icon: (
-      <Image src="/images/teams.png" alt="Teams" width={56} height={56} />
-    ),
+    icon: <Image src="/images/teams.png" alt="Teams" width={56} height={56} />,
     comingSoon: true,
   },
   {

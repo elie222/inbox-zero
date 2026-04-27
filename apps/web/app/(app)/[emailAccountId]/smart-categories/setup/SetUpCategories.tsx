@@ -125,32 +125,30 @@ export function SetUpCategories({
           <TypographyH4>Choose categories</TypographyH4>
 
           <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6">
-            {combinedCategories.map((category) => {
-              return (
-                <CategoryCard
-                  key={category.name}
-                  category={category}
-                  isEnabled={categories.get(category.name) ?? false}
-                  onAdd={() =>
+            {combinedCategories.map((category) => (
+              <CategoryCard
+                key={category.name}
+                category={category}
+                isEnabled={categories.get(category.name) ?? false}
+                onAdd={() =>
+                  setCategories(
+                    new Map(categories.entries()).set(category.name, true),
+                  )
+                }
+                onRemove={async () => {
+                  if (category.id) {
+                    await deleteCategoryAction(emailAccountId, {
+                      categoryId: category.id,
+                    });
+                  } else {
                     setCategories(
-                      new Map(categories.entries()).set(category.name, true),
-                    )
+                      new Map(categories.entries()).set(category.name, false),
+                    );
                   }
-                  onRemove={async () => {
-                    if (category.id) {
-                      await deleteCategoryAction(emailAccountId, {
-                        categoryId: category.id,
-                      });
-                    } else {
-                      setCategories(
-                        new Map(categories.entries()).set(category.name, false),
-                      );
-                    }
-                  }}
-                  onEdit={() => setSelectedCategoryName(category.name)}
-                />
-              );
-            })}
+                }}
+                onEdit={() => setSelectedCategoryName(category.name)}
+              />
+            ))}
           </div>
 
           <div className="mt-4 flex gap-2">

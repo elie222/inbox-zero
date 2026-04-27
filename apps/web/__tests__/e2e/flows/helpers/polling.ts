@@ -155,7 +155,7 @@ export async function waitForExecutedRule(options: {
         description: `ExecutedRule for thread ${threadId} to reach terminal status`,
       },
     );
-  } catch (_error) {
+  } catch {
     const elapsed = Date.now() - startTime;
     throw new Error(
       `Timeout waiting for ExecutedRule after ${elapsed}ms. ` +
@@ -644,7 +644,7 @@ export async function waitForThreadTracker(options: {
         description: `ThreadTracker${type ? ` (${type})` : ""} for thread ${threadId}`,
       },
     );
-  } catch (_error) {
+  } catch {
     const elapsed = Date.now() - startTime;
     const webhookUrl =
       process.env.WEBHOOK_URL || process.env.NEXT_PUBLIC_BASE_URL;

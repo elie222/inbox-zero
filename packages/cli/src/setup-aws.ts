@@ -22,15 +22,15 @@ interface AwsPrerequisites {
 }
 
 interface GcloudPrerequisites {
-  installed: boolean;
   authenticated: boolean;
+  installed: boolean;
   projectId: string | null;
 }
 
 export interface AwsSetupOptions {
+  environment?: string;
   profile?: string;
   region?: string;
-  environment?: string;
   yes?: boolean; // Non-interactive mode with defaults
 }
 
@@ -251,7 +251,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
           if (!/^[a-z][a-z0-9-]*$/.test(v)) {
             return "Must start with a letter and contain only lowercase letters, numbers, and hyphens";
           }
-          return undefined;
+          return;
         },
       });
 

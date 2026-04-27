@@ -52,13 +52,12 @@ export const sendEmailBody = z.object({
 export type SendEmailBody = z.infer<typeof sendEmailBody>;
 type MailSendEmailBody = WithMailerAttachments<SendEmailBody>;
 
-const encodeMessage = (message: Buffer) => {
-  return Buffer.from(message)
+const encodeMessage = (message: Buffer) =>
+  Buffer.from(message)
     .toString("base64")
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/, "");
-};
 
 const createMail = async (options: Mail.Options) => {
   const mailComposer = new MailComposer(options);

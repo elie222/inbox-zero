@@ -78,7 +78,7 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
 
   return (
     <style
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: <explanation>
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: chart colors are generated from typed config
       dangerouslySetInnerHTML={{
         __html: Object.entries(THEMES)
           .map(
@@ -328,7 +328,7 @@ function getPayloadConfigFromPayload(
   key: string,
 ) {
   if (typeof payload !== "object" || payload === null) {
-    return undefined;
+    return;
   }
 
   const payloadPayload =

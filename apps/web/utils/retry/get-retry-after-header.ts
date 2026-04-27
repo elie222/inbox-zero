@@ -11,7 +11,7 @@ export function getRetryAfterHeaderFromError(
 }
 
 function getHeaderValue(headers: unknown): string | undefined {
-  if (!headers || typeof headers !== "object") return undefined;
+  if (!headers || typeof headers !== "object") return;
 
   const maybeHeaders = headers as {
     get?: (name: string) => string | null;
@@ -30,7 +30,7 @@ function getHeaderValue(headers: unknown): string | undefined {
     }
   }
 
-  return undefined;
+  return;
 }
 
 function toRecord(value: unknown): Record<string, unknown> {

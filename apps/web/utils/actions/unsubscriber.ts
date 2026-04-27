@@ -17,13 +17,12 @@ export const setNewsletterStatusAction = actionClient
     async ({
       parsedInput: { newsletterEmail, status },
       ctx: { emailAccountId },
-    }) => {
-      return setSenderStatus({
+    }) =>
+      setSenderStatus({
         emailAccountId,
         newsletterEmail,
         status,
-      });
-    },
+      }),
   );
 
 export const unsubscribeSenderAction = actionClient
@@ -33,13 +32,12 @@ export const unsubscribeSenderAction = actionClient
     async ({
       parsedInput: { newsletterEmail, unsubscribeLink, listUnsubscribeHeader },
       ctx: { emailAccountId, logger },
-    }) => {
-      return unsubscribeSenderAndMark({
+    }) =>
+      unsubscribeSenderAndMark({
         emailAccountId,
         newsletterEmail,
         unsubscribeLink,
         listUnsubscribeHeader,
         logger,
-      });
-    },
+      }),
   );

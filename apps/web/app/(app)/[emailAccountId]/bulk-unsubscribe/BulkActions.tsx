@@ -93,7 +93,7 @@ export function BulkActions({
   totalCount,
 }: {
   selected: Map<string, boolean>;
-  // biome-ignore lint/suspicious/noExplicitAny: matches SWR mutate return type
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   mutate: () => Promise<any>;
   onClearSelection: () => void;
   deselectItem: (id: string) => void;

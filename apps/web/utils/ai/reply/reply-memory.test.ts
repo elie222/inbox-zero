@@ -960,21 +960,22 @@ describe("reply-memory", () => {
     vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
       count: 0,
     });
-    vi.mocked(prisma.draftSendLog.findMany).mockImplementation(async () => {
-      return draftSendLogs
-        .filter(
-          (log) =>
-            !log.replyMemoryProcessedAt &&
-            !!log.replyMemorySentText &&
-            log.replyMemoryAttemptCount < 3,
-        )
-        .sort(
-          (left, right) =>
-            left.replyMemoryAttemptCount - right.replyMemoryAttemptCount ||
-            left.createdAt.getTime() - right.createdAt.getTime(),
-        )
-        .slice(0, 5) as any;
-    });
+    vi.mocked(prisma.draftSendLog.findMany).mockImplementation(
+      async () =>
+        draftSendLogs
+          .filter(
+            (log) =>
+              !log.replyMemoryProcessedAt &&
+              !!log.replyMemorySentText &&
+              log.replyMemoryAttemptCount < 3,
+          )
+          .sort(
+            (left, right) =>
+              left.replyMemoryAttemptCount - right.replyMemoryAttemptCount ||
+              left.createdAt.getTime() - right.createdAt.getTime(),
+          )
+          .slice(0, 5) as any,
+    );
     vi.mocked(prisma.draftSendLog.update).mockImplementation(
       async ({ where, data }: any) => {
         const log = draftSendLogs.find((entry) => entry.id === where.id)!;
