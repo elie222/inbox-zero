@@ -20,6 +20,8 @@ Use this for stable user preferences, background, tone, and future assistant beh
 
 Write the instruction itself, not a wrapper like "add this to my instructions". Store only the new instruction text, not the existing instructions plus the new text. Prefer first-person or imperative wording such as "I prefer concise replies" instead of third-person like "the user prefers concise replies".
 
+Only call this after the user directly requested the exact instruction or confirmed a concrete proposal for the exact instruction.
+
 Append by default; replace only when the user clearly wants an overwrite.`,
     inputSchema: z.object({
       personalInstructions: z
