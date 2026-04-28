@@ -54,7 +54,18 @@ import { useFolders } from "@/hooks/useFolders";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSectionCard";
 import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
-import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
+import {
+  ActionSteps,
+  formatMessagingDestinationLabel,
+} from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
+import Link from "next/link";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { RuleLoader } from "@/app/(app)/[emailAccountId]/assistant/RuleLoader";
 import {
   getAvailableActionsForRuleEditor,
@@ -62,6 +73,7 @@ import {
 } from "@/utils/ai/rule/action-availability";
 import { handleRuleAttachmentSourceSave } from "@/utils/attachments/rule";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import {
@@ -122,11 +134,19 @@ export function RuleForm({
           digest: ruleEditorActions.some(
             (action) => action.type === ActionType.DIGEST,
           ),
+          notifyMessagingChannelId:
+            ruleEditorActions.find(
+              (action) => action.type === ActionType.NOTIFY_MESSAGING_CHANNEL,
+            )?.messagingChannelId ?? null,
           actions: [
             ...normalizeDraftReplyActions(
               sortActionsByPriority(
                 ruleEditorActions
-                  .filter((action) => action.type !== ActionType.DIGEST)
+                  .filter(
+                    (action) =>
+                      action.type !== ActionType.DIGEST &&
+                      action.type !== ActionType.NOTIFY_MESSAGING_CHANNEL,
+                  )
                   .map((action) => ({
                     ...action,
                     delayInMinutes: action.delayInMinutes,
@@ -216,6 +236,19 @@ export function RuleForm({
         actionsToSubmit.push({
           id: existingDigestAction?.id,
           type: ActionType.DIGEST,
+        });
+      }
+
+      // Add NOTIFY_MESSAGING_CHANNEL action if a channel is selected
+      if (data.notifyMessagingChannelId) {
+        const existingNotifyAction = rule.actions.find(
+          (action) => action.type === ActionType.NOTIFY_MESSAGING_CHANNEL,
+        );
+
+        actionsToSubmit.push({
+          id: existingNotifyAction?.id,
+          type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+          messagingChannelId: data.notifyMessagingChannelId,
         });
       }
 
@@ -368,30 +401,19 @@ export function RuleForm({
     [formState],
   );
 
-  const typeOptions = useMemo(() => {
-    const connectedMessagingChannels = getConnectedRuleNotificationChannels(
-      messagingChannelsData?.channels,
-    );
-    return getRuleActionTypeOptions({
-      provider,
-      labelActionText: terminology.label.action,
-      hasConnectedMessagingChannels: connectedMessagingChannels.length > 0,
-      hasAvailableMessagingProviders:
-        (messagingChannelsData?.availableProviders.length ?? 0) > 0,
-      systemType: rule.systemType,
-      existingActionTypes,
-    }).map((option) => ({
-      ...option,
-      icon: getActionIcon(option.value),
-    }));
-  }, [
-    existingActionTypes,
-    messagingChannelsData?.channels,
-    messagingChannelsData?.availableProviders,
-    provider,
-    terminology.label.action,
-    rule.systemType,
-  ]);
+  const typeOptions = useMemo(
+    () =>
+      getRuleActionTypeOptions({
+        provider,
+        labelActionText: terminology.label.action,
+        systemType: rule.systemType,
+        existingActionTypes,
+      }).map((option) => ({
+        ...option,
+        icon: getActionIcon(option.value),
+      })),
+    [existingActionTypes, provider, terminology.label.action, rule.systemType],
+  );
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -569,6 +591,18 @@ export function RuleForm({
                   </AdvancedRow>
                 )}
 
+                <NotifyChannelRow
+                  channels={messagingChannelsData?.channels ?? []}
+                  availableProviders={
+                    messagingChannelsData?.availableProviders ?? []
+                  }
+                  emailAccountId={emailAccountId}
+                  value={watch("notifyMessagingChannelId") ?? null}
+                  onChange={(channelId) => {
+                    setValue("notifyMessagingChannelId", channelId);
+                  }}
+                />
+
                 {!!rule.id && (
                   <AdvancedRow
                     title="Learned patterns"
@@ -680,6 +714,67 @@ export function RuleForm({
   );
 }
 
+function NotifyChannelRow({
+  channels,
+  availableProviders,
+  emailAccountId,
+  value,
+  onChange,
+}: {
+  channels: GetMessagingChannelsResponse["channels"];
+  availableProviders: GetMessagingChannelsResponse["availableProviders"];
+  emailAccountId: string;
+  value: string | null;
+  onChange: (channelId: string | null) => void;
+}) {
+  const connectedChannels = getConnectedRuleNotificationChannels(channels);
+  const hasChannels = connectedChannels.length > 0;
+  const canConnect = availableProviders.length > 0;
+
+  if (!hasChannels && !canConnect && !value) return null;
+
+  const selectedChannel = channels.find((c) => c.id === value);
+  const showDisconnectedOption =
+    !!selectedChannel &&
+    !connectedChannels.some((channel) => channel.id === selectedChannel.id);
+
+  return (
+    <AdvancedRow
+      title="Notify in chat"
+      description="Send a message when this rule matches."
+    >
+      {hasChannels || showDisconnectedOption ? (
+        <Select
+          value={value ?? "off"}
+          onValueChange={(next) => onChange(next === "off" ? null : next)}
+        >
+          <SelectTrigger className="w-[220px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="off">Off</SelectItem>
+            {connectedChannels.map((channel) => (
+              <SelectItem key={channel.id} value={channel.id}>
+                {formatMessagingDestinationLabel(channel)}
+              </SelectItem>
+            ))}
+            {showDisconnectedOption && selectedChannel ? (
+              <SelectItem value={selectedChannel.id}>
+                {formatMessagingDestinationLabel(selectedChannel)}{" "}
+                (Disconnected)
+              </SelectItem>
+            ) : null}
+          </SelectContent>
+        </Select>
+      ) : (
+        <Button asChild variant="outline" size="sm">
+          <Link href={prefixPath(emailAccountId, "/channels")}>Connect</Link>
+        </Button>
+      )}
+    </AdvancedRow>
+  );
+}
+
 function AdvancedRow({
   title,
   description,
@@ -760,20 +855,14 @@ type ActionTypeOption = {
 export function getRuleActionTypeOptions({
   provider,
   labelActionText,
-  hasConnectedMessagingChannels,
-  hasAvailableMessagingProviders,
   systemType,
   existingActionTypes,
 }: {
   provider: string;
   labelActionText: string;
-  hasConnectedMessagingChannels: boolean;
-  hasAvailableMessagingProviders: boolean;
   systemType: SystemType | null | undefined;
   existingActionTypes: ActionType[];
 }): ActionTypeOption[] {
-  const messagingIsAvailable =
-    hasConnectedMessagingChannels || hasAvailableMessagingProviders;
   const availableActions = new Set(
     getAvailableActionsForRuleEditor({
       provider,
@@ -844,15 +933,6 @@ export function getRuleActionTypeOptions({
           {
             label: "Call webhook",
             value: ActionType.CALL_WEBHOOK,
-          },
-        ]
-      : []),
-    ...(messagingIsAvailable ||
-    existingActionTypes.includes(ActionType.NOTIFY_MESSAGING_CHANNEL)
-      ? [
-          {
-            label: "Notify via chat app",
-            value: ActionType.NOTIFY_MESSAGING_CHANNEL,
           },
         ]
       : []),

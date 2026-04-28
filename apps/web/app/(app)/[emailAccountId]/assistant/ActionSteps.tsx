@@ -1132,7 +1132,9 @@ function MessagingChannelField({
   );
 }
 
-function formatMessagingDestinationLabel(channel: MessagingChannelOption) {
+export function formatMessagingDestinationLabel(
+  channel: MessagingChannelOption,
+) {
   const provider = getMessagingProviderName(channel.provider);
   const destination = channel.destinations.ruleNotifications;
 

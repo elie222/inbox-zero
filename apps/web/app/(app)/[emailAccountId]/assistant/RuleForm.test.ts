@@ -21,8 +21,6 @@ describe("getRuleActionTypeOptions", () => {
     const options = getRuleActionTypeOptions({
       provider: "",
       labelActionText: "Label",
-      hasConnectedMessagingChannels: false,
-      hasAvailableMessagingProviders: false,
       systemType: null,
       existingActionTypes: [ActionType.MOVE_FOLDER],
     });
@@ -32,12 +30,10 @@ describe("getRuleActionTypeOptions", () => {
     ).toBe(true);
   });
 
-  it("keeps chat delivery actions available for existing rules without a connected provider", () => {
+  it("does not expose notify via chat app as an action type (now handled in advanced options)", () => {
     const options = getRuleActionTypeOptions({
       provider: "",
       labelActionText: "Label",
-      hasConnectedMessagingChannels: false,
-      hasAvailableMessagingProviders: false,
       systemType: null,
       existingActionTypes: [ActionType.NOTIFY_MESSAGING_CHANNEL],
     });
@@ -46,23 +42,19 @@ describe("getRuleActionTypeOptions", () => {
       options.some(
         (option) => option.value === ActionType.NOTIFY_MESSAGING_CHANNEL,
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("only exposes notify sender for configured cold email rules or existing actions", () => {
     const noExistingActionOptions = getRuleActionTypeOptions({
       provider: "",
       labelActionText: "Label",
-      hasConnectedMessagingChannels: false,
-      hasAvailableMessagingProviders: false,
       systemType: null,
       existingActionTypes: [],
     });
     const coldEmailOptions = getRuleActionTypeOptions({
       provider: "",
       labelActionText: "Label",
-      hasConnectedMessagingChannels: false,
-      hasAvailableMessagingProviders: false,
       systemType: SystemType.COLD_EMAIL,
       existingActionTypes: [],
     });

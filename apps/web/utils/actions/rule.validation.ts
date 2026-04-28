@@ -237,6 +237,7 @@ export const createRuleBody = z.object({
   groupId: z.string().nullish(),
   runOnThreads: z.boolean().nullish(),
   digest: z.boolean().nullish(),
+  notifyMessagingChannelId: z.string().nullish(),
   actions: z.array(zodAction).min(1, "You must have at least one action"),
   conditions: z
     .array(zodCondition)
