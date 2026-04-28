@@ -63,12 +63,18 @@ vi.mock("@/utils/messaging/chat-sdk/bot", () => ({
   syncSlackInstallation: mockSyncSlackInstallation,
 }));
 
-vi.mock("@/utils/messaging/providers/slack/send-onboarding-direct-message", () => ({
-  sendSlackOnboardingDirectMessageWithLogging:
-    mockSendSlackOnboardingDirectMessageWithLogging,
-}));
+vi.mock(
+  "@/utils/messaging/providers/slack/send-onboarding-direct-message",
+  () => ({
+    sendSlackOnboardingDirectMessageWithLogging:
+      mockSendSlackOnboardingDirectMessageWithLogging,
+  }),
+);
 
-import { SLACK_STATE_COOKIE_NAME, SLACK_OAUTH_STATE_TYPE } from "@/utils/messaging/providers/slack/constants";
+import {
+  SLACK_STATE_COOKIE_NAME,
+  SLACK_OAUTH_STATE_TYPE,
+} from "@/utils/messaging/providers/slack/constants";
 import { generateSignedOAuthState } from "@/utils/oauth/state";
 import { GET } from "./route";
 
@@ -95,7 +101,9 @@ describe("slack callback route", () => {
     mockGetOAuthCodeResult.mockResolvedValue(null);
     mockAcquireOAuthCodeLock.mockResolvedValue(true);
     mockSyncSlackInstallation.mockResolvedValue(undefined);
-    mockSendSlackOnboardingDirectMessageWithLogging.mockResolvedValue(undefined);
+    mockSendSlackOnboardingDirectMessageWithLogging.mockResolvedValue(
+      undefined,
+    );
 
     prisma.messagingChannel.upsert.mockResolvedValue({
       id: "channel-123",
@@ -158,7 +166,9 @@ describe("slack callback route", () => {
   it("returns a processing redirect on the channels page while another request owns the OAuth code lock", async () => {
     const state = createSignedState("account-456");
 
-    mockGetOAuthCodeResult.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    mockGetOAuthCodeResult
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
     mockAcquireOAuthCodeLock.mockResolvedValue(false);
 
     const response = await GET(
