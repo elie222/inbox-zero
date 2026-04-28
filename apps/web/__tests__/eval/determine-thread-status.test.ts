@@ -78,6 +78,33 @@ describe.runIf(shouldRunEval)("Eval: determine thread status", () => {
       },
       TIMEOUT,
     );
+
+    test(
+      "prioritizes latest concrete scheduling confirmation as TO_REPLY",
+      async () => {
+        const result = await aiDetermineThreadStatus({
+          emailAccount,
+          userSentLastEmail: false,
+          threadMessages: getSchedulingConfirmationWithOlderOpenQuestionThread(
+            emailAccount.email,
+          ),
+        });
+
+        const actual = result.status;
+        const pass = actual === SystemType.TO_REPLY;
+
+        evalReporter.record({
+          testName: "scheduling confirmation with older open question",
+          model: model.label,
+          pass,
+          actual,
+          expected: SystemType.TO_REPLY,
+        });
+
+        expect(actual).toBe(SystemType.TO_REPLY);
+      },
+      TIMEOUT,
+    );
   });
 
   afterAll(() => {
@@ -99,6 +126,27 @@ function getHandledRenewalCancellationThread(userEmail: string) {
       subject: "Re: Please stop the renewal charge",
       content:
         "Really sorry about that. I'll make sure the renewal is cancelled.",
+    }),
+  ];
+}
+
+function getSchedulingConfirmationWithOlderOpenQuestionThread(
+  userEmail: string,
+) {
+  return [
+    getEmail({
+      from: userEmail,
+      to: "colleague@example.com",
+      subject: "Project review",
+      content:
+        "Could you send the technical notes from the earlier review? Also, once we pick a time for today, I will send the calendar invite.",
+    }),
+    getEmail({
+      from: "colleague@example.com",
+      to: userEmail,
+      subject: "Re: Project review",
+      content:
+        "Let's aim for 1 pm Pacific today. I also tweaked the prototype over the weekend.",
     }),
   ];
 }
