@@ -87,6 +87,7 @@ describe("confirm email action route", () => {
     expect(mockConfirmAssistantEmailActionForAccount).toHaveBeenCalledWith({
       ...body,
       waitForPersistence: true,
+      persistenceWaitMs: 10_000,
       emailAccountId: "email-account-1",
       logger: request.logger,
       provider: "google",

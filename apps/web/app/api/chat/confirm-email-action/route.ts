@@ -5,6 +5,7 @@ import { withEmailAccount } from "@/utils/middleware";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
 export const maxDuration = 120;
+const MOBILE_PENDING_ACTION_PERSIST_WAIT_MS = 10_000;
 
 // Mobile clients call this endpoint directly; web uses the server action path.
 export const POST = withEmailAccount(
@@ -36,6 +37,7 @@ export const POST = withEmailAccount(
       actionType: data.actionType,
       contentOverride: data.contentOverride,
       waitForPersistence: true,
+      persistenceWaitMs: MOBILE_PENDING_ACTION_PERSIST_WAIT_MS,
       emailAccountId,
       provider: user.account.provider,
       logger: request.logger,

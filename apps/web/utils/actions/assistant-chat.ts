@@ -139,6 +139,7 @@ export async function confirmAssistantEmailActionForAccount({
   actionType,
   contentOverride,
   waitForPersistence,
+  persistenceWaitMs,
   emailAccountId,
   provider,
   logger,
@@ -149,6 +150,7 @@ export async function confirmAssistantEmailActionForAccount({
   actionType: AssistantPendingEmailActionType;
   contentOverride?: string;
   waitForPersistence?: boolean;
+  persistenceWaitMs?: number;
   emailAccountId: string;
   provider: string;
   logger: Logger;
@@ -160,6 +162,7 @@ export async function confirmAssistantEmailActionForAccount({
     actionType,
     emailAccountId,
     waitForPersistence,
+    persistenceWaitMs,
     logger,
   });
 
@@ -956,6 +959,7 @@ async function reservePendingAssistantEmailAction({
   actionType,
   emailAccountId,
   waitForPersistence,
+  persistenceWaitMs,
   logger,
 }: {
   chatId: string;
@@ -964,12 +968,13 @@ async function reservePendingAssistantEmailAction({
   actionType: AssistantPendingEmailActionType;
   emailAccountId: string;
   waitForPersistence?: boolean;
+  persistenceWaitMs?: number;
   logger: Logger;
 }) {
   const matchEmailParts = (parts: unknown) =>
     !!findPendingAssistantEmailPart({ parts, toolCallId, actionType });
   const waitForPersistenceMs = waitForPersistence
-    ? PENDING_ACTION_PERSIST_WAIT_MS
+    ? (persistenceWaitMs ?? PENDING_ACTION_PERSIST_WAIT_MS)
     : undefined;
 
   const chatMessage = await findChatMessageForPendingAction({
