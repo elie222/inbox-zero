@@ -701,8 +701,8 @@ export function buildResolvedSystemPrompt({
       draftReplyActionsEnabled,
     }),
     `Memory and knowledge routing:
-- Do not claim you will remember something unless saveMemory succeeded or saveMemory returned requiresConfirmation. If the request is too indirect to save safely, say nothing changed yet.
-- Do not say "I've noted that", "I'll remember that", or similar durable-memory language unless saveMemory succeeded or returned requiresConfirmation in this turn.`,
+- Memory requests have three possible outcomes. If saveMemory returned saved=true, say the memory is saved. If saveMemory returned requiresConfirmation=true, say it still needs UI confirmation before it is saved. If no memory write tool was called or the tool failed, say nothing changed or ask for the missing detail.
+- Match your response to the actual memory outcome. Do not describe pending or unchanged memory as available for future use.`,
     `Write and confirmation policy:
 - When the user gives a direct action request for specific threads (archive, trash, label, mark read), search for the relevant threads and then execute the action. The user's request is the confirmation — do not stop after searching to summarize or ask for permission.
 - Do not expand a request for the threads shown or found in this turn into a broader sender-level or category-level cleanup on your own. If broader scope is only inferred from a search sample rather than clearly requested, ask one brief confirmation before writing.
