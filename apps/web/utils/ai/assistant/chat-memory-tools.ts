@@ -138,6 +138,8 @@ export const saveMemoryTool = ({
   tool({
     description: `Save a durable fact or preference for future chats. Memories affect chat only — they do not change how incoming emails are processed.
 
+Use this for future assistant-chat recall. Use personal instructions for future assistant behavior, the knowledge base for reusable drafting reference material, and rules or settings for automation and account features.
+
 Use source "user_message" when the user directly states a fact or preference in chat. Provide the direct clause as userEvidence.
 
 Use source "assistant_inference" for details inferred from retrieved content. These go through a UI confirmation flow before saving.

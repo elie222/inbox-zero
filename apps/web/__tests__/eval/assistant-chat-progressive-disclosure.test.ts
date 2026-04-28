@@ -47,6 +47,7 @@ type EvalScenario = {
   reportName: string;
   prompt: string;
   expectedTool: string;
+  disallowedTools?: string[];
   timeout?: number;
 };
 
@@ -60,14 +61,26 @@ const scenarios: EvalScenario[] = [
   {
     title: "calls addToKnowledgeBase for knowledge base requests",
     reportName: "save to knowledge base calls addToKnowledgeBase",
-    prompt: "Save this to my knowledge base: always reply with bullet points",
+    prompt:
+      "Save this to my knowledge base: The refund window is 30 days after purchase.",
     expectedTool: "addToKnowledgeBase",
+    disallowedTools: ["saveMemory", "updatePersonalInstructions"],
   },
   {
-    title: "calls saveMemory for remember requests",
-    reportName: "remember preference calls saveMemory",
-    prompt: "Remember that I prefer morning summaries",
+    title: "calls updatePersonalInstructions for global behavior requests",
+    reportName: "global behavior preference calls updatePersonalInstructions",
+    prompt:
+      "Update my personal instructions: when drafting replies, keep the tone formal.",
+    expectedTool: "updatePersonalInstructions",
+    disallowedTools: ["saveMemory", "addToKnowledgeBase"],
+    timeout: 120_000,
+  },
+  {
+    title: "calls saveMemory for chat recall facts",
+    reportName: "chat recall fact calls saveMemory",
+    prompt: "Remember that the project codename is Atlas.",
     expectedTool: "saveMemory",
+    disallowedTools: ["updatePersonalInstructions", "addToKnowledgeBase"],
     timeout: 120_000,
   },
   {
@@ -260,10 +273,7 @@ describe.runIf(shouldRunEval)(
                 messages: [{ role: "user", content: scenario.prompt }],
               });
 
-              const pass = evaluateScenario(
-                result.toolCalls,
-                scenario.expectedTool,
-              );
+              const pass = evaluateScenario(result.toolCalls, scenario);
 
               evalReporter.record({
                 testName: scenario.reportName,
@@ -307,9 +317,16 @@ async function runAssistantChat({
 
 function evaluateScenario(
   toolCalls: RecordedToolCall[],
-  expectedTool: string,
+  scenario: EvalScenario,
 ): boolean {
-  return toolCalls.some((tc) => tc.toolName === expectedTool);
+  const calledExpectedTool = toolCalls.some(
+    (tc) => tc.toolName === scenario.expectedTool,
+  );
+  const calledDisallowedTool = scenario.disallowedTools?.some((toolName) =>
+    toolCalls.some((tc) => tc.toolName === toolName),
+  );
+
+  return calledExpectedTool && !calledDisallowedTool;
 }
 
 function summarizeToolCall(toolCall: RecordedToolCall) {
