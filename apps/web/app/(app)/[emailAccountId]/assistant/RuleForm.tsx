@@ -62,10 +62,14 @@ import Link from "next/link";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getMessagingProviderName } from "@/utils/messaging/platforms";
 import { RuleLoader } from "@/app/(app)/[emailAccountId]/assistant/RuleLoader";
 import {
   getAvailableActionsForRuleEditor,
@@ -714,6 +718,8 @@ export function RuleForm({
   );
 }
 
+const CONNECT_SENTINEL = "__connect__";
+
 function NotifyChannelRow({
   channels,
   availableProviders,
@@ -727,6 +733,7 @@ function NotifyChannelRow({
   value: string | null;
   onChange: (channelId: string | null) => void;
 }) {
+  const router = useRouter();
   const connectedChannels = getConnectedRuleNotificationChannels(channels);
   const hasChannels = connectedChannels.length > 0;
   const canConnect = availableProviders.length > 0;
@@ -738,39 +745,87 @@ function NotifyChannelRow({
     !!selectedChannel &&
     !connectedChannels.some((channel) => channel.id === selectedChannel.id);
 
+  const channelsPath = prefixPath(emailAccountId, "/channels");
+
+  if (!hasChannels && !showDisconnectedOption) {
+    return (
+      <AdvancedRow
+        title="Notify in chat"
+        description="Send a message when this rule matches."
+      >
+        <Button asChild variant="outline" size="sm">
+          <Link href={channelsPath}>Connect</Link>
+        </Button>
+      </AdvancedRow>
+    );
+  }
+
+  const channelsByProvider = new Map<
+    GetMessagingChannelsResponse["channels"][number]["provider"],
+    GetMessagingChannelsResponse["channels"]
+  >();
+  for (const channel of connectedChannels) {
+    const list = channelsByProvider.get(channel.provider) ?? [];
+    list.push(channel);
+    channelsByProvider.set(channel.provider, list);
+  }
+  const showGroups = channelsByProvider.size > 1;
+
   return (
     <AdvancedRow
       title="Notify in chat"
       description="Send a message when this rule matches."
     >
-      {hasChannels || showDisconnectedOption ? (
-        <Select
-          value={value ?? "off"}
-          onValueChange={(next) => onChange(next === "off" ? null : next)}
-        >
-          <SelectTrigger className="w-[220px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="off">Off</SelectItem>
-            {connectedChannels.map((channel) => (
-              <SelectItem key={channel.id} value={channel.id}>
-                {formatMessagingDestinationLabel(channel)}
+      <Select
+        value={value ?? "off"}
+        onValueChange={(next) => {
+          if (next === CONNECT_SENTINEL) {
+            router.push(channelsPath);
+            return;
+          }
+          onChange(next === "off" ? null : next);
+        }}
+      >
+        <SelectTrigger className="w-[220px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="off">Off</SelectItem>
+          {showGroups
+            ? Array.from(channelsByProvider.entries()).map(
+                ([provider, providerChannels]) => (
+                  <SelectGroup key={provider}>
+                    <SelectLabel>
+                      {getMessagingProviderName(provider)}
+                    </SelectLabel>
+                    {providerChannels.map((channel) => (
+                      <SelectItem key={channel.id} value={channel.id}>
+                        {formatMessagingDestinationLabel(channel)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ),
+              )
+            : connectedChannels.map((channel) => (
+                <SelectItem key={channel.id} value={channel.id}>
+                  {formatMessagingDestinationLabel(channel)}
+                </SelectItem>
+              ))}
+          {showDisconnectedOption && selectedChannel ? (
+            <SelectItem value={selectedChannel.id}>
+              {formatMessagingDestinationLabel(selectedChannel)} (Disconnected)
+            </SelectItem>
+          ) : null}
+          {canConnect ? (
+            <>
+              <SelectSeparator />
+              <SelectItem value={CONNECT_SENTINEL}>
+                + Connect new channel
               </SelectItem>
-            ))}
-            {showDisconnectedOption && selectedChannel ? (
-              <SelectItem value={selectedChannel.id}>
-                {formatMessagingDestinationLabel(selectedChannel)}{" "}
-                (Disconnected)
-              </SelectItem>
-            ) : null}
-          </SelectContent>
-        </Select>
-      ) : (
-        <Button asChild variant="outline" size="sm">
-          <Link href={prefixPath(emailAccountId, "/channels")}>Connect</Link>
-        </Button>
-      )}
+            </>
+          ) : null}
+        </SelectContent>
+      </Select>
     </AdvancedRow>
   );
 }
