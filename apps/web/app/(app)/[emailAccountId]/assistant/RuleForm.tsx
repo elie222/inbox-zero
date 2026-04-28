@@ -605,6 +605,10 @@ export function RuleForm({
                   onChange={(channelId) => {
                     setValue("notifyMessagingChannelId", channelId);
                   }}
+                  hasDraftToChat={watch("actions")?.some(
+                    (action) =>
+                      action.type === ActionType.DRAFT_MESSAGING_CHANNEL,
+                  )}
                 />
 
                 {!!rule.id && (
@@ -726,12 +730,14 @@ function NotifyChannelRow({
   emailAccountId,
   value,
   onChange,
+  hasDraftToChat,
 }: {
   channels: GetMessagingChannelsResponse["channels"];
   availableProviders: GetMessagingChannelsResponse["availableProviders"];
   emailAccountId: string;
   value: string | null;
   onChange: (channelId: string | null) => void;
+  hasDraftToChat?: boolean;
 }) {
   const router = useRouter();
   const connectedChannels = getConnectedRuleNotificationChannels(channels);
@@ -746,12 +752,16 @@ function NotifyChannelRow({
     !connectedChannels.some((channel) => channel.id === selectedChannel.id);
 
   const channelsPath = prefixPath(emailAccountId, "/channels");
+  const draftsNote = hasDraftToChat
+    ? "Drafts also go to chat — configured in actions above."
+    : undefined;
 
   if (!hasChannels && !showDisconnectedOption) {
     return (
       <AdvancedRow
         title="Notify in chat"
         description="Send a message when this rule matches."
+        note={draftsNote}
       >
         <Button asChild variant="outline" size="sm">
           <Link href={channelsPath}>Connect</Link>
@@ -775,6 +785,7 @@ function NotifyChannelRow({
     <AdvancedRow
       title="Notify in chat"
       description="Send a message when this rule matches."
+      note={draftsNote}
     >
       <Select
         value={value ?? "off"}
@@ -834,18 +845,23 @@ function AdvancedRow({
   title,
   description,
   children,
+  note,
 }: {
   title: string;
   description: string;
   children: ReactNode;
+  note?: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3">
-      <div>
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-sm text-muted-foreground">{description}</p>
+    <div className="px-4 py-3 space-y-2">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium">{title}</p>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+        <div className="shrink-0">{children}</div>
       </div>
-      <div className="shrink-0">{children}</div>
+      {note ? <p className="text-xs text-muted-foreground">{note}</p> : null}
     </div>
   );
 }
