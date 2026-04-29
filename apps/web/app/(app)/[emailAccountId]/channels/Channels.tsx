@@ -3,11 +3,16 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  BellIcon,
+  CalendarClockIcon,
   CheckIcon,
   ChevronRightIcon,
   LogOutIcon,
+  MailIcon,
+  MessageCircleReplyIcon,
   MoreVerticalIcon,
   Settings2Icon,
+  SunIcon,
 } from "lucide-react";
 import Image from "next/image";
 import { useAction } from "next-safe-action/hooks";
@@ -182,6 +187,10 @@ export function Channels() {
         error={channelsError || rulesError}
       >
         <div className="space-y-10">
+          {connectedChannels.length === 0 && (
+            <ChannelsIntro availableProviders={availableProviders} />
+          )}
+
           {orderedProviders.map((provider) => {
             const providerChannels = connectedChannels.filter(
               (channel) => channel.provider === provider,
@@ -223,6 +232,55 @@ export function Channels() {
       </LoadingContent>
     </div>
   );
+}
+
+const INTRO_FEATURES: Array<{
+  icon: React.ElementType;
+  label: string;
+}> = [
+  { icon: MailIcon, label: "Important emails" },
+  { icon: MessageCircleReplyIcon, label: "Drafted replies" },
+  { icon: CalendarClockIcon, label: "Meeting briefs" },
+  { icon: SunIcon, label: "Daily summary" },
+];
+
+function ChannelsIntro({
+  availableProviders,
+}: {
+  availableProviders: MessagingProvider[];
+}) {
+  const providerList = formatProviderList(availableProviders);
+
+  return (
+    <section className="rounded-xl border border-blue-100 bg-blue-50/40 p-6 dark:border-blue-950 dark:bg-blue-950/20">
+      <h2 className="flex items-start gap-2 text-lg font-semibold tracking-tight">
+        <BellIcon className="mt-1 size-5 shrink-0 text-blue-600 dark:text-blue-400" />
+        <span>Inbox Zero where you work.</span>
+      </h2>
+      <MutedText className="mt-2 text-sm">
+        Important emails, pre-drafted replies, meeting briefs, and a daily inbox
+        summary
+        {providerList ? `, delivered to ${providerList}` : ""}.
+      </MutedText>
+      <div className="mt-5 flex flex-wrap gap-2">
+        {INTRO_FEATURES.map(({ icon: Icon, label }) => (
+          <div
+            key={label}
+            className="flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium"
+          >
+            <Icon className="size-3.5 text-muted-foreground" />
+            {label}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function formatProviderList(providers: MessagingProvider[]) {
+  if (providers.length === 0) return null;
+  const names = sortProviders(providers).map((p) => PROVIDER_CONFIG[p].name);
+  return new Intl.ListFormat("en", { type: "disjunction" }).format(names);
 }
 
 function SectionGroup({
