@@ -64,6 +64,14 @@ describe("processAttachment", () => {
       wasAsked: data.wasAsked,
       folderPath: data.folderPath,
     }));
+    prisma.documentFiling.update.mockImplementation(
+      async ({ data, where }: any) => ({
+        id: where.id,
+        status: data.status,
+        wasAsked: data.wasAsked,
+        folderPath: data.folderPath,
+      }),
+    );
     prisma.documentFiling.findFirst.mockResolvedValue(null);
 
     vi.mocked(extractTextFromDocument).mockResolvedValue({
@@ -189,7 +197,7 @@ describe("processAttachment", () => {
     expect(analyzeDocument).not.toHaveBeenCalled();
   });
 
-  it("retries an attachment that only has an error filing record", async () => {
+  it("retries an error filing record without creating a duplicate row", async () => {
     prisma.documentFiling.findFirst.mockResolvedValue({
       id: "filing-error",
       filename: "invoice.pdf",
@@ -217,6 +225,14 @@ describe("processAttachment", () => {
     expect(result.success).toBe(true);
     expect(uploadFile).toHaveBeenCalled();
     expect(analyzeDocument).toHaveBeenCalled();
+    expect(prisma.documentFiling.create).not.toHaveBeenCalled();
+    expect(prisma.documentFiling.update).toHaveBeenCalledWith({
+      where: { id: "filing-error" },
+      data: expect.objectContaining({
+        status: "FILED",
+        fileId: "drive-file-1",
+      }),
+    });
   });
 });
 
