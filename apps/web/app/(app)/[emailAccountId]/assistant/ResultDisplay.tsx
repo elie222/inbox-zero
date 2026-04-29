@@ -14,8 +14,11 @@ import { useRuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog
 import { ThreadSkipHint } from "@/app/(app)/[emailAccountId]/assistant/ThreadSkipHint";
 import { LearnedPatternExclusionHint } from "@/app/(app)/[emailAccountId]/assistant/LearnedPatternExclusionHint";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
-import { sortActionsByPriority } from "@/utils/action-sort";
-import { getActionDisplay, getActionIcon } from "@/utils/action-display";
+import {
+  getActionDisplay,
+  getActionIcon,
+  getVisibleActions,
+} from "@/utils/action-display";
 import { getActionColor } from "@/components/PlanBadge";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
@@ -210,7 +213,7 @@ function Actions({
 }) {
   return (
     <div className="flex flex-col gap-2 flex-wrap">
-      {sortActionsByPriority(actions).map((action) => {
+      {getVisibleActions(actions).map((action) => {
         const Icon = getActionIcon(action.type);
         const fields = [
           { key: "to", value: action.to },

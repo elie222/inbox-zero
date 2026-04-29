@@ -1,5 +1,6 @@
 import { ActionType } from "@/generated/prisma/enums";
 import { getEmailTerminology } from "@/utils/terminology";
+import { sortActionsByPriority } from "@/utils/action-sort";
 import {
   ArchiveIcon,
   BellIcon,
@@ -15,6 +16,24 @@ import {
   NewspaperIcon,
 } from "lucide-react";
 import { truncate } from "@/utils/string";
+
+/**
+ * Hide messaging-channel draft entries when an email draft already exists,
+ * so users don't see "Draft Reply" repeated once per connected chat app.
+ */
+export function getVisibleActions<T extends { type: ActionType }>(
+  actions: T[],
+): T[] {
+  const sortedActions = sortActionsByPriority(actions);
+  const hasEmailDraft = sortedActions.some(
+    (action) => action.type === ActionType.DRAFT_EMAIL,
+  );
+
+  return sortedActions.filter(
+    (action) =>
+      !(action.type === ActionType.DRAFT_MESSAGING_CHANNEL && hasEmailDraft),
+  );
+}
 
 export function getActionDisplay(
   action: {

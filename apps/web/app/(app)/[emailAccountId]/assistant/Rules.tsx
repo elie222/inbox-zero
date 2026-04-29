@@ -42,8 +42,11 @@ import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import type { RulesResponse } from "@/app/api/user/rules/route";
-import { sortActionsByPriority } from "@/utils/action-sort";
-import { getActionDisplay, getActionIcon } from "@/utils/action-display";
+import {
+  getActionDisplay,
+  getActionIcon,
+  getVisibleActions,
+} from "@/utils/action-display";
 import { RuleDialog } from "./RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useChat } from "@/providers/ChatProvider";
@@ -418,17 +421,6 @@ export function ActionBadges({
         );
       })}
     </div>
-  );
-}
-
-function getVisibleActions<T extends { type: ActionType }>(actions: T[]): T[] {
-  const sortedActions = sortActionsByPriority(actions);
-  const hasEmailDraft = sortedActions.some(
-    (action) => action.type === "DRAFT_EMAIL",
-  );
-
-  return sortedActions.filter(
-    (action) => !(action.type === "DRAFT_MESSAGING_CHANNEL" && hasEmailDraft),
   );
 }
 
