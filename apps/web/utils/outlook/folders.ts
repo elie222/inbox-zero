@@ -16,6 +16,33 @@ export type OutlookFolder = {
   unreadItemCount?: number;
 };
 
+export type FlatOutlookFolder = {
+  name: string;
+  path: string;
+  totalItemCount?: number;
+  unreadItemCount?: number;
+};
+
+export function flattenOutlookFolders(
+  folders: OutlookFolder[],
+  parentPath?: string,
+): FlatOutlookFolder[] {
+  return folders.flatMap((folder) => {
+    const path = parentPath
+      ? `${parentPath}${FOLDER_SEPARATOR}${folder.displayName}`
+      : folder.displayName;
+    return [
+      {
+        name: folder.displayName,
+        path,
+        totalItemCount: folder.totalItemCount,
+        unreadItemCount: folder.unreadItemCount,
+      },
+      ...flattenOutlookFolders(folder.childFolders, path),
+    ];
+  });
+}
+
 function convertMailFolderToOutlookFolder(folder: MailFolder): OutlookFolder {
   return {
     id: folder.id ?? "",

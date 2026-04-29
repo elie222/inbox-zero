@@ -69,7 +69,7 @@ export interface EmailProvider {
     emailAccountId: string,
   ): Promise<void>;
   checkIfReplySent(senderEmail: string): Promise<boolean>;
-  countMessagesByLabelName(labelName: string): Promise<number | null>;
+  countMessagesByLabel(label: EmailLabel): Promise<number | null>;
   countReceivedMessages(
     senderEmail: string,
     threshold: number,

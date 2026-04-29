@@ -94,7 +94,7 @@ export function createMockEmailProvider(
     getLabels: vi.fn().mockResolvedValue([]),
     getLabelById: vi.fn().mockResolvedValue(null),
     getLabelByName: vi.fn().mockResolvedValue(null),
-    countMessagesByLabelName: vi.fn().mockResolvedValue(null),
+    countMessagesByLabel: vi.fn().mockResolvedValue(null),
     getFolders: vi.fn().mockResolvedValue([]),
     createLabel: vi
       .fn()
