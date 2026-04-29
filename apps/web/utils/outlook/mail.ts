@@ -289,13 +289,26 @@ export async function draftEmail(
     userEmail,
   );
 
-  // Use raw recipients if available (Outlook), otherwise parse from string (Gmail)
-  const toRecipient = originalEmail.rawRecipients?.from || {
+  const overrideToRecipient = args.to
+    ? {
+        emailAddress: {
+          address: extractEmailAddress(recipients.to),
+          name: extractNameFromEmail(recipients.to),
+        },
+      }
+    : undefined;
+
+  const fallbackToRecipient = {
     emailAddress: {
       address: extractEmailAddress(recipients.to),
       name: extractNameFromEmail(recipients.to),
     },
   };
+
+  const toRecipient =
+    overrideToRecipient ??
+    originalEmail.rawRecipients?.from ??
+    fallbackToRecipient;
 
   // Build CC list from reply-all and args
   const ccAddresses = mergeAndDedupeRecipients(recipients.cc, args.cc);

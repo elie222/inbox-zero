@@ -642,6 +642,81 @@ describe("forwardEmail", () => {
 });
 
 describe("draftEmail", () => {
+  it("uses explicit recipient override when drafting a follow-up from a sent message", async () => {
+    const getOriginalReadStatus = vi.fn(async () => ({ isRead: true }));
+    const createReplyAllDraft = vi.fn(
+      async () =>
+        ({
+          id: "draft-1",
+          conversationId: "conversation-1",
+        }) as Message,
+    );
+    const updateDraft = vi.fn(async () => ({ id: "draft-1" }) as Message);
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages/message-1") {
+        return { get: getOriginalReadStatus };
+      }
+      if (path === "/me/messages/message-1/createReplyAll") {
+        return { post: createReplyAllDraft };
+      }
+      if (path === "/me/messages/draft-1") return { patch: updateDraft };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await draftEmail(
+      client,
+      {
+        id: "message-1",
+        threadId: "conversation-1",
+        headers: {
+          from: "Owner Name <owner@example.com>",
+          to: "Recipient Name <recipient@example.com>",
+          subject: "Original subject",
+          date: "2026-01-01T12:00:00.000Z",
+        },
+        rawRecipients: {
+          from: {
+            emailAddress: {
+              address: "owner@example.com",
+              name: "Owner Name",
+            },
+          },
+          toRecipients: [
+            {
+              emailAddress: {
+                address: "recipient@example.com",
+                name: "Recipient Name",
+              },
+            },
+          ],
+          ccRecipients: [],
+        },
+        textPlain: "Original body",
+        textHtml: "<p>Original body</p>",
+      } as EmailForAction,
+      {
+        to: "Recipient Name <recipient@example.com>",
+        content: "Draft body",
+      },
+      "owner@example.com",
+      createScopedLogger("outlook-mail-test"),
+    );
+
+    expect(updateDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toRecipients: [
+          {
+            emailAddress: {
+              address: "recipient@example.com",
+              name: "Recipient Name",
+            },
+          },
+        ],
+      }),
+    );
+  });
+
   it("clears default reply-all CC and BCC recipients when no recipients are requested", async () => {
     const getOriginalReadStatus = vi.fn(async () => ({ isRead: true }));
     const createReplyAllDraft = vi.fn(
