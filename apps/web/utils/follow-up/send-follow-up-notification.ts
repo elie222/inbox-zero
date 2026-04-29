@@ -183,7 +183,8 @@ async function sendFollowUpViaTelegram({
   content: FollowUpNotificationContent;
   logger: Logger;
 }) {
-  const destination = resolveTelegramRouteDestination({ channel, route });
+  const destination =
+    route.targetId || channel.teamId || channel.providerUserId;
 
   if (!destination) {
     logger.warn("No Telegram destination resolved for follow-up notification");
@@ -265,14 +266,4 @@ function buildTelegramFollowUpCard({
     title: "Follow-up nudge",
     children,
   });
-}
-
-function resolveTelegramRouteDestination({
-  channel,
-  route,
-}: {
-  channel: FollowUpNotificationChannel;
-  route: { targetId: string; targetType: MessagingRouteTargetType };
-}) {
-  return route.targetId || channel.teamId || channel.providerUserId;
 }
