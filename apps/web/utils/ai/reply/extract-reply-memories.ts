@@ -12,7 +12,7 @@ import { isDefined } from "@/utils/types";
 import type { getEmailAccountWithAi } from "@/utils/user/get";
 
 const MAX_MEMORIES_PER_EDIT = 3;
-const MAX_EXISTING_MEMORIES_IN_PROMPT = 12;
+const MAX_EXISTING_MEMORIES_IN_PROMPT = 16;
 
 const newReplyMemorySchema = z.object({
   content: z.string().trim().min(1).max(400),
@@ -278,10 +278,12 @@ Rules:
 - For SENDER scope, use the exact sender email from the context.
 ${domainRuleLine}- For TOPIC scope, use a short stable topic phrase such as "pricing" or "refunds".
 - Always include a scopeValue field. Use an empty string for GLOBAL scope.
-- If an existing memory already captures the same durable idea, return its id in matchingExistingMemoryId and set newMemory to null.
+- Prefer matching an existing memory over creating a new one when the existing memory substantially covers the same durable idea, even if the wording is different.
+- A single edit can match multiple existing memories, such as one factual/procedure memory and one style preference. Return every matching id that is useful evidence for the edit, up to the maximum.
+- If any existing memory already captures a durable idea from the edit, return its id in matchingExistingMemoryId and set newMemory to null for that idea.
 - If the edit teaches a new durable memory, set matchingExistingMemoryId to null and fill newMemory.
 - Only return ids from the provided existing memory list.
-- Be conservative about matching existing memories. Only match when the existing memory clearly already covers the same durable idea.
+- Be conservative about creating new memories. Only create a new memory when none of the provided existing memories substantially covers that durable idea.
 - Work language-agnostically. The memories may be written in any language.
 - If nothing durable was learned, return an empty array.`;
 }

@@ -415,7 +415,7 @@ describe("reply-memory", () => {
         isLearnedStyleEvidence: true,
       },
       orderBy: { updatedAt: "desc" },
-      take: 4,
+      take: 8,
     });
     expect(prisma.replyMemory.upsert).toHaveBeenCalledWith(
       expect.objectContaining({

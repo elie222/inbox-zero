@@ -16,7 +16,7 @@ import { aiExtractReplyMemoriesFromDraftEdit } from "@/utils/ai/reply/extract-re
 import { aiSummarizeLearnedWritingStyle } from "@/utils/ai/reply/summarize-learned-writing-style";
 import { isDefined } from "@/utils/types";
 
-// pnpm test-ai eval/reply-memory
+// EVAL_MODELS=gpt-5.4-mini pnpm test-ai eval/reply-memory
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/reply-memory
 
 vi.mock("server-only", () => ({}));
@@ -238,169 +238,249 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
       TIMEOUT,
     );
 
-    test(
-      "returns an existing memory id when the same durable idea is already covered",
-      async () => {
-        const result = await aiExtractReplyMemoriesFromDraftEdit({
-          emailAccount: replyMemoryEmailAccount,
-          incomingEmailContent:
-            "Can you resend the short enterprise pricing explanation for a larger team?",
-          draftText:
-            "Thanks for reaching out. Pricing is available on our website.",
-          sentText:
-            "Enterprise pricing depends on seat count and whether the customer wants annual billing.",
-          senderEmail: "buyer@example.com",
-          existingMemories: [
-            {
-              id: "pricing-memory-1",
-              content:
-                "When asked about enterprise pricing, explain that it depends on seat count and whether the customer wants annual billing.",
-              kind: ReplyMemoryKind.FACT,
-              scopeType: ReplyMemoryScopeType.TOPIC,
-              scopeValue: "pricing",
-            },
-          ],
-        });
-
-        const pass =
-          result.length === 1 &&
-          result[0].matchingExistingMemoryId === "pricing-memory-1" &&
-          result[0].newMemory === null;
-
-        evalReporter.record({
-          testName: "existing pricing memory matched by id",
-          model: model.label,
-          pass,
-          expected: "pricing-memory-1",
-          actual: result[0]?.matchingExistingMemoryId ?? "null",
-        });
-
-        expect(pass).toBe(true);
+    const dedupeScenarios = [
+      {
+        name: "pricing fact",
+        incomingEmailContent:
+          "Can you resend the short enterprise pricing explanation for a larger team?",
+        draftText:
+          "Thanks for reaching out. Pricing is available on our website.",
+        sentText:
+          "Enterprise pricing depends on seat count and whether the customer wants annual billing.",
+        senderEmail: "buyer@example.com",
+        expectedMemoryIds: ["pricing-memory-1"],
+        existingMemories: [
+          {
+            id: "pricing-memory-1",
+            content:
+              "When asked about enterprise pricing, explain that it depends on seat count and whether the customer wants annual billing.",
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.TOPIC,
+            scopeValue: "pricing",
+          },
+        ],
       },
-      TIMEOUT,
-    );
-
-    test(
-      "matches an existing concise support preference instead of creating a duplicate",
-      async () => {
-        const result = await aiExtractReplyMemoriesFromDraftEdit({
-          emailAccount: replyMemoryEmailAccount,
-          incomingEmailContent:
-            "I tried signing in again and it still is not working. What should I do next?",
-          draftText:
-            "Hi there, thanks so much for letting us know. I am sorry that this is still giving you trouble. Could you please try signing in again and tell me exactly what error you see when you click the button?",
-          sentText: "Try signing in again and tell me what error you see.",
-          senderEmail: "customer@example.com",
-          existingMemories: [
-            {
-              id: "concise-support-preference",
-              content:
-                "For simple support replies, keep the message very brief and direct, with at most one clear next step or key detail.",
-              kind: ReplyMemoryKind.PREFERENCE,
-              scopeType: ReplyMemoryScopeType.GLOBAL,
-              scopeValue: "",
-            },
-          ],
-        });
-
-        const pass = matchesOnlyExistingMemory(
-          result,
-          "concise-support-preference",
-        );
-
-        evalReporter.record({
-          testName: "existing concise support preference matched",
-          model: model.label,
-          pass,
-          expected: "concise-support-preference",
-          actual: summarizeDecisions(result),
-        });
-
-        expect(pass).toBe(true);
+      {
+        name: "concise support preference",
+        incomingEmailContent:
+          "I tried signing in again and it still is not working. What should I do next?",
+        draftText:
+          "Hi there, thanks so much for letting us know. I am sorry that this is still giving you trouble. Could you please try signing in again and tell me exactly what error you see when you click the button?",
+        sentText: "Try signing in again and tell me what error you see.",
+        senderEmail: "customer@example.com",
+        expectedMemoryIds: ["concise-support-preference"],
+        existingMemories: [
+          {
+            id: "concise-support-preference",
+            content:
+              "For simple support replies, keep the message very brief and direct, with at most one clear next step or key detail.",
+            kind: ReplyMemoryKind.PREFERENCE,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            scopeValue: "",
+          },
+        ],
       },
-      TIMEOUT,
-    );
-
-    test(
-      "matches an existing brief refund procedure instead of creating a duplicate",
-      async () => {
-        const result = await aiExtractReplyMemoriesFromDraftEdit({
-          emailAccount: replyMemoryEmailAccount,
-          incomingEmailContent:
-            "I changed my RSVP and want to confirm whether the refund is handled.",
-          draftText:
-            "Thanks for reaching out. I checked your account and can confirm that your refund has been processed. You should see it appear back on your original payment method soon.",
-          sentText: "The refund has been processed.",
-          senderEmail: "attendee@example.com",
-          existingMemories: [
-            {
-              id: "concise-status-preference",
-              content:
-                "For routine status replies, keep the message extremely brief and direct, focusing only on the core answer without filler.",
-              kind: ReplyMemoryKind.PREFERENCE,
-              scopeType: ReplyMemoryScopeType.GLOBAL,
-              scopeValue: "",
-            },
-            {
-              id: "brief-refund-procedure",
-              content:
-                "For refund replies, keep the answer brief and direct, stating the refund status first and only adding timing details if needed.",
-              kind: ReplyMemoryKind.PROCEDURE,
-              scopeType: ReplyMemoryScopeType.GLOBAL,
-              scopeValue: "",
-            },
-          ],
-        });
-
-        const pass = matchesOnlyExistingMemoryIds(result, [
+      {
+        name: "brief refund procedure",
+        incomingEmailContent:
+          "I changed my RSVP and want to confirm whether the refund is handled.",
+        draftText:
+          "Thanks for reaching out. I checked your account and can confirm that your refund has been processed. You should see it appear back on your original payment method soon.",
+        sentText: "The refund has been processed.",
+        senderEmail: "attendee@example.com",
+        expectedMemoryIds: [
           "brief-refund-procedure",
           "concise-status-preference",
-        ]);
-
-        evalReporter.record({
-          testName: "existing brief refund procedure matched",
-          model: model.label,
-          pass,
-          expected: "brief-refund-procedure and concise-status-preference",
-          actual: summarizeDecisions(result),
-        });
-
-        expect(pass).toBe(true);
+        ],
+        existingMemories: [
+          {
+            id: "concise-status-preference",
+            content:
+              "For routine status replies, keep the message extremely brief and direct, focusing only on the core answer without filler.",
+            kind: ReplyMemoryKind.PREFERENCE,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            scopeValue: "",
+          },
+          {
+            id: "brief-refund-procedure",
+            content:
+              "For refund replies, keep the answer brief and direct, stating the refund status first and only adding timing details if needed.",
+            kind: ReplyMemoryKind.PROCEDURE,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            scopeValue: "",
+          },
+        ],
       },
-      TIMEOUT,
-    );
+      {
+        name: "event access topic fact",
+        incomingEmailContent:
+          "I registered for tonight but cannot find the link. Where do I join?",
+        draftText:
+          "Thanks for registering. You should receive instructions by email.",
+        sentText:
+          "The join link is emailed before the event and is also available in your portal once you are registered.",
+        senderEmail: "attendee@example.com",
+        expectedMemoryIds: ["event-access-memory"],
+        existingMemories: [
+          {
+            id: "event-access-memory",
+            content:
+              "For event access questions, tell users the join link is emailed shortly before the event and is also available in the portal once they are registered.",
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.TOPIC,
+            scopeValue: "event access",
+          },
+        ],
+      },
+      {
+        name: "event cancellation fact",
+        incomingEmailContent:
+          "Earlier in the thread you said schedules were going out today. I just realized I cannot attend tonight. Can you cancel me and avoid the fee?",
+        draftText: "I can cancel your spot and make sure no fee is applied.",
+        sentText:
+          "It is too late to cancel because schedules have already been sent out.",
+        senderEmail: "attendee@example.com",
+        expectedMemoryIds: ["event-cancellation-memory"],
+        existingMemories: [
+          {
+            id: "event-cancellation-memory",
+            content:
+              "For event cancellation questions, say directly that it is too late to cancel if schedules have already been sent out.",
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.TOPIC,
+            scopeValue: "event cancellations",
+          },
+        ],
+      },
+      {
+        name: "preference update procedure",
+        incomingEmailContent:
+          "Following up on my earlier note: I changed my age range and location preferences in the portal. Will this affect the matches I already received or only future events?",
+        draftText:
+          "Thanks for updating your preferences. Those changes are saved.",
+        sentText:
+          "Your updated preferences will be used for future matches, but they will not change matches that were already sent.",
+        senderEmail: "attendee@example.com",
+        expectedMemoryIds: ["preference-update-memory"],
+        existingMemories: [
+          {
+            id: "preference-update-memory",
+            content:
+              "When a user updates matching preferences, explain briefly whether the change affects future matches only or also already-sent matches.",
+            kind: ReplyMemoryKind.PROCEDURE,
+            scopeType: ReplyMemoryScopeType.TOPIC,
+            scopeValue: "preference updates",
+          },
+        ],
+      },
+      {
+        name: "match criteria fact",
+        incomingEmailContent:
+          "Can you explain why I was matched with this person? I thought my preferences were different, and I want to understand what you considered.",
+        draftText: "We use your profile to find suitable matches.",
+        sentText:
+          "Matching is based on age, location, and religious preferences.",
+        senderEmail: "member@example.com",
+        expectedMemoryIds: ["match-criteria-memory"],
+        existingMemories: [
+          {
+            id: "match-criteria-memory",
+            content:
+              "When answering questions about matches, mention that matching is based on age, location, and religious preferences.",
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            scopeValue: "",
+          },
+        ],
+      },
+      {
+        name: "portal login fact",
+        incomingEmailContent:
+          "I am trying to sign up from the email thread but cannot find the form anymore. Is there somewhere else I should go?",
+        draftText: "Please use the event page to finish signing up.",
+        sentText:
+          "Log in to the portal to finish signing up: https://example.com/login.",
+        senderEmail: "member@example.com",
+        expectedMemoryIds: ["portal-login-memory"],
+        existingMemories: [
+          {
+            id: "portal-login-memory",
+            content: "For sign-ups, direct users to the portal login link.",
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            scopeValue: "",
+          },
+        ],
+      },
+      {
+        name: "short confirmation style",
+        incomingEmailContent:
+          "Just confirming that you got my updated form and that there is nothing else I need to do before tonight.",
+        draftText:
+          "Hi! Thanks so much for following up. I can confirm that we received your updated form and there is nothing else you need to do at this time. Best,",
+        sentText: "We received your updated form. Nothing else is needed.",
+        senderEmail: "attendee@example.com",
+        expectedMemoryIds: ["short-confirmation-preference"],
+        existingMemories: [
+          {
+            id: "short-confirmation-preference",
+            content:
+              "For short confirmation replies, keep the message to one brief sentence and avoid greetings, sign-offs, and extra explanation.",
+            kind: ReplyMemoryKind.PREFERENCE,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            scopeValue: "",
+          },
+        ],
+      },
+      {
+        name: "wrong address procedure",
+        incomingEmailContent:
+          "This message is part of a longer support thread, but it looks like the last reply was sent to the wrong team inbox. Should we keep handling it here?",
+        draftText: "Thanks for reaching out. We can continue helping you here.",
+        sentText:
+          "This was sent here by mistake, so please ignore this thread.",
+        senderEmail: "teammate@example.com",
+        expectedMemoryIds: ["wrong-address-memory"],
+        existingMemories: [
+          {
+            id: "wrong-address-memory",
+            content:
+              "When replying to a message sent to the wrong address, briefly say it was sent by mistake and avoid continuing the thread.",
+            kind: ReplyMemoryKind.PROCEDURE,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            scopeValue: "",
+          },
+        ],
+      },
+    ];
 
-    test(
-      "matches an existing event access topic memory instead of creating a narrower duplicate",
-      async () => {
+    test.each(dedupeScenarios)(
+      "matches existing reply memories instead of creating duplicates: $name",
+      async ({
+        name,
+        incomingEmailContent,
+        draftText,
+        sentText,
+        senderEmail,
+        existingMemories,
+        expectedMemoryIds,
+      }) => {
         const result = await aiExtractReplyMemoriesFromDraftEdit({
           emailAccount: replyMemoryEmailAccount,
-          incomingEmailContent:
-            "I registered for tonight but cannot find the link. Where do I join?",
-          draftText:
-            "Thanks for registering. You should receive instructions by email.",
-          sentText:
-            "The join link is emailed before the event and is also available in your portal once you are registered.",
-          senderEmail: "attendee@example.com",
-          existingMemories: [
-            {
-              id: "event-access-memory",
-              content:
-                "For event access questions, tell users the join link is emailed shortly before the event and is also available in the portal once they are registered.",
-              kind: ReplyMemoryKind.FACT,
-              scopeType: ReplyMemoryScopeType.TOPIC,
-              scopeValue: "event access",
-            },
-          ],
+          incomingEmailContent,
+          draftText,
+          sentText,
+          senderEmail,
+          existingMemories,
         });
 
-        const pass = matchesOnlyExistingMemory(result, "event-access-memory");
+        const pass = matchesOnlyExistingMemoryIds(result, expectedMemoryIds);
 
         evalReporter.record({
-          testName: "existing event access topic memory matched",
+          testName: `dedupe existing memory: ${name}`,
           model: model.label,
           pass,
-          expected: "event-access-memory",
+          expected: expectedMemoryIds.join(", "),
           actual: summarizeDecisions(result),
         });
 
