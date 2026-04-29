@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ThreadTrackerType } from "@/generated/prisma/enums";
+import { FOLLOW_UP_MARK_DONE_ACTION_ID } from "@/utils/follow-up/follow-up-actions";
 import { buildFollowUpReminderBlocks } from "./follow-up-reminder";
 
 const baseAwaitingParams = {
@@ -10,6 +11,7 @@ const baseAwaitingParams = {
   daysSinceSent: 4,
   snippet: "Following up on the proposal we sent last week.",
   threadLink: "https://mail.example.com/thread/awaiting",
+  trackerId: "tracker-abc123",
 };
 
 const baseNeedsReplyParams = {
@@ -83,6 +85,33 @@ describe("buildFollowUpReminderBlocks", () => {
   it("includes the thread link as an action button", () => {
     const json = blocksJson(baseAwaitingParams);
     expect(json).toContain("https://mail.example.com/thread/awaiting");
+  });
+
+  it("renders a Mark done button carrying the tracker id", () => {
+    const blocks = buildFollowUpReminderBlocks(baseAwaitingParams);
+    const buttons = blocks.flatMap((block) =>
+      block.type === "actions" && Array.isArray((block as any).elements)
+        ? (block as any).elements
+        : [],
+    );
+    const markDone = buttons.find(
+      (el: any) =>
+        el?.type === "button" &&
+        el?.action_id === FOLLOW_UP_MARK_DONE_ACTION_ID,
+    );
+    expect(markDone).toBeDefined();
+    expect(markDone.text.text).toBe("Mark done");
+    expect(markDone.value).toBe("tracker-abc123");
+  });
+
+  it("renders the Mark done button even without a thread link", () => {
+    const blocks = buildFollowUpReminderBlocks({
+      ...baseAwaitingParams,
+      threadLink: undefined,
+    });
+    const json = JSON.stringify(blocks);
+    expect(json).toContain(FOLLOW_UP_MARK_DONE_ACTION_ID);
+    expect(json).toContain("Mark done");
   });
 
   it("escapes Slack-sensitive characters in subject, name, and snippet", () => {

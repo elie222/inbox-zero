@@ -52,6 +52,10 @@ import {
   isHelpCommand,
 } from "@/utils/messaging/prompt-commands";
 import {
+  FOLLOW_UP_REMINDER_ACTION_IDS,
+  handleFollowUpReminderAction,
+} from "@/utils/follow-up/follow-up-actions";
+import {
   handleRuleNotificationAction,
   handleSlackRuleNotificationModalSubmit,
   RULE_NOTIFICATION_ACTION_IDS,
@@ -465,6 +469,14 @@ function registerMessagingHandlers({
   bot.onAction([...RULE_NOTIFICATION_ACTION_IDS], async (event) => {
     const handlerLogger = getHandlerLogger();
     await handleRuleNotificationAction({
+      event,
+      logger: handlerLogger,
+    });
+  });
+
+  bot.onAction([...FOLLOW_UP_REMINDER_ACTION_IDS], async (event) => {
+    const handlerLogger = getHandlerLogger();
+    await handleFollowUpReminderAction({
       event,
       logger: handlerLogger,
     });

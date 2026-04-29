@@ -526,6 +526,7 @@ async function processFollowUpsForType({
                 emailAddress: emailAccount.email,
                 provider: providerName,
               }) ?? undefined,
+            trackerId: tracker.id,
             logger: threadLogger,
           });
         } catch (notifyError) {

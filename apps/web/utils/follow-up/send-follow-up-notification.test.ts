@@ -36,6 +36,7 @@ const baseArgs = {
   daysSinceSent: 3,
   snippet: "Following up on the items we discussed.",
   threadLink: "https://mail.example/thread",
+  trackerId: "tracker-1",
   logger,
 };
 

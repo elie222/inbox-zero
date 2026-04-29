@@ -41,6 +41,7 @@ type FollowUpNotificationContent = {
   daysSinceSent: number;
   snippet?: string;
   threadLink?: string;
+  trackerId: string;
 };
 
 export async function getFollowUpNotificationChannels(
