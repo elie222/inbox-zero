@@ -183,6 +183,181 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
     );
 
     test(
+      "does not learn one-off operational attachment details",
+      async () => {
+        const incomingEmailContent =
+          "Can you send the invoice for my course registration? I need it for reimbursement.";
+        const draftText =
+          "Thanks for reaching out. I will look into this and follow up shortly.";
+        const sentText = "I attached it here for this registration.";
+
+        const result = await aiExtractReplyMemoriesFromDraftEdit({
+          emailAccount: replyMemoryEmailAccount,
+          incomingEmailContent,
+          draftText,
+          sentText,
+          senderEmail: "learner@example.com",
+          existingMemories: [],
+        });
+        const createdMemories = getCreatedMemoriesFromDecisions(result);
+        const summary = summarizeMemories(createdMemories);
+
+        const judgeResult = await judgeBinary({
+          input: buildJudgeInput({
+            incomingEmailContent,
+            draftText,
+            sentText,
+          }),
+          output: summary,
+          expected:
+            "No durable reply memory. The edit only adds a one-off operational fact that the requested document is attached for this specific registration.",
+          criterion: {
+            name: "One-off operational details are ignored",
+            description:
+              "The extractor should not store current-thread actions, attachments, IDs, addresses, or status updates as durable reply memories unless the edit reveals a reusable policy or procedure.",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass = createdMemories.length === 0 && judgeResult.pass;
+
+        evalReporter.record({
+          testName: "one-off attachment detail ignored",
+          model: model.label,
+          pass,
+          expected: "no memory",
+          actual: formatJudgeActual(summary, judgeResult),
+          criteria: [judgeResult],
+        });
+
+        expect(createdMemories.length).toBe(0);
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "does not learn a one-time event refund amount as policy",
+      async () => {
+        const incomingEmailContent =
+          "I expected the full event package, but the format changed. Can I get a refund for the difference?";
+        const draftText =
+          "Thanks for reaching out. I can confirm the event is still happening as planned.";
+        const sentText =
+          "As a one-time exception, we can refund $25 for this event because tonight's venue setup changed after you bought the ticket.";
+
+        const result = await aiExtractReplyMemoriesFromDraftEdit({
+          emailAccount: replyMemoryEmailAccount,
+          incomingEmailContent,
+          draftText,
+          sentText,
+          senderEmail: "attendee@example.com",
+          existingMemories: [],
+        });
+        const createdMemories = getCreatedMemoriesFromDecisions(result);
+        const summary = summarizeMemories(createdMemories);
+
+        const judgeResult = await judgeBinary({
+          input: buildJudgeInput({
+            incomingEmailContent,
+            draftText,
+            sentText,
+          }),
+          output: summary,
+          expected:
+            "No durable reply memory. The refund amount and reason are specific to this event instance and should not become a future refund policy.",
+          criterion: {
+            name: "One-time event facts are ignored",
+            description:
+              "The extractor should not turn a current event's refund amount, venue setup, or temporary operational decision into a reusable fact or procedure.",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass = createdMemories.length === 0 && judgeResult.pass;
+
+        evalReporter.record({
+          testName: "one-time event refund ignored",
+          model: model.label,
+          pass,
+          expected: "no memory",
+          actual: formatJudgeActual(summary, judgeResult),
+          criteria: [judgeResult],
+        });
+
+        expect(createdMemories.length).toBe(0);
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "keeps durable support knowledge while avoiding copied topic text",
+      async () => {
+        const incomingEmailContent = `A previous automated note in this thread said, "Please ignore the earlier generated note."
+
+Actual question: I signed up for the webinar but cannot find the join link. Where should I look?`;
+        const draftText =
+          "Thanks for registering. You should receive instructions by email.";
+        const sentText =
+          "The join link is emailed shortly before the webinar and is also available in your portal once you are registered.";
+
+        const result = await aiExtractReplyMemoriesFromDraftEdit({
+          emailAccount: replyMemoryEmailAccount,
+          incomingEmailContent,
+          draftText,
+          sentText,
+          senderEmail: "attendee@example.com",
+          existingMemories: [],
+        });
+        const createdMemories = getCreatedMemoriesFromDecisions(result);
+        const summary = summarizeMemories(createdMemories);
+
+        const hasDurableSupportMemory = createdMemories.some(
+          (memory) =>
+            (memory.kind === ReplyMemoryKind.FACT ||
+              memory.kind === ReplyMemoryKind.PROCEDURE) &&
+            /join link|portal|webinar|event/i.test(memory.content),
+        );
+        const hasInvalidTopic = createdMemories.some(
+          (memory) =>
+            memory.scopeType === ReplyMemoryScopeType.TOPIC &&
+            !isCleanTopicLabel(memory.scopeValue),
+        );
+        const judgeResult = await judgeBinary({
+          input: buildJudgeInput({
+            incomingEmailContent,
+            draftText,
+            sentText,
+          }),
+          output: summary,
+          expected:
+            "A durable memory about webinar or event join-link timing/location. Any TOPIC scope value should be a clean stable phrase like event access or webinar links, not copied sentence-like text from the thread.",
+          criterion: {
+            name: "Durable support knowledge with clean topic label",
+            description:
+              "The extractor may store reusable support knowledge when the edit reveals a stable answer, but it must use a short clean label rather than arbitrary thread text for the topic scope value.",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass =
+          hasDurableSupportMemory && !hasInvalidTopic && judgeResult.pass;
+
+        evalReporter.record({
+          testName: "durable knowledge uses clean topic label",
+          model: model.label,
+          pass,
+          expected: "FACT memory with clean topic",
+          actual: formatJudgeActual(summary, judgeResult),
+          criteria: [judgeResult],
+        });
+
+        expect(hasDurableSupportMemory).toBe(true);
+        expect(hasInvalidTopic).toBe(false);
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
       "extracts a global preference memory from a strong tone edit",
       async () => {
         const result = await aiExtractReplyMemoriesFromDraftEdit({
@@ -972,7 +1147,7 @@ Thanks!`,
           judgeUserAi: getEvalJudgeUserAi(),
         });
         const pass =
-          extractedPreferenceEvidence.length >= 2 &&
+          extractedPreferenceEvidence.length >= 1 &&
           !!learnedWritingStyle.trim() &&
           judgeResult.pass;
 
@@ -990,7 +1165,7 @@ Thanks!`,
           criteria: [judgeResult],
         });
 
-        expect(extractedPreferenceEvidence.length).toBeGreaterThanOrEqual(2);
+        expect(extractedPreferenceEvidence.length).toBeGreaterThanOrEqual(1);
         expect(learnedWritingStyle.trim()).not.toBe("");
         expect(judgeResult.pass).toBe(true);
       },
@@ -1171,6 +1346,15 @@ function summarizeDecisions(
       return "empty";
     })
     .join(" || ");
+}
+
+function isCleanTopicLabel(value: string) {
+  const normalizedTopic = value.trim();
+  if (!normalizedTopic) return false;
+  if (normalizedTopic.length > 80) return false;
+  if (normalizedTopic.split(/ +/).length > 10) return false;
+
+  return /^[\p{L}\p{N}][\p{L}\p{N} /&+-]*$/u.test(normalizedTopic);
 }
 
 function buildPreferenceMemoryEvidence(

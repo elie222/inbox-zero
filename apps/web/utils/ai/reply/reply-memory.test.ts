@@ -1441,6 +1441,76 @@ describe("reply-memory", () => {
     ]);
   });
 
+  it("filters malformed topic scope values returned by extraction", async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        memories: [
+          newReplyMemoryDecision({
+            content: "Mention the returning candidate discount.",
+            kind: ReplyMemoryKind.PROCEDURE,
+            scopeType: ReplyMemoryScopeType.TOPIC,
+            scopeValue: "returning candidates, use this note from the thread.",
+          }),
+          newReplyMemoryDecision({
+            content: "Use copied multiline text as a topic.",
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.TOPIC,
+            scopeValue: "webinar\nlinks",
+          }),
+          newReplyMemoryDecision({
+            content: "Use copied tabbed text as a topic.",
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.TOPIC,
+            scopeValue: "webinar\tlinks",
+          }),
+          newReplyMemoryDecision({
+            content: "Tell users the webinar link is available in the portal.",
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.TOPIC,
+            scopeValue: "webinar links",
+          }),
+        ],
+      },
+    });
+
+    const result = await aiExtractReplyMemoriesFromDraftEdit({
+      emailAccount: {
+        id: "account-1",
+        userId: "user-1",
+        email: "user@example.com",
+        about: null,
+        multiRuleSelectionEnabled: false,
+        timezone: "UTC",
+        calendarBookingLink: null,
+        name: "User",
+        user: {
+          aiProvider: null,
+          aiModel: null,
+          aiApiKey: null,
+        },
+        account: {
+          provider: "google",
+        },
+      } as any,
+      incomingEmailContent:
+        "A previous automated note included an unrelated sentence. Where do I find the webinar link?",
+      draftText: "You should receive instructions by email.",
+      sentText:
+        "The webinar link is emailed shortly before the event and is available in the portal.",
+      senderEmail: "attendee@example.com",
+      existingMemories: [],
+    });
+
+    expect(result).toEqual([
+      newReplyMemoryDecision({
+        content: "Tell users the webinar link is available in the portal.",
+        kind: ReplyMemoryKind.FACT,
+        scopeType: ReplyMemoryScopeType.TOPIC,
+        scopeValue: "webinar links",
+      }),
+    ]);
+  });
+
   it("does not offer or return domain-scoped memories for public email domains", async () => {
     mockGenerateObject.mockResolvedValue({
       object: {
