@@ -763,8 +763,9 @@ async function handleDraftSend({
     const result = await sendDraftReplyFromNotification({
       context,
       logger,
-      editMessage: (card) =>
-        event.adapter.editMessage(event.threadId, event.messageId, card),
+      editMessage: async (card) => {
+        await event.adapter.editMessage(event.threadId, event.messageId, card);
+      },
     });
 
     if (result === "draft_unavailable") {
