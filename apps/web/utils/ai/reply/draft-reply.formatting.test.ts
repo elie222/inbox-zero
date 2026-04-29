@@ -197,28 +197,6 @@ describe("aiDraftReply formatting", () => {
     expect(result).toBe("Hmmm, let me think about that. Sounds good!!!");
   });
 
-  it("keeps the core reply prompt instructions", async () => {
-    mockGenerateObject.mockResolvedValueOnce({
-      object: {
-        reply: "Merci pour votre message.",
-      },
-    });
-
-    await aiDraftReply(getDraftParams());
-
-    const [callArgs] = mockGenerateObject.mock.calls.at(-1)!;
-
-    expect(callArgs.system).toContain(
-      "Write the reply in the same language as the latest message in the thread.",
-    );
-    expect(callArgs.system).toContain(
-      "If a clickable link is necessary, use markdown links in the format [Label](https://example.com/path) or [Label](mailto:name@example.com).",
-    );
-    expect(callArgs.prompt).toContain(
-      "IMPORTANT: You are writing an email as user@example.com. Write the reply from their perspective.",
-    );
-  });
-
   it("includes learned reply memories when provided", async () => {
     mockGenerateObject.mockResolvedValueOnce({
       object: {

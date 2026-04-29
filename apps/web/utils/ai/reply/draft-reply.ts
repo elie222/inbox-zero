@@ -57,6 +57,7 @@ const getUserPrompt = ({
   mcpContext,
   meetingContext,
   attachmentContext,
+  hasConfiguredSignature,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
@@ -70,6 +71,7 @@ const getUserPrompt = ({
   mcpContext: string | null;
   meetingContext: string | null;
   attachmentContext: string | null;
+  hasConfiguredSignature: boolean;
 }) => {
   const userAbout = emailAccount.about
     ? `Context about the user:
@@ -169,6 +171,10 @@ ${attachmentContext}
 Mention attached documents only when useful and only if this section is present.
 `
     : "";
+  const signatureContext = hasConfiguredSignature
+    ? `The user's email account already has a configured signature that will be appended after this draft. Do not write any closing, sign-off, name, title, contact details, or signature block.
+`
+    : "";
 
   return `${userAbout}
 ${relevantKnowledge}
@@ -177,6 +183,7 @@ ${historicalContext}
 ${precedentHistoryContext}
 ${writingStylePrompt}
 ${learnedWritingStylePrompt}
+${signatureContext}
 ${schedulingContext}
 ${mcpToolsContext}
 ${upcomingMeetingsContext}
@@ -222,6 +229,7 @@ export async function aiDraftReplyWithConfidence({
   mcpContext,
   meetingContext,
   attachmentContext = null,
+  hasConfiguredSignature = false,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
@@ -235,6 +243,7 @@ export async function aiDraftReplyWithConfidence({
   mcpContext: string | null;
   meetingContext: string | null;
   attachmentContext?: string | null;
+  hasConfiguredSignature?: boolean;
 }): Promise<DraftReplyResult> {
   logger.info("Drafting email reply", {
     messageCount: messages.length,
@@ -271,6 +280,7 @@ export async function aiDraftReplyWithConfidence({
     mcpContext,
     meetingContext,
     attachmentContext,
+    hasConfiguredSignature,
   });
 
   const modelOptions = getModel(emailAccount.user, "draft");
@@ -324,6 +334,7 @@ export async function aiDraftReply({
   mcpContext,
   meetingContext,
   attachmentContext = null,
+  hasConfiguredSignature = false,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
@@ -337,6 +348,7 @@ export async function aiDraftReply({
   mcpContext: string | null;
   meetingContext: string | null;
   attachmentContext?: string | null;
+  hasConfiguredSignature?: boolean;
 }) {
   const result = await aiDraftReplyWithConfidence({
     messages,
@@ -351,6 +363,7 @@ export async function aiDraftReply({
     mcpContext,
     meetingContext,
     attachmentContext,
+    hasConfiguredSignature,
   });
 
   return result.reply;

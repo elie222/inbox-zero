@@ -341,6 +341,35 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
     expect(result).toBe("");
   });
 
+  it("passes configured signature state into draft generation", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Received the invoices. I will forward them for processing.",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+    });
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings({
+        signature: "<p>User Name<br>Team Lead</p>",
+      }),
+    );
+
+    const result = await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      logger,
+    );
+
+    expect(result).toBe(
+      "Received the invoices. I will forward them for processing.\n\n<p>User Name<br>Team Lead</p>",
+    );
+    expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasConfiguredSignature: true,
+      }),
+    );
+  });
+
   it("converts AI link markup into provider-ready draft content for the reply-tracker flow", async () => {
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply:
