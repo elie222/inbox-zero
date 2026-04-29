@@ -410,6 +410,7 @@ function ProcessRulesRow({
               threadId={message.threadId}
               messageId={message.id}
               labelIds={message.labelIds}
+              collapseLabels
             />
           </div>
           <div className="ml-4 flex shrink-0 items-center gap-1">

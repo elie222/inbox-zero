@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLinkIcon, MailIcon } from "lucide-react";
+import { ExternalLinkIcon, MailIcon, TagsIcon } from "lucide-react";
 import Link from "next/link";
 import { getEmailUrlForMessage } from "@/utils/url";
 import { decodeSnippet } from "@/utils/gmail/decode";
@@ -30,6 +30,7 @@ export function EmailMessageCell({
   hideViewEmailButton,
   labelIds,
   filterReplyTrackerLabels,
+  collapseLabels,
 }: {
   sender: string;
   userEmail: string;
@@ -40,6 +41,7 @@ export function EmailMessageCell({
   hideViewEmailButton?: boolean;
   labelIds?: string[];
   filterReplyTrackerLabels?: boolean;
+  collapseLabels?: boolean;
 }) {
   const { userLabels } = useEmail();
   const { provider } = useAccount();
@@ -101,31 +103,46 @@ export function EmailMessageCell({
         <span className="order-4 min-w-0 max-w-full basis-full truncate sm:order-2 sm:max-w-md sm:basis-auto">
           {subject}
         </span>
-        {visibleLabels.length > 0 && (
-          <div className="order-5 flex shrink-0 items-center gap-1 sm:order-3">
-            {visibleLabels.map((label) => (
-              <Badge
-                variant="outline"
-                key={label.id}
-                className="max-w-[140px] truncate font-normal text-muted-foreground"
-              >
-                {label.name}
-              </Badge>
-            ))}
-            {overflowLabels.length > 0 && (
-              <Tooltip content={overflowLabels.map((l) => l.name).join(", ")}>
-                <span>
+        {collapseLabels
+          ? labelsToDisplay &&
+            labelsToDisplay.length > 0 && (
+              <div className="order-5 flex shrink-0 items-center sm:order-3">
+                <Tooltip
+                  content={labelsToDisplay.map((l) => l.name).join(", ")}
+                >
+                  <span className="text-muted-foreground">
+                    <TagsIcon className="h-4 w-4" />
+                  </span>
+                </Tooltip>
+              </div>
+            )
+          : visibleLabels.length > 0 && (
+              <div className="order-5 flex shrink-0 items-center gap-1 sm:order-3">
+                {visibleLabels.map((label) => (
                   <Badge
                     variant="outline"
-                    className="font-normal text-muted-foreground"
+                    key={label.id}
+                    className="max-w-[140px] truncate font-normal text-muted-foreground"
                   >
-                    +{overflowLabels.length}
+                    {label.name}
                   </Badge>
-                </span>
-              </Tooltip>
+                ))}
+                {overflowLabels.length > 0 && (
+                  <Tooltip
+                    content={overflowLabels.map((l) => l.name).join(", ")}
+                  >
+                    <span>
+                      <Badge
+                        variant="outline"
+                        className="font-normal text-muted-foreground"
+                      >
+                        +{overflowLabels.length}
+                      </Badge>
+                    </span>
+                  </Tooltip>
+                )}
+              </div>
             )}
-          </div>
-        )}
         {showIcons && (
           <div className="order-2 ml-auto flex shrink-0 items-center gap-2 text-muted-foreground sm:order-4 sm:ml-0">
             <Link
