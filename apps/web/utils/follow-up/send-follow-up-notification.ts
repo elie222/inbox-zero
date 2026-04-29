@@ -74,7 +74,7 @@ export async function sendFollowUpNotification({
   channels: FollowUpNotificationChannel[];
   logger: Logger;
 }): Promise<void> {
-  const deliveryPromises: Promise<void>[] = [];
+  const deliveryPromises: Promise<unknown>[] = [];
 
   for (const channel of channels) {
     const route = getMessagingRoute(
