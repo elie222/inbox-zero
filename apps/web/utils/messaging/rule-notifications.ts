@@ -814,7 +814,10 @@ async function sendDraftReplyFromNotification({
     email: sourceMessageSummary,
     systemType: context.executedRule.rule?.systemType ?? null,
     draftContent: finalDraftContent,
-    format: "slack",
+    format:
+      context.messagingChannel?.provider === MessagingProvider.SLACK
+        ? "slack"
+        : "plain",
   });
 
   if (mailboxDraftAction?.draftId) {
@@ -1442,22 +1445,25 @@ function buildNotificationContent({
   format: NotificationContentFormat;
 }): NotificationContent {
   if (isDraftReplyActionType(actionType)) {
-    const senderName = escapeSlackText(
+    const senderName = formatNotificationText(
       extractNameFromEmail(email.headers.from),
+      format,
     );
-    const senderEmail = escapeSlackText(
+    const senderEmail = formatNotificationText(
       extractEmailAddress(email.headers.from),
+      format,
     );
     const senderDisplay =
       senderEmail && senderName !== senderEmail
         ? `${senderName} (${senderEmail})`
         : senderName;
-    const subject = escapeSlackText(
+    const subject = formatNotificationText(
       truncate(he.decode(email.headers.subject), 80),
+      format,
     );
 
-    const emailPreview = buildEmailPreview(email);
-    const draftPreview = buildDraftPreview(draftContent);
+    const emailPreview = buildEmailPreview(email, { format });
+    const draftPreview = buildDraftPreview(draftContent, { format });
 
     const summary = `📩 You got an email from *${senderDisplay}* about "${subject}".`;
 
@@ -1489,7 +1495,7 @@ function buildNotificationContent({
         ? `When: ${calendarEvent.eventDateString}`
         : null,
       calendarEvent.organizer ? `Organizer: ${calendarEvent.organizer}` : null,
-      buildEmailPreview(email),
+      buildEmailPreview(email, { format }),
     ].filter(Boolean);
 
     return {
@@ -1504,7 +1510,7 @@ function buildNotificationContent({
     details: [
       buildNotificationDetailSection({
         label: "Preview",
-        value: buildEmailPreview(email),
+        value: buildEmailPreview(email, { format }),
       }),
     ].filter(Boolean) as string[],
   };
@@ -1647,11 +1653,17 @@ function buildHandledNotificationCard({
   });
 }
 
-function buildDraftPreview(content?: string | null) {
+function buildDraftPreview(
+  content?: string | null,
+  { format = "slack" }: { format?: NotificationContentFormat } = {},
+) {
   if (!content?.trim()) return "No draft preview available.";
 
+  const preview = removeExcessiveWhitespace(
+    richTextToSlackMrkdwn(he.decode(content)),
+  ).trim();
   return truncate(
-    removeExcessiveWhitespace(richTextToSlackMrkdwn(he.decode(content))).trim(),
+    format === "slack" ? preview : stripSlackFormatting(preview),
     DRAFT_PREVIEW_MAX_CHARS,
   );
 }
@@ -1704,18 +1716,33 @@ function buildEmailSummary(email: {
   ].join("\n");
 }
 
-function buildEmailPreview(email: {
-  snippet: string;
-  textPlain?: string;
-  textHtml?: string;
-}) {
+function buildEmailPreview(
+  email: {
+    snippet: string;
+    textPlain?: string;
+    textHtml?: string;
+  },
+  {
+    format = "slack",
+  }: {
+    format?: NotificationContentFormat;
+  } = {},
+) {
   const rawPreview = emailToContent(email, { maxLength: 0 });
-  const preview = escapeSlackText(
+  const preview = formatNotificationText(
     removeExcessiveWhitespace(he.decode(rawPreview)).trim(),
+    format,
   );
   if (!preview) return null;
 
   return truncate(preview, SUMMARY_PREVIEW_MAX_CHARS);
+}
+
+function formatNotificationText(
+  text: string,
+  format: NotificationContentFormat,
+) {
+  return format === "slack" ? escapeSlackText(text) : text;
 }
 
 function buildNotificationDetailSection({

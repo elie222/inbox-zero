@@ -1312,6 +1312,62 @@ describe("sendMessagingRuleNotification", () => {
     });
   });
 
+  it("renders decoded email previews in Telegram draft notification cards", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.TELEGRAM,
+          isConnected: true,
+          teamId: "telegram-chat-1",
+          providerUserId: "telegram-user-1",
+          accessToken: null,
+          channelId: null,
+          routes: [
+            {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              targetId: "telegram-chat-1",
+              targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+            },
+          ],
+        },
+      }) as never,
+    );
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet:
+          "Quoted reply said A &gt; B, C &lt; D, and Tom &amp; Jerry replied.",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+
+    const [, card] = mockTelegramPostMessage.mock.calls[0];
+    const serializedCard = JSON.stringify(card);
+
+    expect(serializedCard).toContain(
+      "Quoted reply said A > B, C < D, and Tom & Jerry replied.",
+    );
+    expect(serializedCard).not.toContain("&gt;");
+    expect(serializedCard).not.toContain("&lt;");
+    expect(serializedCard).not.toContain("&amp;");
+  });
+
   it("skips linked notifications when provider routing data is incomplete", async () => {
     prisma.executedAction.findUnique.mockResolvedValue(
       getNotificationContext({
