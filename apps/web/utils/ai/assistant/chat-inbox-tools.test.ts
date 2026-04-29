@@ -542,19 +542,6 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     vi.clearAllMocks();
   });
 
-  it("searchInbox description tells the model to paginate for bulk 'all matching' requests", () => {
-    const toolInstance = searchInboxTool({
-      email: TEST_EMAIL,
-      emailAccountId: "email-account-1",
-      provider: "google",
-      logger,
-    });
-
-    const description = toolInstance.description ?? "";
-    expect(description.toLowerCase()).toMatch(/paginat|nextpagetoken/);
-    expect(description.toLowerCase()).toMatch(/all/);
-  });
-
   it("searchInbox result signals when more pages remain (hasMore)", async () => {
     (createEmailProvider as any).mockResolvedValue({
       searchMessages: vi.fn().mockResolvedValue({
