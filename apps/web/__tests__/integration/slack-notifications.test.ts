@@ -673,6 +673,32 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
         expect(postedMessage?.text).toContain("Initial draft body.");
 
+        const openModal = vi.fn().mockResolvedValue(undefined);
+        await handleRuleNotificationAction({
+          event: {
+            actionId: "rule_draft_edit",
+            value: slackActionState.id,
+            user: { userId: "user-1" },
+            raw: { team: { id: "team-1" } },
+            adapter: { name: "slack" },
+            openModal,
+            thread: { postEphemeral: vi.fn() },
+          } as any,
+          logger,
+        });
+
+        expect(openModal).toHaveBeenCalledWith(
+          expect.objectContaining({
+            submitLabel: "Send reply",
+          }),
+        );
+
+        const draftBeforeSend = await gmailHarness.provider.getDraft(
+          createdDraft.id,
+        );
+        const sentMessageId = draftBeforeSend?.id;
+        expect(sentMessageId).toBeDefined();
+
         const editResponse = await handleSlackRuleNotificationModalSubmit({
           event: {
             privateMetadata: slackActionState.id,
@@ -694,60 +720,22 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         });
 
         expect(editResponse).toEqual({ action: "close" });
-
-        const updatedDraft = await gmailHarness.provider.getDraft(
-          createdDraft.id,
-        );
-        const updatedDraftText =
-          updatedDraft?.textPlain || updatedDraft?.textHtml || "";
-        const sentMessageId = updatedDraft?.id;
-
-        expect(updatedDraftText).toContain(editedContent);
-        expect(sentMessageId).toBeDefined();
         expect(slackActionState.messagingMessageStatus).toBe(
-          MessagingMessageStatus.DRAFT_EDITED,
+          MessagingMessageStatus.DRAFT_SENT,
         );
+        expect(slackActionState.wasDraftSent).toBe(true);
+        expect(siblingDraftActionState.wasDraftSent).toBe(true);
+        expect(
+          await gmailHarness.provider.getDraft(createdDraft.id),
+        ).toBeNull();
 
         const editedSlackMessage = await findMessageBySubject({
           channelId: notifChannelId,
           subject,
         });
 
+        expect(editedSlackMessage?.text).toContain("Reply sent.");
         expect(editedSlackMessage?.text).toContain(editedContent);
-
-        await handleRuleNotificationAction({
-          event: {
-            actionId: "rule_draft_send",
-            value: slackActionState.id,
-            user: { userId: "user-1" },
-            raw: { team: { id: "team-1" } },
-            threadId: postedMessage!.ts!,
-            messageId: postedMessage!.ts!,
-            adapter: {
-              editMessage: (
-                _threadId: string,
-                messageId: string,
-                card: unknown,
-              ) =>
-                updateSlackCardMessage({
-                  channelId: notifChannelId,
-                  messageId,
-                  card,
-                }),
-            },
-            thread: { postEphemeral: vi.fn() },
-          } as any,
-          logger,
-        });
-
-        expect(
-          await gmailHarness.provider.getDraft(createdDraft.id),
-        ).toBeNull();
-        expect(slackActionState.messagingMessageStatus).toBe(
-          MessagingMessageStatus.DRAFT_SENT,
-        );
-        expect(slackActionState.wasDraftSent).toBe(true);
-        expect(siblingDraftActionState.wasDraftSent).toBe(true);
 
         const sentReply = await gmailHarness.provider.getMessage(
           sentMessageId!,
@@ -757,13 +745,6 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         expect(sentReply.textPlain || sentReply.textHtml || "").toContain(
           editedContent,
         );
-
-        const handledSlackMessage = await findMessageBySubject({
-          channelId: notifChannelId,
-          subject,
-        });
-
-        expect(handledSlackMessage?.text).toContain("Reply sent.");
       } finally {
         await gmailHarness.emulator.close();
       }

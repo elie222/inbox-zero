@@ -643,6 +643,13 @@ export async function handleSlackRuleNotificationModalSubmit({
         mailboxDraftActionId: mailboxDraftAction.id,
         error,
       });
+      return {
+        action: "errors",
+        errors: {
+          [SLACK_DRAFT_EDIT_FIELD_ID]:
+            "I couldn't update that draft. Please try again.",
+        },
+      };
     }
   }
 
@@ -657,30 +664,33 @@ export async function handleSlackRuleNotificationModalSubmit({
     },
   });
 
-  await prisma.executedAction.update({
-    where: { id: context.id },
-    data: {
-      messagingMessageStatus: MessagingMessageStatus.DRAFT_EDITED,
-    },
-  });
+  try {
+    await sendDraftReplyFromNotification({
+      context: { ...context, content: nextContent },
+      logger,
+      editMessage: async (card) => {
+        if (event.relatedMessage) {
+          await event.relatedMessage.edit(card);
+          return;
+        }
 
-  const content = buildNotificationContent({
-    actionType: context.type,
-    email: await getSourceMessageSummary(context, logger),
-    systemType: context.executedRule.rule?.systemType ?? null,
-    draftContent: nextContent,
-    format: "slack",
-  });
-
-  if (event.relatedMessage) {
-    await event.relatedMessage.edit(
-      buildNotificationCard({
-        actionId: context.id,
-        actionType: context.type,
-        content,
-        openLink: getNotificationOpenLink(context),
-      }),
-    );
+        logger.warn("Slack draft modal submitted without related message", {
+          executedActionId: context.id,
+        });
+      },
+    });
+  } catch (error) {
+    logger.warn("Failed to send edited Slack draft notification reply", {
+      executedActionId: context.id,
+      error,
+    });
+    return {
+      action: "errors",
+      errors: {
+        [SLACK_DRAFT_EDIT_FIELD_ID]:
+          "I couldn't send that draft. Please try again.",
+      },
+    };
   }
 
   return { action: "close" };
@@ -749,110 +759,21 @@ async function handleDraftSend({
     return;
   }
 
-  const provider = await createProviderForContext(context, logger);
-
-  const mailboxDraftAction = getMailboxDraftActionForMessagingDraft(context);
-
   try {
-    const finalDraftContent = await getEditableDraftContent({
+    const result = await sendDraftReplyFromNotification({
       context,
-      provider,
-      mailboxDraftAction,
-    });
-    const sourceMessageSummary = await getSourceMessageSummaryForProvider({
-      context,
-      provider,
-    });
-    const notificationContent = buildNotificationContent({
-      actionType: context.type,
-      email: sourceMessageSummary,
-      systemType: context.executedRule.rule?.systemType ?? null,
-      draftContent: finalDraftContent,
-      format: "slack",
+      logger,
+      editMessage: (card) =>
+        event.adapter.editMessage(event.threadId, event.messageId, card),
     });
 
-    if (mailboxDraftAction?.draftId) {
-      await provider.sendDraft(mailboxDraftAction.draftId);
-    } else {
-      const sourceMessage = await provider.getMessage(
-        context.executedRule.messageId,
-      );
-      const attachments = await resolveActionAttachments({
-        email: sourceMessage,
-        emailAccount: {
-          email: context.executedRule.emailAccount.email,
-          id: context.executedRule.emailAccount.id,
-          userId: context.executedRule.emailAccount.userId,
-        },
-        executedRule: {
-          id: context.executedRule.id,
-          threadId: context.executedRule.threadId,
-          emailAccountId: context.executedRule.emailAccount.id,
-          ruleId: context.executedRule.ruleId,
-        } as ExecutedRule,
+    if (result === "draft_unavailable") {
+      await postNotificationFeedback({
+        event,
         logger,
-        staticAttachments: context.staticAttachments,
-        includeAiSelectedAttachments: true,
-      });
-
-      const content = context.content?.trim();
-      if (!content) {
-        await expireNotificationCard({
-          event,
-          logger,
-          actionId: context.id,
-          title: "Draft unavailable",
-          message: "This draft is no longer available.",
-        });
-        return;
-      }
-
-      const formattedFrom = await getFormattedSenderAddress({
-        emailAccountId: context.executedRule.emailAccount.id,
-        fallbackEmail: context.executedRule.emailAccount.email,
-      });
-
-      await provider.sendEmailWithHtml(
-        buildNotificationReplySendBody({
-          sourceMessage,
-          fallbackThreadId: context.executedRule.threadId,
-          to: context.to,
-          cc: context.cc,
-          bcc: context.bcc,
-          subject: context.subject,
-          content,
-          formattedFrom,
-          attachments: serializeMailAttachments(attachments),
-        }),
-      );
-    }
-
-    await prisma.executedAction.update({
-      where: { id: context.id },
-      data: {
-        messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
-        wasDraftSent: true,
-      },
-    });
-
-    if (mailboxDraftAction?.id) {
-      await prisma.executedAction.update({
-        where: { id: mailboxDraftAction.id },
-        data: {
-          wasDraftSent: true,
-        },
+        text: "This draft is no longer available.",
       });
     }
-
-    await event.adapter.editMessage(
-      event.threadId,
-      event.messageId,
-      buildHandledNotificationCard({
-        content: notificationContent,
-        openLink: getNotificationOpenLink(context),
-        status: "Reply sent.",
-      }),
-    );
   } catch (error) {
     logger.warn("Failed to send Slack draft notification reply", {
       executedActionId: context.id,
@@ -864,6 +785,126 @@ async function handleDraftSend({
       text: "I couldn't send that draft. Please try again.",
     });
   }
+}
+
+async function sendDraftReplyFromNotification({
+  context,
+  logger,
+  editMessage,
+}: {
+  context: NotificationContext;
+  logger: Logger;
+  editMessage: (card: CardElement) => Promise<void>;
+}): Promise<"sent" | "draft_unavailable"> {
+  const provider = await createProviderForContext(context, logger);
+
+  const mailboxDraftAction = getMailboxDraftActionForMessagingDraft(context);
+  const finalDraftContent = await getEditableDraftContent({
+    context,
+    provider,
+    mailboxDraftAction,
+  });
+  const sourceMessageSummary = await getSourceMessageSummaryForProvider({
+    context,
+    provider,
+  });
+  const notificationContent = buildNotificationContent({
+    actionType: context.type,
+    email: sourceMessageSummary,
+    systemType: context.executedRule.rule?.systemType ?? null,
+    draftContent: finalDraftContent,
+    format: "slack",
+  });
+
+  if (mailboxDraftAction?.draftId) {
+    await provider.sendDraft(mailboxDraftAction.draftId);
+  } else {
+    const sourceMessage = await provider.getMessage(
+      context.executedRule.messageId,
+    );
+    const attachments = await resolveActionAttachments({
+      email: sourceMessage,
+      emailAccount: {
+        email: context.executedRule.emailAccount.email,
+        id: context.executedRule.emailAccount.id,
+        userId: context.executedRule.emailAccount.userId,
+      },
+      executedRule: {
+        id: context.executedRule.id,
+        threadId: context.executedRule.threadId,
+        emailAccountId: context.executedRule.emailAccount.id,
+        ruleId: context.executedRule.ruleId,
+      } as ExecutedRule,
+      logger,
+      staticAttachments: context.staticAttachments,
+      includeAiSelectedAttachments: true,
+    });
+
+    const content = context.content?.trim();
+    if (!content) {
+      await prisma.executedAction.update({
+        where: { id: context.id },
+        data: {
+          messagingMessageStatus: MessagingMessageStatus.EXPIRED,
+        },
+      });
+
+      await editMessage(
+        buildTerminalCard({
+          title: "Draft unavailable",
+          message: "This draft is no longer available.",
+        }),
+      );
+
+      return "draft_unavailable";
+    }
+
+    const formattedFrom = await getFormattedSenderAddress({
+      emailAccountId: context.executedRule.emailAccount.id,
+      fallbackEmail: context.executedRule.emailAccount.email,
+    });
+
+    await provider.sendEmailWithHtml(
+      buildNotificationReplySendBody({
+        sourceMessage,
+        fallbackThreadId: context.executedRule.threadId,
+        to: context.to,
+        cc: context.cc,
+        bcc: context.bcc,
+        subject: context.subject,
+        content,
+        formattedFrom,
+        attachments: serializeMailAttachments(attachments),
+      }),
+    );
+  }
+
+  await prisma.executedAction.update({
+    where: { id: context.id },
+    data: {
+      messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
+      wasDraftSent: true,
+    },
+  });
+
+  if (mailboxDraftAction?.id) {
+    await prisma.executedAction.update({
+      where: { id: mailboxDraftAction.id },
+      data: {
+        wasDraftSent: true,
+      },
+    });
+  }
+
+  await editMessage(
+    buildHandledNotificationCard({
+      content: notificationContent,
+      openLink: getNotificationOpenLink(context),
+      status: "Reply sent.",
+    }),
+  );
+
+  return "sent";
 }
 
 export function buildNotificationReplySendBody({
@@ -939,6 +980,7 @@ async function handleDraftEdit({
     type: "modal",
     callbackId: SLACK_DRAFT_EDIT_MODAL_ID,
     title: "Edit draft",
+    submitLabel: "Send reply",
     privateMetadata: context.id,
     children: [
       {
@@ -1362,14 +1404,6 @@ async function getNotificationDraftContent({
     );
     return context.content;
   }
-}
-
-async function getSourceMessageSummary(
-  context: NotificationContext,
-  logger: Logger,
-) {
-  const provider = await createProviderForContext(context, logger);
-  return getSourceMessageSummaryForProvider({ context, provider });
 }
 
 async function getSourceMessageSummaryForProvider({
@@ -1999,39 +2033,6 @@ async function replaceMessagingDraftNotificationWithHandledOnWebState({
       },
     );
   }
-}
-
-async function expireNotificationCard({
-  event,
-  logger,
-  actionId,
-  title,
-  message,
-}: {
-  event: ActionEvent;
-  logger: Logger;
-  actionId: string;
-  title: string;
-  message: string;
-}) {
-  await prisma.executedAction.update({
-    where: { id: actionId },
-    data: {
-      messagingMessageStatus: MessagingMessageStatus.EXPIRED,
-    },
-  });
-
-  await event.adapter.editMessage(
-    event.threadId,
-    event.messageId,
-    buildTerminalCard({ title, message }),
-  );
-
-  await postNotificationFeedback({
-    event,
-    logger,
-    text: message,
-  });
 }
 
 async function postNotificationFeedback({
