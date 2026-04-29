@@ -26,6 +26,12 @@ export const getUserInfoBody = z.object({
 });
 export type GetUserInfoBody = z.infer<typeof getUserInfoBody>;
 
+export const loadResponseTimeDataBody = z.object({
+  email: z.string().trim().email("Valid email address is required"),
+  maxSentMessages: z.coerce.number().int().min(1).max(2000).default(500),
+});
+export type LoadResponseTimeDataBody = z.infer<typeof loadResponseTimeDataBody>;
+
 export const disableAllRulesBody = z.object({
   email: z.string().trim().email("Valid email address is required"),
 });

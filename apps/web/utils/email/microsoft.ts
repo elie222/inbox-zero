@@ -60,6 +60,7 @@ import type {
   EmailLabel,
   EmailFilter,
   EmailSignature,
+  SentMessagePage,
 } from "@/utils/email/types";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
@@ -295,41 +296,48 @@ export class OutlookProvider implements EmailProvider {
     maxResults: number;
     after?: Date;
     before?: Date;
-  }): Promise<{ id: string; threadId: string }[]> {
-    const { maxResults, after, before } = options;
+    pageToken?: string;
+  }): Promise<SentMessagePage> {
+    const { maxResults, after, before, pageToken } = options;
 
-    const filters: string[] = [];
-    if (after) {
-      filters.push(`sentDateTime ge ${after.toISOString()}`);
-    }
-    if (before) {
-      filters.push(`sentDateTime le ${before.toISOString()}`);
-    }
+    const buildRequest = () => {
+      // pageToken is the full @odata.nextLink URL, which already encodes
+      // top/skip/filter from the original request.
+      if (pageToken?.startsWith("http")) {
+        return this.client.getClient().api(pageToken);
+      }
 
-    let request = this.client
-      .getClient()
-      .api("/me/mailFolders('sentitems')/messages")
-      .select("id,conversationId")
-      .top(maxResults)
-      .orderby("sentDateTime desc");
+      const filters: string[] = [];
+      if (after) filters.push(`sentDateTime ge ${after.toISOString()}`);
+      if (before) filters.push(`sentDateTime le ${before.toISOString()}`);
 
-    if (filters.length) {
-      request = request.filter(filters.join(" and "));
-    }
+      let request = this.client
+        .getClient()
+        .api("/me/mailFolders('sentitems')/messages")
+        .select("id,conversationId")
+        .top(maxResults)
+        .orderby("sentDateTime desc");
 
-    const response = await withOutlookRetry(() => request.get(), this.logger);
+      if (filters.length) {
+        request = request.filter(filters.join(" and "));
+      }
 
-    return (
-      response.value
-        ?.filter(
-          (m: { id?: string; conversationId?: string }) =>
-            m.id && m.conversationId,
-        )
-        .map((m: { id: string; conversationId: string }) => ({
-          id: m.id,
-          threadId: m.conversationId,
-        })) || []
-    );
+      return request;
+    };
+
+    const response: {
+      value?: { id?: string; conversationId?: string }[];
+      "@odata.nextLink"?: string;
+    } = await withOutlookRetry(() => buildRequest().get(), this.logger);
+
+    return {
+      messages: (response.value || []).flatMap((m) =>
+        m.id && m.conversationId
+          ? [{ id: m.id, threadId: m.conversationId }]
+          : [],
+      ),
+      nextPageToken: response["@odata.nextLink"],
+    };
   }
 
   async getSentThreadsExcluding(options: {

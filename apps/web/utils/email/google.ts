@@ -72,6 +72,7 @@ import type {
   EmailLabel,
   EmailFilter,
   EmailSignature,
+  SentMessagePage,
 } from "@/utils/email/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
@@ -230,8 +231,9 @@ export class GmailProvider implements EmailProvider {
     maxResults: number;
     after?: Date;
     before?: Date;
-  }): Promise<{ id: string; threadId: string }[]> {
-    const { maxResults, after, before } = options;
+    pageToken?: string;
+  }): Promise<SentMessagePage> {
+    const { maxResults, after, before, pageToken } = options;
 
     let query = `label:${GmailLabel.SENT}`;
     if (after) {
@@ -241,13 +243,19 @@ export class GmailProvider implements EmailProvider {
       query += ` before:${Math.floor(before.getTime() / 1000) + 1}`;
     }
 
-    const response = await getMessages(this.client, { query, maxResults });
+    const response = await getMessages(this.client, {
+      query,
+      maxResults,
+      pageToken,
+    });
 
-    return (
-      response.messages
-        ?.filter((m) => m.id && m.threadId)
-        .map((m) => ({ id: m.id!, threadId: m.threadId! })) || []
-    );
+    return {
+      messages: response.messages.map((m) => ({
+        id: m.id,
+        threadId: m.threadId,
+      })),
+      nextPageToken: response.nextPageToken,
+    };
   }
 
   async getSentThreadsExcluding(options: {

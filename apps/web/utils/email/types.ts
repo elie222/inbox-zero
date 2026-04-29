@@ -42,6 +42,11 @@ export interface EmailSignature {
   signature: string;
 }
 
+export interface SentMessagePage {
+  messages: { id: string; threadId: string }[];
+  nextPageToken?: string;
+}
+
 export interface EmailProvider {
   archiveMessage(messageId: string): Promise<void>;
   archiveThread(threadId: string, ownerEmail: string): Promise<void>;
@@ -173,7 +178,8 @@ export interface EmailProvider {
     maxResults: number;
     after?: Date;
     before?: Date;
-  }): Promise<{ id: string; threadId: string }[]>;
+    pageToken?: string;
+  }): Promise<SentMessagePage>;
   getSentMessages(maxResults?: number): Promise<ParsedMessage[]>;
   getSentThreadsExcluding(options: {
     excludeToEmails?: string[];

@@ -117,9 +117,9 @@ describe("confirmAssistantEmailAction", () => {
       messageId: "",
       threadId: "thr-1",
     });
-    const getSentMessageIds = vi
-      .fn()
-      .mockResolvedValue([{ id: "msg-from-sent", threadId: "thr-1" }]);
+    const getSentMessageIds = vi.fn().mockResolvedValue({
+      messages: [{ id: "msg-from-sent", threadId: "thr-1" }],
+    });
     vi.mocked(createEmailProvider).mockResolvedValue({
       sendEmailWithHtml,
       getSentMessageIds,
@@ -168,10 +168,12 @@ describe("confirmAssistantEmailAction", () => {
         messageId: "",
         threadId: "thr-1",
       }),
-      getSentMessageIds: vi.fn().mockResolvedValue([
-        { id: "msg-1", threadId: "thr-1" },
-        { id: "msg-2", threadId: "thr-1" },
-      ]),
+      getSentMessageIds: vi.fn().mockResolvedValue({
+        messages: [
+          { id: "msg-1", threadId: "thr-1" },
+          { id: "msg-2", threadId: "thr-1" },
+        ],
+      }),
     } as any);
 
     const result = await confirmAssistantEmailAction(
@@ -217,7 +219,9 @@ describe("confirmAssistantEmailAction", () => {
     const getSentMessageIds = vi
       .fn()
       .mockRejectedValueOnce(new Error("temporary failure"))
-      .mockResolvedValueOnce([{ id: "msg-from-sent", threadId: "thr-1" }]);
+      .mockResolvedValueOnce({
+        messages: [{ id: "msg-from-sent", threadId: "thr-1" }],
+      });
     vi.mocked(createEmailProvider).mockResolvedValue({
       sendEmailWithHtml: vi.fn().mockResolvedValue({
         messageId: "",
@@ -287,9 +291,9 @@ describe("confirmAssistantEmailAction", () => {
     vi.mocked(createEmailProvider).mockResolvedValue({
       getMessage: vi.fn().mockResolvedValue(sourceMessage),
       replyToEmail,
-      getSentMessageIds: vi
-        .fn()
-        .mockResolvedValue([{ id: "reply-message-2", threadId: "thread-1" }]),
+      getSentMessageIds: vi.fn().mockResolvedValue({
+        messages: [{ id: "reply-message-2", threadId: "thread-1" }],
+      }),
     } as any);
 
     const result = await confirmAssistantEmailAction(
@@ -348,9 +352,9 @@ describe("confirmAssistantEmailAction", () => {
     vi.mocked(createEmailProvider).mockResolvedValue({
       getMessage: vi.fn().mockResolvedValue(sourceMessage),
       forwardEmail,
-      getSentMessageIds: vi
-        .fn()
-        .mockResolvedValue([{ id: "forward-message-2", threadId: "thread-1" }]),
+      getSentMessageIds: vi.fn().mockResolvedValue({
+        messages: [{ id: "forward-message-2", threadId: "thread-1" }],
+      }),
     } as any);
 
     const result = await confirmAssistantEmailAction(

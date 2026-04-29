@@ -1,4 +1,4 @@
-import type { EmailProvider } from "@/utils/email/types";
+import type { EmailProvider, SentMessagePage } from "@/utils/email/types";
 import { format } from "date-fns/format";
 import { startOfWeek } from "date-fns/startOfWeek";
 import type { Logger } from "@/utils/logger";
@@ -14,7 +14,10 @@ import {
 } from "./calculate";
 import type { ResponseTimeQuery } from "@/app/api/user/stats/response-time/validation";
 
-const MAX_SENT_MESSAGES = 50;
+const DEFAULT_MAX_SENT_MESSAGES = 50;
+const SENT_MESSAGES_PAGE_SIZE = 50;
+
+type SentMessage = SentMessagePage["messages"][number];
 
 interface TrendEntry {
   count: number;
@@ -37,20 +40,23 @@ export async function getResponseTimeStats({
   emailAccountId,
   emailProvider,
   logger,
+  maxSentMessages = DEFAULT_MAX_SENT_MESSAGES,
 }: ResponseTimeQuery & {
   emailAccountId: string;
   emailProvider: EmailProvider;
   logger: Logger;
+  maxSentMessages?: number;
 }): Promise<ResponseTimeResponse> {
   // 1. Fetch sent message IDs (lightweight - just id and threadId)
-  const sentMessages = await emailProvider.getSentMessageIds({
-    maxResults: MAX_SENT_MESSAGES,
+  const sentMessages = await getSentMessagesForResponseTimes({
+    emailProvider,
+    maxSentMessages,
     ...(fromDate ? { after: new Date(fromDate) } : {}),
     ...(toDate ? { before: new Date(toDate) } : {}),
   });
 
   if (!sentMessages.length) {
-    return getEmptyStats();
+    return getEmptyStats(maxSentMessages);
   }
 
   const sentMessageIds = sentMessages.map((m) => m.id);
@@ -122,7 +128,7 @@ export async function getResponseTimeStats({
   });
 
   if (allEntries.length === 0) {
-    return getEmptyStats();
+    return getEmptyStats(maxSentMessages);
   }
 
   // 7. Calculate derived statistics
@@ -136,8 +142,42 @@ export async function getResponseTimeStats({
     distribution,
     trend,
     emailsAnalyzed: allEntries.length,
-    maxEmailsCap: MAX_SENT_MESSAGES,
+    maxEmailsCap: maxSentMessages,
   };
+}
+
+async function getSentMessagesForResponseTimes({
+  emailProvider,
+  maxSentMessages,
+  after,
+  before,
+}: {
+  emailProvider: EmailProvider;
+  maxSentMessages: number;
+  after?: Date;
+  before?: Date;
+}): Promise<SentMessage[]> {
+  const sentMessages: SentMessage[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const remaining = maxSentMessages - sentMessages.length;
+    if (remaining <= 0) break;
+
+    const page = await emailProvider.getSentMessageIds({
+      maxResults: Math.min(remaining, SENT_MESSAGES_PAGE_SIZE),
+      after,
+      before,
+      pageToken,
+    });
+
+    if (page.messages.length === 0) break;
+
+    sentMessages.push(...page.messages);
+    pageToken = page.nextPageToken;
+  } while (pageToken && sentMessages.length < maxSentMessages);
+
+  return sentMessages.slice(0, maxSentMessages);
 }
 
 function calculateTrend(responseTimes: ResponseTimeEntry[]): TrendEntry[] {
@@ -167,7 +207,7 @@ function calculateTrend(responseTimes: ResponseTimeEntry[]): TrendEntry[] {
     .sort((a, b) => a.periodDate.getTime() - b.periodDate.getTime());
 }
 
-function getEmptyStats(): ResponseTimeResponse {
+function getEmptyStats(maxSentMessages: number): ResponseTimeResponse {
   return {
     summary: {
       medianResponseTime: 0,
@@ -185,6 +225,6 @@ function getEmptyStats(): ResponseTimeResponse {
     },
     trend: [],
     emailsAnalyzed: 0,
-    maxEmailsCap: MAX_SENT_MESSAGES,
+    maxEmailsCap: maxSentMessages,
   };
 }

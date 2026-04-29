@@ -1171,13 +1171,13 @@ async function resolveSentMessageId({
     attempt++
   ) {
     try {
-      const sentMessageIds = await emailProvider.getSentMessageIds({
+      const sentMessagePage = await emailProvider.getSentMessageIds({
         maxResults: 20,
         after: sentAfterWithLookback,
         before: new Date(),
       });
 
-      const matchingThreadIds = sentMessageIds.filter(
+      const matchingThreadIds = sentMessagePage.messages.filter(
         (sentMessage) => sentMessage.threadId === threadId,
       );
 

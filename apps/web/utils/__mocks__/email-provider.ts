@@ -71,7 +71,7 @@ export const createMockEmailProvider = (
   }),
   getSentMessages: vi.fn().mockResolvedValue([]),
   getInboxMessages: vi.fn().mockResolvedValue([]),
-  getSentMessageIds: vi.fn().mockResolvedValue([]),
+  getSentMessageIds: vi.fn().mockResolvedValue({ messages: [] }),
   getSentThreadsExcluding: vi.fn().mockResolvedValue([]),
   getThreadMessages: vi.fn().mockResolvedValue([]),
   getThreadMessagesInInbox: vi.fn().mockResolvedValue([]),

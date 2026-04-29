@@ -18,11 +18,13 @@ import {
   getLabelsBody,
   watchEmailsBody,
   getUserInfoBody,
+  loadResponseTimeDataBody,
   disableAllRulesBody,
   cleanupDraftsBody,
 } from "@/utils/actions/admin.validation";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import { cleanupAIDraftsForAccount } from "@/utils/ai/draft-cleanup";
+import { getResponseTimeStats } from "@/app/api/user/stats/response-time/controller";
 
 export const adminProcessHistoryAction = adminActionClient
   .metadata({ name: "adminProcessHistory" })
@@ -419,6 +421,60 @@ export const adminGetUserInfoAction = adminActionClient
       })),
     };
   });
+
+export const adminLoadResponseTimeDataAction = adminActionClient
+  .metadata({ name: "adminLoadResponseTimeData" })
+  .inputSchema(loadResponseTimeDataBody)
+  .action(
+    async ({ parsedInput: { email, maxSentMessages }, ctx: { logger } }) => {
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { email: email.toLowerCase() },
+        select: {
+          id: true,
+          account: {
+            select: {
+              provider: true,
+            },
+          },
+        },
+      });
+
+      if (!emailAccount) {
+        throw new SafeError("Email account not found");
+      }
+
+      const emailProvider = await createEmailProvider({
+        emailAccountId: emailAccount.id,
+        provider: emailAccount.account.provider,
+        logger,
+      });
+
+      logger.info("Starting admin response time data load", {
+        emailAccountId: emailAccount.id,
+        maxSentMessages,
+      });
+
+      const result = await getResponseTimeStats({
+        emailAccountId: emailAccount.id,
+        emailProvider,
+        logger,
+        maxSentMessages,
+      });
+
+      logger.info("Finished admin response time data load", {
+        emailAccountId: emailAccount.id,
+        emailsAnalyzed: result.emailsAnalyzed,
+        maxSentMessages,
+      });
+
+      return {
+        emailsAnalyzed: result.emailsAnalyzed,
+        maxEmailsCap: result.maxEmailsCap,
+        averageResponseTime: result.summary.averageResponseTime,
+        medianResponseTime: result.summary.medianResponseTime,
+      };
+    },
+  );
 
 export const adminDisableAllRulesAction = adminActionClient
   .metadata({ name: "adminDisableAllRules" })

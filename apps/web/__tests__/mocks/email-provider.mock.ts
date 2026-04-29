@@ -74,7 +74,7 @@ export function createMockEmailProvider(
     // Message retrieval
     getSentMessages: vi.fn().mockResolvedValue([]),
     getInboxMessages: vi.fn().mockResolvedValue([defaultMessage]),
-    getSentMessageIds: vi.fn().mockResolvedValue([]),
+    getSentMessageIds: vi.fn().mockResolvedValue({ messages: [] }),
     getSentThreadsExcluding: vi.fn().mockResolvedValue([]),
     getDrafts: vi.fn().mockResolvedValue([]),
     getMessagesWithPagination: vi
