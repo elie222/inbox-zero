@@ -604,6 +604,47 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
   });
 });
 
+describe("OutlookProvider.getThreadsWithParticipant", () => {
+  it("logs broad search and exact participant match counts", async () => {
+    const participantEmail = "participant@example.com";
+    const unrelatedMessage = createMessage({
+      id: "unrelated-message",
+      conversationId: "thread-unrelated",
+    });
+    const client = createMockOutlookClient([], {
+      responsesByApiPath: {
+        "/me/messages": ({ search }) => {
+          if (search) {
+            return {
+              value: [unrelatedMessage],
+              "@odata.nextLink": "https://graph.example.com/next-page",
+            };
+          }
+          return { value: [] };
+        },
+      },
+    });
+    const logger = createMockLogger();
+    const provider = new OutlookProvider(client, logger);
+
+    const threads = await provider.getThreadsWithParticipant({
+      participantEmail,
+      maxThreads: 1,
+    });
+
+    expect(threads).toEqual([]);
+    expect(logger.info).toHaveBeenCalledWith(
+      "Outlook participant search completed",
+      {
+        rawMessageCount: 1,
+        exactParticipantMessageCount: 0,
+        threadCount: 0,
+        hasMorePages: true,
+      },
+    );
+  });
+});
+
 function createMockOutlookClient(
   messages: Message[],
   options?: {
@@ -611,7 +652,11 @@ function createMockOutlookClient(
     folderIdCache?: Record<string, string> | null;
     responsesByApiPath?: Record<
       string,
-      { value: Message[]; "@odata.nextLink"?: string }
+      | { value: Message[]; "@odata.nextLink"?: string }
+      | ((request: { filter?: string; search?: string }) => {
+          value: Message[];
+          "@odata.nextLink"?: string;
+        })
     >;
   },
 ) {
@@ -623,19 +668,30 @@ function createMockOutlookClient(
     getClient: () => ({
       api: (apiPath: string) => {
         let filterValue: string | undefined;
+        let searchValue: string | undefined;
         const request = {
           filter: (value: string) => {
             filterValue = value;
             return request;
           },
+          search: (value: string) => {
+            searchValue = value;
+            return request;
+          },
           select: () => request,
+          expand: () => request,
           top: () => request,
           orderby: () => request,
           get: async () => {
-            requestLog.push({ apiPath, filter: filterValue });
-            return (
-              options?.responsesByApiPath?.[apiPath] || { value: messages }
-            );
+            requestLog.push({
+              apiPath,
+              filter: filterValue,
+            });
+            const response = options?.responsesByApiPath?.[apiPath];
+            if (typeof response === "function") {
+              return response({ filter: filterValue, search: searchValue });
+            }
+            return response || { value: messages };
           },
         };
 
@@ -652,6 +708,19 @@ function createMockOutlookClient(
     },
     getRequestLog: () => requestLog,
   } as any;
+}
+
+function createMockLogger() {
+  const logger = {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    trace: vi.fn(),
+    flush: vi.fn().mockResolvedValue(undefined),
+    with: vi.fn(),
+  };
+  logger.with.mockReturnValue(logger);
+  return logger as any;
 }
 
 function createMessage(input: {

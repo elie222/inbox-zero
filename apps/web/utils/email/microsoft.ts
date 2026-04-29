@@ -1192,6 +1192,7 @@ export class OutlookProvider implements EmailProvider {
     maxThreads?: number;
   }): Promise<EmailThread[]> {
     const { participantEmail, maxThreads = 5 } = options;
+    const maxSearchResults = Math.min(20, Math.max(10, maxThreads * 4));
 
     // IMPORTANT:
     // Microsoft Graph does not reliably support filtering Messages by recipient collections
@@ -1201,40 +1202,27 @@ export class OutlookProvider implements EmailProvider {
     const sanitizedEmail = sanitizeKqlValue(participantEmail);
     const searchQuery = `participants:${sanitizedEmail}`;
 
-    const { messages } = await queryBatchMessages(
+    const { messages, nextPageToken } = await queryBatchMessages(
       this.client,
       {
         searchQuery,
-        maxResults: Math.min(20, Math.max(10, maxThreads * 4)),
+        maxResults: maxSearchResults,
       },
       this.logger,
     );
 
     const participantLower = participantEmail.toLowerCase().trim();
-
-    const relevant = messages.filter((m) => {
-      const h = m.headers;
-
-      const fromEmail = extractEmailAddress(h.from || "").toLowerCase();
-      if (fromEmail === participantLower) return true;
-
-      const toAddresses = splitRecipientList(h.to || "")
-        .map((addr) => extractEmailAddress(addr).toLowerCase())
-        .filter(Boolean);
-      if (toAddresses.includes(participantLower)) return true;
-
-      const ccAddresses = splitRecipientList(h.cc || "")
-        .map((addr) => extractEmailAddress(addr).toLowerCase())
-        .filter(Boolean);
-      if (ccAddresses.includes(participantLower)) return true;
-
-      return false;
-    });
+    const relevant = filterMessagesForParticipant(messages, participantLower);
 
     // Extract unique conversationIds (thread IDs) from parsed messages
-    const conversationIds = Array.from(
-      new Set(relevant.map((m) => m.threadId).filter(Boolean)),
-    ).slice(0, maxThreads);
+    const conversationIds = getUniqueThreadIds(relevant, maxThreads);
+
+    this.logger.info("Outlook participant search completed", {
+      rawMessageCount: messages.length,
+      exactParticipantMessageCount: relevant.length,
+      threadCount: conversationIds.length,
+      hasMorePages: !!nextPageToken,
+    });
 
     if (conversationIds.length === 0) {
       return [];
@@ -1253,7 +1241,6 @@ export class OutlookProvider implements EmailProvider {
       } catch (error) {
         this.logger.warn("Failed to fetch thread messages for conversationId", {
           conversationId,
-          participantEmail,
           error,
           // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
           errorCode: (error as any)?.code,
@@ -2036,6 +2023,39 @@ function resolveOutlookFolderId(
 ): string | undefined {
   const folderKey = LABEL_TO_FOLDER_KEY[labelId.toUpperCase()];
   return folderKey ? folderIds[folderKey] : undefined;
+}
+
+function filterMessagesForParticipant(
+  messages: ParsedMessage[],
+  participantLower: string,
+): ParsedMessage[] {
+  return messages.filter((message) => {
+    const headers = message.headers;
+
+    const fromEmail = extractEmailAddress(headers.from || "").toLowerCase();
+    if (fromEmail === participantLower) return true;
+
+    const toAddresses = splitRecipientList(headers.to || "")
+      .map((addr) => extractEmailAddress(addr).toLowerCase())
+      .filter(Boolean);
+    if (toAddresses.includes(participantLower)) return true;
+
+    const ccAddresses = splitRecipientList(headers.cc || "")
+      .map((addr) => extractEmailAddress(addr).toLowerCase())
+      .filter(Boolean);
+    if (ccAddresses.includes(participantLower)) return true;
+
+    return false;
+  });
+}
+
+function getUniqueThreadIds(
+  messages: ParsedMessage[],
+  maxThreads: number,
+): string[] {
+  return Array.from(
+    new Set(messages.map((message) => message.threadId).filter(Boolean)),
+  ).slice(0, maxThreads);
 }
 
 function getRequiredOutlookThreadLabelIds({
