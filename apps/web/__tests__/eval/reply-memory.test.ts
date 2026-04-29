@@ -662,83 +662,69 @@ Thanks,`,
     test(
       "summarizes repeated preference evidence into a prompt-ready learned writing style",
       async () => {
+        const conciseStyleEvidence = [
+          {
+            title: "concise tone",
+            content: "Keep replies short and remove filler.",
+            draftText:
+              "Hi there! Thanks so much for checking in. I just wanted to let you know that I got your note and will take a look soon.",
+            sentText: "Got it. I will review and get back to you.",
+          },
+          {
+            title: "low ceremony",
+            content: "Skip greetings and sign-offs for routine replies.",
+            draftText:
+              "Hi! Thanks again for the follow-up. I appreciate the reminder and will send an update shortly. Best,",
+            sentText: "I will send an update shortly.",
+          },
+          {
+            title: "plain wording",
+            content:
+              "Prefer plain declarative phrasing over warm filler in status updates.",
+            draftText:
+              "I just wanted to let you know that I am still on track and hope to have more to share very soon.",
+            sentText: "Still on track. I will share more soon.",
+          },
+        ];
         const learnedWritingStyle = await aiSummarizeLearnedWritingStyle({
-          preferenceMemoryEvidence: buildPreferenceMemoryEvidence([
-            {
-              title: "concise tone",
-              content: "Keep replies short and remove filler.",
-              draftText:
-                "Hi there! Thanks so much for checking in. I just wanted to let you know that I got your note and will take a look soon.",
-              sentText: "Got it. I will review and get back to you.",
-            },
-            {
-              title: "low ceremony",
-              content: "Skip greetings and sign-offs for routine replies.",
-              draftText:
-                "Hi! Thanks again for the follow-up. I appreciate the reminder and will send an update shortly. Best,",
-              sentText: "I will send an update shortly.",
-            },
-            {
-              title: "plain wording",
-              content:
-                "Prefer plain declarative phrasing over warm filler in status updates.",
-              draftText:
-                "I just wanted to let you know that I am still on track and hope to have more to share very soon.",
-              sentText: "Still on track. I will share more soon.",
-            },
-          ]),
+          preferenceMemoryEvidence:
+            buildPreferenceMemoryEvidence(conciseStyleEvidence),
           emailAccount: replyMemoryEmailAccount,
         });
+        const hasActionableShape =
+          learnedWritingStyle.includes("Actionable rules:") &&
+          learnedWritingStyle.includes("Before/after patterns:") &&
+          /one|1|sentence|brief|short|terse/i.test(learnedWritingStyle) &&
+          /greeting|sign[- ]?off|ceremony/i.test(learnedWritingStyle);
 
         const judgeResult = await judgeBinary({
           input: [
             "## Style Evidence",
-            buildPreferenceMemoryEvidence([
-              {
-                title: "concise tone",
-                content: "Keep replies short and remove filler.",
-                draftText:
-                  "Hi there! Thanks so much for checking in. I just wanted to let you know that I got your note and will take a look soon.",
-                sentText: "Got it. I will review and get back to you.",
-              },
-              {
-                title: "low ceremony",
-                content: "Skip greetings and sign-offs for routine replies.",
-                draftText:
-                  "Hi! Thanks again for the follow-up. I appreciate the reminder and will send an update shortly. Best,",
-                sentText: "I will send an update shortly.",
-              },
-              {
-                title: "plain wording",
-                content:
-                  "Prefer plain declarative phrasing over warm filler in status updates.",
-                draftText:
-                  "I just wanted to let you know that I am still on track and hope to have more to share very soon.",
-                sentText: "Still on track. I will share more soon.",
-              },
-            ]),
+            buildPreferenceMemoryEvidence(conciseStyleEvidence),
           ].join("\n"),
           output: learnedWritingStyle,
           expected:
-            "A compact learned writing style summary that captures brevity, low ceremony, and plain wording without copying full email text.",
+            "A compact learned writing style summary with actionable drafting constraints and short before/after patterns. It should capture brevity, low ceremony, and plain wording without copying full email text.",
           criterion: {
             name: "Learned writing style summary quality",
             description:
-              "The summary should distill repeated evidence into an account-level style guide with concise patterns and short representative edits, not raw quotes or one-off instructions.",
+              "The summary should distill repeated evidence into an account-level style guide with concrete instructions that can change future drafts, such as sentence count, greeting/sign-off habits, filler removal, and concise before/after patterns.",
           },
           judgeUserAi: getEvalJudgeUserAi(),
         });
-        const pass = judgeResult.pass;
+        const pass = hasActionableShape && judgeResult.pass;
 
         evalReporter.record({
           testName: "learned style summary quality",
           model: model.label,
           pass,
-          expected: "prompt-ready learned writing style summary",
+          expected:
+            "actionable learned writing style with before/after patterns",
           actual: formatJudgeActual(learnedWritingStyle, judgeResult),
           criteria: [judgeResult],
         });
 
+        expect(hasActionableShape).toBe(true);
         expect(judgeResult.pass).toBe(true);
       },
       TIMEOUT,

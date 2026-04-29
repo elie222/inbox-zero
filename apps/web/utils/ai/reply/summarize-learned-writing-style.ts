@@ -41,16 +41,17 @@ Summarize the user's learned writing style from this preference evidence.`;
 function getSystemPrompt() {
   return `You maintain a compact learned writing-style summary for an email user based on accumulated preference memories from prior draft edits.
 
-Return a concise prompt-ready style guide that helps draft future emails.
+Return a concise prompt-ready style guide that helps draft future emails match the user's edits.
 
 Rules:
 - Summarize repeated style patterns, not one-off instructions.
+- Make the guidance operational. Prefer concrete constraints such as sentence count, whether to use greetings/sign-offs, how many questions or next steps to include, how much explanation to add, and how warm or plain the tone should be.
 - Focus on directness, verbosity, greeting habits, sign-off habits, paragraph structure, formatting, and how much filler the user removes.
 - Keep it under 1500 characters.
 - Include two sections exactly:
-  1. "Observed patterns:" with 2-5 bullets
-  2. "Representative edits:" with 2-3 short bullets
-- Representative edits should be short paraphrases of draft-to-send changes, not full email quotes.
+  1. "Actionable rules:" with 3-6 bullets
+  2. "Before/after patterns:" with 2-3 short bullets
+- Before/after patterns should be compact, sanitized examples that show how the user tends to compress drafts. Use short paraphrases, not full email quotes.
 - Do not mention names, email addresses, company names, phone numbers, dates, links, or other identifying details.
 - This learned summary is advisory and should complement, not replace, explicit user-written style settings.`;
 }
