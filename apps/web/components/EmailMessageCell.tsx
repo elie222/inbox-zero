@@ -13,10 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { useEmail } from "@/providers/EmailProvider";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useMemo } from "react";
-import { isDefined } from "@/utils/types";
 import { isGoogleProvider } from "@/utils/email/provider-types";
-import { getRuleLabel } from "@/utils/rule/consts";
-import { SystemType } from "@/generated/prisma/enums";
+import { getEmailMessageCellLabels } from "@/components/EmailMessageCellLabels";
 
 const MAX_VISIBLE_LABELS = 2;
 
@@ -47,48 +45,16 @@ export function EmailMessageCell({
   const { provider } = useAccount();
   const { showEmail } = useDisplayedEmail();
 
-  const labelsToDisplay = useMemo(() => {
-    const labels = labelIds
-      ?.map((idOrName) => {
-        // First try to find by ID
-        let label = userLabels[idOrName];
-
-        // If not found by ID, try to find by name
-        if (!label) {
-          const foundLabel = Object.values(userLabels).find(
-            (l) => l.name.toLowerCase() === idOrName.toLowerCase(),
-          );
-          if (foundLabel) {
-            label = foundLabel;
-          }
-        }
-
-        if (!label) return null;
-        return { id: label.id, name: label.name };
-      })
-      .filter(isDefined)
-      .filter((label) => {
-        if (filterReplyTrackerLabels) {
-          if (
-            label.name === getRuleLabel(SystemType.TO_REPLY) ||
-            label.name === getRuleLabel(SystemType.AWAITING_REPLY)
-          ) {
-            return false;
-          }
-        }
-
-        if (label.name.includes("/")) {
-          return false;
-        }
-        return true;
-      });
-
-    if (labelIds && !labelIds.includes("INBOX")) {
-      labels?.unshift({ id: "ARCHIVE", name: "Archived" });
-    }
-
-    return labels;
-  }, [labelIds, userLabels, filterReplyTrackerLabels]);
+  const labelsToDisplay = useMemo(
+    () =>
+      getEmailMessageCellLabels({
+        labelIds,
+        userLabels,
+        filterReplyTrackerLabels,
+        provider,
+      }),
+    [labelIds, userLabels, filterReplyTrackerLabels, provider],
+  );
 
   const showIcons = !hideViewEmailButton && isGoogleProvider(provider);
   const visibleLabels = labelsToDisplay?.slice(0, MAX_VISIBLE_LABELS) ?? [];
