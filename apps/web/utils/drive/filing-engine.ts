@@ -113,7 +113,11 @@ export async function processAttachment({
         status: existingFiling.status,
       });
 
-      if (existingFiling.status === "PREVIEW") {
+      if (existingFiling.status === "ERROR") {
+        log.info("Retrying attachment after previous filing error", {
+          filingId: existingFiling.id,
+        });
+      } else if (existingFiling.status === "PREVIEW") {
         return {
           success: false,
           skipped: true,
@@ -122,21 +126,21 @@ export async function processAttachment({
             "Document doesn't match filing preferences",
           filingId: existingFiling.id,
         };
+      } else {
+        return {
+          success: true,
+          filing: {
+            id: existingFiling.id,
+            filename: existingFiling.filename,
+            folderPath: existingFiling.folderPath,
+            fileId: existingFiling.fileId,
+            wasAsked: existingFiling.wasAsked,
+            confidence: existingFiling.confidence,
+            provider: existingFiling.driveConnection.provider,
+          },
+          filingId: existingFiling.id,
+        };
       }
-
-      return {
-        success: true,
-        filing: {
-          id: existingFiling.id,
-          filename: existingFiling.filename,
-          folderPath: existingFiling.folderPath,
-          fileId: existingFiling.fileId,
-          wasAsked: existingFiling.wasAsked,
-          confidence: existingFiling.confidence,
-          provider: existingFiling.driveConnection.provider,
-        },
-        filingId: existingFiling.id,
-      };
     }
 
     // Get all connected drives

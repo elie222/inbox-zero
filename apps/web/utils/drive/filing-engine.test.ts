@@ -188,6 +188,36 @@ describe("processAttachment", () => {
     expect(uploadFile).not.toHaveBeenCalled();
     expect(analyzeDocument).not.toHaveBeenCalled();
   });
+
+  it("retries an attachment that only has an error filing record", async () => {
+    prisma.documentFiling.findFirst.mockResolvedValue({
+      id: "filing-error",
+      filename: "invoice.pdf",
+      folderPath: "Invoices",
+      fileId: null,
+      status: "ERROR",
+      wasAsked: false,
+      confidence: null,
+      reasoning: "Previous attempt failed",
+      driveConnection: { provider: "google" },
+    } as any);
+    const { attachment, emailAccount, emailProvider, message, uploadFile } =
+      setupSuccessfulFiling({
+        confidence: 0.95,
+      });
+
+    const result = await processAttachment({
+      attachment,
+      emailAccount,
+      emailProvider,
+      logger,
+      message,
+    });
+
+    expect(result.success).toBe(true);
+    expect(uploadFile).toHaveBeenCalled();
+    expect(analyzeDocument).toHaveBeenCalled();
+  });
 });
 
 function setupSuccessfulFiling({
