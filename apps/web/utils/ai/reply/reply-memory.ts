@@ -6,7 +6,7 @@ import type { Prisma, ReplyMemory } from "@/generated/prisma/client";
 import {
   extractDomainFromEmail,
   extractEmailAddress,
-  PUBLIC_EMAIL_DOMAINS,
+  isPublicEmailDomain,
 } from "@/utils/email";
 import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
@@ -845,10 +845,6 @@ function getNormalizedReplyMemoryScopeValue({
     case ReplyMemoryScopeType.TOPIC:
       return memory.scopeValue.trim().toLowerCase();
   }
-}
-
-function isPublicEmailDomain(domain: string) {
-  return PUBLIC_EMAIL_DOMAINS.has(domain.trim().toLowerCase());
 }
 
 function formatPreferenceMemoryEvidence(

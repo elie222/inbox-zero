@@ -173,6 +173,10 @@ export const PUBLIC_EMAIL_DOMAINS = new Set([
   "mail.com",
 ]);
 
+export function isPublicEmailDomain(domain: string): boolean {
+  return PUBLIC_EMAIL_DOMAINS.has(domain.trim().toLowerCase());
+}
+
 // Returns the search term to use when checking for previous communications
 // For public email providers (gmail, yahoo, etc), returns the full email address
 // For company domains, returns just the domain to catch emails from different people at same company
@@ -180,7 +184,7 @@ export function getSearchTermForSender(email: string): string {
   const domain = extractDomainFromEmail(email);
   if (!domain) return email;
 
-  return PUBLIC_EMAIL_DOMAINS.has(domain.toLowerCase())
+  return isPublicEmailDomain(domain)
     ? extractEmailAddress(email) || email
     : domain;
 }

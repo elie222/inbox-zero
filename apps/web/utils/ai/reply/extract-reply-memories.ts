@@ -5,7 +5,7 @@ import {
 } from "@/generated/prisma/enums";
 import type { ReplyMemory } from "@/generated/prisma/client";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
-import { extractDomainFromEmail, PUBLIC_EMAIL_DOMAINS } from "@/utils/email";
+import { extractDomainFromEmail, isPublicEmailDomain } from "@/utils/email";
 import { createGenerateObject } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
 import { isDefined } from "@/utils/types";
@@ -241,13 +241,11 @@ function normalizeMemoryText(value: string) {
 }
 
 function getSystemPrompt({ allowDomainScope }: { allowDomainScope: boolean }) {
-  const domainScopePrompt = allowDomainScope
-    ? `- DOMAIN: applies to one sender domain
-`
+  const domainScopeLine = allowDomainScope
+    ? "- DOMAIN: applies to one sender domain\n"
     : "";
-  const domainRulePrompt = allowDomainScope
-    ? `- For DOMAIN scope, use the exact sender domain from the context.
-`
+  const domainRuleLine = allowDomainScope
+    ? "- For DOMAIN scope, use the exact sender domain from the context.\n"
     : "- DOMAIN scope is unavailable because the sender domain is a public email provider. Use SENDER for sender-specific rules, GLOBAL for broad account rules, or TOPIC for reusable topics.\n";
 
   return `You analyze how a user edits AI-generated email reply drafts and turn durable patterns into reusable drafting memories.
@@ -262,8 +260,7 @@ Memory kinds:
 Scopes:
 - GLOBAL: applies broadly to the user's replies
 - SENDER: applies to one sender email address
-${domainScopePrompt.trimEnd()}
-- TOPIC: applies to a reusable topic or subject area
+${domainScopeLine}- TOPIC: applies to a reusable topic or subject area
 
 Rules:
 - Return at most ${MAX_MEMORIES_PER_EDIT} memories.
@@ -279,8 +276,7 @@ Rules:
 - Use PREFERENCE for stable tone, length, formatting, or phrasing preferences.
 - For GLOBAL scope, leave scopeValue empty.
 - For SENDER scope, use the exact sender email from the context.
-${domainRulePrompt.trimEnd()}
-- For TOPIC scope, use a short stable topic phrase such as "pricing" or "refunds".
+${domainRuleLine}- For TOPIC scope, use a short stable topic phrase such as "pricing" or "refunds".
 - Always include a scopeValue field. Use an empty string for GLOBAL scope.
 - If an existing memory already captures the same durable idea, return its id in matchingExistingMemoryId and set newMemory to null.
 - If the edit teaches a new durable memory, set matchingExistingMemoryId to null and fill newMemory.
@@ -288,8 +284,4 @@ ${domainRulePrompt.trimEnd()}
 - Be conservative about matching existing memories. Only match when the existing memory clearly already covers the same durable idea.
 - Work language-agnostically. The memories may be written in any language.
 - If nothing durable was learned, return an empty array.`;
-}
-
-function isPublicEmailDomain(domain: string) {
-  return PUBLIC_EMAIL_DOMAINS.has(domain.trim().toLowerCase());
 }
