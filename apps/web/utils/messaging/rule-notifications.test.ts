@@ -1317,7 +1317,7 @@ describe("sendMessagingRuleNotification", () => {
       getNotificationContext({
         id: "cmabcdef1234567890123456",
         type: ActionType.DRAFT_MESSAGING_CHANNEL,
-        content: "Use the account_name tag and keep *exact* wording.",
+        content: String.raw`Use the C:\labels\account_name tag and keep *exact* wording.`,
         messagingChannel: {
           id: "channel-1",
           provider: MessagingProvider.TELEGRAM,
@@ -1371,6 +1371,7 @@ describe("sendMessagingRuleNotification", () => {
     expect(cardText).toContain("Sender\\_Name");
     expect(cardText).toContain("\\[billing]");
     expect(cardText).toContain("5 \\* 6");
+    expect(cardText).toContain(String.raw`C:\\labels\\account\_name`);
   });
 
   it("skips linked notifications when provider routing data is incomplete", async () => {

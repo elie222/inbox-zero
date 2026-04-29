@@ -1643,7 +1643,7 @@ function sanitizeTelegramNotificationContent(
 }
 
 function escapeTelegramCardMarkdown(text: string) {
-  return text.replace(/([_*`[])/g, "\\$1");
+  return text.replace(/([\\_*`[])/g, "\\$1");
 }
 
 function buildHandledNotificationCard({
