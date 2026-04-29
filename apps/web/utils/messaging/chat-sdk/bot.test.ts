@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   buildAffirmativeReactionMessage,
+  buildPendingEmailConfirmationCard,
   buildPendingEmailCardFallbackText,
   getPendingEmailHandledOpenText,
   getPendingEmailHandledStatus,
@@ -190,6 +191,64 @@ describe("buildPendingEmailCardFallbackText", () => {
     const input =
       "This draft is pending confirmation.\n\nI couldn't show the Send button right now. Ask me to prepare the draft again.";
     expect(buildPendingEmailCardFallbackText(input)).toBe(input);
+  });
+});
+
+describe("buildPendingEmailConfirmationCard", () => {
+  it("escapes Telegram Markdown control characters in pending email cards", () => {
+    const card = buildPendingEmailConfirmationCard({
+      chatMessageId: "chat-message-1",
+      part: {
+        type: "tool-sendEmail",
+        state: "output-available",
+        toolCallId: "tool-call-1",
+        output: {
+          confirmationState: "pending",
+          pendingAction: {
+            to: "first_last@outlook.com",
+            subject: "Plan [draft]",
+            messageHtml: "<p>Use foo_bar *soon* [ok]</p>",
+          },
+        },
+      },
+      provider: "telegram",
+    });
+
+    const textChildren = card.children
+      .filter((child) => child.type === "text")
+      .map((child) => child.content);
+
+    expect(textChildren[0]).toContain("first\\_last@outlook.com");
+    expect(textChildren[0]).toContain("Plan \\[draft]");
+    expect(textChildren[1]).toContain("foo\\_bar \\*soon\\* \\[ok]");
+  });
+
+  it("leaves non-Telegram pending email card text unchanged", () => {
+    const card = buildPendingEmailConfirmationCard({
+      chatMessageId: "chat-message-1",
+      part: {
+        type: "tool-sendEmail",
+        state: "output-available",
+        toolCallId: "tool-call-1",
+        output: {
+          confirmationState: "pending",
+          pendingAction: {
+            to: "first_last@outlook.com",
+            subject: "Plan [draft]",
+            messageHtml: "<p>Use foo_bar *soon* [ok]</p>",
+          },
+        },
+      },
+      provider: "slack",
+    });
+
+    const textChildren = card.children
+      .filter((child) => child.type === "text")
+      .map((child) => child.content);
+
+    expect(textChildren[0]).toContain("first_last@outlook.com");
+    expect(textChildren[0]).toContain("Plan [draft]");
+    expect(textChildren[1]).toContain("foo_bar *soon* [ok]");
   });
 });
 

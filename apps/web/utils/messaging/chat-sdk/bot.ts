@@ -978,6 +978,7 @@ async function handlePendingEmailConfirmAction({
         confirmationResult: confirmation.confirmationResult,
         event,
         logger,
+        messagingProvider: provider,
         part: pendingToolPart,
       }))
     ) {
@@ -1019,6 +1020,36 @@ async function postPendingEmailCard({
   logger: Logger;
 }): Promise<boolean> {
   const actionType = pendingActionTypeFromToolPartType(part.type);
+
+  try {
+    await thread.post(
+      buildPendingEmailConfirmationCard({
+        chatMessageId,
+        part,
+        provider,
+      }),
+    );
+    return true;
+  } catch (error) {
+    logger.warn("Failed to post messaging pending email confirmation card", {
+      error,
+      provider,
+      actionType,
+    });
+    return false;
+  }
+}
+
+export function buildPendingEmailConfirmationCard({
+  chatMessageId,
+  part,
+  provider,
+}: {
+  chatMessageId: string;
+  part: PendingEmailToolPart;
+  provider: SupportedPlatform;
+}) {
+  const actionType = pendingActionTypeFromToolPartType(part.type);
   const value = createPendingEmailActionToken({
     actionType,
     chatMessageId,
@@ -1038,9 +1069,13 @@ async function postPendingEmailCard({
   });
   const preview = buildPendingEmailPreview(part);
 
-  const cardChildren: CardChild[] = [CardText(summary)];
+  const cardChildren: CardChild[] = [
+    CardText(getMessagingCardText({ provider, text: summary })),
+  ];
   if (preview) {
-    cardChildren.push(CardText(preview));
+    cardChildren.push(
+      CardText(getMessagingCardText({ provider, text: preview })),
+    );
   }
   cardChildren.push(
     Actions([
@@ -1053,22 +1088,10 @@ async function postPendingEmailCard({
     ]),
   );
 
-  try {
-    await thread.post(
-      Card({
-        title: "Review draft",
-        children: cardChildren,
-      }),
-    );
-    return true;
-  } catch (error) {
-    logger.warn("Failed to post messaging pending email confirmation card", {
-      error,
-      provider,
-      actionType,
-    });
-    return false;
-  }
+  return Card({
+    title: "Review draft",
+    children: cardChildren,
+  });
 }
 
 async function replacePendingEmailConfirmationCard({
@@ -1077,6 +1100,7 @@ async function replacePendingEmailConfirmationCard({
   confirmationResult,
   event,
   logger,
+  messagingProvider,
   part,
 }: {
   accountEmail?: string | null;
@@ -1087,6 +1111,7 @@ async function replacePendingEmailConfirmationCard({
   } | null;
   event: ActionEvent;
   logger: Logger;
+  messagingProvider: SupportedPlatform;
   part: PendingEmailToolPart;
 }) {
   try {
@@ -1097,6 +1122,7 @@ async function replacePendingEmailConfirmationCard({
         accountEmail,
         accountProvider,
         confirmationResult,
+        messagingProvider,
         part,
       }),
     );
@@ -1254,6 +1280,7 @@ function buildHandledPendingEmailCard({
   accountEmail,
   accountProvider,
   confirmationResult,
+  messagingProvider,
   part,
 }: {
   accountEmail?: string | null;
@@ -1262,6 +1289,7 @@ function buildHandledPendingEmailCard({
     messageId?: string | null;
     threadId?: string | null;
   } | null;
+  messagingProvider: SupportedPlatform;
   part: PendingEmailToolPart;
 }) {
   const actionType = pendingActionTypeFromToolPartType(part.type);
@@ -1277,14 +1305,27 @@ function buildHandledPendingEmailCard({
     referenceSubject,
   });
   const preview = buildPendingEmailPreview(part);
-  const children: CardChild[] = [CardText(summary)];
+  const children: CardChild[] = [
+    CardText(
+      getMessagingCardText({ provider: messagingProvider, text: summary }),
+    ),
+  ];
 
   if (preview) {
-    children.push(CardText(preview));
+    children.push(
+      CardText(
+        getMessagingCardText({ provider: messagingProvider, text: preview }),
+      ),
+    );
   }
 
   children.push(
-    CardText(`Status: ${getPendingEmailHandledStatus(actionType)}`),
+    CardText(
+      getMessagingCardText({
+        provider: messagingProvider,
+        text: `Status: ${getPendingEmailHandledStatus(actionType)}`,
+      }),
+    ),
   );
 
   const openText = getPendingEmailHandledOpenText({
@@ -1293,7 +1334,11 @@ function buildHandledPendingEmailCard({
     confirmationResult,
   });
   if (openText) {
-    children.push(CardText(openText));
+    children.push(
+      CardText(
+        getMessagingCardText({ provider: messagingProvider, text: openText }),
+      ),
+    );
   }
 
   return Card({
@@ -1346,6 +1391,22 @@ export function getPendingEmailHandledOpenText({
   const mailbox = accountProvider === "microsoft" ? "Outlook" : "Gmail";
 
   return `Open in ${mailbox}: ${emailUrl}`;
+}
+
+function getMessagingCardText({
+  provider,
+  text,
+}: {
+  provider: SupportedPlatform;
+  text: string;
+}) {
+  if (provider !== "telegram") return text;
+
+  return escapeTelegramMarkdownText(text);
+}
+
+function escapeTelegramMarkdownText(text: string) {
+  return text.replace(/([\\_*`[])/g, "\\$1");
 }
 
 function getSlackTeamIdFromActionRaw(raw: unknown): string | null {
