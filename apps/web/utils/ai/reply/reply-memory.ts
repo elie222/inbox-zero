@@ -3,7 +3,11 @@ import {
   ReplyMemoryScopeType,
 } from "@/generated/prisma/enums";
 import type { Prisma, ReplyMemory } from "@/generated/prisma/client";
-import { extractDomainFromEmail, extractEmailAddress } from "@/utils/email";
+import {
+  extractDomainFromEmail,
+  extractEmailAddress,
+  PUBLIC_EMAIL_DOMAINS,
+} from "@/utils/email";
 import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { Logger } from "@/utils/logger";
@@ -179,7 +183,7 @@ export async function getReplyMemoriesForPrompt({
             scopeValue: normalizedSenderEmail,
           })
         : Promise.resolve([]),
-      senderDomain
+      senderDomain && !isPublicEmailDomain(senderDomain)
         ? fetchReplyMemoriesByScope({
             emailAccountId,
             kinds: PROMPTABLE_REPLY_MEMORY_KINDS,
@@ -461,6 +465,13 @@ async function processReplyMemoryDraftSendLog({
       senderDomain,
     });
 
+    if (
+      normalizedMemory.scopeType === ReplyMemoryScopeType.DOMAIN &&
+      isPublicEmailDomain(normalizedScopeValue)
+    ) {
+      continue;
+    }
+
     // Non-global memories need a concrete scope target to be retrievable.
     if (
       normalizedMemory.scopeType !== ReplyMemoryScopeType.GLOBAL &&
@@ -695,7 +706,7 @@ function getReplyMemoryScopes({
           },
         ]
       : []),
-    ...(senderDomain
+    ...(senderDomain && !isPublicEmailDomain(senderDomain)
       ? [
           {
             scopeType: ReplyMemoryScopeType.DOMAIN,
@@ -834,6 +845,10 @@ function getNormalizedReplyMemoryScopeValue({
     case ReplyMemoryScopeType.TOPIC:
       return memory.scopeValue.trim().toLowerCase();
   }
+}
+
+function isPublicEmailDomain(domain: string) {
+  return PUBLIC_EMAIL_DOMAINS.has(domain.trim().toLowerCase());
 }
 
 function formatPreferenceMemoryEvidence(

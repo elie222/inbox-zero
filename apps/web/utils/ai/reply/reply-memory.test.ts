@@ -223,6 +223,46 @@ describe("reply-memory", () => {
     );
   });
 
+  it("does not retrieve domain-scoped reply memories for public email domains", async () => {
+    vi.mocked(prisma.replyMemory.findMany)
+      .mockResolvedValueOnce([
+        createReplyMemory({
+          id: "sender-memory",
+          content: "Use the sender-specific instruction.",
+          kind: ReplyMemoryKind.FACT,
+          scopeType: ReplyMemoryScopeType.SENDER,
+          scopeValue: "customer@gmail.com",
+        }),
+      ] as any)
+      .mockResolvedValueOnce([
+        createReplyMemory({
+          id: "global-memory",
+          content: "Use the global instruction.",
+          kind: ReplyMemoryKind.PROCEDURE,
+          scopeType: ReplyMemoryScopeType.GLOBAL,
+        }),
+      ] as any);
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([] as any);
+
+    const result = await getReplyMemoriesForPrompt({
+      emailAccountId: "account-1",
+      senderEmail: "customer@gmail.com",
+      emailContent: "Can you help with my event?",
+      logger,
+    });
+
+    expect(result.selectedMemories).toHaveLength(2);
+    expect(prisma.replyMemory.findMany).toHaveBeenCalledTimes(2);
+    expect(prisma.replyMemory.findMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          scopeType: ReplyMemoryScopeType.DOMAIN,
+          scopeValue: "gmail.com",
+        }),
+      }),
+    );
+  });
+
   it("keeps sender memories ahead of newer global memories when retrieval is capped", async () => {
     vi.mocked(prisma.replyMemory.findMany)
       .mockResolvedValueOnce([
@@ -1228,6 +1268,62 @@ describe("reply-memory", () => {
       logger,
     });
 
+    expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
+  });
+
+  it("skips domain memories for public email domains", async () => {
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText: "Use the portal link for signup issues.",
+      }),
+    ] as any);
+    vi.mocked(prisma.replyMemory.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.replyMemory.upsert).mockResolvedValue(
+      createReplyMemory({}) as any,
+    );
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        memories: [
+          newReplyMemoryDecision({
+            content: "For signup issues, send the portal link.",
+            kind: ReplyMemoryKind.PROCEDURE,
+            scopeType: ReplyMemoryScopeType.DOMAIN,
+            scopeValue: "gmail.com",
+          }),
+        ],
+      },
+    });
+
+    const provider = {
+      getMessage: vi
+        .fn()
+        .mockResolvedValue(
+          createSourceMessage({ from: "Customer <customer@gmail.com>" }),
+        ),
+    };
+
+    await syncReplyMemoriesFromDraftSendLogs({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+    });
+
+    expect(prisma.replyMemory.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.not.arrayContaining([
+            {
+              scopeType: ReplyMemoryScopeType.DOMAIN,
+              scopeValue: "gmail.com",
+            },
+          ]),
+        }),
+      }),
+    );
     expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
   });
 
