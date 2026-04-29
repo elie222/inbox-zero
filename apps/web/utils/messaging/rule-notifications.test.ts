@@ -1312,6 +1312,67 @@ describe("sendMessagingRuleNotification", () => {
     });
   });
 
+  it("sends Telegram draft notification cards without raw markdown-sensitive text", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "cmabcdef1234567890123456",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Use the account_name tag and keep *exact* wording.",
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.TELEGRAM,
+          isConnected: true,
+          teamId: "telegram-chat-1",
+          providerUserId: "telegram-user-1",
+          accessToken: null,
+          channelId: null,
+          routes: [
+            {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              targetId: "telegram-chat-1",
+              targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+            },
+          ],
+        },
+      }) as never,
+    );
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "cmabcdef1234567890123456",
+      email: {
+        headers: {
+          from: "Sender_Name <sender@example.com>",
+          subject: "Question about [billing]_status",
+        },
+        snippet: "Can you review item_name before 5 * 6?",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockTelegramPostMessage).toHaveBeenCalledTimes(1);
+
+    const [, card] = mockTelegramPostMessage.mock.calls[0];
+    const cardText = (
+      card as { children?: Array<{ content?: string }> }
+    ).children
+      ?.map((child) => child.content ?? "")
+      .join("\n");
+
+    expect(card).not.toMatchObject({ title: expect.any(String) });
+    expect(JSON.stringify(card)).not.toContain("**");
+    expect(cardText).not.toContain("*They wrote:*");
+    expect(cardText).not.toContain("Sender_Name");
+    expect(cardText).toContain("Sender\\_Name");
+    expect(cardText).toContain("\\[billing]");
+    expect(cardText).toContain("5 \\* 6");
+  });
+
   it("skips linked notifications when provider routing data is incomplete", async () => {
     prisma.executedAction.findUnique.mockResolvedValue(
       getNotificationContext({
