@@ -2,7 +2,7 @@ import {
   MessagingProvider,
   MessagingRoutePurpose,
   type MessagingRouteTargetType,
-  ThreadTrackerType,
+  type ThreadTrackerType,
 } from "@/generated/prisma/enums";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import type { Logger } from "@/utils/logger";
@@ -16,6 +16,8 @@ import {
 } from "@/utils/messaging/routes";
 import { isMessagingChannelOperational } from "@/utils/messaging/channel-validity";
 import prisma from "@/utils/prisma";
+import { pluralize } from "@/utils/string";
+import { getFollowUpCopy, truncateSnippet } from "@/utils/follow-up/copy";
 
 export type FollowUpNotificationChannel = {
   id: string;
@@ -29,6 +31,16 @@ export type FollowUpNotificationChannel = {
     targetType: MessagingRouteTargetType;
     targetId: string;
   }>;
+};
+
+type FollowUpNotificationContent = {
+  subject: string;
+  counterpartyName: string;
+  counterpartyEmail: string;
+  trackerType: ThreadTrackerType;
+  daysSinceSent: number;
+  snippet?: string;
+  threadLink?: string;
 };
 
 export async function getFollowUpNotificationChannels(
@@ -56,19 +68,10 @@ export async function getFollowUpNotificationChannels(
 
 export async function sendFollowUpNotification({
   channels,
-  subject,
-  counterparty,
-  trackerType,
-  daysSinceSent,
-  threadLink,
   logger,
-}: {
+  ...content
+}: FollowUpNotificationContent & {
   channels: FollowUpNotificationChannel[];
-  subject: string;
-  counterparty: string;
-  trackerType: ThreadTrackerType;
-  daysSinceSent: number;
-  threadLink?: string;
   logger: Logger;
 }): Promise<void> {
   const deliveryPromises: Promise<void>[] = [];
@@ -97,11 +100,7 @@ export async function sendFollowUpNotification({
           sendFollowUpViaSlack({
             accessToken: channel.accessToken,
             route,
-            subject,
-            counterparty,
-            trackerType,
-            daysSinceSent,
-            threadLink,
+            content,
             logger,
           }),
         );
@@ -109,14 +108,10 @@ export async function sendFollowUpNotification({
       case MessagingProvider.TEAMS:
       case MessagingProvider.TELEGRAM:
         deliveryPromises.push(
-          sendFollowUpViaMessagingApp({
+          sendAutomationMessage({
             channel,
             route,
-            subject,
-            counterparty,
-            trackerType,
-            daysSinceSent,
-            threadLink,
+            text: formatFollowUpText(content),
             logger,
           }),
         );
@@ -139,20 +134,12 @@ export async function sendFollowUpNotification({
 async function sendFollowUpViaSlack({
   accessToken,
   route,
-  subject,
-  counterparty,
-  trackerType,
-  daysSinceSent,
-  threadLink,
+  content,
   logger,
 }: {
   accessToken: string;
   route: { targetId: string; targetType: MessagingRouteTargetType };
-  subject: string;
-  counterparty: string;
-  trackerType: ThreadTrackerType;
-  daysSinceSent: number;
-  threadLink?: string;
+  content: FollowUpNotificationContent;
   logger: Logger;
 }) {
   const destination = await resolveSlackRouteDestination({
@@ -168,77 +155,28 @@ async function sendFollowUpViaSlack({
   await sendFollowUpReminderToSlack({
     accessToken,
     channelId: destination,
-    subject,
-    counterparty,
-    trackerType,
-    daysSinceSent,
-    threadLink,
-  });
-}
-
-async function sendFollowUpViaMessagingApp({
-  channel,
-  route,
-  subject,
-  counterparty,
-  trackerType,
-  daysSinceSent,
-  threadLink,
-  logger,
-}: {
-  channel: {
-    provider: MessagingProvider;
-    accessToken: string | null;
-    teamId: string | null;
-    providerUserId: string | null;
-  };
-  route: { targetId: string; targetType: MessagingRouteTargetType };
-  subject: string;
-  counterparty: string;
-  trackerType: ThreadTrackerType;
-  daysSinceSent: number;
-  threadLink?: string;
-  logger: Logger;
-}) {
-  await sendAutomationMessage({
-    channel,
-    route,
-    text: formatFollowUpText({
-      subject,
-      counterparty,
-      trackerType,
-      daysSinceSent,
-      threadLink,
-    }),
-    logger,
+    ...content,
   });
 }
 
 function formatFollowUpText({
   subject,
-  counterparty,
+  counterpartyName,
+  counterpartyEmail,
   trackerType,
   daysSinceSent,
+  snippet,
   threadLink,
-}: {
-  subject: string;
-  counterparty: string;
-  trackerType: ThreadTrackerType;
-  daysSinceSent: number;
-  threadLink?: string;
-}): string {
-  const isAwaiting = trackerType === ThreadTrackerType.AWAITING;
-  const header = isAwaiting ? "Follow-up nudge" : "Reply needed";
-  const dayLabel = daysSinceSent === 1 ? "day" : "days";
-  const verb = isAwaiting ? "sent" : "received";
-  const preposition = isAwaiting ? "to" : "from";
+}: FollowUpNotificationContent): string {
+  const { directionLine, preposition, verb } = getFollowUpCopy(trackerType);
 
   const lines = [
-    header,
+    `Follow-up nudge — ${directionLine}`,
     subject,
-    `${preposition} ${counterparty} · ${verb} ${daysSinceSent} ${dayLabel} ago`,
+    `${preposition} ${counterpartyName} <${counterpartyEmail}> · ${verb} ${daysSinceSent} ${pluralize(daysSinceSent, "day")} ago`,
   ];
 
+  if (snippet) lines.push(`> ${truncateSnippet(snippet)}`);
   if (threadLink) lines.push(`Open: ${threadLink}`);
 
   return lines.join("\n");

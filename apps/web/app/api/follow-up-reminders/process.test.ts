@@ -688,7 +688,8 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(sendFollowUpNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         subject: "Pricing follow-up",
-        counterparty: "Alex Partner",
+        counterpartyName: "Alex Partner",
+        counterpartyEmail: "alex@partner.com",
         trackerType: ThreadTrackerType.AWAITING,
       }),
     );
@@ -744,7 +745,8 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(sendFollowUpNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         subject: "Customer reply needed",
-        counterparty: "Morgan Customer",
+        counterpartyName: "Morgan Customer",
+        counterpartyEmail: "morgan@customer.com",
         trackerType: ThreadTrackerType.NEEDS_REPLY,
       }),
     );
@@ -786,7 +788,8 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(sendFollowUpNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         subject: "Missing recipient header",
-        counterparty: "someone",
+        counterpartyName: "someone",
+        counterpartyEmail: "",
         trackerType: ThreadTrackerType.AWAITING,
       }),
     );

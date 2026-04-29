@@ -280,9 +280,11 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         accessToken: "emulator-token",
         channelId: notifChannelId,
         subject: "Contract terms",
-        counterparty: "jane@partner.com",
+        counterpartyName: "Jane Partner",
+        counterpartyEmail: "jane@partner.com",
         trackerType: ThreadTrackerType.AWAITING,
         daysSinceSent: 4,
+        snippet: "Wanted to check whether the redlines have landed.",
         threadLink: "https://mail.example.com/thread/awaiting",
       });
 
@@ -290,9 +292,11 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         accessToken: "emulator-token",
         channelId: notifChannelId,
         subject: "Onboarding questions",
-        counterparty: "alex@customer.com",
+        counterpartyName: "Alex Customer",
+        counterpartyEmail: "alex@customer.com",
         trackerType: ThreadTrackerType.NEEDS_REPLY,
         daysSinceSent: 1,
+        snippet: "Could you walk me through the SSO setup?",
         threadLink: "https://mail.example.com/thread/needs-reply",
       });
 
@@ -317,18 +321,28 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       const awaitingBlocks = JSON.stringify(awaitingCall![0].blocks);
       expect(awaitingBlocks).toContain("Follow-up nudge");
+      expect(awaitingBlocks).toContain("they haven't replied");
       expect(awaitingBlocks).toContain("sent 4 days ago");
-      // AWAITING: the user emailed jane — preposition must be "to", not "from"
-      expect(awaitingBlocks).toContain("to _jane@partner.com_");
-      expect(awaitingBlocks).not.toContain("from _jane@partner.com_");
+      expect(awaitingBlocks).toContain("Jane Partner");
+      expect(awaitingBlocks).toContain("jane@partner.com");
+      // AWAITING: the user emailed Jane — preposition must be "to", not "from"
+      expect(awaitingBlocks).toContain("to *Jane Partner*");
+      expect(awaitingBlocks).not.toContain("from *Jane Partner*");
+      expect(awaitingBlocks).toContain(
+        "Wanted to check whether the redlines have landed.",
+      );
       expect(awaitingBlocks).toContain(
         "https://mail.example.com/thread/awaiting",
       );
 
       const needsReplyBlocks = JSON.stringify(needsReplyCall![0].blocks);
-      expect(needsReplyBlocks).toContain("Reply needed");
+      expect(needsReplyBlocks).toContain("Follow-up nudge");
+      expect(needsReplyBlocks).toContain("you haven't replied");
       expect(needsReplyBlocks).toContain("received 1 day ago");
-      expect(needsReplyBlocks).toContain("from _alex@customer.com_");
+      expect(needsReplyBlocks).toContain("from *Alex Customer*");
+      expect(needsReplyBlocks).toContain(
+        "Could you walk me through the SSO setup?",
+      );
     });
 
     test("addReaction/removeReaction manages processing indicator", async () => {

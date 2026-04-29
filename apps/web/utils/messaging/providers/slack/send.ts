@@ -164,24 +164,14 @@ export type SlackFollowUpReminderParams = FollowUpReminderBlocksParams & {
 export async function sendFollowUpReminderToSlack({
   accessToken,
   channelId,
-  subject,
-  counterparty,
-  trackerType,
-  daysSinceSent,
-  threadLink,
+  ...blockParams
 }: SlackFollowUpReminderParams): Promise<void> {
   const client = createSlackClient(accessToken);
-  const blocks = buildFollowUpReminderBlocks({
-    subject,
-    counterparty,
-    trackerType,
-    daysSinceSent,
-    threadLink,
-  });
+  const blocks = buildFollowUpReminderBlocks(blockParams);
 
   await postMessageWithJoin(client, channelId, {
     blocks,
-    text: `Follow-up: ${subject}`,
+    text: `Follow-up: ${blockParams.subject}`,
   });
 }
 

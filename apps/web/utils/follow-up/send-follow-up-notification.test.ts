@@ -30,9 +30,11 @@ const logger = createScopedLogger("send-follow-up-test");
 
 const baseArgs = {
   subject: "Project update",
-  counterparty: "Alex",
+  counterpartyName: "Alex Tester",
+  counterpartyEmail: "alex@example.com",
   trackerType: ThreadTrackerType.AWAITING,
   daysSinceSent: 3,
+  snippet: "Following up on the items we discussed.",
   threadLink: "https://mail.example/thread",
   logger,
 };

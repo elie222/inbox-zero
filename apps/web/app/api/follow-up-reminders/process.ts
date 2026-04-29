@@ -33,7 +33,11 @@ import {
 } from "@/utils/reply-tracker/label-helpers";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { internalDateToDate } from "@/utils/date";
-import { extractNameFromEmail, isSameEmailAddress } from "@/utils/email";
+import {
+  extractEmailAddress,
+  extractNameFromEmail,
+  isSameEmailAddress,
+} from "@/utils/email";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { getEmailUrlForOptionalMessage } from "@/utils/url";
 import { env } from "@/env";
@@ -501,16 +505,20 @@ async function processFollowUpsForType({
         // the ledger to skip next run. Retrying would burn provider rate
         // limits (Gmail re-labeling, Slack API) if a channel is misconfigured.
         try {
-          await sendFollowUpNotification({
-            channels: notificationChannels,
-            subject: lastMessage.subject || "(no subject)",
-            counterparty: resolveFollowUpCounterparty({
+          const { name: counterpartyName, email: counterpartyEmail } =
+            resolveFollowUpCounterparty({
               trackerType,
               fromHeader: lastMessage.headers.from,
               toHeader: lastMessage.headers.to,
-            }),
+            });
+          await sendFollowUpNotification({
+            channels: notificationChannels,
+            subject: lastMessage.subject || "(no subject)",
+            counterpartyName,
+            counterpartyEmail,
             trackerType,
             daysSinceSent: Math.max(1, differenceInDays(now, messageDate)),
+            snippet: lastMessage.snippet || undefined,
             threadLink:
               getEmailUrlForOptionalMessage({
                 messageId: lastMessage.id,
@@ -692,10 +700,12 @@ function resolveFollowUpCounterparty({
   trackerType: ThreadTrackerType;
   fromHeader: string;
   toHeader: string;
-}) {
+}): { name: string; email: string } {
   // AWAITING: user emailed someone — return the recipient.
   // NEEDS_REPLY: someone emailed the user — return the sender.
   const header =
     trackerType === ThreadTrackerType.AWAITING ? toHeader : fromHeader;
-  return extractNameFromEmail(header || "") || header || "someone";
+  const email = extractEmailAddress(header || "") || header || "";
+  const name = extractNameFromEmail(header || "") || email || "someone";
+  return { name, email };
 }
