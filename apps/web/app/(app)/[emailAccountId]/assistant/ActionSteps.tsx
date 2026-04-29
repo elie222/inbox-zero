@@ -1066,14 +1066,12 @@ function MessagingChannelField({
       control={control}
       name={`actions.${index}.messagingChannelId`}
       render={({ field, fieldState }) => {
-        const isSelectedChannelAvailable =
+        const isSelectedChannelConnected =
           !field.value ||
           messagingChannels.some((channel) => channel.id === field.value);
-        const value = isSelectedChannelAvailable
-          ? (field.value ?? (includeEmailOption ? "email" : undefined))
-          : includeEmailOption
-            ? "email"
-            : undefined;
+        const value =
+          (isSelectedChannelConnected ? field.value : null) ??
+          (includeEmailOption ? "email" : undefined);
 
         return (
           <div className="space-y-2">
