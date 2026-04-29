@@ -160,8 +160,13 @@ export class OutlookProvider implements EmailProvider {
     };
   }
 
-  async countMessagesByLabel(label: EmailLabel): Promise<number | null> {
-    const filter = `categories/any(c:c eq '${escapeODataString(label.name)}')`;
+  async countMessagesByLabelName(labelName: string): Promise<number | null> {
+    const category = await getLabel({ client: this.client, name: labelName });
+    const categoryName = category?.displayName;
+    if (!categoryName) return null;
+
+    const escapedCategoryName = escapeODataString(categoryName);
+    const filter = `categories/any(c:c eq '${escapedCategoryName}')`;
     const count = await withOutlookRetry(
       () =>
         this.client

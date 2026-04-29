@@ -12,7 +12,7 @@ import {
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import type { EmailProvider } from "@/utils/email/types";
-import { flattenOutlookFolders } from "@/utils/outlook/folders";
+import type { OutlookFolder } from "@/utils/outlook/folders";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
@@ -451,8 +451,6 @@ export const getMailboxCountTool = ({
     execute: async ({ type, name }) => {
       trackToolCall({ tool: "get_mailbox_count", email, logger });
 
-      const isOutlook = isMicrosoftProvider(provider);
-
       try {
         const emailProvider = await createEmailProvider({
           emailAccountId,
@@ -461,7 +459,7 @@ export const getMailboxCountTool = ({
         });
 
         if (type === "folder") {
-          if (!isOutlook) {
+          if (!isMicrosoftProvider(provider)) {
             return {
               error:
                 "Folder counts are only supported for Outlook accounts. Use type=label for Gmail labels.",
@@ -470,11 +468,12 @@ export const getMailboxCountTool = ({
 
           const folders = await emailProvider.getFolders();
           const flattenedFolders = flattenOutlookFolders(folders);
-          const target = name.trim().toLowerCase();
-          const matches = flattenedFolders.filter(
-            (folder) =>
-              folder.name.trim().toLowerCase() === target ||
-              folder.path.trim().toLowerCase() === target,
+          const matches = flattenedFolders.filter((folder) =>
+            [folder.name, folder.path].some(
+              (candidate) =>
+                normalizeMailboxCountName(candidate) ===
+                normalizeMailboxCountName(name),
+            ),
           );
 
           if (matches.length === 0) {
@@ -511,18 +510,22 @@ export const getMailboxCountTool = ({
 
         const label = await emailProvider.getLabelByName(name);
         if (!label) {
-          const labels = await emailProvider.getLabels();
+          const labels = await emailProvider.getLabels().catch(() => []);
           return {
-            error: `${isOutlook ? "Outlook category" : "Label"} "${name}" was not found.`,
-            availableLabels: labels.map((l) => l.name).slice(0, 50),
+            error: `${isMicrosoftProvider(provider) ? "Outlook category" : "Label"} "${name}" was not found.`,
+            availableLabels: labels.map((label) => label.name).slice(0, 50),
           };
         }
 
-        const count = await emailProvider.countMessagesByLabel(label);
+        const count =
+          (await emailProvider.countMessagesByLabelName(label.name)) ??
+          label.messagesTotal ??
+          label.threadsTotal ??
+          null;
 
         if (count === null) {
           return {
-            error: `Could not count ${isOutlook ? "Outlook category" : "label"} "${label.name}".`,
+            error: `Could not count ${isMicrosoftProvider(provider) ? "Outlook category" : "label"} "${label.name}".`,
           };
         }
 
@@ -1487,6 +1490,35 @@ function createLabelLookupMap(labels: Array<{ id: string; name: string }>) {
     ["inbox", "Inbox"],
     ["unread", "Unread"],
   ] as const);
+}
+
+function flattenOutlookFolders(
+  folders: OutlookFolder[],
+  parentPath?: string,
+): Array<{
+  name: string;
+  path: string;
+  totalItemCount?: number;
+  unreadItemCount?: number;
+}> {
+  return folders.flatMap((folder) => {
+    const path = parentPath
+      ? `${parentPath} / ${folder.displayName}`
+      : folder.displayName;
+    return [
+      {
+        name: folder.displayName,
+        path,
+        totalItemCount: folder.totalItemCount,
+        unreadItemCount: folder.unreadItemCount,
+      },
+      ...flattenOutlookFolders(folder.childFolders, path),
+    ];
+  });
+}
+
+function normalizeMailboxCountName(name: string) {
+  return name.trim().toLowerCase();
 }
 
 async function runThreadActionsInParallel({

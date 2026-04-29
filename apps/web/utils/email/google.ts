@@ -208,8 +208,9 @@ export class GmailProvider implements EmailProvider {
     };
   }
 
-  async countMessagesByLabel(label: EmailLabel): Promise<number | null> {
-    return label.messagesTotal ?? null;
+  async countMessagesByLabelName(labelName: string): Promise<number | null> {
+    const label = await this.getLabelByName(labelName);
+    return label?.messagesTotal ?? null;
   }
 
   async getMessage(messageId: string): Promise<ParsedMessage> {

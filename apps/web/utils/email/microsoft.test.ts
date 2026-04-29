@@ -604,8 +604,13 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
   });
 });
 
-describe("OutlookProvider.countMessagesByLabel", () => {
+describe("OutlookProvider.countMessagesByLabelName", () => {
   it("counts messages with the matching Outlook category", async () => {
+    vi.spyOn(outlookLabelModule, "getLabel").mockResolvedValue({
+      id: "category-marketing",
+      displayName: "Marketing",
+    } as Awaited<ReturnType<typeof outlookLabelModule.getLabel>>);
+
     const client = createMockOutlookClient([], {
       responsesByApiPath: {
         "/me/messages/$count": 7,
@@ -613,11 +618,7 @@ describe("OutlookProvider.countMessagesByLabel", () => {
     });
     const provider = new OutlookProvider(client);
 
-    const count = await provider.countMessagesByLabel({
-      id: "category-marketing",
-      name: "Marketing",
-      type: "user",
-    });
+    const count = await provider.countMessagesByLabelName("Marketing");
 
     expect(count).toBe(7);
     expect(client.getRequestLog()).toContainEqual({

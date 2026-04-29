@@ -581,16 +581,15 @@ describe("getMailboxCountTool", () => {
   });
 
   it("returns an Outlook category count from the provider count API", async () => {
-    const label = {
-      id: "category-marketing",
-      name: "Marketing",
-      type: "user",
-    };
-    const countMessagesByLabel = vi.fn().mockResolvedValue(5);
+    const countMessagesByLabelName = vi.fn().mockResolvedValue(5);
     vi.mocked(createEmailProvider).mockResolvedValue({
       name: "microsoft",
-      getLabelByName: vi.fn().mockResolvedValue(label),
-      countMessagesByLabel,
+      getLabelByName: vi.fn().mockResolvedValue({
+        id: "category-marketing",
+        name: "Marketing",
+        type: "user",
+      }),
+      countMessagesByLabelName,
     } as any);
 
     const toolInstance = getMailboxCountTool({
@@ -605,7 +604,7 @@ describe("getMailboxCountTool", () => {
       name: "Marketing",
     });
 
-    expect(countMessagesByLabel).toHaveBeenCalledWith(label);
+    expect(countMessagesByLabelName).toHaveBeenCalledWith("Marketing");
     expect(result).toEqual({
       type: "label",
       name: "Marketing",
