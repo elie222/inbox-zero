@@ -14,6 +14,7 @@ import {
 } from "@/utils/drive/filing-notifications";
 import { sendFilingMessagingNotifications } from "@/utils/drive/filing-messaging-notifications";
 import { extractEmailAddress } from "@/utils/email";
+import { isCalendarInviteAttachment } from "@/utils/parse/calender-event";
 
 // ============================================================================
 // Types
@@ -417,18 +418,4 @@ function resolveFolderTarget(
     folderPath: analysis.folderPath || "Inbox Zero Filed",
     needsToCreateFolder: true,
   };
-}
-
-function isCalendarInviteAttachment(attachment: Attachment): boolean {
-  const filename = attachment.filename.toLowerCase();
-  const mimeType = attachment.mimeType.toLowerCase();
-  const contentType = attachment.headers["content-type"].toLowerCase();
-
-  return (
-    filename.endsWith(".ics") ||
-    mimeType === "text/calendar" ||
-    mimeType === "application/ics" ||
-    contentType.startsWith("text/calendar") ||
-    contentType.startsWith("application/ics")
-  );
 }

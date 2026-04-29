@@ -1,4 +1,4 @@
-import type { ParsedMessage } from "@/utils/types";
+import type { Attachment, ParsedMessage } from "@/utils/types";
 
 interface CalendarEventInfo {
   endDate?: Date | null;
@@ -280,23 +280,23 @@ export function getCalendarEventStatus(
 /** High-confidence calendar detection for preset rule matching (bypasses AI). */
 export function isCalendarInvite(email: ParsedMessage): boolean {
   return (
-    hasIcsAttachment(email) ||
-    hasCalendarMimeType(email) ||
+    email.attachments?.some(isCalendarInviteAttachment) === true ||
     hasICalendarContent(email)
   );
 }
 
-function hasCalendarMimeType(email: ParsedMessage): boolean {
-  if (!email.attachments || email.attachments.length === 0) {
-    return false;
-  }
+export function isCalendarInviteAttachment(attachment: Attachment): boolean {
+  const filename = attachment.filename?.toLowerCase() ?? "";
+  if (filename.endsWith(".ics")) return true;
 
-  return email.attachments.some(
-    (attachment) =>
-      attachment.mimeType?.toLowerCase() === "text/calendar" ||
-      attachment.headers?.["content-type"]
-        ?.toLowerCase()
-        .includes("text/calendar"),
+  const mimeType = attachment.mimeType?.toLowerCase() ?? "";
+  if (mimeType === "text/calendar" || mimeType === "application/ics")
+    return true;
+
+  const contentType = attachment.headers?.["content-type"]?.toLowerCase() ?? "";
+  return (
+    contentType.startsWith("text/calendar") ||
+    contentType.startsWith("application/ics")
   );
 }
 

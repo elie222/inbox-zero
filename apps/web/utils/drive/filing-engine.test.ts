@@ -202,18 +202,11 @@ function setupSuccessfulFiling({
   confidence: number;
   filingConfirmationSendEmail?: boolean;
 }) {
-  const attachment = {
+  const attachment = createAttachment({
     attachmentId: "attachment-1",
     filename: "invoice.pdf",
-    headers: {
-      "content-description": "",
-      "content-id": "",
-      "content-transfer-encoding": "base64",
-      "content-type": "application/pdf",
-    },
     mimeType: "application/pdf",
-    size: 128,
-  };
+  });
   const message = getMockParsedMessage({
     attachments: [attachment],
     headers: {
