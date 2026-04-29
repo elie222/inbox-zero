@@ -384,15 +384,11 @@ describe("getOutlookRootFolders", () => {
             id: "folder-id",
             displayName: "TestFolder",
             childFolderCount: 1,
-            totalItemCount: 12,
-            unreadItemCount: 3,
             childFolders: [
               {
                 id: "child-id",
                 displayName: "ChildFolder",
                 childFolderCount: 0,
-                totalItemCount: 4,
-                unreadItemCount: 1,
                 childFolders: [],
               },
             ],
@@ -408,15 +404,11 @@ describe("getOutlookRootFolders", () => {
         id: "folder-id",
         displayName: "TestFolder",
         childFolderCount: 1,
-        totalItemCount: 12,
-        unreadItemCount: 3,
         childFolders: [
           {
             id: "child-id",
             displayName: "ChildFolder",
             childFolderCount: 0,
-            totalItemCount: 4,
-            unreadItemCount: 1,
             childFolders: [],
           },
         ],
@@ -445,8 +437,6 @@ describe("getOutlookRootFolders", () => {
         id: "",
         displayName: "",
         childFolderCount: 0,
-        totalItemCount: 0,
-        unreadItemCount: 0,
         childFolders: [],
       },
     ]);

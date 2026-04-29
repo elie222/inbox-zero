@@ -604,30 +604,6 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
   });
 });
 
-describe("OutlookProvider.countMessagesByLabelName", () => {
-  it("counts messages with the matching Outlook category", async () => {
-    vi.spyOn(outlookLabelModule, "getLabel").mockResolvedValue({
-      id: "category-marketing",
-      displayName: "Marketing",
-    } as Awaited<ReturnType<typeof outlookLabelModule.getLabel>>);
-
-    const client = createMockOutlookClient([], {
-      responsesByApiPath: {
-        "/me/messages/$count": 7,
-      },
-    });
-    const provider = new OutlookProvider(client);
-
-    const count = await provider.countMessagesByLabelName("Marketing");
-
-    expect(count).toBe(7);
-    expect(client.getRequestLog()).toContainEqual({
-      apiPath: "/me/messages/$count",
-      filter: "categories/any(c:c eq 'Marketing')",
-    });
-  });
-});
-
 function createMockOutlookClient(
   messages: Message[],
   options?: {
@@ -635,7 +611,7 @@ function createMockOutlookClient(
     folderIdCache?: Record<string, string> | null;
     responsesByApiPath?: Record<
       string,
-      { value: Message[]; "@odata.nextLink"?: string } | number
+      { value: Message[]; "@odata.nextLink"?: string }
     >;
   },
 ) {
@@ -655,11 +631,10 @@ function createMockOutlookClient(
           select: () => request,
           top: () => request,
           orderby: () => request,
-          header: () => request,
           get: async () => {
             requestLog.push({ apiPath, filter: filterValue });
             return (
-              options?.responsesByApiPath?.[apiPath] ?? { value: messages }
+              options?.responsesByApiPath?.[apiPath] || { value: messages }
             );
           },
         };

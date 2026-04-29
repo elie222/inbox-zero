@@ -132,7 +132,6 @@ export const createMockEmailProvider = (
   getAccessToken: vi.fn().mockReturnValue("mock-token"),
   checkIfReplySent: vi.fn().mockResolvedValue(false),
   countReceivedMessages: vi.fn().mockResolvedValue(0),
-  countMessagesByLabelName: vi.fn().mockResolvedValue(null),
   getAttachment: vi.fn().mockResolvedValue({ data: "", size: 0 }),
   getThreadsWithQuery: vi
     .fn()

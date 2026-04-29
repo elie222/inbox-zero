@@ -25,7 +25,6 @@ import { updateAssistantSettingsTool } from "./tools/settings/update-assistant-s
 import {
   forwardEmailTool,
   getAccountOverviewTool,
-  getMailboxCountTool,
   getSenderCategorizationStatusTool,
   getSenderCategoryOverviewTool,
   manageInboxTool,
@@ -245,7 +244,6 @@ export async function aiProcessAssistantChat({
     getSenderCategorizationStatus:
       getSenderCategorizationStatusTool(toolOptions),
     manageSenderCategory: manageSenderCategoryTool(toolOptions),
-    getMailboxCount: getMailboxCountTool(toolOptions),
     searchInbox: searchInboxTool(toolOptions),
     readEmail: readEmailTool(toolOptions),
     manageInbox: manageInboxTool(toolOptions),

@@ -7,7 +7,6 @@ import {
   forwardEmailTool,
   getSenderCategorizationStatusTool,
   getSenderCategoryOverviewTool,
-  getMailboxCountTool,
   manageInboxTool,
   manageSenderCategoryTool,
   replyEmailTool,
@@ -534,82 +533,6 @@ describe("chat inbox tools", () => {
       successCount: 0,
       requestedCount: 1,
       failedThreadIds: ["thread-1"],
-    });
-  });
-});
-
-describe("getMailboxCountTool", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("returns an Outlook folder count from folder metadata", async () => {
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      name: "microsoft",
-      getFolders: vi.fn().mockResolvedValue([
-        {
-          id: "folder-marketing",
-          displayName: "Marketing",
-          totalItemCount: 7,
-          unreadItemCount: 2,
-          childFolderCount: 0,
-          childFolders: [],
-        },
-      ]),
-    } as any);
-
-    const toolInstance = getMailboxCountTool({
-      email: TEST_EMAIL,
-      emailAccountId: "email-account-1",
-      provider: "microsoft",
-      logger,
-    });
-
-    const result = await (toolInstance.execute as any)({
-      type: "folder",
-      name: "Marketing",
-    });
-
-    expect(result).toEqual({
-      type: "folder",
-      name: "Marketing",
-      path: "Marketing",
-      count: 7,
-      unreadCount: 2,
-      provider: "microsoft",
-    });
-  });
-
-  it("returns an Outlook category count from the provider count API", async () => {
-    const countMessagesByLabelName = vi.fn().mockResolvedValue(5);
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      name: "microsoft",
-      getLabelByName: vi.fn().mockResolvedValue({
-        id: "category-marketing",
-        name: "Marketing",
-        type: "user",
-      }),
-      countMessagesByLabelName,
-    } as any);
-
-    const toolInstance = getMailboxCountTool({
-      email: TEST_EMAIL,
-      emailAccountId: "email-account-1",
-      provider: "microsoft",
-      logger,
-    });
-
-    const result = await (toolInstance.execute as any)({
-      type: "label",
-      name: "Marketing",
-    });
-
-    expect(countMessagesByLabelName).toHaveBeenCalledWith("Marketing");
-    expect(result).toEqual({
-      type: "label",
-      name: "Marketing",
-      count: 5,
-      provider: "microsoft",
     });
   });
 });

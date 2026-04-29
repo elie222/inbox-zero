@@ -19,8 +19,6 @@ export interface EmailLabel {
   id: string;
   labelListVisibility?: string;
   messageListVisibility?: string;
-  messagesTotal?: number;
-  messagesUnread?: number;
   name: string;
   threadsTotal?: number;
   type: string;
@@ -69,7 +67,6 @@ export interface EmailProvider {
     emailAccountId: string,
   ): Promise<void>;
   checkIfReplySent(senderEmail: string): Promise<boolean>;
-  countMessagesByLabelName(labelName: string): Promise<number | null>;
   countReceivedMessages(
     senderEmail: string,
     threshold: number,
