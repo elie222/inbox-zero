@@ -1654,8 +1654,8 @@ function buildHandledNotificationCard({
 }
 
 function buildDraftPreview(
-  content?: string | null,
-  { format = "slack" }: { format?: NotificationContentFormat } = {},
+  content: string | null | undefined,
+  { format }: { format: NotificationContentFormat },
 ) {
   if (!content?.trim()) return "No draft preview available.";
 
@@ -1722,11 +1722,7 @@ function buildEmailPreview(
     textPlain?: string;
     textHtml?: string;
   },
-  {
-    format = "slack",
-  }: {
-    format?: NotificationContentFormat;
-  } = {},
+  { format }: { format: NotificationContentFormat },
 ) {
   const rawPreview = emailToContent(email, { maxLength: 0 });
   const preview = formatNotificationText(
