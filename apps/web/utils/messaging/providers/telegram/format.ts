@@ -1,3 +1,7 @@
+export function escapeTelegramMarkdown(text: string): string {
+  return text.replace(/([\\_*`[])/g, "\\$1");
+}
+
 export function markdownToTelegramText(text: string): string {
   const normalized = text
     .replace(/\r\n/g, "\n")

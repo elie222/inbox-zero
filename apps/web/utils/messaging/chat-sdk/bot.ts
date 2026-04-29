@@ -45,7 +45,10 @@ import { consumeMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code-c
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 import { buildPendingEmailPreview } from "@/utils/messaging/pending-email-preview";
 import { markdownToSlackMrkdwn } from "@/utils/messaging/providers/slack/format";
-import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
+import {
+  escapeTelegramMarkdown,
+  markdownToTelegramText,
+} from "@/utils/messaging/providers/telegram/format";
 import {
   expandPromptCommand,
   getHelpText,
@@ -1402,11 +1405,7 @@ function getMessagingCardText({
 }) {
   if (provider !== "telegram") return text;
 
-  return escapeTelegramMarkdownText(text);
-}
-
-function escapeTelegramMarkdownText(text: string) {
-  return text.replace(/([\\_*`[])/g, "\\$1");
+  return escapeTelegramMarkdown(text);
 }
 
 function getSlackTeamIdFromActionRaw(raw: unknown): string | null {

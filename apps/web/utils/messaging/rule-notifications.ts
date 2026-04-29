@@ -60,7 +60,10 @@ import {
   isOperationalSlackChannel,
 } from "@/utils/messaging/channel-validity";
 import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters";
-import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
+import {
+  escapeTelegramMarkdown,
+  markdownToTelegramText,
+} from "@/utils/messaging/providers/telegram/format";
 import { getMessagingRoute } from "@/utils/messaging/routes";
 import { getEmailUrlForOptionalMessage } from "@/utils/url";
 
@@ -1632,18 +1635,12 @@ function sanitizeTelegramNotificationContent(
   content: NotificationContent,
 ): NotificationContent {
   return {
-    title: escapeTelegramCardMarkdown(content.title),
-    summary: escapeTelegramCardMarkdown(
-      markdownToTelegramText(content.summary),
-    ),
+    title: escapeTelegramMarkdown(content.title),
+    summary: escapeTelegramMarkdown(markdownToTelegramText(content.summary)),
     details: content.details?.map((detail) =>
-      escapeTelegramCardMarkdown(markdownToTelegramText(detail)),
+      escapeTelegramMarkdown(markdownToTelegramText(detail)),
     ),
   };
-}
-
-function escapeTelegramCardMarkdown(text: string) {
-  return text.replace(/([\\_*`[])/g, "\\$1");
 }
 
 function buildHandledNotificationCard({
