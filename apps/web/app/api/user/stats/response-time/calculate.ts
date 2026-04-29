@@ -1,6 +1,7 @@
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import type { ResponseTime } from "@/generated/prisma/client";
+import { sleep } from "@/utils/sleep";
 
 export type ResponseTimeEntry = Pick<
   ResponseTime,
@@ -56,6 +57,7 @@ export async function calculateResponseTimes(
   sentMessages: { id: string; threadId: string }[],
   emailProvider: EmailProvider,
   logger: Logger,
+  options: { providerRequestDelayMs?: number } = {},
 ): Promise<{
   responseTimes: ResponseTimeEntry[];
   processedThreadsCount: number;
@@ -63,12 +65,18 @@ export async function calculateResponseTimes(
   const responseTimes: ResponseTimeEntry[] = [];
   const processedThreads = new Set<string>();
   const sentMessageIds = new Set(sentMessages.map((m) => m.id));
+  let providerRequests = 0;
 
   for (const sentMsg of sentMessages) {
     if (!sentMsg.threadId || processedThreads.has(sentMsg.threadId)) continue;
     processedThreads.add(sentMsg.threadId);
 
     try {
+      if (providerRequests > 0 && options.providerRequestDelayMs) {
+        await sleep(options.providerRequestDelayMs);
+      }
+      providerRequests++;
+
       const threadMessages = await emailProvider.getThreadMessages(
         sentMsg.threadId,
       );

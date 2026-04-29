@@ -6,8 +6,12 @@ import {
 } from "./calculate";
 import { getMockMessage as getMockMessageHelper } from "../../../../../__tests__/helpers";
 import { createTestLogger } from "@/__tests__/helpers";
+import { sleep } from "@/utils/sleep";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/utils/sleep", () => ({
+  sleep: vi.fn().mockResolvedValue(undefined),
+}));
 
 const logger = createTestLogger();
 
@@ -16,6 +20,7 @@ describe("Response Time Stats", () => {
     let mockEmailProvider: any;
 
     beforeEach(() => {
+      vi.mocked(sleep).mockClear();
       mockEmailProvider = {
         getThreadMessages: vi.fn(),
         isSentMessage: (message: any) =>
@@ -150,6 +155,39 @@ describe("Response Time Stats", () => {
       expect(result.responseTimes).toHaveLength(1);
       expect(result.responseTimes[0].responseTimeMins).toBe(30); // 30 mins
       // T2 is ignored because lastReceivedMessage is nullified after T1
+    });
+
+    it("paces provider requests when a delay is configured", async () => {
+      const t0 = new Date("2024-01-01T10:00:00Z");
+      const t1 = new Date("2024-01-01T10:30:00Z");
+
+      mockEmailProvider.getThreadMessages.mockImplementation(
+        async (threadId: string) => [
+          {
+            ...getMockMessageHelper({ id: `received-${threadId}`, threadId }),
+            internalDate: t0.toISOString(),
+          },
+          {
+            ...getMockMessageHelper({ id: `sent-${threadId}`, threadId }),
+            internalDate: t1.toISOString(),
+            labelIds: ["SENT"],
+          },
+        ],
+      );
+
+      await calculateResponseTimes(
+        [
+          { id: "sent-t1", threadId: "t1" },
+          { id: "sent-t2", threadId: "t2" },
+          { id: "sent-t3", threadId: "t3" },
+        ],
+        mockEmailProvider,
+        logger,
+        { providerRequestDelayMs: 250 },
+      );
+
+      expect(sleep).toHaveBeenCalledTimes(2);
+      expect(sleep).toHaveBeenCalledWith(250);
     });
 
     it("should fallback to id check if SENT label not found", async () => {

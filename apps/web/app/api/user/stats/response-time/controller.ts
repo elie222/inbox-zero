@@ -3,6 +3,7 @@ import { format } from "date-fns/format";
 import { startOfWeek } from "date-fns/startOfWeek";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { sleep } from "@/utils/sleep";
 import {
   calculateResponseTimes,
   calculateSummaryStats,
@@ -16,6 +17,7 @@ import type { ResponseTimeQuery } from "@/app/api/user/stats/response-time/valid
 
 const DEFAULT_MAX_SENT_MESSAGES = 50;
 const SENT_MESSAGES_PAGE_SIZE = 50;
+const ADMIN_PROVIDER_REQUEST_DELAY_MS = 250;
 
 type SentMessage = SentMessagePage["messages"][number];
 
@@ -41,16 +43,19 @@ export async function getResponseTimeStats({
   emailProvider,
   logger,
   maxSentMessages = DEFAULT_MAX_SENT_MESSAGES,
+  providerRequestDelayMs = 0,
 }: ResponseTimeQuery & {
   emailAccountId: string;
   emailProvider: EmailProvider;
   logger: Logger;
   maxSentMessages?: number;
+  providerRequestDelayMs?: number;
 }): Promise<ResponseTimeResponse> {
   // 1. Fetch sent message IDs (lightweight - just id and threadId)
   const sentMessages = await getSentMessagesForResponseTimes({
     emailProvider,
     maxSentMessages,
+    providerRequestDelayMs,
     ...(fromDate ? { after: new Date(fromDate) } : {}),
     ...(toDate ? { before: new Date(toDate) } : {}),
   });
@@ -93,6 +98,7 @@ export async function getResponseTimeStats({
       uncachedMessages,
       emailProvider,
       logger,
+      { providerRequestDelayMs },
     );
 
     // 5. Store new calculations to DB
@@ -151,18 +157,26 @@ async function getSentMessagesForResponseTimes({
   maxSentMessages,
   after,
   before,
+  providerRequestDelayMs,
 }: {
   emailProvider: EmailProvider;
   maxSentMessages: number;
   after?: Date;
   before?: Date;
+  providerRequestDelayMs: number;
 }): Promise<SentMessage[]> {
   const sentMessages: SentMessage[] = [];
   let pageToken: string | undefined;
+  let providerRequests = 0;
 
   do {
     const remaining = maxSentMessages - sentMessages.length;
     if (remaining <= 0) break;
+
+    if (providerRequests > 0 && providerRequestDelayMs) {
+      await sleep(providerRequestDelayMs);
+    }
+    providerRequests++;
 
     const page = await emailProvider.getSentMessageIds({
       maxResults: Math.min(remaining, SENT_MESSAGES_PAGE_SIZE),
@@ -227,4 +241,8 @@ function getEmptyStats(maxSentMessages: number): ResponseTimeResponse {
     emailsAnalyzed: 0,
     maxEmailsCap: maxSentMessages,
   };
+}
+
+export function getAdminResponseTimeProviderDelayMs() {
+  return ADMIN_PROVIDER_REQUEST_DELAY_MS;
 }

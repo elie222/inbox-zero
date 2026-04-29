@@ -24,7 +24,10 @@ import {
 } from "@/utils/actions/admin.validation";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import { cleanupAIDraftsForAccount } from "@/utils/ai/draft-cleanup";
-import { getResponseTimeStats } from "@/app/api/user/stats/response-time/controller";
+import {
+  getAdminResponseTimeProviderDelayMs,
+  getResponseTimeStats,
+} from "@/app/api/user/stats/response-time/controller";
 
 export const adminProcessHistoryAction = adminActionClient
   .metadata({ name: "adminProcessHistory" })
@@ -459,6 +462,7 @@ export const adminLoadResponseTimeDataAction = adminActionClient
         emailProvider,
         logger,
         maxSentMessages,
+        providerRequestDelayMs: getAdminResponseTimeProviderDelayMs(),
       });
 
       logger.info("Finished admin response time data load", {
