@@ -34,6 +34,8 @@ export default function NewLanding() {
   return (
     <BasicLayout>
       <Hero
+        badge="Demo: visible landing tweak"
+        badgeVariant="purple"
         title={
           <WordReveal
             spaceBetween="w-2 md:w-3"
