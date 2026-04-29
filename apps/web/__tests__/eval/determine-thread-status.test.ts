@@ -105,6 +105,33 @@ describe.runIf(shouldRunEval)("Eval: determine thread status", () => {
       },
       TIMEOUT,
     );
+
+    test(
+      "treats another participant answer as handled",
+      async () => {
+        const result = await aiDetermineThreadStatus({
+          emailAccount,
+          userSentLastEmail: false,
+          threadMessages: getThirdPartyAnsweredQuestionThread(
+            emailAccount.email,
+          ),
+        });
+
+        const actual = result.status;
+        const pass = actual === SystemType.ACTIONED;
+
+        evalReporter.record({
+          testName: "third party answered question",
+          model: model.label,
+          pass,
+          actual,
+          expected: SystemType.ACTIONED,
+        });
+
+        expect(actual).toBe(SystemType.ACTIONED);
+      },
+      TIMEOUT,
+    );
   });
 
   afterAll(() => {
@@ -147,6 +174,33 @@ function getSchedulingConfirmationWithOlderOpenQuestionThread(
       subject: "Re: Project review",
       content:
         "Let's aim for 1 pm Pacific today. I also tweaked the prototype over the weekend.",
+    }),
+  ];
+}
+
+function getThirdPartyAnsweredQuestionThread(userEmail: string) {
+  return [
+    getEmail({
+      from: "customer@example.com",
+      to: `${userEmail}, support@example.com`,
+      subject: "Access request",
+      content:
+        "Can someone confirm whether the staging credentials still work for tomorrow's review?",
+    }),
+    getEmail({
+      from: "support@example.com",
+      to: "customer@example.com",
+      cc: userEmail,
+      subject: "Re: Access request",
+      content:
+        "I checked the staging credentials and confirmed they work. I also sent the updated link for tomorrow's review.",
+    }),
+    getEmail({
+      from: "customer@example.com",
+      to: "support@example.com",
+      cc: userEmail,
+      subject: "Re: Access request",
+      content: "Thanks, that answers my question.",
     }),
   ];
 }
