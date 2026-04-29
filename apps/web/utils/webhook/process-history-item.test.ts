@@ -7,6 +7,7 @@ import {
 } from "@/__tests__/mocks/email-provider.mock";
 import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
+import { processAttachment } from "@/utils/drive/filing-engine";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 
@@ -43,8 +44,6 @@ vi.mock("@/utils/drive/filing-engine", () => ({
   getFilableAttachments: vi.fn((message) => message.attachments ?? []),
   processAttachment: vi.fn().mockResolvedValue({ success: true }),
 }));
-
-import { processAttachment } from "@/utils/drive/filing-engine";
 
 const logger = createTestLogger();
 
