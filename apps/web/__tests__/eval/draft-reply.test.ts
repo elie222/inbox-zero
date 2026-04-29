@@ -749,7 +749,7 @@ function hasExactUrl(text: string, expectedUrl: string): boolean {
 }
 
 function extractUrls(text: string): string[] {
-  return (text.match(/https?:\/\/[^\s<>"']+/g) ?? []).map((url) =>
+  return (text.match(/https?:\/\/[^\s<>"'()[\]]+/g) ?? []).map((url) =>
     url.replace(/[),.?!;:]+$/g, ""),
   );
 }
