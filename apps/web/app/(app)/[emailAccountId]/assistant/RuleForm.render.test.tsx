@@ -566,6 +566,12 @@ function createMessagingChannel({
     targetLabel: null,
     isDm: false,
   };
+  const savedRuleNotificationDestination = {
+    enabled: true,
+    targetId: `${id}-route`,
+    targetLabel: teamName,
+    isDm: false,
+  };
 
   return {
     id,
@@ -576,7 +582,7 @@ function createMessagingChannel({
     canSendAsDm: false,
     actions: [],
     destinations: {
-      ruleNotifications: disabledDestination,
+      ruleNotifications: savedRuleNotificationDestination,
       scheduledCheckIns: disabledDestination,
       meetingBriefs: disabledDestination,
       documentFilings: disabledDestination,
