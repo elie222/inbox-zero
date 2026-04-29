@@ -286,6 +286,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         daysSinceSent: 4,
         snippet: "Wanted to check whether the redlines have landed.",
         threadLink: "https://mail.example.com/thread/awaiting",
+        trackerId: "tracker-awaiting",
       });
 
       await sendFollowUpReminderToSlack({
@@ -298,6 +299,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         daysSinceSent: 1,
         snippet: "Could you walk me through the SSO setup?",
         threadLink: "https://mail.example.com/thread/needs-reply",
+        trackerId: "tracker-needs-reply",
       });
 
       const history = await emulatorClient.conversations.history({
@@ -343,6 +345,109 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(needsReplyBlocks).toContain(
         "Could you walk me through the SSO setup?",
       );
+    });
+
+    test("Mark done click resolves the tracker and confirms via ephemeral", async () => {
+      const { sendFollowUpReminderToSlack } = await import(
+        "@/utils/messaging/providers/slack/send"
+      );
+      const { ThreadTrackerType } = await import("@/generated/prisma/enums");
+      const { FOLLOW_UP_MARK_DONE_ACTION_ID, handleFollowUpReminderAction } =
+        await import("@/utils/follow-up/follow-up-actions");
+      const postMessageSpy = vi.spyOn(emulatorClient.chat, "postMessage");
+
+      const trackerId = "tracker-mark-done";
+
+      await sendFollowUpReminderToSlack({
+        accessToken: "emulator-token",
+        channelId: notifChannelId,
+        subject: "Pricing question",
+        counterpartyName: "Sam Prospect",
+        counterpartyEmail: "sam@prospect.com",
+        trackerType: ThreadTrackerType.AWAITING,
+        daysSinceSent: 5,
+        snippet: "Following up on the quote we sent.",
+        threadLink: "https://mail.example.com/thread/mark-done",
+        trackerId,
+      });
+
+      // Read the rendered Mark done button payload from what was actually
+      // posted to Slack — this catches drift between renderer and handler.
+      const postedCall = postMessageSpy.mock.calls.find((c) =>
+        c[0].text?.includes("Pricing question"),
+      );
+      expect(postedCall).toBeDefined();
+      const buttons = ((postedCall![0].blocks as unknown[]) ?? []).flatMap(
+        (block) => {
+          if (
+            block &&
+            typeof block === "object" &&
+            "type" in block &&
+            (block as { type: string }).type === "actions" &&
+            "elements" in block &&
+            Array.isArray((block as { elements: unknown[] }).elements)
+          ) {
+            return (block as { elements: unknown[] }).elements;
+          }
+          return [];
+        },
+      );
+      const markDoneButton = buttons.find(
+        (b: any) => b?.action_id === FOLLOW_UP_MARK_DONE_ACTION_ID,
+      ) as { action_id: string; value: string; text: { text: string } };
+      expect(markDoneButton).toBeDefined();
+      expect(markDoneButton.text.text).toBe("Mark done");
+      expect(markDoneButton.value).toBe(trackerId);
+
+      // Mock the prisma lookups the handler relies on.
+      prisma.threadTracker.findUnique.mockResolvedValue({
+        id: trackerId,
+        resolved: false,
+        emailAccountId: "account-1",
+      } as never);
+      prisma.messagingChannel.findFirst.mockResolvedValue({
+        id: "channel-1",
+      } as never);
+      prisma.threadTracker.update.mockResolvedValue({} as never);
+
+      const postEphemeral = vi.fn().mockResolvedValue(undefined);
+      const post = vi.fn().mockResolvedValue(undefined);
+
+      await handleFollowUpReminderAction({
+        event: {
+          actionId: markDoneButton.action_id,
+          value: markDoneButton.value,
+          user: { userId: "U_USER" },
+          raw: { team: { id: "T_TEAM" } },
+          threadId: postedCall![0].channel ?? notifChannelId,
+          messageId: "1700000000.000100",
+          adapter: { name: "slack" },
+          thread: { postEphemeral, post },
+        } as any,
+        logger,
+      });
+
+      // Auth lookup scoped to tracker's account, slack, the click team and user.
+      expect(prisma.messagingChannel.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            emailAccountId: "account-1",
+            teamId: "T_TEAM",
+            providerUserId: "U_USER",
+            isConnected: true,
+          }),
+        }),
+      );
+
+      // Tracker flipped to resolved.
+      expect(prisma.threadTracker.update).toHaveBeenCalledWith({
+        where: { id: trackerId },
+        data: { resolved: true },
+      });
+
+      // User saw an ephemeral confirmation.
+      expect(postEphemeral).toHaveBeenCalled();
+      expect(postEphemeral.mock.calls[0]?.[1]).toMatch(/done/i);
     });
 
     test("addReaction/removeReaction manages processing indicator", async () => {
