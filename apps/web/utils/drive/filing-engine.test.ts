@@ -6,7 +6,7 @@ import {
   getMockParsedMessage,
 } from "@/__tests__/mocks/email-provider.mock";
 import { createScopedLogger } from "@/utils/logger";
-import { processAttachment } from "./filing-engine";
+import { getFilableAttachments, processAttachment } from "./filing-engine";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -146,6 +146,55 @@ describe("processAttachment", () => {
   });
 });
 
+describe("getFilableAttachments", () => {
+  it("excludes calendar invite attachments", () => {
+    const documentAttachment = createAttachment({
+      attachmentId: "attachment-1",
+      filename: "itinerary.pdf",
+      mimeType: "application/pdf",
+    });
+    const calendarInvite = createAttachment({
+      attachmentId: "attachment-2",
+      filename: "invite.ics",
+      mimeType: "text/calendar",
+    });
+    const calendarInviteWithGenericMimeType = createAttachment({
+      attachmentId: "attachment-3",
+      filename: "meeting.ics",
+      mimeType: "application/octet-stream",
+    });
+
+    const message = getMockParsedMessage({
+      attachments: [
+        documentAttachment,
+        calendarInvite,
+        calendarInviteWithGenericMimeType,
+      ],
+    });
+
+    expect(getFilableAttachments(message)).toEqual([documentAttachment]);
+  });
+
+  it("excludes calendar attachments even when the filename is generic", () => {
+    const documentAttachment = createAttachment({
+      attachmentId: "attachment-1",
+      filename: "agenda.txt",
+      mimeType: "text/plain",
+    });
+    const calendarInvite = createAttachment({
+      attachmentId: "attachment-2",
+      filename: "attachment.dat",
+      mimeType: "text/calendar",
+    });
+
+    const message = getMockParsedMessage({
+      attachments: [documentAttachment, calendarInvite],
+    });
+
+    expect(getFilableAttachments(message)).toEqual([documentAttachment]);
+  });
+});
+
 function setupSuccessfulFiling({
   confidence,
   filingConfirmationSendEmail = true,
@@ -205,5 +254,28 @@ function setupSuccessfulFiling({
     emailProvider,
     message,
     uploadFile,
+  };
+}
+
+function createAttachment({
+  attachmentId,
+  filename,
+  mimeType,
+}: {
+  attachmentId: string;
+  filename: string;
+  mimeType: string;
+}) {
+  return {
+    attachmentId,
+    filename,
+    headers: {
+      "content-description": "",
+      "content-id": "",
+      "content-transfer-encoding": "base64",
+      "content-type": mimeType,
+    },
+    mimeType,
+    size: 128,
   };
 }

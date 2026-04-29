@@ -337,10 +337,13 @@ export async function processAttachment({
  * Get all filable attachments from a message.
  * All attachment types are supported - text-extractable files (PDF, DOCX, TXT)
  * get full content analysis, while other types (images, spreadsheets, etc.)
- * are filed based on filename and email metadata.
+ * are filed based on filename and email metadata. Calendar invite artifacts are
+ * excluded because they describe the email event rather than a user document.
  */
 export function getFilableAttachments(message: ParsedMessage): Attachment[] {
-  return message.attachments || [];
+  return (message.attachments || []).filter(
+    (attachment) => !isCalendarInviteAttachment(attachment),
+  );
 }
 
 // ============================================================================
@@ -414,4 +417,18 @@ function resolveFolderTarget(
     folderPath: analysis.folderPath || "Inbox Zero Filed",
     needsToCreateFolder: true,
   };
+}
+
+function isCalendarInviteAttachment(attachment: Attachment): boolean {
+  const filename = attachment.filename.toLowerCase();
+  const mimeType = attachment.mimeType.toLowerCase();
+  const contentType = attachment.headers["content-type"].toLowerCase();
+
+  return (
+    filename.endsWith(".ics") ||
+    mimeType === "text/calendar" ||
+    mimeType === "application/ics" ||
+    contentType.startsWith("text/calendar") ||
+    contentType.startsWith("application/ics")
+  );
 }
