@@ -49,7 +49,7 @@ export default function NewLanding() {
             ]}
           />
         }
-        subtitle={`${BRAND_NAME} organizes your inbox and calendar, drafts replies in your voice, and helps you reach inbox zero fast. Never miss an important email again.`}
+        subtitle={`${BRAND_NAME} organizes your inbox and calendar, drafts replies in your voice, and helps you reach inbox zero fast. Never miss an important email again — same inbox, less stress.`}
       >
         <HeroContent />
       </Hero>
