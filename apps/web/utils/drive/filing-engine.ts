@@ -84,6 +84,61 @@ export async function processAttachment({
       return { success: false, error: "Filing not enabled" };
     }
 
+    const existingFiling = await prisma.documentFiling.findFirst({
+      where: {
+        emailAccountId: emailAccount.id,
+        messageId: message.id,
+        attachmentId: attachment.attachmentId,
+      },
+      select: {
+        id: true,
+        filename: true,
+        folderPath: true,
+        fileId: true,
+        status: true,
+        wasAsked: true,
+        confidence: true,
+        reasoning: true,
+        driveConnection: {
+          select: {
+            provider: true,
+          },
+        },
+      },
+    });
+
+    if (existingFiling) {
+      log.info("Attachment already has a filing record", {
+        filingId: existingFiling.id,
+        status: existingFiling.status,
+      });
+
+      if (existingFiling.status === "PREVIEW") {
+        return {
+          success: false,
+          skipped: true,
+          skipReason:
+            existingFiling.reasoning ||
+            "Document doesn't match filing preferences",
+          filingId: existingFiling.id,
+        };
+      }
+
+      return {
+        success: true,
+        filing: {
+          id: existingFiling.id,
+          filename: existingFiling.filename,
+          folderPath: existingFiling.folderPath,
+          fileId: existingFiling.fileId,
+          wasAsked: existingFiling.wasAsked,
+          confidence: existingFiling.confidence,
+          provider: existingFiling.driveConnection.provider,
+        },
+        filingId: existingFiling.id,
+      };
+    }
+
     // Get all connected drives
     const driveConnections = await prisma.driveConnection.findMany({
       where: {

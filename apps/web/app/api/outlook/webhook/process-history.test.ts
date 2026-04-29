@@ -280,7 +280,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     );
   });
 
-  it("learns from Outlook label removal when rule already exists", async () => {
+  it("learns from Outlook label removal and continues shared processing when rule already exists", async () => {
     const inboxMessage = getMockParsedMessage({
       id: "message-123",
       threadId: "thread-123",
@@ -307,7 +307,12 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
       emailAccountId: "account-123",
       logger,
     });
-    expect(processHistoryItem).not.toHaveBeenCalled();
+    expect(processHistoryItem).toHaveBeenCalledWith(
+      { messageId: "message-123", message: inboxMessage },
+      expect.objectContaining({
+        provider: mockProvider,
+      }),
+    );
   });
 
   describe("error handling", () => {

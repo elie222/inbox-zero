@@ -161,8 +161,7 @@ export async function processHistoryForUser({
               extra: { operation: "learn-outlook-label-removal" },
             }),
           );
-          logger.info("Skipping. Rule already exists.");
-          return NextResponse.json({ ok: true });
+          logger.info("Skipping rules. Rule already exists.");
         }
 
         // Pass pre-fetched message to avoid refetching

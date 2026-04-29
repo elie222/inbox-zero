@@ -93,8 +93,7 @@ export async function processHistoryItem(
       : null;
 
     if (hasExistingRule) {
-      logger.info("Skipping. Rule already exists.");
-      return;
+      logger.info("Skipping rules. Rule already exists.");
     }
 
     const isForFilebot = isFilebotEmail({
@@ -192,7 +191,7 @@ export async function processHistoryItem(
 
     logger.info("Pre-rules check", { hasAutomationRules, hasAiAccess });
 
-    if (hasAutomationRules && hasAiAccess) {
+    if (!hasExistingRule && hasAutomationRules && hasAiAccess) {
       logger.info("Running rules...");
 
       await runRules({

@@ -8,6 +8,7 @@ import {
 import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import prisma from "@/utils/prisma";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({
@@ -38,6 +39,12 @@ vi.mock("@/utils/ai/choose-rule/run-rules", () => ({
 vi.mock("@/utils/reply-tracker/handle-outbound", () => ({
   handleOutboundMessage: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("@/utils/drive/filing-engine", () => ({
+  getFilableAttachments: vi.fn((message) => message.attachments ?? []),
+  processAttachment: vi.fn().mockResolvedValue({ success: true }),
+}));
+
+import { processAttachment } from "@/utils/drive/filing-engine";
 
 const logger = createTestLogger();
 
@@ -346,6 +353,53 @@ describe("Provider Edge Cases", () => {
 
       expect(provider.getMessage).not.toHaveBeenCalled();
       expect(handleOutboundMessage).toHaveBeenCalled();
+    });
+
+    it("still processes attachments when rules were already run for the message", async () => {
+      vi.mocked(prisma.executedRule.findFirst).mockResolvedValue({
+        id: "executed-rule-1",
+      } as any);
+
+      const attachment = {
+        attachmentId: "attachment-1",
+        filename: "invoice.pdf",
+        mimeType: "application/pdf",
+        size: 123,
+      };
+      const message = getMockParsedMessage({
+        id: "msg-123",
+        threadId: "thread-123",
+        labelIds: ["INBOX"],
+        attachments: [attachment],
+      });
+      const provider = createMockEmailProvider({
+        getMessage: vi.fn().mockResolvedValue(message),
+        isSentMessage: vi.fn().mockReturnValue(false),
+      });
+      const emailAccount = {
+        ...getDefaultEmailAccount(),
+        filingEnabled: true,
+        filingPrompt: "File invoices",
+      };
+
+      await processHistoryItem(
+        { messageId: "msg-123", threadId: "thread-123" },
+        {
+          ...baseOptions,
+          provider,
+          hasAiAccess: true,
+          hasAutomationRules: true,
+          emailAccount,
+        },
+      );
+
+      expect(processAttachment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          attachment,
+          emailProvider: provider,
+          message,
+        }),
+      );
     });
   });
 });
