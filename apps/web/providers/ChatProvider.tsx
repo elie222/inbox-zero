@@ -66,6 +66,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const inlineActionsRef = useRef(inlineActions);
   const pendingInlineActionsRef = useRef<InlineEmailAction[] | null>(null);
   const previousChatIdRef = useRef(chatId);
+  const previousEmailAccountIdRef = useRef<string | null>(null);
 
   const { data } = useChatMessages(chatId);
   const persistedMessageIds = useMemo(
@@ -147,6 +148,26 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     pendingInlineActionsRef.current = null;
     setInlineActions([]);
   }, [chatId]);
+
+  useEffect(() => {
+    if (!emailAccountId) return;
+
+    if (previousEmailAccountIdRef.current === null) {
+      previousEmailAccountIdRef.current = emailAccountId;
+      return;
+    }
+
+    if (previousEmailAccountIdRef.current === emailAccountId) return;
+
+    previousEmailAccountIdRef.current = emailAccountId;
+    pendingInlineActionsRef.current = null;
+    setChatId(null);
+    chat.setMessages([]);
+    setInput("");
+    setContext(null);
+    setAttachments([]);
+    setInlineActions([]);
+  }, [chat.setMessages, emailAccountId, setChatId]);
 
   const sendMessageParts = useCallback(
     async (
