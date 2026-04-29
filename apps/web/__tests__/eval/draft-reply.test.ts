@@ -83,7 +83,8 @@ Lisa & the MindfulPath Team`,
                 "The draft should not suggest specific meeting slots, time ranges, or the user's booking link when the incoming email already provides a booking link and does not ask for manual scheduling.",
             },
           });
-          const pass = judgeResult.pass && !result.reply.includes(bookingLink);
+          const pass =
+            judgeResult.pass && !hasExactUrl(result.reply, bookingLink);
 
           evalReporter.record({
             testName,
@@ -155,7 +156,8 @@ Solutions Engineer, DataBridge`,
                 "The draft should avoid proposing specific meeting slots or adding the user's booking link when the email already contains a booking link and no calendar availability was provided.",
             },
           });
-          const pass = judgeResult.pass && !result.reply.includes(bookingLink);
+          const pass =
+            judgeResult.pass && !hasExactUrl(result.reply, bookingLink);
 
           evalReporter.record({
             testName,
@@ -294,7 +296,7 @@ Jordan`,
             meetingContext: null,
           });
 
-          const pass = result.reply.includes(bookingLink);
+          const pass = hasExactUrl(result.reply, bookingLink);
           const testName = "support preference includes booking link";
 
           evalReporter.record({
@@ -362,7 +364,8 @@ Carlos`,
                 "For a non-scheduling question, the draft should not drift into proposing calendar times, meeting slots, or the user's booking link.",
             },
           });
-          const pass = judgeResult.pass && !result.reply.includes(bookingLink);
+          const pass =
+            judgeResult.pass && !hasExactUrl(result.reply, bookingLink);
 
           evalReporter.record({
             testName,
@@ -435,7 +438,8 @@ Nina`,
                 "For product capability questions that can be answered from the provided knowledge, the draft should answer directly and avoid adding a call CTA or the user's booking link.",
             },
           });
-          const pass = judgeResult.pass && !result.reply.includes(bookingLink);
+          const pass =
+            judgeResult.pass && !hasExactUrl(result.reply, bookingLink);
 
           evalReporter.record({
             testName,
@@ -734,4 +738,29 @@ async function maybeJudgeGroundedReply({
     criteria: getKnowledgeBaseReplyCriteria(),
     judgeUserAi: getEvalJudgeUserAi(),
   });
+}
+
+function hasExactUrl(text: string, expectedUrl: string): boolean {
+  const normalizedExpected = normalizeUrlForComparison(expectedUrl);
+
+  return extractUrls(text).some(
+    (url) => normalizeUrlForComparison(url) === normalizedExpected,
+  );
+}
+
+function extractUrls(text: string): string[] {
+  return (text.match(/https?:\/\/[^\s<>"']+/g) ?? []).map((url) =>
+    url.replace(/[),.?!;:]+$/g, ""),
+  );
+}
+
+function normalizeUrlForComparison(value: string): string {
+  try {
+    const url = new URL(value);
+    const path = url.pathname.replace(/\/$/, "");
+
+    return `${url.protocol}//${url.host}${path}${url.search}`;
+  } catch {
+    return value;
+  }
 }
