@@ -60,6 +60,7 @@ import {
   isOperationalSlackChannel,
 } from "@/utils/messaging/channel-validity";
 import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters";
+import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
 import { getMessagingRoute } from "@/utils/messaging/routes";
 import { getEmailUrlForOptionalMessage } from "@/utils/url";
 
@@ -1613,7 +1614,9 @@ function buildTelegramNotificationCard({
   content: NotificationContent;
   openLink?: NotificationOpenLink | null;
 }): CardElement {
-  const children = buildNotificationCardBody(content);
+  const children = buildNotificationCardBody(
+    sanitizeTelegramNotificationContent(content),
+  );
   children.push(
     Actions([
       Button({
@@ -1627,9 +1630,26 @@ function buildTelegramNotificationCard({
   );
 
   return Card({
-    title: content.title,
     children,
   });
+}
+
+function sanitizeTelegramNotificationContent(
+  content: NotificationContent,
+): NotificationContent {
+  return {
+    title: escapeTelegramCardMarkdown(content.title),
+    summary: escapeTelegramCardMarkdown(
+      markdownToTelegramText(content.summary),
+    ),
+    details: content.details?.map((detail) =>
+      escapeTelegramCardMarkdown(markdownToTelegramText(detail)),
+    ),
+  };
+}
+
+function escapeTelegramCardMarkdown(text: string) {
+  return text.replace(/([\\_*`[])/g, "\\$1");
 }
 
 function buildHandledNotificationCard({
