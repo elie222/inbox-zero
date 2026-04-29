@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ChangeEvent, useState } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -184,7 +184,7 @@ export const AdminUserControls = () => {
         step={50}
         registerProps={{
           value: responseTimeMaxSentMessages,
-          onChange: (event) =>
+          onChange: (event: ChangeEvent<HTMLInputElement>) =>
             setResponseTimeMaxSentMessages(Number(event.target.value)),
         }}
       />
