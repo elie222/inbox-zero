@@ -842,6 +842,162 @@ Thanks!`,
     );
 
     test(
+      "learns and applies writing style from repeated draft edits end to end",
+      async () => {
+        const styleLearningExamples = [
+          {
+            incomingEmailContent:
+              "Just checking whether you received my note and whether I need to send anything else.",
+            draftText:
+              "Hi there! Thanks so much for checking in. I wanted to let you know that I received your note and there is nothing else you need to send right now. Best,",
+            sentText: "Got it. Nothing else is needed.",
+            senderEmail: "sender-one@example.com",
+          },
+          {
+            incomingEmailContent:
+              "Can you confirm whether the form update went through?",
+            draftText:
+              "Hi! Thanks for following up. I checked and can confirm that your form update went through successfully, so you should be all set now.",
+            sentText: "Your form update went through. You are all set.",
+            senderEmail: "sender-two@example.com",
+          },
+          {
+            incomingEmailContent:
+              "Following up here because I wanted to see if there is any update on this.",
+            draftText:
+              "Thanks so much for the follow-up. I appreciate your patience and wanted to let you know that I am still reviewing this and will get back to you soon.",
+            sentText: "Still reviewing this. I will get back to you soon.",
+            senderEmail: "sender-three@example.com",
+          },
+        ];
+
+        const extractedPreferenceEvidence = (
+          await Promise.all(
+            styleLearningExamples.map(async (example) => {
+              const decisions = await aiExtractReplyMemoriesFromDraftEdit({
+                emailAccount: replyMemoryEmailAccount,
+                incomingEmailContent: example.incomingEmailContent,
+                draftText: example.draftText,
+                sentText: example.sentText,
+                senderEmail: example.senderEmail,
+                existingMemories: [],
+              });
+              const preferenceMemory = getCreatedMemoriesFromDecisions(
+                decisions,
+              ).find((memory) => memory.kind === ReplyMemoryKind.PREFERENCE);
+
+              if (!preferenceMemory) return null;
+
+              return {
+                content: preferenceMemory.content,
+                draftText: example.draftText,
+                sentText: example.sentText,
+              };
+            }),
+          )
+        ).filter(isDefined);
+
+        const learnedWritingStyle = extractedPreferenceEvidence.length
+          ? await aiSummarizeLearnedWritingStyle({
+              preferenceMemoryEvidence: buildPreferenceMemoryEvidence(
+                extractedPreferenceEvidence,
+              ),
+              emailAccount: replyMemoryEmailAccount,
+            })
+          : "";
+
+        const messages = [
+          {
+            ...getEmail({
+              from: "sender-four@example.com",
+              to: emailAccount.email,
+              subject: "Quick confirmation",
+              content:
+                "Hi, just checking that you saw my note about the deck. No action needed yet, just wanted to confirm it came through.",
+            }),
+            date: new Date("2026-03-17T13:00:00Z"),
+          },
+        ];
+
+        const withoutLearnedStyle = await aiDraftReplyWithConfidence({
+          messages,
+          emailAccount,
+          knowledgeBaseContent: null,
+          replyMemoryContent: null,
+          emailHistorySummary: null,
+          emailHistoryContext: null,
+          calendarAvailability: null,
+          writingStyle: null,
+          learnedWritingStyle: null,
+          mcpContext: null,
+          meetingContext: null,
+        });
+
+        const withLearnedStyle = await aiDraftReplyWithConfidence({
+          messages,
+          emailAccount,
+          knowledgeBaseContent: null,
+          replyMemoryContent: null,
+          emailHistorySummary: null,
+          emailHistoryContext: null,
+          calendarAvailability: null,
+          writingStyle: null,
+          learnedWritingStyle,
+          mcpContext: null,
+          meetingContext: null,
+        });
+
+        const judgeResult = await judgeBinary({
+          input: [
+            "## Extracted Preference Evidence",
+            buildPreferenceMemoryEvidence(extractedPreferenceEvidence),
+            "",
+            "## Learned Writing Style",
+            learnedWritingStyle,
+            "",
+            buildLearnedWritingStyleComparisonInput({
+              emailContent: messages[0].content,
+              withoutLearnedStyleReply: withoutLearnedStyle.reply,
+              learnedWritingStyle,
+            }),
+          ].join("\n"),
+          output: withLearnedStyle.reply,
+          expected:
+            "A terse direct acknowledgement that applies the learned style from prior edits: no greeting or sign-off, no warm filler, one or two short sentences, and only the core confirmation.",
+          criterion: {
+            name: "End-to-end learned style pipeline",
+            description:
+              "Repeated concise edits should produce preference memories, compact into actionable learned writing style, and make a later draft noticeably terse and low ceremony.",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass =
+          extractedPreferenceEvidence.length >= 2 &&
+          !!learnedWritingStyle.trim() &&
+          judgeResult.pass;
+
+        evalReporter.record({
+          testName: "learned style end-to-end pipeline",
+          model: model.label,
+          pass,
+          expected:
+            "preference extraction -> learned style -> terse future draft",
+          actual: formatLearnedWritingStyleActual({
+            withoutLearnedStyleReply: withoutLearnedStyle.reply,
+            withLearnedStyleReply: withLearnedStyle.reply,
+            judgeResult,
+          }),
+          criteria: [judgeResult],
+        });
+
+        expect(extractedPreferenceEvidence.length).toBeGreaterThanOrEqual(2);
+        expect(learnedWritingStyle.trim()).not.toBe("");
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
       "keeps learned writing style advisory when factual guidance is also present",
       async () => {
         const messages = [
