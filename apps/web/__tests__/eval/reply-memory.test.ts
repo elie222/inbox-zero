@@ -281,6 +281,135 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
     );
 
     test(
+      "matches an existing concise support preference instead of creating a duplicate",
+      async () => {
+        const result = await aiExtractReplyMemoriesFromDraftEdit({
+          emailAccount: replyMemoryEmailAccount,
+          incomingEmailContent:
+            "I tried signing in again and it still is not working. What should I do next?",
+          draftText:
+            "Hi there, thanks so much for letting us know. I am sorry that this is still giving you trouble. Could you please try signing in again and tell me exactly what error you see when you click the button?",
+          sentText: "Try signing in again and tell me what error you see.",
+          senderEmail: "customer@example.com",
+          existingMemories: [
+            {
+              id: "concise-support-preference",
+              content:
+                "For simple support replies, keep the message very brief and direct, with at most one clear next step or key detail.",
+              kind: ReplyMemoryKind.PREFERENCE,
+              scopeType: ReplyMemoryScopeType.GLOBAL,
+              scopeValue: "",
+            },
+          ],
+        });
+
+        const pass = matchesOnlyExistingMemory(
+          result,
+          "concise-support-preference",
+        );
+
+        evalReporter.record({
+          testName: "existing concise support preference matched",
+          model: model.label,
+          pass,
+          expected: "concise-support-preference",
+          actual: summarizeDecisions(result),
+        });
+
+        expect(pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "matches an existing brief refund procedure instead of creating a duplicate",
+      async () => {
+        const result = await aiExtractReplyMemoriesFromDraftEdit({
+          emailAccount: replyMemoryEmailAccount,
+          incomingEmailContent:
+            "I changed my RSVP and want to confirm whether the refund is handled.",
+          draftText:
+            "Thanks for reaching out. I checked your account and can confirm that your refund has been processed. You should see it appear back on your original payment method soon.",
+          sentText: "The refund has been processed.",
+          senderEmail: "attendee@example.com",
+          existingMemories: [
+            {
+              id: "concise-status-preference",
+              content:
+                "For routine status replies, keep the message extremely brief and direct, focusing only on the core answer without filler.",
+              kind: ReplyMemoryKind.PREFERENCE,
+              scopeType: ReplyMemoryScopeType.GLOBAL,
+              scopeValue: "",
+            },
+            {
+              id: "brief-refund-procedure",
+              content:
+                "For refund replies, keep the answer brief and direct, stating the refund status first and only adding timing details if needed.",
+              kind: ReplyMemoryKind.PROCEDURE,
+              scopeType: ReplyMemoryScopeType.GLOBAL,
+              scopeValue: "",
+            },
+          ],
+        });
+
+        const pass = matchesOnlyExistingMemoryIds(result, [
+          "brief-refund-procedure",
+          "concise-status-preference",
+        ]);
+
+        evalReporter.record({
+          testName: "existing brief refund procedure matched",
+          model: model.label,
+          pass,
+          expected: "brief-refund-procedure and concise-status-preference",
+          actual: summarizeDecisions(result),
+        });
+
+        expect(pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "matches an existing event access topic memory instead of creating a narrower duplicate",
+      async () => {
+        const result = await aiExtractReplyMemoriesFromDraftEdit({
+          emailAccount: replyMemoryEmailAccount,
+          incomingEmailContent:
+            "I registered for tonight but cannot find the link. Where do I join?",
+          draftText:
+            "Thanks for registering. You should receive instructions by email.",
+          sentText:
+            "The join link is emailed before the event and is also available in your portal once you are registered.",
+          senderEmail: "attendee@example.com",
+          existingMemories: [
+            {
+              id: "event-access-memory",
+              content:
+                "For event access questions, tell users the join link is emailed shortly before the event and is also available in the portal once they are registered.",
+              kind: ReplyMemoryKind.FACT,
+              scopeType: ReplyMemoryScopeType.TOPIC,
+              scopeValue: "event access",
+            },
+          ],
+        });
+
+        const pass = matchesOnlyExistingMemory(result, "event-access-memory");
+
+        evalReporter.record({
+          testName: "existing event access topic memory matched",
+          model: model.label,
+          pass,
+          expected: "event-access-memory",
+          actual: summarizeDecisions(result),
+        });
+
+        expect(pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
       "improves a pricing draft when a learned reply memory is available",
       async () => {
         const messages = [
@@ -778,6 +907,48 @@ function getCreatedMemoriesFromDecisions(
   decisions: Awaited<ReturnType<typeof aiExtractReplyMemoriesFromDraftEdit>>,
 ) {
   return decisions.map((decision) => decision.newMemory).filter(isDefined);
+}
+
+function matchesOnlyExistingMemory(
+  decisions: Awaited<ReturnType<typeof aiExtractReplyMemoriesFromDraftEdit>>,
+  expectedMemoryId: string,
+) {
+  return matchesOnlyExistingMemoryIds(decisions, [expectedMemoryId]);
+}
+
+function matchesOnlyExistingMemoryIds(
+  decisions: Awaited<ReturnType<typeof aiExtractReplyMemoriesFromDraftEdit>>,
+  expectedMemoryIds: string[],
+) {
+  const actualMemoryIds = decisions
+    .map((decision) => decision.matchingExistingMemoryId)
+    .filter(isDefined);
+
+  return (
+    decisions.length === expectedMemoryIds.length &&
+    decisions.every((decision) => decision.newMemory === null) &&
+    expectedMemoryIds.every((id) => actualMemoryIds.includes(id))
+  );
+}
+
+function summarizeDecisions(
+  decisions: Awaited<ReturnType<typeof aiExtractReplyMemoriesFromDraftEdit>>,
+) {
+  if (!decisions.length) return "none";
+
+  return decisions
+    .map((decision) => {
+      if (decision.matchingExistingMemoryId) {
+        return `existing:${decision.matchingExistingMemoryId}`;
+      }
+
+      if (decision.newMemory) {
+        return `new:${summarizeMemories([decision.newMemory])}`;
+      }
+
+      return "empty";
+    })
+    .join(" || ");
 }
 
 function buildPreferenceMemoryEvidence(
