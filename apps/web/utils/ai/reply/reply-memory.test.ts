@@ -1441,6 +1441,52 @@ describe("reply-memory", () => {
     ]);
   });
 
+  it("does not offer or return domain-scoped memories for public email domains", async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        memories: [
+          newReplyMemoryDecision({
+            content: "For signup issues, send the portal link.",
+            kind: ReplyMemoryKind.PROCEDURE,
+            scopeType: ReplyMemoryScopeType.DOMAIN,
+            scopeValue: "gmail.com",
+          }),
+        ],
+      },
+    });
+
+    const result = await aiExtractReplyMemoriesFromDraftEdit({
+      emailAccount: {
+        id: "account-1",
+        userId: "user-1",
+        email: "user@example.com",
+        about: null,
+        multiRuleSelectionEnabled: false,
+        timezone: "UTC",
+        calendarBookingLink: null,
+        name: "User",
+        user: {
+          aiProvider: null,
+          aiModel: null,
+          aiApiKey: null,
+        },
+        account: {
+          provider: "google",
+        },
+      } as any,
+      incomingEmailContent: "I cannot sign up for the event.",
+      draftText: "Try again later.",
+      sentText: "Please log in to the portal and try signing up again.",
+      senderEmail: "customer@gmail.com",
+      existingMemories: [],
+    });
+
+    const systemPrompt = mockGenerateObject.mock.calls[0]?.[0]?.system;
+    expect(systemPrompt).not.toContain("- DOMAIN: applies");
+    expect(systemPrompt).toContain("DOMAIN scope is unavailable");
+    expect(result).toEqual([]);
+  });
+
   it("caps extracted reply memories at the per-edit limit", async () => {
     mockGenerateObject.mockResolvedValue({
       object: {

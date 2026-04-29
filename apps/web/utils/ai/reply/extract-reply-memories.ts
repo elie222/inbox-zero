@@ -5,7 +5,7 @@ import {
 } from "@/generated/prisma/enums";
 import type { ReplyMemory } from "@/generated/prisma/client";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
-import { extractDomainFromEmail } from "@/utils/email";
+import { extractDomainFromEmail, PUBLIC_EMAIL_DOMAINS } from "@/utils/email";
 import { createGenerateObject } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
 import { isDefined } from "@/utils/types";
@@ -73,6 +73,7 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
   }
 
   const senderDomain = extractDomainFromEmail(normalizedSenderEmail);
+  const allowDomainScope = !isPublicEmailDomain(senderDomain);
   const prompt = getPrompt({
     senderEmail: normalizedSenderEmail,
     senderDomain,
@@ -95,7 +96,7 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
 
   const result = await generateObject({
     ...modelOptions,
-    system: getSystemPrompt(),
+    system: getSystemPrompt({ allowDomainScope }),
     prompt,
     schema: replyMemorySchema,
   });
@@ -128,6 +129,13 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
       if (
         newMemory.scopeType === ReplyMemoryScopeType.TOPIC &&
         !newMemory.scopeValue.length
+      ) {
+        return null;
+      }
+
+      if (
+        newMemory.scopeType === ReplyMemoryScopeType.DOMAIN &&
+        !allowDomainScope
       ) {
         return null;
       }
@@ -232,7 +240,16 @@ function normalizeMemoryText(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-function getSystemPrompt() {
+function getSystemPrompt({ allowDomainScope }: { allowDomainScope: boolean }) {
+  const domainScopePrompt = allowDomainScope
+    ? `- DOMAIN: applies to one sender domain
+`
+    : "";
+  const domainRulePrompt = allowDomainScope
+    ? `- For DOMAIN scope, use the exact sender domain from the context.
+`
+    : "- DOMAIN scope is unavailable because the sender domain is a public email provider. Use SENDER for sender-specific rules, GLOBAL for broad account rules, or TOPIC for reusable topics.\n";
+
   return `You analyze how a user edits AI-generated email reply drafts and turn durable patterns into reusable drafting memories.
 
 Return only memories that are likely to help with future drafts.
@@ -245,7 +262,7 @@ Memory kinds:
 Scopes:
 - GLOBAL: applies broadly to the user's replies
 - SENDER: applies to one sender email address
-- DOMAIN: applies to one sender domain
+${domainScopePrompt.trimEnd()}
 - TOPIC: applies to a reusable topic or subject area
 
 Rules:
@@ -262,7 +279,7 @@ Rules:
 - Use PREFERENCE for stable tone, length, formatting, or phrasing preferences.
 - For GLOBAL scope, leave scopeValue empty.
 - For SENDER scope, use the exact sender email from the context.
-- For DOMAIN scope, use the exact sender domain from the context.
+${domainRulePrompt.trimEnd()}
 - For TOPIC scope, use a short stable topic phrase such as "pricing" or "refunds".
 - Always include a scopeValue field. Use an empty string for GLOBAL scope.
 - If an existing memory already captures the same durable idea, return its id in matchingExistingMemoryId and set newMemory to null.
@@ -271,4 +288,8 @@ Rules:
 - Be conservative about matching existing memories. Only match when the existing memory clearly already covers the same durable idea.
 - Work language-agnostically. The memories may be written in any language.
 - If nothing durable was learned, return an empty array.`;
+}
+
+function isPublicEmailDomain(domain: string) {
+  return PUBLIC_EMAIL_DOMAINS.has(domain.trim().toLowerCase());
 }
