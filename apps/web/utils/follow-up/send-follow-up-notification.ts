@@ -1,3 +1,4 @@
+import { Actions, Card, CardText, LinkButton, type CardChild } from "chat";
 import {
   MessagingProvider,
   MessagingRoutePurpose,
@@ -10,6 +11,7 @@ import {
   resolveSlackRouteDestination,
   sendFollowUpReminderToSlack,
 } from "@/utils/messaging/providers/slack/send";
+import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters";
 import {
   getMessagingRoute,
   getMessagingRouteWhere,
@@ -41,6 +43,7 @@ type FollowUpNotificationContent = {
   daysSinceSent: number;
   snippet?: string;
   threadLink?: string;
+  threadLinkLabel?: string;
   trackerId: string;
 };
 
@@ -107,12 +110,21 @@ export async function sendFollowUpNotification({
         );
         break;
       case MessagingProvider.TEAMS:
-      case MessagingProvider.TELEGRAM:
         deliveryPromises.push(
           sendAutomationMessage({
             channel,
             route,
             text: formatFollowUpText(content),
+            logger,
+          }),
+        );
+        break;
+      case MessagingProvider.TELEGRAM:
+        deliveryPromises.push(
+          sendFollowUpViaTelegram({
+            channel,
+            route,
+            content,
             logger,
           }),
         );
@@ -160,6 +172,36 @@ async function sendFollowUpViaSlack({
   });
 }
 
+async function sendFollowUpViaTelegram({
+  channel,
+  route,
+  content,
+  logger,
+}: {
+  channel: FollowUpNotificationChannel;
+  route: { targetId: string; targetType: MessagingRouteTargetType };
+  content: FollowUpNotificationContent;
+  logger: Logger;
+}) {
+  const destination = resolveTelegramRouteDestination({ channel, route });
+
+  if (!destination) {
+    logger.warn("No Telegram destination resolved for follow-up notification");
+    return;
+  }
+
+  const telegramAdapter = getMessagingAdapterRegistry().typedAdapters.telegram;
+  if (!telegramAdapter) {
+    throw new Error("Telegram adapter is not configured");
+  }
+
+  const threadId = await telegramAdapter.openDM(destination);
+  await telegramAdapter.postMessage(
+    threadId,
+    buildTelegramFollowUpCard(content),
+  );
+}
+
 function formatFollowUpText({
   subject,
   counterpartyName,
@@ -181,4 +223,56 @@ function formatFollowUpText({
   if (threadLink) lines.push(`Open: ${threadLink}`);
 
   return lines.join("\n");
+}
+
+function buildTelegramFollowUpCard({
+  subject,
+  counterpartyName,
+  counterpartyEmail,
+  trackerType,
+  daysSinceSent,
+  snippet,
+  threadLink,
+  threadLinkLabel,
+}: FollowUpNotificationContent) {
+  const { directionLine, preposition, verb } = getFollowUpCopy(trackerType);
+  const children: CardChild[] = [
+    CardText(
+      [
+        directionLine,
+        subject,
+        `${preposition} ${counterpartyName} <${counterpartyEmail}> · ${verb} ${daysSinceSent} ${pluralize(daysSinceSent, "day")} ago`,
+      ].join("\n\n"),
+    ),
+  ];
+
+  if (snippet) {
+    children.push(CardText(`> ${truncateSnippet(snippet)}`));
+  }
+
+  if (threadLink) {
+    children.push(
+      Actions([
+        LinkButton({
+          label: threadLinkLabel ?? "Open thread",
+          url: threadLink,
+        }),
+      ]),
+    );
+  }
+
+  return Card({
+    title: "Follow-up nudge",
+    children,
+  });
+}
+
+function resolveTelegramRouteDestination({
+  channel,
+  route,
+}: {
+  channel: FollowUpNotificationChannel;
+  route: { targetId: string; targetType: MessagingRouteTargetType };
+}) {
+  return route.targetId || channel.teamId || channel.providerUserId;
 }

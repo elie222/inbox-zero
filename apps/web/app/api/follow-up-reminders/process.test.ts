@@ -691,6 +691,7 @@ describe("processAccountFollowUps - dedup logic", () => {
         counterpartyName: "Alex Partner",
         counterpartyEmail: "alex@partner.com",
         trackerType: ThreadTrackerType.AWAITING,
+        threadLinkLabel: "Open in Outlook",
       }),
     );
   });

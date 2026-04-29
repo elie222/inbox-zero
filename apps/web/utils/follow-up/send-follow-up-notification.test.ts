@@ -16,6 +16,9 @@ import {
 } from "@/utils/messaging/providers/slack/send";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 
+const mockTelegramOpenDm = vi.fn();
+const mockTelegramPostMessage = vi.fn();
+
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma", () => ({ default: {} }));
 vi.mock("@/utils/messaging/providers/slack/send", () => ({
@@ -24,6 +27,16 @@ vi.mock("@/utils/messaging/providers/slack/send", () => ({
 }));
 vi.mock("@/utils/automation-jobs/messaging", () => ({
   sendAutomationMessage: vi.fn(),
+}));
+vi.mock("@/utils/messaging/chat-sdk/adapters", () => ({
+  getMessagingAdapterRegistry: () => ({
+    typedAdapters: {
+      telegram: {
+        openDM: (...args: unknown[]) => mockTelegramOpenDm(...args),
+        postMessage: (...args: unknown[]) => mockTelegramPostMessage(...args),
+      },
+    },
+  }),
 }));
 
 const logger = createScopedLogger("send-follow-up-test");
@@ -72,10 +85,28 @@ const teamsChannel: FollowUpNotificationChannel = {
   ],
 };
 
+const telegramChannel: FollowUpNotificationChannel = {
+  id: "channel-3",
+  provider: MessagingProvider.TELEGRAM,
+  isConnected: true,
+  accessToken: null,
+  teamId: "telegram-chat-1",
+  providerUserId: "telegram-user-id",
+  routes: [
+    {
+      purpose: MessagingRoutePurpose.FOLLOW_UPS,
+      targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+      targetId: "telegram-chat-1",
+    },
+  ],
+};
+
 describe("sendFollowUpNotification", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (resolveSlackRouteDestination as any).mockResolvedValue("C1");
+    mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
+    mockTelegramPostMessage.mockResolvedValue({ id: "telegram-message-1" });
   });
 
   it("no-ops when no channels are provided", async () => {
@@ -89,9 +120,31 @@ describe("sendFollowUpNotification", () => {
     expect(sendFollowUpReminderToSlack).toHaveBeenCalledTimes(1);
   });
 
-  it("delivers to Teams/Telegram via automation adapter", async () => {
+  it("delivers to Teams via automation adapter", async () => {
     await sendFollowUpNotification({ channels: [teamsChannel], ...baseArgs });
     expect(sendAutomationMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("delivers Telegram follow-ups with a thread link button instead of raw URL text", async () => {
+    const threadLink = "https://outlook.live.com/mail/0/inbox/id/thread-1";
+
+    await sendFollowUpNotification({
+      channels: [telegramChannel],
+      ...baseArgs,
+      threadLink,
+      threadLinkLabel: "Open in Outlook",
+    });
+
+    expect(sendAutomationMessage).not.toHaveBeenCalled();
+    expect(mockTelegramOpenDm).toHaveBeenCalledWith("telegram-chat-1");
+    expect(mockTelegramPostMessage).toHaveBeenCalledTimes(1);
+
+    const [, card] = mockTelegramPostMessage.mock.calls[0];
+    const serializedCard = JSON.stringify(card);
+    expect(serializedCard).toContain("Follow-up nudge");
+    expect(serializedCard).toContain("Open in Outlook");
+    expect(serializedCard).toContain(threadLink);
+    expect(serializedCard).not.toContain(`Open: ${threadLink}`);
   });
 
   it("fans out across multiple channels in parallel", async () => {
