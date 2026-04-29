@@ -12,6 +12,8 @@ export type OutlookFolder = {
   displayName: NonNullable<MailFolder["displayName"]>;
   childFolders: OutlookFolder[];
   childFolderCount?: number;
+  totalItemCount?: number;
+  unreadItemCount?: number;
 };
 
 function convertMailFolderToOutlookFolder(folder: MailFolder): OutlookFolder {
@@ -21,6 +23,8 @@ function convertMailFolderToOutlookFolder(folder: MailFolder): OutlookFolder {
     childFolders:
       folder.childFolders?.map(convertMailFolderToOutlookFolder) ?? [],
     childFolderCount: folder.childFolderCount ?? 0,
+    totalItemCount: folder.totalItemCount ?? 0,
+    unreadItemCount: folder.unreadItemCount ?? 0,
   };
 }
 
@@ -28,7 +32,8 @@ export async function getOutlookRootFolders(
   client: OutlookClient,
   logger: Logger,
 ): Promise<OutlookFolder[]> {
-  const fields = "id,displayName,childFolderCount";
+  const fields =
+    "id,displayName,childFolderCount,totalItemCount,unreadItemCount";
   const response: { value: MailFolder[] } = await withOutlookRetry(
     () =>
       client
@@ -51,7 +56,8 @@ export async function getOutlookChildFolders(
   folderId: string,
   logger: Logger,
 ): Promise<OutlookFolder[]> {
-  const fields = "id,displayName,childFolderCount";
+  const fields =
+    "id,displayName,childFolderCount,totalItemCount,unreadItemCount";
   const response: { value: MailFolder[] } = await withOutlookRetry(
     () =>
       client
@@ -81,7 +87,7 @@ async function findOutlookFolderByName(
           .getClient()
           .api("/me/mailFolders")
           .filter(`displayName eq '${folderName.replace(/'/g, "''")}'`)
-          .select("id,displayName")
+          .select("id,displayName,totalItemCount,unreadItemCount")
           .top(1)
           .get(),
       logger,

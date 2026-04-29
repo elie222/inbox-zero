@@ -165,7 +165,9 @@ export class GmailProvider implements EmailProvider {
           id: label.id!,
           name: label.name!,
           type: label.type!,
-          threadsTotal: label.threadsTotal || undefined,
+          messagesTotal: label.messagesTotal ?? undefined,
+          messagesUnread: label.messagesUnread ?? undefined,
+          threadsTotal: label.threadsTotal ?? undefined,
           labelListVisibility: label.labelListVisibility || undefined,
           messageListVisibility: label.messageListVisibility || undefined,
         }));
@@ -182,7 +184,9 @@ export class GmailProvider implements EmailProvider {
         id: label.id!,
         name: label.name!,
         type: label.type!,
-        threadsTotal: label.threadsTotal || undefined,
+        messagesTotal: label.messagesTotal ?? undefined,
+        messagesUnread: label.messagesUnread ?? undefined,
+        threadsTotal: label.threadsTotal ?? undefined,
       };
     } catch {
       return null;
@@ -196,10 +200,17 @@ export class GmailProvider implements EmailProvider {
       id: label.id!,
       name: label.name!,
       type: label.type!,
-      threadsTotal: label.threadsTotal || undefined,
+      messagesTotal: label.messagesTotal ?? undefined,
+      messagesUnread: label.messagesUnread ?? undefined,
+      threadsTotal: label.threadsTotal ?? undefined,
       labelListVisibility: label.labelListVisibility || undefined,
       messageListVisibility: label.messageListVisibility || undefined,
     };
+  }
+
+  async countMessagesByLabelName(labelName: string): Promise<number | null> {
+    const label = await this.getLabelByName(labelName);
+    return label?.messagesTotal ?? null;
   }
 
   async getMessage(messageId: string): Promise<ParsedMessage> {

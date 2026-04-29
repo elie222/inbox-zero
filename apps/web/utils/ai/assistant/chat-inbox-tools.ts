@@ -12,6 +12,7 @@ import {
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import type { EmailProvider } from "@/utils/email/types";
+import type { OutlookFolder } from "@/utils/outlook/folders";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
@@ -416,6 +417,133 @@ export const manageSenderCategoryTool = ({
 
 export type ManageSenderCategoryTool = InferUITool<
   ReturnType<typeof manageSenderCategoryTool>
+>;
+
+const mailboxCountInputSchema = z.object({
+  type: z
+    .enum(["folder", "label"])
+    .describe(
+      "What to count. Use folder for Outlook mail folders. Use label for Gmail labels or Outlook categories.",
+    ),
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .describe("Exact folder, label, or Outlook category name to count."),
+});
+
+export const getMailboxCountTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Get an exact email count for a single mailbox folder, Gmail label, or Outlook category. Use this instead of searchInbox when the user asks how many emails are in a folder, label, or category.",
+    inputSchema: mailboxCountInputSchema,
+    execute: async ({ type, name }) => {
+      trackToolCall({ tool: "get_mailbox_count", email, logger });
+
+      try {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+
+        if (type === "folder") {
+          if (!isMicrosoftProvider(provider)) {
+            return {
+              error:
+                "Folder counts are only supported for Outlook accounts. Use type=label for Gmail labels.",
+            };
+          }
+
+          const folders = await emailProvider.getFolders();
+          const flattenedFolders = flattenOutlookFolders(folders);
+          const matches = flattenedFolders.filter((folder) =>
+            [folder.name, folder.path].some(
+              (candidate) =>
+                normalizeMailboxCountName(candidate) ===
+                normalizeMailboxCountName(name),
+            ),
+          );
+
+          if (matches.length === 0) {
+            return {
+              error: `Folder "${name}" was not found.`,
+              availableFolders: flattenedFolders
+                .map((folder) => folder.path)
+                .slice(0, 50),
+            };
+          }
+
+          if (matches.length > 1) {
+            return {
+              error: `Multiple folders named "${name}" were found. Ask the user which folder path they mean.`,
+              matches: matches.map((folder) => ({
+                name: folder.name,
+                path: folder.path,
+                count: folder.totalItemCount ?? 0,
+                unreadCount: folder.unreadItemCount ?? 0,
+              })),
+            };
+          }
+
+          const folder = matches[0];
+          return {
+            type,
+            name: folder.name,
+            path: folder.path,
+            count: folder.totalItemCount ?? 0,
+            unreadCount: folder.unreadItemCount ?? 0,
+            provider,
+          };
+        }
+
+        const label = await emailProvider.getLabelByName(name);
+        if (!label) {
+          const labels = await emailProvider.getLabels().catch(() => []);
+          return {
+            error: `${isMicrosoftProvider(provider) ? "Outlook category" : "Label"} "${name}" was not found.`,
+            availableLabels: labels.map((label) => label.name).slice(0, 50),
+          };
+        }
+
+        const count =
+          (await emailProvider.countMessagesByLabelName(label.name)) ??
+          label.messagesTotal ??
+          label.threadsTotal ??
+          null;
+
+        if (count === null) {
+          return {
+            error: `Could not count ${isMicrosoftProvider(provider) ? "Outlook category" : "label"} "${label.name}".`,
+          };
+        }
+
+        return {
+          type,
+          name: label.name,
+          count,
+          provider,
+        };
+      } catch (error) {
+        logger.error("Failed to get mailbox count", { error });
+        return { error: "Failed to get mailbox count" };
+      }
+    },
+  });
+
+export type GetMailboxCountTool = InferUITool<
+  ReturnType<typeof getMailboxCountTool>
 >;
 
 function getSearchQueryDescription(provider: string): string {
@@ -1362,6 +1490,35 @@ function createLabelLookupMap(labels: Array<{ id: string; name: string }>) {
     ["inbox", "Inbox"],
     ["unread", "Unread"],
   ] as const);
+}
+
+function flattenOutlookFolders(
+  folders: OutlookFolder[],
+  parentPath?: string,
+): Array<{
+  name: string;
+  path: string;
+  totalItemCount?: number;
+  unreadItemCount?: number;
+}> {
+  return folders.flatMap((folder) => {
+    const path = parentPath
+      ? `${parentPath} / ${folder.displayName}`
+      : folder.displayName;
+    return [
+      {
+        name: folder.displayName,
+        path,
+        totalItemCount: folder.totalItemCount,
+        unreadItemCount: folder.unreadItemCount,
+      },
+      ...flattenOutlookFolders(folder.childFolders, path),
+    ];
+  });
+}
+
+function normalizeMailboxCountName(name: string) {
+  return name.trim().toLowerCase();
 }
 
 async function runThreadActionsInParallel({
