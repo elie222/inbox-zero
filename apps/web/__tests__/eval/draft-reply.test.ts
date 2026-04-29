@@ -24,6 +24,12 @@ describe.runIf(shouldRunEval)("draft-reply eval", () => {
   const evalReporter = createEvalReporter();
 
   describeEvalMatrix("draft quality", (model, emailAccount) => {
+    const bookingLink = "https://cal.example.com/founder";
+    const emailAccountWithBookingLink = {
+      ...emailAccount,
+      calendarBookingLink: bookingLink,
+    };
+
     describe("scheduling aggressiveness (should not offer times)", () => {
       test(
         "marketing email with booking CTA — should not offer specific times",
@@ -32,7 +38,7 @@ describe.runIf(shouldRunEval)("draft-reply eval", () => {
             {
               ...getEmail({
                 from: "Lisa from MindfulPath <lisa@product.mindfulpath.com>",
-                to: emailAccount.email,
+                to: emailAccountWithBookingLink.email,
                 subject: "Earn a $30 gift card by sharing your thoughts",
                 content: `Hey there,
 
@@ -53,7 +59,7 @@ Lisa & the MindfulPath Team`,
 
           const result = await aiDraftReplyWithConfidence({
             messages,
-            emailAccount,
+            emailAccount: emailAccountWithBookingLink,
             knowledgeBaseContent: null,
             emailHistorySummary: null,
             emailHistoryContext: null,
@@ -70,24 +76,31 @@ Lisa & the MindfulPath Team`,
               .join("\n\n---\n\n"),
             output: result.reply,
             expected:
-              "A short reply that stays grounded in the email and does not propose specific meeting dates, times, or time ranges.",
+              "A short reply that stays grounded in the email and does not propose specific meeting dates, times, time ranges, or the user's booking link.",
             criterion: {
               name: "No invented meeting times",
               description:
-                "The draft should not suggest specific meeting slots or ranges when the incoming email already provides a booking link and does not ask for manual scheduling.",
+                "The draft should not suggest specific meeting slots, time ranges, or the user's booking link when the incoming email already provides a booking link and does not ask for manual scheduling.",
             },
           });
-          const pass = judgeResult.pass;
+          const pass = judgeResult.pass && !result.reply.includes(bookingLink);
 
           evalReporter.record({
             testName,
             model: model.label,
             pass,
-            expected: "no specific times",
+            expected: "no specific times or user booking link",
             actual: formatSemanticJudgeActual(result.reply, judgeResult),
           });
 
-          expect(judgeResult.pass).toBe(true);
+          expect(
+            pass,
+            `Draft should not add the user's booking link.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
         },
         TIMEOUT,
       );
@@ -99,7 +112,7 @@ Lisa & the MindfulPath Team`,
             {
               ...getEmail({
                 from: "Sam from DataBridge <sam@databridge.io>",
-                to: emailAccount.email,
+                to: emailAccountWithBookingLink.email,
                 subject: "Would love to learn about your integration needs",
                 content: `Hi there,
 
@@ -118,7 +131,7 @@ Solutions Engineer, DataBridge`,
 
           const result = await aiDraftReplyWithConfidence({
             messages,
-            emailAccount,
+            emailAccount: emailAccountWithBookingLink,
             knowledgeBaseContent: null,
             emailHistorySummary: null,
             emailHistoryContext: null,
@@ -135,24 +148,31 @@ Solutions Engineer, DataBridge`,
               .join("\n\n---\n\n"),
             output: result.reply,
             expected:
-              "A reply that acknowledges the outreach without inventing specific meeting dates or times, since the sender already provided a booking link.",
+              "A reply that acknowledges the outreach without inventing specific meeting dates or times or adding the user's booking link, since the sender already provided a booking link.",
             criterion: {
               name: "Booking link respected",
               description:
-                "The draft should avoid proposing specific meeting slots when the email already contains a booking link and no calendar availability was provided.",
+                "The draft should avoid proposing specific meeting slots or adding the user's booking link when the email already contains a booking link and no calendar availability was provided.",
             },
           });
-          const pass = judgeResult.pass;
+          const pass = judgeResult.pass && !result.reply.includes(bookingLink);
 
           evalReporter.record({
             testName,
             model: model.label,
             pass,
-            expected: "no specific times",
+            expected: "no specific times or user booking link",
             actual: formatSemanticJudgeActual(result.reply, judgeResult),
           });
 
-          expect(judgeResult.pass).toBe(true);
+          expect(
+            pass,
+            `Draft should not add the user's booking link.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
         },
         TIMEOUT,
       );
@@ -237,6 +257,62 @@ Priya`,
         },
         TIMEOUT,
       );
+
+      test(
+        "explicit support preference may include booking link",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Jordan Blake <jordan@example.com>",
+                to: emailAccountWithBookingLink.email,
+                subject: "Setup issue",
+                content: `Hey,
+
+I'm stuck getting the archive rules to work with my Outlook account. It keeps leaving some threads in the inbox even after the rule runs.
+
+Can you help me figure out what's going on?
+
+Thanks,
+Jordan`,
+              }),
+              date: new Date("2026-04-29T12:15:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount: emailAccountWithBookingLink,
+            knowledgeBaseContent:
+              "For troubleshooting where a screen share would help, the user prefers to include their booking link.",
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle:
+              "Reply preference: when a support issue would be easier to debug on a call, include my booking link.",
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const pass = result.reply.includes(bookingLink);
+          const testName = "support preference includes booking link";
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected:
+              "booking link included because user preference asks for it",
+            actual: `reply=${JSON.stringify(result.reply)}`,
+          });
+
+          expect(
+            pass,
+            `Draft should include the user's booking link when an explicit preference asks for it.\n\nReply:\n${result.reply}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
     });
 
     describe("non-scheduling email (should not mention times)", () => {
@@ -247,7 +323,7 @@ Priya`,
             {
               ...getEmail({
                 from: "Carlos Reyes <carlos@clientcorp.com>",
-                to: emailAccount.email,
+                to: emailAccountWithBookingLink.email,
                 subject: "Quick question about API limits",
                 content: `Hey,
 
@@ -262,7 +338,7 @@ Carlos`,
 
           const result = await aiDraftReplyWithConfidence({
             messages,
-            emailAccount,
+            emailAccount: emailAccountWithBookingLink,
             knowledgeBaseContent: null,
             emailHistorySummary: null,
             emailHistoryContext: null,
@@ -279,24 +355,104 @@ Carlos`,
               .join("\n\n---\n\n"),
             output: result.reply,
             expected:
-              "A grounded reply that addresses the question without offering specific meeting dates or times.",
+              "A grounded reply that addresses the question without offering specific meeting dates, times, or the user's booking link.",
             criterion: {
               name: "No scheduling drift",
               description:
-                "For a non-scheduling question, the draft should not drift into proposing calendar times or meeting slots.",
+                "For a non-scheduling question, the draft should not drift into proposing calendar times, meeting slots, or the user's booking link.",
             },
           });
-          const pass = judgeResult.pass;
+          const pass = judgeResult.pass && !result.reply.includes(bookingLink);
 
           evalReporter.record({
             testName,
             model: model.label,
             pass,
-            expected: "no specific times",
+            expected: "no specific times or user booking link",
             actual: formatSemanticJudgeActual(result.reply, judgeResult),
           });
 
-          expect(judgeResult.pass).toBe(true);
+          expect(
+            pass,
+            `Draft should not add the user's booking link.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "product setup question — should not append a setup call",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Nina Patel <nina@example.com>",
+                to: emailAccountWithBookingLink.email,
+                subject: "Question about routing and language support",
+                content: `Hi,
+
+Can Inbox Zero move emails into specific folders or tabs automatically?
+
+Also, does the AI work for non-English emails, or only English?
+
+Thanks,
+Nina`,
+              }),
+              date: new Date("2026-04-29T16:20:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount: emailAccountWithBookingLink,
+            knowledgeBaseContent: [
+              "Inbox Zero can create automated rules to route emails to labels, folders, or tabs.",
+              "The AI can draft and classify emails in the language of the latest message.",
+            ].join("\n"),
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = "product setup question";
+          const judgeResult = await judgeEvalOutput({
+            input: messages
+              .map((message) => message.content)
+              .join("\n\n---\n\n"),
+            output: result.reply,
+            expected:
+              "A direct product answer about routing and language support that does not append a setup call, meeting invitation, or the user's booking link.",
+            criterion: {
+              name: "No appended setup call",
+              description:
+                "For product capability questions that can be answered from the provided knowledge, the draft should answer directly and avoid adding a call CTA or the user's booking link.",
+            },
+          });
+          const pass = judgeResult.pass && !result.reply.includes(bookingLink);
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "direct answer without booking link",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should not append a setup call or booking link.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
         },
         TIMEOUT,
       );

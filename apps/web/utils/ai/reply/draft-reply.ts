@@ -419,7 +419,7 @@ function getSchedulingContext({
 ${calendarBookingLink}
 </booking_link>
 
-When the sender has requested or is open to a call/meeting, share this booking link as the primary way to schedule.`);
+Share this booking link when scheduling with the user is clearly needed, not as a default call-to-action.`);
   }
 
   if (calendarAvailability?.noAvailability) {
@@ -433,7 +433,7 @@ Do not suggest specific times. Acknowledge the request and suggest alternatives 
     parts.push(`Available time slots:
 ${times}
 
-${calendarBookingLink ? "Lead with the booking link, then optionally suggest a few of these times as alternatives." : "When the sender is asking to schedule, respond concretely using these time slots. Treat supplied slots on or after today's date as valid; only ask for updated availability if every supplied slot is before today's date."} Format suggested times as a bulleted list.`);
+${calendarBookingLink ? "If scheduling with the user is clearly needed, you may share the booking link and optionally suggest a few of these times as alternatives." : "When the sender is asking to schedule, respond concretely using these time slots. Treat supplied slots on or after today's date as valid; only ask for updated availability if every supplied slot is before today's date."} Format suggested times as a bulleted list.`);
   }
 
   if (parts.length === 0) return "";
