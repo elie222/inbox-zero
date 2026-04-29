@@ -744,19 +744,17 @@ function NotifyChannelRow({
   const hasChannels = connectedChannels.length > 0;
   const canConnect = availableProviders.length > 0;
 
-  if (!hasChannels && !canConnect && !value) return null;
-
-  const selectedChannel = channels.find((c) => c.id === value);
-  const showDisconnectedOption =
-    !!selectedChannel &&
-    !connectedChannels.some((channel) => channel.id === selectedChannel.id);
+  if (!hasChannels && !canConnect) return null;
+  const selectedChannelIsConnected =
+    !value || connectedChannels.some((channel) => channel.id === value);
+  const selectValue = selectedChannelIsConnected ? (value ?? "off") : "off";
 
   const channelsPath = prefixPath(emailAccountId, "/channels");
   const draftsNote = hasDraftToChat
     ? "Drafts also go to chat — configured in actions above."
     : undefined;
 
-  if (!hasChannels && !showDisconnectedOption) {
+  if (!hasChannels) {
     return (
       <AdvancedRow
         title="Notify in chat"
@@ -788,7 +786,7 @@ function NotifyChannelRow({
       note={draftsNote}
     >
       <Select
-        value={value ?? "off"}
+        value={selectValue}
         onValueChange={(next) => {
           if (next === CONNECT_SENTINEL) {
             router.push(channelsPath);
@@ -822,11 +820,6 @@ function NotifyChannelRow({
                   {formatMessagingDestinationLabel(channel)}
                 </SelectItem>
               ))}
-          {showDisconnectedOption && selectedChannel ? (
-            <SelectItem value={selectedChannel.id}>
-              {formatMessagingDestinationLabel(selectedChannel)} (Disconnected)
-            </SelectItem>
-          ) : null}
           {canConnect ? (
             <>
               <SelectSeparator />

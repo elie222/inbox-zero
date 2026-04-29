@@ -233,13 +233,15 @@ function ActionCard({
 
   const delayValue = watch(`actions.${index}.delayInMinutes`);
   const delayEnabled = !!delayValue;
+  const connectedMessagingChannels =
+    getConnectedRuleNotificationChannels(messagingChannels);
   const selectedMessagingChannelIds = getDraftReplyMessagingChannelIds({
     primaryAction,
     draftMessagingActions,
   });
   const selectedMessagingChannels = selectedMessagingChannelIds
     .map((channelId) =>
-      messagingChannels.find(
+      connectedMessagingChannels.find(
         (messagingChannel) => messagingChannel.id === channelId,
       ),
     )
@@ -249,7 +251,7 @@ function ActionCard({
   const selectedMessagingChannel = selectedMessagingChannels[0];
   const draftReplyGroupIndexes = [index, ...draftMessagingIndexes];
   const draftReplyDelivery: DraftReplyDelivery =
-    selectedMessagingChannelIds.length === 0
+    selectedMessagingChannels.length === 0
       ? "EMAIL"
       : primaryAction?.type === ActionType.DRAFT_MESSAGING_CHANNEL
         ? "MESSAGING"
@@ -658,8 +660,6 @@ function ActionCard({
     />
   ) : null;
 
-  const connectedMessagingChannels =
-    getConnectedRuleNotificationChannels(messagingChannels);
   const canConnectMessagingApp = availableMessagingProviders.length > 0;
 
   const deliveryField = isMessagingNotification ? (
@@ -668,7 +668,6 @@ function ActionCard({
       index={index}
       label="Send to"
       messagingChannels={connectedMessagingChannels}
-      selectedChannel={selectedMessagingChannel}
     />
   ) : null;
 
@@ -950,15 +949,6 @@ function DraftReplyReviewChannelsSection({
     selectedMessagingChannelIds: string[];
   }) => void;
 }) {
-  const availableChannels = [...connectedChannels];
-  for (const selectedChannel of selectedChannels) {
-    if (
-      !availableChannels.some((channel) => channel.id === selectedChannel.id)
-    ) {
-      availableChannels.push(selectedChannel);
-    }
-  }
-
   const includeEmail = delivery !== "MESSAGING";
   const selectedMessagingChannelIds = selectedChannels.map(
     (channel) => channel.id,
@@ -999,7 +989,7 @@ function DraftReplyReviewChannelsSection({
           </div>
         </div>
 
-        {availableChannels.map((channel) => {
+        {connectedChannels.map((channel) => {
           const channelLabel = formatDraftReplyReviewChannelLabel(channel);
           const isSelectedChannel = selectedMessagingChannelIds.includes(
             channel.id,
@@ -1064,26 +1054,26 @@ function MessagingChannelField({
   label,
   includeEmailOption = false,
   messagingChannels,
-  selectedChannel,
 }: {
   control: Control<CreateRuleBody>;
   index: number;
   label: string;
   includeEmailOption?: boolean;
   messagingChannels: MessagingChannelOption[];
-  selectedChannel?: MessagingChannelOption;
 }) {
   return (
     <FormField
       control={control}
       name={`actions.${index}.messagingChannelId`}
       render={({ field, fieldState }) => {
-        const value = field.value ?? (includeEmailOption ? "email" : undefined);
-        const showDisconnectedOption =
-          !!selectedChannel &&
-          !messagingChannels.some(
-            (channel) => channel.id === selectedChannel.id,
-          );
+        const isSelectedChannelAvailable =
+          !field.value ||
+          messagingChannels.some((channel) => channel.id === field.value);
+        const value = isSelectedChannelAvailable
+          ? (field.value ?? (includeEmailOption ? "email" : undefined))
+          : includeEmailOption
+            ? "email"
+            : undefined;
 
         return (
           <div className="space-y-2">
@@ -1114,12 +1104,6 @@ function MessagingChannelField({
                     {formatMessagingDestinationLabel(channel)}
                   </SelectItem>
                 ))}
-                {showDisconnectedOption && selectedChannel ? (
-                  <SelectItem value={selectedChannel.id}>
-                    {formatMessagingDestinationLabel(selectedChannel)}{" "}
-                    (Disconnected)
-                  </SelectItem>
-                ) : null}
               </SelectContent>
             </Select>
             {fieldState.error?.message ? (

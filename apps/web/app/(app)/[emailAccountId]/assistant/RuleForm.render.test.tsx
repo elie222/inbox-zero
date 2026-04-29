@@ -419,6 +419,76 @@ describe("RuleForm", () => {
     expect(screen.getByText("Telegram DM")).toBeTruthy();
   });
 
+  it("does not show disconnected draft reply destinations as selected options", () => {
+    mockUseMessagingChannels.mockReturnValue({
+      data: {
+        channels: [
+          createMessagingChannel({
+            id: "cmessagingchannel1234567890123",
+            provider: "SLACK",
+            teamName: "Workspace",
+            teamId: "team-1",
+          }),
+          createMessagingChannel({
+            id: "cmessagingchannel1234567890456",
+            provider: "TELEGRAM",
+            teamName: "Telegram DM",
+            teamId: "chat-1",
+          }),
+        ],
+        availableProviders: ["SLACK", "TELEGRAM"],
+      },
+    });
+
+    render(
+      <RuleForm
+        alwaysEditMode
+        rule={{
+          id: "cmjzoasfv000004ld2qar07t3",
+          name: "Draft reply rule",
+          instructions: null,
+          groupId: null,
+          runOnThreads: false,
+          digest: false,
+          conditionalOperator: LogicalOperator.AND,
+          conditions: [
+            {
+              type: ConditionType.STATIC,
+              from: "sender@example.com",
+              to: null,
+              subject: null,
+              body: null,
+              instructions: null,
+            },
+          ],
+          actions: [
+            {
+              id: "action-email",
+              type: ActionType.DRAFT_EMAIL,
+              content: { value: "" },
+            },
+            {
+              id: "action-slack",
+              type: ActionType.DRAFT_MESSAGING_CHANNEL,
+              messagingChannelId: "cmessagingchannel1234567890123",
+              content: { value: "" },
+            },
+            {
+              id: "action-telegram",
+              type: ActionType.DRAFT_MESSAGING_CHANNEL,
+              messagingChannelId: "cmessagingchannel1234567890456",
+              content: { value: "" },
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getAllByText("Draft to")).toHaveLength(1);
+    expect(screen.getByText("Email")).toBeTruthy();
+    expect(screen.queryByText(/Disconnected/)).toBeNull();
+  });
+
   it("preserves the original action order when saving an unchanged rule", async () => {
     const view = render(
       <RuleForm
@@ -478,3 +548,40 @@ describe("RuleForm", () => {
     });
   });
 });
+
+function createMessagingChannel({
+  id,
+  provider,
+  teamName,
+  teamId,
+}: {
+  id: string;
+  provider: "SLACK" | "TELEGRAM";
+  teamName: string;
+  teamId: string;
+}) {
+  const disabledDestination = {
+    enabled: false,
+    targetId: null,
+    targetLabel: null,
+    isDm: false,
+  };
+
+  return {
+    id,
+    provider,
+    teamName,
+    teamId,
+    isConnected: false,
+    canSendAsDm: false,
+    actions: [],
+    destinations: {
+      ruleNotifications: disabledDestination,
+      scheduledCheckIns: disabledDestination,
+      meetingBriefs: disabledDestination,
+      documentFilings: disabledDestination,
+      digests: disabledDestination,
+      followUps: disabledDestination,
+    },
+  };
+}
