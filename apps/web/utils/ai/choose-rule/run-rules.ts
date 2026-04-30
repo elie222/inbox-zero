@@ -1,5 +1,4 @@
 import { after } from "next/server";
-import { z } from "zod";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import {
   ActionType,
@@ -33,8 +32,7 @@ import {
 } from "@/utils/scheduled-actions/scheduler";
 import groupBy from "lodash/groupBy";
 import type { EmailProvider } from "@/utils/email/types";
-import { getModel, type ModelType } from "@/utils/llms/model";
-import { createGenerateObject } from "@/utils/llms";
+import type { ModelType } from "@/utils/llms/model";
 import {
   CONVERSATION_STATUS_TYPES,
   isConversationStatusType,
@@ -139,15 +137,12 @@ export async function runRules({
     logger,
   });
 
-  const replyCompatibleMatches =
-    await ensureConversationRuleForReplyCompatiblePrimary({
-      conversationRules,
-      regularRules,
-      matches: calendarAwareMatches,
-      emailAccount,
-      modelType,
-      logger,
-    });
+  const customPrimaryMatches = ensureConversationRuleForCustomPrimary({
+    conversationRules,
+    regularRules,
+    matches: calendarAwareMatches,
+    logger,
+  });
 
   // Auto-reapply conversation tracking for thread continuity
   const conversationAwareMatches = await ensureConversationRuleContinuity({
@@ -155,7 +150,7 @@ export async function runRules({
     threadId: message.threadId,
     conversationRules,
     regularRules,
-    matches: replyCompatibleMatches,
+    matches: customPrimaryMatches,
     logger,
   });
 
@@ -373,23 +368,19 @@ export function ensureConversationRuleForAiCalendarMatch<
   ];
 }
 
-export async function ensureConversationRuleForReplyCompatiblePrimary<
+export function ensureConversationRuleForCustomPrimary<
   T extends { rule: RuleWithActions; matchReasons?: MatchReason[] },
 >({
   conversationRules,
   regularRules,
   matches,
-  emailAccount,
-  modelType,
   logger,
 }: {
   conversationRules: RuleWithActions[];
   regularRules: RuleWithActions[];
   matches: T[];
-  emailAccount: EmailAccountForDrafting;
-  modelType: ModelType;
   logger: Logger;
-}): Promise<T[]> {
+}): T[] {
   if (!conversationRules.some((rule) => rule.enabled)) {
     return matches;
   }
@@ -407,15 +398,7 @@ export async function ensureConversationRuleForReplyCompatiblePrimary<
   }
 
   const [primaryMatch] = primaryMatches;
-  if (
-    !(await isReplyCompatiblePrimaryRule({
-      rule: primaryMatch.rule,
-      conversationRules,
-      emailAccount,
-      modelType,
-      logger,
-    }))
-  ) {
+  if (primaryMatch.rule.systemType) {
     return matches;
   }
 
@@ -424,12 +407,9 @@ export async function ensureConversationRuleForReplyCompatiblePrimary<
     return matches;
   }
 
-  logger.info(
-    "Adding conversation meta rule for reply-compatible primary rule",
-    {
-      module: MODULE,
-    },
-  );
+  logger.info("Adding conversation meta rule for custom primary rule", {
+    module: MODULE,
+  });
 
   return [
     ...matches,
@@ -438,79 +418,6 @@ export async function ensureConversationRuleForReplyCompatiblePrimary<
       matchReasons: [{ type: ConditionType.STATIC }],
     } as T,
   ];
-}
-
-async function isReplyCompatiblePrimaryRule({
-  rule,
-  conversationRules,
-  emailAccount,
-  modelType,
-  logger,
-}: {
-  rule: RuleWithActions;
-  conversationRules: RuleWithActions[];
-  emailAccount: EmailAccountForDrafting;
-  modelType: ModelType;
-  logger: Logger;
-}) {
-  if (rule.systemType) return false;
-
-  try {
-    const modelOptions = getModel(emailAccount.user, modelType);
-    const generateObject = createGenerateObject({
-      emailAccount,
-      label: "Reply-compatible primary rule",
-      modelOptions,
-      promptHardening: { trust: "untrusted", level: "full" },
-    });
-
-    const result = await generateObject({
-      ...modelOptions,
-      system: `You decide whether Inbox Zero should run a separate conversation-status classifier after a primary email rule has already matched.
-
-This does not decide whether the current email needs a reply. It decides whether the primary rule is compatible with also applying a conversation status such as To Reply, Awaiting Reply, FYI, or Actioned.
-
-Return true only when a second conversation-status label would be useful and not noisy for this kind of primary rule. Be conservative.
-
-Return true for narrow human/professional workflows where reply state is an independent useful status, such as correspondence with external advisors, legal or counsel matters, negotiations, contracts that may need review or signatures, or other high-value person-to-person workflows.
-
-Return false for automated, transactional, bulk, commercial, notification, receipt, newsletter, marketing, account/security, broad sender-bucket, or broad internal/team-style categories where adding reply status broadly would create clutter.
-
-Consider the rule text in any language.`,
-      prompt: `Primary rule:
-<rule>
-<name>${rule.name}</name>
-<instructions>${rule.instructions ?? ""}</instructions>
-</rule>
-
-Available conversation status rules:
-<conversation_rules>
-${conversationRules
-  .filter((conversationRule) => conversationRule.enabled)
-  .map(
-    (conversationRule) =>
-      `<rule><name>${conversationRule.name}</name><instructions>${conversationRule.instructions ?? ""}</instructions></rule>`,
-  )
-  .join("\n")}
-</conversation_rules>`,
-      schema: z.object({
-        runConversationStatus: z
-          .boolean()
-          .describe(
-            "Whether to run a separate conversation-status classifier after this primary rule",
-          ),
-        reason: z.string().describe("A concise reason for the decision"),
-      }),
-    });
-
-    return result.object.runConversationStatus;
-  } catch (error) {
-    logger.warn("Failed to determine reply-compatible primary rule", {
-      module: MODULE,
-      error,
-    });
-    return false;
-  }
 }
 
 async function executeMatchedRule(

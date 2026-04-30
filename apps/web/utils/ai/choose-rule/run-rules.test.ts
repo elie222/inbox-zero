@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   ensureConversationRuleContinuity,
   ensureConversationRuleForAiCalendarMatch,
-  ensureConversationRuleForReplyCompatiblePrimary,
+  ensureConversationRuleForCustomPrimary,
   CONVERSATION_TRACKING_META_RULE_ID,
   limitDraftEmailActions,
   runRules,
@@ -26,21 +26,11 @@ import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 
-const { generateObjectMock } = vi.hoisted(() => ({
-  generateObjectMock: vi.fn(),
-}));
-
 const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({ after: vi.fn((fn) => fn()) }));
-vi.mock("@/utils/llms", () => ({
-  createGenerateObject: vi.fn(() => generateObjectMock),
-}));
-vi.mock("@/utils/llms/model", () => ({
-  getModel: vi.fn(() => ({ model: "test-model" })),
-}));
 vi.mock("@/utils/ai/choose-rule/match-rules", () => ({
   findMatchingRules: vi.fn(),
 }));
@@ -844,80 +834,55 @@ describe("runRules selection metadata", () => {
   });
 });
 
-describe("ensureConversationRuleForReplyCompatiblePrimary", () => {
+describe("ensureConversationRuleForCustomPrimary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    generateObjectMock.mockResolvedValue({
-      object: { runConversationStatus: false, reason: "Not eligible" },
-    });
   });
 
-  it("adds the conversation meta rule for an AI-eligible custom match", async () => {
-    generateObjectMock.mockResolvedValue({
-      object: { runConversationStatus: true, reason: "Eligible" },
-    });
+  it("adds the conversation meta rule for a single custom primary match", () => {
+    const customRule = createRule("custom-rule");
 
-    const legalRule = {
-      ...createRule("legal-rule"),
-      name: "Legal",
-      instructions: "Contracts and legal agreements",
-    };
-
-    const result = await ensureConversationRuleForReplyCompatiblePrimary({
+    const result = ensureConversationRuleForCustomPrimary({
       conversationRules: [toReplyRule],
-      regularRules: [legalRule, conversationMetaRule],
-      matches: [{ rule: legalRule }],
-      emailAccount: getEmailAccount(),
-      modelType: "default" as any,
+      regularRules: [customRule, conversationMetaRule],
+      matches: [{ rule: customRule }],
       logger,
     });
 
     expect(result.map((match) => match.rule.id)).toEqual([
-      "legal-rule",
+      "custom-rule",
       CONVERSATION_TRACKING_META_RULE_ID,
     ]);
   });
 
-  it("does not add conversation tracking for system categories", async () => {
+  it("does not add conversation tracking for system categories", () => {
     const receiptRule = createRule("receipt-rule", SystemType.RECEIPT);
 
-    const result = await ensureConversationRuleForReplyCompatiblePrimary({
+    const result = ensureConversationRuleForCustomPrimary({
       conversationRules: [toReplyRule],
       regularRules: [receiptRule, conversationMetaRule],
       matches: [{ rule: receiptRule }],
-      emailAccount: getEmailAccount(),
-      modelType: "default" as any,
       logger,
     });
 
     expect(result.map((match) => match.rule.id)).toEqual(["receipt-rule"]);
-    expect(generateObjectMock).not.toHaveBeenCalled();
   });
 
-  it("does not add conversation tracking when AI rejects a custom rule", async () => {
-    generateObjectMock.mockResolvedValue({
-      object: {
-        runConversationStatus: false,
-        reason: "This would be too broad",
-      },
-    });
+  it("does not add conversation tracking when multiple primary rules match", () => {
+    const firstRule = createRule("custom-rule-1");
+    const secondRule = createRule("custom-rule-2");
 
-    const customRule = {
-      ...createRule("custom-rule"),
-      name: "Custom rule",
-      instructions: "User-defined category",
-    };
-
-    const result = await ensureConversationRuleForReplyCompatiblePrimary({
+    const result = ensureConversationRuleForCustomPrimary({
       conversationRules: [toReplyRule],
-      regularRules: [customRule, conversationMetaRule],
-      matches: [{ rule: customRule }],
-      emailAccount: getEmailAccount(),
-      modelType: "default" as any,
+      regularRules: [firstRule, secondRule, conversationMetaRule],
+      matches: [{ rule: firstRule }, { rule: secondRule }],
       logger,
     });
 
-    expect(result.map((match) => match.rule.id)).toEqual(["custom-rule"]);
+    expect(result.map((match) => match.rule.id)).toEqual([
+      "custom-rule-1",
+      "custom-rule-2",
+    ]);
   });
 });
 
@@ -1271,30 +1236,24 @@ describe("limitDraftEmailActions", () => {
 describe("runRules - double draft prevention", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    generateObjectMock.mockResolvedValue({
-      object: { runConversationStatus: false, reason: "Not eligible" },
-    });
   });
 
-  it("resolves conversation status after a legal custom rule is selected", async () => {
+  it("resolves conversation status after a custom rule is selected", async () => {
     const { determineConversationStatus } = await import(
       "@/utils/reply-tracker/handle-conversation-status"
     );
-    generateObjectMock.mockResolvedValue({
-      object: { runConversationStatus: true, reason: "Eligible" },
-    });
 
-    const legalRule = {
-      ...createRule("legal-rule", null, [
+    const customRule = {
+      ...createRule("custom-rule", null, [
         getAction({
-          id: "label-legal",
+          id: "label-custom",
           type: ActionType.LABEL,
-          label: "Legal",
-          ruleId: "legal-rule",
+          label: "Custom",
+          ruleId: "custom-rule",
         }),
       ]),
-      name: "Legal",
-      instructions: "Contracts and legal agreements",
+      name: "Custom",
+      instructions: "User-defined category",
     };
     const toReplyWithDraft = createRule("to-reply-rule", SystemType.TO_REPLY, [
       getAction({
@@ -1313,9 +1272,9 @@ describe("runRules - double draft prevention", () => {
 
     vi.mocked(findMatchingRules).mockResolvedValue({
       matches: [
-        { rule: legalRule, matchReasons: [{ type: ConditionType.AI }] },
+        { rule: customRule, matchReasons: [{ type: ConditionType.AI }] },
       ],
-      reasoning: "Legal message",
+      reasoning: "Custom message",
     });
 
     vi.mocked(determineConversationStatus).mockResolvedValue({
@@ -1350,7 +1309,7 @@ describe("runRules - double draft prevention", () => {
           "message-id": "<message-1>",
         },
       } as any,
-      rules: [legalRule, toReplyWithDraft],
+      rules: [customRule, toReplyWithDraft],
       emailAccount: getEmailAccount(),
       isTest: true,
       modelType: "default" as any,
@@ -1359,7 +1318,7 @@ describe("runRules - double draft prevention", () => {
 
     expect(determineConversationStatus).toHaveBeenCalledTimes(1);
     expect(results.map((result) => result.rule?.id)).toEqual([
-      "legal-rule",
+      "custom-rule",
       "to-reply-rule",
     ]);
   });
