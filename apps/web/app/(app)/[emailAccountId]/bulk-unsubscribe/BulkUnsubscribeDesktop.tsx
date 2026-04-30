@@ -18,6 +18,7 @@ import { ButtonCheckbox } from "@/components/ButtonCheckbox";
 import { DomainIcon } from "@/components/charts/DomainIcon";
 import { Progress } from "@/components/ui/progress";
 import { extractDomainFromEmail } from "@/utils/email";
+import { cn } from "@/utils";
 
 const LOW_READ_THRESHOLD = 30;
 
@@ -142,7 +143,12 @@ export function BulkUnsubscribeRowDesktop({
         <div className="flex items-center gap-2">
           <Progress
             value={readPercentage}
-            className="h-1.5 w-16 bg-muted"
+            className={cn(
+              "h-1.5 w-16",
+              readPercentage < LOW_READ_THRESHOLD
+                ? "bg-amber-100 dark:bg-amber-950"
+                : "bg-muted",
+            )}
             innerClassName={
               readPercentage < LOW_READ_THRESHOLD
                 ? "bg-amber-400"
