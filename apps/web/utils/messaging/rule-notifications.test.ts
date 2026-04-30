@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   ActionType,
+  AttachmentSourceType,
+  DraftReplyConfidence,
   MessagingMessageStatus,
   MessagingProvider,
   MessagingRoutePurpose,
@@ -9,9 +11,13 @@ import {
 } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
+import { getReplyWithConfidence } from "@/utils/redis/reply";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/redis/reply", () => ({
+  getReplyWithConfidence: vi.fn(),
+}));
 
 const mockCreateEmailProvider = vi.fn();
 const mockSendAutomationMessage = vi.fn();
@@ -77,6 +83,7 @@ describe("handleRuleNotificationAction", () => {
     mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
     mockTelegramPostMessage.mockResolvedValue({ id: "telegram-message-1" });
     mockTelegramEditMessage.mockResolvedValue({ id: "telegram-message-1" });
+    vi.mocked(getReplyWithConfidence).mockResolvedValue(null);
   });
 
   it("keeps the draft preview visible after sending from Slack", async () => {
@@ -702,6 +709,7 @@ describe("sendMessagingRuleNotification", () => {
     mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
     mockTelegramPostMessage.mockResolvedValue({ id: "telegram-message-1" });
     mockTelegramEditMessage.mockResolvedValue({ id: "telegram-message-1" });
+    vi.mocked(getReplyWithConfidence).mockResolvedValue(null);
   });
 
   it("adds an Open in Gmail button for Slack draft notifications on Google accounts", async () => {
@@ -812,6 +820,103 @@ describe("sendMessagingRuleNotification", () => {
 
     expect(serializedBlocks).toContain("Mailbox draft body");
     expect(serializedBlocks).not.toContain("Messaging draft body");
+  });
+
+  it("mentions AI-selected attachments in Slack draft notifications", async () => {
+    vi.mocked(getReplyWithConfidence).mockResolvedValue({
+      reply: "Draft body",
+      confidence: DraftReplyConfidence.STANDARD,
+      attribution: null,
+      draftContextMetadata: null,
+      attachments: [
+        {
+          driveConnectionId: "drive-1",
+          fileId: "file-1",
+          filename: "certificate.pdf",
+          mimeType: "application/pdf",
+          reason: "requested certificate",
+        },
+      ],
+    });
+
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+      }) as never,
+    );
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockSlackPostMessage).toHaveBeenCalledTimes(1);
+
+    const [args] = mockSlackPostMessage.mock.calls[0];
+    const serializedBlocks = JSON.stringify(args.blocks);
+
+    expect(serializedBlocks).toContain("Attachments:");
+    expect(serializedBlocks).toContain("certificate.pdf");
+  });
+
+  it("mentions configured attachments in Slack draft notifications", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+        staticAttachments: [
+          {
+            driveConnectionId: "drive-1",
+            name: "quote.pdf",
+            sourceId: "file-1",
+            sourcePath: null,
+            type: AttachmentSourceType.FILE,
+          },
+        ],
+      }) as never,
+    );
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockSlackPostMessage).toHaveBeenCalledTimes(1);
+
+    const [args] = mockSlackPostMessage.mock.calls[0];
+    const serializedBlocks = JSON.stringify(args.blocks);
+
+    expect(serializedBlocks).toContain("Attachments:");
+    expect(serializedBlocks).toContain("quote.pdf");
   });
 
   it("falls back to stored draft content when synced mailbox draft lookup fails", async () => {
@@ -1310,6 +1415,74 @@ describe("sendMessagingRuleNotification", () => {
         messagingMessageStatus: MessagingMessageStatus.SENT,
       },
     });
+  });
+
+  it("mentions AI-selected attachments in Telegram draft notifications", async () => {
+    vi.mocked(getReplyWithConfidence).mockResolvedValue({
+      reply: "Draft body",
+      confidence: DraftReplyConfidence.STANDARD,
+      attribution: null,
+      draftContextMetadata: null,
+      attachments: [
+        {
+          driveConnectionId: "drive-1",
+          fileId: "file-1",
+          filename: "certificate.pdf",
+          mimeType: "application/pdf",
+          reason: "requested certificate",
+        },
+      ],
+    });
+
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.TELEGRAM,
+          isConnected: true,
+          teamId: "telegram-chat-1",
+          providerUserId: "telegram-user-1",
+          accessToken: null,
+          channelId: null,
+          routes: [
+            {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              targetId: "telegram-chat-1",
+              targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+            },
+          ],
+        },
+      }) as never,
+    );
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockTelegramPostMessage).toHaveBeenCalledTimes(1);
+
+    const [, card] = mockTelegramPostMessage.mock.calls[0];
+    const serializedCard = JSON.stringify(card);
+
+    expect(serializedCard).toContain("Attachments:");
+    expect(serializedCard).toContain("certificate.pdf");
   });
 
   it("renders decoded email previews in Telegram draft notification cards", async () => {
@@ -1915,6 +2088,7 @@ function getNotificationContext({
   messagingMessageId = null,
   messagingMessageStatus = null,
   mailboxDraftAction = null,
+  staticAttachments = null,
 }: {
   id: string;
   type: ActionType;
@@ -1942,6 +2116,7 @@ function getNotificationContext({
     draftId: string;
     subject: string | null;
   } | null;
+  staticAttachments?: unknown;
 }) {
   const defaultRoutes =
     messagingChannel?.routes ??
@@ -1974,7 +2149,7 @@ function getNotificationContext({
     cc: null,
     bcc: null,
     draftId: null,
-    staticAttachments: null,
+    staticAttachments,
     messagingChannelId: "channel-1",
     messagingMessageId,
     messagingMessageStatus,
