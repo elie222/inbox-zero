@@ -16,7 +16,10 @@ import {
 import type { RowProps } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import { ButtonCheckbox } from "@/components/ButtonCheckbox";
 import { DomainIcon } from "@/components/charts/DomainIcon";
+import { Progress } from "@/components/ui/progress";
 import { extractDomainFromEmail } from "@/utils/email";
+
+const LOW_READ_THRESHOLD = 30;
 
 export function BulkUnsubscribeDesktop({
   tableRows,
@@ -136,9 +139,20 @@ export function BulkUnsubscribeRowDesktop({
         <span className="font-medium text-foreground/80">{item.value}</span>
       </TableCell>
       <TableCell className="whitespace-nowrap" data-label="Read">
-        <span className="font-medium text-foreground/80">
-          {Math.round(readPercentage)}%
-        </span>
+        <div className="flex items-center gap-2">
+          <Progress
+            value={readPercentage}
+            className="h-1.5 w-16 bg-muted"
+            innerClassName={
+              readPercentage < LOW_READ_THRESHOLD
+                ? "bg-amber-400"
+                : "bg-slate-300 dark:bg-slate-500"
+            }
+          />
+          <span className="font-medium text-foreground/80">
+            {Math.round(readPercentage)}%
+          </span>
+        </div>
       </TableCell>
       <TableCell className="w-auto sm:w-[196px] p-1" data-cell="actions">
         <div className="flex justify-end items-center gap-2">
