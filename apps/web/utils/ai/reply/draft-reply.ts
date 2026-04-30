@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TZDate } from "@date-fns/tz";
 import { createScopedLogger } from "@/utils/logger";
 import { createGenerateObject } from "@/utils/llms/index";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -149,6 +150,7 @@ ${learnedWritingStyle}
   const schedulingContext = getSchedulingContext({
     calendarBookingLink: emailAccount.calendarBookingLink,
     calendarAvailability,
+    userTimezone: calendarAvailability?.timezone || emailAccount.timezone,
   });
 
   const mcpToolsContext = mcpContext
@@ -421,11 +423,14 @@ const REPETITIVE_TEXT_PATTERN = /([^\s\-=_*.#~])\1{49,}/u;
 function getSchedulingContext({
   calendarBookingLink,
   calendarAvailability,
+  userTimezone,
 }: {
   calendarBookingLink: string | null;
   calendarAvailability: CalendarAvailabilityContext | null;
+  userTimezone: string | null | undefined;
 }): string {
   const parts: string[] = [];
+  const timezone = userTimezone || "UTC";
 
   if (calendarBookingLink) {
     parts.push(`<booking_link>
@@ -436,14 +441,17 @@ Share this booking link when scheduling with the user is clearly needed, not as 
   }
 
   if (calendarAvailability?.noAvailability) {
-    parts.push(`The user has no available time slots in the requested timeframe.
+    parts.push(`The user has no available time slots in the requested timeframe in ${timezone}.
 Do not suggest specific times. Acknowledge the request and suggest alternatives (e.g., "I'm fully booked tomorrow, but let's find another day that works"${calendarBookingLink ? " or share the booking link" : ""}).`);
   } else if (calendarAvailability?.suggestedTimes.length) {
     const times = calendarAvailability.suggestedTimes
-      .map((slot) => `- ${slot.start} to ${slot.end}`)
+      .map((slot) => formatAvailableSlotForPrompt(slot, timezone))
       .join("\n");
 
-    parts.push(`Available time slots:
+    parts.push(`Available time slots are in ${timezone}.
+If the sender requested or uses another timezone, express proposed times in that timezone after converting from the user's available slots.
+
+Available time slots:
 ${times}
 
 ${calendarBookingLink ? "If scheduling with the user is clearly needed, you may share the booking link and optionally suggest a few of these times as alternatives." : "When the sender is asking to schedule, respond concretely using these time slots. Treat supplied slots on or after today's date as valid; only ask for updated availability if every supplied slot is before today's date."} Format suggested times as a bulleted list.`);
@@ -457,4 +465,44 @@ ${calendarBookingLink ? "If scheduling with the user is clearly needed, you may 
 ${parts.join("\n\n")}
 </scheduling>
 `;
+}
+
+function formatAvailableSlotForPrompt(
+  slot: { start: string; end: string },
+  timezone: string,
+): string {
+  const utcStart = formatLocalSlotTimeAsUtc(slot.start, timezone);
+  const utcEnd = formatLocalSlotTimeAsUtc(slot.end, timezone);
+
+  if (!utcStart || !utcEnd) {
+    return `- ${slot.start} to ${slot.end}`;
+  }
+
+  return `- ${slot.start} to ${slot.end} (${timezone}; UTC ${utcStart} to ${utcEnd})`;
+}
+
+function formatLocalSlotTimeAsUtc(
+  localTime: string,
+  timezone: string,
+): string | null {
+  const match = localTime.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/);
+
+  if (!match) return null;
+
+  const [, year, month, day, hour, minute] = match;
+  const date = new TZDate(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    0,
+    0,
+    timezone,
+  );
+
+  const utcDate = new Date(date.getTime());
+  if (Number.isNaN(utcDate.getTime())) return null;
+
+  return utcDate.toISOString().slice(0, 16).replace("T", " ");
 }
