@@ -76,6 +76,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { getPendingEmailSubjectPrefix } from "@/components/assistant-chat/helpers";
 
 export type ThreadLookup = EmailLookup;
 
@@ -681,7 +682,7 @@ function EmailActionResult({
           <div className="flex items-center gap-2 border-b px-4 py-2.5">
             <FieldLabel>Subject</FieldLabel>
             <span className="truncate text-sm font-medium text-foreground">
-              {actionType !== "send_email" ? "Re: " : ""}
+              {getPendingEmailSubjectPrefix(actionType)}
               {displaySubject}
             </span>
           </div>

@@ -6,6 +6,8 @@ import type {
   CustomUIDataTypes,
 } from "@/components/assistant-chat/types";
 
+type PendingEmailActionType = "send_email" | "reply_email" | "forward_email";
+
 export function convertToUIMessages(chat: GetChatResponse): ChatMessage[] {
   return (
     chat?.messages.map((message) => ({
@@ -17,4 +19,12 @@ export function convertToUIMessages(chat: GetChatResponse): ChatMessage[] {
       // },
     })) || []
   );
+}
+
+export function getPendingEmailSubjectPrefix(
+  actionType: PendingEmailActionType,
+) {
+  if (actionType === "reply_email") return "Re: ";
+  if (actionType === "forward_email") return "Fwd: ";
+  return "";
 }
