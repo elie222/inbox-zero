@@ -56,6 +56,9 @@ export function OnboardingModalDialog({
   description,
   youtubeVideoId,
   muxPlaybackId,
+  onVideoCompleted,
+  onVideoProgress,
+  onVideoStarted,
 }: {
   isModalOpen: boolean;
   setIsModalOpen: (open: boolean) => void;
@@ -63,6 +66,9 @@ export function OnboardingModalDialog({
   description: React.ReactNode;
   youtubeVideoId?: string;
   muxPlaybackId?: string;
+  onVideoCompleted?: () => void;
+  onVideoProgress?: (progressPercent: number) => void;
+  onVideoStarted?: () => void;
 }) {
   return (
     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -71,6 +77,9 @@ export function OnboardingModalDialog({
         description={description}
         youtubeVideoId={youtubeVideoId}
         muxPlaybackId={muxPlaybackId}
+        onVideoCompleted={onVideoCompleted}
+        onVideoProgress={onVideoProgress}
+        onVideoStarted={onVideoStarted}
       />
     </Dialog>
   );
@@ -81,11 +90,17 @@ export function OnboardingDialogContent({
   description,
   youtubeVideoId,
   muxPlaybackId,
+  onVideoCompleted,
+  onVideoProgress,
+  onVideoStarted,
 }: {
   title: string;
   description: React.ReactNode;
   youtubeVideoId?: string;
   muxPlaybackId?: string;
+  onVideoCompleted?: () => void;
+  onVideoProgress?: (progressPercent: number) => void;
+  onVideoStarted?: () => void;
 }) {
   const { width } = useWindowSize();
 
@@ -105,6 +120,9 @@ export function OnboardingDialogContent({
             playbackId={muxPlaybackId}
             title={`Onboarding video - ${title}`}
             className="size-full"
+            onVideoCompleted={onVideoCompleted}
+            onVideoProgress={onVideoProgress}
+            onVideoStarted={onVideoStarted}
           />
         </div>
       ) : youtubeVideoId ? (
@@ -117,6 +135,9 @@ export function OnboardingDialogContent({
             videoId={youtubeVideoId}
             title={`Onboarding video - ${title}`}
             iframeClassName="mx-auto"
+            onVideoCompleted={onVideoCompleted}
+            onVideoProgress={onVideoProgress}
+            onVideoStarted={onVideoStarted}
             opts={{
               height: `${videoHeight}`,
               width: `${videoWidth}`,
