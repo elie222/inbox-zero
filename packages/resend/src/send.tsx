@@ -48,8 +48,7 @@ const sendEmail = async ({
   baseUrl: string;
 }) => {
   if (!resend) {
-    console.log(RESEND_NOT_CONFIGURED_MESSAGE);
-    return Promise.resolve();
+    throw new Error(RESEND_NOT_CONFIGURED_MESSAGE);
   }
 
   const text = await render(react, { plainText: true });
