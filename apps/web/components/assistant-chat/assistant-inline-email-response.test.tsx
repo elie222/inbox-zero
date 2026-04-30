@@ -227,6 +227,19 @@ describe("AssistantInlineEmailResponse", () => {
     expect(screen.getByText("Notify via Slack")).toBeTruthy();
     expect(screen.queryByText("Notify via chat app")).toBeNull();
   });
+
+  it("does not preserve generic chat app destinations in rule suggestions", () => {
+    render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        '<rule-suggestion name="Support" when="support requests" do="label as Support and notify via chat app" />',
+      ),
+    );
+
+    expect(screen.queryByText("Notify via chat app")).toBeNull();
+    expect(screen.getByText("Notify via messaging channel")).toBeTruthy();
+  });
 });
 
 function openMoreActions() {
