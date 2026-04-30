@@ -291,7 +291,7 @@ function getNotifyMessagingChannelSummary({
 
   return selectedChannel
     ? `Notify via ${getMessagingProviderName(selectedChannel.provider)}`
-    : "Notify via messaging channel";
+    : "Notify";
 }
 
 function formatDelay(delayInMinutes: number | null | undefined): string {

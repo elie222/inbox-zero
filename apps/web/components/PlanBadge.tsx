@@ -118,7 +118,7 @@ function getActionLabel(
     case ActionType.NOTIFY_MESSAGING_CHANNEL:
       return action?.messagingChannel?.provider
         ? `Notify via ${getMessagingProviderName(action.messagingChannel.provider)}`
-        : "Notify via messaging channel";
+        : "Notify";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
     default:

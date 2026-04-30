@@ -238,7 +238,7 @@ describe("AssistantInlineEmailResponse", () => {
     );
 
     expect(screen.queryByText("Notify via chat app")).toBeNull();
-    expect(screen.getByText("Notify via messaging channel")).toBeTruthy();
+    expect(screen.getByText("Notify")).toBeTruthy();
   });
 });
 

@@ -101,7 +101,7 @@ export function getActionDisplay(
     case ActionType.NOTIFY_MESSAGING_CHANNEL:
       return action.notificationDestination
         ? `Notify via ${truncate(action.notificationDestination, 18)}`
-        : "Notify via messaging channel";
+        : "Notify";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
     default: {
