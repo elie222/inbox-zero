@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   buildAffirmativeReactionMessage,
+  buildModelUserMessage,
   buildPendingEmailConfirmationCard,
   buildPendingEmailCardFallbackText,
   getPendingEmailHandledOpenText,
@@ -191,6 +192,54 @@ describe("buildPendingEmailCardFallbackText", () => {
     const input =
       "This draft is pending confirmation.\n\nI couldn't show the Send button right now. Ask me to prepare the draft again.";
     expect(buildPendingEmailCardFallbackText(input)).toBe(input);
+  });
+});
+
+describe("buildModelUserMessage", () => {
+  it("prepends hidden attachment context only for model input", () => {
+    const userMessage = {
+      id: "slack-message-1",
+      role: "user",
+      parts: [{ type: "text" as const, text: "Please send this to finance." }],
+    };
+
+    const modelMessage = buildModelUserMessage({
+      userMessage,
+      hasUnsupportedAttachments: true,
+    });
+
+    expect(modelMessage).not.toBe(userMessage);
+    expect(modelMessage.parts[0]).toEqual({
+      type: "text",
+      text: expect.stringContaining("cannot be attached to outgoing emails"),
+    });
+    expect(modelMessage.parts.slice(1)).toEqual(userMessage.parts);
+    expect(userMessage.parts).toEqual([
+      { type: "text", text: "Please send this to finance." },
+    ]);
+  });
+
+  it("returns the original user message when all attachments are supported", () => {
+    const userMessage = {
+      id: "telegram-message-1",
+      role: "user",
+      parts: [
+        {
+          type: "file" as const,
+          url: "data:image/png;base64,abc",
+          mediaType: "image/png",
+          filename: "receipt.png",
+        },
+        { type: "text" as const, text: "Summarize this receipt." },
+      ],
+    };
+
+    const modelMessage = buildModelUserMessage({
+      userMessage,
+      hasUnsupportedAttachments: false,
+    });
+
+    expect(modelMessage).toBe(userMessage);
   });
 });
 

@@ -653,18 +653,10 @@ async function processMessagingAssistantMessage({
       role: "user",
       parts: userParts,
     };
-    const modelUserMessage: UIMessage = context.hasUnsupportedAttachments
-      ? {
-          ...newUserMessage,
-          parts: [
-            {
-              type: "text" as const,
-              text: UNSUPPORTED_MESSAGING_ATTACHMENT_MODEL_CONTEXT,
-            },
-            ...newUserMessage.parts,
-          ],
-        }
-      : newUserMessage;
+    const modelUserMessage = buildModelUserMessage({
+      userMessage: newUserMessage,
+      hasUnsupportedAttachments: context.hasUnsupportedAttachments,
+    });
 
     await prisma.chatMessage.upsert({
       where: { id: userMessageId },
@@ -2717,6 +2709,27 @@ export function buildPendingEmailCardFallbackText(normalizedText: string) {
   }
 
   return `${normalizedText}\n\n${failureGuidance}`;
+}
+
+export function buildModelUserMessage({
+  userMessage,
+  hasUnsupportedAttachments,
+}: {
+  userMessage: UIMessage;
+  hasUnsupportedAttachments: boolean;
+}): UIMessage {
+  if (!hasUnsupportedAttachments) return userMessage;
+
+  return {
+    ...userMessage,
+    parts: [
+      {
+        type: "text",
+        text: UNSUPPORTED_MESSAGING_ATTACHMENT_MODEL_CONTEXT,
+      },
+      ...userMessage.parts,
+    ],
+  };
 }
 
 function isAffirmativeReactionEvent(event: ReactionEvent) {
