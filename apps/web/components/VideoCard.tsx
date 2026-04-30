@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import type { ComponentProps } from "react";
 import Image from "next/image";
-import MuxPlayer from "@mux/mux-player-react";
 import { PlayIcon, X } from "lucide-react";
 import { CardGreen } from "@/components/ui/card";
 import {
@@ -13,8 +12,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ClientOnly } from "@/components/ClientOnly";
 import { MutedText } from "@/components/Typography";
+import { MuxVideo } from "@/components/MuxVideo";
+import { YouTubeVideo } from "@/components/YouTubeVideo";
+import {
+  useVideoAnalytics,
+  type VideoAnalyticsConfig,
+} from "@/hooks/useVideoAnalytics";
 
 type VideoCardProps = ComponentProps<typeof VideoCard> & {
   storageKey: string;
@@ -31,6 +35,14 @@ export function DismissibleVideoCard({
   const [isVisible, setIsVisible] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
   const hasTrackedView = useRef(false);
+  const videoAnalytics = useVideoAnalytics(
+    getVideoAnalyticsConfig({
+      muxPlaybackId: props.muxPlaybackId,
+      title: props.title,
+      videoAnalytics: props.videoAnalytics,
+      youtubeVideoId: props.youtubeVideoId,
+    }),
+  );
 
   useEffect(() => {
     const isDismissed = localStorage.getItem(storageKey) === "true";
@@ -42,12 +54,14 @@ export function DismissibleVideoCard({
     if (!isLoaded || !isVisible || hasTrackedView.current) return;
 
     hasTrackedView.current = true;
+    videoAnalytics.trackViewed();
     onViewed?.();
-  }, [isLoaded, isVisible, onViewed]);
+  }, [isLoaded, isVisible, onViewed, videoAnalytics]);
 
   const handleClose = () => {
     setIsVisible(false);
     localStorage.setItem(storageKey, "true");
+    videoAnalytics.trackDismissed();
     onDismiss?.();
   };
 
@@ -72,6 +86,13 @@ const VideoCard = React.forwardRef<
     onVideoOpened?: (trigger: "button" | "thumbnail") => void;
     onVideoProgress?: (progressPercent: number) => void;
     onVideoStarted?: () => void;
+    videoAnalytics?: Omit<
+      VideoAnalyticsConfig,
+      "muxPlaybackId" | "provider" | "title" | "youtubeVideoId"
+    > & {
+      title?: string;
+    };
+    youtubeVideoId?: string;
   }
 >(
   (
@@ -88,54 +109,45 @@ const VideoCard = React.forwardRef<
       onVideoOpened,
       onVideoProgress,
       onVideoStarted,
+      videoAnalytics,
+      youtubeVideoId,
       ...props
     },
     ref,
   ) => {
     const [isOpen, setIsOpen] = useState(false);
-    const hasTrackedVideoStart = useRef(false);
-    const trackedProgressMilestones = useRef(new Set<number>());
+    const analytics = useVideoAnalytics(
+      getVideoAnalyticsConfig({
+        muxPlaybackId,
+        title,
+        videoAnalytics,
+        youtubeVideoId,
+      }),
+    );
 
     const handleOpenChange = (open: boolean) => {
       setIsOpen(open);
-
-      if (!open) {
-        hasTrackedVideoStart.current = false;
-        trackedProgressMilestones.current.clear();
-      }
     };
 
     const openVideo = (trigger: "button" | "thumbnail") => {
       setIsOpen(true);
+      analytics.trackOpened({ trigger });
       onVideoOpened?.(trigger);
     };
 
     const handleVideoStarted = () => {
-      if (hasTrackedVideoStart.current) return;
-
-      hasTrackedVideoStart.current = true;
+      analytics.trackStarted();
       onVideoStarted?.();
     };
 
-    const handleVideoProgress = (event: Event) => {
-      const video = event.currentTarget as {
-        currentTime?: number;
-        duration?: number;
-      };
-      if (!video.duration || Number.isNaN(video.duration)) return;
+    const handleVideoProgress = (progressPercent: number) => {
+      analytics.trackProgress(progressPercent);
+      onVideoProgress?.(progressPercent);
+    };
 
-      const progressPercent = Math.floor(
-        ((video.currentTime ?? 0) / video.duration) * 100,
-      );
-      for (const milestone of [25, 50, 75]) {
-        if (
-          progressPercent >= milestone &&
-          !trackedProgressMilestones.current.has(milestone)
-        ) {
-          trackedProgressMilestones.current.add(milestone);
-          onVideoProgress?.(milestone);
-        }
-      }
+    const handleVideoCompleted = () => {
+      analytics.trackCompleted();
+      onVideoCompleted?.();
     };
 
     return (
@@ -207,19 +219,28 @@ const VideoCard = React.forwardRef<
                   <DialogTitle className="sr-only">Video: {title}</DialogTitle>
                   <div className="relative aspect-video w-full overflow-hidden rounded-lg">
                     {muxPlaybackId ? (
-                      <ClientOnly>
-                        <MuxPlayer
-                          playbackId={muxPlaybackId}
-                          metadata={{ video_title: title }}
-                          accentColor="#3b82f6"
-                          className="size-full rounded-lg"
-                          style={{ overflow: "hidden" }}
-                          autoPlay
-                          onEnded={onVideoCompleted}
-                          onPlay={handleVideoStarted}
-                          onTimeUpdate={handleVideoProgress}
-                        />
-                      </ClientOnly>
+                      <MuxVideo
+                        playbackId={muxPlaybackId}
+                        className="size-full rounded-lg"
+                        playerClassName="size-full rounded-lg"
+                        playerStyle={{ overflow: "hidden" }}
+                        title={title}
+                        autoPlay
+                        onVideoCompleted={handleVideoCompleted}
+                        onVideoProgress={handleVideoProgress}
+                        onVideoStarted={handleVideoStarted}
+                      />
+                    ) : youtubeVideoId ? (
+                      <YouTubeVideo
+                        videoId={youtubeVideoId}
+                        title={`Video: ${title}`}
+                        onVideoCompleted={handleVideoCompleted}
+                        onVideoProgress={handleVideoProgress}
+                        onVideoStarted={handleVideoStarted}
+                        opts={{
+                          playerVars: { autoplay: 1 },
+                        }}
+                      />
                     ) : (
                       <iframe
                         src={`${videoSrc}${videoSrc?.includes("?") ? "&" : "?"}autoplay=1&rel=0`}
@@ -242,3 +263,42 @@ const VideoCard = React.forwardRef<
 VideoCard.displayName = "ActionCard";
 
 export { VideoCard };
+
+function getVideoAnalyticsConfig({
+  muxPlaybackId,
+  title,
+  videoAnalytics,
+  youtubeVideoId,
+}: {
+  muxPlaybackId?: string;
+  title: string;
+  videoAnalytics?:
+    | (Omit<
+        VideoAnalyticsConfig,
+        "muxPlaybackId" | "provider" | "title" | "youtubeVideoId"
+      > & {
+        title?: string;
+      })
+    | undefined;
+  youtubeVideoId?: string;
+}): VideoAnalyticsConfig | undefined {
+  if (!videoAnalytics) return;
+
+  if (muxPlaybackId) {
+    return {
+      ...videoAnalytics,
+      muxPlaybackId,
+      provider: "mux",
+      title: videoAnalytics.title ?? title,
+    };
+  }
+
+  if (youtubeVideoId) {
+    return {
+      ...videoAnalytics,
+      provider: "youtube",
+      title: videoAnalytics.title ?? title,
+      youtubeVideoId,
+    };
+  }
+}

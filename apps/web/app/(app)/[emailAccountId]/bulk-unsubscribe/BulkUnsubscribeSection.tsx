@@ -316,8 +316,13 @@ export function BulkUnsubscribe() {
           "Learn how to use the Bulk Unsubscribe to unsubscribe from and archive unwanted emails."
         }
         videoSrc="https://www.youtube.com/embed/T1rnooV4OYc"
+        youtubeVideoId="T1rnooV4OYc"
         thumbnailSrc="https://img.youtube.com/vi/T1rnooV4OYc/0.jpg"
         storageKey="bulk-unsubscribe-onboarding-video"
+        videoAnalytics={{
+          page: "bulk_unsubscribe",
+          surface: "dismissible_card",
+        }}
       />
 
       <div className="items-center justify-between flex mt-4 flex-wrap">
