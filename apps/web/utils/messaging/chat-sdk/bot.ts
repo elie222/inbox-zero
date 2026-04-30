@@ -106,7 +106,9 @@ const NEGATIVE_REACTION_ALIASES = new Set([
   "heavy_multiplication_x",
 ]);
 const UNSUPPORTED_MESSAGING_ATTACHMENT_MESSAGE =
-  "I can process images, but I can't access other file types (documents, videos, audio) sent here yet. I can still draft the email text if you share what to write.";
+  "I can process images, but I can't access or email other file types (documents, videos, audio) sent here yet. Share the contents as text if you want me to draft an email about them.";
+const UNSUPPORTED_MESSAGING_ATTACHMENT_MODEL_CONTEXT =
+  "Hidden context: The latest messaging input included one or more unsupported non-image file attachments. Their contents are unavailable, and they cannot be attached to outgoing emails from chat.";
 
 const SLACK_ASSISTANT_SUGGESTED_PROMPTS = [
   { title: "Inbox summary", message: "Summarize what needs attention today." },
@@ -651,6 +653,18 @@ async function processMessagingAssistantMessage({
       role: "user",
       parts: userParts,
     };
+    const modelUserMessage: UIMessage = context.hasUnsupportedAttachments
+      ? {
+          ...newUserMessage,
+          parts: [
+            {
+              type: "text" as const,
+              text: UNSUPPORTED_MESSAGING_ATTACHMENT_MODEL_CONTEXT,
+            },
+            ...newUserMessage.parts,
+          ],
+        }
+      : newUserMessage;
 
     await prisma.chatMessage.upsert({
       where: { id: userMessageId },
@@ -702,7 +716,7 @@ async function processMessagingAssistantMessage({
       const result = await aiProcessAssistantChat({
         messages: await convertToModelMessages([
           ...existingMessages,
-          newUserMessage,
+          modelUserMessage,
         ]),
         emailAccountId: context.emailAccountId,
         user: emailAccountUser,

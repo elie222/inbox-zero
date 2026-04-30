@@ -585,6 +585,7 @@ function getEmailCapabilitiesPolicy({
     "- When replying to a thread, write the reply in the same language as the latest message in the thread.",
     '- When the user asks to forward an existing email, activate "forward" and use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.',
     "- When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.",
+    "- Chat-uploaded files are not available as outgoing email attachments. If the user asks to send, forward, or attach a file from chat, explain that this is unsupported and do not call sendEmail, replyEmail, or forwardEmail for that file.",
     "- Only send emails when the user clearly asks to send now.",
     '- After calling these tools, briefly say the email is ready in the pending email card for review and send. Do not mention card position like "below" or "above". Do not ask follow-up questions about CC, BCC, or whether to proceed because the UI handles confirmation.',
     "- After sendEmail, replyEmail, or forwardEmail, do not also render email widgets for that same action in the text; the pending email card is already the UI for it.",
