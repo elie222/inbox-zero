@@ -102,6 +102,7 @@ export function BulkUnsubscribeRowDesktop({
   readPercentage,
 }: RowProps) {
   const domain = extractDomainFromEmail(item.name) || item.name;
+  const isLowReadRate = readPercentage < LOW_READ_THRESHOLD;
 
   return (
     <TableRow
@@ -145,17 +146,20 @@ export function BulkUnsubscribeRowDesktop({
             value={readPercentage}
             className={cn(
               "h-1.5 w-16",
-              readPercentage < LOW_READ_THRESHOLD
-                ? "bg-amber-100 dark:bg-amber-950"
-                : "bg-muted",
+              isLowReadRate ? "bg-amber-100 dark:bg-amber-950" : "bg-muted",
             )}
             innerClassName={
-              readPercentage < LOW_READ_THRESHOLD
-                ? "bg-amber-400"
-                : "bg-slate-300 dark:bg-slate-500"
+              isLowReadRate ? "bg-amber-400" : "bg-slate-300 dark:bg-slate-500"
             }
           />
-          <span className="font-medium text-foreground/80">
+          <span
+            className={cn(
+              "font-medium",
+              isLowReadRate
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-foreground/80",
+            )}
+          >
             {Math.round(readPercentage)}%
           </span>
         </div>
