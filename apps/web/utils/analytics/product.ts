@@ -81,6 +81,14 @@ export const PRODUCT_ANALYTICS_ACTIONS = {
     dateRangeChanged: "analytics_date_range_changed",
     groupingChanged: "analytics_grouping_changed",
   },
+  automation: {
+    videoBannerClicked: "automation_video_banner_clicked",
+    videoBannerCompleted: "automation_video_banner_completed",
+    videoBannerDismissed: "automation_video_banner_dismissed",
+    videoBannerProgress: "automation_video_banner_progress",
+    videoBannerStarted: "automation_video_banner_started",
+    videoBannerViewed: "automation_video_banner_viewed",
+  },
   deepClean: {
     started: "deep_clean_started",
   },

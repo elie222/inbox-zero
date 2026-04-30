@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { SparklesIcon } from "lucide-react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
@@ -17,7 +16,7 @@ import { AIChatButton } from "@/app/(app)/[emailAccountId]/assistant/AIChatButto
 import { AllRulesDisabledBanner } from "@/app/(app)/[emailAccountId]/assistant/AllRulesDisabledBanner";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
-import { DismissibleVideoCard } from "@/components/VideoCard";
+import { AutomationOnboardingVideoCard } from "@/app/(app)/[emailAccountId]/automation/AutomationOnboardingVideoCard";
 import {
   STEP_KEYS,
   getOnboardingStepHref,
@@ -108,16 +107,7 @@ export default async function AutomationPage({
             />
           </div>
 
-          <DismissibleVideoCard
-            className="my-4"
-            icon={<SparklesIcon className="h-5 w-5" />}
-            title="Getting started with AI Assistant"
-            description={
-              "Learn how to use the AI Assistant to automatically label, archive, and more."
-            }
-            muxPlaybackId="VwIP7UAw4MXDjkvmLjJzGsY00ee9jxIZVI952DoBBfp8"
-            storageKey="ai-assistant-onboarding-video"
-          />
+          <AutomationOnboardingVideoCard />
 
           <Tabs defaultValue="rules">
             <TabsContent value="rules" className="mb-10">

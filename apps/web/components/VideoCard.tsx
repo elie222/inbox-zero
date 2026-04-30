@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { ComponentProps } from "react";
 import Image from "next/image";
 import MuxPlayer from "@mux/mux-player-react";
@@ -18,11 +18,19 @@ import { MutedText } from "@/components/Typography";
 
 type VideoCardProps = ComponentProps<typeof VideoCard> & {
   storageKey: string;
+  onDismiss?: () => void;
+  onViewed?: () => void;
 };
 
-export function DismissibleVideoCard({ storageKey, ...props }: VideoCardProps) {
+export function DismissibleVideoCard({
+  storageKey,
+  onDismiss,
+  onViewed,
+  ...props
+}: VideoCardProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
+  const hasTrackedView = useRef(false);
 
   useEffect(() => {
     const isDismissed = localStorage.getItem(storageKey) === "true";
@@ -30,9 +38,17 @@ export function DismissibleVideoCard({ storageKey, ...props }: VideoCardProps) {
     setIsLoaded(true);
   }, [storageKey]);
 
+  useEffect(() => {
+    if (!isLoaded || !isVisible || hasTrackedView.current) return;
+
+    hasTrackedView.current = true;
+    onViewed?.();
+  }, [isLoaded, isVisible, onViewed]);
+
   const handleClose = () => {
     setIsVisible(false);
     localStorage.setItem(storageKey, "true");
+    onDismiss?.();
   };
 
   if (!isLoaded || !isVisible) {
@@ -52,6 +68,10 @@ const VideoCard = React.forwardRef<
     thumbnailSrc?: string;
     muxPlaybackId?: string;
     onClose?: () => void;
+    onVideoCompleted?: () => void;
+    onVideoOpened?: (trigger: "button" | "thumbnail") => void;
+    onVideoProgress?: (progressPercent: number) => void;
+    onVideoStarted?: () => void;
   }
 >(
   (
@@ -64,11 +84,59 @@ const VideoCard = React.forwardRef<
       thumbnailSrc,
       muxPlaybackId,
       onClose,
+      onVideoCompleted,
+      onVideoOpened,
+      onVideoProgress,
+      onVideoStarted,
       ...props
     },
     ref,
   ) => {
     const [isOpen, setIsOpen] = useState(false);
+    const hasTrackedVideoStart = useRef(false);
+    const trackedProgressMilestones = useRef(new Set<number>());
+
+    const handleOpenChange = (open: boolean) => {
+      setIsOpen(open);
+
+      if (!open) {
+        hasTrackedVideoStart.current = false;
+        trackedProgressMilestones.current.clear();
+      }
+    };
+
+    const openVideo = (trigger: "button" | "thumbnail") => {
+      setIsOpen(true);
+      onVideoOpened?.(trigger);
+    };
+
+    const handleVideoStarted = () => {
+      if (hasTrackedVideoStart.current) return;
+
+      hasTrackedVideoStart.current = true;
+      onVideoStarted?.();
+    };
+
+    const handleVideoProgress = (event: Event) => {
+      const video = event.currentTarget as {
+        currentTime?: number;
+        duration?: number;
+      };
+      if (!video.duration || Number.isNaN(video.duration)) return;
+
+      const progressPercent = Math.floor(
+        ((video.currentTime ?? 0) / video.duration) * 100,
+      );
+      for (const milestone of [25, 50, 75]) {
+        if (
+          progressPercent >= milestone &&
+          !trackedProgressMilestones.current.has(milestone)
+        ) {
+          trackedProgressMilestones.current.add(milestone);
+          onVideoProgress?.(milestone);
+        }
+      }
+    };
 
     return (
       <CardGreen ref={ref} className={className} {...props}>
@@ -97,7 +165,7 @@ const VideoCard = React.forwardRef<
                   className="mt-3"
                   size="sm"
                   variant="primaryBlack"
-                  onClick={() => setIsOpen(true)}
+                  onClick={() => openVideo("button")}
                   Icon={PlayIcon}
                 >
                   Watch Video
@@ -106,11 +174,12 @@ const VideoCard = React.forwardRef<
             </div>
 
             <div className="hidden md:flex items-center gap-3 flex-shrink-0">
-              <Dialog open={isOpen} onOpenChange={setIsOpen}>
+              <Dialog open={isOpen} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>
                   <button
                     type="button"
                     aria-label="Play video"
+                    onClick={() => openVideo("thumbnail")}
                     className="group relative cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 rounded-lg overflow-hidden"
                   >
                     <div className="relative w-32 h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
@@ -146,6 +215,9 @@ const VideoCard = React.forwardRef<
                           className="size-full rounded-lg"
                           style={{ overflow: "hidden" }}
                           autoPlay
+                          onEnded={onVideoCompleted}
+                          onPlay={handleVideoStarted}
+                          onTimeUpdate={handleVideoProgress}
                         />
                       </ClientOnly>
                     ) : (
