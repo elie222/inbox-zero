@@ -27,7 +27,6 @@ export function AssistantOnboarding({
   const hasTrackedView = useRef(false);
   const videoAnalytics = useVideoAnalytics({
     page: "automation",
-    provider: "youtube",
     surface: "onboarding_modal",
     title: "Welcome to your AI Personal Assistant",
     youtubeVideoId: ASSISTANT_ONBOARDING_VIDEO_ID,

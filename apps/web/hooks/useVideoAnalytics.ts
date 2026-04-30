@@ -1,73 +1,60 @@
 "use client";
 
-import { useCallback } from "react";
+import { useMemo } from "react";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
-import type { AppPage } from "@/utils/analytics/product";
+import {
+  PRODUCT_ANALYTICS_ACTIONS,
+  type AppPage,
+} from "@/utils/analytics/product";
+
+export type VideoSurface =
+  | "dismissible_card"
+  | "onboarding_modal"
+  | "page_header";
 
 export type VideoAnalyticsConfig = {
   muxPlaybackId?: string;
   page?: AppPage;
-  provider: "mux" | "youtube";
-  surface: string;
+  surface: VideoSurface;
   title: string;
   youtubeVideoId?: string;
 };
 
-type VideoAction =
-  | "video_completed"
-  | "video_dismissed"
-  | "video_opened"
-  | "video_progress"
-  | "video_started"
-  | "video_viewed";
+const VIDEO_ACTIONS = PRODUCT_ANALYTICS_ACTIONS.video;
+type VideoAction = (typeof VIDEO_ACTIONS)[keyof typeof VIDEO_ACTIONS];
 
 export function useVideoAnalytics(config?: VideoAnalyticsConfig) {
-  const analytics = useProductAnalytics(config?.page);
+  const { muxPlaybackId, page, surface, title, youtubeVideoId } = config ?? {};
+  const analytics = useProductAnalytics(page);
 
-  const capture = useCallback(
-    (action: VideoAction, properties?: Record<string, unknown>) => {
-      if (!config) return;
+  return useMemo(() => {
+    const isActive = surface !== undefined && title !== undefined;
+
+    const capture = (
+      action: VideoAction,
+      properties?: Record<string, unknown>,
+    ) => {
+      if (!isActive) return;
 
       analytics.captureAction(action, {
-        video_title: config.title,
-        video_provider: config.provider,
-        video_surface: config.surface,
-        ...(config.muxPlaybackId
-          ? { mux_playback_id: config.muxPlaybackId }
-          : {}),
-        ...(config.youtubeVideoId
-          ? { youtube_video_id: config.youtubeVideoId }
-          : {}),
+        video_title: title,
+        video_provider: muxPlaybackId ? "mux" : "youtube",
+        video_surface: surface,
+        ...(muxPlaybackId ? { mux_playback_id: muxPlaybackId } : {}),
+        ...(youtubeVideoId ? { youtube_video_id: youtubeVideoId } : {}),
         ...properties,
       });
-    },
-    [analytics, config],
-  );
+    };
 
-  return {
-    trackCompleted: useCallback(() => {
-      capture("video_completed");
-    }, [capture]),
-    trackDismissed: useCallback(() => {
-      capture("video_dismissed");
-    }, [capture]),
-    trackOpened: useCallback(
-      (properties?: Record<string, unknown>) => {
-        capture("video_opened", properties);
-      },
-      [capture],
-    ),
-    trackProgress: useCallback(
-      (progressPercent: number) => {
-        capture("video_progress", { progress_percent: progressPercent });
-      },
-      [capture],
-    ),
-    trackStarted: useCallback(() => {
-      capture("video_started");
-    }, [capture]),
-    trackViewed: useCallback(() => {
-      capture("video_viewed");
-    }, [capture]),
-  };
+    return {
+      trackCompleted: () => capture(VIDEO_ACTIONS.completed),
+      trackDismissed: () => capture(VIDEO_ACTIONS.dismissed),
+      trackOpened: (properties?: Record<string, unknown>) =>
+        capture(VIDEO_ACTIONS.opened, properties),
+      trackProgress: (progressPercent: number) =>
+        capture(VIDEO_ACTIONS.progress, { progress_percent: progressPercent }),
+      trackStarted: () => capture(VIDEO_ACTIONS.started),
+      trackViewed: () => capture(VIDEO_ACTIONS.viewed),
+    };
+  }, [analytics, muxPlaybackId, surface, title, youtubeVideoId]);
 }

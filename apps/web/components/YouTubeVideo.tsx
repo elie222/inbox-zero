@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import YouTube from "react-youtube";
 import type { YouTubeEvent, YouTubePlayer } from "react-youtube";
 import { useVideoProgressMilestones } from "@/hooks/useVideoProgressMilestones";
@@ -23,6 +23,7 @@ export function YouTubeVideo(props: {
   };
 }) {
   const playerRef = useRef<YouTubePlayer | null>(null);
+  const durationRef = useRef<number | null>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
@@ -32,39 +33,43 @@ export function YouTubeVideo(props: {
       onProgress: props.onVideoProgress,
     });
 
-  const stopProgressPolling = useCallback(() => {
+  const stopProgressPolling = () => {
     if (!progressIntervalRef.current) return;
 
     clearInterval(progressIntervalRef.current);
     progressIntervalRef.current = null;
-  }, []);
+  };
 
-  const trackCurrentProgress = useCallback(async () => {
+  const trackCurrentProgress = async () => {
     const player = playerRef.current;
     if (!player) return;
 
-    const [currentTime, duration] = await Promise.all([
-      player.getCurrentTime(),
-      player.getDuration(),
-    ]);
-    if (!duration || Number.isNaN(duration)) return;
+    let duration = durationRef.current;
+    if (duration === null) {
+      duration = await player.getDuration();
+      if (!duration || Number.isNaN(duration)) return;
+      durationRef.current = duration;
+    }
 
+    const currentTime = await player.getCurrentTime();
     trackProgressMilestones(Math.floor((currentTime / duration) * 100));
-  }, [trackProgressMilestones]);
+  };
 
-  const trackCurrentProgressSafely = useCallback(() => {
-    trackCurrentProgress().catch(() => {});
-  }, [trackCurrentProgress]);
-
-  const startProgressPolling = useCallback(() => {
+  const startProgressPolling = () => {
     stopProgressPolling();
-    trackCurrentProgressSafely();
     progressIntervalRef.current = setInterval(() => {
-      trackCurrentProgressSafely();
+      trackCurrentProgress().catch(() => {});
     }, 1000);
-  }, [stopProgressPolling, trackCurrentProgressSafely]);
+  };
 
-  useEffect(() => stopProgressPolling, [stopProgressPolling]);
+  useEffect(
+    () => () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+    },
+    [],
+  );
 
   const handleReady = (event: YouTubeEvent) => {
     playerRef.current = event.target;
@@ -84,9 +89,10 @@ export function YouTubeVideo(props: {
   };
 
   const handleEnd = () => {
-    trackCurrentProgressSafely();
+    trackCurrentProgress().catch(() => {});
     stopProgressPolling();
     resetProgressMilestones();
+    durationRef.current = null;
     hasTrackedVideoStart.current = false;
     props.onVideoCompleted?.();
   };

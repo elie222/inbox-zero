@@ -17,6 +17,13 @@ export function useVideoProgressMilestones({
 
   const trackProgressMilestones = useCallback(
     (progressPercent: number) => {
+      if (
+        trackedProgressMilestones.current.size ===
+        VIDEO_PROGRESS_MILESTONES.length
+      ) {
+        return;
+      }
+
       for (const milestone of VIDEO_PROGRESS_MILESTONES) {
         if (
           progressPercent >= milestone &&

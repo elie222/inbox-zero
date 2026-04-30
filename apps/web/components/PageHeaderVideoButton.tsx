@@ -15,7 +15,12 @@ type Video = {
 };
 
 export function PageHeaderVideoButton({ video }: { video: Video }) {
-  const analytics = useVideoAnalytics(getVideoAnalyticsConfig(video));
+  const analytics = useVideoAnalytics({
+    muxPlaybackId: video.muxPlaybackId,
+    surface: "page_header",
+    title: video.title,
+    youtubeVideoId: video.youtubeVideoId,
+  });
 
   return (
     <Dialog>
@@ -40,24 +45,4 @@ export function PageHeaderVideoButton({ video }: { video: Video }) {
       />
     </Dialog>
   );
-}
-
-function getVideoAnalyticsConfig(video: Video) {
-  if (video.muxPlaybackId) {
-    return {
-      muxPlaybackId: video.muxPlaybackId,
-      provider: "mux" as const,
-      surface: "page_header",
-      title: video.title,
-    };
-  }
-
-  if (video.youtubeVideoId) {
-    return {
-      provider: "youtube" as const,
-      surface: "page_header",
-      title: video.title,
-      youtubeVideoId: video.youtubeVideoId,
-    };
-  }
 }
