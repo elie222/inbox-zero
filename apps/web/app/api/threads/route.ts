@@ -87,7 +87,15 @@ async function getThreads({
       messageId: true,
       threadId: true,
       rule: true,
-      actionItems: true,
+      actionItems: {
+        include: {
+          messagingChannel: {
+            select: {
+              provider: true,
+            },
+          },
+        },
+      },
       status: true,
       reason: true,
     },
