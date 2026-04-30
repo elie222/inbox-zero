@@ -146,6 +146,12 @@ export const createRuleSchema = (provider: string) =>
     actions: z
       .array(createRuleActionSchema(provider))
       .describe("The actions to take"),
+    confirmBeforeCreate: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set to true when proposing a rule for user review instead of immediately creating it. Use this for rule recommendations or suggestions that the user has not explicitly confirmed.",
+      ),
   });
 
 export type CreateRuleSchema = z.infer<ReturnType<typeof createRuleSchema>>;

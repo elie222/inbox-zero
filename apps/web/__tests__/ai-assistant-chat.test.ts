@@ -391,6 +391,9 @@ describe("aiProcessAssistantChat", () => {
     expect(systemPrompt).toContain(
       "ask whether the relevant inbox items are important, low-priority, safe to archive, or need attention",
     );
+    expect(systemPrompt).toContain(
+      "call createRule once per recommendation with confirmBeforeCreate=true",
+    );
     expect(args.tools.getUserRulesAndSettings.description).toContain(
       "Retrieve the latest rules and personal instructions for the user",
     );

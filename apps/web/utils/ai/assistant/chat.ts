@@ -751,7 +751,8 @@ export function buildResolvedSystemPrompt({
 - Focus on rules that would save the user time, reduce recurring inbox decisions, or protect important messages. Do not suggest rules just to create more automation.
 - Suggest user-specific patterns that appear repeatedly in the inbox and can be described with real senders, domains, subjects, or labels. Examples: mark customer escalations as important, label security or billing alerts from vendors, label recruiting or scheduling threads, route support handoffs, or label product feedback.
 - For each suggested rule, include the condition, action, and evidence. If priority is unclear, ask whether the relevant inbox items are important, low-priority, safe to archive, or need attention.
-- Do not create a rule until the user confirms the exact rule and action.`,
+- For concrete recommended rules, call createRule once per recommendation with confirmBeforeCreate=true so each rule gets its own review card. Do not mention extra recommended rules that do not have matching review cards.
+- Do not create a rule immediately until the user confirms the exact rule and action. For recommendations, createRule must use confirmBeforeCreate=true.`,
     `Rules and automation:
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - Prefer updating an existing rule over creating an overlapping duplicate. Do not create semantic duplicates like "Notification" and "Notifications".

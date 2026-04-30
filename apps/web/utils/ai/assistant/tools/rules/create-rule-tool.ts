@@ -26,9 +26,10 @@ export const createRuleTool = ({
   logger: Logger;
 }) =>
   tool({
-    description: "Create a new rule.",
+    description:
+      "Create a new rule. For rule recommendations or suggestions that the user has not explicitly confirmed, set confirmBeforeCreate=true so the user can review the proposed rule before it is created.",
     inputSchema: createRuleSchema(provider),
-    execute: async ({ name, condition, actions }) => {
+    execute: async ({ name, condition, actions, confirmBeforeCreate }) => {
       trackRuleToolCall({ tool: "create_rule", email, logger });
 
       try {
@@ -59,7 +60,7 @@ export const createRuleTool = ({
         const { needsConfirmation, riskMessages } =
           outboundActionsNeedChatRiskConfirmation(resultPayload);
 
-        if (needsConfirmation) {
+        if (confirmBeforeCreate || needsConfirmation) {
           return {
             success: true,
             actionType: "create_rule" as const,
