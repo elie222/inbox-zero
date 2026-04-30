@@ -1,7 +1,7 @@
 "use client";
 
 import MuxPlayer from "@mux/mux-player-react";
-import type { CSSProperties } from "react";
+import type { MuxPlayerCSSProperties } from "@mux/mux-player-react";
 import { useRef } from "react";
 import { ClientOnly } from "@/components/ClientOnly";
 import { useVideoProgressMilestones } from "@/hooks/useVideoProgressMilestones";
@@ -15,7 +15,7 @@ interface MuxVideoProps {
   onVideoStarted?: () => void;
   playbackId: string;
   playerClassName?: string;
-  playerStyle?: CSSProperties;
+  playerStyle?: MuxPlayerCSSProperties;
   thumbnailTime?: number;
   title: string;
 }
