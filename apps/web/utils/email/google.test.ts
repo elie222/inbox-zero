@@ -100,6 +100,58 @@ describe("GmailProvider.getLatestMessageInThread", () => {
   });
 });
 
+describe("GmailProvider.getSentMessageIds", () => {
+  it("filters sent messages with Gmail labelIds and second-accurate date bounds", async () => {
+    const list = vi.fn().mockResolvedValue({
+      data: {
+        messages: [{ id: "message-1", threadId: "thread-1" }],
+        nextPageToken: "next-page",
+      },
+    });
+    const provider = new GmailProvider({
+      users: { messages: { list } },
+    } as any);
+
+    const result = await provider.getSentMessageIds({
+      maxResults: 50,
+      after: new Date("2026-03-31T12:00:00.000Z"),
+      before: new Date("2026-04-30T17:00:00.000Z"),
+      pageToken: "page-1",
+    });
+
+    expect(list).toHaveBeenCalledWith({
+      userId: "me",
+      maxResults: 50,
+      q: "after:1774958399 before:1777568401",
+      pageToken: "page-1",
+      labelIds: [GmailLabel.SENT],
+    });
+    expect(result).toEqual({
+      messages: [{ id: "message-1", threadId: "thread-1" }],
+      nextPageToken: "next-page",
+    });
+  });
+
+  it("omits the Gmail search query when no date range is provided", async () => {
+    const list = vi.fn().mockResolvedValue({ data: { messages: [] } });
+    const provider = new GmailProvider({
+      users: { messages: { list } },
+    } as any);
+
+    await provider.getSentMessageIds({
+      maxResults: 50,
+    });
+
+    expect(list).toHaveBeenCalledWith({
+      userId: "me",
+      maxResults: 50,
+      q: undefined,
+      pageToken: undefined,
+      labelIds: [GmailLabel.SENT],
+    });
+  });
+});
+
 describe("GmailProvider.getLabels", () => {
   it("returns visible user labels by default", async () => {
     vi.spyOn(gmailLabelModule, "getLabels").mockResolvedValue([

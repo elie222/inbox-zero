@@ -235,18 +235,19 @@ export class GmailProvider implements EmailProvider {
   }): Promise<SentMessagePage> {
     const { maxResults, after, before, pageToken } = options;
 
-    let query = `label:${GmailLabel.SENT}`;
+    const queryParts: string[] = [];
     if (after) {
-      query += ` after:${Math.floor(after.getTime() / 1000) - 1}`;
+      queryParts.push(`after:${Math.floor(after.getTime() / 1000) - 1}`);
     }
     if (before) {
-      query += ` before:${Math.floor(before.getTime() / 1000) + 1}`;
+      queryParts.push(`before:${Math.floor(before.getTime() / 1000) + 1}`);
     }
 
     const response = await getMessages(this.client, {
-      query,
+      query: queryParts.join(" ") || undefined,
       maxResults,
       pageToken,
+      labelIds: [GmailLabel.SENT],
     });
 
     return {
