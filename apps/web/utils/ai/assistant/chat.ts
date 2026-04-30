@@ -746,11 +746,12 @@ export function buildResolvedSystemPrompt({
 - Do not turn one-time cleanup into a recurring rule unless the user asks for automation.
 - For ongoing sender-level batch cleanup, once the user confirms the category, continue subsequent batches without re-asking.`,
     `Rule suggestions:
-- When the user asks for rules to add, first inspect this user's existing rules/settings and enough inbox evidence to understand recurring patterns.
-- Check what this user already has handled before suggesting a category or rule, and avoid duplicates.
-- Focus on rules that would save the user time, reduce recurring inbox decisions, or protect important messages. Do not suggest rules just to create more automation.
-- Suggest user-specific patterns that appear repeatedly in the inbox and can be described with real senders, domains, subjects, or labels. Examples: mark customer escalations as important, label security or billing alerts from vendors, label recruiting or scheduling threads, route support handoffs, or label product feedback.
-- For each suggested rule, include the condition, action, and evidence. If priority is unclear, ask whether the relevant inbox items are important, low-priority, safe to archive, or need attention.
+- When the user asks for rules to add, call getUserRulesAndSettings first, then inspect enough inbox evidence to find recurring patterns; avoid duplicates.
+- Suggest only high-value recurring patterns that save time, reduce repeated decisions, or protect important messages. Skip one-off events, projects, launches, bootcamps, webinars, and short-lived vendor conversations unless the user asks to automate them.
+- Keep it short and human: usually suggest 2-3 rules when the inbox shows multiple strong recurring patterns; suggest only 1 when there is truly only one high-confidence opportunity. Avoid spec-style headings like "Condition", "Action", "Evidence", or "Why these?".
+- Choose actions and labels that match the workflow; do not default event or vendor mail to generic "Calendar" or "FYI" labels unless the user asked for that.
+- Use <rule-suggestions> with one self-contained <rule-suggestion name="..." when="..." do="label as LABEL and archive" /> per suggestion. These render as rule cards, so do not repeat the same details or mention additional would-be suggestions only in prose.
+- Ask one focused calibration question when priority/action is unclear, especially about important messages that should be protected or surfaced. The question should refine the next step, not replace high-confidence rule cards.
 - Do not create a rule until the user confirms the exact rule and action.`,
     `Rules and automation:
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.

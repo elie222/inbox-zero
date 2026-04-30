@@ -76,6 +76,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  RuleSummaryCard,
+  RuleSummaryCardHeader,
+  RuleSummaryLabel,
+  RuleSummaryRow,
+} from "@/components/assistant-chat/rule-summary-card";
 
 export type ThreadLookup = EmailLookup;
 
@@ -809,29 +815,23 @@ export function CreatedRuleToolCard({
   const conditionText = buildConditionText(args.condition);
 
   return (
-    <Card>
-      <RuleToolCardHeader
-        title={args.name}
-        actions={
-          <>
-            {ruleId && <RuleActions ruleId={ruleId} />}
-            {preview && <RuleActionsPreview />}
-          </>
-        }
-      />
+    <RuleSummaryCard
+      title={args.name}
+      actions={
+        <>
+          {ruleId && <RuleActions ruleId={ruleId} />}
+          {preview && <RuleActionsPreview />}
+        </>
+      }
+    >
+      <RuleSummaryRow label="When">
+        <p>{conditionText}</p>
+      </RuleSummaryRow>
 
-      <CardContent className="space-y-3 px-4 py-3.5">
-        <div className="flex gap-4 text-sm">
-          <FieldLabel className="pt-0.5">When</FieldLabel>
-          <p>{conditionText}</p>
-        </div>
-
-        <div className="flex gap-4 text-sm">
-          <FieldLabel className="pt-0.5">Then</FieldLabel>
-          <ActionBadgeList actions={args.actions} />
-        </div>
-      </CardContent>
-    </Card>
+      <RuleSummaryRow label="Then">
+        <ActionBadgeList actions={args.actions} />
+      </RuleSummaryRow>
+    </RuleSummaryCard>
   );
 }
 
@@ -1707,12 +1707,7 @@ function RuleToolCardHeader({
   title: string;
   actions: React.ReactNode;
 }) {
-  return (
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
-      <h3 className="text-base font-semibold">{title}</h3>
-      {actions}
-    </CardHeader>
-  );
+  return <RuleSummaryCardHeader title={title} actions={actions} />;
 }
 
 function ExpandedToolCard({
@@ -2198,14 +2193,5 @@ function FieldLabel({
   children: React.ReactNode;
   className?: string;
 }) {
-  return (
-    <span
-      className={cn(
-        "shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground",
-        className,
-      )}
-    >
-      {children}
-    </span>
-  );
+  return <RuleSummaryLabel className={className}>{children}</RuleSummaryLabel>;
 }
