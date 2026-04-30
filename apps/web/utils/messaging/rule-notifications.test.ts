@@ -755,7 +755,8 @@ describe("sendMessagingRuleNotification", () => {
       getDraft: vi.fn().mockResolvedValue({
         id: "draft-1",
         threadId: "thread-1",
-        textPlain: "Mailbox draft body",
+        textPlain:
+          "Mailbox draft body\n\nDrafted by Inbox Zero.\n\nOn Thu, 30 Apr 2026 at 19:04, Sender <sender@example.com> wrote:\n\n> Quoted body that should be hidden.",
         subject: "Re: Test subject",
         date: new Date().toISOString(),
         snippet: "Mailbox draft body",
@@ -811,7 +812,10 @@ describe("sendMessagingRuleNotification", () => {
     const serializedBlocks = JSON.stringify(args.blocks);
 
     expect(serializedBlocks).toContain("Mailbox draft body");
+    expect(serializedBlocks).toContain("Drafted by Inbox Zero.");
     expect(serializedBlocks).not.toContain("Messaging draft body");
+    expect(serializedBlocks).not.toContain("Quoted body that should be hidden");
+    expect(serializedBlocks).not.toContain("On Thu, 30 Apr 2026");
   });
 
   it("falls back to stored draft content when synced mailbox draft lookup fails", async () => {

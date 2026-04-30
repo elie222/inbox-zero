@@ -46,7 +46,10 @@ import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import { quotePlainTextContent } from "@/utils/email/quoted-plain-text";
 import { formatReplySubject } from "@/utils/email/subject";
 import { emailToContent } from "@/utils/mail";
-import { extractDraftPlainText } from "@/utils/ai/choose-rule/draft-management";
+import {
+  extractDraftPlainText,
+  stripQuotedContent,
+} from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
 import he from "he";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
@@ -1369,7 +1372,7 @@ async function getEditableDraftContent({
     try {
       const latestDraft = await provider.getDraft(mailboxDraftAction.draftId);
       if (latestDraft) {
-        const text = extractDraftPlainText(latestDraft).trim();
+        const text = stripQuotedContent(extractDraftPlainText(latestDraft));
         if (text) return text;
       }
     } catch {
@@ -1377,7 +1380,7 @@ async function getEditableDraftContent({
     }
   }
 
-  return context.content || "";
+  return stripQuotedContent(context.content || "");
 }
 
 async function getNotificationDraftContent({
@@ -1676,9 +1679,9 @@ function buildDraftPreview(
 ) {
   if (!content?.trim()) return "No draft preview available.";
 
-  const preview = removeExcessiveWhitespace(
-    richTextToSlackMrkdwn(he.decode(content)),
-  ).trim();
+  const preview = stripQuotedContent(
+    removeExcessiveWhitespace(richTextToSlackMrkdwn(he.decode(content))).trim(),
+  );
   return truncate(
     format === "slack" ? preview : stripSlackFormatting(preview),
     DRAFT_PREVIEW_MAX_CHARS,
