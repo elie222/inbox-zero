@@ -96,19 +96,6 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("accepts confirmBeforeCreate for proposed rules", () => {
-    const result = createRuleSchema(provider).safeParse({
-      ...buildRule({
-        type: ActionType.LABEL,
-        fields: { label: "Review" },
-        delayInMinutes: null,
-      }),
-      confirmBeforeCreate: true,
-    });
-
-    expect(result.success).toBe(true);
-  });
-
   it("rejects FORWARD without fields.to", () => {
     assertSendEmailAvailable();
 

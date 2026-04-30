@@ -121,33 +121,6 @@ describe("createRuleTool overlap guard", () => {
     expect(result).toEqual({ success: true, ruleId: "new-rule-id" });
     expect(mockCreateRule).toHaveBeenCalledOnce();
   });
-
-  it("returns a pending confirmation for proposed rule recommendations", async () => {
-    const result = await createRuleTool({
-      email: "user@example.com",
-      emailAccountId: "email-account-id",
-      provider: "google",
-      logger,
-    }).execute({
-      name: "Action Mail",
-      condition: {
-        aiInstructions: "Only urgent requests from this sender domain.",
-        static: { from: "@company.example" },
-        conditionalOperator: null,
-      },
-      actions: defaultActions,
-      confirmBeforeCreate: true,
-    });
-
-    expect(result).toEqual({
-      success: true,
-      actionType: "create_rule",
-      requiresConfirmation: true,
-      confirmationState: "pending",
-      riskMessages: [],
-    });
-    expect(mockCreateRule).not.toHaveBeenCalled();
-  });
 });
 
 describe("updateRuleStateTool", () => {
