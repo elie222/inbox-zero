@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   buildAffirmativeReactionMessage,
+  buildHandledPendingEmailCard,
   buildPendingEmailConfirmationCard,
   buildPendingEmailCardFallbackText,
   getPendingEmailHandledOpenText,
@@ -270,6 +271,99 @@ describe("pending email handled state helpers", () => {
       }),
     ).toBe(
       "Open in Gmail: https://mail.google.com/mail/u/?authuser=user%40example.com#all/message-1",
+    );
+  });
+
+  it("renders the sent Gmail link as an action button in Slack", () => {
+    const card = buildHandledPendingEmailCard({
+      accountEmail: "user@example.com",
+      accountProvider: "google",
+      confirmationResult: {
+        messageId: "message-1",
+        threadId: "thread-1",
+      },
+      messagingProvider: "slack",
+      part: {
+        type: "tool-sendEmail",
+        state: "output-available",
+        toolCallId: "tool-call-1",
+        output: {
+          confirmationState: "pending",
+          pendingAction: {
+            to: "recipient@example.com",
+            subject: "Test subject",
+            messageHtml: "<p>Test body</p>",
+          },
+        },
+      },
+    });
+
+    const actionChildren = card.children.filter(
+      (child) => child.type === "actions",
+    );
+    const textChildren = card.children.filter((child) => child.type === "text");
+
+    expect(actionChildren).toEqual([
+      expect.objectContaining({
+        children: [
+          expect.objectContaining({
+            type: "link-button",
+            label: "Open in Gmail",
+            url: "https://mail.google.com/mail/u/?authuser=user%40example.com#all/message-1",
+          }),
+        ],
+      }),
+    ]);
+    expect(JSON.stringify(textChildren)).not.toContain(
+      "https://mail.google.com/mail/u/?authuser=user%40example.com#all/message-1",
+    );
+  });
+
+  it("renders the sent Outlook link as an action button in Telegram", () => {
+    const card = buildHandledPendingEmailCard({
+      accountEmail: "user@example.com",
+      accountProvider: "microsoft",
+      confirmationResult: {
+        messageId: "message-1",
+        threadId: "thread-1",
+      },
+      messagingProvider: "telegram",
+      part: {
+        type: "tool-replyEmail",
+        state: "output-available",
+        toolCallId: "tool-call-1",
+        output: {
+          confirmationState: "pending",
+          pendingAction: {
+            subject: "Re: Test subject",
+            messageHtml: "<p>Test body</p>",
+          },
+          reference: {
+            from: "sender@example.com",
+            subject: "Test subject",
+          },
+        },
+      },
+    });
+
+    const actionChildren = card.children.filter(
+      (child) => child.type === "actions",
+    );
+    const textChildren = card.children.filter((child) => child.type === "text");
+
+    expect(actionChildren).toEqual([
+      expect.objectContaining({
+        children: [
+          expect.objectContaining({
+            type: "link-button",
+            label: "Open in Outlook",
+            url: "https://outlook.live.com/mail/0/inbox/id/message-1",
+          }),
+        ],
+      }),
+    ]);
+    expect(JSON.stringify(textChildren)).not.toContain(
+      "https://outlook.live.com/mail/0/inbox/id/message-1",
     );
   });
 

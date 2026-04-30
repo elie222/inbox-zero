@@ -16,6 +16,7 @@ import {
   CardText,
   Chat,
   ConsoleLogger,
+  LinkButton,
   type ActionEvent,
   type Adapter,
   type Attachment,
@@ -1293,7 +1294,7 @@ function buildPendingEmailSuccessFeedback({
   return `Sent. Open message: ${emailUrl}`;
 }
 
-function buildHandledPendingEmailCard({
+export function buildHandledPendingEmailCard({
   accountEmail,
   accountProvider,
   confirmationResult,
@@ -1345,17 +1346,13 @@ function buildHandledPendingEmailCard({
     ),
   );
 
-  const openText = getPendingEmailHandledOpenText({
+  const openLink = getPendingEmailHandledOpenLink({
     accountEmail,
     accountProvider,
     confirmationResult,
   });
-  if (openText) {
-    children.push(
-      CardText(
-        getMessagingCardText({ provider: messagingProvider, text: openText }),
-      ),
-    );
+  if (openLink) {
+    children.push(Actions([LinkButton(openLink)]));
   }
 
   return Card({
@@ -1392,6 +1389,28 @@ export function getPendingEmailHandledOpenText({
     threadId?: string | null;
   } | null;
 }) {
+  const openLink = getPendingEmailHandledOpenLink({
+    accountEmail,
+    accountProvider,
+    confirmationResult,
+  });
+  if (!openLink) return null;
+
+  return `${openLink.label}: ${openLink.url}`;
+}
+
+function getPendingEmailHandledOpenLink({
+  accountEmail,
+  accountProvider,
+  confirmationResult,
+}: {
+  accountEmail?: string | null;
+  accountProvider?: string | null;
+  confirmationResult?: {
+    messageId?: string | null;
+    threadId?: string | null;
+  } | null;
+}) {
   const messageId = confirmationResult?.messageId || undefined;
   const threadId = confirmationResult?.threadId || undefined;
   const resolvedMessageId = messageId || threadId;
@@ -1407,7 +1426,10 @@ export function getPendingEmailHandledOpenText({
   );
   const mailbox = accountProvider === "microsoft" ? "Outlook" : "Gmail";
 
-  return `Open in ${mailbox}: ${emailUrl}`;
+  return {
+    label: `Open in ${mailbox}`,
+    url: emailUrl,
+  };
 }
 
 function getMessagingCardText({
