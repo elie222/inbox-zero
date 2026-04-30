@@ -62,14 +62,18 @@ export function YouTubeVideo(props: {
     }, 1000);
   };
 
-  useEffect(
-    () => () => {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run on videoId change to clear cached duration/milestones
+  useEffect(() => {
+    durationRef.current = null;
+    hasTrackedVideoStart.current = false;
+    resetProgressMilestones();
+
+    return () => {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
       }
-    },
-    [],
-  );
+    };
+  }, [props.videoId, resetProgressMilestones]);
 
   const handleReady = (event: YouTubeEvent) => {
     playerRef.current = event.target;

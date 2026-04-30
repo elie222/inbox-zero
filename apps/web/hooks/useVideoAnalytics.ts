@@ -38,10 +38,12 @@ export function useVideoAnalytics(config?: VideoAnalyticsConfig) {
 
       analytics.captureAction(action, {
         video_title: title,
-        video_provider: muxPlaybackId ? "mux" : "youtube",
         video_surface: surface,
-        ...(muxPlaybackId ? { mux_playback_id: muxPlaybackId } : {}),
-        ...(youtubeVideoId ? { youtube_video_id: youtubeVideoId } : {}),
+        ...(muxPlaybackId
+          ? { mux_playback_id: muxPlaybackId, video_provider: "mux" }
+          : youtubeVideoId
+            ? { youtube_video_id: youtubeVideoId, video_provider: "youtube" }
+            : {}),
         ...properties,
       });
     };
