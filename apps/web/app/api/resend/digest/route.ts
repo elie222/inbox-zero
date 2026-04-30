@@ -327,6 +327,7 @@ async function sendEmail({
       ruleNames: Object.fromEntries(ruleNameMap),
       itemsByRule: executedRulesByRule,
       logger,
+      emailProvider,
     });
 
     logger.info("Digest sent");

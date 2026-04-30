@@ -157,6 +157,20 @@ export const sendDigestEmail = async ({
     ],
   });
 
+/**
+ * Render the digest email to a subject line and HTML body string.
+ * Used when delivering the digest via the user's own email provider
+ * (Outlook/Gmail) instead of Resend — for self-hosted deployments
+ * that don't have RESEND_API_KEY configured.
+ */
+export const renderDigestEmailHtml = async (
+  emailProps: DigestEmailProps,
+): Promise<{ subject: string; html: string }> => {
+  const subject = generateDigestSubject(emailProps);
+  const html = await render(<DigestEmail {...emailProps} />);
+  return { subject, html };
+};
+
 export const sendInvitationEmail = async ({
   from,
   to,
