@@ -294,7 +294,7 @@ async function sendSlackRuleNotificationWithContext({
     context,
     logger,
   });
-  const draftAttachmentNames = await getNotificationDraftAttachmentNames({
+  const draftAttachmentNames = getNotificationDraftAttachmentNames({
     context,
     logger,
   });
@@ -395,7 +395,7 @@ async function sendLinkedRuleNotification({
     context,
     logger,
   });
-  const draftAttachmentNames = await getNotificationDraftAttachmentNames({
+  const draftAttachmentNames = getNotificationDraftAttachmentNames({
     context,
     logger,
   });
@@ -497,7 +497,7 @@ async function sendTelegramRuleNotificationWithContext({
     context,
     logger,
   });
-  const draftAttachmentNames = await getNotificationDraftAttachmentNames({
+  const draftAttachmentNames = getNotificationDraftAttachmentNames({
     context,
     logger,
   });
@@ -834,7 +834,7 @@ async function sendDraftReplyFromNotification({
     context,
     provider,
   });
-  const draftAttachmentNames = await getNotificationDraftAttachmentNames({
+  const draftAttachmentNames = getNotificationDraftAttachmentNames({
     context,
     logger,
   });
@@ -1442,7 +1442,7 @@ async function getNotificationDraftContent({
   }
 }
 
-async function getNotificationDraftAttachmentNames({
+function getNotificationDraftAttachmentNames({
   context,
   logger,
 }: {
