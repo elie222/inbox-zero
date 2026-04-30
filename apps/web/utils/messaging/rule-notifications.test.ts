@@ -3,7 +3,6 @@ import prisma from "@/utils/__mocks__/prisma";
 import {
   ActionType,
   AttachmentSourceType,
-  DraftReplyConfidence,
   MessagingMessageStatus,
   MessagingProvider,
   MessagingRoutePurpose,
@@ -11,13 +10,9 @@ import {
 } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
-import { getReplyWithConfidence } from "@/utils/redis/reply";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
-vi.mock("@/utils/redis/reply", () => ({
-  getReplyWithConfidence: vi.fn(),
-}));
 
 const mockCreateEmailProvider = vi.fn();
 const mockSendAutomationMessage = vi.fn();
@@ -83,7 +78,6 @@ describe("handleRuleNotificationAction", () => {
     mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
     mockTelegramPostMessage.mockResolvedValue({ id: "telegram-message-1" });
     mockTelegramEditMessage.mockResolvedValue({ id: "telegram-message-1" });
-    vi.mocked(getReplyWithConfidence).mockResolvedValue(null);
   });
 
   it("keeps the draft preview visible after sending from Slack", async () => {
@@ -709,7 +703,6 @@ describe("sendMessagingRuleNotification", () => {
     mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
     mockTelegramPostMessage.mockResolvedValue({ id: "telegram-message-1" });
     mockTelegramEditMessage.mockResolvedValue({ id: "telegram-message-1" });
-    vi.mocked(getReplyWithConfidence).mockResolvedValue(null);
   });
 
   it("adds an Open in Gmail button for Slack draft notifications on Google accounts", async () => {
@@ -823,27 +816,20 @@ describe("sendMessagingRuleNotification", () => {
   });
 
   it("mentions AI-selected attachments in Slack draft notifications", async () => {
-    vi.mocked(getReplyWithConfidence).mockResolvedValue({
-      reply: "Draft body",
-      confidence: DraftReplyConfidence.STANDARD,
-      attribution: null,
-      draftContextMetadata: null,
-      attachments: [
-        {
-          driveConnectionId: "drive-1",
-          fileId: "file-1",
-          filename: "certificate.pdf",
-          mimeType: "application/pdf",
-          reason: "requested certificate",
-        },
-      ],
-    });
-
     prisma.executedAction.findUnique.mockResolvedValue(
       getNotificationContext({
         id: "action-1",
         type: ActionType.DRAFT_MESSAGING_CHANNEL,
         content: "Draft body",
+        selectedAttachments: [
+          {
+            driveConnectionId: "drive-1",
+            fileId: "file-1",
+            filename: "certificate.pdf",
+            mimeType: "application/pdf",
+            reason: "requested certificate",
+          },
+        ],
       }) as never,
     );
     prisma.executedAction.update.mockResolvedValue({} as never);
@@ -1418,27 +1404,20 @@ describe("sendMessagingRuleNotification", () => {
   });
 
   it("mentions AI-selected attachments in Telegram draft notifications", async () => {
-    vi.mocked(getReplyWithConfidence).mockResolvedValue({
-      reply: "Draft body",
-      confidence: DraftReplyConfidence.STANDARD,
-      attribution: null,
-      draftContextMetadata: null,
-      attachments: [
-        {
-          driveConnectionId: "drive-1",
-          fileId: "file-1",
-          filename: "certificate.pdf",
-          mimeType: "application/pdf",
-          reason: "requested certificate",
-        },
-      ],
-    });
-
     prisma.executedAction.findUnique.mockResolvedValue(
       getNotificationContext({
         id: "action-1",
         type: ActionType.DRAFT_MESSAGING_CHANNEL,
         content: "Draft body",
+        selectedAttachments: [
+          {
+            driveConnectionId: "drive-1",
+            fileId: "file-1",
+            filename: "certificate.pdf",
+            mimeType: "application/pdf",
+            reason: "requested certificate",
+          },
+        ],
         messagingChannel: {
           id: "channel-1",
           provider: MessagingProvider.TELEGRAM,
@@ -2089,6 +2068,7 @@ function getNotificationContext({
   messagingMessageStatus = null,
   mailboxDraftAction = null,
   staticAttachments = null,
+  selectedAttachments = null,
 }: {
   id: string;
   type: ActionType;
@@ -2117,6 +2097,7 @@ function getNotificationContext({
     subject: string | null;
   } | null;
   staticAttachments?: unknown;
+  selectedAttachments?: unknown;
 }) {
   const defaultRoutes =
     messagingChannel?.routes ??
@@ -2150,6 +2131,7 @@ function getNotificationContext({
     bcc: null,
     draftId: null,
     staticAttachments,
+    selectedAttachments,
     messagingChannelId: "channel-1",
     messagingMessageId,
     messagingMessageStatus,

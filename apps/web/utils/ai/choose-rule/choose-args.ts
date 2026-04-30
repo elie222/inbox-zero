@@ -19,6 +19,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 import type { DraftContextMetadata } from "@/utils/ai/reply/draft-context-metadata";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
+import type { SelectedAttachment } from "@/utils/attachments/source-schema";
 
 const MODULE = "choose-args";
 
@@ -31,6 +32,7 @@ type DraftAttributionFields = {
   draftModelName?: string | null;
   draftPipelineVersion?: number | null;
   draftContextMetadata?: DraftContextMetadata | null;
+  selectedAttachments?: SelectedAttachment[] | null;
 };
 
 export type ActionWithDraftAttribution = Action & DraftAttributionFields;
@@ -63,6 +65,7 @@ export async function getActionItemsWithAiArgs({
   let draftConfidence: DraftReplyConfidence | null = null;
   let draftAttribution: DraftAttribution | null = null;
   let draftContextMetadata: DraftContextMetadata | null = null;
+  let selectedAttachments: SelectedAttachment[] | null = null;
 
   if (draftReplyActions.length) {
     try {
@@ -86,6 +89,7 @@ export async function getActionItemsWithAiArgs({
       draftConfidence = draftResult.confidence;
       draftAttribution = draftResult.attribution;
       draftContextMetadata = draftResult.draftContextMetadata ?? null;
+      selectedAttachments = draftResult.attachments ?? null;
 
       log.info("Draft generated", {
         email: emailAccount.email,
@@ -127,6 +131,7 @@ export async function getActionItemsWithAiArgs({
     draftAttribution,
     aiArgsAttribution,
     draftContextMetadata,
+    selectedAttachments,
   );
   const filteredActions = filterIncompleteDraftActions(combinedActions);
 
@@ -147,6 +152,7 @@ export function combineActionsWithAiArgs(
   draftAttribution: DraftAttribution | null = null,
   aiArgsAttribution: DraftAttribution | null = null,
   draftContextMetadata: DraftContextMetadata | null = null,
+  selectedAttachments: SelectedAttachment[] | null = null,
 ): ActionWithDraftAttribution[] {
   if (!aiArgs && !draft) return actions as ActionWithDraftAttribution[];
 
@@ -161,6 +167,7 @@ export function combineActionsWithAiArgs(
       updatedAction.draftPipelineVersion =
         draftAttribution?.pipelineVersion ?? null;
       updatedAction.draftContextMetadata = draftContextMetadata;
+      updatedAction.selectedAttachments = selectedAttachments;
     }
 
     // Process AI args if available

@@ -1,5 +1,6 @@
 import { ActionType } from "@/generated/prisma/enums";
 import type { Action, ExecutedAction, Prisma } from "@/generated/prisma/client";
+import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 
 const DRAFT_REPLY_FIELDS = [
   { name: "subject" as const, label: "Subject", expandable: true },
@@ -180,13 +181,15 @@ type ActionFieldsSelection = {
   folderId: string | null;
   delayInMinutes: number | null;
   staticAttachments?: Prisma.JsonValue;
+  selectedAttachments?: Prisma.JsonValue;
 };
 
 type SanitizableActionFields = Partial<
-  Omit<ActionFieldsSelection, "staticAttachments">
+  Omit<ActionFieldsSelection, "staticAttachments" | "selectedAttachments">
 > & {
   type: ActionType;
   staticAttachments?: Prisma.JsonValue | null;
+  selectedAttachments?: Prisma.JsonValue | null;
 };
 
 export function sanitizeActionFields(
@@ -214,6 +217,9 @@ export function sanitizeActionFields(
     delayInMinutes: action.delayInMinutes || null,
     staticAttachments: supportsStaticAttachments
       ? (action.staticAttachments ?? undefined)
+      : undefined,
+    selectedAttachments: isDraftReplyActionType(action.type)
+      ? (action.selectedAttachments ?? undefined)
       : undefined,
   };
 

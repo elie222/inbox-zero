@@ -212,6 +212,7 @@ const draft: ActionFunction<{
     executedRule,
     logger,
     staticAttachments: args.staticAttachments,
+    selectedAttachments: args.selectedAttachments,
     includeAiSelectedAttachments: true,
   });
 
@@ -321,6 +322,7 @@ const reply: ActionFunction<{
     executedRule,
     logger,
     staticAttachments: args.staticAttachments,
+    selectedAttachments: args.selectedAttachments,
     includeAiSelectedAttachments: false,
   });
 
@@ -359,6 +361,7 @@ const send_email: ActionFunction<{
     executedRule,
     logger,
     staticAttachments: args.staticAttachments,
+    selectedAttachments: args.selectedAttachments,
     includeAiSelectedAttachments: false,
   });
 

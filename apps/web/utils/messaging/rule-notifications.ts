@@ -67,8 +67,10 @@ import {
 } from "@/utils/messaging/providers/telegram/format";
 import { getMessagingRoute } from "@/utils/messaging/routes";
 import { getEmailUrlForOptionalMessage } from "@/utils/url";
-import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
-import { getReplyWithConfidence } from "@/utils/redis/reply";
+import {
+  attachmentSourceInputSchema,
+  selectedAttachmentSchema,
+} from "@/utils/attachments/source-schema";
 
 const DRAFT_PREVIEW_MAX_CHARS = 900;
 const SUMMARY_PREVIEW_MAX_CHARS = 2000;
@@ -869,6 +871,7 @@ async function sendDraftReplyFromNotification({
       } as ExecutedRule,
       logger,
       staticAttachments: context.staticAttachments,
+      selectedAttachments: context.selectedAttachments,
       includeAiSelectedAttachments: true,
     });
 
@@ -1308,6 +1311,7 @@ async function getNotificationContext(executedActionId: string) {
       bcc: true,
       draftId: true,
       staticAttachments: true,
+      selectedAttachments: true,
       messagingChannelId: true,
       messagingMessageId: true,
       messagingMessageStatus: true,
@@ -1450,28 +1454,13 @@ async function getNotificationDraftAttachmentNames({
   const staticAttachmentNames = getStaticDraftAttachmentNames(
     context.staticAttachments,
   );
-  const ruleId = context.executedRule.ruleId;
-  if (!ruleId) return staticAttachmentNames;
+  const selectedAttachmentNames = getSelectedDraftAttachmentNames(
+    context.selectedAttachments,
+    logger,
+    context.id,
+  );
 
-  try {
-    const cachedDraft = await getReplyWithConfidence({
-      emailAccountId: context.executedRule.emailAccount.id,
-      messageId: context.executedRule.messageId,
-      ruleId,
-    });
-
-    return [
-      ...(cachedDraft?.attachments?.map((attachment) => attachment.filename) ??
-        []),
-      ...staticAttachmentNames,
-    ];
-  } catch (error) {
-    logger.warn("Failed to load draft attachment names for notification", {
-      executedActionId: context.id,
-      error,
-    });
-    return staticAttachmentNames;
-  }
+  return [...selectedAttachmentNames, ...staticAttachmentNames];
 }
 
 function getStaticDraftAttachmentNames(raw: unknown) {
@@ -1483,6 +1472,24 @@ function getStaticDraftAttachmentNames(raw: unknown) {
   return parsed.data
     .filter((attachment) => attachment.type === AttachmentSourceType.FILE)
     .map((attachment) => attachment.name);
+}
+
+function getSelectedDraftAttachmentNames(
+  raw: unknown,
+  logger: Logger,
+  executedActionId: string,
+) {
+  if (!raw || !Array.isArray(raw) || raw.length === 0) return [];
+
+  const parsed = selectedAttachmentSchema.array().safeParse(raw);
+  if (!parsed.success) {
+    logger.warn("Skipping invalid selected attachment metadata", {
+      executedActionId,
+    });
+    return [];
+  }
+
+  return parsed.data.map((attachment) => attachment.filename);
 }
 
 async function getSourceMessageSummaryForProvider({

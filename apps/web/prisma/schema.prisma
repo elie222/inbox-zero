@@ -612,6 +612,7 @@ model ExecutedAction {
   folderName        String?
   folderId          String?
   staticAttachments Json? // AttachmentSourceInput[] — explicit files to attach for email actions
+  selectedAttachments Json? // SelectedAttachment[] — AI-selected files for this specific execution
 
   // additional fields as a result of the action
   draftId              String? // Gmail draft ID created by DRAFT_EMAIL action
@@ -652,6 +653,7 @@ model ScheduledAction {
   folderId          String?
   scheduledId       String?
   staticAttachments Json? // AttachmentSourceInput[] — explicit files to attach for email actions
+  selectedAttachments Json? // SelectedAttachment[] — AI-selected files for this specific execution
 
   executedAt       DateTime?
   executedActionId String?   @unique

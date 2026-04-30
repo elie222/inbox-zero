@@ -1,16 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  ActionType,
-  AttachmentSourceType,
-  DraftReplyConfidence,
-} from "@/generated/prisma/enums";
+import { ActionType, AttachmentSourceType } from "@/generated/prisma/enums";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import { runActionFunction } from "@/utils/ai/actions";
 import {
   resolveDraftAttachments,
   selectDraftAttachmentsForRule,
 } from "@/utils/attachments/draft-attachments";
-import { getReplyWithConfidence } from "@/utils/redis/reply";
 import {
   getMessagingRuleNotificationResult,
   sendMessagingRuleNotification,
@@ -19,10 +14,6 @@ import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 vi.mock("server-only", () => ({}));
-
-vi.mock("@/utils/redis/reply", () => ({
-  getReplyWithConfidence: vi.fn().mockResolvedValue(null),
-}));
 
 vi.mock("@/utils/attachments/draft-attachments", () => ({
   resolveDraftAttachments: vi.fn().mockResolvedValue([]),
@@ -42,9 +33,6 @@ vi.mock("@/utils/messaging/rule-notifications", () => ({
 
 vi.mock("@/utils/prisma", () => ({
   default: {
-    attachmentSource: {
-      findFirst: vi.fn().mockResolvedValue({ id: "attachment-source-1" }),
-    },
     executedAction: {
       update: vi.fn().mockResolvedValue({}),
     },
@@ -77,9 +65,6 @@ describe("runActionFunction", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(prisma.attachmentSource.findFirst).mockResolvedValue({
-      id: "attachment-source-1",
-    });
     vi.mocked(prisma.executedAction.update).mockResolvedValue({});
     vi.mocked(getMessagingRuleNotificationResult).mockResolvedValue({
       delivered: true,
@@ -90,19 +75,6 @@ describe("runActionFunction", () => {
   it("passes resolved drive attachments into draft creation", async () => {
     const client = createMockEmailProvider();
 
-    vi.mocked(getReplyWithConfidence).mockResolvedValue({
-      reply: "Attached the requested PDF.",
-      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
-      attachments: [
-        {
-          driveConnectionId: "drive-1",
-          fileId: "file-1",
-          filename: "lease.pdf",
-          mimeType: "application/pdf",
-          reason: "Matched the requested property",
-        },
-      ],
-    });
     vi.mocked(resolveDraftAttachments).mockResolvedValue([
       {
         filename: "lease.pdf",
@@ -118,6 +90,15 @@ describe("runActionFunction", () => {
         id: "action-1",
         type: ActionType.DRAFT_EMAIL,
         content: "Attached the requested PDF.",
+        selectedAttachments: [
+          {
+            driveConnectionId: "drive-1",
+            fileId: "file-1",
+            filename: "lease.pdf",
+            mimeType: "application/pdf",
+            reason: "Matched the requested property",
+          },
+        ],
       },
       emailAccount,
       executedRule: {
@@ -127,16 +108,6 @@ describe("runActionFunction", () => {
         ruleId: "rule-1",
       } as any,
       logger,
-    });
-
-    expect(getReplyWithConfidence).toHaveBeenCalledWith({
-      emailAccountId: "account-1",
-      messageId: "message-1",
-      ruleId: "rule-1",
-    });
-    expect(prisma.attachmentSource.findFirst).toHaveBeenCalledWith({
-      where: { ruleId: "rule-1" },
-      select: { id: true },
     });
 
     expect(resolveDraftAttachments).toHaveBeenCalledWith({
@@ -170,10 +141,8 @@ describe("runActionFunction", () => {
     );
   });
 
-  it("skips draft attachments when the rule cache is missing", async () => {
+  it("skips draft attachments when no selected attachments were persisted", async () => {
     const client = createMockEmailProvider();
-
-    vi.mocked(getReplyWithConfidence).mockResolvedValue(null);
 
     await runActionFunction({
       client,
@@ -438,7 +407,6 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(getReplyWithConfidence).not.toHaveBeenCalled();
     expect(resolveDraftAttachments).toHaveBeenCalledWith({
       emailAccountId: "account-1",
       userId: "user-1",
@@ -506,7 +474,6 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(getReplyWithConfidence).not.toHaveBeenCalled();
     expect(resolveDraftAttachments).toHaveBeenCalledWith({
       emailAccountId: "account-1",
       userId: "user-1",
@@ -535,9 +502,8 @@ describe("runActionFunction", () => {
     );
   });
 
-  it("skips cache lookup when drafts have no attachment sources", async () => {
+  it("does not try to resolve attachments when drafts have no selected attachments", async () => {
     const client = createMockEmailProvider();
-    vi.mocked(prisma.attachmentSource.findFirst).mockResolvedValue(null);
 
     await runActionFunction({
       client,
@@ -557,12 +523,7 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(getReplyWithConfidence).not.toHaveBeenCalled();
     expect(resolveDraftAttachments).not.toHaveBeenCalled();
-    expect(prisma.attachmentSource.findFirst).toHaveBeenCalledWith({
-      where: { ruleId: "rule-1" },
-      select: { id: true },
-    });
     expect(client.draftEmail).toHaveBeenCalled();
   });
 });

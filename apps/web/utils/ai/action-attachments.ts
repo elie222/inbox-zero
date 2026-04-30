@@ -2,9 +2,9 @@ import { AttachmentSourceType } from "@/generated/prisma/enums";
 import {
   type SelectedAttachment,
   attachmentSourceInputSchema,
+  selectedAttachmentSchema,
 } from "@/utils/attachments/source-schema";
 import { resolveDraftAttachments } from "@/utils/attachments/draft-attachments";
-import prisma from "@/utils/prisma";
 import type {
   ActionExecutionEmailAccount,
   ActionItem,
@@ -12,7 +12,6 @@ import type {
   ExecutedRuleForAction,
 } from "@/utils/ai/types";
 import type { Logger } from "@/utils/logger";
-import { getReplyWithConfidence } from "@/utils/redis/reply";
 
 export async function resolveActionAttachments({
   email,
@@ -20,6 +19,7 @@ export async function resolveActionAttachments({
   executedRule,
   logger,
   staticAttachments,
+  selectedAttachments,
   includeAiSelectedAttachments,
 }: {
   email: EmailForAction;
@@ -27,35 +27,29 @@ export async function resolveActionAttachments({
   executedRule: ExecutedRuleForAction;
   logger: Logger;
   staticAttachments?: ActionItem["staticAttachments"];
+  selectedAttachments?: ActionItem["selectedAttachments"];
   includeAiSelectedAttachments: boolean;
 }) {
   const staticSelectedAttachments = parseStaticAttachments(staticAttachments);
+  const aiSelectedAttachments = includeAiSelectedAttachments
+    ? parseSelectedAttachments(selectedAttachments)
+    : [];
 
   if (
     staticSelectedAttachments.length === 0 &&
-    (!includeAiSelectedAttachments || !executedRule.ruleId)
+    aiSelectedAttachments.length === 0
   ) {
     return [];
   }
 
-  const [aiSelectedAttachments, staticSelected] = await Promise.all([
-    includeAiSelectedAttachments
-      ? getDraftSelectedAttachments({
-          email,
-          emailAccountId: emailAccount.id,
-          executedRule,
-          logger,
-        })
-      : Promise.resolve([]),
-    Promise.resolve(staticSelectedAttachments),
-  ]);
-
   const allSelected = [
     ...new Map(
-      [...aiSelectedAttachments, ...staticSelected].map((attachment) => [
-        `${attachment.driveConnectionId}:${attachment.fileId}`,
-        attachment,
-      ]),
+      [...aiSelectedAttachments, ...staticSelectedAttachments].map(
+        (attachment) => [
+          `${attachment.driveConnectionId}:${attachment.fileId}`,
+          attachment,
+        ],
+      ),
     ).values(),
   ];
 
@@ -79,43 +73,6 @@ export async function resolveActionAttachments({
   return attachments;
 }
 
-async function getDraftSelectedAttachments({
-  email,
-  emailAccountId,
-  executedRule,
-  logger,
-}: {
-  email: EmailForAction;
-  emailAccountId: string;
-  executedRule: ExecutedRuleForAction;
-  logger: Logger;
-}): Promise<SelectedAttachment[]> {
-  if (!executedRule.ruleId) return [];
-
-  const attachmentSource = await prisma.attachmentSource.findFirst({
-    where: { ruleId: executedRule.ruleId },
-    select: { id: true },
-  });
-
-  if (!attachmentSource) return [];
-
-  const cachedDraft = await getReplyWithConfidence({
-    emailAccountId,
-    messageId: email.id,
-    ruleId: executedRule.ruleId,
-  });
-
-  if (cachedDraft) {
-    return cachedDraft.attachments ?? [];
-  }
-
-  logger.warn("Draft attachment cache missing, skipping attachments", {
-    messageId: email.id,
-    ruleId: executedRule.ruleId,
-  });
-  return [];
-}
-
 function parseStaticAttachments(raw: unknown): SelectedAttachment[] {
   if (!raw || !Array.isArray(raw) || raw.length === 0) return [];
 
@@ -131,4 +88,11 @@ function parseStaticAttachments(raw: unknown): SelectedAttachment[] {
       filename: item.name,
       mimeType: "application/pdf",
     }));
+}
+
+function parseSelectedAttachments(raw: unknown): SelectedAttachment[] {
+  if (!raw || !Array.isArray(raw) || raw.length === 0) return [];
+
+  const parsed = selectedAttachmentSchema.array().safeParse(raw);
+  return parsed.success ? parsed.data : [];
 }

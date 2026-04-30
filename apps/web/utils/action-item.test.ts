@@ -342,6 +342,25 @@ describe("sanitizeActionFields", () => {
 
       expect(result.staticAttachments).toEqual(attachments);
     });
+
+    it("preserves selected attachments", () => {
+      const selectedAttachments = [
+        {
+          driveConnectionId: "drive-1",
+          fileId: "file-3",
+          filename: "brief.pdf",
+          mimeType: "application/pdf",
+        },
+      ];
+
+      const result = sanitizeActionFields({
+        type: ActionType.DRAFT_EMAIL,
+        content: "Draft Content",
+        selectedAttachments,
+      });
+
+      expect(result.selectedAttachments).toEqual(selectedAttachments);
+    });
   });
 
   describe("DRAFT_MESSAGING_CHANNEL action", () => {
@@ -384,6 +403,26 @@ describe("sanitizeActionFields", () => {
       });
 
       expect(result.staticAttachments).toEqual(attachments);
+    });
+
+    it("preserves selected attachments", () => {
+      const selectedAttachments = [
+        {
+          driveConnectionId: "drive-1",
+          fileId: "file-4",
+          filename: "brief.pdf",
+          mimeType: "application/pdf",
+        },
+      ];
+
+      const result = sanitizeActionFields({
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "channel-1",
+        content: "Draft Content",
+        selectedAttachments,
+      });
+
+      expect(result.selectedAttachments).toEqual(selectedAttachments);
     });
   });
 
