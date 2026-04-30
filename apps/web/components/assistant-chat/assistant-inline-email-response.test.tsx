@@ -213,6 +213,20 @@ describe("AssistantInlineEmailResponse", () => {
     expect(screen.getByText("Label as 'Monitoring'")).toBeTruthy();
     expect(screen.queryByText("Label as 'the email as'")).toBeNull();
   });
+
+  it("renders specific notification destinations in rule suggestions", () => {
+    render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        '<rule-suggestion name="Support" when="support requests" do="label as Support and notify via Slack" />',
+      ),
+    );
+
+    expect(screen.getByText("Label as 'Support'")).toBeTruthy();
+    expect(screen.getByText("Notify via Slack")).toBeTruthy();
+    expect(screen.queryByText("Notify via chat app")).toBeNull();
+  });
 });
 
 function openMoreActions() {

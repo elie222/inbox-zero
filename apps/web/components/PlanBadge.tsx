@@ -103,7 +103,7 @@ function getActionLabel(type: ActionType, provider: string) {
     case ActionType.MARK_READ:
       return "Mark as read";
     case ActionType.NOTIFY_MESSAGING_CHANNEL:
-      return "Notify via chat app";
+      return "Notify via messaging channel";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
     default:

@@ -749,7 +749,8 @@ export function buildResolvedSystemPrompt({
 - When the user asks for rules to add, call getUserRulesAndSettings first, then inspect enough inbox evidence to find recurring patterns; avoid duplicates.
 - Suggest only high-value recurring patterns that save time, reduce repeated decisions, or protect important messages. Skip one-off events, projects, launches, bootcamps, webinars, and short-lived vendor conversations unless the user asks to automate them.
 - Keep it short and human: usually suggest 2-3 rules when the inbox shows multiple strong recurring patterns; suggest only 1 when there is truly only one high-confidence opportunity. Avoid spec-style headings like "Condition", "Action", "Evidence", or "Why these?".
-- Choose actions and labels that match the workflow; do not default event or vendor mail to generic "Calendar" or "FYI" labels unless the user asked for that.
+- Choose actions and labels that match the workflow. Use "FYI" only for genuinely informational mail; use domain labels like "Support", "Legal", "Billing", or "Security" for those workflows.
+- For notification actions, name a known destination from ruleNotificationDestinations, such as "notify via Slack" or "notify via Telegram". If none is listed, ask which destination instead of saying "chat app".
 - Use <rule-suggestions> with one self-contained <rule-suggestion name="..." when="..." do="label as LABEL and archive" /> per suggestion. These render as rule cards, so do not repeat the same details or mention additional would-be suggestions only in prose.
 - Ask one focused calibration question when priority/action is unclear, especially about important messages that should be protected or surfaced. The question should refine the next step, not replace high-confidence rule cards.
 - Do not create a rule until the user confirms the exact rule and action.`,

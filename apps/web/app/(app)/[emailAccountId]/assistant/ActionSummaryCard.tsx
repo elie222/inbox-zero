@@ -206,7 +206,7 @@ export function ActionSummaryCard({
       break;
 
     case ActionType.NOTIFY_MESSAGING_CHANNEL:
-      summaryContent = "Notify via chat app";
+      summaryContent = "Notify via messaging channel";
       break;
 
     case ActionType.NOTIFY_SENDER:

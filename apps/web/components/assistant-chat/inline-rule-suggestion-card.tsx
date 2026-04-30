@@ -100,7 +100,11 @@ export function InlineRuleSuggestionCard({
 function SuggestedActionBadgeList({
   actions,
 }: {
-  actions: Array<{ type: ActionType; label?: string | null }>;
+  actions: Array<{
+    type: ActionType;
+    label?: string | null;
+    notificationDestination?: string | null;
+  }>;
 }) {
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -118,6 +122,7 @@ function SuggestedActionBadgeList({
               {
                 type: action.type,
                 label: action.label,
+                notificationDestination: action.notificationDestination,
               },
               "",
               [],
@@ -131,15 +136,24 @@ function SuggestedActionBadgeList({
 
 function buildSuggestedActions(actionText: string) {
   const lowerText = actionText.toLowerCase();
-  const actions: Array<{ type: ActionType; label?: string | null }> = [];
+  const actions: Array<{
+    type: ActionType;
+    label?: string | null;
+    notificationDestination?: string | null;
+  }> = [];
   const label = findSuggestedLabel(actionText);
+  const notificationDestination =
+    findSuggestedNotificationDestination(actionText);
 
   if (label) actions.push({ type: ActionType.LABEL, label });
   if (lowerText.includes("archive")) actions.push({ type: ActionType.ARCHIVE });
   if (lowerText.includes("draft"))
     actions.push({ type: ActionType.DRAFT_EMAIL });
   if (lowerText.includes("notify")) {
-    actions.push({ type: ActionType.NOTIFY_MESSAGING_CHANNEL });
+    actions.push({
+      type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+      notificationDestination,
+    });
   }
   if (lowerText.includes("mark as read") || lowerText.includes("mark read")) {
     actions.push({ type: ActionType.MARK_READ });
@@ -155,6 +169,19 @@ function findSuggestedLabel(actionText: string) {
     ) || actionText.match(/\bapply (?:the )?["']?([^"',.]+)["']? label/i);
 
   return match?.[1]?.split(/\s+and\s+/i)[0]?.trim() || null;
+}
+
+function findSuggestedNotificationDestination(actionText: string) {
+  const match = actionText.match(/\bnotify(?:\s+\w+)?\s+via\s+([^"',.]+)/i);
+  const destination = match?.[1]?.split(/\s+and\s+/i)[0]?.trim();
+
+  if (!destination) return null;
+
+  if (/slack/i.test(destination)) return "Slack";
+  if (/telegram/i.test(destination)) return "Telegram";
+  if (/teams/i.test(destination)) return "Teams";
+
+  return destination;
 }
 
 function normalizeTagAttribute(value: string | undefined) {
