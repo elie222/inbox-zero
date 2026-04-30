@@ -90,6 +90,7 @@ export const createRuleActionSchema = (
       createRequiredLabelFieldsSchema(provider),
     ),
     createActionObjectSchema(ActionType.MARK_READ, optionalFieldsSchema),
+    createActionObjectSchema(ActionType.STAR, optionalFieldsSchema),
     createActionObjectSchema(ActionType.MARK_SPAM, optionalFieldsSchema),
     createActionObjectSchema(ActionType.DIGEST, optionalFieldsSchema),
     ...(allowedActionTypes.has(ActionType.DRAFT_EMAIL)

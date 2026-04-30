@@ -8,6 +8,7 @@ const SUPPORTED_DELAYED_ACTIONS: ActionType[] = [
   ActionType.SEND_EMAIL,
   ActionType.FORWARD,
   ActionType.MARK_READ,
+  ActionType.STAR,
   ActionType.MOVE_FOLDER,
 ];
 

@@ -18,6 +18,7 @@ const actionNames: Record<ActionType, string> = {
   [ActionType.REPLY]: "Send replies",
   [ActionType.FORWARD]: "Forward",
   [ActionType.MARK_READ]: "Mark as read",
+  [ActionType.STAR]: "Star",
   [ActionType.MARK_SPAM]: "Mark as spam",
   [ActionType.SEND_EMAIL]: "Send email",
   [ActionType.CALL_WEBHOOK]: "Call webhook",

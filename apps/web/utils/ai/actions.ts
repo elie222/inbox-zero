@@ -88,6 +88,8 @@ export const runActionFunction = async (options: {
       return call_webhook(opts);
     case ActionType.MARK_READ:
       return mark_read(opts);
+    case ActionType.STAR:
+      return star(opts);
     case ActionType.DIGEST:
       return digest(opts);
     case ActionType.MOVE_FOLDER:
@@ -448,6 +450,13 @@ const mark_read: ActionFunction<Record<string, unknown>> = async ({
   email,
 }) => {
   await client.markRead(email.threadId);
+};
+
+const star: ActionFunction<Record<string, unknown>> = async ({
+  client,
+  email,
+}) => {
+  await client.starMessage(email.id);
 };
 
 const digest: ActionFunction<{ id?: string }> = async ({

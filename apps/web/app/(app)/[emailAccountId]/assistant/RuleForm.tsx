@@ -964,6 +964,10 @@ export function getRuleActionTypeOptions({
       label: "Mark read",
       value: ActionType.MARK_READ,
     },
+    {
+      label: "Star",
+      value: ActionType.STAR,
+    },
     ...(availableActions.has(ActionType.REPLY)
       ? [
           {

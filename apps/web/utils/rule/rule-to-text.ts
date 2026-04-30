@@ -70,6 +70,9 @@ export function ruleToText(rule: RuleWithActions): string {
       case ActionType.MARK_READ:
         actions.push("Mark as read");
         break;
+      case ActionType.STAR:
+        actions.push("Star");
+        break;
       case ActionType.CALL_WEBHOOK:
         if (action.url) {
           actions.push(`Call webhook: ${action.url}`);

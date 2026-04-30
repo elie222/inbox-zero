@@ -34,6 +34,7 @@ import {
 import {
   archiveThread,
   labelMessage,
+  markStarredMessage,
   markReadThread,
   removeThreadLabel,
 } from "@/utils/outlook/label";
@@ -517,6 +518,14 @@ export class OutlookProvider implements EmailProvider {
       usedFallback,
       actualLabelId: category.id || undefined,
     };
+  }
+
+  async starMessage(messageId: string): Promise<void> {
+    await markStarredMessage({
+      client: this.client,
+      messageId,
+      logger: this.logger,
+    });
   }
 
   async getDraft(draftId: string): Promise<ParsedMessage | null> {

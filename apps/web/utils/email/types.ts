@@ -283,6 +283,7 @@ export interface EmailProvider {
     messageId: string;
     threadId: string;
   }>;
+  starMessage(messageId: string): Promise<void>;
   toJSON(): { name: string; type: string };
   trashThread(
     threadId: string,

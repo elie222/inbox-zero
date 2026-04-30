@@ -590,6 +590,25 @@ export async function markImportantMessage({
   );
 }
 
+export async function markStarredMessage({
+  client,
+  messageId,
+  logger,
+}: {
+  client: OutlookClient;
+  messageId: string;
+  logger: Logger;
+}) {
+  await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/messages/${messageId}`)
+        .patch({ flag: { flagStatus: "flagged" } }),
+    logger,
+  );
+}
+
 export async function getOrCreateInboxZeroLabel({
   client,
   key,

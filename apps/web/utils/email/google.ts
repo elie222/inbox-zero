@@ -686,6 +686,14 @@ export class GmailProvider implements EmailProvider {
     }
   }
 
+  async starMessage(messageId: string): Promise<void> {
+    await labelMessage({
+      gmail: this.client,
+      messageId,
+      addLabelIds: [GmailLabel.STARRED],
+    });
+  }
+
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
     return getDraft(draftId, this.client);
   }

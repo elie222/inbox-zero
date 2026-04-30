@@ -45,6 +45,19 @@ describe("getRuleActionTypeOptions", () => {
     ).toBe(false);
   });
 
+  it("exposes star as a rule action", () => {
+    const options = getRuleActionTypeOptions({
+      provider: "",
+      labelActionText: "Label",
+      systemType: null,
+      existingActionTypes: [],
+    });
+
+    expect(options.some((option) => option.value === ActionType.STAR)).toBe(
+      true,
+    );
+  });
+
   it("only exposes notify sender for configured cold email rules or existing actions", () => {
     const noExistingActionOptions = getRuleActionTypeOptions({
       provider: "",

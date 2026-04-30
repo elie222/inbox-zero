@@ -376,6 +376,29 @@ describe("runActionFunction", () => {
     });
   });
 
+  it("stars the matched message for STAR actions", async () => {
+    const client = createMockEmailProvider();
+
+    await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.STAR,
+      },
+      emailAccount,
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(client.starMessage).toHaveBeenCalledWith("message-1");
+  });
+
   it("throws when notify messaging actions are missing a channel id", async () => {
     const client = createMockEmailProvider();
 

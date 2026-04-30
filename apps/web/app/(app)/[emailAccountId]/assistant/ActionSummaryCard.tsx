@@ -197,6 +197,10 @@ export function ActionSummaryCard({
       summaryContent = "Mark as read";
       break;
 
+    case ActionType.STAR:
+      summaryContent = "Star";
+      break;
+
     case ActionType.MARK_SPAM:
       summaryContent = "Mark as spam";
       break;

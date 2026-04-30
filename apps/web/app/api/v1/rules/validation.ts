@@ -36,6 +36,7 @@ const ruleActionTypeSchema = z.enum([
   ActionType.LABEL,
   ActionType.ARCHIVE,
   ActionType.MARK_READ,
+  ActionType.STAR,
   ActionType.DRAFT_EMAIL,
   ActionType.DRAFT_MESSAGING_CHANNEL,
   ActionType.REPLY,

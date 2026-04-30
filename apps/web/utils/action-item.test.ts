@@ -139,6 +139,11 @@ describe("sanitizeActionFields", () => {
       expect(result.type).toBe(ActionType.MARK_READ);
     });
 
+    it("returns base fields for STAR", () => {
+      const result = sanitizeActionFields({ type: ActionType.STAR });
+      expect(result.type).toBe(ActionType.STAR);
+    });
+
     it("returns base fields for DIGEST", () => {
       const result = sanitizeActionFields({ type: ActionType.DIGEST });
       expect(result.type).toBe(ActionType.DIGEST);
