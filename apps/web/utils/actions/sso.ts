@@ -108,6 +108,6 @@ export const registerSSOProviderAction = adminActionClient
         },
       });
 
-      return created;
+      return {  ...created,  callbackUrl,  entityId: env.NEXT_PUBLIC_BASE_URL,  spMetadata: ssoConfig.spMetadata,  organizationSlug: organization.slug,};
     },
   );
