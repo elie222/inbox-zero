@@ -17,8 +17,7 @@ import { getRuleExecutionForMessageTool } from "./tools/rules/get-rule-execution
 import { getUserRulesAndSettingsTool } from "./tools/rules/get-user-rules-and-settings-tool";
 import { updatePersonalInstructionsTool } from "./tools/rules/update-personal-instructions-tool";
 import { updateLearnedPatternsTool } from "./tools/rules/update-learned-patterns-tool";
-import { updateRuleActionsTool } from "./tools/rules/update-rule-actions-tool";
-import { updateRuleConditionsTool } from "./tools/rules/update-rule-conditions-tool";
+import { updateRuleTool } from "./tools/rules/update-rule-tool";
 import { updateRuleStateTool } from "./tools/rules/update-rule-state-tool";
 import { getAssistantCapabilitiesTool } from "./tools/settings/get-assistant-capabilities-tool";
 import { updateAssistantSettingsTool } from "./tools/settings/update-assistant-settings-tool";
@@ -251,8 +250,7 @@ export async function aiProcessAssistantChat({
     getRuleExecutionForMessage: getRuleExecutionForMessageTool(toolOptions),
     getLearnedPatterns: getLearnedPatternsTool(toolOptions),
     createRule: createRuleTool(toolOptions),
-    updateRuleConditions: updateRuleConditionsTool(toolOptions),
-    updateRuleActions: updateRuleActionsTool(toolOptions),
+    updateRule: updateRuleTool(toolOptions),
     updateRuleState: updateRuleStateTool(toolOptions),
     updateLearnedPatterns: updateLearnedPatternsTool(toolOptions),
     updatePersonalInstructions: updatePersonalInstructionsTool(toolOptions),
@@ -755,7 +753,7 @@ export function buildResolvedSystemPrompt({
     `Rules and automation:
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - Prefer updating an existing rule over creating an overlapping duplicate. Do not create semantic duplicates like "Notification" and "Notifications".
-- Use updateRuleState to disable, enable, or delete rules.
+- For direct requests to change an existing rule's behavior, read rules then use the relevant rule update tool. Do not ask for another confirmation unless multiple rules are similar or required data is missing.
 - If multiple fetched rules are similar, ask the user which one to update instead of guessing.
 - Use short concise rule names and real sender or domain values. Ask when required data is missing.
 - Rules can use {{variables}} in action fields to insert AI-generated content.`,

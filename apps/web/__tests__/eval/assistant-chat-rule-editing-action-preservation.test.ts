@@ -2,10 +2,9 @@ import type { ModelMessage } from "ai";
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   captureAssistantChatToolCalls,
-  getLastMatchingToolCall,
+  getLastRuleActionsUpdate,
   hasActionType,
   hasLabelAction,
-  isUpdateRuleActionsInput,
   summarizeRecordedToolCalls,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
 import {
@@ -166,11 +165,7 @@ describe.runIf(shouldRunEval)(
               ],
             });
 
-            const updateCall = getLastMatchingToolCall(
-              toolCalls,
-              "updateRuleActions",
-              isUpdateRuleActionsInput,
-            )?.input;
+            const updateCall = getLastRuleActionsUpdate(toolCalls);
 
             const archive = updateCall?.actions.find(
               (a) => a.type === ActionType.ARCHIVE,
@@ -209,11 +204,7 @@ describe.runIf(shouldRunEval)(
               ],
             });
 
-            const updateCall = getLastMatchingToolCall(
-              toolCalls,
-              "updateRuleActions",
-              isUpdateRuleActionsInput,
-            )?.input;
+            const updateCall = getLastRuleActionsUpdate(toolCalls);
 
             const archives =
               updateCall?.actions.filter(
@@ -259,11 +250,7 @@ describe.runIf(shouldRunEval)(
               ],
             });
 
-            const updateCall = getLastMatchingToolCall(
-              toolCalls,
-              "updateRuleActions",
-              isUpdateRuleActionsInput,
-            )?.input;
+            const updateCall = getLastRuleActionsUpdate(toolCalls);
 
             const pass =
               !!updateCall &&
@@ -297,11 +284,7 @@ describe.runIf(shouldRunEval)(
               ],
             });
 
-            const updateCall = getLastMatchingToolCall(
-              toolCalls,
-              "updateRuleActions",
-              isUpdateRuleActionsInput,
-            )?.input;
+            const updateCall = getLastRuleActionsUpdate(toolCalls);
 
             const archive = updateCall?.actions.find(
               (a) => a.type === ActionType.ARCHIVE,
@@ -351,11 +334,7 @@ describe.runIf(shouldRunEval)(
               ],
             });
 
-            const updateCall = getLastMatchingToolCall(
-              toolCalls,
-              "updateRuleActions",
-              isUpdateRuleActionsInput,
-            )?.input;
+            const updateCall = getLastRuleActionsUpdate(toolCalls);
 
             const archives =
               updateCall?.actions.filter(
@@ -398,11 +377,7 @@ describe.runIf(shouldRunEval)(
               ],
             });
 
-            const updateCall = getLastMatchingToolCall(
-              toolCalls,
-              "updateRuleActions",
-              isUpdateRuleActionsInput,
-            )?.input;
+            const updateCall = getLastRuleActionsUpdate(toolCalls);
 
             const archives =
               updateCall?.actions.filter(

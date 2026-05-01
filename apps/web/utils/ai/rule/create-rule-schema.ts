@@ -156,10 +156,41 @@ export type CreateOrUpdateRuleSchema = CreateRuleSchema & {
 
 function createActionObjectSchema(type: ActionType, fields: z.ZodTypeAny) {
   return z.object({
-    type: z.literal(type),
+    type: z.literal(type).describe(getActionTypeDescription(type)),
     fields,
     delayInMinutes: delayInMinutesLlmSchema,
   });
+}
+
+function getActionTypeDescription(type: ActionType) {
+  switch (type) {
+    case ActionType.DRAFT_EMAIL:
+      return "Draft a reply to the matching inbound email without sending it. Use this for draft reply requests.";
+    case ActionType.REPLY:
+      return "Send a reply to the matching inbound email. Do not use this for draft reply requests.";
+    case ActionType.SEND_EMAIL:
+      return "Send a new outbound email. Do not use this for draft reply requests.";
+    case ActionType.FORWARD:
+      return "Forward the matching email.";
+    case ActionType.LABEL:
+      return "Apply a label to the matching email.";
+    case ActionType.ARCHIVE:
+      return "Archive the matching email.";
+    case ActionType.MARK_READ:
+      return "Mark the matching email as read.";
+    case ActionType.STAR:
+      return "Star the matching email.";
+    case ActionType.MARK_SPAM:
+      return "Mark the matching email as spam.";
+    case ActionType.DIGEST:
+      return "Include the matching email in a digest.";
+    case ActionType.CALL_WEBHOOK:
+      return "Call a webhook for the matching email.";
+    case ActionType.MOVE_FOLDER:
+      return "Move the matching email to a folder.";
+    default:
+      return "Action type to apply to the matching email.";
+  }
 }
 
 function createOptionalActionFieldsSchema(provider: string) {

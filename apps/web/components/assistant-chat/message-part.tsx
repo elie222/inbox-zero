@@ -25,6 +25,7 @@ import {
   SendEmailResult,
   UpdatePersonalInstructions,
   UpdatedLearnedPatterns,
+  UpdatedRule,
   UpdatedRuleActions,
   UpdatedRuleConditions,
   UpdatedRuleState,
@@ -425,6 +426,25 @@ export function MessagePart({
           updatedActions={getOutputField(output, "updatedActions")}
         />
       );
+    }
+  }
+
+  if (part.type === "tool-updateRule") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={`Updating rule "${part.input.ruleName}"...`}
+        />
+      );
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return renderToolError(toolCallId, output);
+      }
+      return <UpdatedRule key={toolCallId} args={part.input} output={output} />;
     }
   }
 

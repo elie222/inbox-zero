@@ -2,9 +2,11 @@ import type { ModelMessage } from "ai";
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   captureAssistantChatToolCalls,
-  getLastMatchingToolCall,
+  getLastRuleConditionUpdate,
   summarizeRecordedToolCalls,
   type RecordedToolCall,
+  isUpdateRuleConditionsInput,
+  isUpdateRuleInput,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
 import {
   describeEvalMatrix,
@@ -164,15 +166,7 @@ describe.runIf(shouldRunEval)(
               ],
             });
 
-            const updateCall = getLastMatchingToolCall(
-              toolCalls,
-              "updateRuleConditions",
-              isUpdateRuleConditionsInput,
-            )?.input;
-            const updateCallIndex = getLastToolCallIndex(
-              toolCalls,
-              "updateRuleConditions",
-            );
+            const updateCall = getLastRuleConditionUpdate(toolCalls);
             const judgeResult = updateCall
               ? await judgeEvalOutput({
                   input:
@@ -192,7 +186,7 @@ describe.runIf(shouldRunEval)(
               !!updateCall &&
               !!judgeResult?.pass &&
               updateCall.ruleName === "To Reply" &&
-              hasRuleReadBeforeUpdate(toolCalls, updateCallIndex) &&
+              hasRuleReadBeforeUpdate(toolCalls, updateCall.index) &&
               !toolCalls.some(
                 (toolCall) => toolCall.toolName === "createRule",
               ) &&
@@ -244,30 +238,6 @@ async function runAssistantChat({
   };
 }
 
-type UpdateRuleConditionsInput = {
-  ruleName: string;
-  condition: {
-    aiInstructions?: string | null;
-  };
-};
-
-function isUpdateRuleConditionsInput(
-  input: unknown,
-): input is UpdateRuleConditionsInput {
-  if (!input || typeof input !== "object") return false;
-
-  const value = input as {
-    ruleName?: unknown;
-    condition?: unknown;
-  };
-
-  return (
-    typeof value.ruleName === "string" &&
-    !!value.condition &&
-    typeof value.condition === "object"
-  );
-}
-
 function summarizeToolCall(toolCall: RecordedToolCall) {
   if (isUpdateRuleConditionsInput(toolCall.input)) {
     return (
@@ -276,6 +246,17 @@ function summarizeToolCall(toolCall: RecordedToolCall) {
       toolCall.input.ruleName +
       ", aiInstructions=" +
       truncate(toolCall.input.condition.aiInstructions) +
+      ")"
+    );
+  }
+
+  if (isUpdateRuleInput(toolCall.input)) {
+    return (
+      toolCall.toolName +
+      "(ruleName=" +
+      toolCall.input.ruleName +
+      ", aiInstructions=" +
+      truncate(toolCall.input.updates.condition?.aiInstructions) +
       ")"
     );
   }
