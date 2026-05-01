@@ -629,7 +629,7 @@ const readAttachmentInputSchema = z.object({
     ),
   attachmentId: z
     .string()
-    .describe("The attachment ID (from readEmail attachment metadata)"),
+    .describe("The attachment ID from readEmail attachment metadata"),
   mimeType: z
     .string()
     .optional()
@@ -653,7 +653,7 @@ export const readAttachmentTool = ({
 }) =>
   tool({
     description:
-      "Read the text content of an email attachment. Supports PDF, DOCX, plain text, CSV, and HTML. Returns metadata only for binary files (images, etc.).",
+      "Read the text content of an email attachment. First call readEmail for the message and use its attachment metadata; do not guess attachment IDs. Supports PDF, DOCX, plain text, CSV, and HTML. Returns metadata only for binary files (images, etc.).",
     inputSchema: readAttachmentInputSchema,
     execute: async ({
       messageId,
