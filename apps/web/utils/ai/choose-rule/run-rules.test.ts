@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   ensureConversationRuleContinuity,
   ensureConversationRuleForAiCalendarMatch,
-  ensureConversationRuleForCustomPrimary,
   CONVERSATION_TRACKING_META_RULE_ID,
   limitDraftEmailActions,
   runRules,
@@ -834,58 +833,6 @@ describe("runRules selection metadata", () => {
   });
 });
 
-describe("ensureConversationRuleForCustomPrimary", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("adds the conversation meta rule for a single custom primary match", () => {
-    const customRule = createRule("custom-rule");
-
-    const result = ensureConversationRuleForCustomPrimary({
-      conversationRules: [toReplyRule],
-      regularRules: [customRule, conversationMetaRule],
-      matches: [{ rule: customRule }],
-      logger,
-    });
-
-    expect(result.map((match) => match.rule.id)).toEqual([
-      "custom-rule",
-      CONVERSATION_TRACKING_META_RULE_ID,
-    ]);
-  });
-
-  it("does not add conversation tracking for system categories", () => {
-    const receiptRule = createRule("receipt-rule", SystemType.RECEIPT);
-
-    const result = ensureConversationRuleForCustomPrimary({
-      conversationRules: [toReplyRule],
-      regularRules: [receiptRule, conversationMetaRule],
-      matches: [{ rule: receiptRule }],
-      logger,
-    });
-
-    expect(result.map((match) => match.rule.id)).toEqual(["receipt-rule"]);
-  });
-
-  it("does not add conversation tracking when multiple primary rules match", () => {
-    const firstRule = createRule("custom-rule-1");
-    const secondRule = createRule("custom-rule-2");
-
-    const result = ensureConversationRuleForCustomPrimary({
-      conversationRules: [toReplyRule],
-      regularRules: [firstRule, secondRule, conversationMetaRule],
-      matches: [{ rule: firstRule }, { rule: secondRule }],
-      logger,
-    });
-
-    expect(result.map((match) => match.rule.id)).toEqual([
-      "custom-rule-1",
-      "custom-rule-2",
-    ]);
-  });
-});
-
 describe("limitDraftEmailActions", () => {
   it("returns original matches when there are no draft actions", () => {
     const matches = [
@@ -1236,91 +1183,6 @@ describe("limitDraftEmailActions", () => {
 describe("runRules - double draft prevention", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it("resolves conversation status after a custom rule is selected", async () => {
-    const { determineConversationStatus } = await import(
-      "@/utils/reply-tracker/handle-conversation-status"
-    );
-
-    const customRule = {
-      ...createRule("custom-rule", null, [
-        getAction({
-          id: "label-custom",
-          type: ActionType.LABEL,
-          label: "Custom",
-          ruleId: "custom-rule",
-        }),
-      ]),
-      name: "Custom",
-      instructions: "User-defined category",
-    };
-    const toReplyWithDraft = createRule("to-reply-rule", SystemType.TO_REPLY, [
-      getAction({
-        id: "label-to-reply",
-        type: ActionType.LABEL,
-        label: "To Reply",
-        ruleId: "to-reply-rule",
-      }),
-      getAction({
-        id: "draft-to-reply",
-        type: ActionType.DRAFT_EMAIL,
-        content: null,
-        ruleId: "to-reply-rule",
-      }),
-    ]);
-
-    vi.mocked(findMatchingRules).mockResolvedValue({
-      matches: [
-        { rule: customRule, matchReasons: [{ type: ConditionType.AI }] },
-      ],
-      reasoning: "Custom message",
-    });
-
-    vi.mocked(determineConversationStatus).mockResolvedValue({
-      rule: toReplyWithDraft,
-      reason: "Email needs a reply",
-    });
-
-    vi.mocked(getActionItemsWithAiArgs).mockImplementation(
-      async ({ selectedRule }) =>
-        selectedRule.actions.map((action) => ({
-          ...action,
-          type: action.type as ActionType,
-        })),
-    );
-    prisma.executedRule.findFirst.mockResolvedValue(null);
-
-    const results = await runRules({
-      provider: {} as any,
-      message: {
-        ...getEmail(),
-        id: "message-1",
-        threadId,
-        snippet: "",
-        historyId: "history-1",
-        inline: [],
-        attachments: [],
-        headers: {
-          from: "sender@example.com",
-          to: "user@example.com",
-          subject: "Contract review",
-          date: "Mon, 1 Jan 2026 12:00:00 +0000",
-          "message-id": "<message-1>",
-        },
-      } as any,
-      rules: [customRule, toReplyWithDraft],
-      emailAccount: getEmailAccount(),
-      isTest: true,
-      modelType: "default" as any,
-      logger,
-    });
-
-    expect(determineConversationStatus).toHaveBeenCalledTimes(1);
-    expect(results.map((result) => result.rule?.id)).toEqual([
-      "custom-rule",
-      "to-reply-rule",
-    ]);
   });
 
   it("keeps a reply draft when an AI-selected calendar message needs a response", async () => {

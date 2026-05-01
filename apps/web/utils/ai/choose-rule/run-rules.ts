@@ -137,20 +137,13 @@ export async function runRules({
     logger,
   });
 
-  const customPrimaryMatches = ensureConversationRuleForCustomPrimary({
-    conversationRules,
-    regularRules,
-    matches: calendarAwareMatches,
-    logger,
-  });
-
   // Auto-reapply conversation tracking for thread continuity
   const conversationAwareMatches = await ensureConversationRuleContinuity({
     emailAccountId: emailAccount.id,
     threadId: message.threadId,
     conversationRules,
     regularRules,
-    matches: customPrimaryMatches,
+    matches: calendarAwareMatches,
     logger,
   });
 
@@ -356,58 +349,6 @@ export function ensureConversationRuleForAiCalendarMatch<
   }
 
   logger.info("Adding conversation meta rule for AI-selected calendar match", {
-    module: MODULE,
-  });
-
-  return [
-    ...matches,
-    {
-      rule: metaRule,
-      matchReasons: [{ type: ConditionType.STATIC }],
-    } as T,
-  ];
-}
-
-export function ensureConversationRuleForCustomPrimary<
-  T extends { rule: RuleWithActions; matchReasons?: MatchReason[] },
->({
-  conversationRules,
-  regularRules,
-  matches,
-  logger,
-}: {
-  conversationRules: RuleWithActions[];
-  regularRules: RuleWithActions[];
-  matches: T[];
-  logger: Logger;
-}): T[] {
-  if (!conversationRules.some((rule) => rule.enabled)) {
-    return matches;
-  }
-
-  if (matches.some((match) => isConversationRule(match.rule.id))) {
-    return matches;
-  }
-
-  const primaryMatches = matches.filter(
-    (match) => !isConversationRule(match.rule.id),
-  );
-
-  if (primaryMatches.length !== 1) {
-    return matches;
-  }
-
-  const [primaryMatch] = primaryMatches;
-  if (primaryMatch.rule.systemType) {
-    return matches;
-  }
-
-  const metaRule = regularRules.find((rule) => isConversationRule(rule.id));
-  if (!metaRule) {
-    return matches;
-  }
-
-  logger.info("Adding conversation meta rule for custom primary rule", {
     module: MODULE,
   });
 
