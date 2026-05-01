@@ -203,7 +203,7 @@ export async function aiProcessAssistantChat({
                 .join("\n")}\n\n` +
               `Expected outcome: ${formatFixRuleExpectedOutcome(context)}` +
               (isConversationStatusFixContext(context, expectedFixSystemType)
-                ? "\n\nThis fix is about conversation status classification. Prefer updating conversation rule instructions with updateRuleConditions (for example, To Reply/FYI rules)."
+                ? "\n\nThis fix is about conversation status classification. Prefer updating conversation rule instructions with updateRule (for example, To Reply/FYI rules)."
                 : ""),
           },
         ]

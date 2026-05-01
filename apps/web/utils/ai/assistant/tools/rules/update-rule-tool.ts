@@ -338,7 +338,7 @@ function buildConditionUpdateData(condition: PatchCondition) {
     data.instructions = condition.aiInstructions;
   }
 
-  if ("conditionalOperator" in condition && condition.conditionalOperator) {
+  if (condition.conditionalOperator) {
     data.conditionalOperator = condition.conditionalOperator;
   }
 

@@ -47,6 +47,22 @@ interface MessagePartProps {
   threadLookup: ThreadLookup;
 }
 
+type LegacyRuleToolPart =
+  | {
+      type: "tool-updateRuleConditions";
+      toolCallId: string;
+      state: string;
+      input: Parameters<typeof UpdatedRuleConditions>[0]["args"];
+      output?: unknown;
+    }
+  | {
+      type: "tool-updateRuleActions";
+      toolCallId: string;
+      state: string;
+      input: Parameters<typeof UpdatedRuleActions>[0]["args"];
+      output?: unknown;
+    };
+
 function ErrorToolCard({ error }: { error: string }) {
   return <div className="text-xs text-muted-foreground">Error: {error}</div>;
 }
@@ -365,18 +381,23 @@ export function MessagePart({
     }
   }
 
-  if (part.type === "tool-updateRuleConditions") {
-    const { toolCallId, state } = part;
+  // These tools are no longer exposed to the assistant; updateRule replaces
+  // them. Keep render-only support so older persisted chat messages still show
+  // their historical tool cards instead of falling through to raw JSON.
+  const legacyRulePart = part as unknown as LegacyRuleToolPart;
+
+  if (legacyRulePart.type === "tool-updateRuleConditions") {
+    const { toolCallId, state } = legacyRulePart;
     if (state === "input-available") {
       return (
         <BasicToolInfo
           key={toolCallId}
-          text={`Updating rule "${part.input.ruleName}" conditions...`}
+          text={`Updating rule "${legacyRulePart.input.ruleName}" conditions...`}
         />
       );
     }
     if (state === "output-available") {
-      const { output } = part;
+      const { output } = legacyRulePart;
       if (isOutputWithError(output)) {
         return renderToolError(toolCallId, output);
       }
@@ -388,7 +409,7 @@ export function MessagePart({
       return (
         <UpdatedRuleConditions
           key={toolCallId}
-          args={part.input}
+          args={legacyRulePart.input}
           ruleId={ruleId}
           originalConditions={getOutputField(output, "originalConditions")}
           updatedConditions={getOutputField(output, "updatedConditions")}
@@ -397,18 +418,18 @@ export function MessagePart({
     }
   }
 
-  if (part.type === "tool-updateRuleActions") {
-    const { toolCallId, state } = part;
+  if (legacyRulePart.type === "tool-updateRuleActions") {
+    const { toolCallId, state } = legacyRulePart;
     if (state === "input-available") {
       return (
         <BasicToolInfo
           key={toolCallId}
-          text={`Updating rule "${part.input.ruleName}" actions...`}
+          text={`Updating rule "${legacyRulePart.input.ruleName}" actions...`}
         />
       );
     }
     if (state === "output-available") {
-      const { output } = part;
+      const { output } = legacyRulePart;
       if (isOutputWithError(output)) {
         return renderToolError(toolCallId, output);
       }
@@ -420,7 +441,7 @@ export function MessagePart({
       return (
         <UpdatedRuleActions
           key={toolCallId}
-          args={part.input}
+          args={legacyRulePart.input}
           ruleId={ruleId}
           originalActions={getOutputField(output, "originalActions")}
           updatedActions={getOutputField(output, "updatedActions")}

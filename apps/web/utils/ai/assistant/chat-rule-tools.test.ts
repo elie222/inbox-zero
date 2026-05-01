@@ -163,6 +163,7 @@ describe("updateRuleTool", () => {
       ruleName: "Vendor Billing",
       updates: {
         condition: {
+          conditionalOperator: null,
           static: {
             subject: null,
           },
