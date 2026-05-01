@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-01T00:22:04Z",
+  "timestamp": "2026-05-01T18:00:00Z",
   "phase": "3",
   "phase_name": "Classification Engine",
   "phase_dir": ".planning/phases/03-classification-engine",
@@ -10,26 +10,15 @@
   "status": "paused",
   "completed_tasks": [],
   "remaining_tasks": [
-    {"id": 1, "name": "Send test emails T1-T8 and verify ExecutedRule + Action behavior", "status": "not_started", "note": "Blocked on Anthropic credit top-up"},
+    {"id": 1, "name": "Send test emails T1-T8 and verify ExecutedRule + Action behavior", "status": "not_started", "note": "Credits now sufficient (~$4.07, cost fixed at ~$0.004/email). Follow 03-05-PLAN.md Task 1 setup instructions exactly."},
     {"id": 2, "name": "24-hour follow-up — verify 2FA email auto-deleted from Gmail", "status": "not_started", "note": "Blocked on Task 1 completion"},
     {"id": 3, "name": "Write phase verification report (03-05-SUMMARY.md)", "status": "not_started", "note": "Auto task, runs after Tasks 1+2"}
   ],
-  "blockers": [
-    {
-      "description": "Anthropic API credits exhausted — no classification processing for ~24+ hours",
-      "type": "external",
-      "workaround": "Top up at console.anthropic.com before resuming verification tests. Recommend $10."
-    }
-  ],
+  "blockers": [],
   "human_actions_pending": [
     {
-      "action": "Top up Anthropic API credits to ~$10 at console.anthropic.com",
-      "context": "Credits ran out; no email classification happening until replenished",
-      "blocking": true
-    },
-    {
       "action": "Send 8 test emails per 03-05-PLAN.md Task 1 table, run psql queries A-G, paste results in chat",
-      "context": "Manual UAT — live production verification of all 8 CLASS requirements",
+      "context": "Manual UAT — live production verification of all 8 CLASS requirements. Credits are now sufficient.",
       "blocking": true
     },
     {
@@ -41,17 +30,27 @@
   "decisions": [
     {
       "decision": "Haiku-only classification — Sonnet escalation removed entirely",
-      "rationale": "Logs showed ~91% escalation rate (99/109 emails hit Sonnet) due to 0.8 confidence threshold. Haiku's calibration returns 0.6-0.79 even on clear-cut emails, so almost every email paid for both models. Removed escalation entirely — evaluate accuracy first, re-add Sonnet only if needed.",
+      "rationale": "Logs showed ~91% escalation rate due to 0.8 confidence threshold. Haiku calibration returns 0.6-0.79 even on clear-cut emails.",
       "phase": "3",
       "commit": "b048a8acb"
     },
     {
-      "decision": "Production deploy of Haiku-only build completed this session",
-      "rationale": "docker compose pull + up -d ran successfully; app healthy",
+      "decision": "Conversation tracking system rules disabled (TO_REPLY, AWAITING_REPLY, FYI, ACTIONED)",
+      "rationale": "These rules triggered aiDetermineThreadStatus on every person-email, which used modelType='default'=Sonnet. Observed $0.016/email vs $0.004/email target. Disabling saves ~$0.013/person-email. Feature can be re-enabled when/if a cost budget is allocated for it.",
+      "phase": "3"
+    },
+    {
+      "decision": "Bulk Unsubscribe (existing feature) preferred over new sender-triage UI for cost reduction",
+      "rationale": "Bulk Unsubscribe already shows newsletter senders with counts and creates Gmail filters (truly $0 future cost). Should be explored before building new feature. Gap: depends on senders being in the Newsletter table.",
+      "phase": "3"
+    },
+    {
+      "decision": "Prompt caching deferred — low-value at current email volume",
+      "rationale": "At 85 emails/day (~1 per 10 min), most calls arrive after the 5-min Anthropic cache TTL expires. Savings would be 20-30% during bursts only. Not worth the code change now.",
       "phase": "3"
     }
   ],
-  "uncommitted_files": [],
-  "next_action": "Top up Anthropic credits, then resume 03-05 Task 1: send 8 test emails and run verification queries",
-  "context_notes": "Credits ran out mid-session. Took the opportunity to diagnose and fix the cost problem — changed from Haiku+Sonnet (91% double-billing) to Haiku-only. New build is live in production. Phase 3 verification (Wave 5, plan 03-05) is still pending — all 3 tasks are human-verify checkpoints waiting for manual testing."
+  "uncommitted_files": [".planning/STATE.md"],
+  "next_action": "Send 8 test emails per 03-05-PLAN.md Task 1, run psql queries A-G, paste results in chat and reply 'verified'",
+  "context_notes": "Cost crisis this session: $5 credit went to $4.07 in <24h. Root cause found and fixed: 4 conversation tracking rules (TO_REPLY/AWAITING_REPLY/FYI/ACTIONED) were triggering a second Sonnet call per person-email via aiDetermineThreadStatus. Disabled in DB. Cost should now be ~$0.004/email (~$10/month). Phase 3 verification (Wave 5, plan 03-05) still pending — all 3 tasks are manual checkpoints. Credits now sufficient to proceed."
 }

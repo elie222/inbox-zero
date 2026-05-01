@@ -63,8 +63,9 @@ None yet.
 - Anthropic key is prepaid credits — monitor balance at console.anthropic.com before Phase 3 deployment
 - 10 rules exist in production — Phase 3 must inspect names before deciding replace vs. merge strategy
 - ECONOMY_LLM_PROVIDER confirmed unset in SSM — Phase 3 must set before deploying tiered classification *(RESOLVED 2026-04-27: all 4 ECONOMY/NANO vars set to claude-haiku-4-5-20251001)*
-- Anthropic credit balance $2.91 — below $5 safety threshold; top up to $10 before Wave 5 testing
+- Conversation tracking double-billing *(RESOLVED 2026-05-01: TO_REPLY/AWAITING_REPLY/FYI/ACTIONED system rules disabled in DB. Were triggering a second Sonnet call on every person-email. Cost was $0.016/email → now ~$0.004/email)*
 - Haiku model name staleness: claude-haiku-4-5-20251001 will eventually be deprecated; SSM params must be updated manually when that happens (no automated detection in place)
+- Cost still at ceiling (~$10/month at 85 emails/day, Haiku-only). Prompt caching would save ~30-50% on system prompt tokens if emails cluster in bursts; low-priority for Phase 4.
 
 ## Deferred Items
 
