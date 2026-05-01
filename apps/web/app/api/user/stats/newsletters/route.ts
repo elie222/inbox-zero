@@ -98,7 +98,7 @@ async function getEmailMessages(
         email: from,
         fromName: email.fromName,
         minFromName: email.minFromName,
-        maxFromName: email.maxFromName,
+        maxFromName: email.fromName,
       }),
       value: email.count,
       inboxEmails: email.inboxEmails,
@@ -124,7 +124,6 @@ type NewsletterCountResult = {
   from: string;
   fromName: string | null;
   minFromName: string | null;
-  maxFromName: string | null;
   count: number;
   inboxEmails: number;
   readEmails: number;
@@ -135,7 +134,6 @@ type NewsletterCountRawResult = {
   from: string;
   fromName: string | null;
   minFromName: string | null;
-  maxFromName: string | null;
   count: number;
   inboxEmails: number;
   readEmails: number;
@@ -221,7 +219,6 @@ async function getNewsletterCounts(
         "from",
         MAX(NULLIF("fromName", '')) as "fromName",
         MIN(NULLIF("fromName", '')) as "minFromName",
-        MAX(NULLIF("fromName", '')) as "maxFromName",
         COUNT(*)::int as "count",
         SUM(CASE WHEN inbox = true THEN 1 ELSE 0 END)::int as "inboxEmails",
         SUM(CASE WHEN read = true THEN 1 ELSE 0 END)::int as "readEmails",
@@ -243,7 +240,6 @@ async function getNewsletterCounts(
       from: result.from,
       fromName: result.fromName,
       minFromName: result.minFromName,
-      maxFromName: result.maxFromName,
       count: result.count,
       inboxEmails: result.inboxEmails,
       readEmails: result.readEmails,
