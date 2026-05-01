@@ -1,0 +1,57 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-01T00:22:04Z",
+  "phase": "3",
+  "phase_name": "Classification Engine",
+  "phase_dir": ".planning/phases/03-classification-engine",
+  "plan": 5,
+  "task": 1,
+  "total_tasks": 3,
+  "status": "paused",
+  "completed_tasks": [],
+  "remaining_tasks": [
+    {"id": 1, "name": "Send test emails T1-T8 and verify ExecutedRule + Action behavior", "status": "not_started", "note": "Blocked on Anthropic credit top-up"},
+    {"id": 2, "name": "24-hour follow-up — verify 2FA email auto-deleted from Gmail", "status": "not_started", "note": "Blocked on Task 1 completion"},
+    {"id": 3, "name": "Write phase verification report (03-05-SUMMARY.md)", "status": "not_started", "note": "Auto task, runs after Tasks 1+2"}
+  ],
+  "blockers": [
+    {
+      "description": "Anthropic API credits exhausted — no classification processing for ~24+ hours",
+      "type": "external",
+      "workaround": "Top up at console.anthropic.com before resuming verification tests. Recommend $10."
+    }
+  ],
+  "human_actions_pending": [
+    {
+      "action": "Top up Anthropic API credits to ~$10 at console.anthropic.com",
+      "context": "Credits ran out; no email classification happening until replenished",
+      "blocking": true
+    },
+    {
+      "action": "Send 8 test emails per 03-05-PLAN.md Task 1 table, run psql queries A-G, paste results in chat",
+      "context": "Manual UAT — live production verification of all 8 CLASS requirements",
+      "blocking": true
+    },
+    {
+      "action": "After 24h: verify T6 (2FA test email) is in Gmail Trash and ScheduledAction row status=COMPLETED",
+      "context": "CLASS-05 requires auto-delete fires within 24h",
+      "blocking": false
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Haiku-only classification — Sonnet escalation removed entirely",
+      "rationale": "Logs showed ~91% escalation rate (99/109 emails hit Sonnet) due to 0.8 confidence threshold. Haiku's calibration returns 0.6-0.79 even on clear-cut emails, so almost every email paid for both models. Removed escalation entirely — evaluate accuracy first, re-add Sonnet only if needed.",
+      "phase": "3",
+      "commit": "b048a8acb"
+    },
+    {
+      "decision": "Production deploy of Haiku-only build completed this session",
+      "rationale": "docker compose pull + up -d ran successfully; app healthy",
+      "phase": "3"
+    }
+  ],
+  "uncommitted_files": [],
+  "next_action": "Top up Anthropic credits, then resume 03-05 Task 1: send 8 test emails and run verification queries",
+  "context_notes": "Credits ran out mid-session. Took the opportunity to diagnose and fix the cost problem — changed from Haiku+Sonnet (91% double-billing) to Haiku-only. New build is live in production. Phase 3 verification (Wave 5, plan 03-05) is still pending — all 3 tasks are human-verify checkpoints waiting for manual testing."
+}
