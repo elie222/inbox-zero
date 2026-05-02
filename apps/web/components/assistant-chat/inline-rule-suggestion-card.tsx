@@ -172,7 +172,7 @@ function findSuggestedLabel(actionText: string) {
 }
 
 function findSuggestedNotificationDestination(actionText: string) {
-  const match = actionText.match(/\bnotify(?:\s+\w+)?\s+via\s+([^"',.]+)/i);
+  const match = actionText.match(/\bnotify(?:\s+[\w-]+)*\s+via\s+([^"',.]+)/i);
   const destination = match?.[1]?.split(/\s+and\s+/i)[0]?.trim();
 
   if (!destination || isGenericNotificationDestination(destination)) {

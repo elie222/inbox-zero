@@ -383,13 +383,13 @@ describe("aiProcessAssistantChat", () => {
 
     expect(systemPrompt).toContain("Rule suggestions:");
     expect(systemPrompt).toContain(
-      "Check what this user already has handled before suggesting a category or rule",
+      "call getUserRulesAndSettings first, then inspect enough inbox evidence",
     );
     expect(systemPrompt).toContain(
-      "Do not suggest rules just to create more automation",
+      "Treat existing labels as context, not a constraint",
     );
     expect(systemPrompt).toContain(
-      "ask whether the relevant inbox items are important, low-priority, safe to archive, or need attention",
+      "Use <rule-suggestions> with exactly one self-contained <rule-suggestion",
     );
     expect(args.tools.getUserRulesAndSettings.description).toContain(
       "Retrieve the latest rules and personal instructions for the user",
@@ -1424,6 +1424,7 @@ describe("aiProcessAssistantChat", () => {
 
     expect(result).toEqual({
       personalInstructions: "Keep replies concise.",
+      ruleNotificationDestinations: [],
       rules: [],
     });
   });

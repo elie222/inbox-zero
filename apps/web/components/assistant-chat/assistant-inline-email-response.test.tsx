@@ -219,7 +219,7 @@ describe("AssistantInlineEmailResponse", () => {
       createElement(
         AssistantInlineEmailResponse,
         null,
-        '<rule-suggestion name="Support" when="support requests" do="label as Support and notify via Slack" />',
+        '<rule-suggestion name="Support" when="support requests" do="label as Support and notify me immediately via Slack" />',
       ),
     );
 
