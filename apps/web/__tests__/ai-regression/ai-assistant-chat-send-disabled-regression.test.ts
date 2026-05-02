@@ -217,24 +217,26 @@ describe.runIf(isAiTest)(
           }),
         );
 
-        const updateWithoutRead = await args.tools.updateRuleActions.execute({
+        const updateWithoutRead = await args.tools.updateRule.execute({
           ruleName: "DraftDemo",
-          actions: [
-            {
-              type: ActionType.DRAFT_EMAIL,
-              fields: {
-                to: "demoinboxzero@outlook.com",
-                subject: "test draft",
-                content: "hey, just testing out this email draft!",
-                label: null,
-                cc: null,
-                bcc: null,
-                webhookUrl: null,
-                folderName: null,
+          updates: {
+            actions: [
+              {
+                type: ActionType.DRAFT_EMAIL,
+                fields: {
+                  to: "demoinboxzero@outlook.com",
+                  subject: "test draft",
+                  content: "hey, just testing out this email draft!",
+                  label: null,
+                  cc: null,
+                  bcc: null,
+                  webhookUrl: null,
+                  folderName: null,
+                },
+                delayInMinutes: null,
               },
-              delayInMinutes: null,
-            },
-          ],
+            ],
+          },
         });
 
         expect(updateWithoutRead.success).toBe(false);

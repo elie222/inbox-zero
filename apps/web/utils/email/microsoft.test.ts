@@ -140,6 +140,34 @@ describe("OutlookProvider.getLatestMessageInThread", () => {
   });
 });
 
+describe("OutlookProvider.getSentMessageIds", () => {
+  it("queries sent items with sentDateTime bounds", async () => {
+    const client = createMockOutlookClient([
+      createMessage({
+        id: "message-1",
+        conversationId: "thread-1",
+      }),
+    ]);
+    const provider = new OutlookProvider(client);
+
+    const result = await provider.getSentMessageIds({
+      maxResults: 50,
+      after: new Date("2026-03-31T12:00:00.000Z"),
+      before: new Date("2026-04-30T17:00:00.000Z"),
+    });
+
+    expect(client.getRequestLog()).toContainEqual({
+      apiPath: "/me/mailFolders('sentitems')/messages",
+      filter:
+        "sentDateTime ge 2026-03-31T12:00:00.000Z and sentDateTime le 2026-04-30T17:00:00.000Z",
+    });
+    expect(result).toEqual({
+      messages: [{ id: "message-1", threadId: "thread-1" }],
+      nextPageToken: undefined,
+    });
+  });
+});
+
 describe("OutlookProvider.getThreadsWithQuery", () => {
   it("filters returned threads by explicit labelIds", async () => {
     getFolderIdsMock.mockResolvedValue({

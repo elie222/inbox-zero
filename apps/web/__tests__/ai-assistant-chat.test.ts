@@ -423,13 +423,16 @@ describe("aiProcessAssistantChat", () => {
         .success,
     ).toBe(false);
     expect(
-      args.tools.updateRuleActions.inputSchema.safeParse(
-        getWebhookRuleActionsInput(),
-      ).success,
+      args.tools.updateRule.inputSchema.safeParse({
+        ruleName: "Webhook",
+        updates: {
+          actions: getWebhookRuleActionsInput().actions,
+        },
+      }).success,
     ).toBe(false);
   });
 
-  it("accepts sparse rule action fields for createRule and updateRuleActions", async () => {
+  it("accepts sparse rule action fields for createRule and updateRule", async () => {
     const tools = await captureToolSet(true);
 
     expect(
@@ -460,52 +463,58 @@ describe("aiProcessAssistantChat", () => {
     ).toBe(true);
 
     expect(
-      tools.updateRuleActions.inputSchema.safeParse({
+      tools.updateRule.inputSchema.safeParse({
         ruleName: "Finance",
-        actions: [
-          {
-            type: ActionType.LABEL,
-            fields: {
-              label: "Finance",
+        updates: {
+          actions: [
+            {
+              type: ActionType.LABEL,
+              fields: {
+                label: "Finance",
+              },
+              delayInMinutes: null,
             },
-            delayInMinutes: null,
-          },
-          {
-            type: ActionType.ARCHIVE,
-            fields: {},
-            delayInMinutes: null,
-          },
-        ],
+            {
+              type: ActionType.ARCHIVE,
+              fields: {},
+              delayInMinutes: null,
+            },
+          ],
+        },
       }).success,
     ).toBe(true);
   });
 
-  it("rejects updateRuleActions payloads that omit required action fields", async () => {
+  it("rejects updateRule payloads that omit required action fields", async () => {
     const tools = await captureToolSet(true);
 
     expect(
-      tools.updateRuleActions.inputSchema.safeParse({
+      tools.updateRule.inputSchema.safeParse({
         ruleName: "Finance",
-        actions: [
-          {
-            type: ActionType.LABEL,
-            fields: {},
-            delayInMinutes: null,
-          },
-        ],
+        updates: {
+          actions: [
+            {
+              type: ActionType.LABEL,
+              fields: {},
+              delayInMinutes: null,
+            },
+          ],
+        },
       }).success,
     ).toBe(false);
 
     expect(
-      tools.updateRuleActions.inputSchema.safeParse({
+      tools.updateRule.inputSchema.safeParse({
         ruleName: "Webhook",
-        actions: [
-          {
-            type: ActionType.CALL_WEBHOOK,
-            fields: {},
-            delayInMinutes: null,
-          },
-        ],
+        updates: {
+          actions: [
+            {
+              type: ActionType.CALL_WEBHOOK,
+              fields: {},
+              delayInMinutes: null,
+            },
+          ],
+        },
       }).success,
     ).toBe(false);
   });
@@ -516,32 +525,36 @@ describe("aiProcessAssistantChat", () => {
     const microsoftTools = await captureToolSet(true, "microsoft");
 
     expect(
-      googleTools.updateRuleActions.inputSchema.safeParse({
+      googleTools.updateRule.inputSchema.safeParse({
         ruleName: "Finance",
-        actions: [
-          {
-            type: ActionType.MOVE_FOLDER,
-            fields: {
-              folderName: "Archive",
+        updates: {
+          actions: [
+            {
+              type: ActionType.MOVE_FOLDER,
+              fields: {
+                folderName: "Archive",
+              },
+              delayInMinutes: null,
             },
-            delayInMinutes: null,
-          },
-        ],
+          ],
+        },
       }).success,
     ).toBe(false);
 
     expect(
-      microsoftTools.updateRuleActions.inputSchema.safeParse({
+      microsoftTools.updateRule.inputSchema.safeParse({
         ruleName: "Finance",
-        actions: [
-          {
-            type: ActionType.MOVE_FOLDER,
-            fields: {
-              folderName: "Archive",
+        updates: {
+          actions: [
+            {
+              type: ActionType.MOVE_FOLDER,
+              fields: {
+                folderName: "Archive",
+              },
+              delayInMinutes: null,
             },
-            delayInMinutes: null,
-          },
-        ],
+          ],
+        },
       }).success,
     ).toBe(true);
   });
@@ -1152,10 +1165,12 @@ describe("aiProcessAssistantChat", () => {
   it("requires reading rules immediately before updating rule conditions", async () => {
     const tools = await captureToolSet(true, "google");
 
-    const result = await tools.updateRuleConditions.execute({
+    const result = await tools.updateRule.execute({
       ruleName: "To Reply",
-      condition: {
-        aiInstructions: "Updated instructions",
+      updates: {
+        condition: {
+          aiInstructions: "Updated instructions",
+        },
       },
     });
 
@@ -1199,6 +1214,7 @@ describe("aiProcessAssistantChat", () => {
       id: "rule-1",
       name: "To Reply",
       updatedAt: new Date("2026-02-13T10:00:00.000Z"),
+      enabled: true,
       emailAccount: {
         rulesRevision: 2,
       },
@@ -1207,6 +1223,7 @@ describe("aiProcessAssistantChat", () => {
       to: null,
       subject: null,
       conditionalOperator: "AND",
+      actions: [],
     });
     mockPrisma.rule.update.mockResolvedValue({
       id: "rule-1",
@@ -1235,10 +1252,12 @@ describe("aiProcessAssistantChat", () => {
     expect(freshRuleContext?.content).toContain('"name": "To Reply"');
     expect(onRulesStateExposed).toHaveBeenCalledWith(2);
 
-    const result = await args.tools.updateRuleConditions.execute({
+    const result = await args.tools.updateRule.execute({
       ruleName: "To Reply",
-      condition: {
-        aiInstructions: "Updated instructions",
+      updates: {
+        condition: {
+          aiInstructions: "Updated instructions",
+        },
       },
     });
 
@@ -1400,10 +1419,12 @@ describe("aiProcessAssistantChat", () => {
       conditionalOperator: "AND",
     });
 
-    const result = await tools.updateRuleConditions.execute({
+    const result = await tools.updateRule.execute({
       ruleName: "To Reply",
-      condition: {
-        aiInstructions: "Updated instructions",
+      updates: {
+        condition: {
+          aiInstructions: "Updated instructions",
+        },
       },
     });
 

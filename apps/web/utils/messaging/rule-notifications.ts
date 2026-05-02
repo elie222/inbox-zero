@@ -25,6 +25,7 @@ import {
 } from "@/utils/messaging/providers/slack/format";
 import {
   ActionType,
+  AttachmentSourceType,
   MessagingMessageStatus,
   MessagingProvider,
   MessagingRoutePurpose,
@@ -46,7 +47,10 @@ import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import { quotePlainTextContent } from "@/utils/email/quoted-plain-text";
 import { formatReplySubject } from "@/utils/email/subject";
 import { emailToContent } from "@/utils/mail";
-import { extractDraftPlainText } from "@/utils/ai/choose-rule/draft-management";
+import {
+  extractDraftPlainText,
+  stripQuotedContent,
+} from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
 import he from "he";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
@@ -66,9 +70,14 @@ import {
 } from "@/utils/messaging/providers/telegram/format";
 import { getMessagingRoute } from "@/utils/messaging/routes";
 import { getEmailUrlForOptionalMessage } from "@/utils/url";
+import {
+  attachmentSourceInputSchema,
+  selectedAttachmentSchema,
+} from "@/utils/attachments/source-schema";
 
 const DRAFT_PREVIEW_MAX_CHARS = 900;
 const SUMMARY_PREVIEW_MAX_CHARS = 2000;
+const MAX_DRAFT_ATTACHMENT_NAMES = 5;
 const RULE_DRAFT_SEND_ACTION_ID = "rule_draft_send";
 const RULE_DRAFT_EDIT_ACTION_ID = "rule_draft_edit";
 const RULE_DRAFT_DISMISS_ACTION_ID = "rule_draft_dismiss";
@@ -288,12 +297,17 @@ async function sendSlackRuleNotificationWithContext({
     context,
     logger,
   });
+  const draftAttachmentNames = getNotificationDraftAttachmentNames({
+    context,
+    logger,
+  });
 
   const content = buildNotificationContent({
     actionType: context.type,
     email,
     systemType: context.executedRule.rule?.systemType ?? null,
     draftContent,
+    draftAttachmentNames,
     format: "slack",
   });
 
@@ -384,12 +398,17 @@ async function sendLinkedRuleNotification({
     context,
     logger,
   });
+  const draftAttachmentNames = getNotificationDraftAttachmentNames({
+    context,
+    logger,
+  });
 
   const content = buildNotificationContent({
     actionType: context.type,
     email,
     systemType: context.executedRule.rule?.systemType ?? null,
     draftContent,
+    draftAttachmentNames,
     format: "plain",
   });
   const text = buildMessagingRuleNotificationText({
@@ -481,12 +500,17 @@ async function sendTelegramRuleNotificationWithContext({
     context,
     logger,
   });
+  const draftAttachmentNames = getNotificationDraftAttachmentNames({
+    context,
+    logger,
+  });
 
   const content = buildNotificationContent({
     actionType: context.type,
     email,
     systemType: context.executedRule.rule?.systemType ?? null,
     draftContent,
+    draftAttachmentNames,
     format: "plain",
   });
 
@@ -813,11 +837,16 @@ async function sendDraftReplyFromNotification({
     context,
     provider,
   });
+  const draftAttachmentNames = getNotificationDraftAttachmentNames({
+    context,
+    logger,
+  });
   const notificationContent = buildNotificationContent({
     actionType: context.type,
     email: sourceMessageSummary,
     systemType: context.executedRule.rule?.systemType ?? null,
     draftContent: finalDraftContent,
+    draftAttachmentNames,
     format:
       context.messagingChannel?.provider === MessagingProvider.SLACK
         ? "slack"
@@ -845,6 +874,7 @@ async function sendDraftReplyFromNotification({
       } as ExecutedRule,
       logger,
       staticAttachments: context.staticAttachments,
+      selectedAttachments: context.selectedAttachments,
       includeAiSelectedAttachments: true,
     });
 
@@ -1284,6 +1314,7 @@ async function getNotificationContext(executedActionId: string) {
       bcc: true,
       draftId: true,
       staticAttachments: true,
+      selectedAttachments: true,
       messagingChannelId: true,
       messagingMessageId: true,
       messagingMessageStatus: true,
@@ -1369,7 +1400,7 @@ async function getEditableDraftContent({
     try {
       const latestDraft = await provider.getDraft(mailboxDraftAction.draftId);
       if (latestDraft) {
-        const text = extractDraftPlainText(latestDraft).trim();
+        const text = stripQuotedContent(extractDraftPlainText(latestDraft));
         if (text) return text;
       }
     } catch {
@@ -1377,7 +1408,7 @@ async function getEditableDraftContent({
     }
   }
 
-  return context.content || "";
+  return stripQuotedContent(context.content || "");
 }
 
 async function getNotificationDraftContent({
@@ -1414,6 +1445,56 @@ async function getNotificationDraftContent({
   }
 }
 
+function getNotificationDraftAttachmentNames({
+  context,
+  logger,
+}: {
+  context: NotificationContext;
+  logger: Logger;
+}) {
+  if (!isDraftReplyActionType(context.type)) return [];
+
+  const staticAttachmentNames = getStaticDraftAttachmentNames(
+    context.staticAttachments,
+  );
+  const selectedAttachmentNames = getSelectedDraftAttachmentNames(
+    context.selectedAttachments,
+    logger,
+    context.id,
+  );
+
+  return [...selectedAttachmentNames, ...staticAttachmentNames];
+}
+
+function getStaticDraftAttachmentNames(raw: unknown) {
+  if (!raw || !Array.isArray(raw) || raw.length === 0) return [];
+
+  const parsed = attachmentSourceInputSchema.array().safeParse(raw);
+  if (!parsed.success) return [];
+
+  return parsed.data
+    .filter((attachment) => attachment.type === AttachmentSourceType.FILE)
+    .map((attachment) => attachment.name);
+}
+
+function getSelectedDraftAttachmentNames(
+  raw: unknown,
+  logger: Logger,
+  executedActionId: string,
+) {
+  if (!raw || !Array.isArray(raw) || raw.length === 0) return [];
+
+  const parsed = selectedAttachmentSchema.array().safeParse(raw);
+  if (!parsed.success) {
+    logger.warn("Skipping invalid selected attachment metadata", {
+      executedActionId,
+    });
+    return [];
+  }
+
+  return parsed.data.map((attachment) => attachment.filename);
+}
+
 async function getSourceMessageSummaryForProvider({
   context,
   provider,
@@ -1440,12 +1521,14 @@ function buildNotificationContent({
   email,
   systemType,
   draftContent,
+  draftAttachmentNames,
   format,
 }: {
   actionType: ActionType;
   email: NotificationEmailPreview;
   systemType: SystemType | string | null;
   draftContent?: string | null;
+  draftAttachmentNames?: string[];
   format: NotificationContentFormat;
 }): NotificationContent {
   if (isDraftReplyActionType(actionType)) {
@@ -1480,6 +1563,13 @@ function buildNotificationContent({
       details.push(`💬 *They wrote:*\n${preview}`);
     }
     details.push(`✍️ *I drafted a reply for you:*\n${draftPreview}`);
+    const attachmentSummary = buildDraftAttachmentSummary(
+      draftAttachmentNames,
+      { format },
+    );
+    if (attachmentSummary) {
+      details.push(`📎 *Attachments:* ${attachmentSummary}`);
+    }
 
     return {
       title: "New email — reply drafted",
@@ -1676,13 +1766,35 @@ function buildDraftPreview(
 ) {
   if (!content?.trim()) return "No draft preview available.";
 
-  const preview = removeExcessiveWhitespace(
-    richTextToSlackMrkdwn(he.decode(content)),
-  ).trim();
+  const preview = stripQuotedContent(
+    removeExcessiveWhitespace(richTextToSlackMrkdwn(he.decode(content))).trim(),
+  );
   return truncate(
     format === "slack" ? preview : stripSlackFormatting(preview),
     DRAFT_PREVIEW_MAX_CHARS,
   );
+}
+
+function buildDraftAttachmentSummary(
+  attachmentNames: string[] | null | undefined,
+  { format }: { format: NotificationContentFormat },
+) {
+  const uniqueNames = [
+    ...new Set(
+      (attachmentNames ?? [])
+        .map((name) => name.trim())
+        .filter((name) => name.length > 0),
+    ),
+  ];
+  if (uniqueNames.length === 0) return null;
+
+  const visibleNames = uniqueNames
+    .slice(0, MAX_DRAFT_ATTACHMENT_NAMES)
+    .map((name) => formatNotificationText(name, format));
+  const hiddenCount = uniqueNames.length - visibleNames.length;
+  const suffix = hiddenCount > 0 ? ` and ${hiddenCount} more` : "";
+
+  return `${visibleNames.join(", ")}${suffix}`;
 }
 
 function buildNotificationCardBody(content: NotificationContent): CardChild[] {

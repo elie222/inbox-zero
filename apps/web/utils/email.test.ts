@@ -9,6 +9,7 @@ import {
   participant,
   normalizeEmailAddress,
   formatEmailWithName,
+  getNewsletterSenderDisplayName,
 } from "./email";
 
 describe("email utils", () => {
@@ -532,6 +533,68 @@ describe("email utils", () => {
       expect(formatEmailWithName("Support", "support+tag@example.com")).toBe(
         "Support <support+tag@example.com>",
       );
+    });
+  });
+
+  describe("getNewsletterSenderDisplayName", () => {
+    it("keeps normal sender display names", () => {
+      expect(
+        getNewsletterSenderDisplayName({
+          email: "updates@example.com",
+          fromName: "Example Updates",
+          minFromName: "Example Updates",
+          maxFromName: "Example Updates",
+        }),
+      ).toBe("Example Updates");
+    });
+
+    it("uses the sender domain when one address has multiple display names", () => {
+      expect(
+        getNewsletterSenderDisplayName({
+          email: "notifications@github.com",
+          fromName: "Some Person",
+          minFromName: "Another Person",
+          maxFromName: "Some Person",
+        }),
+      ).toBe("github.com");
+
+      expect(
+        getNewsletterSenderDisplayName({
+          email: "invitations@linkedin.com",
+          fromName: "Some Person",
+          minFromName: "Another Person",
+          maxFromName: "Some Person",
+        }),
+      ).toBe("linkedin.com");
+
+      expect(
+        getNewsletterSenderDisplayName({
+          email: "messaging-digest-noreply@linkedin.com",
+          fromName: "Some Person via LinkedIn",
+          minFromName: "Another Person via LinkedIn",
+          maxFromName: "Some Person via LinkedIn",
+        }),
+      ).toBe("linkedin.com");
+    });
+
+    it("keeps the selected display name when min and max names match", () => {
+      expect(
+        getNewsletterSenderDisplayName({
+          email: "notifications@example.com",
+          fromName: "Example",
+          minFromName: "Example",
+          maxFromName: "Example",
+        }),
+      ).toBe("Example");
+    });
+
+    it("falls back to an empty display name when no name is available", () => {
+      expect(
+        getNewsletterSenderDisplayName({
+          email: "updates@example.com",
+          fromName: null,
+        }),
+      ).toBe("");
     });
   });
 });

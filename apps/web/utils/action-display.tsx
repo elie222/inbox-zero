@@ -14,6 +14,7 @@ import {
   FileTextIcon,
   MailIcon,
   NewspaperIcon,
+  StarIcon,
 } from "lucide-react";
 import { truncate } from "@/utils/string";
 
@@ -80,6 +81,8 @@ export function getActionDisplay(
       return "Archive";
     case ActionType.MARK_READ:
       return "Mark Read";
+    case ActionType.STAR:
+      return "Star";
     case ActionType.MARK_SPAM:
       return "Mark Spam";
     case ActionType.REPLY:
@@ -132,6 +135,8 @@ export function getActionIcon(actionType: ActionType) {
       return ShieldCheckIcon;
     case ActionType.MARK_READ:
       return MailIcon;
+    case ActionType.STAR:
+      return StarIcon;
     case ActionType.CALL_WEBHOOK:
       return WebhookIcon;
     case ActionType.DIGEST:

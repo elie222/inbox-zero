@@ -2,10 +2,9 @@ import type { ModelMessage } from "ai";
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   captureAssistantChatToolCalls,
+  getLastRuleActionsUpdate,
   hasActionType,
   hasLabelAction,
-  isUpdateRuleActionsInput,
-  getLastMatchingToolCall,
   summarizeRecordedToolCalls,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
@@ -342,11 +341,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat overlap exceptions", () => {
             context: buildFixRuleContext(),
           });
 
-          const updateActionsCall = getLastMatchingToolCall(
-            toolCalls,
-            "updateRuleActions",
-            isUpdateRuleActionsInput,
-          )?.input;
+          const updateActionsCall = getLastRuleActionsUpdate(toolCalls);
 
           const pass =
             !!updateActionsCall &&

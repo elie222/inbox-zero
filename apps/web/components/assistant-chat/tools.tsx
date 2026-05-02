@@ -13,6 +13,10 @@ import type {
   UpdateRuleConditionsTool,
 } from "@/utils/ai/assistant/tools/rules/update-rule-conditions-tool";
 import type {
+  UpdateRuleOutput,
+  UpdateRuleTool,
+} from "@/utils/ai/assistant/tools/rules/update-rule-tool";
+import type {
   UpdateRuleStateOutput,
   UpdateRuleStateTool,
 } from "@/utils/ai/assistant/tools/rules/update-rule-state-tool";
@@ -1247,6 +1251,80 @@ export function UpdatedRuleActions({
             />
           </ViewChangesCollapsible>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function UpdatedRule({
+  args,
+  output,
+  preview,
+}: {
+  args: UpdateRuleTool["input"];
+  output: UpdateRuleOutput;
+  preview?: boolean;
+}) {
+  const ruleId = output.ruleId;
+  const title = output.updatedName || args.updates.name || args.ruleName;
+  const conditionText = args.updates.condition
+    ? buildConditionText(args.updates.condition)
+    : null;
+  const actions = args.updates.actions;
+
+  return (
+    <Card>
+      <RuleToolCardHeader
+        title={title}
+        actions={
+          preview ? (
+            <RuleActionsPreview />
+          ) : ruleId ? (
+            <RuleActions ruleId={ruleId} />
+          ) : null
+        }
+      />
+
+      <CardContent className="space-y-3 px-4 py-3.5">
+        {args.updates.name && (
+          <div className="flex gap-4 text-sm">
+            <FieldLabel className="pt-0.5">Name</FieldLabel>
+            <p>{args.updates.name}</p>
+          </div>
+        )}
+
+        {conditionText && (
+          <div className="flex gap-4 text-sm">
+            <FieldLabel className="pt-0.5">When</FieldLabel>
+            <p>{conditionText}</p>
+          </div>
+        )}
+
+        {args.updates.enabled !== undefined && (
+          <div className="flex gap-4 text-sm">
+            <FieldLabel className="pt-0.5">Status</FieldLabel>
+            <p>{args.updates.enabled ? "Enabled" : "Disabled"}</p>
+          </div>
+        )}
+
+        {actions && (
+          <div className="flex gap-4 text-sm">
+            <FieldLabel className="pt-0.5">Then</FieldLabel>
+            <ActionBadgeList actions={actions} />
+          </div>
+        )}
+
+        {output.originalName &&
+          output.updatedName &&
+          output.originalName !== output.updatedName && (
+            <ViewChangesCollapsible>
+              <CollapsibleDiffContent
+                title="Name:"
+                originalText={output.originalName}
+                updatedText={output.updatedName}
+              />
+            </ViewChangesCollapsible>
+          )}
       </CardContent>
     </Card>
   );

@@ -21,6 +21,7 @@ type RuleMutationMocks = {
   mockCreateRule: AnyMock;
   mockPartialUpdateRule: AnyMock;
   mockUpdateRuleActions: AnyMock;
+  mockSetRuleEnabled?: AnyMock;
 };
 
 export function buildDefaultSystemRuleRows(updatedAt: Date) {
@@ -70,16 +71,19 @@ export function configureRuleMutationMocks({
   mockPartialUpdateRule,
   mockUpdateRuleActions,
   mockSaveLearnedPatterns,
+  mockSetRuleEnabled,
 }: {
   mockCreateRule: AnyMock;
   mockPartialUpdateRule: AnyMock;
   mockUpdateRuleActions: AnyMock;
   mockSaveLearnedPatterns: AnyMock;
+  mockSetRuleEnabled?: AnyMock;
 }) {
   mockCreateRule.mockResolvedValue({ id: "created-rule-id" });
   mockPartialUpdateRule.mockResolvedValue({ id: "updated-rule-id" });
   mockUpdateRuleActions.mockResolvedValue({ id: "updated-rule-id" });
   mockSaveLearnedPatterns.mockResolvedValue({ success: true });
+  mockSetRuleEnabled?.mockResolvedValue({ id: "updated-rule-id" });
 }
 
 export function configureRuleEvalPrisma({
@@ -221,6 +225,7 @@ export async function buildRuleModuleMutationMock({
   mockCreateRule,
   mockPartialUpdateRule,
   mockUpdateRuleActions,
+  mockSetRuleEnabled,
 }: RuleMutationMocks & {
   importOriginal: () => Promise<typeof import("@/utils/rule/rule")>;
 }) {
@@ -231,6 +236,7 @@ export async function buildRuleModuleMutationMock({
     createRule: mockCreateRule,
     partialUpdateRule: mockPartialUpdateRule,
     updateRuleActions: mockUpdateRuleActions,
+    ...(mockSetRuleEnabled ? { setRuleEnabled: mockSetRuleEnabled } : {}),
   };
 }
 

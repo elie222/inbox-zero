@@ -130,6 +130,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule creation", () => {
     configureRuleEvalProvider({
       mockCreateEmailProvider,
       ruleRows: defaultRuleRows,
+      includeCreateLabel: true,
     });
   });
 

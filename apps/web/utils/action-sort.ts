@@ -11,6 +11,7 @@ const ACTION_TYPE_PRIORITY_ORDER: ActionType[] = [
   ActionType.MOVE_FOLDER,
   ActionType.ARCHIVE,
   ActionType.MARK_READ,
+  ActionType.STAR,
 
   ActionType.DRAFT_EMAIL,
   ActionType.DRAFT_MESSAGING_CHANNEL,

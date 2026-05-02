@@ -115,6 +115,8 @@ function getActionLabel(
       return "Mark as spam";
     case ActionType.MARK_READ:
       return "Mark as read";
+    case ActionType.STAR:
+      return "Star";
     case ActionType.NOTIFY_MESSAGING_CHANNEL:
       return action?.messagingChannel?.provider
         ? `Notify via ${getMessagingProviderName(action.messagingChannel.provider)}`
@@ -157,6 +159,7 @@ export function getActionColor(actionType: ActionType): Color {
       return "green";
     case ActionType.ARCHIVE:
     case ActionType.MARK_READ:
+    case ActionType.STAR:
       return "yellow";
     case ActionType.LABEL:
       return "blue";
@@ -190,6 +193,7 @@ function getPlanColor(plan: Plan | null, executed: boolean): Color {
     case ActionType.DRAFT_MESSAGING_CHANNEL:
       return "blue";
     case ActionType.ARCHIVE:
+    case ActionType.STAR:
       return "yellow";
     case ActionType.LABEL:
       return "purple";
