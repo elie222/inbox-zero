@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-01T18:00:00Z",
+  "timestamp": "2026-05-02T06:00:00Z",
   "phase": "3",
   "phase_name": "Classification Engine",
   "phase_dir": ".planning/phases/03-classification-engine",
@@ -10,7 +10,7 @@
   "status": "paused",
   "completed_tasks": [],
   "remaining_tasks": [
-    {"id": 1, "name": "Send test emails T1-T8 and verify ExecutedRule + Action behavior", "status": "not_started", "note": "Credits now sufficient (~$4.07, cost fixed at ~$0.004/email). Follow 03-05-PLAN.md Task 1 setup instructions exactly."},
+    {"id": 1, "name": "Send test emails T1-T8 and verify ExecutedRule + Action behavior", "status": "not_started", "note": "Credits sufficient (~$4.07, cost fixed at ~$0.004/email). Follow 03-05-PLAN.md Task 1 setup exactly."},
     {"id": 2, "name": "24-hour follow-up — verify 2FA email auto-deleted from Gmail", "status": "not_started", "note": "Blocked on Task 1 completion"},
     {"id": 3, "name": "Write phase verification report (03-05-SUMMARY.md)", "status": "not_started", "note": "Auto task, runs after Tasks 1+2"}
   ],
@@ -18,7 +18,7 @@
   "human_actions_pending": [
     {
       "action": "Send 8 test emails per 03-05-PLAN.md Task 1 table, run psql queries A-G, paste results in chat",
-      "context": "Manual UAT — live production verification of all 8 CLASS requirements. Credits are now sufficient.",
+      "context": "Manual UAT — live production verification of all 8 CLASS requirements.",
       "blocking": true
     },
     {
@@ -36,21 +36,21 @@
     },
     {
       "decision": "Conversation tracking system rules disabled (TO_REPLY, AWAITING_REPLY, FYI, ACTIONED)",
-      "rationale": "These rules triggered aiDetermineThreadStatus on every person-email, which used modelType='default'=Sonnet. Observed $0.016/email vs $0.004/email target. Disabling saves ~$0.013/person-email. Feature can be re-enabled when/if a cost budget is allocated for it.",
+      "rationale": "These rules triggered aiDetermineThreadStatus on every person-email using modelType='default'=Sonnet. Observed $0.016/email vs $0.004/email target. Saved ~$0.013/person-email.",
       "phase": "3"
     },
     {
-      "decision": "Bulk Unsubscribe (existing feature) preferred over new sender-triage UI for cost reduction",
-      "rationale": "Bulk Unsubscribe already shows newsletter senders with counts and creates Gmail filters (truly $0 future cost). Should be explored before building new feature. Gap: depends on senders being in the Newsletter table.",
-      "phase": "3"
+      "decision": "Phase 4 daily digest: batch all emails in one Haiku call at 9am",
+      "rationale": "Reviewed 50 emails live via Gmail MCP. Snippets-only approach ($0.25/month) sufficient — but classification code already fetches full body truncated at 500 chars (stringifyEmail), which is even better signal. Batch call wins over per-email: cheaper (one system prompt), higher quality (relative importance, grouping), coherent narrative output.",
+      "phase": "4-planned"
     },
     {
-      "decision": "Prompt caching deferred — low-value at current email volume",
-      "rationale": "At 85 emails/day (~1 per 10 min), most calls arrive after the 5-min Anthropic cache TTL expires. Savings would be 20-30% during bursts only. Not worth the code change now.",
-      "phase": "3"
+      "decision": "Two new rule categories identified for Phase 4",
+      "rationale": "Live email audit found gap: (1) transactional emails (receipts, account alerts, approvals, card shipped, mail arrived) — real but don't need inbox after read, label+archive same day. (2) vendor marketing (emails from real vendors selling vs. notifying) — archive like newsletters. Current rules handle newsletters/marketing well but miss these two.",
+      "phase": "4-planned"
     }
   ],
-  "uncommitted_files": [".planning/STATE.md"],
-  "next_action": "Send 8 test emails per 03-05-PLAN.md Task 1, run psql queries A-G, paste results in chat and reply 'verified'",
-  "context_notes": "Cost crisis this session: $5 credit went to $4.07 in <24h. Root cause found and fixed: 4 conversation tracking rules (TO_REPLY/AWAITING_REPLY/FYI/ACTIONED) were triggering a second Sonnet call per person-email via aiDetermineThreadStatus. Disabled in DB. Cost should now be ~$0.004/email (~$10/month). Phase 3 verification (Wave 5, plan 03-05) still pending — all 3 tasks are manual checkpoints. Credits now sufficient to proceed."
+  "uncommitted_files": [".planning/STATE.md", ".planning/HANDOFF.json", ".planning/phases/03-classification-engine/.continue-here.md"],
+  "next_action": "Option A: Complete Phase 3 verification — send 8 test emails per 03-05-PLAN.md, run psql queries A-G, paste results. Option B: Plan Phase 4 daily digest with batch architecture now that design is clear.",
+  "context_notes": "Session 2026-05-02: Live Gmail audit via MCP (50 emails, last 24h). Classification is working — newsletters/marketing going to right labels. Gap is transactional emails (receipts, appointments, approvals) being swept away when they should be label+archive. Also confirmed: classification code sends full email body truncated at 500 chars (not Gmail snippet) — this is good signal for the digest too. Phase 4 digest design: 9am cron, pull threads via Gmail API, single Haiku call with subject+sender+body[:500] for each email, one bullet per email with expanded detail on important ones. Estimated cost ~$0.25-$0.50/month."
 }
