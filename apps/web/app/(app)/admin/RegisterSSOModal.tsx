@@ -55,7 +55,6 @@ export function RegisterSSOModal() {
           title: "SSO registered successfully",
           description: `ACS URL: ${result?.data?.callbackUrl}`,
         });
-        
         reset();
         onClose();
       }
