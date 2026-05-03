@@ -10,17 +10,24 @@ describe("getStatsByPeriod", () => {
     vi.mocked(prisma.$queryRaw).mockResolvedValue([]);
   });
 
-  it("passes the period as a query parameter", async () => {
+  it("keeps the period out of raw SQL if validation is bypassed", async () => {
+    const maliciousPeriod = 'month\'); DROP TABLE "EmailMessage"; --';
+
     await getStatsByPeriod({
       emailAccountId: "email-account-1",
-      period: "month",
+      period: maliciousPeriod as never,
     });
 
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
 
     const queryArgs = vi.mocked(prisma.$queryRaw).mock.calls[0];
+    const [queryStrings, ...queryValues] = queryArgs as [
+      readonly string[],
+      ...unknown[],
+    ];
+    const rawSqlText = queryStrings.join("");
 
-    expect(queryArgs).toContain("month");
-    expect(JSON.stringify(queryArgs)).not.toContain("'month'");
+    expect(rawSqlText).not.toContain(maliciousPeriod);
+    expect(queryValues).toContain(maliciousPeriod);
   });
 });
