@@ -47,6 +47,8 @@ export const GET = withError("sso/signin", async (request) => {
     body: {
       providerId: provider.providerId,
       callbackURL: "/accounts",
+      email,
+      loginHint: email,
     },
   });
 
