@@ -14,7 +14,6 @@ describe("getVisibleOnboardingStepKeys", () => {
         autoDraftDisabled: false,
       }),
     ).toEqual([
-      STEP_KEYS.WELCOME,
       STEP_KEYS.EMAILS_SORTED,
       STEP_KEYS.CHAT,
       STEP_KEYS.DRAFT_REPLIES,
@@ -37,7 +36,6 @@ describe("getVisibleOnboardingStepKeys", () => {
         autoDraftDisabled: true,
       }),
     ).toEqual([
-      STEP_KEYS.WELCOME,
       STEP_KEYS.EMAILS_SORTED,
       STEP_KEYS.CHAT,
       STEP_KEYS.BULK_UNSUBSCRIBE,
@@ -73,6 +71,10 @@ describe("getOnboardingStepIndex", () => {
 
   it("falls back to the first visible step for unknown keys", () => {
     expect(getOnboardingStepIndex("not-a-real-step", stepKeys)).toBe(0);
+  });
+
+  it("falls back to the first visible step for removed step keys", () => {
+    expect(getOnboardingStepIndex("welcome", stepKeys)).toBe(0);
   });
 });
 
