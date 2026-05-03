@@ -307,7 +307,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     ) : (
                       <ChevronRightIcon className="size-3.5" />
                     )}
-                    <span>More</span>
+                    <span>Tools</span>
                   </button>
                 </SidebarGroupLabel>
                 {showMoreItems && (
