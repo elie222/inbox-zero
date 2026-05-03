@@ -31,6 +31,8 @@ import {
 const logger = createScopedLogger("middleware");
 const SLOW_MIDDLEWARE_STEP_MS = 2000;
 const SLOW_MIDDLEWARE_TOTAL_MS = 4000;
+const UUID_V4_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type NextHandler<T extends NextRequest = NextRequest> = (
   req: T,
@@ -76,7 +78,7 @@ function withMiddleware<T extends NextRequest>(
   scope?: string,
 ): NextHandler {
   return async (req, context) => {
-    const requestId = req.headers.get("x-request-id") || randomUUID();
+    const requestId = getRequestId(req.headers.get("x-request-id"));
     const baseLogger = createScopedLogger(scope || "api").with({
       requestId,
       url: req.url,
@@ -684,6 +686,11 @@ function getEmailAccountId(req: NextRequest): string | undefined {
 
 function getDefaultAuditActorType(scope?: string): AuditActorType {
   return scope?.startsWith("cron/") ? "system" : "anonymous";
+}
+
+function getRequestId(rawRequestId: string | null) {
+  if (rawRequestId && UUID_V4_REGEX.test(rawRequestId)) return rawRequestId;
+  return randomUUID();
 }
 
 function flushLogger(req: NextRequest) {
