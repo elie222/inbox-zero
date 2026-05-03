@@ -295,25 +295,21 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 />
               </SidebarGroup>
               <SidebarGroup>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      type="button"
-                      className="h-9 font-semibold"
-                      onClick={() => setShowMoreItems((value) => !value)}
-                      tooltip="More"
-                      sidebarName="left-sidebar"
-                      aria-expanded={showMoreItems}
-                    >
-                      {showMoreItems ? (
-                        <ChevronDownIcon className="size-4" />
-                      ) : (
-                        <ChevronRightIcon className="size-4" />
-                      )}
-                      <span>More</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
+                <SidebarGroupLabel asChild>
+                  <button
+                    type="button"
+                    className="w-full cursor-pointer gap-1"
+                    onClick={() => setShowMoreItems((value) => !value)}
+                    aria-expanded={showMoreItems}
+                  >
+                    {showMoreItems ? (
+                      <ChevronDownIcon className="size-3.5" />
+                    ) : (
+                      <ChevronRightIcon className="size-3.5" />
+                    )}
+                    <span>More</span>
+                  </button>
+                </SidebarGroupLabel>
                 {showMoreItems && (
                   <SideNavMenu items={navigation.moreItems} activeHref={path} />
                 )}
