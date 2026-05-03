@@ -33,6 +33,10 @@ const onboardingStepOrder: readonly StepKey[] = [
   STEP_KEYS.INVITE_TEAM,
   STEP_KEYS.INBOX_PROCESSED,
 ];
+const legacyNumericOnboardingStepOrder: readonly (StepKey | "welcome")[] = [
+  "welcome",
+  ...onboardingStepOrder,
+];
 
 export function getVisibleOnboardingStepKeys({
   canInviteTeam,
@@ -81,6 +85,12 @@ export function getOnboardingStepIndex(
 
   const numericStep = Number.parseInt(stepParam, 10);
   if (Number.isFinite(numericStep)) {
+    const legacyStepKey = legacyNumericOnboardingStepOrder[numericStep - 1];
+    if (legacyStepKey && legacyStepKey !== "welcome") {
+      const legacyStepIndex = visibleStepKeys.indexOf(legacyStepKey);
+      if (legacyStepIndex !== -1) return legacyStepIndex;
+    }
+
     return clampStepIndex(numericStep - 1, visibleStepKeys.length);
   }
 

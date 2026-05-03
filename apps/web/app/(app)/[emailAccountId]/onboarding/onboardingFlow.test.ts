@@ -62,7 +62,15 @@ describe("getOnboardingStepIndex", () => {
   });
 
   it("supports legacy numeric step params", () => {
-    expect(getOnboardingStepIndex("2", stepKeys)).toBe(1);
+    expect(getOnboardingStepIndex("2", stepKeys)).toBe(
+      stepKeys.indexOf(STEP_KEYS.EMAILS_SORTED),
+    );
+  });
+
+  it("keeps legacy numeric step params aligned after removed steps", () => {
+    expect(getOnboardingStepIndex("3", stepKeys)).toBe(
+      stepKeys.indexOf(STEP_KEYS.CHAT),
+    );
   });
 
   it("clamps oversized numeric steps to the last visible step", () => {
