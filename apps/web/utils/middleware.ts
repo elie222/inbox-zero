@@ -22,6 +22,11 @@ import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
 import { startRequestTimer } from "@/utils/request-timing";
+import {
+  type AuditActorType,
+  runWithAuditContext,
+  setAuditContext,
+} from "@/utils/audit/context";
 
 const logger = createScopedLogger("middleware");
 const SLOW_MIDDLEWARE_STEP_MS = 2000;
@@ -90,134 +95,147 @@ function withMiddleware<T extends NextRequest>(
     reqWithLogger.logger = baseLogger;
     let requestForError = reqWithLogger as NextRequest;
 
-    try {
-      // Apply middleware if provided
-      let enhancedReq = reqWithLogger;
-      if (middleware) {
-        const middlewareResult = await middleware(reqWithLogger, options);
+    return runWithAuditContext(
+      {
+        actorType: getDefaultAuditActorType(scope),
+        requestId,
+        source: scope || new URL(req.url).pathname,
+      },
+      async () => {
+        try {
+          // Apply middleware if provided
+          let enhancedReq = reqWithLogger;
+          if (middleware) {
+            const middlewareResult = await middleware(reqWithLogger, options);
 
-        // If middleware returned a Response, return it directly
-        if (middlewareResult instanceof Response) {
-          flushLogger(reqWithLogger);
-          return middlewareResult;
-        }
+            // If middleware returned a Response, return it directly
+            if (middlewareResult instanceof Response) {
+              flushLogger(reqWithLogger);
+              return middlewareResult;
+            }
 
-        // Otherwise, continue with the enhanced request
-        enhancedReq = middlewareResult;
-      }
-      requestForError = enhancedReq;
+            // Otherwise, continue with the enhanced request
+            enhancedReq = middlewareResult;
+          }
+          requestForError = enhancedReq;
 
-      // Execute the handler with the (potentially) enhanced request
-      const response = await handler(enhancedReq as T, context);
+          // Execute the handler with the (potentially) enhanced request
+          const response = await handler(enhancedReq as T, context);
 
-      flushLogger(enhancedReq);
+          flushLogger(enhancedReq);
 
-      return response;
-    } catch (error) {
-      flushLogger(requestForError);
+          return response;
+        } catch (error) {
+          flushLogger(requestForError);
 
-      // redirects work by throwing an error. allow these
-      if (error instanceof Error && error.message === "NEXT_REDIRECT") {
-        throw error;
-      }
+          // redirects work by throwing an error. allow these
+          if (error instanceof Error && error.message === "NEXT_REDIRECT") {
+            throw error;
+          }
 
-      if (error instanceof SafeError) {
-        if (error.message === "No refresh token") {
-          return NextResponse.json(
-            {
-              error: "Authorization required. Please grant permissions.",
-              errorCode: NO_REFRESH_TOKEN_ERROR_CODE,
-              isKnownError: true,
-            },
-            { status: 401 },
+          if (error instanceof SafeError) {
+            if (error.message === "No refresh token") {
+              return NextResponse.json(
+                {
+                  error: "Authorization required. Please grant permissions.",
+                  errorCode: NO_REFRESH_TOKEN_ERROR_CODE,
+                  isKnownError: true,
+                },
+                { status: 401 },
+              );
+            }
+
+            if (error.message.includes("Microsoft authorization has expired")) {
+              return NextResponse.json(
+                {
+                  error: error.safeMessage,
+                  errorCode: MICROSOFT_AUTH_EXPIRED_ERROR_CODE,
+                  isKnownError: true,
+                },
+                { status: 401 },
+              );
+            }
+          }
+
+          const reqLogger = getLogger(requestForError);
+
+          if (error instanceof ZodError) {
+            if (!env.DISABLE_LOG_ZOD_ERRORS) {
+              reqLogger.error("Zod validation error", { error });
+            }
+            return NextResponse.json(
+              { error: { issues: error.issues }, isKnownError: true },
+              { status: 400 },
+            );
+          }
+
+          const apiError = checkCommonErrors(
+            error,
+            requestForError.url,
+            reqLogger,
           );
-        }
+          if (apiError) {
+            await recordRateLimitFromApiError({
+              apiErrorType: apiError.type,
+              error,
+              emailAccountId: getEmailAccountId(requestForError),
+              logger: reqLogger,
+              source: scope || new URL(requestForError.url).pathname,
+            });
 
-        if (error.message.includes("Microsoft authorization has expired")) {
+            await logErrorToPosthog(
+              "api",
+              requestForError.url,
+              apiError.type,
+              "unknown",
+              reqLogger,
+            ); // TODO: add emailAccountId
+
+            return NextResponse.json(
+              { error: apiError.message, isKnownError: true },
+              { status: apiError.code },
+            );
+          }
+
+          if (isErrorWithConfigAndHeaders(error)) {
+            error.config.headers = undefined;
+          }
+
+          if (error instanceof SafeError) {
+            return NextResponse.json(
+              { error: error.safeMessage, isKnownError: true },
+              { status: getSafeErrorStatusCode(error.statusCode) },
+            );
+          }
+
+          // Quick fix: log full error in development. TODO: handle properly
+          if (env.NODE_ENV === "development") {
+            // biome-ignore lint/suspicious/noConsole: helpful for debugging
+            console.error(error);
+          }
+
+          reqLogger.error("Unhandled error", {
+            error: error instanceof Error ? error.message : error,
+            cause:
+              error instanceof Error && error.cause
+                ? error.cause instanceof Error
+                  ? error.cause.message
+                  : error.cause
+                : undefined,
+            stack: error instanceof Error ? error.stack : undefined,
+          });
+          captureException(error, { extra: { url: requestForError.url } });
+
           return NextResponse.json(
-            {
-              error: error.safeMessage,
-              errorCode: MICROSOFT_AUTH_EXPIRED_ERROR_CODE,
-              isKnownError: true,
-            },
-            { status: 401 },
+            { error: "An unexpected error occurred" },
+            { status: 500 },
           );
+        } finally {
+          requestTimer?.logSlowCompletion();
+          requestTimer?.stop();
         }
-      }
-
-      const reqLogger = getLogger(requestForError);
-
-      if (error instanceof ZodError) {
-        if (!env.DISABLE_LOG_ZOD_ERRORS) {
-          reqLogger.error("Zod validation error", { error });
-        }
-        return NextResponse.json(
-          { error: { issues: error.issues }, isKnownError: true },
-          { status: 400 },
-        );
-      }
-
-      const apiError = checkCommonErrors(error, requestForError.url, reqLogger);
-      if (apiError) {
-        await recordRateLimitFromApiError({
-          apiErrorType: apiError.type,
-          error,
-          emailAccountId: getEmailAccountId(requestForError),
-          logger: reqLogger,
-          source: scope || new URL(requestForError.url).pathname,
-        });
-
-        await logErrorToPosthog(
-          "api",
-          requestForError.url,
-          apiError.type,
-          "unknown",
-          reqLogger,
-        ); // TODO: add emailAccountId
-
-        return NextResponse.json(
-          { error: apiError.message, isKnownError: true },
-          { status: apiError.code },
-        );
-      }
-
-      if (isErrorWithConfigAndHeaders(error)) {
-        error.config.headers = undefined;
-      }
-
-      if (error instanceof SafeError) {
-        return NextResponse.json(
-          { error: error.safeMessage, isKnownError: true },
-          { status: getSafeErrorStatusCode(error.statusCode) },
-        );
-      }
-
-      // Quick fix: log full error in development. TODO: handle properly
-      if (env.NODE_ENV === "development") {
-        // biome-ignore lint/suspicious/noConsole: helpful for debugging
-        console.error(error);
-      }
-
-      reqLogger.error("Unhandled error", {
-        error: error instanceof Error ? error.message : error,
-        cause:
-          error instanceof Error && error.cause
-            ? error.cause instanceof Error
-              ? error.cause.message
-              : error.cause
-            : undefined,
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-      captureException(error, { extra: { url: requestForError.url } });
-
-      return NextResponse.json(
-        { error: "An unexpected error occurred" },
-        { status: 500 },
-      );
-    } finally {
-      requestTimer?.logSlowCompletion();
-      requestTimer?.stop();
-    }
+      },
+    );
   };
 }
 
@@ -268,6 +286,7 @@ async function authMiddleware(
   authReq.auth = { userId: session.user.id };
 
   authReq.logger = baseLogger.with({ userId: session.user.id });
+  setAuditContext({ actorType: "user", userId: session.user.id });
 
   return authReq;
 }
@@ -371,6 +390,12 @@ async function emailAccountMiddleware(
       });
 
       if (targetEmailAccount) {
+        setAuditContext({
+          actorType: "admin",
+          emailAccountId,
+          userId,
+        });
+
         const emailAccountReq = req.clone() as RequestWithEmailAccount;
         emailAccountReq.auth = {
           userId,
@@ -395,6 +420,11 @@ async function emailAccountMiddleware(
 
     Sentry.setTag("emailAccountId", emailAccountId);
     Sentry.setUser({ id: userId, email });
+    setAuditContext({
+      actorType: "email_account",
+      emailAccountId,
+      userId,
+    });
 
     // Create a new request with email account info
     const emailAccountReq = req.clone() as RequestWithEmailAccount;
@@ -510,6 +540,8 @@ async function adminMiddleware(
       { status: 403 },
     );
   }
+
+  setAuditContext({ actorType: "admin", userId: authReq.auth.userId });
 
   return authReq;
 }
@@ -648,6 +680,10 @@ function getLogger(req: NextRequest): Logger {
 function getEmailAccountId(req: NextRequest): string | undefined {
   const authReq = req as Partial<RequestWithEmailAccount>;
   return authReq.auth?.emailAccountId;
+}
+
+function getDefaultAuditActorType(scope?: string): AuditActorType {
+  return scope?.startsWith("cron/") ? "system" : "anonymous";
 }
 
 function flushLogger(req: NextRequest) {

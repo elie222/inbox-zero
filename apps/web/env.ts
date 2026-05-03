@@ -165,6 +165,8 @@ const parsedEnv = createEnv({
     SENTRY_PROJECT: z.string().optional(),
     AXIOM_DATASET: z.string().optional(),
     AXIOM_TOKEN: z.string().optional(),
+    AXIOM_AUDIT_DATASET: z.string().optional(),
+    AXIOM_AUDIT_TOKEN: z.string().optional(),
 
     DISABLE_LOG_ZOD_ERRORS: booleanString.optional(),
     ENABLE_DEBUG_LOGS: booleanString.default(false),
