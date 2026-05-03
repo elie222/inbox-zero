@@ -65,15 +65,22 @@ export const __testing__ = {
 };
 
 async function flushPendingAuditEvents(): Promise<void> {
-  while (pendingEvents.length > 0) {
+  const batchesToFlush = Math.ceil(pendingEvents.length / MAX_BATCH_SIZE);
+
+  for (let i = 0; i < batchesToFlush && pendingEvents.length > 0; i++) {
     const batch = pendingEvents.splice(0, MAX_BATCH_SIZE);
-    await deliverAuditBatch(batch);
+    const delivered = await deliverAuditBatch(batch);
+
+    if (!delivered) {
+      requeueAuditBatch(batch);
+      return;
+    }
   }
 }
 
-async function deliverAuditBatch(events: AuditEvent[]) {
+async function deliverAuditBatch(events: AuditEvent[]): Promise<boolean> {
   const config = getAxiomAuditConfig();
-  if (!config) return;
+  if (!config) return false;
 
   try {
     const response = await fetch(getAxiomIngestUrl(config), {
@@ -86,15 +93,23 @@ async function deliverAuditBatch(events: AuditEvent[]) {
     });
 
     if (!response.ok) {
-      return;
+      return false;
     }
 
     const result = (await response.json().catch(() => null)) as {
       failed?: number;
     } | null;
-    if (result?.failed) return;
+    return !result?.failed;
   } catch {
-    return;
+    return false;
+  }
+}
+
+function requeueAuditBatch(batch: AuditEvent[]) {
+  pendingEvents = [...batch, ...pendingEvents];
+
+  while (pendingEvents.length > MAX_PENDING_EVENTS) {
+    pendingEvents.shift();
   }
 }
 

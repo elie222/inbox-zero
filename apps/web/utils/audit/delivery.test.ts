@@ -66,16 +66,34 @@ describe("audit delivery", () => {
     expect(__testing__.getPendingAuditEventCount()).toBe(0);
   });
 
-  it("drops failed deliveries without writing fallback logs", async () => {
+  it("keeps failed deliveries queued for a later flush", async () => {
     mockedEnv.AXIOM_AUDIT_DATASET = "audit-dataset";
     mockedEnv.AXIOM_AUDIT_TOKEN = "audit-token";
-    fetchMock.mockResolvedValue(new Response("nope", { status: 500 }));
+    fetchMock
+      .mockResolvedValueOnce(new Response("nope", { status: 500 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ failed: 0, ingested: 1 }), {
+          status: 200,
+        }),
+      );
 
-    recordAuditEvent(createAuditEvent());
+    const event = createAuditEvent();
+    recordAuditEvent(event);
     await flushAuditEvents();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(__testing__.getPendingAuditEventCount()).toBe(1);
+
+    await flushAuditEvents();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(__testing__.getPendingAuditEventCount()).toBe(0);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://api.axiom.co/v1/datasets/audit-dataset/ingest?timestamp-field=_time",
+      expect.objectContaining({
+        body: JSON.stringify([event]),
+      }),
+    );
   });
 });
 
