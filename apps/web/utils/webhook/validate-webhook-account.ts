@@ -92,27 +92,23 @@ export async function getWebhookEmailAccount(
         subscriptionId: where.watchEmailsSubscriptionId,
       });
 
-      const [foundAccount] = await prisma.$queryRaw<Array<{ id: string }>>`
-        SELECT id FROM "EmailAccount"
-        WHERE "watchEmailsSubscriptionHistory" @> ${JSON.stringify([
-          { subscriptionId: where.watchEmailsSubscriptionId },
-        ])}::jsonb
-        LIMIT 1
-      `;
+      emailAccount = await prisma.emailAccount.findFirst({
+        where: {
+          watchEmailsSubscriptionHistory: {
+            array_contains: [
+              { subscriptionId: where.watchEmailsSubscriptionId },
+            ],
+          },
+        },
+        select: webhookEmailAccountSelect,
+      });
 
-      if (foundAccount) {
-        emailAccount = await prisma.emailAccount.findUnique({
-          where: { id: foundAccount.id },
-          select: webhookEmailAccountSelect,
+      if (emailAccount) {
+        logger.info("Found account by historical subscription ID", {
+          subscriptionId: where.watchEmailsSubscriptionId,
+          email: emailAccount.email,
+          currentSubscriptionId: emailAccount.watchEmailsSubscriptionId,
         });
-
-        if (emailAccount) {
-          logger.info("Found account by historical subscription ID", {
-            subscriptionId: where.watchEmailsSubscriptionId,
-            email: emailAccount.email,
-            currentSubscriptionId: emailAccount.watchEmailsSubscriptionId,
-          });
-        }
       }
     }
   }
