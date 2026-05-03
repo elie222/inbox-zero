@@ -131,8 +131,9 @@ export const getOutlookClientWithRefresh = async ({
   }
 
   if (
+    accessToken &&
     isEmailAccountTokenFresh({
-      accessToken: accessToken ?? null,
+      accessToken,
       refreshToken,
       expiresAt,
       bufferMs: TOKEN_REFRESH_BUFFER_MS,
