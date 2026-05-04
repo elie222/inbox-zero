@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-02T06:00:00Z",
+  "timestamp": "2026-05-04T17:43:11Z",
   "phase": "3",
   "phase_name": "Classification Engine",
   "phase_dir": ".planning/phases/03-classification-engine",
@@ -10,47 +10,52 @@
   "status": "paused",
   "completed_tasks": [],
   "remaining_tasks": [
-    {"id": 1, "name": "Send test emails T1-T8 and verify ExecutedRule + Action behavior", "status": "not_started", "note": "Credits sufficient (~$4.07, cost fixed at ~$0.004/email). Follow 03-05-PLAN.md Task 1 setup exactly."},
+    {"id": 1, "name": "Send test emails T1-T8 and verify ExecutedRule + Action behavior", "status": "not_started", "note": "Manual UAT — send 8 test emails per 03-05-PLAN.md, run psql queries A-G, paste results."},
     {"id": 2, "name": "24-hour follow-up — verify 2FA email auto-deleted from Gmail", "status": "not_started", "note": "Blocked on Task 1 completion"},
     {"id": 3, "name": "Write phase verification report (03-05-SUMMARY.md)", "status": "not_started", "note": "Auto task, runs after Tasks 1+2"}
   ],
-  "blockers": [],
+  "blockers": [
+    {"description": "Cost-fix runtime verification pending — no inbound emails since deploy at 2026-05-04 17:36 UTC", "type": "external", "workaround": "Send a test email or wait for natural traffic; verify with the SSH log-tally command in .continue-here.md"}
+  ],
   "human_actions_pending": [
     {
-      "action": "Send 8 test emails per 03-05-PLAN.md Task 1 table, run psql queries A-G, paste results in chat",
-      "context": "Manual UAT — live production verification of all 8 CLASS requirements.",
+      "action": "Verify cost fix at runtime — first email after 2026-05-04 17:36 UTC should produce 1 Haiku call, 0 Sonnet, 0 'Summarizing email for digest'",
+      "context": "Three-step fix deployed this session: load-secrets re-run, docker-compose env passthrough added, per-email digest summarize removed. Infrastructure verified; runtime not yet observed.",
       "blocking": true
     },
-    {
-      "action": "After 24h: verify T6 (2FA test email) is in Gmail Trash and ScheduledAction row status=COMPLETED",
-      "context": "CLASS-05 requires auto-delete fires within 24h",
-      "blocking": false
-    }
+    {"action": "Send 8 test emails T1-T8 per 03-05-PLAN.md, run psql queries A-G", "context": "Original Phase 3 UAT", "blocking": true},
+    {"action": "After 24h: verify T6 (2FA) auto-deleted from Gmail Trash", "context": "CLASS-05 requires auto-delete fires within 24h", "blocking": false}
   ],
   "decisions": [
     {
-      "decision": "Haiku-only classification — Sonnet escalation removed entirely",
-      "rationale": "Logs showed ~91% escalation rate due to 0.8 confidence threshold. Haiku calibration returns 0.6-0.79 even on clear-cut emails.",
+      "decision": "Removed per-email aiSummarizeEmailForDigest call entirely; Phase 4 will batch-summarize pending DigestItems at digest send time",
+      "rationale": "DB inspection found 218 DigestItem rows accumulated since Apr 27 but 0 Digest rows ever sent — every per-email summary call was waste. Phase 4 architecture (already designed in HANDOFF) is one batched Haiku call/day, so combining classify+summarize would have been thrown away.",
       "phase": "3",
-      "commit": "b048a8acb"
+      "commit": "102b3d89c"
     },
     {
-      "decision": "Conversation tracking system rules disabled (TO_REPLY, AWAITING_REPLY, FYI, ACTIONED)",
-      "rationale": "These rules triggered aiDetermineThreadStatus on every person-email using modelType='default'=Sonnet. Observed $0.016/email vs $0.004/email target. Saved ~$0.013/person-email.",
+      "decision": "Added ECONOMY_LLM_*/NANO_LLM_* env-var passthroughs to docker-compose.yml on prod and synced compose file back to repo at deploy/docker-compose.yml",
+      "rationale": "Compose file lived only on the server. New env vars existed in SSM and .env but compose's explicit environment block didn't forward them, so 'economy' modelType silently fell back to default (Sonnet). Fix prevents future drift.",
+      "phase": "3",
+      "commit": "102b3d89c"
+    },
+    {
+      "decision": "Re-ran deploy/load-secrets.sh on prod — .env grew from 25 to 30 vars",
+      "rationale": "Original 'RESOLVED 2026-04-27' note in STATE.md was wrong: SSM params were added but load-secrets.sh was never re-run after, so .env stayed stale. Container at the time had only DEFAULT_LLM_PROVIDER set.",
       "phase": "3"
     },
     {
-      "decision": "Phase 4 daily digest: batch all emails in one Haiku call at 9am",
-      "rationale": "Reviewed 50 emails live via Gmail MCP. Snippets-only approach ($0.25/month) sufficient — but classification code already fetches full body truncated at 500 chars (stringifyEmail), which is even better signal. Batch call wins over per-email: cheaper (one system prompt), higher quality (relative importance, grouping), coherent narrative output.",
-      "phase": "4-planned"
+      "decision": "False alarm: 'Missing JSON in prompt' warning is harmless",
+      "rationale": "It's a static string check in apps/web/utils/llms/index.ts:317 that warns if neither prompt mentions 'JSON'. generateObject uses Anthropic structured output (tool use), which doesn't need the prompt to mention JSON. No retry, no wasted call.",
+      "phase": "3"
     },
     {
-      "decision": "Two new rule categories identified for Phase 4",
-      "rationale": "Live email audit found gap: (1) transactional emails (receipts, account alerts, approvals, card shipped, mail arrived) — real but don't need inbox after read, label+archive same day. (2) vendor marketing (emails from real vendors selling vs. notifying) — archive like newsletters. Current rules handle newsletters/marketing well but miss these two.",
-      "phase": "4-planned"
+      "decision": "Prompt caching deferred — designed but not implemented",
+      "rationale": "Inbox Zero codebase does not pass cacheControl to Anthropic provider. CSV showed input_no_cache for every row. Single localized change in createGenerateObject would mark the system prompt with {anthropic: {cacheControl: {type: 'ephemeral'}}}. Cross-provider safe (other providers ignore unknown namespaces). Estimated 60-80% input-token savings at current volume. Deferred until current fix verified.",
+      "phase": "3-deferred"
     }
   ],
-  "uncommitted_files": [".planning/STATE.md", ".planning/HANDOFF.json", ".planning/phases/03-classification-engine/.continue-here.md"],
-  "next_action": "Option A: Complete Phase 3 verification — send 8 test emails per 03-05-PLAN.md, run psql queries A-G, paste results. Option B: Plan Phase 4 daily digest with batch architecture now that design is clear.",
-  "context_notes": "Session 2026-05-02: Live Gmail audit via MCP (50 emails, last 24h). Classification is working — newsletters/marketing going to right labels. Gap is transactional emails (receipts, appointments, approvals) being swept away when they should be label+archive. Also confirmed: classification code sends full email body truncated at 500 chars (not Gmail snippet) — this is good signal for the digest too. Phase 4 digest design: 9am cron, pull threads via Gmail API, single Haiku call with subject+sender+body[:500] for each email, one bullet per email with expanded detail on important ones. Estimated cost ~$0.25-$0.50/month."
+  "uncommitted_files": [".planning/STATE.md", ".planning/HANDOFF.json", ".planning/phases/03-classification-engine/.continue-here.md", ".claude/settings.local.json"],
+  "next_action": "Run the SSH log-tally command from .continue-here.md to verify first post-deploy email shows 1 Haiku call, 0 Sonnet, 0 summarize-digest. Then resume Phase 3 UAT (Task 1: T1-T8 test emails + psql queries).",
+  "context_notes": "Session 2026-05-04: Cost crisis investigation revealed three nested bugs hiding behind each other. (1) Anthropic CSV showed 100% Sonnet, 0% Haiku — impossible given Phase 3 'Haiku-only' commit existed on origin/main. (2) Production logs confirmed 88 economy-tagged calls all routing to Sonnet. (3) Container env had only DEFAULT_LLM_PROVIDER — selectEconomyModel was falling back to selectDefaultModel via the missing-env-var path in model.ts:393. Root cause was three layers: SSM had params, .env was stale, compose file didn't forward them. Plus a fourth issue uncovered: every classified email also fired aiSummarizeEmailForDigest (a second Haiku call) but the digest had never been sent. All four resolved this session. Verified post-deploy: container healthy, image rolled to 5a01e8c5..., env vars present, 200 on /api/health. Awaiting first inbound email to confirm runtime behavior."
 }
