@@ -610,7 +610,7 @@ async function getProcessedFollowUpLedger({
         { followUpDraftId: { not: null } },
       ],
     },
-    select: { threadId: true, messageId: true, sentAt: true },
+    select: { threadId: true, messageId: true, resolved: true, sentAt: true },
   });
 
   const processedLedger: ProcessedFollowUpLedger = new Map();
@@ -621,15 +621,17 @@ async function getProcessedFollowUpLedger({
       sentAtTimes: new Set<number>(),
     };
     processed.messageIds.add(tracker.messageId);
-    if (tracker.sentAt) processed.sentAtTimes.add(tracker.sentAt.getTime());
+    if (!tracker.resolved && tracker.sentAt) {
+      processed.sentAtTimes.add(tracker.sentAt.getTime());
+    }
     processedLedger.set(tracker.threadId, processed);
   }
 
   return processedLedger;
 }
 
-// sentAt is checked alongside messageId because Outlook can return a different
-// provider message ID for the same sent message across runs.
+// sentAt is checked for unresolved trackers because Outlook can return a
+// different provider message ID for the same sent message across runs.
 function hasFollowUpBeenProcessed({
   processedLedger,
   threadId,

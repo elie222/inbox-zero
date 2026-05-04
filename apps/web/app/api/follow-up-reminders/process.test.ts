@@ -447,6 +447,7 @@ describe("processAccountFollowUps - dedup logic", () => {
         {
           threadId: "thread-outlook-repeat",
           messageId: "msg-outlook-1",
+          resolved: false,
           sentAt: new Date(sentAt),
         } as any,
       ]);
@@ -467,6 +468,48 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(applyFollowUpLabel).toHaveBeenCalledTimes(1);
     expect(sendFollowUpNotification).toHaveBeenCalledTimes(1);
     expect(prisma.threadTracker.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not use sentAt to skip resolved trackers with a different message", async () => {
+    const sentAt = "2026-01-01T12:00:00.000Z";
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "thread-resolved-repeat", messages: [], snippet: "" },
+        ]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(mockAwaitingMessage("msg-resolved-new", sentAt)),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([
+      {
+        threadId: "thread-resolved-repeat",
+        messageId: "msg-resolved-old",
+        resolved: true,
+        sentAt: new Date(sentAt),
+      } as any,
+    ]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-resolved-repeat",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(applyFollowUpLabel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: "thread-resolved-repeat",
+        messageId: "msg-resolved-new",
+      }),
+    );
+    expect(prisma.threadTracker.create).toHaveBeenCalledTimes(1);
+    expect(generateFollowUpDraft).toHaveBeenCalledTimes(1);
   });
 
   it("does not create a second draft when duplicate outbound processing resolved the tracker", async () => {
