@@ -2,10 +2,11 @@ import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { acquireOwnedLock, clearOwnedLock } from "@/utils/redis/owned-lock";
 import { sleep } from "@/utils/sleep";
+import { SafeError } from "@/utils/error";
 
 const TOKEN_REFRESH_LOCK_TTL_SECONDS = 30;
-const TOKEN_REFRESH_WAIT_TIMEOUT_MS = 5000;
-const TOKEN_REFRESH_WAIT_INTERVAL_MS = 250;
+const TOKEN_REFRESH_WAIT_TIMEOUT_MS = 10_000;
+const TOKEN_REFRESH_WAIT_INTERVAL_MS = 500;
 
 export type TokenRefreshProvider = "google" | "microsoft";
 
@@ -19,6 +20,15 @@ export type TokenRefreshLockResult =
   | { status: "acquired"; lockToken: string }
   | { status: "busy" }
   | { status: "unavailable" };
+
+export class TokenRefreshInProgressError extends SafeError {
+  constructor() {
+    super(
+      "Email account authorization is refreshing. Please retry shortly.",
+      503,
+    );
+  }
+}
 
 export function isEmailAccountTokenFresh({
   accessToken,
@@ -117,7 +127,10 @@ export async function waitForFreshEmailAccountTokens({
       return tokens;
     }
 
-    await sleep(intervalMs);
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) break;
+
+    await sleep(Math.min(intervalMs, remainingMs));
   }
 
   return null;

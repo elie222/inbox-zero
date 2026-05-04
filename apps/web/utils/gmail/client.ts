@@ -15,6 +15,7 @@ import {
   clearEmailAccountTokenRefreshLock,
   getCurrentEmailAccountTokens,
   isEmailAccountTokenFresh,
+  TokenRefreshInProgressError,
   waitForFreshEmailAccountTokens,
   type EmailAccountTokenSnapshot,
 } from "@/utils/auth/token-refresh";
@@ -96,6 +97,8 @@ export const getGmailClientWithRefresh = async ({
         refreshToken: tokens.refreshToken,
       });
     }
+
+    throw new TokenRefreshInProgressError();
   }
 
   if (lockResult.status !== "acquired") {

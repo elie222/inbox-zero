@@ -38,6 +38,16 @@ vi.mock("@/utils/referral/referral-code", () => ({
 
 vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
+  SafeError: class SafeError extends Error {
+    safeMessage?: string;
+    statusCode?: number;
+
+    constructor(safeMessage?: string, statusCode?: number) {
+      super(safeMessage);
+      this.safeMessage = safeMessage;
+      this.statusCode = statusCode;
+    }
+  },
 }));
 
 describe("handleReferralOnSignUp", () => {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Client } from "@microsoft/microsoft-graph-client";
 import prisma from "@/utils/__mocks__/prisma";
 import { saveTokens } from "@/utils/auth/save-tokens";
@@ -69,6 +69,10 @@ describe("outlook client emulator configuration", () => {
     vi.clearAllMocks();
     vi.mocked(acquireOwnedLock).mockResolvedValue("lock-token");
     vi.mocked(clearOwnedLock).mockResolvedValue(true);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("passes emulator-aware Graph options into the client", () => {
@@ -189,6 +193,41 @@ describe("outlook client emulator configuration", () => {
     expect(getMicrosoftGraphClientOptions).toHaveBeenCalledWith(
       "fresh-access-token",
     );
+  });
+
+  it("does not refresh Outlook with stale tokens when another process owns the refresh lock", async () => {
+    vi.useFakeTimers();
+    vi.mocked(acquireOwnedLock).mockResolvedValue(null);
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      account: {
+        access_token: "stale-access-token",
+        refresh_token: "refresh-token",
+        expires_at: new Date(Date.now() - 1000),
+      },
+    } as any);
+
+    const result = expect(
+      getOutlookClientWithRefresh({
+        accessToken: "stale-access-token",
+        refreshToken: "refresh-token",
+        expiresAt: Date.now() - 1000,
+        emailAccountId: "email-account-id",
+        logger: {
+          error: vi.fn(),
+          info: vi.fn(),
+          trace: vi.fn(),
+          warn: vi.fn(),
+          with: vi.fn(),
+        } as any,
+      }),
+    ).rejects.toThrow(
+      "Email account authorization is refreshing. Please retry shortly.",
+    );
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    await result;
+    expect(requestMicrosoftToken).not.toHaveBeenCalled();
+    expect(saveTokens).not.toHaveBeenCalled();
   });
 
   it("refreshes Outlook immediately when the refresh lock store is unavailable", async () => {

@@ -16,6 +16,7 @@ import {
   clearEmailAccountTokenRefreshLock,
   getCurrentEmailAccountTokens,
   isEmailAccountTokenFresh,
+  TokenRefreshInProgressError,
   waitForFreshEmailAccountTokens,
   type EmailAccountTokenSnapshot,
 } from "@/utils/auth/token-refresh";
@@ -156,6 +157,8 @@ export const getOutlookClientWithRefresh = async ({
     if (tokens?.accessToken) {
       return createOutlookClient(tokens.accessToken, logger);
     }
+
+    throw new TokenRefreshInProgressError();
   }
 
   if (lockResult.status !== "acquired") {
