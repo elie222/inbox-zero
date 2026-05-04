@@ -218,7 +218,6 @@ export const getOutlookClientWithRefresh = async ({
     await saveTokens({
       tokens: {
         access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
         expires_at: Math.floor(Date.now() / 1000 + tokens.expires_in),
       },
       accountRefreshToken: refreshToken,

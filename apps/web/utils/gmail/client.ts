@@ -80,7 +80,6 @@ export const getGmailClientWithRefresh = async ({
       await saveTokens({
         tokens: {
           access_token: newAccessToken ?? undefined,
-          refresh_token: tokens.credentials.refresh_token ?? undefined,
           expires_at: tokens.credentials.expiry_date
             ? Math.floor(tokens.credentials.expiry_date / 1000)
             : undefined,
