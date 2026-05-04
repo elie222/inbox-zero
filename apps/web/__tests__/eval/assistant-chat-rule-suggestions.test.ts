@@ -314,9 +314,8 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule suggestions", () => {
           const expectRuleWrite =
             scenario.expectRuleWrite ?? scenario.name.includes("creates");
           const pass = expectRuleWrite
-            ? analysis.usedSearchTool &&
-              analysis.usedCreateRule &&
-              analysis.mentionsEvidence
+            ? analysis.usedCreateRule &&
+              hasExpectedCreatedRule(scenario, state.createdRules)
             : analysis.usedRulesTool &&
               analysis.usedSearchTool &&
               analysis.noRuleWrite &&
@@ -590,6 +589,40 @@ function analyzeTrace(trace: AssistantChatTrace) {
   return analyzeAssistantOutput({
     finalText: trace.finalText,
     toolCalls: trace.toolCalls,
+  });
+}
+
+function hasExpectedCreatedRule(
+  scenario: Scenario,
+  createdRules: DemoInboxRuleRow[],
+) {
+  if (!scenario.expectRuleWrite && !scenario.name.includes("creates")) {
+    return createdRules.length === 0;
+  }
+
+  if (!scenario.name.toLowerCase().includes("product")) {
+    return createdRules.length > 0;
+  }
+
+  return createdRules.some((rule) => {
+    const lowerName = rule.name.toLowerCase();
+    const lowerInstructions = (rule.instructions ?? "").toLowerCase();
+    const hasProductLabel = rule.actions.some(
+      (action) =>
+        action.type === ActionType.LABEL &&
+        action.label?.toLowerCase() === "product updates",
+    );
+    const hasArchive = rule.actions.some(
+      (action) => action.type === ActionType.ARCHIVE,
+    );
+
+    return (
+      lowerName.includes("product") &&
+      lowerInstructions.includes("security") &&
+      lowerInstructions.includes("billing") &&
+      hasProductLabel &&
+      hasArchive
+    );
   });
 }
 
