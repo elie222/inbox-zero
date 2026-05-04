@@ -124,6 +124,34 @@ describe("mcp callback route", () => {
     expect(mockHandleOAuthCallback).not.toHaveBeenCalled();
   });
 
+  it("rejects a signed callback state that does not match the browser state cookie", async () => {
+    const attackerState = generateSignedOAuthState({
+      userId: "attacker-user",
+      emailAccountId: "attacker-email-account",
+      type: "notion-mcp",
+    });
+    const victimState = generateSignedOAuthState({
+      userId: "victim-user",
+      emailAccountId: "victim-email-account",
+      type: "notion-mcp",
+    });
+
+    const response = await GET(
+      createRequest({
+        queryState: attackerState,
+        cookieState: victimState,
+      }),
+      params,
+    );
+
+    const location = response.headers.get("location");
+    expect(location).toContain("/integrations");
+    expect(location).toContain("error=invalid_state");
+    expect(prisma.emailAccount.findFirst).not.toHaveBeenCalled();
+    expect(mockHandleOAuthCallback).not.toHaveBeenCalled();
+    expect(mockSyncMcpTools).not.toHaveBeenCalled();
+  });
+
   it("accepts a matching signed state and continues the OAuth flow", async () => {
     const state = generateSignedOAuthState({
       userId: "user-123",

@@ -28,7 +28,9 @@ const schema = z.object({
     ),
 });
 
-export type CalendarAvailabilityContext = z.infer<typeof schema>;
+export type CalendarAvailabilityContext = z.infer<typeof schema> & {
+  timezone?: string | null;
+};
 
 export async function aiGetCalendarAvailability({
   emailAccount,
@@ -169,7 +171,7 @@ ${threadContent}
         description: "Return suggested times for a meeting",
         inputSchema: schema,
         execute: async (data) => {
-          result = data;
+          result = { ...data, timezone: userTimezone };
         },
       }),
     },

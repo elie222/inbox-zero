@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
-import { ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
-
-const HEALTH_CHECK_WINDOW_MINUTES = 5;
 
 export const GET = withError("health", async (request) => {
   const logger = request.logger;
@@ -23,33 +20,17 @@ export const GET = withError("health", async (request) => {
 
   // Deep health check with valid API key
   try {
-    // Check for any executed rules in the last 5 minutes
-    const cutoffTime = new Date(
-      Date.now() - HEALTH_CHECK_WINDOW_MINUTES * 60 * 1000,
-    );
-
-    const recentActivity = await prisma.executedRule.findFirst({
-      where: {
-        createdAt: { gte: cutoffTime },
-        status: ExecutedRuleStatus.APPLIED,
-      },
-      select: { createdAt: true },
-    });
-
-    const isHealthy = !!recentActivity;
-    const status = isHealthy ? 200 : 503;
-
-    if (!isHealthy) {
-      logger.error("Health check failed", { recentActivity });
-    }
+    await prisma.$queryRaw`SELECT 1`;
 
     return NextResponse.json(
       {
-        status: isHealthy ? "healthy" : "degraded",
+        status: "healthy",
         timestamp: new Date().toISOString(),
-        foundActivityAt: recentActivity?.createdAt?.toISOString() || null,
+        database: {
+          status: "healthy",
+        },
       },
-      { status },
+      { status: 200 },
     );
   } catch (error) {
     // If we can't query the database, the system is definitely unhealthy

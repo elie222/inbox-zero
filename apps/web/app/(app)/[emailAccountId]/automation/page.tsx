@@ -112,11 +112,13 @@ export default async function AutomationPage({
             className="my-4"
             icon={<SparklesIcon className="h-5 w-5" />}
             title="Getting started with AI Assistant"
-            description={
-              "Learn how to use the AI Assistant to automatically label, archive, and more."
-            }
+            description="Learn how to use the AI Assistant to automatically label, archive, and more."
             muxPlaybackId="VwIP7UAw4MXDjkvmLjJzGsY00ee9jxIZVI952DoBBfp8"
             storageKey="ai-assistant-onboarding-video"
+            videoAnalytics={{
+              page: "automation",
+              surface: "dismissible_card",
+            }}
           />
 
           <Tabs defaultValue="rules">

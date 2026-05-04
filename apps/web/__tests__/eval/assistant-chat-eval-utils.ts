@@ -1,5 +1,5 @@
 import type { ModelMessage } from "ai";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, type LogicalOperator } from "@/generated/prisma/enums";
 import type { getEmailAccount } from "@/__tests__/helpers";
 import type { MessageContext } from "@/app/api/chat/validation";
 import { writeEvalDebugArtifact } from "@/__tests__/eval/debug-artifacts";
@@ -21,6 +21,25 @@ export type UpdateRuleActionsInput = {
     } | null;
     delayInMinutes?: number | null;
   }>;
+};
+
+export type UpdateRuleInput = {
+  ruleName: string;
+  updates: {
+    name?: string;
+    enabled?: boolean;
+    condition?: {
+      aiInstructions?: string;
+      clearAiInstructions?: true;
+      static?: {
+        from?: string | null;
+        to?: string | null;
+        subject?: string | null;
+      } | null;
+      conditionalOperator?: LogicalOperator | null;
+    };
+    actions?: UpdateRuleActionsInput["actions"];
+  };
 };
 
 export type AssistantChatTrace = {
@@ -182,6 +201,79 @@ export function isUpdateRuleActionsInput(
   };
 
   return typeof value.ruleName === "string" && Array.isArray(value.actions);
+}
+
+export function isUpdateRuleInput(input: unknown): input is UpdateRuleInput {
+  if (!input || typeof input !== "object") return false;
+
+  const value = input as {
+    ruleName?: unknown;
+    updates?: unknown;
+  };
+
+  return (
+    typeof value.ruleName === "string" &&
+    typeof value.updates === "object" &&
+    value.updates !== null
+  );
+}
+
+export function getLastRuleActionsUpdate(toolCalls: RecordedToolCall[]) {
+  for (let index = toolCalls.length - 1; index >= 0; index -= 1) {
+    const toolCall = toolCalls[index];
+    if (toolCall.toolName !== "updateRule") continue;
+    if (!isUpdateRuleInput(toolCall.input)) continue;
+    if (!toolCall.input.updates.actions) continue;
+
+    return {
+      index,
+      ruleName: toolCall.input.ruleName,
+      actions: toolCall.input.updates.actions,
+    };
+  }
+
+  return null;
+}
+
+export function getLastRuleConditionUpdate(toolCalls: RecordedToolCall[]) {
+  for (let index = toolCalls.length - 1; index >= 0; index -= 1) {
+    const toolCall = toolCalls[index];
+    if (toolCall.toolName !== "updateRule") continue;
+    if (!isUpdateRuleInput(toolCall.input)) continue;
+    if (!toolCall.input.updates.condition) continue;
+
+    return {
+      index,
+      ruleName: toolCall.input.ruleName,
+      condition: toolCall.input.updates.condition,
+    };
+  }
+
+  return null;
+}
+
+export type UpdateRuleConditionsInput = {
+  ruleName: string;
+  condition: {
+    aiInstructions?: string | null;
+  };
+};
+
+export function isUpdateRuleConditionsInput(
+  input: unknown,
+): input is UpdateRuleConditionsInput {
+  if (!input || typeof input !== "object") return false;
+
+  const value = input as {
+    ruleName?: unknown;
+    condition?: unknown;
+  };
+
+  return (
+    typeof value.ruleName === "string" &&
+    typeof value.condition === "object" &&
+    value.condition !== null
+  );
 }
 
 export function hasActionType(

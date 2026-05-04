@@ -423,6 +423,14 @@ describe("runRules draft attribution persistence", () => {
         draftModelProvider: "openai",
         draftModelName: "gpt-5.1",
         draftPipelineVersion: 1,
+        selectedAttachments: [
+          {
+            driveConnectionId: "drive-1",
+            fileId: "file-1",
+            filename: "attachment.pdf",
+            mimeType: "application/pdf",
+          },
+        ],
       } as any,
     ]);
 
@@ -470,6 +478,12 @@ describe("runRules draft attribution persistence", () => {
         draftModelProvider: "openai",
         draftModelName: "gpt-5.1",
         draftPipelineVersion: 1,
+        selectedAttachments: [
+          expect.objectContaining({
+            driveConnectionId: "drive-1",
+            fileId: "file-1",
+          }),
+        ],
       }),
     ]);
   });

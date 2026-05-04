@@ -1,7 +1,11 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { GmailLabel } from "./label";
 import { env } from "@/env";
-import { withGmailRetry } from "@/utils/gmail/retry";
+import {
+  extractErrorInfo,
+  isExistingGmailPushClientError,
+  withGmailRetry,
+} from "@/utils/gmail/retry";
 
 export async function watchGmail(gmail: gmail_v1.Gmail) {
   if (env.GOOGLE_PUBSUB_VERIFICATION_TOKEN == null) {
@@ -10,6 +14,21 @@ export async function watchGmail(gmail: gmail_v1.Gmail) {
     );
   }
 
+  try {
+    return await startGmailWatch(gmail);
+  } catch (error) {
+    if (!isExistingGmailPushClientError(extractErrorInfo(error))) throw error;
+
+    await unwatchGmail(gmail);
+    return await startGmailWatch(gmail);
+  }
+}
+
+export async function unwatchGmail(gmail: gmail_v1.Gmail) {
+  await withGmailRetry(() => gmail.users.stop({ userId: "me" }));
+}
+
+async function startGmailWatch(gmail: gmail_v1.Gmail) {
   const res = await withGmailRetry(() =>
     gmail.users.watch({
       userId: "me",
@@ -22,8 +41,4 @@ export async function watchGmail(gmail: gmail_v1.Gmail) {
   );
 
   return res.data;
-}
-
-export async function unwatchGmail(gmail: gmail_v1.Gmail) {
-  await withGmailRetry(() => gmail.users.stop({ userId: "me" }));
 }

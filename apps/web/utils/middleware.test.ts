@@ -73,6 +73,7 @@ import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
+import { getAuditContext } from "@/utils/audit/context";
 
 // This should now correctly reference mockAuthFn
 const mockAuth = vi.mocked(auth);
@@ -118,6 +119,40 @@ describe("Middleware", () => {
 
   // --- withError Tests ---
   describe("withError", () => {
+    it("uses valid UUID v4 request IDs from the request header", async () => {
+      const requestId = "123e4567-e89b-42d3-a456-426614174000";
+      mockReq = createMockRequest("GET", "http://localhost/test", {
+        "x-request-id": requestId,
+      });
+      const handler = vi.fn(async () =>
+        NextResponse.json({ requestId: getAuditContext().requestId }),
+      );
+      const wrappedHandler = withError(handler);
+
+      const response = await wrappedHandler(mockReq, mockContext);
+      const responseBody = await response.json();
+
+      expect(responseBody.requestId).toBe(requestId);
+    });
+
+    it("generates a fresh request ID for invalid request ID headers", async () => {
+      mockReq = createMockRequest("GET", "http://localhost/test", {
+        "x-request-id": "not-a-valid-request-id",
+      });
+      const handler = vi.fn(async () =>
+        NextResponse.json({ requestId: getAuditContext().requestId }),
+      );
+      const wrappedHandler = withError(handler);
+
+      const response = await wrappedHandler(mockReq, mockContext);
+      const responseBody = await response.json();
+
+      expect(responseBody.requestId).not.toBe("not-a-valid-request-id");
+      expect(responseBody.requestId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
+    });
+
     it("should call the handler and return its response on success", async () => {
       const mockResponse = NextResponse.json({ success: true });
       const handler = vi.fn().mockResolvedValue(mockResponse);

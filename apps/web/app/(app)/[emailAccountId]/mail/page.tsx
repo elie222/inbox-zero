@@ -5,7 +5,7 @@ import useSWRInfinite from "swr/infinite";
 import { useSetAtom } from "jotai";
 import { List } from "@/components/email-list/EmailList";
 import { LoadingContent } from "@/components/LoadingContent";
-import type { ThreadsQuery } from "@/app/api/threads/validation";
+import type { ThreadsQuery } from "@/utils/threads/validation";
 import type { ThreadsResponse } from "@/app/api/threads/route";
 import { refetchEmailListAtom } from "@/store/email";
 import { BetaBanner } from "@/app/(app)/[emailAccountId]/mail/BetaBanner";

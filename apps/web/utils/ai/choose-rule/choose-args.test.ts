@@ -273,6 +273,39 @@ describe("combineActionsWithAiArgs", () => {
       expect(result[0].content).toBe(fullDraft);
     });
 
+    it("carries selected attachments with generated draft actions", () => {
+      const actions = [
+        createMockAction({
+          id: "2",
+          type: ActionType.DRAFT_EMAIL,
+          content: null,
+        }),
+      ];
+      const selectedAttachments = [
+        {
+          driveConnectionId: "drive-1",
+          fileId: "file-1",
+          filename: "attachment.pdf",
+          mimeType: "application/pdf",
+        },
+      ];
+
+      const result = combineActionsWithAiArgs(
+        actions,
+        undefined,
+        "Generated draft",
+        null,
+        null,
+        null,
+        selectedAttachments,
+      );
+
+      expect(result[0]).toMatchObject({
+        content: "Generated draft",
+        selectedAttachments,
+      });
+    });
+
     it("uses one generated draft for every draft reply action", () => {
       const actions = [
         createMockAction({

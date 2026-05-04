@@ -77,3 +77,4 @@ gh pr create --title "<title>" --body "<body>" && gh pr comment $(gh pr view --j
 
 Display the returned PR URL as a markdown link on its own line, formatted as: `[PR #<number>](<url>)` so it's clickable.
 Display the name of the branch you created.
+In the final response, include a concise performance impact note for the PR, covering added runtime work, database/network calls, and hot-path risk when relevant.

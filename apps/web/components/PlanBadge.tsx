@@ -2,7 +2,11 @@ import { CheckCircleIcon } from "lucide-react";
 import { capitalCase } from "capital-case";
 import { Badge, type Color } from "@/components/Badge";
 import { HoverCard } from "@/components/HoverCard";
-import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  ExecutedRuleStatus,
+  type MessagingProvider,
+} from "@/generated/prisma/enums";
 import type {
   ExecutedRule,
   ExecutedAction,
@@ -10,10 +14,15 @@ import type {
 } from "@/generated/prisma/client";
 import { getEmailTerminology } from "@/utils/terminology";
 import { sortActionsByPriority } from "@/utils/action-sort";
+import { getMessagingProviderName } from "@/utils/messaging/platforms";
+
+type PlanAction = ExecutedAction & {
+  messagingChannel?: { provider: MessagingProvider } | null;
+};
 
 type Plan = Pick<ExecutedRule, "reason" | "status"> & {
   rule: Rule | null;
-  actionItems: ExecutedAction[];
+  actionItems: PlanAction[];
 };
 
 export function PlanBadge(props: { plan?: Plan; provider: string }) {
@@ -79,7 +88,11 @@ export function PlanBadge(props: { plan?: Plan; provider: string }) {
   );
 }
 
-function getActionLabel(type: ActionType, provider: string) {
+function getActionLabel(
+  type: ActionType,
+  provider: string,
+  action?: PlanAction,
+) {
   const terminology = getEmailTerminology(provider);
 
   switch (type) {
@@ -102,8 +115,12 @@ function getActionLabel(type: ActionType, provider: string) {
       return "Mark as spam";
     case ActionType.MARK_READ:
       return "Mark as read";
+    case ActionType.STAR:
+      return "Star";
     case ActionType.NOTIFY_MESSAGING_CHANNEL:
-      return "Notify via chat app";
+      return action?.messagingChannel?.provider
+        ? `Notify via ${getMessagingProviderName(action.messagingChannel.provider)}`
+        : "Notify";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
     default:
@@ -111,7 +128,7 @@ function getActionLabel(type: ActionType, provider: string) {
   }
 }
 
-function getActionMessage(action: ExecutedAction, provider: string): string {
+function getActionMessage(action: PlanAction, provider: string): string {
   const terminology = getEmailTerminology(provider);
 
   switch (action.type) {
@@ -124,11 +141,11 @@ function getActionMessage(action: ExecutedAction, provider: string): string {
     // biome-ignore lint/suspicious/noFallthroughSwitchClause: ignore
     case ActionType.FORWARD:
       if (action.to)
-        return `${getActionLabel(action.type, provider)} to ${action.to}${
+        return `${getActionLabel(action.type, provider, action)} to ${action.to}${
           action.content ? `:\n${action.content}` : ""
         }`;
     default:
-      return getActionLabel(action.type, provider);
+      return getActionLabel(action.type, provider, action);
   }
 }
 
@@ -142,6 +159,7 @@ export function getActionColor(actionType: ActionType): Color {
       return "green";
     case ActionType.ARCHIVE:
     case ActionType.MARK_READ:
+    case ActionType.STAR:
       return "yellow";
     case ActionType.LABEL:
       return "blue";
@@ -175,6 +193,7 @@ function getPlanColor(plan: Plan | null, executed: boolean): Color {
     case ActionType.DRAFT_MESSAGING_CHANNEL:
       return "blue";
     case ActionType.ARCHIVE:
+    case ActionType.STAR:
       return "yellow";
     case ActionType.LABEL:
       return "purple";

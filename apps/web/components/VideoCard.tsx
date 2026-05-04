@@ -1,9 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import type { ComponentProps } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import MuxPlayer from "@mux/mux-player-react";
 import { PlayIcon, X } from "lucide-react";
 import { CardGreen } from "@/components/ui/card";
 import {
@@ -13,16 +11,55 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ClientOnly } from "@/components/ClientOnly";
 import { MutedText } from "@/components/Typography";
+import { MuxVideo } from "@/components/MuxVideo";
+import { YouTubeVideo } from "@/components/YouTubeVideo";
+import {
+  useVideoAnalytics,
+  type VideoAnalyticsConfig,
+} from "@/hooks/useVideoAnalytics";
 
-type VideoCardProps = ComponentProps<typeof VideoCard> & {
-  storageKey: string;
+type VideoAnalyticsProp = Pick<VideoAnalyticsConfig, "page" | "surface"> & {
+  title?: string;
 };
 
-export function DismissibleVideoCard({ storageKey, ...props }: VideoCardProps) {
+type VideoAnalytics = ReturnType<typeof useVideoAnalytics>;
+
+type VideoCardBaseProps = React.HTMLAttributes<HTMLDivElement> & {
+  icon?: React.ReactNode;
+  title: string;
+  description: string;
+  videoSrc?: string;
+  thumbnailSrc?: string;
+  muxPlaybackId?: string;
+  youtubeVideoId?: string;
+};
+
+type DismissibleVideoCardProps = VideoCardBaseProps & {
+  storageKey: string;
+  videoAnalytics?: VideoAnalyticsProp;
+};
+
+export function DismissibleVideoCard({
+  storageKey,
+  videoAnalytics: videoAnalyticsConfig,
+  ...props
+}: DismissibleVideoCardProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
+  const hasTrackedView = useRef(false);
+  const analytics = useVideoAnalytics(
+    videoAnalyticsConfig
+      ? {
+          ...(props.muxPlaybackId
+            ? { muxPlaybackId: props.muxPlaybackId }
+            : { youtubeVideoId: props.youtubeVideoId }),
+          page: videoAnalyticsConfig.page,
+          surface: videoAnalyticsConfig.surface,
+          title: videoAnalyticsConfig.title ?? props.title,
+        }
+      : undefined,
+  );
 
   useEffect(() => {
     const isDismissed = localStorage.getItem(storageKey) === "true";
@@ -30,27 +67,30 @@ export function DismissibleVideoCard({ storageKey, ...props }: VideoCardProps) {
     setIsLoaded(true);
   }, [storageKey]);
 
+  useEffect(() => {
+    if (!isLoaded || !isVisible || hasTrackedView.current) return;
+
+    hasTrackedView.current = true;
+    analytics.trackViewed();
+  }, [isLoaded, isVisible, analytics]);
+
   const handleClose = () => {
     setIsVisible(false);
     localStorage.setItem(storageKey, "true");
+    analytics.trackDismissed();
   };
 
   if (!isLoaded || !isVisible) {
     return null;
   }
 
-  return <VideoCard {...props} onClose={handleClose} />;
+  return <VideoCard {...props} analytics={analytics} onClose={handleClose} />;
 }
 
 const VideoCard = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & {
-    icon?: React.ReactNode;
-    title: string;
-    description: string;
-    videoSrc?: string;
-    thumbnailSrc?: string;
-    muxPlaybackId?: string;
+  VideoCardBaseProps & {
+    analytics: VideoAnalytics;
     onClose?: () => void;
   }
 >(
@@ -63,12 +103,19 @@ const VideoCard = React.forwardRef<
       videoSrc,
       thumbnailSrc,
       muxPlaybackId,
+      youtubeVideoId,
+      analytics,
       onClose,
       ...props
     },
     ref,
   ) => {
     const [isOpen, setIsOpen] = useState(false);
+
+    const openVideo = (trigger: "button" | "thumbnail") => {
+      setIsOpen(true);
+      analytics.trackOpened({ trigger });
+    };
 
     return (
       <CardGreen ref={ref} className={className} {...props}>
@@ -97,7 +144,7 @@ const VideoCard = React.forwardRef<
                   className="mt-3"
                   size="sm"
                   variant="primaryBlack"
-                  onClick={() => setIsOpen(true)}
+                  onClick={() => openVideo("button")}
                   Icon={PlayIcon}
                 >
                   Watch Video
@@ -111,6 +158,7 @@ const VideoCard = React.forwardRef<
                   <button
                     type="button"
                     aria-label="Play video"
+                    onClick={() => openVideo("thumbnail")}
                     className="group relative cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 rounded-lg overflow-hidden"
                   >
                     <div className="relative w-32 h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
@@ -138,16 +186,28 @@ const VideoCard = React.forwardRef<
                   <DialogTitle className="sr-only">Video: {title}</DialogTitle>
                   <div className="relative aspect-video w-full overflow-hidden rounded-lg">
                     {muxPlaybackId ? (
-                      <ClientOnly>
-                        <MuxPlayer
-                          playbackId={muxPlaybackId}
-                          metadata={{ video_title: title }}
-                          accentColor="#3b82f6"
-                          className="size-full rounded-lg"
-                          style={{ overflow: "hidden" }}
-                          autoPlay
-                        />
-                      </ClientOnly>
+                      <MuxVideo
+                        playbackId={muxPlaybackId}
+                        className="size-full rounded-lg"
+                        playerClassName="size-full rounded-lg"
+                        playerStyle={{ overflow: "hidden" }}
+                        title={title}
+                        autoPlay
+                        onVideoCompleted={analytics.trackCompleted}
+                        onVideoProgress={analytics.trackProgress}
+                        onVideoStarted={analytics.trackStarted}
+                      />
+                    ) : youtubeVideoId ? (
+                      <YouTubeVideo
+                        videoId={youtubeVideoId}
+                        title={`Video: ${title}`}
+                        onVideoCompleted={analytics.trackCompleted}
+                        onVideoProgress={analytics.trackProgress}
+                        onVideoStarted={analytics.trackStarted}
+                        opts={{
+                          playerVars: { autoplay: 1 },
+                        }}
+                      />
                     ) : (
                       <iframe
                         src={`${videoSrc}${videoSrc?.includes("?") ? "&" : "?"}autoplay=1&rel=0`}

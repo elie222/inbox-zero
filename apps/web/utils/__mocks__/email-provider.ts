@@ -90,6 +90,7 @@ export const createMockEmailProvider = (
   sendEmail: vi.fn().mockResolvedValue(undefined),
   forwardEmail: vi.fn().mockResolvedValue(undefined),
   markSpam: vi.fn().mockResolvedValue(undefined),
+  starMessage: vi.fn().mockResolvedValue(undefined),
   blockUnsubscribedEmail: vi.fn().mockResolvedValue(undefined),
   markRead: vi.fn().mockResolvedValue(undefined),
   markReadThread: vi.fn().mockResolvedValue(undefined),

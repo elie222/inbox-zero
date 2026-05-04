@@ -1,0 +1,1 @@
+ALTER TYPE "ActionType" ADD VALUE 'STAR';

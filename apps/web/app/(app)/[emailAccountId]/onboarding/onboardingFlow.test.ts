@@ -14,7 +14,6 @@ describe("getVisibleOnboardingStepKeys", () => {
         autoDraftDisabled: false,
       }),
     ).toEqual([
-      STEP_KEYS.WELCOME,
       STEP_KEYS.EMAILS_SORTED,
       STEP_KEYS.CHAT,
       STEP_KEYS.DRAFT_REPLIES,
@@ -37,7 +36,6 @@ describe("getVisibleOnboardingStepKeys", () => {
         autoDraftDisabled: true,
       }),
     ).toEqual([
-      STEP_KEYS.WELCOME,
       STEP_KEYS.EMAILS_SORTED,
       STEP_KEYS.CHAT,
       STEP_KEYS.BULK_UNSUBSCRIBE,
@@ -64,7 +62,15 @@ describe("getOnboardingStepIndex", () => {
   });
 
   it("supports legacy numeric step params", () => {
-    expect(getOnboardingStepIndex("2", stepKeys)).toBe(1);
+    expect(getOnboardingStepIndex("2", stepKeys)).toBe(
+      stepKeys.indexOf(STEP_KEYS.EMAILS_SORTED),
+    );
+  });
+
+  it("keeps legacy numeric step params aligned after removed steps", () => {
+    expect(getOnboardingStepIndex("3", stepKeys)).toBe(
+      stepKeys.indexOf(STEP_KEYS.CHAT),
+    );
   });
 
   it("clamps oversized numeric steps to the last visible step", () => {
@@ -73,6 +79,10 @@ describe("getOnboardingStepIndex", () => {
 
   it("falls back to the first visible step for unknown keys", () => {
     expect(getOnboardingStepIndex("not-a-real-step", stepKeys)).toBe(0);
+  });
+
+  it("falls back to the first visible step for removed step keys", () => {
+    expect(getOnboardingStepIndex("welcome", stepKeys)).toBe(0);
   });
 });
 

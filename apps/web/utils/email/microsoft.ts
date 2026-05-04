@@ -21,7 +21,7 @@ import {
   getLabelById,
 } from "@/utils/outlook/label";
 import type { InboxZeroLabel } from "@/utils/label";
-import type { ThreadsQuery } from "@/app/api/threads/validation";
+import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import {
@@ -34,6 +34,7 @@ import {
 import {
   archiveThread,
   labelMessage,
+  markStarredMessage,
   markReadThread,
   removeThreadLabel,
 } from "@/utils/outlook/label";
@@ -517,6 +518,14 @@ export class OutlookProvider implements EmailProvider {
       usedFallback,
       actualLabelId: category.id || undefined,
     };
+  }
+
+  async starMessage(messageId: string): Promise<void> {
+    await markStarredMessage({
+      client: this.client,
+      messageId,
+      logger: this.logger,
+    });
   }
 
   async getDraft(draftId: string): Promise<ParsedMessage | null> {

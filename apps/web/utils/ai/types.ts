@@ -34,6 +34,7 @@ export type ActionItem = {
   folderId?: ExecutedAction["folderId"];
   delayInMinutes?: number | null;
   staticAttachments?: ExecutedAction["staticAttachments"];
+  selectedAttachments?: ExecutedAction["selectedAttachments"];
 };
 
 export type ActionExecutionEmailAccount = Pick<

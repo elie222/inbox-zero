@@ -68,6 +68,7 @@ export async function createScheduledAction({
         folderName: actionItem.folderName,
         folderId: actionItem.folderId,
         staticAttachments: actionItem.staticAttachments ?? undefined,
+        selectedAttachments: actionItem.selectedAttachments ?? undefined,
       },
     });
 

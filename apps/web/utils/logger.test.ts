@@ -73,6 +73,120 @@ describe("Logger", () => {
     expect(consoleLogSpy).not.toHaveBeenCalled();
   });
 
+  it("logs one serialized production error to Axiom without errorFull", () => {
+    mockedEnv.NODE_ENV = "production";
+    mockedEnv.AXIOM_TOKEN = "server-token";
+
+    const logger = createScopedLogger("test");
+    const error = {
+      name: "ProviderError",
+      message: "Provider request failed",
+      code: "rate_limit_exceeded",
+      statusCode: 429,
+      requestId: "req_123",
+      retriesLeft: 2,
+      retryDelay: 500,
+      config: {
+        url: "https://api.example.test/v1/messages",
+        method: "POST",
+        retryConfig: {
+          currentRetryAttempt: 1,
+          statusCodesToRetry: [429, 500],
+          totalTimeout: 60_000,
+        },
+      },
+      responseHeaders: {
+        "x-request-id": "header_req_123",
+        "content-type": "application/json",
+        server: "provider",
+      },
+      cause: {
+        code: "ECONNRESET",
+        message: "socket hang up",
+        socket: {
+          bytesRead: 10,
+          remoteAddress: "127.0.0.1",
+        },
+      },
+    };
+
+    logger.error("Provider error", { error, operation: "send" });
+
+    expect(log.error).toHaveBeenCalledWith("Provider error", {
+      scope: "test",
+      operation: "send",
+      errorMessage: "Provider request failed",
+      error: expect.objectContaining({
+        name: "ProviderError",
+        message: "Provider request failed",
+        code: "rate_limit_exceeded",
+        statusCode: 429,
+        requestId: "req_123",
+        config: expect.objectContaining({
+          url: "https://api.example.test/v1/messages",
+          method: "POST",
+          retryConfig: expect.objectContaining({
+            currentRetryAttempt: 1,
+          }),
+        }),
+        cause: expect.objectContaining({
+          code: "ECONNRESET",
+          message: "socket hang up",
+        }),
+      }),
+    });
+    expect(log.error).not.toHaveBeenCalledWith(
+      "Provider error",
+      expect.objectContaining({ errorFull: expect.anything() }),
+    );
+  });
+
+  it("uses the serialized production error format for Axiom warnings", () => {
+    mockedEnv.NODE_ENV = "production";
+    mockedEnv.AXIOM_TOKEN = "server-token";
+
+    const logger = createScopedLogger("test");
+
+    logger.warn("Retrying provider request", {
+      error: {
+        headers: {
+          "x-request-id": "header_req_456",
+          server: "provider",
+        },
+        response: {
+          data: {
+            error: {
+              message: "Rate limited",
+              status: 429,
+              code: "RESOURCE_EXHAUSTED",
+            },
+          },
+        },
+        config: {
+          retryConfig: {
+            statusCodesToRetry: [429, 500],
+          },
+        },
+      },
+    });
+
+    expect(log.warn).toHaveBeenCalledWith("Retrying provider request", {
+      scope: "test",
+      errorMessage: "Rate limited",
+      error: expect.objectContaining({
+        response: expect.objectContaining({
+          data: {
+            error: {
+              message: "Rate limited",
+              status: 429,
+              code: "RESOURCE_EXHAUSTED",
+            },
+          },
+        }),
+      }),
+    });
+  });
+
   it("does not use Axiom logging when only the public token is configured", () => {
     mockedEnv.NEXT_PUBLIC_AXIOM_TOKEN = "public-token";
 

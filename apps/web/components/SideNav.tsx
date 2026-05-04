@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { getEmailTerminology } from "@/utils/terminology";
@@ -136,6 +136,11 @@ export const useNavigation = () => {
 
   const moreItems: NavItem[] = useMemo(
     () => [
+      {
+        name: "Calendars",
+        href: prefixPath(currentEmailAccountId, "/calendars"),
+        icon: CalendarIcon,
+      },
       ...(showMeetingBriefs
         ? [
             {
@@ -150,11 +155,6 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/drive"),
         icon: HardDriveIcon,
         new: false,
-      },
-      {
-        name: "Calendars",
-        href: prefixPath(currentEmailAccountId, "/calendars"),
-        icon: CalendarIcon,
       },
       ...(showIntegrations
         ? [
@@ -232,6 +232,14 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navigation = useNavigation();
   const path = usePathname();
   const showMailNav = path.includes("/mail") || path.includes("/compose");
+  const isMoreActive = navigation.moreItems.some(
+    (item) => path === item.href || path.startsWith(`${item.href}/`),
+  );
+  const [showMoreItems, setShowMoreItems] = useState(isMoreActive);
+
+  useEffect(() => {
+    if (isMoreActive) setShowMoreItems(true);
+  }, [isMoreActive]);
 
   const visibleBottomLinks = useMemo(
     () =>
@@ -287,8 +295,24 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 />
               </SidebarGroup>
               <SidebarGroup>
-                <SidebarGroupLabel>More</SidebarGroupLabel>
-                <SideNavMenu items={navigation.moreItems} activeHref={path} />
+                <SidebarGroupLabel asChild>
+                  <button
+                    type="button"
+                    className="w-full cursor-pointer gap-1"
+                    onClick={() => setShowMoreItems((value) => !value)}
+                    aria-expanded={showMoreItems}
+                  >
+                    {showMoreItems ? (
+                      <ChevronDownIcon className="size-3.5" />
+                    ) : (
+                      <ChevronRightIcon className="size-3.5" />
+                    )}
+                    <span>Tools</span>
+                  </button>
+                </SidebarGroupLabel>
+                {showMoreItems && (
+                  <SideNavMenu items={navigation.moreItems} activeHref={path} />
+                )}
               </SidebarGroup>
             </>
           )}

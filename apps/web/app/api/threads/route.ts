@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
-import { type ThreadsQuery, threadsQuery } from "@/app/api/threads/validation";
+import { type ThreadsQuery, threadsQuery } from "@/utils/threads/validation";
 import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
@@ -87,7 +87,15 @@ async function getThreads({
       messageId: true,
       threadId: true,
       rule: true,
-      actionItems: true,
+      actionItems: {
+        include: {
+          messagingChannel: {
+            select: {
+              provider: true,
+            },
+          },
+        },
+      },
       status: true,
       reason: true,
     },

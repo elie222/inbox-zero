@@ -11,6 +11,7 @@ import {
   FileTextIcon,
   FolderInputIcon,
   BellIcon,
+  StarIcon,
 } from "lucide-react";
 import { ActionType } from "@/generated/prisma/enums";
 
@@ -23,6 +24,7 @@ export const ACTION_TYPE_TEXT_COLORS = {
   [ActionType.FORWARD]: "text-purple-500",
   [ActionType.ARCHIVE]: "text-yellow-500",
   [ActionType.MARK_READ]: "text-orange-500",
+  [ActionType.STAR]: "text-yellow-500",
   [ActionType.MARK_SPAM]: "text-red-500",
   [ActionType.CALL_WEBHOOK]: "text-gray-500",
   [ActionType.DIGEST]: "text-teal-500",
@@ -40,6 +42,7 @@ export const ACTION_TYPE_ICONS = {
   [ActionType.FORWARD]: ForwardIcon,
   [ActionType.ARCHIVE]: ArchiveIcon,
   [ActionType.MARK_READ]: MailOpenIcon,
+  [ActionType.STAR]: StarIcon,
   [ActionType.MARK_SPAM]: ShieldCheckIcon,
   [ActionType.CALL_WEBHOOK]: WebhookIcon,
   [ActionType.DIGEST]: FileTextIcon,

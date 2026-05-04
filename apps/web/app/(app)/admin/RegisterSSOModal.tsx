@@ -52,7 +52,8 @@ export function RegisterSSOModal() {
         });
       } else {
         toastSuccess({
-          description: "SSO registration initiated successfully!",
+          title: "SSO registered successfully",
+          description: `ACS URL: ${result?.data?.callbackUrl}`,
         });
         reset();
         onClose();

@@ -480,6 +480,10 @@ async function executeMatchedRule(
                       item.staticAttachments != null
                         ? (item.staticAttachments as Prisma.InputJsonValue)
                         : undefined,
+                    selectedAttachments:
+                      item.selectedAttachments != null
+                        ? (item.selectedAttachments as Prisma.InputJsonValue)
+                        : undefined,
                     draftModelProvider: item.draftModelProvider ?? null,
                     draftModelName: item.draftModelName ?? null,
                     draftPipelineVersion: isDraftReplyActionType(item.type)
@@ -724,19 +728,16 @@ async function isSenderPatternAlreadyAnalyzed({
   emailAccountId: string;
   from: string;
 }) {
-  const existingCheck = await prisma.newsletter.findFirst({
-    where: {
-      emailAccountId,
-      patternAnalyzed: true,
-      email: {
-        equals: from,
-        mode: "insensitive",
-      },
-    },
-    select: {
-      id: true,
-    },
-  });
+  // Prisma's case-insensitive equality emits ILIKE, but this query needs to
+  // match the partial functional index on lower(email).
+  const [existingCheck] = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT "id"
+    FROM "Newsletter"
+    WHERE "emailAccountId" = ${emailAccountId}
+      AND "patternAnalyzed" = true
+      AND lower("email") = lower(${from})
+    LIMIT 1
+  `;
 
   return !!existingCheck;
 }
