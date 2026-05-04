@@ -40,10 +40,9 @@ async function getEmailStatsByPeriod(
       ? Prisma.sql` AND ${Prisma.join(dateConditions, " AND ")}`
       : Prisma.sql``;
 
-  // Convert period and dateFormat to string literals in PostgreSQL
   return prisma.$queryRaw<StatsResult[]>`
     SELECT
-      DATE_TRUNC(${Prisma.raw(`'${period}'`)}, date) AS "startOfPeriod",
+      DATE_TRUNC(${period}, date) AS "startOfPeriod",
       COUNT(*) AS "totalCount",
       SUM(CASE WHEN inbox = true THEN 1 ELSE 0 END) AS "inboxCount",
       SUM(CASE WHEN inbox = false THEN 1 ELSE 0 END) AS "notInbox",

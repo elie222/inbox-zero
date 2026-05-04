@@ -224,7 +224,7 @@
     "cross-env": "10.1.0",
     "dotenv": "17.4.2",
     "dotenv-cli": "11.0.0",
-    "emulate": "npm:@inbox-zero/emulate@0.4.5",
+    "emulate": "npm:@inbox-zero/emulate@0.5.0",
     "jsdom": "27.3.0",
     "postcss": "8.5.6",
     "serwist": "9.5.7",

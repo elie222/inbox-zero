@@ -108,6 +108,6 @@ export const registerSSOProviderAction = adminActionClient
         },
       });
 
-      return created;
+      return { ...created, callbackUrl };
     },
   );

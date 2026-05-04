@@ -152,6 +152,7 @@ export function isRetryableError(errorInfo: ErrorInfo): {
   isFailedPrecondition: boolean;
 } {
   const { status, reason, errorMessage, googleErrorStatus } = errorInfo;
+  const hasExistingPushClient = isExistingGmailPushClientError(errorInfo);
 
   // Broad rate-limit detection: 429, 403 + known reasons, or well-known messages
   const isRateLimit =
@@ -178,6 +179,7 @@ export function isRetryableError(errorInfo: ErrorInfo): {
     );
 
   const isFailedPrecondition =
+    !hasExistingPushClient &&
     status === 400 &&
     (String(reason).toLowerCase() === "failedprecondition" ||
       /precondition check failed/i.test(errorMessage));
@@ -192,6 +194,18 @@ export function isRetryableError(errorInfo: ErrorInfo): {
     isServerError,
     isFailedPrecondition,
   };
+}
+
+export function isExistingGmailPushClientError(errorInfo: {
+  errorMessage: string;
+  status?: number;
+}): boolean {
+  return (
+    errorInfo.status === 400 &&
+    /only one user push notification client allowed per developer/i.test(
+      errorInfo.errorMessage,
+    )
+  );
 }
 
 /**

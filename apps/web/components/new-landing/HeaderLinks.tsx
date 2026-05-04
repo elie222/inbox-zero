@@ -22,6 +22,7 @@ import {
 
 const navigation = [
   { name: "Enterprise", href: "/enterprise" },
+  { name: "Case Studies", href: "/case-studies" },
   { name: "Pricing", href: "/pricing" },
 ];
 

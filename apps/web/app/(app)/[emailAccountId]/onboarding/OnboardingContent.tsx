@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { StepWho } from "@/app/(app)/[emailAccountId]/onboarding/StepWho";
-import { StepWelcome } from "@/app/(app)/[emailAccountId]/onboarding/StepWelcome";
 import { StepChat } from "@/app/(app)/[emailAccountId]/onboarding/StepChat";
 import { StepEmailsSorted } from "@/app/(app)/[emailAccountId]/onboarding/StepEmailsSorted";
 import { StepDraftReplies } from "@/app/(app)/[emailAccountId]/onboarding/StepDraftReplies";
@@ -60,7 +59,6 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   );
 
   const stepMap: Record<string, (() => React.ReactNode) | undefined> = {
-    [STEP_KEYS.WELCOME]: () => <StepWelcome onNext={onNext} />,
     [STEP_KEYS.CHAT]: () => <StepChat onNext={onNext} />,
     [STEP_KEYS.EMAILS_SORTED]: () => <StepEmailsSorted onNext={onNext} />,
     [STEP_KEYS.DRAFT_REPLIES]: env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED

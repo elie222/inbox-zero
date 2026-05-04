@@ -98,7 +98,7 @@ describe("mapRulesToExtensionTabs", () => {
     ]);
   });
 
-  it("skips labels for archived rules", () => {
+  it("syncs archived label rules with label-only queries", () => {
     const rules = [
       getRule("archive newsletters", [
         getAction({ label: "Newsletter" }),
@@ -108,6 +108,13 @@ describe("mapRulesToExtensionTabs", () => {
     ];
 
     expect(mapRulesToExtensionTabs(rules)).toEqual([
+      {
+        type: "add_custom",
+        label: "Newsletter",
+        icon: "🏷️",
+        query: "label:newsletter",
+        displayLabel: "Newsletter",
+      },
       {
         type: "enable_default",
         tabId: "github",

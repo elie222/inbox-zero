@@ -190,6 +190,28 @@ describe("slack callback route", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it("rejects a signed callback state that does not match the browser state cookie", async () => {
+    const attackerState = createSignedState("attacker-account");
+    const victimState = createSignedState("victim-account");
+
+    const response = await GET(
+      createRequest(
+        `http://localhost:3000/api/slack/callback?code=valid-auth-code&state=${encodeURIComponent(attackerState)}`,
+        victimState,
+      ),
+    );
+
+    const location = new URL(response.headers.get("location")!);
+
+    expect(location.pathname).toBe("/channels");
+    expect(location.searchParams.get("error")).toBe("connection_failed");
+    expect(location.searchParams.get("error_reason")).toBe("invalid_state");
+    expect(mockGetOAuthCodeResult).not.toHaveBeenCalled();
+    expect(mockAcquireOAuthCodeLock).not.toHaveBeenCalled();
+    expect(prisma.messagingChannel.upsert).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("redirects Slack OAuth failures back to the account channels page", async () => {
     const state = createSignedState("account-789");
 

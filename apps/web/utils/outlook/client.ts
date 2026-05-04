@@ -223,6 +223,7 @@ export const getOutlookClientWithRefresh = async ({
       accountRefreshToken: refreshToken,
       emailAccountId,
       provider: "microsoft",
+      expectedExpiresAt: expiresAt,
     });
 
     return createOutlookClient(tokens.access_token, logger);

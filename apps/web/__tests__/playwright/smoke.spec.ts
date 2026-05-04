@@ -90,10 +90,6 @@ async function completeCurrentOnboardingStep(page: Page, currentUrl: string) {
 
   const stepActions = [
     {
-      heading: "Get to know Inbox Zero",
-      button: /^Continue\b/,
-    },
-    {
       heading: "Your inbox, automatically sorted",
       button: /^Continue\b/,
     },

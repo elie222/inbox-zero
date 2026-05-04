@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Client } from "@microsoft/microsoft-graph-client";
-import { createOutlookClient, getLinkingOAuth2Url } from "./client";
+import { saveTokens } from "@/utils/auth/save-tokens";
+import {
+  createOutlookClient,
+  getLinkingOAuth2Url,
+  getOutlookClientWithRefresh,
+} from "./client";
 import {
   getMicrosoftGraphClientOptions,
   getMicrosoftOauthAuthorizeUrl,
+  requestMicrosoftToken,
 } from "@/utils/microsoft/oauth";
 
 vi.mock("@microsoft/microsoft-graph-client", () => ({
@@ -35,6 +41,7 @@ vi.mock("@/utils/microsoft/oauth", () => ({
     () => "http://localhost:4003/oauth2/v2.0/authorize",
   ),
   getMicrosoftOauthTokenUrl: vi.fn(),
+  requestMicrosoftToken: vi.fn(),
 }));
 
 vi.mock("@/env", () => ({
@@ -94,5 +101,42 @@ describe("outlook client emulator configuration", () => {
       "openid profile email User.Read offline_access Mail.ReadWrite MailboxSettings.ReadWrite",
     );
     expect(getMicrosoftOauthAuthorizeUrl).toHaveBeenCalledWith();
+  });
+
+  it("saves refreshed Outlook tokens with optimistic concurrency", async () => {
+    const staleExpiresAt = Date.now() - 1000;
+    vi.mocked(requestMicrosoftToken).mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        access_token: "new-access-token",
+        expires_in: 3600,
+      }),
+    } as any);
+
+    await getOutlookClientWithRefresh({
+      accessToken: "stale-access-token",
+      refreshToken: "refresh-token",
+      expiresAt: staleExpiresAt,
+      emailAccountId: "email-account-id",
+      logger: {
+        error: vi.fn(),
+        info: vi.fn(),
+        trace: vi.fn(),
+        warn: vi.fn(),
+        with: vi.fn(),
+      } as any,
+    });
+
+    expect(saveTokens).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "email-account-id",
+        accountRefreshToken: "refresh-token",
+        provider: "microsoft",
+        expectedExpiresAt: staleExpiresAt,
+        tokens: expect.objectContaining({
+          access_token: "new-access-token",
+        }),
+      }),
+    );
   });
 });

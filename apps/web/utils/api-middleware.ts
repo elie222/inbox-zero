@@ -14,6 +14,7 @@ import {
   type NextHandler,
   type RequestWithLogger,
 } from "@/utils/middleware";
+import { setAuditContext } from "@/utils/audit/context";
 import { env } from "@/env";
 
 interface RequestWithAccountApiKey extends RequestWithLogger {
@@ -45,6 +46,13 @@ export function withAccountApiKey(
         ...principal,
         authType: "account-scoped" as const,
       };
+
+      setAuditContext({
+        actorType: "api_key",
+        apiKeyId: apiAuth.apiKeyId,
+        emailAccountId: apiAuth.emailAccountId,
+        userId: apiAuth.userId,
+      });
 
       logger = logger.with(getApiAuthLogFields(apiAuth));
       request.logger = logger;
@@ -80,6 +88,13 @@ export function withStatsApiKey(
     try {
       const { emailProvider, ...principal } =
         await validateApiKeyAndGetEmailProvider(request);
+
+      setAuditContext({
+        actorType: "api_key",
+        apiKeyId: principal.apiKeyId,
+        emailAccountId: principal.emailAccountId,
+        userId: principal.userId,
+      });
 
       logger = logger.with(getApiAuthLogFields(principal));
       request.logger = logger;

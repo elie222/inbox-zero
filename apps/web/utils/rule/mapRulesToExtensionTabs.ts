@@ -49,9 +49,10 @@ export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
 
   for (const rule of rules) {
     if (!rule.enabled) continue;
-    if (rule.actions.some((action) => action.type === ActionType.ARCHIVE))
-      continue;
 
+    const archivesMessages = rule.actions.some(
+      (action) => action.type === ActionType.ARCHIVE,
+    );
     for (const action of rule.actions) {
       if (action.type !== ActionType.LABEL || !action.label) continue;
 
@@ -65,18 +66,19 @@ export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
       if (seenLabels.has(dedupeKey)) continue;
       seenLabels.add(dedupeKey);
 
-      if (defaultTab) {
+      if (defaultTab && !archivesMessages) {
         tabs.push({
           type: "enable_default",
           tabId: defaultTab.tabId,
           displayLabel: defaultTab.label,
         });
       } else {
+        const queryPrefix = archivesMessages ? "" : "in:inbox ";
         tabs.push({
           type: "add_custom",
           label,
           icon: "🏷️",
-          query: `in:inbox label:${labelToGmailSlug(label)}`,
+          query: `${queryPrefix}label:${labelToGmailSlug(label)}`,
           displayLabel: label,
         });
       }
