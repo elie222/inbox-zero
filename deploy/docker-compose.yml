@@ -1,0 +1,110 @@
+# /opt/inbox-zero/docker-compose.yml
+# Copy this file to the server: scp docker-compose.yml ubuntu@<IP>:/opt/inbox-zero/
+# Also copy .env to the same location before running: docker compose up -d
+
+services:
+
+  # -----------------------------------------------------------------------
+  # Postgres
+  # -----------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: inbox-zero-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: inboxzero
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: inboxzero
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inboxzero"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -----------------------------------------------------------------------
+  # Redis
+  # -----------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: inbox-zero-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -----------------------------------------------------------------------
+  # Inbox Zero
+  # -----------------------------------------------------------------------
+  app:
+    image: ghcr.io/rebekah-create/inbox-zero-rebekah:latest
+    container_name: inbox-zero-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"   # Only accessible via nginx, not public
+    environment:
+      # App
+      NEXTAUTH_URL: https://inbox.tdfurn.com
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      AUTH_ALLOWED_EMAILS: ${AUTH_ALLOWED_EMAILS}
+
+      # Database
+      DATABASE_URL: postgresql://inboxzero:${POSTGRES_PASSWORD}@postgres:5432/inboxzero
+
+      # Redis
+      UPSTASH_REDIS_URL: https://internal-vervet-107581.upstash.io
+      UPSTASH_REDIS_TOKEN: gQAAAAAAAaQ9AAIgcDFiYmEwODM3ZDI2MGQ0MDE4YWE0YmRjOGNlYWU5MmFjNQ
+
+      # Google OAuth (from Google Cloud Console)
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+
+      # Google encryption
+      GOOGLE_ENCRYPT_SECRET: ${GOOGLE_ENCRYPT_SECRET}
+      GOOGLE_ENCRYPT_SALT: ${GOOGLE_ENCRYPT_SALT}
+
+      # Google PubSub (for real-time Gmail webhooks)
+      GOOGLE_PUBSUB_TOPIC_NAME: ${GOOGLE_PUBSUB_TOPIC_NAME}
+      GOOGLE_PUBSUB_VERIFICATION_TOKEN: ${GOOGLE_PUBSUB_VERIFICATION_TOKEN}
+
+      # LLM — using Anthropic (Claude)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+      # Email sending via SES (SMTP)
+      EMAIL_FROM: inbox-digest@tdfurn.com
+      EMAIL_SERVER_HOST: email-smtp.us-east-1.amazonaws.com
+      EMAIL_SERVER_PORT: 587
+      EMAIL_SERVER_USER: ${SES_SMTP_USER}
+      EMAIL_SERVER_PASSWORD: ${SES_SMTP_PASSWORD}
+
+      # Make yourself admin (replace with your Gmail address)
+      ADMINS: ${ADMIN_EMAIL}
+
+      # App URL for webhooks
+      NEXT_PUBLIC_BASE_URL: https://inbox.tdfurn.com
+      EMAIL_ENCRYPT_SECRET: ${EMAIL_ENCRYPT_SECRET}
+      EMAIL_ENCRYPT_SALT: ${EMAIL_ENCRYPT_SALT}
+      DEFAULT_LLM_PROVIDER: ${DEFAULT_LLM_PROVIDER}
+      ECONOMY_LLM_PROVIDER: ${ECONOMY_LLM_PROVIDER}
+      ECONOMY_LLM_MODEL: ${ECONOMY_LLM_MODEL}
+      NANO_LLM_PROVIDER: ${NANO_LLM_PROVIDER}
+      NANO_LLM_MODEL: ${NANO_LLM_MODEL}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
+      CRON_SECRET: ${CRON_SECRET}
+
+volumes:
+  postgres_data:
+  redis_data:
