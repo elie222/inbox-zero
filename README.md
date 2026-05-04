@@ -33,7 +33,7 @@ To help you spend less time in your inbox, so you can focus on what matters most
 ## Features
 
 - **AI Personal Assistant:** Organizes your inbox and pre-drafts replies in your tone and style.
-- **Cursor Rules for email:** Explain in plain English how your AI should handle your inbox.
+- **AI Rules for email:** Explain in plain English how your AI should handle your inbox.
 - **Reply Zero:** Track emails to reply to and those awaiting responses.
 - **Bulk Unsubscriber:** One-click unsubscribe and archive emails you never read.
 - **Bulk Archiver:** Clean up your inbox by bulk archiving old emails.
@@ -45,10 +45,6 @@ To help you spend less time in your inbox, so you can focus on what matters most
 
 
 Learn more in our [docs](https://docs.getinboxzero.com).
-
-### Cursor plugin (API CLI)
-
-This repo is packaged as a [Cursor plugin](https://cursor.com/docs/reference/plugins) (`.cursor-plugin/plugin.json`): install from the directory to use the **inbox-zero-api** skill and agent. Skill source lives in [`clawhub/inbox-zero-api`](clawhub/inbox-zero-api) (same as OpenClaw); `skills/inbox-zero-api` is a symlink for discovery. Requires [`@inbox-zero/api`](https://www.getinboxzero.com/api-reference/cli); set `INBOX_ZERO_API_KEY` for authenticated CLI commands (e.g. rules, stats). `openapi --json` does not need a key.
 
 ## Feature Screenshots
 
