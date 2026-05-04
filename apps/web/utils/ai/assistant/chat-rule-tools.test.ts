@@ -6,6 +6,7 @@ import {
 } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import { createRuleTool } from "./tools/rules/create-rule-tool";
+import { updateRuleTool } from "./tools/rules/update-rule-tool";
 import { updateRuleStateTool } from "./tools/rules/update-rule-state-tool";
 
 vi.mock("server-only", () => ({}));
@@ -13,11 +14,13 @@ vi.mock("server-only", () => ({}));
 const {
   mockCreateRule,
   mockOutboundActionsNeedChatRiskConfirmation,
+  mockPartialUpdateRule,
   mockPrisma,
   mockSetRuleEnabled,
 } = vi.hoisted(() => ({
   mockCreateRule: vi.fn(),
   mockOutboundActionsNeedChatRiskConfirmation: vi.fn(),
+  mockPartialUpdateRule: vi.fn(),
   mockSetRuleEnabled: vi.fn(),
   mockPrisma: {
     rule: {
@@ -39,6 +42,7 @@ vi.mock("@/utils/rule/rule", async (importOriginal) => {
     createRule: mockCreateRule,
     outboundActionsNeedChatRiskConfirmation:
       mockOutboundActionsNeedChatRiskConfirmation,
+    partialUpdateRule: mockPartialUpdateRule,
     setRuleEnabled: mockSetRuleEnabled,
   };
 });
@@ -120,6 +124,61 @@ describe("createRuleTool overlap guard", () => {
 
     expect(result).toEqual({ success: true, ruleId: "new-rule-id" });
     expect(mockCreateRule).toHaveBeenCalledOnce();
+  });
+});
+
+describe("updateRuleTool", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPartialUpdateRule.mockResolvedValue({ id: "rule-id" });
+    mockPrisma.rule.findUnique.mockResolvedValue({
+      id: "rule-id",
+      name: "Vendor Billing",
+      enabled: true,
+      updatedAt: new Date("2026-04-27T00:00:00.000Z"),
+      emailAccount: { rulesRevision: 3 },
+      instructions: "Billing notices.",
+      from: "billing@vendor.example",
+      to: null,
+      subject: "invoice",
+      conditionalOperator: "AND",
+      actions: [],
+    });
+  });
+
+  it("preserves omitted static fields when patching one static condition", async () => {
+    const result = await updateRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider: "google",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["Vendor Billing", "2026-04-27T00:00:00.000Z"],
+        ]),
+      }),
+    }).execute({
+      ruleName: "Vendor Billing",
+      updates: {
+        condition: {
+          conditionalOperator: null,
+          static: {
+            subject: null,
+          },
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockPartialUpdateRule).toHaveBeenCalledWith({
+      ruleId: "rule-id",
+      emailAccountId: "email-account-id",
+      data: {
+        subject: null,
+      },
+    });
   });
 });
 

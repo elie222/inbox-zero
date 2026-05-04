@@ -177,6 +177,7 @@ async function deleteExecutedRulesInBatches({
     const executedRules = await prisma.executedRule.findMany({
       where: { emailAccountId },
       select: { id: true },
+      orderBy: { id: "asc" },
       take: batchSize,
     });
 

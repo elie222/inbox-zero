@@ -1,7 +1,6 @@
 import { prefixPath } from "@/utils/path";
 
 export const STEP_KEYS = {
-  WELCOME: "welcome",
   CHAT: "chat",
   EMAILS_SORTED: "emailsSorted",
   DRAFT_REPLIES: "draftReplies",
@@ -20,7 +19,6 @@ export const STEP_KEYS = {
 export type StepKey = (typeof STEP_KEYS)[keyof typeof STEP_KEYS];
 
 const onboardingStepOrder: readonly StepKey[] = [
-  STEP_KEYS.WELCOME,
   STEP_KEYS.EMAILS_SORTED,
   STEP_KEYS.CHAT,
   STEP_KEYS.DRAFT_REPLIES,
@@ -34,6 +32,10 @@ const onboardingStepOrder: readonly StepKey[] = [
   STEP_KEYS.CUSTOM_RULES,
   STEP_KEYS.INVITE_TEAM,
   STEP_KEYS.INBOX_PROCESSED,
+];
+const legacyNumericOnboardingStepOrder: readonly (StepKey | "welcome")[] = [
+  "welcome",
+  ...onboardingStepOrder,
 ];
 
 export function getVisibleOnboardingStepKeys({
@@ -83,6 +85,12 @@ export function getOnboardingStepIndex(
 
   const numericStep = Number.parseInt(stepParam, 10);
   if (Number.isFinite(numericStep)) {
+    const legacyStepKey = legacyNumericOnboardingStepOrder[numericStep - 1];
+    if (legacyStepKey && legacyStepKey !== "welcome") {
+      const legacyStepIndex = visibleStepKeys.indexOf(legacyStepKey);
+      if (legacyStepIndex !== -1) return legacyStepIndex;
+    }
+
     return clampStepIndex(numericStep - 1, visibleStepKeys.length);
   }
 

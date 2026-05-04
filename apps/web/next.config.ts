@@ -62,6 +62,9 @@ const nextConfig: NextConfig = {
   ],
   turbopack: {
     root: repoRoot,
+    resolveAlias: {
+      "zod/v4/core": "zod/v4/core/index.js",
+    },
     rules: {
       "*.svg": {
         loaders: ["@svgr/webpack"],

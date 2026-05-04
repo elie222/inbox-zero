@@ -1,6 +1,11 @@
 import type { ModelMessage } from "ai";
-import type { ActionType, LogicalOperator } from "@/generated/prisma/enums";
+import {
+  type ActionType,
+  type LogicalOperator,
+  MessagingRoutePurpose,
+} from "@/generated/prisma/enums";
 import { filterNullProperties } from "@/utils";
+import { getMessagingProviderName } from "@/utils/messaging/platforms";
 import prisma from "@/utils/prisma";
 
 export type RuleReadState = {
@@ -41,6 +46,7 @@ export type AssistantRuleSnapshot = {
     enabled: boolean;
     runOnThreads: boolean;
   }>;
+  ruleNotificationDestinations: Array<{ provider: string }>;
 };
 
 export async function loadAssistantRuleSnapshot({
@@ -80,12 +86,34 @@ export async function loadAssistantRuleSnapshot({
           },
         },
       },
+      messagingChannels: {
+        where: {
+          isConnected: true,
+          routes: {
+            some: {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+            },
+          },
+        },
+        select: {
+          provider: true,
+        },
+      },
     },
   });
+
+  const ruleNotificationDestinations = Array.from(
+    new Set(
+      (emailAccount?.messagingChannels ?? []).map((channel) =>
+        getMessagingProviderName(channel.provider),
+      ),
+    ),
+  ).map((provider) => ({ provider }));
 
   return {
     rulesRevision: emailAccount?.rulesRevision ?? 0,
     about: emailAccount?.about || "Not set",
+    ruleNotificationDestinations,
     rules: (emailAccount?.rules || []).map((rule) => {
       const staticConditions = filterNullProperties({
         from: rule.from,
@@ -164,6 +192,7 @@ export function buildFreshRuleContextMessage(
         {
           personalInstructions: snapshot.about,
           rulesRevision: snapshot.rulesRevision,
+          ruleNotificationDestinations: snapshot.ruleNotificationDestinations,
           rules: snapshot.rules.map(stripRuleUpdatedAt),
         },
         null,

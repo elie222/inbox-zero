@@ -401,22 +401,28 @@ describe("getWebhookEmailAccount", () => {
       email: "user@example.com",
       watchEmailsSubscriptionId: "new-subscription-id",
     };
+    const historicalSubscriptionId = `old-sub-id' OR 1=1 --`;
 
-    vi.mocked(prisma.emailAccount.findFirst).mockResolvedValue(null);
-    vi.mocked(prisma.$queryRaw).mockResolvedValue([
-      { id: "resolved-account-id" },
-    ]);
-    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
-      historicalAccount as any,
-    );
+    vi.mocked(prisma.emailAccount.findFirst)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(historicalAccount as any);
 
     const result = await getWebhookEmailAccount(
-      { watchEmailsSubscriptionId: "old-rotated-sub-id" },
+      { watchEmailsSubscriptionId: historicalSubscriptionId },
       logger,
     );
 
     expect(result).toEqual(historicalAccount);
-    expect(prisma.$queryRaw).toHaveBeenCalled();
+    expect(prisma.emailAccount.findFirst).toHaveBeenNthCalledWith(2, {
+      where: {
+        watchEmailsSubscriptionHistory: {
+          array_contains: [{ subscriptionId: historicalSubscriptionId }],
+        },
+      },
+      select: expect.any(Object),
+    });
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    expect(prisma.emailAccount.findUnique).not.toHaveBeenCalled();
     expect(logErrorWithDedupe).not.toHaveBeenCalled();
   });
 });

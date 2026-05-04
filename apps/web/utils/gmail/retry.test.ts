@@ -139,6 +139,21 @@ describe("Gmail retry helpers", () => {
       expect(result.isServerError).toBe(false);
       expect(result.isFailedPrecondition).toBe(true);
     });
+
+    it("should not retry duplicate Gmail push client errors", () => {
+      const errorInfo = {
+        status: 400,
+        reason: "failedPrecondition",
+        errorMessage:
+          "Only one user push notification client allowed per developer (call /stop then try again)",
+      };
+      const result = isRetryableError(errorInfo);
+
+      expect(result.retryable).toBe(false);
+      expect(result.isRateLimit).toBe(false);
+      expect(result.isServerError).toBe(false);
+      expect(result.isFailedPrecondition).toBe(false);
+    });
   });
 
   describe("calculateRetryDelay", () => {

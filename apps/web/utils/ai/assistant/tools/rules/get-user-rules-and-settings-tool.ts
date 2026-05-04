@@ -13,6 +13,7 @@ import { emptyInputSchema, trackRuleToolCall } from "./shared";
 type GetUserRulesAndSettingsOutput =
   | {
       personalInstructions: string;
+      ruleNotificationDestinations: Array<{ provider: string }>;
       rules:
         | Array<{
             name: string;
@@ -79,6 +80,7 @@ export const getUserRulesAndSettingsTool = ({
 
         return {
           personalInstructions: snapshot.about,
+          ruleNotificationDestinations: snapshot.ruleNotificationDestinations,
           rules: getVisibleRulesFromSnapshot(snapshot),
         };
       } catch (error) {

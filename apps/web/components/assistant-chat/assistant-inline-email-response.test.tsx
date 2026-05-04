@@ -1,7 +1,13 @@
 /** @vitest-environment jsdom */
 
 import React, { createElement, type ReactNode } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AssistantInlineEmailResponse } from "@/components/assistant-chat/assistant-inline-email-response";
 import { getEmailUrlForMessage } from "@/utils/url";
@@ -9,6 +15,7 @@ import { getEmailUrlForMessage } from "@/utils/url";
 const mockUseAccount = vi.fn();
 const mockUseEmailLookup = vi.fn();
 const mockUseThread = vi.fn();
+const mockSubmitTextMessage = vi.fn();
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -30,13 +37,24 @@ vi.mock("@/components/Tooltip", () => ({
 }));
 
 vi.mock("@/components/ui/button", () => ({
-  Button: ({ children }: { children?: ReactNode }) =>
-    createElement("button", { type: "button" }, children || "icon-button"),
+  Button: ({
+    children,
+    ...props
+  }: {
+    children?: ReactNode;
+  } & React.ButtonHTMLAttributes<HTMLButtonElement>) =>
+    createElement("button", { type: "button", ...props }, children || "button"),
 }));
 
 vi.mock("@/utils/actions/mail", () => ({
   archiveThreadAction: vi.fn(),
   markReadThreadAction: vi.fn(),
+}));
+
+vi.mock("@/providers/ChatProvider", () => ({
+  useChat: () => ({
+    submitTextMessage: mockSubmitTextMessage,
+  }),
 }));
 
 vi.mock("@/hooks/useThread", () => ({
@@ -78,6 +96,8 @@ describe("AssistantInlineEmailResponse", () => {
       isLoading: false,
       error: null,
     });
+
+    mockSubmitTextMessage.mockResolvedValue(undefined);
   });
 
   it("renders inline email cards", async () => {
@@ -150,6 +170,77 @@ describe("AssistantInlineEmailResponse", () => {
         "google",
       ),
     );
+  });
+
+  it("renders inline rule suggestions and can ask chat to create one", async () => {
+    render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        [
+          "\n<rule-suggestions>\n",
+          '<rule-suggestion name="Monitoring" when="mention alerts from monitoring tools" label="Monitoring" archive="true" />\n',
+          "</rule-suggestions>\n",
+        ].join(""),
+      ),
+    );
+
+    expect(screen.getByText("Monitoring")).toBeTruthy();
+    expect(
+      screen.getByText("mention alerts from monitoring tools"),
+    ).toBeTruthy();
+    expect(screen.getByText("Label as 'Monitoring'")).toBeTruthy();
+    expect(screen.getByText("Archive")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /Approve/i }));
+
+    await waitFor(() => {
+      expect(mockSubmitTextMessage).toHaveBeenCalledWith(
+        expect.stringContaining("Create this suggested rule: Monitoring"),
+      );
+    });
+  });
+
+  it("renders free-form rule suggestion actions as plain text", () => {
+    render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        '<rule-suggestion name="Monitoring" when="mention alerts" do="label the email as Monitoring and archive" />',
+      ),
+    );
+
+    expect(
+      screen.getByText("label the email as Monitoring and archive"),
+    ).toBeTruthy();
+    expect(screen.queryByText("Label as 'the email as'")).toBeNull();
+  });
+
+  it("renders specific notification destinations in rule suggestions", () => {
+    render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        '<rule-suggestion name="Support" when="support requests" label="Support" notify="Slack" />',
+      ),
+    );
+
+    expect(screen.getByText("Label as 'Support'")).toBeTruthy();
+    expect(screen.getByText("Notify via Slack")).toBeTruthy();
+    expect(screen.queryByText("Notify via chat app")).toBeNull();
+  });
+
+  it("renders structured draft and mark-read actions in rule suggestions", () => {
+    render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        '<rule-suggestion name="Updates" when="low-priority updates" draft="true" markread="true" />',
+      ),
+    );
+
+    expect(screen.getByText("Draft Reply")).toBeTruthy();
+    expect(screen.getByText("Mark Read")).toBeTruthy();
   });
 });
 

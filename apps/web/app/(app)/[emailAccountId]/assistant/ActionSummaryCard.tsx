@@ -1,6 +1,6 @@
 import { TagIcon } from "lucide-react";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, type MessagingProvider } from "@/generated/prisma/enums";
 import { CardBasic } from "@/components/ui/card";
 import {
   ACTION_TYPE_TEXT_COLORS,
@@ -10,17 +10,20 @@ import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { getEmailTerminology } from "@/utils/terminology";
 import type { EmailLabel } from "@/providers/email-label-types";
 import { BRAND_NAME } from "@/utils/branding";
+import { getMessagingProviderName } from "@/utils/messaging/platforms";
 
 export function ActionSummaryCard({
   action,
   typeOptions,
   provider,
   labels,
+  messagingChannels = [],
 }: {
   action: CreateRuleBody["actions"][number];
   typeOptions: { label: string; value: ActionType }[];
   provider: string;
   labels: EmailLabel[];
+  messagingChannels?: Array<{ id: string; provider: MessagingProvider }>;
 }) {
   // don't display
   if (action.type === ActionType.DIGEST) {
@@ -210,7 +213,10 @@ export function ActionSummaryCard({
       break;
 
     case ActionType.NOTIFY_MESSAGING_CHANNEL:
-      summaryContent = "Notify via chat app";
+      summaryContent = getNotifyMessagingChannelSummary({
+        messagingChannelId: action.messagingChannelId,
+        messagingChannels,
+      });
       break;
 
     case ActionType.NOTIFY_SENDER:
@@ -274,6 +280,22 @@ function OptionalEmailFields({
       {bcc && <EmailField label="bcc" value={bcc} />}
     </div>
   );
+}
+
+function getNotifyMessagingChannelSummary({
+  messagingChannelId,
+  messagingChannels,
+}: {
+  messagingChannelId?: string | null;
+  messagingChannels: Array<{ id: string; provider: MessagingProvider }>;
+}) {
+  const selectedChannel = messagingChannels.find(
+    (channel) => channel.id === messagingChannelId,
+  );
+
+  return selectedChannel
+    ? `Notify via ${getMessagingProviderName(selectedChannel.provider)}`
+    : "Notify";
 }
 
 function formatDelay(delayInMinutes: number | null | undefined): string {

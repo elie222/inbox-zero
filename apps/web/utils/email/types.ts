@@ -1,6 +1,6 @@
 import type { ParsedMessage } from "@/utils/types";
 import type { InboxZeroLabel } from "@/utils/label";
-import type { ThreadsQuery } from "@/app/api/threads/validation";
+import type { ThreadsQuery } from "@/utils/threads/validation";
 import type { OutlookFolder } from "@/utils/outlook/folders";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 

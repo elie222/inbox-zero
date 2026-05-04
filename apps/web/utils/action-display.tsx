@@ -44,6 +44,7 @@ export function getActionDisplay(
     folderName?: string | null;
     content?: string | null;
     to?: string | null;
+    notificationDestination?: string | null;
   },
   provider: string,
   labels: Array<{ id: string; name: string }>,
@@ -101,7 +102,9 @@ export function getActionDisplay(
     case ActionType.CALL_WEBHOOK:
       return "Call Webhook";
     case ActionType.NOTIFY_MESSAGING_CHANNEL:
-      return "Notify via chat app";
+      return action.notificationDestination
+        ? `Notify via ${truncate(action.notificationDestination, 18)}`
+        : "Notify";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
     default: {
