@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { parseAsString, useQueryState } from "nuqs";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { Loader2Icon } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmailItem } from "./EmailFirehoseItem";
 import { useEmailStream } from "./useEmailStream";
@@ -32,7 +33,21 @@ export function EmailFirehose({
     Record<string, "undoing" | "undone">
   >({});
 
-  const { emails } = useEmailStream(emailAccountId, isPaused, threads, tab);
+  const { emails, lastEventAt, totalReceived } = useEmailStream(
+    emailAccountId,
+    isPaused,
+    threads,
+    tab,
+  );
+
+  // Track whether the stream appears stalled (no events for 15s)
+  const [isStalled, setIsStalled] = useState(false);
+  useEffect(() => {
+    if (!lastEventAt) return;
+    setIsStalled(false);
+    const timer = setTimeout(() => setIsStalled(true), 15_000);
+    return () => clearTimeout(timer);
+  }, [lastEventAt]);
 
   // For virtualization
   const parentRef = useRef<HTMLDivElement>(null);
@@ -82,6 +97,12 @@ export function EmailFirehose({
 
   return (
     <div className="flex flex-col space-y-4">
+      <ProcessingStatus
+        totalReceived={totalReceived}
+        isStalled={isStalled}
+        lastEventAt={lastEventAt}
+        action={action}
+      />
       <Tabs defaultValue="done" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="done">
@@ -145,34 +166,52 @@ export function EmailFirehose({
         </div>
       </Tabs>
 
-      {/* <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <div className="flex items-center space-x-4">
-          <button
-            type="button"
-            onClick={() => setFilter(filter === "keep" ? null : "keep")}
-            className={`flex items-center ${filter === "keep" ? "rounded-md bg-blue-100 px-2 py-1 dark:bg-blue-900/30" : "hover:underline"}`}
-          >
-            <div className="mr-1 size-3 rounded-full bg-blue-500" />
-            <span>Keep</span>
-            {filter === "keep" && (
-              <XCircle className="ml-1 size-3 text-muted-foreground" />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter(filter === "archived" ? null : "archived")}
-            className={`flex items-center ${filter === "archived" ? "rounded-md bg-green-100 px-2 py-1 dark:bg-green-900/30" : "hover:underline"}`}
-          >
-            <div className="mr-1 size-3 rounded-full bg-green-500" />
+    </div>
+  );
+}
+
+function ProcessingStatus({
+  totalReceived,
+  isStalled,
+  lastEventAt,
+  action,
+}: {
+  totalReceived: number;
+  isStalled: boolean;
+  lastEventAt: number | null;
+  action: CleanAction;
+}) {
+  if (totalReceived === 0 && !lastEventAt) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2Icon className="h-4 w-4 animate-spin" />
+        <span>Fetching emails from Gmail...</span>
+      </div>
+    );
+  }
+
+  const actionLabel =
+    action === CleanAction.ARCHIVE ? "archived" : "marked read";
+
+  return (
+    <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <div className="flex items-center gap-2">
+        {isStalled ? (
+          <>
+            <Loader2Icon className="h-4 w-4 animate-spin" />
             <span>
-              {action === CleanAction.ARCHIVE ? "Archived" : "Marked read"}
+              Waiting for Gmail API... ({totalReceived} emails processed)
             </span>
-            {filter === "archived" && (
-              <XCircle className="ml-1 size-3 text-muted-foreground" />
-            )}
-          </button>
-        </div>
-      </div> */}
+          </>
+        ) : (
+          <>
+            <Loader2Icon className="h-4 w-4 animate-spin" />
+            <span>
+              Processing — {totalReceived} emails {actionLabel} so far
+            </span>
+          </>
+        )}
+      </div>
     </div>
   );
 }

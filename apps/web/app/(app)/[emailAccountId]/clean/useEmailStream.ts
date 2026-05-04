@@ -22,6 +22,8 @@ export function useEmailStream(
   );
 
   const [isPaused, setIsPaused] = useState(initialPaused);
+  const [lastEventAt, setLastEventAt] = useState<number | null>(null);
+  const [totalReceived, setTotalReceived] = useState(initialThreads.length);
   const eventSourceRef = useRef<EventSource | null>(null);
   const maxEmails = 1000; // Maximum emails to keep in the buffer
 
@@ -57,6 +59,9 @@ export function useEmailStream(
             ...threadData,
             date: new Date(threadData.date),
           };
+
+          setLastEventAt(Date.now());
+          setTotalReceived((prev) => prev + 1);
 
           setEmailsMap((prev) => {
             // If we're at the limit and this is a new email, remove the oldest one
@@ -152,6 +157,8 @@ export function useEmailStream(
     emails,
     isPaused,
     togglePause,
+    lastEventAt,
+    totalReceived,
   };
 }
 

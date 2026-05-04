@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -10,7 +11,7 @@ import { cleanInboxAction } from "@/utils/actions/clean";
 import { toastError } from "@/components/Toast";
 import { CleanAction } from "@/generated/prisma/enums";
 import { PREVIEW_RUN_COUNT } from "@/app/(app)/[emailAccountId]/clean/consts";
-import { HistoryIcon, SettingsIcon } from "lucide-react";
+import { HistoryIcon, Loader2Icon, SettingsIcon } from "lucide-react";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 
@@ -37,8 +38,11 @@ export function ConfirmationStep({
 }) {
   const router = useRouter();
   const { emailAccountId } = useAccount();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleStartCleaning = async () => {
+    setIsLoading(true);
+
     const result = await cleanInboxAction(emailAccountId, {
       daysOld: timeRange ?? 7,
       instructions: instructions || "",
@@ -49,6 +53,7 @@ export function ConfirmationStep({
 
     if (result?.serverError) {
       toastError({ description: result.serverError });
+      setIsLoading(false);
       return;
     }
 
@@ -116,8 +121,15 @@ export function ConfirmationStep({
       </ul>
 
       <div className="mt-6">
-        <Button size="lg" onClick={handleStartCleaning}>
-          Start Cleaning
+        <Button size="lg" onClick={handleStartCleaning} disabled={isLoading}>
+          {isLoading ? (
+            <>
+              <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+              Preparing cleanup...
+            </>
+          ) : (
+            "Start Cleaning"
+          )}
         </Button>
       </div>
 
