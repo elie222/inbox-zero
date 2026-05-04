@@ -10,6 +10,7 @@ import type {
 } from "@/utils/ai/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { enqueueDigestItem } from "@/utils/digest/index";
+import { traceDigestEnqueue } from "@/utils/digest/instrumentation";
 import { filterNullProperties } from "@/utils";
 import { labelMessageAndSync } from "@/utils/label.server";
 import { hasVariables } from "@/utils/template";
@@ -467,12 +468,20 @@ const digest: ActionFunction<{ id?: string }> = async ({
   }
 
   const actionId = args.id;
-  await enqueueDigestItem({
-    email,
-    emailAccountId: emailAccount.id,
-    actionId,
-    logger,
-  });
+  await traceDigestEnqueue(
+    {
+      executedActionId: actionId,
+      emailAccountId: emailAccount.id,
+      messageId: email.id,
+    },
+    () =>
+      enqueueDigestItem({
+        email,
+        emailAccountId: emailAccount.id,
+        actionId,
+        logger,
+      }),
+  );
 };
 
 const move_folder: ActionFunction<{
