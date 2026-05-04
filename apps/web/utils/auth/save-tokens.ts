@@ -1,4 +1,3 @@
-import type { Account } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import { encryptToken } from "@/utils/encryption";
 import { captureException } from "@/utils/error";
@@ -6,18 +5,6 @@ import { createScopedLogger } from "@/utils/logger";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
 
 const logger = createScopedLogger("auth");
-
-export type SaveTokensResult =
-  | { status: "saved" }
-  | { status: "conflict" }
-  | Account
-  | undefined;
-
-export function isTokenSaveConflict(
-  result: SaveTokensResult,
-): result is { status: "conflict" } {
-  return !!result && "status" in result && result.status === "conflict";
-}
 
 export async function saveTokens({
   tokens,

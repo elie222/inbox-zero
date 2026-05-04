@@ -1,6 +1,6 @@
 import { auth, gmail, type gmail_v1 } from "@googleapis/gmail";
 import { people } from "@googleapis/people";
-import { isTokenSaveConflict, saveTokens } from "@/utils/auth/save-tokens";
+import { saveTokens } from "@/utils/auth/save-tokens";
 import type { Logger } from "@/utils/logger";
 import { SCOPES } from "@/utils/gmail/scopes";
 import { SafeError } from "@/utils/error";
@@ -10,15 +10,6 @@ import {
   getGoogleOauthClientOptions,
   getGooglePeopleApiRootUrl,
 } from "@/utils/google/oauth";
-import {
-  acquireEmailAccountTokenRefreshLock,
-  clearEmailAccountTokenRefreshLock,
-  getCurrentEmailAccountTokens,
-  isEmailAccountTokenFresh,
-  TokenRefreshInProgressError,
-  waitForFreshEmailAccountTokens,
-  type EmailAccountTokenSnapshot,
-} from "@/utils/auth/token-refresh";
 
 type AuthOptions = {
   accessToken?: string | null;
@@ -73,96 +64,12 @@ export const getGmailClientWithRefresh = async ({
     throw new SafeError("No refresh token");
   }
 
-  if (
-    isEmailAccountTokenFresh({
-      accessToken: accessToken ?? null,
-      refreshToken,
-      expiresAt,
-    })
-  ) {
-    return createGmailClient({ accessToken, refreshToken });
-  }
+  // we handle refresh ourselves so not passing in expiresAt
+  const auth = getAuth({ accessToken, refreshToken });
+  const g = gmail({ version: "v1", auth, rootUrl: getGoogleGmailApiRootUrl() });
 
-  const lockResult = await acquireEmailAccountTokenRefreshLock({
-    emailAccountId,
-    provider: "google",
-    logger,
-  });
-
-  if (lockResult.status === "busy") {
-    const tokens = await waitForFreshEmailAccountTokens({ emailAccountId });
-    if (tokens?.accessToken && tokens.refreshToken) {
-      return createGmailClient({
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-      });
-    }
-
-    throw new TokenRefreshInProgressError();
-  }
-
-  if (lockResult.status !== "acquired") {
-    logger.warn(
-      "OAuth token refresh lock unavailable; refreshing Gmail token",
-      {
-        emailAccountId,
-      },
-    );
-
-    return refreshGmailClient({
-      accessToken,
-      refreshToken,
-      expiresAt,
-      emailAccountId,
-      logger,
-    });
-  }
-
-  try {
-    const currentTokens = await getCurrentEmailAccountTokens(emailAccountId);
-    if (currentTokens.accessToken && currentTokens.refreshToken) {
-      if (isEmailAccountTokenFresh(currentTokens)) {
-        return createGmailClient({
-          accessToken: currentTokens.accessToken,
-          refreshToken: currentTokens.refreshToken,
-        });
-      }
-    }
-
-    return await refreshGmailClient({
-      accessToken: currentTokens.accessToken ?? accessToken,
-      refreshToken: currentTokens.refreshToken ?? refreshToken,
-      expiresAt: currentTokens.expiresAt ?? expiresAt,
-      emailAccountId,
-      logger,
-    });
-  } finally {
-    await clearEmailAccountTokenRefreshLock({
-      emailAccountId,
-      provider: "google",
-      lockToken: lockResult.lockToken,
-      logger,
-    });
-  }
-};
-
-async function refreshGmailClient({
-  accessToken,
-  refreshToken,
-  expiresAt,
-  emailAccountId,
-  logger,
-}: {
-  accessToken?: string | null;
-  refreshToken: string;
-  expiresAt: number | null;
-  emailAccountId: string;
-  logger: Logger;
-}): Promise<gmail_v1.Gmail> {
-  const { auth, gmail: g } = createGmailClientWithAuth({
-    accessToken,
-    refreshToken,
-  });
+  const expiryDate = expiresAt ? expiresAt : null;
+  if (expiryDate && expiryDate > Date.now()) return g;
 
   // may throw `invalid_grant` error
   try {
@@ -170,7 +77,7 @@ async function refreshGmailClient({
     const newAccessToken = tokens.credentials.access_token;
 
     if (newAccessToken !== accessToken) {
-      const saveResult = await saveTokens({
+      await saveTokens({
         tokens: {
           access_token: newAccessToken ?? undefined,
           refresh_token: tokens.credentials.refresh_token ?? undefined,
@@ -183,13 +90,6 @@ async function refreshGmailClient({
         provider: "google",
         expectedExpiresAt: expiresAt,
       });
-
-      if (isTokenSaveConflict(saveResult)) {
-        const currentTokens =
-          await getCurrentEmailAccountTokens(emailAccountId);
-        const currentClient = createClientForFreshTokens(currentTokens);
-        if (currentClient) return currentClient;
-      }
     }
 
     return g;
@@ -208,7 +108,7 @@ async function refreshGmailClient({
 
     throw error;
   }
-}
+};
 
 // doesn't handle refreshing the access token
 // should probably use the same auth object as getGmailClientWithRefresh but not critical for now
@@ -233,37 +133,3 @@ export const getAccessTokenFromClient = (client: gmail_v1.Gmail): string => {
   if (!accessToken) throw new Error("No access token");
   return accessToken;
 };
-
-function createGmailClient({
-  accessToken,
-  refreshToken,
-}: {
-  accessToken?: string | null;
-  refreshToken: string | null;
-}) {
-  return createGmailClientWithAuth({ accessToken, refreshToken }).gmail;
-}
-
-function createGmailClientWithAuth({
-  accessToken,
-  refreshToken,
-}: {
-  accessToken?: string | null;
-  refreshToken: string | null;
-}) {
-  // we handle refresh ourselves so not passing in expiresAt
-  const auth = getAuth({ accessToken, refreshToken });
-  const g = gmail({ version: "v1", auth, rootUrl: getGoogleGmailApiRootUrl() });
-
-  return { auth, gmail: g };
-}
-
-function createClientForFreshTokens(tokens: EmailAccountTokenSnapshot) {
-  if (!tokens.accessToken || !tokens.refreshToken) return null;
-  if (!isEmailAccountTokenFresh(tokens)) return null;
-
-  return createGmailClient({
-    accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
-  });
-}

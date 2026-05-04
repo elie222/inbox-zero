@@ -1,7 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { people } from "@googleapis/people";
 import { auth } from "@googleapis/gmail";
-import prisma from "@/utils/__mocks__/prisma";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import {
   getContactsClient,
@@ -14,18 +13,9 @@ import {
   getGooglePeopleApiRootUrl,
 } from "@/utils/google/oauth";
 import { gmail } from "@googleapis/gmail";
-import { acquireOwnedLock, clearOwnedLock } from "@/utils/redis/owned-lock";
 
 vi.mock("@/utils/auth/save-tokens", () => ({
   saveTokens: vi.fn(),
-  isTokenSaveConflict: vi.fn(() => false),
-}));
-
-vi.mock("@/utils/prisma");
-
-vi.mock("@/utils/redis/owned-lock", () => ({
-  acquireOwnedLock: vi.fn(),
-  clearOwnedLock: vi.fn(),
 }));
 
 vi.mock("@/utils/google/oauth", () => ({
@@ -70,12 +60,6 @@ vi.mock("@googleapis/people", () => ({
 describe("gmail oauth client configuration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(acquireOwnedLock).mockResolvedValue("lock-token");
-    vi.mocked(clearOwnedLock).mockResolvedValue(true);
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("uses emulator-aware OAuth options for account refresh clients", () => {
@@ -147,7 +131,7 @@ describe("gmail oauth client configuration", () => {
     });
   });
 
-  it("uses a distributed lock when refreshing an expired Gmail token", async () => {
+  it("saves refreshed Gmail tokens with optimistic concurrency", async () => {
     const staleExpiresAt = Date.now() - 1000;
     refreshAccessToken.mockResolvedValue({
       credentials: {
@@ -164,10 +148,6 @@ describe("gmail oauth client configuration", () => {
       logger,
     });
 
-    expect(acquireOwnedLock).toHaveBeenCalledWith({
-      key: "oauth-token-refresh:google:email-account-id",
-      processingTtlSeconds: 30,
-    });
     expect(saveTokens).toHaveBeenCalledWith(
       expect.objectContaining({
         emailAccountId: "email-account-id",
@@ -179,87 +159,5 @@ describe("gmail oauth client configuration", () => {
         }),
       }),
     );
-    expect(clearOwnedLock).toHaveBeenCalledWith({
-      key: "oauth-token-refresh:google:email-account-id",
-      lockToken: "lock-token",
-    });
-  });
-
-  it("reuses the persisted Gmail token when another process owns the refresh lock", async () => {
-    vi.mocked(acquireOwnedLock).mockResolvedValue(null);
-    prisma.emailAccount.findUnique.mockResolvedValue({
-      account: {
-        access_token: "fresh-access-token",
-        refresh_token: "refresh-token",
-        expires_at: new Date(Date.now() + 3_600_000),
-      },
-    } as any);
-
-    await getGmailClientWithRefresh({
-      accessToken: "stale-access-token",
-      refreshToken: "refresh-token",
-      expiresAt: Date.now() - 1000,
-      emailAccountId: "email-account-id",
-      logger,
-    });
-
-    expect(refreshAccessToken).not.toHaveBeenCalled();
-    expect(saveTokens).not.toHaveBeenCalled();
-    expect(setCredentials).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        access_token: "fresh-access-token",
-        refresh_token: "refresh-token",
-      }),
-    );
-  });
-
-  it("does not refresh Gmail with stale tokens when another process owns the refresh lock", async () => {
-    vi.useFakeTimers();
-    vi.mocked(acquireOwnedLock).mockResolvedValue(null);
-    prisma.emailAccount.findUnique.mockResolvedValue({
-      account: {
-        access_token: "stale-access-token",
-        refresh_token: "refresh-token",
-        expires_at: new Date(Date.now() - 1000),
-      },
-    } as any);
-
-    const result = expect(
-      getGmailClientWithRefresh({
-        accessToken: "stale-access-token",
-        refreshToken: "refresh-token",
-        expiresAt: Date.now() - 1000,
-        emailAccountId: "email-account-id",
-        logger,
-      }),
-    ).rejects.toThrow(
-      "Email account authorization is refreshing. Please retry shortly.",
-    );
-
-    await vi.advanceTimersByTimeAsync(10_000);
-    await result;
-    expect(refreshAccessToken).not.toHaveBeenCalled();
-    expect(saveTokens).not.toHaveBeenCalled();
-  });
-
-  it("refreshes Gmail immediately when the refresh lock store is unavailable", async () => {
-    vi.mocked(acquireOwnedLock).mockRejectedValue(new Error("redis down"));
-    refreshAccessToken.mockResolvedValue({
-      credentials: {
-        access_token: "new-access-token",
-        expiry_date: Date.now() + 3_600_000,
-      },
-    });
-
-    await getGmailClientWithRefresh({
-      accessToken: "stale-access-token",
-      refreshToken: "refresh-token",
-      expiresAt: Date.now() - 1000,
-      emailAccountId: "email-account-id",
-      logger,
-    });
-
-    expect(prisma.emailAccount.findUnique).not.toHaveBeenCalled();
-    expect(refreshAccessToken).toHaveBeenCalledOnce();
   });
 });

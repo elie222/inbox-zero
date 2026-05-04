@@ -1,6 +1,6 @@
 import { Client } from "@microsoft/microsoft-graph-client";
 import type { User } from "@microsoft/microsoft-graph-types";
-import { isTokenSaveConflict, saveTokens } from "@/utils/auth/save-tokens";
+import { saveTokens } from "@/utils/auth/save-tokens";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
@@ -11,15 +11,6 @@ import {
 } from "@/utils/microsoft/oauth";
 import { SCOPES } from "@/utils/outlook/scopes";
 import { SafeError } from "@/utils/error";
-import {
-  acquireEmailAccountTokenRefreshLock,
-  clearEmailAccountTokenRefreshLock,
-  getCurrentEmailAccountTokens,
-  isEmailAccountTokenFresh,
-  TokenRefreshInProgressError,
-  waitForFreshEmailAccountTokens,
-  type EmailAccountTokenSnapshot,
-} from "@/utils/auth/token-refresh";
 
 // Add buffer time to prevent token expiry during long-running operations
 const TOKEN_REFRESH_BUFFER_MS = 10 * 60 * 1000; // 10 minutes
@@ -131,89 +122,17 @@ export const getOutlookClientWithRefresh = async ({
     throw new SafeError("No refresh token");
   }
 
+  // Check if token needs refresh
+  const expiryDate = expiresAt ? expiresAt : null;
   if (
     accessToken &&
-    isEmailAccountTokenFresh({
-      accessToken,
-      refreshToken,
-      expiresAt,
-      bufferMs: TOKEN_REFRESH_BUFFER_MS,
-    })
+    expiryDate &&
+    expiryDate > Date.now() + TOKEN_REFRESH_BUFFER_MS
   ) {
     return createOutlookClient(accessToken, logger);
   }
 
-  const lockResult = await acquireEmailAccountTokenRefreshLock({
-    emailAccountId,
-    provider: "microsoft",
-    logger,
-  });
-
-  if (lockResult.status === "busy") {
-    const tokens = await waitForFreshEmailAccountTokens({
-      emailAccountId,
-      bufferMs: TOKEN_REFRESH_BUFFER_MS,
-    });
-    if (tokens?.accessToken) {
-      return createOutlookClient(tokens.accessToken, logger);
-    }
-
-    throw new TokenRefreshInProgressError();
-  }
-
-  if (lockResult.status !== "acquired") {
-    logger.warn(
-      "OAuth token refresh lock unavailable; refreshing Outlook token",
-      { emailAccountId },
-    );
-
-    return refreshOutlookClient({
-      refreshToken,
-      expiresAt,
-      emailAccountId,
-      logger,
-    });
-  }
-
-  try {
-    const currentTokens = await getCurrentEmailAccountTokens(emailAccountId);
-    if (
-      currentTokens.accessToken &&
-      isEmailAccountTokenFresh({
-        ...currentTokens,
-        bufferMs: TOKEN_REFRESH_BUFFER_MS,
-      })
-    ) {
-      return createOutlookClient(currentTokens.accessToken, logger);
-    }
-
-    return await refreshOutlookClient({
-      refreshToken: currentTokens.refreshToken ?? refreshToken,
-      expiresAt: currentTokens.expiresAt ?? expiresAt,
-      emailAccountId,
-      logger,
-    });
-  } finally {
-    await clearEmailAccountTokenRefreshLock({
-      emailAccountId,
-      provider: "microsoft",
-      lockToken: lockResult.lockToken,
-      logger,
-    });
-  }
-};
-
-async function refreshOutlookClient({
-  refreshToken,
-  expiresAt,
-  emailAccountId,
-  logger,
-}: {
-  refreshToken: string;
-  expiresAt: number | null;
-  emailAccountId: string;
-  logger: Logger;
-}): Promise<OutlookClient> {
+  // Refresh token
   try {
     if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET) {
       throw new Error("Microsoft login not enabled - missing credentials");
@@ -296,7 +215,7 @@ async function refreshOutlookClient({
     }
 
     // Save new tokens
-    const saveResult = await saveTokens({
+    await saveTokens({
       tokens: {
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
@@ -307,12 +226,6 @@ async function refreshOutlookClient({
       provider: "microsoft",
       expectedExpiresAt: expiresAt,
     });
-
-    if (isTokenSaveConflict(saveResult)) {
-      const currentTokens = await getCurrentEmailAccountTokens(emailAccountId);
-      const currentClient = createClientForFreshTokens(currentTokens, logger);
-      if (currentClient) return currentClient;
-    }
 
     return createOutlookClient(tokens.access_token, logger);
   } catch (error) {
@@ -327,7 +240,7 @@ async function refreshOutlookClient({
 
     throw error;
   }
-}
+};
 
 export const getAccessTokenFromClient = (client: OutlookClient): string =>
   client.getAccessToken();
@@ -352,20 +265,3 @@ export function getLinkingOAuth2Url() {
 
 // Helper types for common Microsoft Graph operations
 export type { Client as GraphClient };
-
-function createClientForFreshTokens(
-  tokens: EmailAccountTokenSnapshot,
-  logger: Logger,
-) {
-  if (
-    !isEmailAccountTokenFresh({
-      ...tokens,
-      bufferMs: TOKEN_REFRESH_BUFFER_MS,
-    }) ||
-    !tokens.accessToken
-  ) {
-    return null;
-  }
-
-  return createOutlookClient(tokens.accessToken, logger);
-}
