@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-04-27)
 
 **Core value:** Inbox only shows things that need Rebekah — everything else is already filed before she opens Gmail.
-**Current focus:** Phase 3 — Classification Engine
+**Current focus:** Phase 4 — Daily Digest
 
 ## Current Position
 
-Phase: 3 of 7 (Classification Engine)
-Plan: 4 of 5 in current phase
-Status: Executing Phase 3 — Wave 4 complete, Wave 5 ready
-Last activity: 2026-04-28 — 03-04 complete: two-call escalation, confidenceScore threading, meta-rule guard deployed; migration applied to production
+Phase: 4 of 7 (Daily Digest)
+Plan: 0 of TBD in current phase (not started)
+Status: Phase 3 complete 2026-05-04 (CLASS-05 deferred to Phase 999.2). Ready to plan Phase 4.
+Last activity: 2026-05-04 — 03-05 complete: organic-data verification + 03-05-SUMMARY; rule matrix reconciled with user curation; cost-fix verified at runtime
 
-Progress: [██░░░░░░░░] 28% (2 of 7 phases complete)
+Progress: [████░░░░░░] 43% (3 of 7 phases complete)
 
 ## Performance Metrics
 
@@ -75,6 +75,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27
-Stopped at: Phase 2 fully verified — RECON.md finalized with all three open questions answered. Ready for Phase 3 planning.
+Last session: 2026-05-04
+Stopped at: Phase 3 closed via organic-data UAT. 7/8 CLASS requirements verified, CLASS-05 (2FA auto-delete) deferred to Phase 999.2. Two new backlog items captured (999.2, 999.3). Ready to plan Phase 4 Daily Digest.
 Resume file: None

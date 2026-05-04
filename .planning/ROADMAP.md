@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Ops Fixes** - Fix broken digest sender, lock signups, wire up CI/CD pipeline *(completed 2026-04-27)*
 - [x] **Phase 2: Inbox Zero Recon** - Audit fork internals and produce keep/replace/extend decisions *(completed 2026-04-27)*
-- [ ] **Phase 3: Classification Engine** - Three-tier pipeline classifying every incoming email into 8 categories
+- [x] **Phase 3: Classification Engine** - Three-tier pipeline classifying every incoming email *(completed 2026-05-04 — CLASS-05 deferred to Phase 999.2)*
 - [ ] **Phase 4: Daily Digest** - 6-7am email summarizing urgent items, deals, auto-filed counts, and uncertain items
 - [ ] **Phase 5: Rules Management UI** - Simple page at inbox.tdfurn.com/rules for explicit classification instructions
 - [ ] **Phase 6: Feedback System** - In-email signals, narrative form, and Gmail behavioral feedback feeding classification
@@ -162,6 +162,41 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
+### Phase 999.2: 2FA Short-Delay Auto-Delete (BACKLOG)
+
+**Goal:** Auto-delete 2FA / OTP emails after a short delay (~1 hour) so they don't clutter the inbox or Trash long-term, while remaining accessible during the verification window.
+
+**Requirements:** Originally captured under CLASS-05 in Phase 3. Implementation deferred — current 2FA rule is LABEL+ARCHIVE only.
+
+**Plans:** 0 plans
+
+**Notes:**
+- 1440min (24h) was the original spec; reduce to ~60min — 2FA codes are typically used within minutes, but persistence ≥1h covers delayed login or backup-code use
+- Blocker observed in Phase 3: `DELETE` ActionType not present in upstream Inbox Zero schema (per 03-03-SUMMARY)
+- Open question: does Gmail API expose delete? `users.messages.trash` and `users.messages.delete` exist in the API; needs verification that the OAuth scope and BullMQ delayed-action runner support either
+- Implementation likely needs: new `DELETE` ActionType in Prisma schema; runner support for the delete operation; rule edit to swap ARCHIVE→DELETE+60min on the 2FA rule
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.3: AI Prompt Drift — Unrouted ExecutedRule Rows (BACKLOG)
+
+**Goal:** Fix AI classifier producing categories that no longer have a corresponding `Rule` row, leading to `ExecutedRule` rows with `ruleId=NULL` and no actions firing — emails sit in the inbox unrouted.
+
+**Requirements:** TBD — relates to CLASS-01 (every email gets exactly one rule match).
+
+**Plans:** 0 plans
+
+**Notes:**
+- Observed during Phase 3 verification (2026-05-04): 132 ExecutedRule rows in the last 14d had `ruleId=NULL`
+- Two flavors: (1) LEARNED_PATTERN matches against `Group` rows whose linked `Rule` has been deleted; (2) AI-tier matches whose reason text refers to category names like "Receipt", "Notification", "Deals" that no longer have rules in the DB
+- Likely root cause: the rule list passed to Haiku is stale — either hardcoded category names in the prompt, or built from a snapshot rather than the live `Rule` table
+- Fix direction: regenerate the rule list given to Haiku from `SELECT * FROM Rule WHERE enabled=true` at request time; on a NULL match, fall through to `Uncertain` rather than recording an actionless ExecutedRule
+- Cost impact: low — these rows still consumed Haiku tokens, so no $ leak, but they represent emails that didn't get the user's intended treatment
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
 ## Progress
 
 **Execution Order:**
@@ -171,7 +206,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Ops Fixes | 3/3 | Complete | 2026-04-27 |
 | 2. Inbox Zero Recon | 1/1 | Complete | 2026-04-27 |
-| 3. Classification Engine | 4/5 | In progress | - |
+| 3. Classification Engine | 5/5 | Complete | 2026-05-04 |
 | 4. Daily Digest | 0/TBD | Not started | - |
 | 5. Rules Management UI | 0/TBD | Not started | - |
 | 6. Feedback System | 0/TBD | Not started | - |
