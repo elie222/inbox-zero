@@ -23,7 +23,18 @@ type InlineRuleSuggestionCardProps = {
   name?: string;
   when?: string;
   do?: string;
+  label?: string;
+  archive?: string;
+  notify?: string;
+  draft?: string;
+  markread?: string;
   children?: ReactNode;
+};
+
+type SuggestedAction = {
+  type: ActionType;
+  label?: string | null;
+  notificationDestination?: string | null;
 };
 
 export function InlineRuleSuggestions({ children }: { children?: ReactNode }) {
@@ -34,6 +45,11 @@ export function InlineRuleSuggestionCard({
   name,
   when,
   do: action,
+  label,
+  archive,
+  notify,
+  draft,
+  markread,
   children,
 }: InlineRuleSuggestionCardProps) {
   const { submitTextMessage } = useChat();
@@ -42,7 +58,19 @@ export function InlineRuleSuggestionCard({
   const whenText = normalizeTagAttribute(when);
   const actionText = normalizeTagAttribute(action);
   const summary = nodeToText(children).trim();
-  const suggestedActions = buildSuggestedActions(actionText);
+  const suggestedActions = buildSuggestedActions({
+    label,
+    archive,
+    notify,
+    draft,
+    markread,
+  });
+  const actionInstruction = [
+    getSuggestedActionInstruction(suggestedActions),
+    actionText,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   async function handleApproveRule() {
     setIsSubmitting(true);
@@ -51,7 +79,7 @@ export function InlineRuleSuggestionCard({
         [
           `Create this suggested rule: ${title}`,
           whenText ? `It should catch: ${whenText}` : null,
-          actionText ? `It should do: ${actionText}` : null,
+          actionInstruction ? `It should do: ${actionInstruction}` : null,
           summary ? `Context: ${summary}` : null,
         ]
           .filter(Boolean)
@@ -84,28 +112,21 @@ export function InlineRuleSuggestionCard({
     >
       {whenText && <RuleSummaryRow label="When">{whenText}</RuleSummaryRow>}
 
-      {actionText && (
+      {(actionText || suggestedActions.length > 0) && (
         <RuleSummaryRow label="Then">
-          {suggestedActions.length > 0 ? (
-            <SuggestedActionBadgeList actions={suggestedActions} />
-          ) : (
-            actionText
-          )}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {suggestedActions.length > 0 && (
+              <SuggestedActionBadgeList actions={suggestedActions} />
+            )}
+            {actionText && <span>{actionText}</span>}
+          </div>
         </RuleSummaryRow>
       )}
     </RuleSummaryCard>
   );
 }
 
-function SuggestedActionBadgeList({
-  actions,
-}: {
-  actions: Array<{
-    type: ActionType;
-    label?: string | null;
-    notificationDestination?: string | null;
-  }>;
-}) {
+function SuggestedActionBadgeList({ actions }: { actions: SuggestedAction[] }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {actions.map((action, index) => {
@@ -134,62 +155,54 @@ function SuggestedActionBadgeList({
   );
 }
 
-function buildSuggestedActions(actionText: string) {
-  const lowerText = actionText.toLowerCase();
-  const actions: Array<{
-    type: ActionType;
-    label?: string | null;
-    notificationDestination?: string | null;
-  }> = [];
-  const label = findSuggestedLabel(actionText);
-  const notificationDestination =
-    findSuggestedNotificationDestination(actionText);
+function buildSuggestedActions({
+  label,
+  archive,
+  notify,
+  draft,
+  markread,
+}: Pick<
+  InlineRuleSuggestionCardProps,
+  "label" | "archive" | "notify" | "draft" | "markread"
+>) {
+  const actions: SuggestedAction[] = [];
+  const labelText = normalizeTagAttribute(label);
+  const notificationDestination = normalizeTagAttribute(notify);
 
-  if (label) actions.push({ type: ActionType.LABEL, label });
-  if (lowerText.includes("archive")) actions.push({ type: ActionType.ARCHIVE });
-  if (lowerText.includes("draft"))
-    actions.push({ type: ActionType.DRAFT_EMAIL });
-  if (lowerText.includes("notify")) {
+  if (labelText) actions.push({ type: ActionType.LABEL, label: labelText });
+  if (isEnabledAttribute(archive)) actions.push({ type: ActionType.ARCHIVE });
+  if (isEnabledAttribute(draft)) actions.push({ type: ActionType.DRAFT_EMAIL });
+  if (notificationDestination) {
     actions.push({
       type: ActionType.NOTIFY_MESSAGING_CHANNEL,
       notificationDestination,
     });
   }
-  if (lowerText.includes("mark as read") || lowerText.includes("mark read")) {
+  if (isEnabledAttribute(markread)) {
     actions.push({ type: ActionType.MARK_READ });
   }
 
   return actions;
 }
 
-function findSuggestedLabel(actionText: string) {
-  const match =
-    actionText.match(
-      /\blabel (?:(?:the )?email as |(?:the )?emails as |as |them |it )?["']?([^"',.]+)["']?/i,
-    ) || actionText.match(/\bapply (?:the )?["']?([^"',.]+)["']? label/i);
-
-  return match?.[1]?.split(/\s+and\s+/i)[0]?.trim() || null;
+function getSuggestedActionInstruction(actions: SuggestedAction[]) {
+  return actions
+    .map((action) =>
+      getActionDisplay(
+        {
+          type: action.type,
+          label: action.label,
+          notificationDestination: action.notificationDestination,
+        },
+        "",
+        [],
+      ),
+    )
+    .join(", ");
 }
 
-function findSuggestedNotificationDestination(actionText: string) {
-  const match = actionText.match(/\bnotify(?:\s+[\w-]+)*\s+via\s+([^"',.]+)/i);
-  const destination = match?.[1]?.split(/\s+and\s+/i)[0]?.trim();
-
-  if (!destination || isGenericNotificationDestination(destination)) {
-    return null;
-  }
-
-  if (/slack/i.test(destination)) return "Slack";
-  if (/telegram/i.test(destination)) return "Telegram";
-  if (/teams/i.test(destination)) return "Teams";
-
-  return destination;
-}
-
-function isGenericNotificationDestination(destination: string) {
-  return /^(?:your\s+)?(?:chat app|messaging channel|notification channel)$/i.test(
-    destination,
-  );
+function isEnabledAttribute(value: string | undefined) {
+  return normalizeTagAttribute(value) === "true";
 }
 
 function normalizeTagAttribute(value: string | undefined) {

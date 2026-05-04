@@ -20,7 +20,16 @@ const allowedTags = {
   email: ["id", "threadid", "index"],
   "email-detail": ["id", "threadid"],
   "rule-suggestions": [],
-  "rule-suggestion": ["name", "when", "do"],
+  "rule-suggestion": [
+    "name",
+    "when",
+    "do",
+    "label",
+    "archive",
+    "notify",
+    "draft",
+    "markread",
+  ],
 };
 const components = {
   emails: InlineEmailList,

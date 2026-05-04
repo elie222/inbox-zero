@@ -179,7 +179,7 @@ describe("AssistantInlineEmailResponse", () => {
         null,
         [
           "\n<rule-suggestions>\n",
-          '<rule-suggestion name="Monitoring" when="mention alerts from monitoring tools" do="label them Monitoring and archive them" />\n',
+          '<rule-suggestion name="Monitoring" when="mention alerts from monitoring tools" label="Monitoring" archive="true" />\n',
           "</rule-suggestions>\n",
         ].join(""),
       ),
@@ -201,7 +201,7 @@ describe("AssistantInlineEmailResponse", () => {
     });
   });
 
-  it("parses label actions written as label the email as", () => {
+  it("renders free-form rule suggestion actions as plain text", () => {
     render(
       createElement(
         AssistantInlineEmailResponse,
@@ -210,7 +210,9 @@ describe("AssistantInlineEmailResponse", () => {
       ),
     );
 
-    expect(screen.getByText("Label as 'Monitoring'")).toBeTruthy();
+    expect(
+      screen.getByText("label the email as Monitoring and archive"),
+    ).toBeTruthy();
     expect(screen.queryByText("Label as 'the email as'")).toBeNull();
   });
 
@@ -219,7 +221,7 @@ describe("AssistantInlineEmailResponse", () => {
       createElement(
         AssistantInlineEmailResponse,
         null,
-        '<rule-suggestion name="Support" when="support requests" do="label as Support and notify me immediately via Slack" />',
+        '<rule-suggestion name="Support" when="support requests" label="Support" notify="Slack" />',
       ),
     );
 
@@ -228,17 +230,17 @@ describe("AssistantInlineEmailResponse", () => {
     expect(screen.queryByText("Notify via chat app")).toBeNull();
   });
 
-  it("does not preserve generic chat app destinations in rule suggestions", () => {
+  it("renders structured draft and mark-read actions in rule suggestions", () => {
     render(
       createElement(
         AssistantInlineEmailResponse,
         null,
-        '<rule-suggestion name="Support" when="support requests" do="label as Support and notify via chat app" />',
+        '<rule-suggestion name="Updates" when="low-priority updates" draft="true" markread="true" />',
       ),
     );
 
-    expect(screen.queryByText("Notify via chat app")).toBeNull();
-    expect(screen.getByText("Notify")).toBeTruthy();
+    expect(screen.getByText("Draft Reply")).toBeTruthy();
+    expect(screen.getByText("Mark Read")).toBeTruthy();
   });
 });
 
