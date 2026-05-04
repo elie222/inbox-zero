@@ -1,6 +1,6 @@
 import { auth, gmail, type gmail_v1 } from "@googleapis/gmail";
 import { people } from "@googleapis/people";
-import { saveTokens } from "@/utils/auth/save-tokens";
+import { isTokenSaveConflict, saveTokens } from "@/utils/auth/save-tokens";
 import type { Logger } from "@/utils/logger";
 import { SCOPES } from "@/utils/gmail/scopes";
 import { SafeError } from "@/utils/error";
@@ -263,15 +263,4 @@ function createClientForFreshTokens(tokens: EmailAccountTokenSnapshot) {
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
   });
-}
-
-function isTokenSaveConflict(
-  result: Awaited<ReturnType<typeof saveTokens>>,
-): boolean {
-  return (
-    !!result &&
-    typeof result === "object" &&
-    "status" in result &&
-    result.status === "conflict"
-  );
 }

@@ -22,6 +22,7 @@ vi.mock("@microsoft/microsoft-graph-client", () => ({
 
 vi.mock("@/utils/auth/save-tokens", () => ({
   saveTokens: vi.fn(),
+  isTokenSaveConflict: vi.fn(() => false),
 }));
 
 vi.mock("@/utils/prisma");

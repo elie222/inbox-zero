@@ -1,6 +1,6 @@
 import { Client } from "@microsoft/microsoft-graph-client";
 import type { User } from "@microsoft/microsoft-graph-types";
-import { saveTokens } from "@/utils/auth/save-tokens";
+import { isTokenSaveConflict, saveTokens } from "@/utils/auth/save-tokens";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
@@ -365,15 +365,4 @@ function createClientForFreshTokens(
   }
 
   return createOutlookClient(tokens.accessToken, logger);
-}
-
-function isTokenSaveConflict(
-  result: Awaited<ReturnType<typeof saveTokens>>,
-): boolean {
-  return (
-    !!result &&
-    typeof result === "object" &&
-    "status" in result &&
-    result.status === "conflict"
-  );
 }

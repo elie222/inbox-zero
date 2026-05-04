@@ -1,6 +1,7 @@
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { acquireOwnedLock, clearOwnedLock } from "@/utils/redis/owned-lock";
+import { sleep } from "@/utils/sleep";
 
 const TOKEN_REFRESH_LOCK_TTL_SECONDS = 30;
 const TOKEN_REFRESH_WAIT_TIMEOUT_MS = 5000;
@@ -144,8 +145,4 @@ function toTokenSnapshot(
     refreshToken: account?.refresh_token ?? null,
     expiresAt: account?.expires_at?.getTime() ?? null,
   };
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
