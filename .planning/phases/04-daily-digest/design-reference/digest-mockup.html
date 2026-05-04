@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Inbox Zero — Daily Digest, Monday May 4</title>
+<style>
+  /* Email-safe reset */
+  body, table, td, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+  table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; }
+  img { -ms-interpolation-mode:bicubic; border:0; outline:none; text-decoration:none; }
+  body { margin:0; padding:0; width:100% !important; height:100% !important; }
+
+  /* Page chrome (preview only — most clients ignore body bg) */
+  body {
+    background:#f3f4f6;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color:#111827;
+    line-height:1.5;
+  }
+
+  .wrap { width:100%; background:#f3f4f6; padding:24px 0 56px; }
+  .container {
+    width:600px; max-width:600px;
+    margin:0 auto;
+    background:#ffffff;
+    border:1px solid #e5e7eb;
+    border-radius:6px;
+    overflow:hidden;
+  }
+
+  /* Header */
+  .header {
+    text-align:center;
+    padding:28px 32px 20px;
+    border-bottom:1px solid #f3f4f6;
+  }
+  .logo {
+    display:inline-block;
+    width:28px; height:28px;
+    background:#111827;
+    border-radius:6px;
+    color:#ffffff;
+    font-weight:700;
+    font-size:15px;
+    line-height:28px;
+    text-align:center;
+    letter-spacing:-0.02em;
+    vertical-align:middle;
+    margin-right:8px;
+  }
+  .wordmark {
+    display:inline-block;
+    vertical-align:middle;
+    font-size:13px;
+    font-weight:600;
+    color:#374151;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+  }
+  .header-date {
+    margin-top:10px;
+    font-size:12px;
+    color:#9ca3af;
+    letter-spacing:0.02em;
+  }
+
+  /* Body padding */
+  .body { padding:24px 32px 8px; }
+
+  /* Narrative card */
+  .narrative {
+    background:#f9fafb;
+    border-radius:6px;
+    padding:18px 20px;
+    color:#374151;
+    font-size:15px;
+    line-height:1.65;
+    font-style:italic;
+  }
+  .narrative .greet {
+    font-style:normal;
+    font-weight:600;
+    color:#111827;
+    display:block;
+    margin-bottom:4px;
+    font-size:14px;
+    letter-spacing:0.01em;
+  }
+
+  /* Section headers */
+  .section { padding:28px 32px 4px; }
+  .section-h {
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:#6b7280;
+    margin:0 0 12px 0;
+  }
+  .section-h .count {
+    color:#9ca3af;
+    font-weight:600;
+  }
+
+  /* Per-item card (Urgent / Uncertain) */
+  .item {
+    border-left:4px solid #e5e7eb;
+    border-radius:3px;
+    padding:14px 16px 14px 16px;
+    margin-bottom:10px;
+  }
+  .item .subject {
+    font-size:16px;
+    font-weight:700;
+    color:#111827;
+    line-height:1.3;
+    margin:0 0 4px 0;
+  }
+  .item .sender {
+    font-size:13px;
+    color:#6b7280;
+    margin:0 0 8px 0;
+  }
+  .item .sender .name { color:#374151; font-weight:600; }
+  .item .summary {
+    font-size:14px;
+    color:#374151;
+    line-height:1.5;
+    margin:0;
+  }
+
+  /* Urgent variant */
+  .item.urgent { border-left-color:#f87171; background:#fef2f2; }
+  .item.urgent .subject { color:#991b1b; }
+
+  /* Uncertain variant */
+  .item.uncertain { border-left-color:#fbbf24; background:#fffbeb; }
+  .item.uncertain .subject { color:#92400e; }
+
+  /* Feedback pill row */
+  .feedback {
+    margin-top:12px;
+    text-align:right;
+    font-size:0;
+  }
+  .pill {
+    display:inline-block;
+    font-size:12px;
+    font-weight:600;
+    line-height:1;
+    padding:7px 11px;
+    border-radius:999px;
+    text-decoration:none;
+    margin-left:6px;
+  }
+  .pill.up   { background:#dcfce7; color:#166534; }
+  .pill.down { background:#fee2e2; color:#991b1b; }
+
+  /* Auto-filed group block */
+  .group {
+    border-left:4px solid #e5e7eb;
+    border-radius:3px;
+    padding:14px 16px 6px;
+    margin-bottom:10px;
+  }
+  .group .group-h {
+    margin:0 0 10px 0;
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:0.02em;
+  }
+  .group .group-h .meta {
+    font-weight:500;
+    color:#9ca3af;
+    font-size:12px;
+    margin-left:6px;
+  }
+  .row {
+    font-size:14px;
+    color:#374151;
+    line-height:1.55;
+    padding:6px 0;
+  }
+  .row + .row { border-top:1px solid rgba(0,0,0,0.04); }
+  .row .label {
+    font-weight:700;
+    color:#111827;
+    margin-right:6px;
+  }
+
+  /* Auto-filed color variants */
+  .group.receipts      { border-left-color:#4ade80; background:#f0fdf4; }
+  .group.receipts .group-h      { color:#166534; }
+  .group.newsletters   { border-left-color:#60a5fa; background:#eff6ff; }
+  .group.newsletters .group-h   { color:#1e40af; }
+  .group.marketing     { border-left-color:#c084fc; background:#faf5ff; }
+  .group.marketing .group-h     { color:#6b21a8; }
+  .group.notifications { border-left-color:#f472b6; background:#fdf2f8; }
+  .group.notifications .group-h { color:#9d174d; }
+
+  /* Subtle divider between action items */
+  .item-divider {
+    height:1px;
+    background:#f3f4f6;
+    margin:0 0 10px;
+    border:0;
+  }
+
+  /* Footer */
+  .footer {
+    padding:28px 32px 32px;
+    border-top:1px solid #f3f4f6;
+    margin-top:16px;
+    text-align:center;
+    font-size:12px;
+    color:#9ca3af;
+    line-height:1.7;
+  }
+  .footer a { color:#6b7280; text-decoration:underline; }
+  .footer .sep { color:#d1d5db; margin:0 6px; }
+
+  /* Mobile */
+  @media (max-width: 620px) {
+    .container { width:100% !important; border-radius:0; border-left:0; border-right:0; }
+    .body, .section, .header, .footer { padding-left:20px !important; padding-right:20px !important; }
+    .feedback { text-align:left; }
+    .pill { margin-left:0; margin-right:6px; margin-top:4px; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="container">
+
+      <!-- Header -->
+      <div class="header">
+        <span class="logo">IZ</span><span class="wordmark">Inbox Zero</span>
+        <div class="header-date">Daily digest · Monday, May 4</div>
+      </div>
+
+      <!-- Narrative -->
+      <div class="body">
+        <div class="narrative">
+          <span class="greet">Morning, Rebekah —</span>
+          Mostly quiet — 31 emails came in, most of them routine receipts and newsletters. Two things worth your time: Joe's Q3 contract thread now has three follow-ups in 24 hours (he's getting impatient), and a reschedule request from the Acme board meeting that needs a yes/no before noon. The classifier wasn't sure what to do with two emails — feedback links are below.
+        </div>
+      </div>
+
+      <!-- Urgent -->
+      <div class="section">
+        <div class="section-h">Urgent <span class="count">(2)</span></div>
+
+        <div class="item urgent">
+          <div class="subject">Re: Q3 contract — need final pricing today</div>
+          <div class="sender"><span class="name">Joe Mancini</span> &lt;joe@bayfield.legal&gt;</div>
+          <p class="summary">Third follow-up in 24h; pricing was promised Friday. Thread is buried at the bottom of the inbox, and he's now CC'ing his partner.</p>
+        </div>
+
+        <hr class="item-divider" />
+
+        <div class="item urgent">
+          <div class="subject">Acme board meeting — reschedule to 11/12?</div>
+          <div class="sender"><span class="name">Sarah Chen</span> &lt;s.chen@acmeholdings.com&gt;</div>
+          <p class="summary">Board chair asking to move Tuesday's meeting. Needs an answer before noon to lock the room.</p>
+        </div>
+      </div>
+
+      <!-- Uncertain -->
+      <div class="section">
+        <div class="section-h">Uncertain <span class="count">(2)</span></div>
+
+        <div class="item uncertain">
+          <div class="subject">Re: intro from David L.</div>
+          <div class="sender"><span class="name">partnerships@flexport.com</span></div>
+          <p class="summary">Looks like a real intro reply, but the classifier wasn't confident whether this is a sales pitch or a legitimate referral.</p>
+          <div class="feedback">
+            <a class="pill up"   href="https://inbox.tdfurn.com/feedback/8ab12c?vote=up">👍 Looks right</a>
+            <a class="pill down" href="https://inbox.tdfurn.com/feedback/8ab12c?vote=down">👎 Wrong category</a>
+          </div>
+        </div>
+
+        <hr class="item-divider" />
+
+        <div class="item uncertain">
+          <div class="subject">Your Q4 invoice + a new offering</div>
+          <div class="sender"><span class="name">info@strivetraining.com</span></div>
+          <p class="summary">Half receipt, half marketing pitch. Classifier flagged for review so it can learn how you'd like these handled.</p>
+          <div class="feedback">
+            <a class="pill up"   href="https://inbox.tdfurn.com/feedback/4f29de?vote=up">👍 Looks right</a>
+            <a class="pill down" href="https://inbox.tdfurn.com/feedback/4f29de?vote=down">👎 Wrong category</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Auto-filed: Receipts -->
+      <div class="section">
+        <div class="section-h">Auto-filed · Receipts</div>
+        <div class="group receipts">
+          <div class="group-h">Receipts <span class="meta">4 emails · 3 clusters</span></div>
+          <div class="row"><span class="label">Starbucks</span>reloaded your account balance twice yesterday for a total of $40.</div>
+          <div class="row"><span class="label">Fuel</span>looks like a road trip — gas 3× at Wawa, BP, and Shell totaling $120.</div>
+          <div class="row"><span class="label">Amazon</span>order shipped (cat litter, $34).</div>
+        </div>
+      </div>
+
+      <!-- Auto-filed: Newsletters -->
+      <div class="section">
+        <div class="section-h">Auto-filed · Newsletters</div>
+        <div class="group newsletters">
+          <div class="group-h">Newsletters <span class="meta">8 emails · 2 clusters</span></div>
+          <div class="row"><span class="label">Tech &amp; politics</span>5 newsletters from Stratechery, Platformer, Slow Boring, Matt Levine, Garbage Day.</div>
+          <div class="row"><span class="label">Industry digests</span>3 newsletters from Axios Pro, The Information, Crain's.</div>
+        </div>
+      </div>
+
+      <!-- Auto-filed: Marketing -->
+      <div class="section">
+        <div class="section-h">Auto-filed · Marketing</div>
+        <div class="group marketing">
+          <div class="group-h">Marketing <span class="meta">6 emails · 2 clusters</span></div>
+          <div class="row"><span class="label">Outdoor brands</span>Patagonia (winter sale), REI (member coupon), Backcountry (40% off jackets).</div>
+          <div class="row"><span class="label">Software offers</span>Notion AI upgrade, Linear annual discount, 1Password family plan.</div>
+        </div>
+      </div>
+
+      <!-- Auto-filed: Notifications -->
+      <div class="section">
+        <div class="section-h">Auto-filed · Notifications</div>
+        <div class="group notifications">
+          <div class="group-h">Notifications <span class="meta">3 emails · 1 cluster</span></div>
+          <div class="row"><span class="label">GitHub</span>3 PR review requests across 2 repos (inbox-zero, tdfurn-marketing).</div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        Sent at 6:30am ET on Monday, May 4.<br />
+        AI-generated by Inbox Zero.
+        <div style="margin-top:6px;">
+          <a href="https://inbox.tdfurn.com/how-it-works">How this works</a>
+          <span class="sep">·</span>
+          <a href="https://inbox.tdfurn.com/preferences">Preferences</a>
+          <span class="sep">·</span>
+          <a href="https://inbox.tdfurn.com/unsubscribe">Unsubscribe</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
