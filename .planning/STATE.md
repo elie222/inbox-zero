@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-04-27)
 ## Current Position
 
 Phase: 4 of 7 (Daily Digest)
-Plan: 6 of 6 plans code-complete; 2 operator checkpoints remain (Plan 03 Task 2 prod SQL + Plan 06 Task 2 EC2 systemd install)
-Status: Phase 4 code shipped 2026-05-04. All 6 plans authored, committed, typecheck clean across project. Plans 03 Task 2 (prod DB SQL execution) and 06 Task 2 (systemd timer install on EC2) await a single deploy session — both run after the next image deploy lands Plan 02 migration + Plan 04/05 code.
-Last activity: 2026-05-04 — Phase 4 execute: Plans 01/02/03-T1/04/05/06-T1 committed inline as orchestrator (sandbox blocked subagents from running git commit + prisma CLI); REQUIREMENTS.md updated; DigestSend model + migration; Sonnet batched generator; cron orchestrator + /api/cron/digest GET+POST; tests rewritten (compile clean, run blocked in this PowerShell session by case-mismatch bug); deploy/sql + deploy/systemd authored.
+Plan: 6 of 6 plans deployed to production. Day-2 organic verification pending (next-morning 9am ET digest auto-fire).
+Status: Phase 4 deployed 2026-05-05. DigestSend migration applied, Marketing rule has DIGEST action (matched by name; prod systemType was NULL, seed SQL's `WHERE systemType='MARKETING'` filter didn't match — patched ad-hoc with name match), single stale 8-day-old PENDING Digest cleared, systemd timer enabled and verified (NEXT: Tue 2026-05-05 13:00 UTC = 9am EDT). Smoke test returned `processedAccounts: 0` (no PENDING digests post-cleanup — correct, not an error). Real E2E proof comes tomorrow morning when organic email accumulation triggers the timer.
+Last activity: 2026-05-05 — Phase 4 deploy complete. Also: switched docker build to native arm64 (was 45min QEMU-emulated, now ~5min); fixed local vitest (Windows path-case quirk — must launch from canonical `Documents` not `documents`); excluded 6 inherited upstream assistant-chat tests in vitest.config.mts; saved EC2 SSH context to memory.
 
 Progress: [████░░░░░░] 43% (3 of 7 phases complete)
 
