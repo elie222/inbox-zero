@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { after } from "next/server";
+import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import { deleteUser } from "@/utils/user/delete";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
@@ -123,14 +124,24 @@ export const deleteEmailAccountAction = actionClientUser
       const newPrimaryAccount = otherEmailAccounts[0];
       const oldEmail = emailAccount.user.email;
 
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          email: newPrimaryAccount.email,
-          name: newPrimaryAccount.name,
-          image: newPrimaryAccount.image,
-        },
-      });
+      await runDeleteEmailAccountTransaction([
+        getDeleteEmailAccountLock(userId),
+        prisma.user.update({
+          where: {
+            id: userId,
+            email: oldEmail,
+            emailAccounts: { some: { id: newPrimaryAccount.id } },
+          },
+          data: {
+            email: newPrimaryAccount.email,
+            name: newPrimaryAccount.name,
+            image: newPrimaryAccount.image,
+          },
+        }),
+        prisma.account.delete({
+          where: { id: emailAccount.accountId, userId },
+        }),
+      ]);
 
       // Alias the old PostHog identity to the new one
       after(async () => {
@@ -139,13 +150,49 @@ export const deleteEmailAccountAction = actionClientUser
           newEmail: newPrimaryAccount.email,
         });
       });
+    } else {
+      await runDeleteEmailAccountTransaction([
+        getDeleteEmailAccountLock(userId),
+        prisma.account.delete({
+          where: {
+            id: emailAccount.accountId,
+            userId,
+            emailAccount: { user: { email: emailAccount.user.email } },
+          },
+        }),
+      ]);
     }
-
-    await prisma.account.delete({
-      where: { id: emailAccount.accountId, userId },
-    });
 
     after(async () => {
       await updateAccountSeats({ userId });
     });
   });
+
+async function runDeleteEmailAccountTransaction(
+  operations: Parameters<typeof prisma.$transaction>[0],
+) {
+  try {
+    await prisma.$transaction(operations);
+  } catch (error) {
+    if (isPrismaNotFoundError(error)) {
+      throw new SafeError("Email account already changed");
+    }
+
+    throw error;
+  }
+}
+
+function isPrismaNotFoundError(
+  error: unknown,
+): error is Prisma.PrismaClientKnownRequestError {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2025"
+  );
+}
+
+function getDeleteEmailAccountLock(userId: string) {
+  return prisma.$queryRaw`
+    SELECT pg_advisory_xact_lock(539114481, hashtext(${userId}))
+  `;
+}
