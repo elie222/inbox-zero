@@ -3,10 +3,12 @@ import prisma from "@/utils/__mocks__/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
   confirmAssistantEmailAction,
-  confirmAssistantEmailActionForAccount,
   confirmAssistantSaveMemory,
-  confirmAssistantSaveMemoryForAccount,
 } from "@/utils/actions/assistant-chat";
+import {
+  confirmAssistantEmailActionForAccount,
+  confirmAssistantSaveMemoryForAccount,
+} from "@/utils/actions/assistant-chat-confirmation";
 import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));

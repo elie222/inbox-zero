@@ -13,7 +13,7 @@
 import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
 import { createGmailTestHarness, type GmailTestHarness } from "./helpers";
 import type { GmailProvider } from "@/utils/email/google";
-import { saveBatch } from "@/utils/actions/stats";
+import { saveBatch } from "@/utils/actions/stats-loading";
 import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
