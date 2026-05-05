@@ -5,6 +5,7 @@ import {
   createMockEmailProvider,
   getMockParsedMessage,
 } from "@/__tests__/mocks/email-provider.mock";
+import { Prisma } from "@/generated/prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { getFilableAttachments, processAttachment } from "./filing-engine";
 
@@ -195,6 +196,88 @@ describe("processAttachment", () => {
     expect(emailProvider.getAttachment).not.toHaveBeenCalled();
     expect(uploadFile).not.toHaveBeenCalled();
     expect(analyzeDocument).not.toHaveBeenCalled();
+  });
+
+  it("does not download, analyze, or upload when a concurrent process already claimed the attachment", async () => {
+    const existingFiling = {
+      id: "filing-existing",
+      filename: "invoice.pdf",
+      folderPath: "Invoices",
+      fileId: "drive-file-existing",
+      status: "FILED",
+      wasAsked: false,
+      confidence: 0.95,
+      reasoning: "Already filed",
+      driveConnection: { provider: "google" },
+    };
+    prisma.documentFiling.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(existingFiling as any);
+    prisma.documentFiling.create.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: {
+          target: ["emailAccountId", "messageId", "attachmentId"],
+        },
+      }),
+    );
+    const { attachment, emailAccount, emailProvider, message, uploadFile } =
+      setupSuccessfulFiling({
+        confidence: 0.95,
+      });
+
+    const result = await processAttachment({
+      attachment,
+      emailAccount,
+      emailProvider,
+      logger,
+      message,
+    });
+
+    expect(result).toEqual({
+      success: true,
+      filing: {
+        id: "filing-existing",
+        filename: "invoice.pdf",
+        folderPath: "Invoices",
+        fileId: "drive-file-existing",
+        wasAsked: false,
+        confidence: 0.95,
+        provider: "google",
+      },
+      filingId: "filing-existing",
+    });
+    expect(emailProvider.getAttachment).not.toHaveBeenCalled();
+    expect(uploadFile).not.toHaveBeenCalled();
+    expect(analyzeDocument).not.toHaveBeenCalled();
+  });
+
+  it("claims an attachment before downloading it", async () => {
+    const { attachment, emailAccount, emailProvider, message } =
+      setupSuccessfulFiling({
+        confidence: 0.95,
+      });
+
+    await processAttachment({
+      attachment,
+      emailAccount,
+      emailProvider,
+      logger,
+      message,
+    });
+
+    expect(prisma.documentFiling.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        emailAccountId: emailAccount.id,
+        messageId: message.id,
+        attachmentId: attachment.attachmentId,
+        status: "PROCESSING",
+      }),
+    });
+    expect(prisma.documentFiling.create).toHaveBeenCalledBefore(
+      emailProvider.getAttachment as any,
+    );
   });
 
   it("retries an error filing record without creating a duplicate row", async () => {

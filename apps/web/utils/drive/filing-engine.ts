@@ -8,6 +8,7 @@ import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { createAndSaveFilingFolder } from "@/utils/drive/folder-utils";
 import { extractTextFromDocument } from "@/utils/drive/document-extraction";
 import { analyzeDocument } from "@/utils/ai/document-filing/analyze-document";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import {
   sendFiledNotification,
   sendAskNotification,
@@ -51,6 +52,10 @@ export interface ProcessAttachmentOptions {
   sendNotification?: boolean;
 }
 
+const DUPLICATE_FILING_KEY =
+  "DocumentFiling_emailAccountId_messageId_attachmentId_key";
+const DUPLICATE_FILING_FIELDS = ["emailAccountId", "messageId", "attachmentId"];
+
 // ============================================================================
 // Main Filing Engine
 // ============================================================================
@@ -77,6 +82,7 @@ export async function processAttachment({
     messageId: message.id,
     filename: attachment.filename,
   });
+  let claimedFilingId: string | null = null;
 
   try {
     // Validate filing is enabled with a prompt
@@ -85,64 +91,22 @@ export async function processAttachment({
       return { success: false, error: "Filing not enabled" };
     }
 
-    const existingFiling = await prisma.documentFiling.findFirst({
-      where: {
-        emailAccountId: emailAccount.id,
-        messageId: message.id,
-        attachmentId: attachment.attachmentId,
-      },
-      select: {
-        id: true,
-        filename: true,
-        folderPath: true,
-        fileId: true,
-        status: true,
-        wasAsked: true,
-        confidence: true,
-        reasoning: true,
-        driveConnection: {
-          select: {
-            provider: true,
-          },
-        },
-      },
-    });
+    const attachmentLookup = {
+      emailAccountId: emailAccount.id,
+      messageId: message.id,
+      attachmentId: attachment.attachmentId,
+    };
+
+    const existingFiling = await findAttachmentFiling(attachmentLookup);
 
     let retryFilingId: string | null = null;
     if (existingFiling) {
-      log.info("Attachment already has a filing record", {
-        filingId: existingFiling.id,
-        status: existingFiling.status,
-      });
-
-      if (existingFiling.status === "ERROR") {
-        log.info("Retrying attachment after previous filing error", {
-          filingId: existingFiling.id,
-        });
-        retryFilingId = existingFiling.id;
-      } else if (existingFiling.status === "PREVIEW") {
-        return {
-          success: false,
-          skipped: true,
-          skipReason:
-            existingFiling.reasoning ||
-            "Document doesn't match filing preferences",
-          filingId: existingFiling.id,
-        };
+      const existingResult = getExistingFilingResult(existingFiling, log);
+      if (existingResult.retryFilingId) {
+        retryFilingId = existingResult.retryFilingId;
+        claimedFilingId = retryFilingId;
       } else {
-        return {
-          success: true,
-          filing: {
-            id: existingFiling.id,
-            filename: existingFiling.filename,
-            folderPath: existingFiling.folderPath,
-            fileId: existingFiling.fileId,
-            wasAsked: existingFiling.wasAsked,
-            confidence: existingFiling.confidence,
-            provider: existingFiling.driveConnection.provider,
-          },
-          filingId: existingFiling.id,
-        };
+        return existingResult.result;
       }
     }
 
@@ -157,6 +121,34 @@ export async function processAttachment({
     if (driveConnections.length === 0) {
       log.info("No connected drives");
       return { success: false, error: "No connected drives" };
+    }
+
+    if (!retryFilingId) {
+      try {
+        const processingFiling = await prisma.documentFiling.create({
+          data: {
+            ...attachmentLookup,
+            filename: attachment.filename,
+            folderPath: "",
+            status: "PROCESSING",
+            driveConnectionId: driveConnections[0].id,
+          },
+        });
+        retryFilingId = processingFiling.id;
+        claimedFilingId = processingFiling.id;
+      } catch (claimError) {
+        if (!isDuplicateFilingError(claimError)) throw claimError;
+
+        const claimedFiling = await findAttachmentFiling(attachmentLookup);
+        if (!claimedFiling) throw claimError;
+
+        log.info("Attachment was claimed by another filing process", {
+          filingId: claimedFiling.id,
+          status: claimedFiling.status,
+        });
+
+        return getExistingFilingResult(claimedFiling, log).result;
+      }
     }
 
     // Step 1: Download attachment
@@ -241,12 +233,10 @@ export async function processAttachment({
         driveConnectionId: driveConnections[0].id,
         emailAccountId: emailAccount.id,
       };
-      const skipFiling = retryFilingId
-        ? await prisma.documentFiling.update({
-            where: { id: retryFilingId },
-            data: skipFilingData,
-          })
-        : await prisma.documentFiling.create({ data: skipFilingData });
+      const skipFiling = await prisma.documentFiling.update({
+        where: { id: retryFilingId },
+        data: skipFilingData,
+      });
 
       log.info("Skip record created", { filingId: skipFiling.id });
 
@@ -317,12 +307,10 @@ export async function processAttachment({
       driveConnectionId: driveConnection.id,
       emailAccountId: emailAccount.id,
     };
-    const filing = retryFilingId
-      ? await prisma.documentFiling.update({
-          where: { id: retryFilingId },
-          data: filingData,
-        })
-      : await prisma.documentFiling.create({ data: filingData });
+    const filing = await prisma.documentFiling.update({
+      where: { id: retryFilingId },
+      data: filingData,
+    });
 
     log.info("Filing record created", {
       filingId: filing.id,
@@ -394,6 +382,20 @@ export async function processAttachment({
       },
     };
   } catch (error) {
+    if (claimedFilingId) {
+      try {
+        await prisma.documentFiling.update({
+          where: { id: claimedFilingId },
+          data: {
+            status: "ERROR",
+            reasoning: error instanceof Error ? error.message : "Unknown error",
+          },
+        });
+      } catch (cleanupError) {
+        log.error("Failed to mark filing as errored", { error: cleanupError });
+      }
+    }
+
     log.error("Error processing attachment", { error });
     return {
       success: false,
@@ -432,6 +434,107 @@ interface FolderTarget {
   folderId: string;
   folderPath: string;
   needsToCreateFolder: boolean;
+}
+
+type AttachmentFiling = NonNullable<
+  Awaited<ReturnType<typeof findAttachmentFiling>>
+>;
+
+function findAttachmentFiling({
+  emailAccountId,
+  messageId,
+  attachmentId,
+}: {
+  emailAccountId: string;
+  messageId: string;
+  attachmentId: string;
+}) {
+  return prisma.documentFiling.findFirst({
+    where: {
+      emailAccountId,
+      messageId,
+      attachmentId,
+    },
+    select: {
+      id: true,
+      filename: true,
+      folderPath: true,
+      fileId: true,
+      status: true,
+      wasAsked: true,
+      confidence: true,
+      reasoning: true,
+      driveConnection: {
+        select: {
+          provider: true,
+        },
+      },
+    },
+  });
+}
+
+function getExistingFilingResult(filing: AttachmentFiling, logger: Logger) {
+  logger.info("Attachment already has a filing record", {
+    filingId: filing.id,
+    status: filing.status,
+  });
+
+  if (filing.status === "ERROR") {
+    logger.info("Retrying attachment after previous filing error", {
+      filingId: filing.id,
+    });
+    return { retryFilingId: filing.id };
+  }
+
+  if (filing.status === "PREVIEW") {
+    return {
+      result: {
+        success: false,
+        skipped: true,
+        skipReason:
+          filing.reasoning || "Document doesn't match filing preferences",
+        filingId: filing.id,
+      },
+    };
+  }
+
+  if (filing.status === "PROCESSING") {
+    return {
+      result: {
+        success: false,
+        error: "Attachment is already being filed",
+        filingId: filing.id,
+      },
+    };
+  }
+
+  return {
+    result: {
+      success: true,
+      filing: {
+        id: filing.id,
+        filename: filing.filename,
+        folderPath: filing.folderPath,
+        fileId: filing.fileId,
+        wasAsked: filing.wasAsked,
+        confidence: filing.confidence,
+        provider: filing.driveConnection.provider,
+      },
+      filingId: filing.id,
+    },
+  };
+}
+
+function isDuplicateFilingError(error: unknown) {
+  if (!isDuplicateError(error)) return false;
+
+  const target = (error as { meta?: { target?: unknown } }).meta?.target;
+  if (target === DUPLICATE_FILING_KEY) return true;
+
+  return (
+    Array.isArray(target) &&
+    DUPLICATE_FILING_FIELDS.every((field) => target.includes(field))
+  );
 }
 
 function resolveFolderTarget(
