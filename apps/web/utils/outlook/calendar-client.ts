@@ -106,6 +106,7 @@ export const getCalendarClientWithRefresh = async ({
           expires_at: Math.floor(Date.now() / 1000 + Number(tokens.expires_in)),
         },
         connectionId: calendarConnection.id,
+        expectedExpiresAt: expiresAt,
         logger,
       });
     } else {
@@ -161,6 +162,7 @@ export async function fetchMicrosoftCalendars(
 async function saveCalendarTokens({
   tokens,
   connectionId,
+  expectedExpiresAt,
   logger,
 }: {
   tokens: {
@@ -169,6 +171,7 @@ async function saveCalendarTokens({
     expires_at?: number; // seconds
   };
   connectionId: string;
+  expectedExpiresAt: number | null;
   logger: Logger;
 }) {
   if (!tokens.access_token) {
@@ -179,8 +182,11 @@ async function saveCalendarTokens({
   }
 
   try {
-    await prisma.calendarConnection.update({
-      where: { id: connectionId },
+    const result = await prisma.calendarConnection.updateMany({
+      where: {
+        id: connectionId,
+        expiresAt: getExpectedExpiresAtWhere(expectedExpiresAt),
+      },
       data: {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
@@ -190,9 +196,24 @@ async function saveCalendarTokens({
       },
     });
 
+    if (result.count === 0) {
+      logger.info("Skipped stale calendar token update", { connectionId });
+      return { status: "conflict" as const };
+    }
+
     logger.info("Calendar tokens saved successfully", { connectionId });
+    return { status: "saved" as const };
   } catch (error) {
     logger.error("Failed to save calendar tokens", { error, connectionId });
     throw error;
   }
+}
+
+function getExpectedExpiresAtWhere(expectedExpiresAt: number | null) {
+  if (!expectedExpiresAt) return null;
+
+  return {
+    gte: new Date(expectedExpiresAt),
+    lt: new Date(expectedExpiresAt + 1),
+  };
 }
