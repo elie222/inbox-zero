@@ -20,7 +20,7 @@ export function generateEnvFile(config: {
 
   // Helper to wrap a value in quotes if defined (prevents "undefined" string bug)
   const wrapInQuotes = (value: string | undefined): string | undefined =>
-    value !== undefined ? `"${value}"` : undefined;
+    value !== undefined ? `"${escapeEnvQuotedValue(value)}"` : undefined;
 
   // Helper to set a value (handles both commented and uncommented lines)
   const setValue = (key: string, value: string | undefined) => {
@@ -32,7 +32,7 @@ export function generateEnvFile(config: {
     ];
     for (const pattern of patterns) {
       if (pattern.test(content)) {
-        content = content.replace(pattern, `${key}=${value}`);
+        content = content.replace(pattern, () => `${key}=${value}`);
         return;
       }
     }
@@ -213,19 +213,16 @@ export function updateEnvValue(
   value: string,
 ): string {
   const needsQuotes = /[\s"'#]/.test(value) || value.includes("://");
-  const escaped = needsQuotes
-    ? value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
-    : value;
-  const formatted = needsQuotes ? `"${escaped}"` : value;
+  const formatted = needsQuotes ? `"${escapeEnvQuotedValue(value)}"` : value;
 
   const uncommented = new RegExp(`^${key}=.*$`, "m");
   if (uncommented.test(content)) {
-    return content.replace(uncommented, `${key}=${formatted}`);
+    return content.replace(uncommented, () => `${key}=${formatted}`);
   }
 
   const commented = new RegExp(`^# ${key}=.*$`, "m");
   if (commented.test(content)) {
-    return content.replace(commented, `${key}=${formatted}`);
+    return content.replace(commented, () => `${key}=${formatted}`);
   }
 
   return `${content.trimEnd()}\n${key}=${formatted}\n`;
@@ -262,4 +259,8 @@ export function parsePortConflict(stderr: string): string | null {
   }
 
   return null;
+}
+
+function escapeEnvQuotedValue(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
