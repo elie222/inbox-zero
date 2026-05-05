@@ -321,6 +321,70 @@ describe("createGenerateObject repairText", () => {
     );
   });
 
+  describe("Missing JSON in prompt warning", () => {
+    let warnSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    });
+
+    const wasMissingJsonWarned = () =>
+      warnSpy.mock.calls.some((args) =>
+        args.some(
+          (arg) =>
+            typeof arg === "string" && arg.includes("Missing JSON in prompt"),
+        ),
+      );
+
+    it("does not warn for messages-shaped calls", async () => {
+      const generateObject = await createTestGenerateObject();
+
+      await generateObject({
+        system: "Classify the email.",
+        messages: [{ role: "user", content: "Hello" }],
+        schema: {} as any,
+      } as any);
+
+      expect(wasMissingJsonWarned()).toBe(false);
+    });
+
+    it("warns when a prompt-shaped call mentions JSON nowhere", async () => {
+      const generateObject = await createTestGenerateObject();
+
+      await generateObject({
+        system: "Classify the email.",
+        prompt: "Hello there.",
+        schema: {} as any,
+      } as any);
+
+      expect(wasMissingJsonWarned()).toBe(true);
+    });
+
+    it("does not warn when the prompt mentions JSON", async () => {
+      const generateObject = await createTestGenerateObject();
+
+      await generateObject({
+        system: "Classify the email.",
+        prompt: "Return JSON.",
+        schema: {} as any,
+      } as any);
+
+      expect(wasMissingJsonWarned()).toBe(false);
+    });
+
+    it("does not warn when the system mentions JSON even if prompt doesn't", async () => {
+      const generateObject = await createTestGenerateObject();
+
+      await generateObject({
+        system: "Return JSON.",
+        prompt: "Classify this.",
+        schema: {} as any,
+      } as any);
+
+      expect(wasMissingJsonWarned()).toBe(false);
+    });
+  });
+
   it("falls back to next model on content-filter refusal without retrying primary", async () => {
     const contentFilterError = Object.assign(
       new Error("No object generated: could not parse the response."),

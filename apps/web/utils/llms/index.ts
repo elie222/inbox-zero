@@ -352,14 +352,17 @@ export function createGenerateObject({
         )?.slice(0, MAX_LOG_LENGTH),
       });
 
+      // Only warn for prompt-shaped calls. Messages-shaped callers (no
+      // `prompt` string) are out of scope; scanning every message for
+      // the literal "JSON" would be brittle and noisy.
       const systemIncludesJson =
         typeof protectedOptions.system === "string" &&
         protectedOptions.system.includes("JSON");
-      const promptIncludesJson =
+      if (
+        !systemIncludesJson &&
         typeof protectedOptions.prompt === "string" &&
-        protectedOptions.prompt.includes("JSON");
-
-      if (!systemIncludesJson && !promptIncludesJson) {
+        !protectedOptions.prompt.includes("JSON")
+      ) {
         logger.warn("Missing JSON in prompt", { label });
       }
 
