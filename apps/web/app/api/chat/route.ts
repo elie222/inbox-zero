@@ -41,7 +41,12 @@ export const POST = withEmailAccount("chat", async (request) => {
 
   const user = await getEmailAccountWithAi({ emailAccountId });
 
-  if (!user) return NextResponse.json({ error: "Not authenticated" });
+  if (!user) {
+    return NextResponse.json(
+      { error: "Email account not found" },
+      { status: 404 },
+    );
+  }
 
   const inboxStatsPromise = getInboxStatsForChatContext({
     emailAccountId,
