@@ -86,6 +86,9 @@ const REDIS_INSTANCE_OPTIONS = [
 
 const APP_NAME = "inbox-zero";
 const SERVICE_NAME = "inbox-zero-ecs";
+const ENVIRONMENT_NAME_REGEX = /^[a-z][a-z0-9-]*$/;
+const ENVIRONMENT_NAME_ERROR =
+  "Must start with a letter and contain only lowercase letters, numbers, and hyphens";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Main Setup Function
@@ -93,6 +96,12 @@ const SERVICE_NAME = "inbox-zero-ecs";
 
 export async function runAwsSetup(options: AwsSetupOptions) {
   p.intro("AWS Copilot Setup for Inbox Zero");
+
+  const environmentError = validateEnvironmentName(options.environment);
+  if (environmentError) {
+    p.log.error(`Invalid environment name: ${environmentError}`);
+    process.exit(1);
+  }
 
   const nonInteractive = options.yes === true;
   if (nonInteractive) {
@@ -246,13 +255,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
         message: "Environment name (e.g., production, staging, dev):",
         placeholder: "production",
         initialValue: "production",
-        validate: (v) => {
-          if (!v) return "Environment name is required";
-          if (!/^[a-z][a-z0-9-]*$/.test(v)) {
-            return "Must start with a letter and contain only lowercase letters, numbers, and hyphens";
-          }
-          return;
-        },
+        validate: (v) => validateEnvironmentName(v),
       });
 
       if (p.isCancel(envInput)) {
@@ -1003,6 +1006,17 @@ function checkAwsPrerequisites(): AwsPrerequisites {
   }
 
   return { awsCliInstalled, copilotInstalled, profile, region };
+}
+
+export function validateEnvironmentName(
+  environment: string | undefined,
+): string | undefined {
+  if (environment === undefined) return;
+  if (!environment) return "Environment name is required";
+  if (!ENVIRONMENT_NAME_REGEX.test(environment)) {
+    return ENVIRONMENT_NAME_ERROR;
+  }
+  return;
 }
 
 function getRegionForProfile(profile: string): string | null {
