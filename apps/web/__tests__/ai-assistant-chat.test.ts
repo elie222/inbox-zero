@@ -357,6 +357,36 @@ describe("aiProcessAssistantChat", () => {
     expect(systemPrompt).not.toContain("Draft replies in rules:");
   });
 
+  it("warns that chat-uploaded files cannot be used as outgoing email attachments", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      responseSurface: "messaging",
+      messagingPlatform: "telegram",
+      logger,
+    });
+
+    const systemPrompt = String(
+      mockToolCallAgentStream.mock.calls[0][0].messages[0].content,
+    );
+
+    expect(systemPrompt).toContain(
+      "Chat-uploaded files are not available as outgoing email attachments.",
+    );
+    expect(systemPrompt).toContain(
+      "do not call sendEmail, replyEmail, or forwardEmail for that file",
+    );
+  });
+
   it("guides rule recommendations through existing rules and inbox evidence", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,

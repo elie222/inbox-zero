@@ -58,6 +58,8 @@ describe("executor", () => {
       cc: null,
       bcc: null,
       url: null,
+      staticAttachments: null,
+      selectedAttachments: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       executedAt: null,
@@ -152,6 +154,121 @@ describe("executor", () => {
           executedAt: expect.any(Date),
           executedActionId: "executed-action-123",
         },
+      });
+    });
+
+    it("forwards selectedAttachments into the executed action", async () => {
+      const scheduledActionWithAttachments = {
+        ...mockScheduledAction,
+        actionType: ActionType.REPLY,
+        content: "Reply with attachment",
+        selectedAttachments: [
+          {
+            fileId: "drive-file-1",
+            name: "proposal.pdf",
+            mimeType: "application/pdf",
+          },
+        ],
+      };
+
+      prisma.scheduledAction.update.mockResolvedValue({
+        ...scheduledActionWithAttachments,
+        status: ScheduledActionStatus.COMPLETED,
+      } as any);
+      prisma.executedAction.create.mockResolvedValue({
+        id: "executed-action-123",
+        type: ActionType.REPLY,
+        label: null,
+        labelId: null,
+        folderName: null,
+        folderId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        executedRuleId: "rule-123",
+        subject: null,
+        content: "Reply with attachment",
+        to: null,
+        cc: null,
+        bcc: null,
+        url: null,
+        draftId: null,
+        wasDraftSent: null,
+        selectedAttachments: [
+          {
+            fileId: "drive-file-1",
+            name: "proposal.pdf",
+            mimeType: "application/pdf",
+          },
+        ],
+      });
+      prisma.executedRule.findUnique.mockResolvedValue({
+        id: "rule-123",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        status: "PENDING",
+        automated: true,
+        reason: null,
+        ruleId: null,
+      } as any);
+      prisma.scheduledAction.count.mockResolvedValue(0);
+      prisma.executedRule.update.mockResolvedValue({
+        id: "rule-123",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        status: "APPLIED",
+        automated: true,
+        reason: null,
+        ruleId: null,
+        matchMetadata: null,
+      });
+
+      const { runActionFunction } = await import("@/utils/ai/actions");
+      const { getEmailAccountWithAiAndTokens } = await import(
+        "@/utils/user/get"
+      );
+
+      (runActionFunction as any).mockResolvedValue(undefined);
+      (getEmailAccountWithAiAndTokens as any).mockResolvedValue({
+        id: "account-123",
+        userId: "user-123",
+        email: "test@example.com",
+        tokens: {
+          access_token: "token",
+          refresh_token: "refresh",
+          expires_at: Date.now() + 3_600_000,
+        },
+      });
+
+      const { createEmailProvider } = await import("@/utils/email/provider");
+      const mockEmailProvider = await createEmailProvider({
+        emailAccountId: "account-123",
+        provider: "google",
+      });
+
+      await executeScheduledAction(
+        scheduledActionWithAttachments,
+        mockEmailProvider,
+        logger,
+      );
+
+      expect(prisma.executedAction.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          type: ActionType.REPLY,
+          content: "Reply with attachment",
+          selectedAttachments: [
+            {
+              fileId: "drive-file-1",
+              name: "proposal.pdf",
+              mimeType: "application/pdf",
+            },
+          ],
+        }),
       });
     });
 

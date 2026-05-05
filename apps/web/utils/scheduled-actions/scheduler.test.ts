@@ -1,11 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ActionType, ScheduledActionStatus } from "@/generated/prisma/enums";
-import { cancelScheduledActions } from "./scheduler";
+import { cancelScheduledActions, createScheduledAction } from "./scheduler";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import prisma from "@/utils/__mocks__/prisma";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
+vi.mock("@/env", () => ({
+  env: {
+    QSTASH_TOKEN: "",
+  },
+}));
 vi.mock("@/utils/upstash", () => ({
   qstash: {
     messages: {
@@ -112,6 +117,51 @@ describe("scheduler", () => {
           where: expect.objectContaining({ threadId: "thread-123" }),
         }),
       );
+    });
+  });
+
+  describe("createScheduledAction", () => {
+    it("persists selectedAttachments for delayed actions", async () => {
+      prisma.scheduledAction.create.mockResolvedValue({
+        id: "scheduled-action-123",
+      } as any);
+
+      await createScheduledAction({
+        executedRuleId: "rule-123",
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        scheduledFor: new Date("2026-05-02T10:00:00.000Z"),
+        actionItem: {
+          type: ActionType.REPLY,
+          delayInMinutes: 15,
+          content: "Follow up",
+          selectedAttachments: [
+            {
+              fileId: "drive-file-1",
+              name: "proposal.pdf",
+              mimeType: "application/pdf",
+            },
+          ],
+        },
+      });
+
+      expect(prisma.scheduledAction.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          executedRuleId: "rule-123",
+          actionType: ActionType.REPLY,
+          messageId: "msg-123",
+          threadId: "thread-123",
+          emailAccountId: "account-123",
+          selectedAttachments: [
+            {
+              fileId: "drive-file-1",
+              name: "proposal.pdf",
+              mimeType: "application/pdf",
+            },
+          ],
+        }),
+      });
     });
   });
 });

@@ -164,6 +164,14 @@ type ResolvedMessagingContext = {
   threadLogContext: Record<string, unknown>;
 };
 
+type MessagingUserMessagesInput = {
+  hasUnsupportedAttachments: boolean;
+  imageParts: ImagePart[];
+  messageId: string;
+  messageText: string;
+  provider: SupportedPlatform;
+};
+
 type LinkedProviderIdentity = {
   hasUnsupportedAttachments: boolean;
   messageText: string;
@@ -642,30 +650,14 @@ async function processMessagingAssistantMessage({
         parts: chatMessage.parts as UIMessage["parts"],
       }));
 
-    const userMessageId = `${context.provider}-${message.id}`;
-    const userParts: UIMessage["parts"] = [
-      ...context.imageParts,
-      ...(context.messageText
-        ? [{ type: "text" as const, text: context.messageText }]
-        : []),
-    ];
-    const newUserMessage: UIMessage = {
-      id: userMessageId,
-      role: "user",
-      parts: userParts,
-    };
-    const modelUserMessage: UIMessage = context.hasUnsupportedAttachments
-      ? {
-          ...newUserMessage,
-          parts: [
-            {
-              type: "text" as const,
-              text: UNSUPPORTED_MESSAGING_ATTACHMENT_MODEL_CONTEXT,
-            },
-            ...newUserMessage.parts,
-          ],
-        }
-      : newUserMessage;
+    const { userMessageId, newUserMessage, modelUserMessage } =
+      buildMessagingUserMessages({
+        hasUnsupportedAttachments: context.hasUnsupportedAttachments,
+        imageParts: context.imageParts,
+        messageId: message.id,
+        messageText: context.messageText,
+        provider: context.provider,
+      });
 
     await prisma.chatMessage.upsert({
       where: { id: userMessageId },
@@ -2739,6 +2731,40 @@ export function buildPendingEmailCardFallbackText(normalizedText: string) {
   }
 
   return `${normalizedText}\n\n${failureGuidance}`;
+}
+
+export function buildMessagingUserMessages({
+  hasUnsupportedAttachments,
+  imageParts,
+  messageId,
+  messageText,
+  provider,
+}: MessagingUserMessagesInput) {
+  const userMessageId = `${provider}-${messageId}`;
+  const userParts: UIMessage["parts"] = [
+    ...imageParts,
+    ...(messageText ? [{ type: "text" as const, text: messageText }] : []),
+  ];
+  const newUserMessage: UIMessage = {
+    id: userMessageId,
+    role: "user",
+    parts: userParts,
+  };
+
+  const modelUserMessage: UIMessage = hasUnsupportedAttachments
+    ? {
+        ...newUserMessage,
+        parts: [
+          {
+            type: "text" as const,
+            text: UNSUPPORTED_MESSAGING_ATTACHMENT_MODEL_CONTEXT,
+          },
+          ...newUserMessage.parts,
+        ],
+      }
+    : newUserMessage;
+
+  return { userMessageId, newUserMessage, modelUserMessage };
 }
 
 function isAffirmativeReactionEvent(event: ReactionEvent) {
