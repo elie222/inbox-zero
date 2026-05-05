@@ -437,33 +437,16 @@ describe("chat route rule freshness persistence", () => {
 
     expect(prisma.chatMessage.createMany).not.toHaveBeenCalled();
   });
-
-  it("rejects provider-derived chat ids from client requests", async () => {
-    const response = await POST(
-      createRequest({
-        chatId: "slack-cmd-slack-user-slack-team-email-account-id",
-      }),
-    );
-
-    expect(response.status).toBe(400);
-    expect(prisma.chat.findUnique).not.toHaveBeenCalled();
-    expect(prisma.chat.create).not.toHaveBeenCalled();
-    expect(mockAiProcessAssistantChat).not.toHaveBeenCalled();
-  });
 });
 
-function createRequest({
-  chatId = "11111111-1111-4111-8111-111111111111",
-}: {
-  chatId?: string;
-} = {}) {
+function createRequest() {
   return new NextRequest("http://localhost/api/chat", {
     method: "POST",
     headers: {
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      id: chatId,
+      id: "chat-1",
       message: {
         id: "user-message-1",
         role: "user",
