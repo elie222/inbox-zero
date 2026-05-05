@@ -13,7 +13,7 @@ export const POST = withError("complete-registration", async (request) => {
   const logger = request.logger;
   const session = await auth(request.headers);
   if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const headersList = await headers();
   const eventSourceUrl = headersList.get("referer");
