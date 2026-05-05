@@ -1,5 +1,6 @@
 import { type InferUITool, tool } from "ai";
 import { z } from "zod";
+import { Prisma } from "@/generated/prisma/client";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { trackRuleToolCall } from "./shared";
@@ -41,27 +42,50 @@ Append by default; replace only when the user clearly wants an overwrite.`,
         logger,
       });
       try {
+        if (mode === "append") {
+          const [updatedAccount] = await prisma.$queryRaw<
+            Array<{ previous: string | null; updated: string | null }>
+          >(Prisma.sql`
+            WITH existing AS (
+              SELECT "id", "about" AS "previous"
+              FROM "EmailAccount"
+              WHERE "id" = ${emailAccountId}
+              FOR UPDATE
+            )
+            UPDATE "EmailAccount"
+            SET "about" = CASE
+              WHEN existing."previous" IS NULL OR existing."previous" = '' THEN ${personalInstructions}
+              ELSE existing."previous" || E'\n' || ${personalInstructions}
+            END
+            FROM existing
+            WHERE "EmailAccount"."id" = existing."id"
+            RETURNING existing."previous", "EmailAccount"."about" AS "updated"
+          `);
+
+          if (!updatedAccount) return { error: "Account not found" };
+
+          return {
+            success: true,
+            previous: updatedAccount.previous,
+            updated: updatedAccount.updated,
+          };
+        }
+
         const existing = await prisma.emailAccount.findUnique({
           where: { id: emailAccountId },
           select: { about: true },
         });
-
         if (!existing) return { error: "Account not found" };
-
-        const updatedAbout =
-          mode === "append" && existing.about
-            ? `${existing.about}\n${personalInstructions}`
-            : personalInstructions;
 
         await prisma.emailAccount.update({
           where: { id: emailAccountId },
-          data: { about: updatedAbout },
+          data: { about: personalInstructions },
         });
 
         return {
           success: true,
           previous: existing.about,
-          updated: updatedAbout,
+          updated: personalInstructions,
         };
       } catch (error) {
         logger.error("Failed to update personal instructions", { error });
