@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import {
   ChevronRightIcon,
   CreditCardIcon,
@@ -10,6 +10,7 @@ import {
   MessagesSquareIcon,
   PlugIcon,
   SendIcon,
+  ShieldCheckIcon,
   SparklesIcon,
   UserIcon,
   UsersIcon,
@@ -144,6 +145,31 @@ export default function SettingsPage() {
           </ItemCard>
         </SettingsGroup>
 
+        <SettingsGroup
+          icon={<ShieldCheckIcon className="size-5" />}
+          title="AI Content"
+        >
+          <LoadingContent loading={isLoading} error={error}>
+            {emailAccounts.length > 0 && (
+              <ItemCard>
+                {emailAccounts.map((emailAccount, index) => (
+                  <Fragment key={emailAccount.id}>
+                    {index > 0 && <ItemSeparator />}
+                    <AiSensitiveContentPolicySection
+                      emailAccountId={emailAccount.id}
+                      emailAccountEmail={emailAccount.email}
+                      aiSensitiveContentPolicy={
+                        emailAccount.aiSensitiveContentPolicy
+                      }
+                      managed={emailAccount.aiSensitiveContentPolicyManaged}
+                    />
+                  </Fragment>
+                ))}
+              </ItemCard>
+            )}
+          </LoadingContent>
+        </SettingsGroup>
+
         {(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false ||
           env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) && (
           <SettingsGroup
@@ -271,11 +297,6 @@ function EmailAccountSettingsCard({
       {expanded && (
         <>
           <OrgAnalyticsConsentSection emailAccountId={emailAccount.id} />
-          <AiSensitiveContentPolicySection
-            emailAccountId={emailAccount.id}
-            aiSensitiveContentPolicy={emailAccount.aiSensitiveContentPolicy}
-            managed={emailAccount.aiSensitiveContentPolicyManaged}
-          />
           <ToggleAllRulesSection emailAccountId={emailAccount.id} />
           <RuleImportExportSetting emailAccountId={emailAccount.id} />
           <CopyRulesSection
