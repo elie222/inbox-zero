@@ -43,7 +43,7 @@ describe("complete registration route", () => {
     vi.clearAllMocks();
   });
 
-  it("returns 401 when the user is not authenticated", async () => {
+  it("softly skips registration tracking when the user is not authenticated", async () => {
     authMock.mockResolvedValue(null);
 
     const response = await POST(
@@ -53,9 +53,10 @@ describe("complete registration route", () => {
       {} as never,
     );
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      error: "Not authenticated",
+      success: false,
+      reason: "not_authenticated",
     });
     expect(sendCompleteRegistrationEventMock).not.toHaveBeenCalled();
     expect(trackUserSignedUpMock).not.toHaveBeenCalled();
