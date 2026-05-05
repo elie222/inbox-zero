@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   generateSecret,
   generateEnvFile,
+  getEnvFileName,
   isSensitiveKey,
   parseEnvFile,
   parsePortConflict,
@@ -31,6 +32,22 @@ describe("generateSecret", () => {
       secrets.add(generateSecret(16));
     }
     expect(secrets.size).toBe(100);
+  });
+});
+
+describe("getEnvFileName", () => {
+  it("should reject names with path traversal characters", () => {
+    expect(() => getEnvFileName("../../secrets")).toThrow(
+      "Configuration name may only contain letters, numbers, underscores, and hyphens.",
+    );
+    expect(() => getEnvFileName("nested/config")).toThrow(
+      "Configuration name may only contain letters, numbers, underscores, and hyphens.",
+    );
+  });
+
+  it("should build env file names for safe config names", () => {
+    expect(getEnvFileName()).toBe(".env");
+    expect(getEnvFileName("staging_1-prod")).toBe(".env.staging_1-prod");
   });
 });
 

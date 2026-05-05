@@ -3,9 +3,24 @@ import { randomBytes } from "node:crypto";
 // Environment variable builder
 export type EnvConfig = Record<string, string | undefined>;
 
+const CONFIG_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
+const CONFIG_NAME_ERROR =
+  "Configuration name may only contain letters, numbers, underscores, and hyphens.";
+
 // Secret generation
 export function generateSecret(bytes: number): string {
   return randomBytes(bytes).toString("hex");
+}
+
+export function validateConfigName(name: string): string {
+  if (!CONFIG_NAME_PATTERN.test(name)) {
+    throw new Error(CONFIG_NAME_ERROR);
+  }
+  return name;
+}
+
+export function getEnvFileName(name?: string): string {
+  return name ? `.env.${validateConfigName(name)}` : ".env";
 }
 
 export function generateEnvFile(config: {
