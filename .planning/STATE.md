@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-04-27)
 ## Current Position
 
 Phase: 4 of 7 (Daily Digest)
-Plan: 0 of TBD in current phase (not started)
-Status: Phase 4 discuss-phase complete 2026-05-04. All 4 gray areas resolved. CONTEXT.md + DISCUSSION-LOG.md written. Visual contract locked via `digest-v2.tsx`. Ready for /gsd-plan-phase 4.
-Last activity: 2026-05-04 — Phase 4 discuss: 4 gray areas resolved (section structure & narrative voice, cron timing 9am ET, 218 backfill skip, Deals as Marketing sub-cluster); test emails sent + reviewed in Gmail; visual contract committed
+Plan: 6 of 6 plans code-complete; 2 operator checkpoints remain (Plan 03 Task 2 prod SQL + Plan 06 Task 2 EC2 systemd install)
+Status: Phase 4 code shipped 2026-05-04. All 6 plans authored, committed, typecheck clean across project. Plans 03 Task 2 (prod DB SQL execution) and 06 Task 2 (systemd timer install on EC2) await a single deploy session — both run after the next image deploy lands Plan 02 migration + Plan 04/05 code.
+Last activity: 2026-05-04 — Phase 4 execute: Plans 01/02/03-T1/04/05/06-T1 committed inline as orchestrator (sandbox blocked subagents from running git commit + prisma CLI); REQUIREMENTS.md updated; DigestSend model + migration; Sonnet batched generator; cron orchestrator + /api/cron/digest GET+POST; tests rewritten (compile clean, run blocked in this PowerShell session by case-mismatch bug); deploy/sql + deploy/systemd authored.
 
 Progress: [████░░░░░░] 43% (3 of 7 phases complete)
 
@@ -76,5 +76,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-05-04
-Stopped at: Phase 4 discuss-phase complete. CONTEXT.md + DISCUSSION-LOG.md written and committed. Visual contract `digest-v2.tsx` locked (verified via 4 test sends to rebekah@trueocean.com). Ready for `/gsd-plan-phase 4`.
+Stopped at: Phase 4 code complete. Two operator checkpoints remain — both run together in the next deploy session:
+  1. **Push to main** triggers GitHub Actions image build, then on EC2: `docker compose pull app && docker compose up -d app` (this applies the DigestSend Prisma migration via `prisma migrate deploy`).
+  2. **Run Plan 03 Task 2 SQL** against prod Postgres: Marketing DIGEST seed + 218-row backfill (cutoff timestamp must be updated to actual UTC time first). See `deploy/sql/README.md`.
+  3. **Install Plan 06 systemd units** on EC2: copy to /etc/systemd/system, daemon-reload, smoke-test the service unit, verify email arrives + DigestSend row, re-run for idempotency check, then enable the timer. See `deploy/systemd/README.md`.
+  4. **Day-2 async**: confirm next-morning auto-fired digest arrives without manual trigger; update `.planning/phases/04-daily-digest/04-06-SUMMARY.md` with the proof.
 Resume file: None
