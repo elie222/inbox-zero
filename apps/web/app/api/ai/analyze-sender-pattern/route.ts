@@ -26,6 +26,9 @@ const schema = z.object({
 });
 export type AnalyzeSenderPatternBody = z.infer<typeof schema>;
 
+const MAX_LOGGED_BODY_KEYS = 20;
+const MAX_LOGGED_BODY_KEY_LENGTH = 100;
+
 export const POST = withError(
   "api/ai/analyze-sender-pattern",
   async (request) => {
@@ -34,7 +37,9 @@ export const POST = withError(
     let logger = request.logger;
 
     if (!isValidInternalApiKey(await headers(), logger)) {
-      logger.error("Invalid API key for sender pattern analysis", json);
+      logger.error("Invalid API key for sender pattern analysis", {
+        bodyKeys: getSafeBodyKeys(json),
+      });
       return NextResponse.json({ error: "Invalid API key" });
     }
 
@@ -364,4 +369,12 @@ async function getEmailAccountWithRules({
       },
     },
   });
+}
+
+function getSafeBodyKeys(json: unknown) {
+  if (!json || typeof json !== "object" || Array.isArray(json)) return [];
+
+  return Object.keys(json)
+    .slice(0, MAX_LOGGED_BODY_KEYS)
+    .map((key) => key.slice(0, MAX_LOGGED_BODY_KEY_LENGTH));
 }
