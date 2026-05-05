@@ -5,6 +5,7 @@ import {
   buildHandledPendingEmailCard,
   buildPendingEmailConfirmationCard,
   buildPendingEmailCardFallbackText,
+  buildMessagingUserMessages,
   getPendingEmailHandledOpenText,
   getPendingEmailHandledStatus,
   getPendingEmailHandledTitle,
@@ -192,6 +193,55 @@ describe("buildPendingEmailCardFallbackText", () => {
     const input =
       "This draft is pending confirmation.\n\nI couldn't show the Send button right now. Ask me to prepare the draft again.";
     expect(buildPendingEmailCardFallbackText(input)).toBe(input);
+  });
+});
+
+describe("buildMessagingUserMessages", () => {
+  it("keeps unsupported attachment context out of persisted user-visible parts", () => {
+    const { userMessageId, newUserMessage, modelUserMessage } =
+      buildMessagingUserMessages({
+        hasUnsupportedAttachments: true,
+        imageParts: [],
+        messageId: "message-1",
+        messageText: "Please draft a reply about this file.",
+        provider: "telegram",
+      });
+
+    expect(userMessageId).toBe("telegram-message-1");
+    expect(newUserMessage.parts).toEqual([
+      { type: "text", text: "Please draft a reply about this file." },
+    ]);
+    expect(modelUserMessage.parts).toEqual([
+      expect.objectContaining({
+        type: "text",
+        text: expect.stringContaining(
+          "unsupported non-image file attachments",
+        ),
+      }),
+      { type: "text", text: "Please draft a reply about this file." },
+    ]);
+  });
+
+  it("does not inject hidden context when attachments are supported", () => {
+    const imagePart = {
+      type: "file" as const,
+      url: "data:image/png;base64,abc",
+      mediaType: "image/png",
+      filename: "image.png",
+    };
+    const { newUserMessage, modelUserMessage } = buildMessagingUserMessages({
+      hasUnsupportedAttachments: false,
+      imageParts: [imagePart],
+      messageId: "message-2",
+      messageText: "Summarize this image.",
+      provider: "slack",
+    });
+
+    expect(newUserMessage).toEqual(modelUserMessage);
+    expect(modelUserMessage.parts).toEqual([
+      imagePart,
+      { type: "text", text: "Summarize this image." },
+    ]);
   });
 });
 
