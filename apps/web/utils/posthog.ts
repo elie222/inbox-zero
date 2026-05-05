@@ -37,17 +37,17 @@ export function isPosthogLlmEvalApproved(email: string) {
 }
 
 async function getPosthogUserId(options: { email: string }) {
-  const personsEndpoint = `https://app.posthog.com/api/projects/${env.POSTHOG_PROJECT_ID}/persons/`;
+  const personsEndpoint = new URL(
+    `https://app.posthog.com/api/projects/${env.POSTHOG_PROJECT_ID}/persons/`,
+  );
+  personsEndpoint.searchParams.set("distinct_id", options.email);
 
   // 1. find user id by distinct id
-  const responseGet = await fetch(
-    `${personsEndpoint}?distinct_id=${options.email}`,
-    {
-      headers: {
-        Authorization: `Bearer ${env.POSTHOG_API_SECRET}`,
-      },
+  const responseGet = await fetch(personsEndpoint.toString(), {
+    headers: {
+      Authorization: `Bearer ${env.POSTHOG_API_SECRET}`,
     },
-  );
+  });
 
   const resGet: { results: { id: string; distinct_ids: string[] }[] } =
     await responseGet.json();
