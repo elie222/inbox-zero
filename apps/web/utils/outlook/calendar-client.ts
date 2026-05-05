@@ -120,14 +120,20 @@ export const getCalendarClientWithRefresh = async ({
       ...getMicrosoftGraphClientOptions(tokens.access_token),
     });
   } catch (error) {
-    const isInvalidGrantError =
-      error instanceof Error && error.message.includes("invalid_grant");
+    if (isMicrosoftCalendarReauthError(error)) {
+      logger.warn(
+        "Microsoft calendar authorization expired - user needs to reconnect",
+        {
+          emailAccountId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
 
-    if (isInvalidGrantError) {
-      logger.warn("Error refreshing Calendar access token", {
-        emailAccountId,
-        error: error.message,
-      });
+      await markMicrosoftCalendarDisconnected(emailAccountId);
+
+      throw new SafeError(
+        "Your Microsoft calendar authorization has expired. Please reconnect your calendar.",
+      );
     }
 
     throw error;
@@ -195,4 +201,34 @@ async function saveCalendarTokens({
     logger.error("Failed to save calendar tokens", { error, connectionId });
     throw error;
   }
+}
+
+async function markMicrosoftCalendarDisconnected(emailAccountId: string) {
+  await prisma.calendarConnection.updateMany({
+    where: {
+      emailAccountId,
+      provider: "microsoft",
+      isConnected: true,
+    },
+    data: { isConnected: false },
+  });
+}
+
+function isMicrosoftCalendarReauthError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return (
+    message.includes("AADSTS70000") ||
+    message.includes("AADSTS70008") ||
+    message.includes("AADSTS70011") ||
+    message.includes("AADSTS700082") ||
+    message.includes("AADSTS50173") ||
+    message.includes("AADSTS65001") ||
+    message.includes("AADSTS500011") ||
+    message.includes("AADSTS54005") ||
+    message.includes("AADSTS50076") ||
+    message.includes("AADSTS50079") ||
+    message.includes("AADSTS50158") ||
+    message.includes("invalid_grant")
+  );
 }
