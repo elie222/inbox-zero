@@ -1815,22 +1815,6 @@ function checkContainersRunning(composeArgs: string[]): boolean {
   return (result.stdout?.toString().trim() ?? "") !== "";
 }
 
-const CONFIG_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
-
-export function validateConfigName(name: string): string {
-  if (!CONFIG_NAME_PATTERN.test(name)) {
-    throw new Error(
-      "Configuration name may only contain letters, numbers, underscores, and hyphens.",
-    );
-  }
-
-  return name;
-}
-
-export function getEnvFileName(name?: string): string {
-  return name ? `.env.${validateConfigName(name)}` : ".env";
-}
-
 // Only run main() when executed directly, not when imported for testing
 const isMainModule =
   process.argv[1] &&
