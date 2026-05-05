@@ -23,6 +23,7 @@ import MeetingBriefingEmail, {
 import ColdEmailNotification, {
   type ColdEmailNotificationProps,
 } from "../emails/cold-email-notification";
+import DigestV2Email, { type DigestV2Props } from "../emails/digest-v2";
 
 const RESEND_NOT_CONFIGURED_MESSAGE =
   "Resend is not configured. You need to add a RESEND_API_KEY in your .env file for emails to work.";
@@ -320,4 +321,48 @@ export const sendColdEmailNotification = async ({
   }
 
   return result;
+};
+
+export const sendDigestV2Email = async ({
+  from,
+  to,
+  emailProps,
+  subject,
+}: {
+  from: string;
+  to: string;
+  emailProps: DigestV2Props;
+  subject: string;
+}): Promise<{ id: string | null }> => {
+  if (!resend) {
+    console.log(RESEND_NOT_CONFIGURED_MESSAGE);
+    return { id: null };
+  }
+
+  const react = <DigestV2Email {...emailProps} />;
+  const text = await render(react, { plainText: true });
+
+  const result = await resend.emails.send({
+    from,
+    to,
+    subject,
+    react,
+    text,
+    headers: {
+      "X-Entity-Ref-ID": nanoid(),
+    },
+    tags: [
+      {
+        name: "category",
+        value: "digest-v2",
+      },
+    ],
+  });
+
+  if (result.error) {
+    console.error("Error sending digest v2 email", result.error);
+    throw new Error(`Error sending digest v2 email: ${result.error.message}`);
+  }
+
+  return { id: result.data?.id ?? null };
 };
