@@ -101,12 +101,12 @@ export async function processAttachment({
 
     let retryFilingId: string | null = null;
     if (existingFiling) {
-      const existingResult = getExistingFilingResult(existingFiling, log);
-      if (existingResult.retryFilingId) {
-        retryFilingId = existingResult.retryFilingId;
+      const existingDecision = getExistingFilingDecision(existingFiling, log);
+      if (existingDecision.type === "retry") {
+        retryFilingId = existingDecision.filingId;
         claimedFilingId = retryFilingId;
       } else {
-        return existingResult.result;
+        return existingDecision.result;
       }
     }
 
@@ -147,7 +147,14 @@ export async function processAttachment({
           status: claimedFiling.status,
         });
 
-        return getExistingFilingResult(claimedFiling, log).result;
+        const claimedDecision = getExistingFilingDecision(claimedFiling, log);
+        if (claimedDecision.type === "return") return claimedDecision.result;
+
+        return {
+          success: false,
+          error: "Attachment is already being filed",
+          filingId: claimedDecision.filingId,
+        };
       }
     }
 
@@ -440,6 +447,10 @@ type AttachmentFiling = NonNullable<
   Awaited<ReturnType<typeof findAttachmentFiling>>
 >;
 
+type ExistingFilingDecision =
+  | { type: "retry"; filingId: string }
+  | { type: "return"; result: FilingResult };
+
 function findAttachmentFiling({
   emailAccountId,
   messageId,
@@ -473,7 +484,10 @@ function findAttachmentFiling({
   });
 }
 
-function getExistingFilingResult(filing: AttachmentFiling, logger: Logger) {
+function getExistingFilingDecision(
+  filing: AttachmentFiling,
+  logger: Logger,
+): ExistingFilingDecision {
   logger.info("Attachment already has a filing record", {
     filingId: filing.id,
     status: filing.status,
@@ -483,11 +497,12 @@ function getExistingFilingResult(filing: AttachmentFiling, logger: Logger) {
     logger.info("Retrying attachment after previous filing error", {
       filingId: filing.id,
     });
-    return { retryFilingId: filing.id };
+    return { type: "retry", filingId: filing.id };
   }
 
   if (filing.status === "PREVIEW") {
     return {
+      type: "return",
       result: {
         success: false,
         skipped: true,
@@ -500,6 +515,7 @@ function getExistingFilingResult(filing: AttachmentFiling, logger: Logger) {
 
   if (filing.status === "PROCESSING") {
     return {
+      type: "return",
       result: {
         success: false,
         error: "Attachment is already being filed",
@@ -509,6 +525,7 @@ function getExistingFilingResult(filing: AttachmentFiling, logger: Logger) {
   }
 
   return {
+    type: "return",
     result: {
       success: true,
       filing: {
