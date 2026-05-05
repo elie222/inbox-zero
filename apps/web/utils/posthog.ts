@@ -375,7 +375,8 @@ export const FIRST_TIME_EVENTS = {
 type FirstTimeEvent =
   (typeof FIRST_TIME_EVENTS)[keyof typeof FIRST_TIME_EVENTS];
 
-const firedFirstTimeEvents = new Set<string>();
+const MAX_FIRST_TIME_EVENT_CACHE_SIZE = 1000;
+const firedFirstTimeEvents = new Map<string, true>();
 
 /**
  * Uses User.email as distinctId (not EmailAccount.email) so the event attaches
@@ -391,11 +392,11 @@ export async function trackFirstTimeEvent({
   properties?: Record<string, unknown>;
 }) {
   const key = `first-event:${emailAccountId}:${event}`;
-  if (firedFirstTimeEvents.has(key)) return;
+  if (markFirstTimeEventCacheHit(key)) return;
 
   try {
     const firstTime = await redis.set(key, "1", { nx: true });
-    firedFirstTimeEvents.add(key);
+    addFirstTimeEventCacheKey(key);
     if (!firstTime) return;
 
     const emailAccount = await prisma.emailAccount.findUnique({
@@ -437,4 +438,22 @@ function getPosthogLlmEvalApprovedEmails() {
       .map((email) => email.trim().toLowerCase())
       .filter(Boolean) ?? []
   );
+}
+
+function markFirstTimeEventCacheHit(key: string) {
+  if (!firedFirstTimeEvents.has(key)) return false;
+
+  firedFirstTimeEvents.delete(key);
+  firedFirstTimeEvents.set(key, true);
+  return true;
+}
+
+function addFirstTimeEventCacheKey(key: string) {
+  firedFirstTimeEvents.delete(key);
+  firedFirstTimeEvents.set(key, true);
+
+  if (firedFirstTimeEvents.size <= MAX_FIRST_TIME_EVENT_CACHE_SIZE) return;
+
+  const oldestKey = firedFirstTimeEvents.keys().next().value;
+  if (oldestKey) firedFirstTimeEvents.delete(oldestKey);
 }

@@ -106,6 +106,34 @@ describe("trackFirstTimeEvent", () => {
     expect(captureMock).toHaveBeenCalledTimes(1);
   });
 
+  it("evicts older in-process dedupe keys so the cache stays bounded", async () => {
+    vi.mocked(redis.set).mockResolvedValue(null);
+
+    await trackFirstTimeEvent({
+      emailAccountId: "bounded-cache-first-account",
+      event: FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE,
+    });
+
+    for (let i = 0; i < 1000; i++) {
+      await trackFirstTimeEvent({
+        emailAccountId: `bounded-cache-account-${i}`,
+        event: FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE,
+      });
+    }
+
+    await trackFirstTimeEvent({
+      emailAccountId: "bounded-cache-first-account",
+      event: FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE,
+    });
+
+    expect(redis.set).toHaveBeenCalledTimes(1002);
+    expect(redis.set).toHaveBeenLastCalledWith(
+      `first-event:bounded-cache-first-account:${FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE}`,
+      "1",
+      { nx: true },
+    );
+  });
+
   it("does not capture when the email account has no user email", async () => {
     vi.mocked(redis.set).mockResolvedValue("OK");
 
