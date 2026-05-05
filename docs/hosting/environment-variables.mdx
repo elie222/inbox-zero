@@ -91,6 +91,8 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | **AI Content Controls** ||||
 | `SENSITIVE_DATA_POLICY_DEFAULT` | No | Default policy for handling sensitive data matches in LLM requests (`ALLOW`, `REDACT`, or `BLOCK`) | `ALLOW` |
 | `NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED` | No | Set to `true` to enforce the default policy for all accounts, disable account-level edits, and hide the setting in the UI | `false` |
+| **Reasoning Retention** ||||
+| `REASONING_RETENTION_DAYS` | No | Number of days to keep stale AI reasoning fields before the daily reasoning-retention cron redacts them. Covers only `ExecutedRule.reason` and `DocumentFiling.reasoning`; group learnings and other stored content are not redacted. Leave unset to disable reasoning cleanup. | Disabled |
 | **Background Jobs (QStash, optional)** ||||
 | `QSTASH_TOKEN` | No | QStash API token (optional; fallback runs jobs via internal API + cron) | — |
 | `QSTASH_CURRENT_SIGNING_KEY` | No | Current signing key for webhooks | — |
