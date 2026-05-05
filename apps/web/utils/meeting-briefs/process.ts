@@ -18,7 +18,7 @@ export type EmailAccountForBrief = {
   email: string;
   about: string | null;
   multiRuleSelectionEnabled: boolean;
-  aiSensitiveContentPolicy?: string | null;
+  aiSensitiveContentPolicy: string | null;
   timezone: string | null;
   calendarBookingLink: string | null;
   user: {
