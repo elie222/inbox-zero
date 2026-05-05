@@ -480,166 +480,193 @@ function NewChatButton() {
   );
 }
 
-function ChatHistoryDropdown() {
-  const [shouldLoadChats, setShouldLoadChats] = useState(false);
-  const [open, setOpen] = useState(false);
-  const { data, error, isLoading, mutate } = useChats(shouldLoadChats);
-
-  return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <Tooltip content="View previous conversations">
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            onMouseEnter={() => setShouldLoadChats(true)}
-            onClick={() => mutate()}
-          >
-            <HistoryIcon className="size-5" />
-            <span className="sr-only">Chat History</span>
-          </Button>
-        </DropdownMenuTrigger>
-      </Tooltip>
-      <DropdownMenuContent align="end" className="w-72">
-        <LoadingContent
-          loading={isLoading}
-          error={error}
-          loadingComponent={
-            <DropdownMenuItem
-              disabled
-              className="flex items-center justify-center"
-            >
-              <Loader2 className="mr-2 size-4 animate-spin" />
-              Loading chats...
-            </DropdownMenuItem>
-          }
-          errorComponent={
-            <DropdownMenuItem disabled>Error loading chats</DropdownMenuItem>
-          }
-        >
-          {data && data.chats.length > 0 ? (
-            data.chats.map((chatItem) => (
-              <ChatHistoryItem
-                key={chatItem.id}
-                chat={chatItem}
-                onMutate={mutate}
-                closeParent={() => setOpen(false)}
-              />
-            ))
-          ) : (
-            <DropdownMenuItem disabled>
-              No previous chats found
-            </DropdownMenuItem>
-          )}
-        </LoadingContent>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 type ChatHistoryItemData = {
   id: string;
   name: string | null;
   createdAt: string | Date;
 };
 
+function ChatHistoryDropdown() {
+  const [shouldLoadChats, setShouldLoadChats] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<ChatHistoryItemData | null>(
+    null,
+  );
+  const [deleteTarget, setDeleteTarget] = useState<ChatHistoryItemData | null>(
+    null,
+  );
+  const { chatId, setChatId } = useChat();
+  const { data, error, isLoading, mutate } = useChats(shouldLoadChats);
+
+  const renameLabel = renameTarget
+    ? (renameTarget.name ??
+      `Chat from ${new Date(renameTarget.createdAt).toLocaleString()}`)
+    : "";
+  const deleteLabel = deleteTarget
+    ? (deleteTarget.name ??
+      `Chat from ${new Date(deleteTarget.createdAt).toLocaleString()}`)
+    : "";
+
+  return (
+    <>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <Tooltip content="View previous conversations">
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onMouseEnter={() => setShouldLoadChats(true)}
+              onClick={() => mutate()}
+            >
+              <HistoryIcon className="size-5" />
+              <span className="sr-only">Chat History</span>
+            </Button>
+          </DropdownMenuTrigger>
+        </Tooltip>
+        <DropdownMenuContent align="end" className="w-72">
+          <LoadingContent
+            loading={isLoading}
+            error={error}
+            loadingComponent={
+              <DropdownMenuItem
+                disabled
+                className="flex items-center justify-center"
+              >
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Loading chats...
+              </DropdownMenuItem>
+            }
+            errorComponent={
+              <DropdownMenuItem disabled>Error loading chats</DropdownMenuItem>
+            }
+          >
+            {data && data.chats.length > 0 ? (
+              data.chats.map((chatItem) => (
+                <ChatHistoryItem
+                  key={chatItem.id}
+                  chat={chatItem}
+                  onSelect={() => {
+                    setOpen(false);
+                    setChatId(chatItem.id);
+                  }}
+                  onRename={() => {
+                    setOpen(false);
+                    setRenameTarget(chatItem);
+                  }}
+                  onDelete={() => {
+                    setOpen(false);
+                    setDeleteTarget(chatItem);
+                  }}
+                />
+              ))
+            ) : (
+              <DropdownMenuItem disabled>
+                No previous chats found
+              </DropdownMenuItem>
+            )}
+          </LoadingContent>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <RenameChatDialog
+        open={renameTarget !== null}
+        onOpenChange={(value) => {
+          if (!value) setRenameTarget(null);
+        }}
+        chatId={renameTarget?.id ?? ""}
+        currentName={renameTarget?.name ?? ""}
+        defaultLabel={renameLabel}
+        onRenamed={mutate}
+      />
+      <DeleteChatDialog
+        open={deleteTarget !== null}
+        onOpenChange={(value) => {
+          if (!value) setDeleteTarget(null);
+        }}
+        chatId={deleteTarget?.id ?? ""}
+        label={deleteLabel}
+        onDeleted={() => {
+          if (deleteTarget && chatId === deleteTarget.id) setChatId(null);
+          mutate();
+        }}
+      />
+    </>
+  );
+}
+
 function ChatHistoryItem({
   chat,
-  onMutate,
-  closeParent,
+  onSelect,
+  onRename,
+  onDelete,
 }: {
   chat: ChatHistoryItemData;
-  onMutate: () => void;
-  closeParent: () => void;
+  onSelect: () => void;
+  onRename: () => void;
+  onDelete: () => void;
 }) {
-  const { chatId, setChatId } = useChat();
-  const [renameOpen, setRenameOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const label =
     chat.name ?? `Chat from ${new Date(chat.createdAt).toLocaleString()}`;
 
   return (
-    <>
-      <div className="group/chat-row relative flex items-center">
-        <DropdownMenuItem
-          className="flex-1 truncate pr-9"
-          onSelect={() => setChatId(chat.id)}
-        >
-          <span className="truncate">{label}</span>
-        </DropdownMenuItem>
-        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label="Chat options"
-              className={
-                "absolute right-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground focus:opacity-100 focus:outline-none " +
-                (menuOpen
-                  ? "opacity-100"
-                  : "opacity-0 group-hover/chat-row:opacity-100")
-              }
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                setMenuOpen(true);
-              }}
-            >
-              <MoreHorizontalIcon className="size-4" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            side="right"
-            onCloseAutoFocus={(e) => e.preventDefault()}
+    <div className="group/chat-row relative flex items-center">
+      <DropdownMenuItem
+        className="flex-1 truncate pr-9"
+        onSelect={() => onSelect()}
+      >
+        <span className="truncate">{label}</span>
+      </DropdownMenuItem>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label="Chat options"
+            className={
+              "absolute right-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground focus:opacity-100 focus:outline-none " +
+              (menuOpen
+                ? "opacity-100"
+                : "opacity-0 group-hover/chat-row:opacity-100")
+            }
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              setMenuOpen(true);
+            }}
           >
-            <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault();
-                setMenuOpen(false);
-                closeParent();
-                setRenameOpen(true);
-              }}
-            >
-              <PencilIcon className="mr-2 size-4" />
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault();
-                setMenuOpen(false);
-                closeParent();
-                setDeleteOpen(true);
-              }}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash2Icon className="mr-2 size-4" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <RenameChatDialog
-        open={renameOpen}
-        onOpenChange={setRenameOpen}
-        chatId={chat.id}
-        currentName={chat.name ?? ""}
-        defaultLabel={label}
-        onRenamed={onMutate}
-      />
-      <DeleteChatDialog
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        chatId={chat.id}
-        label={label}
-        onDeleted={() => {
-          if (chatId === chat.id) setChatId(null);
-          onMutate();
-        }}
-      />
-    </>
+            <MoreHorizontalIcon className="size-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          side="right"
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              setMenuOpen(false);
+              onRename();
+            }}
+          >
+            <PencilIcon className="mr-2 size-4" />
+            Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              setMenuOpen(false);
+              onDelete();
+            }}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2Icon className="mr-2 size-4" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 
@@ -767,8 +794,8 @@ function DeleteChatDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete chat?</AlertDialogTitle>
           <AlertDialogDescription>
-            This will permanently delete &ldquo;{label}&rdquo; and all of its
-            messages. This action cannot be undone.
+            &ldquo;{label}&rdquo; will be removed from your chat history and its
+            messages will be redacted. This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
