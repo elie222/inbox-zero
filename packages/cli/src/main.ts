@@ -14,6 +14,7 @@ import {
   parsePortConflict,
   updateEnvValue,
   redactValue,
+  getEnvFileName,
   type EnvConfig,
 } from "./utils";
 import { LLM_PROVIDER_OPTIONS, promptLlmCredentials } from "./llm";
@@ -118,7 +119,7 @@ function fixComposeEnvPaths(composeContent: string): string {
 }
 
 function findEnvFile(name?: string): string | null {
-  const envFileName = name ? `.env.${name}` : ".env";
+  const envFileName = getEnvFileName(name);
 
   if (REPO_ROOT) {
     const repoEnv = resolve(REPO_ROOT, "apps/web", envFileName);
@@ -552,7 +553,7 @@ async function runSetupQuick(options: { name?: string }) {
 
   // Determine file paths first so we can read existing config
   const configDir = REPO_ROOT ?? STANDALONE_CONFIG_DIR;
-  const envFileName = configName ? `.env.${configName}` : ".env";
+  const envFileName = getEnvFileName(configName);
   const envFile = REPO_ROOT
     ? resolve(REPO_ROOT, "apps/web", envFileName)
     : resolve(STANDALONE_CONFIG_DIR, envFileName);
@@ -874,7 +875,7 @@ async function runSetupAdvanced(options: { name?: string }) {
 
   // Determine paths - if in repo, write to apps/web/.env, otherwise use standalone
   const configDir = REPO_ROOT ?? STANDALONE_CONFIG_DIR;
-  const envFileName = configName ? `.env.${configName}` : ".env";
+  const envFileName = getEnvFileName(configName);
   const envFile = REPO_ROOT
     ? resolve(REPO_ROOT, "apps/web", envFileName)
     : resolve(STANDALONE_CONFIG_DIR, envFileName);
@@ -1812,6 +1813,22 @@ function checkContainersRunning(composeArgs: string[]): boolean {
   });
   if (result.status !== 0) return false;
   return (result.stdout?.toString().trim() ?? "") !== "";
+}
+
+const CONFIG_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
+
+export function validateConfigName(name: string): string {
+  if (!CONFIG_NAME_PATTERN.test(name)) {
+    throw new Error(
+      "Configuration name may only contain letters, numbers, underscores, and hyphens.",
+    );
+  }
+
+  return name;
+}
+
+export function getEnvFileName(name?: string): string {
+  return name ? `.env.${validateConfigName(name)}` : ".env";
 }
 
 // Only run main() when executed directly, not when imported for testing
