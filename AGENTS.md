@@ -74,3 +74,16 @@ See `.claude/skills/fullstack-workflow/SKILL.md` for full examples and templates
 - Data fetching: SWR on the client. Call `mutate()` after mutations.
 - Forms: React Hook Form + `useAction` hook. Use `getActionErrorMessage(error.error)` for errors.
 - Loading states: use `LoadingContent` component.
+
+## Cursor Cloud specific instructions
+
+See `.claude/skills/cloud-dev-environment/SKILL.md` for full service startup steps.
+
+Key non-obvious caveats:
+- **Docker daemon**: Run `sudo dockerd &>/dev/null &` then `sudo chmod 666 /var/run/docker.sock` if Docker is not already running (check `docker info`). The VM uses `fuse-overlayfs` storage driver and `iptables-legacy`.
+- **Docker Compose plugin**: The VM ships `docker-compose` (v1) but not the `docker compose` plugin (v2). If missing, install manually: `sudo mkdir -p /usr/local/lib/docker/cli-plugins && sudo curl -SL https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose && sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose`.
+- **`env.ts` validation**: The app hard-requires `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` at startup. Use the Google emulator credentials (`emulate-google-client.apps.googleusercontent.com` / `emulate-google-secret`) with `GOOGLE_BASE_URL=http://localhost:4002` for local dev without real Google OAuth. Start the emulator via `docker compose -f docker-compose.dev.yml --profile google-emulator up -d`.
+- **`UPSTASH_REDIS_TOKEN`**: Must be set to `dev_token` to match the `SRH_TOKEN` default in `docker-compose.dev.yml`.
+- **`DEFAULT_LLM_PROVIDER`**: Required; set to any valid provider (e.g. `openai`) even with a placeholder API key to avoid startup crash.
+- **Prisma migrations**: Always use `pnpm prisma:migrate:local` (not bare `prisma migrate dev`) — it loads `.env.local` via `dotenv-cli`.
+- **Onboarding flow**: After a fresh login via the Google emulator, the app forces an onboarding wizard. Some onboarding buttons require JavaScript `click()` calls rather than standard browser clicks (React event delegation quirk in headless/automation contexts).
