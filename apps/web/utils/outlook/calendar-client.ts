@@ -13,6 +13,8 @@ import {
   type AuthenticationProvider,
 } from "@microsoft/microsoft-graph-client";
 
+const TOKEN_REFRESH_BUFFER_MS = 10 * 60 * 1000;
+
 class CalendarAuthProvider implements AuthenticationProvider {
   private readonly accessToken: string;
 
@@ -57,7 +59,11 @@ export const getCalendarClientWithRefresh = async ({
   if (!refreshToken) throw new SafeError("No refresh token");
 
   // Check if token is still valid
-  if (expiresAt && expiresAt > Date.now() && accessToken) {
+  if (
+    expiresAt &&
+    expiresAt > Date.now() + TOKEN_REFRESH_BUFFER_MS &&
+    accessToken
+  ) {
     const authProvider = new CalendarAuthProvider(accessToken);
     return Client.initWithMiddleware({
       authProvider,
