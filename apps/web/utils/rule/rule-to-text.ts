@@ -62,13 +62,16 @@ export function ruleToText(rule: RuleWithActions): string {
         actions.push("Draft a reply");
         break;
       case ActionType.NOTIFY_MESSAGING_CHANNEL:
-        actions.push("Notify via chat app");
+        actions.push("Send notification");
         break;
       case ActionType.MARK_SPAM:
         actions.push("Mark as spam");
         break;
       case ActionType.MARK_READ:
         actions.push("Mark as read");
+        break;
+      case ActionType.STAR:
+        actions.push("Star");
         break;
       case ActionType.CALL_WEBHOOK:
         if (action.url) {

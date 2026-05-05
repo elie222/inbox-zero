@@ -331,7 +331,7 @@ async function evaluateScenario(
               criterion: {
                 name: "Personal instructions semantics",
                 description:
-                  "The stored personal instructions should preserve the user's directly stated future preference, even if the wording shifts slightly between first-person and imperative style.",
+                  "The stored personal instructions should preserve the same durable preference. First-person, third-person, and imperative wording are all acceptable. Do not require the exact sentence form. Judge only whether the expected preference is present; do not require extra preferences from surrounding retrieved content.",
               },
             })
           : null;

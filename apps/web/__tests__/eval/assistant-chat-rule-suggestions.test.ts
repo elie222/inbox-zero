@@ -36,7 +36,7 @@ import { ActionType } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
 
-// EVAL_MODELS=gemini-3-flash pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-rule-suggestions.test.ts
+// pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-rule-suggestions.test.ts
 
 vi.mock("server-only", () => ({}));
 
@@ -122,6 +122,8 @@ type Scenario = {
   messages: ModelMessage[];
   rules?: DemoInboxRuleRow[];
   expectRuleWrite?: boolean;
+  expectQuestion?: boolean;
+  maxFinalWords?: number;
 };
 
 type EpisodeScenario = {
@@ -137,11 +139,23 @@ const saasRules = toRuleRows({
   rules: saasFounderRuleSuggestionFixture.rules,
 });
 
+const oneOffEventRules = toRuleRows({
+  rules: [
+    {
+      name: "Legal",
+      instructions:
+        "Legal, contract, licensing, procurement, or agreement review threads.",
+      actions: [labelAction("Legal")],
+      runOnThreads: true,
+    },
+  ],
+});
+
 const scenarios: Scenario[] = [
   {
     name: "open-ended rule ideas from a mixed inbox sample",
     expected:
-      "Gemini should inspect existing rules and enough inbox evidence to find recurring patterns, avoid duplicate suggestions, propose user-specific rule ideas that improve inbox efficiency, and ask focused questions about important vs low-priority items when priority is unclear.",
+      "The assistant should inspect existing rules and enough inbox evidence to find recurring patterns, avoid duplicate suggestions, propose user-specific rule ideas that improve inbox efficiency, and ask focused questions about important vs low-priority items when priority is unclear.",
     fixture: saasFounderRuleSuggestionFixture.inbox,
     account: saasFounderRuleSuggestionFixture.account,
     inboxStats: { total: 1840, unread: 73 },
@@ -157,7 +171,7 @@ const scenarios: Scenario[] = [
   {
     name: "avoid duplicate default rules and find custom opportunities",
     expected:
-      "Gemini should check what this user already has handled, then focus on user-specific candidates like customer escalations, security/compliance, and auditor requests.",
+      "The assistant should check what this user already has handled, then focus on user-specific candidates like customer escalations, security/compliance, and auditor requests.",
     fixture: saasFounderRuleSuggestionFixture.inbox,
     account: saasFounderRuleSuggestionFixture.account,
     inboxStats: { total: 2310, unread: 118 },
@@ -180,9 +194,32 @@ const scenarios: Scenario[] = [
     ],
   },
   {
+    name: "interview request avoids one-off event rules",
+    expected:
+      "The assistant should inspect rules and inbox evidence, keep the answer compact, ask a focused calibration question, and avoid turning one-off event logistics into a bootcamp or Calendar/FYI rule.",
+    fixture: oneOffEventRuleSuggestionFixture(),
+    account: {
+      email: "founder@example.com",
+      timezone: "America/Los_Angeles",
+      about:
+        "I run a software company and want help separating urgent customer and legal work from low-priority outreach.",
+    },
+    inboxStats: { total: 106, unread: 40 },
+    messages: [
+      {
+        role: "user",
+        content:
+          "Suggest rules I should add. Look at my inbox and ask me about my flow if that would help.",
+      },
+    ],
+    rules: oneOffEventRules,
+    expectQuestion: true,
+    maxFinalWords: 220,
+  },
+  {
     name: "calibrated follow-up creates a low-priority updates rule",
     expected:
-      "After the user explicitly confirms priority and action, Gemini may create a Product Updates rule that labels and archives vendor product digests while excluding security and billing alerts.",
+      "After the user explicitly confirms priority and action, the assistant may create a Product Updates rule that labels and archives vendor product digests while excluding security and billing alerts.",
     fixture: saasFounderRuleSuggestionFixture.inbox,
     account: saasFounderRuleSuggestionFixture.account,
     inboxStats: { total: 1840, unread: 73 },
@@ -212,7 +249,7 @@ const episodeScenarios: EpisodeScenario[] = [
   {
     name: "multi-turn rule discovery calibrates before creating a rule",
     expected:
-      "Gemini should first inspect rules and the inbox, then create a Product Updates rule only after the user confirms that category and exclusions.",
+      "The assistant should first inspect rules and the inbox, then create a Product Updates rule only after the user confirms that category and exclusions.",
     fixture: saasFounderRuleSuggestionFixture.inbox,
     account: saasFounderRuleSuggestionFixture.account,
     inboxStats: { total: 1840, unread: 73 },
@@ -270,20 +307,23 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule suggestions", () => {
               expected: scenario.expected,
               actual: formatErrorForReport(error),
             });
-            return;
+            throw error;
           }
 
           const analysis = analyzeTrace(trace);
           const expectRuleWrite =
             scenario.expectRuleWrite ?? scenario.name.includes("creates");
-          const pass =
-            analysis.usedRulesTool &&
-            analysis.usedSearchTool &&
-            (expectRuleWrite
-              ? analysis.usedCreateRule
-              : analysis.noRuleWrite) &&
-            analysis.mentionsEvidence &&
-            analysis.mentionsPriority;
+          const pass = expectRuleWrite
+            ? analysis.usedCreateRule &&
+              hasExpectedCreatedRule(scenario, state.createdRules)
+            : analysis.usedRulesTool &&
+              analysis.usedSearchTool &&
+              analysis.noRuleWrite &&
+              analysis.mentionsEvidence &&
+              analysis.mentionsPriority &&
+              (!scenario.expectQuestion || analysis.asksQuestion) &&
+              (!scenario.maxFinalWords ||
+                analysis.wordCount <= scenario.maxFinalWords);
 
           evalReporter.record({
             testName: scenario.name,
@@ -295,6 +335,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule suggestions", () => {
           });
 
           expect(trace.finalText.trim().length).toBeGreaterThan(0);
+          expect(pass).toBe(true);
         },
         TIMEOUT,
       );
@@ -357,6 +398,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule suggestions", () => {
             });
 
             expect(episode.finalText.trim().length).toBeGreaterThan(0);
+            expect(pass).toBe(true);
           } catch (error) {
             evalReporter.record({
               testName: scenario.name,
@@ -366,6 +408,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule suggestions", () => {
               expected: scenario.expected,
               actual: formatErrorForReport(error),
             });
+            throw error;
           }
         },
         TIMEOUT,
@@ -430,10 +473,156 @@ function labelAction(label: string) {
   };
 }
 
+function oneOffEventRuleSuggestionFixture(): DemoInboxFixture {
+  return {
+    id: "oneOffEventRuleSuggestion",
+    name: "One-Off Event Rule Suggestion Inbox",
+    description:
+      "A founder inbox with one-off event logistics mixed with recurring support, legal, and outreach patterns.",
+    mailbox: {
+      email: "founder@example.com",
+      displayName: "Founder",
+      timezone: "America/Los_Angeles",
+    },
+    labels: [
+      { id: "INBOX", name: "INBOX", type: "system" },
+      { id: "UNREAD", name: "UNREAD", type: "system" },
+      { id: "SENT", name: "SENT", type: "system" },
+      { id: "Label_To Reply", name: "To Reply", type: "user" },
+      { id: "Label_FYI", name: "FYI", type: "user" },
+      { id: "Label_Legal", name: "Legal", type: "user" },
+      { id: "Label_Support", name: "Support", type: "user" },
+      { id: "Label_Customer", name: "Customer", type: "user" },
+      { id: "Label_Partnership", name: "Partnership", type: "user" },
+    ],
+    threads: [
+      fixtureThread("one-off-event-thread", [
+        fixtureMessage({
+          id: "one-off-event-message",
+          from: fixturePerson(
+            "Cloud Marketplace",
+            "events@cloudvendor.example",
+          ),
+          to: [fixturePerson("Founder", "founder@example.com")],
+          subject: "Cloud marketplace bootcamp prerequisites",
+          bodyText:
+            "Sharing the prep checklist for the upcoming bootcamp. This is for a single workshop session.",
+          unread: true,
+          labels: ["INBOX"],
+          date: "2026-04-22T16:00:00.000Z",
+        }),
+      ]),
+      fixtureThread("support-handoff-1", [
+        fixtureMessage({
+          id: "support-handoff-message-1",
+          from: fixturePerson("Support Inbox", "notifications@support.example"),
+          to: [fixturePerson("Founder", "founder@example.com")],
+          subject: "Customer asks for Gmail rate limit update",
+          bodyText:
+            "The customer asked: Any update on the Gmail rate limiting issue?",
+          unread: true,
+          labels: ["INBOX", "To Reply"],
+          date: "2026-04-22T15:00:00.000Z",
+        }),
+      ]),
+      fixtureThread("support-handoff-2", [
+        fixtureMessage({
+          id: "support-handoff-message-2",
+          from: fixturePerson("Support Inbox", "notifications@support.example"),
+          to: [fixturePerson("Founder", "founder@example.com")],
+          subject: "Customer waiting on setup answer",
+          bodyText:
+            "Customer says: Can you confirm whether workspace setup is complete?",
+          unread: true,
+          labels: ["INBOX", "To Reply"],
+          date: "2026-04-21T11:30:00.000Z",
+        }),
+      ]),
+      fixtureThread("link-swap-1", [
+        fixtureMessage({
+          id: "link-swap-message-1",
+          from: fixturePerson("Outreach Sender", "sender@example.net"),
+          to: [fixturePerson("Founder", "founder@example.com")],
+          subject: "Link Partnership proposal",
+          bodyText:
+            "Following up about swapping links between our resources pages.",
+          unread: true,
+          labels: ["INBOX"],
+          date: "2026-04-21T09:00:00.000Z",
+        }),
+      ]),
+      fixtureThread("link-swap-2", [
+        fixtureMessage({
+          id: "link-swap-message-2",
+          from: fixturePerson("Outreach Sender", "sender@example.net"),
+          to: [fixturePerson("Founder", "founder@example.com")],
+          subject: "Swap Links follow-up",
+          bodyText:
+            "Checking again whether you are open to a link partnership.",
+          unread: true,
+          labels: ["INBOX"],
+          date: "2026-04-20T09:00:00.000Z",
+        }),
+      ]),
+    ],
+  };
+}
+
+function fixtureThread(
+  id: string,
+  messages: DemoInboxFixture["threads"][number]["messages"],
+) {
+  return { id, messages };
+}
+
+function fixtureMessage(
+  message: DemoInboxFixture["threads"][number]["messages"][number],
+) {
+  return message;
+}
+
+function fixturePerson(name: string, email: string) {
+  return { name, email };
+}
+
 function analyzeTrace(trace: AssistantChatTrace) {
   return analyzeAssistantOutput({
     finalText: trace.finalText,
     toolCalls: trace.toolCalls,
+  });
+}
+
+function hasExpectedCreatedRule(
+  scenario: Scenario,
+  createdRules: DemoInboxRuleRow[],
+) {
+  if (!scenario.expectRuleWrite && !scenario.name.includes("creates")) {
+    return createdRules.length === 0;
+  }
+
+  if (!scenario.name.toLowerCase().includes("product")) {
+    return createdRules.length > 0;
+  }
+
+  return createdRules.some((rule) => {
+    const lowerName = rule.name.toLowerCase();
+    const lowerInstructions = (rule.instructions ?? "").toLowerCase();
+    const hasProductLabel = rule.actions.some(
+      (action) =>
+        action.type === ActionType.LABEL &&
+        action.label?.toLowerCase() === "product updates",
+    );
+    const hasArchive = rule.actions.some(
+      (action) => action.type === ActionType.ARCHIVE,
+    );
+
+    return (
+      lowerName.includes("product") &&
+      lowerInstructions.includes("security") &&
+      lowerInstructions.includes("billing") &&
+      hasProductLabel &&
+      hasArchive
+    );
   });
 }
 
@@ -478,6 +667,7 @@ function analyzeAssistantOutput({
     mentionsPriority: ["priority", "urgent", "high", "low", "important"].some(
       (term) => lowerText.includes(term),
     ),
+    wordCount: finalText.trim().split(/\s+/).filter(Boolean).length,
   };
 }
 

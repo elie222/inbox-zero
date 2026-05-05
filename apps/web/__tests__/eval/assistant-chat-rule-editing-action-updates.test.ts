@@ -2,10 +2,9 @@ import type { ModelMessage } from "ai";
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   captureAssistantChatToolCalls,
+  getLastRuleActionsUpdate,
   hasActionType,
   hasLabelAction,
-  isUpdateRuleActionsInput,
-  getLastMatchingToolCall,
   summarizeRecordedToolCalls,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
@@ -163,20 +162,12 @@ describe.runIf(shouldRunEval)(
               ],
             });
 
-            const updateCall = getLastMatchingToolCall(
-              toolCalls,
-              "updateRuleActions",
-              isUpdateRuleActionsInput,
-            )?.input;
-            const updateCallIndex = getLastToolCallIndex(
-              toolCalls,
-              "updateRuleActions",
-            );
+            const updateCall = getLastRuleActionsUpdate(toolCalls);
 
             const pass =
               !!updateCall &&
               updateCall.ruleName === "Notification" &&
-              hasRuleReadBeforeUpdate(toolCalls, updateCallIndex) &&
+              hasRuleReadBeforeUpdate(toolCalls, updateCall.index) &&
               !toolCalls.some(
                 (toolCall) => toolCall.toolName === "createRule",
               ) &&
@@ -208,11 +199,7 @@ describe.runIf(shouldRunEval)(
               ],
             });
 
-            const updateCall = getLastMatchingToolCall(
-              toolCalls,
-              "updateRuleActions",
-              isUpdateRuleActionsInput,
-            )?.input;
+            const updateCall = getLastRuleActionsUpdate(toolCalls);
 
             const pass =
               !!updateCall &&

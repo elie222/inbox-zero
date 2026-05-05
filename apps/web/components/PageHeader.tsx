@@ -1,8 +1,5 @@
-import { OnboardingDialogContent } from "@/components/OnboardingModal";
+import { PageHeaderVideoButton } from "@/components/PageHeaderVideoButton";
 import { PageHeading, PageSubHeading } from "@/components/Typography";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogTrigger } from "@/components/ui/dialog";
-import { PlayIcon } from "lucide-react";
 
 type Video = {
   title: string;
@@ -28,28 +25,9 @@ export function PageHeader({ title, video, description }: PageHeaderProps) {
           )}
         </div>
         {video && (video.youtubeVideoId || video.muxPlaybackId) && (
-          <WatchVideo video={video} />
+          <PageHeaderVideoButton video={video} />
         )}
       </div>
     </div>
-  );
-}
-
-function WatchVideo({ video }: { video: Video }) {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="xs">
-          <PlayIcon className="mr-2 size-3" />
-          Watch demo
-        </Button>
-      </DialogTrigger>
-      <OnboardingDialogContent
-        title={video.title}
-        description={video.description}
-        youtubeVideoId={video.youtubeVideoId}
-        muxPlaybackId={video.muxPlaybackId}
-      />
-    </Dialog>
   );
 }

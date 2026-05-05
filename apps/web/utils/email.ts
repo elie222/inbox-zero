@@ -154,6 +154,26 @@ export function formatEmailWithName(
   return `${name} <${address}>`;
 }
 
+export function getNewsletterSenderDisplayName({
+  email,
+  fromName,
+  minFromName,
+  maxFromName,
+}: {
+  email: string;
+  fromName?: string | null;
+  minFromName?: string | null;
+  maxFromName?: string | null;
+}) {
+  const hasMultipleDisplayNames =
+    !!minFromName && !!maxFromName && minFromName !== maxFromName;
+  const domain = extractDomainFromEmail(email);
+
+  if (hasMultipleDisplayNames && domain) return domain;
+
+  return fromName?.trim() || "";
+}
+
 // Public email providers where we should search by full email address
 // For company domains, we search by domain to catch emails from different people at same company
 export const PUBLIC_EMAIL_DOMAINS = new Set([

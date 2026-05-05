@@ -46,6 +46,7 @@ import {
   getCategorizationStatusSnapshot,
 } from "@/utils/redis/categorization-progress";
 import { extractErrorInfo, isRetryableError } from "@/utils/outlook/retry";
+import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
 
 const SEARCH_INBOX_MAX_RESULTS = 20;
 const MAX_SENDER_CATEGORIZATION_WAIT_MS = 1500;
@@ -440,10 +441,9 @@ function searchInboxInputSchema(provider: string) {
       .max(SEARCH_INBOX_MAX_RESULTS)
       .default(SEARCH_INBOX_MAX_RESULTS)
       .describe("Maximum number of messages to return."),
-    pageToken: z
-      .string()
-      .nullish()
-      .describe("Use the page token returned from a prior search to paginate."),
+    pageToken: microsoftGraphPageTokenSchema.describe(
+      "Use the page token returned from a prior search to paginate.",
+    ),
   });
 }
 
@@ -629,7 +629,7 @@ const readAttachmentInputSchema = z.object({
     ),
   attachmentId: z
     .string()
-    .describe("The attachment ID (from readEmail attachment metadata)"),
+    .describe("The attachment ID from readEmail attachment metadata"),
   mimeType: z
     .string()
     .optional()
@@ -653,7 +653,7 @@ export const readAttachmentTool = ({
 }) =>
   tool({
     description:
-      "Read the text content of an email attachment. Supports PDF, DOCX, plain text, CSV, and HTML. Returns metadata only for binary files (images, etc.).",
+      "Read the text content of an email attachment. First call readEmail for the message and use its attachment metadata; do not guess attachment IDs. Supports PDF, DOCX, plain text, CSV, and HTML. Returns metadata only for binary files (images, etc.).",
     inputSchema: readAttachmentInputSchema,
     execute: async ({
       messageId,

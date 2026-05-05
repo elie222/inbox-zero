@@ -13,6 +13,10 @@ import type {
   UpdateRuleConditionsTool,
 } from "@/utils/ai/assistant/tools/rules/update-rule-conditions-tool";
 import type {
+  UpdateRuleOutput,
+  UpdateRuleTool,
+} from "@/utils/ai/assistant/tools/rules/update-rule-tool";
+import type {
   UpdateRuleStateOutput,
   UpdateRuleStateTool,
 } from "@/utils/ai/assistant/tools/rules/update-rule-state-tool";
@@ -76,6 +80,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  RuleSummaryCard,
+  RuleSummaryCardHeader,
+  RuleSummaryLabel,
+  RuleSummaryRow,
+} from "@/components/assistant-chat/rule-summary-card";
+import { getPendingEmailSubjectPrefix } from "@/components/assistant-chat/helpers";
 
 export type ThreadLookup = EmailLookup;
 
@@ -681,7 +692,7 @@ function EmailActionResult({
           <div className="flex items-center gap-2 border-b px-4 py-2.5">
             <FieldLabel>Subject</FieldLabel>
             <span className="truncate text-sm font-medium text-foreground">
-              {actionType !== "send_email" ? "Re: " : ""}
+              {getPendingEmailSubjectPrefix(actionType)}
               {displaySubject}
             </span>
           </div>
@@ -809,29 +820,23 @@ export function CreatedRuleToolCard({
   const conditionText = buildConditionText(args.condition);
 
   return (
-    <Card>
-      <RuleToolCardHeader
-        title={args.name}
-        actions={
-          <>
-            {ruleId && <RuleActions ruleId={ruleId} />}
-            {preview && <RuleActionsPreview />}
-          </>
-        }
-      />
+    <RuleSummaryCard
+      title={args.name}
+      actions={
+        <>
+          {ruleId && <RuleActions ruleId={ruleId} />}
+          {preview && <RuleActionsPreview />}
+        </>
+      }
+    >
+      <RuleSummaryRow label="When">
+        <p>{conditionText}</p>
+      </RuleSummaryRow>
 
-      <CardContent className="space-y-3 px-4 py-3.5">
-        <div className="flex gap-4 text-sm">
-          <FieldLabel className="pt-0.5">When</FieldLabel>
-          <p>{conditionText}</p>
-        </div>
-
-        <div className="flex gap-4 text-sm">
-          <FieldLabel className="pt-0.5">Then</FieldLabel>
-          <ActionBadgeList actions={args.actions} />
-        </div>
-      </CardContent>
-    </Card>
+      <RuleSummaryRow label="Then">
+        <ActionBadgeList actions={args.actions} />
+      </RuleSummaryRow>
+    </RuleSummaryCard>
   );
 }
 
@@ -1246,6 +1251,80 @@ export function UpdatedRuleActions({
             />
           </ViewChangesCollapsible>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function UpdatedRule({
+  args,
+  output,
+  preview,
+}: {
+  args: UpdateRuleTool["input"];
+  output: UpdateRuleOutput;
+  preview?: boolean;
+}) {
+  const ruleId = output.ruleId;
+  const title = output.updatedName || args.updates.name || args.ruleName;
+  const conditionText = args.updates.condition
+    ? buildConditionText(args.updates.condition)
+    : null;
+  const actions = args.updates.actions;
+
+  return (
+    <Card>
+      <RuleToolCardHeader
+        title={title}
+        actions={
+          preview ? (
+            <RuleActionsPreview />
+          ) : ruleId ? (
+            <RuleActions ruleId={ruleId} />
+          ) : null
+        }
+      />
+
+      <CardContent className="space-y-3 px-4 py-3.5">
+        {args.updates.name && (
+          <div className="flex gap-4 text-sm">
+            <FieldLabel className="pt-0.5">Name</FieldLabel>
+            <p>{args.updates.name}</p>
+          </div>
+        )}
+
+        {conditionText && (
+          <div className="flex gap-4 text-sm">
+            <FieldLabel className="pt-0.5">When</FieldLabel>
+            <p>{conditionText}</p>
+          </div>
+        )}
+
+        {args.updates.enabled !== undefined && (
+          <div className="flex gap-4 text-sm">
+            <FieldLabel className="pt-0.5">Status</FieldLabel>
+            <p>{args.updates.enabled ? "Enabled" : "Disabled"}</p>
+          </div>
+        )}
+
+        {actions && (
+          <div className="flex gap-4 text-sm">
+            <FieldLabel className="pt-0.5">Then</FieldLabel>
+            <ActionBadgeList actions={actions} />
+          </div>
+        )}
+
+        {output.originalName &&
+          output.updatedName &&
+          output.originalName !== output.updatedName && (
+            <ViewChangesCollapsible>
+              <CollapsibleDiffContent
+                title="Name:"
+                originalText={output.originalName}
+                updatedText={output.updatedName}
+              />
+            </ViewChangesCollapsible>
+          )}
       </CardContent>
     </Card>
   );
@@ -1707,12 +1786,7 @@ function RuleToolCardHeader({
   title: string;
   actions: React.ReactNode;
 }) {
-  return (
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
-      <h3 className="text-base font-semibold">{title}</h3>
-      {actions}
-    </CardHeader>
-  );
+  return <RuleSummaryCardHeader title={title} actions={actions} />;
 }
 
 function ExpandedToolCard({
@@ -2198,14 +2272,5 @@ function FieldLabel({
   children: React.ReactNode;
   className?: string;
 }) {
-  return (
-    <span
-      className={cn(
-        "shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground",
-        className,
-      )}
-    >
-      {children}
-    </span>
-  );
+  return <RuleSummaryLabel className={className}>{children}</RuleSummaryLabel>;
 }

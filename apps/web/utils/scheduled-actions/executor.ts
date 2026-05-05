@@ -63,6 +63,7 @@ export async function executeScheduledAction(
       bcc: scheduledAction.bcc,
       url: scheduledAction.url,
       staticAttachments: scheduledAction.staticAttachments,
+      selectedAttachments: scheduledAction.selectedAttachments,
     };
 
     const executedAction = await executeDelayedAction({
@@ -174,6 +175,7 @@ async function executeDelayedAction({
       bcc: actionItem.bcc,
       url: actionItem.url,
       staticAttachments: actionItem.staticAttachments ?? undefined,
+      selectedAttachments: actionItem.selectedAttachments ?? undefined,
       executedRuleId: scheduledAction.executedRuleId,
     },
   });

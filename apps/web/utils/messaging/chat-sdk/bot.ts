@@ -16,6 +16,7 @@ import {
   CardText,
   Chat,
   ConsoleLogger,
+  LinkButton,
   type ActionEvent,
   type Adapter,
   type Attachment,
@@ -31,7 +32,7 @@ import {
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { confirmAssistantEmailActionForAccount } from "@/utils/actions/assistant-chat";
+import { confirmAssistantEmailActionForAccount } from "@/utils/actions/assistant-chat-confirmation";
 import type { AssistantPendingEmailActionType } from "@/utils/actions/assistant-chat.validation";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import { getRecentChatMemories } from "@/utils/ai/assistant/get-recent-chat-memories";
@@ -106,7 +107,9 @@ const NEGATIVE_REACTION_ALIASES = new Set([
   "heavy_multiplication_x",
 ]);
 const UNSUPPORTED_MESSAGING_ATTACHMENT_MESSAGE =
-  "I can process images, but I can't access other file types (documents, videos, audio) sent here yet. I can still draft the email text if you share what to write.";
+  "I can process images, but I can't access or email other file types (documents, videos, audio) sent here yet. Share the contents as text if you want me to draft an email about them.";
+const UNSUPPORTED_MESSAGING_ATTACHMENT_MODEL_CONTEXT =
+  "Hidden context: The latest messaging input included one or more unsupported non-image file attachments. Their contents are unavailable, and they cannot be attached to outgoing emails from chat.";
 
 const SLACK_ASSISTANT_SUGGESTED_PROMPTS = [
   { title: "Inbox summary", message: "Summarize what needs attention today." },
@@ -651,6 +654,18 @@ async function processMessagingAssistantMessage({
       role: "user",
       parts: userParts,
     };
+    const modelUserMessage: UIMessage = context.hasUnsupportedAttachments
+      ? {
+          ...newUserMessage,
+          parts: [
+            {
+              type: "text" as const,
+              text: UNSUPPORTED_MESSAGING_ATTACHMENT_MODEL_CONTEXT,
+            },
+            ...newUserMessage.parts,
+          ],
+        }
+      : newUserMessage;
 
     await prisma.chatMessage.upsert({
       where: { id: userMessageId },
@@ -702,7 +717,7 @@ async function processMessagingAssistantMessage({
       const result = await aiProcessAssistantChat({
         messages: await convertToModelMessages([
           ...existingMessages,
-          newUserMessage,
+          modelUserMessage,
         ]),
         emailAccountId: context.emailAccountId,
         user: emailAccountUser,
@@ -1279,7 +1294,7 @@ function buildPendingEmailSuccessFeedback({
   return `Sent. Open message: ${emailUrl}`;
 }
 
-function buildHandledPendingEmailCard({
+export function buildHandledPendingEmailCard({
   accountEmail,
   accountProvider,
   confirmationResult,
@@ -1331,17 +1346,13 @@ function buildHandledPendingEmailCard({
     ),
   );
 
-  const openText = getPendingEmailHandledOpenText({
+  const openLink = getPendingEmailHandledOpenLink({
     accountEmail,
     accountProvider,
     confirmationResult,
   });
-  if (openText) {
-    children.push(
-      CardText(
-        getMessagingCardText({ provider: messagingProvider, text: openText }),
-      ),
-    );
+  if (openLink) {
+    children.push(Actions([LinkButton(openLink)]));
   }
 
   return Card({
@@ -1378,6 +1389,28 @@ export function getPendingEmailHandledOpenText({
     threadId?: string | null;
   } | null;
 }) {
+  const openLink = getPendingEmailHandledOpenLink({
+    accountEmail,
+    accountProvider,
+    confirmationResult,
+  });
+  if (!openLink) return null;
+
+  return `${openLink.label}: ${openLink.url}`;
+}
+
+function getPendingEmailHandledOpenLink({
+  accountEmail,
+  accountProvider,
+  confirmationResult,
+}: {
+  accountEmail?: string | null;
+  accountProvider?: string | null;
+  confirmationResult?: {
+    messageId?: string | null;
+    threadId?: string | null;
+  } | null;
+}) {
   const messageId = confirmationResult?.messageId || undefined;
   const threadId = confirmationResult?.threadId || undefined;
   const resolvedMessageId = messageId || threadId;
@@ -1393,7 +1426,10 @@ export function getPendingEmailHandledOpenText({
   );
   const mailbox = accountProvider === "microsoft" ? "Outlook" : "Gmail";
 
-  return `Open in ${mailbox}: ${emailUrl}`;
+  return {
+    label: `Open in ${mailbox}`,
+    url: emailUrl,
+  };
 }
 
 function getMessagingCardText({

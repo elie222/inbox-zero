@@ -139,6 +139,11 @@ describe("sanitizeActionFields", () => {
       expect(result.type).toBe(ActionType.MARK_READ);
     });
 
+    it("returns base fields for STAR", () => {
+      const result = sanitizeActionFields({ type: ActionType.STAR });
+      expect(result.type).toBe(ActionType.STAR);
+    });
+
     it("returns base fields for DIGEST", () => {
       const result = sanitizeActionFields({ type: ActionType.DIGEST });
       expect(result.type).toBe(ActionType.DIGEST);
@@ -342,6 +347,25 @@ describe("sanitizeActionFields", () => {
 
       expect(result.staticAttachments).toEqual(attachments);
     });
+
+    it("preserves selected attachments", () => {
+      const selectedAttachments = [
+        {
+          driveConnectionId: "drive-1",
+          fileId: "file-3",
+          filename: "brief.pdf",
+          mimeType: "application/pdf",
+        },
+      ];
+
+      const result = sanitizeActionFields({
+        type: ActionType.DRAFT_EMAIL,
+        content: "Draft Content",
+        selectedAttachments,
+      });
+
+      expect(result.selectedAttachments).toEqual(selectedAttachments);
+    });
   });
 
   describe("DRAFT_MESSAGING_CHANNEL action", () => {
@@ -384,6 +408,26 @@ describe("sanitizeActionFields", () => {
       });
 
       expect(result.staticAttachments).toEqual(attachments);
+    });
+
+    it("preserves selected attachments", () => {
+      const selectedAttachments = [
+        {
+          driveConnectionId: "drive-1",
+          fileId: "file-4",
+          filename: "brief.pdf",
+          mimeType: "application/pdf",
+        },
+      ];
+
+      const result = sanitizeActionFields({
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "channel-1",
+        content: "Draft Content",
+        selectedAttachments,
+      });
+
+      expect(result.selectedAttachments).toEqual(selectedAttachments);
     });
   });
 

@@ -59,7 +59,7 @@ vi.mock(
   }),
 );
 
-vi.mock("@/utils/actions/stats", () => ({
+vi.mock("@/utils/actions/stats-loading", () => ({
   loadEmails: (...args: Parameters<typeof mockLoadEmails>) =>
     mockLoadEmails(...args),
 }));

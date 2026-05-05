@@ -14,6 +14,7 @@ import {
   FileTextIcon,
   MailIcon,
   NewspaperIcon,
+  StarIcon,
 } from "lucide-react";
 import { truncate } from "@/utils/string";
 
@@ -43,6 +44,7 @@ export function getActionDisplay(
     folderName?: string | null;
     content?: string | null;
     to?: string | null;
+    notificationDestination?: string | null;
   },
   provider: string,
   labels: Array<{ id: string; name: string }>,
@@ -79,6 +81,8 @@ export function getActionDisplay(
       return "Archive";
     case ActionType.MARK_READ:
       return "Mark Read";
+    case ActionType.STAR:
+      return "Star";
     case ActionType.MARK_SPAM:
       return "Mark Spam";
     case ActionType.REPLY:
@@ -98,7 +102,9 @@ export function getActionDisplay(
     case ActionType.CALL_WEBHOOK:
       return "Call Webhook";
     case ActionType.NOTIFY_MESSAGING_CHANNEL:
-      return "Notify via chat app";
+      return action.notificationDestination
+        ? `Notify via ${truncate(action.notificationDestination, 18)}`
+        : "Notify";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
     default: {
@@ -129,6 +135,8 @@ export function getActionIcon(actionType: ActionType) {
       return ShieldCheckIcon;
     case ActionType.MARK_READ:
       return MailIcon;
+    case ActionType.STAR:
+      return StarIcon;
     case ActionType.CALL_WEBHOOK:
       return WebhookIcon;
     case ActionType.DIGEST:

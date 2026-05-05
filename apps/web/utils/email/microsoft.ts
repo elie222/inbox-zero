@@ -21,7 +21,7 @@ import {
   getLabelById,
 } from "@/utils/outlook/label";
 import type { InboxZeroLabel } from "@/utils/label";
-import type { ThreadsQuery } from "@/app/api/threads/validation";
+import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import {
@@ -34,6 +34,7 @@ import {
 import {
   archiveThread,
   labelMessage,
+  markStarredMessage,
   markReadThread,
   removeThreadLabel,
 } from "@/utils/outlook/label";
@@ -54,6 +55,7 @@ import {
   createAutoArchiveFilter,
 } from "@/utils/outlook/filter";
 import { queryMessagesWithFilters } from "@/utils/outlook/message";
+import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 import type {
   EmailProvider,
   EmailThread,
@@ -301,10 +303,10 @@ export class OutlookProvider implements EmailProvider {
     const { maxResults, after, before, pageToken } = options;
 
     const buildRequest = () => {
-      // pageToken is the full @odata.nextLink URL, which already encodes
-      // top/skip/filter from the original request.
-      if (pageToken?.startsWith("http")) {
-        return this.client.getClient().api(pageToken);
+      // The nextLink already encodes top/skip/filter from the original request.
+      const nextLink = resolveMicrosoftGraphNextLink(pageToken);
+      if (nextLink) {
+        return this.client.getClient().api(nextLink);
       }
 
       const filters: string[] = [];
@@ -517,6 +519,14 @@ export class OutlookProvider implements EmailProvider {
       usedFallback,
       actualLabelId: category.id || undefined,
     };
+  }
+
+  async starMessage(messageId: string): Promise<void> {
+    await markStarredMessage({
+      client: this.client,
+      messageId,
+      logger: this.logger,
+    });
   }
 
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
@@ -1514,9 +1524,9 @@ export class OutlookProvider implements EmailProvider {
     const maxResults = options.maxResults || 50;
 
     const fetchThreadPage = async (pageToken?: string) => {
-      // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
-      if (pageToken?.startsWith("http")) {
-        return await client.api(pageToken).get();
+      const nextLink = resolveMicrosoftGraphNextLink(pageToken);
+      if (nextLink) {
+        return await client.api(nextLink).get();
       }
 
       // Determine endpoint and build filters based on query type

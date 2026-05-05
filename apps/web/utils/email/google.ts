@@ -24,7 +24,7 @@ import {
 } from "@/utils/gmail/label";
 import { labelVisibility, messageVisibility } from "@/utils/gmail/constants";
 import type { InboxZeroLabel } from "@/utils/label";
-import type { ThreadsQuery } from "@/app/api/threads/validation";
+import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import {
   draftEmail,
@@ -235,18 +235,19 @@ export class GmailProvider implements EmailProvider {
   }): Promise<SentMessagePage> {
     const { maxResults, after, before, pageToken } = options;
 
-    let query = `label:${GmailLabel.SENT}`;
+    const queryParts: string[] = [];
     if (after) {
-      query += ` after:${Math.floor(after.getTime() / 1000) - 1}`;
+      queryParts.push(`after:${Math.floor(after.getTime() / 1000) - 1}`);
     }
     if (before) {
-      query += ` before:${Math.floor(before.getTime() / 1000) + 1}`;
+      queryParts.push(`before:${Math.floor(before.getTime() / 1000) + 1}`);
     }
 
     const response = await getMessages(this.client, {
-      query,
+      query: queryParts.join(" ") || undefined,
       maxResults,
       pageToken,
+      labelIds: [GmailLabel.SENT],
     });
 
     return {
@@ -684,6 +685,14 @@ export class GmailProvider implements EmailProvider {
       // Re-throw if not a "not found" error
       throw error;
     }
+  }
+
+  async starMessage(messageId: string): Promise<void> {
+    await labelMessage({
+      gmail: this.client,
+      messageId,
+      addLabelIds: [GmailLabel.STARRED],
+    });
   }
 
   async getDraft(draftId: string): Promise<ParsedMessage | null> {

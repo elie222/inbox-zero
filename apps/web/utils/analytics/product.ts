@@ -81,6 +81,14 @@ export const PRODUCT_ANALYTICS_ACTIONS = {
     dateRangeChanged: "analytics_date_range_changed",
     groupingChanged: "analytics_grouping_changed",
   },
+  video: {
+    completed: "video_completed",
+    dismissed: "video_dismissed",
+    opened: "video_opened",
+    progress: "video_progress",
+    started: "video_started",
+    viewed: "video_viewed",
+  },
   deepClean: {
     started: "deep_clean_started",
   },

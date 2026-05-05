@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { confirmAssistantEmailActionForAccount } from "@/utils/actions/assistant-chat";
+import { confirmAssistantEmailActionForAccount } from "@/utils/actions/assistant-chat-confirmation";
 import { confirmAssistantEmailActionBody } from "@/utils/actions/assistant-chat.validation";
 import { withEmailAccount } from "@/utils/middleware";
 import { getEmailAccountWithAi } from "@/utils/user/get";

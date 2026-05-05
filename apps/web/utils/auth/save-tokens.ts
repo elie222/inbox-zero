@@ -12,6 +12,7 @@ export async function saveTokens({
   providerAccountId,
   emailAccountId,
   provider,
+  expectedExpiresAt,
 }: {
   tokens: {
     access_token?: string;
@@ -20,6 +21,7 @@ export async function saveTokens({
   };
   accountRefreshToken: string | null;
   provider: string;
+  expectedExpiresAt?: number | null;
 } & (
   | {
       providerAccountId: string;
@@ -48,6 +50,40 @@ export async function saveTokens({
   };
 
   if (emailAccountId) {
+    if (expectedExpiresAt !== undefined) {
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: { userId: true },
+      });
+
+      const result = await prisma.account.updateMany({
+        where: {
+          provider,
+          emailAccount: { id: emailAccountId },
+          expires_at: getExpectedExpiresAtWhere(expectedExpiresAt),
+        },
+        data,
+      });
+
+      if (result.count === 0) {
+        logger.info("Skipped stale OAuth token update", {
+          emailAccountId,
+          provider,
+        });
+        return { status: "conflict" as const };
+      }
+
+      if (emailAccount) {
+        await clearSpecificErrorMessages({
+          userId: emailAccount.userId,
+          errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
+          logger,
+        });
+      }
+
+      return { status: "saved" as const };
+    }
+
     if (data.access_token)
       data.access_token = encryptToken(data.access_token) || undefined;
     if (data.refresh_token)
@@ -93,4 +129,15 @@ export async function saveTokens({
 
     return account;
   }
+
+  return { status: "saved" as const };
+}
+
+function getExpectedExpiresAtWhere(expectedExpiresAt: number | null) {
+  if (!expectedExpiresAt) return null;
+
+  return {
+    gte: new Date(expectedExpiresAt),
+    lt: new Date(expectedExpiresAt + 1),
+  };
 }

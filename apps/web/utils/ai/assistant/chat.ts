@@ -17,8 +17,7 @@ import { getRuleExecutionForMessageTool } from "./tools/rules/get-rule-execution
 import { getUserRulesAndSettingsTool } from "./tools/rules/get-user-rules-and-settings-tool";
 import { updatePersonalInstructionsTool } from "./tools/rules/update-personal-instructions-tool";
 import { updateLearnedPatternsTool } from "./tools/rules/update-learned-patterns-tool";
-import { updateRuleActionsTool } from "./tools/rules/update-rule-actions-tool";
-import { updateRuleConditionsTool } from "./tools/rules/update-rule-conditions-tool";
+import { updateRuleTool } from "./tools/rules/update-rule-tool";
 import { updateRuleStateTool } from "./tools/rules/update-rule-state-tool";
 import { getAssistantCapabilitiesTool } from "./tools/settings/get-assistant-capabilities-tool";
 import { updateAssistantSettingsTool } from "./tools/settings/update-assistant-settings-tool";
@@ -204,7 +203,7 @@ export async function aiProcessAssistantChat({
                 .join("\n")}\n\n` +
               `Expected outcome: ${formatFixRuleExpectedOutcome(context)}` +
               (isConversationStatusFixContext(context, expectedFixSystemType)
-                ? "\n\nThis fix is about conversation status classification. Prefer updating conversation rule instructions with updateRuleConditions (for example, To Reply/FYI rules)."
+                ? "\n\nThis fix is about conversation status classification. Prefer updating conversation rule instructions with updateRule (for example, To Reply/FYI rules)."
                 : ""),
           },
         ]
@@ -251,8 +250,7 @@ export async function aiProcessAssistantChat({
     getRuleExecutionForMessage: getRuleExecutionForMessageTool(toolOptions),
     getLearnedPatterns: getLearnedPatternsTool(toolOptions),
     createRule: createRuleTool(toolOptions),
-    updateRuleConditions: updateRuleConditionsTool(toolOptions),
-    updateRuleActions: updateRuleActionsTool(toolOptions),
+    updateRule: updateRuleTool(toolOptions),
     updateRuleState: updateRuleStateTool(toolOptions),
     updateLearnedPatterns: updateLearnedPatternsTool(toolOptions),
     updatePersonalInstructions: updatePersonalInstructionsTool(toolOptions),
@@ -585,6 +583,7 @@ function getEmailCapabilitiesPolicy({
     "- When replying to a thread, write the reply in the same language as the latest message in the thread.",
     '- When the user asks to forward an existing email, activate "forward" and use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.',
     "- When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.",
+    "- Chat-uploaded files are not available as outgoing email attachments. If the user asks to send, forward, or attach a file from chat, explain that this is unsupported and do not call sendEmail, replyEmail, or forwardEmail for that file.",
     "- Only send emails when the user clearly asks to send now.",
     '- After calling these tools, briefly say the email is ready in the pending email card for review and send. Do not mention card position like "below" or "above". Do not ask follow-up questions about CC, BCC, or whether to proceed because the UI handles confirmation.',
     "- After sendEmail, replyEmail, or forwardEmail, do not also render email widgets for that same action in the text; the pending email card is already the UI for it.",
@@ -745,16 +744,21 @@ export function buildResolvedSystemPrompt({
 - Do not turn one-time cleanup into a recurring rule unless the user asks for automation.
 - For ongoing sender-level batch cleanup, once the user confirms the category, continue subsequent batches without re-asking.`,
     `Rule suggestions:
-- When the user asks for rules to add, first inspect this user's existing rules/settings and enough inbox evidence to understand recurring patterns.
-- Check what this user already has handled before suggesting a category or rule, and avoid duplicates.
-- Focus on rules that would save the user time, reduce recurring inbox decisions, or protect important messages. Do not suggest rules just to create more automation.
-- Suggest user-specific patterns that appear repeatedly in the inbox and can be described with real senders, domains, subjects, or labels. Examples: mark customer escalations as important, label security or billing alerts from vendors, label recruiting or scheduling threads, route support handoffs, or label product feedback.
-- For each suggested rule, include the condition, action, and evidence. If priority is unclear, ask whether the relevant inbox items are important, low-priority, safe to archive, or need attention.
+- When the user asks for rules to add, call getUserRulesAndSettings first, then inspect enough inbox evidence to find recurring patterns; avoid duplicates.
+- Suggest only high-value recurring patterns that save time, reduce repeated decisions, or protect important messages. Skip one-off or short-lived patterns unless the user asks to automate them.
+- Treat existing labels as context, not a constraint. If a pattern deserves its own workflow, suggest a clear new label; do not squeeze it into a broad existing label just because it already exists.
+- Each suggested action must materially change what happens to those emails. Avoid label-only rules for low-priority mail; pair low-priority categories with archive, mark read, or skip the suggestion. Do not draft replies for broad support categories unless the evidence shows a repeatable standard response.
+- Do not group unrelated platforms or vendors into one rule just because they are alerts. Only combine senders when the same action is safe for all of them; messages about failures, submissions, billing, security, or customer impact usually need more careful handling than archive-as-notification.
+- Keep it short and human: choose a final set of 2-3 rules when the inbox shows multiple strong recurring patterns; choose only 1 when there is truly only one high-confidence opportunity. Avoid spec-style headings like "Condition", "Action", "Evidence", or "Why these?".
+- Choose actions and labels that match the workflow, and use broad labels only when they genuinely fit.
+- For notification actions, set notify to the exact provider name from ruleNotificationDestinations. If no destination is listed, do not include notify; ask which destination to use instead. Never say "chat app".
+- Use <rule-suggestions> with exactly one self-contained <rule-suggestion /> for each rule in that final set. Put the condition in when, the label in label, boolean actions in archive/draft/markread, the notification provider in notify, and use do only for an action that cannot be represented by those attributes. These render as rule cards. Do not mention additional rule ideas outside the cards.
+- Ask one focused calibration question when priority/action is unclear, especially about important messages that should be protected or surfaced. The question should refine the next step, not replace high-confidence rule cards.
 - Do not create a rule until the user confirms the exact rule and action.`,
     `Rules and automation:
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - Prefer updating an existing rule over creating an overlapping duplicate. Do not create semantic duplicates like "Notification" and "Notifications".
-- Use updateRuleState to disable, enable, or delete rules.
+- For direct requests to change an existing rule's behavior, read rules then use the relevant rule update tool. Do not ask for another confirmation unless multiple rules are similar or required data is missing.
 - If multiple fetched rules are similar, ask the user which one to update instead of guessing.
 - Use short concise rule names and real sender or domain values. Ask when required data is missing.
 - Rules can use {{variables}} in action fields to insert AI-generated content.`,

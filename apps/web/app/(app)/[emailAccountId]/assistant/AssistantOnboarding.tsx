@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useWindowSize } from "usehooks-ts";
 import { useOnboarding } from "@/components/OnboardingModal";
 import {
@@ -13,6 +14,9 @@ import { CardBasic } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ListChecksIcon, ReplyIcon, SlidersIcon } from "lucide-react";
 import { YouTubeVideo } from "@/components/YouTubeVideo";
+import { useVideoAnalytics } from "@/hooks/useVideoAnalytics";
+
+const ASSISTANT_ONBOARDING_VIDEO_ID = "AQtB0j6Zmt0";
 
 export function AssistantOnboarding({
   onComplete,
@@ -20,11 +24,25 @@ export function AssistantOnboarding({
   onComplete?: () => void;
 }) {
   const { isOpen, setIsOpen, onClose } = useOnboarding("Automation");
+  const hasTrackedView = useRef(false);
+  const videoAnalytics = useVideoAnalytics({
+    page: "automation",
+    surface: "onboarding_modal",
+    title: "Welcome to your AI Personal Assistant",
+    youtubeVideoId: ASSISTANT_ONBOARDING_VIDEO_ID,
+  });
 
   const { width } = useWindowSize();
 
   const videoWidth = Math.min(width * 0.75, 800);
   const videoHeight = videoWidth * (675 / 1200);
+
+  useEffect(() => {
+    if (!isOpen || hasTrackedView.current) return;
+
+    hasTrackedView.current = true;
+    videoAnalytics.trackViewed();
+  }, [isOpen, videoAnalytics]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -38,8 +56,11 @@ export function AssistantOnboarding({
         </DialogHeader>
 
         <YouTubeVideo
-          videoId="AQtB0j6Zmt0"
+          videoId={ASSISTANT_ONBOARDING_VIDEO_ID}
           iframeClassName="mx-auto"
+          onVideoCompleted={videoAnalytics.trackCompleted}
+          onVideoProgress={videoAnalytics.trackProgress}
+          onVideoStarted={videoAnalytics.trackStarted}
           opts={{
             height: `${videoHeight}`,
             width: `${videoWidth}`,

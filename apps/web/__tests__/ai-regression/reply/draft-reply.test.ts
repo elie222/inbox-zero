@@ -70,6 +70,52 @@ describe.runIf(isAiTest)("aiDraftReply", () => {
     },
     TEST_TIMEOUT,
   );
+
+  test(
+    "converts user-local availability into sender timezone",
+    async () => {
+      const emailAccount = getEmailAccount({
+        email: "user@example.com",
+        timezone: "America/Los_Angeles",
+      });
+      const messages: TestMessage[] = [
+        {
+          id: "msg-1",
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Project sync",
+          date: new Date("2026-04-30T08:48:00.000Z"),
+          content:
+            "This week is fairly stacked. Let's aim for Monday. Let me know when works for you. Any time except 7-8 pm BST is ok for me.",
+        },
+      ];
+
+      const result = await aiDraftReply({
+        messages,
+        emailAccount,
+        knowledgeBaseContent: null,
+        emailHistorySummary: null,
+        writingStyle: null,
+        emailHistoryContext: null,
+        calendarAvailability: {
+          timezone: "America/Los_Angeles",
+          suggestedTimes: [
+            {
+              start: "2026-05-04 10:30",
+              end: "2026-05-04 11:00",
+            },
+          ],
+        },
+        mcpContext: null,
+        meetingContext: null,
+      });
+
+      expect(result).toMatch(/(6:30|6\.30|18:30)[\s\S]{0,40}BST/i);
+      expect(result).not.toMatch(/10:30\s*(am|a\.m\.)?\s*BST/i);
+      console.debug("Generated reply (timezone conversion):\n", result);
+    },
+    TEST_TIMEOUT,
+  );
 });
 
 type TestMessage = EmailForLLM & { to: string };

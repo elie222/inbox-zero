@@ -385,6 +385,7 @@ async function processFollowUpsForType({
           processedLedger,
           threadId: thread.id,
           messageId: lastMessage.id,
+          sentAt: messageDate,
         })
       ) {
         skippedAlreadyProcessedCount++;
@@ -586,13 +587,18 @@ function getThresholdWithWindow(threshold: Date, windowMinutes: number): Date {
   return addMinutes(threshold, windowMinutes);
 }
 
+type ProcessedFollowUpLedger = Map<
+  string,
+  { messageIds: Set<string>; sentAtTimes: Set<number> }
+>;
+
 async function getProcessedFollowUpLedger({
   emailAccountId,
   threadIds,
 }: {
   emailAccountId: string;
   threadIds: string[];
-}): Promise<Map<string, Set<string>>> {
+}): Promise<ProcessedFollowUpLedger> {
   if (threadIds.length === 0) return new Map();
 
   const existingTrackers = await prisma.threadTracker.findMany({
@@ -604,31 +610,46 @@ async function getProcessedFollowUpLedger({
         { followUpDraftId: { not: null } },
       ],
     },
-    select: { threadId: true, messageId: true },
+    select: { threadId: true, messageId: true, resolved: true, sentAt: true },
   });
 
-  const processedLedger = new Map<string, Set<string>>();
+  const processedLedger: ProcessedFollowUpLedger = new Map();
 
   for (const tracker of existingTrackers) {
-    const messageIds =
-      processedLedger.get(tracker.threadId) ?? new Set<string>();
-    messageIds.add(tracker.messageId);
-    processedLedger.set(tracker.threadId, messageIds);
+    const processed = processedLedger.get(tracker.threadId) ?? {
+      messageIds: new Set<string>(),
+      sentAtTimes: new Set<number>(),
+    };
+    processed.messageIds.add(tracker.messageId);
+    if (!tracker.resolved && tracker.sentAt) {
+      processed.sentAtTimes.add(tracker.sentAt.getTime());
+    }
+    processedLedger.set(tracker.threadId, processed);
   }
 
   return processedLedger;
 }
 
+// sentAt is checked for unresolved trackers because Outlook can return a
+// different provider message ID for the same sent message across runs.
 function hasFollowUpBeenProcessed({
   processedLedger,
   threadId,
   messageId,
+  sentAt,
 }: {
-  processedLedger: Map<string, Set<string>>;
+  processedLedger: ProcessedFollowUpLedger;
   threadId: string;
   messageId: string;
+  sentAt: Date;
 }): boolean {
-  return processedLedger.get(threadId)?.has(messageId) ?? false;
+  const processed = processedLedger.get(threadId);
+  if (!processed) return false;
+
+  return (
+    processed.messageIds.has(messageId) ||
+    processed.sentAtTimes.has(sentAt.getTime())
+  );
 }
 
 async function processLoadedFollowUpReminderAccount({

@@ -27,6 +27,7 @@ export function getAvailableActionsForRuleEditor({
     ...(supportsMoveFolder ? [ActionType.MOVE_FOLDER] : []),
     ActionType.ARCHIVE,
     ActionType.MARK_READ,
+    ActionType.STAR,
     ...(showsDraftReplyOption ? [ActionType.DRAFT_EMAIL] : []),
     ...getAvailableSendActions(existingActionTypes),
     ActionType.MARK_SPAM,

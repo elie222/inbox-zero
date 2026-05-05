@@ -7,6 +7,7 @@ packages:
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
 - "@inboxzero/*"
+- "@inbox-zero/emulate"
 
 # pnpm 10 blocks install scripts by default. Only packages listed here may run them.
 onlyBuiltDependencies:
