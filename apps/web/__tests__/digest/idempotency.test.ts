@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { getTodayET } from "@/utils/digest/today-et";
 
+vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/email/provider", () => ({ createEmailProvider: vi.fn() }));
 vi.mock("@/utils/ai/digest/generate-digest-content", () => ({

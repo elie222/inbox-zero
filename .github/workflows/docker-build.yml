@@ -7,7 +7,10 @@ on:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    # Native arm64 runner — production EC2 is Graviton (aarch64). Native build
+    # avoids QEMU emulation (was 40+ min) and finishes in ~5 min. If we ever
+    # need amd64 too, switch to a matrix build with platform-specific runners.
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
       packages: write
@@ -22,9 +25,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -44,7 +44,7 @@ jobs:
           context: .
           file: docker/Dockerfile.prod
           push: true
-          platforms: linux/arm64,linux/amd64
+          platforms: linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             NEXT_PUBLIC_BASE_URL=https://inbox.tdfurn.com
