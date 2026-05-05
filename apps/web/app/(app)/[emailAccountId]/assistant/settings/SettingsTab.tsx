@@ -1,4 +1,5 @@
 import { AboutSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/AboutSetting";
+import { AiSensitiveContentPolicySetting } from "@/app/(app)/[emailAccountId]/assistant/settings/AiSensitiveContentPolicySetting";
 import { DigestSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DigestSetting";
 import { DraftConfidenceSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting";
 import { DraftReplies } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftReplies";
@@ -53,6 +54,7 @@ export function SettingsTab() {
         <MultiRuleSetting />
         <ReferralSignatureSetting />
         <HiddenAiDraftLinksSetting />
+        <AiSensitiveContentPolicySetting />
       </div>
     </div>
   );

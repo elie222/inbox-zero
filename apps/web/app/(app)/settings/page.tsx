@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ChevronRightIcon,
   CreditCardIcon,
@@ -10,14 +10,12 @@ import {
   MessagesSquareIcon,
   PlugIcon,
   SendIcon,
-  ShieldCheckIcon,
   SparklesIcon,
   UserIcon,
   UsersIcon,
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
-import { AiSensitiveContentPolicySection } from "@/app/(app)/[emailAccountId]/settings/AiSensitiveContentPolicySection";
 import { AppearanceSection } from "@/app/(app)/settings/AppearanceSection";
 import { TeamSection } from "@/app/(app)/settings/TeamSection";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
@@ -143,31 +141,6 @@ export default function SettingsPage() {
           <ItemCard className="p-4">
             <ModelSection />
           </ItemCard>
-        </SettingsGroup>
-
-        <SettingsGroup
-          icon={<ShieldCheckIcon className="size-5" />}
-          title="AI Content"
-        >
-          <LoadingContent loading={isLoading} error={error}>
-            {emailAccounts.length > 0 && (
-              <ItemCard>
-                {emailAccounts.map((emailAccount, index) => (
-                  <Fragment key={emailAccount.id}>
-                    {index > 0 && <ItemSeparator />}
-                    <AiSensitiveContentPolicySection
-                      emailAccountId={emailAccount.id}
-                      emailAccountEmail={emailAccount.email}
-                      aiSensitiveContentPolicy={
-                        emailAccount.aiSensitiveContentPolicy
-                      }
-                      managed={emailAccount.aiSensitiveContentPolicyManaged}
-                    />
-                  </Fragment>
-                ))}
-              </ItemCard>
-            )}
-          </LoadingContent>
         </SettingsGroup>
 
         {(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false ||
