@@ -1,4 +1,4 @@
-model = "gpt-5.3-codex"
+model = "gpt-5.5"
 model_reasoning_effort = "xhigh"
 developer_instructions = """
 You are the reviewer sub-agent. Review the current git diff against `main` once implementation is complete and PR-ready.
