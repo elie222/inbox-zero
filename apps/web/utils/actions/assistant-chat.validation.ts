@@ -186,8 +186,13 @@ const assistantChatMessagePartSchema = z.discriminatedUnion("type", [
   assistantChatFilePartSchema,
 ]);
 
+const chatIdSchema = z
+  .string()
+  .trim()
+  .pipe(z.string().uuid().or(z.string().cuid()));
+
 export const assistantInputSchema = z.object({
-  id: z.string().trim().min(1),
+  id: chatIdSchema,
   message: z.object({
     id: z.string().trim().min(1),
     role: z.enum(["user"]),
