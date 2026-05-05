@@ -46,6 +46,7 @@ import {
   getCategorizationStatusSnapshot,
 } from "@/utils/redis/categorization-progress";
 import { extractErrorInfo, isRetryableError } from "@/utils/outlook/retry";
+import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
 
 const SEARCH_INBOX_MAX_RESULTS = 20;
 const MAX_SENDER_CATEGORIZATION_WAIT_MS = 1500;
@@ -440,10 +441,9 @@ function searchInboxInputSchema(provider: string) {
       .max(SEARCH_INBOX_MAX_RESULTS)
       .default(SEARCH_INBOX_MAX_RESULTS)
       .describe("Maximum number of messages to return."),
-    pageToken: z
-      .string()
-      .nullish()
-      .describe("Use the page token returned from a prior search to paginate."),
+    pageToken: microsoftGraphPageTokenSchema.describe(
+      "Use the page token returned from a prior search to paginate.",
+    ),
   });
 }
 

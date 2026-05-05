@@ -1,13 +1,18 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { Message } from "@microsoft/microsoft-graph-types";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   buildOutlookSearchFallbackQuery,
   convertMessage,
+  queryBatchMessages,
+  queryMessagesWithAttachments,
+  queryMessagesWithFilters,
   sanitizeOutlookSearchQuery,
   sanitizeKqlValue,
   sanitizeKqlFieldQuery,
   sanitizeKqlTextQuery,
 } from "@/utils/outlook/message";
+import type { OutlookClient } from "@/utils/outlook/client";
 
 describe("convertMessage", () => {
   describe("category ID mapping", () => {
@@ -110,6 +115,57 @@ describe("convertMessage", () => {
       expect(result.labelIds).toContain("INBOX");
       expect(result.labelIds).toContain("uuid-urgent-123");
     });
+  });
+});
+
+describe("queryBatchMessages", () => {
+  it("rejects full URL page tokens outside Microsoft Graph", async () => {
+    const api = vi.fn().mockReturnValue({ get: vi.fn() });
+    const client = createCachedOutlookClient(api);
+
+    await expect(
+      queryBatchMessages(
+        client,
+        { pageToken: "http://169.254.169.254/latest/meta-data" },
+        createTestLogger(),
+      ),
+    ).rejects.toThrow("Invalid Outlook page token");
+
+    expect(api).not.toHaveBeenCalled();
+  });
+});
+
+describe("queryMessagesWithFilters", () => {
+  it("rejects full URL page tokens outside Microsoft Graph", async () => {
+    const api = vi.fn().mockReturnValue({ get: vi.fn() });
+    const client = createCachedOutlookClient(api);
+
+    await expect(
+      queryMessagesWithFilters(
+        client,
+        { pageToken: "http://169.254.169.254/latest/meta-data" },
+        createTestLogger(),
+      ),
+    ).rejects.toThrow("Invalid Outlook page token");
+
+    expect(api).not.toHaveBeenCalled();
+  });
+});
+
+describe("queryMessagesWithAttachments", () => {
+  it("rejects full URL page tokens outside Microsoft Graph", async () => {
+    const api = vi.fn().mockReturnValue({ get: vi.fn() });
+    const client = createCachedOutlookClient(api);
+
+    await expect(
+      queryMessagesWithAttachments(
+        client,
+        { pageToken: "http://169.254.169.254/latest/meta-data" },
+        createTestLogger(),
+      ),
+    ).rejects.toThrow("Invalid Outlook page token");
+
+    expect(api).not.toHaveBeenCalled();
   });
 });
 
@@ -403,3 +459,15 @@ describe("buildOutlookSearchFallbackQuery", () => {
     expect(buildOutlookSearchFallbackQuery("sender@example.com")).toBeNull();
   });
 });
+
+function createCachedOutlookClient(
+  api: ReturnType<typeof vi.fn>,
+): OutlookClient {
+  return {
+    getClient: () => ({ api }),
+    getFolderIdCache: () => ({ inbox: "inbox-folder-id" }),
+    setFolderIdCache: vi.fn(),
+    getCategoryMapCache: () => new Map(),
+    setCategoryMapCache: vi.fn(),
+  } as unknown as OutlookClient;
+}

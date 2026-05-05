@@ -10,6 +10,7 @@ import { withOutlookRetry } from "@/utils/outlook/retry";
 import { formatEmailWithName } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
 import { isOutlookThrottlingError } from "@/utils/error";
+import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 
 // Standard fields to select when fetching messages from Microsoft Graph API
 // internetMessageId is the RFC 5322 Message-ID header, needed for cross-provider email threading
@@ -426,11 +427,11 @@ export async function queryBatchMessages(
     getCategoryMap(client, logger),
   ]);
 
-  // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
-  if (pageToken?.startsWith("http")) {
+  const nextLink = resolveMicrosoftGraphNextLink(pageToken);
+  if (nextLink) {
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(
-        () => client.getClient().api(pageToken).get(),
+        () => client.getClient().api(nextLink).get(),
         logger,
       );
 
@@ -589,11 +590,11 @@ export async function queryMessagesWithFilters(
     getCategoryMap(client, logger),
   ]);
 
-  // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
-  if (pageToken?.startsWith("http")) {
+  const nextLink = resolveMicrosoftGraphNextLink(pageToken);
+  if (nextLink) {
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(
-        () => client.getClient().api(pageToken).get(),
+        () => client.getClient().api(nextLink).get(),
         logger,
       );
 
@@ -685,11 +686,11 @@ export async function queryMessagesWithAttachments(
 
   const categoryMap = await getCategoryMap(client, logger);
 
-  // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
-  if (options.pageToken?.startsWith("http")) {
+  const nextLink = resolveMicrosoftGraphNextLink(options.pageToken);
+  if (nextLink) {
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(
-        () => client.getClient().api(options.pageToken!).get(),
+        () => client.getClient().api(nextLink).get(),
         logger,
       );
 

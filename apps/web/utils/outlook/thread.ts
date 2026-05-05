@@ -10,6 +10,7 @@ import {
   getFolderIds,
 } from "@/utils/outlook/message";
 import { withOutlookRetry } from "@/utils/outlook/retry";
+import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 
 export async function getThread(
   threadId: string,
@@ -107,9 +108,12 @@ export async function getThreadsWithNextPageToken({
   pageToken?: string;
   logger: Logger;
 }) {
+  const endpoint =
+    resolveMicrosoftGraphNextLink(pageToken) || pageToken || "/me/messages";
+
   let request = client
     .getClient()
-    .api(pageToken || "/me/messages")
+    .api(endpoint)
     .top(maxResults)
     .select("id,conversationId,subject,bodyPreview");
 
