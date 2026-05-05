@@ -1,0 +1,17 @@
+[Unit]
+Description=Inbox Zero — daily digest cron trigger
+After=network-online.target inbox-zero.service
+Wants=network-online.target
+Requires=inbox-zero.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/inbox-zero/.env
+ExecStart=/usr/bin/curl -fsS --max-time 360 \
+  -H "Authorization: Bearer ${CRON_SECRET}" \
+  https://inbox.tdfurn.com/api/cron/digest
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

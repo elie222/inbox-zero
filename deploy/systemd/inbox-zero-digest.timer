@@ -1,0 +1,11 @@
+[Unit]
+Description=Trigger Inbox Zero daily digest at 09:00 America/New_York
+Requires=inbox-zero-digest.service
+
+[Timer]
+OnCalendar=*-*-* 09:00:00 America/New_York
+Persistent=true
+Unit=inbox-zero-digest.service
+
+[Install]
+WantedBy=timers.target
