@@ -55,6 +55,7 @@ const followUpReminderAccountSelect = {
   about: true,
   userId: true,
   multiRuleSelectionEnabled: true,
+  aiSensitiveContentPolicy: true,
   timezone: true,
   calendarBookingLink: true,
   followUpAwaitingReplyDays: true,

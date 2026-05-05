@@ -148,6 +148,7 @@ model EmailAccount {
   rulesPrompt               String? // @deprecated
   autoCategorizeSenders     Boolean              @default(false)
   multiRuleSelectionEnabled Boolean              @default(false)
+  aiSensitiveContentPolicy  String?
   draftReplyConfidence      DraftReplyConfidence @default(ALL_EMAILS)
   allowHiddenAiDraftLinks   Boolean              @default(false)
   rulesRevision             Int                  @default(0)

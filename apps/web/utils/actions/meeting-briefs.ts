@@ -50,6 +50,7 @@ export const sendBriefAction = actionClient
           email: true,
           about: true,
           multiRuleSelectionEnabled: true,
+          aiSensitiveContentPolicy: true,
           timezone: true,
           calendarBookingLink: true,
           user: {

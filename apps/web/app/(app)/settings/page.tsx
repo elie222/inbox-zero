@@ -16,6 +16,7 @@ import {
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
+import { AiSensitiveContentPolicySection } from "@/app/(app)/[emailAccountId]/settings/AiSensitiveContentPolicySection";
 import { AppearanceSection } from "@/app/(app)/settings/AppearanceSection";
 import { TeamSection } from "@/app/(app)/settings/TeamSection";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
@@ -270,6 +271,11 @@ function EmailAccountSettingsCard({
       {expanded && (
         <>
           <OrgAnalyticsConsentSection emailAccountId={emailAccount.id} />
+          <AiSensitiveContentPolicySection
+            emailAccountId={emailAccount.id}
+            aiSensitiveContentPolicy={emailAccount.aiSensitiveContentPolicy}
+            managed={emailAccount.aiSensitiveContentPolicyManaged}
+          />
           <ToggleAllRulesSection emailAccountId={emailAccount.id} />
           <RuleImportExportSetting emailAccountId={emailAccount.id} />
           <CopyRulesSection

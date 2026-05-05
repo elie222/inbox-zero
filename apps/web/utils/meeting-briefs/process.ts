@@ -18,6 +18,7 @@ export type EmailAccountForBrief = {
   email: string;
   about: string | null;
   multiRuleSelectionEnabled: boolean;
+  aiSensitiveContentPolicy?: string | null;
   timezone: string | null;
   calendarBookingLink: string | null;
   user: {
@@ -95,6 +96,7 @@ export async function processMeetingBriefings({
       email: true,
       about: true,
       multiRuleSelectionEnabled: true,
+      aiSensitiveContentPolicy: true,
       timezone: true,
       calendarBookingLink: true,
       user: {

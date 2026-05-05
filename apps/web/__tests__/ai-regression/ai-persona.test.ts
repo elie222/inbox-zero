@@ -30,6 +30,7 @@ describe.runIf(isAiTest)(
         timezone: null,
         calendarBookingLink: null,
         multiRuleSelectionEnabled: false,
+        aiSensitiveContentPolicy: "ALLOW",
         user: {
           aiModel: null,
           aiProvider: null,

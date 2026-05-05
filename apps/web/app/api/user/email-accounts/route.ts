@@ -6,6 +6,10 @@ import {
   LAST_EMAIL_ACCOUNT_COOKIE,
   parseLastEmailAccountCookieValue,
 } from "@/utils/cookies";
+import {
+  isAiSensitiveContentPolicyLocked,
+  resolveAiSensitiveContentPolicy,
+} from "@/utils/dlp/policy.server";
 import { withAuth } from "@/utils/middleware";
 
 export type GetEmailAccountsResponse = Awaited<
@@ -27,6 +31,7 @@ async function getEmailAccounts({ userId }: { userId: string }) {
       accountId: true,
       name: true,
       image: true,
+      aiSensitiveContentPolicy: true,
       account: {
         select: {
           provider: true,
@@ -45,6 +50,7 @@ async function getEmailAccounts({ userId }: { userId: string }) {
     },
   });
 
+  const policyLocked = isAiSensitiveContentPolicyLocked();
   const accountsWithRateLimits = await Promise.all(
     emailAccounts.map(async (account) => {
       const providerRateLimit = await getEmailProviderRateLimitState({
@@ -53,6 +59,10 @@ async function getEmailAccounts({ userId }: { userId: string }) {
 
       return {
         ...account,
+        aiSensitiveContentPolicy: resolveAiSensitiveContentPolicy(
+          account.aiSensitiveContentPolicy,
+        ),
+        aiSensitiveContentPolicyManaged: policyLocked,
         providerRateLimit: providerRateLimit
           ? {
               provider: providerRateLimit.provider,

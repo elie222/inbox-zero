@@ -103,6 +103,12 @@ const parsedEnv = createEnv({
     DRAFT_LLM_PROVIDER: llmProviderEnum.optional(),
     DRAFT_LLM_MODEL: z.string().optional(),
     AI_NANO_WEEKLY_SPEND_LIMIT_USD: z.coerce.number().positive().optional(),
+    // Unset defaults to ALLOW. Used when an account has not chosen a policy.
+    AI_SENSITIVE_CONTENT_POLICY_DEFAULT: z
+      .enum(["ALLOW", "REDACT", "BLOCK"])
+      .optional(),
+    // When true, the deployment default is enforced and account-level edits are disabled.
+    AI_SENSITIVE_CONTENT_POLICY_LOCKED: booleanString.optional().default(false),
 
     LLM_API_KEY: z.string().optional(),
     OPENAI_API_KEY: z.string().optional(),
