@@ -5,9 +5,9 @@ import {
   scanSensitiveContent,
   type SensitiveContentFinding,
 } from "@/utils/dlp/sensitive-content";
-import { resolveAiSensitiveContentPolicy } from "@/utils/dlp/policy.server";
+import { resolveSensitiveDataPolicy } from "@/utils/dlp/policy.server";
 
-type LlmSensitiveContentOptions = {
+type LlmSensitiveDataOptions = {
   emailAccountId?: string;
   label: string;
   logger: Logger;
@@ -21,15 +21,15 @@ type LlmRequestOptions = {
   system?: unknown;
 };
 
-export function enforceAiSensitiveContentPolicy<T extends LlmRequestOptions>({
+export function enforceSensitiveDataPolicy<T extends LlmRequestOptions>({
   options,
   emailAccountId,
   label,
   logger,
   policy,
   userId,
-}: LlmSensitiveContentOptions & { options: T }): T {
-  const parsedPolicy = resolveAiSensitiveContentPolicy(policy);
+}: LlmSensitiveDataOptions & { options: T }): T {
+  const parsedPolicy = resolveSensitiveDataPolicy(policy);
   if (parsedPolicy === "ALLOW") return options;
 
   const findings = getSensitiveContentFindings(options);
@@ -57,7 +57,7 @@ export function enforceAiSensitiveContentPolicy<T extends LlmRequestOptions>({
   return options;
 }
 
-export function redactAiSensitiveContentForLogging(text: string | undefined) {
+export function redactSensitiveContentForLogging(text: string | undefined) {
   return text ? redactSensitiveContent(text) : undefined;
 }
 

@@ -47,7 +47,7 @@ export const analyzeWritingStyleAction = actionClient
         email: true,
         about: true,
         multiRuleSelectionEnabled: true,
-        aiSensitiveContentPolicy: true,
+        sensitiveDataPolicy: true,
         timezone: true,
         calendarBookingLink: true,
         user: { select: { aiProvider: true, aiModel: true, aiApiKey: true } },

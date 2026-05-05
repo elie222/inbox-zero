@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  getAiSensitiveContentPolicyDefault,
-  isAiSensitiveContentPolicyLocked,
-  resolveAiSensitiveContentPolicy,
+  getSensitiveDataPolicyDefault,
+  isSensitiveDataPolicyLocked,
+  resolveSensitiveDataPolicy,
 } from "@/utils/dlp/policy.server";
 
 const { mockEnv } = vi.hoisted(() => ({
   mockEnv: {
-    AI_SENSITIVE_CONTENT_POLICY_DEFAULT: undefined as string | undefined,
-    AI_SENSITIVE_CONTENT_POLICY_LOCKED: false,
+    SENSITIVE_DATA_POLICY_DEFAULT: undefined as string | undefined,
+    NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED: false,
   },
 }));
 
@@ -16,28 +16,28 @@ vi.mock("@/env", () => ({
   env: mockEnv,
 }));
 
-describe("AI sensitive content policy resolution", () => {
+describe("Sensitive data policy resolution", () => {
   beforeEach(() => {
-    mockEnv.AI_SENSITIVE_CONTENT_POLICY_DEFAULT = undefined;
-    mockEnv.AI_SENSITIVE_CONTENT_POLICY_LOCKED = false;
+    mockEnv.SENSITIVE_DATA_POLICY_DEFAULT = undefined;
+    mockEnv.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED = false;
   });
 
   it("uses the account policy when policy is not locked", () => {
-    expect(resolveAiSensitiveContentPolicy("REDACT")).toBe("REDACT");
+    expect(resolveSensitiveDataPolicy("REDACT")).toBe("REDACT");
   });
 
   it("uses the deployment default when no account policy is set", () => {
-    mockEnv.AI_SENSITIVE_CONTENT_POLICY_DEFAULT = "BLOCK";
+    mockEnv.SENSITIVE_DATA_POLICY_DEFAULT = "BLOCK";
 
-    expect(resolveAiSensitiveContentPolicy(null)).toBe("BLOCK");
-    expect(getAiSensitiveContentPolicyDefault()).toBe("BLOCK");
+    expect(resolveSensitiveDataPolicy(null)).toBe("BLOCK");
+    expect(getSensitiveDataPolicyDefault()).toBe("BLOCK");
   });
 
   it("uses the deployment default when locked", () => {
-    mockEnv.AI_SENSITIVE_CONTENT_POLICY_DEFAULT = "BLOCK";
-    mockEnv.AI_SENSITIVE_CONTENT_POLICY_LOCKED = true;
+    mockEnv.SENSITIVE_DATA_POLICY_DEFAULT = "BLOCK";
+    mockEnv.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED = true;
 
-    expect(resolveAiSensitiveContentPolicy("ALLOW")).toBe("BLOCK");
-    expect(isAiSensitiveContentPolicyLocked()).toBe(true);
+    expect(resolveSensitiveDataPolicy("ALLOW")).toBe("BLOCK");
+    expect(isSensitiveDataPolicyLocked()).toBe(true);
   });
 });

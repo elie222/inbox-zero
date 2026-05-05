@@ -303,7 +303,7 @@ export async function aiProcessAssistantChat({
     promptHardening: { trust: "untrusted", level: "full" },
     providerOptions: getChatProviderOptionsForCaching({ chatId }),
     messages: messagesWithCacheControl,
-    sensitiveContentPolicy: user.aiSensitiveContentPolicy,
+    sensitiveDataPolicy: user.sensitiveDataPolicy,
     onStepFinish: async (step) => {
       logger.trace("Step finished", {
         text: step.text,

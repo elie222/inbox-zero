@@ -104,11 +104,9 @@ const parsedEnv = createEnv({
     DRAFT_LLM_MODEL: z.string().optional(),
     AI_NANO_WEEKLY_SPEND_LIMIT_USD: z.coerce.number().positive().optional(),
     // Unset defaults to ALLOW. Used when an account has not chosen a policy.
-    AI_SENSITIVE_CONTENT_POLICY_DEFAULT: z
+    SENSITIVE_DATA_POLICY_DEFAULT: z
       .enum(["ALLOW", "REDACT", "BLOCK"])
       .optional(),
-    // When true, the deployment default is enforced and account-level edits are disabled.
-    AI_SENSITIVE_CONTENT_POLICY_LOCKED: booleanString.optional().default(false),
 
     LLM_API_KEY: z.string().optional(),
     OPENAI_API_KEY: z.string().optional(),
@@ -348,6 +346,10 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_CLEANER_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_EXTERNAL_API_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: booleanString.optional(),
+    // When true, the deployment default is enforced and account-level edits are disabled.
+    NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED: booleanString
+      .optional()
+      .default(false),
     NEXT_PUBLIC_IS_RESEND_CONFIGURED: booleanString.optional(),
     NEXT_PUBLIC_TABS_EXTENSION_ID: z
       .string()
@@ -444,6 +446,8 @@ const parsedEnv = createEnv({
       process.env.NEXT_PUBLIC_EXTERNAL_API_ENABLED,
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED:
       process.env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED,
+    NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED:
+      process.env.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED,
     NEXT_PUBLIC_IS_RESEND_CONFIGURED:
       process.env.NEXT_PUBLIC_IS_RESEND_CONFIGURED,
     NEXT_PUBLIC_TABS_EXTENSION_ID: process.env.NEXT_PUBLIC_TABS_EXTENSION_ID,

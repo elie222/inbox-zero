@@ -280,7 +280,7 @@ export const fileAttachmentAction = actionClient
           email: true,
           about: true,
           multiRuleSelectionEnabled: true,
-          aiSensitiveContentPolicy: true,
+          sensitiveDataPolicy: true,
           timezone: true,
           calendarBookingLink: true,
           filingEnabled: true,

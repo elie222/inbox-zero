@@ -4,10 +4,7 @@ import { withEmailAccount } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
 import type { Logger } from "@/utils/logger";
-import {
-  isAiSensitiveContentPolicyLocked,
-  resolveAiSensitiveContentPolicy,
-} from "@/utils/dlp/policy.server";
+import { resolveSensitiveDataPolicy } from "@/utils/dlp/policy.server";
 
 export type EmailAccountFullResponse = Awaited<
   ReturnType<typeof getEmailAccount>
@@ -31,7 +28,7 @@ async function getEmailAccount({
       userId: true,
       about: true,
       multiRuleSelectionEnabled: true,
-      aiSensitiveContentPolicy: true,
+      sensitiveDataPolicy: true,
       draftReplyConfidence: true,
       allowHiddenAiDraftLinks: true,
       timezone: true,
@@ -55,14 +52,11 @@ async function getEmailAccount({
     emailAccountId,
     logger,
   });
-  const policyLocked = isAiSensitiveContentPolicyLocked();
-
   return {
     ...emailAccount,
-    aiSensitiveContentPolicy: resolveAiSensitiveContentPolicy(
-      emailAccount.aiSensitiveContentPolicy,
+    sensitiveDataPolicy: resolveSensitiveDataPolicy(
+      emailAccount.sensitiveDataPolicy,
     ),
-    aiSensitiveContentPolicyManaged: policyLocked,
     providerRateLimit: providerRateLimit
       ? {
           provider: providerRateLimit.provider,

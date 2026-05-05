@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
-  updateAiSensitiveContentPolicyAction,
+  updateSensitiveDataPolicyAction,
   updateAiSettingsAction,
 } from "./settings";
 import { Provider } from "@/utils/llms/config";
@@ -20,7 +20,7 @@ const { clearSpecificErrorMessagesMock, mockEnv } = vi.hoisted(() => ({
     AZURE_RESOURCE_NAME: "azure-resource",
     EMAIL_ENCRYPT_SECRET: "test-email-secret",
     EMAIL_ENCRYPT_SALT: "test-email-salt",
-    AI_SENSITIVE_CONTENT_POLICY_LOCKED: false,
+    NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED: false,
   },
 }));
 
@@ -45,7 +45,7 @@ describe("updateAiSettingsAction", () => {
       aiApiKey: "stored-api-key",
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
     prisma.user.updateMany.mockResolvedValue({ count: 1 } as never);
-    mockEnv.AI_SENSITIVE_CONTENT_POLICY_LOCKED = false;
+    mockEnv.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED = false;
   });
 
   it("keeps the stored API key when the provider is unchanged and the form leaves it blank", async () => {
@@ -80,10 +80,10 @@ describe("updateAiSettingsAction", () => {
   });
 });
 
-describe("updateAiSensitiveContentPolicyAction", () => {
+describe("updateSensitiveDataPolicyAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockEnv.AI_SENSITIVE_CONTENT_POLICY_LOCKED = false;
+    mockEnv.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED = false;
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "user@example.com",
       account: {
@@ -94,25 +94,22 @@ describe("updateAiSensitiveContentPolicyAction", () => {
   });
 
   it("saves the account-level policy when deployment policy is editable", async () => {
-    await updateAiSensitiveContentPolicyAction("email-account-1", {
-      aiSensitiveContentPolicy: "REDACT",
+    await updateSensitiveDataPolicyAction("email-account-1", {
+      sensitiveDataPolicy: "REDACT",
     });
 
     expect(prisma.emailAccount.update).toHaveBeenCalledWith({
       where: { id: "email-account-1" },
-      data: { aiSensitiveContentPolicy: "REDACT" },
+      data: { sensitiveDataPolicy: "REDACT" },
     });
   });
 
   it("rejects account-level policy updates when deployment policy is locked", async () => {
-    mockEnv.AI_SENSITIVE_CONTENT_POLICY_LOCKED = true;
+    mockEnv.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED = true;
 
-    const result = await updateAiSensitiveContentPolicyAction(
-      "email-account-1",
-      {
-        aiSensitiveContentPolicy: "BLOCK",
-      },
-    );
+    const result = await updateSensitiveDataPolicyAction("email-account-1", {
+      sensitiveDataPolicy: "BLOCK",
+    });
 
     expect(result?.serverError).toBe(
       "Sensitive data protection is managed by the deployment.",

@@ -20,7 +20,7 @@ export async function validateUserAndAiAccess({
       email: true,
       about: true,
       multiRuleSelectionEnabled: true,
-      aiSensitiveContentPolicy: true,
+      sensitiveDataPolicy: true,
       timezone: true,
       calendarBookingLink: true,
       user: {

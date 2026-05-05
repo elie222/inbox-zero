@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  parseAiSensitiveContentPolicy,
+  parseSensitiveDataPolicy,
   redactSensitiveContent,
   scanSensitiveContent,
 } from "@/utils/dlp/sensitive-content";
@@ -39,8 +39,8 @@ describe("sensitive content scanning", () => {
   });
 
   it("defaults unknown policy values to allow", () => {
-    expect(parseAiSensitiveContentPolicy("unknown")).toBe("ALLOW");
-    expect(parseAiSensitiveContentPolicy(null)).toBe("ALLOW");
+    expect(parseSensitiveDataPolicy("unknown")).toBe("ALLOW");
+    expect(parseSensitiveDataPolicy(null)).toBe("ALLOW");
   });
 });
 

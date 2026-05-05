@@ -1,14 +1,8 @@
-export const AI_SENSITIVE_CONTENT_POLICIES = [
-  "ALLOW",
-  "REDACT",
-  "BLOCK",
-] as const;
+export const SENSITIVE_DATA_POLICIES = ["ALLOW", "REDACT", "BLOCK"] as const;
 
-export type AiSensitiveContentPolicy =
-  (typeof AI_SENSITIVE_CONTENT_POLICIES)[number];
+export type SensitiveDataPolicy = (typeof SENSITIVE_DATA_POLICIES)[number];
 
-export const DEFAULT_AI_SENSITIVE_CONTENT_POLICY: AiSensitiveContentPolicy =
-  "ALLOW";
+export const DEFAULT_SENSITIVE_DATA_POLICY: SensitiveDataPolicy = "ALLOW";
 
 export type SensitiveContentCategory = "credential" | "payment_card";
 
@@ -33,17 +27,14 @@ const REDACTION_LABELS: Record<SensitiveContentCategory, string> = {
   payment_card: "PAYMENT_CARD",
 };
 
-export function parseAiSensitiveContentPolicy(
+export function parseSensitiveDataPolicy(
   value: string | null | undefined,
-): AiSensitiveContentPolicy {
-  if (
-    value &&
-    AI_SENSITIVE_CONTENT_POLICIES.includes(value as AiSensitiveContentPolicy)
-  ) {
-    return value as AiSensitiveContentPolicy;
+): SensitiveDataPolicy {
+  if (value && SENSITIVE_DATA_POLICIES.includes(value as SensitiveDataPolicy)) {
+    return value as SensitiveDataPolicy;
   }
 
-  return DEFAULT_AI_SENSITIVE_CONTENT_POLICY;
+  return DEFAULT_SENSITIVE_DATA_POLICY;
 }
 
 export function scanSensitiveContent(text: string): SensitiveContentFinding[] {

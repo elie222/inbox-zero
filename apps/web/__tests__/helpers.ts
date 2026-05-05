@@ -39,7 +39,7 @@ export function getEmailAccount(
     email: overrides.email || "user@test.com",
     about: null,
     multiRuleSelectionEnabled: overrides.multiRuleSelectionEnabled ?? false,
-    aiSensitiveContentPolicy: overrides.aiSensitiveContentPolicy ?? "ALLOW",
+    sensitiveDataPolicy: overrides.sensitiveDataPolicy ?? "ALLOW",
     timezone: null,
     calendarBookingLink: null,
     draftReplyConfidence: overrides.draftReplyConfidence ?? "MEDIUM",

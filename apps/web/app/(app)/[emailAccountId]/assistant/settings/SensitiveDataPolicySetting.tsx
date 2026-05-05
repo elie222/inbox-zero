@@ -14,17 +14,17 @@ import {
 } from "@/components/ui/select";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { updateAiSensitiveContentPolicyAction } from "@/utils/actions/settings";
+import { updateSensitiveDataPolicyAction } from "@/utils/actions/settings";
 import { createSettingActionErrorHandler } from "@/utils/actions/error-handling";
 import {
-  parseAiSensitiveContentPolicy,
-  type AiSensitiveContentPolicy,
+  parseSensitiveDataPolicy,
+  type SensitiveDataPolicy,
 } from "@/utils/dlp/sensitive-content";
 
 const POLICY_OPTIONS: Array<{
   description: string;
   label: string;
-  value: AiSensitiveContentPolicy;
+  value: SensitiveDataPolicy;
 }> = [
   {
     description: "Send everything to AI without scanning.",
@@ -43,15 +43,13 @@ const POLICY_OPTIONS: Array<{
   },
 ];
 
-export function AiSensitiveContentPolicySetting() {
+export function SensitiveDataPolicySetting() {
   const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } = useEmailAccountFull();
-  const policy = parseAiSensitiveContentPolicy(
-    data?.aiSensitiveContentPolicy ?? null,
-  );
+  const policy = parseSensitiveDataPolicy(data?.sensitiveDataPolicy ?? null);
 
   const { execute, isExecuting } = useAction(
-    updateAiSensitiveContentPolicyAction.bind(null, emailAccountId),
+    updateSensitiveDataPolicyAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         mutate();
@@ -67,18 +65,18 @@ export function AiSensitiveContentPolicySetting() {
     (value: string) => {
       if (!data) return;
 
-      const nextPolicy = parseAiSensitiveContentPolicy(value);
+      const nextPolicy = parseSensitiveDataPolicy(value);
       if (nextPolicy === policy) return;
 
       mutate(
         {
           ...data,
-          aiSensitiveContentPolicy: nextPolicy,
+          sensitiveDataPolicy: nextPolicy,
         },
         false,
       );
 
-      execute({ aiSensitiveContentPolicy: nextPolicy });
+      execute({ sensitiveDataPolicy: nextPolicy });
     },
     [data, execute, mutate, policy],
   );
@@ -94,52 +92,41 @@ export function AiSensitiveContentPolicySetting() {
           error={error}
           loadingComponent={<Skeleton className="h-10 w-56" />}
         >
-          {data?.aiSensitiveContentPolicyManaged ? (
-            <div className="text-right">
-              <div className="text-sm font-medium">
-                {getPolicyLabel(policy)}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Deployment managed
-              </div>
-            </div>
-          ) : (
-            <Select
-              value={policy}
-              onValueChange={handlePolicyChange}
-              disabled={isExecuting || !data}
+          <Select
+            value={policy}
+            onValueChange={handlePolicyChange}
+            disabled={isExecuting || !data}
+          >
+            <SelectTrigger
+              aria-label="Sensitive data protection"
+              className="w-full md:w-56"
             >
-              <SelectTrigger
-                aria-label="Sensitive data protection"
-                className="w-full md:w-56"
-              >
-                <SelectValue>{getPolicyLabel(policy)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent align="end" className="w-72">
-                {POLICY_OPTIONS.map((option) => (
-                  <SelectItem
-                    key={option.value}
-                    value={option.value}
-                    className="items-start py-2"
-                  >
-                    <div className="flex flex-col text-left">
-                      <span className="font-medium">{option.label}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {option.description}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+              <SelectValue>{getPolicyLabel(policy)}</SelectValue>
+            </SelectTrigger>
+            <SelectContent align="end" className="w-72">
+              {POLICY_OPTIONS.map((option) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  className="items-start py-2"
+                >
+                  <div className="flex flex-col text-left">
+                    <span className="font-medium">{option.label}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {option.description}
+                    </span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </LoadingContent>
       }
     />
   );
 }
 
-function getPolicyLabel(policy: AiSensitiveContentPolicy) {
+function getPolicyLabel(policy: SensitiveDataPolicy) {
   return (
     POLICY_OPTIONS.find((option) => option.value === policy)?.label ?? policy
   );

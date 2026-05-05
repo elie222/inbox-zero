@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { createScopedLogger } from "@/utils/logger";
-import { enforceAiSensitiveContentPolicy } from "@/utils/llms/sensitive-content";
+import { enforceSensitiveDataPolicy } from "@/utils/llms/sensitive-content";
 
 const logger = createScopedLogger("llms-sensitive-content-test");
 
-describe("AI sensitive content policy enforcement", () => {
+describe("Sensitive data policy enforcement", () => {
   it("leaves allow-mode requests unchanged", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const secret = "a".repeat(24);
@@ -13,7 +13,7 @@ describe("AI sensitive content policy enforcement", () => {
     };
 
     expect(
-      enforceAiSensitiveContentPolicy({
+      enforceSensitiveDataPolicy({
         options,
         policy: "ALLOW",
         logger,
@@ -41,7 +41,7 @@ describe("AI sensitive content policy enforcement", () => {
       ],
     };
 
-    const result = enforceAiSensitiveContentPolicy({
+    const result = enforceSensitiveDataPolicy({
       options,
       policy: "REDACT",
       logger,
@@ -60,7 +60,7 @@ describe("AI sensitive content policy enforcement", () => {
     const secret = "c".repeat(24);
 
     expect(() =>
-      enforceAiSensitiveContentPolicy({
+      enforceSensitiveDataPolicy({
         options: {
           prompt: `client_secret=${secret}`,
         },

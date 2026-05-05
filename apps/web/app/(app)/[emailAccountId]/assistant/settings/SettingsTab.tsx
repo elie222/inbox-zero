@@ -1,5 +1,5 @@
 import { AboutSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/AboutSetting";
-import { AiSensitiveContentPolicySetting } from "@/app/(app)/[emailAccountId]/assistant/settings/AiSensitiveContentPolicySetting";
+import { SensitiveDataPolicySetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting";
 import { DigestSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DigestSetting";
 import { DraftConfidenceSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting";
 import { DraftReplies } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftReplies";
@@ -54,7 +54,9 @@ export function SettingsTab() {
         <MultiRuleSetting />
         <ReferralSignatureSetting />
         <HiddenAiDraftLinksSetting />
-        <AiSensitiveContentPolicySetting />
+        {!env.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED && (
+          <SensitiveDataPolicySetting />
+        )}
       </div>
     </div>
   );

@@ -60,8 +60,8 @@ import {
   type PromptHardening,
 } from "@/utils/ai/security";
 import {
-  enforceAiSensitiveContentPolicy,
-  redactAiSensitiveContentForLogging,
+  enforceSensitiveDataPolicy,
+  redactSensitiveContentForLogging,
 } from "@/utils/llms/sensitive-content";
 import {
   extractLLMErrorInfo,
@@ -106,7 +106,7 @@ type UsageMetadata = {
   toolCallCount?: number;
 };
 type LlmEmailAccount = {
-  aiSensitiveContentPolicy?: EmailAccountWithAI["aiSensitiveContentPolicy"];
+  sensitiveDataPolicy?: EmailAccountWithAI["sensitiveDataPolicy"];
   email: EmailAccountWithAI["email"];
   id: EmailAccountWithAI["id"];
   userId: EmailAccountWithAI["userId"];
@@ -158,9 +158,9 @@ export function createGenerateText({
         system: typeof options.system === "string" ? options.system : undefined,
         promptHardening,
       });
-      const protectedOptions = enforceAiSensitiveContentPolicy({
+      const protectedOptions = enforceSensitiveDataPolicy({
         options: { ...options, system: systemText },
-        policy: emailAccount.aiSensitiveContentPolicy,
+        policy: emailAccount.sensitiveDataPolicy,
         logger,
         label,
         userId: emailAccount.userId,
@@ -170,12 +170,12 @@ export function createGenerateText({
       logger.trace("Generating text", {
         label,
         promptHardening,
-        system: redactAiSensitiveContentForLogging(
+        system: redactSensitiveContentForLogging(
           typeof protectedOptions.system === "string"
             ? protectedOptions.system
             : undefined,
         )?.slice(0, MAX_LOG_LENGTH),
-        prompt: redactAiSensitiveContentForLogging(
+        prompt: redactSensitiveContentForLogging(
           typeof protectedOptions.prompt === "string"
             ? protectedOptions.prompt
             : undefined,
@@ -328,9 +328,9 @@ export function createGenerateObject({
         system: typeof options.system === "string" ? options.system : undefined,
         promptHardening,
       });
-      const protectedOptions = enforceAiSensitiveContentPolicy({
+      const protectedOptions = enforceSensitiveDataPolicy({
         options: { ...options, system: systemText },
-        policy: emailAccount.aiSensitiveContentPolicy,
+        policy: emailAccount.sensitiveDataPolicy,
         logger,
         label,
         userId: emailAccount.userId,
@@ -340,12 +340,12 @@ export function createGenerateObject({
       logger.trace("Generating object", {
         label,
         promptHardening,
-        system: redactAiSensitiveContentForLogging(
+        system: redactSensitiveContentForLogging(
           typeof protectedOptions.system === "string"
             ? protectedOptions.system
             : undefined,
         )?.slice(0, MAX_LOG_LENGTH),
-        prompt: redactAiSensitiveContentForLogging(
+        prompt: redactSensitiveContentForLogging(
           typeof protectedOptions.prompt === "string"
             ? protectedOptions.prompt
             : undefined,
@@ -499,7 +499,7 @@ export async function chatCompletionStream({
   userEmail,
   usageLabel: label,
   providerOptions: requestProviderOptions,
-  sensitiveContentPolicy,
+  sensitiveDataPolicy,
   onFinish,
   onStepFinish,
 }: {
@@ -514,7 +514,7 @@ export async function chatCompletionStream({
   userEmail: string;
   usageLabel: string;
   providerOptions?: LLMProviderOptions;
-  sensitiveContentPolicy?: string | null;
+  sensitiveDataPolicy?: string | null;
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
@@ -529,9 +529,9 @@ export async function chatCompletionStream({
     messages,
     promptHardening,
   });
-  const protectedMessages = enforceAiSensitiveContentPolicy({
+  const protectedMessages = enforceSensitiveDataPolicy({
     options: { messages: hardenedMessages },
-    policy: sensitiveContentPolicy,
+    policy: sensitiveDataPolicy,
     logger,
     label,
     userId,
@@ -659,7 +659,7 @@ export async function toolCallAgentStream({
   onFinish,
   onStepFinish,
   onModelResolved,
-  sensitiveContentPolicy,
+  sensitiveDataPolicy,
   temperature,
 }: {
   userAi: UserAIFields;
@@ -678,7 +678,7 @@ export async function toolCallAgentStream({
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
   onModelResolved?: (resolvedModel: ToolCallAgentResolvedModel) => void;
-  sensitiveContentPolicy?: string | null;
+  sensitiveDataPolicy?: string | null;
   temperature?: number;
 }) {
   const { modelOptions, modelCandidates } = await resolveModelCandidates({
@@ -692,9 +692,9 @@ export async function toolCallAgentStream({
     messages,
     promptHardening,
   });
-  const protectedMessages = enforceAiSensitiveContentPolicy({
+  const protectedMessages = enforceSensitiveDataPolicy({
     options: { messages: hardenedMessages },
-    policy: sensitiveContentPolicy,
+    policy: sensitiveDataPolicy,
     logger,
     label,
     userId,

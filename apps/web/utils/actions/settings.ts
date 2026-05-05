@@ -3,7 +3,7 @@
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   saveAiSettingsBody,
-  saveAiSensitiveContentPolicyBody,
+  saveSensitiveDataPolicyBody,
   saveEmailUpdateSettingsBody,
   saveDigestScheduleBody,
   updateDigestItemsBody,
@@ -22,7 +22,7 @@ import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
 import { SafeError } from "@/utils/error";
 import { env } from "@/env";
 import { addActionOwnershipToInput } from "@/utils/rule/rule";
-import { isAiSensitiveContentPolicyLocked } from "@/utils/dlp/policy.server";
+import { isSensitiveDataPolicyLocked } from "@/utils/dlp/policy.server";
 
 export const updateEmailSettingsAction = actionClient
   .metadata({ name: "updateEmailSettings" })
@@ -108,15 +108,15 @@ export const updateAiSettingsAction = actionClientUser
     },
   );
 
-export const updateAiSensitiveContentPolicyAction = actionClient
-  .metadata({ name: "updateAiSensitiveContentPolicy" })
-  .inputSchema(saveAiSensitiveContentPolicyBody)
+export const updateSensitiveDataPolicyAction = actionClient
+  .metadata({ name: "updateSensitiveDataPolicy" })
+  .inputSchema(saveSensitiveDataPolicyBody)
   .action(
     async ({
       ctx: { emailAccountId },
-      parsedInput: { aiSensitiveContentPolicy },
+      parsedInput: { sensitiveDataPolicy },
     }) => {
-      if (isAiSensitiveContentPolicyLocked()) {
+      if (isSensitiveDataPolicyLocked()) {
         throw new SafeError(
           "Sensitive data protection is managed by the deployment.",
         );
@@ -124,7 +124,7 @@ export const updateAiSensitiveContentPolicyAction = actionClient
 
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
-        data: { aiSensitiveContentPolicy },
+        data: { sensitiveDataPolicy },
       });
     },
   );
