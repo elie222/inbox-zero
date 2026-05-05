@@ -214,21 +214,25 @@ async function markMicrosoftCalendarDisconnected(emailAccountId: string) {
   });
 }
 
+const MICROSOFT_CALENDAR_REAUTH_ERROR_MARKERS = [
+  "AADSTS70000",
+  "AADSTS70008",
+  "AADSTS70011",
+  "AADSTS700082",
+  "AADSTS50173",
+  "AADSTS65001",
+  "AADSTS500011",
+  "AADSTS54005",
+  "AADSTS50076",
+  "AADSTS50079",
+  "AADSTS50158",
+  "invalid_grant",
+];
+
 function isMicrosoftCalendarReauthError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
 
-  return (
-    message.includes("AADSTS70000") ||
-    message.includes("AADSTS70008") ||
-    message.includes("AADSTS70011") ||
-    message.includes("AADSTS700082") ||
-    message.includes("AADSTS50173") ||
-    message.includes("AADSTS65001") ||
-    message.includes("AADSTS500011") ||
-    message.includes("AADSTS54005") ||
-    message.includes("AADSTS50076") ||
-    message.includes("AADSTS50079") ||
-    message.includes("AADSTS50158") ||
-    message.includes("invalid_grant")
+  return MICROSOFT_CALENDAR_REAUTH_ERROR_MARKERS.some((marker) =>
+    message.includes(marker),
   );
 }
