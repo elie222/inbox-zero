@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { SafeError } from "@/utils/error";
+import type { SafeError } from "@/utils/error";
 
 const { envMock } = vi.hoisted(() => ({
   envMock: {
@@ -25,13 +25,13 @@ describe("assertHasAiAccess", () => {
   it("throws a 404 SafeError when the user does not exist", async () => {
     prisma.user.findUnique.mockResolvedValue(null);
 
-    await expect(assertHasAiAccess({ userId: "missing-user" })).rejects.toMatchObject(
-      {
-        name: "SafeError",
-        safeMessage: "User not found",
-        statusCode: 404,
-      } satisfies Partial<SafeError>,
-    );
+    await expect(
+      assertHasAiAccess({ userId: "missing-user" }),
+    ).rejects.toMatchObject({
+      name: "SafeError",
+      safeMessage: "User not found",
+      statusCode: 404,
+    } satisfies Partial<SafeError>);
   });
 
   it("throws a 403 SafeError when the user has no premium entitlement", async () => {
@@ -39,13 +39,13 @@ describe("assertHasAiAccess", () => {
       premium: null,
     } as never);
 
-    await expect(assertHasAiAccess({ userId: "free-user" })).rejects.toMatchObject(
-      {
-        name: "SafeError",
-        safeMessage: "Please upgrade for AI access",
-        statusCode: 403,
-      } satisfies Partial<SafeError>,
-    );
+    await expect(
+      assertHasAiAccess({ userId: "free-user" }),
+    ).rejects.toMatchObject({
+      name: "SafeError",
+      safeMessage: "Please upgrade for AI access",
+      statusCode: 403,
+    } satisfies Partial<SafeError>);
   });
 
   it("throws a 403 SafeError when a premium user still lacks AI access", async () => {

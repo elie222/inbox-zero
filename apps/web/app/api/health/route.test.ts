@@ -59,7 +59,9 @@ describe("health route", () => {
   });
 
   it("returns a lightweight ok response when no health API key is provided", async () => {
-    const response = await GET(new NextRequest("http://localhost:3000/api/health"));
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/health"),
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ status: "ok" });

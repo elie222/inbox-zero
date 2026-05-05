@@ -214,9 +214,7 @@ describe("buildMessagingUserMessages", () => {
     expect(modelUserMessage.parts).toEqual([
       expect.objectContaining({
         type: "text",
-        text: expect.stringContaining(
-          "unsupported non-image file attachments",
-        ),
+        text: expect.stringContaining("unsupported non-image file attachments"),
       }),
       { type: "text", text: "Please draft a reply about this file." },
     ]);
