@@ -1,15 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import prisma from "@/utils/__mocks__/prisma";
 import { getTodayET } from "@/utils/digest/today-et";
 
-vi.mock("@/utils/prisma", () => ({
-  default: {
-    emailAccount: { findMany: vi.fn() },
-    digestSend: { findUnique: vi.fn(), create: vi.fn() },
-    digest: { findMany: vi.fn(), updateMany: vi.fn() },
-    digestItem: { updateMany: vi.fn() },
-    $transaction: vi.fn(async (ops: unknown[]) => ops),
-  },
-}));
+vi.mock("@/utils/prisma");
 vi.mock("@/utils/email/provider", () => ({ createEmailProvider: vi.fn() }));
 vi.mock("@/utils/ai/digest/generate-digest-content", () => ({
   generateDigestContent: vi.fn(),
@@ -32,12 +25,12 @@ const makeLogger = () =>
   }) as never;
 
 describe("Digest idempotency state machine (D-14)", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it("short-circuits when DigestSend exists for today's ET date", async () => {
-    const prismaMod = await import("@/utils/prisma");
-    const prisma = (prismaMod as { default: Record<string, never> }).default;
-    vi.mocked(prisma.emailAccount.findMany as never).mockResolvedValue([
+    vi.mocked(prisma.emailAccount.findMany).mockResolvedValue([
       {
         id: "ea1",
         userId: "u1",
@@ -50,7 +43,7 @@ describe("Digest idempotency state machine (D-14)", () => {
         account: { provider: "google", refresh_token: "r" },
       },
     ] as never);
-    vi.mocked(prisma.digestSend.findUnique as never).mockResolvedValue({
+    vi.mocked(prisma.digestSend.findUnique).mockResolvedValue({
       id: "ds1",
     } as never);
 
