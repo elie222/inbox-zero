@@ -120,6 +120,7 @@ describe("removeMemberAction", () => {
       "You cannot remove yourself from the organization.",
     );
     expect(prisma.member.delete).not.toHaveBeenCalled();
+    expect(prisma.member.deleteMany).not.toHaveBeenCalled();
   });
 
   it("only lets owners remove other owners", async () => {
@@ -140,5 +141,43 @@ describe("removeMemberAction", () => {
 
     expect(result?.serverError).toBe("Only owners can remove other owners.");
     expect(prisma.member.delete).not.toHaveBeenCalled();
+    expect(prisma.member.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("re-checks another owner exists while deleting an owner", async () => {
+    prisma.member.findUnique.mockResolvedValue({
+      id: "member-2",
+      emailAccountId: "email-account-2",
+      organizationId: "org-1",
+      role: "owner",
+    } as any);
+    prisma.member.findFirst.mockResolvedValue({
+      role: "owner",
+      emailAccountId: "email-account-1",
+    } as any);
+    prisma.member.deleteMany.mockResolvedValue({ count: 0 });
+
+    const result = await removeMemberAction({
+      memberId: "member-2",
+    });
+
+    expect(prisma.member.count).not.toHaveBeenCalled();
+    expect(prisma.member.delete).not.toHaveBeenCalled();
+    expect(prisma.member.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: "member-2",
+        organization: {
+          members: {
+            some: {
+              id: { not: "member-2" },
+              role: "owner",
+            },
+          },
+        },
+      },
+    });
+    expect(result?.serverError).toBe(
+      "Cannot remove the last remaining owner from the organization.",
+    );
   });
 });

@@ -306,10 +306,21 @@ export const removeMemberAction = actionClientUser
     });
 
     if (targetMember.role === "owner") {
-      const ownerCount = await prisma.member.count({
-        where: { organizationId: targetMember.organizationId, role: "owner" },
+      const deletedMember = await prisma.member.deleteMany({
+        where: {
+          id: memberId,
+          organization: {
+            members: {
+              some: {
+                id: { not: memberId },
+                role: "owner",
+              },
+            },
+          },
+        },
       });
-      if (ownerCount === 1) {
+
+      if (deletedMember.count !== 1) {
         throw new SafeError(
           "Cannot remove the last remaining owner from the organization.",
         );
@@ -329,7 +340,9 @@ export const removeMemberAction = actionClientUser
       }
     }
 
-    await prisma.member.delete({ where: { id: memberId } });
+    if (targetMember.role !== "owner") {
+      await prisma.member.delete({ where: { id: memberId } });
+    }
   });
 
 export const updateMemberRoleAction = actionClientUser
