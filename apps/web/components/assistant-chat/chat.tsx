@@ -5,10 +5,15 @@ import {
   ArrowUpIcon,
   HistoryIcon,
   Loader2,
+  MoreHorizontalIcon,
   PaperclipIcon,
+  PencilIcon,
   PlusIcon,
   SquareIcon,
+  Trash2Icon,
 } from "lucide-react";
+import { useAction } from "next-safe-action/hooks";
+import { useSWRConfig } from "swr";
 import { Messages } from "./messages";
 import { PreviewAttachment } from "./preview-attachment";
 import { Button } from "@/components/ui/button";
@@ -18,11 +23,30 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useChats } from "@/hooks/useChats";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
 import { useChat } from "@/providers/ChatProvider";
 import type { Attachment } from "@/providers/ChatProvider";
+import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   PromptInput,
   PromptInputTextarea,
@@ -34,6 +58,9 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { MessageContext } from "@/app/api/chat/validation";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
+import { toastError, toastSuccess } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
+import { deleteChatAction, renameChatAction } from "@/utils/actions/chat";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 const MAX_FILES = 5;
@@ -454,12 +481,12 @@ function NewChatButton() {
 }
 
 function ChatHistoryDropdown() {
-  const { setChatId } = useChat();
   const [shouldLoadChats, setShouldLoadChats] = useState(false);
+  const [open, setOpen] = useState(false);
   const { data, error, isLoading, mutate } = useChats(shouldLoadChats);
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <Tooltip content="View previous conversations">
         <DropdownMenuTrigger asChild>
           <Button
@@ -473,7 +500,7 @@ function ChatHistoryDropdown() {
           </Button>
         </DropdownMenuTrigger>
       </Tooltip>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="w-72">
         <LoadingContent
           loading={isLoading}
           error={error}
@@ -492,14 +519,12 @@ function ChatHistoryDropdown() {
         >
           {data && data.chats.length > 0 ? (
             data.chats.map((chatItem) => (
-              <DropdownMenuItem
+              <ChatHistoryItem
                 key={chatItem.id}
-                onSelect={() => {
-                  setChatId(chatItem.id);
-                }}
-              >
-                {`Chat from ${new Date(chatItem.createdAt).toLocaleString()}`}
-              </DropdownMenuItem>
+                chat={chatItem}
+                onMutate={mutate}
+                closeParent={() => setOpen(false)}
+              />
             ))
           ) : (
             <DropdownMenuItem disabled>
@@ -509,6 +534,258 @@ function ChatHistoryDropdown() {
         </LoadingContent>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+type ChatHistoryItemData = {
+  id: string;
+  name: string | null;
+  createdAt: string | Date;
+};
+
+function ChatHistoryItem({
+  chat,
+  onMutate,
+  closeParent,
+}: {
+  chat: ChatHistoryItemData;
+  onMutate: () => void;
+  closeParent: () => void;
+}) {
+  const { chatId, setChatId } = useChat();
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const label =
+    chat.name ?? `Chat from ${new Date(chat.createdAt).toLocaleString()}`;
+
+  return (
+    <>
+      <div className="group/chat-row relative flex items-center">
+        <DropdownMenuItem
+          className="flex-1 truncate pr-9"
+          onSelect={() => setChatId(chat.id)}
+        >
+          <span className="truncate">{label}</span>
+        </DropdownMenuItem>
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Chat options"
+              className={
+                "absolute right-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground focus:opacity-100 focus:outline-none " +
+                (menuOpen
+                  ? "opacity-100"
+                  : "opacity-0 group-hover/chat-row:opacity-100")
+              }
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setMenuOpen(true);
+              }}
+            >
+              <MoreHorizontalIcon className="size-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            side="right"
+            onCloseAutoFocus={(e) => e.preventDefault()}
+          >
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                setMenuOpen(false);
+                closeParent();
+                setRenameOpen(true);
+              }}
+            >
+              <PencilIcon className="mr-2 size-4" />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                setMenuOpen(false);
+                closeParent();
+                setDeleteOpen(true);
+              }}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2Icon className="mr-2 size-4" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <RenameChatDialog
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        chatId={chat.id}
+        currentName={chat.name ?? ""}
+        defaultLabel={label}
+        onRenamed={onMutate}
+      />
+      <DeleteChatDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        chatId={chat.id}
+        label={label}
+        onDeleted={() => {
+          if (chatId === chat.id) setChatId(null);
+          onMutate();
+        }}
+      />
+    </>
+  );
+}
+
+function RenameChatDialog({
+  open,
+  onOpenChange,
+  chatId,
+  currentName,
+  defaultLabel,
+  onRenamed,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  chatId: string;
+  currentName: string;
+  defaultLabel: string;
+  onRenamed: () => void;
+}) {
+  const { emailAccountId } = useAccount();
+  const { mutate: globalMutate } = useSWRConfig();
+  const [name, setName] = useState(currentName);
+
+  useEffect(() => {
+    if (open) setName(currentName);
+  }, [open, currentName]);
+
+  const { execute, isExecuting } = useAction(
+    renameChatAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Chat renamed." });
+        onRenamed();
+        globalMutate(`/api/chats/${chatId}`);
+        onOpenChange(false);
+      },
+      onError: (error) => {
+        toastError({
+          description: getActionErrorMessage(error.error, {
+            prefix: "Failed to rename chat",
+          }),
+        });
+      },
+    },
+  );
+
+  const trimmed = name.trim();
+  const canSubmit = trimmed.length > 0 && trimmed !== currentName.trim();
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Rename chat</DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!canSubmit) return;
+            execute({ chatId, name: trimmed });
+          }}
+        >
+          <Input
+            type="text"
+            name="name"
+            placeholder={defaultLabel}
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={200}
+          />
+          <DialogFooter className="mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isExecuting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" loading={isExecuting} disabled={!canSubmit}>
+              Save
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteChatDialog({
+  open,
+  onOpenChange,
+  chatId,
+  label,
+  onDeleted,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  chatId: string;
+  label: string;
+  onDeleted: () => void;
+}) {
+  const { emailAccountId } = useAccount();
+  const { execute, isExecuting } = useAction(
+    deleteChatAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Chat deleted." });
+        onDeleted();
+        onOpenChange(false);
+      },
+      onError: (error) => {
+        toastError({
+          description: getActionErrorMessage(error.error, {
+            prefix: "Failed to delete chat",
+          }),
+        });
+      },
+    },
+  );
+
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete chat?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete &ldquo;{label}&rdquo; and all of its
+            messages. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isExecuting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault();
+              execute({ chatId });
+            }}
+            disabled={isExecuting}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {isExecuting ? "Deleting..." : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
