@@ -6,12 +6,18 @@ const MICROSOFT_GRAPH_PAGE_TOKEN_HOSTS = new Set([
   "dod-graph.microsoft.us",
   "graph.microsoft.de",
   "microsoftgraph.chinacloudapi.cn",
+  "canary.graph.microsoft.com",
 ]);
 
 const URL_PAGE_TOKEN_PATTERN = /^(?:[a-z][a-z\d+.-]*:)?\/\//i;
+const SDK_EMBEDDED_URL_PATTERN = /https:\/\//i;
 
 export function isAbsoluteUrlPageToken(pageToken?: string | null): boolean {
-  return Boolean(pageToken && URL_PAGE_TOKEN_PATTERN.test(pageToken));
+  return Boolean(
+    pageToken &&
+      (URL_PAGE_TOKEN_PATTERN.test(pageToken) ||
+        SDK_EMBEDDED_URL_PATTERN.test(pageToken)),
+  );
 }
 
 export function isAllowedMicrosoftGraphPageToken(

@@ -108,8 +108,7 @@ export async function getThreadsWithNextPageToken({
   pageToken?: string;
   logger: Logger;
 }) {
-  const endpoint =
-    resolveMicrosoftGraphNextLink(pageToken) || pageToken || "/me/messages";
+  const endpoint = resolveMicrosoftGraphNextLink(pageToken) || "/me/messages";
 
   let request = client
     .getClient()

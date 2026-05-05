@@ -25,6 +25,14 @@ describe("isAllowedMicrosoftGraphPageToken", () => {
     ).toBe(true);
   });
 
+  it("allows Microsoft Graph canary next links", () => {
+    expect(
+      isAllowedMicrosoftGraphPageToken(
+        "https://canary.graph.microsoft.com/v1.0/me/messages?$skiptoken=abc",
+      ),
+    ).toBe(true);
+  });
+
   it("rejects non-Graph hosts", () => {
     expect(
       isAllowedMicrosoftGraphPageToken(
@@ -45,6 +53,14 @@ describe("isAllowedMicrosoftGraphPageToken", () => {
     expect(isAllowedMicrosoftGraphPageToken("//169.254.169.254/latest")).toBe(
       false,
     );
+  });
+
+  it("rejects tokens with embedded URLs", () => {
+    expect(
+      isAllowedMicrosoftGraphPageToken(
+        "token-prefix-https://169.254.169.254/latest",
+      ),
+    ).toBe(false);
   });
 });
 
