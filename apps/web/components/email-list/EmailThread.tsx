@@ -63,7 +63,7 @@ export function EmailThread({
         </div>
       )}
       <ul className="mt-4 space-y-2 sm:space-y-4">
-        {organizedMessages.map(({ message, draftMessage }) => {
+        {organizedMessages.map(({ message, draftMessage }, idx) => {
           const defaultShowReply =
             autoOpenReplyForMessageId === message.id || Boolean(draftMessage);
           return (
@@ -89,6 +89,7 @@ export function EmailThread({
 
                 onSendSuccess?.(messageId, message.threadId);
               }}
+              isLastMessage={idx === organizedMessages.length - 1}
               generateNudge={defaultShowReply && !draftMessage?.textHtml}
             />
           );
