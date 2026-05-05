@@ -1,0 +1,70 @@
+# Dependabot config for the rebekah-create/inbox-zero-rebekah self-hosted fork.
+#
+# Goals: surface security advisories and groom dep drift, but don't drown a
+# solo maintainer in PRs. Strategy:
+#   - Weekly cadence (Monday morning) — single batched review window.
+#   - Group non-major bumps by ecosystem so it's one PR to skim, not 30.
+#   - Major-version bumps stay individual — those need real review.
+#   - Cap open PRs at 5 to keep noise bounded.
+#
+# Security-only updates (CVEs) bypass these settings and arrive immediately.
+
+version: 2
+
+updates:
+  # Top-level workspace dependencies (pnpm monorepo)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "npm"
+    groups:
+      # Bundle minor + patch updates so the weekly review is one PR per group
+      # instead of N. Major updates stay separate (more risk, more attention).
+      production-deps:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      development-deps:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions versions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "github-actions"
+    groups:
+      actions-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Docker base images
+  - package-ecosystem: "docker"
+    directory: "/docker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 2
+    labels:
+      - "dependencies"
+      - "docker"

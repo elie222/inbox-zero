@@ -4,6 +4,22 @@ on:
   push:
     branches:
       - main
+    # Skip rebuilds for changes that can't affect the production image
+    # (planning docs, READMEs, repo metadata).
+    paths-ignore:
+      - "**/*.md"
+      - "**/*.mdx"
+      - ".planning/**"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE.md"
+
+# Cancel any in-flight build when a newer commit lands on the same ref.
+# Prevents the orphan-build scenario (40+ min build completes only to be
+# immediately superseded by a newer push).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-push:
