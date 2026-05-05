@@ -88,6 +88,9 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `CLI_LLM_ENABLED` | No | Enables community CLI-backed LLM providers (`codex-cli`, `claude-code`). Self-host only; requires installing optional provider packages. | `false` |
 | `CODEX_CLI_ALLOW_NPX` | No | Allows the Codex community provider to fall back to `npx @openai/codex` if `codex` is not on PATH. Leave disabled unless you trust that install path. | `false` |
 | `CODEX_CLI_PATH` | No | Optional path to the `codex` binary when using `codex-cli`. | — |
+| **AI Content Controls** ||||
+| `AI_SENSITIVE_CONTENT_POLICY_DEFAULT` | No | Default policy for handling narrow sensitive-content matches in LLM requests (`ALLOW`, `REDACT`, or `BLOCK`) | `ALLOW` |
+| `AI_SENSITIVE_CONTENT_POLICY_LOCKED` | No | Set to `true` to enforce the default policy for all accounts and disable account-level edits | `false` |
 | **Background Jobs (QStash, optional)** ||||
 | `QSTASH_TOKEN` | No | QStash API token (optional; fallback runs jobs via internal API + cron) | — |
 | `QSTASH_CURRENT_SIGNING_KEY` | No | Current signing key for webhooks | — |
