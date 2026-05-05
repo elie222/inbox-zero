@@ -74,3 +74,4 @@ See `.claude/skills/fullstack-workflow/SKILL.md` for full examples and templates
 - Data fetching: SWR on the client. Call `mutate()` after mutations.
 - Forms: React Hook Form + `useAction` hook. Use `getActionErrorMessage(error.error)` for errors.
 - Loading states: use `LoadingContent` component.
+- Cursor Cloud VM setup: see `.claude/skills/cloud-dev-environment/SKILL.md`.

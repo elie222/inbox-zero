@@ -118,7 +118,7 @@ export const updateAiSensitiveContentPolicyAction = actionClient
     }) => {
       if (isAiSensitiveContentPolicyLocked()) {
         throw new SafeError(
-          "Sensitive AI content policy is managed by the deployment.",
+          "Sensitive data protection is managed by the deployment.",
         );
       }
 

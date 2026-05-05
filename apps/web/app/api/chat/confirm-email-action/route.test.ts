@@ -15,7 +15,7 @@ vi.mock("@/utils/middleware", () => ({
       handler(request),
 }));
 
-vi.mock("@/utils/actions/assistant-chat", () => ({
+vi.mock("@/utils/actions/assistant-chat-confirmation", () => ({
   confirmAssistantEmailActionForAccount:
     mockConfirmAssistantEmailActionForAccount,
 }));

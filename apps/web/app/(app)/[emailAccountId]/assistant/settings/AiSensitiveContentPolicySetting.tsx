@@ -27,18 +27,18 @@ const POLICY_OPTIONS: Array<{
   value: AiSensitiveContentPolicy;
 }> = [
   {
-    description: "Send AI requests without this scanner.",
+    description: "Send everything to AI without scanning.",
     label: "Off",
     value: "ALLOW",
   },
   {
-    description: "Replace matched values before AI requests.",
-    label: "Redact before AI",
+    description: "Hide credentials and card numbers, then send to AI.",
+    label: "Redact",
     value: "REDACT",
   },
   {
-    description: "Stop AI requests when a match is found.",
-    label: "Block AI requests",
+    description: "Skip the AI request when sensitive data is found.",
+    label: "Block",
     value: "BLOCK",
   },
 ];
@@ -58,7 +58,7 @@ export function AiSensitiveContentPolicySetting() {
       },
       onError: createSettingActionErrorHandler({
         mutate,
-        prefix: "Failed to update sensitive AI content setting",
+        prefix: "Failed to update sensitive data protection setting",
       }),
     },
   );
@@ -86,8 +86,8 @@ export function AiSensitiveContentPolicySetting() {
   return (
     <SettingCard
       collapseOnMobile
-      title="Sensitive AI content"
-      description="Detect likely credentials and payment card numbers before AI requests."
+      title="Sensitive data protection"
+      description="Prevent credentials and card numbers from being sent to AI."
       right={
         <LoadingContent
           loading={isLoading}
@@ -110,7 +110,7 @@ export function AiSensitiveContentPolicySetting() {
               disabled={isExecuting || !data}
             >
               <SelectTrigger
-                aria-label="Sensitive AI content policy"
+                aria-label="Sensitive data protection"
                 className="w-full md:w-56"
               >
                 <SelectValue>{getPolicyLabel(policy)}</SelectValue>

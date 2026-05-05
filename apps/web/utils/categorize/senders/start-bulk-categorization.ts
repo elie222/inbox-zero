@@ -14,7 +14,7 @@ import {
   publishToAiCategorizeSendersQueue,
 } from "@/utils/upstash/categorize-senders";
 import { getUncategorizedSenders } from "@/app/api/user/categorize/senders/uncategorized/get-uncategorized-senders";
-import { loadEmails } from "@/utils/actions/stats";
+import { loadEmails } from "@/utils/actions/stats-loading";
 
 const CATEGORIZE_SYNC_CHUNK_PAGES = 5;
 const LIMIT = 100;

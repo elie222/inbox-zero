@@ -55,6 +55,7 @@ import {
   createAutoArchiveFilter,
 } from "@/utils/outlook/filter";
 import { queryMessagesWithFilters } from "@/utils/outlook/message";
+import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 import type {
   EmailProvider,
   EmailThread,
@@ -302,10 +303,10 @@ export class OutlookProvider implements EmailProvider {
     const { maxResults, after, before, pageToken } = options;
 
     const buildRequest = () => {
-      // pageToken is the full @odata.nextLink URL, which already encodes
-      // top/skip/filter from the original request.
-      if (pageToken?.startsWith("http")) {
-        return this.client.getClient().api(pageToken);
+      // The nextLink already encodes top/skip/filter from the original request.
+      const nextLink = resolveMicrosoftGraphNextLink(pageToken);
+      if (nextLink) {
+        return this.client.getClient().api(nextLink);
       }
 
       const filters: string[] = [];
@@ -1523,9 +1524,9 @@ export class OutlookProvider implements EmailProvider {
     const maxResults = options.maxResults || 50;
 
     const fetchThreadPage = async (pageToken?: string) => {
-      // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
-      if (pageToken?.startsWith("http")) {
-        return await client.api(pageToken).get();
+      const nextLink = resolveMicrosoftGraphNextLink(pageToken);
+      if (nextLink) {
+        return await client.api(nextLink).get();
       }
 
       // Determine endpoint and build filters based on query type

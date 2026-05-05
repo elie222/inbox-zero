@@ -321,6 +321,7 @@
     },
     "lint": {},
     "check-enums": {},
+    "check-server-actions": {},
     "dev": {
       "cache": false,
       "persistent": true

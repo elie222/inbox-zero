@@ -18,10 +18,8 @@ vi.mock("@/utils/auth", () => ({
 }));
 
 import prisma from "@/utils/__mocks__/prisma";
-import {
-  confirmAssistantCreateRule,
-  confirmAssistantCreateRuleForAccount,
-} from "@/utils/actions/assistant-chat";
+import { confirmAssistantCreateRule } from "@/utils/actions/assistant-chat";
+import { confirmAssistantCreateRuleForAccount } from "@/utils/actions/assistant-chat-confirmation";
 
 function buildPendingCreateRulePart({
   output,

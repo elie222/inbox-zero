@@ -5,10 +5,10 @@ import { sleep } from "@/utils/sleep";
 
 const logger = createScopedLogger("testAction");
 
+// server-action-export: allow - intentionally exposes a non-mutating test action.
 export async function testAction() {
   logger.info("testAction started");
 
-  // sleep for 5 seconds
   await sleep(5000);
 
   logger.info("testAction completed");

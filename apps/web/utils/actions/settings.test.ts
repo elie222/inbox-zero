@@ -115,7 +115,7 @@ describe("updateAiSensitiveContentPolicyAction", () => {
     );
 
     expect(result?.serverError).toBe(
-      "Sensitive AI content policy is managed by the deployment.",
+      "Sensitive data protection is managed by the deployment.",
     );
     expect(prisma.emailAccount.update).not.toHaveBeenCalled();
   });
