@@ -29,7 +29,7 @@ const DEFAULT_DIGEST_SETTINGS = {
   receipt: false,
   notification: false,
   coldEmail: false,
-};
+} satisfies Record<string, boolean>;
 
 export type GetDigestSettingsResponse = Awaited<
   ReturnType<typeof getDigestSettings>
