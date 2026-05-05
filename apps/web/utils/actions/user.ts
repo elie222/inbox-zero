@@ -2,7 +2,6 @@
 
 import { z } from "zod";
 import { after } from "next/server";
-import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import { deleteUser } from "@/utils/user/delete";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
@@ -18,6 +17,7 @@ import {
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
 import { aliasPosthogUser } from "@/utils/posthog";
 import { cleanupAIDraftsForAccount } from "@/utils/ai/draft-cleanup";
+import { isNotFoundError } from "@/utils/prisma-helpers";
 
 export const saveAboutAction = actionClient
   .metadata({ name: "saveAbout" })
@@ -174,21 +174,12 @@ async function runDeleteEmailAccountTransaction(
   try {
     await prisma.$transaction(operations);
   } catch (error) {
-    if (isPrismaNotFoundError(error)) {
+    if (isNotFoundError(error)) {
       throw new SafeError("Email account already changed");
     }
 
     throw error;
   }
-}
-
-function isPrismaNotFoundError(
-  error: unknown,
-): error is Prisma.PrismaClientKnownRequestError {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P2025"
-  );
 }
 
 function getDeleteEmailAccountLock(userId: string) {
