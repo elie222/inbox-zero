@@ -76,6 +76,13 @@ export const POST = withEmailAccount("chat", async (request) => {
     );
   }
 
+  if (chat.deletedAt) {
+    return NextResponse.json(
+      { error: "This chat has been deleted." },
+      { status: 410 },
+    );
+  }
+
   const chatHasHistory =
     chat.messages.length > 0 || chat.compactions.length > 0;
   const { message, context, inlineActions } = data;

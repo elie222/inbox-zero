@@ -7,16 +7,14 @@ import {
 } from "@/utils/actions/chat.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
+import { softDeleteChat } from "@/utils/chat/soft-delete";
 
 export const deleteChatAction = actionClient
   .metadata({ name: "deleteChat" })
   .inputSchema(deleteChatBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { chatId } }) => {
-    const result = await prisma.chat.deleteMany({
-      where: { id: chatId, emailAccountId },
-    });
-
-    if (result.count === 0) throw new SafeError("Chat not found.");
+    const deleted = await softDeleteChat({ chatId, emailAccountId });
+    if (!deleted) throw new SafeError("Chat not found.");
   });
 
 export const renameChatAction = actionClient
@@ -25,7 +23,7 @@ export const renameChatAction = actionClient
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { chatId, name } }) => {
       const result = await prisma.chat.updateMany({
-        where: { id: chatId, emailAccountId },
+        where: { id: chatId, emailAccountId, deletedAt: null },
         data: { name },
       });
 

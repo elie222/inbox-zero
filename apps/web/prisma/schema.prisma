@@ -1041,9 +1041,10 @@ model DraftSendLog {
 }
 
 model Chat {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String    @id @default(cuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   name      String?
 
@@ -1057,6 +1058,7 @@ model Chat {
   emailAccount   EmailAccount     @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@index([emailAccountId])
+  @@index([deletedAt])
 }
 
 model ChatMessage {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
+import { softDeleteChat } from "@/utils/chat/soft-delete";
 
 export type GetChatResponse = Awaited<ReturnType<typeof getChat>>;
 const updateChatSchema = z.object({
@@ -105,10 +106,11 @@ async function getChat({
   chatId: string;
   emailAccountId: string;
 }) {
-  const chat = await prisma.chat.findUnique({
+  const chat = await prisma.chat.findFirst({
     where: {
       id: chatId,
       emailAccountId,
+      deletedAt: null,
     },
     include: {
       messages: {
@@ -135,6 +137,7 @@ async function updateChat({
     where: {
       id: chatId,
       emailAccountId,
+      deletedAt: null,
     },
     data: {
       ...(name !== undefined ? { name } : {}),
@@ -143,10 +146,11 @@ async function updateChat({
 
   if (result.count === 0) return null;
 
-  return prisma.chat.findUnique({
+  return prisma.chat.findFirst({
     where: {
       id: chatId,
       emailAccountId,
+      deletedAt: null,
     },
     include: {
       messages: {
@@ -165,12 +169,5 @@ async function deleteChat({
   chatId: string;
   emailAccountId: string;
 }) {
-  const result = await prisma.chat.deleteMany({
-    where: {
-      id: chatId,
-      emailAccountId,
-    },
-  });
-
-  return result.count > 0;
+  return softDeleteChat({ chatId, emailAccountId });
 }
