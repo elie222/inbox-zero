@@ -63,15 +63,34 @@ export async function handlePreviousDraftDeletion({
       return;
     }
 
-    const isUnmodified =
-      !previousDraftAction.content ||
+    if (previousDraftAction.content === null) {
+      logger.info("Previous draft content missing, skipping deletion.");
+      return;
+    }
+
+    if (
       isDraftUnmodified({
         originalContent: previousDraftAction.content,
         currentDraft: currentDraftDetails,
         logger,
-      });
+      })
+    ) {
+      const latestDraftDetails = await client.getDraft(
+        previousDraftAction.draftId,
+      );
+      const isStillUnmodified =
+        !!(latestDraftDetails?.textPlain || latestDraftDetails?.textHtml) &&
+        isDraftUnmodified({
+          originalContent: previousDraftAction.content,
+          currentDraft: latestDraftDetails,
+          logger,
+        });
 
-    if (isUnmodified) {
+      if (!isStillUnmodified) {
+        logger.info("Draft changed before deletion, skipping deletion.");
+        return;
+      }
+
       logger.info("Draft content matches, deleting draft.");
 
       await Promise.all([
