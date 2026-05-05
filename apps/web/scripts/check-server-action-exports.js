@@ -15,9 +15,13 @@ const root = process.cwd();
 const ignoredDirectories = new Set([
   ".git",
   ".next",
+  ".turbo",
+  "build",
   "coverage",
+  "dist",
   "generated",
   "node_modules",
+  "out",
 ]);
 
 const violations = [];
@@ -157,10 +161,11 @@ function findRuntimeExports(content) {
   }
 
   const namedExportRegex =
-    /^export\s+\{([^}]+)\}(?:\s+from\s+["'][^"']+["'])?/gm;
+    /^export\s+(type\s+)?\{([^}]+)\}(?:\s+from\s+["'][^"']+["'])?/gm;
   for (const match of content.matchAll(namedExportRegex)) {
+    if (match[1]) continue;
     const isFromExport = /\}\s+from\s+["']/.test(match[0]);
-    for (const rawSpecifier of match[1].split(",")) {
+    for (const rawSpecifier of match[2].split(",")) {
       const specifier = rawSpecifier.trim();
       if (!specifier || specifier.startsWith("type ")) continue;
 
