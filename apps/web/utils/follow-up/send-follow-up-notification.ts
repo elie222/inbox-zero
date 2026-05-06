@@ -212,10 +212,11 @@ function formatFollowUpText({
   snippet,
   threadLink,
 }: FollowUpNotificationContent): string {
-  const { directionLine, preposition, verb } = getFollowUpCopy(trackerType);
+  const { directionLine, preposition, verb, emoji } =
+    getFollowUpCopy(trackerType);
 
   const lines = [
-    `Follow-up nudge — ${directionLine}`,
+    `${emoji} Follow-up nudge — ${directionLine}`,
     subject,
     `${preposition} ${counterpartyName} <${counterpartyEmail}> · ${verb} ${daysSinceSent} ${pluralize(daysSinceSent, "day")} ago`,
   ];
@@ -236,7 +237,8 @@ function buildTelegramFollowUpCard({
   threadLink,
   threadLinkLabel,
 }: FollowUpNotificationContent) {
-  const { directionLine, preposition, verb } = getFollowUpCopy(trackerType);
+  const { directionLine, preposition, verb, emoji } =
+    getFollowUpCopy(trackerType);
   const children: CardChild[] = [
     CardText(
       [
@@ -263,7 +265,7 @@ function buildTelegramFollowUpCard({
   }
 
   return Card({
-    title: "Follow-up nudge",
+    title: `${emoji} Follow-up nudge`,
     children,
   });
 }

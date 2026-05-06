@@ -26,7 +26,7 @@ export function buildDigestBlocks({
       type: "header",
       text: {
         type: "plain_text",
-        text: `Your Inbox Zero digest — ${formatDigestDate(date)}`,
+        text: `📋 Your Inbox Zero digest — ${formatDigestDate(date)}`,
         emoji: true,
       },
     },

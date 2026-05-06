@@ -26,7 +26,8 @@ export function buildFollowUpReminderBlocks({
   threadLink,
   trackerId,
 }: FollowUpReminderBlocksParams): (KnownBlock | Block)[] {
-  const { directionLine, preposition, verb } = getFollowUpCopy(trackerType);
+  const { directionLine, preposition, verb, emoji } =
+    getFollowUpCopy(trackerType);
   const sentenceVerb = `${verb} ${daysSinceSent} ${pluralize(daysSinceSent, "day")} ago`;
 
   const counterpartyMarkdown = `${preposition} *${escapeSlackText(counterpartyName)}* \`<${escapeSlackText(counterpartyEmail)}>\``;
@@ -34,7 +35,11 @@ export function buildFollowUpReminderBlocks({
   const blocks: (KnownBlock | Block)[] = [
     {
       type: "header",
-      text: { type: "plain_text", text: "Follow-up nudge", emoji: true },
+      text: {
+        type: "plain_text",
+        text: `${emoji} Follow-up nudge`,
+        emoji: true,
+      },
     },
     {
       type: "context",

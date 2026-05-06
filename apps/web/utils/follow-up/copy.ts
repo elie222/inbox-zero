@@ -9,6 +9,7 @@ export function getFollowUpCopy(trackerType: ThreadTrackerType) {
     directionLine: isAwaiting ? "they haven't replied" : "you haven't replied",
     preposition: isAwaiting ? "to" : "from",
     verb: isAwaiting ? "sent" : "received",
+    emoji: isAwaiting ? "⏳" : "✍️",
   };
 }
 
