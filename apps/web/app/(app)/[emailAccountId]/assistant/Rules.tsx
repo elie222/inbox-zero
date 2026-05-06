@@ -67,7 +67,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const CONVERSATION_TRACKER_TYPES = new Set([
+const CONVERSATION_TRACKER_TYPES = new Set<SystemType>([
   SystemType.TO_REPLY,
   SystemType.AWAITING_REPLY,
   SystemType.FYI,
