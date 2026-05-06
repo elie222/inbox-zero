@@ -82,6 +82,7 @@ export async function getUnifiedCalendarAvailability({
       googleAvailabilityProvider
         .fetchBusyPeriods({
           accessToken: connection.accessToken,
+          connectionId: connection.id,
           refreshToken: connection.refreshToken,
           expiresAt: connection.expiresAt?.getTime() || null,
           emailAccountId,

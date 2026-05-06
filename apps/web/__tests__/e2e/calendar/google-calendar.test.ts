@@ -121,6 +121,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Calendar Integration Tests", () => {
       refreshToken: connection.refreshToken,
       expiresAt: connection.expiresAt?.getTime() || null,
       emailAccountId: connection.emailAccountId,
+      connectionId: connection.id,
       logger,
     });
 
@@ -196,6 +197,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Calendar Integration Tests", () => {
         refreshToken: calendarConnection.refreshToken,
         expiresAt: calendarConnection.expiresAt?.getTime() || null,
         emailAccountId: calendarConnection.emailAccountId,
+        connectionId: calendarConnection.id,
         calendarIds: enabledCalendars.map((c) => c.calendarId),
         timeMin,
         timeMax,

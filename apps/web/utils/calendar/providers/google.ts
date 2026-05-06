@@ -59,6 +59,7 @@ export function createGoogleCalendarProvider(
           refreshToken,
           expiresAt: expiresAt?.getTime() ?? null,
           emailAccountId,
+          connectionId,
           logger,
         });
 

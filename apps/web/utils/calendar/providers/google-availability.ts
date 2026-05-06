@@ -68,6 +68,7 @@ export function createGoogleAvailabilityProvider(
 
     async fetchBusyPeriods({
       accessToken,
+      connectionId,
       refreshToken,
       expiresAt,
       emailAccountId,
@@ -80,6 +81,7 @@ export function createGoogleAvailabilityProvider(
         refreshToken,
         expiresAt,
         emailAccountId,
+        connectionId,
         logger,
       });
 
