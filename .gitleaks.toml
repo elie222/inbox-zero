@@ -1,0 +1,10 @@
+[extend]
+# Extend the default gitleaks ruleset
+useDefault = true
+
+[[allowlists]]
+description = "GSD planning directories contain UUID event IDs that trigger generic-api-key false positives"
+paths = [
+  '''.gsd\.migrating/''',
+  '''.gsd/''',
+]
