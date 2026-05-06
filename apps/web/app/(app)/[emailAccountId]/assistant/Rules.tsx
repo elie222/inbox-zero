@@ -36,7 +36,7 @@ import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { toastError } from "@/components/Toast";
 import { useRules } from "@/hooks/useRules";
-import { LogicalOperator } from "@/generated/prisma/enums";
+import { LogicalOperator, SystemType } from "@/generated/prisma/enums";
 import type { ActionType } from "@/generated/prisma/client";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -61,6 +61,13 @@ import {
   STEP_KEYS,
   getOnboardingStepHref,
 } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
+
+const CONVERSATION_TRACKER_TYPES = new Set([
+  SystemType.TO_REPLY,
+  SystemType.AWAITING_REPLY,
+  SystemType.FYI,
+  SystemType.ACTIONED,
+]);
 
 export function Rules({
   showAddRuleButton = true,
@@ -183,6 +190,16 @@ export function Rules({
                         <Switch
                           size="sm"
                           checked={rule.enabled}
+                          disabled={
+                            !!rule.systemType &&
+                            CONVERSATION_TRACKER_TYPES.has(rule.systemType)
+                          }
+                          title={
+                            rule.systemType &&
+                            CONVERSATION_TRACKER_TYPES.has(rule.systemType)
+                              ? "Conversation tracker rules are managed automatically"
+                              : undefined
+                          }
                           onCheckedChange={async (enabled) => {
                             const isSystemRule = !!rule.systemType;
 
