@@ -8,10 +8,6 @@ name: E2E Flow Tests
 # To disable: Remove the variable or set it to anything other than "true"
 
 on:
-  # Run on schedule (every 12 hours)
-  schedule:
-    - cron: "0 */12 * * *"
-
   # Allow manual trigger with branch selection
   workflow_dispatch:
     inputs:
@@ -283,30 +279,3 @@ jobs:
             ngrok.log
           retention-days: 7
 
-  notify-disabled:
-    needs: check-enabled
-    if: needs.check-enabled.outputs.enabled != 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: E2E flows disabled notice
-        run: |
-          echo "::notice::E2E flow tests are disabled. To enable, set the repository variable E2E_FLOWS_ENABLED=true"
-          echo ""
-          echo "Required secrets for E2E flow tests:"
-          echo ""
-          echo "E2E-specific secrets:"
-          echo "  - E2E_GMAIL_EMAIL: Gmail test account email"
-          echo "  - E2E_OUTLOOK_EMAIL: Outlook test account email"
-          echo "  - E2E_NGROK_AUTH_TOKEN: ngrok auth token for tunnel"
-          echo ""
-          echo "Standard app secrets (same as production):"
-          echo "  - DATABASE_URL, AUTH_SECRET, INTERNAL_API_KEY"
-          echo "  - EMAIL_ENCRYPT_SECRET, EMAIL_ENCRYPT_SALT"
-          echo "  - UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN"
-          echo "  - GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET"
-          echo "  - GOOGLE_PUBSUB_TOPIC_NAME, GOOGLE_PUBSUB_VERIFICATION_TOKEN"
-          echo "  - MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET, MICROSOFT_WEBHOOK_CLIENT_STATE"
-          echo "  - AI provider secrets (one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, OPENROUTER_API_KEY)"
-          echo "  - DEFAULT_LLM_PROVIDER (optional, defaults to openai)"
