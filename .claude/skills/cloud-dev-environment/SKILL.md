@@ -10,8 +10,8 @@ description: Cursor Cloud VM setup and service startup instructions for local de
 - **Redis 7 + serverless-redis-http**: Caching/rate-limiting. Redis on port 6380, HTTP proxy on port 8079.
 
 ## Starting services
-1. Start Docker daemon: `sudo dockerd &>/dev/null &` then `sudo chmod 666 /var/run/docker.sock` if not already running (check `docker info`).
-2. Start databases: `docker compose -f docker-compose.dev.yml up -d` from repo root.
+1. Start Docker daemon: `sudo dockerd &>/dev/null &` if not already running (check `sudo docker info` or `docker info`). If `docker info` fails with permission denied on the socket, grant **only your user** access (do not use `chmod 666`, which lets any local process use Docker): `sudo setfacl -m "u:$(whoami):rw" /var/run/docker.sock` (install the `acl` package if `setfacl` is missing). If you cannot use ACLs, run Compose with `sudo docker compose ...` instead of relaxing socket permissions globally.
+2. Start databases: `docker compose -f docker-compose.dev.yml up -d` from repo root (prefix with `sudo docker` if the socket is still root-only).
 3. Run Prisma migrations: `cd apps/web && pnpm prisma:migrate:local` (uses `dotenv -e .env.local`; do NOT use bare `prisma migrate dev` — it won't load `.env.local`).
 4. Start dev server: `pnpm dev` from repo root.
 
@@ -37,14 +37,20 @@ Start the emulator: `docker compose -f docker-compose.dev.yml --profile google-e
 - AI tests (`pnpm test-ai`) require a real LLM API key and are skipped by default.
 
 ## Docker in this environment
-The cloud VM is a Docker-in-Docker setup. Docker requires `fuse-overlayfs` storage driver and `iptables-legacy`. These are configured during initial setup. After snapshot restore, run `sudo dockerd &>/dev/null &` if Docker daemon is not running, then `sudo chmod 666 /var/run/docker.sock`.
+The cloud VM is a Docker-in-Docker setup. Docker requires `fuse-overlayfs` storage driver and `iptables-legacy`. These are configured during initial setup. After snapshot restore, run `sudo dockerd &>/dev/null &` if Docker daemon is not running. If your user cannot access `/var/run/docker.sock`, use `sudo setfacl -m "u:$(whoami):rw" /var/run/docker.sock` as above—not a world-writable socket.
 
-The VM may not have the Docker Compose v2 plugin pre-installed. If `docker compose version` fails, install it:
+The VM may not have the Docker Compose v2 plugin pre-installed. If `docker compose version` fails, install a **pinned** binary and verify SHA256 before placing it in the plugin path (updates the version/sha256 together when bumping):
 ```bash
+COMPOSE_VERSION=v2.29.2
+COMPOSE_SHA256=d037bd4937bf18fba67cff4366e084ee125a3e15c25657ee1aeceff8db3672b4
+TMP="$(mktemp)"
+curl -fsSL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-x86_64" -o "$TMP"
+echo "${COMPOSE_SHA256}  ${TMP}" | sha256sum -c -
 sudo mkdir -p /usr/local/lib/docker/cli-plugins
-sudo curl -SL https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
-sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+sudo install -m 0755 "$TMP" /usr/local/lib/docker/cli-plugins/docker-compose
+rm -f "$TMP"
 ```
+Official checksums for each release are listed next to the binary on the [Compose releases](https://github.com/docker/compose/releases) page.
 
 ## Onboarding flow
 After a fresh login via the Google emulator, the app forces an onboarding wizard. Some onboarding buttons require JavaScript `click()` calls rather than standard browser clicks (React event delegation quirk in headless/automation contexts).
