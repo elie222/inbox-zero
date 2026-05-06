@@ -1,0 +1,15 @@
+- Server compose file was already updated (fork image present before git pull) — docker compose pull + up -d confirmed running containers
+- ubuntu-latest + QEMU instead of arm runner: arm runners cannot cross-compile to amd64
+- type=sha,prefix= produces 7-char SHA without 'sha-' prefix (e.g. 79c104b not sha-79c104b)
+- No workflow_dispatch trigger per D-03 — push-to-main only
+- AUTH_ALLOWED_EMAILS (per-email) already existed in SSM — left in place as belt-and-suspenders; domain lock (AUTH_ALLOWED_EMAIL_DOMAINS) is now the primary gate
+- RESEND_FROM_EMAIL was already correct in SSM — no change needed
+- Digest live-send test skipped: /api/cron/digest does not exist; actual route (/api/resend/summary) requires user auth. RESEND_FROM_EMAIL verified via .env grep and code inspection instead
+- Webhook entry point: KEEP — token verification, rate-limit guard, after() deferral are production-ready
+- match-rules.ts static + learned pattern matching: KEEP + EXTEND — GroupItem pattern short-circuit is the free Tier 1; needs explicit priority ordering for user rules
+- ai-choose-rule.ts model selection: REPLACE with tiered escalation (Haiku first, Sonnet on low confidence); prompt structure KEEP
+- DIGEST action type: KEEP + EXTEND — infrastructure correct; Phase 3 must attach correct Action rows to all 8 classification rules
+- Digest send pipeline: KEEP + EXTEND — pipeline operational; Phase 4 adds feedback links and Urgent/Uncertain sections
+- ClassificationFeedback label-change learning: KEEP + EXTEND — learning loop live; Phase 6 adds explicit thumbs feedback
+- No confidenceScore column exists in ExecutedRule — Phase 3 must add via Prisma migration
+- ECONOMY_LLM_* vars not set in production — all economy/nano/chat/draft tasks currently use Sonnet (primary cost problem)

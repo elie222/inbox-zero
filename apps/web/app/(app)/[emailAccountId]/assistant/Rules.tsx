@@ -61,6 +61,11 @@ import {
   STEP_KEYS,
   getOnboardingStepHref,
 } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const CONVERSATION_TRACKER_TYPES = new Set([
   SystemType.TO_REPLY,
@@ -187,54 +192,60 @@ export function Rules({
                         onClick={(e) => e.stopPropagation()}
                         className="text-center p-2 sm:p-4"
                       >
-                        <Switch
-                          size="sm"
-                          checked={rule.enabled}
-                          disabled={
-                            !!rule.systemType &&
-                            CONVERSATION_TRACKER_TYPES.has(rule.systemType)
-                          }
-                          title={
-                            rule.systemType &&
-                            CONVERSATION_TRACKER_TYPES.has(rule.systemType)
-                              ? "Conversation tracker rules are managed automatically"
-                              : undefined
-                          }
-                          onCheckedChange={async (enabled) => {
-                            const isSystemRule = !!rule.systemType;
+                        {rule.systemType &&
+                        CONVERSATION_TRACKER_TYPES.has(rule.systemType) ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex">
+                                <Switch
+                                  size="sm"
+                                  checked={rule.enabled}
+                                  disabled
+                                />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Required by reply tracker — cannot be disabled
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <Switch
+                            size="sm"
+                            checked={rule.enabled}
+                            onCheckedChange={async (enabled) => {
+                              const isSystemRule = !!rule.systemType;
 
-                            // Optimistic update
-                            mutate(
-                              data?.map((r) =>
-                                isSystemRule
-                                  ? r.systemType === rule.systemType
-                                    ? { ...r, enabled }
-                                    : r
-                                  : r.id === rule.id
-                                    ? { ...r, enabled }
-                                    : r,
-                              ),
-                              { revalidate: false },
-                            );
+                              mutate(
+                                data?.map((r) =>
+                                  isSystemRule
+                                    ? r.systemType === rule.systemType
+                                      ? { ...r, enabled }
+                                      : r
+                                    : r.id === rule.id
+                                      ? { ...r, enabled }
+                                      : r,
+                                ),
+                                { revalidate: false },
+                              );
 
-                            const result = await toggleRule({
-                              ruleId: isSystemRule ? undefined : rule.id,
-                              systemType: rule.systemType || undefined,
-                              enabled,
-                            });
-
-                            if (result?.serverError) {
-                              toastError({
-                                description: `There was an error ${
-                                  enabled ? "enabling" : "disabling"
-                                } your rule. ${result.serverError || ""}`,
+                              const result = await toggleRule({
+                                ruleId: isSystemRule ? undefined : rule.id,
+                                systemType: rule.systemType || undefined,
+                                enabled,
                               });
-                            }
 
-                            // Revalidate to sync with server
-                            mutate();
-                          }}
-                        />
+                              if (result?.serverError) {
+                                toastError({
+                                  description: `There was an error ${
+                                    enabled ? "enabling" : "disabling"
+                                  } your rule. ${result.serverError || ""}`,
+                                });
+                              }
+
+                              mutate();
+                            }}
+                          />
+                        )}
                       </TableCell>
                       <TableCell className="font-medium p-2 sm:p-4">
                         {rule.name}
