@@ -4,6 +4,8 @@ description: Cursor Cloud VM setup and service startup instructions for local de
 ---
 # Cloud Development Environment
 
+Instructions for **Cursor Cloud agents** bringing up Postgres/Redis and the app in a disposable dev VM. They are not production hardening: a pinned Compose binary from GitHub is enough (same trust boundary as other `curl`/package installs in setup).
+
 ## Services overview
 - **Main app** (`apps/web`): Next.js 16 app (Turbopack). Runs on port 3000.
 - **PostgreSQL 16**: Primary database. Runs on port 5432 via `docker-compose.dev.yml`.
@@ -39,18 +41,15 @@ Start the emulator: `docker compose -f docker-compose.dev.yml --profile google-e
 ## Docker in this environment
 The cloud VM is a Docker-in-Docker setup. Docker requires `fuse-overlayfs` storage driver and `iptables-legacy`. These are configured during initial setup. After snapshot restore, run `sudo dockerd &>/dev/null &` if Docker daemon is not running. If your user cannot access `/var/run/docker.sock`, use `sudo setfacl -m "u:$(whoami):rw" /var/run/docker.sock` as above—not a world-writable socket.
 
-The VM may not have the Docker Compose v2 plugin pre-installed. If `docker compose version` fails, install a **pinned** binary and verify SHA256 before placing it in the plugin path (updates the version/sha256 together when bumping):
+The VM may not have the Docker Compose v2 plugin pre-installed. If `docker compose version` fails, install a **pinned** release (bump the version when you intentionally upgrade):
 ```bash
 COMPOSE_VERSION=v2.29.2
-COMPOSE_SHA256=d037bd4937bf18fba67cff4366e084ee125a3e15c25657ee1aeceff8db3672b4
 TMP="$(mktemp)"
 curl -fsSL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-x86_64" -o "$TMP"
-echo "${COMPOSE_SHA256}  ${TMP}" | sha256sum -c -
 sudo mkdir -p /usr/local/lib/docker/cli-plugins
 sudo install -m 0755 "$TMP" /usr/local/lib/docker/cli-plugins/docker-compose
 rm -f "$TMP"
 ```
-Official checksums for each release are listed next to the binary on the [Compose releases](https://github.com/docker/compose/releases) page.
 
 ## Onboarding flow
 After a fresh login via the Google emulator, the app forces an onboarding wizard. Some onboarding buttons require JavaScript `click()` calls rather than standard browser clicks (React event delegation quirk in headless/automation contexts).
