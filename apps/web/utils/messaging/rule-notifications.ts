@@ -1573,7 +1573,7 @@ function buildNotificationContent({
     }
 
     return {
-      title: "New email — reply drafted",
+      title: "📩 New email — reply drafted",
       summary,
       details,
     };
@@ -1594,13 +1594,13 @@ function buildNotificationContent({
     ].filter(Boolean);
 
     return {
-      title: "Calendar invite",
+      title: "📅 Calendar invite",
       summary: lines.join("\n"),
     };
   }
 
   return {
-    title: "Email notification",
+    title: "✉️ Email notification",
     summary: buildEmailSummary(email),
     details: [
       buildNotificationDetailSection({
