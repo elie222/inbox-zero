@@ -35,14 +35,14 @@ export async function softDeleteChat({
   if (!chat) return false;
   if (chat.deletedAt) return true;
 
-  const now = new Date();
-
-  await prisma.chat.update({
-    where: { id: chat.id },
-    data: { deletedAt: now, name: null },
-  });
-
-  await Promise.all([
+  // Run as a single transaction so a failed redaction can't leave a chat
+  // marked as deleted while messages, compactions, or memories are still
+  // readable.
+  await prisma.$transaction([
+    prisma.chat.update({
+      where: { id: chat.id },
+      data: { deletedAt: new Date(), name: null },
+    }),
     prisma.chatMessage.updateMany({
       where: { chatId: chat.id },
       data: { parts: REDACTED_PARTS },

@@ -19,10 +19,7 @@ describe("softDeleteChat", () => {
     });
 
     expect(result).toBe(false);
-    expect(prisma.chat.update).not.toHaveBeenCalled();
-    expect(prisma.chatMessage.updateMany).not.toHaveBeenCalled();
-    expect(prisma.chatCompaction.updateMany).not.toHaveBeenCalled();
-    expect(prisma.chatMemory.updateMany).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("is idempotent for an already soft-deleted chat", async () => {
@@ -37,19 +34,15 @@ describe("softDeleteChat", () => {
     });
 
     expect(result).toBe(true);
-    expect(prisma.chat.update).not.toHaveBeenCalled();
-    expect(prisma.chatMessage.updateMany).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("redacts messages, compactions, memories, and clears the name", async () => {
+  it("redacts messages, compactions, memories, and clears the name in one transaction", async () => {
     prisma.chat.findFirst.mockResolvedValue({
       id: "chat-1",
       deletedAt: null,
     } as never);
-    prisma.chat.update.mockResolvedValue({} as never);
-    prisma.chatMessage.updateMany.mockResolvedValue({ count: 3 } as never);
-    prisma.chatCompaction.updateMany.mockResolvedValue({ count: 1 } as never);
-    prisma.chatMemory.updateMany.mockResolvedValue({ count: 2 } as never);
+    prisma.$transaction.mockResolvedValue([] as never);
 
     const result = await softDeleteChat({
       chatId: "chat-1",
@@ -57,6 +50,7 @@ describe("softDeleteChat", () => {
     });
 
     expect(result).toBe(true);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
 
     expect(prisma.chat.update).toHaveBeenCalledWith(
       expect.objectContaining({
