@@ -39,6 +39,8 @@ async function getEmailAccounts({ userId }: { userId: string }) {
           email: true,
         },
       },
+      aiDraftAutoCleanupEnabled: true,
+      aiDraftRetentionDays: true,
     },
     orderBy: {
       createdAt: "asc",

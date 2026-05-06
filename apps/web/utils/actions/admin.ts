@@ -555,6 +555,7 @@ export const adminCleanupDraftsAction = adminActionClient
         emailAccountId: emailAccount.id,
         provider: emailAccount.account.provider,
         logger,
+        trigger: "manual",
       });
 
       totalDeleted += result.deleted;

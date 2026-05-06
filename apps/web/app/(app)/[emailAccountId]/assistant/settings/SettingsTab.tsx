@@ -3,6 +3,7 @@ import { SensitiveDataPolicySetting } from "@/app/(app)/[emailAccountId]/assista
 import { DigestSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DigestSetting";
 import { DraftConfidenceSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting";
 import { DraftReplies } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftReplies";
+import { AiDraftCleanupSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/AiDraftCleanupSetting";
 import { DraftKnowledgeSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting";
 import { FollowUpRemindersSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting";
 import { HiddenAiDraftLinksSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting";
@@ -23,6 +24,7 @@ export function SettingsTab() {
       {!autoDraftDisabled && (
         <div className="space-y-2">
           <DraftReplies />
+          <AiDraftCleanupSetting />
           <DraftConfidenceSetting />
         </div>
       )}

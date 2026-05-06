@@ -10,6 +10,7 @@ import { SafeError } from "@/utils/error";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { updateContactRole } from "@inboxzero/loops";
 import {
+  updateAiDraftCleanupBody,
   updateHiddenAiDraftLinksBody,
   updateReferralSignatureBody,
 } from "@/utils/actions/email-account.validation";
@@ -126,6 +127,29 @@ export const updateHiddenAiDraftLinksAction = actionClient
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
         data: { allowHiddenAiDraftLinks: enabled },
+      });
+    },
+  );
+
+export const updateAiDraftCleanupSettingsAction = actionClient
+  .metadata({ name: "updateAiDraftCleanupSettings" })
+  .inputSchema(updateAiDraftCleanupBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { aiDraftAutoCleanupEnabled, aiDraftRetentionDays },
+    }) => {
+      logger.info("Updating AI draft cleanup settings", {
+        aiDraftAutoCleanupEnabled,
+        aiDraftRetentionDays,
+      });
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: {
+          aiDraftAutoCleanupEnabled,
+          aiDraftRetentionDays,
+        },
       });
     },
   );

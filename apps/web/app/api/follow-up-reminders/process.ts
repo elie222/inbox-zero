@@ -45,6 +45,7 @@ import {
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { getEmailUrlForOptionalMessage } from "@/utils/url";
 import { env } from "@/env";
+import { cleanupAIDraftsForAccount } from "@/utils/ai/draft-cleanup";
 
 const FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES = 15;
 const FOLLOW_UP_THREAD_SCAN_LIMIT = 50;
@@ -245,18 +246,17 @@ export async function processAccountFollowUps({
     logger,
   });
 
-  // Draft cleanup temporarily disabled to avoid deleting old drafts.
-  // Wrapped in try/catch since it's non-critical
-  // try {
-  //   await cleanupStaleDrafts({
-  //     emailAccountId,
-  //     provider,
-  //     logger,
-  //   });
-  // } catch (error) {
-  //   logger.error("Failed to cleanup stale drafts", { error });
-  //   captureException(error);
-  // }
+  try {
+    await cleanupAIDraftsForAccount({
+      emailAccountId,
+      provider: providerName,
+      logger,
+      trigger: "scheduled",
+    });
+  } catch (error) {
+    logger.error("Failed to cleanup stale AI drafts", { error });
+    captureException(error);
+  }
 
   logger.info("Finished processing follow-ups for account");
 }

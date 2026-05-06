@@ -4,19 +4,57 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { isDraftUnmodified } from "@/utils/ai/choose-rule/draft-management";
 import type { Logger } from "@/utils/logger";
 
-const STALE_DAYS = 3;
+export type AiDraftCleanupTrigger = "scheduled" | "manual";
+
+const MIN_RETENTION_DAYS = 1;
+const MAX_RETENTION_DAYS = 365;
 
 export async function cleanupAIDraftsForAccount({
   emailAccountId,
   provider: providerName,
   logger,
+  trigger = "manual",
 }: {
   emailAccountId: string;
   provider: string;
   logger: Logger;
+  trigger?: AiDraftCleanupTrigger;
 }) {
+  const account = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      aiDraftAutoCleanupEnabled: true,
+      aiDraftRetentionDays: true,
+    },
+  });
+
+  if (!account) {
+    logger.warn("Email account not found for AI draft cleanup", {
+      emailAccountId,
+    });
+    return {
+      total: 0,
+      deleted: 0,
+      skippedModified: 0,
+      alreadyGone: 0,
+      errors: 0,
+    };
+  }
+
+  if (trigger === "scheduled" && !account.aiDraftAutoCleanupEnabled) {
+    return {
+      total: 0,
+      deleted: 0,
+      skippedModified: 0,
+      alreadyGone: 0,
+      errors: 0,
+    };
+  }
+
+  const staleDays = clampRetentionDays(account.aiDraftRetentionDays);
+
   const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - STALE_DAYS);
+  cutoffDate.setDate(cutoffDate.getDate() - staleDays);
 
   const staleDrafts = await prisma.executedAction.findMany({
     where: {
@@ -114,4 +152,12 @@ export async function cleanupAIDraftsForAccount({
     alreadyGone,
     errors,
   };
+}
+
+function clampRetentionDays(days: number): number {
+  if (!Number.isFinite(days)) return 14;
+  return Math.min(
+    MAX_RETENTION_DAYS,
+    Math.max(MIN_RETENTION_DAYS, Math.floor(days)),
+  );
 }

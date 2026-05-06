@@ -18,8 +18,10 @@ import { BRAND_NAME } from "@/utils/branding";
 
 export function CleanupDraftsSection({
   emailAccountId,
+  retentionDays = 14,
 }: {
   emailAccountId: string;
+  retentionDays?: number;
 }) {
   const [result, setResult] = useState<{
     deleted: number;
@@ -61,7 +63,7 @@ export function CleanupDraftsSection({
         <ItemContent>
           <ItemTitle>Clean Up AI Drafts</ItemTitle>
           <ItemDescription>
-            {`Delete drafts created by ${BRAND_NAME} that are older than 3 days and haven't been edited by you`}
+            {`Delete drafts ${BRAND_NAME} created for you that are older than ${retentionDays} ${retentionDays === 1 ? "day" : "days"} and still match the saved text (you edited drafts are never removed). Does not delete other drafts.`}
           </ItemDescription>
         </ItemContent>
         <ItemActions>
