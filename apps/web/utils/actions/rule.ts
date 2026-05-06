@@ -55,13 +55,14 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import { bulkProcessInboxEmails } from "@/utils/ai/choose-rule/bulk-process-emails";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import { checkHasAccess } from "@/utils/premium/server";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
   .inputSchema(createRuleBody)
   .action(
     async ({
-      ctx: { emailAccountId, logger, provider },
+      ctx: { emailAccountId, userId, logger, provider },
       parsedInput: {
         name,
         runOnThreads,
@@ -70,6 +71,10 @@ export const createRuleAction = actionClient
         conditionalOperator,
       },
     }) => {
+      if (actions?.some((action) => action.type === ActionType.DIGEST)) {
+        await assertCanUseDigests(userId);
+      }
+
       const conditions = flattenConditions(conditionsInput, logger);
 
       const resolvedActions = await resolveActionLabels(
@@ -112,7 +117,7 @@ export const updateRuleAction = actionClient
   .inputSchema(updateRuleBody)
   .action(
     async ({
-      ctx: { emailAccountId, logger, provider },
+      ctx: { emailAccountId, userId, logger, provider },
       parsedInput: {
         id,
         name,
@@ -122,6 +127,10 @@ export const updateRuleAction = actionClient
         conditionalOperator,
       },
     }) => {
+      if (actions.some((action) => action.type === ActionType.DIGEST)) {
+        await assertCanUseDigests(userId);
+      }
+
       const conditions = flattenConditions(conditionsInput, logger);
 
       const resolvedActions = await resolveActionLabels(
@@ -846,6 +855,17 @@ function handleRuleError(error: unknown, logger: Logger) {
   }
   logger.error("Error creating/updating rule", { error });
   throw new SafeError("Error creating/updating rule");
+}
+
+async function assertCanUseDigests(userId: string) {
+  const hasDigestAccess = await checkHasAccess({
+    userId,
+    minimumTier: "PLUS_MONTHLY",
+  });
+
+  if (!hasDigestAccess) {
+    throw new SafeError("Digest actions are available on the Plus plan.");
+  }
 }
 
 async function resolveActionLabels<

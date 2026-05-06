@@ -78,6 +78,8 @@ import {
 import { handleRuleAttachmentSourceSave } from "@/utils/attachments/rule";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
+import { usePremium } from "@/hooks/usePremium";
+import { hasTierAccess } from "@/utils/premium";
 import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import {
@@ -128,6 +130,11 @@ export function RuleForm({
   onCancel?: () => void;
 }) {
   const { emailAccountId, provider } = useAccount();
+  const { tier, isLoading: isLoadingPremium } = usePremium();
+  const hasDigestAccess = hasTierAccess({
+    tier,
+    minimumTier: "PLUS_MONTHLY",
+  });
   const ruleEditorActions = getRuleEditorActions(rule.actions);
 
   const form = useForm<CreateRuleBody>({
@@ -232,7 +239,7 @@ export function RuleForm({
 
       // Add DIGEST action if digest is enabled
       const actionsToSubmit = [...normalizedActions];
-      if (data.digest) {
+      if (data.digest && hasDigestAccess) {
         const existingDigestAction = rule.actions.find(
           (action) => action.type === ActionType.DIGEST,
         );
@@ -367,6 +374,7 @@ export function RuleForm({
       onSuccess,
       mutate,
       rule,
+      hasDigestAccess,
     ],
   );
 
@@ -583,15 +591,30 @@ export function RuleForm({
                 {env.NEXT_PUBLIC_DIGEST_ENABLED && (
                   <AdvancedRow
                     title="Include in digest"
-                    description="Show matched emails in your digest summary."
+                    description={
+                      hasDigestAccess
+                        ? "Show matched emails in your digest summary."
+                        : "Available on the Plus plan."
+                    }
                   >
-                    <Toggle
-                      name="digest"
-                      enabled={watch("digest") || false}
-                      onChange={(enabled) => {
-                        setValue("digest", enabled);
-                      }}
-                    />
+                    <Tooltip
+                      content="Digest summaries require the Plus plan."
+                      hide={hasDigestAccess}
+                    >
+                      <span>
+                        <Toggle
+                          name="digest"
+                          enabled={
+                            hasDigestAccess && (watch("digest") || false)
+                          }
+                          disabled={!hasDigestAccess || isLoadingPremium}
+                          onChange={(enabled) => {
+                            if (!hasDigestAccess) return;
+                            setValue("digest", enabled);
+                          }}
+                        />
+                      </span>
+                    </Tooltip>
                   </AdvancedRow>
                 )}
 

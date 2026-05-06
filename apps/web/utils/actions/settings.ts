@@ -23,6 +23,7 @@ import { SafeError } from "@/utils/error";
 import { env } from "@/env";
 import { addActionOwnershipToInput } from "@/utils/rule/rule";
 import { isSensitiveDataPolicyLocked } from "@/utils/dlp/policy.server";
+import { checkHasAccess } from "@/utils/premium/server";
 
 export const updateEmailSettingsAction = actionClient
   .metadata({ name: "updateEmailSettings" })
@@ -132,7 +133,9 @@ export const updateSensitiveDataPolicyAction = actionClient
 export const updateDigestScheduleAction = actionClient
   .metadata({ name: "updateDigestSchedule" })
   .inputSchema(saveDigestScheduleBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+  .action(async ({ ctx: { emailAccountId, userId }, parsedInput }) => {
+    await assertCanUseDigests(userId);
+
     const { intervalDays, daysOfWeek, timeOfDay, occurrences } = parsedInput;
 
     const create: Prisma.ScheduleUpsertArgs["create"] = {
@@ -164,9 +167,13 @@ export const updateDigestItemsAction = actionClient
   .inputSchema(updateDigestItemsBody)
   .action(
     async ({
-      ctx: { emailAccountId, logger },
+      ctx: { emailAccountId, userId, logger },
       parsedInput: { ruleDigestPreferences },
     }) => {
+      if (Object.values(ruleDigestPreferences).some(Boolean)) {
+        await assertCanUseDigests(userId);
+      }
+
       const promises = Object.entries(ruleDigestPreferences).map(
         async ([ruleId, enabled]) => {
           // Verify the rule belongs to this email account
@@ -220,10 +227,12 @@ export const toggleDigestAction = actionClient
   .inputSchema(toggleDigestBody)
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, userId },
       parsedInput: { enabled, timeOfDay },
     }) => {
       if (enabled) {
+        await assertCanUseDigests(userId);
+
         const defaultSchedule = {
           intervalDays: 1,
           occurrences: 1,
@@ -273,3 +282,14 @@ export const toggleDigestAction = actionClient
       return { success: true };
     },
   );
+
+async function assertCanUseDigests(userId: string) {
+  const hasDigestAccess = await checkHasAccess({
+    userId,
+    minimumTier: "PLUS_MONTHLY",
+  });
+
+  if (!hasDigestAccess) {
+    throw new SafeError("Digest emails are available on the Plus plan.");
+  }
+}

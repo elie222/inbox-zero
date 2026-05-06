@@ -79,6 +79,8 @@ import type { RulesResponse } from "@/app/api/user/rules/route";
 import type { MessagingActionType } from "@/utils/actions/messaging-channels.validation";
 import { prefixPath } from "@/utils/path";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
+import { usePremium } from "@/hooks/usePremium";
+import { hasTierAccess } from "@/utils/premium";
 
 type LinkableProvider = "TEAMS" | "TELEGRAM";
 
@@ -126,6 +128,11 @@ type Rule = RulesResponse[number];
 
 export function Channels() {
   const { emailAccountId } = useAccount();
+  const { tier, isLoading: isLoadingPremium } = usePremium();
+  const hasDigestAccess = hasTierAccess({
+    tier,
+    minimumTier: "PLUS_MONTHLY",
+  });
   const {
     data: channelsData,
     isLoading: isLoadingChannels,
@@ -183,7 +190,7 @@ export function Channels() {
       />
 
       <LoadingContent
-        loading={isLoadingChannels || isLoadingRules}
+        loading={isLoadingChannels || isLoadingRules || isLoadingPremium}
         error={channelsError || rulesError}
       >
         <div className="space-y-10">
@@ -203,6 +210,7 @@ export function Channels() {
                   channel={channel}
                   rules={visibleRules}
                   emailAccountId={emailAccountId}
+                  hasDigestAccess={hasDigestAccess}
                   onUpdate={onUpdate}
                 />
               ));
@@ -310,11 +318,13 @@ function ConnectedChannelSection({
   channel,
   rules,
   emailAccountId,
+  hasDigestAccess,
   onUpdate,
 }: {
   channel: ChannelFromResponse;
   rules: Rule[];
   emailAccountId: string;
+  hasDigestAccess: boolean;
   onUpdate: () => void;
 }) {
   const analytics = useProductAnalytics("channels");
@@ -446,6 +456,14 @@ function ConnectedChannelSection({
             channel.destinations,
             feature.purpose,
           );
+          const isDigestFeature =
+            feature.purpose === MessagingRoutePurpose.DIGESTS;
+          const disabled =
+            !canEnableMessagingFeatureRoute(
+              channel.destinations,
+              feature.purpose,
+            ) ||
+            (isDigestFeature && !hasDigestAccess);
 
           return (
             <div key={feature.purpose}>
@@ -462,7 +480,11 @@ function ConnectedChannelSection({
               )}
               <FeatureRouteToggle
                 name={feature.name}
-                description={feature.description}
+                description={
+                  isDigestFeature && !hasDigestAccess
+                    ? "Digest delivery to chat is available on the Plus plan."
+                    : feature.description
+                }
                 purpose={feature.purpose}
                 messagingChannelId={channel.id}
                 destination={destination}
@@ -470,11 +492,11 @@ function ConnectedChannelSection({
                 canSendAsDm={channel.canSendAsDm}
                 emailAccountId={emailAccountId}
                 onUpdate={onUpdate}
-                disabled={
-                  !canEnableMessagingFeatureRoute(
-                    channel.destinations,
-                    feature.purpose,
-                  )
+                disabled={disabled}
+                disabledReason={
+                  isDigestFeature && !hasDigestAccess
+                    ? "Digests require the Plus plan."
+                    : undefined
                 }
               />
             </div>
@@ -759,6 +781,7 @@ function FeatureRouteToggle({
   emailAccountId,
   onUpdate,
   disabled,
+  disabledReason,
 }: {
   name: string;
   description: string;
@@ -770,6 +793,7 @@ function FeatureRouteToggle({
   emailAccountId: string;
   onUpdate: () => void;
   disabled?: boolean;
+  disabledReason?: string;
 }) {
   const analytics = useProductAnalytics("channels");
   const { execute, status } = useAction(
@@ -798,8 +822,10 @@ function FeatureRouteToggle({
           <FeatureRouteAction
             purpose={purpose}
             emailAccountId={emailAccountId}
+            disabled={!!disabledReason}
+            disabledReason={disabledReason}
           />
-          {showTargetSelect && (
+          {showTargetSelect && !disabledReason && (
             <SlackNotificationTargetSelect
               emailAccountId={emailAccountId}
               messagingChannelId={messagingChannelId}
@@ -811,19 +837,23 @@ function FeatureRouteToggle({
               onUpdate={onUpdate}
             />
           )}
-          <Toggle
-            name={`feature-${purpose}-${messagingChannelId}`}
-            enabled={destination.enabled}
-            disabled={disabled || status === "executing"}
-            onChange={(enabled) => {
-              if (disabled) return;
-              analytics.captureAction("feature_route_toggled", {
-                purpose,
-                enabled,
-              });
-              execute({ channelId: messagingChannelId, purpose, enabled });
-            }}
-          />
+          <Tooltip content={disabledReason} hide={!disabledReason}>
+            <span>
+              <Toggle
+                name={`feature-${purpose}-${messagingChannelId}`}
+                enabled={destination.enabled && !disabledReason}
+                disabled={disabled || status === "executing"}
+                onChange={(enabled) => {
+                  if (disabled) return;
+                  analytics.captureAction("feature_route_toggled", {
+                    purpose,
+                    enabled,
+                  });
+                  execute({ channelId: messagingChannelId, purpose, enabled });
+                }}
+              />
+            </span>
+          </Tooltip>
         </div>
       </ItemActions>
     </Item>
@@ -833,9 +863,13 @@ function FeatureRouteToggle({
 function FeatureRouteAction({
   purpose,
   emailAccountId,
+  disabled,
+  disabledReason,
 }: {
   purpose: MessagingFeatureRoutePurpose;
   emailAccountId: string;
+  disabled: boolean;
+  disabledReason?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -861,15 +895,18 @@ function FeatureRouteAction({
 
   return (
     <>
-      <Tooltip content="Configure">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => setOpen(true)}
-        >
-          <Settings2Icon className="h-4 w-4" />
-        </Button>
+      <Tooltip content={disabledReason ?? "Configure"}>
+        <span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            disabled={disabled}
+            onClick={() => setOpen(true)}
+          >
+            <Settings2Icon className="h-4 w-4" />
+          </Button>
+        </span>
       </Tooltip>
       <Dialog open={open} onOpenChange={setOpen}>
         {purpose === MessagingRoutePurpose.DIGESTS ? (
