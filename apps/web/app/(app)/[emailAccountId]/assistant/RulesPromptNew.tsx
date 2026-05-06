@@ -28,7 +28,7 @@ import type { RuleWithRelations } from "@/utils/rule/types";
 import { toastError } from "@/components/Toast";
 import { AvailableActionsPanel } from "@/app/(app)/[emailAccountId]/assistant/AvailableActionsPanel";
 
-export function RulesPrompt() {
+export function RulesPrompt({ onManualAdd }: { onManualAdd?: () => void }) {
   const { emailAccountId, provider } = useAccount();
   const { isModalOpen, setIsModalOpen } = useModal();
   const onOpenPersonaDialog = useCallback(
@@ -51,6 +51,7 @@ export function RulesPrompt() {
         examples={examples}
         onOpenPersonaDialog={onOpenPersonaDialog}
         onHideExamples={() => setPersona(null)}
+        onManualAdd={onManualAdd}
       />
       <PersonaDialog
         isOpen={isModalOpen}
@@ -68,12 +69,14 @@ function RulesPromptForm({
   examples,
   onOpenPersonaDialog,
   onHideExamples,
+  onManualAdd,
 }: {
   emailAccountId: string;
   provider: string;
   examples?: string[];
   onOpenPersonaDialog: () => void;
   onHideExamples: () => void;
+  onManualAdd?: () => void;
 }) {
   const { mutate } = useRules();
   const { userLabels, isLoading: isLoadingLabels } = useLabels();
@@ -201,7 +204,7 @@ function RulesPromptForm({
                   className="ml-auto w-full sm:w-auto"
                   variant="outline"
                   size="sm"
-                  onClick={() => ruleDialog.onOpen()}
+                  onClick={onManualAdd ?? (() => ruleDialog.onOpen())}
                   Icon={PlusIcon}
                 >
                   Add rule manually
