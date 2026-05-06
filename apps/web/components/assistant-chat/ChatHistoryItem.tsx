@@ -41,7 +41,7 @@ export function ChatHistoryItem({
               "absolute right-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground focus:opacity-100 focus:outline-none " +
               (menuOpen
                 ? "opacity-100"
-                : "opacity-0 group-hover/chat-row:opacity-100")
+                : "opacity-0 group-hover/chat-row:opacity-100 group-focus-within/chat-row:opacity-100")
             }
             onClick={(e) => {
               e.stopPropagation();
