@@ -1,7 +1,7 @@
 # Codebase Map
 
-Generated: 2026-05-06T18:17:12Z | Files: 500 | Described: 0/500
-<!-- gsd:codebase-meta {"generatedAt":"2026-05-06T18:17:12Z","fingerprint":"cce0bcb987e4d9801a8fcc122b49740fabd11002","fileCount":500,"truncated":true} -->
+Generated: 2026-05-06T19:24:36Z | Files: 500 | Described: 0/500
+<!-- gsd:codebase-meta {"generatedAt":"2026-05-06T19:24:36Z","fingerprint":"63c5ae4a440c7387168f8305751a7af52808e698","fileCount":500,"truncated":true} -->
 Note: Truncated to first 500 files. Run with higher --max-files to include all.
 
 ### (root)/
@@ -53,6 +53,64 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `.github/workflows/e2e-flows.yml`
 - `.github/workflows/smoke.yml`
 - `.github/workflows/test.yml`
+
+### .gsd.migrating/
+- `.gsd.migrating/CODEBASE.md`
+- `.gsd.migrating/DECISIONS.md`
+- `.gsd.migrating/event-log.jsonl`
+- `.gsd.migrating/gsd.db`
+- `.gsd.migrating/gsd.db-shm`
+- `.gsd.migrating/gsd.db-wal`
+- `.gsd.migrating/last-snapshot.md`
+- `.gsd.migrating/notifications.jsonl`
+- `.gsd.migrating/PROJECT.md`
+- `.gsd.migrating/REQUIREMENTS.md`
+- `.gsd.migrating/state-manifest.json`
+- `.gsd.migrating/STATE.md`
+
+### .gsd.migrating/graphs/
+- `.gsd.migrating/graphs/graph.json`
+
+### .gsd.migrating/milestones/M001/
+- `.gsd.migrating/milestones/M001/M001-CONTEXT.md`
+- `.gsd.migrating/milestones/M001/M001-ROADMAP.md`
+
+### .gsd.migrating/milestones/M001/slices/S01/
+- `.gsd.migrating/milestones/M001/slices/S01/S01-PLAN.md`
+- `.gsd.migrating/milestones/M001/slices/S01/S01-RESEARCH.md`
+- `.gsd.migrating/milestones/M001/slices/S01/S01-SUMMARY.md`
+- `.gsd.migrating/milestones/M001/slices/S01/S01-UAT.md`
+
+### .gsd.migrating/milestones/M001/slices/S02/
+- `.gsd.migrating/milestones/M001/slices/S02/S02-PLAN.md`
+- `.gsd.migrating/milestones/M001/slices/S02/S02-RESEARCH.md`
+- `.gsd.migrating/milestones/M001/slices/S02/S02-SUMMARY.md`
+- `.gsd.migrating/milestones/M001/slices/S02/S02-UAT.md`
+
+### .gsd.migrating/milestones/M001/slices/S03/
+- `.gsd.migrating/milestones/M001/slices/S03/S03-PLAN.md`
+- `.gsd.migrating/milestones/M001/slices/S03/S03-RESEARCH.md`
+- `.gsd.migrating/milestones/M001/slices/S03/S03-SUMMARY.md`
+- `.gsd.migrating/milestones/M001/slices/S03/S03-UAT.md`
+
+### .gsd.migrating/milestones/M001/slices/S04/
+- `.gsd.migrating/milestones/M001/slices/S04/S04-PLAN.md`
+- `.gsd.migrating/milestones/M001/slices/S04/S04-RESEARCH.md`
+- `.gsd.migrating/milestones/M001/slices/S04/S04-SUMMARY.md`
+- `.gsd.migrating/milestones/M001/slices/S04/S04-UAT.md`
+
+### .gsd.migrating/milestones/M001/slices/S05/
+- `.gsd.migrating/milestones/M001/slices/S05/S05-CONTINUE.md`
+- `.gsd.migrating/milestones/M001/slices/S05/S05-PLAN.md`
+
+### .gsd.migrating/milestones/M001/slices/S06/
+- `.gsd.migrating/milestones/M001/slices/S06/S06-PLAN.md`
+
+### .gsd.migrating/milestones/M001/slices/S07/
+- `.gsd.migrating/milestones/M001/slices/S07/S07-PLAN.md`
+
+### .gsd.migrating/runtime/
+- `.gsd.migrating/runtime/write-gate-state.json`
 
 ### .husky/
 - `.husky/.gitignore`
@@ -206,9 +264,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `apps/web/__tests__/playwright/smoke.spec.ts`
 
 ### apps/web/app/(app)/
-- `apps/web/app/(app)/error.tsx`
 - `apps/web/app/(app)/ErrorMessages.tsx`
-- `apps/web/app/(app)/layout.tsx`
 - `apps/web/app/(app)/ProviderRateLimitBanner.tsx`
 
 ### apps/web/app/(app)/[emailAccountId]/
@@ -476,61 +532,7 @@ Note: Truncated to first 500 files. Run with higher --max-files to include all.
 - `apps/web/app/(app)/[emailAccountId]/stats/LoadStatsButton.tsx`
 - `apps/web/app/(app)/[emailAccountId]/stats/MainStatChart.tsx`
 - `apps/web/app/(app)/[emailAccountId]/stats/NewsletterModal.tsx`
-- `apps/web/app/(app)/[emailAccountId]/stats/page.tsx`
-- `apps/web/app/(app)/[emailAccountId]/stats/params.ts`
 - `apps/web/app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx`
 - `apps/web/app/(app)/[emailAccountId]/stats/RuleStatsChart.tsx`
 - `apps/web/app/(app)/[emailAccountId]/stats/Stats.tsx`
 - `apps/web/app/(app)/[emailAccountId]/stats/StatsOnboarding.tsx`
-- `apps/web/app/(app)/[emailAccountId]/stats/StatsSummary.tsx`
-- `apps/web/app/(app)/[emailAccountId]/stats/useExpanded.tsx`
-
-### apps/web/app/(app)/[emailAccountId]/usage/
-- `apps/web/app/(app)/[emailAccountId]/usage/page.tsx`
-- `apps/web/app/(app)/[emailAccountId]/usage/usage.tsx`
-
-### apps/web/app/(app)/accounts/
-- `apps/web/app/(app)/accounts/AddAccount.tsx`
-- `apps/web/app/(app)/accounts/page.tsx`
-
-### apps/web/app/(app)/admin/
-- `apps/web/app/(app)/admin/AdminHashEmail.tsx`
-- `apps/web/app/(app)/admin/AdminSyncStripe.tsx`
-- `apps/web/app/(app)/admin/AdminTopSpenders.tsx`
-- `apps/web/app/(app)/admin/AdminUpgradeUserForm.tsx`
-- `apps/web/app/(app)/admin/AdminUserControls.tsx`
-- `apps/web/app/(app)/admin/AdminUserInfo.tsx`
-- `apps/web/app/(app)/admin/DebugLabels.tsx`
-- `apps/web/app/(app)/admin/GmailUrlConverter.tsx`
-- `apps/web/app/(app)/admin/page.tsx`
-- `apps/web/app/(app)/admin/RegisterSSOModal.tsx`
-- `apps/web/app/(app)/admin/validation.tsx`
-
-### apps/web/app/(app)/config/
-- `apps/web/app/(app)/config/page.tsx`
-
-### apps/web/app/(app)/early-access/
-- `apps/web/app/(app)/early-access/EarlyAccessFeatures.tsx`
-- `apps/web/app/(app)/early-access/page.tsx`
-
-### apps/web/app/(app)/license/
-- `apps/web/app/(app)/license/page.tsx`
-
-### apps/web/app/(app)/no-access/
-- `apps/web/app/(app)/no-access/page.tsx`
-
-### apps/web/app/(app)/organization/[organizationId]/
-- `apps/web/app/(app)/organization/[organizationId]/Members.tsx`
-- `apps/web/app/(app)/organization/[organizationId]/OrgAnalyticsConsentBanner.tsx`
-- `apps/web/app/(app)/organization/[organizationId]/OrganizationTabs.tsx`
-- `apps/web/app/(app)/organization/[organizationId]/page.tsx`
-
-### apps/web/app/(app)/organization/[organizationId]/stats/
-- `apps/web/app/(app)/organization/[organizationId]/stats/OrgStats.tsx`
-- `apps/web/app/(app)/organization/[organizationId]/stats/page.tsx`
-
-### apps/web/app/(app)/premium/
-- `apps/web/app/(app)/premium/AppPricingLazy.tsx`
-- `apps/web/app/(app)/premium/ManageSubscription.tsx`
-- `apps/web/app/(app)/premium/PremiumModal.tsx`
-- `apps/web/app/(app)/premium/Pricing.tsx`

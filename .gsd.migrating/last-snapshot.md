@@ -1,3 +1,4 @@
-# GSD context snapshot (2026-05-06T17:45:52.512Z)
+# GSD context snapshot (2026-05-06T19:24:23.102Z)
 
-_No durable memories, active context, or exec history to surface._
+## Active context
+Active: M001 / S05 / T03 - Smoke-test rule CRUD in production

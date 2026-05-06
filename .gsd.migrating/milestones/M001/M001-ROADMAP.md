@@ -25,7 +25,7 @@
 - [x] **S04: S04** `risk:medium` `depends:[]`
   > After this: Digest email arrives at 9am ET with correct content tiers; no duplicate sends; Marketing emails included
 
-- [ ] **S05: Rules Management UI** `risk:medium` `depends:[S04]`
+- [ ] **S05: S05** `risk:medium` `depends:[]`
   > After this: Create a new rule via UI, verify it fires on next matching email
 
 - [ ] **S06: Feedback System** `risk:medium` `depends:[S05]`

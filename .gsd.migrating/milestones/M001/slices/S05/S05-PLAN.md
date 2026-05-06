@@ -17,12 +17,12 @@
 
 ## Tasks
 
-- [ ] **T01: Guard conversation-rule toggles in Rules.tsx** `est:30m`
+- [x] **T01: Guard conversation-rule toggles in Rules.tsx** `est:30m`
   Disable the enabled/disabled Switch for rules where isConversationStatusType(rule.systemType) is true. These four rules (TO_REPLY, AWAITING_REPLY, FYI, ACTIONED) must stay enabled — the reply-tracker breaks if they are toggled off. Add a tooltip explaining why the toggle is locked.
   - Files: `apps/web/app/(app)/[emailAccountId]/assistant/Rules.tsx`
   - Verify: Inspect the Switch element in browser dev tools for the TO_REPLY rule — disabled attribute must be present. Click attempt does nothing.
 
-- [ ] **T02: Add /rules redirect route** `est:45m`
+- [x] **T02: Add /rules redirect route** `est:45m`
   Create a server-side redirect at /rules (or /rules/page.tsx under (app)) that resolves the authenticated user's primary emailAccountId and redirects to /[emailAccountId]/automation?tab=rules. This avoids needing to hardcode or remember the account ID in the URL. Use the existing auth session utilities to get the account.
   - Files: `apps/web/app/(app)/rules/page.tsx`
   - Verify: Navigate to inbox.tdfurn.com/rules in browser — lands on automation/rules tab without typing the account ID.

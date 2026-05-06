@@ -1,8 +1,8 @@
 # GSD State
 
 **Active Milestone:** M001: Personal Email AI — inbox.tdfurn.com
-**Active Slice:** S05: Rules Management UI
-**Phase:** evaluating-gates
+**Active Slice:** S05: S05
+**Phase:** executing
 **Requirements Status:** 0 active · 0 validated · 0 deferred · 0 out of scope
 
 ## Milestone Registry
@@ -15,4 +15,4 @@
 - None
 
 ## Next Action
-Evaluate 2 quality gate(s) for S05 before execution.
+Execute T03: Smoke-test rule CRUD in production in slice S05.

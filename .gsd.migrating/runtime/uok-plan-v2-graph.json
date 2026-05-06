@@ -1,0 +1,240 @@
+{
+  "compiledAt": "2026-05-06T19:24:39.217Z",
+  "milestoneId": "M001",
+  "pipeline": {
+    "clarifyRoundLimit": 3,
+    "researchSynthesized": true,
+    "draftContextIncluded": false,
+    "finalizedContextIncluded": true,
+    "sourcePhase": "executing"
+  },
+  "nodes": [
+    {
+      "id": "execute-task:M001:S01:T01",
+      "kind": "unit",
+      "dependsOn": [],
+      "writes": [],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S01.T01",
+        "title": "Ops fixes shipped: CI/CD, signup lock, digest sender repaired",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "complete-slice:M001:S01",
+      "kind": "verification",
+      "dependsOn": [
+        "execute-task:M001:S01:T01"
+      ],
+      "metadata": {
+        "unitType": "complete-slice",
+        "unitId": "M001.S01",
+        "title": "S01",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S02:T01",
+      "kind": "unit",
+      "dependsOn": [],
+      "writes": [],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S02.T01",
+        "title": "Fork audit complete — all gaps documented in RESEARCH.md",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "complete-slice:M001:S02",
+      "kind": "verification",
+      "dependsOn": [
+        "execute-task:M001:S02:T01"
+      ],
+      "metadata": {
+        "unitType": "complete-slice",
+        "unitId": "M001.S02",
+        "title": "S02",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S03:T01",
+      "kind": "unit",
+      "dependsOn": [],
+      "writes": [],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S03.T01",
+        "title": "Three-tier classification engine live in production, verified with organic email data",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "complete-slice:M001:S03",
+      "kind": "verification",
+      "dependsOn": [
+        "execute-task:M001:S03:T01"
+      ],
+      "metadata": {
+        "unitType": "complete-slice",
+        "unitId": "M001.S03",
+        "title": "S03",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S04:T01",
+      "kind": "unit",
+      "dependsOn": [],
+      "writes": [],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S04.T01",
+        "title": "Spec locked, 5 test scaffolds committed, DigestItem instrumentation wired",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S04:T02",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S04:T01"
+      ],
+      "writes": [],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S04.T02",
+        "title": "DigestSend model and migration shipped — idempotency source-of-truth in place",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S04:T03",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S04:T02"
+      ],
+      "writes": [],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S04.T03",
+        "title": "Deploy-time SQL patches committed and applied — Marketing in digest, 218 phantom rows cleared",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S04:T04",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S04:T03"
+      ],
+      "writes": [],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S04.T04",
+        "title": "Sonnet batched content generator built — one LLM call produces full digest structure",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S04:T05",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S04:T04"
+      ],
+      "writes": [],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S04.T05",
+        "title": "Full digest send pipeline wired end-to-end with atomic SENT commit and idempotency",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S04:T06",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S04:T05"
+      ],
+      "writes": [],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S04.T06",
+        "title": "Systemd timer installed on EC2 — digest fires at 9am ET daily",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "complete-slice:M001:S04",
+      "kind": "verification",
+      "dependsOn": [
+        "execute-task:M001:S04:T06"
+      ],
+      "metadata": {
+        "unitType": "complete-slice",
+        "unitId": "M001.S04",
+        "title": "S04",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S05:T01",
+      "kind": "unit",
+      "dependsOn": [],
+      "writes": [
+        "apps/web/app/(app)/[emailAccountId]/assistant/Rules.tsx"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S05.T01",
+        "title": "Upgraded conversation-rule toggle guard to use Radix Tooltip with 'Required by reply tracker — cannot be disabled' message",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S05:T02",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S05:T01"
+      ],
+      "writes": [
+        "apps/web/app/(app)/rules/page.tsx"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S05.T02",
+        "title": "Created /rules server-side redirect page that resolves the user's primary emailAccountId and redirects to /[emailAccountId]/automation?tab=rules",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S05:T03",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S05:T02"
+      ],
+      "writes": [],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S05.T03",
+        "title": "Smoke-test rule CRUD in production",
+        "status": "pending"
+      }
+    },
+    {
+      "id": "complete-slice:M001:S05",
+      "kind": "verification",
+      "dependsOn": [
+        "execute-task:M001:S05:T03"
+      ],
+      "metadata": {
+        "unitType": "complete-slice",
+        "unitId": "M001.S05",
+        "title": "S05",
+        "status": "pending"
+      }
+    }
+  ]
+}
