@@ -12,10 +12,14 @@ Instructions for **Cursor Cloud agents** bringing up Postgres/Redis and the app 
 - **Redis 7 + serverless-redis-http**: Caching/rate-limiting. Redis on port 6380, HTTP proxy on port 8079.
 
 ## Starting services
-1. Start Docker daemon: `sudo dockerd &>/dev/null &` if not already running (check `sudo docker info` or `docker info`). If `docker info` fails with permission denied on the socket, grant **only your user** access (do not use `chmod 666`, which lets any local process use Docker): `sudo setfacl -m "u:$(whoami):rw" /var/run/docker.sock` (install the `acl` package if `setfacl` is missing). If you cannot use ACLs, run Compose with `sudo docker compose ...` instead of relaxing socket permissions globally.
-2. Start databases: `docker compose -f docker-compose.dev.yml up -d` from repo root (prefix with `sudo docker` if the socket is still root-only).
-3. Run Prisma migrations: `cd apps/web && pnpm prisma:migrate:local` (uses `dotenv -e .env.local`; do NOT use bare `prisma migrate dev` — it won't load `.env.local`).
-4. Start dev server: `pnpm dev` from repo root.
+Run these in order; each step must succeed before the next (commands are from repo root unless noted).
+
+1. **Docker daemon is up**: `sudo docker info` must print a **Server** section (not only `Client:` followed by “Cannot connect to the Docker daemon”). If it cannot connect, run `sudo dockerd &>/dev/null &`, wait a few seconds, run `sudo docker info` again until it succeeds.
+2. **Your user can talk to Docker**: `docker ps` must exit **0** (same user you use for `pnpm`). If you get “permission denied” on `/var/run/docker.sock`, do **not** use `chmod 666`. Prefer: `sudo apt-get update && sudo apt-get install -y acl` then `sudo setfacl -m "u:$(whoami):rw" /var/run/docker.sock`, then `docker ps` again. If ACLs are not an option, use `sudo docker compose ...` for Compose commands below instead of widening the socket to everyone.
+3. **Compose v2 is available**: `docker compose version` must print a version. If the command is missing, install the plugin (see **Docker in this environment** below), then re-run `docker compose version`.
+4. **Databases**: `docker compose -f docker-compose.dev.yml up -d` must exit **0**.
+5. **Prisma**: `cd apps/web && pnpm prisma:migrate:local` (uses `dotenv -e .env.local`; do NOT use bare `prisma migrate dev` — it won't load `.env.local`).
+6. **App**: `pnpm dev` from repo root.
 
 ## Environment file
 The app reads `apps/web/.env.local`. Required non-obvious env vars beyond `.env.example` defaults:
@@ -41,7 +45,7 @@ Start the emulator: `docker compose -f docker-compose.dev.yml --profile google-e
 ## Docker in this environment
 The cloud VM is a Docker-in-Docker setup. Docker requires `fuse-overlayfs` storage driver and `iptables-legacy`. These are configured during initial setup. After snapshot restore, run `sudo dockerd &>/dev/null &` if Docker daemon is not running. If your user cannot access `/var/run/docker.sock`, use `sudo setfacl -m "u:$(whoami):rw" /var/run/docker.sock` as above—not a world-writable socket.
 
-The VM may not have the Docker Compose v2 plugin pre-installed. If `docker compose version` fails, install a **pinned** release (bump the version when you intentionally upgrade):
+The VM may not have the Docker Compose v2 plugin pre-installed. If `docker compose version` does not work, install a **pinned** release (bump the version when you intentionally upgrade):
 ```bash
 COMPOSE_VERSION=v2.29.2
 TMP="$(mktemp)"
