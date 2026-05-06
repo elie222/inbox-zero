@@ -1854,7 +1854,10 @@ function buildEmailPreview(
   },
   { format }: { format: NotificationContentFormat },
 ) {
-  const rawPreview = emailToContent(email, { maxLength: 0 });
+  const rawPreview = emailToContent(email, {
+    maxLength: 0,
+    extractReply: true,
+  });
   const preview = formatNotificationText(
     removeExcessiveWhitespace(he.decode(rawPreview)).trim(),
     format,
