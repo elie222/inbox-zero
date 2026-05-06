@@ -21,6 +21,12 @@ type LlmRequestOptions = {
   system?: unknown;
 };
 
+const BLOCKED_TOOL_OUTPUT = {
+  error:
+    "Sensitive content was detected, so this tool result was blocked by your account settings.",
+  blocked: true,
+} as const;
+
 export function enforceSensitiveDataPolicy<T extends LlmRequestOptions>({
   options,
   emailAccountId,
@@ -29,14 +35,58 @@ export function enforceSensitiveDataPolicy<T extends LlmRequestOptions>({
   policy,
   userId,
 }: LlmSensitiveDataOptions & { options: T }): T {
-  const parsedPolicy = resolveSensitiveDataPolicy(policy);
-  if (parsedPolicy === "ALLOW") return options;
+  return enforceSensitiveDataPolicyOnValue({
+    value: options,
+    emailAccountId,
+    label,
+    logger,
+    policy,
+    userId,
+    getFindings: getLlmRequestSensitiveContentFindings,
+  });
+}
 
-  const findings = getSensitiveContentFindings(options);
-  if (findings.length === 0) return options;
+export function enforceSensitiveToolOutputPolicy<T>({
+  output,
+  emailAccountId,
+  label,
+  logger,
+  policy,
+  userId,
+}: LlmSensitiveDataOptions & { output: T }): T {
+  return enforceSensitiveDataPolicyOnValue({
+    value: output,
+    emailAccountId,
+    label,
+    logger,
+    policy,
+    userId,
+    blockReplacement: BLOCKED_TOOL_OUTPUT,
+  });
+}
+
+function enforceSensitiveDataPolicyOnValue<T>({
+  value,
+  emailAccountId,
+  label,
+  logger,
+  policy,
+  userId,
+  blockReplacement,
+  getFindings = getSensitiveContentFindings,
+}: LlmSensitiveDataOptions & {
+  blockReplacement?: unknown;
+  getFindings?: (value: T) => SensitiveContentFinding[];
+  value: T;
+}): T {
+  const parsedPolicy = resolveSensitiveDataPolicy(policy);
+  if (parsedPolicy === "ALLOW") return value;
+
+  const findings = getFindings(value);
+  if (findings.length === 0) return value;
 
   const summary = summarizeFindings(findings);
-  logger.warn("Sensitive content detected in AI request", {
+  logger.warn("Sensitive content detected in AI content", {
     emailAccountId,
     userId,
     label,
@@ -45,23 +95,30 @@ export function enforceSensitiveDataPolicy<T extends LlmRequestOptions>({
   });
 
   if (parsedPolicy === "BLOCK") {
+    if (blockReplacement !== undefined) return blockReplacement as T;
+
     throw new SafeError(
       "Sensitive content was detected, so this AI request was blocked by your account settings.",
     );
   }
 
   if (parsedPolicy === "REDACT") {
-    return redactLlmRequestOptions(options);
+    return redactUnknown(value) as T;
   }
 
-  return options;
+  return value;
 }
 
 export function redactSensitiveContentForLogging(text: string | undefined) {
   return text ? redactSensitiveContent(text) : undefined;
 }
 
-function getSensitiveContentFindings(options: LlmRequestOptions) {
+function getSensitiveContentFindings(value: unknown) {
+  const strings = collectStrings(value);
+  return strings.flatMap((text) => scanSensitiveContent(text));
+}
+
+function getLlmRequestSensitiveContentFindings(options: LlmRequestOptions) {
   const strings = [
     ...collectStrings(options.system),
     ...collectStrings(options.prompt),
@@ -69,31 +126,6 @@ function getSensitiveContentFindings(options: LlmRequestOptions) {
   ];
 
   return strings.flatMap((text) => scanSensitiveContent(text));
-}
-
-function redactLlmRequestOptions<T extends LlmRequestOptions>(options: T): T {
-  let changed = false;
-  const nextOptions: LlmRequestOptions = { ...options };
-
-  if ("system" in options) {
-    const nextSystem = redactUnknown(options.system);
-    if (nextSystem !== options.system) changed = true;
-    nextOptions.system = nextSystem;
-  }
-
-  if ("prompt" in options) {
-    const nextPrompt = redactUnknown(options.prompt);
-    if (nextPrompt !== options.prompt) changed = true;
-    nextOptions.prompt = nextPrompt;
-  }
-
-  if ("messages" in options) {
-    const nextMessages = redactUnknown(options.messages);
-    if (nextMessages !== options.messages) changed = true;
-    nextOptions.messages = nextMessages;
-  }
-
-  return changed ? (nextOptions as T) : options;
 }
 
 function redactUnknown(value: unknown): unknown {
@@ -118,9 +150,12 @@ function redactUnknown(value: unknown): unknown {
     const nextValue: Record<string, unknown> = {};
 
     for (const [key, item] of Object.entries(value)) {
+      const nextKey = redactSensitiveContent(key);
+      if (nextKey !== key) changed = true;
+
       const nextItem = redactUnknown(item);
       if (nextItem !== item) changed = true;
-      nextValue[key] = nextItem;
+      nextValue[nextKey] = nextItem;
     }
 
     return changed ? nextValue : value;
@@ -137,7 +172,10 @@ function collectStrings(value: unknown): string[] {
   }
 
   if (isRecord(value)) {
-    return Object.values(value).flatMap((item) => collectStrings(item));
+    return Object.entries(value).flatMap(([key, item]) => [
+      key,
+      ...collectStrings(item),
+    ]);
   }
 
   return [];
