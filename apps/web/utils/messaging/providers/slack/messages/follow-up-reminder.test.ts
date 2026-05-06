@@ -27,16 +27,20 @@ function blocksJson(params: Parameters<typeof buildFollowUpReminderBlocks>[0]) {
 }
 
 describe("buildFollowUpReminderBlocks", () => {
-  it("AWAITING: surfaces direction (they haven't replied) in the message", () => {
+  it("AWAITING: makes clear the user sent the email and is waiting for a reply", () => {
     const json = blocksJson(baseAwaitingParams);
-    expect(json).toContain("they haven't replied");
-    expect(json).not.toContain("you haven't replied");
+    expect(json).toContain("Waiting for their reply to your sent email");
+    expect(json).toContain("You sent this email to");
+    expect(json).toContain("Your sent email:");
+    expect(json).not.toContain("You haven't replied to this email yet");
   });
 
-  it("NEEDS_REPLY: surfaces direction (you haven't replied) in the message", () => {
+  it("NEEDS_REPLY: makes clear the user received the email and has not replied", () => {
     const json = blocksJson(baseNeedsReplyParams);
-    expect(json).toContain("you haven't replied");
-    expect(json).not.toContain("they haven't replied");
+    expect(json).toContain("You haven't replied to this email yet");
+    expect(json).toContain("You received this email from");
+    expect(json).toContain("Email awaiting your reply:");
+    expect(json).not.toContain("Waiting for their reply to your sent email");
   });
 
   it("renders the counterparty name and email together", () => {
@@ -45,26 +49,26 @@ describe("buildFollowUpReminderBlocks", () => {
     expect(json).toContain("test@example.com");
   });
 
-  it("AWAITING: prefixes the counterparty with 'to'", () => {
+  it("AWAITING: identifies the counterparty as the recipient", () => {
     const json = blocksJson(baseAwaitingParams);
-    expect(json).toContain("to ");
-    expect(json).not.toContain("from Test Counterparty");
+    expect(json).toContain("You sent this email to *Test Counterparty*");
+    expect(json).not.toContain("You received this email from");
   });
 
-  it("NEEDS_REPLY: prefixes the counterparty with 'from'", () => {
+  it("NEEDS_REPLY: identifies the counterparty as the sender", () => {
     const json = blocksJson(baseNeedsReplyParams);
-    expect(json).toContain("from ");
-    expect(json).not.toContain("to Test Counterparty");
+    expect(json).toContain("You received this email from *Test Counterparty*");
+    expect(json).not.toContain("You sent this email to");
   });
 
-  it("renders 'sent N days ago' for AWAITING", () => {
+  it("renders elapsed time for AWAITING", () => {
     const json = blocksJson(baseAwaitingParams);
-    expect(json).toContain("sent 4 days ago");
+    expect(json).toContain("4 days ago");
   });
 
-  it("renders 'received N day ago' for NEEDS_REPLY (singular)", () => {
+  it("renders singular elapsed time for NEEDS_REPLY", () => {
     const json = blocksJson(baseNeedsReplyParams);
-    expect(json).toContain("received 1 day ago");
+    expect(json).toContain("1 day ago");
   });
 
   it("includes the message snippet so the user knows what the thread is about", () => {
@@ -124,5 +128,17 @@ describe("buildFollowUpReminderBlocks", () => {
     expect(json).toContain("Q1 &lt;plan&gt; &amp; review");
     expect(json).toContain("A&amp;B Partners");
     expect(json).toContain("&lt;script&gt; tag in body");
+  });
+
+  it("decodes email HTML entities before escaping for Slack", () => {
+    const json = blocksJson({
+      ...baseAwaitingParams,
+      subject: "Status &amp; next steps",
+      snippet: "If it&#39;s still missing, send a screenshot.",
+    });
+    expect(json).toContain("Status &amp; next steps");
+    expect(json).toContain("If it's still missing, send a screenshot.");
+    expect(json).not.toContain("it&amp;#39;s");
+    expect(json).not.toContain("it&#39;s");
   });
 });

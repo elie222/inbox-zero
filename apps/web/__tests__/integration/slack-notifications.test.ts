@@ -323,13 +323,17 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       const awaitingBlocks = JSON.stringify(awaitingCall![0].blocks);
       expect(awaitingBlocks).toContain("Follow-up nudge");
-      expect(awaitingBlocks).toContain("they haven't replied");
-      expect(awaitingBlocks).toContain("sent 4 days ago");
+      expect(awaitingBlocks).toContain(
+        "Waiting for their reply to your sent email",
+      );
+      expect(awaitingBlocks).toContain("4 days ago");
       expect(awaitingBlocks).toContain("Jane Partner");
       expect(awaitingBlocks).toContain("jane@partner.com");
-      // AWAITING: the user emailed Jane — preposition must be "to", not "from"
-      expect(awaitingBlocks).toContain("to *Jane Partner*");
-      expect(awaitingBlocks).not.toContain("from *Jane Partner*");
+      // AWAITING: the user emailed Jane, so the reminder should make that clear.
+      expect(awaitingBlocks).toContain("You sent this email to *Jane Partner*");
+      expect(awaitingBlocks).not.toContain(
+        "You received this email from *Jane Partner*",
+      );
       expect(awaitingBlocks).toContain(
         "Wanted to check whether the redlines have landed.",
       );
@@ -339,9 +343,13 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       const needsReplyBlocks = JSON.stringify(needsReplyCall![0].blocks);
       expect(needsReplyBlocks).toContain("Follow-up nudge");
-      expect(needsReplyBlocks).toContain("you haven't replied");
-      expect(needsReplyBlocks).toContain("received 1 day ago");
-      expect(needsReplyBlocks).toContain("from *Alex Customer*");
+      expect(needsReplyBlocks).toContain(
+        "You haven't replied to this email yet",
+      );
+      expect(needsReplyBlocks).toContain("1 day ago");
+      expect(needsReplyBlocks).toContain(
+        "You received this email from *Alex Customer*",
+      );
       expect(needsReplyBlocks).toContain(
         "Could you walk me through the SSO setup?",
       );

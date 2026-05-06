@@ -19,7 +19,11 @@ import {
 import { isMessagingChannelOperational } from "@/utils/messaging/channel-validity";
 import prisma from "@/utils/prisma";
 import { pluralize } from "@/utils/string";
-import { getFollowUpCopy, truncateSnippet } from "@/utils/follow-up/copy";
+import {
+  getFollowUpCopy,
+  normalizeFollowUpText,
+  truncateSnippet,
+} from "@/utils/follow-up/copy";
 
 export type FollowUpNotificationChannel = {
   id: string;
@@ -212,13 +216,13 @@ function formatFollowUpText({
   snippet,
   threadLink,
 }: FollowUpNotificationContent): string {
-  const { directionLine, preposition, verb, emoji } =
+  const { directionLine, counterpartyPrefix, emoji } =
     getFollowUpCopy(trackerType);
 
   const lines = [
     `${emoji} Follow-up nudge — ${directionLine}`,
-    subject,
-    `${preposition} ${counterpartyName} <${counterpartyEmail}> · ${verb} ${daysSinceSent} ${pluralize(daysSinceSent, "day")} ago`,
+    normalizeFollowUpText(subject),
+    `${counterpartyPrefix} ${normalizeFollowUpText(counterpartyName)} <${counterpartyEmail}> · ${daysSinceSent} ${pluralize(daysSinceSent, "day")} ago`,
   ];
 
   if (snippet) lines.push(`> ${truncateSnippet(snippet)}`);
@@ -237,20 +241,20 @@ function buildTelegramFollowUpCard({
   threadLink,
   threadLinkLabel,
 }: FollowUpNotificationContent) {
-  const { directionLine, preposition, verb, emoji } =
+  const { directionLine, counterpartyPrefix, snippetLabel, emoji } =
     getFollowUpCopy(trackerType);
   const children: CardChild[] = [
     CardText(
       [
         directionLine,
-        subject,
-        `${preposition} ${counterpartyName} <${counterpartyEmail}> · ${verb} ${daysSinceSent} ${pluralize(daysSinceSent, "day")} ago`,
+        normalizeFollowUpText(subject),
+        `${counterpartyPrefix} ${normalizeFollowUpText(counterpartyName)} <${counterpartyEmail}> · ${daysSinceSent} ${pluralize(daysSinceSent, "day")} ago`,
       ].join("\n\n"),
     ),
   ];
 
   if (snippet) {
-    children.push(CardText(`> ${truncateSnippet(snippet)}`));
+    children.push(CardText(`${snippetLabel}:\n> ${truncateSnippet(snippet)}`));
   }
 
   if (threadLink) {
