@@ -66,3 +66,18 @@ jobs:
             NEXT_PUBLIC_BASE_URL=https://inbox.tdfurn.com
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /opt/inbox-zero
+            docker compose pull app
+            docker compose up -d app
