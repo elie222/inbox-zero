@@ -8,6 +8,7 @@ import type { Logger } from "@/utils/logger";
 
 export interface GoogleCalendarConnectionParams {
   accessToken: string | null;
+  connectionId: string;
   emailAccountId: string;
   expiresAt: number | null;
   refreshToken: string | null;
@@ -28,6 +29,7 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
       refreshToken: this.connection.refreshToken,
       expiresAt: this.connection.expiresAt,
       emailAccountId: this.connection.emailAccountId,
+      connectionId: this.connection.connectionId,
       logger: this.logger,
     });
   }

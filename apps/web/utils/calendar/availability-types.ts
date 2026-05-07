@@ -9,6 +9,7 @@ export interface CalendarAvailabilityProvider {
    */
   fetchBusyPeriods(params: {
     accessToken?: string | null;
+    connectionId?: string | null;
     refreshToken: string | null;
     expiresAt: number | null;
     emailAccountId: string;

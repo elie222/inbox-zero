@@ -2,6 +2,8 @@ import {
   APICallError,
   type ModelMessage,
   type Tool,
+  type ToolExecutionOptions,
+  type ToolSet,
   ToolLoopAgent,
   type JSONValue,
   type FlexibleSchema,
@@ -61,8 +63,10 @@ import {
 } from "@/utils/ai/security";
 import {
   enforceSensitiveDataPolicy,
+  enforceSensitiveToolOutputPolicy,
   redactSensitiveContentForLogging,
 } from "@/utils/llms/sensitive-content";
+import { resolveSensitiveDataPolicy } from "@/utils/dlp/policy.server";
 import {
   extractLLMErrorInfo,
   isTransientNetworkError,
@@ -166,6 +170,13 @@ export function createGenerateText({
         userId: emailAccount.userId,
         emailAccountId: emailAccount.id,
       });
+      const protectedTools = wrapToolsWithSensitiveDataPolicy({
+        tools: protectedOptions.tools,
+        policy: emailAccount.sensitiveDataPolicy,
+        label,
+        userId: emailAccount.userId,
+        emailAccountId: emailAccount.id,
+      });
 
       logger.trace("Generating text", {
         label,
@@ -199,6 +210,7 @@ export function createGenerateText({
       const result = await generateText(
         {
           ...protectedOptions,
+          ...(protectedTools ? { tools: protectedTools } : {}),
           ...commonOptions,
           providerOptions,
           model: withPosthogTracing({
@@ -569,7 +581,13 @@ export async function chatCompletionStream({
       return streamText({
         model,
         messages: protectedMessages as ModelMessage[],
-        tools,
+        tools: wrapToolsWithSensitiveDataPolicy({
+          tools,
+          policy: sensitiveDataPolicy,
+          label,
+          userId,
+          emailAccountId,
+        }),
         stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
         ...commonOptions,
         providerOptions: providerOptions,
@@ -727,7 +745,13 @@ export async function toolCallAgentStream({
       provider: candidate.provider,
       modelName: candidate.modelName,
     });
-    const candidateTools = tools;
+    const candidateTools = wrapToolsWithSensitiveDataPolicy({
+      tools,
+      policy: sensitiveDataPolicy,
+      label,
+      userId,
+      emailAccountId,
+    });
     const excludedTools: string[] = [];
     const replacedTools: string[] = [];
 
@@ -844,6 +868,93 @@ export async function toolCallAgentStream({
   }
 
   throw new Error("No models available for tool-call stream");
+}
+
+function wrapToolsWithSensitiveDataPolicy<TTools extends ToolSet | undefined>({
+  tools,
+  policy,
+  label,
+  userId,
+  emailAccountId,
+}: {
+  tools: TTools;
+  policy?: string | null;
+  label: string;
+  userId?: string;
+  emailAccountId: string;
+}): TTools {
+  if (!tools || resolveSensitiveDataPolicy(policy) === "ALLOW") return tools;
+
+  const protectedTools: ToolSet = { ...tools };
+
+  for (const [toolName, toolDefinition] of Object.entries(protectedTools)) {
+    const execute = toolDefinition.execute;
+    if (!execute) continue;
+
+    protectedTools[toolName] = {
+      ...toolDefinition,
+      execute(input: unknown, options: ToolExecutionOptions) {
+        const output = execute.call(toolDefinition, input, options);
+
+        if (isAsyncIterable(output)) {
+          return enforceSensitiveToolOutputStream({
+            output,
+            policy,
+            label,
+            toolName,
+            userId,
+            emailAccountId,
+          });
+        }
+
+        return Promise.resolve(output).then((resolvedOutput) =>
+          enforceSensitiveToolOutputPolicy({
+            output: resolvedOutput,
+            policy,
+            logger,
+            label: `${label}:${toolName}`,
+            userId,
+            emailAccountId,
+          }),
+        );
+      },
+    } as ToolSet[string];
+  }
+
+  return protectedTools as TTools;
+}
+
+async function* enforceSensitiveToolOutputStream({
+  output,
+  policy,
+  label,
+  toolName,
+  userId,
+  emailAccountId,
+}: {
+  output: AsyncIterable<unknown>;
+  policy?: string | null;
+  label: string;
+  toolName: string;
+  userId?: string;
+  emailAccountId: string;
+}) {
+  for await (const item of output) {
+    yield enforceSensitiveToolOutputPolicy({
+      output: item,
+      policy,
+      logger,
+      label: `${label}:${toolName}`,
+      userId,
+      emailAccountId,
+    });
+  }
+}
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
+  return (
+    typeof value === "object" && value !== null && Symbol.asyncIterator in value
+  );
 }
 
 async function handleError(

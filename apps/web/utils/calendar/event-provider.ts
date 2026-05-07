@@ -43,6 +43,7 @@ export async function createCalendarEventProviders(
           new GoogleCalendarEventProvider(
             {
               accessToken: connection.accessToken,
+              connectionId: connection.id,
               refreshToken: connection.refreshToken,
               expiresAt: connection.expiresAt?.getTime() ?? null,
               emailAccountId,

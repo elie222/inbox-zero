@@ -329,6 +329,7 @@ export const adminChangePremiumStatusAction = adminActionClient
         await prisma.premium.update({
           where: { id: userToUpgrade.user.premiumId },
           data: {
+            tier: null,
             adminGrantExpiresAt: null,
             adminGrantTier: null,
           },

@@ -40,12 +40,14 @@ export const getCalendarClientWithRefresh = async ({
   refreshToken,
   expiresAt,
   emailAccountId,
+  connectionId,
   logger,
 }: {
   accessToken?: string | null;
   refreshToken: string | null;
   expiresAt: number | null;
   emailAccountId: string;
+  connectionId?: string | null;
   logger: Logger;
 }): Promise<calendar_v3.Calendar> => {
   if (!refreshToken) {
@@ -70,23 +72,27 @@ export const getCalendarClientWithRefresh = async ({
     const newExpiresAt = tokens.credentials.expiry_date ?? undefined;
     const newRefreshToken = tokens.credentials.refresh_token ?? undefined;
 
-    // Find the calendar connection to update
-    const calendarConnection = await prisma.calendarConnection.findFirst({
-      where: {
-        emailAccountId,
-        provider: "google",
-      },
-      select: { id: true },
-    });
+    let calendarConnectionId = connectionId ?? null;
+    if (!calendarConnectionId) {
+      const calendarConnection = await prisma.calendarConnection.findFirst({
+        where: {
+          emailAccountId,
+          provider: "google",
+          refreshToken,
+        },
+        select: { id: true },
+      });
+      calendarConnectionId = calendarConnection?.id ?? null;
+    }
 
-    if (calendarConnection) {
+    if (calendarConnectionId) {
       await saveCalendarTokens({
         tokens: {
           access_token: newAccessToken ?? undefined,
           refresh_token: newRefreshToken,
           expires_at: newExpiresAt,
         },
-        connectionId: calendarConnection.id,
+        connectionId: calendarConnectionId,
         logger,
       });
     } else {
