@@ -3,6 +3,12 @@ export interface CalendarEventAttendee {
   name?: string;
 }
 
+export type CalendarEventLocationType =
+  | "IN_PERSON"
+  | "GOOGLE_MEET"
+  | "PHONE"
+  | "CUSTOM";
+
 export interface CalendarEvent {
   attendees: CalendarEventAttendee[];
   description?: string;
@@ -13,6 +19,30 @@ export interface CalendarEvent {
   startTime: Date;
   title: string;
   videoConferenceLink?: string;
+}
+
+export interface CalendarEventWriteInput {
+  attendees: CalendarEventAttendee[];
+  calendarId: string;
+  description?: string;
+  endTime: Date;
+  locationType: CalendarEventLocationType;
+  locationValue?: string | null;
+  startTime: Date;
+  timezone: string;
+  title: string;
+}
+
+export interface CalendarEventWriteResult {
+  eventUrl?: string;
+  id: string;
+  providerCalendarId: string;
+  videoConferenceLink?: string;
+}
+
+export interface CalendarEventCancelInput {
+  calendarId: string;
+  eventId: string;
 }
 
 export interface CalendarEventProvider {

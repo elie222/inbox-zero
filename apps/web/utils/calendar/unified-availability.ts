@@ -16,12 +16,14 @@ export async function getUnifiedCalendarAvailability({
   endDate,
   timezone = "UTC",
   logger,
+  failClosed = false,
 }: {
   emailAccountId: string;
   startDate: Date | string;
   endDate: Date | string;
   timezone?: string;
   logger: Logger;
+  failClosed?: boolean;
 }): Promise<BusyPeriod[]> {
   // Compute day boundaries in the user's timezone
   // Parse dates as calendar dates in the target timezone to avoid UTC shift issues
@@ -95,7 +97,8 @@ export async function getUnifiedCalendarAvailability({
             error,
             connectionId: connection.id,
           });
-          return []; // Return empty array on error
+          if (failClosed) throw error;
+          return [];
         }),
     );
   }
@@ -124,13 +127,15 @@ export async function getUnifiedCalendarAvailability({
           calendarIds,
           timeMin,
           timeMax,
+          failOnCalendarError: failClosed,
         })
         .catch((error) => {
           logger.error("Error fetching Microsoft calendar availability", {
             error,
             connectionId: connection.id,
           });
-          return []; // Return empty array on error
+          if (failClosed) throw error;
+          return [];
         }),
     );
   }

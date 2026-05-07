@@ -34,6 +34,14 @@ async function fetchGoogleCalendarBusyPeriods({
       for (const [_calendarId, calendar] of Object.entries(
         response.data.calendars,
       )) {
+        if (calendar.errors?.length) {
+          logger.error("Google Calendar returned availability errors", {
+            calendarId: _calendarId,
+            errors: calendar.errors,
+          });
+          throw new Error("Failed to fetch Google calendar availability");
+        }
+
         if (calendar.busy) {
           for (const period of calendar.busy) {
             if (period.start && period.end) {

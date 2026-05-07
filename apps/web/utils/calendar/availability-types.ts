@@ -16,6 +16,7 @@ export interface CalendarAvailabilityProvider {
     calendarIds: string[];
     timeMin: string;
     timeMax: string;
+    failOnCalendarError?: boolean;
   }): Promise<BusyPeriod[]>;
   name: "google" | "microsoft";
 }

@@ -1,0 +1,13 @@
+{
+  "name": "@inboxzero/scheduling",
+  "version": "0.0.0",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest --run"
+  },
+  "devDependencies": {
+    "tsconfig": "workspace:*",
+    "typescript": "6.0.3",
+    "vitest": "4.1.4"
+  }
+}

@@ -2,7 +2,10 @@ import type { Client } from "@microsoft/microsoft-graph-client";
 import { getCalendarClientWithRefresh } from "@/utils/outlook/calendar-client";
 import type {
   CalendarEvent,
+  CalendarEventCancelInput,
   CalendarEventProvider,
+  CalendarEventWriteInput,
+  CalendarEventWriteResult,
 } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
 
@@ -115,6 +118,55 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     const events: MicrosoftEvent[] = response.value || [];
 
     return events.map((event) => this.parseEvent(event));
+  }
+
+  async createEvent(
+    input: CalendarEventWriteInput,
+  ): Promise<CalendarEventWriteResult> {
+    const client = await this.getClient();
+    const response: MicrosoftEvent = await client
+      .api(`/me/calendars/${input.calendarId}/events`)
+      .post({
+        subject: input.title,
+        body: {
+          contentType: "text",
+          content: input.description || "",
+        },
+        start: {
+          dateTime: input.startTime.toISOString(),
+          timeZone: "UTC",
+        },
+        end: {
+          dateTime: input.endTime.toISOString(),
+          timeZone: "UTC",
+        },
+        attendees: input.attendees.map((attendee) => ({
+          emailAddress: {
+            address: attendee.email,
+            name: attendee.name || attendee.email,
+          },
+          type: "required",
+        })),
+        location: input.locationValue
+          ? { displayName: input.locationValue }
+          : undefined,
+      });
+
+    return {
+      id: response.id || "",
+      providerCalendarId: input.calendarId,
+      eventUrl: response.webLink,
+      videoConferenceLink:
+        response.onlineMeeting?.joinUrl || response.onlineMeetingUrl,
+    };
+  }
+
+  async cancelEvent(input: CalendarEventCancelInput): Promise<void> {
+    const client = await this.getClient();
+
+    await client
+      .api(`/me/calendars/${input.calendarId}/events/${input.eventId}`)
+      .delete();
   }
 
   private parseEvent(event: MicrosoftEvent) {

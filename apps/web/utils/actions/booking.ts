@@ -1,0 +1,422 @@
+"use server";
+
+import { SafeError } from "@/utils/error";
+import { actionClient } from "@/utils/actions/safe-action";
+import {
+  archiveBookingLinkBody,
+  createBookingEventTypeBody,
+  createBookingLinkBody,
+  updateBookingDateOverridesBody,
+  updateBookingEventTypeBody,
+  updateBookingLinkActionBody,
+  updateBookingScheduleBody,
+} from "@/utils/actions/booking.validation";
+import prisma from "@/utils/prisma";
+import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
+
+const DEFAULT_EVENT_TYPE_SLUG = "meeting";
+
+export const createBookingLinkAction = actionClient
+  .metadata({ name: "createBookingLink" })
+  .inputSchema(createBookingLinkBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+    const destinationCalendarId = await getOwnedDestinationCalendarId({
+      emailAccountId,
+      destinationCalendarId: parsedInput.destinationCalendarId,
+    });
+    const organizationId = await getOrganizationId(emailAccountId);
+    const durationMinutes = parsedInput.durationMinutes;
+    const slotIntervalMinutes =
+      parsedInput.slotIntervalMinutes ?? durationMinutes;
+
+    const bookingLink = await prisma.bookingLink.create({
+      data: {
+        title: parsedInput.title,
+        slug: parsedInput.slug,
+        description: emptyToNull(parsedInput.description),
+        timezone: parsedInput.timezone,
+        emailAccountId,
+        organizationId,
+        eventTypes: {
+          create: {
+            title: parsedInput.title,
+            slug: DEFAULT_EVENT_TYPE_SLUG,
+            durationMinutes,
+            slotIntervalMinutes,
+            locationType: BookingEventTypeLocationType.CUSTOM,
+            minimumNoticeMinutes: 120,
+            bufferBeforeMinutes: 0,
+            bufferAfterMinutes: 0,
+            bookingWindowDays: 30,
+            hosts: {
+              create: {
+                emailAccount: { connect: { id: emailAccountId } },
+                ...(destinationCalendarId
+                  ? {
+                      destinationCalendar: {
+                        connect: { id: destinationCalendarId },
+                      },
+                    }
+                  : {}),
+                schedule: {
+                  create: {
+                    name: `${parsedInput.title} schedule`,
+                    timezone: parsedInput.timezone,
+                    emailAccount: { connect: { id: emailAccountId } },
+                    rules: {
+                      create: getDefaultAvailabilityRules(),
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      include: {
+        eventTypes: {
+          select: { id: true },
+          take: 1,
+        },
+      },
+    });
+
+    const defaultEventTypeId = bookingLink.eventTypes[0]?.id;
+    if (defaultEventTypeId) {
+      await prisma.bookingLink.update({
+        where: { id: bookingLink.id },
+        data: { defaultEventTypeId },
+      });
+    }
+
+    return { id: bookingLink.id, defaultEventTypeId };
+  });
+
+export const updateBookingLinkAction = actionClient
+  .metadata({ name: "updateBookingLink" })
+  .inputSchema(updateBookingLinkActionBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+    await ensureBookingLinkOwner({
+      emailAccountId,
+      bookingLinkId: parsedInput.id,
+    });
+
+    if (parsedInput.defaultEventTypeId) {
+      await ensureEventTypeOwner({
+        emailAccountId,
+        eventTypeId: parsedInput.defaultEventTypeId,
+      });
+    }
+
+    await prisma.bookingLink.update({
+      where: { id: parsedInput.id },
+      data: {
+        title: parsedInput.title,
+        slug: parsedInput.slug,
+        aliasSlug:
+          parsedInput.aliasSlug === undefined
+            ? undefined
+            : emptyToNull(parsedInput.aliasSlug),
+        description:
+          parsedInput.description === undefined
+            ? undefined
+            : emptyToNull(parsedInput.description),
+        timezone: parsedInput.timezone,
+        isActive: parsedInput.isActive,
+        defaultEventTypeId: parsedInput.defaultEventTypeId,
+      },
+    });
+
+    return { success: true };
+  });
+
+export const archiveBookingLinkAction = actionClient
+  .metadata({ name: "archiveBookingLink" })
+  .inputSchema(archiveBookingLinkBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
+    await ensureBookingLinkOwner({ emailAccountId, bookingLinkId: id });
+
+    await prisma.bookingLink.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    return { success: true };
+  });
+
+export const createBookingEventTypeAction = actionClient
+  .metadata({ name: "createBookingEventType" })
+  .inputSchema(createBookingEventTypeBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+    const bookingLink = await ensureBookingLinkOwner({
+      emailAccountId,
+      bookingLinkId: parsedInput.bookingLinkId,
+    });
+    const destinationCalendarId = await getOwnedDestinationCalendarId({
+      emailAccountId,
+      destinationCalendarId: parsedInput.destinationCalendarId,
+    });
+
+    const eventType = await prisma.bookingEventType.create({
+      data: {
+        bookingLinkId: parsedInput.bookingLinkId,
+        title: parsedInput.title,
+        slug: parsedInput.slug,
+        description: emptyToNull(parsedInput.description),
+        durationMinutes: parsedInput.durationMinutes,
+        slotIntervalMinutes: parsedInput.slotIntervalMinutes,
+        locationType: parsedInput.locationType,
+        locationValue: emptyToNull(parsedInput.locationValue),
+        minimumNoticeMinutes: parsedInput.minimumNoticeMinutes,
+        bufferBeforeMinutes: parsedInput.bufferBeforeMinutes,
+        bufferAfterMinutes: parsedInput.bufferAfterMinutes,
+        bookingWindowDays: parsedInput.bookingWindowDays,
+        maxActiveBookingsPerGuest:
+          parsedInput.maxActiveBookingsPerGuest ?? null,
+        disableCancelling: parsedInput.disableCancelling,
+        hideHostEmail: parsedInput.hideHostEmail,
+        hideCalendarEventDetails: parsedInput.hideCalendarEventDetails,
+        isActive: parsedInput.isActive,
+        hosts: {
+          create: {
+            emailAccount: { connect: { id: emailAccountId } },
+            ...(destinationCalendarId
+              ? {
+                  destinationCalendar: {
+                    connect: { id: destinationCalendarId },
+                  },
+                }
+              : {}),
+            schedule: {
+              create: {
+                name: `${parsedInput.title} schedule`,
+                timezone: bookingLink.timezone,
+                emailAccount: { connect: { id: emailAccountId } },
+                rules: {
+                  create: getDefaultAvailabilityRules(),
+                },
+              },
+            },
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!bookingLink.defaultEventTypeId) {
+      await prisma.bookingLink.update({
+        where: { id: bookingLink.id },
+        data: { defaultEventTypeId: eventType.id },
+      });
+    }
+
+    return eventType;
+  });
+
+export const updateBookingEventTypeAction = actionClient
+  .metadata({ name: "updateBookingEventType" })
+  .inputSchema(updateBookingEventTypeBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+    await ensureEventTypeOwner({
+      emailAccountId,
+      eventTypeId: parsedInput.id,
+    });
+
+    const destinationCalendarId =
+      parsedInput.destinationCalendarId === undefined
+        ? undefined
+        : await getOwnedDestinationCalendarId({
+            emailAccountId,
+            destinationCalendarId: parsedInput.destinationCalendarId,
+          });
+
+    await prisma.bookingEventType.update({
+      where: { id: parsedInput.id },
+      data: {
+        title: parsedInput.title,
+        slug: parsedInput.slug,
+        description:
+          parsedInput.description === undefined
+            ? undefined
+            : emptyToNull(parsedInput.description),
+        durationMinutes: parsedInput.durationMinutes,
+        slotIntervalMinutes: parsedInput.slotIntervalMinutes,
+        locationType: parsedInput.locationType,
+        locationValue:
+          parsedInput.locationValue === undefined
+            ? undefined
+            : emptyToNull(parsedInput.locationValue),
+        minimumNoticeMinutes: parsedInput.minimumNoticeMinutes,
+        bufferBeforeMinutes: parsedInput.bufferBeforeMinutes,
+        bufferAfterMinutes: parsedInput.bufferAfterMinutes,
+        bookingWindowDays: parsedInput.bookingWindowDays,
+        maxActiveBookingsPerGuest: parsedInput.maxActiveBookingsPerGuest,
+        disableCancelling: parsedInput.disableCancelling,
+        hideHostEmail: parsedInput.hideHostEmail,
+        hideCalendarEventDetails: parsedInput.hideCalendarEventDetails,
+        isActive: parsedInput.isActive,
+      },
+    });
+
+    if (destinationCalendarId !== undefined) {
+      await prisma.bookingEventTypeHost.updateMany({
+        where: {
+          eventTypeId: parsedInput.id,
+          emailAccountId,
+          isActive: true,
+        },
+        data: { destinationCalendarId },
+      });
+    }
+
+    return { success: true };
+  });
+
+export const updateBookingScheduleAction = actionClient
+  .metadata({ name: "updateBookingSchedule" })
+  .inputSchema(updateBookingScheduleBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+    await ensureScheduleOwner({
+      emailAccountId,
+      scheduleId: parsedInput.id,
+    });
+
+    await prisma.bookingSchedule.update({
+      where: { id: parsedInput.id },
+      data: {
+        timezone: parsedInput.timezone,
+        rules: {
+          deleteMany: {},
+          create: parsedInput.rules,
+        },
+      },
+    });
+
+    return { success: true };
+  });
+
+export const updateBookingDateOverridesAction = actionClient
+  .metadata({ name: "updateBookingDateOverrides" })
+  .inputSchema(updateBookingDateOverridesBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+    await ensureScheduleOwner({
+      emailAccountId,
+      scheduleId: parsedInput.scheduleId,
+    });
+
+    await prisma.bookingSchedule.update({
+      where: { id: parsedInput.scheduleId },
+      data: {
+        dateOverrides: {
+          deleteMany: {},
+          create: parsedInput.overrides,
+        },
+      },
+    });
+
+    return { success: true };
+  });
+
+async function ensureBookingLinkOwner({
+  emailAccountId,
+  bookingLinkId,
+}: {
+  emailAccountId: string;
+  bookingLinkId: string;
+}) {
+  const bookingLink = await prisma.bookingLink.findFirst({
+    where: { id: bookingLinkId, emailAccountId },
+    select: { id: true, defaultEventTypeId: true, timezone: true },
+  });
+
+  if (!bookingLink) throw new SafeError("Booking link not found");
+
+  return bookingLink;
+}
+
+async function ensureEventTypeOwner({
+  emailAccountId,
+  eventTypeId,
+}: {
+  emailAccountId: string;
+  eventTypeId: string;
+}) {
+  const eventType = await prisma.bookingEventType.findFirst({
+    where: {
+      id: eventTypeId,
+      bookingLink: { emailAccountId },
+    },
+    select: { id: true },
+  });
+
+  if (!eventType) throw new SafeError("Booking event type not found");
+}
+
+async function ensureScheduleOwner({
+  emailAccountId,
+  scheduleId,
+}: {
+  emailAccountId: string;
+  scheduleId: string;
+}) {
+  const schedule = await prisma.bookingSchedule.findFirst({
+    where: { id: scheduleId, emailAccountId },
+    select: { id: true },
+  });
+
+  if (!schedule) throw new SafeError("Booking schedule not found");
+}
+
+async function getOwnedDestinationCalendarId({
+  emailAccountId,
+  destinationCalendarId,
+}: {
+  emailAccountId: string;
+  destinationCalendarId?: string | null;
+}) {
+  if (!destinationCalendarId) {
+    const calendar = await prisma.calendar.findFirst({
+      where: {
+        isEnabled: true,
+        connection: { emailAccountId, isConnected: true },
+      },
+      orderBy: [{ primary: "desc" }, { createdAt: "asc" }],
+      select: { id: true },
+    });
+
+    return calendar?.id ?? null;
+  }
+
+  const calendar = await prisma.calendar.findFirst({
+    where: {
+      id: destinationCalendarId,
+      connection: { emailAccountId, isConnected: true },
+    },
+    select: { id: true },
+  });
+
+  if (!calendar) throw new SafeError("Destination calendar not found");
+
+  return calendar.id;
+}
+
+async function getOrganizationId(emailAccountId: string) {
+  const member = await prisma.member.findUnique({
+    where: { emailAccountId },
+    select: { organizationId: true },
+  });
+
+  return member?.organizationId ?? null;
+}
+
+function getDefaultAvailabilityRules() {
+  return [1, 2, 3, 4, 5].map((weekday) => ({
+    weekday,
+    startMinutes: 9 * 60,
+    endMinutes: 17 * 60,
+  }));
+}
+
+function emptyToNull(value?: string | null) {
+  return value?.trim() ? value.trim() : null;
+}
