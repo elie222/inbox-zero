@@ -125,8 +125,7 @@ export const deleteEmailAccountAction = actionClientUser
       const newPrimaryAccount = otherEmailAccounts[0];
       const oldEmail = emailAccount.user.email;
 
-      await runDeleteEmailAccountTransaction([
-        getDeleteEmailAccountLock(userId),
+      await runDeleteEmailAccountTransaction(userId, [
         prisma.user.update({
           where: {
             id: userId,
@@ -152,8 +151,7 @@ export const deleteEmailAccountAction = actionClientUser
         });
       });
     } else {
-      await runDeleteEmailAccountTransaction([
-        getDeleteEmailAccountLock(userId),
+      await runDeleteEmailAccountTransaction(userId, [
         prisma.account.delete({
           where: {
             id: emailAccount.accountId,
@@ -170,10 +168,16 @@ export const deleteEmailAccountAction = actionClientUser
   });
 
 async function runDeleteEmailAccountTransaction(
+  userId: string,
   operations: Prisma.PrismaPromise<unknown>[],
 ) {
   try {
-    await prisma.$transaction(operations);
+    await prisma.$transaction([
+      prisma.$queryRaw`
+        SELECT pg_advisory_xact_lock(539114481, hashtext(${userId}))
+      `,
+      ...operations,
+    ]);
   } catch (error) {
     if (isNotFoundError(error)) {
       throw new SafeError("Email account already changed");
@@ -181,10 +185,4 @@ async function runDeleteEmailAccountTransaction(
 
     throw error;
   }
-}
-
-function getDeleteEmailAccountLock(userId: string) {
-  return prisma.$queryRaw`
-    SELECT pg_advisory_xact_lock(539114481, hashtext(${userId}))
-  `;
 }
