@@ -19,26 +19,48 @@ describe("updatePersonalInstructionsTool", () => {
 
   it("preserves concurrent append updates", async () => {
     let about = "Existing instructions";
-    let activeWrites = 0;
+    let locked = false;
+    let sawOverlappingQuery = false;
+    let activeQueries = 0;
+    const lockWaiters: Array<() => void> = [];
 
     vi.mocked(prisma.$queryRaw).mockImplementation(
       async (query: TemplateStringsArray | Prisma.Sql) => {
-        activeWrites += 1;
-        const snapshot = about;
-        await Promise.resolve();
-        if (activeWrites > 1) expect(about).toBe(snapshot);
+        activeQueries += 1;
+        if (activeQueries > 1) sawOverlappingQuery = true;
 
-        const values = "values" in query ? query.values : [];
-        const personalInstructions = values[1] as string;
-        const previous = about;
-        about = about
-          ? `${about}\n${personalInstructions}`
-          : personalInstructions;
+        const usesRowLock = getSqlText(query).includes("FOR UPDATE");
+        if (usesRowLock) await acquireLock();
 
-        activeWrites -= 1;
-        return [{ previous, updated: about }];
+        try {
+          const values = "values" in query ? query.values : [];
+          const personalInstructions = values[1] as string;
+          const previous = about;
+          await Promise.resolve();
+
+          about = previous
+            ? `${previous}\n${personalInstructions}`
+            : personalInstructions;
+
+          return [{ previous, updated: about }];
+        } finally {
+          if (usesRowLock) releaseLock();
+          activeQueries -= 1;
+        }
       },
     );
+
+    async function acquireLock() {
+      while (locked) {
+        await new Promise<void>((resolve) => lockWaiters.push(resolve));
+      }
+      locked = true;
+    }
+
+    function releaseLock() {
+      locked = false;
+      lockWaiters.shift()?.();
+    }
 
     const toolInstance = updatePersonalInstructionsTool({
       email: "user@example.com",
@@ -59,6 +81,7 @@ describe("updatePersonalInstructionsTool", () => {
 
     expect(firstResult.success).toBe(true);
     expect(secondResult.success).toBe(true);
+    expect(sawOverlappingQuery).toBe(true);
     expect(about.split("\n")).toEqual(
       expect.arrayContaining([
         "Existing instructions",
@@ -69,3 +92,8 @@ describe("updatePersonalInstructionsTool", () => {
     expect(prisma.emailAccount.update).not.toHaveBeenCalled();
   });
 });
+
+function getSqlText(query: TemplateStringsArray | Prisma.Sql) {
+  if ("sql" in query) return query.sql;
+  return Array.from(query).join("?");
+}
