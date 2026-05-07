@@ -50,6 +50,7 @@ vi.mock("@/utils/premium/seats", () => ({
 }));
 vi.mock("@/utils/ai/draft-cleanup", () => ({
   cleanupAIDraftsForAccount: vi.fn(),
+  getConfiguredDraftCleanupDays: vi.fn(),
 }));
 
 describe("deleteEmailAccountAction", () => {

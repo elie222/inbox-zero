@@ -14,27 +14,10 @@ export async function cleanupAIDraftsForAccount({
   emailAccountId: string;
   provider: string;
   logger: Logger;
-  cleanupDays?: number | null;
+  cleanupDays: number;
 }) {
-  const staleDays =
-    cleanupDays === undefined
-      ? await getConfiguredDraftCleanupDays(emailAccountId)
-      : cleanupDays;
-
-  if (staleDays === null) {
-    return {
-      total: 0,
-      deleted: 0,
-      skippedModified: 0,
-      alreadyGone: 0,
-      errors: 0,
-      disabled: true,
-      cleanupDays: staleDays,
-    };
-  }
-
   const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - staleDays);
+  cutoffDate.setDate(cutoffDate.getDate() - cleanupDays);
 
   const staleDrafts = await prisma.executedAction.findMany({
     where: {
@@ -59,8 +42,7 @@ export async function cleanupAIDraftsForAccount({
       skippedModified: 0,
       alreadyGone: 0,
       errors: 0,
-      disabled: false,
-      cleanupDays: staleDays,
+      cleanupDays,
     };
   }
 
@@ -133,8 +115,7 @@ export async function cleanupAIDraftsForAccount({
     skippedModified,
     alreadyGone,
     errors,
-    disabled: false,
-    cleanupDays: staleDays,
+    cleanupDays,
   };
 }
 
@@ -210,7 +191,7 @@ export async function cleanupConfiguredAIDrafts({
   };
 }
 
-async function getConfiguredDraftCleanupDays(emailAccountId: string) {
+export async function getConfiguredDraftCleanupDays(emailAccountId: string) {
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: { draftCleanupDays: true },

@@ -23,7 +23,10 @@ import {
   cleanupDraftsBody,
 } from "@/utils/actions/admin.validation";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
-import { cleanupAIDraftsForAccount } from "@/utils/ai/draft-cleanup";
+import {
+  cleanupAIDraftsForAccount,
+  getConfiguredDraftCleanupDays,
+} from "@/utils/ai/draft-cleanup";
 import {
   getAdminResponseTimeProviderDelayMs,
   getResponseTimeStats,
@@ -551,10 +554,12 @@ export const adminCleanupDraftsAction = adminActionClient
     let totalErrors = 0;
 
     for (const emailAccount of emailAccounts) {
+      const cleanupDays = await getConfiguredDraftCleanupDays(emailAccount.id);
       const result = await cleanupAIDraftsForAccount({
         emailAccountId: emailAccount.id,
         provider: emailAccount.account.provider,
         logger,
+        cleanupDays,
       });
 
       totalDeleted += result.deleted;

@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => ({
   prisma: {
     emailAccount: {
       findMany: vi.fn(),
-      findUnique: vi.fn(),
     },
     executedAction: {
       findMany: vi.fn(),
@@ -47,39 +46,19 @@ describe("cleanupAIDraftsForAccount", () => {
     mocks.createEmailProvider.mockResolvedValue(mocks.provider);
   });
 
-  it("does nothing when draft cleanup is disabled", async () => {
-    const result = await cleanupAIDraftsForAccount({
-      emailAccountId: "email-account-1",
-      provider: "google",
-      logger,
-      cleanupDays: null,
-    });
-
-    expect(result).toMatchObject({
-      total: 0,
-      deleted: 0,
-      disabled: true,
-      cleanupDays: null,
-    });
-    expect(mocks.prisma.executedAction.findMany).not.toHaveBeenCalled();
-    expect(mocks.createEmailProvider).not.toHaveBeenCalled();
-  });
-
-  it("uses the configured account cleanup window", async () => {
+  it("uses the provided cleanup window", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-07T12:00:00.000Z"));
     const expectedCutoffDate = new Date();
     expectedCutoffDate.setDate(expectedCutoffDate.getDate() - 14);
 
-    mocks.prisma.emailAccount.findUnique.mockResolvedValue({
-      draftCleanupDays: 14,
-    });
     mocks.prisma.executedAction.findMany.mockResolvedValue([]);
 
     const result = await cleanupAIDraftsForAccount({
       emailAccountId: "email-account-1",
       provider: "google",
       logger,
+      cleanupDays: 14,
     });
 
     expect(mocks.prisma.executedAction.findMany).toHaveBeenCalledWith(
@@ -93,7 +72,6 @@ describe("cleanupAIDraftsForAccount", () => {
     expect(result).toMatchObject({
       total: 0,
       deleted: 0,
-      disabled: false,
       cleanupDays: 14,
     });
     expect(mocks.createEmailProvider).not.toHaveBeenCalled();
