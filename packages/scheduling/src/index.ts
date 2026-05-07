@@ -114,6 +114,34 @@ export function validateSelectedSlot(
 ): ValidateSelectedSlotResult {
   const selectedStart = parseDate(input.selectedStartTime, "selectedStartTime");
   const selectedEnd = addMinutes(selectedStart, input.policy.durationMinutes);
+  const intervalMs = minutesToMs(input.policy.slotIntervalMinutes);
+  const windows = expandWeeklyAvailability({
+    start: selectedStart,
+    end: selectedEnd,
+    timezone: input.timezone,
+    rules: input.rules,
+    dateOverrides: input.dateOverrides,
+  });
+  const selectedStartMs = selectedStart.getTime();
+  const selectedEndMs = selectedEnd.getTime();
+  const alignedToWindowGrid = windows.some((window) => {
+    const windowStartMs = parseDate(
+      window.startTime,
+      "window.startTime",
+    ).getTime();
+    const windowEndMs = parseDate(window.endTime, "window.endTime").getTime();
+
+    return (
+      selectedStartMs >= windowStartMs &&
+      selectedEndMs <= windowEndMs &&
+      (selectedStartMs - windowStartMs) % intervalMs === 0
+    );
+  });
+
+  if (!alignedToWindowGrid) {
+    return { valid: false, reason: "Selected slot is not available" };
+  }
+
   const slots = generateBookableSlots({
     ...input,
     start: selectedStart,

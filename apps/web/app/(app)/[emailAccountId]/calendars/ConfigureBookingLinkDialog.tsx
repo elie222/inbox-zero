@@ -184,6 +184,7 @@ function GeneralTab({
   const host = eventType.hosts[0];
 
   const [title, setTitle] = useState(eventType.title);
+  const [slug, setSlug] = useState(link.slug);
   const [duration, setDuration] = useState<number>(eventType.durationMinutes);
   const [destinationCalendarId, setDestinationCalendarId] = useState<string>(
     host?.destinationCalendarId ?? "",
@@ -242,11 +243,16 @@ function GeneralTab({
     locationType === BookingEventTypeLocationType.CUSTOM ||
     locationType === BookingEventTypeLocationType.IN_PERSON ||
     locationType === BookingEventTypeLocationType.PHONE;
+  const publicUrlPrefix =
+    typeof window !== "undefined"
+      ? `${window.location.origin.replace(/^https?:\/\//, "")}/book/`
+      : "/book/";
 
   const handleSave = async () => {
     await Promise.all([
       updateLink({
         id: link.id,
+        slug,
         title,
       }),
       updateEventType({
@@ -278,6 +284,23 @@ function GeneralTab({
           <p className="mt-1.5 text-xs text-muted-foreground">
             Shown on your booking page and in calendar invites.
           </p>
+        </div>
+
+        <div>
+          <Label>Link URL</Label>
+          <div className="flex rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
+            <span className="min-w-0 shrink truncate border-r px-3 py-2 text-sm text-muted-foreground">
+              {publicUrlPrefix}
+            </span>
+            <input
+              type="text"
+              name="slug"
+              value={slug}
+              onChange={(event) => setSlug(event.target.value)}
+              placeholder="elie"
+              className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+            />
+          </div>
         </div>
 
         <div>

@@ -167,6 +167,48 @@ describe("public booking", () => {
     });
   });
 
+  it("serializes guest limit checks before creating a pending booking", async () => {
+    mockEventTypeConfig({ maxActiveBookingsPerGuest: 1 });
+    prisma.booking.findFirst.mockResolvedValue(null);
+    prisma.booking.findMany.mockResolvedValue([]);
+    prisma.booking.count.mockResolvedValue(0);
+    prisma.$executeRaw.mockResolvedValue(1);
+    prisma.$queryRaw.mockResolvedValue([{ id: "guest-limit-lock-id" }]);
+    prisma.bookingSlotLock.deleteMany.mockResolvedValue({ count: 0 });
+    prisma.bookingSlotLock.create.mockResolvedValue({ id: "slot-lock-id" });
+    prisma.bookingSlotLock.update.mockResolvedValue({});
+    prisma.booking.create.mockResolvedValue(
+      bookingRecord({ status: BookingStatus.PENDING_PROVIDER_EVENT }),
+    );
+    prisma.booking.update.mockResolvedValue(
+      bookingRecord({
+        provider: "google",
+        providerCalendarId: "primary",
+        providerEventId: "provider-event-id",
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+
+    await createPublicBooking({
+      input: {
+        slug: "intro",
+        eventTypeSlug: "meeting",
+        startTime: "2026-05-04T09:00:00.000Z",
+        timezone: "UTC",
+        guestName: "Guest User",
+        guestEmail: "guest@example.com",
+        idempotencyToken: "token-2",
+      },
+      logger,
+    });
+
+    expect(prisma.$queryRaw).toHaveBeenCalled();
+    expect(prisma.booking.count.mock.invocationCallOrder[0]).toBeLessThan(
+      prisma.booking.create.mock.invocationCallOrder[0],
+    );
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
+  });
+
   it("cancels a provider event when local confirmation fails after event creation", async () => {
     prisma.booking.findFirst.mockResolvedValue(null);
     prisma.booking.findMany.mockResolvedValue([]);
@@ -266,7 +308,11 @@ describe("public booking", () => {
   });
 });
 
-function mockEventTypeConfig() {
+function mockEventTypeConfig({
+  maxActiveBookingsPerGuest = null,
+}: {
+  maxActiveBookingsPerGuest?: number | null;
+} = {}) {
   prisma.bookingLink.findFirst.mockResolvedValue({
     id: "booking-link-id",
     eventTypes: [
@@ -281,7 +327,7 @@ function mockEventTypeConfig() {
         bufferBeforeMinutes: 0,
         bufferAfterMinutes: 0,
         bookingWindowDays: 30,
-        maxActiveBookingsPerGuest: null,
+        maxActiveBookingsPerGuest,
         disableCancelling: false,
         hideCalendarEventDetails: false,
         hosts: [

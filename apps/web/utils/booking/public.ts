@@ -205,39 +205,58 @@ export async function createPublicBooking({
     throw new SafeError(slotValidation.reason);
   }
 
-  await enforceGuestBookingLimit({
+  const guestLimitLock = await acquireGuestLimitLock({
     eventTypeId: config.eventType.id,
     guestEmail: input.guestEmail,
     maxActiveBookingsPerGuest: config.eventType.maxActiveBookingsPerGuest,
   });
-
-  const slotLock = await acquireSlotLock({
-    eventTypeId: config.eventType.id,
-    emailAccountId: config.host.emailAccountId,
-    startTime: selectedStartTime,
-    endTime: selectedEndTime,
-  });
+  let booking: Awaited<ReturnType<typeof createPendingBooking>> | null = null;
+  let slotLock: { id: string } | null = null;
   const cancelToken = randomToken();
 
-  let booking = await createPendingBooking({
-    config,
-    input,
-    selectedStartTime,
-    selectedEndTime,
-    cancelToken,
-  }).catch(async (error) => {
-    await prisma.bookingSlotLock.delete({ where: { id: slotLock.id } });
+  try {
+    await enforceGuestBookingLimit({
+      eventTypeId: config.eventType.id,
+      guestEmail: input.guestEmail,
+      maxActiveBookingsPerGuest: config.eventType.maxActiveBookingsPerGuest,
+    });
 
-    if (isDuplicateError(error)) {
-      const booking = await findIdempotentBooking({
-        eventTypeId: config.eventType.id,
-        idempotencyToken: input.idempotencyToken,
+    const acquiredSlotLock = await acquireSlotLock({
+      eventTypeId: config.eventType.id,
+      emailAccountId: config.host.emailAccountId,
+      startTime: selectedStartTime,
+      endTime: selectedEndTime,
+    });
+    slotLock = acquiredSlotLock;
+
+    booking = await createPendingBooking({
+      config,
+      input,
+      selectedStartTime,
+      selectedEndTime,
+      cancelToken,
+    }).catch(async (error) => {
+      await prisma.bookingSlotLock.delete({
+        where: { id: acquiredSlotLock.id },
       });
-      if (booking) return booking;
-    }
 
-    throw error;
-  });
+      if (isDuplicateError(error)) {
+        const booking = await findIdempotentBooking({
+          eventTypeId: config.eventType.id,
+          idempotencyToken: input.idempotencyToken,
+        });
+        if (booking) return booking;
+      }
+
+      throw error;
+    });
+  } finally {
+    await releaseGuestLimitLock({ lock: guestLimitLock, logger });
+  }
+
+  if (!booking || !slotLock) {
+    throw new SafeError("Failed to create booking");
+  }
 
   await prisma.bookingSlotLock.update({
     where: { id: slotLock.id },
@@ -653,6 +672,74 @@ function isSlotConflictError(error: unknown) {
   // Postgres exclusion-constraint violation (SQL state 23P01) is not surfaced
   // as P2002; Prisma includes the SQL state in the error message.
   return error instanceof Error && error.message.includes("23P01");
+}
+
+async function acquireGuestLimitLock({
+  eventTypeId,
+  guestEmail,
+  maxActiveBookingsPerGuest,
+}: {
+  eventTypeId: string;
+  guestEmail: string;
+  maxActiveBookingsPerGuest: number | null;
+}) {
+  if (!maxActiveBookingsPerGuest) return null;
+
+  const normalizedGuestEmail = guestEmail.toLowerCase();
+  await prisma.$executeRaw`
+    DELETE FROM "BookingGuestLimitLock"
+    WHERE "eventTypeId" = ${eventTypeId}
+      AND "guestEmail" = ${normalizedGuestEmail}
+      AND "expiresAt" < NOW()
+  `;
+
+  const locks = await prisma.$queryRaw<Array<{ id: string }>>`
+    INSERT INTO "BookingGuestLimitLock" (
+      "id",
+      "createdAt",
+      "updatedAt",
+      "eventTypeId",
+      "guestEmail",
+      "expiresAt"
+    )
+    VALUES (
+      ${randomToken()},
+      NOW(),
+      NOW(),
+      ${eventTypeId},
+      ${normalizedGuestEmail},
+      ${new Date(Date.now() + SLOT_LOCK_TTL_MS)}
+    )
+    ON CONFLICT ("eventTypeId", "guestEmail") DO NOTHING
+    RETURNING "id"
+  `;
+
+  const lock = locks[0];
+  if (!lock) {
+    throw new SafeError("A booking is already in progress for this guest");
+  }
+
+  return lock;
+}
+
+async function releaseGuestLimitLock({
+  lock,
+  logger,
+}: {
+  lock: { id: string } | null;
+  logger: Logger;
+}) {
+  if (!lock) return;
+
+  await prisma.$executeRaw`
+    DELETE FROM "BookingGuestLimitLock"
+    WHERE "id" = ${lock.id}
+  `.catch((error) => {
+    logger.error("Failed to release guest booking limit lock", {
+      lockId: lock.id,
+      error,
+    });
+  });
 }
 
 async function createPendingBooking({

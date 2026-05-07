@@ -38,6 +38,7 @@ const locationTypeSchema = z.nativeEnum(BookingEventTypeLocationType);
 
 const positiveMinutesSchema = z.coerce.number().int().positive();
 const nonNegativeMinutesSchema = z.coerce.number().int().nonnegative();
+const MAX_ADDITIONAL_GUEST_EMAILS = 10;
 
 const bookingEventTypeFields = z.object({
   title: z.string().trim().min(1, "Title is required").max(120),
@@ -161,7 +162,10 @@ export const publicBookingBody = z.object({
   timezone: timezoneSchema,
   guestName: z.string().trim().min(1).max(120),
   guestEmail: z.string().trim().email().max(320),
-  guestAdditionalEmails: z.array(z.string().trim().email().max(320)).optional(),
+  guestAdditionalEmails: z
+    .array(z.string().trim().email().max(320))
+    .max(MAX_ADDITIONAL_GUEST_EMAILS)
+    .optional(),
   guestNote: z.string().trim().max(2000).optional(),
   idempotencyToken: z.string().trim().min(1).max(128),
   utmSource: z.string().trim().max(200).optional(),
