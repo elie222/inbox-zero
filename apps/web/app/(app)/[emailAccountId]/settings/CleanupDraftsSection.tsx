@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
 import useSWR from "swr";
 import type { GetDraftCleanupSettingsResponse } from "@/app/api/user/draft-cleanup-settings/route";
@@ -40,32 +40,22 @@ export function CleanupDraftsSection({
         ? ["/api/user/draft-cleanup-settings", emailAccountId]
         : null,
     );
-  const [savedCleanupDays, setSavedCleanupDays] = useState<number | null>(
-    DEFAULT_AI_DRAFT_CLEANUP_DAYS,
-  );
-  const [cleanupDaysInput, setCleanupDaysInput] = useState(
-    String(DEFAULT_AI_DRAFT_CLEANUP_DAYS),
-  );
+  const [cleanupDaysInput, setCleanupDaysInput] = useState<string | null>(null);
   const [result, setResult] = useState<{
     deleted: number;
     skippedModified: number;
   } | null>(null);
 
-  useEffect(() => {
-    if (!data) return;
+  const savedCleanupDays =
+    data?.draftCleanupDays ?? DEFAULT_AI_DRAFT_CLEANUP_DAYS;
+  const cleanupDaysInputValue = cleanupDaysInput ?? String(savedCleanupDays);
 
-    setSavedCleanupDays(data.draftCleanupDays);
-    setCleanupDaysInput(
-      String(data.draftCleanupDays ?? DEFAULT_AI_DRAFT_CLEANUP_DAYS),
-    );
-  }, [data]);
-
-  const parsedCleanupDays = Number(cleanupDaysInput);
+  const parsedCleanupDays = Number(cleanupDaysInputValue);
   const cleanupDaysIsValid =
     Number.isInteger(parsedCleanupDays) &&
     parsedCleanupDays >= MIN_AI_DRAFT_CLEANUP_DAYS &&
     parsedCleanupDays <= MAX_AI_DRAFT_CLEANUP_DAYS;
-  const automaticCleanupEnabled = savedCleanupDays !== null;
+  const automaticCleanupEnabled = data?.draftCleanupDays !== null;
 
   const {
     execute: updateCleanupSettings,
@@ -74,17 +64,12 @@ export function CleanupDraftsSection({
     onSuccess: (res) => {
       if (!res.data) return;
 
-      setSavedCleanupDays(res.data.cleanupDays);
-      setCleanupDaysInput(
-        String(res.data.cleanupDays ?? DEFAULT_AI_DRAFT_CLEANUP_DAYS),
-      );
+      setCleanupDaysInput(null);
       mutate({ draftCleanupDays: res.data.cleanupDays }, false);
       toastSuccess({ description: "Draft cleanup settings updated." });
     },
     onError: (error) => {
-      setCleanupDaysInput(
-        String(savedCleanupDays ?? DEFAULT_AI_DRAFT_CLEANUP_DAYS),
-      );
+      setCleanupDaysInput(null);
       toastError({
         description: getActionErrorMessage(error.error),
       });
@@ -122,9 +107,7 @@ export function CleanupDraftsSection({
   const handleToggleAutomaticCleanup = (checked: boolean) => {
     const nextCleanupDays = checked ? DEFAULT_AI_DRAFT_CLEANUP_DAYS : null;
 
-    setCleanupDaysInput(
-      String(nextCleanupDays ?? DEFAULT_AI_DRAFT_CLEANUP_DAYS),
-    );
+    setCleanupDaysInput(null);
     updateCleanupSettings({ cleanupDays: nextCleanupDays });
   };
 
@@ -160,7 +143,7 @@ export function CleanupDraftsSection({
                     }
                     step={1}
                     type="number"
-                    value={cleanupDaysInput}
+                    value={cleanupDaysInputValue}
                   />
                   <span className="text-sm text-muted-foreground">days</span>
                   <Button
