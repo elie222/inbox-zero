@@ -10,15 +10,14 @@ import {
 } from "@/utils/types";
 import { getBatch } from "@/utils/gmail/batch";
 import { getSearchTermForSender } from "@/utils/email";
-import { createScopedLogger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
 import { getAccessTokenFromClient } from "@/utils/gmail/client";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import parse from "gmail-api-parse-message";
 import { isRetryableError, withGmailRetry } from "@/utils/gmail/retry";
+import type { Logger } from "@/utils/logger";
 
-const logger = createScopedLogger("gmail/message");
 const RATE_LIMIT_RETRY_BATCH_SIZE = 10;
 
 export function parseMessage(
@@ -87,6 +86,7 @@ export async function getMessage(
 export async function getMessageByRfc822Id(
   rfc822MessageId: string,
   gmail: gmail_v1.Gmail,
+  logger: Logger,
 ) {
   // Search for message using RFC822 Message-ID header
   // Remove any < > brackets if present
@@ -115,10 +115,12 @@ export async function getMessagesBatch({
   messageIds,
   accessToken,
   retryCount = 0,
+  logger,
 }: {
   messageIds: string[];
   accessToken: string;
   retryCount?: number;
+  logger: Logger;
 }): Promise<ParsedMessage[]> {
   if (!accessToken) throw new Error("No access token");
 
@@ -138,7 +140,9 @@ export async function getMessagesBatch({
   let shouldRetryInSmallerBatches = false;
 
   if (batch.some((m) => isBatchError(m) && m.error.code === 401)) {
-    logger.error("Error fetching messages", { firstBatchItem: batch?.[0] });
+    logger.error("Error fetching messages", {
+      firstBatchItem: batch?.[0],
+    });
     throw new Error("Invalid access token");
   }
 
@@ -165,8 +169,9 @@ export async function getMessagesBatch({
         }
 
         logger.error("Error fetching message, adding to retry queue", {
+          messageId: messageIds[i],
           code,
-          error: errorMessage,
+          errorMessage,
           reason,
         });
         if (isRateLimit) shouldRetryInSmallerBatches = true;
@@ -192,11 +197,13 @@ export async function getMessagesBatch({
           messageIds: missingIds,
           accessToken,
           retryCount: nextRetryCount,
+          logger,
         })
       : await getMessagesBatch({
           messageIds: missingIds,
           accessToken,
           retryCount: nextRetryCount,
+          logger,
         });
     return [...messages, ...missingMessages];
   }
@@ -297,9 +304,11 @@ export async function queryBatchMessages(
     query?: string;
     maxResults?: number;
     pageToken?: string;
+    logger: Logger;
   },
 ) {
   const { query, pageToken } = options;
+  const { logger } = options;
 
   const MAX_RESULTS = 20;
 
@@ -320,7 +329,12 @@ export async function queryBatchMessages(
   if (!messages.messages) return { messages: [], nextPageToken: undefined };
   const messageIds = messages.messages.map((m) => m.id).filter(isDefined);
   return {
-    messages: (await getMessagesBatch({ messageIds, accessToken })) || [],
+    messages:
+      (await getMessagesBatch({
+        messageIds,
+        accessToken,
+        logger,
+      })) || [],
     nextPageToken: messages.nextPageToken,
   };
 }
@@ -331,9 +345,11 @@ export async function queryBatchMessagesPages(
   {
     query,
     maxResults,
+    logger,
   }: {
     query: string;
     maxResults: number;
+    logger: Logger;
   },
 ) {
   const messages: ParsedMessage[] = [];
@@ -343,6 +359,7 @@ export async function queryBatchMessagesPages(
       await queryBatchMessages(gmail, {
         query,
         pageToken: nextPageToken,
+        logger,
       });
     messages.push(...pageMessages);
     nextPageToken = nextToken || undefined;
@@ -351,10 +368,15 @@ export async function queryBatchMessagesPages(
   return messages;
 }
 
-export async function getSentMessages(gmail: gmail_v1.Gmail, maxResults = 20) {
+export async function getSentMessages(
+  gmail: gmail_v1.Gmail,
+  logger: Logger,
+  maxResults = 20,
+) {
   const messages = await queryBatchMessages(gmail, {
     query: "label:sent",
     maxResults,
+    logger,
   });
   return messages.messages;
 }
@@ -363,10 +385,12 @@ async function getMessagesBatchInRetryChunks({
   messageIds,
   accessToken,
   retryCount,
+  logger,
 }: {
   messageIds: string[];
   accessToken: string;
   retryCount: number;
+  logger: Logger;
 }) {
   const chunkedMessages = chunk(messageIds, RATE_LIMIT_RETRY_BATCH_SIZE);
   const messages: ParsedMessage[] = [];
@@ -376,6 +400,7 @@ async function getMessagesBatchInRetryChunks({
       messageIds: messageIdsChunk,
       accessToken,
       retryCount,
+      logger,
     });
     messages.push(...chunkMessages);
   }

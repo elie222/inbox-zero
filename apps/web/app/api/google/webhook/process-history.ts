@@ -60,6 +60,9 @@ export async function processHistoryForUser(
     hasAiAccess: userHasAiAccess,
   } = validation.data;
 
+  // biome-ignore lint/style/noParameterAssign: allowed for logging
+  logger = logger.with({ userId: validatedEmailAccount.userId });
+
   Sentry.setTag("emailAccountId", validatedEmailAccount.id);
   Sentry.setUser({
     id: validatedEmailAccount.userId,

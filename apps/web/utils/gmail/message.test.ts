@@ -4,16 +4,10 @@ import {
   hasPreviousCommunicationsWithSenderOrDomain,
 } from "./message";
 import { getBatch } from "@/utils/gmail/batch";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/gmail/batch");
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: () => ({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  }),
-}));
 vi.mock("@/utils/sleep", () => ({
   sleep: vi.fn().mockResolvedValue(undefined),
 }));
@@ -22,6 +16,11 @@ vi.mock("gmail-api-parse-message", () => ({
 }));
 
 describe("getMessagesBatch", () => {
+  const logger = createTestLogger();
+  const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+  vi.spyOn(logger, "info").mockImplementation(() => {});
+  vi.spyOn(logger, "warn").mockImplementation(() => {});
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -51,7 +50,7 @@ describe("getMessagesBatch", () => {
         },
       ]);
 
-    const result = await getMessagesBatch({ messageIds, accessToken });
+    const result = await getMessagesBatch({ messageIds, accessToken, logger });
 
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe("id1");
@@ -73,7 +72,7 @@ describe("getMessagesBatch", () => {
       },
     ]);
 
-    const result = await getMessagesBatch({ messageIds, accessToken });
+    const result = await getMessagesBatch({ messageIds, accessToken, logger });
 
     expect(result).toHaveLength(0);
     expect(getBatch).toHaveBeenCalledTimes(1);
@@ -102,7 +101,7 @@ describe("getMessagesBatch", () => {
         },
       ]);
 
-    const result = await getMessagesBatch({ messageIds, accessToken });
+    const result = await getMessagesBatch({ messageIds, accessToken, logger });
 
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe("id1");
@@ -142,13 +141,22 @@ describe("getMessagesBatch", () => {
         })),
       );
 
-    const result = await getMessagesBatch({ messageIds, accessToken });
+    const result = await getMessagesBatch({ messageIds, accessToken, logger });
 
     expect(result).toHaveLength(12);
     expect(getBatch).toHaveBeenCalledTimes(3);
     expect(vi.mocked(getBatch).mock.calls.map(([ids]) => ids.length)).toEqual([
       12, 10, 2,
     ]);
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Error fetching message, adding to retry queue",
+      expect.objectContaining({
+        messageId: "id1",
+        code: 429,
+        errorMessage: "Too many concurrent requests for user",
+        reason: "rateLimitExceeded",
+      }),
+    );
   });
 });
 
