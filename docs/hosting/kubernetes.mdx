@@ -33,7 +33,7 @@ helm upgrade --install inbox-zero ./charts/inbox-zero \
 
 The Helm chart does not replace the normal app configuration. Use the [Environment Variables reference](/hosting/environment-variables), [Google OAuth guide](/hosting/google-oauth), [Microsoft OAuth guide](/hosting/microsoft-oauth), and [LLM setup guide](/hosting/llm-setup) for the full app configuration.
 
-Create `values.prod.yaml` with your public URL, ingress settings, and either `secretEnv` values or an `existingSecret`:
+Create `values.prod.yaml` with your public URL, ingress settings, and app configuration. Put app secrets in `secretEnv` or point the chart at an existing Kubernetes Secret.
 
 ```yaml
 ingress:
@@ -52,21 +52,17 @@ ingress:
 env:
   NEXT_PUBLIC_BASE_URL: https://app.example.com
   GOOGLE_PUBSUB_TOPIC_NAME: projects/example/topics/inbox-zero
-  DEFAULT_LLM_PROVIDER: openai
-  DEFAULT_LLM_MODEL: gpt-5.4-mini
   QUEUE_BACKEND: bullmq
 
-secretEnv:
-  AUTH_SECRET: change-me
-  EMAIL_ENCRYPT_SECRET: change-me
-  EMAIL_ENCRYPT_SALT: change-me
-  INTERNAL_API_KEY: change-me
-  API_KEY_SALT: change-me
-  CRON_SECRET: change-me
-  GOOGLE_CLIENT_ID: change-me
-  GOOGLE_CLIENT_SECRET: change-me
-  GOOGLE_PUBSUB_VERIFICATION_TOKEN: change-me
-  OPENAI_API_KEY: change-me
+existingSecret: inbox-zero-secrets
+```
+
+`inbox-zero-secrets` should contain the required app environment variables from the [Environment Variables reference](/hosting/environment-variables). You can use `secretEnv` instead for simple installs.
+
+For a first install with bundled Postgres and Redis, also provide generated values for the bundled services:
+
+```yaml
+existingSecret: ""
 
 postgresql:
   auth:
@@ -84,22 +80,7 @@ The default chart includes Postgres, Redis, the Redis HTTP bridge, web, worker, 
 
 ## Recommended Production Setup
 
-Use managed Postgres and Redis:
-
-```yaml
-externalDatabase:
-  enabled: true
-  databaseUrl: postgresql://user:password@postgres.example.com:5432/inboxzero?schema=public
-  directUrl: postgresql://user:password@postgres.example.com:5432/inboxzero?schema=public
-
-externalRedis:
-  enabled: true
-  redisUrl: rediss://:password@redis.example.com:6379
-  upstashRedisUrl: https://example.upstash.io
-  upstashRedisToken: change-me
-```
-
-For production, it is better to keep these values in existing Kubernetes Secrets:
+Use managed Postgres and Redis through existing Kubernetes Secrets:
 
 ```yaml
 externalDatabase:
@@ -119,17 +100,7 @@ externalRedis:
 
 You can use plain Kubernetes Secrets, External Secrets, Sealed Secrets, SOPS, or a cloud secret controller.
 
-App secrets can use the same pattern:
-
-```yaml
-existingSecret: inbox-zero-secrets
-```
-
-That Secret should contain values like `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `EMAIL_ENCRYPT_SECRET`, `EMAIL_ENCRYPT_SALT`, `INTERNAL_API_KEY`, `API_KEY_SALT`, `CRON_SECRET`, and your LLM provider API key.
-
-If you use that same Secret with bundled Postgres or Redis, include `POSTGRES_PASSWORD`, `DATABASE_URL`, `DIRECT_URL`, `REDIS_PASSWORD`, `REDIS_URL`, `UPSTASH_REDIS_URL`, and `UPSTASH_REDIS_TOKEN`.
-
-If you only use Microsoft OAuth, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to non-empty placeholder values such as `skipped`.
+Use `existingSecret` for app secrets too. See the [Environment Variables reference](/hosting/environment-variables) for the full list, including OAuth, LLM, Redis, and QStash variables.
 
 ## Background Jobs
 
@@ -151,11 +122,9 @@ env:
   QUEUE_BACKEND: qstash
 worker:
   enabled: false
-secretEnv:
-  QSTASH_TOKEN: change-me
-  QSTASH_CURRENT_SIGNING_KEY: change-me
-  QSTASH_NEXT_SIGNING_KEY: change-me
 ```
+
+Provide the QStash secrets using `secretEnv` or `existingSecret`; see the [Environment Variables reference](/hosting/environment-variables).
 
 ## Smoke Test
 
