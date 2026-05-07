@@ -21,6 +21,7 @@ const selfHostedFooter = {
       href: "https://docs.getinboxzero.com",
       target: "_blank",
     },
+    { name: "Contact us", href: `mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}` },
     { name: "GitHub", href: "/github", target: "_blank" },
     { name: "Discord", href: "/discord", target: "_blank" },
   ],

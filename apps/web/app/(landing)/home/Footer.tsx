@@ -63,6 +63,7 @@ export const footerNavigation = {
   support: [
     { name: "Pricing", href: "/pricing" },
     { name: "Support", href: "/support" },
+    { name: "Contact us", href: `mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}` },
     {
       name: "Documentation",
       href: "https://docs.getinboxzero.com",
@@ -146,6 +147,7 @@ const selfHostedFooter = {
       href: "https://docs.getinboxzero.com",
       target: "_blank",
     },
+    { name: "Contact us", href: `mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}` },
     { name: "GitHub", href: "/github", target: "_blank" },
     { name: "Discord", href: "/discord", target: "_blank" },
   ],
