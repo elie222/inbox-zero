@@ -150,6 +150,7 @@ model EmailAccount {
   multiRuleSelectionEnabled Boolean              @default(false)
   sensitiveDataPolicy       String?
   draftReplyConfidence      DraftReplyConfidence @default(ALL_EMAILS)
+  draftCleanupDays          Int?                 @default(14)
   allowHiddenAiDraftLinks   Boolean              @default(false)
   rulesRevision             Int                  @default(0)
 

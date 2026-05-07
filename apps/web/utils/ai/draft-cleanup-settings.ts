@@ -1,0 +1,3 @@
+export const DEFAULT_AI_DRAFT_CLEANUP_DAYS = 14;
+export const MIN_AI_DRAFT_CLEANUP_DAYS = 1;
+export const MAX_AI_DRAFT_CLEANUP_DAYS = 365;

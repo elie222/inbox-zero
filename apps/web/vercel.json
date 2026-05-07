@@ -87,6 +87,10 @@
     {
       "path": "/api/cron/reasoning-retention",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/draft-cleanup",
+      "schedule": "0 4 * * *"
     }
   ]
 }

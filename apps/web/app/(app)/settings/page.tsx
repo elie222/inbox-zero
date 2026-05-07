@@ -277,7 +277,10 @@ function EmailAccountSettingsCard({
             emailAccountEmail={emailAccount.email}
             allAccounts={allAccounts}
           />
-          <CleanupDraftsSection emailAccountId={emailAccount.id} />
+          <CleanupDraftsSection
+            emailAccountId={emailAccount.id}
+            draftCleanupDays={emailAccount.draftCleanupDays}
+          />
           <ResetAnalyticsSection emailAccountId={emailAccount.id} />
         </>
       )}

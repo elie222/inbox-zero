@@ -1,0 +1,2 @@
+ALTER TABLE "EmailAccount"
+ADD COLUMN "draftCleanupDays" INTEGER DEFAULT 14;
