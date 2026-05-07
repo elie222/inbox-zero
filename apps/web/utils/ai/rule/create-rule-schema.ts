@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
-import { isDefined } from "@/utils/types";
 import {
   getAvailableActionsForRuleEditor,
   getExtraAvailableActionsForRuleEditor,
@@ -48,10 +47,10 @@ const conditionSchema = z
   .describe("The conditions to match");
 
 export function getAvailableActions(provider: string) {
-  const availableActions = getAvailableActionsForRuleEditor({
-    provider,
-  }).filter(isDefined);
-  return availableActions as [ActionType, ...ActionType[]];
+  return getAvailableActionsForRuleEditor({ provider }) as [
+    ActionType,
+    ...ActionType[],
+  ];
 }
 
 export const getExtraActions = (existingActionTypes: ActionType[] = []) =>
@@ -77,62 +76,61 @@ export type RuleAction = {
 export const createRuleActionSchema = (
   provider: string,
 ): z.ZodType<RuleAction> => {
-  const allowedActionTypes = new Set([
+  const allowedTypes = [
     ...getAvailableActionsForRuleEditor({ provider }),
     ...getExtraAvailableActionsForRuleEditor(),
-  ]);
-  const optionalFieldsSchema = createOptionalActionFieldsSchema(provider);
+  ] as [ActionType, ...ActionType[]];
 
-  const actionSchemas: [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]] = [
-    createActionObjectSchema(ActionType.ARCHIVE, optionalFieldsSchema),
-    createActionObjectSchema(
-      ActionType.LABEL,
-      createRequiredLabelFieldsSchema(provider),
-    ),
-    createActionObjectSchema(ActionType.MARK_READ, optionalFieldsSchema),
-    createActionObjectSchema(ActionType.MARK_SPAM, optionalFieldsSchema),
-    createActionObjectSchema(ActionType.DIGEST, optionalFieldsSchema),
-    ...(allowedActionTypes.has(ActionType.DRAFT_EMAIL)
-      ? [createActionObjectSchema(ActionType.DRAFT_EMAIL, optionalFieldsSchema)]
-      : []),
-    ...(allowedActionTypes.has(ActionType.REPLY)
-      ? [createActionObjectSchema(ActionType.REPLY, optionalFieldsSchema)]
-      : []),
-    ...(allowedActionTypes.has(ActionType.FORWARD)
-      ? [
-          createActionObjectSchema(
-            ActionType.FORWARD,
-            createRequiredRecipientFieldsSchema(provider),
-          ),
-        ]
-      : []),
-    ...(allowedActionTypes.has(ActionType.SEND_EMAIL)
-      ? [
-          createActionObjectSchema(
-            ActionType.SEND_EMAIL,
-            createRequiredRecipientFieldsSchema(provider),
-          ),
-        ]
-      : []),
-    ...(allowedActionTypes.has(ActionType.CALL_WEBHOOK)
-      ? [
-          createActionObjectSchema(
-            ActionType.CALL_WEBHOOK,
-            createRequiredWebhookFieldsSchema(provider),
-          ),
-        ]
-      : []),
-    ...(allowedActionTypes.has(ActionType.MOVE_FOLDER)
-      ? [
-          createActionObjectSchema(
-            ActionType.MOVE_FOLDER,
-            createRequiredFolderFieldsSchema(provider),
-          ),
-        ]
-      : []),
-  ];
-
-  return z.union(actionSchemas) as z.ZodType<RuleAction>;
+  return z
+    .object({
+      type: z
+        .enum(allowedTypes)
+        .describe(
+          "The action type. LABEL requires fields.label. FORWARD and SEND_EMAIL require fields.to. CALL_WEBHOOK requires fields.webhookUrl. MOVE_FOLDER requires fields.folderName (Microsoft only).",
+        ),
+      fields: z
+        .object(createActionFieldShape(provider))
+        .nullish()
+        .describe(
+          "Action-specific fields. Provide only the fields required for the chosen action type.",
+        ),
+      delayInMinutes: delayInMinutesLlmSchema,
+    })
+    .superRefine((data, ctx) => {
+      const f = data.fields;
+      if (data.type === ActionType.LABEL && !f?.label) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "LABEL requires fields.label.",
+          path: ["fields", "label"],
+        });
+      }
+      if (
+        (data.type === ActionType.SEND_EMAIL ||
+          data.type === ActionType.FORWARD) &&
+        !f?.to
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "fields.to is required.",
+          path: ["fields", "to"],
+        });
+      }
+      if (data.type === ActionType.CALL_WEBHOOK && !f?.webhookUrl) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "CALL_WEBHOOK requires fields.webhookUrl.",
+          path: ["fields", "webhookUrl"],
+        });
+      }
+      if (data.type === ActionType.MOVE_FOLDER && !f?.folderName) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "MOVE_FOLDER requires fields.folderName.",
+          path: ["fields", "folderName"],
+        });
+      }
+    }) as z.ZodType<RuleAction>;
 };
 
 export const createRuleSchema = (provider: string) =>
@@ -152,64 +150,6 @@ export type CreateRuleSchema = z.infer<ReturnType<typeof createRuleSchema>>;
 export type CreateOrUpdateRuleSchema = CreateRuleSchema & {
   ruleId?: string;
 };
-
-function createActionObjectSchema(type: ActionType, fields: z.ZodTypeAny) {
-  return z.object({
-    type: z.literal(type),
-    fields,
-    delayInMinutes: delayInMinutesLlmSchema,
-  });
-}
-
-function createOptionalActionFieldsSchema(provider: string) {
-  return z.object(createActionFieldShape(provider)).nullish();
-}
-
-function createRequiredLabelFieldsSchema(provider: string) {
-  return z.object({
-    ...createActionFieldShape(provider),
-    label: requiredStringField(
-      "The label to apply to the email",
-      "LABEL requires fields.label.",
-    ),
-  });
-}
-
-function createRequiredRecipientFieldsSchema(provider: string) {
-  return z.object({
-    ...createActionFieldShape(provider),
-    to: requiredStringField(
-      "The recipient email address. Required for SEND_EMAIL and FORWARD. Use REPLY when responding to the triggering inbound email.",
-      "fields.to is required.",
-    ),
-  });
-}
-
-function createRequiredWebhookFieldsSchema(provider: string) {
-  return z.object({
-    ...createActionFieldShape(provider),
-    webhookUrl: requiredStringField(
-      "The webhook URL to call",
-      "CALL_WEBHOOK requires fields.webhookUrl.",
-    ),
-  });
-}
-
-function createRequiredFolderFieldsSchema(provider: string) {
-  const fieldShape = createActionFieldShape(provider);
-
-  if (!("folderName" in fieldShape)) {
-    throw new Error("MOVE_FOLDER is only supported for Microsoft providers.");
-  }
-
-  return z.object({
-    ...fieldShape,
-    folderName: requiredStringField(
-      "The folder to move the email to",
-      "MOVE_FOLDER requires fields.folderName.",
-    ),
-  });
-}
 
 function createActionFieldShape(provider: string) {
   return {
@@ -233,13 +173,5 @@ function optionalStringField(description: string) {
     .string()
     .nullish()
     .transform((value) => value ?? null)
-    .describe(description);
-}
-
-function requiredStringField(description: string, message: string) {
-  return z
-    .string()
-    .transform((value) => value.trim())
-    .refine(Boolean, message)
     .describe(description);
 }
