@@ -41,6 +41,8 @@ import {
   initialBulkRunState,
 } from "@/app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer";
 
+const TRIAL_BULK_PROCESS_EMAIL_LIMIT = 200;
+
 export function BulkRunRules() {
   const { emailAccountId } = useAccount();
 
@@ -49,13 +51,19 @@ export function BulkRunRules() {
 
   const queue = useAiQueueState();
 
-  const { hasAiAccess, isLoading: isLoadingPremium, tier } = usePremium();
+  const {
+    hasAiAccess,
+    isLoading: isLoadingPremium,
+    premium,
+    tier,
+  } = usePremium();
   const { PremiumModal, openModal } = usePremiumModal();
 
   const isBusinessPlusTier = hasTierAccess({
     tier: tier || null,
     minimumTier: "PROFESSIONAL_MONTHLY",
   });
+  const isTrial = premium?.stripeSubscriptionStatus === "trialing";
 
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
@@ -97,7 +105,12 @@ export function BulkRunRules() {
     try {
       abortRef.current = await onRun(
         emailAccountId,
-        { startDate, endDate, includeRead },
+        {
+          startDate,
+          endDate,
+          includeRead,
+          maxEmails: isTrial ? TRIAL_BULK_PROCESS_EMAIL_LIMIT : undefined,
+        },
         (threads) => {
           dispatch({ type: "THREADS_QUEUED", threads });
         },
@@ -204,6 +217,13 @@ export function BulkRunRules() {
                 )}
               </div>
 
+              {isTrial && (
+                <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
+                  Trials can process up to {TRIAL_BULK_PROCESS_EMAIL_LIMIT} past
+                  emails at a time.
+                </div>
+              )}
+
               {(state.status !== "idle" ||
                 state.processedThreadIds.size > 0) && (
                 <BulkProcessActivityLog
@@ -272,7 +292,13 @@ async function onRun(
     startDate,
     endDate,
     includeRead,
-  }: { startDate: Date; endDate?: Date; includeRead?: boolean },
+    maxEmails,
+  }: {
+    startDate: Date;
+    endDate?: Date;
+    includeRead?: boolean;
+    maxEmails?: number;
+  },
   onThreadsQueued: (threads: ThreadsResponse["threads"]) => void,
   onComplete: (
     status: "success" | "error" | "cancelled",
@@ -335,22 +361,32 @@ async function onRun(
       nextPageToken = data.nextPageToken || "";
 
       const threadsWithoutPlan = data.threads.filter((t) => !t.plan);
+      const remainingEmails =
+        maxEmails === undefined ? undefined : maxEmails - totalProcessed;
+      if (remainingEmails !== undefined && remainingEmails <= 0) break;
 
-      onThreadsQueued(threadsWithoutPlan);
-      totalProcessed += threadsWithoutPlan.length;
+      const threadsToQueue =
+        remainingEmails === undefined
+          ? threadsWithoutPlan
+          : threadsWithoutPlan.slice(0, remainingEmails);
 
-      runAiRules(emailAccountId, threadsWithoutPlan, false);
+      onThreadsQueued(threadsToQueue);
+      totalProcessed += threadsToQueue.length;
+
+      runAiRules(emailAccountId, threadsToQueue, false);
 
       if (aborted) {
         onComplete("cancelled", totalProcessed);
         return;
       }
 
+      if (maxEmails !== undefined && totalProcessed >= maxEmails) break;
+
       if (!nextPageToken) break;
 
       // avoid gmail api rate limits
       // ai takes longer anyway
-      await sleep(threadsWithoutPlan.length ? 5000 : 2000);
+      await sleep(threadsToQueue.length ? 5000 : 2000);
     }
 
     onComplete("success", totalProcessed);

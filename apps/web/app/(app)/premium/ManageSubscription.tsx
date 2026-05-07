@@ -3,10 +3,15 @@
 import { useState } from "react";
 import { CreditCardIcon } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
+import { useSWRConfig } from "swr";
 import { env } from "@/env";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
-import { getBillingPortalUrlAction } from "@/utils/actions/premium";
+import {
+  endStripeTrialAction,
+  getBillingPortalUrlAction,
+} from "@/utils/actions/premium";
 import { hasActiveAppleSubscription } from "@/utils/premium";
 
 const APPLE_SUBSCRIPTION_HELP_URL = "https://support.apple.com/en-us/118428";
@@ -20,6 +25,7 @@ export function ManageSubscription({
         appleRevokedAt?: string | Date | null | undefined;
         appleSubscriptionStatus?: string | null | undefined;
         stripeSubscriptionId: string | null | undefined;
+        stripeSubscriptionStatus?: string | null | undefined;
         lemonSqueezyCustomerId: number | null | undefined;
       }
     | null
@@ -27,6 +33,7 @@ export function ManageSubscription({
 }) {
   const { loading: loadingBillingPortal, openBillingPortal } =
     useOpenBillingPortal();
+  const { loading: loadingEndTrial, endTrial } = useEndStripeTrial();
   const hasAppleSubscription = hasActiveAppleSubscription(
     premium?.appleExpiresAt || null,
     premium?.appleRevokedAt || null,
@@ -39,6 +46,13 @@ export function ManageSubscription({
 
   return (
     <>
+      {premium?.stripeSubscriptionStatus === "trialing" && (
+        <Button loading={loadingEndTrial} onClick={endTrial} variant="outline">
+          <CreditCardIcon className="mr-2 h-4 w-4" />
+          Start paid plan now
+        </Button>
+      )}
+
       {premium?.stripeSubscriptionId && (
         <Button loading={loadingBillingPortal} onClick={openBillingPortal}>
           <CreditCardIcon className="mr-2 h-4 w-4" />
@@ -137,4 +151,30 @@ function useOpenBillingPortal() {
   };
 
   return { loading, openBillingPortal };
+}
+
+function useEndStripeTrial() {
+  const [loading, setLoading] = useState(false);
+  const { mutate } = useSWRConfig();
+
+  const endTrial = async () => {
+    setLoading(true);
+    const result = await endStripeTrialAction().finally(() => {
+      setLoading(false);
+    });
+
+    if (result?.serverError) {
+      toastError({ description: result.serverError });
+      return;
+    }
+
+    if (result?.data?.status === "active") {
+      toast.success("Your paid plan is active.");
+    } else {
+      toast.message("Your trial has ended.");
+    }
+    await mutate("/api/user/me");
+  };
+
+  return { loading, endTrial };
 }
