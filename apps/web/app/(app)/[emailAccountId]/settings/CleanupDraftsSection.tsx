@@ -163,6 +163,17 @@ export function CleanupDraftsSection({
             disabled={isUpdatingCleanupSettings}
             onCheckedChange={handleToggleAutomaticCleanup}
           />
+        </ItemActions>
+      </Item>
+      <ItemSeparator />
+      <Item size="sm">
+        <ItemContent>
+          <ItemTitle>Delete Old AI Drafts Now</ItemTitle>
+          <ItemDescription>
+            {`Remove unedited drafts created by ${BRAND_NAME} that are older than ${DEFAULT_AI_DRAFT_CLEANUP_DAYS} days.`}
+          </ItemDescription>
+        </ItemContent>
+        <ItemActions>
           <Button
             size="sm"
             variant="outline"
