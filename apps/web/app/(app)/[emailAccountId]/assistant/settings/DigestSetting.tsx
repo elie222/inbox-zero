@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Toggle } from "@/components/Toggle";
+import { Tooltip } from "@/components/Tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DigestSettingsForm } from "@/app/(app)/[emailAccountId]/settings/DigestSettingsForm";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
@@ -69,39 +70,40 @@ export function DigestSetting() {
     <>
       <SettingCard
         title="Digest"
-        description={
-          hasDigestAccess
-            ? "Get a daily summary of your newsletter emails."
-            : "Daily digest emails are available on the Plus plan."
-        }
+        description="Get a daily summary of your newsletter emails."
         right={
           isLoading || isLoadingPremium ? (
             <Skeleton className="h-5 w-9" />
-          ) : hasDigestAccess ? (
+          ) : (
             <div className="flex items-center gap-2">
-              {enabled && (
-                <Dialog open={open} onOpenChange={setOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      Configure
-                    </Button>
-                  </DialogTrigger>
-                  <DigestSettingsDialogContent
-                    onSuccess={() => setOpen(false)}
-                  />
-                </Dialog>
+              {hasDigestAccess ? (
+                enabled && (
+                  <Dialog open={open} onOpenChange={setOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        Configure
+                      </Button>
+                    </DialogTrigger>
+                    <DigestSettingsDialogContent
+                      onSuccess={() => setOpen(false)}
+                    />
+                  </Dialog>
+                )
+              ) : (
+                <Tooltip content="Upgrade to the Plus plan to enable daily digest emails.">
+                  <Button variant="outline" size="sm" onClick={openModal}>
+                    <CrownIcon className="mr-2 h-4 w-4" />
+                    Upgrade
+                  </Button>
+                </Tooltip>
               )}
               <Toggle
                 name="digest-enabled"
-                enabled={enabled}
+                enabled={hasDigestAccess && enabled}
+                disabled={!hasDigestAccess}
                 onChange={handleToggle}
               />
             </div>
-          ) : (
-            <Button variant="outline" size="sm" onClick={openModal}>
-              <CrownIcon className="mr-2 h-4 w-4" />
-              Upgrade
-            </Button>
           )
         }
       />
