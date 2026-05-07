@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const {
+  mockAssertTrialAiUsageAllowed,
   mockAttachLlmRepairMetadata,
   mockGenerateObject,
   mockIsContentFilterRefusal,
@@ -10,6 +11,7 @@ const {
   mockSaveAiUsage,
   mockShouldForceNanoModel,
 } = vi.hoisted(() => ({
+  mockAssertTrialAiUsageAllowed: vi.fn(),
   mockAttachLlmRepairMetadata: vi.fn(),
   mockGenerateObject: vi.fn(),
   mockIsContentFilterRefusal: vi.fn(() => false),
@@ -73,6 +75,7 @@ vi.mock("@/utils/error", () => ({
 }));
 
 vi.mock("@/utils/llms/model-usage-guard", () => ({
+  assertTrialAiUsageAllowed: mockAssertTrialAiUsageAllowed,
   shouldForceNanoModel: mockShouldForceNanoModel,
 }));
 
