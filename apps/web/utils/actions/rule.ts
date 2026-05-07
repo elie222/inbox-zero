@@ -583,6 +583,13 @@ export const copyRulesFromAccountAction = actionClientUser
         return { copiedCount: 0, replacedCount: 0 };
       }
 
+      const copiesDigestAction = sourceRules.some((rule) =>
+        rule.actions.some((action) => action.type === ActionType.DIGEST),
+      );
+      if (copiesDigestAction) {
+        await assertCanUseDigests(userId);
+      }
+
       // Fetch existing rules in target account to check for duplicates
       const targetRules = await prisma.rule.findMany({
         where: { emailAccountId: targetEmailAccountId },
@@ -1037,8 +1044,18 @@ export const importRulesAction = actionClient
   .metadata({ name: "importRules" })
   .inputSchema(importRulesBody)
   .action(
-    async ({ ctx: { emailAccountId, logger }, parsedInput: { rules } }) => {
+    async ({
+      ctx: { emailAccountId, userId, logger },
+      parsedInput: { rules },
+    }) => {
       logger.info("Importing rules", { count: rules.length });
+
+      const importsDigestAction = rules.some((rule) =>
+        rule.actions.some((action) => action.type === ActionType.DIGEST),
+      );
+      if (importsDigestAction) {
+        await assertCanUseDigests(userId);
+      }
 
       // Fetch existing rules to check for duplicates by name or systemType
       const existingRules = await prisma.rule.findMany({

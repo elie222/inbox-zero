@@ -5,6 +5,8 @@ import { createRule } from "@/utils/rule/rule";
 import { toRuleWriteInput } from "@/app/api/v1/rules/request";
 import { apiRuleSelect, serializeRule } from "@/app/api/v1/rules/serializers";
 import { ruleRequestBodySchema } from "@/app/api/v1/rules/validation";
+import { ActionType } from "@/generated/prisma/enums";
+import { assertCanUseDigests } from "@/utils/premium/server";
 
 export const GET = withAccountApiKey(
   "v1/rules",
@@ -28,9 +30,13 @@ export const POST = withAccountApiKey(
   "v1/rules",
   ["RULES_WRITE"],
   async (request) => {
-    const { emailAccountId, provider } = request.apiAuth;
+    const { emailAccountId, provider, userId } = request.apiAuth;
     const body = ruleRequestBodySchema.parse(await request.json());
     const ruleInput = toRuleWriteInput(body);
+
+    if (ruleInput.actions.some((action) => action.type === ActionType.DIGEST)) {
+      await assertCanUseDigests(userId);
+    }
 
     const createdRule = await createRule({
       result: {

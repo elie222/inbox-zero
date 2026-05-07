@@ -171,7 +171,7 @@ export async function assertCanUseDigests(userId: string) {
   });
 
   if (!hasDigestAccess) {
-    throw new SafeError("Digests are available on the Plus plan.");
+    throw new SafeError("Digests are available on the Plus plan.", 403);
   }
 }
 
