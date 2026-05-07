@@ -166,7 +166,7 @@ export function CleanupDraftsSection({
       <ItemSeparator />
       <Item size="sm">
         <ItemContent>
-          <ItemTitle>Delete Old AI Drafts Now</ItemTitle>
+          <ItemTitle>Delete Old AI Drafts</ItemTitle>
           <ItemDescription>
             {`Remove unedited drafts created by ${BRAND_NAME} that are older than ${DEFAULT_AI_DRAFT_CLEANUP_DAYS} days.`}
           </ItemDescription>
