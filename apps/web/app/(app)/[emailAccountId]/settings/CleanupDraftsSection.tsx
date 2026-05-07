@@ -154,9 +154,7 @@ export function CleanupDraftsSection({
                 Save
               </Button>
             </>
-          ) : (
-            <span className="text-sm text-muted-foreground">Off</span>
-          )}
+          ) : null}
           <Switch
             aria-label="Toggle automatic AI draft cleanup"
             checked={automaticCleanupEnabled}
