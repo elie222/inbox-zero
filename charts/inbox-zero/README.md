@@ -10,7 +10,7 @@ This chart maps the Docker Compose self-hosting stack onto Kubernetes:
 - `redis` StatefulSet and `redis-http` Deployment: optional Redis plus an Upstash-compatible HTTP bridge.
 - `ingress` and `service`: expose the web app inside or outside the cluster.
 
-For production, use managed Postgres and managed Redis. The bundled StatefulSets are intended for demos and small self-hosted installs.
+For production, use managed Postgres and managed Redis. The bundled StatefulSets are intended for demos and small self-hosted installs, not production workloads that need backups, failover, monitoring, and tested restores.
 
 ## Install
 
