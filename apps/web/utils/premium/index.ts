@@ -25,6 +25,10 @@ function isPremiumStripe(stripeSubscriptionStatus: string | null): boolean {
   return activeStatuses.includes(stripeSubscriptionStatus);
 }
 
+function isActiveStripe(stripeSubscriptionStatus: string | null): boolean {
+  return stripeSubscriptionStatus === "active";
+}
+
 function isPremiumLemonSqueezy(
   lemonSqueezyRenewsAt: Date | string | null,
 ): boolean {
@@ -97,13 +101,9 @@ export const isPremiumRecord = (
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
   if (!premium) return false;
 
-  return isPremium(
-    premium.lemonSqueezyRenewsAt ?? null,
-    premium.stripeSubscriptionStatus ?? null,
-    premium.appleExpiresAt ?? null,
-    premium.appleRevokedAt ?? null,
-    premium.appleSubscriptionStatus ?? null,
-    premium.adminGrantExpiresAt ?? null,
+  return (
+    hasProcessorPremiumEntitlement(premium) ||
+    hasAdminGrantPremiumEntitlement(premium)
   );
 };
 
@@ -115,14 +115,8 @@ export const isActivePremium = (
   if (!premium) return false;
 
   return (
-    premium.stripeSubscriptionStatus === "active" ||
-    isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt ?? null) ||
-    isPremiumAdminGrant(premium.adminGrantExpiresAt ?? null) ||
-    hasActiveAppleSubscription(
-      premium.appleExpiresAt ?? null,
-      premium.appleRevokedAt ?? null,
-      premium.appleSubscriptionStatus,
-    )
+    hasActiveProcessorPremiumEntitlement(premium) ||
+    hasAdminGrantPremiumEntitlement(premium)
   );
 };
 
@@ -267,10 +261,12 @@ export function getPremiumUserFilter({
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return {};
 
   const minimumTiers = minimumTier ? getTiersAtOrAbove(minimumTier) : undefined;
-  const tierFilter = minimumTiers ? [{ tier: { in: minimumTiers } }] : [];
+  const tierFilter = minimumTiers
+    ? [{ tier: { in: minimumTiers } }]
+    : [{ tier: { not: null } }];
   const adminGrantTierFilter = minimumTiers
     ? [{ adminGrantTier: { in: minimumTiers } }]
-    : [];
+    : [{ adminGrantTier: { not: null } }];
   const now = new Date();
 
   return {
@@ -303,4 +299,38 @@ export function getPremiumUserFilter({
       },
     },
   };
+}
+
+function hasProcessorPremiumEntitlement(premium: PremiumStatusRecord) {
+  if (!premium.tier) return false;
+
+  return (
+    isPremiumStripe(premium.stripeSubscriptionStatus ?? null) ||
+    isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt ?? null) ||
+    hasActiveAppleSubscription(
+      premium.appleExpiresAt ?? null,
+      premium.appleRevokedAt ?? null,
+      premium.appleSubscriptionStatus,
+    )
+  );
+}
+
+function hasActiveProcessorPremiumEntitlement(premium: PremiumStatusRecord) {
+  if (!premium.tier) return false;
+
+  return (
+    isActiveStripe(premium.stripeSubscriptionStatus ?? null) ||
+    isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt ?? null) ||
+    hasActiveAppleSubscription(
+      premium.appleExpiresAt ?? null,
+      premium.appleRevokedAt ?? null,
+      premium.appleSubscriptionStatus,
+    )
+  );
+}
+
+function hasAdminGrantPremiumEntitlement(premium: PremiumStatusRecord) {
+  if (!premium.adminGrantTier) return false;
+
+  return isPremiumAdminGrant(premium.adminGrantExpiresAt ?? null);
 }

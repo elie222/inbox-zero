@@ -14,6 +14,7 @@ import {
   getPremiumUserFilter,
   getUserTier,
   hasActiveAppleSubscription,
+  isActivePremium,
   isPremium,
   isPremiumRecord,
 } from "./index";
@@ -50,6 +51,7 @@ describe("Apple premium helpers", () => {
         appleSubscriptionStatus: "ACTIVE",
         lemonSqueezyRenewsAt: null,
         stripeSubscriptionStatus: null,
+        tier: "STARTER_MONTHLY",
       }),
     ).toBe(true);
   });
@@ -115,6 +117,47 @@ describe("Apple premium helpers", () => {
 
     expect(isPremiumRecord(null)).toBe(true);
   });
+
+  it("does not treat active processor state as premium without a tier", () => {
+    const futureDate = new Date(Date.now() + 60_000).toISOString();
+    const activeProcessorRecords = [
+      { stripeSubscriptionStatus: "active", tier: null },
+      { lemonSqueezyRenewsAt: futureDate, tier: null },
+      {
+        appleExpiresAt: futureDate,
+        appleRevokedAt: null,
+        appleSubscriptionStatus: "ACTIVE",
+        tier: null,
+      },
+    ];
+
+    for (const premium of activeProcessorRecords) {
+      expect(isPremiumRecord(premium)).toBe(false);
+    }
+  });
+
+  it("does not treat active grant state as premium without an admin grant tier", () => {
+    const futureDate = new Date(Date.now() + 60_000).toISOString();
+
+    expect(
+      isPremiumRecord({
+        adminGrantExpiresAt: futureDate,
+        adminGrantTier: null,
+        lemonSqueezyRenewsAt: null,
+        stripeSubscriptionStatus: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not treat active processor state as active premium without a tier", () => {
+    expect(
+      isActivePremium({
+        stripeSubscriptionStatus: "active",
+        lemonSqueezyRenewsAt: null,
+        tier: null,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("digest access", () => {
@@ -158,6 +201,21 @@ describe("digest access", () => {
               },
             },
           ]),
+        }),
+      ]),
+    );
+  });
+
+  it("requires a non-null tier when filtering premium users without a minimum tier", () => {
+    const filter = getPremiumUserFilter();
+
+    expect(filter.user.premium.OR).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          AND: expect.arrayContaining([{ tier: { not: null } }]),
+        }),
+        expect.objectContaining({
+          AND: expect.arrayContaining([{ adminGrantTier: { not: null } }]),
         }),
       ]),
     );
