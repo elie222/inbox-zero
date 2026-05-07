@@ -31,6 +31,10 @@ const DEFAULT_DIGEST_SETTINGS = {
   coldEmail: false,
 } satisfies Record<string, boolean>;
 
+type DigestSettings = {
+  [K in keyof typeof DEFAULT_DIGEST_SETTINGS]: boolean;
+};
+
 export type GetDigestSettingsResponse = Awaited<
   ReturnType<typeof getDigestSettings>
 >;
@@ -73,10 +77,10 @@ async function getDigestSettings({
   }
 
   // Build digest settings object
-  const digestSettings = { ...DEFAULT_DIGEST_SETTINGS };
+  const digestSettings: DigestSettings = { ...DEFAULT_DIGEST_SETTINGS };
 
   // Map system types to digest settings
-  const systemTypeToKey: Record<SystemType, keyof typeof digestSettings> = {
+  const systemTypeToKey: Record<SystemType, keyof DigestSettings> = {
     [SystemType.TO_REPLY]: "toReply",
     [SystemType.AWAITING_REPLY]: "awaitingReply",
     [SystemType.FYI]: "fyi",
