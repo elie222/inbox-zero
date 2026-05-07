@@ -94,9 +94,9 @@
             "group": "Self-Hosting",
             "pages": [
               "hosting/self-hosting",
-              "hosting/kubernetes",
-              "hosting/vercel",
               "hosting/environment-variables",
+              "hosting/vercel",
+              "hosting/kubernetes",
               "hosting/troubleshooting",
               "hosting/image-proxy"
             ]

@@ -29,9 +29,11 @@ helm upgrade --install inbox-zero ./charts/inbox-zero \
   -f values.prod.yaml
 ```
 
-## Minimal Values
+## Values File
 
-Create `values.prod.yaml` with your public URL, OAuth settings, generated secrets, and LLM provider credentials:
+The Helm chart does not replace the normal app configuration. Use the [Environment Variables reference](/hosting/environment-variables), [Google OAuth guide](/hosting/google-oauth), [Microsoft OAuth guide](/hosting/microsoft-oauth), and [LLM setup guide](/hosting/llm-setup) for the full app configuration.
+
+Create `values.prod.yaml` with your public URL, ingress settings, and either `secretEnv` values or an `existingSecret`:
 
 ```yaml
 ingress:
@@ -56,14 +58,14 @@ env:
 
 secretEnv:
   AUTH_SECRET: change-me
-  GOOGLE_CLIENT_ID: change-me
-  GOOGLE_CLIENT_SECRET: change-me
-  GOOGLE_PUBSUB_VERIFICATION_TOKEN: change-me
   EMAIL_ENCRYPT_SECRET: change-me
   EMAIL_ENCRYPT_SALT: change-me
   INTERNAL_API_KEY: change-me
   API_KEY_SALT: change-me
   CRON_SECRET: change-me
+  GOOGLE_CLIENT_ID: change-me
+  GOOGLE_CLIENT_SECRET: change-me
+  GOOGLE_PUBSUB_VERIFICATION_TOKEN: change-me
   OPENAI_API_KEY: change-me
 
 postgresql:
