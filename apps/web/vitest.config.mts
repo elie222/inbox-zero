@@ -17,7 +17,7 @@ export default defineConfig({
   test: {
     environment: "node",
     setupFiles: ["./__tests__/setup.ts"],
-    testTimeout: 15000,
+    testTimeout: 15_000,
     exclude: [
       ...configDefaults.exclude,
       "__tests__/playwright/**",
