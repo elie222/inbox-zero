@@ -103,6 +103,7 @@ const parsedEnv = createEnv({
     DRAFT_LLM_PROVIDER: llmProviderEnum.optional(),
     DRAFT_LLM_MODEL: z.string().optional(),
     AI_NANO_WEEKLY_SPEND_LIMIT_USD: z.coerce.number().positive().optional(),
+    AI_TRIAL_WEEKLY_SPEND_LIMIT_USD: z.coerce.number().positive().optional(),
     // Unset defaults to ALLOW. Used when an account has not chosen a policy.
     SENSITIVE_DATA_POLICY_DEFAULT: z
       .enum(["ALLOW", "REDACT", "BLOCK"])
