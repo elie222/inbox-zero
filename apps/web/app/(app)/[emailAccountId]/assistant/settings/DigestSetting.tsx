@@ -63,51 +63,43 @@ export function DigestSetting() {
     [data, mutate, executeToggle],
   );
 
-  if (isLoading || isLoadingPremium) {
-    return (
-      <SettingCard
-        title="Digest"
-        description="Get a daily summary of your newsletter emails."
-        right={<Skeleton className="h-5 w-9" />}
-      />
-    );
-  }
+  const renderRight = () => {
+    if (isLoading || isLoadingPremium) {
+      return <Skeleton className="h-5 w-9" />;
+    }
 
-  if (!hasDigestAccess) {
+    if (!hasDigestAccess) {
+      return (
+        <UpgradeToPlusButton tooltip="Upgrade to the Plus plan to enable daily digest emails." />
+      );
+    }
+
     return (
-      <SettingCard
-        title="Digest"
-        description="Get a daily summary of your newsletter emails."
-        right={
-          <UpgradeToPlusButton tooltip="Upgrade to the Plus plan to enable daily digest emails." />
-        }
-      />
+      <div className="flex items-center gap-2">
+        {enabled && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                Configure
+              </Button>
+            </DialogTrigger>
+            <DigestSettingsDialogContent onSuccess={() => setOpen(false)} />
+          </Dialog>
+        )}
+        <Toggle
+          name="digest-enabled"
+          enabled={enabled}
+          onChange={handleToggle}
+        />
+      </div>
     );
-  }
+  };
 
   return (
     <SettingCard
       title="Digest"
       description="Get a daily summary of your newsletter emails."
-      right={
-        <div className="flex items-center gap-2">
-          {enabled && (
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  Configure
-                </Button>
-              </DialogTrigger>
-              <DigestSettingsDialogContent onSuccess={() => setOpen(false)} />
-            </Dialog>
-          )}
-          <Toggle
-            name="digest-enabled"
-            enabled={enabled}
-            onChange={handleToggle}
-          />
-        </div>
-      }
+      right={renderRight()}
     />
   );
 }

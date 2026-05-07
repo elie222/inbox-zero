@@ -55,7 +55,7 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import { bulkProcessInboxEmails } from "@/utils/ai/choose-rule/bulk-process-emails";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
-import { assertCanUseDigests } from "@/utils/premium/server";
+import { assertCanUseDigestsIfNeeded } from "@/utils/premium/server";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -71,9 +71,7 @@ export const createRuleAction = actionClient
         conditionalOperator,
       },
     }) => {
-      if (actions?.some((action) => action.type === ActionType.DIGEST)) {
-        await assertCanUseDigests(userId);
-      }
+      await assertCanUseDigestsIfNeeded(userId, actions ?? []);
 
       const conditions = flattenConditions(conditionsInput, logger);
 
@@ -127,9 +125,7 @@ export const updateRuleAction = actionClient
         conditionalOperator,
       },
     }) => {
-      if (actions.some((action) => action.type === ActionType.DIGEST)) {
-        await assertCanUseDigests(userId);
-      }
+      await assertCanUseDigestsIfNeeded(userId, actions);
 
       const conditions = flattenConditions(conditionsInput, logger);
 
@@ -583,12 +579,10 @@ export const copyRulesFromAccountAction = actionClientUser
         return { copiedCount: 0, replacedCount: 0 };
       }
 
-      const copiesDigestAction = sourceRules.some((rule) =>
-        rule.actions.some((action) => action.type === ActionType.DIGEST),
+      await assertCanUseDigestsIfNeeded(
+        userId,
+        sourceRules.flatMap((rule) => rule.actions),
       );
-      if (copiesDigestAction) {
-        await assertCanUseDigests(userId);
-      }
 
       // Fetch existing rules in target account to check for duplicates
       const targetRules = await prisma.rule.findMany({
@@ -1050,12 +1044,10 @@ export const importRulesAction = actionClient
     }) => {
       logger.info("Importing rules", { count: rules.length });
 
-      const importsDigestAction = rules.some((rule) =>
-        rule.actions.some((action) => action.type === ActionType.DIGEST),
+      await assertCanUseDigestsIfNeeded(
+        userId,
+        rules.flatMap((rule) => rule.actions),
       );
-      if (importsDigestAction) {
-        await assertCanUseDigests(userId);
-      }
 
       // Fetch existing rules to check for duplicates by name or systemType
       const existingRules = await prisma.rule.findMany({

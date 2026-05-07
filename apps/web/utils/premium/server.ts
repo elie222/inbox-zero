@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import prisma from "@/utils/prisma";
-import type { PremiumTier } from "@/generated/prisma/enums";
+import { ActionType, type PremiumTier } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import {
@@ -172,6 +172,15 @@ export async function assertCanUseDigests(userId: string) {
 
   if (!hasDigestAccess) {
     throw new SafeError("Digests are available on the Plus plan.", 403);
+  }
+}
+
+export async function assertCanUseDigestsIfNeeded(
+  userId: string,
+  actions: { type: ActionType }[],
+) {
+  if (actions.some((action) => action.type === ActionType.DIGEST)) {
+    await assertCanUseDigests(userId);
   }
 }
 

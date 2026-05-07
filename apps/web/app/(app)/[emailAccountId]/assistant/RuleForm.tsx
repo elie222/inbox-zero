@@ -238,9 +238,8 @@ export function RuleForm({
         isDraftReplyActionType(action.type),
       );
 
-      // Add DIGEST action if digest is enabled. When the user lacks access,
-      // the toggle is hidden, so preserve any existing DIGEST action rather
-      // than silently dropping it.
+      // When the user lacks digest access the toggle is hidden, so preserve
+      // any existing DIGEST action rather than silently dropping it.
       const actionsToSubmit = [...normalizedActions];
       const existingDigestAction = rule.actions.find(
         (action) => action.type === ActionType.DIGEST,
