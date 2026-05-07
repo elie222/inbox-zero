@@ -23,7 +23,7 @@ import { SafeError } from "@/utils/error";
 import { env } from "@/env";
 import { addActionOwnershipToInput } from "@/utils/rule/rule";
 import { isSensitiveDataPolicyLocked } from "@/utils/dlp/policy.server";
-import { checkHasAccess } from "@/utils/premium/server";
+import { assertCanUseDigests } from "@/utils/premium/server";
 
 export const updateEmailSettingsAction = actionClient
   .metadata({ name: "updateEmailSettings" })
@@ -282,14 +282,3 @@ export const toggleDigestAction = actionClient
       return { success: true };
     },
   );
-
-async function assertCanUseDigests(userId: string) {
-  const hasDigestAccess = await checkHasAccess({
-    userId,
-    minimumTier: "PLUS_MONTHLY",
-  });
-
-  if (!hasDigestAccess) {
-    throw new SafeError("Digest emails are available on the Plus plan.");
-  }
-}

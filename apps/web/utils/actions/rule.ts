@@ -55,7 +55,7 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import { bulkProcessInboxEmails } from "@/utils/ai/choose-rule/bulk-process-emails";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
-import { checkHasAccess } from "@/utils/premium/server";
+import { assertCanUseDigests } from "@/utils/premium/server";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -855,17 +855,6 @@ function handleRuleError(error: unknown, logger: Logger) {
   }
   logger.error("Error creating/updating rule", { error });
   throw new SafeError("Error creating/updating rule");
-}
-
-async function assertCanUseDigests(userId: string) {
-  const hasDigestAccess = await checkHasAccess({
-    userId,
-    minimumTier: "PLUS_MONTHLY",
-  });
-
-  if (!hasDigestAccess) {
-    throw new SafeError("Digest actions are available on the Plus plan.");
-  }
 }
 
 async function resolveActionLabels<

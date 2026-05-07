@@ -164,6 +164,17 @@ export async function cancelPremiumLemon({
   });
 }
 
+export async function assertCanUseDigests(userId: string) {
+  const hasDigestAccess = await checkHasAccess({
+    userId,
+    minimumTier: "PLUS_MONTHLY",
+  });
+
+  if (!hasDigestAccess) {
+    throw new SafeError("Digests are available on the Plus plan.");
+  }
+}
+
 export async function checkHasAccess({
   userId,
   minimumTier,

@@ -38,7 +38,7 @@ import { upsertSlackRoute } from "@/utils/messaging/slack-routes";
 import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
 import { lookupSlackUserByEmail } from "@/utils/messaging/providers/slack/users";
 import { callTelegramBotApi } from "@/utils/messaging/providers/telegram/api";
-import { checkHasAccess } from "@/utils/premium/server";
+import { assertCanUseDigests } from "@/utils/premium/server";
 
 export const updateSlackRouteAction = actionClient
   .metadata({ name: "updateSlackRoute" })
@@ -504,15 +504,4 @@ async function syncMessagingFeatureRoute({
       targetId: rulesRoute.targetId,
     },
   });
-}
-
-async function assertCanUseDigests(userId: string) {
-  const hasDigestAccess = await checkHasAccess({
-    userId,
-    minimumTier: "PLUS_MONTHLY",
-  });
-
-  if (!hasDigestAccess) {
-    throw new SafeError("Digest delivery is available on the Plus plan.");
-  }
 }

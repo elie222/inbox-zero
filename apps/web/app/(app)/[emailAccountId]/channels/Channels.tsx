@@ -456,14 +456,14 @@ function ConnectedChannelSection({
             channel.destinations,
             feature.purpose,
           );
-          const isDigestFeature =
-            feature.purpose === MessagingRoutePurpose.DIGESTS;
+          const digestLocked =
+            feature.purpose === MessagingRoutePurpose.DIGESTS &&
+            !hasDigestAccess;
           const disabled =
             !canEnableMessagingFeatureRoute(
               channel.destinations,
               feature.purpose,
-            ) ||
-            (isDigestFeature && !hasDigestAccess);
+            ) || digestLocked;
 
           return (
             <div key={feature.purpose}>
@@ -481,7 +481,7 @@ function ConnectedChannelSection({
               <FeatureRouteToggle
                 name={feature.name}
                 description={
-                  isDigestFeature && !hasDigestAccess
+                  digestLocked
                     ? "Digest delivery to chat is available on the Plus plan."
                     : feature.description
                 }
@@ -494,9 +494,7 @@ function ConnectedChannelSection({
                 onUpdate={onUpdate}
                 disabled={disabled}
                 disabledReason={
-                  isDigestFeature && !hasDigestAccess
-                    ? "Digests require the Plus plan."
-                    : undefined
+                  digestLocked ? "Digests require the Plus plan." : undefined
                 }
               />
             </div>
