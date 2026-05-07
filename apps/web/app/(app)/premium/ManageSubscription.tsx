@@ -153,7 +153,7 @@ function useOpenBillingPortal() {
   return { loading, openBillingPortal };
 }
 
-function useEndStripeTrial() {
+export function useEndStripeTrial() {
   const [loading, setLoading] = useState(false);
   const { mutate } = useSWRConfig();
 
