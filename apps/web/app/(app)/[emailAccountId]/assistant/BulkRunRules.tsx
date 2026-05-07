@@ -200,7 +200,7 @@ export function BulkRunRules() {
                 enabled={includeRead}
                 onChange={(enabled) => setIncludeRead(enabled)}
                 disabled={isProcessing || !isBusinessPlusTier}
-                tooltipText={
+                disabledTooltipText={
                   !isBusinessPlusTier && hasAiAccess
                     ? "Including read emails is available on the Professional plan."
                     : undefined

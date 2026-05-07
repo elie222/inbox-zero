@@ -1,10 +1,12 @@
 import type { FieldError } from "react-hook-form";
 import { ErrorMessage, ExplainText, Label } from "./Input";
+import { Tooltip } from "@/components/Tooltip";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { Switch } from "@/components/ui/switch";
 
 export interface ToggleProps {
   disabled?: boolean;
+  disabledTooltipText?: string;
   enabled: boolean;
   error?: FieldError;
   explainText?: string;
@@ -16,7 +18,19 @@ export interface ToggleProps {
 }
 
 export const Toggle = (props: ToggleProps) => {
-  const { label, labelRight, tooltipText, enabled, onChange, disabled } = props;
+  const {
+    label,
+    labelRight,
+    tooltipText,
+    enabled,
+    onChange,
+    disabled,
+    disabledTooltipText,
+  } = props;
+
+  const switchComponent = (
+    <Switch checked={enabled} onCheckedChange={onChange} disabled={disabled} />
+  );
 
   return (
     <div>
@@ -27,11 +41,15 @@ export const Toggle = (props: ToggleProps) => {
             {tooltipText && <TooltipExplanation text={tooltipText} />}
           </span>
         )}
-        <Switch
-          checked={enabled}
-          onCheckedChange={onChange}
-          disabled={disabled}
-        />
+        {disabled && disabledTooltipText ? (
+          <Tooltip content={disabledTooltipText}>
+            <span className="inline-flex cursor-not-allowed">
+              {switchComponent}
+            </span>
+          </Tooltip>
+        ) : (
+          switchComponent
+        )}
         {labelRight && (
           <span className="ml-3 flex items-center gap-1 text-nowrap">
             <Label name={props.name} label={labelRight} />
