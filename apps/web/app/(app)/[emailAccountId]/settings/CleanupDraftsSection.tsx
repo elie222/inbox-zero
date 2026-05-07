@@ -122,7 +122,7 @@ export function CleanupDraftsSection({
         <ItemContent>
           <ItemTitle>Auto-delete AI Drafts</ItemTitle>
           <ItemDescription>
-            {`Only removes drafts created by ${BRAND_NAME} that have not been edited by you. Your own drafts and edited AI drafts are kept.`}
+            {`Only removes drafts created by ${BRAND_NAME} that have not been edited by you.`}
           </ItemDescription>
         </ItemContent>
         <ItemActions className="flex-wrap justify-end">
@@ -182,7 +182,7 @@ export function CleanupDraftsSection({
               execute({ olderThanDays: DEFAULT_AI_DRAFT_CLEANUP_DAYS })
             }
           >
-            Delete old drafts now
+            Delete old drafts
           </Button>
         </ItemActions>
       </Item>
