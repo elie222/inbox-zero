@@ -116,7 +116,7 @@ existingConfigMap: inbox-zero-config
 
 The existing Secret should contain the same environment-variable keys the app expects, such as `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `EMAIL_ENCRYPT_SECRET`, `EMAIL_ENCRYPT_SALT`, `INTERNAL_API_KEY`, and provider API keys.
 
-If you use `existingSecret` with bundled Postgres or Redis, it must also contain `POSTGRES_PASSWORD`, `DATABASE_URL`, `DIRECT_URL`, `REDIS_PASSWORD`, `REDIS_URL`, and `UPSTASH_REDIS_TOKEN`.
+If you use `existingSecret` with bundled Postgres or Redis, it must also contain `POSTGRES_PASSWORD`, `DATABASE_URL`, `DIRECT_URL`, `REDIS_PASSWORD`, `REDIS_URL`, `UPSTASH_REDIS_URL`, and `UPSTASH_REDIS_TOKEN`.
 
 If you only use Microsoft OAuth, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to non-empty placeholder values such as `skipped`.
 
