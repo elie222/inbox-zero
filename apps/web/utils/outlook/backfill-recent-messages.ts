@@ -28,7 +28,7 @@ export async function backfillRecentOutlookMessages({
     logger,
   });
 
-  const candidateMessages = await listRecentMessages({
+  const { messages: candidateMessages, pageCount } = await listRecentMessages({
     provider,
     after,
     maxMessages,
@@ -38,6 +38,7 @@ export async function backfillRecentOutlookMessages({
     logger.info("No recent Outlook messages found for reconciliation", {
       after,
       maxMessages,
+      pageCount,
     });
     return { processedCount: 0, candidateCount: 0 };
   }
@@ -62,6 +63,8 @@ export async function backfillRecentOutlookMessages({
 
   logger.info("Reconciling recent Outlook messages", {
     after,
+    maxMessages,
+    pageCount,
     candidateCount: candidateMessages.length,
     unseenCount: unseenMessages.length,
     subscriptionId,
@@ -88,6 +91,16 @@ export async function backfillRecentOutlookMessages({
     }
   }
 
+  logger.info("Finished reconciling recent Outlook messages", {
+    after,
+    maxMessages,
+    pageCount,
+    candidateCount: candidateMessages.length,
+    unseenCount: unseenMessages.length,
+    processedCount,
+    subscriptionId,
+  });
+
   return {
     processedCount,
     candidateCount: candidateMessages.length,
@@ -106,6 +119,7 @@ async function listRecentMessages({
   const messages: ParsedMessage[] = [];
   const seenMessageIds = new Set<string>();
   let pageToken: string | undefined;
+  let pageCount = 0;
 
   while (messages.length < maxMessages) {
     const response = await provider.getMessagesWithPagination({
@@ -116,6 +130,7 @@ async function listRecentMessages({
       ),
       pageToken,
     });
+    pageCount++;
 
     for (const message of response.messages) {
       if (seenMessageIds.has(message.id)) continue;
@@ -127,5 +142,5 @@ async function listRecentMessages({
     pageToken = response.nextPageToken;
   }
 
-  return messages;
+  return { messages, pageCount };
 }
