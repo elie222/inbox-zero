@@ -32,6 +32,8 @@ Check logs for errors using the commands above.
   - Solution: Increase VPS RAM or add swap space
 - **Missing environment variables**: Check `.env` file exists and has required values
   - Solution: Run `inbox-zero setup` again
+- **Slow page loads with `validate-email-account` or `Unable to parse response body` Redis warnings**: `docker compose` may have started `serverless-redis-http` without the token from `apps/web/.env`
+  - Solution: make sure repo-root `.env` matches `apps/web/.env` before starting Docker, for example: `ln -sf apps/web/.env .env`
 
 ## Database Connection Errors
 

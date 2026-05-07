@@ -1,4 +1,15 @@
+import {
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { randomBytes } from "node:crypto";
+import { basename, relative, resolve } from "node:path";
 
 // Environment variable builder
 export type EnvConfig = Record<string, string | undefined>;
@@ -277,4 +288,90 @@ export function parsePortConflict(stderr: string): string | null {
   }
 
   return null;
+}
+
+const MANAGED_COMPOSE_ENV_MARKER_SUFFIX = ".inbox-zero-managed";
+
+export function syncManagedComposeEnv({
+  envFile,
+  repoRoot,
+}: {
+  envFile: string;
+  repoRoot: string | null;
+}) {
+  if (!repoRoot) return;
+  if (basename(envFile) !== ".env") return;
+
+  const rootEnvFile = resolve(repoRoot, ".env");
+  const markerFile = `${rootEnvFile}${MANAGED_COMPOSE_ENV_MARKER_SUFFIX}`;
+  const linkTarget = relative(repoRoot, envFile);
+  const sourceContent = readFileSync(envFile, "utf-8");
+
+  if (!existsSync(rootEnvFile)) {
+    createManagedComposeEnv({
+      linkTarget,
+      markerFile,
+      rootEnvFile,
+      sourceContent,
+    });
+    return;
+  }
+
+  const rootEnvStat = lstatSync(rootEnvFile);
+  const isManaged = existsSync(markerFile);
+  if (rootEnvStat.isSymbolicLink()) {
+    const currentTarget = readlinkSync(rootEnvFile);
+    if (currentTarget !== linkTarget) {
+      if (!isManaged) return;
+
+      rmSync(rootEnvFile, { force: true });
+      createManagedComposeEnv({
+        linkTarget,
+        markerFile,
+        rootEnvFile,
+        sourceContent,
+      });
+      return;
+    }
+
+    if (isManaged) {
+      writeFileSync(markerFile, linkTarget);
+    }
+    return;
+  }
+
+  if (!isManaged) {
+    const currentContent = readFileSync(rootEnvFile, "utf-8");
+    if (currentContent !== sourceContent) return;
+
+    writeFileSync(markerFile, linkTarget);
+    return;
+  }
+
+  const currentContent = readFileSync(rootEnvFile, "utf-8");
+  if (currentContent !== sourceContent) {
+    copyFileSync(envFile, rootEnvFile);
+  }
+
+  writeFileSync(markerFile, linkTarget);
+}
+
+function createManagedComposeEnv({
+  linkTarget,
+  markerFile,
+  rootEnvFile,
+  sourceContent,
+}: {
+  linkTarget: string;
+  markerFile: string;
+  rootEnvFile: string;
+  sourceContent: string;
+}) {
+  try {
+    symlinkSync(linkTarget, rootEnvFile);
+  } catch {
+    writeFileSync(rootEnvFile, sourceContent);
+  }
+
+  writeFileSync(markerFile, linkTarget);
 }

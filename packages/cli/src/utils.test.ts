@@ -1,3 +1,12 @@
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import {
   generateSecret,
@@ -6,6 +15,7 @@ import {
   isSensitiveKey,
   parseEnvFile,
   parsePortConflict,
+  syncManagedComposeEnv,
   updateEnvValue,
   redactValue,
   type EnvConfig,
@@ -645,5 +655,101 @@ describe("parsePortConflict", () => {
     expect(parsePortConflict("image not found")).toBeNull();
     expect(parsePortConflict("network timeout")).toBeNull();
     expect(parsePortConflict("")).toBeNull();
+  });
+});
+
+describe("syncManagedComposeEnv", () => {
+  it("creates a managed root env for the default repo config", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    const appDir = join(repoRoot, "apps", "web");
+    const appEnv = join(appDir, ".env");
+
+    mkdirSync(appDir, { recursive: true });
+    writeFileSync(appEnv, "FOO=bar\n");
+
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+
+    expect(readFileSync(join(repoRoot, ".env"), "utf-8")).toBe("FOO=bar\n");
+    expect(
+      readFileSync(join(repoRoot, ".env.inbox-zero-managed"), "utf-8"),
+    ).toBe("apps/web/.env");
+  });
+
+  it("refreshes a managed copied root env after later updates", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    const appDir = join(repoRoot, "apps", "web");
+    const appEnv = join(appDir, ".env");
+    const rootEnv = join(repoRoot, ".env");
+
+    mkdirSync(appDir, { recursive: true });
+    writeFileSync(appEnv, "FOO=one\n");
+    writeFileSync(rootEnv, "FOO=one\n");
+    writeFileSync(join(repoRoot, ".env.inbox-zero-managed"), "apps/web/.env");
+    writeFileSync(appEnv, "FOO=two\n");
+
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+
+    expect(readFileSync(rootEnv, "utf-8")).toBe("FOO=two\n");
+  });
+
+  it("does not overwrite an unmanaged root env file", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    const appDir = join(repoRoot, "apps", "web");
+    const appEnv = join(appDir, ".env");
+    const rootEnv = join(repoRoot, ".env");
+
+    mkdirSync(appDir, { recursive: true });
+    writeFileSync(appEnv, "FOO=managed\n");
+    writeFileSync(rootEnv, "FOO=manual\n");
+
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+
+    expect(readFileSync(rootEnv, "utf-8")).toBe("FOO=manual\n");
+  });
+
+  it("does not overwrite an unmanaged root env symlink", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    const appDir = join(repoRoot, "apps", "web");
+    const appEnv = join(appDir, ".env");
+    const manualEnv = join(repoRoot, ".env.manual");
+    const rootEnv = join(repoRoot, ".env");
+
+    mkdirSync(appDir, { recursive: true });
+    writeFileSync(appEnv, "FOO=managed\n");
+    writeFileSync(manualEnv, "FOO=manual\n");
+    symlinkSync(".env.manual", rootEnv);
+
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+
+    expect(readFileSync(rootEnv, "utf-8")).toBe("FOO=manual\n");
+  });
+
+  it("relinks a managed root env symlink when it points to the wrong target", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    const appDir = join(repoRoot, "apps", "web");
+    const appEnv = join(appDir, ".env");
+    const rootEnv = join(repoRoot, ".env");
+
+    mkdirSync(appDir, { recursive: true });
+    writeFileSync(appEnv, "FOO=managed\n");
+    writeFileSync(join(repoRoot, ".env.inbox-zero-managed"), "apps/web/.env");
+    symlinkSync(".env.previous", rootEnv);
+
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+
+    expect(readFileSync(rootEnv, "utf-8")).toBe("FOO=managed\n");
+  });
+
+  it("skips named env files because they use explicit compose env-file flags", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    const appDir = join(repoRoot, "apps", "web");
+    const namedEnv = join(appDir, ".env.staging");
+
+    mkdirSync(appDir, { recursive: true });
+    writeFileSync(namedEnv, "FOO=bar\n");
+
+    syncManagedComposeEnv({ envFile: namedEnv, repoRoot });
+
+    expect(() => readFileSync(join(repoRoot, ".env"), "utf-8")).toThrow();
   });
 });

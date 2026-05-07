@@ -12,6 +12,7 @@ import {
   isSensitiveKey,
   parseEnvFile,
   parsePortConflict,
+  syncManagedComposeEnv,
   updateEnvValue,
   redactValue,
   getEnvFileName,
@@ -667,6 +668,7 @@ async function runSetupQuick(options: { name?: string }) {
     template,
   });
   writeFileSync(envFile, envContent);
+  syncManagedComposeEnv({ envFile, repoRoot: REPO_ROOT });
 
   spinner.stop("Configuration ready");
 
@@ -693,7 +695,11 @@ async function runSetupQuick(options: { name?: string }) {
   }
 
   // Check if already running
-  const composeArgs = REPO_ROOT ? ["compose"] : ["compose", "-f", composeFile];
+  const composeArgs = REPO_ROOT
+    ? envFileName === ".env"
+      ? ["compose"]
+      : ["compose", "--env-file", envFile]
+    : ["compose", "--env-file", envFile, "-f", composeFile];
 
   if (checkContainersRunning(composeArgs)) {
     const restart = await p.confirm({
@@ -1201,6 +1207,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     template,
   });
   writeFileSync(envFile, envContent);
+  syncManagedComposeEnv({ envFile, repoRoot: REPO_ROOT });
 
   spinner.stop(".env file created");
 
@@ -1237,8 +1244,10 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
 
   // For standalone installs, include -f flag to point to the compose file
   const composeCmd = REPO_ROOT
-    ? "docker compose"
-    : `docker compose -f ${composeFile}`;
+    ? envFileName === ".env"
+      ? "docker compose"
+      : `docker compose --env-file "${envFile}"`
+    : `docker compose --env-file "${envFile}" -f "${composeFile}"`;
 
   if (runWebInDocker) {
     // Web app runs in Docker with database & Redis
@@ -1677,6 +1686,7 @@ async function runConfigInteractive(name?: string) {
 
   const updated = updateEnvValue(content, keyToUpdate, newValue);
   writeFileSync(envFile, updated);
+  syncManagedComposeEnv({ envFile, repoRoot: REPO_ROOT });
 
   p.log.success(`Updated ${keyToUpdate}`);
   p.note(
@@ -1701,6 +1711,7 @@ async function runConfigSet(key: string, value: string, name?: string) {
   const { envFile, content } = requireEnvFile(name);
   const updated = updateEnvValue(content, key, value);
   writeFileSync(envFile, updated);
+  syncManagedComposeEnv({ envFile, repoRoot: REPO_ROOT });
   p.log.success(`Set ${key}`);
 }
 

@@ -87,7 +87,7 @@ NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
 
 The pre-built Docker image is hosted at `ghcr.io/elie222/inbox-zero:latest` and will be automatically pulled.
 
-**Important**: `docker compose` reads `NEXT_PUBLIC_BASE_URL` from your shell environment or from a root `.env` file next to `docker-compose.yml`. Setting it only in `apps/web/.env` will not work because Compose resolves that override before the container loads `apps/web/.env`. If you use a custom port, set `WEB_PORT` the same way.
+**Important**: Compose-time `${...}` values are resolved before service-level `env_file` entries are loaded. If you're running from a cloned repo, make sure Compose can see the same values as the app by linking or copying `apps/web/.env` to the repo root as `.env`. The CLI setup does this automatically. For manual setup, run `ln -sf apps/web/.env .env` once before `docker compose up`.
 
 #### Using External Database Services (Optional)
 
