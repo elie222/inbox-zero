@@ -448,7 +448,6 @@ export const endStripeTrialAction = actionClientUser
       select: {
         premium: {
           select: {
-            id: true,
             stripeSubscriptionId: true,
             stripeSubscriptionStatus: true,
           },
@@ -472,33 +471,6 @@ export const endStripeTrialAction = actionClientUser
         trial_end: "now",
       },
     );
-    const subscriptionItem = subscription.items.data[0];
-
-    await prisma.premium.update({
-      where: { id: premium.id },
-      data: {
-        stripeSubscriptionStatus:
-          subscription.status === "trialing" &&
-          subscription.cancel_at_period_end
-            ? "canceled"
-            : subscription.status,
-        stripeTrialEnd: subscription.trial_end
-          ? new Date(subscription.trial_end * 1000)
-          : null,
-        stripeTrialConvertedAt:
-          subscription.status === "active" ? new Date() : undefined,
-        stripeRenewsAt: subscriptionItem?.current_period_end
-          ? new Date(subscriptionItem.current_period_end * 1000)
-          : null,
-        stripeCancelAtPeriodEnd: subscription.cancel_at_period_end,
-        stripeCanceledAt: subscription.canceled_at
-          ? new Date(subscription.canceled_at * 1000)
-          : null,
-        stripeEndedAt: subscription.ended_at
-          ? new Date(subscription.ended_at * 1000)
-          : null,
-      },
-    });
 
     logger.info("Ended Stripe trial", {
       subscriptionStatus: subscription.status,
