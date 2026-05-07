@@ -80,6 +80,7 @@ import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import { usePremium } from "@/hooks/usePremium";
 import { hasTierAccess } from "@/utils/premium";
+import { UpgradeToPlusButton } from "@/components/UpgradeToPlusButton";
 import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import {
@@ -591,30 +592,19 @@ export function RuleForm({
                 {env.NEXT_PUBLIC_DIGEST_ENABLED && (
                   <AdvancedRow
                     title="Include in digest"
-                    description={
-                      hasDigestAccess
-                        ? "Show matched emails in your digest summary."
-                        : "Available on the Plus plan."
-                    }
+                    description="Show matched emails in your digest summary."
                   >
-                    <Tooltip
-                      content="Digest summaries require the Plus plan."
-                      hide={hasDigestAccess}
-                    >
-                      <span>
-                        <Toggle
-                          name="digest"
-                          enabled={
-                            hasDigestAccess && (watch("digest") || false)
-                          }
-                          disabled={!hasDigestAccess || isLoadingPremium}
-                          onChange={(enabled) => {
-                            if (!hasDigestAccess) return;
-                            setValue("digest", enabled);
-                          }}
-                        />
-                      </span>
-                    </Tooltip>
+                    {isLoadingPremium ? null : hasDigestAccess ? (
+                      <Toggle
+                        name="digest"
+                        enabled={watch("digest") || false}
+                        onChange={(enabled) => {
+                          setValue("digest", enabled);
+                        }}
+                      />
+                    ) : (
+                      <UpgradeToPlusButton tooltip="Upgrade to the Plus plan to include emails in your digest." />
+                    )}
                   </AdvancedRow>
                 )}
 
