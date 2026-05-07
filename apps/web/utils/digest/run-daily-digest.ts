@@ -15,6 +15,8 @@ import type { ParsedMessage } from "@/utils/types";
 import { generateDigestContent } from "@/utils/ai/digest/generate-digest-content";
 import { digestAlreadySentToday, buildDigestSendCreate } from "./digest-send";
 import { formatTodayHumanET, getTodayET } from "./today-et";
+import { isEligibleForClassificationFeedback } from "@/utils/rule/consts";
+import type { SystemType } from "@/generated/prisma/enums";
 
 type BucketKey =
   | "urgent"
@@ -49,6 +51,8 @@ type SourceItem = {
   from: string;
   body: string;
   itemId: string;
+  ruleId: string;
+  systemType: string | null;
 };
 
 type RunResult = {
@@ -139,7 +143,11 @@ export async function runDailyDigest(logger: Logger) {
             action: {
               select: {
                 executedRule: {
-                  select: { rule: { select: { name: true } } },
+                  select: {
+                    rule: {
+                      select: { name: true, id: true, systemType: true },
+                    },
+                  },
                 },
               },
             },
@@ -205,12 +213,15 @@ export async function runDailyDigest(logger: Logger) {
           scoped.warn("digest.message.notFound", { messageId: item.messageId });
           continue;
         }
+        const rule = item.action?.executedRule?.rule;
         buckets[bucket].push({
           messageId: item.messageId,
           subject: msg.headers.subject ?? "(no subject)",
           from: msg.headers.from ?? "(unknown sender)",
           body: emailToContentForAI(msg) ?? "",
           itemId: item.id,
+          ruleId: rule?.id ?? "",
+          systemType: rule?.systemType ?? null,
         });
       }
 
@@ -230,7 +241,27 @@ export async function runDailyDigest(logger: Logger) {
         bucketed: buckets,
       });
 
-      const reviewBase = `${env.NEXT_PUBLIC_BASE_URL ?? "https://inbox.tdfurn.com"}/uncertain`;
+      const appBase = env.NEXT_PUBLIC_BASE_URL ?? "https://inbox.tdfurn.com";
+      const reviewBase = `${appBase}/uncertain`;
+
+      const buildFeedbackUrl = (src: SourceItem): string | undefined => {
+        if (
+          !src.ruleId ||
+          !isEligibleForClassificationFeedback(
+            src.systemType as SystemType | null,
+          )
+        )
+          return;
+        const senderMatch = /^(.*?)(?:\s*<([^>]+)>)?$/.exec(src.from);
+        const fromEmail = senderMatch?.[2] ?? src.from;
+        const params = new URLSearchParams({
+          messageId: src.messageId,
+          fromEmail,
+          ruleId: src.ruleId,
+        });
+        return `${appBase}/feedback?${params.toString()}`;
+      };
+
       const buildActionItems = (
         bucket: SourceItem[],
         sonnetItems: Array<{ messageId: string; summary: string }>,
@@ -246,22 +277,27 @@ export async function runDailyDigest(logger: Logger) {
               senderEmail: senderMatch?.[2],
               summary: s.summary,
               reviewUrl: `${reviewBase}/${src.itemId}`,
+              feedbackUrl: buildFeedbackUrl(src),
             };
           })
           .filter((x): x is NonNullable<typeof x> => x !== null);
 
       const autoFiled: AutoFiledGroup[] = (
         ["receipts", "newsletters", "marketing", "notifications"] as const
-      ).map((cat) => ({
-        category: cat,
-        title: AUTO_FILED_TITLES[cat],
-        emailCount: buckets[cat].length,
-        clusterCount: content.autoFiled[cat].length,
-        rows: content.autoFiled[cat].map((c) => ({
-          label: c.label,
-          summary: c.summary,
-        })),
-      }));
+      ).map((cat) => {
+        const firstItem = buckets[cat][0];
+        return {
+          category: cat,
+          title: AUTO_FILED_TITLES[cat],
+          emailCount: buckets[cat].length,
+          clusterCount: content.autoFiled[cat].length,
+          rows: content.autoFiled[cat].map((c) => ({
+            label: c.label,
+            summary: c.summary,
+          })),
+          feedbackUrl: firstItem ? buildFeedbackUrl(firstItem) : undefined,
+        };
+      });
 
       const props: DigestV2Props = {
         baseUrl: env.NEXT_PUBLIC_BASE_URL ?? "https://inbox.tdfurn.com",
