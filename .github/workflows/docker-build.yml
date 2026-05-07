@@ -80,5 +80,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /opt/inbox-zero
+            docker system prune -f --filter "until=24h"
             docker compose pull app
             docker compose up -d app
