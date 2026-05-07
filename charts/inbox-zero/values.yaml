@@ -56,7 +56,6 @@ migrations:
   # web pods skip startup migrations. Bundled Postgres installs keep startup
   # migrations because the database is created as part of the same release.
   enabled: true
-  useHelmHooks: true
   hookDeletePolicy: before-hook-creation,hook-succeeded
   backoffLimit: 2
   activeDeadlineSeconds: 420
@@ -139,7 +138,8 @@ postgresql:
     pullPolicy: IfNotPresent
   auth:
     username: postgres
-    password: password
+    # Required when using bundled Postgres. Do not use a guessable value.
+    password: ""
     database: inboxzero
   persistence:
     enabled: true
@@ -169,6 +169,9 @@ externalRedis:
 redis:
   # Ignored when externalRedis.enabled=true.
   enabled: true
+  auth:
+    # Required when using bundled Redis. Do not use a guessable value.
+    password: ""
   image:
     repository: redis
     tag: "7"
@@ -190,7 +193,8 @@ redisHttp:
     repository: hiett/serverless-redis-http
     tag: latest
     pullPolicy: IfNotPresent
-  token: change-me
+  # Required when redisHttp.enabled=true. Do not use a guessable value.
+  token: ""
   resources:
     requests:
       cpu: 50m
@@ -231,6 +235,9 @@ cron:
     reasoning-retention:
       schedule: "0 3 * * *"
       path: /api/cron/reasoning-retention
+    draft-cleanup:
+      schedule: "0 4 * * *"
+      path: /api/cron/draft-cleanup
     follow-up-reminders:
       schedule: "0 * * * *"
       path: /api/follow-up-reminders

@@ -47,6 +47,17 @@ secretEnv:
   CRON_SECRET: change-me
   OPENAI_API_KEY: change-me
   GOOGLE_PUBSUB_VERIFICATION_TOKEN: change-me
+
+postgresql:
+  auth:
+    password: replace-with-random-value
+
+redis:
+  auth:
+    password: replace-with-random-value
+
+redisHttp:
+  token: replace-with-random-value
 ```
 
 Then install:
@@ -105,6 +116,8 @@ existingConfigMap: inbox-zero-config
 
 The existing Secret should contain the same environment-variable keys the app expects, such as `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `EMAIL_ENCRYPT_SECRET`, `EMAIL_ENCRYPT_SALT`, `INTERNAL_API_KEY`, and provider API keys.
 
+If you use `existingSecret` with bundled Postgres or Redis, it must also contain `POSTGRES_PASSWORD`, `DATABASE_URL`, `DIRECT_URL`, `REDIS_PASSWORD`, `REDIS_URL`, and `UPSTASH_REDIS_TOKEN`.
+
 If you only use Microsoft OAuth, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to non-empty placeholder values such as `skipped`.
 
 ## Background Jobs
@@ -146,4 +159,8 @@ With `externalDatabase.enabled=true`, Helm runs migrations in a pre-install/pre-
 
 Bundled Postgres installs keep the web container's startup migration behavior because the database is created as part of the same Helm release.
 
+Bundled Postgres, Redis, and Redis HTTP require explicit secret values. Generate them before installing, for example with `openssl rand -hex 32`.
+
 CronJobs call the internal web Service, so they do not need public network access. If `CRON_SECRET` is empty, scheduled requests will fail once the app requires authorization for those endpoints.
+
+Cron schedules are configured under `cron.jobs`. The defaults follow the Docker self-hosting setup, so some schedules differ from hosted deployment schedules.

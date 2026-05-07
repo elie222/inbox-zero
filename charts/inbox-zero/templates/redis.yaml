@@ -7,6 +7,7 @@ metadata:
     {{- include "inbox-zero.labels" . | nindent 4 }}
     app.kubernetes.io/component: redis
 spec:
+  clusterIP: None
   ports:
     - name: redis
       port: 6379
@@ -44,21 +45,33 @@ spec:
         - name: redis
           image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
           imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          args:
+            - redis-server
+            - --requirepass
+            - $(REDIS_PASSWORD)
           ports:
             - name: redis
               containerPort: 6379
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "inbox-zero.secretName" . }}
+                  key: REDIS_PASSWORD
           readinessProbe:
             exec:
               command:
-                - redis-cli
-                - ping
+                - sh
+                - -ec
+                - redis-cli -a "$REDIS_PASSWORD" ping
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             exec:
               command:
-                - redis-cli
-                - ping
+                - sh
+                - -ec
+                - redis-cli -a "$REDIS_PASSWORD" ping
             initialDelaySeconds: 30
             periodSeconds: 30
           volumeMounts:
@@ -79,6 +92,5 @@ spec:
         resources:
           requests:
             storage: {{ .Values.redis.persistence.size }}
-  {{- else }}
   {{- end }}
 {{- end }}

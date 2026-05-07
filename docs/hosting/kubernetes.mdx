@@ -65,6 +65,17 @@ secretEnv:
   API_KEY_SALT: change-me
   CRON_SECRET: change-me
   OPENAI_API_KEY: change-me
+
+postgresql:
+  auth:
+    password: replace-with-random-value
+
+redis:
+  auth:
+    password: replace-with-random-value
+
+redisHttp:
+  token: replace-with-random-value
 ```
 
 The default chart includes Postgres, Redis, the Redis HTTP bridge, web, worker, and CronJobs. That is useful for a first Kubernetes install. For production, use managed Postgres and Redis.
@@ -113,6 +124,8 @@ existingSecret: inbox-zero-secrets
 ```
 
 That Secret should contain values like `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `EMAIL_ENCRYPT_SECRET`, `EMAIL_ENCRYPT_SALT`, `INTERNAL_API_KEY`, `API_KEY_SALT`, `CRON_SECRET`, and your LLM provider API key.
+
+If you use that same Secret with bundled Postgres or Redis, include `POSTGRES_PASSWORD`, `DATABASE_URL`, `DIRECT_URL`, `REDIS_PASSWORD`, `REDIS_URL`, and `UPSTASH_REDIS_TOKEN`.
 
 If you only use Microsoft OAuth, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to non-empty placeholder values such as `skipped`.
 
@@ -171,5 +184,7 @@ kubectl logs job/test-watch-renewal -n inbox-zero
 - With managed Postgres, Helm runs Prisma migrations in a pre-install/pre-upgrade Job.
 - Web pods set `SKIP_DB_MIGRATIONS=true` when the migration Job is enabled.
 - With bundled Postgres, the web container runs migrations during startup.
+- Bundled Postgres, Redis, and Redis HTTP require explicit secret values. Generate them before installing, for example with `openssl rand -hex 32`.
 - CronJobs call the internal Service, not the public Ingress.
+- Cron schedules are configured under `cron.jobs`. The defaults follow the Docker self-hosting setup, so some schedules differ from hosted deployment schedules.
 - The `/api/health` endpoint supports lightweight Kubernetes probes without an API key.

@@ -30,6 +30,8 @@ spec:
       app.kubernetes.io/component: redis-http
   template:
     metadata:
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
       labels:
         {{- include "inbox-zero.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: redis-http
@@ -50,7 +52,14 @@ spec:
                   name: {{ include "inbox-zero.secretName" . }}
                   key: UPSTASH_REDIS_TOKEN
             - name: SRH_CONNECTION_STRING
+              {{- if .Values.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "inbox-zero.secretName" . }}
+                  key: REDIS_URL
+              {{- else }}
               value: {{ include "inbox-zero.redisUrl" . | quote }}
+              {{- end }}
           resources:
             {{- toYaml .Values.redisHttp.resources | nindent 12 }}
 {{- end }}

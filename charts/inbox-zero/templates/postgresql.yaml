@@ -93,6 +93,5 @@ spec:
         resources:
           requests:
             storage: {{ .Values.postgresql.persistence.size }}
-  {{- else }}
   {{- end }}
 {{- end }}

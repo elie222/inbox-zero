@@ -71,11 +71,13 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "inbox-zero.databaseUrl" -}}
-{{- printf "postgresql://%s:%s@%s:5432/%s?schema=public" .Values.postgresql.auth.username .Values.postgresql.auth.password (include "inbox-zero.postgresqlServiceName" .) .Values.postgresql.auth.database -}}
+{{- $password := required "postgresql.auth.password is required when using bundled Postgres" .Values.postgresql.auth.password -}}
+{{- printf "postgresql://%s:%s@%s:5432/%s?schema=public" (.Values.postgresql.auth.username | urlquery) ($password | urlquery) (include "inbox-zero.postgresqlServiceName" .) (.Values.postgresql.auth.database | urlquery) -}}
 {{- end -}}
 
 {{- define "inbox-zero.redisUrl" -}}
-{{- printf "redis://%s:6379" (include "inbox-zero.redisServiceName" .) -}}
+{{- $password := required "redis.auth.password is required when using bundled Redis" .Values.redis.auth.password -}}
+{{- printf "redis://:%s@%s:6379" ($password | urlquery) (include "inbox-zero.redisServiceName" .) -}}
 {{- end -}}
 
 {{- define "inbox-zero.redisHttpUrl" -}}
@@ -124,6 +126,17 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "inbox-zero.migrationDatabaseEnv" -}}
 {{- if and .Values.externalDatabase.enabled .Values.externalDatabase.existingSecret.name }}
 {{- include "inbox-zero.externalDatabaseEnvRefs" . }}
+{{- else if and .Values.externalDatabase.enabled .Values.existingSecret }}
+- name: DATABASE_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "inbox-zero.secretName" . }}
+      key: DATABASE_URL
+- name: DIRECT_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "inbox-zero.secretName" . }}
+      key: DIRECT_URL
 {{- else if .Values.externalDatabase.enabled }}
 - name: DATABASE_URL
   value: {{ required "externalDatabase.databaseUrl is required when externalDatabase.enabled=true and no externalDatabase.existingSecret.name is set" .Values.externalDatabase.databaseUrl | quote }}
