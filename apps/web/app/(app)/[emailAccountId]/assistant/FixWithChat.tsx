@@ -126,7 +126,9 @@ export function FixWithChat({
     setContext(context);
 
     setInput(input);
-    setOpen((arr) => [...arr, "chat-sidebar"]);
+    setOpen((arr) =>
+      arr.includes("chat-sidebar") ? arr : [...arr, "chat-sidebar"],
+    );
     setIsModalOpen(false);
 
     // Reset state

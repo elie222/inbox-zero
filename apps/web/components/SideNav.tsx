@@ -301,6 +301,13 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
 
         <NavUser />
+
+        {state.includes("left-sidebar") &&
+          process.env.NEXT_PUBLIC_BUILD_SHA && (
+            <p className="px-2 text-[10px] text-muted-foreground/50 tabular-nums">
+              {process.env.NEXT_PUBLIC_BUILD_SHA.slice(0, 7)}
+            </p>
+          )}
       </SidebarFooter>
     </Sidebar>
   );

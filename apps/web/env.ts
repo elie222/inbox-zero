@@ -295,6 +295,7 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_POSTHOG_HERO_AB: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
     NEXT_PUBLIC_BASE_URL: z.string(),
+    NEXT_PUBLIC_BUILD_SHA: z.string().optional(),
     NEXT_PUBLIC_IMAGE_PROXY_BASE_URL: z.string().url().optional(),
     NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE: booleanString
       .optional()
@@ -392,6 +393,7 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID:
       process.env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID,
     NEXT_PUBLIC_BASE_URL: getBaseUrl(),
+    NEXT_PUBLIC_BUILD_SHA: process.env.NEXT_PUBLIC_BUILD_SHA,
     NEXT_PUBLIC_IMAGE_PROXY_BASE_URL:
       process.env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL,
     NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE:

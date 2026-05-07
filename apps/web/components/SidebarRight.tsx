@@ -1,7 +1,9 @@
 "use client";
 
+import { XIcon } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Chat } from "@/components/assistant-chat/chat";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
 
 export function SidebarRight({
@@ -11,7 +13,7 @@ export function SidebarRight({
   name: string;
   className?: string;
 }) {
-  const { state, openMobile, isMobile } = useSidebar();
+  const { state, openMobile, isMobile, toggleSidebar } = useSidebar();
   const isOpen = isMobile ? openMobile.includes(name) : state.includes(name);
 
   return (
@@ -24,6 +26,17 @@ export function SidebarRight({
       )}
     >
       <div className="flex h-full w-full flex-col overflow-hidden">
+        <div className="flex items-center justify-end border-b px-2 py-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            onClick={() => toggleSidebar([name])}
+            aria-label="Close chat"
+          >
+            <XIcon className="size-4" />
+          </Button>
+        </div>
         <Chat open={isOpen} />
       </div>
     </div>
