@@ -22,7 +22,15 @@ export async function cleanupAIDraftsForAccount({
       : cleanupDays;
 
   if (staleDays === null) {
-    return getEmptyCleanupResult({ disabled: true, cleanupDays: staleDays });
+    return {
+      total: 0,
+      deleted: 0,
+      skippedModified: 0,
+      alreadyGone: 0,
+      errors: 0,
+      disabled: true,
+      cleanupDays: staleDays,
+    };
   }
 
   const cutoffDate = new Date();
@@ -45,7 +53,15 @@ export async function cleanupAIDraftsForAccount({
   });
 
   if (staleDrafts.length === 0) {
-    return getEmptyCleanupResult({ cleanupDays: staleDays });
+    return {
+      total: 0,
+      deleted: 0,
+      skippedModified: 0,
+      alreadyGone: 0,
+      errors: 0,
+      disabled: false,
+      cleanupDays: staleDays,
+    };
   }
 
   const provider = await createEmailProvider({
@@ -201,22 +217,4 @@ async function getConfiguredDraftCleanupDays(emailAccountId: string) {
   });
 
   return emailAccount?.draftCleanupDays ?? DEFAULT_AI_DRAFT_CLEANUP_DAYS;
-}
-
-function getEmptyCleanupResult({
-  disabled = false,
-  cleanupDays,
-}: {
-  disabled?: boolean;
-  cleanupDays: number | null;
-}) {
-  return {
-    total: 0,
-    deleted: 0,
-    skippedModified: 0,
-    alreadyGone: 0,
-    errors: 0,
-    disabled,
-    cleanupDays,
-  };
 }

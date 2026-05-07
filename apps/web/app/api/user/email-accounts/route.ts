@@ -27,7 +27,6 @@ async function getEmailAccounts({ userId }: { userId: string }) {
       accountId: true,
       name: true,
       image: true,
-      draftCleanupDays: true,
       account: {
         select: {
           provider: true,

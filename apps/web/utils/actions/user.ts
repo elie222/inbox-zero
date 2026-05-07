@@ -14,22 +14,13 @@ import {
   saveAboutBody,
   saveSignatureBody,
   saveWritingStyleBody,
+  updateAIDraftCleanupSettingsBody,
 } from "@/utils/actions/user.validation";
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
 import { aliasPosthogUser } from "@/utils/posthog";
 import { cleanupAIDraftsForAccount } from "@/utils/ai/draft-cleanup";
-import {
-  DEFAULT_AI_DRAFT_CLEANUP_DAYS,
-  MAX_AI_DRAFT_CLEANUP_DAYS,
-  MIN_AI_DRAFT_CLEANUP_DAYS,
-} from "@/utils/ai/draft-cleanup-settings";
+import { DEFAULT_AI_DRAFT_CLEANUP_DAYS } from "@/utils/ai/draft-cleanup-settings";
 import { isNotFoundError } from "@/utils/prisma-helpers";
-
-const draftCleanupDaysSchema = z
-  .number()
-  .int()
-  .min(MIN_AI_DRAFT_CLEANUP_DAYS)
-  .max(MAX_AI_DRAFT_CLEANUP_DAYS);
 
 export const saveAboutAction = actionClient
   .metadata({ name: "saveAbout" })
@@ -90,31 +81,13 @@ export const deleteAccountAction = actionClientUser
 
 export const cleanupAIDraftsAction = actionClient
   .metadata({ name: "cleanupAIDrafts" })
-  .inputSchema(
-    z.object({
-      olderThanDays: draftCleanupDaysSchema.optional(),
-    }),
-  )
-  .action(
-    async ({
-      parsedInput: { olderThanDays },
-      ctx: { emailAccountId, provider, logger },
-    }) =>
-      cleanupAIDraftsForAccount({
-        emailAccountId,
-        provider,
-        logger,
-        cleanupDays: olderThanDays,
-      }),
+  .action(async ({ ctx: { emailAccountId, provider, logger } }) =>
+    cleanupAIDraftsForAccount({ emailAccountId, provider, logger }),
   );
 
 export const updateAIDraftCleanupSettingsAction = actionClient
   .metadata({ name: "updateAIDraftCleanupSettings" })
-  .inputSchema(
-    z.object({
-      cleanupDays: draftCleanupDaysSchema.nullable(),
-    }),
-  )
+  .inputSchema(updateAIDraftCleanupSettingsBody)
   .action(async ({ parsedInput: { cleanupDays }, ctx: { emailAccountId } }) => {
     const nextCleanupDays =
       cleanupDays === null
