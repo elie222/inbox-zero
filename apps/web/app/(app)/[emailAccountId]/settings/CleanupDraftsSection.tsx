@@ -48,10 +48,6 @@ export function CleanupDraftsSection({
     parsedCleanupDays >= MIN_AI_DRAFT_CLEANUP_DAYS &&
     parsedCleanupDays <= MAX_AI_DRAFT_CLEANUP_DAYS;
   const automaticCleanupEnabled = savedCleanupDays !== null;
-  const cleanupDaysForManualRun =
-    cleanupDaysIsValid && parsedCleanupDays
-      ? parsedCleanupDays
-      : DEFAULT_AI_DRAFT_CLEANUP_DAYS;
 
   const {
     execute: updateCleanupSettings,
@@ -122,14 +118,16 @@ export function CleanupDraftsSection({
   return (
     <>
       <ItemSeparator />
-      <Item size="sm" className="items-start">
+      <Item size="sm">
         <ItemContent>
           <ItemTitle>Auto-delete AI Drafts</ItemTitle>
           <ItemDescription>
             {`Only removes drafts created by ${BRAND_NAME} that have not been edited by you. Your own drafts and edited AI drafts are kept.`}
           </ItemDescription>
-          {automaticCleanupEnabled && (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+        </ItemContent>
+        <ItemActions className="flex-wrap justify-end">
+          {automaticCleanupEnabled ? (
+            <>
               <Input
                 aria-label="Draft cleanup age in days"
                 className="h-8 w-24"
@@ -141,9 +139,7 @@ export function CleanupDraftsSection({
                 type="number"
                 value={cleanupDaysInput}
               />
-              <span className="text-sm text-muted-foreground">
-                days after creation
-              </span>
+              <span className="text-sm text-muted-foreground">days</span>
               <Button
                 size="sm"
                 variant="outline"
@@ -157,41 +153,25 @@ export function CleanupDraftsSection({
               >
                 Save
               </Button>
-            </div>
+            </>
+          ) : (
+            <span className="text-sm text-muted-foreground">Off</span>
           )}
-          {!automaticCleanupEnabled && (
-            <p className="mt-2 text-sm text-muted-foreground">
-              Automatic cleanup is off. AI drafts will stay until you delete
-              them manually.
-            </p>
-          )}
-        </ItemContent>
-        <ItemActions>
           <Switch
             aria-label="Toggle automatic AI draft cleanup"
             checked={automaticCleanupEnabled}
             disabled={isUpdatingCleanupSettings}
             onCheckedChange={handleToggleAutomaticCleanup}
           />
-        </ItemActions>
-      </Item>
-      <ItemSeparator />
-      <Item size="sm">
-        <ItemContent>
-          <ItemTitle>Delete Old AI Drafts Now</ItemTitle>
-          <ItemDescription>
-            {`Remove unedited drafts created by ${BRAND_NAME} that are older than ${cleanupDaysForManualRun} day${cleanupDaysForManualRun === 1 ? "" : "s"}.`}
-          </ItemDescription>
-        </ItemContent>
-        <ItemActions>
           <Button
             size="sm"
             variant="outline"
-            disabled={!cleanupDaysIsValid}
             loading={isExecuting}
-            onClick={() => execute({ olderThanDays: cleanupDaysForManualRun })}
+            onClick={() =>
+              execute({ olderThanDays: DEFAULT_AI_DRAFT_CLEANUP_DAYS })
+            }
           >
-            Delete drafts
+            Delete old drafts now
           </Button>
         </ItemActions>
       </Item>
