@@ -44,6 +44,7 @@
     "@apple/app-store-server-library": "3.0.0",
     "@asteasolutions/zod-to-openapi": "8.5.0",
     "@better-auth/expo": "1.6.5",
+    "@better-auth/scim": "1.6.5",
     "@better-auth/sso": "1.6.5",
     "@chat-adapter/slack": "4.26.0",
     "@chat-adapter/state-ioredis": "4.26.0",

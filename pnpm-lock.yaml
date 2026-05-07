@@ -126,6 +126,9 @@ importers:
       '@better-auth/expo':
         specifier: 1.6.5
         version: 1.6.5(@better-auth/core@1.6.5(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@opentelemetry/api@1.9.1)(better-call@1.3.5(zod@4.2.1))(jose@6.2.2)(kysely@0.28.15)(nanostores@1.2.0))(better-auth@1.6.5(@opentelemetry/api@1.9.1)(@prisma/client@7.7.0(prisma@7.7.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(magicast@0.3.5)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.3))(typescript@6.0.3))(mongodb@7.1.0(gcp-metadata@7.0.1)(socks@2.8.7))(mysql2@3.15.3)(next@16.2.4(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(pg@8.20.0)(prisma@7.7.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(magicast@0.3.5)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.3))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(svelte@5.38.6(@typescript-eslint/types@8.58.0))(vitest@4.1.4)(vue@3.5.20(typescript@6.0.3)))
+      '@better-auth/scim':
+        specifier: 1.6.5
+        version: 1.6.5(2eb0e39714589a30932f89b7676b887b)
       '@better-auth/sso':
         specifier: 1.6.5
         version: 1.6.5(784acc98c6f48fb6cb4a5e5dd24c49de)
@@ -1851,6 +1854,14 @@ packages:
         optional: true
       prisma:
         optional: true
+
+  '@better-auth/scim@1.6.5':
+    resolution: {integrity: sha512-UtgsDCq7pXKKCsm02l5ibLPgv7/KX/J07nCoAw4DWIKcHZsC1AI0gJbZmAvGyWP2Zv7pPbsQqQmrbG63HDN/Cg==}
+    peerDependencies:
+      '@better-auth/core': ^1.6.5
+      '@better-auth/utils': 0.4.0
+      better-auth: ^1.6.5
+      better-call: 1.3.5
 
   '@better-auth/sso@1.6.5':
     resolution: {integrity: sha512-9mmdv94+dblf9+9TsOJeF+CVDVjPMydbhhdO8bjR8riwg0Dc8eJple2w1fgo/5wBEDyVRpipU8K13QSR7wlyzQ==}
@@ -14478,6 +14489,14 @@ snapshots:
     optionalDependencies:
       '@prisma/client': 7.7.0(prisma@7.7.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(magicast@0.3.5)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.3))(typescript@6.0.3)
       prisma: 7.7.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(magicast@0.3.5)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.3)
+
+  '@better-auth/scim@1.6.5(2eb0e39714589a30932f89b7676b887b)':
+    dependencies:
+      '@better-auth/core': 1.6.5(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@opentelemetry/api@1.9.1)(better-call@1.3.5(zod@4.2.1))(jose@6.2.2)(kysely@0.28.15)(nanostores@1.2.0)
+      '@better-auth/utils': 0.4.0
+      better-auth: 1.6.5(@opentelemetry/api@1.9.1)(@prisma/client@7.7.0(prisma@7.7.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(magicast@0.3.5)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.3))(typescript@6.0.3))(mongodb@7.1.0(gcp-metadata@7.0.1)(socks@2.8.7))(mysql2@3.15.3)(next@16.2.4(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(pg@8.20.0)(prisma@7.7.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(magicast@0.3.5)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@6.0.3))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(svelte@5.38.6(@typescript-eslint/types@8.58.0))(vitest@4.1.4)(vue@3.5.20(typescript@6.0.3))
+      better-call: 1.3.5(zod@4.2.1)
+      zod: 4.3.6
 
   '@better-auth/sso@1.6.5(784acc98c6f48fb6cb4a5e5dd24c49de)':
     dependencies:

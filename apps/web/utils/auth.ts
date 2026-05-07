@@ -1,4 +1,5 @@
 import { sso } from "@better-auth/sso";
+import { scim } from "@better-auth/scim";
 import { expo } from "@better-auth/expo";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import type { GenericOAuthConfig } from "better-auth/plugins/generic-oauth";
@@ -47,6 +48,7 @@ import {
   hasAppleOauthConfig,
 } from "@/utils/oauth/provider-config";
 import { getAppleClientSecret } from "@/utils/auth/apple-client-secret";
+import { assertCanGenerateScimToken } from "@/utils/auth/scim";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
@@ -215,6 +217,16 @@ export const betterAuthConfig = betterAuth({
     sso({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
+    }),
+    scim({
+      providerOwnership: { enabled: true },
+      storeSCIMToken: "hashed",
+      beforeSCIMTokenGenerated: async ({ user, scimToken }) => {
+        await assertCanGenerateScimToken({
+          userEmail: user.email,
+          scimToken,
+        });
+      },
     }),
     ...(genericOauthPlugin ? [genericOauthPlugin] : []),
     ...(mobileAuthOrigins.length > 0 ? [expo()] : []),

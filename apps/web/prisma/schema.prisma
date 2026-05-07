@@ -104,6 +104,7 @@ model User {
   // Referral relationships
   referralsMade    Referral[] @relation("ReferrerUser")
   referralReceived Referral?  @relation("ReferredUser")
+  scimProviders    ScimProvider[]
 }
 
 enum ApiKeyScope {
@@ -225,6 +226,7 @@ model Organization {
   updatedAt   DateTime      @updatedAt
   members     Member[]
   SsoProvider SsoProvider[]
+  ScimProvider ScimProvider[]
   sessions    Session[]
   invitations Invitation[]
 }
@@ -286,6 +288,22 @@ model SsoProvider {
   @@index([emailAccountId])
   @@index([organizationId])
   @@map("ssoProvider")
+}
+
+model ScimProvider {
+  id             String        @id @default(cuid())
+  providerId     String        @unique
+  scimToken      String        @unique
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId])
+  @@index([userId])
+  @@map("scimProvider")
 }
 
 model Digest {
