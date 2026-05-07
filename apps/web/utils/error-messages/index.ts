@@ -115,6 +115,7 @@ export const ErrorType = {
   API_KEY_DEACTIVATED: "API key deactivated",
   AI_QUOTA_ERROR: "AI quota error",
   INSUFFICIENT_CREDITS: "Insufficient AI credits",
+  TRIAL_AI_LIMIT_REACHED: "Trial AI limit reached",
   ACCOUNT_DISCONNECTED: "Account disconnected",
   // Legacy keys kept for clearing old stored errors
   INCORRECT_OPENAI_API_KEY: "Incorrect OpenAI API key",
@@ -150,6 +151,11 @@ const errorTypeConfig: Record<
     label: "Insufficient Credits",
     actionUrl: "/settings",
     actionLabel: "Update Settings",
+  },
+  [ErrorType.TRIAL_AI_LIMIT_REACHED]: {
+    label: "Trial AI Limit Reached",
+    actionUrl: "/premium",
+    actionLabel: "Upgrade",
   },
   [ErrorType.ACCOUNT_DISCONNECTED]: {
     label: "Account Disconnected",

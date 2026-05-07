@@ -7,6 +7,8 @@ vi.mock("@/env", () => ({
   env: {
     NEXT_PUBLIC_POSTHOG_KEY: "phc_test_key",
     NEXT_PUBLIC_POSTHOG_API_HOST: undefined,
+    POSTHOG_API_SECRET: "posthog-secret",
+    POSTHOG_PROJECT_ID: "project-1",
     NODE_ENV: "test",
   },
 }));
@@ -31,6 +33,7 @@ vi.mock("@/utils/prisma");
 
 import {
   FIRST_TIME_EVENTS,
+  deletePosthogUser,
   trackFirstTimeEvent,
   trackUserDeleted,
   trackUserDeletionRequested,
@@ -106,6 +109,34 @@ describe("trackFirstTimeEvent", () => {
     expect(captureMock).toHaveBeenCalledTimes(1);
   });
 
+  it("evicts older in-process dedupe keys so the cache stays bounded", async () => {
+    vi.mocked(redis.set).mockResolvedValue(null);
+
+    await trackFirstTimeEvent({
+      emailAccountId: "bounded-cache-first-account",
+      event: FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE,
+    });
+
+    for (let i = 0; i < 1000; i++) {
+      await trackFirstTimeEvent({
+        emailAccountId: `bounded-cache-account-${i}`,
+        event: FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE,
+      });
+    }
+
+    await trackFirstTimeEvent({
+      emailAccountId: "bounded-cache-first-account",
+      event: FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE,
+    });
+
+    expect(redis.set).toHaveBeenCalledTimes(1002);
+    expect(redis.set).toHaveBeenLastCalledWith(
+      `first-event:bounded-cache-first-account:${FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE}`,
+      "1",
+      { nx: true },
+    );
+  });
+
   it("does not capture when the email account has no user email", async () => {
     vi.mocked(redis.set).mockResolvedValue("OK");
 
@@ -125,6 +156,40 @@ describe("trackFirstTimeEvent", () => {
 describe("user deletion events", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    global.fetch = vi.fn();
+  });
+
+  it("encodes email special characters when looking up the PostHog user", async () => {
+    const email = "person+tag&team#100%@example.com";
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce({
+        json: async () => ({
+          results: [{ id: "person-id", distinct_ids: [email] }],
+        }),
+      } as Response)
+      .mockResolvedValueOnce({} as Response);
+
+    await deletePosthogUser({ email });
+
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      1,
+      "https://app.posthog.com/api/projects/project-1/persons/?distinct_id=person%2Btag%26team%23100%25%40example.com",
+      {
+        headers: {
+          Authorization: "Bearer posthog-secret",
+        },
+      },
+    );
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      2,
+      "https://app.posthog.com/api/projects/project-1/persons/person-id/?delete_events=true",
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: "Bearer posthog-secret",
+        },
+      },
+    );
   });
 
   it("captures deletion requested with an anonymous distinct id", async () => {

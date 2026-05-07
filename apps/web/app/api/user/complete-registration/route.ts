@@ -12,8 +12,11 @@ import type { Logger } from "@/utils/logger";
 export const POST = withError("complete-registration", async (request) => {
   const logger = request.logger;
   const session = await auth(request.headers);
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  if (!session?.user.email) {
+    // This endpoint is fire-and-forget from onboarding pages; missing auth is a
+    // terminal no-op, not a state callers should retry or surface to users.
+    return NextResponse.json({ success: false, reason: "not_authenticated" });
+  }
 
   const headersList = await headers();
   const eventSourceUrl = headersList.get("referer");

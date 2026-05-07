@@ -29,6 +29,7 @@ const {
   mockPosthogCaptureEvent: vi.fn(),
   mockUnsubscribeSenderAndMark: vi.fn(),
   mockPrisma: {
+    $queryRaw: vi.fn(),
     emailAccount: {
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -2128,10 +2129,12 @@ describe("aiProcessAssistantChat", () => {
   it("updatePersonalInstructions in append mode preserves existing content", async () => {
     const tools = await captureToolSet();
 
-    mockPrisma.emailAccount.findUnique.mockResolvedValue({
-      about: "Existing instructions",
-    });
-    mockPrisma.emailAccount.update.mockResolvedValue({});
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        previous: "Existing instructions",
+        updated: "Existing instructions\nAdditional preference",
+      },
+    ]);
 
     const result = await tools.updatePersonalInstructions.execute({
       personalInstructions: "Additional preference",
@@ -2141,20 +2144,18 @@ describe("aiProcessAssistantChat", () => {
     expect(result.success).toBe(true);
     expect(result.updated).toBe("Existing instructions\nAdditional preference");
     expect(result.previous).toBe("Existing instructions");
-    expect(mockPrisma.emailAccount.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { about: "Existing instructions\nAdditional preference" },
-      }),
-    );
+    expect(mockPrisma.emailAccount.update).not.toHaveBeenCalled();
   });
 
   it("updatePersonalInstructions defaults to append mode", async () => {
     const tools = await captureToolSet();
 
-    mockPrisma.emailAccount.findUnique.mockResolvedValue({
-      about: "Existing instructions",
-    });
-    mockPrisma.emailAccount.update.mockResolvedValue({});
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        previous: "Existing instructions",
+        updated: "Existing instructions\nAdditional preference",
+      },
+    ]);
 
     const result = await tools.updatePersonalInstructions.execute({
       personalInstructions: "Additional preference",
@@ -2162,20 +2163,18 @@ describe("aiProcessAssistantChat", () => {
 
     expect(result.success).toBe(true);
     expect(result.updated).toBe("Existing instructions\nAdditional preference");
-    expect(mockPrisma.emailAccount.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { about: "Existing instructions\nAdditional preference" },
-      }),
-    );
+    expect(mockPrisma.emailAccount.update).not.toHaveBeenCalled();
   });
 
   it("updatePersonalInstructions in append mode with no existing about sets new content", async () => {
     const tools = await captureToolSet();
 
-    mockPrisma.emailAccount.findUnique.mockResolvedValue({
-      about: null,
-    });
-    mockPrisma.emailAccount.update.mockResolvedValue({});
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        previous: null,
+        updated: "First instructions",
+      },
+    ]);
 
     const result = await tools.updatePersonalInstructions.execute({
       personalInstructions: "First instructions",

@@ -52,7 +52,10 @@ import {
   type ResolvedModel,
   type SelectModel,
 } from "@/utils/llms/model";
-import { shouldForceNanoModel } from "@/utils/llms/model-usage-guard";
+import {
+  assertTrialAiUsageAllowed,
+  shouldForceNanoModel,
+} from "@/utils/llms/model-usage-guard";
 import { Provider } from "@/utils/llms/config";
 import { createScopedLogger } from "@/utils/logger";
 import { getPosthogLlmClient, isPosthogLlmEvalApproved } from "@/utils/posthog";
@@ -1155,6 +1158,14 @@ async function resolveModelCandidates({
   modelOptions: SelectModel;
   modelCandidates: ResolvedModel[];
 }> {
+  await assertTrialAiUsageAllowed({
+    userEmail,
+    hasUserApiKey: modelOptions.hasUserApiKey,
+    label,
+    userId,
+    emailAccountId,
+  });
+
   const effectiveModelOptions = await getCostControlledModelOptions({
     modelOptions,
     userEmail,

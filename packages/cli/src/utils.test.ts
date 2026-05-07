@@ -94,6 +94,24 @@ LLM_API_KEY=
     expect(result).toContain("GOOGLE_CLIENT_ID=google-id");
   });
 
+  it("should preserve replacement tokens and escape quoted values", () => {
+    const result = generateEnvFile({
+      env: {
+        DATABASE_URL: 'postgresql://user:$&"pa\\ss@db:5432/test',
+        AUTH_SECRET: "secret-$&-value",
+      },
+      useDockerInfra: false,
+      llmProvider: "anthropic",
+      template: "DATABASE_URL=placeholder\nAUTH_SECRET=old\n",
+    });
+
+    expect(result).toContain(
+      'DATABASE_URL="postgresql://user:$&\\"pa\\\\ss@db:5432/test"',
+    );
+    expect(result).toContain("AUTH_SECRET=secret-$&-value");
+    expect(result).not.toContain("AUTH_SECRET=secret-AUTH_SECRET=old-value");
+  });
+
   it("should set Docker-specific values when useDockerInfra is true", () => {
     const dockerEnv: EnvConfig = {
       ...baseEnv,
@@ -561,6 +579,12 @@ describe("updateEnvValue", () => {
     const content = "FOO=old";
     const result = updateEnvValue(content, "FOO", 'hello"world');
     expect(result).toContain('FOO="hello\\"world"');
+  });
+
+  it("should preserve replacement tokens when updating values", () => {
+    const content = "FOO=old";
+    const result = updateEnvValue(content, "FOO", "new-$&-value");
+    expect(result).toBe("FOO=new-$&-value");
   });
 });
 

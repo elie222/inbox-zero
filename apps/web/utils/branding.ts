@@ -7,7 +7,7 @@ export const BRAND_ICON_URL =
 export const SUPPORT_EMAIL = env.NEXT_PUBLIC_SUPPORT_EMAIL;
 
 export function getBrandTitle(pageTitle: string) {
-  return `${pageTitle} | ${BRAND_NAME}`;
+  return `${BRAND_NAME} | ${pageTitle}`;
 }
 
 export function getPossessiveBrandName() {
