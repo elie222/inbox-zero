@@ -23,6 +23,9 @@ import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import type { gmail_v1 } from "@googleapis/gmail";
 
+const MAX_GMAIL_HISTORY_ID_GAP = 3000;
+const GMAIL_HISTORY_PAGE_SIZE = 500;
+
 export async function processHistoryForUser(
   decodedData: {
     emailAddress: string;
@@ -140,12 +143,16 @@ export async function processHistoryForUser(
           return NextResponse.json({ ok: true });
         }
 
-        const history = historyResult.data;
-        const historyEntries = history.history ?? [];
+        const historyEntries = historyResult.history;
 
         if (historyEntries.length > 0) {
           logger.info("Processing history", {
             startHistoryId: historyResult.startHistoryId,
+            historyIdGap: historyResult.historyIdGap,
+            maxHistoryIdGap: MAX_GMAIL_HISTORY_ID_GAP,
+            skippedHistoryIds: historyResult.skippedHistoryIds,
+            pageCount: historyResult.pageCount,
+            historyItemCount: historyResult.historyItemCount,
           });
 
           await processHistory(
@@ -166,11 +173,15 @@ export async function processHistoryForUser(
             logger,
           );
         } else {
-          // When we truncate a large gap (webhookHistoryId - 500), Gmail can return
-          // an empty recent window. We still need to advance to the webhook historyId
-          // so we don't stay permanently behind and keep skipping.
+          // When we truncate a large gap, Gmail can return an empty recent window.
+          // We still need to advance to the webhook historyId so we don't stay
+          // permanently behind and keep skipping.
           logger.info("No history", {
             startHistoryId: historyResult.startHistoryId,
+            historyIdGap: historyResult.historyIdGap,
+            maxHistoryIdGap: MAX_GMAIL_HISTORY_ID_GAP,
+            skippedHistoryIds: historyResult.skippedHistoryIds,
+            pageCount: historyResult.pageCount,
           });
 
           // important to save this or we can get into a loop with never receiving history
@@ -349,8 +360,12 @@ async function fetchGmailHistoryResilient({
 }): Promise<
   | {
       status: "success";
-      data: Awaited<ReturnType<typeof getHistory>>;
       startHistoryId: string;
+      history: gmail_v1.Schema$History[];
+      historyIdGap: number;
+      skippedHistoryIds: number;
+      pageCount: number;
+      historyItemCount: number;
     }
   | { status: "expired" }
 > {
@@ -358,22 +373,29 @@ async function fetchGmailHistoryResilient({
     emailAccount?.lastSyncedHistoryId || "0",
   );
 
-  // If the gap is too large (e.g. > 500 items), we start from currentHistoryId - 500.
-  // This prevents timeouts and runaway processing costs if the system falls way behind.
+  const historyIdGap = Math.max(0, webhookHistoryId - lastSyncedHistoryId);
+
+  // History IDs are not item counts, so keep this window large enough for normal
+  // active-account bursts while still bounding old/disconnected-account catch-up.
   const startHistoryIdNum = Math.max(
     lastSyncedHistoryId,
-    webhookHistoryId - 500,
+    webhookHistoryId - MAX_GMAIL_HISTORY_ID_GAP,
   );
   const startHistoryId =
     options?.startHistoryId || startHistoryIdNum.toString();
+  const skippedHistoryIds = options?.startHistoryId
+    ? 0
+    : Math.max(0, startHistoryIdNum - lastSyncedHistoryId);
 
-  // Log if we are intentionally skipping emails to keep the system stable
-  if (startHistoryIdNum > lastSyncedHistoryId && !options?.startHistoryId) {
-    logger.warn("Skipping history items due to large gap", {
+  // Log if we are intentionally skipping Gmail history IDs to keep the system stable.
+  if (skippedHistoryIds > 0) {
+    logger.warn("Skipping Gmail history IDs due to large gap", {
       lastSyncedHistoryId,
       webhookHistoryId,
+      historyIdGap,
+      maxHistoryIdGap: MAX_GMAIL_HISTORY_ID_GAP,
       effectiveStartHistoryId: startHistoryIdNum,
-      skippedHistoryItems: startHistoryIdNum - lastSyncedHistoryId,
+      skippedHistoryIds,
     });
   }
 
@@ -381,27 +403,52 @@ async function fetchGmailHistoryResilient({
     startHistoryId,
     lastSyncedHistoryId: emailAccount?.lastSyncedHistoryId,
     gmailHistoryId: startHistoryId,
+    webhookHistoryId,
+    historyIdGap,
+    maxHistoryIdGap: MAX_GMAIL_HISTORY_ID_GAP,
+    skippedHistoryIds,
   });
 
   try {
-    const data = await getHistory(
-      gmail,
-      {
-        startHistoryId,
-        historyTypes: ["messageAdded", "labelAdded", "labelRemoved"],
-        maxResults: 500,
-      },
-      logger,
-    );
+    const historyEntries: gmail_v1.Schema$History[] = [];
+    let pageToken: string | undefined;
+    let pageCount = 0;
 
-    if (data.nextPageToken) {
-      logger.warn("Gmail history has more pages that were not fetched", {
-        historyItemCount: data.history?.length ?? 0,
+    do {
+      const data = await getHistory(
+        gmail,
+        {
+          startHistoryId,
+          historyTypes: ["messageAdded", "labelAdded", "labelRemoved"],
+          maxResults: GMAIL_HISTORY_PAGE_SIZE,
+          pageToken,
+        },
+        logger,
+      );
+
+      const pageHistory = data.history ?? [];
+      historyEntries.push(...pageHistory);
+      pageCount += 1;
+      pageToken = data.nextPageToken || undefined;
+
+      logger.info("Fetched Gmail history page", {
         startHistoryId,
+        pageCount,
+        pageHistoryItemCount: pageHistory.length,
+        accumulatedHistoryItemCount: historyEntries.length,
+        hasNextPage: !!pageToken,
       });
-    }
+    } while (pageToken);
 
-    return { status: "success", data, startHistoryId };
+    return {
+      status: "success",
+      history: historyEntries,
+      startHistoryId,
+      historyIdGap,
+      skippedHistoryIds,
+      pageCount,
+      historyItemCount: historyEntries.length,
+    };
   } catch (error) {
     // Gmail history IDs are typically valid for ~1 week. If older, Gmail returns a 404.
     // In this case, we reset the sync point to the current history ID.
