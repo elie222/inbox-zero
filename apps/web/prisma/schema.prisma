@@ -205,6 +205,7 @@ model EmailAccount {
   bookingSchedules       BookingSchedule[]
   bookingEventTypeHosts  BookingEventTypeHost[]
   bookings               Booking[]
+  bookingSlotLocks       BookingSlotLock[]
   mcpConnections         McpConnection[]
   meetingBriefings       MeetingBriefing[]
   driveConnections       DriveConnection[]
@@ -1362,10 +1363,15 @@ model BookingSlotLock {
   eventTypeId String
   eventType   BookingEventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
 
+  // Denormalized so the no-overlap exclusion constraint can scope to the host
+  // (a host's bookings across event types must not overlap).
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
   bookingId String?
   booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
-  @@unique([eventTypeId, startTime, endTime])
+  @@index([emailAccountId, startTime, endTime])
   @@index([expiresAt])
   @@index([bookingId])
 }

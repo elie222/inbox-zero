@@ -23,6 +23,7 @@ type BookingEmailPayload = {
   startTime: Date;
   timezone: string;
   eventType: {
+    hideHostEmail: boolean;
     hosts: Array<{
       emailAccount: {
         email: string;
@@ -72,7 +73,7 @@ export async function sendBookingConfirmationEmails({
           eventTitle: booking.eventTypeTitle,
           formattedTime: guestParts.formattedTime,
           guestName: booking.guestName,
-          hostName: host.name || host.email,
+          hostName: getGuestFacingHostName(booking, host),
           location,
           dateMonth: guestParts.dateMonth,
           dateDay: guestParts.dateDay,
@@ -141,7 +142,7 @@ export async function sendBookingCancellationEmails({
             booking.timezone,
           ),
           guestName: booking.guestName,
-          hostName: host.name || host.email,
+          hostName: getGuestFacingHostName(booking, host),
           reason: booking.cancellationReason,
         },
       }),
@@ -218,6 +219,17 @@ function isUrl(value?: string | null) {
 
 function getHost(booking: BookingEmailPayload) {
   return booking.eventType.hosts[0]?.emailAccount ?? null;
+}
+
+function getGuestFacingHostName(
+  booking: BookingEmailPayload,
+  host: { email: string; name?: string | null },
+) {
+  if (host.name) return host.name;
+  // Don't fall back to the host email when hideHostEmail is set; use a
+  // neutral label instead so the email isn't leaked to the guest.
+  if (booking.eventType.hideHostEmail) return booking.eventTypeTitle;
+  return host.email;
 }
 
 function getLocationLabel(booking: BookingEmailPayload) {

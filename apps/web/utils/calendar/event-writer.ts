@@ -96,6 +96,7 @@ export async function cancelCalendarEvent({
       calendarId: true,
       connection: {
         select: {
+          id: true,
           provider: true,
           accessToken: true,
           refreshToken: true,
@@ -144,6 +145,7 @@ async function getWritableCalendar({
       calendarId: true,
       connection: {
         select: {
+          id: true,
           provider: true,
           accessToken: true,
           refreshToken: true,
@@ -168,6 +170,7 @@ function createWritableProvider({
   connection: {
     accessToken: string | null;
     expiresAt: Date | null;
+    id: string;
     provider: string;
     refreshToken: string | null;
   };
@@ -176,6 +179,7 @@ function createWritableProvider({
 }) {
   const providerParams = {
     accessToken: connection.accessToken,
+    connectionId: connection.id,
     refreshToken: connection.refreshToken,
     expiresAt: connection.expiresAt?.getTime() ?? null,
     emailAccountId,

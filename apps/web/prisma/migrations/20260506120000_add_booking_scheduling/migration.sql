@@ -159,6 +159,7 @@ CREATE TABLE "BookingSlotLock" (
     "endTime" TIMESTAMP(3) NOT NULL,
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "eventTypeId" TEXT NOT NULL,
+    "emailAccountId" TEXT NOT NULL,
     "bookingId" TEXT,
 
     CONSTRAINT "BookingSlotLock_pkey" PRIMARY KEY ("id")
@@ -222,7 +223,7 @@ CREATE INDEX "Booking_emailAccountId_idx" ON "Booking"("emailAccountId");
 CREATE INDEX "Booking_guestEmail_idx" ON "Booking"("guestEmail");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "BookingSlotLock_eventTypeId_startTime_endTime_key" ON "BookingSlotLock"("eventTypeId", "startTime", "endTime");
+CREATE INDEX "BookingSlotLock_emailAccountId_startTime_endTime_idx" ON "BookingSlotLock"("emailAccountId", "startTime", "endTime");
 
 -- CreateIndex
 CREATE INDEX "BookingSlotLock_expiresAt_idx" ON "BookingSlotLock"("expiresAt");
@@ -273,11 +274,15 @@ ALTER TABLE "Booking" ADD CONSTRAINT "Booking_emailAccountId_fkey" FOREIGN KEY (
 ALTER TABLE "BookingSlotLock" ADD CONSTRAINT "BookingSlotLock_eventTypeId_fkey" FOREIGN KEY ("eventTypeId") REFERENCES "BookingEventType"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "BookingSlotLock" ADD CONSTRAINT "BookingSlotLock_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "BookingSlotLock" ADD CONSTRAINT "BookingSlotLock_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
--- Prevent overlapping slot locks for the same event type so concurrent bookings cannot both succeed.
+-- Prevent overlapping slot locks for the same host across all of their event types
+-- so concurrent bookings cannot both succeed.
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 ALTER TABLE "BookingSlotLock" ADD CONSTRAINT "BookingSlotLock_no_overlap" EXCLUDE USING gist (
-    "eventTypeId" WITH =,
+    "emailAccountId" WITH =,
     tstzrange("startTime", "endTime", '[)') WITH &&
 );

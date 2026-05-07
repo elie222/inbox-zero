@@ -91,6 +91,7 @@ export async function getUnifiedCalendarAvailability({
           calendarIds,
           timeMin,
           timeMax,
+          failOnCalendarError: failClosed,
         })
         .catch((error) => {
           logger.error("Error fetching Google calendar availability", {

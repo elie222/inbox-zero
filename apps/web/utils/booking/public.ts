@@ -17,7 +17,10 @@ import {
   cancelCalendarEvent,
   createCalendarEvent,
 } from "@/utils/calendar/event-writer";
-import type { CalendarEventLocationType } from "@/utils/calendar/event-types";
+import type {
+  CalendarEventLocationType,
+  CalendarEventWriteResult,
+} from "@/utils/calendar/event-types";
 import {
   BookingCanceledBy,
   BookingCreationSource,
@@ -210,6 +213,7 @@ export async function createPublicBooking({
 
   const slotLock = await acquireSlotLock({
     eventTypeId: config.eventType.id,
+    emailAccountId: config.host.emailAccountId,
     startTime: selectedStartTime,
     endTime: selectedEndTime,
   });
@@ -240,8 +244,14 @@ export async function createPublicBooking({
     data: { bookingId: booking.id },
   });
 
+  let createdEvent:
+    | (CalendarEventWriteResult & {
+        provider: string;
+      })
+    | null = null;
+
   try {
-    const createdEvent = await createCalendarEvent({
+    createdEvent = await createCalendarEvent({
       emailAccountId: config.host.emailAccountId,
       destinationCalendarId: config.host.destinationCalendarId,
       title: config.eventType.title,
@@ -274,11 +284,34 @@ export async function createPublicBooking({
       include: getBookingEmailInclude(),
     });
   } catch (error) {
-    await prisma.booking.update({
-      where: { id: booking.id },
-      data: { status: BookingStatus.FAILED },
-    });
-    await prisma.bookingSlotLock.delete({ where: { id: slotLock.id } });
+    const providerEventToCleanup = createdEvent;
+    await Promise.allSettled([
+      providerEventToCleanup
+        ? cancelCalendarEvent({
+            emailAccountId: config.host.emailAccountId,
+            provider: providerEventToCleanup.provider,
+            providerCalendarId: providerEventToCleanup.providerCalendarId,
+            providerEventId: providerEventToCleanup.id,
+            logger,
+          }).catch((cleanupError) => {
+            logger.error(
+              "Failed to clean up provider event after booking error",
+              {
+                bookingId: booking.id,
+                provider: providerEventToCleanup.provider,
+                providerCalendarId: providerEventToCleanup.providerCalendarId,
+                providerEventId: providerEventToCleanup.id,
+                error: cleanupError,
+              },
+            );
+          })
+        : Promise.resolve(),
+      prisma.booking.update({
+        where: { id: booking.id },
+        data: { status: BookingStatus.FAILED },
+      }),
+      prisma.bookingSlotLock.delete({ where: { id: slotLock.id } }),
+    ]);
     logger.error("Failed to create provider event for booking", {
       bookingId: booking.id,
       error,
@@ -526,9 +559,11 @@ async function getBusyPeriods({
 
       throw new SafeError(CALENDAR_AVAILABILITY_UNAVAILABLE);
     }),
+    // Scope by host (emailAccountId) so concurrent pending bookings on a
+    // sibling event type are surfaced as busy before they hit the calendar.
     prisma.booking.findMany({
       where: {
-        eventTypeId: config.eventType.id,
+        emailAccountId: config.host.emailAccountId,
         status: {
           in: [BookingStatus.PENDING_PROVIDER_EVENT, BookingStatus.CONFIRMED],
         },
@@ -573,16 +608,20 @@ function getPolicy(eventType: {
 
 async function acquireSlotLock({
   eventTypeId,
+  emailAccountId,
   startTime,
   endTime,
 }: {
   eventTypeId: string;
+  emailAccountId: string;
   startTime: Date;
   endTime: Date;
 }) {
+  // Drop expired, unbooked locks for this host that overlap the requested
+  // range so a previously abandoned attempt can't keep the slot held.
   await prisma.bookingSlotLock.deleteMany({
     where: {
-      eventTypeId,
+      emailAccountId,
       bookingId: null,
       expiresAt: { lt: new Date() },
       startTime: { lt: endTime },
@@ -594,6 +633,7 @@ async function acquireSlotLock({
     return await prisma.bookingSlotLock.create({
       data: {
         eventTypeId,
+        emailAccountId,
         startTime,
         endTime,
         expiresAt: new Date(Date.now() + SLOT_LOCK_TTL_MS),
@@ -601,11 +641,18 @@ async function acquireSlotLock({
       select: { id: true },
     });
   } catch (error) {
-    if (isDuplicateError(error)) {
+    if (isSlotConflictError(error)) {
       throw new SafeError("Selected slot is no longer available");
     }
     throw error;
   }
+}
+
+function isSlotConflictError(error: unknown) {
+  if (isDuplicateError(error)) return true;
+  // Postgres exclusion-constraint violation (SQL state 23P01) is not surfaced
+  // as P2002; Prisma includes the SQL state in the error message.
+  return error instanceof Error && error.message.includes("23P01");
 }
 
 async function createPendingBooking({

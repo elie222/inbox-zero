@@ -12,12 +12,14 @@ async function fetchGoogleCalendarBusyPeriods({
   timeMin,
   timeMax,
   logger,
+  failOnCalendarError,
 }: {
   calendarClient: calendar_v3.Calendar;
   calendarIds: string[];
   timeMin: string;
   timeMax: string;
   logger: Logger;
+  failOnCalendarError?: boolean;
 }): Promise<BusyPeriod[]> {
   try {
     const response = await calendarClient.freebusy.query({
@@ -39,7 +41,10 @@ async function fetchGoogleCalendarBusyPeriods({
             calendarId: _calendarId,
             errors: calendar.errors,
           });
-          throw new Error("Failed to fetch Google calendar availability");
+          if (failOnCalendarError) {
+            throw new Error("Failed to fetch Google calendar availability");
+          }
+          continue;
         }
 
         if (calendar.busy) {
@@ -83,6 +88,7 @@ export function createGoogleAvailabilityProvider(
       calendarIds,
       timeMin,
       timeMax,
+      failOnCalendarError,
     }) {
       const calendarClient = await getCalendarClientWithRefresh({
         accessToken,
@@ -99,6 +105,7 @@ export function createGoogleAvailabilityProvider(
         timeMin,
         timeMax,
         logger,
+        failOnCalendarError,
       });
     },
   };
