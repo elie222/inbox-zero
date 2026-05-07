@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { after } from "next/server";
+import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import { deleteUser } from "@/utils/user/delete";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
@@ -169,7 +170,7 @@ export const deleteEmailAccountAction = actionClientUser
   });
 
 async function runDeleteEmailAccountTransaction(
-  operations: Parameters<typeof prisma.$transaction>[0],
+  operations: Prisma.PrismaPromise<unknown>[],
 ) {
   try {
     await prisma.$transaction(operations);
