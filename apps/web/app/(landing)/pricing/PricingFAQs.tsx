@@ -71,11 +71,12 @@ const pricingFaqs: {
         <Anchor href="https://go.getinboxzero.com/sales" newTab>
           Contact our sales team
         </Anchor>{" "}
-        for custom pricing, SSO, on-premise deployment, and dedicated support.
+        for custom pricing, SSO, SCIM, on-premise deployment, and dedicated
+        support.
       </span>
     ),
     answerText:
-      "Contact our sales team for custom pricing, SSO, on-premise deployment, and dedicated support.",
+      "Contact our sales team for custom pricing, SSO, SCIM, on-premise deployment, and dedicated support.",
   },
 ];
 
