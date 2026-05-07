@@ -141,11 +141,6 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
-        source: "/feedback",
-        destination: "https://go.getinboxzero.com/feedback",
-        permanent: true,
-      },
-      {
         source: "/changelog",
         destination: "https://go.getinboxzero.com/changelog",
         permanent: true,
