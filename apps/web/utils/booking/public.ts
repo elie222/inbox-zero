@@ -258,9 +258,12 @@ export async function createPublicBooking({
     throw new SafeError("Failed to create booking");
   }
 
+  const pendingBooking = booking;
+  const acquiredSlotLock = slotLock;
+
   await prisma.bookingSlotLock.update({
-    where: { id: slotLock.id },
-    data: { bookingId: booking.id },
+    where: { id: acquiredSlotLock.id },
+    data: { bookingId: pendingBooking.id },
   });
 
   let createdEvent:
@@ -268,6 +271,7 @@ export async function createPublicBooking({
         provider: string;
       })
     | null = null;
+  let confirmedBooking = pendingBooking;
 
   try {
     createdEvent = await createCalendarEvent({
@@ -292,8 +296,8 @@ export async function createPublicBooking({
       logger,
     });
 
-    booking = await prisma.booking.update({
-      where: { id: booking.id },
+    confirmedBooking = await prisma.booking.update({
+      where: { id: pendingBooking.id },
       data: {
         provider: createdEvent.provider,
         providerCalendarId: createdEvent.providerCalendarId,
@@ -316,7 +320,7 @@ export async function createPublicBooking({
             logger.error(
               "Failed to clean up provider event after booking error",
               {
-                bookingId: booking.id,
+                bookingId: pendingBooking.id,
                 provider: providerEventToCleanup.provider,
                 providerCalendarId: providerEventToCleanup.providerCalendarId,
                 providerEventId: providerEventToCleanup.id,
@@ -326,27 +330,27 @@ export async function createPublicBooking({
           })
         : Promise.resolve(),
       prisma.booking.update({
-        where: { id: booking.id },
+        where: { id: pendingBooking.id },
         data: { status: BookingStatus.FAILED },
       }),
-      prisma.bookingSlotLock.delete({ where: { id: slotLock.id } }),
+      prisma.bookingSlotLock.delete({ where: { id: acquiredSlotLock.id } }),
     ]);
     logger.error("Failed to create provider event for booking", {
-      bookingId: booking.id,
+      bookingId: pendingBooking.id,
       error,
     });
     throw new SafeError("Failed to create calendar event");
   }
 
   await sendBookingConfirmationEmails({
-    booking,
-    cancelUrl: getCancelUrl({ uid: booking.uid, token: cancelToken }),
+    booking: confirmedBooking,
+    cancelUrl: getCancelUrl({ uid: confirmedBooking.uid, token: cancelToken }),
     logger,
   });
 
   return {
-    ...toPublicBookingResult(booking),
-    cancelUrl: getCancelUrl({ uid: booking.uid, token: cancelToken }),
+    ...toPublicBookingResult(confirmedBooking),
+    cancelUrl: getCancelUrl({ uid: confirmedBooking.uid, token: cancelToken }),
   };
 }
 
