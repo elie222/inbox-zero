@@ -40,7 +40,7 @@ export function usePremiumModal() {
     return (
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         {/* premium upgrade doesn't support dark mode yet as it appears on homepage */}
-        <DialogContent className="max-w-5xl bg-white">
+        <DialogContent className="max-w-6xl bg-white">
           <Pricing
             header={<PricingDialogHeader />}
             displayTiers={modalTiers}
