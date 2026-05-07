@@ -286,10 +286,18 @@ export const createRulesAction = actionClient
         throw new SafeError("Email account not found");
       }
 
-      const addedRules = await aiPromptToRules({
-        emailAccount,
-        promptFile: prompt,
-      });
+      let addedRules: Awaited<ReturnType<typeof aiPromptToRules>>;
+      try {
+        addedRules = await aiPromptToRules({
+          emailAccount,
+          promptFile: prompt,
+        });
+      } catch (error) {
+        logger.error("aiPromptToRules failed", { error });
+        const message =
+          error instanceof Error ? error.message : "Unknown error from AI";
+        throw new SafeError(`Failed to generate rules from prompt: ${message}`);
+      }
 
       logger.info("Rules to be added", { count: addedRules?.length || 0 });
 

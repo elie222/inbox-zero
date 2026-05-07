@@ -298,7 +298,11 @@ export function Rules({
                                   setInput(
                                     `I'd like to edit the "${rule.name}" rule:\n`,
                                   );
-                                  setOpen((arr) => [...arr, "chat-sidebar"]);
+                                  setOpen((arr) =>
+                                    arr.includes("chat-sidebar")
+                                      ? arr
+                                      : [...arr, "chat-sidebar"],
+                                  );
                                 }}
                               >
                                 <SparklesIcon className="mr-2 size-4" />
