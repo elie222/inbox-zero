@@ -28,6 +28,10 @@ import {
   updateBookingScheduleAction,
 } from "@/utils/actions/booking";
 import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 import { cn } from "@/utils";
 
 type BookingLink = NonNullable<
@@ -825,8 +829,10 @@ function getSelectedCalendarProvider(
 }
 
 function getProviderVideoLocationType(provider: string | null | undefined) {
-  if (provider === "google") return BookingEventTypeLocationType.GOOGLE_MEET;
-  if (provider === "microsoft") {
+  if (isGoogleProvider(provider)) {
+    return BookingEventTypeLocationType.GOOGLE_MEET;
+  }
+  if (isMicrosoftProvider(provider)) {
     return BookingEventTypeLocationType.MICROSOFT_TEAMS;
   }
   return null;
