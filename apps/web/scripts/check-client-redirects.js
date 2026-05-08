@@ -3,20 +3,10 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const ts = require("typescript");
+const { collectSourceFiles } = require("./lib/source-files");
 
 const root = process.cwd();
 const allowedRedirectHelper = path.join(root, "utils", "redirect.ts");
-const ignoredDirectories = new Set([
-  ".git",
-  ".next",
-  ".turbo",
-  "build",
-  "coverage",
-  "dist",
-  "generated",
-  "node_modules",
-  "out",
-]);
 const globalLocationOwners = new Set([
   "document",
   "globalThis",
@@ -66,22 +56,6 @@ for (const violation of violations) {
 }
 
 process.exit(1);
-
-function* collectSourceFiles(directory) {
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    if (ignoredDirectories.has(entry.name)) continue;
-
-    const fullPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      yield* collectSourceFiles(fullPath);
-      continue;
-    }
-
-    if (entry.isFile() && /\.(ts|tsx)$/.test(entry.name)) {
-      yield fullPath;
-    }
-  }
-}
 
 function findRestrictedRedirects(sourceFile, file) {
   const sourceViolations = [];

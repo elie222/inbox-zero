@@ -10,19 +10,9 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { collectSourceFiles } = require("./lib/source-files");
 
 const root = process.cwd();
-const ignoredDirectories = new Set([
-  ".git",
-  ".next",
-  ".turbo",
-  "build",
-  "coverage",
-  "dist",
-  "generated",
-  "node_modules",
-  "out",
-]);
 
 const violations = [];
 
@@ -77,22 +67,6 @@ console.error(
   'Move helpers to a separate server-only module without top-level "use server". For direct exported Server Actions, add a server-action-export: allow comment.',
 );
 process.exit(1);
-
-function* collectSourceFiles(directory) {
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    if (ignoredDirectories.has(entry.name)) continue;
-
-    const fullPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      yield* collectSourceFiles(fullPath);
-      continue;
-    }
-
-    if (entry.isFile() && /\.(ts|tsx)$/.test(entry.name)) {
-      yield fullPath;
-    }
-  }
-}
 
 function hasTopLevelUseServer(content) {
   const source = stripLeadingTrivia(content);
