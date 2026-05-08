@@ -13,6 +13,7 @@ import {
   getBillingPortalUrlAction,
 } from "@/utils/actions/premium";
 import { hasActiveAppleSubscription } from "@/utils/premium";
+import { redirectToSafeUrl } from "@/utils/redirect";
 
 const APPLE_SUBSCRIPTION_HELP_URL = "https://support.apple.com/en-us/118428";
 
@@ -146,7 +147,7 @@ function useOpenBillingPortal() {
           "Error loading billing portal. Please contact support.",
       });
     } else {
-      window.location.href = url;
+      redirectToSafeUrl(url, { allowExternal: true });
     }
   };
 

@@ -28,6 +28,7 @@ import { RequestAccessDialog } from "./RequestAccessDialog";
 import { truncate } from "@/utils/string";
 import { Notice } from "@/components/Notice";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
+import { redirectToSafeUrl } from "@/utils/redirect";
 
 interface IntegrationRowProps {
   integration: GetIntegrationsResponse["integrations"][number];
@@ -81,7 +82,7 @@ export function IntegrationRow({
       }
 
       const data: GetMcpAuthUrlResponse = await response.json();
-      window.location.href = data.url;
+      redirectToSafeUrl(data.url, { allowExternal: true });
     } catch (error) {
       analytics.captureAction("integration_connect_failed", {
         integration: integration.name,

@@ -44,6 +44,7 @@ import {
 import { fetchWithAccount } from "@/utils/fetch";
 import { captureException } from "@/utils/error";
 import { getActionErrorMessage } from "@/utils/error";
+import { redirectToSafeUrl } from "@/utils/redirect";
 import type { GetSlackAuthUrlResponse } from "@/app/api/slack/auth-url/route";
 import {
   type MessagingProvider,
@@ -117,7 +118,7 @@ export function ConnectedAppsSection({
             title: "Email not found in Slack",
             description: "Redirecting to Slack authorization...",
           });
-          window.location.href = authUrl;
+          redirectToSafeUrl(authUrl, { allowExternal: true });
         } else {
           toastError({ description: msg ?? "Failed to link Slack" });
         }
@@ -174,7 +175,7 @@ export function ConnectedAppsSection({
       }
 
       if (data.url) {
-        window.location.href = data.url;
+        redirectToSafeUrl(data.url, { allowExternal: true });
       } else {
         throw new Error("No auth URL returned");
       }
@@ -224,7 +225,9 @@ export function ConnectedAppsSection({
                     type="button"
                     className="text-xs text-muted-foreground underline underline-offset-4"
                     onClick={() => {
-                      if (authUrl) window.location.href = authUrl;
+                      if (authUrl) {
+                        redirectToSafeUrl(authUrl, { allowExternal: true });
+                      }
                     }}
                   >
                     Install manually

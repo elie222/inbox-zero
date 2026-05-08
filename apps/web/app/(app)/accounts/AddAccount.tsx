@@ -8,6 +8,7 @@ import Image from "next/image";
 import { MutedText } from "@/components/Typography";
 import { getAccountLinkingUrl } from "@/utils/account-linking";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { redirectToSafeUrl } from "@/utils/redirect";
 
 export function AddAccount({
   helperText = "You will be billed for each account.",
@@ -25,7 +26,7 @@ export function AddAccount({
 
     try {
       const url = await getAccountLinkingUrl(provider);
-      window.location.href = url;
+      redirectToSafeUrl(url, { allowExternal: true });
     } catch (error) {
       console.error(`Error initiating ${provider} link:`, error);
       toastError({

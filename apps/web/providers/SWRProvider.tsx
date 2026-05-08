@@ -17,6 +17,7 @@ import {
   NO_REFRESH_TOKEN_ERROR_CODE,
 } from "@/utils/config";
 import { prefixPath } from "@/utils/path";
+import { redirectToSafeUrl } from "@/utils/redirect";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
 const fetcher = async (
@@ -72,7 +73,7 @@ const fetcher = async (
 
         console.log(`${errorMessage}, redirecting to consent page...`);
         const redirectUrl = prefixPath(emailAccountId, "/permissions/consent");
-        window.location.href = redirectUrl;
+        redirectToSafeUrl(redirectUrl);
         return;
       }
     }

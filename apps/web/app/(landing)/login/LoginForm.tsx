@@ -18,7 +18,7 @@ import { signIn, signInWithOauth2 } from "@/utils/auth-client";
 import { WELCOME_PATH } from "@/utils/config";
 import { toastError } from "@/components/Toast";
 import { normalizeInternalPath } from "@/utils/path";
-import { buildRedirectUrl } from "@/utils/redirect";
+import { buildRedirectUrl, redirectToSafeUrl } from "@/utils/redirect";
 import { getPossessiveBrandName } from "@/utils/branding";
 import { AlertBasic } from "@/components/Alert";
 import { createClientLogger } from "@/utils/logger-client";
@@ -60,7 +60,7 @@ export function LoginForm({
         if (!result.url) {
           throw new Error("Missing Google sign-in redirect URL");
         }
-        window.location.href = result.url;
+        redirectToSafeUrl(result.url, { allowExternal: true });
       } else {
         await signIn.social({
           provider: "google",
