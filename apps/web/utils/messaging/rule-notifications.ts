@@ -1591,7 +1591,7 @@ function buildNotificationContent({
     const emailPreview = buildEmailPreview(email, { format });
     const draftPreview = buildDraftPreview(draftContent, { format });
 
-    const summary = `You got an email from *${senderDisplay}* about "${subject}".`;
+    const summary = `You got an email from *${senderDisplay}*.\n*Subject:* ${subject}`;
 
     const details: string[] = [];
     if (emailPreview) {

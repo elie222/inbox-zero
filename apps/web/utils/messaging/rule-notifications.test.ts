@@ -172,7 +172,7 @@ describe("handleRuleNotificationAction", () => {
     expect(cardText).toContain("I drafted a reply for you");
     expect(cardText).not.toContain("📩 You got an email");
     expect(cardText).toContain("*sender@example.com*");
-    expect(cardText).toContain('about \\"Test subject\\"');
+    expect(cardText).toContain("*Subject:* Test subject");
     expect(cardText).toContain("They wrote:");
     expect(cardText).toContain("Original message body");
     expect(cardText).toContain("I drafted a reply for you:");
@@ -1823,7 +1823,7 @@ describe("buildMessagingRuleNotificationText", () => {
       actionType: ActionType.DRAFT_MESSAGING_CHANNEL,
       content: {
         title: "✍️ I drafted a reply for you",
-        summary: 'You got an email from *Sender* about "Test".',
+        summary: "You got an email from *Sender*.\n*Subject:* Test",
         details: [
           "✍️ *I drafted a reply for you:*\nSee <https://example.com|details>.",
         ],
@@ -1832,7 +1832,8 @@ describe("buildMessagingRuleNotificationText", () => {
     });
 
     expect(text).toContain("I drafted a reply for you");
-    expect(text).toContain('You got an email from Sender about "Test".');
+    expect(text).toContain("You got an email from Sender.");
+    expect(text).toContain("Subject: Test");
     expect(text).toContain("details: https://example.com");
     expect(text).toContain("Draft editing isn't available in Telegram yet.");
   });
@@ -1846,7 +1847,8 @@ describe("buildMessagingRuleNotificationText", () => {
       actionType: ActionType.DRAFT_MESSAGING_CHANNEL,
       content: {
         title: "✍️ I drafted a reply for you",
-        summary: 'You got an email from *Tom &amp; Jerry* about "A &lt;B&gt;".',
+        summary:
+          "You got an email from *Tom &amp; Jerry*.\n*Subject:* A &lt;B&gt;",
         details: ["💬 *They wrote:*\nHello &amp; welcome"],
       },
       provider: MessagingProvider.TEAMS,
