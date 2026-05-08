@@ -267,10 +267,7 @@ async function findPotentialMatchingRules({
       matches.push({ rule, matchReasons });
     }
 
-    // Phase 3: only content-classification rules (systemType === null) are valid AI candidates.
-    // Conversation-tracking rules (ACTIONED, AWAITING_REPLY, FYI, TO_REPLY) fire via the
-    // meta-rule path only — never via direct AI selection.
-    if (potentialAiMatch && rule.systemType === null) {
+    if (potentialAiMatch) {
       potentialAiMatches.push({
         ...rule,
         instructions: rule.instructions ?? "",
