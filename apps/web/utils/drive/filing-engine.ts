@@ -96,25 +96,27 @@ export async function processAttachment({
       attachmentId: attachment.attachmentId,
     };
 
-    const existingFiling = await findAttachmentFiling(attachmentLookup);
+    // Check drives before claiming so an early "no drives" return doesn't
+    // leave an existing ERROR row stuck in PROCESSING.
+    const [existingFiling, driveConnections] = await Promise.all([
+      findAttachmentFiling(attachmentLookup),
+      prisma.driveConnection.findMany({
+        where: {
+          emailAccountId: emailAccount.id,
+          isConnected: true,
+        },
+      }),
+    ]);
+
+    if (driveConnections.length === 0) {
+      log.info("No connected drives");
+      return { success: false, error: "No connected drives" };
+    }
 
     if (existingFiling) {
       const decision = await claimOrResolveExistingFiling(existingFiling, log);
       if (decision.type === "return") return decision.result;
       claimedFilingId = decision.filingId;
-    }
-
-    // Get all connected drives
-    const driveConnections = await prisma.driveConnection.findMany({
-      where: {
-        emailAccountId: emailAccount.id,
-        isConnected: true,
-      },
-    });
-
-    if (driveConnections.length === 0) {
-      log.info("No connected drives");
-      return { success: false, error: "No connected drives" };
     }
 
     if (!claimedFilingId) {
