@@ -36,6 +36,9 @@ spec:
         {{- include "inbox-zero.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: redis-http
     spec:
+      serviceAccountName: {{ include "inbox-zero.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       initContainers:
         - name: wait-for-redis
           image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
@@ -80,4 +83,6 @@ spec:
               {{- end }}
           resources:
             {{- toYaml .Values.redisHttp.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
 {{- end }}

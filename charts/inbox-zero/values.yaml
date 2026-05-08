@@ -52,9 +52,9 @@ web:
     periodSeconds: 10
 
 migrations:
-  # For managed Postgres, Helm runs migrations before web pods roll out and
-  # web pods skip startup migrations. Bundled Postgres installs keep startup
-  # migrations because the database is created as part of the same release.
+  # Controls the Helm migration Job for managed Postgres. Bundled Postgres
+  # installs still run startup migrations from the web pod because the database
+  # is created as part of the same release.
   enabled: true
   hookDeletePolicy: before-hook-creation,hook-succeeded
   backoffLimit: 2
