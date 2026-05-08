@@ -1518,14 +1518,7 @@ export class GmailProvider implements EmailProvider {
   }
 
   isSentMessage(message: ParsedMessage): boolean {
-    // Google Groups emails arrive with both SENT and INBOX labels because Gmail
-    // marks group messages as SENT when the group address is in the user's domain.
-    // Real outbound messages (composed by the user) are in SENT but never in INBOX.
-    // Excluding messages that also have INBOX prevents group emails from being
-    // misrouted to the reply tracker instead of content classification.
-    const hasSentLabel = message.labelIds?.includes(GmailLabel.SENT) ?? false;
-    const hasInboxLabel = message.labelIds?.includes(GmailLabel.INBOX) ?? false;
-    return hasSentLabel && !hasInboxLabel;
+    return message.labelIds?.includes(GmailLabel.SENT) || false;
   }
 
   async getFolders() {
