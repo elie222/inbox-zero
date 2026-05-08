@@ -6,6 +6,7 @@ import {
   archiveBookingLinkBody,
   createBookingEventTypeBody,
   createBookingLinkBody,
+  deleteBookingLinkBody,
   updateBookingDateOverridesBody,
   updateBookingEventTypeBody,
   updateBookingLinkActionBody,
@@ -160,6 +161,41 @@ export const archiveBookingLinkAction = actionClient
       where: { id },
       data: { isActive: false },
     });
+
+    return { success: true };
+  });
+
+export const deleteBookingLinkAction = actionClient
+  .metadata({ name: "deleteBookingLink" })
+  .inputSchema(deleteBookingLinkBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
+    await ensureBookingLinkOwner({ emailAccountId, bookingLinkId: id });
+
+    const schedules = await prisma.bookingSchedule.findMany({
+      where: {
+        emailAccountId,
+        hosts: {
+          some: {
+            eventType: {
+              bookingLinkId: id,
+            },
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    await prisma.$transaction([
+      prisma.bookingLink.delete({
+        where: { id },
+      }),
+      prisma.bookingSchedule.deleteMany({
+        where: {
+          emailAccountId,
+          id: { in: schedules.map((schedule) => schedule.id) },
+        },
+      }),
+    ]);
 
     return { success: true };
   });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Copy, Info, Plus, X } from "lucide-react";
+import { Copy, Info, Plus, Trash2, X } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +23,7 @@ import { useBookingLinks } from "@/hooks/useBookingLinks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getActionErrorMessage } from "@/utils/error";
 import {
+  deleteBookingLinkAction,
   updateBookingEventTypeAction,
   updateBookingLinkAction,
   updateBookingScheduleAction,
@@ -69,7 +70,9 @@ export function ConfigureBookingLinkDialog({
     link.eventTypes.find(
       (candidate) => candidate.id === link.defaultEventTypeId,
     ) ?? link.eventTypes[0];
-  const [tab, setTab] = useState<"general" | "availability">("general");
+  const [tab, setTab] = useState<"general" | "availability" | "advanced">(
+    "general",
+  );
 
   if (!eventType) {
     return (
@@ -128,14 +131,22 @@ export function ConfigureBookingLinkDialog({
             >
               Availability
             </TabButton>
+            <TabButton
+              active={tab === "advanced"}
+              onClick={() => setTab("advanced")}
+            >
+              Advanced
+            </TabButton>
           </div>
         </div>
 
-        {tab === "general" ? (
+        {tab === "general" && (
           <GeneralTab link={link} eventType={eventType} onSaved={onSaved} />
-        ) : (
+        )}
+        {tab === "availability" && (
           <AvailabilityTab eventType={eventType} onSaved={onSaved} />
         )}
+        {tab === "advanced" && <AdvancedTab link={link} onSaved={onSaved} />}
       </DialogContent>
     </Dialog>
   );
@@ -411,10 +422,12 @@ function AvailabilityTab({
       Intl.DateTimeFormat().resolvedOptions().timeZone ??
       "UTC",
   );
+  const [minimumNoticeHours, setMinimumNoticeHours] = useState(() =>
+    formatHours(eventType.minimumNoticeMinutes / 60),
+  );
 
-  const { executeAsync: updateSchedule, isExecuting: isSaving } = useAction(
-    updateBookingScheduleAction.bind(null, emailAccountId),
-    {
+  const { executeAsync: updateSchedule, isExecuting: isUpdatingSchedule } =
+    useAction(updateBookingScheduleAction.bind(null, emailAccountId), {
       onError: (error) => {
         toastError({
           description:
@@ -422,8 +435,20 @@ function AvailabilityTab({
             "Failed to update availability",
         });
       },
-    },
-  );
+    });
+
+  const { executeAsync: updateEventType, isExecuting: isUpdatingEventType } =
+    useAction(updateBookingEventTypeAction.bind(null, emailAccountId), {
+      onError: (error) => {
+        toastError({
+          description:
+            getActionErrorMessage(error.error) ??
+            "Failed to update availability",
+        });
+      },
+    });
+
+  const isSaving = isUpdatingSchedule || isUpdatingEventType;
 
   const updateDay = (index: number, next: Partial<DayState>) => {
     setDays((prev) =>
@@ -497,6 +522,14 @@ function AvailabilityTab({
 
   const handleSave = async () => {
     if (!schedule) return;
+    const minimumNoticeMinutes = parseMinimumNoticeHours(minimumNoticeHours);
+    if (minimumNoticeMinutes === null) {
+      toastError({
+        description: "Minimum notice must be 0 hours or more.",
+      });
+      return;
+    }
+
     const rules: Array<{
       weekday: number;
       startMinutes: number;
@@ -526,6 +559,12 @@ function AvailabilityTab({
     }
 
     try {
+      const eventTypeResult = await updateEventType({
+        id: eventType.id,
+        minimumNoticeMinutes,
+      });
+      if (hasActionResultError(eventTypeResult)) return;
+
       const result = await updateSchedule({
         id: schedule.id,
         timezone,
@@ -548,6 +587,31 @@ function AvailabilityTab({
   return (
     <>
       <div className="space-y-4 overflow-y-auto px-6 py-5">
+        <div className="rounded-lg border px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-foreground">
+                Minimum notice
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Block new bookings this many hours into the future.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={365 * 24}
+                step={0.25}
+                value={minimumNoticeHours}
+                onChange={(event) => setMinimumNoticeHours(event.target.value)}
+                className="h-9 w-24 rounded-md border border-input bg-background px-2.5 text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <span className="text-sm text-muted-foreground">hours</span>
+            </div>
+          </div>
+        </div>
+
         <div className="flex items-end justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-foreground">
@@ -669,6 +733,81 @@ function AvailabilityTab({
       </div>
 
       <DialogFooter onSaved={onSaved} onSave={handleSave} loading={isSaving} />
+    </>
+  );
+}
+
+function AdvancedTab({
+  link,
+  onSaved,
+}: {
+  link: BookingLink;
+  onSaved: () => void;
+}) {
+  const { emailAccountId } = useAccount();
+  const { executeAsync: deleteLink, isExecuting: isDeleting } = useAction(
+    deleteBookingLinkAction.bind(null, emailAccountId),
+    {
+      onError: (error) => {
+        toastError({
+          description:
+            getActionErrorMessage(error.error) ??
+            "Failed to delete booking link",
+        });
+      },
+    },
+  );
+
+  const handleDelete = async () => {
+    const confirmed = window.confirm(
+      "Delete this booking link permanently? This cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    try {
+      const result = await deleteLink({ id: link.id });
+      if (hasActionResultError(result)) return;
+
+      toastSuccess({ description: "Booking link deleted" });
+      onSaved();
+    } catch (error) {
+      toastError({
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete booking link",
+      });
+    }
+  };
+
+  return (
+    <>
+      <div className="space-y-4 overflow-y-auto px-6 py-5">
+        <div className="rounded-lg border border-red-200 bg-red-50/40 px-4 py-3 dark:border-red-900 dark:bg-red-950/20">
+          <div className="mb-3">
+            <div className="text-sm font-semibold text-foreground">
+              Delete booking link
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Permanently remove this booking link and its booking history.
+            </p>
+          </div>
+          <Button
+            variant="destructiveSoft"
+            onClick={handleDelete}
+            loading={isDeleting}
+            Icon={Trash2}
+          >
+            Delete booking link
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-2 border-t px-6 py-3">
+        <Button variant="outline" onClick={onSaved}>
+          Close
+        </Button>
+      </div>
     </>
   );
 }
@@ -896,6 +1035,16 @@ function parseTime(value: string): number | null {
   const minutes = Number(match[2]);
   if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
   return hours * 60 + minutes;
+}
+
+function parseMinimumNoticeHours(value: string) {
+  const hours = Number(value);
+  if (!Number.isFinite(hours) || hours < 0 || hours > 365 * 24) return null;
+  return Math.round(hours * 60);
+}
+
+function formatHours(value: number) {
+  return Number.isInteger(value) ? String(value) : String(value.toFixed(2));
 }
 
 function minutesToTime(value: number) {

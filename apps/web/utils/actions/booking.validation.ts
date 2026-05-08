@@ -96,6 +96,11 @@ export const archiveBookingLinkBody = z.object({
 });
 export type ArchiveBookingLinkBody = z.infer<typeof archiveBookingLinkBody>;
 
+export const deleteBookingLinkBody = z.object({
+  id: z.string(),
+});
+export type DeleteBookingLinkBody = z.infer<typeof deleteBookingLinkBody>;
+
 export const createBookingEventTypeBody = bookingEventTypeFields.extend({
   bookingLinkId: z.string(),
 });
