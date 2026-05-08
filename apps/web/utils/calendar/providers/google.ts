@@ -12,6 +12,7 @@ import {
 } from "@/utils/google/oauth";
 import type { CalendarOAuthProvider, CalendarTokens } from "../oauth-types";
 import { autoPopulateTimezone } from "../timezone-helpers";
+import { isGoogleVirtualCalendarId } from "./google-calendar-id";
 
 export function createGoogleCalendarProvider(
   logger: Logger,
@@ -70,6 +71,9 @@ export function createGoogleCalendarProvider(
 
         for (const googleCalendar of googleCalendars) {
           if (!googleCalendar.id) continue;
+          const isVirtualCalendar = isGoogleVirtualCalendarId(
+            googleCalendar.id,
+          );
 
           await prisma.calendar.upsert({
             where: {
@@ -82,6 +86,8 @@ export function createGoogleCalendarProvider(
               name: googleCalendar.summary || "Untitled Calendar",
               description: googleCalendar.description,
               timezone: googleCalendar.timeZone,
+              primary: googleCalendar.primary ?? false,
+              ...(isVirtualCalendar ? { isEnabled: false } : {}),
             },
             create: {
               connectionId,
@@ -89,7 +95,8 @@ export function createGoogleCalendarProvider(
               name: googleCalendar.summary || "Untitled Calendar",
               description: googleCalendar.description,
               timezone: googleCalendar.timeZone,
-              isEnabled: true,
+              primary: googleCalendar.primary ?? false,
+              isEnabled: !isVirtualCalendar,
             },
           });
         }

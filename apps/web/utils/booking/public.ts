@@ -13,6 +13,7 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { getUnifiedCalendarAvailability } from "@/utils/calendar/unified-availability";
+import { getCalendarAvailabilityErrorLogContext } from "@/utils/calendar/availability-error";
 import {
   cancelCalendarEvent,
   createCalendarEvent,
@@ -48,7 +49,6 @@ export async function getPublicBookingLinkMetadata(slug: string) {
       aliasSlug: true,
       title: true,
       description: true,
-      timezone: true,
       defaultEventTypeId: true,
       eventTypes: {
         where: { isActive: true },
@@ -88,7 +88,6 @@ export async function getPublicBookingLinkMetadata(slug: string) {
     aliasSlug: bookingLink.aliasSlug,
     title: bookingLink.title,
     description: bookingLink.description,
-    timezone: bookingLink.timezone,
     defaultEventTypeId: bookingLink.defaultEventTypeId,
     eventTypes: bookingLink.eventTypes.map((eventType) => {
       const host = getSingleHost(eventType.hosts);
@@ -587,6 +586,7 @@ async function getBusyPeriods({
     }).catch((error) => {
       logger.error("Failed to load provider availability for public booking", {
         error,
+        ...getCalendarAvailabilityErrorLogContext(error),
       });
 
       if (providerFailureMode === "return-null") return null;

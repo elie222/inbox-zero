@@ -34,9 +34,11 @@ export const createBookingLinkAction = actionClient
     const durationMinutes = parsedInput.durationMinutes;
     const slotIntervalMinutes =
       parsedInput.slotIntervalMinutes ?? durationMinutes;
-    const locationType = await getDefaultLocationTypeForDestinationCalendar(
-      destinationCalendarId,
-    );
+    const defaultLocationType =
+      await getDefaultLocationTypeForDestinationCalendar(destinationCalendarId);
+    const locationType = parsedInput.videoEnabled
+      ? defaultLocationType
+      : BookingEventTypeLocationType.CUSTOM;
 
     const bookingLink = await prisma.bookingLink.create({
       data: {

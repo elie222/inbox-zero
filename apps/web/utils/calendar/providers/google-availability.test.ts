@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { calendar_v3 } from "@googleapis/calendar";
 import { createTestLogger } from "@/__tests__/helpers";
 import { createGoogleAvailabilityProvider } from "./google-availability";
+import type { CalendarAvailabilityError } from "../availability-error";
 
 vi.mock("server-only", () => ({}));
 vi.mock("../client", () => ({
@@ -50,11 +51,12 @@ describe("createGoogleAvailabilityProvider", () => {
   });
 
   it("fails closed on individual calendar errors when requested", async () => {
+    const calendarErrors = [{ reason: "notFound" }];
     query.mockResolvedValue({
       data: {
         calendars: {
           "cal-1": {
-            errors: [{ reason: "notFound" }],
+            errors: calendarErrors,
           },
         },
       },
@@ -74,6 +76,11 @@ describe("createGoogleAvailabilityProvider", () => {
         timeMax: "2026-05-05T00:00:00.000Z",
         timeMin: "2026-05-04T00:00:00.000Z",
       }),
-    ).rejects.toThrow("Failed to fetch Google calendar availability");
+    ).rejects.toMatchObject({
+      message: "Failed to fetch Google calendar availability",
+      name: "CalendarAvailabilityError",
+      provider: "google",
+      calendarErrors: [{ calendarId: "cal-1", errors: calendarErrors }],
+    } satisfies Partial<CalendarAvailabilityError>);
   });
 });

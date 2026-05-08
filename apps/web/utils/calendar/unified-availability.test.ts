@@ -305,6 +305,39 @@ describe("getUnifiedCalendarAvailability", () => {
       expect(result[1].start).toContain("2025-11-17T13:00:00");
     });
 
+    it("should not query Google virtual calendars for availability", async () => {
+      vi.mocked(prisma.calendarConnection.findMany).mockResolvedValue([
+        getCalendarConnection({
+          provider: "google",
+          calendarIds: [
+            "primary-calendar-id",
+            "en-gb.usa#holiday@group.v.calendar.google.com",
+          ],
+        }),
+      ]);
+
+      const mockGoogleProvider = {
+        fetchBusyPeriods: vi.fn().mockResolvedValue([]),
+      };
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue(
+        mockGoogleProvider as any,
+      );
+
+      await getUnifiedCalendarAvailability({
+        emailAccountId,
+        startDate: new Date("2025-11-17T00:00:00Z"),
+        endDate: new Date("2025-11-17T23:59:59Z"),
+        timezone: "UTC",
+        logger,
+      });
+
+      expect(mockGoogleProvider.fetchBusyPeriods).toHaveBeenCalledWith(
+        expect.objectContaining({
+          calendarIds: ["primary-calendar-id"],
+        }),
+      );
+    });
+
     it("should return empty array when no calendar connections", async () => {
       vi.mocked(prisma.calendarConnection.findMany).mockResolvedValue([]);
 

@@ -3,8 +3,10 @@ import { startOfDay, endOfDay, format } from "date-fns";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import type { BusyPeriod } from "./availability-types";
+import { getCalendarAvailabilityErrorLogContext } from "./availability-error";
 import { createGoogleAvailabilityProvider } from "./providers/google-availability";
 import { createMicrosoftAvailabilityProvider } from "./providers/microsoft-availability";
+import { isGoogleVirtualCalendarId } from "./providers/google-calendar-id";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 
 /**
@@ -75,7 +77,9 @@ export async function getUnifiedCalendarAvailability({
 
   // Fetch Google calendar availability
   for (const connection of googleConnections) {
-    const calendarIds = connection.calendars.map((cal) => cal.calendarId);
+    const calendarIds = connection.calendars
+      .map((cal) => cal.calendarId)
+      .filter((calendarId) => !isGoogleVirtualCalendarId(calendarId));
     if (!calendarIds.length) continue;
 
     const googleAvailabilityProvider = createGoogleAvailabilityProvider(logger);
@@ -97,6 +101,7 @@ export async function getUnifiedCalendarAvailability({
           logger.error("Error fetching Google calendar availability", {
             error,
             connectionId: connection.id,
+            ...getCalendarAvailabilityErrorLogContext(error),
           });
           if (failClosed) throw error;
           return [];
@@ -134,6 +139,7 @@ export async function getUnifiedCalendarAvailability({
           logger.error("Error fetching Microsoft calendar availability", {
             error,
             connectionId: connection.id,
+            ...getCalendarAvailabilityErrorLogContext(error),
           });
           if (failClosed) throw error;
           return [];

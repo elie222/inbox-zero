@@ -5,6 +5,10 @@ import type {
   CalendarAvailabilityProvider,
   BusyPeriod,
 } from "../availability-types";
+import {
+  CalendarAvailabilityError,
+  getCalendarAvailabilityErrorLogContext,
+} from "../availability-error";
 
 async function fetchGoogleCalendarBusyPeriods({
   calendarClient,
@@ -38,11 +42,22 @@ async function fetchGoogleCalendarBusyPeriods({
       )) {
         if (calendar.errors?.length) {
           logger.error("Google Calendar returned availability errors", {
-            calendarId: _calendarId,
-            errors: calendar.errors,
+            ...getCalendarAvailabilityErrorLogContext(
+              new CalendarAvailabilityError({
+                provider: "google",
+                calendarErrors: [
+                  { calendarId: _calendarId, errors: calendar.errors },
+                ],
+              }),
+            ),
           });
           if (failOnCalendarError) {
-            throw new Error("Failed to fetch Google calendar availability");
+            throw new CalendarAvailabilityError({
+              provider: "google",
+              calendarErrors: [
+                { calendarId: _calendarId, errors: calendar.errors },
+              ],
+            });
           }
           continue;
         }
@@ -68,7 +83,10 @@ async function fetchGoogleCalendarBusyPeriods({
 
     return busyPeriods;
   } catch (error) {
-    logger.error("Error fetching Google Calendar busy periods", { error });
+    logger.error("Error fetching Google Calendar busy periods", {
+      error,
+      ...getCalendarAvailabilityErrorLogContext(error),
+    });
     throw error;
   }
 }

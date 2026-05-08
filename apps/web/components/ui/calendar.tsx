@@ -17,6 +17,8 @@ function Calendar({
   rightContent,
   ...props
 }: CalendarProps) {
+  const showMonthSeparator = (props.numberOfMonths ?? 1) > 1;
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
@@ -26,7 +28,10 @@ function Calendar({
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
         caption_start: "p-3",
-        caption_end: "p-3 border-l border-gray-200",
+        caption_end: cn(
+          "p-3",
+          showMonthSeparator && "border-l border-gray-200",
+        ),
         caption_label: "text-sm font-medium",
         nav: "space-x-1 flex items-center",
         nav_button: cn(

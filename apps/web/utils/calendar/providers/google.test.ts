@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import prisma from "@/utils/prisma";
 import { createGoogleCalendarProvider } from "@/utils/calendar/providers/google";
-import { getCalendarOAuth2Client } from "@/utils/calendar/client";
+import {
+  fetchGoogleCalendars,
+  getCalendarClientWithRefresh,
+  getCalendarOAuth2Client,
+} from "@/utils/calendar/client";
 import {
   fetchGoogleOpenIdProfile,
   isGoogleOauthEmulationEnabled,
@@ -96,5 +101,67 @@ describe("google calendar oauth", () => {
       "Could not get email from Google profile",
     );
     expect(verifyIdToken).not.toHaveBeenCalled();
+  });
+
+  it("syncs Google calendars with primary metadata and disables virtual calendars", async () => {
+    vi.mocked(getCalendarClientWithRefresh).mockResolvedValue(
+      "calendar-client" as any,
+    );
+    vi.mocked(fetchGoogleCalendars).mockResolvedValue([
+      {
+        id: "user@example.com",
+        summary: "Primary calendar",
+        primary: true,
+        timeZone: "Asia/Jerusalem",
+      },
+      {
+        id: "en-gb.usa#holiday@group.v.calendar.google.com",
+        summary: "Holidays in the United States",
+        description: "Holidays and Observances in the United States",
+        timeZone: "Asia/Jerusalem",
+      },
+    ] as any);
+
+    const provider = createGoogleCalendarProvider({
+      error: vi.fn(),
+      info: vi.fn(),
+      trace: vi.fn(),
+      warn: vi.fn(),
+      with: vi.fn(),
+    } as any);
+
+    await provider.syncCalendars(
+      "connection-id",
+      "access-token",
+      "refresh-token",
+      "email-account-id",
+      new Date("2026-05-08T00:00:00.000Z"),
+    );
+
+    expect(prisma.calendar.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          calendarId: "user@example.com",
+          isEnabled: true,
+          primary: true,
+        }),
+        update: expect.objectContaining({
+          primary: true,
+        }),
+      }),
+    );
+    expect(prisma.calendar.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          calendarId: "en-gb.usa#holiday@group.v.calendar.google.com",
+          isEnabled: false,
+          primary: false,
+        }),
+        update: expect.objectContaining({
+          isEnabled: false,
+          primary: false,
+        }),
+      }),
+    );
   });
 });

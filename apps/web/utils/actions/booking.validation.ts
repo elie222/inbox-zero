@@ -72,6 +72,7 @@ export const createBookingLinkBody = z.object({
   timezone: timezoneSchema,
   durationMinutes: positiveMinutesSchema.max(24 * 60).default(30),
   slotIntervalMinutes: positiveMinutesSchema.max(24 * 60).optional(),
+  videoEnabled: z.boolean().default(true),
   destinationCalendarId: z.string().optional().nullable(),
 });
 export type CreateBookingLinkBody = z.infer<typeof createBookingLinkBody>;

@@ -1,10 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { Copy, ExternalLink, Link2, Settings2, Zap } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Copy, ExternalLink, Link2, Settings2, X, Zap } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -16,11 +29,25 @@ import {
   createBookingLinkAction,
   updateBookingLinkAction,
 } from "@/utils/actions/booking";
+import {
+  getBookingLinkSlugSuggestion,
+  normalizeBookingSlug,
+} from "@/utils/booking/slug";
+import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
+import { cn } from "@/utils";
 import { ConfigureBookingLinkDialog } from "./ConfigureBookingLinkDialog";
 
 type BookingLink = NonNullable<
   ReturnType<typeof useBookingLinks>["data"]
 >["bookingLinks"][number];
+type BookingLinksData = NonNullable<ReturnType<typeof useBookingLinks>["data"]>;
+
+const DURATION_OPTIONS = [15, 30, 45, 60];
+const PRIMARY_CALENDAR_SELECT_VALUE = "__primary_calendar__";
 
 export function BookingLinksSection() {
   const bookingLinksEnabled = useBookingLinksEnabled();
@@ -31,22 +58,27 @@ export function BookingLinksSection() {
 }
 
 function BookingLinksPanel() {
-  const { emailAccountId, emailAccount, userEmail } = useAccount();
+  const { emailAccountId, emailAccount } = useAccount();
   const { data, isLoading, error, mutate } = useBookingLinks();
   const [configureLinkId, setConfigureLinkId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const link = data?.bookingLinks[0] ?? null;
   const timezone =
     data?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  const defaultName = emailAccount?.name || userEmail.split("@")[0] || "you";
-  const defaultSlug = suggestSlug(userEmail, defaultName);
+  const defaultName = emailAccount?.name?.trim() || null;
+  const defaultTitle = defaultName
+    ? `${defaultName}'s booking link`
+    : "Booking link";
+  const defaultSlug = getBookingLinkSlugSuggestion(defaultName);
 
-  const { execute: createLink, isExecuting: isCreating } = useAction(
+  const { executeAsync: createLink, isExecuting: isCreating } = useAction(
     createBookingLinkAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({ description: "Booking link created" });
         mutate();
+        setCreateOpen(false);
       },
       onError: (actionError) => {
         toastError({
@@ -72,13 +104,30 @@ function BookingLinksPanel() {
     },
   );
 
-  const handleCreate = () => {
-    createLink({
-      title: `${defaultName}'s booking link`,
-      slug: defaultSlug,
+  const handleCreate = async ({
+    title,
+    slug,
+    durationMinutes,
+    destinationCalendarId,
+    videoEnabled,
+    description,
+  }: {
+    title: string;
+    slug: string;
+    durationMinutes: number;
+    destinationCalendarId: string | null;
+    videoEnabled: boolean;
+    description: string;
+  }) => {
+    await createLink({
+      title,
+      slug,
       timezone,
-      durationMinutes: 30,
-      slotIntervalMinutes: 30,
+      description,
+      durationMinutes,
+      slotIntervalMinutes: durationMinutes,
+      destinationCalendarId,
+      videoEnabled,
     });
   };
 
@@ -102,9 +151,21 @@ function BookingLinksPanel() {
             onConfigure={() => setConfigureLinkId(link.id)}
           />
         ) : (
-          <EmptyLinkCard onCreate={handleCreate} isCreating={isCreating} />
+          <EmptyLinkCard onCreate={() => setCreateOpen(true)} />
         )}
       </LoadingContent>
+
+      {createOpen ? (
+        <CreateBookingLinkDialog
+          key={defaultSlug}
+          data={data}
+          defaultTitle={defaultTitle}
+          defaultSlug={defaultSlug}
+          onClose={() => setCreateOpen(false)}
+          onCreate={handleCreate}
+          isCreating={isCreating}
+        />
+      ) : null}
 
       {link && configureLinkId === link.id ? (
         <ConfigureBookingLinkDialog
@@ -120,13 +181,7 @@ function BookingLinksPanel() {
   );
 }
 
-function EmptyLinkCard({
-  onCreate,
-  isCreating,
-}: {
-  onCreate: () => void;
-  isCreating: boolean;
-}) {
+function EmptyLinkCard({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="rounded-xl border bg-card px-5 py-4">
       <div className="mb-1 flex items-center gap-2">
@@ -140,10 +195,223 @@ function EmptyLinkCard({
       <p className="mb-4 text-sm text-muted-foreground">
         Create a link people can use to book time on your calendar.
       </p>
-      <Button onClick={onCreate} loading={isCreating} Icon={Zap}>
+      <Button onClick={onCreate} Icon={Zap}>
         Create booking link
       </Button>
     </div>
+  );
+}
+
+function CreateBookingLinkDialog({
+  data,
+  defaultTitle,
+  defaultSlug,
+  onClose,
+  onCreate,
+  isCreating,
+}: {
+  data: BookingLinksData | undefined;
+  defaultTitle: string;
+  defaultSlug: string;
+  onClose: () => void;
+  onCreate: (values: {
+    title: string;
+    slug: string;
+    durationMinutes: number;
+    destinationCalendarId: string | null;
+    videoEnabled: boolean;
+    description: string;
+  }) => Promise<void>;
+  isCreating: boolean;
+}) {
+  const [title, setTitle] = useState(defaultTitle);
+  const [slug, setSlug] = useState(defaultSlug);
+  const [duration, setDuration] = useState(30);
+  const [destinationCalendarId, setDestinationCalendarId] = useState("");
+  const [videoEnabled, setVideoEnabled] = useState(true);
+  const [description, setDescription] = useState("");
+
+  const calendarOptions = useMemo(() => {
+    const calendars =
+      data?.calendarConnections.flatMap((connection) =>
+        connection.calendars.map((calendar) => ({
+          label: `${calendar.name}${calendar.primary ? " (Primary)" : ""}`,
+          value: calendar.id,
+        })),
+      ) ?? [];
+    return [{ label: "Primary calendar", value: "" }, ...calendars];
+  }, [data?.calendarConnections]);
+
+  const selectedCalendarProvider = useMemo(
+    () => getSelectedCalendarProvider(data, destinationCalendarId),
+    [data, destinationCalendarId],
+  );
+  const videoLocationType = getProviderVideoLocationType(
+    selectedCalendarProvider,
+  );
+  const videoLabel = getVideoLocationLabel(videoLocationType);
+  const canAddVideo = Boolean(videoLocationType);
+  const normalizedSlug = normalizeBookingSlug(slug);
+  const publicUrlPrefix =
+    typeof window !== "undefined"
+      ? `${window.location.origin.replace(/^https?:\/\//, "")}/book/`
+      : "/book/";
+
+  const handleCreate = async () => {
+    await onCreate({
+      title: title.trim(),
+      slug: normalizedSlug,
+      durationMinutes: duration,
+      destinationCalendarId: destinationCalendarId || null,
+      videoEnabled: canAddVideo && videoEnabled,
+      description,
+    });
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className="grid max-w-xl grid-rows-[auto_1fr_auto] gap-0 p-0 sm:rounded-2xl"
+        hideCloseButton
+      >
+        <div className="flex items-start justify-between gap-3 border-b px-6 pb-4 pt-5">
+          <div>
+            <DialogTitle className="text-xl font-medium">
+              Create booking link
+            </DialogTitle>
+            <DialogDescription className="mt-1 font-mono text-xs">
+              {publicUrlPrefix}
+              {normalizedSlug}
+            </DialogDescription>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-sm p-1 text-muted-foreground hover:text-foreground"
+            aria-label="Close"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="space-y-5 px-6 py-5">
+          <div>
+            <Label>What guests see</Label>
+            <TextField
+              name="title"
+              value={title}
+              onChange={setTitle}
+              placeholder="15 min intro"
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Shown on your booking page and in calendar invites.
+            </p>
+          </div>
+
+          <div>
+            <Label>Link URL</Label>
+            <div className="flex rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
+              <span className="min-w-0 shrink truncate border-r px-3 py-2 text-sm text-muted-foreground">
+                {publicUrlPrefix}
+              </span>
+              <input
+                type="text"
+                name="slug"
+                value={slug}
+                onChange={(event) =>
+                  setSlug(normalizeBookingSlug(event.target.value))
+                }
+                placeholder="your-name"
+                className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label>Duration</Label>
+            <ChipGroup
+              options={DURATION_OPTIONS.map((value) => ({
+                label: `${value} min`,
+                value,
+              }))}
+              value={duration}
+              onChange={setDuration}
+            />
+          </div>
+
+          <div>
+            <Label>Add events to</Label>
+            <Select
+              name="destinationCalendarId"
+              value={destinationCalendarId || PRIMARY_CALENDAR_SELECT_VALUE}
+              onValueChange={(value) =>
+                setDestinationCalendarId(
+                  value === PRIMARY_CALENDAR_SELECT_VALUE ? "" : value,
+                )
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {calendarOptions.map((option) => (
+                  <SelectItem
+                    key={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
+                    value={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
+                  >
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-lg border px-3.5 py-3">
+            <div>
+              <div className="text-sm font-medium text-foreground">
+                Video conferencing
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {videoLabel
+                  ? `Add ${videoLabel} to calendar events.`
+                  : "Video links are unavailable for this calendar."}
+              </p>
+            </div>
+            <Switch
+              checked={canAddVideo && videoEnabled}
+              disabled={!canAddVideo}
+              onCheckedChange={setVideoEnabled}
+              aria-label="Toggle video conferencing"
+            />
+          </div>
+
+          <div>
+            <Label>Description (optional)</Label>
+            <textarea
+              name="description"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="Tell guests what to expect."
+              rows={3}
+              className="block w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t px-6 py-3">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreate}
+            loading={isCreating}
+            disabled={!title.trim() || normalizedSlug.length < 3}
+          >
+            Create
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -248,20 +516,121 @@ function ActiveLinkCard({
   );
 }
 
+function ChipGroup<T extends number | string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: Array<{ label: string; value: T }>;
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="flex gap-1.5">
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={String(option.value)}
+            type="button"
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "flex-1 rounded-md border px-3 py-2 text-center text-sm transition-colors",
+              active
+                ? "border-blue-600 bg-blue-50 font-semibold text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-300"
+                : "border-input bg-background text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function TextField({
+  name,
+  value,
+  onChange,
+  placeholder,
+}: {
+  name: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <input
+      type="text"
+      name={name}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+      className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    />
+  );
+}
+
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+      {children}
+    </div>
+  );
+}
+
+function getSelectedCalendarProvider(
+  data: BookingLinksData | undefined,
+  destinationCalendarId: string,
+) {
+  const calendars =
+    data?.calendarConnections.flatMap((connection) =>
+      connection.calendars.map((calendar) => ({
+        id: calendar.id,
+        isEnabled: calendar.isEnabled,
+        primary: calendar.primary,
+        provider: connection.provider,
+      })),
+    ) ?? [];
+
+  if (destinationCalendarId) {
+    return (
+      calendars.find((calendar) => calendar.id === destinationCalendarId)
+        ?.provider ?? null
+    );
+  }
+
+  return (
+    calendars.find((calendar) => calendar.isEnabled && calendar.primary)
+      ?.provider ??
+    calendars.find((calendar) => calendar.isEnabled)?.provider ??
+    null
+  );
+}
+
+function getProviderVideoLocationType(provider: string | null | undefined) {
+  if (isGoogleProvider(provider)) {
+    return BookingEventTypeLocationType.GOOGLE_MEET;
+  }
+  if (isMicrosoftProvider(provider)) {
+    return BookingEventTypeLocationType.MICROSOFT_TEAMS;
+  }
+  return null;
+}
+
+function getVideoLocationLabel(
+  locationType: BookingEventTypeLocationType | null,
+) {
+  if (locationType === BookingEventTypeLocationType.GOOGLE_MEET) {
+    return "Google Meet";
+  }
+  if (locationType === BookingEventTypeLocationType.MICROSOFT_TEAMS) {
+    return "Microsoft Teams";
+  }
+  return null;
+}
+
 function stripScheme(url: string) {
   return url.replace(/^https?:\/\//, "");
-}
-
-function suggestSlug(email: string, fallback: string) {
-  const local = email.split("@")[0] ?? fallback;
-  return slugify(local) || slugify(fallback) || "me";
-}
-
-function slugify(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 64);
 }

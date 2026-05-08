@@ -113,6 +113,43 @@ describe("booking actions", () => {
     expect(prisma.bookingLink.update).not.toHaveBeenCalled();
   });
 
+  it("creates a booking link without provider video when disabled", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue(null);
+    prisma.calendar.findFirst.mockResolvedValue({ id: "calendar-id" } as any);
+    prisma.calendar.findUnique.mockResolvedValue({
+      connection: { provider: "microsoft" },
+    } as any);
+    prisma.member.findUnique.mockResolvedValue({
+      organizationId: "organization-id",
+    } as any);
+    prisma.bookingLink.create.mockResolvedValue({
+      id: "booking-link-id",
+      eventTypes: [{ id: "event-type-id" }],
+    } as any);
+    prisma.bookingLink.update.mockResolvedValue({} as any);
+
+    const result = await createBookingLinkAction("email-account-id", {
+      title: "Intro call",
+      slug: "intro-call",
+      timezone: "UTC",
+      durationMinutes: 30,
+      videoEnabled: false,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.bookingLink.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          eventTypes: {
+            create: expect.objectContaining({
+              locationType: BookingEventTypeLocationType.CUSTOM,
+            }),
+          },
+        }),
+      }),
+    );
+  });
+
   it("rejects event type updates to calendars outside the account", async () => {
     prisma.bookingEventType.findFirst.mockResolvedValue({
       id: "event-type-id",

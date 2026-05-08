@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import {
   ArrowLeft,
   ArrowRight,
   Calendar as CalendarIcon,
   Check,
+  ChevronsUpDown,
   Clock,
   Globe,
   Info,
@@ -17,8 +19,25 @@ import type { GetPublicBookingLinkResponse } from "@/app/api/public/booking-link
 import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { BRAND_ICON_URL, BRAND_NAME } from "@/utils/branding";
 import { cn } from "@/utils";
 
+const BRAND_HOMEPAGE_URL = "https://www.getinboxzero.com";
+
+type HourFormat = "12h" | "24h";
 type Slot = { endTime: string; startTime: string };
 type EventType = GetPublicBookingLinkResponse["eventTypes"][number];
 type SuccessState = {
@@ -40,9 +59,8 @@ export function BookingPageClient({
     (candidate) => candidate.slug === eventTypeSlug,
   );
 
-  const timezone = useMemo(
+  const [timezone, setTimezone] = useState<string>(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-    [],
   );
 
   const initialMonth = useMemo(() => startOfMonth(new Date()), []);
@@ -185,6 +203,7 @@ export function BookingPageClient({
         eventType={eventType}
         bookingLink={bookingLink}
         timezone={timezone}
+        onTimezoneChange={setTimezone}
         visibleMonth={visibleMonth}
         onMonthChange={setVisibleMonth}
         selectedDateKey={selectedDateKey}
@@ -206,6 +225,7 @@ function PickTimeStep({
   eventType,
   bookingLink,
   timezone,
+  onTimezoneChange,
   visibleMonth,
   onMonthChange,
   selectedDateKey,
@@ -219,6 +239,7 @@ function PickTimeStep({
   eventType: EventType;
   bookingLink: GetPublicBookingLinkResponse;
   timezone: string;
+  onTimezoneChange: (timezone: string) => void;
   visibleMonth: Date;
   onMonthChange: (month: Date) => void;
   selectedDateKey: string | null;
@@ -229,12 +250,16 @@ function PickTimeStep({
   error: string | null;
   onPickSlot: (slot: Slot) => void;
 }) {
+  const [hourFormat, setHourFormat] = useState<HourFormat>(() =>
+    detectDefaultHourFormat(),
+  );
   return (
-    <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[300px_1fr_240px]">
+    <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)_240px]">
       <Sidebar
         eventType={eventType}
         bookingLink={bookingLink}
         timezone={timezone}
+        onTimezoneChange={onTimezoneChange}
         showDescription
       />
       <div className="border-t p-6 md:border-l md:border-t-0 md:p-7">
@@ -248,15 +273,13 @@ function PickTimeStep({
         />
       </div>
       <div className="border-t bg-muted/30 p-6 md:border-l md:border-t-0">
-        <div className="text-sm font-semibold text-foreground">
-          {selectedDateKey
-            ? formatSelectedDateHeading(selectedDateKey, timezone)
-            : "Pick a date"}
-        </div>
-        <div className="mb-3 mt-0.5 text-xs text-muted-foreground">
-          {selectedDateKey
-            ? `${slotsForDay.length} ${slotsForDay.length === 1 ? "slot" : "slots"}`
-            : ""}
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="text-sm font-semibold text-foreground">
+            {selectedDateKey
+              ? formatSelectedDateHeading(selectedDateKey, timezone)
+              : "Pick a date"}
+          </div>
+          <HourFormatToggle value={hourFormat} onChange={setHourFormat} />
         </div>
         {loading ? (
           <SlotSkeleton />
@@ -275,7 +298,7 @@ function PickTimeStep({
                 onClick={() => onPickSlot(slot)}
                 className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm font-medium tabular-nums text-foreground transition-colors hover:border-blue-600 hover:text-blue-700"
               >
-                {formatSlotTime(slot.startTime, timezone)}
+                {formatSlotTime(slot.startTime, timezone, hourFormat)}
               </button>
             ))}
           </div>
@@ -313,6 +336,7 @@ function BookingCalendar({
   return (
     <Calendar
       mode="single"
+      weekStartsOn={1}
       month={visibleMonth}
       onMonthChange={onMonthChange}
       selected={selectedDate}
@@ -322,6 +346,7 @@ function BookingCalendar({
       }}
       disabled={isUnavailable}
       showOutsideDays={false}
+      formatters={{ formatWeekdayName: formatShortWeekdayName }}
       modifiers={{
         available: (date) => !isUnavailable(date),
       }}
@@ -333,10 +358,13 @@ function BookingCalendar({
       classNames={{
         month: "space-y-4",
         table: "w-full border-collapse space-y-1",
-        head_cell: "w-10 text-muted-foreground font-normal text-[0.8rem]",
-        cell: "h-10 w-10 p-0 text-center text-sm",
+        head_row: "flex gap-1.5",
+        head_cell:
+          "w-14 text-muted-foreground font-normal text-[0.7rem] uppercase tracking-wider",
+        row: "flex w-full mt-1.5 gap-1.5",
+        cell: "h-14 w-14 p-0 text-center text-sm",
         day: cn(
-          "h-10 w-10 rounded-lg p-0 font-normal tabular-nums aria-selected:opacity-100",
+          "h-14 w-14 rounded-lg p-0 font-normal tabular-nums aria-selected:opacity-100",
         ),
         day_selected:
           "bg-blue-600 text-white hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white",
@@ -422,7 +450,7 @@ function DetailsStep({
               className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </FormField>
-          <FormField label="Email" required helper="Calendar invite goes here.">
+          <FormField label="Email" required>
             <input
               type="email"
               value={email}
@@ -507,6 +535,7 @@ function Sidebar({
   eventType,
   bookingLink,
   timezone,
+  onTimezoneChange,
   slot,
   backButton,
   showDescription,
@@ -514,6 +543,7 @@ function Sidebar({
   eventType: EventType;
   bookingLink: GetPublicBookingLinkResponse;
   timezone: string;
+  onTimezoneChange?: (timezone: string) => void;
   slot?: Slot;
   backButton?: React.ReactNode;
   showDescription?: boolean;
@@ -547,7 +577,11 @@ function Sidebar({
           {locationLabel(eventType)}
         </SidebarRow>
         <SidebarRow icon={<Globe className="size-3.5" />}>
-          {timezone}
+          {onTimezoneChange ? (
+            <TimezonePicker value={timezone} onChange={onTimezoneChange} />
+          ) : (
+            timezone
+          )}
         </SidebarRow>
       </div>
       {showDescription && eventType.description ? (
@@ -555,11 +589,134 @@ function Sidebar({
           {eventType.description}
         </p>
       ) : null}
-      <div className="mt-auto flex items-center gap-1.5 border-t pt-4 text-xs text-muted-foreground">
-        Powered by Inbox Zero
-      </div>
+      <a
+        href={BRAND_HOMEPAGE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-auto flex items-center gap-1.5 border-t pt-4 text-xs text-muted-foreground transition-colors hover:text-foreground"
+      >
+        Powered by
+        <Image
+          src={BRAND_ICON_URL}
+          alt={`${BRAND_NAME} icon`}
+          width={14}
+          height={14}
+          className="rounded-sm"
+          unoptimized
+        />
+        <span>{BRAND_NAME}</span>
+      </a>
     </div>
   );
+}
+
+function TimezonePicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (timezone: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const timezones = useMemo(() => getSupportedTimezonesWithOffsets(), []);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-muted"
+        >
+          <span className="truncate">{value}</span>
+          <ChevronsUpDown className="size-3 shrink-0 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[320px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search timezone..." />
+          <CommandList>
+            <CommandEmpty>No timezone found.</CommandEmpty>
+            <CommandGroup>
+              {timezones.map(({ zone, offsetLabel }) => (
+                <CommandItem
+                  key={zone}
+                  value={zone}
+                  onSelect={(selected) => {
+                    onChange(selected);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 size-4",
+                      zone === value ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  <span className="flex-1 truncate">{zone}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {offsetLabel}
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function getSupportedTimezonesWithOffsets(): {
+  zone: string;
+  offsetLabel: string;
+  offsetMinutes: number;
+}[] {
+  const intlWithSupportedValues = Intl as typeof Intl & {
+    supportedValuesOf?: (key: "timeZone") => string[];
+  };
+  const zones = intlWithSupportedValues.supportedValuesOf?.("timeZone") ?? [
+    "UTC",
+  ];
+  const now = new Date();
+  return zones
+    .map((zone) => {
+      const offsetMinutes = getTimezoneOffsetMinutes(zone, now);
+      return {
+        zone,
+        offsetMinutes,
+        offsetLabel: formatOffsetLabel(offsetMinutes),
+      };
+    })
+    .sort((a, b) => {
+      if (a.offsetMinutes !== b.offsetMinutes) {
+        return a.offsetMinutes - b.offsetMinutes;
+      }
+      return a.zone.localeCompare(b.zone);
+    });
+}
+
+function getTimezoneOffsetMinutes(zone: string, now: Date): number {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      timeZoneName: "shortOffset",
+    }).formatToParts(now);
+    const raw = parts.find((part) => part.type === "timeZoneName")?.value ?? "";
+    const match = raw.match(/^GMT(?:([+-])(\d{1,2})(?::(\d{2}))?)?$/);
+    if (!match) return 0;
+    const [, sign = "+", hours = "0", minutes = "0"] = match;
+    const total = Number(hours) * 60 + Number(minutes);
+    return sign === "-" ? -total : total;
+  } catch {
+    return 0;
+  }
+}
+
+function formatOffsetLabel(offsetMinutes: number): string {
+  const sign = offsetMinutes < 0 ? "-" : "+";
+  const abs = Math.abs(offsetMinutes);
+  const hours = Math.floor(abs / 60);
+  const minutes = abs % 60;
+  return `GMT ${sign}${hours}:${minutes.toString().padStart(2, "0")}`;
 }
 
 function SidebarRow({
@@ -661,7 +818,7 @@ function SlotSkeleton() {
 export function BookingShell({ children }: { children: React.ReactNode }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-10">
-      <div className="w-full max-w-4xl overflow-hidden rounded-2xl border bg-background shadow-lg">
+      <div className="w-full max-w-5xl overflow-hidden rounded-2xl border bg-background shadow-lg">
         {children}
       </div>
     </main>
@@ -692,6 +849,10 @@ export function PublicShell({
       </div>
     </main>
   );
+}
+
+function formatShortWeekdayName(date: Date) {
+  return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date);
 }
 
 function startOfMonth(date: Date) {
@@ -745,12 +906,51 @@ function formatSelectedDateHeading(key: string, timezone: string) {
   }).format(date);
 }
 
-function formatSlotTime(value: string, timezone: string) {
+function formatSlotTime(
+  value: string,
+  timezone: string,
+  hourFormat: HourFormat,
+) {
   return new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
     timeZone: timezone,
+    hour12: hourFormat === "12h",
   }).format(new Date(value));
+}
+
+function detectDefaultHourFormat(): HourFormat {
+  return Intl.DateTimeFormat().resolvedOptions().hour12 === false
+    ? "24h"
+    : "12h";
+}
+
+function HourFormatToggle({
+  value,
+  onChange,
+}: {
+  value: HourFormat;
+  onChange: (next: HourFormat) => void;
+}) {
+  return (
+    <div className="inline-flex items-center rounded-md border border-input bg-background p-0.5 text-xs">
+      {(["12h", "24h"] as const).map((option) => (
+        <button
+          key={option}
+          type="button"
+          onClick={() => onChange(option)}
+          className={cn(
+            "rounded px-2 py-0.5 font-medium transition-colors",
+            value === option
+              ? "bg-foreground text-background"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {option}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function formatLongDateTime(value: string, timezone: string) {
