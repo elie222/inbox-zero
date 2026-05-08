@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Copy, ExternalLink, Link2, Settings2, X, Zap } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
+import { CardBasic } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -183,7 +184,7 @@ function BookingLinksPanel() {
 
 function EmptyLinkCard({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="rounded-xl border bg-card px-5 py-4">
+    <CardBasic className="px-5 py-4">
       <div className="mb-1 flex items-center gap-2">
         <h3 className="text-base font-semibold text-foreground">
           Booking link
@@ -198,7 +199,7 @@ function EmptyLinkCard({ onCreate }: { onCreate: () => void }) {
       <Button onClick={onCreate} Icon={Zap}>
         Create booking link
       </Button>
-    </div>
+    </CardBasic>
   );
 }
 
@@ -439,7 +440,7 @@ function ActiveLinkCard({
   };
 
   return (
-    <div className="rounded-xl border bg-card px-5 py-4">
+    <CardBasic className="px-5 py-4">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <h3 className="text-base font-semibold text-foreground">
@@ -512,7 +513,7 @@ function ActiveLinkCard({
           <span className="text-[11px] text-muted-foreground">not live</span>
         )}
       </div>
-    </div>
+    </CardBasic>
   );
 }
 
