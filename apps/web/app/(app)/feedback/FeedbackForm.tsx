@@ -39,7 +39,7 @@ export function FeedbackForm({
 
   if (status === "success") {
     return (
-      <p className="text-sm text-green-700">
+      <p className="text-sm text-green-700 dark:text-green-400">
         Got it — <strong>{fromEmail}</strong> will be filed under{" "}
         <strong>{successRuleName}</strong> from now on.
       </p>
@@ -85,14 +85,18 @@ export function FeedbackForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <p className="text-sm text-gray-600 mb-1">Originally filed under:</p>
-        <p className="text-sm font-medium text-gray-900">{oldRuleName}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+          Originally filed under:
+        </p>
+        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+          {oldRuleName}
+        </p>
       </div>
 
       <div>
         <label
           htmlFor="rule-picker"
-          className="block text-sm font-medium text-gray-700 mb-1"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
         >
           Correct label
         </label>
@@ -111,7 +115,7 @@ export function FeedbackForm({
       </div>
 
       {errorMessage ? (
-        <p className="text-sm text-red-600">{errorMessage}</p>
+        <p className="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>
       ) : null}
 
       <Button

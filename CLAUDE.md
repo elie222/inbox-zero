@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## CRITICAL — do not run locally
+
+**Never run `tsc`, `pnpm exec tsc`, `pnpm build`, or any full typecheck on the user's Windows machine.** They lock up the system. This includes scoped variants like `pnpm exec tsc --noEmit -p tsconfig.json` and `pnpm --filter inbox-zero-ai build:ci`. If you need to verify types, push and let CI run it, or ask the user to run it on a different machine. Reading errors from the editor / LSP `diagnostics` is fine; spawning a typecheck process is not.
+
+`pnpm dev` and `pnpm build` are also not to be run unless the user explicitly asks (per AGENTS.md).
+
 ## Fork context
 
 This is a self-hosted fork of [Inbox Zero](https://github.com/elie222/inbox-zero) running on AWS EC2 for a single user (rebekah@trueocean.com). The production server is at inbox.tdfurn.com. Signups are locked via `AUTH_ALLOWED_EMAIL_DOMAINS`. All secrets are stored in AWS Parameter Store under `/inbox-zero/` and loaded to `/opt/inbox-zero/.env` at boot via `deploy/load-secrets.sh`. The running image is `ghcr.io/rebekah-create/inbox-zero-rebekah:latest`, built by `.github/workflows/docker-build.yml` on every push to `main`.

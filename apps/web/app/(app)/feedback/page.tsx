@@ -53,15 +53,20 @@ export default async function FeedbackPage({
 
   return (
     <div className="max-w-lg mx-auto p-8">
-      <h1 className="text-xl font-semibold text-gray-900 mb-1">
+      <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-1">
         Correct classification
       </h1>
-      <p className="text-sm text-gray-500 mb-6">
-        From: <span className="font-medium text-gray-700">{fromEmail}</span>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+        From:{" "}
+        <span className="font-medium text-gray-700 dark:text-gray-300">
+          {fromEmail}
+        </span>
       </p>
 
       {rules.length === 0 ? (
-        <p className="text-sm text-gray-500">No learnable rules found.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          No learnable rules found.
+        </p>
       ) : (
         <FeedbackForm
           messageId={messageId}

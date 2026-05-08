@@ -213,6 +213,13 @@ export async function runDailyDigest(logger: Logger) {
           scoped.warn("digest.message.notFound", { messageId: item.messageId });
           continue;
         }
+        if (msg.labelIds?.includes("TRASH") || msg.labelIds?.includes("SPAM")) {
+          scoped.info("digest.message.skipTrashOrSpam", {
+            messageId: item.messageId,
+            labelIds: msg.labelIds,
+          });
+          continue;
+        }
         const rule = item.action?.executedRule?.rule;
         buckets[bucket].push({
           messageId: item.messageId,
