@@ -90,6 +90,18 @@ describe("getSafeRedirectUrl", () => {
     ).toBe("/settings?tab=profile");
   });
 
+  it("falls back for same-origin URLs that normalize to protocol-relative paths", () => {
+    vi.stubGlobal("window", {
+      location: { origin: "https://app.example.com" },
+    });
+
+    expect(
+      getSafeRedirectUrl("https://app.example.com//example.com/path", {
+        fallbackUrl: "/login",
+      }),
+    ).toBe("/login");
+  });
+
   it("falls back for external redirects unless explicitly allowed", () => {
     expect(getSafeRedirectUrl("https://example.com/oauth")).toBe("/");
     expect(

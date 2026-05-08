@@ -44,7 +44,11 @@ export function getSafeRedirectUrl(
   try {
     const parsedUrl = new URL(redirectUrl);
     if (currentOrigin && parsedUrl.origin === currentOrigin) {
-      return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+      return (
+        normalizeInternalPath(
+          `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`,
+        ) ?? fallbackUrl
+      );
     }
 
     if (!options.allowExternal) return fallbackUrl;
