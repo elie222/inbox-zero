@@ -36,6 +36,24 @@ spec:
         {{- include "inbox-zero.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: redis-http
     spec:
+      initContainers:
+        - name: wait-for-redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          command:
+            - sh
+            - -ec
+            - until redis-cli -h "$REDIS_HOST" ping | grep -q PONG; do sleep 2; done
+          env:
+            - name: REDIS_HOST
+              value: {{ include "inbox-zero.redisServiceName" . | quote }}
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "inbox-zero.secretName" . }}
+                  key: REDIS_PASSWORD
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
       containers:
         - name: redis-http
           image: "{{ .Values.redisHttp.image.repository }}:{{ .Values.redisHttp.image.tag }}"
