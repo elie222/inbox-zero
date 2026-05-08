@@ -52,8 +52,6 @@ export interface ProcessAttachmentOptions {
   sendNotification?: boolean;
 }
 
-const DUPLICATE_FILING_KEY =
-  "DocumentFiling_emailAccountId_messageId_attachmentId_key";
 const DUPLICATE_FILING_FIELDS = ["emailAccountId", "messageId", "attachmentId"];
 const PROCESSING_FILING_STALE_MS = 30 * 60 * 1000;
 
@@ -100,18 +98,10 @@ export async function processAttachment({
 
     const existingFiling = await findAttachmentFiling(attachmentLookup);
 
-    let retryFilingId: string | null = null;
     if (existingFiling) {
-      const existingDecision = await claimOrResolveExistingFiling(
-        existingFiling,
-        log,
-      );
-      if (existingDecision.type === "retry") {
-        retryFilingId = existingDecision.filingId;
-        claimedFilingId = retryFilingId;
-      } else {
-        return existingDecision.result;
-      }
+      const decision = await claimOrResolveExistingFiling(existingFiling, log);
+      if (decision.type === "return") return decision.result;
+      claimedFilingId = decision.filingId;
     }
 
     // Get all connected drives
@@ -127,7 +117,7 @@ export async function processAttachment({
       return { success: false, error: "No connected drives" };
     }
 
-    if (!retryFilingId) {
+    if (!claimedFilingId) {
       try {
         const processingFiling = await prisma.documentFiling.create({
           data: {
@@ -138,10 +128,10 @@ export async function processAttachment({
             driveConnectionId: driveConnections[0].id,
           },
         });
-        retryFilingId = processingFiling.id;
         claimedFilingId = processingFiling.id;
       } catch (claimError) {
-        if (!isDuplicateFilingError(claimError)) throw claimError;
+        if (!isDuplicateError(claimError, DUPLICATE_FILING_FIELDS))
+          throw claimError;
 
         const claimedFiling = await findAttachmentFiling(attachmentLookup);
         if (!claimedFiling) throw claimError;
@@ -151,14 +141,10 @@ export async function processAttachment({
           status: claimedFiling.status,
         });
 
-        const claimedDecision = await claimOrResolveExistingFiling(
-          claimedFiling,
-          log,
-        );
-        if (claimedDecision.type === "return") return claimedDecision.result;
+        const decision = await claimOrResolveExistingFiling(claimedFiling, log);
+        if (decision.type === "return") return decision.result;
 
-        retryFilingId = claimedDecision.filingId;
-        claimedFilingId = claimedDecision.filingId;
+        claimedFilingId = decision.filingId;
       }
     }
 
@@ -245,7 +231,7 @@ export async function processAttachment({
         emailAccountId: emailAccount.id,
       };
       const skipFiling = await prisma.documentFiling.update({
-        where: { id: retryFilingId },
+        where: { id: claimedFilingId },
         data: skipFilingData,
       });
 
@@ -319,7 +305,7 @@ export async function processAttachment({
       emailAccountId: emailAccount.id,
     };
     const filing = await prisma.documentFiling.update({
-      where: { id: retryFilingId },
+      where: { id: claimedFilingId },
       data: filingData,
     });
 
@@ -518,7 +504,7 @@ async function claimOrResolveExistingFiling(
       return { type: "retry", filingId: filing.id };
     }
 
-    return getProcessingFilingDecision(filing.id);
+    return alreadyProcessing(filing.id);
   }
 
   if (filing.status === "PREVIEW") {
@@ -558,7 +544,7 @@ async function claimOrResolveExistingFiling(
       }
     }
 
-    return getProcessingFilingDecision(filing.id);
+    return alreadyProcessing(filing.id);
   }
 
   return {
@@ -579,7 +565,7 @@ async function claimOrResolveExistingFiling(
   };
 }
 
-function getProcessingFilingDecision(filingId: string): ExistingFilingDecision {
+function alreadyProcessing(filingId: string): ExistingFilingDecision {
   return {
     type: "return",
     result: {
@@ -588,18 +574,6 @@ function getProcessingFilingDecision(filingId: string): ExistingFilingDecision {
       filingId,
     },
   };
-}
-
-function isDuplicateFilingError(error: unknown) {
-  if (!isDuplicateError(error)) return false;
-
-  const target = (error as { meta?: { target?: unknown } }).meta?.target;
-  if (target === DUPLICATE_FILING_KEY) return true;
-
-  return (
-    Array.isArray(target) &&
-    DUPLICATE_FILING_FIELDS.every((field) => target.includes(field))
-  );
 }
 
 function resolveFolderTarget(
