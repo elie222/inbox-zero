@@ -35,6 +35,7 @@ import { LoadingMiniSpinner } from "@/components/Loading";
 import { cn } from "@/utils";
 import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";
 import { captureException } from "@/utils/error";
+import { redirectToSafeUrl } from "@/utils/redirect";
 
 export type PricingProps = {
   header?: React.ReactNode;
@@ -321,7 +322,7 @@ function PriceTier({
 
           // Handle enterprise tier differently - redirect to sales page
           if (tier.ctaLink) {
-            window.location.href = tier.ctaLink;
+            redirectToSafeUrl(tier.ctaLink, { allowExternal: true });
             return;
           }
 
@@ -381,7 +382,7 @@ function PriceTier({
               return;
             }
 
-            window.location.href = result.data.url;
+            redirectToSafeUrl(result.data.url, { allowExternal: true });
           }
 
           try {

@@ -23,6 +23,7 @@ import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/rou
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { setLastEmailAccountAction } from "@/utils/actions/email-account-cookie";
 import { ProfileImage } from "@/components/ProfileImage";
+import { redirectToSafeUrl } from "@/utils/redirect";
 export function AccountSwitcher() {
   const { data: accountsData } = useAccounts();
 
@@ -79,7 +80,7 @@ export function AccountSwitcherInternal({
 
       // Force a hard page reload to refresh all data.
       // I tried to fix with resetting the SWR cache but it didn't seem to work. This is much more reliable anyway.
-      window.location.href = getHref(emailAccountId);
+      redirectToSafeUrl(getHref(emailAccountId));
     },
     [getHref],
   );

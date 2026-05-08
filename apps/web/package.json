@@ -12,6 +12,7 @@
     "lint": "biome check .",
     "check-enums": "node scripts/check-enum-imports.js",
     "check-server-actions": "node scripts/check-server-action-exports.js",
+    "check-client-redirects": "node scripts/check-client-redirects.js",
     "generate-llm-pricing": "tsx scripts/generate-llm-pricing.ts",
     "test": "cross-env RUN_AI_TESTS=false vitest",
     "test-ai": "cross-env RUN_AI_TESTS=true vitest --run",
