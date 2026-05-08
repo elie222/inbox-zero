@@ -7,6 +7,7 @@ import {
   createBookingEventTypeBody,
   createBookingLinkBody,
   deleteBookingLinkBody,
+  updateBookingAvailabilityBody,
   updateBookingDateOverridesBody,
   updateBookingEventTypeBody,
   updateBookingLinkActionBody,
@@ -351,6 +352,36 @@ export const updateBookingScheduleAction = actionClient
     return { success: true };
   });
 
+export const updateBookingAvailabilityAction = actionClient
+  .metadata({ name: "updateBookingAvailability" })
+  .inputSchema(updateBookingAvailabilityBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+    await ensureEventTypeScheduleOwner({
+      emailAccountId,
+      eventTypeId: parsedInput.eventTypeId,
+      scheduleId: parsedInput.scheduleId,
+    });
+
+    await prisma.$transaction([
+      prisma.bookingEventType.update({
+        where: { id: parsedInput.eventTypeId },
+        data: { minimumNoticeMinutes: parsedInput.minimumNoticeMinutes },
+      }),
+      prisma.bookingSchedule.update({
+        where: { id: parsedInput.scheduleId },
+        data: {
+          timezone: parsedInput.timezone,
+          rules: {
+            deleteMany: {},
+            create: parsedInput.rules,
+          },
+        },
+      }),
+    ]);
+
+    return { success: true };
+  });
+
 export const updateBookingDateOverridesAction = actionClient
   .metadata({ name: "updateBookingDateOverrides" })
   .inputSchema(updateBookingDateOverridesBody)
@@ -439,6 +470,29 @@ async function ensureScheduleOwner({
   });
 
   if (!schedule) throw new SafeError("Booking schedule not found");
+}
+
+async function ensureEventTypeScheduleOwner({
+  emailAccountId,
+  eventTypeId,
+  scheduleId,
+}: {
+  emailAccountId: string;
+  eventTypeId: string;
+  scheduleId: string;
+}) {
+  const host = await prisma.bookingEventTypeHost.findFirst({
+    where: {
+      eventTypeId,
+      scheduleId,
+      emailAccountId,
+      eventType: { bookingLink: { emailAccountId } },
+      schedule: { emailAccountId },
+    },
+    select: { id: true },
+  });
+
+  if (!host) throw new SafeError("Booking availability not found");
 }
 
 async function getOwnedDestinationCalendarId({

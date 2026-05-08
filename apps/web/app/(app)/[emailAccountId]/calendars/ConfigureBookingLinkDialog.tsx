@@ -24,9 +24,9 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { getActionErrorMessage } from "@/utils/error";
 import {
   deleteBookingLinkAction,
+  updateBookingAvailabilityAction,
   updateBookingEventTypeAction,
   updateBookingLinkAction,
-  updateBookingScheduleAction,
 } from "@/utils/actions/booking";
 import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
 import {
@@ -426,29 +426,19 @@ function AvailabilityTab({
     formatHours(eventType.minimumNoticeMinutes / 60),
   );
 
-  const { executeAsync: updateSchedule, isExecuting: isUpdatingSchedule } =
-    useAction(updateBookingScheduleAction.bind(null, emailAccountId), {
-      onError: (error) => {
-        toastError({
-          description:
-            getActionErrorMessage(error.error) ??
-            "Failed to update availability",
-        });
-      },
-    });
+  const {
+    executeAsync: updateAvailability,
+    isExecuting: isUpdatingAvailability,
+  } = useAction(updateBookingAvailabilityAction.bind(null, emailAccountId), {
+    onError: (error) => {
+      toastError({
+        description:
+          getActionErrorMessage(error.error) ?? "Failed to update availability",
+      });
+    },
+  });
 
-  const { executeAsync: updateEventType, isExecuting: isUpdatingEventType } =
-    useAction(updateBookingEventTypeAction.bind(null, emailAccountId), {
-      onError: (error) => {
-        toastError({
-          description:
-            getActionErrorMessage(error.error) ??
-            "Failed to update availability",
-        });
-      },
-    });
-
-  const isSaving = isUpdatingSchedule || isUpdatingEventType;
+  const isSaving = isUpdatingAvailability;
 
   const updateDay = (index: number, next: Partial<DayState>) => {
     setDays((prev) =>
@@ -559,14 +549,10 @@ function AvailabilityTab({
     }
 
     try {
-      const eventTypeResult = await updateEventType({
-        id: eventType.id,
+      const result = await updateAvailability({
+        eventTypeId: eventType.id,
+        scheduleId: schedule.id,
         minimumNoticeMinutes,
-      });
-      if (hasActionResultError(eventTypeResult)) return;
-
-      const result = await updateSchedule({
-        id: schedule.id,
         timezone,
         rules,
       });

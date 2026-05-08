@@ -4,6 +4,7 @@ import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
 import {
   createBookingLinkAction,
   deleteBookingLinkAction,
+  updateBookingAvailabilityAction,
   updateBookingEventTypeAction,
   updateBookingLinkAction,
   updateBookingScheduleAction,
@@ -216,6 +217,71 @@ describe("booking actions", () => {
         },
       },
     });
+  });
+
+  it("updates availability settings and schedule rules in one transaction", async () => {
+    prisma.bookingEventTypeHost.findFirst.mockResolvedValue({
+      id: "host-id",
+    } as any);
+    prisma.bookingEventType.update.mockResolvedValue({} as any);
+    prisma.bookingSchedule.update.mockResolvedValue({} as any);
+    prisma.$transaction.mockResolvedValue([] as any);
+
+    const rules = [
+      { weekday: 1, startMinutes: 9 * 60, endMinutes: 12 * 60 },
+      { weekday: 3, startMinutes: 13 * 60, endMinutes: 17 * 60 },
+    ];
+    const result = await updateBookingAvailabilityAction("email-account-id", {
+      eventTypeId: "event-type-id",
+      scheduleId: "schedule-id",
+      timezone: "America/New_York",
+      minimumNoticeMinutes: 4 * 60,
+      rules,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.bookingEventTypeHost.findFirst).toHaveBeenCalledWith({
+      where: {
+        eventTypeId: "event-type-id",
+        scheduleId: "schedule-id",
+        emailAccountId: "email-account-id",
+        eventType: { bookingLink: { emailAccountId: "email-account-id" } },
+        schedule: { emailAccountId: "email-account-id" },
+      },
+      select: { id: true },
+    });
+    expect(prisma.bookingEventType.update).toHaveBeenCalledWith({
+      where: { id: "event-type-id" },
+      data: { minimumNoticeMinutes: 240 },
+    });
+    expect(prisma.bookingSchedule.update).toHaveBeenCalledWith({
+      where: { id: "schedule-id" },
+      data: {
+        timezone: "America/New_York",
+        rules: {
+          deleteMany: {},
+          create: rules,
+        },
+      },
+    });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects availability updates when the schedule is not tied to the event type", async () => {
+    prisma.bookingEventTypeHost.findFirst.mockResolvedValue(null);
+
+    const result = await updateBookingAvailabilityAction("email-account-id", {
+      eventTypeId: "event-type-id",
+      scheduleId: "other-schedule-id",
+      timezone: "America/New_York",
+      minimumNoticeMinutes: 4 * 60,
+      rules: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 12 * 60 }],
+    });
+
+    expect(result?.serverError).toBe("Booking availability not found");
+    expect(prisma.bookingEventType.update).not.toHaveBeenCalled();
+    expect(prisma.bookingSchedule.update).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("rejects invalid event type payloads before writing", async () => {

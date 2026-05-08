@@ -148,6 +148,17 @@ export type UpdateBookingScheduleBody = z.infer<
   typeof updateBookingScheduleBody
 >;
 
+export const updateBookingAvailabilityBody = z.object({
+  eventTypeId: z.string(),
+  scheduleId: z.string(),
+  timezone: timezoneSchema,
+  minimumNoticeMinutes: nonNegativeMinutesSchema.max(365 * 24 * 60),
+  rules: z.array(bookingAvailabilityRuleBody).min(1),
+});
+export type UpdateBookingAvailabilityBody = z.infer<
+  typeof updateBookingAvailabilityBody
+>;
+
 export const updateBookingDateOverridesBody = z.object({
   scheduleId: z.string(),
   overrides: z.array(
