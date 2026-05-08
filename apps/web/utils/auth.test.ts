@@ -3,11 +3,23 @@ import { cookies } from "next/headers";
 import { createReferral } from "@/utils/referral/referral-code";
 import { captureException } from "@/utils/error";
 import { saveTokens } from "@/utils/auth/save-tokens";
-import { handleLinkAccount, handleReferralOnSignUp } from "@/utils/auth";
+import {
+  betterAuthConfig,
+  handleLinkAccount,
+  handleReferralOnSignUp,
+} from "@/utils/auth";
 import prisma from "@/utils/__mocks__/prisma";
 import { clearSpecificErrorMessages } from "@/utils/error-messages";
 
 vi.mock("server-only", () => ({}));
+vi.mock("better-auth", () => ({
+  betterAuth: vi.fn((options: unknown) => ({
+    api: {
+      getSession: vi.fn(),
+    },
+    options,
+  })),
+}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/error-messages", () => ({
   addUserErrorMessage: vi.fn().mockResolvedValue(undefined),
@@ -39,6 +51,14 @@ vi.mock("@/utils/referral/referral-code", () => ({
 vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
 }));
+
+describe("betterAuthConfig", () => {
+  it("does not trust Microsoft for implicit social account linking", () => {
+    expect(
+      (betterAuthConfig as any).options.account.accountLinking.trustedProviders,
+    ).toEqual(["google", "apple"]);
+  });
+});
 
 describe("handleReferralOnSignUp", () => {
   const mockCookies = vi.mocked(cookies);
