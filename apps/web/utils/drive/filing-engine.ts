@@ -96,8 +96,6 @@ export async function processAttachment({
       attachmentId: attachment.attachmentId,
     };
 
-    // Check drives before claiming so an early "no drives" return doesn't
-    // leave an existing ERROR row stuck in PROCESSING.
     const [existingFiling, driveConnections] = await Promise.all([
       findAttachmentFiling(attachmentLookup),
       prisma.driveConnection.findMany({
@@ -108,6 +106,20 @@ export async function processAttachment({
       }),
     ]);
 
+    // Resolve terminal existing filings (FILED/PREVIEW/PENDING/REJECTED) before
+    // checking drives — they don't need drives to return their stored result.
+    if (
+      existingFiling &&
+      existingFiling.status !== "ERROR" &&
+      existingFiling.status !== "PROCESSING"
+    ) {
+      const decision = await claimOrResolveExistingFiling(existingFiling, log);
+      if (decision.type === "return") return decision.result;
+    }
+
+    // ERROR and stale PROCESSING claim the row, so wait until drives are
+    // available — otherwise an early "no drives" return would leave the row
+    // stuck in PROCESSING.
     if (driveConnections.length === 0) {
       log.info("No connected drives");
       return { success: false, error: "No connected drives" };
