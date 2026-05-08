@@ -1,7 +1,11 @@
 import type { ActionsBlock, Button, KnownBlock, Block } from "@slack/types";
 import type { ThreadTrackerType } from "@/generated/prisma/enums";
 import { escapeSlackText } from "@/utils/messaging/providers/slack/format";
-import { getFollowUpCopy, truncateSnippet } from "@/utils/follow-up/copy";
+import {
+  getFollowUpCopy,
+  normalizeFollowUpText,
+  truncateSnippet,
+} from "@/utils/follow-up/copy";
 import { FOLLOW_UP_MARK_DONE_ACTION_ID } from "@/utils/follow-up/follow-up-actions";
 import { pluralize } from "@/utils/string";
 
@@ -13,6 +17,7 @@ export type FollowUpReminderBlocksParams = {
   daysSinceSent: number;
   snippet?: string;
   threadLink?: string;
+  threadLinkLabel?: string;
   trackerId: string;
 };
 
@@ -24,17 +29,23 @@ export function buildFollowUpReminderBlocks({
   daysSinceSent,
   snippet,
   threadLink,
+  threadLinkLabel,
   trackerId,
 }: FollowUpReminderBlocksParams): (KnownBlock | Block)[] {
-  const { directionLine, preposition, verb } = getFollowUpCopy(trackerType);
-  const sentenceVerb = `${verb} ${daysSinceSent} ${pluralize(daysSinceSent, "day")} ago`;
+  const { directionLine, counterpartyPrefix, snippetLabel, emoji } =
+    getFollowUpCopy(trackerType);
+  const elapsedTime = `${daysSinceSent} ${pluralize(daysSinceSent, "day")} ago`;
 
-  const counterpartyMarkdown = `${preposition} *${escapeSlackText(counterpartyName)}* \`<${escapeSlackText(counterpartyEmail)}>\``;
+  const counterpartyMarkdown = `${escapeSlackText(counterpartyPrefix)} *${escapeSlackText(normalizeFollowUpText(counterpartyName))}* \`<${escapeSlackText(counterpartyEmail)}>\``;
 
   const blocks: (KnownBlock | Block)[] = [
     {
       type: "header",
-      text: { type: "plain_text", text: "Follow-up nudge", emoji: true },
+      text: {
+        type: "plain_text",
+        text: `${emoji} Follow-up nudge`,
+        emoji: true,
+      },
     },
     {
       type: "context",
@@ -44,7 +55,7 @@ export function buildFollowUpReminderBlocks({
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*${escapeSlackText(subject)}*\n${counterpartyMarkdown} · ${sentenceVerb}`,
+        text: `*${escapeSlackText(normalizeFollowUpText(subject))}*\n${counterpartyMarkdown} · ${elapsedTime}`,
       },
     },
   ];
@@ -54,7 +65,7 @@ export function buildFollowUpReminderBlocks({
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `> ${escapeSlackText(truncateSnippet(snippet))}`,
+        text: `*${escapeSlackText(snippetLabel)}:*\n> ${escapeSlackText(truncateSnippet(snippet))}`,
       },
     });
   }
@@ -63,7 +74,11 @@ export function buildFollowUpReminderBlocks({
   if (threadLink) {
     actionElements.push({
       type: "button",
-      text: { type: "plain_text", text: "Open thread", emoji: true },
+      text: {
+        type: "plain_text",
+        text: threadLinkLabel ?? "Open email",
+        emoji: true,
+      },
       url: threadLink,
     });
   }

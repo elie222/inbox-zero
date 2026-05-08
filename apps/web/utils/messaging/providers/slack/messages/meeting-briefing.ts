@@ -36,7 +36,7 @@ export function buildMeetingBriefingBlocks({
       type: "header",
       text: {
         type: "plain_text",
-        text: `Briefing: ${meetingTitle}`,
+        text: `📅 Briefing: ${meetingTitle}`,
         emoji: true,
       },
     },

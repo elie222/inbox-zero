@@ -8,6 +8,7 @@ import {
   rulePathParamsSchema,
   ruleRequestBodySchema,
 } from "@/app/api/v1/rules/validation";
+import { assertCanUseDigestsIfNeeded } from "@/utils/premium/server";
 
 export const GET = withAccountApiKey(
   "v1/rules/detail",
@@ -33,10 +34,12 @@ export const PUT = withAccountApiKey(
   "v1/rules/update",
   ["RULES_WRITE"],
   async (request, { params }) => {
-    const { emailAccountId, provider } = request.apiAuth;
+    const { emailAccountId, provider, userId } = request.apiAuth;
     const routeParams = rulePathParamsSchema.parse(await params);
     const body = ruleRequestBodySchema.parse(await request.json());
     const ruleInput = toRuleWriteInput(body);
+
+    await assertCanUseDigestsIfNeeded(userId, ruleInput.actions);
 
     const existingRule = await prisma.rule.findFirst({
       where: { id: routeParams.id, emailAccountId },

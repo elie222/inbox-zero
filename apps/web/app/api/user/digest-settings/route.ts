@@ -18,6 +18,23 @@ const SUPPORTED_SYSTEM_TYPES = [
   SystemType.COLD_EMAIL,
 ] as const;
 
+const DEFAULT_DIGEST_SETTINGS = {
+  toReply: false,
+  awaitingReply: false,
+  fyi: false,
+  actioned: false,
+  newsletter: false,
+  marketing: false,
+  calendar: false,
+  receipt: false,
+  notification: false,
+  coldEmail: false,
+} satisfies Record<string, boolean>;
+
+type DigestSettings = {
+  [K in keyof typeof DEFAULT_DIGEST_SETTINGS]: boolean;
+};
+
 export type GetDigestSettingsResponse = Awaited<
   ReturnType<typeof getDigestSettings>
 >;
@@ -56,33 +73,14 @@ async function getDigestSettings({
   });
 
   if (!emailAccount) {
-    return {
-      toReply: false,
-      newsletter: false,
-      marketing: false,
-      calendar: false,
-      receipt: false,
-      notification: false,
-      coldEmail: false,
-    };
+    return { ...DEFAULT_DIGEST_SETTINGS };
   }
 
   // Build digest settings object
-  const digestSettings = {
-    toReply: false,
-    awaitingReply: false,
-    fyi: false,
-    actioned: false,
-    newsletter: false,
-    marketing: false,
-    calendar: false,
-    receipt: false,
-    notification: false,
-    coldEmail: false,
-  };
+  const digestSettings: DigestSettings = { ...DEFAULT_DIGEST_SETTINGS };
 
   // Map system types to digest settings
-  const systemTypeToKey: Record<SystemType, keyof typeof digestSettings> = {
+  const systemTypeToKey: Record<SystemType, keyof DigestSettings> = {
     [SystemType.TO_REPLY]: "toReply",
     [SystemType.AWAITING_REPLY]: "awaitingReply",
     [SystemType.FYI]: "fyi",

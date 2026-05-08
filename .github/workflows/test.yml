@@ -63,6 +63,9 @@ jobs:
       - name: Check server action exports
         run: pnpm -F inbox-zero-ai check-server-actions
 
+      - name: Check client redirects
+        run: pnpm -F inbox-zero-ai check-client-redirects
+
       - name: Run tests
         run: pnpm -F inbox-zero-ai test
         env:

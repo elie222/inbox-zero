@@ -41,6 +41,7 @@ Limit your response to no more than 200 characters, but make sure to construct c
     ],
     userEmail: user.email,
     usageLabel: "Compose auto complete",
+    sensitiveDataPolicy: user.sensitiveDataPolicy,
   });
 
   return response.toTextStreamResponse();

@@ -35,7 +35,7 @@ export const POST = withError(
 
     if (!isValidInternalApiKey(await headers(), logger)) {
       logger.error("Invalid API key for sender pattern analysis", json);
-      return NextResponse.json({ error: "Invalid API key" });
+      return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
     }
 
     const data = schema.parse(json);
@@ -336,6 +336,7 @@ async function getEmailAccountWithRules({
       email: true,
       about: true,
       multiRuleSelectionEnabled: true,
+      sensitiveDataPolicy: true,
       timezone: true,
       calendarBookingLink: true,
       user: {

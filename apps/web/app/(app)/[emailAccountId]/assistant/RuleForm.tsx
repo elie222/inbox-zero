@@ -78,6 +78,9 @@ import {
 import { handleRuleAttachmentSourceSave } from "@/utils/attachments/rule";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
+import { usePremium } from "@/hooks/usePremium";
+import { hasTierAccess } from "@/utils/premium";
+import { UpgradeToPlusButton } from "@/components/UpgradeToPlusButton";
 import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import {
@@ -128,6 +131,11 @@ export function RuleForm({
   onCancel?: () => void;
 }) {
   const { emailAccountId, provider } = useAccount();
+  const { tier, isLoading: isLoadingPremium } = usePremium();
+  const hasDigestAccess = hasTierAccess({
+    tier,
+    minimumTier: "PLUS_MONTHLY",
+  });
   const ruleEditorActions = getRuleEditorActions(rule.actions);
 
   const form = useForm<CreateRuleBody>({
@@ -230,13 +238,16 @@ export function RuleForm({
         isDraftReplyActionType(action.type),
       );
 
-      // Add DIGEST action if digest is enabled
+      // When the user lacks digest access the toggle is hidden, so preserve
+      // any existing DIGEST action rather than silently dropping it.
       const actionsToSubmit = [...normalizedActions];
-      if (data.digest) {
-        const existingDigestAction = rule.actions.find(
-          (action) => action.type === ActionType.DIGEST,
-        );
-
+      const existingDigestAction = rule.actions.find(
+        (action) => action.type === ActionType.DIGEST,
+      );
+      const includeDigestAction = hasDigestAccess
+        ? data.digest
+        : !!existingDigestAction;
+      if (includeDigestAction) {
         actionsToSubmit.push({
           id: existingDigestAction?.id,
           type: ActionType.DIGEST,
@@ -367,6 +378,7 @@ export function RuleForm({
       onSuccess,
       mutate,
       rule,
+      hasDigestAccess,
     ],
   );
 
@@ -585,13 +597,17 @@ export function RuleForm({
                     title="Include in digest"
                     description="Show matched emails in your digest summary."
                   >
-                    <Toggle
-                      name="digest"
-                      enabled={watch("digest") || false}
-                      onChange={(enabled) => {
-                        setValue("digest", enabled);
-                      }}
-                    />
+                    {isLoadingPremium ? null : hasDigestAccess ? (
+                      <Toggle
+                        name="digest"
+                        enabled={watch("digest") || false}
+                        onChange={(enabled) => {
+                          setValue("digest", enabled);
+                        }}
+                      />
+                    ) : (
+                      <UpgradeToPlusButton tooltip="Upgrade to the Plus plan to include emails in your digest." />
+                    )}
                   </AdvancedRow>
                 )}
 

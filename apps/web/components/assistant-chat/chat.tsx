@@ -34,6 +34,13 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { MessageContext } from "@/app/api/chat/validation";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
+import { ChatHistoryItem } from "@/components/assistant-chat/ChatHistoryItem";
+import {
+  type ChatHistoryEntry,
+  getChatHistoryLabel,
+} from "@/components/assistant-chat/chat-history-types";
+import { RenameChatDialog } from "@/components/assistant-chat/RenameChatDialog";
+import { DeleteChatDialog } from "@/components/assistant-chat/DeleteChatDialog";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 const MAX_FILES = 5;
@@ -454,61 +461,101 @@ function NewChatButton() {
 }
 
 function ChatHistoryDropdown() {
-  const { setChatId } = useChat();
   const [shouldLoadChats, setShouldLoadChats] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<ChatHistoryEntry | null>(
+    null,
+  );
+  const [deleteTarget, setDeleteTarget] = useState<ChatHistoryEntry | null>(
+    null,
+  );
+  const { chatId, setChatId } = useChat();
   const { data, error, isLoading, mutate } = useChats(shouldLoadChats);
 
   return (
-    <DropdownMenu>
-      <Tooltip content="View previous conversations">
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            onMouseEnter={() => setShouldLoadChats(true)}
-            onClick={() => mutate()}
-          >
-            <HistoryIcon className="size-5" />
-            <span className="sr-only">Chat History</span>
-          </Button>
-        </DropdownMenuTrigger>
-      </Tooltip>
-      <DropdownMenuContent align="end">
-        <LoadingContent
-          loading={isLoading}
-          error={error}
-          loadingComponent={
-            <DropdownMenuItem
-              disabled
-              className="flex items-center justify-center"
+    <>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <Tooltip content="View previous conversations">
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onMouseEnter={() => setShouldLoadChats(true)}
+              onClick={() => mutate()}
             >
-              <Loader2 className="mr-2 size-4 animate-spin" />
-              Loading chats...
-            </DropdownMenuItem>
-          }
-          errorComponent={
-            <DropdownMenuItem disabled>Error loading chats</DropdownMenuItem>
-          }
-        >
-          {data && data.chats.length > 0 ? (
-            data.chats.map((chatItem) => (
+              <HistoryIcon className="size-5" />
+              <span className="sr-only">Chat History</span>
+            </Button>
+          </DropdownMenuTrigger>
+        </Tooltip>
+        <DropdownMenuContent align="end" className="w-72">
+          <LoadingContent
+            loading={isLoading}
+            error={error}
+            loadingComponent={
               <DropdownMenuItem
-                key={chatItem.id}
-                onSelect={() => {
-                  setChatId(chatItem.id);
-                }}
+                disabled
+                className="flex items-center justify-center"
               >
-                {`Chat from ${new Date(chatItem.createdAt).toLocaleString()}`}
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Loading chats...
               </DropdownMenuItem>
-            ))
-          ) : (
-            <DropdownMenuItem disabled>
-              No previous chats found
-            </DropdownMenuItem>
-          )}
-        </LoadingContent>
-      </DropdownMenuContent>
-    </DropdownMenu>
+            }
+            errorComponent={
+              <DropdownMenuItem disabled>Error loading chats</DropdownMenuItem>
+            }
+          >
+            {data && data.chats.length > 0 ? (
+              data.chats.map((chatItem) => (
+                <ChatHistoryItem
+                  key={chatItem.id}
+                  chat={chatItem}
+                  onSelect={() => {
+                    setOpen(false);
+                    setChatId(chatItem.id);
+                  }}
+                  onRename={() => {
+                    setOpen(false);
+                    setRenameTarget(chatItem);
+                  }}
+                  onDelete={() => {
+                    setOpen(false);
+                    setDeleteTarget(chatItem);
+                  }}
+                />
+              ))
+            ) : (
+              <DropdownMenuItem disabled>
+                No previous chats found
+              </DropdownMenuItem>
+            )}
+          </LoadingContent>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <RenameChatDialog
+        open={renameTarget !== null}
+        onOpenChange={(value) => {
+          if (!value) setRenameTarget(null);
+        }}
+        chatId={renameTarget?.id ?? ""}
+        currentName={renameTarget?.name ?? ""}
+        defaultLabel={renameTarget ? getChatHistoryLabel(renameTarget) : ""}
+        onRenamed={mutate}
+      />
+      <DeleteChatDialog
+        open={deleteTarget !== null}
+        onOpenChange={(value) => {
+          if (!value) setDeleteTarget(null);
+        }}
+        chatId={deleteTarget?.id ?? ""}
+        label={deleteTarget ? getChatHistoryLabel(deleteTarget) : ""}
+        onDeleted={() => {
+          if (deleteTarget && chatId === deleteTarget.id) setChatId(null);
+          mutate();
+        }}
+      />
+    </>
   );
 }
 

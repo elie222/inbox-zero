@@ -79,6 +79,9 @@ import type { RulesResponse } from "@/app/api/user/rules/route";
 import type { MessagingActionType } from "@/utils/actions/messaging-channels.validation";
 import { prefixPath } from "@/utils/path";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
+import { usePremium } from "@/hooks/usePremium";
+import { hasTierAccess } from "@/utils/premium";
+import { UpgradeToPlusButton } from "@/components/UpgradeToPlusButton";
 
 type LinkableProvider = "TEAMS" | "TELEGRAM";
 
@@ -126,6 +129,11 @@ type Rule = RulesResponse[number];
 
 export function Channels() {
   const { emailAccountId } = useAccount();
+  const { tier, isLoading: isLoadingPremium } = usePremium();
+  const hasDigestAccess = hasTierAccess({
+    tier,
+    minimumTier: "PLUS_MONTHLY",
+  });
   const {
     data: channelsData,
     isLoading: isLoadingChannels,
@@ -183,7 +191,7 @@ export function Channels() {
       />
 
       <LoadingContent
-        loading={isLoadingChannels || isLoadingRules}
+        loading={isLoadingChannels || isLoadingRules || isLoadingPremium}
         error={channelsError || rulesError}
       >
         <div className="space-y-10">
@@ -203,6 +211,7 @@ export function Channels() {
                   channel={channel}
                   rules={visibleRules}
                   emailAccountId={emailAccountId}
+                  hasDigestAccess={hasDigestAccess}
                   onUpdate={onUpdate}
                 />
               ));
@@ -310,11 +319,13 @@ function ConnectedChannelSection({
   channel,
   rules,
   emailAccountId,
+  hasDigestAccess,
   onUpdate,
 }: {
   channel: ChannelFromResponse;
   rules: Rule[];
   emailAccountId: string;
+  hasDigestAccess: boolean;
   onUpdate: () => void;
 }) {
   const analytics = useProductAnalytics("channels");
@@ -446,6 +457,13 @@ function ConnectedChannelSection({
             channel.destinations,
             feature.purpose,
           );
+          const digestLocked =
+            feature.purpose === MessagingRoutePurpose.DIGESTS &&
+            !hasDigestAccess;
+          const disabled = !canEnableMessagingFeatureRoute(
+            channel.destinations,
+            feature.purpose,
+          );
 
           return (
             <div key={feature.purpose}>
@@ -470,11 +488,11 @@ function ConnectedChannelSection({
                 canSendAsDm={channel.canSendAsDm}
                 emailAccountId={emailAccountId}
                 onUpdate={onUpdate}
-                disabled={
-                  !canEnableMessagingFeatureRoute(
-                    channel.destinations,
-                    feature.purpose,
-                  )
+                disabled={disabled}
+                upgradeTooltip={
+                  digestLocked
+                    ? "Upgrade to the Plus plan to deliver digests to chat."
+                    : undefined
                 }
               />
             </div>
@@ -759,6 +777,7 @@ function FeatureRouteToggle({
   emailAccountId,
   onUpdate,
   disabled,
+  upgradeTooltip,
 }: {
   name: string;
   description: string;
@@ -770,6 +789,7 @@ function FeatureRouteToggle({
   emailAccountId: string;
   onUpdate: () => void;
   disabled?: boolean;
+  upgradeTooltip?: string;
 }) {
   const analytics = useProductAnalytics("channels");
   const { execute, status } = useAction(
@@ -795,35 +815,41 @@ function FeatureRouteToggle({
       </ItemContent>
       <ItemActions>
         <div className="flex items-center gap-2">
-          <FeatureRouteAction
-            purpose={purpose}
-            emailAccountId={emailAccountId}
-          />
-          {showTargetSelect && (
-            <SlackNotificationTargetSelect
-              emailAccountId={emailAccountId}
-              messagingChannelId={messagingChannelId}
-              purpose={purpose}
-              targetId={destination.targetId}
-              targetLabel={destination.targetLabel}
-              isDm={destination.isDm}
-              canSendAsDm={canSendAsDm}
-              onUpdate={onUpdate}
-            />
+          {upgradeTooltip ? (
+            <UpgradeToPlusButton tooltip={upgradeTooltip} />
+          ) : (
+            <>
+              <FeatureRouteAction
+                purpose={purpose}
+                emailAccountId={emailAccountId}
+              />
+              {showTargetSelect && (
+                <SlackNotificationTargetSelect
+                  emailAccountId={emailAccountId}
+                  messagingChannelId={messagingChannelId}
+                  purpose={purpose}
+                  targetId={destination.targetId}
+                  targetLabel={destination.targetLabel}
+                  isDm={destination.isDm}
+                  canSendAsDm={canSendAsDm}
+                  onUpdate={onUpdate}
+                />
+              )}
+              <Toggle
+                name={`feature-${purpose}-${messagingChannelId}`}
+                enabled={destination.enabled}
+                disabled={disabled || status === "executing"}
+                onChange={(enabled) => {
+                  if (disabled) return;
+                  analytics.captureAction("feature_route_toggled", {
+                    purpose,
+                    enabled,
+                  });
+                  execute({ channelId: messagingChannelId, purpose, enabled });
+                }}
+              />
+            </>
           )}
-          <Toggle
-            name={`feature-${purpose}-${messagingChannelId}`}
-            enabled={destination.enabled}
-            disabled={disabled || status === "executing"}
-            onChange={(enabled) => {
-              if (disabled) return;
-              analytics.captureAction("feature_route_toggled", {
-                purpose,
-                enabled,
-              });
-              execute({ channelId: messagingChannelId, purpose, enabled });
-            }}
-          />
         </div>
       </ItemActions>
     </Item>

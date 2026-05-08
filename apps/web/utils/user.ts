@@ -2,6 +2,7 @@
 
 import { signOut } from "@/utils/auth-client";
 import { clearLastEmailAccountAction } from "@/utils/actions/email-account-cookie";
+import { redirectToSafeUrl } from "@/utils/redirect";
 
 export async function logOut(callbackUrl?: string) {
   clearLastEmailAccountAction();
@@ -9,10 +10,10 @@ export async function logOut(callbackUrl?: string) {
   await signOut({
     fetchOptions: {
       onSuccess: () => {
-        window.location.href = callbackUrl || "/";
+        redirectToSafeUrl(callbackUrl);
       },
       onError: () => {
-        window.location.href = callbackUrl || "/";
+        redirectToSafeUrl(callbackUrl);
       },
     },
   });

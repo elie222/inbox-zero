@@ -1,0 +1,58 @@
+---
+title: 'Enterprise SSO and SCIM'
+description: 'Configure SAML SSO and SCIM user provisioning for organization deployments.'
+---
+
+Inbox Zero supports SAML SSO and SCIM user provisioning for organization deployments.
+
+<Info>
+  If you use the hosted Inbox Zero cloud platform, contact sales to enable SSO or SCIM for your organization. If you self-host Inbox Zero, an app admin configures SSO and SCIM from the admin page.
+</Info>
+
+## When to Use This
+
+Use SSO and SCIM when your organization wants to manage Inbox Zero access through an identity provider such as Okta, Microsoft Entra ID, or Google Workspace.
+
+- **SSO** lets users sign in with your identity provider instead of a personal login flow.
+- **SCIM** lets your identity provider provision, update, and deprovision users.
+
+## Prerequisites
+
+- A deployed Inbox Zero instance with a stable `NEXT_PUBLIC_BASE_URL`.
+- An admin user listed in `ADMINS`.
+- SAML IdP metadata XML from your identity provider.
+- The organization domain users will sign in with.
+- `SSO_LOGIN_ENABLED=true` if you want to show the "Sign in with SSO" button on the login page.
+
+## Configure SSO
+
+1. Sign in as an app admin.
+2. Open `/admin`.
+3. Click **Register SSO Provider**.
+4. Enter the organization name, provider ID, email domain, and SAML IdP metadata XML.
+5. Save the ACS callback URL returned after registration.
+6. Add the ACS callback URL to your identity provider's SAML application.
+
+The ACS callback URL uses this format:
+
+```txt
+https://your-domain.com/api/auth/sso/saml2/callback/{providerId}
+```
+
+Users sign in through `/login/sso` using their email and the organization slug (a slugified form of the organization name you registered).
+
+## Configure SCIM
+
+SCIM requires a registered SSO provider. As an app admin, generate a SCIM bearer token for the same provider ID, then configure your identity provider with:
+
+| Setting | Value |
+| ------- | ----- |
+| SCIM base URL | `https://your-domain.com/api/auth/scim/v2` |
+| Authentication | Bearer token |
+| Supported resource | Users |
+
+Keep the SCIM token secret. Rotate it if it is exposed.
+
+## Managed Setup
+
+Hosted cloud organizations, or self-hosted deployments that want help configuring enterprise access, can contact sales from the pricing page.

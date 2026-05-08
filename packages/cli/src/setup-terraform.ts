@@ -791,7 +791,7 @@ function buildTerraformFiles(config: TerraformVarsConfig) {
   };
 }
 
-function renderTerraformTfvars(config: TerraformVarsConfig) {
+export function renderTerraformTfvars(config: TerraformVarsConfig) {
   const lines = [
     `app_name = "${escapeTfValue(config.appName)}"`,
     `environment = "${escapeTfValue(config.environment)}"`,
@@ -871,7 +871,11 @@ function renderTerraformTfvars(config: TerraformVarsConfig) {
 }
 
 function escapeTfValue(value: string) {
-  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\$\{/g, () => "$${")
+    .replace(/%\{/g, "%%{");
 }
 
 function addOptionalTfVar(lines: string[], key: string, value?: string) {

@@ -210,19 +210,24 @@ export class GmailProvider implements EmailProvider {
   async getMessageByRfc822MessageId(
     rfc822MessageId: string,
   ): Promise<ParsedMessage | null> {
-    const message = await getMessageByRfc822Id(rfc822MessageId, this.client);
+    const message = await getMessageByRfc822Id(
+      rfc822MessageId,
+      this.client,
+      this.logger,
+    );
     if (!message) return null;
     return parseMessage(message);
   }
 
   async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
-    return getSentMessages(this.client, maxResults);
+    return getSentMessages(this.client, this.logger, maxResults);
   }
 
   async getInboxMessages(maxResults = 20): Promise<ParsedMessage[]> {
     const messages = await queryBatchMessages(this.client, {
       query: "in:inbox",
       maxResults,
+      logger: this.logger,
     });
     return messages.messages;
   }
@@ -976,6 +981,7 @@ export class GmailProvider implements EmailProvider {
     return getMessagesBatch({
       messageIds,
       accessToken: getAccessTokenFromClient(this.client),
+      logger: this.logger,
     });
   }
 
@@ -1038,6 +1044,7 @@ export class GmailProvider implements EmailProvider {
     const originalMessage = await getMessageByRfc822Id(
       originalMessageId,
       this.client,
+      this.logger,
     );
     if (!originalMessage) return null;
     return parseMessage(originalMessage);
@@ -1281,6 +1288,7 @@ export class GmailProvider implements EmailProvider {
     return getMessagesBatch({
       messageIds,
       accessToken: getAccessTokenFromClient(this.client),
+      logger: this.logger,
     });
   }
 

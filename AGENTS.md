@@ -32,6 +32,7 @@
 - Avoid low-value tests that mostly restate implementation details; prefer tests that catch a real behavioral regression.
 - Helper functions go at the bottom of files, not the top
 - All imports at the top of files, no mid-file dynamic imports
+- Avoid `useEffect` for mirroring fetched props/data into local state; prefer derived values or explicit edit state.
 - Co-locate unit tests next to source files (e.g., `utils/example.test.ts`). Integration, E2E, and AI tests go in `__tests__/`.
 - Don't export types/interfaces only used within the same file
 - No re-export patterns. Import from the original source.

@@ -1306,13 +1306,6 @@ function getCreatedMemoriesFromDecisions(
   return decisions.map((decision) => decision.newMemory).filter(isDefined);
 }
 
-function matchesOnlyExistingMemory(
-  decisions: Awaited<ReturnType<typeof aiExtractReplyMemoriesFromDraftEdit>>,
-  expectedMemoryId: string,
-) {
-  return matchesOnlyExistingMemoryIds(decisions, [expectedMemoryId]);
-}
-
 function matchesOnlyExistingMemoryIds(
   decisions: Awaited<ReturnType<typeof aiExtractReplyMemoriesFromDraftEdit>>,
   expectedMemoryIds: string[],

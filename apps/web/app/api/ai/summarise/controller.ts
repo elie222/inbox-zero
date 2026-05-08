@@ -35,6 +35,7 @@ export async function summarise({
     ],
     userEmail,
     usageLabel: "Summarise",
+    sensitiveDataPolicy: userAi.sensitiveDataPolicy,
     onFinish: async (result) => {
       await saveSummary(prompt, result.text);
       await expire(prompt, 60 * 60 * 24);

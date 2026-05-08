@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { redirectToSafeUrl } from "@/utils/redirect";
 
 export function ConnectDrive() {
   const { emailAccountId } = useAccount();
@@ -39,7 +40,7 @@ export function ConnectDrive() {
 
       if (!data?.url) throw new Error("Invalid auth URL");
 
-      window.location.href = data.url;
+      redirectToSafeUrl(data.url, { allowExternal: true });
     } catch (error) {
       captureException(error, {
         extra: { context: "Google Drive OAuth initiation" },
@@ -69,7 +70,7 @@ export function ConnectDrive() {
 
       if (!data?.url) throw new Error("Invalid auth URL");
 
-      window.location.href = data.url;
+      redirectToSafeUrl(data.url, { allowExternal: true });
     } catch (error) {
       captureException(error, {
         extra: { context: "OneDrive OAuth initiation" },

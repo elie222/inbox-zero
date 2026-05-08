@@ -3,20 +3,21 @@ import { ActionType } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
 import { isDraftUnmodified } from "@/utils/ai/choose-rule/draft-management";
 import type { Logger } from "@/utils/logger";
-
-const STALE_DAYS = 3;
+import { DEFAULT_AI_DRAFT_CLEANUP_DAYS } from "@/utils/ai/draft-cleanup-settings";
 
 export async function cleanupAIDraftsForAccount({
   emailAccountId,
   provider: providerName,
   logger,
+  cleanupDays,
 }: {
   emailAccountId: string;
   provider: string;
   logger: Logger;
+  cleanupDays: number;
 }) {
   const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - STALE_DAYS);
+  cutoffDate.setDate(cutoffDate.getDate() - cleanupDays);
 
   const staleDrafts = await prisma.executedAction.findMany({
     where: {
@@ -41,6 +42,7 @@ export async function cleanupAIDraftsForAccount({
       skippedModified: 0,
       alreadyGone: 0,
       errors: 0,
+      cleanupDays,
     };
   }
 
@@ -113,5 +115,87 @@ export async function cleanupAIDraftsForAccount({
     skippedModified,
     alreadyGone,
     errors,
+    cleanupDays,
   };
+}
+
+export async function cleanupConfiguredAIDrafts({
+  logger,
+}: {
+  logger: Logger;
+}) {
+  const emailAccounts = await prisma.emailAccount.findMany({
+    where: {
+      draftCleanupDays: { not: null },
+      account: { disconnectedAt: null },
+      executedRules: {
+        some: {
+          actionItems: {
+            some: {
+              type: ActionType.DRAFT_EMAIL,
+              draftId: { not: null },
+              OR: [{ draftSendLog: null }, { wasDraftSent: false }],
+            },
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+      draftCleanupDays: true,
+      account: { select: { provider: true } },
+    },
+  });
+
+  let total = 0;
+  let deleted = 0;
+  let skippedModified = 0;
+  let alreadyGone = 0;
+  let errors = 0;
+  let failedAccounts = 0;
+
+  for (const emailAccount of emailAccounts) {
+    if (emailAccount.draftCleanupDays === null) continue;
+
+    try {
+      const result = await cleanupAIDraftsForAccount({
+        emailAccountId: emailAccount.id,
+        provider: emailAccount.account.provider,
+        logger,
+        cleanupDays: emailAccount.draftCleanupDays,
+      });
+
+      total += result.total;
+      deleted += result.deleted;
+      skippedModified += result.skippedModified;
+      alreadyGone += result.alreadyGone;
+      errors += result.errors;
+    } catch (error) {
+      logger.error("Error cleaning up drafts for account", {
+        emailAccountId: emailAccount.id,
+        error,
+      });
+      failedAccounts++;
+      errors++;
+    }
+  }
+
+  return {
+    accountsChecked: emailAccounts.length,
+    failedAccounts,
+    total,
+    deleted,
+    skippedModified,
+    alreadyGone,
+    errors,
+  };
+}
+
+export async function getConfiguredDraftCleanupDays(emailAccountId: string) {
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: { draftCleanupDays: true },
+  });
+
+  return emailAccount?.draftCleanupDays ?? DEFAULT_AI_DRAFT_CLEANUP_DAYS;
 }

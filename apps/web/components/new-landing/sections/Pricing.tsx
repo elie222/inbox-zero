@@ -142,8 +142,8 @@ export function Pricing() {
                 <div>
                   <h3 className="font-title text-lg">Enterprise</h3>
                   <Paragraph size="sm" className="mt-1">
-                    Need SSO, on-premise deployment, or a dedicated account
-                    manager?
+                    Need SSO, SCIM, on-premise deployment, or a dedicated
+                    account manager?
                   </Paragraph>
                 </div>
               </div>

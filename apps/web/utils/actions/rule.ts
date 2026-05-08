@@ -55,13 +55,14 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import { bulkProcessInboxEmails } from "@/utils/ai/choose-rule/bulk-process-emails";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import { assertCanUseDigestsIfNeeded } from "@/utils/premium/server";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
   .inputSchema(createRuleBody)
   .action(
     async ({
-      ctx: { emailAccountId, logger, provider },
+      ctx: { emailAccountId, userId, logger, provider },
       parsedInput: {
         name,
         runOnThreads,
@@ -70,6 +71,8 @@ export const createRuleAction = actionClient
         conditionalOperator,
       },
     }) => {
+      await assertCanUseDigestsIfNeeded(userId, actions ?? []);
+
       const conditions = flattenConditions(conditionsInput, logger);
 
       const resolvedActions = await resolveActionLabels(
@@ -112,7 +115,7 @@ export const updateRuleAction = actionClient
   .inputSchema(updateRuleBody)
   .action(
     async ({
-      ctx: { emailAccountId, logger, provider },
+      ctx: { emailAccountId, userId, logger, provider },
       parsedInput: {
         id,
         name,
@@ -122,6 +125,8 @@ export const updateRuleAction = actionClient
         conditionalOperator,
       },
     }) => {
+      await assertCanUseDigestsIfNeeded(userId, actions);
+
       const conditions = flattenConditions(conditionsInput, logger);
 
       const resolvedActions = await resolveActionLabels(
@@ -573,6 +578,11 @@ export const copyRulesFromAccountAction = actionClientUser
       if (sourceRules.length === 0) {
         return { copiedCount: 0, replacedCount: 0 };
       }
+
+      await assertCanUseDigestsIfNeeded(
+        userId,
+        sourceRules.flatMap((rule) => rule.actions),
+      );
 
       // Fetch existing rules in target account to check for duplicates
       const targetRules = await prisma.rule.findMany({
@@ -1028,8 +1038,16 @@ export const importRulesAction = actionClient
   .metadata({ name: "importRules" })
   .inputSchema(importRulesBody)
   .action(
-    async ({ ctx: { emailAccountId, logger }, parsedInput: { rules } }) => {
+    async ({
+      ctx: { emailAccountId, userId, logger },
+      parsedInput: { rules },
+    }) => {
       logger.info("Importing rules", { count: rules.length });
+
+      await assertCanUseDigestsIfNeeded(
+        userId,
+        rules.flatMap((rule) => rule.actions),
+      );
 
       // Fetch existing rules to check for duplicates by name or systemType
       const existingRules = await prisma.rule.findMany({

@@ -169,9 +169,10 @@ describe("handleRuleNotificationAction", () => {
     const [, , card] = editMessage.mock.calls[0];
     const cardText = JSON.stringify(card);
 
-    expect(cardText).toContain("New email — reply drafted");
+    expect(cardText).toContain("I drafted a reply for you");
+    expect(cardText).not.toContain("📩 You got an email");
     expect(cardText).toContain("*sender@example.com*");
-    expect(cardText).toContain('about \\"Test subject\\"');
+    expect(cardText).toContain("*Subject:* Test subject");
     expect(cardText).toContain("They wrote:");
     expect(cardText).toContain("Original message body");
     expect(cardText).toContain("I drafted a reply for you:");
@@ -1067,24 +1068,25 @@ describe("sendMessagingRuleNotification", () => {
     expect(buttonLabels).toEqual([
       "Archive",
       "Mark read",
-      "Delete",
-      "Spam",
       "Open in Gmail",
       "Dismiss",
     ]);
     expect(elements).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          type: "button",
-          action_id: "rule_notify_trash",
-          value: "action-1",
-          style: "danger",
-        }),
-        expect.objectContaining({
-          type: "button",
-          action_id: "rule_notify_mark_spam",
-          value: "action-1",
-          style: "danger",
+          type: "static_select",
+          action_id: "rule_notify_more",
+          placeholder: { type: "plain_text", text: "More" },
+          options: [
+            expect.objectContaining({
+              text: { type: "plain_text", text: "Delete" },
+              value: "rule_notify_trash:action-1",
+            }),
+            expect.objectContaining({
+              text: { type: "plain_text", text: "Spam" },
+              value: "rule_notify_mark_spam:action-1",
+            }),
+          ],
         }),
         expect.objectContaining({
           type: "button",
@@ -1101,7 +1103,12 @@ describe("sendMessagingRuleNotification", () => {
     expect(elements).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          type: "static_select",
+          type: "button",
+          action_id: "rule_notify_trash",
+        }),
+        expect.objectContaining({
+          type: "button",
+          action_id: "rule_notify_mark_spam",
         }),
       ]),
     );
@@ -1226,6 +1233,46 @@ describe("sendMessagingRuleNotification", () => {
     expect(serializedBlocks).not.toContain("Short snippet");
   });
 
+  it("strips quoted reply content from Slack draft notification previews", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+      }) as never,
+    );
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Short snippet",
+        textPlain:
+          "Fresh request line.\n\nOn Tue, Apr 28, 2026 at 1:10 PM, Sender <sender@example.com> wrote:\n\n> Older quoted line that should not be shown.",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockSlackPostMessage).toHaveBeenCalledTimes(1);
+
+    const [args] = mockSlackPostMessage.mock.calls[0];
+    const serializedBlocks = JSON.stringify(args.blocks);
+
+    expect(serializedBlocks).toContain("Fresh request line.");
+    expect(serializedBlocks).not.toContain("Older quoted line");
+    expect(serializedBlocks).not.toContain("On Tue, Apr 28");
+    expect(serializedBlocks).not.toContain("Short snippet");
+  });
+
   it("delivers Teams notifications through the linked messaging fallback", async () => {
     prisma.executedAction.findUnique.mockResolvedValue(
       getNotificationContext({
@@ -1342,6 +1389,52 @@ describe("sendMessagingRuleNotification", () => {
     expect(text).toContain(
       "One-click draft editing and sending aren't available in Teams yet.",
     );
+  });
+
+  it("strips quoted reply content from Teams draft notification previews", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.TEAMS,
+          isConnected: true,
+          teamId: "tenant-1",
+          providerUserId: "29:teams-user",
+          accessToken: null,
+          channelId: null,
+        },
+      }) as never,
+    );
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Short snippet",
+        textPlain:
+          "Fresh request line.\n\nOn Tue, Apr 28, 2026 at 1:10 PM, Sender <sender@example.com> wrote:\n\n> Older quoted line that should not be shown.",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+
+    const [{ text }] = mockSendAutomationMessage.mock.calls[0];
+    expect(text).toContain("Fresh request line.");
+    expect(text).not.toContain("Older quoted line");
+    expect(text).not.toContain("On Tue, Apr 28");
+    expect(text).not.toContain("Short snippet");
   });
 
   it("sends Telegram draft notifications with a Send reply action", async () => {
@@ -1524,6 +1617,61 @@ describe("sendMessagingRuleNotification", () => {
     expect(serializedCard).not.toContain("&amp;");
   });
 
+  it("strips quoted reply content from Telegram draft notification cards", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.TELEGRAM,
+          isConnected: true,
+          teamId: "telegram-chat-1",
+          providerUserId: "telegram-user-1",
+          accessToken: null,
+          channelId: null,
+          routes: [
+            {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              targetId: "telegram-chat-1",
+              targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+            },
+          ],
+        },
+      }) as never,
+    );
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Short snippet",
+        textPlain:
+          "Fresh request line.\n\nOn Tue, Apr 28, 2026 at 1:10 PM, Sender <sender@example.com> wrote:\n\n> Older quoted line that should not be shown.",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+
+    const [, card] = mockTelegramPostMessage.mock.calls[0];
+    const serializedCard = JSON.stringify(card);
+
+    expect(serializedCard).toContain("Fresh request line.");
+    expect(serializedCard).not.toContain("Older quoted line");
+    expect(serializedCard).not.toContain("On Tue, Apr 28");
+    expect(serializedCard).not.toContain("Short snippet");
+  });
+
   it("sends Telegram draft notification cards without raw markdown-sensitive text", async () => {
     prisma.executedAction.findUnique.mockResolvedValue(
       getNotificationContext({
@@ -1674,8 +1822,8 @@ describe("buildMessagingRuleNotificationText", () => {
     const text = buildMessagingRuleNotificationText({
       actionType: ActionType.DRAFT_MESSAGING_CHANNEL,
       content: {
-        title: "New email — reply drafted",
-        summary: '📩 You got an email from *Sender* about "Test".',
+        title: "✍️ I drafted a reply for you",
+        summary: "You got an email from *Sender*.\n*Subject:* Test",
         details: [
           "✍️ *I drafted a reply for you:*\nSee <https://example.com|details>.",
         ],
@@ -1683,8 +1831,9 @@ describe("buildMessagingRuleNotificationText", () => {
       provider: MessagingProvider.TELEGRAM,
     });
 
-    expect(text).toContain("New email — reply drafted");
-    expect(text).toContain('You got an email from Sender about "Test".');
+    expect(text).toContain("I drafted a reply for you");
+    expect(text).toContain("You got an email from Sender.");
+    expect(text).toContain("Subject: Test");
     expect(text).toContain("details: https://example.com");
     expect(text).toContain("Draft editing isn't available in Telegram yet.");
   });
@@ -1697,9 +1846,9 @@ describe("buildMessagingRuleNotificationText", () => {
     const text = buildMessagingRuleNotificationText({
       actionType: ActionType.DRAFT_MESSAGING_CHANNEL,
       content: {
-        title: "New email — reply drafted",
+        title: "✍️ I drafted a reply for you",
         summary:
-          '📩 You got an email from *Tom &amp; Jerry* about "A &lt;B&gt;".',
+          "You got an email from *Tom &amp; Jerry*.\n*Subject:* A &lt;B&gt;",
         details: ["💬 *They wrote:*\nHello &amp; welcome"],
       },
       provider: MessagingProvider.TEAMS,

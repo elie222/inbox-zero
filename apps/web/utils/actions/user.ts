@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { after } from "next/server";
+import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import { deleteUser } from "@/utils/user/delete";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
@@ -13,10 +14,15 @@ import {
   saveAboutBody,
   saveSignatureBody,
   saveWritingStyleBody,
+  updateAIDraftCleanupSettingsBody,
 } from "@/utils/actions/user.validation";
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
 import { aliasPosthogUser } from "@/utils/posthog";
-import { cleanupAIDraftsForAccount } from "@/utils/ai/draft-cleanup";
+import {
+  cleanupAIDraftsForAccount,
+  getConfiguredDraftCleanupDays,
+} from "@/utils/ai/draft-cleanup";
+import { isNotFoundError } from "@/utils/prisma-helpers";
 
 export const saveAboutAction = actionClient
   .metadata({ name: "saveAbout" })
@@ -77,9 +83,27 @@ export const deleteAccountAction = actionClientUser
 
 export const cleanupAIDraftsAction = actionClient
   .metadata({ name: "cleanupAIDrafts" })
-  .action(async ({ ctx: { emailAccountId, provider, logger } }) =>
-    cleanupAIDraftsForAccount({ emailAccountId, provider, logger }),
-  );
+  .action(async ({ ctx: { emailAccountId, provider, logger } }) => {
+    const cleanupDays = await getConfiguredDraftCleanupDays(emailAccountId);
+    return cleanupAIDraftsForAccount({
+      emailAccountId,
+      provider,
+      logger,
+      cleanupDays,
+    });
+  });
+
+export const updateAIDraftCleanupSettingsAction = actionClient
+  .metadata({ name: "updateAIDraftCleanupSettings" })
+  .inputSchema(updateAIDraftCleanupSettingsBody)
+  .action(async ({ parsedInput: { cleanupDays }, ctx: { emailAccountId } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { draftCleanupDays: cleanupDays },
+    });
+
+    return { cleanupDays };
+  });
 
 export const deleteEmailAccountAction = actionClientUser
   .metadata({ name: "deleteEmailAccount" })
@@ -123,14 +147,23 @@ export const deleteEmailAccountAction = actionClientUser
       const newPrimaryAccount = otherEmailAccounts[0];
       const oldEmail = emailAccount.user.email;
 
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          email: newPrimaryAccount.email,
-          name: newPrimaryAccount.name,
-          image: newPrimaryAccount.image,
-        },
-      });
+      await runDeleteEmailAccountTransaction(userId, [
+        prisma.user.update({
+          where: {
+            id: userId,
+            email: oldEmail,
+            emailAccounts: { some: { id: newPrimaryAccount.id } },
+          },
+          data: {
+            email: newPrimaryAccount.email,
+            name: newPrimaryAccount.name,
+            image: newPrimaryAccount.image,
+          },
+        }),
+        prisma.account.delete({
+          where: { id: emailAccount.accountId, userId },
+        }),
+      ]);
 
       // Alias the old PostHog identity to the new one
       after(async () => {
@@ -139,13 +172,39 @@ export const deleteEmailAccountAction = actionClientUser
           newEmail: newPrimaryAccount.email,
         });
       });
+    } else {
+      await runDeleteEmailAccountTransaction(userId, [
+        prisma.account.delete({
+          where: {
+            id: emailAccount.accountId,
+            userId,
+            emailAccount: { user: { email: emailAccount.user.email } },
+          },
+        }),
+      ]);
     }
-
-    await prisma.account.delete({
-      where: { id: emailAccount.accountId, userId },
-    });
 
     after(async () => {
       await updateAccountSeats({ userId });
     });
   });
+
+async function runDeleteEmailAccountTransaction(
+  userId: string,
+  operations: Prisma.PrismaPromise<unknown>[],
+) {
+  try {
+    await prisma.$transaction([
+      prisma.$queryRaw`
+        SELECT pg_advisory_xact_lock(539114481, hashtext(${userId}))
+      `,
+      ...operations,
+    ]);
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      throw new SafeError("Email account already changed");
+    }
+
+    throw error;
+  }
+}

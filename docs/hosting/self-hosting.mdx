@@ -130,6 +130,7 @@ The Docker Compose setup includes a `cron` container that handles scheduled task
 | Task | Frequency | Endpoint | Cron Expression | Description |
 |------|-----------|----------|-----------------|-------------|
 | **Scheduled actions** | Every minute | `/api/cron/scheduled-actions` | `* * * * *` | Executes delayed/scheduled actions when QStash is not configured |
+| **Reasoning retention** | Daily | `/api/cron/reasoning-retention` | `0 3 * * *` | Redacts only stale AI reasoning fields when `REASONING_RETENTION_DAYS` is set |
 | **Email watch renewal** | Every 6 hours | `/api/watch/all` | `0 */6 * * *` | Renews Gmail/Outlook push notification subscriptions |
 | **Meeting briefs** | Every 15 minutes | `/api/meeting-briefs` | `*/15 * * * *` | Sends pre-meeting briefings to users with the feature enabled |
 | **Follow-up reminders** | Every hour | `/api/follow-up-reminders` | `0 * * * *` | Processes follow-up reminder notifications |
@@ -139,6 +140,9 @@ The Docker Compose setup includes a `cron` container that handles scheduled task
 ```bash
 # Scheduled actions - every minute (only needed when QStash is not configured)
 * * * * * curl -s -X GET "https://yourdomain.com/api/cron/scheduled-actions" -H "Authorization: Bearer YOUR_CRON_SECRET"
+
+# Reasoning retention - daily (optional, only if REASONING_RETENTION_DAYS is set)
+# Call /api/cron/reasoning-retention with the same cron authorization header.
 
 # Email watch renewal - every 6 hours
 0 */6 * * * curl -s -X GET "https://yourdomain.com/api/watch/all" -H "Authorization: Bearer YOUR_CRON_SECRET"

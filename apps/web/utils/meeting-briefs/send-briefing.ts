@@ -354,7 +354,7 @@ function formatMeetingBriefingText({
   briefingContent: BriefingContent;
 }) {
   const sections = [
-    `Briefing for ${meetingTitle}`,
+    `📅 Briefing for ${meetingTitle}`,
     `Starting at ${formattedTime}`,
   ];
 

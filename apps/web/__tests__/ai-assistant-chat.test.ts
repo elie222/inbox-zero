@@ -29,6 +29,7 @@ const {
   mockPosthogCaptureEvent: vi.fn(),
   mockUnsubscribeSenderAndMark: vi.fn(),
   mockPrisma: {
+    $queryRaw: vi.fn(),
     emailAccount: {
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -355,6 +356,36 @@ describe("aiProcessAssistantChat", () => {
     );
     expect(systemPrompt).not.toContain("Email sending:");
     expect(systemPrompt).not.toContain("Draft replies in rules:");
+  });
+
+  it("warns that chat-uploaded files cannot be used as outgoing email attachments", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      responseSurface: "messaging",
+      messagingPlatform: "telegram",
+      logger,
+    });
+
+    const systemPrompt = String(
+      mockToolCallAgentStream.mock.calls[0][0].messages[0].content,
+    );
+
+    expect(systemPrompt).toContain(
+      "Chat-uploaded files are not available as outgoing email attachments.",
+    );
+    expect(systemPrompt).toContain(
+      "do not call sendEmail, replyEmail, or forwardEmail for that file",
+    );
   });
 
   it("guides rule recommendations through existing rules and inbox evidence", async () => {
@@ -2098,10 +2129,12 @@ describe("aiProcessAssistantChat", () => {
   it("updatePersonalInstructions in append mode preserves existing content", async () => {
     const tools = await captureToolSet();
 
-    mockPrisma.emailAccount.findUnique.mockResolvedValue({
-      about: "Existing instructions",
-    });
-    mockPrisma.emailAccount.update.mockResolvedValue({});
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        previous: "Existing instructions",
+        updated: "Existing instructions\nAdditional preference",
+      },
+    ]);
 
     const result = await tools.updatePersonalInstructions.execute({
       personalInstructions: "Additional preference",
@@ -2111,20 +2144,18 @@ describe("aiProcessAssistantChat", () => {
     expect(result.success).toBe(true);
     expect(result.updated).toBe("Existing instructions\nAdditional preference");
     expect(result.previous).toBe("Existing instructions");
-    expect(mockPrisma.emailAccount.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { about: "Existing instructions\nAdditional preference" },
-      }),
-    );
+    expect(mockPrisma.emailAccount.update).not.toHaveBeenCalled();
   });
 
   it("updatePersonalInstructions defaults to append mode", async () => {
     const tools = await captureToolSet();
 
-    mockPrisma.emailAccount.findUnique.mockResolvedValue({
-      about: "Existing instructions",
-    });
-    mockPrisma.emailAccount.update.mockResolvedValue({});
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        previous: "Existing instructions",
+        updated: "Existing instructions\nAdditional preference",
+      },
+    ]);
 
     const result = await tools.updatePersonalInstructions.execute({
       personalInstructions: "Additional preference",
@@ -2132,20 +2163,18 @@ describe("aiProcessAssistantChat", () => {
 
     expect(result.success).toBe(true);
     expect(result.updated).toBe("Existing instructions\nAdditional preference");
-    expect(mockPrisma.emailAccount.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { about: "Existing instructions\nAdditional preference" },
-      }),
-    );
+    expect(mockPrisma.emailAccount.update).not.toHaveBeenCalled();
   });
 
   it("updatePersonalInstructions in append mode with no existing about sets new content", async () => {
     const tools = await captureToolSet();
 
-    mockPrisma.emailAccount.findUnique.mockResolvedValue({
-      about: null,
-    });
-    mockPrisma.emailAccount.update.mockResolvedValue({});
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        previous: null,
+        updated: "First instructions",
+      },
+    ]);
 
     const result = await tools.updatePersonalInstructions.execute({
       personalInstructions: "First instructions",

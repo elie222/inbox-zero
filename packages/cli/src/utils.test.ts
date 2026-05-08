@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   generateSecret,
   generateEnvFile,
+  getEnvFileName,
   isSensitiveKey,
   parseEnvFile,
   parsePortConflict,
@@ -31,6 +32,22 @@ describe("generateSecret", () => {
       secrets.add(generateSecret(16));
     }
     expect(secrets.size).toBe(100);
+  });
+});
+
+describe("getEnvFileName", () => {
+  it("should reject names with path traversal characters", () => {
+    expect(() => getEnvFileName("../../secrets")).toThrow(
+      "Configuration name may only contain letters, numbers, underscores, and hyphens.",
+    );
+    expect(() => getEnvFileName("nested/config")).toThrow(
+      "Configuration name may only contain letters, numbers, underscores, and hyphens.",
+    );
+  });
+
+  it("should build env file names for safe config names", () => {
+    expect(getEnvFileName()).toBe(".env");
+    expect(getEnvFileName("staging_1-prod")).toBe(".env.staging_1-prod");
   });
 });
 
@@ -75,6 +92,24 @@ LLM_API_KEY=
     );
     expect(result).toContain("AUTH_SECRET=secret123");
     expect(result).toContain("GOOGLE_CLIENT_ID=google-id");
+  });
+
+  it("should preserve replacement tokens and escape quoted values", () => {
+    const result = generateEnvFile({
+      env: {
+        DATABASE_URL: 'postgresql://user:$&"pa\\ss@db:5432/test',
+        AUTH_SECRET: "secret-$&-value",
+      },
+      useDockerInfra: false,
+      llmProvider: "anthropic",
+      template: "DATABASE_URL=placeholder\nAUTH_SECRET=old\n",
+    });
+
+    expect(result).toContain(
+      'DATABASE_URL="postgresql://user:$&\\"pa\\\\ss@db:5432/test"',
+    );
+    expect(result).toContain("AUTH_SECRET=secret-$&-value");
+    expect(result).not.toContain("AUTH_SECRET=secret-AUTH_SECRET=old-value");
   });
 
   it("should set Docker-specific values when useDockerInfra is true", () => {
@@ -544,6 +579,12 @@ describe("updateEnvValue", () => {
     const content = "FOO=old";
     const result = updateEnvValue(content, "FOO", 'hello"world');
     expect(result).toContain('FOO="hello\\"world"');
+  });
+
+  it("should preserve replacement tokens when updating values", () => {
+    const content = "FOO=old";
+    const result = updateEnvValue(content, "FOO", "new-$&-value");
+    expect(result).toBe("FOO=new-$&-value");
   });
 });
 

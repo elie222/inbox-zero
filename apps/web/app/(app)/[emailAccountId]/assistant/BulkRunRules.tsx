@@ -1,7 +1,6 @@
 "use client";
 
 import { useReducer, useRef, useState } from "react";
-import Link from "next/link";
 import { PauseIcon, PlayIcon, SquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionDescription } from "@/components/Typography";
@@ -33,13 +32,15 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { fetchWithAccount } from "@/utils/fetch";
 import { Toggle } from "@/components/Toggle";
 import { hasTierAccess } from "@/utils/premium";
-import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { BulkProcessActivityLog } from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
 import {
   bulkRunReducer,
   getProgressMessage,
   initialBulkRunState,
 } from "@/app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer";
+import { useEndStripeTrial } from "@/app/(app)/premium/ManageSubscription";
+
+const TRIAL_BULK_PROCESS_EMAIL_LIMIT = 200;
 
 export function BulkRunRules() {
   const { emailAccountId } = useAccount();
@@ -49,13 +50,19 @@ export function BulkRunRules() {
 
   const queue = useAiQueueState();
 
-  const { hasAiAccess, isLoading: isLoadingPremium, tier } = usePremium();
-  const { PremiumModal, openModal } = usePremiumModal();
+  const {
+    hasAiAccess,
+    isLoading: isLoadingPremium,
+    premium,
+    tier,
+  } = usePremium();
+  const { loading: loadingEndTrial, endTrial } = useEndStripeTrial();
 
   const isBusinessPlusTier = hasTierAccess({
     tier: tier || null,
     minimumTier: "PROFESSIONAL_MONTHLY",
   });
+  const isTrial = premium?.stripeSubscriptionStatus === "trialing";
 
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
@@ -97,7 +104,12 @@ export function BulkRunRules() {
     try {
       abortRef.current = await onRun(
         emailAccountId,
-        { startDate, endDate, includeRead },
+        {
+          startDate,
+          endDate,
+          includeRead,
+          maxEmails: isTrial ? TRIAL_BULK_PROCESS_EMAIL_LIMIT : undefined,
+        },
         (threads) => {
           dispatch({ type: "THREADS_QUEUED", threads });
         },
@@ -182,27 +194,37 @@ export function BulkRunRules() {
                 />
               </div>
 
-              <div className="flex items-center justify-between gap-4">
-                <Toggle
-                  name="include-read"
-                  label="Include read emails"
-                  enabled={includeRead}
-                  onChange={(enabled) => setIncludeRead(enabled)}
-                  disabled={isProcessing || !isBusinessPlusTier}
-                />
-                {!isBusinessPlusTier && hasAiAccess && (
-                  <Link
-                    href="/premium"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      openModal();
-                    }}
-                    className="text-sm text-primary hover:underline whitespace-nowrap"
+              <Toggle
+                name="include-read"
+                label="Include read emails"
+                enabled={includeRead}
+                onChange={(enabled) => setIncludeRead(enabled)}
+                disabled={isProcessing || !isBusinessPlusTier}
+                disabledTooltipText={
+                  !isBusinessPlusTier && hasAiAccess
+                    ? "Including read emails is available on the Professional plan."
+                    : undefined
+                }
+              />
+
+              {isTrial && (
+                <div className="flex flex-col gap-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
+                  <span>
+                    Trials can process up to {TRIAL_BULK_PROCESS_EMAIL_LIMIT}{" "}
+                    past emails at a time.
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    loading={loadingEndTrial}
+                    onClick={endTrial}
+                    className="self-start border-blue-300 bg-white text-blue-900 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-100 dark:hover:bg-blue-900 sm:self-auto"
                   >
-                    Upgrade to Professional to enable
-                  </Link>
-                )}
-              </div>
+                    Start paid plan now
+                  </Button>
+                </div>
+              )}
 
               {(state.status !== "idle" ||
                 state.processedThreadIds.size > 0) && (
@@ -260,7 +282,6 @@ export function BulkRunRules() {
           </LoadingContent>
         </DialogContent>
       </Dialog>
-      <PremiumModal />
     </div>
   );
 }
@@ -272,7 +293,13 @@ async function onRun(
     startDate,
     endDate,
     includeRead,
-  }: { startDate: Date; endDate?: Date; includeRead?: boolean },
+    maxEmails,
+  }: {
+    startDate: Date;
+    endDate?: Date;
+    includeRead?: boolean;
+    maxEmails?: number;
+  },
   onThreadsQueued: (threads: ThreadsResponse["threads"]) => void,
   onComplete: (
     status: "success" | "error" | "cancelled",
@@ -335,22 +362,32 @@ async function onRun(
       nextPageToken = data.nextPageToken || "";
 
       const threadsWithoutPlan = data.threads.filter((t) => !t.plan);
+      const remainingEmails =
+        maxEmails === undefined ? undefined : maxEmails - totalProcessed;
+      if (remainingEmails !== undefined && remainingEmails <= 0) break;
 
-      onThreadsQueued(threadsWithoutPlan);
-      totalProcessed += threadsWithoutPlan.length;
+      const threadsToQueue =
+        remainingEmails === undefined
+          ? threadsWithoutPlan
+          : threadsWithoutPlan.slice(0, remainingEmails);
 
-      runAiRules(emailAccountId, threadsWithoutPlan, false);
+      onThreadsQueued(threadsToQueue);
+      totalProcessed += threadsToQueue.length;
+
+      runAiRules(emailAccountId, threadsToQueue, false);
 
       if (aborted) {
         onComplete("cancelled", totalProcessed);
         return;
       }
 
+      if (maxEmails !== undefined && totalProcessed >= maxEmails) break;
+
       if (!nextPageToken) break;
 
       // avoid gmail api rate limits
       // ai takes longer anyway
-      await sleep(threadsWithoutPlan.length ? 5000 : 2000);
+      await sleep(threadsToQueue.length ? 5000 : 2000);
     }
 
     onComplete("success", totalProcessed);

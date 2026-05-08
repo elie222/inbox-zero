@@ -111,6 +111,7 @@ async function sendEmail({
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
+      userId: true,
       email: true,
       account: {
         select: {
@@ -124,6 +125,8 @@ async function sendEmail({
     logger.error("Email account not found");
     return { success: false };
   }
+
+  logger = logger.with({ userId: emailAccount.userId });
 
   const coldEmailRule = await prisma.rule.findUnique({
     where: {
@@ -207,6 +210,7 @@ async function sendEmail({
     ? await getMessagesBatch({
         messageIds,
         accessToken: emailAccount.account.access_token,
+        logger,
       })
     : [];
 

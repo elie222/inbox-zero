@@ -103,6 +103,11 @@ const parsedEnv = createEnv({
     DRAFT_LLM_PROVIDER: llmProviderEnum.optional(),
     DRAFT_LLM_MODEL: z.string().optional(),
     AI_NANO_WEEKLY_SPEND_LIMIT_USD: z.coerce.number().positive().optional(),
+    AI_TRIAL_WEEKLY_SPEND_LIMIT_USD: z.coerce.number().positive().optional(),
+    // Unset defaults to ALLOW. Used when an account has not chosen a policy.
+    SENSITIVE_DATA_POLICY_DEFAULT: z
+      .enum(["ALLOW", "REDACT", "BLOCK"])
+      .optional(),
 
     LLM_API_KEY: z.string().optional(),
     OPENAI_API_KEY: z.string().optional(),
@@ -175,6 +180,10 @@ const parsedEnv = createEnv({
       .int()
       .nonnegative()
       .default(50),
+    REASONING_RETENTION_DAYS: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.coerce.number().int().nonnegative().optional(),
+    ),
 
     // Lemon Squeezy
     LEMON_SQUEEZY_SIGNING_SECRET: z.string().optional(),
@@ -313,7 +322,7 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_SUPPORT_EMAIL: z
       .string()
       .optional()
-      .default("elie@getinboxzero.com"),
+      .default("support@getinboxzero.com"),
     NEXT_PUBLIC_GTM_ID: z.string().optional(),
     NEXT_PUBLIC_CRISP_WEBSITE_ID: z.string().optional(),
     NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED: booleanString
@@ -342,6 +351,10 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_CLEANER_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_EXTERNAL_API_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: booleanString.optional(),
+    // When true, the deployment default is enforced and account-level edits are disabled.
+    NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED: booleanString
+      .optional()
+      .default(false),
     NEXT_PUBLIC_IS_RESEND_CONFIGURED: booleanString.optional(),
     NEXT_PUBLIC_TABS_EXTENSION_ID: z
       .string()
@@ -438,6 +451,8 @@ const parsedEnv = createEnv({
       process.env.NEXT_PUBLIC_EXTERNAL_API_ENABLED,
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED:
       process.env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED,
+    NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED:
+      process.env.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED,
     NEXT_PUBLIC_IS_RESEND_CONFIGURED:
       process.env.NEXT_PUBLIC_IS_RESEND_CONFIGURED,
     NEXT_PUBLIC_TABS_EXTENSION_ID: process.env.NEXT_PUBLIC_TABS_EXTENSION_ID,

@@ -82,6 +82,9 @@ export default function Components() {
           <div>
             <TextLink href="/components/chat">Chat Components →</TextLink>
           </div>
+          <div>
+            <TextLink href="/components/slack">Slack Components →</TextLink>
+          </div>
         </div>
 
         <div className="space-y-6">

@@ -88,6 +88,11 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `CLI_LLM_ENABLED` | No | Enables community CLI-backed LLM providers (`codex-cli`, `claude-code`). Self-host only; requires installing optional provider packages. | `false` |
 | `CODEX_CLI_ALLOW_NPX` | No | Allows the Codex community provider to fall back to `npx @openai/codex` if `codex` is not on PATH. Leave disabled unless you trust that install path. | `false` |
 | `CODEX_CLI_PATH` | No | Optional path to the `codex` binary when using `codex-cli`. | — |
+| **AI Content Controls** ||||
+| `SENSITIVE_DATA_POLICY_DEFAULT` | No | Default policy for handling sensitive data matches in LLM requests (`ALLOW`, `REDACT`, or `BLOCK`) | `ALLOW` |
+| `NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED` | No | Set to `true` to enforce the default policy for all accounts, disable account-level edits, and hide the setting in the UI | `false` |
+| **Reasoning Retention** ||||
+| `REASONING_RETENTION_DAYS` | No | Number of days to keep stale AI reasoning fields before the daily reasoning-retention cron redacts them. Covers only `ExecutedRule.reason` and `DocumentFiling.reasoning`; group learnings and other stored content are not redacted. Leave unset to disable reasoning cleanup. | Disabled |
 | **Background Jobs (QStash, optional)** ||||
 | `QSTASH_TOKEN` | No | QStash API token (optional; fallback runs jobs via internal API + cron) | — |
 | `QSTASH_CURRENT_SIGNING_KEY` | No | Current signing key for webhooks | — |
@@ -115,7 +120,7 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `AUTH_ALLOWED_EMAIL_DOMAINS` | No | Comma-separated list of email domains allowed to create new auth users (for example `company.com,subsidiary.org`). | Open sign-up |
 | `AUTO_JOIN_ORGANIZATION_ENABLED` | No | Automatically add new users to the single organization on sign-up. Only enable this if your deployment explicitly wants automatic org membership. | `false` |
 | `AUTO_ENABLE_ORG_ANALYTICS` | No | Default new organization memberships to analytics enabled | `false` |
-| `SSO_LOGIN_ENABLED` | No | Show the "Sign in with SSO" button on the login screen. Default is off. | `false` |
+| `SSO_LOGIN_ENABLED` | No | Show the "Sign in with SSO" button on the login screen. Configuring an SSO provider is a separate admin setup step. | `false` |
 | **Feature Flags** ||||
 | `NEXT_PUBLIC_CONTACTS_ENABLED` | No | Enable contacts feature | `false` |
 | `NEXT_PUBLIC_EMAIL_SEND_ENABLED` | No | Enable email sending | `true` |
@@ -144,6 +149,7 @@ For detailed setup instructions, see the [Setup Guides](/hosting/setup-guides):
 
 - [Google OAuth](/hosting/google-oauth)
 - [Microsoft OAuth](/hosting/microsoft-oauth)
+- [Enterprise SSO and SCIM](/hosting/sso)
 - [Google PubSub](/hosting/google-pubsub)
 - [LLM](/hosting/llm-setup)
 

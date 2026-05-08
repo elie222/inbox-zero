@@ -1,0 +1,256 @@
+# Default values for the Inbox Zero Helm chart.
+#
+# This chart can run a self-contained stack for evaluation, or connect the app
+# to managed Postgres and Redis services for production.
+
+image:
+  repository: ghcr.io/elie222/inbox-zero
+  tag: latest
+  pullPolicy: Always
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+web:
+  replicaCount: 1
+  port: 3000
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  startupProbe:
+    failureThreshold: 30
+    periodSeconds: 10
+  livenessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 30
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+migrations:
+  # Controls the Helm migration Job for managed Postgres. Bundled Postgres
+  # installs still run startup migrations from the web pod because the database
+  # is created as part of the same release.
+  enabled: true
+  hookDeletePolicy: before-hook-creation,hook-succeeded
+  backoffLimit: 2
+  activeDeadlineSeconds: 420
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 768Mi
+
+service:
+  type: ClusterIP
+  port: 80
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: inbox-zero.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Non-secret application environment variables.
+# Set NEXT_PUBLIC_BASE_URL to the public URL users and OAuth providers will use.
+env:
+  NODE_ENV: production
+  NEXT_PUBLIC_BASE_URL: https://inbox-zero.example.com
+  NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true"
+  NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true"
+  NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: "true"
+  DEFAULT_LLM_PROVIDER: openai
+  DEFAULT_LLM_MODEL: gpt-5.4-mini
+  GOOGLE_PUBSUB_TOPIC_NAME: projects/example/topics/inbox-zero
+  QUEUE_BACKEND: bullmq
+
+# Secret application environment variables.
+# For production, prefer existingSecret and manage these values outside Helm.
+secretEnv:
+  AUTH_SECRET: ""
+  GOOGLE_CLIENT_ID: ""
+  GOOGLE_CLIENT_SECRET: ""
+  EMAIL_ENCRYPT_SECRET: ""
+  EMAIL_ENCRYPT_SALT: ""
+  INTERNAL_API_KEY: ""
+  API_KEY_SALT: ""
+  CRON_SECRET: ""
+  OPENAI_API_KEY: ""
+  GOOGLE_PUBSUB_VERIFICATION_TOKEN: ""
+  MICROSOFT_CLIENT_ID: ""
+  MICROSOFT_CLIENT_SECRET: ""
+  MICROSOFT_WEBHOOK_CLIENT_STATE: ""
+
+existingSecret: ""
+existingConfigMap: ""
+extraEnv: []
+extraEnvFrom: []
+
+externalDatabase:
+  # Set enabled=true to use managed Postgres instead of the bundled StatefulSet.
+  # databaseUrl/directUrl are stored in the chart-created Secret. For production,
+  # prefer existingSecret so database credentials are managed outside Helm.
+  enabled: false
+  databaseUrl: ""
+  directUrl: ""
+  existingSecret:
+    name: ""
+    databaseUrlKey: DATABASE_URL
+    directUrlKey: DIRECT_URL
+
+postgresql:
+  # Ignored when externalDatabase.enabled=true.
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16"
+    pullPolicy: IfNotPresent
+  auth:
+    username: postgres
+    # Required when using bundled Postgres. Do not use a guessable value.
+    password: ""
+    database: inboxzero
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+
+externalRedis:
+  # Set enabled=true to use managed Redis instead of the bundled StatefulSet.
+  # Values here are stored in the chart-created Secret. For production, prefer
+  # existingSecret so Redis credentials are managed outside Helm.
+  enabled: false
+  redisUrl: ""
+  upstashRedisUrl: ""
+  upstashRedisToken: ""
+  existingSecret:
+    name: ""
+    redisUrlKey: REDIS_URL
+    upstashRedisUrlKey: UPSTASH_REDIS_URL
+    upstashRedisTokenKey: UPSTASH_REDIS_TOKEN
+
+redis:
+  # Ignored when externalRedis.enabled=true.
+  enabled: true
+  auth:
+    # Required when using bundled Redis. Do not use a guessable value.
+    password: ""
+  image:
+    repository: redis
+    tag: "7"
+    pullPolicy: IfNotPresent
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+redisHttp:
+  enabled: true
+  image:
+    repository: hiett/serverless-redis-http
+    tag: latest
+    pullPolicy: IfNotPresent
+  # Required when redisHttp.enabled=true. Do not use a guessable value.
+  token: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+worker:
+  enabled: true
+  replicaCount: 1
+  queues: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 768Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+cron:
+  enabled: true
+  image:
+    repository: curlimages/curl
+    tag: "8.17.0"
+    pullPolicy: IfNotPresent
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobs:
+    scheduled-actions:
+      schedule: "* * * * *"
+      path: /api/cron/scheduled-actions
+    automation-jobs:
+      schedule: "*/15 * * * *"
+      path: /api/cron/automation-jobs
+    reasoning-retention:
+      schedule: "0 3 * * *"
+      path: /api/cron/reasoning-retention
+    draft-cleanup:
+      schedule: "0 4 * * *"
+      path: /api/cron/draft-cleanup
+    follow-up-reminders:
+      schedule: "0 * * * *"
+      path: /api/follow-up-reminders
+    digest:
+      schedule: "*/30 * * * *"
+      path: /api/resend/digest/all
+    meeting-briefs:
+      schedule: "*/15 * * * *"
+      path: /api/meeting-briefs
+    watch-renewal:
+      schedule: "0 */6 * * *"
+      path: /api/watch/all
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      memory: 128Mi

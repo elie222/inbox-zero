@@ -41,7 +41,12 @@ export const POST = withEmailAccount("chat", async (request) => {
 
   const user = await getEmailAccountWithAi({ emailAccountId });
 
-  if (!user) return NextResponse.json({ error: "Not authenticated" });
+  if (!user) {
+    return NextResponse.json(
+      { error: "Email account not found" },
+      { status: 404 },
+    );
+  }
 
   const inboxStatsPromise = getInboxStatsForChatContext({
     emailAccountId,
@@ -73,6 +78,13 @@ export const POST = withEmailAccount("chat", async (request) => {
     return NextResponse.json(
       { error: "You are not authorized to access this chat" },
       { status: 403 },
+    );
+  }
+
+  if (chat.deletedAt) {
+    return NextResponse.json(
+      { error: "This chat has been deleted." },
+      { status: 410 },
     );
   }
 

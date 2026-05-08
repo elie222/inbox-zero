@@ -10,8 +10,8 @@ description: Cursor Cloud VM setup and service startup instructions for local de
 - **Redis 7 + serverless-redis-http**: Caching/rate-limiting. Redis on port 6380, HTTP proxy on port 8079.
 
 ## Starting services
-1. Start Docker daemon: `sudo dockerd &>/dev/null &` then `sudo chmod 666 /var/run/docker.sock` if not already running (check `docker info`).
-2. Start databases: `docker compose -f docker-compose.dev.yml up -d` from repo root.
+1. Start Docker daemon if needed: `sudo dockerd &>/dev/null &`, then confirm with `docker info` (or `sudo docker info` if the client cannot reach the daemon yet).
+2. Start databases from repo root: `docker compose -f docker-compose.dev.yml up -d`. If you get permission denied on `/var/run/docker.sock`, run the same command with `sudo docker compose` instead of making the socket world-writable.
 3. Run Prisma migrations: `cd apps/web && pnpm prisma:migrate:local` (uses `dotenv -e .env.local`; do NOT use bare `prisma migrate dev` — it won't load `.env.local`).
 4. Start dev server: `pnpm dev` from repo root.
 
@@ -37,12 +37,12 @@ Start the emulator: `docker compose -f docker-compose.dev.yml --profile google-e
 - AI tests (`pnpm test-ai`) require a real LLM API key and are skipped by default.
 
 ## Docker in this environment
-The cloud VM is a Docker-in-Docker setup. Docker requires `fuse-overlayfs` storage driver and `iptables-legacy`. These are configured during initial setup. After snapshot restore, run `sudo dockerd &>/dev/null &` if Docker daemon is not running, then `sudo chmod 666 /var/run/docker.sock`.
+The cloud VM is a Docker-in-Docker setup. Docker requires `fuse-overlayfs` storage driver and `iptables-legacy`. These are configured during initial setup. After snapshot restore, run `sudo dockerd &>/dev/null &` if Docker daemon is not running.
 
 The VM may not have the Docker Compose v2 plugin pre-installed. If `docker compose version` fails, install it:
 ```bash
 sudo mkdir -p /usr/local/lib/docker/cli-plugins
-sudo curl -SL https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+sudo curl -fsSL https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
 sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 ```
 

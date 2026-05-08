@@ -22,15 +22,15 @@
     "docker:local:run": "./docker/scripts/run-local.sh"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.12",
-    "@clack/prompts": "1.2.0",
-    "@turbo/gen": "2.9.6",
+    "@biomejs/biome": "2.4.14",
+    "@clack/prompts": "1.3.0",
+    "@turbo/gen": "2.9.9",
     "commander": "14.0.3",
     "husky": "9.1.7",
-    "lint-staged": "16.4.0",
+    "lint-staged": "17.0.2",
     "tsconfig-paths": "4.2.0",
     "tsx": "4.21.0",
-    "turbo": "2.9.6",
+    "turbo": "2.9.9",
     "ultracite": "7.6.0"
   },
   "packageManager": "pnpm@10.33.0",
@@ -44,12 +44,20 @@
   },
   "pnpm": {
     "overrides": {
+      "@hono/node-server": "1.19.14",
+      "@tiptap/core": "2.27.2",
       "@types/react": "19.2.14",
       "@types/react-dom": "19.2.3",
       "@xmldom/xmldom": "0.8.13",
-      "fast-xml-parser": "5.5.9",
+      "axios": "1.15.2",
+      "fast-xml-parser": "5.7.3",
+      "js-yaml": "3.14.2",
       "jws": "4.0.1",
-      "lodash": "4.18.1"
+      "lodash": "4.18.1",
+      "next": "16.2.5",
+      "postcss": "8.5.14",
+      "svelte": "5.55.5",
+      "webpack": "5.106.2"
     }
   }
 }

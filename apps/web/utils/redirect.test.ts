@@ -1,5 +1,13 @@
-import { describe, it, expect } from "vitest";
-import { buildLoginRedirectUrl, buildRedirectUrl } from "@/utils/redirect";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  buildLoginRedirectUrl,
+  buildRedirectUrl,
+  getSafeRedirectUrl,
+} from "@/utils/redirect";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("buildRedirectUrl", () => {
   it("returns base path when no searchParams", () => {
@@ -62,5 +70,59 @@ describe("buildLoginRedirectUrl", () => {
     expect(buildLoginRedirectUrl("https://example.com/automation")).toBe(
       "/login",
     );
+  });
+});
+
+describe("getSafeRedirectUrl", () => {
+  it("preserves internal redirects", () => {
+    expect(getSafeRedirectUrl("/settings?tab=profile#accounts")).toBe(
+      "/settings?tab=profile#accounts",
+    );
+  });
+
+  it("normalizes same-origin redirects to internal paths", () => {
+    vi.stubGlobal("window", {
+      location: { origin: "https://app.example.com" },
+    });
+
+    expect(
+      getSafeRedirectUrl("https://app.example.com/settings?tab=profile"),
+    ).toBe("/settings?tab=profile");
+  });
+
+  it("falls back for same-origin URLs that normalize to protocol-relative paths", () => {
+    vi.stubGlobal("window", {
+      location: { origin: "https://app.example.com" },
+    });
+
+    expect(
+      getSafeRedirectUrl("https://app.example.com//example.com/path", {
+        fallbackUrl: "/login",
+      }),
+    ).toBe("/login");
+  });
+
+  it("falls back for external redirects unless explicitly allowed", () => {
+    expect(getSafeRedirectUrl("https://example.com/oauth")).toBe("/");
+    expect(
+      getSafeRedirectUrl("https://example.com/oauth", {
+        allowExternal: true,
+      }),
+    ).toBe("https://example.com/oauth");
+  });
+
+  it("rejects script and non-HTTPS external redirects", () => {
+    expect(
+      getSafeRedirectUrl("javascript:alert(1)", {
+        allowExternal: true,
+        fallbackUrl: "/login",
+      }),
+    ).toBe("/login");
+    expect(
+      getSafeRedirectUrl("http://example.com/oauth", {
+        allowExternal: true,
+        fallbackUrl: "/login",
+      }),
+    ).toBe("/login");
   });
 });

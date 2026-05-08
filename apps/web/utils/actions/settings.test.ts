@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { updateAiSettingsAction } from "./settings";
+import {
+  updateSensitiveDataPolicyAction,
+  updateAiSettingsAction,
+} from "./settings";
 import { Provider } from "@/utils/llms/config";
 
 vi.mock("server-only", () => ({}));
@@ -11,16 +14,18 @@ vi.mock("@/utils/auth", () => ({
   })),
 }));
 
-const { clearSpecificErrorMessagesMock } = vi.hoisted(() => ({
+const { clearSpecificErrorMessagesMock, mockEnv } = vi.hoisted(() => ({
   clearSpecificErrorMessagesMock: vi.fn(),
-}));
-
-vi.mock("@/env", () => ({
-  env: {
+  mockEnv: {
     AZURE_RESOURCE_NAME: "azure-resource",
     EMAIL_ENCRYPT_SECRET: "test-email-secret",
     EMAIL_ENCRYPT_SALT: "test-email-salt",
+    NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED: false,
   },
+}));
+
+vi.mock("@/env", () => ({
+  env: mockEnv,
 }));
 
 vi.mock("@/utils/error-messages", async (importActual) => {
@@ -40,6 +45,7 @@ describe("updateAiSettingsAction", () => {
       aiApiKey: "stored-api-key",
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
     prisma.user.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockEnv.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED = false;
   });
 
   it("keeps the stored API key when the provider is unchanged and the form leaves it blank", async () => {
@@ -71,5 +77,43 @@ describe("updateAiSettingsAction", () => {
       "You must provide an API key for this provider",
     );
     expect(prisma.user.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateSensitiveDataPolicyAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockEnv.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED = false;
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      account: {
+        userId: "user-1",
+        provider: "google",
+      },
+    } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
+  });
+
+  it("saves the account-level policy when deployment policy is editable", async () => {
+    await updateSensitiveDataPolicyAction("email-account-1", {
+      sensitiveDataPolicy: "REDACT",
+    });
+
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+      where: { id: "email-account-1" },
+      data: { sensitiveDataPolicy: "REDACT" },
+    });
+  });
+
+  it("rejects account-level policy updates when deployment policy is locked", async () => {
+    mockEnv.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED = true;
+
+    const result = await updateSensitiveDataPolicyAction("email-account-1", {
+      sensitiveDataPolicy: "BLOCK",
+    });
+
+    expect(result?.serverError).toBe(
+      "Sensitive data protection is managed by the deployment.",
+    );
+    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
   });
 });

@@ -329,6 +329,7 @@ export const adminChangePremiumStatusAction = adminActionClient
         await prisma.premium.update({
           where: { id: userToUpgrade.user.premiumId },
           data: {
+            tier: null,
             adminGrantExpiresAt: null,
             adminGrantTier: null,
           },
@@ -437,6 +438,45 @@ export const getBillingPortalUrlAction = actionClientUser
     });
 
     return { url };
+  });
+
+export const endStripeTrialAction = actionClientUser
+  .metadata({ name: "endStripeTrial" })
+  .action(async ({ ctx: { userId, logger } }) => {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        premium: {
+          select: {
+            stripeSubscriptionId: true,
+            stripeSubscriptionStatus: true,
+          },
+        },
+      },
+    });
+
+    const premium = user?.premium;
+    if (!premium?.stripeSubscriptionId) {
+      throw new SafeError("Stripe subscription not found");
+    }
+
+    if (premium.stripeSubscriptionStatus !== "trialing") {
+      throw new SafeError("Your trial has already ended");
+    }
+
+    const stripe = getStripe();
+    const subscription = await stripe.subscriptions.update(
+      premium.stripeSubscriptionId,
+      {
+        trial_end: "now",
+      },
+    );
+
+    logger.info("Ended Stripe trial", {
+      subscriptionStatus: subscription.status,
+    });
+
+    return { status: subscription.status };
   });
 
 export const generateCheckoutSessionAction = actionClientUser

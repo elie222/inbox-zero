@@ -208,6 +208,19 @@ describe("chat route rule freshness persistence", () => {
     });
   });
 
+  it("returns 404 when the email account cannot be loaded", async () => {
+    mockGetEmailAccountWithAi.mockResolvedValueOnce(null);
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: "Email account not found",
+    });
+    expect(mockGetInboxStatsForChatContext).not.toHaveBeenCalled();
+    expect(mockAiProcessAssistantChat).not.toHaveBeenCalled();
+  });
+
   it("records the first seen rules revision for chats that have not seen rules yet", async () => {
     prisma.chat.findUnique.mockResolvedValueOnce({
       id: "chat-1",

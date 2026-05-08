@@ -38,6 +38,7 @@ import { upsertSlackRoute } from "@/utils/messaging/slack-routes";
 import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
 import { lookupSlackUserByEmail } from "@/utils/messaging/providers/slack/users";
 import { callTelegramBotApi } from "@/utils/messaging/providers/telegram/api";
+import { assertCanUseDigests } from "@/utils/premium/server";
 
 export const updateSlackRouteAction = actionClient
   .metadata({ name: "updateSlackRoute" })
@@ -94,9 +95,13 @@ export const updateMessagingFeatureRouteAction = actionClient
   .inputSchema(updateMessagingFeatureRouteBody)
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, userId },
       parsedInput: { channelId, purpose, enabled },
     }) => {
+      if (enabled && purpose === MessagingRoutePurpose.DIGESTS) {
+        await assertCanUseDigests(userId);
+      }
+
       const where = {
         id_emailAccountId: { id: channelId, emailAccountId },
       };
@@ -151,12 +156,18 @@ export const updateMeetingBriefsEmailDeliveryAction = actionClient
 export const updateDigestEmailDeliveryAction = actionClient
   .metadata({ name: "updateDigestEmailDelivery" })
   .inputSchema(updateDigestEmailDeliveryBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { sendEmail } }) => {
-    await prisma.emailAccount.update({
-      where: { id: emailAccountId },
-      data: { digestSendEmail: sendEmail },
-    });
-  });
+  .action(
+    async ({ ctx: { emailAccountId, userId }, parsedInput: { sendEmail } }) => {
+      if (sendEmail) {
+        await assertCanUseDigests(userId);
+      }
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { digestSendEmail: sendEmail },
+      });
+    },
+  );
 
 export const disconnectChannelAction = actionClient
   .metadata({ name: "disconnectChannel" })
@@ -277,6 +288,7 @@ export const linkSlackWorkspaceAction = actionClient
       await sendSlackOnboardingDirectMessageWithLogging({
         accessToken: orgMateChannel.accessToken,
         userId: slackUser.id,
+        botUserId: orgMateChannel.botUserId,
         teamId,
         logger,
       });

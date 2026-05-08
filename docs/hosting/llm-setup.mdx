@@ -59,6 +59,17 @@ Provider-specific keys (for example `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) also 
 
 The app also has **Settings → AI** for per-user keys/models, but self-hosted deployments usually keep configuration at the environment-variable level.
 
+## Sensitive Data Protection
+
+Self-hosted deployments can choose how LLM requests handle sensitive data matches before they are sent to an AI provider. The current scanner targets likely credentials/tokens and payment-card-like numbers; it is not a full DLP or PHI classifier.
+
+```env
+SENSITIVE_DATA_POLICY_DEFAULT=ALLOW # ALLOW, REDACT, or BLOCK
+NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED=false
+```
+
+`ALLOW` preserves the default behavior. `REDACT` replaces matched values before the LLM request. `BLOCK` stops the request when a match is found. Leave `NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED=false` to let users choose per account in Settings, or set it to `true` to enforce the deployment default for all accounts and hide the setting from the UI.
+
 ## Provider-specific details
 
 - `openai-compatible` also requires `OPENAI_COMPATIBLE_BASE_URL`.

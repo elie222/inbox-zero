@@ -1,5 +1,5 @@
-import { createPrivateKey, createSign } from "node:crypto";
 import { sso } from "@better-auth/sso";
+import { scim } from "@better-auth/scim";
 import { expo } from "@better-auth/expo";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import type { GenericOAuthConfig } from "better-auth/plugins/generic-oauth";
@@ -47,6 +47,8 @@ import {
   hasMicrosoftOauthConfig,
   hasAppleOauthConfig,
 } from "@/utils/oauth/provider-config";
+import { getAppleClientSecret } from "@/utils/auth/apple-client-secret";
+import { assertCanGenerateScimToken } from "@/utils/auth/scim";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
@@ -54,64 +56,11 @@ const useGoogleOauthEmulator = isGoogleOauthEmulationEnabled();
 const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();
 const hasMicrosoftConfig = hasMicrosoftOauthConfig();
 const hasAppleConfig = hasAppleOauthConfig();
-const appleTokenAudience = "https://appleid.apple.com";
-const appleClientSecretTtlSeconds = 180 * 24 * 60 * 60;
 
 type AppleProfile = {
   email?: string;
   sub: string;
 };
-
-function generateAppleClientSecret() {
-  const privateKey = env.APPLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
-  if (
-    !env.APPLE_CLIENT_ID ||
-    !env.APPLE_TEAM_ID ||
-    !env.APPLE_KEY_ID ||
-    !privateKey
-  ) {
-    return null;
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-
-  return signAppleJwt(
-    {
-      iss: env.APPLE_TEAM_ID,
-      sub: env.APPLE_CLIENT_ID,
-      aud: appleTokenAudience,
-      iat: now,
-      exp: now + appleClientSecretTtlSeconds,
-    },
-    privateKey,
-  );
-}
-
-function signAppleJwt(
-  payload: Record<string, string | number>,
-  privateKeyPem: string,
-) {
-  const encodedHeader = base64UrlEncode(
-    JSON.stringify({ alg: "ES256", kid: env.APPLE_KEY_ID, typ: "JWT" }),
-  );
-  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
-  const signingInput = `${encodedHeader}.${encodedPayload}`;
-  const signer = createSign("SHA256");
-
-  signer.update(signingInput);
-  signer.end();
-
-  const signature = signer.sign({
-    key: createPrivateKey(privateKeyPem),
-    dsaEncoding: "ieee-p1363",
-  });
-
-  return `${signingInput}.${base64UrlEncode(signature)}`;
-}
-
-function base64UrlEncode(input: string | Buffer) {
-  return Buffer.from(input).toString("base64url");
-}
 
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
@@ -143,11 +92,14 @@ const microsoftSocialProvider =
         }),
       }
     : null;
-const appleClientSecret = generateAppleClientSecret();
 const appleSocialProvider = hasAppleConfig
   ? {
       clientId: env.APPLE_CLIENT_ID!,
-      clientSecret: appleClientSecret!,
+      get clientSecret() {
+        const clientSecret = getAppleClientSecret();
+        if (!clientSecret) throw new Error("Apple OAuth is not configured");
+        return clientSecret;
+      },
       appBundleIdentifier: env.APPLE_APP_BUNDLE_IDENTIFIER,
       mapProfileToUser: async (profile: AppleProfile) => {
         if (profile.email) return {};
@@ -266,6 +218,16 @@ export const betterAuthConfig = betterAuth({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
     }),
+    scim({
+      providerOwnership: { enabled: true },
+      storeSCIMToken: "hashed",
+      beforeSCIMTokenGenerated: async ({ user, scimToken }) => {
+        await assertCanGenerateScimToken({
+          userEmail: user.email,
+          scimToken,
+        });
+      },
+    }),
     ...(genericOauthPlugin ? [genericOauthPlugin] : []),
     ...(mobileAuthOrigins.length > 0 ? [expo()] : []),
     // OAuth proxy for preview deployments (Google doesn't allow wildcard redirect URIs)
@@ -306,7 +268,9 @@ export const betterAuthConfig = betterAuth({
     storeStateStrategy: "cookie", // Required for oAuthProxy to encrypt state
     accountLinking: {
       enabled: true,
-      trustedProviders: ["google", "microsoft", "apple"],
+      // Microsoft Entra email claims can be mutable/unverified, so Microsoft
+      // must not implicitly link users by email during social sign-in.
+      trustedProviders: ["google", "apple"],
     },
   },
   verification: {
