@@ -20,6 +20,8 @@ export const createBookingLinkAction = actionClient
   .metadata({ name: "createBookingLink" })
   .inputSchema(createBookingLinkBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+    await assertBookingLinkSlugAvailable({ slug: parsedInput.slug });
+
     const destinationCalendarId = await getOwnedDestinationCalendarId({
       emailAccountId,
       destinationCalendarId: parsedInput.destinationCalendarId,
@@ -96,17 +98,26 @@ export const updateBookingLinkAction = actionClient
   .metadata({ name: "updateBookingLink" })
   .inputSchema(updateBookingLinkActionBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
-    await ensureBookingLinkOwner({
+    const bookingLink = await ensureBookingLinkOwner({
       emailAccountId,
       bookingLinkId: parsedInput.id,
     });
 
     if (parsedInput.defaultEventTypeId) {
-      await ensureEventTypeOwner({
-        emailAccountId,
+      await ensureEventTypeForBookingLink({
+        bookingLinkId: bookingLink.id,
         eventTypeId: parsedInput.defaultEventTypeId,
       });
     }
+
+    await assertBookingLinkSlugAvailable({
+      bookingLinkId: parsedInput.id,
+      slug: parsedInput.slug,
+      aliasSlug:
+        parsedInput.aliasSlug === undefined
+          ? undefined
+          : emptyToNull(parsedInput.aliasSlug),
+    });
 
     await prisma.bookingLink.update({
       where: { id: parsedInput.id },
@@ -352,6 +363,24 @@ async function ensureEventTypeOwner({
   if (!eventType) throw new SafeError("Booking event type not found");
 }
 
+async function ensureEventTypeForBookingLink({
+  bookingLinkId,
+  eventTypeId,
+}: {
+  bookingLinkId: string;
+  eventTypeId: string;
+}) {
+  const eventType = await prisma.bookingEventType.findFirst({
+    where: {
+      id: eventTypeId,
+      bookingLinkId,
+    },
+    select: { id: true },
+  });
+
+  if (!eventType) throw new SafeError("Booking event type not found");
+}
+
 async function ensureScheduleOwner({
   emailAccountId,
   scheduleId,
@@ -398,6 +427,38 @@ async function getOwnedDestinationCalendarId({
   if (!calendar) throw new SafeError("Destination calendar not found");
 
   return calendar.id;
+}
+
+async function assertBookingLinkSlugAvailable({
+  bookingLinkId,
+  slug,
+  aliasSlug,
+}: {
+  bookingLinkId?: string;
+  slug?: string;
+  aliasSlug?: string | null;
+}) {
+  const checks = [
+    ...(slug ? [{ slug, field: "slug" as const }] : []),
+    ...(aliasSlug ? [{ slug: aliasSlug, field: "aliasSlug" as const }] : []),
+  ];
+
+  for (const check of checks) {
+    const conflictingLink = await prisma.bookingLink.findFirst({
+      where: {
+        ...(bookingLinkId ? { id: { not: bookingLinkId } } : {}),
+        OR:
+          check.field === "slug"
+            ? [{ aliasSlug: check.slug }]
+            : [{ slug: check.slug }, { aliasSlug: check.slug }],
+      },
+      select: { id: true },
+    });
+
+    if (conflictingLink) {
+      throw new SafeError("Booking link slug is already in use");
+    }
+  }
 }
 
 async function getOrganizationId(emailAccountId: string) {

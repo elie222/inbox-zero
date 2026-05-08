@@ -1,3 +1,5 @@
+type DateInput = Date | string;
+
 export type AvailabilityRule = {
   weekday: number;
   startMinutes: number;
@@ -10,8 +12,8 @@ export type DateOverride = {
 };
 
 export type BusyPeriod = {
-  start: Date | string;
-  end: Date | string;
+  start: DateInput;
+  end: DateInput;
 };
 
 export type BookableSlot = {
@@ -29,10 +31,10 @@ export type BookingPolicy = {
 };
 
 export type SlotGenerationInput = {
-  now: Date | string;
+  now: DateInput;
   timezone: string;
-  start: Date | string;
-  end: Date | string;
+  start: DateInput;
+  end: DateInput;
   rules: AvailabilityRule[];
   dateOverrides?: DateOverride[];
   busyPeriods?: BusyPeriod[];
@@ -46,7 +48,7 @@ export type AvailabilityWindow = {
 };
 
 export type ValidateSelectedSlotInput = SlotGenerationInput & {
-  selectedStartTime: Date | string;
+  selectedStartTime: DateInput;
 };
 
 export type ValidateSelectedSlotResult =
@@ -114,31 +116,8 @@ export function validateSelectedSlot(
 ): ValidateSelectedSlotResult {
   const selectedStart = parseDate(input.selectedStartTime, "selectedStartTime");
   const selectedEnd = addMinutes(selectedStart, input.policy.durationMinutes);
-  const intervalMs = minutesToMs(input.policy.slotIntervalMinutes);
-  const windows = expandWeeklyAvailability({
-    start: selectedStart,
-    end: selectedEnd,
-    timezone: input.timezone,
-    rules: input.rules,
-    dateOverrides: input.dateOverrides,
-  });
-  const selectedStartMs = selectedStart.getTime();
-  const selectedEndMs = selectedEnd.getTime();
-  const alignedToWindowGrid = windows.some((window) => {
-    const windowStartMs = parseDate(
-      window.startTime,
-      "window.startTime",
-    ).getTime();
-    const windowEndMs = parseDate(window.endTime, "window.endTime").getTime();
 
-    return (
-      selectedStartMs >= windowStartMs &&
-      selectedEndMs <= windowEndMs &&
-      (selectedStartMs - windowStartMs) % intervalMs === 0
-    );
-  });
-
-  if (!alignedToWindowGrid) {
+  if (!isAlignedToAvailabilityGrid({ ...input, selectedStart, selectedEnd })) {
     return { valid: false, reason: "Selected slot is not available" };
   }
 
@@ -276,9 +255,49 @@ export function isValidTimeZone(timezone: string): boolean {
   }
 }
 
-export function getZonedDateKey(date: Date | string, timezone: string): string {
+export function getZonedDateKey(date: DateInput, timezone: string): string {
   const parts = getZonedParts(parseDate(date, "date"), timezone);
   return formatDateKey(parts.year, parts.month, parts.day);
+}
+
+function isAlignedToAvailabilityGrid({
+  selectedStart,
+  selectedEnd,
+  timezone,
+  rules,
+  dateOverrides,
+  policy,
+}: Pick<
+  ValidateSelectedSlotInput,
+  "dateOverrides" | "policy" | "rules" | "timezone"
+> & {
+  selectedStart: Date;
+  selectedEnd: Date;
+}) {
+  const intervalMs = minutesToMs(policy.slotIntervalMinutes);
+  const selectedStartMs = selectedStart.getTime();
+  const selectedEndMs = selectedEnd.getTime();
+  const windows = expandWeeklyAvailability({
+    start: selectedStart,
+    end: selectedEnd,
+    timezone,
+    rules,
+    dateOverrides,
+  });
+
+  return windows.some((window) => {
+    const windowStartMs = parseDate(
+      window.startTime,
+      "window.startTime",
+    ).getTime();
+    const windowEndMs = parseDate(window.endTime, "window.endTime").getTime();
+
+    return (
+      selectedStartMs >= windowStartMs &&
+      selectedEndMs <= windowEndMs &&
+      (selectedStartMs - windowStartMs) % intervalMs === 0
+    );
+  });
 }
 
 function validatePolicy(policy: BookingPolicy) {
@@ -340,7 +359,7 @@ function dedupeAndSortSlots(slots: BookableSlot[]) {
   return deduped.sort((a, b) => a.startTime.localeCompare(b.startTime));
 }
 
-function parseDate(value: Date | string, fieldName: string): Date {
+function parseDate(value: DateInput, fieldName: string): Date {
   const date =
     value instanceof Date ? new Date(value.getTime()) : new Date(value);
   if (Number.isNaN(date.getTime())) {
