@@ -8,6 +8,7 @@ import {
 import { CALENDAR_SCOPES } from "@/utils/outlook/scopes";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
+import { saveCalendarTokens } from "@/utils/calendar/save-calendar-tokens";
 import {
   Client,
   type AuthenticationProvider,
@@ -101,9 +102,9 @@ export const getCalendarClientWithRefresh = async ({
     if (calendarConnection) {
       await saveCalendarTokens({
         tokens: {
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          expires_at: Math.floor(Date.now() / 1000 + Number(tokens.expires_in)),
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          expiresAt: new Date(Date.now() + Number(tokens.expires_in) * 1000),
         },
         connectionId: calendarConnection.id,
         expectedExpiresAt: expiresAt,
@@ -157,63 +158,4 @@ export async function fetchMicrosoftCalendars(
     logger.error("Error fetching Microsoft calendars", { error });
     throw new SafeError("Failed to fetch calendars");
   }
-}
-
-async function saveCalendarTokens({
-  tokens,
-  connectionId,
-  expectedExpiresAt,
-  logger,
-}: {
-  tokens: {
-    access_token?: string;
-    refresh_token?: string;
-    expires_at?: number; // seconds
-  };
-  connectionId: string;
-  expectedExpiresAt: number | null;
-  logger: Logger;
-}) {
-  if (!tokens.access_token) {
-    logger.warn("No access token to save for calendar connection", {
-      connectionId,
-    });
-    return;
-  }
-
-  try {
-    const result = await prisma.calendarConnection.updateMany({
-      where: {
-        id: connectionId,
-        expiresAt: getExpectedExpiresAtWhere(expectedExpiresAt),
-      },
-      data: {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        expiresAt: tokens.expires_at
-          ? new Date(tokens.expires_at * 1000)
-          : null,
-      },
-    });
-
-    if (result.count === 0) {
-      logger.info("Skipped stale calendar token update", { connectionId });
-      return { status: "conflict" as const };
-    }
-
-    logger.info("Calendar tokens saved successfully", { connectionId });
-    return { status: "saved" as const };
-  } catch (error) {
-    logger.error("Failed to save calendar tokens", { error, connectionId });
-    throw error;
-  }
-}
-
-function getExpectedExpiresAtWhere(expectedExpiresAt: number | null) {
-  if (!expectedExpiresAt) return null;
-
-  return {
-    gte: new Date(expectedExpiresAt),
-    lt: new Date(expectedExpiresAt + 1),
-  };
 }
