@@ -151,6 +151,47 @@ describe("handlePreviousDraftDeletion", () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
+  it("should not delete draft when original content is missing", async () => {
+    const mockPreviousDraft = {
+      id: "action-111",
+      draftId: "draft-222",
+      content: null,
+    };
+
+    const mockCurrentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain: "Potentially user modified draft",
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "Potentially user modified draft",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test Subject",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    };
+
+    mockFindFirst.mockResolvedValue(mockPreviousDraft);
+    mockGetDraft.mockResolvedValue(mockCurrentDraft);
+
+    await handlePreviousDraftDeletion({
+      client: mockClient,
+      executedRule: mockExecutedRule,
+      logger,
+    });
+
+    expect(mockGetDraft).toHaveBeenCalledWith("draft-222");
+    expect(mockDeleteDraft).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
   it("should handle no previous draft found", async () => {
     mockFindFirst.mockResolvedValue(null);
 

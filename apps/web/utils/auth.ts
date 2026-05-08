@@ -268,7 +268,9 @@ export const betterAuthConfig = betterAuth({
     storeStateStrategy: "cookie", // Required for oAuthProxy to encrypt state
     accountLinking: {
       enabled: true,
-      trustedProviders: ["google", "microsoft", "apple"],
+      // Microsoft Entra email claims can be mutable/unverified, so Microsoft
+      // must not implicitly link users by email during social sign-in.
+      trustedProviders: ["google", "apple"],
     },
   },
   verification: {

@@ -87,6 +87,7 @@
               "hosting/google-oauth",
               "hosting/google-pubsub",
               "hosting/microsoft-oauth",
+              "hosting/sso",
               "hosting/llm-setup"
             ]
           },
@@ -94,8 +95,9 @@
             "group": "Self-Hosting",
             "pages": [
               "hosting/self-hosting",
-              "hosting/vercel",
               "hosting/environment-variables",
+              "hosting/vercel",
+              "hosting/kubernetes",
               "hosting/troubleshooting",
               "hosting/image-proxy"
             ]

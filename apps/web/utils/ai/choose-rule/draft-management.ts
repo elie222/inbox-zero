@@ -63,15 +63,18 @@ export async function handlePreviousDraftDeletion({
       return;
     }
 
-    const isUnmodified =
-      !previousDraftAction.content ||
+    if (previousDraftAction.content === null) {
+      logger.info("Previous draft content missing, skipping deletion.");
+      return;
+    }
+
+    if (
       isDraftUnmodified({
         originalContent: previousDraftAction.content,
         currentDraft: currentDraftDetails,
         logger,
-      });
-
-    if (isUnmodified) {
+      })
+    ) {
       logger.info("Draft content matches, deleting draft.");
 
       await Promise.all([

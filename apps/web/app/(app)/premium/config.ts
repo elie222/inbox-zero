@@ -380,6 +380,9 @@ const enterpriseTier: Tier = {
       text: "SSO login",
     },
     {
+      text: "SCIM user provisioning",
+    },
+    {
       text: "On-premise deployment (optional)",
     },
     {

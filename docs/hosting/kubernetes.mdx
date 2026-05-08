@@ -1,0 +1,161 @@
+---
+title: 'Kubernetes Deployment'
+description: 'Run Inbox Zero on Kubernetes with the Helm chart'
+---
+
+Inbox Zero can run on Kubernetes as the same pieces used by Docker Compose:
+
+- A `web` Deployment for the Next.js app.
+- A migration Job that runs Prisma migrations before Helm installs or upgrades the app when managed Postgres is enabled.
+- An optional BullMQ `worker` Deployment for durable background jobs.
+- CronJobs for scheduled endpoints like watch renewal, meeting briefs, follow-up reminders, and retention.
+- Postgres and Redis, either managed externally or installed in-cluster for a simple self-hosted stack.
+- An Ingress in front of the web Service.
+
+## Chart Location
+
+The chart lives in the repository at:
+
+```bash
+charts/inbox-zero
+```
+
+Install it with:
+
+```bash
+helm upgrade --install inbox-zero ./charts/inbox-zero \
+  -n inbox-zero \
+  --create-namespace \
+  -f values.prod.yaml
+```
+
+## Values File
+
+The Helm chart does not replace the normal app configuration. Use the [Environment Variables reference](/hosting/environment-variables), [Google OAuth guide](/hosting/google-oauth), [Microsoft OAuth guide](/hosting/microsoft-oauth), and [LLM setup guide](/hosting/llm-setup) for the full app configuration.
+
+Create `values.prod.yaml` with your public URL, ingress settings, and app configuration. Put app secrets in `secretEnv` or point the chart at an existing Kubernetes Secret.
+
+```yaml
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: app.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: inbox-zero-tls
+      hosts:
+        - app.example.com
+
+env:
+  NEXT_PUBLIC_BASE_URL: https://app.example.com
+  GOOGLE_PUBSUB_TOPIC_NAME: projects/example/topics/inbox-zero
+  QUEUE_BACKEND: bullmq
+
+existingSecret: inbox-zero-secrets
+```
+
+`inbox-zero-secrets` should contain the required app environment variables from the [Environment Variables reference](/hosting/environment-variables). You can use `secretEnv` instead for simple installs.
+
+For a first install with bundled Postgres and Redis, also provide generated values for the bundled services:
+
+```yaml
+existingSecret: ""
+
+postgresql:
+  auth:
+    password: replace-with-random-value
+
+redis:
+  auth:
+    password: replace-with-random-value
+
+redisHttp:
+  token: replace-with-random-value
+```
+
+The default chart includes Postgres, Redis, the Redis HTTP bridge, web, worker, and CronJobs. That is useful for a first Kubernetes install. For production, use managed Postgres and Redis with backups, failover, monitoring, and tested restores.
+
+## Recommended Production Setup
+
+Use managed Postgres and Redis through existing Kubernetes Secrets:
+
+```yaml
+externalDatabase:
+  enabled: true
+  existingSecret:
+    name: inbox-zero-database
+
+externalRedis:
+  enabled: true
+  existingSecret:
+    name: inbox-zero-redis
+```
+
+`inbox-zero-database` should contain `DATABASE_URL` and `DIRECT_URL`.
+
+`inbox-zero-redis` should contain `REDIS_URL`, `UPSTASH_REDIS_URL`, and `UPSTASH_REDIS_TOKEN`.
+
+You can use plain Kubernetes Secrets, External Secrets, Sealed Secrets, SOPS, or a cloud secret controller.
+
+Use `existingSecret` for app secrets too. See the [Environment Variables reference](/hosting/environment-variables) for the full list, including OAuth, LLM, Redis, and QStash variables.
+
+## Background Jobs
+
+BullMQ is the default Kubernetes queue mode:
+
+```yaml
+env:
+  QUEUE_BACKEND: bullmq
+worker:
+  enabled: true
+```
+
+The worker reads from Redis and forwards jobs to the internal web Service using `INTERNAL_API_KEY`.
+
+To use QStash instead, disable the worker:
+
+```yaml
+env:
+  QUEUE_BACKEND: qstash
+worker:
+  enabled: false
+```
+
+Provide the QStash secrets using `secretEnv` or `existingSecret`; see the [Environment Variables reference](/hosting/environment-variables).
+
+## Smoke Test
+
+After installing, check the rollout:
+
+```bash
+kubectl get pods -n inbox-zero
+kubectl rollout status deploy/inbox-zero-web -n inbox-zero
+```
+
+Test the health endpoint:
+
+```bash
+kubectl port-forward svc/inbox-zero-web 3000:80 -n inbox-zero
+curl http://localhost:3000/api/health
+```
+
+Test one scheduled job:
+
+```bash
+kubectl create job --from=cronjob/inbox-zero-watch-renewal test-watch-renewal -n inbox-zero
+kubectl logs job/test-watch-renewal -n inbox-zero
+```
+
+## Operational Notes
+
+- Set `NEXT_PUBLIC_BASE_URL` to the external HTTPS URL used by users and OAuth providers.
+- With managed Postgres, Helm runs Prisma migrations in a pre-install/pre-upgrade Job.
+- Web pods set `SKIP_DB_MIGRATIONS=true` when the migration Job is enabled.
+- With bundled Postgres, the web container runs migrations during startup.
+- Bundled Postgres, Redis, and Redis HTTP require explicit secret values. Generate them before installing, for example with `openssl rand -hex 32`.
+- CronJobs call the internal Service, not the public Ingress.
+- Cron schedules are configured under `cron.jobs`. The defaults follow the Docker self-hosting setup, so some schedules differ from hosted deployment schedules.
+- The `/api/health` endpoint supports lightweight Kubernetes probes without an API key.
