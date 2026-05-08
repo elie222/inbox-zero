@@ -8,6 +8,7 @@ import {
 import { CALENDAR_SCOPES } from "@/utils/outlook/scopes";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
+import { saveCalendarTokens } from "@/utils/calendar/save-calendar-tokens";
 import {
   Client,
   type AuthenticationProvider,
@@ -101,11 +102,12 @@ export const getCalendarClientWithRefresh = async ({
     if (calendarConnection) {
       await saveCalendarTokens({
         tokens: {
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          expires_at: Math.floor(Date.now() / 1000 + Number(tokens.expires_in)),
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          expiresAt: new Date(Date.now() + Number(tokens.expires_in) * 1000),
         },
         connectionId: calendarConnection.id,
+        expectedExpiresAt: expiresAt,
         logger,
       });
     } else {
@@ -155,44 +157,5 @@ export async function fetchMicrosoftCalendars(
   } catch (error) {
     logger.error("Error fetching Microsoft calendars", { error });
     throw new SafeError("Failed to fetch calendars");
-  }
-}
-
-async function saveCalendarTokens({
-  tokens,
-  connectionId,
-  logger,
-}: {
-  tokens: {
-    access_token?: string;
-    refresh_token?: string;
-    expires_at?: number; // seconds
-  };
-  connectionId: string;
-  logger: Logger;
-}) {
-  if (!tokens.access_token) {
-    logger.warn("No access token to save for calendar connection", {
-      connectionId,
-    });
-    return;
-  }
-
-  try {
-    await prisma.calendarConnection.update({
-      where: { id: connectionId },
-      data: {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        expiresAt: tokens.expires_at
-          ? new Date(tokens.expires_at * 1000)
-          : null,
-      },
-    });
-
-    logger.info("Calendar tokens saved successfully", { connectionId });
-  } catch (error) {
-    logger.error("Failed to save calendar tokens", { error, connectionId });
-    throw error;
   }
 }

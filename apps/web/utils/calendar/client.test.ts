@@ -47,9 +47,11 @@ vi.mock("@googleapis/calendar", () => ({
 describe("google calendar client", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.calendarConnection.updateMany.mockResolvedValue({ count: 1 } as any);
   });
 
   it("saves refreshed tokens to the requested calendar connection", async () => {
+    const expectedExpiresAt = Date.now() - 1000;
     const refreshedExpiresAt = Date.now() + 3_600_000;
     refreshAccessToken.mockResolvedValue({
       credentials: {
@@ -64,20 +66,27 @@ describe("google calendar client", () => {
     await getCalendarClientWithRefresh({
       accessToken: "stale-access-token",
       refreshToken: "target-refresh-token",
-      expiresAt: Date.now() - 1000,
+      expiresAt: expectedExpiresAt,
       emailAccountId: "email-account-id",
       connectionId: "target-google-connection-id",
       logger,
     });
 
-    expect(prisma.calendarConnection.update).toHaveBeenCalledWith({
-      where: { id: "target-google-connection-id" },
+    expect(prisma.calendarConnection.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "target-google-connection-id",
+        expiresAt: {
+          gte: new Date(expectedExpiresAt),
+          lt: new Date(expectedExpiresAt + 1),
+        },
+      },
       data: {
         accessToken: "new-access-token",
         refreshToken: undefined,
         expiresAt: new Date(refreshedExpiresAt),
       },
     });
+    expect(prisma.calendarConnection.update).not.toHaveBeenCalled();
     expect(prisma.calendarConnection.findFirst).not.toHaveBeenCalled();
   });
 
@@ -109,11 +118,33 @@ describe("google calendar client", () => {
       },
       select: { id: true },
     });
-    expect(prisma.calendarConnection.update).toHaveBeenCalledWith(
+    expect(prisma.calendarConnection.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "target-google-connection-id" },
+        where: expect.objectContaining({ id: "target-google-connection-id" }),
       }),
     );
+  });
+
+  it("skips stale Google calendar token saves when another refresh already won", async () => {
+    prisma.calendarConnection.updateMany.mockResolvedValue({ count: 0 } as any);
+    refreshAccessToken.mockResolvedValue({
+      credentials: {
+        access_token: "new-access-token",
+        expiry_date: Date.now() + 3_600_000,
+      },
+    });
+
+    await getCalendarClientWithRefresh({
+      accessToken: "stale-access-token",
+      refreshToken: "target-refresh-token",
+      expiresAt: Date.now() - 1000,
+      emailAccountId: "email-account-id",
+      connectionId: "target-google-connection-id",
+      logger,
+    });
+
+    expect(prisma.calendarConnection.update).not.toHaveBeenCalled();
+    expect(prisma.calendarConnection.updateMany).toHaveBeenCalledOnce();
   });
 
   it("uses emulator-aware OAuth and Calendar API options", async () => {
