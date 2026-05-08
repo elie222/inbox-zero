@@ -907,9 +907,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(getActionLabels(postArgs?.blocks)).toEqual([
         "Archive",
         "Mark read",
-        "More",
         "Open in Gmail",
         "Dismiss",
+        "More",
       ]);
     });
 
