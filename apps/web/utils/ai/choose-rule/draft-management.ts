@@ -75,22 +75,6 @@ export async function handlePreviousDraftDeletion({
         logger,
       })
     ) {
-      const latestDraftDetails = await client.getDraft(
-        previousDraftAction.draftId,
-      );
-      const isStillUnmodified =
-        !!(latestDraftDetails?.textPlain || latestDraftDetails?.textHtml) &&
-        isDraftUnmodified({
-          originalContent: previousDraftAction.content,
-          currentDraft: latestDraftDetails,
-          logger,
-        });
-
-      if (!isStillUnmodified) {
-        logger.info("Draft changed before deletion, skipping deletion.");
-        return;
-      }
-
       logger.info("Draft content matches, deleting draft.");
 
       await Promise.all([
