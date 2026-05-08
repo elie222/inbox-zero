@@ -77,6 +77,62 @@ describe("buildFollowUpReminderBlocks", () => {
     expect(json).toContain("Following up on the proposal we sent last week.");
   });
 
+  it("preserves snippet paragraph breaks in quoted Slack text", () => {
+    const blocks = buildFollowUpReminderBlocks({
+      ...baseAwaitingParams,
+      snippet: [
+        "Hi Barbara,",
+        "",
+        "I hope you're doing well.",
+        "I'm reaching out because I'd like to find some time for us to reconnect.",
+        "",
+        "Best regards,",
+      ].join("\n"),
+    });
+
+    const snippetBlock = blocks.find(
+      (block) =>
+        block.type === "section" &&
+        "text" in block &&
+        block.text?.type === "mrkdwn" &&
+        block.text.text.includes("Your sent email:"),
+    );
+
+    expect(snippetBlock).toBeDefined();
+    expect((snippetBlock as any).text.text).toBe(
+      [
+        "*Your sent email:*",
+        "> Hi Barbara,",
+        ">",
+        "> I hope you're doing well.",
+        "> I'm reaching out because I'd like to find some time for us to reconnect.",
+        ">",
+        "> Best regards,",
+      ].join("\n"),
+    );
+  });
+
+  it("keeps escaped snippet text within Slack section limits", () => {
+    const blocks = buildFollowUpReminderBlocks({
+      ...baseAwaitingParams,
+      snippet: `Intro\n${"&<> ".repeat(1200)}`,
+    });
+
+    const snippetBlock = blocks.find(
+      (block) =>
+        block.type === "section" &&
+        "text" in block &&
+        block.text?.type === "mrkdwn" &&
+        block.text.text.includes("Your sent email:"),
+    );
+
+    expect(snippetBlock).toBeDefined();
+    const text = (snippetBlock as any).text.text;
+    expect(text.length).toBeLessThanOrEqual(3000);
+    expect(text).toContain("&amp;&lt;&gt;");
+    expect(text).toContain("…");
+  });
+
   it("omits the snippet block when no snippet is provided", () => {
     const json = blocksJson({ ...baseAwaitingParams, snippet: undefined });
     expect(json).not.toContain("Following up on");

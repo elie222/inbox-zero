@@ -25,6 +25,8 @@ import {
   truncateSnippet,
 } from "@/utils/follow-up/copy";
 
+const TELEGRAM_SNIPPET_MAX_CHARS = 3000;
+
 export type FollowUpNotificationChannel = {
   id: string;
   provider: MessagingProvider;
@@ -225,7 +227,8 @@ function formatFollowUpText({
     `${counterpartyPrefix} ${normalizeFollowUpText(counterpartyName)} <${counterpartyEmail}> · ${daysSinceSent} ${pluralize(daysSinceSent, "day")} ago`,
   ];
 
-  if (snippet) lines.push(`> ${truncateSnippet(snippet)}`);
+  const formattedSnippet = snippet ? formatQuotedSnippet(snippet) : "";
+  if (formattedSnippet) lines.push(formattedSnippet);
   if (threadLink) lines.push(`Open: ${threadLink}`);
 
   return lines.join("\n");
@@ -253,8 +256,12 @@ function buildTelegramFollowUpCard({
     ),
   ];
 
-  if (snippet) {
-    children.push(CardText(`${snippetLabel}:\n> ${truncateSnippet(snippet)}`));
+  const formattedSnippet = snippet
+    ? formatQuotedSnippet(snippet, TELEGRAM_SNIPPET_MAX_CHARS)
+    : "";
+
+  if (formattedSnippet) {
+    children.push(CardText(`${snippetLabel}:\n${formattedSnippet}`));
   }
 
   if (threadLink) {
@@ -272,4 +279,11 @@ function buildTelegramFollowUpCard({
     title: `${emoji} Follow-up nudge`,
     children,
   });
+}
+
+function formatQuotedSnippet(snippet: string, maxChars?: number): string {
+  return truncateSnippet(snippet, maxChars)
+    .split("\n")
+    .map((line) => (line ? `> ${line}` : ">"))
+    .join("\n");
 }

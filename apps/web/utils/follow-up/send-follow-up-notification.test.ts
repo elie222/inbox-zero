@@ -147,6 +147,36 @@ describe("sendFollowUpNotification", () => {
     expect(serializedCard).not.toContain(`Open: ${threadLink}`);
   });
 
+  it("preserves multi-line Telegram snippets past the old short preview cap", async () => {
+    const body =
+      "I hope you're doing well. I'm reaching out because I'd like to find some time for us to reunite and discuss the new ebook. ";
+    const snippet = [
+      "Hi Barbara,",
+      "",
+      body.repeat(3).trim(),
+      "Please let me know when you might be available to chat.",
+      "",
+      "Best regards,",
+    ].join("\n");
+
+    expect(snippet.length).toBeGreaterThan(280);
+
+    await sendFollowUpNotification({
+      channels: [telegramChannel],
+      ...baseArgs,
+      snippet,
+    });
+
+    const [, card] = mockTelegramPostMessage.mock.calls[0];
+    const snippetChild = (card as any).children.find(
+      (child: any) =>
+        child.type === "text" && child.content.includes("Your sent email:"),
+    );
+
+    expect(snippetChild.content).toContain("> Hi Barbara,\n>\n> I hope");
+    expect(snippetChild.content).toContain("Best regards,");
+  });
+
   it("fans out across multiple channels in parallel", async () => {
     await sendFollowUpNotification({
       channels: [slackChannel, teamsChannel],

@@ -9,6 +9,9 @@ import {
 import { FOLLOW_UP_MARK_DONE_ACTION_ID } from "@/utils/follow-up/follow-up-actions";
 import { pluralize } from "@/utils/string";
 
+const SLACK_SNIPPET_MAX_CHARS = 2200;
+const SLACK_SECTION_TEXT_MAX_CHARS = 3000;
+
 export type FollowUpReminderBlocksParams = {
   subject: string;
   counterpartyName: string;
@@ -65,7 +68,7 @@ export function buildFollowUpReminderBlocks({
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*${escapeSlackText(snippetLabel)}:*\n> ${escapeSlackText(truncateSnippet(snippet))}`,
+        text: formatSlackSnippetSectionText(snippetLabel, snippet),
       },
     });
   }
@@ -100,4 +103,40 @@ export function buildFollowUpReminderBlocks({
   });
 
   return blocks;
+}
+
+function formatSlackSnippetSectionText(label: string, snippet: string): string {
+  const prefix = `*${escapeSlackText(label)}:*`;
+  const format = (maxChars: number) =>
+    `${prefix}\n${formatSlackQuotedText(truncateSnippet(snippet, maxChars))}`;
+
+  const fullText = format(SLACK_SNIPPET_MAX_CHARS);
+  if (fullText.length <= SLACK_SECTION_TEXT_MAX_CHARS) return fullText;
+
+  let best = format(1);
+  let low = 1;
+  let high = SLACK_SNIPPET_MAX_CHARS;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const candidate = format(mid);
+    if (candidate.length <= SLACK_SECTION_TEXT_MAX_CHARS) {
+      best = candidate;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return best;
+}
+
+function formatSlackQuotedText(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => {
+      const escaped = escapeSlackText(line);
+      return escaped ? `> ${escaped}` : ">";
+    })
+    .join("\n");
 }

@@ -1,7 +1,7 @@
 import { ThreadTrackerType } from "@/generated/prisma/enums";
 import he from "he";
 
-const SNIPPET_MAX_CHARS = 280;
+const SNIPPET_MAX_CHARS = 1800;
 
 export function getFollowUpCopy(trackerType: ThreadTrackerType) {
   const isAwaiting = trackerType === ThreadTrackerType.AWAITING;
@@ -18,12 +18,26 @@ export function getFollowUpCopy(trackerType: ThreadTrackerType) {
   };
 }
 
-export function truncateSnippet(snippet: string): string {
-  const collapsed = normalizeFollowUpText(snippet);
-  if (collapsed.length <= SNIPPET_MAX_CHARS) return collapsed;
-  return `${collapsed.slice(0, SNIPPET_MAX_CHARS - 1).trimEnd()}…`;
+export function truncateSnippet(
+  snippet: string,
+  maxChars = SNIPPET_MAX_CHARS,
+): string {
+  const normalized = normalizeFollowUpSnippet(snippet);
+  if (normalized.length <= maxChars) return normalized;
+  return `${normalized.slice(0, maxChars - 1).trimEnd()}…`;
 }
 
 export function normalizeFollowUpText(text: string): string {
   return he.decode(text).replace(/\s+/g, " ").trim();
+}
+
+function normalizeFollowUpSnippet(text: string): string {
+  return he
+    .decode(text)
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
