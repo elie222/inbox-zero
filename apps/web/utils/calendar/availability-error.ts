@@ -36,7 +36,6 @@ export function getCalendarAvailabilityErrorLogContext(error: unknown) {
         errors: errors.map((error) => ({
           domain: error.domain,
           reason: error.reason,
-          message: error.message,
         })),
       }),
     ),
