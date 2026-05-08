@@ -147,7 +147,7 @@
     "gmail-api-parse-message": "2.1.2",
     "google": "link:@next/third-parties/google",
     "he": "1.2.0",
-    "html-to-text": "10.0.0",
+    "html-to-text": "9.0.5",
     "ioredis": "5.10.1",
     "jotai": "2.20.0",
     "jsonrepair": "3.14.0",
