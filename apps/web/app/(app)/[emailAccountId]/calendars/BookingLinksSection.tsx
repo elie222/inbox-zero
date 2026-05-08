@@ -1,8 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Copy, ExternalLink, Link2, Settings2, X, Zap } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ChevronDown,
+  Copy,
+  ExternalLink,
+  Link2,
+  Settings2,
+  X,
+  Zap,
+} from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
+import { useForm, type SubmitHandler } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { CardBasic } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -19,17 +30,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/Input";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useBookingLinksEnabled } from "@/hooks/useFeatureFlags";
 import { useBookingLinks } from "@/hooks/useBookingLinks";
+import { useCalendars } from "@/hooks/useCalendars";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getActionErrorMessage } from "@/utils/error";
 import {
   createBookingLinkAction,
   updateBookingLinkAction,
 } from "@/utils/actions/booking";
+import { updateCalendarBookingLinkAction } from "@/utils/actions/calendar";
+import { updateBookingLinkBody } from "@/utils/actions/calendar.validation";
 import {
   getBookingLinkSlugSuggestion,
   normalizeBookingSlug,
@@ -156,6 +172,8 @@ function BookingLinksPanel() {
         )}
       </LoadingContent>
 
+      <ExternalBookingLinkCard />
+
       {createOpen ? (
         <CreateBookingLinkDialog
           key={defaultSlug}
@@ -182,13 +200,108 @@ function BookingLinksPanel() {
   );
 }
 
+function ExternalBookingLinkCard() {
+  const { emailAccountId } = useAccount();
+  const analytics = useProductAnalytics("calendars");
+  const { data, isLoading, error, mutate } = useCalendars();
+  const calendarBookingLink = data?.calendarBookingLink || null;
+
+  const [userToggled, setUserToggled] = useState<boolean | null>(null);
+  const isOpen = userToggled ?? Boolean(calendarBookingLink);
+
+  const { execute, isExecuting } = useAction(
+    updateCalendarBookingLinkAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        analytics.captureAction("calendar_booking_link_saved", {
+          had_existing_booking_link: Boolean(calendarBookingLink),
+        });
+        toastSuccess({ description: "Booking link updated!" });
+        mutate();
+      },
+    },
+  );
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<z.infer<typeof updateBookingLinkBody>>({
+    resolver: zodResolver(updateBookingLinkBody),
+    defaultValues: { bookingLink: calendarBookingLink || "" },
+  });
+
+  useEffect(() => {
+    if (calendarBookingLink !== null || data) {
+      reset({ bookingLink: calendarBookingLink || "" });
+    }
+  }, [calendarBookingLink, reset, data]);
+
+  const onSubmit: SubmitHandler<z.infer<typeof updateBookingLinkBody>> = (
+    formData,
+  ) => {
+    analytics.captureAction("calendar_booking_link_save_started", {
+      has_booking_link: Boolean(formData.bookingLink),
+    });
+    execute(formData);
+  };
+
+  return (
+    <CardBasic className="px-4 py-3">
+      <button
+        type="button"
+        onClick={() => setUserToggled(!isOpen)}
+        className="flex w-full items-center justify-between gap-2 text-left text-sm text-muted-foreground hover:text-foreground"
+        aria-expanded={isOpen}
+      >
+        <span>Use your own scheduling link (Cal.com, Calendly, etc.)</span>
+        <ChevronDown
+          className={cn(
+            "size-4 shrink-0 transition-transform",
+            isOpen && "rotate-180",
+          )}
+        />
+      </button>
+      {isOpen ? (
+        <LoadingContent
+          loading={isLoading}
+          error={error}
+          loadingComponent={<Skeleton className="mt-3 h-10 w-full" />}
+        >
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start"
+          >
+            <div className="flex-1">
+              <Input
+                type="url"
+                name="bookingLink"
+                placeholder="https://cal.com/your-link"
+                registerProps={register("bookingLink")}
+                error={errors.bookingLink}
+              />
+            </div>
+            <Button
+              type="submit"
+              loading={isExecuting}
+              size="sm"
+              className="w-full sm:w-auto"
+            >
+              Save
+            </Button>
+          </form>
+        </LoadingContent>
+      ) : null}
+    </CardBasic>
+  );
+}
+
 function EmptyLinkCard({ onCreate }: { onCreate: () => void }) {
   return (
-    <CardBasic className="px-5 py-4">
+    <CardBasic className="px-4 py-4">
       <div className="mb-1 flex items-center gap-2">
-        <h3 className="text-base font-semibold text-foreground">
-          Booking link
-        </h3>
+        <h3 className="font-medium">Booking link</h3>
         <span className="rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-400">
           New
         </span>
@@ -304,9 +417,6 @@ function CreateBookingLinkDialog({
               onChange={setTitle}
               placeholder="15 min intro"
             />
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Shown on your booking page and in calendar invites.
-            </p>
           </div>
 
           <div>
@@ -440,12 +550,10 @@ function ActiveLinkCard({
   };
 
   return (
-    <CardBasic className="px-5 py-4">
+    <CardBasic className="px-4 py-4">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold text-foreground">
-            Booking link
-          </h3>
+          <h3 className="font-medium">Booking link</h3>
           {!isActive ? (
             <span className="inline-flex items-center gap-1 rounded-md border bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
               <span className="size-1.5 rounded-full bg-muted-foreground/60" />

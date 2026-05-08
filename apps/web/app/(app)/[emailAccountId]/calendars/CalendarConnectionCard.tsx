@@ -8,8 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Trash2, XCircle, ChevronDown } from "lucide-react";
+import {
+  Trash2Icon,
+  XCircle,
+  ChevronDown,
+  MoreHorizontalIcon,
+} from "lucide-react";
 import { CalendarList } from "./CalendarList";
 import { useAction } from "next-safe-action/hooks";
 import {
@@ -26,6 +30,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 
 type CalendarConnection = GetCalendarsResponse["connections"][0];
@@ -156,16 +166,30 @@ export function CalendarConnectionCard({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Button
-              variant="destructiveSoft"
-              size="sm"
-              onClick={handleDisconnect}
-              disabled={isDisconnecting}
-              Icon={Trash2}
-              loading={isDisconnecting}
-            >
-              Disconnect
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Calendar options"
+                  disabled={isDisconnecting}
+                  className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                >
+                  <MoreHorizontalIcon className="size-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    handleDisconnect();
+                  }}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2Icon className="mr-2 size-4" />
+                  Disconnect
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </CardHeader>

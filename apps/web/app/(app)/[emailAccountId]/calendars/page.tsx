@@ -15,8 +15,8 @@ export default async function CalendarsPage() {
       />
       <div className="mt-6 max-w-4xl space-y-4">
         <CalendarConnections />
-        <CalendarSettings />
         <BookingLinksSection />
+        <CalendarSettings />
       </div>
     </PageWrapper>
   );

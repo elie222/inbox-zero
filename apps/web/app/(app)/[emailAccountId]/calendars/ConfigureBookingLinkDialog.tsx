@@ -303,9 +303,6 @@ function GeneralTab({
             onChange={setTitle}
             placeholder="15 min intro"
           />
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            Shown on your booking page and in calendar invites.
-          </p>
         </div>
 
         <div>
@@ -417,11 +414,10 @@ function AvailabilityTab({
     [schedule?.rules],
   );
   const [days, setDays] = useState<DayState[]>(initialDays);
-  const [timezone, setTimezone] = useState<string>(
+  const timezone =
     schedule?.timezone ??
-      Intl.DateTimeFormat().resolvedOptions().timeZone ??
-      "UTC",
-  );
+    Intl.DateTimeFormat().resolvedOptions().timeZone ??
+    "UTC";
   const [minimumNoticeHours, setMinimumNoticeHours] = useState(() =>
     formatHours(eventType.minimumNoticeMinutes / 60),
   );
@@ -573,55 +569,13 @@ function AvailabilityTab({
   return (
     <>
       <div className="space-y-4 overflow-y-auto px-6 py-5">
-        <div className="rounded-lg border px-4 py-3">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <div className="text-sm font-semibold text-foreground">
-                Minimum notice
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Block new bookings this many hours into the future.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min={0}
-                max={365 * 24}
-                step={0.25}
-                value={minimumNoticeHours}
-                onChange={(event) => setMinimumNoticeHours(event.target.value)}
-                className="h-9 w-24 rounded-md border border-input bg-background px-2.5 text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-              <span className="text-sm text-muted-foreground">hours</span>
-            </div>
+        <div>
+          <div className="text-sm font-semibold text-foreground">
+            Weekly hours
           </div>
-        </div>
-
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold text-foreground">
-              Weekly hours
-            </div>
-            <p className="text-xs text-muted-foreground">
-              When you're available for bookings.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Timezone</span>
-            <Select
-              name="timezone"
-              value={timezone}
-              onValueChange={setTimezone}
-            >
-              <SelectTrigger className="h-8 w-[220px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <TimezoneOptions current={timezone} />
-              </SelectContent>
-            </Select>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            Hours shown in {timezone}. Change in Calendar settings.
+          </p>
         </div>
 
         <div className="rounded-lg border bg-card">
@@ -715,6 +669,31 @@ function AvailabilityTab({
           <Info className="size-3.5 shrink-0 text-muted-foreground" />
           We hide times where you already have events on your connected
           calendar.
+        </div>
+
+        <div className="rounded-lg border px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-foreground">
+                Minimum notice
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Block new bookings this many hours into the future.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={365 * 24}
+                step={0.25}
+                value={minimumNoticeHours}
+                onChange={(event) => setMinimumNoticeHours(event.target.value)}
+                className="h-9 w-24 rounded-md border border-input bg-background px-2.5 text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <span className="text-sm text-muted-foreground">hours</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1037,33 +1016,6 @@ function minutesToTime(value: number) {
   const hours = Math.floor(value / 60);
   const minutes = value % 60;
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-}
-
-function TimezoneOptions({ current }: { current: string }) {
-  const candidates = useMemo(() => {
-    if (typeof Intl === "undefined" || !("supportedValuesOf" in Intl)) {
-      return [current];
-    }
-    try {
-      const all = (
-        Intl as unknown as { supportedValuesOf: (key: string) => string[] }
-      ).supportedValuesOf("timeZone");
-      if (!all.includes(current)) return [current, ...all];
-      return all;
-    } catch {
-      return [current];
-    }
-  }, [current]);
-
-  return (
-    <>
-      {candidates.map((zone) => (
-        <SelectItem key={zone} value={zone}>
-          {zone}
-        </SelectItem>
-      ))}
-    </>
-  );
 }
 
 function hasActionResultError(

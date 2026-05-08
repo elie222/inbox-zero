@@ -33,6 +33,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { BRAND_ICON_URL, BRAND_NAME } from "@/utils/branding";
+import { getSupportedTimezonesWithOffsets } from "@/utils/timezone";
 import { cn } from "@/utils";
 
 const BRAND_HOMEPAGE_URL = "https://www.getinboxzero.com";
@@ -663,60 +664,6 @@ function TimezonePicker({
       </PopoverContent>
     </Popover>
   );
-}
-
-function getSupportedTimezonesWithOffsets(): {
-  zone: string;
-  offsetLabel: string;
-  offsetMinutes: number;
-}[] {
-  const intlWithSupportedValues = Intl as typeof Intl & {
-    supportedValuesOf?: (key: "timeZone") => string[];
-  };
-  const zones = intlWithSupportedValues.supportedValuesOf?.("timeZone") ?? [
-    "UTC",
-  ];
-  const now = new Date();
-  return zones
-    .map((zone) => {
-      const offsetMinutes = getTimezoneOffsetMinutes(zone, now);
-      return {
-        zone,
-        offsetMinutes,
-        offsetLabel: formatOffsetLabel(offsetMinutes),
-      };
-    })
-    .sort((a, b) => {
-      if (a.offsetMinutes !== b.offsetMinutes) {
-        return a.offsetMinutes - b.offsetMinutes;
-      }
-      return a.zone.localeCompare(b.zone);
-    });
-}
-
-function getTimezoneOffsetMinutes(zone: string, now: Date): number {
-  try {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone: zone,
-      timeZoneName: "shortOffset",
-    }).formatToParts(now);
-    const raw = parts.find((part) => part.type === "timeZoneName")?.value ?? "";
-    const match = raw.match(/^GMT(?:([+-])(\d{1,2})(?::(\d{2}))?)?$/);
-    if (!match) return 0;
-    const [, sign = "+", hours = "0", minutes = "0"] = match;
-    const total = Number(hours) * 60 + Number(minutes);
-    return sign === "-" ? -total : total;
-  } catch {
-    return 0;
-  }
-}
-
-function formatOffsetLabel(offsetMinutes: number): string {
-  const sign = offsetMinutes < 0 ? "-" : "+";
-  const abs = Math.abs(offsetMinutes);
-  const hours = Math.floor(abs / 60);
-  const minutes = abs % 60;
-  return `GMT ${sign}${hours}:${minutes.toString().padStart(2, "0")}`;
 }
 
 function SidebarRow({
