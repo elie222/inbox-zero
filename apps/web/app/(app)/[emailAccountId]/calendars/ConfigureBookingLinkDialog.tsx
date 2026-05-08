@@ -653,7 +653,7 @@ function AvailabilityTab({
                       </div>
                     ))
                   ) : (
-                    <div className="pt-2 text-sm text-muted-foreground">
+                    <div className="flex h-8 items-center text-sm text-muted-foreground">
                       Unavailable
                     </div>
                   )}
