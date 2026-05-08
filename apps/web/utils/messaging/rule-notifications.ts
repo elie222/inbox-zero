@@ -5,6 +5,8 @@ import {
   Card,
   CardText,
   LinkButton,
+  Select,
+  SelectOption,
   type ActionEvent,
   type CardElement,
   type CardChild,
@@ -128,6 +130,42 @@ type NotificationEmailPreview = {
   textHtml?: string;
   attachments?: Array<{ filename: string }>;
 };
+
+export function buildSlackRuleNotificationPreviewBlocks({
+  actionId,
+  actionType,
+  email,
+  systemType = null,
+  draftContent,
+  draftAttachmentNames,
+  openLink,
+}: {
+  actionId: string;
+  actionType: ActionType;
+  email: NotificationEmailPreview;
+  systemType?: SystemType | null;
+  draftContent?: string | null;
+  draftAttachmentNames?: string[];
+  openLink?: NotificationOpenLink | null;
+}) {
+  const content = buildNotificationContent({
+    actionType,
+    email,
+    systemType,
+    draftContent,
+    draftAttachmentNames,
+    format: "slack",
+  });
+
+  return cardToBlockKit(
+    buildNotificationCard({
+      actionId,
+      actionType,
+      content,
+      openLink,
+    }),
+  );
+}
 
 type MessagingRuleNotificationResult = {
   delivered: boolean;
@@ -1527,7 +1565,7 @@ function buildNotificationContent({
 }: {
   actionType: ActionType;
   email: NotificationEmailPreview;
-  systemType: SystemType | string | null;
+  systemType: SystemType | null;
   draftContent?: string | null;
   draftAttachmentNames?: string[];
   format: NotificationContentFormat;
@@ -1553,7 +1591,7 @@ function buildNotificationContent({
     const emailPreview = buildEmailPreview(email, { format });
     const draftPreview = buildDraftPreview(draftContent, { format });
 
-    const summary = `📩 You got an email from *${senderDisplay}* about "${subject}".`;
+    const summary = `You got an email from *${senderDisplay}* about "${subject}".`;
 
     const details: string[] = [];
     if (emailPreview) {
@@ -1573,7 +1611,7 @@ function buildNotificationContent({
     }
 
     return {
-      title: "📩 New email — reply drafted",
+      title: "✍️ I drafted a reply for you",
       summary,
       details,
     };
@@ -1594,13 +1632,13 @@ function buildNotificationContent({
     ].filter(Boolean);
 
     return {
-      title: "📅 Calendar invite",
+      title: "📅 Calendar invite for you",
       summary: lines.join("\n"),
     };
   }
 
   return {
-    title: "✉️ Email notification",
+    title: getNotificationTitleForSystemType(systemType),
     summary: buildEmailSummary(email),
     details: [
       buildNotificationDetailSection({
@@ -1658,17 +1696,20 @@ function buildNotificationCard({
               label: "Mark read",
               value: actionId,
             }),
-            Button({
-              id: RULE_NOTIFY_TRASH_ACTION_ID,
-              label: "Delete",
-              style: "danger",
-              value: actionId,
-            }),
-            Button({
-              id: RULE_NOTIFY_MARK_SPAM_ACTION_ID,
-              label: "Spam",
-              style: "danger",
-              value: actionId,
+            Select({
+              id: RULE_NOTIFY_MORE_ACTION_ID,
+              label: "More",
+              placeholder: "More",
+              options: [
+                SelectOption({
+                  label: "Delete",
+                  value: `${RULE_NOTIFY_TRASH_ACTION_ID}:${actionId}`,
+                }),
+                SelectOption({
+                  label: "Spam",
+                  value: `${RULE_NOTIFY_MARK_SPAM_ACTION_ID}:${actionId}`,
+                }),
+              ],
             }),
             ...(openLink ? [LinkButton(openLink)] : []),
             Button({
@@ -1898,7 +1939,7 @@ function createProviderForContext(
   });
 }
 
-function getInfoNotificationTitle(systemType: SystemType | string | null) {
+function getInfoNotificationTitle(systemType: SystemType | null) {
   return systemType === SystemType.CALENDAR
     ? "Calendar invite"
     : "Email notification";
@@ -2364,4 +2405,25 @@ function getLinkedProviderLimitationText({
   }
 
   return `Quick actions like archive and mark read are Slack-only right now, so this ${providerName} message is view-only.`;
+}
+
+function getNotificationTitleForSystemType(
+  systemType: SystemType | null,
+): string {
+  switch (systemType) {
+    case SystemType.NEWSLETTER:
+      return "📰 New newsletter for you";
+    case SystemType.MARKETING:
+      return "📢 New marketing email for you";
+    case SystemType.RECEIPT:
+      return "🧾 New receipt for you";
+    case SystemType.COLD_EMAIL:
+      return "❄️ Cold email caught";
+    case SystemType.FYI:
+      return "👀 FYI for you";
+    case SystemType.NOTIFICATION:
+      return "🔔 New notification for you";
+    default:
+      return "📬 New email for you";
+  }
 }

@@ -741,5 +741,5 @@ function resolveFollowUpCounterparty({
 function getThreadLinkLabel(provider: string) {
   if (isGoogleProvider(provider)) return "Open in Gmail";
   if (isMicrosoftProvider(provider)) return "Open in Outlook";
-  return "Open thread";
+  return "Open email";
 }

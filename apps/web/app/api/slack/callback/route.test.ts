@@ -161,6 +161,16 @@ describe("slack callback route", () => {
         teamName: "Acme Workspace",
       }),
     );
+    expect(
+      mockSendSlackOnboardingDirectMessageWithLogging,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: "xoxb-access-token",
+        botUserId: "B123",
+        teamId: "T123",
+        userId: "U123",
+      }),
+    );
   });
 
   it("returns a processing redirect on the channels page while another request owns the OAuth code lock", async () => {

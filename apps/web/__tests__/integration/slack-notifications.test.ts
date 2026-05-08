@@ -545,7 +545,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       const postArgs = postMessageSpy.mock.calls[0]?.[0];
 
       expect(message).toBeDefined();
-      expect(message?.text).toContain("New email — reply drafted");
+      expect(message?.text).toContain("I drafted a reply for you");
       expect(message?.text).toContain("*sender@example.com*");
       expect(message?.text).toContain(`about "${subject}"`);
       expect(message?.text).toContain("They wrote:");
@@ -902,13 +902,12 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       const postArgs = postMessageSpy.mock.calls[0]?.[0];
 
       expect(message).toBeDefined();
-      expect(message?.text).toContain("Email notification");
+      expect(message?.text).toContain("New email for you");
       expect(message?.text).toContain(`*Subject:* ${subject}`);
       expect(getActionLabels(postArgs?.blocks)).toEqual([
         "Archive",
         "Mark read",
-        "Delete",
-        "Spam",
+        "More",
         "Open in Gmail",
         "Dismiss",
       ]);
@@ -1175,7 +1174,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
 
       expect(message).toBeDefined();
-      expect(message?.text).toContain("New email — reply drafted");
+      expect(message?.text).toContain("I drafted a reply for you");
       expect(prisma.executedAction.update).toHaveBeenCalledWith({
         where: { id: executedActionId },
         data: {
@@ -1301,6 +1300,20 @@ function getActionLabels(blocks: unknown[] | undefined) {
     }
 
     return block.elements.flatMap((element) => {
+      if (
+        element &&
+        typeof element === "object" &&
+        "type" in element &&
+        element.type === "static_select" &&
+        "placeholder" in element &&
+        element.placeholder &&
+        typeof element.placeholder === "object" &&
+        "text" in element.placeholder &&
+        typeof element.placeholder.text === "string"
+      ) {
+        return [element.placeholder.text];
+      }
+
       if (
         !element ||
         typeof element !== "object" ||

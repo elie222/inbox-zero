@@ -42,6 +42,9 @@ describe("slack send helpers", () => {
     expect(mockPostMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         channel: "C123",
+        text: expect.stringContaining(
+          "You can mention <@UAPP123> in this channel",
+        ),
         unfurl_links: false,
         unfurl_media: false,
       }),
@@ -78,11 +81,13 @@ describe("slack send helpers", () => {
     await sendConnectionOnboardingDirectMessage({
       accessToken: "xoxb-token",
       userId: "U123",
+      botUserId: "UAPP123",
     });
 
     expect(mockPostMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         channel: "U123",
+        text: expect.stringContaining("invite <@UAPP123> there"),
         unfurl_links: false,
         unfurl_media: false,
       }),

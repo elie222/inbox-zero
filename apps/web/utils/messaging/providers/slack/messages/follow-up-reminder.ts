@@ -17,6 +17,7 @@ export type FollowUpReminderBlocksParams = {
   daysSinceSent: number;
   snippet?: string;
   threadLink?: string;
+  threadLinkLabel?: string;
   trackerId: string;
 };
 
@@ -28,6 +29,7 @@ export function buildFollowUpReminderBlocks({
   daysSinceSent,
   snippet,
   threadLink,
+  threadLinkLabel,
   trackerId,
 }: FollowUpReminderBlocksParams): (KnownBlock | Block)[] {
   const { directionLine, counterpartyPrefix, snippetLabel, emoji } =
@@ -72,7 +74,11 @@ export function buildFollowUpReminderBlocks({
   if (threadLink) {
     actionElements.push({
       type: "button",
-      text: { type: "plain_text", text: "Open thread", emoji: true },
+      text: {
+        type: "plain_text",
+        text: threadLinkLabel ?? "Open email",
+        emoji: true,
+      },
       url: threadLink,
     });
   }

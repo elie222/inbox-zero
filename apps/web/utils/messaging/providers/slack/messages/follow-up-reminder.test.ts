@@ -11,6 +11,7 @@ const baseAwaitingParams = {
   daysSinceSent: 4,
   snippet: "Following up on the proposal we sent last week.",
   threadLink: "https://mail.example.com/thread/awaiting",
+  threadLinkLabel: "Open in Gmail",
   trackerId: "tracker-abc123",
 };
 
@@ -89,6 +90,8 @@ describe("buildFollowUpReminderBlocks", () => {
   it("includes the thread link as an action button", () => {
     const json = blocksJson(baseAwaitingParams);
     expect(json).toContain("https://mail.example.com/thread/awaiting");
+    expect(json).toContain("Open in Gmail");
+    expect(json).not.toContain("Open thread");
   });
 
   it("renders a Mark done button carrying the tracker id", () => {

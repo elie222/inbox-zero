@@ -261,7 +261,7 @@ function buildTelegramFollowUpCard({
     children.push(
       Actions([
         LinkButton({
-          label: threadLinkLabel ?? "Open thread",
+          label: threadLinkLabel ?? "Open email",
           url: threadLink,
         }),
       ]),
