@@ -52,8 +52,17 @@ function getCalendarAvailabilityError(
   if (
     candidate.name === "CalendarAvailabilityError" &&
     (candidate.provider === "google" || candidate.provider === "microsoft") &&
-    Array.isArray(candidate.calendarErrors)
+    Array.isArray(candidate.calendarErrors) &&
+    candidate.calendarErrors.every(isCalendarAvailabilityErrorDetail)
   ) {
     return candidate as CalendarAvailabilityError;
   }
+}
+
+function isCalendarAvailabilityErrorDetail(
+  value: unknown,
+): value is CalendarAvailabilityErrorDetail {
+  if (typeof value !== "object" || value === null) return false;
+  const detail = value as Partial<CalendarAvailabilityErrorDetail>;
+  return typeof detail.calendarId === "string" && Array.isArray(detail.errors);
 }

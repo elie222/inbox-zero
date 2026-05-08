@@ -185,10 +185,8 @@ function GeneralTab({
   const [destinationCalendarId, setDestinationCalendarId] = useState<string>(
     host?.destinationCalendarId ?? "",
   );
-  const [videoEnabled, setVideoEnabled] = useState(
-    () =>
-      isProviderVideoLocationType(eventType.locationType) ||
-      eventType.locationType === BookingEventTypeLocationType.CUSTOM,
+  const [videoEnabled, setVideoEnabled] = useState(() =>
+    isProviderVideoLocationType(eventType.locationType),
   );
   const [description, setDescription] = useState<string>(
     eventType.description ?? "",
