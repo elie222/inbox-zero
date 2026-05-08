@@ -13,6 +13,10 @@ import {
 } from "@/utils/actions/booking.validation";
 import prisma from "@/utils/prisma";
 import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 
 const DEFAULT_EVENT_TYPE_SLUG = "meeting";
 
@@ -30,6 +34,9 @@ export const createBookingLinkAction = actionClient
     const durationMinutes = parsedInput.durationMinutes;
     const slotIntervalMinutes =
       parsedInput.slotIntervalMinutes ?? durationMinutes;
+    const locationType = await getDefaultLocationTypeForDestinationCalendar(
+      destinationCalendarId,
+    );
 
     const bookingLink = await prisma.bookingLink.create({
       data: {
@@ -45,7 +52,7 @@ export const createBookingLinkAction = actionClient
             slug: DEFAULT_EVENT_TYPE_SLUG,
             durationMinutes,
             slotIntervalMinutes,
-            locationType: BookingEventTypeLocationType.CUSTOM,
+            locationType,
             minimumNoticeMinutes: 120,
             bufferBeforeMinutes: 0,
             bufferAfterMinutes: 0,
@@ -438,19 +445,15 @@ async function assertBookingLinkSlugAvailable({
   slug?: string;
   aliasSlug?: string | null;
 }) {
-  const checks = [
-    ...(slug ? [{ slug, field: "slug" as const }] : []),
-    ...(aliasSlug ? [{ slug: aliasSlug, field: "aliasSlug" as const }] : []),
-  ];
+  const candidates = [slug, aliasSlug].filter(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
 
-  for (const check of checks) {
+  for (const candidate of candidates) {
     const conflictingLink = await prisma.bookingLink.findFirst({
       where: {
         ...(bookingLinkId ? { id: { not: bookingLinkId } } : {}),
-        OR:
-          check.field === "slug"
-            ? [{ aliasSlug: check.slug }]
-            : [{ slug: check.slug }, { aliasSlug: check.slug }],
+        OR: [{ slug: candidate }, { aliasSlug: candidate }],
       },
       select: { id: true },
     });
@@ -468,6 +471,33 @@ async function getOrganizationId(emailAccountId: string) {
   });
 
   return member?.organizationId ?? null;
+}
+
+async function getDefaultLocationTypeForDestinationCalendar(
+  destinationCalendarId: string | null,
+) {
+  if (!destinationCalendarId) return BookingEventTypeLocationType.CUSTOM;
+
+  const calendar = await prisma.calendar.findUnique({
+    where: { id: destinationCalendarId },
+    select: {
+      connection: {
+        select: { provider: true },
+      },
+    },
+  });
+
+  return getProviderVideoLocationType(calendar?.connection.provider);
+}
+
+function getProviderVideoLocationType(provider: string | null | undefined) {
+  if (isGoogleProvider(provider)) {
+    return BookingEventTypeLocationType.GOOGLE_MEET;
+  }
+  if (isMicrosoftProvider(provider)) {
+    return BookingEventTypeLocationType.MICROSOFT_TEAMS;
+  }
+  return BookingEventTypeLocationType.CUSTOM;
 }
 
 function getDefaultAvailabilityRules() {

@@ -22,6 +22,7 @@ type BookingEmailPayload = {
   id: string;
   startTime: Date;
   timezone: string;
+  videoConferenceLink?: string | null;
   eventType: {
     hideHostEmail: boolean;
     hosts: Array<{
@@ -81,12 +82,7 @@ export async function sendBookingConfirmationEmails({
           timeRange: guestParts.timeRange,
           timezoneLabel: booking.timezone,
           guestNote: booking.guestNote ?? null,
-          meetingLink:
-            booking.eventTypeLocationType ===
-              BookingEventTypeLocationType.GOOGLE_MEET ||
-            isUrl(booking.eventTypeLocationValue)
-              ? (booking.eventTypeLocationValue ?? null)
-              : null,
+          meetingLink: getMeetingLink(booking),
         },
       }),
       sendHostBookingConfirmationEmail({
@@ -217,6 +213,16 @@ function isUrl(value?: string | null) {
   }
 }
 
+function getMeetingLink(booking: BookingEmailPayload) {
+  // Prefer the link the calendar provider generated at event-creation time
+  // (e.g. Google Meet, Teams) over the configured location value.
+  if (booking.videoConferenceLink) return booking.videoConferenceLink;
+  if (isUrl(booking.eventTypeLocationValue)) {
+    return booking.eventTypeLocationValue ?? null;
+  }
+  return null;
+}
+
 function getHost(booking: BookingEmailPayload) {
   return booking.eventType.hosts[0]?.emailAccount ?? null;
 }
@@ -237,5 +243,10 @@ function getLocationLabel(booking: BookingEmailPayload) {
     booking.eventTypeLocationType === BookingEventTypeLocationType.GOOGLE_MEET
   )
     return "Google Meet";
+  if (
+    booking.eventTypeLocationType ===
+    BookingEventTypeLocationType.MICROSOFT_TEAMS
+  )
+    return "Microsoft Teams";
   return booking.eventTypeLocationValue || null;
 }

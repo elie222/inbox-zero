@@ -1322,6 +1322,7 @@ model Booking {
   provider                 String?
   providerCalendarId       String?
   providerEventId          String?
+  videoConferenceLink      String?
   cancelTokenHash          String
   cancellationReason       String?
   canceledBy               BookingCanceledBy?
@@ -1923,6 +1924,7 @@ enum MeetingBriefingStatus {
 enum BookingEventTypeLocationType {
   IN_PERSON
   GOOGLE_MEET
+  MICROSOFT_TEAMS
   PHONE
   CUSTOM
 }

@@ -33,6 +33,7 @@ import { cn } from "@/utils";
 type BookingLink = NonNullable<
   ReturnType<typeof useBookingLinks>["data"]
 >["bookingLinks"][number];
+type BookingLinksData = NonNullable<ReturnType<typeof useBookingLinks>["data"]>;
 
 type EventType = BookingLink["eventTypes"][number];
 
@@ -50,15 +51,6 @@ const DAY_LABELS = [
 ];
 const DURATION_OPTIONS = [15, 30, 45, 60];
 const PRIMARY_CALENDAR_SELECT_VALUE = "__primary_calendar__";
-const LOCATION_OPTIONS: Array<{
-  label: string;
-  value: BookingEventTypeLocationType;
-}> = [
-  { label: "Google Meet", value: BookingEventTypeLocationType.GOOGLE_MEET },
-  { label: "Phone", value: BookingEventTypeLocationType.PHONE },
-  { label: "In person", value: BookingEventTypeLocationType.IN_PERSON },
-  { label: "Custom", value: BookingEventTypeLocationType.CUSTOM },
-];
 
 export function ConfigureBookingLinkDialog({
   link,
@@ -189,10 +181,10 @@ function GeneralTab({
   const [destinationCalendarId, setDestinationCalendarId] = useState<string>(
     host?.destinationCalendarId ?? "",
   );
-  const [locationType, setLocationType] =
-    useState<BookingEventTypeLocationType>(eventType.locationType);
-  const [locationValue, setLocationValue] = useState<string>(
-    eventType.locationValue ?? "",
+  const [videoEnabled, setVideoEnabled] = useState(
+    () =>
+      isProviderVideoLocationType(eventType.locationType) ||
+      eventType.locationType === BookingEventTypeLocationType.CUSTOM,
   );
   const [description, setDescription] = useState<string>(
     eventType.description ?? "",
@@ -209,10 +201,15 @@ function GeneralTab({
     return [{ label: "Primary calendar", value: "" }, ...calendars];
   }, [data?.calendarConnections]);
 
-  const locationSelectOptions = LOCATION_OPTIONS.map((option) => ({
-    label: option.label,
-    value: option.value,
-  }));
+  const selectedCalendarProvider = useMemo(
+    () => getSelectedCalendarProvider(data, destinationCalendarId),
+    [data, destinationCalendarId],
+  );
+  const videoLocationType = getProviderVideoLocationType(
+    selectedCalendarProvider,
+  );
+  const videoLabel = getVideoLocationLabel(videoLocationType);
+  const canAddVideo = Boolean(videoLocationType);
 
   const { executeAsync: updateEventType, isExecuting: isUpdatingEventType } =
     useAction(updateBookingEventTypeAction.bind(null, emailAccountId), {
@@ -239,35 +236,47 @@ function GeneralTab({
   );
 
   const isSaving = isUpdatingEventType || isUpdatingLink;
-  const showCustomLocation =
-    locationType === BookingEventTypeLocationType.CUSTOM ||
-    locationType === BookingEventTypeLocationType.IN_PERSON ||
-    locationType === BookingEventTypeLocationType.PHONE;
   const publicUrlPrefix =
     typeof window !== "undefined"
       ? `${window.location.origin.replace(/^https?:\/\//, "")}/book/`
       : "/book/";
 
   const handleSave = async () => {
-    await Promise.all([
-      updateLink({
+    try {
+      const nextLocationType =
+        videoEnabled && videoLocationType
+          ? videoLocationType
+          : BookingEventTypeLocationType.CUSTOM;
+
+      const linkResult = await updateLink({
         id: link.id,
         slug,
         title,
-      }),
-      updateEventType({
+      });
+      if (hasActionResultError(linkResult)) return;
+
+      const eventTypeResult = await updateEventType({
         id: eventType.id,
         title,
         durationMinutes: duration,
         slotIntervalMinutes: duration,
         destinationCalendarId: destinationCalendarId || null,
-        locationType,
-        locationValue: showCustomLocation ? locationValue : "",
+        locationType: nextLocationType,
+        locationValue: "",
         description,
-      }),
-    ]);
-    toastSuccess({ description: "Booking link updated" });
-    onSaved();
+      });
+      if (hasActionResultError(eventTypeResult)) return;
+
+      toastSuccess({ description: "Booking link updated" });
+      onSaved();
+    } catch (error) {
+      toastError({
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to update booking link",
+      });
+    }
   };
 
   return (
@@ -315,77 +324,51 @@ function GeneralTab({
           />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <Label>Add events to</Label>
-            <Select
-              name="destinationCalendarId"
-              value={destinationCalendarId || PRIMARY_CALENDAR_SELECT_VALUE}
-              onValueChange={(value) =>
-                setDestinationCalendarId(
-                  value === PRIMARY_CALENDAR_SELECT_VALUE ? "" : value,
-                )
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {calendarOptions.map((option) => (
-                  <SelectItem
-                    key={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
-                    value={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
-                  >
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Meeting location</Label>
-            <Select
-              name="locationType"
-              value={locationType}
-              onValueChange={(value) =>
-                setLocationType(value as BookingEventTypeLocationType)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {locationSelectOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div>
+          <Label>Add events to</Label>
+          <Select
+            name="destinationCalendarId"
+            value={destinationCalendarId || PRIMARY_CALENDAR_SELECT_VALUE}
+            onValueChange={(value) =>
+              setDestinationCalendarId(
+                value === PRIMARY_CALENDAR_SELECT_VALUE ? "" : value,
+              )
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {calendarOptions.map((option) => (
+                <SelectItem
+                  key={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
+                  value={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
+                >
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        {showCustomLocation ? (
+        <div className="flex items-center justify-between gap-4 rounded-lg border px-3.5 py-3">
           <div>
-            <Label>
-              {locationType === BookingEventTypeLocationType.PHONE
-                ? "Phone number"
-                : locationType === BookingEventTypeLocationType.IN_PERSON
-                  ? "Address"
-                  : "Location details"}
-            </Label>
-            <TextField
-              name="locationValue"
-              value={locationValue}
-              onChange={setLocationValue}
-              placeholder={
-                locationType === BookingEventTypeLocationType.PHONE
-                  ? "+1 555 123 4567"
-                  : "Where will the meeting take place?"
-              }
-            />
+            <div className="text-sm font-medium text-foreground">
+              Video conferencing
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {videoLabel
+                ? `Add ${videoLabel} to calendar events.`
+                : "Video links are unavailable for this calendar."}
+            </p>
           </div>
-        ) : null}
+          <Switch
+            checked={canAddVideo && videoEnabled}
+            disabled={!canAddVideo}
+            onCheckedChange={setVideoEnabled}
+            aria-label="Toggle video conferencing"
+          />
+        </div>
 
         <div>
           <Label>Description (optional)</Label>
@@ -540,13 +523,24 @@ function AvailabilityTab({
       return;
     }
 
-    await updateSchedule({
-      id: schedule.id,
-      timezone,
-      rules,
-    });
-    toastSuccess({ description: "Availability updated" });
-    onSaved();
+    try {
+      const result = await updateSchedule({
+        id: schedule.id,
+        timezone,
+        rules,
+      });
+      if (hasActionResultError(result)) return;
+
+      toastSuccess({ description: "Availability updated" });
+      onSaved();
+    } catch (error) {
+      toastError({
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to update availability",
+      });
+    }
   };
 
   return (
@@ -801,6 +795,64 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 
+function getSelectedCalendarProvider(
+  data: BookingLinksData | undefined,
+  destinationCalendarId: string,
+) {
+  const calendars =
+    data?.calendarConnections.flatMap((connection) =>
+      connection.calendars.map((calendar) => ({
+        id: calendar.id,
+        isEnabled: calendar.isEnabled,
+        primary: calendar.primary,
+        provider: connection.provider,
+      })),
+    ) ?? [];
+
+  if (destinationCalendarId) {
+    return (
+      calendars.find((calendar) => calendar.id === destinationCalendarId)
+        ?.provider ?? null
+    );
+  }
+
+  return (
+    calendars.find((calendar) => calendar.isEnabled && calendar.primary)
+      ?.provider ??
+    calendars.find((calendar) => calendar.isEnabled)?.provider ??
+    null
+  );
+}
+
+function getProviderVideoLocationType(provider: string | null | undefined) {
+  if (provider === "google") return BookingEventTypeLocationType.GOOGLE_MEET;
+  if (provider === "microsoft") {
+    return BookingEventTypeLocationType.MICROSOFT_TEAMS;
+  }
+  return null;
+}
+
+function getVideoLocationLabel(
+  locationType: BookingEventTypeLocationType | null,
+) {
+  if (locationType === BookingEventTypeLocationType.GOOGLE_MEET) {
+    return "Google Meet";
+  }
+  if (locationType === BookingEventTypeLocationType.MICROSOFT_TEAMS) {
+    return "Microsoft Teams";
+  }
+  return null;
+}
+
+function isProviderVideoLocationType(
+  locationType: BookingEventTypeLocationType,
+) {
+  return (
+    locationType === BookingEventTypeLocationType.GOOGLE_MEET ||
+    locationType === BookingEventTypeLocationType.MICROSOFT_TEAMS
+  );
+}
+
 function buildDayState(
   rules: Array<{
     weekday: number;
@@ -873,4 +925,15 @@ function TimezoneOptions({ current }: { current: string }) {
       ))}
     </>
   );
+}
+
+function hasActionResultError(
+  result:
+    | {
+        serverError?: string;
+        validationErrors?: unknown;
+      }
+    | undefined,
+) {
+  return Boolean(result?.serverError || result?.validationErrors);
 }

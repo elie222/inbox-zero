@@ -32,7 +32,7 @@ import {
   sendBookingConfirmationEmails,
 } from "@/utils/booking/emails";
 
-const MAX_AVAILABILITY_RANGE_MS = 31 * 24 * 60 * 60 * 1000;
+const MAX_AVAILABILITY_RANGE_MS = 32 * 24 * 60 * 60 * 1000;
 const SLOT_LOCK_TTL_MS = 5 * 60 * 1000;
 const CALENDAR_AVAILABILITY_UNAVAILABLE =
   "Calendar availability is temporarily unavailable";
@@ -210,8 +210,9 @@ export async function createPublicBooking({
     guestEmail: input.guestEmail,
     maxActiveBookingsPerGuest: config.eventType.maxActiveBookingsPerGuest,
   });
-  let booking: Awaited<ReturnType<typeof createPendingBooking>> | null = null;
-  let slotLock: { id: string } | null = null;
+  let pendingBooking: Awaited<ReturnType<typeof createPendingBooking>> | null =
+    null;
+  let acquiredSlotLock: { id: string } | null = null;
   const cancelToken = randomToken();
 
   try {
@@ -221,45 +222,47 @@ export async function createPublicBooking({
       maxActiveBookingsPerGuest: config.eventType.maxActiveBookingsPerGuest,
     });
 
-    const acquiredSlotLock = await acquireSlotLock({
+    acquiredSlotLock = await acquireSlotLock({
       eventTypeId: config.eventType.id,
       emailAccountId: config.host.emailAccountId,
       startTime: selectedStartTime,
       endTime: selectedEndTime,
     });
-    slotLock = acquiredSlotLock;
 
-    booking = await createPendingBooking({
-      config,
-      input,
-      selectedStartTime,
-      selectedEndTime,
-      cancelToken,
-    }).catch(async (error) => {
+    try {
+      pendingBooking = await createPendingBooking({
+        config,
+        input,
+        selectedStartTime,
+        selectedEndTime,
+        cancelToken,
+      });
+    } catch (error) {
       await prisma.bookingSlotLock.delete({
         where: { id: acquiredSlotLock.id },
       });
+      acquiredSlotLock = null;
 
       if (isDuplicateError(error)) {
-        const booking = await findIdempotentBooking({
+        const existing = await findIdempotentBooking({
           eventTypeId: config.eventType.id,
           idempotencyToken: input.idempotencyToken,
         });
-        if (booking) return booking;
+        // The other concurrent request won the idempotency race and already
+        // created the booking and provider event. Return its result instead
+        // of redoing the calendar write.
+        if (existing) return toPublicBookingResult(existing);
       }
 
       throw error;
-    });
+    }
   } finally {
     await releaseGuestLimitLock({ lock: guestLimitLock, logger });
   }
 
-  if (!booking || !slotLock) {
+  if (!pendingBooking || !acquiredSlotLock) {
     throw new SafeError("Failed to create booking");
   }
-
-  const pendingBooking = booking;
-  const acquiredSlotLock = slotLock;
 
   await prisma.bookingSlotLock.update({
     where: { id: acquiredSlotLock.id },
@@ -302,6 +305,7 @@ export async function createPublicBooking({
         provider: createdEvent.provider,
         providerCalendarId: createdEvent.providerCalendarId,
         providerEventId: createdEvent.id,
+        videoConferenceLink: createdEvent.videoConferenceLink ?? null,
         status: BookingStatus.CONFIRMED,
       },
       include: getBookingEmailInclude(),
@@ -409,6 +413,13 @@ export async function cancelPublicBooking({
       canceledBy: BookingCanceledBy.GUEST,
     },
     include: getBookingEmailInclude(),
+  });
+
+  // Free the slot lock so the host can be re-booked at this time. The
+  // exclusion constraint covers locks regardless of bookingId/status, so
+  // leaving them in place would permanently block re-booking.
+  await prisma.bookingSlotLock.deleteMany({
+    where: { bookingId: booking.id },
   });
 
   await sendBookingCancellationEmails({
@@ -875,7 +886,7 @@ function assertAvailabilityRange(start: Date, end: Date) {
   }
   if (end <= start) throw new SafeError("Invalid date range");
   if (end.getTime() - start.getTime() > MAX_AVAILABILITY_RANGE_MS) {
-    throw new SafeError("Availability range must be 31 days or less");
+    throw new SafeError("Availability range must be 32 days or less");
   }
 }
 

@@ -124,6 +124,7 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     input: CalendarEventWriteInput,
   ): Promise<CalendarEventWriteResult> {
     const client = await this.getClient();
+    const useMicrosoftTeams = input.locationType === "MICROSOFT_TEAMS";
     const response: MicrosoftEvent = await client
       .api(`/me/calendars/${input.calendarId}/events`)
       .post({
@@ -134,11 +135,11 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
         },
         start: {
           dateTime: input.startTime.toISOString(),
-          timeZone: "UTC",
+          timeZone: input.timezone,
         },
         end: {
           dateTime: input.endTime.toISOString(),
-          timeZone: "UTC",
+          timeZone: input.timezone,
         },
         attendees: input.attendees.map((attendee) => ({
           emailAddress: {
@@ -147,9 +148,14 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
           },
           type: "required",
         })),
-        location: input.locationValue
-          ? { displayName: input.locationValue }
+        isOnlineMeeting: useMicrosoftTeams,
+        onlineMeetingProvider: useMicrosoftTeams
+          ? "teamsForBusiness"
           : undefined,
+        location:
+          !useMicrosoftTeams && input.locationValue
+            ? { displayName: input.locationValue }
+            : undefined,
       });
 
     return {

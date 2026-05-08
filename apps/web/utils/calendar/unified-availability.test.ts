@@ -318,5 +318,50 @@ describe("getUnifiedCalendarAvailability", () => {
 
       expect(result).toEqual([]);
     });
+
+    it("should return empty availability on provider failure by default", async () => {
+      vi.mocked(prisma.calendarConnection.findMany).mockResolvedValue([
+        getCalendarConnection({ provider: "google", calendarIds: ["cal-1"] }),
+      ]);
+      const mockGoogleProvider = {
+        fetchBusyPeriods: vi.fn().mockRejectedValue(new Error("provider down")),
+      };
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue(
+        mockGoogleProvider as any,
+      );
+
+      const result = await getUnifiedCalendarAvailability({
+        emailAccountId,
+        startDate: new Date("2025-11-17T00:00:00Z"),
+        endDate: new Date("2025-11-17T23:59:59Z"),
+        timezone: "UTC",
+        logger,
+      });
+
+      expect(result).toEqual([]);
+    });
+
+    it("should fail closed on provider failure when requested", async () => {
+      vi.mocked(prisma.calendarConnection.findMany).mockResolvedValue([
+        getCalendarConnection({ provider: "google", calendarIds: ["cal-1"] }),
+      ]);
+      const mockGoogleProvider = {
+        fetchBusyPeriods: vi.fn().mockRejectedValue(new Error("provider down")),
+      };
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue(
+        mockGoogleProvider as any,
+      );
+
+      await expect(
+        getUnifiedCalendarAvailability({
+          emailAccountId,
+          startDate: new Date("2025-11-17T00:00:00Z"),
+          endDate: new Date("2025-11-17T23:59:59Z"),
+          timezone: "UTC",
+          logger,
+          failClosed: true,
+        }),
+      ).rejects.toThrow("provider down");
+    });
   });
 });

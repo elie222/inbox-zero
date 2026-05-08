@@ -6,6 +6,7 @@ export interface CalendarEventAttendee {
 export type CalendarEventLocationType =
   | "IN_PERSON"
   | "GOOGLE_MEET"
+  | "MICROSOFT_TEAMS"
   | "PHONE"
   | "CUSTOM";
 

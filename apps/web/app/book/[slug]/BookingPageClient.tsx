@@ -581,6 +581,7 @@ function LocationIcon({ type }: { type: BookingEventTypeLocationType }) {
   const className = "size-3.5";
   switch (type) {
     case BookingEventTypeLocationType.GOOGLE_MEET:
+    case BookingEventTypeLocationType.MICROSOFT_TEAMS:
       return <Video className={className} />;
     case BookingEventTypeLocationType.PHONE:
       return <Phone className={className} />;
@@ -594,6 +595,9 @@ function LocationIcon({ type }: { type: BookingEventTypeLocationType }) {
 function locationLabel(eventType: EventType): string {
   if (eventType.locationType === BookingEventTypeLocationType.GOOGLE_MEET) {
     return "Google Meet";
+  }
+  if (eventType.locationType === BookingEventTypeLocationType.MICROSOFT_TEAMS) {
+    return "Microsoft Teams";
   }
   return eventType.locationValue || "Custom";
 }

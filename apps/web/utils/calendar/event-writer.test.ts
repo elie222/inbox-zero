@@ -10,6 +10,7 @@ const providerMocks = vi.hoisted(() => ({
   cancelEvent: vi.fn(),
   createEvent: vi.fn(),
   googleConstructor: vi.fn(),
+  microsoftConstructor: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -24,7 +25,15 @@ vi.mock("@/utils/calendar/providers/google-events", () => ({
   },
 }));
 vi.mock("@/utils/calendar/providers/microsoft-events", () => ({
-  MicrosoftCalendarEventProvider: vi.fn(),
+  MicrosoftCalendarEventProvider: function MicrosoftCalendarEventProvider(
+    params,
+  ) {
+    providerMocks.microsoftConstructor(params);
+    return {
+      cancelEvent: providerMocks.cancelEvent,
+      createEvent: providerMocks.createEvent,
+    };
+  },
 }));
 
 describe("createCalendarEvent", () => {
@@ -111,5 +120,71 @@ describe("createCalendarEvent", () => {
       calendarId: "primary",
       eventId: "provider-event-id",
     });
+  });
+
+  it("uses the Microsoft event provider for Microsoft connections", async () => {
+    prisma.calendar.findFirst.mockResolvedValue({
+      calendarId: "microsoft-calendar",
+      connection: {
+        id: "connection-id",
+        provider: "microsoft",
+        accessToken: "access-token",
+        refreshToken: "refresh-token",
+        expiresAt: new Date("2026-05-04T00:00:00.000Z"),
+      },
+    });
+
+    await createCalendarEvent({
+      attendees: [{ name: "Guest User", email: "guest@example.com" }],
+      destinationCalendarId: "calendar-row-id",
+      emailAccountId: "email-account-id",
+      endTime: new Date("2026-05-04T09:30:00.000Z"),
+      locationType: "CUSTOM",
+      logger: createTestLogger(),
+      startTime: new Date("2026-05-04T09:00:00.000Z"),
+      timezone: "UTC",
+      title: "Intro call",
+    });
+
+    expect(providerMocks.microsoftConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: "access-token",
+        emailAccountId: "email-account-id",
+        refreshToken: "refresh-token",
+      }),
+    );
+    expect(providerMocks.createEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        calendarId: "microsoft-calendar",
+        title: "Intro call",
+      }),
+    );
+  });
+
+  it("rejects unsupported writable calendar providers", async () => {
+    prisma.calendar.findFirst.mockResolvedValue({
+      calendarId: "calendar-id",
+      connection: {
+        id: "connection-id",
+        provider: "unsupported",
+        accessToken: "access-token",
+        refreshToken: "refresh-token",
+        expiresAt: null,
+      },
+    });
+
+    await expect(
+      createCalendarEvent({
+        attendees: [],
+        destinationCalendarId: "calendar-row-id",
+        emailAccountId: "email-account-id",
+        endTime: new Date("2026-05-04T09:30:00.000Z"),
+        locationType: "CUSTOM",
+        logger: createTestLogger(),
+        startTime: new Date("2026-05-04T09:00:00.000Z"),
+        timezone: "UTC",
+        title: "Intro call",
+      }),
+    ).rejects.toThrow("Unsupported calendar provider");
   });
 });
