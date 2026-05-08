@@ -1,6 +1,9 @@
 "use client";
 
-import type { ReplyMemoryKind, ReplyMemoryScopeType } from "@prisma/client";
+import type {
+  ReplyMemoryKind,
+  ReplyMemoryScopeType,
+} from "@/generated/prisma/enums";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import useSWR from "swr";
