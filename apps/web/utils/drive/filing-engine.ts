@@ -55,6 +55,7 @@ export interface ProcessAttachmentOptions {
 const DUPLICATE_FILING_KEY =
   "DocumentFiling_emailAccountId_messageId_attachmentId_key";
 const DUPLICATE_FILING_FIELDS = ["emailAccountId", "messageId", "attachmentId"];
+const PROCESSING_FILING_STALE_MS = 30 * 60 * 1000;
 
 // ============================================================================
 // Main Filing Engine
@@ -101,7 +102,10 @@ export async function processAttachment({
 
     let retryFilingId: string | null = null;
     if (existingFiling) {
-      const existingDecision = getExistingFilingDecision(existingFiling, log);
+      const existingDecision = await claimOrResolveExistingFiling(
+        existingFiling,
+        log,
+      );
       if (existingDecision.type === "retry") {
         retryFilingId = existingDecision.filingId;
         claimedFilingId = retryFilingId;
@@ -147,14 +151,14 @@ export async function processAttachment({
           status: claimedFiling.status,
         });
 
-        const claimedDecision = getExistingFilingDecision(claimedFiling, log);
+        const claimedDecision = await claimOrResolveExistingFiling(
+          claimedFiling,
+          log,
+        );
         if (claimedDecision.type === "return") return claimedDecision.result;
 
-        return {
-          success: false,
-          error: "Attachment is already being filed",
-          filingId: claimedDecision.filingId,
-        };
+        retryFilingId = claimedDecision.filingId;
+        claimedFilingId = claimedDecision.filingId;
       }
     }
 
@@ -472,6 +476,7 @@ function findAttachmentFiling({
       folderPath: true,
       fileId: true,
       status: true,
+      updatedAt: true,
       wasAsked: true,
       confidence: true,
       reasoning: true,
@@ -484,20 +489,36 @@ function findAttachmentFiling({
   });
 }
 
-function getExistingFilingDecision(
+async function claimOrResolveExistingFiling(
   filing: AttachmentFiling,
   logger: Logger,
-): ExistingFilingDecision {
+): Promise<ExistingFilingDecision> {
   logger.info("Attachment already has a filing record", {
     filingId: filing.id,
     status: filing.status,
   });
 
   if (filing.status === "ERROR") {
-    logger.info("Retrying attachment after previous filing error", {
-      filingId: filing.id,
+    const claim = await prisma.documentFiling.updateMany({
+      where: {
+        id: filing.id,
+        status: "ERROR",
+      },
+      data: {
+        status: "PROCESSING",
+        reasoning: null,
+        updatedAt: new Date(),
+      },
     });
-    return { type: "retry", filingId: filing.id };
+
+    if (claim.count === 1) {
+      logger.info("Retrying attachment after previous filing error", {
+        filingId: filing.id,
+      });
+      return { type: "retry", filingId: filing.id };
+    }
+
+    return getProcessingFilingDecision(filing.id);
   }
 
   if (filing.status === "PREVIEW") {
@@ -514,14 +535,30 @@ function getExistingFilingDecision(
   }
 
   if (filing.status === "PROCESSING") {
-    return {
-      type: "return",
-      result: {
-        success: false,
-        error: "Attachment is already being filed",
-        filingId: filing.id,
-      },
-    };
+    const staleCutoff = new Date(Date.now() - PROCESSING_FILING_STALE_MS);
+
+    if (filing.updatedAt <= staleCutoff) {
+      const claim = await prisma.documentFiling.updateMany({
+        where: {
+          id: filing.id,
+          status: "PROCESSING",
+          updatedAt: { lte: staleCutoff },
+        },
+        data: {
+          reasoning: null,
+          updatedAt: new Date(),
+        },
+      });
+
+      if (claim.count === 1) {
+        logger.info("Retrying stale attachment filing claim", {
+          filingId: filing.id,
+        });
+        return { type: "retry", filingId: filing.id };
+      }
+    }
+
+    return getProcessingFilingDecision(filing.id);
   }
 
   return {
@@ -538,6 +575,17 @@ function getExistingFilingDecision(
         provider: filing.driveConnection.provider,
       },
       filingId: filing.id,
+    },
+  };
+}
+
+function getProcessingFilingDecision(filingId: string): ExistingFilingDecision {
+  return {
+    type: "return",
+    result: {
+      success: false,
+      error: "Attachment is already being filed",
+      filingId,
     },
   };
 }

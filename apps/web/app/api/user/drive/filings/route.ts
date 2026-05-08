@@ -39,9 +39,14 @@ async function getFilings({
   limit: number;
   offset: number;
 }) {
+  const where = {
+    emailAccountId,
+    status: { not: "PROCESSING" as const },
+  };
+
   const [filings, total] = await Promise.all([
     prisma.documentFiling.findMany({
-      where: { emailAccountId },
+      where,
       select: {
         id: true,
         filename: true,
@@ -61,7 +66,7 @@ async function getFilings({
       take: limit,
       skip: offset,
     }),
-    prisma.documentFiling.count({ where: { emailAccountId } }),
+    prisma.documentFiling.count({ where }),
   ]);
 
   return {
