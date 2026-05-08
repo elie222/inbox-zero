@@ -15,14 +15,16 @@ describe("renderTerraformTfvars", () => {
       rdsInstanceClass: "db.t3.micro",
       enableRedis: false,
       redisInstanceClass: "cache.t4g.micro",
-      googleClientId: "google-id",
+      googleClientId: "google-$id",
       googleClientSecret: "google-secret",
       googlePubsubTopicName: "projects/demo/topics/inbox-zero",
       defaultLlmProvider: "openai",
-      defaultLlmModel: "",
+      defaultLlmModel: "model-100%",
     });
 
     expect(tfvars).toContain('app_name = "app-$${file(\\"/tmp/name\\")}"');
     expect(tfvars).toContain('environment = "%%{if true}prod%%{endif}"');
+    expect(tfvars).toContain('google_client_id = "google-$id"');
+    expect(tfvars).toContain('default_llm_model = "model-100%"');
   });
 });

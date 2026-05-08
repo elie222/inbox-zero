@@ -874,8 +874,8 @@ function escapeTfValue(value: string) {
   return value
     .replace(/\\/g, "\\\\")
     .replace(/"/g, '\\"')
-    .replace(/\$/g, "$$$$")
-    .replace(/%/g, "%%");
+    .replace(/\$\{/g, () => "$${")
+    .replace(/%\{/g, "%%{");
 }
 
 function addOptionalTfVar(lines: string[], key: string, value?: string) {
