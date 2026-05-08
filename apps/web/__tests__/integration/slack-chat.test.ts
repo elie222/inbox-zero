@@ -83,8 +83,12 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     let userId: string;
     let channelId: string;
     let fetchSpy: ReturnType<typeof vi.spyOn<typeof globalThis, "fetch">>;
+    let slackApiCallSpy: ReturnType<typeof vi.spyOn>;
+    let originalSlackApiUrl: string | undefined;
 
     beforeAll(async () => {
+      originalSlackApiUrl = process.env.SLACK_API_URL;
+
       emulator = await createEmulator({
         service: "slack",
         port: TEST_PORT,
@@ -108,6 +112,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           },
         },
       });
+      process.env.SLACK_API_URL = `${emulator.url}/api/`;
 
       emulatorClient = new WebClient("emulator-token", {
         slackApiUrl: `${emulator.url}/api/`,
@@ -135,6 +140,12 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
     afterAll(async () => {
       fetchSpy?.mockRestore();
+      slackApiCallSpy?.mockRestore();
+      if (originalSlackApiUrl === undefined) {
+        delete process.env.SLACK_API_URL;
+      } else {
+        process.env.SLACK_API_URL = originalSlackApiUrl;
+      }
       await emulator?.close();
     });
 
@@ -155,6 +166,27 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       ).inboxZeroMessagingChatSdk = undefined;
 
       fetchSpy?.mockRestore();
+      slackApiCallSpy?.mockRestore();
+      const originalSlackApiCall = WebClient.prototype.apiCall;
+      slackApiCallSpy = vi
+        .spyOn(WebClient.prototype, "apiCall")
+        .mockImplementation(function (
+          this: WebClient,
+          method: string,
+          options?: Parameters<WebClient["apiCall"]>[1],
+        ) {
+          const response = mockUnsupportedSlackApiCall({
+            channelId,
+            method,
+            options,
+            userId,
+          });
+
+          if (response) return Promise.resolve(response);
+
+          return originalSlackApiCall.call(this, method, options);
+        });
+
       const originalFetch = globalThis.fetch.bind(globalThis);
       fetchSpy = vi
         .spyOn(globalThis, "fetch")
@@ -388,4 +420,77 @@ function createSignedSlackRequest(body: string) {
     },
     body,
   });
+}
+
+function mockUnsupportedSlackApiCall({
+  channelId,
+  method,
+  options,
+  userId,
+}: {
+  channelId: string;
+  method: string;
+  options?: Parameters<WebClient["apiCall"]>[1];
+  userId: string;
+}) {
+  switch (method) {
+    case "assistant.threads.setStatus":
+    case "chat.appendStream":
+    case "chat.startStream":
+    case "chat.stopStream":
+    case "reactions.add":
+    case "reactions.remove":
+      return { ok: true, ts: getSlackApiCallValue(options, "ts") };
+    case "conversations.info":
+      return {
+        ok: true,
+        channel: {
+          id: channelId,
+          name: "assistant-chat",
+          is_private: false,
+          is_ext_shared: false,
+        },
+      };
+    case "conversations.replies": {
+      const ts = getSlackApiCallValue(options, "ts");
+      return {
+        ok: true,
+        messages: [
+          {
+            type: "message",
+            user: "UAPP123",
+            channel: channelId,
+            text: "Parent message",
+            ts,
+            thread_ts: ts,
+          },
+        ],
+      };
+    }
+    case "users.info":
+      return {
+        ok: true,
+        user: {
+          id: userId,
+          name: "alice",
+          real_name: "Alice Smith",
+          profile: {
+            display_name: "Alice Smith",
+            real_name: "Alice Smith",
+            email: "alice@example.com",
+          },
+        },
+      };
+    default:
+      return null;
+  }
+}
+
+function getSlackApiCallValue(
+  options: Parameters<WebClient["apiCall"]>[1] | undefined,
+  key: string,
+) {
+  return typeof options === "object" && options && key in options
+    ? String(options[key as keyof typeof options])
+    : undefined;
 }
