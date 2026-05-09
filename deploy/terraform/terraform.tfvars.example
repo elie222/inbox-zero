@@ -1,0 +1,10 @@
+aws_region        = "us-east-1"
+github_repo       = "rebekah-create/inbox-zero-rebekah"
+github_branch     = "main"
+ec2_instance_id   = "i-0ddd8a31e870a696e"
+ec2_instance_role = "inbox-zero-role"
+
+# Set to false on the second apply if you ever destroy and recreate without
+# touching the OIDC provider, or if another stack in this account already
+# owns the provider.
+create_oidc_provider = true
