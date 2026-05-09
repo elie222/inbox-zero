@@ -406,6 +406,12 @@ type OutlookMetadataFilters = {
   categoryNames: string[];
 };
 
+const EMPTY_METADATA_PARSE_RESULT = {
+  searchQuery: "",
+  filters: { isRead: undefined, categoryNames: [] as string[] },
+  odataFilters: [] as string[],
+};
+
 function parseOutlookMetadataSearchQuery(
   query: string,
   categoryMap: Map<string, string>,
@@ -414,6 +420,8 @@ function parseOutlookMetadataSearchQuery(
   filters: OutlookMetadataFilters;
   odataFilters: string[];
 } {
+  if (!query) return EMPTY_METADATA_PARSE_RESULT;
+
   const stateTerms = getStandaloneOutlookStateTerms(query);
   const hasRead = stateTerms.includes("read");
   const hasUnread = stateTerms.includes("unread");
@@ -587,15 +595,10 @@ export async function queryBatchMessages(
         logger,
       );
 
-    const filteredMessages = folderId
-      ? response.value.filter(
-          (message) =>
-            message.parentFolderId === folderId &&
-            matchesOutlookMetadataFilters(message, parsedSearch.filters),
-        )
-      : response.value.filter((message) =>
-          matchesOutlookMetadataFilters(message, parsedSearch.filters),
-        );
+    const filteredMessages = response.value.filter((message) => {
+      if (folderId && message.parentFolderId !== folderId) return false;
+      return matchesOutlookMetadataFilters(message, parsedSearch.filters);
+    });
     const messages = await convertMessages(
       filteredMessages,
       folderIds,
@@ -650,7 +653,6 @@ export async function queryBatchMessages(
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(() => request.get(), logger);
 
-    // Filter to specific folder if requested, otherwise get all
     const filteredMessages = response.value.filter((message) => {
       if (folderId && message.parentFolderId !== folderId) return false;
       return matchesOutlookMetadataFilters(message, parsedSearch.filters);
