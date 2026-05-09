@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { parseAsString, useQueryState } from "nuqs";
+import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
 import { addMinutes } from "date-fns";
 import {
   ArrowLeft,
@@ -56,9 +56,12 @@ export function BookingPageClient({
   bookingLink: GetPublicBookingLinkResponse;
   eventTypeSlug: string;
 }) {
-  const [slotParam, setSlotParam] = useQueryState(
-    "slot",
-    parseAsString.withOptions({ history: "push" }),
+  const [{ slot: slotParam }, setBookingParams] = useQueryStates(
+    {
+      slot: parseAsString,
+      duration: parseAsInteger,
+    },
+    { history: "push" },
   );
   const eventType = bookingLink.eventTypes.find(
     (candidate) => candidate.slug === eventTypeSlug,
@@ -196,7 +199,7 @@ export function BookingPageClient({
           bookingLink={bookingLink}
           slot={selectedSlot}
           timezone={timezone}
-          onBack={() => setSlotParam(null)}
+          onBack={() => setBookingParams({ slot: null, duration: null })}
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
         />
@@ -223,7 +226,12 @@ export function BookingPageClient({
         slotsForDay={selectedDateSlots}
         loading={loadingSlots}
         error={error}
-        onPickSlot={(slot) => setSlotParam(slot.startTime)}
+        onPickSlot={(slot) =>
+          setBookingParams({
+            slot: slot.startTime,
+            duration: eventType.durationMinutes,
+          })
+        }
       />
     </BookingShell>
   );
