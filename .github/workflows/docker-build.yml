@@ -71,31 +71,89 @@ jobs:
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: us-east-1
+      EC2_INSTANCE_ID: i-0ddd8a31e870a696e
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Sync docker-compose.yml to EC2
-        uses: appleboy/scp-action@v0.1.7
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: deploy/docker-compose.yml
-          target: /tmp/inbox-zero-deploy/
-          strip_components: 1
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -e
-            sudo install -m 0644 -o root -g root /tmp/inbox-zero-deploy/docker-compose.yml /opt/inbox-zero/docker-compose.yml
-            rm -f /tmp/inbox-zero-deploy/docker-compose.yml
-            cd /opt/inbox-zero
-            docker system prune -f --filter "until=24h"
-            docker compose pull app
-            docker compose up -d app
+      - name: Build SSM command payload
+        id: payload
+        run: |
+          set -euo pipefail
+          COMPOSE_B64=$(base64 -w0 deploy/docker-compose.yml)
+          # Write SSM parameters to a JSON file so we don't have to escape
+          # nested quotes on the CLI. The remote shell decodes the blob,
+          # installs it under /opt/inbox-zero, and pulls/restarts the app.
+          jq -n \
+            --arg b64 "$COMPOSE_B64" \
+            '{
+              commands: [
+                "set -e",
+                ("echo " + $b64 + " | base64 -d > /tmp/docker-compose.yml"),
+                "sudo install -m 0644 -o root -g root /tmp/docker-compose.yml /opt/inbox-zero/docker-compose.yml",
+                "rm -f /tmp/docker-compose.yml",
+                "cd /opt/inbox-zero",
+                "docker system prune -f --filter until=24h",
+                "docker compose pull app",
+                "docker compose up -d app"
+              ]
+            }' > /tmp/ssm-params.json
+
+      - name: Send deploy command via SSM
+        id: send
+        run: |
+          set -euo pipefail
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "inbox-zero deploy ${{ github.sha }}" \
+            --parameters file:///tmp/ssm-params.json \
+            --query Command.CommandId \
+            --output text)
+          echo "command_id=$CMD_ID" >> "$GITHUB_OUTPUT"
+          echo "Sent SSM command: $CMD_ID"
+
+      - name: Wait for SSM command to complete
+        env:
+          CMD_ID: ${{ steps.send.outputs.command_id }}
+        run: |
+          set -euo pipefail
+          # Poll every 5s for up to 5 minutes. Status flow:
+          # Pending → InProgress → Success | Failed | TimedOut | Cancelled
+          for i in $(seq 1 60); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$CMD_ID" \
+              --instance-id "$EC2_INSTANCE_ID" \
+              --query Status --output text 2>/dev/null || echo "Pending")
+            echo "  [$i/60] status: $STATUS"
+            case "$STATUS" in
+              Success)
+                aws ssm get-command-invocation \
+                  --command-id "$CMD_ID" \
+                  --instance-id "$EC2_INSTANCE_ID" \
+                  --query StandardOutputContent --output text
+                exit 0
+                ;;
+              Cancelled|TimedOut|Failed)
+                echo "::error::SSM command $CMD_ID ended in status $STATUS"
+                aws ssm get-command-invocation \
+                  --command-id "$CMD_ID" \
+                  --instance-id "$EC2_INSTANCE_ID"
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+          echo "::error::Timed out waiting for SSM command $CMD_ID"
+          exit 1

@@ -100,6 +100,13 @@ copilot/environments/**/manifest.yml
 qa/browser-flows/results/*
 !qa/browser-flows/results/README.md
 
+# Smoke-test artifacts (screenshots + HARs from manual debugging sessions)
+smoke-test-*.png
+smoke-test-*.har
+
+# Local one-off deploy/SSM smoke-test scripts (not for commit)
+deploy/test-ssm-payload.ps1
+
 # local skills
 .claude/skills/local/
 .agents/skills/local/
