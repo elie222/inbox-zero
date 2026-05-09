@@ -47,7 +47,7 @@ jobs:
 
       - name: Docker metadata
         id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@v6.0.0
         with:
           images: ghcr.io/rebekah-create/inbox-zero-rebekah
           tags: |
