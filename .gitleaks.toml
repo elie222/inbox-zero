@@ -2,9 +2,33 @@
 # Extend the default gitleaks ruleset
 useDefault = true
 
+# Upstash REST tokens are JWTs that don't match a specific provider regex in the
+# default ruleset, so they slip past generic-api-key. The leak that prompted this
+# rule (commit 2026-05-04, deploy/docker-compose.yml) had the literal token
+# inline in YAML — no `password=` keyword nearby — which is why nothing caught it.
+[[rules]]
+id = "upstash-token"
+description = "Upstash Redis/Kafka/QStash REST token (JWT)"
+regex = '''eyJ[A-Za-z0-9_-]{20,}\.eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}'''
+keywords = ["upstash", "UPSTASH"]
+
+[[rules]]
+id = "upstash-redis-url"
+description = "Upstash Redis REST URL (token embedded in URL form)"
+regex = '''https://[a-z0-9-]+\.upstash\.io'''
+keywords = ["upstash"]
+
 [[allowlists]]
 description = "GSD planning directories contain UUID event IDs that trigger generic-api-key false positives"
 paths = [
   '''.gsd\.migrating/''',
   '''.gsd/''',
+]
+
+[[allowlists]]
+description = "Documentation and example references to Upstash are not real tokens"
+paths = [
+  '''\.env\.example''',
+  '''README\.md''',
+  '''\.gitleaks\.toml''',
 ]
