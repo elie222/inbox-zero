@@ -305,5 +305,5 @@ ALTER TABLE "BookingGuestLimitLock" ADD CONSTRAINT "BookingGuestLimitLock_eventT
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 ALTER TABLE "BookingSlotLock" ADD CONSTRAINT "BookingSlotLock_no_overlap" EXCLUDE USING gist (
     "emailAccountId" WITH =,
-    tstzrange("startTime", "endTime", '[)') WITH &&
+    tsrange("startTime", "endTime", '[)') WITH &&
 );

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
 import {
   ArrowLeft,
   ArrowRight,
@@ -56,6 +57,13 @@ export function BookingPageClient({
   bookingLink: GetPublicBookingLinkResponse;
   eventTypeSlug: string;
 }) {
+  const [{ slot: slotParam }, setBookingUrlParams] = useQueryStates(
+    {
+      slot: parseAsString,
+      duration: parseAsInteger,
+    },
+    { history: "push" },
+  );
   const eventType = bookingLink.eventTypes.find(
     (candidate) => candidate.slug === eventTypeSlug,
   );
@@ -63,20 +71,38 @@ export function BookingPageClient({
   const [timezone, setTimezone] = useState<string>(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
+  const initialSlot = useMemo(
+    () => parseSlotParam(slotParam, eventType?.durationMinutes),
+    [slotParam, eventType?.durationMinutes],
+  );
 
   const initialMonth = useMemo(() => startOfMonth(new Date()), []);
   const [visibleMonth, setVisibleMonth] = useState<Date>(initialMonth);
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(
     formatDateKey(new Date(), timezone),
   );
-  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
-  const [step, setStep] = useState<Step>("pick-time");
+  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(initialSlot);
+  const [step, setStep] = useState<Step>(initialSlot ? "details" : "pick-time");
 
   const [slotsByDay, setSlotsByDay] = useState<Map<string, Slot[]>>(new Map());
   const [loadingSlots, setLoadingSlots] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<SuccessState | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (success) return;
+
+    setSelectedSlot(initialSlot);
+    if (initialSlot) {
+      const slotDate = new Date(initialSlot.startTime);
+      setSelectedDateKey(formatDateKey(slotDate, timezone));
+      setVisibleMonth(startOfMonth(slotDate));
+      setStep("details");
+    } else {
+      setStep((current) => (current === "details" ? "pick-time" : current));
+    }
+  }, [initialSlot, success, timezone]);
 
   useEffect(() => {
     if (!eventType) return;
@@ -165,9 +191,16 @@ export function BookingPageClient({
     }
   };
 
+  const updateSelectedSlotUrl = (slot: Slot | null) => {
+    setBookingUrlParams({
+      slot: slot?.startTime ?? null,
+      duration: slot ? eventType.durationMinutes : null,
+    });
+  };
+
   if (step === "success" && success) {
     return (
-      <BookingShell>
+      <BookingShell size="compact">
         <BookingSuccessCard
           eventType={eventType}
           bookingLink={bookingLink}
@@ -180,13 +213,16 @@ export function BookingPageClient({
 
   if (step === "details" && selectedSlot) {
     return (
-      <BookingShell>
+      <BookingShell size="compact">
         <DetailsStep
           eventType={eventType}
           bookingLink={bookingLink}
           slot={selectedSlot}
           timezone={timezone}
-          onBack={() => setStep("pick-time")}
+          onBack={() => {
+            setStep("pick-time");
+            updateSelectedSlotUrl(null);
+          }}
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
         />
@@ -216,6 +252,7 @@ export function BookingPageClient({
         onPickSlot={(slot) => {
           setSelectedSlot(slot);
           setStep("details");
+          updateSelectedSlotUrl(slot);
         }}
       />
     </BookingShell>
@@ -413,7 +450,7 @@ function DetailsStep({
   };
 
   return (
-    <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[300px_1fr]">
+    <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)]">
       <Sidebar
         eventType={eventType}
         bookingLink={bookingLink}
@@ -498,7 +535,7 @@ function BookingSuccessCard({
   timezone: string;
 }) {
   return (
-    <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[300px_1fr]">
+    <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)]">
       <Sidebar
         eventType={eventType}
         bookingLink={bookingLink}
@@ -762,10 +799,21 @@ function SlotSkeleton() {
   );
 }
 
-export function BookingShell({ children }: { children: React.ReactNode }) {
+export function BookingShell({
+  children,
+  size = "wide",
+}: {
+  children: React.ReactNode;
+  size?: "compact" | "wide";
+}) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-10">
-      <div className="w-full max-w-5xl overflow-hidden rounded-2xl border bg-background shadow-lg">
+      <div
+        className={cn(
+          "w-full overflow-hidden rounded-2xl border bg-background shadow-lg",
+          size === "compact" ? "max-w-3xl" : "max-w-5xl",
+        )}
+      >
         {children}
       </div>
     </main>
@@ -808,6 +856,22 @@ function startOfMonth(date: Date) {
 
 function endOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 1);
+}
+
+function parseSlotParam(
+  value: string | null,
+  durationMinutes: number | undefined,
+): Slot | null {
+  if (!value || !durationMinutes) return null;
+  const startTime = new Date(value);
+  if (Number.isNaN(startTime.getTime())) return null;
+
+  return {
+    startTime: startTime.toISOString(),
+    endTime: new Date(
+      startTime.getTime() + durationMinutes * 60 * 1000,
+    ).toISOString(),
+  };
 }
 
 function formatDateKey(date: Date, timezone: string) {

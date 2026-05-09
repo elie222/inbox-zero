@@ -255,7 +255,7 @@ function ExternalBookingLinkCard() {
         className="flex w-full items-center justify-between gap-2 text-left text-sm text-muted-foreground hover:text-foreground"
         aria-expanded={isOpen}
       >
-        <span>Use your own scheduling link (Cal.com, Calendly, etc.)</span>
+        <span>Use your own scheduling link</span>
         <ChevronDown
           className={cn(
             "size-4 shrink-0 transition-transform",
@@ -551,15 +551,20 @@ function ActiveLinkCard({
 
   return (
     <CardBasic className="px-4 py-4">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h3 className="font-medium">Booking link</h3>
-          {!isActive ? (
-            <span className="inline-flex items-center gap-1 rounded-md border bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-              <span className="size-1.5 rounded-full bg-muted-foreground/60" />
-              Inactive
-            </span>
-          ) : null}
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium">Booking link</h3>
+            {!isActive ? (
+              <span className="inline-flex items-center gap-1 rounded-md border bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                <span className="size-1.5 rounded-full bg-muted-foreground/60" />
+                Inactive
+              </span>
+            ) : null}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Used by our AI to schedule appointments over email.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Switch
