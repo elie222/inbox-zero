@@ -76,7 +76,7 @@ jobs:
       contents: read
     env:
       AWS_REGION: us-east-1
-      EC2_INSTANCE_ID: i-0ddd8a31e870a696e
+      EC2_INSTANCE_ID: ${{ vars.AWS_INSTANCE_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
