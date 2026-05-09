@@ -72,6 +72,19 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Sync docker-compose.yml to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: deploy/docker-compose.yml
+          target: /tmp/inbox-zero-deploy/
+          strip_components: 1
+
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -79,6 +92,9 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
+            sudo install -m 0644 -o root -g root /tmp/inbox-zero-deploy/docker-compose.yml /opt/inbox-zero/docker-compose.yml
+            rm -f /tmp/inbox-zero-deploy/docker-compose.yml
             cd /opt/inbox-zero
             docker system prune -f --filter "until=24h"
             docker compose pull app
