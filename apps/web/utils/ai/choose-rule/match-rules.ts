@@ -52,26 +52,6 @@ const MODULE = "match-rules";
 
 const TO_REPLY_RECEIVED_THRESHOLD = 10;
 
-const GMAIL_CATEGORY_PROMOTIONS = "CATEGORY_PROMOTIONS";
-
-// True iff labelIds contain CATEGORY_PROMOTIONS and no other CATEGORY_*.
-// Structural labels (INBOX, UNREAD, IMPORTANT, STARRED, SENT) are ignored by
-// construction since they don't start with "CATEGORY_".
-function hasOnlyPromotionsCategory(
-  labelIds: string[] | undefined | null,
-): boolean {
-  if (!labelIds || labelIds.length === 0) return false;
-  let sawPromotions = false;
-  for (const id of labelIds) {
-    if (id === GMAIL_CATEGORY_PROMOTIONS) {
-      sawPromotions = true;
-      continue;
-    }
-    if (id.startsWith("CATEGORY_")) return false;
-  }
-  return sawPromotions;
-}
-
 type MatchingRulesResult = {
   matches: {
     rule: RuleWithActions;
@@ -234,26 +214,6 @@ async function findPotentialMatchingRules({
       }
 
       continuedThreadRuleNames.push(rule.name);
-    }
-
-    // Gmail category shortcut — CLASS-09.
-    // If this iteration's rule is the Marketing system rule and the message
-    // has only CATEGORY_PROMOTIONS (no other CATEGORY_*), route directly here
-    // and skip the LLM call. Static rules and learned patterns retain priority
-    // because they iterate as separate rules and add their own match reasons.
-    // If the Marketing rule ever gains AI instructions, those are intentionally
-    // bypassed by this shortcut.
-    if (
-      rule.systemType === SystemType.MARKETING &&
-      hasOnlyPromotionsCategory(message.labelIds)
-    ) {
-      matches.push({
-        rule,
-        matchReasons: [
-          { type: ConditionType.PRESET, systemType: SystemType.MARKETING },
-        ],
-      });
-      continue;
     }
 
     // Learned patterns (groups)
