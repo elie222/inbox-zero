@@ -2232,17 +2232,46 @@ describe("findMatchingRules - Integration Tests", () => {
       logger,
     });
 
-    // Learned-pattern match should be present.
-    const learnedMatch = result.matches.find(
-      (m) => m.rule.id === "newsletters-rule",
-    );
-    expect(learnedMatch).toBeDefined();
-    expect(learnedMatch?.matchReasons?.[0]?.type).toBe(
+    // Learned-pattern match should be the sole result; the PROMOTIONS fallback
+    // is bypassed because matches[] is non-empty after the rule loop.
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0]?.rule.id).toBe("newsletters-rule");
+    expect(result.matches[0]?.matchReasons?.[0]?.type).toBe(
       ConditionType.LEARNED_PATTERN,
     );
+    expect(aiChooseRule).not.toHaveBeenCalled();
+  });
 
-    // The shortcut still fires for the Marketing rule iteration; learned-pattern
-    // priority is preserved by aiChooseRule never being called for AI candidates.
+  it("static match on a different rule wins over PROMOTIONS fallback", async () => {
+    const marketingRule = getRule({
+      id: "marketing-rule",
+      systemType: SystemType.MARKETING,
+    });
+    const staticRule = getRule({
+      id: "vendor-rule",
+      from: "promo@store.com",
+    });
+
+    const rules = [marketingRule, staticRule];
+    const message = getMessage({
+      labelIds: ["INBOX", "CATEGORY_PROMOTIONS"],
+      headers: getHeaders({ from: "promo@store.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    // Static match on the vendor rule should be the sole result; the
+    // PROMOTIONS fallback is bypassed because matches[] is non-empty.
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0]?.rule.id).toBe("vendor-rule");
     expect(aiChooseRule).not.toHaveBeenCalled();
   });
 

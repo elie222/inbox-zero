@@ -236,26 +236,6 @@ async function findPotentialMatchingRules({
       continuedThreadRuleNames.push(rule.name);
     }
 
-    // Gmail category shortcut — CLASS-09.
-    // If this iteration's rule is the Marketing system rule and the message
-    // has only CATEGORY_PROMOTIONS (no other CATEGORY_*), route directly here
-    // and skip the LLM call. Static rules and learned patterns retain priority
-    // because they iterate as separate rules and add their own match reasons.
-    // If the Marketing rule ever gains AI instructions, those are intentionally
-    // bypassed by this shortcut.
-    if (
-      rule.systemType === SystemType.MARKETING &&
-      hasOnlyPromotionsCategory(message.labelIds)
-    ) {
-      matches.push({
-        rule,
-        matchReasons: [
-          { type: ConditionType.PRESET, systemType: SystemType.MARKETING },
-        ],
-      });
-      continue;
-    }
-
     // Learned patterns (groups)
     // Note: Groups are independent of the AND/OR operator (which only applies to AI/Static conditions)
     if (rule.groupId) {
@@ -328,6 +308,43 @@ async function findPotentialMatchingRules({
   const hasLearnedPatternMatch = matches.some((m) =>
     m.matchReasons.some((r) => r.type === ConditionType.LEARNED_PATTERN),
   );
+
+  // CLASS-09 PROMOTIONS fallback.
+  // When no rule matched statically, no learned pattern fired, and Gmail
+  // classified the message as CATEGORY_PROMOTIONS only, route to the Marketing
+  // system rule and skip the LLM. Cost-saving shortcut for obviously
+  // promotional mail. Bypassed entirely when any other rule already matched.
+  if (
+    matches.length === 0 &&
+    !hasLearnedPatternMatch &&
+    hasOnlyPromotionsCategory(message.labelIds)
+  ) {
+    const marketingRule = rules.find(
+      (r) => r.systemType === SystemType.MARKETING,
+    );
+    if (marketingRule) {
+      matches.push({
+        rule: marketingRule,
+        matchReasons: [
+          { type: ConditionType.PRESET, systemType: SystemType.MARKETING },
+        ],
+      });
+      return {
+        matches,
+        potentialAiMatches: [],
+        selectionMetadata: createRuleSelectionMetadata({
+          isThread,
+          skippedThreadRuleNames,
+          continuedThreadRuleNames,
+          learnedPatternExcludedRules,
+          filteredConversationRuleNames:
+            conversationStatusFilter.filteredRuleNames,
+          conversationFilterReason: conversationStatusFilter.filterReason,
+          remainingAiRuleNames: filteredPotentialAiMatches.map((r) => r.name),
+        }),
+      };
+    }
+  }
 
   if (
     potentialAiMatches.length ||
