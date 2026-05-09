@@ -31,6 +31,7 @@
 - [x] **CLASS-06**: Static-rule path bypasses AI for matching emails (originally specified for greers@trueocean.com; Greers List rule was dropped, but the static/learned-pattern code path is exercised by Group-based learned matching — 78 executions in 14d with no AI call).
 - [x] **CLASS-07**: Explicit user rules are applied with conversation meta-rules disabled. All 4 conversation rules (To Reply, Awaiting Reply, FYI, Actioned) are `enabled=false`; meta-rule guard from 03-04 in place for Phase 5.
 - [x] **CLASS-08**: Classification pipeline processes incoming emails within 2 minutes. Verified 2026-05-04: median ~2.5s, 50× headroom under SLA.
+- [ ] **CLASS-09**: Gmail's `CATEGORY_PROMOTIONS` label is checked *after* learned patterns and static rules but *before* any LLM call. When a message carries `CATEGORY_PROMOTIONS` and no other Gmail category, route it directly to the user's Marketing rule (`SystemType.MARKETING`) — skipping both `choose-rule` and `ai-actions` LLM calls. Multi-category messages (e.g. `PROMOTIONS + UPDATES`), other single-category messages (`UPDATES`/`FORUMS`/`PERSONAL`/`SOCIAL`), and uncategorized messages all proceed through the existing LLM flow unchanged — no Gmail-category hint is passed to the prompt (deferred; low value relative to prompt complexity since we'd already be paying for the LLM call). If the Marketing rule is missing or has been disabled/deleted, fall through to the LLM as if no category match — the shortcut is purely an optimization, the LLM path remains source of truth. Learned patterns and static rules retain priority over the Gmail-category check. `CATEGORY_PURCHASES` is NOT used — the label is not provisioned for `rebekah@trueocean.com` (probed 2026-05-08; only `PROMOTIONS`, `SOCIAL`, `UPDATES`, `FORUMS`, `PERSONAL` appear in `users.labels.list`); the Gmail UI "Purchases" view is a server-side query, not a label. Expected to absorb ~29% of inbox volume (the `PROMOTIONS` share at 83% precision against 30d production sample, 237/812 emails) without LLM cost; the 17% misroutes are mostly Newsletters that look promotional, low harm if labeled Marketing. **Added 2026-05-08, scope trimmed to clean-route-only after weighing hint-route complexity against marginal accuracy gain on already-billed LLM calls.**
 
 ### Daily Digest (DIGEST)
 
@@ -121,6 +122,7 @@
 | CLASS-06 | Phase 3: Classification Engine | Complete (2026-05-04) |
 | CLASS-07 | Phase 3: Classification Engine | Complete (2026-05-04) |
 | CLASS-08 | Phase 3: Classification Engine | Complete (2026-05-04) |
+| CLASS-09 | Phase 3: Classification Engine (revision) | Pending (2026-05-08) |
 | DIGEST-01 | Phase 4: Daily Digest | Pending |
 | DIGEST-02 | Phase 4: Daily Digest | Pending |
 | DIGEST-03 | Phase 4: Daily Digest | Pending |
@@ -147,10 +149,10 @@
 | BACKLOG-05 | Phase 7: Backlog Triage | Pending |
 
 **Coverage:**
-- v1 requirements: 42 total
-- Mapped to phases: 42
+- v1 requirements: 43 total
+- Mapped to phases: 43
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-27*
-*Last updated: 2026-04-27 after roadmap creation*
+*Last updated: 2026-05-08 — added CLASS-09 (Gmail `CATEGORY_PROMOTIONS` clean-route to Marketing; scope trimmed to v1)*

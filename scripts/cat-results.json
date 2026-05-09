@@ -1,0 +1,56 @@
+{
+  "totalExecuted": 812,
+  "processed": 812,
+  "notFound": 0,
+  "errors": 0,
+  "tally": {
+    "Urgent": {
+      "CATEGORY_PERSONAL": 16,
+      "CATEGORY_UPDATES": 84,
+      "CATEGORY_FORUMS": 5
+    },
+    "Newsletters": {
+      "CATEGORY_PROMOTIONS": 38,
+      "CATEGORY_FORUMS": 42,
+      "CATEGORY_UPDATES": 55,
+      "CATEGORY_SOCIAL": 9,
+      "CATEGORY_PERSONAL": 2
+    },
+    "Marketing": {
+      "CATEGORY_PROMOTIONS": 197,
+      "CATEGORY_UPDATES": 40,
+      "CATEGORY_FORUMS": 54,
+      "CATEGORY_PERSONAL": 6,
+      "CATEGORY_SOCIAL": 3
+    },
+    "Receipts": {
+      "CATEGORY_UPDATES": 127,
+      "CATEGORY_FORUMS": 6,
+      "CATEGORY_PERSONAL": 25
+    },
+    "Uncertain": {
+      "CATEGORY_FORUMS": 5,
+      "CATEGORY_PROMOTIONS": 2,
+      "CATEGORY_UPDATES": 51,
+      "CATEGORY_PERSONAL": 6
+    },
+    "TD Furn": {
+      "CATEGORY_UPDATES": 10,
+      "CATEGORY_PERSONAL": 3
+    },
+    "2FA": {
+      "CATEGORY_UPDATES": 10,
+      "CATEGORY_PERSONAL": 2,
+      "CATEGORY_FORUMS": 1
+    },
+    "Internal": {
+      "CATEGORY_FORUMS": 4,
+      "<none>": 4,
+      "CATEGORY_UPDATES": 2,
+      "CATEGORY_PERSONAL": 1
+    },
+    "FYI": {
+      "CATEGORY_PERSONAL": 2
+    }
+  }
+}
