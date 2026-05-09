@@ -111,7 +111,7 @@ jobs:
                 "rm -f /tmp/load-secrets.sh",
                 "sudo /opt/inbox-zero/load-secrets.sh",
                 "cd /opt/inbox-zero",
-                "docker system prune -f --filter until=24h",
+                "docker system prune -af",
                 "docker compose pull app",
                 "docker compose up -d app cron"
               ]
