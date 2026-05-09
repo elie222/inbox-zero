@@ -18,16 +18,28 @@ export const createOrganizationBody = z.object({
 });
 export type CreateOrganizationBody = z.infer<typeof createOrganizationBody>;
 
-export const inviteMemberBody = z.object({
-  email: z
-    .string()
-    .trim()
-    .email("Please enter a valid email address")
-    .transform((val) => val.trim().toLowerCase()),
-  role: z.enum(["owner", "admin", "member"]),
+export const MAX_BULK_INVITES = 10;
+
+export const inviteMembersBody = z.object({
+  invitations: z
+    .array(
+      z.object({
+        email: z
+          .string()
+          .trim()
+          .email("Please enter a valid email address")
+          .transform((val) => val.trim().toLowerCase()),
+        role: z.enum(["owner", "admin", "member"]),
+      }),
+    )
+    .min(1, "At least one invitation is required")
+    .max(
+      MAX_BULK_INVITES,
+      `You can invite up to ${MAX_BULK_INVITES} people at a time`,
+    ),
   organizationId: z.string().min(1, "Organization ID is required"),
 });
-export type InviteMemberBody = z.infer<typeof inviteMemberBody>;
+export type InviteMembersBody = z.infer<typeof inviteMembersBody>;
 
 export const handleInvitationBody = z.object({
   invitationId: z.string().trim().min(1, "Invitation ID is required"),

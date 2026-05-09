@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   handleInvitationAction,
-  inviteMemberAction,
+  inviteMembersAction,
 } from "@/utils/actions/organization";
 
 const { mockEnv } = vi.hoisted(() => ({
@@ -40,7 +40,7 @@ describe("createInvitationAction", () => {
     });
   });
 
-  it("invites member using emailAccountId as inviterId and sends email", async () => {
+  it("invites members using emailAccountId as inviterId and returns per-row results", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       id: "ea_inviter",
       email: "inviter@test.com",
@@ -49,26 +49,112 @@ describe("createInvitationAction", () => {
     } as any);
     prisma.member.findFirst.mockResolvedValueOnce({
       organizationId: "org_1",
+      emailAccountId: "ea_inviter",
       role: "owner",
     } as any); // caller membership
     prisma.invitation.findFirst.mockResolvedValue(null as any); // no existing
-    prisma.invitation.create.mockResolvedValue({ id: "inv_1" } as any);
+    prisma.invitation.create
+      .mockResolvedValueOnce({ id: "inv_1" } as any)
+      .mockResolvedValueOnce({ id: "inv_2" } as any);
     prisma.organization.findUnique.mockResolvedValue({ name: "Acme" } as any);
 
-    const res = await inviteMemberAction({
-      email: "user@test.com",
-      role: "member",
+    const res = await inviteMembersAction({
       organizationId: "org_1",
+      invitations: [
+        { email: "user@test.com", role: "member" },
+        { email: "second@test.com", role: "admin" },
+      ],
     });
 
-    expect(prisma.invitation.create).toHaveBeenCalledWith({
+    expect(prisma.invitation.create).toHaveBeenCalledTimes(2);
+    expect(prisma.invitation.create).toHaveBeenNthCalledWith(1, {
       data: expect.objectContaining({
+        email: "user@test.com",
         role: "member",
+        organizationId: "org_1",
+        inviterId: "ea_inviter",
+      }),
+      select: { id: true },
+    });
+    expect(prisma.invitation.create).toHaveBeenNthCalledWith(2, {
+      data: expect.objectContaining({
+        email: "second@test.com",
+        role: "admin",
         organizationId: "org_1",
       }),
       select: { id: true },
     });
-    expect(res?.data).toBeUndefined();
+    expect(res?.data).toEqual({
+      results: [
+        { email: "user@test.com", success: true },
+        { email: "second@test.com", success: true },
+      ],
+    });
+  });
+
+  it("flags already-invited emails without creating duplicates", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      id: "ea_inviter",
+      email: "inviter@test.com",
+      name: "Inviter",
+      account: { userId: "u1", provider: "google" },
+    } as any);
+    prisma.member.findFirst.mockResolvedValueOnce({
+      organizationId: "org_1",
+      emailAccountId: "ea_inviter",
+      role: "admin",
+    } as any);
+    prisma.invitation.findFirst
+      .mockResolvedValueOnce({ id: "existing_inv" } as any)
+      .mockResolvedValueOnce(null as any);
+    prisma.invitation.create.mockResolvedValueOnce({ id: "inv_2" } as any);
+    prisma.organization.findUnique.mockResolvedValue({ name: "Acme" } as any);
+
+    const res = await inviteMembersAction({
+      organizationId: "org_1",
+      invitations: [
+        { email: "existing@test.com", role: "member" },
+        { email: "fresh@test.com", role: "member" },
+      ],
+    });
+
+    expect(prisma.invitation.create).toHaveBeenCalledTimes(1);
+    expect(res?.data).toEqual({
+      results: [
+        {
+          email: "existing@test.com",
+          success: false,
+          error: "Already invited",
+        },
+        { email: "fresh@test.com", success: true },
+      ],
+    });
+  });
+
+  it("blocks non-owners from assigning the owner role", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      id: "ea_inviter",
+      email: "inviter@test.com",
+      name: "Inviter",
+      account: { userId: "u1", provider: "google" },
+    } as any);
+    prisma.member.findFirst.mockResolvedValueOnce({
+      organizationId: "org_1",
+      emailAccountId: "ea_inviter",
+      role: "admin",
+    } as any);
+    prisma.organization.findUnique.mockResolvedValue({ name: "Acme" } as any);
+
+    const res = await inviteMembersAction({
+      organizationId: "org_1",
+      invitations: [{ email: "boss@test.com", role: "owner" }],
+    });
+
+    expect(prisma.invitation.create).not.toHaveBeenCalled();
+    expect(res?.data?.results[0]).toMatchObject({
+      email: "boss@test.com",
+      success: false,
+    });
   });
 
   it("accepts invitation and creates member for recipient emailAccountId", async () => {
