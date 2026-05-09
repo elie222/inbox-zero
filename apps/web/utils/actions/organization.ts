@@ -101,6 +101,16 @@ export const inviteMembersAction = actionClientUser
       const inviterName = inviterEmailAccount.name || inviterEmailAccount.email;
       const organizationName = org?.name || "Your organization";
 
+      const existingInvitations = await prisma.invitation.findMany({
+        where: {
+          organizationId: inviterMember.organizationId,
+          email: { in: invitations.map((i) => i.email) },
+          status: "pending",
+        },
+        select: { email: true },
+      });
+      const alreadyInvited = new Set(existingInvitations.map((i) => i.email));
+
       const results: { email: string; success: boolean; error?: string }[] = [];
       const seen = new Set<string>();
 
@@ -120,15 +130,7 @@ export const inviteMembersAction = actionClientUser
           continue;
         }
 
-        const existing = await prisma.invitation.findFirst({
-          where: {
-            organizationId: inviterMember.organizationId,
-            email,
-            status: "pending",
-          },
-          select: { id: true },
-        });
-        if (existing) {
+        if (alreadyInvited.has(email)) {
           results.push({ email, success: false, error: "Already invited" });
           continue;
         }

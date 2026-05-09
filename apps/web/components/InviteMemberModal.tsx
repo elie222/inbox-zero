@@ -163,6 +163,8 @@ function InviteForm({
         description: `${successCount} invitation${successCount > 1 ? "s" : ""} sent successfully!`,
       });
       onSuccess?.();
+      reset();
+      onClose();
     }
 
     if (failures.length > 0) {
@@ -172,11 +174,6 @@ function InviteForm({
           .map((f) => `${f.email}: ${f.error ?? "Failed"}`)
           .join("\n"),
       });
-    }
-
-    if (successCount > 0) {
-      reset();
-      onClose();
     }
   });
 

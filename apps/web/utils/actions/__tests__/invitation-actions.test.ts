@@ -52,7 +52,7 @@ describe("createInvitationAction", () => {
       emailAccountId: "ea_inviter",
       role: "owner",
     } as any); // caller membership
-    prisma.invitation.findFirst.mockResolvedValue(null as any); // no existing
+    prisma.invitation.findMany.mockResolvedValue([] as any); // no existing
     prisma.invitation.create
       .mockResolvedValueOnce({ id: "inv_1" } as any)
       .mockResolvedValueOnce({ id: "inv_2" } as any);
@@ -104,9 +104,9 @@ describe("createInvitationAction", () => {
       emailAccountId: "ea_inviter",
       role: "admin",
     } as any);
-    prisma.invitation.findFirst
-      .mockResolvedValueOnce({ id: "existing_inv" } as any)
-      .mockResolvedValueOnce(null as any);
+    prisma.invitation.findMany.mockResolvedValue([
+      { email: "existing@test.com" },
+    ] as any);
     prisma.invitation.create.mockResolvedValueOnce({ id: "inv_2" } as any);
     prisma.organization.findUnique.mockResolvedValue({ name: "Acme" } as any);
 
@@ -143,6 +143,7 @@ describe("createInvitationAction", () => {
       emailAccountId: "ea_inviter",
       role: "admin",
     } as any);
+    prisma.invitation.findMany.mockResolvedValue([] as any);
     prisma.organization.findUnique.mockResolvedValue({ name: "Acme" } as any);
 
     const res = await inviteMembersAction({
