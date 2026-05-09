@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
+import { parseAsString, useQueryState } from "nuqs";
+import { addMinutes } from "date-fns";
 import {
   ArrowLeft,
   ArrowRight,
@@ -48,8 +49,6 @@ type SuccessState = {
   startTime: string;
 };
 
-type Step = "pick-time" | "details" | "success";
-
 export function BookingPageClient({
   bookingLink,
   eventTypeSlug,
@@ -57,12 +56,9 @@ export function BookingPageClient({
   bookingLink: GetPublicBookingLinkResponse;
   eventTypeSlug: string;
 }) {
-  const [{ slot: slotParam }, setBookingUrlParams] = useQueryStates(
-    {
-      slot: parseAsString,
-      duration: parseAsInteger,
-    },
-    { history: "push" },
+  const [slotParam, setSlotParam] = useQueryState(
+    "slot",
+    parseAsString.withOptions({ history: "push" }),
   );
   const eventType = bookingLink.eventTypes.find(
     (candidate) => candidate.slug === eventTypeSlug,
@@ -71,38 +67,27 @@ export function BookingPageClient({
   const [timezone, setTimezone] = useState<string>(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
-  const initialSlot = useMemo(
+
+  const selectedSlot = useMemo(
     () => parseSlotParam(slotParam, eventType?.durationMinutes),
     [slotParam, eventType?.durationMinutes],
   );
 
-  const initialMonth = useMemo(() => startOfMonth(new Date()), []);
-  const [visibleMonth, setVisibleMonth] = useState<Date>(initialMonth);
-  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(
-    formatDateKey(new Date(), timezone),
+  const [visibleMonth, setVisibleMonth] = useState<Date>(() =>
+    startOfMonth(selectedSlot ? new Date(selectedSlot.startTime) : new Date()),
   );
-  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(initialSlot);
-  const [step, setStep] = useState<Step>(initialSlot ? "details" : "pick-time");
+  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(() =>
+    formatDateKey(
+      selectedSlot ? new Date(selectedSlot.startTime) : new Date(),
+      timezone,
+    ),
+  );
 
   const [slotsByDay, setSlotsByDay] = useState<Map<string, Slot[]>>(new Map());
   const [loadingSlots, setLoadingSlots] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<SuccessState | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (success) return;
-
-    setSelectedSlot(initialSlot);
-    if (initialSlot) {
-      const slotDate = new Date(initialSlot.startTime);
-      setSelectedDateKey(formatDateKey(slotDate, timezone));
-      setVisibleMonth(startOfMonth(slotDate));
-      setStep("details");
-    } else {
-      setStep((current) => (current === "details" ? "pick-time" : current));
-    }
-  }, [initialSlot, success, timezone]);
 
   useEffect(() => {
     if (!eventType) return;
@@ -179,7 +164,6 @@ export function BookingPageClient({
       const body = await response.json();
       if (!response.ok) throw new Error(getApiError(body));
       setSuccess(body);
-      setStep("success");
     } catch (submitError) {
       onError(
         submitError instanceof Error
@@ -191,14 +175,7 @@ export function BookingPageClient({
     }
   };
 
-  const updateSelectedSlotUrl = (slot: Slot | null) => {
-    setBookingUrlParams({
-      slot: slot?.startTime ?? null,
-      duration: slot ? eventType.durationMinutes : null,
-    });
-  };
-
-  if (step === "success" && success) {
+  if (success) {
     return (
       <BookingShell size="compact">
         <BookingSuccessCard
@@ -211,7 +188,7 @@ export function BookingPageClient({
     );
   }
 
-  if (step === "details" && selectedSlot) {
+  if (selectedSlot) {
     return (
       <BookingShell size="compact">
         <DetailsStep
@@ -219,10 +196,7 @@ export function BookingPageClient({
           bookingLink={bookingLink}
           slot={selectedSlot}
           timezone={timezone}
-          onBack={() => {
-            setStep("pick-time");
-            updateSelectedSlotUrl(null);
-          }}
+          onBack={() => setSlotParam(null)}
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
         />
@@ -249,11 +223,7 @@ export function BookingPageClient({
         slotsForDay={selectedDateSlots}
         loading={loadingSlots}
         error={error}
-        onPickSlot={(slot) => {
-          setSelectedSlot(slot);
-          setStep("details");
-          updateSelectedSlotUrl(slot);
-        }}
+        onPickSlot={(slot) => setSlotParam(slot.startTime)}
       />
     </BookingShell>
   );
@@ -868,9 +838,7 @@ function parseSlotParam(
 
   return {
     startTime: startTime.toISOString(),
-    endTime: new Date(
-      startTime.getTime() + durationMinutes * 60 * 1000,
-    ).toISOString(),
+    endTime: addMinutes(startTime, durationMinutes).toISOString(),
   };
 }
 
