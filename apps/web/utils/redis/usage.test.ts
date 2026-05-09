@@ -46,6 +46,27 @@ describe("redis usage weekly cost tracking", () => {
     expect(redis.hgetall).toHaveBeenCalledTimes(7);
   });
 
+  it("sums stable user usage and legacy email usage during migration", async () => {
+    const now = new Date("2026-02-24T15:00:00.000Z");
+    const costsByKey: Record<string, { cost?: string }> = {
+      "usage-weekly-cost:user:user-1:2026-02-24": { cost: "1.5" },
+      "usage-weekly-cost:user@example.com:2026-02-24": { cost: "0.5" },
+    };
+
+    vi.mocked(redis.hgetall).mockImplementation(
+      async (key: string) => costsByKey[key] ?? {},
+    );
+
+    const weeklyCost = await getWeeklyUsageCost({
+      userId: "user-1",
+      fallbackEmails: ["user@example.com"],
+      now,
+    });
+
+    expect(weeklyCost).toBeCloseTo(2);
+    expect(redis.hgetall).toHaveBeenCalledTimes(14);
+  });
+
   it("returns top weekly spenders ordered by cost", async () => {
     const now = new Date("2026-02-24T15:00:00.000Z");
 
@@ -118,6 +139,38 @@ describe("redis usage weekly cost tracking", () => {
     expect(redis.expire).toHaveBeenCalledWith(
       "usage-weekly-cost:user@example.com:2026-02-24",
       691_200,
+    );
+  });
+
+  it("stores daily usage cost with a stable user key when user ID is available", async () => {
+    const now = new Date("2026-02-24T15:00:00.000Z");
+
+    await saveUsage({
+      userId: "user-1",
+      email: "user@example.com",
+      usage: {
+        totalTokens: 300,
+        inputTokens: 200,
+        outputTokens: 100,
+      },
+      cost: 1.25,
+      now,
+    });
+
+    expect(redis.hincrbyfloat).toHaveBeenCalledWith(
+      "usage:user:user-1",
+      "cost",
+      1.25,
+    );
+    expect(redis.hincrbyfloat).toHaveBeenCalledWith(
+      "usage-weekly-cost:user:user-1:2026-02-24",
+      "cost",
+      1.25,
+    );
+    expect(redis.hincrbyfloat).not.toHaveBeenCalledWith(
+      "usage:user@example.com",
+      "cost",
+      1.25,
     );
   });
 

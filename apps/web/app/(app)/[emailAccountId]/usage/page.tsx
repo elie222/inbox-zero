@@ -50,7 +50,10 @@ export default async function UsagePage(props: {
 
   if (!emailAccount) notFound();
 
-  const usage = await getUsage({ email: emailAccount.email });
+  const usage = await getUsage({
+    userId: emailAccount.user.id,
+    email: emailAccount.email,
+  });
   const isOwnAccount = emailAccount.user.id === userId;
 
   return (

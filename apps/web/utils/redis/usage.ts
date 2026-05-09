@@ -18,31 +18,43 @@ export type RedisUsage = {
   cost?: number;
 };
 
-export type WeeklyUsageCostByEmail = {
-  email: string;
+export type WeeklyUsageCostBySubject = {
+  email?: string;
+  userId?: string;
   cost: number;
 };
 
-function getUsageKey(email: string) {
-  return `usage:${email}`;
+type UsageIdentity =
+  | { userId: string; email?: string | null }
+  | { userId?: string | null; email: string };
+
+function getUsageKey(identity: UsageIdentity) {
+  return identity.userId
+    ? `usage:user:${identity.userId}`
+    : `usage:${identity.email}`;
 }
 
-export async function getUsage(options: { email: string }) {
-  const key = getUsageKey(options.email);
-  const data = await redis.hgetall<RedisUsage>(key);
-  return data;
+export async function getUsage(options: UsageIdentity) {
+  const data = await redis.hgetall<RedisUsage>(getUsageKey(options));
+  if (!options.userId || !options.email) return data;
+
+  const legacyData = await redis.hgetall<RedisUsage>(
+    getUsageKey({ email: options.email }),
+  );
+  return mergeUsage(data, legacyData);
 }
 
-export async function saveUsage(options: {
-  email: string;
-  usage: LanguageModelUsage;
-  cost: number;
-  now?: Date;
-}) {
-  const { email, usage, cost, now = new Date() } = options;
+export async function saveUsage(
+  options: UsageIdentity & {
+    usage: LanguageModelUsage;
+    cost: number;
+    now?: Date;
+  },
+) {
+  const { usage, cost, now = new Date() } = options;
 
-  const key = getUsageKey(email);
-  const weeklyCostKey = getWeeklyUsageCostKey(email, now);
+  const key = getUsageKey(options);
+  const weeklyCostKey = getWeeklyUsageCostKey(options, now);
 
   await Promise.all([
     // TODO: this isn't openai specific, it can be any llm
@@ -71,13 +83,24 @@ export async function saveUsage(options: {
 }
 
 export async function getWeeklyUsageCost({
+  userId,
   email,
+  fallbackEmails = [],
   now = new Date(),
 }: {
-  email: string;
+  userId?: string;
+  email?: string;
+  fallbackEmails?: string[];
   now?: Date;
 }) {
-  const usageKeys = getWeeklyUsageCostKeys(email, now);
+  const usageKeys = [
+    ...(userId ? getWeeklyUsageCostKeys({ userId }, now) : []),
+    ...dedupe([email, ...fallbackEmails].filter(Boolean) as string[]).flatMap(
+      (legacyEmail) => getWeeklyUsageCostKeys({ email: legacyEmail }, now),
+    ),
+  ];
+
+  if (!usageKeys.length) return 0;
 
   const weeklyCosts = await Promise.all(
     usageKeys.map(async (key) => {
@@ -95,11 +118,11 @@ export async function getTopWeeklyUsageCosts({
 }: {
   limit?: number;
   now?: Date;
-} = {}): Promise<WeeklyUsageCostByEmail[]> {
+} = {}): Promise<WeeklyUsageCostBySubject[]> {
   if (limit <= 0) return [];
 
   const daysInWindow = new Set(getWeeklyUsageCostDays(now));
-  const costsByEmail = new Map<string, number>();
+  const costsBySubject = new Map<string, number>();
   let cursor = "0";
 
   do {
@@ -118,28 +141,33 @@ export async function getTopWeeklyUsageCosts({
         const cost = parseUsageCost(data?.cost);
         if (cost <= 0) return null;
 
-        return { email: parsed.email, cost };
+        return { ...parsed, cost };
       }),
     );
 
     for (const entry of costEntries) {
       if (!entry) continue;
-      costsByEmail.set(
-        entry.email,
-        (costsByEmail.get(entry.email) ?? 0) + entry.cost,
+      costsBySubject.set(
+        entry.subject,
+        (costsBySubject.get(entry.subject) ?? 0) + entry.cost,
       );
     }
   } while (cursor !== "0");
 
-  return Array.from(costsByEmail.entries())
-    .map(([email, cost]) => ({ email, cost }))
+  return Array.from(costsBySubject.entries())
+    .map(([subject, cost]) => {
+      if (subject.startsWith("user:")) {
+        return { userId: subject.slice("user:".length), cost };
+      }
+      return { email: subject.slice("email:".length), cost };
+    })
     .sort((a, b) => b.cost - a.cost)
     .slice(0, limit);
 }
 
-function getWeeklyUsageCostKeys(email: string, now: Date) {
+function getWeeklyUsageCostKeys(identity: UsageIdentity, now: Date) {
   const days = getWeeklyUsageCostDays(now);
-  return days.map((day) => getWeeklyUsageCostKey(email, day));
+  return days.map((day) => getWeeklyUsageCostKey(identity, day));
 }
 
 function getWeeklyUsageCostDays(now: Date) {
@@ -150,14 +178,29 @@ function getWeeklyUsageCostDays(now: Date) {
   });
 }
 
-function getWeeklyUsageCostKey(email: string, date: Date | string) {
+function getWeeklyUsageCostKey(identity: UsageIdentity, date: Date | string) {
   const day = typeof date === "string" ? date : getUtcDay(date);
-  return `${WEEKLY_USAGE_COST_KEY_PREFIX}:${email}:${day}`;
+  if (identity.userId) {
+    return `${WEEKLY_USAGE_COST_KEY_PREFIX}:user:${identity.userId}:${day}`;
+  }
+  return `${WEEKLY_USAGE_COST_KEY_PREFIX}:${identity.email}:${day}`;
 }
 
 function parseWeeklyUsageCostKey(key: string) {
   const prefix = `${WEEKLY_USAGE_COST_KEY_PREFIX}:`;
   if (!key.startsWith(prefix)) return null;
+
+  if (key.startsWith(`${prefix}user:`)) {
+    const userPrefix = `${prefix}user:`;
+    const lastSeparatorIndex = key.lastIndexOf(":");
+    if (lastSeparatorIndex <= userPrefix.length) return null;
+
+    const userId = key.slice(userPrefix.length, lastSeparatorIndex);
+    const day = key.slice(lastSeparatorIndex + 1);
+    if (!userId || !day) return null;
+
+    return { subject: `user:${userId}`, userId, day };
+  }
 
   const lastSeparatorIndex = key.lastIndexOf(":");
   if (lastSeparatorIndex <= prefix.length) return null;
@@ -166,7 +209,7 @@ function parseWeeklyUsageCostKey(key: string) {
   const day = key.slice(lastSeparatorIndex + 1);
   if (!email || !day) return null;
 
-  return { email, day };
+  return { subject: `email:${email}`, email, day };
 }
 
 function parseUsageCost(rawCost: string | number | undefined): number {
@@ -177,4 +220,25 @@ function parseUsageCost(rawCost: string | number | undefined): number {
 
 function getUtcDay(date: Date) {
   return date.toISOString().slice(0, 10);
+}
+
+function mergeUsage(
+  ...entries: Array<RedisUsage | null | undefined>
+): RedisUsage {
+  const merged: RedisUsage = {};
+
+  for (const entry of entries) {
+    if (!entry) continue;
+    for (const [key, value] of Object.entries(entry)) {
+      if (typeof value !== "number") continue;
+      const usageKey = key as keyof RedisUsage;
+      merged[usageKey] = (merged[usageKey] ?? 0) + value;
+    }
+  }
+
+  return merged;
+}
+
+function dedupe(values: string[]) {
+  return [...new Set(values)];
 }

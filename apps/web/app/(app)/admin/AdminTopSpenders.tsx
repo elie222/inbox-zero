@@ -56,13 +56,13 @@ export function AdminTopSpenders() {
               </TableHeader>
               <TableBody>
                 {topSpenders.map((spender, index) => (
-                  <TableRow key={spender.email}>
+                  <TableRow key={spender.userId ?? spender.email ?? index}>
                     <TableCell>{index + 1}</TableCell>
                     <TableCell className="font-mono text-xs">
                       {spender.emailAccountId ?? "-"}
                     </TableCell>
                     <TableCell className="font-mono text-xs sm:text-sm">
-                      {spender.email}
+                      {spender.email ?? "-"}
                     </TableCell>
                     <TableCell>
                       {spender.userEmailAccountCount ?? "-"}
