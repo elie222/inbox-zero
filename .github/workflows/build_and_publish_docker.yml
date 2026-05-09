@@ -73,7 +73,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Update Docker Hub Description
-        uses: peter-evans/dockerhub-description@432a30c9e07499fd01da9f8a49f0faf9e0ca5b77 # v4
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
         with:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
