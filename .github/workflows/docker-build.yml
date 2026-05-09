@@ -92,17 +92,24 @@ jobs:
         run: |
           set -euo pipefail
           COMPOSE_B64=$(base64 -w0 deploy/docker-compose.yml)
+          SECRETS_B64=$(base64 -w0 deploy/load-secrets.sh)
           # Write SSM parameters to a JSON file so we don't have to escape
-          # nested quotes on the CLI. The remote shell decodes the blob,
-          # installs it under /opt/inbox-zero, and pulls/restarts the app.
+          # nested quotes on the CLI. The remote shell decodes the blobs,
+          # installs them under /opt/inbox-zero, refreshes .env from SSM
+          # (so any rotated secrets land in the container), and pulls/restarts.
           jq -n \
-            --arg b64 "$COMPOSE_B64" \
+            --arg compose "$COMPOSE_B64" \
+            --arg secrets "$SECRETS_B64" \
             '{
               commands: [
                 "set -e",
-                ("echo " + $b64 + " | base64 -d > /tmp/docker-compose.yml"),
+                ("echo " + $compose + " | base64 -d > /tmp/docker-compose.yml"),
                 "sudo install -m 0644 -o root -g root /tmp/docker-compose.yml /opt/inbox-zero/docker-compose.yml",
                 "rm -f /tmp/docker-compose.yml",
+                ("echo " + $secrets + " | base64 -d > /tmp/load-secrets.sh"),
+                "sudo install -m 0755 -o root -g root /tmp/load-secrets.sh /opt/inbox-zero/load-secrets.sh",
+                "rm -f /tmp/load-secrets.sh",
+                "sudo /opt/inbox-zero/load-secrets.sh",
                 "cd /opt/inbox-zero",
                 "docker system prune -f --filter until=24h",
                 "docker compose pull app",
