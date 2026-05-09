@@ -154,6 +154,48 @@ describe("queryBatchMessages", () => {
     );
     expect(request.orderby).toHaveBeenCalledWith("receivedDateTime DESC");
   });
+
+  it("prefers exact category matches over plural aliases", async () => {
+    const request = createMockMessagesRequest();
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(
+      api,
+      new Map([
+        ["Receipts", "category-receipts"],
+        ["Receipt", "category-receipt"],
+      ]),
+    );
+
+    await queryBatchMessages(
+      client,
+      { searchQuery: "receipts", maxResults: 20 },
+      createTestLogger(),
+    );
+
+    expect(request.filter).toHaveBeenCalledWith(
+      "categories/any(category: category eq 'Receipts')",
+    );
+  });
+
+  it("recognizes grouped category terms as metadata filters", async () => {
+    const request = createMockMessagesRequest();
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(
+      api,
+      new Map([["Newsletter", "category-newsletter"]]),
+    );
+
+    await queryBatchMessages(
+      client,
+      { searchQuery: "unread (category:Newsletter)", maxResults: 20 },
+      createTestLogger(),
+    );
+
+    expect(request.search).not.toHaveBeenCalled();
+    expect(request.filter).toHaveBeenCalledWith(
+      "isRead eq false and categories/any(category: category eq 'Newsletter')",
+    );
+  });
 });
 
 describe("queryMessagesWithFilters", () => {

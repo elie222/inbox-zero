@@ -474,14 +474,20 @@ function parseOutlookFieldTerm(term: string) {
   const colonIndex = term.indexOf(":");
   if (colonIndex === -1) return null;
 
-  const field = term.slice(0, colonIndex).trim().toLowerCase();
-  const value = term.slice(colonIndex + 1).trim();
+  const field = stripOutlookGrouping(term.slice(0, colonIndex))
+    .trim()
+    .toLowerCase();
+  const value = stripOutlookGrouping(term.slice(colonIndex + 1)).trim();
   if (!field || !value || URL_SCHEME_PATTERN.test(term)) return null;
 
   return {
     field,
     value: unquoteSearchValue(value),
   };
+}
+
+function stripOutlookGrouping(value: string) {
+  return value.replace(/^[()]+|[()]+$/g, "");
 }
 
 function unquoteSearchValue(value: string) {
@@ -501,8 +507,9 @@ function createOutlookCategoryLookup(categoryMap: Map<string, string>) {
 
     lookup.set(normalized, categoryName);
 
-    if (!normalized.endsWith("s")) {
-      lookup.set(`${normalized}s`, categoryName);
+    const pluralAlias = `${normalized}s`;
+    if (!normalized.endsWith("s") && !lookup.has(pluralAlias)) {
+      lookup.set(pluralAlias, categoryName);
     }
   }
 
