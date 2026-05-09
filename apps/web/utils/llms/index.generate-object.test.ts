@@ -84,7 +84,9 @@ vi.mock("@/utils/posthog", () => ({
   isPosthogLlmEvalApproved: vi.fn(() => false),
 }));
 
-async function createTestGenerateObject() {
+async function createTestGenerateObject(
+  overrides: { provider?: string; modelName?: string } = {},
+) {
   const { createGenerateObject } = await import("./index");
 
   return createGenerateObject({
@@ -95,8 +97,8 @@ async function createTestGenerateObject() {
     },
     label: "test",
     modelOptions: {
-      provider: "openai",
-      modelName: "gpt-test",
+      provider: overrides.provider ?? "openai",
+      modelName: overrides.modelName ?? "gpt-test",
       model: {} as any,
       providerOptions: undefined,
       hasUserApiKey: false,
@@ -386,6 +388,29 @@ describe("createGenerateObject repairText", () => {
 
       expect(wasMissingJsonWarned()).toBe(false);
     });
+  });
+
+  it("adds stricter JSON-only instructions for Ollama object generation", async () => {
+    const generateObject = await createTestGenerateObject({
+      provider: "ollama",
+      modelName: "gemma4:e2b",
+    });
+
+    await generateObject({
+      system: "Extract reply memories.",
+      prompt: "Extract memories.",
+      schema: {} as any,
+    } as any);
+
+    expect(mockGenerateObject.mock.calls[0][0].system).toContain(
+      "Extract reply memories.",
+    );
+    expect(mockGenerateObject.mock.calls[0][0].system).toContain(
+      "Return only valid JSON that matches the requested schema.",
+    );
+    expect(mockGenerateObject.mock.calls[0][0].system).toContain(
+      "The top-level JSON value must match the schema root exactly",
+    );
   });
 
   it("falls back to next model on content-filter refusal without retrying primary", async () => {

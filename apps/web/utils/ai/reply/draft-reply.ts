@@ -6,6 +6,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
+import { appendOllamaOnlySystemGuidance } from "@/utils/llms/ollama-guidance";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
@@ -299,7 +300,11 @@ export async function aiDraftReplyWithConfidence({
   const generate = () =>
     generateObject({
       ...modelOptions,
-      system: systemPrompt,
+      system: appendOllamaOnlySystemGuidance(
+        { system: systemPrompt },
+        modelOptions,
+        OLLAMA_DRAFT_RESPONSE_GUIDANCE,
+      ).system,
       prompt,
       schema: draftSchema,
     });
@@ -506,3 +511,10 @@ function formatLocalSlotTimeAsUtc(
 
   return utcDate.toISOString().slice(0, 16).replace("T", " ");
 }
+
+const OLLAMA_DRAFT_RESPONSE_GUIDANCE = [
+  'Return a JSON object with exactly two top-level fields: "reply" and "confidence".',
+  '"reply" must be one complete email reply as a single plain-text string, not an array of alternatives.',
+  '"confidence" must be one of "ALL_EMAILS", "STANDARD", or "HIGH_CONFIDENCE".',
+  'Example valid output: {"reply":"Thanks for reaching out. I will take a look and follow up shortly.","confidence":"STANDARD"}',
+] as const;

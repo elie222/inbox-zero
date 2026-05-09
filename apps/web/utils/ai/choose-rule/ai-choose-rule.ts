@@ -4,6 +4,10 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { isDefined, type EmailForLLM } from "@/utils/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
+import {
+  appendOllamaOnlySystemGuidance,
+  isOllamaProvider,
+} from "@/utils/llms/ollama-guidance";
 import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
 import { sortRulesForAutomation } from "@/utils/rule/sort";
 import type { Logger } from "@/utils/logger";
@@ -300,7 +304,11 @@ ${stringifyEmail(email, 500)}
 
   const aiResponse = await generateObject({
     ...modelOptions,
-    system,
+    system: appendOllamaOnlySystemGuidance(
+      { system },
+      modelOptions,
+      OLLAMA_MULTI_RULE_SELECTION_GUIDANCE,
+    ).system,
     prompt,
     schema: z.object({
       matchedRules: z
@@ -326,11 +334,18 @@ ${stringifyEmail(email, 500)}
     }),
   });
 
-  return {
+  const response = {
     matchedRules: aiResponse.object.matchedRules || [],
     noMatchFound: aiResponse.object?.noMatchFound ?? false,
     reasoning: aiResponse.object?.reasoning ?? "",
   };
+
+  if (isOllamaProvider(modelOptions.provider)) {
+    const primaryRule = response.matchedRules.find((rule) => rule.isPrimary);
+    if (primaryRule) return { ...response, matchedRules: [primaryRule] };
+  }
+
+  return response;
 }
 
 const METADATA_GUIDELINE =
@@ -419,3 +434,13 @@ ${lines.join("\n")}
 These are hints from past user actions. Still evaluate the current email on its own merits.
 </classification_feedback>`;
 }
+
+const OLLAMA_MULTI_RULE_SELECTION_GUIDANCE = [
+  "Do not be greedy. Only select secondary rules when they capture a separate, independently actionable purpose in the email.",
+  "Do not select a problem, alert, or action-needed rule just because related words appear. Select it only when the email actually describes a problem, risk, failed action, or required user action.",
+  "Successful receipts, paid invoices, renewals, confirmations, and completed orders should usually match only the receipt/order rule unless the email also reports a separate problem.",
+  "Do not add a generic notification or account-update rule when a more specific transactional rule already fully explains the email.",
+  "Before returning JSON, remove any selected generic rule whose purpose is fully contained by a more specific selected rule.",
+  "When a receipt, invoice, order, or payment-success rule matches, do not also select an account notification/update rule unless the email asks the user to take separate account action.",
+  "Prefer one best rule when all candidate rules refer to the same underlying event.",
+] as const;

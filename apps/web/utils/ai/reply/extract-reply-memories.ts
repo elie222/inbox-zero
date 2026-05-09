@@ -8,6 +8,10 @@ import { getUserInfoPrompt } from "@/utils/ai/helpers";
 import { extractDomainFromEmail, isPublicEmailDomain } from "@/utils/email";
 import { createGenerateObject } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
+import {
+  appendOllamaOnlySystemGuidance,
+  isOllamaProvider,
+} from "@/utils/llms/ollama-guidance";
 import { isDefined } from "@/utils/types";
 import type { getEmailAccountWithAi } from "@/utils/user/get";
 
@@ -96,9 +100,15 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
 
   const result = await generateObject({
     ...modelOptions,
-    system: getSystemPrompt({ allowDomainScope }),
+    system: appendOllamaOnlySystemGuidance(
+      { system: getSystemPrompt({ allowDomainScope }) },
+      modelOptions,
+      getOllamaReplyMemoryGuidance({ allowDomainScope }),
+    ).system,
     prompt,
-    schema: replyMemorySchema,
+    schema: isOllamaProvider(modelOptions.provider)
+      ? ollamaReplyMemorySchema
+      : replyMemorySchema,
   });
 
   return result.object.memories
@@ -114,7 +124,10 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
 
       const newMemory = {
         content: decision.newMemory.content.trim(),
-        kind: decision.newMemory.kind,
+        kind: normalizeReplyMemoryKind(
+          decision.newMemory,
+          modelOptions.provider,
+        ),
         scopeType:
           decision.newMemory.kind === ReplyMemoryKind.PREFERENCE
             ? ReplyMemoryScopeType.GLOBAL
@@ -299,4 +312,58 @@ ${domainRuleLine}- For TOPIC scope, use a short stable topic phrase such as "pri
 - Be conservative about creating new memories. Only create a new memory when none of the provided existing memories substantially covers that durable idea.
 - Work language-agnostically. The memories may be written in any language.
 - If nothing durable was learned, return an empty array.`;
+}
+
+const ollamaReplyMemoryDecisionSchema = z.object({
+  matchingExistingMemoryId: z.string().trim().min(1).nullable(),
+  newMemory: newReplyMemorySchema.nullable(),
+});
+
+const ollamaReplyMemorySchema = z.object({
+  memories: z.array(ollamaReplyMemoryDecisionSchema).max(MAX_MEMORIES_PER_EDIT),
+});
+
+function normalizeReplyMemoryKind(
+  memory: z.infer<typeof newReplyMemorySchema>,
+  provider: string,
+) {
+  if (
+    isOllamaProvider(provider) &&
+    memory.kind === ReplyMemoryKind.PROCEDURE &&
+    isPricingOrBillingMemory(memory)
+  ) {
+    return ReplyMemoryKind.FACT;
+  }
+
+  return memory.kind;
+}
+
+function isPricingOrBillingMemory(
+  memory: z.infer<typeof newReplyMemorySchema>,
+) {
+  const text = `${memory.content} ${memory.scopeValue}`.toLowerCase();
+
+  return /\b(pricing|price|rate|billing|seat|plan|quote)\b/.test(text);
+}
+
+function getOllamaReplyMemoryGuidance({
+  allowDomainScope,
+}: {
+  allowDomainScope: boolean;
+}) {
+  return [
+    'Return a JSON object with exactly one top-level "memories" array.',
+    'Each item in "memories" must have both "matchingExistingMemoryId" and "newMemory".',
+    'For an existing memory match, use {"matchingExistingMemoryId":"existing-id","newMemory":null}.',
+    'For a new memory, use {"matchingExistingMemoryId":null,"newMemory":{"content":"...","kind":"FACT","scopeType":"TOPIC","scopeValue":"pricing"}}.',
+    "Use kind values exactly: FACT, PREFERENCE, PROCEDURE.",
+    `Use scopeType values exactly: GLOBAL, SENDER,${allowDomainScope ? " DOMAIN," : ""} TOPIC.`,
+    "If the user adds stable business facts that were missing from the AI draft, create a FACT memory unless the edit says the fact is temporary or one-time.",
+    "Pricing amounts, billing rules, product limits, support policies, and qualification requirements are durable facts or procedures when the edit presents them as generally true.",
+    "Pricing and billing memories are FACT memories, not PROCEDURE memories.",
+    "If an edit adds concrete pricing, billing, product, policy, or limit information, classify it as FACT, not PROCEDURE.",
+    'FACT memory content should preserve the durable fact itself. Do not turn concrete facts into generic behavior instructions like "provide pricing details".',
+    "Preserve numeric amounts, product limits, billing conditions, and other concrete facts that the user added.",
+    "Use PROCEDURE only when the edit teaches a repeatable process or sequence of steps rather than a durable factual answer.",
+  ] as const;
 }
