@@ -24,6 +24,40 @@ updates:
     labels:
       - "dependencies"
       - "npm"
+    # Mirror the .ncurc.cjs reject list — packages we deliberately pin.
+    # Update both files together when unpinning.
+    ignore:
+      # Staying on Tailwind v3 — v4 has significant breaking changes
+      - dependency-name: "tailwindcss"
+      - dependency-name: "@tailwindcss/forms"
+      - dependency-name: "@tailwindcss/typography"
+      - dependency-name: "@headlessui/tailwindcss"
+      - dependency-name: "tailwind-merge"
+      - dependency-name: "tailwindcss-animate"
+      - dependency-name: "postcss"
+      - dependency-name: "autoprefixer"
+      # >=27.4.0 has ESM/CJS incompatibility that breaks Vercel runtime
+      - dependency-name: "jsdom"
+      # Tiptap majors have heavy breaking changes
+      - dependency-name: "@tiptap/extension-mention"
+      - dependency-name: "@tiptap/extension-placeholder"
+      - dependency-name: "@tiptap/pm"
+      - dependency-name: "@tiptap/react"
+      - dependency-name: "@tiptap/starter-kit"
+      - dependency-name: "@tiptap/suggestion"
+      - dependency-name: "tiptap-markdown"
+      - dependency-name: "react-resizable-panels"
+      - dependency-name: "recharts"
+      - dependency-name: "@chronark/zod-bird"
+      # v9+ breaks the shadcn/ui date picker
+      - dependency-name: "react-day-picker"
+      # v4 has breaking changes with Tinybird
+      - dependency-name: "zod"
+      # v5 imports zod/v4/core; keep pinned while app stays on Zod 3
+      - dependency-name: "@hookform/resolvers"
+      # 0.71.6+ breaks Turbopack production builds (jsonpath/EBADF)
+      - dependency-name: "dub"
+      - dependency-name: "@types/node"
     groups:
       # Bundle minor + patch updates so the weekly review is one PR per group
       # instead of N. Major updates stay separate (more risk, more attention).
@@ -68,3 +102,8 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+    # Node major bumps must be coordinated across Dockerfile, .nvmrc, and
+    # both package.json engines fields. Patch/minor still flow through.
+    ignore:
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
