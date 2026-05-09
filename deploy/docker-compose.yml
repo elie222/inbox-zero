@@ -24,22 +24,6 @@ services:
       retries: 5
 
   # -----------------------------------------------------------------------
-  # Redis
-  # -----------------------------------------------------------------------
-  redis:
-    image: redis:7-alpine
-    container_name: inbox-zero-redis
-    restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # -----------------------------------------------------------------------
   # Inbox Zero
   # -----------------------------------------------------------------------
   app:
@@ -48,8 +32,6 @@ services:
     restart: unless-stopped
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     ports:
       - "127.0.0.1:3000:3000"   # Only accessible via nginx, not public
@@ -62,9 +44,9 @@ services:
       # Database
       DATABASE_URL: postgresql://inboxzero:${POSTGRES_PASSWORD}@postgres:5432/inboxzero
 
-      # Redis
-      UPSTASH_REDIS_URL: https://internal-vervet-107581.upstash.io
-      UPSTASH_REDIS_TOKEN: gQAAAAAAAaQ9AAIgcDFiYmEwODM3ZDI2MGQ0MDE4YWE0YmRjOGNlYWU5MmFjNQ
+      # Redis (Upstash — secrets loaded from Parameter Store via load-secrets.sh)
+      UPSTASH_REDIS_URL: ${UPSTASH_REDIS_URL}
+      UPSTASH_REDIS_TOKEN: ${UPSTASH_REDIS_TOKEN}
 
       # Google OAuth (from Google Cloud Console)
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
@@ -109,4 +91,3 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
