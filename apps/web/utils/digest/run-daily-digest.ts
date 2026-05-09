@@ -15,6 +15,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { generateDigestContent } from "@/utils/ai/digest/generate-digest-content";
 import { digestAlreadySentToday, buildDigestSendCreate } from "./digest-send";
 import { formatTodayHumanET, getTodayET } from "./today-et";
+import { getDigestScheduleProgression } from "./schedule";
 import { isEligibleForClassificationFeedback } from "@/utils/rule/consts";
 import type { SystemType } from "@/generated/prisma/enums";
 
@@ -64,6 +65,7 @@ type RunResult = {
 };
 
 export async function runDailyDigest(logger: Logger) {
+  const now = new Date();
   const todayET = getTodayET();
   const todayHuman = formatTodayHumanET();
 
@@ -73,6 +75,9 @@ export async function runDailyDigest(logger: Logger) {
         some: {
           status: { in: [DigestStatus.PENDING, DigestStatus.FAILED] },
         },
+      },
+      digestSchedule: {
+        nextOccurrenceAt: { lte: now },
       },
     },
     select: {
@@ -94,6 +99,16 @@ export async function runDailyDigest(logger: Logger) {
         select: {
           provider: true,
           refresh_token: true,
+        },
+      },
+      digestSchedule: {
+        select: {
+          id: true,
+          intervalDays: true,
+          occurrences: true,
+          daysOfWeek: true,
+          timeOfDay: true,
+          nextOccurrenceAt: true,
         },
       },
     },
@@ -335,6 +350,16 @@ export async function runDailyDigest(logger: Logger) {
         0,
       );
 
+      const scheduleUpdate = account.digestSchedule
+        ? prisma.schedule.update({
+            where: {
+              id: account.digestSchedule.id,
+              emailAccountId: account.id,
+            },
+            data: getDigestScheduleProgression(account.digestSchedule, now),
+          })
+        : null;
+
       await prisma.$transaction([
         prisma.digest.updateMany({
           where: { id: { in: processedDigestIds } },
@@ -356,6 +381,7 @@ export async function runDailyDigest(logger: Logger) {
             digestIds: processedDigestIds,
           }),
         ),
+        ...(scheduleUpdate ? [scheduleUpdate] : []),
       ]);
 
       scoped.info("digest.send.success", {

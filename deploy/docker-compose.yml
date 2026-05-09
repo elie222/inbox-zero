@@ -89,5 +89,81 @@ services:
       RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
       CRON_SECRET: ${CRON_SECRET}
 
+  # -----------------------------------------------------------------------
+  # Cron — internal HTTP pokes for endpoints that need periodic firing.
+  # Mirrors upstream's cron container (see github.com/elie222/inbox-zero
+  # docker-compose.yml). Hits the in-network `app` service on http://app:3000
+  # so traffic never leaves the docker bridge.
+  #
+  # Endpoints this fork uses:
+  #   - /api/cron/automation-jobs   every 5m   (drives queued rule executions)
+  #   - /api/cron/scheduled-actions every 5m   (delayed actions like archive-after-N-days)
+  #   - /api/watch/all              every 6h   (renews Gmail PubSub watches before 7d expiry)
+  #   - /api/cron/digest            hourly     (per-account Schedule.nextOccurrenceAt drives actual send time)
+  #
+  # Endpoints intentionally NOT scheduled here:
+  #   - /api/follow-up-reminders   — upstream feature, not in use in this fork
+  #   - /api/meeting-briefs        — upstream feature, not in use in this fork
+  #
+  # NOTE: this fork's digest is heavily customized vs upstream — see
+  # apps/web/utils/digest/run-daily-digest.ts and packages/resend/emails/.
+  # The cron container hits /api/cron/digest hourly; runDailyDigest filters
+  # accounts by digestSchedule.nextOccurrenceAt <= now, so the time-of-day
+  # set in the UI (Settings → Digest) drives when the email actually sends.
+  #
+  # Secret handling: CRON_SECRET is interpolated by docker compose from
+  # /opt/inbox-zero/.env at parse time and injected as a single env var.
+  # No secret value is committed in this file.
+  # -----------------------------------------------------------------------
+  cron:
+    image: alpine:latest
+    container_name: inbox-zero-cron
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      CRON_SECRET: ${CRON_SECRET}
+      TZ: America/New_York
+    command: >
+      sh -c "
+        apk add --no-cache curl tzdata >/dev/null &&
+        (
+          while true; do
+            curl -fsS -w '\n' -o - -H \"Authorization: Bearer $${CRON_SECRET}\" http://app:3000/api/cron/automation-jobs || echo '[cron] automation-jobs failed'
+            sleep 300
+          done
+        ) &
+        (
+          while true; do
+            curl -fsS -w '\n' -o - -H \"Authorization: Bearer $${CRON_SECRET}\" http://app:3000/api/cron/scheduled-actions || echo '[cron] scheduled-actions failed'
+            sleep 300
+          done
+        ) &
+        (
+          while true; do
+            curl -fsS -w '\n' -o - -H \"Authorization: Bearer $${CRON_SECRET}\" http://app:3000/api/watch/all || echo '[cron] watch/all failed'
+            sleep 21600
+          done
+        ) &
+        (
+          # Digest tick: hit /api/cron/digest at the top of every hour.
+          # runDailyDigest filters accounts by digestSchedule.nextOccurrenceAt,
+          # so the actual send time is whatever the UI's digest schedule is set
+          # to (rounded to the next hourly tick). TZ env on this container is
+          # America/New_York for predictable log timestamps; the schedule check
+          # itself runs in UTC against an absolute timestamp, so DST is handled
+          # by Postgres + the per-account timezone.
+          while true; do
+            m=$$(date +%M); s=$$(date +%S)
+            m=$${m#0}; s=$${s#0}
+            sleep_for=$$((3600 - m*60 - s))
+            echo \"[cron] digest sleeping $${sleep_for}s until next top-of-hour ($$(date))\"
+            sleep $$sleep_for
+            curl -fsS --max-time 360 -w '\n' -o - -H \"Authorization: Bearer $${CRON_SECRET}\" http://app:3000/api/cron/digest || echo '[cron] digest failed'
+          done
+        ) &
+        wait
+      "
+
 volumes:
   postgres_data:
