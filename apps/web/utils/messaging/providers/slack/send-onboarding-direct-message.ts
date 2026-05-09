@@ -4,11 +4,13 @@ import type { Logger } from "@/utils/logger";
 export async function sendSlackOnboardingDirectMessageWithLogging({
   accessToken,
   userId,
+  botUserId,
   teamId,
   logger,
 }: {
   accessToken: string;
   userId: string;
+  botUserId?: string | null;
   teamId: string;
   logger: Logger;
 }): Promise<void> {
@@ -16,6 +18,7 @@ export async function sendSlackOnboardingDirectMessageWithLogging({
     await sendConnectionOnboardingDirectMessage({
       accessToken,
       userId,
+      botUserId,
     });
   } catch (error) {
     logger.warn("Failed to send Slack onboarding direct message", {

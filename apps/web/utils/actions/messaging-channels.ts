@@ -288,6 +288,7 @@ export const linkSlackWorkspaceAction = actionClient
       await sendSlackOnboardingDirectMessageWithLogging({
         accessToken: orgMateChannel.accessToken,
         userId: slackUser.id,
+        botUserId: orgMateChannel.botUserId,
         teamId,
         logger,
       });

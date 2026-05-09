@@ -131,6 +131,7 @@ export async function handleSlackCallback(
     await sendSlackOnboardingDirectMessageWithLogging({
       accessToken: tokens.access_token,
       userId: tokens.authed_user.id,
+      botUserId: tokens.bot_user_id,
       teamId: tokens.team.id,
       logger: callbackLogger,
     });
