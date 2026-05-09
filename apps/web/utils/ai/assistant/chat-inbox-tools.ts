@@ -20,11 +20,13 @@ import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import {
   buildOutlookSearchFallbackQuery,
   getOutlookComparisonFilters,
-  getStandaloneOutlookStateTerms,
   sanitizeKqlTextQuery,
-  stripStandaloneOutlookStateTerms,
   stripOutlookComparisonFilters,
 } from "@/utils/outlook/message";
+import {
+  getStandaloneOutlookStateTerms,
+  stripStandaloneOutlookStateTerms,
+} from "@/utils/outlook/search-query";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { sleep } from "@/utils/sleep";
 import { archiveCategory } from "@/utils/categorize/senders/archive-category";
