@@ -116,7 +116,11 @@ Schema with all defaults is in `apps/web/env.ts` (Zod). Required at build time: 
 
 ## Production deployment
 
-Push to `main` → GitHub Actions builds `linux/arm64 + linux/amd64` image → pushes to `ghcr.io/rebekah-create/inbox-zero-rebekah:latest` (tagged `latest` + short SHA). To deploy: `docker compose pull app && docker compose up -d app` on the server. The `deploy/` directory contains the systemd service, secret-loading script, and full rebuild runbook.
+Push to `main` → GitHub Actions builds `linux/arm64` image → pushes to `ghcr.io/rebekah-create/inbox-zero-rebekah:latest` (tagged `latest` + short SHA) → auto-deploys to EC2 via OIDC + SSM. The deploy step copies the latest `deploy/docker-compose.yml` and `deploy/load-secrets.sh` to `/opt/inbox-zero/`, refreshes `.env` from SSM Parameter Store, then runs `docker compose pull app && docker compose up -d app cron`. No manual server steps needed for app updates.
+
+**Caveat:** the SSM deploy script's `docker compose up -d` line names every service that should be running after deploy (currently `app cron`). When adding a new compose service (e.g. `worker`), append it to that command in `.github/workflows/docker-build.yml` so it starts on the next push.
+
+The `deploy/` directory contains the compose file, secret-loading script, Terraform for the OIDC role, and a full rebuild runbook.
 
 ## GSD Workflow
 
