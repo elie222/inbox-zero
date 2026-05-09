@@ -3,6 +3,7 @@ import {
   buildLoginRedirectUrl,
   buildRedirectUrl,
   getSafeRedirectUrl,
+  redirectToSafeUrl,
 } from "@/utils/redirect";
 
 afterEach(() => {
@@ -124,5 +125,41 @@ describe("getSafeRedirectUrl", () => {
         fallbackUrl: "/login",
       }),
     ).toBe("/login");
+  });
+});
+
+describe("redirectToSafeUrl", () => {
+  it("assigns the sanitized fallback for unsafe external redirects", () => {
+    const assign = vi.fn();
+    vi.stubGlobal("window", {
+      location: {
+        assign,
+        origin: "https://app.example.com",
+      },
+    });
+
+    redirectToSafeUrl("https://example.com/oauth", {
+      fallbackUrl: "/login",
+    });
+
+    expect(assign).toHaveBeenCalledWith("/login");
+  });
+
+  it("allows explicit HTTPS external redirects", () => {
+    const assign = vi.fn();
+    vi.stubGlobal("window", {
+      location: {
+        assign,
+        origin: "https://app.example.com",
+      },
+    });
+
+    redirectToSafeUrl("https://billing.example.com/checkout", {
+      allowExternal: true,
+    });
+
+    expect(assign).toHaveBeenCalledWith(
+      "https://billing.example.com/checkout",
+    );
   });
 });
