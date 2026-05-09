@@ -38,7 +38,7 @@ jobs:
           node-version: "24"
 
       - name: Install pnpm
-        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        uses: pnpm/action-setup@91ab88e2619ed1f46221f0ba42d1492c02baf788 # v4
         with:
           version: 10.33.0
 
