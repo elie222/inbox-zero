@@ -133,6 +133,27 @@ describe("queryBatchMessages", () => {
 
     expect(api).not.toHaveBeenCalled();
   });
+
+  it("uses metadata filters for unread category searches", async () => {
+    const request = createMockMessagesRequest();
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(
+      api,
+      new Map([["Newsletter", "category-newsletter"]]),
+    );
+
+    await queryBatchMessages(
+      client,
+      { searchQuery: "unread newsletters", maxResults: 20 },
+      createTestLogger(),
+    );
+
+    expect(request.search).not.toHaveBeenCalled();
+    expect(request.filter).toHaveBeenCalledWith(
+      "isRead eq false and categories/any(category: category eq 'Newsletter')",
+    );
+    expect(request.orderby).toHaveBeenCalledWith("receivedDateTime DESC");
+  });
 });
 
 describe("queryMessagesWithFilters", () => {
@@ -462,12 +483,27 @@ describe("buildOutlookSearchFallbackQuery", () => {
 
 function createCachedOutlookClient(
   api: ReturnType<typeof vi.fn>,
+  categoryMap = new Map<string, string>(),
 ): OutlookClient {
   return {
     getClient: () => ({ api }),
     getFolderIdCache: () => ({ inbox: "inbox-folder-id" }),
     setFolderIdCache: vi.fn(),
-    getCategoryMapCache: () => new Map(),
+    getCategoryMapCache: () => categoryMap,
     setCategoryMapCache: vi.fn(),
   } as unknown as OutlookClient;
+}
+
+function createMockMessagesRequest() {
+  const request = {
+    select: vi.fn().mockReturnThis(),
+    expand: vi.fn().mockReturnThis(),
+    top: vi.fn().mockReturnThis(),
+    filter: vi.fn().mockReturnThis(),
+    orderby: vi.fn().mockReturnThis(),
+    search: vi.fn().mockReturnThis(),
+    get: vi.fn().mockResolvedValue({ value: [] }),
+  };
+
+  return request;
 }

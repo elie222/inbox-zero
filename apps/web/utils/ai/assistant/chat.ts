@@ -632,11 +632,12 @@ function getEmailCapabilitiesPolicy({
 function getProviderSearchSyntaxPolicy(provider: string) {
   if (provider === "microsoft") {
     return `Provider search syntax:
-- Use Outlook search syntax with keyword search, unread/read, and simple subject: filters.
+- Use Outlook search syntax with keyword search, unread/read, exact Outlook category names, category:<name> or label:<name>, and simple subject: filters.
+- For category cleanup in Outlook, search with the exact category name and paginate until searchInbox returns hasMore=false before reporting or writing all matching mail.
 - Prefer a plain sender email like \`person@example.com\` over \`from:\` when searching by sender.
 - If you use \`from:\` or \`to:\`, keep it as a simple standalone filter instead of combining extra terms after the field value.
 - Keep Outlook queries to one simple clause whenever possible. Do not mix sender, unread/read, date, and subject constraints into one retry.
-- Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.`;
+- Do not use Gmail-specific operators like in:, is:, or after:/before:.`;
   }
 
   return `Provider search syntax:
@@ -648,7 +649,7 @@ function getProviderInboxTriagePolicy(provider: string) {
     return `Provider inbox defaults:
 - For inbox triage, include the literal token \`unread\` in the query unless the user asks to include read messages.
 - For reply triage, use plain reply-focused search terms like \`reply OR respond OR subject:"question" OR subject:"approval"\`. Do not use Gmail-only operators.
-- For retroactive cleanup sampling, keyword queries like "newsletter", "promotion", or "unsubscribe" are useful.`;
+- For retroactive cleanup sampling, use exact category names when the user refers to an Outlook category; keyword queries like "newsletter", "promotion", or "unsubscribe" are only for content searches.`;
   }
 
   return `Provider inbox defaults:
