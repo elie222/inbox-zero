@@ -632,12 +632,12 @@ function getEmailCapabilitiesPolicy({
 function getProviderSearchSyntaxPolicy(provider: string) {
   if (provider === "microsoft") {
     return `Provider search syntax:
-- Use Outlook search syntax with keyword search, unread/read, exact Outlook category names, category:<name> or label:<name>, and simple subject: filters.
-- For category cleanup in Outlook, search with the exact category name and paginate until searchInbox returns hasMore=false before reporting or writing all matching mail.
+- Use Outlook search syntax with keyword search, unread/read, and simple subject: filters.
+- For category cleanup in Outlook, pass the exact category name in searchInbox categoryName and use readState for read/unread filtering. Do not put category names in query unless you are searching message text.
 - Prefer a plain sender email like \`person@example.com\` over \`from:\` when searching by sender.
 - If you use \`from:\` or \`to:\`, keep it as a simple standalone filter instead of combining extra terms after the field value.
 - Keep Outlook queries to one simple clause whenever possible. Do not mix sender, unread/read, date, and subject constraints into one retry.
-- Do not use Gmail-specific operators like in:, is:, or after:/before:.`;
+- Do not use Gmail-specific operators like in:, is:, label:, category:, or after:/before:.`;
   }
 
   return `Provider search syntax:

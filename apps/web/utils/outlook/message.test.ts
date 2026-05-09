@@ -144,7 +144,12 @@ describe("queryBatchMessages", () => {
 
     await queryBatchMessages(
       client,
-      { searchQuery: "unread newsletters", maxResults: 20 },
+      {
+        searchQuery: "",
+        readState: "unread",
+        categoryNames: ["Newsletter"],
+        maxResults: 20,
+      },
       createTestLogger(),
     );
 

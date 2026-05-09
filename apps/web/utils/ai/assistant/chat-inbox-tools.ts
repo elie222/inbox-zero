@@ -423,7 +423,7 @@ export type ManageSenderCategoryTool = InferUITool<
 
 function getSearchQueryDescription(provider: string): string {
   if (isMicrosoftProvider(provider)) {
-    return "Search query using Outlook search syntax. Supports: unread, read, exact Outlook category names, category:<name> or label:<name>, subject:, keyword search, and plain sender email lookups. For category cleanup, use the exact category name and paginate until hasMore=false. Prefer a plain sender email like sender@example.com when searching by sender. Keep Outlook retries to one simple clause at a time. If you use from:, keep it as a simple standalone filter. If the tool returns microsoftSearchFeedback.retryQueries after a failed search, prefer one suggested simpler retry query instead of repeating the same query shape. Do not use Gmail-specific operators like in:, is:, or after:/before:.";
+    return "Text search query using Outlook search syntax. Supports: unread, read, subject:, keyword search, and plain sender email lookups. Do not put category names here when you mean an Outlook category; use categoryName instead. Prefer a plain sender email like sender@example.com when searching by sender. Keep Outlook retries to one simple clause at a time. If you use from:, keep it as a simple standalone filter. If the tool returns microsoftSearchFeedback.retryQueries after a failed search, prefer one suggested simpler retry query instead of repeating the same query shape. Do not use Gmail-specific operators like in:, is:, label:, category:, or after:/before:.";
   }
   return "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.";
 }
@@ -446,6 +446,20 @@ function searchInboxInputSchema(provider: string) {
     pageToken: microsoftGraphPageTokenSchema.describe(
       "Use the page token returned from a prior search to paginate.",
     ),
+    readState: z
+      .enum(["read", "unread"])
+      .nullish()
+      .describe(
+        "Optional structured read-state filter. For Outlook category cleanup, prefer this over putting read/unread in query.",
+      ),
+    categoryName: z
+      .string()
+      .trim()
+      .min(1)
+      .nullish()
+      .describe(
+        "Optional exact Outlook category name to filter by. Use only when the user refers to an Outlook category, not when searching for text that happens to match a category name.",
+      ),
   });
 }
 
@@ -464,7 +478,7 @@ export const searchInboxTool = ({
     description:
       "Search inbox messages and return concise message metadata. Limit must be between 1 and 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion. totalReturned is only the number of messages returned by this call, so do not present it or a single search page as an exact mailbox, folder, or label count. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
     inputSchema: searchInboxInputSchema(provider),
-    execute: async ({ query, limit, pageToken }) => {
+    execute: async ({ query, limit, pageToken, readState, categoryName }) => {
       trackToolCall({ tool: "search_inbox", email, logger });
 
       try {
@@ -502,6 +516,10 @@ export const searchInboxTool = ({
               query: candidateQuery,
               maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
               pageToken: pageToken ?? undefined,
+              readState: readState ?? undefined,
+              categoryName: isMicrosoftProvider(provider)
+                ? (categoryName ?? undefined)
+                : undefined,
             });
             queryUsed = candidateQuery;
             break;

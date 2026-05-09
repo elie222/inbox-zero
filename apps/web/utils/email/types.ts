@@ -247,6 +247,8 @@ export interface EmailProvider {
     query: string;
     maxResults?: number;
     pageToken?: string;
+    readState?: "read" | "unread";
+    categoryName?: string;
   }): Promise<{
     messages: ParsedMessage[];
     nextPageToken?: string;

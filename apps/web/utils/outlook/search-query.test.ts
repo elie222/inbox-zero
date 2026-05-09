@@ -5,11 +5,10 @@ import {
 } from "@/utils/outlook/search-query";
 
 describe("parseOutlookMetadataSearchQuery", () => {
-  it("turns read state and exact category names into metadata filters", () => {
-    const result = parseOutlookMetadataSearchQuery(
-      "unread newsletters",
-      new Map([["Newsletter", "category-newsletter"]]),
-    );
+  it("turns read state and structured category names into metadata filters", () => {
+    const result = parseOutlookMetadataSearchQuery("unread", {
+      categoryNames: ["Newsletter"],
+    });
 
     expect(result).toEqual({
       searchQuery: "",
@@ -24,14 +23,11 @@ describe("parseOutlookMetadataSearchQuery", () => {
     });
   });
 
-  it("keeps text search terms when they do not match known categories", () => {
-    const result = parseOutlookMetadataSearchQuery(
-      "unread sender@example.com",
-      new Map([["Newsletter", "category-newsletter"]]),
-    );
+  it("keeps category-looking words as text search unless category is structured", () => {
+    const result = parseOutlookMetadataSearchQuery("unread newsletters");
 
     expect(result).toEqual({
-      searchQuery: "sender@example.com",
+      searchQuery: "newsletters",
       filters: {
         isRead: false,
         categoryNames: [],
@@ -40,48 +36,23 @@ describe("parseOutlookMetadataSearchQuery", () => {
     });
   });
 
-  it("prefers exact category matches over plural aliases", () => {
-    const result = parseOutlookMetadataSearchQuery(
-      "receipts",
-      new Map([
-        ["Receipts", "category-receipts"],
-        ["Receipt", "category-receipt"],
-      ]),
-    );
-
-    expect(result.filters.categoryNames).toEqual(["Receipts"]);
-    expect(result.odataFilters).toEqual([
-      "categories/any(category: category eq 'Receipts')",
-    ]);
-  });
-
-  it("recognizes grouped category field terms", () => {
-    const result = parseOutlookMetadataSearchQuery(
-      "unread (category:Newsletter)",
-      new Map([["Newsletter", "category-newsletter"]]),
-    );
+  it("lets structured read state override query text", () => {
+    const result = parseOutlookMetadataSearchQuery("unread newsletters", {
+      readState: "read",
+      categoryNames: ["Newsletter"],
+    });
 
     expect(result).toEqual({
-      searchQuery: "",
+      searchQuery: "newsletters",
       filters: {
-        isRead: false,
+        isRead: true,
         categoryNames: ["Newsletter"],
       },
       odataFilters: [
-        "isRead eq false",
+        "isRead eq true",
         "categories/any(category: category eq 'Newsletter')",
       ],
     });
-  });
-
-  it("supports label field aliases for categories", () => {
-    const result = parseOutlookMetadataSearchQuery(
-      'label:"To Reply"',
-      new Map([["To Reply", "category-to-reply"]]),
-    );
-
-    expect(result.searchQuery).toBe("");
-    expect(result.filters.categoryNames).toEqual(["To Reply"]);
   });
 });
 

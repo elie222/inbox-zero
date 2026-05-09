@@ -363,6 +363,8 @@ export async function queryBatchMessages(
     maxResults?: number;
     pageToken?: string;
     folderId?: string;
+    readState?: "read" | "unread";
+    categoryNames?: string[];
   },
   logger: Logger,
 ) {
@@ -389,7 +391,10 @@ export async function queryBatchMessages(
 
   const parsedSearch = parseOutlookMetadataSearchQuery(
     searchQuery?.trim() || "",
-    categoryMap,
+    {
+      readState: options.readState,
+      categoryNames: options.categoryNames,
+    },
   );
 
   const nextLink = resolveMicrosoftGraphNextLink(pageToken);
