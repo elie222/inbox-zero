@@ -1,47 +1,38 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
-import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
-import { addMinutes } from "date-fns";
 import {
-  ArrowLeft,
-  ArrowRight,
-  Calendar as CalendarIcon,
-  Check,
-  ChevronsUpDown,
-  Clock,
-  Globe,
-  Info,
-  MapPin,
-  Phone,
-  Video,
-} from "lucide-react";
+  parseAsInteger,
+  parseAsIsoDate,
+  parseAsString,
+  useQueryState,
+  useQueryStates,
+} from "nuqs";
+import { ArrowLeft, ArrowRight, Check, Info } from "lucide-react";
 import type { GetPublicBookingLinkResponse } from "@/app/api/public/booking-links/[slug]/route";
-import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { BRAND_ICON_URL, BRAND_NAME } from "@/utils/branding";
-import { getSupportedTimezonesWithOffsets } from "@/utils/timezone";
 import { cn } from "@/utils";
+import { BookingSidebar, HourFormatToggle } from "./BookingSidebar";
+import { useAvailability } from "./useAvailability";
+import {
+  dateKeyToLocalDate,
+  detectDefaultHourFormat,
+  endOfMonth,
+  formatDateKey,
+  formatLongDateTime,
+  formatSelectedDateHeading,
+  formatShortWeekdayName,
+  formatSlotTime,
+  getApiError,
+  groupSlotsByDay,
+  isBeforeToday,
+  parseSlotParam,
+  startOfMonth,
+  type HourFormat,
+  type Slot,
+} from "./booking-helpers";
 
-const BRAND_HOMEPAGE_URL = "https://www.getinboxzero.com";
-
-type HourFormat = "12h" | "24h";
-type Slot = { endTime: string; startTime: string };
 type BookingLink = GetPublicBookingLinkResponse;
 type SuccessState = {
   cancelUrl?: string;
@@ -61,19 +52,25 @@ export function BookingPageClient({
     },
     { history: "push" },
   );
-
-  const [timezone, setTimezone] = useState<string>(
-    () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  const [timezone, setTimezone] = useQueryState(
+    "tz",
+    parseAsString.withDefault(
+      Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    ),
   );
+  const [visibleMonthDate, setVisibleMonthDate] = useQueryState(
+    "month",
+    parseAsIsoDate.withDefault(
+      startOfMonth(slotParam ? new Date(slotParam) : new Date()),
+    ),
+  );
+  const visibleMonth = startOfMonth(visibleMonthDate);
 
   const selectedSlot = useMemo(
     () => parseSlotParam(slotParam, bookingLink.durationMinutes),
     [slotParam, bookingLink.durationMinutes],
   );
 
-  const [visibleMonth, setVisibleMonth] = useState<Date>(() =>
-    startOfMonth(selectedSlot ? new Date(selectedSlot.startTime) : new Date()),
-  );
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(() =>
     formatDateKey(
       selectedSlot ? new Date(selectedSlot.startTime) : new Date(),
@@ -81,52 +78,33 @@ export function BookingPageClient({
     ),
   );
 
-  const [slotsByDay, setSlotsByDay] = useState<Map<string, Slot[]>>(new Map());
-  const [loadingSlots, setLoadingSlots] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<SuccessState | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const {
+    data,
+    error: availabilityError,
+    isLoading: loadingSlots,
+  } = useAvailability({
+    slug: bookingLink.slug,
+    start: visibleMonth,
+    end: endOfMonth(visibleMonth),
+  });
+
+  const slotsByDay = useMemo(
+    () => groupSlotsByDay(data?.slots ?? [], timezone),
+    [data?.slots, timezone],
+  );
+
+  // Snap the selected day to one with availability whenever the month/zone
+  // changes; otherwise the right-hand slot list stays empty for the wrong day.
   useEffect(() => {
-    let ignore = false;
-    setLoadingSlots(true);
-    setError(null);
-
-    const start = startOfMonth(visibleMonth);
-    const end = endOfMonth(visibleMonth);
-    const params = new URLSearchParams({
-      start: start.toISOString(),
-      end: end.toISOString(),
+    if (loadingSlots) return;
+    setSelectedDateKey((current) => {
+      if (current && slotsByDay.has(current)) return current;
+      return [...slotsByDay.keys()].sort()[0] ?? current;
     });
-
-    fetch(
-      `/api/public/booking-links/${bookingLink.slug}/availability?${params}`,
-    )
-      .then(async (response) => {
-        const body = await response.json();
-        if (!response.ok) throw new Error(getApiError(body));
-        if (ignore) return;
-        const grouped = groupSlotsByDay(body.slots ?? [], timezone);
-        setSlotsByDay(grouped);
-        setSelectedDateKey((current) => {
-          if (current && grouped.has(current)) return current;
-          const firstAvailable = [...grouped.keys()].sort()[0];
-          return firstAvailable ?? current;
-        });
-      })
-      .catch((fetchError) => {
-        if (!ignore) {
-          setError(fetchError.message || "Failed to load availability");
-        }
-      })
-      .finally(() => {
-        if (!ignore) setLoadingSlots(false);
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, [bookingLink.slug, visibleMonth, timezone]);
+  }, [slotsByDay, loadingSlots]);
 
   const handleSubmit = async (
     formValues: { name: string; email: string; note: string },
@@ -200,13 +178,13 @@ export function BookingPageClient({
         timezone={timezone}
         onTimezoneChange={setTimezone}
         visibleMonth={visibleMonth}
-        onMonthChange={setVisibleMonth}
+        onMonthChange={setVisibleMonthDate}
         selectedDateKey={selectedDateKey}
         onSelectDate={setSelectedDateKey}
         slotsByDay={slotsByDay}
         slotsForDay={selectedDateSlots}
         loading={loadingSlots}
-        error={error}
+        error={availabilityError?.message ?? null}
         onPickSlot={(slot) =>
           setBookingParams({
             slot: slot.startTime,
@@ -250,7 +228,7 @@ function PickTimeStep({
   );
   return (
     <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)_240px]">
-      <Sidebar
+      <BookingSidebar
         bookingLink={bookingLink}
         timezone={timezone}
         onTimezoneChange={onTimezoneChange}
@@ -405,7 +383,7 @@ function DetailsStep({
 
   return (
     <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)]">
-      <Sidebar
+      <BookingSidebar
         bookingLink={bookingLink}
         timezone={timezone}
         slot={slot}
@@ -487,7 +465,11 @@ function BookingSuccessCard({
 }) {
   return (
     <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)]">
-      <Sidebar bookingLink={bookingLink} timezone={timezone} slot={success} />
+      <BookingSidebar
+        bookingLink={bookingLink}
+        timezone={timezone}
+        slot={success}
+      />
       <div className="border-t p-7 md:border-l md:border-t-0">
         <div className="flex items-center gap-2.5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
           <Check className="size-4" />
@@ -513,178 +495,6 @@ function BookingSuccessCard({
       </div>
     </div>
   );
-}
-
-function Sidebar({
-  bookingLink,
-  timezone,
-  onTimezoneChange,
-  slot,
-  backButton,
-  showDescription,
-}: {
-  bookingLink: BookingLink;
-  timezone: string;
-  onTimezoneChange?: (timezone: string) => void;
-  slot?: Slot;
-  backButton?: React.ReactNode;
-  showDescription?: boolean;
-}) {
-  const hostName = bookingLink.hostName || bookingLink.title;
-  const initial = (hostName || "?").trim().charAt(0).toUpperCase();
-  return (
-    <div className="flex flex-col gap-4 p-7">
-      {backButton}
-      <div className="flex size-12 items-center justify-center rounded-full bg-blue-50 text-lg font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-        {initial}
-      </div>
-      <div>
-        <div className="text-sm text-muted-foreground">{hostName}</div>
-        <h1 className="mt-0.5 text-2xl font-medium tracking-tight text-foreground">
-          {bookingLink.title}
-        </h1>
-      </div>
-      <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-        <SidebarRow icon={<Clock className="size-3.5" />}>
-          {bookingLink.durationMinutes} min
-        </SidebarRow>
-        {slot ? (
-          <SidebarRow icon={<CalendarIcon className="size-3.5" />}>
-            <span className="font-medium text-foreground">
-              {formatLongDateTime(slot.startTime, timezone)}
-            </span>
-          </SidebarRow>
-        ) : null}
-        <SidebarRow icon={<LocationIcon type={bookingLink.locationType} />}>
-          {locationLabel(bookingLink)}
-        </SidebarRow>
-        <SidebarRow icon={<Globe className="size-3.5" />}>
-          {onTimezoneChange ? (
-            <TimezonePicker value={timezone} onChange={onTimezoneChange} />
-          ) : (
-            timezone
-          )}
-        </SidebarRow>
-      </div>
-      {showDescription && bookingLink.description ? (
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {bookingLink.description}
-        </p>
-      ) : null}
-      <a
-        href={BRAND_HOMEPAGE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-auto flex items-center gap-1.5 border-t pt-4 text-xs text-muted-foreground transition-colors hover:text-foreground"
-      >
-        Powered by
-        <Image
-          src={BRAND_ICON_URL}
-          alt={`${BRAND_NAME} icon`}
-          width={14}
-          height={14}
-          className="rounded-sm"
-          unoptimized
-        />
-        <span>{BRAND_NAME}</span>
-      </a>
-    </div>
-  );
-}
-
-function TimezonePicker({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (timezone: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const timezones = useMemo(() => getSupportedTimezonesWithOffsets(), []);
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-muted"
-        >
-          <span className="truncate">{value}</span>
-          <ChevronsUpDown className="size-3 shrink-0 opacity-50" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[320px] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Search timezone..." />
-          <CommandList>
-            <CommandEmpty>No timezone found.</CommandEmpty>
-            <CommandGroup>
-              {timezones.map(({ zone, offsetLabel }) => (
-                <CommandItem
-                  key={zone}
-                  value={zone}
-                  onSelect={(selected) => {
-                    onChange(selected);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 size-4",
-                      zone === value ? "opacity-100" : "opacity-0",
-                    )}
-                  />
-                  <span className="flex-1 truncate">{zone}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {offsetLabel}
-                  </span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function SidebarRow({
-  icon,
-  children,
-}: {
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-muted-foreground/70">{icon}</span>
-      <span>{children}</span>
-    </div>
-  );
-}
-
-function LocationIcon({ type }: { type: BookingLinkLocationType }) {
-  const className = "size-3.5";
-  switch (type) {
-    case BookingLinkLocationType.GOOGLE_MEET:
-    case BookingLinkLocationType.MICROSOFT_TEAMS:
-      return <Video className={className} />;
-    case BookingLinkLocationType.PHONE:
-      return <Phone className={className} />;
-    case BookingLinkLocationType.IN_PERSON:
-      return <MapPin className={className} />;
-    default:
-      return <Info className={className} />;
-  }
-}
-
-function locationLabel(link: BookingLink): string {
-  if (link.locationType === BookingLinkLocationType.GOOGLE_MEET) {
-    return "Google Meet";
-  }
-  if (link.locationType === BookingLinkLocationType.MICROSOFT_TEAMS) {
-    return "Microsoft Teams";
-  }
-  return link.locationValue || "Custom";
 }
 
 function FormField({
@@ -751,141 +561,4 @@ export function BookingShell({
   );
 }
 
-function formatShortWeekdayName(date: Date) {
-  return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date);
-}
-
-function startOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-function endOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 1);
-}
-
-function parseSlotParam(
-  value: string | null,
-  durationMinutes: number | undefined,
-): Slot | null {
-  if (!value || !durationMinutes) return null;
-  const startTime = new Date(value);
-  if (Number.isNaN(startTime.getTime())) return null;
-
-  return {
-    startTime: startTime.toISOString(),
-    endTime: addMinutes(startTime, durationMinutes).toISOString(),
-  };
-}
-
-function formatDateKey(date: Date, timezone: string) {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  return formatter.format(date);
-}
-
-function dateKeyToLocalDate(key: string) {
-  const [year, month, day] = key.split("-").map(Number);
-  return new Date(year, month - 1, day, 12);
-}
-
-function isBeforeToday(date: Date, todayKey: string, timezone: string) {
-  return formatDateKey(date, timezone) < todayKey;
-}
-
-function groupSlotsByDay(slots: Slot[], timezone: string) {
-  const map = new Map<string, Slot[]>();
-  for (const slot of slots) {
-    const key = formatDateKey(new Date(slot.startTime), timezone);
-    const list = map.get(key) ?? [];
-    list.push(slot);
-    map.set(key, list);
-  }
-  for (const list of map.values()) {
-    list.sort((a, b) => a.startTime.localeCompare(b.startTime));
-  }
-  return map;
-}
-
-function formatSelectedDateHeading(key: string, timezone: string) {
-  const date = new Date(`${key}T12:00:00Z`);
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    timeZone: timezone,
-  }).format(date);
-}
-
-function formatSlotTime(
-  value: string,
-  timezone: string,
-  hourFormat: HourFormat,
-) {
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: timezone,
-    hour12: hourFormat === "12h",
-  }).format(new Date(value));
-}
-
-function detectDefaultHourFormat(): HourFormat {
-  return Intl.DateTimeFormat().resolvedOptions().hour12 === false
-    ? "24h"
-    : "12h";
-}
-
-function HourFormatToggle({
-  value,
-  onChange,
-}: {
-  value: HourFormat;
-  onChange: (next: HourFormat) => void;
-}) {
-  return (
-    <div className="inline-flex items-center rounded-md border border-input bg-background p-0.5 text-xs">
-      {(["12h", "24h"] as const).map((option) => (
-        <button
-          key={option}
-          type="button"
-          onClick={() => onChange(option)}
-          className={cn(
-            "rounded px-2 py-0.5 font-medium transition-colors",
-            value === option
-              ? "bg-blue-600 text-white"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {option}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function formatLongDateTime(value: string, timezone: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: timezone,
-  }).format(new Date(value));
-}
-
-export function getApiError(body: unknown) {
-  if (
-    typeof body === "object" &&
-    body !== null &&
-    "error" in body &&
-    typeof (body as { error?: unknown }).error === "string"
-  ) {
-    return (body as { error: string }).error;
-  }
-  return "Something went wrong";
-}
+export { getApiError };

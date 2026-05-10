@@ -1,14 +1,9 @@
+import type { BookingLinkLocationType } from "@/generated/prisma/enums";
+
 export interface CalendarEventAttendee {
   email: string;
   name?: string;
 }
-
-export type CalendarEventLocationType =
-  | "IN_PERSON"
-  | "GOOGLE_MEET"
-  | "MICROSOFT_TEAMS"
-  | "PHONE"
-  | "CUSTOM";
 
 export interface CalendarEvent {
   attendees: CalendarEventAttendee[];
@@ -27,7 +22,7 @@ export interface CalendarEventWriteInput {
   calendarId: string;
   description?: string;
   endTime: Date;
-  locationType: CalendarEventLocationType;
+  locationType: BookingLinkLocationType;
   locationValue?: string | null;
   startTime: Date;
   timezone: string;

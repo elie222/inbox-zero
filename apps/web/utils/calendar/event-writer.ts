@@ -4,9 +4,9 @@ import type { Logger } from "@/utils/logger";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { GoogleCalendarEventProvider } from "@/utils/calendar/providers/google-events";
 import { MicrosoftCalendarEventProvider } from "@/utils/calendar/providers/microsoft-events";
+import type { BookingLinkLocationType } from "@/generated/prisma/enums";
 import type {
   CalendarEventAttendee,
-  CalendarEventLocationType,
   CalendarEventWriteResult,
 } from "@/utils/calendar/event-types";
 
@@ -16,7 +16,7 @@ export type CreateCalendarEventInput = {
   destinationCalendarId?: string | null;
   emailAccountId: string;
   endTime: Date;
-  locationType: CalendarEventLocationType;
+  locationType: BookingLinkLocationType;
   locationValue?: string | null;
   startTime: Date;
   timezone: string;

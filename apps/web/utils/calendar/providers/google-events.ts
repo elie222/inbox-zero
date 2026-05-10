@@ -1,5 +1,6 @@
 import type { calendar_v3 } from "@googleapis/calendar";
 import { randomUUID } from "node:crypto";
+import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import { getCalendarClientWithRefresh } from "@/utils/calendar/client";
 import type {
   CalendarEvent,
@@ -102,7 +103,8 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
     input: CalendarEventWriteInput,
   ): Promise<CalendarEventWriteResult> {
     const client = await this.getClient();
-    const useGoogleMeet = input.locationType === "GOOGLE_MEET";
+    const useGoogleMeet =
+      input.locationType === BookingLinkLocationType.GOOGLE_MEET;
 
     const response = await client.events.insert({
       calendarId: input.calendarId,

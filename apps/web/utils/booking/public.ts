@@ -17,10 +17,7 @@ import {
   cancelCalendarEvent,
   createCalendarEvent,
 } from "@/utils/calendar/event-writer";
-import type {
-  CalendarEventLocationType,
-  CalendarEventWriteResult,
-} from "@/utils/calendar/event-types";
+import type { CalendarEventWriteResult } from "@/utils/calendar/event-types";
 import { BookingCanceledBy, BookingStatus } from "@/generated/prisma/enums";
 import type { PublicBookingBody } from "@/utils/actions/booking.validation";
 import {
@@ -197,7 +194,7 @@ export async function createPublicBooking({
       endTime: selectedEndTime,
       timezone: config.link.timezone,
       attendees: [{ name: input.guestName, email: input.guestEmail }],
-      locationType: config.link.locationType as CalendarEventLocationType,
+      locationType: config.link.locationType,
       locationValue: config.link.locationValue,
       logger,
     });
