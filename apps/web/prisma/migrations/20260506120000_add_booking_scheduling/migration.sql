@@ -21,7 +21,7 @@ CREATE TABLE "BookingLink" (
     "locationType" "BookingLinkLocationType" NOT NULL DEFAULT 'CUSTOM',
     "locationValue" TEXT,
     "minimumNoticeMinutes" INTEGER NOT NULL DEFAULT 120,
-    "maxDaysAhead" INTEGER NOT NULL DEFAULT 30,
+    "maxDaysAhead" INTEGER NOT NULL DEFAULT 90,
     "timezone" TEXT NOT NULL,
     "emailAccountId" TEXT NOT NULL,
     "destinationCalendarId" TEXT,

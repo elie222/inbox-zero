@@ -1180,7 +1180,7 @@ model BookingLink {
   locationType         BookingLinkLocationType @default(CUSTOM)
   locationValue        String?
   minimumNoticeMinutes Int                     @default(120)
-  maxDaysAhead         Int                     @default(30)
+  maxDaysAhead         Int                     @default(90)
   timezone             String
 
   emailAccountId        String
