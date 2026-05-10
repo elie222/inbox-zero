@@ -1224,7 +1224,6 @@ model BookingEventType {
   defaultForBookingLinks BookingLink[]          @relation("DefaultBookingEventType")
   hosts                  BookingEventTypeHost[]
   bookings               Booking[]
-  guestLimitLocks        BookingGuestLimitLock[]
   slotLocks              BookingSlotLock[]
 
   @@unique([bookingLinkId, slug])
@@ -1376,21 +1375,6 @@ model BookingSlotLock {
   @@index([emailAccountId, startTime, endTime])
   @@index([expiresAt])
   @@index([bookingId])
-}
-
-model BookingGuestLimitLock {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  guestEmail String
-  expiresAt  DateTime
-
-  eventTypeId String
-  eventType   BookingEventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
-
-  @@unique([eventTypeId, guestEmail])
-  @@index([expiresAt])
 }
 
 model MeetingBriefing {

@@ -165,18 +165,6 @@ CREATE TABLE "BookingSlotLock" (
     CONSTRAINT "BookingSlotLock_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "BookingGuestLimitLock" (
-    "id" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "guestEmail" TEXT NOT NULL,
-    "expiresAt" TIMESTAMP(3) NOT NULL,
-    "eventTypeId" TEXT NOT NULL,
-
-    CONSTRAINT "BookingGuestLimitLock_pkey" PRIMARY KEY ("id")
-);
-
 -- CreateIndex
 CREATE UNIQUE INDEX "BookingLink_slug_key" ON "BookingLink"("slug");
 
@@ -243,12 +231,6 @@ CREATE INDEX "BookingSlotLock_expiresAt_idx" ON "BookingSlotLock"("expiresAt");
 -- CreateIndex
 CREATE INDEX "BookingSlotLock_bookingId_idx" ON "BookingSlotLock"("bookingId");
 
--- CreateIndex
-CREATE UNIQUE INDEX "BookingGuestLimitLock_eventTypeId_guestEmail_key" ON "BookingGuestLimitLock"("eventTypeId", "guestEmail");
-
--- CreateIndex
-CREATE INDEX "BookingGuestLimitLock_expiresAt_idx" ON "BookingGuestLimitLock"("expiresAt");
-
 -- AddForeignKey
 ALTER TABLE "BookingLink" ADD CONSTRAINT "BookingLink_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -296,9 +278,6 @@ ALTER TABLE "BookingSlotLock" ADD CONSTRAINT "BookingSlotLock_emailAccountId_fke
 
 -- AddForeignKey
 ALTER TABLE "BookingSlotLock" ADD CONSTRAINT "BookingSlotLock_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "BookingGuestLimitLock" ADD CONSTRAINT "BookingGuestLimitLock_eventTypeId_fkey" FOREIGN KEY ("eventTypeId") REFERENCES "BookingEventType"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Prevent overlapping slot locks for the same host across all of their event types
 -- so concurrent bookings cannot both succeed.
