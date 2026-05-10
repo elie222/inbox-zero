@@ -3,9 +3,9 @@ import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import { getPublicAvailability } from "@/utils/booking/public";
 
-export type GetPublicBookingAvailabilityResponse = Awaited<
-  ReturnType<typeof getPublicAvailability>
->;
+export type GetPublicBookingAvailabilityResponse = {
+  slots: Awaited<ReturnType<typeof getPublicAvailability>>;
+};
 
 const availabilityQuerySchema = z.object({
   start: z.string().datetime(),
