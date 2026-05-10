@@ -1146,8 +1146,6 @@ export class GmailProvider implements EmailProvider {
     query: string;
     maxResults?: number;
     pageToken?: string;
-    readState?: "read" | "unread";
-    labelName?: string;
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
     const response = await getMessages(this.client, {
       query: options.query,

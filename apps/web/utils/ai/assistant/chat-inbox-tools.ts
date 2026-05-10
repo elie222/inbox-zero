@@ -53,6 +53,16 @@ import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
 const SEARCH_INBOX_MAX_RESULTS = 20;
 const MAX_SENDER_CATEGORIZATION_WAIT_MS = 1500;
 
+type SearchMessagesResult = Awaited<
+  ReturnType<EmailProvider["searchMessages"]>
+>;
+type OutlookSearchMessagesOptions = Parameters<
+  EmailProvider["searchMessages"]
+>[0] & {
+  readState?: "read" | "unread";
+  labelName?: string;
+};
+
 const recipientListSchema = z
   .string()
   .trim()
@@ -429,13 +439,7 @@ function getSearchQueryDescription(provider: string): string {
 }
 
 function searchInboxInputSchema(provider: string) {
-  return z.object({
-    query: z
-      .string()
-      .trim()
-      .min(1)
-      .max(500)
-      .describe(getSearchQueryDescription(provider)),
+  const baseFields = {
     limit: z
       .number()
       .int()
@@ -446,20 +450,49 @@ function searchInboxInputSchema(provider: string) {
     pageToken: microsoftGraphPageTokenSchema.describe(
       "Use the page token returned from a prior search to paginate.",
     ),
-    readState: z
-      .enum(["read", "unread"])
-      .nullish()
-      .describe(
-        "Optional structured read-state filter. For Outlook category cleanup, prefer this over putting read/unread in query.",
-      ),
-    labelName: z
+  };
+
+  if (isMicrosoftProvider(provider)) {
+    return z
+      .object({
+        query: z
+          .string()
+          .trim()
+          .max(500)
+          .default("")
+          .describe(getSearchQueryDescription(provider)),
+        ...baseFields,
+        readState: z
+          .enum(["read", "unread"])
+          .nullish()
+          .describe(
+            "Optional structured read-state filter. For Outlook category cleanup, prefer this over putting read/unread in query.",
+          ),
+        labelName: z
+          .string()
+          .trim()
+          .min(1)
+          .nullish()
+          .describe(
+            "Optional exact Outlook label/category name to filter by. Use only when the user refers to an Outlook label/category, not when searching for text that happens to match a label name.",
+          ),
+      })
+      .refine(
+        (value) => Boolean(value.query || value.readState || value.labelName),
+        {
+          message: "query, readState, or labelName is required",
+        },
+      );
+  }
+
+  return z.object({
+    query: z
       .string()
       .trim()
       .min(1)
-      .nullish()
-      .describe(
-        "Optional exact Outlook label/category name to filter by. Use only when the user refers to an Outlook label/category, not when searching for text that happens to match a label name.",
-      ),
+      .max(500)
+      .describe(getSearchQueryDescription(provider)),
+    ...baseFields,
   });
 }
 
@@ -478,8 +511,22 @@ export const searchInboxTool = ({
     description:
       "Search inbox messages and return concise message metadata. Limit must be between 1 and 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion. totalReturned is only the number of messages returned by this call, so do not present it or a single search page as an exact mailbox, folder, or label count. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
     inputSchema: searchInboxInputSchema(provider),
-    execute: async ({ query, limit, pageToken, readState, labelName }) => {
+    execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
+
+      const {
+        query = "",
+        limit,
+        pageToken,
+        readState,
+        labelName,
+      } = input as {
+        query?: string;
+        limit?: number;
+        pageToken?: string;
+        readState?: "read" | "unread" | null;
+        labelName?: string | null;
+      };
 
       try {
         const emailProvider = await createEmailProvider({
@@ -499,9 +546,7 @@ export const searchInboxTool = ({
           return [] as Array<{ id: string; name: string }>;
         });
 
-        let searchResult:
-          | Awaited<ReturnType<typeof emailProvider.searchMessages>>
-          | undefined;
+        let searchResult: SearchMessagesResult | undefined;
         let queryUsed = query;
         let lastError: unknown;
         const microsoftSearchFailures: Array<{
@@ -512,14 +557,14 @@ export const searchInboxTool = ({
         for (let i = 0; i < searchQueries.length; i++) {
           const candidateQuery = searchQueries[i];
           try {
-            searchResult = await emailProvider.searchMessages({
+            searchResult = await searchProviderMessages({
+              emailProvider,
+              provider,
               query: candidateQuery,
               maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
               pageToken: pageToken ?? undefined,
               readState: readState ?? undefined,
-              labelName: isMicrosoftProvider(provider)
-                ? (labelName ?? undefined)
-                : undefined,
+              labelName: labelName ?? undefined,
             });
             queryUsed = candidateQuery;
             break;
@@ -1208,6 +1253,44 @@ async function listLabelNames({
     logger.warn("Failed to load label names", { error });
     return [];
   }
+}
+
+async function searchProviderMessages({
+  emailProvider,
+  provider,
+  query,
+  maxResults,
+  pageToken,
+  readState,
+  labelName,
+}: {
+  emailProvider: EmailProvider;
+  provider: string;
+  query: string;
+  maxResults: number;
+  pageToken?: string;
+  readState?: "read" | "unread";
+  labelName?: string;
+}): Promise<SearchMessagesResult> {
+  const options = {
+    query,
+    maxResults,
+    pageToken,
+  };
+
+  if (!isMicrosoftProvider(provider)) {
+    return emailProvider.searchMessages(options);
+  }
+
+  const searchMessages = emailProvider.searchMessages as (
+    options: OutlookSearchMessagesOptions,
+  ) => Promise<SearchMessagesResult>;
+
+  return searchMessages({
+    ...options,
+    readState,
+    labelName,
+  });
 }
 
 type PendingEmailActionType = "send_email" | "reply_email" | "forward_email";
