@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useCalendars } from "@/hooks/useCalendars";
 import { CalendarConnectionCard } from "./CalendarConnectionCard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ConnectCalendar } from "@/app/(app)/[emailAccountId]/calendars/ConnectCalendar";
 import { TypographyP } from "@/components/Typography";
 import { toastError } from "@/components/Toast";
@@ -22,11 +22,7 @@ export function CalendarConnections() {
       <div className="space-y-6">
         {connections.length === 0 ? (
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>Connected calendars</CardTitle>
-            </CardHeader>
-
-            <CardContent>
+            <CardContent className="pt-6">
               <div className="space-y-2">
                 <TypographyP className="text-sm">
                   Connect your calendar to unlock:
