@@ -98,6 +98,23 @@ describe("booking actions", () => {
     );
   });
 
+  it("rejects creating a booking link without a connected calendar", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue(null);
+    prisma.calendar.findFirst.mockResolvedValue(null);
+
+    const result = await createBookingLinkAction("email-account-id", {
+      title: "Intro call",
+      slug: "intro-call",
+      timezone: "UTC",
+      durationMinutes: 30,
+    });
+
+    expect(result?.serverError).toBe(
+      "Connect your calendar to create a booking link",
+    );
+    expect(prisma.bookingLink.create).not.toHaveBeenCalled();
+  });
+
   it("rejects an update slug that conflicts with another link", async () => {
     prisma.bookingLink.findFirst
       .mockResolvedValueOnce({ id: "booking-link-id" } as any)

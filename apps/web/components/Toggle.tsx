@@ -5,6 +5,7 @@ import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { Switch } from "@/components/ui/switch";
 
 export interface ToggleProps {
+  ariaLabel?: string;
   disabled?: boolean;
   disabledTooltipText?: string;
   enabled: boolean;
@@ -29,7 +30,12 @@ export const Toggle = (props: ToggleProps) => {
   } = props;
 
   const switchComponent = (
-    <Switch checked={enabled} onCheckedChange={onChange} disabled={disabled} />
+    <Switch
+      aria-label={props.ariaLabel}
+      checked={enabled}
+      onCheckedChange={onChange}
+      disabled={disabled}
+    />
   );
 
   return (

@@ -27,7 +27,10 @@ import {
 import { updateCalendarBookingLinkAction } from "@/utils/actions/calendar";
 import { updateBookingLinkBody } from "@/utils/actions/calendar.validation";
 import { getBookingLinkSlugSuggestion } from "@/utils/booking/slug";
-import { ConfigureBookingLinkDialog } from "./ConfigureBookingLinkDialog";
+import {
+  ConfigureBookingLinkDialog,
+  type ConfigureBookingLinkTab,
+} from "./ConfigureBookingLinkDialog";
 import { CreateBookingLinkDialog } from "./CreateBookingLinkDialog";
 
 type BookingLink = NonNullable<
@@ -37,10 +40,11 @@ type BookingLink = NonNullable<
 export function BookingLinksSection() {
   const bookingLinksEnabled = useBookingLinksEnabled();
 
-  return bookingLinksEnabled ? (
-    <InboxZeroBookingLinkPanel />
-  ) : (
-    <ExternalBookingLinkCard />
+  return (
+    <section className="space-y-3">
+      {bookingLinksEnabled ? <InboxZeroBookingLinkPanel /> : null}
+      <CalendarBookingLinkCard />
+    </section>
   );
 }
 
@@ -48,9 +52,15 @@ function InboxZeroBookingLinkPanel() {
   const { emailAccountId, emailAccount } = useAccount();
   const { data, isLoading, error, mutate } = useBookingLinks();
   const [configureLinkId, setConfigureLinkId] = useState<string | null>(null);
+  const [configureInitialTab, setConfigureInitialTab] =
+    useState<ConfigureBookingLinkTab>("general");
   const [createOpen, setCreateOpen] = useState(false);
 
   const link = data?.bookingLinks[0] ?? null;
+  const configureLink =
+    data?.bookingLinks.find(
+      (bookingLink) => bookingLink.id === configureLinkId,
+    ) ?? null;
   const timezone =
     data?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const defaultName = emailAccount?.name?.trim() || null;
@@ -64,8 +74,6 @@ function InboxZeroBookingLinkPanel() {
     {
       onSuccess: () => {
         toastSuccess({ description: "Booking link created" });
-        mutate();
-        setCreateOpen(false);
       },
       onError: (actionError) => {
         toastError({
@@ -108,7 +116,10 @@ function InboxZeroBookingLinkPanel() {
             link={link}
             isToggling={isToggling}
             onToggle={handleToggle}
-            onConfigure={() => setConfigureLinkId(link.id)}
+            onConfigure={() => {
+              setConfigureInitialTab("general");
+              setConfigureLinkId(link.id);
+            }}
           />
         ) : (
           <EmptyLinkCard onCreate={() => setCreateOpen(true)} />
@@ -123,23 +134,35 @@ function InboxZeroBookingLinkPanel() {
           defaultSlug={defaultSlug}
           onClose={() => setCreateOpen(false)}
           onCreate={async (input) => {
-            await createLink({
+            const result = await createLink({
               ...input,
               timezone,
               slotIntervalMinutes: input.durationMinutes,
             });
+            const newLinkId = result?.data?.id;
+            if (!newLinkId) return;
+
+            setCreateOpen(false);
+            setConfigureInitialTab("availability");
+            setConfigureLinkId(newLinkId);
+            await mutate();
           }}
           isCreating={isCreating}
         />
       ) : null}
 
-      {link && configureLinkId === link.id ? (
+      {configureLink ? (
         <ConfigureBookingLinkDialog
-          link={link}
-          onClose={() => setConfigureLinkId(null)}
+          link={configureLink}
+          initialTab={configureInitialTab}
+          onClose={() => {
+            setConfigureLinkId(null);
+            setConfigureInitialTab("general");
+          }}
           onSaved={() => {
             mutate();
             setConfigureLinkId(null);
+            setConfigureInitialTab("general");
           }}
         />
       ) : null}
@@ -147,7 +170,7 @@ function InboxZeroBookingLinkPanel() {
   );
 }
 
-function ExternalBookingLinkCard() {
+function CalendarBookingLinkCard() {
   const { emailAccountId } = useAccount();
   const analytics = useProductAnalytics("calendars");
   const { data, isLoading, error, mutate } = useCalendars();

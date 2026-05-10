@@ -1,9 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ChangeEvent } from "react";
 import { Copy, Info, Plus, Trash2, X } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
+import { Input } from "@/components/Input";
 import { Button } from "@/components/ui/button";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from "@/components/ui/item";
 import {
   Dialog,
   DialogContent,
@@ -38,10 +46,12 @@ import {
   isProviderVideoLocationType,
   PRIMARY_CALENDAR_SELECT_VALUE,
 } from "./booking-calendar-helpers";
+import { VideoConferencingItem } from "./VideoConferencingItem";
 
 type BookingLink = NonNullable<
   ReturnType<typeof useBookingLinks>["data"]
 >["bookingLinks"][number];
+export type ConfigureBookingLinkTab = "general" | "availability" | "advanced";
 
 type Range = { start: string; end: string };
 type DayState = { enabled: boolean; ranges: Range[] };
@@ -58,16 +68,16 @@ const DAY_LABELS = [
 
 export function ConfigureBookingLinkDialog({
   link,
+  initialTab = "general",
   onClose,
   onSaved,
 }: {
   link: BookingLink;
+  initialTab?: ConfigureBookingLinkTab;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [tab, setTab] = useState<"general" | "availability" | "advanced">(
-    "general",
-  );
+  const [tab, setTab] = useState<ConfigureBookingLinkTab>(initialTab);
 
   const publicUrl =
     typeof window !== "undefined"
@@ -244,38 +254,30 @@ function GeneralTab({
   return (
     <>
       <div className="space-y-5 px-6 py-5">
-        <div>
-          <div className="mb-1.5 text-xs font-medium text-muted-foreground">
-            What guests see
-          </div>
-          <input
-            type="text"
-            name="title"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="15 min intro"
-            className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-        </div>
+        <Input
+          type="text"
+          name="title"
+          label="What guests see"
+          placeholder="15 min intro"
+          registerProps={{
+            value: title,
+            onChange: (event: ChangeEvent<HTMLInputElement>) =>
+              setTitle(event.target.value),
+          }}
+        />
 
-        <div>
-          <div className="mb-1.5 text-xs font-medium text-muted-foreground">
-            Link URL
-          </div>
-          <div className="flex rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
-            <span className="min-w-0 shrink truncate border-r px-3 py-2 text-sm text-muted-foreground">
-              {publicUrlPrefix}
-            </span>
-            <input
-              type="text"
-              name="slug"
-              value={slug}
-              onChange={(event) => setSlug(event.target.value)}
-              placeholder="elie"
-              className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
-            />
-          </div>
-        </div>
+        <Input
+          type="text"
+          name="slug"
+          label="Link URL"
+          leftText={publicUrlPrefix}
+          placeholder="elie"
+          registerProps={{
+            value: slug,
+            onChange: (event: ChangeEvent<HTMLInputElement>) =>
+              setSlug(event.target.value),
+          }}
+        />
 
         <div>
           <div className="mb-1.5 text-xs font-medium text-muted-foreground">
@@ -332,38 +334,26 @@ function GeneralTab({
           </Select>
         </div>
 
-        <div className="flex items-center justify-between gap-4 rounded-lg border px-3.5 py-3">
-          <div>
-            <div className="text-sm font-medium text-foreground">
-              Video conferencing
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {videoLabel
-                ? `Add ${videoLabel} to calendar events.`
-                : "Video links are unavailable for this calendar."}
-            </p>
-          </div>
-          <Switch
-            checked={canAddVideo && videoEnabled}
-            disabled={!canAddVideo}
-            onCheckedChange={setVideoEnabled}
-            aria-label="Toggle video conferencing"
-          />
-        </div>
+        <VideoConferencingItem
+          canAddVideo={canAddVideo}
+          videoEnabled={videoEnabled}
+          videoLabel={videoLabel}
+          onChange={setVideoEnabled}
+        />
 
-        <div>
-          <div className="mb-1.5 text-xs font-medium text-muted-foreground">
-            Description (optional)
-          </div>
-          <textarea
-            name="description"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="Tell guests what to expect."
-            rows={3}
-            className="block w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-        </div>
+        <Input
+          type="text"
+          autosizeTextarea
+          rows={3}
+          name="description"
+          label="Description (optional)"
+          placeholder="Tell guests what to expect."
+          registerProps={{
+            value: description,
+            onChange: (event: ChangeEvent<HTMLTextAreaElement>) =>
+              setDescription(event.target.value),
+          }}
+        />
       </div>
 
       <DialogFooter onSaved={onSaved} onSave={handleSave} loading={isSaving} />
@@ -638,30 +628,30 @@ function AvailabilityTab({
           calendar.
         </div>
 
-        <div className="rounded-lg border px-4 py-3">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <div className="text-sm font-semibold text-foreground">
-                Minimum notice
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Block new bookings this many hours into the future.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min={0}
-                max={365 * 24}
-                step={0.25}
-                value={minimumNoticeHours}
-                onChange={(event) => setMinimumNoticeHours(event.target.value)}
-                className="h-9 w-24 rounded-md border border-input bg-background px-2.5 text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-              <span className="text-sm text-muted-foreground">hours</span>
-            </div>
-          </div>
-        </div>
+        <Item variant="outline">
+          <ItemContent>
+            <ItemTitle>Minimum notice</ItemTitle>
+            <ItemDescription>
+              Block new bookings this many hours into the future.
+            </ItemDescription>
+          </ItemContent>
+          <ItemActions>
+            <Input
+              type="number"
+              name="minimumNoticeHours"
+              min={0}
+              max={365 * 24}
+              step={0.25}
+              rightText="hours"
+              className="w-24 tabular-nums"
+              registerProps={{
+                value: minimumNoticeHours,
+                onChange: (event: ChangeEvent<HTMLInputElement>) =>
+                  setMinimumNoticeHours(event.target.value),
+              }}
+            />
+          </ItemActions>
+        </Item>
       </div>
 
       <DialogFooter onSaved={onSaved} onSave={handleSave} loading={isSaving} />

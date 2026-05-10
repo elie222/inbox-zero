@@ -1,14 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { X } from "lucide-react";
+import { Input } from "@/components/Input";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -16,9 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { normalizeBookingSlug } from "@/utils/booking/slug";
 import { cn } from "@/utils";
+import { VideoConferencingItem } from "./VideoConferencingItem";
 import {
   DURATION_OPTIONS,
   getCalendarOptions,
@@ -57,6 +53,9 @@ export function CreateBookingLinkDialog({
   const [destinationCalendarId, setDestinationCalendarId] = useState("");
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [description, setDescription] = useState("");
+  const hasConnectedCalendar = Boolean(
+    data?.calendarConnections.some((connection) => connection.calendars.length),
+  );
 
   const selectedCalendarProvider = getSelectedCalendarProvider(
     data,
@@ -96,10 +95,6 @@ export function CreateBookingLinkDialog({
             <DialogTitle className="text-xl font-medium">
               Create booking link
             </DialogTitle>
-            <DialogDescription className="mt-1 font-mono text-xs">
-              {publicUrlPrefix}
-              {normalizedSlug}
-            </DialogDescription>
           </div>
           <button
             type="button"
@@ -111,143 +106,139 @@ export function CreateBookingLinkDialog({
           </button>
         </div>
 
-        <div className="space-y-5 px-6 py-5">
-          <div>
-            <div className="mb-1.5 text-xs font-medium text-muted-foreground">
-              What guests see
-            </div>
-            <input
-              type="text"
-              name="title"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="15 min intro"
-              className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-          </div>
+        {hasConnectedCalendar ? (
+          <>
+            <div className="space-y-5 px-6 py-5">
+              <Input
+                type="text"
+                name="title"
+                label="What guests see"
+                placeholder="15 min intro"
+                registerProps={{
+                  value: title,
+                  onChange: (event: ChangeEvent<HTMLInputElement>) =>
+                    setTitle(event.target.value),
+                }}
+              />
 
-          <div>
-            <div className="mb-1.5 text-xs font-medium text-muted-foreground">
-              Link URL
-            </div>
-            <div className="flex rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
-              <span className="min-w-0 shrink truncate border-r px-3 py-2 text-sm text-muted-foreground">
-                {publicUrlPrefix}
-              </span>
-              <input
+              <Input
                 type="text"
                 name="slug"
-                value={slug}
-                onChange={(event) =>
-                  setSlug(normalizeBookingSlug(event.target.value))
-                }
+                label="Link URL"
+                leftText={publicUrlPrefix}
                 placeholder="your-name"
-                className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                registerProps={{
+                  value: slug,
+                  onChange: (event: ChangeEvent<HTMLInputElement>) =>
+                    setSlug(normalizeBookingSlug(event.target.value)),
+                }}
+              />
+
+              <div>
+                <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+                  Duration
+                </div>
+                <div className="flex gap-1.5">
+                  {DURATION_OPTIONS.map((option) => {
+                    const active = option === duration;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setDuration(option)}
+                        className={cn(
+                          "flex-1 rounded-md border px-3 py-2 text-center text-sm transition-colors",
+                          active
+                            ? "border-blue-600 bg-blue-50 font-semibold text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-300"
+                            : "border-input bg-background text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {option} min
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+                  Add events to
+                </div>
+                <Select
+                  name="destinationCalendarId"
+                  value={destinationCalendarId || PRIMARY_CALENDAR_SELECT_VALUE}
+                  onValueChange={(value) =>
+                    setDestinationCalendarId(
+                      value === PRIMARY_CALENDAR_SELECT_VALUE ? "" : value,
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {calendarOptions.map((option) => (
+                      <SelectItem
+                        key={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
+                        value={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
+                      >
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <VideoConferencingItem
+                canAddVideo={canAddVideo}
+                videoEnabled={videoEnabled}
+                videoLabel={videoLabel}
+                onChange={setVideoEnabled}
+              />
+
+              <Input
+                type="text"
+                autosizeTextarea
+                rows={3}
+                name="description"
+                label="Description (optional)"
+                placeholder="Tell guests what to expect."
+                registerProps={{
+                  value: description,
+                  onChange: (event: ChangeEvent<HTMLTextAreaElement>) =>
+                    setDescription(event.target.value),
+                }}
               />
             </div>
-          </div>
 
-          <div>
-            <div className="mb-1.5 text-xs font-medium text-muted-foreground">
-              Duration
+            <div className="flex items-center justify-end gap-2 border-t px-6 py-3">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreate}
+                loading={isCreating}
+                disabled={!title.trim() || normalizedSlug.length < 3}
+              >
+                Create
+              </Button>
             </div>
-            <div className="flex gap-1.5">
-              {DURATION_OPTIONS.map((option) => {
-                const active = option === duration;
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setDuration(option)}
-                    className={cn(
-                      "flex-1 rounded-md border px-3 py-2 text-center text-sm transition-colors",
-                      active
-                        ? "border-blue-600 bg-blue-50 font-semibold text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-300"
-                        : "border-input bg-background text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {option} min
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <div className="mb-1.5 text-xs font-medium text-muted-foreground">
-              Add events to
-            </div>
-            <Select
-              name="destinationCalendarId"
-              value={destinationCalendarId || PRIMARY_CALENDAR_SELECT_VALUE}
-              onValueChange={(value) =>
-                setDestinationCalendarId(
-                  value === PRIMARY_CALENDAR_SELECT_VALUE ? "" : value,
-                )
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {calendarOptions.map((option) => (
-                  <SelectItem
-                    key={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
-                    value={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
-                  >
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center justify-between gap-4 rounded-lg border px-3.5 py-3">
-            <div>
-              <div className="text-sm font-medium text-foreground">
-                Video conferencing
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {videoLabel
-                  ? `Add ${videoLabel} to calendar events.`
-                  : "Video links are unavailable for this calendar."}
+          </>
+        ) : (
+          <>
+            <div className="px-6 py-5">
+              <p className="text-sm text-muted-foreground">
+                Connect your calendar to create a booking link.
               </p>
             </div>
-            <Switch
-              checked={canAddVideo && videoEnabled}
-              disabled={!canAddVideo}
-              onCheckedChange={setVideoEnabled}
-              aria-label="Toggle video conferencing"
-            />
-          </div>
 
-          <div>
-            <div className="mb-1.5 text-xs font-medium text-muted-foreground">
-              Description (optional)
+            <div className="flex items-center justify-end gap-2 border-t px-6 py-3">
+              <Button variant="outline" onClick={onClose}>
+                Close
+              </Button>
             </div>
-            <textarea
-              name="description"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="Tell guests what to expect."
-              rows={3}
-              className="block w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-2 border-t px-6 py-3">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleCreate}
-            loading={isCreating}
-            disabled={!title.trim() || normalizedSlug.length < 3}
-          >
-            Create
-          </Button>
-        </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

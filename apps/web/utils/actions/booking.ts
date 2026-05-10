@@ -26,6 +26,10 @@ export const createBookingLinkAction = actionClient
       emailAccountId,
       destinationCalendarId: parsedInput.destinationCalendarId,
     });
+    if (!destinationCalendarId) {
+      throw new SafeError("Connect your calendar to create a booking link");
+    }
+
     const durationMinutes = parsedInput.durationMinutes;
     const slotIntervalMinutes =
       parsedInput.slotIntervalMinutes ?? durationMinutes;
