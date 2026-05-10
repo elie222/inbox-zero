@@ -32,11 +32,11 @@ export default function DebugFollowUpPage() {
         <div className="mt-6 space-y-6">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <DebugStat
-              label="Awaiting Reply (business days)"
+              label="Awaiting Reply (days)"
               value={data?.emailAccount.followUpAwaitingReplyDays ?? "Off"}
             />
             <DebugStat
-              label="Needs Reply (business days)"
+              label="Needs Reply (days)"
               value={data?.emailAccount.followUpNeedsReplyDays ?? "Off"}
             />
             <DebugStat

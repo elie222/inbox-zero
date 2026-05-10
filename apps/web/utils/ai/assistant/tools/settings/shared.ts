@@ -428,13 +428,13 @@ const readOnlyCapabilities = [
   },
   {
     path: "assistant.followUp.awaitingReplyDays",
-    title: "Follow-up (awaiting reply business days)",
+    title: "Follow-up (awaiting reply days)",
     reason:
       "Readable in chat, but writes are not yet exposed through updateAssistantSettings.",
   },
   {
     path: "assistant.followUp.needsReplyDays",
-    title: "Follow-up (needs reply business days)",
+    title: "Follow-up (needs reply days)",
     reason:
       "Readable in chat, but writes are not yet exposed through updateAssistantSettings.",
   },
