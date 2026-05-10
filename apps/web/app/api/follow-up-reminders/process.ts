@@ -1,6 +1,4 @@
-import { subHours } from "date-fns/subHours";
-import { addMinutes } from "date-fns/addMinutes";
-import { differenceInDays } from "date-fns/differenceInDays";
+import { TZDate } from "@date-fns/tz";
 import prisma from "@/utils/prisma";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -32,7 +30,7 @@ import {
   type LabelIds,
 } from "@/utils/reply-tracker/label-helpers";
 import { getRuleLabel } from "@/utils/rule/consts";
-import { internalDateToDate } from "@/utils/date";
+import { internalDateToDate, ONE_DAY_MS, ONE_MINUTE_MS } from "@/utils/date";
 import {
   extractEmailAddress,
   extractNameFromEmail,
@@ -339,11 +337,6 @@ async function processFollowUpsForType({
     count: threads.length,
   });
 
-  const threshold = subHours(now, thresholdDays * 24);
-  const thresholdWithWindow = getThresholdWithWindow(
-    threshold,
-    FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES,
-  );
   const trackerType =
     systemType === SystemType.AWAITING_REPLY
       ? ThreadTrackerType.AWAITING
@@ -376,7 +369,15 @@ async function processFollowUpsForType({
       }
 
       const messageDate = internalDateToDate(lastMessage.internalDate);
-      if (messageDate >= thresholdWithWindow) {
+      if (
+        !hasReachedBusinessFollowUpThreshold({
+          sentAt: messageDate,
+          now,
+          thresholdDays,
+          windowMinutes: FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES,
+          timezone: emailAccount.timezone,
+        })
+      ) {
         skippedTooRecentCount++;
         continue;
       }
@@ -523,7 +524,11 @@ async function processFollowUpsForType({
             counterpartyName,
             counterpartyEmail,
             trackerType,
-            daysSinceSent: Math.max(1, differenceInDays(now, messageDate)),
+            daysSinceSent: getElapsedBusinessDaysForDisplay({
+              sentAt: messageDate,
+              now,
+              timezone: emailAccount.timezone,
+            }),
             snippet: lastMessage.snippet || undefined,
             threadLink:
               getEmailUrlForOptionalMessage({
@@ -582,10 +587,6 @@ async function processFollowUpsForType({
     eligibilityWindowMinutes: FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES,
     thresholdDays,
   });
-}
-
-function getThresholdWithWindow(threshold: Date, windowMinutes: number): Date {
-  return addMinutes(threshold, windowMinutes);
 }
 
 type ProcessedFollowUpLedger = Map<
@@ -742,4 +743,92 @@ function getThreadLinkLabel(provider: string) {
   if (isGoogleProvider(provider)) return "Open in Gmail";
   if (isMicrosoftProvider(provider)) return "Open in Outlook";
   return "Open email";
+}
+
+function hasReachedBusinessFollowUpThreshold({
+  sentAt,
+  now,
+  thresholdDays,
+  windowMinutes,
+  timezone,
+}: {
+  sentAt: Date;
+  now: Date;
+  thresholdDays: number;
+  windowMinutes: number;
+  timezone: string | null | undefined;
+}) {
+  const elapsedMs = getBusinessElapsedMs(sentAt, now, timezone);
+  const thresholdWithWindowMs =
+    thresholdDays * ONE_DAY_MS - windowMinutes * ONE_MINUTE_MS;
+  return elapsedMs > thresholdWithWindowMs;
+}
+
+function getElapsedBusinessDaysForDisplay({
+  sentAt,
+  now,
+  timezone,
+}: {
+  sentAt: Date;
+  now: Date;
+  timezone: string | null | undefined;
+}) {
+  const elapsedMs = getBusinessElapsedMs(sentAt, now, timezone);
+  return Math.max(1, Math.ceil(elapsedMs / ONE_DAY_MS));
+}
+
+function getBusinessElapsedMs(
+  start: Date,
+  end: Date,
+  timezone: string | null | undefined,
+) {
+  if (end <= start) return 0;
+
+  const safeTimezone = getSafeTimezone(timezone);
+  let cursor = start;
+  let elapsedMs = 0;
+
+  while (cursor < end) {
+    const nextBoundary = getNextZonedMidnight(cursor, safeTimezone);
+    const segmentEnd = nextBoundary < end ? nextBoundary : end;
+
+    if (isBusinessDay(cursor, safeTimezone)) {
+      elapsedMs += segmentEnd.getTime() - cursor.getTime();
+    }
+
+    if (segmentEnd <= cursor) break;
+    cursor = segmentEnd;
+  }
+
+  return elapsedMs;
+}
+
+function getSafeTimezone(timezone: string | null | undefined) {
+  if (!timezone) return "UTC";
+
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date());
+    return timezone;
+  } catch {
+    return "UTC";
+  }
+}
+
+function isBusinessDay(date: Date, timezone: string) {
+  const day = new TZDate(date, timezone).getDay();
+  return day !== 0 && day !== 6;
+}
+
+function getNextZonedMidnight(date: Date, timezone: string) {
+  const zonedDate = new TZDate(date, timezone);
+  return new TZDate(
+    zonedDate.getFullYear(),
+    zonedDate.getMonth(),
+    zonedDate.getDate() + 1,
+    0,
+    0,
+    0,
+    0,
+    timezone,
+  );
 }

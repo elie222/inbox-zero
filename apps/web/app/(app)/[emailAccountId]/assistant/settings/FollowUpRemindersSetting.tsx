@@ -87,7 +87,7 @@ function FollowUpRemindersSettingContent() {
   return (
     <SettingCard
       title="Follow-up reminders"
-      description="Label emails where you haven't heard back or haven't replied."
+      description="Label emails where you haven't heard back or haven't replied after a business-day delay."
       right={
         isLoading ? (
           <Skeleton className="h-5 w-9" />
@@ -244,7 +244,8 @@ function FollowUpSettingsDialog({
           Get reminded about conversations that need attention.
           <br />
           We'll add a <Badge color="blue">Follow-up</Badge>{" "}
-          {terminology.label.singular} so you can easily find them.
+          {terminology.label.singular} so you can easily find them. Saturdays
+          and Sundays do not count.
         </DialogDescription>
       </DialogHeader>
 
@@ -258,7 +259,7 @@ function FollowUpSettingsDialog({
           min={0.001}
           max={90}
           step={0.001}
-          rightText="days"
+          rightText="business days"
         />
 
         <Input
@@ -270,7 +271,7 @@ function FollowUpSettingsDialog({
           min={0.001}
           max={90}
           step={0.001}
-          rightText="days"
+          rightText="business days"
         />
 
         {!autoDraftDisabled && (

@@ -77,12 +77,12 @@ describe("buildFollowUpReminderBlocks", () => {
 
   it("renders elapsed time for AWAITING", () => {
     const json = blocksJson(baseAwaitingParams);
-    expect(json).toContain("4 days ago");
+    expect(json).toContain("4 business days ago");
   });
 
   it("renders singular elapsed time for NEEDS_REPLY", () => {
     const json = blocksJson(baseNeedsReplyParams);
-    expect(json).toContain("1 day ago");
+    expect(json).toContain("1 business day ago");
   });
 
   it("includes the message snippet so the user knows what the thread is about", () => {
