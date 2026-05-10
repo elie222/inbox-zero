@@ -1,3 +1,5 @@
+import { addMilliseconds, addMinutes as addDateFnsMinutes } from "date-fns";
+
 type DateInput = Date | string;
 
 export type AvailabilityRule = {
@@ -373,11 +375,11 @@ function minutesToMs(minutes: number) {
 }
 
 function addMinutes(date: Date, minutes: number) {
-  return new Date(date.getTime() + minutesToMs(minutes));
+  return addDateFnsMinutes(date, minutes);
 }
 
 function addDays(date: Date, days: number) {
-  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+  return addMilliseconds(date, days * 24 * 60 * 60 * 1000);
 }
 
 function zonedDateTimeToUtc(

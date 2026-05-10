@@ -10,13 +10,6 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useBookingLinks } from "@/hooks/useBookingLinks";
@@ -29,16 +22,17 @@ import {
   updateBookingLinkAction,
 } from "@/utils/actions/booking";
 import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
-import {
-  isGoogleProvider,
-  isMicrosoftProvider,
-} from "@/utils/email/provider-types";
 import { cn } from "@/utils";
+import {
+  BookingLinkGeneralFields,
+  getProviderVideoLocationType,
+  getSelectedCalendarProvider,
+  isProviderVideoLocationType,
+} from "./BookingLinkFormFields";
 
 type BookingLink = NonNullable<
   ReturnType<typeof useBookingLinks>["data"]
 >["bookingLinks"][number];
-type BookingLinksData = NonNullable<ReturnType<typeof useBookingLinks>["data"]>;
 
 type EventType = BookingLink["eventTypes"][number];
 
@@ -54,8 +48,6 @@ const DAY_LABELS = [
   "Friday",
   "Saturday",
 ];
-const DURATION_OPTIONS = [15, 30, 45, 60];
-const PRIMARY_CALENDAR_SELECT_VALUE = "__primary_calendar__";
 
 export function ConfigureBookingLinkDialog({
   link,
@@ -203,26 +195,13 @@ function GeneralTab({
     eventType.description ?? "",
   );
 
-  const calendarOptions = useMemo(() => {
-    const calendars =
-      data?.calendarConnections.flatMap((connection) =>
-        connection.calendars.map((calendar) => ({
-          label: `${calendar.name}${calendar.primary ? " (Primary)" : ""}`,
-          value: calendar.id,
-        })),
-      ) ?? [];
-    return [{ label: "Primary calendar", value: "" }, ...calendars];
-  }, [data?.calendarConnections]);
-
-  const selectedCalendarProvider = useMemo(
-    () => getSelectedCalendarProvider(data, destinationCalendarId),
-    [data, destinationCalendarId],
+  const selectedCalendarProvider = getSelectedCalendarProvider(
+    data,
+    destinationCalendarId,
   );
   const videoLocationType = getProviderVideoLocationType(
     selectedCalendarProvider,
   );
-  const videoLabel = getVideoLocationLabel(videoLocationType);
-  const canAddVideo = Boolean(videoLocationType);
 
   const { executeAsync: updateEventType, isExecuting: isUpdatingEventType } =
     useAction(updateBookingEventTypeAction.bind(null, emailAccountId), {
@@ -294,104 +273,23 @@ function GeneralTab({
 
   return (
     <>
-      <div className="space-y-5 px-6 py-5">
-        <div>
-          <Label>What guests see</Label>
-          <TextField
-            name="title"
-            value={title}
-            onChange={setTitle}
-            placeholder="15 min intro"
-          />
-        </div>
-
-        <div>
-          <Label>Link URL</Label>
-          <div className="flex rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
-            <span className="min-w-0 shrink truncate border-r px-3 py-2 text-sm text-muted-foreground">
-              {publicUrlPrefix}
-            </span>
-            <input
-              type="text"
-              name="slug"
-              value={slug}
-              onChange={(event) => setSlug(event.target.value)}
-              placeholder="elie"
-              className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
-            />
-          </div>
-        </div>
-
-        <div>
-          <Label>Duration</Label>
-          <ChipGroup
-            options={DURATION_OPTIONS.map((value) => ({
-              label: `${value} min`,
-              value,
-            }))}
-            value={duration}
-            onChange={setDuration}
-          />
-        </div>
-
-        <div>
-          <Label>Add events to</Label>
-          <Select
-            name="destinationCalendarId"
-            value={destinationCalendarId || PRIMARY_CALENDAR_SELECT_VALUE}
-            onValueChange={(value) =>
-              setDestinationCalendarId(
-                value === PRIMARY_CALENDAR_SELECT_VALUE ? "" : value,
-              )
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {calendarOptions.map((option) => (
-                <SelectItem
-                  key={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
-                  value={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
-                >
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex items-center justify-between gap-4 rounded-lg border px-3.5 py-3">
-          <div>
-            <div className="text-sm font-medium text-foreground">
-              Video conferencing
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {videoLabel
-                ? `Add ${videoLabel} to calendar events.`
-                : "Video links are unavailable for this calendar."}
-            </p>
-          </div>
-          <Switch
-            checked={canAddVideo && videoEnabled}
-            disabled={!canAddVideo}
-            onCheckedChange={setVideoEnabled}
-            aria-label="Toggle video conferencing"
-          />
-        </div>
-
-        <div>
-          <Label>Description (optional)</Label>
-          <textarea
-            name="description"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="Tell guests what to expect."
-            rows={3}
-            className="block w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-        </div>
-      </div>
+      <BookingLinkGeneralFields
+        data={data}
+        title={title}
+        onTitleChange={setTitle}
+        slug={slug}
+        onSlugChange={setSlug}
+        slugPlaceholder="elie"
+        publicUrlPrefix={publicUrlPrefix}
+        duration={duration}
+        onDurationChange={setDuration}
+        destinationCalendarId={destinationCalendarId}
+        onDestinationCalendarIdChange={setDestinationCalendarId}
+        videoEnabled={videoEnabled}
+        onVideoEnabledChange={setVideoEnabled}
+        description={description}
+        onDescriptionChange={setDescription}
+      />
 
       <DialogFooter onSaved={onSaved} onSave={handleSave} loading={isSaving} />
     </>
@@ -798,39 +696,6 @@ function DialogFooter({
   );
 }
 
-function ChipGroup<T extends number | string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: Array<{ label: string; value: T }>;
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="flex gap-1.5">
-      {options.map((option) => {
-        const active = option.value === value;
-        return (
-          <button
-            key={String(option.value)}
-            type="button"
-            onClick={() => onChange(option.value)}
-            className={cn(
-              "flex-1 rounded-md border px-3 py-2 text-center text-sm transition-colors",
-              active
-                ? "border-blue-600 bg-blue-50 font-semibold text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-300"
-                : "border-input bg-background text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 function TimeField({
   value,
   onChange,
@@ -844,29 +709,6 @@ function TimeField({
       value={value}
       onChange={(event) => onChange(event.target.value)}
       className="w-[110px] rounded-md border border-input bg-background px-2.5 py-1.5 text-center text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    />
-  );
-}
-
-function TextField({
-  name,
-  value,
-  onChange,
-  placeholder,
-}: {
-  name: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <input
-      type="text"
-      name={name}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      placeholder={placeholder}
-      className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     />
   );
 }
@@ -890,74 +732,6 @@ function IconButton({
     >
       {children}
     </button>
-  );
-}
-
-function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mb-1.5 text-xs font-medium text-muted-foreground">
-      {children}
-    </div>
-  );
-}
-
-function getSelectedCalendarProvider(
-  data: BookingLinksData | undefined,
-  destinationCalendarId: string,
-) {
-  const calendars =
-    data?.calendarConnections.flatMap((connection) =>
-      connection.calendars.map((calendar) => ({
-        id: calendar.id,
-        isEnabled: calendar.isEnabled,
-        primary: calendar.primary,
-        provider: connection.provider,
-      })),
-    ) ?? [];
-
-  if (destinationCalendarId) {
-    return (
-      calendars.find((calendar) => calendar.id === destinationCalendarId)
-        ?.provider ?? null
-    );
-  }
-
-  return (
-    calendars.find((calendar) => calendar.isEnabled && calendar.primary)
-      ?.provider ??
-    calendars.find((calendar) => calendar.isEnabled)?.provider ??
-    null
-  );
-}
-
-function getProviderVideoLocationType(provider: string | null | undefined) {
-  if (isGoogleProvider(provider)) {
-    return BookingEventTypeLocationType.GOOGLE_MEET;
-  }
-  if (isMicrosoftProvider(provider)) {
-    return BookingEventTypeLocationType.MICROSOFT_TEAMS;
-  }
-  return null;
-}
-
-function getVideoLocationLabel(
-  locationType: BookingEventTypeLocationType | null,
-) {
-  if (locationType === BookingEventTypeLocationType.GOOGLE_MEET) {
-    return "Google Meet";
-  }
-  if (locationType === BookingEventTypeLocationType.MICROSOFT_TEAMS) {
-    return "Microsoft Teams";
-  }
-  return null;
-}
-
-function isProviderVideoLocationType(
-  locationType: BookingEventTypeLocationType,
-) {
-  return (
-    locationType === BookingEventTypeLocationType.GOOGLE_MEET ||
-    locationType === BookingEventTypeLocationType.MICROSOFT_TEAMS
   );
 }
 
