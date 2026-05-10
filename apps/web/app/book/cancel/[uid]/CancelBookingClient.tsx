@@ -3,15 +3,15 @@
 import { useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/Input";
+import { publicCancelBookingBody } from "@/utils/actions/booking.validation";
 import { getApiError } from "../../[slug]/BookingPageClient";
 
-const cancelFormSchema = z.object({
-  reason: z.string().trim().max(1000).optional(),
-});
+// The token comes from the URL; the form only collects the reason.
+const cancelFormSchema = publicCancelBookingBody.pick({ reason: true });
 type CancelFormValues = z.infer<typeof cancelFormSchema>;
 
 export function CancelBookingClient({
