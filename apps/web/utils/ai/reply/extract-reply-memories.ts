@@ -326,18 +326,13 @@ function getOllamaReplyMemoryGuidance({
   allowDomainScope: boolean;
 }) {
   return [
-    'Return a JSON object with exactly one top-level "memories" array.',
     'Each item in "memories" must have both "matchingExistingMemoryId" and "newMemory".',
     'For an existing memory match, use {"matchingExistingMemoryId":"existing-id","newMemory":null}.',
     'For a new memory, use {"matchingExistingMemoryId":null,"newMemory":{"content":"...","kind":"FACT","scopeType":"TOPIC","scopeValue":"pricing"}}.',
     "Use kind values exactly: FACT, PREFERENCE, PROCEDURE.",
     `Use scopeType values exactly: GLOBAL, SENDER,${allowDomainScope ? " DOMAIN," : ""} TOPIC.`,
-    "If the user adds stable business facts that were missing from the AI draft, create a FACT memory unless the edit says the fact is temporary or one-time.",
-    "Pricing amounts, billing rules, product limits, support policies, and qualification requirements are durable facts or procedures when the edit presents them as generally true.",
-    "Pricing and billing memories are FACT memories, not PROCEDURE memories.",
-    "If an edit adds concrete pricing, billing, product, policy, or limit information, classify it as FACT, not PROCEDURE.",
-    'FACT memory content should preserve the durable fact itself. Do not turn concrete facts into generic behavior instructions like "provide pricing details".',
-    "Preserve numeric amounts, product limits, billing conditions, and other concrete facts that the user added.",
-    "Use PROCEDURE only when the edit teaches a repeatable process or sequence of steps rather than a durable factual answer.",
+    "Stable business facts, pricing, billing rules, product limits, policies, and qualification requirements are FACT memories unless the edit says they are temporary or one-time.",
+    'FACT memory content should preserve concrete details such as numeric amounts, product limits, and billing conditions instead of becoming generic instructions like "provide pricing details".',
+    "Use PROCEDURE only when the edit teaches a repeatable process or sequence of steps.",
   ] as const;
 }

@@ -340,6 +340,19 @@ Representative edits:
     expect(result.confidence).toBe(DraftReplyConfidence.ALL_EMAILS);
   });
 
+  it("maps model-facing confidence levels to product settings", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Thanks for your message.",
+        confidence: "MEDIUM",
+      },
+    });
+
+    const result = await aiDraftReplyWithConfidence(getDraftParams());
+
+    expect(result.confidence).toBe(DraftReplyConfidence.STANDARD);
+  });
+
   it("returns the actual provider and model used for the successful draft generation", async () => {
     mockCreateGenerateObject.mockImplementationOnce(({ onModelUsed }) =>
       vi.fn().mockImplementationOnce(async () => {

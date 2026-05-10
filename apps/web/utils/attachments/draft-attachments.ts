@@ -889,7 +889,6 @@ function getDocumentPath(metadata: Prisma.JsonValue | null) {
 }
 
 const OLLAMA_ATTACHMENT_SELECTION_RESPONSE_GUIDANCE = [
-  'Return a JSON object with exactly one top-level "attachments" array.',
   'Each selected attachment must be an object with "candidateId" and "reason".',
   'Use the exact candidate id from the provided list, for example: {"attachments":[{"candidateId":"drive-1:file-123","reason":"Current certificate requested by property name"}]}',
   'When nothing is clearly relevant, return {"attachments":[]}.',

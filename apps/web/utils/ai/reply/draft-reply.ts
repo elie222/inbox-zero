@@ -216,17 +216,17 @@ ${getTodayForLLM()}
 IMPORTANT: You are writing an email as ${emailAccount.email}. Write the reply from their perspective.`;
 };
 
+const llmDraftConfidenceSchema = z.enum(["LOW", "MEDIUM", "HIGH"]);
+
 const draftSchema = z.object({
   reply: z
     .string()
     .describe(
       "The complete email reply draft incorporating knowledge base information",
     ),
-  confidence: z
-    .nativeEnum(DraftReplyConfidence)
-    .describe(
-      "Required value: ALL_EMAILS, STANDARD, or HIGH_CONFIDENCE. Use HIGH_CONFIDENCE when the draft is complete, grounded, and likely safe to use as-is. Use STANDARD for useful drafts that should be reviewed because they rely on reasonable assumptions, missing facts, or user-verifiable actions. Use ALL_EMAILS when the draft is highly uncertain, likely needs broader thread/context review, or mainly asks/checks/follows up.",
-    ),
+  confidence: llmDraftConfidenceSchema.describe(
+    "Use HIGH only when the draft is complete, grounded, and does not depend on missing facts, unavailable calendar/business state, assumptions, or user-fillable details. Use MEDIUM for useful drafts that rely on reasonable assumptions, missing facts, or user-fillable details. Use LOW when the draft is highly uncertain, likely needs broader thread/context review, or mainly asks/checks/follows up.",
+  ),
 });
 
 export type DraftReplyResult = {
@@ -339,7 +339,7 @@ export async function aiDraftReplyWithConfidence({
 
   return {
     reply: normalizeDraftReplyFormatting(result.object.reply),
-    confidence: normalizeDraftReplyConfidence(result.object.confidence),
+    confidence: mapLlmDraftConfidence(result.object.confidence),
     attribution: attributionTracker.attribution,
   };
 }
@@ -438,6 +438,22 @@ function isLikelyListItem(line: string): boolean {
   return /^(\s*[-*]\s+|\s*\d+[.)]\s+|\s*[a-zA-Z][.)]\s+|>\s+)/.test(line);
 }
 
+function mapLlmDraftConfidence(confidence: unknown): DraftReplyConfidence {
+  const llmConfidence = llmDraftConfidenceSchema.safeParse(confidence);
+  if (!llmConfidence.success) {
+    return normalizeDraftReplyConfidence(confidence);
+  }
+
+  switch (llmConfidence.data) {
+    case "LOW":
+      return DraftReplyConfidence.ALL_EMAILS;
+    case "MEDIUM":
+      return DraftReplyConfidence.STANDARD;
+    case "HIGH":
+      return DraftReplyConfidence.HIGH_CONFIDENCE;
+  }
+}
+
 // Matches any non-separator, non-whitespace character repeated 50+ times in a row
 const REPETITIVE_TEXT_PATTERN = /([^\s\-=_*.#~])\1{49,}/u;
 
@@ -531,6 +547,6 @@ function formatLocalSlotTimeAsUtc(
 const OLLAMA_DRAFT_RESPONSE_GUIDANCE = [
   'Return a JSON object with exactly two top-level fields: "reply" and "confidence".',
   '"reply" must be one complete email reply as a single plain-text string, not an array of alternatives.',
-  '"confidence" must be one of "ALL_EMAILS", "STANDARD", or "HIGH_CONFIDENCE".',
-  'Example valid output: {"reply":"Thanks for reaching out. I will take a look and follow up shortly.","confidence":"STANDARD"}',
+  '"confidence" must be one of "LOW", "MEDIUM", or "HIGH".',
+  'Example valid output: {"reply":"Thanks for reaching out. I will take a look and follow up shortly.","confidence":"MEDIUM"}',
 ] as const;

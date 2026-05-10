@@ -437,10 +437,7 @@ These are hints from past user actions. Still evaluate the current email on its 
 
 const OLLAMA_MULTI_RULE_SELECTION_GUIDANCE = [
   "Do not be greedy. Only select secondary rules when they capture a separate, independently actionable purpose in the email.",
-  "Do not select a problem, alert, or action-needed rule just because related words appear. Select it only when the email actually describes a problem, risk, failed action, or required user action.",
-  "Successful receipts, paid invoices, renewals, confirmations, and completed orders should usually match only the receipt/order rule unless the email also reports a separate problem.",
-  "Do not add a generic notification or account-update rule when a more specific transactional rule already fully explains the email.",
-  "Before returning JSON, remove any selected generic rule whose purpose is fully contained by a more specific selected rule.",
-  "When a receipt, invoice, order, or payment-success rule matches, do not also select an account notification/update rule unless the email asks the user to take separate account action.",
-  "Prefer one best rule when all candidate rules refer to the same underlying event.",
+  "Select problem, alert, or action-needed rules only when the email actually describes a problem, risk, failed action, or required user action.",
+  "When one specific transactional rule fully explains the email, do not also select a generic notification or account-update rule.",
+  "Prefer one best rule when candidate rules refer to the same underlying event.",
 ] as const;
