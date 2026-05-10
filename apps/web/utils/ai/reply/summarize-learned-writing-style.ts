@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
+import { appendOllamaOnlySystemGuidance } from "@/utils/llms/ollama-guidance";
 import type { getEmailAccountWithAi } from "@/utils/user/get";
 
 const learnedWritingStyleSchema = z.object({
@@ -30,7 +31,11 @@ Summarize the user's learned writing style from this preference evidence.`;
 
   const result = await generateObject({
     ...modelOptions,
-    system: getSystemPrompt(),
+    system: appendOllamaOnlySystemGuidance(
+      { system: getSystemPrompt() },
+      modelOptions,
+      OLLAMA_LEARNED_WRITING_STYLE_RESPONSE_GUIDANCE,
+    ).system,
     prompt,
     schema: learnedWritingStyleSchema,
   });
@@ -55,3 +60,8 @@ Rules:
 - Do not mention names, email addresses, company names, phone numbers, dates, links, or other identifying details.
 - This learned summary is advisory and should complement, not replace, explicit user-written style settings.`;
 }
+
+const OLLAMA_LEARNED_WRITING_STYLE_RESPONSE_GUIDANCE = [
+  'Return a JSON object with exactly one top-level "learnedWritingStyle" string.',
+  'Put the complete style guide inside "learnedWritingStyle"; do not return markdown or bullets outside the JSON object.',
+] as const;

@@ -7,6 +7,20 @@ import { createUnsubscribeToken } from "@/utils/unsubscribe";
 
 // Used to store error messages for a user which we display in the UI
 
+export const ErrorType = {
+  INCORRECT_API_KEY: "Incorrect API key",
+  INVALID_AI_MODEL: "Invalid AI model",
+  API_KEY_DEACTIVATED: "API key deactivated",
+  AI_QUOTA_ERROR: "AI quota error",
+  INSUFFICIENT_CREDITS: "Insufficient AI credits",
+  TRIAL_AI_LIMIT_REACHED: "Trial AI limit reached",
+  ACCOUNT_DISCONNECTED: "Account disconnected",
+  // Legacy keys kept for clearing old stored errors
+  INCORRECT_OPENAI_API_KEY: "Incorrect OpenAI API key",
+  OPENAI_API_KEY_DEACTIVATED: "OpenAI API key deactivated",
+  ANTHROPIC_INSUFFICIENT_BALANCE: "Anthropic insufficient balance",
+} as const;
+
 type ErrorMessageEntry = {
   message: string;
   timestamp: string;
@@ -14,6 +28,11 @@ type ErrorMessageEntry = {
 };
 
 type ErrorMessages = Record<string, ErrorMessageEntry>;
+type ErrorTypeValue = (typeof ErrorType)[keyof typeof ErrorType];
+export type PersistedErrorType = Exclude<
+  ErrorTypeValue,
+  typeof ErrorType.TRIAL_AI_LIMIT_REACHED
+>;
 
 export async function getUserErrorMessages(
   userId: string,
@@ -22,12 +41,28 @@ export async function getUserErrorMessages(
     where: { id: userId },
     select: { errorMessages: true },
   });
-  return (user?.errorMessages as ErrorMessages) || null;
+  const errorMessages = (user?.errorMessages as ErrorMessages) || null;
+
+  if (errorMessages?.[ErrorType.TRIAL_AI_LIMIT_REACHED]) {
+    const updatedErrorMessages = { ...errorMessages };
+    delete updatedErrorMessages[ErrorType.TRIAL_AI_LIMIT_REACHED];
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { errorMessages: updatedErrorMessages },
+    });
+
+    return Object.keys(updatedErrorMessages).length
+      ? updatedErrorMessages
+      : null;
+  }
+
+  return errorMessages;
 }
 
 export async function addUserErrorMessage(
   userId: string,
-  errorType: (typeof ErrorType)[keyof typeof ErrorType],
+  errorType: PersistedErrorType,
   errorMessage: string,
   logger: Logger,
 ): Promise<void> {
@@ -77,7 +112,7 @@ export async function clearSpecificErrorMessages({
   logger,
 }: {
   userId: string;
-  errorTypes: (typeof ErrorType)[keyof typeof ErrorType][];
+  errorTypes: ErrorTypeValue[];
   logger: Logger;
 }): Promise<void> {
   try {
@@ -109,22 +144,8 @@ export async function clearSpecificErrorMessages({
   }
 }
 
-export const ErrorType = {
-  INCORRECT_API_KEY: "Incorrect API key",
-  INVALID_AI_MODEL: "Invalid AI model",
-  API_KEY_DEACTIVATED: "API key deactivated",
-  AI_QUOTA_ERROR: "AI quota error",
-  INSUFFICIENT_CREDITS: "Insufficient AI credits",
-  TRIAL_AI_LIMIT_REACHED: "Trial AI limit reached",
-  ACCOUNT_DISCONNECTED: "Account disconnected",
-  // Legacy keys kept for clearing old stored errors
-  INCORRECT_OPENAI_API_KEY: "Incorrect OpenAI API key",
-  OPENAI_API_KEY_DEACTIVATED: "OpenAI API key deactivated",
-  ANTHROPIC_INSUFFICIENT_BALANCE: "Anthropic insufficient balance",
-};
-
 const errorTypeConfig: Record<
-  (typeof ErrorType)[keyof typeof ErrorType],
+  PersistedErrorType,
   { label: string; actionUrl: string; actionLabel: string }
 > = {
   [ErrorType.INCORRECT_API_KEY]: {
@@ -151,11 +172,6 @@ const errorTypeConfig: Record<
     label: "Insufficient Credits",
     actionUrl: "/settings",
     actionLabel: "Update Settings",
-  },
-  [ErrorType.TRIAL_AI_LIMIT_REACHED]: {
-    label: "Trial AI Limit Reached",
-    actionUrl: "/premium",
-    actionLabel: "Upgrade",
   },
   [ErrorType.ACCOUNT_DISCONNECTED]: {
     label: "Account Disconnected",
@@ -191,7 +207,7 @@ export async function addUserErrorMessageWithNotification({
   userId: string;
   userEmail: string;
   emailAccountId: string;
-  errorType: (typeof ErrorType)[keyof typeof ErrorType];
+  errorType: PersistedErrorType;
   errorMessage: string;
   logger: Logger;
 }): Promise<void> {

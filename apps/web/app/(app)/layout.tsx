@@ -11,6 +11,7 @@ import { CommandK } from "@/components/CommandK";
 import { AppProviders } from "@/providers/AppProviders";
 import { AssessUser } from "@/app/(app)/[emailAccountId]/assess";
 import { SentryIdentify } from "@/app/(app)/sentry-identify";
+import { AiAutomationStatusBanner } from "@/app/(app)/AiAutomationStatusBanner";
 import { ErrorMessages } from "@/app/(app)/ErrorMessages";
 import { ProviderRateLimitBanner } from "@/app/(app)/ProviderRateLimitBanner";
 import { QueueInitializer } from "@/store/QueueInitializer";
@@ -73,6 +74,7 @@ export default async function AppLayout({
       <div className="font-inter">
         <AppProviders>
           <SideNavWithTopNav defaultOpen={!isClosed}>
+            <AiAutomationStatusBanner />
             <ErrorMessages />
             <ProviderRateLimitBanner />
             {children}

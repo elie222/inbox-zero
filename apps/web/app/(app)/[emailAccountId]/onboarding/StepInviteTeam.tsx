@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import {
-  inviteMemberAction,
+  inviteMembersAction,
   createOrganizationAndInviteAction,
 } from "@/utils/actions/organization";
 import { isValidEmail } from "@/utils/email";
@@ -63,15 +63,20 @@ export function StepInviteTeam({
     let errorCount = 0;
 
     if (organizationId) {
-      const results = await Promise.all(
-        emails.map((email) =>
-          inviteMemberAction({ email, role: "member", organizationId }),
-        ),
-      );
-      for (const result of results) {
-        if (result?.serverError || result?.validationErrors) errorCount++;
-        else successCount++;
+      const result = await inviteMembersAction({
+        organizationId,
+        invitations: emails.map((email) => ({ email, role: "member" })),
+      });
+
+      if (result?.serverError || result?.validationErrors) {
+        toastError({ description: "Failed to send invitations" });
+        return;
       }
+
+      if (!result?.data) return;
+
+      successCount = result.data.results.filter((r) => r.success).length;
+      errorCount = result.data.results.filter((r) => !r.success).length;
     } else {
       const result = await createOrganizationAndInviteAction(emailAccountId, {
         emails,

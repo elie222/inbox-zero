@@ -707,14 +707,84 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       query: "from:sender@example.com",
       maxResults: 20,
       pageToken: undefined,
+      readState: undefined,
+      labelName: undefined,
     });
     expect(searchMessages).toHaveBeenNthCalledWith(2, {
       query: '"sender@example.com"',
       maxResults: 20,
       pageToken: undefined,
+      readState: undefined,
+      labelName: undefined,
     });
     expect(result.messages).toHaveLength(1);
     expect(result.queryUsed).toBe('"sender@example.com"');
+  });
+
+  it("searchInbox passes structured Outlook label and read-state filters", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [],
+      nextPageToken: undefined,
+    });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    await (toolInstance.execute as any)({
+      query: "",
+      labelName: "Newsletter",
+      readState: "unread",
+      limit: 20,
+    });
+
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "",
+      maxResults: 20,
+      pageToken: undefined,
+      readState: "unread",
+      labelName: "Newsletter",
+    });
+  });
+
+  it("searchInbox does not pass structured Outlook filters to Google", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [],
+      nextPageToken: undefined,
+    });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    await (toolInstance.execute as any)({
+      query: "newsletter",
+      labelName: "Newsletter",
+      readState: "unread",
+      limit: 20,
+    });
+
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "newsletter",
+      maxResults: 20,
+      pageToken: undefined,
+    });
   });
 
   it("searchInbox returns structured Microsoft failure feedback when every attempt fails", async () => {

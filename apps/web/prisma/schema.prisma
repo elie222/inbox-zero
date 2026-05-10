@@ -1437,6 +1437,7 @@ model DocumentFiling {
   @@index([emailAccountId, status])
   @@index([driveConnectionId])
   @@index([messageId])
+  @@unique([emailAccountId, messageId, attachmentId])
 }
 
 model AttachmentSource {
@@ -1642,6 +1643,7 @@ enum ColdEmailStatus {
 }
 
 enum DocumentFilingStatus {
+  PROCESSING // Filing is currently being processed
   PENDING // Waiting for user input
   FILED // Document is filed (auto or after user confirmation)
   REJECTED // User said skip

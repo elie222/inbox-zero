@@ -30,6 +30,7 @@ import type { EmailAccountWithAI, UserAIFields } from "@/utils/llms/types";
 import {
   addUserErrorMessageWithNotification,
   ErrorType,
+  type PersistedErrorType,
 } from "@/utils/error-messages";
 import {
   attachLlmRepairMetadata,
@@ -57,6 +58,10 @@ import {
   shouldForceNanoModel,
 } from "@/utils/llms/model-usage-guard";
 import { Provider } from "@/utils/llms/config";
+import {
+  appendOllamaOnlySystemGuidance,
+  OLLAMA_STRUCTURED_OUTPUT_GUIDANCE,
+} from "@/utils/llms/ollama-guidance";
 import { createScopedLogger } from "@/utils/logger";
 import { getPosthogLlmClient, isPosthogLlmEvalApproved } from "@/utils/posthog";
 import {
@@ -238,6 +243,7 @@ export function createGenerateText({
         await saveUsageWithMetadata({
           result,
           usage: result.usage,
+          userId: emailAccount.userId,
           email: emailAccount.email,
           emailAccountId: emailAccount.id,
           provider: candidate.provider,
@@ -343,14 +349,18 @@ export function createGenerateObject({
         system: typeof options.system === "string" ? options.system : undefined,
         promptHardening,
       });
-      const protectedOptions = enforceSensitiveDataPolicy({
-        options: { ...options, system: systemText },
-        policy: emailAccount.sensitiveDataPolicy,
-        logger,
-        label,
-        userId: emailAccount.userId,
-        emailAccountId: emailAccount.id,
-      });
+      const protectedOptions = appendOllamaOnlySystemGuidance(
+        enforceSensitiveDataPolicy({
+          options: { ...options, system: systemText },
+          policy: emailAccount.sensitiveDataPolicy,
+          logger,
+          label,
+          userId: emailAccount.userId,
+          emailAccountId: emailAccount.id,
+        }),
+        candidate,
+        OLLAMA_STRUCTURED_OUTPUT_GUIDANCE,
+      );
 
       logger.trace("Generating object", {
         label,
@@ -429,6 +439,7 @@ export function createGenerateObject({
         await saveUsageWithMetadata({
           result,
           usage: result.usage,
+          userId: emailAccount.userId,
           email: emailAccount.email,
           emailAccountId: emailAccount.id,
           provider: candidate.provider,
@@ -600,6 +611,7 @@ export async function chatCompletionStream({
           const usagePromise = saveUsageWithMetadata({
             result,
             usage: result.usage,
+            userId,
             email: userEmail,
             emailAccountId,
             provider: candidate.provider,
@@ -797,6 +809,7 @@ export async function toolCallAgentStream({
         const usagePromise = saveUsageWithMetadata({
           result,
           usage: result.totalUsage,
+          userId,
           email: userEmail,
           emailAccountId,
           provider: candidate.provider,
@@ -1006,7 +1019,7 @@ async function handleError(
 
   if (APICallError.isInstance(error)) {
     const notifyUser = async (
-      errorType: (typeof ErrorType)[keyof typeof ErrorType],
+      errorType: PersistedErrorType,
       errorMessage: string,
     ) => {
       if (hasUserApiKey) markAsHandledUserKeyError(error);
@@ -1592,6 +1605,7 @@ function getUsageMetadata(result: unknown): UsageMetadata {
 async function saveUsageWithMetadata({
   result,
   usage,
+  userId,
   email,
   emailAccountId,
   provider,
@@ -1601,6 +1615,7 @@ async function saveUsageWithMetadata({
 }: {
   result: unknown;
   usage: Parameters<typeof saveAiUsage>[0]["usage"];
+  userId?: string;
   email: string;
   emailAccountId: string;
   provider: string;
@@ -1611,6 +1626,7 @@ async function saveUsageWithMetadata({
   const usageMetadata = getUsageMetadata(result);
 
   await saveAiUsage({
+    userId,
     email,
     emailAccountId,
     usage,

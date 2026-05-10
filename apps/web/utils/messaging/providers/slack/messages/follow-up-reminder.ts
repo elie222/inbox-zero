@@ -35,9 +35,12 @@ export function buildFollowUpReminderBlocks({
   threadLinkLabel,
   trackerId,
 }: FollowUpReminderBlocksParams): (KnownBlock | Block)[] {
-  const { directionLine, counterpartyPrefix, snippetLabel, emoji } =
+  const { isAwaiting, counterpartyPrefix, snippetLabel, emoji } =
     getFollowUpCopy(trackerType);
   const elapsedTime = `${daysSinceSent} ${pluralize(daysSinceSent, "day")} ago`;
+  const title = isAwaiting
+    ? "Follow-up: waiting for their reply"
+    : "Follow-up: reply needed from you";
 
   const counterpartyMarkdown = `${escapeSlackText(counterpartyPrefix)} *${escapeSlackText(normalizeFollowUpText(counterpartyName))}* \`<${escapeSlackText(counterpartyEmail)}>\``;
 
@@ -46,13 +49,9 @@ export function buildFollowUpReminderBlocks({
       type: "header",
       text: {
         type: "plain_text",
-        text: `${emoji} Follow-up nudge`,
+        text: `${emoji} ${title}`,
         emoji: true,
       },
-    },
-    {
-      type: "context",
-      elements: [{ type: "mrkdwn", text: `_${directionLine}_` }],
     },
     {
       type: "section",
@@ -96,11 +95,6 @@ export function buildFollowUpReminderBlocks({
     elements: actionElements,
   };
   blocks.push(actionsBlock);
-
-  blocks.push({
-    type: "context",
-    elements: [{ type: "mrkdwn", text: "Inbox Zero" }],
-  });
 
   return blocks;
 }

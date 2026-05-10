@@ -419,32 +419,68 @@ export type ManageSenderCategoryTool = InferUITool<
   ReturnType<typeof manageSenderCategoryTool>
 >;
 
-function getSearchQueryDescription(provider: string): string {
-  if (isMicrosoftProvider(provider)) {
-    return "Search query using Outlook search syntax. Supports: unread, read, subject:, keyword search, and plain sender email lookups. Prefer a plain sender email like sender@example.com when searching by sender. Keep Outlook retries to one simple clause at a time. If you use from:, keep it as a simple standalone filter. If the tool returns microsoftSearchFeedback.retryQueries after a failed search, prefer one suggested simpler retry query instead of repeating the same query shape. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.";
-  }
-  return "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.";
-}
+const searchInboxBaseFields = {
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(SEARCH_INBOX_MAX_RESULTS)
+    .default(SEARCH_INBOX_MAX_RESULTS)
+    .describe("Maximum number of messages to return."),
+  pageToken: microsoftGraphPageTokenSchema.describe(
+    "Use the page token returned from a prior search to paginate.",
+  ),
+};
 
-function searchInboxInputSchema(provider: string) {
-  return z.object({
+const gmailSearchInboxInputSchema = z.object({
+  query: z
+    .string()
+    .trim()
+    .min(1)
+    .max(500)
+    .describe(
+      "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.",
+    ),
+  ...searchInboxBaseFields,
+});
+
+const outlookSearchInboxInputSchema = z
+  .object({
     query: z
       .string()
       .trim()
-      .min(1)
       .max(500)
-      .describe(getSearchQueryDescription(provider)),
-    limit: z
-      .number()
-      .int()
+      .default("")
+      .describe(
+        "Text search query using Outlook search syntax. Supports: unread, read, subject:, keyword search, and plain sender email lookups. Prefer a plain sender email like sender@example.com when searching by sender. Keep Outlook retries to one simple clause at a time. If you use from:, keep it as a simple standalone filter. If the tool returns microsoftSearchFeedback.retryQueries after a failed search, prefer one suggested simpler retry query instead of repeating the same query shape. Do not use Gmail-specific operators like in:, is:, label:, category:, or after:/before:.",
+      ),
+    ...searchInboxBaseFields,
+    readState: z
+      .enum(["read", "unread"])
+      .nullish()
+      .describe(
+        "Optional structured read-state filter. For Outlook category cleanup, prefer this over putting read/unread in query.",
+      ),
+    labelName: z
+      .string()
+      .trim()
       .min(1)
-      .max(SEARCH_INBOX_MAX_RESULTS)
-      .default(SEARCH_INBOX_MAX_RESULTS)
-      .describe("Maximum number of messages to return."),
-    pageToken: microsoftGraphPageTokenSchema.describe(
-      "Use the page token returned from a prior search to paginate.",
-    ),
-  });
+      .nullish()
+      .describe(
+        "Optional exact Outlook label/category name to filter by. Use only when the user refers to an Outlook label/category, not when searching for text that happens to match a label name.",
+      ),
+  })
+  .refine(
+    (value) => Boolean(value.query || value.readState || value.labelName),
+    {
+      message: "query, readState, or labelName is required",
+    },
+  );
+
+function searchInboxInputSchema(provider: string) {
+  return isMicrosoftProvider(provider)
+    ? outlookSearchInboxInputSchema
+    : gmailSearchInboxInputSchema;
 }
 
 export const searchInboxTool = ({
@@ -462,8 +498,22 @@ export const searchInboxTool = ({
     description:
       "Search inbox messages and return concise message metadata. Limit must be between 1 and 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion. totalReturned is only the number of messages returned by this call, so do not present it or a single search page as an exact mailbox, folder, or label count. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
     inputSchema: searchInboxInputSchema(provider),
-    execute: async ({ query, limit, pageToken }) => {
+    execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
+
+      const {
+        query = "",
+        limit,
+        pageToken,
+        readState,
+        labelName,
+      } = input as {
+        query?: string;
+        limit?: number;
+        pageToken?: string;
+        readState?: "read" | "unread" | null;
+        labelName?: string | null;
+      };
 
       try {
         const emailProvider = await createEmailProvider({
@@ -496,11 +546,20 @@ export const searchInboxTool = ({
         for (let i = 0; i < searchQueries.length; i++) {
           const candidateQuery = searchQueries[i];
           try {
-            searchResult = await emailProvider.searchMessages({
+            const searchOptions: Parameters<
+              EmailProvider["searchMessages"]
+            >[0] = {
               query: candidateQuery,
               maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
               pageToken: pageToken ?? undefined,
-            });
+            };
+
+            if (isMicrosoftProvider(provider)) {
+              searchOptions.readState = readState ?? undefined;
+              searchOptions.labelName = labelName ?? undefined;
+            }
+
+            searchResult = await emailProvider.searchMessages(searchOptions);
             queryUsed = candidateQuery;
             break;
           } catch (error) {

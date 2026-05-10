@@ -1,6 +1,3 @@
-import { subHours } from "date-fns/subHours";
-import { addMinutes } from "date-fns/addMinutes";
-import { differenceInDays } from "date-fns/differenceInDays";
 import prisma from "@/utils/prisma";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -32,7 +29,11 @@ import {
   type LabelIds,
 } from "@/utils/reply-tracker/label-helpers";
 import { getRuleLabel } from "@/utils/rule/consts";
-import { internalDateToDate } from "@/utils/date";
+import {
+  getElapsedBusinessDaysForDisplay,
+  hasElapsedBusinessDays,
+  internalDateToDate,
+} from "@/utils/date";
 import {
   extractEmailAddress,
   extractNameFromEmail,
@@ -339,11 +340,6 @@ async function processFollowUpsForType({
     count: threads.length,
   });
 
-  const threshold = subHours(now, thresholdDays * 24);
-  const thresholdWithWindow = getThresholdWithWindow(
-    threshold,
-    FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES,
-  );
   const trackerType =
     systemType === SystemType.AWAITING_REPLY
       ? ThreadTrackerType.AWAITING
@@ -376,7 +372,15 @@ async function processFollowUpsForType({
       }
 
       const messageDate = internalDateToDate(lastMessage.internalDate);
-      if (messageDate >= thresholdWithWindow) {
+      if (
+        !hasElapsedBusinessDays({
+          start: messageDate,
+          end: now,
+          days: thresholdDays,
+          windowMinutes: FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES,
+          timezone: emailAccount.timezone,
+        })
+      ) {
         skippedTooRecentCount++;
         continue;
       }
@@ -523,7 +527,11 @@ async function processFollowUpsForType({
             counterpartyName,
             counterpartyEmail,
             trackerType,
-            daysSinceSent: Math.max(1, differenceInDays(now, messageDate)),
+            daysSinceSent: getElapsedBusinessDaysForDisplay({
+              start: messageDate,
+              end: now,
+              timezone: emailAccount.timezone,
+            }),
             snippet: lastMessage.snippet || undefined,
             threadLink:
               getEmailUrlForOptionalMessage({
@@ -582,10 +590,6 @@ async function processFollowUpsForType({
     eligibilityWindowMinutes: FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES,
     thresholdDays,
   });
-}
-
-function getThresholdWithWindow(threshold: Date, windowMinutes: number): Date {
-  return addMinutes(threshold, windowMinutes);
 }
 
 type ProcessedFollowUpLedger = Map<

@@ -16,6 +16,7 @@ import { createScopedLogger } from "@/utils/logger";
 const logger = createScopedLogger("usage");
 
 export async function saveAiUsage({
+  userId,
   email,
   emailAccountId,
   provider,
@@ -29,6 +30,7 @@ export async function saveAiUsage({
   stepCount,
   toolCallCount,
 }: {
+  userId?: string;
   email: string;
   emailAccountId: string;
   provider: string;
@@ -49,7 +51,7 @@ export async function saveAiUsage({
   try {
     return Promise.all([
       publishAiCall({
-        userId: email,
+        userId: userId ?? email,
         emailAccountId,
         provider,
         model,
@@ -69,7 +71,7 @@ export async function saveAiUsage({
         stepCount,
         toolCallCount,
       }),
-      saveUsage({ email, cost: platformCost, usage }),
+      saveUsage({ userId, emailAccountId, cost: platformCost, usage }),
     ]);
   } catch (error) {
     logger.error("Failed to save usage", { error });

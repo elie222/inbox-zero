@@ -608,6 +608,521 @@ Dana`,
       );
     });
 
+    describe("grounding and uncertainty", () => {
+      test(
+        "does not invent pricing terms without pricing context",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Maya Chen <maya@customer.example>",
+                to: emailAccount.email,
+                subject: "Pricing confirmation",
+                content: `Hi,
+
+Can you confirm the annual price and whether the discount we discussed still applies?
+
+Thanks,
+Maya`,
+              }),
+              date: new Date("2026-05-03T11:00:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = "missing pricing context";
+          const judgeResult = await judgeEvalOutput({
+            input: messages
+              .map((message) => message.content)
+              .join("\n\n---\n\n"),
+            output: result.reply,
+            expected:
+              "A useful editable draft that does not invent concrete pricing details such as an annual price, discount amount, signing deadline, or extra payment terms because no pricing context was provided. It must not be high confidence.",
+            criterion: {
+              name: "No unsupported concrete pricing details",
+              description:
+                "The draft must not invent concrete pricing values, discount amounts, deadlines, or extra payment terms that are not present in the input. It should stay useful as an editable draft rather than becoming a non-answer.",
+            },
+          });
+          const pass =
+            result.confidence !== "HIGH_CONFIDENCE" && judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected:
+              "no invented concrete pricing details, not high confidence",
+            actual: `confidence=${result.confidence} | ${formatSemanticJudgeActual(
+              result.reply,
+              judgeResult,
+            )}`,
+          });
+
+          expect(
+            pass,
+            `Draft should not invent pricing or mark high confidence without pricing context.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "uses supplied pricing terms when pricing context is provided",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Maya Chen <maya@customer.example>",
+                to: emailAccount.email,
+                subject: "Pricing confirmation",
+                content: `Hi,
+
+Can you confirm the annual price and whether the discount we discussed still applies?
+
+Thanks,
+Maya`,
+              }),
+              date: new Date("2026-05-03T11:00:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent:
+              "For this customer, the approved annual price is $4,800. A 15% renewal discount applies if they sign by May 31.",
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = "provided pricing context";
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              messages.map((message) => message.content).join("\n\n---\n\n"),
+              "",
+              "## Knowledge Base",
+              "For this customer, the approved annual price is $4,800. A 15% renewal discount applies if they sign by May 31.",
+            ].join("\n"),
+            output: result.reply,
+            expected:
+              "A reply that uses the supplied pricing context to answer the sender with the approved annual price, renewal discount, and signing deadline, without inventing extra pricing terms.",
+            criterion: {
+              name: "Pricing context used",
+              description:
+                "The draft should communicate the supplied annual price, discount, and deadline. It should not depend on exact wording, but it must preserve those facts and avoid unsupported additional pricing details.",
+            },
+          });
+          const pass = judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "$4,800, 15% discount, May 31",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should use the supplied pricing terms.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "lowers confidence when attachment context is missing",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Dana Lee <dana@clientcorp.com>",
+                to: emailAccount.email,
+                subject: "Signed order form",
+                content: `Hi,
+
+Can you send over the signed order form for our records?
+
+Thanks,
+Dana`,
+              }),
+              date: new Date("2026-05-04T09:30:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const pass = result.confidence !== "HIGH_CONFIDENCE";
+          const testName = "missing attachment context";
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "not high confidence without selected attachment context",
+            actual: `confidence=${result.confidence} | reply=${JSON.stringify(result.reply)}`,
+          });
+
+          expect(
+            pass,
+            `Draft should not be marked high confidence without selected attachment context.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "mentions selected attachment when attachment context is provided",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Dana Lee <dana@clientcorp.com>",
+                to: emailAccount.email,
+                subject: "Signed order form",
+                content: `Hi,
+
+Can you send over the signed order form for our records?
+
+Thanks,
+Dana`,
+              }),
+              date: new Date("2026-05-04T09:30:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+            attachmentContext:
+              'Signed Order Form.pdf — selected because the sender asked for "the signed order form".',
+          });
+
+          const testName = "provided attachment context";
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              messages.map((message) => message.content).join("\n\n---\n\n"),
+              "",
+              "## Selected Attachments",
+              'Signed Order Form.pdf — selected because the sender asked for "the signed order form".',
+            ].join("\n"),
+            output: result.reply,
+            expected:
+              "A reply that uses the selected attachment context to tell the sender the requested signed order form is included or available with the draft, without inventing unrelated attachments.",
+            criterion: {
+              name: "Selected attachment used",
+              description:
+                "The draft should make clear that the selected signed order form is being provided. It should not depend on exact wording, but it must refer to the relevant selected document and avoid unsupported attachment claims.",
+            },
+          });
+          const pass = judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "mentions attached order form",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should mention the selected attachment.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "lowers confidence when refund authority context is missing",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Riley Stone <riley@customer.example>",
+                to: emailAccount.email,
+                subject: "Refund approval",
+                content: `Hi,
+
+Can you approve the refund for the duplicate charge?
+
+Thanks,
+Riley`,
+              }),
+              date: new Date("2026-05-05T13:20:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const pass = result.confidence !== "HIGH_CONFIDENCE";
+          const testName = "missing refund authority context";
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "not high confidence without refund authority context",
+            actual: `confidence=${result.confidence} | reply=${JSON.stringify(result.reply)}`,
+          });
+
+          expect(
+            pass,
+            `Draft should not be marked high confidence without refund authority context.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "uses supplied refund approval context",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Riley Stone <riley@customer.example>",
+                to: emailAccount.email,
+                subject: "Refund approval",
+                content: `Hi,
+
+Can you approve the refund for the duplicate charge?
+
+Thanks,
+Riley`,
+              }),
+              date: new Date("2026-05-05T13:20:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent:
+              "The duplicate charge refund for this customer is approved. Finance will process it by Friday.",
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = "provided refund authority context";
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              messages.map((message) => message.content).join("\n\n---\n\n"),
+              "",
+              "## Knowledge Base",
+              "The duplicate charge refund for this customer is approved. Finance will process it by Friday.",
+            ].join("\n"),
+            output: result.reply,
+            expected:
+              "A reply that uses the supplied context to tell the sender the refund is approved and finance will process it by Friday, without inventing extra refund timing or payment details.",
+            criterion: {
+              name: "Refund context used",
+              description:
+                "The draft should communicate the approved refund and Friday processing timeline from the supplied context. It should not depend on exact wording, but it must preserve those two facts and avoid unsupported additional details.",
+            },
+          });
+          const pass = judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "refund approved and processed by Friday",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should use the supplied refund approval context.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "lowers confidence when meeting context is missing",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Priya Sharma <priya@launchpad.dev>",
+                to: emailAccount.email,
+                subject: "Tomorrow",
+                content: `Hey,
+
+Are we still on for tomorrow?
+
+Priya`,
+              }),
+              date: new Date("2026-05-06T15:00:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const pass = result.confidence !== "HIGH_CONFIDENCE";
+          const testName = "missing meeting context";
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "not high confidence without meeting context",
+            actual: `confidence=${result.confidence} | reply=${JSON.stringify(result.reply)}`,
+          });
+
+          expect(
+            pass,
+            `Draft should not be marked high confidence without meeting context.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "uses supplied meeting context to confirm a meeting",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Priya Sharma <priya@launchpad.dev>",
+                to: emailAccount.email,
+                subject: "Tomorrow",
+                content: `Hey,
+
+Are we still on for tomorrow?
+
+Priya`,
+              }),
+              date: new Date("2026-05-06T15:00:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext:
+              "Upcoming calendar context: a meeting with Priya Sharma is scheduled for tomorrow at 3:00 PM.",
+          });
+
+          const testName = "provided meeting context";
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              messages.map((message) => message.content).join("\n\n---\n\n"),
+              "",
+              "## Meeting Context",
+              "Upcoming calendar context: a meeting with Priya Sharma is scheduled for tomorrow at 3:00 PM.",
+            ].join("\n"),
+            output: result.reply,
+            expected:
+              "A reply that uses the supplied meeting context to confirm the meeting and preserve the scheduled time of tomorrow at 3:00 PM, without inventing a different time or unsupported meeting details.",
+            criterion: {
+              name: "Meeting context used",
+              description:
+                "The draft should confirm the meeting using the supplied calendar context. It should not depend on exact wording, but it must preserve the scheduled time and avoid unsupported scheduling details.",
+            },
+          });
+          const pass = judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "confirms tomorrow at 3:00 PM",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should use the supplied meeting context.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+    });
+
     describe("punctuation defaults", () => {
       test(
         "does not use em dash when writing style does not ask for it",
@@ -749,8 +1264,13 @@ function hasExactUrl(text: string, expectedUrl: string): boolean {
 }
 
 function extractUrls(text: string): string[] {
-  return (text.match(/https?:\/\/[^\s<>"']+/g) ?? []).map((url) =>
-    url.replace(/[),.?!;:]+$/g, ""),
+  const markdownLinkUrls = [
+    ...text.matchAll(/\[[^\]]*]\((https?:\/\/[^)\s]+)\)/g),
+  ].map((match) => match[1]);
+  const plainUrls = text.match(/https?:\/\/[^\s<>"')\]]+/g) ?? [];
+
+  return [...new Set([...markdownLinkUrls, ...plainUrls])].map((url) =>
+    url.replace(/[,.?!;:]+$/g, ""),
   );
 }
 

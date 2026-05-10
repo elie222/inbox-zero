@@ -35,6 +35,11 @@ const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
     model: "openai/gpt-5.4-mini",
     label: "GPT-5.4 Mini",
   },
+  "ollama-gemma4-e2b": {
+    provider: "ollama",
+    model: "gemma4:e2b",
+    label: "Ollama Gemma 4 E2B",
+  },
 };
 
 /**
@@ -49,7 +54,11 @@ const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
 export function getEvalModels(): EvalModel[] {
   const envModels = process.env.EVAL_MODELS;
   if (!envModels) return [];
-  if (envModels === "all") return Object.values(EVAL_MODEL_CATALOG);
+  if (envModels === "all") {
+    return Object.entries(EVAL_MODEL_CATALOG)
+      .filter(([name]) => !name.includes("ollama"))
+      .map(([, model]) => model);
+  }
 
   if (envModels.startsWith("[")) {
     try {
@@ -149,6 +158,8 @@ function getApiKeyForProvider(provider: string): string | null {
     anthropic: process.env.ANTHROPIC_API_KEY,
     google: process.env.GOOGLE_API_KEY,
     groq: process.env.GROQ_API_KEY,
+    "openai-compatible": process.env.LLM_API_KEY || "not-required",
+    ollama: "ollama-local",
   };
   return keys[provider] ?? null;
 }
@@ -181,8 +192,8 @@ function hasConfiguredProvider(provider: string): boolean {
       );
     case Provider.AI_GATEWAY:
       return Boolean(process.env.AI_GATEWAY_API_KEY);
-    case Provider.OLLAMA:
     case Provider.OPENAI_COMPATIBLE:
+    case Provider.OLLAMA:
       return true;
     default:
       return hasAnyConfiguredProvider();
@@ -203,7 +214,7 @@ function hasAnyConfiguredProvider(): boolean {
       (process.env.BEDROCK_ACCESS_KEY &&
         process.env.BEDROCK_SECRET_KEY &&
         process.env.BEDROCK_REGION) ||
-      process.env.OLLAMA_BASE_URL ||
-      process.env.OPENAI_COMPATIBLE_BASE_URL,
+      process.env.OPENAI_COMPATIBLE_BASE_URL ||
+      process.env.OLLAMA_BASE_URL,
   );
 }

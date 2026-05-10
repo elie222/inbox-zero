@@ -8,6 +8,10 @@ import { getUserInfoPrompt } from "@/utils/ai/helpers";
 import { extractDomainFromEmail, isPublicEmailDomain } from "@/utils/email";
 import { createGenerateObject } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
+import {
+  appendOllamaOnlySystemGuidance,
+  isOllamaProvider,
+} from "@/utils/llms/ollama-guidance";
 import { isDefined } from "@/utils/types";
 import type { getEmailAccountWithAi } from "@/utils/user/get";
 
@@ -96,9 +100,15 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
 
   const result = await generateObject({
     ...modelOptions,
-    system: getSystemPrompt({ allowDomainScope }),
+    system: appendOllamaOnlySystemGuidance(
+      { system: getSystemPrompt({ allowDomainScope }) },
+      modelOptions,
+      getOllamaReplyMemoryGuidance({ allowDomainScope }),
+    ).system,
     prompt,
-    schema: replyMemorySchema,
+    schema: isOllamaProvider(modelOptions.provider)
+      ? ollamaReplyMemorySchema
+      : replyMemorySchema,
   });
 
   return result.object.memories
@@ -299,4 +309,30 @@ ${domainRuleLine}- For TOPIC scope, use a short stable topic phrase such as "pri
 - Be conservative about creating new memories. Only create a new memory when none of the provided existing memories substantially covers that durable idea.
 - Work language-agnostically. The memories may be written in any language.
 - If nothing durable was learned, return an empty array.`;
+}
+
+const ollamaReplyMemoryDecisionSchema = z.object({
+  matchingExistingMemoryId: z.string().trim().min(1).nullable(),
+  newMemory: newReplyMemorySchema.nullable(),
+});
+
+const ollamaReplyMemorySchema = z.object({
+  memories: z.array(ollamaReplyMemoryDecisionSchema).max(MAX_MEMORIES_PER_EDIT),
+});
+
+function getOllamaReplyMemoryGuidance({
+  allowDomainScope,
+}: {
+  allowDomainScope: boolean;
+}) {
+  return [
+    'Each item in "memories" must have both "matchingExistingMemoryId" and "newMemory".',
+    'For an existing memory match, use {"matchingExistingMemoryId":"existing-id","newMemory":null}.',
+    'For a new memory, use {"matchingExistingMemoryId":null,"newMemory":{"content":"...","kind":"FACT","scopeType":"TOPIC","scopeValue":"pricing"}}.',
+    "Use kind values exactly: FACT, PREFERENCE, PROCEDURE.",
+    `Use scopeType values exactly: GLOBAL, SENDER,${allowDomainScope ? " DOMAIN," : ""} TOPIC.`,
+    "Stable business facts, pricing, billing rules, product limits, policies, and qualification requirements are FACT memories unless the edit says they are temporary or one-time.",
+    'FACT memory content should preserve concrete details such as numeric amounts, product limits, and billing conditions instead of becoming generic instructions like "provide pricing details".',
+    "Use PROCEDURE only when the edit teaches a repeatable process or sequence of steps.",
+  ] as const;
 }

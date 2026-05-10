@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import {
   processAccountFollowUps,
   processAllFollowUpReminders,
@@ -105,6 +105,10 @@ const logger = createScopedLogger("test-follow-up");
 const OLD_DATE = "1700000000000"; // Nov 2023 - well past any threshold
 const RECENT_DATE = String(Date.now()); // Now - within threshold
 const MINUTE_MS = 60_000;
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function createMockAccount(
   overrides?: Partial<
@@ -585,7 +589,45 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(generateFollowUpDraft).not.toHaveBeenCalled();
   });
 
+  it("does not count Saturday and Sunday toward the follow-up threshold", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-11T12:00:00.000Z"));
+
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi.fn().mockResolvedValue([
+        {
+          id: "thread-weekend-skipped",
+          messages: [],
+          snippet: "",
+        },
+      ]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(
+          mockAwaitingMessage(
+            "msg-weekend-skipped",
+            "2026-05-08T12:00:00.000Z",
+          ),
+        ),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount({
+        followUpAwaitingReplyDays: 3,
+        timezone: "UTC",
+      }),
+      logger,
+    });
+
+    expect(applyFollowUpLabel).not.toHaveBeenCalled();
+    expect(generateFollowUpDraft).not.toHaveBeenCalled();
+  });
+
   it("processes threads that fall within the 15-minute eligibility window", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-11T12:00:00.000Z"));
     const twentyMinutesAgo = String(Date.now() - 20 * MINUTE_MS);
 
     const provider = createMockProvider({

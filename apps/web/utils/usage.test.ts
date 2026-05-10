@@ -190,6 +190,7 @@ describe("saveAiUsage", () => {
     };
 
     await saveAiUsage({
+      userId: "user-1",
       email: "user@example.com",
       emailAccountId: "email-account-1",
       provider: "openai",
@@ -201,7 +202,7 @@ describe("saveAiUsage", () => {
     expect(publishAiCall).toHaveBeenCalledTimes(1);
     expect(publishAiCall).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "user@example.com",
+        userId: "user-1",
         emailAccountId: "email-account-1",
         cachedInputTokens: 300,
         reasoningTokens: 25,
@@ -217,7 +218,8 @@ describe("saveAiUsage", () => {
     expect(saveUsage).toHaveBeenCalledTimes(1);
     expect(saveUsage).toHaveBeenCalledWith(
       expect.objectContaining({
-        email: "user@example.com",
+        userId: "user-1",
+        emailAccountId: "email-account-1",
         usage,
         cost: calculateUsageCost({
           provider: "openai",
@@ -242,6 +244,7 @@ describe("saveAiUsage", () => {
     });
 
     await saveAiUsage({
+      userId: "user-1",
       email: "user@example.com",
       emailAccountId: "email-account-1",
       provider: "openrouter",
@@ -253,7 +256,7 @@ describe("saveAiUsage", () => {
 
     expect(publishAiCall).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "user@example.com",
+        userId: "user-1",
         emailAccountId: "email-account-1",
         cost: 0,
         estimatedCost,
@@ -263,7 +266,8 @@ describe("saveAiUsage", () => {
 
     expect(saveUsage).toHaveBeenCalledWith(
       expect.objectContaining({
-        email: "user@example.com",
+        userId: "user-1",
+        emailAccountId: "email-account-1",
         usage,
         cost: 0,
       }),
@@ -285,6 +289,7 @@ describe("saveAiUsage", () => {
     });
 
     await saveAiUsage({
+      userId: "user-1",
       email: "user@example.com",
       emailAccountId: "email-account-1",
       provider: "openrouter",
@@ -312,7 +317,8 @@ describe("saveAiUsage", () => {
 
     expect(saveUsage).toHaveBeenCalledWith(
       expect.objectContaining({
-        email: "user@example.com",
+        userId: "user-1",
+        emailAccountId: "email-account-1",
         usage,
         cost: estimatedCost,
       }),

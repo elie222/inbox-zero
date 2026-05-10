@@ -6,11 +6,14 @@ import type {
 } from "@/utils/ai/rule/create-rule-schema";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
 
 export const emptyInputSchema = z.object({});
 
 const RULE_READ_FRESHNESS_WINDOW_MS = 2 * 60 * 1000;
+const RULE_NOT_FOUND_ERROR =
+  "Rule not found. Try listing the rules again. The user may have made changes since you last checked.";
 
 export function buildCreateRuleSchemaFromChatToolInput(
   input: z.infer<ReturnType<typeof createRuleSchema>>,
@@ -99,4 +102,11 @@ export function validateRuleWasReadRecently({
   }
 
   return null;
+}
+
+export function buildHiddenRuleNotFoundError() {
+  return hideToolErrorFromUser({
+    success: false,
+    error: RULE_NOT_FOUND_ERROR,
+  });
 }

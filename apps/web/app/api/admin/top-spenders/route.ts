@@ -15,42 +15,43 @@ async function getData() {
   const topSpenders = await getTopWeeklyUsageCosts({ limit: 25 });
   if (!topSpenders.length) return { topSpenders: [] };
 
-  const emails = topSpenders.map((spender) => spender.email);
-  const emailAccounts = await prisma.emailAccount.findMany({
-    where: { email: { in: emails } },
-    select: { id: true, email: true, userId: true },
-  });
-
-  const userIds = [...new Set(emailAccounts.map((account) => account.userId))];
-  const allUserEmailAccounts = userIds.length
+  const emails = topSpenders.flatMap((spender) =>
+    "email" in spender ? [spender.email] : [],
+  );
+  const emailAccounts = emails.length
     ? await prisma.emailAccount.findMany({
-        where: { userId: { in: userIds } },
+        where: { email: { in: emails } },
         select: { id: true, email: true, userId: true },
       })
     : [];
-  const usersWithApiKey = userIds.length
+
+  const userIds = [
+    ...new Set([
+      ...topSpenders.flatMap((spender) =>
+        "userId" in spender ? [spender.userId] : [],
+      ),
+      ...emailAccounts.map((account) => account.userId),
+    ]),
+  ];
+  const users = userIds.length
     ? await prisma.user.findMany({
-        where: {
-          id: { in: userIds },
-          AND: [{ aiApiKey: { not: null } }, { aiApiKey: { not: "" } }],
+        where: { id: { in: userIds } },
+        select: {
+          id: true,
+          email: true,
+          aiApiKey: true,
+          emailAccounts: {
+            select: { id: true, email: true },
+            orderBy: { createdAt: "asc" },
+          },
         },
-        select: { id: true },
       })
     : [];
 
   const emailAccountByEmail = new Map(
     emailAccounts.map((account) => [account.email, account]),
   );
-  const emailAccountsByUserId = new Map<
-    string,
-    Array<{ id: string; email: string }>
-  >();
-  for (const account of allUserEmailAccounts) {
-    const existingAccounts = emailAccountsByUserId.get(account.userId) ?? [];
-    existingAccounts.push({ id: account.id, email: account.email });
-    emailAccountsByUserId.set(account.userId, existingAccounts);
-  }
-  const userIdsWithApiKey = new Set(usersWithApiKey.map((user) => user.id));
+  const usersById = new Map(users.map((user) => [user.id, user]));
 
   const nanoWeeklySpendLimitUsd = env.AI_NANO_WEEKLY_SPEND_LIMIT_USD ?? null;
   const nanoModelConfigured = !!env.NANO_LLM_PROVIDER && !!env.NANO_LLM_MODEL;
@@ -59,17 +60,19 @@ async function getData() {
 
   return {
     topSpenders: topSpenders.map((spender) => {
-      const emailAccount = emailAccountByEmail.get(spender.email);
-      const hasUserApiKey = emailAccount
-        ? userIdsWithApiKey.has(emailAccount.userId)
-        : false;
+      const emailAccount =
+        "email" in spender ? emailAccountByEmail.get(spender.email) : null;
+      const userId =
+        "userId" in spender ? spender.userId : emailAccount?.userId;
+      const user = userId ? usersById.get(userId) : null;
+      const hasUserApiKey = !!user?.aiApiKey;
+      const primaryEmailAccount = emailAccount ?? user?.emailAccounts[0];
 
       return {
         ...spender,
-        emailAccountId: emailAccount?.id ?? null,
-        userEmailAccountCount: emailAccount
-          ? (emailAccountsByUserId.get(emailAccount.userId)?.length ?? 0)
-          : 0,
+        email: "email" in spender ? spender.email : (user?.email ?? null),
+        emailAccountId: primaryEmailAccount?.id ?? null,
+        userEmailAccountCount: user?.emailAccounts.length ?? 0,
         nanoLimitedBySpendGuard:
           nanoLimiterEnabled &&
           nanoWeeklySpendLimitUsd !== null &&

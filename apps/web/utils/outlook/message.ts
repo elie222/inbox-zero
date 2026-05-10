@@ -339,6 +339,17 @@ function collapseOutlookSearchQueryToText(query: string): string {
     .trim();
 }
 
+export function getOutlookComparisonFilters(query: string) {
+  return Array.from(
+    query.matchAll(OUTLOOK_COMPARISON_FILTER_PATTERN),
+    (match) => match[0].trim(),
+  );
+}
+
+export function stripOutlookComparisonFilters(query: string) {
+  return query.replace(OUTLOOK_COMPARISON_FILTER_PATTERN, " ");
+}
+
 export function stripStandaloneOutlookStateTerms(query: string) {
   return splitOutlookQueryTerms(query)
     .filter((term) => {
@@ -352,17 +363,6 @@ export function getStandaloneOutlookStateTerms(query: string) {
   return splitOutlookQueryTerms(query)
     .map((term) => term.replace(/^[()]+|[()]+$/g, "").toLowerCase())
     .filter((term) => term === "read" || term === "unread");
-}
-
-export function getOutlookComparisonFilters(query: string) {
-  return Array.from(
-    query.matchAll(OUTLOOK_COMPARISON_FILTER_PATTERN),
-    (match) => match[0].trim(),
-  );
-}
-
-export function stripOutlookComparisonFilters(query: string) {
-  return query.replace(OUTLOOK_COMPARISON_FILTER_PATTERN, " ");
 }
 
 function splitOutlookQueryTerms(query: string) {
@@ -395,6 +395,74 @@ function splitOutlookQueryTerms(query: string) {
   return terms;
 }
 
+type OutlookMetadataFilters = {
+  isRead?: boolean;
+  categoryNames: string[];
+};
+
+function createOutlookMetadataFilters(options: {
+  searchQuery?: string;
+  readState?: "read" | "unread";
+  categoryNames?: string[];
+}): {
+  filters: OutlookMetadataFilters;
+  odataFilters: string[];
+} {
+  const stateTerms = getStandaloneOutlookStateTerms(options.searchQuery ?? "");
+  const hasRead = stateTerms.includes("read");
+  const hasUnread = stateTerms.includes("unread");
+  const queryReadState =
+    hasRead === hasUnread ? undefined : hasRead ? "read" : "unread";
+  const readState = options.readState ?? queryReadState;
+  const filters = {
+    isRead:
+      readState === "read" ? true : readState === "unread" ? false : undefined,
+    categoryNames: [...new Set(options.categoryNames ?? [])],
+  };
+
+  return {
+    filters,
+    odataFilters: createOutlookMetadataODataFilters(filters),
+  };
+}
+
+function matchesOutlookMetadataFilters(
+  message: Message,
+  filters: OutlookMetadataFilters,
+) {
+  if (
+    typeof filters.isRead === "boolean" &&
+    message.isRead !== filters.isRead
+  ) {
+    return false;
+  }
+
+  if (filters.categoryNames.length) {
+    const messageCategories = new Set(message.categories ?? []);
+    return filters.categoryNames.every((categoryName) =>
+      messageCategories.has(categoryName),
+    );
+  }
+
+  return true;
+}
+
+function createOutlookMetadataODataFilters(filters: OutlookMetadataFilters) {
+  const odataFilters: string[] = [];
+
+  if (typeof filters.isRead === "boolean") {
+    odataFilters.push(`isRead eq ${filters.isRead}`);
+  }
+
+  for (const categoryName of filters.categoryNames) {
+    odataFilters.push(
+      `categories/any(category: category eq '${escapeODataString(categoryName)}')`,
+    );
+  }
+
+  return odataFilters;
+}
+
 export async function queryBatchMessages(
   client: OutlookClient,
   options: {
@@ -403,6 +471,8 @@ export async function queryBatchMessages(
     maxResults?: number;
     pageToken?: string;
     folderId?: string;
+    readState?: "read" | "unread";
+    categoryNames?: string[];
   },
   logger: Logger,
 ) {
@@ -427,6 +497,12 @@ export async function queryBatchMessages(
     getCategoryMap(client, logger),
   ]);
 
+  const metadataSearch = createOutlookMetadataFilters({
+    searchQuery,
+    readState: options.readState,
+    categoryNames: options.categoryNames,
+  });
+
   const nextLink = resolveMicrosoftGraphNextLink(pageToken);
   if (nextLink) {
     const response: { value: Message[]; "@odata.nextLink"?: string } =
@@ -435,9 +511,10 @@ export async function queryBatchMessages(
         logger,
       );
 
-    const filteredMessages = folderId
-      ? response.value.filter((message) => message.parentFolderId === folderId)
-      : response.value;
+    const filteredMessages = response.value.filter((message) => {
+      if (folderId && message.parentFolderId !== folderId) return false;
+      return matchesOutlookMetadataFilters(message, metadataSearch.filters);
+    });
     const messages = await convertMessages(
       filteredMessages,
       folderIds,
@@ -447,7 +524,9 @@ export async function queryBatchMessages(
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
 
-  const rawSearchQuery = searchQuery?.trim() || "";
+  const rawSearchQuery = stripStandaloneOutlookStateTerms(
+    searchQuery?.trim() || "",
+  ).trim();
   const { sanitized: cleanedSearchQuery, wasSanitized } =
     sanitizeOutlookSearchQuery(rawSearchQuery);
   const effectiveSearchQuery = cleanedSearchQuery || undefined;
@@ -458,6 +537,7 @@ export async function queryBatchMessages(
     hasDateFilters: !!(dateFilters && dateFilters.length > 0),
     pageToken,
     folderId,
+    hasMetadataFilters: metadataSearch.odataFilters.length > 0,
     queryWasSanitized: wasSanitized,
   });
 
@@ -483,6 +563,7 @@ export async function queryBatchMessages(
       effectiveSearchQuery,
       queryWasSanitized: wasSanitized,
       folderFilter,
+      metadataFilters: metadataSearch.odataFilters,
     });
 
     request = request.search(effectiveSearchQuery!);
@@ -490,10 +571,10 @@ export async function queryBatchMessages(
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(() => request.get(), logger);
 
-    // Filter to specific folder if requested, otherwise get all
-    const filteredMessages = folderId
-      ? response.value.filter((message) => message.parentFolderId === folderId)
-      : response.value;
+    const filteredMessages = response.value.filter((message) => {
+      if (folderId && message.parentFolderId !== folderId) return false;
+      return matchesOutlookMetadataFilters(message, metadataSearch.filters);
+    });
     const messages = await convertMessages(
       filteredMessages,
       folderIds,
@@ -519,6 +600,10 @@ export async function queryBatchMessages(
       filters.push(folderFilter);
     }
 
+    if (metadataSearch.odataFilters.length) {
+      filters.push(...metadataSearch.odataFilters);
+    }
+
     // Add date filters if provided
     if (hasDateFilters) {
       filters.push(...dateFilters!);
@@ -529,6 +614,7 @@ export async function queryBatchMessages(
 
     logger.info("Using filter path", {
       folderFilter,
+      metadataFilters: metadataSearch.odataFilters,
       dateFilters: dateFilters || [],
       combinedFilter,
     });
@@ -538,8 +624,9 @@ export async function queryBatchMessages(
       request = request.filter(combinedFilter);
     }
 
-    // Only add orderby for first page to avoid sorting complexity errors
-    request = request.orderby("receivedDateTime DESC");
+    if (!metadataSearch.odataFilters.length) {
+      request = request.orderby("receivedDateTime DESC");
+    }
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(() => request.get(), logger);

@@ -6,6 +6,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
+import { appendOllamaOnlySystemGuidance } from "@/utils/llms/ollama-guidance";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
@@ -33,8 +34,12 @@ Write the reply in the same language as the latest message in the thread.
 IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
 Do not invent information.
+Ground facts, terms, statuses, dates, approvals, attachments, completed actions, and external changes in the thread or provided context.
+When key context is missing, still draft the most useful reply you can, but use lower confidence when the draft relies on assumptions or user-fillable details.
+Treat email dates as message metadata, not calendar context.
 Do not use em dashes unless the provided writing style explicitly calls for them.
 Don't suggest meeting times or mention availability unless specific calendar information is provided.
+When the sender provides a scheduling link or scheduling process, use that path instead of adding the user's booking link.
 
 Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
@@ -167,6 +172,17 @@ ${mcpContext}
 `
     : "";
 
+  const missingExternalContext =
+    !knowledgeBaseContent &&
+    !emailHistorySummary &&
+    !emailHistoryContext?.relevantEmails.length &&
+    !mcpContext &&
+    !meetingContext &&
+    !attachmentContext
+      ? `No additional factual context was provided beyond the email thread.
+`
+      : "";
+
   const upcomingMeetingsContext = meetingContext || "";
   const selectedAttachments = attachmentContext
     ? `Selected PDF attachments that will be included with this draft:
@@ -193,6 +209,7 @@ ${learnedWritingStylePrompt}
 ${signatureContext}
 ${schedulingContext}
 ${mcpToolsContext}
+${missingExternalContext}
 ${upcomingMeetingsContext}
 ${selectedAttachments}
 
@@ -204,17 +221,17 @@ ${getTodayForLLM()}
 IMPORTANT: You are writing an email as ${emailAccount.email}. Write the reply from their perspective.`;
 };
 
+const llmDraftConfidenceSchema = z.enum(["LOW", "MEDIUM", "HIGH"]);
+
 const draftSchema = z.object({
   reply: z
     .string()
     .describe(
       "The complete email reply draft incorporating knowledge base information",
     ),
-  confidence: z
-    .nativeEnum(DraftReplyConfidence)
-    .describe(
-      "Required value: ALL_EMAILS, STANDARD, or HIGH_CONFIDENCE. Use ALL_EMAILS when uncertain, context is missing, or the draft must ask/check/follow up because requested facts are unavailable. Use STANDARD for solid drafts with minor uncertainty. Use HIGH_CONFIDENCE only when the sender's intent and the complete factual response are clear from the provided context.",
-    ),
+  confidence: llmDraftConfidenceSchema.describe(
+    "Use HIGH only when the draft is complete, grounded, and does not depend on missing facts, unavailable calendar/business state, assumptions, or user-fillable details. Use MEDIUM for useful drafts that rely on reasonable assumptions, missing facts, or user-fillable details. Use LOW when the draft is highly uncertain, likely needs broader thread/context review, or mainly asks/checks/follows up.",
+  ),
 });
 
 export type DraftReplyResult = {
@@ -304,7 +321,11 @@ export async function aiDraftReplyWithConfidence({
   const generate = () =>
     generateObject({
       ...modelOptions,
-      system: systemPrompt,
+      system: appendOllamaOnlySystemGuidance(
+        { system: systemPrompt },
+        modelOptions,
+        OLLAMA_DRAFT_RESPONSE_GUIDANCE,
+      ).system,
       prompt,
       schema: draftSchema,
     });
@@ -323,7 +344,7 @@ export async function aiDraftReplyWithConfidence({
 
   return {
     reply: normalizeDraftReplyFormatting(result.object.reply),
-    confidence: normalizeDraftReplyConfidence(result.object.confidence),
+    confidence: mapLlmDraftConfidence(result.object.confidence),
     attribution: attributionTracker.attribution,
   };
 }
@@ -420,6 +441,22 @@ function shouldConvertSingleLineBreaksToParagraphs(lines: string[]): boolean {
 
 function isLikelyListItem(line: string): boolean {
   return /^(\s*[-*]\s+|\s*\d+[.)]\s+|\s*[a-zA-Z][.)]\s+|>\s+)/.test(line);
+}
+
+function mapLlmDraftConfidence(confidence: unknown): DraftReplyConfidence {
+  const llmConfidence = llmDraftConfidenceSchema.safeParse(confidence);
+  if (!llmConfidence.success) {
+    return normalizeDraftReplyConfidence(confidence);
+  }
+
+  switch (llmConfidence.data) {
+    case "LOW":
+      return DraftReplyConfidence.ALL_EMAILS;
+    case "MEDIUM":
+      return DraftReplyConfidence.STANDARD;
+    case "HIGH":
+      return DraftReplyConfidence.HIGH_CONFIDENCE;
+  }
 }
 
 // Matches any non-separator, non-whitespace character repeated 50+ times in a row
@@ -521,3 +558,10 @@ function formatLocalSlotTimeAsUtc(
 
   return utcDate.toISOString().slice(0, 16).replace("T", " ");
 }
+
+const OLLAMA_DRAFT_RESPONSE_GUIDANCE = [
+  'Return a JSON object with exactly two top-level fields: "reply" and "confidence".',
+  '"reply" must be one complete email reply as a single plain-text string, not an array of alternatives.',
+  '"confidence" must be one of "LOW", "MEDIUM", or "HIGH".',
+  'Example valid output: {"reply":"Thanks for reaching out. I will take a look and follow up shortly.","confidence":"MEDIUM"}',
+] as const;

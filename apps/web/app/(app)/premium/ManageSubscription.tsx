@@ -3,15 +3,11 @@
 import { useState } from "react";
 import { CreditCardIcon } from "lucide-react";
 import Link from "next/link";
-import { toast } from "sonner";
-import { useSWRConfig } from "swr";
 import { env } from "@/env";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
-import {
-  endStripeTrialAction,
-  getBillingPortalUrlAction,
-} from "@/utils/actions/premium";
+import { useEndStripeTrial } from "@/hooks/useEndStripeTrial";
+import { getBillingPortalUrlAction } from "@/utils/actions/premium";
 import { hasActiveAppleSubscription } from "@/utils/premium";
 import { redirectToSafeUrl } from "@/utils/redirect";
 
@@ -152,30 +148,4 @@ function useOpenBillingPortal() {
   };
 
   return { loading, openBillingPortal };
-}
-
-export function useEndStripeTrial() {
-  const [loading, setLoading] = useState(false);
-  const { mutate } = useSWRConfig();
-
-  const endTrial = async () => {
-    setLoading(true);
-    const result = await endStripeTrialAction().finally(() => {
-      setLoading(false);
-    });
-
-    if (result?.serverError) {
-      toastError({ description: result.serverError });
-      return;
-    }
-
-    if (result?.data?.status === "active") {
-      toast.success("Your paid plan is active.");
-    } else {
-      toast.message("Your trial has ended.");
-    }
-    await mutate("/api/user/me");
-  };
-
-  return { loading, endTrial };
 }
