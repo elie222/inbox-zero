@@ -73,13 +73,65 @@ export async function getUsage(options: {
     const legacyDelta = getUsageDelta(legacyUsage, migratedLegacyUsage);
 
     if (hasUsageData(legacyDelta)) {
-      await Promise.all([
-        ...getUsageDataIncrementOperations(emailAccountUsageKey, legacyDelta),
-        ...(userUsageKey
-          ? getUsageDataIncrementOperations(userUsageKey, legacyDelta)
-          : []),
-        redis.set(doneKey, JSON.stringify({ usage: legacyUsage ?? {} })),
-      ]);
+      const claimedLock = await redis.set(lockKey, new Date().toISOString(), {
+        nx: true,
+        ex: USAGE_MIGRATION_LOCK_TTL_SECONDS,
+      });
+
+      if (!claimedLock) return mergeUsage(currentUsage, legacyDelta);
+
+      try {
+        const [latestCurrentUsage, latestLegacyUsage, latestRawMigrationState] =
+          await Promise.all([
+            redis.hgetall<RedisUsage>(emailAccountUsageKey),
+            redis.hgetall<RedisUsage>(legacyUsageKey),
+            redis.get(doneKey),
+          ]);
+        const latestMigratedLegacyUsage = parseLegacyUsageMigrationState(
+          latestRawMigrationState,
+        );
+
+        if (!latestMigratedLegacyUsage) {
+          return maxUsage(latestCurrentUsage, latestLegacyUsage);
+        }
+
+        const latestLegacyDelta = getUsageDelta(
+          latestLegacyUsage,
+          latestMigratedLegacyUsage,
+        );
+
+        if (hasUsageData(latestLegacyDelta)) {
+          await Promise.all([
+            ...getUsageDataIncrementOperations(
+              emailAccountUsageKey,
+              latestLegacyDelta,
+            ),
+            ...(userUsageKey
+              ? getUsageDataIncrementOperations(userUsageKey, latestLegacyDelta)
+              : []),
+            redis.set(
+              doneKey,
+              JSON.stringify({ usage: latestLegacyUsage ?? {} }),
+            ),
+          ]);
+        }
+
+        return mergeUsage(latestCurrentUsage, latestLegacyDelta);
+      } catch (error) {
+        logger.error("Failed to migrate legacy usage delta", {
+          migrationName,
+          error,
+        });
+      } finally {
+        try {
+          await redis.del(lockKey);
+        } catch (error) {
+          logger.error("Failed to clear usage migration lock", {
+            migrationName,
+            error,
+          });
+        }
+      }
     }
 
     return mergeUsage(currentUsage, legacyDelta);
@@ -177,14 +229,7 @@ export async function getWeeklyUsageCost({
     ? await getLegacyWeeklyUsageCostsByKey({ emails: uniqueLegacyEmails, now })
     : new Map<string, number>();
 
-  const weeklyCosts = await Promise.all(
-    usageKeys.map(async (key) => {
-      const data = await redis.hgetall<{ cost?: string | number }>(key);
-      return parseRedisNumber(data?.cost);
-    }),
-  );
-
-  const migratedCost = weeklyCosts.reduce((sum, value) => sum + value, 0);
+  const migratedCost = await getWeeklyUsageCostTotal(usageKeys);
   if (!uniqueLegacyEmails.length) return migratedCost;
 
   const migrationName = `weekly-usage-cost-user:${userId}`;
@@ -201,13 +246,71 @@ export async function getWeeklyUsageCost({
     const legacyDelta = sumMapValues(legacyDeltaByKey);
 
     if (legacyDelta > 0) {
-      await Promise.all([
-        ...getWeeklyCostIncrementOperations(userId, legacyDeltaByKey),
-        redis.set(
-          doneKey,
-          JSON.stringify({ weeklyCosts: Object.fromEntries(legacyCostsByKey) }),
-        ),
-      ]);
+      const claimedLock = await redis.set(lockKey, new Date().toISOString(), {
+        nx: true,
+        ex: USAGE_MIGRATION_LOCK_TTL_SECONDS,
+      });
+
+      if (!claimedLock) return migratedCost + legacyDelta;
+
+      try {
+        const [
+          latestLegacyCostsByKey,
+          latestMigratedCost,
+          latestRawMigrationState,
+        ] = await Promise.all([
+          getLegacyWeeklyUsageCostsByKey({
+            emails: uniqueLegacyEmails,
+            now,
+          }),
+          getWeeklyUsageCostTotal(usageKeys),
+          redis.get(doneKey),
+        ]);
+        const latestMigratedLegacyCosts = parseWeeklyUsageMigrationState(
+          latestRawMigrationState,
+        );
+
+        if (!latestMigratedLegacyCosts) {
+          return Math.max(
+            latestMigratedCost,
+            sumMapValues(latestLegacyCostsByKey),
+          );
+        }
+
+        const latestLegacyDeltaByKey = getLegacyWeeklyCostDelta(
+          latestLegacyCostsByKey,
+          latestMigratedLegacyCosts,
+        );
+        const latestLegacyDelta = sumMapValues(latestLegacyDeltaByKey);
+
+        if (latestLegacyDelta > 0) {
+          await Promise.all([
+            ...getWeeklyCostIncrementOperations(userId, latestLegacyDeltaByKey),
+            redis.set(
+              doneKey,
+              JSON.stringify({
+                weeklyCosts: Object.fromEntries(latestLegacyCostsByKey),
+              }),
+            ),
+          ]);
+        }
+
+        return latestMigratedCost + latestLegacyDelta;
+      } catch (error) {
+        logger.error("Failed to migrate legacy weekly usage delta", {
+          migrationName,
+          error,
+        });
+      } finally {
+        try {
+          await redis.del(lockKey);
+        } catch (error) {
+          logger.error("Failed to clear weekly usage migration lock", {
+            migrationName,
+            error,
+          });
+        }
+      }
     }
 
     return migratedCost + legacyDelta;
@@ -249,17 +352,9 @@ export async function getWeeklyUsageCost({
     }
   }
 
-  const updatedWeeklyCosts = await Promise.all(
-    usageKeys.map(async (key) => {
-      const data = await redis.hgetall<{ cost?: string | number }>(key);
-      return parseRedisNumber(data?.cost);
-    }),
-  );
+  const updatedWeeklyCost = await getWeeklyUsageCostTotal(usageKeys);
 
-  return Math.max(
-    updatedWeeklyCosts.reduce((sum, value) => sum + value, 0),
-    sumMapValues(legacyCostsByKey),
-  );
+  return Math.max(updatedWeeklyCost, sumMapValues(legacyCostsByKey));
 }
 
 export async function getTopWeeklyUsageCosts({
@@ -374,6 +469,17 @@ function getUsageDelta(
 
 function hasUsageData(usage: RedisUsage | null | undefined) {
   return usageFields.some((field) => parseRedisNumber(usage?.[field]) > 0);
+}
+
+async function getWeeklyUsageCostTotal(keys: string[]) {
+  const weeklyCosts = await Promise.all(
+    keys.map(async (key) => {
+      const data = await redis.hgetall<{ cost?: string | number }>(key);
+      return parseRedisNumber(data?.cost);
+    }),
+  );
+
+  return weeklyCosts.reduce((sum, value) => sum + value, 0);
 }
 
 function getWeeklyUsageCostKeys(userId: string, now: Date) {

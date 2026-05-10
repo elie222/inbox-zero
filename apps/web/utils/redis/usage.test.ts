@@ -235,7 +235,11 @@ describe("redis usage tracking", () => {
   it("includes post-migration legacy weekly writes during rolling deploys", async () => {
     vi.mocked(redis.get).mockImplementation(async (key: string) => {
       if (key === "usage-migration:weekly-usage-cost-user:user-1:done") {
-        return "done";
+        return JSON.stringify({
+          weeklyCosts: {
+            "usage-weekly-cost:user@example.com:2026-02-24": 1,
+          },
+        });
       }
       return null;
     });
@@ -256,6 +260,101 @@ describe("redis usage tracking", () => {
       now,
     });
 
+    expect(weeklyCost).toBeCloseTo(1.5);
+  });
+
+  it("does not persist post-migration legacy weekly writes without the migration lock", async () => {
+    const now = new Date("2026-02-24T15:00:00.000Z");
+    const legacyWeeklyCostKey = "usage-weekly-cost:user@example.com:2026-02-24";
+
+    vi.mocked(redis.get).mockImplementation(async (key: string) => {
+      if (key === "usage-migration:weekly-usage-cost-user:user-1:done") {
+        return JSON.stringify({
+          weeklyCosts: {
+            [legacyWeeklyCostKey]: 1,
+          },
+        });
+      }
+      return null;
+    });
+    vi.mocked(redis.set).mockImplementation(async (key: string) => {
+      if (key === "usage-migration:weekly-usage-cost-user:user-1:lock") {
+        return null;
+      }
+      return "OK";
+    });
+
+    const costsByKey: Record<string, { cost?: string }> = {
+      "usage-weekly-cost:user:user-1:2026-02-24": { cost: "1.0" },
+      [legacyWeeklyCostKey]: { cost: "1.5" },
+    };
+
+    vi.mocked(redis.hgetall).mockImplementation(
+      async (key: string) => costsByKey[key] ?? {},
+    );
+
+    const weeklyCost = await getWeeklyUsageCost({
+      userId: "user-1",
+      legacyEmails: ["user@example.com"],
+      now,
+    });
+
+    expect(redis.set).toHaveBeenCalledWith(
+      "usage-migration:weekly-usage-cost-user:user-1:lock",
+      expect.any(String),
+      { nx: true, ex: 300 },
+    );
+    expect(redis.hincrbyfloat).not.toHaveBeenCalledWith(
+      "usage-weekly-cost:user:user-1:2026-02-24",
+      "cost",
+      0.5,
+    );
+    expect(weeklyCost).toBeCloseTo(1.5);
+  });
+
+  it("uses the latest weekly migration marker after claiming the migration lock", async () => {
+    const now = new Date("2026-02-24T15:00:00.000Z");
+    const legacyWeeklyCostKey = "usage-weekly-cost:user@example.com:2026-02-24";
+    let doneReads = 0;
+
+    vi.mocked(redis.get).mockImplementation(async (key: string) => {
+      if (key !== "usage-migration:weekly-usage-cost-user:user-1:done") {
+        return null;
+      }
+
+      doneReads += 1;
+      return JSON.stringify({
+        weeklyCosts: {
+          [legacyWeeklyCostKey]: doneReads === 1 ? 1 : 1.5,
+        },
+      });
+    });
+
+    const costsByKey: Record<string, { cost?: string }> = {
+      "usage-weekly-cost:user:user-1:2026-02-24": { cost: "1.5" },
+      [legacyWeeklyCostKey]: { cost: "1.5" },
+    };
+
+    vi.mocked(redis.hgetall).mockImplementation(
+      async (key: string) => costsByKey[key] ?? {},
+    );
+
+    const weeklyCost = await getWeeklyUsageCost({
+      userId: "user-1",
+      legacyEmails: ["user@example.com"],
+      now,
+    });
+
+    expect(redis.set).toHaveBeenCalledWith(
+      "usage-migration:weekly-usage-cost-user:user-1:lock",
+      expect.any(String),
+      { nx: true, ex: 300 },
+    );
+    expect(redis.hincrbyfloat).not.toHaveBeenCalledWith(
+      "usage-weekly-cost:user:user-1:2026-02-24",
+      "cost",
+      0.5,
+    );
     expect(weeklyCost).toBeCloseTo(1.5);
   });
 
@@ -376,7 +475,12 @@ describe("redis usage tracking", () => {
   it("includes post-migration legacy usage writes during rolling deploys", async () => {
     vi.mocked(redis.get).mockImplementation(async (key: string) => {
       if (key === "usage-migration:usage-email-account:email-account-1:done") {
-        return "done";
+        return JSON.stringify({
+          usage: {
+            openaiCalls: 2,
+            cost: 1,
+          },
+        });
       }
       return null;
     });
@@ -400,6 +504,136 @@ describe("redis usage tracking", () => {
       userId: "user-1",
     });
 
+    expect(usage).toEqual({ openaiCalls: 3, cost: 1.5 });
+  });
+
+  it("does not persist post-migration legacy usage writes without the migration lock", async () => {
+    vi.mocked(redis.get).mockImplementation(async (key: string) => {
+      if (key === "usage-migration:usage-email-account:email-account-1:done") {
+        return JSON.stringify({
+          usage: {
+            openaiCalls: 2,
+            cost: 1,
+          },
+        });
+      }
+      return null;
+    });
+    vi.mocked(redis.set).mockImplementation(async (key: string) => {
+      if (key === "usage-migration:usage-email-account:email-account-1:lock") {
+        return null;
+      }
+      return "OK";
+    });
+
+    const usageByKey: Record<string, { openaiCalls?: number; cost?: string }> =
+      {
+        "usage:email-account:email-account-1": {
+          openaiCalls: 2,
+          cost: "1.0",
+        },
+        "usage:user@example.com": { openaiCalls: 3, cost: "1.5" },
+      };
+
+    vi.mocked(redis.hgetall).mockImplementation(
+      async (key: string) => usageByKey[key] ?? {},
+    );
+
+    const usage = await getUsage({
+      emailAccountId: "email-account-1",
+      legacyEmail: "user@example.com",
+      userId: "user-1",
+    });
+
+    expect(redis.set).toHaveBeenCalledWith(
+      "usage-migration:usage-email-account:email-account-1:lock",
+      expect.any(String),
+      { nx: true, ex: 300 },
+    );
+    expect(redis.hincrby).not.toHaveBeenCalledWith(
+      "usage:email-account:email-account-1",
+      "openaiCalls",
+      1,
+    );
+    expect(redis.hincrby).not.toHaveBeenCalledWith(
+      "usage:user:user-1",
+      "openaiCalls",
+      1,
+    );
+    expect(redis.hincrbyfloat).not.toHaveBeenCalledWith(
+      "usage:email-account:email-account-1",
+      "cost",
+      0.5,
+    );
+    expect(redis.hincrbyfloat).not.toHaveBeenCalledWith(
+      "usage:user:user-1",
+      "cost",
+      0.5,
+    );
+    expect(usage).toEqual({ openaiCalls: 3, cost: 1.5 });
+  });
+
+  it("uses the latest usage migration marker after claiming the migration lock", async () => {
+    let doneReads = 0;
+
+    vi.mocked(redis.get).mockImplementation(async (key: string) => {
+      if (key !== "usage-migration:usage-email-account:email-account-1:done") {
+        return null;
+      }
+
+      doneReads += 1;
+      return JSON.stringify({
+        usage: {
+          openaiCalls: doneReads === 1 ? 2 : 3,
+          cost: doneReads === 1 ? 1 : 1.5,
+        },
+      });
+    });
+
+    const usageByKey: Record<string, { openaiCalls?: number; cost?: string }> =
+      {
+        "usage:email-account:email-account-1": {
+          openaiCalls: 3,
+          cost: "1.5",
+        },
+        "usage:user@example.com": { openaiCalls: 3, cost: "1.5" },
+      };
+
+    vi.mocked(redis.hgetall).mockImplementation(
+      async (key: string) => usageByKey[key] ?? {},
+    );
+
+    const usage = await getUsage({
+      emailAccountId: "email-account-1",
+      legacyEmail: "user@example.com",
+      userId: "user-1",
+    });
+
+    expect(redis.set).toHaveBeenCalledWith(
+      "usage-migration:usage-email-account:email-account-1:lock",
+      expect.any(String),
+      { nx: true, ex: 300 },
+    );
+    expect(redis.hincrby).not.toHaveBeenCalledWith(
+      "usage:email-account:email-account-1",
+      "openaiCalls",
+      1,
+    );
+    expect(redis.hincrby).not.toHaveBeenCalledWith(
+      "usage:user:user-1",
+      "openaiCalls",
+      1,
+    );
+    expect(redis.hincrbyfloat).not.toHaveBeenCalledWith(
+      "usage:email-account:email-account-1",
+      "cost",
+      0.5,
+    );
+    expect(redis.hincrbyfloat).not.toHaveBeenCalledWith(
+      "usage:user:user-1",
+      "cost",
+      0.5,
+    );
     expect(usage).toEqual({ openaiCalls: 3, cost: 1.5 });
   });
 
