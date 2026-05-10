@@ -96,33 +96,6 @@ function BookingLinksPanel() {
     },
   );
 
-  const handleCreate = async ({
-    title,
-    slug,
-    durationMinutes,
-    destinationCalendarId,
-    videoEnabled,
-    description,
-  }: {
-    title: string;
-    slug: string;
-    durationMinutes: number;
-    destinationCalendarId: string | null;
-    videoEnabled: boolean;
-    description: string;
-  }) => {
-    await createLink({
-      title,
-      slug,
-      timezone,
-      description,
-      durationMinutes,
-      slotIntervalMinutes: durationMinutes,
-      destinationCalendarId,
-      videoEnabled,
-    });
-  };
-
   const handleToggle = (next: boolean) => {
     if (!link) return;
     toggleActive({ id: link.id, isActive: next });
@@ -156,7 +129,13 @@ function BookingLinksPanel() {
           defaultTitle={defaultTitle}
           defaultSlug={defaultSlug}
           onClose={() => setCreateOpen(false)}
-          onCreate={handleCreate}
+          onCreate={async (input) => {
+            await createLink({
+              ...input,
+              timezone,
+              slotIntervalMinutes: input.durationMinutes,
+            });
+          }}
           isCreating={isCreating}
         />
       ) : null}
