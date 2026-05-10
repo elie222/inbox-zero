@@ -160,6 +160,59 @@ describe("queryBatchMessages", () => {
     expect(request.orderby).not.toHaveBeenCalled();
   });
 
+  it("uses standalone unread query terms as metadata filters", async () => {
+    const request = createMockMessagesRequest();
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(api);
+
+    await queryBatchMessages(
+      client,
+      {
+        searchQuery: "unread",
+        maxResults: 20,
+      },
+      createTestLogger(),
+    );
+
+    expect(request.search).not.toHaveBeenCalled();
+    expect(request.filter).toHaveBeenCalledWith("isRead eq false");
+    expect(request.orderby).not.toHaveBeenCalled();
+  });
+
+  it("strips standalone unread from text search and filters the page", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [
+        {
+          id: "message-unread",
+          conversationId: "thread-unread",
+          isRead: false,
+        },
+        {
+          id: "message-read",
+          conversationId: "thread-read",
+          isRead: true,
+        },
+      ],
+    });
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(api);
+
+    const result = await queryBatchMessages(
+      client,
+      {
+        searchQuery: "unread newsletter",
+        maxResults: 20,
+      },
+      createTestLogger(),
+    );
+
+    expect(request.search).toHaveBeenCalledWith('"newsletter"');
+    expect(request.filter).not.toHaveBeenCalled();
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]?.id).toBe("message-unread");
+  });
+
   it("keeps category-looking words as text search without structured filters", async () => {
     const request = createMockMessagesRequest();
     const api = vi.fn().mockReturnValue(request);

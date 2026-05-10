@@ -401,19 +401,22 @@ type OutlookMetadataFilters = {
 };
 
 function createOutlookMetadataFilters(options: {
+  searchQuery?: string;
   readState?: "read" | "unread";
   categoryNames?: string[];
 }): {
   filters: OutlookMetadataFilters;
   odataFilters: string[];
 } {
+  const stateTerms = getStandaloneOutlookStateTerms(options.searchQuery ?? "");
+  const hasRead = stateTerms.includes("read");
+  const hasUnread = stateTerms.includes("unread");
+  const queryReadState =
+    hasRead === hasUnread ? undefined : hasRead ? "read" : "unread";
+  const readState = options.readState ?? queryReadState;
   const filters = {
     isRead:
-      options.readState === "read"
-        ? true
-        : options.readState === "unread"
-          ? false
-          : undefined,
+      readState === "read" ? true : readState === "unread" ? false : undefined,
     categoryNames: [...new Set(options.categoryNames ?? [])],
   };
 
@@ -495,6 +498,7 @@ export async function queryBatchMessages(
   ]);
 
   const metadataSearch = createOutlookMetadataFilters({
+    searchQuery,
     readState: options.readState,
     categoryNames: options.categoryNames,
   });
@@ -520,7 +524,9 @@ export async function queryBatchMessages(
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
 
-  const rawSearchQuery = searchQuery?.trim() || "";
+  const rawSearchQuery = stripStandaloneOutlookStateTerms(
+    searchQuery?.trim() || "",
+  ).trim();
   const { sanitized: cleanedSearchQuery, wasSanitized } =
     sanitizeOutlookSearchQuery(rawSearchQuery);
   const effectiveSearchQuery = cleanedSearchQuery || undefined;
