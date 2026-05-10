@@ -5,6 +5,9 @@ const { mockedEnv } = vi.hoisted(() => ({
     NODE_ENV: "production",
     UPSTASH_REDIS_URL: "https://redis.example.com",
     UPSTASH_REDIS_TOKEN: "token",
+    AUTH_SECRET: "test-auth-secret",
+    NEXTAUTH_SECRET: undefined as string | undefined,
+    EMAIL_ENCRYPT_SECRET: "test-email-encrypt-secret",
   },
 }));
 
@@ -15,8 +18,7 @@ vi.mock("@/env", () => ({
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/redis", () => ({
   redis: {
-    incr: vi.fn(),
-    expire: vi.fn(),
+    eval: vi.fn(),
   },
 }));
 
@@ -36,8 +38,7 @@ describe("rate limit utilities", () => {
   });
 
   it("allows requests while the counter is under the limit", async () => {
-    vi.mocked(redis.incr).mockResolvedValue(2);
-    vi.mocked(redis.expire).mockResolvedValue(1);
+    vi.mocked(redis.eval).mockResolvedValue(2);
 
     const result = await checkRateLimit({
       rule: {
@@ -52,12 +53,15 @@ describe("rate limit utilities", () => {
       limit: 3,
       remaining: 1,
     });
-    expect(redis.expire).not.toHaveBeenCalled();
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.any(String),
+      ["rate-limit:test"],
+      ["60"],
+    );
   });
 
-  it("expires a new counter window", async () => {
-    vi.mocked(redis.incr).mockResolvedValue(1);
-    vi.mocked(redis.expire).mockResolvedValue(1);
+  it("increments and expires a counter window atomically", async () => {
+    vi.mocked(redis.eval).mockResolvedValue(1);
 
     await checkRateLimit({
       rule: {
@@ -67,11 +71,15 @@ describe("rate limit utilities", () => {
       },
     });
 
-    expect(redis.expire).toHaveBeenCalledWith("rate-limit:test", 60);
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.stringContaining('redis.call("EXPIRE", KEYS[1]'),
+      ["rate-limit:test"],
+      ["60"],
+    );
   });
 
   it("blocks requests over the limit", async () => {
-    vi.mocked(redis.incr).mockResolvedValue(4);
+    vi.mocked(redis.eval).mockResolvedValue(4);
 
     const result = await checkRateLimit({
       rule: {
@@ -89,7 +97,7 @@ describe("rate limit utilities", () => {
   });
 
   it("fails open when Redis is unavailable", async () => {
-    vi.mocked(redis.incr).mockRejectedValue(new Error("redis down"));
+    vi.mocked(redis.eval).mockRejectedValue(new Error("redis down"));
 
     const result = await checkRateLimit({
       rule: {
@@ -119,7 +127,7 @@ describe("rate limit utilities", () => {
     });
 
     expect(result.limited).toBe(false);
-    expect(redis.incr).not.toHaveBeenCalled();
+    expect(redis.eval).not.toHaveBeenCalled();
   });
 
   it("builds safe key strings and extracts forwarded IPs", () => {

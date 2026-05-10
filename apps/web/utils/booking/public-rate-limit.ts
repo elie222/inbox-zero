@@ -15,6 +15,12 @@ const PUBLIC_BOOKING_RATE_LIMITS = {
   linkDaily: { limit: 200, windowSeconds: 24 * 60 * 60 },
 } as const;
 
+const PUBLIC_BOOKING_CANCEL_RATE_LIMITS = {
+  ipBookingBurst: { limit: 10, windowSeconds: 10 * 60 },
+  ipBookingDaily: { limit: 50, windowSeconds: 24 * 60 * 60 },
+  bookingHourly: { limit: 20, windowSeconds: 60 * 60 },
+} as const;
+
 export async function enforcePublicBookingRateLimit({
   input,
   clientIp,
@@ -93,6 +99,68 @@ export async function enforcePublicBookingRateLimit({
       });
       throw new SafeError(
         "Too many booking attempts. Please try again later.",
+        429,
+      );
+    }
+  }
+}
+
+export async function enforcePublicBookingCancelRateLimit({
+  bookingId,
+  clientIp,
+  logger,
+}: {
+  bookingId: string;
+  clientIp: string;
+  logger: Logger;
+}) {
+  const bookingKey = hashRateLimitValue(bookingId);
+  const ipHash = hashRateLimitValue(clientIp);
+  const rules = [
+    {
+      id: "ip-booking-cancel-burst",
+      key: createRateLimitKey([
+        "rate-limit",
+        "public-booking-cancel",
+        "ip-booking-burst",
+        bookingKey,
+        ipHash,
+      ]),
+      ...PUBLIC_BOOKING_CANCEL_RATE_LIMITS.ipBookingBurst,
+    },
+    {
+      id: "ip-booking-cancel-daily",
+      key: createRateLimitKey([
+        "rate-limit",
+        "public-booking-cancel",
+        "ip-booking-daily",
+        bookingKey,
+        ipHash,
+      ]),
+      ...PUBLIC_BOOKING_CANCEL_RATE_LIMITS.ipBookingDaily,
+    },
+    {
+      id: "booking-cancel-hourly",
+      key: createRateLimitKey([
+        "rate-limit",
+        "public-booking-cancel",
+        "booking-hourly",
+        bookingKey,
+      ]),
+      ...PUBLIC_BOOKING_CANCEL_RATE_LIMITS.bookingHourly,
+    },
+  ];
+
+  for (const rule of rules) {
+    const result = await checkRateLimit({ rule, logger });
+    if (result.limited) {
+      logger.warn("Public booking cancellation rate limit exceeded", {
+        rateLimitId: rule.id,
+        limit: result.limit,
+        retryAfterSeconds: result.retryAfterSeconds,
+      });
+      throw new SafeError(
+        "Too many cancellation attempts. Please try again later.",
         429,
       );
     }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
+import { SafeError } from "@/utils/error";
 
 export type GetBookingLinksResponse = Awaited<ReturnType<typeof getData>>;
 
@@ -73,9 +74,11 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     },
   });
 
+  if (!emailAccount) throw new SafeError("User not found", 404);
+
   return {
-    timezone: emailAccount?.timezone ?? null,
-    bookingLinks: emailAccount?.bookingLinks ?? [],
-    calendarConnections: emailAccount?.calendarConnections ?? [],
+    timezone: emailAccount.timezone,
+    bookingLinks: emailAccount.bookingLinks,
+    calendarConnections: emailAccount.calendarConnections,
   };
 }

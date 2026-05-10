@@ -99,11 +99,19 @@ export async function cancelCalendarEvent({
       accessToken: true,
       refreshToken: true,
       expiresAt: true,
+      calendars: {
+        where: { calendarId: providerCalendarId },
+        select: { id: true },
+        take: 1,
+      },
     },
   });
 
   if (!connection) {
     throw new SafeError("Calendar connection not found");
+  }
+  if (connection.calendars.length === 0) {
+    throw new SafeError("Destination calendar not found");
   }
 
   const writableProvider = createWritableProvider({

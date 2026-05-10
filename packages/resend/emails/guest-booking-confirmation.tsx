@@ -2,7 +2,6 @@ import { Link, Section, Text } from "@react-email/components";
 import { BookingEmailLayout } from "./components/booking-email-layout";
 
 export type GuestBookingConfirmationEmailProps = {
-  baseUrl: string;
   cancelUrl: string;
   eventTitle: string;
   formattedTime: string;
@@ -150,7 +149,6 @@ export default function GuestBookingConfirmationEmail({
 }
 
 GuestBookingConfirmationEmail.PreviewProps = {
-  baseUrl: "https://www.getinboxzero.com",
   cancelUrl: "https://www.getinboxzero.com/book/cancel/example?token=test",
   eventTitle: "15 min intro",
   formattedTime: "Thu, Nov 12, 2026 · 10:00 AM",

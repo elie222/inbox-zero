@@ -60,7 +60,6 @@ export async function sendBookingConfirmationEmails({
         from: env.RESEND_FROM_EMAIL,
         to: booking.guestEmail,
         emailProps: {
-          baseUrl: env.NEXT_PUBLIC_BASE_URL,
           cancelUrl,
           eventTitle: link.title,
           formattedTime: guestParts.formattedTime,

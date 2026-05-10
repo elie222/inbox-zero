@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { env } from "@/env";
 import { redis } from "@/utils/redis";
 import type { Logger } from "@/utils/logger";
@@ -38,10 +38,13 @@ export async function checkRateLimit({
   }
 
   try {
-    const count = Number(await redis.incr(rule.key));
-    if (count === 1) {
-      await redis.expire(rule.key, rule.windowSeconds);
-    }
+    const count = Number(
+      await redis.eval<string[], number>(
+        INCREMENT_RATE_LIMIT_SCRIPT,
+        [rule.key],
+        [rule.windowSeconds.toString()],
+      ),
+    );
 
     if (count > rule.limit) {
       return {
@@ -92,7 +95,9 @@ export function getClientIp(headers: Headers) {
 }
 
 export function hashRateLimitValue(value: string) {
-  return createHash("sha256").update(value).digest("hex").slice(0, 24);
+  return createHmac("sha256", getRateLimitHashSecret())
+    .update(value)
+    .digest("hex");
 }
 
 function hashKeyPart(part: string) {
@@ -105,3 +110,15 @@ function isRedisRateLimitConfigured() {
     Boolean(env.UPSTASH_REDIS_URL && env.UPSTASH_REDIS_TOKEN)
   );
 }
+
+function getRateLimitHashSecret() {
+  return env.AUTH_SECRET || env.NEXTAUTH_SECRET || env.EMAIL_ENCRYPT_SECRET;
+}
+
+const INCREMENT_RATE_LIMIT_SCRIPT = `
+local count = redis.call("INCR", KEYS[1])
+if count == 1 then
+  redis.call("EXPIRE", KEYS[1], tonumber(ARGV[1]))
+end
+return count
+`.trim();

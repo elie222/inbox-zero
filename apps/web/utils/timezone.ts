@@ -35,17 +35,17 @@ export function getSupportedTimezonesWithOffsets(
 
 export function getTimezoneOffsetMinutes(zone: string, now: Date): number {
   try {
-    // Format the same instant as a wall-clock string in UTC and in the target
-    // zone, then re-parse both. Each `new Date(...)` interprets the string in
-    // the system's local zone, so the local offset cancels out and the
-    // remaining diff is the target zone's offset from UTC.
-    const utcMs = new Date(
-      now.toLocaleString("en-US", { timeZone: "UTC" }),
-    ).getTime();
-    const tzMs = new Date(
-      now.toLocaleString("en-US", { timeZone: zone }),
-    ).getTime();
-    return Math.round((tzMs - utcMs) / 60_000);
+    const parts = getTimezoneParts(zone, now);
+    const zonedAsUtcMs = Date.UTC(
+      parts.year,
+      parts.month - 1,
+      parts.day,
+      parts.hour,
+      parts.minute,
+      parts.second,
+    );
+
+    return Math.round((zonedAsUtcMs - now.getTime()) / 60_000);
   } catch {
     return 0;
   }
@@ -57,4 +57,32 @@ export function formatOffsetLabel(offsetMinutes: number): string {
   const hours = Math.floor(abs / 60);
   const minutes = abs % 60;
   return `GMT ${sign}${hours}:${minutes.toString().padStart(2, "0")}`;
+}
+
+function getTimezoneParts(zone: string, date: Date) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+  const values = new Map(
+    formatter
+      .formatToParts(date)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, Number(part.value)]),
+  );
+
+  return {
+    year: values.get("year") ?? 0,
+    month: values.get("month") ?? 0,
+    day: values.get("day") ?? 0,
+    hour: values.get("hour") ?? 0,
+    minute: values.get("minute") ?? 0,
+    second: values.get("second") ?? 0,
+  };
 }

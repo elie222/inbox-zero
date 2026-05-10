@@ -37,6 +37,7 @@ import {
 } from "@/utils/actions/booking";
 import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import { cn } from "@/utils";
+import { normalizeBookingSlug } from "@/utils/booking/slug";
 import {
   DURATION_OPTIONS,
   getCalendarOptions,
@@ -225,7 +226,12 @@ function GeneralTab({
       const nextLocationType =
         videoEnabled && videoLocationType
           ? videoLocationType
-          : BookingLinkLocationType.CUSTOM;
+          : isProviderVideoLocationType(link.locationType)
+            ? BookingLinkLocationType.CUSTOM
+            : link.locationType;
+      const nextLocationValue = isProviderVideoLocationType(nextLocationType)
+        ? null
+        : link.locationValue;
 
       const result = await updateLink({
         id: link.id,
@@ -235,7 +241,7 @@ function GeneralTab({
         durationMinutes: duration,
         slotIntervalMinutes: duration,
         locationType: nextLocationType,
-        locationValue: "",
+        locationValue: nextLocationValue,
         destinationCalendarId,
       });
       if (hasActionResultError(result)) return;
@@ -276,7 +282,7 @@ function GeneralTab({
           registerProps={{
             value: slug,
             onChange: (event: ChangeEvent<HTMLInputElement>) =>
-              setSlug(event.target.value),
+              setSlug(normalizeBookingSlug(event.target.value)),
           }}
         />
 

@@ -102,6 +102,7 @@ describe("createCalendarEvent", () => {
       accessToken: "access-token",
       refreshToken: "refresh-token",
       expiresAt: new Date("2026-05-04T00:00:00.000Z"),
+      calendars: [{ id: "calendar-row-id" }],
     });
 
     await cancelCalendarEvent({
@@ -117,6 +118,14 @@ describe("createCalendarEvent", () => {
         where: expect.objectContaining({
           id: "connection-id",
           emailAccountId: "email-account-id",
+          isConnected: true,
+        }),
+        select: expect.objectContaining({
+          calendars: {
+            where: { calendarId: "primary" },
+            select: { id: true },
+            take: 1,
+          },
         }),
       }),
     );
@@ -129,6 +138,29 @@ describe("createCalendarEvent", () => {
       calendarId: "primary",
       eventId: "provider-event-id",
     });
+  });
+
+  it("rejects cancellation when the calendar does not belong to the connection", async () => {
+    prisma.calendarConnection.findFirst.mockResolvedValue({
+      id: "connection-id",
+      provider: "google",
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      expiresAt: new Date("2026-05-04T00:00:00.000Z"),
+      calendars: [],
+    });
+
+    await expect(
+      cancelCalendarEvent({
+        emailAccountId: "email-account-id",
+        providerConnectionId: "connection-id",
+        providerCalendarId: "other-calendar",
+        providerEventId: "provider-event-id",
+        logger: createTestLogger(),
+      }),
+    ).rejects.toThrow("Destination calendar not found");
+
+    expect(providerMocks.cancelEvent).not.toHaveBeenCalled();
   });
 
   it("uses the Microsoft event provider for Microsoft connections", async () => {

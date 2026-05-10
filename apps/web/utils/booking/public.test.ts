@@ -159,9 +159,9 @@ describe("public booking", () => {
         slug: "intro",
         startTime: "2026-05-04T09:00:00.000Z",
         timezone: "UTC",
-        guestName: "Guest User",
+        guestName: "Guest <User>",
         guestEmail: "GUEST@EXAMPLE.COM",
-        guestNote: "Please share an agenda.",
+        guestNote: "Please share <agenda> & links.",
         idempotencyToken: "token-1",
       },
       logger,
@@ -169,9 +169,9 @@ describe("public booking", () => {
 
     expect(createCalendarEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        attendees: [{ name: "Guest User", email: "GUEST@EXAMPLE.COM" }],
+        attendees: [{ name: "Guest <User>", email: "GUEST@EXAMPLE.COM" }],
         description:
-          "Booked with Guest User\nGuest email: GUEST@EXAMPLE.COM\nGuest note: Please share an agenda.",
+          "Booked with Guest &lt;User&gt;\nGuest email: GUEST@EXAMPLE.COM\nGuest note: Please share &lt;agenda&gt; &amp; links.",
         destinationCalendarId: "calendar-row-id",
         emailAccountId: "email-account-id",
         endTime: new Date("2026-05-04T09:30:00.000Z"),

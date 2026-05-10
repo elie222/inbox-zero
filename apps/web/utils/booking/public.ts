@@ -529,12 +529,27 @@ function getProviderEventDescription({
   guestNote?: string;
 }) {
   return [
-    `Booked with ${guestName}`,
-    `Guest email: ${guestEmail}`,
-    guestNote ? `Guest note: ${guestNote}` : null,
+    `Booked with ${escapeCalendarDescriptionText(guestName)}`,
+    `Guest email: ${escapeCalendarDescriptionText(guestEmail)}`,
+    guestNote
+      ? `Guest note: ${escapeCalendarDescriptionText(guestNote)}`
+      : null,
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function escapeCalendarDescriptionText(value: string) {
+  return value
+    .split("")
+    .filter((char) => {
+      const code = char.charCodeAt(0);
+      return code === 9 || code === 10 || code === 13 || code >= 32;
+    })
+    .join("")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 function toPublicBookingResult(booking: {
