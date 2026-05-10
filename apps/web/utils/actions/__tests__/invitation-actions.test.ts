@@ -5,16 +5,20 @@ import {
   inviteMembersAction,
 } from "@/utils/actions/organization";
 
-const { mockEnv } = vi.hoisted(() => ({
+const { mockEnv, mockSendOrganizationInvitation } = vi.hoisted(() => ({
   mockEnv: {
     AUTO_ENABLE_ORG_ANALYTICS: false,
   },
+  mockSendOrganizationInvitation: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({ user: { id: "u1", email: "test@test.com" } })),
+}));
+vi.mock("@/utils/organizations/invitations", () => ({
+  sendOrganizationInvitation: mockSendOrganizationInvitation,
 }));
 vi.mock("@/env", async () => {
   const actual = await vi.importActual<typeof import("@/env")>("@/env");
@@ -34,6 +38,7 @@ describe("createInvitationAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockEnv.AUTO_ENABLE_ORG_ANALYTICS = false;
+    mockSendOrganizationInvitation.mockResolvedValue(undefined);
     (prisma.emailAccount.findUnique as any).mockResolvedValue({
       email: "test@test.com",
       account: { userId: "u1", provider: "google" },
@@ -88,6 +93,108 @@ describe("createInvitationAction", () => {
       results: [
         { email: "user@test.com", success: true },
         { email: "second@test.com", success: true },
+      ],
+    });
+  });
+
+  it("rolls back the pending invitation when sending the email fails", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      id: "ea_inviter",
+      email: "inviter@test.com",
+      name: "Inviter",
+      account: { userId: "u1", provider: "google" },
+    } as any);
+    prisma.member.findFirst.mockResolvedValueOnce({
+      organizationId: "org_1",
+      emailAccountId: "ea_inviter",
+      role: "owner",
+    } as any);
+    prisma.invitation.findMany.mockResolvedValue([] as any);
+    prisma.invitation.create
+      .mockResolvedValueOnce({ id: "inv_failed" } as any)
+      .mockResolvedValueOnce({ id: "inv_success" } as any);
+    prisma.organization.findUnique.mockResolvedValue({ name: "Acme" } as any);
+    mockSendOrganizationInvitation
+      .mockRejectedValueOnce(new Error("email provider unavailable"))
+      .mockResolvedValueOnce(undefined);
+
+    const res = await inviteMembersAction({
+      organizationId: "org_1",
+      invitations: [
+        { email: "failed@test.com", role: "member" },
+        { email: "success@test.com", role: "admin" },
+      ],
+    });
+
+    expect(prisma.invitation.create).toHaveBeenCalledTimes(2);
+    expect(prisma.invitation.delete).toHaveBeenCalledWith({
+      where: { id: "inv_failed" },
+    });
+    expect(mockSendOrganizationInvitation).toHaveBeenNthCalledWith(1, {
+      email: "failed@test.com",
+      invitationId: "inv_failed",
+      inviterName: "Inviter",
+      organizationName: "Acme",
+    });
+    expect(mockSendOrganizationInvitation).toHaveBeenNthCalledWith(2, {
+      email: "success@test.com",
+      invitationId: "inv_success",
+      inviterName: "Inviter",
+      organizationName: "Acme",
+    });
+    expect(res?.data).toEqual({
+      results: [
+        {
+          email: "failed@test.com",
+          success: false,
+          error: "Failed to send email",
+        },
+        { email: "success@test.com", success: true },
+      ],
+    });
+  });
+
+  it("rejects duplicate emails in the same request without creating a second invitation", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      id: "ea_inviter",
+      email: "inviter@test.com",
+      name: "Inviter",
+      account: { userId: "u1", provider: "google" },
+    } as any);
+    prisma.member.findFirst.mockResolvedValueOnce({
+      organizationId: "org_1",
+      emailAccountId: "ea_inviter",
+      role: "owner",
+    } as any);
+    prisma.invitation.findMany.mockResolvedValue([] as any);
+    prisma.invitation.create.mockResolvedValueOnce({ id: "inv_1" } as any);
+    prisma.organization.findUnique.mockResolvedValue({ name: "Acme" } as any);
+
+    const res = await inviteMembersAction({
+      organizationId: "org_1",
+      invitations: [
+        { email: "Fresh@Test.com", role: "member" },
+        { email: "fresh@test.com", role: "admin" },
+      ],
+    });
+
+    expect(prisma.invitation.create).toHaveBeenCalledTimes(1);
+    expect(prisma.invitation.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        email: "fresh@test.com",
+        role: "member",
+      }),
+      select: { id: true },
+    });
+    expect(mockSendOrganizationInvitation).toHaveBeenCalledTimes(1);
+    expect(res?.data).toEqual({
+      results: [
+        { email: "fresh@test.com", success: true },
+        {
+          email: "fresh@test.com",
+          success: false,
+          error: "Duplicate email",
+        },
       ],
     });
   });
