@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createBookingLinkBody,
   publicBookingBody,
-  updateBookingScheduleBody,
+  updateBookingAvailabilityBody,
 } from "@/utils/actions/booking.validation";
 
 describe("booking action validation", () => {
@@ -32,7 +32,6 @@ describe("booking action validation", () => {
   it("validates public booking timezones", () => {
     const result = publicBookingBody.safeParse({
       slug: "intro-call",
-      eventTypeSlug: "meeting",
       startTime: "2026-05-08T10:00:00.000Z",
       timezone: "Not/AZone",
       guestName: "Guest",
@@ -43,11 +42,12 @@ describe("booking action validation", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects schedule rules with inverted times", () => {
-    const result = updateBookingScheduleBody.safeParse({
-      id: "schedule-id",
+  it("rejects availability windows with inverted times", () => {
+    const result = updateBookingAvailabilityBody.safeParse({
+      bookingLinkId: "link-id",
       timezone: "UTC",
-      rules: [{ weekday: 1, startMinutes: 17 * 60, endMinutes: 9 * 60 }],
+      minimumNoticeMinutes: 0,
+      windows: [{ weekday: 1, startMinutes: 17 * 60, endMinutes: 9 * 60 }],
     });
 
     expect(result.success).toBe(false);

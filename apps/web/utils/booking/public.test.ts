@@ -4,7 +4,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
   BookingCanceledBy,
-  BookingEventTypeLocationType,
+  BookingLinkLocationType,
   BookingStatus,
 } from "@/generated/prisma/enums";
 import {
@@ -52,55 +52,33 @@ describe("public booking", () => {
     });
     vi.mocked(sendBookingConfirmationEmails).mockResolvedValue(undefined);
     vi.mocked(sendBookingCancellationEmails).mockResolvedValue(undefined);
-    mockEventTypeConfig();
+    mockBookingLinkConfig();
   });
 
-  it("returns public metadata without hidden host details", async () => {
+  it("returns public link metadata", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue({
       slug: "intro",
-      aliasSlug: "meet",
-      title: "Intro calls",
-      description: null,
-      timezone: "UTC",
-      defaultEventTypeId: "event-type-id",
-      eventTypes: [
-        {
-          id: "event-type-id",
-          slug: "meeting",
-          title: "Intro call",
-          description: "Talk through fit.",
-          durationMinutes: 30,
-          slotIntervalMinutes: 30,
-          locationType: BookingEventTypeLocationType.CUSTOM,
-          locationValue: "Private room",
-          disableCancelling: false,
-          hideHostEmail: true,
-          hideCalendarEventDetails: true,
-          hosts: [
-            {
-              emailAccount: {
-                email: "host@example.com",
-                name: "Host User",
-              },
-            },
-          ],
-        },
-      ],
+      title: "Intro call",
+      description: "Talk through fit.",
+      durationMinutes: 30,
+      slotIntervalMinutes: 30,
+      locationType: BookingLinkLocationType.CUSTOM,
+      locationValue: "Private room",
+      emailAccount: {
+        email: "host@example.com",
+        name: "Host User",
+      },
     });
 
-    const result = await getPublicBookingLinkMetadata("meet");
+    const result = await getPublicBookingLinkMetadata("intro");
 
     expect(result).toEqual(
       expect.objectContaining({
         slug: "intro",
-        aliasSlug: "meet",
-      }),
-    );
-    expect(result.eventTypes[0]).toEqual(
-      expect.objectContaining({
-        hostEmail: null,
+        title: "Intro call",
+        durationMinutes: 30,
+        hostEmail: "host@example.com",
         hostName: "Host User",
-        locationValue: null,
       }),
     );
   });
@@ -111,7 +89,6 @@ describe("public booking", () => {
     await expect(
       getPublicAvailability({
         slug: "intro",
-        eventTypeSlug: "meeting",
         start: new Date("2026-09-30T22:00:00.000Z"),
         end: new Date("2026-10-31T23:00:00.000Z"),
         logger,
@@ -129,7 +106,6 @@ describe("public booking", () => {
 
     const result = await getPublicAvailability({
       slug: "intro",
-      eventTypeSlug: "meeting",
       start: new Date("2026-05-04T00:00:00.000Z"),
       end: new Date("2026-05-05T00:00:00.000Z"),
       logger,
@@ -152,7 +128,6 @@ describe("public booking", () => {
       }),
     ).rejects.toThrow("Calendar availability is temporarily unavailable");
 
-    expect(prisma.bookingSlotLock.create).not.toHaveBeenCalled();
     expect(prisma.booking.create).not.toHaveBeenCalled();
   });
 
@@ -165,10 +140,6 @@ describe("public booking", () => {
     });
     prisma.booking.findFirst.mockResolvedValue(null);
     prisma.booking.findMany.mockResolvedValue([]);
-    prisma.booking.count.mockResolvedValue(0);
-    prisma.bookingSlotLock.deleteMany.mockResolvedValue({ count: 0 });
-    prisma.bookingSlotLock.create.mockResolvedValue({ id: "slot-lock-id" });
-    prisma.bookingSlotLock.update.mockResolvedValue({});
     prisma.booking.create.mockResolvedValue(
       bookingRecord({ status: BookingStatus.PENDING_PROVIDER_EVENT }),
     );
@@ -184,7 +155,6 @@ describe("public booking", () => {
     const result = await createPublicBooking({
       input: {
         slug: "intro",
-        eventTypeSlug: "meeting",
         startTime: "2026-05-04T09:00:00.000Z",
         timezone: "UTC",
         guestName: "Guest User",
@@ -203,7 +173,7 @@ describe("public booking", () => {
         destinationCalendarId: "calendar-row-id",
         emailAccountId: "email-account-id",
         endTime: new Date("2026-05-04T09:30:00.000Z"),
-        locationType: BookingEventTypeLocationType.CUSTOM,
+        locationType: BookingLinkLocationType.CUSTOM,
         locationValue: "Video link",
         startTime: new Date("2026-05-04T09:00:00.000Z"),
         timezone: "UTC",
@@ -216,6 +186,7 @@ describe("public booking", () => {
           guestEmail: "guest@example.com",
           idempotencyToken: "token-1",
           status: BookingStatus.PENDING_PROVIDER_EVENT,
+          linkTitle: "Intro call",
         }),
       }),
     );
@@ -230,10 +201,6 @@ describe("public booking", () => {
         }),
       }),
     );
-    expect(prisma.bookingSlotLock.update).toHaveBeenCalledWith({
-      where: { id: "slot-lock-id" },
-      data: { bookingId: "booking-id" },
-    });
     expect(sendBookingConfirmationEmails).toHaveBeenCalledWith(
       expect.objectContaining({
         booking: expect.objectContaining({ uid: "booking-uid" }),
@@ -259,7 +226,6 @@ describe("public booking", () => {
     const result = await createPublicBooking({
       input: {
         slug: "intro",
-        eventTypeSlug: "meeting",
         startTime: "2026-05-04T09:00:00.000Z",
         timezone: "UTC",
         guestName: "Guest User",
@@ -269,7 +235,7 @@ describe("public booking", () => {
       logger,
     });
 
-    expect(prisma.bookingSlotLock.create).not.toHaveBeenCalled();
+    expect(prisma.booking.create).not.toHaveBeenCalled();
     expect(createCalendarEvent).not.toHaveBeenCalled();
     expect(sendBookingConfirmationEmails).not.toHaveBeenCalled();
     expect(result).toEqual({
@@ -280,37 +246,10 @@ describe("public booking", () => {
     });
   });
 
-  it("rejects new bookings once the guest hits the active-booking cap", async () => {
-    mockEventTypeConfig({ maxActiveBookingsPerGuest: 1 });
+  it("rejects overlapping bookings via the partial EXCLUDE constraint", async () => {
     prisma.booking.findFirst.mockResolvedValue(null);
     prisma.booking.findMany.mockResolvedValue([]);
-    prisma.booking.count.mockResolvedValue(1);
-
-    await expect(
-      createPublicBooking({
-        input: {
-          slug: "intro",
-          eventTypeSlug: "meeting",
-          startTime: "2026-05-04T09:00:00.000Z",
-          timezone: "UTC",
-          guestName: "Guest User",
-          guestEmail: "guest@example.com",
-          idempotencyToken: "token-2",
-        },
-        logger,
-      }),
-    ).rejects.toThrow("Guest has reached the booking limit");
-
-    expect(prisma.bookingSlotLock.create).not.toHaveBeenCalled();
-    expect(prisma.booking.create).not.toHaveBeenCalled();
-  });
-
-  it("rejects overlapping slot locks before creating a pending booking", async () => {
-    prisma.booking.findFirst.mockResolvedValue(null);
-    prisma.booking.findMany.mockResolvedValue([]);
-    prisma.booking.count.mockResolvedValue(0);
-    prisma.bookingSlotLock.deleteMany.mockResolvedValue({ count: 0 });
-    prisma.bookingSlotLock.create.mockRejectedValue(
+    prisma.booking.create.mockRejectedValue(
       new Error("exclusion constraint failed with SQL state 23P01"),
     );
 
@@ -321,18 +260,12 @@ describe("public booking", () => {
       }),
     ).rejects.toThrow("Selected slot is no longer available");
 
-    expect(prisma.booking.create).not.toHaveBeenCalled();
     expect(createCalendarEvent).not.toHaveBeenCalled();
   });
 
   it("cancels a provider event when local confirmation fails after event creation", async () => {
     prisma.booking.findFirst.mockResolvedValue(null);
     prisma.booking.findMany.mockResolvedValue([]);
-    prisma.booking.count.mockResolvedValue(0);
-    prisma.bookingSlotLock.deleteMany.mockResolvedValue({ count: 0 });
-    prisma.bookingSlotLock.create.mockResolvedValue({ id: "slot-lock-id" });
-    prisma.bookingSlotLock.update.mockResolvedValue({});
-    prisma.bookingSlotLock.delete.mockResolvedValue({});
     prisma.booking.create.mockResolvedValue(
       bookingRecord({ status: BookingStatus.PENDING_PROVIDER_EVENT }),
     );
@@ -345,7 +278,6 @@ describe("public booking", () => {
       createPublicBooking({
         input: {
           slug: "intro",
-          eventTypeSlug: "meeting",
           startTime: "2026-05-04T09:00:00.000Z",
           timezone: "UTC",
           guestName: "Guest User",
@@ -366,9 +298,6 @@ describe("public booking", () => {
     expect(prisma.booking.update).toHaveBeenLastCalledWith({
       where: { id: "booking-id" },
       data: { status: BookingStatus.FAILED },
-    });
-    expect(prisma.bookingSlotLock.delete).toHaveBeenCalledWith({
-      where: { id: "slot-lock-id" },
     });
     expect(sendBookingConfirmationEmails).not.toHaveBeenCalled();
   });
@@ -415,9 +344,6 @@ describe("public booking", () => {
         },
       }),
     );
-    expect(prisma.bookingSlotLock.deleteMany).toHaveBeenCalledWith({
-      where: { bookingId: "booking-id" },
-    });
     expect(sendBookingCancellationEmails).toHaveBeenCalledWith(
       expect.objectContaining({
         booking: expect.objectContaining({ status: BookingStatus.CANCELED }),
@@ -466,29 +392,6 @@ describe("public booking", () => {
     expect(cancelCalendarEvent).not.toHaveBeenCalled();
     expect(prisma.booking.update).not.toHaveBeenCalled();
   });
-
-  it("respects event types that disable guest cancellation", async () => {
-    prisma.booking.findUnique.mockResolvedValue(
-      bookingRecord({
-        cancelTokenHash: hashToken("cancel-token"),
-        eventType: {
-          disableCancelling: true,
-        },
-        status: BookingStatus.CONFIRMED,
-      }),
-    );
-
-    await expect(
-      cancelPublicBooking({
-        uid: "booking-uid",
-        token: "cancel-token",
-        logger,
-      }),
-    ).rejects.toThrow("Cancellation is disabled for this booking");
-
-    expect(cancelCalendarEvent).not.toHaveBeenCalled();
-    expect(prisma.booking.update).not.toHaveBeenCalled();
-  });
 });
 
 function publicBookingInput(
@@ -496,7 +399,6 @@ function publicBookingInput(
 ): Parameters<typeof createPublicBooking>[0]["input"] {
   return {
     slug: "intro",
-    eventTypeSlug: "meeting",
     startTime: "2026-05-04T09:00:00.000Z",
     timezone: "UTC",
     guestName: "Guest User",
@@ -506,48 +408,26 @@ function publicBookingInput(
   };
 }
 
-function mockEventTypeConfig({
-  maxActiveBookingsPerGuest = null,
-}: {
-  maxActiveBookingsPerGuest?: number | null;
-} = {}) {
+function mockBookingLinkConfig() {
   prisma.bookingLink.findFirst.mockResolvedValue({
     id: "booking-link-id",
-    eventTypes: [
-      {
-        id: "event-type-id",
-        title: "Intro call",
-        durationMinutes: 30,
-        slotIntervalMinutes: 30,
-        locationType: BookingEventTypeLocationType.CUSTOM,
-        locationValue: "Video link",
-        minimumNoticeMinutes: 0,
-        bufferBeforeMinutes: 0,
-        bufferAfterMinutes: 0,
-        bookingWindowDays: 30,
-        maxActiveBookingsPerGuest,
-        disableCancelling: false,
-        hideCalendarEventDetails: false,
-        hosts: [
-          {
-            id: "host-id",
-            emailAccountId: "email-account-id",
-            destinationCalendarId: "calendar-row-id",
-            schedule: {
-              timezone: "UTC",
-              rules: [
-                { weekday: 1, startMinutes: 9 * 60, endMinutes: 10 * 60 },
-              ],
-            },
-            emailAccount: {
-              calendarConnections: [
-                { id: "connection-id", calendars: [{ id: "calendar-row-id" }] },
-              ],
-            },
-          },
-        ],
-      },
-    ],
+    title: "Intro call",
+    description: null,
+    durationMinutes: 30,
+    slotIntervalMinutes: 30,
+    locationType: BookingLinkLocationType.CUSTOM,
+    locationValue: "Video link",
+    minimumNoticeMinutes: 0,
+    maxDaysAhead: 30,
+    timezone: "UTC",
+    emailAccountId: "email-account-id",
+    destinationCalendarId: "calendar-row-id",
+    windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 10 * 60 }],
+    emailAccount: {
+      calendarConnections: [
+        { id: "connection-id", calendars: [{ id: "calendar-row-id" }] },
+      ],
+    },
   });
 }
 
@@ -557,9 +437,9 @@ function bookingRecord(
   return {
     ...bookingRecordBase(),
     ...overrides,
-    eventType: {
-      ...bookingRecordBase().eventType,
-      ...overrides.eventType,
+    bookingLink: {
+      ...bookingRecordBase().bookingLink,
+      ...overrides.bookingLink,
     },
   };
 }
@@ -568,7 +448,7 @@ function bookingRecordBase() {
   return {
     id: "booking-id",
     uid: "booking-uid",
-    eventTypeId: "event-type-id",
+    bookingLinkId: "booking-link-id",
     emailAccountId: "email-account-id",
     guestName: "Guest User",
     guestEmail: "guest@example.com",
@@ -580,28 +460,22 @@ function bookingRecordBase() {
     provider: null,
     providerCalendarId: null,
     providerEventId: null,
+    videoConferenceLink: null,
     cancelTokenHash: hashToken("cancel-token"),
     cancellationReason: null,
     canceledBy: null,
     idempotencyToken: "token-1",
-    eventTypeTitle: "Intro call",
-    eventTypeDurationMinutes: 30,
-    eventTypeLocationType: BookingEventTypeLocationType.CUSTOM,
-    eventTypeLocationValue: "Video link",
-    eventTypeTimezone: "UTC",
+    linkTitle: "Intro call",
+    linkLocationType: BookingLinkLocationType.CUSTOM,
+    linkLocationValue: "Video link",
+    linkTimezone: "UTC",
     createdAt: new Date("2026-05-01T00:00:00.000Z"),
     updatedAt: new Date("2026-05-01T00:00:00.000Z"),
-    eventType: {
-      disableCancelling: false,
-      hideHostEmail: false,
-      hosts: [
-        {
-          emailAccount: {
-            email: "host@example.com",
-            name: "Host User",
-          },
-        },
-      ],
+    bookingLink: {
+      emailAccount: {
+        email: "host@example.com",
+        name: "Host User",
+      },
     },
   };
 }

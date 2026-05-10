@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
+import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import {
   isGoogleProvider,
   isMicrosoftProvider,
@@ -211,20 +211,20 @@ export function getProviderVideoLocationType(
   provider: string | null | undefined,
 ) {
   if (isGoogleProvider(provider)) {
-    return BookingEventTypeLocationType.GOOGLE_MEET;
+    return BookingLinkLocationType.GOOGLE_MEET;
   }
   if (isMicrosoftProvider(provider)) {
-    return BookingEventTypeLocationType.MICROSOFT_TEAMS;
+    return BookingLinkLocationType.MICROSOFT_TEAMS;
   }
   return null;
 }
 
 export function isProviderVideoLocationType(
-  locationType: BookingEventTypeLocationType,
+  locationType: BookingLinkLocationType,
 ) {
   return (
-    locationType === BookingEventTypeLocationType.GOOGLE_MEET ||
-    locationType === BookingEventTypeLocationType.MICROSOFT_TEAMS
+    locationType === BookingLinkLocationType.GOOGLE_MEET ||
+    locationType === BookingLinkLocationType.MICROSOFT_TEAMS
   );
 }
 
@@ -292,13 +292,11 @@ function FieldLabel({ children }: { children: ReactNode }) {
   );
 }
 
-function getVideoLocationLabel(
-  locationType: BookingEventTypeLocationType | null,
-) {
-  if (locationType === BookingEventTypeLocationType.GOOGLE_MEET) {
+function getVideoLocationLabel(locationType: BookingLinkLocationType | null) {
+  if (locationType === BookingLinkLocationType.GOOGLE_MEET) {
     return "Google Meet";
   }
-  if (locationType === BookingEventTypeLocationType.MICROSOFT_TEAMS) {
+  if (locationType === BookingLinkLocationType.MICROSOFT_TEAMS) {
     return "Microsoft Teams";
   }
   return null;

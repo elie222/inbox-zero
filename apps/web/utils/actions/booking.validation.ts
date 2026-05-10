@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isValidTimeZone } from "@inboxzero/scheduling";
-import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
+import { BookingLinkLocationType } from "@/generated/prisma/enums";
 
 export const RESERVED_BOOKING_SLUGS = new Set([
   "api",
@@ -34,35 +34,10 @@ const timezoneSchema = z.string().refine(isValidTimeZone, {
   message: "Use a valid IANA timezone",
 });
 
-const locationTypeSchema = z.nativeEnum(BookingEventTypeLocationType);
+const locationTypeSchema = z.nativeEnum(BookingLinkLocationType);
 
 const positiveMinutesSchema = z.coerce.number().int().positive();
 const nonNegativeMinutesSchema = z.coerce.number().int().nonnegative();
-
-const bookingEventTypeFields = z.object({
-  title: z.string().trim().min(1, "Title is required").max(120),
-  slug: slugSchema,
-  description: z.string().trim().max(1000).optional().or(z.literal("")),
-  durationMinutes: positiveMinutesSchema.max(24 * 60),
-  slotIntervalMinutes: positiveMinutesSchema.max(24 * 60),
-  locationType: locationTypeSchema.default(BookingEventTypeLocationType.CUSTOM),
-  locationValue: z.string().trim().max(500).optional().or(z.literal("")),
-  minimumNoticeMinutes: nonNegativeMinutesSchema.max(365 * 24 * 60),
-  bufferBeforeMinutes: nonNegativeMinutesSchema.max(24 * 60),
-  bufferAfterMinutes: nonNegativeMinutesSchema.max(24 * 60),
-  bookingWindowDays: z.coerce.number().int().positive().max(365),
-  maxActiveBookingsPerGuest: z.coerce
-    .number()
-    .int()
-    .positive()
-    .nullable()
-    .optional(),
-  disableCancelling: z.boolean().default(false),
-  hideHostEmail: z.boolean().default(false),
-  hideCalendarEventDetails: z.boolean().default(false),
-  isActive: z.boolean().default(true),
-  destinationCalendarId: z.string().optional().nullable(),
-});
 
 export const createBookingLinkBody = z.object({
   title: z.string().trim().min(1, "Title is required").max(120),
@@ -80,11 +55,16 @@ export const updateBookingLinkActionBody = z.object({
   id: z.string(),
   title: z.string().trim().min(1).max(120).optional(),
   slug: slugSchema.optional(),
-  aliasSlug: slugSchema.optional().nullable(),
   description: z.string().trim().max(1000).optional().nullable(),
   timezone: timezoneSchema.optional(),
   isActive: z.boolean().optional(),
-  defaultEventTypeId: z.string().optional().nullable(),
+  durationMinutes: positiveMinutesSchema.max(24 * 60).optional(),
+  slotIntervalMinutes: positiveMinutesSchema.max(24 * 60).optional(),
+  locationType: locationTypeSchema.optional(),
+  locationValue: z.string().trim().max(500).optional().nullable(),
+  minimumNoticeMinutes: nonNegativeMinutesSchema.max(365 * 24 * 60).optional(),
+  maxDaysAhead: z.coerce.number().int().positive().max(365).optional(),
+  destinationCalendarId: z.string().optional().nullable(),
 });
 export type UpdateBookingLinkActionBody = z.infer<
   typeof updateBookingLinkActionBody
@@ -100,23 +80,7 @@ export const deleteBookingLinkBody = z.object({
 });
 export type DeleteBookingLinkBody = z.infer<typeof deleteBookingLinkBody>;
 
-export const createBookingEventTypeBody = bookingEventTypeFields.extend({
-  bookingLinkId: z.string(),
-});
-export type CreateBookingEventTypeBody = z.infer<
-  typeof createBookingEventTypeBody
->;
-
-export const updateBookingEventTypeBody = bookingEventTypeFields
-  .partial()
-  .extend({
-    id: z.string(),
-  });
-export type UpdateBookingEventTypeBody = z.infer<
-  typeof updateBookingEventTypeBody
->;
-
-export const bookingAvailabilityRuleBody = z
+export const bookingWindowBody = z
   .object({
     weekday: z.coerce.number().int().min(0).max(6),
     startMinutes: z.coerce
@@ -130,29 +94,17 @@ export const bookingAvailabilityRuleBody = z
       .min(1)
       .max(24 * 60),
   })
-  .refine((rule) => rule.endMinutes > rule.startMinutes, {
+  .refine((window) => window.endMinutes > window.startMinutes, {
     message: "End time must be after start time",
     path: ["endMinutes"],
   });
-export type BookingAvailabilityRuleBody = z.infer<
-  typeof bookingAvailabilityRuleBody
->;
-
-export const updateBookingScheduleBody = z.object({
-  id: z.string(),
-  timezone: timezoneSchema,
-  rules: z.array(bookingAvailabilityRuleBody).min(1),
-});
-export type UpdateBookingScheduleBody = z.infer<
-  typeof updateBookingScheduleBody
->;
+export type BookingWindowBody = z.infer<typeof bookingWindowBody>;
 
 export const updateBookingAvailabilityBody = z.object({
-  eventTypeId: z.string(),
-  scheduleId: z.string(),
+  bookingLinkId: z.string(),
   timezone: timezoneSchema,
   minimumNoticeMinutes: nonNegativeMinutesSchema.max(365 * 24 * 60),
-  rules: z.array(bookingAvailabilityRuleBody).min(1),
+  windows: z.array(bookingWindowBody).min(1),
 });
 export type UpdateBookingAvailabilityBody = z.infer<
   typeof updateBookingAvailabilityBody
@@ -160,7 +112,6 @@ export type UpdateBookingAvailabilityBody = z.infer<
 
 export const publicBookingBody = z.object({
   slug: slugSchema,
-  eventTypeSlug: slugSchema,
   startTime: z.string().datetime(),
   timezone: timezoneSchema,
   guestName: z.string().trim().min(1).max(120),

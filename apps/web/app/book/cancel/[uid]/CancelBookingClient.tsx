@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/Input";
-import { getApiError, PublicShell } from "../../[slug]/BookingPageClient";
+import { getApiError } from "../../[slug]/BookingPageClient";
 
 export function CancelBookingClient({
   token,
@@ -49,32 +49,37 @@ export function CancelBookingClient({
   }
 
   return (
-    <PublicShell title="Cancel booking">
-      <Card>
-        <CardContent className="p-5">
-          {done ? (
-            <p className="text-sm text-muted-foreground">Booking canceled.</p>
-          ) : token ? (
-            <form onSubmit={submit} className="space-y-4">
-              <Input
-                type="text"
-                autosizeTextarea
-                rows={3}
-                name="reason"
-                label="Reason"
-              />
-              {error ? <p className="text-sm text-red-500">{error}</p> : null}
-              <Button type="submit" loading={isSubmitting}>
-                Cancel booking
-              </Button>
-            </form>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Cancellation token is missing.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-    </PublicShell>
+    <main className="min-h-screen bg-muted/30 px-4 py-10">
+      <div className="mx-auto max-w-2xl space-y-5">
+        <h1 className="text-2xl font-medium tracking-tight text-foreground">
+          Cancel booking
+        </h1>
+        <Card>
+          <CardContent className="p-5">
+            {done ? (
+              <p className="text-sm text-muted-foreground">Booking canceled.</p>
+            ) : token ? (
+              <form onSubmit={submit} className="space-y-4">
+                <Input
+                  type="text"
+                  autosizeTextarea
+                  rows={3}
+                  name="reason"
+                  label="Reason"
+                />
+                {error ? <p className="text-sm text-red-500">{error}</p> : null}
+                <Button type="submit" loading={isSubmitting}>
+                  Cancel booking
+                </Button>
+              </form>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Cancellation token is missing.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </main>
   );
 }

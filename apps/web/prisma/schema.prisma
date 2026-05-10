@@ -202,10 +202,7 @@ model EmailAccount {
   ssoproviders           SsoProvider[]
   calendarConnections    CalendarConnection[]
   bookingLinks           BookingLink[]
-  bookingSchedules       BookingSchedule[]
-  bookingEventTypeHosts  BookingEventTypeHost[]
   bookings               Booking[]
-  bookingSlotLocks       BookingSlotLock[]
   mcpConnections         McpConnection[]
   meetingBriefings       MeetingBriefing[]
   driveConnections       DriveConnection[]
@@ -230,7 +227,6 @@ model Organization {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   members      Member[]
-  bookingLinks BookingLink[]
   SsoProvider  SsoProvider[]
   ScimProvider ScimProvider[]
   sessions     Session[]
@@ -1162,9 +1158,9 @@ model Calendar {
   isEnabled   Boolean @default(true)
   timezone    String?
 
-  connectionId          String
-  connection            CalendarConnection     @relation(fields: [connectionId], references: [id], onDelete: Cascade)
-  bookingEventTypeHosts BookingEventTypeHost[]
+  connectionId String
+  connection   CalendarConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  bookingLinks BookingLink[]
 
   @@unique([connectionId, calendarId])
 }
@@ -1175,104 +1171,31 @@ model BookingLink {
   updatedAt DateTime @updatedAt
 
   slug        String  @unique
-  aliasSlug   String? @unique
   title       String
   description String?
-  timezone    String
   isActive    Boolean @default(true)
 
-  emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  durationMinutes      Int
+  slotIntervalMinutes  Int
+  locationType         BookingLinkLocationType @default(CUSTOM)
+  locationValue        String?
+  minimumNoticeMinutes Int                     @default(120)
+  maxDaysAhead         Int                     @default(30)
+  timezone             String
 
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-
-  defaultEventTypeId String?
-  defaultEventType   BookingEventType? @relation("DefaultBookingEventType", fields: [defaultEventTypeId], references: [id], onDelete: SetNull)
-
-  eventTypes BookingEventType[] @relation("BookingLinkEventTypes")
-
-  @@index([emailAccountId])
-  @@index([organizationId])
-}
-
-model BookingEventType {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  slug                      String
-  title                     String
-  description               String?
-  durationMinutes           Int
-  slotIntervalMinutes       Int
-  locationType              BookingEventTypeLocationType @default(CUSTOM)
-  locationValue             String?
-  minimumNoticeMinutes      Int                          @default(120)
-  bufferBeforeMinutes       Int                          @default(0)
-  bufferAfterMinutes        Int                          @default(0)
-  bookingWindowDays         Int                          @default(30)
-  maxActiveBookingsPerGuest Int?
-  disableCancelling         Boolean                      @default(false)
-  hideHostEmail             Boolean                      @default(false)
-  hideCalendarEventDetails  Boolean                      @default(false)
-  isActive                  Boolean                      @default(true)
-
-  bookingLinkId String
-  bookingLink   BookingLink @relation("BookingLinkEventTypes", fields: [bookingLinkId], references: [id], onDelete: Cascade)
-
-  defaultForBookingLinks BookingLink[]          @relation("DefaultBookingEventType")
-  hosts                  BookingEventTypeHost[]
-  bookings               Booking[]
-  slotLocks              BookingSlotLock[]
-
-  @@unique([bookingLinkId, slug])
-  @@index([bookingLinkId])
-}
-
-model BookingEventTypeHost {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  isActive Boolean @default(true)
-
-  eventTypeId String
-  eventType   BookingEventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
-
-  emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-
-  scheduleId String
-  schedule   BookingSchedule @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
-
+  emailAccountId        String
+  emailAccount          EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   destinationCalendarId String?
-  destinationCalendar   Calendar? @relation(fields: [destinationCalendarId], references: [id], onDelete: SetNull)
+  destinationCalendar   Calendar?    @relation(fields: [destinationCalendarId], references: [id], onDelete: SetNull)
 
-  @@unique([eventTypeId, emailAccountId])
+  windows  BookingWindow[]
+  bookings Booking[]
+
   @@index([emailAccountId])
-  @@index([scheduleId])
   @@index([destinationCalendarId])
 }
 
-model BookingSchedule {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  name     String
-  timezone String
-
-  emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-
-  rules BookingAvailabilityRule[]
-  hosts BookingEventTypeHost[]
-
-  @@index([emailAccountId])
-}
-
-model BookingAvailabilityRule {
+model BookingWindow {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1281,10 +1204,10 @@ model BookingAvailabilityRule {
   startMinutes Int
   endMinutes   Int
 
-  scheduleId String
-  schedule   BookingSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  bookingLinkId String
+  bookingLink   BookingLink @relation(fields: [bookingLinkId], references: [id], onDelete: Cascade)
 
-  @@index([scheduleId])
+  @@index([bookingLinkId])
 }
 
 model Booking {
@@ -1292,65 +1215,39 @@ model Booking {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  uid                      String                       @unique
-  guestName                String
-  guestEmail               String
-  guestNote                String?
-  startTime                DateTime
-  endTime                  DateTime
-  timezone                 String
-  status                   BookingStatus                @default(PENDING_PROVIDER_EVENT)
-  provider                 String?
-  providerCalendarId       String?
-  providerEventId          String?
-  videoConferenceLink      String?
-  cancelTokenHash          String
-  cancellationReason       String?
-  canceledBy               BookingCanceledBy?
-  idempotencyToken         String?
-  eventTypeTitle           String
-  eventTypeDurationMinutes Int
-  eventTypeLocationType    BookingEventTypeLocationType
-  eventTypeLocationValue   String?
-  eventTypeTimezone        String
+  uid                 String             @unique
+  guestName           String
+  guestEmail          String
+  guestNote           String?
+  startTime           DateTime
+  endTime             DateTime
+  timezone            String
+  status              BookingStatus      @default(PENDING_PROVIDER_EVENT)
+  provider            String?
+  providerCalendarId  String?
+  providerEventId     String?
+  videoConferenceLink String?
+  cancelTokenHash     String
+  cancellationReason  String?
+  canceledBy          BookingCanceledBy?
+  idempotencyToken    String?
 
-  eventTypeId String
-  eventType   BookingEventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+  // Snapshot of the booking link at the time of booking, so renaming or
+  // changing the link after the fact doesn't rewrite history.
+  linkTitle         String
+  linkLocationType  BookingLinkLocationType
+  linkLocationValue String?
+  linkTimezone      String
 
+  bookingLinkId  String
+  bookingLink    BookingLink  @relation(fields: [bookingLinkId], references: [id], onDelete: Cascade)
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  slotLocks BookingSlotLock[]
-
-  @@unique([eventTypeId, idempotencyToken])
-  @@index([eventTypeId, startTime, endTime])
+  @@unique([bookingLinkId, idempotencyToken])
+  @@index([bookingLinkId, startTime, endTime])
   @@index([emailAccountId])
   @@index([guestEmail])
-}
-
-model BookingSlotLock {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  startTime DateTime
-  endTime   DateTime
-  expiresAt DateTime
-
-  eventTypeId String
-  eventType   BookingEventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
-
-  // Denormalized so the no-overlap exclusion constraint can scope to the host
-  // (a host's bookings across event types must not overlap).
-  emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-
-  bookingId String?
-  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-
-  @@index([emailAccountId, startTime, endTime])
-  @@index([expiresAt])
-  @@index([bookingId])
 }
 
 model MeetingBriefing {
@@ -1881,7 +1778,7 @@ enum MeetingBriefingStatus {
   SKIPPED
 }
 
-enum BookingEventTypeLocationType {
+enum BookingLinkLocationType {
   IN_PERSON
   GOOGLE_MEET
   MICROSOFT_TEAMS

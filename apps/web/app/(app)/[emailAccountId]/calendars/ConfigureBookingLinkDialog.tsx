@@ -18,10 +18,9 @@ import { getActionErrorMessage } from "@/utils/error";
 import {
   deleteBookingLinkAction,
   updateBookingAvailabilityAction,
-  updateBookingEventTypeAction,
   updateBookingLinkAction,
 } from "@/utils/actions/booking";
-import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
+import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import { cn } from "@/utils";
 import {
   BookingLinkGeneralFields,
@@ -33,8 +32,6 @@ import {
 type BookingLink = NonNullable<
   ReturnType<typeof useBookingLinks>["data"]
 >["bookingLinks"][number];
-
-type EventType = BookingLink["eventTypes"][number];
 
 type Range = { start: string; end: string };
 type DayState = { enabled: boolean; ranges: Range[] };
@@ -58,26 +55,9 @@ export function ConfigureBookingLinkDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const eventType =
-    link.eventTypes.find(
-      (candidate) => candidate.id === link.defaultEventTypeId,
-    ) ?? link.eventTypes[0];
   const [tab, setTab] = useState<"general" | "availability" | "advanced">(
     "general",
   );
-
-  if (!eventType) {
-    return (
-      <Dialog open onOpenChange={(open) => !open && onClose()}>
-        <DialogContent>
-          <DialogTitle>Configure booking link</DialogTitle>
-          <DialogDescription>
-            This link has no event type yet.
-          </DialogDescription>
-        </DialogContent>
-      </Dialog>
-    );
-  }
 
   const publicUrl =
     typeof window !== "undefined"
@@ -132,11 +112,9 @@ export function ConfigureBookingLinkDialog({
           </div>
         </div>
 
-        {tab === "general" && (
-          <GeneralTab link={link} eventType={eventType} onSaved={onSaved} />
-        )}
+        {tab === "general" && <GeneralTab link={link} onSaved={onSaved} />}
         {tab === "availability" && (
-          <AvailabilityTab eventType={eventType} onSaved={onSaved} />
+          <AvailabilityTab link={link} onSaved={onSaved} />
         )}
         {tab === "advanced" && <AdvancedTab link={link} onSaved={onSaved} />}
       </DialogContent>
@@ -171,28 +149,25 @@ function TabButton({
 
 function GeneralTab({
   link,
-  eventType,
   onSaved,
 }: {
   link: BookingLink;
-  eventType: EventType;
   onSaved: () => void;
 }) {
   const { emailAccountId } = useAccount();
   const { data } = useBookingLinks();
-  const host = eventType.hosts[0];
 
-  const [title, setTitle] = useState(eventType.title);
+  const [title, setTitle] = useState(link.title);
   const [slug, setSlug] = useState(link.slug);
-  const [duration, setDuration] = useState<number>(eventType.durationMinutes);
+  const [duration, setDuration] = useState<number>(link.durationMinutes);
   const [destinationCalendarId, setDestinationCalendarId] = useState<string>(
-    host?.destinationCalendarId ?? "",
+    link.destinationCalendarId ?? "",
   );
   const [videoEnabled, setVideoEnabled] = useState(() =>
-    isProviderVideoLocationType(eventType.locationType),
+    isProviderVideoLocationType(link.locationType),
   );
   const [description, setDescription] = useState<string>(
-    eventType.description ?? "",
+    link.description ?? "",
   );
 
   const selectedCalendarProvider = getSelectedCalendarProvider(
@@ -203,18 +178,7 @@ function GeneralTab({
     selectedCalendarProvider,
   );
 
-  const { executeAsync: updateEventType, isExecuting: isUpdatingEventType } =
-    useAction(updateBookingEventTypeAction.bind(null, emailAccountId), {
-      onError: (error) => {
-        toastError({
-          description:
-            getActionErrorMessage(error.error) ??
-            "Failed to update booking link",
-        });
-      },
-    });
-
-  const { executeAsync: updateLink, isExecuting: isUpdatingLink } = useAction(
+  const { executeAsync: updateLink, isExecuting: isSaving } = useAction(
     updateBookingLinkAction.bind(null, emailAccountId),
     {
       onError: (error) => {
@@ -227,7 +191,6 @@ function GeneralTab({
     },
   );
 
-  const isSaving = isUpdatingEventType || isUpdatingLink;
   const publicUrlPrefix =
     typeof window !== "undefined"
       ? `${window.location.origin.replace(/^https?:\/\//, "")}/book/`
@@ -238,26 +201,20 @@ function GeneralTab({
       const nextLocationType =
         videoEnabled && videoLocationType
           ? videoLocationType
-          : BookingEventTypeLocationType.CUSTOM;
+          : BookingLinkLocationType.CUSTOM;
 
-      const linkResult = await updateLink({
+      const result = await updateLink({
         id: link.id,
         slug,
         title,
-      });
-      if (hasActionResultError(linkResult)) return;
-
-      const eventTypeResult = await updateEventType({
-        id: eventType.id,
-        title,
+        description,
         durationMinutes: duration,
         slotIntervalMinutes: duration,
-        destinationCalendarId: destinationCalendarId || null,
         locationType: nextLocationType,
         locationValue: "",
-        description,
+        destinationCalendarId: destinationCalendarId || null,
       });
-      if (hasActionResultError(eventTypeResult)) return;
+      if (hasActionResultError(result)) return;
 
       toastSuccess({ description: "Booking link updated" });
       onSaved();
@@ -297,27 +254,23 @@ function GeneralTab({
 }
 
 function AvailabilityTab({
-  eventType,
+  link,
   onSaved,
 }: {
-  eventType: EventType;
+  link: BookingLink;
   onSaved: () => void;
 }) {
   const { emailAccountId } = useAccount();
-  const host = eventType.hosts[0];
-  const schedule = host?.schedule;
 
   const initialDays = useMemo(
-    () => buildDayState(schedule?.rules ?? []),
-    [schedule?.rules],
+    () => buildDayState(link.windows ?? []),
+    [link.windows],
   );
   const [days, setDays] = useState<DayState[]>(initialDays);
   const timezone =
-    schedule?.timezone ??
-    Intl.DateTimeFormat().resolvedOptions().timeZone ??
-    "UTC";
+    link.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC";
   const [minimumNoticeHours, setMinimumNoticeHours] = useState(() =>
-    formatHours(eventType.minimumNoticeMinutes / 60),
+    formatHours(link.minimumNoticeMinutes / 60),
   );
 
   const {
@@ -405,7 +358,6 @@ function AvailabilityTab({
   };
 
   const handleSave = async () => {
-    if (!schedule) return;
     const minimumNoticeMinutes = parseMinimumNoticeHours(minimumNoticeHours);
     if (minimumNoticeMinutes === null) {
       toastError({
@@ -414,7 +366,7 @@ function AvailabilityTab({
       return;
     }
 
-    const rules: Array<{
+    const windows: Array<{
       weekday: number;
       startMinutes: number;
       endMinutes: number;
@@ -431,11 +383,11 @@ function AvailabilityTab({
           });
           return;
         }
-        rules.push({ weekday, startMinutes: start, endMinutes: end });
+        windows.push({ weekday, startMinutes: start, endMinutes: end });
       }
     }
 
-    if (rules.length === 0) {
+    if (windows.length === 0) {
       toastError({
         description: "Add at least one available time range.",
       });
@@ -444,11 +396,10 @@ function AvailabilityTab({
 
     try {
       const result = await updateAvailability({
-        eventTypeId: eventType.id,
-        scheduleId: schedule.id,
+        bookingLinkId: link.id,
         minimumNoticeMinutes,
         timezone,
-        rules,
+        windows,
       });
       if (hasActionResultError(result)) return;
 
@@ -736,20 +687,20 @@ function IconButton({
 }
 
 function buildDayState(
-  rules: Array<{
+  windows: Array<{
     weekday: number;
     startMinutes: number;
     endMinutes: number;
   }>,
 ): DayState[] {
   const byDay = new Map<number, Range[]>();
-  for (const rule of rules) {
-    const list = byDay.get(rule.weekday) ?? [];
+  for (const window of windows) {
+    const list = byDay.get(window.weekday) ?? [];
     list.push({
-      start: minutesToTime(rule.startMinutes),
-      end: minutesToTime(rule.endMinutes),
+      start: minutesToTime(window.startMinutes),
+      end: minutesToTime(window.endMinutes),
     });
-    byDay.set(rule.weekday, list);
+    byDay.set(window.weekday, list);
   }
   return DAY_LABELS.map((_, weekday) => {
     const ranges = byDay.get(weekday) ?? [];

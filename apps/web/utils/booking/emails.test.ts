@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
-import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
+import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import {
   sendBookingCancellationEmails,
   sendBookingConfirmationEmails,
@@ -31,21 +31,9 @@ describe("booking emails", () => {
     resendMocks.sendHostBookingConfirmationEmail.mockResolvedValue(undefined);
   });
 
-  it("does not leak the host email to guests when host email is hidden", async () => {
+  it("uses the host name when present", async () => {
     await sendBookingConfirmationEmails({
-      booking: bookingEmailPayload({
-        eventType: {
-          hideHostEmail: true,
-          hosts: [
-            {
-              emailAccount: {
-                email: "host@example.com",
-                name: null,
-              },
-            },
-          ],
-        },
-      }),
+      booking: bookingEmailPayload(),
       cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
       logger,
     });
@@ -53,7 +41,7 @@ describe("booking emails", () => {
     expect(resendMocks.sendGuestBookingConfirmationEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         emailProps: expect.objectContaining({
-          hostName: "Intro call",
+          hostName: "Host User",
         }),
         to: "guest@example.com",
       }),
@@ -68,8 +56,8 @@ describe("booking emails", () => {
   it("uses URL custom locations as guest meeting links", async () => {
     await sendBookingConfirmationEmails({
       booking: bookingEmailPayload({
-        eventTypeLocationType: BookingEventTypeLocationType.CUSTOM,
-        eventTypeLocationValue: "https://video.example.com/meeting",
+        linkLocationType: BookingLinkLocationType.CUSTOM,
+        linkLocationValue: "https://video.example.com/meeting",
       }),
       cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
       logger,
@@ -88,8 +76,8 @@ describe("booking emails", () => {
   it("prefers provider generated video links for guest meeting links", async () => {
     await sendBookingConfirmationEmails({
       booking: bookingEmailPayload({
-        eventTypeLocationType: BookingEventTypeLocationType.MICROSOFT_TEAMS,
-        eventTypeLocationValue: null,
+        linkLocationType: BookingLinkLocationType.MICROSOFT_TEAMS,
+        linkLocationValue: null,
         videoConferenceLink: "https://teams.example.com/meeting",
       }),
       cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
@@ -132,35 +120,30 @@ function bookingEmailPayload(
   const base: Parameters<typeof sendBookingConfirmationEmails>[0]["booking"] = {
     cancellationReason: null,
     endTime: new Date("2026-05-04T09:30:00.000Z"),
-    eventTypeLocationType: BookingEventTypeLocationType.CUSTOM,
-    eventTypeLocationValue: "Conference room",
-    eventTypeTimezone: "UTC",
-    eventTypeTitle: "Intro call",
+    linkLocationType: BookingLinkLocationType.CUSTOM,
+    linkLocationValue: "Conference room",
+    linkTimezone: "UTC",
+    linkTitle: "Intro call",
     guestEmail: "guest@example.com",
     guestName: "Guest User",
     guestNote: "Please share an agenda.",
     id: "booking-id",
     startTime: new Date("2026-05-04T09:00:00.000Z"),
     timezone: "UTC",
-    eventType: {
-      hideHostEmail: false,
-      hosts: [
-        {
-          emailAccount: {
-            email: "host@example.com",
-            name: "Host User",
-          },
-        },
-      ],
+    bookingLink: {
+      emailAccount: {
+        email: "host@example.com",
+        name: "Host User",
+      },
     },
   };
 
   return {
     ...base,
     ...overrides,
-    eventType: {
-      ...base.eventType,
-      ...overrides.eventType,
+    bookingLink: {
+      ...base.bookingLink,
+      ...overrides.bookingLink,
     },
   };
 }

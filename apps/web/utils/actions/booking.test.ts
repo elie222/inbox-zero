@@ -1,13 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
+import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import {
   createBookingLinkAction,
   deleteBookingLinkAction,
   updateBookingAvailabilityAction,
-  updateBookingEventTypeAction,
   updateBookingLinkAction,
-  updateBookingScheduleAction,
 } from "@/utils/actions/booking";
 
 vi.mock("server-only", () => ({}));
@@ -30,20 +28,15 @@ describe("booking actions", () => {
     } as any);
   });
 
-  it("creates a booking link with a provider video event type and default schedule", async () => {
+  it("creates a booking link with provider video and default windows", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue(null);
     prisma.calendar.findFirst.mockResolvedValue({ id: "calendar-id" } as any);
     prisma.calendar.findUnique.mockResolvedValue({
       connection: { provider: "microsoft" },
     } as any);
-    prisma.member.findUnique.mockResolvedValue({
-      organizationId: "organization-id",
-    } as any);
     prisma.bookingLink.create.mockResolvedValue({
       id: "booking-link-id",
-      eventTypes: [{ id: "event-type-id" }],
     } as any);
-    prisma.bookingLink.update.mockResolvedValue({} as any);
 
     const result = await createBookingLinkAction("email-account-id", {
       title: "Intro call",
@@ -57,62 +50,24 @@ describe("booking actions", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           emailAccountId: "email-account-id",
-          organizationId: "organization-id",
           slug: "intro-call",
-          eventTypes: {
-            create: expect.objectContaining({
-              durationMinutes: 30,
-              locationType: BookingEventTypeLocationType.MICROSOFT_TEAMS,
-              slotIntervalMinutes: 30,
-              slug: "meeting",
-              hosts: {
-                create: expect.objectContaining({
-                  destinationCalendar: {
-                    connect: { id: "calendar-id" },
-                  },
-                  schedule: {
-                    create: expect.objectContaining({
-                      timezone: "UTC",
-                      rules: {
-                        create: [
-                          { weekday: 1, startMinutes: 540, endMinutes: 1020 },
-                          { weekday: 2, startMinutes: 540, endMinutes: 1020 },
-                          { weekday: 3, startMinutes: 540, endMinutes: 1020 },
-                          { weekday: 4, startMinutes: 540, endMinutes: 1020 },
-                          { weekday: 5, startMinutes: 540, endMinutes: 1020 },
-                        ],
-                      },
-                    }),
-                  },
-                }),
-              },
-            }),
+          durationMinutes: 30,
+          slotIntervalMinutes: 30,
+          locationType: BookingLinkLocationType.MICROSOFT_TEAMS,
+          destinationCalendarId: "calendar-id",
+          timezone: "UTC",
+          windows: {
+            create: [
+              { weekday: 1, startMinutes: 540, endMinutes: 1020 },
+              { weekday: 2, startMinutes: 540, endMinutes: 1020 },
+              { weekday: 3, startMinutes: 540, endMinutes: 1020 },
+              { weekday: 4, startMinutes: 540, endMinutes: 1020 },
+              { weekday: 5, startMinutes: 540, endMinutes: 1020 },
+            ],
           },
         }),
       }),
     );
-    expect(prisma.bookingLink.update).toHaveBeenCalledWith({
-      where: { id: "booking-link-id" },
-      data: { defaultEventTypeId: "event-type-id" },
-    });
-  });
-
-  it("rejects an alias that conflicts with another link slug", async () => {
-    prisma.bookingLink.findFirst
-      .mockResolvedValueOnce({
-        id: "booking-link-id",
-        defaultEventTypeId: "event-type-id",
-        timezone: "UTC",
-      } as any)
-      .mockResolvedValueOnce({ id: "other-link-id" } as any);
-
-    const result = await updateBookingLinkAction("email-account-id", {
-      id: "booking-link-id",
-      aliasSlug: "other-link",
-    });
-
-    expect(result?.serverError).toBe("Booking link slug is already in use");
-    expect(prisma.bookingLink.update).not.toHaveBeenCalled();
   });
 
   it("creates a booking link without provider video when disabled", async () => {
@@ -121,14 +76,9 @@ describe("booking actions", () => {
     prisma.calendar.findUnique.mockResolvedValue({
       connection: { provider: "microsoft" },
     } as any);
-    prisma.member.findUnique.mockResolvedValue({
-      organizationId: "organization-id",
-    } as any);
     prisma.bookingLink.create.mockResolvedValue({
       id: "booking-link-id",
-      eventTypes: [{ id: "event-type-id" }],
     } as any);
-    prisma.bookingLink.update.mockResolvedValue({} as any);
 
     const result = await createBookingLinkAction("email-account-id", {
       title: "Intro call",
@@ -142,47 +92,56 @@ describe("booking actions", () => {
     expect(prisma.bookingLink.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          eventTypes: {
-            create: expect.objectContaining({
-              locationType: BookingEventTypeLocationType.CUSTOM,
-            }),
-          },
+          locationType: BookingLinkLocationType.CUSTOM,
         }),
       }),
     );
   });
 
-  it("rejects event type updates to calendars outside the account", async () => {
-    prisma.bookingEventType.findFirst.mockResolvedValue({
-      id: "event-type-id",
+  it("rejects an update slug that conflicts with another link", async () => {
+    prisma.bookingLink.findFirst
+      .mockResolvedValueOnce({ id: "booking-link-id" } as any)
+      .mockResolvedValueOnce({ id: "other-link-id" } as any);
+
+    const result = await updateBookingLinkAction("email-account-id", {
+      id: "booking-link-id",
+      slug: "other-link",
+    });
+
+    expect(result?.serverError).toBe("Booking link slug is already in use");
+    expect(prisma.bookingLink.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects updates with destination calendars outside the account", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue({
+      id: "booking-link-id",
     } as any);
     prisma.calendar.findFirst.mockResolvedValue(null);
 
-    const result = await updateBookingEventTypeAction("email-account-id", {
-      id: "event-type-id",
+    const result = await updateBookingLinkAction("email-account-id", {
+      id: "booking-link-id",
       destinationCalendarId: "other-calendar-id",
     });
 
     expect(result?.serverError).toBe("Destination calendar not found");
-    expect(prisma.bookingEventType.update).not.toHaveBeenCalled();
-    expect(prisma.bookingEventTypeHost.updateMany).not.toHaveBeenCalled();
+    expect(prisma.bookingLink.update).not.toHaveBeenCalled();
   });
 
-  it("updates event type minimum notice", async () => {
-    prisma.bookingEventType.findFirst.mockResolvedValue({
-      id: "event-type-id",
+  it("updates link minimum notice and other fields", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue({
+      id: "booking-link-id",
     } as any);
-    prisma.bookingEventType.update.mockResolvedValue({} as any);
+    prisma.bookingLink.update.mockResolvedValue({} as any);
 
-    const result = await updateBookingEventTypeAction("email-account-id", {
-      id: "event-type-id",
+    const result = await updateBookingLinkAction("email-account-id", {
+      id: "booking-link-id",
       minimumNoticeMinutes: 4 * 60,
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(prisma.bookingEventType.update).toHaveBeenCalledWith(
+    expect(prisma.bookingLink.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "event-type-id" },
+        where: { id: "booking-link-id" },
         data: expect.objectContaining({
           minimumNoticeMinutes: 240,
         }),
@@ -190,150 +149,75 @@ describe("booking actions", () => {
     );
   });
 
-  it("replaces owned schedule rules atomically in one update call", async () => {
-    prisma.bookingSchedule.findFirst.mockResolvedValue({
-      id: "schedule-id",
+  it("replaces availability windows in one update call", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue({
+      id: "booking-link-id",
     } as any);
-    prisma.bookingSchedule.update.mockResolvedValue({} as any);
+    prisma.bookingLink.update.mockResolvedValue({} as any);
 
-    const rules = [
+    const windows = [
       { weekday: 1, startMinutes: 9 * 60, endMinutes: 12 * 60 },
       { weekday: 3, startMinutes: 13 * 60, endMinutes: 17 * 60 },
     ];
-    const result = await updateBookingScheduleAction("email-account-id", {
-      id: "schedule-id",
+    const result = await updateBookingAvailabilityAction("email-account-id", {
+      bookingLinkId: "booking-link-id",
       timezone: "America/New_York",
-      rules,
+      minimumNoticeMinutes: 4 * 60,
+      windows,
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(prisma.bookingSchedule.update).toHaveBeenCalledWith({
-      where: { id: "schedule-id" },
+    expect(prisma.bookingLink.update).toHaveBeenCalledWith({
+      where: { id: "booking-link-id" },
       data: {
         timezone: "America/New_York",
-        rules: {
+        minimumNoticeMinutes: 240,
+        windows: {
           deleteMany: {},
-          create: rules,
+          create: windows,
         },
       },
     });
   });
 
-  it("updates availability settings and schedule rules in one transaction", async () => {
-    prisma.bookingEventTypeHost.findFirst.mockResolvedValue({
-      id: "host-id",
-    } as any);
-    prisma.bookingEventType.update.mockResolvedValue({} as any);
-    prisma.bookingSchedule.update.mockResolvedValue({} as any);
-    prisma.$transaction.mockResolvedValue([] as any);
-
-    const rules = [
-      { weekday: 1, startMinutes: 9 * 60, endMinutes: 12 * 60 },
-      { weekday: 3, startMinutes: 13 * 60, endMinutes: 17 * 60 },
-    ];
-    const result = await updateBookingAvailabilityAction("email-account-id", {
-      eventTypeId: "event-type-id",
-      scheduleId: "schedule-id",
-      timezone: "America/New_York",
-      minimumNoticeMinutes: 4 * 60,
-      rules,
-    });
-
-    expect(result?.serverError).toBeUndefined();
-    expect(prisma.bookingEventTypeHost.findFirst).toHaveBeenCalledWith({
-      where: {
-        eventTypeId: "event-type-id",
-        scheduleId: "schedule-id",
-        emailAccountId: "email-account-id",
-        eventType: { bookingLink: { emailAccountId: "email-account-id" } },
-        schedule: { emailAccountId: "email-account-id" },
-      },
-      select: { id: true },
-    });
-    expect(prisma.bookingEventType.update).toHaveBeenCalledWith({
-      where: { id: "event-type-id" },
-      data: { minimumNoticeMinutes: 240 },
-    });
-    expect(prisma.bookingSchedule.update).toHaveBeenCalledWith({
-      where: { id: "schedule-id" },
-      data: {
-        timezone: "America/New_York",
-        rules: {
-          deleteMany: {},
-          create: rules,
-        },
-      },
-    });
-    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-  });
-
-  it("rejects availability updates when the schedule is not tied to the event type", async () => {
-    prisma.bookingEventTypeHost.findFirst.mockResolvedValue(null);
+  it("rejects availability updates when the link is not owned", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue(null);
 
     const result = await updateBookingAvailabilityAction("email-account-id", {
-      eventTypeId: "event-type-id",
-      scheduleId: "other-schedule-id",
+      bookingLinkId: "other-booking-link-id",
       timezone: "America/New_York",
       minimumNoticeMinutes: 4 * 60,
-      rules: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 12 * 60 }],
+      windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 12 * 60 }],
     });
 
-    expect(result?.serverError).toBe("Booking availability not found");
-    expect(prisma.bookingEventType.update).not.toHaveBeenCalled();
-    expect(prisma.bookingSchedule.update).not.toHaveBeenCalled();
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(result?.serverError).toBe("Booking link not found");
+    expect(prisma.bookingLink.update).not.toHaveBeenCalled();
   });
 
-  it("rejects invalid event type payloads before writing", async () => {
-    const result = await updateBookingEventTypeAction("email-account-id", {
-      id: "event-type-id",
-      locationType: "NOT_A_LOCATION" as BookingEventTypeLocationType,
+  it("rejects invalid update payloads before writing", async () => {
+    const result = await updateBookingLinkAction("email-account-id", {
+      id: "booking-link-id",
+      locationType: "NOT_A_LOCATION" as BookingLinkLocationType,
     });
 
     expect(result?.validationErrors).toBeDefined();
-    expect(prisma.bookingEventType.findFirst).not.toHaveBeenCalled();
-    expect(prisma.bookingEventType.update).not.toHaveBeenCalled();
+    expect(prisma.bookingLink.findFirst).not.toHaveBeenCalled();
+    expect(prisma.bookingLink.update).not.toHaveBeenCalled();
   });
 
-  it("deletes an owned booking link and its schedules", async () => {
+  it("deletes an owned booking link", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue({
       id: "booking-link-id",
-      defaultEventTypeId: "event-type-id",
-      timezone: "UTC",
     } as any);
-    prisma.bookingSchedule.findMany.mockResolvedValue([
-      { id: "schedule-id" },
-    ] as any);
     prisma.bookingLink.delete.mockResolvedValue({} as any);
-    prisma.bookingSchedule.deleteMany.mockResolvedValue({ count: 1 } as any);
-    prisma.$transaction.mockResolvedValue([] as any);
 
     const result = await deleteBookingLinkAction("email-account-id", {
       id: "booking-link-id",
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(prisma.bookingSchedule.findMany).toHaveBeenCalledWith({
-      where: {
-        emailAccountId: "email-account-id",
-        hosts: {
-          some: {
-            eventType: {
-              bookingLinkId: "booking-link-id",
-            },
-          },
-        },
-      },
-      select: { id: true },
-    });
     expect(prisma.bookingLink.delete).toHaveBeenCalledWith({
       where: { id: "booking-link-id" },
-    });
-    expect(prisma.bookingSchedule.deleteMany).toHaveBeenCalledWith({
-      where: {
-        emailAccountId: "email-account-id",
-        id: { in: ["schedule-id"] },
-      },
     });
   });
 });

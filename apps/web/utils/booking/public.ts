@@ -29,93 +29,49 @@ import {
 } from "@/utils/booking/emails";
 
 const MAX_AVAILABILITY_RANGE_MS = 32 * 24 * 60 * 60 * 1000;
-const SLOT_LOCK_TTL_MS = 5 * 60 * 1000;
 const CALENDAR_AVAILABILITY_UNAVAILABLE =
   "Calendar availability is temporarily unavailable";
 
 export async function getPublicBookingLinkMetadata(slug: string) {
-  const bookingLink = await prisma.bookingLink.findFirst({
-    where: {
-      OR: [{ slug }, { aliasSlug: slug }],
-      isActive: true,
-    },
+  const link = await prisma.bookingLink.findFirst({
+    where: { slug, isActive: true },
     select: {
       slug: true,
-      aliasSlug: true,
       title: true,
       description: true,
-      defaultEventTypeId: true,
-      eventTypes: {
-        where: { isActive: true },
-        orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          slug: true,
-          title: true,
-          description: true,
-          durationMinutes: true,
-          slotIntervalMinutes: true,
-          locationType: true,
-          locationValue: true,
-          disableCancelling: true,
-          hideHostEmail: true,
-          hideCalendarEventDetails: true,
-          hosts: {
-            where: { isActive: true },
-            select: {
-              emailAccount: {
-                select: {
-                  email: true,
-                  name: true,
-                },
-              },
-            },
-          },
-        },
+      durationMinutes: true,
+      slotIntervalMinutes: true,
+      locationType: true,
+      locationValue: true,
+      emailAccount: {
+        select: { email: true, name: true },
       },
     },
   });
 
-  if (!bookingLink) throw new SafeError("Booking link not found", 404);
+  if (!link) throw new SafeError("Booking link not found", 404);
 
   return {
-    slug: bookingLink.slug,
-    aliasSlug: bookingLink.aliasSlug,
-    title: bookingLink.title,
-    description: bookingLink.description,
-    defaultEventTypeId: bookingLink.defaultEventTypeId,
-    eventTypes: bookingLink.eventTypes.map((eventType) => {
-      const host = getSingleHost(eventType.hosts);
-
-      return {
-        id: eventType.id,
-        slug: eventType.slug,
-        title: eventType.title,
-        description: eventType.description,
-        durationMinutes: eventType.durationMinutes,
-        slotIntervalMinutes: eventType.slotIntervalMinutes,
-        locationType: eventType.locationType,
-        locationValue: eventType.hideCalendarEventDetails
-          ? null
-          : eventType.locationValue,
-        disableCancelling: eventType.disableCancelling,
-        hostEmail: eventType.hideHostEmail ? null : host?.emailAccount.email,
-        hostName: host?.emailAccount.name ?? null,
-      };
-    }),
+    slug: link.slug,
+    title: link.title,
+    description: link.description,
+    durationMinutes: link.durationMinutes,
+    slotIntervalMinutes: link.slotIntervalMinutes,
+    locationType: link.locationType,
+    locationValue: link.locationValue,
+    hostEmail: link.emailAccount.email,
+    hostName: link.emailAccount.name ?? null,
   };
 }
 
 export async function getPublicAvailability({
   slug,
-  eventTypeSlug,
   start,
   end,
   now = new Date(),
   logger,
 }: {
   slug: string;
-  eventTypeSlug: string;
   start: Date;
   end: Date;
   now?: Date;
@@ -123,7 +79,7 @@ export async function getPublicAvailability({
 }) {
   assertAvailabilityRange(start, end);
 
-  const config = await loadPublicEventType({ slug, eventTypeSlug });
+  const config = await loadPublicBookingLink(slug);
   const busyPeriods = await getBusyPeriods({
     config,
     start,
@@ -136,12 +92,12 @@ export async function getPublicAvailability({
 
   return generateBookableSlots({
     now,
-    timezone: config.schedule.timezone,
+    timezone: config.link.timezone,
     start,
     end,
-    rules: config.schedule.rules,
+    rules: config.windows,
     busyPeriods,
-    policy: getPolicy(config.eventType),
+    policy: getPolicy(config.link),
   });
 }
 
@@ -157,17 +113,14 @@ export async function createPublicBooking({
     throw new SafeError("Invalid start time");
   }
 
-  const config = await loadPublicEventType({
-    slug: input.slug,
-    eventTypeSlug: input.eventTypeSlug,
-  });
+  const config = await loadPublicBookingLink(input.slug);
   const selectedEndTime = addMinutes(
     selectedStartTime,
-    config.eventType.durationMinutes,
+    config.link.durationMinutes,
   );
 
   const existingBooking = await findIdempotentBooking({
-    eventTypeId: config.eventType.id,
+    bookingLinkId: config.link.id,
     idempotencyToken: input.idempotencyToken,
   });
   if (existingBooking) return toPublicBookingResult(existingBooking);
@@ -184,36 +137,21 @@ export async function createPublicBooking({
 
   const slotValidation = validateSelectedSlot({
     now: new Date(),
-    timezone: config.schedule.timezone,
+    timezone: config.link.timezone,
     start: selectedStartTime,
     end: selectedEndTime,
     selectedStartTime,
-    rules: config.schedule.rules,
+    rules: config.windows,
     busyPeriods,
-    policy: getPolicy(config.eventType),
+    policy: getPolicy(config.link),
   });
 
   if (!slotValidation.valid) {
     throw new SafeError(slotValidation.reason);
   }
 
-  await enforceGuestBookingLimit({
-    eventTypeId: config.eventType.id,
-    guestEmail: input.guestEmail,
-    maxActiveBookingsPerGuest: config.eventType.maxActiveBookingsPerGuest,
-  });
-
-  let pendingBooking: Awaited<ReturnType<typeof createPendingBooking>> | null =
-    null;
-  let acquiredSlotLock: { id: string } | null = null;
   const cancelToken = randomToken();
-
-  acquiredSlotLock = await acquireSlotLock({
-    eventTypeId: config.eventType.id,
-    emailAccountId: config.host.emailAccountId,
-    startTime: selectedStartTime,
-    endTime: selectedEndTime,
-  });
+  let pendingBooking: Awaited<ReturnType<typeof createPendingBooking>>;
 
   try {
     pendingBooking = await createPendingBooking({
@@ -224,33 +162,19 @@ export async function createPublicBooking({
       cancelToken,
     });
   } catch (error) {
-    await prisma.bookingSlotLock.delete({
-      where: { id: acquiredSlotLock.id },
-    });
-    acquiredSlotLock = null;
-
-    if (isDuplicateError(error)) {
+    if (isSlotConflictError(error)) {
       const existing = await findIdempotentBooking({
-        eventTypeId: config.eventType.id,
+        bookingLinkId: config.link.id,
         idempotencyToken: input.idempotencyToken,
       });
       // The other concurrent request won the idempotency race and already
       // created the booking and provider event. Return its result instead
       // of redoing the calendar write.
       if (existing) return toPublicBookingResult(existing);
+      throw new SafeError("Selected slot is no longer available");
     }
-
     throw error;
   }
-
-  if (!pendingBooking || !acquiredSlotLock) {
-    throw new SafeError("Failed to create booking");
-  }
-
-  await prisma.bookingSlotLock.update({
-    where: { id: acquiredSlotLock.id },
-    data: { bookingId: pendingBooking.id },
-  });
 
   let createdEvent:
     | (CalendarEventWriteResult & {
@@ -261,21 +185,20 @@ export async function createPublicBooking({
 
   try {
     createdEvent = await createCalendarEvent({
-      emailAccountId: config.host.emailAccountId,
-      destinationCalendarId: config.host.destinationCalendarId,
-      title: config.eventType.title,
+      emailAccountId: config.link.emailAccountId,
+      destinationCalendarId: config.link.destinationCalendarId,
+      title: config.link.title,
       description: getProviderEventDescription({
-        hideCalendarEventDetails: config.eventType.hideCalendarEventDetails,
         guestName: input.guestName,
         guestEmail: input.guestEmail,
         guestNote: input.guestNote,
       }),
       startTime: selectedStartTime,
       endTime: selectedEndTime,
-      timezone: config.schedule.timezone,
+      timezone: config.link.timezone,
       attendees: [{ name: input.guestName, email: input.guestEmail }],
-      locationType: config.eventType.locationType as CalendarEventLocationType,
-      locationValue: config.eventType.locationValue,
+      locationType: config.link.locationType as CalendarEventLocationType,
+      locationValue: config.link.locationValue,
       logger,
     });
 
@@ -288,14 +211,14 @@ export async function createPublicBooking({
         videoConferenceLink: createdEvent.videoConferenceLink ?? null,
         status: BookingStatus.CONFIRMED,
       },
-      include: getBookingEmailInclude(),
+      include: getBookingHostInclude(),
     });
   } catch (error) {
     const providerEventToCleanup = createdEvent;
     await Promise.allSettled([
       providerEventToCleanup
         ? cancelCalendarEvent({
-            emailAccountId: config.host.emailAccountId,
+            emailAccountId: config.link.emailAccountId,
             provider: providerEventToCleanup.provider,
             providerCalendarId: providerEventToCleanup.providerCalendarId,
             providerEventId: providerEventToCleanup.id,
@@ -313,11 +236,12 @@ export async function createPublicBooking({
             );
           })
         : Promise.resolve(),
+      // Status FAILED removes the booking from the partial EXCLUDE constraint,
+      // freeing the slot for re-booking.
       prisma.booking.update({
         where: { id: pendingBooking.id },
         data: { status: BookingStatus.FAILED },
       }),
-      prisma.bookingSlotLock.delete({ where: { id: acquiredSlotLock.id } }),
     ]);
     logger.error("Failed to create provider event for booking", {
       bookingId: pendingBooking.id,
@@ -351,7 +275,7 @@ export async function cancelPublicBooking({
 }) {
   const booking = await prisma.booking.findUnique({
     where: { uid },
-    include: getBookingEmailInclude(),
+    include: getBookingHostInclude(),
   });
 
   if (!booking) throw new SafeError("Booking not found", 404);
@@ -366,9 +290,6 @@ export async function cancelPublicBooking({
   }
   if (booking.startTime <= new Date()) {
     throw new SafeError("Bookings that have started cannot be canceled");
-  }
-  if (booking.eventType.disableCancelling) {
-    throw new SafeError("Cancellation is disabled for this booking");
   }
 
   if (
@@ -392,14 +313,7 @@ export async function cancelPublicBooking({
       cancellationReason: reason || null,
       canceledBy: BookingCanceledBy.GUEST,
     },
-    include: getBookingEmailInclude(),
-  });
-
-  // Free the slot lock so the host can be re-booked at this time. The
-  // exclusion constraint covers locks regardless of bookingId/status, so
-  // leaving them in place would permanently block re-booking.
-  await prisma.bookingSlotLock.deleteMany({
-    where: { bookingId: booking.id },
+    include: getBookingHostInclude(),
   });
 
   await sendBookingCancellationEmails({
@@ -410,90 +324,50 @@ export async function cancelPublicBooking({
   return toPublicBookingResult(canceledBooking);
 }
 
-function getBookingEmailInclude() {
+function getBookingHostInclude() {
   return {
-    eventType: {
-      include: {
-        hosts: {
-          where: { isActive: true },
-          include: {
-            emailAccount: {
-              select: {
-                email: true,
-                name: true,
-              },
-            },
-          },
+    bookingLink: {
+      select: {
+        emailAccount: {
+          select: { email: true, name: true },
         },
       },
     },
   } as const;
 }
 
-async function loadPublicEventType({
-  slug,
-  eventTypeSlug,
-}: {
-  slug: string;
-  eventTypeSlug: string;
-}) {
-  const bookingLink = await prisma.bookingLink.findFirst({
-    where: {
-      OR: [{ slug }, { aliasSlug: slug }],
-      isActive: true,
-    },
+async function loadPublicBookingLink(slug: string) {
+  const link = await prisma.bookingLink.findFirst({
+    where: { slug, isActive: true },
     select: {
       id: true,
-      eventTypes: {
-        where: {
-          slug: eventTypeSlug,
-          isActive: true,
-        },
+      title: true,
+      description: true,
+      durationMinutes: true,
+      slotIntervalMinutes: true,
+      locationType: true,
+      locationValue: true,
+      minimumNoticeMinutes: true,
+      maxDaysAhead: true,
+      timezone: true,
+      emailAccountId: true,
+      destinationCalendarId: true,
+      windows: {
         select: {
-          id: true,
-          title: true,
-          durationMinutes: true,
-          slotIntervalMinutes: true,
-          locationType: true,
-          locationValue: true,
-          minimumNoticeMinutes: true,
-          bufferBeforeMinutes: true,
-          bufferAfterMinutes: true,
-          bookingWindowDays: true,
-          maxActiveBookingsPerGuest: true,
-          disableCancelling: true,
-          hideCalendarEventDetails: true,
-          hosts: {
-            where: { isActive: true },
+          weekday: true,
+          startMinutes: true,
+          endMinutes: true,
+        },
+      },
+      emailAccount: {
+        select: {
+          calendarConnections: {
+            where: { isConnected: true },
             select: {
               id: true,
-              emailAccountId: true,
-              destinationCalendarId: true,
-              schedule: {
-                select: {
-                  timezone: true,
-                  rules: {
-                    select: {
-                      weekday: true,
-                      startMinutes: true,
-                      endMinutes: true,
-                    },
-                  },
-                },
-              },
-              emailAccount: {
-                select: {
-                  calendarConnections: {
-                    where: { isConnected: true },
-                    select: {
-                      id: true,
-                      calendars: {
-                        where: { isEnabled: true },
-                        select: { id: true },
-                      },
-                    },
-                  },
-                },
+              calendars: {
+                where: { isEnabled: true },
+                select: { id: true },
               },
             },
           },
@@ -502,17 +376,9 @@ async function loadPublicEventType({
     },
   });
 
-  const eventType = bookingLink?.eventTypes[0];
-  if (!bookingLink || !eventType) {
-    throw new SafeError("Booking event type not found", 404);
-  }
+  if (!link) throw new SafeError("Booking link not found", 404);
 
-  const host = getSingleHost(eventType.hosts);
-  if (!host) {
-    throw new SafeError("Booking event type is not configured");
-  }
-
-  const hasEnabledCalendar = host.emailAccount.calendarConnections.some(
+  const hasEnabledCalendar = link.emailAccount.calendarConnections.some(
     (connection) => connection.calendars.length > 0,
   );
   if (!hasEnabledCalendar) {
@@ -520,16 +386,12 @@ async function loadPublicEventType({
   }
 
   return {
-    eventType,
-    host,
-    schedule: {
-      timezone: host.schedule.timezone,
-      rules: host.schedule.rules.map((rule) => ({
-        weekday: rule.weekday,
-        startMinutes: rule.startMinutes,
-        endMinutes: rule.endMinutes,
-      })) satisfies AvailabilityRule[],
-    },
+    link,
+    windows: link.windows.map((window) => ({
+      weekday: window.weekday,
+      startMinutes: window.startMinutes,
+      endMinutes: window.endMinutes,
+    })) satisfies AvailabilityRule[],
   };
 }
 
@@ -540,7 +402,7 @@ async function getBusyPeriods({
   logger,
   providerFailureMode,
 }: {
-  config: Awaited<ReturnType<typeof loadPublicEventType>>;
+  config: Awaited<ReturnType<typeof loadPublicBookingLink>>;
   start: Date;
   end: Date;
   logger: Logger;
@@ -548,10 +410,10 @@ async function getBusyPeriods({
 }): Promise<BusyPeriod[] | null> {
   const [providerBusyPeriods, existingBookings] = await Promise.all([
     getUnifiedCalendarAvailability({
-      emailAccountId: config.host.emailAccountId,
+      emailAccountId: config.link.emailAccountId,
       startDate: start,
       endDate: end,
-      timezone: config.schedule.timezone,
+      timezone: config.link.timezone,
       logger,
       failClosed: true,
     }).catch((error) => {
@@ -564,11 +426,11 @@ async function getBusyPeriods({
 
       throw new SafeError(CALENDAR_AVAILABILITY_UNAVAILABLE);
     }),
-    // Scope by host (emailAccountId) so concurrent pending bookings on a
-    // sibling event type are surfaced as busy before they hit the calendar.
+    // In-flight bookings haven't propagated to the calendar yet but already
+    // hold the slot via the partial EXCLUDE constraint, so surface them as busy.
     prisma.booking.findMany({
       where: {
-        emailAccountId: config.host.emailAccountId,
+        emailAccountId: config.link.emailAccountId,
         status: {
           in: [BookingStatus.PENDING_PROVIDER_EVENT, BookingStatus.CONFIRMED],
         },
@@ -593,64 +455,20 @@ async function getBusyPeriods({
   ];
 }
 
-function getPolicy(eventType: {
-  bookingWindowDays: number;
-  bufferAfterMinutes: number;
-  bufferBeforeMinutes: number;
+function getPolicy(link: {
   durationMinutes: number;
-  minimumNoticeMinutes: number;
   slotIntervalMinutes: number;
+  minimumNoticeMinutes: number;
+  maxDaysAhead: number;
 }) {
   return {
-    durationMinutes: eventType.durationMinutes,
-    slotIntervalMinutes: eventType.slotIntervalMinutes,
-    minimumNoticeMinutes: eventType.minimumNoticeMinutes,
-    bufferBeforeMinutes: eventType.bufferBeforeMinutes,
-    bufferAfterMinutes: eventType.bufferAfterMinutes,
-    bookingWindowDays: eventType.bookingWindowDays,
+    durationMinutes: link.durationMinutes,
+    slotIntervalMinutes: link.slotIntervalMinutes,
+    minimumNoticeMinutes: link.minimumNoticeMinutes,
+    bufferBeforeMinutes: 0,
+    bufferAfterMinutes: 0,
+    bookingWindowDays: link.maxDaysAhead,
   };
-}
-
-async function acquireSlotLock({
-  eventTypeId,
-  emailAccountId,
-  startTime,
-  endTime,
-}: {
-  eventTypeId: string;
-  emailAccountId: string;
-  startTime: Date;
-  endTime: Date;
-}) {
-  // Drop expired, unbooked locks for this host that overlap the requested
-  // range so a previously abandoned attempt can't keep the slot held.
-  await prisma.bookingSlotLock.deleteMany({
-    where: {
-      emailAccountId,
-      bookingId: null,
-      expiresAt: { lt: new Date() },
-      startTime: { lt: endTime },
-      endTime: { gt: startTime },
-    },
-  });
-
-  try {
-    return await prisma.bookingSlotLock.create({
-      data: {
-        eventTypeId,
-        emailAccountId,
-        startTime,
-        endTime,
-        expiresAt: new Date(Date.now() + SLOT_LOCK_TTL_MS),
-      },
-      select: { id: true },
-    });
-  } catch (error) {
-    if (isSlotConflictError(error)) {
-      throw new SafeError("Selected slot is no longer available");
-    }
-    throw error;
-  }
 }
 
 function isSlotConflictError(error: unknown) {
@@ -667,7 +485,7 @@ async function createPendingBooking({
   selectedEndTime,
   cancelToken,
 }: {
-  config: Awaited<ReturnType<typeof loadPublicEventType>>;
+  config: Awaited<ReturnType<typeof loadPublicBookingLink>>;
   input: PublicBookingBody;
   selectedStartTime: Date;
   selectedEndTime: Date;
@@ -676,8 +494,8 @@ async function createPendingBooking({
   return prisma.booking.create({
     data: {
       uid: randomToken(),
-      eventTypeId: config.eventType.id,
-      emailAccountId: config.host.emailAccountId,
+      bookingLinkId: config.link.id,
+      emailAccountId: config.link.emailAccountId,
       guestName: input.guestName,
       guestEmail: input.guestEmail.toLowerCase(),
       guestNote: input.guestNote,
@@ -687,70 +505,37 @@ async function createPendingBooking({
       status: BookingStatus.PENDING_PROVIDER_EVENT,
       cancelTokenHash: hashToken(cancelToken),
       idempotencyToken: input.idempotencyToken,
-      eventTypeTitle: config.eventType.title,
-      eventTypeDurationMinutes: config.eventType.durationMinutes,
-      eventTypeLocationType: config.eventType.locationType,
-      eventTypeLocationValue: config.eventType.locationValue,
-      eventTypeTimezone: config.schedule.timezone,
+      linkTitle: config.link.title,
+      linkLocationType: config.link.locationType,
+      linkLocationValue: config.link.locationValue,
+      linkTimezone: config.link.timezone,
     },
-    include: getBookingEmailInclude(),
+    include: getBookingHostInclude(),
   });
 }
 
 async function findIdempotentBooking({
-  eventTypeId,
+  bookingLinkId,
   idempotencyToken,
 }: {
-  eventTypeId: string;
+  bookingLinkId: string;
   idempotencyToken: string;
 }) {
   return prisma.booking.findFirst({
-    where: { eventTypeId, idempotencyToken },
-    include: getBookingEmailInclude(),
+    where: { bookingLinkId, idempotencyToken },
+    include: getBookingHostInclude(),
   });
-}
-
-async function enforceGuestBookingLimit({
-  eventTypeId,
-  guestEmail,
-  maxActiveBookingsPerGuest,
-}: {
-  eventTypeId: string;
-  guestEmail: string;
-  maxActiveBookingsPerGuest: number | null;
-}) {
-  if (!maxActiveBookingsPerGuest) return;
-
-  const count = await prisma.booking.count({
-    where: {
-      eventTypeId,
-      guestEmail: guestEmail.toLowerCase(),
-      status: {
-        in: [BookingStatus.PENDING_PROVIDER_EVENT, BookingStatus.CONFIRMED],
-      },
-    },
-  });
-
-  if (count >= maxActiveBookingsPerGuest) {
-    throw new SafeError("Guest has reached the booking limit");
-  }
 }
 
 function getProviderEventDescription({
-  hideCalendarEventDetails,
   guestName,
   guestEmail,
   guestNote,
 }: {
-  hideCalendarEventDetails: boolean;
   guestName: string;
   guestEmail: string;
   guestNote?: string;
 }) {
-  if (hideCalendarEventDetails) {
-    return "Booked via Inbox Zero.";
-  }
-
   return [
     `Booked with ${guestName}`,
     `Guest email: ${guestEmail}`,
@@ -782,10 +567,6 @@ function assertAvailabilityRange(start: Date, end: Date) {
   if (end.getTime() - start.getTime() > MAX_AVAILABILITY_RANGE_MS) {
     throw new SafeError("Availability range must be 32 days or less");
   }
-}
-
-function getSingleHost<T>(hosts: T[]): T | null {
-  return hosts.length === 1 ? hosts[0] : null;
 }
 
 function randomToken() {

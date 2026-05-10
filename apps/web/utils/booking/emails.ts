@@ -5,16 +5,16 @@ import {
 } from "@inboxzero/resend";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
-import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
+import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import { formatDateTimeInUserTimezone } from "@/utils/date";
 
 type BookingEmailPayload = {
   cancellationReason?: string | null;
   endTime: Date;
-  eventTypeLocationType: BookingEventTypeLocationType;
-  eventTypeLocationValue?: string | null;
-  eventTypeTimezone: string;
-  eventTypeTitle: string;
+  linkLocationType: BookingLinkLocationType;
+  linkLocationValue?: string | null;
+  linkTimezone: string;
+  linkTitle: string;
   guestEmail: string;
   guestName: string;
   guestNote?: string | null;
@@ -22,14 +22,11 @@ type BookingEmailPayload = {
   startTime: Date;
   timezone: string;
   videoConferenceLink?: string | null;
-  eventType: {
-    hideHostEmail: boolean;
-    hosts: Array<{
-      emailAccount: {
-        email: string;
-        name?: string | null;
-      };
-    }>;
+  bookingLink: {
+    emailAccount: {
+      email: string;
+      name?: string | null;
+    };
   };
 };
 
@@ -42,14 +39,7 @@ export async function sendBookingConfirmationEmails({
   cancelUrl: string;
   logger: Logger;
 }) {
-  const host = getHost(booking);
-  if (!host) {
-    logger.warn("Skipping booking confirmation email without active host", {
-      bookingId: booking.id,
-    });
-    return;
-  }
-
+  const host = booking.bookingLink.emailAccount;
   const location = getLocationLabel(booking);
   const guestParts = formatBookingParts({
     startTime: booking.startTime,
@@ -59,7 +49,7 @@ export async function sendBookingConfirmationEmails({
   const hostParts = formatBookingParts({
     startTime: booking.startTime,
     endTime: booking.endTime,
-    timezone: booking.eventTypeTimezone,
+    timezone: booking.linkTimezone,
   });
 
   try {
@@ -70,10 +60,10 @@ export async function sendBookingConfirmationEmails({
         emailProps: {
           baseUrl: env.NEXT_PUBLIC_BASE_URL,
           cancelUrl,
-          eventTitle: booking.eventTypeTitle,
+          eventTitle: booking.linkTitle,
           formattedTime: guestParts.formattedTime,
           guestName: booking.guestName,
-          hostName: getGuestFacingHostName(booking, host),
+          hostName: host.name ?? host.email,
           location,
           dateMonth: guestParts.dateMonth,
           dateDay: guestParts.dateDay,
@@ -88,7 +78,7 @@ export async function sendBookingConfirmationEmails({
         from: env.RESEND_FROM_EMAIL,
         to: host.email,
         emailProps: {
-          eventTitle: booking.eventTypeTitle,
+          eventTitle: booking.linkTitle,
           formattedTime: hostParts.formattedTime,
           guestEmail: booking.guestEmail,
           guestName: booking.guestName,
@@ -97,7 +87,7 @@ export async function sendBookingConfirmationEmails({
           dateDay: hostParts.dateDay,
           dateWeekday: hostParts.dateWeekday,
           timeRange: hostParts.timeRange,
-          timezoneLabel: booking.eventTypeTimezone,
+          timezoneLabel: booking.linkTimezone,
           guestNote: booking.guestNote ?? null,
         },
       }),
@@ -117,23 +107,17 @@ export async function sendBookingCancellationEmails({
   booking: BookingEmailPayload;
   logger: Logger;
 }) {
-  const host = getHost(booking);
-  if (!host) {
-    logger.warn("Skipping booking cancellation email without active host", {
-      bookingId: booking.id,
-    });
-    return;
-  }
+  const host = booking.bookingLink.emailAccount;
 
   try {
     await sendHostBookingCancellationEmail({
       from: env.RESEND_FROM_EMAIL,
       to: host.email,
       emailProps: {
-        eventTitle: booking.eventTypeTitle,
+        eventTitle: booking.linkTitle,
         formattedTime: formatDateTimeInUserTimezone(
           booking.startTime,
-          booking.eventTypeTimezone,
+          booking.linkTimezone,
         ),
         guestEmail: booking.guestEmail,
         guestName: booking.guestName,
@@ -200,36 +184,16 @@ function getMeetingLink(booking: BookingEmailPayload) {
   // Prefer the link the calendar provider generated at event-creation time
   // (e.g. Google Meet, Teams) over the configured location value.
   if (booking.videoConferenceLink) return booking.videoConferenceLink;
-  if (isUrl(booking.eventTypeLocationValue)) {
-    return booking.eventTypeLocationValue ?? null;
+  if (isUrl(booking.linkLocationValue)) {
+    return booking.linkLocationValue ?? null;
   }
   return null;
 }
 
-function getHost(booking: BookingEmailPayload) {
-  return booking.eventType.hosts[0]?.emailAccount ?? null;
-}
-
-function getGuestFacingHostName(
-  booking: BookingEmailPayload,
-  host: { email: string; name?: string | null },
-) {
-  if (host.name) return host.name;
-  // Don't fall back to the host email when hideHostEmail is set; use a
-  // neutral label instead so the email isn't leaked to the guest.
-  if (booking.eventType.hideHostEmail) return booking.eventTypeTitle;
-  return host.email;
-}
-
 function getLocationLabel(booking: BookingEmailPayload) {
-  if (
-    booking.eventTypeLocationType === BookingEventTypeLocationType.GOOGLE_MEET
-  )
+  if (booking.linkLocationType === BookingLinkLocationType.GOOGLE_MEET)
     return "Google Meet";
-  if (
-    booking.eventTypeLocationType ===
-    BookingEventTypeLocationType.MICROSOFT_TEAMS
-  )
+  if (booking.linkLocationType === BookingLinkLocationType.MICROSOFT_TEAMS)
     return "Microsoft Teams";
-  return booking.eventTypeLocationValue || null;
+  return booking.linkLocationValue || null;
 }

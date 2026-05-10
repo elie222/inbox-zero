@@ -4,7 +4,7 @@ import { publicCancelBookingBody } from "@/utils/actions/booking.validation";
 import { cancelPublicBooking } from "@/utils/booking/public";
 
 export type PostPublicCancelBookingResponse = Awaited<
-  ReturnType<typeof cancelData>
+  ReturnType<typeof cancelPublicBooking>
 >;
 
 export const POST = withError(
@@ -12,7 +12,7 @@ export const POST = withError(
   async (request, context) => {
     const { uid } = await context.params;
     const body = publicCancelBookingBody.parse(await request.json());
-    const result = await cancelData({
+    const result = await cancelPublicBooking({
       uid,
       token: body.token,
       reason: body.reason,
@@ -22,17 +22,3 @@ export const POST = withError(
     return NextResponse.json(result);
   },
 );
-
-async function cancelData({
-  uid,
-  token,
-  reason,
-  logger,
-}: {
-  uid: string;
-  token: string;
-  reason?: string;
-  logger: Parameters<typeof cancelPublicBooking>[0]["logger"];
-}) {
-  return cancelPublicBooking({ uid, token, reason, logger });
-}

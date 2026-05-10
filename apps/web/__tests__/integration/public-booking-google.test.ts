@@ -12,7 +12,7 @@ import { createEmulator, type Emulator } from "emulate";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
-  BookingEventTypeLocationType,
+  BookingLinkLocationType,
   BookingStatus,
 } from "@/generated/prisma/enums";
 import { createPublicBooking } from "@/utils/booking/public";
@@ -95,10 +95,6 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     test("creates a booking only after checking emulator availability", async () => {
       prisma.booking.findFirst.mockResolvedValue(null);
       prisma.booking.findMany.mockResolvedValue([]);
-      prisma.booking.count.mockResolvedValue(0);
-      prisma.bookingSlotLock.deleteMany.mockResolvedValue({ count: 0 });
-      prisma.bookingSlotLock.create.mockResolvedValue({ id: "slot-lock-id" });
-      prisma.bookingSlotLock.update.mockResolvedValue({});
       prisma.booking.create.mockResolvedValue(
         bookingRecord({ status: BookingStatus.PENDING_PROVIDER_EVENT }),
       );
@@ -114,7 +110,6 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       const result = await createPublicBooking({
         input: {
           slug: "intro",
-          eventTypeSlug: "meeting",
           startTime: "2030-01-07T09:00:00.000Z",
           timezone: "UTC",
           guestName: "Guest User",
@@ -184,7 +179,6 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         createPublicBooking({
           input: {
             slug: "intro",
-            eventTypeSlug: "meeting",
             startTime: "2030-01-07T10:00:00.000Z",
             timezone: "UTC",
             guestName: "Guest User",
@@ -196,7 +190,6 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       ).rejects.toThrow("Selected slot is not available");
 
       expect(prisma.booking.create).not.toHaveBeenCalled();
-      expect(prisma.bookingSlotLock.create).not.toHaveBeenCalled();
     });
   },
 );
@@ -204,41 +197,23 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 function mockBookingConfig() {
   prisma.bookingLink.findFirst.mockResolvedValue({
     id: "booking-link-id",
-    eventTypes: [
-      {
-        id: "event-type-id",
-        title: "Intro call",
-        durationMinutes: 30,
-        slotIntervalMinutes: 30,
-        locationType: BookingEventTypeLocationType.CUSTOM,
-        locationValue: "Conference room",
-        minimumNoticeMinutes: 0,
-        bufferBeforeMinutes: 0,
-        bufferAfterMinutes: 0,
-        bookingWindowDays: 3650,
-        maxActiveBookingsPerGuest: null,
-        disableCancelling: false,
-        hideCalendarEventDetails: false,
-        hosts: [
-          {
-            id: "host-id",
-            emailAccountId: "email-account-id",
-            destinationCalendarId: "calendar-row-id",
-            schedule: {
-              timezone: "UTC",
-              rules: [
-                { weekday: 1, startMinutes: 9 * 60, endMinutes: 11 * 60 },
-              ],
-            },
-            emailAccount: {
-              calendarConnections: [
-                { id: "connection-id", calendars: [{ id: "calendar-row-id" }] },
-              ],
-            },
-          },
-        ],
-      },
-    ],
+    title: "Intro call",
+    description: null,
+    durationMinutes: 30,
+    slotIntervalMinutes: 30,
+    locationType: BookingLinkLocationType.CUSTOM,
+    locationValue: "Conference room",
+    minimumNoticeMinutes: 0,
+    maxDaysAhead: 3650,
+    timezone: "UTC",
+    emailAccountId: "email-account-id",
+    destinationCalendarId: "calendar-row-id",
+    windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 11 * 60 }],
+    emailAccount: {
+      calendarConnections: [
+        { id: "connection-id", calendars: [{ id: "calendar-row-id" }] },
+      ],
+    },
   });
 
   prisma.calendarConnection.findMany.mockResolvedValue([
@@ -275,9 +250,9 @@ function bookingRecord(
   return {
     ...bookingRecordBase(),
     ...overrides,
-    eventType: {
-      ...bookingRecordBase().eventType,
-      ...overrides.eventType,
+    bookingLink: {
+      ...bookingRecordBase().bookingLink,
+      ...overrides.bookingLink,
     },
   };
 }
@@ -286,7 +261,7 @@ function bookingRecordBase() {
   return {
     id: "booking-id",
     uid: "booking-uid",
-    eventTypeId: "event-type-id",
+    bookingLinkId: "booking-link-id",
     emailAccountId: "email-account-id",
     guestName: "Guest User",
     guestEmail: "guest@example.com",
@@ -298,27 +273,22 @@ function bookingRecordBase() {
     provider: null,
     providerCalendarId: null,
     providerEventId: null,
+    videoConferenceLink: null,
     cancelTokenHash: "cancel-token-hash",
     cancellationReason: null,
     canceledBy: null,
     idempotencyToken: "token-1",
-    eventTypeTitle: "Intro call",
-    eventTypeDurationMinutes: 30,
-    eventTypeLocationType: BookingEventTypeLocationType.CUSTOM,
-    eventTypeLocationValue: "Conference room",
-    eventTypeTimezone: "UTC",
+    linkTitle: "Intro call",
+    linkLocationType: BookingLinkLocationType.CUSTOM,
+    linkLocationValue: "Conference room",
+    linkTimezone: "UTC",
     createdAt: new Date("2026-05-01T00:00:00.000Z"),
     updatedAt: new Date("2026-05-01T00:00:00.000Z"),
-    eventType: {
-      disableCancelling: false,
-      hosts: [
-        {
-          emailAccount: {
-            email: EMAIL,
-            name: "Booking Host",
-          },
-        },
-      ],
+    bookingLink: {
+      emailAccount: {
+        email: EMAIL,
+        name: "Booking Host",
+      },
     },
   };
 }

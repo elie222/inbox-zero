@@ -18,7 +18,7 @@ import {
   Video,
 } from "lucide-react";
 import type { GetPublicBookingLinkResponse } from "@/app/api/public/booking-links/[slug]/route";
-import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
+import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,7 +42,7 @@ const BRAND_HOMEPAGE_URL = "https://www.getinboxzero.com";
 
 type HourFormat = "12h" | "24h";
 type Slot = { endTime: string; startTime: string };
-type EventType = GetPublicBookingLinkResponse["eventTypes"][number];
+type BookingLink = GetPublicBookingLinkResponse;
 type SuccessState = {
   cancelUrl?: string;
   endTime: string;
@@ -51,10 +51,8 @@ type SuccessState = {
 
 export function BookingPageClient({
   bookingLink,
-  eventTypeSlug,
 }: {
-  bookingLink: GetPublicBookingLinkResponse;
-  eventTypeSlug: string;
+  bookingLink: BookingLink;
 }) {
   const [{ slot: slotParam }, setBookingParams] = useQueryStates(
     {
@@ -63,17 +61,14 @@ export function BookingPageClient({
     },
     { history: "push" },
   );
-  const eventType = bookingLink.eventTypes.find(
-    (candidate) => candidate.slug === eventTypeSlug,
-  );
 
   const [timezone, setTimezone] = useState<string>(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
 
   const selectedSlot = useMemo(
-    () => parseSlotParam(slotParam, eventType?.durationMinutes),
-    [slotParam, eventType?.durationMinutes],
+    () => parseSlotParam(slotParam, bookingLink.durationMinutes),
+    [slotParam, bookingLink.durationMinutes],
   );
 
   const [visibleMonth, setVisibleMonth] = useState<Date>(() =>
@@ -93,7 +88,6 @@ export function BookingPageClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!eventType) return;
     let ignore = false;
     setLoadingSlots(true);
     setError(null);
@@ -101,7 +95,6 @@ export function BookingPageClient({
     const start = startOfMonth(visibleMonth);
     const end = endOfMonth(visibleMonth);
     const params = new URLSearchParams({
-      eventTypeSlug: eventType.slug,
       start: start.toISOString(),
       end: end.toISOString(),
     });
@@ -133,15 +126,7 @@ export function BookingPageClient({
     return () => {
       ignore = true;
     };
-  }, [bookingLink.slug, visibleMonth, eventType, timezone]);
-
-  if (!eventType) {
-    return (
-      <BookingShell>
-        <NotFoundCard title={bookingLink.title} />
-      </BookingShell>
-    );
-  }
+  }, [bookingLink.slug, visibleMonth, timezone]);
 
   const handleSubmit = async (
     formValues: { name: string; email: string; note: string },
@@ -155,7 +140,6 @@ export function BookingPageClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           slug: bookingLink.slug,
-          eventTypeSlug: eventType.slug,
           startTime: selectedSlot.startTime,
           timezone,
           guestName: formValues.name,
@@ -182,7 +166,6 @@ export function BookingPageClient({
     return (
       <BookingShell size="compact">
         <BookingSuccessCard
-          eventType={eventType}
           bookingLink={bookingLink}
           success={success}
           timezone={timezone}
@@ -195,7 +178,6 @@ export function BookingPageClient({
     return (
       <BookingShell size="compact">
         <DetailsStep
-          eventType={eventType}
           bookingLink={bookingLink}
           slot={selectedSlot}
           timezone={timezone}
@@ -214,7 +196,6 @@ export function BookingPageClient({
   return (
     <BookingShell>
       <PickTimeStep
-        eventType={eventType}
         bookingLink={bookingLink}
         timezone={timezone}
         onTimezoneChange={setTimezone}
@@ -229,7 +210,7 @@ export function BookingPageClient({
         onPickSlot={(slot) =>
           setBookingParams({
             slot: slot.startTime,
-            duration: eventType.durationMinutes,
+            duration: bookingLink.durationMinutes,
           })
         }
       />
@@ -238,7 +219,6 @@ export function BookingPageClient({
 }
 
 function PickTimeStep({
-  eventType,
   bookingLink,
   timezone,
   onTimezoneChange,
@@ -252,8 +232,7 @@ function PickTimeStep({
   error,
   onPickSlot,
 }: {
-  eventType: EventType;
-  bookingLink: GetPublicBookingLinkResponse;
+  bookingLink: BookingLink;
   timezone: string;
   onTimezoneChange: (timezone: string) => void;
   visibleMonth: Date;
@@ -272,7 +251,6 @@ function PickTimeStep({
   return (
     <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)_240px]">
       <Sidebar
-        eventType={eventType}
         bookingLink={bookingLink}
         timezone={timezone}
         onTimezoneChange={onTimezoneChange}
@@ -393,7 +371,6 @@ function BookingCalendar({
 }
 
 function DetailsStep({
-  eventType,
   bookingLink,
   slot,
   timezone,
@@ -401,8 +378,7 @@ function DetailsStep({
   onSubmit,
   isSubmitting,
 }: {
-  eventType: EventType;
-  bookingLink: GetPublicBookingLinkResponse;
+  bookingLink: BookingLink;
   slot: Slot;
   timezone: string;
   onBack: () => void;
@@ -430,7 +406,6 @@ function DetailsStep({
   return (
     <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)]">
       <Sidebar
-        eventType={eventType}
         bookingLink={bookingLink}
         timezone={timezone}
         slot={slot}
@@ -502,31 +477,24 @@ function DetailsStep({
 }
 
 function BookingSuccessCard({
-  eventType,
   bookingLink,
   success,
   timezone,
 }: {
-  eventType: EventType;
-  bookingLink: GetPublicBookingLinkResponse;
+  bookingLink: BookingLink;
   success: SuccessState;
   timezone: string;
 }) {
   return (
     <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)]">
-      <Sidebar
-        eventType={eventType}
-        bookingLink={bookingLink}
-        timezone={timezone}
-        slot={success}
-      />
+      <Sidebar bookingLink={bookingLink} timezone={timezone} slot={success} />
       <div className="border-t p-7 md:border-l md:border-t-0">
         <div className="flex items-center gap-2.5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
           <Check className="size-4" />
           You're booked. A calendar invite is on its way.
         </div>
         <h2 className="mt-6 text-xl font-medium tracking-tight text-foreground">
-          {eventType.title} confirmed
+          {bookingLink.title} confirmed
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {formatLongDateTime(success.startTime, timezone)}
@@ -548,7 +516,6 @@ function BookingSuccessCard({
 }
 
 function Sidebar({
-  eventType,
   bookingLink,
   timezone,
   onTimezoneChange,
@@ -556,15 +523,14 @@ function Sidebar({
   backButton,
   showDescription,
 }: {
-  eventType: EventType;
-  bookingLink: GetPublicBookingLinkResponse;
+  bookingLink: BookingLink;
   timezone: string;
   onTimezoneChange?: (timezone: string) => void;
   slot?: Slot;
   backButton?: React.ReactNode;
   showDescription?: boolean;
 }) {
-  const hostName = eventType.hostName || bookingLink.title;
+  const hostName = bookingLink.hostName || bookingLink.title;
   const initial = (hostName || "?").trim().charAt(0).toUpperCase();
   return (
     <div className="flex flex-col gap-4 p-7">
@@ -575,12 +541,12 @@ function Sidebar({
       <div>
         <div className="text-sm text-muted-foreground">{hostName}</div>
         <h1 className="mt-0.5 text-2xl font-medium tracking-tight text-foreground">
-          {eventType.title}
+          {bookingLink.title}
         </h1>
       </div>
       <div className="flex flex-col gap-2 text-sm text-muted-foreground">
         <SidebarRow icon={<Clock className="size-3.5" />}>
-          {eventType.durationMinutes} min
+          {bookingLink.durationMinutes} min
         </SidebarRow>
         {slot ? (
           <SidebarRow icon={<CalendarIcon className="size-3.5" />}>
@@ -589,8 +555,8 @@ function Sidebar({
             </span>
           </SidebarRow>
         ) : null}
-        <SidebarRow icon={<LocationIcon type={eventType.locationType} />}>
-          {locationLabel(eventType)}
+        <SidebarRow icon={<LocationIcon type={bookingLink.locationType} />}>
+          {locationLabel(bookingLink)}
         </SidebarRow>
         <SidebarRow icon={<Globe className="size-3.5" />}>
           {onTimezoneChange ? (
@@ -600,9 +566,9 @@ function Sidebar({
           )}
         </SidebarRow>
       </div>
-      {showDescription && eventType.description ? (
+      {showDescription && bookingLink.description ? (
         <p className="text-sm leading-relaxed text-muted-foreground">
-          {eventType.description}
+          {bookingLink.description}
         </p>
       ) : null}
       <a
@@ -696,29 +662,29 @@ function SidebarRow({
   );
 }
 
-function LocationIcon({ type }: { type: BookingEventTypeLocationType }) {
+function LocationIcon({ type }: { type: BookingLinkLocationType }) {
   const className = "size-3.5";
   switch (type) {
-    case BookingEventTypeLocationType.GOOGLE_MEET:
-    case BookingEventTypeLocationType.MICROSOFT_TEAMS:
+    case BookingLinkLocationType.GOOGLE_MEET:
+    case BookingLinkLocationType.MICROSOFT_TEAMS:
       return <Video className={className} />;
-    case BookingEventTypeLocationType.PHONE:
+    case BookingLinkLocationType.PHONE:
       return <Phone className={className} />;
-    case BookingEventTypeLocationType.IN_PERSON:
+    case BookingLinkLocationType.IN_PERSON:
       return <MapPin className={className} />;
     default:
       return <Info className={className} />;
   }
 }
 
-function locationLabel(eventType: EventType): string {
-  if (eventType.locationType === BookingEventTypeLocationType.GOOGLE_MEET) {
+function locationLabel(link: BookingLink): string {
+  if (link.locationType === BookingLinkLocationType.GOOGLE_MEET) {
     return "Google Meet";
   }
-  if (eventType.locationType === BookingEventTypeLocationType.MICROSOFT_TEAMS) {
+  if (link.locationType === BookingLinkLocationType.MICROSOFT_TEAMS) {
     return "Microsoft Teams";
   }
-  return eventType.locationValue || "Custom";
+  return link.locationValue || "Custom";
 }
 
 function FormField({
@@ -754,19 +720,6 @@ function FormField({
   );
 }
 
-function NotFoundCard({ title }: { title: string }) {
-  return (
-    <div className="p-7">
-      <h1 className="text-xl font-medium tracking-tight text-foreground">
-        {title}
-      </h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Event type not found.
-      </p>
-    </div>
-  );
-}
-
 function SlotSkeleton() {
   return (
     <div className="flex flex-col gap-1.5">
@@ -792,32 +745,6 @@ export function BookingShell({
           size === "compact" ? "max-w-3xl" : "max-w-5xl",
         )}
       >
-        {children}
-      </div>
-    </main>
-  );
-}
-
-export function PublicShell({
-  children,
-  title,
-  subtitle,
-}: {
-  children: React.ReactNode;
-  title: string;
-  subtitle?: string;
-}) {
-  return (
-    <main className="min-h-screen bg-muted/30 px-4 py-10">
-      <div className="mx-auto max-w-2xl space-y-5">
-        <div>
-          <h1 className="text-2xl font-medium tracking-tight text-foreground">
-            {title}
-          </h1>
-          {subtitle ? (
-            <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
-          ) : null}
-        </div>
         {children}
       </div>
     </main>
@@ -960,5 +887,5 @@ export function getApiError(body: unknown) {
   ) {
     return (body as { error: string }).error;
   }
-  return "Request failed";
+  return "Something went wrong";
 }
