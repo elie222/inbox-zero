@@ -87,7 +87,7 @@ function FollowUpRemindersSettingContent() {
   return (
     <SettingCard
       title="Follow-up reminders"
-      description="Label emails where you haven't heard back or haven't replied after a business-day delay."
+      description="Label emails where you haven't heard back or haven't replied."
       right={
         isLoading ? (
           <Skeleton className="h-5 w-9" />
