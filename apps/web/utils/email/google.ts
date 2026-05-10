@@ -91,10 +91,6 @@ function buildRawMessageBase64(headers: string[], body: string): string {
     .replace(/=+$/, "");
 }
 
-function quoteGmailSearchValue(value: string) {
-  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-}
-
 export class GmailProvider implements EmailProvider {
   readonly name = "google";
   private readonly client: gmail_v1.Gmail;
@@ -1150,23 +1146,9 @@ export class GmailProvider implements EmailProvider {
     query: string;
     maxResults?: number;
     pageToken?: string;
-    readState?: "read" | "unread";
-    labelName?: string;
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
-    const queryParts = [options.query.trim()];
-
-    if (options.readState === "read") {
-      queryParts.push("is:read");
-    } else if (options.readState === "unread") {
-      queryParts.push("is:unread");
-    }
-
-    if (options.labelName) {
-      queryParts.push(`label:${quoteGmailSearchValue(options.labelName)}`);
-    }
-
     const response = await getMessages(this.client, {
-      query: queryParts.filter(Boolean).join(" "),
+      query: options.query,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken || undefined,
     });

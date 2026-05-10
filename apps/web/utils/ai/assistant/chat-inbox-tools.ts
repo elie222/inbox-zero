@@ -427,47 +427,61 @@ function getSearchQueryDescription(provider: string): string {
 }
 
 function searchInboxInputSchema(provider: string) {
-  return z
-    .object({
-      query: z
-        .string()
-        .trim()
-        .max(500)
-        .default("")
-        .describe(getSearchQueryDescription(provider)),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(SEARCH_INBOX_MAX_RESULTS)
-        .default(SEARCH_INBOX_MAX_RESULTS)
-        .describe("Maximum number of messages to return."),
-      pageToken: microsoftGraphPageTokenSchema.describe(
-        "Use the page token returned from a prior search to paginate.",
-      ),
-      readState: z
-        .enum(["read", "unread"])
-        .nullish()
-        .describe(
-          "Optional structured read-state filter. Prefer this over putting read/unread in query when filtering by read state.",
-        ),
-      labelName: z
-        .string()
-        .trim()
-        .min(1)
-        .nullish()
-        .describe(
-          isMicrosoftProvider(provider)
-            ? "Optional exact Outlook label/category name to filter by. Use only when the user refers to an Outlook label/category, not when searching for text that happens to match a label name."
-            : "Optional exact Gmail label name to filter by. Use only when the user refers to a Gmail label, not when searching for text that happens to match a label name.",
-        ),
-    })
-    .refine(
-      (value) => Boolean(value.query || value.readState || value.labelName),
-      {
-        message: "query, readState, or labelName is required",
-      },
-    );
+  const baseFields = {
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(SEARCH_INBOX_MAX_RESULTS)
+      .default(SEARCH_INBOX_MAX_RESULTS)
+      .describe("Maximum number of messages to return."),
+    pageToken: microsoftGraphPageTokenSchema.describe(
+      "Use the page token returned from a prior search to paginate.",
+    ),
+  };
+
+  if (isMicrosoftProvider(provider)) {
+    return z
+      .object({
+        query: z
+          .string()
+          .trim()
+          .max(500)
+          .default("")
+          .describe(getSearchQueryDescription(provider)),
+        ...baseFields,
+        readState: z
+          .enum(["read", "unread"])
+          .nullish()
+          .describe(
+            "Optional structured read-state filter. For Outlook category cleanup, prefer this over putting read/unread in query.",
+          ),
+        labelName: z
+          .string()
+          .trim()
+          .min(1)
+          .nullish()
+          .describe(
+            "Optional exact Outlook label/category name to filter by. Use only when the user refers to an Outlook label/category, not when searching for text that happens to match a label name.",
+          ),
+      })
+      .refine(
+        (value) => Boolean(value.query || value.readState || value.labelName),
+        {
+          message: "query, readState, or labelName is required",
+        },
+      );
+  }
+
+  return z.object({
+    query: z
+      .string()
+      .trim()
+      .min(1)
+      .max(500)
+      .describe(getSearchQueryDescription(provider)),
+    ...baseFields,
+  });
 }
 
 export const searchInboxTool = ({
@@ -533,13 +547,20 @@ export const searchInboxTool = ({
         for (let i = 0; i < searchQueries.length; i++) {
           const candidateQuery = searchQueries[i];
           try {
-            searchResult = await emailProvider.searchMessages({
+            const searchOptions: Parameters<
+              EmailProvider["searchMessages"]
+            >[0] = {
               query: candidateQuery,
               maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
               pageToken: pageToken ?? undefined,
-              readState: readState ?? undefined,
-              labelName: labelName ?? undefined,
-            });
+            };
+
+            if (isMicrosoftProvider(provider)) {
+              searchOptions.readState = readState ?? undefined;
+              searchOptions.labelName = labelName ?? undefined;
+            }
+
+            searchResult = await emailProvider.searchMessages(searchOptions);
             queryUsed = candidateQuery;
             break;
           } catch (error) {
