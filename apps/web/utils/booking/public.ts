@@ -249,6 +249,7 @@ export async function createPublicBooking({
 
   await sendBookingConfirmationEmails({
     booking: confirmedBooking,
+    guestTimezone: input.timezone,
     cancelUrl: getCancelUrl({ uid: confirmedBooking.uid, token: cancelToken }),
     logger,
   });
@@ -498,7 +499,6 @@ async function createPendingBooking({
       guestNote: input.guestNote,
       startTime: selectedStartTime,
       endTime: selectedEndTime,
-      timezone: input.timezone,
       status: BookingStatus.PENDING_PROVIDER_EVENT,
       cancelTokenHash: hashToken(cancelToken),
       idempotencyToken: input.idempotencyToken,

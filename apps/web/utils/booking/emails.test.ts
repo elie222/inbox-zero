@@ -34,6 +34,7 @@ describe("booking emails", () => {
   it("uses the host name when present", async () => {
     await sendBookingConfirmationEmails({
       booking: bookingEmailPayload(),
+      guestTimezone: "UTC",
       cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
       logger,
     });
@@ -59,6 +60,7 @@ describe("booking emails", () => {
         linkLocationType: BookingLinkLocationType.CUSTOM,
         linkLocationValue: "https://video.example.com/meeting",
       }),
+      guestTimezone: "UTC",
       cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
       logger,
     });
@@ -80,6 +82,7 @@ describe("booking emails", () => {
         linkLocationValue: null,
         videoConferenceLink: "https://teams.example.com/meeting",
       }),
+      guestTimezone: "UTC",
       cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
       logger,
     });
@@ -129,7 +132,6 @@ function bookingEmailPayload(
     guestNote: "Please share an agenda.",
     id: "booking-id",
     startTime: new Date("2026-05-04T09:00:00.000Z"),
-    timezone: "UTC",
     bookingLink: {
       emailAccount: {
         email: "host@example.com",

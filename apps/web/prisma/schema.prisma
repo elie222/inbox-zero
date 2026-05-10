@@ -1221,7 +1221,6 @@ model Booking {
   guestNote           String?
   startTime           DateTime
   endTime             DateTime
-  timezone            String
   status              BookingStatus      @default(PENDING_PROVIDER_EVENT)
   provider            String?
   providerCalendarId  String?

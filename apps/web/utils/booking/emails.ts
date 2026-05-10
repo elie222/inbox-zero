@@ -20,7 +20,6 @@ type BookingEmailPayload = {
   guestNote?: string | null;
   id: string;
   startTime: Date;
-  timezone: string;
   videoConferenceLink?: string | null;
   bookingLink: {
     emailAccount: {
@@ -32,10 +31,12 @@ type BookingEmailPayload = {
 
 export async function sendBookingConfirmationEmails({
   booking,
+  guestTimezone,
   cancelUrl,
   logger,
 }: {
   booking: BookingEmailPayload;
+  guestTimezone: string;
   cancelUrl: string;
   logger: Logger;
 }) {
@@ -44,7 +45,7 @@ export async function sendBookingConfirmationEmails({
   const guestParts = formatBookingParts({
     startTime: booking.startTime,
     endTime: booking.endTime,
-    timezone: booking.timezone,
+    timezone: guestTimezone,
   });
   const hostParts = formatBookingParts({
     startTime: booking.startTime,
@@ -69,7 +70,7 @@ export async function sendBookingConfirmationEmails({
           dateDay: guestParts.dateDay,
           dateWeekday: guestParts.dateWeekday,
           timeRange: guestParts.timeRange,
-          timezoneLabel: booking.timezone,
+          timezoneLabel: guestTimezone,
           guestNote: booking.guestNote ?? null,
           meetingLink: getMeetingLink(booking),
         },

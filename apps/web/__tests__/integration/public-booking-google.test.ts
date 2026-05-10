@@ -268,7 +268,6 @@ function bookingRecordBase() {
     guestNote: null,
     startTime: new Date("2030-01-07T09:00:00.000Z"),
     endTime: new Date("2030-01-07T09:30:00.000Z"),
-    timezone: "UTC",
     status: BookingStatus.CONFIRMED,
     provider: null,
     providerCalendarId: null,

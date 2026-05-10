@@ -53,7 +53,6 @@ CREATE TABLE "Booking" (
     "guestNote" TEXT,
     "startTime" TIMESTAMP(3) NOT NULL,
     "endTime" TIMESTAMP(3) NOT NULL,
-    "timezone" TEXT NOT NULL,
     "status" "BookingStatus" NOT NULL DEFAULT 'PENDING_PROVIDER_EVENT',
     "provider" TEXT,
     "providerCalendarId" TEXT,
