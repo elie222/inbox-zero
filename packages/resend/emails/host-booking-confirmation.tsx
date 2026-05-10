@@ -1,14 +1,5 @@
-import {
-  Body,
-  Container,
-  Head,
-  Heading,
-  Html,
-  Section,
-  Tailwind,
-  Text,
-} from "@react-email/components";
-import { InboxZeroFooter } from "./components/inbox-zero-footer";
+import { Section, Text } from "@react-email/components";
+import { BookingEmailLayout } from "./components/booking-email-layout";
 
 export type HostBookingConfirmationEmailProps = {
   eventTitle: string;
@@ -38,98 +29,76 @@ export default function HostBookingConfirmationEmail({
   guestNote,
 }: HostBookingConfirmationEmailProps) {
   return (
-    <Html>
-      <Head />
-      <Tailwind>
-        <Body className="bg-[#EDEEF1] font-sans">
-          <Container className="mx-auto my-7 w-full max-w-[600px] overflow-hidden rounded-2xl border border-[#E1E3E8] bg-white">
-            <Section className="px-8 pb-3 pt-6">
-              <Heading
-                as="h1"
-                className="m-0 text-[18px] font-medium tracking-tight text-gray-900"
-              >
-                New booking from {guestName}
-              </Heading>
-              <Text className="m-0 mt-1 text-[13px] text-gray-500">
-                {formattedTime}
-              </Text>
-            </Section>
-
-            <Section className="px-8 pb-6 pt-2">
-              <Section className="mb-5 overflow-hidden rounded-2xl border border-gray-200">
-                <Section className="bg-[#FAFBFD] px-6 py-4">
-                  <table>
-                    <tr>
-                      {dateMonth && dateDay ? (
-                        <td className="pr-4">
-                          <Section className="w-[60px] rounded-xl border border-gray-200 bg-white py-1.5 text-center">
-                            <Text className="m-0 text-[10px] font-semibold uppercase tracking-wider text-red-600">
-                              {dateMonth}
-                            </Text>
-                            <Text className="m-0 text-[22px] font-semibold leading-none text-gray-900">
-                              {dateDay}
-                            </Text>
-                            {dateWeekday ? (
-                              <Text className="m-0 mt-1 text-[10px] text-gray-500">
-                                {dateWeekday}
-                              </Text>
-                            ) : null}
-                          </Section>
-                        </td>
-                      ) : null}
-                      <td>
-                        <Text className="m-0 text-[16px] font-medium tracking-tight text-gray-900">
-                          {eventTitle}
-                        </Text>
-                        {timeRange || timezoneLabel ? (
-                          <Text className="m-0 mt-1 text-[13px] text-gray-600">
-                            {[timeRange, timezoneLabel]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </Text>
-                        ) : (
-                          <Text className="m-0 mt-1 text-[13px] text-gray-600">
-                            {formattedTime}
-                          </Text>
-                        )}
-                      </td>
-                    </tr>
-                  </table>
-                </Section>
-
-                <Section className="px-6 py-3">
-                  <Text className="m-0 mb-1 text-[13px] text-gray-700">
-                    Guest: <strong>{guestName}</strong> ({guestEmail})
-                  </Text>
-                  {location ? (
-                    <Text className="m-0 text-[13px] text-gray-700">
-                      Location: <strong>{location}</strong>
+    <BookingEmailLayout
+      headline={`New booking from ${guestName}`}
+      subline={formattedTime}
+    >
+      <Section className="mb-5 overflow-hidden rounded-2xl border border-gray-200">
+        <Section className="bg-[#FAFBFD] px-6 py-4">
+          <table>
+            <tr>
+              {dateMonth && dateDay ? (
+                <td className="pr-4">
+                  <Section className="w-[60px] rounded-xl border border-gray-200 bg-white py-1.5 text-center">
+                    <Text className="m-0 text-[10px] font-semibold uppercase tracking-wider text-red-600">
+                      {dateMonth}
                     </Text>
-                  ) : null}
-                </Section>
-              </Section>
-
-              {guestNote ? (
-                <Section className="mb-6 rounded-r-lg border-l-[3px] border-blue-600 bg-[#FAFBFD] px-4 py-3">
-                  <Text className="m-0 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                    Their note
-                  </Text>
-                  <Text className="m-0 mt-1 text-[13px] italic text-gray-900">
-                    "{guestNote}"
-                  </Text>
-                </Section>
+                    <Text className="m-0 text-[22px] font-semibold leading-none text-gray-900">
+                      {dateDay}
+                    </Text>
+                    {dateWeekday ? (
+                      <Text className="m-0 mt-1 text-[10px] text-gray-500">
+                        {dateWeekday}
+                      </Text>
+                    ) : null}
+                  </Section>
+                </td>
               ) : null}
+              <td>
+                <Text className="m-0 text-[16px] font-medium tracking-tight text-gray-900">
+                  {eventTitle}
+                </Text>
+                {timeRange || timezoneLabel ? (
+                  <Text className="m-0 mt-1 text-[13px] text-gray-600">
+                    {[timeRange, timezoneLabel].filter(Boolean).join(" · ")}
+                  </Text>
+                ) : (
+                  <Text className="m-0 mt-1 text-[13px] text-gray-600">
+                    {formattedTime}
+                  </Text>
+                )}
+              </td>
+            </tr>
+          </table>
+        </Section>
 
-              <Text className="m-0 text-[13px] text-gray-600">
-                The calendar provider will send the invite to attendees.
-              </Text>
-            </Section>
+        <Section className="px-6 py-3">
+          <Text className="m-0 mb-1 text-[13px] text-gray-700">
+            Guest: <strong>{guestName}</strong> ({guestEmail})
+          </Text>
+          {location ? (
+            <Text className="m-0 text-[13px] text-gray-700">
+              Location: <strong>{location}</strong>
+            </Text>
+          ) : null}
+        </Section>
+      </Section>
 
-            <InboxZeroFooter />
-          </Container>
-        </Body>
-      </Tailwind>
-    </Html>
+      {guestNote ? (
+        <Section className="mb-6 rounded-r-lg border-l-[3px] border-blue-600 bg-[#FAFBFD] px-4 py-3">
+          <Text className="m-0 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+            Their note
+          </Text>
+          <Text className="m-0 mt-1 text-[13px] italic text-gray-900">
+            "{guestNote}"
+          </Text>
+        </Section>
+      ) : null}
+
+      <Text className="m-0 text-[13px] text-gray-600">
+        The calendar provider will send the invite to attendees.
+      </Text>
+    </BookingEmailLayout>
   );
 }
 

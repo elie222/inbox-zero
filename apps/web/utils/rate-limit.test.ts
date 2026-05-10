@@ -126,12 +126,30 @@ describe("rate limit utilities", () => {
     expect(createRateLimitKey(["rate limit", "book/link", "a:b"])).toBe(
       "rate_limit:book_link:a_b",
     );
+    // Rightmost entry wins: leftmost is client-controlled on Vercel.
     expect(
       getClientIp(
         new Headers({
           "x-forwarded-for": "203.0.113.1, 10.0.0.1",
         }),
       ),
-    ).toBe("203.0.113.1");
+    ).toBe("10.0.0.1");
+    // cf-connecting-ip is preferred over x-forwarded-for.
+    expect(
+      getClientIp(
+        new Headers({
+          "cf-connecting-ip": "198.51.100.7",
+          "x-forwarded-for": "203.0.113.1, 10.0.0.1",
+        }),
+      ),
+    ).toBe("198.51.100.7");
+    // x-real-ip is no longer trusted.
+    expect(
+      getClientIp(
+        new Headers({
+          "x-real-ip": "203.0.113.99",
+        }),
+      ),
+    ).toBe("unknown");
   });
 });

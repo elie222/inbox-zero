@@ -73,14 +73,22 @@ export function createRateLimitKey(parts: string[]) {
   return parts.map((part) => hashKeyPart(part)).join(":");
 }
 
+// Assumes the deployment sits behind Vercel or Cloudflare. Both append the
+// real client IP to the trusted edge of the chain, so we read the rightmost
+// `x-forwarded-for` entry. Leftmost values and `x-real-ip` are
+// client-controlled on Vercel and unsafe to trust for rate limiting.
 export function getClientIp(headers: Headers) {
-  const forwardedFor = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return (
-    headers.get("cf-connecting-ip")?.trim() ||
-    headers.get("x-real-ip")?.trim() ||
-    forwardedFor ||
-    "unknown"
-  );
+  const cfIp = headers.get("cf-connecting-ip")?.trim();
+  if (cfIp) return cfIp;
+
+  const forwardedFor = headers.get("x-forwarded-for");
+  if (forwardedFor) {
+    const entries = forwardedFor.split(",");
+    const rightmost = entries.at(-1)?.trim();
+    if (rightmost) return rightmost;
+  }
+
+  return "unknown";
 }
 
 export function hashRateLimitValue(value: string) {
