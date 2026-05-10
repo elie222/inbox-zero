@@ -33,6 +33,9 @@ Write the reply in the same language as the latest message in the thread.
 IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
 Do not invent information.
+Ground the reply in the thread and provided context. Do not invent exact factual values, dates, account states, approvals, attachments, completed actions, or external changes.
+If key facts or actions are missing, still draft the most useful reply you can for the user to review and edit, but lower the confidence instead of presenting the draft as fully certain.
+Use email dates only as message metadata. They help with order and recency, but do not prove that a referenced plan happened, was missed, or remains scheduled.
 Do not use em dashes unless the provided writing style explicitly calls for them.
 Don't suggest meeting times or mention availability unless specific calendar information is provided.
 
@@ -209,7 +212,7 @@ const draftSchema = z.object({
   confidence: z
     .nativeEnum(DraftReplyConfidence)
     .describe(
-      "Required value: ALL_EMAILS, STANDARD, or HIGH_CONFIDENCE. Use ALL_EMAILS when uncertain, context is missing, or the draft must ask/check/follow up because requested facts are unavailable. Use STANDARD for solid drafts with minor uncertainty. Use HIGH_CONFIDENCE only when the sender's intent and the complete factual response are clear from the provided context.",
+      "Required value: ALL_EMAILS, STANDARD, or HIGH_CONFIDENCE. Use HIGH_CONFIDENCE when the draft is complete, grounded, and likely safe to use as-is. Use STANDARD for useful drafts that should be reviewed because they rely on reasonable assumptions, missing facts, or user-verifiable actions. Use ALL_EMAILS when the draft is highly uncertain, likely needs broader thread/context review, or mainly asks/checks/follows up.",
     ),
 });
 
