@@ -16,8 +16,8 @@ import { getCalendarAvailabilityErrorLogContext } from "@/utils/calendar/availab
 import {
   cancelCalendarEvent,
   createCalendarEvent,
+  type CreatedCalendarEvent,
 } from "@/utils/calendar/event-writer";
-import type { CalendarEventWriteResult } from "@/utils/calendar/event-types";
 import { BookingStatus } from "@/generated/prisma/enums";
 import type { PublicBookingBody } from "@/utils/actions/booking.validation";
 import {
@@ -173,11 +173,7 @@ export async function createPublicBooking({
     throw error;
   }
 
-  let createdEvent:
-    | (CalendarEventWriteResult & {
-        provider: string;
-      })
-    | null = null;
+  let createdEvent: CreatedCalendarEvent | null = null;
   let confirmedBooking = pendingBooking;
 
   try {
