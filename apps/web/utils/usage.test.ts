@@ -219,7 +219,7 @@ describe("saveAiUsage", () => {
     expect(saveUsage).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user-1",
-        email: "user@example.com",
+        emailAccountId: "email-account-1",
         usage,
         cost: calculateUsageCost({
           provider: "openai",
@@ -267,7 +267,7 @@ describe("saveAiUsage", () => {
     expect(saveUsage).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user-1",
-        email: "user@example.com",
+        emailAccountId: "email-account-1",
         usage,
         cost: 0,
       }),
@@ -318,7 +318,7 @@ describe("saveAiUsage", () => {
     expect(saveUsage).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user-1",
-        email: "user@example.com",
+        emailAccountId: "email-account-1",
         usage,
         cost: estimatedCost,
       }),

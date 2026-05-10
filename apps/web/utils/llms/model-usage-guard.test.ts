@@ -61,6 +61,7 @@ describe("shouldForceNanoModel", () => {
       userEmail: "user@example.com",
       hasUserApiKey: false,
       label: "assistant-chat",
+      userId: "user-1",
     });
 
     expect(result.shouldForce).toBe(false);
@@ -89,6 +90,7 @@ describe("shouldForceNanoModel", () => {
       userEmail: "user@example.com",
       hasUserApiKey: false,
       label: "assistant-chat",
+      userId: "user-1",
     });
 
     expect(result.shouldForce).toBe(false);
@@ -105,6 +107,7 @@ describe("shouldForceNanoModel", () => {
       userEmail: "user@example.com",
       hasUserApiKey: false,
       label: "assistant-chat",
+      userId: "user-1",
     });
 
     expect(result.shouldForce).toBe(true);
@@ -122,6 +125,7 @@ describe("shouldForceNanoModel", () => {
       userEmail: "user@example.com",
       hasUserApiKey: false,
       label: "assistant-chat",
+      userId: "user-1",
     });
 
     expect(result.shouldForce).toBe(false);
@@ -168,6 +172,8 @@ describe("assertTrialAiUsageAllowed", () => {
     vi.mocked(env).AI_TRIAL_WEEKLY_SPEND_LIMIT_USD = 2;
     vi.mocked(getWeeklyUsageCost).mockResolvedValue(3);
     prisma.user.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      emailAccounts: [{ email: "account@example.com" }],
       premium: {
         stripeSubscriptionStatus: "active",
         lemonSubscriptionStatus: null,
@@ -182,10 +188,7 @@ describe("assertTrialAiUsageAllowed", () => {
       emailAccountId: "account-1",
     });
 
-    expect(getWeeklyUsageCost).toHaveBeenCalledWith({
-      userId: "user-1",
-      fallbackEmails: ["user@example.com"],
-    });
+    expect(getWeeklyUsageCost).not.toHaveBeenCalled();
     expect(redis.set).not.toHaveBeenCalled();
     expect(sendActionRequiredEmail).not.toHaveBeenCalled();
   });
@@ -196,6 +199,8 @@ describe("assertTrialAiUsageAllowed", () => {
     vi.mocked(redis.set).mockResolvedValue("OK");
     vi.mocked(createUnsubscribeToken).mockResolvedValue("unsubscribe-token");
     prisma.user.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      emailAccounts: [{ email: "account@example.com" }],
       premium: {
         stripeSubscriptionStatus: "trialing",
         lemonSubscriptionStatus: null,
@@ -212,6 +217,10 @@ describe("assertTrialAiUsageAllowed", () => {
       }),
     ).rejects.toThrow(SafeError);
 
+    expect(getWeeklyUsageCost).toHaveBeenCalledWith({
+      userId: "user-1",
+      legacyEmails: ["user@example.com", "account@example.com"],
+    });
     expect(redis.set).toHaveBeenCalledWith(
       "trial-ai-limit-notification:user-1",
       expect.any(String),
@@ -227,7 +236,7 @@ describe("assertTrialAiUsageAllowed", () => {
         errorType: "Trial AI Limit Reached",
         errorMessage: TRIAL_AI_LIMIT_REACHED_MESSAGE,
         actionUrl: "/premium",
-        actionLabel: "Upgrade",
+        actionLabel: "Start paid plan now",
       },
     });
     expect(prisma.user.update).not.toHaveBeenCalled();
@@ -238,6 +247,8 @@ describe("assertTrialAiUsageAllowed", () => {
     vi.mocked(getWeeklyUsageCost).mockResolvedValue(3);
     vi.mocked(redis.set).mockResolvedValue(null);
     prisma.user.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      emailAccounts: [{ email: "account@example.com" }],
       premium: {
         stripeSubscriptionStatus: "trialing",
         lemonSubscriptionStatus: null,
@@ -313,7 +324,7 @@ describe("getUserTrialAiUsageLimitStatus", () => {
 
     expect(getWeeklyUsageCost).toHaveBeenCalledWith({
       userId: "user-1",
-      fallbackEmails: ["user@example.com", "account@example.com"],
+      legacyEmails: ["user@example.com", "account@example.com"],
     });
     expect(status).toEqual({
       status: "trial_ai_limit_reached",

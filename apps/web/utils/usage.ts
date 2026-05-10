@@ -71,7 +71,7 @@ export async function saveAiUsage({
         stepCount,
         toolCallCount,
       }),
-      saveUsage({ userId, email, cost: platformCost, usage }),
+      saveUsage({ userId, emailAccountId, cost: platformCost, usage }),
     ]);
   } catch (error) {
     logger.error("Failed to save usage", { error });

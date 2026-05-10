@@ -16,17 +16,19 @@ async function getData() {
   if (!topSpenders.length) return { topSpenders: [] };
 
   const emails = topSpenders.flatMap((spender) =>
-    spender.email ? [spender.email] : [],
+    "email" in spender ? [spender.email] : [],
   );
-  const emailAccounts = await prisma.emailAccount.findMany({
-    where: { email: { in: emails } },
-    select: { id: true, email: true, userId: true },
-  });
+  const emailAccounts = emails.length
+    ? await prisma.emailAccount.findMany({
+        where: { email: { in: emails } },
+        select: { id: true, email: true, userId: true },
+      })
+    : [];
 
   const userIds = [
     ...new Set([
       ...topSpenders.flatMap((spender) =>
-        spender.userId ? [spender.userId] : [],
+        "userId" in spender ? [spender.userId] : [],
       ),
       ...emailAccounts.map((account) => account.userId),
     ]),
@@ -58,17 +60,17 @@ async function getData() {
 
   return {
     topSpenders: topSpenders.map((spender) => {
-      const emailAccount = spender.email
-        ? emailAccountByEmail.get(spender.email)
-        : undefined;
-      const userId = spender.userId ?? emailAccount?.userId ?? null;
+      const emailAccount =
+        "email" in spender ? emailAccountByEmail.get(spender.email) : null;
+      const userId =
+        "userId" in spender ? spender.userId : emailAccount?.userId;
       const user = userId ? usersById.get(userId) : null;
       const hasUserApiKey = !!user?.aiApiKey;
       const primaryEmailAccount = emailAccount ?? user?.emailAccounts[0];
 
       return {
         ...spender,
-        email: spender.email ?? user?.email ?? null,
+        email: "email" in spender ? spender.email : (user?.email ?? null),
         emailAccountId: primaryEmailAccount?.id ?? null,
         userEmailAccountCount: user?.emailAccounts.length ?? 0,
         nanoLimitedBySpendGuard:

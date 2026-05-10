@@ -11,7 +11,7 @@ const logger = createScopedLogger("llms/model-usage-guard");
 const TRIAL_AI_LIMIT_NOTIFICATION_TTL_SECONDS = 60 * 24 * 60 * 60;
 
 export const TRIAL_AI_LIMIT_REACHED_MESSAGE =
-  "Your trial has reached the AI usage limit. Upgrade to continue using AI automation.";
+  "Your trial has reached the AI usage limit. Start your paid plan now to continue using AI automation.";
 
 type TrialAiUsageLimitStatus =
   | { status: "allowed" }
@@ -51,7 +51,7 @@ export async function getUserTrialAiUsageLimitStatus(options: {
   try {
     weeklySpendUsd = await getWeeklyUsageCost({
       userId: options.userId,
-      fallbackEmails: getLegacyUsageEmails(user),
+      legacyEmails: getLegacyUsageEmails(user),
     });
   } catch (error) {
     logger.error("Failed to evaluate trial AI spend status", {
@@ -76,11 +76,30 @@ export async function assertTrialAiUsageAllowed(options: {
   if (options.hasUserApiKey) return;
   if (!options.userId || !options.emailAccountId) return;
 
+  const user = await prisma.user.findUnique({
+    where: { id: options.userId },
+    select: {
+      email: true,
+      emailAccounts: { select: { email: true } },
+      premium: {
+        select: {
+          stripeSubscriptionStatus: true,
+          lemonSubscriptionStatus: true,
+        },
+      },
+    },
+  });
+
+  if (!user || !isTrialPremium(user.premium)) return;
+
   let weeklySpendUsd = 0;
   try {
     weeklySpendUsd = await getWeeklyUsageCost({
       userId: options.userId,
-      fallbackEmails: [options.userEmail],
+      legacyEmails: getLegacyUsageEmails({
+        email: user.email ?? options.userEmail,
+        emailAccounts: user.emailAccounts,
+      }),
     });
   } catch (error) {
     logger.error("Failed to evaluate trial AI spend guard", {
@@ -93,20 +112,6 @@ export async function assertTrialAiUsageAllowed(options: {
   }
 
   if (weeklySpendUsd < weeklyLimitUsd) return;
-
-  const user = await prisma.user.findUnique({
-    where: { id: options.userId },
-    select: {
-      premium: {
-        select: {
-          stripeSubscriptionStatus: true,
-          lemonSubscriptionStatus: true,
-        },
-      },
-    },
-  });
-
-  if (!isTrialPremium(user?.premium)) return;
 
   logger.warn("Blocking trial AI call due to weekly spend", {
     label: options.label,
@@ -143,7 +148,7 @@ async function sendTrialAiLimitReachedEmailOnce({
     nx: true,
   });
 
-  if (claimedNotification !== "OK") return;
+  if (!claimedNotification) return;
 
   try {
     const unsubscribeToken = await createUnsubscribeToken({ emailAccountId });
@@ -158,7 +163,7 @@ async function sendTrialAiLimitReachedEmailOnce({
         errorType: "Trial AI Limit Reached",
         errorMessage: TRIAL_AI_LIMIT_REACHED_MESSAGE,
         actionUrl: "/premium",
-        actionLabel: "Upgrade",
+        actionLabel: "Start paid plan now",
       },
     });
 
@@ -212,12 +217,14 @@ export async function shouldForceNanoModel(options: {
     });
     return { shouldForce: false, weeklySpendUsd: null, weeklyLimitUsd };
   }
+  if (!options.userId) {
+    return { shouldForce: false, weeklySpendUsd: null, weeklyLimitUsd };
+  }
 
   try {
     const weeklySpendUsd = await getWeeklyUsageCost({
       userId: options.userId,
-      email: options.userId ? undefined : options.userEmail,
-      fallbackEmails: options.userId ? [options.userEmail] : [],
+      legacyEmails: [options.userEmail],
     });
     return {
       shouldForce: weeklySpendUsd >= weeklyLimitUsd,
@@ -250,6 +257,15 @@ function isTrialPremium(
   );
 }
 
+function getLegacyUsageEmails(user: {
+  email: string | null;
+  emailAccounts: Array<{ email: string }>;
+}) {
+  return Array.from(
+    new Set([user.email, ...user.emailAccounts.map(({ email }) => email)]),
+  ).flatMap((email) => (email ? [email] : []));
+}
+
 function getTrialAiUsageLimitStatus({
   weeklySpendUsd,
   weeklyLimitUsd,
@@ -269,13 +285,4 @@ function getTrialAiUsageLimitStatus({
 
 function getTrialAiLimitNotificationKey(userId: string) {
   return `trial-ai-limit-notification:${userId}`;
-}
-
-function getLegacyUsageEmails(user: {
-  email: string;
-  emailAccounts: Array<{ email: string }>;
-}) {
-  return [
-    ...new Set([user.email, ...user.emailAccounts.map(({ email }) => email)]),
-  ];
 }

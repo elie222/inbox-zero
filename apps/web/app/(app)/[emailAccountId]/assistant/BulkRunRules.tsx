@@ -38,7 +38,7 @@ import {
   getProgressMessage,
   initialBulkRunState,
 } from "@/app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer";
-import { useEndStripeTrial } from "@/app/(app)/premium/ManageSubscription";
+import { useEndStripeTrial } from "@/hooks/useEndStripeTrial";
 
 const TRIAL_BULK_PROCESS_EMAIL_LIMIT = 200;
 
