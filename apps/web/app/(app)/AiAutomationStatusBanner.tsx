@@ -13,7 +13,7 @@ export function AiAutomationStatusBanner() {
   if (status?.status !== "trial_ai_limit_reached") return null;
 
   return (
-    <div className="mx-auto max-w-screen-xl w-full px-4 mt-6 mb-2 space-y-2">
+    <div className="mx-auto max-w-screen-xl w-full px-4 mt-6 mb-2">
       <AlertError
         title="Action Required"
         description={

@@ -71,54 +71,20 @@ export async function assertTrialAiUsageAllowed(options: {
   userId?: string;
   emailAccountId?: string;
 }): Promise<void> {
-  const weeklyLimitUsd = env.AI_TRIAL_WEEKLY_SPEND_LIMIT_USD;
-  if (!weeklyLimitUsd) return;
   if (options.hasUserApiKey) return;
   if (!options.userId || !options.emailAccountId) return;
 
-  const user = await prisma.user.findUnique({
-    where: { id: options.userId },
-    select: {
-      email: true,
-      emailAccounts: { select: { email: true } },
-      premium: {
-        select: {
-          stripeSubscriptionStatus: true,
-          lemonSubscriptionStatus: true,
-        },
-      },
-    },
+  const status = await getUserTrialAiUsageLimitStatus({
+    userId: options.userId,
   });
-
-  if (!user || !isTrialPremium(user.premium)) return;
-
-  let weeklySpendUsd = 0;
-  try {
-    weeklySpendUsd = await getWeeklyUsageCost({
-      userId: options.userId,
-      legacyEmails: getLegacyUsageEmails({
-        email: user.email ?? options.userEmail,
-        emailAccounts: user.emailAccounts,
-      }),
-    });
-  } catch (error) {
-    logger.error("Failed to evaluate trial AI spend guard", {
-      label: options.label,
-      userId: options.userId,
-      emailAccountId: options.emailAccountId,
-      error,
-    });
-    return;
-  }
-
-  if (weeklySpendUsd < weeklyLimitUsd) return;
+  if (status.status === "allowed") return;
 
   logger.warn("Blocking trial AI call due to weekly spend", {
     label: options.label,
     userId: options.userId,
     emailAccountId: options.emailAccountId,
-    weeklySpendUsd,
-    weeklyLimitUsd,
+    weeklySpendUsd: status.weeklySpendUsd,
+    weeklyLimitUsd: status.weeklyLimitUsd,
   });
 
   await sendTrialAiLimitReachedEmailOnce({

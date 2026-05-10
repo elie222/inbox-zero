@@ -180,7 +180,7 @@ export async function getWeeklyUsageCost({
   const weeklyCosts = await Promise.all(
     usageKeys.map(async (key) => {
       const data = await redis.hgetall<{ cost?: string | number }>(key);
-      return parseUsageCost(data?.cost);
+      return parseRedisNumber(data?.cost);
     }),
   );
 
@@ -252,7 +252,7 @@ export async function getWeeklyUsageCost({
   const updatedWeeklyCosts = await Promise.all(
     usageKeys.map(async (key) => {
       const data = await redis.hgetall<{ cost?: string | number }>(key);
-      return parseUsageCost(data?.cost);
+      return parseRedisNumber(data?.cost);
     }),
   );
 
@@ -288,7 +288,7 @@ export async function getTopWeeklyUsageCosts({
         if (!parsed || !daysInWindow.has(parsed.day)) return null;
 
         const data = await redis.hgetall<{ cost?: string | number }>(key);
-        const cost = parseUsageCost(data?.cost);
+        const cost = parseRedisNumber(data?.cost);
         if (cost <= 0) return null;
 
         return { ...parsed, cost };
@@ -349,7 +349,7 @@ function getUsageDataIncrementOperations(
   if (!usage) return [];
 
   return usageFields.flatMap((field) => {
-    const value = parseUsageCost(usage[field]);
+    const value = parseRedisNumber(usage[field]);
     if (value <= 0) return [];
     if (field === "cost") return [redis.hincrbyfloat(key, field, value)];
     return [redis.hincrby(key, field, value)];
@@ -363,8 +363,8 @@ function getUsageDelta(
   const delta: RedisUsage = {};
 
   for (const field of usageFields) {
-    const legacyValue = parseUsageCost(legacyUsage?.[field]);
-    const migratedValue = parseUsageCost(migratedLegacyUsage[field]);
+    const legacyValue = parseRedisNumber(legacyUsage?.[field]);
+    const migratedValue = parseRedisNumber(migratedLegacyUsage[field]);
     const value = legacyValue - migratedValue;
     if (value > 0) delta[field] = value;
   }
@@ -373,7 +373,7 @@ function getUsageDelta(
 }
 
 function hasUsageData(usage: RedisUsage | null | undefined) {
-  return usageFields.some((field) => parseUsageCost(usage?.[field]) > 0);
+  return usageFields.some((field) => parseRedisNumber(usage?.[field]) > 0);
 }
 
 function getWeeklyUsageCostKeys(userId: string, now: Date) {
@@ -418,7 +418,7 @@ async function getLegacyWeeklyUsageCostsByKey({
       getWeeklyUsageCostDays(now).map(async (day) => {
         const key = getLegacyWeeklyUsageCostKey(email, day);
         const data = await redis.hgetall<{ cost?: string | number }>(key);
-        const cost = parseUsageCost(data?.cost);
+        const cost = parseRedisNumber(data?.cost);
         if (cost > 0) costsByKey.set(key, cost);
       }),
     ),
@@ -453,9 +453,9 @@ function parseWeeklyUsageCostKey(key: string) {
   return { subject: `email:${email}`, email, day };
 }
 
-function parseUsageCost(rawCost: string | number | undefined): number {
-  if (typeof rawCost === "number") return rawCost;
-  if (typeof rawCost === "string") return Number.parseFloat(rawCost) || 0;
+function parseRedisNumber(raw: string | number | undefined): number {
+  if (typeof raw === "number") return raw;
+  if (typeof raw === "string") return Number.parseFloat(raw) || 0;
   return 0;
 }
 
@@ -471,7 +471,7 @@ function mergeUsage(
   for (const entry of entries) {
     if (!entry) continue;
     for (const field of usageFields) {
-      const value = parseUsageCost(entry[field]);
+      const value = parseRedisNumber(entry[field]);
       if (value <= 0) continue;
       merged[field] = (merged[field] ?? 0) + value;
     }
@@ -488,8 +488,8 @@ function maxUsage(
 
   for (const field of usageFields) {
     const value = Math.max(
-      parseUsageCost(currentUsage?.[field]),
-      parseUsageCost(legacyUsage?.[field]),
+      parseRedisNumber(currentUsage?.[field]),
+      parseRedisNumber(legacyUsage?.[field]),
     );
     if (value > 0) usage[field] = value;
   }
@@ -563,7 +563,7 @@ function parseWeeklyUsageMigrationState(
 
     return new Map(
       Object.entries(parsed.weeklyCosts).flatMap(([key, value]) => {
-        const cost = parseUsageCost(value);
+        const cost = parseRedisNumber(value);
         return cost > 0 ? [[key, cost]] : [];
       }),
     );
