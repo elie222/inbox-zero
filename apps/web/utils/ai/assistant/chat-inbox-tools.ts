@@ -419,11 +419,6 @@ export type ManageSenderCategoryTool = InferUITool<
   ReturnType<typeof manageSenderCategoryTool>
 >;
 
-const GMAIL_SEARCH_QUERY_DESCRIPTION =
-  "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.";
-const OUTLOOK_SEARCH_QUERY_DESCRIPTION =
-  "Text search query using Outlook search syntax. Supports: unread, read, subject:, keyword search, and plain sender email lookups. Prefer a plain sender email like sender@example.com when searching by sender. Keep Outlook retries to one simple clause at a time. If you use from:, keep it as a simple standalone filter. If the tool returns microsoftSearchFeedback.retryQueries after a failed search, prefer one suggested simpler retry query instead of repeating the same query shape. Do not use Gmail-specific operators like in:, is:, label:, category:, or after:/before:.";
-
 const searchInboxBaseFields = {
   limit: z
     .number()
@@ -443,7 +438,9 @@ const gmailSearchInboxInputSchema = z.object({
     .trim()
     .min(1)
     .max(500)
-    .describe(GMAIL_SEARCH_QUERY_DESCRIPTION),
+    .describe(
+      "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.",
+    ),
   ...searchInboxBaseFields,
 });
 
@@ -454,7 +451,9 @@ const outlookSearchInboxInputSchema = z
       .trim()
       .max(500)
       .default("")
-      .describe(OUTLOOK_SEARCH_QUERY_DESCRIPTION),
+      .describe(
+        "Text search query using Outlook search syntax. Supports: unread, read, subject:, keyword search, and plain sender email lookups. Prefer a plain sender email like sender@example.com when searching by sender. Keep Outlook retries to one simple clause at a time. If you use from:, keep it as a simple standalone filter. If the tool returns microsoftSearchFeedback.retryQueries after a failed search, prefer one suggested simpler retry query instead of repeating the same query shape. Do not use Gmail-specific operators like in:, is:, label:, category:, or after:/before:.",
+      ),
     ...searchInboxBaseFields,
     readState: z
       .enum(["read", "unread"])
