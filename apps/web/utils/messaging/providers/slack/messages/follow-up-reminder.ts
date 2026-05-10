@@ -37,7 +37,7 @@ export function buildFollowUpReminderBlocks({
 }: FollowUpReminderBlocksParams): (KnownBlock | Block)[] {
   const { isAwaiting, counterpartyPrefix, snippetLabel, emoji } =
     getFollowUpCopy(trackerType);
-  const elapsedTime = `${daysSinceSent} business ${pluralize(daysSinceSent, "day")} ago`;
+  const elapsedTime = `${daysSinceSent} ${pluralize(daysSinceSent, "day")} ago`;
   const title = isAwaiting
     ? "Follow-up: waiting for their reply"
     : "Follow-up: reply needed from you";

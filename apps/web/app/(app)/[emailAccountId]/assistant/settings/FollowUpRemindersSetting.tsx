@@ -259,7 +259,7 @@ function FollowUpSettingsDialog({
           min={0.001}
           max={90}
           step={0.001}
-          rightText="business days"
+          rightText="days"
         />
 
         <Input
@@ -271,7 +271,7 @@ function FollowUpSettingsDialog({
           min={0.001}
           max={90}
           step={0.001}
-          rightText="business days"
+          rightText="days"
         />
 
         {!autoDraftDisabled && (
