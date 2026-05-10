@@ -157,7 +157,25 @@ describe("queryBatchMessages", () => {
     expect(request.filter).toHaveBeenCalledWith(
       "isRead eq false and categories/any(category: category eq 'Newsletter')",
     );
-    expect(request.orderby).toHaveBeenCalledWith("receivedDateTime DESC");
+    expect(request.orderby).not.toHaveBeenCalled();
+  });
+
+  it("keeps category-looking words as text search without structured filters", async () => {
+    const request = createMockMessagesRequest();
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(api);
+
+    await queryBatchMessages(
+      client,
+      {
+        searchQuery: "newsletter",
+        maxResults: 20,
+      },
+      createTestLogger(),
+    );
+
+    expect(request.search).toHaveBeenCalledWith('"newsletter"');
+    expect(request.filter).not.toHaveBeenCalled();
   });
 });
 

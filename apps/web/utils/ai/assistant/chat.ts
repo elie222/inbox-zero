@@ -633,11 +633,10 @@ function getProviderSearchSyntaxPolicy(provider: string) {
   if (provider === "microsoft") {
     return `Provider search syntax:
 - Use Outlook search syntax with keyword search, unread/read, and simple subject: filters.
-- For label/category cleanup in Outlook, pass the exact label name in searchInbox labelName and use readState for read/unread filtering. Do not put label names in query unless you are searching message text.
 - Prefer a plain sender email like \`person@example.com\` over \`from:\` when searching by sender.
 - If you use \`from:\` or \`to:\`, keep it as a simple standalone filter instead of combining extra terms after the field value.
 - Keep Outlook queries to one simple clause whenever possible. Do not mix sender, unread/read, date, and subject constraints into one retry.
-- Do not use Gmail-specific operators like in:, is:, label:, category:, or after:/before:.`;
+- Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.`;
   }
 
   return `Provider search syntax:
@@ -649,7 +648,7 @@ function getProviderInboxTriagePolicy(provider: string) {
     return `Provider inbox defaults:
 - For inbox triage, include the literal token \`unread\` in the query unless the user asks to include read messages.
 - For reply triage, use plain reply-focused search terms like \`reply OR respond OR subject:"question" OR subject:"approval"\`. Do not use Gmail-only operators.
-- For retroactive cleanup sampling, use exact category names when the user refers to an Outlook category; keyword queries like "newsletter", "promotion", or "unsubscribe" are only for content searches.`;
+- For retroactive cleanup sampling, keyword queries like "newsletter", "promotion", or "unsubscribe" are useful.`;
   }
 
   return `Provider inbox defaults:

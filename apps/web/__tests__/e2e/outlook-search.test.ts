@@ -21,13 +21,6 @@ const TEST_OUTLOOK_EMAIL = process.env.TEST_OUTLOOK_EMAIL;
 
 vi.mock("server-only", () => ({}));
 
-type OutlookSearchMessages = (
-  options: Parameters<EmailProvider["searchMessages"]>[0] & {
-    readState?: "read" | "unread";
-    labelName?: string;
-  },
-) => ReturnType<EmailProvider["searchMessages"]>;
-
 describe.skipIf(!RUN_E2E_TESTS)("Outlook Search Edge Cases", () => {
   let provider: EmailProvider | undefined;
 
@@ -79,25 +72,6 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Search Edge Cases", () => {
     await expect(
       provider.getMessagesWithPagination({
         query,
-        maxResults: 5,
-      }),
-    ).resolves.toHaveProperty("messages");
-  }, 30_000);
-
-  test("should accept structured category and read-state filters", async () => {
-    if (!provider) {
-      throw new Error(
-        "Email provider not initialized. Did you set TEST_OUTLOOK_EMAIL?",
-      );
-    }
-
-    const searchMessages = provider.searchMessages as OutlookSearchMessages;
-
-    await expect(
-      searchMessages({
-        query: "",
-        labelName: "Nonexistent E2E Category",
-        readState: "unread",
         maxResults: 5,
       }),
     ).resolves.toHaveProperty("messages");

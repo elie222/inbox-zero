@@ -631,6 +631,8 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       query: "older_than:3y is:unread",
       maxResults: 20,
       pageToken: undefined,
+      readState: undefined,
+      labelName: undefined,
     });
   });
 
@@ -755,7 +757,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
   });
 
-  it("searchInbox keeps Google searches on the plain query contract", async () => {
+  it("searchInbox passes structured filters through the provider contract", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [],
       nextPageToken: undefined,
@@ -784,6 +786,8 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       query: "newsletter",
       maxResults: 20,
       pageToken: undefined,
+      readState: "unread",
+      labelName: "Newsletter",
     });
   });
 

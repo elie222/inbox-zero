@@ -20,13 +20,11 @@ import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import {
   buildOutlookSearchFallbackQuery,
   getOutlookComparisonFilters,
+  getStandaloneOutlookStateTerms,
   sanitizeKqlTextQuery,
+  stripStandaloneOutlookStateTerms,
   stripOutlookComparisonFilters,
 } from "@/utils/outlook/message";
-import {
-  getStandaloneOutlookStateTerms,
-  stripStandaloneOutlookStateTerms,
-} from "@/utils/outlook/search-query";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { sleep } from "@/utils/sleep";
 import { archiveCategory } from "@/utils/categorize/senders/archive-category";
@@ -52,16 +50,6 @@ import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
 
 const SEARCH_INBOX_MAX_RESULTS = 20;
 const MAX_SENDER_CATEGORIZATION_WAIT_MS = 1500;
-
-type SearchMessagesResult = Awaited<
-  ReturnType<EmailProvider["searchMessages"]>
->;
-type OutlookSearchMessagesOptions = Parameters<
-  EmailProvider["searchMessages"]
->[0] & {
-  readState?: "read" | "unread";
-  labelName?: string;
-};
 
 const recipientListSchema = z
   .string()
@@ -433,67 +421,53 @@ export type ManageSenderCategoryTool = InferUITool<
 
 function getSearchQueryDescription(provider: string): string {
   if (isMicrosoftProvider(provider)) {
-    return "Text search query using Outlook search syntax. Supports: unread, read, subject:, keyword search, and plain sender email lookups. Do not put label names here when you mean an Outlook label/category; use labelName instead. Prefer a plain sender email like sender@example.com when searching by sender. Keep Outlook retries to one simple clause at a time. If you use from:, keep it as a simple standalone filter. If the tool returns microsoftSearchFeedback.retryQueries after a failed search, prefer one suggested simpler retry query instead of repeating the same query shape. Do not use Gmail-specific operators like in:, is:, label:, category:, or after:/before:.";
+    return "Text search query using Outlook search syntax. Supports: unread, read, subject:, keyword search, and plain sender email lookups. Prefer a plain sender email like sender@example.com when searching by sender. Keep Outlook retries to one simple clause at a time. If you use from:, keep it as a simple standalone filter. If the tool returns microsoftSearchFeedback.retryQueries after a failed search, prefer one suggested simpler retry query instead of repeating the same query shape. Do not use Gmail-specific operators like in:, is:, label:, category:, or after:/before:.";
   }
   return "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.";
 }
 
 function searchInboxInputSchema(provider: string) {
-  const baseFields = {
-    limit: z
-      .number()
-      .int()
-      .min(1)
-      .max(SEARCH_INBOX_MAX_RESULTS)
-      .default(SEARCH_INBOX_MAX_RESULTS)
-      .describe("Maximum number of messages to return."),
-    pageToken: microsoftGraphPageTokenSchema.describe(
-      "Use the page token returned from a prior search to paginate.",
-    ),
-  };
-
-  if (isMicrosoftProvider(provider)) {
-    return z
-      .object({
-        query: z
-          .string()
-          .trim()
-          .max(500)
-          .default("")
-          .describe(getSearchQueryDescription(provider)),
-        ...baseFields,
-        readState: z
-          .enum(["read", "unread"])
-          .nullish()
-          .describe(
-            "Optional structured read-state filter. For Outlook category cleanup, prefer this over putting read/unread in query.",
-          ),
-        labelName: z
-          .string()
-          .trim()
-          .min(1)
-          .nullish()
-          .describe(
-            "Optional exact Outlook label/category name to filter by. Use only when the user refers to an Outlook label/category, not when searching for text that happens to match a label name.",
-          ),
-      })
-      .refine(
-        (value) => Boolean(value.query || value.readState || value.labelName),
-        {
-          message: "query, readState, or labelName is required",
-        },
-      );
-  }
-
-  return z.object({
-    query: z
-      .string()
-      .trim()
-      .min(1)
-      .max(500)
-      .describe(getSearchQueryDescription(provider)),
-    ...baseFields,
-  });
+  return z
+    .object({
+      query: z
+        .string()
+        .trim()
+        .max(500)
+        .default("")
+        .describe(getSearchQueryDescription(provider)),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(SEARCH_INBOX_MAX_RESULTS)
+        .default(SEARCH_INBOX_MAX_RESULTS)
+        .describe("Maximum number of messages to return."),
+      pageToken: microsoftGraphPageTokenSchema.describe(
+        "Use the page token returned from a prior search to paginate.",
+      ),
+      readState: z
+        .enum(["read", "unread"])
+        .nullish()
+        .describe(
+          "Optional structured read-state filter. Prefer this over putting read/unread in query when filtering by read state.",
+        ),
+      labelName: z
+        .string()
+        .trim()
+        .min(1)
+        .nullish()
+        .describe(
+          isMicrosoftProvider(provider)
+            ? "Optional exact Outlook label/category name to filter by. Use only when the user refers to an Outlook label/category, not when searching for text that happens to match a label name."
+            : "Optional exact Gmail label name to filter by. Use only when the user refers to a Gmail label, not when searching for text that happens to match a label name.",
+        ),
+    })
+    .refine(
+      (value) => Boolean(value.query || value.readState || value.labelName),
+      {
+        message: "query, readState, or labelName is required",
+      },
+    );
 }
 
 export const searchInboxTool = ({
@@ -546,7 +520,9 @@ export const searchInboxTool = ({
           return [] as Array<{ id: string; name: string }>;
         });
 
-        let searchResult: SearchMessagesResult | undefined;
+        let searchResult:
+          | Awaited<ReturnType<typeof emailProvider.searchMessages>>
+          | undefined;
         let queryUsed = query;
         let lastError: unknown;
         const microsoftSearchFailures: Array<{
@@ -557,9 +533,7 @@ export const searchInboxTool = ({
         for (let i = 0; i < searchQueries.length; i++) {
           const candidateQuery = searchQueries[i];
           try {
-            searchResult = await searchProviderMessages({
-              emailProvider,
-              provider,
+            searchResult = await emailProvider.searchMessages({
               query: candidateQuery,
               maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
               pageToken: pageToken ?? undefined,
@@ -1253,44 +1227,6 @@ async function listLabelNames({
     logger.warn("Failed to load label names", { error });
     return [];
   }
-}
-
-async function searchProviderMessages({
-  emailProvider,
-  provider,
-  query,
-  maxResults,
-  pageToken,
-  readState,
-  labelName,
-}: {
-  emailProvider: EmailProvider;
-  provider: string;
-  query: string;
-  maxResults: number;
-  pageToken?: string;
-  readState?: "read" | "unread";
-  labelName?: string;
-}): Promise<SearchMessagesResult> {
-  const options = {
-    query,
-    maxResults,
-    pageToken,
-  };
-
-  if (!isMicrosoftProvider(provider)) {
-    return emailProvider.searchMessages(options);
-  }
-
-  const searchMessages = emailProvider.searchMessages as (
-    options: OutlookSearchMessagesOptions,
-  ) => Promise<SearchMessagesResult>;
-
-  return searchMessages({
-    ...options,
-    readState,
-    labelName,
-  });
 }
 
 type PendingEmailActionType = "send_email" | "reply_email" | "forward_email";
