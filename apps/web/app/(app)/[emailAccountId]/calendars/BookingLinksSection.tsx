@@ -44,12 +44,15 @@ type BookingLink = NonNullable<
 export function BookingLinksSection() {
   const bookingLinksEnabled = useBookingLinksEnabled();
 
-  if (!bookingLinksEnabled) return null;
-
-  return <BookingLinksPanel />;
+  return (
+    <section className="space-y-3">
+      {bookingLinksEnabled ? <InboxZeroBookingLinkPanel /> : null}
+      <ExternalBookingLinkCard />
+    </section>
+  );
 }
 
-function BookingLinksPanel() {
+function InboxZeroBookingLinkPanel() {
   const { emailAccountId, emailAccount } = useAccount();
   const { data, isLoading, error, mutate } = useBookingLinks();
   const [configureLinkId, setConfigureLinkId] = useState<string | null>(null);
@@ -102,7 +105,7 @@ function BookingLinksPanel() {
   };
 
   return (
-    <section className="space-y-3">
+    <>
       <LoadingContent
         loading={isLoading}
         error={error}
@@ -119,8 +122,6 @@ function BookingLinksPanel() {
           <EmptyLinkCard onCreate={() => setCreateOpen(true)} />
         )}
       </LoadingContent>
-
-      <ExternalBookingLinkCard />
 
       {createOpen ? (
         <CreateBookingLinkDialog
@@ -150,7 +151,7 @@ function BookingLinksPanel() {
           }}
         />
       ) : null}
-    </section>
+    </>
   );
 }
 
