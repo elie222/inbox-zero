@@ -1235,8 +1235,7 @@ model BookingEventTypeHost {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  role     BookingEventTypeHostRole @default(HOST)
-  isActive Boolean                  @default(true)
+  isActive Boolean @default(true)
 
   eventTypeId String
   eventType   BookingEventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
@@ -1267,9 +1266,8 @@ model BookingSchedule {
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  rules         BookingAvailabilityRule[]
-  dateOverrides BookingDateOverride[]
-  hosts         BookingEventTypeHost[]
+  rules BookingAvailabilityRule[]
+  hosts BookingEventTypeHost[]
 
   @@index([emailAccountId])
 }
@@ -1289,21 +1287,6 @@ model BookingAvailabilityRule {
   @@index([scheduleId])
 }
 
-model BookingDateOverride {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  date String
-  type BookingDateOverrideType @default(BLOCKED)
-
-  scheduleId String
-  schedule   BookingSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-
-  @@unique([scheduleId, date])
-  @@index([scheduleId])
-}
-
 model Booking {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -1312,7 +1295,6 @@ model Booking {
   uid                      String                       @unique
   guestName                String
   guestEmail               String
-  guestAdditionalEmails    String[]                     @default([])
   guestNote                String?
   startTime                DateTime
   endTime                  DateTime
@@ -1325,13 +1307,7 @@ model Booking {
   cancelTokenHash          String
   cancellationReason       String?
   canceledBy               BookingCanceledBy?
-  creationSource           BookingCreationSource        @default(PUBLIC)
   idempotencyToken         String?
-  utmSource                String?
-  utmMedium                String?
-  utmCampaign              String?
-  utmTerm                  String?
-  utmContent               String?
   eventTypeTitle           String
   eventTypeDurationMinutes Int
   eventTypeLocationType    BookingEventTypeLocationType
@@ -1913,14 +1889,6 @@ enum BookingEventTypeLocationType {
   CUSTOM
 }
 
-enum BookingEventTypeHostRole {
-  HOST
-}
-
-enum BookingDateOverrideType {
-  BLOCKED
-}
-
 enum BookingStatus {
   PENDING_PROVIDER_EVENT
   CONFIRMED
@@ -1932,10 +1900,6 @@ enum BookingCanceledBy {
   HOST
   GUEST
   SYSTEM
-}
-
-enum BookingCreationSource {
-  PUBLIC
 }
 
 enum GroupItemSource {

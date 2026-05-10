@@ -8,7 +8,6 @@ import {
   createBookingLinkBody,
   deleteBookingLinkBody,
   updateBookingAvailabilityBody,
-  updateBookingDateOverridesBody,
   updateBookingEventTypeBody,
   updateBookingLinkActionBody,
   updateBookingScheduleBody,
@@ -378,28 +377,6 @@ export const updateBookingAvailabilityAction = actionClient
         },
       }),
     ]);
-
-    return { success: true };
-  });
-
-export const updateBookingDateOverridesAction = actionClient
-  .metadata({ name: "updateBookingDateOverrides" })
-  .inputSchema(updateBookingDateOverridesBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
-    await ensureScheduleOwner({
-      emailAccountId,
-      scheduleId: parsedInput.scheduleId,
-    });
-
-    await prisma.bookingSchedule.update({
-      where: { id: parsedInput.scheduleId },
-      data: {
-        dateOverrides: {
-          deleteMany: {},
-          create: parsedInput.overrides,
-        },
-      },
-    });
 
     return { success: true };
   });

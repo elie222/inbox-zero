@@ -4,7 +4,6 @@ import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
   BookingCanceledBy,
-  BookingCreationSource,
   BookingEventTypeLocationType,
   BookingStatus,
 } from "@/generated/prisma/enums";
@@ -190,7 +189,6 @@ describe("public booking", () => {
         timezone: "UTC",
         guestName: "Guest User",
         guestEmail: "GUEST@EXAMPLE.COM",
-        guestAdditionalEmails: ["CC@EXAMPLE.COM"],
         guestNote: "Please share an agenda.",
         idempotencyToken: "token-1",
       },
@@ -199,10 +197,7 @@ describe("public booking", () => {
 
     expect(createCalendarEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        attendees: [
-          { name: "Guest User", email: "GUEST@EXAMPLE.COM" },
-          { email: "CC@EXAMPLE.COM" },
-        ],
+        attendees: [{ name: "Guest User", email: "GUEST@EXAMPLE.COM" }],
         description:
           "Booked with Guest User\nGuest email: GUEST@EXAMPLE.COM\nGuest note: Please share an agenda.",
         destinationCalendarId: "calendar-row-id",
@@ -218,8 +213,6 @@ describe("public booking", () => {
     expect(prisma.booking.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          creationSource: BookingCreationSource.PUBLIC,
-          guestAdditionalEmails: ["cc@example.com"],
           guestEmail: "guest@example.com",
           idempotencyToken: "token-1",
           status: BookingStatus.PENDING_PROVIDER_EVENT,
@@ -545,7 +538,6 @@ function mockEventTypeConfig({
               rules: [
                 { weekday: 1, startMinutes: 9 * 60, endMinutes: 10 * 60 },
               ],
-              dateOverrides: [],
             },
             emailAccount: {
               calendarConnections: [
@@ -580,7 +572,6 @@ function bookingRecordBase() {
     emailAccountId: "email-account-id",
     guestName: "Guest User",
     guestEmail: "guest@example.com",
-    guestAdditionalEmails: [],
     guestNote: null,
     startTime: new Date("2026-05-04T09:00:00.000Z"),
     endTime: new Date("2026-05-04T09:30:00.000Z"),
@@ -592,13 +583,7 @@ function bookingRecordBase() {
     cancelTokenHash: hashToken("cancel-token"),
     cancellationReason: null,
     canceledBy: null,
-    creationSource: BookingCreationSource.PUBLIC,
     idempotencyToken: "token-1",
-    utmSource: null,
-    utmMedium: null,
-    utmCampaign: null,
-    utmTerm: null,
-    utmContent: null,
     eventTypeTitle: "Intro call",
     eventTypeDurationMinutes: 30,
     eventTypeLocationType: BookingEventTypeLocationType.CUSTOM,

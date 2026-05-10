@@ -5,7 +5,6 @@ import {
   validateSelectedSlot,
   type AvailabilityRule,
   type BusyPeriod,
-  type DateOverride,
 } from "@inboxzero/scheduling";
 import { env } from "@/env";
 import { SafeError } from "@/utils/error";
@@ -22,11 +21,7 @@ import type {
   CalendarEventLocationType,
   CalendarEventWriteResult,
 } from "@/utils/calendar/event-types";
-import {
-  BookingCanceledBy,
-  BookingCreationSource,
-  BookingStatus,
-} from "@/generated/prisma/enums";
+import { BookingCanceledBy, BookingStatus } from "@/generated/prisma/enums";
 import type { PublicBookingBody } from "@/utils/actions/booking.validation";
 import {
   sendBookingCancellationEmails,
@@ -145,7 +140,6 @@ export async function getPublicAvailability({
     start,
     end,
     rules: config.schedule.rules,
-    dateOverrides: config.schedule.dateOverrides,
     busyPeriods,
     policy: getPolicy(config.eventType),
   });
@@ -195,7 +189,6 @@ export async function createPublicBooking({
     end: selectedEndTime,
     selectedStartTime,
     rules: config.schedule.rules,
-    dateOverrides: config.schedule.dateOverrides,
     busyPeriods,
     policy: getPolicy(config.eventType),
   });
@@ -280,10 +273,7 @@ export async function createPublicBooking({
       startTime: selectedStartTime,
       endTime: selectedEndTime,
       timezone: config.schedule.timezone,
-      attendees: [
-        { name: input.guestName, email: input.guestEmail },
-        ...(input.guestAdditionalEmails ?? []).map((email) => ({ email })),
-      ],
+      attendees: [{ name: input.guestName, email: input.guestEmail }],
       locationType: config.eventType.locationType as CalendarEventLocationType,
       locationValue: config.eventType.locationValue,
       logger,
@@ -489,12 +479,6 @@ async function loadPublicEventType({
                       endMinutes: true,
                     },
                   },
-                  dateOverrides: {
-                    select: {
-                      date: true,
-                      type: true,
-                    },
-                  },
                 },
               },
               emailAccount: {
@@ -545,10 +529,6 @@ async function loadPublicEventType({
         startMinutes: rule.startMinutes,
         endMinutes: rule.endMinutes,
       })) satisfies AvailabilityRule[],
-      dateOverrides: host.schedule.dateOverrides.map((override) => ({
-        date: override.date,
-        type: "BLOCKED",
-      })) satisfies DateOverride[],
     },
   };
 }
@@ -700,22 +680,13 @@ async function createPendingBooking({
       emailAccountId: config.host.emailAccountId,
       guestName: input.guestName,
       guestEmail: input.guestEmail.toLowerCase(),
-      guestAdditionalEmails: (input.guestAdditionalEmails ?? []).map((email) =>
-        email.toLowerCase(),
-      ),
       guestNote: input.guestNote,
       startTime: selectedStartTime,
       endTime: selectedEndTime,
       timezone: input.timezone,
       status: BookingStatus.PENDING_PROVIDER_EVENT,
       cancelTokenHash: hashToken(cancelToken),
-      creationSource: BookingCreationSource.PUBLIC,
       idempotencyToken: input.idempotencyToken,
-      utmSource: input.utmSource,
-      utmMedium: input.utmMedium,
-      utmCampaign: input.utmCampaign,
-      utmTerm: input.utmTerm,
-      utmContent: input.utmContent,
       eventTypeTitle: config.eventType.title,
       eventTypeDurationMinutes: config.eventType.durationMinutes,
       eventTypeLocationType: config.eventType.locationType,

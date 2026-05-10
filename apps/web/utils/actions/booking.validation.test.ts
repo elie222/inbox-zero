@@ -43,24 +43,6 @@ describe("booking action validation", () => {
     expect(result.success).toBe(false);
   });
 
-  it("limits additional guest emails on public bookings", () => {
-    const result = publicBookingBody.safeParse({
-      slug: "intro-call",
-      eventTypeSlug: "meeting",
-      startTime: "2026-05-08T10:00:00.000Z",
-      timezone: "UTC",
-      guestName: "Guest",
-      guestEmail: "guest@example.com",
-      guestAdditionalEmails: Array.from(
-        { length: 11 },
-        (_, index) => `guest-${index}@example.com`,
-      ),
-      idempotencyToken: "token",
-    });
-
-    expect(result.success).toBe(false);
-  });
-
   it("rejects schedule rules with inverted times", () => {
     const result = updateBookingScheduleBody.safeParse({
       id: "schedule-id",

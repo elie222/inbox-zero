@@ -76,14 +76,6 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
                           endMinutes: true,
                         },
                       },
-                      dateOverrides: {
-                        orderBy: { date: "asc" },
-                        select: {
-                          id: true,
-                          date: true,
-                          type: true,
-                        },
-                      },
                     },
                   },
                 },

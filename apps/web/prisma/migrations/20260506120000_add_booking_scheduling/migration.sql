@@ -2,19 +2,10 @@
 CREATE TYPE "BookingEventTypeLocationType" AS ENUM ('IN_PERSON', 'GOOGLE_MEET', 'PHONE', 'CUSTOM');
 
 -- CreateEnum
-CREATE TYPE "BookingEventTypeHostRole" AS ENUM ('HOST');
-
--- CreateEnum
-CREATE TYPE "BookingDateOverrideType" AS ENUM ('BLOCKED');
-
--- CreateEnum
 CREATE TYPE "BookingStatus" AS ENUM ('PENDING_PROVIDER_EVENT', 'CONFIRMED', 'CANCELED', 'FAILED');
 
 -- CreateEnum
 CREATE TYPE "BookingCanceledBy" AS ENUM ('HOST', 'GUEST', 'SYSTEM');
-
--- CreateEnum
-CREATE TYPE "BookingCreationSource" AS ENUM ('PUBLIC');
 
 -- CreateTable
 CREATE TABLE "BookingLink" (
@@ -77,7 +68,6 @@ CREATE TABLE "BookingEventTypeHost" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "role" "BookingEventTypeHostRole" NOT NULL DEFAULT 'HOST',
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "eventTypeId" TEXT NOT NULL,
     "emailAccountId" TEXT NOT NULL,
@@ -101,18 +91,6 @@ CREATE TABLE "BookingAvailabilityRule" (
 );
 
 -- CreateTable
-CREATE TABLE "BookingDateOverride" (
-    "id" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "date" TEXT NOT NULL,
-    "type" "BookingDateOverrideType" NOT NULL DEFAULT 'BLOCKED',
-    "scheduleId" TEXT NOT NULL,
-
-    CONSTRAINT "BookingDateOverride_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "Booking" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -120,7 +98,6 @@ CREATE TABLE "Booking" (
     "uid" TEXT NOT NULL,
     "guestName" TEXT NOT NULL,
     "guestEmail" TEXT NOT NULL,
-    "guestAdditionalEmails" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
     "guestNote" TEXT,
     "startTime" TIMESTAMP(3) NOT NULL,
     "endTime" TIMESTAMP(3) NOT NULL,
@@ -132,13 +109,7 @@ CREATE TABLE "Booking" (
     "cancelTokenHash" TEXT NOT NULL,
     "cancellationReason" TEXT,
     "canceledBy" "BookingCanceledBy",
-    "creationSource" "BookingCreationSource" NOT NULL DEFAULT 'PUBLIC',
     "idempotencyToken" TEXT,
-    "utmSource" TEXT,
-    "utmMedium" TEXT,
-    "utmCampaign" TEXT,
-    "utmTerm" TEXT,
-    "utmContent" TEXT,
     "eventTypeTitle" TEXT NOT NULL,
     "eventTypeDurationMinutes" INTEGER NOT NULL,
     "eventTypeLocationType" "BookingEventTypeLocationType" NOT NULL,
@@ -202,12 +173,6 @@ CREATE INDEX "BookingEventTypeHost_destinationCalendarId_idx" ON "BookingEventTy
 CREATE INDEX "BookingAvailabilityRule_scheduleId_idx" ON "BookingAvailabilityRule"("scheduleId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "BookingDateOverride_scheduleId_date_key" ON "BookingDateOverride"("scheduleId", "date");
-
--- CreateIndex
-CREATE INDEX "BookingDateOverride_scheduleId_idx" ON "BookingDateOverride"("scheduleId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "Booking_uid_key" ON "Booking"("uid");
 
 -- CreateIndex
@@ -260,9 +225,6 @@ ALTER TABLE "BookingEventTypeHost" ADD CONSTRAINT "BookingEventTypeHost_destinat
 
 -- AddForeignKey
 ALTER TABLE "BookingAvailabilityRule" ADD CONSTRAINT "BookingAvailabilityRule_scheduleId_fkey" FOREIGN KEY ("scheduleId") REFERENCES "BookingSchedule"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "BookingDateOverride" ADD CONSTRAINT "BookingDateOverride_scheduleId_fkey" FOREIGN KEY ("scheduleId") REFERENCES "BookingSchedule"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Booking" ADD CONSTRAINT "Booking_eventTypeId_fkey" FOREIGN KEY ("eventTypeId") REFERENCES "BookingEventType"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -12,7 +12,6 @@ import { createEmulator, type Emulator } from "emulate";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
-  BookingCreationSource,
   BookingEventTypeLocationType,
   BookingStatus,
 } from "@/generated/prisma/enums";
@@ -135,7 +134,6 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(prisma.booking.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            creationSource: BookingCreationSource.PUBLIC,
             guestEmail: "guest@example.com",
             status: BookingStatus.PENDING_PROVIDER_EVENT,
           }),
@@ -231,7 +229,6 @@ function mockBookingConfig() {
               rules: [
                 { weekday: 1, startMinutes: 9 * 60, endMinutes: 11 * 60 },
               ],
-              dateOverrides: [],
             },
             emailAccount: {
               calendarConnections: [
@@ -293,7 +290,6 @@ function bookingRecordBase() {
     emailAccountId: "email-account-id",
     guestName: "Guest User",
     guestEmail: "guest@example.com",
-    guestAdditionalEmails: [],
     guestNote: null,
     startTime: new Date("2030-01-07T09:00:00.000Z"),
     endTime: new Date("2030-01-07T09:30:00.000Z"),
@@ -305,13 +301,7 @@ function bookingRecordBase() {
     cancelTokenHash: "cancel-token-hash",
     cancellationReason: null,
     canceledBy: null,
-    creationSource: BookingCreationSource.PUBLIC,
     idempotencyToken: "token-1",
-    utmSource: null,
-    utmMedium: null,
-    utmCampaign: null,
-    utmTerm: null,
-    utmContent: null,
     eventTypeTitle: "Intro call",
     eventTypeDurationMinutes: 30,
     eventTypeLocationType: BookingEventTypeLocationType.CUSTOM,

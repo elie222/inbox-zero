@@ -38,7 +38,6 @@ const locationTypeSchema = z.nativeEnum(BookingEventTypeLocationType);
 
 const positiveMinutesSchema = z.coerce.number().int().positive();
 const nonNegativeMinutesSchema = z.coerce.number().int().nonnegative();
-const MAX_ADDITIONAL_GUEST_EMAILS = 10;
 
 const bookingEventTypeFields = z.object({
   title: z.string().trim().min(1, "Title is required").max(120),
@@ -159,19 +158,6 @@ export type UpdateBookingAvailabilityBody = z.infer<
   typeof updateBookingAvailabilityBody
 >;
 
-export const updateBookingDateOverridesBody = z.object({
-  scheduleId: z.string(),
-  overrides: z.array(
-    z.object({
-      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      type: z.literal("BLOCKED"),
-    }),
-  ),
-});
-export type UpdateBookingDateOverridesBody = z.infer<
-  typeof updateBookingDateOverridesBody
->;
-
 export const publicBookingBody = z.object({
   slug: slugSchema,
   eventTypeSlug: slugSchema,
@@ -179,17 +165,8 @@ export const publicBookingBody = z.object({
   timezone: timezoneSchema,
   guestName: z.string().trim().min(1).max(120),
   guestEmail: z.string().trim().email().max(320),
-  guestAdditionalEmails: z
-    .array(z.string().trim().email().max(320))
-    .max(MAX_ADDITIONAL_GUEST_EMAILS)
-    .optional(),
   guestNote: z.string().trim().max(2000).optional(),
   idempotencyToken: z.string().trim().min(1).max(128),
-  utmSource: z.string().trim().max(200).optional(),
-  utmMedium: z.string().trim().max(200).optional(),
-  utmCampaign: z.string().trim().max(200).optional(),
-  utmTerm: z.string().trim().max(200).optional(),
-  utmContent: z.string().trim().max(200).optional(),
 });
 export type PublicBookingBody = z.infer<typeof publicBookingBody>;
 
