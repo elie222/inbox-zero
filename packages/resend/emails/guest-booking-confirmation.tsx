@@ -3,13 +3,13 @@ import {
   Container,
   Head,
   Heading,
-  Hr,
   Html,
   Link,
   Section,
   Tailwind,
   Text,
 } from "@react-email/components";
+import { InboxZeroFooter } from "./components/inbox-zero-footer";
 
 export type GuestBookingConfirmationEmailProps = {
   baseUrl: string;
@@ -175,12 +175,7 @@ export default function GuestBookingConfirmationEmail({
               </Text>
             </Section>
 
-            <Hr className="m-0 border-gray-200" />
-            <Section className="bg-[#FDFDFD] px-8 py-4">
-              <Text className="m-0 text-[11px] text-gray-500">
-                Sent via Inbox Zero
-              </Text>
-            </Section>
+            <InboxZeroFooter />
           </Container>
         </Body>
       </Tailwind>

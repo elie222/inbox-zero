@@ -29,9 +29,6 @@ import GuestBookingConfirmationEmail, {
 import HostBookingConfirmationEmail, {
   type HostBookingConfirmationEmailProps,
 } from "../emails/host-booking-confirmation";
-import GuestBookingCancellationEmail, {
-  type GuestBookingCancellationEmailProps,
-} from "../emails/guest-booking-cancellation";
 import HostBookingCancellationEmail, {
   type HostBookingCancellationEmailProps,
 } from "../emails/host-booking-cancellation";
@@ -414,26 +411,6 @@ export const sendHostBookingConfirmationEmail = async ({
     react: <HostBookingConfirmationEmail {...emailProps} />,
     test,
     tags: [{ name: "category", value: "booking-confirmation" }],
-  });
-
-export const sendGuestBookingCancellationEmail = async ({
-  from,
-  to,
-  test,
-  emailProps,
-}: {
-  from: string;
-  to: string;
-  test?: boolean;
-  emailProps: GuestBookingCancellationEmailProps;
-}) =>
-  sendTransactionalEmail({
-    from,
-    to,
-    subject: `Canceled: ${emailProps.eventTitle}`,
-    react: <GuestBookingCancellationEmail {...emailProps} />,
-    test,
-    tags: [{ name: "category", value: "booking-cancellation" }],
   });
 
 export const sendHostBookingCancellationEmail = async ({

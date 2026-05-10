@@ -1,5 +1,4 @@
 import {
-  sendGuestBookingCancellationEmail,
   sendGuestBookingConfirmationEmail,
   sendHostBookingCancellationEmail,
   sendHostBookingConfirmationEmail,
@@ -127,36 +126,20 @@ export async function sendBookingCancellationEmails({
   }
 
   try {
-    await Promise.all([
-      sendGuestBookingCancellationEmail({
-        from: env.RESEND_FROM_EMAIL,
-        to: booking.guestEmail,
-        emailProps: {
-          eventTitle: booking.eventTypeTitle,
-          formattedTime: formatDateTimeInUserTimezone(
-            booking.startTime,
-            booking.timezone,
-          ),
-          guestName: booking.guestName,
-          hostName: getGuestFacingHostName(booking, host),
-          reason: booking.cancellationReason,
-        },
-      }),
-      sendHostBookingCancellationEmail({
-        from: env.RESEND_FROM_EMAIL,
-        to: host.email,
-        emailProps: {
-          eventTitle: booking.eventTypeTitle,
-          formattedTime: formatDateTimeInUserTimezone(
-            booking.startTime,
-            booking.eventTypeTimezone,
-          ),
-          guestEmail: booking.guestEmail,
-          guestName: booking.guestName,
-          reason: booking.cancellationReason,
-        },
-      }),
-    ]);
+    await sendHostBookingCancellationEmail({
+      from: env.RESEND_FROM_EMAIL,
+      to: host.email,
+      emailProps: {
+        eventTitle: booking.eventTypeTitle,
+        formattedTime: formatDateTimeInUserTimezone(
+          booking.startTime,
+          booking.eventTypeTimezone,
+        ),
+        guestEmail: booking.guestEmail,
+        guestName: booking.guestName,
+        reason: booking.cancellationReason,
+      },
+    });
   } catch (error) {
     logger.error("Failed to send booking cancellation emails", {
       bookingId: booking.id,

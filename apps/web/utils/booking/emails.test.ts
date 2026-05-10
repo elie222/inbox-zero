@@ -7,7 +7,6 @@ import {
 } from "@/utils/booking/emails";
 
 const resendMocks = vi.hoisted(() => ({
-  sendGuestBookingCancellationEmail: vi.fn(),
   sendGuestBookingConfirmationEmail: vi.fn(),
   sendHostBookingCancellationEmail: vi.fn(),
   sendHostBookingConfirmationEmail: vi.fn(),
@@ -27,7 +26,6 @@ const logger = createTestLogger();
 describe("booking emails", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    resendMocks.sendGuestBookingCancellationEmail.mockResolvedValue(undefined);
     resendMocks.sendGuestBookingConfirmationEmail.mockResolvedValue(undefined);
     resendMocks.sendHostBookingCancellationEmail.mockResolvedValue(undefined);
     resendMocks.sendHostBookingConfirmationEmail.mockResolvedValue(undefined);
@@ -108,7 +106,7 @@ describe("booking emails", () => {
     );
   });
 
-  it("sends cancellation reason to guest and host emails", async () => {
+  it("sends cancellation reason to the host email", async () => {
     await sendBookingCancellationEmails({
       booking: bookingEmailPayload({
         cancellationReason: "No longer needed",
@@ -116,13 +114,6 @@ describe("booking emails", () => {
       logger,
     });
 
-    expect(resendMocks.sendGuestBookingCancellationEmail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        emailProps: expect.objectContaining({
-          reason: "No longer needed",
-        }),
-      }),
-    );
     expect(resendMocks.sendHostBookingCancellationEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         emailProps: expect.objectContaining({
