@@ -7,7 +7,7 @@ import type {
   CalendarEventWriteInput,
   CalendarEventWriteResult,
 } from "@/utils/calendar/event-types";
-import { BookingEventTypeLocationType } from "@/generated/prisma/enums";
+import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 
 export interface MicrosoftCalendarConnectionParams {
@@ -126,7 +126,7 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
   ): Promise<CalendarEventWriteResult> {
     const client = await this.getClient();
     const useMicrosoftTeams =
-      input.locationType === BookingEventTypeLocationType.MICROSOFT_TEAMS;
+      input.locationType === BookingLinkLocationType.MICROSOFT_TEAMS;
     const response: MicrosoftEvent = await client
       .api(`/me/calendars/${input.calendarId}/events`)
       .post({
