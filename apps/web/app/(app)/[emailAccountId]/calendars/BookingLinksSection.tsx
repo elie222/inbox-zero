@@ -1,14 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  ChevronDown,
-  Copy,
-  ExternalLink,
-  Link2,
-  Settings2,
-  Zap,
-} from "lucide-react";
+import { Copy, ExternalLink, Link2, Settings2, Zap } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,6 +11,7 @@ import { CardBasic } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/Input";
 import { LoadingContent } from "@/components/LoadingContent";
+import { SettingCard } from "@/components/SettingCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useBookingLinksEnabled } from "@/hooks/useFeatureFlags";
@@ -33,7 +27,6 @@ import {
 import { updateCalendarBookingLinkAction } from "@/utils/actions/calendar";
 import { updateBookingLinkBody } from "@/utils/actions/calendar.validation";
 import { getBookingLinkSlugSuggestion } from "@/utils/booking/slug";
-import { cn } from "@/utils";
 import { ConfigureBookingLinkDialog } from "./ConfigureBookingLinkDialog";
 import { CreateBookingLinkDialog } from "./CreateBookingLinkDialog";
 
@@ -44,11 +37,10 @@ type BookingLink = NonNullable<
 export function BookingLinksSection() {
   const bookingLinksEnabled = useBookingLinksEnabled();
 
-  return (
-    <section className="space-y-3">
-      {bookingLinksEnabled ? <InboxZeroBookingLinkPanel /> : null}
-      <ExternalBookingLinkCard />
-    </section>
+  return bookingLinksEnabled ? (
+    <InboxZeroBookingLinkPanel />
+  ) : (
+    <ExternalBookingLinkCard />
   );
 }
 
@@ -161,9 +153,6 @@ function ExternalBookingLinkCard() {
   const { data, isLoading, error, mutate } = useCalendars();
   const calendarBookingLink = data?.calendarBookingLink || null;
 
-  const [userToggled, setUserToggled] = useState<boolean | null>(null);
-  const isOpen = userToggled ?? Boolean(calendarBookingLink);
-
   const { execute, isExecuting } = useAction(
     updateCalendarBookingLinkAction.bind(null, emailAccountId),
     {
@@ -203,32 +192,21 @@ function ExternalBookingLinkCard() {
   };
 
   return (
-    <CardBasic className="px-4 py-3">
-      <button
-        type="button"
-        onClick={() => setUserToggled(!isOpen)}
-        className="flex w-full items-center justify-between gap-2 text-left text-sm text-muted-foreground hover:text-foreground"
-        aria-expanded={isOpen}
-      >
-        <span>Use your own scheduling link</span>
-        <ChevronDown
-          className={cn(
-            "size-4 shrink-0 transition-transform",
-            isOpen && "rotate-180",
-          )}
-        />
-      </button>
-      {isOpen ? (
+    <SettingCard
+      title="Calendar Booking Link"
+      description="Your booking link for the AI to share when scheduling meetings"
+      collapseOnMobile
+      right={
         <LoadingContent
           loading={isLoading}
           error={error}
-          loadingComponent={<Skeleton className="mt-3 h-10 w-full" />}
+          loadingComponent={<Skeleton className="h-10 w-80" />}
         >
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start"
+            className="flex flex-col gap-2 sm:flex-row sm:items-center w-full md:w-auto"
           >
-            <div className="flex-1">
+            <div className="w-full sm:w-80">
               <Input
                 type="url"
                 name="bookingLink"
@@ -247,8 +225,8 @@ function ExternalBookingLinkCard() {
             </Button>
           </form>
         </LoadingContent>
-      ) : null}
-    </CardBasic>
+      }
+    />
   );
 }
 
