@@ -30,18 +30,31 @@ function blocksJson(params: Parameters<typeof buildFollowUpReminderBlocks>[0]) {
 describe("buildFollowUpReminderBlocks", () => {
   it("AWAITING: makes clear the user sent the email and is waiting for a reply", () => {
     const json = blocksJson(baseAwaitingParams);
-    expect(json).toContain("Waiting for their reply to your sent email");
+    expect(json).toContain("Follow-up: waiting for their reply");
     expect(json).toContain("You sent this email to");
     expect(json).toContain("Your sent email:");
-    expect(json).not.toContain("You haven't replied to this email yet");
+    expect(json).not.toContain("Follow-up: reply needed from you");
   });
 
   it("NEEDS_REPLY: makes clear the user received the email and has not replied", () => {
     const json = blocksJson(baseNeedsReplyParams);
-    expect(json).toContain("You haven't replied to this email yet");
+    expect(json).toContain("Follow-up: reply needed from you");
     expect(json).toContain("You received this email from");
     expect(json).toContain("Email awaiting your reply:");
-    expect(json).not.toContain("Waiting for their reply to your sent email");
+    expect(json).not.toContain("Follow-up: waiting for their reply");
+  });
+
+  it("does not add a redundant app signature footer", () => {
+    const blocks = buildFollowUpReminderBlocks(baseAwaitingParams);
+
+    expect(blocks).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "context",
+          elements: [{ type: "mrkdwn", text: "Inbox Zero" }],
+        }),
+      ]),
+    );
   });
 
   it("renders the counterparty name and email together", () => {

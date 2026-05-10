@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import Image from "next/image";
 import { Container } from "@/components/Container";
 import {
   PageHeading,
@@ -246,25 +247,33 @@ function SlackPreviewCard({ preview }: { preview: SlackPreview }) {
     <article className="space-y-3">
       <SectionHeader>{preview.title}</SectionHeader>
 
-      <div className="min-w-0 rounded-lg border bg-[#f8f8f8] p-3">
-        <div className="rounded-lg border border-[#dedede] bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-start gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded bg-[#481449] text-lg font-semibold text-white">
-              IZ
+      <div className="min-w-0 rounded-lg border border-[#35373d] bg-[#1a1d21] p-5">
+        <div className="flex items-start gap-3">
+          <Image
+            alt=""
+            className="size-10 shrink-0 rounded-lg"
+            height={40}
+            src="/icons/icon-192x192.png"
+            width={40}
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="text-[15px] font-bold leading-5 text-[#f8f8f8]">
+                Inbox Zero
+              </span>
+              <span className="rounded bg-[#383a40] px-1 text-[10px] font-bold leading-4 text-[#d1d2d3]">
+                APP
+              </span>
+              <span className="text-[15px] leading-5 text-[#ababad]">
+                9:41 AM
+              </span>
             </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="font-bold text-[#1d1c1d]">Inbox Zero</span>
-                <span className="text-xs text-[#616061]">APP</span>
-                <span className="text-xs text-[#616061]">9:41 AM</span>
-              </div>
-              <div className="mt-2 space-y-2 text-[15px] leading-5 text-[#1d1c1d]">
-                {preview.blocks ? (
-                  <SlackBlocks blocks={preview.blocks} />
-                ) : (
-                  <SlackText text={preview.text ?? ""} />
-                )}
-              </div>
+            <div className="mt-1 space-y-3 text-[15px] leading-6 text-[#d1d2d3]">
+              {preview.blocks ? (
+                <SlackBlocks blocks={preview.blocks} />
+              ) : (
+                <SlackText text={preview.text ?? ""} />
+              )}
             </div>
           </div>
         </div>
@@ -286,7 +295,7 @@ function SlackBlocks({ blocks }: { blocks: SlackBlock[] }) {
 function SlackBlockView({ block }: { block: SlackBlock }) {
   if (block.type === "header") {
     return (
-      <h3 className="text-[17px] font-bold leading-6">
+      <h3 className="text-[15px] font-bold leading-6 text-[#d1d2d3]">
         {renderTextObject(block.text)}
       </h3>
     );
@@ -311,7 +320,7 @@ function SlackBlockView({ block }: { block: SlackBlock }) {
 
   if (block.type === "context") {
     return (
-      <div className="flex flex-wrap items-center gap-1 text-[13px] leading-5 text-[#616061]">
+      <div className="flex flex-wrap items-center gap-1 text-[13px] leading-5 text-[#ababad]">
         {block.elements?.map((element, index) => (
           <span key={`${element.type}-${index}`}>
             {renderTextObject(element.text)}
@@ -322,7 +331,7 @@ function SlackBlockView({ block }: { block: SlackBlock }) {
   }
 
   if (block.type === "divider") {
-    return <hr className="my-3 border-[#dddddd]" />;
+    return <hr className="my-3 border-[#35373d]" />;
   }
 
   if (block.type === "actions") {
@@ -339,7 +348,7 @@ function SlackBlockView({ block }: { block: SlackBlock }) {
   }
 
   return (
-    <pre className="overflow-auto rounded bg-[#f8f8f8] p-2 text-xs">
+    <pre className="overflow-auto rounded bg-[#222529] p-2 text-xs text-[#d1d2d3]">
       {JSON.stringify(block, null, 2)}
     </pre>
   );
@@ -349,7 +358,7 @@ function SlackButton({ element }: { element: SlackElement }) {
   if (element.type === "static_select") {
     return (
       <button
-        className="h-9 rounded border border-[#c9c9c9] bg-white px-3 text-sm font-bold text-[#1d1c1d] shadow-sm"
+        className="h-9 rounded border border-[#5e6167] bg-transparent px-3 text-sm font-bold text-[#f8f8f8]"
         type="button"
       >
         {element.placeholder?.text ?? "More"} ▾
@@ -360,7 +369,7 @@ function SlackButton({ element }: { element: SlackElement }) {
   return (
     <button
       className={cn(
-        "h-9 rounded border border-[#c9c9c9] bg-white px-3 text-sm font-bold text-[#1d1c1d] shadow-sm",
+        "h-9 rounded border border-[#5e6167] bg-transparent px-3 text-sm font-bold text-[#f8f8f8]",
         element.style === "primary" &&
           "border-[#148567] bg-[#148567] text-white",
         element.style === "danger" && "border-[#e01e5a] text-[#e01e5a]",
@@ -394,7 +403,7 @@ function renderMrkdwn(text: string) {
     if (line.startsWith(">")) {
       return (
         <blockquote
-          className="my-1 border-l-4 border-[#dddddd] pl-3 text-[#616061]"
+          className="my-1 border-l-4 border-[#b2b8c6] pl-3 text-[#d1d2d3]"
           key={`${line}-${index}`}
         >
           {rendered}
@@ -424,7 +433,7 @@ function renderInlineMrkdwn(text: string): ReactNode[] {
     if (part.startsWith("`") && part.endsWith("`")) {
       return (
         <code
-          className="rounded bg-[#f3f3f3] px-1 py-0.5 text-[13px]"
+          className="rounded border border-[#42454a] bg-[#222529] px-1 py-0.5 text-[13px] text-[#ffa657]"
           key={`${part}-${index}`}
         >
           {part.slice(1, -1)}
@@ -460,7 +469,7 @@ function renderSlackLink(part: string, index: number) {
 
     return (
       <span
-        className="rounded bg-[#e8f5fa] px-1 font-medium text-[#1264a3]"
+        className="rounded bg-[#132d3f] px-1 font-medium text-[#36c5f0]"
         key={`${part}-${index}`}
       >
         {displayName}
@@ -471,7 +480,7 @@ function renderSlackLink(part: string, index: number) {
   const [href = "", label] = value.split("|");
   return (
     <a
-      className="font-medium text-[#1264a3] hover:underline"
+      className="font-medium text-[#36c5f0] hover:underline"
       href={href.startsWith("http") ? href : "#"}
       key={`${part}-${index}`}
       rel="noreferrer"

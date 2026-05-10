@@ -322,10 +322,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(needsReplyCall).toBeDefined();
 
       const awaitingBlocks = JSON.stringify(awaitingCall![0].blocks);
-      expect(awaitingBlocks).toContain("Follow-up nudge");
-      expect(awaitingBlocks).toContain(
-        "Waiting for their reply to your sent email",
-      );
+      expect(awaitingBlocks).toContain("Follow-up: waiting for their reply");
       expect(awaitingBlocks).toContain("4 days ago");
       expect(awaitingBlocks).toContain("Jane Partner");
       expect(awaitingBlocks).toContain("jane@partner.com");
@@ -342,10 +339,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       );
 
       const needsReplyBlocks = JSON.stringify(needsReplyCall![0].blocks);
-      expect(needsReplyBlocks).toContain("Follow-up nudge");
-      expect(needsReplyBlocks).toContain(
-        "You haven't replied to this email yet",
-      );
+      expect(needsReplyBlocks).toContain("Follow-up: reply needed from you");
       expect(needsReplyBlocks).toContain("1 day ago");
       expect(needsReplyBlocks).toContain(
         "You received this email from *Alex Customer*",
