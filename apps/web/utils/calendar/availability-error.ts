@@ -1,4 +1,8 @@
 import type { calendar_v3 } from "@googleapis/calendar";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 
 export type CalendarAvailabilityErrorDetail = {
   calendarId: string;
@@ -50,7 +54,8 @@ function getCalendarAvailabilityError(
   const candidate = error as Partial<CalendarAvailabilityError>;
   if (
     candidate.name === "CalendarAvailabilityError" &&
-    (candidate.provider === "google" || candidate.provider === "microsoft") &&
+    (isGoogleProvider(candidate.provider) ||
+      isMicrosoftProvider(candidate.provider)) &&
     Array.isArray(candidate.calendarErrors) &&
     candidate.calendarErrors.every(isCalendarAvailabilityErrorDetail)
   ) {
