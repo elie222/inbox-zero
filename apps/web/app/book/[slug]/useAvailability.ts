@@ -17,7 +17,7 @@ export function useAvailability({
   });
   return useSWR<GetPublicBookingAvailabilityResponse, Error>(
     `/api/public/booking-links/${slug}/availability?${params}`,
-    async (url) => {
+    async (url: string) => {
       const response = await fetch(url);
       const body = await response.json();
       if (!response.ok) throw new Error(getApiError(body));
