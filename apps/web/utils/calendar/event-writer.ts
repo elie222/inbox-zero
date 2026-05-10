@@ -1,7 +1,10 @@
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
-import { isGoogleProvider } from "@/utils/email/provider-types";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 import { GoogleCalendarEventProvider } from "@/utils/calendar/providers/google-events";
 import { MicrosoftCalendarEventProvider } from "@/utils/calendar/providers/microsoft-events";
 import type { BookingLinkLocationType } from "@/generated/prisma/enums";
@@ -25,6 +28,7 @@ export type CreateCalendarEventInput = {
 
 export type CreatedCalendarEvent = CalendarEventWriteResult & {
   provider: string;
+  providerConnectionId: string;
 };
 
 export async function createCalendarEvent({
@@ -67,51 +71,43 @@ export async function createCalendarEvent({
   return {
     ...createdEvent,
     provider: destination.connection.provider,
+    providerConnectionId: destination.connection.id,
   };
 }
 
 export async function cancelCalendarEvent({
-  emailAccountId,
-  provider,
+  providerConnectionId,
   providerCalendarId,
   providerEventId,
+  emailAccountId,
   logger,
 }: {
-  emailAccountId: string;
-  provider: string;
+  providerConnectionId: string;
   providerCalendarId: string;
   providerEventId: string;
+  emailAccountId: string;
   logger: Logger;
 }) {
-  const destination = await prisma.calendar.findFirst({
-    where: {
-      calendarId: providerCalendarId,
-      connection: {
-        emailAccountId,
-        isConnected: true,
-        provider,
-      },
-    },
+  // Look up by connection id (unique) instead of (emailAccountId, provider)
+  // — a host can have multiple connections of the same provider, and
+  // calendarIds like "primary" recur across them.
+  const connection = await prisma.calendarConnection.findFirst({
+    where: { id: providerConnectionId, emailAccountId, isConnected: true },
     select: {
-      calendarId: true,
-      connection: {
-        select: {
-          id: true,
-          provider: true,
-          accessToken: true,
-          refreshToken: true,
-          expiresAt: true,
-        },
-      },
+      id: true,
+      provider: true,
+      accessToken: true,
+      refreshToken: true,
+      expiresAt: true,
     },
   });
 
-  if (!destination) {
+  if (!connection) {
     throw new SafeError("Calendar connection not found");
   }
 
   const writableProvider = createWritableProvider({
-    connection: destination.connection,
+    connection,
     emailAccountId,
     logger,
   });
@@ -189,7 +185,7 @@ function createWritableProvider({
     return new GoogleCalendarEventProvider(providerParams, logger);
   }
 
-  if (connection.provider === "microsoft") {
+  if (isMicrosoftProvider(connection.provider)) {
     return new MicrosoftCalendarEventProvider(providerParams, logger);
   }
 

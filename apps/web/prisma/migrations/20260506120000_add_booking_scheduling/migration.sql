@@ -51,6 +51,7 @@ CREATE TABLE "Booking" (
     "endTime" TIMESTAMP(3) NOT NULL,
     "status" "BookingStatus" NOT NULL DEFAULT 'PENDING_PROVIDER_EVENT',
     "provider" TEXT,
+    "providerConnectionId" TEXT,
     "providerCalendarId" TEXT,
     "providerEventId" TEXT,
     "videoConferenceLink" TEXT,

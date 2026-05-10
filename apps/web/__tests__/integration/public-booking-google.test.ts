@@ -269,6 +269,7 @@ function bookingRecordBase() {
     endTime: new Date("2030-01-07T09:30:00.000Z"),
     status: BookingStatus.CONFIRMED,
     provider: null,
+    providerConnectionId: null,
     providerCalendarId: null,
     providerEventId: null,
     videoConferenceLink: null,

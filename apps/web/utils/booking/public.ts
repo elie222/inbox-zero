@@ -203,6 +203,7 @@ export async function createPublicBooking({
       where: { id: pendingBooking.id },
       data: {
         provider: createdEvent.provider,
+        providerConnectionId: createdEvent.providerConnectionId,
         providerCalendarId: createdEvent.providerCalendarId,
         providerEventId: createdEvent.id,
         videoConferenceLink: createdEvent.videoConferenceLink ?? null,
@@ -216,7 +217,7 @@ export async function createPublicBooking({
       providerEventToCleanup
         ? cancelCalendarEvent({
             emailAccountId: config.link.emailAccountId,
-            provider: providerEventToCleanup.provider,
+            providerConnectionId: providerEventToCleanup.providerConnectionId,
             providerCalendarId: providerEventToCleanup.providerCalendarId,
             providerEventId: providerEventToCleanup.id,
             logger,
@@ -291,13 +292,13 @@ export async function cancelPublicBooking({
   }
 
   if (
-    booking.provider &&
+    booking.providerConnectionId &&
     booking.providerCalendarId &&
     booking.providerEventId
   ) {
     await cancelCalendarEvent({
       emailAccountId: booking.emailAccountId,
-      provider: booking.provider,
+      providerConnectionId: booking.providerConnectionId,
       providerCalendarId: booking.providerCalendarId,
       providerEventId: booking.providerEventId,
       logger,

@@ -88,29 +88,38 @@ describe("createCalendarEvent", () => {
       id: "provider-event-id",
       provider: "google",
       providerCalendarId: "primary",
+      providerConnectionId: "connection-id",
     });
   });
 
-  it("passes the connection id into the Google event provider when canceling", async () => {
-    prisma.calendar.findFirst.mockResolvedValue({
-      calendarId: "primary",
-      connection: {
-        id: "connection-id",
-        provider: "google",
-        accessToken: "access-token",
-        refreshToken: "refresh-token",
-        expiresAt: new Date("2026-05-04T00:00:00.000Z"),
-      },
+  it("looks up the connection by id when canceling, ignoring same-provider sibling connections", async () => {
+    // The host has two Google connections that both expose a "primary"
+    // calendar. Cancel must hit the connection that wrote the event, not
+    // whichever one Prisma returns first.
+    prisma.calendarConnection.findFirst.mockResolvedValue({
+      id: "connection-id",
+      provider: "google",
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      expiresAt: new Date("2026-05-04T00:00:00.000Z"),
     });
 
     await cancelCalendarEvent({
       emailAccountId: "email-account-id",
-      provider: "google",
+      providerConnectionId: "connection-id",
       providerCalendarId: "primary",
       providerEventId: "provider-event-id",
       logger: createTestLogger(),
     });
 
+    expect(prisma.calendarConnection.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "connection-id",
+          emailAccountId: "email-account-id",
+        }),
+      }),
+    );
     expect(providerMocks.googleConstructor).toHaveBeenCalledWith(
       expect.objectContaining({
         connectionId: "connection-id",

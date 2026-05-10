@@ -1220,11 +1220,12 @@ model Booking {
   guestNote           String?
   startTime           DateTime
   endTime             DateTime
-  status              BookingStatus @default(PENDING_PROVIDER_EVENT)
-  provider            String?
-  providerCalendarId  String?
-  providerEventId     String?
-  videoConferenceLink String?
+  status               BookingStatus @default(PENDING_PROVIDER_EVENT)
+  provider             String?
+  providerConnectionId String?
+  providerCalendarId   String?
+  providerEventId      String?
+  videoConferenceLink  String?
   cancelTokenHash     String
   cancellationReason  String?
   idempotencyToken    String?

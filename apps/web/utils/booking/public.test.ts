@@ -47,6 +47,7 @@ describe("public booking", () => {
     vi.mocked(createCalendarEvent).mockResolvedValue({
       id: "provider-event-id",
       provider: "google",
+      providerConnectionId: "connection-id",
       providerCalendarId: "primary",
     });
     vi.mocked(sendBookingConfirmationEmails).mockResolvedValue(undefined);
@@ -134,6 +135,7 @@ describe("public booking", () => {
     vi.mocked(createCalendarEvent).mockResolvedValue({
       id: "provider-event-id",
       provider: "google",
+      providerConnectionId: "connection-id",
       providerCalendarId: "primary",
       videoConferenceLink: "https://meet.example.com/meeting",
     });
@@ -145,6 +147,7 @@ describe("public booking", () => {
     prisma.booking.update.mockResolvedValue(
       bookingRecord({
         provider: "google",
+        providerConnectionId: "connection-id",
         providerCalendarId: "primary",
         providerEventId: "provider-event-id",
         status: BookingStatus.CONFIRMED,
@@ -192,6 +195,7 @@ describe("public booking", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           provider: "google",
+          providerConnectionId: "connection-id",
           providerCalendarId: "primary",
           providerEventId: "provider-event-id",
           status: BookingStatus.CONFIRMED,
@@ -288,7 +292,7 @@ describe("public booking", () => {
 
     expect(cancelCalendarEvent).toHaveBeenCalledWith({
       emailAccountId: "email-account-id",
-      provider: "google",
+      providerConnectionId: "connection-id",
       providerCalendarId: "primary",
       providerEventId: "provider-event-id",
       logger,
@@ -306,6 +310,7 @@ describe("public booking", () => {
       bookingRecord({
         cancelTokenHash: hashToken("cancel-token"),
         provider: "google",
+        providerConnectionId: "connection-id",
         providerCalendarId: "primary",
         providerEventId: "provider-event-id",
         status: BookingStatus.CONFIRMED,
@@ -327,7 +332,7 @@ describe("public booking", () => {
 
     expect(cancelCalendarEvent).toHaveBeenCalledWith({
       emailAccountId: "email-account-id",
-      provider: "google",
+      providerConnectionId: "connection-id",
       providerCalendarId: "primary",
       providerEventId: "provider-event-id",
       logger,
@@ -452,6 +457,7 @@ function bookingRecordBase() {
     endTime: new Date("2026-05-04T09:30:00.000Z"),
     status: BookingStatus.CONFIRMED,
     provider: null,
+    providerConnectionId: null,
     providerCalendarId: null,
     providerEventId: null,
     videoConferenceLink: null,

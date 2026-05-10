@@ -24,7 +24,7 @@ export async function enforcePublicBookingRateLimit({
   clientIp: string;
   logger: Logger;
 }) {
-  const linkKey = `${input.slug}:${input.eventTypeSlug}`;
+  const linkKey = input.slug;
   const ipHash = hashRateLimitValue(clientIp);
   const guestEmailHash = hashRateLimitValue(input.guestEmail.toLowerCase());
   const rules = [

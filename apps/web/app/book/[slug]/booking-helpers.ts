@@ -61,13 +61,18 @@ export function groupSlotsByDay(slots: Slot[], timezone: string) {
   return map;
 }
 
-export function formatSelectedDateHeading(key: string, timezone: string) {
-  const date = new Date(`${key}T12:00:00Z`);
+export function formatSelectedDateHeading(key: string) {
+  // The key already encodes the calendar date the guest picked. Format it as
+  // UTC so the heading isn't shifted by far-east/far-west zones (e.g.,
+  // Pacific/Kiritimati at UTC+14 would otherwise roll noon UTC into the next
+  // local day).
+  const [year, month, day] = key.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day, 12));
   return new Intl.DateTimeFormat("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
-    timeZone: timezone,
+    timeZone: "UTC",
   }).format(date);
 }
 

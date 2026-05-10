@@ -248,7 +248,7 @@ function PickTimeStep({
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="text-sm font-semibold text-foreground">
             {selectedDateKey
-              ? formatSelectedDateHeading(selectedDateKey, timezone)
+              ? formatSelectedDateHeading(selectedDateKey)
               : "Pick a date"}
           </div>
           <HourFormatToggle value={hourFormat} onChange={setHourFormat} />

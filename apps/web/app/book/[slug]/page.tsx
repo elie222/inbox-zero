@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPublicBookingLinkMetadata } from "@/utils/booking/public";
+import { SafeError } from "@/utils/error";
 import { BookingPageClient } from "./BookingPageClient";
 
 export const metadata: Metadata = {
@@ -17,7 +18,13 @@ export default async function BookingLinkPage({
 }) {
   const { slug } = await params;
   const bookingLink = await getPublicBookingLinkMetadata(slug).catch(
-    () => null,
+    (error: unknown) => {
+      // Only swallow the explicit "not found" path; any other failure
+      // (DB outage, provider error, etc.) should surface so it isn't masked
+      // as a missing booking link.
+      if (error instanceof SafeError && error.statusCode === 404) return null;
+      throw error;
+    },
   );
 
   if (!bookingLink) notFound();
