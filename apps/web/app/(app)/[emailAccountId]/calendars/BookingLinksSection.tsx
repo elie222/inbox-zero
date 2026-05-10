@@ -40,10 +40,27 @@ type BookingLink = NonNullable<
 export function BookingLinksSection() {
   const bookingLinksEnabled = useBookingLinksEnabled();
 
+  if (bookingLinksEnabled) return <BookingLinksWithInboxZeroLink />;
+
   return (
     <section className="space-y-3">
-      {bookingLinksEnabled ? <InboxZeroBookingLinkPanel /> : null}
       <CalendarBookingLinkCard />
+    </section>
+  );
+}
+
+function BookingLinksWithInboxZeroLink() {
+  const { data } = useBookingLinks();
+  const hasActiveInboxZeroLink = Boolean(
+    data?.bookingLinks.some((bookingLink) => bookingLink.isActive),
+  );
+
+  return (
+    <section className="space-y-3">
+      <InboxZeroBookingLinkPanel />
+      <CalendarBookingLinkCard
+        disabledByInboxZeroLink={hasActiveInboxZeroLink}
+      />
     </section>
   );
 }
@@ -170,7 +187,11 @@ function InboxZeroBookingLinkPanel() {
   );
 }
 
-function CalendarBookingLinkCard() {
+function CalendarBookingLinkCard({
+  disabledByInboxZeroLink = false,
+}: {
+  disabledByInboxZeroLink?: boolean;
+}) {
   const { emailAccountId } = useAccount();
   const analytics = useProductAnalytics("calendars");
   const { data, isLoading, error, mutate } = useCalendars();
@@ -208,6 +229,8 @@ function CalendarBookingLinkCard() {
   const onSubmit: SubmitHandler<z.infer<typeof updateBookingLinkBody>> = (
     formData,
   ) => {
+    if (disabledByInboxZeroLink) return;
+
     analytics.captureAction("calendar_booking_link_save_started", {
       has_booking_link: Boolean(formData.bookingLink),
     });
@@ -225,28 +248,34 @@ function CalendarBookingLinkCard() {
           error={error}
           loadingComponent={<Skeleton className="h-10 w-80" />}
         >
-          <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="flex flex-col gap-2 sm:flex-row sm:items-center w-full md:w-auto"
-          >
-            <div className="w-full sm:w-80">
-              <Input
-                type="url"
-                name="bookingLink"
-                placeholder="https://cal.com/your-link"
-                registerProps={register("bookingLink")}
-                error={errors.bookingLink}
-              />
-            </div>
-            <Button
-              type="submit"
-              loading={isExecuting}
-              size="sm"
-              className="w-full sm:w-auto"
+          {disabledByInboxZeroLink ? (
+            <span className="text-sm text-muted-foreground">
+              Using Inbox Zero booking link
+            </span>
+          ) : (
+            <form
+              onSubmit={handleSubmit(onSubmit)}
+              className="flex flex-col gap-2 sm:flex-row sm:items-center w-full md:w-auto"
             >
-              Save
-            </Button>
-          </form>
+              <div className="w-full sm:w-80">
+                <Input
+                  type="url"
+                  name="bookingLink"
+                  placeholder="https://cal.com/your-link"
+                  registerProps={register("bookingLink")}
+                  error={errors.bookingLink}
+                />
+              </div>
+              <Button
+                type="submit"
+                loading={isExecuting}
+                size="sm"
+                className="w-full sm:w-auto"
+              >
+                Save
+              </Button>
+            </form>
+          )}
         </LoadingContent>
       }
     />
