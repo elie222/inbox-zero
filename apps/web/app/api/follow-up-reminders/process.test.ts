@@ -625,51 +625,6 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(generateFollowUpDraft).not.toHaveBeenCalled();
   });
 
-  it("processes follow-ups once the business-day threshold passes", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-05-13T11:50:00.000Z"));
-
-    const provider = createMockProvider({
-      getThreadsWithLabel: vi.fn().mockResolvedValue([
-        {
-          id: "thread-business-threshold",
-          messages: [],
-          snippet: "",
-        },
-      ]),
-      getLatestMessageInThread: vi
-        .fn()
-        .mockResolvedValue(
-          mockAwaitingMessage(
-            "msg-business-threshold",
-            "2026-05-08T12:00:00.000Z",
-          ),
-        ),
-    });
-    vi.mocked(createEmailProvider).mockResolvedValue(provider);
-    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
-    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
-      id: "tracker-business-threshold",
-    } as any);
-
-    await processAccountFollowUps({
-      emailAccount: createMockAccount({
-        followUpAwaitingReplyDays: 3,
-        timezone: "UTC",
-      }),
-      logger,
-    });
-
-    expect(applyFollowUpLabel).toHaveBeenCalledWith(
-      expect.objectContaining({
-        threadId: "thread-business-threshold",
-        messageId: "msg-business-threshold",
-      }),
-    );
-    expect(generateFollowUpDraft).toHaveBeenCalled();
-  });
-
   it("processes threads that fall within the 15-minute eligibility window", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-11T12:00:00.000Z"));

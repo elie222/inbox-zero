@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
+  getElapsedBusinessDaysForDisplay,
   formatInUserTimezone,
   formatTimeInUserTimezone,
   formatDateTimeInUserTimezone,
+  hasElapsedBusinessDays,
   internalDateToDate,
 } from "./date";
 
@@ -181,5 +183,70 @@ describe("internalDateToDate", () => {
     expect(parsed.getTime()).toBe(
       new Date("2026-02-20T12:00:00.000Z").getTime(),
     );
+  });
+});
+
+describe("business day elapsed helpers", () => {
+  it("does not count Saturday and Sunday toward elapsed days", () => {
+    const start = new Date("2026-05-08T12:00:00.000Z");
+    const end = new Date("2026-05-11T12:00:00.000Z");
+
+    expect(
+      hasElapsedBusinessDays({
+        start,
+        end,
+        days: 3,
+        windowMinutes: 15,
+        timezone: "UTC",
+      }),
+    ).toBe(false);
+  });
+
+  it("uses the eligibility window when comparing elapsed business time", () => {
+    const start = new Date("2026-05-08T12:00:00.000Z");
+    const end = new Date("2026-05-13T11:50:00.000Z");
+
+    expect(
+      hasElapsedBusinessDays({
+        start,
+        end,
+        days: 3,
+        windowMinutes: 15,
+        timezone: "UTC",
+      }),
+    ).toBe(true);
+  });
+
+  it("uses the provided timezone to determine weekends", () => {
+    const start = new Date("2026-05-09T06:30:00.000Z");
+    const end = new Date("2026-05-09T08:30:00.000Z");
+    const twentyMinutes = 20 / (24 * 60);
+
+    expect(
+      hasElapsedBusinessDays({
+        start,
+        end,
+        days: twentyMinutes,
+        timezone: "UTC",
+      }),
+    ).toBe(false);
+    expect(
+      hasElapsedBusinessDays({
+        start,
+        end,
+        days: twentyMinutes,
+        timezone: "America/Los_Angeles",
+      }),
+    ).toBe(true);
+  });
+
+  it("rounds elapsed business days up for display", () => {
+    expect(
+      getElapsedBusinessDaysForDisplay({
+        start: new Date("2026-05-08T12:00:00.000Z"),
+        end: new Date("2026-05-12T13:00:00.000Z"),
+        timezone: "UTC",
+      }),
+    ).toBe(3);
   });
 });

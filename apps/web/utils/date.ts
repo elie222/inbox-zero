@@ -1,5 +1,6 @@
 import { format } from "date-fns/format";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
+import { isWeekend } from "date-fns/isWeekend";
 import { TZDate } from "@date-fns/tz";
 import { createScopedLogger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
@@ -172,4 +173,87 @@ export function formatDateTimeInUserTimezone(
   timezone: string | null | undefined,
 ): string {
   return formatInUserTimezone(date, timezone, "MMM d, yyyy 'at' h:mm a");
+}
+
+export function hasElapsedBusinessDays({
+  start,
+  end,
+  days,
+  windowMinutes = 0,
+  timezone,
+}: {
+  start: Date;
+  end: Date;
+  days: number;
+  windowMinutes?: number;
+  timezone: string | null | undefined;
+}) {
+  const elapsedMs = getBusinessElapsedMs(start, end, timezone);
+  const thresholdWithWindowMs =
+    days * ONE_DAY_MS - windowMinutes * ONE_MINUTE_MS;
+  return elapsedMs > thresholdWithWindowMs;
+}
+
+export function getElapsedBusinessDaysForDisplay({
+  start,
+  end,
+  timezone,
+}: {
+  start: Date;
+  end: Date;
+  timezone: string | null | undefined;
+}) {
+  const elapsedMs = getBusinessElapsedMs(start, end, timezone);
+  return Math.max(1, Math.ceil(elapsedMs / ONE_DAY_MS));
+}
+
+function getBusinessElapsedMs(
+  start: Date,
+  end: Date,
+  timezone: string | null | undefined,
+) {
+  if (end <= start) return 0;
+
+  const safeTimezone = getSafeTimezone(timezone);
+  let cursor = start;
+  let elapsedMs = 0;
+
+  while (cursor < end) {
+    const nextBoundary = getNextZonedMidnight(cursor, safeTimezone);
+    const segmentEnd = nextBoundary < end ? nextBoundary : end;
+
+    if (!isWeekend(new TZDate(cursor, safeTimezone))) {
+      elapsedMs += segmentEnd.getTime() - cursor.getTime();
+    }
+
+    if (segmentEnd <= cursor) break;
+    cursor = segmentEnd;
+  }
+
+  return elapsedMs;
+}
+
+function getSafeTimezone(timezone: string | null | undefined) {
+  if (!timezone) return DEFAULT_TIMEZONE;
+
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date());
+    return timezone;
+  } catch {
+    return DEFAULT_TIMEZONE;
+  }
+}
+
+function getNextZonedMidnight(date: Date, timezone: string) {
+  const zonedDate = new TZDate(date, timezone);
+  return new TZDate(
+    zonedDate.getFullYear(),
+    zonedDate.getMonth(),
+    zonedDate.getDate() + 1,
+    0,
+    0,
+    0,
+    0,
+    timezone,
+  );
 }
