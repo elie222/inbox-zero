@@ -632,7 +632,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       maxResults: 20,
       pageToken: undefined,
       readState: undefined,
-      categoryName: undefined,
+      labelName: undefined,
     });
   });
 
@@ -710,20 +710,20 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       maxResults: 20,
       pageToken: undefined,
       readState: undefined,
-      categoryName: undefined,
+      labelName: undefined,
     });
     expect(searchMessages).toHaveBeenNthCalledWith(2, {
       query: '"sender@example.com"',
       maxResults: 20,
       pageToken: undefined,
       readState: undefined,
-      categoryName: undefined,
+      labelName: undefined,
     });
     expect(result.messages).toHaveLength(1);
     expect(result.queryUsed).toBe('"sender@example.com"');
   });
 
-  it("searchInbox passes structured Outlook category and read-state filters", async () => {
+  it("searchInbox passes structured Outlook label and read-state filters", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [],
       nextPageToken: undefined,
@@ -743,7 +743,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
 
     await (toolInstance.execute as any)({
       query: "",
-      categoryName: "Newsletter",
+      labelName: "Newsletter",
       readState: "unread",
       limit: 20,
     });
@@ -753,11 +753,11 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       maxResults: 20,
       pageToken: undefined,
       readState: "unread",
-      categoryName: "Newsletter",
+      labelName: "Newsletter",
     });
   });
 
-  it("searchInbox does not pass categoryName for Google text searches", async () => {
+  it("searchInbox does not pass labelName for Google text searches", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [],
       nextPageToken: undefined,
@@ -777,7 +777,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
 
     await (toolInstance.execute as any)({
       query: "newsletter",
-      categoryName: "Newsletter",
+      labelName: "Newsletter",
       readState: "unread",
       limit: 20,
     });
@@ -787,7 +787,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       maxResults: 20,
       pageToken: undefined,
       readState: "unread",
-      categoryName: undefined,
+      labelName: undefined,
     });
   });
 

@@ -1133,7 +1133,7 @@ export class OutlookProvider implements EmailProvider {
     maxResults?: number;
     pageToken?: string;
     readState?: "read" | "unread";
-    categoryName?: string;
+    labelName?: string;
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
     const response = await queryBatchMessages(
       this.client,
@@ -1142,7 +1142,7 @@ export class OutlookProvider implements EmailProvider {
         maxResults: options.maxResults || 20,
         pageToken: options.pageToken,
         readState: options.readState,
-        categoryNames: options.categoryName ? [options.categoryName] : [],
+        categoryNames: options.labelName ? [options.labelName] : [],
       },
       this.logger,
     );
