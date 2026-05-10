@@ -2,7 +2,7 @@
 
 import { useState, type ChangeEvent } from "react";
 import { X } from "lucide-react";
-import { Input } from "@/components/Input";
+import { Input, Label } from "@/components/Input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -135,35 +135,30 @@ export function CreateBookingLinkDialog({
               />
 
               <div>
-                <div className="mb-1.5 text-xs font-medium text-muted-foreground">
-                  Duration
-                </div>
-                <div className="flex gap-1.5">
+                <Label name="duration" label="Duration" />
+                <div className="mt-1 grid grid-cols-4 gap-2">
                   {DURATION_OPTIONS.map((option) => {
                     const active = option === duration;
                     return (
-                      <button
+                      <Button
                         key={option}
                         type="button"
+                        variant="outline"
                         onClick={() => setDuration(option)}
                         className={cn(
-                          "flex-1 rounded-md border px-3 py-2 text-center text-sm transition-colors",
-                          active
-                            ? "border-blue-600 bg-blue-50 font-semibold text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-300"
-                            : "border-input bg-background text-muted-foreground hover:text-foreground",
+                          "w-full",
+                          active && "border-primary ring-1 ring-primary",
                         )}
                       >
                         {option} min
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
               </div>
 
               <div>
-                <div className="mb-1.5 text-xs font-medium text-muted-foreground">
-                  Add events to
-                </div>
+                <Label name="destinationCalendarId" label="Add events to" />
                 <Select
                   name="destinationCalendarId"
                   value={destinationCalendarId || PRIMARY_CALENDAR_SELECT_VALUE}
@@ -173,7 +168,7 @@ export function CreateBookingLinkDialog({
                     )
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="mt-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

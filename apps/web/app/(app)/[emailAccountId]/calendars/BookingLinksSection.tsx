@@ -317,7 +317,6 @@ function ActiveLinkCard({
             checked={isActive}
             disabled={isToggling}
             onCheckedChange={onToggle}
-            size="sm"
             aria-label="Toggle booking link"
           />
           <Button
