@@ -10,6 +10,13 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useBookingLinks } from "@/hooks/useBookingLinks";
@@ -23,11 +30,14 @@ import {
 import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import { cn } from "@/utils";
 import {
-  BookingLinkGeneralFields,
+  DURATION_OPTIONS,
+  getCalendarOptions,
   getProviderVideoLocationType,
   getSelectedCalendarProvider,
+  getVideoLocationLabel,
   isProviderVideoLocationType,
-} from "./BookingLinkFormFields";
+  PRIMARY_CALENDAR_SELECT_VALUE,
+} from "./booking-calendar-helpers";
 
 type BookingLink = NonNullable<
   ReturnType<typeof useBookingLinks>["data"]
@@ -177,6 +187,9 @@ function GeneralTab({
   const videoLocationType = getProviderVideoLocationType(
     selectedCalendarProvider,
   );
+  const videoLabel = getVideoLocationLabel(videoLocationType);
+  const canAddVideo = Boolean(videoLocationType);
+  const calendarOptions = getCalendarOptions(data);
 
   const { executeAsync: updateLink, isExecuting: isSaving } = useAction(
     updateBookingLinkAction.bind(null, emailAccountId),
@@ -230,23 +243,128 @@ function GeneralTab({
 
   return (
     <>
-      <BookingLinkGeneralFields
-        data={data}
-        title={title}
-        onTitleChange={setTitle}
-        slug={slug}
-        onSlugChange={setSlug}
-        slugPlaceholder="elie"
-        publicUrlPrefix={publicUrlPrefix}
-        duration={duration}
-        onDurationChange={setDuration}
-        destinationCalendarId={destinationCalendarId}
-        onDestinationCalendarIdChange={setDestinationCalendarId}
-        videoEnabled={videoEnabled}
-        onVideoEnabledChange={setVideoEnabled}
-        description={description}
-        onDescriptionChange={setDescription}
-      />
+      <div className="space-y-5 px-6 py-5">
+        <div>
+          <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+            What guests see
+          </div>
+          <input
+            type="text"
+            name="title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="15 min intro"
+            className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+
+        <div>
+          <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+            Link URL
+          </div>
+          <div className="flex rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
+            <span className="min-w-0 shrink truncate border-r px-3 py-2 text-sm text-muted-foreground">
+              {publicUrlPrefix}
+            </span>
+            <input
+              type="text"
+              name="slug"
+              value={slug}
+              onChange={(event) => setSlug(event.target.value)}
+              placeholder="elie"
+              className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+            />
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+            Duration
+          </div>
+          <div className="flex gap-1.5">
+            {DURATION_OPTIONS.map((option) => {
+              const active = option === duration;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setDuration(option)}
+                  className={cn(
+                    "flex-1 rounded-md border px-3 py-2 text-center text-sm transition-colors",
+                    active
+                      ? "border-blue-600 bg-blue-50 font-semibold text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-300"
+                      : "border-input bg-background text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {option} min
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+            Add events to
+          </div>
+          <Select
+            name="destinationCalendarId"
+            value={destinationCalendarId || PRIMARY_CALENDAR_SELECT_VALUE}
+            onValueChange={(value) =>
+              setDestinationCalendarId(
+                value === PRIMARY_CALENDAR_SELECT_VALUE ? "" : value,
+              )
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {calendarOptions.map((option) => (
+                <SelectItem
+                  key={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
+                  value={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
+                >
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 rounded-lg border px-3.5 py-3">
+          <div>
+            <div className="text-sm font-medium text-foreground">
+              Video conferencing
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {videoLabel
+                ? `Add ${videoLabel} to calendar events.`
+                : "Video links are unavailable for this calendar."}
+            </p>
+          </div>
+          <Switch
+            checked={canAddVideo && videoEnabled}
+            disabled={!canAddVideo}
+            onCheckedChange={setVideoEnabled}
+            aria-label="Toggle video conferencing"
+          />
+        </div>
+
+        <div>
+          <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+            Description (optional)
+          </div>
+          <textarea
+            name="description"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="Tell guests what to expect."
+            rows={3}
+            className="block w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+      </div>
 
       <DialogFooter onSaved={onSaved} onSave={handleSave} loading={isSaving} />
     </>
