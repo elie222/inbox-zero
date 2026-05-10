@@ -124,10 +124,7 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
 
       const newMemory = {
         content: decision.newMemory.content.trim(),
-        kind: normalizeReplyMemoryKind(
-          decision.newMemory,
-          modelOptions.provider,
-        ),
+        kind: decision.newMemory.kind,
         scopeType:
           decision.newMemory.kind === ReplyMemoryKind.PREFERENCE
             ? ReplyMemoryScopeType.GLOBAL
@@ -322,29 +319,6 @@ const ollamaReplyMemoryDecisionSchema = z.object({
 const ollamaReplyMemorySchema = z.object({
   memories: z.array(ollamaReplyMemoryDecisionSchema).max(MAX_MEMORIES_PER_EDIT),
 });
-
-function normalizeReplyMemoryKind(
-  memory: z.infer<typeof newReplyMemorySchema>,
-  provider: string,
-) {
-  if (
-    isOllamaProvider(provider) &&
-    memory.kind === ReplyMemoryKind.PROCEDURE &&
-    isPricingOrBillingMemory(memory)
-  ) {
-    return ReplyMemoryKind.FACT;
-  }
-
-  return memory.kind;
-}
-
-function isPricingOrBillingMemory(
-  memory: z.infer<typeof newReplyMemorySchema>,
-) {
-  const text = `${memory.content} ${memory.scopeValue}`.toLowerCase();
-
-  return /\b(pricing|price|rate|billing|seat|plan|quote)\b/.test(text);
-}
 
 function getOllamaReplyMemoryGuidance({
   allowDomainScope,

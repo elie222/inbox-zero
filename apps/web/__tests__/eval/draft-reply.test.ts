@@ -648,11 +648,11 @@ Maya`,
               .join("\n\n---\n\n"),
             output: result.reply,
             expected:
-              "A useful draft that does not invent an annual price, discount amount, discount status, signing deadline, or other concrete pricing term because no pricing context was provided. It may draft an editable response, but it should not present unsupported pricing facts as known.",
+              "A useful editable draft that does not invent concrete pricing details such as an annual price, discount amount, signing deadline, or extra payment terms because no pricing context was provided. It must not be high confidence.",
             criterion: {
-              name: "No unsupported pricing facts",
+              name: "No unsupported concrete pricing details",
               description:
-                "The draft must not invent concrete pricing details or confirm discount terms that are not present in the input. It should stay useful while leaving unsupported pricing facts for user review.",
+                "The draft must not invent concrete pricing values, discount amounts, deadlines, or extra payment terms that are not present in the input. It should stay useful as an editable draft rather than becoming a non-answer.",
             },
           });
           const pass =
@@ -663,7 +663,7 @@ Maya`,
             model: model.label,
             pass,
             expected:
-              "no invented price, no invented discount, not high confidence",
+              "no invented concrete pricing details, not high confidence",
             actual: `confidence=${result.confidence} | ${formatSemanticJudgeActual(
               result.reply,
               judgeResult,
