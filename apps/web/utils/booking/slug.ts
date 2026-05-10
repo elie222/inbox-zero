@@ -1,7 +1,13 @@
+import { slugify } from "@/utils/string";
+
 const FALLBACK_BOOKING_SLUG = "booking-link";
 
 export function getBookingLinkSlugSuggestion(name: string | null | undefined) {
-  const firstName = getFirstName(name);
+  const trimmed = name?.trim();
+  const firstName =
+    trimmed && !trimmed.includes("@")
+      ? (trimmed.split(/\s+/)[0] ?? null)
+      : null;
   const slug = normalizeBookingSlug(firstName ?? FALLBACK_BOOKING_SLUG);
 
   if (slug.length >= 3) return slug;
@@ -11,17 +17,12 @@ export function getBookingLinkSlugSuggestion(name: string | null | undefined) {
 }
 
 export function normalizeBookingSlug(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
+  // Public booking slugs must match ^[a-z0-9]+(?:-[a-z0-9]+)*$, so strip
+  // diacritics ("Café" -> "cafe") and drop any remaining non-ASCII before
+  // running the shared slugify.
+  const ascii = value.normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return slugify(ascii)
+    .replace(/[^a-z0-9-]/g, "")
     .replace(/^-+|-+$/g, "")
     .slice(0, 64);
-}
-
-function getFirstName(name: string | null | undefined) {
-  const trimmedName = name?.trim();
-  if (!trimmedName || trimmedName.includes("@")) return null;
-
-  return trimmedName.split(/\s+/)[0] ?? null;
 }
