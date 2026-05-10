@@ -705,24 +705,24 @@ function AdvancedTab({
   return (
     <>
       <div className="space-y-4 overflow-y-auto px-6 py-5">
-        <div className="rounded-lg border border-red-200 bg-red-50/40 px-4 py-3 dark:border-red-900 dark:bg-red-950/20">
-          <div className="mb-3">
-            <div className="text-sm font-semibold text-foreground">
-              Delete booking link
-            </div>
-            <p className="text-xs text-muted-foreground">
+        <Item variant="outline">
+          <ItemContent>
+            <ItemTitle>Delete booking link</ItemTitle>
+            <ItemDescription>
               Permanently remove this booking link and its booking history.
-            </p>
-          </div>
-          <Button
-            variant="destructiveSoft"
-            onClick={handleDelete}
-            loading={isDeleting}
-            Icon={Trash2}
-          >
-            Delete booking link
-          </Button>
-        </div>
+            </ItemDescription>
+          </ItemContent>
+          <ItemActions>
+            <Button
+              variant="destructiveSoft"
+              onClick={handleDelete}
+              loading={isDeleting}
+              Icon={Trash2}
+            >
+              Delete
+            </Button>
+          </ItemActions>
+        </Item>
       </div>
 
       <div className="flex items-center justify-end gap-2 border-t px-6 py-3">
@@ -733,7 +733,6 @@ function AdvancedTab({
     </>
   );
 }
-
 function DialogFooter({
   onSaved,
   onSave,
