@@ -18,10 +18,10 @@ import { VideoConferencingItem } from "./VideoConferencingItem";
 import {
   DURATION_OPTIONS,
   getCalendarOptions,
+  getDefaultDestinationCalendarId,
   getProviderVideoLocationType,
   getSelectedCalendarProvider,
   getVideoLocationLabel,
-  PRIMARY_CALENDAR_SELECT_VALUE,
   type BookingLinkCalendarData,
 } from "./booking-calendar-helpers";
 
@@ -50,7 +50,10 @@ export function CreateBookingLinkDialog({
   const [title, setTitle] = useState(defaultTitle);
   const [slug, setSlug] = useState(defaultSlug);
   const [duration, setDuration] = useState(30);
-  const [destinationCalendarId, setDestinationCalendarId] = useState("");
+  const defaultDestinationCalendarId = getDefaultDestinationCalendarId(data);
+  const [destinationCalendarId, setDestinationCalendarId] = useState(
+    defaultDestinationCalendarId,
+  );
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [description, setDescription] = useState("");
   const hasConnectedCalendar = Boolean(
@@ -78,7 +81,7 @@ export function CreateBookingLinkDialog({
       title: title.trim(),
       slug: normalizedSlug,
       durationMinutes: duration,
-      destinationCalendarId: destinationCalendarId || null,
+      destinationCalendarId,
       videoEnabled: canAddVideo && videoEnabled,
       description,
     });
@@ -161,22 +164,15 @@ export function CreateBookingLinkDialog({
                 <Label name="destinationCalendarId" label="Add events to" />
                 <Select
                   name="destinationCalendarId"
-                  value={destinationCalendarId || PRIMARY_CALENDAR_SELECT_VALUE}
-                  onValueChange={(value) =>
-                    setDestinationCalendarId(
-                      value === PRIMARY_CALENDAR_SELECT_VALUE ? "" : value,
-                    )
-                  }
+                  value={destinationCalendarId}
+                  onValueChange={setDestinationCalendarId}
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {calendarOptions.map((option) => (
-                      <SelectItem
-                        key={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
-                        value={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
-                      >
+                      <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
                     ))}

@@ -40,11 +40,11 @@ import { cn } from "@/utils";
 import {
   DURATION_OPTIONS,
   getCalendarOptions,
+  getDefaultDestinationCalendarId,
   getProviderVideoLocationType,
   getSelectedCalendarProvider,
   getVideoLocationLabel,
   isProviderVideoLocationType,
-  PRIMARY_CALENDAR_SELECT_VALUE,
 } from "./booking-calendar-helpers";
 import { VideoConferencingItem } from "./VideoConferencingItem";
 
@@ -180,8 +180,9 @@ function GeneralTab({
   const [title, setTitle] = useState(link.title);
   const [slug, setSlug] = useState(link.slug);
   const [duration, setDuration] = useState<number>(link.durationMinutes);
+  const defaultDestinationCalendarId = getDefaultDestinationCalendarId(data);
   const [destinationCalendarId, setDestinationCalendarId] = useState<string>(
-    link.destinationCalendarId ?? "",
+    link.destinationCalendarId ?? defaultDestinationCalendarId,
   );
   const [videoEnabled, setVideoEnabled] = useState(() =>
     isProviderVideoLocationType(link.locationType),
@@ -235,7 +236,7 @@ function GeneralTab({
         slotIntervalMinutes: duration,
         locationType: nextLocationType,
         locationValue: "",
-        destinationCalendarId: destinationCalendarId || null,
+        destinationCalendarId,
       });
       if (hasActionResultError(result)) return;
 
@@ -306,22 +307,15 @@ function GeneralTab({
           <Label name="destinationCalendarId" label="Add events to" />
           <Select
             name="destinationCalendarId"
-            value={destinationCalendarId || PRIMARY_CALENDAR_SELECT_VALUE}
-            onValueChange={(value) =>
-              setDestinationCalendarId(
-                value === PRIMARY_CALENDAR_SELECT_VALUE ? "" : value,
-              )
-            }
+            value={destinationCalendarId}
+            onValueChange={setDestinationCalendarId}
           >
             <SelectTrigger className="mt-1">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {calendarOptions.map((option) => (
-                <SelectItem
-                  key={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
-                  value={option.value || PRIMARY_CALENDAR_SELECT_VALUE}
-                >
+                <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>
               ))}

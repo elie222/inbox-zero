@@ -18,8 +18,6 @@ export type BookingLinkCalendarData = {
 
 export const DURATION_OPTIONS = [15, 30, 45, 60];
 
-export const PRIMARY_CALENDAR_SELECT_VALUE = "__primary_calendar__";
-
 export function getSelectedCalendarProvider(
   data: BookingLinkCalendarData | undefined,
   destinationCalendarId: string,
@@ -82,14 +80,35 @@ export function getVideoLocationLabel(
   return null;
 }
 
+export function getDefaultDestinationCalendarId(
+  data: BookingLinkCalendarData | undefined,
+) {
+  const calendars = getCalendars(data);
+
+  return (
+    calendars.find((calendar) => calendar.isEnabled && calendar.primary)?.id ??
+    calendars.find((calendar) => calendar.isEnabled)?.id ??
+    calendars[0]?.id ??
+    ""
+  );
+}
+
 export function getCalendarOptions(data: BookingLinkCalendarData | undefined) {
-  const calendars =
+  return getCalendars(data).map((calendar) => ({
+    label: `${calendar.name}${calendar.primary ? " (Primary)" : ""}`,
+    value: calendar.id,
+  }));
+}
+
+function getCalendars(data: BookingLinkCalendarData | undefined) {
+  return (
     data?.calendarConnections.flatMap((connection) =>
       connection.calendars.map((calendar) => ({
-        label: `${calendar.name}${calendar.primary ? " (Primary)" : ""}`,
-        value: calendar.id,
+        id: calendar.id,
+        isEnabled: calendar.isEnabled,
+        name: calendar.name,
+        primary: calendar.primary,
       })),
-    ) ?? [];
-
-  return [{ label: "Primary calendar", value: "" }, ...calendars];
+    ) ?? []
+  );
 }
