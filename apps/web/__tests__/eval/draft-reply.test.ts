@@ -641,10 +641,22 @@ Maya`,
             meetingContext: null,
           });
 
-          const pass =
-            result.confidence !== "HIGH_CONFIDENCE" &&
-            !/\$\s?\d|\b\d+%\b|\bdiscount still applies\b/i.test(result.reply);
           const testName = "missing pricing context";
+          const judgeResult = await judgeEvalOutput({
+            input: messages
+              .map((message) => message.content)
+              .join("\n\n---\n\n"),
+            output: result.reply,
+            expected:
+              "A useful draft that does not invent an annual price, discount amount, discount status, signing deadline, or other concrete pricing term because no pricing context was provided. It may draft an editable response, but it should not present unsupported pricing facts as known.",
+            criterion: {
+              name: "No unsupported pricing facts",
+              description:
+                "The draft must not invent concrete pricing details or confirm discount terms that are not present in the input. It should stay useful while leaving unsupported pricing facts for user review.",
+            },
+          });
+          const pass =
+            result.confidence !== "HIGH_CONFIDENCE" && judgeResult.pass;
 
           evalReporter.record({
             testName,
@@ -652,12 +664,19 @@ Maya`,
             pass,
             expected:
               "no invented price, no invented discount, not high confidence",
-            actual: `confidence=${result.confidence} | reply=${JSON.stringify(result.reply)}`,
+            actual: `confidence=${result.confidence} | ${formatSemanticJudgeActual(
+              result.reply,
+              judgeResult,
+            )}`,
           });
 
           expect(
             pass,
-            `Draft should not invent pricing or mark high confidence without pricing context.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}`,
+            `Draft should not invent pricing or mark high confidence without pricing context.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
           ).toBe(true);
         },
         TIMEOUT,
@@ -696,23 +715,40 @@ Maya`,
             meetingContext: null,
           });
 
-          const pass =
-            /\$4,?800/.test(result.reply) &&
-            /\b15%|\b15 percent/i.test(result.reply) &&
-            /May 31/i.test(result.reply);
           const testName = "provided pricing context";
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              messages.map((message) => message.content).join("\n\n---\n\n"),
+              "",
+              "## Knowledge Base",
+              "For this customer, the approved annual price is $4,800. A 15% renewal discount applies if they sign by May 31.",
+            ].join("\n"),
+            output: result.reply,
+            expected:
+              "A reply that uses the supplied pricing context to answer the sender with the approved annual price, renewal discount, and signing deadline, without inventing extra pricing terms.",
+            criterion: {
+              name: "Pricing context used",
+              description:
+                "The draft should communicate the supplied annual price, discount, and deadline. It should not depend on exact wording, but it must preserve those facts and avoid unsupported additional pricing details.",
+            },
+          });
+          const pass = judgeResult.pass;
 
           evalReporter.record({
             testName,
             model: model.label,
             pass,
             expected: "$4,800, 15% discount, May 31",
-            actual: `confidence=${result.confidence} | reply=${JSON.stringify(result.reply)}`,
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
           });
 
           expect(
             pass,
-            `Draft should use the supplied pricing terms.\n\nReply:\n${result.reply}`,
+            `Draft should use the supplied pricing terms.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
           ).toBe(true);
         },
         TIMEOUT,
@@ -803,22 +839,40 @@ Dana`,
               'Signed Order Form.pdf — selected because the sender asked for "the signed order form".',
           });
 
-          const pass =
-            /\b(attached|attach(ed)?|included)\b/i.test(result.reply) &&
-            /order form/i.test(result.reply);
           const testName = "provided attachment context";
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              messages.map((message) => message.content).join("\n\n---\n\n"),
+              "",
+              "## Selected Attachments",
+              'Signed Order Form.pdf — selected because the sender asked for "the signed order form".',
+            ].join("\n"),
+            output: result.reply,
+            expected:
+              "A reply that uses the selected attachment context to tell the sender the requested signed order form is included or available with the draft, without inventing unrelated attachments.",
+            criterion: {
+              name: "Selected attachment used",
+              description:
+                "The draft should make clear that the selected signed order form is being provided. It should not depend on exact wording, but it must refer to the relevant selected document and avoid unsupported attachment claims.",
+            },
+          });
+          const pass = judgeResult.pass;
 
           evalReporter.record({
             testName,
             model: model.label,
             pass,
             expected: "mentions attached order form",
-            actual: `confidence=${result.confidence} | reply=${JSON.stringify(result.reply)}`,
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
           });
 
           expect(
             pass,
-            `Draft should mention the selected attachment.\n\nReply:\n${result.reply}`,
+            `Draft should mention the selected attachment.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
           ).toBe(true);
         },
         TIMEOUT,
@@ -1029,22 +1083,40 @@ Priya`,
               "Upcoming calendar context: a meeting with Priya Sharma is scheduled for tomorrow at 3:00 PM.",
           });
 
-          const pass =
-            /\b(still on|confirmed|yes)\b/i.test(result.reply) &&
-            /\b3(:00)?\s?(PM|pm|p\.m\.)\b/.test(result.reply);
           const testName = "provided meeting context";
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              messages.map((message) => message.content).join("\n\n---\n\n"),
+              "",
+              "## Meeting Context",
+              "Upcoming calendar context: a meeting with Priya Sharma is scheduled for tomorrow at 3:00 PM.",
+            ].join("\n"),
+            output: result.reply,
+            expected:
+              "A reply that uses the supplied meeting context to confirm the meeting and preserve the scheduled time of tomorrow at 3:00 PM, without inventing a different time or unsupported meeting details.",
+            criterion: {
+              name: "Meeting context used",
+              description:
+                "The draft should confirm the meeting using the supplied calendar context. It should not depend on exact wording, but it must preserve the scheduled time and avoid unsupported scheduling details.",
+            },
+          });
+          const pass = judgeResult.pass;
 
           evalReporter.record({
             testName,
             model: model.label,
             pass,
             expected: "confirms tomorrow at 3:00 PM",
-            actual: `confidence=${result.confidence} | reply=${JSON.stringify(result.reply)}`,
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
           });
 
           expect(
             pass,
-            `Draft should use the supplied meeting context.\n\nReply:\n${result.reply}`,
+            `Draft should use the supplied meeting context.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
           ).toBe(true);
         },
         TIMEOUT,

@@ -33,11 +33,14 @@ Write the reply in the same language as the latest message in the thread.
 IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
 Do not invent information.
-Ground the reply in the thread and provided context. Do not invent exact factual values, dates, account states, approvals, attachments, completed actions, or external changes.
-If key facts or actions are missing, still draft the most useful reply you can for the user to review and edit, but lower the confidence instead of presenting the draft as fully certain.
+Ground the reply in the thread and provided context. Do not invent factual values, terms, statuses, dates, account states, approvals, attachments, completed actions, or external changes.
+If key facts, terms, statuses, or actions are missing, still draft the most useful reply you can for the user to review and edit, but lower the confidence instead of presenting the draft as fully certain.
+Use placeholders for missing values only; do not use them to imply an unknown condition, term, or status is true. For unknown yes/no statuses, use neutral editable wording instead of confirming or denying the status.
+If the sender asks you to confirm something and the needed information is not in the provided context, do not answer as if it has been confirmed.
 Use email dates only as message metadata. They help with order and recency, but do not prove that a referenced plan happened, was missed, or remains scheduled.
 Do not use em dashes unless the provided writing style explicitly calls for them.
 Don't suggest meeting times or mention availability unless specific calendar information is provided.
+When the sender provides a scheduling link or scheduling process, use that path instead of adding the user's booking link.
 
 Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
@@ -166,6 +169,17 @@ ${mcpContext}
 `
     : "";
 
+  const missingExternalContext =
+    !knowledgeBaseContent &&
+    !emailHistorySummary &&
+    !emailHistoryContext?.relevantEmails.length &&
+    !mcpContext &&
+    !meetingContext &&
+    !attachmentContext
+      ? `No additional factual context was provided beyond the email thread.
+`
+      : "";
+
   const upcomingMeetingsContext = meetingContext || "";
   const selectedAttachments = attachmentContext
     ? `Selected PDF attachments that will be included with this draft:
@@ -192,6 +206,7 @@ ${learnedWritingStylePrompt}
 ${signatureContext}
 ${schedulingContext}
 ${mcpToolsContext}
+${missingExternalContext}
 ${upcomingMeetingsContext}
 ${selectedAttachments}
 
