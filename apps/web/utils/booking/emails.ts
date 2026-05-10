@@ -11,10 +11,6 @@ import { formatDateTimeInUserTimezone } from "@/utils/date";
 type BookingEmailPayload = {
   cancellationReason?: string | null;
   endTime: Date;
-  linkLocationType: BookingLinkLocationType;
-  linkLocationValue?: string | null;
-  linkTimezone: string;
-  linkTitle: string;
   guestEmail: string;
   guestName: string;
   guestNote?: string | null;
@@ -22,6 +18,10 @@ type BookingEmailPayload = {
   startTime: Date;
   videoConferenceLink?: string | null;
   bookingLink: {
+    title: string;
+    locationType: BookingLinkLocationType;
+    locationValue: string | null;
+    timezone: string;
     emailAccount: {
       email: string;
       name?: string | null;
@@ -40,8 +40,9 @@ export async function sendBookingConfirmationEmails({
   cancelUrl: string;
   logger: Logger;
 }) {
-  const host = booking.bookingLink.emailAccount;
-  const location = getLocationLabel(booking);
+  const link = booking.bookingLink;
+  const host = link.emailAccount;
+  const location = getLocationLabel(link);
   const guestParts = formatBookingParts({
     startTime: booking.startTime,
     endTime: booking.endTime,
@@ -50,7 +51,7 @@ export async function sendBookingConfirmationEmails({
   const hostParts = formatBookingParts({
     startTime: booking.startTime,
     endTime: booking.endTime,
-    timezone: booking.linkTimezone,
+    timezone: link.timezone,
   });
 
   try {
@@ -61,7 +62,7 @@ export async function sendBookingConfirmationEmails({
         emailProps: {
           baseUrl: env.NEXT_PUBLIC_BASE_URL,
           cancelUrl,
-          eventTitle: booking.linkTitle,
+          eventTitle: link.title,
           formattedTime: guestParts.formattedTime,
           guestName: booking.guestName,
           hostName: host.name ?? host.email,
@@ -79,7 +80,7 @@ export async function sendBookingConfirmationEmails({
         from: env.RESEND_FROM_EMAIL,
         to: host.email,
         emailProps: {
-          eventTitle: booking.linkTitle,
+          eventTitle: link.title,
           formattedTime: hostParts.formattedTime,
           guestEmail: booking.guestEmail,
           guestName: booking.guestName,
@@ -88,7 +89,7 @@ export async function sendBookingConfirmationEmails({
           dateDay: hostParts.dateDay,
           dateWeekday: hostParts.dateWeekday,
           timeRange: hostParts.timeRange,
-          timezoneLabel: booking.linkTimezone,
+          timezoneLabel: link.timezone,
           guestNote: booking.guestNote ?? null,
         },
       }),
@@ -108,17 +109,18 @@ export async function sendBookingCancellationEmails({
   booking: BookingEmailPayload;
   logger: Logger;
 }) {
-  const host = booking.bookingLink.emailAccount;
+  const link = booking.bookingLink;
+  const host = link.emailAccount;
 
   try {
     await sendHostBookingCancellationEmail({
       from: env.RESEND_FROM_EMAIL,
       to: host.email,
       emailProps: {
-        eventTitle: booking.linkTitle,
+        eventTitle: link.title,
         formattedTime: formatDateTimeInUserTimezone(
           booking.startTime,
-          booking.linkTimezone,
+          link.timezone,
         ),
         guestEmail: booking.guestEmail,
         guestName: booking.guestName,
@@ -185,16 +187,16 @@ function getMeetingLink(booking: BookingEmailPayload) {
   // Prefer the link the calendar provider generated at event-creation time
   // (e.g. Google Meet, Teams) over the configured location value.
   if (booking.videoConferenceLink) return booking.videoConferenceLink;
-  if (isUrl(booking.linkLocationValue)) {
-    return booking.linkLocationValue ?? null;
+  if (isUrl(booking.bookingLink.locationValue)) {
+    return booking.bookingLink.locationValue;
   }
   return null;
 }
 
-function getLocationLabel(booking: BookingEmailPayload) {
-  if (booking.linkLocationType === BookingLinkLocationType.GOOGLE_MEET)
+function getLocationLabel(link: BookingEmailPayload["bookingLink"]) {
+  if (link.locationType === BookingLinkLocationType.GOOGLE_MEET)
     return "Google Meet";
-  if (booking.linkLocationType === BookingLinkLocationType.MICROSOFT_TEAMS)
+  if (link.locationType === BookingLinkLocationType.MICROSOFT_TEAMS)
     return "Microsoft Teams";
-  return booking.linkLocationValue || null;
+  return link.locationValue || null;
 }

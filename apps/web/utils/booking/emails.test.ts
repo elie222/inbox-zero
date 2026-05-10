@@ -57,8 +57,10 @@ describe("booking emails", () => {
   it("uses URL custom locations as guest meeting links", async () => {
     await sendBookingConfirmationEmails({
       booking: bookingEmailPayload({
-        linkLocationType: BookingLinkLocationType.CUSTOM,
-        linkLocationValue: "https://video.example.com/meeting",
+        bookingLink: {
+          locationType: BookingLinkLocationType.CUSTOM,
+          locationValue: "https://video.example.com/meeting",
+        },
       }),
       guestTimezone: "UTC",
       cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
@@ -78,9 +80,11 @@ describe("booking emails", () => {
   it("prefers provider generated video links for guest meeting links", async () => {
     await sendBookingConfirmationEmails({
       booking: bookingEmailPayload({
-        linkLocationType: BookingLinkLocationType.MICROSOFT_TEAMS,
-        linkLocationValue: null,
         videoConferenceLink: "https://teams.example.com/meeting",
+        bookingLink: {
+          locationType: BookingLinkLocationType.MICROSOFT_TEAMS,
+          locationValue: null,
+        },
       }),
       guestTimezone: "UTC",
       cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
@@ -123,16 +127,16 @@ function bookingEmailPayload(
   const base: Parameters<typeof sendBookingConfirmationEmails>[0]["booking"] = {
     cancellationReason: null,
     endTime: new Date("2026-05-04T09:30:00.000Z"),
-    linkLocationType: BookingLinkLocationType.CUSTOM,
-    linkLocationValue: "Conference room",
-    linkTimezone: "UTC",
-    linkTitle: "Intro call",
     guestEmail: "guest@example.com",
     guestName: "Guest User",
     guestNote: "Please share an agenda.",
     id: "booking-id",
     startTime: new Date("2026-05-04T09:00:00.000Z"),
     bookingLink: {
+      title: "Intro call",
+      locationType: BookingLinkLocationType.CUSTOM,
+      locationValue: "Conference room",
+      timezone: "UTC",
       emailAccount: {
         email: "host@example.com",
         name: "Host User",

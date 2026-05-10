@@ -10,10 +10,10 @@ export type PostPublicCancelBookingResponse = Awaited<
 export const POST = withError(
   "public/booking-cancel",
   async (request, context) => {
-    const { uid } = await context.params;
+    const { id } = await context.params;
     const body = publicCancelBookingBody.parse(await request.json());
     const result = await cancelPublicBooking({
-      uid,
+      id,
       token: body.token,
       reason: body.reason,
       logger: request.logger,

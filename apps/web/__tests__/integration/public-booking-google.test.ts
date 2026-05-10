@@ -260,7 +260,6 @@ function bookingRecord(
 function bookingRecordBase() {
   return {
     id: "booking-id",
-    uid: "booking-uid",
     bookingLinkId: "booking-link-id",
     emailAccountId: "email-account-id",
     guestName: "Guest User",
@@ -275,15 +274,14 @@ function bookingRecordBase() {
     videoConferenceLink: null,
     cancelTokenHash: "cancel-token-hash",
     cancellationReason: null,
-    canceledBy: null,
     idempotencyToken: "token-1",
-    linkTitle: "Intro call",
-    linkLocationType: BookingLinkLocationType.CUSTOM,
-    linkLocationValue: "Conference room",
-    linkTimezone: "UTC",
     createdAt: new Date("2026-05-01T00:00:00.000Z"),
     updatedAt: new Date("2026-05-01T00:00:00.000Z"),
     bookingLink: {
+      title: "Intro call",
+      locationType: BookingLinkLocationType.CUSTOM,
+      locationValue: "Conference room",
+      timezone: "UTC",
       emailAccount: {
         email: EMAIL,
         name: "Booking Host",

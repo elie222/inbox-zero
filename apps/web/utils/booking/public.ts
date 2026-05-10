@@ -18,7 +18,7 @@ import {
   createCalendarEvent,
 } from "@/utils/calendar/event-writer";
 import type { CalendarEventWriteResult } from "@/utils/calendar/event-types";
-import { BookingCanceledBy, BookingStatus } from "@/generated/prisma/enums";
+import { BookingStatus } from "@/generated/prisma/enums";
 import type { PublicBookingBody } from "@/utils/actions/booking.validation";
 import {
   sendBookingCancellationEmails,
@@ -250,29 +250,29 @@ export async function createPublicBooking({
   await sendBookingConfirmationEmails({
     booking: confirmedBooking,
     guestTimezone: input.timezone,
-    cancelUrl: getCancelUrl({ uid: confirmedBooking.uid, token: cancelToken }),
+    cancelUrl: getCancelUrl({ id: confirmedBooking.id, token: cancelToken }),
     logger,
   });
 
   return {
     ...toPublicBookingResult(confirmedBooking),
-    cancelUrl: getCancelUrl({ uid: confirmedBooking.uid, token: cancelToken }),
+    cancelUrl: getCancelUrl({ id: confirmedBooking.id, token: cancelToken }),
   };
 }
 
 export async function cancelPublicBooking({
-  uid,
+  id,
   token,
   reason,
   logger,
 }: {
-  uid: string;
+  id: string;
   token: string;
   reason?: string;
   logger: Logger;
 }) {
   const booking = await prisma.booking.findUnique({
-    where: { uid },
+    where: { id },
     include: getBookingHostInclude(),
   });
 
@@ -309,7 +309,6 @@ export async function cancelPublicBooking({
     data: {
       status: BookingStatus.CANCELED,
       cancellationReason: reason || null,
-      canceledBy: BookingCanceledBy.GUEST,
     },
     include: getBookingHostInclude(),
   });
@@ -326,6 +325,10 @@ function getBookingHostInclude() {
   return {
     bookingLink: {
       select: {
+        title: true,
+        locationType: true,
+        locationValue: true,
+        timezone: true,
         emailAccount: {
           select: { email: true, name: true },
         },
@@ -491,7 +494,6 @@ async function createPendingBooking({
 }) {
   return prisma.booking.create({
     data: {
-      uid: randomToken(),
       bookingLinkId: config.link.id,
       emailAccountId: config.link.emailAccountId,
       guestName: input.guestName,
@@ -502,10 +504,6 @@ async function createPendingBooking({
       status: BookingStatus.PENDING_PROVIDER_EVENT,
       cancelTokenHash: hashToken(cancelToken),
       idempotencyToken: input.idempotencyToken,
-      linkTitle: config.link.title,
-      linkLocationType: config.link.locationType,
-      linkLocationValue: config.link.locationValue,
-      linkTimezone: config.link.timezone,
     },
     include: getBookingHostInclude(),
   });
@@ -544,12 +542,12 @@ function getProviderEventDescription({
 
 function toPublicBookingResult(booking: {
   endTime: Date;
+  id: string;
   startTime: Date;
   status: BookingStatus;
-  uid: string;
 }) {
   return {
-    uid: booking.uid,
+    id: booking.id,
     status: booking.status,
     startTime: booking.startTime.toISOString(),
     endTime: booking.endTime.toISOString(),
@@ -586,8 +584,8 @@ function isMatchingToken({
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-function getCancelUrl({ uid, token }: { uid: string; token: string }) {
-  return `${env.NEXT_PUBLIC_BASE_URL}/book/cancel/${uid}?token=${encodeURIComponent(
+function getCancelUrl({ id, token }: { id: string; token: string }) {
+  return `${env.NEXT_PUBLIC_BASE_URL}/book/cancel/${id}?token=${encodeURIComponent(
     token,
   )}`;
 }

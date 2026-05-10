@@ -1215,28 +1215,19 @@ model Booking {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  uid                 String             @unique
   guestName           String
   guestEmail          String
   guestNote           String?
   startTime           DateTime
   endTime             DateTime
-  status              BookingStatus      @default(PENDING_PROVIDER_EVENT)
+  status              BookingStatus @default(PENDING_PROVIDER_EVENT)
   provider            String?
   providerCalendarId  String?
   providerEventId     String?
   videoConferenceLink String?
   cancelTokenHash     String
   cancellationReason  String?
-  canceledBy          BookingCanceledBy?
   idempotencyToken    String?
-
-  // Snapshot of the booking link at the time of booking, so renaming or
-  // changing the link after the fact doesn't rewrite history.
-  linkTitle         String
-  linkLocationType  BookingLinkLocationType
-  linkLocationValue String?
-  linkTimezone      String
 
   bookingLinkId  String
   bookingLink    BookingLink  @relation(fields: [bookingLinkId], references: [id], onDelete: Cascade)
@@ -1246,7 +1237,6 @@ model Booking {
   @@unique([bookingLinkId, idempotencyToken])
   @@index([bookingLinkId, startTime, endTime])
   @@index([emailAccountId])
-  @@index([guestEmail])
 }
 
 model MeetingBriefing {
@@ -1790,12 +1780,6 @@ enum BookingStatus {
   CONFIRMED
   CANCELED
   FAILED
-}
-
-enum BookingCanceledBy {
-  HOST
-  GUEST
-  SYSTEM
 }
 
 enum GroupItemSource {

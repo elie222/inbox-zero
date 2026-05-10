@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
-  BookingCanceledBy,
   BookingLinkLocationType,
   BookingStatus,
 } from "@/generated/prisma/enums";
@@ -186,7 +185,6 @@ describe("public booking", () => {
           guestEmail: "guest@example.com",
           idempotencyToken: "token-1",
           status: BookingStatus.PENDING_PROVIDER_EVENT,
-          linkTitle: "Intro call",
         }),
       }),
     );
@@ -203,17 +201,17 @@ describe("public booking", () => {
     );
     expect(sendBookingConfirmationEmails).toHaveBeenCalledWith(
       expect.objectContaining({
-        booking: expect.objectContaining({ uid: "booking-uid" }),
-        cancelUrl: expect.stringContaining("/book/cancel/booking-uid?token="),
+        booking: expect.objectContaining({ id: "booking-id" }),
+        cancelUrl: expect.stringContaining("/book/cancel/booking-id?token="),
       }),
     );
     expect(result).toEqual(
       expect.objectContaining({
-        uid: "booking-uid",
+        id: "booking-id",
         status: BookingStatus.CONFIRMED,
         startTime: "2026-05-04T09:00:00.000Z",
         endTime: "2026-05-04T09:30:00.000Z",
-        cancelUrl: expect.stringContaining("/book/cancel/booking-uid?token="),
+        cancelUrl: expect.stringContaining("/book/cancel/booking-id?token="),
       }),
     );
   });
@@ -239,7 +237,7 @@ describe("public booking", () => {
     expect(createCalendarEvent).not.toHaveBeenCalled();
     expect(sendBookingConfirmationEmails).not.toHaveBeenCalled();
     expect(result).toEqual({
-      uid: "booking-uid",
+      id: "booking-id",
       status: BookingStatus.CONFIRMED,
       startTime: "2026-05-04T09:00:00.000Z",
       endTime: "2026-05-04T09:30:00.000Z",
@@ -315,14 +313,13 @@ describe("public booking", () => {
     );
     prisma.booking.update.mockResolvedValue(
       bookingRecord({
-        canceledBy: BookingCanceledBy.GUEST,
         cancellationReason: "No longer needed",
         status: BookingStatus.CANCELED,
       }),
     );
 
     const result = await cancelPublicBooking({
-      uid: "booking-uid",
+      id: "booking-id",
       token: "cancel-token",
       reason: "No longer needed",
       logger,
@@ -340,7 +337,6 @@ describe("public booking", () => {
         data: {
           status: BookingStatus.CANCELED,
           cancellationReason: "No longer needed",
-          canceledBy: BookingCanceledBy.GUEST,
         },
       }),
     );
@@ -362,7 +358,7 @@ describe("public booking", () => {
 
     await expect(
       cancelPublicBooking({
-        uid: "booking-uid",
+        id: "booking-id",
         token: "wrong-token",
         logger,
       }),
@@ -383,7 +379,7 @@ describe("public booking", () => {
 
     await expect(
       cancelPublicBooking({
-        uid: "booking-uid",
+        id: "booking-id",
         token: "cancel-token",
         logger,
       }),
@@ -447,7 +443,6 @@ function bookingRecord(
 function bookingRecordBase() {
   return {
     id: "booking-id",
-    uid: "booking-uid",
     bookingLinkId: "booking-link-id",
     emailAccountId: "email-account-id",
     guestName: "Guest User",
@@ -462,15 +457,14 @@ function bookingRecordBase() {
     videoConferenceLink: null,
     cancelTokenHash: hashToken("cancel-token"),
     cancellationReason: null,
-    canceledBy: null,
     idempotencyToken: "token-1",
-    linkTitle: "Intro call",
-    linkLocationType: BookingLinkLocationType.CUSTOM,
-    linkLocationValue: "Video link",
-    linkTimezone: "UTC",
     createdAt: new Date("2026-05-01T00:00:00.000Z"),
     updatedAt: new Date("2026-05-01T00:00:00.000Z"),
     bookingLink: {
+      title: "Intro call",
+      locationType: BookingLinkLocationType.CUSTOM,
+      locationValue: "Video link",
+      timezone: "UTC",
       emailAccount: {
         email: "host@example.com",
         name: "Host User",

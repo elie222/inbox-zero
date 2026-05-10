@@ -4,9 +4,6 @@ CREATE TYPE "BookingLinkLocationType" AS ENUM ('IN_PERSON', 'GOOGLE_MEET', 'MICR
 -- CreateEnum
 CREATE TYPE "BookingStatus" AS ENUM ('PENDING_PROVIDER_EVENT', 'CONFIRMED', 'CANCELED', 'FAILED');
 
--- CreateEnum
-CREATE TYPE "BookingCanceledBy" AS ENUM ('HOST', 'GUEST', 'SYSTEM');
-
 -- CreateTable
 CREATE TABLE "BookingLink" (
     "id" TEXT NOT NULL,
@@ -47,7 +44,6 @@ CREATE TABLE "Booking" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "uid" TEXT NOT NULL,
     "guestName" TEXT NOT NULL,
     "guestEmail" TEXT NOT NULL,
     "guestNote" TEXT,
@@ -60,12 +56,7 @@ CREATE TABLE "Booking" (
     "videoConferenceLink" TEXT,
     "cancelTokenHash" TEXT NOT NULL,
     "cancellationReason" TEXT,
-    "canceledBy" "BookingCanceledBy",
     "idempotencyToken" TEXT,
-    "linkTitle" TEXT NOT NULL,
-    "linkLocationType" "BookingLinkLocationType" NOT NULL,
-    "linkLocationValue" TEXT,
-    "linkTimezone" TEXT NOT NULL,
     "bookingLinkId" TEXT NOT NULL,
     "emailAccountId" TEXT NOT NULL,
 
@@ -85,9 +76,6 @@ CREATE INDEX "BookingLink_destinationCalendarId_idx" ON "BookingLink"("destinati
 CREATE INDEX "BookingWindow_bookingLinkId_idx" ON "BookingWindow"("bookingLinkId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Booking_uid_key" ON "Booking"("uid");
-
--- CreateIndex
 CREATE UNIQUE INDEX "Booking_bookingLinkId_idempotencyToken_key" ON "Booking"("bookingLinkId", "idempotencyToken");
 
 -- CreateIndex
@@ -95,9 +83,6 @@ CREATE INDEX "Booking_bookingLinkId_startTime_endTime_idx" ON "Booking"("booking
 
 -- CreateIndex
 CREATE INDEX "Booking_emailAccountId_idx" ON "Booking"("emailAccountId");
-
--- CreateIndex
-CREATE INDEX "Booking_guestEmail_idx" ON "Booking"("guestEmail");
 
 -- AddForeignKey
 ALTER TABLE "BookingLink" ADD CONSTRAINT "BookingLink_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;

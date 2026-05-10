@@ -16,10 +16,10 @@ type CancelFormValues = z.infer<typeof cancelFormSchema>;
 
 export function CancelBookingClient({
   token,
-  uid,
+  id,
 }: {
   token?: string;
-  uid: string;
+  id: string;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -36,7 +36,7 @@ export function CancelBookingClient({
     if (!token) return;
     setError(null);
     try {
-      const response = await fetch(`/api/public/bookings/${uid}/cancel`, {
+      const response = await fetch(`/api/public/bookings/${id}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
