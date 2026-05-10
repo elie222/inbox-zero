@@ -1,10 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { useForm, type SubmitHandler } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/Input";
 import { getApiError } from "../../[slug]/BookingPageClient";
+
+const cancelFormSchema = z.object({
+  reason: z.string().trim().max(1000).optional(),
+});
+type CancelFormValues = z.infer<typeof cancelFormSchema>;
 
 export function CancelBookingClient({
   token,
@@ -15,23 +23,25 @@ export function CancelBookingClient({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<CancelFormValues>({
+    resolver: zodResolver(cancelFormSchema),
+  });
+
+  const onSubmit: SubmitHandler<CancelFormValues> = async (values) => {
     if (!token) return;
-
-    const formData = new FormData(event.currentTarget);
     setError(null);
-    setIsSubmitting(true);
-
     try {
       const response = await fetch(`/api/public/bookings/${uid}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token,
-          reason: formData.get("reason") || undefined,
+          reason: values.reason || undefined,
         }),
       });
       const body = await response.json();
@@ -43,10 +53,8 @@ export function CancelBookingClient({
           ? cancelError.message
           : "Failed to cancel booking",
       );
-    } finally {
-      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <main className="min-h-screen bg-muted/30 px-4 py-10">
@@ -59,13 +67,15 @@ export function CancelBookingClient({
             {done ? (
               <p className="text-sm text-muted-foreground">Booking canceled.</p>
             ) : token ? (
-              <form onSubmit={submit} className="space-y-4">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <Input
                   type="text"
                   autosizeTextarea
                   rows={3}
                   name="reason"
                   label="Reason"
+                  registerProps={register("reason")}
+                  error={errors.reason}
                 />
                 {error ? <p className="text-sm text-red-500">{error}</p> : null}
                 <Button type="submit" loading={isSubmitting}>
