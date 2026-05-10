@@ -35,16 +35,17 @@ export function getSupportedTimezonesWithOffsets(
 
 export function getTimezoneOffsetMinutes(zone: string, now: Date): number {
   try {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone: zone,
-      timeZoneName: "shortOffset",
-    }).formatToParts(now);
-    const raw = parts.find((part) => part.type === "timeZoneName")?.value ?? "";
-    const match = raw.match(/^GMT(?:([+-])(\d{1,2})(?::(\d{2}))?)?$/);
-    if (!match) return 0;
-    const [, sign = "+", hours = "0", minutes = "0"] = match;
-    const total = Number(hours) * 60 + Number(minutes);
-    return sign === "-" ? -total : total;
+    // Format the same instant as a wall-clock string in UTC and in the target
+    // zone, then re-parse both. Each `new Date(...)` interprets the string in
+    // the system's local zone, so the local offset cancels out and the
+    // remaining diff is the target zone's offset from UTC.
+    const utcMs = new Date(
+      now.toLocaleString("en-US", { timeZone: "UTC" }),
+    ).getTime();
+    const tzMs = new Date(
+      now.toLocaleString("en-US", { timeZone: zone }),
+    ).getTime();
+    return Math.round((tzMs - utcMs) / 60_000);
   } catch {
     return 0;
   }
