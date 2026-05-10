@@ -20,6 +20,7 @@ export const createBookingLinkAction = actionClient
   .metadata({ name: "createBookingLink" })
   .inputSchema(createBookingLinkBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+    await assertNoBookingLinkForAccount({ emailAccountId });
     await assertBookingLinkSlugAvailable({ slug: parsedInput.slug });
 
     const destinationCalendarId = await getOwnedDestinationCalendarId({
@@ -177,6 +178,21 @@ async function ensureBookingLinkOwner({
   if (!bookingLink) throw new SafeError("Booking link not found");
 
   return bookingLink;
+}
+
+async function assertNoBookingLinkForAccount({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const existingLink = await prisma.bookingLink.findFirst({
+    where: { emailAccountId },
+    select: { id: true },
+  });
+
+  if (existingLink) {
+    throw new SafeError("Booking link already exists");
+  }
 }
 
 async function getOwnedDestinationCalendarId({

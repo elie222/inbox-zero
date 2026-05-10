@@ -220,7 +220,7 @@ export async function createOutlookTestHarness({
   return { emulator, graphClient, provider, restoreFetch };
 }
 
-async function getAvailablePort() {
+export async function getAvailablePort() {
   return new Promise<number>((resolve, reject) => {
     const server = createServer();
 

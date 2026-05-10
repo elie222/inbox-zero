@@ -3,6 +3,7 @@ import { auth, calendar } from "@googleapis/calendar";
 import { createEmulator, type Emulator } from "emulate";
 import { createTestLogger } from "@/__tests__/helpers";
 import type { CalendarEventWriteInput } from "@/utils/calendar/event-types";
+import { getAvailablePort } from "./helpers";
 
 vi.mock("server-only", () => ({}));
 
@@ -26,7 +27,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     beforeAll(async () => {
       emulator = await createEmulator({
         service: "google",
-        port: 4121,
+        port: await getAvailablePort(),
         seed: {
           google: {
             users: [{ email: EMAIL, name: "Calendar Writer" }],

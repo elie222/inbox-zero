@@ -115,6 +115,22 @@ describe("booking actions", () => {
     expect(prisma.bookingLink.create).not.toHaveBeenCalled();
   });
 
+  it("rejects creating more than one booking link for an account", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValueOnce({
+      id: "existing-booking-link-id",
+    } as any);
+
+    const result = await createBookingLinkAction("email-account-id", {
+      title: "Intro call",
+      slug: "intro-call",
+      timezone: "UTC",
+      durationMinutes: 30,
+    });
+
+    expect(result?.serverError).toBe("Booking link already exists");
+    expect(prisma.bookingLink.create).not.toHaveBeenCalled();
+  });
+
   it("rejects an update slug that conflicts with another link", async () => {
     prisma.bookingLink.findFirst
       .mockResolvedValueOnce({ id: "booking-link-id" } as any)

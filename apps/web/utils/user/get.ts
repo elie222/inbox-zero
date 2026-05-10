@@ -54,6 +54,12 @@ export async function getEmailAccountWithAi({
       sensitiveDataPolicy: true,
       timezone: true,
       calendarBookingLink: true,
+      bookingLinks: {
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { slug: true },
+      },
       name: true,
       user: {
         select: {
@@ -92,6 +98,12 @@ export async function getEmailAccountForRuleExecution({
       sensitiveDataPolicy: true,
       timezone: true,
       calendarBookingLink: true,
+      bookingLinks: {
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { slug: true },
+      },
       name: true,
       draftReplyConfidence: true,
       user: {

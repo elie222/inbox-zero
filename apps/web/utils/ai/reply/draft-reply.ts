@@ -9,6 +9,7 @@ import { getModel } from "@/utils/llms/model";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import { env } from "@/env";
 import { normalizeDraftReplyConfidence } from "@/utils/ai/reply/draft-confidence";
 import {
   createDraftAttributionTracker,
@@ -45,6 +46,10 @@ Don't be pushy.
 Write in a plainspoken, professional tone.
 Prefer short declarative sentences over polished or overly elaborate phrasing.`;
 
+type DraftEmailAccount = EmailAccountWithAI & {
+  bookingLinks?: { slug: string }[];
+};
+
 const getUserPrompt = ({
   messages,
   emailAccount,
@@ -61,7 +66,7 @@ const getUserPrompt = ({
   hasConfiguredSignature,
 }: {
   messages: (EmailForLLM & { to: string })[];
-  emailAccount: EmailAccountWithAI;
+  emailAccount: DraftEmailAccount;
   knowledgeBaseContent: string | null;
   replyMemoryContent: string | null;
   emailHistorySummary: string | null;
@@ -148,7 +153,7 @@ ${learnedWritingStyle}
     : "";
 
   const schedulingContext = getSchedulingContext({
-    calendarBookingLink: emailAccount.calendarBookingLink,
+    calendarBookingLink: getCalendarBookingLinkForDraft(emailAccount),
     calendarAvailability,
     userTimezone: calendarAvailability?.timezone || emailAccount.timezone,
   });
@@ -234,7 +239,7 @@ export async function aiDraftReplyWithConfidence({
   hasConfiguredSignature = false,
 }: {
   messages: (EmailForLLM & { to: string })[];
-  emailAccount: EmailAccountWithAI;
+  emailAccount: DraftEmailAccount;
   knowledgeBaseContent: string | null;
   replyMemoryContent?: string | null;
   emailHistorySummary: string | null;
@@ -339,7 +344,7 @@ export async function aiDraftReply({
   hasConfiguredSignature = false,
 }: {
   messages: (EmailForLLM & { to: string })[];
-  emailAccount: EmailAccountWithAI;
+  emailAccount: DraftEmailAccount;
   knowledgeBaseContent: string | null;
   replyMemoryContent?: string | null;
   emailHistorySummary: string | null;
@@ -465,6 +470,16 @@ ${calendarBookingLink ? "If scheduling with the user is clearly needed, you may 
 ${parts.join("\n\n")}
 </scheduling>
 `;
+}
+
+function getCalendarBookingLinkForDraft(emailAccount: DraftEmailAccount) {
+  const inboxZeroBookingLink = emailAccount.bookingLinks?.[0];
+
+  if (inboxZeroBookingLink) {
+    return `${env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, "")}/book/${inboxZeroBookingLink.slug}`;
+  }
+
+  return emailAccount.calendarBookingLink;
 }
 
 function formatAvailableSlotForPrompt(

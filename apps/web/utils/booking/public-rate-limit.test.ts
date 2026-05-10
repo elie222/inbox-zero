@@ -67,7 +67,6 @@ function publicBookingInput(): Parameters<
 >[0]["input"] {
   return {
     slug: "intro-call",
-    eventTypeSlug: "meeting",
     startTime: "2026-05-10T10:00:00.000Z",
     timezone: "UTC",
     guestName: "Guest User",

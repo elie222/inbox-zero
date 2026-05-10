@@ -11,6 +11,7 @@ import { auth, calendar } from "@googleapis/calendar";
 import { createEmulator, type Emulator } from "emulate";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
+import { getAvailablePort } from "@/__tests__/integration/helpers";
 import {
   BookingLinkLocationType,
   BookingStatus,
@@ -45,7 +46,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     beforeAll(async () => {
       emulator = await createEmulator({
         service: "google",
-        port: 4122,
+        port: await getAvailablePort(),
         seed: {
           google: {
             users: [{ email: EMAIL, name: "Booking Host" }],

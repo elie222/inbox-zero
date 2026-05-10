@@ -319,9 +319,13 @@ function ActiveLinkCard({
   const displayUrl = stripScheme(publicUrl);
   const isActive = link.isActive;
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(publicUrl);
-    toastSuccess({ description: "Booking link copied" });
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      toastSuccess({ description: "Booking link copied" });
+    } catch {
+      toastError({ description: "Failed to copy booking link" });
+    }
   };
 
   return (
