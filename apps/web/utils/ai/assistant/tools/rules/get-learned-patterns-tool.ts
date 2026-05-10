@@ -2,7 +2,7 @@ import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { trackRuleToolCall } from "./shared";
+import { buildHiddenRuleNotFoundError, trackRuleToolCall } from "./shared";
 
 export const getLearnedPatternsTool = ({
   email,
@@ -41,10 +41,7 @@ export const getLearnedPatternsTool = ({
         });
 
         if (!rule) {
-          return {
-            error:
-              "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
-          };
+          return buildHiddenRuleNotFoundError();
         }
 
         return {

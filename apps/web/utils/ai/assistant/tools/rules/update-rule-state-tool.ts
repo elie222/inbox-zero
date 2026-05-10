@@ -6,7 +6,11 @@ import prisma from "@/utils/prisma";
 import { setRuleEnabled } from "@/utils/rule/rule";
 import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
-import { trackRuleToolCall, validateRuleWasReadRecently } from "./shared";
+import {
+  buildHiddenRuleNotFoundError,
+  trackRuleToolCall,
+  validateRuleWasReadRecently,
+} from "./shared";
 
 export const ruleStateOperationSchema = z.enum(["enable", "disable", "delete"]);
 
@@ -62,11 +66,7 @@ export const updateRuleStateTool = ({
         });
 
         if (!rule) {
-          return {
-            success: false,
-            error:
-              "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
-          };
+          return buildHiddenRuleNotFoundError();
         }
 
         const staleReadError = validateRuleWasReadRecently({

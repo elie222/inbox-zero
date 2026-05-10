@@ -48,6 +48,41 @@ describe("updateLearnedPatternsTool", () => {
     expect(prisma.rule.findUnique).not.toHaveBeenCalled();
   });
 
+  it("marks missing-rule retry guidance as hidden from user display", async () => {
+    prisma.rule.findUnique.mockResolvedValueOnce(null);
+
+    const toolInstance = updateLearnedPatternsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["VIP senders", "2026-04-12T10:00:00.000Z"],
+        ]),
+      }),
+    });
+
+    const result = await toolInstance.execute({
+      ruleName: "VIP senders",
+      learnedPatterns: [
+        {
+          exclude: {
+            from: "sender@example.com",
+          },
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error:
+        "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+      toolErrorVisibility: "hidden",
+    });
+  });
+
   it("returns a failure when saving learned patterns fails", async () => {
     prisma.rule.findUnique
       .mockResolvedValueOnce({

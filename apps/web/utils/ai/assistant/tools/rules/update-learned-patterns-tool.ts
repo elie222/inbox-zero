@@ -6,7 +6,11 @@ import { GroupItemType } from "@/generated/prisma/enums";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
-import { trackRuleToolCall, validateRuleWasReadRecently } from "./shared";
+import {
+  buildHiddenRuleNotFoundError,
+  trackRuleToolCall,
+  validateRuleWasReadRecently,
+} from "./shared";
 
 export const updateLearnedPatternsTool = ({
   email,
@@ -90,11 +94,7 @@ export const updateLearnedPatternsTool = ({
         });
 
         if (!rule) {
-          return {
-            success: false,
-            error:
-              "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
-          };
+          return buildHiddenRuleNotFoundError();
         }
 
         const staleReadError = validateRuleWasReadRecently({

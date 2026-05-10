@@ -8,7 +8,11 @@ import { updateRuleActions } from "@/utils/rule/rule";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
-import { trackRuleToolCall, validateRuleWasReadRecently } from "./shared";
+import {
+  buildHiddenRuleNotFoundError,
+  trackRuleToolCall,
+  validateRuleWasReadRecently,
+} from "./shared";
 
 export const updateRuleActionsTool = ({
   email,
@@ -77,11 +81,7 @@ export const updateRuleActionsTool = ({
         });
 
         if (!rule) {
-          return {
-            success: false,
-            error:
-              "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
-          };
+          return buildHiddenRuleNotFoundError();
         }
 
         const staleReadError = validateRuleWasReadRecently({
