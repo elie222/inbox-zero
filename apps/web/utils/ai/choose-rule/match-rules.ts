@@ -50,6 +50,16 @@ import {
 const MODULE = "match-rules";
 
 const TO_REPLY_RECEIVED_THRESHOLD = 10;
+const NO_REPLY_PREFIXES = [
+  "noreply@",
+  "no-reply@",
+  "notifications@",
+  "notif@",
+  "info@",
+  "newsletter@",
+  "updates@",
+  "account@",
+];
 
 type MatchingRulesResult = {
   matches: {
@@ -281,6 +291,18 @@ async function findPotentialMatchingRules({
   const hasLearnedPatternMatch = matches.some((m) =>
     m.matchReasons.some((r) => r.type === ConditionType.LEARNED_PATTERN),
   );
+  const remainingAiRuleNames = filteredPotentialAiMatches.map(
+    (rule) => rule.name,
+  );
+  const selectionMetadata = createRuleSelectionMetadata({
+    isThread,
+    skippedThreadRuleNames,
+    continuedThreadRuleNames,
+    learnedPatternExcludedRules,
+    filteredConversationRuleNames: conversationStatusFilter.filteredRuleNames,
+    conversationFilterReason: conversationStatusFilter.filterReason,
+    remainingAiRuleNames,
+  });
 
   if (
     potentialAiMatches.length ||
@@ -291,18 +313,7 @@ async function findPotentialMatchingRules({
     !matches.length
   ) {
     const selectionMetadataSummary = summarizeSelectionMetadata([
-      createRuleSelectionMetadata({
-        isThread,
-        skippedThreadRuleNames,
-        continuedThreadRuleNames,
-        learnedPatternExcludedRules,
-        filteredConversationRuleNames:
-          conversationStatusFilter.filteredRuleNames,
-        conversationFilterReason: conversationStatusFilter.filterReason,
-        remainingAiRuleNames: filteredPotentialAiMatches.map(
-          (rule) => rule.name,
-        ),
-      }),
+      selectionMetadata,
     ]);
 
     logger.info("Built rule candidates", {
@@ -325,29 +336,14 @@ async function findPotentialMatchingRules({
       ),
       conversationFilterReason: conversationStatusFilter.filterReason,
       remainingAiRuleCount: filteredPotentialAiMatches.length,
-      remainingAiRuleNames: joinLogValues(
-        filteredPotentialAiMatches.map((rule) => rule.name),
-      ),
+      remainingAiRuleNames: joinLogValues(remainingAiRuleNames),
       hasLearnedPatternMatch,
       learnedPatternExcludedRules:
         selectionMetadataSummary.learnedPatternExcludedRules,
     });
 
     logger.trace("Built rule candidate details", {
-      ...getSelectionMetadataTraceDetails([
-        createRuleSelectionMetadata({
-          isThread,
-          skippedThreadRuleNames,
-          continuedThreadRuleNames,
-          learnedPatternExcludedRules,
-          filteredConversationRuleNames:
-            conversationStatusFilter.filteredRuleNames,
-          conversationFilterReason: conversationStatusFilter.filterReason,
-          remainingAiRuleNames: filteredPotentialAiMatches.map(
-            (rule) => rule.name,
-          ),
-        }),
-      ]),
+      ...getSelectionMetadataTraceDetails([selectionMetadata]),
     });
   }
 
@@ -358,15 +354,7 @@ async function findPotentialMatchingRules({
     potentialAiMatches: hasLearnedPatternMatch
       ? []
       : filteredPotentialAiMatches,
-    selectionMetadata: createRuleSelectionMetadata({
-      isThread,
-      skippedThreadRuleNames,
-      continuedThreadRuleNames,
-      learnedPatternExcludedRules,
-      filteredConversationRuleNames: conversationStatusFilter.filteredRuleNames,
-      conversationFilterReason: conversationStatusFilter.filterReason,
-      remainingAiRuleNames: filteredPotentialAiMatches.map((rule) => rule.name),
-    }),
+    selectionMetadata,
   };
 }
 
@@ -557,63 +545,62 @@ async function findMatchingRulesWithReasons(
       classificationFeedback,
     });
 
-    const result = {
-      rules: filterMultipleSystemRules(fullResult.rules),
-      reason: fullResult.reason,
-    };
-
-    // Build combined matches: update existing matches with AI reasons if AI also chose them,
-    // and append new AI-selected matches
-    const aiRuleIds = new Set(result.rules.map((r) => r.id));
-
-    const combinedMatches = [
-      // Map existing matches, appending AI match reason if AI also chose this rule
-      ...matches.map((match) => ({
-        rule: match.rule,
-        matchReasons: aiRuleIds.has(match.rule.id)
-          ? [...(match.matchReasons || []), { type: ConditionType.AI }]
-          : match.matchReasons || [],
-      })),
-      // Append AI-selected matches that weren't already in matches
-      ...result.rules
-        .filter(
-          (aiRule) =>
-            !matches.some(
-              (existingMatch) => existingMatch.rule.id === aiRule.id,
-            ),
-        )
-        .map((rule) => ({
-          rule,
-          matchReasons: [{ type: ConditionType.AI }],
-        })),
-    ];
-
-    // Combine reasoning: existing reasoning plus AI reasoning
-    const existingReasoning = matches
-      .map((m) => getMatchReason(m.matchReasons))
-      .filter((r): r is string => !!r)
-      .join(", ");
-
-    const aiReason = result.reason?.trim();
-    const combinedReasoning = [existingReasoning, aiReason]
-      .filter((r): r is string => !!r)
-      .join("; ");
+    const aiRules = filterMultipleSystemRules(fullResult.rules);
 
     return {
-      matches: combinedMatches,
-      reasoning: combinedReasoning,
-      selectionMetadata,
-    };
-  } else {
-    return {
-      matches,
-      reasoning: matches
-        .map((m) => getMatchReason(m.matchReasons))
-        .filter((r): r is string => !!r)
-        .join(", "),
+      matches: mergeMatchesWithAiResults(matches, aiRules),
+      reasoning: combineReasoning(
+        getMatchesReasoning(matches),
+        fullResult.reason,
+      ),
       selectionMetadata,
     };
   }
+
+  return {
+    matches,
+    reasoning: getMatchesReasoning(matches),
+    selectionMetadata,
+  };
+}
+
+function mergeMatchesWithAiResults(
+  matches: { rule: RuleWithActions; matchReasons?: MatchReason[] }[],
+  aiRules: RuleWithActions[],
+) {
+  const aiRuleIds = new Set(aiRules.map((rule) => rule.id));
+  const existingRuleIds = new Set(matches.map((match) => match.rule.id));
+
+  return [
+    ...matches.map((match) => ({
+      rule: match.rule,
+      matchReasons: aiRuleIds.has(match.rule.id)
+        ? [...(match.matchReasons || []), { type: ConditionType.AI }]
+        : match.matchReasons || [],
+    })),
+    ...aiRules
+      .filter((rule) => !existingRuleIds.has(rule.id))
+      .map((rule) => ({
+        rule,
+        matchReasons: [{ type: ConditionType.AI }],
+      })),
+  ];
+}
+
+function getMatchesReasoning(
+  matches: { matchReasons?: MatchReason[] }[],
+): string {
+  return matches
+    .map((match) => getMatchReason(match.matchReasons))
+    .filter((reason): reason is string => !!reason)
+    .join(", ");
+}
+
+function combineReasoning(...reasons: (string | undefined)[]) {
+  return reasons
+    .map((reason) => reason?.trim())
+    .filter((reason): reason is string => !!reason)
+    .join("; ");
 }
 
 export function matchesStaticRule(
@@ -626,52 +613,12 @@ export function matchesStaticRule(
 
   if (!from && !to && !subject && !body) return false;
 
-  const safeRegexTest = (
-    pattern: string,
-    text: string,
-    allowPipeAsOr = false,
-  ) => {
-    try {
-      // Split by pipe, comma, or " OR " to handle OR conditions only for email fields (from/to)
-      // Supports: "@a.com|@b.com", "@a.com, @b.com", "@a.com OR @b.com"
-      const patterns = allowPipeAsOr ? splitEmailPatterns(pattern) : [pattern];
-
-      // Test each pattern individually
-      for (const individualPattern of patterns) {
-        // Escape regex special characters except for * which we want to support as wildcards
-        const escapedPattern = individualPattern.replace(
-          /[.+?^${}()[\]\\]/g,
-          "\\$&",
-        );
-
-        // Convert all * to .* for wildcard matching
-        const regexPattern = escapedPattern.replace(/\*/g, ".*");
-
-        if (new RegExp(regexPattern).test(text)) {
-          return true;
-        }
-      }
-
-      return false;
-    } catch (error) {
-      log.error("Invalid regex pattern", { pattern, error });
-      return false;
-    }
-  };
-
-  const fromAddressHeader = normalizeEmailHeaderForRuleMatching(
-    message.headers.from,
-  );
-  const toAddressHeader = normalizeEmailHeaderForRuleMatching(
-    message.headers.to,
-    true,
-  );
-  const fromDisplayNameHeader = normalizeEmailDisplayNameHeaderForRuleMatching(
-    message.headers.from,
-  );
-  const toDisplayNameHeader = normalizeEmailDisplayNameHeaderForRuleMatching(
-    message.headers.to,
-  );
+  const {
+    fromAddressHeader,
+    toAddressHeader,
+    fromDisplayNameHeader,
+    toDisplayNameHeader,
+  } = getNormalizedEmailMatchHeaders(message);
 
   const fromMatch = from
     ? matchesEmailFieldPattern({
@@ -700,10 +647,10 @@ export function matchesStaticRule(
       })
     : true;
   const subjectMatch = subject
-    ? safeRegexTest(subject, message.headers.subject, false)
+    ? matchesTextPattern(subject, message.headers.subject, log)
     : true;
   const bodyMatch = body
-    ? safeRegexTest(body, message.textPlain || "", false)
+    ? matchesTextPattern(body, message.textPlain || "", log)
     : true;
 
   return fromMatch && toMatch && subjectMatch && bodyMatch;
@@ -797,17 +744,6 @@ async function filterConversationStatusRulesWithMetadata<
 
   const extractedSenderEmail = extractEmailAddress(senderEmail);
 
-  const noReplyPrefixes = [
-    "noreply@",
-    "no-reply@",
-    "notifications@",
-    "notif@",
-    "info@",
-    "newsletter@",
-    "updates@",
-    "account@",
-  ];
-
   const filteredConversationRuleNames = potentialMatches
     .filter((r) => isConversationStatusType(r.systemType))
     .map((r) => r.name);
@@ -819,7 +755,7 @@ async function filterConversationStatusRulesWithMetadata<
   }
 
   if (
-    noReplyPrefixes.some((prefix) => extractedSenderEmail.startsWith(prefix))
+    NO_REPLY_PREFIXES.some((prefix) => extractedSenderEmail.startsWith(prefix))
   ) {
     return {
       rules: filteredOutConversationStatusRules(),
@@ -923,6 +859,24 @@ function normalizeEmailHeaderForRuleMatching(
   return extractEmailAddress(header);
 }
 
+function getNormalizedEmailMatchHeaders(message: ParsedMessage) {
+  return {
+    fromAddressHeader: normalizeEmailHeaderForRuleMatching(
+      message.headers.from,
+    ),
+    toAddressHeader: normalizeEmailHeaderForRuleMatching(
+      message.headers.to,
+      true,
+    ),
+    fromDisplayNameHeader: normalizeEmailDisplayNameHeaderForRuleMatching(
+      message.headers.from,
+    ),
+    toDisplayNameHeader: normalizeEmailDisplayNameHeaderForRuleMatching(
+      message.headers.to,
+    ),
+  };
+}
+
 function normalizeEmailDisplayNameHeaderForRuleMatching(header: string) {
   if (!header) return "";
 
@@ -938,6 +892,26 @@ function normalizeEmailDisplayNameHeaderForRuleMatching(header: string) {
     })
     .filter(Boolean)
     .join(", ");
+}
+
+function matchesTextPattern(pattern: string, text: string, logger: Logger) {
+  try {
+    return matchesRulePattern(pattern, text);
+  } catch (error) {
+    logger.error("Invalid regex pattern", { pattern, error });
+    return false;
+  }
+}
+
+function matchesRulePattern(pattern: string, text: string) {
+  return createRulePatternRegex(pattern).test(text);
+}
+
+function createRulePatternRegex(pattern: string) {
+  const escapedPattern = pattern.replace(/[.+?^${}()[\]\\]/g, "\\$&");
+  const regexPattern = escapedPattern.replace(/\*/g, ".*");
+
+  return new RegExp(regexPattern);
 }
 
 function matchesEmailFieldPattern({
@@ -956,10 +930,7 @@ function matchesEmailFieldPattern({
 
     for (const patternPart of patterns) {
       const normalizedPattern = patternPart.trim().toLowerCase();
-      const regexPattern = normalizedPattern
-        .replace(/[.+?^${}()[\]\\]/g, "\\$&")
-        .replace(/\*/g, ".*");
-      const regex = new RegExp(regexPattern);
+      const regex = createRulePatternRegex(normalizedPattern);
 
       if (isAddressLikeEmailPattern(patternPart)) {
         if (regex.test(addressText)) return true;
