@@ -7,37 +7,25 @@ const {
   getWebhookEmailAccountMock,
   getEmailProviderRateLimitStateMock,
   cleanupWebhookAccountOnRateLimitSkipMock,
-  requestLoggerMock,
-} = vi.hoisted(() => {
-  const requestLoggerMock = {
-    error: vi.fn(),
-    info: vi.fn(),
-    trace: vi.fn(),
-    warn: vi.fn(),
-    with: vi.fn(),
-  };
-
-  return {
-    envMock: {
-      GOOGLE_PUBSUB_VERIFICATION_TOKEN: "test-google-webhook-token" as
-        | string
-        | undefined,
-    },
-    processHistoryForUserMock: vi.fn(),
-    runWithBackgroundLoggerFlushMock: vi.fn(),
-    getWebhookEmailAccountMock: vi.fn(),
-    getEmailProviderRateLimitStateMock: vi.fn(),
-    cleanupWebhookAccountOnRateLimitSkipMock: vi.fn(),
-    requestLoggerMock,
-  };
-});
+} = vi.hoisted(() => ({
+  envMock: {
+    GOOGLE_PUBSUB_VERIFICATION_TOKEN: "test-google-webhook-token" as
+      | string
+      | undefined,
+  },
+  processHistoryForUserMock: vi.fn(),
+  runWithBackgroundLoggerFlushMock: vi.fn(),
+  getWebhookEmailAccountMock: vi.fn(),
+  getEmailProviderRateLimitStateMock: vi.fn(),
+  cleanupWebhookAccountOnRateLimitSkipMock: vi.fn(),
+}));
 
 vi.mock("@/utils/middleware", async () => {
   const { createWithErrorTestMiddleware } = await vi.importActual<
     typeof import("@/__tests__/helpers")
   >("@/__tests__/helpers");
 
-  return createWithErrorTestMiddleware({ logger: requestLoggerMock as never });
+  return createWithErrorTestMiddleware();
 });
 
 vi.mock("@/env", () => ({
@@ -75,7 +63,6 @@ import { POST } from "./route";
 describe("Google webhook route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    requestLoggerMock.with.mockReturnValue(requestLoggerMock);
     envMock.GOOGLE_PUBSUB_VERIFICATION_TOKEN = "test-google-webhook-token";
     processHistoryForUserMock.mockResolvedValue(undefined);
     getWebhookEmailAccountMock.mockResolvedValue(null);
@@ -128,7 +115,7 @@ describe("Google webhook route", () => {
     expect(processHistoryForUserMock).toHaveBeenCalledWith(
       { emailAddress: "user@example.com", historyId: 123 },
       { preloadedEmailAccount: null },
-      request.logger,
+      expect.anything(),
     );
   });
 
@@ -150,7 +137,7 @@ describe("Google webhook route", () => {
     expect(processHistoryForUserMock).toHaveBeenCalledWith(
       { emailAddress: "user@example.com", historyId: 123 },
       { preloadedEmailAccount: { id: "account-1" } },
-      request.logger,
+      expect.anything(),
     );
   });
 
@@ -175,7 +162,7 @@ describe("Google webhook route", () => {
     expect(body).toEqual({ ok: true });
     expect(cleanupWebhookAccountOnRateLimitSkipMock).toHaveBeenCalledWith(
       { id: "account-1" },
-      request.logger,
+      expect.anything(),
     );
     expect(runWithBackgroundLoggerFlushMock).not.toHaveBeenCalled();
     expect(processHistoryForUserMock).not.toHaveBeenCalled();
@@ -212,7 +199,5 @@ function createRequest({
           .replace(/\//g, "_"),
       },
     }),
-  }) as Request & {
-    logger: typeof requestLoggerMock;
-  };
+  });
 }

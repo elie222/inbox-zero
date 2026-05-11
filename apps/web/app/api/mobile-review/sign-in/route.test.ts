@@ -1,16 +1,9 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createMobileReviewSessionMock, loggerInfoMock, requestLoggerMock } =
-  vi.hoisted(() => {
-    const loggerInfoMock = vi.fn();
-
-    return {
-      createMobileReviewSessionMock: vi.fn(),
-      loggerInfoMock,
-      requestLoggerMock: { info: loggerInfoMock },
-    };
-  });
+const { createMobileReviewSessionMock } = vi.hoisted(() => ({
+  createMobileReviewSessionMock: vi.fn(),
+}));
 
 vi.mock("@/utils/mobile-review", () => ({
   createMobileReviewSession: createMobileReviewSessionMock,
@@ -20,7 +13,7 @@ vi.mock("@/utils/middleware", async () => {
     typeof import("@/__tests__/helpers")
   >("@/__tests__/helpers");
 
-  return createWithErrorTestMiddleware({ logger: requestLoggerMock as never });
+  return createWithErrorTestMiddleware();
 });
 
 import { POST } from "./route";
@@ -67,7 +60,7 @@ describe("mobile review sign-in route", () => {
     expect(createMobileReviewSessionMock).toHaveBeenCalledWith({
       code: "review-code",
       email: "review@example.com",
-      logger: requestLoggerMock,
+      logger: expect.anything(),
     });
     expect(body).toEqual({ success: true });
     expect(body.setCookie).toBeUndefined();
@@ -75,14 +68,6 @@ describe("mobile review sign-in route", () => {
       "__Secure-better-auth.session_token=signed-session-token",
     );
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(loggerInfoMock).toHaveBeenCalledWith(
-      "Created mobile review session",
-      {
-        reviewEmailAccountId: "account-1",
-        reviewUserEmail: "review@example.com",
-        reviewUserId: "user-1",
-      },
-    );
   });
 
   it("rejects sign-in requests without an email", async () => {

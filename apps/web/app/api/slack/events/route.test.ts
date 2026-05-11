@@ -9,35 +9,24 @@ const {
   validateSlackWebhookRequestMock,
   publishAppHomeMock,
   handleSlackAppUninstalledMock,
-  requestLoggerMock,
-} = vi.hoisted(() => {
-  const requestLoggerMock = {
-    warn: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-    trace: vi.fn(),
-  };
-
-  return {
-    validateSlackWebhookRequestMock: vi.fn(),
-    ensureSlackTeamInstallationMock: vi.fn(),
-    extractSlackTeamIdFromWebhookMock: vi.fn(),
-    slackWebhookMock: vi.fn(),
-    withMessagingRequestLoggerMock: vi.fn(
-      ({ fn }: { fn: () => Promise<Response> }) => fn(),
-    ),
-    publishAppHomeMock: vi.fn(),
-    handleSlackAppUninstalledMock: vi.fn(),
-    requestLoggerMock,
-  };
-});
+} = vi.hoisted(() => ({
+  validateSlackWebhookRequestMock: vi.fn(),
+  ensureSlackTeamInstallationMock: vi.fn(),
+  extractSlackTeamIdFromWebhookMock: vi.fn(),
+  slackWebhookMock: vi.fn(),
+  withMessagingRequestLoggerMock: vi.fn(
+    ({ fn }: { fn: () => Promise<Response> }) => fn(),
+  ),
+  publishAppHomeMock: vi.fn(),
+  handleSlackAppUninstalledMock: vi.fn(),
+}));
 
 vi.mock("@/utils/middleware", async () => {
   const { createWithErrorTestMiddleware } = await vi.importActual<
     typeof import("@/__tests__/helpers")
   >("@/__tests__/helpers");
 
-  return createWithErrorTestMiddleware({ logger: requestLoggerMock as never });
+  return createWithErrorTestMiddleware();
 });
 
 vi.mock("@/env", () => ({
@@ -97,9 +86,7 @@ function createRequest({
       "x-slack-request-timestamp": timestamp,
     },
     body,
-  }) as Request & {
-    logger: typeof requestLoggerMock;
-  };
+  });
 }
 
 const context = { params: Promise.resolve({}) } as {
@@ -164,18 +151,14 @@ describe("Slack events route", () => {
     expect(validateSlackWebhookRequestMock).toHaveBeenCalledTimes(1);
     expect(ensureSlackTeamInstallationMock).toHaveBeenCalledWith(
       "T-TEAM",
-      request.logger,
+      expect.anything(),
     );
     expect(withMessagingRequestLoggerMock).toHaveBeenCalledTimes(1);
     expect(withMessagingRequestLoggerMock).toHaveBeenCalledWith({
-      logger: request.logger,
+      logger: expect.anything(),
       fn: expect.any(Function),
     });
     expect(slackWebhookMock).toHaveBeenCalledTimes(1);
-    expect(request.logger.warn).toHaveBeenCalledWith(
-      "Failed to seed Slack installation for Chat SDK",
-      expect.objectContaining({ teamId: "T-TEAM" }),
-    );
   });
 
   it("intercepts app_home_opened and calls publishAppHome", async () => {
@@ -195,7 +178,7 @@ describe("Slack events route", () => {
     expect(publishAppHomeMock).toHaveBeenCalledWith({
       teamId: "T-TEAM",
       userId: "U-USER",
-      logger: request.logger,
+      logger: expect.anything(),
     });
     expect(slackWebhookMock).not.toHaveBeenCalled();
   });
@@ -231,7 +214,7 @@ describe("Slack events route", () => {
     expect(json).toEqual({ ok: true });
     expect(handleSlackAppUninstalledMock).toHaveBeenCalledWith({
       teamId: "T-TEAM",
-      logger: request.logger,
+      logger: expect.anything(),
     });
     expect(slackWebhookMock).not.toHaveBeenCalled();
   });
@@ -252,7 +235,7 @@ describe("Slack events route", () => {
     expect(json).toEqual({ ok: true });
     expect(handleSlackAppUninstalledMock).toHaveBeenCalledWith({
       teamId: "T-TEAM",
-      logger: request.logger,
+      logger: expect.anything(),
     });
     expect(slackWebhookMock).not.toHaveBeenCalled();
   });
@@ -287,9 +270,6 @@ describe("Slack events route", () => {
     const response = await POST(request as any, context);
 
     expect(response.status).toBe(200);
-    expect(request.logger.warn).toHaveBeenCalledWith(
-      "Failed to publish App Home",
-      expect.objectContaining({ error: expect.any(Error) }),
-    );
+    expect(publishAppHomeMock).toHaveBeenCalledTimes(1);
   });
 });

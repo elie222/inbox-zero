@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { GmailLabel } from "@/utils/gmail/label";
 import type { ParsedMessage } from "@/utils/types";
 import { CleanAction } from "@/generated/prisma/enums";
-import { getMockMessage } from "@/__tests__/helpers";
+import { createTestLogger, getMockMessage } from "@/__tests__/helpers";
 
 const { cleanerEnv } = vi.hoisted(() => ({
   cleanerEnv: {
@@ -82,13 +82,7 @@ vi.mock("@/utils/parse/calender-event", () => ({
 
 import { POST, cleanThread } from "./route";
 
-const mockLogger = {
-  info: vi.fn(),
-  error: vi.fn(),
-  warn: vi.fn(),
-  debug: vi.fn(),
-  trace: vi.fn(),
-};
+const logger = createTestLogger();
 
 function getDefaultParams() {
   return {
@@ -106,7 +100,7 @@ function getDefaultParams() {
       attachment: true,
       conversation: true,
     },
-    logger: mockLogger as any,
+    logger,
   };
 }
 

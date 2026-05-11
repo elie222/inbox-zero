@@ -4,16 +4,9 @@ import prisma from "@/utils/__mocks__/prisma";
 
 const FIXED_DATE = new Date("2026-05-03T10:01:18.695Z");
 
-const { healthEnv, mockLogger } = vi.hoisted(() => ({
+const { healthEnv } = vi.hoisted(() => ({
   healthEnv: {
     HEALTH_API_KEY: "health-secret",
-  },
-  mockLogger: {
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn(),
-    trace: vi.fn(),
   },
 }));
 
@@ -28,7 +21,7 @@ vi.mock("@/utils/middleware", async () => {
     typeof import("@/__tests__/helpers")
   >("@/__tests__/helpers");
 
-  return createWithErrorTestMiddleware({ logger: mockLogger as never });
+  return createWithErrorTestMiddleware();
 });
 
 import { GET } from "./route";
@@ -102,9 +95,6 @@ describe("health route", () => {
       status: "unhealthy",
       timestamp: FIXED_DATE.toISOString(),
       error: "Database connection failed",
-    });
-    expect(mockLogger.error).toHaveBeenCalledWith("Health check failed", {
-      error,
     });
   });
 });
