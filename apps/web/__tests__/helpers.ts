@@ -10,6 +10,29 @@ export function createTestLogger() {
   return createScopedLogger("test");
 }
 
+type WithErrorTestHandler<TContext extends unknown[]> = (
+  request: Request,
+  ...context: TContext
+) => Promise<Response>;
+
+type TestRequestWithLogger = Request & {
+  logger: ReturnType<typeof createTestLogger>;
+};
+
+export function createWithErrorTestMiddleware() {
+  return {
+    withError:
+      <TContext extends unknown[]>(
+        _scope: string,
+        handler: WithErrorTestHandler<TContext>,
+      ) =>
+      async (request: Request, ...context: TContext) => {
+        (request as TestRequestWithLogger).logger = createTestLogger();
+        return handler(request, ...context);
+      },
+  };
+}
+
 type EmailAccountSelect = {
   id: string;
   email: string;
