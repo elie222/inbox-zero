@@ -130,7 +130,7 @@ describe("public booking", () => {
     expect(result).toEqual([]);
   });
 
-  it("does not block availability with stale pending bookings", async () => {
+  it("blocks availability with stale pending bookings", async () => {
     prisma.booking.findMany.mockResolvedValue([
       bookingRecord({
         createdAt: new Date("2026-05-03T23:00:00.000Z"),
@@ -145,7 +145,7 @@ describe("public booking", () => {
       logger,
     });
 
-    expect(result.map((slot) => slot.startTime)).toContain(
+    expect(result.map((slot) => slot.startTime)).not.toContain(
       "2026-05-04T09:00:00.000Z",
     );
   });

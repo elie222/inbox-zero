@@ -453,7 +453,6 @@ async function getBusyPeriods({
           endTime: { gt: start },
         },
         select: {
-          createdAt: true,
           startTime: true,
           endTime: true,
           status: true,
@@ -620,14 +619,10 @@ function toPublicBookingResult(booking: {
   };
 }
 
-function isBlockingBooking(booking: {
-  createdAt: Date;
-  status: BookingStatus;
-}) {
+function isBlockingBooking(booking: { status: BookingStatus }) {
   return (
     booking.status === BookingStatus.CONFIRMED ||
-    (booking.status === BookingStatus.PENDING_PROVIDER_EVENT &&
-      !isStalePendingBooking(booking))
+    booking.status === BookingStatus.PENDING_PROVIDER_EVENT
   );
 }
 
