@@ -19,6 +19,7 @@ export async function getUnifiedCalendarAvailability({
   timezone = "UTC",
   logger,
   failClosed = false,
+  excludeGoogleVirtualCalendars = false,
 }: {
   emailAccountId: string;
   startDate: Date | string;
@@ -26,6 +27,7 @@ export async function getUnifiedCalendarAvailability({
   timezone?: string;
   logger: Logger;
   failClosed?: boolean;
+  excludeGoogleVirtualCalendars?: boolean;
 }): Promise<BusyPeriod[]> {
   // Compute day boundaries in the user's timezone
   // Parse dates as calendar dates in the target timezone to avoid UTC shift issues
@@ -77,10 +79,13 @@ export async function getUnifiedCalendarAvailability({
 
   // Fetch Google calendar availability
   for (const connection of googleConnections) {
-    const calendarIds = connection.calendars
-      .map((cal) => cal.calendarId)
-      .filter((calendarId) => !isGoogleVirtualCalendarId(calendarId));
-    if (!calendarIds.length) continue;
+    const calendarIds = connection.calendars.map((cal) => cal.calendarId);
+    const availabilityCalendarIds = excludeGoogleVirtualCalendars
+      ? calendarIds.filter(
+          (calendarId) => !isGoogleVirtualCalendarId(calendarId),
+        )
+      : calendarIds;
+    if (!availabilityCalendarIds.length) continue;
 
     const googleAvailabilityProvider = createGoogleAvailabilityProvider(logger);
 
@@ -92,7 +97,7 @@ export async function getUnifiedCalendarAvailability({
           refreshToken: connection.refreshToken,
           expiresAt: connection.expiresAt?.getTime() || null,
           emailAccountId,
-          calendarIds,
+          calendarIds: availabilityCalendarIds,
           timeMin,
           timeMax,
           failOnCalendarError: failClosed,

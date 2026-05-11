@@ -430,6 +430,7 @@ async function getBusyPeriods({
       timezone: config.link.timezone,
       logger,
       failClosed: true,
+      excludeGoogleVirtualCalendars: true,
     }).catch((error) => {
       logger.error("Failed to load provider availability for public booking", {
         error,
