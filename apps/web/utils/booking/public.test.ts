@@ -202,7 +202,7 @@ describe("public booking", () => {
       expect.objectContaining({
         attendees: [{ name: "Guest <User>", email: "GUEST@EXAMPLE.COM" }],
         description:
-          "Booked with Guest &lt;User&gt;\nGuest email: GUEST@EXAMPLE.COM\nGuest note: Please share &lt;agenda&gt; &amp; links.",
+          "Booked with Guest <User>\nGuest email: GUEST@EXAMPLE.COM\nGuest note: Please share <agenda> & links.",
         destinationCalendarId: "calendar-row-id",
         emailAccountId: "email-account-id",
         endTime: new Date("2026-05-04T09:30:00.000Z"),

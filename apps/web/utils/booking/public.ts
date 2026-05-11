@@ -24,7 +24,6 @@ import {
   sendBookingCancellationEmails,
   sendBookingConfirmationEmails,
 } from "@/utils/booking/emails";
-import { escapeHtml } from "@/utils/string";
 
 const MAX_AVAILABILITY_RANGE_MS = 32 * 24 * 60 * 60 * 1000;
 const CALENDAR_AVAILABILITY_UNAVAILABLE =
@@ -566,25 +565,22 @@ function getProviderEventDescription({
   guestNote?: string;
 }) {
   return [
-    `Booked with ${escapeCalendarDescriptionText(guestName)}`,
-    `Guest email: ${escapeCalendarDescriptionText(guestEmail)}`,
-    guestNote
-      ? `Guest note: ${escapeCalendarDescriptionText(guestNote)}`
-      : null,
+    `Booked with ${cleanCalendarDescriptionText(guestName)}`,
+    `Guest email: ${cleanCalendarDescriptionText(guestEmail)}`,
+    guestNote ? `Guest note: ${cleanCalendarDescriptionText(guestNote)}` : null,
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-function escapeCalendarDescriptionText(value: string) {
-  const withoutControlChars = value
+function cleanCalendarDescriptionText(value: string) {
+  return value
     .split("")
     .filter((char) => {
       const code = char.charCodeAt(0);
       return code === 9 || code === 10 || code === 13 || code >= 32;
     })
     .join("");
-  return escapeHtml(withoutControlChars);
 }
 
 function toPublicBookingResult(booking: {
