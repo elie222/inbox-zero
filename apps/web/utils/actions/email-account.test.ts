@@ -8,14 +8,7 @@ vi.mock("@/utils/auth", () => ({
     user: { id: "user-1", email: "user@example.com" },
   })),
 }));
-vi.mock("@sentry/nextjs", () => ({
-  setTag: vi.fn(),
-  setUser: vi.fn(),
-  captureException: vi.fn(),
-  withServerActionInstrumentation: vi.fn(
-    async (_name: string, callback: () => Promise<unknown>) => callback(),
-  ),
-}));
+vi.mock("@sentry/nextjs", () => import("@/__tests__/mocks/sentry-nextjs.mock"));
 
 const { updateContactRoleMock } = vi.hoisted(() => ({
   updateContactRoleMock: vi.fn().mockResolvedValue(undefined),

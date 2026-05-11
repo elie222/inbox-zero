@@ -19,14 +19,7 @@ vi.mock("@/utils/auth", () => ({
 vi.mock("next/headers", () => ({
   headers: vi.fn(async () => new Headers()),
 }));
-vi.mock("@sentry/nextjs", () => ({
-  setTag: vi.fn(),
-  setUser: vi.fn(),
-  captureException: vi.fn(),
-  withServerActionInstrumentation: vi.fn(
-    async (_name: string, callback: () => Promise<unknown>) => callback(),
-  ),
-}));
+vi.mock("@sentry/nextjs", () => import("@/__tests__/mocks/sentry-nextjs.mock"));
 vi.mock("@/utils/cookies.server", () => ({
   clearLastEmailAccountCookie: vi.fn(),
 }));
