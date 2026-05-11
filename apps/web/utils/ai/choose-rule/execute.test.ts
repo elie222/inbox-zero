@@ -9,6 +9,16 @@ import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
+const { envMock } = vi.hoisted(() => ({
+  envMock: {
+    WHITELIST_FROM: undefined as string | undefined,
+  },
+}));
+
+vi.mock("@/env", () => ({
+  env: envMock,
+}));
+
 vi.mock("@/utils/ai/actions", () => ({
   runActionFunction: vi.fn(),
 }));
@@ -65,7 +75,50 @@ describe("executeAct", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    envMock.WHITELIST_FROM = undefined;
     mockExecutedRuleUpdate.mockResolvedValue({});
+  });
+
+  it("keeps labels but skips archive for protected company senders", async () => {
+    envMock.WHITELIST_FROM = "onboarding@getinboxzero.com";
+    mockRunActionFunction.mockResolvedValueOnce({ success: true });
+
+    const executedRule = {
+      ...baseExecutedRule,
+      actionItems: [
+        { id: "action-1", type: ActionType.LABEL, label: "Marketing" },
+        { id: "action-2", type: ActionType.ARCHIVE },
+      ],
+    } as any;
+
+    const result = await executeAct({
+      client: mockClient,
+      executedRule,
+      message: {
+        ...message,
+        headers: {
+          ...message.headers,
+          from: "Inbox Zero <onboarding@getinboxzero.com>",
+        },
+      },
+      emailAccount,
+      logger,
+    });
+
+    expect(result).toBe(ExecutedRuleStatus.APPLIED);
+    expect(mockRunActionFunction).toHaveBeenCalledTimes(1);
+    expect(mockRunActionFunction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: expect.objectContaining({
+          id: "action-1",
+          type: ActionType.LABEL,
+        }),
+      }),
+    );
+    expect(mockExecutedRuleUpdate).toHaveBeenCalledWith({
+      where: { id: "executed-rule-1" },
+      data: { status: ExecutedRuleStatus.APPLIED },
+    });
   });
 
   it("marks executed rule as ERROR when notify sender reports a failure", async () => {
