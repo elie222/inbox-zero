@@ -82,71 +82,6 @@ vi.mock("@/utils/posthog", () => ({
   isPosthogLlmEvalApproved: vi.fn(() => false),
 }));
 
-async function createTestGenerateObject(
-  overrides: { provider?: string; modelName?: string } = {},
-) {
-  const { createGenerateObject } = await import("./index");
-
-  return createGenerateObject({
-    emailAccount: {
-      id: "account-1",
-      email: "user@example.com",
-      userId: "user-1",
-    },
-    label: "test",
-    modelOptions: {
-      provider: overrides.provider ?? "openai",
-      modelName: overrides.modelName ?? "gpt-test",
-      model: {} as any,
-      providerOptions: undefined,
-      hasUserApiKey: false,
-      fallbackModels: [],
-    } as any,
-    promptHardening: { trust: "untrusted", level: "full" },
-  });
-}
-
-async function createGenerateObjectWithFallback() {
-  const { createGenerateObject } = await import("./index");
-
-  return createGenerateObject({
-    emailAccount: {
-      id: "account-1",
-      email: "user@example.com",
-      userId: "user-1",
-    },
-    label: "test",
-    modelOptions: {
-      provider: "openai",
-      modelName: "gpt-test",
-      model: {} as any,
-      providerOptions: undefined,
-      hasUserApiKey: false,
-      fallbackModels: [
-        {
-          provider: "anthropic",
-          modelName: "claude-test",
-          model: {} as any,
-          providerOptions: undefined,
-        },
-      ],
-    } as any,
-    promptHardening: { trust: "untrusted", level: "full" },
-  });
-}
-
-async function getRepairText() {
-  const generateObject = await createTestGenerateObject();
-
-  await generateObject({
-    system: "Return JSON.",
-    prompt: "Return JSON.",
-    schema: {} as any,
-  } as any);
-
-  return mockGenerateObject.mock.calls[0][0].experimental_repairText;
-}
-
 describe("createGenerateObject repairText", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -158,59 +93,45 @@ describe("createGenerateObject repairText", () => {
     mockSaveAiUsage.mockResolvedValue(undefined);
   });
 
-  it("unwraps JSON wrapped in single quotes before repairing", async () => {
-    const repairText = await getRepairText();
-    const repaired = await repairText({ text: `'{"category":"updates",}'` });
-
-    expect(JSON.parse(repaired)).toEqual({ category: "updates" });
-  });
-
-  it("extracts JSON object when text has a prose preamble", async () => {
-    const repairText = await getRepairText();
-    const repaired = await repairText({
+  it.each([
+    {
+      label: "single-quoted JSON",
+      text: `'{"category":"updates",}'`,
+      expected: { category: "updates" },
+    },
+    {
+      label: "a JSON object after prose",
       text: 'Here is the answer: {"foo":"bar"}',
-    });
-
-    expect(JSON.parse(repaired)).toEqual({ foo: "bar" });
-  });
-
-  it("extracts JSON array when text has a prose preamble and trailing text", async () => {
-    const repairText = await getRepairText();
-    const repaired = await repairText({
+      expected: { foo: "bar" },
+    },
+    {
+      label: "a JSON array with surrounding prose",
       text: 'The JSON is: [{"a":1},{"a":2}] and more',
-    });
-
-    expect(JSON.parse(repaired)).toEqual([{ a: 1 }, { a: 2 }]);
-  });
-
-  it("skips bracketed prose tokens and extracts the actual JSON payload", async () => {
-    const repairText = await getRepairText();
-    const repaired = await repairText({
+      expected: [{ a: 1 }, { a: 2 }],
+    },
+    {
+      label: "JSON after bracketed prose tokens",
       text: 'Step [1]: here is the JSON {"foo":"bar"}',
-    });
-
-    expect(JSON.parse(repaired)).toEqual({ foo: "bar" });
-  });
-
-  it("extracts the longer balanced array when brackets also appear in prose", async () => {
-    const repairText = await getRepairText();
-    const repaired = await repairText({
+      expected: { foo: "bar" },
+    },
+    {
+      label: "the longer balanced array when prose also has brackets",
       text: "[note] The result: [1,2,3,4]",
-    });
-
-    expect(JSON.parse(repaired)).toEqual([1, 2, 3, 4]);
-  });
-
-  it("extracts nested JSON object when surrounded by prose", async () => {
-    const repairText = await getRepairText();
-    const repaired = await repairText({
+      expected: [1, 2, 3, 4],
+    },
+    {
+      label: "nested JSON surrounded by prose",
       text: 'Sure! {"category": "updates", "nested": {"x": 1}} thanks',
-    });
+      expected: {
+        category: "updates",
+        nested: { x: 1 },
+      },
+    },
+  ])("repairs $label", async ({ text, expected }) => {
+    const repairText = await getRepairText();
+    const repaired = await repairText({ text });
 
-    expect(JSON.parse(repaired)).toEqual({
-      category: "updates",
-      nested: { x: 1 },
-    });
+    expect(JSON.parse(repaired)).toEqual(expected);
   });
 
   it("injects centralized hardening into the object generation system prompt", async () => {
@@ -339,52 +260,51 @@ describe("createGenerateObject repairText", () => {
         ),
       );
 
-    it("does not warn for messages-shaped calls", async () => {
+    it.each([
+      {
+        label: "messages-shaped calls",
+        options: {
+          system: "Classify the email.",
+          messages: [{ role: "user", content: "Hello" }],
+        },
+        warned: false,
+      },
+      {
+        label: "prompt-shaped calls with no JSON mention",
+        options: {
+          system: "Classify the email.",
+          prompt: "Hello there.",
+        },
+        warned: true,
+      },
+      {
+        label: "prompt-shaped calls where the prompt mentions JSON",
+        options: {
+          system: "Classify the email.",
+          prompt: "Return JSON.",
+        },
+        warned: false,
+      },
+      {
+        label: "prompt-shaped calls where the system mentions JSON",
+        options: {
+          system: "Return JSON.",
+          prompt: "Classify this.",
+        },
+        warned: false,
+      },
+    ])("sets missing JSON warning to $warned for $label", async ({
+      options,
+      warned,
+    }) => {
       const generateObject = await createTestGenerateObject();
 
       await generateObject({
-        system: "Classify the email.",
-        messages: [{ role: "user", content: "Hello" }],
+        ...options,
         schema: {} as any,
       } as any);
 
-      expect(wasMissingJsonWarned()).toBe(false);
-    });
-
-    it("warns when a prompt-shaped call mentions JSON nowhere", async () => {
-      const generateObject = await createTestGenerateObject();
-
-      await generateObject({
-        system: "Classify the email.",
-        prompt: "Hello there.",
-        schema: {} as any,
-      } as any);
-
-      expect(wasMissingJsonWarned()).toBe(true);
-    });
-
-    it("does not warn when the prompt mentions JSON", async () => {
-      const generateObject = await createTestGenerateObject();
-
-      await generateObject({
-        system: "Classify the email.",
-        prompt: "Return JSON.",
-        schema: {} as any,
-      } as any);
-
-      expect(wasMissingJsonWarned()).toBe(false);
-    });
-
-    it("does not warn when the system mentions JSON even if prompt doesn't", async () => {
-      const generateObject = await createTestGenerateObject();
-
-      await generateObject({
-        system: "Return JSON.",
-        prompt: "Classify this.",
-        schema: {} as any,
-      } as any);
-
-      expect(wasMissingJsonWarned()).toBe(false);
+      expect(wasMissingJsonWarned()).toBe(warned);
     });
   });
 
@@ -412,21 +332,7 @@ describe("createGenerateObject repairText", () => {
   });
 
   it("falls back to next model on content-filter refusal without retrying primary", async () => {
-    const contentFilterError = Object.assign(
-      new Error("No object generated: could not parse the response."),
-      {
-        finishReason: "content-filter",
-        text: "I'm sorry, but I cannot assist with that request.",
-      },
-    );
-    const matchesContentFilter = (error: unknown) => {
-      const unwrapped = (error as { error?: unknown })?.error ?? error;
-      return unwrapped === contentFilterError;
-    };
-    mockNoObjectGeneratedErrorIsInstance.mockImplementation(
-      matchesContentFilter,
-    );
-    mockIsContentFilterRefusal.mockImplementation(matchesContentFilter);
+    const contentFilterError = mockContentFilterRefusal();
 
     mockGenerateObject
       .mockRejectedValueOnce(contentFilterError)
@@ -445,21 +351,7 @@ describe("createGenerateObject repairText", () => {
   });
 
   it("throws content-filter refusal without Sentry noise when no fallback is configured", async () => {
-    const contentFilterError = Object.assign(
-      new Error("No object generated: could not parse the response."),
-      {
-        finishReason: "content-filter",
-        text: "I'm sorry, but I cannot assist with that request.",
-      },
-    );
-    const matchesContentFilter = (error: unknown) => {
-      const unwrapped = (error as { error?: unknown })?.error ?? error;
-      return unwrapped === contentFilterError;
-    };
-    mockNoObjectGeneratedErrorIsInstance.mockImplementation(
-      matchesContentFilter,
-    );
-    mockIsContentFilterRefusal.mockImplementation(matchesContentFilter);
+    const contentFilterError = mockContentFilterRefusal();
 
     mockGenerateObject.mockRejectedValue(contentFilterError);
 
@@ -486,16 +378,6 @@ describe("createGenerateObject repairText", () => {
   });
 
   it("clears stale repair metadata before trying a fallback model", async () => {
-    const createNetworkError = () => {
-      const error = new Error("read ECONNRESET");
-      (
-        error as Error & {
-          cause?: { code: string; message: string };
-        }
-      ).cause = { code: "ECONNRESET", message: "read ECONNRESET" };
-      return error;
-    };
-
     mockGenerateObject
       .mockImplementationOnce(async (options) => {
         await options.experimental_repairText({ text: "'not json" });
@@ -535,3 +417,92 @@ describe("createGenerateObject repairText", () => {
     );
   });
 });
+
+type TestModel = {
+  provider: string;
+  modelName: string;
+};
+
+type GenerateObjectOverrides = Partial<TestModel> & {
+  fallbackModels?: TestModel[];
+};
+
+async function createTestGenerateObject({
+  provider = "openai",
+  modelName = "gpt-test",
+  fallbackModels = [],
+}: GenerateObjectOverrides = {}) {
+  const { createGenerateObject } = await import("./index");
+
+  return createGenerateObject({
+    emailAccount: {
+      id: "account-1",
+      email: "user@example.com",
+      userId: "user-1",
+    },
+    label: "test",
+    modelOptions: {
+      ...createResolvedModel({ provider, modelName }),
+      hasUserApiKey: false,
+      fallbackModels: fallbackModels.map(createResolvedModel),
+    } as any,
+    promptHardening: { trust: "untrusted", level: "full" },
+  });
+}
+
+async function createGenerateObjectWithFallback() {
+  return createTestGenerateObject({
+    fallbackModels: [{ provider: "anthropic", modelName: "claude-test" }],
+  });
+}
+
+async function getRepairText() {
+  const generateObject = await createTestGenerateObject();
+
+  await generateObject({
+    system: "Return JSON.",
+    prompt: "Return JSON.",
+    schema: {} as any,
+  } as any);
+
+  return mockGenerateObject.mock.calls[0][0].experimental_repairText;
+}
+
+function createResolvedModel({ provider, modelName }: TestModel) {
+  return {
+    provider,
+    modelName,
+    model: {} as any,
+    providerOptions: undefined,
+  };
+}
+
+function mockContentFilterRefusal() {
+  const contentFilterError = Object.assign(
+    new Error("No object generated: could not parse the response."),
+    {
+      finishReason: "content-filter",
+      text: "I'm sorry, but I cannot assist with that request.",
+    },
+  );
+  const matchesContentFilter = (error: unknown) => {
+    const unwrapped = (error as { error?: unknown })?.error ?? error;
+    return unwrapped === contentFilterError;
+  };
+
+  mockNoObjectGeneratedErrorIsInstance.mockImplementation(matchesContentFilter);
+  mockIsContentFilterRefusal.mockImplementation(matchesContentFilter);
+
+  return contentFilterError;
+}
+
+function createNetworkError() {
+  const error = new Error("read ECONNRESET");
+  (
+    error as Error & {
+      cause?: { code: string; message: string };
+    }
+  ).cause = { code: "ECONNRESET", message: "read ECONNRESET" };
+
+  return error;
+}

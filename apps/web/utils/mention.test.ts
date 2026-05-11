@@ -2,209 +2,120 @@ import { describe, it, expect } from "vitest";
 import { convertMentionsToLabels, convertLabelsToDisplay } from "./mention";
 
 describe("convertMentionsToLabels", () => {
-  it("converts single mention to label", () => {
-    const input = "Label this email as @[Newsletter]";
-    const expected = "Label this email as Newsletter";
-
-    expect(convertMentionsToLabels(input)).toBe(expected);
-  });
-
-  it("converts multiple mentions to labels", () => {
-    const input = "Label as @[Important] and @[Work] and archive";
-    const expected = "Label as Important and Work and archive";
-
-    expect(convertMentionsToLabels(input)).toBe(expected);
-  });
-
-  it("handles mentions with spaces in label names", () => {
-    const input = "Apply @[Very Important] and @[Work Project] labels";
-    const expected = "Apply Very Important and Work Project labels";
-
-    expect(convertMentionsToLabels(input)).toBe(expected);
-  });
-
-  it("handles mentions with special characters in label names", () => {
-    const input = "Label as @[Finance/Tax] and @[Client-A] and @[2024_Q1]";
-    const expected = "Label as Finance/Tax and Client-A and 2024_Q1";
-
-    expect(convertMentionsToLabels(input)).toBe(expected);
-  });
-
-  it("handles mentions at the beginning of text", () => {
-    const input = "@[Newsletter] emails should be archived";
-    const expected = "Newsletter emails should be archived";
-
-    expect(convertMentionsToLabels(input)).toBe(expected);
-  });
-
-  it("handles mentions at the end of text", () => {
-    const input = "Archive and label as @[Newsletter]";
-    const expected = "Archive and label as Newsletter";
-
-    expect(convertMentionsToLabels(input)).toBe(expected);
-  });
-
-  it("handles text with no mentions", () => {
-    const input = "Archive all newsletters automatically";
-    const expected = "Archive all newsletters automatically";
-
-    expect(convertMentionsToLabels(input)).toBe(expected);
-  });
-
-  it("handles empty string", () => {
-    const input = "";
-    const expected = "";
-
-    expect(convertMentionsToLabels(input)).toBe(expected);
-  });
-
-  it("handles mentions in multiline text", () => {
-    const input = `When I get a newsletter, archive it and label it as @[Newsletter]
-    
-    For urgent emails from company.com, label as @[Urgent] and forward to support@company.com`;
-
-    const expected = `When I get a newsletter, archive it and label it as Newsletter
-    
-    For urgent emails from company.com, label as Urgent and forward to support@company.com`;
-
-    expect(convertMentionsToLabels(input)).toBe(expected);
-  });
-
-  it("preserves regular @ symbols that are not mentions", () => {
-    const input = "Forward to support@company.com and label as @[Support]";
-    const expected = "Forward to support@company.com and label as Support";
-
-    expect(convertMentionsToLabels(input)).toBe(expected);
-  });
-
-  it("handles malformed mentions gracefully", () => {
-    const input = "Label as @[Newsletter and @Missing] and @[Complete]";
-    const expected = "Label as Newsletter and @Missing and Complete";
-
-    expect(convertMentionsToLabels(input)).toBe(expected);
-  });
-
-  it("handles nested brackets in mentions", () => {
-    const input = "Label as @[Project [Alpha]] and continue";
-    const expected = "Label as Project [Alpha] and continue";
-
-    expect(convertMentionsToLabels(input)).toBe(expected);
-  });
-
-  it("handles mentions with numbers and symbols", () => {
-    const input = "Apply @[2024-Q1] and @[Client#123] labels";
-    const expected = "Apply 2024-Q1 and Client#123 labels";
-
-    expect(convertMentionsToLabels(input)).toBe(expected);
-  });
-
-  it("handles complex rule with multiple mentions", () => {
-    const input = `If someone asks to set up a call, draft a reply and label as @[Meeting Request]
-    
-    For newsletters from marketing@company.com, archive and label as @[Newsletter] and @[Marketing]`;
-
-    const expected = `If someone asks to set up a call, draft a reply and label as Meeting Request
-    
-    For newsletters from marketing@company.com, archive and label as Newsletter and Marketing`;
-
-    expect(convertMentionsToLabels(input)).toBe(expected);
+  it.each(getMentionConversionCases())("converts $name", ({
+    input,
+    labelText,
+  }) => {
+    expect(convertMentionsToLabels(input)).toBe(labelText);
   });
 });
 
 describe("convertLabelsToDisplay", () => {
-  it("converts single mention to quoted label", () => {
-    const input = "Label this email as @[Newsletter]";
-    const expected = 'Label this email as "Newsletter"';
-
-    expect(convertLabelsToDisplay(input)).toBe(expected);
-  });
-
-  it("converts multiple mentions to quoted labels", () => {
-    const input = "Label as @[Important] and @[Work] and archive";
-    const expected = 'Label as "Important" and "Work" and archive';
-
-    expect(convertLabelsToDisplay(input)).toBe(expected);
-  });
-
-  it("handles mentions with spaces in label names", () => {
-    const input = "Apply @[Very Important] and @[Work Project] labels";
-    const expected = 'Apply "Very Important" and "Work Project" labels';
-
-    expect(convertLabelsToDisplay(input)).toBe(expected);
-  });
-
-  it("handles mentions with special characters in label names", () => {
-    const input = "Label as @[Finance/Tax] and @[Client-A] and @[2024_Q1]";
-    const expected = 'Label as "Finance/Tax" and "Client-A" and "2024_Q1"';
-
-    expect(convertLabelsToDisplay(input)).toBe(expected);
-  });
-
-  it("handles mentions at the beginning of text", () => {
-    const input = "@[Newsletter] emails should be archived";
-    const expected = '"Newsletter" emails should be archived';
-
-    expect(convertLabelsToDisplay(input)).toBe(expected);
-  });
-
-  it("handles mentions at the end of text", () => {
-    const input = "Archive and label as @[Newsletter]";
-    const expected = 'Archive and label as "Newsletter"';
-
-    expect(convertLabelsToDisplay(input)).toBe(expected);
-  });
-
-  it("handles text with no mentions", () => {
-    const input = "Archive all newsletters automatically";
-    const expected = "Archive all newsletters automatically";
-
-    expect(convertLabelsToDisplay(input)).toBe(expected);
-  });
-
-  it("handles empty string", () => {
-    const input = "";
-    const expected = "";
-
-    expect(convertLabelsToDisplay(input)).toBe(expected);
-  });
-
-  it("handles mentions in multiline text", () => {
-    const input = `When I get a newsletter, archive it and label it as @[Newsletter]
-    
-    For urgent emails from company.com, label as @[Urgent] and forward to support@company.com`;
-
-    const expected = `When I get a newsletter, archive it and label it as "Newsletter"
-    
-    For urgent emails from company.com, label as "Urgent" and forward to support@company.com`;
-
-    expect(convertLabelsToDisplay(input)).toBe(expected);
-  });
-
-  it("preserves regular @ symbols that are not mentions", () => {
-    const input = "Forward to support@company.com and label as @[Support]";
-    const expected = 'Forward to support@company.com and label as "Support"';
-
-    expect(convertLabelsToDisplay(input)).toBe(expected);
-  });
-
-  it("handles malformed mentions gracefully", () => {
-    const input = "Label as @[Newsletter and @Missing] and @[Complete]";
-    const expected = 'Label as "Newsletter and @Missing" and "Complete"';
-
-    expect(convertLabelsToDisplay(input)).toBe(expected);
-  });
-
-  it("handles nested brackets in mentions", () => {
-    const input = "Label as @[Project [Alpha]] and continue";
-    const expected = 'Label as "Project [Alpha]" and continue';
-
-    expect(convertLabelsToDisplay(input)).toBe(expected);
-  });
-
-  it("handles mentions with numbers and symbols", () => {
-    const input = "Apply @[2024-Q1] and @[Client#123] labels";
-    const expected = 'Apply "2024-Q1" and "Client#123" labels';
-
-    expect(convertLabelsToDisplay(input)).toBe(expected);
+  it.each(getMentionConversionCases())("converts $name", ({
+    input,
+    displayText,
+  }) => {
+    expect(convertLabelsToDisplay(input)).toBe(displayText);
   });
 });
+
+function getMentionConversionCases() {
+  return [
+    {
+      name: "single mention",
+      input: "Label this email as @[Newsletter]",
+      labelText: "Label this email as Newsletter",
+      displayText: 'Label this email as "Newsletter"',
+    },
+    {
+      name: "multiple mentions",
+      input: "Label as @[Important] and @[Work] and archive",
+      labelText: "Label as Important and Work and archive",
+      displayText: 'Label as "Important" and "Work" and archive',
+    },
+    {
+      name: "mentions with spaces in label names",
+      input: "Apply @[Very Important] and @[Work Project] labels",
+      labelText: "Apply Very Important and Work Project labels",
+      displayText: 'Apply "Very Important" and "Work Project" labels',
+    },
+    {
+      name: "mentions with special characters in label names",
+      input: "Label as @[Finance/Tax] and @[Client-A] and @[2024_Q1]",
+      labelText: "Label as Finance/Tax and Client-A and 2024_Q1",
+      displayText: 'Label as "Finance/Tax" and "Client-A" and "2024_Q1"',
+    },
+    {
+      name: "mention at the beginning of text",
+      input: "@[Newsletter] emails should be archived",
+      labelText: "Newsletter emails should be archived",
+      displayText: '"Newsletter" emails should be archived',
+    },
+    {
+      name: "mention at the end of text",
+      input: "Archive and label as @[Newsletter]",
+      labelText: "Archive and label as Newsletter",
+      displayText: 'Archive and label as "Newsletter"',
+    },
+    {
+      name: "text with no mentions",
+      input: "Archive all newsletters automatically",
+      labelText: "Archive all newsletters automatically",
+      displayText: "Archive all newsletters automatically",
+    },
+    {
+      name: "empty string",
+      input: "",
+      labelText: "",
+      displayText: "",
+    },
+    {
+      name: "mentions in multiline text",
+      input: `When I get a newsletter, archive it and label it as @[Newsletter]
+    
+    For urgent emails from company.com, label as @[Urgent] and forward to support@company.com`,
+      labelText: `When I get a newsletter, archive it and label it as Newsletter
+    
+    For urgent emails from company.com, label as Urgent and forward to support@company.com`,
+      displayText: `When I get a newsletter, archive it and label it as "Newsletter"
+    
+    For urgent emails from company.com, label as "Urgent" and forward to support@company.com`,
+    },
+    {
+      name: "regular @ symbols that are not mentions",
+      input: "Forward to support@company.com and label as @[Support]",
+      labelText: "Forward to support@company.com and label as Support",
+      displayText: 'Forward to support@company.com and label as "Support"',
+    },
+    {
+      name: "malformed mentions",
+      input: "Label as @[Newsletter and @Missing] and @[Complete]",
+      labelText: "Label as Newsletter and @Missing and Complete",
+      displayText: 'Label as "Newsletter and @Missing" and "Complete"',
+    },
+    {
+      name: "nested brackets in mentions",
+      input: "Label as @[Project [Alpha]] and continue",
+      labelText: "Label as Project [Alpha] and continue",
+      displayText: 'Label as "Project [Alpha]" and continue',
+    },
+    {
+      name: "mentions with numbers and symbols",
+      input: "Apply @[2024-Q1] and @[Client#123] labels",
+      labelText: "Apply 2024-Q1 and Client#123 labels",
+      displayText: 'Apply "2024-Q1" and "Client#123" labels',
+    },
+    {
+      name: "complex rule with multiple mentions",
+      input: `If someone asks to set up a call, draft a reply and label as @[Meeting Request]
+    
+    For newsletters from marketing@company.com, archive and label as @[Newsletter] and @[Marketing]`,
+      labelText: `If someone asks to set up a call, draft a reply and label as Meeting Request
+    
+    For newsletters from marketing@company.com, archive and label as Newsletter and Marketing`,
+      displayText: `If someone asks to set up a call, draft a reply and label as "Meeting Request"
+    
+    For newsletters from marketing@company.com, archive and label as "Newsletter" and "Marketing"`,
+    },
+  ];
+}

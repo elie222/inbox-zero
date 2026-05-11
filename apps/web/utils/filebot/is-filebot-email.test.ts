@@ -6,124 +6,108 @@ import {
 } from "./is-filebot-email";
 
 describe("isFilebotEmail", () => {
-  it("should return true for valid filebot email", () => {
-    const result = isFilebotEmail({
+  it.each([
+    {
+      name: "valid filebot email",
       userEmail: "john@example.com",
       emailToCheck: "john+ai@example.com",
-    });
-    expect(result).toBe(true);
-  });
-
-  it("should return false when recipient is different user", () => {
-    const result = isFilebotEmail({
+      expected: true,
+    },
+    {
+      name: "different recipient",
       userEmail: "john@example.com",
       emailToCheck: "jane+ai@example.com",
-    });
-    expect(result).toBe(false);
-  });
-
-  it("should return false for plain email without filebot suffix", () => {
-    const result = isFilebotEmail({
+      expected: false,
+    },
+    {
+      name: "plain email without filebot suffix",
       userEmail: "john@example.com",
       emailToCheck: "john@example.com",
-    });
-    expect(result).toBe(false);
-  });
-
-  it("should return false for email with token suffix (old format)", () => {
-    const result = isFilebotEmail({
+      expected: false,
+    },
+    {
+      name: "email with old token suffix format",
       userEmail: "john@example.com",
       emailToCheck: "john+ai-abc123@example.com",
-    });
-    expect(result).toBe(false);
-  });
-
-  it("should handle email addresses with dots", () => {
-    const result = isFilebotEmail({
+      expected: false,
+    },
+    {
+      name: "email addresses with dots",
       userEmail: "john.doe@sub.example.com",
       emailToCheck: "john.doe+ai@sub.example.com",
-    });
-    expect(result).toBe(true);
-  });
-
-  it("should handle display name with angle brackets", () => {
-    const result = isFilebotEmail({
+      expected: true,
+    },
+    {
+      name: "display name with angle brackets",
       userEmail: "john@example.com",
       emailToCheck: "John Doe <john+ai@example.com>",
-    });
-    expect(result).toBe(true);
-  });
-
-  it("should reject malicious domain injection", () => {
-    const result = isFilebotEmail({
+      expected: true,
+    },
+    {
+      name: "domain injection attempt",
       userEmail: "john@example.com",
       emailToCheck: "john+ai@evil.com+ai@example.com",
-    });
-    expect(result).toBe(false);
-  });
-
-  it("should reject case manipulation", () => {
-    const result = isFilebotEmail({
+      expected: false,
+    },
+    {
+      name: "case manipulation",
       userEmail: "john@example.com",
       emailToCheck: "john+AI@example.com",
-    });
-    expect(result).toBe(false);
-  });
-
-  it("should handle invalid userEmail format gracefully", () => {
-    const result = isFilebotEmail({
+      expected: false,
+    },
+    {
+      name: "invalid userEmail format",
       userEmail: "notanemail",
       emailToCheck: "john+ai@example.com",
-    });
-    expect(result).toBe(false);
-  });
-
-  it("should handle domain case insensitivity", () => {
-    const result = isFilebotEmail({
+      expected: false,
+    },
+    {
+      name: "domain case insensitivity",
       userEmail: "john@example.com",
       emailToCheck: "john+ai@EXAMPLE.COM",
-    });
-    expect(result).toBe(true);
-  });
-
-  it("should detect filebot email when not first in multiple recipients", () => {
-    const result = isFilebotEmail({
+      expected: true,
+    },
+    {
+      name: "filebot email not first in multiple recipients",
       userEmail: "john@example.com",
       emailToCheck: "alice@example.com, john+ai@example.com",
-    });
-    expect(result).toBe(true);
-  });
-
-  it("should detect filebot email in middle of multiple recipients", () => {
-    const result = isFilebotEmail({
+      expected: true,
+    },
+    {
+      name: "filebot email in middle of multiple recipients",
       userEmail: "john@example.com",
       emailToCheck: "alice@example.com, john+ai@example.com, bob@example.com",
-    });
-    expect(result).toBe(true);
-  });
-
-  it("should detect filebot email with display names in multiple recipients", () => {
-    const result = isFilebotEmail({
+      expected: true,
+    },
+    {
+      name: "filebot email with display names in multiple recipients",
       userEmail: "john@example.com",
       emailToCheck: "Alice <alice@example.com>, John Doe <john+ai@example.com>",
-    });
-    expect(result).toBe(true);
+      expected: true,
+    },
+  ])("should return $expected for $name", ({
+    userEmail,
+    emailToCheck,
+    expected,
+  }) => {
+    expect(isFilebotEmail({ userEmail, emailToCheck })).toBe(expected);
   });
 });
 
 describe("getFilebotEmail", () => {
-  it("should generate correct filebot email", () => {
-    const result = getFilebotEmail({
+  it.each([
+    {
+      name: "standard email",
       userEmail: "john@example.com",
-    });
-    expect(result).toBe("john+ai@example.com");
-  });
-
-  it("should handle email with dots", () => {
-    const result = getFilebotEmail({
+      expected: "john+ai@example.com",
+    },
+    {
+      name: "email with dots",
       userEmail: "john.doe@sub.example.com",
-    });
-    expect(result).toBe("john.doe+ai@sub.example.com");
+      expected: "john.doe+ai@sub.example.com",
+    },
+  ])("should generate filebot address for $name", ({ userEmail, expected }) => {
+    expect(getFilebotEmail({ userEmail })).toBe(expected);
   });
 
   it("should throw for invalid userEmail format", () => {
@@ -136,35 +120,37 @@ describe("getFilebotEmail", () => {
 });
 
 describe("isFilebotNotificationMessage", () => {
-  it("should return true when reply-to uses the filebot address", () => {
-    const result = isFilebotNotificationMessage({
-      userEmail: "john@example.com",
-      from: "John <john@example.com>",
-      to: "john@example.com",
-      replyTo: "Inbox Zero Assistant <john+ai@example.com>",
-    });
-
-    expect(result).toBe(true);
-  });
-
-  it("should return true for assistant-formatted self-email without reply-to", () => {
-    const result = isFilebotNotificationMessage({
-      userEmail: "john@example.com",
-      from: "Inbox Zero Assistant <john@example.com>",
-      to: "john@example.com",
-    });
-
-    expect(result).toBe(true);
-  });
-
-  it("should return false for a normal outbound email", () => {
-    const result = isFilebotNotificationMessage({
-      userEmail: "john@example.com",
-      from: "John <john@example.com>",
-      to: "alice@example.com",
-      replyTo: "john@example.com",
-    });
-
-    expect(result).toBe(false);
+  it.each([
+    {
+      name: "reply-to uses the filebot address",
+      message: {
+        userEmail: "john@example.com",
+        from: "John <john@example.com>",
+        to: "john@example.com",
+        replyTo: "Inbox Zero Assistant <john+ai@example.com>",
+      },
+      expected: true,
+    },
+    {
+      name: "assistant-formatted self-email without reply-to",
+      message: {
+        userEmail: "john@example.com",
+        from: "Inbox Zero Assistant <john@example.com>",
+        to: "john@example.com",
+      },
+      expected: true,
+    },
+    {
+      name: "normal outbound email",
+      message: {
+        userEmail: "john@example.com",
+        from: "John <john@example.com>",
+        to: "alice@example.com",
+        replyTo: "john@example.com",
+      },
+      expected: false,
+    },
+  ])("should return $expected for $name", ({ message, expected }) => {
+    expect(isFilebotNotificationMessage(message)).toBe(expected);
   });
 });

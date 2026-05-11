@@ -243,26 +243,40 @@ describe("handlePreviousDraftDeletion", () => {
 });
 
 describe("extractDraftPlainText", () => {
-  it("should return textPlain as-is for Gmail (no bodyContentType)", () => {
-    const result = extractDraftPlainText(
-      createParsedMessage({
+  it.each([
+    {
+      name: "Gmail message without bodyContentType",
+      message: createParsedMessage({
         textPlain: "Plain text content",
         textHtml: "<p>HTML content</p>",
       }),
-    );
-
-    expect(result).toBe("Plain text content");
-  });
-
-  it("should return textPlain as-is when bodyContentType is text", () => {
-    const result = extractDraftPlainText(
-      createParsedMessage({
+      expected: "Plain text content",
+    },
+    {
+      name: "message with text bodyContentType",
+      message: createParsedMessage({
         textPlain: "Plain text content",
         bodyContentType: "text",
       }),
-    );
-
-    expect(result).toBe("Plain text content");
+      expected: "Plain text content",
+    },
+    {
+      name: "HTML message without textPlain",
+      message: createParsedMessage({
+        textPlain: undefined,
+        bodyContentType: "html",
+      }),
+      expected: "",
+    },
+    {
+      name: "empty textPlain",
+      message: createParsedMessage({
+        textPlain: "",
+      }),
+      expected: "",
+    },
+  ])("should return expected text for $name", ({ message, expected }) => {
+    expect(extractDraftPlainText(message)).toBe(expected);
   });
 
   it("should convert HTML to plain text when bodyContentType is html", () => {
@@ -278,27 +292,6 @@ describe("extractDraftPlainText", () => {
     expect(result).toContain("link");
     expect(result).not.toContain("<p>");
     expect(result).not.toContain("<a href");
-  });
-
-  it("should return empty string when textPlain is undefined", () => {
-    const result = extractDraftPlainText(
-      createParsedMessage({
-        textPlain: undefined,
-        bodyContentType: "html",
-      }),
-    );
-
-    expect(result).toBe("");
-  });
-
-  it("should handle empty string textPlain", () => {
-    const result = extractDraftPlainText(
-      createParsedMessage({
-        textPlain: "",
-      }),
-    );
-
-    expect(result).toBe("");
   });
 
   it("should handle Outlook HTML with complex formatting", () => {

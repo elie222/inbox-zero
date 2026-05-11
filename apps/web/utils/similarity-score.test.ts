@@ -2,30 +2,79 @@ import { describe, it, expect, vi, beforeAll } from "vitest";
 import { calculateSimilarity } from "./similarity-score";
 
 describe("calculateSimilarity - basic tests", () => {
-  it("should return 0.0 if either text is null or undefined", () => {
-    expect(calculateSimilarity(null, "text2")).toBe(0.0);
-    expect(calculateSimilarity("text1", undefined)).toBe(0.0);
-    expect(calculateSimilarity(null, null)).toBe(0.0);
-  });
-
-  it("should return 1.0 for identical texts", () => {
-    const score = calculateSimilarity("Hello world", "Hello world");
-    expect(score).toBe(1.0);
-  });
-
-  it("should be case-insensitive", () => {
-    const score = calculateSimilarity("Hello World", "hello world");
-    expect(score).toBe(1.0);
-  });
-
-  it("should return 0.0 for completely different texts", () => {
-    const score = calculateSimilarity("abc", "xyz");
-    expect(score).toBe(0.0);
-  });
-
-  it("should handle whitespace normalization", () => {
-    const score = calculateSimilarity("  Hello world  ", "Hello world");
-    expect(score).toBe(1.0);
+  it.each([
+    {
+      name: "first text is null",
+      firstText: null,
+      secondText: "text2",
+      expected: 0.0,
+    },
+    {
+      name: "second text is undefined",
+      firstText: "text1",
+      secondText: undefined,
+      expected: 0.0,
+    },
+    {
+      name: "both texts are null",
+      firstText: null,
+      secondText: null,
+      expected: 0.0,
+    },
+    {
+      name: "texts are identical",
+      firstText: "Hello world",
+      secondText: "Hello world",
+      expected: 1.0,
+    },
+    {
+      name: "texts differ only by case",
+      firstText: "Hello World",
+      secondText: "hello world",
+      expected: 1.0,
+    },
+    {
+      name: "texts are completely different",
+      firstText: "abc",
+      secondText: "xyz",
+      expected: 0.0,
+    },
+    {
+      name: "texts differ only by surrounding whitespace",
+      firstText: "  Hello world  ",
+      secondText: "Hello world",
+      expected: 1.0,
+    },
+    {
+      name: "texts differ only by special character case",
+      firstText: "Text with $pecial chars!",
+      secondText: "text with $pecial chars!",
+      expected: 1.0,
+    },
+    {
+      name: "first text is empty after normalization",
+      firstText: "",
+      secondText: "text2",
+      expected: 0.0,
+    },
+    {
+      name: "second text is empty after normalization",
+      firstText: "text1",
+      secondText: "",
+      expected: 0.0,
+    },
+    {
+      name: "both texts are whitespace-only",
+      firstText: "   ",
+      secondText: "   ",
+      expected: 1.0,
+    },
+  ])("should return $expected when $name", ({
+    firstText,
+    secondText,
+    expected,
+  }) => {
+    expect(calculateSimilarity(firstText, secondText)).toBe(expected);
   });
 
   it("should return partial score for similar texts", () => {
@@ -35,30 +84,6 @@ describe("calculateSimilarity - basic tests", () => {
     );
     expect(score).toBeGreaterThan(0.5);
     expect(score).toBeLessThan(1.0);
-  });
-
-  it("should handle special characters", () => {
-    const score = calculateSimilarity(
-      "Text with $pecial chars!",
-      "text with $pecial chars!",
-    );
-    expect(score).toBe(1.0);
-  });
-
-  it("should return 0.0 if first text is empty after normalization", () => {
-    const score = calculateSimilarity("", "text2");
-    expect(score).toBe(0.0);
-  });
-
-  it("should return 0.0 if second text is empty after normalization", () => {
-    const score = calculateSimilarity("text1", "");
-    expect(score).toBe(0.0);
-  });
-
-  it("should return 1.0 if both normalized texts are empty", () => {
-    // Both whitespace-only strings should normalize to empty and match
-    const score = calculateSimilarity("   ", "   ");
-    expect(score).toBe(1.0);
   });
 
   it("should handle a realistic email with minor changes", () => {
