@@ -392,7 +392,7 @@ export async function aiDraftReply({
   return result.reply;
 }
 
-function normalizeDraftReplyFormatting(reply: string): string {
+export function normalizeDraftReplyFormatting(reply: string): string {
   const withNormalizedLineEndings = reply.replace(/\r\n?|\u2028|\u2029/g, "\n");
 
   const withDecodedEscapedNewlines = /\\r\\n|\\n|\\r/.test(
@@ -411,7 +411,10 @@ function normalizeDraftReplyFormatting(reply: string): string {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  const nonEmptyLines = cleaned
+  const withRepairedCollapsedParagraphs =
+    repairCollapsedParagraphBoundaries(cleaned);
+
+  const nonEmptyLines = withRepairedCollapsedParagraphs
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
@@ -420,7 +423,18 @@ function normalizeDraftReplyFormatting(reply: string): string {
     return nonEmptyLines.join("\n\n");
   }
 
-  return cleaned;
+  return withRepairedCollapsedParagraphs;
+}
+
+function repairCollapsedParagraphBoundaries(reply: string): string {
+  if (reply.includes("\n")) return reply;
+
+  const gluedSentenceBoundaryPattern = /([a-z0-9][.!?])(?=[A-Z])/g;
+  const boundaryMatches = reply.match(gluedSentenceBoundaryPattern);
+
+  if (!boundaryMatches || boundaryMatches.length < 2) return reply;
+
+  return reply.replace(gluedSentenceBoundaryPattern, "$1\n\n");
 }
 
 function shouldConvertSingleLineBreaksToParagraphs(lines: string[]): boolean {
