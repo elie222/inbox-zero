@@ -57,12 +57,14 @@ describe("trackSentDraftStatus", () => {
       draftId: "draft-1",
       content: "Thanks for reaching out.",
       executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
     } as any);
     vi.mocked(calculateSimilarity).mockReturnValue(0.52);
     vi.mocked(isMeaningfulDraftEdit).mockReturnValue(true);
 
     const provider = {
       getDraft: vi.fn().mockResolvedValue(null),
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
     };
 
     await trackSentDraftStatus({
@@ -108,6 +110,7 @@ describe("trackSentDraftStatus", () => {
       draftId: "draft-1",
       content: "Thanks for reaching out.",
       executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
     } as any);
     vi.mocked(calculateSimilarity).mockReturnValue(0.14);
 
@@ -118,6 +121,7 @@ describe("trackSentDraftStatus", () => {
         getDraft: vi.fn().mockResolvedValue({
           id: "draft-1",
         }),
+        getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
       } as any,
       logger,
     });
@@ -141,20 +145,22 @@ describe("trackSentDraftStatus", () => {
     });
   });
 
-  it("treats forwarded sent messages as ignored drafts and skips learning", async () => {
+  it("treats sent messages to someone else as ignored drafts and skips learning", async () => {
     vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
       id: "action-1",
       draftId: "draft-1",
       content: "Thanks for reaching out.",
       executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
     } as any);
     vi.mocked(calculateSimilarity).mockReturnValue(0.08);
 
     await trackSentDraftStatus({
       emailAccountId: "account-1",
-      message: createForwardedSentMessage(),
+      message: createInternalForwardedSentMessage(),
       provider: {
         getDraft: vi.fn().mockResolvedValue(null),
+        getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
       } as any,
       logger,
     });
@@ -162,7 +168,7 @@ describe("trackSentDraftStatus", () => {
     expect(prisma.draftSendLog.create).toHaveBeenCalledWith({
       data: {
         executedActionId: "action-1",
-        sentMessageId: "sent-forward-1",
+        sentMessageId: "sent-internal-forward-1",
         similarityScore: 0.08,
       },
     });
@@ -175,12 +181,53 @@ describe("trackSentDraftStatus", () => {
     expect(syncReplyMemoriesFromDraftSendLogs).not.toHaveBeenCalled();
   });
 
+  it("keeps learning from replies with forwarded blocks when sent to the source sender", async () => {
+    vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
+      id: "action-1",
+      draftId: "draft-1",
+      content: "Thanks for reaching out.",
+      executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
+    } as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(0.52);
+    vi.mocked(isMeaningfulDraftEdit).mockReturnValue(true);
+
+    const provider = {
+      getDraft: vi.fn().mockResolvedValue(null),
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+    };
+
+    await trackSentDraftStatus({
+      emailAccountId: "account-1",
+      message: createForwardedReplySentMessage(),
+      provider: provider as any,
+      logger,
+    });
+
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: { wasDraftSent: true },
+    });
+    expect(saveDraftSendLogReplyMemory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draftSendLogId: "draft-send-log-1",
+        sentText: "Thanks, please use annual billing.",
+      }),
+    );
+    expect(syncReplyMemoriesFromDraftSendLogs).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+      provider,
+      logger,
+    });
+  });
+
   it("skips reply memory learning when the edit is not meaningful", async () => {
     vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
       id: "action-1",
       draftId: "draft-1",
       content: "Thanks for reaching out.",
       executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
     } as any);
     vi.mocked(calculateSimilarity).mockReturnValue(0.98);
     vi.mocked(isMeaningfulDraftEdit).mockReturnValue(false);
@@ -190,6 +237,7 @@ describe("trackSentDraftStatus", () => {
       message: createSentMessage(),
       provider: {
         getDraft: vi.fn().mockResolvedValue(null),
+        getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
       } as any,
       logger,
     });
@@ -301,12 +349,13 @@ function createSentMessage(): ParsedMessage {
   } as ParsedMessage;
 }
 
-function createForwardedSentMessage(): ParsedMessage {
+function createInternalForwardedSentMessage(): ParsedMessage {
   return {
     ...createSentMessage(),
-    id: "sent-forward-1",
+    id: "sent-internal-forward-1",
     headers: {
       ...createSentMessage().headers,
+      to: "teammate@example.com",
       subject: "Fwd: Pricing question",
     },
     textPlain: `Can someone check this?
@@ -317,6 +366,42 @@ Subject: Pricing question
 
 Can you send pricing?`,
     textHtml: undefined,
+  } as ParsedMessage;
+}
+
+function createForwardedReplySentMessage(): ParsedMessage {
+  return {
+    ...createSentMessage(),
+    id: "sent-forward-reply-1",
+    headers: {
+      ...createSentMessage().headers,
+      subject: "Re: Pricing question",
+    },
+    textPlain: `Thanks, please use annual billing.
+
+---------- Forwarded message ----------
+From: sales@example.com
+Subject: Pricing question
+
+Can you send pricing?`,
+    textHtml: undefined,
+  } as ParsedMessage;
+}
+
+function createSourceMessage(): ParsedMessage {
+  return {
+    id: "source-1",
+    threadId: "thread-1",
+    internalDate: "1710000000000",
+    headers: {
+      from: "Sales <sales@example.com>",
+      to: "user@example.com",
+      subject: "Pricing question",
+      date: "2026-03-17T10:00:00.000Z",
+      "message-id": "<source-1@example.com>",
+    },
+    textPlain: "Can you share pricing for a larger team?",
+    textHtml: "<p>Can you share pricing for a larger team?</p>",
   } as ParsedMessage;
 }
 

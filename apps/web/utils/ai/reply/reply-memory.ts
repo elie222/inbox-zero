@@ -7,11 +7,12 @@ import {
   extractDomainFromEmail,
   extractEmailAddress,
   isPublicEmailDomain,
+  messageRepliesToSourceSender,
 } from "@/utils/email";
 import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { Logger } from "@/utils/logger";
-import { hasForwardedContent } from "@/utils/mail";
+import { stripForwardedContent } from "@/utils/mail";
 import prisma from "@/utils/prisma";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { aiExtractReplyMemoriesFromDraftEdit } from "./extract-reply-memories";
@@ -298,32 +299,26 @@ async function processReplyMemoryDraftSendLog({
   const emailAccountId =
     draftSendLog.executedAction.executedRule.emailAccountId;
   const draftText = draftSendLog.executedAction.content ?? "";
-  const sentText = draftSendLog.replyMemorySentText ?? "";
+  const sentText = stripForwardedContent(
+    draftSendLog.replyMemorySentText ?? "",
+  );
 
-  if (hasForwardedContent(sentText)) {
-    logger.info(
-      "Skipping reply memory extraction from forwarded sent message",
-      {
-        draftSendLogId: draftSendLog.id,
-      },
-    );
-    await markDraftSendLogReplyMemoryProcessed(draftSendLog.id);
-    return;
-  }
-
-  const incomingMessage = await provider
-    .getMessage(sourceMessageId)
-    .catch((error) => {
+  const [incomingMessage, sentMessage] = await Promise.all([
+    provider.getMessage(sourceMessageId).catch((error) => {
       logger.warn("Failed to load source message for reply memory learning", {
         error,
         sourceMessageId,
       });
       return null;
-    });
-
-  const senderEmail = extractEmailAddress(incomingMessage?.headers.from || "");
-  const senderDomain = extractDomainFromEmail(senderEmail).toLowerCase();
-  const normalizedSenderEmail = senderEmail.toLowerCase();
+    }),
+    provider.getMessage(draftSendLog.sentMessageId).catch((error) => {
+      logger.warn("Failed to load sent message for reply memory learning", {
+        error,
+        sentMessageId: draftSendLog.sentMessageId,
+      });
+      return null;
+    }),
+  ]);
 
   if (!incomingMessage) {
     logger.warn(
@@ -336,6 +331,38 @@ async function processReplyMemoryDraftSendLog({
     await recordDraftSendLogReplyMemoryFailure(draftSendLog);
     return;
   }
+
+  if (!sentMessage) {
+    logger.warn(
+      "Retrying reply memory extraction after sent email lookup failed",
+      {
+        draftSendLogId: draftSendLog.id,
+        sentMessageId: draftSendLog.sentMessageId,
+      },
+    );
+    await recordDraftSendLogReplyMemoryFailure(draftSendLog);
+    return;
+  }
+
+  if (
+    messageRepliesToSourceSender({
+      sentMessage,
+      sourceMessage: incomingMessage,
+    }) === false
+  ) {
+    logger.info(
+      "Skipping reply memory extraction because sent message did not reply to source sender",
+      {
+        draftSendLogId: draftSendLog.id,
+      },
+    );
+    await markDraftSendLogReplyMemoryProcessed(draftSendLog.id);
+    return;
+  }
+
+  const senderEmail = extractEmailAddress(incomingMessage.headers.from || "");
+  const senderDomain = extractDomainFromEmail(senderEmail).toLowerCase();
+  const normalizedSenderEmail = senderEmail.toLowerCase();
 
   if (!senderEmail) {
     logger.warn(

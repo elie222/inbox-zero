@@ -375,9 +375,7 @@ describe("reply-memory", () => {
       },
     });
 
-    const provider = {
-      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
-    };
+    const provider = createReplyMemoryProvider();
 
     await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
@@ -448,7 +446,7 @@ describe("reply-memory", () => {
     });
   });
 
-  it("skips queued draft learning when the sent message is a forward", async () => {
+  it("skips queued draft learning when the sent message did not reply to the source sender", async () => {
     vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
       count: 0,
     });
@@ -465,9 +463,12 @@ Can you send pricing?`,
     ] as any);
     vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
 
-    const provider = {
-      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
-    };
+    const provider = createReplyMemoryProvider({
+      sentMessage: createSentMessage({
+        to: "teammate@example.com",
+        subject: "Fwd: Pricing question",
+      }),
+    });
 
     await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
@@ -475,7 +476,8 @@ Can you send pricing?`,
       logger,
     });
 
-    expect(provider.getMessage).not.toHaveBeenCalled();
+    expect(provider.getMessage).toHaveBeenCalledWith("source-1");
+    expect(provider.getMessage).toHaveBeenCalledWith("sent-1");
     expect(mockGenerateObject).not.toHaveBeenCalled();
     expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
     expect(prisma.draftSendLog.update).toHaveBeenCalledWith({
@@ -526,9 +528,7 @@ Can you send pricing?`,
       },
     });
 
-    const provider = {
-      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
-    };
+    const provider = createReplyMemoryProvider();
 
     await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
@@ -589,9 +589,7 @@ Can you send pricing?`,
       },
     });
 
-    const provider = {
-      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
-    };
+    const provider = createReplyMemoryProvider();
     const testLogger = createScopedLogger("reply-memory-test-unknown-id");
     const warnSpy = vi.spyOn(testLogger, "warn").mockImplementation(() => {});
 
@@ -652,9 +650,7 @@ Can you send pricing?`,
       },
     });
 
-    const provider = {
-      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
-    };
+    const provider = createReplyMemoryProvider();
 
     await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
@@ -697,9 +693,7 @@ Can you send pricing?`,
       },
     });
 
-    const provider = {
-      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
-    };
+    const provider = createReplyMemoryProvider();
 
     await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
@@ -827,9 +821,7 @@ Can you send pricing?`,
         },
       });
 
-    const provider = {
-      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
-    };
+    const provider = createReplyMemoryProvider();
 
     await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
@@ -984,9 +976,7 @@ Can you send pricing?`,
       },
     });
 
-    const provider = {
-      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
-    };
+    const provider = createReplyMemoryProvider();
 
     await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
@@ -1079,6 +1069,7 @@ Can you send pricing?`,
 
     const provider = {
       getMessage: vi.fn().mockImplementation(async (messageId: string) => {
+        if (messageId.startsWith("sent")) return createSentMessage();
         if (messageId === "source-fail") return null;
         return createSourceMessage();
       }),
@@ -1165,9 +1156,7 @@ Can you send pricing?`,
       },
     });
 
-    const provider = {
-      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
-    };
+    const provider = createReplyMemoryProvider();
 
     await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
@@ -1196,9 +1185,9 @@ Can you send pricing?`,
     ] as any);
     vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
 
-    const provider = {
-      getMessage: vi.fn().mockResolvedValue(createSourceMessage({ from: "" })),
-    };
+    const provider = createReplyMemoryProvider({
+      sourceMessage: createSourceMessage({ from: "" }),
+    });
 
     await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
@@ -1244,9 +1233,7 @@ Can you send pricing?`,
       },
     });
 
-    const provider = {
-      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
-    };
+    const provider = createReplyMemoryProvider();
 
     await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
@@ -1297,9 +1284,7 @@ Can you send pricing?`,
       },
     });
 
-    const provider = {
-      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
-    };
+    const provider = createReplyMemoryProvider();
 
     await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
@@ -1337,13 +1322,12 @@ Can you send pricing?`,
       },
     });
 
-    const provider = {
-      getMessage: vi
-        .fn()
-        .mockResolvedValue(
-          createSourceMessage({ from: "Customer <customer@gmail.com>" }),
-        ),
-    };
+    const provider = createReplyMemoryProvider({
+      sourceMessage: createSourceMessage({
+        from: "Customer <customer@gmail.com>",
+      }),
+      sentMessage: createSentMessage({ to: "customer@gmail.com" }),
+    });
 
     await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
@@ -1399,9 +1383,7 @@ Can you send pricing?`,
       },
     });
 
-    const provider = {
-      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
-    };
+    const provider = createReplyMemoryProvider();
 
     await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
@@ -1833,9 +1815,45 @@ function createSourceMessage(
   } as ParsedMessage;
 }
 
+function createSentMessage(
+  overrides: Partial<ParsedMessage["headers"]> = {},
+): ParsedMessage {
+  return {
+    id: "sent-1",
+    threadId: "thread-1",
+    internalDate: "1710000000000",
+    headers: {
+      from: "user@example.com",
+      to: "sales@example.com",
+      subject: "Re: Pricing question",
+      date: "2026-03-17T10:10:00.000Z",
+      "message-id": "<sent-1@example.com>",
+      ...overrides,
+    },
+    textPlain: "Pricing depends on seat count.",
+    textHtml: "<p>Pricing depends on seat count.</p>",
+  } as ParsedMessage;
+}
+
+function createReplyMemoryProvider({
+  sourceMessage = createSourceMessage(),
+  sentMessage = createSentMessage(),
+}: {
+  sourceMessage?: ParsedMessage | null;
+  sentMessage?: ParsedMessage | null;
+} = {}) {
+  return {
+    getMessage: vi.fn().mockImplementation(async (messageId: string) => {
+      if (messageId.startsWith("sent")) return sentMessage;
+      return sourceMessage;
+    }),
+  };
+}
+
 function createDraftSendLog(
   overrides: Partial<{
     id: string;
+    sentMessageId: string;
     replyMemorySentText: string;
     replyMemoryAttemptCount: number;
     draftText: string;
@@ -1848,6 +1866,7 @@ function createDraftSendLog(
   return {
     id: overrides.id ?? "draft-send-log-1",
     createdAt: overrides.createdAt ?? new Date("2026-03-17T10:00:00.000Z"),
+    sentMessageId: overrides.sentMessageId ?? "sent-1",
     replyMemoryAttemptCount: overrides.replyMemoryAttemptCount ?? 0,
     replyMemoryProcessedAt: overrides.replyMemoryProcessedAt ?? null,
     replyMemorySentText:

@@ -15,7 +15,7 @@ import {
 import { replaceMessagingDraftNotificationsWithHandledOnWebState } from "@/utils/messaging/rule-notifications";
 import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
 import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
-import { hasForwardedContent } from "@/utils/mail";
+import { messageRepliesToSourceSender } from "@/utils/email";
 import { logReplyTrackerError } from "./error-logging";
 
 /**
@@ -60,6 +60,11 @@ export async function trackSentDraftStatus({
       content: true,
       draftId: true,
       executedRuleId: true,
+      executedRule: {
+        select: {
+          messageId: true,
+        },
+      },
     },
   });
 
@@ -68,32 +73,49 @@ export async function trackSentDraftStatus({
     return;
   }
 
-  const draftExists = await provider.getDraft(executedAction.draftId);
+  const [draftExists, sourceMessage] = await Promise.all([
+    provider.getDraft(executedAction.draftId),
+    provider
+      .getMessage(executedAction.executedRule.messageId)
+      .catch((error) => {
+        logger.warn("Failed to load source message for sent draft tracking", {
+          error,
+          executedActionId: executedAction.id,
+        });
+        return null;
+      }),
+  ]);
 
   const executedActionId = executedAction.id;
 
   // Calculate similarity between sent message and AI draft content
   // Pass full message to properly handle Outlook HTML content
   const similarityScore = calculateSimilarity(executedAction.content, message);
-  const sentMessageIsForward = isForwardedSentMessage(message);
+  const sentMessageRepliesToSource =
+    sourceMessage &&
+    messageRepliesToSourceSender({
+      sentMessage: message,
+      sourceMessage,
+    });
 
   logger.info("Calculated similarity score", {
     executedActionId,
     similarityScore,
     draftExists: !!draftExists,
-    sentMessageIsForward,
+    sentMessageRepliesToSource,
   });
 
-  if (draftExists || sentMessageIsForward) {
+  if (draftExists || sentMessageRepliesToSource === false) {
     logger.info(
-      sentMessageIsForward
-        ? "Sent message is a forward, marking AI draft as not sent."
+      sentMessageRepliesToSource === false
+        ? "Sent message did not reply to source sender, marking AI draft as not sent."
         : "Original AI draft still exists, sent message was different.",
       {
         executedActionId: executedAction.id,
         draftId: executedAction.draftId,
         similarityScore,
         draftExists: !!draftExists,
+        sentMessageRepliesToSource,
       },
     );
 
@@ -117,8 +139,8 @@ export async function trackSentDraftStatus({
     );
 
     logger.info(
-      sentMessageIsForward
-        ? "Created draft send log and marked action as not sent (sent message is a forward)"
+      sentMessageRepliesToSource === false
+        ? "Created draft send log and marked action as not sent (sent message did not reply to source sender)"
         : "Created draft send log and marked action as not sent (draft still exists)",
       { executedActionId },
     );
@@ -126,7 +148,7 @@ export async function trackSentDraftStatus({
       executedRuleId: executedAction.executedRuleId,
       logger,
     });
-    if (!sentMessageIsForward) {
+    if (sentMessageRepliesToSource !== false) {
       queueReplyMemoryLearning({
         emailAccountId,
         executedActionId,
@@ -456,19 +478,4 @@ function queueReplyMemoryLearning({
       });
     }
   });
-}
-
-function isForwardedSentMessage(message: ParsedMessage) {
-  if (/^(?:fwd?|fw):/i.test(message.headers.subject?.trim() ?? "")) {
-    return true;
-  }
-
-  // maxLength: 0 disables truncation so forward markers further down aren't missed
-  const sentText = emailToContentForAI(message, {
-    maxLength: 0,
-    extractReply: true,
-    removeForwarded: false,
-  });
-
-  return hasForwardedContent(sentText);
 }
