@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, afterAll } from "vitest";
+import { describe, test, expect, afterAll } from "vitest";
 import {
   describeEvalMatrix,
   shouldRunEvalTests,
@@ -9,8 +9,6 @@ import { defaultCategory } from "@/utils/categories";
 
 // pnpm test-ai eval/categorize-senders
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/categorize-senders
-
-vi.mock("server-only", () => ({}));
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;

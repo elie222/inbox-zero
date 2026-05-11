@@ -4,7 +4,6 @@ import { createTestLogger } from "@/__tests__/helpers";
 import { getResponseTimeStats } from "./controller";
 import { sleep } from "@/utils/sleep";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/sleep", () => ({
   sleep: vi.fn().mockResolvedValue(undefined),

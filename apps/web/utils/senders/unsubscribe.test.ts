@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 const { dnsLookupMock, httpsRequestMock } = vi.hoisted(() => ({
@@ -26,7 +25,7 @@ vi.mock("node:https", () => ({
 import { setSenderStatus, unsubscribeSenderAndMark } from "./unsubscribe";
 
 describe("sender-unsubscribe", () => {
-  const logger = createScopedLogger("sender-unsubscribe-test");
+  const logger = createTestLogger();
 
   beforeEach(() => {
     vi.clearAllMocks();

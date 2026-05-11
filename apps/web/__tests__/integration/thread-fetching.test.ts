@@ -8,11 +8,9 @@
  *   pnpm test-integration thread-fetching
  */
 
-import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, test, expect, beforeAll, afterAll } from "vitest";
 import { createGmailTestHarness, type GmailTestHarness } from "./helpers";
 import { getThread, getThreadsWithNextPageToken } from "@/utils/gmail/thread";
-
-vi.mock("server-only", () => ({}));
 
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS;
 const TEST_EMAIL = "thread-test@example.com";

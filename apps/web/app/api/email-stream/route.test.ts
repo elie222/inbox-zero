@@ -1,5 +1,3 @@
-vi.mock("server-only", () => ({}));
-
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SafeError } from "@/utils/error";

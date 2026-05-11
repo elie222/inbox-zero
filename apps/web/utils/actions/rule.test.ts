@@ -17,7 +17,6 @@ vi.mock("@/utils/rule/rule", async (importOriginal) => {
   };
 });
 
-vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/email/provider", () => ({

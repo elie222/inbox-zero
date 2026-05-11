@@ -13,9 +13,6 @@ const { createRuleHistoryMock, mockEnv } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/utils/prisma");
-vi.mock("next/server", () => ({
-  after: vi.fn((callback: () => Promise<void> | void) => callback()),
-}));
 vi.mock("@/utils/risk", () => ({
   getActionRiskLevel: vi.fn(),
 }));

@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("server-only", () => ({}));
-
 const { envMock, handleMessagingWebhookRouteMock } = vi.hoisted(() => ({
   envMock: {
     TELEGRAM_BOT_TOKEN: "test-telegram-token" as string | undefined,

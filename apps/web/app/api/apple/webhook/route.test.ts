@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("server-only", () => ({}));
-
 const { syncAppleSubscriptionToDbMock, verifyAppleNotificationPayloadMock } =
   vi.hoisted(() => ({
     syncAppleSubscriptionToDbMock: vi.fn(),
@@ -22,14 +20,6 @@ vi.mock("@/utils/middleware", () => ({
     (request: Request, ...args: unknown[]) =>
       handler(request, ...args),
 }));
-
-vi.mock("next/server", async (importOriginal) => {
-  const original = await importOriginal<typeof import("next/server")>();
-  return {
-    ...original,
-    after: (fn: () => void | Promise<void>) => Promise.resolve(fn()),
-  };
-});
 
 vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),

@@ -3,7 +3,6 @@ import { createMicrosoftAvailabilityProvider } from "./microsoft-availability";
 import type { Client } from "@microsoft/microsoft-graph-client";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/outlook/calendar-client", () => ({
   getCalendarClientWithRefresh: vi.fn(),
 }));

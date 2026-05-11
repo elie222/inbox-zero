@@ -4,13 +4,12 @@ import {
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
 import { getAssistantCapabilitiesTool } from "./tools/settings/get-assistant-capabilities-tool";
 import { updateAssistantSettingsTool } from "./tools/settings/update-assistant-settings-tool";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn().mockResolvedValue(undefined),
@@ -22,7 +21,7 @@ vi.mock("@/utils/user/get", () => ({
   getUserPremium: vi.fn(),
 }));
 
-const logger = createScopedLogger("chat-settings-tools-test");
+const logger = createTestLogger();
 const mockGetUserPremium = vi.mocked(getUserPremium);
 const mockIsActivePremium = vi.mocked(isActivePremium);
 const slackRulesRoute = {

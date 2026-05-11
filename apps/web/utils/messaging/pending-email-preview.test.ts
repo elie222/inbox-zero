@@ -1,7 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildPendingEmailPreview } from "./pending-email-preview";
-
-vi.mock("server-only", () => ({}));
 
 describe("buildPendingEmailPreview", () => {
   it("converts send-email HTML into plain text preview", () => {

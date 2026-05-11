@@ -23,7 +23,6 @@ vi.mock("@/utils/email-account-client", () => ({
 vi.mock("@/utils/log-error-with-dedupe", () => ({
   logErrorWithDedupe: vi.fn(),
 }));
-vi.mock("server-only", () => ({}));
 
 import { hasAiAccess, isPremiumRecord } from "@/utils/premium";
 import { unwatchEmails } from "@/utils/email/watch-manager";

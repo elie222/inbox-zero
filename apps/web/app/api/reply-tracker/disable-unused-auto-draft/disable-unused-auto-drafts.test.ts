@@ -7,7 +7,6 @@ import { createTestLogger } from "@/__tests__/helpers";
 const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
-vi.mock("server-only", () => ({}));
 
 describe("disableUnusedAutoDrafts", () => {
   beforeEach(() => {

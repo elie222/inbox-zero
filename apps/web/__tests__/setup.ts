@@ -2,6 +2,8 @@ import { vi } from "vitest";
 
 setRequiredTestEnv();
 
+vi.mock("server-only", () => ({}));
+
 // Mock next/server's after() to just run synchronously in tests
 vi.mock("next/server", async () => {
   const actual = await vi.importActual("next/server");

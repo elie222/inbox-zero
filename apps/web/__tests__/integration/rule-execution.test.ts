@@ -16,8 +16,6 @@ import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
-
 // Mock Prisma — executeAct updates executedRule status
 const mockExecutedRuleUpdate = vi.fn().mockResolvedValue({});
 const mockActionUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
@@ -30,11 +28,6 @@ vi.mock("@/utils/prisma", () => ({
       updateMany: (...args: unknown[]) => mockActionUpdateMany(...args),
     },
   },
-}));
-
-// Mock next/server — label action uses after() for lazy updates
-vi.mock("next/server", () => ({
-  after: vi.fn((fn: () => void) => fn()),
 }));
 
 // Mock Tinybird — archiveThread publishes analytics

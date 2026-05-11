@@ -12,8 +12,6 @@ import type { ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/prisma", () => ({
   default: {
     executedAction: {

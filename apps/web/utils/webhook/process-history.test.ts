@@ -6,7 +6,6 @@ import { processHistoryForUser as processGoogleHistoryForUser } from "@/app/api/
 import { processHistoryForUser as processOutlookHistoryForUser } from "@/app/api/outlook/webhook/process-history";
 import { backfillRecentOutlookMessages } from "@/utils/outlook/backfill-recent-messages";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma", () => ({
   default: {
     emailAccount: {

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import type { RequestWithEmailAccount } from "@/utils/middleware";
 import { listChannels } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
@@ -66,7 +66,7 @@ type MessagingChannelRecord = Prisma.MessagingChannelGetPayload<{
   select: typeof messagingChannelSelect;
 }>;
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe("GET /api/user/messaging-channels", () => {
   beforeEach(() => {

@@ -37,7 +37,6 @@ const provider = {
   isReplyInThread: vi.fn().mockReturnValue(false),
 } as unknown as EmailProvider;
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/ai/choose-rule/ai-choose-rule", () => ({
   aiChooseRule: vi.fn(),

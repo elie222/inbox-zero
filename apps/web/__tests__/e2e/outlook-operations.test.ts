@@ -38,26 +38,12 @@ const TEST_CONVERSATION_ID =
   "AQQkADAwATNiZmYAZS05YWEAYy1iNWY0LTAwAi0wMAoAEABuo-fmt9KvQ4u55KlWB32H"; // Real conversation ID from demoinboxzero@outlook.com
 const TEST_CATEGORY_NAME = process.env.TEST_CATEGORY_NAME || "To Reply";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/redis/message-processing", () => ({
   acquireOutboundMessageLock: vi.fn().mockResolvedValue("lock-token-1"),
   clearOutboundMessageLock: vi.fn().mockResolvedValue(true),
   markMessageAsProcessing: vi.fn().mockResolvedValue(true),
   markOutboundMessageProcessed: vi.fn().mockResolvedValue(true),
 }));
-
-// Mock Next.js after() to run synchronously and await in tests
-vi.mock("next/server", async () => {
-  const actual =
-    await vi.importActual<typeof import("next/server")>("next/server");
-  return {
-    ...actual,
-    after: async (fn: () => void | Promise<void>) => {
-      await fn();
-    },
-  };
-});
 
 describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
   let provider: EmailProvider;

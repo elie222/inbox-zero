@@ -4,7 +4,6 @@ import { cancelScheduledActions, createScheduledAction } from "./scheduler";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import prisma from "@/utils/__mocks__/prisma";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/env", () => ({
   env: {

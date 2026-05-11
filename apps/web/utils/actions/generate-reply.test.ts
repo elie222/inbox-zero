@@ -7,7 +7,6 @@ import { aiGenerateNudge } from "@/utils/ai/reply/generate-nudge";
 import { getReply, saveReply } from "@/utils/redis/reply";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({

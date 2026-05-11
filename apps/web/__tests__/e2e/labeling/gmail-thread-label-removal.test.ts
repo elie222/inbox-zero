@@ -9,7 +9,7 @@
  * pnpm test-e2e gmail-thread-label-removal
  */
 
-import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, test, expect, beforeAll, afterAll } from "vitest";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
@@ -22,8 +22,6 @@ import { findThreadWithMultipleMessages } from "./helpers";
 
 const RUN_E2E_TESTS = process.env.RUN_E2E_TESTS;
 const TEST_GMAIL_EMAIL = process.env.TEST_GMAIL_EMAIL;
-
-vi.mock("server-only", () => ({}));
 
 describe.skipIf(!RUN_E2E_TESTS)("Gmail Thread Label Removal E2E Tests", () => {
   let provider: EmailProvider;

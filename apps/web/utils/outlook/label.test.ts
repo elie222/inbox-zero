@@ -1,7 +1,7 @@
 import type { OutlookCategory } from "@microsoft/microsoft-graph-types";
 import { describe, expect, it, vi } from "vitest";
 import type { OutlookClient } from "@/utils/outlook/client";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { createLabel, getLabel, getOrCreateLabels } from "./label";
 
 describe("createLabel", () => {
@@ -17,7 +17,7 @@ describe("createLabel", () => {
     const created = await createLabel({
       client,
       name: "Notification, property update",
-      logger: createScopedLogger("outlook-label-test"),
+      logger: createTestLogger(),
     });
 
     expect(post).toHaveBeenCalledWith(
@@ -62,7 +62,7 @@ describe("getOrCreateLabels", () => {
       getOrCreateLabels({
         client,
         names: ["Finance, Updates", "Finance Updates"],
-        logger: createScopedLogger("outlook-label-test"),
+        logger: createTestLogger(),
       }),
     ).rejects.toThrow("normalize to the same value");
 
@@ -84,7 +84,7 @@ describe("getOrCreateLabels", () => {
       getOrCreateLabels({
         client,
         names: ["Finance Updates"],
-        logger: createScopedLogger("outlook-label-test"),
+        logger: createTestLogger(),
       }),
     ).rejects.toThrow("Ambiguous Outlook category match");
 

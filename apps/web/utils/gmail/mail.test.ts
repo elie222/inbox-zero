@@ -1,8 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
 import { formatEmailDate } from "@/utils/gmail/reply";
-
-vi.mock("server-only", () => ({}));
 
 import {
   buildReplyMessageText,

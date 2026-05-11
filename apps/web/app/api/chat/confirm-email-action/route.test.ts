@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import type { ConfirmAssistantEmailActionBody } from "@/utils/actions/assistant-chat.validation";
 
 const { mockConfirmAssistantEmailActionForAccount, mockGetEmailAccountWithAi } =
@@ -43,7 +43,7 @@ describe("confirm email action route", () => {
       }),
       {
         auth: { emailAccountId: "email-account-1" },
-        logger: createScopedLogger("test/confirm-email-action"),
+        logger: createTestLogger(),
       },
     );
 
@@ -76,7 +76,7 @@ describe("confirm email action route", () => {
       }),
       {
         auth: { emailAccountId: "email-account-1" },
-        logger: createScopedLogger("test/confirm-email-action"),
+        logger: createTestLogger(),
       },
     );
 

@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { startBulkCategorization } from "./start-bulk-categorization";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 const {
@@ -64,7 +63,7 @@ vi.mock("@/utils/actions/stats-loading", () => ({
     mockLoadEmails(...args),
 }));
 
-const logger = createScopedLogger("start-bulk-categorization-test");
+const logger = createTestLogger();
 
 describe("startBulkCategorization", () => {
   beforeEach(() => {

@@ -26,8 +26,6 @@ import { createScopedLogger } from "@/utils/logger";
 // pnpm test-ai eval/assistant-chat-rule-editing-patch-semantics
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-rule-editing-patch-semantics
 
-vi.mock("server-only", () => ({}));
-
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 240_000;
 const evalReporter = createEvalReporter();

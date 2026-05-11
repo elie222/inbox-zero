@@ -3,7 +3,6 @@ import prisma from "@/utils/__mocks__/prisma";
 import { SCOPES } from "@/utils/gmail/scopes";
 import { handleGmailPermissionsCheck } from "./permissions";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/gmail/client", () => ({
   getAccessTokenFromClient: vi.fn(),

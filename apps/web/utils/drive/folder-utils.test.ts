@@ -3,8 +3,6 @@ import { createFolderPath } from "./folder-utils";
 import type { DriveProvider, DriveFolder } from "./types";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
-
 function createMockFolder(id: string, name: string): DriveFolder {
   return {
     id,

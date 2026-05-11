@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 import {
@@ -16,8 +16,6 @@ const logger = createTestLogger();
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 const TIMEOUT = 15_000;
-
-vi.mock("server-only", () => ({}));
 
 function getDraftingEmailAccount() {
   return {

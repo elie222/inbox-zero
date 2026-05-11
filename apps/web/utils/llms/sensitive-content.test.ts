@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   enforceSensitiveDataPolicy,
   enforceSensitiveToolOutputPolicy,
 } from "@/utils/llms/sensitive-content";
 
-const logger = createScopedLogger("llms-sensitive-content-test");
+const logger = createTestLogger();
 
 describe("Sensitive data policy enforcement", () => {
   it("leaves allow-mode requests unchanged", () => {

@@ -13,8 +13,6 @@ const logger = createTestLogger();
 // Mock logger.with to return the same logger instance so spies work
 vi.spyOn(logger, "with").mockReturnValue(logger);
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/gmail/client", () => ({
   getGmailClientWithRefresh: vi.fn().mockResolvedValue({}),
 }));

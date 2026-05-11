@@ -6,7 +6,6 @@ import { GroupItemType } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import { extractEmailAddress } from "@/utils/email";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 vi.mock("./cold-email-rule", () => ({
