@@ -3,7 +3,6 @@ import {
   getEmailClient,
   emailToContent,
   convertEmailHtmlToText,
-  hasForwardedContent,
   parseReply,
 } from "./mail";
 
@@ -132,21 +131,17 @@ describe("emailToContent", () => {
       expect(result).toBe("Regular email content without forwards");
     });
 
-    it("detects forwarded content without stripping it", () => {
-      expect(
-        hasForwardedContent(
-          "Can you check this?\n\n---------- Forwarded message ----------\nFrom: sender@example.com\nSubject: Original",
-        ),
-      ).toBe(true);
-      expect(hasForwardedContent("Regular reply content")).toBe(false);
-    });
-
     it("does not treat inline From and Subject text as a forwarded message", () => {
-      expect(
-        hasForwardedContent(
+      const email = {
+        textPlain:
           "Please update the From: field and Subject: line before sending.",
-        ),
-      ).toBe(false);
+        textHtml: undefined,
+        snippet: "",
+      };
+      const result = emailToContent(email, { removeForwarded: true });
+      expect(result).toBe(
+        "Please update the From: field and Subject: line before sending.",
+      );
     });
   });
 

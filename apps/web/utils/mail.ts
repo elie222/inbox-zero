@@ -53,10 +53,6 @@ const FORWARDED_CONTENT_PATTERNS = [
   /(?:\r?\n|\r)?Original Message/i,
 ];
 
-export function hasForwardedContent(text: string): boolean {
-  return FORWARDED_CONTENT_PATTERNS.some((pattern) => pattern.test(text));
-}
-
 export function stripForwardedContent(text: string): string {
   for (const pattern of FORWARDED_CONTENT_PATTERNS) {
     const parts = text.split(pattern);
