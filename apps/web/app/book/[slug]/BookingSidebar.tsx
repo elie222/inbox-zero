@@ -232,11 +232,16 @@ function LocationIcon({ type }: { type: BookingLinkLocationType }) {
 }
 
 function locationLabel(link: BookingLink): string {
-  if (link.locationType === BookingLinkLocationType.GOOGLE_MEET) {
-    return "Google Meet";
+  switch (link.locationType) {
+    case BookingLinkLocationType.GOOGLE_MEET:
+      return "Google Meet";
+    case BookingLinkLocationType.MICROSOFT_TEAMS:
+      return "Microsoft Teams";
+    case BookingLinkLocationType.PHONE:
+      return "Phone call";
+    case BookingLinkLocationType.IN_PERSON:
+      return "In person";
+    default:
+      return "Custom";
   }
-  if (link.locationType === BookingLinkLocationType.MICROSOFT_TEAMS) {
-    return "Microsoft Teams";
-  }
-  return link.locationValue || "Custom";
 }
