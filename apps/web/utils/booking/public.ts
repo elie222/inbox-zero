@@ -120,7 +120,10 @@ export async function createPublicBooking({
     bookingLinkId: config.link.id,
     idempotencyToken: input.idempotencyToken,
   });
-  if (existingBooking) return toPublicBookingResult(existingBooking);
+  if (existingBooking) {
+    const result = await resolveExistingIdempotentBooking(existingBooking);
+    if (result) return result;
+  }
 
   const busyPeriods = await getBusyPeriods({
     config,
@@ -167,7 +170,12 @@ export async function createPublicBooking({
       // The other concurrent request won the idempotency race and already
       // created the booking and provider event. Return its result instead
       // of redoing the calendar write.
-      if (existing) return toPublicBookingResult(existing);
+      if (existing?.status === BookingStatus.CONFIRMED) {
+        return toPublicBookingResult(existing);
+      }
+      if (existing?.status === BookingStatus.PENDING_PROVIDER_EVENT) {
+        throw new SafeError("Booking request is still being processed");
+      }
       throw new SafeError("Selected slot is no longer available");
     }
     throw error;
@@ -517,6 +525,23 @@ async function findIdempotentBooking({
     where: { bookingLinkId, idempotencyToken },
     include: getBookingHostInclude(),
   });
+}
+
+async function resolveExistingIdempotentBooking(
+  booking: Awaited<ReturnType<typeof findIdempotentBooking>>,
+) {
+  if (!booking) return null;
+
+  if (booking.status === BookingStatus.CONFIRMED) {
+    return toPublicBookingResult(booking);
+  }
+
+  if (booking.status === BookingStatus.FAILED) {
+    await prisma.booking.delete({ where: { id: booking.id } });
+    return null;
+  }
+
+  throw new SafeError("Booking request is still being processed");
 }
 
 function getProviderEventDescription({

@@ -173,8 +173,8 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     const client = await this.getClient();
 
     await client
-      .api(`/me/calendars/${input.calendarId}/events/${input.eventId}`)
-      .delete();
+      .api(`/me/events/${input.eventId}/cancel`)
+      .post({ comment: "" });
   }
 
   private parseEvent(event: MicrosoftEvent) {

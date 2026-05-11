@@ -248,6 +248,37 @@ describe("public booking", () => {
     });
   });
 
+  it("retries a failed idempotent booking instead of returning it as success", async () => {
+    prisma.booking.findFirst.mockResolvedValue(
+      bookingRecord({ status: BookingStatus.FAILED }),
+    );
+    prisma.booking.delete.mockResolvedValue({} as any);
+    prisma.booking.findMany.mockResolvedValue([]);
+    prisma.booking.create.mockResolvedValue(
+      bookingRecord({ status: BookingStatus.PENDING_PROVIDER_EVENT }),
+    );
+    prisma.booking.update.mockResolvedValue(
+      bookingRecord({
+        provider: "google",
+        providerConnectionId: "connection-id",
+        providerCalendarId: "primary",
+        providerEventId: "provider-event-id",
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+
+    const result = await createPublicBooking({
+      input: publicBookingInput({ idempotencyToken: "failed-token" }),
+      logger,
+    });
+
+    expect(prisma.booking.delete).toHaveBeenCalledWith({
+      where: { id: "booking-id" },
+    });
+    expect(prisma.booking.create).toHaveBeenCalled();
+    expect(result.status).toBe(BookingStatus.CONFIRMED);
+  });
+
   it("rejects overlapping bookings via the partial EXCLUDE constraint", async () => {
     prisma.booking.findFirst.mockResolvedValue(null);
     prisma.booking.findMany.mockResolvedValue([]);

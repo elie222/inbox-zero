@@ -69,4 +69,24 @@ describe("MicrosoftCalendarEventProvider", () => {
       videoConferenceLink: "https://teams.example.com/join",
     });
   });
+
+  it("cancels events through the Graph cancel action so attendees are notified", async () => {
+    const provider = new MicrosoftCalendarEventProvider(
+      {
+        accessToken: "access-token",
+        emailAccountId: "email-account-id",
+        expiresAt: null,
+        refreshToken: "refresh-token",
+      },
+      createTestLogger(),
+    );
+
+    await provider.cancelEvent({
+      calendarId: "calendar-id",
+      eventId: "event-id",
+    });
+
+    expect(graphMocks.api).toHaveBeenCalledWith("/me/events/event-id/cancel");
+    expect(graphMocks.post).toHaveBeenCalledWith({ comment: "" });
+  });
 });

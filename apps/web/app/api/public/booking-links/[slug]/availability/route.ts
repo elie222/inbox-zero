@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import { getPublicAvailability } from "@/utils/booking/public";
+import { enforcePublicAvailabilityRateLimit } from "@/utils/booking/public-rate-limit";
+import { getClientIp } from "@/utils/rate-limit";
 
 export type GetPublicBookingAvailabilityResponse = {
   slots: Awaited<ReturnType<typeof getPublicAvailability>>;
@@ -20,6 +22,11 @@ export const GET = withError(
     const query = availabilityQuerySchema.parse({
       start: searchParams.get("start"),
       end: searchParams.get("end"),
+    });
+    await enforcePublicAvailabilityRateLimit({
+      slug,
+      clientIp: getClientIp(request.headers),
+      logger: request.logger,
     });
     const slots = await getPublicAvailability({
       slug,

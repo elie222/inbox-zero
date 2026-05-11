@@ -21,6 +21,12 @@ const PUBLIC_BOOKING_CANCEL_RATE_LIMITS = {
   bookingHourly: { limit: 20, windowSeconds: 60 * 60 },
 } as const;
 
+const PUBLIC_AVAILABILITY_RATE_LIMITS = {
+  ipLinkBurst: { limit: 30, windowSeconds: 10 * 60 },
+  ipLinkDaily: { limit: 300, windowSeconds: 24 * 60 * 60 },
+  linkHourly: { limit: 600, windowSeconds: 60 * 60 },
+} as const;
+
 export async function enforcePublicBookingRateLimit({
   input,
   clientIp,
@@ -99,6 +105,68 @@ export async function enforcePublicBookingRateLimit({
       });
       throw new SafeError(
         "Too many booking attempts. Please try again later.",
+        429,
+      );
+    }
+  }
+}
+
+export async function enforcePublicAvailabilityRateLimit({
+  slug,
+  clientIp,
+  logger,
+}: {
+  slug: string;
+  clientIp: string;
+  logger: Logger;
+}) {
+  const linkKey = slug;
+  const ipHash = hashRateLimitValue(clientIp);
+  const rules = [
+    {
+      id: "availability-ip-link-burst",
+      key: createRateLimitKey([
+        "rate-limit",
+        "public-availability",
+        "ip-link-burst",
+        linkKey,
+        ipHash,
+      ]),
+      ...PUBLIC_AVAILABILITY_RATE_LIMITS.ipLinkBurst,
+    },
+    {
+      id: "availability-ip-link-daily",
+      key: createRateLimitKey([
+        "rate-limit",
+        "public-availability",
+        "ip-link-daily",
+        linkKey,
+        ipHash,
+      ]),
+      ...PUBLIC_AVAILABILITY_RATE_LIMITS.ipLinkDaily,
+    },
+    {
+      id: "availability-link-hourly",
+      key: createRateLimitKey([
+        "rate-limit",
+        "public-availability",
+        "link-hourly",
+        linkKey,
+      ]),
+      ...PUBLIC_AVAILABILITY_RATE_LIMITS.linkHourly,
+    },
+  ];
+
+  for (const rule of rules) {
+    const result = await checkRateLimit({ rule, logger });
+    if (result.limited) {
+      logger.warn("Public booking availability rate limit exceeded", {
+        rateLimitId: rule.id,
+        limit: result.limit,
+        retryAfterSeconds: result.retryAfterSeconds,
+      });
+      throw new SafeError(
+        "Too many availability checks. Please try again later.",
         429,
       );
     }

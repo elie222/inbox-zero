@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 import type { SafeError } from "@/utils/error";
 import {
+  enforcePublicAvailabilityRateLimit,
   enforcePublicBookingCancelRateLimit,
   enforcePublicBookingRateLimit,
 } from "@/utils/booking/public-rate-limit";
@@ -98,6 +99,23 @@ describe("enforcePublicBookingRateLimit", () => {
       name: "SafeError",
       statusCode: 429,
     } satisfies Partial<SafeError>);
+  });
+
+  it("checks public availability limits", async () => {
+    await enforcePublicAvailabilityRateLimit({
+      slug: "intro-call",
+      clientIp: "203.0.113.1",
+      logger: createTestLogger(),
+    });
+
+    expect(rateLimitMocks.checkRateLimit).toHaveBeenCalledTimes(3);
+    expect(
+      rateLimitMocks.checkRateLimit.mock.calls.map(([call]) => call.rule.id),
+    ).toEqual([
+      "availability-ip-link-burst",
+      "availability-ip-link-daily",
+      "availability-link-hourly",
+    ]);
   });
 });
 
