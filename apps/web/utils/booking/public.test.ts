@@ -472,7 +472,8 @@ describe("public booking", () => {
         status: BookingStatus.CONFIRMED,
       }),
     );
-    prisma.booking.update.mockResolvedValue(
+    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    prisma.booking.findUniqueOrThrow.mockResolvedValue(
       bookingRecord({
         cancellationReason: "No longer needed",
         status: BookingStatus.CANCELED,
@@ -493,8 +494,9 @@ describe("public booking", () => {
       providerEventId: "provider-event-id",
       logger,
     });
-    expect(prisma.booking.update).toHaveBeenCalledWith(
+    expect(prisma.booking.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: { id: "booking-id", status: BookingStatus.CONFIRMED },
         data: {
           status: BookingStatus.CANCELED,
           cancellationReason: "No longer needed",
@@ -529,7 +531,8 @@ describe("public booking", () => {
         status: BookingStatus.CONFIRMED,
       }),
     );
-    prisma.booking.update.mockResolvedValue(
+    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    prisma.booking.findUniqueOrThrow.mockResolvedValue(
       bookingRecord({ status: BookingStatus.CANCELED }),
     );
 
@@ -540,13 +543,39 @@ describe("public booking", () => {
     });
 
     expect(cancelCalendarEvent).toHaveBeenCalled();
-    expect(prisma.booking.update).toHaveBeenCalledWith(
+    expect(prisma.booking.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: { id: "booking-id", status: BookingStatus.CONFIRMED },
         data: expect.objectContaining({ status: BookingStatus.CANCELED }),
       }),
     );
     expect(sendBookingCancellationEmails).toHaveBeenCalled();
     expect(result.status).toBe(BookingStatus.CANCELED);
+  });
+
+  it("does not re-cancel or re-notify when another request already canceled the booking", async () => {
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("cancel-token"),
+        provider: "google",
+        providerConnectionId: "connection-id",
+        providerCalendarId: "primary",
+        providerEventId: "provider-event-id",
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+    prisma.booking.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      cancelPublicBooking({
+        id: "booking-id",
+        token: "cancel-token",
+        logger,
+      }),
+    ).rejects.toThrow("Booking is already canceled");
+
+    expect(cancelCalendarEvent).not.toHaveBeenCalled();
+    expect(sendBookingCancellationEmails).not.toHaveBeenCalled();
   });
 
   it("rejects cancellation with a generic error for missing bookings and invalid tokens", async () => {
@@ -584,7 +613,7 @@ describe("public booking", () => {
     });
 
     expect(cancelCalendarEvent).not.toHaveBeenCalled();
-    expect(prisma.booking.update).not.toHaveBeenCalled();
+    expect(prisma.booking.updateMany).not.toHaveBeenCalled();
   });
 
   it("rejects cancellation for bookings that have already started", async () => {
@@ -605,7 +634,39 @@ describe("public booking", () => {
     ).rejects.toThrow("Bookings that have started cannot be canceled");
 
     expect(cancelCalendarEvent).not.toHaveBeenCalled();
-    expect(prisma.booking.update).not.toHaveBeenCalled();
+    expect(prisma.booking.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects availability when the destination calendar is no longer enabled", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue({
+      id: "booking-link-id",
+      title: "Intro call",
+      description: null,
+      durationMinutes: 30,
+      slotIntervalMinutes: 30,
+      locationType: BookingLinkLocationType.CUSTOM,
+      locationValue: "Video link",
+      minimumNoticeMinutes: 0,
+      maxDaysAhead: 30,
+      timezone: "UTC",
+      emailAccountId: "email-account-id",
+      destinationCalendarId: "calendar-row-id",
+      windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 10 * 60 }],
+      emailAccount: {
+        calendarConnections: [
+          { id: "connection-id", calendars: [{ id: "other-calendar-id" }] },
+        ],
+      },
+    });
+
+    await expect(
+      getPublicAvailability({
+        slug: "intro",
+        start: new Date("2026-05-04T00:00:00.000Z"),
+        end: new Date("2026-05-05T00:00:00.000Z"),
+        logger,
+      }),
+    ).rejects.toThrow("No enabled calendar is available for this host");
   });
 });
 

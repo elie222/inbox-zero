@@ -3,7 +3,6 @@
 import { SafeError } from "@/utils/error";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
-  archiveBookingLinkBody,
   createBookingLinkBody,
   deleteBookingLinkBody,
   updateBookingAvailabilityBody,
@@ -109,20 +108,6 @@ export const updateBookingLinkAction = actionClient
           ? {}
           : { destinationCalendarId }),
       },
-    });
-
-    return { success: true };
-  });
-
-export const archiveBookingLinkAction = actionClient
-  .metadata({ name: "archiveBookingLink" })
-  .inputSchema(archiveBookingLinkBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
-    await ensureBookingLinkOwner({ emailAccountId, bookingLinkId: id });
-
-    await prisma.bookingLink.update({
-      where: { id },
-      data: { isActive: false },
     });
 
     return { success: true };

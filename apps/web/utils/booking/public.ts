@@ -292,6 +292,19 @@ export async function cancelPublicBooking({
     throw new SafeError("Bookings that have started cannot be canceled");
   }
 
+  // Atomic CONFIRMED -> CANCELED transition so concurrent cancel requests
+  // don't both trigger provider cancellation and duplicate host emails.
+  const transition = await prisma.booking.updateMany({
+    where: { id: booking.id, status: BookingStatus.CONFIRMED },
+    data: {
+      status: BookingStatus.CANCELED,
+      cancellationReason: reason || null,
+    },
+  });
+  if (transition.count === 0) {
+    throw new SafeError("Booking is already canceled");
+  }
+
   if (
     booking.providerConnectionId &&
     booking.providerCalendarId &&
@@ -317,12 +330,8 @@ export async function cancelPublicBooking({
     }
   }
 
-  const canceledBooking = await prisma.booking.update({
+  const canceledBooking = await prisma.booking.findUniqueOrThrow({
     where: { id: booking.id },
-    data: {
-      status: BookingStatus.CANCELED,
-      cancellationReason: reason || null,
-    },
     include: getBookingHostInclude(),
   });
 
@@ -392,10 +401,20 @@ async function loadPublicBookingLink(slug: string) {
 
   if (!link) throw new SafeError("Booking link not found", 404);
 
-  const hasEnabledCalendar = link.emailAccount.calendarConnections.some(
-    (connection) => connection.calendars.length > 0,
+  const enabledCalendarIds = link.emailAccount.calendarConnections.flatMap(
+    (connection) => connection.calendars.map((calendar) => calendar.id),
   );
-  if (!hasEnabledCalendar) {
+  if (enabledCalendarIds.length === 0) {
+    throw new SafeError("No enabled calendar is available for this host");
+  }
+  // Availability is generated for any enabled calendar, but the booking is
+  // written to the link's destinationCalendarId. If that specific calendar is
+  // disabled or disconnected, fail early so guests don't fill out the form
+  // and then hit a generic "Destination calendar not found" at submit time.
+  if (
+    link.destinationCalendarId &&
+    !enabledCalendarIds.includes(link.destinationCalendarId)
+  ) {
     throw new SafeError("No enabled calendar is available for this host");
   }
 

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/prisma";
+import { createTestLogger } from "@/__tests__/helpers";
 import { createGoogleCalendarProvider } from "@/utils/calendar/providers/google";
 import {
   fetchGoogleCalendars,
@@ -11,6 +12,7 @@ import {
   isGoogleOauthEmulationEnabled,
 } from "@/utils/google/oauth";
 
+const logger = createTestLogger();
 const getToken = vi.fn();
 const verifyIdToken = vi.fn();
 
@@ -59,13 +61,7 @@ describe("google calendar oauth", () => {
       email: "user@example.com",
     } as any);
 
-    const provider = createGoogleCalendarProvider({
-      error: vi.fn(),
-      info: vi.fn(),
-      trace: vi.fn(),
-      warn: vi.fn(),
-      with: vi.fn(),
-    } as any);
+    const provider = createGoogleCalendarProvider(logger);
 
     await expect(provider.exchangeCodeForTokens("code")).resolves.toEqual({
       accessToken: "access-token",
@@ -89,13 +85,7 @@ describe("google calendar oauth", () => {
       sub: "sub-1",
     } as any);
 
-    const provider = createGoogleCalendarProvider({
-      error: vi.fn(),
-      info: vi.fn(),
-      trace: vi.fn(),
-      warn: vi.fn(),
-      with: vi.fn(),
-    } as any);
+    const provider = createGoogleCalendarProvider(logger);
 
     await expect(provider.exchangeCodeForTokens("code")).rejects.toThrow(
       "Could not get email from Google profile",
@@ -122,13 +112,7 @@ describe("google calendar oauth", () => {
       },
     ] as any);
 
-    const provider = createGoogleCalendarProvider({
-      error: vi.fn(),
-      info: vi.fn(),
-      trace: vi.fn(),
-      warn: vi.fn(),
-      with: vi.fn(),
-    } as any);
+    const provider = createGoogleCalendarProvider(logger);
 
     await provider.syncCalendars(
       "connection-id",

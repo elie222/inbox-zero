@@ -70,11 +70,6 @@ export type UpdateBookingLinkActionBody = z.infer<
   typeof updateBookingLinkActionBody
 >;
 
-export const archiveBookingLinkBody = z.object({
-  id: z.string(),
-});
-export type ArchiveBookingLinkBody = z.infer<typeof archiveBookingLinkBody>;
-
 export const deleteBookingLinkBody = z.object({
   id: z.string(),
 });
