@@ -19,14 +19,6 @@ vi.mock("@/utils/auth", () => ({
 vi.mock("next/headers", () => ({
   headers: vi.fn(async () => new Headers()),
 }));
-vi.mock("next/server", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("next/server")>();
-
-  return {
-    ...actual,
-    after: vi.fn((callback: () => Promise<void> | void) => callback()),
-  };
-});
 vi.mock("@sentry/nextjs", () => ({
   setTag: vi.fn(),
   setUser: vi.fn(),

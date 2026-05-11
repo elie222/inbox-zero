@@ -16,14 +16,6 @@ import { createTestLogger } from "@/__tests__/helpers";
 const logger = createTestLogger();
 vi.spyOn(logger, "with").mockReturnValue(logger);
 
-vi.mock("next/server", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("next/server")>();
-  return {
-    ...actual,
-    after: vi.fn((callback: () => Promise<void> | void) => callback()),
-  };
-});
-
 vi.mock("@/utils/webhook/validate-webhook-account", () => ({
   getWebhookEmailAccount: vi.fn(),
   validateWebhookAccount: vi.fn(),

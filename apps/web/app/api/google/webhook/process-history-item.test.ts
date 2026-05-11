@@ -13,9 +13,6 @@ import { createEmailProvider } from "@/utils/email/provider";
 
 const logger = createTestLogger();
 
-vi.mock("next/server", () => ({
-  after: vi.fn((callback) => callback()),
-}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/redis/message-processing", () => ({
   acquireOutboundMessageLock: vi.fn().mockResolvedValue("lock-token-1"),

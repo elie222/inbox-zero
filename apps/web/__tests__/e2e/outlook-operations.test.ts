@@ -45,18 +45,6 @@ vi.mock("@/utils/redis/message-processing", () => ({
   markOutboundMessageProcessed: vi.fn().mockResolvedValue(true),
 }));
 
-// Mock Next.js after() to run synchronously and await in tests
-vi.mock("next/server", async () => {
-  const actual =
-    await vi.importActual<typeof import("next/server")>("next/server");
-  return {
-    ...actual,
-    after: async (fn: () => void | Promise<void>) => {
-      await fn();
-    },
-  };
-});
-
 describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
   let provider: EmailProvider;
 

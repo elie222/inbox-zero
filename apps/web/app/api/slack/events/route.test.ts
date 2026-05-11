@@ -39,14 +39,6 @@ vi.mock("@/env", () => ({
   },
 }));
 
-vi.mock("next/server", async (importOriginal) => {
-  const original = await importOriginal<typeof import("next/server")>();
-  return {
-    ...original,
-    after: (fn: () => void) => fn(),
-  };
-});
-
 vi.mock("@/utils/messaging/providers/slack/verify-signature", () => ({
   validateSlackWebhookRequest: (...args: unknown[]) =>
     validateSlackWebhookRequestMock(...args),

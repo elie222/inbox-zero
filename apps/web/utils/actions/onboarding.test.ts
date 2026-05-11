@@ -8,14 +8,6 @@ vi.mock("@/utils/auth", () => ({
     user: { id: "user-1", email: "user@example.com" },
   })),
 }));
-vi.mock("next/server", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("next/server")>();
-
-  return {
-    ...actual,
-    after: vi.fn((callback: () => Promise<void> | void) => callback()),
-  };
-});
 vi.mock("@sentry/nextjs", () => ({
   setTag: vi.fn(),
   setUser: vi.fn(),

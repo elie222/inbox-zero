@@ -33,10 +33,6 @@ vi.mock("@/utils/prisma", () => ({
 
 const TEST_WEBHOOK_SECRET = "test-secret-abc123";
 
-vi.mock("next/server", () => ({
-  after: vi.fn((fn: () => void) => fn()),
-}));
-
 vi.mock("@inboxzero/tinybird", () => ({
   publishArchive: vi.fn().mockResolvedValue(undefined),
 }));

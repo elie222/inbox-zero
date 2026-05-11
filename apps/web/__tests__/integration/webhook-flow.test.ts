@@ -27,10 +27,6 @@ import {
 } from "@/generated/prisma/enums";
 import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("next/server", () => ({
-  after: vi.fn((fn: () => void) => fn()),
-}));
-
 const mockExecutedRuleFindFirst = vi.fn().mockResolvedValue(null);
 const mockExecutedRuleUpdate = vi.fn().mockResolvedValue({});
 

@@ -29,20 +29,6 @@ vi.mock("@/utils/redis/message-processing", () => ({
   markOutboundMessageProcessed: vi.fn().mockResolvedValue(true),
 }));
 
-// Mock Next.js after() to run immediately in tests
-// This ensures webhook processing completes before assertions
-vi.mock("next/server", async () => {
-  const actual =
-    await vi.importActual<typeof import("next/server")>("next/server");
-  return {
-    ...actual,
-    after: async (fn: () => void | Promise<void>) => {
-      // Run the async function and wait for it
-      await fn();
-    },
-  };
-});
-
 /**
  * Initialize test environment
  *

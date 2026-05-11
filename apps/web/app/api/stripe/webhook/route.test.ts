@@ -35,13 +35,6 @@ vi.mock("next/headers", () => ({
   headers: vi.fn(),
 }));
 
-vi.mock("next/server", () => ({
-  after: vi.fn(),
-  NextResponse: {
-    json: vi.fn(),
-  },
-}));
-
 vi.mock("@/ee/billing/stripe", () => ({
   getStripe: vi.fn(),
 }));

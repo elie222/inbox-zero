@@ -21,14 +21,6 @@ vi.mock("@/utils/middleware", () => ({
       handler(request, ...args),
 }));
 
-vi.mock("next/server", async (importOriginal) => {
-  const original = await importOriginal<typeof import("next/server")>();
-  return {
-    ...original,
-    after: (fn: () => void | Promise<void>) => Promise.resolve(fn()),
-  };
-});
-
 vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
 }));
