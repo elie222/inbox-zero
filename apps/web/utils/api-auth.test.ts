@@ -14,7 +14,6 @@ import { createEmailProvider } from "@/utils/email/provider";
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/api-key");
 vi.mock("@/utils/email/provider");
-vi.mock("server-only", () => ({}));
 
 function getRequest(apiKey: string | null) {
   return {

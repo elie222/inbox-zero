@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { extractLLMErrorInfo, withLLMRetry } from "./retry";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/sleep", () => ({
   sleep: vi.fn().mockResolvedValue(undefined),
 }));

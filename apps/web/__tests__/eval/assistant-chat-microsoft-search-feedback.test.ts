@@ -22,8 +22,6 @@ import type { getEmailAccount } from "@/__tests__/helpers";
 // pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-microsoft-search-feedback.test.ts
 // Multi-model: EVAL_MODELS=all pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-microsoft-search-feedback.test.ts
 
-vi.mock("server-only", () => ({}));
-
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 120_000;
 const evalReporter = createEvalReporter();

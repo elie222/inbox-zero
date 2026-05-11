@@ -12,7 +12,6 @@ import { formatUtcDate } from "@/utils/date";
 const TIMEOUT = 15_000;
 const logger = createTestLogger();
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/braintrust", () => ({
   Braintrust: class {
     insertToDataset() {}

@@ -18,7 +18,6 @@ import {
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 import { sendChannelConfirmation } from "@/utils/messaging/providers/slack/send";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({

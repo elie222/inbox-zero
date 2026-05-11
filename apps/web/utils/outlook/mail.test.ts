@@ -1,7 +1,7 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OutlookClient } from "@/utils/outlook/client";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import type { EmailForAction } from "@/utils/ai/types";
 import { draftEmail, forwardEmail, sendEmailWithHtml } from "./mail";
 
@@ -42,7 +42,7 @@ describe("sendEmailWithHtml", () => {
         subject: "Subject",
         messageHtml: "<p>Hello</p>",
       },
-      createScopedLogger("outlook-mail-test"),
+      createTestLogger(),
     );
 
     expect(draftPost).toHaveBeenCalledWith(
@@ -108,7 +108,7 @@ describe("sendEmailWithHtml", () => {
           },
         ],
       },
-      createScopedLogger("outlook-mail-test"),
+      createTestLogger(),
     );
 
     expect(attachmentPost).toHaveBeenCalledWith(
@@ -155,7 +155,7 @@ describe("sendEmailWithHtml", () => {
           },
         ],
       },
-      createScopedLogger("outlook-mail-test"),
+      createTestLogger(),
     );
 
     expect(attachmentPost).toHaveBeenCalledWith(
@@ -202,7 +202,7 @@ describe("sendEmailWithHtml", () => {
           },
         ],
       },
-      createScopedLogger("outlook-mail-test"),
+      createTestLogger(),
     );
 
     expect(attachmentPost).toHaveBeenCalledWith(
@@ -264,7 +264,7 @@ describe("sendEmailWithHtml", () => {
           },
         ],
       },
-      createScopedLogger("outlook-mail-test"),
+      createTestLogger(),
     );
 
     expect(createUploadSessionPost).toHaveBeenCalledWith(
@@ -375,7 +375,7 @@ describe("sendEmailWithHtml", () => {
           },
         ],
       },
-      createScopedLogger("outlook-mail-test"),
+      createTestLogger(),
     );
 
     const statusCallIndex = fetchMock.mock.calls.findIndex(
@@ -451,7 +451,7 @@ describe("sendEmailWithHtml", () => {
           },
         ],
       },
-      createScopedLogger("outlook-mail-test"),
+      createTestLogger(),
     );
 
     const statusCallIndex = fetchMock.mock.calls.findIndex(
@@ -519,7 +519,7 @@ describe("sendEmailWithHtml", () => {
             },
           ],
         },
-        createScopedLogger("outlook-mail-test"),
+        createTestLogger(),
       ),
     ).rejects.toMatchObject({
       error: expect.objectContaining({
@@ -595,7 +595,7 @@ describe("forwardEmail", () => {
         content: "Forwarding this",
         from: "Owner Name <owner@example.com>",
       },
-      createScopedLogger("outlook-mail-test"),
+      createTestLogger(),
     );
 
     expect(createForwardDraft).toHaveBeenCalledWith({});
@@ -700,7 +700,7 @@ describe("draftEmail", () => {
         content: "Draft body",
       },
       "owner@example.com",
-      createScopedLogger("outlook-mail-test"),
+      createTestLogger(),
     );
 
     expect(updateDraft).toHaveBeenCalledWith(
@@ -757,7 +757,7 @@ describe("draftEmail", () => {
         content: "Draft body",
       },
       "user@example.com",
-      createScopedLogger("outlook-mail-test"),
+      createTestLogger(),
     );
 
     expect(createReplyAllDraft).toHaveBeenCalledWith({});

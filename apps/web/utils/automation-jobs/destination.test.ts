@@ -7,7 +7,6 @@ import {
 } from "@/generated/prisma/enums";
 import { ensureScheduledCheckInsRoute } from "./destination";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 describe("ensureScheduledCheckInsRoute", () => {

@@ -9,7 +9,7 @@
  *   pnpm test __tests__/integration/security-pipeline.test.ts
  */
 
-import { describe, test, expect, vi } from "vitest";
+import { describe, test, expect } from "vitest";
 import { ActionType } from "@/generated/prisma/enums";
 import { getAction } from "@/__tests__/helpers";
 import {
@@ -18,8 +18,6 @@ import {
   getParameterFieldsForAction,
 } from "@/utils/ai/choose-rule/choose-args";
 import type { ActionArgResponse } from "@/utils/ai/choose-rule/ai-choose-args";
-
-vi.mock("server-only", () => ({}));
 
 describe("Template variable containment through the pipeline", () => {
   test("reply action with template content merges AI content but ignores injected cc/bcc", () => {

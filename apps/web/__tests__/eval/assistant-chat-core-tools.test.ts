@@ -20,8 +20,6 @@ import type { getEmailAccount } from "@/__tests__/helpers";
 // pnpm test-ai eval/assistant-chat-core-tools
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-core-tools
 
-vi.mock("server-only", () => ({}));
-
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 const MULTI_STEP_TIMEOUT = 120_000;

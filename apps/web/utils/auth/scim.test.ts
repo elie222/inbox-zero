@@ -7,7 +7,6 @@ import {
 } from "@/utils/auth/scim";
 import { isAdmin } from "@/utils/admin";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/admin", () => ({
   isAdmin: vi.fn(),

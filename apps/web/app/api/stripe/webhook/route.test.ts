@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { getStripeCancellationInitiatedAt } from "./cancellation-initiated";
 import { processEvent } from "./route";
 import { getStripeTrialConvertedAt } from "./trial-conversion";
@@ -33,13 +33,6 @@ const {
 
 vi.mock("next/headers", () => ({
   headers: vi.fn(),
-}));
-
-vi.mock("next/server", () => ({
-  after: vi.fn(),
-  NextResponse: {
-    json: vi.fn(),
-  },
 }));
 
 vi.mock("@/ee/billing/stripe", () => ({
@@ -93,7 +86,7 @@ vi.mock("@/utils/error", () => ({
   captureException: mockCaptureException,
 }));
 
-const logger = createScopedLogger("stripe-webhook-route-test");
+const logger = createTestLogger();
 
 describe("processEvent", () => {
   beforeEach(() => {

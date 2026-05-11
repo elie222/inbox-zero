@@ -31,7 +31,6 @@ import {
 } from "@/generated/prisma/enums";
 import { createGmailTestHarness } from "./helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/rule/rule-history", () => ({
   createRuleHistory: vi.fn().mockResolvedValue(undefined),

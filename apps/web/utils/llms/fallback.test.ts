@@ -24,8 +24,6 @@ const {
   mockIsPosthogLlmEvalApproved: vi.fn(),
 }));
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("ai", async () => {
   const actual = await vi.importActual<typeof import("ai")>("ai");
   return {

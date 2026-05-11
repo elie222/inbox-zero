@@ -14,8 +14,6 @@ const { mockCreateGenerateObject, mockGenerateObject } = vi.hoisted(() => {
   return { mockCreateGenerateObject, mockGenerateObject };
 });
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/llms/model", () => ({
   getModel: vi.fn(() => ({
     provider: "openai",

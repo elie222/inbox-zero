@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, afterAll } from "vitest";
+import { describe, test, expect, afterAll } from "vitest";
 import { SystemType } from "@/generated/prisma/enums";
 import {
   describeEvalMatrix,
@@ -13,8 +13,6 @@ import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai eval/choose-rule
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/choose-rule
-
-vi.mock("server-only", () => ({}));
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;

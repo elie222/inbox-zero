@@ -6,8 +6,6 @@ import {
 } from "./calender-event";
 import type { ParsedMessage } from "@/utils/types";
 
-vi.mock("server-only", () => ({}));
-
 describe("Calendar Event Detection", () => {
   beforeEach(() => {
     // Set fixed date to March 15, 2024

@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/prisma";
 import { getStatsByPeriod } from "./controller";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 describe("getStatsByPeriod", () => {

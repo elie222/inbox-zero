@@ -13,7 +13,6 @@ import { discoverOIDCConfig, type OIDCConfig } from "@better-auth/sso";
 import prisma from "@/utils/__mocks__/prisma";
 import { GET } from "@/app/api/sso/signin/route";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@inboxzero/loops", () => ({
   createContact: vi.fn().mockResolvedValue(undefined),

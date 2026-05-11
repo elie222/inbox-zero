@@ -8,7 +8,7 @@
  * 1. Set TEST_GMAIL_EMAIL env var to your Gmail address
  */
 
-import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, test, expect, beforeAll, afterAll } from "vitest";
 import prisma from "@/utils/prisma";
 import { createGoogleAvailabilityProvider } from "@/utils/calendar/providers/google-availability";
 import { getCalendarClientWithRefresh } from "@/utils/calendar/client";
@@ -21,8 +21,6 @@ import { createScopedLogger } from "@/utils/logger";
 // ============================================
 const RUN_E2E_TESTS = process.env.RUN_E2E_TESTS;
 const TEST_GMAIL_EMAIL = process.env.TEST_GMAIL_EMAIL;
-
-vi.mock("server-only", () => ({}));
 
 describe.skipIf(!RUN_E2E_TESTS)("Google Calendar Integration Tests", () => {
   let calendarConnection: {

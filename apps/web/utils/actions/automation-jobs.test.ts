@@ -13,7 +13,6 @@ import {
   toggleAutomationJobAction,
 } from "@/utils/actions/automation-jobs";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({

@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { updateLearnedPatternsTool } from "./update-learned-patterns-tool";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn().mockResolvedValue(undefined),
@@ -13,7 +12,7 @@ vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPatterns: vi.fn(),
 }));
 
-const logger = createScopedLogger("update-learned-patterns-tool-test");
+const logger = createTestLogger();
 
 describe("updateLearnedPatternsTool", () => {
   beforeEach(() => {

@@ -28,14 +28,6 @@ vi.mock("@/utils/prisma", () => ({
   default: {},
 }));
 
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: () => ({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  }),
-}));
-
 vi.mock("@/ee/billing/lemon/index", () => ({
   updateSubscriptionItemQuantity: vi.fn(),
 }));

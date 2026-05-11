@@ -24,8 +24,6 @@ import type { getEmailAccount } from "@/__tests__/helpers";
 // pnpm test-ai eval/assistant-chat-attachments
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-attachments
 
-vi.mock("server-only", () => ({}));
-
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 120_000;
 const evalReporter = createEvalReporter();

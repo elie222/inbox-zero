@@ -1,16 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { MessagingProvider } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   FOLLOW_UP_MARK_DONE_ACTION_ID,
   handleFollowUpReminderAction,
 } from "./follow-up-actions";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
-const logger = createScopedLogger("follow-up-actions-test");
+const logger = createTestLogger();
 
 function makeEvent(
   overrides: Partial<{

@@ -27,8 +27,6 @@ import { createScopedLogger } from "@/utils/logger";
 // pnpm test-ai eval/assistant-chat-rule-editing
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-rule-editing
 
-vi.mock("server-only", () => ({}));
-
 const shouldRunEval = shouldRunEvalTests();
 const evalReporter = createEvalReporter();
 const logger = createScopedLogger(

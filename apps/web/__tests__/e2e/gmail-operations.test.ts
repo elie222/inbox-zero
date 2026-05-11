@@ -32,8 +32,6 @@ const TEST_GMAIL_EMAIL = process.env.TEST_GMAIL_EMAIL;
 let TEST_GMAIL_MESSAGE_ID =
   process.env.TEST_GMAIL_MESSAGE_ID || "199c055aa113c499";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/redis/message-processing", () => ({
   acquireOutboundMessageLock: vi.fn().mockResolvedValue("lock-token-1"),
   clearOutboundMessageLock: vi.fn().mockResolvedValue(true),
@@ -41,14 +39,13 @@ vi.mock("@/utils/redis/message-processing", () => ({
   markOutboundMessageProcessed: vi.fn().mockResolvedValue(true),
 }));
 
-// Mock Next.js after() to run immediately in tests
+// Keep this e2e mock non-blocking to match the existing webhook test behavior.
 vi.mock("next/server", async () => {
   const actual =
     await vi.importActual<typeof import("next/server")>("next/server");
   return {
     ...actual,
     after: (fn: () => void | Promise<void>) => {
-      // Run the function immediately instead of deferring it
       Promise.resolve()
         .then(fn)
         .catch(() => {});

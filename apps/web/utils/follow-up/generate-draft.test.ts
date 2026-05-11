@@ -5,8 +5,6 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { aiDraftFollowUp } from "@/utils/ai/reply/draft-follow-up";
 
-vi.mock("server-only", () => ({}));
-
 const { envMock } = vi.hoisted(() => ({
   envMock: {
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,

@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test, vi } from "vitest";
+import { afterAll, describe, expect, test } from "vitest";
 import { getEmail } from "@/__tests__/helpers";
 import {
   describeEvalMatrix,
@@ -9,8 +9,6 @@ import { SystemType } from "@/generated/prisma/enums";
 import { aiDetermineThreadStatus } from "@/utils/ai/reply/determine-thread-status";
 
 // pnpm test-ai eval/determine-thread-status
-
-vi.mock("server-only", () => ({}));
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;

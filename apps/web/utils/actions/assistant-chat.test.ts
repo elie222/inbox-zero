@@ -9,9 +9,8 @@ import {
   confirmAssistantEmailActionForAccount,
   confirmAssistantSaveMemoryForAccount,
 } from "@/utils/actions/assistant-chat-confirmation";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/email/provider");
 vi.mock("@/utils/auth", () => ({
@@ -802,7 +801,7 @@ describe("confirmAssistantEmailAction", () => {
       waitForPersistence: true,
       emailAccountId: "ea_1",
       provider: "google",
-      logger: createScopedLogger("test/assistant-email-confirmation"),
+      logger: createTestLogger(),
     });
 
     await vi.runAllTimersAsync();
@@ -862,7 +861,7 @@ describe("confirmAssistantEmailAction", () => {
       persistenceWaitMs: 10_000,
       emailAccountId: "ea_1",
       provider: "google",
-      logger: createScopedLogger("test/assistant-email-confirmation"),
+      logger: createTestLogger(),
     });
 
     await vi.runAllTimersAsync();
@@ -979,7 +978,7 @@ describe("confirmAssistantEmailAction", () => {
       waitForPersistence: true,
       emailAccountId: "ea_1",
       provider: "google",
-      logger: createScopedLogger("test/assistant-email-confirmation"),
+      logger: createTestLogger(),
     });
 
     await vi.runAllTimersAsync();
@@ -1278,7 +1277,7 @@ describe("confirmAssistantSaveMemory", () => {
       toolCallId: "tool-1",
       waitForPersistence: true,
       emailAccountId: "ea_1",
-      logger: createScopedLogger("test/assistant-save-memory-confirmation"),
+      logger: createTestLogger(),
     });
 
     await vi.runAllTimersAsync();

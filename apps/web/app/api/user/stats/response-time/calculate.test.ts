@@ -8,7 +8,6 @@ import { getMockMessage as getMockMessageHelper } from "../../../../../__tests__
 import { createTestLogger } from "@/__tests__/helpers";
 import { sleep } from "@/utils/sleep";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/sleep", () => ({
   sleep: vi.fn().mockResolvedValue(undefined),
 }));

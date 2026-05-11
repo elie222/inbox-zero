@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { ActionType } from "@/generated/prisma/enums";
@@ -9,8 +9,6 @@ import { getEmailAccount } from "@/__tests__/helpers";
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 const TIMEOUT = 15_000;
-
-vi.mock("server-only", () => ({}));
 
 describe.runIf(isAiTest)("aiPromptToRules", () => {
   it(

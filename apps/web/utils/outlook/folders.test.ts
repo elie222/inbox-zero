@@ -5,11 +5,9 @@ import {
   getOutlookChildFolders,
 } from "./folders";
 import type { OutlookClient } from "./client";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("outlook/folders");
-
-vi.mock("server-only", () => ({}));
+const logger = createTestLogger();
 
 // Mock the retry wrapper to just execute the function directly
 vi.mock("@/utils/outlook/retry", () => ({

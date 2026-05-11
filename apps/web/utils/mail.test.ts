@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   getEmailClient,
   emailToContent,
@@ -6,8 +6,6 @@ import {
   hasForwardedContent,
   parseReply,
 } from "./mail";
-
-vi.mock("server-only", () => ({}));
 
 describe("emailToContent", () => {
   describe("content source fallback", () => {

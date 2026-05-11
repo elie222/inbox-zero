@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { calculateSimilarity } from "./similarity-score";
 
-vi.mock("server-only", () => ({}));
-
 describe("calculateSimilarity - basic tests", () => {
   it("should return 0.0 if either text is null or undefined", () => {
     expect(calculateSimilarity(null, "text2")).toBe(0.0);

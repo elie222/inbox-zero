@@ -10,8 +10,6 @@ import { fetchSenderFromMessage } from "@/app/api/google/webhook/fetch-sender-fr
 
 const logger = createTestLogger();
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/prisma", () => ({
   default: {
     rule: {

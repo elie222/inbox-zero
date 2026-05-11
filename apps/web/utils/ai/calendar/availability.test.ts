@@ -8,8 +8,6 @@ const { mockGenerateText, mockCreateGenerateText } = vi.hoisted(() => {
   return { mockGenerateText, mockCreateGenerateText };
 });
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/llms", () => ({
   createGenerateText: mockCreateGenerateText,
 }));

@@ -22,8 +22,6 @@ import { createScopedLogger } from "@/utils/logger";
 // pnpm test-ai eval/assistant-chat-phishing-hardening
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-phishing-hardening
 
-vi.mock("server-only", () => ({}));
-
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 120_000;
 const evalReporter = createEvalReporter();

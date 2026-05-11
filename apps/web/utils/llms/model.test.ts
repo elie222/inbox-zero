@@ -101,8 +101,6 @@ vi.mock("@/env", () => ({
   },
 }));
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("./config", async () => {
   const actual = await vi.importActual("./config");
   return {

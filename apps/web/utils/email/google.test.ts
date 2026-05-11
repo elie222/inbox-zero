@@ -5,8 +5,6 @@ import { GmailLabel } from "@/utils/gmail/label";
 import * as gmailLabelModule from "@/utils/gmail/label";
 import { GmailProvider } from "./google";
 
-vi.mock("server-only", () => ({}));
-
 const { envMock, gmailMailMock } = vi.hoisted(() => ({
   envMock: {
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,

@@ -31,8 +31,6 @@ vi.mock("next/link", () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/hooks/useRules", () => ({
   useRules: () => mockUseRules(),
 }));

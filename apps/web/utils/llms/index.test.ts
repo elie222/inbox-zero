@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { isTransientNetworkError, withNetworkRetry } from "./retry";
 
-vi.mock("server-only", () => ({}));
-
 // Mock sleep to avoid waiting in tests
 vi.mock("@/utils/sleep", () => ({
   sleep: vi.fn().mockResolvedValue(undefined),

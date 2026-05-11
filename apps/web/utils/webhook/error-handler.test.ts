@@ -4,7 +4,6 @@ import { trackError } from "@/utils/posthog";
 import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/posthog", () => ({
   trackError: vi.fn(),
 }));
