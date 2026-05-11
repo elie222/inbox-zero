@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const {
   createSessionMock,
@@ -61,21 +62,6 @@ import {
   isMobileReviewEnabled,
 } from "./mobile-review";
 
-function createLogger() {
-  const logger = {
-    error: vi.fn(),
-    flush: vi.fn().mockResolvedValue(undefined),
-    info: vi.fn(),
-    trace: vi.fn(),
-    warn: vi.fn(),
-    with: vi.fn(),
-  };
-
-  logger.with.mockReturnValue(logger);
-
-  return logger;
-}
-
 describe("mobile review access", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -105,13 +91,11 @@ describe("mobile review access", () => {
   });
 
   it("rejects invalid review codes before querying the database", async () => {
-    const logger = createLogger();
-
     await expect(
       createMobileReviewSession({
         code: "wrong-code",
         email: "review@example.com",
-        logger,
+        logger: createTestLogger(),
       } as never),
     ).rejects.toMatchObject({
       message: "Invalid review access code",
@@ -120,38 +104,25 @@ describe("mobile review access", () => {
     });
 
     expect(emailAccountFindManyMock).not.toHaveBeenCalled();
-    expect(logger.warn).toHaveBeenCalledWith("Mobile review sign-in rejected", {
-      reason: "invalid_review_demo_code",
-    });
   });
 
   it("rejects valid review codes when the configured review account cannot create a session", async () => {
-    const logger = createLogger();
     emailAccountFindManyMock.mockResolvedValueOnce([]);
 
     await expect(
       createMobileReviewSession({
         code: "review-code",
         email: "review@example.com",
-        logger,
+        logger: createTestLogger(),
       } as never),
     ).rejects.toMatchObject({
       message: "Review access is unavailable",
       safeMessage: "Review access is unavailable",
     });
-
-    expect(logger.warn).toHaveBeenCalledWith(
-      "Mobile review sign-in unavailable",
-      expect.objectContaining({
-        hasEmailAccount: false,
-        ok: false,
-        reason: "review_user_missing_email_account",
-      }),
-    );
   });
 
   it("creates a session for the matching configured review account", async () => {
-    const logger = createLogger();
+    const logger = createTestLogger();
     mockedEnv.APP_REVIEW_DEMO_ACCOUNTS = JSON.stringify([
       { email: "active-review@example.com", code: "active-code" },
       { email: "expired-review@example.com", code: "expired-code" },

@@ -10,8 +10,6 @@ import { ActionType } from "@/generated/prisma/enums";
 import type { Action } from "@/generated/prisma/client";
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 
-// Run with: pnpm test apps/web/utils/ai/choose-rule/choose-args.test.ts
-
 describe("getParameterFieldsForAction", () => {
   it("creates schema for simple field", () => {
     const action = {

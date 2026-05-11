@@ -324,7 +324,7 @@ export function createSignedSlackRequest({
   });
 }
 
-async function getAvailablePort() {
+export async function getAvailablePort() {
   return new Promise<number>((resolve, reject) => {
     const server = createServer();
 

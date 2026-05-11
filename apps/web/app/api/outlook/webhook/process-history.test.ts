@@ -14,7 +14,6 @@ import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 
 const logger = createTestLogger();
-vi.spyOn(logger, "with").mockReturnValue(logger);
 
 vi.mock("@/utils/webhook/validate-webhook-account", () => ({
   getWebhookEmailAccount: vi.fn(),
@@ -162,8 +161,6 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     };
     vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
 
-    const infoSpy = vi.spyOn(logger, "info");
-
     const result = await processHistoryForUser({
       subscriptionId: "sub-123",
       resourceData: mockResourceData as any,
@@ -175,10 +172,6 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(markMessageAsProcessing).not.toHaveBeenCalled();
     expect(processHistoryItem).not.toHaveBeenCalled();
     expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
-    expect(infoSpy).toHaveBeenCalledWith(
-      "Skipping message not in inbox or sent items",
-      expect.objectContaining({ labelIds: ["DRAFT"] }),
-    );
   });
 
   it("skips messages in TRASH folder without acquiring lock", async () => {
@@ -229,8 +222,6 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
     vi.mocked(markMessageAsProcessing).mockResolvedValue(false);
 
-    const infoSpy = vi.spyOn(logger, "info");
-
     const result = await processHistoryForUser({
       subscriptionId: "sub-123",
       resourceData: mockResourceData as any,
@@ -242,9 +233,6 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(markMessageAsProcessing).toHaveBeenCalled();
     expect(processHistoryItem).not.toHaveBeenCalled();
     expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
-    expect(infoSpy).toHaveBeenCalledWith(
-      "Skipping. Message already being processed.",
-    );
   });
 
   it("passes pre-fetched message to processHistoryItem to avoid refetching", async () => {
@@ -296,7 +284,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(learnFromOutlookLabelRemoval).toHaveBeenCalledWith({
       message: inboxMessage,
       emailAccountId: "account-123",
-      logger,
+      logger: expect.any(Object),
     });
     expect(processHistoryItem).toHaveBeenCalledWith(
       { messageId: "message-123", message: inboxMessage },

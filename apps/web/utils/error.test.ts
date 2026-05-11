@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { APICallError, NoObjectGeneratedError } from "ai";
 import { createScopedLogger } from "@/utils/logger";
+
 const { mockSentryCaptureException, mockSetUser } = vi.hoisted(() => ({
   mockSentryCaptureException: vi.fn(),
   mockSetUser: vi.fn(),
@@ -29,14 +30,15 @@ import {
 } from "./error";
 
 describe("getUserFacingErrorMessage", () => {
-  it("returns plain error messages unchanged", () => {
-    const result = getUserFacingErrorMessage(new Error("Something failed"));
-
-    expect(result).toBe("Something failed");
-  });
-
-  it("formats structured JSON errors", () => {
-    const result = getUserFacingErrorMessage(
+  it.each([
+    [
+      "plain error message",
+      new Error("Something failed"),
+      undefined,
+      "Something failed",
+    ],
+    [
+      "structured JSON message",
       new Error(
         JSON.stringify({
           code: 502,
@@ -44,39 +46,33 @@ describe("getUserFacingErrorMessage", () => {
           metadata: { provider_name: "xAI" },
         }),
       ),
-    );
-
-    expect(result).toBe("Invalid arguments passed to the model.");
-  });
-
-  it("reads direct string error from structured payloads", () => {
-    const result = getUserFacingErrorMessage(
-      new Error(
-        JSON.stringify({
-          error: "Too many requests",
-        }),
-      ),
-    );
-
-    expect(result).toBe("Too many requests");
-  });
-
-  it("reads nested message from structured error payloads", () => {
-    const result = getUserFacingErrorMessage(
+      undefined,
+      "Invalid arguments passed to the model.",
+    ],
+    [
+      "direct string error from structured payload",
+      new Error(JSON.stringify({ error: "Too many requests" })),
+      undefined,
+      "Too many requests",
+    ],
+    [
+      "nested message from structured error payload",
       new Error(
         JSON.stringify({
           error: { message: "Upstream model rejected this request." },
         }),
       ),
-    );
+      undefined,
+      "Upstream model rejected this request.",
+    ],
+    ["fallback when no message can be extracted", {}, "Fallback", "Fallback"],
+  ])("returns %s", (_caseName, error, fallback, expected) => {
+    const result =
+      fallback === undefined
+        ? getUserFacingErrorMessage(error)
+        : getUserFacingErrorMessage(error, fallback);
 
-    expect(result).toBe("Upstream model rejected this request.");
-  });
-
-  it("uses fallback when no message can be extracted", () => {
-    const result = getUserFacingErrorMessage({}, "Fallback");
-
-    expect(result).toBe("Fallback");
+    expect(result).toBe(expected);
   });
 });
 
@@ -87,21 +83,9 @@ describe("captureException", () => {
 
   it("forwards attached LLM repair metadata to Sentry extra context", () => {
     const error = new Error("generation failed");
-    attachLlmRepairMetadata(error, {
-      attempted: true,
-      successful: false,
-      label: "Categorize sender",
-      provider: "openai",
-      model: "gpt-test",
-      inputLength: 12,
-      inputFingerprint: "abc123",
-      startsWithQuote: true,
-      startsWithBrace: false,
-      startsWithBracket: false,
-      looksCodeFenced: false,
-      candidateKindsTried: ["trimmed", "original"],
-    });
+    const llmRepair = createLlmRepairMetadata();
 
+    attachLlmRepairMetadata(error, llmRepair);
     captureException(error, {
       userEmail: "user@example.com",
       extra: { operation: "test" },
@@ -111,20 +95,7 @@ describe("captureException", () => {
     expect(mockSentryCaptureException).toHaveBeenCalledWith(error, {
       extra: {
         operation: "test",
-        llmRepair: {
-          attempted: true,
-          successful: false,
-          label: "Categorize sender",
-          provider: "openai",
-          model: "gpt-test",
-          inputLength: 12,
-          inputFingerprint: "abc123",
-          startsWithQuote: true,
-          startsWithBrace: false,
-          startsWithBracket: false,
-          looksCodeFenced: false,
-          candidateKindsTried: ["trimmed", "original"],
-        },
+        llmRepair,
       },
     });
   });
@@ -133,20 +104,7 @@ describe("captureException", () => {
     const error = Object.preventExtensions(new Error("generation failed"));
 
     expect(() =>
-      attachLlmRepairMetadata(error, {
-        attempted: true,
-        successful: false,
-        label: "Categorize sender",
-        provider: "openai",
-        model: "gpt-test",
-        inputLength: 12,
-        inputFingerprint: "abc123",
-        startsWithQuote: true,
-        startsWithBrace: false,
-        startsWithBracket: false,
-        looksCodeFenced: false,
-        candidateKindsTried: ["trimmed", "original"],
-      }),
+      attachLlmRepairMetadata(error, createLlmRepairMetadata()),
     ).not.toThrow();
 
     captureException(error, {
@@ -160,6 +118,418 @@ describe("captureException", () => {
     });
   });
 });
+
+describe("getActionErrorMessage", () => {
+  const cases: Array<
+    [string, ActionErrorInput, ActionErrorOptions | undefined, string]
+  > = [
+    [
+      "serverError when present",
+      { serverError: "Database connection failed" },
+      undefined,
+      "Database connection failed",
+    ],
+    [
+      "validation errors from flattened validationErrors shape",
+      {
+        validationErrors: {
+          formErrors: ["Form is invalid"],
+          fieldErrors: {
+            email: ["Email is required"],
+            password: ["Password too short"],
+          },
+        },
+      },
+      undefined,
+      "Form is invalid. Email is required. Password too short",
+    ],
+    [
+      "only field errors when no form errors",
+      {
+        validationErrors: {
+          formErrors: [],
+          fieldErrors: {
+            name: ["Name must be at least 10 characters"],
+          },
+        },
+      },
+      undefined,
+      "Name must be at least 10 characters",
+    ],
+    [
+      "bindArgsValidationErrors when validationErrors is empty",
+      {
+        validationErrors: {
+          formErrors: [],
+          fieldErrors: {},
+        },
+        bindArgsValidationErrors: [
+          {
+            formErrors: ["Invalid account ID"],
+            fieldErrors: {},
+          },
+        ],
+      },
+      undefined,
+      "Invalid account ID",
+    ],
+    [
+      "first non-empty bindArgsValidationErrors entry",
+      {
+        bindArgsValidationErrors: [
+          undefined,
+          {
+            formErrors: [],
+            fieldErrors: {},
+          },
+          {
+            formErrors: ["Third entry error"],
+            fieldErrors: {},
+          },
+        ],
+      },
+      undefined,
+      "Third entry error",
+    ],
+    [
+      "fallback when no errors are present",
+      {},
+      undefined,
+      "An unknown error occurred",
+    ],
+    [
+      "custom fallback when provided",
+      {},
+      "Something went wrong",
+      "Something went wrong",
+    ],
+    [
+      "serverError before validation errors",
+      {
+        serverError: "Server error",
+        validationErrors: {
+          formErrors: ["Validation error"],
+          fieldErrors: {},
+        },
+      },
+      undefined,
+      "Server error",
+    ],
+    [
+      "validationErrors before bindArgsValidationErrors",
+      {
+        validationErrors: {
+          formErrors: ["Input validation error"],
+          fieldErrors: {},
+        },
+        bindArgsValidationErrors: [
+          {
+            formErrors: ["Bind args error"],
+            fieldErrors: {},
+          },
+        ],
+      },
+      undefined,
+      "Input validation error",
+    ],
+  ];
+
+  it.each(cases)("returns %s", (_caseName, error, options, expected) => {
+    const result =
+      options === undefined
+        ? getActionErrorMessage(error)
+        : getActionErrorMessage(error, options);
+
+    expect(result).toBe(expected);
+  });
+
+  describe("with prefix option", () => {
+    it.each([
+      [
+        "prepended to server error",
+        { serverError: "Invalid input" },
+        { prefix: "Failed to save" },
+        "Failed to save. Invalid input",
+      ],
+      [
+        "returned alone when no error message exists",
+        {},
+        { prefix: "Failed to save" },
+        "Failed to save",
+      ],
+      [
+        "prepended to validation errors",
+        {
+          validationErrors: {
+            formErrors: [],
+            fieldErrors: { name: ["Name is required"] },
+          },
+        },
+        { prefix: "Failed to update user" },
+        "Failed to update user. Name is required",
+      ],
+      [
+        "preferred over fallback when no error exists",
+        {},
+        { prefix: "Failed to save", fallback: "Please try again" },
+        "Failed to save",
+      ],
+      [
+        "absent when only fallback is provided",
+        {},
+        { fallback: "Custom fallback message" },
+        "Custom fallback message",
+      ],
+    ] satisfies Array<
+      [string, ActionErrorInput, ActionErrorOptions, string]
+    >)("handles prefix when %s", (_caseName, error, options, expected) => {
+      expect(getActionErrorMessage(error, options)).toBe(expected);
+    });
+  });
+});
+
+describe("isInsufficientCreditsError", () => {
+  it.each([
+    ["HTTP 402 status code", 402, true],
+    ["other status codes", 429, false],
+  ])("returns %s for %s", (expectedLabel, statusCode, expected) => {
+    const error = createAPICallError({
+      message: expectedLabel,
+      statusCode,
+    });
+
+    expect(isInsufficientCreditsError(error)).toBe(expected);
+  });
+});
+
+describe("markAsHandledUserKeyError / isHandledUserKeyError", () => {
+  it("marks and detects handled user key errors", () => {
+    const error = createAPICallError({
+      message: "Insufficient credits",
+      statusCode: 402,
+    });
+    expect(isHandledUserKeyError(error)).toBe(false);
+    markAsHandledUserKeyError(error);
+    expect(isHandledUserKeyError(error)).toBe(true);
+  });
+
+  it.each([
+    ["unmarked errors", new Error("some error")],
+    ["null", null],
+    ["undefined", undefined],
+  ])("returns false for %s", (_caseName, error) => {
+    expect(isHandledUserKeyError(error)).toBe(false);
+  });
+});
+
+describe("isOutlookThrottlingError", () => {
+  it.each([
+    ["ApplicationThrottled code", { code: "ApplicationThrottled" }],
+    ["TooManyRequests code", { code: "TooManyRequests" }],
+    ["429 status code", { statusCode: 429 }],
+    [
+      "MailboxConcurrency message",
+      { message: "MailboxConcurrency limit exceeded" },
+    ],
+    [
+      "Request limit message",
+      { message: "Application is over its Request limit." },
+    ],
+  ])("detects %s", (_caseName, error) => {
+    expect(isOutlookThrottlingError(error)).toBe(true);
+  });
+
+  it("returns false for unrelated errors", () => {
+    expect(isOutlookThrottlingError({ code: "NotFound" })).toBe(false);
+  });
+});
+
+describe("isOutlookAccessDeniedError", () => {
+  it.each([
+    [
+      "Access is denied message with remediation",
+      { message: "Access is denied. Check credentials and try again." },
+    ],
+    ["ErrorAccessDenied code", { code: "ErrorAccessDenied" }],
+    [
+      "string error with Access is denied remediation",
+      "Access is denied. Check credentials and try again.",
+    ],
+  ])("detects %s", (_caseName, error) => {
+    expect(isOutlookAccessDeniedError(error)).toBe(true);
+  });
+
+  it.each([
+    ["bare 403 status code", { statusCode: 403 }],
+    [
+      "generic access denied from other providers",
+      { message: "Access is denied" },
+    ],
+    ["unrelated errors", { message: "Not found" }],
+  ])("returns false for %s", (_caseName, error) => {
+    expect(isOutlookAccessDeniedError(error)).toBe(false);
+  });
+});
+
+describe("isOutlookItemNotFoundError", () => {
+  it.each([
+    ["ErrorItemNotFound code", { code: "ErrorItemNotFound" }],
+    [
+      "store ID message",
+      { message: "The store ID provided isn't an ID of an item." },
+    ],
+    ["ResourceNotFound message", { message: "ResourceNotFound" }],
+    [
+      "string error with store ID",
+      "The store ID provided isn't an ID of an item.",
+    ],
+  ])("detects %s", (_caseName, error) => {
+    expect(isOutlookItemNotFoundError(error)).toBe(true);
+  });
+
+  it("returns false for unrelated errors", () => {
+    expect(isOutlookItemNotFoundError({ message: "Access denied" })).toBe(
+      false,
+    );
+  });
+});
+
+describe("isKnownOutlookError", () => {
+  it.each([
+    ["throttling errors", { code: "ApplicationThrottled" }],
+    [
+      "access denied errors",
+      { message: "Access is denied. Check credentials and try again." },
+    ],
+    ["item not found errors", { code: "ErrorItemNotFound" }],
+  ])("detects %s", (_caseName, error) => {
+    expect(isKnownOutlookError(error)).toBe(true);
+  });
+
+  it("returns false for unknown errors", () => {
+    expect(isKnownOutlookError({ message: "Something unexpected" })).toBe(
+      false,
+    );
+  });
+});
+
+describe("isKnownApiError", () => {
+  it.each([
+    [
+      "HTTP 402 errors",
+      createAPICallError({
+        message: "Insufficient credits",
+        statusCode: 402,
+      }),
+      false,
+    ],
+    [
+      "incorrect OpenAI API key errors",
+      createAPICallError({
+        message: "Incorrect API key provided",
+        statusCode: 401,
+      }),
+      true,
+    ],
+    [
+      "provider rate-limit mode errors",
+      Object.assign(new Error("Rate-limit mode active"), {
+        name: "ProviderRateLimitModeError",
+        provider: "google",
+      }),
+      true,
+    ],
+    [
+      "LLM content-filter refusals",
+      createNoObjectGeneratedError({
+        finishReason: "content-filter",
+        text: "I'm sorry, but I cannot assist with that request.",
+      }),
+      true,
+    ],
+  ])("returns %s for %s", (_caseName, error, expected) => {
+    expect(isKnownApiError(error)).toBe(expected);
+  });
+});
+
+describe("isContentFilterRefusal", () => {
+  it("returns true for NoObjectGeneratedError with content-filter finish reason", () => {
+    const error = createNoObjectGeneratedError({
+      finishReason: "content-filter",
+      text: "I'm sorry, but I cannot assist with that request.",
+    });
+
+    expect(isContentFilterRefusal(error)).toBe(true);
+  });
+
+  it.each([
+    [
+      "NoObjectGeneratedError with stop finish reason",
+      createNoObjectGeneratedError({ finishReason: "stop", text: "not json" }),
+    ],
+    [
+      "NoObjectGeneratedError with length finish reason",
+      createNoObjectGeneratedError({
+        finishReason: "length",
+        text: "truncated",
+      }),
+    ],
+    ["unrelated errors", new Error("boom")],
+    ["null", null],
+    ["undefined", undefined],
+  ])("returns false for %s", (_caseName, error) => {
+    expect(isContentFilterRefusal(error)).toBe(false);
+  });
+});
+
+describe("checkCommonErrors", () => {
+  const logger = createScopedLogger("error-test");
+
+  it.each([
+    [
+      "Gmail",
+      createProviderRateLimitError("google"),
+      {
+        type: "Gmail Rate Limit Exceeded",
+        message:
+          "Gmail is temporarily limiting requests. Please try again shortly.",
+        code: 429,
+      },
+    ],
+    [
+      "Outlook",
+      createProviderRateLimitError("microsoft"),
+      {
+        type: "Outlook Rate Limit",
+        message:
+          "Microsoft is temporarily limiting requests. Please try again shortly.",
+        code: 429,
+      },
+    ],
+  ])("maps provider rate-limit mode errors for %s", (_caseName, error, expected) => {
+    expect(checkCommonErrors(error, "/api/test", logger)).toEqual(expected);
+  });
+});
+
+type ActionErrorInput = Parameters<typeof getActionErrorMessage>[0];
+type ActionErrorOptions = Parameters<typeof getActionErrorMessage>[1];
+
+function createLlmRepairMetadata() {
+  return {
+    attempted: true,
+    successful: false,
+    label: "Categorize sender",
+    provider: "openai",
+    model: "gpt-test",
+    inputLength: 12,
+    inputFingerprint: "abc123",
+    startsWithQuote: true,
+    startsWithBrace: false,
+    startsWithBracket: false,
+    looksCodeFenced: false,
+    candidateKindsTried: ["trimmed", "original"],
+  } as const;
+}
 
 function createAPICallError({
   message,
@@ -194,440 +564,10 @@ function createNoObjectGeneratedError({
   });
 }
 
-describe("getActionErrorMessage", () => {
-  it("returns serverError when present", () => {
-    const result = getActionErrorMessage({
-      serverError: "Database connection failed",
-    });
-
-    expect(result).toBe("Database connection failed");
+function createProviderRateLimitError(provider: "google" | "microsoft") {
+  return Object.assign(new Error("Rate-limit mode active"), {
+    name: "ProviderRateLimitModeError",
+    provider,
+    retryAt: new Date(Date.now() + 60_000).toISOString(),
   });
-
-  // This test uses the REAL flattened shape that next-safe-action returns
-  // when defaultValidationErrorsShape: "flattened" is configured
-  it("returns validation errors from flattened validationErrors shape", () => {
-    const result = getActionErrorMessage({
-      validationErrors: {
-        formErrors: ["Form is invalid"],
-        fieldErrors: {
-          email: ["Email is required"],
-          password: ["Password too short"],
-        },
-      } as any,
-    });
-
-    expect(result).toBe(
-      "Form is invalid. Email is required. Password too short",
-    );
-  });
-
-  it("returns only field errors when no form errors (flattened shape)", () => {
-    const result = getActionErrorMessage({
-      validationErrors: {
-        formErrors: [],
-        fieldErrors: {
-          name: ["Name must be at least 10 characters"],
-        },
-      } as any,
-    });
-
-    expect(result).toBe("Name must be at least 10 characters");
-  });
-
-  it("returns bindArgsValidationErrors when validationErrors is empty (flattened shape)", () => {
-    const result = getActionErrorMessage({
-      validationErrors: {
-        formErrors: [],
-        fieldErrors: {},
-      } as any,
-      bindArgsValidationErrors: [
-        {
-          formErrors: ["Invalid account ID"],
-          fieldErrors: {},
-        } as any,
-      ],
-    });
-
-    expect(result).toBe("Invalid account ID");
-  });
-
-  it("skips empty bindArgsValidationErrors entries (flattened shape)", () => {
-    const result = getActionErrorMessage({
-      bindArgsValidationErrors: [
-        undefined as any,
-        {
-          formErrors: [],
-          fieldErrors: {},
-        } as any,
-        {
-          formErrors: ["Third entry error"],
-          fieldErrors: {},
-        } as any,
-      ],
-    });
-
-    expect(result).toBe("Third entry error");
-  });
-
-  it("returns fallback when no errors present", () => {
-    const result = getActionErrorMessage({});
-
-    expect(result).toBe("An unknown error occurred");
-  });
-
-  it("returns custom fallback when provided", () => {
-    const result = getActionErrorMessage({}, "Something went wrong");
-
-    expect(result).toBe("Something went wrong");
-  });
-
-  it("prioritizes serverError over validation errors (flattened shape)", () => {
-    const result = getActionErrorMessage({
-      serverError: "Server error",
-      validationErrors: {
-        formErrors: ["Validation error"],
-        fieldErrors: {},
-      } as any,
-    });
-
-    expect(result).toBe("Server error");
-  });
-
-  it("prioritizes validationErrors over bindArgsValidationErrors (flattened shape)", () => {
-    const result = getActionErrorMessage({
-      validationErrors: {
-        formErrors: ["Input validation error"],
-        fieldErrors: {},
-      } as any,
-      bindArgsValidationErrors: [
-        {
-          formErrors: ["Bind args error"],
-          fieldErrors: {},
-        } as any,
-      ],
-    });
-
-    expect(result).toBe("Input validation error");
-  });
-
-  describe("with prefix option", () => {
-    it("prepends prefix to error message", () => {
-      const result = getActionErrorMessage(
-        { serverError: "Invalid input" },
-        { prefix: "Failed to save" },
-      );
-
-      expect(result).toBe("Failed to save. Invalid input");
-    });
-
-    it("returns only prefix when no error message", () => {
-      const result = getActionErrorMessage({}, { prefix: "Failed to save" });
-
-      expect(result).toBe("Failed to save");
-    });
-
-    it("prepends prefix to validation errors", () => {
-      const result = getActionErrorMessage(
-        {
-          validationErrors: {
-            formErrors: [],
-            fieldErrors: { name: ["Name is required"] },
-          } as any,
-        },
-        { prefix: "Failed to update user" },
-      );
-
-      expect(result).toBe("Failed to update user. Name is required");
-    });
-
-    it("uses custom fallback with prefix when no error", () => {
-      const result = getActionErrorMessage(
-        {},
-        { prefix: "Failed to save", fallback: "Please try again" },
-      );
-
-      expect(result).toBe("Failed to save");
-    });
-
-    it("uses fallback when no prefix and no error", () => {
-      const result = getActionErrorMessage(
-        {},
-        { fallback: "Custom fallback message" },
-      );
-
-      expect(result).toBe("Custom fallback message");
-    });
-  });
-});
-
-describe("isInsufficientCreditsError", () => {
-  it("returns true for HTTP 402 status code", () => {
-    const error = createAPICallError({
-      message: "Insufficient credits",
-      statusCode: 402,
-    });
-    expect(isInsufficientCreditsError(error)).toBe(true);
-  });
-
-  it("returns false for other status codes", () => {
-    const error = createAPICallError({
-      message: "Rate limit exceeded",
-      statusCode: 429,
-    });
-    expect(isInsufficientCreditsError(error)).toBe(false);
-  });
-});
-
-describe("markAsHandledUserKeyError / isHandledUserKeyError", () => {
-  it("marks and detects handled user key errors", () => {
-    const error = createAPICallError({
-      message: "Insufficient credits",
-      statusCode: 402,
-    });
-    expect(isHandledUserKeyError(error)).toBe(false);
-    markAsHandledUserKeyError(error);
-    expect(isHandledUserKeyError(error)).toBe(true);
-  });
-
-  it("returns false for unmarked errors", () => {
-    const error = new Error("some error");
-    expect(isHandledUserKeyError(error)).toBe(false);
-  });
-
-  it("returns false for non-error values", () => {
-    expect(isHandledUserKeyError(null)).toBe(false);
-    expect(isHandledUserKeyError(undefined)).toBe(false);
-  });
-});
-
-describe("isOutlookThrottlingError", () => {
-  it("detects ApplicationThrottled code", () => {
-    expect(isOutlookThrottlingError({ code: "ApplicationThrottled" })).toBe(
-      true,
-    );
-  });
-
-  it("detects TooManyRequests code", () => {
-    expect(isOutlookThrottlingError({ code: "TooManyRequests" })).toBe(true);
-  });
-
-  it("detects 429 status code", () => {
-    expect(isOutlookThrottlingError({ statusCode: 429 })).toBe(true);
-  });
-
-  it("detects MailboxConcurrency message", () => {
-    expect(
-      isOutlookThrottlingError({
-        message: "MailboxConcurrency limit exceeded",
-      }),
-    ).toBe(true);
-  });
-
-  it("detects Request limit message", () => {
-    expect(
-      isOutlookThrottlingError({
-        message: "Application is over its Request limit.",
-      }),
-    ).toBe(true);
-  });
-
-  it("returns false for unrelated errors", () => {
-    expect(isOutlookThrottlingError({ code: "NotFound" })).toBe(false);
-  });
-});
-
-describe("isOutlookAccessDeniedError", () => {
-  it("detects Access is denied message", () => {
-    expect(
-      isOutlookAccessDeniedError({
-        message: "Access is denied. Check credentials and try again.",
-      }),
-    ).toBe(true);
-  });
-
-  it("detects ErrorAccessDenied code", () => {
-    expect(isOutlookAccessDeniedError({ code: "ErrorAccessDenied" })).toBe(
-      true,
-    );
-  });
-
-  it("does not match bare 403 status code (could be app misconfiguration)", () => {
-    expect(isOutlookAccessDeniedError({ statusCode: 403 })).toBe(false);
-  });
-
-  it("detects string error with Access is denied", () => {
-    expect(
-      isOutlookAccessDeniedError(
-        "Access is denied. Check credentials and try again.",
-      ),
-    ).toBe(true);
-  });
-
-  it("does not match generic access denied from other providers", () => {
-    expect(isOutlookAccessDeniedError({ message: "Access is denied" })).toBe(
-      false,
-    );
-  });
-
-  it("returns false for unrelated errors", () => {
-    expect(isOutlookAccessDeniedError({ message: "Not found" })).toBe(false);
-  });
-});
-
-describe("isOutlookItemNotFoundError", () => {
-  it("detects ErrorItemNotFound code", () => {
-    expect(isOutlookItemNotFoundError({ code: "ErrorItemNotFound" })).toBe(
-      true,
-    );
-  });
-
-  it("detects store ID message", () => {
-    expect(
-      isOutlookItemNotFoundError({
-        message: "The store ID provided isn't an ID of an item.",
-      }),
-    ).toBe(true);
-  });
-
-  it("detects ResourceNotFound message", () => {
-    expect(isOutlookItemNotFoundError({ message: "ResourceNotFound" })).toBe(
-      true,
-    );
-  });
-
-  it("detects string error with store ID", () => {
-    expect(
-      isOutlookItemNotFoundError(
-        "The store ID provided isn't an ID of an item.",
-      ),
-    ).toBe(true);
-  });
-
-  it("returns false for unrelated errors", () => {
-    expect(isOutlookItemNotFoundError({ message: "Access denied" })).toBe(
-      false,
-    );
-  });
-});
-
-describe("isKnownOutlookError", () => {
-  it("detects throttling errors", () => {
-    expect(isKnownOutlookError({ code: "ApplicationThrottled" })).toBe(true);
-  });
-
-  it("detects access denied errors", () => {
-    expect(
-      isKnownOutlookError({
-        message: "Access is denied. Check credentials and try again.",
-      }),
-    ).toBe(true);
-  });
-
-  it("detects item not found errors", () => {
-    expect(isKnownOutlookError({ code: "ErrorItemNotFound" })).toBe(true);
-  });
-
-  it("returns false for unknown errors", () => {
-    expect(isKnownOutlookError({ message: "Something unexpected" })).toBe(
-      false,
-    );
-  });
-});
-
-describe("isKnownApiError", () => {
-  it("does not treat 402 as a known API error", () => {
-    const error = createAPICallError({
-      message: "Insufficient credits",
-      statusCode: 402,
-    });
-    expect(isKnownApiError(error)).toBe(false);
-  });
-
-  it("treats incorrect OpenAI API key as a known error", () => {
-    const error = createAPICallError({
-      message: "Incorrect API key provided",
-      statusCode: 401,
-    });
-    expect(isKnownApiError(error)).toBe(true);
-  });
-
-  it("treats provider rate-limit mode errors as known errors", () => {
-    const error = Object.assign(new Error("Rate-limit mode active"), {
-      name: "ProviderRateLimitModeError",
-      provider: "google",
-    });
-    expect(isKnownApiError(error)).toBe(true);
-  });
-
-  it("treats LLM content-filter refusals as known errors", () => {
-    const error = createNoObjectGeneratedError({
-      finishReason: "content-filter",
-      text: "I'm sorry, but I cannot assist with that request.",
-    });
-    expect(isKnownApiError(error)).toBe(true);
-  });
-});
-
-describe("isContentFilterRefusal", () => {
-  it("returns true for NoObjectGeneratedError with content-filter finish reason", () => {
-    const error = createNoObjectGeneratedError({
-      finishReason: "content-filter",
-      text: "I'm sorry, but I cannot assist with that request.",
-    });
-    expect(isContentFilterRefusal(error)).toBe(true);
-  });
-
-  it("returns false for NoObjectGeneratedError with other finish reasons", () => {
-    const stopError = createNoObjectGeneratedError({
-      finishReason: "stop",
-      text: "not json",
-    });
-    expect(isContentFilterRefusal(stopError)).toBe(false);
-
-    const lengthError = createNoObjectGeneratedError({
-      finishReason: "length",
-      text: "truncated",
-    });
-    expect(isContentFilterRefusal(lengthError)).toBe(false);
-  });
-
-  it("returns false for unrelated errors", () => {
-    expect(isContentFilterRefusal(new Error("boom"))).toBe(false);
-    expect(isContentFilterRefusal(null)).toBe(false);
-    expect(isContentFilterRefusal(undefined)).toBe(false);
-  });
-});
-
-describe("checkCommonErrors", () => {
-  const logger = createScopedLogger("error-test");
-
-  it("maps provider rate-limit mode errors for Gmail", () => {
-    const error = Object.assign(new Error("Rate-limit mode active"), {
-      name: "ProviderRateLimitModeError",
-      provider: "google",
-      retryAt: new Date(Date.now() + 60_000).toISOString(),
-    });
-
-    expect(checkCommonErrors(error, "/api/test", logger)).toEqual({
-      type: "Gmail Rate Limit Exceeded",
-      message:
-        "Gmail is temporarily limiting requests. Please try again shortly.",
-      code: 429,
-    });
-  });
-
-  it("maps provider rate-limit mode errors for Outlook", () => {
-    const error = Object.assign(new Error("Rate-limit mode active"), {
-      name: "ProviderRateLimitModeError",
-      provider: "microsoft",
-      retryAt: new Date(Date.now() + 60_000).toISOString(),
-    });
-
-    expect(checkCommonErrors(error, "/api/test", logger)).toEqual({
-      type: "Outlook Rate Limit",
-      message:
-        "Microsoft is temporarily limiting requests. Please try again shortly.",
-      code: 429,
-    });
-  });
-});
+}

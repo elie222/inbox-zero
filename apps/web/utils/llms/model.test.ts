@@ -144,11 +144,7 @@ describe("Models", () => {
 
   describe("getModel", () => {
     it("should use default provider and model when user has no API key", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPEN_AI);
@@ -156,11 +152,7 @@ describe("Models", () => {
     });
 
     it("should use LLM_API_KEY when provider-specific OpenAI key is not set", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai";
       vi.mocked(env).OPENAI_API_KEY = undefined;
@@ -174,11 +166,11 @@ describe("Models", () => {
     });
 
     it("should use user's provider and model when API key is provided", () => {
-      const userAi: UserAIFields = {
+      const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
         aiProvider: Provider.GOOGLE,
         aiModel: "gemini-1.5-pro-latest",
-      };
+      });
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.GOOGLE);
@@ -186,11 +178,9 @@ describe("Models", () => {
     });
 
     it("should use user's API key with default provider when only API key is provided", () => {
-      const userAi: UserAIFields = {
+      const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
-        aiProvider: null,
-        aiModel: null,
-      };
+      });
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPEN_AI);
@@ -198,11 +188,11 @@ describe("Models", () => {
     });
 
     it("should configure Google model correctly", () => {
-      const userAi: UserAIFields = {
+      const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
         aiProvider: Provider.GOOGLE,
         aiModel: "gemini-1.5-pro-latest",
-      };
+      });
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.GOOGLE);
@@ -218,11 +208,11 @@ describe("Models", () => {
     });
 
     it("should configure Gemini 3 Google model with thinking level", () => {
-      const userAi: UserAIFields = {
+      const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
         aiProvider: Provider.GOOGLE,
         aiModel: "gemini-3-pro-preview",
-      };
+      });
 
       const result = getModel(userAi);
 
@@ -238,11 +228,11 @@ describe("Models", () => {
     });
 
     it("should allow overriding Google thinking budget via env", () => {
-      const userAi: UserAIFields = {
+      const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
         aiProvider: Provider.GOOGLE,
         aiModel: "gemini-2.5-flash",
-      };
+      });
 
       vi.mocked(env).GOOGLE_THINKING_BUDGET = 32;
 
@@ -258,11 +248,11 @@ describe("Models", () => {
     });
 
     it("should omit Google thinking budget when the env override is 0", () => {
-      const userAi: UserAIFields = {
+      const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
         aiProvider: Provider.GOOGLE,
         aiModel: "gemini-2.5-flash-lite",
-      };
+      });
 
       vi.mocked(env).GOOGLE_THINKING_BUDGET = 0;
 
@@ -272,11 +262,7 @@ describe("Models", () => {
     });
 
     it("should configure Vertex model correctly", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "vertex";
       vi.mocked(env).DEFAULT_LLM_MODEL = "gemini-2.5-flash";
@@ -302,11 +288,7 @@ describe("Models", () => {
     });
 
     it("should configure Vertex model with inline service account credentials", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "vertex";
       vi.mocked(env).DEFAULT_LLM_MODEL = "gemini-2.5-flash";
@@ -339,11 +321,7 @@ describe("Models", () => {
     });
 
     it("should configure Gemini 3 Vertex model with thinking level", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "vertex";
       vi.mocked(env).DEFAULT_LLM_MODEL = undefined;
@@ -364,11 +342,11 @@ describe("Models", () => {
     });
 
     it("should configure Groq model correctly", () => {
-      const userAi: UserAIFields = {
+      const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
         aiProvider: Provider.GROQ,
         aiModel: "llama-3.3-70b-versatile",
-      };
+      });
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.GROQ);
@@ -377,11 +355,11 @@ describe("Models", () => {
     });
 
     it("should configure OpenRouter model correctly", () => {
-      const userAi: UserAIFields = {
+      const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
         aiProvider: Provider.OPENROUTER,
         aiModel: "llama-3.3-70b-versatile",
-      };
+      });
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPENROUTER);
@@ -390,11 +368,7 @@ describe("Models", () => {
     });
 
     it("should configure AI Gateway Gemini 3 model with minimal thinking", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "aigateway";
       vi.mocked(env).DEFAULT_LLM_MODEL = "google/gemini-3-flash";
@@ -413,11 +387,7 @@ describe("Models", () => {
     });
 
     it("should configure AI Gateway Gemini 2.5 model with the configured thinking budget", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "aigateway";
       vi.mocked(env).DEFAULT_LLM_MODEL = "google/gemini-2.5-flash";
@@ -437,11 +407,7 @@ describe("Models", () => {
     });
 
     it("should configure AI Gateway OpenAI model with low reasoning effort", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "aigateway";
       vi.mocked(env).DEFAULT_LLM_MODEL = "openai/gpt-5-mini";
@@ -466,11 +432,7 @@ describe("Models", () => {
     });
 
     it("should configure AI Gateway Azure model with low reasoning effort", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "aigateway";
       vi.mocked(env).DEFAULT_LLM_MODEL = "azure/gpt-5-mini";
@@ -488,11 +450,7 @@ describe("Models", () => {
     });
 
     it("should configure Ollama model via DEFAULT_LLM_MODEL", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "ollama";
       vi.mocked(env).DEFAULT_LLM_MODEL = "llama3.2";
@@ -506,11 +464,7 @@ describe("Models", () => {
     });
 
     it("should configure Ollama model via legacy OLLAMA_MODEL", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "ollama";
       vi.mocked(env).DEFAULT_LLM_MODEL = undefined;
@@ -524,11 +478,11 @@ describe("Models", () => {
     });
 
     it("should configure Anthropic model correctly without Bedrock credentials", () => {
-      const userAi: UserAIFields = {
+      const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
         aiProvider: Provider.ANTHROPIC,
         aiModel: "claude-3-7-sonnet-20250219",
-      };
+      });
 
       vi.mocked(env).BEDROCK_ACCESS_KEY = "";
       vi.mocked(env).BEDROCK_SECRET_KEY = "";
@@ -540,11 +494,7 @@ describe("Models", () => {
     });
 
     it("should configure Bedrock model correctly via env vars", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "bedrock";
       vi.mocked(env).DEFAULT_LLM_MODEL =
@@ -561,11 +511,7 @@ describe("Models", () => {
     });
 
     it("should configure Azure model with low reasoning effort", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "azure";
       vi.mocked(env).DEFAULT_LLM_MODEL = "gpt-5-mini";
@@ -581,11 +527,7 @@ describe("Models", () => {
     });
 
     it("should throw when Azure is selected without resource name", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "azure";
       vi.mocked(env).DEFAULT_LLM_MODEL = "gpt-5-mini";
@@ -597,11 +539,7 @@ describe("Models", () => {
     });
 
     it("should throw when Vertex is selected without project", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "vertex";
       vi.mocked(env).DEFAULT_LLM_MODEL = "gemini-2.5-flash";
@@ -613,58 +551,17 @@ describe("Models", () => {
     });
 
     it("should throw error for unsupported provider", () => {
-      const userAi: UserAIFields = {
+      const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
         aiProvider: "unsupported" as any,
         aiModel: "some-model",
-      };
+      });
 
       expect(() => getModel(userAi)).toThrow("LLM provider not supported");
     });
 
-    // it("should use chat model when modelType is 'chat'", () => {
-    //   const userAi: UserAIFields = {
-    //     aiApiKey: null,
-    //     aiProvider: null,
-    //     aiModel: null,
-    //   };
-
-    //   vi.mocked(env).CHAT_LLM_PROVIDER = "openrouter";
-    //   vi.mocked(env).CHAT_LLM_MODEL = "moonshotai/kimi-k2";
-    //   vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
-
-    //   const result = getModel(userAi, "chat");
-    //   expect(result.provider).toBe(Provider.OPENROUTER);
-    //   expect(result.modelName).toBe("moonshotai/kimi-k2");
-    // });
-
-    // it("should use OpenRouter with provider options for chat", () => {
-    //   const userAi: UserAIFields = {
-    //     aiApiKey: null,
-    //     aiProvider: null,
-    //     aiModel: null,
-    //   };
-
-    //   vi.mocked(env).CHAT_LLM_PROVIDER = "openrouter";
-    //   vi.mocked(env).CHAT_LLM_MODEL = "moonshotai/kimi-k2";
-    //   vi.mocked(env).CHAT_OPENROUTER_PROVIDERS = "Google Vertex,Anthropic";
-    //   vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
-
-    //   const result = getModel(userAi, "chat");
-    //   expect(result.provider).toBe(Provider.OPENROUTER);
-    //   expect(result.modelName).toBe("moonshotai/kimi-k2");
-    //   expect(result.providerOptions?.openrouter?.provider?.order).toEqual([
-    //     "Google Vertex",
-    //     "Anthropic",
-    //   ]);
-    // });
-
     it("should use economy model when modelType is 'economy'", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).ECONOMY_LLM_PROVIDER = "openrouter";
       vi.mocked(env).ECONOMY_LLM_MODEL =
@@ -677,11 +574,7 @@ describe("Models", () => {
     });
 
     it("should use nano model when modelType is 'nano' and nano model is configured", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).NANO_LLM_PROVIDER = Provider.OPEN_AI;
       vi.mocked(env).NANO_LLM_MODEL = "gpt-5-nano";
@@ -693,11 +586,7 @@ describe("Models", () => {
     });
 
     it("should use OpenRouter provider options for nano when nano provider is OpenRouter", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).NANO_LLM_PROVIDER = Provider.OPENROUTER;
       vi.mocked(env).NANO_LLM_MODEL = "openai/gpt-5-nano";
@@ -717,11 +606,7 @@ describe("Models", () => {
     });
 
     it("should fall back to economy model when nano model is not configured", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).NANO_LLM_PROVIDER = undefined;
       vi.mocked(env).NANO_LLM_MODEL = undefined;
@@ -733,11 +618,7 @@ describe("Models", () => {
     });
 
     it("should pass the configured Azure API key for economy model", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).ECONOMY_LLM_PROVIDER = "azure";
       vi.mocked(env).ECONOMY_LLM_MODEL = "gpt-5-mini";
@@ -754,11 +635,7 @@ describe("Models", () => {
     });
 
     it("should use OpenRouter with provider options for economy", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).ECONOMY_LLM_PROVIDER = "openrouter";
       vi.mocked(env).ECONOMY_LLM_MODEL =
@@ -776,11 +653,7 @@ describe("Models", () => {
     });
 
     it("should enable usage accounting for OpenRouter models", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).ECONOMY_LLM_PROVIDER = "openrouter";
       vi.mocked(env).ECONOMY_LLM_MODEL = "openai/gpt-5-mini";
@@ -803,11 +676,7 @@ describe("Models", () => {
     });
 
     it("should use default model when modelType is 'default'", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       // Reset to default
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai";
@@ -819,11 +688,7 @@ describe("Models", () => {
     });
 
     it("should use OpenRouter with provider options for default model", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "openrouter";
       vi.mocked(env).DEFAULT_LLM_MODEL = "anthropic/claude-3.5-sonnet";
@@ -840,11 +705,7 @@ describe("Models", () => {
     });
 
     it("should not include OpenRouter reasoning max_tokens for Grok models", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "openrouter";
       vi.mocked(env).DEFAULT_LLM_MODEL = "x-ai/grok-4.1-fast";
@@ -862,11 +723,7 @@ describe("Models", () => {
     });
 
     it("should resolve ordered fallback models for default model type", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "bedrock";
       vi.mocked(env).DEFAULT_LLM_MODEL = "global.anthropic.claude-sonnet-4-6";
@@ -892,11 +749,7 @@ describe("Models", () => {
     });
 
     it("should omit OpenRouter reasoning options for Grok fallback models", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai";
       vi.mocked(env).DEFAULT_LLM_MODEL = "gpt-5.1";
@@ -918,11 +771,11 @@ describe("Models", () => {
     });
 
     it("should skip fallback models for users with their own API key", () => {
-      const userAi: UserAIFields = {
+      const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
         aiProvider: Provider.BEDROCK,
         aiModel: "global.anthropic.claude-sonnet-4-6",
-      };
+      });
 
       vi.mocked(env).DEFAULT_LLM_FALLBACKS =
         "openrouter:anthropic/claude-sonnet-4.6,openai:gpt-5.1";
@@ -933,11 +786,7 @@ describe("Models", () => {
     });
 
     it("should skip fallback providers without configured credentials", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "bedrock";
       vi.mocked(env).DEFAULT_LLM_MODEL = "global.anthropic.claude-sonnet-4-6";
@@ -957,11 +806,7 @@ describe("Models", () => {
     });
 
     it("should use LLM_API_KEY for fallback providers when provider key is not set", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "bedrock";
       vi.mocked(env).DEFAULT_LLM_MODEL = "global.anthropic.claude-sonnet-4-6";
@@ -981,11 +826,7 @@ describe("Models", () => {
     });
 
     it("should skip fallback entries without explicit model names", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "bedrock";
       vi.mocked(env).DEFAULT_LLM_MODEL = "global.anthropic.claude-sonnet-4-6";
@@ -1005,11 +846,7 @@ describe("Models", () => {
     });
 
     it("should use explicit Ollama fallback model without OLLAMA_MODEL", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_FALLBACKS = "ollama:llama3";
       vi.mocked(env).OLLAMA_MODEL = undefined;
@@ -1024,11 +861,7 @@ describe("Models", () => {
     });
 
     it("should configure OpenAI-compatible provider via DEFAULT_LLM_MODEL", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai-compatible";
       vi.mocked(env).DEFAULT_LLM_MODEL = "llama-3.2-3b-instruct";
@@ -1049,11 +882,7 @@ describe("Models", () => {
     });
 
     it("should configure OpenAI-compatible provider via legacy OPENAI_COMPATIBLE_MODEL", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai-compatible";
       vi.mocked(env).DEFAULT_LLM_MODEL = undefined;
@@ -1066,11 +895,7 @@ describe("Models", () => {
     });
 
     it("should use explicit OpenAI-compatible fallback model without OPENAI_COMPATIBLE_MODEL", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_FALLBACKS = "openai-compatible:llama3";
       vi.mocked(env).OPENAI_COMPATIBLE_MODEL = undefined;
@@ -1085,11 +910,7 @@ describe("Models", () => {
     });
 
     it("should require explicit enablement for CLI LLM providers", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = Provider.CODEX_CLI;
       vi.mocked(env).DEFAULT_LLM_MODEL = "gpt-5.3-codex";
@@ -1101,11 +922,7 @@ describe("Models", () => {
     });
 
     it("should configure Codex CLI provider when explicitly enabled", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = Provider.CODEX_CLI;
       vi.mocked(env).DEFAULT_LLM_MODEL = "gpt-5.3-codex";
@@ -1122,11 +939,7 @@ describe("Models", () => {
     });
 
     it("should configure Claude Code provider when explicitly enabled", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = Provider.CLAUDE_CODE;
       vi.mocked(env).DEFAULT_LLM_MODEL = "sonnet";
@@ -1143,11 +956,7 @@ describe("Models", () => {
     });
 
     it("should skip CLI fallback providers when CLI LLMs are disabled", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+      const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai";
       vi.mocked(env).DEFAULT_LLM_MODEL = "gpt-5.1";
@@ -1160,3 +969,12 @@ describe("Models", () => {
     });
   });
 });
+
+function defaultUserAi(overrides: Partial<UserAIFields> = {}): UserAIFields {
+  return {
+    aiApiKey: null,
+    aiProvider: null,
+    aiModel: null,
+    ...overrides,
+  };
+}

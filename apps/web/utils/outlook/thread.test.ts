@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { getThreadsWithNextPageToken } from "@/utils/outlook/thread";
 import type { OutlookClient } from "@/utils/outlook/client";
-import type { Logger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 describe("getThreadsWithNextPageToken", () => {
   it("does not use opaque page tokens as Graph paths", async () => {
@@ -48,7 +48,5 @@ function createMessagesRequest() {
 }
 
 function createLogger() {
-  return {
-    warn: vi.fn(),
-  } as unknown as Logger;
+  return createTestLogger();
 }

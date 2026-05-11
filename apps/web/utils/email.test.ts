@@ -15,144 +15,94 @@ import {
 
 describe("email utils", () => {
   describe("extractNameFromEmail", () => {
-    it("extracts name from email with format 'Name <email>'", () => {
-      expect(extractNameFromEmail("John Doe <john.doe@gmail.com>")).toBe(
-        "John Doe",
-      );
-    });
-
-    it("extracts email from format '<email>'", () => {
-      expect(extractNameFromEmail("<john.doe@gmail.com>")).toBe(
+    it.each([
+      ["formatted sender", "John Doe <john.doe@gmail.com>", "John Doe"],
+      [
+        "angle-bracketed address without a name",
+        "<john.doe@gmail.com>",
         "john.doe@gmail.com",
-      );
-    });
-
-    it("returns plain email as is", () => {
-      expect(extractNameFromEmail("john.doe@gmail.com")).toBe(
-        "john.doe@gmail.com",
-      );
-    });
-
-    it("handles empty input", () => {
-      expect(extractNameFromEmail("")).toBe("");
+      ],
+      ["plain email", "john.doe@gmail.com", "john.doe@gmail.com"],
+      ["empty input", "", ""],
+    ])("handles %s", (_caseName, input, expected) => {
+      expect(extractNameFromEmail(input)).toBe(expected);
     });
   });
 
   describe("extractEmailAddresses", () => {
-    it("returns empty array for empty string", () => {
-      expect(extractEmailAddresses("")).toEqual([]);
-    });
-
-    it("extracts single email address", () => {
-      expect(extractEmailAddresses("john@example.com")).toEqual([
-        "john@example.com",
-      ]);
-    });
-
-    it("extracts multiple email addresses separated by commas", () => {
-      expect(
-        extractEmailAddresses("john@example.com, jane@example.com"),
-      ).toEqual(["john@example.com", "jane@example.com"]);
-    });
-
-    it("extracts emails from format 'Name <email>'", () => {
-      expect(extractEmailAddresses("John Doe <john@example.com>")).toEqual([
-        "john@example.com",
-      ]);
-    });
-
-    it("extracts multiple emails with names", () => {
-      expect(
-        extractEmailAddresses(
-          "John Doe <john@example.com>, Jane Smith <jane@example.com>",
-        ),
-      ).toEqual(["john@example.com", "jane@example.com"]);
-    });
-
-    it("handles mixed formats (with and without names)", () => {
-      expect(
-        extractEmailAddresses("John Doe <john@example.com>, jane@example.com"),
-      ).toEqual(["john@example.com", "jane@example.com"]);
-    });
-
-    it("handles commas inside quoted names", () => {
-      expect(
-        extractEmailAddresses(
-          '"Doe, John" <john@example.com>, jane@example.com',
-        ),
-      ).toEqual(["john@example.com", "jane@example.com"]);
-    });
-
-    it("trims whitespace around email addresses", () => {
-      expect(
-        extractEmailAddresses("  john@example.com  ,  jane@example.com  "),
-      ).toEqual(["john@example.com", "jane@example.com"]);
-    });
-
-    it("filters out invalid email addresses", () => {
-      expect(extractEmailAddresses("invalid-email, valid@example.com")).toEqual(
+    const cases: Array<[string, string, string[]]> = [
+      ["empty string", "", []],
+      ["single email address", "john@example.com", ["john@example.com"]],
+      [
+        "multiple comma-separated email addresses",
+        "john@example.com, jane@example.com",
+        ["john@example.com", "jane@example.com"],
+      ],
+      ["formatted sender", "John Doe <john@example.com>", ["john@example.com"]],
+      [
+        "multiple formatted senders",
+        "John Doe <john@example.com>, Jane Smith <jane@example.com>",
+        ["john@example.com", "jane@example.com"],
+      ],
+      [
+        "mixed formatted and plain senders",
+        "John Doe <john@example.com>, jane@example.com",
+        ["john@example.com", "jane@example.com"],
+      ],
+      [
+        "commas inside quoted display names",
+        '"Doe, John" <john@example.com>, jane@example.com',
+        ["john@example.com", "jane@example.com"],
+      ],
+      [
+        "whitespace around addresses",
+        "  john@example.com  ,  jane@example.com  ",
+        ["john@example.com", "jane@example.com"],
+      ],
+      [
+        "invalid addresses mixed with valid ones",
+        "invalid-email, valid@example.com",
         ["valid@example.com"],
-      );
-    });
+      ],
+      [
+        "multiple commas and extra spaces",
+        "john@example.com , jane@example.com , bob@example.com",
+        ["john@example.com", "jane@example.com", "bob@example.com"],
+      ],
+      [
+        "empty parts between commas",
+        "john@example.com,,jane@example.com",
+        ["john@example.com", "jane@example.com"],
+      ],
+      ["trailing comma", "john@example.com,", ["john@example.com"]],
+      ["leading comma", ",john@example.com", ["john@example.com"]],
+      [
+        "complex real-world header",
+        '"Smith, John" <john.smith@example.com>, "Doe, Jane" <jane.doe@example.com>, admin@example.com',
+        ["john.smith@example.com", "jane.doe@example.com", "admin@example.com"],
+      ],
+      [
+        "plus addressing",
+        "user+tag@example.com, user+other@example.com",
+        ["user+tag@example.com", "user+other@example.com"],
+      ],
+      [
+        "hyphenated addresses",
+        "no-reply@example.com, support-team@example.com",
+        ["no-reply@example.com", "support-team@example.com"],
+      ],
+      [
+        "single address with angle brackets",
+        "<john@example.com>",
+        ["john@example.com"],
+      ],
+      ["all invalid addresses", "invalid, also-invalid", []],
+    ];
 
-    it("handles multiple commas and extra spaces", () => {
-      expect(
-        extractEmailAddresses(
-          "john@example.com , jane@example.com , bob@example.com",
-        ),
-      ).toEqual(["john@example.com", "jane@example.com", "bob@example.com"]);
-    });
-
-    it("handles empty parts between commas", () => {
-      expect(
-        extractEmailAddresses("john@example.com,,jane@example.com"),
-      ).toEqual(["john@example.com", "jane@example.com"]);
-    });
-
-    it("handles trailing comma", () => {
-      expect(extractEmailAddresses("john@example.com,")).toEqual([
-        "john@example.com",
-      ]);
-    });
-
-    it("handles leading comma", () => {
-      expect(extractEmailAddresses(",john@example.com")).toEqual([
-        "john@example.com",
-      ]);
-    });
-
-    it("handles complex real-world header format", () => {
-      expect(
-        extractEmailAddresses(
-          '"Smith, John" <john.smith@example.com>, "Doe, Jane" <jane.doe@example.com>, admin@example.com',
-        ),
-      ).toEqual([
-        "john.smith@example.com",
-        "jane.doe@example.com",
-        "admin@example.com",
-      ]);
-    });
-
-    it("handles emails with plus addressing", () => {
-      expect(
-        extractEmailAddresses("user+tag@example.com, user+other@example.com"),
-      ).toEqual(["user+tag@example.com", "user+other@example.com"]);
-    });
-
-    it("handles emails with hyphens", () => {
-      expect(
-        extractEmailAddresses("no-reply@example.com, support-team@example.com"),
-      ).toEqual(["no-reply@example.com", "support-team@example.com"]);
-    });
-
-    it("handles single email with angle brackets", () => {
-      expect(extractEmailAddresses("<john@example.com>")).toEqual([
-        "john@example.com",
-      ]);
-    });
-
-    it("handles all invalid emails", () => {
-      expect(extractEmailAddresses("invalid, also-invalid")).toEqual([]);
+    it.each(
+      cases,
+    )("extracts addresses from %s", (_caseName, input, expected) => {
+      expect(extractEmailAddresses(input)).toEqual(expected);
     });
   });
 
@@ -176,296 +126,212 @@ describe("email utils", () => {
       expect(
         extractUniqueEmailAddresses(
           ["First <Sender@example.com>", "sender@example.com"],
-          {
-            lowercase: true,
-          },
+          { lowercase: true },
         ),
       ).toEqual(["sender@example.com"]);
     });
   });
 
   describe("splitRecipientList", () => {
-    it("splits comma-separated recipients and trims whitespace", () => {
-      expect(
-        splitRecipientList("  john@example.com  ,  jane@example.com  "),
-      ).toEqual(["john@example.com", "jane@example.com"]);
-    });
-
-    it("keeps commas inside quoted display names", () => {
-      expect(
-        splitRecipientList('"Doe, John" <john@example.com>, jane@example.com'),
-      ).toEqual(['"Doe, John" <john@example.com>', "jane@example.com"]);
+    it.each([
+      [
+        "comma-separated recipients with whitespace",
+        "  john@example.com  ,  jane@example.com  ",
+        ["john@example.com", "jane@example.com"],
+      ],
+      [
+        "comma inside quoted display name",
+        '"Doe, John" <john@example.com>, jane@example.com',
+        ['"Doe, John" <john@example.com>', "jane@example.com"],
+      ],
+    ])("splits %s", (_caseName, input, expected) => {
+      expect(splitRecipientList(input)).toEqual(expected);
     });
   });
 
   describe("extractEmailAddress", () => {
-    it("extracts email from format 'Name <email>'", () => {
-      expect(extractEmailAddress("John Doe <john.doe@gmail.com>")).toBe(
+    const cases: Array<[string, string, string]> = [
+      [
+        "formatted sender",
+        "John Doe <john.doe@gmail.com>",
         "john.doe@gmail.com",
-      );
-    });
-
-    it("handles simple email format", () => {
-      expect(extractEmailAddress("hello@example.com")).toBe(
-        "hello@example.com",
-      );
-    });
-
-    it("returns empty string for invalid format", () => {
-      expect(extractEmailAddress("john.doe@gmail.com")).toBe(
-        "john.doe@gmail.com",
-      );
-    });
-
-    it("handles nested angle brackets", () => {
-      expect(
-        extractEmailAddress("Hacker <fake@email.com> <real@email.com>"),
-      ).toBe("real@email.com");
-    });
-
-    it("handles malformed angle brackets", () => {
-      expect(extractEmailAddress("Bad <<not@an@email>>")).toBe("");
-    });
-
-    it("extracts valid email when mixed with invalid ones", () => {
-      expect(
-        extractEmailAddress("Test <not@valid@email> <valid@email.com>"),
-      ).toBe("valid@email.com");
-    });
-
-    it("handles empty angle brackets", () => {
-      expect(extractEmailAddress("Test <>")).toBe("");
-    });
-
-    it("handles multiple @ symbols", () => {
-      expect(extractEmailAddress("Test <user@@domain.com>")).toBe("");
-    });
-
-    it("validates email format", () => {
-      expect(extractEmailAddress("Test <notanemail>")).toBe("");
-    });
-
-    it("extracts raw email when no valid bracketed email exists", () => {
-      expect(extractEmailAddress("Test <invalid> valid@email.com")).toBe(
+      ],
+      ["simple email", "hello@example.com", "hello@example.com"],
+      ["plain Gmail address", "john.doe@gmail.com", "john.doe@gmail.com"],
+      [
+        "nested angle brackets",
+        "Hacker <fake@email.com> <real@email.com>",
+        "real@email.com",
+      ],
+      ["malformed angle brackets", "Bad <<not@an@email>>", ""],
+      [
+        "valid bracketed email mixed with invalid ones",
+        "Test <not@valid@email> <valid@email.com>",
         "valid@email.com",
-      );
-    });
-
-    // Test cases for hyphenated email addresses (the bug we're fixing)
-    it("handles email addresses with hyphens in local part", () => {
-      expect(extractEmailAddress("no-reply@example.com")).toBe(
+      ],
+      ["empty angle brackets", "Test <>", ""],
+      ["multiple @ symbols", "Test <user@@domain.com>", ""],
+      ["non-email bracket content", "Test <notanemail>", ""],
+      [
+        "raw email after invalid bracket content",
+        "Test <invalid> valid@email.com",
+        "valid@email.com",
+      ],
+      ["hyphen in local part", "no-reply@example.com", "no-reply@example.com"],
+      [
+        "hyphen in bracketed local part",
+        "System <no-reply@example.com>",
         "no-reply@example.com",
-      );
-    });
-
-    it("handles email addresses with hyphens in bracketed format", () => {
-      expect(extractEmailAddress("System <no-reply@example.com>")).toBe(
-        "no-reply@example.com",
-      );
-    });
-
-    it("handles multiple hyphens in local part", () => {
-      expect(extractEmailAddress("do-not-reply@example.com")).toBe(
+      ],
+      [
+        "multiple hyphens in local part",
         "do-not-reply@example.com",
-      );
-    });
-
-    it("handles mixed hyphens and dots in local part", () => {
-      expect(extractEmailAddress("test-user.name@example.com")).toBe(
+        "do-not-reply@example.com",
+      ],
+      [
+        "mixed hyphens and dots in local part",
         "test-user.name@example.com",
-      );
-    });
-
-    it("handles emails with hyphens at start and end of local part", () => {
-      expect(extractEmailAddress("-test@example.com")).toBe(
+        "test-user.name@example.com",
+      ],
+      [
+        "hyphen at start of local part",
         "-test@example.com",
-      );
-      expect(extractEmailAddress("test-@example.com")).toBe(
-        "test-@example.com",
-      );
-    });
-
-    // Test cases for other potentially problematic characters
-    it("handles email addresses with underscores", () => {
-      expect(extractEmailAddress("user_name@example.com")).toBe(
+        "-test@example.com",
+      ],
+      ["hyphen at end of local part", "test-@example.com", "test-@example.com"],
+      [
+        "underscore in local part",
         "user_name@example.com",
-      );
-      expect(extractEmailAddress("System <no_reply@example.com>")).toBe(
+        "user_name@example.com",
+      ],
+      [
+        "underscore in bracketed local part",
+        "System <no_reply@example.com>",
         "no_reply@example.com",
-      );
-    });
-
-    it("handles email addresses with numbers", () => {
-      expect(extractEmailAddress("user123@example.com")).toBe(
-        "user123@example.com",
-      );
-      expect(extractEmailAddress("test2024@example.com")).toBe(
-        "test2024@example.com",
-      );
-    });
-
-    it("handles complex real-world email patterns", () => {
-      // Real patterns that might break
-      expect(extractEmailAddress("no-reply+tracking@example.com")).toBe(
+      ],
+      ["numbers in local part", "user123@example.com", "user123@example.com"],
+      ["year in local part", "test2024@example.com", "test2024@example.com"],
+      [
+        "plus addressing with tracking tag",
         "no-reply+tracking@example.com",
-      );
-      expect(extractEmailAddress("user.name+tag@example.com")).toBe(
+        "no-reply+tracking@example.com",
+      ],
+      [
+        "dots and plus addressing",
         "user.name+tag@example.com",
-      );
-      expect(extractEmailAddress("test_user-name+tag@example.com")).toBe(
+        "user.name+tag@example.com",
+      ],
+      [
+        "underscore, hyphen, and plus addressing",
         "test_user-name+tag@example.com",
-      );
-    });
-
-    // Edge cases that might expose regex limitations
-    it("handles edge cases that could break regex", () => {
-      // Test what happens with characters we might not support
-      expect(extractEmailAddress("user@sub-domain.example.com")).toBe(
+        "test_user-name+tag@example.com",
+      ],
+      [
+        "hyphenated subdomain",
         "user@sub-domain.example.com",
-      );
-      expect(extractEmailAddress("user@sub.domain-name.com")).toBe(
+        "user@sub-domain.example.com",
+      ],
+      [
+        "hyphenated nested domain",
         "user@sub.domain-name.com",
-      );
+        "user@sub.domain-name.com",
+      ],
+    ];
+
+    it.each(cases)("handles %s", (_caseName, input, expected) => {
+      expect(extractEmailAddress(input)).toBe(expected);
     });
   });
 
   describe("messageRepliesToSourceSender", () => {
-    it("returns true when the sent message is addressed to the source sender", () => {
-      expect(
-        messageRepliesToSourceSender({
-          sourceMessage: createMessage({
-            from: "Sales <sales@example.com>",
-          }),
-          sentMessage: createMessage({
-            from: "user@example.com",
-            to: "Sales <sales@example.com>",
-          }),
-        }),
-      ).toBe(true);
-    });
+    const cases: Array<
+      [string, MessageHeaders, MessageHeaders, boolean | null]
+    > = [
+      [
+        "sent message is addressed to the source sender",
+        { from: "Sales <sales@example.com>" },
+        { from: "user@example.com", to: "Sales <sales@example.com>" },
+        true,
+      ],
+      [
+        "reply-to provides the expected reply target",
+        {
+          from: "noreply@example.com",
+          "reply-to": "Ops <ops@example.com>, Support <support@example.com>",
+        },
+        { from: "user@example.com", to: "support@example.com" },
+        true,
+      ],
+      [
+        "reply target is in cc recipients",
+        { from: "Sales <sales@example.com>" },
+        {
+          from: "user@example.com",
+          to: "teammate@example.com",
+          cc: "Sales <sales@example.com>",
+        },
+        true,
+      ],
+      [
+        "sent message only goes to someone else",
+        { from: "Sales <sales@example.com>" },
+        { from: "user@example.com", to: "teammate@example.com" },
+        false,
+      ],
+      [
+        "expected target cannot be read",
+        { from: "" },
+        { to: "teammate@example.com" },
+        null,
+      ],
+      [
+        "sent recipients cannot be read",
+        { from: "sales@example.com" },
+        { to: "" },
+        null,
+      ],
+    ];
 
-    it("uses reply-to as the expected reply target when present", () => {
+    it.each(
+      cases,
+    )("handles %s", (_caseName, sourceHeaders, sentHeaders, expected) => {
       expect(
         messageRepliesToSourceSender({
-          sourceMessage: createMessage({
-            from: "noreply@example.com",
-            "reply-to": "Ops <ops@example.com>, Support <support@example.com>",
-          }),
-          sentMessage: createMessage({
-            from: "user@example.com",
-            to: "support@example.com",
-          }),
+          sourceMessage: createMessage(sourceHeaders),
+          sentMessage: createMessage(sentHeaders),
         }),
-      ).toBe(true);
-    });
-
-    it("matches reply targets in cc recipients", () => {
-      expect(
-        messageRepliesToSourceSender({
-          sourceMessage: createMessage({
-            from: "Sales <sales@example.com>",
-          }),
-          sentMessage: createMessage({
-            from: "user@example.com",
-            to: "teammate@example.com",
-            cc: "Sales <sales@example.com>",
-          }),
-        }),
-      ).toBe(true);
-    });
-
-    it("returns false when the sent message only goes to someone else", () => {
-      expect(
-        messageRepliesToSourceSender({
-          sourceMessage: createMessage({
-            from: "Sales <sales@example.com>",
-          }),
-          sentMessage: createMessage({
-            from: "user@example.com",
-            to: "teammate@example.com",
-          }),
-        }),
-      ).toBe(false);
-    });
-
-    it("returns null when the expected target or recipients cannot be read", () => {
-      expect(
-        messageRepliesToSourceSender({
-          sourceMessage: createMessage({ from: "" }),
-          sentMessage: createMessage({ to: "teammate@example.com" }),
-        }),
-      ).toBeNull();
-
-      expect(
-        messageRepliesToSourceSender({
-          sourceMessage: createMessage({ from: "sales@example.com" }),
-          sentMessage: createMessage({ to: "" }),
-        }),
-      ).toBeNull();
+      ).toBe(expected);
     });
   });
 
   describe("extractDomainFromEmail", () => {
-    it("extracts domain from plain email", () => {
-      expect(extractDomainFromEmail("john@example.com")).toBe("example.com");
-    });
-
-    it("extracts domain from email with format 'Name <email>'", () => {
-      expect(extractDomainFromEmail("John Doe <john@example.com>")).toBe(
+    it.each([
+      ["plain email", "john@example.com", "example.com"],
+      ["formatted sender", "John Doe <john@example.com>", "example.com"],
+      ["subdomain", "john@sub.example.com", "sub.example.com"],
+      ["invalid email", "invalid-email", ""],
+      ["empty input", "", ""],
+      ["multiple @ symbols", "test@foo@example.com", ""],
+      ["longer TLD", "test@example.company", "example.company"],
+      ["international domain", "user@münchen.de", "münchen.de"],
+      ["plus addressing", "user+tag@example.com", "example.com"],
+      [
+        "quoted formatted sender",
+        '"John Doe" <john@example.com>',
         "example.com",
-      );
-    });
-
-    it("handles subdomains", () => {
-      expect(extractDomainFromEmail("john@sub.example.com")).toBe(
-        "sub.example.com",
-      );
-    });
-
-    it("returns empty string for invalid email", () => {
-      expect(extractDomainFromEmail("invalid-email")).toBe("");
-    });
-
-    it("handles empty input", () => {
-      expect(extractDomainFromEmail("")).toBe("");
-    });
-
-    it("handles multiple @ symbols", () => {
-      expect(extractDomainFromEmail("test@foo@example.com")).toBe("");
-    });
-
-    it("handles longer TLDs", () => {
-      expect(extractDomainFromEmail("test@example.company")).toBe(
-        "example.company",
-      );
-    });
-
-    it("handles international domains", () => {
-      expect(extractDomainFromEmail("user@münchen.de")).toBe("münchen.de");
-    });
-
-    it("handles plus addressing", () => {
-      expect(extractDomainFromEmail("user+tag@example.com")).toBe(
-        "example.com",
-      );
-    });
-
-    it("handles quoted email addresses", () => {
-      expect(extractDomainFromEmail('"John Doe" <john@example.com>')).toBe(
-        "example.com",
-      );
-    });
-
-    it("handles domains with multiple dots", () => {
-      expect(extractDomainFromEmail("test@a.b.c.example.com")).toBe(
+      ],
+      [
+        "domain with multiple dots",
+        "test@a.b.c.example.com",
         "a.b.c.example.com",
-      );
-    });
-
-    it("handles whitespace in formatted email", () => {
-      expect(extractDomainFromEmail("John Doe    <john@example.com>")).toBe(
+      ],
+      [
+        "whitespace in formatted sender",
+        "John Doe    <john@example.com>",
         "example.com",
-      );
+      ],
+    ])("extracts domain from %s", (_caseName, input, expected) => {
+      expect(extractDomainFromEmail(input)).toBe(expected);
     });
   });
 
@@ -477,115 +343,106 @@ describe("email utils", () => {
       },
     } as const;
 
-    it("returns recipient when user is sender", () => {
-      expect(participant(message, "sender@example.com")).toBe(
-        "recipient@example.com",
-      );
-    });
-
-    it("returns sender when user is recipient", () => {
-      expect(participant(message, "recipient@example.com")).toBe(
-        "sender@example.com",
-      );
-    });
-
-    it("returns from address when no user email provided", () => {
-      expect(participant(message, "")).toBe("sender@example.com");
+    it.each([
+      ["user is sender", "sender@example.com", "recipient@example.com"],
+      ["user is recipient", "recipient@example.com", "sender@example.com"],
+      ["no user email is provided", "", "sender@example.com"],
+    ])("returns participant when %s", (_caseName, userEmail, expected) => {
+      expect(participant(message, userEmail)).toBe(expected);
     });
   });
 
   describe("normalizeEmailAddress", () => {
-    it("converts email to lowercase", () => {
-      expect(normalizeEmailAddress("John.Doe@GMAIL.com")).toBe(
+    it.each([
+      [
+        "upper-case Gmail address with dots",
+        "John.Doe@GMAIL.com",
         "johndoe@gmail.com",
-      );
-    });
-
-    it("replaces whitespace with dots in local part", () => {
-      expect(normalizeEmailAddress("john doe@example.com")).toBe(
+      ],
+      [
+        "whitespace in local part",
+        "john doe@example.com",
         "johndoe@example.com",
-      );
-    });
-
-    it("handles multiple consecutive spaces", () => {
-      expect(normalizeEmailAddress("john    doe@example.com")).toBe(
+      ],
+      [
+        "multiple consecutive spaces",
+        "john    doe@example.com",
         "johndoe@example.com",
-      );
-    });
-
-    it("preserves existing dots", () => {
-      expect(normalizeEmailAddress("john.doe@example.com")).toBe(
+      ],
+      ["existing dots", "john.doe@example.com", "johndoe@example.com"],
+      [
+        "whitespace around local part",
+        " john doe @example.com",
         "johndoe@example.com",
-      );
-    });
-
-    it("trims whitespace from local part", () => {
-      expect(normalizeEmailAddress(" john doe @example.com")).toBe(
-        "johndoe@example.com",
-      );
-    });
-
-    it("preserves domain part exactly", () => {
-      expect(normalizeEmailAddress("john@sub.example.com")).toBe(
-        "john@sub.example.com",
-      );
-    });
-
-    it("handles invalid email format gracefully", () => {
-      expect(normalizeEmailAddress("not-an-email")).toBe("not-an-email");
-    });
-
-    it("handles empty string", () => {
-      expect(normalizeEmailAddress("")).toBe("");
+      ],
+      ["subdomain", "john@sub.example.com", "john@sub.example.com"],
+      ["invalid email format", "not-an-email", "not-an-email"],
+      ["empty string", "", ""],
+    ])("normalizes %s", (_caseName, input, expected) => {
+      expect(normalizeEmailAddress(input)).toBe(expected);
     });
   });
 
   describe("formatEmailWithName", () => {
-    it("formats email with name", () => {
-      expect(formatEmailWithName("John Doe", "john.doe@example.com")).toBe(
+    const cases: Array<
+      [string, string | null | undefined, string | null | undefined, string]
+    > = [
+      [
+        "name and address",
+        "John Doe",
+        "john.doe@example.com",
         "John Doe <john.doe@example.com>",
-      );
-    });
-
-    it("returns just email when name is not provided", () => {
-      expect(formatEmailWithName(null, "john.doe@example.com")).toBe(
+      ],
+      ["null name", null, "john.doe@example.com", "john.doe@example.com"],
+      [
+        "undefined name",
+        undefined,
         "john.doe@example.com",
-      );
-      expect(formatEmailWithName(undefined, "john.doe@example.com")).toBe(
         "john.doe@example.com",
-      );
-    });
-
-    it("returns just email when name is empty string", () => {
-      expect(formatEmailWithName("", "john.doe@example.com")).toBe(
+      ],
+      ["empty name", "", "john.doe@example.com", "john.doe@example.com"],
+      [
+        "name that equals address",
         "john.doe@example.com",
-      );
-    });
-
-    it("returns just email when name equals address", () => {
-      expect(
-        formatEmailWithName("john.doe@example.com", "john.doe@example.com"),
-      ).toBe("john.doe@example.com");
-    });
-
-    it("returns empty string when address is null or undefined", () => {
-      expect(formatEmailWithName("John Doe", null)).toBe("");
-      expect(formatEmailWithName("John Doe", undefined)).toBe("");
-    });
-
-    it("returns empty string when address is empty string", () => {
-      expect(formatEmailWithName("John Doe", "")).toBe("");
-    });
-
-    it("handles both null/undefined name and address", () => {
-      expect(formatEmailWithName(null, null)).toBe("");
-      expect(formatEmailWithName(undefined, undefined)).toBe("");
-    });
-
-    it("preserves special characters in name", () => {
-      expect(formatEmailWithName("O'Brien, John", "john@example.com")).toBe(
+        "john.doe@example.com",
+        "john.doe@example.com",
+      ],
+      ["null address", "John Doe", null, ""],
+      ["undefined address", "John Doe", undefined, ""],
+      ["empty address", "John Doe", "", ""],
+      ["null name and address", null, null, ""],
+      ["undefined name and address", undefined, undefined, ""],
+      [
+        "special characters in name",
+        "O'Brien, John",
+        "john@example.com",
         "O'Brien, John <john@example.com>",
-      );
+      ],
+      [
+        "unicode name",
+        "José García",
+        "jose@example.com",
+        "José García <jose@example.com>",
+      ],
+      ["non-Latin name", "李明", "li@example.com", "李明 <li@example.com>"],
+      [
+        "hyphenated address",
+        "System",
+        "no-reply@example.com",
+        "System <no-reply@example.com>",
+      ],
+      [
+        "plus-addressed email",
+        "Support",
+        "support+tag@example.com",
+        "Support <support+tag@example.com>",
+      ],
+    ];
+
+    it.each(
+      cases,
+    )("formats %s", (_caseName, displayName, address, expected) => {
+      expect(formatEmailWithName(displayName, address)).toBe(expected);
     });
 
     it("is the inverse of extractNameFromEmail and extractEmailAddress", () => {
@@ -593,88 +450,75 @@ describe("email utils", () => {
       expect(extractNameFromEmail(formatted)).toBe("John Doe");
       expect(extractEmailAddress(formatted)).toBe("john@example.com");
     });
-
-    it("handles names with special characters and unicode", () => {
-      expect(formatEmailWithName("José García", "jose@example.com")).toBe(
-        "José García <jose@example.com>",
-      );
-      expect(formatEmailWithName("李明", "li@example.com")).toBe(
-        "李明 <li@example.com>",
-      );
-    });
-
-    it("handles email addresses with special characters", () => {
-      expect(formatEmailWithName("System", "no-reply@example.com")).toBe(
-        "System <no-reply@example.com>",
-      );
-      expect(formatEmailWithName("Support", "support+tag@example.com")).toBe(
-        "Support <support+tag@example.com>",
-      );
-    });
   });
 
   describe("getNewsletterSenderDisplayName", () => {
-    it("keeps normal sender display names", () => {
-      expect(
-        getNewsletterSenderDisplayName({
+    const cases: Array<[string, NewsletterSender, string]> = [
+      [
+        "normal sender display name",
+        {
           email: "updates@example.com",
           fromName: "Example Updates",
           minFromName: "Example Updates",
           maxFromName: "Example Updates",
-        }),
-      ).toBe("Example Updates");
-    });
-
-    it("uses the sender domain when one address has multiple display names", () => {
-      expect(
-        getNewsletterSenderDisplayName({
+        },
+        "Example Updates",
+      ],
+      [
+        "multiple display names for GitHub notifications",
+        {
           email: "notifications@github.com",
           fromName: "Some Person",
           minFromName: "Another Person",
           maxFromName: "Some Person",
-        }),
-      ).toBe("github.com");
-
-      expect(
-        getNewsletterSenderDisplayName({
+        },
+        "github.com",
+      ],
+      [
+        "multiple display names for LinkedIn invitations",
+        {
           email: "invitations@linkedin.com",
           fromName: "Some Person",
           minFromName: "Another Person",
           maxFromName: "Some Person",
-        }),
-      ).toBe("linkedin.com");
-
-      expect(
-        getNewsletterSenderDisplayName({
+        },
+        "linkedin.com",
+      ],
+      [
+        "multiple display names for LinkedIn digests",
+        {
           email: "messaging-digest-noreply@linkedin.com",
           fromName: "Some Person via LinkedIn",
           minFromName: "Another Person via LinkedIn",
           maxFromName: "Some Person via LinkedIn",
-        }),
-      ).toBe("linkedin.com");
-    });
-
-    it("keeps the selected display name when min and max names match", () => {
-      expect(
-        getNewsletterSenderDisplayName({
+        },
+        "linkedin.com",
+      ],
+      [
+        "matching min and max names",
+        {
           email: "notifications@example.com",
           fromName: "Example",
           minFromName: "Example",
           maxFromName: "Example",
-        }),
-      ).toBe("Example");
-    });
+        },
+        "Example",
+      ],
+      [
+        "missing display name",
+        { email: "updates@example.com", fromName: null },
+        "",
+      ],
+    ];
 
-    it("falls back to an empty display name when no name is available", () => {
-      expect(
-        getNewsletterSenderDisplayName({
-          email: "updates@example.com",
-          fromName: null,
-        }),
-      ).toBe("");
+    it.each(cases)("handles %s", (_caseName, sender, expected) => {
+      expect(getNewsletterSenderDisplayName(sender)).toBe(expected);
     });
   });
 });
+
+type MessageHeaders = Parameters<typeof createMessage>[0];
+type NewsletterSender = Parameters<typeof getNewsletterSenderDisplayName>[0];
 
 function createMessage(
   headers: Partial<{

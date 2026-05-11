@@ -267,212 +267,117 @@ describe("queryMessagesWithAttachments", () => {
 });
 
 describe("sanitizeKqlValue", () => {
-  it("should return empty string for empty input", () => {
-    expect(sanitizeKqlValue("")).toBe("");
-    expect(sanitizeKqlValue("   ")).toBe("");
-  });
-
-  it("should replace ? with space", () => {
-    expect(sanitizeKqlValue("hello?world")).toBe("hello world");
-  });
-
-  it("should escape backslashes", () => {
-    expect(sanitizeKqlValue("path\\to\\file")).toBe("path\\\\to\\\\file");
-  });
-
-  it("should escape double quotes", () => {
-    expect(sanitizeKqlValue('say "hello"')).toBe('say \\"hello\\"');
-  });
-
-  it("should normalize multiple spaces", () => {
-    expect(sanitizeKqlValue("hello   world")).toBe("hello world");
-  });
-
-  it("should handle email addresses", () => {
-    expect(sanitizeKqlValue("user@example.com")).toBe("user@example.com");
+  it.each([
+    ["empty input", "", ""],
+    ["whitespace-only input", "   ", ""],
+    ["question marks", "hello?world", "hello world"],
+    ["backslashes", "path\\to\\file", "path\\\\to\\\\file"],
+    ["double quotes", 'say "hello"', 'say \\"hello\\"'],
+    ["multiple spaces", "hello   world", "hello world"],
+    ["email addresses", "user@example.com", "user@example.com"],
+  ])("handles %s", (_name, input, expected) => {
+    expect(sanitizeKqlValue(input)).toBe(expected);
   });
 });
 
 describe("sanitizeKqlFieldQuery", () => {
-  it("should return field:value without outer quotes", () => {
-    expect(sanitizeKqlFieldQuery("participants:user@example.com")).toBe(
+  it.each([
+    [
+      "field:value without outer quotes",
       "participants:user@example.com",
-    );
-  });
-
-  it("should quote value with spaces", () => {
-    expect(sanitizeKqlFieldQuery("subject:meeting notes")).toBe(
-      'subject:"meeting notes"',
-    );
-  });
-
-  it("should replace ? and quote if result has spaces", () => {
-    expect(sanitizeKqlFieldQuery("from:user?name")).toBe('from:"user name"');
-  });
-
-  it("should escape backslashes in value", () => {
-    expect(sanitizeKqlFieldQuery("subject:path\\file")).toBe(
-      "subject:path\\\\file",
-    );
-  });
-
-  it("should escape quotes in value", () => {
-    expect(sanitizeKqlFieldQuery('subject:say "hi"')).toBe(
-      'subject:"say \\"hi\\""',
-    );
-  });
-
-  it("should handle empty value", () => {
-    expect(sanitizeKqlFieldQuery("field:")).toBe("field:");
-  });
-
-  it("should handle query without colon", () => {
-    expect(sanitizeKqlFieldQuery("nofield")).toBe("nofield");
+      "participants:user@example.com",
+    ],
+    ["value with spaces", "subject:meeting notes", 'subject:"meeting notes"'],
+    ["question mark in value", "from:user?name", 'from:"user name"'],
+    ["backslashes in value", "subject:path\\file", "subject:path\\\\file"],
+    ["quotes in value", 'subject:say "hi"', 'subject:"say \\"hi\\""'],
+    ["empty value", "field:", "field:"],
+    ["query without colon", "nofield", "nofield"],
+  ])("handles %s", (_name, input, expected) => {
+    expect(sanitizeKqlFieldQuery(input)).toBe(expected);
   });
 });
 
 describe("sanitizeKqlTextQuery", () => {
-  it("should wrap text in quotes", () => {
-    expect(sanitizeKqlTextQuery("hello world")).toBe('"hello world"');
-  });
-
-  it("should remove internal quotes", () => {
-    expect(sanitizeKqlTextQuery('say "hello"')).toBe('"say hello"');
-  });
-
-  it("should replace ? with space", () => {
-    expect(sanitizeKqlTextQuery("hello?world")).toBe('"hello world"');
-  });
-
-  it("should escape backslashes", () => {
-    expect(sanitizeKqlTextQuery("path\\to")).toBe('"path\\\\to"');
-  });
-
-  it("should normalize multiple spaces", () => {
-    expect(sanitizeKqlTextQuery("hello    world")).toBe('"hello world"');
+  it.each([
+    ["text", "hello world", '"hello world"'],
+    ["internal quotes", 'say "hello"', '"say hello"'],
+    ["question marks", "hello?world", '"hello world"'],
+    ["backslashes", "path\\to", '"path\\\\to"'],
+    ["multiple spaces", "hello    world", '"hello world"'],
+  ])("handles %s", (_name, input, expected) => {
+    expect(sanitizeKqlTextQuery(input)).toBe(expected);
   });
 });
 
 describe("sanitizeOutlookSearchQuery", () => {
   describe("empty and whitespace inputs", () => {
-    it("should return empty string for empty input", () => {
-      const result = sanitizeOutlookSearchQuery("");
-      expect(result.sanitized).toBe("");
-      expect(result.wasSanitized).toBe(false);
-    });
-
-    it("should return empty string for whitespace-only input", () => {
-      const result = sanitizeOutlookSearchQuery("   ");
-      expect(result.sanitized).toBe("");
-      expect(result.wasSanitized).toBe(false);
+    it.each([
+      ["empty input", ""],
+      ["whitespace-only input", "   "],
+    ])("returns empty string for %s", (_name, input) => {
+      expectSanitizedSearchQuery(input, "", false);
     });
   });
 
   describe("KQL field queries (field:value syntax)", () => {
-    it("should NOT wrap participants:email in outer quotes", () => {
-      const result = sanitizeOutlookSearchQuery(
+    it.each([
+      [
+        "participants email",
         "participants:user@example.com",
-      );
-      expect(result.sanitized).toBe("participants:user@example.com");
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should handle subject field query without outer quotes", () => {
-      const result = sanitizeOutlookSearchQuery("subject:meeting");
-      expect(result.sanitized).toBe("subject:meeting");
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should quote value with spaces in field query", () => {
-      const result = sanitizeOutlookSearchQuery("subject:meeting notes");
-      expect(result.sanitized).toBe('subject:"meeting notes"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should handle ? in field query value by replacing with space", () => {
-      const result = sanitizeOutlookSearchQuery("participants:user?name");
-      expect(result.sanitized).toBe('participants:"user name"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should treat empty value after colon as text query", () => {
-      const result = sanitizeOutlookSearchQuery("field:");
-      expect(result.sanitized).toBe('"field:"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should escape backslashes in field value", () => {
-      const result = sanitizeOutlookSearchQuery("subject:path\\file");
-      expect(result.sanitized).toBe("subject:path\\\\file");
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should escape quotes in field value and wrap if needed", () => {
-      const result = sanitizeOutlookSearchQuery('subject:say "hello"');
-      expect(result.sanitized).toBe('subject:"say \\"hello\\""');
-      expect(result.wasSanitized).toBe(true);
+        "participants:user@example.com",
+      ],
+      ["subject field", "subject:meeting", "subject:meeting"],
+      [
+        "field query value with spaces",
+        "subject:meeting notes",
+        'subject:"meeting notes"',
+      ],
+      [
+        "question mark in field query value",
+        "participants:user?name",
+        'participants:"user name"',
+      ],
+      ["empty value after colon", "field:", '"field:"'],
+      [
+        "backslashes in field value",
+        "subject:path\\file",
+        "subject:path\\\\file",
+      ],
+      [
+        "quotes in field value",
+        'subject:say "hello"',
+        'subject:"say \\"hello\\""',
+      ],
+    ])("handles %s", (_name, input, expected) => {
+      expectSanitizedSearchQuery(input, expected);
     });
   });
 
   describe("regular text queries (no field:value syntax)", () => {
-    it("should wrap simple query in quotes", () => {
-      const result = sanitizeOutlookSearchQuery("simple query");
-      expect(result.sanitized).toBe('"simple query"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should remove internal double quotes and wrap in outer quotes", () => {
-      const result = sanitizeOutlookSearchQuery(
+    it.each([
+      ["simple query", "simple query", '"simple query"'],
+      [
+        "internal double quotes",
         'Reinstatement of "Universal policy" for "5161 Collins Ave"',
-      );
-      expect(result.sanitized).toBe(
         '"Reinstatement of Universal policy for 5161 Collins Ave"',
-      );
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should replace ? with space in text query", () => {
-      const result = sanitizeOutlookSearchQuery("hello? world");
-      expect(result.sanitized).toBe('"hello world"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should escape backslashes in text query", () => {
-      const result = sanitizeOutlookSearchQuery("test\\path");
-      expect(result.sanitized).toBe('"test\\\\path"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should normalize multiple spaces", () => {
-      const result = sanitizeOutlookSearchQuery("hello    world");
-      expect(result.sanitized).toBe('"hello world"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should handle single word queries", () => {
-      const result = sanitizeOutlookSearchQuery("hello");
-      expect(result.sanitized).toBe('"hello"');
-      expect(result.wasSanitized).toBe(true);
+      ],
+      ["question mark in text query", "hello? world", '"hello world"'],
+      ["backslashes in text query", "test\\path", '"test\\\\path"'],
+      ["multiple spaces", "hello    world", '"hello world"'],
+      ["single word query", "hello", '"hello"'],
+    ])("handles %s", (_name, input, expected) => {
+      expectSanitizedSearchQuery(input, expected);
     });
   });
 
   describe("edge cases", () => {
-    it("should handle colon in middle of text (not at start)", () => {
-      const result = sanitizeOutlookSearchQuery("meeting at 10:30am");
-      expect(result.sanitized).toBe('"meeting at 10:30am"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should not treat URL-like strings as KQL fields", () => {
-      const result = sanitizeOutlookSearchQuery("https://example.com");
-      expect(result.sanitized).toBe('"https://example.com"');
-      expect(result.wasSanitized).toBe(true);
-    });
-
-    it("should treat http: as text query, not KQL field", () => {
-      const result = sanitizeOutlookSearchQuery("http://test.com");
-      expect(result.sanitized).toBe('"http://test.com"');
-      expect(result.wasSanitized).toBe(true);
+    it.each([
+      ["colon in middle of text", "meeting at 10:30am", '"meeting at 10:30am"'],
+      ["URL-like string", "https://example.com", '"https://example.com"'],
+      ["http: prefix", "http://test.com", '"http://test.com"'],
+    ])("handles %s", (_name, input, expected) => {
+      expectSanitizedSearchQuery(input, expected);
     });
   });
 
@@ -518,24 +423,24 @@ describe("sanitizeOutlookSearchQuery", () => {
 });
 
 describe("buildOutlookSearchFallbackQuery", () => {
-  it("falls back from a fielded sender lookup to a plain-text sender search", () => {
-    expect(buildOutlookSearchFallbackQuery("from:sender@example.com")).toBe(
+  it.each([
+    [
+      "fielded sender lookup",
+      "from:sender@example.com",
       '"sender@example.com"',
-    );
-  });
-
-  it("drops trailing helper filters when collapsing an Outlook sender query", () => {
-    expect(
-      buildOutlookSearchFallbackQuery(
-        "from:sender@example.com received>=2026-04-20 unread",
-      ),
-    ).toBe('"sender@example.com"');
-  });
-
-  it("falls back from a subject field query to plain text", () => {
-    expect(
-      buildOutlookSearchFallbackQuery('subject:"Quarterly planning notes"'),
-    ).toBe('"Quarterly planning notes"');
+    ],
+    [
+      "Outlook sender query with trailing helper filters",
+      "from:sender@example.com received>=2026-04-20 unread",
+      '"sender@example.com"',
+    ],
+    [
+      "subject field query",
+      'subject:"Quarterly planning notes"',
+      '"Quarterly planning notes"',
+    ],
+  ])("falls back from %s", (_name, query, expected) => {
+    expect(buildOutlookSearchFallbackQuery(query)).toBe(expected);
   });
 
   it("preserves read-state words when they are part of the quoted subject text", () => {
@@ -546,16 +451,28 @@ describe("buildOutlookSearchFallbackQuery", () => {
   });
 
   it("does not strip plain keyword text that happens to contain a comparison", () => {
-    expect(buildOutlookSearchFallbackQuery('"price < 5"')).toBeNull();
     expect(sanitizeOutlookSearchQuery('"price < 5"').sanitized).toBe(
       '"price < 5"',
     );
   });
 
-  it("returns null when the fallback would not change the query", () => {
-    expect(buildOutlookSearchFallbackQuery("sender@example.com")).toBeNull();
+  it.each([
+    ["plain keyword text with comparison", '"price < 5"'],
+    ["unchanged sender query", "sender@example.com"],
+  ])("returns null for %s", (_name, query) => {
+    expect(buildOutlookSearchFallbackQuery(query)).toBeNull();
   });
 });
+
+function expectSanitizedSearchQuery(
+  query: string,
+  sanitized: string,
+  wasSanitized = true,
+) {
+  const result = sanitizeOutlookSearchQuery(query);
+  expect(result.sanitized).toBe(sanitized);
+  expect(result.wasSanitized).toBe(wasSanitized);
+}
 
 function createCachedOutlookClient(
   api: ReturnType<typeof vi.fn>,

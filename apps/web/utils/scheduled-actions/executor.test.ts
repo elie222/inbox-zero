@@ -4,8 +4,6 @@ import { executeScheduledAction } from "./executor";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 
-// Run with: pnpm test utils/scheduled-actions/executor.test.ts
-
 const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");

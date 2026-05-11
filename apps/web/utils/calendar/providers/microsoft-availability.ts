@@ -12,12 +12,14 @@ async function fetchMicrosoftCalendarBusyPeriods({
   timeMin,
   timeMax,
   logger,
+  failOnCalendarError,
 }: {
   calendarClient: Client;
   calendarIds: string[];
   timeMin: string;
   timeMax: string;
   logger: Logger;
+  failOnCalendarError?: boolean;
 }): Promise<BusyPeriod[]> {
   try {
     const allBusyPeriods: BusyPeriod[] = [];
@@ -76,6 +78,8 @@ async function fetchMicrosoftCalendarBusyPeriods({
           calendarId,
           error: calendarError,
         });
+
+        if (failOnCalendarError) throw calendarError;
       }
     }
 
@@ -100,6 +104,7 @@ export function createMicrosoftAvailabilityProvider(
       calendarIds,
       timeMin,
       timeMax,
+      failOnCalendarError,
     }) {
       const calendarClient = await getCalendarClientWithRefresh({
         accessToken,
@@ -115,6 +120,7 @@ export function createMicrosoftAvailabilityProvider(
         timeMin,
         timeMax,
         logger,
+        failOnCalendarError,
       });
     },
   };

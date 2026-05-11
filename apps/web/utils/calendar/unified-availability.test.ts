@@ -304,6 +304,76 @@ describe("getUnifiedCalendarAvailability", () => {
       expect(result[1].start).toContain("2025-11-17T13:00:00");
     });
 
+    it("should query enabled Google virtual calendars by default", async () => {
+      vi.mocked(prisma.calendarConnection.findMany).mockResolvedValue([
+        getCalendarConnection({
+          provider: "google",
+          calendarIds: [
+            "primary-calendar-id",
+            "en-gb.usa#holiday@group.v.calendar.google.com",
+          ],
+        }),
+      ]);
+
+      const mockGoogleProvider = {
+        fetchBusyPeriods: vi.fn().mockResolvedValue([]),
+      };
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue(
+        mockGoogleProvider as any,
+      );
+
+      await getUnifiedCalendarAvailability({
+        emailAccountId,
+        startDate: new Date("2025-11-17T00:00:00Z"),
+        endDate: new Date("2025-11-17T23:59:59Z"),
+        timezone: "UTC",
+        logger,
+      });
+
+      expect(mockGoogleProvider.fetchBusyPeriods).toHaveBeenCalledWith(
+        expect.objectContaining({
+          calendarIds: [
+            "primary-calendar-id",
+            "en-gb.usa#holiday@group.v.calendar.google.com",
+          ],
+        }),
+      );
+    });
+
+    it("should exclude Google virtual calendars when requested", async () => {
+      vi.mocked(prisma.calendarConnection.findMany).mockResolvedValue([
+        getCalendarConnection({
+          provider: "google",
+          calendarIds: [
+            "primary-calendar-id",
+            "en-gb.usa#holiday@group.v.calendar.google.com",
+          ],
+        }),
+      ]);
+
+      const mockGoogleProvider = {
+        fetchBusyPeriods: vi.fn().mockResolvedValue([]),
+      };
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue(
+        mockGoogleProvider as any,
+      );
+
+      await getUnifiedCalendarAvailability({
+        emailAccountId,
+        startDate: new Date("2025-11-17T00:00:00Z"),
+        endDate: new Date("2025-11-17T23:59:59Z"),
+        timezone: "UTC",
+        logger,
+        excludeGoogleVirtualCalendars: true,
+      });
+
+      expect(mockGoogleProvider.fetchBusyPeriods).toHaveBeenCalledWith(
+        expect.objectContaining({
+          calendarIds: ["primary-calendar-id"],
+        }),
+      );
+    });
+
     it("should return empty array when no calendar connections", async () => {
       vi.mocked(prisma.calendarConnection.findMany).mockResolvedValue([]);
 
@@ -316,6 +386,51 @@ describe("getUnifiedCalendarAvailability", () => {
       });
 
       expect(result).toEqual([]);
+    });
+
+    it("should return empty availability on provider failure by default", async () => {
+      vi.mocked(prisma.calendarConnection.findMany).mockResolvedValue([
+        getCalendarConnection({ provider: "google", calendarIds: ["cal-1"] }),
+      ]);
+      const mockGoogleProvider = {
+        fetchBusyPeriods: vi.fn().mockRejectedValue(new Error("provider down")),
+      };
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue(
+        mockGoogleProvider as any,
+      );
+
+      const result = await getUnifiedCalendarAvailability({
+        emailAccountId,
+        startDate: new Date("2025-11-17T00:00:00Z"),
+        endDate: new Date("2025-11-17T23:59:59Z"),
+        timezone: "UTC",
+        logger,
+      });
+
+      expect(result).toEqual([]);
+    });
+
+    it("should fail closed on provider failure when requested", async () => {
+      vi.mocked(prisma.calendarConnection.findMany).mockResolvedValue([
+        getCalendarConnection({ provider: "google", calendarIds: ["cal-1"] }),
+      ]);
+      const mockGoogleProvider = {
+        fetchBusyPeriods: vi.fn().mockRejectedValue(new Error("provider down")),
+      };
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue(
+        mockGoogleProvider as any,
+      );
+
+      await expect(
+        getUnifiedCalendarAvailability({
+          emailAccountId,
+          startDate: new Date("2025-11-17T00:00:00Z"),
+          endDate: new Date("2025-11-17T23:59:59Z"),
+          timezone: "UTC",
+          logger,
+          failClosed: true,
+        }),
+      ).rejects.toThrow("provider down");
     });
   });
 });

@@ -20,6 +20,8 @@ vi.mock("@/utils/redis", () => ({
   },
 }));
 
+const NOW = new Date("2026-02-24T15:00:00.000Z");
+
 describe("redis usage tracking", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -44,15 +46,10 @@ describe("redis usage tracking", () => {
   });
 
   it("migrates legacy email usage into account and user usage before reading", async () => {
-    const usageByKey: Record<string, { openaiCalls?: number; cost?: string }> =
-      {
-        "usage:user@example.com": { openaiCalls: 3, cost: "1.25" },
-        "usage:email-account:email-account-1": { openaiCalls: 3 },
-      };
-
-    vi.mocked(redis.hgetall).mockImplementation(
-      async (key: string) => usageByKey[key] ?? {},
-    );
+    mockRedisHashes({
+      "usage:user@example.com": { openaiCalls: 3, cost: "1.25" },
+      "usage:email-account:email-account-1": { openaiCalls: 3 },
+    });
 
     const usage = await getUsage({
       emailAccountId: "email-account-1",
@@ -89,18 +86,13 @@ describe("redis usage tracking", () => {
 
   it("includes legacy email usage while another request owns the migration lock", async () => {
     vi.mocked(redis.set).mockResolvedValue(null);
-    const usageByKey: Record<string, { openaiCalls?: number; cost?: string }> =
-      {
-        "usage:email-account:email-account-1": {
-          openaiCalls: 2,
-          cost: "0.75",
-        },
-        "usage:user@example.com": { openaiCalls: 3, cost: "1.25" },
-      };
-
-    vi.mocked(redis.hgetall).mockImplementation(
-      async (key: string) => usageByKey[key] ?? {},
-    );
+    mockRedisHashes({
+      "usage:email-account:email-account-1": {
+        openaiCalls: 2,
+        cost: "0.75",
+      },
+      "usage:user@example.com": { openaiCalls: 3, cost: "1.25" },
+    });
 
     const usage = await getUsage({
       emailAccountId: "email-account-1",
@@ -112,18 +104,13 @@ describe("redis usage tracking", () => {
   });
 
   it("sums user usage cost across the last 7 days", async () => {
-    const now = new Date("2026-02-24T15:00:00.000Z");
-    const costsByKey: Record<string, { cost?: string }> = {
+    mockRedisHashes({
       "usage-weekly-cost:user:user-1:2026-02-24": { cost: "1.5" },
       "usage-weekly-cost:user:user-1:2026-02-23": { cost: "0.5" },
       "usage-weekly-cost:user:user-1:2026-02-22": { cost: "0.25" },
-    };
+    });
 
-    vi.mocked(redis.hgetall).mockImplementation(
-      async (key: string) => costsByKey[key] ?? {},
-    );
-
-    const weeklyCost = await getWeeklyUsageCost({ userId: "user-1", now });
+    const weeklyCost = await getWeeklyUsageCost({ userId: "user-1", now: NOW });
 
     expect(weeklyCost).toBeCloseTo(2.25);
     expect(redis.hgetall).toHaveBeenCalledTimes(7);
@@ -133,22 +120,17 @@ describe("redis usage tracking", () => {
   });
 
   it("migrates legacy weekly email spend into user weekly spend", async () => {
-    const now = new Date("2026-02-24T15:00:00.000Z");
-    const costsByKey: Record<string, { cost?: string }> = {
+    mockRedisHashes({
       "usage-weekly-cost:user@example.com:2026-02-24": { cost: "1.5" },
       "usage-weekly-cost:user@example.com:2026-02-23": { cost: "0.5" },
       "usage-weekly-cost:user:user-1:2026-02-24": { cost: "2.0" },
       "usage-weekly-cost:user:user-1:2026-02-23": { cost: "0.5" },
-    };
-
-    vi.mocked(redis.hgetall).mockImplementation(
-      async (key: string) => costsByKey[key] ?? {},
-    );
+    });
 
     const weeklyCost = await getWeeklyUsageCost({
       userId: "user-1",
       legacyEmails: ["user@example.com"],
-      now,
+      now: NOW,
     });
 
     expect(redis.hincrbyfloat).toHaveBeenCalledWith(
@@ -170,20 +152,15 @@ describe("redis usage tracking", () => {
 
   it("includes legacy weekly spend while another request owns the migration lock", async () => {
     vi.mocked(redis.set).mockResolvedValue(null);
-    const now = new Date("2026-02-24T15:00:00.000Z");
-    const costsByKey: Record<string, { cost?: string }> = {
+    mockRedisHashes({
       "usage-weekly-cost:user:user-1:2026-02-24": { cost: "2.0" },
       "usage-weekly-cost:user@example.com:2026-02-24": { cost: "1.5" },
-    };
-
-    vi.mocked(redis.hgetall).mockImplementation(
-      async (key: string) => costsByKey[key] ?? {},
-    );
+    });
 
     const weeklyCost = await getWeeklyUsageCost({
       userId: "user-1",
       legacyEmails: ["user@example.com"],
-      now,
+      now: NOW,
     });
 
     expect(weeklyCost).toBeCloseTo(3.5);
@@ -204,27 +181,22 @@ describe("redis usage tracking", () => {
       return "OK";
     });
 
-    const now = new Date("2026-02-24T15:00:00.000Z");
-    const costsByKey: Record<string, { cost?: string }> = {
+    mockRedisHashes({
       "usage-weekly-cost:primary@example.com:2026-02-24": { cost: "1.0" },
       "usage-weekly-cost:secondary@example.com:2026-02-24": { cost: "2.0" },
       "usage-weekly-cost:user:user-1:2026-02-24": { cost: "1.0" },
-    };
-
-    vi.mocked(redis.hgetall).mockImplementation(
-      async (key: string) => costsByKey[key] ?? {},
-    );
+    });
 
     await getWeeklyUsageCost({
       userId: "user-1",
       legacyEmails: ["primary@example.com"],
-      now,
+      now: NOW,
     });
 
     const weeklyCost = await getWeeklyUsageCost({
       userId: "user-1",
       legacyEmails: ["primary@example.com", "secondary@example.com"],
-      now,
+      now: NOW,
     });
 
     expect(weeklyCost).toBeCloseTo(3);
@@ -242,27 +214,21 @@ describe("redis usage tracking", () => {
       return null;
     });
 
-    const now = new Date("2026-02-24T15:00:00.000Z");
-    const costsByKey: Record<string, { cost?: string }> = {
+    mockRedisHashes({
       "usage-weekly-cost:user:user-1:2026-02-24": { cost: "1.0" },
       "usage-weekly-cost:user@example.com:2026-02-24": { cost: "1.5" },
-    };
-
-    vi.mocked(redis.hgetall).mockImplementation(
-      async (key: string) => costsByKey[key] ?? {},
-    );
+    });
 
     const weeklyCost = await getWeeklyUsageCost({
       userId: "user-1",
       legacyEmails: ["user@example.com"],
-      now,
+      now: NOW,
     });
 
     expect(weeklyCost).toBeCloseTo(1.5);
   });
 
   it("does not persist post-migration legacy weekly writes without the migration lock", async () => {
-    const now = new Date("2026-02-24T15:00:00.000Z");
     const legacyWeeklyCostKey = "usage-weekly-cost:user@example.com:2026-02-24";
 
     vi.mocked(redis.get).mockImplementation(async (key: string) => {
@@ -282,19 +248,15 @@ describe("redis usage tracking", () => {
       return "OK";
     });
 
-    const costsByKey: Record<string, { cost?: string }> = {
+    mockRedisHashes({
       "usage-weekly-cost:user:user-1:2026-02-24": { cost: "1.0" },
       [legacyWeeklyCostKey]: { cost: "1.5" },
-    };
-
-    vi.mocked(redis.hgetall).mockImplementation(
-      async (key: string) => costsByKey[key] ?? {},
-    );
+    });
 
     const weeklyCost = await getWeeklyUsageCost({
       userId: "user-1",
       legacyEmails: ["user@example.com"],
-      now,
+      now: NOW,
     });
 
     expect(redis.set).toHaveBeenCalledWith(
@@ -311,7 +273,6 @@ describe("redis usage tracking", () => {
   });
 
   it("uses the latest weekly migration marker after claiming the migration lock", async () => {
-    const now = new Date("2026-02-24T15:00:00.000Z");
     const legacyWeeklyCostKey = "usage-weekly-cost:user@example.com:2026-02-24";
     let doneReads = 0;
 
@@ -328,19 +289,15 @@ describe("redis usage tracking", () => {
       });
     });
 
-    const costsByKey: Record<string, { cost?: string }> = {
+    mockRedisHashes({
       "usage-weekly-cost:user:user-1:2026-02-24": { cost: "1.5" },
       [legacyWeeklyCostKey]: { cost: "1.5" },
-    };
-
-    vi.mocked(redis.hgetall).mockImplementation(
-      async (key: string) => costsByKey[key] ?? {},
-    );
+    });
 
     const weeklyCost = await getWeeklyUsageCost({
       userId: "user-1",
       legacyEmails: ["user@example.com"],
-      now,
+      now: NOW,
     });
 
     expect(redis.set).toHaveBeenCalledWith(
@@ -357,8 +314,6 @@ describe("redis usage tracking", () => {
   });
 
   it("returns top weekly spenders from user-keyed costs only", async () => {
-    const now = new Date("2026-02-24T15:00:00.000Z");
-
     vi.mocked(redis.scan)
       .mockResolvedValueOnce([
         "1",
@@ -377,19 +332,15 @@ describe("redis usage tracking", () => {
         ],
       ]);
 
-    const costsByKey: Record<string, { cost?: string }> = {
+    mockRedisHashes({
       "usage-weekly-cost:user:user-1:2026-02-24": { cost: "1.5" },
       "usage-weekly-cost:user:user-1:2026-02-23": { cost: "2.0" },
       "usage-weekly-cost:user:user-2:2026-02-24": { cost: "1.2" },
       "usage-weekly-cost:user:user-2:2026-02-22": { cost: "0.4" },
       "usage-weekly-cost:user:user-3:2026-02-10": { cost: "8.0" },
-    };
+    });
 
-    vi.mocked(redis.hgetall).mockImplementation(
-      async (key: string) => costsByKey[key] ?? {},
-    );
-
-    const topSpenders = await getTopWeeklyUsageCosts({ limit: 2, now });
+    const topSpenders = await getTopWeeklyUsageCosts({ limit: 2, now: NOW });
 
     expect(topSpenders).toEqual([
       { userId: "user-1", cost: 3.5 },
@@ -402,8 +353,6 @@ describe("redis usage tracking", () => {
   });
 
   it("returns legacy weekly spenders before they have been migrated", async () => {
-    const now = new Date("2026-02-24T15:00:00.000Z");
-
     vi.mocked(redis.scan).mockResolvedValueOnce([
       "0",
       [
@@ -412,16 +361,12 @@ describe("redis usage tracking", () => {
       ],
     ]);
 
-    const costsByKey: Record<string, { cost?: string }> = {
+    mockRedisHashes({
       "usage-weekly-cost:user:user-1:2026-02-24": { cost: "1.5" },
       "usage-weekly-cost:legacy@example.com:2026-02-24": { cost: "2.0" },
-    };
+    });
 
-    vi.mocked(redis.hgetall).mockImplementation(
-      async (key: string) => costsByKey[key] ?? {},
-    );
-
-    const topSpenders = await getTopWeeklyUsageCosts({ limit: 2, now });
+    const topSpenders = await getTopWeeklyUsageCosts({ limit: 2, now: NOW });
 
     expect(topSpenders).toEqual([
       { email: "legacy@example.com", cost: 2.0 },
@@ -430,8 +375,6 @@ describe("redis usage tracking", () => {
   });
 
   it("stores usage under both email account and user keys", async () => {
-    const now = new Date("2026-02-24T15:00:00.000Z");
-
     await saveUsage({
       userId: "user-1",
       emailAccountId: "email-account-1",
@@ -441,7 +384,7 @@ describe("redis usage tracking", () => {
         outputTokens: 100,
       },
       cost: 1.25,
-      now,
+      now: NOW,
     });
 
     expect(redis.hincrbyfloat).toHaveBeenCalledWith(
@@ -483,18 +426,13 @@ describe("redis usage tracking", () => {
       return null;
     });
 
-    const usageByKey: Record<string, { openaiCalls?: number; cost?: string }> =
-      {
-        "usage:email-account:email-account-1": {
-          openaiCalls: 2,
-          cost: "1.0",
-        },
-        "usage:user@example.com": { openaiCalls: 3, cost: "1.5" },
-      };
-
-    vi.mocked(redis.hgetall).mockImplementation(
-      async (key: string) => usageByKey[key] ?? {},
-    );
+    mockRedisHashes({
+      "usage:email-account:email-account-1": {
+        openaiCalls: 2,
+        cost: "1.0",
+      },
+      "usage:user@example.com": { openaiCalls: 3, cost: "1.5" },
+    });
 
     const usage = await getUsage({
       emailAccountId: "email-account-1",
@@ -524,18 +462,13 @@ describe("redis usage tracking", () => {
       return "OK";
     });
 
-    const usageByKey: Record<string, { openaiCalls?: number; cost?: string }> =
-      {
-        "usage:email-account:email-account-1": {
-          openaiCalls: 2,
-          cost: "1.0",
-        },
-        "usage:user@example.com": { openaiCalls: 3, cost: "1.5" },
-      };
-
-    vi.mocked(redis.hgetall).mockImplementation(
-      async (key: string) => usageByKey[key] ?? {},
-    );
+    mockRedisHashes({
+      "usage:email-account:email-account-1": {
+        openaiCalls: 2,
+        cost: "1.0",
+      },
+      "usage:user@example.com": { openaiCalls: 3, cost: "1.5" },
+    });
 
     const usage = await getUsage({
       emailAccountId: "email-account-1",
@@ -588,18 +521,13 @@ describe("redis usage tracking", () => {
       });
     });
 
-    const usageByKey: Record<string, { openaiCalls?: number; cost?: string }> =
-      {
-        "usage:email-account:email-account-1": {
-          openaiCalls: 3,
-          cost: "1.5",
-        },
-        "usage:user@example.com": { openaiCalls: 3, cost: "1.5" },
-      };
-
-    vi.mocked(redis.hgetall).mockImplementation(
-      async (key: string) => usageByKey[key] ?? {},
-    );
+    mockRedisHashes({
+      "usage:email-account:email-account-1": {
+        openaiCalls: 3,
+        cost: "1.5",
+      },
+      "usage:user@example.com": { openaiCalls: 3, cost: "1.5" },
+    });
 
     const usage = await getUsage({
       emailAccountId: "email-account-1",
@@ -636,8 +564,6 @@ describe("redis usage tracking", () => {
   });
 
   it("stores account usage without weekly spend when user ID is missing", async () => {
-    const now = new Date("2026-02-24T15:00:00.000Z");
-
     await saveUsage({
       emailAccountId: "email-account-1",
       usage: {
@@ -646,7 +572,7 @@ describe("redis usage tracking", () => {
         outputTokens: 100,
       },
       cost: 1.25,
-      now,
+      now: NOW,
     });
 
     expect(redis.hincrbyfloat).toHaveBeenCalledWith(
@@ -663,8 +589,6 @@ describe("redis usage tracking", () => {
   });
 
   it("skips cost updates when platform cost is zero", async () => {
-    const now = new Date("2026-02-24T15:00:00.000Z");
-
     await saveUsage({
       userId: "user-1",
       emailAccountId: "email-account-1",
@@ -672,10 +596,18 @@ describe("redis usage tracking", () => {
         totalTokens: 100,
       },
       cost: 0,
-      now,
+      now: NOW,
     });
 
     expect(redis.hincrbyfloat).not.toHaveBeenCalled();
     expect(redis.expire).not.toHaveBeenCalled();
   });
 });
+
+function mockRedisHashes(hashes: Record<string, RedisHash>) {
+  vi.mocked(redis.hgetall).mockImplementation(
+    async (key: string) => hashes[key] ?? {},
+  );
+}
+
+type RedisHash = Record<string, string | number | undefined>;

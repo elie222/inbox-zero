@@ -257,5 +257,42 @@ describe("createMicrosoftAvailabilityProvider", () => {
 
       expect(result).toEqual([]);
     });
+
+    it("should skip calendar errors by default", async () => {
+      mockApiResponse.get.mockRejectedValue(new Error("calendar failed"));
+
+      const provider = createMicrosoftAvailabilityProvider(logger);
+
+      const result = await provider.fetchBusyPeriods({
+        accessToken: "token",
+        refreshToken: "refresh",
+        expiresAt: Date.now() + 3_600_000,
+        emailAccountId: "email-account-id",
+        calendarIds: ["cal-1"],
+        timeMin: "2025-11-17T00:00:00Z",
+        timeMax: "2025-11-17T23:59:59Z",
+      });
+
+      expect(result).toEqual([]);
+    });
+
+    it("should fail closed on calendar errors when requested", async () => {
+      mockApiResponse.get.mockRejectedValue(new Error("calendar failed"));
+
+      const provider = createMicrosoftAvailabilityProvider(logger);
+
+      await expect(
+        provider.fetchBusyPeriods({
+          accessToken: "token",
+          refreshToken: "refresh",
+          expiresAt: Date.now() + 3_600_000,
+          emailAccountId: "email-account-id",
+          calendarIds: ["cal-1"],
+          failOnCalendarError: true,
+          timeMin: "2025-11-17T00:00:00Z",
+          timeMax: "2025-11-17T23:59:59Z",
+        }),
+      ).rejects.toThrow("calendar failed");
+    });
   });
 });

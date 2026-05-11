@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { saveTokens } from "@/utils/auth/save-tokens";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   createOutlookClient,
   getLinkingOAuth2Url,
@@ -60,13 +61,7 @@ describe("outlook client emulator configuration", () => {
   });
 
   it("passes emulator-aware Graph options into the client", () => {
-    createOutlookClient("emulator-token", {
-      error: vi.fn(),
-      info: vi.fn(),
-      trace: vi.fn(),
-      warn: vi.fn(),
-      with: vi.fn(),
-    } as any);
+    createOutlookClient("emulator-token", createTestLogger());
 
     expect(getMicrosoftGraphClientOptions).toHaveBeenCalledWith(
       "emulator-token",
@@ -118,13 +113,7 @@ describe("outlook client emulator configuration", () => {
       refreshToken: "refresh-token",
       expiresAt: staleExpiresAt,
       emailAccountId: "email-account-id",
-      logger: {
-        error: vi.fn(),
-        info: vi.fn(),
-        trace: vi.fn(),
-        warn: vi.fn(),
-        with: vi.fn(),
-      } as any,
+      logger: createTestLogger(),
     });
 
     expect(saveTokens).toHaveBeenCalledWith(

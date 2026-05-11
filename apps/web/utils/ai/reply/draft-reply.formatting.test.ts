@@ -257,6 +257,38 @@ describe("aiDraftReply formatting", () => {
     expect(callArgs.prompt).not.toContain("<reply_memories>");
   });
 
+  it("uses the active Inbox Zero booking link ahead of the external calendar link", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Please use my booking link.",
+        confidence: DraftReplyConfidence.STANDARD,
+      },
+    });
+
+    const params = getDraftParams();
+
+    await aiDraftReplyWithConfidence({
+      ...params,
+      emailAccount: {
+        ...params.emailAccount,
+        calendarBookingLink: "https://cal.com/user",
+        bookingLinks: [{ slug: "user-booking-link" }],
+      },
+      calendarAvailability: {
+        noAvailability: true,
+        suggestedTimes: [],
+        timezone: "UTC",
+      },
+    });
+
+    const [callArgs] = mockGenerateObject.mock.calls.at(-1)!;
+
+    expect(callArgs.prompt).toContain(
+      "http://localhost:3000/book/user-booking-link",
+    );
+    expect(callArgs.prompt).not.toContain("https://cal.com/user");
+  });
+
   it("uses learned writing style as the primary style block when explicit style is absent", async () => {
     mockGenerateObject.mockResolvedValueOnce({
       object: {

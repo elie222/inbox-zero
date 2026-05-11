@@ -82,6 +82,7 @@ export function createGoogleCalendarProvider(
               name: googleCalendar.summary || "Untitled Calendar",
               description: googleCalendar.description,
               timezone: googleCalendar.timeZone,
+              primary: googleCalendar.primary ?? false,
             },
             create: {
               connectionId,
@@ -89,6 +90,7 @@ export function createGoogleCalendarProvider(
               name: googleCalendar.summary || "Untitled Calendar",
               description: googleCalendar.description,
               timezone: googleCalendar.timeZone,
+              primary: googleCalendar.primary ?? false,
               isEnabled: true,
             },
           });

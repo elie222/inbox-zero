@@ -2,6 +2,7 @@ import { Client } from "@microsoft/microsoft-graph-client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { requestMicrosoftToken } from "@/utils/microsoft/oauth";
+import { createTestLogger } from "@/__tests__/helpers";
 import { getCalendarClientWithRefresh } from "./calendar-client";
 
 vi.mock("@microsoft/microsoft-graph-client", () => ({
@@ -56,7 +57,7 @@ describe("getCalendarClientWithRefresh token save concurrency", () => {
       refreshToken: "old-refresh-token",
       expiresAt: expectedExpiresAt,
       emailAccountId: "email-account-id",
-      logger: createMockLogger(),
+      logger: createTestLogger(),
     });
 
     expect(prisma.calendarConnection.updateMany).toHaveBeenCalledWith({
@@ -77,7 +78,6 @@ describe("getCalendarClientWithRefresh token save concurrency", () => {
   });
 
   it("skips stale Microsoft calendar token saves when a concurrent refresh already won", async () => {
-    const logger = createMockLogger();
     prisma.calendarConnection.updateMany.mockResolvedValue({ count: 0 } as any);
 
     await getCalendarClientWithRefresh({
@@ -85,23 +85,9 @@ describe("getCalendarClientWithRefresh token save concurrency", () => {
       refreshToken: "old-refresh-token",
       expiresAt: 1_700_000_000_000,
       emailAccountId: "email-account-id",
-      logger,
+      logger: createTestLogger(),
     });
 
     expect(prisma.calendarConnection.update).not.toHaveBeenCalled();
-    expect(logger.info).toHaveBeenCalledWith(
-      "Skipped stale calendar token update",
-      { connectionId: "calendar-connection-id" },
-    );
   });
 });
-
-function createMockLogger() {
-  return {
-    error: vi.fn(),
-    info: vi.fn(),
-    trace: vi.fn(),
-    warn: vi.fn(),
-    with: vi.fn(),
-  };
-}

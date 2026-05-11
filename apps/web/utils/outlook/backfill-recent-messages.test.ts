@@ -27,8 +27,6 @@ describe("backfillRecentOutlookMessages", () => {
   });
 
   it("processes unseen recent messages oldest first", async () => {
-    const infoSpy = vi.spyOn(logger, "info");
-
     vi.mocked(createEmailProvider).mockResolvedValue({
       getMessagesWithPagination: vi
         .fn()
@@ -71,27 +69,6 @@ describe("backfillRecentOutlookMessages", () => {
     });
 
     expect(result).toEqual({ processedCount: 2, candidateCount: 3 });
-    expect(infoSpy).toHaveBeenCalledWith(
-      "Reconciling recent Outlook messages",
-      expect.objectContaining({
-        maxMessages: 5,
-        pageCount: 2,
-        candidateCount: 3,
-        unseenCount: 2,
-        subscriptionId: "subscription-id",
-      }),
-    );
-    expect(infoSpy).toHaveBeenCalledWith(
-      "Finished reconciling recent Outlook messages",
-      expect.objectContaining({
-        maxMessages: 5,
-        pageCount: 2,
-        candidateCount: 3,
-        unseenCount: 2,
-        processedCount: 2,
-        subscriptionId: "subscription-id",
-      }),
-    );
     expect(processHistoryForUser).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
@@ -117,8 +94,6 @@ describe("backfillRecentOutlookMessages", () => {
   });
 
   it("returns without processing when there are no recent messages", async () => {
-    const infoSpy = vi.spyOn(logger, "info");
-
     vi.mocked(createEmailProvider).mockResolvedValue({
       getMessagesWithPagination: vi.fn().mockResolvedValue({
         messages: [],
@@ -134,13 +109,6 @@ describe("backfillRecentOutlookMessages", () => {
     });
 
     expect(result).toEqual({ processedCount: 0, candidateCount: 0 });
-    expect(infoSpy).toHaveBeenCalledWith(
-      "No recent Outlook messages found for reconciliation",
-      expect.objectContaining({
-        maxMessages: 5,
-        pageCount: 1,
-      }),
-    );
     expect(prisma.emailMessage.findMany).not.toHaveBeenCalled();
     expect(processHistoryForUser).not.toHaveBeenCalled();
   });

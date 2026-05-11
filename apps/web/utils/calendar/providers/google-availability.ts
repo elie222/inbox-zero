@@ -5,6 +5,10 @@ import type {
   CalendarAvailabilityProvider,
   BusyPeriod,
 } from "../availability-types";
+import {
+  CalendarAvailabilityError,
+  getCalendarAvailabilityErrorLogContext,
+} from "../availability-error";
 
 async function fetchGoogleCalendarBusyPeriods({
   calendarClient,
@@ -12,12 +16,14 @@ async function fetchGoogleCalendarBusyPeriods({
   timeMin,
   timeMax,
   logger,
+  failOnCalendarError,
 }: {
   calendarClient: calendar_v3.Calendar;
   calendarIds: string[];
   timeMin: string;
   timeMax: string;
   logger: Logger;
+  failOnCalendarError?: boolean;
 }): Promise<BusyPeriod[]> {
   try {
     const response = await calendarClient.freebusy.query({
@@ -34,6 +40,28 @@ async function fetchGoogleCalendarBusyPeriods({
       for (const [_calendarId, calendar] of Object.entries(
         response.data.calendars,
       )) {
+        if (calendar.errors?.length) {
+          logger.error("Google Calendar returned availability errors", {
+            ...getCalendarAvailabilityErrorLogContext(
+              new CalendarAvailabilityError({
+                provider: "google",
+                calendarErrors: [
+                  { calendarId: _calendarId, errors: calendar.errors },
+                ],
+              }),
+            ),
+          });
+          if (failOnCalendarError) {
+            throw new CalendarAvailabilityError({
+              provider: "google",
+              calendarErrors: [
+                { calendarId: _calendarId, errors: calendar.errors },
+              ],
+            });
+          }
+          continue;
+        }
+
         if (calendar.busy) {
           for (const period of calendar.busy) {
             if (period.start && period.end) {
@@ -55,7 +83,10 @@ async function fetchGoogleCalendarBusyPeriods({
 
     return busyPeriods;
   } catch (error) {
-    logger.error("Error fetching Google Calendar busy periods", { error });
+    logger.error("Error fetching Google Calendar busy periods", {
+      error,
+      ...getCalendarAvailabilityErrorLogContext(error),
+    });
     throw error;
   }
 }
@@ -75,6 +106,7 @@ export function createGoogleAvailabilityProvider(
       calendarIds,
       timeMin,
       timeMax,
+      failOnCalendarError,
     }) {
       const calendarClient = await getCalendarClientWithRefresh({
         accessToken,
@@ -91,6 +123,7 @@ export function createGoogleAvailabilityProvider(
         timeMin,
         timeMax,
         logger,
+        failOnCalendarError,
       });
     },
   };

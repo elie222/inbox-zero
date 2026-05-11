@@ -2,8 +2,12 @@ import type { Client } from "@microsoft/microsoft-graph-client";
 import { getCalendarClientWithRefresh } from "@/utils/outlook/calendar-client";
 import type {
   CalendarEvent,
+  CalendarEventCancelInput,
   CalendarEventProvider,
+  CalendarEventWriteInput,
+  CalendarEventWriteResult,
 } from "@/utils/calendar/event-types";
+import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 
 export interface MicrosoftCalendarConnectionParams {
@@ -117,6 +121,62 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     return events.map((event) => this.parseEvent(event));
   }
 
+  async createEvent(
+    input: CalendarEventWriteInput,
+  ): Promise<CalendarEventWriteResult> {
+    const client = await this.getClient();
+    const useMicrosoftTeams =
+      input.locationType === BookingLinkLocationType.MICROSOFT_TEAMS;
+    const response: MicrosoftEvent = await client
+      .api(`/me/calendars/${input.calendarId}/events`)
+      .post({
+        subject: input.title,
+        body: {
+          contentType: "text",
+          content: input.description || "",
+        },
+        start: {
+          dateTime: formatMicrosoftUtcDateTime(input.startTime),
+          timeZone: "UTC",
+        },
+        end: {
+          dateTime: formatMicrosoftUtcDateTime(input.endTime),
+          timeZone: "UTC",
+        },
+        attendees: input.attendees.map((attendee) => ({
+          emailAddress: {
+            address: attendee.email,
+            name: attendee.name || attendee.email,
+          },
+          type: "required",
+        })),
+        isOnlineMeeting: useMicrosoftTeams,
+        onlineMeetingProvider: useMicrosoftTeams
+          ? "teamsForBusiness"
+          : undefined,
+        location:
+          !useMicrosoftTeams && input.locationValue
+            ? { displayName: input.locationValue }
+            : undefined,
+      });
+
+    return {
+      id: response.id || "",
+      providerCalendarId: input.calendarId,
+      eventUrl: response.webLink,
+      videoConferenceLink:
+        response.onlineMeeting?.joinUrl || response.onlineMeetingUrl,
+    };
+  }
+
+  async cancelEvent(input: CalendarEventCancelInput): Promise<void> {
+    const client = await this.getClient();
+
+    await client
+      .api(`/me/events/${input.eventId}/cancel`)
+      .post({ comment: "" });
+  }
+
   private parseEvent(event: MicrosoftEvent) {
     return {
       id: event.id || "",
@@ -135,4 +195,9 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
         })) || [],
     };
   }
+}
+
+function formatMicrosoftUtcDateTime(date: Date) {
+  // Graph DateTimeTimeZone expects a local datetime for the supplied timezone.
+  return date.toISOString().replace(/Z$/, "0000");
 }

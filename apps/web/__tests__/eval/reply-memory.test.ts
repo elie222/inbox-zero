@@ -356,6 +356,65 @@ Actual question: I signed up for the webinar but cannot find the join link. Wher
     );
 
     test(
+      "learns a business identity correction from a misdirected product support draft",
+      async () => {
+        const incomingEmailContent =
+          "hello, i bought these shoes from https://example.com/products/runner-led-shoes and i was wondering how to change the colors of the light strip?";
+        const draftText =
+          "Check the button on the side of the shoe or the controller that came in the box. Does yours have a small switch for cycling through the colors?";
+        const sentText =
+          "Hey, we don't sell shoes. We run an AI email assistant.";
+
+        const result = await aiExtractReplyMemoriesFromDraftEdit({
+          emailAccount: replyMemoryEmailAccount,
+          incomingEmailContent,
+          draftText,
+          sentText,
+          senderEmail: "customer@example.com",
+          existingMemories: [],
+        });
+        const createdMemories = getCreatedMemoriesFromDecisions(result);
+        const summary = summarizeMemories(createdMemories);
+
+        const hasFactualBusinessIdentityMemory = createdMemories.some(
+          (memory) =>
+            memory.kind === ReplyMemoryKind.FACT &&
+            (memory.scopeType === ReplyMemoryScopeType.GLOBAL ||
+              memory.scopeType === ReplyMemoryScopeType.TOPIC),
+        );
+        const judgeResult = await judgeBinary({
+          input: buildJudgeInput({
+            incomingEmailContent,
+            draftText,
+            sentText,
+          }),
+          output: summary,
+          expected:
+            "A FACT memory that says the user does not sell shoes and runs an AI email assistant. It must not learn shoe troubleshooting advice.",
+          criterion: {
+            name: "Business identity correction",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass = hasFactualBusinessIdentityMemory && judgeResult.pass;
+
+        evalReporter.record({
+          testName: "business identity correction extraction",
+          model: model.label,
+          pass,
+          expected:
+            "FACT memory that the user does not sell shoes and is an AI email assistant",
+          actual: formatJudgeActual(summary, judgeResult),
+          criteria: [judgeResult],
+        });
+
+        expect(hasFactualBusinessIdentityMemory).toBe(true);
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
       "extracts a global preference memory from a strong tone edit",
       async () => {
         const result = await aiExtractReplyMemoriesFromDraftEdit({

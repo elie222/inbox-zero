@@ -6,6 +6,7 @@ import { handleLabelRemovedEvent } from "@/app/api/google/webhook/process-label-
 import { handleLabelAddedEvent } from "@/app/api/google/webhook/process-label-added-event";
 import { processHistoryItem as processHistoryItemShared } from "@/utils/webhook/process-history-item";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
+import { GmailLabel } from "@/utils/gmail/label";
 import type { Logger } from "@/utils/logger";
 
 export async function processHistoryItem(
@@ -38,11 +39,36 @@ export async function processHistoryItem(
     logger,
   });
 
+  const lockAndProcessShared = async () => {
+    const isFree = await markMessageAsProcessing({
+      userEmail: emailAccount.email,
+      messageId,
+    });
+    if (!isFree) {
+      logger.info("Skipping. Message already being processed.");
+      return;
+    }
+
+    logger.info("Gmail lock acquired, calling shared processor");
+
+    return processHistoryItemShared(
+      { messageId, threadId },
+      {
+        provider,
+        emailAccount,
+        hasAutomationRules,
+        hasAiAccess,
+        rules,
+        logger,
+      },
+    );
+  };
+
   // Handle Google-specific label events
   if (type === HistoryEventType.LABEL_REMOVED) {
     logger.info("Processing label removed event for learning");
     return handleLabelRemovedEvent(
-      item,
+      item as gmail_v1.Schema$HistoryLabelRemoved,
       {
         emailAccount,
         provider,
@@ -50,9 +76,15 @@ export async function processHistoryItem(
       logger,
     );
   } else if (type === HistoryEventType.LABEL_ADDED) {
+    const labelAddedItem = item as gmail_v1.Schema$HistoryLabelAdded;
+
+    if (labelAddedItem.labelIds?.includes(GmailLabel.SENT)) {
+      return lockAndProcessShared();
+    }
+
     logger.info("Processing label added event for learning");
     return handleLabelAddedEvent(
-      item,
+      labelAddedItem,
       {
         emailAccount,
         provider,
@@ -61,27 +93,5 @@ export async function processHistoryItem(
     );
   }
 
-  // Lock before fetching to avoid extra API calls for duplicate webhooks
-  const isFree = await markMessageAsProcessing({
-    userEmail: emailAccount.email,
-    messageId,
-  });
-  if (!isFree) {
-    logger.info("Skipping. Message already being processed.");
-    return;
-  }
-
-  logger.info("Gmail lock acquired, calling shared processor");
-
-  return processHistoryItemShared(
-    { messageId, threadId },
-    {
-      provider,
-      emailAccount,
-      hasAutomationRules,
-      hasAiAccess,
-      rules,
-      logger,
-    },
-  );
+  return lockAndProcessShared();
 }

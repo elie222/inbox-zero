@@ -167,8 +167,8 @@ model EmailAccount {
   followUpNeedsReplyDays    Float?
   followUpAutoDraftEnabled  Boolean @default(true)
 
-  digestSendEmail Boolean @default(true)
-  digestSchedule  Schedule?
+  digestSendEmail     Boolean   @default(true)
+  digestSchedule      Schedule?
   learnedWritingStyle String?
 
   userId    String
@@ -197,17 +197,19 @@ model EmailAccount {
   responseTimes    ResponseTime[]
   actions          Action[]
 
-  members             Member[]
-  invitations         Invitation[]
-  ssoproviders        SsoProvider[]
-  calendarConnections CalendarConnection[]
-  mcpConnections      McpConnection[]
-  meetingBriefings    MeetingBriefing[]
-  driveConnections    DriveConnection[]
-  messagingChannels   MessagingChannel[]
-  documentFilings    DocumentFiling[]
-  filingFolders      FilingFolder[]
-  apiKeys            ApiKey[]
+  members                Member[]
+  invitations            Invitation[]
+  ssoproviders           SsoProvider[]
+  calendarConnections    CalendarConnection[]
+  bookingLinks           BookingLink[]
+  bookings               Booking[]
+  mcpConnections         McpConnection[]
+  meetingBriefings       MeetingBriefing[]
+  driveConnections       DriveConnection[]
+  messagingChannels      MessagingChannel[]
+  documentFilings        DocumentFiling[]
+  filingFolders          FilingFolder[]
+  apiKeys                ApiKey[]
   classificationFeedback ClassificationFeedback[]
 
   @@index([userId])
@@ -217,18 +219,18 @@ model EmailAccount {
 }
 
 model Organization {
-  id          String        @id @default(cuid())
-  name        String
-  slug        String        @unique
-  logo        String?
-  metadata    Json?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  members     Member[]
-  SsoProvider SsoProvider[]
+  id           String         @id @default(cuid())
+  name         String
+  slug         String         @unique
+  logo         String?
+  metadata     Json?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  members      Member[]
+  SsoProvider  SsoProvider[]
   ScimProvider ScimProvider[]
-  sessions    Session[]
-  invitations Invitation[]
+  sessions     Session[]
+  invitations  Invitation[]
 }
 
 model Member {
@@ -388,34 +390,34 @@ model Premium {
   lemonSubscriptionStatus        String?
 
   // stripe
-  stripeCustomerId             String?   @unique
-  stripeSubscriptionId         String?   @unique
-  stripeSubscriptionItemId     String?   @unique
-  stripePriceId                String?
-  stripeProductId              String?
-  stripeSubscriptionStatus     String? // The current status from Stripe (e.g., 'active', 'trialing', 'past_due', 'canceled', 'unpaid').
-  stripeCancelAtPeriodEnd      Boolean? // If true, the subscription is set to cancel automatically at the end of the current billing period, rather than renew.
-  stripeRenewsAt               DateTime? // Timestamp for when the current billing period ends and the subscription attempts renewal (if not canceling). Derived from `current_period_end`.
-  stripeTrialEnd               DateTime? // Timestamp for when the free trial period ends (if applicable). Important for managing trial-to-paid transitions.
-  stripeTrialConvertedAt       DateTime? // Timestamp for when a Stripe trial converted from `trialing` to `active`. Historical data.
+  stripeCustomerId              String?   @unique
+  stripeSubscriptionId          String?   @unique
+  stripeSubscriptionItemId      String?   @unique
+  stripePriceId                 String?
+  stripeProductId               String?
+  stripeSubscriptionStatus      String? // The current status from Stripe (e.g., 'active', 'trialing', 'past_due', 'canceled', 'unpaid').
+  stripeCancelAtPeriodEnd       Boolean? // If true, the subscription is set to cancel automatically at the end of the current billing period, rather than renew.
+  stripeRenewsAt                DateTime? // Timestamp for when the current billing period ends and the subscription attempts renewal (if not canceling). Derived from `current_period_end`.
+  stripeTrialEnd                DateTime? // Timestamp for when the free trial period ends (if applicable). Important for managing trial-to-paid transitions.
+  stripeTrialConvertedAt        DateTime? // Timestamp for when a Stripe trial converted from `trialing` to `active`. Historical data.
   stripeCancellationInitiatedAt DateTime? // Timestamp for when the user actually initiated cancellation (clicked cancel). Distinct from `stripeCanceledAt`, which is when Stripe processes the scheduled cancellation at period end.
-  stripeCanceledAt             DateTime? // Timestamp for when the subscription was definitively marked as canceled in Stripe (might be immediate or after period end). Historical data.
-  stripeEndedAt                DateTime? // Timestamp for when the subscription ended permanently for any reason (cancellation, final payment failure). Historical data.
-  stripeAiOverageLastInvoiceId String?
-  stripeAiOverageLastPeriodEnd DateTime?
-  stripeAiOverageLastUnits     Int?
+  stripeCanceledAt              DateTime? // Timestamp for when the subscription was definitively marked as canceled in Stripe (might be immediate or after period end). Historical data.
+  stripeEndedAt                 DateTime? // Timestamp for when the subscription ended permanently for any reason (cancellation, final payment failure). Historical data.
+  stripeAiOverageLastInvoiceId  String?
+  stripeAiOverageLastPeriodEnd  DateTime?
+  stripeAiOverageLastUnits      Int?
 
   // apple app store
-  appleOriginalTransactionId      String?   @unique
-  appleLatestTransactionId        String?   @unique
-  appleProductId                  String?
+  appleOriginalTransactionId       String?   @unique
+  appleLatestTransactionId         String?   @unique
+  appleProductId                   String?
   appleSubscriptionGroupIdentifier String?
-  appleAppAccountToken            String?
-  appleSubscriptionStatus         String? // The current App Store status (e.g. 'ACTIVE', 'EXPIRED', 'BILLING_GRACE_PERIOD', 'REVOKED').
-  appleEnvironment                String? // App Store environment (e.g. 'Sandbox' or 'Production').
-  applePurchaseDate               DateTime?
-  appleExpiresAt                  DateTime?
-  appleRevokedAt                  DateTime?
+  appleAppAccountToken             String?
+  appleSubscriptionStatus          String? // The current App Store status (e.g. 'ACTIVE', 'EXPIRED', 'BILLING_GRACE_PERIOD', 'REVOKED').
+  appleEnvironment                 String? // App Store environment (e.g. 'Sandbox' or 'Production').
+  applePurchaseDate                DateTime?
+  appleExpiresAt                   DateTime?
+  appleRevokedAt                   DateTime?
 
   // manually granted by admin
   adminGrantExpiresAt DateTime?
@@ -482,8 +484,8 @@ model Rule {
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  executedRules            ExecutedRule[]
-  classificationFeedback   ClassificationFeedback[]
+  executedRules          ExecutedRule[]
+  classificationFeedback ClassificationFeedback[]
 
   // conditions: ai, group, static, category
   conditionalOperator LogicalOperator @default(AND)
@@ -520,19 +522,19 @@ model Rule {
 }
 
 model Action {
-  id        String     @id @default(cuid())
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  type      ActionType
-  ruleId    String
-  emailAccountId String
-  rule      Rule       @relation(fields: [ruleId, emailAccountId], references: [id, emailAccountId], onDelete: Cascade)
-  emailAccount EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  messagingChannelId String?
+  id                             String            @id @default(cuid())
+  createdAt                      DateTime          @default(now())
+  updatedAt                      DateTime          @updatedAt
+  type                           ActionType
+  ruleId                         String
+  emailAccountId                 String
+  rule                           Rule              @relation(fields: [ruleId, emailAccountId], references: [id, emailAccountId], onDelete: Cascade)
+  emailAccount                   EmailAccount      @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  messagingChannelId             String?
   // Keep the channel owner separate so channel deletes can null the relation
   // without nulling Action.emailAccountId.
   messagingChannelEmailAccountId String?
-  messagingChannel   MessagingChannel? @relation(fields: [messagingChannelId, messagingChannelEmailAccountId], references: [id, emailAccountId], onDelete: SetNull)
+  messagingChannel               MessagingChannel? @relation(fields: [messagingChannelId, messagingChannelEmailAccountId], references: [id, emailAccountId], onDelete: SetNull)
 
   label             String? // labelName - labelId is the source of truth, and we use it when set
   labelId           String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
@@ -614,30 +616,30 @@ model ExecutedRule {
 }
 
 model ExecutedAction {
-  id                     String            @id @default(cuid())
-  createdAt              DateTime          @default(now())
-  updatedAt              DateTime          @updatedAt
+  id                     String                  @id @default(cuid())
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
   type                   ActionType
   executedRuleId         String
-  executedRule           ExecutedRule      @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
+  executedRule           ExecutedRule            @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
   messagingChannelId     String?
-  messagingChannel       MessagingChannel? @relation(fields: [messagingChannelId], references: [id], onDelete: SetNull)
+  messagingChannel       MessagingChannel?       @relation(fields: [messagingChannelId], references: [id], onDelete: SetNull)
   messagingMessageId     String?
   messagingMessageSentAt DateTime?
   messagingMessageStatus MessagingMessageStatus?
 
   // optional extra fields to be used with the action
-  label             String?
-  labelId           String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
-  subject           String?
-  content           String?
-  to                String?
-  cc                String?
-  bcc               String?
-  url               String?
-  folderName        String?
-  folderId          String?
-  staticAttachments Json? // AttachmentSourceInput[] — explicit files to attach for email actions
+  label               String?
+  labelId             String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
+  subject             String?
+  content             String?
+  to                  String?
+  cc                  String?
+  bcc                 String?
+  url                 String?
+  folderName          String?
+  folderId            String?
+  staticAttachments   Json? // AttachmentSourceInput[] — explicit files to attach for email actions
   selectedAttachments Json? // SelectedAttachment[] — AI-selected files for this specific execution
 
   // additional fields as a result of the action
@@ -669,18 +671,18 @@ model ScheduledAction {
   status           ScheduledActionStatus @default(PENDING)
   schedulingStatus SchedulingStatus      @default(PENDING)
 
-  label             String?
-  labelId           String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
-  subject           String?
-  content           String?
-  to                String?
-  cc                String?
-  bcc               String?
-  url               String?
-  folderName        String?
-  folderId          String?
-  scheduledId       String?
-  staticAttachments Json? // AttachmentSourceInput[] — explicit files to attach for email actions
+  label               String?
+  labelId             String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
+  subject             String?
+  content             String?
+  to                  String?
+  cc                  String?
+  bcc                 String?
+  url                 String?
+  folderName          String?
+  folderId            String?
+  scheduledId         String?
+  staticAttachments   Json? // AttachmentSourceInput[] — explicit files to attach for email actions
   selectedAttachments Json? // SelectedAttachment[] — AI-selected files for this specific execution
 
   executedAt       DateTime?
@@ -949,7 +951,7 @@ model ReplyMemory {
   kind                   ReplyMemoryKind
   scopeType              ReplyMemoryScopeType
   scopeValue             String
-  isLearnedStyleEvidence Boolean @default(false)
+  isLearnedStyleEvidence Boolean              @default(false)
 
   emailAccountId String
   emailAccount   EmailAccount        @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -961,7 +963,7 @@ model ReplyMemory {
 }
 
 model ReplyMemorySource {
-  createdAt DateTime @default(now())
+  createdAt                     DateTime  @default(now())
   learnedWritingStyleAnalyzedAt DateTime?
 
   replyMemoryId String
@@ -1066,9 +1068,9 @@ model Chat {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  name      String?
+  name String?
 
-  compactionCount Int @default(0)
+  compactionCount       Int  @default(0)
   lastSeenRulesRevision Int?
 
   messages       ChatMessage[]
@@ -1159,8 +1161,83 @@ model Calendar {
 
   connectionId String
   connection   CalendarConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  bookingLinks BookingLink[]
 
   @@unique([connectionId, calendarId])
+}
+
+model BookingLink {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  slug        String  @unique
+  title       String
+  description String?
+  isActive    Boolean @default(true)
+
+  durationMinutes      Int
+  slotIntervalMinutes  Int
+  locationType         BookingLinkLocationType @default(CUSTOM)
+  locationValue        String?
+  minimumNoticeMinutes Int                     @default(120)
+  maxDaysAhead         Int                     @default(90)
+  timezone             String
+
+  emailAccountId        String       @unique // temporary: relax when we support multiple booking links per account
+  emailAccount          EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  destinationCalendarId String?
+  destinationCalendar   Calendar?    @relation(fields: [destinationCalendarId], references: [id], onDelete: SetNull)
+
+  windows  BookingWindow[]
+  bookings Booking[]
+
+  @@index([destinationCalendarId])
+}
+
+model BookingWindow {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  weekday      Int
+  startMinutes Int
+  endMinutes   Int
+
+  bookingLinkId String
+  bookingLink   BookingLink @relation(fields: [bookingLinkId], references: [id], onDelete: Cascade)
+
+  @@index([bookingLinkId])
+}
+
+model Booking {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guestName           String
+  guestEmail          String
+  guestNote           String?
+  startTime           DateTime
+  endTime             DateTime
+  status               BookingStatus @default(PENDING_PROVIDER_EVENT)
+  provider             String?
+  providerConnectionId String?
+  providerCalendarId   String?
+  providerEventId      String?
+  videoConferenceLink  String?
+  cancelTokenHash     String
+  cancellationReason  String?
+  idempotencyToken    String?
+
+  bookingLinkId  String
+  bookingLink    BookingLink  @relation(fields: [bookingLinkId], references: [id], onDelete: Cascade)
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingLinkId, idempotencyToken])
+  @@index([bookingLinkId, startTime, endTime])
+  @@index([emailAccountId])
 }
 
 model MeetingBriefing {
@@ -1199,11 +1276,11 @@ model MessagingChannel {
   refreshToken String?
   expiresAt    DateTime?
 
-  emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  routes         MessagingRoute[]
-  automationJobs AutomationJob[]
-  actions        Action[]
+  emailAccountId  String
+  emailAccount    EmailAccount     @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  routes          MessagingRoute[]
+  automationJobs  AutomationJob[]
+  actions         Action[]
   executedActions ExecutedAction[]
 
   @@unique([emailAccountId, provider, teamId])
@@ -1699,6 +1776,21 @@ enum MeetingBriefingStatus {
   SENT
   FAILED
   SKIPPED
+}
+
+enum BookingLinkLocationType {
+  IN_PERSON
+  GOOGLE_MEET
+  MICROSOFT_TEAMS
+  PHONE
+  CUSTOM
+}
+
+enum BookingStatus {
+  PENDING_PROVIDER_EVENT
+  CONFIRMED
+  CANCELED
+  FAILED
 }
 
 enum GroupItemSource {

@@ -14,99 +14,104 @@ describe("timezone formatting", () => {
   const utcDate = new Date("2024-12-30T19:00:00Z");
 
   describe("formatTimeInUserTimezone", () => {
-    it("should format time in Brazil timezone (UTC-3)", () => {
-      // 7 PM UTC = 4 PM BRT (UTC-3)
-      const result = formatTimeInUserTimezone(utcDate, "America/Sao_Paulo");
-      expect(result).toBe("4:00 PM");
-    });
-
-    it("should format time in US Eastern timezone (UTC-5)", () => {
-      // 7 PM UTC = 2 PM EST (UTC-5)
-      const result = formatTimeInUserTimezone(utcDate, "America/New_York");
-      expect(result).toBe("2:00 PM");
-    });
-
-    it("should format time in US Pacific timezone (UTC-8)", () => {
-      // 7 PM UTC = 11 AM PST (UTC-8)
-      const result = formatTimeInUserTimezone(utcDate, "America/Los_Angeles");
-      expect(result).toBe("11:00 AM");
-    });
-
-    it("should format time in Israel timezone (UTC+2)", () => {
-      // 7 PM UTC = 9 PM IST (UTC+2)
-      const result = formatTimeInUserTimezone(utcDate, "Asia/Jerusalem");
-      expect(result).toBe("9:00 PM");
-    });
-
-    it("should format time in Japan timezone (UTC+9)", () => {
-      // 7 PM UTC = 4 AM next day JST (UTC+9)
-      const result = formatTimeInUserTimezone(utcDate, "Asia/Tokyo");
-      expect(result).toBe("4:00 AM");
-    });
-
-    it("should default to UTC when timezone is null", () => {
-      const result = formatTimeInUserTimezone(utcDate, null);
-      expect(result).toBe("7:00 PM");
-    });
-
-    it("should default to UTC when timezone is undefined", () => {
-      const result = formatTimeInUserTimezone(utcDate, undefined);
-      expect(result).toBe("7:00 PM");
+    it.each([
+      {
+        name: "Brazil timezone (UTC-3)",
+        timezone: "America/Sao_Paulo",
+        expected: "4:00 PM",
+      },
+      {
+        name: "US Eastern timezone (UTC-5)",
+        timezone: "America/New_York",
+        expected: "2:00 PM",
+      },
+      {
+        name: "US Pacific timezone (UTC-8)",
+        timezone: "America/Los_Angeles",
+        expected: "11:00 AM",
+      },
+      {
+        name: "Israel timezone (UTC+2)",
+        timezone: "Asia/Jerusalem",
+        expected: "9:00 PM",
+      },
+      {
+        name: "Japan timezone (UTC+9)",
+        timezone: "Asia/Tokyo",
+        expected: "4:00 AM",
+      },
+      {
+        name: "null timezone",
+        timezone: null,
+        expected: "7:00 PM",
+      },
+      {
+        name: "undefined timezone",
+        timezone: undefined,
+        expected: "7:00 PM",
+      },
+    ])("should format time in $name", ({ timezone, expected }) => {
+      expect(formatTimeInUserTimezone(utcDate, timezone)).toBe(expected);
     });
   });
 
   describe("formatDateTimeInUserTimezone", () => {
-    it("should format date and time in Brazil timezone", () => {
-      // 7 PM UTC = 4 PM BRT on Dec 30
-      const result = formatDateTimeInUserTimezone(utcDate, "America/Sao_Paulo");
-      expect(result).toBe("Dec 30, 2024 at 4:00 PM");
-    });
-
-    it("should format date and time in US Pacific timezone", () => {
-      // 7 PM UTC = 11 AM PST on Dec 30
-      const result = formatDateTimeInUserTimezone(
-        utcDate,
-        "America/Los_Angeles",
-      );
-      expect(result).toBe("Dec 30, 2024 at 11:00 AM");
-    });
-
-    it("should handle date change when crossing midnight (Japan)", () => {
-      // 7 PM UTC on Dec 30 = 4 AM JST on Dec 31
-      const result = formatDateTimeInUserTimezone(utcDate, "Asia/Tokyo");
-      expect(result).toBe("Dec 31, 2024 at 4:00 AM");
-    });
-
-    it("should handle date change when going backwards (Pacific)", () => {
-      // 3 AM UTC on Dec 30 = 7 PM PST on Dec 29
-      const earlyUtc = new Date("2024-12-30T03:00:00Z");
-      const result = formatDateTimeInUserTimezone(
-        earlyUtc,
-        "America/Los_Angeles",
-      );
-      expect(result).toBe("Dec 29, 2024 at 7:00 PM");
-    });
-
-    it("should default to UTC when timezone is null", () => {
-      const result = formatDateTimeInUserTimezone(utcDate, null);
-      expect(result).toBe("Dec 30, 2024 at 7:00 PM");
+    it.each([
+      {
+        name: "Brazil timezone",
+        date: utcDate,
+        timezone: "America/Sao_Paulo",
+        expected: "Dec 30, 2024 at 4:00 PM",
+      },
+      {
+        name: "US Pacific timezone",
+        date: utcDate,
+        timezone: "America/Los_Angeles",
+        expected: "Dec 30, 2024 at 11:00 AM",
+      },
+      {
+        name: "date change crossing midnight in Japan",
+        date: utcDate,
+        timezone: "Asia/Tokyo",
+        expected: "Dec 31, 2024 at 4:00 AM",
+      },
+      {
+        name: "date change going backwards in Pacific time",
+        date: new Date("2024-12-30T03:00:00Z"),
+        timezone: "America/Los_Angeles",
+        expected: "Dec 29, 2024 at 7:00 PM",
+      },
+      {
+        name: "null timezone",
+        date: utcDate,
+        timezone: null,
+        expected: "Dec 30, 2024 at 7:00 PM",
+      },
+    ])("should format date and time for $name", ({
+      date,
+      timezone,
+      expected,
+    }) => {
+      expect(formatDateTimeInUserTimezone(date, timezone)).toBe(expected);
     });
   });
 
   describe("formatInUserTimezone with custom format", () => {
-    it("should support custom format strings", () => {
-      const result = formatInUserTimezone(
-        utcDate,
-        "America/Sao_Paulo",
-        "yyyy-MM-dd HH:mm",
-      );
-      expect(result).toBe("2024-12-30 16:00");
-    });
-
-    it("should support 24-hour time format", () => {
-      // 7 PM UTC = 21:00 in Jerusalem
-      const result = formatInUserTimezone(utcDate, "Asia/Jerusalem", "HH:mm");
-      expect(result).toBe("21:00");
+    it.each([
+      {
+        name: "custom date-time format",
+        timezone: "America/Sao_Paulo",
+        format: "yyyy-MM-dd HH:mm",
+        expected: "2024-12-30 16:00",
+      },
+      {
+        name: "24-hour time format",
+        timezone: "Asia/Jerusalem",
+        format: "HH:mm",
+        expected: "21:00",
+      },
+    ])("should support $name", ({ timezone, format, expected }) => {
+      expect(formatInUserTimezone(utcDate, timezone, format)).toBe(expected);
     });
   });
 
@@ -141,17 +146,19 @@ describe("timezone formatting", () => {
   });
 
   describe("invalid timezone handling", () => {
-    it("should fall back to UTC for invalid timezone strings", () => {
-      const result = formatTimeInUserTimezone(utcDate, "Invalid/Timezone");
-      // Should not throw, and should fall back to UTC (7:00 PM)
-      expect(result).toBe("7:00 PM");
-    });
-
-    it("should handle legacy timezone abbreviations that TZDate supports", () => {
-      const result = formatTimeInUserTimezone(utcDate, "EST");
-      // TZDate supports some legacy abbreviations like "EST" (UTC-5)
-      // 7 PM UTC = 2 PM EST
-      expect(result).toBe("2:00 PM");
+    it.each([
+      {
+        name: "invalid timezone strings",
+        timezone: "Invalid/Timezone",
+        expected: "7:00 PM",
+      },
+      {
+        name: "legacy timezone abbreviations that TZDate supports",
+        timezone: "EST",
+        expected: "2:00 PM",
+      },
+    ])("should format time for $name", ({ timezone, expected }) => {
+      expect(formatTimeInUserTimezone(utcDate, timezone)).toBe(expected);
     });
 
     it("should fall back to UTC for corrupted timezone data", () => {
@@ -165,14 +172,13 @@ describe("timezone formatting", () => {
 });
 
 describe("internalDateToDate", () => {
-  it("returns invalid date when fallbackToNow is false and internalDate is missing", () => {
-    const parsed = internalDateToDate(undefined, { fallbackToNow: false });
-
-    expect(Number.isNaN(parsed.getTime())).toBe(true);
-  });
-
-  it("returns invalid date when fallbackToNow is false and internalDate is invalid", () => {
-    const parsed = internalDateToDate("not-a-date", { fallbackToNow: false });
+  it.each([
+    { name: "internalDate is missing", internalDate: undefined },
+    { name: "internalDate is invalid", internalDate: "not-a-date" },
+  ])("returns invalid date when fallbackToNow is false and $name", ({
+    internalDate,
+  }) => {
+    const parsed = internalDateToDate(internalDate, { fallbackToNow: false });
 
     expect(Number.isNaN(parsed.getTime())).toBe(true);
   });

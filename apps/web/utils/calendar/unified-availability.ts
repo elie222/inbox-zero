@@ -3,8 +3,10 @@ import { startOfDay, endOfDay, format } from "date-fns";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import type { BusyPeriod } from "./availability-types";
+import { getCalendarAvailabilityErrorLogContext } from "./availability-error";
 import { createGoogleAvailabilityProvider } from "./providers/google-availability";
 import { createMicrosoftAvailabilityProvider } from "./providers/microsoft-availability";
+import { isGoogleVirtualCalendarId } from "./providers/google-calendar-id";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 
 /**
@@ -16,12 +18,16 @@ export async function getUnifiedCalendarAvailability({
   endDate,
   timezone = "UTC",
   logger,
+  failClosed = false,
+  excludeGoogleVirtualCalendars = false,
 }: {
   emailAccountId: string;
   startDate: Date | string;
   endDate: Date | string;
   timezone?: string;
   logger: Logger;
+  failClosed?: boolean;
+  excludeGoogleVirtualCalendars?: boolean;
 }): Promise<BusyPeriod[]> {
   // Compute day boundaries in the user's timezone
   // Parse dates as calendar dates in the target timezone to avoid UTC shift issues
@@ -74,7 +80,12 @@ export async function getUnifiedCalendarAvailability({
   // Fetch Google calendar availability
   for (const connection of googleConnections) {
     const calendarIds = connection.calendars.map((cal) => cal.calendarId);
-    if (!calendarIds.length) continue;
+    const availabilityCalendarIds = excludeGoogleVirtualCalendars
+      ? calendarIds.filter(
+          (calendarId) => !isGoogleVirtualCalendarId(calendarId),
+        )
+      : calendarIds;
+    if (!availabilityCalendarIds.length) continue;
 
     const googleAvailabilityProvider = createGoogleAvailabilityProvider(logger);
 
@@ -86,16 +97,19 @@ export async function getUnifiedCalendarAvailability({
           refreshToken: connection.refreshToken,
           expiresAt: connection.expiresAt?.getTime() || null,
           emailAccountId,
-          calendarIds,
+          calendarIds: availabilityCalendarIds,
           timeMin,
           timeMax,
+          failOnCalendarError: failClosed,
         })
         .catch((error) => {
           logger.error("Error fetching Google calendar availability", {
             error,
             connectionId: connection.id,
+            ...getCalendarAvailabilityErrorLogContext(error),
           });
-          return []; // Return empty array on error
+          if (failClosed) throw error;
+          return [];
         }),
     );
   }
@@ -124,13 +138,16 @@ export async function getUnifiedCalendarAvailability({
           calendarIds,
           timeMin,
           timeMax,
+          failOnCalendarError: failClosed,
         })
         .catch((error) => {
           logger.error("Error fetching Microsoft calendar availability", {
             error,
             connectionId: connection.id,
+            ...getCalendarAvailabilityErrorLogContext(error),
           });
-          return []; // Return empty array on error
+          if (failClosed) throw error;
+          return [];
         }),
     );
   }

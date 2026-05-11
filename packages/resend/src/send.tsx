@@ -23,6 +23,15 @@ import MeetingBriefingEmail, {
 import ColdEmailNotification, {
   type ColdEmailNotificationProps,
 } from "../emails/cold-email-notification";
+import GuestBookingConfirmationEmail, {
+  type GuestBookingConfirmationEmailProps,
+} from "../emails/guest-booking-confirmation";
+import HostBookingConfirmationEmail, {
+  type HostBookingConfirmationEmailProps,
+} from "../emails/host-booking-confirmation";
+import HostBookingCancellationEmail, {
+  type HostBookingCancellationEmailProps,
+} from "../emails/host-booking-cancellation";
 
 const RESEND_NOT_CONFIGURED_MESSAGE =
   "Resend is not configured. You need to add a RESEND_API_KEY in your .env file for emails to work.";
@@ -65,6 +74,48 @@ const sendEmail = async ({
       // From Feb 2024 Google requires this for bulk senders
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       // Prevent threading on Gmail
+      "X-Entity-Ref-ID": nanoid(),
+    },
+    tags,
+  });
+
+  if (result.error) {
+    console.error("Error sending email", result.error);
+    throw new Error(`Error sending email: ${result.error.message}`);
+  }
+
+  return result;
+};
+
+const sendTransactionalEmail = async ({
+  from,
+  to,
+  subject,
+  react,
+  test,
+  tags,
+}: {
+  from: string;
+  to: string;
+  subject: string;
+  react: ReactElement;
+  test?: boolean;
+  tags?: { name: string; value: string }[];
+}) => {
+  if (!resend) {
+    console.log(RESEND_NOT_CONFIGURED_MESSAGE);
+    return Promise.resolve();
+  }
+
+  const text = await render(react, { plainText: true });
+
+  const result = await resend.emails.send({
+    from,
+    to: test ? "delivered@resend.dev" : to,
+    subject,
+    react,
+    text,
+    headers: {
       "X-Entity-Ref-ID": nanoid(),
     },
     tags,
@@ -321,3 +372,63 @@ export const sendColdEmailNotification = async ({
 
   return result;
 };
+
+export const sendGuestBookingConfirmationEmail = async ({
+  from,
+  to,
+  test,
+  emailProps,
+}: {
+  from: string;
+  to: string;
+  test?: boolean;
+  emailProps: GuestBookingConfirmationEmailProps;
+}) =>
+  sendTransactionalEmail({
+    from,
+    to,
+    subject: `Confirmed: ${emailProps.eventTitle}`,
+    react: <GuestBookingConfirmationEmail {...emailProps} />,
+    test,
+    tags: [{ name: "category", value: "booking-confirmation" }],
+  });
+
+export const sendHostBookingConfirmationEmail = async ({
+  from,
+  to,
+  test,
+  emailProps,
+}: {
+  from: string;
+  to: string;
+  test?: boolean;
+  emailProps: HostBookingConfirmationEmailProps;
+}) =>
+  sendTransactionalEmail({
+    from,
+    to,
+    subject: `New booking: ${emailProps.eventTitle}`,
+    react: <HostBookingConfirmationEmail {...emailProps} />,
+    test,
+    tags: [{ name: "category", value: "booking-confirmation" }],
+  });
+
+export const sendHostBookingCancellationEmail = async ({
+  from,
+  to,
+  test,
+  emailProps,
+}: {
+  from: string;
+  to: string;
+  test?: boolean;
+  emailProps: HostBookingCancellationEmailProps;
+}) =>
+  sendTransactionalEmail({
+    from,
+    to,
+    subject: `Booking canceled: ${emailProps.eventTitle}`,
+    react: <HostBookingCancellationEmail {...emailProps} />,
+    test,
+    tags: [{ name: "category", value: "booking-cancellation" }],
+  });
