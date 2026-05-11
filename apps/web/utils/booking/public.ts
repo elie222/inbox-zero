@@ -46,7 +46,7 @@ export async function getPublicBookingLinkMetadata(slug: string) {
       locationType: true,
       locationValue: true,
       emailAccount: {
-        select: { email: true, name: true },
+        select: { name: true },
       },
     },
   });
@@ -61,7 +61,6 @@ export async function getPublicBookingLinkMetadata(slug: string) {
     slotIntervalMinutes: link.slotIntervalMinutes,
     locationType: link.locationType,
     locationValue: link.locationValue,
-    hostEmail: link.emailAccount.email,
     hostName: link.emailAccount.name ?? null,
   };
 }
@@ -298,13 +297,24 @@ export async function cancelPublicBooking({
     booking.providerCalendarId &&
     booking.providerEventId
   ) {
-    await cancelCalendarEvent({
-      emailAccountId: booking.emailAccountId,
-      providerConnectionId: booking.providerConnectionId,
-      providerCalendarId: booking.providerCalendarId,
-      providerEventId: booking.providerEventId,
-      logger,
-    });
+    // Provider cleanup is best-effort: if the host disconnected their
+    // calendar, deleted the event manually, or the provider is unreachable,
+    // we still mark the booking canceled locally so the guest isn't stuck
+    // with a confirmed booking they can't cancel.
+    try {
+      await cancelCalendarEvent({
+        emailAccountId: booking.emailAccountId,
+        providerConnectionId: booking.providerConnectionId,
+        providerCalendarId: booking.providerCalendarId,
+        providerEventId: booking.providerEventId,
+        logger,
+      });
+    } catch (error) {
+      logger.error("Failed to cancel provider event during booking cancel", {
+        bookingId: booking.id,
+        error,
+      });
+    }
   }
 
   const canceledBooking = await prisma.booking.update({

@@ -76,14 +76,12 @@ export function createRateLimitKey(parts: string[]) {
   return parts.map((part) => hashKeyPart(part)).join(":");
 }
 
-// Assumes the deployment sits behind Vercel or Cloudflare. Both append the
-// real client IP to the trusted edge of the chain, so we read the rightmost
-// `x-forwarded-for` entry. Leftmost values and `x-real-ip` are
-// client-controlled on Vercel and unsafe to trust for rate limiting.
+// Assumes the deployment sits behind a trusted platform or load balancer that
+// appends the real client IP to the trusted edge of the chain, so we read the
+// rightmost `x-forwarded-for` entry. Leftmost values, provider-specific
+// visitor IP headers, and `x-real-ip` can be client-controlled when the origin
+// is directly reachable and are unsafe to trust for rate limiting.
 export function getClientIp(headers: Headers) {
-  const cfIp = headers.get("cf-connecting-ip")?.trim();
-  if (cfIp) return cfIp;
-
   const forwardedFor = headers.get("x-forwarded-for");
   if (forwardedFor) {
     const entries = forwardedFor.split(",");

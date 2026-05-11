@@ -55,7 +55,7 @@ describe("public booking", () => {
     mockBookingLinkConfig();
   });
 
-  it("returns public link metadata", async () => {
+  it("returns public link metadata without exposing host email", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue({
       slug: "intro",
       title: "Intro call",
@@ -65,22 +65,23 @@ describe("public booking", () => {
       locationType: BookingLinkLocationType.CUSTOM,
       locationValue: "Private room",
       emailAccount: {
-        email: "host@example.com",
         name: "Host User",
       },
     });
 
     const result = await getPublicBookingLinkMetadata("intro");
 
-    expect(result).toEqual(
-      expect.objectContaining({
-        slug: "intro",
-        title: "Intro call",
-        durationMinutes: 30,
-        hostEmail: "host@example.com",
-        hostName: "Host User",
-      }),
-    );
+    expect(result).toEqual({
+      slug: "intro",
+      title: "Intro call",
+      description: "Talk through fit.",
+      durationMinutes: 30,
+      slotIntervalMinutes: 30,
+      locationType: BookingLinkLocationType.CUSTOM,
+      locationValue: "Private room",
+      hostName: "Host User",
+    });
+    expect(result).not.toHaveProperty("hostEmail");
   });
 
   it("accepts a calendar-month availability range across DST fallback", async () => {
@@ -502,6 +503,40 @@ describe("public booking", () => {
         booking: expect.objectContaining({ status: BookingStatus.CANCELED }),
       }),
     );
+    expect(result.status).toBe(BookingStatus.CANCELED);
+  });
+
+  it("still cancels the booking locally when the provider event cleanup fails", async () => {
+    vi.mocked(cancelCalendarEvent).mockRejectedValue(
+      new Error("Calendar connection not found"),
+    );
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("cancel-token"),
+        provider: "google",
+        providerConnectionId: "connection-id",
+        providerCalendarId: "primary",
+        providerEventId: "provider-event-id",
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+    prisma.booking.update.mockResolvedValue(
+      bookingRecord({ status: BookingStatus.CANCELED }),
+    );
+
+    const result = await cancelPublicBooking({
+      id: "booking-id",
+      token: "cancel-token",
+      logger,
+    });
+
+    expect(cancelCalendarEvent).toHaveBeenCalled();
+    expect(prisma.booking.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: BookingStatus.CANCELED }),
+      }),
+    );
+    expect(sendBookingCancellationEmails).toHaveBeenCalled();
     expect(result.status).toBe(BookingStatus.CANCELED);
   });
 

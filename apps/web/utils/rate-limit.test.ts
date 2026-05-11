@@ -142,7 +142,8 @@ describe("rate limit utilities", () => {
         }),
       ),
     ).toBe("10.0.0.1");
-    // cf-connecting-ip is preferred over x-forwarded-for.
+    // Provider-specific visitor IP headers are not trusted by default because
+    // they can be spoofed when the origin is directly reachable.
     expect(
       getClientIp(
         new Headers({
@@ -150,7 +151,14 @@ describe("rate limit utilities", () => {
           "x-forwarded-for": "203.0.113.1, 10.0.0.1",
         }),
       ),
-    ).toBe("198.51.100.7");
+    ).toBe("10.0.0.1");
+    expect(
+      getClientIp(
+        new Headers({
+          "cf-connecting-ip": "198.51.100.7",
+        }),
+      ),
+    ).toBe("unknown");
     // x-real-ip is no longer trusted.
     expect(
       getClientIp(

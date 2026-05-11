@@ -103,7 +103,7 @@ describe("google calendar oauth", () => {
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 
-  it("syncs Google calendars with primary metadata and disables virtual calendars", async () => {
+  it("syncs Google calendars, defaulting virtual calendars to disabled on create but preserving user toggles on update", async () => {
     vi.mocked(getCalendarClientWithRefresh).mockResolvedValue(
       "calendar-client" as any,
     );
@@ -138,30 +138,32 @@ describe("google calendar oauth", () => {
       new Date("2026-05-08T00:00:00.000Z"),
     );
 
-    expect(prisma.calendar.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        create: expect.objectContaining({
-          calendarId: "user@example.com",
-          isEnabled: true,
-          primary: true,
-        }),
-        update: expect.objectContaining({
-          primary: true,
-        }),
-      }),
-    );
-    expect(prisma.calendar.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        create: expect.objectContaining({
-          calendarId: "en-gb.usa#holiday@group.v.calendar.google.com",
-          isEnabled: false,
-          primary: false,
-        }),
-        update: expect.objectContaining({
-          isEnabled: false,
-          primary: false,
-        }),
-      }),
-    );
+    const upsertCalls = vi.mocked(prisma.calendar.upsert).mock.calls;
+    const primaryUpsert = upsertCalls.find(
+      ([call]) =>
+        (call as any).where.connectionId_calendarId.calendarId ===
+        "user@example.com",
+    )?.[0] as any;
+    const virtualUpsert = upsertCalls.find(
+      ([call]) =>
+        (call as any).where.connectionId_calendarId.calendarId ===
+        "en-gb.usa#holiday@group.v.calendar.google.com",
+    )?.[0] as any;
+
+    expect(primaryUpsert.create).toMatchObject({
+      isEnabled: true,
+      primary: true,
+    });
+    expect(primaryUpsert.update).toMatchObject({ primary: true });
+    expect(primaryUpsert.update).not.toHaveProperty("isEnabled");
+
+    expect(virtualUpsert.create).toMatchObject({
+      isEnabled: false,
+      primary: false,
+    });
+    expect(virtualUpsert.update).toMatchObject({ primary: false });
+    // Re-syncing must not overwrite a user's manual toggle of isEnabled on a
+    // virtual calendar.
+    expect(virtualUpsert.update).not.toHaveProperty("isEnabled");
   });
 });

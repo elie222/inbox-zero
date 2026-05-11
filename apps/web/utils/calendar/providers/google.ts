@@ -87,7 +87,6 @@ export function createGoogleCalendarProvider(
               description: googleCalendar.description,
               timezone: googleCalendar.timeZone,
               primary: googleCalendar.primary ?? false,
-              ...(isVirtualCalendar ? { isEnabled: false } : {}),
             },
             create: {
               connectionId,
