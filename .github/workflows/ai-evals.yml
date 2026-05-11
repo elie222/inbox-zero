@@ -25,6 +25,7 @@ on:
       - "apps/web/utils/ai/**"
       - "apps/web/utils/llms/**"
       - "apps/web/__tests__/ai-*.test.ts"
+      - "apps/web/__tests__/ai-regression/**"
       - "apps/web/__tests__/ai/**"
       - "apps/web/__tests__/eval/**"
 
@@ -35,6 +36,7 @@ on:
       - "apps/web/utils/ai/**"
       - "apps/web/utils/llms/**"
       - "apps/web/__tests__/ai-*.test.ts"
+      - "apps/web/__tests__/ai-regression/**"
       - "apps/web/__tests__/ai/**"
       - "apps/web/__tests__/eval/**"
 
