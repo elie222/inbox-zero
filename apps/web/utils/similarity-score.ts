@@ -8,6 +8,10 @@ import {
   stripQuotedContent,
   stripQuotedHtmlContent,
 } from "@/utils/ai/choose-rule/draft-management";
+import {
+  stripPlainTextSignature,
+  stripProviderSignatureHtml,
+} from "@/utils/email/signature-normalization";
 import type { ParsedMessage } from "@/utils/types";
 
 const HTML_TAG_NAMES = [
@@ -35,15 +39,21 @@ const HTML_TAG_PATTERN = new RegExp(
  * Normalizes content for Outlook (HTML) comparison.
  * Converts \n to <br> and then to plain text, strips quoted content.
  */
-function normalizeForOutlook(content: string): string {
-  const withBr = content.replace(/\n/g, "<br>");
+function normalizeForOutlook(content: string, stripSignature = false): string {
+  const signatureStripped = stripSignature
+    ? stripProviderSignatureHtml(content)
+    : content;
+  const withBr = signatureStripped.replace(/\n/g, "<br>");
   const plainText = convertEmailHtmlToText({
     htmlText: stripQuotedHtmlContent(withBr),
     includeLinks: false,
   });
-  return stripForwardedContent(stripQuotedContent(plainText))
-    .toLowerCase()
-    .trim();
+  const withoutQuotedContent = stripQuotedContent(plainText);
+  const withoutForwardedContent = stripForwardedContent(withoutQuotedContent);
+  const withoutSignature = stripSignature
+    ? stripPlainTextSignature(withoutForwardedContent)
+    : withoutForwardedContent;
+  return withoutSignature.toLowerCase().trim();
 }
 
 /**
@@ -72,18 +82,26 @@ function decodeHtmlEntities(text: string): string {
  * Normalizes content for Gmail (plain text) comparison.
  * Uses parseReply to extract the reply, decodes HTML entities, and strips quoted content.
  */
-function normalizeForGmail(content: string): string {
-  const plainText = looksLikeHtmlContent(content)
+function normalizeForGmail(content: string, stripSignature = false): string {
+  const signatureStripped = stripSignature
+    ? stripProviderSignatureHtml(content)
+    : content;
+  const plainText = looksLikeHtmlContent(signatureStripped)
     ? convertEmailHtmlToText({
-        htmlText: stripQuotedHtmlContent(content.replace(/\n/g, "<br>")),
+        htmlText: stripQuotedHtmlContent(
+          signatureStripped.replace(/\n/g, "<br>"),
+        ),
         includeLinks: false,
       })
-    : content;
+    : signatureStripped;
   const reply = parseReply(plainText);
   const decoded = decodeHtmlEntities(reply);
-  return stripForwardedContent(stripQuotedContent(decoded))
-    .toLowerCase()
-    .trim();
+  const withoutQuotedContent = stripQuotedContent(decoded);
+  const withoutForwardedContent = stripForwardedContent(withoutQuotedContent);
+  const withoutSignature = stripSignature
+    ? stripPlainTextSignature(withoutForwardedContent)
+    : withoutForwardedContent;
+  return withoutSignature.toLowerCase().trim();
 }
 
 /**
@@ -102,29 +120,68 @@ export function calculateSimilarity(
     return 0.0;
   }
 
-  let normalized1: string;
-  let normalized2: string;
+  const [normalized1, normalized2] = normalizePair({
+    storedContent,
+    providerMessage,
+    stripSignature: false,
+  });
+  const baselineScore = compareNormalizedStrings(normalized1, normalized2);
+
+  const [signatureStripped1, signatureStripped2] = normalizePair({
+    storedContent,
+    providerMessage,
+    stripSignature: true,
+  });
+  const signatureStrippedScore = compareNormalizedStrings(
+    signatureStripped1,
+    signatureStripped2,
+  );
+
+  return Math.max(baselineScore, signatureStrippedScore);
+}
+
+function normalizePair({
+  storedContent,
+  providerMessage,
+  stripSignature,
+}: {
+  storedContent: string;
+  providerMessage: string | ParsedMessage;
+  stripSignature: boolean;
+}): [string, string] {
+  let normalizedStoredContent: string;
+  let normalizedProviderMessage: string;
 
   if (typeof providerMessage === "string") {
-    // Legacy: plain string - use Gmail normalization (parseReply) for both
-    normalized1 = normalizeForGmail(storedContent);
-    normalized2 = normalizeForGmail(providerMessage);
+    // Legacy: plain string from before ParsedMessage was threaded through callers
+    normalizedStoredContent = normalizeForGmail(storedContent, stripSignature);
+    normalizedProviderMessage = normalizeForGmail(
+      providerMessage,
+      stripSignature,
+    );
   } else {
-    // ParsedMessage - check bodyContentType to determine normalization strategy
     const isOutlook = providerMessage.bodyContentType === "html";
     const text = providerMessage.textHtml || providerMessage.textPlain || "";
 
     if (isOutlook) {
-      // Outlook: use HTML-aware normalization for both
-      normalized1 = normalizeForOutlook(storedContent);
-      normalized2 = normalizeForOutlook(text);
+      normalizedStoredContent = normalizeForOutlook(
+        storedContent,
+        stripSignature,
+      );
+      normalizedProviderMessage = normalizeForOutlook(text, stripSignature);
     } else {
-      // Gmail: use parseReply normalization for both
-      normalized1 = normalizeForGmail(storedContent);
-      normalized2 = normalizeForGmail(text);
+      normalizedStoredContent = normalizeForGmail(
+        storedContent,
+        stripSignature,
+      );
+      normalizedProviderMessage = normalizeForGmail(text, stripSignature);
     }
   }
 
+  return [normalizedStoredContent, normalizedProviderMessage];
+}
+
+function compareNormalizedStrings(normalized1: string, normalized2: string) {
   if (!normalized1 || !normalized2) {
     return normalized1 === normalized2 ? 1.0 : 0.0;
   }

@@ -169,6 +169,17 @@ describe("calculateSimilarity - integration tests with ParsedMessage", () => {
       const score = realCalculateSimilarity(storedContent, outlookMessage);
       expect(score).toBe(1.0);
     });
+
+    it("should ignore Outlook signature containers in sent message HTML", () => {
+      const storedContent = "Short reply body.";
+      const outlookMessage = createParsedMessage(
+        `<html><body><div>Short reply body.</div><br><div id="Signature-abcd"><div>Company award line</div><div>Role and credential line</div><div>Office | 555-0100</div><div>Long confidentiality disclaimer.</div></div></body></html>`,
+        "html",
+      );
+
+      const score = realCalculateSimilarity(storedContent, outlookMessage);
+      expect(score).toBe(1.0);
+    });
   });
 
   describe("Gmail content handling (with ParsedMessage)", () => {
@@ -202,6 +213,31 @@ Drafted by <a href="https://www.getinboxzero.com/?ref=ABC123">Inbox Zero</a>.`;
         textPlain: undefined,
         textHtml: `<div dir="ltr">Checking on this now.<br><br>Drafted by <a href="https://www.getinboxzero.com/?ref=ABC123">Inbox Zero</a>.</div><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">Le lun. 27 avr. 2026, Sender &lt;<a href="mailto:sender@example.com">sender@example.com</a>&gt; a écrit:<br></div><blockquote class="gmail_quote"><div dir="ltr">Previous message</div></blockquote></div>`,
       };
+
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBe(1.0);
+    });
+
+    it("should ignore Gmail signature containers in sent message HTML", () => {
+      const storedContent = "Thanks, I handled this now.";
+      const gmailMessage = {
+        ...createParsedMessage(""),
+        textPlain: undefined,
+        textHtml: `<div dir="ltr">Thanks, I handled this now.</div><br><span class="gmail_signature_prefix">-- </span><br><div class="gmail_signature"><div>Sender Name</div><div>Company</div><div>555-0100</div><div>Street address</div></div>`,
+      };
+
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBe(1.0);
+    });
+
+    it("should ignore standard plain text signature delimiters", () => {
+      const storedContent = "Thanks, I handled this now.";
+      const gmailMessage = createParsedMessage(`Thanks, I handled this now.
+
+-- 
+Sender Name
+Company
+555-0100`);
 
       const score = realCalculateSimilarity(storedContent, gmailMessage);
       expect(score).toBe(1.0);

@@ -12,6 +12,7 @@ import {
   saveDraftSendLogReplyMemory,
   syncReplyMemoriesFromDraftSendLogs,
 } from "@/utils/ai/reply/reply-memory";
+import { stripProviderSignatureFromParsedMessage } from "@/utils/email/signature-normalization";
 import { replaceMessagingDraftNotificationsWithHandledOnWebState } from "@/utils/messaging/rule-notifications";
 import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
 import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
@@ -450,11 +451,14 @@ function queueReplyMemoryLearning({
 }) {
   if (!draftText) return;
 
-  const sentText = emailToContentForAI(message, {
-    maxLength: 4000,
-    extractReply: true,
-    removeForwarded: true,
-  });
+  const sentText = emailToContentForAI(
+    stripProviderSignatureFromParsedMessage(message),
+    {
+      maxLength: 4000,
+      extractReply: true,
+      removeForwarded: true,
+    },
+  );
 
   if (!isMeaningfulDraftEdit({ draftText, sentText, similarityScore })) {
     return;
