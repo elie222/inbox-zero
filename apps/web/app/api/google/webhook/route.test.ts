@@ -20,17 +20,13 @@ const {
   cleanupWebhookAccountOnRateLimitSkipMock: vi.fn(),
 }));
 
-vi.mock("@/utils/middleware", () => ({
-  withError: (
-    scopeOrHandler: string | ((request: Request) => Promise<Response>),
-    maybeHandler?: (request: Request) => Promise<Response>,
-  ) => {
-    if (typeof scopeOrHandler === "string") {
-      return maybeHandler as (request: Request) => Promise<Response>;
-    }
-    return scopeOrHandler;
-  },
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithErrorTestMiddleware();
+});
 
 vi.mock("@/env", () => ({
   env: envMock,
@@ -119,7 +115,7 @@ describe("Google webhook route", () => {
     expect(processHistoryForUserMock).toHaveBeenCalledWith(
       { emailAddress: "user@example.com", historyId: 123 },
       { preloadedEmailAccount: null },
-      request.logger,
+      expect.anything(),
     );
   });
 
@@ -141,7 +137,7 @@ describe("Google webhook route", () => {
     expect(processHistoryForUserMock).toHaveBeenCalledWith(
       { emailAddress: "user@example.com", historyId: 123 },
       { preloadedEmailAccount: { id: "account-1" } },
-      request.logger,
+      expect.anything(),
     );
   });
 
@@ -166,7 +162,7 @@ describe("Google webhook route", () => {
     expect(body).toEqual({ ok: true });
     expect(cleanupWebhookAccountOnRateLimitSkipMock).toHaveBeenCalledWith(
       { id: "account-1" },
-      request.logger,
+      expect.anything(),
     );
     expect(runWithBackgroundLoggerFlushMock).not.toHaveBeenCalled();
     expect(processHistoryForUserMock).not.toHaveBeenCalled();
@@ -185,7 +181,7 @@ function createRequest({
   const requestUrl = new URL("https://example.com/api/google/webhook");
   if (token) requestUrl.searchParams.set("token", token);
 
-  const request = new Request(requestUrl, {
+  return new Request(requestUrl, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -203,25 +199,5 @@ function createRequest({
           .replace(/\//g, "_"),
       },
     }),
-  }) as Request & {
-    logger: {
-      error: ReturnType<typeof vi.fn>;
-      info: ReturnType<typeof vi.fn>;
-      trace: ReturnType<typeof vi.fn>;
-      warn: ReturnType<typeof vi.fn>;
-      with: ReturnType<typeof vi.fn>;
-    };
-  };
-
-  const logger = {
-    error: vi.fn(),
-    info: vi.fn(),
-    trace: vi.fn(),
-    warn: vi.fn(),
-    with: vi.fn(),
-  };
-  logger.with.mockReturnValue(logger);
-  request.logger = logger;
-
-  return request;
+  });
 }

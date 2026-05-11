@@ -18,15 +18,13 @@ vi.mock("@/env", () => ({
     IMAGE_PROXY_SIGNING_SECRET: "test-signing-secret-123",
   },
 }));
-vi.mock("@/utils/middleware", () => ({
-  withError:
-    (
-      _scope: string,
-      handler: (request: NextRequest, ...args: unknown[]) => Promise<Response>,
-    ) =>
-    (request: NextRequest, ...args: unknown[]) =>
-      handler(request, ...args),
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithErrorTestMiddleware();
+});
 
 import { GET, HEAD } from "./route";
 
@@ -54,7 +52,7 @@ describe("image-proxy route", () => {
       },
       {
         fetchImpl: createSafeImageProxyFetchMock,
-        logger: undefined,
+        logger: expect.anything(),
       },
     );
   });

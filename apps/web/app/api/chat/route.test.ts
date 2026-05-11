@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestLogger, getEmailAccount } from "@/__tests__/helpers";
+import { getEmailAccount } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 
 const {
@@ -45,31 +45,19 @@ vi.mock("ai", () => ({
   createUIMessageStreamResponse: mockCreateUIMessageStreamResponse,
 }));
 
-vi.mock("@/utils/middleware", () => ({
-  withEmailAccount:
-    (
-      _scope: string,
-      handler: (
-        request: NextRequest & {
-          auth: { userId: string; emailAccountId: string; email: string };
-          logger: ReturnType<typeof createTestLogger>;
-        },
-      ) => Promise<Response>,
-    ) =>
-    async (request: NextRequest) => {
-      const authRequest = request as NextRequest & {
-        auth: { userId: string; emailAccountId: string; email: string };
-        logger: ReturnType<typeof createTestLogger>;
-      };
-      authRequest.auth = {
-        userId: "user-1",
-        emailAccountId: "email-account-id",
-        email: "user@test.com",
-      };
-      authRequest.logger = createTestLogger();
-      return handler(authRequest);
+vi.mock("@/utils/middleware", async () => {
+  const { createWithEmailAccountTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithEmailAccountTestMiddleware({
+    auth: {
+      userId: "user-1",
+      emailAccountId: "email-account-id",
+      email: "user@test.com",
     },
-}));
+  });
+});
 
 vi.mock("@/utils/prisma");
 

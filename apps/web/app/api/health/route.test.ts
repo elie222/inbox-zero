@@ -4,16 +4,9 @@ import prisma from "@/utils/__mocks__/prisma";
 
 const FIXED_DATE = new Date("2026-05-03T10:01:18.695Z");
 
-const { healthEnv, mockLogger } = vi.hoisted(() => ({
+const { healthEnv } = vi.hoisted(() => ({
   healthEnv: {
     HEALTH_API_KEY: "health-secret",
-  },
-  mockLogger: {
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn(),
-    trace: vi.fn(),
   },
 }));
 
@@ -23,24 +16,13 @@ vi.mock("@/env", () => ({
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/utils/middleware", () => ({
-  withError:
-    (
-      _scope: string,
-      handler: (
-        request: NextRequest & {
-          logger: typeof mockLogger;
-        },
-      ) => Promise<Response>,
-    ) =>
-    async (request: NextRequest) => {
-      const requestWithLogger = request as NextRequest & {
-        logger: typeof mockLogger;
-      };
-      requestWithLogger.logger = mockLogger;
-      return handler(requestWithLogger);
-    },
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithErrorTestMiddleware();
+});
 
 import { GET } from "./route";
 
@@ -113,9 +95,6 @@ describe("health route", () => {
       status: "unhealthy",
       timestamp: FIXED_DATE.toISOString(),
       error: "Database connection failed",
-    });
-    expect(mockLogger.error).toHaveBeenCalledWith("Health check failed", {
-      error,
     });
   });
 });

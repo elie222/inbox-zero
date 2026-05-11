@@ -23,6 +23,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
   ActionType,
+  DraftEmailStatus,
   MessagingMessageStatus,
   MessagingProvider,
   MessagingRoutePurpose,
@@ -593,7 +594,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           draftId: createdDraft.id,
           subject: `Re: ${subject}`,
           content: "Initial draft body.",
-          wasDraftSent: false,
+          draftStatus: DraftEmailStatus.PENDING as DraftEmailStatus | null,
         };
 
         const slackActionState = {
@@ -609,7 +610,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           messagingChannelId: "channel-1",
           messagingMessageId: null as string | null,
           messagingMessageStatus: null as MessagingMessageStatus | null,
-          wasDraftSent: false,
+          draftStatus: null as DraftEmailStatus | null,
           executedRule: {
             id: "executed-rule-edit-send",
             ruleId: "rule-1",
@@ -717,8 +718,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
               if (typeof data?.content === "string") {
                 slackActionState.content = data.content;
               }
-              if (typeof data?.wasDraftSent === "boolean") {
-                slackActionState.wasDraftSent = data.wasDraftSent;
+              if (data?.draftStatus) {
+                slackActionState.draftStatus =
+                  data.draftStatus as DraftEmailStatus;
               }
             }
 
@@ -726,8 +728,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
               if (typeof data?.content === "string") {
                 siblingDraftActionState.content = data.content;
               }
-              if (typeof data?.wasDraftSent === "boolean") {
-                siblingDraftActionState.wasDraftSent = data.wasDraftSent;
+              if (data?.draftStatus) {
+                siblingDraftActionState.draftStatus =
+                  data.draftStatus as DraftEmailStatus;
               }
             }
 
@@ -820,8 +823,10 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         expect(slackActionState.messagingMessageStatus).toBe(
           MessagingMessageStatus.DRAFT_SENT,
         );
-        expect(slackActionState.wasDraftSent).toBe(true);
-        expect(siblingDraftActionState.wasDraftSent).toBe(true);
+        expect(slackActionState.draftStatus).toBe(DraftEmailStatus.LIKELY_SENT);
+        expect(siblingDraftActionState.draftStatus).toBe(
+          DraftEmailStatus.LIKELY_SENT,
+        );
         expect(
           await gmailHarness.provider.getDraft(createdDraft.id),
         ).toBeNull();

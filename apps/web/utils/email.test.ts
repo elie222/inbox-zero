@@ -10,6 +10,7 @@ import {
   normalizeEmailAddress,
   formatEmailWithName,
   getNewsletterSenderDisplayName,
+  messageRepliesToSourceSender,
 } from "./email";
 
 describe("email utils", () => {
@@ -328,6 +329,82 @@ describe("email utils", () => {
     });
   });
 
+  describe("messageRepliesToSourceSender", () => {
+    it("returns true when the sent message is addressed to the source sender", () => {
+      expect(
+        messageRepliesToSourceSender({
+          sourceMessage: createMessage({
+            from: "Sales <sales@example.com>",
+          }),
+          sentMessage: createMessage({
+            from: "user@example.com",
+            to: "Sales <sales@example.com>",
+          }),
+        }),
+      ).toBe(true);
+    });
+
+    it("uses reply-to as the expected reply target when present", () => {
+      expect(
+        messageRepliesToSourceSender({
+          sourceMessage: createMessage({
+            from: "noreply@example.com",
+            "reply-to": "Ops <ops@example.com>, Support <support@example.com>",
+          }),
+          sentMessage: createMessage({
+            from: "user@example.com",
+            to: "support@example.com",
+          }),
+        }),
+      ).toBe(true);
+    });
+
+    it("matches reply targets in cc recipients", () => {
+      expect(
+        messageRepliesToSourceSender({
+          sourceMessage: createMessage({
+            from: "Sales <sales@example.com>",
+          }),
+          sentMessage: createMessage({
+            from: "user@example.com",
+            to: "teammate@example.com",
+            cc: "Sales <sales@example.com>",
+          }),
+        }),
+      ).toBe(true);
+    });
+
+    it("returns false when the sent message only goes to someone else", () => {
+      expect(
+        messageRepliesToSourceSender({
+          sourceMessage: createMessage({
+            from: "Sales <sales@example.com>",
+          }),
+          sentMessage: createMessage({
+            from: "user@example.com",
+            to: "teammate@example.com",
+          }),
+        }),
+      ).toBe(false);
+    });
+
+    it("returns null when the expected target or recipients cannot be read", () => {
+      expect(
+        messageRepliesToSourceSender({
+          sourceMessage: createMessage({ from: "" }),
+          sentMessage: createMessage({ to: "teammate@example.com" }),
+        }),
+      ).toBeNull();
+
+      expect(
+        messageRepliesToSourceSender({
+          sourceMessage: createMessage({ from: "sales@example.com" }),
+          sentMessage: createMessage({ to: "" }),
+        }),
+      ).toBeNull();
+    });
+  });
+
   describe("extractDomainFromEmail", () => {
     it("extracts domain from plain email", () => {
       expect(extractDomainFromEmail("john@example.com")).toBe("example.com");
@@ -598,3 +675,23 @@ describe("email utils", () => {
     });
   });
 });
+
+function createMessage(
+  headers: Partial<{
+    from: string;
+    to: string;
+    cc: string;
+    bcc: string;
+    "reply-to": string;
+  }>,
+) {
+  return {
+    headers: {
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      subject: "Subject",
+      date: "2026-03-17T10:00:00.000Z",
+      ...headers,
+    },
+  };
+}

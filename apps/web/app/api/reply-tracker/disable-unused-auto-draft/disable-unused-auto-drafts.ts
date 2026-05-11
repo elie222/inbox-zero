@@ -1,7 +1,7 @@
 import groupBy from "lodash/groupBy";
 import { subDays } from "date-fns/subDays";
 import prisma from "@/utils/prisma";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 
 const MAX_DRAFTS_TO_CHECK = 10;
@@ -55,8 +55,8 @@ export async function disableUnusedAutoDrafts(logger: Logger) {
         count: executedDraftActions.length,
       });
 
-      const anyDraftsSent = executedDraftActions.some(
-        (action) => action.wasDraftSent === true,
+      const anyDraftsSent = executedDraftActions.some((action) =>
+        isSentDraftStatus(action.draftStatus),
       );
 
       if (anyDraftsSent) {
@@ -113,13 +113,17 @@ async function findExecutedDraftActions(ruleIds: string[]) {
     },
     select: {
       id: true,
-      wasDraftSent: true,
+      draftStatus: true,
     },
     orderBy: {
       createdAt: "desc",
     },
     take: MAX_DRAFTS_TO_CHECK,
   });
+}
+
+function isSentDraftStatus(status: DraftEmailStatus | null): boolean {
+  return status === DraftEmailStatus.LIKELY_SENT;
 }
 
 async function deleteAutoDraftActions(actionIds: string[]) {

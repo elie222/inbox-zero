@@ -5,7 +5,11 @@ import {
   getEmailAccount,
   getMockMessage,
 } from "@/__tests__/helpers";
-import { ActionType, GroupItemType } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  DraftEmailStatus,
+  GroupItemType,
+} from "@/generated/prisma/enums";
 
 const {
   envState,
@@ -1507,7 +1511,7 @@ describe("aiProcessAssistantChat", () => {
             url: null,
             folderName: null,
             draftId: "draft-1",
-            wasDraftSent: false,
+            draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
           },
           {
             type: "LABEL",
@@ -1520,7 +1524,7 @@ describe("aiProcessAssistantChat", () => {
             url: null,
             folderName: null,
             draftId: null,
-            wasDraftSent: null,
+            draftStatus: null,
           },
         ],
         rule: {
@@ -1573,7 +1577,7 @@ describe("aiProcessAssistantChat", () => {
             url: true,
             folderName: true,
             draftId: true,
-            wasDraftSent: true,
+            draftStatus: true,
           },
         },
         rule: {
@@ -1609,7 +1613,7 @@ describe("aiProcessAssistantChat", () => {
               url: null,
               folderName: null,
               draftId: "draft-1",
-              wasDraftSent: false,
+              draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
             },
             {
               type: "LABEL",
@@ -1622,7 +1626,7 @@ describe("aiProcessAssistantChat", () => {
               url: null,
               folderName: null,
               draftId: null,
-              wasDraftSent: null,
+              draftStatus: null,
             },
           ],
         },

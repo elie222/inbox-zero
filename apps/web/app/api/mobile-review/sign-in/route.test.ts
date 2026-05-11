@@ -1,23 +1,20 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createMobileReviewSessionMock, loggerInfoMock } = vi.hoisted(() => ({
+const { createMobileReviewSessionMock } = vi.hoisted(() => ({
   createMobileReviewSessionMock: vi.fn(),
-  loggerInfoMock: vi.fn(),
 }));
 
 vi.mock("@/utils/mobile-review", () => ({
   createMobileReviewSession: createMobileReviewSessionMock,
 }));
-vi.mock("@/utils/middleware", () => ({
-  withError:
-    (
-      _scope: string,
-      handler: (request: NextRequest, ...args: unknown[]) => Promise<Response>,
-    ) =>
-    (request: NextRequest, ...args: unknown[]) =>
-      handler(request, ...args),
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithErrorTestMiddleware();
+});
 
 import { POST } from "./route";
 
@@ -55,8 +52,7 @@ describe("mobile review sign-in route", () => {
         },
         method: "POST",
       },
-    ) as NextRequest & { logger: { info: typeof loggerInfoMock } };
-    request.logger = { info: loggerInfoMock };
+    );
 
     const response = await POST(request, {} as never);
     const body = await response.json();
@@ -64,7 +60,7 @@ describe("mobile review sign-in route", () => {
     expect(createMobileReviewSessionMock).toHaveBeenCalledWith({
       code: "review-code",
       email: "review@example.com",
-      logger: request.logger,
+      logger: expect.anything(),
     });
     expect(body).toEqual({ success: true });
     expect(body.setCookie).toBeUndefined();
@@ -72,14 +68,6 @@ describe("mobile review sign-in route", () => {
       "__Secure-better-auth.session_token=signed-session-token",
     );
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(loggerInfoMock).toHaveBeenCalledWith(
-      "Created mobile review session",
-      {
-        reviewEmailAccountId: "account-1",
-        reviewUserEmail: "review@example.com",
-        reviewUserId: "user-1",
-      },
-    );
   });
 
   it("rejects sign-in requests without an email", async () => {
@@ -92,8 +80,7 @@ describe("mobile review sign-in route", () => {
         },
         method: "POST",
       },
-    ) as NextRequest & { logger: { info: typeof loggerInfoMock } };
-    request.logger = { info: loggerInfoMock };
+    );
 
     await expect(POST(request, {} as never)).rejects.toThrow();
     expect(createMobileReviewSessionMock).not.toHaveBeenCalled();

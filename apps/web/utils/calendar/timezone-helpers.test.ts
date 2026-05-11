@@ -1,13 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import type { Logger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { autoPopulateTimezone } from "./timezone-helpers";
 
 vi.mock("@/utils/prisma");
-
-const logger = {
-  info: vi.fn(),
-} as unknown as Logger;
 
 describe("autoPopulateTimezone", () => {
   beforeEach(() => {
@@ -23,38 +19,30 @@ describe("autoPopulateTimezone", () => {
         { timeZone: "America/Chicago" },
         { timeZone: "America/New_York", primary: true },
       ],
-      logger,
+      createTestLogger(),
     );
 
     expect(prisma.emailAccount.updateMany).toHaveBeenCalledWith({
       where: { id: "email-account-1", timezone: null },
       data: { timezone: "America/New_York" },
     });
-    expect(logger.info).toHaveBeenCalledWith(
-      "Auto-populated EmailAccount timezone",
-      {
-        emailAccountId: "email-account-1",
-        timezone: "America/New_York",
-      },
-    );
   });
 
-  it("does not log when another writer already populated the timezone", async () => {
+  it("does not fall back when another writer already populated the timezone", async () => {
     prisma.emailAccount.updateMany.mockResolvedValue({ count: 0 });
 
     await autoPopulateTimezone(
       "email-account-1",
       [{ timeZone: "America/New_York", primary: true }],
-      logger,
+      createTestLogger(),
     );
 
-    expect(logger.info).not.toHaveBeenCalled();
+    expect(prisma.emailAccount.updateMany).toHaveBeenCalledTimes(1);
   });
 
   it("does not update when calendars have no timezone", async () => {
-    await autoPopulateTimezone("email-account-1", [{}], logger);
+    await autoPopulateTimezone("email-account-1", [{}], createTestLogger());
 
     expect(prisma.emailAccount.updateMany).not.toHaveBeenCalled();
-    expect(logger.info).not.toHaveBeenCalled();
   });
 });

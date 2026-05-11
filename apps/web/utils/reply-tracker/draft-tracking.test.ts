@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import { cleanupThreadAIDrafts, trackSentDraftStatus } from "./draft-tracking";
 
 vi.mock("@/utils/prisma");
@@ -56,12 +56,14 @@ describe("trackSentDraftStatus", () => {
       draftId: "draft-1",
       content: "Thanks for reaching out.",
       executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
     } as any);
     vi.mocked(calculateSimilarity).mockReturnValue(0.52);
     vi.mocked(isMeaningfulDraftEdit).mockReturnValue(true);
 
     const provider = {
       getDraft: vi.fn().mockResolvedValue(null),
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
     };
 
     await trackSentDraftStatus({
@@ -94,6 +96,12 @@ describe("trackSentDraftStatus", () => {
       executedRuleId: "executed-rule-1",
       logger,
     });
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        draftStatus: DraftEmailStatus.LIKELY_SENT,
+      },
+    });
     expect(syncReplyMemoriesFromDraftSendLogs).toHaveBeenCalledWith({
       emailAccountId: "account-1",
       provider,
@@ -107,6 +115,7 @@ describe("trackSentDraftStatus", () => {
       draftId: "draft-1",
       content: "Thanks for reaching out.",
       executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
     } as any);
     vi.mocked(calculateSimilarity).mockReturnValue(0.14);
 
@@ -117,6 +126,7 @@ describe("trackSentDraftStatus", () => {
         getDraft: vi.fn().mockResolvedValue({
           id: "draft-1",
         }),
+        getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
       } as any,
       logger,
     });
@@ -136,7 +146,114 @@ describe("trackSentDraftStatus", () => {
     });
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
-      data: { wasDraftSent: false },
+      data: {
+        draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+      },
+    });
+  });
+
+  it("marks missing drafts as likely sent when the sent reply is similar enough", async () => {
+    vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
+      id: "action-1",
+      draftId: "draft-1",
+      content: "Thanks for reaching out.",
+      executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
+    } as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(0.72);
+    vi.mocked(isMeaningfulDraftEdit).mockReturnValue(true);
+
+    await trackSentDraftStatus({
+      emailAccountId: "account-1",
+      message: createSentMessage(),
+      provider: {
+        getDraft: vi.fn().mockResolvedValue(null),
+        getMessage: vi.fn().mockRejectedValue(new Error("missing source")),
+      } as any,
+      logger,
+    });
+
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        draftStatus: DraftEmailStatus.LIKELY_SENT,
+      },
+    });
+  });
+
+  it("treats sent messages to someone else as ignored drafts and skips learning", async () => {
+    vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
+      id: "action-1",
+      draftId: "draft-1",
+      content: "Thanks for reaching out.",
+      executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
+    } as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(0.08);
+
+    await trackSentDraftStatus({
+      emailAccountId: "account-1",
+      message: createInternalForwardedSentMessage(),
+      provider: {
+        getDraft: vi.fn().mockResolvedValue(null),
+        getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+      } as any,
+      logger,
+    });
+
+    expect(prisma.draftSendLog.create).toHaveBeenCalledWith({
+      data: {
+        executedActionId: "action-1",
+        sentMessageId: "sent-internal-forward-1",
+        similarityScore: 0.08,
+      },
+    });
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: { draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT },
+    });
+    expect(isMeaningfulDraftEdit).not.toHaveBeenCalled();
+    expect(saveDraftSendLogReplyMemory).not.toHaveBeenCalled();
+    expect(syncReplyMemoriesFromDraftSendLogs).not.toHaveBeenCalled();
+  });
+
+  it("keeps learning from replies with forwarded blocks when sent to the source sender", async () => {
+    vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
+      id: "action-1",
+      draftId: "draft-1",
+      content: "Thanks for reaching out.",
+      executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
+    } as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(0.52);
+    vi.mocked(isMeaningfulDraftEdit).mockReturnValue(true);
+
+    const provider = {
+      getDraft: vi.fn().mockResolvedValue(null),
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+    };
+
+    await trackSentDraftStatus({
+      emailAccountId: "account-1",
+      message: createForwardedReplySentMessage(),
+      provider: provider as any,
+      logger,
+    });
+
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: { draftStatus: DraftEmailStatus.LIKELY_SENT },
+    });
+    expect(saveDraftSendLogReplyMemory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draftSendLogId: "draft-send-log-1",
+        sentText: "Thanks, please use annual billing.",
+      }),
+    );
+    expect(syncReplyMemoriesFromDraftSendLogs).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+      provider,
+      logger,
     });
   });
 
@@ -146,6 +263,7 @@ describe("trackSentDraftStatus", () => {
       draftId: "draft-1",
       content: "Thanks for reaching out.",
       executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
     } as any);
     vi.mocked(calculateSimilarity).mockReturnValue(0.98);
     vi.mocked(isMeaningfulDraftEdit).mockReturnValue(false);
@@ -155,6 +273,7 @@ describe("trackSentDraftStatus", () => {
       message: createSentMessage(),
       provider: {
         getDraft: vi.fn().mockResolvedValue(null),
+        getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
       } as any,
       logger,
     });
@@ -166,6 +285,12 @@ describe("trackSentDraftStatus", () => {
     ).toHaveBeenCalledWith({
       executedRuleId: "executed-rule-1",
       logger,
+    });
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        draftStatus: DraftEmailStatus.LIKELY_SENT,
+      },
     });
   });
 });
@@ -212,7 +337,47 @@ describe("cleanupThreadAIDrafts", () => {
     expect(provider.deleteDraft).toHaveBeenCalledWith("draft-1");
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
-      data: { wasDraftSent: false },
+      data: {
+        draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+      },
+    });
+  });
+
+  it("transitions replied-without-draft records after deleting stale drafts", async () => {
+    const draftDetails = createDraftMessage({
+      textPlain: "Generated reply",
+    });
+    vi.mocked(prisma.executedAction.findMany).mockResolvedValue([
+      {
+        id: "action-1",
+        draftId: "draft-1",
+        draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+        draftSendLog: { id: "draft-send-log-1" },
+        content: "Generated reply",
+      },
+    ] as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(1);
+    vi.mocked(isDraftUnmodified).mockReturnValue(true);
+
+    const provider = {
+      getDraft: vi.fn().mockResolvedValue(draftDetails),
+      deleteDraft: vi.fn().mockResolvedValue(undefined),
+    };
+
+    await cleanupThreadAIDrafts({
+      threadId: "thread-1",
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+      excludeMessageId: "message-2",
+    });
+
+    expect(provider.deleteDraft).toHaveBeenCalledWith("draft-1");
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+      },
     });
   });
 
@@ -263,6 +428,62 @@ function createSentMessage(): ParsedMessage {
     },
     textPlain: "Please include pricing for seat counts.",
     textHtml: "<p>Please include pricing for seat counts.</p>",
+  } as ParsedMessage;
+}
+
+function createInternalForwardedSentMessage(): ParsedMessage {
+  return {
+    ...createSentMessage(),
+    id: "sent-internal-forward-1",
+    headers: {
+      ...createSentMessage().headers,
+      to: "teammate@example.com",
+      subject: "Fwd: Pricing question",
+    },
+    textPlain: `Can someone check this?
+
+---------- Forwarded message ----------
+From: sales@example.com
+Subject: Pricing question
+
+Can you send pricing?`,
+    textHtml: undefined,
+  } as ParsedMessage;
+}
+
+function createForwardedReplySentMessage(): ParsedMessage {
+  return {
+    ...createSentMessage(),
+    id: "sent-forward-reply-1",
+    headers: {
+      ...createSentMessage().headers,
+      subject: "Re: Pricing question",
+    },
+    textPlain: `Thanks, please use annual billing.
+
+---------- Forwarded message ----------
+From: sales@example.com
+Subject: Pricing question
+
+Can you send pricing?`,
+    textHtml: undefined,
+  } as ParsedMessage;
+}
+
+function createSourceMessage(): ParsedMessage {
+  return {
+    id: "source-1",
+    threadId: "thread-1",
+    internalDate: "1710000000000",
+    headers: {
+      from: "Sales <sales@example.com>",
+      to: "user@example.com",
+      subject: "Pricing question",
+      date: "2026-03-17T10:00:00.000Z",
+      "message-id": "<source-1@example.com>",
+    },
+    textPlain: "Can you share pricing for a larger team?",
+    textHtml: "<p>Can you share pricing for a larger team?</p>",
   } as ParsedMessage;
 }
 

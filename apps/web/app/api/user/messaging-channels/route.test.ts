@@ -2,14 +2,17 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/__mocks__/prisma";
-import { addTestEmailAccountAuth } from "@/__tests__/helpers";
 import { listChannels } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 
 vi.mock("@/utils/prisma");
-vi.mock("@/utils/middleware", () => ({
-  withEmailAccount: (_name: string, handler: unknown) => handler,
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithEmailAccountTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithEmailAccountTestMiddleware();
+});
 vi.mock("@/utils/messaging/providers/slack/channels", () => ({
   listChannels: vi.fn(),
 }));
@@ -115,7 +118,7 @@ describe("GET /api/user/messaging-channels", () => {
       },
     ]);
 
-    const response = await GET(createRequest("email-account-1"));
+    const response = await GET(createRequest());
     const body = await response.json();
 
     expect(body.channels).toEqual([
@@ -219,7 +222,7 @@ describe("GET /api/user/messaging-channels", () => {
       },
     ]);
 
-    const response = await GET(createRequest("email-account-1"));
+    const response = await GET(createRequest());
     const body = await response.json();
 
     expect(createSlackClient).toHaveBeenCalledTimes(1);
@@ -337,7 +340,7 @@ describe("GET /api/user/messaging-channels", () => {
     ] satisfies MessagingChannelRecord[];
     prisma.messagingChannel.findMany.mockResolvedValue(channels);
 
-    const response = await GET(createRequest("email-account-1"));
+    const response = await GET(createRequest());
     const body = await response.json();
 
     expect(createSlackClient).not.toHaveBeenCalled();
@@ -357,15 +360,6 @@ describe("GET /api/user/messaging-channels", () => {
   });
 });
 
-function createRequest(emailAccountId: string) {
-  return addTestEmailAccountAuth(
-    new NextRequest("http://localhost:3000/api/user/messaging-channels"),
-    {
-      auth: {
-        userId: "user-1",
-        emailAccountId,
-        email: "user@example.com",
-      },
-    },
-  );
+function createRequest() {
+  return new NextRequest("http://localhost:3000/api/user/messaging-channels");
 }

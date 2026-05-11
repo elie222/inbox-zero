@@ -4,9 +4,13 @@ import prisma from "@/utils/__mocks__/prisma";
 import { getTopWeeklyUsageCosts } from "@/utils/redis/usage";
 
 vi.mock("@/utils/prisma");
-vi.mock("@/utils/middleware", () => ({
-  withAdmin: (_name: string, handler: unknown) => handler,
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithAdminTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithAdminTestMiddleware();
+});
 vi.mock("@/utils/redis/usage", () => ({
   getTopWeeklyUsageCosts: vi.fn(),
 }));

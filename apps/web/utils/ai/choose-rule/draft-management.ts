@@ -1,6 +1,6 @@
 import { load } from "cheerio";
 import prisma from "@/utils/prisma";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import type { ExecutedRule } from "@/generated/prisma/client";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
@@ -81,7 +81,9 @@ export async function handlePreviousDraftDeletion({
         client.deleteDraft(previousDraftAction.draftId),
         prisma.executedAction.update({
           where: { id: previousDraftAction.id },
-          data: { wasDraftSent: false },
+          data: {
+            draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+          },
         }),
       ]);
 
@@ -111,7 +113,7 @@ export async function updateExecutedActionWithDraftId({
   try {
     await prisma.executedAction.update({
       where: { id: actionId },
-      data: { draftId },
+      data: { draftId, draftStatus: DraftEmailStatus.PENDING },
     });
     logger.info("Updated executed action with draft ID", { actionId, draftId });
   } catch (error) {

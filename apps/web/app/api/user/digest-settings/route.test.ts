@@ -13,29 +13,19 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
-vi.mock("@/utils/middleware", () => ({
-  withEmailAccount:
-    (
-      _scope: string,
-      handler: (
-        request: NextRequest & {
-          auth: { emailAccountId: string; userId: string; email: string };
-        },
-      ) => Promise<Response>,
-    ) =>
-    async (request: NextRequest) => {
-      const emailRequest = request as NextRequest & {
-        auth: { emailAccountId: string; userId: string; email: string };
-      };
-      emailRequest.auth = {
-        emailAccountId: "missing-email-account-id",
-        userId: "user-1",
-        email: "user@example.com",
-      };
+vi.mock("@/utils/middleware", async () => {
+  const { createWithEmailAccountTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
 
-      return handler(emailRequest);
+  return createWithEmailAccountTestMiddleware({
+    auth: {
+      emailAccountId: "missing-email-account-id",
+      userId: "user-1",
+      email: "user@example.com",
     },
-}));
+  });
+});
 
 import { GET } from "./route";
 

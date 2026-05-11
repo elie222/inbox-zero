@@ -20,15 +20,13 @@ vi.mock("next/server", async (importOriginal) => {
   };
 });
 
-vi.mock("@/utils/middleware", () => ({
-  withError:
-    (
-      _scope: string,
-      handler: (request: Request, ...args: unknown[]) => Promise<Response>,
-    ) =>
-    (request: Request, ...args: unknown[]) =>
-      handler(request, ...args),
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithErrorTestMiddleware();
+});
 
 vi.mock("@/utils/internal-api", () => ({
   isValidInternalApiKey: isValidInternalApiKeyMock,
@@ -93,27 +91,14 @@ describe("analyze sender pattern route", () => {
 });
 
 function createRequest() {
-  const request = new Request(
-    "https://example.com/api/ai/analyze-sender-pattern",
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        emailAccountId: "email-account-1",
-        from: "sender@example.com",
-      }),
+  return new Request("https://example.com/api/ai/analyze-sender-pattern", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
     },
-  ) as Request & {
-    logger: {
-      error: ReturnType<typeof vi.fn>;
-    };
-  };
-
-  request.logger = {
-    error: vi.fn(),
-  };
-
-  return request;
+    body: JSON.stringify({
+      emailAccountId: "email-account-1",
+      from: "sender@example.com",
+    }),
+  });
 }

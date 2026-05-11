@@ -76,6 +76,30 @@ export function isSameEmailAddress(left: string, right: string) {
   );
 }
 
+export function messageRepliesToSourceSender({
+  sentMessage,
+  sourceMessage,
+}: {
+  sentMessage: Pick<ParsedMessage, "headers">;
+  sourceMessage: Pick<ParsedMessage, "headers">;
+}) {
+  const replyTargetEmails = extractEmailAddresses(
+    sourceMessage.headers["reply-to"] || sourceMessage.headers.from,
+  ).map((email) => email.toLowerCase());
+  if (!replyTargetEmails.length) return null;
+
+  const recipientEmails = [
+    ...extractEmailAddresses(sentMessage.headers.to),
+    ...extractEmailAddresses(sentMessage.headers.cc ?? ""),
+    ...extractEmailAddresses(sentMessage.headers.bcc ?? ""),
+  ].map((email) => email.toLowerCase());
+
+  if (!recipientEmails.length) return null;
+
+  const recipientEmailSet = new Set(recipientEmails);
+  return replyTargetEmails.some((email) => recipientEmailSet.has(email));
+}
+
 export function isValidEmail(email: string): boolean {
   return emailSchema.safeParse(email).success;
 }

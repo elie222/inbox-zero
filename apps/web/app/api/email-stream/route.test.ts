@@ -1,6 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SafeError } from "@/utils/error";
 
 const { cleanerEnv, mockGetEmailAccount, subscriberState } = vi.hoisted(() => {
   const listeners = new Map<
@@ -78,40 +77,13 @@ vi.mock("@/env", () => ({
   env: cleanerEnv,
 }));
 
-vi.mock("@/utils/middleware", () => ({
-  withAuth:
-    (
-      _scope: string,
-      handler: (
-        request: NextRequest & {
-          auth: { userId: string };
-          logger: typeof mockLogger;
-        },
-      ) => Promise<Response>,
-    ) =>
-    async (request: NextRequest) => {
-      const authRequest = request as NextRequest & {
-        auth: { userId: string };
-        logger: typeof mockLogger;
-      };
+vi.mock("@/utils/middleware", async () => {
+  const { createWithAuthTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
 
-      authRequest.auth = { userId: "user-1" };
-      authRequest.logger = mockLogger;
-
-      try {
-        return await handler(authRequest);
-      } catch (error) {
-        if (error instanceof SafeError) {
-          return NextResponse.json(
-            { error: error.safeMessage, isKnownError: true },
-            { status: error.statusCode ?? 400 },
-          );
-        }
-
-        throw error;
-      }
-    },
-}));
+  return createWithAuthTestMiddleware({ handleSafeErrors: true });
+});
 
 vi.mock("@/utils/redis/account-validation", () => ({
   getEmailAccount: (...args: unknown[]) => mockGetEmailAccount(...args),
@@ -124,14 +96,6 @@ vi.mock("@/utils/redis/subscriber", () => ({
 }));
 
 import { GET } from "./route";
-
-const mockLogger = {
-  info: vi.fn(),
-  error: vi.fn(),
-  warn: vi.fn(),
-  debug: vi.fn(),
-  trace: vi.fn(),
-};
 
 describe("email-stream route", () => {
   beforeEach(() => {

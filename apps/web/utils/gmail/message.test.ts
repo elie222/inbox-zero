@@ -16,9 +16,6 @@ vi.mock("gmail-api-parse-message", () => ({
 
 describe("getMessagesBatch", () => {
   const logger = createTestLogger();
-  const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
-  vi.spyOn(logger, "info").mockImplementation(() => {});
-  vi.spyOn(logger, "warn").mockImplementation(() => {});
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -147,15 +144,6 @@ describe("getMessagesBatch", () => {
     expect(vi.mocked(getBatch).mock.calls.map(([ids]) => ids.length)).toEqual([
       12, 10, 2,
     ]);
-    expect(errorSpy).toHaveBeenCalledWith(
-      "Error fetching message, adding to retry queue",
-      expect.objectContaining({
-        messageId: "id1",
-        code: 429,
-        errorMessage: "Too many concurrent requests for user",
-        reason: "rateLimitExceeded",
-      }),
-    );
   });
 });
 

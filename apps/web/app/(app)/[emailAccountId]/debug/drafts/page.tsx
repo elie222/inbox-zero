@@ -68,14 +68,16 @@ export default function DebugDraftsPage() {
                     <TableCell>
                       <Badge
                         variant={
-                          executedAction.wasDraftSent ? "default" : "secondary"
+                          isDraftSentStatus(executedAction.draftStatus)
+                            ? "default"
+                            : "secondary"
                         }
                       >
-                        {executedAction.wasDraftSent ? "Sent" : "Not Sent"}
+                        {formatDraftStatus(executedAction.draftStatus)}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {executedAction.wasDraftSent &&
+                      {isDraftSentStatus(executedAction.draftStatus) &&
                       executedAction.draftSendLog?.sentMessageId ? (
                         <Link
                           href={getGmailUrl(
@@ -139,4 +141,13 @@ export default function DebugDraftsPage() {
       </LoadingContent>
     </div>
   );
+}
+
+function formatDraftStatus(draftStatus?: string | null) {
+  if (draftStatus) return draftStatus.replaceAll("_", " ");
+  return "Pending";
+}
+
+function isDraftSentStatus(draftStatus?: string | null) {
+  return draftStatus === "LIKELY_SENT";
 }

@@ -15,6 +15,7 @@ import {
 } from "@/__tests__/eval/semantic-judge";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { getMockMessage } from "@/__tests__/helpers";
+import { DraftEmailStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { getEmailAccount } from "@/__tests__/helpers";
@@ -591,7 +592,7 @@ describe.runIf(shouldRunEval)(
                     url: null,
                     folderName: null,
                     draftId: "draft-contract-terms-1",
-                    wasDraftSent: false,
+                    draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
                   },
                 ],
                 rule: {
@@ -738,7 +739,7 @@ describe.runIf(shouldRunEval)(
                     url: null,
                     folderName: null,
                     draftId: "draft-renewal-quote-1",
-                    wasDraftSent: false,
+                    draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
                   },
                 ],
                 rule: {

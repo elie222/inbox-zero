@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { people } from "@googleapis/people";
 import { auth } from "@googleapis/gmail";
 import { saveTokens } from "@/utils/auth/save-tokens";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   getContactsClient,
   getGmailClientWithRefresh,
@@ -33,13 +34,7 @@ vi.mock("@/utils/google/oauth", () => ({
 
 const setCredentials = vi.fn();
 const refreshAccessToken = vi.fn();
-const logger = {
-  error: vi.fn(),
-  info: vi.fn(),
-  trace: vi.fn(),
-  warn: vi.fn(),
-  with: vi.fn(),
-} as any;
+const logger = createTestLogger();
 
 vi.mock("@googleapis/gmail", () => ({
   auth: {

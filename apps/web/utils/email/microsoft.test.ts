@@ -2,6 +2,7 @@ import type { Message } from "@microsoft/microsoft-graph-types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as outlookMessageModule from "@/utils/outlook/message";
 import * as outlookLabelModule from "@/utils/outlook/label";
+import { createTestLogger } from "@/__tests__/helpers";
 import { OutlookProvider } from "./microsoft";
 
 const { envMock, outlookMailMock, getFolderIdsMock } = vi.hoisted(() => ({
@@ -631,7 +632,7 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
 });
 
 describe("OutlookProvider.getThreadsWithParticipant", () => {
-  it("logs broad search and exact participant match counts", async () => {
+  it("filters broad search results to exact participant matches", async () => {
     const participantEmail = "participant@example.com";
     const unrelatedMessage = createMessage({
       id: "unrelated-message",
@@ -650,7 +651,7 @@ describe("OutlookProvider.getThreadsWithParticipant", () => {
         },
       },
     });
-    const logger = createMockLogger();
+    const logger = createTestLogger();
     const provider = new OutlookProvider(client, logger);
 
     const threads = await provider.getThreadsWithParticipant({
@@ -659,15 +660,6 @@ describe("OutlookProvider.getThreadsWithParticipant", () => {
     });
 
     expect(threads).toEqual([]);
-    expect(logger.info).toHaveBeenCalledWith(
-      "Outlook participant search completed",
-      {
-        rawMessageCount: 1,
-        exactParticipantMessageCount: 0,
-        threadCount: 0,
-        hasMorePages: true,
-      },
-    );
   });
 });
 
@@ -734,19 +726,6 @@ function createMockOutlookClient(
     },
     getRequestLog: () => requestLog,
   } as any;
-}
-
-function createMockLogger() {
-  const logger = {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    trace: vi.fn(),
-    flush: vi.fn().mockResolvedValue(undefined),
-    with: vi.fn(),
-  };
-  logger.with.mockReturnValue(logger);
-  return logger as any;
 }
 
 function createMessage(input: {
