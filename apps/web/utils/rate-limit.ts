@@ -110,7 +110,12 @@ function isRedisRateLimitConfigured() {
 }
 
 function getRateLimitHashSecret() {
-  return env.AUTH_SECRET || env.NEXTAUTH_SECRET || env.EMAIL_ENCRYPT_SECRET;
+  const secret =
+    env.AUTH_SECRET || env.NEXTAUTH_SECRET || env.EMAIL_ENCRYPT_SECRET;
+  if (!secret) {
+    throw new Error("Rate limit hash secret missing: set AUTH_SECRET");
+  }
+  return secret;
 }
 
 const INCREMENT_RATE_LIMIT_SCRIPT = `
