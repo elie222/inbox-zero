@@ -141,6 +141,40 @@ describe("trackSentDraftStatus", () => {
     });
   });
 
+  it("treats forwarded sent messages as ignored drafts and skips learning", async () => {
+    vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
+      id: "action-1",
+      draftId: "draft-1",
+      content: "Thanks for reaching out.",
+      executedRuleId: "executed-rule-1",
+    } as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(0.08);
+
+    await trackSentDraftStatus({
+      emailAccountId: "account-1",
+      message: createForwardedSentMessage(),
+      provider: {
+        getDraft: vi.fn().mockResolvedValue(null),
+      } as any,
+      logger,
+    });
+
+    expect(prisma.draftSendLog.create).toHaveBeenCalledWith({
+      data: {
+        executedActionId: "action-1",
+        sentMessageId: "sent-forward-1",
+        similarityScore: 0.08,
+      },
+    });
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: { wasDraftSent: false },
+    });
+    expect(isMeaningfulDraftEdit).not.toHaveBeenCalled();
+    expect(saveDraftSendLogReplyMemory).not.toHaveBeenCalled();
+    expect(syncReplyMemoriesFromDraftSendLogs).not.toHaveBeenCalled();
+  });
+
   it("skips reply memory learning when the edit is not meaningful", async () => {
     vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
       id: "action-1",
@@ -264,6 +298,25 @@ function createSentMessage(): ParsedMessage {
     },
     textPlain: "Please include pricing for seat counts.",
     textHtml: "<p>Please include pricing for seat counts.</p>",
+  } as ParsedMessage;
+}
+
+function createForwardedSentMessage(): ParsedMessage {
+  return {
+    ...createSentMessage(),
+    id: "sent-forward-1",
+    headers: {
+      ...createSentMessage().headers,
+      subject: "Fwd: Pricing question",
+    },
+    textPlain: `Can someone check this?
+
+---------- Forwarded message ----------
+From: sales@example.com
+Subject: Pricing question
+
+Can you send pricing?`,
+    textHtml: undefined,
   } as ParsedMessage;
 }
 

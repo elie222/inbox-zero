@@ -448,6 +448,45 @@ describe("reply-memory", () => {
     });
   });
 
+  it("skips queued draft learning when the sent message is a forward", async () => {
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText: `Can someone check this?
+
+---------- Forwarded message ----------
+From: sender@example.com
+Subject: Pricing question
+
+Can you send pricing?`,
+      }),
+    ] as any);
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
+
+    const provider = {
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+    };
+
+    await syncReplyMemoriesFromDraftSendLogs({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+    });
+
+    expect(provider.getMessage).not.toHaveBeenCalled();
+    expect(mockGenerateObject).not.toHaveBeenCalled();
+    expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
+    expect(prisma.draftSendLog.update).toHaveBeenCalledWith({
+      where: { id: "draft-send-log-1" },
+      data: {
+        replyMemoryProcessedAt: expect.any(Date),
+        replyMemorySentText: null,
+      },
+    });
+  });
+
   it("attaches evidence to an existing memory when extraction returns an existing memory id", async () => {
     vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
       count: 0,

@@ -1,5 +1,9 @@
 import * as stringSimilarity from "string-similarity";
-import { convertEmailHtmlToText, parseReply } from "@/utils/mail";
+import {
+  convertEmailHtmlToText,
+  parseReply,
+  stripForwardedContent,
+} from "@/utils/mail";
 import {
   stripQuotedContent,
   stripQuotedHtmlContent,
@@ -37,7 +41,9 @@ function normalizeForOutlook(content: string): string {
     htmlText: stripQuotedHtmlContent(withBr),
     includeLinks: false,
   });
-  return stripQuotedContent(plainText).toLowerCase().trim();
+  return stripForwardedContent(stripQuotedContent(plainText))
+    .toLowerCase()
+    .trim();
 }
 
 /**
@@ -75,7 +81,9 @@ function normalizeForGmail(content: string): string {
     : content;
   const reply = parseReply(plainText);
   const decoded = decodeHtmlEntities(reply);
-  return stripQuotedContent(decoded).toLowerCase().trim();
+  return stripForwardedContent(stripQuotedContent(decoded))
+    .toLowerCase()
+    .trim();
 }
 
 /**

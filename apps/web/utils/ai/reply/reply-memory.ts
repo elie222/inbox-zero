@@ -11,6 +11,7 @@ import {
 import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { Logger } from "@/utils/logger";
+import { hasForwardedContent } from "@/utils/mail";
 import prisma from "@/utils/prisma";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { aiExtractReplyMemoriesFromDraftEdit } from "./extract-reply-memories";
@@ -297,6 +298,18 @@ async function processReplyMemoryDraftSendLog({
   const emailAccountId =
     draftSendLog.executedAction.executedRule.emailAccountId;
   const draftText = draftSendLog.executedAction.content ?? "";
+  const sentText = draftSendLog.replyMemorySentText ?? "";
+
+  if (hasForwardedContent(sentText)) {
+    logger.info(
+      "Skipping reply memory extraction from forwarded sent message",
+      {
+        draftSendLogId: draftSendLog.id,
+      },
+    );
+    await markDraftSendLogReplyMemoryProcessed(draftSendLog.id);
+    return;
+  }
 
   const incomingMessage = await provider
     .getMessage(sourceMessageId)
@@ -383,11 +396,11 @@ async function processReplyMemoryDraftSendLog({
       ? getEmailForLLM(incomingMessage, {
           maxLength: 2500,
           extractReply: true,
-          removeForwarded: false,
+          removeForwarded: true,
         }).content
       : "",
     draftText,
-    sentText: draftSendLog.replyMemorySentText ?? "",
+    sentText,
     senderEmail: normalizedSenderEmail,
     existingMemories,
     writingStyle: writingContext?.writingStyle ?? null,

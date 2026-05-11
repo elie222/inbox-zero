@@ -15,6 +15,7 @@ import {
 import { replaceMessagingDraftNotificationsWithHandledOnWebState } from "@/utils/messaging/rule-notifications";
 import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
 import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
+import { hasForwardedContent } from "@/utils/mail";
 import { logReplyTrackerError } from "./error-logging";
 
 /**
@@ -74,19 +75,27 @@ export async function trackSentDraftStatus({
   // Calculate similarity between sent message and AI draft content
   // Pass full message to properly handle Outlook HTML content
   const similarityScore = calculateSimilarity(executedAction.content, message);
+  const sentMessageIsForward = isForwardedSentMessage(message);
 
   logger.info("Calculated similarity score", {
     executedActionId,
     similarityScore,
     draftExists: !!draftExists,
+    sentMessageIsForward,
   });
 
-  if (draftExists) {
-    logger.info("Original AI draft still exists, sent message was different.", {
-      executedActionId: executedAction.id,
-      draftId: executedAction.draftId,
-      similarityScore,
-    });
+  if (draftExists || sentMessageIsForward) {
+    logger.info(
+      sentMessageIsForward
+        ? "Sent message is a forward, marking AI draft as not sent."
+        : "Original AI draft still exists, sent message was different.",
+      {
+        executedActionId: executedAction.id,
+        draftId: executedAction.draftId,
+        similarityScore,
+        draftExists: !!draftExists,
+      },
+    );
 
     // Create DraftSendLog to record the comparison, but mark wasDraftSent as false
     const [draftSendLog] = await withPrismaRetry(
@@ -108,7 +117,9 @@ export async function trackSentDraftStatus({
     );
 
     logger.info(
-      "Created draft send log and marked action as not sent (draft still exists)",
+      sentMessageIsForward
+        ? "Created draft send log and marked action as not sent (sent message is a forward)"
+        : "Created draft send log and marked action as not sent (draft still exists)",
       { executedActionId },
     );
     await replaceMessagingDraftNotificationsWithHandledOnWebState({
@@ -121,6 +132,7 @@ export async function trackSentDraftStatus({
       draftSendLogId: draftSendLog.id,
       draftText: executedAction.content,
       similarityScore,
+      sentMessageIsForward,
       message,
       provider,
       logger,
@@ -179,6 +191,7 @@ export async function trackSentDraftStatus({
     draftSendLogId: draftSendLog.id,
     draftText: executedAction.content,
     similarityScore,
+    sentMessageIsForward,
     message,
     provider,
     logger,
@@ -400,6 +413,7 @@ function queueReplyMemoryLearning({
   draftSendLogId,
   draftText,
   similarityScore,
+  sentMessageIsForward,
   message,
   provider,
   logger,
@@ -409,16 +423,25 @@ function queueReplyMemoryLearning({
   draftSendLogId: string;
   draftText?: string | null;
   similarityScore: number;
+  sentMessageIsForward: boolean;
   message: ParsedMessage;
   provider: EmailProvider;
   logger: Logger;
 }) {
   if (!draftText) return;
 
+  if (sentMessageIsForward) {
+    logger.info("Skipping reply memory learning for forwarded sent message", {
+      draftSendLogId,
+      executedActionId,
+    });
+    return;
+  }
+
   const sentText = emailToContentForAI(message, {
     maxLength: 4000,
     extractReply: true,
-    removeForwarded: false,
+    removeForwarded: true,
   });
 
   if (!isMeaningfulDraftEdit({ draftText, sentText, similarityScore })) {
@@ -443,4 +466,18 @@ function queueReplyMemoryLearning({
       });
     }
   });
+}
+
+function isForwardedSentMessage(message: ParsedMessage) {
+  if (/^(?:fwd?|fw):/i.test(message.headers.subject?.trim() ?? "")) {
+    return true;
+  }
+
+  const sentText = emailToContentForAI(message, {
+    maxLength: 0,
+    extractReply: true,
+    removeForwarded: false,
+  });
+
+  return hasForwardedContent(sentText);
 }

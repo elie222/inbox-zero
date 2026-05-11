@@ -338,6 +338,20 @@ On Mon, Jan 1, 2024 at 9:00 AM <someone@example.com> wrote:
       const score = realCalculateSimilarity(originalDraft, sentMessage);
       expect(score).toBe(1.0);
     });
+
+    it("should ignore forwarded payloads below the authored reply", () => {
+      const originalDraft = "Can you take a look at this?";
+      const sentMessage = createParsedMessage(`Can you take a look at this?
+
+---------- Forwarded message ----------
+From: sender@example.com
+Subject: Original request
+
+The original request has a lot of unrelated detail.`);
+
+      const score = realCalculateSimilarity(originalDraft, sentMessage);
+      expect(score).toBe(1.0);
+    });
   });
 
   describe("Backwards compatibility with plain strings", () => {
