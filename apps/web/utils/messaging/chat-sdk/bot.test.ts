@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   buildAffirmativeReactionMessage,
   buildHandledPendingEmailCard,
@@ -43,11 +44,7 @@ describe("ensureSlackTeamInstallation", () => {
       teamName: "Team",
     } as any);
 
-    const logger = {
-      warn: vi.fn(),
-    } as any;
-
-    await ensureSlackTeamInstallation("T-TEAM", logger);
+    await ensureSlackTeamInstallation("T-TEAM", createTestLogger());
 
     expect(prisma.messagingChannel.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({

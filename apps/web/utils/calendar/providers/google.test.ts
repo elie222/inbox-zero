@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createGoogleCalendarProvider } from "@/utils/calendar/providers/google";
 import { getCalendarOAuth2Client } from "@/utils/calendar/client";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   fetchGoogleOpenIdProfile,
   isGoogleOauthEmulationEnabled,
@@ -54,13 +55,7 @@ describe("google calendar oauth", () => {
       email: "user@example.com",
     } as any);
 
-    const provider = createGoogleCalendarProvider({
-      error: vi.fn(),
-      info: vi.fn(),
-      trace: vi.fn(),
-      warn: vi.fn(),
-      with: vi.fn(),
-    } as any);
+    const provider = createGoogleCalendarProvider(createTestLogger());
 
     await expect(provider.exchangeCodeForTokens("code")).resolves.toEqual({
       accessToken: "access-token",
@@ -84,13 +79,7 @@ describe("google calendar oauth", () => {
       sub: "sub-1",
     } as any);
 
-    const provider = createGoogleCalendarProvider({
-      error: vi.fn(),
-      info: vi.fn(),
-      trace: vi.fn(),
-      warn: vi.fn(),
-      with: vi.fn(),
-    } as any);
+    const provider = createGoogleCalendarProvider(createTestLogger());
 
     await expect(provider.exchangeCodeForTokens("code")).rejects.toThrow(
       "Could not get email from Google profile",

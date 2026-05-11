@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   parseSubscriptionHistory,
   cleanupOldHistoryEntries,
@@ -33,7 +34,10 @@ describe("subscription-history", () => {
     });
 
     it("should filter out invalid entries", () => {
-      const logger = { warn: vi.fn() } as any;
+      const logger = createTestLogger();
+      const loggerWarnSpy = vi
+        .spyOn(logger, "warn")
+        .mockImplementation(() => undefined);
       const history = [
         {
           subscriptionId: "sub-1",
@@ -48,7 +52,7 @@ describe("subscription-history", () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].subscriptionId).toBe("sub-1");
-      expect(logger.warn).toHaveBeenCalledTimes(2);
+      expect(loggerWarnSpy).toHaveBeenCalledTimes(2);
     });
 
     it("should handle non-array input", () => {

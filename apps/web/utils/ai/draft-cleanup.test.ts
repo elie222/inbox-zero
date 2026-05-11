@@ -4,7 +4,7 @@ import {
   cleanupConfiguredAIDrafts,
 } from "@/utils/ai/draft-cleanup";
 import { ActionType } from "@/generated/prisma/enums";
-import type { Logger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
@@ -31,11 +31,7 @@ vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: mocks.createEmailProvider,
 }));
 
-const logger = {
-  info: vi.fn(),
-  error: vi.fn(),
-  trace: vi.fn(),
-} as unknown as Logger;
+const logger = createTestLogger();
 
 describe("cleanupAIDraftsForAccount", () => {
   beforeEach(() => {

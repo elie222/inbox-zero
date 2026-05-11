@@ -3,6 +3,7 @@ import { saveLearnedPattern, saveLearnedPatterns } from "./learned-patterns";
 import prisma from "@/utils/__mocks__/prisma";
 import { GroupItemType, GroupItemSource } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/prisma");
 
@@ -10,28 +11,26 @@ vi.mock("@/utils/prisma-helpers", () => ({
   isDuplicateError: vi.fn(),
 }));
 
-const mockLogger = {
-  error: vi.fn(),
-  warn: vi.fn(),
-  info: vi.fn(),
-} as any;
-
 describe("saveLearnedPattern", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("should return early if rule not found", async () => {
+    const logger = createTestLogger();
+    const loggerErrorSpy = vi
+      .spyOn(logger, "error")
+      .mockImplementation(() => undefined);
     vi.mocked(prisma.rule.findUnique).mockResolvedValue(null);
 
     await saveLearnedPattern({
       emailAccountId: "email-account-id",
       from: "test@example.com",
       ruleId: "nonexistent-rule",
-      logger: mockLogger,
+      logger,
     });
 
-    expect(mockLogger.error).toHaveBeenCalledWith("Rule not found", {
+    expect(loggerErrorSpy).toHaveBeenCalledWith("Rule not found", {
       ruleId: "nonexistent-rule",
     });
     expect(prisma.groupItem.upsert).not.toHaveBeenCalled();
@@ -50,7 +49,7 @@ describe("saveLearnedPattern", () => {
       emailAccountId: "email-account-id",
       from: "test@example.com",
       ruleId: "rule-id",
-      logger: mockLogger,
+      logger: createTestLogger(),
     });
 
     expect(prisma.group.create).not.toHaveBeenCalled();
@@ -87,7 +86,7 @@ describe("saveLearnedPattern", () => {
       emailAccountId: "email-account-id",
       from: "test@example.com",
       ruleId: "rule-id",
-      logger: mockLogger,
+      logger: createTestLogger(),
     });
 
     expect(prisma.group.create).toHaveBeenCalledWith({
@@ -123,7 +122,7 @@ describe("saveLearnedPattern", () => {
       from: "excluded@example.com",
       ruleId: "rule-id",
       exclude: true,
-      logger: mockLogger,
+      logger: createTestLogger(),
       reason: "User excluded",
       source: GroupItemSource.USER,
     });
@@ -181,7 +180,7 @@ describe("saveLearnedPattern", () => {
       emailAccountId: "email-account-id",
       from: "test@example.com",
       ruleId: "rule-id",
-      logger: mockLogger,
+      logger: createTestLogger(),
     });
 
     expect(prisma.group.findUnique).toHaveBeenCalledWith({
@@ -213,17 +212,21 @@ describe("saveLearnedPatterns", () => {
   });
 
   it("should return error if rule not found", async () => {
+    const logger = createTestLogger();
+    const loggerErrorSpy = vi
+      .spyOn(logger, "error")
+      .mockImplementation(() => undefined);
     vi.mocked(prisma.rule.findUnique).mockResolvedValue(null);
 
     const result = await saveLearnedPatterns({
       emailAccountId: "email-account-id",
       ruleName: "Nonexistent Rule",
       patterns: [{ type: GroupItemType.FROM, value: "test@example.com" }],
-      logger: mockLogger,
+      logger,
     });
 
     expect(result).toEqual({ error: "Rule not found" });
-    expect(mockLogger.error).toHaveBeenCalledWith("Rule not found", {
+    expect(loggerErrorSpy).toHaveBeenCalledWith("Rule not found", {
       emailAccountId: "email-account-id",
       ruleName: "Nonexistent Rule",
     });
@@ -243,7 +246,7 @@ describe("saveLearnedPatterns", () => {
         { type: GroupItemType.FROM, value: "sender1@example.com" },
         { type: GroupItemType.SUBJECT, value: "Newsletter", exclude: true },
       ],
-      logger: mockLogger,
+      logger: createTestLogger(),
     });
 
     expect(result).toEqual({ success: true });

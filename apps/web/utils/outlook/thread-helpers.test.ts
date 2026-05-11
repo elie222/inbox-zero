@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   processThreadMessagesFallback,
   runThreadMessageMutation,
@@ -8,7 +9,10 @@ describe("runThreadMessageMutation", () => {
   it("limits concurrent thread mutations", async () => {
     let inFlight = 0;
     let maxInFlight = 0;
-    const logger = { warn: vi.fn() } as any;
+    const logger = createTestLogger();
+    const loggerWarnSpy = vi
+      .spyOn(logger, "warn")
+      .mockImplementation(() => undefined);
 
     await runThreadMessageMutation({
       messageIds: ["msg1", "msg2", "msg3", "msg4"],
@@ -24,11 +28,14 @@ describe("runThreadMessageMutation", () => {
     });
 
     expect(maxInFlight).toBeLessThanOrEqual(3);
-    expect(logger.warn).not.toHaveBeenCalled();
+    expect(loggerWarnSpy).not.toHaveBeenCalled();
   });
 
   it("continues when continueOnError is enabled", async () => {
-    const logger = { warn: vi.fn() } as any;
+    const logger = createTestLogger();
+    const loggerWarnSpy = vi
+      .spyOn(logger, "warn")
+      .mockImplementation(() => undefined);
     const error = new Error("move failed");
 
     await expect(
@@ -44,7 +51,7 @@ describe("runThreadMessageMutation", () => {
       }),
     ).resolves.toBeUndefined();
 
-    expect(logger.warn).toHaveBeenCalledWith("Failed to mutate message", {
+    expect(loggerWarnSpy).toHaveBeenCalledWith("Failed to mutate message", {
       threadId: "conv1",
       messageId: "msg2",
       error,
@@ -60,7 +67,10 @@ describe("processThreadMessagesFallback", () => {
       { id: "msg3", conversationId: "other" },
     ]);
     const handler = vi.fn().mockResolvedValue(null);
-    const logger = { warn: vi.fn() } as any;
+    const logger = createTestLogger();
+    const loggerWarnSpy = vi
+      .spyOn(logger, "warn")
+      .mockImplementation(() => undefined);
 
     await processThreadMessagesFallback({
       client: client as any,
@@ -73,13 +83,16 @@ describe("processThreadMessagesFallback", () => {
     expect(handler).toHaveBeenCalledTimes(2);
     expect(handler).toHaveBeenCalledWith("msg1");
     expect(handler).toHaveBeenCalledWith("msg2");
-    expect(logger.warn).not.toHaveBeenCalled();
+    expect(loggerWarnSpy).not.toHaveBeenCalled();
   });
 
   it("logs warning when no messages match the conversationId", async () => {
     const client = mockClient([{ id: "msg1", conversationId: "other" }]);
     const handler = vi.fn();
-    const logger = { warn: vi.fn() } as any;
+    const logger = createTestLogger();
+    const loggerWarnSpy = vi
+      .spyOn(logger, "warn")
+      .mockImplementation(() => undefined);
 
     await processThreadMessagesFallback({
       client: client as any,
@@ -90,7 +103,7 @@ describe("processThreadMessagesFallback", () => {
     });
 
     expect(handler).not.toHaveBeenCalled();
-    expect(logger.warn).toHaveBeenCalledWith("No messages found", {
+    expect(loggerWarnSpy).toHaveBeenCalledWith("No messages found", {
       threadId: "conv1",
     });
   });
@@ -105,7 +118,10 @@ describe("processThreadMessagesFallback", () => {
       .fn()
       .mockResolvedValueOnce(null)
       .mockRejectedValueOnce(error);
-    const logger = { warn: vi.fn() } as any;
+    const logger = createTestLogger();
+    const loggerWarnSpy = vi
+      .spyOn(logger, "warn")
+      .mockImplementation(() => undefined);
 
     await processThreadMessagesFallback({
       client: client as any,
@@ -116,7 +132,7 @@ describe("processThreadMessagesFallback", () => {
     });
 
     expect(handler).toHaveBeenCalledTimes(2);
-    expect(logger.warn).toHaveBeenCalledWith(
+    expect(loggerWarnSpy).toHaveBeenCalledWith(
       "Failed to process message in thread fallback",
       { threadId: "conv1", messageId: "msg2", error },
     );
@@ -129,7 +145,7 @@ describe("processThreadMessagesFallback", () => {
       { id: "msg3", conversationId: "conv1" },
       { id: "msg4", conversationId: "conv1" },
     ]);
-    const logger = { warn: vi.fn() } as any;
+    const logger = createTestLogger();
     let inFlight = 0;
     let maxInFlight = 0;
     const handler = vi.fn().mockImplementation(async () => {

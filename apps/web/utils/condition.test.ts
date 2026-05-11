@@ -1,14 +1,10 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { ConditionType } from "@/utils/config";
+import { createTestLogger } from "@/__tests__/helpers";
 import { flattenConditions } from "./condition";
-import type { Logger } from "@/utils/logger";
 
 describe("flattenConditions", () => {
-  const logger = {
-    warn: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-  } as unknown as Logger;
+  const logger = createTestLogger();
 
   it("should merge multiple static conditions without overwriting with null", () => {
     const conditions = [
