@@ -8,7 +8,7 @@
 - Run all tests: `pnpm test`
 - Run integration tests: `pnpm test-integration`
 - Run AI tests: `pnpm --filter inbox-zero-ai test-ai`
-- Run single test: `pnpm test __tests__/test-file.test.ts`
+- Run single test: `pnpm test path/to/test-file.test.ts`
 - Run specific AI/eval test: `pnpm --filter inbox-zero-ai test-ai __tests__/eval/your-test.test.ts`
 - Evals in `apps/web/__tests__/eval/` must be run from repo root with `pnpm --filter inbox-zero-ai test-ai` (not `pnpm test`)
 - Type-check build (skips Prisma migrate): `pnpm --filter inbox-zero-ai exec next build`
