@@ -130,42 +130,43 @@ describe("rate limit utilities", () => {
     expect(redis.eval).not.toHaveBeenCalled();
   });
 
-  it("builds safe key strings and extracts forwarded IPs", () => {
+  it("builds safe key strings", () => {
     expect(createRateLimitKey(["rate limit", "book/link", "a:b"])).toBe(
       "rate_limit:book_link:a_b",
     );
-    // Rightmost entry wins: leftmost is client-controlled on Vercel.
-    expect(
-      getClientIp(
-        new Headers({
-          "x-forwarded-for": "203.0.113.1, 10.0.0.1",
-        }),
-      ),
-    ).toBe("10.0.0.1");
-    // Provider-specific visitor IP headers are not trusted by default because
-    // they can be spoofed when the origin is directly reachable.
-    expect(
-      getClientIp(
-        new Headers({
-          "cf-connecting-ip": "198.51.100.7",
-          "x-forwarded-for": "203.0.113.1, 10.0.0.1",
-        }),
-      ),
-    ).toBe("10.0.0.1");
-    expect(
-      getClientIp(
-        new Headers({
-          "cf-connecting-ip": "198.51.100.7",
-        }),
-      ),
-    ).toBe("unknown");
-    // x-real-ip is no longer trusted.
-    expect(
-      getClientIp(
-        new Headers({
-          "x-real-ip": "203.0.113.99",
-        }),
-      ),
-    ).toBe("unknown");
+  });
+
+  it.each([
+    {
+      name: "rightmost forwarded IP",
+      headers: {
+        "x-forwarded-for": "203.0.113.1, 10.0.0.1",
+      },
+      expected: "10.0.0.1",
+    },
+    {
+      name: "rightmost forwarded IP over provider visitor IP",
+      headers: {
+        "cf-connecting-ip": "198.51.100.7",
+        "x-forwarded-for": "203.0.113.1, 10.0.0.1",
+      },
+      expected: "10.0.0.1",
+    },
+    {
+      name: "unknown when only provider visitor IP is present",
+      headers: {
+        "cf-connecting-ip": "198.51.100.7",
+      },
+      expected: "unknown",
+    },
+    {
+      name: "unknown when only x-real-ip is present",
+      headers: {
+        "x-real-ip": "203.0.113.99",
+      },
+      expected: "unknown",
+    },
+  ])("extracts $name", ({ headers, expected }) => {
+    expect(getClientIp(new Headers(headers))).toBe(expected);
   });
 });

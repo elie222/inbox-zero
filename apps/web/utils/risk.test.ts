@@ -8,9 +8,6 @@ import {
 import { ActionType } from "@/generated/prisma/enums";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 
-// Run with:
-// pnpm test risk.test.ts
-
 describe("getActionRiskLevel", () => {
   const testCases = [
     {

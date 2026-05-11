@@ -29,9 +29,6 @@ import {
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
 
-// Run with:
-// pnpm test match-rules.test.ts
-
 const logger = createTestLogger();
 
 const provider = getProvider();

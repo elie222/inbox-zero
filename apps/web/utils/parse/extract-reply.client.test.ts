@@ -2,8 +2,6 @@ import { describe, it, expect } from "vitest";
 import { JSDOM } from "jsdom";
 import { extractEmailReply } from "./extract-reply.client";
 
-// pnpm test utils/parse/extract-reply.client.test.ts
-
 // Setup JSDOM
 const dom = new JSDOM();
 global.DOMParser = dom.window.DOMParser;

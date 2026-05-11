@@ -9,207 +9,80 @@ import {
 } from "./unsubscribe";
 
 describe("containsUnsubscribeKeyword", () => {
-  describe("detects unsubscribe keywords", () => {
-    it("detects 'unsubscribe'", () => {
-      expect(containsUnsubscribeKeyword("Click to unsubscribe")).toBe(true);
-    });
-
-    it("detects 'email preferences'", () => {
-      expect(
-        containsUnsubscribeKeyword("Manage your email preferences here"),
-      ).toBe(true);
-    });
-
-    it("detects 'email settings'", () => {
-      expect(containsUnsubscribeKeyword("Update email settings")).toBe(true);
-    });
-
-    it("detects 'email options'", () => {
-      expect(containsUnsubscribeKeyword("Change email options")).toBe(true);
-    });
-
-    it("detects 'notification preferences'", () => {
-      expect(containsUnsubscribeKeyword("Edit notification preferences")).toBe(
-        true,
-      );
-    });
-  });
-
-  describe("keyword matching behavior", () => {
-    it("matches keyword at start of text", () => {
-      expect(containsUnsubscribeKeyword("unsubscribe from this list")).toBe(
-        true,
-      );
-    });
-
-    it("matches keyword at end of text", () => {
-      expect(containsUnsubscribeKeyword("Click here to unsubscribe")).toBe(
-        true,
-      );
-    });
-
-    it("matches keyword in middle of text", () => {
-      expect(
-        containsUnsubscribeKeyword("You can unsubscribe at any time"),
-      ).toBe(true);
-    });
-
-    it("matches keyword as part of longer word", () => {
-      // This tests that includes() matches substrings
-      expect(containsUnsubscribeKeyword("unsubscribed")).toBe(true);
-    });
-
-    it("is case insensitive - matches uppercase", () => {
-      expect(containsUnsubscribeKeyword("UNSUBSCRIBE")).toBe(true);
-    });
-
-    it("is case insensitive - matches mixed case", () => {
-      expect(containsUnsubscribeKeyword("Unsubscribe")).toBe(true);
-    });
-
-    it("is case insensitive - matches 'Email Preferences'", () => {
-      expect(containsUnsubscribeKeyword("Email Preferences")).toBe(true);
-    });
-  });
-
-  describe("returns false for non-matching text", () => {
-    it("returns false for empty string", () => {
-      expect(containsUnsubscribeKeyword("")).toBe(false);
-    });
-
-    it("returns false for regular text", () => {
-      expect(containsUnsubscribeKeyword("Hello, how are you?")).toBe(false);
-    });
-
-    it("returns false for similar but different text", () => {
-      expect(containsUnsubscribeKeyword("subscribe to our newsletter")).toBe(
-        false,
-      );
-    });
-
-    it("returns false for partial keyword match", () => {
-      expect(containsUnsubscribeKeyword("email prefer")).toBe(false);
-    });
-
-    it("returns false for keywords with typos", () => {
-      expect(containsUnsubscribeKeyword("unsubscibe")).toBe(false);
-    });
+  it.each([
+    ["unsubscribe keyword", "Click to unsubscribe", true],
+    ["email preferences keyword", "Manage your email preferences here", true],
+    ["email settings keyword", "Update email settings", true],
+    ["email options keyword", "Change email options", true],
+    ["notification preferences keyword", "Edit notification preferences", true],
+    ["keyword at start of text", "unsubscribe from this list", true],
+    ["keyword at end of text", "Click here to unsubscribe", true],
+    ["keyword in middle of text", "You can unsubscribe at any time", true],
+    ["keyword as part of longer word", "unsubscribed", true],
+    ["uppercase keyword", "UNSUBSCRIBE", true],
+    ["mixed-case keyword", "Unsubscribe", true],
+    ["mixed-case email preferences", "Email Preferences", true],
+    ["empty string", "", false],
+    ["regular text", "Hello, how are you?", false],
+    ["similar but different text", "subscribe to our newsletter", false],
+    ["partial keyword match", "email prefer", false],
+    ["keyword with typo", "unsubscibe", false],
+  ])("returns %s for %s", (_name, text, expected) => {
+    expect(containsUnsubscribeKeyword(text)).toBe(expected);
   });
 });
 
 describe("containsUnsubscribeUrlPattern", () => {
-  describe("detects unsubscribe URL patterns", () => {
-    it("detects 'unsubscribe' in URL", () => {
-      expect(
-        containsUnsubscribeUrlPattern(
-          "https://example.com/unsubscribe?email=test",
-        ),
-      ).toBe(true);
-    });
-
-    it("detects 'unsub' in URL (short form)", () => {
-      expect(
-        containsUnsubscribeUrlPattern(
-          "https://click.example.com/campaign/unsub-email/123",
-        ),
-      ).toBe(true);
-    });
-
-    it("detects 'opt-out' in URL", () => {
-      expect(
-        containsUnsubscribeUrlPattern("https://example.com/opt-out/user123"),
-      ).toBe(true);
-    });
-
-    it("detects 'optout' in URL (no hyphen)", () => {
-      expect(
-        containsUnsubscribeUrlPattern(
-          "https://example.com/email/optout?id=abc",
-        ),
-      ).toBe(true);
-    });
-
-    it("detects 'list-manage' in URL (Mailchimp style)", () => {
-      expect(
-        containsUnsubscribeUrlPattern(
-          "https://list-manage.com/track/click?u=abc&id=123",
-        ),
-      ).toBe(true);
-    });
-  });
-
-  describe("URL pattern matching behavior", () => {
-    it("is case insensitive - matches UNSUB", () => {
-      expect(
-        containsUnsubscribeUrlPattern("https://example.com/UNSUB/email"),
-      ).toBe(true);
-    });
-
-    it("matches pattern in query string", () => {
-      expect(
-        containsUnsubscribeUrlPattern(
-          "https://example.com/email?action=unsubscribe",
-        ),
-      ).toBe(true);
-    });
-
-    it("matches pattern in path", () => {
-      expect(
-        containsUnsubscribeUrlPattern(
-          "https://example.com/unsubscribe/confirm",
-        ),
-      ).toBe(true);
-    });
-
-    it("matches Portuguese email example (unsub-email)", () => {
-      expect(
-        containsUnsubscribeUrlPattern(
-          "https://click.lindtbrasil.com/campaign/unsub-email/MTM",
-        ),
-      ).toBe(true);
-    });
-  });
-
-  describe("returns false for non-matching URLs", () => {
-    it("returns false for empty string", () => {
-      expect(containsUnsubscribeUrlPattern("")).toBe(false);
-    });
-
-    it("returns false for regular URLs", () => {
-      expect(containsUnsubscribeUrlPattern("https://example.com/about")).toBe(
-        false,
-      );
-    });
-
-    it("returns false for subscribe URLs (not unsubscribe)", () => {
-      expect(
-        containsUnsubscribeUrlPattern("https://example.com/subscribe"),
-      ).toBe(false);
-    });
-
-    it("returns false for URLs with 'sub' but not 'unsub'", () => {
-      expect(
-        containsUnsubscribeUrlPattern("https://example.com/submit-form"),
-      ).toBe(false);
-    });
+  it.each([
+    ["unsubscribe in URL", "https://example.com/unsubscribe?email=test", true],
+    [
+      "short unsub form",
+      "https://click.example.com/campaign/unsub-email/123",
+      true,
+    ],
+    ["opt-out URL", "https://example.com/opt-out/user123", true],
+    ["optout URL", "https://example.com/email/optout?id=abc", true],
+    [
+      "Mailchimp-style list-manage URL",
+      "https://list-manage.com/track/click?u=abc&id=123",
+      true,
+    ],
+    ["case-insensitive UNSUB", "https://example.com/UNSUB/email", true],
+    [
+      "pattern in query string",
+      "https://example.com/email?action=unsubscribe",
+      true,
+    ],
+    ["pattern in path", "https://example.com/unsubscribe/confirm", true],
+    [
+      "Portuguese unsub-email example",
+      "https://click.lindtbrasil.com/campaign/unsub-email/MTM",
+      true,
+    ],
+    ["empty string", "", false],
+    ["regular URL", "https://example.com/about", false],
+    ["subscribe URL", "https://example.com/subscribe", false],
+    ["sub without unsub", "https://example.com/submit-form", false],
+  ])("returns %s for %s", (_name, url, expected) => {
+    expect(containsUnsubscribeUrlPattern(url)).toBe(expected);
   });
 });
 
 describe("cleanUnsubscribeLink", () => {
-  it("removes surrounding angle brackets", () => {
-    expect(cleanUnsubscribeLink("<https://example.com/unsub>")).toBe(
+  it.each([
+    [
+      "surrounding angle brackets",
+      "<https://example.com/unsub>",
       "https://example.com/unsub",
-    );
-  });
-
-  it("trims whitespace", () => {
-    expect(cleanUnsubscribeLink("  https://example.com/unsub  ")).toBe(
+    ],
+    [
+      "surrounding whitespace",
+      "  https://example.com/unsub  ",
       "https://example.com/unsub",
-    );
-  });
-
-  it("returns undefined for empty strings", () => {
-    expect(cleanUnsubscribeLink("   ")).toBeUndefined();
+    ],
+    ["empty strings", "   ", undefined],
+  ])("cleans %s", (_name, link, expected) => {
+    expect(cleanUnsubscribeLink(link)).toBe(expected);
   });
 });
 
