@@ -58,8 +58,14 @@ describe("MicrosoftCalendarEventProvider", () => {
         isOnlineMeeting: true,
         onlineMeetingProvider: "teamsForBusiness",
         location: undefined,
-        start: expect.objectContaining({ timeZone: "America/New_York" }),
-        end: expect.objectContaining({ timeZone: "America/New_York" }),
+        start: {
+          dateTime: "2026-05-04T09:00:00.0000000",
+          timeZone: "UTC",
+        },
+        end: {
+          dateTime: "2026-05-04T09:30:00.0000000",
+          timeZone: "UTC",
+        },
       }),
     );
     expect(result).toEqual({

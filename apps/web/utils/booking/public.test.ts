@@ -129,6 +129,26 @@ describe("public booking", () => {
     expect(result).toEqual([]);
   });
 
+  it("does not block availability with stale pending bookings", async () => {
+    prisma.booking.findMany.mockResolvedValue([
+      bookingRecord({
+        createdAt: new Date("2026-05-03T23:00:00.000Z"),
+        status: BookingStatus.PENDING_PROVIDER_EVENT,
+      }),
+    ]);
+
+    const result = await getPublicAvailability({
+      slug: "intro",
+      start: new Date("2026-05-04T00:00:00.000Z"),
+      end: new Date("2026-05-05T00:00:00.000Z"),
+      logger,
+    });
+
+    expect(result.map((slot) => slot.startTime)).toContain(
+      "2026-05-04T09:00:00.000Z",
+    );
+  });
+
   it("fails closed before creating a booking when calendar availability fails", async () => {
     vi.mocked(getUnifiedCalendarAvailability).mockRejectedValue(
       new Error("provider unavailable"),
@@ -324,6 +344,59 @@ describe("public booking", () => {
       "Booking was canceled. Please submit a new booking request.",
     );
 
+    expect(prisma.booking.create).not.toHaveBeenCalled();
+  });
+
+  it("retries a stale pending idempotent booking", async () => {
+    prisma.booking.findFirst.mockResolvedValue(
+      bookingRecord({
+        createdAt: new Date("2026-05-03T23:00:00.000Z"),
+        status: BookingStatus.PENDING_PROVIDER_EVENT,
+      }),
+    );
+    prisma.booking.delete.mockResolvedValue({} as any);
+    prisma.booking.findMany.mockResolvedValue([]);
+    prisma.booking.create.mockResolvedValue(
+      bookingRecord({ status: BookingStatus.PENDING_PROVIDER_EVENT }),
+    );
+    prisma.booking.update.mockResolvedValue(
+      bookingRecord({
+        provider: "google",
+        providerConnectionId: "connection-id",
+        providerCalendarId: "primary",
+        providerEventId: "provider-event-id",
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+
+    const result = await createPublicBooking({
+      input: publicBookingInput({ idempotencyToken: "pending-token" }),
+      logger,
+    });
+
+    expect(prisma.booking.delete).toHaveBeenCalledWith({
+      where: { id: "booking-id" },
+    });
+    expect(prisma.booking.create).toHaveBeenCalled();
+    expect(result.status).toBe(BookingStatus.CONFIRMED);
+  });
+
+  it("does not retry a recent pending idempotent booking", async () => {
+    prisma.booking.findFirst.mockResolvedValue(
+      bookingRecord({
+        createdAt: new Date("2026-05-03T23:55:00.000Z"),
+        status: BookingStatus.PENDING_PROVIDER_EVENT,
+      }),
+    );
+
+    await expect(
+      createPublicBooking({
+        input: publicBookingInput({ idempotencyToken: "pending-token" }),
+        logger,
+      }),
+    ).rejects.toThrow("Booking request is still being processed");
+
+    expect(prisma.booking.delete).not.toHaveBeenCalled();
     expect(prisma.booking.create).not.toHaveBeenCalled();
   });
 

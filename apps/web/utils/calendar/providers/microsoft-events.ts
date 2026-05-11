@@ -136,12 +136,12 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
           content: input.description || "",
         },
         start: {
-          dateTime: input.startTime.toISOString(),
-          timeZone: input.timezone,
+          dateTime: formatMicrosoftUtcDateTime(input.startTime),
+          timeZone: "UTC",
         },
         end: {
-          dateTime: input.endTime.toISOString(),
-          timeZone: input.timezone,
+          dateTime: formatMicrosoftUtcDateTime(input.endTime),
+          timeZone: "UTC",
         },
         attendees: input.attendees.map((attendee) => ({
           emailAddress: {
@@ -195,4 +195,9 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
         })) || [],
     };
   }
+}
+
+function formatMicrosoftUtcDateTime(date: Date) {
+  // Graph DateTimeTimeZone expects a local datetime for the supplied timezone.
+  return date.toISOString().replace(/Z$/, "0000");
 }

@@ -15,6 +15,14 @@ export function endOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 1);
 }
 
+export function getInitialVisibleMonthDate(
+  slotParam: string | null,
+  now = new Date(),
+) {
+  const slotDate = slotParam ? new Date(slotParam) : null;
+  return startOfMonth(isValidDate(slotDate) ? slotDate : now);
+}
+
 export function parseSlotParam(
   value: string | null,
   durationMinutes: number | undefined,
@@ -27,6 +35,18 @@ export function parseSlotParam(
     startTime: startTime.toISOString(),
     endTime: addMinutes(startTime, durationMinutes).toISOString(),
   };
+}
+
+export function normalizeTimezone(
+  timezone: string | null | undefined,
+  fallback: string,
+) {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: timezone || fallback });
+    return timezone || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export function formatDateKey(date: Date, timezone: string) {
@@ -116,4 +136,8 @@ export function getApiError(body: unknown) {
     return (body as { error: string }).error;
   }
   return "Something went wrong";
+}
+
+function isValidDate(date: Date | null): date is Date {
+  return Boolean(date && !Number.isNaN(date.getTime()));
 }

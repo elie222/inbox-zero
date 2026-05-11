@@ -103,12 +103,14 @@ export function getCalendarOptions(data: BookingLinkCalendarData | undefined) {
 function getCalendars(data: BookingLinkCalendarData | undefined) {
   return (
     data?.calendarConnections.flatMap((connection) =>
-      connection.calendars.map((calendar) => ({
-        id: calendar.id,
-        isEnabled: calendar.isEnabled,
-        name: calendar.name,
-        primary: calendar.primary,
-      })),
+      connection.calendars
+        .filter((calendar) => calendar.isEnabled)
+        .map((calendar) => ({
+          id: calendar.id,
+          isEnabled: calendar.isEnabled,
+          name: calendar.name,
+          primary: calendar.primary,
+        })),
     ) ?? []
   );
 }

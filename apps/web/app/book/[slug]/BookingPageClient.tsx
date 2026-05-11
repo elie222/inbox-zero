@@ -25,8 +25,10 @@ import {
   formatShortWeekdayName,
   formatSlotTime,
   getApiError,
+  getInitialVisibleMonthDate,
   groupSlotsByDay,
   isBeforeToday,
+  normalizeTimezone,
   parseSlotParam,
   startOfMonth,
   type HourFormat,
@@ -45,6 +47,10 @@ export function BookingPageClient({
 }: {
   bookingLink: BookingLink;
 }) {
+  const defaultTimezone = normalizeTimezone(
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+    "UTC",
+  );
   const [{ slot: slotParam }, setBookingParams] = useQueryStates(
     {
       slot: parseAsString,
@@ -52,17 +58,14 @@ export function BookingPageClient({
     },
     { history: "push" },
   );
-  const [timezone, setTimezone] = useQueryState(
+  const [timezoneParam, setTimezoneParam] = useQueryState(
     "tz",
-    parseAsString.withDefault(
-      Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-    ),
+    parseAsString.withDefault(defaultTimezone),
   );
+  const timezone = normalizeTimezone(timezoneParam, defaultTimezone);
   const [visibleMonthDate, setVisibleMonthDate] = useQueryState(
     "month",
-    parseAsIsoDate.withDefault(
-      startOfMonth(slotParam ? new Date(slotParam) : new Date()),
-    ),
+    parseAsIsoDate.withDefault(getInitialVisibleMonthDate(slotParam)),
   );
   const visibleMonth = startOfMonth(visibleMonthDate);
 
@@ -178,7 +181,9 @@ export function BookingPageClient({
       <PickTimeStep
         bookingLink={bookingLink}
         timezone={timezone}
-        onTimezoneChange={setTimezone}
+        onTimezoneChange={(nextTimezone) =>
+          setTimezoneParam(normalizeTimezone(nextTimezone, defaultTimezone))
+        }
         visibleMonth={visibleMonth}
         onMonthChange={setVisibleMonthDate}
         selectedDateKey={displayedSelectedDateKey}

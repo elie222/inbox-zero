@@ -115,6 +115,30 @@ describe("booking actions", () => {
     expect(prisma.bookingLink.create).not.toHaveBeenCalled();
   });
 
+  it("rejects creating a booking link with a disabled destination calendar", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue(null);
+    prisma.calendar.findFirst.mockResolvedValue(null);
+
+    const result = await createBookingLinkAction("email-account-id", {
+      title: "Intro call",
+      slug: "intro-call",
+      timezone: "UTC",
+      durationMinutes: 30,
+      destinationCalendarId: "disabled-calendar-id",
+    });
+
+    expect(result?.serverError).toBe("Destination calendar not found");
+    expect(prisma.calendar.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "disabled-calendar-id",
+          isEnabled: true,
+        }),
+      }),
+    );
+    expect(prisma.bookingLink.create).not.toHaveBeenCalled();
+  });
+
   it("rejects creating more than one booking link for an account", async () => {
     prisma.bookingLink.findFirst.mockResolvedValueOnce({
       id: "existing-booking-link-id",
@@ -157,6 +181,29 @@ describe("booking actions", () => {
     });
 
     expect(result?.serverError).toBe("Destination calendar not found");
+    expect(prisma.bookingLink.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects updates with disabled destination calendars", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue({
+      id: "booking-link-id",
+    } as any);
+    prisma.calendar.findFirst.mockResolvedValue(null);
+
+    const result = await updateBookingLinkAction("email-account-id", {
+      id: "booking-link-id",
+      destinationCalendarId: "disabled-calendar-id",
+    });
+
+    expect(result?.serverError).toBe("Destination calendar not found");
+    expect(prisma.calendar.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "disabled-calendar-id",
+          isEnabled: true,
+        }),
+      }),
+    );
     expect(prisma.bookingLink.update).not.toHaveBeenCalled();
   });
 

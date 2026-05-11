@@ -56,9 +56,6 @@ export function CreateBookingLinkDialog({
   );
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [description, setDescription] = useState("");
-  const hasConnectedCalendar = Boolean(
-    data?.calendarConnections.some((connection) => connection.calendars.length),
-  );
 
   const selectedCalendarProvider = getSelectedCalendarProvider(
     data,
@@ -70,6 +67,7 @@ export function CreateBookingLinkDialog({
   const videoLabel = getVideoLocationLabel(videoLocationType);
   const canAddVideo = Boolean(videoLocationType);
   const calendarOptions = getCalendarOptions(data);
+  const hasConnectedCalendar = calendarOptions.length > 0;
   const normalizedSlug = normalizeBookingSlug(slug);
   const publicUrlPrefix =
     typeof window !== "undefined"

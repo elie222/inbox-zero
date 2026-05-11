@@ -26,6 +26,7 @@ import {
 } from "@/utils/booking/emails";
 
 const MAX_AVAILABILITY_RANGE_MS = 32 * 24 * 60 * 60 * 1000;
+const PENDING_BOOKING_TIMEOUT_MS = 15 * 60 * 1000;
 const CALENDAR_AVAILABILITY_UNAVAILABLE =
   "Calendar availability is temporarily unavailable";
 const BOOKING_CANCELED_RETRY_MESSAGE =
@@ -442,8 +443,10 @@ async function getBusyPeriods({
           endTime: { gt: start },
         },
         select: {
+          createdAt: true,
           startTime: true,
           endTime: true,
+          status: true,
         },
       })
       .catch((error) => {
@@ -461,10 +464,12 @@ async function getBusyPeriods({
 
   return [
     ...providerBusyPeriods,
-    ...existingBookings.map((booking) => ({
-      start: booking.startTime,
-      end: booking.endTime,
-    })),
+    ...existingBookings
+      .filter((booking) => isBlockingBooking(booking))
+      .map((booking) => ({
+        start: booking.startTime,
+        end: booking.endTime,
+      })),
   ];
 }
 
@@ -548,6 +553,14 @@ async function resolveExistingIdempotentBooking(
     return null;
   }
 
+  if (
+    booking.status === BookingStatus.PENDING_PROVIDER_EVENT &&
+    isStalePendingBooking(booking)
+  ) {
+    await prisma.booking.delete({ where: { id: booking.id } });
+    return null;
+  }
+
   if (booking.status === BookingStatus.CANCELED) {
     throw new SafeError(BOOKING_CANCELED_RETRY_MESSAGE);
   }
@@ -595,6 +608,27 @@ function toPublicBookingResult(booking: {
     startTime: booking.startTime.toISOString(),
     endTime: booking.endTime.toISOString(),
   };
+}
+
+function isBlockingBooking(booking: {
+  createdAt: Date;
+  status: BookingStatus;
+}) {
+  return (
+    booking.status === BookingStatus.CONFIRMED ||
+    (booking.status === BookingStatus.PENDING_PROVIDER_EVENT &&
+      !isStalePendingBooking(booking))
+  );
+}
+
+function isStalePendingBooking(booking: {
+  createdAt: Date;
+  status: BookingStatus;
+}) {
+  return (
+    booking.status === BookingStatus.PENDING_PROVIDER_EVENT &&
+    Date.now() - booking.createdAt.getTime() > PENDING_BOOKING_TIMEOUT_MS
+  );
 }
 
 function assertAvailabilityRange(start: Date, end: Date) {

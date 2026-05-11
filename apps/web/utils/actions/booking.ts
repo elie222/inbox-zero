@@ -218,6 +218,7 @@ async function getOwnedDestinationCalendarId({
   const calendar = await prisma.calendar.findFirst({
     where: {
       id: destinationCalendarId,
+      isEnabled: true,
       connection: { emailAccountId, isConnected: true },
     },
     select: { id: true },
