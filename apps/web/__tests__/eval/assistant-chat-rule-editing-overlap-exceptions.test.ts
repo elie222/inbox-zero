@@ -33,8 +33,6 @@ import { createScopedLogger } from "@/utils/logger";
 // pnpm test-ai eval/assistant-chat-rule-editing-overlap-exceptions
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-rule-editing-overlap-exceptions
 
-vi.mock("server-only", () => ({}));
-
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 120_000;
 const evalReporter = createEvalReporter();

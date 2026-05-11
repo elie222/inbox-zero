@@ -17,7 +17,6 @@ import {
   type ProviderTestHarness,
 } from "./helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@inboxzero/tinybird", () => ({
   publishArchive: vi.fn().mockResolvedValue(undefined),
 }));

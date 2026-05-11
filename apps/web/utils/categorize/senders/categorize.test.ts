@@ -5,8 +5,6 @@ import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { upsertSenderRecord } from "@/utils/senders/record";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/ai/categorize-sender/ai-categorize-single-sender", () => ({
   aiCategorizeSender: vi.fn(),
 }));

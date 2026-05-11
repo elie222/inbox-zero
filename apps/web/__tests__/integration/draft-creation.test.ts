@@ -14,8 +14,6 @@ import { createGmailTestHarness, type GmailTestHarness } from "./helpers";
 import { draftEmail } from "@/utils/gmail/mail";
 import { sendDraft } from "@/utils/gmail/draft";
 
-vi.mock("server-only", () => ({}));
-
 // draftEmail needs ensureEmailSendingEnabled which checks env vars
 vi.mock("@/utils/mail", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/utils/mail")>();

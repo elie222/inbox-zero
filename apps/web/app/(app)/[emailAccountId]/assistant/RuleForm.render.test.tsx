@@ -37,8 +37,6 @@ class MockResizeObserver {
 (globalThis as { ResizeObserver?: typeof MockResizeObserver }).ResizeObserver =
   MockResizeObserver;
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("next/navigation", () => ({
   useRouter: () => mockUseRouter(),
 }));

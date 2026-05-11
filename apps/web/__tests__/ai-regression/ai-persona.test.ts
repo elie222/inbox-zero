@@ -7,8 +7,6 @@ const TIMEOUT = 30_000;
 
 // Run with: pnpm test-ai ai-regression/ai-persona
 
-vi.mock("server-only", () => ({}));
-
 // Skip tests unless explicitly running AI tests
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 

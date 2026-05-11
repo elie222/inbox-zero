@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import {
   combineActionsWithAiArgs,
@@ -11,8 +11,6 @@ import type { Action } from "@/generated/prisma/client";
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 
 // Run with: pnpm test apps/web/utils/ai/choose-rule/choose-args.test.ts
-
-vi.mock("server-only", () => ({}));
 
 describe("getParameterFieldsForAction", () => {
   it("creates schema for simple field", () => {

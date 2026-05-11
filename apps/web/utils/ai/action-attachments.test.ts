@@ -4,7 +4,6 @@ import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import { resolveDraftAttachments } from "@/utils/attachments/draft-attachments";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/attachments/draft-attachments", () => ({
   resolveDraftAttachments: vi.fn(),
 }));

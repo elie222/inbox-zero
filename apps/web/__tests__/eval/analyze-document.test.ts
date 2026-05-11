@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test, vi } from "vitest";
+import { afterAll, describe, expect, test } from "vitest";
 import {
   describeEvalMatrix,
   shouldRunEvalTests,
@@ -8,8 +8,6 @@ import { analyzeDocument } from "@/utils/ai/document-filing/analyze-document";
 
 // pnpm test-ai eval/analyze-document
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/analyze-document
-
-vi.mock("server-only", () => ({}));
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 30_000;

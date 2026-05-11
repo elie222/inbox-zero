@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   extractErrorInfo,
   isRetryableError,
@@ -232,12 +232,7 @@ describe("withOutlookRetry", () => {
     );
 
     await expect(
-      withOutlookRetry(
-        operation,
-        createScopedLogger("test-outlook-retry"),
-        5,
-        1,
-      ),
+      withOutlookRetry(operation, createTestLogger(), 5, 1),
     ).rejects.toBeDefined();
 
     expect(operation).toHaveBeenCalledTimes(1);

@@ -16,8 +16,6 @@ import type { GmailProvider } from "@/utils/email/google";
 import { saveBatch } from "@/utils/actions/stats-loading";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
-
 // Mock Prisma — saveBatch writes to emailMessage table
 const mockCreateMany = vi.fn().mockResolvedValue({ count: 0 });
 vi.mock("@/utils/prisma", () => ({

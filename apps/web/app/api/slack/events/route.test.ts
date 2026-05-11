@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("server-only", () => ({}));
-
 const {
   ensureSlackTeamInstallationMock,
   extractSlackTeamIdFromWebhookMock,
@@ -40,14 +38,6 @@ vi.mock("@/env", () => ({
     SLACK_SIGNING_SECRET: "test-signing-secret",
   },
 }));
-
-vi.mock("next/server", async (importOriginal) => {
-  const original = await importOriginal<typeof import("next/server")>();
-  return {
-    ...original,
-    after: (fn: () => void) => fn(),
-  };
-});
 
 vi.mock("@/utils/messaging/providers/slack/verify-signature", () => ({
   validateSlackWebhookRequest: (...args: unknown[]) =>

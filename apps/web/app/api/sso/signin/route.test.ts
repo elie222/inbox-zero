@@ -1,5 +1,3 @@
-// Mock server-only as per testing guidelines
-vi.mock("server-only", () => ({}));
 vi.mock("@inboxzero/loops", () => ({
   createContact: vi.fn().mockResolvedValue(undefined),
 }));

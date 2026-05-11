@@ -13,8 +13,6 @@ import { redis } from "@/utils/redis";
 import { sendActionRequiredEmail } from "@inboxzero/resend";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/redis/usage", () => ({
   getWeeklyUsageCost: vi.fn(),
 }));

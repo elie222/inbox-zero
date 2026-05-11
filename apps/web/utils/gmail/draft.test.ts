@@ -2,8 +2,6 @@ import { describe, expect, it, vi, type Mock } from "vitest";
 import { deleteDraft, getDraft } from "@/utils/gmail/draft";
 import { GmailLabel } from "@/utils/gmail/label";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/gmail/retry", () => ({
   withGmailRetry: (fn: () => unknown) => fn(),
 }));

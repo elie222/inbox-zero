@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { archiveCategory } from "./archive-category";
 
 vi.mock("@/utils/prisma");
 
-const logger = createScopedLogger("archive-category-test");
+const logger = createTestLogger();
 
 describe("archiveCategory", () => {
   beforeEach(() => {

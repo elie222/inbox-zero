@@ -1,16 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
 import { createOrGetLabelTool, listLabelsTool } from "./chat-label-tools";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/email/provider");
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
-const logger = createScopedLogger("chat-label-tools-test");
+const logger = createTestLogger();
 const TEST_EMAIL = "user@test.com";
 
 describe("chat label tools", () => {

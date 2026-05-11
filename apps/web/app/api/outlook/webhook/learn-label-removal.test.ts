@@ -6,8 +6,6 @@ import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
 import { learnFromOutlookLabelRemoval } from "./learn-label-removal";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/prisma", () => ({
   default: {
     executedRule: {

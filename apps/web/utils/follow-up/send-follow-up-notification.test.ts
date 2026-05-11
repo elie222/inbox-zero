@@ -5,7 +5,7 @@ import {
   MessagingRouteTargetType,
   ThreadTrackerType,
 } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   sendFollowUpNotification,
   type FollowUpNotificationChannel,
@@ -19,7 +19,6 @@ import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 const mockTelegramOpenDm = vi.fn();
 const mockTelegramPostMessage = vi.fn();
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma", () => ({ default: {} }));
 vi.mock("@/utils/messaging/providers/slack/send", () => ({
   resolveSlackRouteDestination: vi.fn(),
@@ -39,7 +38,7 @@ vi.mock("@/utils/messaging/chat-sdk/adapters", () => ({
   }),
 }));
 
-const logger = createScopedLogger("send-follow-up-test");
+const logger = createTestLogger();
 
 const baseArgs = {
   subject: "Project update",

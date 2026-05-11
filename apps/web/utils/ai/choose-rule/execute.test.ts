@@ -7,8 +7,6 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
-
 const { envMock } = vi.hoisted(() => ({
   envMock: {
     WHITELIST_FROM: undefined as string | undefined,

@@ -6,8 +6,6 @@ import { CleanAction } from "@/generated/prisma/enums";
 import { getMockMessage } from "@/__tests__/helpers";
 import { SafeError } from "@/utils/error";
 
-vi.mock("server-only", () => ({}));
-
 const { cleanerEnv } = vi.hoisted(() => ({
   cleanerEnv: {
     NEXT_PUBLIC_CLEANER_ENABLED: true,

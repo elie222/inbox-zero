@@ -6,7 +6,6 @@ import { createMicrosoftAvailabilityProvider } from "./providers/microsoft-avail
 import type { BusyPeriod } from "./availability-types";
 import { getCalendarConnection, createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("./providers/google-availability");
 vi.mock("./providers/microsoft-availability");

@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createScopedLogger } from "@/utils/logger";
-
-vi.mock("server-only", () => ({}));
+import { createTestLogger } from "@/__tests__/helpers";
 
 describe("rewriteHtmlForImageProxy", () => {
   beforeEach(() => {
@@ -13,10 +11,7 @@ describe("rewriteHtmlForImageProxy", () => {
     const { rewriteHtmlForImageProxy } = await loadModule({});
     const html = '<img src="https://cdn.example.com/photo.png" />';
 
-    const rewritten = await rewriteHtmlForImageProxy(
-      html,
-      createScopedLogger("image-proxy-test"),
-    );
+    const rewritten = await rewriteHtmlForImageProxy(html, createTestLogger());
 
     expect(rewritten).toBe(html);
   });
@@ -29,7 +24,7 @@ describe("rewriteHtmlForImageProxy", () => {
 
     const html = '<img src="https://cdn.example.com/photo.png" />';
 
-    const logger = createScopedLogger("image-proxy-test");
+    const logger = createTestLogger();
     const firstRewrite = await rewriteHtmlForImageProxy(html, logger);
     const secondRewrite = await rewriteHtmlForImageProxy(html, logger);
 
@@ -51,7 +46,7 @@ describe("rewriteHtmlForImageProxy", () => {
 
     const rewritten = await rewriteHtmlForImageProxy(
       '<img src="https://cdn.example.com/photo.png" />',
-      createScopedLogger("image-proxy-test"),
+      createTestLogger(),
     );
 
     expect(rewritten).toContain(
@@ -71,7 +66,7 @@ describe("rewriteHtmlForImageProxy", () => {
 
     const rewritten = await rewriteHtmlForImageProxy(
       '<img src="https://cdn.example.com/photo.png" />',
-      createScopedLogger("image-proxy-test"),
+      createTestLogger(),
     );
 
     expect(rewritten).toContain(
@@ -88,10 +83,7 @@ describe("rewriteHtmlForImageProxy", () => {
     });
 
     const html = '<img src="https://cdn.example.com/photo.png" />';
-    const rewritten = await rewriteHtmlForImageProxy(
-      html,
-      createScopedLogger("image-proxy-test"),
-    );
+    const rewritten = await rewriteHtmlForImageProxy(html, createTestLogger());
 
     expect(rewritten).toBe(html);
     expect(warnSpy).toHaveBeenCalledTimes(1);
@@ -105,10 +97,7 @@ describe("rewriteHtmlForImageProxy", () => {
     });
 
     const html = '<img src="https://cdn.example.com/photo.png" />';
-    const rewritten = await rewriteHtmlForImageProxy(
-      html,
-      createScopedLogger("image-proxy-test"),
-    );
+    const rewritten = await rewriteHtmlForImageProxy(html, createTestLogger());
 
     expect(rewritten).toBe(html);
     expect(warnSpy).toHaveBeenCalledTimes(1);

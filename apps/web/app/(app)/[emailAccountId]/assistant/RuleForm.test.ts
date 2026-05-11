@@ -3,8 +3,6 @@ import { env } from "@/env";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
 import { getRuleActionTypeOptions } from "./RuleForm";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/env", () => ({
   env: {
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,

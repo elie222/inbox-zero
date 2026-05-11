@@ -12,7 +12,7 @@
  * - TEST_OUTLOOK_EMAIL=<your outlook email>
  */
 
-import { describe, test, expect, beforeAll, vi } from "vitest";
+import { describe, test, expect, beforeAll } from "vitest";
 import { subMonths } from "date-fns/subMonths";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -22,8 +22,6 @@ import { createTestLogger } from "@/__tests__/helpers";
 const logger = createTestLogger();
 const RUN_E2E_TESTS = process.env.RUN_E2E_TESTS;
 const TEST_OUTLOOK_EMAIL = process.env.TEST_OUTLOOK_EMAIL;
-
-vi.mock("server-only", () => ({}));
 
 describe.skipIf(!RUN_E2E_TESTS)(
   "Outlook Query Parsing E2E",

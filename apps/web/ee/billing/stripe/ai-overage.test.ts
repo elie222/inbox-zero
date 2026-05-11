@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const { mockEnv } = vi.hoisted(() => ({
   mockEnv: {} as { STRIPE_AI_GENERATION_OVERAGE_CONFIG?: string },
@@ -41,7 +41,7 @@ vi.mock("@/app/(app)/premium/config", () => ({
   getStripeSubscriptionTier: mockGetStripeSubscriptionTier,
 }));
 
-const logger = createScopedLogger("ai-overage-test");
+const logger = createTestLogger();
 
 describe("syncAiGenerationOverageForUpcomingInvoice", () => {
   beforeEach(() => {

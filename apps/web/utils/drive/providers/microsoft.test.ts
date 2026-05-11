@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Client } from "@microsoft/microsoft-graph-client";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { OneDriveProvider } from "./microsoft";
 
 vi.mock("@microsoft/microsoft-graph-client", () => ({
@@ -30,10 +30,7 @@ describe("OneDriveProvider", () => {
 
     vi.mocked(Client.init).mockReturnValue({ api } as any);
 
-    const provider = new OneDriveProvider(
-      "token",
-      createScopedLogger("onedrive-provider-test"),
-    );
+    const provider = new OneDriveProvider("token", createTestLogger());
 
     await provider.createFolder("Plans:2026", "parent-1");
 
@@ -59,10 +56,7 @@ describe("OneDriveProvider", () => {
 
     vi.mocked(Client.init).mockReturnValue({ api } as any);
 
-    const provider = new OneDriveProvider(
-      "token",
-      createScopedLogger("onedrive-provider-test"),
-    );
+    const provider = new OneDriveProvider("token", createTestLogger());
 
     await provider.uploadFile({
       filename: "Agenda - Plans 2025:2026.pdf",
@@ -92,10 +86,7 @@ describe("OneDriveProvider", () => {
 
     vi.mocked(Client.init).mockReturnValue({ api } as any);
 
-    const provider = new OneDriveProvider(
-      "token",
-      createScopedLogger("onedrive-provider-test"),
-    );
+    const provider = new OneDriveProvider("token", createTestLogger());
 
     await provider.uploadFile({
       filename: "   ",

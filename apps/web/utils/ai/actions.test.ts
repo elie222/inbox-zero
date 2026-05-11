@@ -13,7 +13,6 @@ import {
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
-vi.mock("server-only", () => ({}));
 
 vi.mock("@/utils/attachments/draft-attachments", () => ({
   resolveDraftAttachments: vi.fn().mockResolvedValue([]),

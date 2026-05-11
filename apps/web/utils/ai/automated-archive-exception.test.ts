@@ -2,8 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType } from "@/generated/prisma/enums";
 import { shouldSkipAutomatedArchiveForSender } from "@/utils/ai/automated-archive-exception";
 
-vi.mock("server-only", () => ({}));
-
 const { envMock } = vi.hoisted(() => ({
   envMock: {
     WHITELIST_FROM: undefined as string | undefined,

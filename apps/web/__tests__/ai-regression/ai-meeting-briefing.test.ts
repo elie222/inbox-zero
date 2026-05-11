@@ -14,8 +14,6 @@ import { createScopedLogger } from "@/utils/logger";
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
-vi.mock("server-only", () => ({}));
-
 const logger = createScopedLogger("ai-meeting-briefing-test");
 
 const TIMEOUT = 60_000; // Longer timeout for agentic flow with research

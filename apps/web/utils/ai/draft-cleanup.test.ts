@@ -6,8 +6,6 @@ import {
 import { ActionType } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 
-vi.mock("server-only", () => ({}));
-
 const mocks = vi.hoisted(() => ({
   prisma: {
     emailAccount: {

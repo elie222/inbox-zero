@@ -12,7 +12,7 @@
  * - TEST_GMAIL_EMAIL=<your gmail email>
  */
 
-import { describe, test, expect, beforeAll, vi } from "vitest";
+import { describe, test, expect, beforeAll } from "vitest";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import { extractEmailAddress, extractDomainFromEmail } from "@/utils/email";
@@ -23,8 +23,6 @@ import { createTestLogger } from "@/__tests__/helpers";
 const logger = createTestLogger();
 const RUN_E2E_TESTS = process.env.RUN_E2E_TESTS;
 const TEST_GMAIL_EMAIL = process.env.TEST_GMAIL_EMAIL;
-
-vi.mock("server-only", () => ({}));
 
 describe.skipIf(!RUN_E2E_TESTS || !TEST_GMAIL_EMAIL)(
   "Cold Email Detection - Google",

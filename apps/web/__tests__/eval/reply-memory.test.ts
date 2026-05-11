@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test, vi } from "vitest";
+import { afterAll, describe, expect, test } from "vitest";
 import { getEmail } from "@/__tests__/helpers";
 import {
   describeEvalMatrix,
@@ -18,8 +18,6 @@ import { isDefined } from "@/utils/types";
 
 // EVAL_MODELS=gpt-5.4-mini pnpm test-ai eval/reply-memory
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/reply-memory
-
-vi.mock("server-only", () => ({}));
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 180_000;

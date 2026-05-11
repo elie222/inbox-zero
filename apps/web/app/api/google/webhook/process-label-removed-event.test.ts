@@ -14,8 +14,6 @@ import { findRuleByLabelId } from "@/utils/rule/classification-feedback";
 
 const logger = createTestLogger();
 
-vi.mock("server-only", () => ({}));
-
 // Mock dependencies
 vi.mock("@/utils/prisma", () => ({
   default: {

@@ -13,7 +13,6 @@ import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachm
 // pnpm test-ai eval/draft-attachments
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/draft-attachments
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 vi.mock("@/utils/user/get", () => ({

@@ -2,8 +2,6 @@ import { createCipheriv, randomBytes, scryptSync } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { decryptToken, encryptToken } from "./encryption";
 
-vi.mock("server-only", () => ({}));
-
 const { TEST_SECRET, TEST_SALT } = vi.hoisted(() => ({
   TEST_SECRET: "test-secret-key-for-encryption-testing",
   TEST_SALT: "test-salt-for-encryption",

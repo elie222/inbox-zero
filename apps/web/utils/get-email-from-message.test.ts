@@ -1,8 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "./get-email-from-message";
-
-vi.mock("server-only", () => ({}));
 
 function makeParsedMessage(
   overrides: Partial<ParsedMessage> = {},
