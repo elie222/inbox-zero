@@ -1,7 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestLogger } from "@/__tests__/helpers";
-
-const testLogger = createTestLogger();
 
 const { envMock, captureExceptionMock, enforceRetentionMock } = vi.hoisted(
   () => ({
@@ -27,24 +24,13 @@ vi.mock("@/utils/privacy/reasoning-retention", () => ({
     enforceRetentionMock(...args),
 }));
 
-vi.mock("@/utils/middleware", () => ({
-  withError:
-    (
-      _scope: string,
-      handler: (
-        request: Request & {
-          logger: typeof testLogger;
-        },
-      ) => Promise<Response>,
-    ) =>
-    async (request: Request) => {
-      const requestWithLogger = request as Request & {
-        logger: typeof testLogger;
-      };
-      requestWithLogger.logger = testLogger;
-      return handler(requestWithLogger);
-    },
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithErrorTestMiddleware();
+});
 
 import { GET, POST } from "./route";
 
@@ -84,7 +70,7 @@ describe("reasoning retention cron route", () => {
     });
     expect(enforceRetentionMock).toHaveBeenCalledWith({
       days: 30,
-      logger: testLogger,
+      logger: expect.anything(),
     });
     expect(captureExceptionMock).not.toHaveBeenCalled();
   });
@@ -118,7 +104,7 @@ describe("reasoning retention cron route", () => {
     });
     expect(enforceRetentionMock).toHaveBeenCalledWith({
       days: 30,
-      logger: testLogger,
+      logger: expect.anything(),
     });
     expect(captureExceptionMock).not.toHaveBeenCalled();
   });

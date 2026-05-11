@@ -10,6 +10,77 @@ export function createTestLogger() {
   return createScopedLogger("test");
 }
 
+type WithErrorTestHandler<TContext extends unknown[]> = (
+  request: Request,
+  ...context: TContext
+) => Promise<Response>;
+
+type TestRequestWithLogger = Request & {
+  logger: ReturnType<typeof createTestLogger>;
+};
+
+type TestEmailAccountAuth = {
+  email: string;
+  emailAccountId: string;
+  userId: string;
+};
+
+type TestMiddlewareHandler = (
+  request: Request,
+  ...context: unknown[]
+) => Promise<Response>;
+
+export function createWithErrorTestMiddleware({
+  logger = createTestLogger(),
+}: {
+  logger?: ReturnType<typeof createTestLogger>;
+} = {}) {
+  return {
+    withError:
+      <TContext extends unknown[]>(
+        _scope: string,
+        handler: WithErrorTestHandler<TContext>,
+      ) =>
+      async (request: Request, ...context: TContext) => {
+        (request as TestRequestWithLogger).logger = logger;
+        return handler(request, ...context);
+      },
+  };
+}
+
+export function createWithEmailAccountTestMiddleware(
+  options?: Parameters<typeof addTestEmailAccountAuth>[1],
+) {
+  const wrap =
+    (handler: TestMiddlewareHandler) =>
+    async (request: Request, ...context: unknown[]) =>
+      handler(addTestEmailAccountAuth(request, options), ...context);
+
+  return {
+    withEmailAccount: (
+      scopeOrHandler: string | TestMiddlewareHandler,
+      handler?: TestMiddlewareHandler,
+    ) => wrap(typeof scopeOrHandler === "string" ? handler! : scopeOrHandler),
+  };
+}
+
+export function addTestEmailAccountAuth<TRequest extends Request>(
+  request: TRequest,
+  {
+    auth = {
+      userId: "user-1",
+      emailAccountId: "email-account-1",
+      email: "user@example.com",
+    },
+    logger = createTestLogger(),
+  }: {
+    auth?: TestEmailAccountAuth;
+    logger?: ReturnType<typeof createTestLogger>;
+  } = {},
+) {
+  return Object.assign(request, { auth, logger });
+}
+
 type EmailAccountSelect = {
   id: string;
   email: string;

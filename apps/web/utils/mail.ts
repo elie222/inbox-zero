@@ -40,21 +40,21 @@ export function getEmailClient(messageId: string) {
   return emailClient;
 }
 
-function removeForwardedContent(text: string): string {
-  const forwardPatterns = [
-    // Gmail style
-    /(?:\r?\n|\r)?(?:-{3,}|_{3,})\s*Forwarded message\s*(?:-{3,}|_{3,})/i,
-    // Simple forward markers
-    /(?:\r?\n|\r)?(?:-{3,}|_{3,})\s*Forward(?:ed)?(?:\s*message)?(?:-{3,}|_{3,})/i,
-    // Email headers
-    /(?:\r?\n|\r)?From:[\s\S]*?Subject:/m,
-    // iOS/Mac style
-    /(?:\r?\n|\r)?Begin forwarded message:/im,
-    // Outlook style
-    /(?:\r?\n|\r)?Original Message/i,
-  ];
+const FORWARDED_CONTENT_PATTERNS = [
+  // Gmail style
+  /(?:\r?\n|\r)?(?:-{3,}|_{3,})\s*Forwarded message\s*(?:-{3,}|_{3,})/i,
+  // Simple forward markers
+  /(?:\r?\n|\r)?(?:-{3,}|_{3,})\s*Forward(?:ed)?(?:\s*message)?(?:-{3,}|_{3,})/i,
+  // Forwarded email header blocks
+  /(?:^|\r?\n)From:\s*[^\r\n]+(?:\r?\n(?:Date|Sent|To|Cc|Bcc|Subject):\s*[^\r\n]+){2,}/im,
+  // iOS/Mac style
+  /(?:\r?\n|\r)?Begin forwarded message:/im,
+  // Outlook style
+  /(?:\r?\n|\r)?Original Message/i,
+];
 
-  for (const pattern of forwardPatterns) {
+export function stripForwardedContent(text: string): string {
+  for (const pattern of FORWARDED_CONTENT_PATTERNS) {
     const parts = text.split(pattern);
     if (parts.length > 1) {
       // Take content before the forward marker and clean it
@@ -94,7 +94,7 @@ export function emailToContent(
   }
 
   if (removeForwarded) {
-    content = removeForwardedContent(content);
+    content = stripForwardedContent(content);
   }
 
   content = removeExcessiveWhitespace(content);

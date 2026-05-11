@@ -36,21 +36,11 @@ vi.mock("@/env", () => ({
 }));
 
 vi.mock("@/utils/middleware", async () => {
-  const { createScopedLogger } =
-    await vi.importActual<typeof import("@/utils/logger")>("@/utils/logger");
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
 
-  return {
-    withError:
-      (_name: string, handler: (request: NextRequest) => Promise<Response>) =>
-      async (request: NextRequest) => {
-        (
-          request as NextRequest & {
-            logger: ReturnType<typeof createScopedLogger>;
-          }
-        ).logger = createScopedLogger("test/google-linking-callback");
-        return handler(request);
-      },
-  };
+  return createWithErrorTestMiddleware();
 });
 
 vi.mock("@/utils/prisma");

@@ -130,6 +130,19 @@ describe("emailToContent", () => {
       const result = emailToContent(email, { removeForwarded: true });
       expect(result).toBe("Regular email content without forwards");
     });
+
+    it("does not treat inline From and Subject text as a forwarded message", () => {
+      const email = {
+        textPlain:
+          "Please update the From: field and Subject: line before sending.",
+        textHtml: undefined,
+        snippet: "",
+      };
+      const result = emailToContent(email, { removeForwarded: true });
+      expect(result).toBe(
+        "Please update the From: field and Subject: line before sending.",
+      );
+    });
   });
 
   describe("whitespace handling", () => {

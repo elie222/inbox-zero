@@ -1,6 +1,4 @@
-import { createHmac } from "node:crypto";
 import { createUIMessageStream } from "ai";
-import { createEmulator, type Emulator } from "emulate";
 import { WebClient } from "@slack/web-api";
 import {
   afterAll,
@@ -16,7 +14,12 @@ import {
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
+import {
+  createSignedSlackRequest,
+  createSlackTestHarness,
+  type SlackTestHarness,
+} from "./helpers";
 
 vi.mock("@/utils/prisma");
 
@@ -70,13 +73,13 @@ vi.mock("@/utils/messaging/rule-notifications", () => ({
 
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS === "true";
 const TEST_PORT = 4118;
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe.skipIf(!RUN_INTEGRATION_TESTS)(
   "Slack chat webhook",
   { timeout: 30_000 },
   () => {
-    let emulator: Emulator;
+    let slackHarness: SlackTestHarness;
     let emulatorClient: WebClient;
     let teamId: string;
     let userId: string;
@@ -88,53 +91,35 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     beforeAll(async () => {
       originalSlackApiUrl = process.env.SLACK_API_URL;
 
-      emulator = await createEmulator({
-        service: "slack",
+      slackHarness = await createSlackTestHarness({
         port: TEST_PORT,
-        seed: {
-          slack: {
-            team: { name: "TestWorkspace", domain: "test-workspace" },
-            users: [
-              {
-                name: "alice",
-                real_name: "Alice Smith",
-                email: "alice@example.com",
-              },
-            ],
-            channels: [
-              {
-                name: "assistant-chat",
-                is_private: false,
-                topic: "Assistant chat tests",
-              },
-            ],
+        team: { name: "TestWorkspace", domain: "test-workspace" },
+        users: [
+          {
+            name: "alice",
+            real_name: "Alice Smith",
+            email: "alice@example.com",
           },
-        },
+        ],
+        channels: [
+          {
+            name: "assistant-chat",
+            is_private: false,
+            topic: "Assistant chat tests",
+          },
+        ],
       });
-      process.env.SLACK_API_URL = `${emulator.url}/api/`;
 
-      emulatorClient = new WebClient("emulator-token", {
-        slackApiUrl: `${emulator.url}/api/`,
-      });
+      process.env.SLACK_API_URL = `${slackHarness.emulator.url}/api/`;
+      emulatorClient = slackHarness.client;
 
-      const auth = await emulatorClient.auth.test();
-      teamId = auth.team_id!;
-
-      const users = await emulatorClient.users.list();
-      const alice = users.members?.find((member) => member.name === "alice");
-      if (!alice?.id) throw new Error("Slack emulator user not found");
-      userId = alice.id;
-
-      const channels = await emulatorClient.conversations.list({
-        types: "public_channel,private_channel",
-      });
-      const assistantChannel = channels.channels?.find(
-        (channel) => channel.name === "assistant-chat",
-      );
-      if (!assistantChannel?.id) {
+      teamId = slackHarness.teamId;
+      userId = slackHarness.usersByName.alice;
+      channelId = slackHarness.channelsByName["assistant-chat"];
+      if (!userId) throw new Error("Slack emulator user not found");
+      if (!channelId) {
         throw new Error("Slack emulator channel not found");
       }
-      channelId = assistantChannel.id;
     });
 
     afterAll(async () => {
@@ -145,7 +130,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       } else {
         process.env.SLACK_API_URL = originalSlackApiUrl;
       }
-      await emulator?.close();
+      await slackHarness?.emulator.close();
     });
 
     beforeEach(async () => {
@@ -200,7 +185,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           if (url.startsWith("https://slack.com/api/")) {
             const rewrittenUrl = url.replace(
               "https://slack.com/api/",
-              `${emulator.url}/api/`,
+              `${slackHarness.emulator.url}/api/`,
             );
 
             if (input instanceof Request) {
@@ -316,7 +301,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       const { bot } = getMessagingChatSdkBot();
       const backgroundTasks: Promise<unknown>[] = [];
       const response = await bot.webhooks.slack(
-        createSignedSlackRequest(body),
+        createSignedSlackRequest({ body }),
         {
           waitUntil: (promise) => {
             backgroundTasks.push(promise);
@@ -382,7 +367,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       const { bot } = getMessagingChatSdkBot();
       const backgroundTasks: Promise<unknown>[] = [];
       const response = await bot.webhooks.slack(
-        createSignedSlackRequest(body),
+        createSignedSlackRequest({ body }),
         {
           waitUntil: (promise) => {
             backgroundTasks.push(promise);
@@ -403,23 +388,6 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     });
   },
 );
-
-function createSignedSlackRequest(body: string) {
-  const timestamp = `${Math.floor(Date.now() / 1000)}`;
-  const signature = `v0=${createHmac("sha256", "test-signing-secret")
-    .update(`v0:${timestamp}:${body}`)
-    .digest("hex")}`;
-
-  return new Request("https://example.com/api/slack/events", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-slack-request-timestamp": timestamp,
-      "x-slack-signature": signature,
-    },
-    body,
-  });
-}
 
 function mockUnsupportedSlackApiCall({
   channelId,
