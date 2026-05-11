@@ -23,24 +23,13 @@ vi.mock("@/env", () => ({
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/utils/middleware", () => ({
-  withError:
-    (
-      _scope: string,
-      handler: (
-        request: NextRequest & {
-          logger: typeof mockLogger;
-        },
-      ) => Promise<Response>,
-    ) =>
-    async (request: NextRequest) => {
-      const requestWithLogger = request as NextRequest & {
-        logger: typeof mockLogger;
-      };
-      requestWithLogger.logger = mockLogger;
-      return handler(requestWithLogger);
-    },
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithErrorTestMiddleware({ logger: mockLogger as never });
+});
 
 import { GET } from "./route";
 

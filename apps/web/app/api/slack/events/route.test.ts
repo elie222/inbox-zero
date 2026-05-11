@@ -9,29 +9,36 @@ const {
   validateSlackWebhookRequestMock,
   publishAppHomeMock,
   handleSlackAppUninstalledMock,
-} = vi.hoisted(() => ({
-  validateSlackWebhookRequestMock: vi.fn(),
-  ensureSlackTeamInstallationMock: vi.fn(),
-  extractSlackTeamIdFromWebhookMock: vi.fn(),
-  slackWebhookMock: vi.fn(),
-  withMessagingRequestLoggerMock: vi.fn(
-    ({ fn }: { fn: () => Promise<Response> }) => fn(),
-  ),
-  publishAppHomeMock: vi.fn(),
-  handleSlackAppUninstalledMock: vi.fn(),
-}));
+  requestLoggerMock,
+} = vi.hoisted(() => {
+  const requestLoggerMock = {
+    warn: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    trace: vi.fn(),
+  };
 
-vi.mock("@/utils/middleware", () => ({
-  withError: (
-    scopeOrHandler: string | ((request: Request) => Promise<Response>),
-    maybeHandler?: (request: Request) => Promise<Response>,
-  ) => {
-    if (typeof scopeOrHandler === "string") {
-      return maybeHandler as (request: Request) => Promise<Response>;
-    }
-    return scopeOrHandler;
-  },
-}));
+  return {
+    validateSlackWebhookRequestMock: vi.fn(),
+    ensureSlackTeamInstallationMock: vi.fn(),
+    extractSlackTeamIdFromWebhookMock: vi.fn(),
+    slackWebhookMock: vi.fn(),
+    withMessagingRequestLoggerMock: vi.fn(
+      ({ fn }: { fn: () => Promise<Response> }) => fn(),
+    ),
+    publishAppHomeMock: vi.fn(),
+    handleSlackAppUninstalledMock: vi.fn(),
+    requestLoggerMock,
+  };
+});
+
+vi.mock("@/utils/middleware", async () => {
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithErrorTestMiddleware({ logger: requestLoggerMock as never });
+});
 
 vi.mock("@/env", () => ({
   env: {
@@ -82,7 +89,7 @@ function createRequest({
   signature?: string;
   timestamp?: string;
 }) {
-  const request = new Request("https://example.com/api/slack/events", {
+  return new Request("https://example.com/api/slack/events", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -91,22 +98,8 @@ function createRequest({
     },
     body,
   }) as Request & {
-    logger: {
-      warn: ReturnType<typeof vi.fn>;
-      error: ReturnType<typeof vi.fn>;
-      info: ReturnType<typeof vi.fn>;
-      trace: ReturnType<typeof vi.fn>;
-    };
+    logger: typeof requestLoggerMock;
   };
-
-  request.logger = {
-    warn: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-    trace: vi.fn(),
-  };
-
-  return request;
 }
 
 const context = { params: Promise.resolve({}) } as {

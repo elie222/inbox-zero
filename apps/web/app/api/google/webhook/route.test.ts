@@ -7,30 +7,38 @@ const {
   getWebhookEmailAccountMock,
   getEmailProviderRateLimitStateMock,
   cleanupWebhookAccountOnRateLimitSkipMock,
-} = vi.hoisted(() => ({
-  envMock: {
-    GOOGLE_PUBSUB_VERIFICATION_TOKEN: "test-google-webhook-token" as
-      | string
-      | undefined,
-  },
-  processHistoryForUserMock: vi.fn(),
-  runWithBackgroundLoggerFlushMock: vi.fn(),
-  getWebhookEmailAccountMock: vi.fn(),
-  getEmailProviderRateLimitStateMock: vi.fn(),
-  cleanupWebhookAccountOnRateLimitSkipMock: vi.fn(),
-}));
+  requestLoggerMock,
+} = vi.hoisted(() => {
+  const requestLoggerMock = {
+    error: vi.fn(),
+    info: vi.fn(),
+    trace: vi.fn(),
+    warn: vi.fn(),
+    with: vi.fn(),
+  };
 
-vi.mock("@/utils/middleware", () => ({
-  withError: (
-    scopeOrHandler: string | ((request: Request) => Promise<Response>),
-    maybeHandler?: (request: Request) => Promise<Response>,
-  ) => {
-    if (typeof scopeOrHandler === "string") {
-      return maybeHandler as (request: Request) => Promise<Response>;
-    }
-    return scopeOrHandler;
-  },
-}));
+  return {
+    envMock: {
+      GOOGLE_PUBSUB_VERIFICATION_TOKEN: "test-google-webhook-token" as
+        | string
+        | undefined,
+    },
+    processHistoryForUserMock: vi.fn(),
+    runWithBackgroundLoggerFlushMock: vi.fn(),
+    getWebhookEmailAccountMock: vi.fn(),
+    getEmailProviderRateLimitStateMock: vi.fn(),
+    cleanupWebhookAccountOnRateLimitSkipMock: vi.fn(),
+    requestLoggerMock,
+  };
+});
+
+vi.mock("@/utils/middleware", async () => {
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithErrorTestMiddleware({ logger: requestLoggerMock as never });
+});
 
 vi.mock("@/env", () => ({
   env: envMock,
@@ -67,6 +75,7 @@ import { POST } from "./route";
 describe("Google webhook route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    requestLoggerMock.with.mockReturnValue(requestLoggerMock);
     envMock.GOOGLE_PUBSUB_VERIFICATION_TOKEN = "test-google-webhook-token";
     processHistoryForUserMock.mockResolvedValue(undefined);
     getWebhookEmailAccountMock.mockResolvedValue(null);
@@ -185,7 +194,7 @@ function createRequest({
   const requestUrl = new URL("https://example.com/api/google/webhook");
   if (token) requestUrl.searchParams.set("token", token);
 
-  const request = new Request(requestUrl, {
+  return new Request(requestUrl, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -204,24 +213,6 @@ function createRequest({
       },
     }),
   }) as Request & {
-    logger: {
-      error: ReturnType<typeof vi.fn>;
-      info: ReturnType<typeof vi.fn>;
-      trace: ReturnType<typeof vi.fn>;
-      warn: ReturnType<typeof vi.fn>;
-      with: ReturnType<typeof vi.fn>;
-    };
+    logger: typeof requestLoggerMock;
   };
-
-  const logger = {
-    error: vi.fn(),
-    info: vi.fn(),
-    trace: vi.fn(),
-    warn: vi.fn(),
-    with: vi.fn(),
-  };
-  logger.with.mockReturnValue(logger);
-  request.logger = logger;
-
-  return request;
 }

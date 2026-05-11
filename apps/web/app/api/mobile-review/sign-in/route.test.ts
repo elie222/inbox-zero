@@ -1,23 +1,27 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createMobileReviewSessionMock, loggerInfoMock } = vi.hoisted(() => ({
-  createMobileReviewSessionMock: vi.fn(),
-  loggerInfoMock: vi.fn(),
-}));
+const { createMobileReviewSessionMock, loggerInfoMock, requestLoggerMock } =
+  vi.hoisted(() => {
+    const loggerInfoMock = vi.fn();
+
+    return {
+      createMobileReviewSessionMock: vi.fn(),
+      loggerInfoMock,
+      requestLoggerMock: { info: loggerInfoMock },
+    };
+  });
 
 vi.mock("@/utils/mobile-review", () => ({
   createMobileReviewSession: createMobileReviewSessionMock,
 }));
-vi.mock("@/utils/middleware", () => ({
-  withError:
-    (
-      _scope: string,
-      handler: (request: NextRequest, ...args: unknown[]) => Promise<Response>,
-    ) =>
-    (request: NextRequest, ...args: unknown[]) =>
-      handler(request, ...args),
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithErrorTestMiddleware({ logger: requestLoggerMock as never });
+});
 
 import { POST } from "./route";
 
@@ -55,8 +59,7 @@ describe("mobile review sign-in route", () => {
         },
         method: "POST",
       },
-    ) as NextRequest & { logger: { info: typeof loggerInfoMock } };
-    request.logger = { info: loggerInfoMock };
+    );
 
     const response = await POST(request, {} as never);
     const body = await response.json();
@@ -64,7 +67,7 @@ describe("mobile review sign-in route", () => {
     expect(createMobileReviewSessionMock).toHaveBeenCalledWith({
       code: "review-code",
       email: "review@example.com",
-      logger: request.logger,
+      logger: requestLoggerMock,
     });
     expect(body).toEqual({ success: true });
     expect(body.setCookie).toBeUndefined();
@@ -92,8 +95,7 @@ describe("mobile review sign-in route", () => {
         },
         method: "POST",
       },
-    ) as NextRequest & { logger: { info: typeof loggerInfoMock } };
-    request.logger = { info: loggerInfoMock };
+    );
 
     await expect(POST(request, {} as never)).rejects.toThrow();
     expect(createMobileReviewSessionMock).not.toHaveBeenCalled();
