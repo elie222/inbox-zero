@@ -82,6 +82,9 @@ jobs:
           INTERNAL_API_KEY: "secret"
           NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
 
+      - name: Run package tests
+        run: pnpm test:packages
+
       - name: Run integration tests
         run: pnpm -F inbox-zero-ai test-integration
         env:

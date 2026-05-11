@@ -6,6 +6,7 @@
     "dev": "turbo dev --filter=./apps/web",
     "worker": "pnpm --filter @inboxzero/worker start",
     "test": "turbo run test --filter=./apps/web",
+    "test:packages": "pnpm -r --filter @inbox-zero/api --filter @inbox-zero/cli --filter @inboxzero/image-proxy --filter @inboxzero/image-proxy-aws test",
     "lint": "turbo lint",
     "postinstall": "sh clone-marketing.sh",
     "prepare": "husky install",
