@@ -56,7 +56,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+- **Audit `/etc/cron.d/inbox-zero` endpoints (2026-05-09):** verify whether `/api/cron/automation-jobs`, `/api/cron/scheduled-actions`, and `/api/watch/all` are actually needed in this self-hosted fork. They were migrated from a stale-secret ubuntu crontab to a root cron file sourcing `/opt/inbox-zero/.env` so secret rotation propagates. If unused, delete the cron file rather than maintain dead schedulers.
 
 ### Blockers/Concerns
 

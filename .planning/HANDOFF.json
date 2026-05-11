@@ -1,30 +1,34 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-11T21:41:43Z",
+  "timestamp": "2026-05-11T23:20:00Z",
   "phase": "04",
   "phase_name": "daily-digest",
   "phase_dir": ".planning/phases/04-daily-digest",
-  "task": "hotfix-followup",
-  "status": "shipped",
+  "task": "hotfix-followup-2",
+  "status": "paused",
   "completed_tasks": [
     {"id": "hotfix-bug1", "name": "Revert Schedule coupling in runDailyDigest, move cron to once-daily 09:00 ET", "status": "done", "commit": "57fa0fe11"},
     {"id": "hotfix-bug2", "name": "Switch digest bucket matching from rule.name to rule.systemType", "status": "done", "commit": "57fa0fe11"},
-    {"id": "hotfix-ui", "name": "Grey out DigestScheduleForm with tooltip explaining server-side override", "status": "done", "commit": "57fa0fe11"},
+    {"id": "hotfix-ui-1", "name": "Grey out DigestScheduleForm (onboarding) with tooltip", "status": "done", "commit": "57fa0fe11"},
+    {"id": "hotfix-ui-2", "name": "Grey out DigestSettingsForm (settings page) — PR #22 missed this duplicated form", "status": "pr_open", "commit": "432f6a7e9", "pr": "https://github.com/rebekah-create/inbox-zero-rebekah/pull/23"},
     {"id": "memory-update", "name": "Update urgent_uncertain_delete_risk memory to reflect narrowed scope", "status": "done"}
   ],
   "remaining_tasks": [
-    {"id": "verify-2026-05-12", "name": "Confirm 09:00 ET arrival + non-zero Notifications section in next morning's digest", "status": "not_started"}
+    {"id": "verify-2026-05-12", "name": "Confirm 09:00 ET arrival + non-zero Notifications section in next morning's digest", "status": "not_started"},
+    {"id": "merge-pr-23", "name": "Merge PR #23 (DigestSettingsForm disable) on next code-change deploy — user opted not to deploy alone for such a minor fix", "status": "deferred"}
   ],
   "blockers": [],
   "human_actions_pending": [
-    {"action": "Inbox check at ~09:05 ET on 2026-05-12", "context": "Verify both fixes in production after auto-deploy", "blocking": false}
+    {"action": "Inbox check at ~09:05 ET on 2026-05-12", "context": "Verify hotfix bug #1 and #2 in production after auto-deploy of 57fa0fe11", "blocking": false},
+    {"action": "Merge PR #23 next time we touch the code", "context": "Bundle with next deploy to avoid spinning up a build for a cosmetic UI fix", "blocking": false}
   ],
   "decisions": [
     {"decision": "Drop fork-only Schedule advance reimplementation in runDailyDigest rather than re-debug", "rationale": "Minimize upstream divergence; single-user fork doesn't need per-account scheduling", "phase": "04"},
     {"decision": "systemType-first bucket matching with name fallback for Urgent/Uncertain", "rationale": "Survive rule renames without adding new SystemType enum values (which would mean Prisma migration + further divergence)", "phase": "04"},
-    {"decision": "Grey out UI form with tooltip rather than hide it", "rationale": "Keeps upstream component intact; makes the server-side override visible and explainable", "phase": "04"}
+    {"decision": "Grey out UI form with tooltip rather than hide it", "rationale": "Keeps upstream component intact; makes the server-side override visible and explainable", "phase": "04"},
+    {"decision": "Defer PR #23 deploy until bundled with next code change", "rationale": "Cosmetic-only fix; not worth the build cycle on its own", "phase": "04"}
   ],
   "uncommitted_files": [".planning/STATE.md"],
-  "next_action": "At ~09:05 ET on 2026-05-12 confirm digest arrival time and Notifications section content; if either fails, check inbox-zero-cron and inbox-zero-app docker logs.",
-  "context_notes": "User explicitly drove the fix shape with 'the more we diverge, the harder it gets to merge'. Root cause of the underlying Prisma/pg-adapter no-op on Schedule update was never pinned down (updatedAt advanced but date columns stayed frozen) — now moot because that code path is gone. PR #22 squash-merged as 57fa0fe11; auto-deploy in progress."
+  "next_action": "At ~09:05 ET on 2026-05-12 confirm digest arrival time and Notifications section content; if either fails, check inbox-zero-cron and inbox-zero-app docker logs. Separately: when next deploying anything, ensure PR #23 is included in the merge.",
+  "context_notes": "This session: investigated why the 'greyed out digest time' from PR #22 still shows editable in production. Root cause: two near-duplicate digest schedule forms exist. PR #22 disabled DigestScheduleForm.tsx (used only by the onboarding StepDigest pages); the actual settings page at /assistant/settings → Digest renders DigestSettingsForm.tsx, which has its own copy of frequency Select + day-of-week Select + TimePicker and was never touched. Opened PR #23 mirroring PR #22's disabling pattern on the settings form. User opted to merge it next time we touch the code rather than deploy alone. Worth noting for future work: the two forms duplicate ~150 lines of schedule UI — extract a shared component next time someone touches this area."
 }
