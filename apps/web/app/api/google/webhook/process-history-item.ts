@@ -64,18 +64,11 @@ export async function processHistoryItem(
     );
   };
 
-  if (
-    type === HistoryEventType.LABEL_ADDED &&
-    item.labelIds?.includes(GmailLabel.SENT)
-  ) {
-    return lockAndProcessShared();
-  }
-
   // Handle Google-specific label events
   if (type === HistoryEventType.LABEL_REMOVED) {
     logger.info("Processing label removed event for learning");
     return handleLabelRemovedEvent(
-      item,
+      item as gmail_v1.Schema$HistoryLabelRemoved,
       {
         emailAccount,
         provider,
@@ -83,9 +76,15 @@ export async function processHistoryItem(
       logger,
     );
   } else if (type === HistoryEventType.LABEL_ADDED) {
+    const labelAddedItem = item as gmail_v1.Schema$HistoryLabelAdded;
+
+    if (labelAddedItem.labelIds?.includes(GmailLabel.SENT)) {
+      return lockAndProcessShared();
+    }
+
     logger.info("Processing label added event for learning");
     return handleLabelAddedEvent(
-      item,
+      labelAddedItem,
       {
         emailAccount,
         provider,
