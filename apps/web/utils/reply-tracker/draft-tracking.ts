@@ -126,17 +126,18 @@ export async function trackSentDraftStatus({
       executedRuleId: executedAction.executedRuleId,
       logger,
     });
-    queueReplyMemoryLearning({
-      emailAccountId,
-      executedActionId,
-      draftSendLogId: draftSendLog.id,
-      draftText: executedAction.content,
-      similarityScore,
-      sentMessageIsForward,
-      message,
-      provider,
-      logger,
-    });
+    if (!sentMessageIsForward) {
+      queueReplyMemoryLearning({
+        emailAccountId,
+        executedActionId,
+        draftSendLogId: draftSendLog.id,
+        draftText: executedAction.content,
+        similarityScore,
+        message,
+        provider,
+        logger,
+      });
+    }
     return;
   }
 
@@ -191,7 +192,6 @@ export async function trackSentDraftStatus({
     draftSendLogId: draftSendLog.id,
     draftText: executedAction.content,
     similarityScore,
-    sentMessageIsForward,
     message,
     provider,
     logger,
@@ -413,7 +413,6 @@ function queueReplyMemoryLearning({
   draftSendLogId,
   draftText,
   similarityScore,
-  sentMessageIsForward,
   message,
   provider,
   logger,
@@ -423,20 +422,11 @@ function queueReplyMemoryLearning({
   draftSendLogId: string;
   draftText?: string | null;
   similarityScore: number;
-  sentMessageIsForward: boolean;
   message: ParsedMessage;
   provider: EmailProvider;
   logger: Logger;
 }) {
   if (!draftText) return;
-
-  if (sentMessageIsForward) {
-    logger.info("Skipping reply memory learning for forwarded sent message", {
-      draftSendLogId,
-      executedActionId,
-    });
-    return;
-  }
 
   const sentText = emailToContentForAI(message, {
     maxLength: 4000,
@@ -473,6 +463,7 @@ function isForwardedSentMessage(message: ParsedMessage) {
     return true;
   }
 
+  // maxLength: 0 disables truncation so forward markers further down aren't missed
   const sentText = emailToContentForAI(message, {
     maxLength: 0,
     extractReply: true,
