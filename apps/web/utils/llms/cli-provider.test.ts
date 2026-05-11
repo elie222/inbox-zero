@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Provider } from "./config";
 
-vi.mock("server-only", () => ({}));
-
 describe("createCliLanguageModel", () => {
   beforeEach(() => {
     vi.clearAllMocks();

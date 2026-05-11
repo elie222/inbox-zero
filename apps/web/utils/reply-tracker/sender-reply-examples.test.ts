@@ -5,8 +5,6 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 
-vi.mock("server-only", () => ({}));
-
 const logger = createScopedLogger("sender-reply-examples-test");
 
 describe("collectSenderReplyExamples", () => {

@@ -11,7 +11,6 @@ import {
 } from "@/utils/actions/assistant-chat-confirmation";
 import { createScopedLogger } from "@/utils/logger";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/email/provider");
 vi.mock("@/utils/auth", () => ({

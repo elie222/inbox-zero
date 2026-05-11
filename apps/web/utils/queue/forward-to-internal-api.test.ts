@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
-
 describe("forwardQueueMessageToInternalApi", () => {
   beforeEach(() => {
     vi.resetModules();

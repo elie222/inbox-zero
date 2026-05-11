@@ -1,12 +1,10 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   stringifyEmail,
   stringifyEmailSimple,
   stringifyEmailFromBody,
 } from "./stringify-email";
 import type { EmailForLLM } from "@/utils/types";
-
-vi.mock("server-only", () => ({}));
 
 describe("stringifyEmail", () => {
   const mockEmail: EmailForLLM = {

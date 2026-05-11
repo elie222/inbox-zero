@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { REDACTED_TEXT, softDeleteChat } from "./soft-delete";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 describe("softDeleteChat", () => {

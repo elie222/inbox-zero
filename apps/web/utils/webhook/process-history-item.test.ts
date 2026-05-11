@@ -11,7 +11,6 @@ import { processAttachment } from "@/utils/drive/filing-engine";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 
-vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({
   after: vi.fn((callback) => callback()),
 }));

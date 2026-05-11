@@ -9,8 +9,6 @@ import { createRuleTool } from "./tools/rules/create-rule-tool";
 import { updateRuleTool } from "./tools/rules/update-rule-tool";
 import { updateRuleStateTool } from "./tools/rules/update-rule-state-tool";
 
-vi.mock("server-only", () => ({}));
-
 const {
   mockCreateRule,
   mockOutboundActionsNeedChatRiskConfirmation,

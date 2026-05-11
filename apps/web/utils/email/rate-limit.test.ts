@@ -11,8 +11,6 @@ import {
   withRateLimitRecording,
 } from "./rate-limit";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/redis", () => ({
   redis: {
     get: vi.fn(),

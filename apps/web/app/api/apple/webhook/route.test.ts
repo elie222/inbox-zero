@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("server-only", () => ({}));
-
 const { syncAppleSubscriptionToDbMock, verifyAppleNotificationPayloadMock } =
   vi.hoisted(() => ({
     syncAppleSubscriptionToDbMock: vi.fn(),

@@ -4,8 +4,6 @@ import * as outlookMessageModule from "@/utils/outlook/message";
 import * as outlookLabelModule from "@/utils/outlook/label";
 import { OutlookProvider } from "./microsoft";
 
-vi.mock("server-only", () => ({}));
-
 const { envMock, outlookMailMock, getFolderIdsMock } = vi.hoisted(() => ({
   envMock: {
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,

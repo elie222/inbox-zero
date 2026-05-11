@@ -17,7 +17,6 @@ import {
   stripLeadingSlackMention,
 } from "@/utils/messaging/chat-sdk/bot";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 describe("ensureSlackTeamInstallation", () => {

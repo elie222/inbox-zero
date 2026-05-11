@@ -4,8 +4,6 @@ import { getEmailAccount, getMockMessage } from "@/__tests__/helpers";
 import { ActionType, GroupItemType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 
-vi.mock("server-only", () => ({}));
-
 const {
   envState,
   mockToolCallAgentStream,

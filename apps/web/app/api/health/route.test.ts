@@ -1,5 +1,3 @@
-vi.mock("server-only", () => ({}));
-
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";

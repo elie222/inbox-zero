@@ -21,9 +21,6 @@ import {
 import { ensureWebhookSubscription } from "./helpers/webhook";
 import { logStep } from "./helpers/logging";
 
-// Mock server-only module (Next.js specific)
-vi.mock("server-only", () => ({}));
-
 // Mock message processing lock to always succeed
 vi.mock("@/utils/redis/message-processing", () => ({
   acquireOutboundMessageLock: vi.fn().mockResolvedValue("lock-token-1"),

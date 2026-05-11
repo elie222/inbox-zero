@@ -15,7 +15,6 @@ import {
   startSenderCategorizationTool,
 } from "./chat-inbox-tools";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/email/provider");
 vi.mock("@/utils/posthog", () => ({

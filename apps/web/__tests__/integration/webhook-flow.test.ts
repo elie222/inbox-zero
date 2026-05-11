@@ -27,7 +27,6 @@ import {
 } from "@/generated/prisma/enums";
 import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({
   after: vi.fn((fn: () => void) => fn()),
 }));

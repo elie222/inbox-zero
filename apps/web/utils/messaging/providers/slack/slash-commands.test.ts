@@ -19,7 +19,6 @@ const {
   mockReadUIMessageStream: vi.fn(),
 }));
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/env", () => ({
   env: {

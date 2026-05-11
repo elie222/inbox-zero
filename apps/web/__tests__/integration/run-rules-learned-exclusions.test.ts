@@ -23,7 +23,6 @@ import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import type { RuleWithActions } from "@/utils/types";
 import { createGmailTestHarness, type GmailTestHarness } from "./helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({
   after: vi.fn(),
 }));

@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/prisma";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/env", () => ({
   env: {
     NEXT_PUBLIC_POSTHOG_KEY: "phc_test_key",

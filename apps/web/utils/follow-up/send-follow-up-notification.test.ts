@@ -19,7 +19,6 @@ import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 const mockTelegramOpenDm = vi.fn();
 const mockTelegramPostMessage = vi.fn();
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma", () => ({ default: {} }));
 vi.mock("@/utils/messaging/providers/slack/send", () => ({
   resolveSlackRouteDestination: vi.fn(),

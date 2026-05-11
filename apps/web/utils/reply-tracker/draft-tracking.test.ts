@@ -5,7 +5,6 @@ import { createScopedLogger } from "@/utils/logger";
 import { ActionType } from "@/generated/prisma/enums";
 import { cleanupThreadAIDrafts, trackSentDraftStatus } from "./draft-tracking";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/prisma-retry", () => ({
   withPrismaRetry: vi.fn().mockImplementation((fn) => fn()),

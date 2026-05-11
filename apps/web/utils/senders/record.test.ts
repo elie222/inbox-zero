@@ -3,7 +3,6 @@ import { NewsletterStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import { extractEmailOrThrow, upsertSenderRecord } from "./record";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 describe("sender-record", () => {

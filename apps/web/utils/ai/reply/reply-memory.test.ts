@@ -20,7 +20,6 @@ const { mockCreateGenerateObject, mockGenerateObject } = vi.hoisted(() => {
   return { mockCreateGenerateObject, mockGenerateObject };
 });
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/llms", () => ({
   createGenerateObject: mockCreateGenerateObject,

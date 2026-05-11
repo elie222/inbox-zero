@@ -11,7 +11,6 @@ import {
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 const mockCreateEmailProvider = vi.fn();

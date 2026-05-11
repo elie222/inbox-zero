@@ -15,9 +15,6 @@ import prisma from "@/utils/__mocks__/prisma";
 
 // --- Mocks ---
 
-// Mock server-only as per rule
-vi.mock("server-only", () => ({}));
-
 // Mock external dependencies
 vi.mock("better-auth", () => {
   // Define the mock function INSIDE the factory

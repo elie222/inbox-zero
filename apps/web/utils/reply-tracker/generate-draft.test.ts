@@ -10,8 +10,6 @@ import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { DRAFT_PIPELINE_VERSION } from "@/utils/ai/reply/draft-attribution";
 import { createScopedLogger } from "@/utils/logger";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/ai/reply/draft-reply", () => ({
   aiDraftReplyWithConfidence: vi.fn(),
 }));

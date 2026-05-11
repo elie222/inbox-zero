@@ -4,7 +4,6 @@ import { createScopedLogger } from "@/utils/logger";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { updateLearnedPatternsTool } from "./update-learned-patterns-tool";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn().mockResolvedValue(undefined),

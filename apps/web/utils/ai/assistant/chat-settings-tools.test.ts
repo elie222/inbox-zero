@@ -10,7 +10,6 @@ import { getUserPremium } from "@/utils/user/get";
 import { getAssistantCapabilitiesTool } from "./tools/settings/get-assistant-capabilities-tool";
 import { updateAssistantSettingsTool } from "./tools/settings/update-assistant-settings-tool";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn().mockResolvedValue(undefined),

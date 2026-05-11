@@ -38,8 +38,6 @@ import { createScopedLogger } from "@/utils/logger";
 
 // pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-rule-suggestions.test.ts
 
-vi.mock("server-only", () => ({}));
-
 const shouldRunEval = shouldRunEvalTests();
 const evalReporter = createEvalReporter();
 const logger = createScopedLogger("eval-assistant-chat-rule-suggestions");

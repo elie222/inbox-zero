@@ -4,7 +4,6 @@ import prisma from "@/utils/__mocks__/prisma";
 import { GroupItemType, GroupItemSource } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 vi.mock("@/utils/prisma-helpers", () => ({

@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { SafeError } from "@/utils/error";
 import { withAccountApiKey, withStatsApiKey } from "./api-middleware";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/env", () => ({
   env: { NEXT_PUBLIC_EXTERNAL_API_ENABLED: true },
 }));

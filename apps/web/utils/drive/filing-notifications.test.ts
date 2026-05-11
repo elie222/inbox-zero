@@ -7,7 +7,6 @@ import {
   sendFiledNotification,
 } from "./filing-notifications";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 const logger = createScopedLogger("filing-notifications-test");

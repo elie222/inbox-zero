@@ -7,8 +7,6 @@ import {
   saveUsage,
 } from "@/utils/redis/usage";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/redis", () => ({
   redis: {
     scan: vi.fn(),

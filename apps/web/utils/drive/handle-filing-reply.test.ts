@@ -8,7 +8,6 @@ import {
 import { createScopedLogger } from "@/utils/logger";
 import { processFilingReply } from "./handle-filing-reply";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/ai/document-filing/parse-filing-reply", () => ({
   aiParseFilingReply: vi.fn(),

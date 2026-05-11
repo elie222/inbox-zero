@@ -8,7 +8,6 @@ import { createTestLogger } from "@/__tests__/helpers";
 const logger = createTestLogger();
 
 // Mock dependencies
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma", () => ({
   default: {
     emailAccount: {

@@ -7,7 +7,6 @@ import {
   handleFollowUpReminderAction,
 } from "./follow-up-actions";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 const logger = createScopedLogger("follow-up-actions-test");

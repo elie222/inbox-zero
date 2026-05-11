@@ -13,7 +13,6 @@ import { createEmailProvider } from "@/utils/email/provider";
 
 const logger = createTestLogger();
 
-vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({
   after: vi.fn((callback) => callback()),
 }));

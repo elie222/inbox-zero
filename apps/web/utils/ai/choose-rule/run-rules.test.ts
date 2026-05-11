@@ -28,7 +28,6 @@ import { executeAct } from "@/utils/ai/choose-rule/execute";
 const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
-vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({ after: vi.fn((fn) => fn()) }));
 vi.mock("@/utils/ai/choose-rule/match-rules", () => ({
   findMatchingRules: vi.fn(),

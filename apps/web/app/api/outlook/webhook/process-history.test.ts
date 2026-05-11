@@ -16,7 +16,6 @@ import { createTestLogger } from "@/__tests__/helpers";
 const logger = createTestLogger();
 vi.spyOn(logger, "with").mockReturnValue(logger);
 
-vi.mock("server-only", () => ({}));
 vi.mock("next/server", async (importOriginal) => {
   const actual = await importOriginal<typeof import("next/server")>();
   return {

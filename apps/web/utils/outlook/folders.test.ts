@@ -9,8 +9,6 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("outlook/folders");
 
-vi.mock("server-only", () => ({}));
-
 // Mock the retry wrapper to just execute the function directly
 vi.mock("@/utils/outlook/retry", () => ({
   withOutlookRetry: <T>(fn: () => Promise<T>) => fn(),

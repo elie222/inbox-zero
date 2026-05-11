@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { MeetingBriefingData } from "@/utils/meeting-briefs/gather-context";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/env", () => ({
   env: {
     PERPLEXITY_API_KEY: "test-key",

@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test, vi } from "vitest";
+import { afterAll, describe, expect, test } from "vitest";
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
 import { getEmail } from "@/__tests__/helpers";
 import { judgeMultiple } from "@/__tests__/eval/judge";
@@ -17,8 +17,6 @@ import {
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 90_000;
-
-vi.mock("server-only", () => ({}));
 
 describe.runIf(shouldRunEval)("draft-reply eval", () => {
   const evalReporter = createEvalReporter();

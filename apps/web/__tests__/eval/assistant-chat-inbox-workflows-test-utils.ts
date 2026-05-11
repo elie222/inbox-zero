@@ -14,8 +14,6 @@ import type { getEmailAccount } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
 
-vi.mock("server-only", () => ({}));
-
 export const shouldRunEval = shouldRunEvalTests();
 export const TIMEOUT = 120_000;
 const logger = createScopedLogger("eval-assistant-chat-inbox-workflows");

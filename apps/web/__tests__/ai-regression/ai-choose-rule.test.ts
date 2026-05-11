@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { ActionType } from "@/generated/prisma/enums";
 import { getEmail, getEmailAccount, getRule } from "@/__tests__/helpers";
@@ -8,8 +8,6 @@ import { createScopedLogger } from "@/utils/logger";
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 const logger = createScopedLogger("test");
-
-vi.mock("server-only", () => ({}));
 
 describe.runIf(isAiTest)("aiChooseRule", () => {
   test("Should return no rule when no rules passed", async () => {

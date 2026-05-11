@@ -5,8 +5,6 @@ import { createTestLogger } from "@/__tests__/helpers";
 
 const logger = createTestLogger();
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/env", () => ({ env: { CRON_SECRET: "test-secret-123" } }));
 
 function createMockRequestWithLogger(

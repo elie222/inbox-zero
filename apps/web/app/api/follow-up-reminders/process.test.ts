@@ -8,8 +8,6 @@ import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 
-vi.mock("server-only", () => ({}));
-
 const { envMock } = vi.hoisted(() => ({
   envMock: {
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,

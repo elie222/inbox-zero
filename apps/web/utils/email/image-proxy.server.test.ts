@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createScopedLogger } from "@/utils/logger";
 
-vi.mock("server-only", () => ({}));
-
 describe("rewriteHtmlForImageProxy", () => {
   beforeEach(() => {
     vi.resetModules();

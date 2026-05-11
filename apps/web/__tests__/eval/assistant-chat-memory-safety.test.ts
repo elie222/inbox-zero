@@ -30,8 +30,6 @@ import type { getEmailAccount } from "@/__tests__/helpers";
 // pnpm test-ai eval/assistant-chat-memory-safety
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-memory-safety
 
-vi.mock("server-only", () => ({}));
-
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 240_000;
 const evalReporter = createEvalReporter();

@@ -5,7 +5,6 @@ import { updateAccountSeats } from "@/utils/premium/seats";
 import { aliasPosthogUser } from "@/utils/posthog";
 import { deleteEmailAccountAction } from "./user";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({

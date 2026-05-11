@@ -22,8 +22,6 @@ import { createScopedLogger } from "@/utils/logger";
 // pnpm test-ai eval/assistant-chat-static-sender-rules
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-static-sender-rules
 
-vi.mock("server-only", () => ({}));
-
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 150_000;
 const evalReporter = createEvalReporter();

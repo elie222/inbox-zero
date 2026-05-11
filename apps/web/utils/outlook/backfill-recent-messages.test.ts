@@ -5,7 +5,6 @@ import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma", () => ({
   default: {
     emailMessage: {

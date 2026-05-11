@@ -14,7 +14,6 @@ import {
 } from "@/utils/messaging/providers/slack/send";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/messaging/providers/slack/send", () => ({
   resolveSlackRouteDestination: vi.fn(),

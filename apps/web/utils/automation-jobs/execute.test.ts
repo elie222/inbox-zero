@@ -14,7 +14,6 @@ import { getAutomationJobMessage } from "@/utils/automation-jobs/message";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import { executeAutomationJobRun } from "@/utils/automation-jobs/execute";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/premium", () => ({
   isActivePremium: vi.fn(),

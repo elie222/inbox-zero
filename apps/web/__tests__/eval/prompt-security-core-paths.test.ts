@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test, vi } from "vitest";
+import { afterAll, describe, expect, test } from "vitest";
 import { createTestLogger, getEmail, getRule } from "@/__tests__/helpers";
 import {
   describeEvalMatrix,
@@ -12,8 +12,6 @@ import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 
 // pnpm test-ai eval/prompt-security-core-paths
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/prompt-security-core-paths
-
-vi.mock("server-only", () => ({}));
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;

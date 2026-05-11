@@ -4,7 +4,6 @@ import { createScopedLogger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
 import { createOrGetLabelTool, listLabelsTool } from "./chat-label-tools";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/email/provider");
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn().mockResolvedValue(undefined),

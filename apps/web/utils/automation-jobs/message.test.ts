@@ -8,7 +8,6 @@ const { mockAiGenerateAutomationCheckInMessage } = vi.hoisted(() => {
   return { mockAiGenerateAutomationCheckInMessage };
 });
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/ai/automation-jobs/generate-check-in-message", () => ({
   aiGenerateAutomationCheckInMessage: mockAiGenerateAutomationCheckInMessage,
 }));

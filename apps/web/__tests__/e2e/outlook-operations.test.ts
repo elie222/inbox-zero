@@ -38,8 +38,6 @@ const TEST_CONVERSATION_ID =
   "AQQkADAwATNiZmYAZS05YWEAYy1iNWY0LTAwAi0wMAoAEABuo-fmt9KvQ4u55KlWB32H"; // Real conversation ID from demoinboxzero@outlook.com
 const TEST_CATEGORY_NAME = process.env.TEST_CATEGORY_NAME || "To Reply";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/redis/message-processing", () => ({
   acquireOutboundMessageLock: vi.fn().mockResolvedValue("lock-token-1"),
   clearOutboundMessageLock: vi.fn().mockResolvedValue(true),

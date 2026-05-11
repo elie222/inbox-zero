@@ -16,8 +16,6 @@ import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("server-only", () => ({}));
-
 // Mock Prisma — executeAct updates status, callWebhook reads user secret
 const mockExecutedRuleUpdate = vi.fn().mockResolvedValue({});
 vi.mock("@/utils/prisma", () => ({

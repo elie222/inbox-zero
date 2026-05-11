@@ -32,8 +32,6 @@ const TEST_GMAIL_EMAIL = process.env.TEST_GMAIL_EMAIL;
 let TEST_GMAIL_MESSAGE_ID =
   process.env.TEST_GMAIL_MESSAGE_ID || "199c055aa113c499";
 
-vi.mock("server-only", () => ({}));
-
 vi.mock("@/utils/redis/message-processing", () => ({
   acquireOutboundMessageLock: vi.fn().mockResolvedValue("lock-token-1"),
   clearOutboundMessageLock: vi.fn().mockResolvedValue(true),

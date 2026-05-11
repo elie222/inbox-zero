@@ -9,7 +9,6 @@ import { Prisma } from "@/generated/prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { getFilableAttachments, processAttachment } from "./filing-engine";
 
-vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/drive/provider", () => ({
   createDriveProviderWithRefresh: vi.fn(),

@@ -9,8 +9,6 @@ type EmailAccountForDigest = EmailAccountWithAI & { name: string | null };
 
 // Run with: pnpm test-ai ai-regression/ai-summarize-email-for-digest
 
-vi.mock("server-only", () => ({}));
-
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 function getEmailAccount(overrides = {}): EmailAccountForDigest {

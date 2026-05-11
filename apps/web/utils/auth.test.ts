@@ -11,7 +11,6 @@ import {
 import prisma from "@/utils/__mocks__/prisma";
 import { clearSpecificErrorMessages } from "@/utils/error-messages";
 
-vi.mock("server-only", () => ({}));
 vi.mock("better-auth", () => ({
   betterAuth: vi.fn((options: unknown) => ({
     api: {
