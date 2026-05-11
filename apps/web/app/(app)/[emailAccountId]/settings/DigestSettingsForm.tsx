@@ -35,10 +35,22 @@ import {
 } from "@/components/ui/select";
 import { FormItem } from "@/components/ui/form";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   createCanonicalTimeOfDay,
   dayOfWeekToBitmask,
   bitmaskToDayOfWeek,
 } from "@/utils/schedule";
+
+// This fork sends the digest at a fixed server-side time (09:00 ET) via the
+// cron container in deploy/docker-compose.yml, not from per-account Schedule.
+// The selector below is disabled to make the override visible — the framework
+// is kept intact so re-enabling later is a one-line change.
+const SERVER_SIDE_OVERRIDE_TOOLTIP =
+  "The daily digest is sent at 09:00 Eastern Time by the server cron in this self-hosted fork. The UI selector is preserved for upstream compatibility but currently has no effect.";
 
 const digestSettingsSchema = z.object({
   selectedItems: z.set(z.string()),
@@ -283,12 +295,31 @@ export function DigestSettingsForm({
             </div>
 
             <div>
-              <Label>Send the digest email</Label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Label className="inline-flex items-center gap-1 cursor-help">
+                    Send the digest email
+                    <span
+                      aria-hidden
+                      className="text-xs text-muted-foreground border border-current rounded-full w-4 h-4 inline-flex items-center justify-center"
+                    >
+                      i
+                    </span>
+                  </Label>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  {SERVER_SIDE_OVERRIDE_TOOLTIP}
+                </TooltipContent>
+              </Tooltip>
 
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+              <div
+                className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3 opacity-60 pointer-events-none"
+                aria-disabled="true"
+              >
                 <FormItem>
                   <Label htmlFor="frequency-select">Every</Label>
                   <Select
+                    disabled
                     value={watchedValues.schedule}
                     onValueChange={(val) => setValue("schedule", val)}
                   >
@@ -313,6 +344,7 @@ export function DigestSettingsForm({
                   <FormItem>
                     <Label htmlFor="dayofweek-select">on</Label>
                     <Select
+                      disabled
                       value={watchedValues.dayOfWeek}
                       onValueChange={(val) => setValue("dayOfWeek", val)}
                     >
@@ -339,6 +371,7 @@ export function DigestSettingsForm({
                   label="at"
                   value={watchedValues.time}
                   onChange={(value) => setValue("time", value)}
+                  disabled
                 />
               </div>
             </div>
