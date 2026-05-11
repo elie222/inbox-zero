@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { createTestLogger } from "@/__tests__/helpers";
-import type { RequestWithEmailAccount } from "@/utils/middleware";
+import { addTestEmailAccountAuth } from "@/__tests__/helpers";
 import { listPrivateChannelsForUser } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 
@@ -18,8 +17,6 @@ vi.mock("@/utils/messaging/providers/slack/client", () => ({
 }));
 
 import { GET } from "./route";
-
-const logger = createTestLogger();
 
 describe("GET /api/user/messaging-channels/[channelId]/targets", () => {
   beforeEach(() => {
@@ -81,13 +78,12 @@ describe("GET /api/user/messaging-channels/[channelId]/targets", () => {
   });
 });
 
-function createRequest(emailAccountId: string): RequestWithEmailAccount {
-  return Object.assign(
+function createRequest(emailAccountId: string) {
+  return addTestEmailAccountAuth(
     new NextRequest(
       "http://localhost:3000/api/user/messaging-channels/channel-1/targets",
     ),
     {
-      logger,
       auth: {
         userId: "user-1",
         emailAccountId,

@@ -17,11 +17,10 @@ import {
   beforeEach,
   vi,
 } from "vitest";
-import { createEmulator, type Emulator } from "emulate";
 import { cardToBlockKit, cardToFallbackText } from "@chat-adapter/slack";
-import { WebClient } from "@slack/web-api";
+import type { WebClient } from "@slack/web-api";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   ActionType,
   MessagingMessageStatus,
@@ -29,7 +28,11 @@ import {
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { createGmailTestHarness } from "./helpers";
+import {
+  createGmailTestHarness,
+  createSlackTestHarness,
+  type SlackTestHarness,
+} from "./helpers";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/rule/rule-history", () => ({
@@ -49,63 +52,51 @@ vi.mock("@/utils/email/provider", () => ({
 
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS === "true";
 const TEST_PORT = 4098;
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe.skipIf(!RUN_INTEGRATION_TESTS)(
   "Slack notification flows",
   { timeout: 30_000 },
   () => {
-    let emulator: Emulator;
+    let slackHarness: SlackTestHarness;
     let notifChannelId: string;
     let engChannelId: string;
 
     beforeAll(async () => {
-      emulator = await createEmulator({
-        service: "slack",
+      slackHarness = await createSlackTestHarness({
         port: TEST_PORT,
-        seed: {
-          slack: {
-            team: { name: "TestWorkspace", domain: "test-workspace" },
-            users: [
-              {
-                name: "alice",
-                real_name: "Alice Smith",
-                email: "alice@example.com",
-              },
-            ],
-            channels: [
-              {
-                name: "inbox-zero-notifications",
-                is_private: true,
-                topic: "Inbox Zero alerts",
-              },
-              {
-                name: "engineering",
-                is_private: false,
-                topic: "Engineering discussion",
-              },
-            ],
+        team: { name: "TestWorkspace", domain: "test-workspace" },
+        users: [
+          {
+            name: "alice",
+            real_name: "Alice Smith",
+            email: "alice@example.com",
           },
-        },
+        ],
+        channels: [
+          {
+            name: "inbox-zero-notifications",
+            is_private: true,
+            topic: "Inbox Zero alerts",
+          },
+          {
+            name: "engineering",
+            is_private: false,
+            topic: "Engineering discussion",
+          },
+        ],
       });
 
-      emulatorClient = new WebClient("emulator-token", {
-        slackApiUrl: `${emulator.url}/api/`,
-      });
-
-      // Resolve channel IDs once for all tests
-      const { listChannels } = await import(
-        "@/utils/messaging/providers/slack/channels"
-      );
-      const channels = await listChannels(emulatorClient);
-      notifChannelId = channels.find(
-        (c) => c.name === "inbox-zero-notifications",
-      )!.id;
-      engChannelId = channels.find((c) => c.name === "engineering")!.id;
+      emulatorClient = slackHarness.client;
+      notifChannelId = slackHarness.channelsByName["inbox-zero-notifications"];
+      engChannelId = slackHarness.channelsByName.engineering;
+      if (!notifChannelId || !engChannelId) {
+        throw new Error("Slack emulator channels not found");
+      }
     });
 
     afterAll(async () => {
-      await emulator?.close();
+      await slackHarness?.emulator.close();
     });
 
     beforeEach(() => {

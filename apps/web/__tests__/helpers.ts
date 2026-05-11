@@ -19,6 +19,12 @@ type TestRequestWithLogger = Request & {
   logger: ReturnType<typeof createTestLogger>;
 };
 
+type TestEmailAccountAuth = {
+  email: string;
+  emailAccountId: string;
+  userId: string;
+};
+
 export function createWithErrorTestMiddleware() {
   return {
     withError:
@@ -31,6 +37,23 @@ export function createWithErrorTestMiddleware() {
         return handler(request, ...context);
       },
   };
+}
+
+export function addTestEmailAccountAuth<TRequest extends Request>(
+  request: TRequest,
+  {
+    auth = {
+      userId: "user-1",
+      emailAccountId: "email-account-1",
+      email: "user@example.com",
+    },
+    logger = createTestLogger(),
+  }: {
+    auth?: TestEmailAccountAuth;
+    logger?: ReturnType<typeof createTestLogger>;
+  } = {},
+) {
+  return Object.assign(request, { auth, logger });
 }
 
 type EmailAccountSelect = {
