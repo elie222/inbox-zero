@@ -35,6 +35,37 @@ describe("check-client-redirects", () => {
     });
   });
 
+  it.each([
+    ["location.assign(url)", "assign"],
+    ["window.location.replace(url)", "replace"],
+    ['window["location"]["href"] = url', "href"],
+    ["(window.location as Location).href = url", "href"],
+    ["globalThis.location!.assign(url)", "assign"],
+  ])("rejects direct redirects through %s", async (redirectSink, match) => {
+    await writeSource(
+      "components/Redirect.tsx",
+      `export function redirect(url: string) { ${redirectSink}; }`,
+    );
+
+    await expect(runCheck()).rejects.toMatchObject({
+      stdout: "",
+      stderr: expect.stringContaining(match),
+    });
+  });
+
+  it("allows direct redirects inside the safe redirect helper", async () => {
+    await writeSource(
+      "utils/redirect.ts",
+      "export function redirect(url: string) { window.location.assign(url); }",
+    );
+
+    await expect(runCheck()).resolves.toMatchObject({
+      stdout: expect.stringContaining(
+        "Client redirects use the safe redirect helper.",
+      ),
+    });
+  });
+
   it("ignores redirect sink text in comments and strings", async () => {
     await writeSource(
       "components/Copy.tsx",
