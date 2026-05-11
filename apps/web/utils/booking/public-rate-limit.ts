@@ -7,6 +7,39 @@ import {
 } from "@/utils/rate-limit";
 import type { Logger } from "@/utils/logger";
 
+type EnforceableRule = {
+  id: string;
+  key: string;
+  limit: number;
+  windowSeconds: number;
+};
+
+// Run checks serially: once a rule limits, skipping the rest avoids
+// incrementing later windows on requests we're already rejecting.
+async function enforceRateLimitRules({
+  rules,
+  logger,
+  warnMessage,
+  limitedMessage,
+}: {
+  rules: EnforceableRule[];
+  logger: Logger;
+  warnMessage: string;
+  limitedMessage: string;
+}) {
+  for (const rule of rules) {
+    const result = await checkRateLimit({ rule, logger });
+    if (result.limited) {
+      logger.warn(warnMessage, {
+        rateLimitId: rule.id,
+        limit: result.limit,
+        retryAfterSeconds: result.retryAfterSeconds,
+      });
+      throw new SafeError(limitedMessage, 429);
+    }
+  }
+}
+
 const PUBLIC_BOOKING_RATE_LIMITS = {
   ipLinkBurst: { limit: 8, windowSeconds: 10 * 60 },
   ipLinkDaily: { limit: 30, windowSeconds: 24 * 60 * 60 },
@@ -95,20 +128,12 @@ export async function enforcePublicBookingRateLimit({
     },
   ];
 
-  for (const rule of rules) {
-    const result = await checkRateLimit({ rule, logger });
-    if (result.limited) {
-      logger.warn("Public booking rate limit exceeded", {
-        rateLimitId: rule.id,
-        limit: result.limit,
-        retryAfterSeconds: result.retryAfterSeconds,
-      });
-      throw new SafeError(
-        "Too many booking attempts. Please try again later.",
-        429,
-      );
-    }
-  }
+  await enforceRateLimitRules({
+    rules,
+    logger,
+    warnMessage: "Public booking rate limit exceeded",
+    limitedMessage: "Too many booking attempts. Please try again later.",
+  });
 }
 
 export async function enforcePublicAvailabilityRateLimit({
@@ -157,20 +182,12 @@ export async function enforcePublicAvailabilityRateLimit({
     },
   ];
 
-  for (const rule of rules) {
-    const result = await checkRateLimit({ rule, logger });
-    if (result.limited) {
-      logger.warn("Public booking availability rate limit exceeded", {
-        rateLimitId: rule.id,
-        limit: result.limit,
-        retryAfterSeconds: result.retryAfterSeconds,
-      });
-      throw new SafeError(
-        "Too many availability checks. Please try again later.",
-        429,
-      );
-    }
-  }
+  await enforceRateLimitRules({
+    rules,
+    logger,
+    warnMessage: "Public booking availability rate limit exceeded",
+    limitedMessage: "Too many availability checks. Please try again later.",
+  });
 }
 
 export async function enforcePublicBookingCancelRateLimit({
@@ -219,18 +236,10 @@ export async function enforcePublicBookingCancelRateLimit({
     },
   ];
 
-  for (const rule of rules) {
-    const result = await checkRateLimit({ rule, logger });
-    if (result.limited) {
-      logger.warn("Public booking cancellation rate limit exceeded", {
-        rateLimitId: rule.id,
-        limit: result.limit,
-        retryAfterSeconds: result.retryAfterSeconds,
-      });
-      throw new SafeError(
-        "Too many cancellation attempts. Please try again later.",
-        429,
-      );
-    }
-  }
+  await enforceRateLimitRules({
+    rules,
+    logger,
+    warnMessage: "Public booking cancellation rate limit exceeded",
+    limitedMessage: "Too many cancellation attempts. Please try again later.",
+  });
 }

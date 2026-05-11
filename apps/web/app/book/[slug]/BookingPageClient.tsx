@@ -100,11 +100,13 @@ export function BookingPageClient({
     () => [...slotsByDay.keys()].sort()[0] ?? null,
     [slotsByDay],
   );
-  const displayedSelectedDateKey = loadingSlots
-    ? selectedDateKey
-    : selectedDateKey && slotsByDay.has(selectedDateKey)
-      ? selectedDateKey
-      : firstAvailableDateKey;
+  const displayedSelectedDateKey = useMemo(() => {
+    if (loadingSlots) return selectedDateKey;
+    if (selectedDateKey && slotsByDay.has(selectedDateKey)) {
+      return selectedDateKey;
+    }
+    return firstAvailableDateKey;
+  }, [loadingSlots, selectedDateKey, slotsByDay, firstAvailableDateKey]);
 
   const handleSubmit = async (
     formValues: { name: string; email: string; note: string },

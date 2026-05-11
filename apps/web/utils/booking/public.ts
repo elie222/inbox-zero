@@ -24,10 +24,15 @@ import {
   sendBookingCancellationEmails,
   sendBookingConfirmationEmails,
 } from "@/utils/booking/emails";
+import { escapeHtml } from "@/utils/string";
 
 const MAX_AVAILABILITY_RANGE_MS = 32 * 24 * 60 * 60 * 1000;
 const CALENDAR_AVAILABILITY_UNAVAILABLE =
   "Calendar availability is temporarily unavailable";
+const BOOKING_CANCELED_RETRY_MESSAGE =
+  "Booking was canceled. Please submit a new booking request.";
+const BOOKING_STILL_PROCESSING_MESSAGE =
+  "Booking request is still being processed";
 
 export async function getPublicBookingLinkMetadata(slug: string) {
   const link = await prisma.bookingLink.findFirst({
@@ -167,20 +172,8 @@ export async function createPublicBooking({
         bookingLinkId: config.link.id,
         idempotencyToken: input.idempotencyToken,
       });
-      // The other concurrent request won the idempotency race and already
-      // created the booking and provider event. Return its result instead
-      // of redoing the calendar write.
-      if (existing?.status === BookingStatus.CONFIRMED) {
-        return toPublicBookingResult(existing);
-      }
-      if (existing?.status === BookingStatus.PENDING_PROVIDER_EVENT) {
-        throw new SafeError("Booking request is still being processed");
-      }
-      if (existing?.status === BookingStatus.CANCELED) {
-        throw new SafeError(
-          "Booking was canceled. Please submit a new booking request.",
-        );
-      }
+      const resolved = await resolveExistingIdempotentBooking(existing);
+      if (resolved) return resolved;
       throw new SafeError("Selected slot is no longer available");
     }
     throw error;
@@ -557,12 +550,10 @@ async function resolveExistingIdempotentBooking(
   }
 
   if (booking.status === BookingStatus.CANCELED) {
-    throw new SafeError(
-      "Booking was canceled. Please submit a new booking request.",
-    );
+    throw new SafeError(BOOKING_CANCELED_RETRY_MESSAGE);
   }
 
-  throw new SafeError("Booking request is still being processed");
+  throw new SafeError(BOOKING_STILL_PROCESSING_MESSAGE);
 }
 
 function getProviderEventDescription({
@@ -586,16 +577,14 @@ function getProviderEventDescription({
 }
 
 function escapeCalendarDescriptionText(value: string) {
-  return value
+  const withoutControlChars = value
     .split("")
     .filter((char) => {
       const code = char.charCodeAt(0);
       return code === 9 || code === 10 || code === 13 || code >= 32;
     })
-    .join("")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+    .join("");
+  return escapeHtml(withoutControlChars);
 }
 
 function toPublicBookingResult(booking: {
