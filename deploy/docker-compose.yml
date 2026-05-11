@@ -99,7 +99,7 @@ services:
   #   - /api/cron/automation-jobs   every 5m   (drives queued rule executions)
   #   - /api/cron/scheduled-actions every 5m   (delayed actions like archive-after-N-days)
   #   - /api/watch/all              every 6h   (renews Gmail PubSub watches before 7d expiry)
-  #   - /api/cron/digest            hourly     (per-account Schedule.nextOccurrenceAt drives actual send time)
+  #   - /api/cron/digest            09:00 ET   (single-user fork: fixed time, not per-account Schedule)
   #
   # Endpoints intentionally NOT scheduled here:
   #   - /api/follow-up-reminders   — upstream feature, not in use in this fork
@@ -107,9 +107,9 @@ services:
   #
   # NOTE: this fork's digest is heavily customized vs upstream — see
   # apps/web/utils/digest/run-daily-digest.ts and packages/resend/emails/.
-  # The cron container hits /api/cron/digest hourly; runDailyDigest filters
-  # accounts by digestSchedule.nextOccurrenceAt <= now, so the time-of-day
-  # set in the UI (Settings → Digest) drives when the email actually sends.
+  # The Schedule.nextOccurrenceAt / timeOfDay fields exist (upstream schema)
+  # but this fork ignores them and fires the digest once a day at 09:00 ET.
+  # The UI selector for digest time is greyed out with a tooltip pointing here.
   #
   # Secret handling: CRON_SECRET is interpolated by docker compose from
   # /opt/inbox-zero/.env at parse time and injected as a single env var.
@@ -146,18 +146,15 @@ services:
           done
         ) &
         (
-          # Digest tick: hit /api/cron/digest at the top of every hour.
-          # runDailyDigest filters accounts by digestSchedule.nextOccurrenceAt,
-          # so the actual send time is whatever the UI's digest schedule is set
-          # to (rounded to the next hourly tick). TZ env on this container is
-          # America/New_York for predictable log timestamps; the schedule check
-          # itself runs in UTC against an absolute timestamp, so DST is handled
-          # by Postgres + the per-account timezone.
+          # Digest tick: fire /api/cron/digest once a day at 09:00 ET. The
+          # container's TZ is America/New_York, so 'date +%s' for 'today 09:00'
+          # vs 'now' gives the seconds until the next 9am ET, handling DST.
           while true; do
-            m=$$(date +%M); s=$$(date +%S)
-            m=$${m#0}; s=$${s#0}
-            sleep_for=$$((3600 - m*60 - s))
-            echo \"[cron] digest sleeping $${sleep_for}s until next top-of-hour ($$(date))\"
+            target=$$(date -D '%H:%M' -d '09:00' +%s)
+            now_epoch=$$(date +%s)
+            sleep_for=$$((target - now_epoch))
+            [ $$sleep_for -le 0 ] && sleep_for=$$((sleep_for + 86400))
+            echo \"[cron] digest sleeping $${sleep_for}s until next 09:00 ET ($$(date))\"
             sleep $$sleep_for
             curl -fsS --max-time 360 -w '\n' -o - -H \"Authorization: Bearer $${CRON_SECRET}\" http://app:3000/api/cron/digest || echo '[cron] digest failed'
           done

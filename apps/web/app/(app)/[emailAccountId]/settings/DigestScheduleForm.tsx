@@ -26,6 +26,18 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { ErrorMessage } from "@/components/Input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+// This fork sends the digest at a fixed server-side time (09:00 ET) via the
+// cron container in deploy/docker-compose.yml, not from per-account Schedule.
+// The selector below is disabled to make the override visible — the framework
+// is kept intact so re-enabling later is a one-line change.
+const SERVER_SIDE_OVERRIDE_TOOLTIP =
+  "The daily digest is sent at 09:00 Eastern Time by the server cron in this self-hosted fork. The UI selector is preserved for upstream compatibility but currently has no effect.";
 
 const digestScheduleFormSchema = z.object({
   schedule: z.string().min(1, "Please select a frequency"),
@@ -177,12 +189,31 @@ function DigestScheduleFormInner({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <Label className="mb-2 mt-4">Send the digest email</Label>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Label className="mb-2 mt-4 inline-flex items-center gap-1 cursor-help">
+            Send the digest email
+            <span
+              aria-hidden
+              className="text-xs text-muted-foreground border border-current rounded-full w-4 h-4 inline-flex items-center justify-center"
+            >
+              i
+            </span>
+          </Label>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          {SERVER_SIDE_OVERRIDE_TOOLTIP}
+        </TooltipContent>
+      </Tooltip>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div
+        className="grid grid-cols-3 gap-2 opacity-60 pointer-events-none"
+        aria-disabled="true"
+      >
         <FormItem>
           <Label htmlFor="frequency-select">Every</Label>
           <Select
+            disabled
             value={watchedValues.schedule}
             onValueChange={(val) => setValue("schedule", val)}
           >
@@ -216,6 +247,7 @@ function DigestScheduleFormInner({
                 : "on"}
             </Label>
             <Select
+              disabled
               value={watchedValues.dayOfWeek}
               onValueChange={(val) => setValue("dayOfWeek", val)}
             >
@@ -246,6 +278,7 @@ function DigestScheduleFormInner({
           <div className="flex items-end gap-2">
             <FormItem>
               <Select
+                disabled
                 value={watchedValues.hour}
                 onValueChange={(val) => setValue("hour", val)}
               >
@@ -264,6 +297,7 @@ function DigestScheduleFormInner({
             <span className="pb-2">:</span>
             <FormItem>
               <Select
+                disabled
                 value={watchedValues.minute}
                 onValueChange={(val) => setValue("minute", val)}
               >
@@ -281,6 +315,7 @@ function DigestScheduleFormInner({
             </FormItem>
             <FormItem>
               <Select
+                disabled
                 value={watchedValues.ampm}
                 onValueChange={(val) => setValue("ampm", val as "AM" | "PM")}
               >
@@ -319,13 +354,22 @@ function DigestScheduleFormInner({
         </div>
       </div>
       {showSaveButton && (
-        <Button
-          type="submit"
-          loading={isExecuting || isSubmitting}
-          className="mt-4"
-        >
-          Save
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="mt-4 inline-block">
+              <Button
+                type="submit"
+                disabled
+                loading={isExecuting || isSubmitting}
+              >
+                Save
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            {SERVER_SIDE_OVERRIDE_TOOLTIP}
+          </TooltipContent>
+        </Tooltip>
       )}
     </form>
   );

@@ -15,9 +15,8 @@ import type { ParsedMessage } from "@/utils/types";
 import { generateDigestContent } from "@/utils/ai/digest/generate-digest-content";
 import { digestAlreadySentToday, buildDigestSendCreate } from "./digest-send";
 import { formatTodayHumanET, getTodayET } from "./today-et";
-import { getDigestScheduleProgression } from "./schedule";
 import { isEligibleForClassificationFeedback } from "@/utils/rule/consts";
-import type { SystemType } from "@/generated/prisma/enums";
+import { SystemType } from "@/generated/prisma/enums";
 
 type BucketKey =
   | "urgent"
@@ -27,14 +26,30 @@ type BucketKey =
   | "marketing"
   | "notifications";
 
-const BUCKET_BY_RULE: Record<string, BucketKey> = {
+// Match by systemType (stable across rule renames) with a name fallback for
+// rules without a systemType. `Urgent` and `Uncertain` have no canonical
+// systemType in this fork, so they stay name-keyed.
+const BUCKET_BY_SYSTEM_TYPE: Partial<Record<SystemType, BucketKey>> = {
+  [SystemType.RECEIPT]: "receipts",
+  [SystemType.NEWSLETTER]: "newsletters",
+  [SystemType.MARKETING]: "marketing",
+  [SystemType.NOTIFICATION]: "notifications",
+};
+
+const BUCKET_BY_RULE_NAME: Record<string, BucketKey> = {
   Urgent: "urgent",
   Uncertain: "uncertain",
-  Receipts: "receipts",
-  Newsletters: "newsletters",
-  Marketing: "marketing",
-  Notifications: "notifications",
 };
+
+function bucketForRule(
+  systemType: SystemType | string | null | undefined,
+  name: string | null | undefined,
+): BucketKey | undefined {
+  if (systemType && BUCKET_BY_SYSTEM_TYPE[systemType as SystemType]) {
+    return BUCKET_BY_SYSTEM_TYPE[systemType as SystemType];
+  }
+  return name ? BUCKET_BY_RULE_NAME[name] : undefined;
+}
 
 const AUTO_FILED_TITLES: Record<
   "receipts" | "newsletters" | "marketing" | "notifications",
@@ -65,19 +80,20 @@ type RunResult = {
 };
 
 export async function runDailyDigest(logger: Logger) {
-  const now = new Date();
   const todayET = getTodayET();
   const todayHuman = formatTodayHumanET();
 
+  // NOTE: This fork sends the digest once a day at a fixed server-side time
+  // (the cron container fires this endpoint at 09:00 ET). We intentionally do
+  // NOT filter by `digestSchedule.nextOccurrenceAt` and do NOT advance it after
+  // sending — see deploy/docker-compose.yml for the cron config and the
+  // DigestScheduleForm tooltip for the user-facing explanation.
   const accounts = await prisma.emailAccount.findMany({
     where: {
       digests: {
         some: {
           status: { in: [DigestStatus.PENDING, DigestStatus.FAILED] },
         },
-      },
-      digestSchedule: {
-        nextOccurrenceAt: { lte: now },
       },
     },
     select: {
@@ -99,16 +115,6 @@ export async function runDailyDigest(logger: Logger) {
         select: {
           provider: true,
           refresh_token: true,
-        },
-      },
-      digestSchedule: {
-        select: {
-          id: true,
-          intervalDays: true,
-          occurrences: true,
-          daysOfWeek: true,
-          timeOfDay: true,
-          nextOccurrenceAt: true,
         },
       },
     },
@@ -220,8 +226,8 @@ export async function runDailyDigest(logger: Logger) {
       };
 
       for (const item of allItems) {
-        const ruleName = item.action?.executedRule?.rule?.name;
-        const bucket = ruleName ? BUCKET_BY_RULE[ruleName] : undefined;
+        const rule = item.action?.executedRule?.rule;
+        const bucket = bucketForRule(rule?.systemType, rule?.name);
         if (!bucket) continue;
         const msg = messageMap.get(item.messageId);
         if (!msg) {
@@ -235,7 +241,6 @@ export async function runDailyDigest(logger: Logger) {
           });
           continue;
         }
-        const rule = item.action?.executedRule?.rule;
         buckets[bucket].push({
           messageId: item.messageId,
           subject: msg.headers.subject ?? "(no subject)",
@@ -350,16 +355,6 @@ export async function runDailyDigest(logger: Logger) {
         0,
       );
 
-      const scheduleUpdate = account.digestSchedule
-        ? prisma.schedule.update({
-            where: {
-              id: account.digestSchedule.id,
-              emailAccountId: account.id,
-            },
-            data: getDigestScheduleProgression(account.digestSchedule, now),
-          })
-        : null;
-
       await prisma.$transaction([
         prisma.digest.updateMany({
           where: { id: { in: processedDigestIds } },
@@ -381,7 +376,6 @@ export async function runDailyDigest(logger: Logger) {
             digestIds: processedDigestIds,
           }),
         ),
-        ...(scheduleUpdate ? [scheduleUpdate] : []),
       ]);
 
       scoped.info("digest.send.success", {
