@@ -3,7 +3,7 @@ import {
   cleanupAIDraftsForAccount,
   cleanupConfiguredAIDrafts,
 } from "@/utils/ai/draft-cleanup";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));
@@ -112,7 +112,9 @@ describe("cleanupAIDraftsForAccount", () => {
     expect(mocks.provider.deleteDraft).not.toHaveBeenCalledWith("draft-2");
     expect(mocks.prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
-      data: { wasDraftSent: false },
+      data: {
+        draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+      },
     });
     expect(result).toMatchObject({
       total: 2,
@@ -151,7 +153,12 @@ describe("cleanupConfiguredAIDrafts", () => {
               some: {
                 type: ActionType.DRAFT_EMAIL,
                 draftId: { not: null },
-                OR: [{ draftSendLog: null }, { wasDraftSent: false }],
+                draftStatus: {
+                  in: [
+                    DraftEmailStatus.PENDING,
+                    DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+                  ],
+                },
               },
             },
           },

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import { cleanupThreadAIDrafts, trackSentDraftStatus } from "./draft-tracking";
 
 vi.mock("server-only", () => ({}));
@@ -95,6 +95,12 @@ describe("trackSentDraftStatus", () => {
       executedRuleId: "executed-rule-1",
       logger,
     });
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+      },
+    });
     expect(syncReplyMemoriesFromDraftSendLogs).toHaveBeenCalledWith({
       emailAccountId: "account-1",
       provider,
@@ -137,7 +143,36 @@ describe("trackSentDraftStatus", () => {
     });
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
-      data: { wasDraftSent: false },
+      data: {
+        draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+      },
+    });
+  });
+
+  it("marks missing drafts as sent with edits when the sent reply is similar enough", async () => {
+    vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
+      id: "action-1",
+      draftId: "draft-1",
+      content: "Thanks for reaching out.",
+      executedRuleId: "executed-rule-1",
+    } as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(0.72);
+    vi.mocked(isMeaningfulDraftEdit).mockReturnValue(true);
+
+    await trackSentDraftStatus({
+      emailAccountId: "account-1",
+      message: createSentMessage(),
+      provider: {
+        getDraft: vi.fn().mockResolvedValue(null),
+      } as any,
+      logger,
+    });
+
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        draftStatus: DraftEmailStatus.SENT_WITH_EDITS,
+      },
     });
   });
 
@@ -167,6 +202,12 @@ describe("trackSentDraftStatus", () => {
     ).toHaveBeenCalledWith({
       executedRuleId: "executed-rule-1",
       logger,
+    });
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        draftStatus: DraftEmailStatus.SENT,
+      },
     });
   });
 });
@@ -213,7 +254,9 @@ describe("cleanupThreadAIDrafts", () => {
     expect(provider.deleteDraft).toHaveBeenCalledWith("draft-1");
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
-      data: { wasDraftSent: false },
+      data: {
+        draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+      },
     });
   });
 

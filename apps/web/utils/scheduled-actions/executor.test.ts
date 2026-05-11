@@ -88,7 +88,7 @@ describe("executor", () => {
         bcc: null,
         url: null,
         draftId: null,
-        wasDraftSent: null,
+        draftStatus: null,
       });
       prisma.executedRule.findUnique.mockResolvedValue({
         id: "rule-123",
@@ -192,7 +192,7 @@ describe("executor", () => {
         bcc: null,
         url: null,
         draftId: null,
-        wasDraftSent: null,
+        draftStatus: null,
         selectedAttachments: [
           {
             fileId: "drive-file-1",
@@ -294,7 +294,7 @@ describe("executor", () => {
         bcc: null,
         url: null,
         draftId: null,
-        wasDraftSent: null,
+        draftStatus: null,
       });
       prisma.executedRule.findUnique.mockResolvedValue({
         id: "rule-123",

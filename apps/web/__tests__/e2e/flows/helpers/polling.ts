@@ -13,7 +13,10 @@ import { logStep } from "./logging";
 import { sleep } from "@/utils/sleep";
 import { extractEmailAddress } from "@/utils/email";
 import { getOrCreateFollowUpLabel } from "@/utils/follow-up/labels";
-import type { ThreadTrackerType } from "@/generated/prisma/enums";
+import {
+  DraftEmailStatus,
+  type ThreadTrackerType,
+} from "@/generated/prisma/enums";
 
 interface PollOptions {
   description?: string;
@@ -543,7 +546,7 @@ export async function waitForDraftSendLog(options: {
           executedAction: {
             select: {
               draftId: true,
-              wasDraftSent: true,
+              draftStatus: true,
             },
           },
         },
@@ -559,7 +562,7 @@ export async function waitForDraftSendLog(options: {
         sentMessageId: log.sentMessageId,
         similarityScore: log.similarityScore,
         draftId: log.executedAction.draftId,
-        wasSentFromDraft: log.executedAction.wasDraftSent,
+        wasSentFromDraft: isSentDraftStatus(log.executedAction.draftStatus),
       };
     },
     {
@@ -714,5 +717,12 @@ export async function waitForThreadMessageCount(options: {
       timeout,
       description: `Thread ${threadId} to have at least ${minCount} messages`,
     },
+  );
+}
+
+function isSentDraftStatus(status?: DraftEmailStatus | null) {
+  return (
+    status === DraftEmailStatus.SENT ||
+    status === DraftEmailStatus.SENT_WITH_EDITS
   );
 }

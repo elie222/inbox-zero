@@ -24,7 +24,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       createdAt: true,
       content: true,
       draftId: true,
-      wasDraftSent: true,
+      draftStatus: true,
       draftSendLog: {
         select: {
           sentMessageId: true,

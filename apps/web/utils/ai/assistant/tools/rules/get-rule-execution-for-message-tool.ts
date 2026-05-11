@@ -40,7 +40,7 @@ type GetRuleExecutionForMessageOutput =
           url: string | null;
           folderName: string | null;
           draftId: string | null;
-          wasDraftSent: boolean | null;
+          draftStatus: string | null;
         }>;
       }>;
     }
@@ -100,7 +100,7 @@ export const getRuleExecutionForMessageTool = ({
                 url: true,
                 folderName: true,
                 draftId: true,
-                wasDraftSent: true,
+                draftStatus: true,
               },
             },
             rule: {
@@ -134,7 +134,7 @@ export const getRuleExecutionForMessageTool = ({
             url: action.url,
             folderName: action.folderName,
             draftId: action.draftId,
-            wasDraftSent: action.wasDraftSent,
+            draftStatus: action.draftStatus,
           })),
         }));
 

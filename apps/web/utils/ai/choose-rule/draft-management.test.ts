@@ -7,7 +7,7 @@ import {
   isDraftUnmodified,
 } from "@/utils/ai/choose-rule/draft-management";
 import prisma from "@/utils/prisma";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -44,7 +44,7 @@ describe("handlePreviousDraftDeletion", () => {
     vi.clearAllMocks();
   });
 
-  it("should delete unmodified draft and update wasDraftSent", async () => {
+  it("should delete unmodified draft and update draft status", async () => {
     const mockPreviousDraft = {
       id: "action-111",
       draftId: "draft-222",
@@ -106,7 +106,9 @@ describe("handlePreviousDraftDeletion", () => {
     expect(mockDeleteDraft).toHaveBeenCalledWith("draft-222");
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: "action-111" },
-      data: { wasDraftSent: false },
+      data: {
+        draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+      },
     });
   });
 
@@ -318,7 +320,9 @@ describe("handlePreviousDraftDeletion", () => {
     expect(mockDeleteDraft).toHaveBeenCalledWith("draft-222");
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: "action-111" },
-      data: { wasDraftSent: false },
+      data: {
+        draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+      },
     });
   });
 

@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { withPrismaRetry } from "@/utils/prisma-retry";
@@ -16,6 +16,9 @@ import { replaceMessagingDraftNotificationsWithHandledOnWebState } from "@/utils
 import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
 import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
 import { logReplyTrackerError } from "./error-logging";
+
+const DRAFT_SENT_SIMILARITY_THRESHOLD = 0.7;
+const UNEDITED_DRAFT_SENT_SIMILARITY_THRESHOLD = 0.95;
 
 /**
  * Checks if a sent message originated from an AI draft and logs its similarity.
@@ -88,7 +91,7 @@ export async function trackSentDraftStatus({
       similarityScore,
     });
 
-    // Create DraftSendLog to record the comparison, but mark wasDraftSent as false
+    // Create DraftSendLog to record the comparison.
     const [draftSendLog] = await withPrismaRetry(
       () =>
         prisma.$transaction([
@@ -101,7 +104,9 @@ export async function trackSentDraftStatus({
           }),
           prisma.executedAction.update({
             where: { id: executedActionId },
-            data: { wasDraftSent: false },
+            data: {
+              draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+            },
           }),
         ]),
       { logger },
@@ -137,6 +142,11 @@ export async function trackSentDraftStatus({
     },
   );
 
+  // Gmail and Outlook both make "missing draft" ambiguous: it can mean sent,
+  // deleted, moved, or no longer reachable under the stored draft ID.
+  const draftStatus = getSentDraftStatus(similarityScore);
+  const wasLikelyDraftSent = isDraftSentStatus(draftStatus);
+
   const [draftSendLog] = await withPrismaRetry(
     () =>
       prisma.$transaction([
@@ -147,10 +157,11 @@ export async function trackSentDraftStatus({
             similarityScore: similarityScore,
           },
         }),
-        // Mark that the draft was sent
         prisma.executedAction.update({
           where: { id: executedActionId },
-          data: { wasDraftSent: true },
+          data: {
+            draftStatus,
+          },
         }),
       ]),
     { logger },
@@ -161,12 +172,14 @@ export async function trackSentDraftStatus({
     { executedActionId },
   );
 
-  after(() =>
-    trackFirstTimeEvent({
-      emailAccountId,
-      event: FIRST_TIME_EVENTS.FIRST_DRAFT_SENT,
-    }),
-  );
+  if (wasLikelyDraftSent) {
+    after(() =>
+      trackFirstTimeEvent({
+        emailAccountId,
+        event: FIRST_TIME_EVENTS.FIRST_DRAFT_SENT,
+      }),
+    );
+  }
 
   await replaceMessagingDraftNotificationsWithHandledOnWebState({
     executedRuleId: executedAction.executedRuleId,
@@ -207,9 +220,8 @@ export async function cleanupThreadAIDrafts({
   logger.info("Starting cleanup of old AI drafts for thread");
 
   try {
-    // Find all draft actions for this thread that:
-    // 1. Haven't been logged yet (draftSendLog is null), OR
-    // 2. Were logged but the user sent a different reply (wasDraftSent is false)
+    // Find draft actions that are still pending, or where the user replied
+    // without using the draft and the old draft may still need cleanup.
     // Excludes drafts for the current message to avoid deleting a draft that was just created
     const potentialDraftsToClean = await prisma.executedAction.findMany({
       where: {
@@ -220,11 +232,18 @@ export async function cleanupThreadAIDrafts({
         },
         type: ActionType.DRAFT_EMAIL,
         draftId: { not: null },
-        OR: [{ draftSendLog: null }, { wasDraftSent: false }],
+        draftStatus: {
+          in: [
+            DraftEmailStatus.PENDING,
+            DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+          ],
+        },
       },
       select: {
         id: true,
         draftId: true,
+        draftStatus: true,
+        draftSendLog: { select: { id: true } },
         content: true,
       },
     });
@@ -295,22 +314,25 @@ export async function cleanupThreadAIDrafts({
               draftEmbeddedMessageId: draftDetails.id,
               draftThreadId: draftDetails.threadId,
             });
+            const statusData = getDraftCleanupStatusData({
+              draftSendLog: action.draftSendLog,
+              draftStatus: action.draftStatus,
+              status: DraftEmailStatus.CLEANED_UP_UNUSED,
+            });
             await Promise.all([
               provider.deleteDraft(action.draftId),
-              // Mark as not sent (cleaned up because ignored/superseded)
-              withPrismaRetry(
-                () =>
-                  prisma.executedAction.update({
-                    where: { id: action.id },
-                    data: { wasDraftSent: false },
-                  }),
-                { logger },
-              ),
+              statusData
+                ? withPrismaRetry(
+                    () =>
+                      prisma.executedAction.update({
+                        where: { id: action.id },
+                        data: statusData,
+                      }),
+                    { logger },
+                  )
+                : Promise.resolve(),
             ]);
-            logger.info(
-              "Deleted unmodified draft and updated action status.",
-              actionLoggerOptions,
-            );
+            logger.info("Deleted unmodified draft.", actionLoggerOptions);
           } else {
             logger.info(
               "Draft has been modified, skipping deletion.",
@@ -319,18 +341,24 @@ export async function cleanupThreadAIDrafts({
           }
         } else {
           logger.info(
-            "Draft no longer exists, marking as not sent.",
+            "Draft no longer exists, tracking cleanup status.",
             actionLoggerOptions,
           );
-          // Draft doesn't exist anymore, mark as not sent
-          await withPrismaRetry(
-            () =>
-              prisma.executedAction.update({
-                where: { id: action.id },
-                data: { wasDraftSent: false },
-              }),
-            { logger },
-          );
+          const statusData = getDraftCleanupStatusData({
+            draftSendLog: action.draftSendLog,
+            draftStatus: action.draftStatus,
+            status: DraftEmailStatus.DELETED_OR_GONE,
+          });
+          if (statusData) {
+            await withPrismaRetry(
+              () =>
+                prisma.executedAction.update({
+                  where: { id: action.id },
+                  data: statusData,
+                }),
+              { logger },
+            );
+          }
         }
       } catch (error) {
         await logReplyTrackerError({
@@ -443,4 +471,35 @@ function queueReplyMemoryLearning({
       });
     }
   });
+}
+
+function getSentDraftStatus(similarityScore: number): DraftEmailStatus {
+  if (similarityScore >= UNEDITED_DRAFT_SENT_SIMILARITY_THRESHOLD) {
+    return DraftEmailStatus.SENT;
+  }
+  if (similarityScore >= DRAFT_SENT_SIMILARITY_THRESHOLD) {
+    return DraftEmailStatus.SENT_WITH_EDITS;
+  }
+  return DraftEmailStatus.REPLIED_WITHOUT_DRAFT;
+}
+
+function isDraftSentStatus(status: DraftEmailStatus): boolean {
+  return (
+    status === DraftEmailStatus.SENT ||
+    status === DraftEmailStatus.SENT_WITH_EDITS
+  );
+}
+
+function getDraftCleanupStatusData({
+  draftSendLog,
+  draftStatus,
+  status,
+}: {
+  draftSendLog?: { id: string } | null;
+  draftStatus?: DraftEmailStatus | null;
+  status: DraftEmailStatus;
+}): { draftStatus: DraftEmailStatus } | null {
+  if (draftSendLog) return null;
+  if (draftStatus && draftStatus !== DraftEmailStatus.PENDING) return null;
+  return { draftStatus: status };
 }
