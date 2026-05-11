@@ -30,6 +30,14 @@ describe("collectSenderReplyExamples", () => {
           internalDate: "2026-05-08T10:00:00Z",
         }),
         createMessage({
+          id: "long-sent-reply",
+          from: "user@example.com",
+          to: "sender@example.com",
+          textPlain: `${"Long sent reply. ".repeat(60)}Tail should be omitted.`,
+          labelIds: ["SENT"],
+          internalDate: "2026-05-09T10:00:00Z",
+        }),
+        createMessage({
           id: "newer-sent-reply",
           from: "user@example.com",
           to: "sender@example.com",
@@ -44,6 +52,14 @@ describe("collectSenderReplyExamples", () => {
           textPlain: "Incoming message should not be included.",
           labelIds: [],
           internalDate: "2026-05-09T10:00:00Z",
+        }),
+        createMessage({
+          id: "oldest-sent-reply",
+          from: "user@example.com",
+          to: "sender@example.com",
+          textPlain: "Oldest sent reply should not fit.",
+          labelIds: ["SENT"],
+          internalDate: "2026-05-06T10:00:00Z",
         }),
         createMessage({
           id: "other-recipient",
@@ -68,9 +84,13 @@ describe("collectSenderReplyExamples", () => {
       participantEmail: "sender@example.com",
       maxThreads: 8,
     });
-    expect(result?.count).toBe(2);
+    expect(result?.count).toBe(3);
     expect(result?.content).toContain("Newer sent reply.");
+    expect(result?.content).toContain('truncated="true"');
+    expect(result?.content).toContain("[truncated]");
+    expect(result?.content).not.toContain("Tail should be omitted.");
     expect(result?.content).toContain("Older sent reply.");
+    expect(result?.content).not.toContain("Oldest sent reply");
     expect(result?.content).not.toContain("Current thread reply");
     expect(result?.content).not.toContain("Incoming message");
     expect(result?.content).not.toContain("Other recipient");

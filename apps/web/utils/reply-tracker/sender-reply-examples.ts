@@ -4,11 +4,12 @@ import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
-import { stringifyEmail } from "@/utils/stringify-email";
+import { removeExcessiveWhitespace } from "@/utils/string";
+import type { EmailForLLM } from "@/utils/types";
 
 const MAX_SEARCHED_SENDER_THREADS = 8;
-const MAX_SENDER_REPLY_EXAMPLES = 5;
-const REPLY_EXAMPLE_CONTENT_MAX_LENGTH = 800;
+const MAX_SENDER_REPLY_EXAMPLES = 3;
+const REPLY_EXAMPLE_BODY_MAX_LENGTH = 600;
 
 export async function collectSenderReplyExamples({
   emailAccount,
@@ -66,14 +67,12 @@ export async function collectSenderReplyExamples({
       content: sentReplies
         .map((message) => {
           const email = getEmailForLLM(message, {
-            maxLength: REPLY_EXAMPLE_CONTENT_MAX_LENGTH,
+            maxLength: REPLY_EXAMPLE_BODY_MAX_LENGTH + 1,
             extractReply: true,
             removeForwarded: true,
           });
 
-          return `<reply_example>
-${stringifyEmail(email, REPLY_EXAMPLE_CONTENT_MAX_LENGTH)}
-</reply_example>`;
+          return formatReplyExample(email);
         })
         .join("\n\n"),
     };
@@ -84,4 +83,31 @@ ${stringifyEmail(email, REPLY_EXAMPLE_CONTENT_MAX_LENGTH)}
     });
     return null;
   }
+}
+
+function formatReplyExample(email: EmailForLLM) {
+  const body = formatReplyExampleBody(email.content);
+  const bodyTag = body.truncated ? '<body truncated="true">' : "<body>";
+
+  return `<reply_example>
+<from>${email.from}</from>
+${email.to ? `<to>${email.to}</to>` : ""}
+${email.date ? `<date>${email.date.toISOString()}</date>` : ""}
+<subject>${email.subject}</subject>
+${bodyTag}${body.content}</body>
+</reply_example>`;
+}
+
+function formatReplyExampleBody(content: string) {
+  const cleanedContent = removeExcessiveWhitespace(content);
+  if (cleanedContent.length <= REPLY_EXAMPLE_BODY_MAX_LENGTH) {
+    return { content: cleanedContent, truncated: false };
+  }
+
+  return {
+    content: `${cleanedContent
+      .slice(0, REPLY_EXAMPLE_BODY_MAX_LENGTH)
+      .trimEnd()}\n[truncated]`,
+    truncated: true,
+  };
 }
