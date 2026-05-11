@@ -4,8 +4,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
-import { removeExcessiveWhitespace } from "@/utils/string";
-import type { EmailForLLM } from "@/utils/types";
+import { stringifyEmail } from "@/utils/stringify-email";
 
 const MAX_SEARCHED_SENDER_THREADS = 8;
 const MAX_SENDER_REPLY_EXAMPLES = 3;
@@ -41,13 +40,13 @@ export async function collectSenderReplyExamples({
         if (currentMessageIds.has(message.id)) return false;
         if (!emailProvider.isSentMessage(message)) return false;
 
-        const recipients = extractEmailAddresses(
-          [
-            message.headers.to,
-            message.headers.cc ?? "",
-            message.headers.bcc ?? "",
-          ].join(","),
-        );
+        const recipients = [
+          message.headers.to,
+          message.headers.cc,
+          message.headers.bcc,
+        ]
+          .filter((header): header is string => Boolean(header))
+          .flatMap(extractEmailAddresses);
 
         return recipients.some((recipient) =>
           isSameEmailAddress(recipient, normalizedSenderEmail),
@@ -67,12 +66,11 @@ export async function collectSenderReplyExamples({
       content: sentReplies
         .map((message) => {
           const email = getEmailForLLM(message, {
-            maxLength: REPLY_EXAMPLE_BODY_MAX_LENGTH + 1,
             extractReply: true,
             removeForwarded: true,
           });
 
-          return formatReplyExample(email);
+          return `<reply_example>\n${stringifyEmail(email, REPLY_EXAMPLE_BODY_MAX_LENGTH)}\n</reply_example>`;
         })
         .join("\n\n"),
     };
@@ -83,31 +81,4 @@ export async function collectSenderReplyExamples({
     });
     return null;
   }
-}
-
-function formatReplyExample(email: EmailForLLM) {
-  const body = formatReplyExampleBody(email.content);
-  const bodyTag = body.truncated ? '<body truncated="true">' : "<body>";
-
-  return `<reply_example>
-<from>${email.from}</from>
-${email.to ? `<to>${email.to}</to>` : ""}
-${email.date ? `<date>${email.date.toISOString()}</date>` : ""}
-<subject>${email.subject}</subject>
-${bodyTag}${body.content}</body>
-</reply_example>`;
-}
-
-function formatReplyExampleBody(content: string) {
-  const cleanedContent = removeExcessiveWhitespace(content);
-  if (cleanedContent.length <= REPLY_EXAMPLE_BODY_MAX_LENGTH) {
-    return { content: cleanedContent, truncated: false };
-  }
-
-  return {
-    content: `${cleanedContent
-      .slice(0, REPLY_EXAMPLE_BODY_MAX_LENGTH)
-      .trimEnd()}\n[truncated]`,
-    truncated: true,
-  };
 }

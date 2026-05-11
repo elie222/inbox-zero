@@ -646,12 +646,13 @@ thanks,`,
             meetingContext: null,
           };
 
-          const baselineResult =
-            await aiDraftReplyWithConfidence(sharedDraftOptions);
-          const result = await aiDraftReplyWithConfidence({
-            ...sharedDraftOptions,
-            senderReplyExamples: getStatusReplyExamples(emailAccount.email),
-          });
+          const [baselineResult, result] = await Promise.all([
+            aiDraftReplyWithConfidence(sharedDraftOptions),
+            aiDraftReplyWithConfidence({
+              ...sharedDraftOptions,
+              senderReplyExamples: getStatusReplyExamples(emailAccount.email),
+            }),
+          ]);
 
           const input = formatThreadForJudge(messages);
           const paymentReplyCriterion = {
@@ -680,11 +681,7 @@ thanks,`,
             pass,
             expected:
               "concise same-sender reply without needless clarification",
-            actual: formatSemanticJudgeActualWithExtra(
-              result.reply,
-              judgeResult,
-              [`baseline=${JSON.stringify(baselineResult.reply)}`],
-            ),
+            actual: `${formatSemanticJudgeActual(result.reply, judgeResult)} | baseline=${JSON.stringify(baselineResult.reply)}`,
           });
 
           expect(
@@ -1506,14 +1503,6 @@ function hasExactUrl(text: string, expectedUrl: string): boolean {
 
 function formatThreadForJudge(messages: { content: string }[]): string {
   return messages.map((message) => message.content).join("\n\n---\n\n");
-}
-
-function formatSemanticJudgeActualWithExtra(
-  reply: string,
-  judgeResult: Parameters<typeof formatSemanticJudgeActual>[1],
-  extra: string[] = [],
-): string {
-  return [formatSemanticJudgeActual(reply, judgeResult), ...extra].join(" | ");
 }
 
 function getStatusReplyExamples(userEmail: string): string {

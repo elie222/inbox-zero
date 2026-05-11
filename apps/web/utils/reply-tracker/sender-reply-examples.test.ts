@@ -86,8 +86,7 @@ describe("collectSenderReplyExamples", () => {
     });
     expect(result?.count).toBe(3);
     expect(result?.content).toContain("Newer sent reply.");
-    expect(result?.content).toContain('truncated="true"');
-    expect(result?.content).toContain("[truncated]");
+    expect(result?.content).toContain("...");
     expect(result?.content).not.toContain("Tail should be omitted.");
     expect(result?.content).toContain("Older sent reply.");
     expect(result?.content).not.toContain("Oldest sent reply");
