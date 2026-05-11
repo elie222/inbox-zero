@@ -123,10 +123,7 @@ async function findExecutedDraftActions(ruleIds: string[]) {
 }
 
 function isSentDraftStatus(status: DraftEmailStatus | null): boolean {
-  return (
-    status === DraftEmailStatus.SENT ||
-    status === DraftEmailStatus.SENT_WITH_EDITS
-  );
+  return status === DraftEmailStatus.LIKELY_SENT;
 }
 
 async function deleteAutoDraftActions(actionIds: string[]) {

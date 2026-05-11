@@ -71,7 +71,7 @@ export async function cleanupAIDraftsForAccount({
         const statusData = getDraftCleanupStatusData({
           draftSendLog: action.draftSendLog,
           draftStatus: action.draftStatus,
-          status: DraftEmailStatus.DELETED_OR_GONE,
+          status: DraftEmailStatus.MISSING_FROM_PROVIDER,
         });
         if (statusData) {
           await prisma.executedAction.update({

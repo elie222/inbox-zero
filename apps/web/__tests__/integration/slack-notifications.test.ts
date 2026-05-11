@@ -832,8 +832,10 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         expect(slackActionState.messagingMessageStatus).toBe(
           MessagingMessageStatus.DRAFT_SENT,
         );
-        expect(slackActionState.draftStatus).toBe(DraftEmailStatus.SENT);
-        expect(siblingDraftActionState.draftStatus).toBe(DraftEmailStatus.SENT);
+        expect(slackActionState.draftStatus).toBe(DraftEmailStatus.LIKELY_SENT);
+        expect(siblingDraftActionState.draftStatus).toBe(
+          DraftEmailStatus.LIKELY_SENT,
+        );
         expect(
           await gmailHarness.provider.getDraft(createdDraft.id),
         ).toBeNull();

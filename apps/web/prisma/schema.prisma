@@ -642,7 +642,7 @@ model ExecutedAction {
 
   // additional fields as a result of the action
   draftId              String? // Gmail draft ID created by DRAFT_EMAIL action
-  draftStatus          DraftEmailStatus?
+  draftStatus          DraftEmailStatus? // Last observed/inferred draft lifecycle status; provider state may be stale or ambiguous.
   wasDraftSent         Boolean? // @deprecated Use draftStatus. Kept for historical compatibility only.
   draftModelProvider   String?
   draftModelName       String?
@@ -1543,11 +1543,10 @@ enum DraftReplyConfidence {
 
 enum DraftEmailStatus {
   PENDING
-  SENT
-  SENT_WITH_EDITS
+  LIKELY_SENT
   REPLIED_WITHOUT_DRAFT
   CLEANED_UP_UNUSED
-  DELETED_OR_GONE
+  MISSING_FROM_PROVIDER
 }
 
 enum ReplyMemoryKind {

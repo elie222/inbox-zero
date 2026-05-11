@@ -51,7 +51,7 @@ describe("disableUnusedAutoDrafts", () => {
       id: `exec-${i + 1}`,
       draftStatus:
         i === 5
-          ? DraftEmailStatus.SENT_WITH_EDITS
+          ? DraftEmailStatus.LIKELY_SENT
           : DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
     }));
     (prisma.executedAction.findMany as any).mockResolvedValueOnce(mockDrafts);
@@ -112,7 +112,7 @@ describe("disableUnusedAutoDrafts", () => {
             id: `exec-u1-${i}`,
             draftStatus:
               i === 0
-                ? DraftEmailStatus.SENT
+                ? DraftEmailStatus.LIKELY_SENT
                 : DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
           }));
         }

@@ -18,8 +18,6 @@ import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
 import { logReplyTrackerError } from "./error-logging";
 
 const DRAFT_SENT_SIMILARITY_THRESHOLD = 0.7;
-const UNEDITED_DRAFT_SENT_SIMILARITY_THRESHOLD = 0.95;
-
 /**
  * Checks if a sent message originated from an AI draft and logs its similarity.
  */
@@ -347,7 +345,7 @@ export async function cleanupThreadAIDrafts({
           const statusData = getDraftCleanupStatusData({
             draftSendLog: action.draftSendLog,
             draftStatus: action.draftStatus,
-            status: DraftEmailStatus.DELETED_OR_GONE,
+            status: DraftEmailStatus.MISSING_FROM_PROVIDER,
           });
           if (statusData) {
             await withPrismaRetry(
@@ -474,20 +472,14 @@ function queueReplyMemoryLearning({
 }
 
 function getSentDraftStatus(similarityScore: number): DraftEmailStatus {
-  if (similarityScore >= UNEDITED_DRAFT_SENT_SIMILARITY_THRESHOLD) {
-    return DraftEmailStatus.SENT;
-  }
   if (similarityScore >= DRAFT_SENT_SIMILARITY_THRESHOLD) {
-    return DraftEmailStatus.SENT_WITH_EDITS;
+    return DraftEmailStatus.LIKELY_SENT;
   }
   return DraftEmailStatus.REPLIED_WITHOUT_DRAFT;
 }
 
 function isDraftSentStatus(status: DraftEmailStatus): boolean {
-  return (
-    status === DraftEmailStatus.SENT ||
-    status === DraftEmailStatus.SENT_WITH_EDITS
-  );
+  return status === DraftEmailStatus.LIKELY_SENT;
 }
 
 function getDraftCleanupStatusData({

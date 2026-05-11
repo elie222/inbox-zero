@@ -1,10 +1,9 @@
 CREATE TYPE "DraftEmailStatus" AS ENUM (
   'PENDING',
-  'SENT',
-  'SENT_WITH_EDITS',
+  'LIKELY_SENT',
   'REPLIED_WITHOUT_DRAFT',
   'CLEANED_UP_UNUSED',
-  'DELETED_OR_GONE'
+  'MISSING_FROM_PROVIDER'
 );
 
 ALTER TABLE "ExecutedAction"
@@ -12,7 +11,7 @@ ADD COLUMN "draftStatus" "DraftEmailStatus";
 
 UPDATE "ExecutedAction"
 SET "draftStatus" = CASE
-  WHEN "wasDraftSent" = true THEN 'SENT'::"DraftEmailStatus"
+  WHEN "wasDraftSent" = true THEN 'LIKELY_SENT'::"DraftEmailStatus"
   WHEN "type" = 'DRAFT_EMAIL' AND "wasDraftSent" = false AND EXISTS (
     SELECT 1
     FROM "DraftSendLog"

@@ -148,7 +148,7 @@ describe("trackSentDraftStatus", () => {
     });
   });
 
-  it("marks missing drafts as sent with edits when the sent reply is similar enough", async () => {
+  it("marks missing drafts as likely sent when the sent reply is similar enough", async () => {
     vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
       id: "action-1",
       draftId: "draft-1",
@@ -170,7 +170,7 @@ describe("trackSentDraftStatus", () => {
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
       data: {
-        draftStatus: DraftEmailStatus.SENT_WITH_EDITS,
+        draftStatus: DraftEmailStatus.LIKELY_SENT,
       },
     });
   });
@@ -205,7 +205,7 @@ describe("trackSentDraftStatus", () => {
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
       data: {
-        draftStatus: DraftEmailStatus.SENT,
+        draftStatus: DraftEmailStatus.LIKELY_SENT,
       },
     });
   });

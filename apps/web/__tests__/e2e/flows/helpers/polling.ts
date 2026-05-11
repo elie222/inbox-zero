@@ -721,8 +721,5 @@ export async function waitForThreadMessageCount(options: {
 }
 
 function isSentDraftStatus(status?: DraftEmailStatus | null) {
-  return (
-    status === DraftEmailStatus.SENT ||
-    status === DraftEmailStatus.SENT_WITH_EDITS
-  );
+  return status === DraftEmailStatus.LIKELY_SENT;
 }

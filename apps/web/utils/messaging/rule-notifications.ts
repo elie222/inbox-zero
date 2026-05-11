@@ -960,7 +960,7 @@ async function sendDraftReplyFromNotification({
   await prisma.executedAction.update({
     where: { id: context.id },
     data: {
-      draftStatus: DraftEmailStatus.SENT,
+      draftStatus: DraftEmailStatus.LIKELY_SENT,
       messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
     },
   });
@@ -969,7 +969,7 @@ async function sendDraftReplyFromNotification({
     await prisma.executedAction.update({
       where: { id: mailboxDraftAction.id },
       data: {
-        draftStatus: DraftEmailStatus.SENT,
+        draftStatus: DraftEmailStatus.LIKELY_SENT,
       },
     });
   }

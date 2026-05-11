@@ -149,5 +149,5 @@ function formatDraftStatus(draftStatus?: string | null) {
 }
 
 function isDraftSentStatus(draftStatus?: string | null) {
-  return draftStatus === "SENT" || draftStatus === "SENT_WITH_EDITS";
+  return draftStatus === "LIKELY_SENT";
 }
