@@ -68,7 +68,7 @@ CREATE TABLE "Booking" (
 CREATE UNIQUE INDEX "BookingLink_slug_key" ON "BookingLink"("slug");
 
 -- CreateIndex
-CREATE INDEX "BookingLink_emailAccountId_idx" ON "BookingLink"("emailAccountId");
+CREATE UNIQUE INDEX "BookingLink_emailAccountId_key" ON "BookingLink"("emailAccountId");
 
 -- CreateIndex
 CREATE INDEX "BookingLink_destinationCalendarId_idx" ON "BookingLink"("destinationCalendarId");

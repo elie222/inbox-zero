@@ -1183,7 +1183,7 @@ model BookingLink {
   maxDaysAhead         Int                     @default(90)
   timezone             String
 
-  emailAccountId        String
+  emailAccountId        String       @unique // temporary: relax when we support multiple booking links per account
   emailAccount          EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   destinationCalendarId String?
   destinationCalendar   Calendar?    @relation(fields: [destinationCalendarId], references: [id], onDelete: SetNull)
@@ -1191,7 +1191,6 @@ model BookingLink {
   windows  BookingWindow[]
   bookings Booking[]
 
-  @@index([emailAccountId])
   @@index([destinationCalendarId])
 }
 

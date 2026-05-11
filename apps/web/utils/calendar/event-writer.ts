@@ -136,9 +136,12 @@ async function getWritableCalendar({
   const where = destinationCalendarId
     ? { id: destinationCalendarId }
     : { primary: true };
+  // Availability scans only consider enabled calendars, so writing to a
+  // disabled one would silently bypass conflict detection.
   const calendar = await prisma.calendar.findFirst({
     where: {
       ...where,
+      isEnabled: true,
       connection: {
         emailAccountId,
         isConnected: true,
