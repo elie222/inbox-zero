@@ -5,7 +5,7 @@ import {
   createMockEmailProvider,
   getMockParsedMessage,
 } from "@/__tests__/mocks/email-provider.mock";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { processFilingReply } from "./handle-filing-reply";
 
 vi.mock("@/utils/prisma");
@@ -18,7 +18,7 @@ vi.mock("@/utils/ai/content-sanitizer", () => ({
 
 import { aiParseFilingReply } from "@/utils/ai/document-filing/parse-filing-reply";
 
-const logger = createScopedLogger("handle-filing-reply-test");
+const logger = createTestLogger();
 
 const emailAccountId = "email-account-id";
 const userEmail = "user@example.com";

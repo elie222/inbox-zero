@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const createRuleMock = vi.hoisted(() => vi.fn());
 
@@ -111,7 +111,7 @@ describe("confirmAssistantCreateRule", () => {
       waitForPersistence: true,
       emailAccountId: "ea_1",
       provider: "google",
-      logger: createScopedLogger("assistant-chat-create-rule.test"),
+      logger: createTestLogger(),
     });
 
     await vi.runAllTimersAsync();
@@ -224,7 +224,7 @@ describe("confirmAssistantCreateRule", () => {
   });
 
   it("returns an error when confirmation persistence fails", async () => {
-    const logger = createScopedLogger("assistant-chat-create-rule.test");
+    const logger = createTestLogger();
 
     prisma.chatMessage.findFirst.mockResolvedValue({
       id: "cm-1",
@@ -255,7 +255,7 @@ describe("confirmAssistantCreateRule", () => {
   });
 
   it("does not clear processing when a newer confirmed state already exists", async () => {
-    const logger = createScopedLogger("assistant-chat-create-rule.test");
+    const logger = createTestLogger();
     const pendingPart = buildPendingCreateRulePart();
     const processingAt = "2026-02-23T00:01:00.000Z";
     const processingPart = buildPendingCreateRulePart({

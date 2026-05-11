@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   ReplyMemoryKind,
   ReplyMemoryScopeType,
@@ -54,7 +54,7 @@ vi.mock("@/utils/user/get", () => ({
   }),
 }));
 
-const logger = createScopedLogger("reply-memory-test");
+const logger = createTestLogger();
 
 describe("reply-memory", () => {
   beforeEach(() => {
@@ -552,7 +552,7 @@ describe("reply-memory", () => {
     const provider = {
       getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
     };
-    const testLogger = createScopedLogger("reply-memory-test-unknown-id");
+    const testLogger = createTestLogger();
     const warnSpy = vi.spyOn(testLogger, "warn").mockImplementation(() => {});
 
     await syncReplyMemoriesFromDraftSendLogs({

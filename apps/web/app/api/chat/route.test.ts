@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getEmailAccount } from "@/__tests__/helpers";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger, getEmailAccount } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 
 const {
@@ -53,21 +52,21 @@ vi.mock("@/utils/middleware", () => ({
       handler: (
         request: NextRequest & {
           auth: { userId: string; emailAccountId: string; email: string };
-          logger: ReturnType<typeof createScopedLogger>;
+          logger: ReturnType<typeof createTestLogger>;
         },
       ) => Promise<Response>,
     ) =>
     async (request: NextRequest) => {
       const authRequest = request as NextRequest & {
         auth: { userId: string; emailAccountId: string; email: string };
-        logger: ReturnType<typeof createScopedLogger>;
+        logger: ReturnType<typeof createTestLogger>;
       };
       authRequest.auth = {
         userId: "user-1",
         emailAccountId: "email-account-id",
         email: "user@test.com",
       };
-      authRequest.logger = createScopedLogger("test/chat-route");
+      authRequest.logger = createTestLogger();
       return handler(authRequest);
     },
 }));

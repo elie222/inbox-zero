@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { collectSenderReplyExamples } from "./sender-reply-examples";
 import type { EmailProvider } from "@/utils/email/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import type { ParsedMessage } from "@/utils/types";
 
-const logger = createScopedLogger("sender-reply-examples-test");
+const logger = createTestLogger();
 
 describe("collectSenderReplyExamples", () => {
   it("returns recent sent replies to the sender and excludes current-thread messages", async () => {

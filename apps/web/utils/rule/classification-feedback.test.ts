@@ -6,7 +6,7 @@ import {
 } from "./classification-feedback";
 import { ClassificationFeedbackEventType } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/prisma", () => ({
   default: {
@@ -20,7 +20,7 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe("saveClassificationFeedback", () => {
   beforeEach(() => {

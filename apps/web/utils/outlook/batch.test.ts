@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OutlookClient } from "@/utils/outlook/client";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { moveMessagesForSenders } from "./batch";
 
 const mockGetFolderIds = vi.fn();
@@ -61,7 +61,7 @@ describe("moveMessagesForSenders", () => {
         ownerEmail: "owner@example.com",
         emailAccountId: "account-1",
         continueOnError: false,
-        logger: createScopedLogger("outlook-batch-test"),
+        logger: createTestLogger(),
       }),
     ).rejects.toThrow("Graph batch returned one or more error responses.");
 

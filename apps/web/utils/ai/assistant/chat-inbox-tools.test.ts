@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
   forwardEmailTool,
@@ -61,7 +61,7 @@ vi.mock("@/utils/redis/categorization-progress", () => ({
 }));
 
 const TEST_EMAIL = "user@test.com";
-const logger = createScopedLogger("chat-inbox-tools-test");
+const logger = createTestLogger();
 
 describe("chat inbox tools", () => {
   beforeEach(() => {

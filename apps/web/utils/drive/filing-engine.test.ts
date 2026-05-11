@@ -6,7 +6,7 @@ import {
   getMockParsedMessage,
 } from "@/__tests__/mocks/email-provider.mock";
 import { Prisma } from "@/generated/prisma/client";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { getFilableAttachments, processAttachment } from "./filing-engine";
 
 vi.mock("@/utils/prisma");
@@ -36,7 +36,7 @@ import {
 import { sendFilingMessagingNotifications } from "@/utils/drive/filing-messaging-notifications";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 
-const logger = createScopedLogger("filing-engine-test");
+const logger = createTestLogger();
 
 describe("processAttachment", () => {
   beforeEach(() => {

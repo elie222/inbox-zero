@@ -4,7 +4,7 @@ import {
   processAllFollowUpReminders,
 } from "./process";
 import { ThreadTrackerType } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 
@@ -98,7 +98,7 @@ import {
 } from "@/utils/follow-up/send-follow-up-notification";
 import { getLabelsFromDb } from "@/utils/reply-tracker/label-helpers";
 
-const logger = createScopedLogger("test-follow-up");
+const logger = createTestLogger();
 
 const OLD_DATE = "1700000000000"; // Nov 2023 - well past any threshold
 const RECENT_DATE = String(Date.now()); // Now - within threshold

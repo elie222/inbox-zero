@@ -8,7 +8,7 @@ import {
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import type { ParsedMessage } from "@/utils/types";
 
 vi.mock("@/utils/prisma");
@@ -159,7 +159,7 @@ describe("handleRuleNotificationAction", () => {
 
     await handleRuleNotificationAction({
       event,
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(provider.sendDraft).toHaveBeenCalledWith("draft-1");
@@ -290,7 +290,7 @@ describe("handleRuleNotificationAction", () => {
 
     await handleRuleNotificationAction({
       event,
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(provider.sendDraft).toHaveBeenCalledWith("draft-1");
@@ -407,7 +407,7 @@ describe("handleRuleNotificationAction", () => {
 
     await handleRuleNotificationAction({
       event,
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(provider.sendDraft).toHaveBeenCalledWith("draft-1");
@@ -446,7 +446,7 @@ describe("handleRuleNotificationAction", () => {
 
     await handleRuleNotificationAction({
       event,
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(provider.trashThread).toHaveBeenCalledWith(
@@ -492,7 +492,7 @@ describe("handleRuleNotificationAction", () => {
 
     await handleRuleNotificationAction({
       event,
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(provider.markSpam).toHaveBeenCalledWith("thread-1");
@@ -529,7 +529,7 @@ describe("handleRuleNotificationAction", () => {
 
     await handleRuleNotificationAction({
       event,
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
@@ -567,7 +567,7 @@ describe("handleRuleNotificationAction", () => {
 
     await handleRuleNotificationAction({
       event,
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(prisma.executedAction.findUnique).not.toHaveBeenCalled();
@@ -611,7 +611,7 @@ describe("handleRuleNotificationAction", () => {
 
     await handleRuleNotificationAction({
       event,
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(provider.trashThread).toHaveBeenCalledWith(
@@ -728,7 +728,7 @@ describe("sendMessagingRuleNotification", () => {
         },
         snippet: "Preview text",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -802,7 +802,7 @@ describe("sendMessagingRuleNotification", () => {
         },
         snippet: "Preview text",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -851,7 +851,7 @@ describe("sendMessagingRuleNotification", () => {
         },
         snippet: "Preview text",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -896,7 +896,7 @@ describe("sendMessagingRuleNotification", () => {
         },
         snippet: "Preview text",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -938,7 +938,7 @@ describe("sendMessagingRuleNotification", () => {
         },
         snippet: "Preview text",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -974,7 +974,7 @@ describe("sendMessagingRuleNotification", () => {
         },
         snippet: "Preview text",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -1013,7 +1013,7 @@ describe("sendMessagingRuleNotification", () => {
         },
         snippet: "Preview text",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -1049,7 +1049,7 @@ describe("sendMessagingRuleNotification", () => {
         },
         snippet: "Preview text",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -1139,7 +1139,7 @@ describe("sendMessagingRuleNotification", () => {
         snippet: "Short snippet",
         textPlain: longBody,
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -1177,7 +1177,7 @@ describe("sendMessagingRuleNotification", () => {
         textHtml:
           '<div><p>HTML only body</p><p>Second line</p><img src="image.png" /></div>',
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -1218,7 +1218,7 @@ describe("sendMessagingRuleNotification", () => {
         textPlain: "Plain fallback body",
         textHtml: "<p>Rendered HTML body</p>",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -1257,7 +1257,7 @@ describe("sendMessagingRuleNotification", () => {
         textPlain:
           "Fresh request line.\n\nOn Tue, Apr 28, 2026 at 1:10 PM, Sender <sender@example.com> wrote:\n\n> Older quoted line that should not be shown.",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -1304,7 +1304,7 @@ describe("sendMessagingRuleNotification", () => {
         },
         snippet: "Preview text",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -1365,7 +1365,7 @@ describe("sendMessagingRuleNotification", () => {
         },
         snippet: "First line\nSecond line",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -1424,7 +1424,7 @@ describe("sendMessagingRuleNotification", () => {
         textPlain:
           "Fresh request line.\n\nOn Tue, Apr 28, 2026 at 1:10 PM, Sender <sender@example.com> wrote:\n\n> Older quoted line that should not be shown.",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -1475,7 +1475,7 @@ describe("sendMessagingRuleNotification", () => {
         },
         snippet: "Preview text",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -1547,7 +1547,7 @@ describe("sendMessagingRuleNotification", () => {
         },
         snippet: "Preview text",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -1600,7 +1600,7 @@ describe("sendMessagingRuleNotification", () => {
         snippet:
           "Quoted reply said A &gt; B, C &lt; D, and Tom &amp; Jerry replied.",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -1657,7 +1657,7 @@ describe("sendMessagingRuleNotification", () => {
         textPlain:
           "Fresh request line.\n\nOn Tue, Apr 28, 2026 at 1:10 PM, Sender <sender@example.com> wrote:\n\n> Older quoted line that should not be shown.",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -1710,7 +1710,7 @@ describe("sendMessagingRuleNotification", () => {
         },
         snippet: "Can you review item_name before 5 * 6?",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(true);
@@ -1764,7 +1764,7 @@ describe("sendMessagingRuleNotification", () => {
         },
         snippet: "Preview text",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(false);
@@ -1804,7 +1804,7 @@ describe("sendMessagingRuleNotification", () => {
         },
         snippet: "Preview text",
       },
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(delivered).toBe(false);
@@ -1892,7 +1892,7 @@ describe("replaceMessagingDraftNotificationsWithHandledOnWebState", () => {
 
     await replaceMessagingDraftNotificationsWithHandledOnWebState({
       executedRuleId: "executed-rule-1",
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(prisma.executedAction.updateMany).toHaveBeenCalledWith({
@@ -1958,7 +1958,7 @@ describe("replaceMessagingDraftNotificationsWithHandledOnWebState", () => {
 
     await replaceMessagingDraftNotificationsWithHandledOnWebState({
       executedRuleId: "executed-rule-1",
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(mockTeamsOpenDm).toHaveBeenCalledWith("29:teams-user");
@@ -2005,7 +2005,7 @@ describe("replaceMessagingDraftNotificationsWithHandledOnWebState", () => {
 
     await replaceMessagingDraftNotificationsWithHandledOnWebState({
       executedRuleId: "executed-rule-1",
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(mockTelegramOpenDm).toHaveBeenCalledWith("telegram-chat-1");
@@ -2037,7 +2037,7 @@ describe("replaceMessagingDraftNotificationsWithHandledOnWebState", () => {
 
     await replaceMessagingDraftNotificationsWithHandledOnWebState({
       executedRuleId: "executed-rule-1",
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(prisma.executedAction.updateMany).toHaveBeenCalledWith({
@@ -2093,7 +2093,7 @@ describe("replaceMessagingDraftNotificationsWithHandledOnWebState", () => {
 
     await replaceMessagingDraftNotificationsWithHandledOnWebState({
       executedRuleId: "executed-rule-1",
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(prisma.executedAction.updateMany).toHaveBeenCalledWith({
@@ -2147,7 +2147,7 @@ describe("replaceMessagingDraftNotificationsWithHandledOnWebState", () => {
 
     await replaceMessagingDraftNotificationsWithHandledOnWebState({
       executedRuleId: "executed-rule-1",
-      logger: createScopedLogger("test"),
+      logger: createTestLogger(),
     });
 
     expect(mockTeamsOpenDm).toHaveBeenCalledWith("29:teams-user");
@@ -2197,7 +2197,7 @@ describe("replaceMessagingDraftNotificationsWithHandledOnWebState", () => {
     await expect(
       replaceMessagingDraftNotificationsWithHandledOnWebState({
         executedRuleId: "executed-rule-1",
-        logger: createScopedLogger("test"),
+        logger: createTestLogger(),
       }),
     ).resolves.toBeUndefined();
 

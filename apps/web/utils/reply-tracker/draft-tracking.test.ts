@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { ActionType } from "@/generated/prisma/enums";
 import { cleanupThreadAIDrafts, trackSentDraftStatus } from "./draft-tracking";
 
@@ -35,7 +35,7 @@ import {
 } from "@/utils/ai/reply/reply-memory";
 import { replaceMessagingDraftNotificationsWithHandledOnWebState } from "@/utils/messaging/rule-notifications";
 
-const logger = createScopedLogger("draft-tracking-test");
+const logger = createTestLogger();
 
 describe("trackSentDraftStatus", () => {
   beforeEach(() => {

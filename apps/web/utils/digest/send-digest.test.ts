@@ -5,7 +5,7 @@ import {
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { sendDigest } from "./send-digest";
 import {
   resolveSlackRouteDestination,
@@ -26,7 +26,7 @@ vi.mock("@inboxzero/resend", () => ({
   sendDigestEmail: vi.fn(),
 }));
 
-const logger = createScopedLogger("send-digest-test");
+const logger = createTestLogger();
 
 const baseArgs = {
   emailAccountId: "email-account-1",

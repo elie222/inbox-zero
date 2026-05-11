@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createMockEmailProvider } from "@/__tests__/mocks/email-provider.mock";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   sendAskNotification,
   sendFiledNotification,
@@ -9,7 +9,7 @@ import {
 
 vi.mock("@/utils/prisma");
 
-const logger = createScopedLogger("filing-notifications-test");
+const logger = createTestLogger();
 
 const sourceMessage = {
   headerMessageId: "<original@example.com>",

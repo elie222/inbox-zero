@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { processSlackSlashCommand } from "@/utils/messaging/providers/slack/slash-commands";
 
 const {
@@ -47,7 +47,7 @@ vi.mock("@/utils/user/get", () => ({
   getEmailAccountWithAi: mockGetEmailAccountWithAi,
 }));
 
-const logger = createScopedLogger("slack-slash-command-test");
+const logger = createTestLogger();
 
 describe("processSlackSlashCommand", () => {
   beforeEach(() => {

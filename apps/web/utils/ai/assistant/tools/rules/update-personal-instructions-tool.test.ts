@@ -1,7 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { updatePersonalInstructionsTool } from "./update-personal-instructions-tool";
 
 vi.mock("@/utils/prisma");
@@ -9,7 +9,7 @@ vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
-const logger = createScopedLogger("update-personal-instructions-tool-test");
+const logger = createTestLogger();
 
 describe("updatePersonalInstructionsTool", () => {
   beforeEach(() => {

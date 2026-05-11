@@ -4,7 +4,7 @@ import {
   GroupItemType,
   SystemType,
 } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { createRuleTool } from "./tools/rules/create-rule-tool";
 import { updateRuleTool } from "./tools/rules/update-rule-tool";
 import { updateRuleStateTool } from "./tools/rules/update-rule-state-tool";
@@ -45,7 +45,7 @@ vi.mock("@/utils/rule/rule", async (importOriginal) => {
   };
 });
 
-const logger = createScopedLogger("chat-rule-tools-test");
+const logger = createTestLogger();
 
 const defaultActions = [
   {

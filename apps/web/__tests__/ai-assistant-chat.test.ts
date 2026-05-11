@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelMessage } from "ai";
-import { getEmailAccount, getMockMessage } from "@/__tests__/helpers";
+import {
+  createTestLogger,
+  getEmailAccount,
+  getMockMessage,
+} from "@/__tests__/helpers";
 import { ActionType, GroupItemType } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
 
 const {
   envState,
@@ -110,7 +113,7 @@ vi.mock("@/env", () => ({
   },
 }));
 
-const logger = createScopedLogger("ai-assistant-chat-test");
+const logger = createTestLogger();
 
 const baseMessages: ModelMessage[] = [
   {

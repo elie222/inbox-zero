@@ -8,7 +8,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { DRAFT_PIPELINE_VERSION } from "@/utils/ai/reply/draft-attribution";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/ai/reply/draft-reply", () => ({
   aiDraftReplyWithConfidence: vi.fn(),
@@ -97,7 +97,7 @@ import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-ema
 import prisma from "@/utils/prisma";
 import { getReplyWithConfidence, saveReply } from "@/utils/redis/reply";
 
-const logger = createScopedLogger("reply-tracker/generate-draft-test");
+const logger = createTestLogger();
 
 type EmailAccountSignatureSettings = {
   allowHiddenAiDraftLinks: boolean;

@@ -5,7 +5,7 @@ import {
   MessagingRouteTargetType,
   ThreadTrackerType,
 } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   sendFollowUpNotification,
   type FollowUpNotificationChannel,
@@ -38,7 +38,7 @@ vi.mock("@/utils/messaging/chat-sdk/adapters", () => ({
   }),
 }));
 
-const logger = createScopedLogger("send-follow-up-test");
+const logger = createTestLogger();
 
 const baseArgs = {
   subject: "Project update",

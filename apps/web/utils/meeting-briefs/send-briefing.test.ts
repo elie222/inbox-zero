@@ -6,7 +6,7 @@ import {
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 import { sendBriefing } from "./send-briefing";
 import {
   resolveSlackRouteDestination,
@@ -26,7 +26,7 @@ vi.mock("@/utils/date", () => ({
   formatTimeInUserTimezone: vi.fn(() => "Monday, Jan 1 at 10:00 AM"),
 }));
 
-const logger = createScopedLogger("send-briefing-test");
+const logger = createTestLogger();
 
 const event: CalendarEvent = {
   id: "event-1",
