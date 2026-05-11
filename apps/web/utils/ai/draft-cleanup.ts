@@ -33,7 +33,6 @@ export async function cleanupAIDraftsForAccount({
       id: true,
       draftId: true,
       draftStatus: true,
-      draftSendLog: { select: { id: true } },
       content: true,
     },
     orderBy: { createdAt: "asc" },
@@ -69,7 +68,6 @@ export async function cleanupAIDraftsForAccount({
 
       if (!draftDetails?.textPlain && !draftDetails?.textHtml) {
         const statusData = getDraftCleanupStatusData({
-          draftSendLog: action.draftSendLog,
           draftStatus: action.draftStatus,
           status: DraftEmailStatus.MISSING_FROM_PROVIDER,
         });
@@ -98,7 +96,6 @@ export async function cleanupAIDraftsForAccount({
 
       await provider.deleteDraft(action.draftId);
       const statusData = getDraftCleanupStatusData({
-        draftSendLog: action.draftSendLog,
         draftStatus: action.draftStatus,
         status: DraftEmailStatus.CLEANED_UP_UNUSED,
       });
@@ -224,15 +221,18 @@ export async function getConfiguredDraftCleanupDays(emailAccountId: string) {
 }
 
 function getDraftCleanupStatusData({
-  draftSendLog,
   draftStatus,
   status,
 }: {
-  draftSendLog?: { id: string } | null;
   draftStatus?: DraftEmailStatus | null;
   status: DraftEmailStatus;
 }): { draftStatus: DraftEmailStatus } | null {
-  if (draftSendLog) return null;
-  if (draftStatus && draftStatus !== DraftEmailStatus.PENDING) return null;
+  if (
+    draftStatus &&
+    draftStatus !== DraftEmailStatus.PENDING &&
+    draftStatus !== DraftEmailStatus.REPLIED_WITHOUT_DRAFT
+  ) {
+    return null;
+  }
   return { draftStatus: status };
 }

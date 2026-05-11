@@ -275,7 +275,6 @@ export async function cleanupThreadAIDrafts({
         id: true,
         draftId: true,
         draftStatus: true,
-        draftSendLog: { select: { id: true } },
         content: true,
       },
     });
@@ -347,7 +346,6 @@ export async function cleanupThreadAIDrafts({
               draftThreadId: draftDetails.threadId,
             });
             const statusData = getDraftCleanupStatusData({
-              draftSendLog: action.draftSendLog,
               draftStatus: action.draftStatus,
               status: DraftEmailStatus.CLEANED_UP_UNUSED,
             });
@@ -377,7 +375,6 @@ export async function cleanupThreadAIDrafts({
             actionLoggerOptions,
           );
           const statusData = getDraftCleanupStatusData({
-            draftSendLog: action.draftSendLog,
             draftStatus: action.draftStatus,
             status: DraftEmailStatus.MISSING_FROM_PROVIDER,
           });
@@ -529,15 +526,18 @@ function isDraftSentStatus(status: DraftEmailStatus): boolean {
 }
 
 function getDraftCleanupStatusData({
-  draftSendLog,
   draftStatus,
   status,
 }: {
-  draftSendLog?: { id: string } | null;
   draftStatus?: DraftEmailStatus | null;
   status: DraftEmailStatus;
 }): { draftStatus: DraftEmailStatus } | null {
-  if (draftSendLog) return null;
-  if (draftStatus && draftStatus !== DraftEmailStatus.PENDING) return null;
+  if (
+    draftStatus &&
+    draftStatus !== DraftEmailStatus.PENDING &&
+    draftStatus !== DraftEmailStatus.REPLIED_WITHOUT_DRAFT
+  ) {
+    return null;
+  }
   return { draftStatus: status };
 }

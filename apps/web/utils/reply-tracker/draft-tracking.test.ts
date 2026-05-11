@@ -343,6 +343,44 @@ describe("cleanupThreadAIDrafts", () => {
     });
   });
 
+  it("transitions replied-without-draft records after deleting stale drafts", async () => {
+    const draftDetails = createDraftMessage({
+      textPlain: "Generated reply",
+    });
+    vi.mocked(prisma.executedAction.findMany).mockResolvedValue([
+      {
+        id: "action-1",
+        draftId: "draft-1",
+        draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+        draftSendLog: { id: "draft-send-log-1" },
+        content: "Generated reply",
+      },
+    ] as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(1);
+    vi.mocked(isDraftUnmodified).mockReturnValue(true);
+
+    const provider = {
+      getDraft: vi.fn().mockResolvedValue(draftDetails),
+      deleteDraft: vi.fn().mockResolvedValue(undefined),
+    };
+
+    await cleanupThreadAIDrafts({
+      threadId: "thread-1",
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+      excludeMessageId: "message-2",
+    });
+
+    expect(provider.deleteDraft).toHaveBeenCalledWith("draft-1");
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+      },
+    });
+  });
+
   it("keeps stale drafts when the generated reply was edited", async () => {
     vi.mocked(prisma.executedAction.findMany).mockResolvedValue([
       {

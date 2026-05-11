@@ -121,6 +121,58 @@ describe("cleanupAIDraftsForAccount", () => {
       cleanupDays: 14,
     });
   });
+
+  it("transitions replied-without-draft records after cleanup", async () => {
+    mocks.prisma.executedAction.findMany.mockResolvedValue([
+      {
+        id: "action-deleted",
+        draftId: "draft-deleted",
+        content: "Generated reply.",
+        draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+        draftSendLog: { id: "draft-send-log-1" },
+      },
+      {
+        id: "action-missing",
+        draftId: "draft-missing",
+        content: "Missing reply.",
+        draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+        draftSendLog: { id: "draft-send-log-2" },
+      },
+    ]);
+    mocks.provider.getDraft
+      .mockResolvedValueOnce({
+        textPlain: "Generated reply.",
+        textHtml: null,
+      })
+      .mockResolvedValueOnce(null);
+
+    const result = await cleanupAIDraftsForAccount({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+      cleanupDays: 14,
+    });
+
+    expect(mocks.provider.deleteDraft).toHaveBeenCalledWith("draft-deleted");
+    expect(mocks.prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-deleted" },
+      data: {
+        draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+      },
+    });
+    expect(mocks.prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-missing" },
+      data: {
+        draftStatus: DraftEmailStatus.MISSING_FROM_PROVIDER,
+      },
+    });
+    expect(result).toMatchObject({
+      total: 2,
+      deleted: 1,
+      alreadyGone: 1,
+      cleanupDays: 14,
+    });
+  });
 });
 
 describe("cleanupConfiguredAIDrafts", () => {
