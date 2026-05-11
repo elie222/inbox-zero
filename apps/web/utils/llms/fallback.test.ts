@@ -79,24 +79,20 @@ describe("createGenerateText fallback chain", () => {
   });
 
   it("falls back to the next provider on retryable provider failures", async () => {
-    const primaryModel = { id: "primary-model" };
-    const fallbackModel = { id: "fallback-model" };
-
-    const modelOptions: SelectModel = {
+    const primaryModel = createModel("primary-model");
+    const fallbackModel = createModel("fallback-model");
+    const modelOptions = createModelOptions({
       provider: "bedrock",
       modelName: "primary",
-      model: primaryModel as SelectModel["model"],
-      providerOptions: undefined,
+      model: primaryModel,
       fallbackModels: [
-        {
+        createResolvedModel({
           provider: "openrouter",
           modelName: "fallback",
-          model: fallbackModel as SelectModel["model"],
-          providerOptions: undefined,
-        },
+          model: fallbackModel,
+        }),
       ],
-      hasUserApiKey: false,
-    };
+    });
 
     const retryableError = new Error("rate limited");
     mockExtractLLMErrorInfo.mockReturnValueOnce({
@@ -104,29 +100,18 @@ describe("createGenerateText fallback chain", () => {
       isRateLimit: true,
       retryAfterMs: undefined,
     });
-
     mockGenerateText
       .mockRejectedValueOnce(retryableError)
-      .mockResolvedValueOnce({
-        text: "fallback success",
-        usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
-        toolCalls: [],
-      });
+      .mockResolvedValueOnce(createTextResult({ text: "fallback success" }));
 
-    const generateText = createGenerateText({
-      emailAccount: {
-        email: "user@example.com",
-        id: "email-account-1",
-        userId: "user-1",
-      },
+    const generateText = createGenerateTextForTest({
       label: "Fallback Test",
       modelOptions,
-      promptHardening: { trust: "trusted" },
     });
 
     const result = await generateText({
       prompt: "hello",
-      model: primaryModel as SelectModel["model"],
+      model: primaryModel,
     });
 
     expect(result.text).toBe("fallback success");
@@ -142,37 +127,19 @@ describe("createGenerateText fallback chain", () => {
   });
 
   it("injects centralized hardening into the text generation system prompt", async () => {
-    const model = { id: "openai-model" };
-    const modelOptions: SelectModel = {
-      provider: "openai",
-      modelName: "gpt-5-mini",
-      model: model as SelectModel["model"],
-      providerOptions: undefined,
-      fallbackModels: [],
-      hasUserApiKey: false,
-    };
+    const model = createModel("openai-model");
+    mockGenerateText.mockResolvedValue(createTextResult());
 
-    mockGenerateText.mockResolvedValue({
-      text: "ok",
-      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
-      toolCalls: [],
-    });
-
-    const generateText = createGenerateText({
-      emailAccount: {
-        email: "user@example.com",
-        id: "email-account-1",
-        userId: "user-1",
-      },
+    const generateText = createGenerateTextForTest({
       label: "Hardening Test",
-      modelOptions,
+      modelOptions: createOpenAiModelOptions(model),
       promptHardening: { trust: "untrusted", level: "full" },
     });
 
     await generateText({
       system: "Base system prompt.",
       prompt: "hello",
-      model: model as SelectModel["model"],
+      model,
     });
 
     expect(mockGenerateText.mock.calls[0][0].system).toContain(
@@ -184,38 +151,19 @@ describe("createGenerateText fallback chain", () => {
   });
 
   it("reports the actual provider and model used for text generation", async () => {
-    const model = { id: "openai-model" };
-    const modelOptions: SelectModel = {
-      provider: "openai",
-      modelName: "gpt-5-mini",
-      model: model as SelectModel["model"],
-      providerOptions: undefined,
-      fallbackModels: [],
-      hasUserApiKey: false,
-    };
-
-    mockGenerateText.mockResolvedValue({
-      text: "ok",
-      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
-      toolCalls: [],
-    });
+    const model = createModel("openai-model");
+    mockGenerateText.mockResolvedValue(createTextResult());
 
     const onModelUsed = vi.fn();
-    const generateText = createGenerateText({
-      emailAccount: {
-        email: "user@example.com",
-        id: "email-account-1",
-        userId: "user-1",
-      },
+    const generateText = createGenerateTextForTest({
       label: "Model attribution",
-      modelOptions,
-      promptHardening: { trust: "trusted" },
+      modelOptions: createOpenAiModelOptions(model),
       onModelUsed,
     });
 
     await generateText({
       prompt: "hello",
-      model: model as SelectModel["model"],
+      model,
     });
 
     expect(onModelUsed).toHaveBeenCalledWith({
@@ -225,42 +173,29 @@ describe("createGenerateText fallback chain", () => {
   });
 
   it("sets openrouter user from internal user id", async () => {
-    const model = { id: "openrouter-model" };
-    const modelOptions: SelectModel = {
-      provider: "openrouter",
-      modelName: "openrouter-primary",
-      model: model as SelectModel["model"],
-      providerOptions: {
+    const model = createModel("openrouter-model");
+    const modelOptions = createOpenRouterModelOptions(
+      model,
+      "openrouter-primary",
+      {
         openrouter: {
           provider: {
             order: ["Anthropic"],
           },
         },
       },
-      fallbackModels: [],
-      hasUserApiKey: false,
-    };
+    );
+    mockGenerateText.mockResolvedValue(createTextResult());
 
-    mockGenerateText.mockResolvedValue({
-      text: "ok",
-      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
-      toolCalls: [],
-    });
-
-    const generateText = createGenerateText({
-      emailAccount: {
-        email: "user@example.com",
-        id: "email-account-1",
-        userId: "user-123",
-      },
+    const generateText = createGenerateTextForTest({
+      emailAccount: createEmailAccount({ userId: "user-123" }),
       label: "OpenRouter user metadata",
       modelOptions,
-      promptHardening: { trust: "trusted" },
     });
 
     await generateText({
       prompt: "hello",
-      model: model as SelectModel["model"],
+      model,
     });
 
     expect(mockGenerateText).toHaveBeenCalledTimes(1);
@@ -281,36 +216,18 @@ describe("createGenerateText fallback chain", () => {
   });
 
   it("keeps explicit openrouter user and trace when request provides them", async () => {
-    const model = { id: "openrouter-model" };
-    const modelOptions: SelectModel = {
-      provider: "openrouter",
-      modelName: "openrouter-primary",
-      model: model as SelectModel["model"],
-      providerOptions: undefined,
-      fallbackModels: [],
-      hasUserApiKey: false,
-    };
+    const model = createModel("openrouter-model");
+    mockGenerateText.mockResolvedValue(createTextResult());
 
-    mockGenerateText.mockResolvedValue({
-      text: "ok",
-      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
-      toolCalls: [],
-    });
-
-    const generateText = createGenerateText({
-      emailAccount: {
-        email: "user@example.com",
-        id: "email-account-1",
-        userId: "internal-user-id",
-      },
+    const generateText = createGenerateTextForTest({
+      emailAccount: createEmailAccount({ userId: "internal-user-id" }),
       label: "OpenRouter user override",
-      modelOptions,
-      promptHardening: { trust: "trusted" },
+      modelOptions: createOpenRouterModelOptions(model, "openrouter-primary"),
     });
 
     await generateText({
       prompt: "hello",
-      model: model as SelectModel["model"],
+      model,
       providerOptions: {
         openrouter: {
           user: "explicit-user-id",
@@ -334,58 +251,43 @@ describe("createGenerateText fallback chain", () => {
   });
 
   it("forwards provider costs and step metadata to usage analytics", async () => {
-    const model = { id: "openrouter-model" };
-    const modelOptions: SelectModel = {
-      provider: "openrouter",
-      modelName: "openai/gpt-5-mini",
-      model: model as SelectModel["model"],
-      providerOptions: undefined,
-      fallbackModels: [],
-      hasUserApiKey: false,
-    };
-
-    mockGenerateText.mockResolvedValue({
-      text: "ok",
-      usage: {
-        inputTokens: 10,
-        outputTokens: 5,
-        totalTokens: 15,
-      },
-      providerMetadata: {
-        openrouter: {
-          usage: {
-            cost: 0.42,
-            cost_details: {
-              upstream_inference_cost: 0.12,
+    const model = createModel("openrouter-model");
+    mockGenerateText.mockResolvedValue(
+      createTextResult({
+        usage: {
+          inputTokens: 10,
+          outputTokens: 5,
+          totalTokens: 15,
+        },
+        providerMetadata: {
+          openrouter: {
+            usage: {
+              cost: 0.42,
+              cost_details: {
+                upstream_inference_cost: 0.12,
+              },
             },
           },
         },
-      },
-      steps: [
-        {
-          toolCalls: [{ toolName: "searchEmails" }],
-        },
-        {
-          toolCalls: [{ toolName: "finalizeResults" }],
-        },
-      ],
-      toolCalls: [],
-    });
+        steps: [
+          {
+            toolCalls: [{ toolName: "searchEmails" }],
+          },
+          {
+            toolCalls: [{ toolName: "finalizeResults" }],
+          },
+        ],
+      }),
+    );
 
-    const generateText = createGenerateText({
-      emailAccount: {
-        email: "user@example.com",
-        id: "email-account-1",
-        userId: "user-1",
-      },
+    const generateText = createGenerateTextForTest({
       label: "Reply context collector",
-      modelOptions,
-      promptHardening: { trust: "trusted" },
+      modelOptions: createOpenRouterModelOptions(model),
     });
 
     await generateText({
       prompt: "hello",
-      model: model as SelectModel["model"],
+      model,
       tools: {} as Record<string, never>,
     });
 
@@ -401,61 +303,46 @@ describe("createGenerateText fallback chain", () => {
   });
 
   it("fills missing provider cost fields from step metadata", async () => {
-    const model = { id: "openrouter-model" };
-    const modelOptions: SelectModel = {
-      provider: "openrouter",
-      modelName: "openai/gpt-5-mini",
-      model: model as SelectModel["model"],
-      providerOptions: undefined,
-      fallbackModels: [],
-      hasUserApiKey: false,
-    };
-
-    mockGenerateText.mockResolvedValue({
-      text: "ok",
-      usage: {
-        inputTokens: 10,
-        outputTokens: 5,
-        totalTokens: 15,
-      },
-      providerMetadata: {
-        openrouter: {
-          usage: {
-            cost: 0.42,
+    const model = createModel("openrouter-model");
+    mockGenerateText.mockResolvedValue(
+      createTextResult({
+        usage: {
+          inputTokens: 10,
+          outputTokens: 5,
+          totalTokens: 15,
+        },
+        providerMetadata: {
+          openrouter: {
+            usage: {
+              cost: 0.42,
+            },
           },
         },
-      },
-      steps: [
-        {
-          toolCalls: [{ toolName: "searchEmails" }],
-          providerMetadata: {
-            openrouter: {
-              usage: {
-                cost_details: {
-                  upstream_inference_cost: 0.12,
+        steps: [
+          {
+            toolCalls: [{ toolName: "searchEmails" }],
+            providerMetadata: {
+              openrouter: {
+                usage: {
+                  cost_details: {
+                    upstream_inference_cost: 0.12,
+                  },
                 },
               },
             },
           },
-        },
-      ],
-      toolCalls: [],
-    });
+        ],
+      }),
+    );
 
-    const generateText = createGenerateText({
-      emailAccount: {
-        email: "user@example.com",
-        id: "email-account-1",
-        userId: "user-1",
-      },
+    const generateText = createGenerateTextForTest({
       label: "Reply context collector",
-      modelOptions,
-      promptHardening: { trust: "trusted" },
+      modelOptions: createOpenRouterModelOptions(model),
     });
 
     await generateText({
       prompt: "hello",
-      model: model as SelectModel["model"],
+      model,
       tools: {} as Record<string, never>,
     });
 
@@ -469,43 +356,29 @@ describe("createGenerateText fallback chain", () => {
   });
 
   it("counts top-level tool calls when steps are absent", async () => {
-    const model = { id: "openrouter-model" };
-    const modelOptions: SelectModel = {
-      provider: "openrouter",
-      modelName: "openai/gpt-5-mini",
-      model: model as SelectModel["model"],
-      providerOptions: undefined,
-      fallbackModels: [],
-      hasUserApiKey: false,
-    };
+    const model = createModel("openrouter-model");
+    mockGenerateText.mockResolvedValue(
+      createTextResult({
+        usage: {
+          inputTokens: 10,
+          outputTokens: 5,
+          totalTokens: 15,
+        },
+        toolCalls: [
+          { toolName: "searchEmails" },
+          { toolName: "finalizeResults" },
+        ],
+      }),
+    );
 
-    mockGenerateText.mockResolvedValue({
-      text: "ok",
-      usage: {
-        inputTokens: 10,
-        outputTokens: 5,
-        totalTokens: 15,
-      },
-      toolCalls: [
-        { toolName: "searchEmails" },
-        { toolName: "finalizeResults" },
-      ],
-    });
-
-    const generateText = createGenerateText({
-      emailAccount: {
-        email: "user@example.com",
-        id: "email-account-1",
-        userId: "user-1",
-      },
+    const generateText = createGenerateTextForTest({
       label: "Reply context collector",
-      modelOptions,
-      promptHardening: { trust: "trusted" },
+      modelOptions: createOpenRouterModelOptions(model),
     });
 
     await generateText({
       prompt: "hello",
-      model: model as SelectModel["model"],
+      model,
       tools: {} as Record<string, never>,
     });
 
@@ -517,38 +390,20 @@ describe("createGenerateText fallback chain", () => {
   });
 
   it("adds direct PostHog tracing with privacy mode", async () => {
-    const model = { id: "openai-model" };
-    const tracedModel = { id: "posthog-traced-model" };
-    const modelOptions: SelectModel = {
-      provider: "openai",
-      modelName: "gpt-5-mini",
-      model: model as SelectModel["model"],
-      providerOptions: undefined,
-      fallbackModels: [],
-      hasUserApiKey: false,
-    };
-
+    const model = createModel("openai-model");
+    const tracedModel = createModel("posthog-traced-model");
     mockWithTracing.mockReturnValue(tracedModel);
-    mockGenerateText.mockResolvedValue({
-      text: "ok",
-      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
-      toolCalls: [],
-    });
+    mockGenerateText.mockResolvedValue(createTextResult());
 
-    const generateText = createGenerateText({
-      emailAccount: {
-        email: "user@example.com",
-        id: "email-account-1",
-        userId: "user-123",
-      },
+    const generateText = createGenerateTextForTest({
+      emailAccount: createEmailAccount({ userId: "user-123" }),
       label: "PostHog tracing",
-      modelOptions,
-      promptHardening: { trust: "trusted" },
+      modelOptions: createOpenAiModelOptions(model),
     });
 
     await generateText({
       prompt: "sensitive prompt",
-      model: model as SelectModel["model"],
+      model,
     });
 
     expect(mockWithTracing).toHaveBeenCalledTimes(1);
@@ -576,39 +431,21 @@ describe("createGenerateText fallback chain", () => {
   });
 
   it("disables privacy mode for approved local eval accounts", async () => {
-    const model = { id: "openai-model" };
-    const tracedModel = { id: "posthog-traced-model" };
-    const modelOptions: SelectModel = {
-      provider: "openai",
-      modelName: "gpt-5-mini",
-      model: model as SelectModel["model"],
-      providerOptions: undefined,
-      fallbackModels: [],
-      hasUserApiKey: false,
-    };
-
+    const model = createModel("openai-model");
+    const tracedModel = createModel("posthog-traced-model");
     mockIsPosthogLlmEvalApproved.mockReturnValue(true);
     mockWithTracing.mockReturnValue(tracedModel);
-    mockGenerateText.mockResolvedValue({
-      text: "ok",
-      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
-      toolCalls: [],
-    });
+    mockGenerateText.mockResolvedValue(createTextResult());
 
-    const generateText = createGenerateText({
-      emailAccount: {
-        email: "user@example.com",
-        id: "email-account-1",
-        userId: "user-123",
-      },
+    const generateText = createGenerateTextForTest({
+      emailAccount: createEmailAccount({ userId: "user-123" }),
       label: "PostHog eval tracing",
-      modelOptions,
-      promptHardening: { trust: "trusted" },
+      modelOptions: createOpenAiModelOptions(model),
     });
 
     await generateText({
       prompt: "sensitive prompt",
-      model: model as SelectModel["model"],
+      model,
     });
 
     expect(mockWithTracing).toHaveBeenCalledWith(
@@ -633,40 +470,116 @@ describe("createGenerateText fallback chain", () => {
   });
 
   it("skips direct PostHog tracing when client is unavailable", async () => {
-    const model = { id: "openai-model" };
-    const modelOptions: SelectModel = {
-      provider: "openai",
-      modelName: "gpt-5-mini",
-      model: model as SelectModel["model"],
-      providerOptions: undefined,
-      fallbackModels: [],
-      hasUserApiKey: false,
-    };
-
+    const model = createModel("openai-model");
     mockGetPosthogLlmClient.mockReturnValue(undefined);
-    mockGenerateText.mockResolvedValue({
-      text: "ok",
-      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
-      toolCalls: [],
-    });
+    mockGenerateText.mockResolvedValue(createTextResult());
 
-    const generateText = createGenerateText({
-      emailAccount: {
-        email: "user@example.com",
-        id: "email-account-1",
-        userId: "user-123",
-      },
+    const generateText = createGenerateTextForTest({
+      emailAccount: createEmailAccount({ userId: "user-123" }),
       label: "PostHog disabled",
-      modelOptions,
-      promptHardening: { trust: "trusted" },
+      modelOptions: createOpenAiModelOptions(model),
     });
 
     await generateText({
       prompt: "hello",
-      model: model as SelectModel["model"],
+      model,
     });
 
     expect(mockWithTracing).not.toHaveBeenCalled();
     expect(mockGenerateText.mock.calls[0][0].model).toBe(model);
   });
 });
+
+type GenerateTextConfig = Parameters<typeof createGenerateText>[0];
+type Model = SelectModel["model"];
+type ResolvedModel = SelectModel["fallbackModels"][number];
+
+function createGenerateTextForTest({
+  emailAccount = createEmailAccount(),
+  promptHardening = { trust: "trusted" },
+  ...config
+}: Omit<GenerateTextConfig, "emailAccount" | "promptHardening"> &
+  Partial<Pick<GenerateTextConfig, "emailAccount" | "promptHardening">>) {
+  return createGenerateText({
+    ...config,
+    emailAccount,
+    promptHardening,
+  });
+}
+
+function createEmailAccount(
+  overrides: Partial<GenerateTextConfig["emailAccount"]> = {},
+): GenerateTextConfig["emailAccount"] {
+  return {
+    email: "user@example.com",
+    id: "email-account-1",
+    userId: "user-1",
+    ...overrides,
+  };
+}
+
+function createOpenAiModelOptions(model: Model): SelectModel {
+  return createModelOptions({
+    provider: "openai",
+    modelName: "gpt-5-mini",
+    model,
+  });
+}
+
+function createOpenRouterModelOptions(
+  model: Model,
+  modelName = "openai/gpt-5-mini",
+  providerOptions?: SelectModel["providerOptions"],
+): SelectModel {
+  return createModelOptions({
+    provider: "openrouter",
+    modelName,
+    model,
+    providerOptions,
+  });
+}
+
+function createModelOptions({
+  provider = "openai",
+  modelName = "gpt-5-mini",
+  model = createModel(`${provider}-model`),
+  providerOptions,
+  fallbackModels = [],
+  hasUserApiKey = false,
+}: Partial<SelectModel> = {}): SelectModel {
+  return {
+    provider,
+    modelName,
+    model,
+    providerOptions,
+    fallbackModels,
+    hasUserApiKey,
+  };
+}
+
+function createResolvedModel({
+  provider = "openrouter",
+  modelName = "fallback",
+  model = createModel(`${provider}-model`),
+  providerOptions,
+}: Partial<ResolvedModel> = {}): ResolvedModel {
+  return {
+    provider,
+    modelName,
+    model,
+    providerOptions,
+  };
+}
+
+function createModel(id: string): Model {
+  return { id } as Model;
+}
+
+function createTextResult(overrides: Record<string, unknown> = {}) {
+  return {
+    text: "ok",
+    usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+    toolCalls: [],
+    ...overrides,
+  };
+}
