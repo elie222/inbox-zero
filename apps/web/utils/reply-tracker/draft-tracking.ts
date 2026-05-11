@@ -139,12 +139,10 @@ export async function trackSentDraftStatus({
       { logger },
     );
 
-    logger.info(
-      sentMessageRepliesToSource === false
-        ? "Created draft send log and marked action as not sent (sent message did not reply to source sender)"
-        : "Created draft send log and marked action as not sent (draft still exists)",
-      { executedActionId },
-    );
+    logger.info("Created draft send log and marked action as not sent", {
+      executedActionId,
+      sentMessageRepliesToSource,
+    });
     await replaceMessagingDraftNotificationsWithHandledOnWebState({
       executedRuleId: executedAction.executedRuleId,
       logger,
