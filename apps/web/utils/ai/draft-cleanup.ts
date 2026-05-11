@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
 import { isDraftUnmodified } from "@/utils/ai/choose-rule/draft-management";
 import type { Logger } from "@/utils/logger";
@@ -24,12 +24,15 @@ export async function cleanupAIDraftsForAccount({
       executedRule: { emailAccountId },
       type: ActionType.DRAFT_EMAIL,
       draftId: { not: null },
-      OR: [{ draftSendLog: null }, { wasDraftSent: false }],
+      draftStatus: {
+        in: [DraftEmailStatus.PENDING, DraftEmailStatus.REPLIED_WITHOUT_DRAFT],
+      },
       createdAt: { lt: cutoffDate },
     },
     select: {
       id: true,
       draftId: true,
+      draftStatus: true,
       content: true,
     },
     orderBy: { createdAt: "asc" },
@@ -64,10 +67,16 @@ export async function cleanupAIDraftsForAccount({
       const draftDetails = await provider.getDraft(action.draftId);
 
       if (!draftDetails?.textPlain && !draftDetails?.textHtml) {
-        await prisma.executedAction.update({
-          where: { id: action.id },
-          data: { wasDraftSent: false },
+        const statusData = getDraftCleanupStatusData({
+          draftStatus: action.draftStatus,
+          status: DraftEmailStatus.MISSING_FROM_PROVIDER,
         });
+        if (statusData) {
+          await prisma.executedAction.update({
+            where: { id: action.id },
+            data: statusData,
+          });
+        }
         alreadyGone++;
         continue;
       }
@@ -86,10 +95,16 @@ export async function cleanupAIDraftsForAccount({
       }
 
       await provider.deleteDraft(action.draftId);
-      await prisma.executedAction.update({
-        where: { id: action.id },
-        data: { wasDraftSent: false },
+      const statusData = getDraftCleanupStatusData({
+        draftStatus: action.draftStatus,
+        status: DraftEmailStatus.CLEANED_UP_UNUSED,
       });
+      if (statusData) {
+        await prisma.executedAction.update({
+          where: { id: action.id },
+          data: statusData,
+        });
+      }
       deleted++;
     } catch (error) {
       logger.error("Error cleaning up draft", {
@@ -134,7 +149,12 @@ export async function cleanupConfiguredAIDrafts({
             some: {
               type: ActionType.DRAFT_EMAIL,
               draftId: { not: null },
-              OR: [{ draftSendLog: null }, { wasDraftSent: false }],
+              draftStatus: {
+                in: [
+                  DraftEmailStatus.PENDING,
+                  DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+                ],
+              },
             },
           },
         },
@@ -198,4 +218,21 @@ export async function getConfiguredDraftCleanupDays(emailAccountId: string) {
   });
 
   return emailAccount?.draftCleanupDays ?? DEFAULT_AI_DRAFT_CLEANUP_DAYS;
+}
+
+function getDraftCleanupStatusData({
+  draftStatus,
+  status,
+}: {
+  draftStatus?: DraftEmailStatus | null;
+  status: DraftEmailStatus;
+}): { draftStatus: DraftEmailStatus } | null {
+  if (
+    draftStatus &&
+    draftStatus !== DraftEmailStatus.PENDING &&
+    draftStatus !== DraftEmailStatus.REPLIED_WITHOUT_DRAFT
+  ) {
+    return null;
+  }
+  return { draftStatus: status };
 }

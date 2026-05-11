@@ -28,6 +28,7 @@ import {
 import {
   ActionType,
   AttachmentSourceType,
+  DraftEmailStatus,
   MessagingMessageStatus,
   MessagingProvider,
   MessagingRoutePurpose,
@@ -959,8 +960,8 @@ async function sendDraftReplyFromNotification({
   await prisma.executedAction.update({
     where: { id: context.id },
     data: {
+      draftStatus: DraftEmailStatus.LIKELY_SENT,
       messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
-      wasDraftSent: true,
     },
   });
 
@@ -968,7 +969,7 @@ async function sendDraftReplyFromNotification({
     await prisma.executedAction.update({
       where: { id: mailboxDraftAction.id },
       data: {
-        wasDraftSent: true,
+        draftStatus: DraftEmailStatus.LIKELY_SENT,
       },
     });
   }

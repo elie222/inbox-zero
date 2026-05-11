@@ -642,12 +642,13 @@ model ExecutedAction {
 
   // additional fields as a result of the action
   draftId              String? // Gmail draft ID created by DRAFT_EMAIL action
-  wasDraftSent         Boolean? // Tracks if the corresponding draft was sent (true) or ignored/superseded (false)
+  draftStatus          DraftEmailStatus? // Last observed/inferred draft lifecycle status; provider state may be stale or ambiguous.
+  wasDraftSent         Boolean? // @deprecated Use draftStatus. Kept for historical compatibility only.
   draftModelProvider   String?
   draftModelName       String?
   draftPipelineVersion Int?
   draftContextMetadata Json?
-  draftSendLog         DraftSendLog? // Will exist if the draft was sent
+  draftSendLog         DraftSendLog? // Exists when an outbound reply was compared against this draft
   digestItems          DigestItem[] // Relation to digest items created by this action
   scheduledAction      ScheduledAction? // Reverse relation for delayed actions
 
@@ -1538,6 +1539,14 @@ enum DraftReplyConfidence {
   ALL_EMAILS
   STANDARD
   HIGH_CONFIDENCE
+}
+
+enum DraftEmailStatus {
+  PENDING
+  LIKELY_SENT
+  REPLIED_WITHOUT_DRAFT
+  CLEANED_UP_UNUSED
+  MISSING_FROM_PROVIDER
 }
 
 enum ReplyMemoryKind {
