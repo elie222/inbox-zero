@@ -170,8 +170,13 @@ export async function trackSentDraftStatus({
   );
 
   // Gmail and Outlook both make "missing draft" ambiguous: it can mean sent,
-  // deleted, moved, or no longer reachable under the stored draft ID.
-  const draftStatus = getSentDraftStatus(similarityScore);
+  // deleted, moved, or no longer reachable under the stored draft ID. When the
+  // sent message targets the original sender, record the lifecycle as likely
+  // sent and leave edit strength to similarityScore.
+  const draftStatus = getSentDraftStatus({
+    similarityScore,
+    sentMessageRepliesToSource,
+  });
   const wasLikelyDraftSent = isDraftSentStatus(draftStatus);
 
   const [draftSendLog] = await withPrismaRetry(
@@ -503,8 +508,17 @@ function queueReplyMemoryLearning({
   });
 }
 
-function getSentDraftStatus(similarityScore: number): DraftEmailStatus {
-  if (similarityScore >= DRAFT_SENT_SIMILARITY_THRESHOLD) {
+function getSentDraftStatus({
+  similarityScore,
+  sentMessageRepliesToSource,
+}: {
+  similarityScore: number;
+  sentMessageRepliesToSource: boolean | null;
+}): DraftEmailStatus {
+  if (
+    sentMessageRepliesToSource ||
+    similarityScore >= DRAFT_SENT_SIMILARITY_THRESHOLD
+  ) {
     return DraftEmailStatus.LIKELY_SENT;
   }
   return DraftEmailStatus.REPLIED_WITHOUT_DRAFT;

@@ -99,7 +99,7 @@ describe("trackSentDraftStatus", () => {
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
       data: {
-        draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+        draftStatus: DraftEmailStatus.LIKELY_SENT,
       },
     });
     expect(syncReplyMemoriesFromDraftSendLogs).toHaveBeenCalledWith({
@@ -158,6 +158,7 @@ describe("trackSentDraftStatus", () => {
       draftId: "draft-1",
       content: "Thanks for reaching out.",
       executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
     } as any);
     vi.mocked(calculateSimilarity).mockReturnValue(0.72);
     vi.mocked(isMeaningfulDraftEdit).mockReturnValue(true);
@@ -167,6 +168,7 @@ describe("trackSentDraftStatus", () => {
       message: createSentMessage(),
       provider: {
         getDraft: vi.fn().mockResolvedValue(null),
+        getMessage: vi.fn().mockRejectedValue(new Error("missing source")),
       } as any,
       logger,
     });
@@ -208,7 +210,7 @@ describe("trackSentDraftStatus", () => {
     });
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
-      data: { wasDraftSent: false },
+      data: { draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT },
     });
     expect(isMeaningfulDraftEdit).not.toHaveBeenCalled();
     expect(saveDraftSendLogReplyMemory).not.toHaveBeenCalled();
@@ -240,7 +242,7 @@ describe("trackSentDraftStatus", () => {
 
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
-      data: { wasDraftSent: true },
+      data: { draftStatus: DraftEmailStatus.LIKELY_SENT },
     });
     expect(saveDraftSendLogReplyMemory).toHaveBeenCalledWith(
       expect.objectContaining({
