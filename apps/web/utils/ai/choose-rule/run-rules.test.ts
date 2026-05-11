@@ -24,6 +24,7 @@ import {
 import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
+import { determineConversationStatus } from "@/utils/reply-tracker/handle-conversation-status";
 
 const logger = createTestLogger();
 
@@ -406,10 +407,7 @@ describe("runRules draft attribution persistence", () => {
       }),
     ]);
 
-    vi.mocked(findMatchingRules).mockResolvedValue({
-      matches: [{ rule: draftRule, matchReasons: [] }],
-      reasoning: "Matched draft rule",
-    } as any);
+    mockMatchingRules([{ rule: draftRule, matchReasons: [] }]);
     prisma.executedRule.findFirst.mockResolvedValue(null);
     vi.mocked(getActionItemsWithAiArgs).mockResolvedValue([
       {
@@ -432,43 +430,12 @@ describe("runRules draft attribution persistence", () => {
       } as any,
     ]);
 
-    const createSpy = prisma.executedRule.create.mockResolvedValue({
-      id: "exec-1",
-      status: ExecutedRuleStatus.APPLYING,
-      ruleId: draftRule.id,
-      threadId,
-      messageId: "message-1",
-      actionItems: [],
-    } as any);
+    const createSpy = mockExecutedRuleCreate({ rule: draftRule });
 
-    await runRules({
-      provider: {} as any,
-      message: {
-        ...getEmail(),
-        id: "message-1",
-        threadId,
-        snippet: "",
-        historyId: "history-1",
-        inline: [],
-        attachments: [],
-        headers: {
-          from: "sender@example.com",
-          to: "user@example.com",
-          subject: "Subject",
-          date: "Mon, 1 Jan 2026 12:00:00 +0000",
-          "message-id": "<message-1>",
-        },
-      } as any,
-      rules: [draftRule],
-      emailAccount: getEmailAccount(),
-      isTest: false,
-      modelType: "default" as any,
-      logger,
-    });
+    await runRulesWithDefaults({ rules: [draftRule] });
 
     expect(createSpy).toHaveBeenCalledTimes(1);
-    const createdActions =
-      createSpy.mock.calls[0]?.[0]?.data?.actionItems?.createMany?.data;
+    const createdActions = getCreatedActionItems(createSpy);
     expect(createdActions).toEqual([
       expect.objectContaining({
         type: ActionType.DRAFT_EMAIL,
@@ -494,10 +461,7 @@ describe("runRules draft attribution persistence", () => {
       }),
     ]);
 
-    vi.mocked(findMatchingRules).mockResolvedValue({
-      matches: [{ rule: draftRule, matchReasons: [] }],
-      reasoning: "Matched draft rule",
-    } as any);
+    mockMatchingRules([{ rule: draftRule, matchReasons: [] }]);
     prisma.executedRule.findFirst.mockResolvedValue(null);
     vi.mocked(getActionItemsWithAiArgs).mockResolvedValue([
       {
@@ -512,43 +476,12 @@ describe("runRules draft attribution persistence", () => {
       } as any,
     ]);
 
-    const createSpy = prisma.executedRule.create.mockResolvedValue({
-      id: "exec-1",
-      status: ExecutedRuleStatus.APPLYING,
-      ruleId: draftRule.id,
-      threadId,
-      messageId: "message-1",
-      actionItems: [],
-    } as any);
+    const createSpy = mockExecutedRuleCreate({ rule: draftRule });
 
-    await runRules({
-      provider: {} as any,
-      message: {
-        ...getEmail(),
-        id: "message-1",
-        threadId,
-        snippet: "",
-        historyId: "history-1",
-        inline: [],
-        attachments: [],
-        headers: {
-          from: "sender@example.com",
-          to: "user@example.com",
-          subject: "Subject",
-          date: "Mon, 1 Jan 2026 12:00:00 +0000",
-          "message-id": "<message-1>",
-        },
-      } as any,
-      rules: [draftRule],
-      emailAccount: getEmailAccount(),
-      isTest: false,
-      modelType: "default" as any,
-      logger,
-    });
+    await runRulesWithDefaults({ rules: [draftRule] });
 
     expect(createSpy).toHaveBeenCalledTimes(1);
-    const createdActions =
-      createSpy.mock.calls[0]?.[0]?.data?.actionItems?.createMany?.data;
+    const createdActions = getCreatedActionItems(createSpy);
     expect(createdActions).toHaveLength(1);
     expect(createdActions?.[0]).toEqual(
       expect.objectContaining({
@@ -579,10 +512,7 @@ describe("runRules draft attribution persistence", () => {
       }),
     ]);
 
-    vi.mocked(findMatchingRules).mockResolvedValue({
-      matches: [{ rule: draftRule, matchReasons: [] }],
-      reasoning: "Matched draft rule",
-    } as any);
+    mockMatchingRules([{ rule: draftRule, matchReasons: [] }]);
     prisma.executedRule.findFirst.mockResolvedValue(null);
     vi.mocked(getActionItemsWithAiArgs).mockResolvedValue([
       getAction({
@@ -604,42 +534,11 @@ describe("runRules draft attribution persistence", () => {
       }),
     ] as any);
 
-    const createSpy = prisma.executedRule.create.mockResolvedValue({
-      id: "exec-1",
-      status: ExecutedRuleStatus.APPLYING,
-      ruleId: draftRule.id,
-      threadId,
-      messageId: "message-1",
-      actionItems: [],
-    } as any);
+    const createSpy = mockExecutedRuleCreate({ rule: draftRule });
 
-    await runRules({
-      provider: {} as any,
-      message: {
-        ...getEmail(),
-        id: "message-1",
-        threadId,
-        snippet: "",
-        historyId: "history-1",
-        inline: [],
-        attachments: [],
-        headers: {
-          from: "sender@example.com",
-          to: "user@example.com",
-          subject: "Subject",
-          date: "Mon, 1 Jan 2026 12:00:00 +0000",
-          "message-id": "<message-1>",
-        },
-      } as any,
-      rules: [draftRule],
-      emailAccount: getEmailAccount(),
-      isTest: false,
-      modelType: "default" as any,
-      logger,
-    });
+    await runRulesWithDefaults({ rules: [draftRule] });
 
-    const createdActions =
-      createSpy.mock.calls[0]?.[0]?.data?.actionItems?.createMany?.data;
+    const createdActions = getCreatedActionItems(createSpy);
     expect(createdActions).toEqual([
       expect.objectContaining({
         type: ActionType.DRAFT_EMAIL,
@@ -659,10 +558,7 @@ describe("runRules draft attribution persistence", () => {
       }),
     ]);
 
-    vi.mocked(findMatchingRules).mockResolvedValue({
-      matches: [{ rule: draftRule, matchReasons: [] }],
-      reasoning: "Matched draft rule",
-    } as any);
+    mockMatchingRules([{ rule: draftRule, matchReasons: [] }]);
     prisma.executedRule.findFirst.mockResolvedValue(null);
     vi.mocked(getActionItemsWithAiArgs).mockResolvedValue([
       getAction({
@@ -672,12 +568,8 @@ describe("runRules draft attribution persistence", () => {
       }),
     ] as any);
     vi.mocked(executeAct).mockResolvedValue(ExecutedRuleStatus.APPLIED);
-    prisma.executedRule.create.mockResolvedValue({
-      id: "exec-1",
-      status: ExecutedRuleStatus.APPLYING,
-      ruleId: draftRule.id,
-      threadId,
-      messageId: "message-1",
+    mockExecutedRuleCreate({
+      rule: draftRule,
       actionItems: [
         getAction({
           id: "draft-action-1",
@@ -685,32 +577,9 @@ describe("runRules draft attribution persistence", () => {
           content: "Generated draft content",
         }),
       ],
-    } as any);
-
-    const results = await runRules({
-      provider: {} as any,
-      message: {
-        ...getEmail(),
-        id: "message-1",
-        threadId,
-        snippet: "",
-        historyId: "history-1",
-        inline: [],
-        attachments: [],
-        headers: {
-          from: "sender@example.com",
-          to: "user@example.com",
-          subject: "Subject",
-          date: "Mon, 1 Jan 2026 12:00:00 +0000",
-          "message-id": "<message-1>",
-        },
-      } as any,
-      rules: [draftRule],
-      emailAccount: getEmailAccount(),
-      isTest: false,
-      modelType: "default" as any,
-      logger,
     });
+
+    const results = await runRulesWithDefaults({ rules: [draftRule] });
 
     expect(results[0]?.status).toBe(ExecutedRuleStatus.APPLIED);
   });
@@ -740,25 +609,14 @@ describe("runRules outbound guardrails", () => {
       reasoning: "Matched forward rule",
     } as any);
 
-    const createSpy = prisma.executedRule.create.mockResolvedValue({
+    const createSpy = mockExecutedRuleCreate({
       id: "exec-guard-1",
       status: ExecutedRuleStatus.SKIPPED,
-      ruleId: forwardRule.id,
-      threadId,
-      messageId: "message-1",
-      actionItems: [],
-    } as any);
+      rule: forwardRule,
+    });
 
-    const result = await runRules({
-      provider: {} as any,
-      message: {
-        ...getEmail(),
-        id: "message-1",
-        threadId,
-        snippet: "",
-        historyId: "history-1",
-        inline: [],
-        attachments: [],
+    const result = await runRulesWithDefaults({
+      message: getRunRulesMessage({
         headers: {
           from: "Team Billing <billing@example.com>",
           to: "user@example.com",
@@ -766,12 +624,8 @@ describe("runRules outbound guardrails", () => {
           date: "Mon, 1 Jan 2026 12:00:00 +0000",
           "message-id": "<message-1>",
         },
-      } as any,
+      }),
       rules: [forwardRule],
-      emailAccount: getEmailAccount(),
-      isTest: false,
-      modelType: "default" as any,
-      logger,
     });
 
     expect(getActionItemsWithAiArgs).not.toHaveBeenCalled();
@@ -809,16 +663,8 @@ describe("runRules selection metadata", () => {
       },
     } as any);
 
-    const result = await runRules({
-      provider: {} as any,
-      message: {
-        ...getEmail(),
-        id: "message-1",
-        threadId,
-        snippet: "",
-        historyId: "history-1",
-        inline: [],
-        attachments: [],
+    const result = await runRulesWithDefaults({
+      message: getRunRulesMessage({
         headers: {
           from: "alerts@example.com",
           to: "user@example.com",
@@ -826,12 +672,9 @@ describe("runRules selection metadata", () => {
           date: "Mon, 1 Jan 2026 12:00:00 +0000",
           "message-id": "<message-1>",
         },
-      } as any,
+      }),
       rules: [regularRule],
-      emailAccount: getEmailAccount(),
       isTest: true,
-      modelType: "default" as any,
-      logger,
     });
 
     expect(result).toHaveLength(1);
@@ -1198,16 +1041,6 @@ describe("runRules - double draft prevention", () => {
   });
 
   it("keeps a reply draft when an AI-selected calendar message needs a response", async () => {
-    const { findMatchingRules } = await import(
-      "@/utils/ai/choose-rule/match-rules"
-    );
-    const { determineConversationStatus } = await import(
-      "@/utils/reply-tracker/handle-conversation-status"
-    );
-    const { getActionItemsWithAiArgs } = await import(
-      "@/utils/ai/choose-rule/choose-args"
-    );
-
     const calendarRule = createRule("calendar-rule", SystemType.CALENDAR, [
       getAction({
         id: "label-calendar",
@@ -1276,16 +1109,8 @@ describe("runRules - double draft prevention", () => {
       },
     );
 
-    await runRules({
-      provider: {} as any,
-      message: {
-        ...getEmail(),
-        id: "message-1",
-        threadId,
-        snippet: "",
-        historyId: "history-1",
-        inline: [],
-        attachments: [],
+    await runRulesWithDefaults({
+      message: getRunRulesMessage({
         headers: {
           from: "sender@example.com",
           to: "user@example.com",
@@ -1293,12 +1118,8 @@ describe("runRules - double draft prevention", () => {
           date: "Mon, 1 Jan 2026 12:00:00 +0000",
           "message-id": "<message-1>",
         },
-      } as any,
+      }),
       rules: [calendarRule, toReplyWithDraft],
-      emailAccount: getEmailAccount(),
-      isTest: false,
-      modelType: "default" as any,
-      logger,
     });
 
     expect(createdActionTypes).toEqual([
@@ -1308,16 +1129,6 @@ describe("runRules - double draft prevention", () => {
   });
 
   it("does not resolve conversation status for calendar invite preset matches", async () => {
-    const { findMatchingRules } = await import(
-      "@/utils/ai/choose-rule/match-rules"
-    );
-    const { determineConversationStatus } = await import(
-      "@/utils/reply-tracker/handle-conversation-status"
-    );
-    const { getActionItemsWithAiArgs } = await import(
-      "@/utils/ai/choose-rule/choose-args"
-    );
-
     const calendarRule = createRule("calendar-rule", SystemType.CALENDAR, [
       getAction({
         id: "label-calendar",
@@ -1378,16 +1189,8 @@ describe("runRules - double draft prevention", () => {
       },
     );
 
-    await runRules({
-      provider: {} as any,
-      message: {
-        ...getEmail(),
-        id: "message-1",
-        threadId,
-        snippet: "",
-        historyId: "history-1",
-        inline: [],
-        attachments: [],
+    await runRulesWithDefaults({
+      message: getRunRulesMessage({
         headers: {
           from: "sender@example.com",
           to: "user@example.com",
@@ -1395,12 +1198,8 @@ describe("runRules - double draft prevention", () => {
           date: "Mon, 1 Jan 2026 12:00:00 +0000",
           "message-id": "<message-1>",
         },
-      } as any,
+      }),
       rules: [calendarRule, toReplyWithDraft],
-      emailAccount: getEmailAccount(),
-      isTest: false,
-      modelType: "default" as any,
-      logger,
     });
 
     expect(determineConversationStatus).not.toHaveBeenCalled();
@@ -1408,17 +1207,6 @@ describe("runRules - double draft prevention", () => {
   });
 
   it("executes only one DRAFT_EMAIL when custom rule and TO_REPLY both have drafts", async () => {
-    const { findMatchingRules } = await import(
-      "@/utils/ai/choose-rule/match-rules"
-    );
-    const { determineConversationStatus } = await import(
-      "@/utils/reply-tracker/handle-conversation-status"
-    );
-    const { getActionItemsWithAiArgs } = await import(
-      "@/utils/ai/choose-rule/choose-args"
-    );
-    const { executeAct } = await import("@/utils/ai/choose-rule/execute");
-
     const guestsRule = createRule("guests-rule", null, [
       getAction({
         id: "label-guest",
@@ -1507,14 +1295,10 @@ describe("runRules - double draft prevention", () => {
       attachments: [],
     } as any;
 
-    await runRules({
-      provider: {} as any,
+    await runRulesWithDefaults({
       message,
       rules: [guestsRule, toReplyWithDraft],
-      emailAccount: getEmailAccount(),
-      isTest: false,
-      modelType: "actionable" as any,
-      logger,
+      modelType: "actionable",
     });
 
     expect(executedDraftContents).toHaveLength(1);
@@ -1523,3 +1307,85 @@ describe("runRules - double draft prevention", () => {
     );
   });
 });
+
+function mockMatchingRules(
+  matches: {
+    rule: RuleWithActions;
+    matchReasons?: { type: ConditionType }[];
+  }[],
+  reasoning = "Matched draft rule",
+) {
+  vi.mocked(findMatchingRules).mockResolvedValue({
+    matches,
+    reasoning,
+  } as any);
+}
+
+function mockExecutedRuleCreate({
+  id = "exec-1",
+  rule,
+  status = ExecutedRuleStatus.APPLYING,
+  actionItems = [],
+}: {
+  id?: string;
+  rule: RuleWithActions;
+  status?: ExecutedRuleStatus;
+  actionItems?: Action[];
+}) {
+  return prisma.executedRule.create.mockResolvedValue({
+    id,
+    status,
+    ruleId: rule.id,
+    threadId,
+    messageId: "message-1",
+    actionItems,
+  } as any);
+}
+
+function getCreatedActionItems(
+  createSpy: ReturnType<typeof mockExecutedRuleCreate>,
+) {
+  return createSpy.mock.calls[0]?.[0]?.data?.actionItems?.createMany?.data;
+}
+
+function runRulesWithDefaults(
+  overrides: Partial<Parameters<typeof runRules>[0]> & { modelType?: string },
+) {
+  return runRules({
+    provider: {} as any,
+    message: getRunRulesMessage(),
+    rules: [],
+    emailAccount: getEmailAccount(),
+    isTest: false,
+    modelType: "default",
+    logger,
+    ...overrides,
+  } as Parameters<typeof runRules>[0]);
+}
+
+function getRunRulesMessage(
+  overrides: Record<string, unknown> & {
+    headers?: Record<string, string>;
+  } = {},
+) {
+  const { headers, ...messageOverrides } = overrides;
+
+  return {
+    ...getEmail(),
+    id: "message-1",
+    threadId,
+    snippet: "",
+    historyId: "history-1",
+    inline: [],
+    attachments: [],
+    headers: {
+      from: "sender@example.com",
+      to: "user@example.com",
+      subject: "Subject",
+      date: "Mon, 1 Jan 2026 12:00:00 +0000",
+      "message-id": "<message-1>",
+      ...headers,
+    },
+    ...messageOverrides,
+  } as any;
+}
