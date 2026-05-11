@@ -51,9 +51,10 @@ export function CreateBookingLinkDialog({
   const [slug, setSlug] = useState(defaultSlug);
   const [duration, setDuration] = useState(30);
   const defaultDestinationCalendarId = getDefaultDestinationCalendarId(data);
-  const [destinationCalendarId, setDestinationCalendarId] = useState(
-    defaultDestinationCalendarId,
-  );
+  const [selectedDestinationCalendarId, setSelectedDestinationCalendarId] =
+    useState<string | null>(null);
+  const destinationCalendarId =
+    selectedDestinationCalendarId ?? defaultDestinationCalendarId;
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [description, setDescription] = useState("");
 
@@ -163,7 +164,9 @@ export function CreateBookingLinkDialog({
                 <Select
                   name="destinationCalendarId"
                   value={destinationCalendarId}
-                  onValueChange={setDestinationCalendarId}
+                  onValueChange={(value) =>
+                    setSelectedDestinationCalendarId(value)
+                  }
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue />
