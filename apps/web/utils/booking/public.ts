@@ -29,6 +29,7 @@ const MAX_AVAILABILITY_RANGE_MS = 32 * 24 * 60 * 60 * 1000;
 const PENDING_BOOKING_TIMEOUT_MS = 15 * 60 * 1000;
 const CALENDAR_AVAILABILITY_UNAVAILABLE =
   "Calendar availability is temporarily unavailable";
+const INVALID_CANCELLATION_LINK_MESSAGE = "Invalid cancellation link";
 const BOOKING_CANCELED_RETRY_MESSAGE =
   "Booking was canceled. Please submit a new booking request.";
 const BOOKING_STILL_PROCESSING_MESSAGE =
@@ -44,7 +45,6 @@ export async function getPublicBookingLinkMetadata(slug: string) {
       durationMinutes: true,
       slotIntervalMinutes: true,
       locationType: true,
-      locationValue: true,
       emailAccount: {
         select: { name: true },
       },
@@ -60,7 +60,7 @@ export async function getPublicBookingLinkMetadata(slug: string) {
     durationMinutes: link.durationMinutes,
     slotIntervalMinutes: link.slotIntervalMinutes,
     locationType: link.locationType,
-    locationValue: link.locationValue,
+    locationValue: null,
     hostName: link.emailAccount.name ?? null,
   };
 }
@@ -278,9 +278,9 @@ export async function cancelPublicBooking({
     include: getBookingHostInclude(),
   });
 
-  if (!booking) throw new SafeError("Booking not found", 404);
+  if (!booking) throw new SafeError(INVALID_CANCELLATION_LINK_MESSAGE, 404);
   if (!isMatchingToken({ token, tokenHash: booking.cancelTokenHash })) {
-    throw new SafeError("Invalid cancellation token", 403);
+    throw new SafeError(INVALID_CANCELLATION_LINK_MESSAGE, 404);
   }
   if (booking.status === BookingStatus.CANCELED) {
     throw new SafeError("Booking is already canceled");

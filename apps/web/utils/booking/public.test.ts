@@ -55,7 +55,7 @@ describe("public booking", () => {
     mockBookingLinkConfig();
   });
 
-  it("returns public link metadata without exposing host email", async () => {
+  it("returns public link metadata without exposing host email or location value", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue({
       slug: "intro",
       title: "Intro call",
@@ -63,7 +63,7 @@ describe("public booking", () => {
       durationMinutes: 30,
       slotIntervalMinutes: 30,
       locationType: BookingLinkLocationType.CUSTOM,
-      locationValue: "Private room",
+      locationValue: "https://video.example.com/private-meeting",
       emailAccount: {
         name: "Host User",
       },
@@ -78,10 +78,11 @@ describe("public booking", () => {
       durationMinutes: 30,
       slotIntervalMinutes: 30,
       locationType: BookingLinkLocationType.CUSTOM,
-      locationValue: "Private room",
+      locationValue: null,
       hostName: "Host User",
     });
     expect(result).not.toHaveProperty("hostEmail");
+    expect(result.locationValue).toBeNull();
   });
 
   it("accepts a calendar-month availability range across DST fallback", async () => {
@@ -270,6 +271,7 @@ describe("public booking", () => {
         cancelUrl: expect.stringContaining("/book/cancel/booking-id?token="),
       }),
     );
+    expectPublicBookingResult(result, { cancelUrl: "present" });
   });
 
   it("returns an idempotent booking without creating a second event", async () => {
@@ -298,6 +300,7 @@ describe("public booking", () => {
       startTime: "2026-05-04T09:00:00.000Z",
       endTime: "2026-05-04T09:30:00.000Z",
     });
+    expectPublicBookingResult(result, { cancelUrl: "absent" });
   });
 
   it("retries a failed idempotent booking instead of returning it as success", async () => {
@@ -503,7 +506,13 @@ describe("public booking", () => {
         booking: expect.objectContaining({ status: BookingStatus.CANCELED }),
       }),
     );
-    expect(result.status).toBe(BookingStatus.CANCELED);
+    expect(result).toEqual({
+      id: "booking-id",
+      status: BookingStatus.CANCELED,
+      startTime: "2026-05-04T09:00:00.000Z",
+      endTime: "2026-05-04T09:30:00.000Z",
+    });
+    expectPublicBookingResult(result, { cancelUrl: "absent" });
   });
 
   it("still cancels the booking locally when the provider event cleanup fails", async () => {
@@ -540,7 +549,21 @@ describe("public booking", () => {
     expect(result.status).toBe(BookingStatus.CANCELED);
   });
 
-  it("rejects cancellation with an invalid token", async () => {
+  it("rejects cancellation with a generic error for missing bookings and invalid tokens", async () => {
+    prisma.booking.findUnique.mockResolvedValueOnce(null);
+
+    await expect(
+      cancelPublicBooking({
+        id: "missing-booking-id",
+        token: "wrong-token",
+        logger,
+      }),
+    ).rejects.toMatchObject({
+      name: "SafeError",
+      safeMessage: "Invalid cancellation link",
+      statusCode: 404,
+    });
+
     prisma.booking.findUnique.mockResolvedValue(
       bookingRecord({
         cancelTokenHash: hashToken("correct-token"),
@@ -554,7 +577,11 @@ describe("public booking", () => {
         token: "wrong-token",
         logger,
       }),
-    ).rejects.toThrow("Invalid cancellation token");
+    ).rejects.toMatchObject({
+      name: "SafeError",
+      safeMessage: "Invalid cancellation link",
+      statusCode: 404,
+    });
 
     expect(cancelCalendarEvent).not.toHaveBeenCalled();
     expect(prisma.booking.update).not.toHaveBeenCalled();
@@ -664,6 +691,39 @@ function bookingRecordBase() {
       },
     },
   };
+}
+
+function expectPublicBookingResult(
+  result: Record<string, unknown>,
+  { cancelUrl }: { cancelUrl: "present" | "absent" },
+) {
+  const privateFields = [
+    "bookingLinkId",
+    "emailAccountId",
+    "guestName",
+    "guestEmail",
+    "guestNote",
+    "provider",
+    "providerConnectionId",
+    "providerCalendarId",
+    "providerEventId",
+    "videoConferenceLink",
+    "cancelTokenHash",
+    "cancellationReason",
+    "idempotencyToken",
+    "bookingLink",
+    "hostEmail",
+  ];
+
+  for (const field of privateFields) {
+    expect(result).not.toHaveProperty(field);
+  }
+
+  if (cancelUrl === "present") {
+    expect(result.cancelUrl).toEqual(expect.stringContaining("/book/cancel/"));
+  } else {
+    expect(result).not.toHaveProperty("cancelUrl");
+  }
 }
 
 function hashToken(token: string) {
