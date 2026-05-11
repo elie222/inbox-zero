@@ -57,6 +57,7 @@ const getUserPrompt = ({
   replyMemoryContent,
   emailHistorySummary,
   emailHistoryContext,
+  senderReplyExamples,
   calendarAvailability,
   writingStyle,
   learnedWritingStyle,
@@ -71,6 +72,7 @@ const getUserPrompt = ({
   replyMemoryContent: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
+  senderReplyExamples: string | null;
   calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
   learnedWritingStyle: string | null;
@@ -131,6 +133,15 @@ ${item}
 <email_history_notes>
 ${emailHistoryContext.notes || "No notes"}
 </email_history_notes>
+`
+    : "";
+
+  const senderReplyExamplesContext = senderReplyExamples
+    ? `Past replies to this sender. Use for relationship, tone, brevity, and directness; current thread/context facts still win.
+
+<sender_reply_examples>
+${senderReplyExamples}
+</sender_reply_examples>
 `
     : "";
 
@@ -199,6 +210,7 @@ ${relevantKnowledge}
 ${learnedReplyMemories}
 ${historicalContext}
 ${precedentHistoryContext}
+${senderReplyExamplesContext}
 ${writingStylePrompt}
 ${learnedWritingStylePrompt}
 ${signatureContext}
@@ -242,6 +254,7 @@ export async function aiDraftReplyWithConfidence({
   replyMemoryContent = null,
   emailHistorySummary,
   emailHistoryContext,
+  senderReplyExamples = null,
   calendarAvailability,
   writingStyle,
   learnedWritingStyle = null,
@@ -256,6 +269,7 @@ export async function aiDraftReplyWithConfidence({
   replyMemoryContent?: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
+  senderReplyExamples?: string | null;
   calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
   learnedWritingStyle?: string | null;
@@ -293,6 +307,7 @@ export async function aiDraftReplyWithConfidence({
     replyMemoryContent,
     emailHistorySummary,
     emailHistoryContext,
+    senderReplyExamples,
     calendarAvailability,
     writingStyle: effectiveWritingStyle,
     learnedWritingStyle: advisoryLearnedWritingStyle,
@@ -351,6 +366,7 @@ export async function aiDraftReply({
   replyMemoryContent = null,
   emailHistorySummary,
   emailHistoryContext,
+  senderReplyExamples = null,
   calendarAvailability,
   writingStyle,
   learnedWritingStyle = null,
@@ -365,6 +381,7 @@ export async function aiDraftReply({
   replyMemoryContent?: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
+  senderReplyExamples?: string | null;
   calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
   learnedWritingStyle?: string | null;
@@ -380,6 +397,7 @@ export async function aiDraftReply({
     replyMemoryContent,
     emailHistorySummary,
     emailHistoryContext,
+    senderReplyExamples,
     calendarAvailability,
     writingStyle,
     learnedWritingStyle,

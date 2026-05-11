@@ -95,6 +95,7 @@ vi.mock("@/env", () => ({
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
 import { getReplyMemoriesForPrompt } from "@/utils/ai/reply/reply-memory";
 import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachments";
+import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
 import prisma from "@/utils/prisma";
 import { getReplyWithConfidence, saveReply } from "@/utils/redis/reply";
 
@@ -145,6 +146,10 @@ const createMockClient = (): EmailProvider =>
   ({
     getThreadMessages: vi.fn(),
     getPreviousConversationMessages: vi.fn().mockResolvedValue([]),
+    getThreadsWithParticipant: vi.fn().mockResolvedValue([]),
+    isSentMessage: vi.fn((message: ParsedMessage) =>
+      message.labelIds?.includes("SENT"),
+    ),
   }) as EmailProvider;
 
 const createMockEmailAccountSettings = (
@@ -477,6 +482,139 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
       "msg-old",
       "msg-new",
     ]);
+  });
+
+  it("does not summarize the current thread as historical email context", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Draft reply",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+    });
+
+    const currentMessage = createMockMessage();
+    const olderMessage: ParsedMessage = {
+      ...createMockMessage(),
+      id: "msg-previous",
+      threadId: "thread-previous",
+      internalDate: "2023-12-31T10:00:00Z",
+      textPlain: "Earlier context from another thread",
+      textHtml: "<p>Earlier context from another thread</p>",
+    };
+
+    const client = createMockClient();
+    vi.mocked(client.getThreadMessages).mockResolvedValue([currentMessage]);
+    vi.mocked(client.getPreviousConversationMessages).mockResolvedValue([
+      currentMessage,
+      olderMessage,
+    ]);
+
+    await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      client,
+      undefined,
+      logger,
+    );
+
+    expect(aiExtractFromEmailHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        historicalMessages: [
+          expect.objectContaining({
+            id: "msg-previous",
+            content: expect.stringContaining("Earlier context"),
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("skips historical email extraction when only current-thread messages are returned", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Draft reply",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+    });
+
+    const currentMessage = createMockMessage();
+    const client = createMockClient();
+    vi.mocked(client.getThreadMessages).mockResolvedValue([currentMessage]);
+    vi.mocked(client.getPreviousConversationMessages).mockResolvedValue([
+      currentMessage,
+    ]);
+
+    await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      client,
+      undefined,
+      logger,
+    );
+
+    expect(aiExtractFromEmailHistory).not.toHaveBeenCalled();
+  });
+
+  it("passes recent sent replies to the same sender into the draft prompt", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Draft reply",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+    });
+
+    const currentMessage = createMockMessage();
+    const sentReply: ParsedMessage = {
+      ...createMockMessage(),
+      id: "sent-reply",
+      threadId: "previous-thread",
+      internalDate: "2024-01-02T10:00:00Z",
+      labelIds: ["SENT"],
+      headers: {
+        ...createMockMessage().headers,
+        from: "user@example.com",
+        to: "sender@example.com",
+        subject: "Previous note",
+      },
+      textPlain: "Short previous reply.",
+      textHtml: "<p>Short previous reply.</p>",
+    };
+
+    const client = createMockClient();
+    vi.mocked(client.getThreadMessages).mockResolvedValue([currentMessage]);
+    vi.mocked(client.getThreadsWithParticipant).mockResolvedValue([
+      {
+        id: "previous-thread",
+        messages: [currentMessage, sentReply],
+        snippet: "",
+      },
+    ]);
+
+    const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
+      createMockEmailAccount(),
+      "thread-1",
+      client,
+      undefined,
+      logger,
+      DraftReplyConfidence.ALL_EMAILS,
+    );
+
+    expect(client.getThreadsWithParticipant).toHaveBeenCalledWith({
+      participantEmail: "sender@example.com",
+      maxThreads: 8,
+    });
+    expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        senderReplyExamples: expect.stringContaining("Short previous reply"),
+      }),
+    );
+    expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        senderReplyExamples: expect.not.stringContaining("Hello, how are you?"),
+      }),
+    );
+    expect(result.draftContextMetadata).toEqual(
+      expect.objectContaining({
+        senderHistory: expect.objectContaining({
+          sameSenderReplyExamplesInjected: true,
+          sameSenderReplyExampleCount: 1,
+        }),
+      }),
+    );
   });
 });
 
