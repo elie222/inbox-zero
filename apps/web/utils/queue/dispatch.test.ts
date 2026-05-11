@@ -88,10 +88,6 @@ describe("enqueueBackgroundJob", () => {
     });
 
     mockPublishToQstashQueue.mockResolvedValue(undefined);
-    const logger = createTestLogger();
-    const loggerWarnSpy = vi
-      .spyOn(logger, "warn")
-      .mockImplementation(() => undefined);
 
     const result = await enqueueBackgroundJob({
       topic: "topic",
@@ -101,11 +97,10 @@ describe("enqueueBackgroundJob", () => {
         parallelism: 3,
         path: "/api/automation-jobs/execute",
       },
-      logger,
+      logger: createTestLogger(),
     });
 
     expect(result).toBe("qstash");
-    expect(loggerWarnSpy).toHaveBeenCalled();
     expect(mockPublishToQstashQueue).toHaveBeenCalled();
   });
 

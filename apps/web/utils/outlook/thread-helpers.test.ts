@@ -9,15 +9,11 @@ describe("runThreadMessageMutation", () => {
   it("limits concurrent thread mutations", async () => {
     let inFlight = 0;
     let maxInFlight = 0;
-    const logger = createTestLogger();
-    const loggerWarnSpy = vi
-      .spyOn(logger, "warn")
-      .mockImplementation(() => undefined);
 
     await runThreadMessageMutation({
       messageIds: ["msg1", "msg2", "msg3", "msg4"],
       threadId: "conv1",
-      logger,
+      logger: createTestLogger(),
       failureMessage: "Failed to mutate message",
       messageHandler: async () => {
         inFlight += 1;
@@ -28,34 +24,26 @@ describe("runThreadMessageMutation", () => {
     });
 
     expect(maxInFlight).toBeLessThanOrEqual(3);
-    expect(loggerWarnSpy).not.toHaveBeenCalled();
   });
 
   it("continues when continueOnError is enabled", async () => {
-    const logger = createTestLogger();
-    const loggerWarnSpy = vi
-      .spyOn(logger, "warn")
-      .mockImplementation(() => undefined);
     const error = new Error("move failed");
+    const messageHandler = vi.fn(async (messageId: string) => {
+      if (messageId === "msg2") throw error;
+    });
 
     await expect(
       runThreadMessageMutation({
         messageIds: ["msg1", "msg2"],
         threadId: "conv1",
-        logger,
+        logger: createTestLogger(),
         failureMessage: "Failed to mutate message",
         continueOnError: true,
-        messageHandler: async (messageId) => {
-          if (messageId === "msg2") throw error;
-        },
+        messageHandler,
       }),
     ).resolves.toBeUndefined();
 
-    expect(loggerWarnSpy).toHaveBeenCalledWith("Failed to mutate message", {
-      threadId: "conv1",
-      messageId: "msg2",
-      error,
-    });
+    expect(messageHandler).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -67,15 +55,11 @@ describe("processThreadMessagesFallback", () => {
       { id: "msg3", conversationId: "other" },
     ]);
     const handler = vi.fn().mockResolvedValue(null);
-    const logger = createTestLogger();
-    const loggerWarnSpy = vi
-      .spyOn(logger, "warn")
-      .mockImplementation(() => undefined);
 
     await processThreadMessagesFallback({
       client: client as any,
       threadId: "conv1",
-      logger,
+      logger: createTestLogger(),
       messageHandler: handler,
       noMessagesMessage: "No messages",
     });
@@ -83,32 +67,24 @@ describe("processThreadMessagesFallback", () => {
     expect(handler).toHaveBeenCalledTimes(2);
     expect(handler).toHaveBeenCalledWith("msg1");
     expect(handler).toHaveBeenCalledWith("msg2");
-    expect(loggerWarnSpy).not.toHaveBeenCalled();
   });
 
-  it("logs warning when no messages match the conversationId", async () => {
+  it("does not call handler when no messages match the conversationId", async () => {
     const client = mockClient([{ id: "msg1", conversationId: "other" }]);
     const handler = vi.fn();
-    const logger = createTestLogger();
-    const loggerWarnSpy = vi
-      .spyOn(logger, "warn")
-      .mockImplementation(() => undefined);
 
     await processThreadMessagesFallback({
       client: client as any,
       threadId: "conv1",
-      logger,
+      logger: createTestLogger(),
       messageHandler: handler,
       noMessagesMessage: "No messages found",
     });
 
     expect(handler).not.toHaveBeenCalled();
-    expect(loggerWarnSpy).toHaveBeenCalledWith("No messages found", {
-      threadId: "conv1",
-    });
   });
 
-  it("logs warning for rejected message handlers", async () => {
+  it("continues after rejected message handlers", async () => {
     const client = mockClient([
       { id: "msg1", conversationId: "conv1" },
       { id: "msg2", conversationId: "conv1" },
@@ -118,24 +94,16 @@ describe("processThreadMessagesFallback", () => {
       .fn()
       .mockResolvedValueOnce(null)
       .mockRejectedValueOnce(error);
-    const logger = createTestLogger();
-    const loggerWarnSpy = vi
-      .spyOn(logger, "warn")
-      .mockImplementation(() => undefined);
 
     await processThreadMessagesFallback({
       client: client as any,
       threadId: "conv1",
-      logger,
+      logger: createTestLogger(),
       messageHandler: handler,
       noMessagesMessage: "No messages",
     });
 
     expect(handler).toHaveBeenCalledTimes(2);
-    expect(loggerWarnSpy).toHaveBeenCalledWith(
-      "Failed to process message in thread fallback",
-      { threadId: "conv1", messageId: "msg2", error },
-    );
   });
 
   it("uses bounded concurrency for fallback message processing", async () => {

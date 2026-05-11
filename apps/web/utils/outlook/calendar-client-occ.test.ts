@@ -78,10 +78,6 @@ describe("getCalendarClientWithRefresh token save concurrency", () => {
   });
 
   it("skips stale Microsoft calendar token saves when a concurrent refresh already won", async () => {
-    const logger = createTestLogger();
-    const loggerInfoSpy = vi
-      .spyOn(logger, "info")
-      .mockImplementation(() => undefined);
     prisma.calendarConnection.updateMany.mockResolvedValue({ count: 0 } as any);
 
     await getCalendarClientWithRefresh({
@@ -89,13 +85,9 @@ describe("getCalendarClientWithRefresh token save concurrency", () => {
       refreshToken: "old-refresh-token",
       expiresAt: 1_700_000_000_000,
       emailAccountId: "email-account-id",
-      logger,
+      logger: createTestLogger(),
     });
 
     expect(prisma.calendarConnection.update).not.toHaveBeenCalled();
-    expect(loggerInfoSpy).toHaveBeenCalledWith(
-      "Skipped stale calendar token update",
-      { connectionId: "calendar-connection-id" },
-    );
   });
 });

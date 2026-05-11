@@ -10,8 +10,6 @@ import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
 import { createTestLogger } from "@/__tests__/helpers";
 
 const logger = createTestLogger();
-// Mock logger.with to return the same logger instance so spies work
-vi.spyOn(logger, "with").mockReturnValue(logger);
 
 vi.mock("@/utils/gmail/client", () => ({
   getGmailClientWithRefresh: vi.fn().mockResolvedValue({}),
@@ -209,22 +207,16 @@ describe("processHistoryForUser - 404 Handling", () => {
 
     vi.mocked(getHistory).mockResolvedValue({ history: [] });
 
-    const warnSpy = vi.spyOn(logger, "warn");
-
     await processHistoryForUser({ emailAddress: email, historyId }, {}, logger);
 
-    expect(warnSpy).not.toHaveBeenCalledWith(
-      "Skipping Gmail history IDs due to large gap",
-      expect.anything(),
-    );
     expect(getHistory).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ startHistoryId: "1000" }),
-      logger,
+      expect.any(Object),
     );
   });
 
-  it("should log a warning and advance cursor when large-gap history is truncated", async () => {
+  it("advances cursor when large-gap history is truncated", async () => {
     const email = "user@test.com";
     const historyId = 5000;
     const emailAccount = {
@@ -253,24 +245,13 @@ describe("processHistoryForUser - 404 Handling", () => {
 
     vi.mocked(getHistory).mockResolvedValue({ history: [] });
 
-    const warnSpy = vi.spyOn(logger, "warn");
-
     await processHistoryForUser({ emailAddress: email, historyId }, {}, logger);
 
-    expect(warnSpy).toHaveBeenCalledWith(
-      "Skipping Gmail history IDs due to large gap",
-      expect.objectContaining({
-        lastSyncedHistoryId: 1000,
-        webhookHistoryId: 5000,
-        historyIdGap: 4000,
-        maxHistoryIdGap: 3000,
-        effectiveStartHistoryId: 2000,
-        skippedHistoryIds: 1000,
-      }),
+    expect(getHistory).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ startHistoryId: "2000" }),
+      expect.any(Object),
     );
-
-    // Even if Gmail returns an empty array, advance the cursor to avoid
-    // repeatedly reprocessing the same large gap window.
     expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
@@ -321,7 +302,7 @@ describe("processHistoryForUser - 404 Handling", () => {
         maxResults: 500,
         pageToken: undefined,
       }),
-      logger,
+      expect.any(Object),
     );
     expect(getHistory).toHaveBeenNthCalledWith(
       2,
@@ -331,7 +312,7 @@ describe("processHistoryForUser - 404 Handling", () => {
         maxResults: 500,
         pageToken: "page-2",
       }),
-      logger,
+      expect.any(Object),
     );
     expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
   });

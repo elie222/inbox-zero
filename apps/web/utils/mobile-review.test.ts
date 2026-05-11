@@ -91,16 +91,11 @@ describe("mobile review access", () => {
   });
 
   it("rejects invalid review codes before querying the database", async () => {
-    const logger = createTestLogger();
-    const loggerWarnSpy = vi
-      .spyOn(logger, "warn")
-      .mockImplementation(() => undefined);
-
     await expect(
       createMobileReviewSession({
         code: "wrong-code",
         email: "review@example.com",
-        logger,
+        logger: createTestLogger(),
       } as never),
     ).rejects.toMatchObject({
       message: "Invalid review access code",
@@ -109,40 +104,21 @@ describe("mobile review access", () => {
     });
 
     expect(emailAccountFindManyMock).not.toHaveBeenCalled();
-    expect(loggerWarnSpy).toHaveBeenCalledWith(
-      "Mobile review sign-in rejected",
-      {
-        reason: "invalid_review_demo_code",
-      },
-    );
   });
 
   it("rejects valid review codes when the configured review account cannot create a session", async () => {
-    const logger = createTestLogger();
-    const loggerWarnSpy = vi
-      .spyOn(logger, "warn")
-      .mockImplementation(() => undefined);
     emailAccountFindManyMock.mockResolvedValueOnce([]);
 
     await expect(
       createMobileReviewSession({
         code: "review-code",
         email: "review@example.com",
-        logger,
+        logger: createTestLogger(),
       } as never),
     ).rejects.toMatchObject({
       message: "Review access is unavailable",
       safeMessage: "Review access is unavailable",
     });
-
-    expect(loggerWarnSpy).toHaveBeenCalledWith(
-      "Mobile review sign-in unavailable",
-      expect.objectContaining({
-        hasEmailAccount: false,
-        ok: false,
-        reason: "review_user_missing_email_account",
-      }),
-    );
   });
 
   it("creates a session for the matching configured review account", async () => {

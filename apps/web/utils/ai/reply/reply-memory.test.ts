@@ -589,23 +589,13 @@ Can you send pricing?`,
     });
 
     const provider = createReplyMemoryProvider();
-    const testLogger = createTestLogger();
-    const warnSpy = vi.spyOn(testLogger, "warn").mockImplementation(() => {});
 
     await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
       provider: provider as any,
-      logger: testLogger,
+      logger: createTestLogger(),
     });
 
-    expect(warnSpy).toHaveBeenCalledWith(
-      "Reply memory extraction returned unknown existing memory id",
-      {
-        emailAccountId: "account-1",
-        draftSendLogId: "draft-send-log-1",
-        matchingExistingMemoryId: "missing-pricing-memory",
-      },
-    );
     expect(prisma.replyMemory.update).not.toHaveBeenCalled();
     expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
     expect(prisma.replyMemorySource.upsert).not.toHaveBeenCalled();

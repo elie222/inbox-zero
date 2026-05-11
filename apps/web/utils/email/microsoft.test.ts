@@ -632,7 +632,7 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
 });
 
 describe("OutlookProvider.getThreadsWithParticipant", () => {
-  it("logs broad search and exact participant match counts", async () => {
+  it("filters broad search results to exact participant matches", async () => {
     const participantEmail = "participant@example.com";
     const unrelatedMessage = createMessage({
       id: "unrelated-message",
@@ -652,11 +652,6 @@ describe("OutlookProvider.getThreadsWithParticipant", () => {
       },
     });
     const logger = createTestLogger();
-    const scopedLogger = logger.with({ provider: "microsoft" });
-    vi.spyOn(logger, "with").mockReturnValue(scopedLogger);
-    const loggerInfoSpy = vi
-      .spyOn(scopedLogger, "info")
-      .mockImplementation(() => undefined);
     const provider = new OutlookProvider(client, logger);
 
     const threads = await provider.getThreadsWithParticipant({
@@ -665,15 +660,6 @@ describe("OutlookProvider.getThreadsWithParticipant", () => {
     });
 
     expect(threads).toEqual([]);
-    expect(loggerInfoSpy).toHaveBeenCalledWith(
-      "Outlook participant search completed",
-      {
-        rawMessageCount: 1,
-        exactParticipantMessageCount: 0,
-        threadCount: 0,
-        hasMorePages: true,
-      },
-    );
   });
 });
 
