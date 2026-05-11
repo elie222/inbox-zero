@@ -103,7 +103,7 @@ describe("google calendar oauth", () => {
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 
-  it("syncs Google calendars, defaulting virtual calendars to disabled on create but preserving user toggles on update", async () => {
+  it("syncs Google calendars enabled by default while preserving user toggles on update", async () => {
     vi.mocked(getCalendarClientWithRefresh).mockResolvedValue(
       "calendar-client" as any,
     );
@@ -158,7 +158,7 @@ describe("google calendar oauth", () => {
     expect(primaryUpsert.update).not.toHaveProperty("isEnabled");
 
     expect(virtualUpsert.create).toMatchObject({
-      isEnabled: false,
+      isEnabled: true,
       primary: false,
     });
     expect(virtualUpsert.update).toMatchObject({ primary: false });
