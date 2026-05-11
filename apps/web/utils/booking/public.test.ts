@@ -114,6 +114,21 @@ describe("public booking", () => {
     expect(result).toEqual([]);
   });
 
+  it("returns no availability when existing bookings cannot be loaded", async () => {
+    prisma.booking.findMany.mockRejectedValue(
+      new Error("database unavailable"),
+    );
+
+    const result = await getPublicAvailability({
+      slug: "intro",
+      start: new Date("2026-05-04T00:00:00.000Z"),
+      end: new Date("2026-05-05T00:00:00.000Z"),
+      logger,
+    });
+
+    expect(result).toEqual([]);
+  });
+
   it("fails closed before creating a booking when calendar availability fails", async () => {
     vi.mocked(getUnifiedCalendarAvailability).mockRejectedValue(
       new Error("provider unavailable"),
@@ -124,6 +139,22 @@ describe("public booking", () => {
     await expect(
       createPublicBooking({
         input: publicBookingInput({ idempotencyToken: "token-unavailable" }),
+        logger,
+      }),
+    ).rejects.toThrow("Calendar availability is temporarily unavailable");
+
+    expect(prisma.booking.create).not.toHaveBeenCalled();
+  });
+
+  it("fails closed before creating a booking when existing bookings cannot be loaded", async () => {
+    prisma.booking.findFirst.mockResolvedValue(null);
+    prisma.booking.findMany.mockRejectedValue(
+      new Error("database unavailable"),
+    );
+
+    await expect(
+      createPublicBooking({
+        input: publicBookingInput({ idempotencyToken: "token-db-unavailable" }),
         logger,
       }),
     ).rejects.toThrow("Calendar availability is temporarily unavailable");
@@ -277,6 +308,23 @@ describe("public booking", () => {
     });
     expect(prisma.booking.create).toHaveBeenCalled();
     expect(result.status).toBe(BookingStatus.CONFIRMED);
+  });
+
+  it("rejects a canceled idempotent booking with a clear retry message", async () => {
+    prisma.booking.findFirst.mockResolvedValue(
+      bookingRecord({ status: BookingStatus.CANCELED }),
+    );
+
+    await expect(
+      createPublicBooking({
+        input: publicBookingInput({ idempotencyToken: "canceled-token" }),
+        logger,
+      }),
+    ).rejects.toThrow(
+      "Booking was canceled. Please submit a new booking request.",
+    );
+
+    expect(prisma.booking.create).not.toHaveBeenCalled();
   });
 
   it("rejects overlapping bookings via the partial EXCLUDE constraint", async () => {

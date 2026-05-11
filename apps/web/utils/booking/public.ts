@@ -176,6 +176,11 @@ export async function createPublicBooking({
       if (existing?.status === BookingStatus.PENDING_PROVIDER_EVENT) {
         throw new SafeError("Booking request is still being processed");
       }
+      if (existing?.status === BookingStatus.CANCELED) {
+        throw new SafeError(
+          "Booking was canceled. Please submit a new booking request.",
+        );
+      }
       throw new SafeError("Selected slot is no longer available");
     }
     throw error;
@@ -434,23 +439,33 @@ async function getBusyPeriods({
     }),
     // In-flight bookings haven't propagated to the calendar yet but already
     // hold the slot via the partial EXCLUDE constraint, so surface them as busy.
-    prisma.booking.findMany({
-      where: {
-        emailAccountId: config.link.emailAccountId,
-        status: {
-          in: [BookingStatus.PENDING_PROVIDER_EVENT, BookingStatus.CONFIRMED],
+    prisma.booking
+      .findMany({
+        where: {
+          emailAccountId: config.link.emailAccountId,
+          status: {
+            in: [BookingStatus.PENDING_PROVIDER_EVENT, BookingStatus.CONFIRMED],
+          },
+          startTime: { lt: end },
+          endTime: { gt: start },
         },
-        startTime: { lt: end },
-        endTime: { gt: start },
-      },
-      select: {
-        startTime: true,
-        endTime: true,
-      },
-    }),
+        select: {
+          startTime: true,
+          endTime: true,
+        },
+      })
+      .catch((error) => {
+        logger.error("Failed to load existing bookings for public booking", {
+          error,
+        });
+
+        if (providerFailureMode === "return-null") return null;
+
+        throw new SafeError(CALENDAR_AVAILABILITY_UNAVAILABLE);
+      }),
   ]);
 
-  if (!providerBusyPeriods) return null;
+  if (!providerBusyPeriods || !existingBookings) return null;
 
   return [
     ...providerBusyPeriods,
@@ -539,6 +554,12 @@ async function resolveExistingIdempotentBooking(
   if (booking.status === BookingStatus.FAILED) {
     await prisma.booking.delete({ where: { id: booking.id } });
     return null;
+  }
+
+  if (booking.status === BookingStatus.CANCELED) {
+    throw new SafeError(
+      "Booking was canceled. Please submit a new booking request.",
+    );
   }
 
   throw new SafeError("Booking request is still being processed");

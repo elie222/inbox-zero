@@ -30,6 +30,9 @@ vi.mock("@/utils/prisma", () => ({
     knowledge: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    bookingLink: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 

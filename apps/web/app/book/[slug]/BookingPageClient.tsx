@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   parseAsInteger,
   parseAsIsoDate,
@@ -96,15 +96,15 @@ export function BookingPageClient({
     [data?.slots, timezone],
   );
 
-  // Snap the selected day to one with availability whenever the month/zone
-  // changes; otherwise the right-hand slot list stays empty for the wrong day.
-  useEffect(() => {
-    if (loadingSlots) return;
-    setSelectedDateKey((current) => {
-      if (current && slotsByDay.has(current)) return current;
-      return [...slotsByDay.keys()].sort()[0] ?? current;
-    });
-  }, [slotsByDay, loadingSlots]);
+  const firstAvailableDateKey = useMemo(
+    () => [...slotsByDay.keys()].sort()[0] ?? null,
+    [slotsByDay],
+  );
+  const displayedSelectedDateKey = loadingSlots
+    ? selectedDateKey
+    : selectedDateKey && slotsByDay.has(selectedDateKey)
+      ? selectedDateKey
+      : firstAvailableDateKey;
 
   const handleSubmit = async (
     formValues: { name: string; email: string; note: string },
@@ -167,8 +167,8 @@ export function BookingPageClient({
     );
   }
 
-  const selectedDateSlots = selectedDateKey
-    ? (slotsByDay.get(selectedDateKey) ?? [])
+  const selectedDateSlots = displayedSelectedDateKey
+    ? (slotsByDay.get(displayedSelectedDateKey) ?? [])
     : [];
 
   return (
@@ -179,7 +179,7 @@ export function BookingPageClient({
         onTimezoneChange={setTimezone}
         visibleMonth={visibleMonth}
         onMonthChange={setVisibleMonthDate}
-        selectedDateKey={selectedDateKey}
+        selectedDateKey={displayedSelectedDateKey}
         onSelectDate={setSelectedDateKey}
         slotsByDay={slotsByDay}
         slotsForDay={selectedDateSlots}
@@ -560,5 +560,3 @@ export function BookingShell({
     </main>
   );
 }
-
-export { getApiError };

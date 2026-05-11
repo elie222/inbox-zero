@@ -278,6 +278,7 @@ async function generateDraftContent(
     upcomingMeetings,
     emailHistorySummary,
     attachmentSelection,
+    activeBookingLinks,
   ] = await Promise.all([
     aiExtractRelevantKnowledge({
       knowledgeBase,
@@ -325,6 +326,12 @@ async function generateDraftContent(
         })
       : Promise.resolve(null),
     attachmentSelectionPromise,
+    prisma.bookingLink.findMany({
+      where: { emailAccountId: emailAccount.id, isActive: true },
+      orderBy: { createdAt: "desc" },
+      take: 1,
+      select: { slug: true },
+    }),
   ]);
   const {
     content: replyMemoryContent,
@@ -382,7 +389,7 @@ async function generateDraftContent(
   // 3. Draft reply
   const { reply, confidence, attribution } = await aiDraftReplyWithConfidence({
     messages,
-    emailAccount,
+    emailAccount: { ...emailAccount, bookingLinks: activeBookingLinks },
     knowledgeBaseContent: knowledgeResult?.relevantContent || null,
     replyMemoryContent,
     emailHistorySummary,

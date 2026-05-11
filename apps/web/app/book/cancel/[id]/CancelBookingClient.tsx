@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/Input";
 import { publicCancelBookingBody } from "@/utils/actions/booking.validation";
-import { getApiError } from "../../[slug]/BookingPageClient";
+import { getApiError } from "../../[slug]/booking-helpers";
 
 // The token comes from the URL; the form only collects the reason.
 const cancelFormSchema = publicCancelBookingBody.pick({ reason: true });
