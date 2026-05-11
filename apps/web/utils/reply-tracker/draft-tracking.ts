@@ -107,18 +107,13 @@ export async function trackSentDraftStatus({
   });
 
   if (draftExists || sentMessageRepliesToSource === false) {
-    logger.info(
-      sentMessageRepliesToSource === false
-        ? "Sent message did not reply to source sender, marking AI draft as not sent."
-        : "Original AI draft still exists, sent message was different.",
-      {
-        executedActionId: executedAction.id,
-        draftId: executedAction.draftId,
-        similarityScore,
-        draftExists: !!draftExists,
-        sentMessageRepliesToSource,
-      },
-    );
+    logger.info("Marking AI draft as not sent", {
+      executedActionId: executedAction.id,
+      draftId: executedAction.draftId,
+      similarityScore,
+      draftExists: !!draftExists,
+      sentMessageRepliesToSource,
+    });
 
     // Create DraftSendLog to record the comparison, but mark wasDraftSent as false
     const [draftSendLog] = await withPrismaRetry(
