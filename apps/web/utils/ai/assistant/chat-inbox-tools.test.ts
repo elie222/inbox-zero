@@ -5,6 +5,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
   forwardEmailTool,
+  getAccountOverviewTool,
   getSenderCategorizationStatusTool,
   getSenderCategoryOverviewTool,
   manageInboxTool,
@@ -536,6 +537,54 @@ describe("chat inbox tools", () => {
   });
 });
 
+function serializeToolContract(toolInstance: {
+  description?: string;
+  inputSchema?: unknown;
+}) {
+  return [
+    toolInstance.description,
+    ...collectSchemaDescriptions(toolInstance.inputSchema),
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function collectSchemaDescriptions(schema: unknown): string[] {
+  if (!schema || typeof schema !== "object") return [];
+
+  const schemaObject = schema as {
+    description?: string;
+    def?: {
+      shape?: Record<string, unknown>;
+      innerType?: unknown;
+      element?: unknown;
+      in?: unknown;
+      out?: unknown;
+      options?: unknown[];
+    };
+  };
+  const descriptions = schemaObject.description
+    ? [schemaObject.description]
+    : [];
+  const def = schemaObject.def;
+
+  if (def?.shape) {
+    for (const value of Object.values(def.shape)) {
+      descriptions.push(...collectSchemaDescriptions(value));
+    }
+  }
+
+  for (const value of [def?.innerType, def?.element, def?.in, def?.out]) {
+    descriptions.push(...collectSchemaDescriptions(value));
+  }
+
+  for (const option of def?.options ?? []) {
+    descriptions.push(...collectSchemaDescriptions(option));
+  }
+
+  return descriptions;
+}
+
 describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -720,7 +769,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     expect(result.queryUsed).toBe('"sender@example.com"');
   });
 
-  it("searchInbox passes structured Outlook label and read-state filters", async () => {
+  it("searchInbox passes structured Outlook category and read-state filters", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [],
       nextPageToken: undefined,
@@ -740,7 +789,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
 
     await (toolInstance.execute as any)({
       query: "",
-      labelName: "Newsletter",
+      categoryName: "Newsletter",
       readState: "unread",
       limit: 20,
     });
@@ -752,6 +801,170 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       readState: "unread",
       labelName: "Newsletter",
     });
+  });
+
+  it("uses Outlook category wording in model-visible inbox tool contracts", () => {
+    const toolOptions = {
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    };
+
+    const contractText = [
+      getAccountOverviewTool(toolOptions),
+      searchInboxTool(toolOptions),
+      manageInboxTool(toolOptions),
+    ]
+      .map(serializeToolContract)
+      .join("\n");
+
+    expect(contractText).toMatch(/\bcategory\b/i);
+    expect(contractText).not.toMatch(/\blabels?\b/i);
+  });
+
+  it("searchInbox normalizes simple Outlook scope queries before provider search", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [],
+      nextPageToken: "PAGE_TOKEN_2",
+    });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "Operations folder unread",
+      limit: 20,
+    });
+
+    expect(searchMessages).toHaveBeenCalledTimes(1);
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "",
+      maxResults: 20,
+      pageToken: undefined,
+      readState: "unread",
+      labelName: "Operations",
+    });
+    expect(result.hasMore).toBe(true);
+  });
+
+  it("searchInbox removes redundant Outlook read-state terms before scope normalization", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [],
+      nextPageToken: "PAGE_TOKEN_2",
+    });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    await (toolInstance.execute as any)({
+      query: "newsletter unread",
+      readState: "unread",
+      limit: 20,
+    });
+
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "",
+      maxResults: 20,
+      pageToken: undefined,
+      readState: "unread",
+      labelName: "newsletter",
+    });
+  });
+
+  it("searchInbox normalizes Outlook folder field queries before provider search", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [],
+      nextPageToken: "PAGE_TOKEN_2",
+    });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    await (toolInstance.execute as any)({
+      query: 'folder:"Operations"',
+      readState: "unread",
+      limit: 20,
+    });
+
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "",
+      maxResults: 20,
+      pageToken: undefined,
+      readState: "unread",
+      labelName: "Operations",
+    });
+  });
+
+  it("searchInbox falls back to Outlook text search when a normalized scope is conclusively empty", async () => {
+    const searchMessages = vi
+      .fn()
+      .mockResolvedValueOnce({
+        messages: [],
+        nextPageToken: undefined,
+      })
+      .mockResolvedValueOnce({
+        messages: [],
+        nextPageToken: undefined,
+      });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "invoice",
+      limit: 20,
+    });
+
+    expect(searchMessages).toHaveBeenNthCalledWith(1, {
+      query: "",
+      maxResults: 20,
+      pageToken: undefined,
+      readState: undefined,
+      labelName: "invoice",
+    });
+    expect(searchMessages).toHaveBeenNthCalledWith(2, {
+      query: "invoice",
+      maxResults: 20,
+      readState: undefined,
+    });
+    expect(result.queryUsed).toBe("invoice");
   });
 
   it("searchInbox does not pass structured Outlook filters to Google", async () => {

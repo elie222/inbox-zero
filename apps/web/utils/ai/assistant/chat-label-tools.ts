@@ -5,31 +5,42 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { posthogCaptureEvent } from "@/utils/posthog";
 
-const createOrGetLabelInputSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1)
-    .max(200)
-    .describe("Exact label name to reuse or create."),
-});
+type ResourceTerms = {
+  resource: "label" | "category";
+  resourcePlural: "labels" | "categories";
+  providerHint: string;
+  listToolName: string;
+  createToolName: string;
+};
 
-export const listLabelsTool = ({
+const labelTerms: ResourceTerms = {
+  resource: "label",
+  resourcePlural: "labels",
+  providerHint: "account",
+  listToolName: "list_labels",
+  createToolName: "create_or_get_label",
+};
+
+const categoryTerms: ResourceTerms = {
+  resource: "category",
+  resourcePlural: "categories",
+  providerHint: "Outlook account",
+  listToolName: "list_categories",
+  createToolName: "create_or_get_category",
+};
+
+function buildListTool({
   email,
   emailAccountId,
   provider,
   logger,
-}: {
-  email: string;
-  emailAccountId: string;
-  provider: string;
-  logger: Logger;
-}) =>
-  tool({
-    description: "List all existing labels or categories for this account.",
+  terms,
+}: ToolOptions & { terms: ResourceTerms }) {
+  return tool({
+    description: `List all existing ${terms.resourcePlural} for this ${terms.providerHint}.`,
     inputSchema: z.object({}),
     execute: async () => {
-      trackToolCall({ tool: "list_labels", email, logger });
+      trackToolCall({ tool: terms.listToolName, email, logger });
 
       try {
         const emailProvider = await createEmailProvider({
@@ -37,37 +48,45 @@ export const listLabelsTool = ({
           provider,
           logger,
         });
-        const labels = await emailProvider.getLabels();
+        const items = await emailProvider.getLabels();
 
         return {
-          labels: labels.map(pickLabelFields),
+          [terms.resourcePlural]: items.map(pickLabelFields),
         };
       } catch (error) {
-        logger.error("Failed to list labels", { error });
+        logger.error(`Failed to list ${terms.resourcePlural}`, { error });
         return {
-          error: "Failed to list labels",
+          error: `Failed to list ${terms.resourcePlural}`,
         };
       }
     },
   });
+}
 
-export const createOrGetLabelTool = ({
+function buildCreateOrGetTool({
   email,
   emailAccountId,
   provider,
   logger,
-}: {
-  email: string;
-  emailAccountId: string;
-  provider: string;
-  logger: Logger;
-}) =>
-  tool({
-    description:
-      "Reuse an existing label by exact name or create it if it does not exist yet. Do not call listLabels first — this tool handles the check-and-create in one step.",
-    inputSchema: createOrGetLabelInputSchema,
+  terms,
+}: ToolOptions & { terms: ResourceTerms }) {
+  const inputSchema = z.object({
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .describe(`Exact ${terms.resource} name to reuse or create.`),
+  });
+
+  const listToolName =
+    terms.resource === "label" ? "listLabels" : "listCategories";
+
+  return tool({
+    description: `Reuse an existing ${terms.resource} by exact name or create it if it does not exist yet. Do not call ${listToolName} first — this tool handles the check-and-create in one step.`,
+    inputSchema,
     execute: async (input) => {
-      trackToolCall({ tool: "create_or_get_label", email, logger });
+      trackToolCall({ tool: terms.createToolName, email, logger });
 
       try {
         const emailProvider = await createEmailProvider({
@@ -76,43 +95,69 @@ export const createOrGetLabelTool = ({
           logger,
         });
         const normalizedName = normalizeLabelName(input.name);
-        const labels = await emailProvider.getLabels();
-        const existingLabel = findNormalizedLabel(labels, normalizedName);
+        const items = await emailProvider.getLabels();
+        const existing = findNormalizedLabel(items, normalizedName);
 
-        if (existingLabel) {
-          return { created: false, label: pickLabelFields(existingLabel) };
-        }
-
-        const hiddenAwareLabels = await emailProvider.getLabels({
-          includeHidden: true,
-        });
-        const existingHiddenLabel = findNormalizedLabel(
-          hiddenAwareLabels,
-          normalizedName,
-        );
-
-        if (existingHiddenLabel) {
+        if (existing) {
           return {
             created: false,
-            label: pickLabelFields(existingHiddenLabel),
+            [terms.resource]: pickLabelFields(existing),
           };
         }
 
-        const createdLabel = await emailProvider.createLabel(input.name);
+        const hiddenAware = await emailProvider.getLabels({
+          includeHidden: true,
+        });
+        const existingHidden = findNormalizedLabel(hiddenAware, normalizedName);
 
-        return { created: true, label: pickLabelFields(createdLabel) };
+        if (existingHidden) {
+          return {
+            created: false,
+            [terms.resource]: pickLabelFields(existingHidden),
+          };
+        }
+
+        const created = await emailProvider.createLabel(input.name);
+
+        return { created: true, [terms.resource]: pickLabelFields(created) };
       } catch (error) {
-        logger.error("Failed to create or get label", { error });
+        logger.error(`Failed to create or get ${terms.resource}`, { error });
         return {
-          error: "Failed to create or get label",
+          error: `Failed to create or get ${terms.resource}`,
         };
       }
     },
   });
+}
+
+type ToolOptions = {
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+};
+
+export const listLabelsTool = (options: ToolOptions) =>
+  buildListTool({ ...options, terms: labelTerms });
+
+export const createOrGetLabelTool = (options: ToolOptions) =>
+  buildCreateOrGetTool({ ...options, terms: labelTerms });
+
+export const listCategoriesTool = (options: ToolOptions) =>
+  buildListTool({ ...options, terms: categoryTerms });
+
+export const createOrGetCategoryTool = (options: ToolOptions) =>
+  buildCreateOrGetTool({ ...options, terms: categoryTerms });
 
 export type ListLabelsTool = InferUITool<ReturnType<typeof listLabelsTool>>;
 export type CreateOrGetLabelTool = InferUITool<
   ReturnType<typeof createOrGetLabelTool>
+>;
+export type ListCategoriesTool = InferUITool<
+  ReturnType<typeof listCategoriesTool>
+>;
+export type CreateOrGetCategoryTool = InferUITool<
+  ReturnType<typeof createOrGetCategoryTool>
 >;
 
 function pickLabelFields(label: { id: string; name: string; type: string }) {

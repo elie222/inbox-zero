@@ -244,6 +244,7 @@ export function isManageInboxThreadActionInput(
 
   return (
     (value.action === "archive_threads" ||
+      value.action === "trash_threads" ||
       value.action === "mark_read_threads") &&
     Array.isArray(value.threadIds)
   );
@@ -383,7 +384,7 @@ type ReadEmailInput = {
 };
 
 type ManageInboxThreadActionInput = {
-  action: "archive_threads" | "mark_read_threads";
+  action: "archive_threads" | "trash_threads" | "mark_read_threads";
   threadIds: string[];
 };
 
