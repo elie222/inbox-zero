@@ -3,20 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 
 vi.mock("@/utils/prisma");
-vi.mock("@/utils/middleware", () => ({
-  withEmailAccount:
-    (
-      _scope: string,
-      handler: (request: NextRequest, ...args: unknown[]) => Promise<Response>,
-    ) =>
-    (request: NextRequest, ...args: unknown[]) =>
-      handler(
-        request as NextRequest & {
-          auth: { emailAccountId: string };
-        },
-        ...args,
-      ),
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithEmailAccountTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithEmailAccountTestMiddleware();
+});
 
 import { GET } from "./route";
 
@@ -58,11 +51,6 @@ describe("user/debug/memories route", () => {
     const request = new NextRequest(
       "http://localhost:3000/api/user/debug/memories",
     );
-    (
-      request as NextRequest & {
-        auth: { emailAccountId: string };
-      }
-    ).auth = { emailAccountId: "email-account-1" };
 
     const response = await GET(request, {} as never);
     const body = await response.json();

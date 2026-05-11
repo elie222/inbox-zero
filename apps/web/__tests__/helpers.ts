@@ -25,7 +25,16 @@ type TestEmailAccountAuth = {
   userId: string;
 };
 
-export function createWithErrorTestMiddleware() {
+type TestMiddlewareHandler = (
+  request: Request,
+  ...context: unknown[]
+) => Promise<Response>;
+
+export function createWithErrorTestMiddleware({
+  logger = createTestLogger(),
+}: {
+  logger?: ReturnType<typeof createTestLogger>;
+} = {}) {
   return {
     withError:
       <TContext extends unknown[]>(
@@ -33,9 +42,25 @@ export function createWithErrorTestMiddleware() {
         handler: WithErrorTestHandler<TContext>,
       ) =>
       async (request: Request, ...context: TContext) => {
-        (request as TestRequestWithLogger).logger = createTestLogger();
+        (request as TestRequestWithLogger).logger = logger;
         return handler(request, ...context);
       },
+  };
+}
+
+export function createWithEmailAccountTestMiddleware(
+  options?: Parameters<typeof addTestEmailAccountAuth>[1],
+) {
+  const wrap =
+    (handler: TestMiddlewareHandler) =>
+    async (request: Request, ...context: unknown[]) =>
+      handler(addTestEmailAccountAuth(request, options), ...context);
+
+  return {
+    withEmailAccount: (
+      scopeOrHandler: string | TestMiddlewareHandler,
+      handler?: TestMiddlewareHandler,
+    ) => wrap(typeof scopeOrHandler === "string" ? handler! : scopeOrHandler),
   };
 }
 
