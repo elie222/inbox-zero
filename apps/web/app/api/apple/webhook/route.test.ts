@@ -11,15 +11,13 @@ const env = vi.hoisted(() => ({
   SUPERWALL_APP_STORE_CONNECT_FORWARD_URL: undefined as string | undefined,
 }));
 
-vi.mock("@/utils/middleware", () => ({
-  withError:
-    (
-      _scope: string,
-      handler: (request: Request, ...args: unknown[]) => Promise<Response>,
-    ) =>
-    (request: Request, ...args: unknown[]) =>
-      handler(request, ...args),
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithErrorTestMiddleware();
+});
 
 vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
@@ -39,27 +37,13 @@ vi.mock("@/ee/billing/apple", () => ({
 import { POST } from "./route";
 
 function createRequest(body: unknown) {
-  const request = new Request("https://example.com/api/apple/webhook", {
+  return new Request("https://example.com/api/apple/webhook", {
     method: "POST",
     headers: {
       "content-type": "application/json",
     },
     body: JSON.stringify(body),
-  }) as Request & {
-    logger: {
-      warn: ReturnType<typeof vi.fn>;
-      error: ReturnType<typeof vi.fn>;
-      info: ReturnType<typeof vi.fn>;
-    };
-  };
-
-  request.logger = {
-    warn: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-  };
-
-  return request;
+  });
 }
 
 describe("Apple webhook route", () => {

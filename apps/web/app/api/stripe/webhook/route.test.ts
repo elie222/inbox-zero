@@ -39,9 +39,13 @@ vi.mock("@/ee/billing/stripe", () => ({
   getStripe: vi.fn(),
 }));
 
-vi.mock("@/utils/middleware", () => ({
-  withError: vi.fn((_: string, handler: unknown) => handler),
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithErrorTestMiddleware();
+});
 
 vi.mock("@/ee/billing/stripe/sync-stripe", () => ({
   syncStripeDataToDb: mockSyncStripeDataToDb,

@@ -3,15 +3,13 @@ import prisma from "@/utils/__mocks__/prisma";
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/utils/middleware", () => ({
-  withError:
-    (
-      _scope: string,
-      handler: (request: Request & { logger?: unknown }) => Promise<Response>,
-    ) =>
-    (request: Request & { logger?: unknown }) =>
-      handler(request),
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithErrorTestMiddleware();
+});
 
 import { GET, POST } from "./route";
 
@@ -51,21 +49,13 @@ describe("unsubscribe route", () => {
   });
 
   it("consumes the token on form POST", async () => {
-    const request = Object.assign(
-      new Request("https://example.com/api/unsubscribe", {
-        method: "POST",
-        headers: {
-          "content-type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({ token: "valid-token" }),
-      }),
-      {
-        logger: {
-          error: vi.fn(),
-          info: vi.fn(),
-        },
+    const request = new Request("https://example.com/api/unsubscribe", {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
       },
-    );
+      body: new URLSearchParams({ token: "valid-token" }),
+    });
 
     const response = await POST(request as never);
 
@@ -76,19 +66,14 @@ describe("unsubscribe route", () => {
   });
 
   it("supports one-click POSTs with the token kept in the query string", async () => {
-    const request = Object.assign(
-      new Request("https://example.com/api/unsubscribe?token=valid-token", {
+    const request = new Request(
+      "https://example.com/api/unsubscribe?token=valid-token",
+      {
         method: "POST",
         headers: {
           "content-type": "application/x-www-form-urlencoded",
         },
         body: "List-Unsubscribe=One-Click",
-      }),
-      {
-        logger: {
-          error: vi.fn(),
-          info: vi.fn(),
-        },
       },
     );
 

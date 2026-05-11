@@ -1,14 +1,17 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { addTestEmailAccountAuth } from "@/__tests__/helpers";
 import { listPrivateChannelsForUser } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 
 vi.mock("@/utils/prisma");
-vi.mock("@/utils/middleware", () => ({
-  withEmailAccount: (_name: string, handler: unknown) => handler,
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithEmailAccountTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithEmailAccountTestMiddleware();
+});
 vi.mock("@/utils/messaging/providers/slack/channels", () => ({
   listPrivateChannelsForUser: vi.fn(),
 }));
@@ -38,7 +41,7 @@ describe("GET /api/user/messaging-channels/[channelId]/targets", () => {
       },
     ]);
 
-    const response = await GET(createRequest("email-account-1"), {
+    const response = await GET(createRequest(), {
       params: Promise.resolve({ channelId: "channel-1" }),
     });
     const body = await response.json();
@@ -65,7 +68,7 @@ describe("GET /api/user/messaging-channels/[channelId]/targets", () => {
       providerUserId: null,
     } as any);
 
-    const response = await GET(createRequest("email-account-1"), {
+    const response = await GET(createRequest(), {
       params: Promise.resolve({ channelId: "channel-1" }),
     });
     const body = await response.json();
@@ -78,17 +81,8 @@ describe("GET /api/user/messaging-channels/[channelId]/targets", () => {
   });
 });
 
-function createRequest(emailAccountId: string) {
-  return addTestEmailAccountAuth(
-    new NextRequest(
-      "http://localhost:3000/api/user/messaging-channels/channel-1/targets",
-    ),
-    {
-      auth: {
-        userId: "user-1",
-        emailAccountId,
-        email: "user@example.com",
-      },
-    },
+function createRequest() {
+  return new NextRequest(
+    "http://localhost:3000/api/user/messaging-channels/channel-1/targets",
   );
 }

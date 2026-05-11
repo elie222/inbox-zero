@@ -9,17 +9,13 @@ const { envMock, handleMessagingWebhookRouteMock } = vi.hoisted(() => ({
   handleMessagingWebhookRouteMock: vi.fn(),
 }));
 
-vi.mock("@/utils/middleware", () => ({
-  withError: (
-    scopeOrHandler: string | ((request: Request) => Promise<Response>),
-    maybeHandler?: (request: Request) => Promise<Response>,
-  ) => {
-    if (typeof scopeOrHandler === "string") {
-      return maybeHandler as (request: Request) => Promise<Response>;
-    }
-    return scopeOrHandler;
-  },
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
+
+  return createWithErrorTestMiddleware();
+});
 
 vi.mock("@/env", () => ({
   env: envMock,
@@ -33,30 +29,14 @@ vi.mock("@/utils/messaging/chat-sdk/webhook-route", () => ({
 import { POST } from "./route";
 
 function createRequest() {
-  const request = new Request("https://example.com/api/telegram/events", {
+  return new Request("https://example.com/api/telegram/events", {
     method: "POST",
     headers: {
       "content-type": "application/json",
       "x-telegram-bot-api-secret-token": "test-telegram-secret",
     },
     body: JSON.stringify({ update_id: 1 }),
-  }) as Request & {
-    logger: {
-      warn: ReturnType<typeof vi.fn>;
-      error: ReturnType<typeof vi.fn>;
-      info: ReturnType<typeof vi.fn>;
-      trace: ReturnType<typeof vi.fn>;
-    };
-  };
-
-  request.logger = {
-    warn: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-    trace: vi.fn(),
-  };
-
-  return request;
+  });
 }
 
 describe("Telegram events route", () => {
