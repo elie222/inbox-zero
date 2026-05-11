@@ -1,6 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SafeError } from "@/utils/error";
 
 const { cleanerEnv, mockFindMany } = vi.hoisted(() => ({
   cleanerEnv: {
@@ -21,39 +20,20 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
-vi.mock("@/utils/middleware", () => ({
-  withEmailAccount:
-    (
-      _scope: string,
-      handler: (
-        request: NextRequest & {
-          auth: { emailAccountId: string; userId: string; email: string };
-        },
-      ) => Promise<Response>,
-    ) =>
-    async (request: NextRequest) => {
-      const emailRequest = request as NextRequest & {
-        auth: { emailAccountId: string; userId: string; email: string };
-      };
-      emailRequest.auth = {
-        emailAccountId: "email-account-id",
-        userId: "user-1",
-        email: "user@example.com",
-      };
-      try {
-        return await handler(emailRequest);
-      } catch (error) {
-        if (error instanceof SafeError) {
-          return NextResponse.json(
-            { error: error.safeMessage, isKnownError: true },
-            { status: error.statusCode ?? 400 },
-          );
-        }
+vi.mock("@/utils/middleware", async () => {
+  const { createWithEmailAccountTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
 
-        throw error;
-      }
+  return createWithEmailAccountTestMiddleware({
+    auth: {
+      emailAccountId: "email-account-id",
+      userId: "user-1",
+      email: "user@example.com",
     },
-}));
+    handleSafeErrors: true,
+  });
+});
 
 import { GET } from "./route";
 

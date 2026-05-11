@@ -4,7 +4,6 @@ import { GmailLabel } from "@/utils/gmail/label";
 import type { ParsedMessage } from "@/utils/types";
 import { CleanAction } from "@/generated/prisma/enums";
 import { getMockMessage } from "@/__tests__/helpers";
-import { SafeError } from "@/utils/error";
 
 const { cleanerEnv } = vi.hoisted(() => ({
   cleanerEnv: {
@@ -16,29 +15,13 @@ vi.mock("@/env", () => ({
   env: cleanerEnv,
 }));
 
-vi.mock("@/utils/middleware", () => ({
-  withError: ((scopeOrHandler: unknown, maybeHandler?: unknown) => {
-    const handler =
-      typeof maybeHandler === "function" ? maybeHandler : scopeOrHandler;
+vi.mock("@/utils/middleware", async () => {
+  const { createWithErrorTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
 
-    return async (request: Request) => {
-      try {
-        return await (handler as (request: Request) => Promise<Response>)(
-          request,
-        );
-      } catch (error) {
-        if (error instanceof SafeError) {
-          return Response.json(
-            { error: error.safeMessage, isKnownError: true },
-            { status: error.statusCode ?? 400 },
-          );
-        }
-
-        throw error;
-      }
-    };
-  }) as typeof import("@/utils/middleware").withError,
-}));
+  return createWithErrorTestMiddleware({ handleSafeErrors: true });
+});
 
 const mockPublishToQstash = vi.fn();
 vi.mock("@/utils/upstash", () => ({

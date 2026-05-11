@@ -19,6 +19,10 @@ type TestRequestWithLogger = Request & {
   logger: ReturnType<typeof createTestLogger>;
 };
 
+type TestAuth = {
+  userId: string;
+};
+
 type TestEmailAccountAuth = {
   email: string;
   emailAccountId: string;
@@ -30,31 +34,61 @@ type TestMiddlewareHandler = (
   ...context: unknown[]
 ) => Promise<Response>;
 
+type TestSafeErrorOptions = {
+  handleSafeErrors?: boolean;
+};
+
 export function createWithErrorTestMiddleware({
   logger = createTestLogger(),
+  handleSafeErrors = false,
 }: {
   logger?: ReturnType<typeof createTestLogger>;
+  handleSafeErrors?: boolean;
 } = {}) {
+  const wrap =
+    <TContext extends unknown[]>(handler: WithErrorTestHandler<TContext>) =>
+    async (request: Request, ...context: TContext) => {
+      (request as TestRequestWithLogger).logger = logger;
+      return runTestMiddlewareHandler(
+        () => handler(request, ...context),
+        handleSafeErrors,
+      );
+    };
+
   return {
-    withError:
-      <TContext extends unknown[]>(
-        _scope: string,
-        handler: WithErrorTestHandler<TContext>,
-      ) =>
-      async (request: Request, ...context: TContext) => {
-        (request as TestRequestWithLogger).logger = logger;
-        return handler(request, ...context);
-      },
+    withError: <TContext extends unknown[]>(
+      scopeOrHandler: string | WithErrorTestHandler<TContext>,
+      handler?: WithErrorTestHandler<TContext>,
+    ) => wrap(typeof scopeOrHandler === "string" ? handler! : scopeOrHandler),
   };
 }
 
-export function createWithEmailAccountTestMiddleware(
-  options?: Parameters<typeof addTestEmailAccountAuth>[1],
+export function createWithAuthTestMiddleware(
+  options?: Parameters<typeof addTestAuth>[1] & TestSafeErrorOptions,
 ) {
+  return { withAuth: createAuthTestMiddlewareWrapper(options) };
+}
+
+export function createWithAdminTestMiddleware(
+  options?: Parameters<typeof addTestAuth>[1] & TestSafeErrorOptions,
+) {
+  return { withAdmin: createAuthTestMiddlewareWrapper(options) };
+}
+
+export function createWithEmailAccountTestMiddleware(
+  options?: Parameters<typeof addTestEmailAccountAuth>[1] &
+    TestSafeErrorOptions,
+) {
+  const { handleSafeErrors = false, ...authOptions } = options ?? {};
+
   const wrap =
     (handler: TestMiddlewareHandler) =>
     async (request: Request, ...context: unknown[]) =>
-      handler(addTestEmailAccountAuth(request, options), ...context);
+      runTestMiddlewareHandler(
+        () =>
+          handler(addTestEmailAccountAuth(request, authOptions), ...context),
+        handleSafeErrors,
+      );
 
   return {
     withEmailAccount: (
@@ -62,6 +96,21 @@ export function createWithEmailAccountTestMiddleware(
       handler?: TestMiddlewareHandler,
     ) => wrap(typeof scopeOrHandler === "string" ? handler! : scopeOrHandler),
   };
+}
+
+export function addTestAuth<TRequest extends Request>(
+  request: TRequest,
+  {
+    auth = {
+      userId: "user-1",
+    },
+    logger = createTestLogger(),
+  }: {
+    auth?: TestAuth;
+    logger?: ReturnType<typeof createTestLogger>;
+  } = {},
+) {
+  return Object.assign(request, { auth, logger });
 }
 
 export function addTestEmailAccountAuth<TRequest extends Request>(
@@ -79,6 +128,53 @@ export function addTestEmailAccountAuth<TRequest extends Request>(
   } = {},
 ) {
   return Object.assign(request, { auth, logger });
+}
+
+function createAuthTestMiddlewareWrapper(
+  options?: Parameters<typeof addTestAuth>[1] & TestSafeErrorOptions,
+) {
+  const { handleSafeErrors = false, ...authOptions } = options ?? {};
+
+  const wrap =
+    (handler: TestMiddlewareHandler) =>
+    async (request: Request, ...context: unknown[]) =>
+      runTestMiddlewareHandler(
+        () => handler(addTestAuth(request, authOptions), ...context),
+        handleSafeErrors,
+      );
+
+  return (
+    scopeOrHandler: string | TestMiddlewareHandler,
+    handler?: TestMiddlewareHandler,
+  ) => wrap(typeof scopeOrHandler === "string" ? handler! : scopeOrHandler);
+}
+
+async function runTestMiddlewareHandler(
+  handler: () => Promise<Response>,
+  handleSafeErrors: boolean,
+) {
+  try {
+    return await handler();
+  } catch (error) {
+    const response = handleSafeErrors ? getSafeErrorTestResponse(error) : null;
+    if (response) return response;
+
+    throw error;
+  }
+}
+
+function getSafeErrorTestResponse(error: unknown) {
+  if (!(error instanceof Error) || error.name !== "SafeError") return null;
+
+  const safeError = error as Error & {
+    safeMessage?: string;
+    statusCode?: number;
+  };
+
+  return Response.json(
+    { error: safeError.safeMessage, isKnownError: true },
+    { status: safeError.statusCode ?? 400 },
+  );
 }
 
 type EmailAccountSelect = {
