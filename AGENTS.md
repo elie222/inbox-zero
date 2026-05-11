@@ -8,7 +8,7 @@
 - Run all tests: `pnpm test`
 - Run integration tests: `pnpm test-integration`
 - Run AI tests: `pnpm --filter inbox-zero-ai test-ai`
-- Run single test: `pnpm test __tests__/test-file.test.ts`
+- Run single test: `pnpm test path/to/test-file.test.ts`
 - Run specific AI/eval test: `pnpm --filter inbox-zero-ai test-ai __tests__/eval/your-test.test.ts`
 - Evals in `apps/web/__tests__/eval/` must be run from repo root with `pnpm --filter inbox-zero-ai test-ai` (not `pnpm test`)
 - Type-check build (skips Prisma migrate): `pnpm --filter inbox-zero-ai exec next build`
@@ -57,6 +57,7 @@
 
 ## LLM Features
 - Stay AI-first: fix general failure modes, not exact eval wording, and avoid brittle keyword or regex rules unless the product needs a hard guard.
+- Do not add keyword/phrase blacklists to prompts, evals, or tests just to catch a model's current bad wording. This product works across languages, so English-specific text checks are especially brittle. For LLM behavior, assert the semantic failure mode with a judge/eval criterion or structured contract instead. Example: test "does not ask unnecessary clarification or invent payment status," not "does not contain 'could you clarify' or 'specific payment'."
 - Never gate context injection or tool behavior on ad hoc user-text keyword matching; use structured state, metadata, or explicit events instead.
 - Tool descriptions should be self-contained: what the tool does, what its parameters mean, when to use it vs alternatives, prerequisites, and safety constraints specific to that tool.
 - Keep only cross-cutting policies (identity, write confirmation, security, formatting) in the system prompt. Per-tool guidance belongs in the tool description so it appears only when the tool is active.

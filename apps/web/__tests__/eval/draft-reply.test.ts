@@ -222,7 +222,7 @@ Priya`,
           const testName = "genuine scheduling request";
           const judgeResult = await judgeEvalOutput({
             input: [
-              messages.map((message) => message.content).join("\n\n---\n\n"),
+              formatThreadForJudge(messages),
               "",
               "## Calendar Availability",
               JSON.stringify(
@@ -608,6 +608,244 @@ Dana`,
       );
     });
 
+    describe("sender-specific reply examples", () => {
+      const contactSpecificWritingStyle = [
+        "Keep replies concise and direct.",
+        "For close contacts, use a casual plainspoken tone.",
+        "Avoid asking clarification questions unless the incoming message is genuinely ambiguous.",
+      ].join("\n");
+
+      test(
+        "monthly payment status question stays concise and does not ask needless clarification",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Taylor Morgan <taylor@example.com>",
+                to: emailAccount.email,
+                subject: "Payment",
+                content: `Hi,
+
+Did you send the April/May payment?
+
+thanks,`,
+              }),
+              date: new Date("2026-05-11T07:20:00Z"),
+            },
+          ];
+
+          const sharedDraftOptions = {
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: contactSpecificWritingStyle,
+            mcpContext: null,
+            meetingContext: null,
+          };
+
+          const [baselineResult, result] = await Promise.all([
+            aiDraftReplyWithConfidence(sharedDraftOptions),
+            aiDraftReplyWithConfidence({
+              ...sharedDraftOptions,
+              senderReplyExamples: getStatusReplyExamples(emailAccount.email),
+            }),
+          ]);
+
+          const input = formatThreadForJudge(messages);
+          const paymentReplyCriterion = {
+            name: "Concise contact-specific payment reply",
+            description:
+              "The draft should be one or two short sentences plus an optional compact greeting/sign-off. It should not ask an unnecessary clarification question or create a multi-paragraph process update. It may either say the user is checking, commit to handling it, or answer directly in the same concise style the user uses with this sender.",
+          };
+          const expectedPaymentReply =
+            "A short, direct reply suitable for a close/contact-specific relationship. It should avoid unnecessary clarification and processy filler. A useful action-oriented reply is acceptable because the user can complete the action before sending.";
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              input,
+              "",
+              "## Same-sender reply examples",
+              "The user usually answers this sender in very short direct replies such as 'Not yet, will do it today', 'Done now', or 'Checking and will update you.'",
+            ].join("\n"),
+            output: result.reply,
+            expected: expectedPaymentReply,
+            criterion: paymentReplyCriterion,
+          });
+          const pass = judgeResult.pass;
+
+          evalReporter.record({
+            testName: "monthly payment status with same-sender examples",
+            model: model.label,
+            pass,
+            expected:
+              "concise same-sender reply without needless clarification",
+            actual: `${formatSemanticJudgeActual(result.reply, judgeResult)} | baseline=${JSON.stringify(baselineResult.reply)}`,
+          });
+
+          expect(
+            pass,
+            `Draft should stay concise and avoid needless clarification.\n\nBaseline:\n${baselineResult.reply}\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "current thread facts override conflicting same-sender examples",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: emailAccount.email,
+                to: "taylor@example.com",
+                subject: "Re: Payment",
+                content: "I sent the April/May payment this morning.",
+              }),
+              date: new Date("2026-05-11T06:30:00Z"),
+            },
+            {
+              ...getEmail({
+                from: "Taylor Morgan <taylor@example.com>",
+                to: emailAccount.email,
+                subject: "Re: Payment",
+                content: `Hi,
+
+Did you send the April/May payment?
+
+thanks,`,
+              }),
+              date: new Date("2026-05-11T07:20:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            senderReplyExamples: getStatusReplyExamples(emailAccount.email),
+            calendarAvailability: null,
+            writingStyle: contactSpecificWritingStyle,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              formatThreadForJudge(messages),
+              "",
+              "## Same-sender reply examples",
+              "The examples include short prior replies with different statuses. They are style examples only.",
+            ].join("\n"),
+            output: result.reply,
+            expected:
+              "A concise reply that uses the current thread fact that the payment was sent this morning. It should not ignore that fact or copy a conflicting status from the same-sender examples.",
+            criterion: {
+              name: "Current thread facts override examples",
+              description:
+                "The draft should base factual status on the current thread. Same-sender examples may influence brevity and tone, but must not override or contradict facts stated in the current conversation.",
+            },
+          });
+          const pass = judgeResult.pass;
+
+          evalReporter.record({
+            testName: "current thread facts override same-sender examples",
+            model: model.label,
+            pass,
+            expected: "current-thread fact used; examples style-only",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should use current-thread facts over examples.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "unresolved document status stays concise with same-sender examples",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Taylor Morgan <taylor@example.com>",
+                to: emailAccount.email,
+                subject: "Form",
+                content: `Hi,
+
+Did the signed form go out?
+
+thanks,`,
+              }),
+              date: new Date("2026-05-12T08:15:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            senderReplyExamples: getStatusReplyExamples(emailAccount.email),
+            calendarAvailability: null,
+            writingStyle: contactSpecificWritingStyle,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              formatThreadForJudge(messages),
+              "",
+              "## Same-sender reply examples",
+              "The examples include short prior replies with different statuses. They are style examples only.",
+            ].join("\n"),
+            output: result.reply,
+            expected:
+              "A concise reply in the user's same-sender style. It may say the user is checking, will handle it, or has handled it, but should not ask an unnecessary clarification question or create a multi-paragraph process update.",
+            criterion: {
+              name: "Unresolved non-payment status remains concise",
+              description:
+                "For an unresolved status question outside the payment fixture, the draft should preserve the same-sender brevity and avoid needless clarification or processy filler. It may draft an action-oriented reply because the user can take the action before sending.",
+            },
+          });
+          const pass = judgeResult.pass;
+
+          evalReporter.record({
+            testName: "unresolved document status with same-sender examples",
+            model: model.label,
+            pass,
+            expected: "concise reply without needless clarification",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should stay concise and useful.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+    });
+
     describe("grounding and uncertainty", () => {
       test(
         "does not invent pricing terms without pricing context",
@@ -718,7 +956,7 @@ Maya`,
           const testName = "provided pricing context";
           const judgeResult = await judgeEvalOutput({
             input: [
-              messages.map((message) => message.content).join("\n\n---\n\n"),
+              formatThreadForJudge(messages),
               "",
               "## Knowledge Base",
               "For this customer, the approved annual price is $4,800. A 15% renewal discount applies if they sign by May 31.",
@@ -842,7 +1080,7 @@ Dana`,
           const testName = "provided attachment context";
           const judgeResult = await judgeEvalOutput({
             input: [
-              messages.map((message) => message.content).join("\n\n---\n\n"),
+              formatThreadForJudge(messages),
               "",
               "## Selected Attachments",
               'Signed Order Form.pdf — selected because the sender asked for "the signed order form".',
@@ -965,7 +1203,7 @@ Riley`,
           const testName = "provided refund authority context";
           const judgeResult = await judgeEvalOutput({
             input: [
-              messages.map((message) => message.content).join("\n\n---\n\n"),
+              formatThreadForJudge(messages),
               "",
               "## Knowledge Base",
               "The duplicate charge refund for this customer is approved. Finance will process it by Friday.",
@@ -1086,7 +1324,7 @@ Priya`,
           const testName = "provided meeting context";
           const judgeResult = await judgeEvalOutput({
             input: [
-              messages.map((message) => message.content).join("\n\n---\n\n"),
+              formatThreadForJudge(messages),
               "",
               "## Meeting Context",
               "Upcoming calendar context: a meeting with Priya Sharma is scheduled for tomorrow at 3:00 PM.",
@@ -1240,7 +1478,7 @@ async function maybeJudgeGroundedReply({
   reply: string;
 }) {
   return judgeMultiple({
-    input: messages.map((message) => message.content).join("\n\n---\n\n"),
+    input: formatThreadForJudge(messages),
     output: reply,
     expected: [
       "Reply briefly and helpfully.",
@@ -1261,6 +1499,33 @@ function hasExactUrl(text: string, expectedUrl: string): boolean {
   return extractUrls(text).some(
     (url) => normalizeUrlForComparison(url) === normalizedExpected,
   );
+}
+
+function formatThreadForJudge(messages: { content: string }[]): string {
+  return messages.map((message) => message.content).join("\n\n---\n\n");
+}
+
+function getStatusReplyExamples(userEmail: string): string {
+  return [
+    `<reply_example>
+<from>${userEmail}</from>
+<to>taylor@example.com</to>
+<subject>Re: quick check</subject>
+<body>Not yet, will do it today.</body>
+</reply_example>`,
+    `<reply_example>
+<from>${userEmail}</from>
+<to>taylor@example.com</to>
+<subject>Re: payment</subject>
+<body>Done now.</body>
+</reply_example>`,
+    `<reply_example>
+<from>${userEmail}</from>
+<to>taylor@example.com</to>
+<subject>Re: forms</subject>
+<body>Checking and will update you.</body>
+</reply_example>`,
+  ].join("\n\n");
 }
 
 function extractUrls(text: string): string[] {

@@ -4,10 +4,6 @@ export default defineConfig({
   test: {
     // Use threads pool for cleaner exit
     pool: "threads",
-    poolOptions: {
-      threads: {
-        singleThread: true,
-      },
-    },
+    fileParallelism: false,
   },
 });

@@ -8,6 +8,7 @@ import { updateExecutedActionWithDraftId } from "@/utils/ai/choose-rule/draft-ma
 import type { EmailProvider } from "@/utils/email/types";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import type { ActionExecutionEmailAccount } from "@/utils/ai/types";
+import { shouldSkipAutomatedArchiveForSender } from "@/utils/ai/automated-archive-exception";
 
 const MODULE = "ai-execute-act";
 
@@ -45,6 +46,18 @@ export async function executeAct({
 
   for (const action of executedRule.actionItems) {
     try {
+      if (
+        shouldSkipAutomatedArchiveForSender({
+          actionType: action.type,
+          from: message.headers.from,
+        })
+      ) {
+        log.info("Skipping automated archive for protected company sender", {
+          actionId: action.id,
+        });
+        continue;
+      }
+
       const actionResult = await runActionFunction({
         client,
         email: message,

@@ -4,21 +4,6 @@ import { GmailLabel } from "@/utils/gmail/label";
 
 vi.mock("server-only", () => ({}));
 
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: () => ({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    trace: vi.fn(),
-    with: () => ({
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      trace: vi.fn(),
-    }),
-  }),
-}));
-
 vi.mock("@/utils/gmail/retry", () => ({
   withGmailRetry: (fn: () => unknown) => fn(),
 }));

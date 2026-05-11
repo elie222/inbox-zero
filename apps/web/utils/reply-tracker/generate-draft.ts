@@ -30,6 +30,7 @@ import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachm
 import type { SelectedAttachment } from "@/utils/attachments/source-schema";
 import { getReplyMemoriesForPrompt } from "@/utils/ai/reply/reply-memory";
 import type { DraftContextMetadata } from "@/utils/ai/reply/draft-context-metadata";
+import { collectSenderReplyExamples } from "@/utils/reply-tracker/sender-reply-examples";
 
 export type DraftGenerationResult = {
   attachments?: SelectedAttachment[];
@@ -233,13 +234,17 @@ async function generateDraftContent(
     messages[messages.length - 1],
     10_000,
   );
-  const historicalMessagesForLLM = previousConversationMessages?.map((msg) =>
-    getEmailForLLM(msg, {
-      maxLength: 1000,
-      extractReply: true,
-      removeForwarded: false,
-    }),
-  );
+  const currentMessageIds = new Set(threadMessages.map((msg) => msg.id));
+  const historicalMessagesForLLM = previousConversationMessages
+    ?.filter((msg) => !currentMessageIds.has(msg.id))
+    .map((msg) =>
+      getEmailForLLM(msg, {
+        maxLength: 1000,
+        extractReply: true,
+        removeForwarded: false,
+      }),
+    );
+  const senderEmail = extractEmailAddress(lastMessage.headers.from);
 
   if (historicalMessagesForLLM?.length) {
     logger.info("Fetching historical messages from sender");
@@ -279,6 +284,7 @@ async function generateDraftContent(
     emailHistorySummary,
     attachmentSelection,
     activeBookingLinks,
+    senderReplyExamples,
   ] = await Promise.all([
     aiExtractRelevantKnowledge({
       knowledgeBase,
@@ -288,7 +294,7 @@ async function generateDraftContent(
     }),
     getReplyMemoriesForPrompt({
       emailAccountId: emailAccount.id,
-      senderEmail: extractEmailAddress(lastMessage.headers.from),
+      senderEmail,
       emailContent: lastMessageContent,
       logger,
     }),
@@ -306,7 +312,7 @@ async function generateDraftContent(
     mcpAgent({ emailAccount, messages }),
     getMeetingContext({
       emailAccountId: emailAccount.id,
-      recipientEmail: extractEmailAddress(lastMessage.headers.from),
+      recipientEmail: senderEmail,
       // extract all other recipients (To, CC) for privacy filtering
       // only meetings where ALL recipients were attendees will be included
       additionalRecipients: [
@@ -331,6 +337,13 @@ async function generateDraftContent(
       orderBy: { createdAt: "desc" },
       take: 1,
       select: { slug: true },
+    }),
+    collectSenderReplyExamples({
+      emailAccount,
+      emailProvider,
+      senderEmail,
+      currentMessageIds,
+      logger,
     }),
   ]);
   const {
@@ -358,6 +371,8 @@ async function generateDraftContent(
       summarySourceMessageCount: historicalMessagesForLLM?.length ?? 0,
       precedentThreadsInjected: precedentThreadCount > 0,
       precedentThreadCount,
+      sameSenderReplyExamplesInjected: !!senderReplyExamples?.content,
+      sameSenderReplyExampleCount: senderReplyExamples?.count ?? 0,
     },
     calendar: {
       injected: !!calendarAvailability,
@@ -394,6 +409,7 @@ async function generateDraftContent(
     replyMemoryContent,
     emailHistorySummary,
     emailHistoryContext,
+    senderReplyExamples: senderReplyExamples?.content ?? null,
     calendarAvailability,
     writingStyle,
     learnedWritingStyle: emailAccountSettings?.learnedWritingStyle ?? null,
