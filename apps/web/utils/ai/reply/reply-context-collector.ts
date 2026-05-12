@@ -317,12 +317,10 @@ function selectThreadContextMessages({
   }
 
   const rankedMessages = messages
-    .map((message, index) => ({
-      index,
-      message,
-      rank: getThreadContextRank({ message, index, matchIndexes }),
-    }))
-    .filter(({ rank }) => rank !== null)
+    .flatMap((message, index) => {
+      const rank = getThreadContextRank({ message, index, matchIndexes });
+      return rank === null ? [] : [{ index, message, rank }];
+    })
     .sort((a, b) => a.rank - b.rank || a.index - b.index)
     .slice(0, MAX_CONTEXT_EMAILS_PER_THREAD)
     .sort((a, b) => a.index - b.index);
