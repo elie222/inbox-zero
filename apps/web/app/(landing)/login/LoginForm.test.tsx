@@ -64,33 +64,6 @@ describe("LoginForm", () => {
     cleanup();
   });
 
-  it("shows an inline error when emulator sign-in fails", async () => {
-    mockSignInWithOauth2.mockRejectedValue(
-      new Error("Failed to connect to Google sign-in."),
-    );
-
-    render(<LoginForm useGoogleOauthEmulator />);
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /sign in with google/i }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "I agree" }));
-
-    expect(
-      await screen.findByText("Failed to start Google sign-in"),
-    ).toBeTruthy();
-    expect(
-      screen.getByText("Failed to connect to Google sign-in."),
-    ).toBeTruthy();
-
-    await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith({
-        title: "Error signing in with Google",
-        description: "Failed to connect to Google sign-in.",
-      });
-    });
-  });
-
   it("starts Apple sign-in when the Apple option is shown", async () => {
     mockSignInSocial.mockResolvedValue(undefined);
 

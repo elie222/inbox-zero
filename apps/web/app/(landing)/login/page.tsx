@@ -33,6 +33,7 @@ export default async function AuthenticationPage(props: {
   const searchParams = await props.searchParams;
   const session = await auth();
   const nextPath = normalizeInternalPath(searchParams?.next);
+  const isSelfHosted = env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS;
 
   if (session?.user && !searchParams?.error) {
     redirect(nextPath ?? WELCOME_PATH);
@@ -60,25 +61,31 @@ export default async function AuthenticationPage(props: {
 
         {searchParams?.error && <ErrorAlert error={searchParams?.error} />}
 
-        <MutedText className="px-8 pt-10 text-center">
-          By clicking continue, you agree to our{" "}
-          <Link
-            href="/terms"
-            className="underline underline-offset-4 hover:text-foreground"
-          >
-            Terms of Service
-          </Link>{" "}
-          and{" "}
-          <Link
-            href="/privacy"
-            className="underline underline-offset-4 hover:text-foreground"
-          >
-            Privacy Policy
-          </Link>
-          .
-        </MutedText>
+        {!isSelfHosted ? (
+          <MutedText className="px-8 pt-10 text-center">
+            By clicking continue, you agree to our{" "}
+            <Link
+              href="/terms"
+              className="underline underline-offset-4 hover:text-foreground"
+            >
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link
+              href="/privacy"
+              className="underline underline-offset-4 hover:text-foreground"
+            >
+              Privacy Policy
+            </Link>
+            .
+          </MutedText>
+        ) : null}
 
-        <MutedText className="px-4 pt-4 text-center">
+        <MutedText
+          className={
+            isSelfHosted ? "px-4 pt-10 text-center" : "px-4 pt-4 text-center"
+          }
+        >
           {getPossessiveBrandName()} use and transfer of information received
           from Google APIs to any other app will adhere to{" "}
           <a
