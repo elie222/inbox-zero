@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import { createTestLogger } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
-import type { OutlookFolder } from "@/utils/outlook/folders";
+import { FOLDER_SEPARATOR, type OutlookFolder } from "@/utils/outlook/folders";
 import {
   createOrGetFolderTool,
   listFoldersTool,
@@ -65,7 +65,7 @@ describe("chat folder tools", () => {
         },
         {
           name: "Reports",
-          path: "Operations / Reports",
+          path: `Operations${FOLDER_SEPARATOR}Reports`,
           childFolderCount: 0,
         },
       ],
@@ -133,6 +133,137 @@ describe("chat folder tools", () => {
         path: "Finance",
         childFolderCount: 0,
       },
+    });
+  });
+
+  it("does not treat folder names containing slashes as paths", async () => {
+    const getOrCreateFolderIdByName = vi.fn().mockResolvedValue("folder-1");
+
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({
+        getFolders: vi.fn().mockResolvedValue([]),
+        getOrCreateFolderIdByName,
+      }),
+    );
+
+    const toolInstance = createOrGetFolderTool(toolOptions);
+
+    const result = await (toolInstance.execute as any)({
+      name: "Client / invoices",
+    });
+
+    expect(getOrCreateFolderIdByName).toHaveBeenCalledWith("Client / invoices");
+    expect(result).toEqual({
+      created: true,
+      folder: {
+        name: "Client / invoices",
+        path: "Client / invoices",
+        childFolderCount: 0,
+      },
+    });
+  });
+
+  it("prefers an exact slash-containing folder name over a slash path alias", async () => {
+    const getOrCreateFolderIdByName = vi.fn();
+    const moveThreadToFolder = vi.fn().mockResolvedValue(undefined);
+
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({
+        getFolders: vi.fn().mockResolvedValue([
+          {
+            id: "folder-root-slash",
+            displayName: "Operations / Reports",
+            childFolderCount: 0,
+            childFolders: [],
+          },
+          {
+            id: "folder-operations",
+            displayName: "Operations",
+            childFolderCount: 1,
+            childFolders: [
+              {
+                id: "folder-reports",
+                displayName: "Reports",
+                childFolderCount: 0,
+                childFolders: [],
+              },
+            ],
+          },
+        ] satisfies OutlookFolder[]),
+        getOrCreateFolderIdByName,
+        moveThreadToFolder,
+      }),
+    );
+
+    const toolInstance = moveThreadsToFolderTool(toolOptions);
+
+    const result = await (toolInstance.execute as any)({
+      threadIds: ["thread-1"],
+      folderName: "Operations / Reports",
+    });
+
+    expect(getOrCreateFolderIdByName).not.toHaveBeenCalled();
+    expect(moveThreadToFolder).toHaveBeenCalledWith(
+      "thread-1",
+      TEST_EMAIL,
+      "folder-root-slash",
+    );
+    expect(result).toEqual({
+      success: true,
+      folderName: "Operations / Reports",
+      requestedCount: 1,
+      successCount: 1,
+      failedCount: 0,
+      failedThreadIds: [],
+    });
+  });
+
+  it("accepts slash path aliases for nested folders after exact name matching", async () => {
+    const getOrCreateFolderIdByName = vi.fn();
+    const moveThreadToFolder = vi.fn().mockResolvedValue(undefined);
+
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({
+        getFolders: vi.fn().mockResolvedValue([
+          {
+            id: "folder-operations",
+            displayName: "Operations",
+            childFolderCount: 1,
+            childFolders: [
+              {
+                id: "folder-reports",
+                displayName: "Reports",
+                childFolderCount: 0,
+                childFolders: [],
+              },
+            ],
+          },
+        ] satisfies OutlookFolder[]),
+        getOrCreateFolderIdByName,
+        moveThreadToFolder,
+      }),
+    );
+
+    const toolInstance = moveThreadsToFolderTool(toolOptions);
+
+    const result = await (toolInstance.execute as any)({
+      threadIds: ["thread-1"],
+      folderName: "Operations / Reports",
+    });
+
+    expect(getOrCreateFolderIdByName).not.toHaveBeenCalled();
+    expect(moveThreadToFolder).toHaveBeenCalledWith(
+      "thread-1",
+      TEST_EMAIL,
+      "folder-reports",
+    );
+    expect(result).toEqual({
+      success: true,
+      folderName: "Operations / Reports",
+      requestedCount: 1,
+      successCount: 1,
+      failedCount: 0,
+      failedThreadIds: [],
     });
   });
 
@@ -208,7 +339,7 @@ describe("chat folder tools", () => {
 
     const result = await (toolInstance.execute as any)({
       threadIds: ["thread-1"],
-      folderName: "Operations / Reports",
+      folderName: `Operations${FOLDER_SEPARATOR}Reports`,
     });
 
     expect(getOrCreateFolderIdByName).not.toHaveBeenCalled();
@@ -219,7 +350,7 @@ describe("chat folder tools", () => {
     );
     expect(result).toEqual({
       success: true,
-      folderName: "Operations / Reports",
+      folderName: `Operations${FOLDER_SEPARATOR}Reports`,
       requestedCount: 1,
       successCount: 1,
       failedCount: 0,

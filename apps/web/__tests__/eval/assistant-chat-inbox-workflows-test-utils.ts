@@ -11,6 +11,7 @@ import { shouldRunEvalTests } from "@/__tests__/eval/models";
 import { judgeEvalOutput } from "@/__tests__/eval/semantic-judge";
 import { getMockMessage } from "@/__tests__/helpers";
 import type { getEmailAccount } from "@/__tests__/helpers";
+import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -477,7 +478,7 @@ function flattenFolders(
 ): Array<ReturnType<typeof getDefaultFolders>[number] & { path: string }> {
   return folders.flatMap((folder) => {
     const path = parentPath
-      ? `${parentPath} / ${folder.displayName}`
+      ? `${parentPath}${FOLDER_SEPARATOR}${folder.displayName}`
       : folder.displayName;
 
     return [{ ...folder, path }, ...flattenFolders(folder.childFolders, path)];

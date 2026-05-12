@@ -5,6 +5,7 @@ import {
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { getMockMessage } from "@/__tests__/helpers";
+import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
 import {
   cloneEmailAccountForProvider,
   getLastMatchingToolCall,
@@ -61,8 +62,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat Outlook folders", () => {
             messages: [
               {
                 role: "user",
-                content:
-                  "Move the two vendor update emails to my Operations / Reports Outlook folder.",
+                content: `Move the two vendor update emails to my Operations${FOLDER_SEPARATOR}Reports Outlook folder.`,
               },
             ],
           });
@@ -170,7 +170,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat Outlook folders", () => {
           const outputText = JSON.stringify(listCall?.output ?? {});
           const pass =
             !!listCall &&
-            outputText.includes("Operations / Reports") &&
+            outputText.includes(`Operations${FOLDER_SEPARATOR}Reports`) &&
             !outputText.includes("folder-operations") &&
             !outputText.includes("folder-vendor-updates") &&
             !toolCalls.some(

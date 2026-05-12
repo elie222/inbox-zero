@@ -2,7 +2,7 @@ import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { Logger } from "@/utils/logger";
-import type { OutlookFolder } from "@/utils/outlook/folders";
+import { FOLDER_SEPARATOR, type OutlookFolder } from "@/utils/outlook/folders";
 import { posthogCaptureEvent } from "@/utils/posthog";
 
 type FolderToolOptions = {
@@ -227,7 +227,7 @@ function flattenFolders(
 ): FolderReference[] {
   return folders.flatMap((folder) => {
     const path = parentPath
-      ? `${parentPath} / ${folder.displayName}`
+      ? `${parentPath}${FOLDER_SEPARATOR}${folder.displayName}`
       : folder.displayName;
     return [
       {
@@ -262,11 +262,24 @@ function findFolderMatch(folders: FolderReference[], nameOrPath: string) {
   );
 
   if (nameMatches.length > 1) return { ambiguous: true };
-  return { folder: nameMatches[0] };
+  if (nameMatches[0]) return { folder: nameMatches[0] };
+
+  const slashPathMatches = folders.filter(
+    (folder) =>
+      normalizeFolderText(toSlashSeparatedPath(folder.path)) ===
+      normalizedInput,
+  );
+
+  if (slashPathMatches.length > 1) return { ambiguous: true };
+  return { folder: slashPathMatches[0] };
 }
 
 function isFolderPath(nameOrPath: string) {
-  return nameOrPath.includes(" / ");
+  return nameOrPath.includes(FOLDER_SEPARATOR);
+}
+
+function toSlashSeparatedPath(path: string) {
+  return path.split(FOLDER_SEPARATOR).join(" / ");
 }
 
 function normalizeFolderText(value: string) {
