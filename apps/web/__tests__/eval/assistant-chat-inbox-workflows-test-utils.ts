@@ -49,6 +49,8 @@ const writeToolNames = new Set([
   "sendEmail",
   "replyEmail",
   "forwardEmail",
+  "createOrGetFolder",
+  "moveThreadsToFolder",
   "saveMemory",
   "addToKnowledgeBase",
 ]);
@@ -76,6 +78,9 @@ const hoisted = vi.hoisted(() => ({
   mockArchiveThreadWithLabel: vi.fn(),
   mockMarkReadThread: vi.fn(),
   mockBulkArchiveFromSenders: vi.fn(),
+  mockGetFolders: vi.fn(),
+  mockGetOrCreateFolderIdByName: vi.fn(),
+  mockMoveThreadToFolder: vi.fn(),
 }));
 
 const {
@@ -91,6 +96,10 @@ const {
 } = hoisted;
 
 export const mockSearchMessages = hoisted.mockSearchMessages;
+export const mockGetFolders = hoisted.mockGetFolders;
+export const mockGetOrCreateFolderIdByName =
+  hoisted.mockGetOrCreateFolderIdByName;
+export const mockMoveThreadToFolder = hoisted.mockMoveThreadToFolder;
 
 vi.mock("@/utils/rule/rule", () => ({
   createRule: hoisted.mockCreateRule,
@@ -175,6 +184,19 @@ export function setupInboxWorkflowEval() {
       messages: getDefaultSearchMessages(),
       nextPageToken: undefined,
     });
+    mockGetFolders.mockResolvedValue(getDefaultFolders());
+    mockGetOrCreateFolderIdByName.mockImplementation(async (folderName) => {
+      const folder = flattenFolders(getDefaultFolders()).find(
+        (candidate) =>
+          candidate.displayName.toLowerCase() ===
+            String(folderName).trim().toLowerCase() ||
+          candidate.path.toLowerCase() ===
+            String(folderName).trim().toLowerCase(),
+      );
+
+      return folder?.id ?? "folder-created";
+    });
+    mockMoveThreadToFolder.mockResolvedValue(undefined);
 
     mockGetMessage.mockImplementation(async (messageId: string) =>
       getMessageById(messageId),
@@ -187,6 +209,9 @@ export function setupInboxWorkflowEval() {
       archiveThreadWithLabel: mockArchiveThreadWithLabel,
       markReadThread: mockMarkReadThread,
       bulkArchiveFromSenders: mockBulkArchiveFromSenders,
+      getFolders: mockGetFolders,
+      getOrCreateFolderIdByName: mockGetOrCreateFolderIdByName,
+      moveThreadToFolder: mockMoveThreadToFolder,
       getMessagesWithPagination: vi.fn().mockResolvedValue({
         messages: [],
         nextPageToken: undefined,
@@ -420,6 +445,43 @@ function getDefaultLabels() {
     { id: "Label_To Reply", name: "To Reply" },
     { id: "Label_FYI", name: "FYI" },
   ];
+}
+
+function getDefaultFolders() {
+  return [
+    {
+      id: "folder-operations",
+      displayName: "Operations",
+      childFolderCount: 1,
+      childFolders: [
+        {
+          id: "folder-operations-reports",
+          displayName: "Reports",
+          childFolderCount: 0,
+          childFolders: [],
+        },
+      ],
+    },
+    {
+      id: "folder-vendor-updates",
+      displayName: "Vendor Updates",
+      childFolderCount: 0,
+      childFolders: [],
+    },
+  ];
+}
+
+function flattenFolders(
+  folders: ReturnType<typeof getDefaultFolders>,
+  parentPath?: string,
+): Array<ReturnType<typeof getDefaultFolders>[number] & { path: string }> {
+  return folders.flatMap((folder) => {
+    const path = parentPath
+      ? `${parentPath} / ${folder.displayName}`
+      : folder.displayName;
+
+    return [{ ...folder, path }, ...flattenFolders(folder.childFolders, path)];
+  });
 }
 
 function getDefaultSearchMessages() {
