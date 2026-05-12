@@ -11,12 +11,12 @@ import {
 } from "./helpers";
 
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS;
-const GMAIL_EMAIL = "reply-context-precedent@example.com";
-const OUTLOOK_EMAIL = "reply-context-precedent@outlook.com";
-const FURNITURE_THREAD_ID = "thread-furniture-wrong-address";
-const FURNITURE_CONVERSATION_ID = "conversation-furniture-wrong-address";
-const CURRENT_THREAD_ID = "thread-current-wayfair-question";
-const CURRENT_MESSAGE_ID = "current-wayfair-question";
+const GMAIL_EMAIL = "account@example.com";
+const OUTLOOK_EMAIL = "account@outlook.example.com";
+const HISTORICAL_THREAD_ID = "thread-1";
+const HISTORICAL_CONVERSATION_ID = "conversation-1";
+const CURRENT_THREAD_ID = "thread-2";
+const CURRENT_MESSAGE_ID = "message-1";
 const SEARCH_QUERY = "WayFair";
 const SEARCH_AFTER = new Date("2026-01-01T00:00:00Z");
 
@@ -120,7 +120,7 @@ function getCurrentWayfairThreadContext(accountEmail: string) {
       to: accountEmail,
       subject: "Light strip colors",
       content:
-        "CURRENT_THREAD_MARKER I bought a WayFair desk and need help changing the light strip colors.",
+        "I bought a WayFair desk and need help changing the light strip colors.",
       date: new Date("2026-05-12T12:00:00Z"),
     },
   ];
@@ -145,20 +145,20 @@ function gmailFurniturePrecedentSeed(email: string) {
       id: CURRENT_MESSAGE_ID,
       user_email: email,
       thread_id: CURRENT_THREAD_ID,
-      message_id: "<current-wayfair-question@example.com>",
+      message_id: "<message-1@example.com>",
       from: "new-customer@example.com",
       to: email,
       subject: "Light strip colors",
       body_text:
-        "CURRENT_THREAD_MARKER I bought a WayFair desk and need help changing the light strip colors.",
+        "I bought a WayFair desk and need help changing the light strip colors.",
       label_ids: ["INBOX"],
       internal_date: "1778600000000",
     },
     {
-      id: "gmail-furniture-customer-question",
+      id: "message-2",
       user_email: email,
-      thread_id: FURNITURE_THREAD_ID,
-      message_id: "<gmail-furniture-customer-question@example.com>",
+      thread_id: HISTORICAL_THREAD_ID,
+      message_id: "<message-2@example.com>",
       from: "customer@example.com",
       to: email,
       subject: "Inbox Zero Support Request",
@@ -173,12 +173,12 @@ Could you please advise me on how I can clear the code?`,
       internal_date: "1778131920000",
     },
     {
-      id: "gmail-furniture-user-correction",
+      id: "message-3",
       user_email: email,
-      thread_id: FURNITURE_THREAD_ID,
-      message_id: "<gmail-furniture-user-correction@example.com>",
-      in_reply_to: "<gmail-furniture-customer-question@example.com>",
-      references: "<gmail-furniture-customer-question@example.com>",
+      thread_id: HISTORICAL_THREAD_ID,
+      message_id: "<message-3@example.com>",
+      in_reply_to: "<message-2@example.com>",
+      references: "<message-2@example.com>",
       from: email,
       to: "customer@example.com",
       subject: "Re: Inbox Zero Support Request",
@@ -188,13 +188,12 @@ Could you please advise me on how I can clear the code?`,
       internal_date: "1778156940000",
     },
     {
-      id: "gmail-furniture-customer-thanks",
+      id: "message-4",
       user_email: email,
-      thread_id: FURNITURE_THREAD_ID,
-      message_id: "<gmail-furniture-customer-thanks@example.com>",
-      in_reply_to: "<gmail-furniture-user-correction@example.com>",
-      references:
-        "<gmail-furniture-customer-question@example.com> <gmail-furniture-user-correction@example.com>",
+      thread_id: HISTORICAL_THREAD_ID,
+      message_id: "<message-4@example.com>",
+      in_reply_to: "<message-3@example.com>",
+      references: "<message-2@example.com> <message-3@example.com>",
       from: "customer@example.com",
       to: email,
       subject: "Re: Inbox Zero Support Request",
@@ -203,10 +202,10 @@ Could you please advise me on how I can clear the code?`,
       internal_date: "1778188620000",
     },
     {
-      id: "gmail-unrelated-wayfair-receipt",
+      id: "message-5",
       user_email: email,
-      thread_id: "thread-unrelated-wayfair-receipt",
-      message_id: "<gmail-unrelated-wayfair-receipt@example.com>",
+      thread_id: "thread-3",
+      message_id: "<message-5@example.com>",
       from: "receipts@example.com",
       to: email,
       subject: "Receipt",
@@ -222,24 +221,24 @@ function outlookFurniturePrecedentSeed(email: string) {
     {
       microsoft_id: CURRENT_MESSAGE_ID,
       conversation_id: CURRENT_THREAD_ID,
-      internet_message_id: "<current-wayfair-question@example.com>",
+      internet_message_id: "<message-1@example.com>",
       user_email: email,
       from: { address: "new-customer@example.com", name: "New Customer" },
       to_recipients: [{ address: email }],
       subject: "Light strip colors",
       body_content_type: "text" as const,
       body_content:
-        "CURRENT_THREAD_MARKER I bought a WayFair desk and need help changing the light strip colors.",
+        "I bought a WayFair desk and need help changing the light strip colors.",
       body_text_content:
-        "CURRENT_THREAD_MARKER I bought a WayFair desk and need help changing the light strip colors.",
+        "I bought a WayFair desk and need help changing the light strip colors.",
       parent_folder_id: "inbox",
       is_read: true,
       received_date_time: "2026-05-12T12:00:00Z",
     },
     {
-      microsoft_id: "outlook-furniture-customer-question",
-      conversation_id: FURNITURE_CONVERSATION_ID,
-      internet_message_id: "<outlook-furniture-customer-question@example.com>",
+      microsoft_id: "message-2",
+      conversation_id: HISTORICAL_CONVERSATION_ID,
+      internet_message_id: "<message-2@example.com>",
       user_email: email,
       from: { address: "customer@example.com", name: "Customer" },
       to_recipients: [{ address: email }],
@@ -264,9 +263,9 @@ Could you please advise me on how I can clear the code?`,
       received_date_time: "2026-05-07T02:52:00Z",
     },
     {
-      microsoft_id: "outlook-furniture-user-correction",
-      conversation_id: FURNITURE_CONVERSATION_ID,
-      internet_message_id: "<outlook-furniture-user-correction@example.com>",
+      microsoft_id: "message-3",
+      conversation_id: HISTORICAL_CONVERSATION_ID,
+      internet_message_id: "<message-3@example.com>",
       user_email: email,
       from: { address: email, name: "Test User" },
       to_recipients: [{ address: "customer@example.com" }],
@@ -282,9 +281,9 @@ Could you please advise me on how I can clear the code?`,
       sent_date_time: "2026-05-07T09:29:00Z",
     },
     {
-      microsoft_id: "outlook-furniture-customer-thanks",
-      conversation_id: FURNITURE_CONVERSATION_ID,
-      internet_message_id: "<outlook-furniture-customer-thanks@example.com>",
+      microsoft_id: "message-4",
+      conversation_id: HISTORICAL_CONVERSATION_ID,
+      internet_message_id: "<message-4@example.com>",
       user_email: email,
       from: { address: "customer@example.com", name: "Customer" },
       to_recipients: [{ address: email }],
@@ -297,9 +296,9 @@ Could you please advise me on how I can clear the code?`,
       received_date_time: "2026-05-07T17:17:00Z",
     },
     {
-      microsoft_id: "outlook-unrelated-wayfair-receipt",
-      conversation_id: "conversation-unrelated-wayfair-receipt",
-      internet_message_id: "<outlook-unrelated-wayfair-receipt@example.com>",
+      microsoft_id: "message-5",
+      conversation_id: "conversation-2",
+      internet_message_id: "<message-5@example.com>",
       user_email: email,
       from: { address: "receipts@example.com", name: "Receipts" },
       to_recipients: [{ address: email }],
