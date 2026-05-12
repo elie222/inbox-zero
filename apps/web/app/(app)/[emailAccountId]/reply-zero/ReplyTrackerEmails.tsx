@@ -11,6 +11,7 @@ import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { Button } from "@/components/ui/button";
 import {
   CheckCircleIcon,
+  ChevronLeftIcon,
   CircleXIcon,
   HandIcon,
   RefreshCwIcon,
@@ -221,13 +222,66 @@ export function ReplyTrackerEmails({
     return listView;
   }
 
+  // ── Mobile: full-screen detail view with a Back button ──────────────
+  if (isMobile) {
+    return (
+      <div className="flex h-[calc(100vh-7.5rem)] flex-col overflow-hidden">
+        <div className="flex shrink-0 items-center border-b border-border px-2 py-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedEmail(null)}
+            className="flex items-center gap-1"
+          >
+            <ChevronLeftIcon className="h-4 w-4" />
+            Back
+          </Button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto bg-secondary">
+          <ThreadContent
+            threadId={selectedEmail.threadId}
+            showReplyButton={true}
+            autoOpenReplyForMessageId={selectedEmail.messageId}
+            onSendSuccess={
+              type === ThreadTrackerType.NEEDS_REPLY ? onSendSuccess : undefined
+            }
+            topRightComponent={
+              <div className="flex items-center gap-1">
+                {trackers.find((t) => t.threadId === selectedEmail.threadId)
+                  ?.resolved ? (
+                  <UnresolveButton
+                    threadId={selectedEmail.threadId}
+                    onResolve={handleResolve}
+                    isLoading={resolvingThreads.has(selectedEmail.threadId)}
+                    showShortcut={false}
+                  />
+                ) : (
+                  <ResolveButton
+                    threadId={selectedEmail.threadId}
+                    onResolve={handleResolve}
+                    isLoading={resolvingThreads.has(selectedEmail.threadId)}
+                    showShortcut={false}
+                  />
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSelectedEmail(null)}
+                >
+                  <XIcon className="size-4" />
+                </Button>
+              </div>
+            }
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Desktop: original side-by-side split view ────────────────────────
   return (
-    // hacky. this will break if other parts of the layout change
     <div className="h-[calc(100vh-7.5rem)]">
-      <ResizablePanelGroup
-        direction={isMobile ? "vertical" : "horizontal"}
-        className="h-full"
-      >
+      <ResizablePanelGroup direction="horizontal" className="h-full">
         <ResizablePanel defaultSize={35} minSize={0}>
           <div className="h-full overflow-y-auto">{listView}</div>
         </ResizablePanel>
