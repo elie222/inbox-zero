@@ -3,7 +3,10 @@ import { env } from "@/env";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import { type RequestWithLogger, withError } from "@/utils/middleware";
-import { enforceConfiguredReasoningRetention } from "@/utils/privacy/reasoning-retention";
+import {
+  enforceConfiguredReasoningRetention,
+  enforceDraftSentTextRetention,
+} from "@/utils/privacy/reasoning-retention";
 
 export const maxDuration = 300;
 
@@ -30,10 +33,16 @@ export const POST = withError("cron/reasoning-retention", async (request) => {
 });
 
 async function runReasoningRetention(request: RequestWithLogger) {
-  const result = await enforceConfiguredReasoningRetention({
-    days: env.REASONING_RETENTION_DAYS,
-    logger: request.logger,
-  });
+  const [reasoning, draftSentText] = await Promise.all([
+    enforceConfiguredReasoningRetention({
+      days: env.REASONING_RETENTION_DAYS,
+      logger: request.logger,
+    }),
+    enforceDraftSentTextRetention({
+      days: env.DRAFT_SENT_TEXT_RETENTION_DAYS,
+      logger: request.logger,
+    }),
+  ]);
 
-  return NextResponse.json(result);
+  return NextResponse.json({ reasoning, draftSentText });
 }

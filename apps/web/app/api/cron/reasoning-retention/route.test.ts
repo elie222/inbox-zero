@@ -1,15 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { envMock, captureExceptionMock, enforceRetentionMock } = vi.hoisted(
-  () => ({
-    envMock: {
-      CRON_SECRET: "cron-secret",
-      REASONING_RETENTION_DAYS: 30,
-    },
-    captureExceptionMock: vi.fn(),
-    enforceRetentionMock: vi.fn(),
-  }),
-);
+const {
+  envMock,
+  captureExceptionMock,
+  enforceRetentionMock,
+  enforceDraftSentTextRetentionMock,
+} = vi.hoisted(() => ({
+  envMock: {
+    CRON_SECRET: "cron-secret",
+    REASONING_RETENTION_DAYS: 30,
+    DRAFT_SENT_TEXT_RETENTION_DAYS: 14,
+  },
+  captureExceptionMock: vi.fn(),
+  enforceRetentionMock: vi.fn(),
+  enforceDraftSentTextRetentionMock: vi.fn(),
+}));
 
 vi.mock("@/env", () => ({
   env: envMock,
@@ -22,6 +27,8 @@ vi.mock("@/utils/error", () => ({
 vi.mock("@/utils/privacy/reasoning-retention", () => ({
   enforceConfiguredReasoningRetention: (...args: unknown[]) =>
     enforceRetentionMock(...args),
+  enforceDraftSentTextRetention: (...args: unknown[]) =>
+    enforceDraftSentTextRetentionMock(...args),
 }));
 
 vi.mock("@/utils/middleware", async () => {
@@ -39,9 +46,13 @@ describe("reasoning retention cron route", () => {
     vi.clearAllMocks();
     envMock.CRON_SECRET = "cron-secret";
     envMock.REASONING_RETENTION_DAYS = 30;
+    envMock.DRAFT_SENT_TEXT_RETENTION_DAYS = 14;
     enforceRetentionMock.mockResolvedValue({
-      deletedCount: 3,
-      retentionDays: 30,
+      skipped: false,
+      executedRules: 3,
+    });
+    enforceDraftSentTextRetentionMock.mockResolvedValue({
+      draftSendLogs: 4,
     });
   });
 
@@ -53,6 +64,7 @@ describe("reasoning retention cron route", () => {
     expect(response.status).toBe(401);
     await expect(response.text()).resolves.toBe("Unauthorized");
     expect(enforceRetentionMock).not.toHaveBeenCalled();
+    expect(enforceDraftSentTextRetentionMock).not.toHaveBeenCalled();
     expect(captureExceptionMock).toHaveBeenCalledTimes(1);
   });
 
@@ -65,11 +77,20 @@ describe("reasoning retention cron route", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      deletedCount: 3,
-      retentionDays: 30,
+      reasoning: {
+        skipped: false,
+        executedRules: 3,
+      },
+      draftSentText: {
+        draftSendLogs: 4,
+      },
     });
     expect(enforceRetentionMock).toHaveBeenCalledWith({
       days: 30,
+      logger: expect.anything(),
+    });
+    expect(enforceDraftSentTextRetentionMock).toHaveBeenCalledWith({
+      days: 14,
       logger: expect.anything(),
     });
     expect(captureExceptionMock).not.toHaveBeenCalled();
@@ -86,6 +107,7 @@ describe("reasoning retention cron route", () => {
     expect(response.status).toBe(401);
     await expect(response.text()).resolves.toBe("Unauthorized");
     expect(enforceRetentionMock).not.toHaveBeenCalled();
+    expect(enforceDraftSentTextRetentionMock).not.toHaveBeenCalled();
     expect(captureExceptionMock).toHaveBeenCalledTimes(1);
   });
 
@@ -99,11 +121,20 @@ describe("reasoning retention cron route", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      deletedCount: 3,
-      retentionDays: 30,
+      reasoning: {
+        skipped: false,
+        executedRules: 3,
+      },
+      draftSentText: {
+        draftSendLogs: 4,
+      },
     });
     expect(enforceRetentionMock).toHaveBeenCalledWith({
       days: 30,
+      logger: expect.anything(),
+    });
+    expect(enforceDraftSentTextRetentionMock).toHaveBeenCalledWith({
+      days: 14,
       logger: expect.anything(),
     });
     expect(captureExceptionMock).not.toHaveBeenCalled();

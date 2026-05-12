@@ -99,6 +99,7 @@ export async function trackSentDraftStatus({
       sentMessage: message,
       sourceMessage,
     });
+  const sentText = getSentReplyText(message);
 
   logger.info("Calculated similarity score", {
     executedActionId,
@@ -125,6 +126,7 @@ export async function trackSentDraftStatus({
               executedActionId: executedActionId,
               sentMessageId: sentMessageId,
               similarityScore: similarityScore,
+              sentText,
             },
           }),
           prisma.executedAction.update({
@@ -151,8 +153,8 @@ export async function trackSentDraftStatus({
         executedActionId,
         draftSendLogId: draftSendLog.id,
         draftText: executedAction.content,
+        sentText,
         similarityScore,
-        message,
         provider,
         logger,
       });
@@ -187,6 +189,7 @@ export async function trackSentDraftStatus({
             executedActionId: executedActionId,
             sentMessageId: sentMessageId,
             similarityScore: similarityScore,
+            sentText,
           },
         }),
         prisma.executedAction.update({
@@ -223,8 +226,8 @@ export async function trackSentDraftStatus({
     executedActionId,
     draftSendLogId: draftSendLog.id,
     draftText: executedAction.content,
+    sentText,
     similarityScore,
-    message,
     provider,
     logger,
   });
@@ -456,8 +459,8 @@ function queueReplyMemoryLearning({
   executedActionId,
   draftSendLogId,
   draftText,
+  sentText,
   similarityScore,
-  message,
   provider,
   logger,
 }: {
@@ -465,23 +468,22 @@ function queueReplyMemoryLearning({
   executedActionId: string;
   draftSendLogId: string;
   draftText?: string | null;
+  sentText: string | null;
   similarityScore: number;
-  message: ParsedMessage;
   provider: EmailProvider;
   logger: Logger;
 }) {
-  if (!draftText) return;
+  if (!draftText || !sentText) return;
 
-  const sentText = emailToContentForAI(
-    stripProviderSignatureFromParsedMessage(message),
-    {
-      maxLength: 4000,
-      extractReply: true,
-      removeForwarded: true,
-    },
-  );
+  const replyMemorySentText = sentText.slice(0, 4000);
 
-  if (!isMeaningfulDraftEdit({ draftText, sentText, similarityScore })) {
+  if (
+    !isMeaningfulDraftEdit({
+      draftText,
+      sentText: replyMemorySentText,
+      similarityScore,
+    })
+  ) {
     return;
   }
 
@@ -489,7 +491,7 @@ function queueReplyMemoryLearning({
     try {
       await saveDraftSendLogReplyMemory({
         draftSendLogId,
-        sentText,
+        sentText: replyMemorySentText,
       });
       await syncReplyMemoriesFromDraftSendLogs({
         emailAccountId,
@@ -503,6 +505,19 @@ function queueReplyMemoryLearning({
       });
     }
   });
+}
+
+function getSentReplyText(message: ParsedMessage): string | null {
+  const sentText = emailToContentForAI(
+    stripProviderSignatureFromParsedMessage(message),
+    {
+      maxLength: 0,
+      extractReply: true,
+      removeForwarded: true,
+    },
+  ).trim();
+
+  return sentText || null;
 }
 
 function getSentDraftStatus({

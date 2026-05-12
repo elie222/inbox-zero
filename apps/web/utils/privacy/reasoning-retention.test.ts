@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  enforceDraftSentTextRetention,
   enforceConfiguredReasoningRetention,
   enforceReasoningRetention,
 } from "./reasoning-retention";
@@ -17,6 +18,7 @@ describe("enforceReasoningRetention", () => {
 
     prisma.executedRule.updateMany.mockResolvedValue({ count: 1 });
     prisma.documentFiling.updateMany.mockResolvedValue({ count: 2 });
+    prisma.draftSendLog.updateMany.mockResolvedValue({ count: 3 });
   });
 
   it("redacts stale reasoning fields and returns per-table counts", async () => {
@@ -56,6 +58,32 @@ describe("enforceReasoningRetention", () => {
     expect(prisma.automationJobRun.updateMany).not.toHaveBeenCalled();
   });
 
+  it("redacts stale captured sent draft text", async () => {
+    const now = new Date("2026-05-05T12:00:00.000Z");
+    const cutoff = subDays(now, 14);
+
+    await expect(
+      enforceDraftSentTextRetention({ days: 14, logger, now }),
+    ).resolves.toEqual({
+      cutoff,
+      draftSendLogs: 3,
+    });
+
+    expect(prisma.draftSendLog.updateMany).toHaveBeenCalledWith({
+      where: {
+        createdAt: { lt: cutoff },
+        OR: [
+          { sentText: { not: null } },
+          { replyMemorySentText: { not: null } },
+        ],
+      },
+      data: {
+        sentText: null,
+        replyMemorySentText: null,
+      },
+    });
+  });
+
   it("skips without database writes when retention is not configured", async () => {
     await expect(
       enforceConfiguredReasoningRetention({ days: undefined, logger }),
@@ -72,6 +100,16 @@ describe("enforceReasoningRetention", () => {
       enforceReasoningRetention({ days: -1, logger }),
     ).rejects.toThrow(
       "Reasoning retention days must be a non-negative integer",
+    );
+
+    expectNoRetentionWrites();
+  });
+
+  it("rejects invalid draft sent text retention windows", async () => {
+    await expect(
+      enforceDraftSentTextRetention({ days: -1, logger }),
+    ).rejects.toThrow(
+      "Draft sent text retention days must be a non-negative integer",
     );
 
     expectNoRetentionWrites();

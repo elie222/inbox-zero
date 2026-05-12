@@ -93,6 +93,7 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED` | No | Set to `true` to enforce the default policy for all accounts, disable account-level edits, and hide the setting in the UI | `false` |
 | **Reasoning Retention** ||||
 | `REASONING_RETENTION_DAYS` | No | Number of days to keep stale AI reasoning fields before the daily reasoning-retention cron redacts them. Covers only `ExecutedRule.reason` and `DocumentFiling.reasoning`; group learnings and other stored content are not redacted. Leave unset to disable reasoning cleanup. | Disabled |
+| `DRAFT_SENT_TEXT_RETENTION_DAYS` | No | Number of days to keep captured sent draft text before the daily reasoning-retention cron redacts it. | `14` |
 | **Background Jobs (QStash, optional)** ||||
 | `QSTASH_TOKEN` | No | QStash API token (optional; fallback runs jobs via internal API + cron) | — |
 | `QSTASH_CURRENT_SIGNING_KEY` | No | Current signing key for webhooks | — |

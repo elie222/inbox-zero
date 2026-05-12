@@ -1053,6 +1053,7 @@ model DraftSendLog {
 
   sentMessageId           String
   similarityScore         Float // Similarity score (0.0 to 1.0) between original draft and sent message
+  sentText                String?
   replyMemorySentText     String?
   replyMemoryAttemptCount Int                 @default(0)
   replyMemoryProcessedAt  DateTime?

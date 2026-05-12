@@ -184,6 +184,10 @@ const parsedEnv = createEnv({
       (value) => (value === "" ? undefined : value),
       z.coerce.number().int().nonnegative().optional(),
     ),
+    DRAFT_SENT_TEXT_RETENTION_DAYS: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.coerce.number().int().nonnegative().default(14),
+    ),
 
     // Lemon Squeezy
     LEMON_SQUEEZY_SIGNING_SECRET: z.string().optional(),

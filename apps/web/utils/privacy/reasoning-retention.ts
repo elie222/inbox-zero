@@ -14,6 +14,11 @@ export type ReasoningRetentionResult = {
   documentFilings: number;
 };
 
+export type DraftSentTextRetentionResult = {
+  cutoff: Date;
+  draftSendLogs: number;
+};
+
 export type ReasoningRetentionPolicyResult =
   | ReasoningRetentionSkippedResult
   | ReasoningRetentionResult;
@@ -77,6 +82,44 @@ export async function enforceReasoningRetention({
   };
 
   logger.info("Applied reasoning retention policy", result);
+
+  return result;
+}
+
+export async function enforceDraftSentTextRetention({
+  days,
+  logger,
+  now = new Date(),
+}: {
+  days: number;
+  logger: Logger;
+  now?: Date;
+}): Promise<DraftSentTextRetentionResult> {
+  if (!Number.isInteger(days) || days < 0) {
+    throw new Error(
+      "Draft sent text retention days must be a non-negative integer",
+    );
+  }
+
+  const cutoff = subDays(now, days);
+
+  const draftSendLogs = await prisma.draftSendLog.updateMany({
+    where: {
+      createdAt: { lt: cutoff },
+      OR: [{ sentText: { not: null } }, { replyMemorySentText: { not: null } }],
+    },
+    data: {
+      sentText: null,
+      replyMemorySentText: null,
+    },
+  });
+
+  const result: DraftSentTextRetentionResult = {
+    cutoff,
+    draftSendLogs: draftSendLogs.count,
+  };
+
+  logger.info("Applied draft sent text retention policy", result);
 
   return result;
 }

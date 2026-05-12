@@ -142,6 +142,7 @@ describe("trackSentDraftStatus", () => {
         executedActionId: "action-1",
         sentMessageId: "sent-1",
         similarityScore: 0.14,
+        sentText: "Please include pricing for seat counts.",
       },
     });
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
@@ -206,6 +207,7 @@ describe("trackSentDraftStatus", () => {
         executedActionId: "action-1",
         sentMessageId: "sent-internal-forward-1",
         similarityScore: 0.08,
+        sentText: "Can someone check this?",
       },
     });
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
@@ -280,6 +282,14 @@ describe("trackSentDraftStatus", () => {
 
     expect(saveDraftSendLogReplyMemory).not.toHaveBeenCalled();
     expect(syncReplyMemoriesFromDraftSendLogs).not.toHaveBeenCalled();
+    expect(prisma.draftSendLog.create).toHaveBeenCalledWith({
+      data: {
+        executedActionId: "action-1",
+        sentMessageId: "sent-1",
+        similarityScore: 0.98,
+        sentText: "Please include pricing for seat counts.",
+      },
+    });
     expect(
       replaceMessagingDraftNotificationsWithHandledOnWebState,
     ).toHaveBeenCalledWith({
