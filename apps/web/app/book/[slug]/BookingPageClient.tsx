@@ -234,14 +234,14 @@ function PickTimeStep({
     detectDefaultHourFormat(),
   );
   return (
-    <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)_240px]">
+    <div className="grid min-w-0 grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)_240px]">
       <BookingSidebar
         bookingLink={bookingLink}
         timezone={timezone}
         onTimezoneChange={onTimezoneChange}
         showDescription
       />
-      <div className="border-t p-6 md:border-l md:border-t-0 md:p-7">
+      <div className="min-w-0 border-t p-4 sm:p-6 md:border-l md:border-t-0 md:p-7">
         <BookingCalendar
           visibleMonth={visibleMonth}
           onMonthChange={onMonthChange}
@@ -251,9 +251,9 @@ function PickTimeStep({
           timezone={timezone}
         />
       </div>
-      <div className="border-t bg-muted/30 p-6 md:border-l md:border-t-0">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <div className="text-sm font-semibold text-foreground">
+      <div className="min-w-0 border-t bg-muted/30 p-4 sm:p-6 md:max-h-none md:border-l md:border-t-0 md:p-7">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0 text-sm font-semibold text-foreground">
             {selectedDateKey
               ? formatSelectedDateHeading(selectedDateKey)
               : "Pick a date"}
@@ -269,7 +269,7 @@ function PickTimeStep({
             No slots available on this day.
           </p>
         ) : (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex max-h-[min(50vh,22rem)] flex-col gap-1.5 overflow-y-auto pr-1 md:max-h-none">
             {slotsForDay.map((slot) => (
               <button
                 key={slot.startTime}
@@ -333,17 +333,17 @@ function BookingCalendar({
         available:
           "bg-blue-50 font-semibold text-blue-700 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300",
       }}
-      className="mx-auto w-fit"
+      className="mx-auto w-fit max-w-full"
       classNames={{
         month: "space-y-4",
         table: "w-full border-collapse space-y-1",
-        head_row: "flex gap-1.5",
+        head_row: "flex gap-0.5 sm:gap-1 md:gap-1.5",
         head_cell:
-          "w-14 text-muted-foreground font-normal text-[0.7rem] uppercase tracking-wider",
-        row: "flex w-full mt-1.5 gap-1.5",
-        cell: "h-14 w-14 p-0 text-center text-sm",
+          "w-9 text-muted-foreground font-normal text-[0.6rem] uppercase tracking-wider sm:w-10 sm:text-[0.65rem] md:w-14 md:text-[0.7rem]",
+        row: "flex w-full mt-1 gap-0.5 sm:mt-1.5 sm:gap-1 md:gap-1.5",
+        cell: "size-9 p-0 text-center text-xs sm:size-10 sm:text-sm md:size-14",
         day: cn(
-          "h-14 w-14 rounded-lg p-0 font-normal tabular-nums aria-selected:opacity-100",
+          "size-9 rounded-lg p-0 text-xs font-normal tabular-nums aria-selected:opacity-100 sm:size-10 sm:text-sm md:size-14",
         ),
         day_selected:
           "bg-blue-600 text-white hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white",
@@ -389,7 +389,7 @@ function DetailsStep({
   };
 
   return (
-    <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)]">
+    <div className="grid min-w-0 grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)]">
       <BookingSidebar
         bookingLink={bookingLink}
         timezone={timezone}
@@ -407,7 +407,7 @@ function DetailsStep({
       />
       <form
         onSubmit={handleSubmit}
-        className="border-t p-7 md:border-l md:border-t-0"
+        className="min-w-0 border-t p-4 sm:p-6 md:border-l md:border-t-0 md:p-7"
       >
         <h2 className="text-xl font-medium tracking-tight text-foreground">
           Enter your details
@@ -447,11 +447,16 @@ function DetailsStep({
 
         {error ? <p className="mt-4 text-sm text-red-500">{error}</p> : null}
 
-        <div className="mt-6 flex items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">
+        <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <p className="text-xs text-muted-foreground sm:min-w-0 sm:flex-1 sm:pr-2">
             By confirming, you agree to receive a calendar invite and reminders.
           </p>
-          <Button type="submit" loading={isSubmitting} variant="primaryBlack">
+          <Button
+            type="submit"
+            loading={isSubmitting}
+            variant="primaryBlack"
+            className="w-full shrink-0 sm:w-auto"
+          >
             Confirm booking
             <ArrowRight className="ml-2 size-3.5" />
           </Button>
@@ -471,15 +476,15 @@ function BookingSuccessCard({
   timezone: string;
 }) {
   return (
-    <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)]">
+    <div className="grid min-w-0 grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)]">
       <BookingSidebar
         bookingLink={bookingLink}
         timezone={timezone}
         slot={success}
       />
-      <div className="border-t p-7 md:border-l md:border-t-0">
-        <div className="flex items-center gap-2.5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
-          <Check className="size-4" />
+      <div className="min-w-0 border-t p-4 sm:p-6 md:border-l md:border-t-0 md:p-7">
+        <div className="flex items-start gap-2.5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
+          <Check className="mt-0.5 size-4 shrink-0" />
           You're booked. A calendar invite is on its way.
         </div>
         <h2 className="mt-6 text-xl font-medium tracking-tight text-foreground">
@@ -555,10 +560,10 @@ export function BookingShell({
   size?: "compact" | "wide";
 }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-10">
+    <main className="flex min-h-screen items-center justify-center bg-muted/30 px-3 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] pt-[max(1.5rem,env(safe-area-inset-top,0px))] sm:px-4 sm:py-10">
       <div
         className={cn(
-          "w-full overflow-hidden rounded-2xl border bg-background shadow-lg",
+          "w-full min-w-0 overflow-hidden rounded-xl border bg-background shadow-lg sm:rounded-2xl",
           size === "compact" ? "max-w-3xl" : "max-w-5xl",
         )}
       >

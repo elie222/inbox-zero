@@ -59,14 +59,14 @@ export function BookingSidebar({
   const hostName = bookingLink.hostName || bookingLink.title;
   const initial = (hostName || "?").trim().charAt(0).toUpperCase();
   return (
-    <div className="flex flex-col gap-4 p-7">
+    <div className="flex min-h-0 flex-col gap-4 p-4 sm:p-6 md:p-7">
       {backButton}
       <div className="flex size-12 items-center justify-center rounded-full bg-blue-50 text-lg font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
         {initial}
       </div>
       <div>
         <div className="text-sm text-muted-foreground">{hostName}</div>
-        <h1 className="mt-0.5 text-2xl font-medium tracking-tight text-foreground">
+        <h1 className="mt-0.5 break-words text-2xl font-medium tracking-tight text-foreground">
           {bookingLink.title}
         </h1>
       </div>
@@ -166,7 +166,10 @@ function TimezonePicker({
           <ChevronsUpDown className="size-3 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[320px] p-0" align="start">
+      <PopoverContent
+        className="w-[min(20rem,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] p-0 sm:w-[320px] sm:max-w-none"
+        align="start"
+      >
         <Command>
           <CommandInput placeholder="Search timezone..." />
           <CommandList>
@@ -209,9 +212,9 @@ function SidebarRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-muted-foreground/70">{icon}</span>
-      <span>{children}</span>
+    <div className="flex min-w-0 items-start gap-2">
+      <span className="mt-0.5 shrink-0 text-muted-foreground/70">{icon}</span>
+      <span className="min-w-0 break-words">{children}</span>
     </div>
   );
 }
