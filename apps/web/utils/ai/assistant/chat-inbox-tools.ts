@@ -154,15 +154,15 @@ type InboxToolOptions = {
   logger: Logger;
 };
 
-type ProviderToolFactory<T> = (options: InboxToolOptions) => T;
+type ProviderToolFactory = (options: InboxToolOptions) => unknown;
 
-function resolveProviderToolFactory<T>(
-  provider: string,
-  factories: Record<string, ProviderToolFactory<T>> & {
-    google: ProviderToolFactory<T>;
+function resolveProviderToolFactory<
+  TFactories extends Record<string, ProviderToolFactory> & {
+    google: ProviderToolFactory;
   },
-) {
-  return factories[provider] ?? factories.google;
+>(provider: string, factories: TFactories): TFactories[keyof TFactories] {
+  return (factories[provider] ??
+    factories.google) as TFactories[keyof TFactories];
 }
 
 const outlookAccountOverviewTool = (options: InboxToolOptions) =>
