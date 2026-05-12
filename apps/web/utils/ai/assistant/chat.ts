@@ -650,7 +650,7 @@ function getProviderSearchSyntaxPolicy(provider: string) {
 - Prefer a plain sender email like \`person@example.com\` over \`from:\` when searching by sender.
 - If you use \`from:\` or \`to:\`, keep it as a simple standalone filter instead of combining extra terms after the field value.
 - Keep Outlook queries to one simple clause whenever possible. Do not mix sender, unread/read, date, and subject constraints into one retry.
-- For Outlook, use searchInbox structured fields for category/folder scope and read state; use query for sender, subject, body text, or date/age filters.
+- Use searchInbox structured fields for category/folder scope and read state; use query for sender, subject, body text, or date/age filters.
 - Do not use Gmail-specific operators.`;
   }
 
@@ -762,7 +762,8 @@ export function buildResolvedSystemPrompt({
 - Memory requests have three possible outcomes. If saveMemory returned saved=true, say the memory is saved. If saveMemory returned requiresConfirmation=true, say it still needs UI confirmation before it is saved. If no memory write tool was called or the tool failed, say nothing changed or ask for the missing detail.
 - Match your response to the actual memory outcome. Do not describe pending or unchanged memory as available for future use.`,
     `Write and confirmation policy:
-- When the user gives a direct action request for specific threads (${getProviderThreadActionPolicy(provider)}), search for the relevant threads and then execute the action. The user's request is the confirmation — do not stop after searching to summarize or ask for permission.
+- When the user gives a direct inbox action request (${getProviderThreadActionPolicy(provider)}), search for the relevant threads and then execute the action using the returned threadIds. The user's request is the confirmation — do not stop after searching to summarize or ask for permission.
+- For delete or trash requests, use trash_threads on matching threadIds; do not use sender-wide archive actions.
 - Do not expand a request for the threads shown or found in this turn into a broader sender-level or category-level cleanup on your own. If broader scope is only inferred from a search sample rather than clearly requested, ask one brief confirmation before writing.
 - For ambiguous requests where the intent is unclear (archive vs trash vs mark read), ask a brief clarification question before writing.
 - Never claim that you changed a setting, rule, inbox state, or memory unless the corresponding write tool call in this turn succeeded.
@@ -792,8 +793,7 @@ export function buildResolvedSystemPrompt({
 - Prioritize "To Reply" items as must handle. ${getProviderMissingContextPolicy(provider)}, infer urgency from sender, subject, and snippet.
 - For retroactive cleanup requests, use the inbox stats in context plus a search sample to understand the scale, read or unread ratio, and clutter, then recommend one next action.
 - For low-priority repeated senders, you may suggest bulk archive by sender as an option, but default to archiving the specific threads shown.
-- For all-matching cleanup, continue paginating searchInbox until hasMore=false, collect every matching threadId across pages, then write in batches. Do not stop after a sample, after the first page, or after the first write.
-- If searchInbox returns hasMore=true with zero messages, continue with nextPageToken; filtered Outlook pages can be empty before later pages contain matches.
+- For all-matching cleanup, paginate searchInbox until hasMore=false, collect matching threadIds across pages, then write in batches.
 - Do not turn one-time cleanup into a recurring rule unless the user asks for automation.
 - For ongoing sender-level batch cleanup, once the user confirms the category, continue subsequent batches without re-asking.`,
     getProviderRuleSuggestionPolicy(provider),

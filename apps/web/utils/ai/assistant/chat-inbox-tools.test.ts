@@ -826,7 +826,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
   it("searchInbox normalizes simple Outlook scope queries before provider search", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [],
-      nextPageToken: "PAGE_TOKEN_2",
+      nextPageToken: undefined,
     });
 
     (createEmailProvider as any).mockResolvedValue({
@@ -841,26 +841,24 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       logger,
     });
 
-    const result: any = await (toolInstance.execute as any)({
+    await (toolInstance.execute as any)({
       query: "Operations folder unread",
       limit: 20,
     });
 
-    expect(searchMessages).toHaveBeenCalledTimes(1);
-    expect(searchMessages).toHaveBeenCalledWith({
+    expect(searchMessages).toHaveBeenNthCalledWith(1, {
       query: "",
       maxResults: 20,
       pageToken: undefined,
       readState: "unread",
       labelName: "Operations",
     });
-    expect(result.hasMore).toBe(true);
   });
 
   it("searchInbox removes redundant Outlook read-state terms before scope normalization", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [],
-      nextPageToken: "PAGE_TOKEN_2",
+      nextPageToken: undefined,
     });
 
     (createEmailProvider as any).mockResolvedValue({
@@ -893,7 +891,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
   it("searchInbox normalizes Outlook folder field queries before provider search", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [],
-      nextPageToken: "PAGE_TOKEN_2",
+      nextPageToken: undefined,
     });
 
     (createEmailProvider as any).mockResolvedValue({
@@ -921,6 +919,71 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       readState: "unread",
       labelName: "Operations",
     });
+  });
+
+  it("searchInbox advances through empty Outlook filtered pages", async () => {
+    const message: ParsedMessage = {
+      id: "message-1",
+      threadId: "thread-1",
+      snippet: "A scoped update",
+      historyId: "",
+      inline: [],
+      headers: {
+        from: "updates@example.com",
+        to: TEST_EMAIL,
+        subject: "Scoped update",
+        date: "2026-02-18T00:00:00.000Z",
+      },
+      subject: "Scoped update",
+      date: "2026-02-18T00:00:00.000Z",
+      labelIds: ["UNREAD", "Operations"],
+    };
+    const searchMessages = vi
+      .fn()
+      .mockResolvedValueOnce({
+        messages: [],
+        nextPageToken: "PAGE_TOKEN_2",
+      })
+      .mockResolvedValueOnce({
+        messages: [message],
+        nextPageToken: undefined,
+      });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "",
+      categoryName: "Operations",
+      readState: "unread",
+      limit: 20,
+    });
+
+    expect(searchMessages).toHaveBeenNthCalledWith(1, {
+      query: "",
+      maxResults: 20,
+      pageToken: undefined,
+      readState: "unread",
+      labelName: "Operations",
+    });
+    expect(searchMessages).toHaveBeenNthCalledWith(2, {
+      query: "",
+      maxResults: 20,
+      pageToken: "PAGE_TOKEN_2",
+      readState: "unread",
+      labelName: "Operations",
+    });
+    expect(result.messages).toHaveLength(1);
+    expect(result.hasMore).toBe(false);
   });
 
   it("searchInbox falls back to Outlook text search when a normalized scope is conclusively empty", async () => {
@@ -960,6 +1023,61 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       labelName: "invoice",
     });
     expect(searchMessages).toHaveBeenNthCalledWith(2, {
+      query: "invoice",
+      maxResults: 20,
+      readState: undefined,
+    });
+    expect(result.queryUsed).toBe("invoice");
+  });
+
+  it("searchInbox falls back to Outlook text search after empty structured pages end", async () => {
+    const searchMessages = vi
+      .fn()
+      .mockResolvedValueOnce({
+        messages: [],
+        nextPageToken: "PAGE_TOKEN_2",
+      })
+      .mockResolvedValueOnce({
+        messages: [],
+        nextPageToken: undefined,
+      })
+      .mockResolvedValueOnce({
+        messages: [],
+        nextPageToken: undefined,
+      });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "invoice",
+      limit: 20,
+    });
+
+    expect(searchMessages).toHaveBeenNthCalledWith(1, {
+      query: "",
+      maxResults: 20,
+      pageToken: undefined,
+      readState: undefined,
+      labelName: "invoice",
+    });
+    expect(searchMessages).toHaveBeenNthCalledWith(2, {
+      query: "",
+      maxResults: 20,
+      pageToken: "PAGE_TOKEN_2",
+      readState: undefined,
+      labelName: "invoice",
+    });
+    expect(searchMessages).toHaveBeenNthCalledWith(3, {
       query: "invoice",
       maxResults: 20,
       readState: undefined,

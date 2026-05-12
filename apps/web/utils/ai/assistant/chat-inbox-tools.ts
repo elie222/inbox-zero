@@ -50,13 +50,19 @@ import { extractErrorInfo, isRetryableError } from "@/utils/outlook/retry";
 import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
 
 const SEARCH_INBOX_MAX_RESULTS = 20;
+const OUTLOOK_EMPTY_PAGE_AUTOPAGINATION_LIMIT = 5;
 const MAX_SENDER_CATEGORIZATION_WAIT_MS = 1500;
-const OUTLOOK_SCOPE_DECORATOR_PATTERN =
-  /\s+(?:category|folder|mailbox|emails?|messages?|mail)$/i;
-const OUTLOOK_SCOPE_PREFIX_PATTERN = /^(?:all|any|every|my|the)\s+/i;
-const OUTLOOK_TEXT_SEARCH_SYNTAX_PATTERN = /[@:<>={}[\]|]|\b(?:AND|OR|NOT)\b/i;
-const OUTLOOK_SCOPE_FIELD_PATTERN =
-  /^(?:category|folder):(?:"([^"]+)"|'([^']+)'|(.+))$/i;
+const OUTLOOK_SCOPE_SUFFIX_TERMS = new Set([
+  "category",
+  "folder",
+  "mailbox",
+  "email",
+  "emails",
+  "message",
+  "messages",
+  "mail",
+]);
+const OUTLOOK_BOOLEAN_OPERATORS = new Set(["AND", "OR", "NOT"]);
 
 const recipientListSchema = z
   .string()
@@ -131,21 +137,47 @@ const forwardEmailToolInputSchema = z
   })
   .strict();
 
-export const getAccountOverviewTool = ({
-  email,
-  emailAccountId,
-  provider,
-  logger,
-}: {
+type InboxToolOptions = {
   email: string;
   emailAccountId: string;
   provider: string;
   logger: Logger;
+};
+
+export const getAccountOverviewTool = (options: InboxToolOptions) =>
+  isMicrosoftProvider(options.provider)
+    ? outlookAccountOverviewTool(options)
+    : gmailAccountOverviewTool(options);
+
+const outlookAccountOverviewTool = (options: InboxToolOptions) =>
+  accountOverviewTool({
+    ...options,
+    taxonomyKey: "categories",
+    description:
+      "Get account context for inbox operations such as provider details, category context, meeting-brief settings, and attachment-filing folder settings.",
+  });
+
+const gmailAccountOverviewTool = (options: InboxToolOptions) =>
+  accountOverviewTool({
+    ...options,
+    taxonomyKey: "labels",
+    description:
+      "Get account context for inbox operations such as provider details, label context, meeting-brief settings, and attachment-filing settings.",
+  });
+
+const accountOverviewTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+  taxonomyKey,
+  description,
+}: InboxToolOptions & {
+  taxonomyKey: "categories" | "labels";
+  description: string;
 }) =>
   tool({
-    description: isMicrosoftProvider(provider)
-      ? "Get account context for inbox operations such as provider details, category availability, meeting-brief settings, and attachment-filing settings."
-      : "Get account context for inbox operations such as provider details, label availability, meeting-brief settings, and attachment-filing settings.",
+    description,
     inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({ tool: "get_account_overview", email, logger });
@@ -207,19 +239,10 @@ export const getAccountOverviewTool = ({
               path: folder.folderPath,
             })),
           },
-          ...(isMicrosoftProvider(provider)
-            ? {
-                categories: {
-                  count: labelNames.length,
-                  names: labelNames.slice(0, 200),
-                },
-              }
-            : {
-                labels: {
-                  count: labelNames.length,
-                  names: labelNames.slice(0, 200),
-                },
-              }),
+          [taxonomyKey]: {
+            count: labelNames.length,
+            names: labelNames.slice(0, 200),
+          },
         };
       } catch (error) {
         logger.error("Failed to load account overview", { error });
@@ -484,7 +507,7 @@ const outlookSearchInboxInputSchema = z
       .min(1)
       .nullish()
       .describe(
-        "Outlook category or folder scope. For all/every cleanup requests by a type or class of mail, put that scope here, even if the user did not explicitly say category or folder.",
+        "Outlook category or folder scope for a scoped inbox search or cleanup request.",
       ),
   })
   .refine(
@@ -494,44 +517,25 @@ const outlookSearchInboxInputSchema = z
     },
   );
 
-function searchInboxInputSchema(provider: string) {
-  return isMicrosoftProvider(provider)
-    ? outlookSearchInboxInputSchema
-    : gmailSearchInboxInputSchema;
-}
+export const searchInboxTool = (options: InboxToolOptions) =>
+  isMicrosoftProvider(options.provider)
+    ? outlookSearchInboxTool(options)
+    : gmailSearchInboxTool(options);
 
-export const searchInboxTool = ({
+const gmailSearchInboxTool = ({
   email,
   emailAccountId,
   provider,
   logger,
-}: {
-  email: string;
-  emailAccountId: string;
-  provider: string;
-  logger: Logger;
-}) =>
+}: InboxToolOptions) =>
   tool({
-    description: isMicrosoftProvider(provider)
-      ? "Search inbox messages and return concise message metadata. Limit must be between 1 and 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion, even when the current page has zero messages. Outlook filtered searches can return an empty page before later matching pages. totalReturned is only the number of messages returned by this call, so do not present it or a single search page as an exact mailbox, folder, or category count. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent."
-      : "Search inbox messages and return concise message metadata. Limit must be between 1 and 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion. totalReturned is only the number of messages returned by this call, so do not present it or a single search page as an exact mailbox, folder, or label count. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
-    inputSchema: searchInboxInputSchema(provider),
+    description:
+      "Search inbox messages and return concise message metadata. Limit must be between 1 and 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion. totalReturned is only the number of messages returned by this call, so do not present it or a single search page as an exact mailbox, folder, or label count. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
+    inputSchema: gmailSearchInboxInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
 
-      const {
-        query = "",
-        limit,
-        pageToken,
-        readState,
-        categoryName,
-      } = input as {
-        query?: string;
-        limit?: number;
-        pageToken?: string;
-        readState?: "read" | "unread" | null;
-        categoryName?: string | null;
-      };
+      const { query, limit, pageToken } = input;
 
       try {
         const emailProvider = await createEmailProvider({
@@ -540,127 +544,91 @@ export const searchInboxTool = ({
           logger,
         });
 
-        const normalizedOutlookInput = isMicrosoftProvider(provider)
-          ? normalizeOutlookSearchInput({
-              query,
-              readState,
-              categoryName,
-            })
-          : null;
-        const searchQuery = normalizedOutlookInput?.query ?? query;
-        const searchReadState = normalizedOutlookInput?.readState ?? readState;
-        const searchCategoryName =
-          normalizedOutlookInput?.categoryName ?? categoryName;
+        const [searchResult, labels] = await Promise.all([
+          emailProvider.searchMessages({
+            query,
+            maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
+            pageToken: pageToken ?? undefined,
+          }),
+          getLabelsForSearchResults({ emailProvider, logger }),
+        ]);
 
-        const searchQueries = [searchQuery];
-        if (isMicrosoftProvider(provider)) {
-          const fallbackQuery = buildOutlookSearchFallbackQuery(searchQuery);
-          if (fallbackQuery) searchQueries.push(fallbackQuery);
-        }
+        return formatSearchInboxResult({
+          searchResult,
+          queryUsed: query,
+          labels,
+          taxonomyNamesKey: "labelNames",
+        });
+      } catch (error) {
+        logger.error("Failed to search inbox", { error, query });
+        return { queryUsed: query, error: "Failed to search inbox" };
+      }
+    },
+  });
 
-        const labelsPromise = emailProvider.getLabels().catch((error) => {
-          logger.warn("Failed to load labels for search results", { error });
-          return [] as Array<{ id: string; name: string }>;
+const outlookSearchInboxTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+}: InboxToolOptions) =>
+  tool({
+    description:
+      "Search inbox messages and return concise message metadata. Limit must be between 1 and 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion, even when the current page has zero messages. Outlook filtered searches can return an empty page before later matching pages. totalReturned is only the number of messages returned by this call, so do not present it or a single search page as an exact mailbox, folder, or category count. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
+    inputSchema: outlookSearchInboxInputSchema,
+    execute: async (input) => {
+      trackToolCall({ tool: "search_inbox", email, logger });
+
+      const { query = "", limit, pageToken, readState, categoryName } = input;
+
+      try {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+        const labelsPromise = getLabelsForSearchResults({
+          emailProvider,
+          logger,
+        });
+        const normalizedInput = normalizeOutlookSearchInput({
+          query,
+          readState,
+          categoryName,
+        });
+        const searchResult = await runOutlookSearch({
+          emailProvider,
+          normalizedInput,
+          limit,
+          pageToken,
+          logger,
         });
 
-        let searchResult:
-          | Awaited<ReturnType<typeof emailProvider.searchMessages>>
-          | undefined;
-        let queryUsed = query;
-        let lastError: unknown;
-        const microsoftSearchFailures: Array<{
-          query: string;
-          error: unknown;
-        }> = [];
-
-        for (let i = 0; i < searchQueries.length; i++) {
-          const candidateQuery = searchQueries[i];
-          try {
-            const searchOptions: Parameters<
-              EmailProvider["searchMessages"]
-            >[0] = {
-              query: candidateQuery,
-              maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
-              pageToken: pageToken ?? undefined,
-            };
-
-            if (isMicrosoftProvider(provider)) {
-              searchOptions.readState = searchReadState ?? undefined;
-              searchOptions.labelName = searchCategoryName ?? undefined;
-            }
-
-            searchResult = await emailProvider.searchMessages(searchOptions);
-            queryUsed = candidateQuery;
-            break;
-          } catch (error) {
-            lastError = error;
-            if (isMicrosoftProvider(provider)) {
-              microsoftSearchFailures.push({
-                query: candidateQuery,
-                error,
-              });
-            }
-            if (i === searchQueries.length - 1) break;
-
-            logger.warn("Search query failed; retrying with Outlook fallback", {
-              query: candidateQuery,
-              fallbackQuery: searchQueries[i + 1],
-              error,
-            });
-          }
-        }
-
-        if (
-          isMicrosoftProvider(provider) &&
-          normalizedOutlookInput?.fallbackQuery &&
-          !pageToken &&
-          searchResult &&
-          searchResult.messages.length === 0 &&
-          !searchResult.nextPageToken
-        ) {
-          searchResult = await emailProvider.searchMessages({
-            query: normalizedOutlookInput.fallbackQuery,
-            maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
-            readState: normalizedOutlookInput.readState ?? undefined,
+        if (!searchResult.result) {
+          logger.error("Failed to search inbox", {
+            error: searchResult.lastError,
+            query,
           });
-          queryUsed = normalizedOutlookInput.fallbackQuery;
-        }
-
-        if (!searchResult) {
-          logger.error("Failed to search inbox", { error: lastError, query });
-          return isMicrosoftProvider(provider)
-            ? buildMicrosoftSearchErrorResult({
-                query,
-                failures: microsoftSearchFailures,
-              })
-            : { queryUsed: query, error: "Failed to search inbox" };
+          return buildMicrosoftSearchErrorResult({
+            query,
+            failures: searchResult.failures,
+          });
         }
 
         const labels = await labelsPromise;
 
-        const { messages, nextPageToken } = searchResult;
-        const labelsById = createLabelLookupMap(labels);
-
-        const items = messages.map((message) =>
-          mapMessageForSearchResult(message, labelsById, provider),
-        );
-
-        return {
-          queryUsed,
-          totalReturned: items.length,
-          nextPageToken,
-          hasMore: Boolean(nextPageToken),
-          summary: summarizeSearchResults(items),
-          messages: items,
-        };
+        return formatSearchInboxResult({
+          searchResult: searchResult.result,
+          queryUsed: searchResult.queryUsed,
+          labels,
+          taxonomyNamesKey: "categoryNames",
+        });
       } catch (error) {
         logger.error("Failed to search inbox", { error, query });
-        return isMicrosoftProvider(provider)
-          ? buildMicrosoftSearchErrorResult({
-              query,
-              failures: [{ query, error }],
-            })
-          : { queryUsed: query, error: "Failed to search inbox" };
+        return buildMicrosoftSearchErrorResult({
+          query,
+          failures: [{ query, error }],
+        });
       }
     },
   });
@@ -870,92 +838,144 @@ const microsoftManageInboxActions = [
   "unsubscribe_senders",
 ] as const;
 
-function manageInboxInputSchema(provider: string) {
-  if (isMicrosoftProvider(provider)) {
-    return z.object({
-      action: z
-        .enum(microsoftManageInboxActions)
-        .describe(
-          "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. categorize_threads: apply a category (requires categoryName). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide after the user confirms that broad scope (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
-        ),
-      threadIds: threadIdsSchema
-        .nullish()
-        .describe(
-          "Required for archive_threads, trash_threads, categorize_threads, and mark_read_threads. Use IDs from searchInbox results or thread IDs the user already provided.",
-        ),
-      category: z
-        .string()
-        .nullish()
-        .describe(
-          "Optional exact Outlook category name to apply while archiving threads.",
-        ),
-      categoryName: z
-        .string()
-        .trim()
-        .min(1)
-        .nullish()
-        .describe(
-          "Exact Outlook category name to apply to the selected threads.",
-        ),
-      read: z
-        .boolean()
-        .nullish()
-        .describe("For mark_read_threads: true for read, false for unread."),
-      fromEmails: senderEmailsSchema
-        .nullish()
-        .describe(
-          "Required for bulk_archive_senders and unsubscribe_senders. Sender email addresses to act on.",
-        ),
-    });
-  }
+const outlookManageInboxInputSchema = z.object({
+  action: z
+    .enum(microsoftManageInboxActions)
+    .describe(
+      "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. categorize_threads: apply a category (requires categoryName). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide after the user confirms that broad scope (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
+    ),
+  threadIds: threadIdsSchema
+    .nullish()
+    .describe(
+      "Required for archive_threads, trash_threads, categorize_threads, and mark_read_threads. Use IDs from searchInbox results or thread IDs the user already provided.",
+    ),
+  category: z
+    .string()
+    .nullish()
+    .describe(
+      "Optional exact Outlook category name to apply while archiving threads.",
+    ),
+  categoryName: z
+    .string()
+    .trim()
+    .min(1)
+    .nullish()
+    .describe("Exact Outlook category name to apply to the selected threads."),
+  read: z
+    .boolean()
+    .nullish()
+    .describe("For mark_read_threads: true for read, false for unread."),
+  fromEmails: senderEmailsSchema
+    .nullish()
+    .describe(
+      "Required for bulk_archive_senders and unsubscribe_senders. Sender email addresses to act on.",
+    ),
+});
 
-  return z.object({
-    action: z
-      .enum(manageInboxActions)
-      .describe(
-        "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. label_threads: apply a label (requires labelName). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide after the user confirms that broad scope (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
-      ),
-    threadIds: threadIdsSchema
-      .nullish()
-      .describe(
-        "Required for archive_threads, trash_threads, label_threads, and mark_read_threads. Use IDs from searchInbox results or thread IDs the user already provided.",
-      ),
-    label: z
-      .string()
-      .nullish()
-      .describe(
-        "Optional exact Gmail label name to apply while archiving threads.",
-      ),
-    labelName: z
-      .string()
-      .trim()
-      .min(1)
-      .nullish()
-      .describe("Exact Gmail label name to apply to the selected threads."),
-    read: z
-      .boolean()
-      .nullish()
-      .describe("For mark_read_threads: true for read, false for unread."),
-    fromEmails: senderEmailsSchema
-      .nullish()
-      .describe(
-        "Required for bulk_archive_senders and unsubscribe_senders. Sender email addresses to act on.",
-      ),
+const gmailManageInboxInputSchema = z.object({
+  action: z
+    .enum(manageInboxActions)
+    .describe(
+      "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. label_threads: apply a label (requires labelName). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide after the user confirms that broad scope (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
+    ),
+  threadIds: threadIdsSchema
+    .nullish()
+    .describe(
+      "Required for archive_threads, trash_threads, label_threads, and mark_read_threads. Use IDs from searchInbox results or thread IDs the user already provided.",
+    ),
+  label: z
+    .string()
+    .nullish()
+    .describe(
+      "Optional exact Gmail label name to apply while archiving threads.",
+    ),
+  labelName: z
+    .string()
+    .trim()
+    .min(1)
+    .nullish()
+    .describe("Exact Gmail label name to apply to the selected threads."),
+  read: z
+    .boolean()
+    .nullish()
+    .describe("For mark_read_threads: true for read, false for unread."),
+  fromEmails: senderEmailsSchema
+    .nullish()
+    .describe(
+      "Required for bulk_archive_senders and unsubscribe_senders. Sender email addresses to act on.",
+    ),
+});
+
+type ManageInboxTaxonomyConfig = {
+  threadIdsRequiredError: string;
+  labelNameRequiredError: string;
+  labelResolutionFallbackError: string;
+  missingLabelError: (name: string) => string;
+  resultKeys: {
+    id: "categoryId" | "labelId";
+    name: "categoryName" | "labelName";
+  };
+};
+
+export const manageInboxTool = (options: InboxToolOptions) =>
+  isMicrosoftProvider(options.provider)
+    ? outlookManageInboxTool(options)
+    : gmailManageInboxTool(options);
+
+const outlookManageInboxTool = (options: InboxToolOptions) =>
+  buildManageInboxTool({
+    options,
+    inputSchema: outlookManageInboxInputSchema,
+    normalizeInput: normalizeOutlookManageInboxInput,
+    taxonomy: {
+      threadIdsRequiredError:
+        "threadIds is required when action is archive_threads, categorize_threads, or mark_read_threads",
+      labelNameRequiredError:
+        "categoryName is required when action is categorize_threads",
+      labelResolutionFallbackError: "Failed to resolve category",
+      missingLabelError: (name) =>
+        `Category "${name}" does not exist. Use createOrGetCategory first if you want to create it.`,
+      resultKeys: {
+        id: "categoryId",
+        name: "categoryName",
+      },
+    },
   });
-}
 
-export const manageInboxTool = ({
-  email,
-  emailAccountId,
-  provider,
-  logger,
+const gmailManageInboxTool = (options: InboxToolOptions) =>
+  buildManageInboxTool({
+    options,
+    inputSchema: gmailManageInboxInputSchema,
+    normalizeInput: normalizeGmailManageInboxInput,
+    taxonomy: {
+      threadIdsRequiredError:
+        "threadIds is required when action is archive_threads, label_threads, or mark_read_threads",
+      labelNameRequiredError:
+        "labelName is required when action is label_threads",
+      labelResolutionFallbackError: "Failed to resolve label",
+      missingLabelError: (name) =>
+        `Label "${name}" does not exist. Use createOrGetLabel first if you want to create it.`,
+      resultKeys: {
+        id: "labelId",
+        name: "labelName",
+      },
+    },
+  });
+
+const buildManageInboxTool = ({
+  options,
+  inputSchema,
+  normalizeInput,
+  taxonomy,
 }: {
-  email: string;
-  emailAccountId: string;
-  provider: string;
-  logger: Logger;
+  options: InboxToolOptions;
+  inputSchema: z.ZodType;
+  normalizeInput: (
+    input: Record<string, unknown>,
+  ) => NormalizedManageInboxInput;
+  taxonomy: ManageInboxTaxonomyConfig;
 }) => {
-  const inputSchema = manageInboxInputSchema(provider);
+  const { email, emailAccountId, provider, logger } = options;
 
   return tool({
     description:
@@ -975,10 +995,8 @@ export const manageInboxTool = ({
         return { error: errorMessage };
       }
 
-      const isOutlook = isMicrosoftProvider(provider);
-      const parsedInput = normalizeManageInboxInput(
-        parsedInputResult.data,
-        isOutlook,
+      const parsedInput = normalizeInput(
+        parsedInputResult.data as Record<string, unknown>,
       );
       const { action, labelName, label, originalAction } = parsedInput;
       const isSenderAction = requiresSenderEmails(action);
@@ -992,17 +1010,13 @@ export const manageInboxTool = ({
 
       if (requiresThreadIds(action) && !parsedInput.threadIds?.length) {
         return {
-          error: isOutlook
-            ? "threadIds is required when action is archive_threads, categorize_threads, or mark_read_threads"
-            : "threadIds is required when action is archive_threads, label_threads, or mark_read_threads",
+          error: taxonomy.threadIdsRequiredError,
         };
       }
 
       if (action === "label_threads" && !labelName) {
         return {
-          error: isOutlook
-            ? "categoryName is required when action is categorize_threads"
-            : "labelName is required when action is label_threads",
+          error: taxonomy.labelNameRequiredError,
         };
       }
 
@@ -1072,7 +1086,7 @@ export const manageInboxTool = ({
 
           return {
             success: true,
-            action: parsedInput.action,
+            action: originalAction,
             sendersCount: normalizedFromEmails.length,
             senders: normalizedFromEmails,
           };
@@ -1095,7 +1109,7 @@ export const manageInboxTool = ({
             resolvedThreadLabel = await resolveThreadLabel({
               emailProvider,
               labelName: labelName!,
-              provider,
+              missingLabelError: taxonomy.missingLabelError,
             });
           } catch (error) {
             logger.warn("Failed to resolve label for thread action", {
@@ -1106,9 +1120,7 @@ export const manageInboxTool = ({
               error:
                 error instanceof Error
                   ? error.message
-                  : isOutlook
-                    ? "Failed to resolve category"
-                    : "Failed to resolve label",
+                  : taxonomy.labelResolutionFallbackError,
             });
           }
         }
@@ -1149,21 +1161,14 @@ export const manageInboxTool = ({
 
         return {
           success: failedThreadIds.length === 0,
-          action: parsedInput.action,
+          action: originalAction,
           requestedCount: threadIds.length,
           successCount,
           failedCount: failedThreadIds.length,
           failedThreadIds,
           ...(resolvedThreadLabel && {
-            ...(isOutlook
-              ? {
-                  categoryId: resolvedThreadLabel.labelId,
-                  categoryName: resolvedThreadLabel.labelName,
-                }
-              : {
-                  labelId: resolvedThreadLabel.labelId,
-                  labelName: resolvedThreadLabel.labelName,
-                }),
+            [taxonomy.resultKeys.id]: resolvedThreadLabel.labelId,
+            [taxonomy.resultKeys.name]: resolvedThreadLabel.labelName,
           }),
         };
       } catch (error) {
@@ -1411,10 +1416,53 @@ function createPendingForwardEmailOutput(
   };
 }
 
+async function getLabelsForSearchResults({
+  emailProvider,
+  logger,
+}: {
+  emailProvider: EmailProvider;
+  logger: Logger;
+}) {
+  return emailProvider.getLabels().catch((error) => {
+    logger.warn("Failed to load labels for search results", { error });
+    return [] as Array<{ id: string; name: string }>;
+  });
+}
+
+type SearchMessagesResult = Awaited<
+  ReturnType<EmailProvider["searchMessages"]>
+>;
+
+function formatSearchInboxResult({
+  searchResult,
+  queryUsed,
+  labels,
+  taxonomyNamesKey,
+}: {
+  searchResult: SearchMessagesResult;
+  queryUsed: string;
+  labels: Array<{ id: string; name: string }>;
+  taxonomyNamesKey: "categoryNames" | "labelNames";
+}) {
+  const labelsById = createLabelLookupMap(labels);
+  const items = searchResult.messages.map((message) =>
+    mapMessageForSearchResult(message, labelsById, taxonomyNamesKey),
+  );
+
+  return {
+    queryUsed,
+    totalReturned: items.length,
+    nextPageToken: searchResult.nextPageToken,
+    hasMore: Boolean(searchResult.nextPageToken),
+    summary: summarizeSearchResults(items),
+    messages: items,
+  };
+}
+
 function mapMessageForSearchResult(
   message: ParsedMessage,
   labelsById: Map<string, string>,
-  provider: string,
+  taxonomyNamesKey: "categoryNames" | "labelNames",
 ) {
   const labelIds = message.labelIds || [];
   const labelNames = labelIds.map(
@@ -1433,9 +1481,7 @@ function mapMessageForSearchResult(
     to: message.headers.to,
     snippet: message.snippet,
     date: message.date,
-    ...(isMicrosoftProvider(provider)
-      ? { categoryNames: labelNames }
-      : { labelNames }),
+    [taxonomyNamesKey]: labelNames,
     category,
     isUnread,
     hasAttachments: Boolean(message.attachments?.length),
@@ -1519,6 +1565,124 @@ function createLabelLookupMap(labels: Array<{ id: string; name: string }>) {
 
 type OutlookReadState = "read" | "unread";
 
+async function runOutlookSearch({
+  emailProvider,
+  normalizedInput,
+  limit,
+  pageToken,
+  logger,
+}: {
+  emailProvider: EmailProvider;
+  normalizedInput: NormalizedOutlookSearchInput;
+  limit?: number;
+  pageToken?: string | null;
+  logger: Logger;
+}): Promise<{
+  result?: SearchMessagesResult;
+  queryUsed: string;
+  lastError?: unknown;
+  failures: Array<{ query: string; error: unknown }>;
+}> {
+  const searchQueries = [normalizedInput.query];
+  const fallbackQuery = buildOutlookSearchFallbackQuery(normalizedInput.query);
+  if (fallbackQuery) searchQueries.push(fallbackQuery);
+
+  let result: SearchMessagesResult | undefined;
+  let queryUsed = normalizedInput.query;
+  let lastError: unknown;
+  const failures: Array<{ query: string; error: unknown }> = [];
+
+  for (let i = 0; i < searchQueries.length; i++) {
+    const candidateQuery = searchQueries[i];
+    try {
+      result = await emailProvider.searchMessages({
+        query: candidateQuery,
+        maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
+        pageToken: pageToken ?? undefined,
+        readState: normalizedInput.readState ?? undefined,
+        labelName: normalizedInput.categoryName ?? undefined,
+      });
+      queryUsed = candidateQuery;
+      break;
+    } catch (error) {
+      lastError = error;
+      failures.push({ query: candidateQuery, error });
+      if (i === searchQueries.length - 1) break;
+
+      logger.warn("Search query failed; retrying with Outlook fallback", {
+        query: candidateQuery,
+        fallbackQuery: searchQueries[i + 1],
+        error,
+      });
+    }
+  }
+
+  if (!result) {
+    return { queryUsed, lastError, failures };
+  }
+
+  result = await skipEmptyOutlookSearchPages({
+    emailProvider,
+    searchResult: result,
+    queryUsed,
+    limit,
+    readState: normalizedInput.readState,
+    categoryName: normalizedInput.categoryName,
+  });
+
+  if (
+    normalizedInput.fallbackQuery &&
+    !pageToken &&
+    result.messages.length === 0 &&
+    !result.nextPageToken
+  ) {
+    result = await emailProvider.searchMessages({
+      query: normalizedInput.fallbackQuery,
+      maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
+      readState: normalizedInput.readState ?? undefined,
+    });
+    queryUsed = normalizedInput.fallbackQuery;
+  }
+
+  return { result, queryUsed, failures };
+}
+
+async function skipEmptyOutlookSearchPages({
+  emailProvider,
+  searchResult,
+  queryUsed,
+  limit,
+  readState,
+  categoryName,
+}: {
+  emailProvider: EmailProvider;
+  searchResult: SearchMessagesResult;
+  queryUsed: string;
+  limit?: number;
+  readState?: OutlookReadState | null;
+  categoryName?: string | null;
+}) {
+  let result = searchResult;
+  let emptyPageSkips = 0;
+
+  while (
+    result.messages.length === 0 &&
+    result.nextPageToken &&
+    emptyPageSkips < OUTLOOK_EMPTY_PAGE_AUTOPAGINATION_LIMIT
+  ) {
+    emptyPageSkips += 1;
+    result = await emailProvider.searchMessages({
+      query: queryUsed,
+      maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
+      pageToken: result.nextPageToken,
+      readState: readState ?? undefined,
+      labelName: categoryName ?? undefined,
+    });
+  }
+
+  return result;
+}
+
 type NormalizedOutlookSearchInput = {
   query: string;
   readState?: OutlookReadState | null;
@@ -1587,10 +1751,14 @@ function inferOutlookReadStateFromQuery(
 }
 
 function getOutlookFieldScopeCandidate(query: string) {
-  const match = OUTLOOK_SCOPE_FIELD_PATTERN.exec(query.trim());
-  if (!match) return null;
+  const normalizedQuery = query.trim();
+  const colonIndex = normalizedQuery.indexOf(":");
+  if (colonIndex === -1) return null;
 
-  return stripOutlookScopeDecorators(match[1] ?? match[2] ?? match[3] ?? "");
+  const field = normalizedQuery.slice(0, colonIndex).trim().toLowerCase();
+  if (field !== "category" && field !== "folder") return null;
+
+  return stripOutlookScopeDecorators(normalizedQuery.slice(colonIndex + 1));
 }
 
 function getOutlookScopeCandidate(query: string) {
@@ -1606,19 +1774,54 @@ function getOutlookScopeCandidate(query: string) {
 
 function hasOutlookTextSearchSyntax(query: string) {
   return (
-    OUTLOOK_TEXT_SEARCH_SYNTAX_PATTERN.test(query) ||
+    hasOutlookSearchOperatorCharacters(query) ||
+    splitOutlookScopeWords(query).some((word) =>
+      OUTLOOK_BOOLEAN_OPERATORS.has(word.toUpperCase()),
+    ) ||
     getOutlookComparisonFilters(query).length > 0
   );
 }
 
+function hasOutlookSearchOperatorCharacters(query: string) {
+  return Array.from(query).some((char) =>
+    ["@", ":", "<", ">", "=", "{", "}", "[", "]", "|"].includes(char),
+  );
+}
+
 function stripOutlookScopeDecorators(value: string) {
+  const words = splitOutlookScopeWords(stripWrappingQuotes(value));
+  const lastWord = words.at(-1)?.toLowerCase();
+
+  if (lastWord && OUTLOOK_SCOPE_SUFFIX_TERMS.has(lastWord)) {
+    words.pop();
+  }
+
+  return words.join(" ").trim();
+}
+
+function stripWrappingQuotes(value: string) {
+  const normalized = value.trim();
+  const firstChar = normalized.at(0);
+  const lastChar = normalized.at(-1);
+
+  if (
+    normalized.length >= 2 &&
+    firstChar &&
+    firstChar === lastChar &&
+    (firstChar === '"' || firstChar === "'")
+  ) {
+    return normalized.slice(1, -1).trim();
+  }
+
+  return normalized;
+}
+
+function splitOutlookScopeWords(value: string) {
   return value
-    .replace(/^["']|["']$/g, "")
-    .replace(OUTLOOK_SCOPE_DECORATOR_PATTERN, "")
-    .replace(/\s+/g, " ")
     .trim()
-    .replace(OUTLOOK_SCOPE_PREFIX_PATTERN, "")
-    .trim();
+    .split(/\s+/)
+    .map((word) => word.replace(/^[()]+|[()]+$/g, ""))
+    .filter(Boolean);
 }
 
 async function runThreadActionsInParallel({
@@ -1680,20 +1883,16 @@ async function applyLabelToThread({
 async function resolveThreadLabel({
   emailProvider,
   labelName,
-  provider,
+  missingLabelError,
 }: {
   emailProvider: EmailProvider;
   labelName: string;
-  provider: string;
+  missingLabelError: (name: string) => string;
 }) {
   const existingLabel = await emailProvider.getLabelByName(labelName);
 
   if (!existingLabel) {
-    throw new Error(
-      isMicrosoftProvider(provider)
-        ? `Category "${labelName}" does not exist. Use createOrGetCategory first if you want to create it.`
-        : `Label "${labelName}" does not exist. Use createOrGetLabel first if you want to create it.`,
-    );
+    throw new Error(missingLabelError(labelName));
   }
 
   return {
@@ -2093,9 +2292,23 @@ type NormalizedManageInboxInput = {
   fromEmails?: string[] | null;
 };
 
-function normalizeManageInboxInput(
+function normalizeGmailManageInboxInput(
   parsed: Record<string, unknown>,
-  isOutlook: boolean,
+): NormalizedManageInboxInput {
+  const originalAction = parsed.action as string;
+  return {
+    action: originalAction as ManageInboxAction,
+    originalAction,
+    threadIds: parsed.threadIds as string[] | null | undefined,
+    label: parsed.label as string | null | undefined,
+    labelName: parsed.labelName as string | null | undefined,
+    read: parsed.read as boolean | null | undefined,
+    fromEmails: parsed.fromEmails as string[] | null | undefined,
+  };
+}
+
+function normalizeOutlookManageInboxInput(
+  parsed: Record<string, unknown>,
 ): NormalizedManageInboxInput {
   const originalAction = parsed.action as string;
   const action: ManageInboxAction =
@@ -2107,14 +2320,8 @@ function normalizeManageInboxInput(
     action,
     originalAction,
     threadIds: parsed.threadIds as string[] | null | undefined,
-    label: (isOutlook ? parsed.category : parsed.label) as
-      | string
-      | null
-      | undefined,
-    labelName: (isOutlook ? parsed.categoryName : parsed.labelName) as
-      | string
-      | null
-      | undefined,
+    label: parsed.category as string | null | undefined,
+    labelName: parsed.categoryName as string | null | undefined,
     read: parsed.read as boolean | null | undefined,
     fromEmails: parsed.fromEmails as string[] | null | undefined,
   };
