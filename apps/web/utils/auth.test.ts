@@ -308,3 +308,51 @@ describe("handleLinkAccount", () => {
     expect(prisma.emailAccount.findUnique).not.toHaveBeenCalled();
   });
 });
+
+describe("betterAuthConfig — NEXT_PUBLIC_LOGIN_PROVIDERS gating", () => {
+  // Mirrors cubic-dev-ai's request on #2634: verify that excluded providers
+  // never reach the better-auth backend config, not just the UI.
+  // We mock @/app/(landing)/login/login-providers to control the allowlist
+  // and then dynamically re-import @/utils/auth so its top-level reads of
+  // getEnabledLoginProviders() see the mocked value.
+  async function importAuthWith(
+    enabled: ReadonlyArray<"google" | "microsoft" | "apple" | "sso">,
+  ): Promise<any> {
+    vi.resetModules();
+    vi.doMock("@/app/(landing)/login/login-providers", () => ({
+      getEnabledLoginProviders: () => new Set(enabled),
+      isLoginProviderEnabled: (p: string) =>
+        (enabled as readonly string[]).includes(p),
+    }));
+    const mod = await import("@/utils/auth");
+    return (mod.betterAuthConfig as any).options;
+  }
+
+  it("excludes google from socialProviders when 'google' is not in allowlist", async () => {
+    const options = await importAuthWith(["microsoft", "apple", "sso"]);
+    expect(options.socialProviders.google).toBeUndefined();
+  });
+
+  it("excludes microsoft from socialProviders when 'microsoft' is not in allowlist", async () => {
+    const options = await importAuthWith(["google", "apple", "sso"]);
+    expect(options.socialProviders.microsoft).toBeUndefined();
+  });
+
+  it("excludes apple from socialProviders when 'apple' is not in allowlist", async () => {
+    const options = await importAuthWith(["google", "microsoft", "sso"]);
+    expect(options.socialProviders.apple).toBeUndefined();
+  });
+
+  it("registers fewer plugins when 'sso' is not in allowlist", async () => {
+    const withSso = await importAuthWith(["google", "microsoft", "apple", "sso"]);
+    const withoutSso = await importAuthWith(["google", "microsoft", "apple"]);
+    expect(withoutSso.plugins.length).toBe(withSso.plugins.length - 1);
+  });
+
+  it("excludes all social providers when allowlist is sso-only", async () => {
+    const options = await importAuthWith(["sso"]);
+    expect(options.socialProviders.google).toBeUndefined();
+    expect(options.socialProviders.microsoft).toBeUndefined();
+    expect(options.socialProviders.apple).toBeUndefined();
+  });
+});
