@@ -5,7 +5,6 @@ import type {
   CreateOrUpdateRuleSchema,
 } from "@/utils/ai/rule/create-rule-schema";
 import { posthogCaptureEvent } from "@/utils/posthog";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
 
@@ -14,6 +13,45 @@ export const emptyInputSchema = z.object({});
 const RULE_READ_FRESHNESS_WINDOW_MS = 2 * 60 * 1000;
 const RULE_NOT_FOUND_ERROR =
   "Rule not found. Try listing the rules again. The user may have made changes since you last checked.";
+
+type RuleActionFieldValues = {
+  content?: string | null;
+  to?: string | null;
+  subject?: string | null;
+  label?: string | null;
+  webhookUrl?: string | null;
+  cc?: string | null;
+  bcc?: string | null;
+  folderName?: string | null;
+};
+
+const providerRuleActionFieldBuilders: Record<
+  string,
+  (fields: RuleActionFieldValues) => RuleActionFieldValues
+> = {
+  microsoft: (fields) => ({
+    folderName: fields.folderName ?? null,
+  }),
+};
+
+export function buildProviderRuleActionFields({
+  provider,
+  fields,
+}: {
+  provider: string;
+  fields: RuleActionFieldValues;
+}): RuleActionFieldValues {
+  return {
+    content: fields.content ?? null,
+    to: fields.to ?? null,
+    subject: fields.subject ?? null,
+    label: fields.label ?? null,
+    webhookUrl: fields.webhookUrl ?? null,
+    cc: fields.cc ?? null,
+    bcc: fields.bcc ?? null,
+    ...(providerRuleActionFieldBuilders[provider]?.(fields) ?? {}),
+  };
+}
 
 export function buildCreateRuleSchemaFromChatToolInput(
   input: z.infer<ReturnType<typeof createRuleSchema>>,
@@ -25,18 +63,7 @@ export function buildCreateRuleSchemaFromChatToolInput(
     actions: input.actions.map((action) => ({
       type: action.type,
       fields: action.fields
-        ? {
-            content: action.fields.content ?? null,
-            to: action.fields.to ?? null,
-            subject: action.fields.subject ?? null,
-            label: action.fields.label ?? null,
-            webhookUrl: action.fields.webhookUrl ?? null,
-            cc: action.fields.cc ?? null,
-            bcc: action.fields.bcc ?? null,
-            ...(isMicrosoftProvider(provider) && {
-              folderName: action.fields.folderName ?? null,
-            }),
-          }
+        ? buildProviderRuleActionFields({ provider, fields: action.fields })
         : null,
       delayInMinutes: null,
     })),

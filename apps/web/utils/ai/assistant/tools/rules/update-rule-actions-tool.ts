@@ -5,10 +5,10 @@ import prisma from "@/utils/prisma";
 import { filterNullProperties } from "@/utils";
 import { createRuleActionSchema } from "@/utils/ai/rule/create-rule-schema";
 import { updateRuleActions } from "@/utils/rule/rule";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
 import {
+  buildProviderRuleActionFields,
   buildHiddenRuleNotFoundError,
   trackRuleToolCall,
   validateRuleWasReadRecently,
@@ -99,18 +99,21 @@ export const updateRuleActionsTool = ({
 
         const originalActions = rule.actions.map((action) => ({
           type: action.type,
-          fields: filterNullProperties({
-            label: action.label,
-            content: action.content,
-            to: action.to,
-            cc: action.cc,
-            bcc: action.bcc,
-            subject: action.subject,
-            webhookUrl: action.url,
-            ...(isMicrosoftProvider(provider) && {
-              folderName: action.folderName,
+          fields: filterNullProperties(
+            buildProviderRuleActionFields({
+              provider,
+              fields: {
+                label: action.label,
+                content: action.content,
+                to: action.to,
+                cc: action.cc,
+                bcc: action.bcc,
+                subject: action.subject,
+                webhookUrl: action.url,
+                folderName: action.folderName,
+              },
             }),
-          }),
+          ),
           delayInMinutes: action.delayInMinutes,
         }));
 
@@ -118,18 +121,10 @@ export const updateRuleActionsTool = ({
           ruleId: rule.id,
           actions: actions.map((action) => ({
             type: action.type,
-            fields: {
-              label: action.fields?.label ?? null,
-              to: action.fields?.to ?? null,
-              cc: action.fields?.cc ?? null,
-              bcc: action.fields?.bcc ?? null,
-              subject: action.fields?.subject ?? null,
-              content: action.fields?.content ?? null,
-              webhookUrl: action.fields?.webhookUrl ?? null,
-              ...(isMicrosoftProvider(provider) && {
-                folderName: action.fields?.folderName ?? null,
-              }),
-            },
+            fields: buildProviderRuleActionFields({
+              provider,
+              fields: action.fields ?? {},
+            }),
             delayInMinutes: action.delayInMinutes ?? null,
           })),
           provider,

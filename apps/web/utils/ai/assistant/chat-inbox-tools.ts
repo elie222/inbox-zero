@@ -41,7 +41,6 @@ import {
   type AutomaticUnsubscribeResult,
   unsubscribeSenderAndMark,
 } from "@/utils/senders/unsubscribe";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import {
   getCategorizationProgress,
   getCategorizationStatusSnapshot,
@@ -155,10 +154,16 @@ type InboxToolOptions = {
   logger: Logger;
 };
 
-export const getAccountOverviewTool = (options: InboxToolOptions) =>
-  isMicrosoftProvider(options.provider)
-    ? outlookAccountOverviewTool(options)
-    : gmailAccountOverviewTool(options);
+type ProviderToolFactory<T> = (options: InboxToolOptions) => T;
+
+function resolveProviderToolFactory<T>(
+  provider: string,
+  factories: Record<string, ProviderToolFactory<T>> & {
+    google: ProviderToolFactory<T>;
+  },
+) {
+  return factories[provider] ?? factories.google;
+}
 
 const outlookAccountOverviewTool = (options: InboxToolOptions) =>
   accountOverviewTool({
@@ -175,6 +180,14 @@ const gmailAccountOverviewTool = (options: InboxToolOptions) =>
     description:
       "Get account context for inbox operations such as provider details, label context, meeting-brief settings, and attachment-filing settings.",
   });
+
+const accountOverviewTools = {
+  google: gmailAccountOverviewTool,
+  microsoft: outlookAccountOverviewTool,
+};
+
+export const getAccountOverviewTool = (options: InboxToolOptions) =>
+  resolveProviderToolFactory(options.provider, accountOverviewTools)(options);
 
 const accountOverviewTool = ({
   email,
@@ -528,11 +541,6 @@ const outlookSearchInboxInputSchema = z
     },
   );
 
-export const searchInboxTool = (options: InboxToolOptions) =>
-  isMicrosoftProvider(options.provider)
-    ? outlookSearchInboxTool(options)
-    : gmailSearchInboxTool(options);
-
 const gmailSearchInboxTool = ({
   email,
   emailAccountId,
@@ -643,6 +651,14 @@ const outlookSearchInboxTool = ({
       }
     },
   });
+
+const searchInboxTools = {
+  google: gmailSearchInboxTool,
+  microsoft: outlookSearchInboxTool,
+};
+
+export const searchInboxTool = (options: InboxToolOptions) =>
+  resolveProviderToolFactory(options.provider, searchInboxTools)(options);
 
 export type SearchInboxTool = InferUITool<ReturnType<typeof searchInboxTool>>;
 
@@ -928,11 +944,6 @@ type ManageInboxTaxonomyConfig = {
   };
 };
 
-export const manageInboxTool = (options: InboxToolOptions) =>
-  isMicrosoftProvider(options.provider)
-    ? outlookManageInboxTool(options)
-    : gmailManageInboxTool(options);
-
 const outlookManageInboxTool = (options: InboxToolOptions) =>
   buildManageInboxTool({
     options,
@@ -972,6 +983,14 @@ const gmailManageInboxTool = (options: InboxToolOptions) =>
       },
     },
   });
+
+const manageInboxTools = {
+  google: gmailManageInboxTool,
+  microsoft: outlookManageInboxTool,
+};
+
+export const manageInboxTool = (options: InboxToolOptions) =>
+  resolveProviderToolFactory(options.provider, manageInboxTools)(options);
 
 const buildManageInboxTool = ({
   options,

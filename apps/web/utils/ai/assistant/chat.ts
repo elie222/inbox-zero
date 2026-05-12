@@ -35,15 +35,8 @@ import {
   sendEmailTool,
   startSenderCategorizationTool,
 } from "./chat-inbox-tools";
-import {
-  createOrGetCategoryTool,
-  createOrGetLabelTool,
-  listCategoriesTool,
-  listLabelsTool,
-} from "./chat-label-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
 import { getCalendarEventsTool } from "./chat-calendar-tools";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 import type { SerializedMatchReason } from "@/utils/ai/choose-rule/types";
 import {
@@ -53,6 +46,7 @@ import {
   loadAssistantRuleSnapshot,
   type RuleReadState,
 } from "./chat-rule-state";
+import { getAssistantChatProvider } from "./chat-provider-shared";
 
 export const maxDuration = 120;
 const ASSISTANT_CHAT_MAX_STEPS = 25;
@@ -136,6 +130,7 @@ export async function aiProcessAssistantChat({
     getRuleReadState: () => ruleReadState,
     onRulesStateExposed,
   };
+  const providerPolicy = getAssistantChatProvider(user.account.provider);
 
   let freshRuleContextMessage: ModelMessage[] = [];
 
@@ -274,17 +269,7 @@ export async function aiProcessAssistantChat({
     getCalendarEvents: getCalendarEventsTool(toolOptions),
     // Attachments
     readAttachment: readAttachmentTool(toolOptions),
-    ...(isMicrosoftProvider(user.account.provider)
-      ? {
-          // Categories
-          listCategories: listCategoriesTool(toolOptions),
-          createOrGetCategory: createOrGetCategoryTool(toolOptions),
-        }
-      : {
-          // Labels
-          listLabels: listLabelsTool(toolOptions),
-          createOrGetLabel: createOrGetLabelTool(toolOptions),
-        }),
+    ...providerPolicy.getTaxonomyTools(toolOptions),
     // Settings
     updateAssistantSettings: updateAssistantSettingsTool(toolOptions),
     // Memory
@@ -643,71 +628,6 @@ function getEmailCapabilitiesPolicy({
   );
 }
 
-function getProviderSearchSyntaxPolicy(provider: string) {
-  if (isMicrosoftProvider(provider)) {
-    return `Provider search syntax:
-- Use Outlook search syntax with keyword search, unread/read, and simple subject: filters.
-- Prefer a plain sender email like \`person@example.com\` over \`from:\` when searching by sender.
-- If you use \`from:\` or \`to:\`, keep it as a simple standalone filter instead of combining extra terms after the field value.
-- Keep Outlook queries to one simple clause whenever possible. Do not mix sender, unread/read, date, and subject constraints into one retry.
-- Use searchInbox structured fields for category/folder scope and read state; use query for sender, subject, body text, or date/age filters.
-- Do not use Gmail-specific operators.`;
-  }
-
-  return `Provider search syntax:
-- Use Gmail search syntax: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, and older_than:.`;
-}
-
-function getProviderInboxTriagePolicy(provider: string) {
-  if (isMicrosoftProvider(provider)) {
-    return `Provider inbox defaults:
-- For inbox triage summaries, include the literal token \`unread\` in the query unless the user asks to include read messages. Do not add unread/read to direct cleanup action searches unless the user asks for that read state.
-- For reply triage, use plain reply-focused search terms like \`reply OR respond OR subject:"question" OR subject:"approval"\`. Do not use Gmail-only operators.
-- For retroactive cleanup sampling, keyword queries like "newsletter", "promotion", or "unsubscribe" are useful.`;
-  }
-
-  return `Provider inbox defaults:
-- For inbox triage, default to \`is:unread\` unless the user asks to include read messages.
-- For reply triage, do not rely only on unread; include reply-needed signals like \`label:"To Reply"\` when helpful.
-- For retroactive cleanup sampling, category filters like \`category:promotions\`, \`category:updates\`, or \`category:social\` are useful.`;
-}
-
-function getProviderThreadActionPolicy(provider: string) {
-  return isMicrosoftProvider(provider)
-    ? "archive, trash, categorize, mark read"
-    : "archive, trash, label, mark read";
-}
-
-function getProviderMissingContextPolicy(provider: string) {
-  return isMicrosoftProvider(provider)
-    ? "If categories or folders are missing"
-    : "If labels are missing";
-}
-
-function getProviderRuleSuggestionPolicy(provider: string) {
-  const isOutlook = isMicrosoftProvider(provider);
-  const taxonomyPlural = isOutlook ? "categories and folders" : "labels";
-  const taxonomyEntity = isOutlook ? "category or folder" : "label";
-  const taxonomyShort = isOutlook ? "categories/folders" : "labels";
-  const taxonomyOnly = isOutlook ? "category-only" : "label-only";
-  const actionEncoding = isOutlook
-    ? "boolean actions in archive/draft/markread, the notification provider in notify, and use do for category/folder actions or any action that cannot be represented by those attributes"
-    : "the label in label, boolean actions in archive/draft/markread, the notification provider in notify, and use do only for an action that cannot be represented by those attributes";
-
-  return `Rule suggestions:
-- When the user asks for rules to add, call getUserRulesAndSettings first, then inspect enough inbox evidence to find recurring patterns; avoid duplicates.
-- Suggest only high-value recurring patterns that save time, reduce repeated decisions, or protect important messages. Skip one-off or short-lived patterns unless the user asks to automate them.
-- Treat existing ${taxonomyPlural} as context, not a constraint. If a pattern deserves its own workflow, suggest a clear new ${taxonomyEntity}; do not squeeze it into a broad existing ${taxonomyEntity} just because it already exists.
-- Each suggested action must materially change what happens to those emails. Avoid ${taxonomyOnly} rules for low-priority mail; pair low-priority categories with archive, mark read, or skip the suggestion. Do not draft replies for broad support categories unless the evidence shows a repeatable standard response.
-- Do not group unrelated platforms or vendors into one rule just because they are alerts. Only combine senders when the same action is safe for all of them; messages about failures, submissions, billing, security, or customer impact usually need more careful handling than archive-as-notification.
-- Keep it short and human: choose a final set of 2-3 rules when the inbox shows multiple strong recurring patterns; choose only 1 when there is truly only one high-confidence opportunity. Avoid spec-style headings like "Condition", "Action", "Evidence", or "Why these?".
-- Choose actions and ${taxonomyShort} that match the workflow, and use broad ${taxonomyShort} only when they genuinely fit.
-- For notification actions, set notify to the exact provider name from ruleNotificationDestinations. If no destination is listed, do not include notify; ask which destination to use instead. Never say "chat app".
-- Use <rule-suggestions> with exactly one self-contained <rule-suggestion /> for each rule in that final set. Put the condition in when, ${actionEncoding}. These render as rule cards. Do not mention additional rule ideas outside the cards.
-- Ask one focused calibration question when priority/action is unclear, especially about important messages that should be protected or surfaced. The question should refine the next step, not replace high-confidence rule cards.
-- Do not create a rule until the user confirms the exact rule and action.`;
-}
-
 export function buildResolvedSystemPrompt({
   emailSendToolsEnabled,
   draftReplyActionsEnabled,
@@ -727,6 +647,7 @@ export function buildResolvedSystemPrompt({
   userTimezone: string;
   currentTimestamp: string;
 }) {
+  const providerPolicy = getAssistantChatProvider(provider);
   const sections = [
     "You are the Inbox Zero assistant. You help users understand their inbox, take inbox actions, update account features, and manage automation rules.",
     `Core responsibilities:
@@ -762,7 +683,7 @@ export function buildResolvedSystemPrompt({
 - Memory requests have three possible outcomes. If saveMemory returned saved=true, say the memory is saved. If saveMemory returned requiresConfirmation=true, say it still needs UI confirmation before it is saved. If no memory write tool was called or the tool failed, say nothing changed or ask for the missing detail.
 - Match your response to the actual memory outcome. Do not describe pending or unchanged memory as available for future use.`,
     `Write and confirmation policy:
-- When the user gives a direct inbox action request (${getProviderThreadActionPolicy(provider)}), search for the relevant threads and then execute the action using the returned threadIds. The user's request is the confirmation — do not stop after searching to summarize or ask for permission.
+- When the user gives a direct inbox action request (${providerPolicy.threadActionPolicy}), search for the relevant threads and then execute the action using the returned threadIds. The user's request is the confirmation — do not stop after searching to summarize or ask for permission.
 - For delete or trash requests, use trash_threads on matching threadIds; do not use sender-wide archive actions.
 - Do not expand a request for the threads shown or found in this turn into a broader sender-level or category-level cleanup on your own. If broader scope is only inferred from a search sample rather than clearly requested, ask one brief confirmation before writing.
 - For ambiguous requests where the intent is unclear (archive vs trash vs mark read), ask a brief clarification question before writing.
@@ -783,20 +704,20 @@ export function buildResolvedSystemPrompt({
     `Provider context:
 - Current provider: ${provider}.
 - User timezone: ${userTimezone}. Current timestamp: ${currentTimestamp}. Resolve relative dates like today, tomorrow, this afternoon, Monday, or Friday from this timezone before calling calendar or inbox date-range tools.`,
-    getProviderSearchSyntaxPolicy(provider),
+    providerPolicy.searchSyntaxPolicy,
     `Search strategy:
 - If the user names a sender or brand but the actual email address is not known yet, search first, inspect the returned \`from\` values, and then refine with \`from:\` before writing when needed.
 - When the sender or domain is known, prefer the provider's sender-focused syntax over a broad bare keyword.`,
-    getProviderInboxTriagePolicy(provider),
+    providerPolicy.inboxTriagePolicy,
     `Inbox workflows:
 - For inbox updates, "what came in today?", or recent-attention requests, search first with a tight time range in the user's timezone, then summarize into must handle now, can wait, and can archive or mark read.
-- Prioritize "To Reply" items as must handle. ${getProviderMissingContextPolicy(provider)}, infer urgency from sender, subject, and snippet.
+- Prioritize "To Reply" items as must handle. ${providerPolicy.missingContextPolicy}, infer urgency from sender, subject, and snippet.
 - For retroactive cleanup requests, use the inbox stats in context plus a search sample to understand the scale, read or unread ratio, and clutter, then recommend one next action.
 - For low-priority repeated senders, you may suggest bulk archive by sender as an option, but default to archiving the specific threads shown.
 - For all-matching cleanup, paginate searchInbox until hasMore=false, collect matching threadIds across pages, then write in batches.
 - Do not turn one-time cleanup into a recurring rule unless the user asks for automation.
 - For ongoing sender-level batch cleanup, once the user confirms the category, continue subsequent batches without re-asking.`,
-    getProviderRuleSuggestionPolicy(provider),
+    providerPolicy.ruleSuggestionPolicy,
     `Rules and automation:
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - Prefer updating an existing rule over creating an overlapping duplicate. Do not create semantic duplicates like "Notification" and "Notifications".
@@ -820,7 +741,7 @@ export function buildResolvedSystemPrompt({
 - If you are unable to complete a requested action, say so and explain why.
 - Keep responses concise by default.
 - Don't tell the user which tools you're using. The tools you use will be displayed in the UI anyway.
-- Never show internal IDs like threadId, messageId, or ${isMicrosoftProvider(provider) ? "categoryId" : "labelId"} to the user. These are for tool calls only.`,
+- Never show internal IDs like threadId, messageId, or ${providerPolicy.hiddenTaxonomyIdName} to the user. These are for tool calls only.`,
     getFormattingRules(responseSurface),
   ];
 
