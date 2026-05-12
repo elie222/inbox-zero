@@ -81,6 +81,30 @@ import { withOutlookRetry } from "@/utils/outlook/retry";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 
+/**
+ * Strip Gmail-style query prefixes (e.g. `from:"John Doe"`, `subject:foo`,
+ * `participants:bar@baz.com`) so the remaining text can be passed to
+ * Microsoft Graph `$search`, which does not support field-specific syntax
+ * and rejects raw colons with `Syntax error: character ':' is not valid`.
+ *
+ * This is intentionally lossy: the resulting query searches subject + body
+ * rather than the specific field. Callers that need exact field filtering
+ * should use `$filter` paths that don't combine with `$search`.
+ */
+export function stripGmailPrefixes(query: string): string {
+  return query
+    .replace(
+      /\b(subject|from|to|label|participants):(?:"[^"]*"|\S+)/gi,
+      (match) => {
+        const colonIndex = match.indexOf(":");
+        const value = match.slice(colonIndex + 1);
+        return value.replace(/^"|"$/g, "");
+      },
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
   private readonly client: OutlookClient;
@@ -1049,29 +1073,6 @@ export class OutlookProvider implements EmailProvider {
       query: options.query,
     });
 
-    // IMPORTANT: This is intentionally lossy!
-    // Gmail-style prefixes like "subject:" can't be translated to Microsoft Graph because:
-    // 1. $filter with contains(subject, ...) can't be combined with $search or date filters
-    //    (causes "InefficientFilter" error)
-    // 2. $search doesn't support field-specific syntax like "subject:term"
-    //
-    // We strip the prefixes and use plain $search which searches subject AND body.
-    // This is broader than intended but still finds relevant messages.
-    // If subject-specific search is needed in the future, add a dedicated method
-    // that uses only $filter without $search or date filters.
-    function stripGmailPrefixes(query: string): string {
-      return query
-        .replace(/\b(subject|from|to|label):(?:"[^"]*"|\S+)/gi, (match) => {
-          // Extract the value without the prefix for searching
-          const colonIndex = match.indexOf(":");
-          const value = match.slice(colonIndex + 1);
-          // Remove quotes if present
-          return value.replace(/^"|"$/g, "");
-        })
-        .replace(/\s+/g, " ")
-        .trim();
-    }
-
     const searchQuery = stripGmailPrefixes(options.query || "");
 
     let inboxFolderId: string | undefined;
@@ -1135,10 +1136,15 @@ export class OutlookProvider implements EmailProvider {
     readState?: "read" | "unread";
     labelName?: string;
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
+    // Strip Gmail-style prefixes (e.g. `from:"Foo"`) that Microsoft Graph $search
+    // rejects with `Syntax error: character ':' is not valid`. See microsoft.ts
+    // module-level `stripGmailPrefixes` for details.
+    const searchQuery = stripGmailPrefixes(options.query || "");
+
     const response = await queryBatchMessages(
       this.client,
       {
-        searchQuery: options.query,
+        searchQuery,
         maxResults: options.maxResults || 20,
         pageToken: options.pageToken,
         readState: options.readState,
@@ -1213,8 +1219,13 @@ export class OutlookProvider implements EmailProvider {
     // (e.g. `toRecipients/any(...)`) and will error with:
     // "The query filter contains one or more invalid nodes."
     //
+    // Microsoft Graph $search does not support KQL field-specific syntax like
+    // `participants:foo@bar.com` (it errors with `Syntax error: character ':'
+    // is not valid`). We pass the bare sanitized email as a plain $search term
+    // and rely on `filterMessagesForParticipant` below to narrow down to
+    // messages where the address is actually a participant.
     const sanitizedEmail = sanitizeKqlValue(participantEmail);
-    const searchQuery = `participants:${sanitizedEmail}`;
+    const searchQuery = sanitizedEmail;
 
     const { messages, nextPageToken } = await queryBatchMessages(
       this.client,
