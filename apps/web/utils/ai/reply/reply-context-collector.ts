@@ -1,5 +1,7 @@
 import { tool } from "ai";
 import { subMonths } from "date-fns/subMonths";
+import uniq from "lodash/uniq";
+import uniqBy from "lodash/uniqBy";
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { createGenerateText } from "@/utils/llms";
@@ -11,6 +13,10 @@ import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { captureException } from "@/utils/error";
 import { getEmailListPrompt, getUserInfoPrompt } from "@/utils/ai/helpers";
+
+type ReplyContextThreadEmail = EmailForLLM & {
+  threadId?: string | null;
+};
 
 const logger = createScopedLogger("reply-context-collector");
 const SEARCH_RESULTS_PER_QUERY = 20;
@@ -206,7 +212,7 @@ export async function searchReplyContextEmails({
   query: string;
   after: Date;
   currentThread: ReplyContextThreadEmail[];
-}) {
+}): Promise<EmailForLLM[]> {
   const { messages } = await emailProvider.getMessagesWithPagination({
     query,
     maxResults: SEARCH_RESULTS_PER_QUERY,
@@ -217,7 +223,7 @@ export async function searchReplyContextEmails({
     messages,
     currentThread,
   );
-  const threadIds = getUniqueThreadIds(historicalMatches).slice(
+  const threadIds = uniq(historicalMatches.map((m) => m.threadId)).slice(
     0,
     MAX_EXPANDED_THREADS_PER_QUERY,
   );
@@ -236,8 +242,9 @@ export async function searchReplyContextEmails({
     ),
   );
 
-  return dedupeMessages(
+  return uniqBy(
     filterCurrentThreadMessages(threadMessages.flat(), currentThread),
+    "id",
   )
     .slice(0, MAX_EXPANDED_EMAILS_PER_QUERY)
     .map((message) => getEmailForLLM(message, { maxLength: 2000 }));
@@ -251,7 +258,7 @@ async function getHistoricalThreadMessages({
   emailProvider: EmailProvider;
   threadId: string;
   fallbackMessages: ParsedMessage[];
-}) {
+}): Promise<ParsedMessage[]> {
   try {
     return await emailProvider.getThreadMessages(threadId);
   } catch (error) {
@@ -268,9 +275,7 @@ function filterCurrentThreadMessages(
   messages: ParsedMessage[],
   currentThread: ReplyContextThreadEmail[],
 ) {
-  const currentMessageIds = new Set(
-    currentThread.map((message) => message.id).filter(Boolean),
-  );
+  const currentMessageIds = new Set(currentThread.map((message) => message.id));
   const currentThreadIds = new Set(
     currentThread
       .map((message) => message.threadId)
@@ -283,30 +288,3 @@ function filterCurrentThreadMessages(
       !currentThreadIds.has(message.threadId),
   );
 }
-
-function dedupeMessages(messages: ParsedMessage[]) {
-  const seenMessageIds = new Set<string>();
-
-  return messages.filter((message) => {
-    if (seenMessageIds.has(message.id)) return false;
-    seenMessageIds.add(message.id);
-    return true;
-  });
-}
-
-function getUniqueThreadIds(messages: ParsedMessage[]) {
-  const threadIds: string[] = [];
-  const seenThreadIds = new Set<string>();
-
-  for (const message of messages) {
-    if (seenThreadIds.has(message.threadId)) continue;
-    seenThreadIds.add(message.threadId);
-    threadIds.push(message.threadId);
-  }
-
-  return threadIds;
-}
-
-type ReplyContextThreadEmail = EmailForLLM & {
-  threadId?: string | null;
-};

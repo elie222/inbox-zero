@@ -1,15 +1,3 @@
-/**
- * Integration test: reply-context historical search should expose thread-level precedent.
- *
- * This reproduces the furniture-support confusion case against the Google and
- * Microsoft emulators. The old message-level retrieval shape can miss the prior
- * answer when only the customer's message matches the search terms and the
- * user's correction lives later in the thread.
- *
- * Usage:
- *   pnpm test-integration reply-context-search-thread-precedent
- */
-
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { searchReplyContextEmails } from "@/utils/ai/reply/reply-context-collector";
 import type { EmailProvider } from "@/utils/email/types";
