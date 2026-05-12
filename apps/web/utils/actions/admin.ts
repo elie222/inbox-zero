@@ -17,6 +17,7 @@ import {
   convertGmailUrlBody,
   getLabelsBody,
   watchEmailsBody,
+  syncStripeForUserBody,
   getUserInfoBody,
   loadResponseTimeDataBody,
   disableAllRulesBody,
@@ -139,6 +140,56 @@ export const adminSyncStripeForAllUsersAction = adminActionClient
         logger,
       });
     }
+  });
+
+export const adminSyncStripeForUserAction = adminActionClient
+  .metadata({ name: "adminSyncStripeForUser" })
+  .inputSchema(syncStripeForUserBody)
+  .action(async ({ parsedInput: { email }, ctx: { logger } }) => {
+    const normalizedEmail = email.toLowerCase();
+
+    const user = await findUserByUserOrAccountEmail(normalizedEmail);
+
+    if (!user?.premium) {
+      throw new SafeError("Premium record not found");
+    }
+
+    if (!user.premium.stripeCustomerId) {
+      throw new SafeError("Stripe customer ID not found");
+    }
+
+    logger.info("Starting admin Stripe sync for user", {
+      userId: user.id,
+      premiumId: user.premium.id,
+      stripeCustomerId: user.premium.stripeCustomerId,
+    });
+
+    await syncStripeDataToDb({
+      customerId: user.premium.stripeCustomerId,
+      logger,
+    });
+
+    const premium = await prisma.premium.findUnique({
+      where: { id: user.premium.id },
+      select: {
+        stripeSubscriptionStatus: true,
+        stripeRenewsAt: true,
+        tier: true,
+      },
+    });
+
+    logger.info("Finished admin Stripe sync for user", {
+      userId: user.id,
+      premiumId: user.premium.id,
+      stripeCustomerId: user.premium.stripeCustomerId,
+      stripeSubscriptionStatus: premium?.stripeSubscriptionStatus,
+    });
+
+    return {
+      stripeSubscriptionStatus: premium?.stripeSubscriptionStatus ?? null,
+      stripeRenewsAt: premium?.stripeRenewsAt ?? null,
+      tier: premium?.tier ?? null,
+    };
   });
 
 export const adminSyncAllStripeCustomersToDbAction = adminActionClient
@@ -616,4 +667,40 @@ async function findUserWithDetails(email?: string, userId?: string) {
       },
     },
   });
+}
+
+async function findUserByUserOrAccountEmail(email: string) {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      premium: {
+        select: {
+          id: true,
+          stripeCustomerId: true,
+        },
+      },
+    },
+  });
+
+  if (user) return user;
+
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { email },
+    select: {
+      user: {
+        select: {
+          id: true,
+          premium: {
+            select: {
+              id: true,
+              stripeCustomerId: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return emailAccount?.user ?? null;
 }

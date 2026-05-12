@@ -17,6 +17,7 @@ import {
   adminDisableAllRulesAction,
   adminCleanupDraftsAction,
   adminLoadResponseTimeDataAction,
+  adminSyncStripeForUserAction,
 } from "@/utils/actions/admin";
 import { adminCheckPermissionsAction } from "@/utils/actions/permissions";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -86,6 +87,23 @@ export const AdminUserControls = () => {
       onError: (error) => {
         toastError({
           title: "Error watching emails",
+          description: getActionErrorMessage(error.error),
+        });
+      },
+    },
+  );
+  const { execute: syncStripe, isExecuting: isSyncingStripe } = useAction(
+    adminSyncStripeForUserAction,
+    {
+      onSuccess: (result) => {
+        toastSuccess({
+          title: "Stripe synced",
+          description: `Status: ${result.data?.stripeSubscriptionStatus ?? "none"}`,
+        });
+      },
+      onError: (error) => {
+        toastError({
+          title: "Error syncing Stripe",
           description: getActionErrorMessage(error.error),
         });
       },
@@ -215,6 +233,16 @@ export const AdminUserControls = () => {
           }}
         >
           Watch
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          loading={isSyncingStripe}
+          onClick={() => {
+            syncStripe({ email: getValues("email") });
+          }}
+        >
+          Sync Stripe
         </Button>
         <Button
           variant="outline"
