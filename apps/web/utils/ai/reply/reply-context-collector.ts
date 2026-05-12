@@ -22,6 +22,9 @@ const logger = createScopedLogger("reply-context-collector");
 const SEARCH_RESULTS_PER_QUERY = 20;
 const MAX_EXPANDED_THREADS_PER_QUERY = 5;
 const MAX_EXPANDED_EMAILS_PER_QUERY = 40;
+const MAX_CONTEXT_EMAILS_PER_THREAD = 12;
+const THREAD_CONTEXT_BEFORE_MATCH = 2;
+const THREAD_CONTEXT_AFTER_MATCH = 4;
 
 const resultSchema = z.object({
   notes: z
@@ -231,15 +234,21 @@ export async function searchReplyContextEmails({
   if (threadIds.length === 0) return [];
 
   const threadMessages = await Promise.all(
-    threadIds.map((threadId) =>
-      getHistoricalThreadMessages({
+    threadIds.map(async (threadId) => {
+      const matchingMessages = historicalMatches.filter(
+        (message) => message.threadId === threadId,
+      );
+      const messages = await getHistoricalThreadMessages({
         emailProvider,
         threadId,
-        fallbackMessages: historicalMatches.filter(
-          (message) => message.threadId === threadId,
-        ),
-      }),
-    ),
+        fallbackMessages: matchingMessages,
+      });
+
+      return selectThreadContextMessages({
+        messages,
+        matchingMessages,
+      });
+    }),
   );
 
   return uniqBy(
@@ -286,5 +295,73 @@ function filterCurrentThreadMessages(
     (message) =>
       !currentMessageIds.has(message.id) &&
       !currentThreadIds.has(message.threadId),
+  );
+}
+
+function selectThreadContextMessages({
+  messages,
+  matchingMessages,
+}: {
+  messages: ParsedMessage[];
+  matchingMessages: ParsedMessage[];
+}) {
+  if (messages.length <= MAX_CONTEXT_EMAILS_PER_THREAD) return messages;
+
+  const matchIds = new Set(matchingMessages.map((message) => message.id));
+  const matchIndexes = messages.flatMap((message, index) =>
+    matchIds.has(message.id) ? [index] : [],
+  );
+
+  if (matchIndexes.length === 0) {
+    return messages.slice(0, MAX_CONTEXT_EMAILS_PER_THREAD);
+  }
+
+  const rankedMessages = messages
+    .map((message, index) => ({
+      index,
+      message,
+      rank: getThreadContextRank({ message, index, matchIndexes }),
+    }))
+    .filter(({ rank }) => rank !== null)
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .slice(0, MAX_CONTEXT_EMAILS_PER_THREAD)
+    .sort((a, b) => a.index - b.index);
+
+  return rankedMessages.map(({ message }) => message);
+}
+
+function getThreadContextRank({
+  message,
+  index,
+  matchIndexes,
+}: {
+  message: ParsedMessage;
+  index: number;
+  matchIndexes: number[];
+}) {
+  const distanceFromMatch = Math.min(
+    ...matchIndexes.map((matchIndex) => Math.abs(index - matchIndex)),
+  );
+
+  if (distanceFromMatch === 0) return 0;
+
+  const inContextWindow = matchIndexes.some(
+    (matchIndex) =>
+      index >= matchIndex - THREAD_CONTEXT_BEFORE_MATCH &&
+      index <= matchIndex + THREAD_CONTEXT_AFTER_MATCH,
+  );
+
+  if (inContextWindow && isSentMessage(message)) return 1;
+  if (inContextWindow) return 2 + distanceFromMatch;
+  if (isSentMessage(message)) return 100 + distanceFromMatch;
+
+  return null;
+}
+
+function isSentMessage(message: ParsedMessage) {
+  return (
+    message.labelIds?.some((label) => label.toLowerCase() === "sent") ||
+    message.parentFolderId?.toLowerCase().includes("sent") ||
+    false
   );
 }
