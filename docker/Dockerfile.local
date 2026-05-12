@@ -17,6 +17,9 @@ WORKDIR /app
 RUN apk add --no-cache openssl
 RUN npm install -g pnpm@10.33.0
 
+# Docker build layers are non-interactive; let pnpm handle module purges without a TTY.
+ENV CI=true
+
 # Copy lockfiles/workspace manifests for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 COPY apps/web/package.json apps/web/package.json
