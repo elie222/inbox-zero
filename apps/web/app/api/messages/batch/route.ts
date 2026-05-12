@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import { messagesBatchQuery } from "@/app/api/messages/validation";
-import { parseReply } from "@/utils/mail";
+import { convertEmailHtmlToText, parseReply } from "@/utils/mail";
 import type { EmailProvider } from "@/utils/email/types";
+import { stripQuotedHtmlContent } from "@/utils/ai/choose-rule/draft-management";
 
 export type MessagesBatchResponse = {
   messages: Awaited<ReturnType<typeof getMessagesBatch>>;
@@ -20,11 +21,23 @@ async function getMessagesBatch({
   const messages = await emailProvider.getMessagesBatch(messageIds);
 
   if (parseReplies) {
-    return messages.map((message) => ({
-      ...message,
-      textPlain: parseReply(message.textPlain || ""),
-      textHtml: parseReply(message.textHtml || ""),
-    }));
+    return messages.map((message) => {
+      const parsedTextPlain = parseReply(message.textPlain || "").trim();
+      const parsedTextHtml = message.textHtml
+        ? parseReply(
+            convertEmailHtmlToText({
+              htmlText: stripQuotedHtmlContent(message.textHtml),
+              includeLinks: false,
+            }),
+          ).trim()
+        : "";
+
+      return {
+        ...message,
+        textPlain: parsedTextPlain || parsedTextHtml,
+        textHtml: parsedTextHtml,
+      };
+    });
   }
 
   return messages;
