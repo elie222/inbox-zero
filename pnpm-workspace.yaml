@@ -1,22 +1,23 @@
 packages:
-- packages/*
-- apps/*
+  - packages/*
+  - apps/*
 
 # Supply-chain hardening: block versions published <24h ago. Malicious npm releases
 # are typically yanked within hours, so the cooldown blocks the attack window.
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
-- "@inboxzero/*"
-- "@inbox-zero/emulate"
+  - "@inboxzero/*"
+  - "@inbox-zero/emulate"
 
-# pnpm 10 blocks install scripts by default. Only packages listed here may run them.
-onlyBuiltDependencies:
-- "@prisma/engines"
-- "@sentry/cli"
-- core-js
-- esbuild
-- msgpackr-extract
-- prisma
-- protobufjs
-- sharp
-- workerd
+# Only reviewed dependencies may run install scripts.
+allowBuilds:
+  "@google/genai": true
+  "@prisma/engines": true
+  "@sentry/cli": true
+  core-js: true
+  esbuild: true
+  msgpackr-extract: true
+  prisma: true
+  protobufjs: true
+  sharp: true
+  workerd: true
