@@ -127,6 +127,8 @@ services:
     command: >
       sh -c "
         apk add --no-cache curl tzdata >/dev/null &&
+        cp /usr/share/zoneinfo/America/New_York /etc/localtime &&
+        echo America/New_York > /etc/timezone &&
         (
           while true; do
             curl -fsS -w '\n' -o - -H \"Authorization: Bearer $${CRON_SECRET}\" http://app:3000/api/cron/automation-jobs || echo '[cron] automation-jobs failed'
@@ -146,13 +148,20 @@ services:
           done
         ) &
         (
-          # Digest tick: fire /api/cron/digest once a day at 09:00 ET. The
-          # container's TZ is America/New_York, so 'date +%s' for 'today 09:00'
-          # vs 'now' gives the seconds until the next 9am ET, handling DST.
+          # Digest tick: fire /api/cron/digest once a day at 09:00 ET. We bind
+          # /etc/localtime above so 'date +%H' is always ET regardless of how
+          # busybox cached the TZ env var at shell startup. Compute seconds
+          # until 09:00 ET from the current wall-clock hour/min/sec — robust
+          # across DST since the values come from the kernel's TZ-resolved clock.
           while true; do
-            target=$$(date -D '%H:%M' -d '09:00' +%s)
-            now_epoch=$$(date +%s)
-            sleep_for=$$((target - now_epoch))
+            # Prefix with 1 then subtract 100 to dodge busybox $(()) parsing
+            # 08/09 as octal (POSIX-portable; '10#' is bash-only).
+            H=$$((1$$(date +%H) - 100))
+            M=$$((1$$(date +%M) - 100))
+            S=$$((1$$(date +%S) - 100))
+            now=$$((H*3600 + M*60 + S))
+            target=$$((9*3600))
+            sleep_for=$$((target - now))
             [ $$sleep_for -le 0 ] && sleep_for=$$((sleep_for + 86400))
             echo \"[cron] digest sleeping $${sleep_for}s until next 09:00 ET ($$(date))\"
             sleep $$sleep_for
