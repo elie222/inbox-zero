@@ -214,6 +214,7 @@ async function generateDraftContent(
 
   const messages = threadMessages.map((msg, index) => ({
     date: internalDateToDate(msg.internalDate),
+    threadId: msg.threadId,
     ...getEmailForLLM(msg, {
       // give more context for the message we're processing
       maxLength: index === threadMessages.length - 1 ? 2000 : 500,

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { EmailForLLM } from "@/utils/types";
+import type { EmailForLLM, ParsedMessage } from "@/utils/types";
 import { getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
 import type { EmailProvider } from "@/utils/email/types";
@@ -13,6 +13,9 @@ import { captureException } from "@/utils/error";
 import { getEmailListPrompt, getUserInfoPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("reply-context-collector");
+const SEARCH_RESULTS_PER_QUERY = 20;
+const MAX_EXPANDED_THREADS_PER_QUERY = 5;
+const MAX_EXPANDED_EMAILS_PER_QUERY = 40;
 
 const resultSchema = z.object({
   notes: z
@@ -72,7 +75,7 @@ export async function aiCollectReplyContext({
   emailAccount,
   emailProvider,
 }: {
-  currentThread: EmailForLLM[];
+  currentThread: ReplyContextThreadEmail[];
   emailAccount: EmailAccountWithAI;
   emailProvider: EmailProvider;
 }): Promise<ReplyContextCollectorResult | null> {
@@ -120,16 +123,12 @@ ${getTodayForLLM()}`;
           execute: async ({ query }) => {
             logger.info("Searching emails", { query });
             try {
-              const { messages } =
-                await emailProvider.getMessagesWithPagination({
-                  query,
-                  maxResults: 20,
-                  after: sixMonthsAgo,
-                });
-
-              const emails = messages.map((message) =>
-                getEmailForLLM(message, { maxLength: 2000 }),
-              );
+              const emails = await searchReplyContextEmails({
+                emailProvider,
+                query,
+                after: sixMonthsAgo,
+                currentThread,
+              });
 
               logger.info("Found emails", { emails: emails.length });
               // logger.trace("Found emails", { emails });
@@ -196,3 +195,118 @@ ${getTodayForLLM()}`;
     return null;
   }
 }
+
+export async function searchReplyContextEmails({
+  emailProvider,
+  query,
+  after,
+  currentThread,
+}: {
+  emailProvider: EmailProvider;
+  query: string;
+  after: Date;
+  currentThread: ReplyContextThreadEmail[];
+}) {
+  const { messages } = await emailProvider.getMessagesWithPagination({
+    query,
+    maxResults: SEARCH_RESULTS_PER_QUERY,
+    after,
+  });
+
+  const historicalMatches = filterCurrentThreadMessages(
+    messages,
+    currentThread,
+  );
+  const threadIds = getUniqueThreadIds(historicalMatches).slice(
+    0,
+    MAX_EXPANDED_THREADS_PER_QUERY,
+  );
+
+  if (threadIds.length === 0) return [];
+
+  const threadMessages = await Promise.all(
+    threadIds.map((threadId) =>
+      getHistoricalThreadMessages({
+        emailProvider,
+        threadId,
+        fallbackMessages: historicalMatches.filter(
+          (message) => message.threadId === threadId,
+        ),
+      }),
+    ),
+  );
+
+  return dedupeMessages(
+    filterCurrentThreadMessages(threadMessages.flat(), currentThread),
+  )
+    .slice(0, MAX_EXPANDED_EMAILS_PER_QUERY)
+    .map((message) => getEmailForLLM(message, { maxLength: 2000 }));
+}
+
+async function getHistoricalThreadMessages({
+  emailProvider,
+  threadId,
+  fallbackMessages,
+}: {
+  emailProvider: EmailProvider;
+  threadId: string;
+  fallbackMessages: ParsedMessage[];
+}) {
+  try {
+    return await emailProvider.getThreadMessages(threadId);
+  } catch (error) {
+    logger.warn("Failed to expand search result thread", {
+      error,
+      threadId,
+      emailProvider: emailProvider.name,
+    });
+    return fallbackMessages;
+  }
+}
+
+function filterCurrentThreadMessages(
+  messages: ParsedMessage[],
+  currentThread: ReplyContextThreadEmail[],
+) {
+  const currentMessageIds = new Set(
+    currentThread.map((message) => message.id).filter(Boolean),
+  );
+  const currentThreadIds = new Set(
+    currentThread
+      .map((message) => message.threadId)
+      .filter((threadId): threadId is string => !!threadId),
+  );
+
+  return messages.filter(
+    (message) =>
+      !currentMessageIds.has(message.id) &&
+      !currentThreadIds.has(message.threadId),
+  );
+}
+
+function dedupeMessages(messages: ParsedMessage[]) {
+  const seenMessageIds = new Set<string>();
+
+  return messages.filter((message) => {
+    if (seenMessageIds.has(message.id)) return false;
+    seenMessageIds.add(message.id);
+    return true;
+  });
+}
+
+function getUniqueThreadIds(messages: ParsedMessage[]) {
+  const threadIds: string[] = [];
+  const seenThreadIds = new Set<string>();
+
+  for (const message of messages) {
+    if (seenThreadIds.has(message.threadId)) continue;
+    seenThreadIds.add(message.threadId);
+    threadIds.push(message.threadId);
+  }
+
+  return threadIds;
+}
+
+type ReplyContextThreadEmail = EmailForLLM & {
+  threadId?: string | null;
+};

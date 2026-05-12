@@ -21,23 +21,36 @@ import type { EmailProvider } from "@/utils/email/types";
 type GmailSeedMessage = {
   id: string;
   user_email: string;
+  thread_id?: string;
+  message_id?: string;
+  references?: string;
+  in_reply_to?: string;
   from: string;
   to: string;
+  cc?: string;
+  bcc?: string;
+  reply_to?: string;
   subject: string;
   body_text: string;
   body_html?: string;
+  snippet?: string;
   label_ids: string[];
   internal_date: string;
+  date?: string;
 };
 
 type OutlookSeedMessage = {
   id?: string;
+  microsoft_id?: string;
+  conversation_id?: string;
+  internet_message_id?: string;
   user_email: string;
   from: { address: string; name?: string };
   to_recipients: Array<{ address: string; name?: string }>;
   cc_recipients?: Array<{ address: string; name?: string }>;
   subject: string;
   body_content: string;
+  body_content_type?: "html" | "text";
   body_text_content?: string;
   parent_folder_id: string;
   is_read: boolean;
