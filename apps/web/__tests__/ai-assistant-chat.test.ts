@@ -427,6 +427,9 @@ describe("aiProcessAssistantChat", () => {
     expect(systemPrompt).toContain(
       "Use <rule-suggestions> with exactly one self-contained <rule-suggestion",
     );
+    expect(systemPrompt).toContain(
+      "Always set name to a short, descriptive rule title",
+    );
     expect(args.tools.getUserRulesAndSettings.description).toContain(
       "Retrieve the latest rules and personal instructions for the user",
     );

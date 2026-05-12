@@ -73,6 +73,7 @@ function buildRuleSuggestionPolicy(taxonomy: ChatProviderTaxonomy) {
 - Choose actions and ${taxonomy.scopePlural} that match the workflow, and use broad ${taxonomy.scopePlural} only when they genuinely fit.
 - For notification actions, set notify to the exact provider name from ruleNotificationDestinations. If no destination is listed, do not include notify; ask which destination to use instead. Never say "chat app".
 - Use <rule-suggestions> with exactly one self-contained <rule-suggestion /> for each rule in that final set. Put the condition in when, ${taxonomy.ruleCardActionEncoding}. These render as rule cards. Do not mention additional rule ideas outside the cards.
+- Always set name to a short, descriptive rule title (2-4 words) that summarizes what the rule handles, like "Product Updates" or "Customer Escalations". Never leave name empty or use generic placeholders like "Suggested rule".
 - Ask one focused calibration question when priority/action is unclear, especially about important messages that should be protected or surfaced. The question should refine the next step, not replace high-confidence rule cards.
 - Do not create a rule until the user confirms the exact rule and action.`;
 }
