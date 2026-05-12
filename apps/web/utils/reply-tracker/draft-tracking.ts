@@ -65,6 +65,11 @@ export async function trackSentDraftStatus({
       executedRule: {
         select: {
           messageId: true,
+          emailAccount: {
+            select: {
+              signature: true,
+            },
+          },
         },
       },
     },
@@ -92,7 +97,10 @@ export async function trackSentDraftStatus({
 
   // Calculate similarity between sent message and AI draft content
   // Pass full message to properly handle Outlook HTML content
-  const similarityScore = calculateSimilarity(executedAction.content, message);
+  const accountSignature = executedAction.executedRule.emailAccount?.signature;
+  const similarityScore = calculateSimilarity(executedAction.content, message, {
+    excludedSignatures: accountSignature ? [accountSignature] : [],
+  });
   const sentMessageRepliesToSource =
     sourceMessage &&
     messageRepliesToSourceSender({

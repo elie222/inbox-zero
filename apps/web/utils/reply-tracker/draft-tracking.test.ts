@@ -153,6 +153,48 @@ describe("trackSentDraftStatus", () => {
     });
   });
 
+  it("passes the saved account signature to similarity scoring", async () => {
+    vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
+      id: "action-1",
+      draftId: "draft-1",
+      content: "Generated reply.\n\nSaved account signature",
+      executedRuleId: "executed-rule-1",
+      executedRule: {
+        messageId: "source-1",
+        emailAccount: { signature: "Saved account signature" },
+      },
+    } as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(0.12);
+
+    await trackSentDraftStatus({
+      emailAccountId: "account-1",
+      message: createSentMessage(),
+      provider: {
+        getDraft: vi.fn().mockResolvedValue({ id: "draft-1" }),
+        getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+      } as any,
+      logger,
+    });
+
+    expect(prisma.executedAction.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          executedRule: {
+            select: {
+              messageId: true,
+              emailAccount: { select: { signature: true } },
+            },
+          },
+        }),
+      }),
+    );
+    expect(calculateSimilarity).toHaveBeenCalledWith(
+      "Generated reply.\n\nSaved account signature",
+      expect.objectContaining({ id: "sent-1" }),
+      { excludedSignatures: ["Saved account signature"] },
+    );
+  });
+
   it("marks missing drafts as likely sent when the sent reply is similar enough", async () => {
     vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
       id: "action-1",

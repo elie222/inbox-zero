@@ -411,6 +411,36 @@ On Mon, Jan 1, 2024 at 9:00 AM <someone@example.com> wrote:
       expect(score).toBe(1.0);
     });
 
+    it("should exclude the account signature from the comparison score", () => {
+      const signature = Array.from(
+        { length: 40 },
+        (_value, index) =>
+          `Generic signature policy line ${index + 1}: this footer is not authored reply content.`,
+      ).join("\n");
+      const originalDraft = `There are three files total.
+
+${signature}`;
+      const sentMessage = createParsedMessage(`There will not be another file.
+
+The three runs are grouped into one export.
+
+${signature}
+
+------------------------------------------------------------
+
+Repeated gateway footer. This repeated footer is added outside the user's authored reply.
+
+------------------------------------------------------------
+
+Repeated gateway footer. This repeated footer is added outside the user's authored reply.`);
+
+      const score = realCalculateSimilarity(originalDraft, sentMessage, {
+        excludedSignatures: [signature],
+      });
+
+      expect(score).toBeLessThan(0.5);
+    });
+
     it("should ignore forwarded payloads below the authored reply", () => {
       const originalDraft = "Can you take a look at this?";
       const sentMessage = createParsedMessage(`Can you take a look at this?
