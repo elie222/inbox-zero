@@ -35,12 +35,6 @@ const HTML_TAG_PATTERN = new RegExp(
   "i",
 );
 
-type SimilarityOptions = {
-  excludedSignatures?: string[];
-};
-
-type ContentNormalizer = (content: string, stripSignature: boolean) => string;
-
 /**
  * Normalizes content for Outlook (HTML) comparison.
  * Converts \n to <br> and then to plain text, strips quoted content.
@@ -121,7 +115,7 @@ function normalizeForGmail(content: string, stripSignature = false): string {
 export function calculateSimilarity(
   storedContent?: string | null,
   providerMessage?: string | ParsedMessage | null,
-  options: SimilarityOptions = {},
+  options: { excludedSignatures?: string[] } = {},
 ): number {
   if (!storedContent || !providerMessage) {
     return 0.0;
@@ -162,7 +156,7 @@ function normalizePair({
 }): [string, string] {
   let normalizedStoredContent: string;
   let normalizedProviderMessage: string;
-  let normalizeContent: ContentNormalizer;
+  let normalizeContent: (content: string, stripSignature: boolean) => string;
 
   if (typeof providerMessage === "string") {
     // Legacy: plain string from before ParsedMessage was threaded through callers
@@ -181,8 +175,11 @@ function normalizePair({
     normalizedProviderMessage = normalizeContent(text, stripSignature);
   }
 
+  // Normalize excluded signatures with stripSignature=false so the signature
+  // strippers don't reduce the user's saved signature to empty before we use
+  // it to remove that signature from the body.
   const normalizedExcludedSignatures = excludedSignatures
-    ?.map((signature) => normalizeContent(signature, stripSignature))
+    ?.map((signature) => normalizeContent(signature, false))
     .filter(Boolean);
 
   if (!normalizedExcludedSignatures?.length) {
@@ -216,7 +213,7 @@ function removeExcludedSignatures(
   let result = content;
 
   for (const signature of excludedSignatures) {
-    result = result.split(signature).join("");
+    result = result.replaceAll(signature, "");
   }
 
   return result.replace(/\n{3,}/g, "\n\n").trim();
