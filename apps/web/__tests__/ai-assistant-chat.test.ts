@@ -213,6 +213,36 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.forwardEmail).toBeDefined();
   }, 30_000);
 
+  it("injects the user's writing style into the system prompt", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    const writingStyle =
+      "Formality: very formal, polished. Often opens formal messages with 'I trust this message finds you well.'";
+
+    mockPrisma.emailAccount.findUnique.mockResolvedValue({ writingStyle });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const systemPrompt = String(
+      mockToolCallAgentStream.mock.lastCall?.[0].messages[0].content,
+    );
+
+    expect(systemPrompt).toContain("<writing_style>");
+    expect(systemPrompt).toContain(writingStyle);
+    expect(systemPrompt).toContain("</writing_style>");
+  });
+
   it.each([
     ["slack"],
     ["teams"],
@@ -1225,6 +1255,7 @@ describe("aiProcessAssistantChat", () => {
       toUIMessageStreamResponse: vi.fn(),
     });
     mockPrisma.emailAccount.findUnique
+      .mockResolvedValueOnce({ writingStyle: null })
       .mockResolvedValueOnce({
         rulesRevision: 2,
       })
@@ -1326,6 +1357,7 @@ describe("aiProcessAssistantChat", () => {
       toUIMessageStreamResponse: vi.fn(),
     });
     mockPrisma.emailAccount.findUnique
+      .mockResolvedValueOnce({ writingStyle: null })
       .mockResolvedValueOnce({
         rulesRevision: 0,
       })
@@ -1396,7 +1428,11 @@ describe("aiProcessAssistantChat", () => {
     );
 
     expect(freshRuleContext).toBeUndefined();
-    expect(mockPrisma.emailAccount.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.emailAccount.findUnique).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ rulesRevision: true }),
+      }),
+    );
   });
 
   it("requires explicit chatHasHistory when a rules cursor is provided", async () => {
