@@ -1613,14 +1613,29 @@ async function runOutlookSearch({
   lastError?: unknown;
   failures: Array<{ query: string; error: unknown }>;
 }> {
-  const searchQueries = [normalizedInput.query];
+  const searchQueries: string[] = [];
+  const searchQuerySet = new Set<string>();
+  const addSearchQuery = (query: string | null | undefined) => {
+    if (query == null) return false;
+
+    const normalizedQuery = normalizeMicrosoftRetryQuery(query);
+    const queryKey = normalizedQuery || "<empty>";
+    if (searchQuerySet.has(queryKey)) return false;
+
+    searchQueries.push(query);
+    searchQuerySet.add(queryKey);
+    return true;
+  };
+
+  addSearchQuery(normalizedInput.query);
   const fallbackQuery = buildOutlookSearchFallbackQuery(normalizedInput.query);
-  if (fallbackQuery) searchQueries.push(fallbackQuery);
+  addSearchQuery(fallbackQuery);
 
   let result: SearchMessagesResult | undefined;
   let queryUsed = normalizedInput.query;
   let lastError: unknown;
   const failures: Array<{ query: string; error: unknown }> = [];
+  let retryGuidanceAdded = false;
 
   for (let i = 0; i < searchQueries.length; i++) {
     const candidateQuery = searchQueries[i];
@@ -1637,6 +1652,20 @@ async function runOutlookSearch({
     } catch (error) {
       lastError = error;
       failures.push({ query: candidateQuery, error });
+
+      if (i === searchQueries.length - 1 && !retryGuidanceAdded) {
+        retryGuidanceAdded = true;
+        const failureType = getMicrosoftSearchFailureType(
+          failures.map(({ error }) => extractErrorInfo(error)),
+        );
+        const retryGuidance = getMicrosoftSearchRetryGuidance({
+          query: normalizedInput.query,
+          failureType,
+          attemptedQueries: searchQueries,
+        });
+        addSearchQuery(retryGuidance.retryQueries[0]);
+      }
+
       if (i === searchQueries.length - 1) break;
 
       logger.warn("Search query failed; retrying with Outlook fallback", {

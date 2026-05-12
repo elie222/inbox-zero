@@ -39,8 +39,6 @@ type GetRuleExecutionForMessageOutput =
           bcc: string | null;
           url: string | null;
           folderName: string | null;
-          draftId: string | null;
-          draftStatus: string | null;
         }>;
       }>;
     }
@@ -99,8 +97,6 @@ export const getRuleExecutionForMessageTool = ({
                 bcc: true,
                 url: true,
                 folderName: true,
-                draftId: true,
-                draftStatus: true,
               },
             },
             rule: {
@@ -133,8 +129,6 @@ export const getRuleExecutionForMessageTool = ({
             bcc: action.bcc,
             url: action.url,
             folderName: action.folderName,
-            draftId: action.draftId,
-            draftStatus: action.draftStatus,
           })),
         }));
 

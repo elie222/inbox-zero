@@ -1150,12 +1150,10 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
         failureType: "query_failed",
         summary:
           "Outlook did not return results for the attempted search query. Retry with one simpler Outlook clause at a time.",
-        suggestedNextStep:
-          'Retry with one simpler Outlook query. Start with "sender@example.com" and keep it to a single clause.',
         fallbackAttempted: true,
         likelyCause: "Retry with one simpler Outlook clause at a time.",
         removedTerms: [],
-        retryQueries: ["sender@example.com"],
+        retryQueries: [],
       },
     });
     expect(result.microsoftSearchFeedback.attempts).toEqual([
@@ -1171,8 +1169,14 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
         code: "BadRequest",
         message: "Unsupported search clause",
       },
+      {
+        query: "sender@example.com",
+        status: 400,
+        code: "BadRequest",
+        message: "Unsupported search clause",
+      },
     ]);
-    expect(searchMessages).toHaveBeenCalledTimes(2);
+    expect(searchMessages).toHaveBeenCalledTimes(3);
   });
 
   it("searchInbox suggests concrete simpler retries for complex Microsoft queries", async () => {
@@ -1205,14 +1209,14 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       likelyCause:
         "The failed query mixed a read-state term with other filters. Retry with one simpler clause.",
       removedTerms: ["unread"],
-      retryQueries: [
-        "sender@example.com",
-        'subject:"weekly site report"',
-        '"weekly site report"',
-      ],
-      suggestedNextStep:
-        'Retry with one simpler Outlook query. Start with "sender@example.com" and keep it to a single clause.',
+      retryQueries: ['subject:"weekly site report"', '"weekly site report"'],
     });
+    expect(searchMessages).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        query: "sender@example.com",
+      }),
+    );
   });
 
   it("searchInbox preserves backslashes when generating Microsoft keyword retry queries", async () => {

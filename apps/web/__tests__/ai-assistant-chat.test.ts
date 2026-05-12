@@ -1576,8 +1576,6 @@ describe("aiProcessAssistantChat", () => {
             bcc: true,
             url: true,
             folderName: true,
-            draftId: true,
-            draftStatus: true,
           },
         },
         rule: {
@@ -1612,8 +1610,6 @@ describe("aiProcessAssistantChat", () => {
               bcc: null,
               url: null,
               folderName: null,
-              draftId: "draft-1",
-              draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
             },
             {
               type: "LABEL",
@@ -1625,8 +1621,6 @@ describe("aiProcessAssistantChat", () => {
               bcc: null,
               url: null,
               folderName: null,
-              draftId: null,
-              draftStatus: null,
             },
           ],
         },
