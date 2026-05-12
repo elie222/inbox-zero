@@ -1,4 +1,9 @@
 import {
+  createOrGetFolderTool,
+  listFoldersTool,
+  moveThreadsToFolderTool,
+} from "./chat-folder-tools";
+import {
   createOrGetCategoryTool,
   listCategoriesTool,
 } from "./chat-label-tools";
@@ -11,7 +16,7 @@ export const microsoftChatProviderConfig: AssistantChatProviderConfig = {
     entity: "category or folder",
     plural: "categories",
     scopePlural: "categories and folders",
-    hiddenIdName: "categoryId",
+    hiddenIdName: "categoryId or folderId",
     ruleCardActionEncoding:
       "boolean actions in archive/draft/markread, the notification provider in notify, and use do for category/folder actions or any action that cannot be represented by those attributes",
   },
@@ -29,5 +34,8 @@ export const microsoftChatProviderConfig: AssistantChatProviderConfig = {
   getTaxonomyTools: (options) => ({
     listCategories: listCategoriesTool(options),
     createOrGetCategory: createOrGetCategoryTool(options),
+    listFolders: listFoldersTool(options),
+    createOrGetFolder: createOrGetFolderTool(options),
+    moveThreadsToFolder: moveThreadsToFolderTool(options),
   }),
 };
