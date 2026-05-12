@@ -892,7 +892,7 @@ describe("sendMessagingRuleNotification", () => {
 
     expect(serializedBlocks).toContain("Open in Outlook");
     expect(serializedBlocks).toContain(
-      "https://outlook.live.com/mail/0/inbox/id/message-1",
+      "https://outlook.office.com/mail/inbox/id/message-1",
     );
   });
 

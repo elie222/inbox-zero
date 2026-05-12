@@ -35,25 +35,67 @@ describe("getEmailUrl", () => {
       expected: "https://mail.google.com/mail/u/0/#all/msg123",
     },
     {
-      name: "Microsoft provider with message ID",
+      name: "Microsoft provider with personal email",
       messageOrThreadId: "msg123",
       emailAddress: "user@outlook.com",
       provider: "microsoft",
       expected: "https://outlook.live.com/mail/0/inbox/id/msg123",
     },
     {
+      name: "Microsoft provider with hotmail email",
+      messageOrThreadId: "msg123",
+      emailAddress: "user@hotmail.com",
+      provider: "microsoft",
+      expected: "https://outlook.live.com/mail/0/inbox/id/msg123",
+    },
+    {
+      name: "Microsoft provider with business email",
+      messageOrThreadId: "msg123",
+      emailAddress: "user@contoso.com",
+      provider: "microsoft",
+      expected: "https://outlook.office.com/mail/inbox/id/msg123",
+    },
+    {
+      name: "Microsoft provider with country-coded personal email",
+      messageOrThreadId: "msg123",
+      emailAddress: "user@outlook.fr",
+      provider: "microsoft",
+      expected: "https://outlook.live.com/mail/0/inbox/id/msg123",
+    },
+    {
+      name: "Microsoft provider with live.co.uk email",
+      messageOrThreadId: "msg123",
+      emailAddress: "user@live.co.uk",
+      provider: "microsoft",
+      expected: "https://outlook.live.com/mail/0/inbox/id/msg123",
+    },
+    {
+      name: "Microsoft provider with uppercase personal email",
+      messageOrThreadId: "msg123",
+      emailAddress: "User@Outlook.com",
+      provider: "microsoft",
+      expected: "https://outlook.live.com/mail/0/inbox/id/msg123",
+    },
+    {
+      name: "Microsoft provider with no email defaults to office host",
+      messageOrThreadId: "msg123",
+      emailAddress: null,
+      provider: "microsoft",
+      expected: "https://outlook.office.com/mail/inbox/id/msg123",
+    },
+    {
       name: "Microsoft provider with special characters in message ID",
       messageOrThreadId: "msg+123/abc",
       emailAddress: null,
       provider: "microsoft",
-      expected: "https://outlook.live.com/mail/0/inbox/id/msg%2B123%2Fabc",
+      expected: "https://outlook.office.com/mail/inbox/id/msg%2B123%2Fabc",
     },
     {
       name: "Microsoft provider with spaces and special chars in message ID",
       messageOrThreadId: "msg id=abc",
       emailAddress: null,
       provider: "microsoft",
-      expected: "https://outlook.live.com/mail/0/inbox/id/msg%20id%3Dabc",
+      expected: "https://outlook.office.com/mail/inbox/id/msg%20id%3Dabc",
     },
     {
       name: "undefined provider",
@@ -101,10 +143,16 @@ describe("getEmailUrlForMessage", () => {
         "https://mail.google.com/mail/u/?authuser=user%40gmail.com#all/messageId123",
     },
     {
-      name: "Microsoft provider",
+      name: "Microsoft provider with personal email",
       emailAddress: "user@outlook.com",
       provider: "microsoft",
       expected: "https://outlook.live.com/mail/0/inbox/id/messageId123",
+    },
+    {
+      name: "Microsoft provider with business email",
+      emailAddress: "user@contoso.com",
+      provider: "microsoft",
+      expected: "https://outlook.office.com/mail/inbox/id/messageId123",
     },
     {
       name: "default provider",
@@ -225,11 +273,18 @@ describe("getEmailSearchUrl", () => {
         "https://mail.google.com/mail/u/?authuser=user%40gmail.com#advanced-search/from=sender%40example.com",
     },
     {
-      name: "Microsoft provider",
+      name: "Microsoft provider with personal email",
       emailAddress: "user@outlook.com",
       provider: "microsoft",
       expected:
         "https://outlook.live.com/mail/0/search/q/from%3Asender%40example.com",
+    },
+    {
+      name: "Microsoft provider with business email",
+      emailAddress: "user@contoso.com",
+      provider: "microsoft",
+      expected:
+        "https://outlook.office.com/mail/search/q/from%3Asender%40example.com",
     },
     {
       name: "empty provider",

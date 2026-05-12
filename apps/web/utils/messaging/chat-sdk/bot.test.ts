@@ -401,13 +401,13 @@ describe("pending email handled state helpers", () => {
           expect.objectContaining({
             type: "link-button",
             label: "Open in Outlook",
-            url: "https://outlook.live.com/mail/0/inbox/id/message-1",
+            url: "https://outlook.office.com/mail/inbox/id/message-1",
           }),
         ],
       }),
     ]);
     expect(JSON.stringify(textChildren)).not.toContain(
-      "https://outlook.live.com/mail/0/inbox/id/message-1",
+      "https://outlook.office.com/mail/inbox/id/message-1",
     );
   });
 

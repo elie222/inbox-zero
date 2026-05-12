@@ -1,3 +1,5 @@
+import { extractDomainFromEmail } from "@/utils/email";
+
 function getGmailUrlForFragment(
   fragment: string,
   emailAddress?: string | null,
@@ -7,8 +9,28 @@ function getGmailUrlForFragment(
   return `https://mail.google.com/mail/u/?authuser=${encodeURIComponent(emailAddress)}#${fragment}`;
 }
 
-function getOutlookBaseUrl() {
-  return "https://outlook.live.com/mail/0";
+// Personal Microsoft accounts (outlook / hotmail / live / msn) sign in at
+// outlook.live.com; everything else is an Entra ID / Microsoft 365 mailbox
+// served from outlook.office.com. The two hosts route to separate services, so
+// pointing a business user at outlook.live.com lands them on the homepage.
+// Prefix match covers country variants like outlook.fr, live.co.uk, hotmail.de.
+const PERSONAL_MICROSOFT_DOMAIN_PREFIXES = ["outlook.", "hotmail.", "live."];
+const PERSONAL_MICROSOFT_DOMAINS = new Set(["msn.com", "passport.com"]);
+
+function isPersonalMicrosoftEmail(emailAddress?: string | null) {
+  if (!emailAddress) return false;
+  const domain = extractDomainFromEmail(emailAddress).toLowerCase();
+  if (!domain) return false;
+  if (PERSONAL_MICROSOFT_DOMAINS.has(domain)) return true;
+  return PERSONAL_MICROSOFT_DOMAIN_PREFIXES.some((prefix) =>
+    domain.startsWith(prefix),
+  );
+}
+
+function getOutlookBaseUrl(emailAddress?: string | null) {
+  return isPersonalMicrosoftEmail(emailAddress)
+    ? "https://outlook.live.com/mail/0"
+    : "https://outlook.office.com/mail";
 }
 
 const PROVIDER_CONFIG: Record<
@@ -25,16 +47,14 @@ const PROVIDER_CONFIG: Record<
 > = {
   microsoft: {
     requiresMessageId: true,
-    buildUrl: (messageOrThreadId: string, _emailAddress?: string | null) => {
-      // Outlook URL format: https://outlook.live.com/mail/0/inbox/id/ENCODED_MESSAGE_ID
-      // The message ID needs to be URL-encoded for Outlook
+    buildUrl: (messageOrThreadId: string, emailAddress?: string | null) => {
       const encodedMessageId = encodeURIComponent(messageOrThreadId);
-      return `${getOutlookBaseUrl()}/inbox/id/${encodedMessageId}`;
+      return `${getOutlookBaseUrl(emailAddress)}/inbox/id/${encodedMessageId}`;
     },
     selectId: (messageId: string, _threadId: string) => messageId,
-    buildSearchUrl: (from: string, _emailAddress?: string | null) => {
+    buildSearchUrl: (from: string, emailAddress?: string | null) => {
       const query = encodeURIComponent(`from:${from}`);
-      return `${getOutlookBaseUrl()}/search/q/${query}`;
+      return `${getOutlookBaseUrl(emailAddress)}/search/q/${query}`;
     },
   },
   google: {
