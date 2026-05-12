@@ -43,23 +43,5 @@
   },
   "engines": {
     "node": "24.x"
-  },
-  "pnpm": {
-    "overrides": {
-      "@hono/node-server": "1.19.14",
-      "@tiptap/core": "2.27.2",
-      "@types/react": "19.2.14",
-      "@types/react-dom": "19.2.3",
-      "@xmldom/xmldom": "0.8.13",
-      "axios": "1.15.2",
-      "fast-xml-parser": "5.7.3",
-      "js-yaml": "3.14.2",
-      "jws": "4.0.1",
-      "lodash": "4.18.1",
-      "next": "16.2.5",
-      "postcss": "8.5.14",
-      "svelte": "5.55.5",
-      "webpack": "5.106.2"
-    }
   }
 }
