@@ -19,11 +19,13 @@ const CONNECT_MAILBOX_PATH = "/connect-mailbox";
 export function LoginForm({
   showAppleLogin,
   useGoogleOauthEmulator,
+  showGoogleLogin = true,
   showMicrosoftLogin,
   showSsoLogin,
 }: {
   showAppleLogin?: boolean;
   useGoogleOauthEmulator: boolean;
+  showGoogleLogin?: boolean;
   showMicrosoftLogin?: boolean;
   showSsoLogin?: boolean;
 }) {
@@ -101,18 +103,20 @@ export function LoginForm({
         </Button>
       ) : null}
 
-      <Button size="2xl" loading={loadingGoogle} onClick={handleGoogleSignIn}>
-        <span className="flex items-center justify-center">
-          <Image
-            src="/images/google.svg"
-            alt="Google"
-            width={24}
-            height={24}
-            unoptimized
-          />
-          <span className="ml-2">Sign in with Google</span>
-        </span>
-      </Button>
+      {showGoogleLogin ? (
+        <Button size="2xl" loading={loadingGoogle} onClick={handleGoogleSignIn}>
+          <span className="flex items-center justify-center">
+            <Image
+              src="/images/google.svg"
+              alt="Google"
+              width={24}
+              height={24}
+              unoptimized
+            />
+            <span className="ml-2">Sign in with Google</span>
+          </span>
+        </Button>
+      ) : null}
 
       {showMicrosoftLogin ? (
         <Button
