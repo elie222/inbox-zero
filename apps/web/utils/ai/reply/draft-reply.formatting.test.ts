@@ -289,6 +289,42 @@ describe("aiDraftReply formatting", () => {
     expect(callArgs.prompt).not.toContain("https://cal.com/user");
   });
 
+  it("formats each available slot with its own timezone label", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Here are a couple of times.",
+        confidence: DraftReplyConfidence.STANDARD,
+      },
+    });
+
+    const params = getDraftParams();
+
+    await aiDraftReplyWithConfidence({
+      ...params,
+      emailAccount: {
+        ...params.emailAccount,
+        timezone: "America/New_York",
+      },
+      calendarAvailability: {
+        suggestedTimes: [
+          { start: "2026-01-15 10:00", end: "2026-01-15 10:30" },
+          { start: "2026-07-15 10:00", end: "2026-07-15 10:30" },
+        ],
+        timezone: "America/New_York",
+      },
+    });
+
+    const [callArgs] = mockGenerateObject.mock.calls.at(-1)!;
+
+    expect(callArgs.prompt).toContain(
+      "2026-01-15 10:00 to 2026-01-15 10:30 (EST;",
+    );
+    expect(callArgs.prompt).toContain(
+      "2026-07-15 10:00 to 2026-07-15 10:30 (EDT;",
+    );
+    expect(callArgs.prompt).toContain("Available time slots are in EST/EDT");
+  });
+
   it("uses learned writing style as the primary style block when explicit style is absent", async () => {
     mockGenerateObject.mockResolvedValueOnce({
       object: {

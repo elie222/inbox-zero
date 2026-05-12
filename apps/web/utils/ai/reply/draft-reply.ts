@@ -505,10 +505,6 @@ function getSchedulingContext({
 }): string {
   const parts: string[] = [];
   const timezone = userTimezone || "UTC";
-  const timezoneLabel = getTimezoneLabel(
-    timezone,
-    calendarAvailability?.suggestedTimes[0]?.start,
-  );
 
   if (calendarBookingLink) {
     parts.push(`<booking_link>
@@ -519,18 +515,28 @@ When scheduling with the user is clearly needed, prefer sharing this booking lin
   }
 
   if (calendarAvailability?.noAvailability) {
+    const timezoneLabel = getTimezoneLabel(timezone);
+
     parts.push(`The user has no available time slots in the requested timeframe in ${timezoneLabel}.
 Do not suggest specific times. Acknowledge the request and suggest alternatives (e.g., "I'm fully booked tomorrow, but let's find another day that works"${calendarBookingLink ? " or share the booking link" : ""}).`);
   } else if (calendarAvailability?.suggestedTimes.length) {
     const times = calendarAvailability.suggestedTimes
       .map((slot) =>
-        formatAvailableSlotForPrompt(slot, timezone, timezoneLabel),
+        formatAvailableSlotForPrompt(
+          slot,
+          timezone,
+          getTimezoneLabel(timezone, slot.start),
+        ),
       )
       .join("\n");
+    const timezoneLabels = getTimezoneLabelsForSlots(
+      timezone,
+      calendarAvailability.suggestedTimes,
+    );
 
-    parts.push(`Available time slots are in ${timezoneLabel}.
+    parts.push(`Available time slots are in ${timezoneLabels}.
 If the sender requested or uses another timezone, express proposed times in that timezone after converting from the user's available slots.
-If you list specific times, include the user-facing timezone label (${timezoneLabel}) and do not write raw timezone identifiers such as ${timezone}.
+If you list specific times, include the user-facing timezone label shown for each slot and do not write raw timezone identifiers such as ${timezone}.
 
 Available time slots:
 ${times}
@@ -610,6 +616,17 @@ function getTimezoneLabel(timezone: string, localTime?: string): string {
     getIntlTimezoneName(timezone, date, "shortOffset");
 
   return label && label !== timezone ? label : timezone;
+}
+
+function getTimezoneLabelsForSlots(
+  timezone: string,
+  slots: { start: string }[],
+): string {
+  const labels = [
+    ...new Set(slots.map((slot) => getTimezoneLabel(timezone, slot.start))),
+  ];
+
+  return labels.join("/");
 }
 
 function createDateFromLocalTime(localTime: string, timezone: string): Date {
