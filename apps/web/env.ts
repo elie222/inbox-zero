@@ -276,6 +276,8 @@ const parsedEnv = createEnv({
     TELEGRAM_BOT_SECRET_TOKEN: z.string().optional(),
     APP_REVIEW_DEMO_ENABLED: booleanString.optional().default(false),
     APP_REVIEW_DEMO_ACCOUNTS: z.string().optional(),
+    LOGIN_PROVIDERS: z.string().optional(),
+    /** @deprecated Use `LOGIN_PROVIDERS=sso` instead. Kept as a fallback when `LOGIN_PROVIDERS` is unset. */
     SSO_LOGIN_ENABLED: booleanString.optional().default(false),
   },
   client: {
@@ -321,8 +323,8 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_CONTACTS_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: booleanString.default(true),
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: booleanString.optional().default(true),
+    /** @deprecated Use `LOGIN_PROVIDERS=apple` instead. Kept as a fallback when `LOGIN_PROVIDERS` is unset. */
     NEXT_PUBLIC_SHOW_APPLE_LOGIN: booleanString.optional().default(false),
-    NEXT_PUBLIC_LOGIN_PROVIDERS: z.string().optional(),
     NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
     NEXT_PUBLIC_SUPPORT_EMAIL: z
       .string()
@@ -426,7 +428,6 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED:
       process.env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED,
     NEXT_PUBLIC_SHOW_APPLE_LOGIN: process.env.NEXT_PUBLIC_SHOW_APPLE_LOGIN,
-    NEXT_PUBLIC_LOGIN_PROVIDERS: process.env.NEXT_PUBLIC_LOGIN_PROVIDERS,
     NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS:
       process.env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS,
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,

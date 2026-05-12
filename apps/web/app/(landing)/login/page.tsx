@@ -3,12 +3,11 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { LoginForm } from "@/app/(landing)/login/LoginForm";
-import { getEnabledLoginProviders } from "@/app/(landing)/login/login-providers";
 import { getRequiresReconsentDescription } from "@/app/(landing)/login/messages";
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { isGoogleOauthEmulationEnabled } from "@/utils/google/oauth";
-import { hasMicrosoftOauthConfig } from "@/utils/oauth/provider-config";
+import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 import { AlertBasic } from "@/components/Alert";
 import { Button } from "@/components/ui/button";
 import { WELCOME_PATH } from "@/utils/config";
@@ -55,15 +54,10 @@ export default async function AuthenticationPage(props: {
           <Suspense>
             <LoginForm
               showGoogleLogin={enabledProviders.has("google")}
-              showAppleLogin={
-                env.NEXT_PUBLIC_SHOW_APPLE_LOGIN &&
-                enabledProviders.has("apple")
-              }
+              showAppleLogin={enabledProviders.has("apple")}
               useGoogleOauthEmulator={isGoogleOauthEmulationEnabled()}
-              showMicrosoftLogin={
-                hasMicrosoftOauthConfig() && enabledProviders.has("microsoft")
-              }
-              showSsoLogin={env.SSO_LOGIN_ENABLED && enabledProviders.has("sso")}
+              showMicrosoftLogin={enabledProviders.has("microsoft")}
+              showSsoLogin={enabledProviders.has("sso")}
             />
           </Suspense>
         </div>

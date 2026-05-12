@@ -228,6 +228,7 @@
         "SUPERWALL_APP_STORE_CONNECT_FORWARD_URL",
         "APP_REVIEW_DEMO_ENABLED",
         "APP_REVIEW_DEMO_ACCOUNTS",
+        "LOGIN_PROVIDERS",
         "SSO_LOGIN_ENABLED"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
@@ -319,6 +320,7 @@
         "SUPERWALL_APP_STORE_CONNECT_FORWARD_URL",
         "APP_REVIEW_DEMO_ENABLED",
         "APP_REVIEW_DEMO_ACCOUNTS",
+        "LOGIN_PROVIDERS",
         "SSO_LOGIN_ENABLED"
       ],
       "outputs": [".next/**", "!.next/cache/**"]

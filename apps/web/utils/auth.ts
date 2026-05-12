@@ -47,6 +47,7 @@ import {
   hasMicrosoftOauthConfig,
   hasAppleOauthConfig,
 } from "@/utils/oauth/provider-config";
+import { isLoginProviderEnabled } from "@/utils/oauth/login-providers";
 import { getAppleClientSecret } from "@/utils/auth/apple-client-secret";
 import { assertCanGenerateScimToken } from "@/utils/auth/scim";
 import prisma from "@/utils/prisma";
@@ -57,6 +58,14 @@ const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();
 const hasMicrosoftConfig = hasMicrosoftOauthConfig();
 const hasAppleConfig = hasAppleOauthConfig();
 
+// Enforce `LOGIN_PROVIDERS` at the better-auth layer too, not just in the UI.
+// Without this, a client could bypass the allowlist by posting directly to
+// `/api/auth/sign-in/social`.
+const googleLoginEnabled = isLoginProviderEnabled("google");
+const microsoftLoginEnabled = isLoginProviderEnabled("microsoft");
+const appleLoginEnabled = isLoginProviderEnabled("apple");
+const ssoLoginEnabled = isLoginProviderEnabled("sso");
+
 type AppleProfile = {
   email?: string;
   sub: string;
@@ -65,22 +74,23 @@ type AppleProfile = {
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
   : [];
-const googleSocialProvider = !useGoogleOauthEmulator
-  ? {
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
-      scope: [...GMAIL_SCOPES],
-      accessType: "offline" as const,
-      prompt: "select_account consent" as const,
-      disableIdTokenSignIn: true,
-      // For preview deployments, redirect through staging (which proxies back to preview URL)
-      ...(env.OAUTH_PROXY_URL && {
-        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/google`,
-      }),
-    }
-  : null;
+const googleSocialProvider =
+  googleLoginEnabled && !useGoogleOauthEmulator
+    ? {
+        clientId: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
+        scope: [...GMAIL_SCOPES],
+        accessType: "offline" as const,
+        prompt: "select_account consent" as const,
+        disableIdTokenSignIn: true,
+        // For preview deployments, redirect through staging (which proxies back to preview URL)
+        ...(env.OAUTH_PROXY_URL && {
+          redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/google`,
+        }),
+      }
+    : null;
 const microsoftSocialProvider =
-  hasMicrosoftConfig && !useMicrosoftOauthEmulator
+  microsoftLoginEnabled && hasMicrosoftConfig && !useMicrosoftOauthEmulator
     ? {
         clientId: env.MICROSOFT_CLIENT_ID!,
         clientSecret: env.MICROSOFT_CLIENT_SECRET!,
@@ -92,45 +102,46 @@ const microsoftSocialProvider =
         }),
       }
     : null;
-const appleSocialProvider = hasAppleConfig
-  ? {
-      clientId: env.APPLE_CLIENT_ID!,
-      get clientSecret() {
-        const clientSecret = getAppleClientSecret();
-        if (!clientSecret) throw new Error("Apple OAuth is not configured");
-        return clientSecret;
-      },
-      appBundleIdentifier: env.APPLE_APP_BUNDLE_IDENTIFIER,
-      mapProfileToUser: async (profile: AppleProfile) => {
-        if (profile.email) return {};
+const appleSocialProvider =
+  appleLoginEnabled && hasAppleConfig
+    ? {
+        clientId: env.APPLE_CLIENT_ID!,
+        get clientSecret() {
+          const clientSecret = getAppleClientSecret();
+          if (!clientSecret) throw new Error("Apple OAuth is not configured");
+          return clientSecret;
+        },
+        appBundleIdentifier: env.APPLE_APP_BUNDLE_IDENTIFIER,
+        mapProfileToUser: async (profile: AppleProfile) => {
+          if (profile.email) return {};
 
-        const existingAppleAccount = await prisma.account.findUnique({
-          where: {
-            provider_providerAccountId: {
-              provider: "apple",
-              providerAccountId: profile.sub,
-            },
-          },
-          select: {
-            user: {
-              select: {
-                email: true,
+          const existingAppleAccount = await prisma.account.findUnique({
+            where: {
+              provider_providerAccountId: {
+                provider: "apple",
+                providerAccountId: profile.sub,
               },
             },
-          },
-        });
+            select: {
+              user: {
+                select: {
+                  email: true,
+                },
+              },
+            },
+          });
 
-        return existingAppleAccount?.user.email
-          ? { email: existingAppleAccount.user.email }
-          : {};
-      },
-      ...(env.OAUTH_PROXY_URL && {
-        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/apple`,
-      }),
-    }
-  : null;
+          return existingAppleAccount?.user.email
+            ? { email: existingAppleAccount.user.email }
+            : {};
+        },
+        ...(env.OAUTH_PROXY_URL && {
+          redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/apple`,
+        }),
+      }
+    : null;
 const genericOauthConfig: GenericOAuthConfig[] = [
-  ...(useGoogleOauthEmulator
+  ...(googleLoginEnabled && useGoogleOauthEmulator
     ? [
         {
           providerId: "google",
@@ -148,7 +159,7 @@ const genericOauthConfig: GenericOAuthConfig[] = [
         },
       ]
     : []),
-  ...(hasMicrosoftConfig && useMicrosoftOauthEmulator
+  ...(microsoftLoginEnabled && hasMicrosoftConfig && useMicrosoftOauthEmulator
     ? [
         {
           providerId: "microsoft",
@@ -214,10 +225,14 @@ export const betterAuthConfig = betterAuth({
     provider: "postgresql",
   }),
   plugins: [
-    sso({
-      disableImplicitSignUp: false,
-      organizationProvisioning: { disabled: true },
-    }),
+    ...(ssoLoginEnabled
+      ? [
+          sso({
+            disableImplicitSignUp: false,
+            organizationProvisioning: { disabled: true },
+          }),
+        ]
+      : []),
     scim({
       providerOwnership: { enabled: true },
       storeSCIMToken: "hashed",
