@@ -766,8 +766,15 @@ function getWritingStylePolicy(writingStyle?: string | null) {
 - When drafting, replying to, or forwarding emails on the user's behalf, match this writing style. Apply it across all surfaces (web, Slack, Telegram, etc.), not only auto-generated drafts. Mirror the original sender's tone only when the style does not otherwise apply.
 
 <writing_style>
-${trimmed}
+${escapeXmlText(trimmed)}
 </writing_style>`;
+}
+
+function escapeXmlText(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function getFormattingRules(responseSurface: "web" | "messaging") {
