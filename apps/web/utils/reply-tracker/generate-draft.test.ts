@@ -94,6 +94,7 @@ vi.mock("@/env", () => ({
 }));
 
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
+import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import { getReplyMemoriesForPrompt } from "@/utils/ai/reply/reply-memory";
 import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachments";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
@@ -613,6 +614,39 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
         senderHistory: expect.objectContaining({
           sameSenderReplyExamplesInjected: true,
           sameSenderReplyExampleCount: 1,
+        }),
+      }),
+    );
+  });
+
+  it("passes booking link availability into calendar availability analysis", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Draft reply",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: null,
+    });
+    vi.mocked(prisma.bookingLink.findMany).mockResolvedValue([
+      { slug: "user-booking-link" },
+    ] as any);
+
+    await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      logger,
+      DraftReplyConfidence.ALL_EMAILS,
+    );
+
+    expect(aiGetCalendarAvailability).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingLinkAvailable: true,
+      }),
+    );
+    expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccount: expect.objectContaining({
+          bookingLinks: [{ slug: "user-booking-link" }],
         }),
       }),
     );

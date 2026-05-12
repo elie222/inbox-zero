@@ -92,4 +92,38 @@ describe("aiGetCalendarAvailability", () => {
       ],
     });
   });
+
+  it("tells the model to skip manual availability when a booking link can handle scheduling", async () => {
+    await aiGetCalendarAvailability({
+      emailAccount: {
+        ...getEmailAccount(),
+        timezone: "America/Los_Angeles",
+      },
+      messages: [
+        {
+          id: "msg-1",
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Call",
+          content: "What is the easiest way to book a call?",
+          date: new Date("2026-04-30T08:48:00.000Z"),
+        },
+      ],
+      logger: createTestLogger(),
+      bookingLinkAvailable: true,
+    });
+
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining("BOOKING_LINK_AVAILABLE: yes"),
+      }),
+    );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining(
+          "do not call checkCalendarAvailability or returnSuggestedTimes",
+        ),
+      }),
+    );
+  });
 });

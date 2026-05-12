@@ -505,30 +505,37 @@ function getSchedulingContext({
 }): string {
   const parts: string[] = [];
   const timezone = userTimezone || "UTC";
+  const timezoneLabel = getTimezoneLabel(
+    timezone,
+    calendarAvailability?.suggestedTimes[0]?.start,
+  );
 
   if (calendarBookingLink) {
     parts.push(`<booking_link>
 ${calendarBookingLink}
 </booking_link>
 
-Share this booking link when scheduling with the user is clearly needed, not as a default call-to-action.`);
+When scheduling with the user is clearly needed, prefer sharing this booking link over listing specific availability. Do not use it as a default call-to-action for non-scheduling emails.`);
   }
 
   if (calendarAvailability?.noAvailability) {
-    parts.push(`The user has no available time slots in the requested timeframe in ${timezone}.
+    parts.push(`The user has no available time slots in the requested timeframe in ${timezoneLabel}.
 Do not suggest specific times. Acknowledge the request and suggest alternatives (e.g., "I'm fully booked tomorrow, but let's find another day that works"${calendarBookingLink ? " or share the booking link" : ""}).`);
   } else if (calendarAvailability?.suggestedTimes.length) {
     const times = calendarAvailability.suggestedTimes
-      .map((slot) => formatAvailableSlotForPrompt(slot, timezone))
+      .map((slot) =>
+        formatAvailableSlotForPrompt(slot, timezone, timezoneLabel),
+      )
       .join("\n");
 
-    parts.push(`Available time slots are in ${timezone}.
+    parts.push(`Available time slots are in ${timezoneLabel}.
 If the sender requested or uses another timezone, express proposed times in that timezone after converting from the user's available slots.
+If you list specific times, include the user-facing timezone label (${timezoneLabel}) and do not write raw timezone identifiers such as ${timezone}.
 
 Available time slots:
 ${times}
 
-${calendarBookingLink ? "If scheduling with the user is clearly needed, you may share the booking link and optionally suggest a few of these times as alternatives." : "When the sender is asking to schedule, respond concretely using these time slots. Treat supplied slots on or after today's date as valid; only ask for updated availability if every supplied slot is before today's date."} Format suggested times as a bulleted list.`);
+${calendarBookingLink ? "Because the user has a booking link, share the booking link instead of listing specific times unless the sender explicitly asks the user to provide times, asks about a specific proposed time/date, or the booking link would not answer the scheduling request." : "When the sender is asking to schedule, respond concretely using these time slots. Treat supplied slots on or after today's date as valid; only ask for updated availability if every supplied slot is before today's date."} Format suggested times as a bulleted list.`);
   }
 
   if (parts.length === 0) return "";
@@ -554,6 +561,7 @@ function getCalendarBookingLinkForDraft(emailAccount: DraftEmailAccount) {
 function formatAvailableSlotForPrompt(
   slot: { start: string; end: string },
   timezone: string,
+  timezoneLabel: string,
 ): string {
   const utcStart = formatLocalSlotTimeAsUtc(slot.start, timezone);
   const utcEnd = formatLocalSlotTimeAsUtc(slot.end, timezone);
@@ -562,7 +570,7 @@ function formatAvailableSlotForPrompt(
     return `- ${slot.start} to ${slot.end}`;
   }
 
-  return `- ${slot.start} to ${slot.end} (${timezone}; UTC ${utcStart} to ${utcEnd})`;
+  return `- ${slot.start} to ${slot.end} (${timezoneLabel}; UTC ${utcStart} to ${utcEnd})`;
 }
 
 function formatLocalSlotTimeAsUtc(
@@ -589,6 +597,57 @@ function formatLocalSlotTimeAsUtc(
   if (Number.isNaN(utcDate.getTime())) return null;
 
   return utcDate.toISOString().slice(0, 16).replace("T", " ");
+}
+
+function getTimezoneLabel(timezone: string, localTime?: string): string {
+  if (timezone === "UTC") return "UTC";
+
+  const date = localTime
+    ? createDateFromLocalTime(localTime, timezone)
+    : new Date();
+  const label =
+    getIntlTimezoneName(timezone, date, "short") ||
+    getIntlTimezoneName(timezone, date, "shortOffset");
+
+  return label && label !== timezone ? label : timezone;
+}
+
+function createDateFromLocalTime(localTime: string, timezone: string): Date {
+  const match = localTime.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/);
+
+  if (!match) return new Date();
+
+  const [, year, month, day, hour, minute] = match;
+
+  return new TZDate(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    0,
+    0,
+    timezone,
+  );
+}
+
+function getIntlTimezoneName(
+  timezone: string,
+  date: Date,
+  timeZoneName: "short" | "shortOffset",
+): string | null {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      timeZoneName,
+    }).formatToParts(date);
+
+    return (
+      parts.find((part) => part.type === "timeZoneName")?.value.trim() || null
+    );
+  } catch {
+    return null;
+  }
 }
 
 const OLLAMA_DRAFT_RESPONSE_GUIDANCE = [

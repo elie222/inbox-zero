@@ -180,6 +180,181 @@ Solutions Engineer, DataBridge`,
 
     describe("genuine scheduling (may suggest times with calendar data)", () => {
       test(
+        "booking-link-first scheduling request with availability",
+        async () => {
+          const schedulingEmailAccount = {
+            ...emailAccountWithBookingLink,
+            timezone: "Asia/Jerusalem",
+          };
+          const messages = [
+            {
+              ...getEmail({
+                from: "Alex Rivera <alex@example.com>",
+                to: schedulingEmailAccount.email,
+                subject: "Re: Intro",
+                content: `Hi,
+
+Thanks for the details. A quick call could be helpful.
+
+Feel free to send over the easiest way to book.
+
+Best,
+Alex`,
+              }),
+              date: new Date("2026-05-12T08:30:00Z"),
+            },
+          ];
+          const calendarAvailability = {
+            suggestedTimes: [
+              { start: "2026-05-13 10:00", end: "2026-05-13 10:30" },
+              { start: "2026-05-13 14:00", end: "2026-05-13 14:30" },
+              { start: "2026-05-14 16:00", end: "2026-05-14 16:30" },
+            ],
+          };
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount: schedulingEmailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = "booking-link-first scheduling request";
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              formatThreadForJudge(messages),
+              "",
+              "## Booking Link",
+              bookingLink,
+              "",
+              "## Calendar Availability",
+              JSON.stringify(calendarAvailability, null, 2),
+            ].join("\n"),
+            output: result.reply,
+            expected:
+              "A concise scheduling reply that shares the user's booking link as the easiest way to book, without listing specific calendar slots or IANA timezone names.",
+            criterion: {
+              name: "Booking link preferred over time slots",
+              description:
+                "When the sender asks for the easiest way to book and the user has a booking link, the draft should share the booking link instead of listing specific calendar slots. It should not include IANA timezone identifiers such as Asia/Jerusalem.",
+            },
+          });
+          const pass =
+            judgeResult.pass &&
+            hasExactUrl(result.reply, bookingLink) &&
+            !mentionsAnySpecificSlot(result.reply, calendarAvailability) &&
+            !result.reply.includes("Asia/Jerusalem");
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected:
+              "booking link included; no specific slots or IANA timezone",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should prefer the booking link and avoid listing slots.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "explicit time request uses human-friendly timezone wording",
+        async () => {
+          const schedulingEmailAccount = {
+            ...emailAccount,
+            timezone: "Asia/Jerusalem",
+          };
+          const messages = [
+            {
+              ...getEmail({
+                from: "Morgan Lee <morgan@example.com>",
+                to: schedulingEmailAccount.email,
+                subject: "Call next week",
+                content: `Hi,
+
+Could you send over two or three times that work for a 30-minute call next week?
+
+Thanks,
+Morgan`,
+              }),
+              date: new Date("2026-05-12T09:00:00Z"),
+            },
+          ];
+          const calendarAvailability = {
+            timezone: "Asia/Jerusalem",
+            suggestedTimes: [
+              { start: "2026-05-13 10:00", end: "2026-05-13 10:30" },
+              { start: "2026-05-13 14:00", end: "2026-05-13 14:30" },
+            ],
+          };
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount: schedulingEmailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = "human-friendly timezone for suggested times";
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              formatThreadForJudge(messages),
+              "",
+              "## Calendar Availability",
+              JSON.stringify(calendarAvailability, null, 2),
+            ].join("\n"),
+            output: result.reply,
+            expected:
+              "A concrete scheduling reply with suggested times. If a timezone is mentioned, it should use a human-friendly abbreviation or label rather than an IANA timezone identifier.",
+            criterion: {
+              name: "Human-friendly timezone wording",
+              description:
+                "When the sender explicitly asks for times and calendar availability is provided, the draft may suggest slots, but it should not write raw IANA timezone identifiers such as Asia/Jerusalem. It should use a normal user-facing timezone abbreviation or label if timezone context is needed.",
+            },
+          });
+          const pass =
+            judgeResult.pass && !result.reply.includes("Asia/Jerusalem");
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "suggested times without IANA timezone wording",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should avoid raw IANA timezone wording.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
         "personal scheduling request with calendar availability",
         async () => {
           const messages = [
@@ -1497,6 +1672,18 @@ function hasExactUrl(text: string, expectedUrl: string): boolean {
   return extractUrls(text).some(
     (url) => normalizeUrlForComparison(url) === normalizedExpected,
   );
+}
+
+function mentionsAnySpecificSlot(
+  text: string,
+  calendarAvailability: { suggestedTimes: { start: string; end: string }[] },
+): boolean {
+  return calendarAvailability.suggestedTimes.some(({ start, end }) => {
+    const startTime = start.slice(11);
+    const endTime = end.slice(11);
+
+    return text.includes(startTime) || text.includes(endTime);
+  });
 }
 
 function formatThreadForJudge(messages: { content: string }[]): string {

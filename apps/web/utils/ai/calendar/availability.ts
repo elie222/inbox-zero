@@ -36,10 +36,12 @@ export async function aiGetCalendarAvailability({
   emailAccount,
   messages,
   logger,
+  bookingLinkAvailable = false,
 }: {
   emailAccount: EmailAccountWithAI;
   messages: EmailForLLM[];
   logger: Logger;
+  bookingLinkAvailable?: boolean;
 }): Promise<CalendarAvailabilityContext | null> {
   if (!messages?.length) {
     logger.warn("No messages provided for calendar availability check");
@@ -83,6 +85,7 @@ export async function aiGetCalendarAvailability({
   const system = `You are an AI assistant that analyzes email threads to determine if they contain meeting or scheduling requests, and returns available meeting time slots.
 
 TIMEZONE: All times (busy periods, suggested times) are in ${userTimezone}.
+BOOKING_LINK_AVAILABLE: ${bookingLinkAvailable ? "yes" : "no"}.
 
 Your task is to:
 1. Analyze if the email is scheduling-related (meeting, call, appointment)
@@ -98,6 +101,8 @@ Example: If busy all day (00:00 to 23:59), return empty array and set noAvailabi
 
 Format: "YYYY-MM-DD HH:MM"
 If email mentions timezone (e.g., "5pm PST"), convert to ${userTimezone}.
+If BOOKING_LINK_AVAILABLE is yes and the sender is only asking for a general way to schedule, do not call checkCalendarAvailability or returnSuggestedTimes; finish without tool calls so the draft can use the booking link instead.
+Only check calendar availability when manual calendar information is actually needed, such as when the sender explicitly asks for specific times, asks whether a proposed date/time works, or the booking link would not answer the scheduling request.
 Call "returnSuggestedTimes" only once.`;
 
   const prompt = `${getUserInfoPrompt({ emailAccount })}
