@@ -49,6 +49,7 @@ import {
 } from "@/utils/oauth/provider-config";
 import { getAppleClientSecret } from "@/utils/auth/apple-client-secret";
 import { assertCanGenerateScimToken } from "@/utils/auth/scim";
+import { getEnabledLoginProviders } from "@/app/(landing)/login/login-providers";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
@@ -56,6 +57,18 @@ const useGoogleOauthEmulator = isGoogleOauthEmulationEnabled();
 const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();
 const hasMicrosoftConfig = hasMicrosoftOauthConfig();
 const hasAppleConfig = hasAppleOauthConfig();
+
+// Server-side enforcement of NEXT_PUBLIC_LOGIN_PROVIDERS. The same env var is
+// read in the React UI to hide buttons, but that's only cosmetic. Better-auth
+// would otherwise accept direct POSTs to /api/auth/sign-in/social for any
+// provider whose credentials are configured, defeating SSO-only lockdown. By
+// also gating provider registration here, excluded providers return 404 at the
+// protocol level. See PR discussion on inbox-zero#2634.
+const enabledLoginProviders = getEnabledLoginProviders();
+const isGoogleLoginEnabled = enabledLoginProviders.has("google");
+const isMicrosoftLoginEnabled = enabledLoginProviders.has("microsoft");
+const isAppleLoginEnabled = enabledLoginProviders.has("apple");
+const isSsoLoginEnabled = enabledLoginProviders.has("sso");
 
 type AppleProfile = {
   email?: string;
@@ -65,7 +78,7 @@ type AppleProfile = {
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
   : [];
-const googleSocialProvider = !useGoogleOauthEmulator
+const googleSocialProvider = !useGoogleOauthEmulator && isGoogleLoginEnabled
   ? {
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
@@ -80,7 +93,7 @@ const googleSocialProvider = !useGoogleOauthEmulator
     }
   : null;
 const microsoftSocialProvider =
-  hasMicrosoftConfig && !useMicrosoftOauthEmulator
+  hasMicrosoftConfig && !useMicrosoftOauthEmulator && isMicrosoftLoginEnabled
     ? {
         clientId: env.MICROSOFT_CLIENT_ID!,
         clientSecret: env.MICROSOFT_CLIENT_SECRET!,
@@ -92,7 +105,7 @@ const microsoftSocialProvider =
         }),
       }
     : null;
-const appleSocialProvider = hasAppleConfig
+const appleSocialProvider = hasAppleConfig && isAppleLoginEnabled
   ? {
       clientId: env.APPLE_CLIENT_ID!,
       get clientSecret() {
@@ -130,7 +143,7 @@ const appleSocialProvider = hasAppleConfig
     }
   : null;
 const genericOauthConfig: GenericOAuthConfig[] = [
-  ...(useGoogleOauthEmulator
+  ...(useGoogleOauthEmulator && isGoogleLoginEnabled
     ? [
         {
           providerId: "google",
@@ -148,7 +161,7 @@ const genericOauthConfig: GenericOAuthConfig[] = [
         },
       ]
     : []),
-  ...(hasMicrosoftConfig && useMicrosoftOauthEmulator
+  ...(hasMicrosoftConfig && useMicrosoftOauthEmulator && isMicrosoftLoginEnabled
     ? [
         {
           providerId: "microsoft",
@@ -214,10 +227,14 @@ export const betterAuthConfig = betterAuth({
     provider: "postgresql",
   }),
   plugins: [
-    sso({
-      disableImplicitSignUp: false,
-      organizationProvisioning: { disabled: true },
-    }),
+    ...(isSsoLoginEnabled
+      ? [
+          sso({
+            disableImplicitSignUp: false,
+            organizationProvisioning: { disabled: true },
+          }),
+        ]
+      : []),
     scim({
       providerOwnership: { enabled: true },
       storeSCIMToken: "hashed",
