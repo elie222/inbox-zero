@@ -33,7 +33,11 @@ import {
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { ThreadLookup } from "@/components/assistant-chat/tools";
 import { formatToolLabel } from "@/components/assistant-chat/tool-label";
-import { requiresThreadIds } from "@/utils/ai/assistant/manage-inbox-actions";
+import {
+  isManageInboxAction,
+  type ManageInboxAction,
+  requiresThreadIds,
+} from "@/utils/ai/assistant/manage-inbox-actions";
 import { getUserVisibleToolFailureMessage } from "@/utils/ai/assistant/chat-response-guard";
 import { pluralize } from "@/utils/string";
 
@@ -62,6 +66,15 @@ type LegacyRuleToolPart =
       input: Parameters<typeof UpdatedRuleActions>[0]["args"];
       output?: unknown;
     };
+
+type ManageInboxInputForDisplay = {
+  action: ManageInboxAction;
+  fromEmails?: string[] | null;
+  label?: string | null;
+  labelName?: string | null;
+  read?: boolean | null;
+  threadIds?: string[] | null;
+};
 
 function ErrorToolCard({ error }: { error: string }) {
   return <div className="text-xs text-muted-foreground">Error: {error}</div>;
@@ -222,17 +235,23 @@ export function MessagePart({
 
   if (part.type === "tool-manageInbox") {
     const { toolCallId, state } = part;
+    const input = getManageInboxInputForDisplay(part.input);
+
     if (state === "input-available") {
+      if (!input) {
+        return <BasicToolInfo key={toolCallId} text="Updating inbox..." />;
+      }
+
       if (
-        (part.input.action === "bulk_archive_senders" ||
-          part.input.action === "unsubscribe_senders") &&
-        part.input.fromEmails?.length
+        (input.action === "bulk_archive_senders" ||
+          input.action === "unsubscribe_senders") &&
+        input.fromEmails?.length
       ) {
         return (
           <ManageInboxResult
             key={toolCallId}
-            input={part.input}
-            output={getInProgressManageInboxOutput(part.input)}
+            input={input}
+            output={getInProgressManageInboxOutput(input)}
             threadLookup={threadLookup}
             isInProgress
           />
@@ -240,12 +259,12 @@ export function MessagePart({
       }
 
       const actionText = getManageInboxActionLabel({
-        action: part.input.action,
-        read: part.input.read ?? true,
+        action: input.action,
+        read: input.read ?? true,
         labelApplied:
-          part.input.action === "archive_threads"
-            ? Boolean(part.input.label)
-            : Boolean(part.input.label || part.input.labelName),
+          input.action === "archive_threads"
+            ? Boolean(input.label)
+            : Boolean(input.label || input.labelName),
         inProgress: true,
       });
 
@@ -259,11 +278,11 @@ export function MessagePart({
       return (
         <ManageInboxResult
           key={toolCallId}
-          input={part.input}
+          input={input ?? undefined}
           output={output}
           threadIds={
-            requiresThreadIds(part.input.action)
-              ? (part.input.threadIds ?? undefined)
+            input && requiresThreadIds(input.action)
+              ? (input.threadIds ?? undefined)
               : undefined
           }
           threadLookup={threadLookup}
@@ -735,6 +754,41 @@ function getInProgressManageInboxOutput(input: {
     senders: input.fromEmails ?? [],
     sendersCount: input.fromEmails?.length ?? 0,
   };
+}
+
+function getManageInboxInputForDisplay(
+  input: unknown,
+): ManageInboxInputForDisplay | null {
+  if (typeof input !== "object" || input === null) return null;
+
+  const value = input as Record<string, unknown>;
+  const action = normalizeManageInboxActionForDisplay(value.action);
+  if (!action) return null;
+
+  return {
+    action,
+    fromEmails: getOptionalStringArray(value.fromEmails),
+    label: getOptionalString(value.label),
+    labelName: getOptionalString(value.labelName ?? value.categoryName),
+    read: typeof value.read === "boolean" ? value.read : undefined,
+    threadIds: getOptionalStringArray(value.threadIds),
+  };
+}
+
+function normalizeManageInboxActionForDisplay(action: unknown) {
+  if (typeof action !== "string") return;
+  if (action === "categorize_threads") return "label_threads";
+  return isManageInboxAction(action) ? action : undefined;
+}
+
+function getOptionalString(value: unknown) {
+  return typeof value === "string" ? value : undefined;
+}
+
+function getOptionalStringArray(value: unknown) {
+  return Array.isArray(value) && value.every((item) => typeof item === "string")
+    ? value
+    : undefined;
 }
 
 function renderToolStatus({

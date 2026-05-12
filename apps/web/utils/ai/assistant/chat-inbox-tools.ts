@@ -63,6 +63,17 @@ const OUTLOOK_SCOPE_SUFFIX_TERMS = new Set([
   "mail",
 ]);
 const OUTLOOK_BOOLEAN_OPERATORS = new Set(["AND", "OR", "NOT"]);
+const OUTLOOK_TEMPORAL_SEARCH_TERMS = new Set([
+  "today",
+  "yesterday",
+  "tomorrow",
+  "week",
+  "month",
+  "year",
+  "morning",
+  "afternoon",
+  "evening",
+]);
 
 const recipientListSchema = z
   .string()
@@ -1765,11 +1776,18 @@ function getOutlookScopeCandidate(query: string) {
   const normalizedQuery = query.trim();
   if (!normalizedQuery) return null;
   if (hasOutlookTextSearchSyntax(normalizedQuery)) return null;
+  if (hasOutlookTemporalSearchTerm(normalizedQuery)) return null;
 
   const candidate = stripOutlookScopeDecorators(normalizedQuery);
   if (!candidate) return null;
 
   return candidate;
+}
+
+function hasOutlookTemporalSearchTerm(query: string) {
+  return splitOutlookScopeWords(query).some((word) =>
+    OUTLOOK_TEMPORAL_SEARCH_TERMS.has(word.toLowerCase()),
+  );
 }
 
 function hasOutlookTextSearchSyntax(query: string) {

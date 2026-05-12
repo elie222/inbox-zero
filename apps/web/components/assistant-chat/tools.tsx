@@ -20,7 +20,6 @@ import type {
   UpdateRuleStateOutput,
   UpdateRuleStateTool,
 } from "@/utils/ai/assistant/tools/rules/update-rule-state-tool";
-import type { ManageInboxTool } from "@/utils/ai/assistant/chat-inbox-tools";
 import { cn } from "@/utils";
 import { isDefined } from "@/utils/types";
 import {
@@ -89,6 +88,16 @@ import {
 import { getPendingEmailSubjectPrefix } from "@/components/assistant-chat/helpers";
 
 export type ThreadLookup = EmailLookup;
+
+type ManageInboxResultInput = {
+  action?: string;
+  categoryName?: string | null;
+  fromEmails?: string[] | null;
+  label?: string | null;
+  labelName?: string | null;
+  read?: boolean | null;
+  threadIds?: string[] | null;
+};
 
 function getOutputField<T>(output: unknown, field: string): T | undefined {
   if (typeof output === "object" && output !== null && field in output) {
@@ -219,7 +228,7 @@ export function ManageInboxResult({
   threadLookup,
   isInProgress = false,
 }: {
-  input?: ManageInboxTool["input"];
+  input?: ManageInboxResultInput;
   output: unknown;
   threadIds?: string[];
   threadLookup: ThreadLookup;
