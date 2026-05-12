@@ -13,6 +13,10 @@ import { escapeHtml } from "@/utils/string";
 
 interface SourceMessageInfo {
   headerMessageId: string;
+  // Platform-specific message ID (e.g. Microsoft Graph ID) — required so
+  // Outlook's createReply can thread the notification into the source
+  // conversation instead of starting a new thread.
+  messageId?: string;
   references?: string;
   threadId: string;
 }
