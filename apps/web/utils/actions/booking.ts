@@ -8,6 +8,7 @@ import {
   updateBookingAvailabilityBody,
   updateBookingLinkActionBody,
 } from "@/utils/actions/booking.validation";
+import { getSlotIntervalMinutes } from "@/utils/booking/policy";
 import prisma from "@/utils/prisma";
 import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import {
@@ -31,8 +32,7 @@ export const createBookingLinkAction = actionClient
     }
 
     const durationMinutes = parsedInput.durationMinutes;
-    const slotIntervalMinutes =
-      parsedInput.slotIntervalMinutes ?? durationMinutes;
+    const slotIntervalMinutes = getSlotIntervalMinutes(durationMinutes);
     const defaultLocationType =
       await getDefaultLocationTypeForDestinationCalendar(destinationCalendarId);
     const locationType = parsedInput.videoEnabled
@@ -96,7 +96,10 @@ export const updateBookingLinkAction = actionClient
         timezone: parsedInput.timezone,
         isActive: parsedInput.isActive,
         durationMinutes: parsedInput.durationMinutes,
-        slotIntervalMinutes: parsedInput.slotIntervalMinutes,
+        slotIntervalMinutes:
+          parsedInput.durationMinutes === undefined
+            ? undefined
+            : getSlotIntervalMinutes(parsedInput.durationMinutes),
         locationType: parsedInput.locationType,
         locationValue:
           parsedInput.locationValue === undefined

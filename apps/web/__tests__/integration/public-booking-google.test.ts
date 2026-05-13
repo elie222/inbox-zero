@@ -201,7 +201,6 @@ function mockBookingConfig() {
     title: "Intro call",
     description: null,
     durationMinutes: 30,
-    slotIntervalMinutes: 30,
     locationType: BookingLinkLocationType.CUSTOM,
     locationValue: "Conference room",
     minimumNoticeMinutes: 0,

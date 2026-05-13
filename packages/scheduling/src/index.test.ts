@@ -57,6 +57,32 @@ describe("generateBookableSlots", () => {
     ]);
   });
 
+  it("surfaces a 45-minute slot inside a free window that does not align with the duration grid", () => {
+    // 45-minute call from 9:00-12:00 with 9:00-9:45 busy. Anchoring slots to
+    // 45-minute increments would skip 10:00, even though 10:00-10:45 is free.
+    // A 30-minute slot interval surfaces it.
+    const slots = generateBookableSlots({
+      now: "2026-05-04T00:00:00.000Z",
+      timezone: "UTC",
+      start: "2026-05-04T00:00:00.000Z",
+      end: "2026-05-05T00:00:00.000Z",
+      rules: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 12 * 60 }],
+      busyPeriods: [
+        {
+          start: "2026-05-04T09:00:00.000Z",
+          end: "2026-05-04T09:45:00.000Z",
+        },
+      ],
+      policy: { ...policy, durationMinutes: 45, slotIntervalMinutes: 30 },
+    });
+
+    expect(slots.map((slot) => slot.startTime)).toEqual([
+      "2026-05-04T10:00:00.000Z",
+      "2026-05-04T10:30:00.000Z",
+      "2026-05-04T11:00:00.000Z",
+    ]);
+  });
+
   it("applies minimum notice and booking window", () => {
     const slots = generateBookableSlots({
       now: "2026-05-04T09:00:00.000Z",

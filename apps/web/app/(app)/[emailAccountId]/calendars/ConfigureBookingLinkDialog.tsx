@@ -239,7 +239,6 @@ function GeneralTab({
         title,
         description,
         durationMinutes: duration,
-        slotIntervalMinutes: duration,
         locationType: nextLocationType,
         locationValue: nextLocationValue,
         destinationCalendarId,

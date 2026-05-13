@@ -17,18 +17,6 @@ describe("booking action validation", () => {
     expect(result.success).toBe(false);
   });
 
-  it("accepts a booking link without an explicit slot interval", () => {
-    const result = createBookingLinkBody.safeParse({
-      title: "Intro call",
-      slug: "intro-call",
-      timezone: "UTC",
-      durationMinutes: 30,
-    });
-
-    expect(result.success).toBe(true);
-    expect(result.data?.slotIntervalMinutes).toBeUndefined();
-  });
-
   it("validates public booking timezones", () => {
     const result = publicBookingBody.safeParse({
       slug: "intro-call",
