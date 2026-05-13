@@ -13,6 +13,9 @@ on:
       - "docs/**"
       - ".github/ISSUE_TEMPLATE/**"
       - ".github/PULL_REQUEST_TEMPLATE.md"
+  # Allow triggering a deploy manually (e.g. to push a compose-only fix
+  # that was skipped by paths-ignore, or to force a redeploy without a code change).
+  workflow_dispatch:
 
 # Cancel any in-flight build when a newer commit lands on the same ref.
 # Prevents the orphan-build scenario (40+ min build completes only to be
@@ -70,6 +73,9 @@ jobs:
 
   deploy:
     needs: build-and-push
+    # Run deploy whether the build succeeded or was skipped (compose-only push
+    # or manual workflow_dispatch where no image rebuild is needed).
+    if: always() && needs.build-and-push.result != 'failure' && needs.build-and-push.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
