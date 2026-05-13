@@ -160,12 +160,30 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
             : undefined,
       });
 
+    let videoConferenceLink = getJoinUrl(response);
+
+    // Graph initializes the Teams meeting after the event is created, so the
+    // POST response sometimes returns before `onlineMeeting` is populated.
+    // Refetch the event to retrieve the join URL when we asked for Teams.
+    if (useMicrosoftTeams && !videoConferenceLink && response.id) {
+      try {
+        const refetched: MicrosoftEvent = await client
+          .api(`/me/events/${response.id}`)
+          .get();
+        videoConferenceLink = getJoinUrl(refetched);
+      } catch (error) {
+        this.logger.warn(
+          "Failed to refetch Microsoft event for Teams join URL",
+          { eventId: response.id, error },
+        );
+      }
+    }
+
     return {
       id: response.id || "",
       providerCalendarId: input.calendarId,
       eventUrl: response.webLink,
-      videoConferenceLink:
-        response.onlineMeeting?.joinUrl || response.onlineMeetingUrl,
+      videoConferenceLink,
     };
   }
 
@@ -184,8 +202,7 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       description: event.bodyPreview || undefined,
       location: event.location?.displayName || undefined,
       eventUrl: event.webLink || undefined,
-      videoConferenceLink:
-        event.onlineMeeting?.joinUrl || event.onlineMeetingUrl || undefined,
+      videoConferenceLink: getJoinUrl(event),
       startTime: new Date(event.start?.dateTime || Date.now()),
       endTime: new Date(event.end?.dateTime || Date.now()),
       attendees:
@@ -200,4 +217,8 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
 function formatMicrosoftUtcDateTime(date: Date) {
   // Graph DateTimeTimeZone expects a local datetime for the supplied timezone.
   return date.toISOString().replace(/Z$/, "0000");
+}
+
+function getJoinUrl(event: MicrosoftEvent): string | undefined {
+  return event.onlineMeeting?.joinUrl || event.onlineMeetingUrl;
 }
