@@ -4,6 +4,7 @@ import type {
   CalendarEvent,
   CalendarEventCancelInput,
   CalendarEventProvider,
+  CalendarEventUpdateInput,
   CalendarEventWriteInput,
   CalendarEventWriteResult,
 } from "@/utils/calendar/event-types";
@@ -175,6 +176,21 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     await client
       .api(`/me/events/${input.eventId}/cancel`)
       .post({ comment: "" });
+  }
+
+  async updateEvent(input: CalendarEventUpdateInput): Promise<void> {
+    const client = await this.getClient();
+
+    await client.api(`/me/events/${input.eventId}`).patch({
+      start: {
+        dateTime: formatMicrosoftUtcDateTime(input.startTime),
+        timeZone: "UTC",
+      },
+      end: {
+        dateTime: formatMicrosoftUtcDateTime(input.endTime),
+        timeZone: "UTC",
+      },
+    });
   }
 
   private parseEvent(event: MicrosoftEvent) {

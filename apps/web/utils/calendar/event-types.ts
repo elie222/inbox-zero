@@ -41,6 +41,14 @@ export interface CalendarEventCancelInput {
   eventId: string;
 }
 
+export interface CalendarEventUpdateInput {
+  calendarId: string;
+  endTime: Date;
+  eventId: string;
+  startTime: Date;
+  timezone: string;
+}
+
 export interface CalendarEventProvider {
   fetchEvents(options: {
     timeMin?: Date;

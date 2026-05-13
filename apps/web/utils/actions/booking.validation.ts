@@ -121,3 +121,12 @@ export const publicCancelBookingBody = z.object({
   reason: z.string().trim().max(1000).optional(),
 });
 export type PublicCancelBookingBody = z.infer<typeof publicCancelBookingBody>;
+
+export const publicRescheduleBookingBody = z.object({
+  token: z.string().trim().min(1),
+  startTime: z.string().datetime(),
+  timezone: timezoneSchema,
+});
+export type PublicRescheduleBookingBody = z.infer<
+  typeof publicRescheduleBookingBody
+>;

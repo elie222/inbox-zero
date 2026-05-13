@@ -56,6 +56,10 @@ export function CancelBookingClient({
     }
   };
 
+  const rescheduleHref = token
+    ? `/book/reschedule/${id}?token=${encodeURIComponent(token)}`
+    : null;
+
   return (
     <main className="min-h-screen bg-muted/30 px-4 py-10">
       <div className="mx-auto max-w-2xl space-y-5">
@@ -78,9 +82,19 @@ export function CancelBookingClient({
                   error={errors.reason}
                 />
                 {error ? <p className="text-sm text-red-500">{error}</p> : null}
-                <Button type="submit" loading={isSubmitting}>
-                  Cancel booking
-                </Button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button type="submit" loading={isSubmitting}>
+                    Cancel booking
+                  </Button>
+                  {rescheduleHref ? (
+                    <a
+                      href={rescheduleHref}
+                      className="text-sm font-medium text-blue-600 underline"
+                    >
+                      Reschedule instead
+                    </a>
+                  ) : null}
+                </div>
               </form>
             ) : (
               <p className="text-sm text-muted-foreground">

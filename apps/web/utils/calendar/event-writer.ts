@@ -75,6 +75,41 @@ export async function createCalendarEvent({
   };
 }
 
+export async function updateCalendarEvent({
+  providerConnectionId,
+  providerCalendarId,
+  providerEventId,
+  emailAccountId,
+  startTime,
+  endTime,
+  timezone,
+  logger,
+}: {
+  providerConnectionId: string;
+  providerCalendarId: string;
+  providerEventId: string;
+  emailAccountId: string;
+  startTime: Date;
+  endTime: Date;
+  timezone: string;
+  logger: Logger;
+}) {
+  const writableProvider = await getWritableProviderForExistingEvent({
+    providerConnectionId,
+    providerCalendarId,
+    emailAccountId,
+    logger,
+  });
+
+  await writableProvider.updateEvent({
+    calendarId: providerCalendarId,
+    eventId: providerEventId,
+    startTime,
+    endTime,
+    timezone,
+  });
+}
+
 export async function cancelCalendarEvent({
   providerConnectionId,
   providerCalendarId,
@@ -85,6 +120,30 @@ export async function cancelCalendarEvent({
   providerConnectionId: string;
   providerCalendarId: string;
   providerEventId: string;
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  const writableProvider = await getWritableProviderForExistingEvent({
+    providerConnectionId,
+    providerCalendarId,
+    emailAccountId,
+    logger,
+  });
+
+  await writableProvider.cancelEvent({
+    calendarId: providerCalendarId,
+    eventId: providerEventId,
+  });
+}
+
+async function getWritableProviderForExistingEvent({
+  providerConnectionId,
+  providerCalendarId,
+  emailAccountId,
+  logger,
+}: {
+  providerConnectionId: string;
+  providerCalendarId: string;
   emailAccountId: string;
   logger: Logger;
 }) {
@@ -114,15 +173,10 @@ export async function cancelCalendarEvent({
     throw new SafeError("Destination calendar not found");
   }
 
-  const writableProvider = createWritableProvider({
+  return createWritableProvider({
     connection,
     emailAccountId,
     logger,
-  });
-
-  await writableProvider.cancelEvent({
-    calendarId: providerCalendarId,
-    eventId: providerEventId,
   });
 }
 

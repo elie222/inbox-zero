@@ -1,11 +1,12 @@
 import { Link, Section, Text } from "@react-email/components";
 import { BookingEmailLayout } from "./components/booking-email-layout";
 
-export type GuestBookingConfirmationEmailProps = {
+export type GuestBookingRescheduledEmailProps = {
   cancelUrl: string;
   rescheduleUrl: string;
   eventTitle: string;
   formattedTime: string;
+  previousFormattedTime: string;
   guestName: string;
   hostName: string;
   location?: string | null;
@@ -14,15 +15,15 @@ export type GuestBookingConfirmationEmailProps = {
   dateWeekday?: string;
   timeRange?: string;
   timezoneLabel?: string;
-  guestNote?: string | null;
   meetingLink?: string | null;
 };
 
-export default function GuestBookingConfirmationEmail({
+export default function GuestBookingRescheduledEmail({
   cancelUrl,
   rescheduleUrl,
   eventTitle,
   formattedTime,
+  previousFormattedTime,
   guestName,
   hostName,
   location,
@@ -31,18 +32,20 @@ export default function GuestBookingConfirmationEmail({
   dateWeekday,
   timeRange,
   timezoneLabel,
-  guestNote,
   meetingLink,
-}: GuestBookingConfirmationEmailProps) {
+}: GuestBookingRescheduledEmailProps) {
   const meetingTitle = `${eventTitle} with ${hostName}`;
   return (
     <BookingEmailLayout
-      headline={`Your meeting with ${hostName} is confirmed`}
+      headline={`Your meeting with ${hostName} was rescheduled`}
       subline={formattedTime}
     >
-      <Section className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
-        <Text className="m-0 text-[13px] font-medium text-green-800">
-          You're booked. A calendar invite has been added to your inbox.
+      <Section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+        <Text className="m-0 text-[13px] font-medium text-amber-800">
+          Your meeting has moved. An updated calendar invite is on its way.
+        </Text>
+        <Text className="m-0 mt-1 text-[12px] text-amber-700">
+          Previously: {previousFormattedTime}
         </Text>
       </Section>
 
@@ -50,7 +53,7 @@ export default function GuestBookingConfirmationEmail({
         Hi {guestName},
       </Text>
       <Text className="m-0 mb-5 text-[15px] text-gray-900">
-        Looking forward to our chat. Here are the details:
+        Here are the new details:
       </Text>
 
       <Section className="mb-5 overflow-hidden rounded-2xl border border-gray-200">
@@ -114,17 +117,6 @@ export default function GuestBookingConfirmationEmail({
         ) : null}
       </Section>
 
-      {guestNote ? (
-        <Section className="mb-6 rounded-r-lg border-l-[3px] border-blue-600 bg-[#FAFBFD] px-4 py-3">
-          <Text className="m-0 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-            Your note
-          </Text>
-          <Text className="m-0 mt-1 text-[13px] italic text-gray-900">
-            "{guestNote}"
-          </Text>
-        </Section>
-      ) : null}
-
       <Section className="mb-6">
         {meetingLink ? (
           <Link
@@ -156,21 +148,20 @@ export default function GuestBookingConfirmationEmail({
   );
 }
 
-GuestBookingConfirmationEmail.PreviewProps = {
+GuestBookingRescheduledEmail.PreviewProps = {
   cancelUrl: "https://www.getinboxzero.com/book/cancel/example?token=test",
   rescheduleUrl:
     "https://www.getinboxzero.com/book/reschedule/example?token=test",
   eventTitle: "15 min intro",
-  formattedTime: "Thu, Nov 12, 2026 · 10:00 AM",
+  formattedTime: "Fri, Nov 13, 2026 · 10:00 AM",
+  previousFormattedTime: "Thu, Nov 12, 2026 · 10:00 AM",
   guestName: "Sarah Chen",
   hostName: "Elie",
   location: "Google Meet",
   dateMonth: "NOV",
-  dateDay: "12",
-  dateWeekday: "Thu",
+  dateDay: "13",
+  dateWeekday: "Fri",
   timeRange: "10:00 AM – 10:15 AM",
   timezoneLabel: "Asia/Jerusalem",
-  guestNote:
-    "Hey Elie, building a B2B email tool, would love to chat about your AI rules approach.",
   meetingLink: "https://meet.google.com/abc-defg-hij",
-} satisfies GuestBookingConfirmationEmailProps;
+} satisfies GuestBookingRescheduledEmailProps;

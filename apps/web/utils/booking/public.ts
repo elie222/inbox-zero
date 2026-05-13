@@ -16,6 +16,7 @@ import { getCalendarAvailabilityErrorLogContext } from "@/utils/calendar/availab
 import {
   cancelCalendarEvent,
   createCalendarEvent,
+  updateCalendarEvent,
   type CreatedCalendarEvent,
 } from "@/utils/calendar/event-writer";
 import { BookingStatus } from "@/generated/prisma/enums";
@@ -23,6 +24,7 @@ import type { PublicBookingBody } from "@/utils/actions/booking.validation";
 import {
   sendBookingCancellationEmails,
   sendBookingConfirmationEmails,
+  sendBookingRescheduledEmails,
 } from "@/utils/booking/emails";
 
 const MAX_AVAILABILITY_RANGE_MS = 32 * 24 * 60 * 60 * 1000;
@@ -30,6 +32,7 @@ const PENDING_BOOKING_TIMEOUT_MS = 15 * 60 * 1000;
 const CALENDAR_AVAILABILITY_UNAVAILABLE =
   "Calendar availability is temporarily unavailable";
 const INVALID_CANCELLATION_LINK_MESSAGE = "Invalid cancellation link";
+const INVALID_RESCHEDULE_LINK_MESSAGE = "Invalid reschedule link";
 const BOOKING_CANCELED_RETRY_MESSAGE =
   "Booking was canceled. Please submit a new booking request.";
 const BOOKING_STILL_PROCESSING_MESSAGE =
@@ -129,30 +132,12 @@ export async function createPublicBooking({
     if (result) return result;
   }
 
-  const busyPeriods = await getBusyPeriods({
+  await assertSlotAvailable({
     config,
-    start: selectedStartTime,
-    end: selectedEndTime,
+    startTime: selectedStartTime,
+    endTime: selectedEndTime,
     logger,
-    providerFailureMode: "throw-safe-error",
   });
-
-  if (!busyPeriods) throw new SafeError(CALENDAR_AVAILABILITY_UNAVAILABLE);
-
-  const slotValidation = validateSelectedSlot({
-    now: new Date(),
-    timezone: config.link.timezone,
-    start: selectedStartTime,
-    end: selectedEndTime,
-    selectedStartTime,
-    rules: config.windows,
-    busyPeriods,
-    policy: getPolicy(config.link),
-  });
-
-  if (!slotValidation.valid) {
-    throw new SafeError(slotValidation.reason);
-  }
 
   const cancelToken = randomToken();
   let pendingBooking: Awaited<ReturnType<typeof createPendingBooking>>;
@@ -190,6 +175,11 @@ export async function createPublicBooking({
         guestName: input.guestName,
         guestEmail: input.guestEmail,
         guestNote: input.guestNote,
+        cancelUrl: getCancelUrl({ id: pendingBooking.id, token: cancelToken }),
+        rescheduleUrl: getRescheduleUrl({
+          id: pendingBooking.id,
+          token: cancelToken,
+        }),
       }),
       startTime: selectedStartTime,
       endTime: selectedEndTime,
@@ -249,16 +239,27 @@ export async function createPublicBooking({
     throw new SafeError("Failed to create calendar event");
   }
 
+  const cancelUrl = getCancelUrl({
+    id: confirmedBooking.id,
+    token: cancelToken,
+  });
+  const rescheduleUrl = getRescheduleUrl({
+    id: confirmedBooking.id,
+    token: cancelToken,
+  });
+
   await sendBookingConfirmationEmails({
     booking: confirmedBooking,
     guestTimezone: input.timezone,
-    cancelUrl: getCancelUrl({ id: confirmedBooking.id, token: cancelToken }),
+    cancelUrl,
+    rescheduleUrl,
     logger,
   });
 
   return {
     ...toPublicBookingResult(confirmedBooking),
-    cancelUrl: getCancelUrl({ id: confirmedBooking.id, token: cancelToken }),
+    cancelUrl,
+    rescheduleUrl,
   };
 }
 
@@ -343,10 +344,204 @@ export async function cancelPublicBooking({
   return toPublicBookingResult(canceledBooking);
 }
 
+export async function reschedulePublicBooking({
+  id,
+  token,
+  startTime,
+  guestTimezone,
+  logger,
+}: {
+  id: string;
+  token: string;
+  startTime: string;
+  guestTimezone: string;
+  logger: Logger;
+}) {
+  const newStartTime = new Date(startTime);
+  if (Number.isNaN(newStartTime.getTime())) {
+    throw new SafeError("Invalid start time");
+  }
+
+  const booking = await prisma.booking.findUnique({
+    where: { id },
+    include: getBookingHostInclude(),
+  });
+
+  if (!booking) throw new SafeError(INVALID_RESCHEDULE_LINK_MESSAGE, 404);
+  if (!isMatchingToken({ token, tokenHash: booking.cancelTokenHash })) {
+    throw new SafeError(INVALID_RESCHEDULE_LINK_MESSAGE, 404);
+  }
+  if (booking.status !== BookingStatus.CONFIRMED) {
+    throw new SafeError("Booking cannot be rescheduled");
+  }
+  if (booking.startTime <= new Date()) {
+    throw new SafeError("Bookings that have started cannot be rescheduled");
+  }
+
+  const config = await loadPublicBookingLink(booking.bookingLink.slug);
+  const newEndTime = addMinutes(newStartTime, config.link.durationMinutes);
+
+  if (newStartTime.getTime() === booking.startTime.getTime()) {
+    throw new SafeError("Pick a different time to reschedule");
+  }
+
+  await assertSlotAvailable({
+    config,
+    startTime: newStartTime,
+    endTime: newEndTime,
+    excludeBookingId: booking.id,
+    logger,
+  });
+
+  const previousStartTime = booking.startTime;
+  const previousEndTime = booking.endTime;
+
+  // Claim the new slot atomically before touching the provider. The partial
+  // EXCLUDE constraint blocks overlapping CONFIRMED/PENDING bookings, so if
+  // another booking grabbed the slot we surface "no longer available".
+  try {
+    const transition = await prisma.booking.updateMany({
+      where: { id: booking.id, status: BookingStatus.CONFIRMED },
+      data: { startTime: newStartTime, endTime: newEndTime },
+    });
+    if (transition.count === 0) {
+      throw new SafeError("Booking cannot be rescheduled");
+    }
+  } catch (error) {
+    if (isSlotConflictError(error)) {
+      throw new SafeError("Selected slot is no longer available");
+    }
+    throw error;
+  }
+
+  if (
+    booking.providerConnectionId &&
+    booking.providerCalendarId &&
+    booking.providerEventId
+  ) {
+    try {
+      await updateCalendarEvent({
+        emailAccountId: booking.emailAccountId,
+        providerConnectionId: booking.providerConnectionId,
+        providerCalendarId: booking.providerCalendarId,
+        providerEventId: booking.providerEventId,
+        startTime: newStartTime,
+        endTime: newEndTime,
+        timezone: booking.bookingLink.timezone,
+        logger,
+      });
+    } catch (error) {
+      logger.error("Failed to update provider event during reschedule", {
+        bookingId: booking.id,
+        error,
+      });
+      // Roll back the local slot claim so we don't end up with a booking that
+      // disagrees with the host's calendar.
+      await prisma.booking
+        .updateMany({
+          where: {
+            id: booking.id,
+            startTime: newStartTime,
+            endTime: newEndTime,
+          },
+          data: { startTime: previousStartTime, endTime: previousEndTime },
+        })
+        .catch((rollbackError) => {
+          logger.error("Failed to roll back reschedule slot claim", {
+            bookingId: booking.id,
+            error: rollbackError,
+          });
+        });
+      throw new SafeError("Failed to update calendar event");
+    }
+  }
+
+  const rescheduledBooking = {
+    ...booking,
+    startTime: newStartTime,
+    endTime: newEndTime,
+  };
+
+  const cancelUrl = getCancelUrl({ id: booking.id, token });
+  const rescheduleUrl = getRescheduleUrl({ id: booking.id, token });
+
+  await sendBookingRescheduledEmails({
+    booking: rescheduledBooking,
+    previousStartTime,
+    guestTimezone,
+    cancelUrl,
+    rescheduleUrl,
+    logger,
+  });
+
+  return {
+    ...toPublicBookingResult(rescheduledBooking),
+    cancelUrl,
+    rescheduleUrl,
+  };
+}
+
+export async function getPublicBookingForManagement({
+  id,
+  token,
+}: {
+  id: string;
+  token: string;
+}) {
+  const booking = await prisma.booking.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      cancelTokenHash: true,
+      startTime: true,
+      endTime: true,
+      status: true,
+      guestName: true,
+      bookingLink: {
+        select: {
+          slug: true,
+          title: true,
+          description: true,
+          durationMinutes: true,
+          slotIntervalMinutes: true,
+          locationType: true,
+          emailAccount: {
+            select: { name: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!booking) return null;
+  if (!isMatchingToken({ token, tokenHash: booking.cancelTokenHash })) {
+    return null;
+  }
+
+  return {
+    id: booking.id,
+    status: booking.status,
+    guestName: booking.guestName,
+    startTime: booking.startTime.toISOString(),
+    endTime: booking.endTime.toISOString(),
+    bookingLink: {
+      slug: booking.bookingLink.slug,
+      title: booking.bookingLink.title,
+      description: booking.bookingLink.description,
+      durationMinutes: booking.bookingLink.durationMinutes,
+      slotIntervalMinutes: booking.bookingLink.slotIntervalMinutes,
+      locationType: booking.bookingLink.locationType,
+      locationValue: null as string | null,
+      hostName: booking.bookingLink.emailAccount.name ?? null,
+    },
+  };
+}
+
 function getBookingHostInclude() {
   return {
     bookingLink: {
       select: {
+        slug: true,
         title: true,
         locationType: true,
         locationValue: true,
@@ -428,18 +623,60 @@ async function loadPublicBookingLink(slug: string) {
   };
 }
 
+async function assertSlotAvailable({
+  config,
+  startTime,
+  endTime,
+  excludeBookingId,
+  logger,
+}: {
+  config: Awaited<ReturnType<typeof loadPublicBookingLink>>;
+  startTime: Date;
+  endTime: Date;
+  excludeBookingId?: string;
+  logger: Logger;
+}) {
+  const busyPeriods = await getBusyPeriods({
+    config,
+    start: startTime,
+    end: endTime,
+    logger,
+    providerFailureMode: "throw-safe-error",
+    excludeBookingId,
+  });
+
+  if (!busyPeriods) throw new SafeError(CALENDAR_AVAILABILITY_UNAVAILABLE);
+
+  const slotValidation = validateSelectedSlot({
+    now: new Date(),
+    timezone: config.link.timezone,
+    start: startTime,
+    end: endTime,
+    selectedStartTime: startTime,
+    rules: config.windows,
+    busyPeriods,
+    policy: getPolicy(config.link),
+  });
+
+  if (!slotValidation.valid) {
+    throw new SafeError(slotValidation.reason);
+  }
+}
+
 async function getBusyPeriods({
   config,
   start,
   end,
   logger,
   providerFailureMode,
+  excludeBookingId,
 }: {
   config: Awaited<ReturnType<typeof loadPublicBookingLink>>;
   start: Date;
   end: Date;
   logger: Logger;
   providerFailureMode: "return-null" | "throw-safe-error";
+  excludeBookingId?: string;
 }): Promise<BusyPeriod[] | null> {
   const [providerBusyPeriods, existingBookings] = await Promise.all([
     getUnifiedCalendarAvailability({
@@ -466,6 +703,7 @@ async function getBusyPeriods({
       .findMany({
         where: {
           emailAccountId: config.link.emailAccountId,
+          ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
           status: {
             in: [BookingStatus.PENDING_PROVIDER_EVENT, BookingStatus.CONFIRMED],
           },
@@ -601,17 +839,24 @@ function getProviderEventDescription({
   guestName,
   guestEmail,
   guestNote,
+  cancelUrl,
+  rescheduleUrl,
 }: {
   guestName: string;
   guestEmail: string;
   guestNote?: string;
+  cancelUrl: string;
+  rescheduleUrl: string;
 }) {
   return [
     `Booked with ${cleanCalendarDescriptionText(guestName)}`,
     `Guest email: ${cleanCalendarDescriptionText(guestEmail)}`,
     guestNote ? `Guest note: ${cleanCalendarDescriptionText(guestNote)}` : null,
+    "",
+    `Reschedule: ${rescheduleUrl}`,
+    `Cancel: ${cancelUrl}`,
   ]
-    .filter(Boolean)
+    .filter((line) => line !== null)
     .join("\n");
 }
 
@@ -688,6 +933,12 @@ function isMatchingToken({
 
 function getCancelUrl({ id, token }: { id: string; token: string }) {
   return `${env.NEXT_PUBLIC_BASE_URL}/book/cancel/${id}?token=${encodeURIComponent(
+    token,
+  )}`;
+}
+
+function getRescheduleUrl({ id, token }: { id: string; token: string }) {
+  return `${env.NEXT_PUBLIC_BASE_URL}/book/reschedule/${id}?token=${encodeURIComponent(
     token,
   )}`;
 }

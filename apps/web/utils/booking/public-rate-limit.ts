@@ -48,7 +48,7 @@ const PUBLIC_BOOKING_RATE_LIMITS = {
   linkDaily: { limit: 200, windowSeconds: 24 * 60 * 60 },
 } as const;
 
-const PUBLIC_BOOKING_CANCEL_RATE_LIMITS = {
+const PUBLIC_BOOKING_MANAGE_RATE_LIMITS = {
   ipBookingBurst: { limit: 10, windowSeconds: 10 * 60 },
   ipBookingDaily: { limit: 50, windowSeconds: 24 * 60 * 60 },
   bookingHourly: { limit: 20, windowSeconds: 60 * 60 },
@@ -190,56 +190,90 @@ export async function enforcePublicAvailabilityRateLimit({
   });
 }
 
-export async function enforcePublicBookingCancelRateLimit({
+type PublicBookingManageAction = "cancel" | "reschedule";
+
+const MANAGE_ACTION_COPY: Record<
+  PublicBookingManageAction,
+  { warnMessage: string; limitedMessage: string }
+> = {
+  cancel: {
+    warnMessage: "Public booking cancellation rate limit exceeded",
+    limitedMessage: "Too many cancellation attempts. Please try again later.",
+  },
+  reschedule: {
+    warnMessage: "Public booking reschedule rate limit exceeded",
+    limitedMessage: "Too many reschedule attempts. Please try again later.",
+  },
+};
+
+async function enforcePublicBookingManageRateLimit({
+  action,
   bookingId,
   clientIp,
   logger,
 }: {
+  action: PublicBookingManageAction;
   bookingId: string;
   clientIp: string;
   logger: Logger;
 }) {
+  const namespace = `public-booking-${action}`;
   const bookingKey = hashRateLimitValue(bookingId);
   const ipHash = hashRateLimitValue(clientIp);
   const rules = [
     {
-      id: "ip-booking-cancel-burst",
+      id: `ip-booking-${action}-burst`,
       key: createRateLimitKey([
         "rate-limit",
-        "public-booking-cancel",
+        namespace,
         "ip-booking-burst",
         bookingKey,
         ipHash,
       ]),
-      ...PUBLIC_BOOKING_CANCEL_RATE_LIMITS.ipBookingBurst,
+      ...PUBLIC_BOOKING_MANAGE_RATE_LIMITS.ipBookingBurst,
     },
     {
-      id: "ip-booking-cancel-daily",
+      id: `ip-booking-${action}-daily`,
       key: createRateLimitKey([
         "rate-limit",
-        "public-booking-cancel",
+        namespace,
         "ip-booking-daily",
         bookingKey,
         ipHash,
       ]),
-      ...PUBLIC_BOOKING_CANCEL_RATE_LIMITS.ipBookingDaily,
+      ...PUBLIC_BOOKING_MANAGE_RATE_LIMITS.ipBookingDaily,
     },
     {
-      id: "booking-cancel-hourly",
+      id: `booking-${action}-hourly`,
       key: createRateLimitKey([
         "rate-limit",
-        "public-booking-cancel",
+        namespace,
         "booking-hourly",
         bookingKey,
       ]),
-      ...PUBLIC_BOOKING_CANCEL_RATE_LIMITS.bookingHourly,
+      ...PUBLIC_BOOKING_MANAGE_RATE_LIMITS.bookingHourly,
     },
   ];
 
   await enforceRateLimitRules({
     rules,
     logger,
-    warnMessage: "Public booking cancellation rate limit exceeded",
-    limitedMessage: "Too many cancellation attempts. Please try again later.",
+    ...MANAGE_ACTION_COPY[action],
   });
+}
+
+export function enforcePublicBookingCancelRateLimit(args: {
+  bookingId: string;
+  clientIp: string;
+  logger: Logger;
+}) {
+  return enforcePublicBookingManageRateLimit({ action: "cancel", ...args });
+}
+
+export function enforcePublicBookingRescheduleRateLimit(args: {
+  bookingId: string;
+  clientIp: string;
+  logger: Logger;
+}) {
+  return enforcePublicBookingManageRateLimit({ action: "reschedule", ...args });
 }

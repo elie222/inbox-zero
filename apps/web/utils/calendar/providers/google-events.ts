@@ -6,6 +6,7 @@ import type {
   CalendarEvent,
   CalendarEventCancelInput,
   CalendarEventProvider,
+  CalendarEventUpdateInput,
   CalendarEventWriteInput,
   CalendarEventWriteResult,
 } from "@/utils/calendar/event-types";
@@ -157,6 +158,26 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
       calendarId: input.calendarId,
       eventId: input.eventId,
       sendUpdates: "all",
+    });
+  }
+
+  async updateEvent(input: CalendarEventUpdateInput): Promise<void> {
+    const client = await this.getClient();
+
+    await client.events.patch({
+      calendarId: input.calendarId,
+      eventId: input.eventId,
+      sendUpdates: "all",
+      requestBody: {
+        start: {
+          dateTime: input.startTime.toISOString(),
+          timeZone: input.timezone,
+        },
+        end: {
+          dateTime: input.endTime.toISOString(),
+          timeZone: input.timezone,
+        },
+      },
     });
   }
 
