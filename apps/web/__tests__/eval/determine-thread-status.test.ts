@@ -130,6 +130,33 @@ describe.runIf(shouldRunEval)("Eval: determine thread status", () => {
       },
       TIMEOUT,
     );
+
+    test(
+      "marks Portuguese event RSVP confirmation as ACTIONED",
+      async () => {
+        const result = await aiDetermineThreadStatus({
+          emailAccount,
+          userSentLastEmail: true,
+          threadMessages: getPortugueseInvitationConfirmationThread(
+            emailAccount.email,
+          ),
+        });
+
+        const actual = result.status;
+        const pass = actual === SystemType.ACTIONED;
+
+        evalReporter.record({
+          testName: "Portuguese event RSVP confirmation",
+          model: model.label,
+          pass,
+          actual,
+          expected: SystemType.ACTIONED,
+        });
+
+        expect(actual).toBe(SystemType.ACTIONED);
+      },
+      TIMEOUT,
+    );
   });
 
   afterAll(() => {
@@ -172,6 +199,25 @@ function getSchedulingConfirmationWithOlderOpenQuestionThread(
       subject: "Re: Project review",
       content:
         "Let's aim for 1 pm Pacific today. I also tweaked the prototype over the weekend.",
+    }),
+  ];
+}
+
+function getPortugueseInvitationConfirmationThread(userEmail: string) {
+  return [
+    getEmail({
+      from: "organizador@example.com",
+      to: userEmail,
+      subject: "Convite: Reunião de planejamento na quinta-feira",
+      content:
+        "Olá! Gostaria de convidá-lo para a nossa reunião de planejamento na próxima quinta-feira, às 14h. Por favor, confirme se poderá participar.",
+    }),
+    getEmail({
+      from: userEmail,
+      to: "organizador@example.com",
+      subject: "Re: Convite: Reunião de planejamento na quinta-feira",
+      content:
+        "Olá! Obrigado pelo convite. Confirmo a minha presença na reunião de quinta-feira às 14h. Até lá!",
     }),
   ];
 }
