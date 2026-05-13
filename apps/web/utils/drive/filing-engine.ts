@@ -337,6 +337,7 @@ export async function processAttachment({
     try {
       await sendFilingMessagingNotifications({
         emailAccountId: emailAccount.id,
+        userEmail: emailAccount.email,
         filingId: filing.id,
         senderEmail: extractEmailAddress(message.headers.from),
         logger: log,

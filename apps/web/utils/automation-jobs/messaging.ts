@@ -7,12 +7,14 @@ import {
   sendAutomationMessageToSlack,
 } from "@/utils/automation-jobs/slack";
 import type { Logger } from "@/utils/logger";
+import { formatAccountHeader } from "@/utils/messaging/account-header";
 import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters";
 
 export async function sendAutomationMessage({
   channel,
   route,
   text,
+  accountEmail,
   logger,
 }: {
   channel: {
@@ -27,6 +29,7 @@ export async function sendAutomationMessage({
     targetType: MessagingRouteTargetType;
   } | null;
   text: string;
+  accountEmail?: string | null;
   logger: Logger;
 }) {
   switch (channel.provider) {
@@ -58,7 +61,9 @@ export async function sendAutomationMessage({
           route?.targetType === MessagingRouteTargetType.DIRECT_MESSAGE
             ? route.targetId
             : (channel.providerUserId ?? null),
-        text,
+        text: accountEmail
+          ? `${formatAccountHeader(accountEmail)}\n\n${text}`
+          : text,
         logger,
       });
     }

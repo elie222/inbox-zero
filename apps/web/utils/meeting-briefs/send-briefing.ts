@@ -146,6 +146,7 @@ export async function sendBriefing({
             videoConferenceLink: event.videoConferenceLink ?? undefined,
             eventUrl: event.eventUrl ?? undefined,
             briefingContent: briefingContentWithTeam,
+            accountEmail: userEmail,
             logger,
           }),
         );
@@ -293,6 +294,7 @@ async function sendBriefingViaMessagingApp({
   videoConferenceLink,
   eventUrl,
   briefingContent,
+  accountEmail,
   logger,
 }: {
   channel: {
@@ -316,6 +318,7 @@ async function sendBriefingViaMessagingApp({
   videoConferenceLink?: string;
   eventUrl?: string;
   briefingContent: BriefingContent;
+  accountEmail: string;
   logger: Logger;
 }) {
   logger.info("Sending briefing to messaging app", {
@@ -332,6 +335,7 @@ async function sendBriefingViaMessagingApp({
       eventUrl,
       briefingContent,
     }),
+    accountEmail,
     logger,
   });
 

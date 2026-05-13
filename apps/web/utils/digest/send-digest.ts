@@ -123,6 +123,7 @@ export async function sendDigest({
             date,
             ruleNames,
             itemsByRule,
+            accountEmail: userEmail,
             logger,
           }),
         );
@@ -236,6 +237,7 @@ async function sendDigestViaMessagingApp({
   date,
   ruleNames,
   itemsByRule,
+  accountEmail,
   logger,
 }: {
   channel: {
@@ -248,6 +250,7 @@ async function sendDigestViaMessagingApp({
   date: Date;
   ruleNames: Record<string, string>;
   itemsByRule: ItemsByRule;
+  accountEmail: string;
   logger: Logger;
 }) {
   logger.info("Sending digest to messaging app", {
@@ -258,6 +261,7 @@ async function sendDigestViaMessagingApp({
     channel,
     route,
     text: formatDigestText({ date, ruleNames, itemsByRule }),
+    accountEmail,
     logger,
   });
 

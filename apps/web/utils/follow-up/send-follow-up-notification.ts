@@ -7,6 +7,7 @@ import {
 } from "@/generated/prisma/enums";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import type { Logger } from "@/utils/logger";
+import { telegramAccountHeaderCardChild } from "@/utils/messaging/account-header";
 import {
   resolveSlackRouteDestination,
   sendFollowUpReminderToSlack,
@@ -78,10 +79,12 @@ export async function getFollowUpNotificationChannels(
 
 export async function sendFollowUpNotification({
   channels,
+  userEmail,
   logger,
   ...content
 }: FollowUpNotificationContent & {
   channels: FollowUpNotificationChannel[];
+  userEmail: string;
   logger: Logger;
 }): Promise<void> {
   const deliveryPromises: Promise<unknown>[] = [];
@@ -121,6 +124,7 @@ export async function sendFollowUpNotification({
             channel,
             route,
             text: formatFollowUpText(content),
+            accountEmail: userEmail,
             logger,
           }),
         );
@@ -130,7 +134,7 @@ export async function sendFollowUpNotification({
           sendFollowUpViaTelegram({
             channel,
             route,
-            content,
+            content: { ...content, accountEmail: userEmail },
             logger,
           }),
         );
@@ -186,7 +190,7 @@ async function sendFollowUpViaTelegram({
 }: {
   channel: FollowUpNotificationChannel;
   route: { targetId: string; targetType: MessagingRouteTargetType };
-  content: FollowUpNotificationContent;
+  content: FollowUpNotificationContent & { accountEmail?: string | null };
   logger: Logger;
 }) {
   const destination =
@@ -243,10 +247,15 @@ function buildTelegramFollowUpCard({
   snippet,
   threadLink,
   threadLinkLabel,
-}: FollowUpNotificationContent) {
+  accountEmail,
+}: FollowUpNotificationContent & { accountEmail?: string | null }) {
   const { directionLine, counterpartyPrefix, snippetLabel, emoji } =
     getFollowUpCopy(trackerType);
-  const children: CardChild[] = [
+  const children: CardChild[] = [];
+  if (accountEmail) {
+    children.push(telegramAccountHeaderCardChild(accountEmail));
+  }
+  children.push(
     CardText(
       [
         directionLine,
@@ -254,7 +263,7 @@ function buildTelegramFollowUpCard({
         `${counterpartyPrefix} ${normalizeFollowUpText(counterpartyName)} <${counterpartyEmail}> · ${daysSinceSent} ${pluralize(daysSinceSent, "day")} ago`,
       ].join("\n\n"),
     ),
-  ];
+  );
 
   const formattedSnippet = snippet
     ? formatQuotedSnippet(snippet, TELEGRAM_SNIPPET_MAX_CHARS)

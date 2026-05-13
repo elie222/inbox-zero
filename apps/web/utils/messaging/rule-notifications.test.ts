@@ -1214,6 +1214,7 @@ describe("sendMessagingRuleNotification", () => {
       text: expect.stringContaining(
         "Quick actions like archive and mark read are Slack-only right now",
       ),
+      accountEmail: "user@example.com",
       logger: expect.anything(),
     });
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
@@ -1271,6 +1272,7 @@ describe("sendMessagingRuleNotification", () => {
         targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
       },
       text: expect.stringContaining("💬 They wrote:\nFirst line\nSecond line"),
+      accountEmail: "user@example.com",
       logger: expect.anything(),
     });
 
@@ -1376,6 +1378,8 @@ describe("sendMessagingRuleNotification", () => {
     expect(serializedCard).toContain("Send reply");
     expect(serializedCard).toContain("Open in Gmail");
     expect(serializedCard).not.toContain("Edit draft");
+    expect(serializedCard).toContain("Account:");
+    expect(serializedCard).toContain("user@example.com");
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
       data: {

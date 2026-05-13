@@ -66,6 +66,7 @@ import {
   isMessagingChannelOperational,
   isOperationalSlackChannel,
 } from "@/utils/messaging/channel-validity";
+import { telegramAccountHeaderCardChild } from "@/utils/messaging/account-header";
 import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters";
 import {
   escapeTelegramMarkdown,
@@ -462,6 +463,7 @@ async function sendLinkedRuleNotification({
       channel: context.messagingChannel,
       route,
       text,
+      accountEmail: context.executedRule.emailAccount.email,
       logger,
     });
 
@@ -562,6 +564,7 @@ async function sendTelegramRuleNotificationWithContext({
         actionId: context.id,
         content,
         openLink: getNotificationOpenLink(context),
+        accountEmail: context.executedRule.emailAccount.email,
       }),
     );
 
@@ -1745,13 +1748,19 @@ function buildTelegramNotificationCard({
   actionId,
   content,
   openLink,
+  accountEmail,
 }: {
   actionId: string;
   content: NotificationContent;
   openLink?: NotificationOpenLink | null;
+  accountEmail?: string | null;
 }): CardElement {
-  const children = buildNotificationCardBody(
-    sanitizeTelegramNotificationContent(content),
+  const children: CardChild[] = [];
+  if (accountEmail) {
+    children.push(telegramAccountHeaderCardChild(accountEmail));
+  }
+  children.push(
+    ...buildNotificationCardBody(sanitizeTelegramNotificationContent(content)),
   );
   children.push(
     Actions([

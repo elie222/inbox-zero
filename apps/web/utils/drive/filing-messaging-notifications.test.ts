@@ -61,6 +61,7 @@ describe("sendFilingMessagingNotifications", () => {
 
     await sendFilingMessagingNotifications({
       emailAccountId: "email-account-1",
+      userEmail: "user@example.com",
       filingId: "filing-1",
       logger,
     });
@@ -91,6 +92,7 @@ describe("sendFilingMessagingNotifications", () => {
 
     await sendFilingMessagingNotifications({
       emailAccountId: "email-account-1",
+      userEmail: "user@example.com",
       filingId: "filing-1",
       logger,
     });

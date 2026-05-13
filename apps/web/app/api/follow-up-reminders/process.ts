@@ -542,6 +542,7 @@ async function processFollowUpsForType({
               }) ?? undefined,
             threadLinkLabel: getThreadLinkLabel(providerName),
             trackerId: tracker.id,
+            userEmail: emailAccount.email,
             logger: threadLogger,
           });
         } catch (notifyError) {

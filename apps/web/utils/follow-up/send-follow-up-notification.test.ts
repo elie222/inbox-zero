@@ -49,6 +49,7 @@ const baseArgs = {
   snippet: "Following up on the items we discussed.",
   threadLink: "https://mail.example/thread",
   trackerId: "tracker-1",
+  userEmail: "user@example.com",
   logger,
 };
 
@@ -143,6 +144,7 @@ describe("sendFollowUpNotification", () => {
     expect(serializedCard).toContain("Follow-up nudge");
     expect(serializedCard).toContain("Open in Outlook");
     expect(serializedCard).toContain(threadLink);
+    expect(serializedCard).toContain("Account: user@example.com");
     expect(serializedCard).not.toContain(`Open: ${threadLink}`);
   });
 

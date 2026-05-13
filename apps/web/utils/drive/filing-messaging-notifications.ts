@@ -18,11 +18,13 @@ import { isMessagingChannelOperational } from "@/utils/messaging/channel-validit
 
 export async function sendFilingMessagingNotifications({
   emailAccountId,
+  userEmail,
   filingId,
   senderEmail,
   logger,
 }: {
   emailAccountId: string;
+  userEmail: string;
   filingId: string;
   senderEmail?: string | null;
   logger: Logger;
@@ -139,6 +141,7 @@ export async function sendFilingMessagingNotifications({
                   folderPath: filing.folderPath,
                   senderEmail,
                 }),
+            accountEmail: userEmail,
             logger: log,
           }),
         );
