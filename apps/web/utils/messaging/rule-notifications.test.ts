@@ -366,6 +366,104 @@ describe("handleRuleNotificationAction", () => {
     expect(editMessage).toHaveBeenCalledTimes(1);
   });
 
+  it("dismisses Telegram draft notifications", async () => {
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: "Thanks for checking in.",
+      messagingChannel: {
+        id: "channel-1",
+        provider: MessagingProvider.TELEGRAM,
+        isConnected: true,
+        teamId: "telegram-chat-1",
+        providerUserId: "telegram-user-1",
+        accessToken: null,
+        channelId: null,
+        routes: [
+          {
+            purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+            targetId: "telegram-chat-1",
+            targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+          },
+        ],
+      },
+    });
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const editMessage = vi.fn().mockResolvedValue(undefined);
+    const event = createTelegramActionEvent({
+      actionId: "rule_draft_dismiss",
+      editMessage,
+    });
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+
+    await handleRuleNotificationAction({
+      event,
+      logger,
+    });
+
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        messagingMessageStatus: MessagingMessageStatus.DISMISSED,
+      },
+    });
+    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
+    expect(editMessage).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(editMessage.mock.calls[0][2])).toContain(
+      "Dismissed.",
+    );
+  });
+
+  it("explains that draft editing is not yet available on Telegram", async () => {
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: "Thanks for checking in.",
+      messagingChannel: {
+        id: "channel-1",
+        provider: MessagingProvider.TELEGRAM,
+        isConnected: true,
+        teamId: "telegram-chat-1",
+        providerUserId: "telegram-user-1",
+        accessToken: null,
+        channelId: null,
+        routes: [
+          {
+            purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+            targetId: "telegram-chat-1",
+            targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+          },
+        ],
+      },
+    });
+
+    const post = vi.fn().mockResolvedValue(undefined);
+    const editMessage = vi.fn().mockResolvedValue(undefined);
+    const event = createTelegramActionEvent({
+      actionId: "rule_draft_edit",
+      editMessage,
+      post,
+    });
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+
+    await handleRuleNotificationAction({
+      event,
+      logger,
+    });
+
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post.mock.calls[0][0]).toContain("Edit isn't available here yet");
+    expect(editMessage).not.toHaveBeenCalled();
+    expect(prisma.executedAction.update).not.toHaveBeenCalled();
+  });
+
   it("moves Slack notification messages to trash from the More menu", async () => {
     const provider = {
       trashThread: vi.fn().mockResolvedValue(undefined),
@@ -1374,8 +1472,9 @@ describe("sendMessagingRuleNotification", () => {
     const serializedCard = JSON.stringify(card);
 
     expect(serializedCard).toContain("Send reply");
+    expect(serializedCard).toContain("Edit draft");
     expect(serializedCard).toContain("Open in Gmail");
-    expect(serializedCard).not.toContain("Edit draft");
+    expect(serializedCard).toContain("Dismiss");
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
       data: {
@@ -2105,13 +2204,19 @@ function createSlackActionEvent({
 }
 
 function createTelegramActionEvent({
+  actionId = "rule_draft_send",
+  value = "action-1",
   editMessage = vi.fn().mockResolvedValue(undefined),
+  post = vi.fn().mockResolvedValue(undefined),
 }: {
+  actionId?: string;
+  value?: string;
   editMessage?: ReturnType<typeof vi.fn>;
+  post?: ReturnType<typeof vi.fn>;
 } = {}) {
   return {
-    actionId: "rule_draft_send",
-    value: "action-1",
+    actionId,
+    value,
     user: { userId: "telegram-user-1" },
     raw: {
       callback_query: {
@@ -2127,7 +2232,7 @@ function createTelegramActionEvent({
       decodeThreadId: vi.fn().mockReturnValue({ chatId: "telegram-chat-1" }),
       editMessage,
     },
-    thread: { post: vi.fn() },
+    thread: { post },
   } as any;
 }
 
