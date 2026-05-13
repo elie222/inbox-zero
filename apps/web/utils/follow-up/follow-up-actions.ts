@@ -1,4 +1,4 @@
-import type { ActionEvent } from "chat";
+import { Card, CardText, type ActionEvent } from "chat";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -54,21 +54,44 @@ export async function handleFollowUpReminderAction({
     return;
   }
 
-  if (tracker.resolved) {
-    await postFeedback(event, logger, "This follow-up is already done.");
-    return;
+  if (!tracker.resolved) {
+    await prisma.threadTracker.update({
+      where: { id: trackerId },
+      data: { resolved: true },
+    });
   }
 
-  await prisma.threadTracker.update({
-    where: { id: trackerId },
-    data: { resolved: true },
-  });
+  const feedback = tracker.resolved
+    ? "This follow-up is already done."
+    : "Marked done. We won't follow up on this thread again.";
 
-  await postFeedback(
-    event,
-    logger,
-    "Marked done. We won't follow up on this thread again.",
-  );
+  await Promise.all([
+    replaceWithResolvedCard(event, logger),
+    postFeedback(event, logger, feedback),
+  ]);
+}
+
+async function replaceWithResolvedCard(
+  event: ActionEvent,
+  logger: Logger,
+): Promise<void> {
+  if (!event.threadId || !event.messageId) return;
+
+  try {
+    await event.adapter.editMessage(
+      event.threadId,
+      event.messageId,
+      Card({
+        title: "✅ Follow-up marked done",
+        children: [CardText("We won't follow up on this thread again.")],
+      }),
+    );
+  } catch (error) {
+    logger.warn("Failed to update follow-up notification after Mark done", {
+      actionId: event.actionId,
+      error,
+    });
+  }
 }
 
 async function postFeedback(
