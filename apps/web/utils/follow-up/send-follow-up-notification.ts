@@ -24,6 +24,10 @@ import {
   normalizeFollowUpText,
   truncateSnippet,
 } from "@/utils/follow-up/copy";
+import {
+  saveMessagingFollowUpContext,
+  type MessagingFollowUpContext,
+} from "@/utils/redis/messaging-follow-up-context";
 
 const TELEGRAM_SNIPPET_MAX_CHARS = 3000;
 
@@ -53,6 +57,11 @@ type FollowUpNotificationContent = {
   trackerId: string;
 };
 
+type FollowUpEmailReference = Pick<
+  MessagingFollowUpContext,
+  "emailAccountId" | "threadId" | "messageId"
+>;
+
 export async function getFollowUpNotificationChannels(
   emailAccountId: string,
 ): Promise<FollowUpNotificationChannel[]> {
@@ -78,10 +87,12 @@ export async function getFollowUpNotificationChannels(
 
 export async function sendFollowUpNotification({
   channels,
+  emailReference,
   logger,
   ...content
 }: FollowUpNotificationContent & {
   channels: FollowUpNotificationChannel[];
+  emailReference: FollowUpEmailReference;
   logger: Logger;
 }): Promise<void> {
   const deliveryPromises: Promise<unknown>[] = [];
@@ -111,6 +122,7 @@ export async function sendFollowUpNotification({
             accessToken: channel.accessToken,
             route,
             content,
+            emailReference,
             logger,
           }),
         );
@@ -131,6 +143,7 @@ export async function sendFollowUpNotification({
             channel,
             route,
             content,
+            emailReference,
             logger,
           }),
         );
@@ -154,11 +167,13 @@ async function sendFollowUpViaSlack({
   accessToken,
   route,
   content,
+  emailReference,
   logger,
 }: {
   accessToken: string;
   route: { targetId: string; targetType: MessagingRouteTargetType };
   content: FollowUpNotificationContent;
+  emailReference: FollowUpEmailReference;
   logger: Logger;
 }) {
   const destination = await resolveSlackRouteDestination({
@@ -171,22 +186,36 @@ async function sendFollowUpViaSlack({
     return;
   }
 
-  await sendFollowUpReminderToSlack({
+  const { channelId, messageTs } = await sendFollowUpReminderToSlack({
     accessToken,
     channelId: destination,
     ...content,
   });
+
+  if (!messageTs) {
+    logger.warn(
+      "Slack follow-up notification sent but no message ts returned; thread reply context will be unavailable",
+    );
+    return;
+  }
+
+  await saveMessagingFollowUpContext(
+    { provider: "slack", channelId, messageTs },
+    buildFollowUpContextValue(content, emailReference),
+  );
 }
 
 async function sendFollowUpViaTelegram({
   channel,
   route,
   content,
+  emailReference,
   logger,
 }: {
   channel: FollowUpNotificationChannel;
   route: { targetId: string; targetType: MessagingRouteTargetType };
   content: FollowUpNotificationContent;
+  emailReference: FollowUpEmailReference;
   logger: Logger;
 }) {
   const destination =
@@ -203,9 +232,23 @@ async function sendFollowUpViaTelegram({
   }
 
   const threadId = await telegramAdapter.openDM(destination);
-  await telegramAdapter.postMessage(
+  const sentMessage = await telegramAdapter.postMessage(
     threadId,
     buildTelegramFollowUpCard(content),
+  );
+
+  const telegramChatId = telegramAdapter.decodeThreadId(threadId).chatId;
+  const messageTs = sentMessage?.id;
+  if (!messageTs) {
+    logger.warn(
+      "Telegram follow-up notification sent but no message id returned; thread reply context will be unavailable",
+    );
+    return;
+  }
+
+  await saveMessagingFollowUpContext(
+    { provider: "telegram", channelId: telegramChatId, messageTs },
+    buildFollowUpContextValue(content, emailReference),
   );
 }
 
@@ -286,4 +329,18 @@ function formatQuotedSnippet(snippet: string, maxChars?: number): string {
     .split("\n")
     .map((line) => (line ? `> ${line}` : ">"))
     .join("\n");
+}
+
+function buildFollowUpContextValue(
+  content: FollowUpNotificationContent,
+  emailReference: FollowUpEmailReference,
+): MessagingFollowUpContext {
+  return {
+    emailAccountId: emailReference.emailAccountId,
+    threadId: emailReference.threadId,
+    messageId: emailReference.messageId,
+    trackerId: content.trackerId,
+    subject: content.subject,
+    counterpartyEmail: content.counterpartyEmail,
+  };
 }

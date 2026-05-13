@@ -3,6 +3,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
   buildAffirmativeReactionMessage,
+  buildFollowUpHiddenContextMessage,
   buildHandledPendingEmailCard,
   buildPendingEmailConfirmationCard,
   buildPendingEmailCardFallbackText,
@@ -189,6 +190,44 @@ describe("buildPendingEmailCardFallbackText", () => {
     const input =
       "This draft is pending confirmation.\n\nI couldn't show the Send button right now. Ask me to prepare the draft again.";
     expect(buildPendingEmailCardFallbackText(input)).toBe(input);
+  });
+});
+
+describe("buildFollowUpHiddenContextMessage", () => {
+  it("returns null when no follow-up context is provided", () => {
+    expect(
+      buildFollowUpHiddenContextMessage({
+        followUpContext: null,
+        userMessageId: "slack-msg-1",
+      }),
+    ).toBeNull();
+  });
+
+  it("returns a hidden user message that pins the email context to the agent", () => {
+    const message = buildFollowUpHiddenContextMessage({
+      followUpContext: {
+        emailAccountId: "email-account-1",
+        threadId: "thread-abc",
+        messageId: "message-xyz",
+        trackerId: "tracker-1",
+        subject: "Q3 contract renewal",
+        counterpartyEmail: "alex@example.com",
+      },
+      userMessageId: "slack-msg-1",
+    });
+
+    expect(message).not.toBeNull();
+    expect(message?.role).toBe("user");
+    expect(message?.id).toBe("slack-msg-1-follow-up-context");
+
+    const text = (message?.parts[0] as { type: "text"; text: string }).text;
+    expect(text).toContain("Hidden context");
+    expect(text).toContain("threadId: thread-abc");
+    expect(text).toContain("messageId: message-xyz");
+    expect(text).toContain("Q3 contract renewal");
+    expect(text).toContain("alex@example.com");
+    expect(text.toLowerCase()).toContain("replyemail");
+    expect(text.toLowerCase()).toContain("do not call searchinbox");
   });
 });
 
