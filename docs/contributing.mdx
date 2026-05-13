@@ -172,8 +172,8 @@ To test a production build locally:
 
 ```bash
 # Without Docker
-pnpm run build
-pnpm start --filter=web
+pnpm build
+pnpm --filter inbox-zero-ai start
 
 # With Docker (includes Postgres and Redis)
 NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --profile all up --build

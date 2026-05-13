@@ -40,15 +40,18 @@ For most self-hosted setups, configure these two tiers:
 
 - `DEFAULT_LLM_*` (required): primary model used for normal AI tasks.
 - `ECONOMY_LLM_*` (optional): lower-cost model for high-volume tasks. If unset, it falls back to `DEFAULT`.
+- `CHAT_LLM_*` (optional): model used for assistant chat. If unset, it falls back to `DEFAULT`.
+- `DRAFT_LLM_*` (optional): model used for drafting replies. If unset, it falls back to `DEFAULT`.
+- `NANO_LLM_*` (optional): very low-cost model for lightweight classification and extraction. If unset, it falls back to economy/default behavior.
 
 Minimal example:
 
 ```env
 DEFAULT_LLM_PROVIDER=openai
-DEFAULT_LLM_MODEL=gpt-4o
+DEFAULT_LLM_MODEL=gpt-5.4-mini
 
 ECONOMY_LLM_PROVIDER=openai
-ECONOMY_LLM_MODEL=gpt-4o-mini
+ECONOMY_LLM_MODEL=gpt-5.4-nano
 
 LLM_API_KEY=sk-...
 ```
@@ -73,6 +76,19 @@ NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED=false
 ## Provider-specific details
 
 - `openai-compatible` also requires `OPENAI_COMPATIBLE_BASE_URL`.
+- `ollama` can use `OLLAMA_BASE_URL` and `OLLAMA_MODEL`.
+
+## Fallbacks
+
+You can configure ordered provider fallbacks for default, economy, and chat tiers:
+
+```env
+DEFAULT_LLM_FALLBACKS=openrouter:anthropic/claude-sonnet-4.6,openai:gpt-5.4-mini
+ECONOMY_LLM_FALLBACKS=openrouter:google/gemini-2.5-flash
+CHAT_LLM_FALLBACKS=openrouter:anthropic/claude-haiku-4.5
+```
+
+Each fallback entry must include both provider and model as `provider:model`.
 
 ### CLI LLM providers
 

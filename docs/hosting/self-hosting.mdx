@@ -57,10 +57,12 @@ The setup wizard will walk you through configuring Google and/or Microsoft OAuth
 If you have the [gcloud CLI](https://cloud.google.com/sdk/docs/install) installed, you can automate API enabling and Pub/Sub setup:
 
 ```bash
-npx inbox-zero setup-google --project-id YOUR_PROJECT_ID --domain yourdomain.com
+npx @inbox-zero/cli setup-google --project-id YOUR_PROJECT_ID --domain yourdomain.com
 ```
 
-This command enables required APIs, creates the Pub/Sub topic and subscription, and guides you through OAuth credential creation.
+This works whether or not you have cloned the repository. If you installed the CLI globally, use `inbox-zero setup-google` with the same flags.
+
+The command enables required APIs, creates the Pub/Sub topic and subscription, and guides you through OAuth credential creation. It prints environment variables for you to add to your `.env`; it does not require a repo checkout.
 
 You can also copy `.env.example` to `.env` and set the values yourself.
 

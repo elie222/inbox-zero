@@ -28,7 +28,7 @@ API keys are scoped to a specific inbox account and only grant access to the per
 
 ### Self-Hosting
 
-If you are self-hosting Inbox Zero, set the `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true` environment variable and rebuild the app to enable the API. Use your deployment URL as the base URL for requests (for example, `https://your-domain.com/api/v1`).
+If you are self-hosting Inbox Zero, set `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true` and `API_KEY_SALT` before rebuilding the app. Generate the salt with `openssl rand -hex 32`. Use your deployment URL as the base URL for requests (for example, `https://your-domain.com/api/v1`).
 
 ## Base URL
 
