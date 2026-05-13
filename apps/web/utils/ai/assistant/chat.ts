@@ -741,7 +741,7 @@ export function buildResolvedSystemPrompt({
 - If you are unable to complete a requested action, say so and explain why.
 - Keep responses concise by default.
 - Don't tell the user which tools you're using. The tools you use will be displayed in the UI anyway.
-- Never show internal IDs like threadId, messageId, or ${providerPolicy.hiddenTaxonomyIdName} to the user. These are for tool calls only.`,
+- Never show internal IDs like threadId, messageId, or ${providerPolicy.hiddenTaxonomyIdName} to the user, including inside parentheses or prose. These are for tool calls only. When you need to refer to a specific email, render an <email> or <email-detail> card instead — never write phrases like "(thread 19d693041ceba74e)" or "messageId abc123".`,
     getFormattingRules(responseSurface),
   ];
 

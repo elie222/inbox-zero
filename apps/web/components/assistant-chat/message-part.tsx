@@ -39,6 +39,7 @@ import {
   requiresThreadIds,
 } from "@/utils/ai/assistant/manage-inbox-actions";
 import { getUserVisibleToolFailureMessage } from "@/utils/ai/assistant/chat-response-guard";
+import { stripInlineThreadIds } from "@/utils/ai/assistant/strip-inline-thread-ids";
 import { pluralize } from "@/utils/string";
 
 interface MessagePartProps {
@@ -124,7 +125,7 @@ export function MessagePart({
     if (!text) return null;
     return (
       <AssistantInlineEmailResponse key={key}>
-        {text}
+        {stripInlineThreadIds(text)}
       </AssistantInlineEmailResponse>
     );
   }
