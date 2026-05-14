@@ -37,10 +37,10 @@ type RescheduleSuccess = {
 
 export function RescheduleBookingClient({
   booking,
-  token,
+  bookingKey,
 }: {
   booking: BookingMetadata;
-  token: string;
+  bookingKey: string;
 }) {
   const bookingLink = booking.bookingLink;
   const defaultTimezone = normalizeTimezone(
@@ -96,7 +96,7 @@ export function RescheduleBookingClient({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            token,
+            key: bookingKey,
             startTime: selectedSlot.startTime,
             timezone,
           }),

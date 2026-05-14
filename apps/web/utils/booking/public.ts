@@ -175,6 +175,10 @@ export async function createPublicBooking({
         guestName: input.guestName,
         guestEmail: input.guestEmail,
         guestNote: input.guestNote,
+        manageUrl: getManageUrl({
+          id: pendingBooking.id,
+          token: cancelToken,
+        }),
       }),
       startTime: selectedStartTime,
       endTime: selectedEndTime,
@@ -834,17 +838,21 @@ function getProviderEventDescription({
   guestName,
   guestEmail,
   guestNote,
+  manageUrl,
 }: {
   guestName: string;
   guestEmail: string;
   guestNote?: string;
+  manageUrl: string;
 }) {
   return [
     `Booked with ${cleanCalendarDescriptionText(guestName)}`,
     `Guest email: ${cleanCalendarDescriptionText(guestEmail)}`,
     guestNote ? `Guest note: ${cleanCalendarDescriptionText(guestNote)}` : null,
+    "",
+    `Need to reschedule or cancel? ${manageUrl}`,
   ]
-    .filter(Boolean)
+    .filter((line) => line !== null)
     .join("\n");
 }
 
@@ -920,13 +928,19 @@ function isMatchingToken({
 }
 
 function getCancelUrl({ id, token }: { id: string; token: string }) {
-  return `${env.NEXT_PUBLIC_BASE_URL}/book/cancel/${id}?token=${encodeURIComponent(
+  return `${env.NEXT_PUBLIC_BASE_URL}/book/cancel/${id}?key=${encodeURIComponent(
     token,
   )}`;
 }
 
 function getRescheduleUrl({ id, token }: { id: string; token: string }) {
-  return `${env.NEXT_PUBLIC_BASE_URL}/book/reschedule/${id}?token=${encodeURIComponent(
+  return `${env.NEXT_PUBLIC_BASE_URL}/book/reschedule/${id}?key=${encodeURIComponent(
+    token,
+  )}`;
+}
+
+function getManageUrl({ id, token }: { id: string; token: string }) {
+  return `${env.NEXT_PUBLIC_BASE_URL}/book/reschedule/${id}?key=${encodeURIComponent(
     token,
   )}`;
 }

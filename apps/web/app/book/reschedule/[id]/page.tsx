@@ -15,14 +15,14 @@ export default async function RescheduleBookingPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ key?: string }>;
 }) {
-  const [{ id }, { token }] = await Promise.all([params, searchParams]);
+  const [{ id }, { key }] = await Promise.all([params, searchParams]);
 
-  if (!token) notFound();
+  if (!key) notFound();
 
-  const booking = await getPublicBookingForManagement({ id, token });
+  const booking = await getPublicBookingForManagement({ id, token: key });
   if (!booking) notFound();
 
-  return <RescheduleBookingClient booking={booking} token={token} />;
+  return <RescheduleBookingClient booking={booking} bookingKey={key} />;
 }

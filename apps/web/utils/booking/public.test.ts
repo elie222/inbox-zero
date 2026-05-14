@@ -229,8 +229,9 @@ describe("public booking", () => {
     expect(createCalendarEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         attendees: [{ name: "Guest <User>", email: "GUEST@EXAMPLE.COM" }],
-        description:
+        description: expect.stringContaining(
           "Booked with Guest <User>\nGuest email: GUEST@EXAMPLE.COM\nGuest note: Please share <agenda> & links.",
+        ),
         destinationCalendarId: "calendar-row-id",
         emailAccountId: "email-account-id",
         endTime: new Date("2026-05-04T09:30:00.000Z"),
@@ -244,7 +245,9 @@ describe("public booking", () => {
     const calendarEventCall = vi.mocked(createCalendarEvent).mock.calls[0][0];
     expect(calendarEventCall.description).not.toContain("token=");
     expect(calendarEventCall.description).not.toContain("/book/cancel/");
-    expect(calendarEventCall.description).not.toContain("/book/reschedule/");
+    expect(calendarEventCall.description).toMatch(
+      /Need to reschedule or cancel\? https?:\/\/[^\s]+\/book\/reschedule\/booking-id\?key=/,
+    );
     expect(prisma.booking.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -269,9 +272,9 @@ describe("public booking", () => {
     expect(sendBookingConfirmationEmails).toHaveBeenCalledWith(
       expect.objectContaining({
         booking: expect.objectContaining({ id: "booking-id" }),
-        cancelUrl: expect.stringContaining("/book/cancel/booking-id?token="),
+        cancelUrl: expect.stringContaining("/book/cancel/booking-id?key="),
         rescheduleUrl: expect.stringContaining(
-          "/book/reschedule/booking-id?token=",
+          "/book/reschedule/booking-id?key=",
         ),
       }),
     );
@@ -281,9 +284,9 @@ describe("public booking", () => {
         status: BookingStatus.CONFIRMED,
         startTime: "2026-05-04T09:00:00.000Z",
         endTime: "2026-05-04T09:30:00.000Z",
-        cancelUrl: expect.stringContaining("/book/cancel/booking-id?token="),
+        cancelUrl: expect.stringContaining("/book/cancel/booking-id?key="),
         rescheduleUrl: expect.stringContaining(
-          "/book/reschedule/booking-id?token=",
+          "/book/reschedule/booking-id?key=",
         ),
       }),
     );
@@ -707,7 +710,7 @@ describe("public booking", () => {
         booking: expect.objectContaining({ status: BookingStatus.CONFIRMED }),
         previousStartTime: new Date("2026-05-04T09:00:00.000Z"),
         rescheduleUrl: expect.stringContaining(
-          "/book/reschedule/booking-id?token=",
+          "/book/reschedule/booking-id?key=",
         ),
       }),
     );
@@ -718,9 +721,9 @@ describe("public booking", () => {
         startTime: "2026-05-11T09:00:00.000Z",
         endTime: "2026-05-11T09:30:00.000Z",
         rescheduleUrl: expect.stringContaining(
-          "/book/reschedule/booking-id?token=",
+          "/book/reschedule/booking-id?key=",
         ),
-        cancelUrl: expect.stringContaining("/book/cancel/booking-id?token="),
+        cancelUrl: expect.stringContaining("/book/cancel/booking-id?key="),
       }),
     );
   });

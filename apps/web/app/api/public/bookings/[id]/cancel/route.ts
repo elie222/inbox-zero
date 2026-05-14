@@ -21,7 +21,7 @@ export const POST = withError(
     });
     const result = await cancelPublicBooking({
       id,
-      token: body.token,
+      token: body.key,
       reason: body.reason,
       logger: request.logger,
     });
