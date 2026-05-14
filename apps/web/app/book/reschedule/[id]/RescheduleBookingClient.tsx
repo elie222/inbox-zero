@@ -82,6 +82,7 @@ export function RescheduleBookingClient({
     slug: bookingLink.slug,
     start: visibleMonth,
     end: endOfMonth(visibleMonth),
+    reschedule: { bookingId: booking.id, key: bookingKey },
   });
 
   const { slotsByDay, selectedDateKey, setSelectedDateKey, slotsForDay } =

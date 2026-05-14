@@ -149,9 +149,9 @@ export default function GuestBookingRescheduledEmail({
 }
 
 GuestBookingRescheduledEmail.PreviewProps = {
-  cancelUrl: "https://www.getinboxzero.com/book/cancel/example?key=test",
+  cancelUrl: "https://www.getinboxzero.com/book/cancel/example?key=test-key",
   rescheduleUrl:
-    "https://www.getinboxzero.com/book/reschedule/example?key=test",
+    "https://www.getinboxzero.com/book/reschedule/example?key=test-key",
   eventTitle: "15 min intro",
   formattedTime: "Fri, Nov 13, 2026 · 10:00 AM",
   previousFormattedTime: "Thu, Nov 12, 2026 · 10:00 AM",

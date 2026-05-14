@@ -72,12 +72,16 @@ export async function getPublicAvailability({
   start,
   end,
   now = new Date(),
+  excludeBookingId,
+  excludeBusyPeriod,
   logger,
 }: {
   slug: string;
   start: Date;
   end: Date;
   now?: Date;
+  excludeBookingId?: string;
+  excludeBusyPeriod?: { start: Date; end: Date };
   logger: Logger;
 }) {
   assertAvailabilityRange(start, end);
@@ -89,6 +93,8 @@ export async function getPublicAvailability({
     end,
     logger,
     providerFailureMode: "return-null",
+    excludeBookingId,
+    excludeBusyPeriod,
   });
 
   if (!busyPeriods) return [];
@@ -388,6 +394,9 @@ export async function reschedulePublicBooking({
     startTime: newStartTime,
     endTime: newEndTime,
     excludeBookingId: booking.id,
+    excludeBusyPeriod: booking.providerEventId
+      ? { start: booking.startTime, end: booking.endTime }
+      : undefined,
     logger,
   });
 
@@ -435,21 +444,27 @@ export async function reschedulePublicBooking({
       });
       // Roll back the local slot claim so we don't end up with a booking that
       // disagrees with the host's calendar.
-      await prisma.booking
-        .updateMany({
+      try {
+        const rollback = await prisma.booking.updateMany({
           where: {
             id: booking.id,
             startTime: newStartTime,
             endTime: newEndTime,
           },
           data: { startTime: previousStartTime, endTime: previousEndTime },
-        })
-        .catch((rollbackError) => {
+        });
+        if (rollback.count === 0) {
           logger.error("Failed to roll back reschedule slot claim", {
             bookingId: booking.id,
-            error: rollbackError,
+            reason: "no matching booking state",
           });
+        }
+      } catch (rollbackError) {
+        logger.error("Failed to roll back reschedule slot claim", {
+          bookingId: booking.id,
+          error: rollbackError,
         });
+      }
       throw new SafeError("Failed to update calendar event");
     }
   }
@@ -503,6 +518,7 @@ export async function getPublicBookingForManagement({
           durationMinutes: true,
           slotIntervalMinutes: true,
           locationType: true,
+          locationValue: true,
           emailAccount: {
             select: { name: true },
           },
@@ -531,9 +547,47 @@ export async function getPublicBookingForManagement({
       durationMinutes: booking.bookingLink.durationMinutes,
       slotIntervalMinutes: booking.bookingLink.slotIntervalMinutes,
       locationType: booking.bookingLink.locationType,
-      locationValue: null as string | null,
+      locationValue: booking.bookingLink.locationValue,
       hostName: booking.bookingLink.emailAccount.name ?? null,
     },
+  };
+}
+
+export async function getPublicBookingAvailabilityExclusion({
+  id,
+  token,
+}: {
+  id: string;
+  token: string;
+}) {
+  const booking = await prisma.booking.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      cancelTokenHash: true,
+      status: true,
+      startTime: true,
+      endTime: true,
+      providerEventId: true,
+      bookingLink: {
+        select: { slug: true },
+      },
+    },
+  });
+
+  if (!booking) return null;
+  if (!isMatchingToken({ token, tokenHash: booking.cancelTokenHash })) {
+    return null;
+  }
+  if (booking.status !== BookingStatus.CONFIRMED) return null;
+  if (booking.startTime <= new Date()) return null;
+
+  return {
+    id: booking.id,
+    bookingLinkSlug: booking.bookingLink.slug,
+    providerBusyPeriod: booking.providerEventId
+      ? { start: booking.startTime, end: booking.endTime }
+      : undefined,
   };
 }
 
@@ -627,12 +681,14 @@ async function assertSlotAvailable({
   startTime,
   endTime,
   excludeBookingId,
+  excludeBusyPeriod,
   logger,
 }: {
   config: Awaited<ReturnType<typeof loadPublicBookingLink>>;
   startTime: Date;
   endTime: Date;
   excludeBookingId?: string;
+  excludeBusyPeriod?: { start: Date; end: Date };
   logger: Logger;
 }) {
   const busyPeriods = await getBusyPeriods({
@@ -642,6 +698,7 @@ async function assertSlotAvailable({
     logger,
     providerFailureMode: "throw-safe-error",
     excludeBookingId,
+    excludeBusyPeriod,
   });
 
   if (!busyPeriods) throw new SafeError(CALENDAR_AVAILABILITY_UNAVAILABLE);
@@ -669,6 +726,7 @@ async function getBusyPeriods({
   logger,
   providerFailureMode,
   excludeBookingId,
+  excludeBusyPeriod,
 }: {
   config: Awaited<ReturnType<typeof loadPublicBookingLink>>;
   start: Date;
@@ -676,6 +734,7 @@ async function getBusyPeriods({
   logger: Logger;
   providerFailureMode: "return-null" | "throw-safe-error";
   excludeBookingId?: string;
+  excludeBusyPeriod?: { start: Date; end: Date };
 }): Promise<BusyPeriod[] | null> {
   const [providerBusyPeriods, existingBookings] = await Promise.all([
     getUnifiedCalendarAvailability({
@@ -727,9 +786,14 @@ async function getBusyPeriods({
   ]);
 
   if (!providerBusyPeriods || !existingBookings) return null;
+  const filteredProviderBusyPeriods = excludeBusyPeriod
+    ? providerBusyPeriods.filter(
+        (busyPeriod) => !isSameBusyPeriod(busyPeriod, excludeBusyPeriod),
+      )
+    : providerBusyPeriods;
 
   return [
-    ...providerBusyPeriods,
+    ...filteredProviderBusyPeriods,
     ...existingBookings
       .filter((booking) => isBlockingBooking(booking))
       .map((booking) => ({
@@ -883,6 +947,16 @@ function isBlockingBooking(booking: { status: BookingStatus }) {
   return (
     booking.status === BookingStatus.CONFIRMED ||
     booking.status === BookingStatus.PENDING_PROVIDER_EVENT
+  );
+}
+
+function isSameBusyPeriod(
+  busyPeriod: BusyPeriod,
+  excluded: { start: Date; end: Date },
+) {
+  return (
+    new Date(busyPeriod.start).getTime() === excluded.start.getTime() &&
+    new Date(busyPeriod.end).getTime() === excluded.end.getTime()
   );
 }
 

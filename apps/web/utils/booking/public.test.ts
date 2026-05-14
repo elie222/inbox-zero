@@ -765,6 +765,43 @@ describe("public booking", () => {
     expect(sendBookingRescheduledEmails).not.toHaveBeenCalled();
   });
 
+  it("logs when provider update rollback cannot find the claimed slot", async () => {
+    const errorSpy = vi.spyOn(logger, "error");
+    vi.mocked(updateCalendarEvent).mockRejectedValue(new Error("provider 500"));
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        provider: "google",
+        providerConnectionId: "connection-id",
+        providerCalendarId: "primary",
+        providerEventId: "provider-event-id",
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+    prisma.booking.findMany.mockResolvedValue([]);
+    prisma.booking.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      reschedulePublicBooking({
+        id: "booking-id",
+        token: "manage-token",
+        startTime: "2026-05-11T09:00:00.000Z",
+        guestTimezone: "UTC",
+        logger,
+      }),
+    ).rejects.toThrow("Failed to update calendar event");
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Failed to roll back reschedule slot claim",
+      expect.objectContaining({
+        bookingId: "booking-id",
+        reason: "no matching booking state",
+      }),
+    );
+  });
+
   it("rejects reschedule with a generic error for invalid tokens", async () => {
     prisma.booking.findUnique.mockResolvedValue(
       bookingRecord({
@@ -836,6 +873,16 @@ describe("public booking", () => {
 
   it("excludes the booking being rescheduled from the busy-period check", async () => {
     vi.mocked(updateCalendarEvent).mockResolvedValue(undefined);
+    vi.mocked(getUnifiedCalendarAvailability).mockResolvedValue([
+      {
+        start: new Date("2026-05-04T09:00:00.000Z"),
+        end: new Date("2026-05-04T10:00:00.000Z"),
+      },
+    ]);
+    mockBookingLinkConfig({
+      durationMinutes: 60,
+      windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 11 * 60 }],
+    });
     prisma.booking.findUnique.mockResolvedValue(
       bookingRecord({
         cancelTokenHash: hashToken("manage-token"),
@@ -843,6 +890,7 @@ describe("public booking", () => {
         providerConnectionId: "connection-id",
         providerCalendarId: "primary",
         providerEventId: "provider-event-id",
+        endTime: new Date("2026-05-04T10:00:00.000Z"),
         status: BookingStatus.CONFIRMED,
       }),
     );
@@ -859,7 +907,7 @@ describe("public booking", () => {
     await reschedulePublicBooking({
       id: "booking-id",
       token: "manage-token",
-      startTime: "2026-05-11T09:00:00.000Z",
+      startTime: "2026-05-04T09:30:00.000Z",
       guestTimezone: "UTC",
       logger,
     });
@@ -883,6 +931,7 @@ describe("public booking", () => {
           description: "Talk through fit.",
           durationMinutes: 30,
           slotIntervalMinutes: 30,
+          locationValue: "Room 3",
         },
       }),
     );
@@ -898,7 +947,7 @@ describe("public booking", () => {
         status: BookingStatus.CONFIRMED,
         bookingLink: expect.objectContaining({
           description: "Talk through fit.",
-          locationValue: null,
+          locationValue: "Room 3",
           hostName: "Host User",
         }),
       }),
@@ -984,12 +1033,17 @@ function publicBookingInput(
   };
 }
 
-function mockBookingLinkConfig() {
+function mockBookingLinkConfig(
+  overrides: {
+    durationMinutes?: number;
+    windows?: { weekday: number; startMinutes: number; endMinutes: number }[];
+  } = {},
+) {
   prisma.bookingLink.findFirst.mockResolvedValue({
     id: "booking-link-id",
     title: "Intro call",
     description: null,
-    durationMinutes: 30,
+    durationMinutes: overrides.durationMinutes ?? 30,
     locationType: BookingLinkLocationType.CUSTOM,
     locationValue: "Video link",
     minimumNoticeMinutes: 0,
@@ -997,7 +1051,9 @@ function mockBookingLinkConfig() {
     timezone: "UTC",
     emailAccountId: "email-account-id",
     destinationCalendarId: "calendar-row-id",
-    windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 10 * 60 }],
+    windows: overrides.windows ?? [
+      { weekday: 1, startMinutes: 9 * 60, endMinutes: 10 * 60 },
+    ],
     emailAccount: {
       calendarConnections: [
         { id: "connection-id", calendars: [{ id: "calendar-row-id" }] },
