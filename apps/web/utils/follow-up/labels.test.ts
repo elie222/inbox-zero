@@ -9,8 +9,35 @@ import {
 import { getMockMessage, createTestLogger } from "@/__tests__/helpers";
 import { createMockEmailProvider } from "@/__tests__/mocks/email-provider.mock";
 import prisma from "@/utils/__mocks__/prisma";
+import { Prisma } from "@/generated/prisma/client";
+import { MessagingProvider } from "@/generated/prisma/enums";
+
+const messagingMocks = vi.hoisted(() => ({
+  slackChatUpdate: vi.fn(),
+  teamsEditMessage: vi.fn(),
+  telegramEditMessage: vi.fn(),
+}));
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/messaging/providers/slack/client", () => ({
+  createSlackClient: () => ({
+    chat: {
+      update: messagingMocks.slackChatUpdate,
+    },
+  }),
+}));
+vi.mock("@/utils/messaging/chat-sdk/adapters", () => ({
+  getMessagingAdapterRegistry: () => ({
+    typedAdapters: {
+      teams: {
+        editMessage: messagingMocks.teamsEditMessage,
+      },
+      telegram: {
+        editMessage: messagingMocks.telegramEditMessage,
+      },
+    },
+  }),
+}));
 
 const logger = createTestLogger();
 
@@ -267,6 +294,7 @@ describe("hasFollowUpLabel", () => {
 describe("clearFollowUpLabel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.messagingChannel.findMany.mockResolvedValue([]);
   });
 
   it("removes label and clears followUpAppliedAt even without drafts", async () => {
@@ -459,6 +487,118 @@ describe("clearFollowUpLabel", () => {
     expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
       "thread-1",
       "label-123",
+    );
+  });
+
+  it("updates delivered follow-up notifications when a reply clears the follow-up", async () => {
+    const mockProvider = createMockEmailProvider({
+      getLabelByName: vi
+        .fn()
+        .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
+    });
+
+    prisma.threadTracker.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "tracker-1",
+          followUpNotifications: [
+            {
+              messagingChannelId: "channel-1",
+              provider: MessagingProvider.SLACK,
+              providerThreadId: "C123",
+              providerMessageId: "1700000000.000100",
+            },
+            {
+              messagingChannelId: "channel-2",
+              provider: MessagingProvider.TEAMS,
+              providerThreadId: "teams-thread-1",
+              providerMessageId: "teams-message-1",
+            },
+            {
+              messagingChannelId: "channel-3",
+              provider: MessagingProvider.TELEGRAM,
+              providerThreadId: "telegram-thread-1",
+              providerMessageId: "telegram-message-1",
+            },
+          ],
+        },
+      ]);
+    prisma.threadTracker.updateMany.mockResolvedValue({ count: 1 });
+    prisma.messagingChannel.findMany.mockResolvedValue([
+      {
+        id: "channel-1",
+        provider: MessagingProvider.SLACK,
+        isConnected: true,
+        accessToken: "xoxb-token",
+      },
+      {
+        id: "channel-2",
+        provider: MessagingProvider.TEAMS,
+        isConnected: true,
+        accessToken: null,
+      },
+      {
+        id: "channel-3",
+        provider: MessagingProvider.TELEGRAM,
+        isConnected: true,
+        accessToken: null,
+      },
+    ]);
+
+    await clearFollowUpLabel({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(prisma.threadTracker.findMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        followUpNotifications: { not: Prisma.AnyNull },
+      },
+      select: {
+        id: true,
+        followUpNotifications: true,
+      },
+    });
+    expect(prisma.messagingChannel.findMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["channel-1", "channel-2", "channel-3"] },
+        isConnected: true,
+      },
+      select: {
+        id: true,
+        provider: true,
+        isConnected: true,
+        accessToken: true,
+      },
+    });
+    expect(prisma.threadTracker.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["tracker-1"] },
+      },
+      data: {
+        followUpNotifications: Prisma.JsonNull,
+      },
+    });
+    expect(messagingMocks.slackChatUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "C123",
+        ts: "1700000000.000100",
+      }),
+    );
+    expect(messagingMocks.teamsEditMessage).toHaveBeenCalledWith(
+      "teams-thread-1",
+      "teams-message-1",
+      expect.stringMatching(/follow-up/i),
+    );
+    expect(messagingMocks.telegramEditMessage).toHaveBeenCalledWith(
+      "telegram-thread-1",
+      "telegram-message-1",
+      expect.stringMatching(/follow-up/i),
     );
   });
 });
