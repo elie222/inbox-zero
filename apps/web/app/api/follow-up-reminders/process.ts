@@ -542,6 +542,11 @@ async function processFollowUpsForType({
               }) ?? undefined,
             threadLinkLabel: getThreadLinkLabel(providerName),
             trackerId: tracker.id,
+            emailReference: {
+              emailAccountId: emailAccount.id,
+              threadId: thread.id,
+              messageId: lastMessage.id,
+            },
             logger: threadLogger,
           });
         } catch (notifyError) {

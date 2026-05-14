@@ -168,15 +168,23 @@ export async function sendFollowUpReminderToSlack({
   accessToken,
   channelId,
   ...blockParams
-}: SlackFollowUpReminderParams): Promise<void> {
+}: SlackFollowUpReminderParams): Promise<{
+  channelId: string;
+  messageTs: string | null;
+}> {
   const client = createSlackClient(accessToken);
   const blocks = buildFollowUpReminderBlocks(blockParams);
   const { emoji } = getFollowUpCopy(blockParams.trackerType);
 
-  await postMessageWithJoin(client, channelId, {
+  const response = await postMessageWithJoin(client, channelId, {
     blocks,
     text: `${emoji} Follow-up: ${blockParams.subject}`,
   });
+
+  return {
+    channelId: response?.channel ?? channelId,
+    messageTs: response?.ts ?? null,
+  };
 }
 
 /**
@@ -255,7 +263,7 @@ async function postMessageWithJoin(
   client: WebClient,
   channelId: string,
   message: { text: string; blocks?: Blocks },
-): Promise<void> {
+): Promise<{ ts?: string; channel?: string } | undefined> {
   const args = disableSlackLinkUnfurls(
     message.blocks
       ? { channel: channelId, blocks: message.blocks, text: message.text }
@@ -263,7 +271,7 @@ async function postMessageWithJoin(
   );
 
   try {
-    await client.chat.postMessage(args);
+    return await client.chat.postMessage(args);
   } catch (error: unknown) {
     if (isSlackError(error) && error.data?.error === "not_in_channel") {
       try {
@@ -279,8 +287,7 @@ async function postMessageWithJoin(
         }
         throw joinError;
       }
-      await client.chat.postMessage(args);
-      return;
+      return await client.chat.postMessage(args);
     }
     throw error;
   }

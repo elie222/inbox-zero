@@ -15,6 +15,7 @@ import {
   sendFollowUpReminderToSlack,
 } from "@/utils/messaging/providers/slack/send";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
+import { saveMessagingFollowUpContext } from "@/utils/redis/messaging-follow-up-context";
 
 const mockTelegramOpenDm = vi.fn();
 const mockTelegramPostMessage = vi.fn();
@@ -33,9 +34,13 @@ vi.mock("@/utils/messaging/chat-sdk/adapters", () => ({
       telegram: {
         openDM: (...args: unknown[]) => mockTelegramOpenDm(...args),
         postMessage: (...args: unknown[]) => mockTelegramPostMessage(...args),
+        decodeThreadId: (threadId: string) => ({ chatId: threadId }),
       },
     },
   }),
+}));
+vi.mock("@/utils/redis/messaging-follow-up-context", () => ({
+  saveMessagingFollowUpContext: vi.fn(),
 }));
 
 const logger = createTestLogger();
@@ -49,6 +54,11 @@ const baseArgs = {
   snippet: "Following up on the items we discussed.",
   threadLink: "https://mail.example/thread",
   trackerId: "tracker-1",
+  emailReference: {
+    emailAccountId: "email-account-1",
+    threadId: "thread-1",
+    messageId: "message-1",
+  },
   logger,
 };
 
@@ -104,6 +114,10 @@ describe("sendFollowUpNotification", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (resolveSlackRouteDestination as any).mockResolvedValue("C1");
+    (sendFollowUpReminderToSlack as any).mockResolvedValue({
+      channelId: "C1",
+      messageTs: "1700000000.000100",
+    });
     mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
     mockTelegramPostMessage.mockResolvedValue({ id: "telegram-message-1" });
   });
@@ -202,5 +216,44 @@ describe("sendFollowUpNotification", () => {
       ...baseArgs,
     });
     expect(sendFollowUpReminderToSlack).not.toHaveBeenCalled();
+  });
+
+  it("persists the email reference against the Slack notification thread for reply lookup", async () => {
+    await sendFollowUpNotification({ channels: [slackChannel], ...baseArgs });
+
+    expect(saveMessagingFollowUpContext).toHaveBeenCalledWith(
+      {
+        provider: "slack",
+        channelId: "C1",
+        messageTs: "1700000000.000100",
+      },
+      expect.objectContaining({
+        emailAccountId: "email-account-1",
+        threadId: "thread-1",
+        messageId: "message-1",
+        trackerId: "tracker-1",
+      }),
+    );
+  });
+
+  it("persists the email reference against the Telegram notification message", async () => {
+    await sendFollowUpNotification({
+      channels: [telegramChannel],
+      ...baseArgs,
+    });
+
+    expect(saveMessagingFollowUpContext).toHaveBeenCalledWith(
+      {
+        provider: "telegram",
+        channelId: "telegram-thread-1",
+        messageTs: "telegram-message-1",
+      },
+      expect.objectContaining({
+        emailAccountId: "email-account-1",
+        threadId: "thread-1",
+        messageId: "message-1",
+        trackerId: "tracker-1",
+      }),
+    );
   });
 });
