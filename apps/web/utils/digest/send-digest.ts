@@ -1,5 +1,5 @@
 import { env } from "@/env";
-import { sendDigestEmail } from "@inboxzero/resend";
+import { sendDigestEmail, renderDigestEmailHtml } from "@inboxzero/resend";
 import {
   MessagingProvider,
   MessagingRoutePurpose,
@@ -10,6 +10,7 @@ import {
   DIGEST_MAX_ITEMS_PER_RULE,
   formatDigestDate,
 } from "@/utils/digest/format";
+import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import {
   resolveSlackRouteDestination,
@@ -33,6 +34,7 @@ export async function sendDigest({
   ruleNames,
   itemsByRule,
   logger,
+  emailProvider,
 }: {
   emailAccountId: string;
   userEmail: string;
@@ -41,6 +43,13 @@ export async function sendDigest({
   ruleNames: Record<string, string>;
   itemsByRule: ItemsByRule;
   logger: Logger;
+  /**
+   * Optional. When set and `RESEND_API_KEY` is not configured, the digest
+   * email is delivered via the user's own provider (Outlook/Gmail) so the
+   * user receives it in their own inbox. Without this, no-Resend deployments
+   * will throw on email delivery.
+   */
+  emailProvider?: EmailProvider;
 }): Promise<void> {
   logger = logger.with({ emailAccountId, userEmail });
 
@@ -82,6 +91,7 @@ export async function sendDigest({
         ruleNames,
         itemsByRule,
         logger,
+        emailProvider,
       }),
     );
   }
@@ -167,6 +177,7 @@ async function sendDigestViaEmail({
   ruleNames,
   itemsByRule,
   logger,
+  emailProvider,
 }: {
   emailAccountId: string;
   userEmail: string;
@@ -175,21 +186,45 @@ async function sendDigestViaEmail({
   ruleNames: Record<string, string>;
   itemsByRule: ItemsByRule;
   logger: Logger;
+  emailProvider?: EmailProvider;
 }) {
-  logger.info("Sending digest via email");
-  await sendDigestEmail({
-    from: env.RESEND_FROM_EMAIL,
+  const emailProps = {
+    baseUrl: env.NEXT_PUBLIC_BASE_URL,
+    unsubscribeToken,
+    date,
+    ruleNames,
+    ...itemsByRule,
+    emailAccountId,
+  };
+
+  // Prefer Resend when configured (matches existing behavior).
+  if (env.RESEND_API_KEY) {
+    logger.info("Sending digest via Resend");
+    await sendDigestEmail({
+      from: env.RESEND_FROM_EMAIL,
+      to: userEmail,
+      emailProps,
+    });
+    logger.info("Digest email sent via Resend");
+    return;
+  }
+
+  // Fallback: deliver via the user's own email provider so self-hosted
+  // deployments without Resend still receive their digests.
+  if (!emailProvider) {
+    throw new Error(
+      "Cannot send digest email: RESEND_API_KEY is not configured and no email provider was supplied for fallback delivery",
+    );
+  }
+
+  logger.info("Sending digest via user's email provider (Resend not configured)");
+  const { subject, html } = await renderDigestEmailHtml(emailProps);
+  await emailProvider.sendEmailWithHtml({
     to: userEmail,
-    emailProps: {
-      baseUrl: env.NEXT_PUBLIC_BASE_URL,
-      unsubscribeToken,
-      date,
-      ruleNames,
-      ...itemsByRule,
-      emailAccountId,
-    },
+    subject,
+    messageHtml: html,
   });
-  logger.info("Digest email sent");
+  logger.info("Digest email sent via user's email provider");
 }
 
 async function sendDigestViaSlack({
