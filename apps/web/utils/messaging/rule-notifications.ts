@@ -1664,11 +1664,6 @@ function getDraftReplyButtons({
       style: "primary",
       value: actionId,
     }),
-    edit: Button({
-      id: RULE_DRAFT_EDIT_ACTION_ID,
-      label: "Edit draft",
-      value: actionId,
-    }),
     open: openLink ? LinkButton(openLink) : null,
     dismiss: Button({
       id: RULE_DRAFT_DISMISS_ACTION_ID,
@@ -1697,7 +1692,11 @@ function buildNotificationCard({
       isDraftReplyActionType(actionType)
         ? [
             draftButtons.send,
-            draftButtons.edit,
+            Button({
+              id: RULE_DRAFT_EDIT_ACTION_ID,
+              label: "Edit draft",
+              value: actionId,
+            }),
             ...(draftButtons.open ? [draftButtons.open] : []),
             draftButtons.dismiss,
           ]
@@ -1769,14 +1768,11 @@ function buildTelegramNotificationCard({
   const children = buildNotificationCardBody(
     sanitizeTelegramNotificationContent(content),
   );
-  const { send, edit, open, dismiss } = getDraftReplyButtons({
+  const { send, open, dismiss } = getDraftReplyButtons({
     actionId,
     openLink,
   });
-  children.push(
-    Actions([send, edit]),
-    Actions([...(open ? [open] : []), dismiss]),
-  );
+  children.push(Actions([send, ...(open ? [open] : []), dismiss]));
 
   return Card({
     children,
