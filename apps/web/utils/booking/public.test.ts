@@ -10,6 +10,7 @@ import {
   cancelPublicBooking,
   createPublicBooking,
   getPublicAvailability,
+  getPublicBookingForManagement,
   getPublicBookingLinkMetadata,
   reschedulePublicBooking,
 } from "@/utils/booking/public";
@@ -874,6 +875,71 @@ describe("public booking", () => {
     );
   });
 
+  it("returns public management metadata for confirmed future bookings", async () => {
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        startTime: new Date("2026-05-04T09:00:00.000Z"),
+        status: BookingStatus.CONFIRMED,
+        bookingLink: {
+          description: "Talk through fit.",
+          durationMinutes: 30,
+          slotIntervalMinutes: 30,
+        },
+      }),
+    );
+
+    const result = await getPublicBookingForManagement({
+      id: "booking-id",
+      token: "manage-token",
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: "booking-id",
+        status: BookingStatus.CONFIRMED,
+        bookingLink: expect.objectContaining({
+          description: "Talk through fit.",
+          locationValue: null,
+          hostName: "Host User",
+        }),
+      }),
+    );
+  });
+
+  it("does not return management metadata for canceled bookings", async () => {
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        status: BookingStatus.CANCELED,
+      }),
+    );
+
+    const result = await getPublicBookingForManagement({
+      id: "booking-id",
+      token: "manage-token",
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("does not return management metadata for bookings that have started", async () => {
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        startTime: new Date("2026-05-03T23:59:00.000Z"),
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+
+    const result = await getPublicBookingForManagement({
+      id: "booking-id",
+      token: "manage-token",
+    });
+
+    expect(result).toBeNull();
+  });
+
   it("rejects availability when the destination calendar is no longer enabled", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue({
       id: "booking-link-id",
@@ -981,6 +1047,9 @@ function bookingRecordBase() {
     bookingLink: {
       slug: "intro",
       title: "Intro call",
+      description: null,
+      durationMinutes: 30,
+      slotIntervalMinutes: 30,
       locationType: BookingLinkLocationType.CUSTOM,
       locationValue: "Video link",
       timezone: "UTC",

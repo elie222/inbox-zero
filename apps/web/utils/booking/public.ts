@@ -175,7 +175,7 @@ export async function createPublicBooking({
         guestName: input.guestName,
         guestEmail: input.guestEmail,
         guestNote: input.guestNote,
-        manageUrl: getManageUrl({
+        manageUrl: getRescheduleUrl({
           id: pendingBooking.id,
           token: cancelToken,
         }),
@@ -516,6 +516,8 @@ export async function getPublicBookingForManagement({
   if (!isMatchingToken({ token, tokenHash: booking.cancelTokenHash })) {
     return null;
   }
+  if (booking.status !== BookingStatus.CONFIRMED) return null;
+  if (booking.startTime <= new Date()) return null;
 
   return {
     id: booking.id,
@@ -934,12 +936,6 @@ function getCancelUrl({ id, token }: { id: string; token: string }) {
 }
 
 function getRescheduleUrl({ id, token }: { id: string; token: string }) {
-  return `${env.NEXT_PUBLIC_BASE_URL}/book/reschedule/${id}?key=${encodeURIComponent(
-    token,
-  )}`;
-}
-
-function getManageUrl({ id, token }: { id: string; token: string }) {
   return `${env.NEXT_PUBLIC_BASE_URL}/book/reschedule/${id}?key=${encodeURIComponent(
     token,
   )}`;

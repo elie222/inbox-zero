@@ -72,6 +72,7 @@ export function RescheduleBookingClient({
 
   const [success, setSuccess] = useState<RescheduleSuccess | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const cancelHref = `/book/cancel/${booking.id}?key=${encodeURIComponent(bookingKey)}`;
 
   const {
     data,
@@ -139,6 +140,7 @@ export function RescheduleBookingClient({
           onBack={() => setBookingParams({ slot: null, duration: null })}
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
+          cancelHref={cancelHref}
         />
       </BookingShell>
     );
@@ -147,9 +149,17 @@ export function RescheduleBookingClient({
   return (
     <BookingShell>
       <div className="border-b bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200 sm:px-6">
-        Rescheduling your{" "}
-        <strong>{formatLongDateTime(booking.startTime, timezone)}</strong>{" "}
-        booking — pick a new time below.
+        <div>
+          Rescheduling your{" "}
+          <strong>{formatLongDateTime(booking.startTime, timezone)}</strong>{" "}
+          booking — pick a new time below.
+        </div>
+        <a
+          href={cancelHref}
+          className="mt-1 inline-block font-medium underline"
+        >
+          Cancel this booking instead
+        </a>
       </div>
       <PickTimeStep
         timezone={timezone}
@@ -189,6 +199,7 @@ function ConfirmRescheduleStep({
   onBack,
   onSubmit,
   isSubmitting,
+  cancelHref,
 }: {
   bookingLink: BookingMetadata["bookingLink"];
   slot: Slot;
@@ -197,6 +208,7 @@ function ConfirmRescheduleStep({
   onBack: () => void;
   onSubmit: (onError: (message: string) => void) => Promise<void>;
   isSubmitting: boolean;
+  cancelHref: string;
 }) {
   const [error, setError] = useState<string | null>(null);
 
@@ -243,6 +255,12 @@ function ConfirmRescheduleStep({
         {error ? <p className="mt-4 text-sm text-red-500">{error}</p> : null}
 
         <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+          <a
+            href={cancelHref}
+            className="text-center text-sm font-medium text-muted-foreground underline hover:text-foreground"
+          >
+            Cancel instead
+          </a>
           <Button
             type="submit"
             loading={isSubmitting}
