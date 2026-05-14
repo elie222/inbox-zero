@@ -8,7 +8,6 @@ import type {
   CalendarEventAttendee,
   CalendarEventProvider,
 } from "@/utils/calendar/event-types";
-import { extractDomainFromEmail } from "@/utils/email";
 
 const MAX_THREADS = 10;
 const MAX_MESSAGES_PER_THREAD = 10;
@@ -39,27 +38,21 @@ export interface MeetingBriefingData {
 export async function gatherContextForEvent({
   event,
   emailAccountId,
-  userEmail,
-  userDomain,
+  externalAttendees,
+  internalAttendees,
   provider,
   logger,
 }: {
   event: CalendarEvent;
   emailAccountId: string;
-  userEmail: string;
-  userDomain: string;
+  externalAttendees: CalendarEventAttendee[];
+  internalAttendees: CalendarEventAttendee[];
   provider: string;
   logger: Logger;
 }): Promise<MeetingBriefingData> {
-  const externalAttendees = getExternalAttendees(event, userEmail, userDomain);
-  const internalAttendees = getInternalTeamMembers(
-    event,
-    userEmail,
-    userDomain,
-  );
   const participantEmails = externalAttendees.map((a) => a.email);
 
-  logger.info("Gathering context for external guests", {
+  logger.info("Gathering context for meeting attendees", {
     guestCount: externalAttendees.length,
     internalTeamCount: internalAttendees.length,
   });
@@ -158,48 +151,6 @@ async function fetchEmailThreadsWithParticipants({
   }
 
   return allThreads;
-}
-
-function getExternalAttendees(
-  event: CalendarEvent,
-  userEmail: string,
-  userDomain: string,
-): CalendarEventAttendee[] {
-  const normalizedUserEmail = userEmail.trim().toLowerCase();
-  const normalizedUserDomain = userDomain.trim().toLowerCase();
-
-  return event.attendees.filter((attendee) => {
-    const normalizedAttendeeEmail = attendee.email.trim().toLowerCase();
-    const attendeeDomain = extractDomainFromEmail(normalizedAttendeeEmail);
-
-    if (!attendeeDomain) return false;
-
-    return (
-      attendeeDomain !== normalizedUserDomain &&
-      normalizedAttendeeEmail !== normalizedUserEmail
-    );
-  });
-}
-
-function getInternalTeamMembers(
-  event: CalendarEvent,
-  userEmail: string,
-  userDomain: string,
-): CalendarEventAttendee[] {
-  const normalizedUserEmail = userEmail.trim().toLowerCase();
-  const normalizedUserDomain = userDomain.trim().toLowerCase();
-
-  return event.attendees.filter((attendee) => {
-    const normalizedAttendeeEmail = attendee.email.trim().toLowerCase();
-    const attendeeDomain = extractDomainFromEmail(normalizedAttendeeEmail);
-
-    // Internal team members share the same domain but are not the user themselves
-    return (
-      attendeeDomain &&
-      attendeeDomain === normalizedUserDomain &&
-      normalizedAttendeeEmail !== normalizedUserEmail
-    );
-  });
 }
 
 async function fetchPastMeetingsWithParticipants({

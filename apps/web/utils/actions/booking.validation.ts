@@ -45,7 +45,6 @@ export const createBookingLinkBody = z.object({
   description: z.string().trim().max(1000).optional().or(z.literal("")),
   timezone: timezoneSchema,
   durationMinutes: positiveMinutesSchema.max(24 * 60).default(30),
-  slotIntervalMinutes: positiveMinutesSchema.max(24 * 60).optional(),
   videoEnabled: z.boolean().default(true),
   destinationCalendarId: z.string().optional().nullable(),
 });
@@ -59,7 +58,6 @@ export const updateBookingLinkActionBody = z.object({
   timezone: timezoneSchema.optional(),
   isActive: z.boolean().optional(),
   durationMinutes: positiveMinutesSchema.max(24 * 60).optional(),
-  slotIntervalMinutes: positiveMinutesSchema.max(24 * 60).optional(),
   locationType: locationTypeSchema.optional(),
   locationValue: z.string().trim().max(500).optional().nullable(),
   minimumNoticeMinutes: nonNegativeMinutesSchema.max(365 * 24 * 60).optional(),

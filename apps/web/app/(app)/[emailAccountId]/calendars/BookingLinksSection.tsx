@@ -154,7 +154,6 @@ function InboxZeroBookingLinkPanel() {
             const result = await createLink({
               ...input,
               timezone,
-              slotIntervalMinutes: input.durationMinutes,
             });
             const newLinkId = result?.data?.id;
             if (!newLinkId) return;

@@ -26,7 +26,6 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
           description: true,
           isActive: true,
           durationMinutes: true,
-          slotIntervalMinutes: true,
           locationType: true,
           locationValue: true,
           minimumNoticeMinutes: true,

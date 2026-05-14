@@ -21,6 +21,7 @@ function makeEvent(
 ) {
   const postEphemeral = vi.fn().mockResolvedValue(undefined);
   const post = vi.fn().mockResolvedValue(undefined);
+  const editMessage = vi.fn().mockResolvedValue(undefined);
   const value = "value" in overrides ? overrides.value : "tracker-1";
   const event = {
     actionId: overrides.actionId ?? FOLLOW_UP_MARK_DONE_ACTION_ID,
@@ -30,14 +31,14 @@ function makeEvent(
       overrides.teamId === null
         ? {}
         : { team: { id: overrides.teamId ?? "T_TEAM" } },
-    threadId: "ts-1",
-    messageId: "ts-1",
-    adapter: { name: "slack" } as any,
+    threadId: "slack:C_CHANNEL:1700000000.000100",
+    messageId: "1700000000.000100",
+    adapter: { name: "slack", editMessage } as any,
     thread: { postEphemeral, post } as any,
     triggerId: undefined,
     openModal: vi.fn(),
   };
-  return { event: event as any, postEphemeral, post };
+  return { event: event as any, postEphemeral, post, editMessage };
 }
 
 describe("handleFollowUpReminderAction", () => {
@@ -67,6 +68,27 @@ describe("handleFollowUpReminderAction", () => {
     const text = postEphemeral.mock.calls[0]?.[1];
     expect(typeof text).toBe("string");
     expect(text).toMatch(/done/i);
+  });
+
+  it("replaces the original Slack message so the nudge reflects the resolved state", async () => {
+    prisma.threadTracker.findUnique.mockResolvedValue({
+      id: "tracker-1",
+      resolved: false,
+      emailAccountId: "account-1",
+    } as any);
+    prisma.messagingChannel.findFirst.mockResolvedValue({
+      id: "channel-1",
+    } as any);
+    prisma.threadTracker.update.mockResolvedValue({} as any);
+
+    const { event, editMessage } = makeEvent();
+    await handleFollowUpReminderAction({ event, logger });
+
+    expect(editMessage).toHaveBeenCalledTimes(1);
+    const [threadId, messageId, card] = editMessage.mock.calls[0] ?? [];
+    expect(threadId).toBe("slack:C_CHANNEL:1700000000.000100");
+    expect(messageId).toBe("1700000000.000100");
+    expect(JSON.stringify(card)).toMatch(/done/i);
   });
 
   it("scopes the channel auth lookup to the tracker's email account, slack, the slack team and the clicker", async () => {

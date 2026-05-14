@@ -405,6 +405,10 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       const postEphemeral = vi.fn().mockResolvedValue(undefined);
       const post = vi.fn().mockResolvedValue(undefined);
+      const editMessage = vi.fn().mockResolvedValue(undefined);
+
+      const threadId = postedCall![0].channel ?? notifChannelId;
+      const messageId = "1700000000.000100";
 
       await handleFollowUpReminderAction({
         event: {
@@ -412,9 +416,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           value: markDoneButton.value,
           user: { userId: "U_USER" },
           raw: { team: { id: "T_TEAM" } },
-          threadId: postedCall![0].channel ?? notifChannelId,
-          messageId: "1700000000.000100",
-          adapter: { name: "slack" },
+          threadId,
+          messageId,
+          adapter: { name: "slack", editMessage },
           thread: { postEphemeral, post },
         } as any,
         logger,
@@ -437,6 +441,12 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         where: { id: trackerId },
         data: { resolved: true },
       });
+
+      expect(editMessage).toHaveBeenCalledTimes(1);
+      const editArgs = editMessage.mock.calls[0];
+      expect(editArgs?.[0]).toBe(threadId);
+      expect(editArgs?.[1]).toBe(messageId);
+      expect(JSON.stringify(editArgs?.[2])).toMatch(/done/i);
 
       // User saw an ephemeral confirmation.
       expect(postEphemeral).toHaveBeenCalled();

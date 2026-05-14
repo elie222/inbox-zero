@@ -366,6 +366,58 @@ describe("handleRuleNotificationAction", () => {
     expect(editMessage).toHaveBeenCalledTimes(1);
   });
 
+  it("dismisses Telegram draft notifications", async () => {
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: "Thanks for checking in.",
+      messagingChannel: {
+        id: "channel-1",
+        provider: MessagingProvider.TELEGRAM,
+        isConnected: true,
+        teamId: "telegram-chat-1",
+        providerUserId: "telegram-user-1",
+        accessToken: null,
+        channelId: null,
+        routes: [
+          {
+            purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+            targetId: "telegram-chat-1",
+            targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+          },
+        ],
+      },
+    });
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const editMessage = vi.fn().mockResolvedValue(undefined);
+    const event = createTelegramActionEvent({
+      actionId: "rule_draft_dismiss",
+      editMessage,
+    });
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+
+    await handleRuleNotificationAction({
+      event,
+      logger,
+    });
+
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        messagingMessageStatus: MessagingMessageStatus.DISMISSED,
+      },
+    });
+    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
+    expect(editMessage).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(editMessage.mock.calls[0][2])).toContain(
+      "Dismissed.",
+    );
+  });
+
   it("moves Slack notification messages to trash from the More menu", async () => {
     const provider = {
       trashThread: vi.fn().mockResolvedValue(undefined),
@@ -1375,6 +1427,7 @@ describe("sendMessagingRuleNotification", () => {
 
     expect(serializedCard).toContain("Send reply");
     expect(serializedCard).toContain("Open in Gmail");
+    expect(serializedCard).toContain("Dismiss");
     expect(serializedCard).not.toContain("Edit draft");
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
@@ -2105,13 +2158,17 @@ function createSlackActionEvent({
 }
 
 function createTelegramActionEvent({
+  actionId = "rule_draft_send",
+  value = "action-1",
   editMessage = vi.fn().mockResolvedValue(undefined),
 }: {
+  actionId?: string;
+  value?: string;
   editMessage?: ReturnType<typeof vi.fn>;
 } = {}) {
   return {
-    actionId: "rule_draft_send",
-    value: "action-1",
+    actionId,
+    value,
     user: { userId: "telegram-user-1" },
     raw: {
       callback_query: {

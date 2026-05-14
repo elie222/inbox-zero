@@ -1650,6 +1650,29 @@ function buildNotificationContent({
   };
 }
 
+function getDraftReplyButtons({
+  actionId,
+  openLink,
+}: {
+  actionId: string;
+  openLink?: NotificationOpenLink | null;
+}) {
+  return {
+    send: Button({
+      id: RULE_DRAFT_SEND_ACTION_ID,
+      label: "Send reply",
+      style: "primary",
+      value: actionId,
+    }),
+    open: openLink ? LinkButton(openLink) : null,
+    dismiss: Button({
+      id: RULE_DRAFT_DISMISS_ACTION_ID,
+      label: "Dismiss",
+      value: actionId,
+    }),
+  };
+}
+
 function buildNotificationCard({
   actionId,
   actionType,
@@ -1662,28 +1685,20 @@ function buildNotificationCard({
   openLink?: NotificationOpenLink | null;
 }): CardElement {
   const children = buildNotificationCardBody(content);
+  const draftButtons = getDraftReplyButtons({ actionId, openLink });
 
   children.push(
     Actions(
       isDraftReplyActionType(actionType)
         ? [
-            Button({
-              id: RULE_DRAFT_SEND_ACTION_ID,
-              label: "Send reply",
-              style: "primary",
-              value: actionId,
-            }),
+            draftButtons.send,
             Button({
               id: RULE_DRAFT_EDIT_ACTION_ID,
               label: "Edit draft",
               value: actionId,
             }),
-            ...(openLink ? [LinkButton(openLink)] : []),
-            Button({
-              id: RULE_DRAFT_DISMISS_ACTION_ID,
-              label: "Dismiss",
-              value: actionId,
-            }),
+            ...(draftButtons.open ? [draftButtons.open] : []),
+            draftButtons.dismiss,
           ]
         : [
             Button({
@@ -1753,17 +1768,11 @@ function buildTelegramNotificationCard({
   const children = buildNotificationCardBody(
     sanitizeTelegramNotificationContent(content),
   );
-  children.push(
-    Actions([
-      Button({
-        id: RULE_DRAFT_SEND_ACTION_ID,
-        label: "Send reply",
-        style: "primary",
-        value: actionId,
-      }),
-      ...(openLink ? [LinkButton(openLink)] : []),
-    ]),
-  );
+  const { send, open, dismiss } = getDraftReplyButtons({
+    actionId,
+    openLink,
+  });
+  children.push(Actions([send, ...(open ? [open] : []), dismiss]));
 
   return Card({
     children,

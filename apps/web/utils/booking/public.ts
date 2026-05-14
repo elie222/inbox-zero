@@ -13,6 +13,7 @@ import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { getUnifiedCalendarAvailability } from "@/utils/calendar/unified-availability";
 import { getCalendarAvailabilityErrorLogContext } from "@/utils/calendar/availability-error";
+import { getSlotIntervalMinutes } from "@/utils/booking/policy";
 import {
   cancelCalendarEvent,
   createCalendarEvent,
@@ -46,7 +47,6 @@ export async function getPublicBookingLinkMetadata(slug: string) {
       title: true,
       description: true,
       durationMinutes: true,
-      slotIntervalMinutes: true,
       locationType: true,
       emailAccount: {
         select: { name: true },
@@ -61,7 +61,6 @@ export async function getPublicBookingLinkMetadata(slug: string) {
     title: link.title,
     description: link.description,
     durationMinutes: link.durationMinutes,
-    slotIntervalMinutes: link.slotIntervalMinutes,
     locationType: link.locationType,
     locationValue: null,
     hostName: link.emailAccount.name ?? null,
@@ -563,7 +562,6 @@ async function loadPublicBookingLink(slug: string) {
       title: true,
       description: true,
       durationMinutes: true,
-      slotIntervalMinutes: true,
       locationType: true,
       locationValue: true,
       minimumNoticeMinutes: true,
@@ -743,13 +741,12 @@ async function getBusyPeriods({
 
 function getPolicy(link: {
   durationMinutes: number;
-  slotIntervalMinutes: number;
   minimumNoticeMinutes: number;
   maxDaysAhead: number;
 }) {
   return {
     durationMinutes: link.durationMinutes,
-    slotIntervalMinutes: link.slotIntervalMinutes,
+    slotIntervalMinutes: getSlotIntervalMinutes(link.durationMinutes),
     minimumNoticeMinutes: link.minimumNoticeMinutes,
     bufferBeforeMinutes: 0,
     bufferAfterMinutes: 0,

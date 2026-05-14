@@ -109,7 +109,15 @@ export async function findMatchingRules({
         matches: [
           {
             rule: coldRule,
-            matchReasons: [{ type: ConditionType.AI }],
+            matchReasons: coldEmailResult.patternMatch
+              ? [
+                  {
+                    type: ConditionType.LEARNED_PATTERN,
+                    group: coldEmailResult.patternMatch.group,
+                    groupItem: coldEmailResult.patternMatch.groupItem,
+                  },
+                ]
+              : [{ type: ConditionType.AI }],
           },
         ],
         reasoning: coldEmailResult.aiReason || coldEmailResult.reason,

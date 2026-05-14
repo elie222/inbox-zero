@@ -70,6 +70,69 @@ describe("booking actions", () => {
     );
   });
 
+  it("anchors 45-minute calls to a 30-minute slot interval", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue(null);
+    prisma.calendar.findFirst.mockResolvedValue({ id: "calendar-id" } as any);
+    prisma.calendar.findUnique.mockResolvedValue({
+      connection: { provider: "google" },
+    } as any);
+    prisma.bookingLink.create.mockResolvedValue({
+      id: "booking-link-id",
+    } as any);
+
+    await createBookingLinkAction("email-account-id", {
+      title: "Intro call",
+      slug: "intro-call",
+      timezone: "UTC",
+      durationMinutes: 45,
+    });
+
+    expect(prisma.bookingLink.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          durationMinutes: 45,
+          slotIntervalMinutes: 30,
+        }),
+      }),
+    );
+  });
+
+  it("derives slot interval from duration on update", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue({
+      id: "booking-link-id",
+    } as any);
+    prisma.bookingLink.update.mockResolvedValue({} as any);
+
+    await updateBookingLinkAction("email-account-id", {
+      id: "booking-link-id",
+      durationMinutes: 60,
+    });
+
+    expect(prisma.bookingLink.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          durationMinutes: 60,
+          slotIntervalMinutes: 30,
+        }),
+      }),
+    );
+  });
+
+  it("leaves slot interval unchanged when duration is not updated", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue({
+      id: "booking-link-id",
+    } as any);
+    prisma.bookingLink.update.mockResolvedValue({} as any);
+
+    await updateBookingLinkAction("email-account-id", {
+      id: "booking-link-id",
+      title: "Renamed",
+    });
+
+    const updateCall = prisma.bookingLink.update.mock.calls[0]?.[0];
+    expect(updateCall?.data?.slotIntervalMinutes).toBeUndefined();
+  });
+
   it("creates a booking link without provider video when disabled", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue(null);
     prisma.calendar.findFirst.mockResolvedValue({ id: "calendar-id" } as any);
