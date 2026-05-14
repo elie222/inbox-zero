@@ -175,11 +175,6 @@ export async function createPublicBooking({
         guestName: input.guestName,
         guestEmail: input.guestEmail,
         guestNote: input.guestNote,
-        cancelUrl: getCancelUrl({ id: pendingBooking.id, token: cancelToken }),
-        rescheduleUrl: getRescheduleUrl({
-          id: pendingBooking.id,
-          token: cancelToken,
-        }),
       }),
       startTime: selectedStartTime,
       endTime: selectedEndTime,
@@ -839,24 +834,17 @@ function getProviderEventDescription({
   guestName,
   guestEmail,
   guestNote,
-  cancelUrl,
-  rescheduleUrl,
 }: {
   guestName: string;
   guestEmail: string;
   guestNote?: string;
-  cancelUrl: string;
-  rescheduleUrl: string;
 }) {
   return [
     `Booked with ${cleanCalendarDescriptionText(guestName)}`,
     `Guest email: ${cleanCalendarDescriptionText(guestEmail)}`,
     guestNote ? `Guest note: ${cleanCalendarDescriptionText(guestNote)}` : null,
-    "",
-    `Reschedule: ${rescheduleUrl}`,
-    `Cancel: ${cancelUrl}`,
   ]
-    .filter((line) => line !== null)
+    .filter(Boolean)
     .join("\n");
 }
 

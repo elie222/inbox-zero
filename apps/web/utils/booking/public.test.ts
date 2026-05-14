@@ -229,9 +229,8 @@ describe("public booking", () => {
     expect(createCalendarEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         attendees: [{ name: "Guest <User>", email: "GUEST@EXAMPLE.COM" }],
-        description: expect.stringContaining(
+        description:
           "Booked with Guest <User>\nGuest email: GUEST@EXAMPLE.COM\nGuest note: Please share <agenda> & links.",
-        ),
         destinationCalendarId: "calendar-row-id",
         emailAccountId: "email-account-id",
         endTime: new Date("2026-05-04T09:30:00.000Z"),
@@ -243,12 +242,9 @@ describe("public booking", () => {
       }),
     );
     const calendarEventCall = vi.mocked(createCalendarEvent).mock.calls[0][0];
-    expect(calendarEventCall.description).toMatch(
-      /Reschedule: https?:\/\/[^\s]+\/book\/reschedule\/booking-id\?token=/,
-    );
-    expect(calendarEventCall.description).toMatch(
-      /Cancel: https?:\/\/[^\s]+\/book\/cancel\/booking-id\?token=/,
-    );
+    expect(calendarEventCall.description).not.toContain("token=");
+    expect(calendarEventCall.description).not.toContain("/book/cancel/");
+    expect(calendarEventCall.description).not.toContain("/book/reschedule/");
     expect(prisma.booking.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
