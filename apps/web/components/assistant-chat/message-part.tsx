@@ -656,6 +656,23 @@ export function MessagePart({
     });
   }
 
+  if (part.type === "tool-deleteMemory") {
+    return renderToolStatus({
+      part,
+      loadingText: "Deleting memory...",
+      renderSuccess: ({ toolCallId, output }) => {
+        const deleted = getOutputField<boolean>(output, "deleted") === true;
+        const message = getOutputField<string>(output, "message");
+        return (
+          <BasicToolInfo
+            key={toolCallId}
+            text={deleted ? "Memory deleted" : (message ?? "No memory deleted")}
+          />
+        );
+      },
+    });
+  }
+
   if (part.type === "tool-getSenderCategoryOverview") {
     return renderToolStatus({
       part,
