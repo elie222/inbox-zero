@@ -447,6 +447,13 @@ function matchesOutlookMetadataFilters(
   return true;
 }
 
+function matchesOutlookSender(message: Message, normalizedFromEmail: string) {
+  return (
+    message.from?.emailAddress?.address?.trim().toLowerCase() ===
+    normalizedFromEmail
+  );
+}
+
 function createOutlookMetadataODataFilters(filters: OutlookMetadataFilters) {
   const odataFilters: string[] = [];
 
@@ -471,12 +478,14 @@ export async function queryBatchMessages(
     maxResults?: number;
     pageToken?: string;
     folderId?: string;
+    fromEmail?: string;
     readState?: "read" | "unread";
     categoryNames?: string[];
   },
   logger: Logger,
 ) {
   const { searchQuery, dateFilters, pageToken, folderId } = options;
+  const normalizedFromEmail = options.fromEmail?.trim().toLowerCase();
 
   const MAX_RESULTS = 20;
 
@@ -513,6 +522,12 @@ export async function queryBatchMessages(
 
     const filteredMessages = response.value.filter((message) => {
       if (folderId && message.parentFolderId !== folderId) return false;
+      if (
+        normalizedFromEmail &&
+        !matchesOutlookSender(message, normalizedFromEmail)
+      ) {
+        return false;
+      }
       return matchesOutlookMetadataFilters(message, metadataSearch.filters);
     });
     const messages = await convertMessages(
@@ -573,6 +588,12 @@ export async function queryBatchMessages(
 
     const filteredMessages = response.value.filter((message) => {
       if (folderId && message.parentFolderId !== folderId) return false;
+      if (
+        normalizedFromEmail &&
+        !matchesOutlookSender(message, normalizedFromEmail)
+      ) {
+        return false;
+      }
       return matchesOutlookMetadataFilters(message, metadataSearch.filters);
     });
     const messages = await convertMessages(
@@ -602,6 +623,12 @@ export async function queryBatchMessages(
 
     if (metadataSearch.odataFilters.length) {
       filters.push(...metadataSearch.odataFilters);
+    }
+
+    if (options.fromEmail) {
+      filters.push(
+        `from/emailAddress/address eq '${escapeODataString(options.fromEmail)}'`,
+      );
     }
 
     // Add date filters if provided
