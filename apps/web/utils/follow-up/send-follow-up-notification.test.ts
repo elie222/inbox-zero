@@ -104,6 +104,11 @@ describe("sendFollowUpNotification", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (resolveSlackRouteDestination as any).mockResolvedValue("C1");
+    (sendFollowUpReminderToSlack as any).mockResolvedValue("1700000000.000100");
+    (sendAutomationMessage as any).mockResolvedValue({
+      channelId: "teams-thread-1",
+      messageId: "teams-message-1",
+    });
     mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
     mockTelegramPostMessage.mockResolvedValue({ id: "telegram-message-1" });
   });
@@ -185,6 +190,34 @@ describe("sendFollowUpNotification", () => {
     expect(sendAutomationMessage).toHaveBeenCalledTimes(1);
   });
 
+  it("returns provider message handles for delivered notifications", async () => {
+    const deliveries = await sendFollowUpNotification({
+      channels: [slackChannel, teamsChannel, telegramChannel],
+      ...baseArgs,
+    });
+
+    expect(deliveries).toEqual([
+      {
+        messagingChannelId: "channel-1",
+        provider: MessagingProvider.SLACK,
+        providerThreadId: "C1",
+        providerMessageId: "1700000000.000100",
+      },
+      {
+        messagingChannelId: "channel-2",
+        provider: MessagingProvider.TEAMS,
+        providerThreadId: "teams-thread-1",
+        providerMessageId: "teams-message-1",
+      },
+      {
+        messagingChannelId: "channel-3",
+        provider: MessagingProvider.TELEGRAM,
+        providerThreadId: "telegram-thread-1",
+        providerMessageId: "telegram-message-1",
+      },
+    ]);
+  });
+
   it("swallows per-channel failures so the caller continues", async () => {
     (sendFollowUpReminderToSlack as any).mockRejectedValue(new Error("boom"));
     (sendAutomationMessage as any).mockRejectedValue(new Error("boom"));
@@ -193,7 +226,7 @@ describe("sendFollowUpNotification", () => {
         channels: [slackChannel, teamsChannel],
         ...baseArgs,
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual([]);
   });
 
   it("skips Slack channel when access token is missing", async () => {

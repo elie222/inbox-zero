@@ -8,6 +8,7 @@ import {
 import { generateFollowUpDraft } from "@/utils/follow-up/generate-draft";
 import {
   getFollowUpNotificationChannels,
+  parseFollowUpNotificationDeliveries,
   sendFollowUpNotification,
   type FollowUpNotificationChannel,
 } from "@/utils/follow-up/send-follow-up-notification";
@@ -416,7 +417,7 @@ async function processFollowUpsForType({
         orderBy: { createdAt: "desc" },
       });
 
-      let tracker: { id: string };
+      let tracker: { id: string; followUpNotifications: unknown };
       if (existingTracker) {
         try {
           tracker = await prisma.threadTracker.update({
@@ -521,7 +522,7 @@ async function processFollowUpsForType({
               fromHeader: lastMessage.headers.from,
               toHeader: lastMessage.headers.to,
             });
-          await sendFollowUpNotification({
+          const notificationDeliveries = await sendFollowUpNotification({
             channels: notificationChannels,
             subject: lastMessage.subject || "(no subject)",
             counterpartyName,
@@ -544,6 +545,19 @@ async function processFollowUpsForType({
             trackerId: tracker.id,
             logger: threadLogger,
           });
+          if (notificationDeliveries.length > 0) {
+            await prisma.threadTracker.update({
+              where: { id: tracker.id },
+              data: {
+                followUpNotifications: [
+                  ...parseFollowUpNotificationDeliveries(
+                    tracker.followUpNotifications,
+                  ),
+                  ...notificationDeliveries,
+                ],
+              },
+            });
+          }
         } catch (notifyError) {
           threadLogger.error(
             "Follow-up notification failed, label still applied",
