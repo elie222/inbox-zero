@@ -36,3 +36,9 @@ variable "role_name" {
   type        = string
   default     = "inbox-zero-gha-deploy"
 }
+
+variable "openrouter_api_key" {
+  description = "OpenRouter API key. Stored as SSM SecureString at /inbox-zero/OPENROUTER_API_KEY. Leave blank in tfvars and tofu will prompt at apply time."
+  type        = string
+  sensitive   = true
+}

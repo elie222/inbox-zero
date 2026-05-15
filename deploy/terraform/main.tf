@@ -91,3 +91,10 @@ resource "aws_iam_role_policy_attachment" "ec2_ssm_core" {
   role       = var.ec2_instance_role
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
+
+resource "aws_ssm_parameter" "openrouter_api_key" {
+  name        = "/inbox-zero/OPENROUTER_API_KEY"
+  description = "OpenRouter API key consumed by the app at /opt/inbox-zero/.env via deploy/load-secrets.sh."
+  type        = "SecureString"
+  value       = var.openrouter_api_key
+}
