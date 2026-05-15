@@ -5,7 +5,12 @@ import * as outlookLabelModule from "@/utils/outlook/label";
 import { createTestLogger } from "@/__tests__/helpers";
 import { OutlookProvider } from "./microsoft";
 
-const { envMock, outlookMailMock, getFolderIdsMock } = vi.hoisted(() => ({
+const {
+  envMock,
+  outlookMailMock,
+  getFolderIdsMock,
+  handlePreviousDraftDeletionMock,
+} = vi.hoisted(() => ({
   envMock: {
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
     EMAIL_ENCRYPT_SECRET: "test-encrypt-secret",
@@ -26,6 +31,9 @@ const { envMock, outlookMailMock, getFolderIdsMock } = vi.hoisted(() => ({
     junkemail: "spam-folder-id",
     sentitems: "sent-folder-id",
   }),
+  handlePreviousDraftDeletionMock: vi.fn().mockResolvedValue({
+    shouldCreateDraft: true,
+  }),
 }));
 
 vi.mock("@/env", () => ({
@@ -33,6 +41,9 @@ vi.mock("@/env", () => ({
 }));
 
 vi.mock("@/utils/outlook/mail", () => outlookMailMock);
+vi.mock("@/utils/ai/choose-rule/draft-management", () => ({
+  handlePreviousDraftDeletion: handlePreviousDraftDeletionMock,
+}));
 
 vi.mock("@/utils/outlook/message", async () => {
   const actual = await vi.importActual<
@@ -57,6 +68,9 @@ afterEach(() => {
     deleteditems: "trash-folder-id",
     junkemail: "spam-folder-id",
     sentitems: "sent-folder-id",
+  });
+  handlePreviousDraftDeletionMock.mockResolvedValue({
+    shouldCreateDraft: true,
   });
 });
 
@@ -135,6 +149,56 @@ describe("OutlookProvider.getLatestMessageInThread", () => {
     );
 
     expect(result).toEqual({ draftId: "" });
+    expect(outlookMailMock.draftEmail).not.toHaveBeenCalled();
+  });
+
+  it("skips creating a replacement draft when an edited previous draft is preserved", async () => {
+    handlePreviousDraftDeletionMock.mockResolvedValueOnce({
+      shouldCreateDraft: false,
+      existingDraftId: "draft-previous",
+      reason: "modified",
+    });
+    const provider = new OutlookProvider(createMockOutlookClient([]));
+
+    const result = await provider.draftEmail(
+      {
+        id: "message-1",
+        threadId: "thread-1",
+        labelIds: [],
+        snippet: "",
+        historyId: "history-1",
+        inline: [],
+        headers: {
+          subject: "Subject",
+          from: "sender@example.com",
+          to: "recipient@example.com",
+          date: "Mon, 01 Jan 2026 00:00:00 +0000",
+        },
+        subject: "Subject",
+        date: "Mon, 01 Jan 2026 00:00:00 +0000",
+        internalDate: "1000",
+        textPlain: "",
+        textHtml: "",
+      },
+      { content: "New generated draft" },
+      "user@example.com",
+      {
+        id: "executed-rule-2",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+      },
+    );
+
+    expect(result).toEqual({ draftId: "" });
+    expect(handlePreviousDraftDeletionMock).toHaveBeenCalledWith({
+      client: provider,
+      executedRule: {
+        id: "executed-rule-2",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+      },
+      logger: expect.anything(),
+    });
     expect(outlookMailMock.draftEmail).not.toHaveBeenCalled();
   });
 });

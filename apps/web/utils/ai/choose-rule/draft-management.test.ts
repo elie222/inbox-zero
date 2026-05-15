@@ -59,7 +59,7 @@ describe("handlePreviousDraftDeletion", () => {
       }),
     );
 
-    await handlePreviousDraftDeletion({
+    const result = await handlePreviousDraftDeletion({
       client: mockClient,
       executedRule,
       logger,
@@ -91,6 +91,7 @@ describe("handlePreviousDraftDeletion", () => {
       mockDeleteDraft,
       mockUpdate,
     });
+    expect(result).toEqual({ shouldCreateDraft: true });
   });
 
   it("should not delete modified draft", async () => {
@@ -103,7 +104,7 @@ describe("handlePreviousDraftDeletion", () => {
       }),
     );
 
-    await handlePreviousDraftDeletion({
+    const result = await handlePreviousDraftDeletion({
       client: mockClient,
       executedRule,
       logger,
@@ -111,6 +112,11 @@ describe("handlePreviousDraftDeletion", () => {
 
     expect(mockDeleteDraft).not.toHaveBeenCalled();
     expect(mockUpdate).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      shouldCreateDraft: false,
+      existingDraftId: "draft-222",
+      reason: "modified",
+    });
   });
 
   it("should not delete draft when original content is missing", async () => {
@@ -125,7 +131,7 @@ describe("handlePreviousDraftDeletion", () => {
       }),
     );
 
-    await handlePreviousDraftDeletion({
+    const result = await handlePreviousDraftDeletion({
       client: mockClient,
       executedRule,
       logger,
@@ -134,12 +140,17 @@ describe("handlePreviousDraftDeletion", () => {
     expect(mockGetDraft).toHaveBeenCalledWith("draft-222");
     expect(mockDeleteDraft).not.toHaveBeenCalled();
     expect(mockUpdate).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      shouldCreateDraft: false,
+      existingDraftId: "draft-222",
+      reason: "missing_original_content",
+    });
   });
 
   it("should handle no previous draft found", async () => {
     mockFindFirst.mockResolvedValue(null);
 
-    await handlePreviousDraftDeletion({
+    const result = await handlePreviousDraftDeletion({
       client: mockClient,
       executedRule,
       logger,
@@ -147,19 +158,21 @@ describe("handlePreviousDraftDeletion", () => {
 
     expect(mockGetDraft).not.toHaveBeenCalled();
     expect(mockDeleteDraft).not.toHaveBeenCalled();
+    expect(result).toEqual({ shouldCreateDraft: true });
   });
 
   it("should handle draft not found in Gmail", async () => {
     mockFindFirst.mockResolvedValue(previousDraftAction);
     mockGetDraft.mockResolvedValue(null);
 
-    await handlePreviousDraftDeletion({
+    const result = await handlePreviousDraftDeletion({
       client: mockClient,
       executedRule,
       logger,
     });
 
     expect(mockDeleteDraft).not.toHaveBeenCalled();
+    expect(result).toEqual({ shouldCreateDraft: true });
   });
 
   it("should handle errors gracefully", async () => {
@@ -184,13 +197,42 @@ describe("handlePreviousDraftDeletion", () => {
       }),
     );
 
-    await handlePreviousDraftDeletion({
+    const result = await handlePreviousDraftDeletion({
       client: mockClient,
       executedRule,
       logger,
     });
 
     expect(mockDeleteDraft).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      shouldCreateDraft: false,
+      existingDraftId: "draft-222",
+      reason: "modified",
+    });
+  });
+
+  it("should skip creating a replacement draft when previous draft content is unavailable", async () => {
+    mockFindFirst.mockResolvedValue(previousDraftAction);
+    mockGetDraft.mockResolvedValue(
+      createParsedMessage({
+        textPlain: undefined,
+        textHtml: undefined,
+        snippet: "",
+      }),
+    );
+
+    const result = await handlePreviousDraftDeletion({
+      client: mockClient,
+      executedRule,
+      logger,
+    });
+
+    expect(mockDeleteDraft).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      shouldCreateDraft: false,
+      existingDraftId: "draft-222",
+      reason: "missing_content",
+    });
   });
 
   it("should handle Outlook HTML draft with signature link", async () => {
