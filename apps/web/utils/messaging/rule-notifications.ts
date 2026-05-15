@@ -66,6 +66,10 @@ import {
   isMessagingChannelOperational,
   isOperationalSlackChannel,
 } from "@/utils/messaging/channel-validity";
+import {
+  getSlackTeamId,
+  getTelegramChatId,
+} from "@/utils/messaging/action-event-identifiers";
 import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters";
 import {
   escapeTelegramMarkdown,
@@ -2312,40 +2316,6 @@ function canSendDraft(status: MessagingMessageStatus | null) {
 
 function canEditDraft(status: MessagingMessageStatus | null) {
   return canSendDraft(status);
-}
-
-function getSlackTeamId(raw: unknown): string | null {
-  if (!raw || typeof raw !== "object") return null;
-
-  const maybeTeam = (raw as { team?: { id?: string } }).team?.id;
-  return maybeTeam || null;
-}
-
-function getTelegramChatId(event: ActionEvent): string | null {
-  const rawChatId =
-    (event.raw as { message?: { chat?: { id?: string | number } } })?.message
-      ?.chat?.id ??
-    (
-      event.raw as {
-        callback_query?: { message?: { chat?: { id?: string | number } } };
-      }
-    )?.callback_query?.message?.chat?.id;
-  if (rawChatId !== undefined && rawChatId !== null) {
-    return String(rawChatId);
-  }
-
-  try {
-    const decoded = event.adapter.decodeThreadId(event.threadId) as {
-      chatId?: string | number;
-    } | null;
-    if (decoded?.chatId !== undefined && decoded.chatId !== null) {
-      return String(decoded.chatId);
-    }
-  } catch {
-    // Fall back to providerUserId-only authorization below.
-  }
-
-  return null;
 }
 
 function isSlackError(

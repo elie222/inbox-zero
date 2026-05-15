@@ -14,6 +14,9 @@ const logger = createTestLogger();
 function makeEvent(
   overrides: Partial<{
     actionId: string;
+    adapterName: string;
+    raw: unknown;
+    threadId: string;
     value: string | undefined;
     teamId: string | null;
     userId: string;
@@ -28,12 +31,14 @@ function makeEvent(
     value,
     user: { userId: overrides.userId ?? "U_USER" },
     raw:
-      overrides.teamId === null
-        ? {}
-        : { team: { id: overrides.teamId ?? "T_TEAM" } },
-    threadId: "slack:C_CHANNEL:1700000000.000100",
+      "raw" in overrides
+        ? overrides.raw
+        : overrides.teamId === null
+          ? {}
+          : { team: { id: overrides.teamId ?? "T_TEAM" } },
+    threadId: overrides.threadId ?? "slack:C_CHANNEL:1700000000.000100",
     messageId: "1700000000.000100",
-    adapter: { name: "slack", editMessage } as any,
+    adapter: { name: overrides.adapterName ?? "slack", editMessage } as any,
     thread: { postEphemeral, post } as any,
     triggerId: undefined,
     openModal: vi.fn(),
@@ -113,6 +118,40 @@ describe("handleFollowUpReminderAction", () => {
       providerUserId: "U_REAL",
       isConnected: true,
     });
+  });
+
+  it("authorizes Telegram Mark done clicks by linked chat and clicker", async () => {
+    prisma.threadTracker.findUnique.mockResolvedValue({
+      id: "tracker-1",
+      resolved: false,
+      emailAccountId: "account-1",
+    } as any);
+    prisma.messagingChannel.findFirst.mockResolvedValue({
+      id: "channel-1",
+    } as any);
+    prisma.threadTracker.update.mockResolvedValue({} as any);
+
+    const { event, post } = makeEvent({
+      adapterName: "telegram",
+      raw: { message: { chat: { id: "telegram-chat-1" } } },
+      threadId: "telegram:telegram-chat-1",
+      userId: "telegram-user-1",
+    });
+    await handleFollowUpReminderAction({ event, logger });
+
+    const call = prisma.messagingChannel.findFirst.mock.calls[0]?.[0];
+    expect(call?.where).toMatchObject({
+      emailAccountId: "account-1",
+      provider: MessagingProvider.TELEGRAM,
+      teamId: "telegram-chat-1",
+      providerUserId: "telegram-user-1",
+      isConnected: true,
+    });
+    expect(prisma.threadTracker.update).toHaveBeenCalledWith({
+      where: { id: "tracker-1" },
+      data: { resolved: true },
+    });
+    expect(post).toHaveBeenCalled();
   });
 
   it("rejects when no matching Slack channel is found (different team or user)", async () => {
