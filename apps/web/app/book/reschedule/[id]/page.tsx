@@ -21,15 +21,15 @@ export default async function RescheduleBookingPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ key?: string }>;
+  searchParams: Promise<{ token?: string }>;
 }) {
-  const [{ id }, { key }, requestHeaders] = await Promise.all([
+  const [{ id }, { token }, requestHeaders] = await Promise.all([
     params,
     searchParams,
     headers(),
   ]);
 
-  if (!key) notFound();
+  if (!token) notFound();
 
   await enforcePublicBookingRescheduleRateLimit({
     bookingId: id,
@@ -37,8 +37,8 @@ export default async function RescheduleBookingPage({
     logger,
   });
 
-  const booking = await getPublicBookingForManagement({ id, token: key });
+  const booking = await getPublicBookingForManagement({ id, token });
   if (!booking) notFound();
 
-  return <RescheduleBookingClient booking={booking} bookingKey={key} />;
+  return <RescheduleBookingClient booking={booking} bookingToken={token} />;
 }

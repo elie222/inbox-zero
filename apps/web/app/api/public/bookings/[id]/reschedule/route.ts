@@ -21,7 +21,7 @@ export const POST = withError(
     });
     const result = await reschedulePublicBooking({
       id,
-      token: body.key,
+      token: body.token,
       startTime: body.startTime,
       guestTimezone: body.timezone,
       logger: request.logger,

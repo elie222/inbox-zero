@@ -11,7 +11,7 @@ export function useAvailability({
   slug: string;
   start: Date;
   end: Date;
-  reschedule?: { bookingId: string; key: string };
+  reschedule?: { bookingId: string; token: string };
 }) {
   const params = new URLSearchParams({
     start: start.toISOString(),
@@ -19,7 +19,7 @@ export function useAvailability({
   });
   if (reschedule) {
     params.set("rescheduleBookingId", reschedule.bookingId);
-    params.set("key", reschedule.key);
+    params.set("token", reschedule.token);
   }
   return useSWR<GetPublicBookingAvailabilityResponse, Error>(
     `/api/public/booking-links/${slug}/availability?${params}`,

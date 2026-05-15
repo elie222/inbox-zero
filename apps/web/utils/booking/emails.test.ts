@@ -40,9 +40,9 @@ describe("booking emails", () => {
     await sendBookingConfirmationEmails({
       booking: bookingEmailPayload(),
       guestTimezone: "UTC",
-      cancelUrl: "https://example.com/book/cancel/booking-uid?key=token",
+      cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
       rescheduleUrl:
-        "https://example.com/book/reschedule/booking-uid?key=token",
+        "https://example.com/book/reschedule/booking-uid?token=token",
       logger,
     });
 
@@ -70,9 +70,9 @@ describe("booking emails", () => {
         },
       }),
       guestTimezone: "UTC",
-      cancelUrl: "https://example.com/book/cancel/booking-uid?key=token",
+      cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
       rescheduleUrl:
-        "https://example.com/book/reschedule/booking-uid?key=token",
+        "https://example.com/book/reschedule/booking-uid?token=token",
       logger,
     });
 
@@ -96,9 +96,9 @@ describe("booking emails", () => {
         },
       }),
       guestTimezone: "UTC",
-      cancelUrl: "https://example.com/book/cancel/booking-uid?key=token",
+      cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
       rescheduleUrl:
-        "https://example.com/book/reschedule/booking-uid?key=token",
+        "https://example.com/book/reschedule/booking-uid?token=token",
       logger,
     });
 
@@ -117,9 +117,9 @@ describe("booking emails", () => {
       booking: bookingEmailPayload(),
       previousStartTime: new Date("2026-05-04T09:00:00.000Z"),
       guestTimezone: "UTC",
-      cancelUrl: "https://example.com/book/cancel/booking-uid?key=token",
+      cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
       rescheduleUrl:
-        "https://example.com/book/reschedule/booking-uid?key=token",
+        "https://example.com/book/reschedule/booking-uid?token=token",
       logger,
     });
 
@@ -128,8 +128,8 @@ describe("booking emails", () => {
         to: "guest@example.com",
         emailProps: expect.objectContaining({
           rescheduleUrl:
-            "https://example.com/book/reschedule/booking-uid?key=token",
-          cancelUrl: "https://example.com/book/cancel/booking-uid?key=token",
+            "https://example.com/book/reschedule/booking-uid?token=token",
+          cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
           previousFormattedTime: expect.any(String),
         }),
       }),

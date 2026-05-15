@@ -10,15 +10,15 @@ import { Input } from "@/components/Input";
 import { publicCancelBookingBody } from "@/utils/actions/booking.validation";
 import { getApiError } from "../../[slug]/booking-helpers";
 
-// The management key comes from the URL; the form only collects the reason.
+// The management token comes from the URL; the form only collects the reason.
 const cancelFormSchema = publicCancelBookingBody.pick({ reason: true });
 type CancelFormValues = z.infer<typeof cancelFormSchema>;
 
 export function CancelBookingClient({
-  bookingKey,
+  bookingToken,
   id,
 }: {
-  bookingKey?: string;
+  bookingToken?: string;
   id: string;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -33,14 +33,14 @@ export function CancelBookingClient({
   });
 
   const onSubmit: SubmitHandler<CancelFormValues> = async (values) => {
-    if (!bookingKey) return;
+    if (!bookingToken) return;
     setError(null);
     try {
       const response = await fetch(`/api/public/bookings/${id}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          key: bookingKey,
+          token: bookingToken,
           reason: values.reason || undefined,
         }),
       });
@@ -56,8 +56,8 @@ export function CancelBookingClient({
     }
   };
 
-  const rescheduleHref = bookingKey
-    ? `/book/reschedule/${id}?key=${encodeURIComponent(bookingKey)}`
+  const rescheduleHref = bookingToken
+    ? `/book/reschedule/${id}?token=${encodeURIComponent(bookingToken)}`
     : null;
 
   return (
@@ -70,7 +70,7 @@ export function CancelBookingClient({
           <CardContent className="p-5">
             {done ? (
               <p className="text-sm text-muted-foreground">Booking canceled.</p>
-            ) : bookingKey ? (
+            ) : bookingToken ? (
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <Input
                   type="text"
@@ -98,7 +98,7 @@ export function CancelBookingClient({
               </form>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Booking management key is missing.
+                Booking management token is missing.
               </p>
             )}
           </CardContent>

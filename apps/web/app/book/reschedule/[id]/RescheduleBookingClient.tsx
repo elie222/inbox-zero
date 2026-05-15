@@ -37,10 +37,10 @@ type RescheduleSuccess = {
 
 export function RescheduleBookingClient({
   booking,
-  bookingKey,
+  bookingToken,
 }: {
   booking: BookingMetadata;
-  bookingKey: string;
+  bookingToken: string;
 }) {
   const bookingLink = booking.bookingLink;
   const defaultTimezone = normalizeTimezone(
@@ -72,7 +72,7 @@ export function RescheduleBookingClient({
 
   const [success, setSuccess] = useState<RescheduleSuccess | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const cancelHref = `/book/cancel/${booking.id}?key=${encodeURIComponent(bookingKey)}`;
+  const cancelHref = `/book/cancel/${booking.id}?token=${encodeURIComponent(bookingToken)}`;
 
   const {
     data,
@@ -82,7 +82,7 @@ export function RescheduleBookingClient({
     slug: bookingLink.slug,
     start: visibleMonth,
     end: endOfMonth(visibleMonth),
-    reschedule: { bookingId: booking.id, key: bookingKey },
+    reschedule: { bookingId: booking.id, token: bookingToken },
   });
 
   const { slotsByDay, selectedDateKey, setSelectedDateKey, slotsForDay } =
@@ -98,7 +98,7 @@ export function RescheduleBookingClient({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            key: bookingKey,
+            token: bookingToken,
             startTime: selectedSlot.startTime,
             timezone,
           }),

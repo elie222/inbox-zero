@@ -1001,13 +1001,13 @@ function isMatchingToken({
 }
 
 function getCancelUrl({ id, token }: { id: string; token: string }) {
-  return `${env.NEXT_PUBLIC_BASE_URL}/book/cancel/${id}?key=${encodeURIComponent(
+  return `${env.NEXT_PUBLIC_BASE_URL}/book/cancel/${id}?token=${encodeURIComponent(
     token,
   )}`;
 }
 
 function getRescheduleUrl({ id, token }: { id: string; token: string }) {
-  return `${env.NEXT_PUBLIC_BASE_URL}/book/reschedule/${id}?key=${encodeURIComponent(
+  return `${env.NEXT_PUBLIC_BASE_URL}/book/reschedule/${id}?token=${encodeURIComponent(
     token,
   )}`;
 }

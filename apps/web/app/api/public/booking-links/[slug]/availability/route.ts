@@ -16,7 +16,7 @@ const availabilityQuerySchema = z.object({
   start: z.string().datetime(),
   end: z.string().datetime(),
   rescheduleBookingId: z.string().optional(),
-  key: z.string().optional(),
+  token: z.string().optional(),
 });
 
 export const GET = withError(
@@ -28,7 +28,7 @@ export const GET = withError(
       start: searchParams.get("start"),
       end: searchParams.get("end"),
       rescheduleBookingId: searchParams.get("rescheduleBookingId") ?? undefined,
-      key: searchParams.get("key") ?? undefined,
+      token: searchParams.get("token") ?? undefined,
     });
     await enforcePublicAvailabilityRateLimit({
       slug,
@@ -36,10 +36,10 @@ export const GET = withError(
       logger: request.logger,
     });
     const rescheduleExclusion =
-      query.rescheduleBookingId && query.key
+      query.rescheduleBookingId && query.token
         ? await getPublicBookingAvailabilityExclusion({
             id: query.rescheduleBookingId,
-            token: query.key,
+            token: query.token,
           })
         : null;
     const excludedBooking =

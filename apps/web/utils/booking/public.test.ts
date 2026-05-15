@@ -242,10 +242,10 @@ describe("public booking", () => {
       }),
     );
     const calendarEventCall = vi.mocked(createCalendarEvent).mock.calls[0][0];
-    expect(calendarEventCall.description).not.toContain("token=");
+    expect(calendarEventCall.description).not.toContain("key=");
     expect(calendarEventCall.description).not.toContain("/book/cancel/");
     expect(calendarEventCall.description).toMatch(
-      /Need to reschedule or cancel\? https?:\/\/[^\s]+\/book\/reschedule\/booking-id\?key=/,
+      /Need to reschedule or cancel\? https?:\/\/[^\s]+\/book\/reschedule\/booking-id\?token=/,
     );
     expect(prisma.booking.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -271,9 +271,9 @@ describe("public booking", () => {
     expect(sendBookingConfirmationEmails).toHaveBeenCalledWith(
       expect.objectContaining({
         booking: expect.objectContaining({ id: "booking-id" }),
-        cancelUrl: expect.stringContaining("/book/cancel/booking-id?key="),
+        cancelUrl: expect.stringContaining("/book/cancel/booking-id?token="),
         rescheduleUrl: expect.stringContaining(
-          "/book/reschedule/booking-id?key=",
+          "/book/reschedule/booking-id?token=",
         ),
       }),
     );
@@ -283,9 +283,9 @@ describe("public booking", () => {
         status: BookingStatus.CONFIRMED,
         startTime: "2026-05-04T09:00:00.000Z",
         endTime: "2026-05-04T09:30:00.000Z",
-        cancelUrl: expect.stringContaining("/book/cancel/booking-id?key="),
+        cancelUrl: expect.stringContaining("/book/cancel/booking-id?token="),
         rescheduleUrl: expect.stringContaining(
-          "/book/reschedule/booking-id?key=",
+          "/book/reschedule/booking-id?token=",
         ),
       }),
     );
@@ -709,7 +709,7 @@ describe("public booking", () => {
         booking: expect.objectContaining({ status: BookingStatus.CONFIRMED }),
         previousStartTime: new Date("2026-05-04T09:00:00.000Z"),
         rescheduleUrl: expect.stringContaining(
-          "/book/reschedule/booking-id?key=",
+          "/book/reschedule/booking-id?token=",
         ),
       }),
     );
@@ -720,9 +720,9 @@ describe("public booking", () => {
         startTime: "2026-05-11T09:00:00.000Z",
         endTime: "2026-05-11T09:30:00.000Z",
         rescheduleUrl: expect.stringContaining(
-          "/book/reschedule/booking-id?key=",
+          "/book/reschedule/booking-id?token=",
         ),
-        cancelUrl: expect.stringContaining("/book/cancel/booking-id?key="),
+        cancelUrl: expect.stringContaining("/book/cancel/booking-id?token="),
       }),
     );
   });
