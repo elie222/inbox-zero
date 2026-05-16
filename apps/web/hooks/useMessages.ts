@@ -1,28 +1,18 @@
-import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
 import type { MessagesResponse } from "@/app/api/messages/route";
 
-type MessagesOptions = {
+type UseInfiniteMessagesOptions = {
   enabled?: boolean;
   searchQuery?: string | null;
 };
 
-type MessagesPageOptions = MessagesOptions & {
-  pageToken?: string | null;
-};
-
-export function useMessages({
+export function useInfiniteMessages({
   enabled = true,
   searchQuery,
-}: MessagesOptions = {}) {
-  return useSWR<MessagesResponse>(
-    enabled ? getMessagesUrl({ searchQuery }) : null,
-  );
-}
-
-export function useInfiniteMessages(searchQuery?: string | null) {
+}: UseInfiniteMessagesOptions = {}) {
   return useSWRInfinite<MessagesResponse>(
     (index, previousPageData) => {
+      if (!enabled) return null;
       if (index === 0) return getMessagesUrl({ searchQuery });
 
       const pageToken = previousPageData?.nextPageToken;
@@ -36,7 +26,13 @@ export function useInfiniteMessages(searchQuery?: string | null) {
   );
 }
 
-function getMessagesUrl({ searchQuery, pageToken }: MessagesPageOptions = {}) {
+function getMessagesUrl({
+  searchQuery,
+  pageToken,
+}: {
+  searchQuery?: string | null;
+  pageToken?: string | null;
+} = {}) {
   const params = new URLSearchParams();
   if (searchQuery) params.set("q", searchQuery);
   if (pageToken) params.set("pageToken", pageToken);

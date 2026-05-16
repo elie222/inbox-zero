@@ -54,7 +54,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   );
 
   const { data, isLoading, isValidating, error, setSize, mutate, size } =
-    useInfiniteMessages(searchQuery);
+    useInfiniteMessages({ searchQuery });
 
   const onLoadMore = async () => {
     const nextSize = size + 1;
