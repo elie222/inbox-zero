@@ -1,16 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQueryState } from "nuqs";
-import { useSWRConfig } from "swr";
 import { TabSelect } from "@/components/TabSelect";
 import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
 import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/settings/SettingsTab";
 import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTabNew";
+import { useMessages } from "@/hooks/useMessages";
 
 const automationTabs = ["rules", "test", "history", "settings"] as const;
 type AutomationTab = (typeof automationTabs)[number];
+type IdleWindow = Window &
+  typeof globalThis & {
+    requestIdleCallback?: (
+      callback: IdleRequestCallback,
+      options?: IdleRequestOptions,
+    ) => number;
+    cancelIdleCallback?: (handle: number) => void;
+  };
 
 const defaultTab: AutomationTab = "rules";
 
@@ -39,7 +47,7 @@ export function AutomationTabs() {
     history: "push",
   });
   const selectedTab = isAutomationTab(tab) ? tab : defaultTab;
-  usePrefetchTestTab(selectedTab);
+  usePrefetchTestTabMessages(selectedTab);
 
   const onSelect = useCallback(
     (value: AutomationTab) => {
@@ -68,34 +76,25 @@ export function AutomationTabs() {
   );
 }
 
-function usePrefetchTestTab(selectedTab: AutomationTab) {
-  const { fetcher, mutate } = useSWRConfig();
-  const hasPrefetchedRef = useRef(false);
+function usePrefetchTestTabMessages(selectedTab: AutomationTab) {
+  const [shouldPrefetch, setShouldPrefetch] = useState(false);
+  useMessages({ enabled: shouldPrefetch });
 
   useEffect(() => {
-    if (
-      hasPrefetchedRef.current ||
-      selectedTab === "test" ||
-      typeof fetcher !== "function"
-    ) {
-      return;
-    }
-    hasPrefetchedRef.current = true;
+    if (shouldPrefetch || selectedTab === "test") return;
 
-    const prefetch = () => {
-      fetcher("/api/messages")
-        .then((data) => mutate("/api/messages", data, { revalidate: false }))
-        .catch(() => undefined);
-    };
-
-    if ("requestIdleCallback" in window) {
-      const idleId = window.requestIdleCallback(prefetch, { timeout: 1500 });
-      return () => window.cancelIdleCallback(idleId);
+    const idleWindow = window as IdleWindow;
+    if (idleWindow.requestIdleCallback && idleWindow.cancelIdleCallback) {
+      const idleId = idleWindow.requestIdleCallback(
+        () => setShouldPrefetch(true),
+        { timeout: 1500 },
+      );
+      return () => idleWindow.cancelIdleCallback?.(idleId);
     }
 
-    const timeoutId = window.setTimeout(prefetch, 500);
-    return () => window.clearTimeout(timeoutId);
-  }, [fetcher, mutate, selectedTab]);
+    const timeoutId = globalThis.setTimeout(() => setShouldPrefetch(true), 500);
+    return () => globalThis.clearTimeout(timeoutId);
+  }, [selectedTab, shouldPrefetch]);
 }
 
 function isAutomationTab(value: string): value is AutomationTab {
