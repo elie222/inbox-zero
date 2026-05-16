@@ -17,10 +17,10 @@ import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { MessagesResponse } from "@/app/api/messages/route";
 import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { runRulesAction } from "@/utils/actions/ai-rule";
-import type { RulesResponse } from "@/app/api/user/rules/route";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
@@ -40,6 +40,7 @@ import {
   getSelectionMetadataTraceDetails,
   summarizeSelectionMetadata,
 } from "@/utils/ai/choose-rule/selection-metadata-summary";
+import { useRules } from "@/hooks/useRules";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -101,7 +102,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
     });
   }, [data]);
 
-  const { data: rules } = useSWR<RulesResponse>("/api/user/rules");
+  const { data: rules } = useRules();
   const { emailAccountId, userEmail } = useAccount();
 
   // Fetch existing executed rules for current messages
@@ -315,7 +316,11 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
         </div>
       )}
 
-      <LoadingContent loading={isLoading} error={error}>
+      <LoadingContent
+        loading={isLoading}
+        error={error}
+        loadingComponent={<ProcessRulesLoading />}
+      >
         {messages.length === 0 ? (
           <MutedText className="p-4 text-center">No emails found</MutedText>
         ) : (
@@ -357,6 +362,31 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
         )}
       </LoadingContent>
     </div>
+  );
+}
+
+function ProcessRulesLoading() {
+  return (
+    <Card>
+      <Table>
+        <TableBody>
+          {Array.from({ length: 5 }).map((_, index) => (
+            <TableRow key={index} className="hover:bg-transparent">
+              <TableCell>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-4 w-full max-w-xl" />
+                    <Skeleton className="h-3 w-full max-w-md" />
+                  </div>
+                  <Skeleton className="h-9 w-16 shrink-0" />
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
   );
 }
 
