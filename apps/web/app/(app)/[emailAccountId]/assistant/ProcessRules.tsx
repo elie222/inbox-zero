@@ -2,7 +2,6 @@
 
 import { useCallback, useState, useRef, useMemo } from "react";
 import useSWR from "swr";
-import useSWRInfinite from "swr/infinite";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import PQueue from "p-queue";
 import {
@@ -41,6 +40,7 @@ import {
   summarizeSelectionMetadata,
 } from "@/utils/ai/choose-rule/selection-metadata-summary";
 import { useRules } from "@/hooks/useRules";
+import { useInfiniteMessages } from "@/hooks/useMessages";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -54,32 +54,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   );
 
   const { data, isLoading, isValidating, error, setSize, mutate, size } =
-    useSWRInfinite<MessagesResponse>(
-      (index, previousPageData) => {
-        // Always return the URL for the first page
-        if (index === 0) {
-          const params = new URLSearchParams();
-          if (searchQuery) params.set("q", searchQuery);
-          const paramsString = params.toString();
-
-          return `/api/messages${paramsString ? `?${paramsString}` : ""}`;
-        }
-
-        // For subsequent pages, check if we have a next page token
-        const pageToken = previousPageData?.nextPageToken;
-        if (!pageToken) return null;
-
-        const params = new URLSearchParams();
-        if (searchQuery) params.set("q", searchQuery);
-        params.set("pageToken", pageToken);
-        const paramsString = params.toString();
-
-        return `/api/messages${paramsString ? `?${paramsString}` : ""}`;
-      },
-      {
-        revalidateFirstPage: false,
-      },
-    );
+    useInfiniteMessages(searchQuery);
 
   const onLoadMore = async () => {
     const nextSize = size + 1;
