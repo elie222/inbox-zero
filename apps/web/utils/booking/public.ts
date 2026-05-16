@@ -527,12 +527,7 @@ export async function getPublicBookingForManagement({
     },
   });
 
-  if (!booking) return null;
-  if (!isMatchingToken({ token, tokenHash: booking.cancelTokenHash })) {
-    return null;
-  }
-  if (booking.status !== BookingStatus.CONFIRMED) return null;
-  if (booking.startTime <= new Date()) return null;
+  if (!isManageableBooking({ booking, token })) return null;
 
   return {
     id: booking.id,
@@ -575,12 +570,7 @@ export async function getPublicBookingAvailabilityExclusion({
     },
   });
 
-  if (!booking) return null;
-  if (!isMatchingToken({ token, tokenHash: booking.cancelTokenHash })) {
-    return null;
-  }
-  if (booking.status !== BookingStatus.CONFIRMED) return null;
-  if (booking.startTime <= new Date()) return null;
+  if (!isManageableBooking({ booking, token })) return null;
 
   return {
     id: booking.id,
@@ -998,6 +988,26 @@ function isMatchingToken({
   const actual = Buffer.from(hashToken(token), "hex");
   const expected = Buffer.from(tokenHash, "hex");
   return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+function isManageableBooking({
+  booking,
+  token,
+}: {
+  booking: {
+    cancelTokenHash: string;
+    status: BookingStatus;
+    startTime: Date;
+  } | null;
+  token: string;
+}) {
+  if (!booking) return false;
+  if (!isMatchingToken({ token, tokenHash: booking.cancelTokenHash })) {
+    return false;
+  }
+  if (booking.status !== BookingStatus.CONFIRMED) return false;
+  if (booking.startTime <= new Date()) return false;
+  return true;
 }
 
 function getCancelUrl({ id, token }: { id: string; token: string }) {

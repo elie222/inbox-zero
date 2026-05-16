@@ -10,7 +10,6 @@ import { Input } from "@/components/Input";
 import { publicCancelBookingBody } from "@/utils/actions/booking.validation";
 import { getApiError } from "../../[slug]/booking-helpers";
 
-// The management token comes from the URL; the form only collects the reason.
 const cancelFormSchema = publicCancelBookingBody.pick({ reason: true });
 type CancelFormValues = z.infer<typeof cancelFormSchema>;
 
