@@ -527,7 +527,7 @@ export async function getPublicBookingForManagement({
     },
   });
 
-  if (!isManageableBooking({ booking, token })) return null;
+  if (!isManageableBooking(booking, token)) return null;
 
   return {
     id: booking.id,
@@ -570,7 +570,7 @@ export async function getPublicBookingAvailabilityExclusion({
     },
   });
 
-  if (!isManageableBooking({ booking, token })) return null;
+  if (!isManageableBooking(booking, token)) return null;
 
   return {
     id: booking.id,
@@ -990,17 +990,16 @@ function isMatchingToken({
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-function isManageableBooking({
-  booking,
-  token,
-}: {
-  booking: {
-    cancelTokenHash: string;
-    status: BookingStatus;
-    startTime: Date;
-  } | null;
-  token: string;
-}) {
+type ManageableBooking = {
+  cancelTokenHash: string;
+  status: BookingStatus;
+  startTime: Date;
+};
+
+function isManageableBooking<Booking extends ManageableBooking>(
+  booking: Booking | null,
+  token: string,
+): booking is Booking {
   if (!booking) return false;
   if (!isMatchingToken({ token, tokenHash: booking.cancelTokenHash })) {
     return false;
