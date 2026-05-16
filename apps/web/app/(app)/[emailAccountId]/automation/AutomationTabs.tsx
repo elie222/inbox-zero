@@ -7,18 +7,10 @@ import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
 import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/settings/SettingsTab";
 import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTabNew";
-import { useMessages } from "@/hooks/useMessages";
+import { useInfiniteMessages } from "@/hooks/useMessages";
 
 const automationTabs = ["rules", "test", "history", "settings"] as const;
 type AutomationTab = (typeof automationTabs)[number];
-type IdleWindow = Window &
-  typeof globalThis & {
-    requestIdleCallback?: (
-      callback: IdleRequestCallback,
-      options?: IdleRequestOptions,
-    ) => number;
-    cancelIdleCallback?: (handle: number) => void;
-  };
 
 const defaultTab: AutomationTab = "rules";
 
@@ -78,22 +70,20 @@ export function AutomationTabs() {
 
 function usePrefetchTestTabMessages(selectedTab: AutomationTab) {
   const [shouldPrefetch, setShouldPrefetch] = useState(false);
-  useMessages({ enabled: shouldPrefetch });
+  useInfiniteMessages({ enabled: shouldPrefetch });
 
   useEffect(() => {
     if (shouldPrefetch || selectedTab === "test") return;
 
-    const idleWindow = window as IdleWindow;
-    if (idleWindow.requestIdleCallback && idleWindow.cancelIdleCallback) {
-      const idleId = idleWindow.requestIdleCallback(
-        () => setShouldPrefetch(true),
-        { timeout: 1500 },
-      );
-      return () => idleWindow.cancelIdleCallback?.(idleId);
+    if (typeof window.requestIdleCallback === "function") {
+      const idleId = window.requestIdleCallback(() => setShouldPrefetch(true), {
+        timeout: 1500,
+      });
+      return () => window.cancelIdleCallback(idleId);
     }
 
-    const timeoutId = globalThis.setTimeout(() => setShouldPrefetch(true), 500);
-    return () => globalThis.clearTimeout(timeoutId);
+    const timeoutId = window.setTimeout(() => setShouldPrefetch(true), 500);
+    return () => window.clearTimeout(timeoutId);
   }, [selectedTab, shouldPrefetch]);
 }
 
