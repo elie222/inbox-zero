@@ -58,7 +58,7 @@ export function AutomationTabs() {
         />
       </div>
 
-      <div className="mb-10">
+      <div className="mt-2 mb-10">
         {selectedTab === "rules" && <RulesTab />}
         {selectedTab === "settings" && <SettingsTab />}
         {selectedTab === "test" && <Process />}
