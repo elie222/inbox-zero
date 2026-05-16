@@ -21,6 +21,7 @@ import { cardToBlockKit, cardToFallbackText } from "@chat-adapter/slack";
 import type { WebClient } from "@slack/web-api";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
+import { Prisma } from "@/generated/prisma/client";
 import {
   ActionType,
   DraftEmailStatus,
@@ -439,7 +440,10 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       // Tracker flipped to resolved.
       expect(prisma.threadTracker.update).toHaveBeenCalledWith({
         where: { id: trackerId },
-        data: { resolved: true },
+        data: {
+          resolved: true,
+          followUpNotifications: Prisma.JsonNull,
+        },
       });
 
       expect(editMessage).toHaveBeenCalledTimes(1);

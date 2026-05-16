@@ -629,7 +629,7 @@ async function getProcessedFollowUpLedger({
         { followUpDraftId: { not: null } },
       ],
     },
-    select: { threadId: true, messageId: true, resolved: true, sentAt: true },
+    select: { threadId: true, messageId: true, sentAt: true },
   });
 
   const processedLedger: ProcessedFollowUpLedger = new Map();
@@ -640,7 +640,7 @@ async function getProcessedFollowUpLedger({
       sentAtTimes: new Set<number>(),
     };
     processed.messageIds.add(tracker.messageId);
-    if (!tracker.resolved && tracker.sentAt) {
+    if (tracker.sentAt) {
       processed.sentAtTimes.add(tracker.sentAt.getTime());
     }
     processedLedger.set(tracker.threadId, processed);
@@ -649,8 +649,10 @@ async function getProcessedFollowUpLedger({
   return processedLedger;
 }
 
-// sentAt is checked for unresolved trackers because Outlook can return a
-// different provider message ID for the same sent message across runs.
+// sentAt is checked because Outlook can return a different provider message ID
+// for the same sent message across runs, including after Mark done. The ledger
+// only includes rows that already have follow-up history, so ordinary Reply Zero
+// trackers still receive their first follow-up.
 function hasFollowUpBeenProcessed({
   processedLedger,
   threadId,
