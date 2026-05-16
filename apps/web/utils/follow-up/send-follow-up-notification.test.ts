@@ -7,6 +7,7 @@ import {
 } from "@/generated/prisma/enums";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
+  parseFollowUpNotificationDeliveries,
   sendFollowUpNotification,
   type FollowUpNotificationChannel,
 } from "./send-follow-up-notification";
@@ -235,5 +236,40 @@ describe("sendFollowUpNotification", () => {
       ...baseArgs,
     });
     expect(sendFollowUpReminderToSlack).not.toHaveBeenCalled();
+  });
+});
+
+describe("parseFollowUpNotificationDeliveries", () => {
+  it("keeps valid persisted delivery handles", () => {
+    const deliveries = [
+      {
+        messagingChannelId: "channel-1",
+        provider: MessagingProvider.SLACK,
+        providerThreadId: "C1",
+        providerMessageId: "1700000000.000100",
+      },
+      {
+        messagingChannelId: "channel-2",
+        provider: MessagingProvider.TELEGRAM,
+        providerThreadId: "telegram-thread-1",
+        providerMessageId: "telegram-message-1",
+      },
+    ];
+
+    expect(parseFollowUpNotificationDeliveries(deliveries)).toEqual(deliveries);
+  });
+
+  it("drops malformed persisted delivery handles", () => {
+    expect(
+      parseFollowUpNotificationDeliveries([
+        {
+          messagingChannelId: "channel-1",
+          provider: MessagingProvider.SLACK,
+          providerThreadId: "C1",
+        },
+      ]),
+    ).toEqual([]);
+    expect(parseFollowUpNotificationDeliveries({})).toEqual([]);
+    expect(parseFollowUpNotificationDeliveries(null)).toEqual([]);
   });
 });
