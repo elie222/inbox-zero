@@ -86,6 +86,7 @@ const LOCAL_REDIS_HTTP_PORT = 8079;
 const LOCAL_REDIS_PORT = 6380;
 const LOCAL_REDIS_TOKEN = "dev_token";
 const WORKTREE_DATABASE_PREFIX = "inboxzero_wt_";
+const SAFE_DATABASE_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const APP_ENV_LINKS = [
   {
     required: true,
@@ -598,10 +599,13 @@ async function getCurrentBranch() {
 }
 
 async function checkDatabaseExists(adminUrl: string, databaseName: string) {
+  assertSafeWorktreeDatabaseName(databaseName);
   const output = await captureCommand("psql", [
     adminUrl,
+    "--set",
+    `database_name=${databaseName}`,
     "-Atqc",
-    `SELECT 1 FROM pg_database WHERE datname = '${databaseName}'`,
+    "SELECT 1 FROM pg_database WHERE datname = :'database_name'",
   ]);
 
   return output.trim() === "1";
@@ -613,8 +617,10 @@ async function createDatabase(adminUrl: string, databaseName: string) {
   log(`Creating database ${databaseName}`);
   await runCommand("psql", [
     adminUrl,
+    "--set",
+    `database_name=${databaseName}`,
     "-c",
-    `CREATE DATABASE "${databaseName}"`,
+    'CREATE DATABASE :"database_name"',
   ]);
 }
 
@@ -623,13 +629,17 @@ async function dropDatabase(adminUrl: string, databaseName: string) {
   assertSafeWorktreeDatabaseName(databaseName);
   await runCommand("psql", [
     adminUrl,
+    "--set",
+    `database_name=${databaseName}`,
     "-c",
-    `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${databaseName}' AND pid <> pg_backend_pid()`,
+    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :'database_name' AND pid <> pg_backend_pid()",
   ]);
   await runCommand("psql", [
     adminUrl,
+    "--set",
+    `database_name=${databaseName}`,
     "-c",
-    `DROP DATABASE IF EXISTS "${databaseName}"`,
+    'DROP DATABASE IF EXISTS :"database_name"',
   ]);
 }
 
@@ -906,6 +916,15 @@ function assertSafeWorktreeDatabaseName(databaseName: string) {
   if (!databaseName.startsWith(WORKTREE_DATABASE_PREFIX)) {
     throw new Error(
       `Refusing to manage a database without the ${WORKTREE_DATABASE_PREFIX} prefix: ${databaseName}`,
+    );
+  }
+
+  if (
+    databaseName.length > 63 ||
+    !SAFE_DATABASE_NAME_PATTERN.test(databaseName)
+  ) {
+    throw new Error(
+      `Refusing to manage an unsafe worktree database name: ${databaseName}`,
     );
   }
 }
