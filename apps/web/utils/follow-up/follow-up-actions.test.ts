@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { MessagingProvider } from "@/generated/prisma/enums";
+import { Prisma } from "@/generated/prisma/client";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
   FOLLOW_UP_MARK_DONE_ACTION_ID,
@@ -62,7 +63,10 @@ describe("handleFollowUpReminderAction", () => {
 
     expect(prisma.threadTracker.update).toHaveBeenCalledWith({
       where: { id: "tracker-1" },
-      data: { resolved: true },
+      data: {
+        resolved: true,
+        followUpNotifications: Prisma.JsonNull,
+      },
     });
     expect(postEphemeral).toHaveBeenCalled();
     const text = postEphemeral.mock.calls[0]?.[1];
@@ -141,7 +145,7 @@ describe("handleFollowUpReminderAction", () => {
     expect(postEphemeral).toHaveBeenCalled();
   });
 
-  it("no-ops when the tracker is already resolved", async () => {
+  it("clears stored notification references when the tracker is already resolved", async () => {
     prisma.threadTracker.findUnique.mockResolvedValue({
       id: "tracker-1",
       resolved: true,
@@ -154,7 +158,13 @@ describe("handleFollowUpReminderAction", () => {
     const { event, postEphemeral } = makeEvent();
     await handleFollowUpReminderAction({ event, logger });
 
-    expect(prisma.threadTracker.update).not.toHaveBeenCalled();
+    expect(prisma.threadTracker.update).toHaveBeenCalledWith({
+      where: { id: "tracker-1" },
+      data: {
+        resolved: true,
+        followUpNotifications: Prisma.JsonNull,
+      },
+    });
     expect(postEphemeral).toHaveBeenCalled();
   });
 
