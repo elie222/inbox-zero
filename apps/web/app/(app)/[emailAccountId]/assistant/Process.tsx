@@ -11,7 +11,7 @@ export function Process() {
 
   return (
     <>
-      <div className="flex items-center justify-between py-4">
+      <div className="flex items-center justify-between pb-4">
         <div className="flex flex-col space-y-1.5">
           <CardDescription>
             {isApplyMode
