@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useQueryState } from "nuqs";
 import { useSWRConfig } from "swr";
 import { TabSelect } from "@/components/TabSelect";
@@ -38,17 +38,11 @@ export function AutomationTabs() {
     defaultValue: defaultTab,
     history: "push",
   });
-  const urlTab = isAutomationTab(tab) ? tab : defaultTab;
-  const [selectedTab, setSelectedTab] = useState<AutomationTab>(urlTab);
+  const selectedTab = isAutomationTab(tab) ? tab : defaultTab;
   usePrefetchTestTab(selectedTab);
-
-  useEffect(() => {
-    setSelectedTab(urlTab);
-  }, [urlTab]);
 
   const onSelect = useCallback(
     (value: AutomationTab) => {
-      setSelectedTab(value);
       setTab(value === defaultTab ? null : value);
     },
     [setTab],
