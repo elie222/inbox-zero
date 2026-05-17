@@ -142,11 +142,11 @@
 | FEEDBACK-04 | Phase 6: Feedback System | Satisfied by upstream Gmail history labelAdded/Removed detection (2026-05-17) |
 | FEEDBACK-05 | Phase 6: Feedback System | Satisfied by upstream Gmail history messageDeleted detection (2026-05-17) |
 | FEEDBACK-06 | Phase 6: Feedback System | Deferred (2026-05-17) — accuracy doesn't need prompt-injected feedback; revisit if it degrades |
-| BACKLOG-01 | Phase 7: Backlog Triage | Pending |
-| BACKLOG-02 | Phase 7: Backlog Triage | Pending |
-| BACKLOG-03 | Phase 7: Backlog Triage | Pending |
-| BACKLOG-04 | Phase 7: Backlog Triage | Pending |
-| BACKLOG-05 | Phase 7: Backlog Triage | Pending |
+| BACKLOG-01 | Phase 7: Backlog Triage | Satisfied by manual Gmail triage (2026-05-17) |
+| BACKLOG-02 | Phase 7: Backlog Triage | Dropped (2026-05-17) — manual triage made bulk proposals unnecessary |
+| BACKLOG-03 | Phase 7: Backlog Triage | Dropped (2026-05-17) — no automated bulk actions to approve |
+| BACKLOG-04 | Phase 7: Backlog Triage | N/A — no bulk processing implemented |
+| BACKLOG-05 | Phase 7: Backlog Triage | N/A — no bulk processing implemented |
 
 **Coverage:**
 - v1 requirements: 43 total
