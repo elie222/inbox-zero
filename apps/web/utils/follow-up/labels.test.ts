@@ -294,9 +294,6 @@ describe("hasFollowUpLabel", () => {
 describe("clearFollowUpLabel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    prisma.threadTracker.findFirst.mockResolvedValue({
-      id: "tracker-active",
-    } as any);
     prisma.messagingChannel.findMany.mockResolvedValue([]);
   });
 
@@ -307,7 +304,7 @@ describe("clearFollowUpLabel", () => {
         .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
     });
 
-    prisma.threadTracker.findFirst.mockResolvedValue(null);
+    prisma.threadTracker.findMany.mockResolvedValue([]);
 
     await clearFollowUpLabel({
       emailAccountId: "account-1",
@@ -316,7 +313,7 @@ describe("clearFollowUpLabel", () => {
       logger,
     });
 
-    expect(prisma.threadTracker.findFirst).toHaveBeenCalledWith({
+    expect(prisma.threadTracker.findMany).toHaveBeenCalledWith({
       where: {
         emailAccountId: "account-1",
         threadId: "thread-1",
@@ -326,9 +323,11 @@ describe("clearFollowUpLabel", () => {
           { followUpNotifications: { not: Prisma.AnyNull } },
         ],
       },
-      select: { id: true },
+      select: {
+        id: true,
+        followUpDraftId: true,
+      },
     });
-    expect(prisma.threadTracker.findMany).not.toHaveBeenCalled();
     expect(prisma.threadTracker.updateMany).not.toHaveBeenCalled();
     expect(prisma.messagingChannel.findMany).not.toHaveBeenCalled();
     expect(mockProvider.getLabelByName).not.toHaveBeenCalled();
@@ -345,7 +344,9 @@ describe("clearFollowUpLabel", () => {
         .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
     });
 
-    prisma.threadTracker.findMany.mockResolvedValue([]);
+    prisma.threadTracker.findMany.mockResolvedValue([
+      { id: "tracker-1", followUpDraftId: null },
+    ]);
     prisma.threadTracker.updateMany.mockResolvedValue({ count: 1 });
 
     await clearFollowUpLabel({
@@ -355,18 +356,6 @@ describe("clearFollowUpLabel", () => {
       logger,
     });
 
-    // Should query for trackers with drafts (no resolved filter)
-    expect(prisma.threadTracker.findMany).toHaveBeenCalledWith({
-      where: {
-        emailAccountId: "account-1",
-        threadId: "thread-1",
-        followUpDraftId: { not: null },
-      },
-      select: {
-        id: true,
-        followUpDraftId: true,
-      },
-    });
     // Should clear followUpAppliedAt
     expect(prisma.threadTracker.updateMany).toHaveBeenCalledWith({
       where: {
@@ -513,8 +502,10 @@ describe("clearFollowUpLabel", () => {
         .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
     });
 
-    // No drafts found (trackers may be resolved, but we don't filter on resolved)
-    prisma.threadTracker.findMany.mockResolvedValue([]);
+    // Active tracker with no draft (e.g. resolved tracker with appliedAt still set)
+    prisma.threadTracker.findMany.mockResolvedValue([
+      { id: "tracker-1", followUpDraftId: null },
+    ]);
     prisma.threadTracker.updateMany.mockResolvedValue({ count: 0 });
 
     await clearFollowUpLabel({
@@ -539,7 +530,7 @@ describe("clearFollowUpLabel", () => {
     });
 
     prisma.threadTracker.findMany
-      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: "tracker-1", followUpDraftId: null }])
       .mockResolvedValueOnce([
         {
           id: "tracker-1",

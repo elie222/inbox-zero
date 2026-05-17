@@ -136,7 +136,9 @@ export async function clearFollowUpLabel({
   if (!threadId) return;
 
   try {
-    const activeFollowUpTracker = await prisma.threadTracker.findFirst({
+    // No resolved filter: trackers may already be resolved by handleOutboundReply
+    // before this function runs, but we still need to delete their drafts.
+    const activeTrackers = await prisma.threadTracker.findMany({
       where: {
         emailAccountId,
         threadId,
@@ -146,27 +148,20 @@ export async function clearFollowUpLabel({
           { followUpNotifications: { not: Prisma.AnyNull } },
         ],
       },
-      select: { id: true },
-    });
-
-    if (!activeFollowUpTracker) {
-      logger.info("No active follow-up state to clear", { threadId });
-      return;
-    }
-
-    // No resolved filter: trackers may already be resolved by handleOutboundReply
-    // before this function runs, but we still need to delete their drafts.
-    const trackersWithDrafts = await prisma.threadTracker.findMany({
-      where: {
-        emailAccountId,
-        threadId,
-        followUpDraftId: { not: null },
-      },
       select: {
         id: true,
         followUpDraftId: true,
       },
     });
+
+    if (activeTrackers.length === 0) {
+      logger.info("No active follow-up state to clear", { threadId });
+      return;
+    }
+
+    const trackersWithDrafts = activeTrackers.filter(
+      (tracker) => tracker.followUpDraftId !== null,
+    );
 
     const deletedDraftTrackerIds: string[] = [];
 
