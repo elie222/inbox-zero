@@ -2,37 +2,26 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-27)
+See: .planning/PROJECT.md (updated 2026-05-17)
 
 **Core value:** Inbox only shows things that need Rebekah — everything else is already filed before she opens Gmail.
-**Current focus:** v1.0 shipped + archived. No active milestone.
+**Current focus:** v1.1 Calendar-Aware Email — defining requirements.
 
 ## Current Position
 
-v1.0 milestone archived 2026-05-17 — see `.planning/milestones/v1.0-ROADMAP.md` and `.planning/milestones/v1.0-REQUIREMENTS.md`. Git tag `v1.0` marks the shipping commit.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-17 — Milestone v1.1 started
 
-Live classification + digest are running in production. Backlog (Phase 999.1/2/3 + deferred v2 items) is in `.planning/ROADMAP.md` ready for promotion into the next milestone.
-
-Last activity: 2026-05-17 — v1.0 archived, tagged, pushed.
-
-Progress: v1.0 [██████████] 100% (7 of 7 phases shipped)
+Progress: v1.1 [          ] 0% (0 of N phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
+- Total plans completed (v1.0): 1 tracked
 - Average duration: 45min
 - Total execution time: 45min
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 02-inbox-zero-recon | 1 | 45min | 45min |
-
-**Recent Trend:**
-- Last 5 plans: 02-01 (45min)
-- Trend: —
 
 *Updated after each plan completion*
 
@@ -41,32 +30,27 @@ Progress: v1.0 [██████████] 100% (7 of 7 phases shipped)
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
+Carry-forward from v1.0:
 
 - Three-tier AI (rules → Haiku → Sonnet) keeps AI cost under $10/mo
-- Recon phase gates all feature work — no building on Inbox Zero until internals are mapped
 - Single-tenant design: no multi-user abstractions
 - Existing infra (EC2, Postgres, Docker) is kept as-is
-- Webhook entry point KEEP — token verification, rate-limit guard, after() deferral are production-ready
-- match-rules.ts KEEP + EXTEND — GroupItem learned pattern matching is already free Tier 1; needs explicit priority ordering
-- ai-choose-rule.ts REPLACE model selection, KEEP prompt structure — replace default model with economy (Haiku) + Sonnet escalation
-- DIGEST action KEEP + EXTEND — opt-in per rule; Phase 3 must attach DIGEST Action rows to all 8 classification rules
-- No confidenceScore column in ExecutedRule — Phase 3 must add `confidenceScore Float?` via Prisma migration
-- ECONOMY_LLM_* env vars unset in production — all economy tasks fall back to Sonnet (primary cost problem for Phase 3 to fix)
-- Current cost estimate ~$7.26/month (all Sonnet); proposed three-tier estimate ~$1.88/month (74% savings)
+- Cost still at ceiling (~$10/month at 85 emails/day, Haiku-only) — calendar context must ride Haiku tier
+
+v1.1-specific decisions:
+
+- Auto-create events from emails: always auto-create, user deletes if wrong (Gmail-style)
+- Google Calendar OAuth already connected for rebekah@trueocean.com — no Phase 0 connect step needed
 
 ### Pending Todos
 
-- **Audit `/etc/cron.d/inbox-zero` endpoints (2026-05-09):** verify whether `/api/cron/automation-jobs`, `/api/cron/scheduled-actions`, and `/api/watch/all` are actually needed in this self-hosted fork. They were migrated from a stale-secret ubuntu crontab to a root cron file sourcing `/opt/inbox-zero/.env` so secret rotation propagates. If unused, delete the cron file rather than maintain dead schedulers.
+- **Audit `/etc/cron.d/inbox-zero` endpoints (2026-05-09):** verify whether `/api/cron/automation-jobs`, `/api/cron/scheduled-actions`, and `/api/watch/all` are actually needed in this self-hosted fork. If unused, delete the cron file rather than maintain dead schedulers.
 
 ### Blockers/Concerns
 
-- Anthropic key is prepaid credits — monitor balance at console.anthropic.com before Phase 3 deployment
-- 10 rules exist in production — Phase 3 must inspect names before deciding replace vs. merge strategy
-- ECONOMY_LLM_PROVIDER confirmed unset in SSM — Phase 3 must set before deploying tiered classification *(RESOLVED 2026-04-27: all 4 ECONOMY/NANO vars set to claude-haiku-4-5-20251001)*
-- Conversation tracking double-billing *(RESOLVED 2026-05-01: TO_REPLY/AWAITING_REPLY/FYI/ACTIONED system rules disabled in DB. Were triggering a second Sonnet call on every person-email. Cost was $0.016/email → now ~$0.004/email)*
-- Haiku model name staleness: claude-haiku-4-5-20251001 will eventually be deprecated; SSM params must be updated manually when that happens (no automated detection in place)
-- Cost still at ceiling (~$10/month at 85 emails/day, Haiku-only). Prompt caching would save ~30-50% on system prompt tokens if emails cluster in bursts; low-priority for Phase 4.
+- Anthropic key is prepaid credits — monitor balance at console.anthropic.com
+- Haiku model name staleness: `claude-haiku-4-5-20251001` will eventually be deprecated; SSM params must be updated manually when that happens
+- Cost at ceiling (~$10/mo). Adding calendar context to classification prompt risks pushing over — must measure token impact in Phase 1
 
 ## Deferred Items
 
@@ -77,5 +61,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-05-17
-Stopped at: v1.0 archived and tagged. Next: `/gsd-new-milestone` when a new scope is in mind, or `/gsd-review-backlog` to promote 999.x phases.
+Stopped at: v1.1 started — requirements being defined. Next: write REQUIREMENTS.md + ROADMAP.md, then `/gsd-plan-phase 8`.
 Resume file: None

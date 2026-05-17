@@ -12,17 +12,21 @@ On a normal Tuesday morning, Rebekah opens her inbox and only sees things that n
 
 **Shipped: v1.0 — 2026-05-17.** Three-tier classification pipeline (rules → Haiku → Sonnet) + 9am ET daily digest with Sonnet narrative running in production. The inbox now only contains Urgent and Uncertain items; everything else is auto-filed and surfaced in the morning digest. AI cost holds at ~$10/mo. Live classification accuracy has been high enough that planned feedback/UI/backlog phases (5, 6, 7) were closed as already-satisfied rather than built — see `milestones/v1.0-ROADMAP.md`.
 
-## Next Milestone Goals
+## Current Milestone: v1.1 Calendar-Aware Email
 
-Open. Candidates from the v1.0 deferred/backlog list:
-- 999.1 — Sender/Domain Whitelist UI
-- 999.2 — 2FA short-delay auto-delete
-- 999.3 — Prompt drift / unrouted ExecutedRule rows fix
-- CLASS-09 — Gmail PROMOTIONS clean-route to Marketing
-- FEEDBACK-06 — Accumulated feedback in classification prompt (only if accuracy degrades)
-- LEARN/DEAL/MON families — Gmail filter graduation, per-sender deal thresholds, monitoring dashboard
+**Goal:** Make the AI email pipeline calendar-aware so upcoming events inform classification, schedulable emails become calendar events automatically, and the daily digest leads with today's agenda.
 
-Run `/gsd-new-milestone` to define scope formally.
+**Target features:**
+- Email → Calendar awareness in classification (upcoming events as Haiku/Sonnet context for urgency)
+- Auto-create events from emails (ICS invites + AI-detected appointments → Google Calendar)
+- Digest enrichment (today's + tomorrow's agenda at the top of the 9am ET digest)
+
+**Key context:**
+- Google Calendar OAuth already connected for rebekah@trueocean.com (per user 2026-05-17)
+- Foundation exists: `CalendarConnection`/`Calendar` Prisma models, upstream `/api/google/calendar` routes, `.ics` parser at `utils/parse/calender-event.ts`, `utils/meeting-briefs/` scaffolding (currently Slack-targeted)
+- Auto-create policy: always auto-create — trust AI, user deletes if wrong (Gmail-style correction loop)
+- AI cost cap unchanged: ≤$10/mo additional total. Calendar context rides Haiku tier where possible
+- Carried-forward deferred items from v1.0 (CLASS-09, FEEDBACK-06, LEARN/DEAL/MON) remain in `ROADMAP.md` Backlog
 
 ## Requirements
 
@@ -50,7 +54,7 @@ Run `/gsd-new-milestone` to define scope formally.
 
 ### Active
 
-(none — pending next milestone definition)
+See `.planning/REQUIREMENTS.md` for milestone v1.1 requirements (categories: CTX, EVT, DIG, OPS).
 
 ### Dropped or Deferred
 
@@ -122,4 +126,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-17 after v1.0 milestone archival*
+*Last updated: 2026-05-17 — milestone v1.1 (Calendar-Aware Email) started*
