@@ -294,7 +294,48 @@ describe("hasFollowUpLabel", () => {
 describe("clearFollowUpLabel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.threadTracker.findFirst.mockResolvedValue({
+      id: "tracker-active",
+    } as any);
     prisma.messagingChannel.findMany.mockResolvedValue([]);
+  });
+
+  it("does not touch provider labels or notifications without active follow-up state", async () => {
+    const mockProvider = createMockEmailProvider({
+      getLabelByName: vi
+        .fn()
+        .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
+    });
+
+    prisma.threadTracker.findFirst.mockResolvedValue(null);
+
+    await clearFollowUpLabel({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(prisma.threadTracker.findFirst).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        OR: [
+          { followUpAppliedAt: { not: null } },
+          { followUpDraftId: { not: null } },
+          { followUpNotifications: { not: Prisma.AnyNull } },
+        ],
+      },
+      select: { id: true },
+    });
+    expect(prisma.threadTracker.findMany).not.toHaveBeenCalled();
+    expect(prisma.threadTracker.updateMany).not.toHaveBeenCalled();
+    expect(prisma.messagingChannel.findMany).not.toHaveBeenCalled();
+    expect(mockProvider.getLabelByName).not.toHaveBeenCalled();
+    expect(mockProvider.removeThreadLabel).not.toHaveBeenCalled();
+    expect(messagingMocks.slackChatUpdate).not.toHaveBeenCalled();
+    expect(messagingMocks.teamsEditMessage).not.toHaveBeenCalled();
+    expect(messagingMocks.telegramEditMessage).not.toHaveBeenCalled();
   });
 
   it("removes label and clears followUpAppliedAt even without drafts", async () => {

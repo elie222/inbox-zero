@@ -136,6 +136,24 @@ export async function clearFollowUpLabel({
   if (!threadId) return;
 
   try {
+    const activeFollowUpTracker = await prisma.threadTracker.findFirst({
+      where: {
+        emailAccountId,
+        threadId,
+        OR: [
+          { followUpAppliedAt: { not: null } },
+          { followUpDraftId: { not: null } },
+          { followUpNotifications: { not: Prisma.AnyNull } },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (!activeFollowUpTracker) {
+      logger.info("No active follow-up state to clear", { threadId });
+      return;
+    }
+
     // No resolved filter: trackers may already be resolved by handleOutboundReply
     // before this function runs, but we still need to delete their drafts.
     const trackersWithDrafts = await prisma.threadTracker.findMany({
