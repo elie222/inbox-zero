@@ -15,7 +15,6 @@ import type { ParsedMessage } from "@/utils/types";
 import { generateDigestContent } from "@/utils/ai/digest/generate-digest-content";
 import { digestAlreadySentToday, buildDigestSendCreate } from "./digest-send";
 import { formatTodayHumanET, getTodayET } from "./today-et";
-import { isEligibleForClassificationFeedback } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 
 type BucketKey =
@@ -271,24 +270,6 @@ export async function runDailyDigest(logger: Logger) {
       const appBase = env.NEXT_PUBLIC_BASE_URL ?? "https://inbox.tdfurn.com";
       const reviewBase = `${appBase}/uncertain`;
 
-      const buildFeedbackUrl = (src: SourceItem): string | undefined => {
-        if (
-          !src.ruleId ||
-          !isEligibleForClassificationFeedback(
-            src.systemType as SystemType | null,
-          )
-        )
-          return;
-        const senderMatch = /^(.*?)(?:\s*<([^>]+)>)?$/.exec(src.from);
-        const fromEmail = senderMatch?.[2] ?? src.from;
-        const params = new URLSearchParams({
-          messageId: src.messageId,
-          fromEmail,
-          ruleId: src.ruleId,
-        });
-        return `${appBase}/feedback?${params.toString()}`;
-      };
-
       const buildActionItems = (
         bucket: SourceItem[],
         sonnetItems: Array<{ messageId: string; summary: string }>,
@@ -304,27 +285,22 @@ export async function runDailyDigest(logger: Logger) {
               senderEmail: senderMatch?.[2],
               summary: s.summary,
               reviewUrl: `${reviewBase}/${src.itemId}`,
-              feedbackUrl: buildFeedbackUrl(src),
             };
           })
           .filter((x): x is NonNullable<typeof x> => x !== null);
 
       const autoFiled: AutoFiledGroup[] = (
         ["receipts", "newsletters", "marketing", "notifications"] as const
-      ).map((cat) => {
-        const firstItem = buckets[cat][0];
-        return {
-          category: cat,
-          title: AUTO_FILED_TITLES[cat],
-          emailCount: buckets[cat].length,
-          clusterCount: content.autoFiled[cat].length,
-          rows: content.autoFiled[cat].map((c) => ({
-            label: c.label,
-            summary: c.summary,
-          })),
-          feedbackUrl: firstItem ? buildFeedbackUrl(firstItem) : undefined,
-        };
-      });
+      ).map((cat) => ({
+        category: cat,
+        title: AUTO_FILED_TITLES[cat],
+        emailCount: buckets[cat].length,
+        clusterCount: content.autoFiled[cat].length,
+        rows: content.autoFiled[cat].map((c) => ({
+          label: c.label,
+          summary: c.summary,
+        })),
+      }));
 
       const props: DigestV2Props = {
         baseUrl: env.NEXT_PUBLIC_BASE_URL ?? "https://inbox.tdfurn.com",

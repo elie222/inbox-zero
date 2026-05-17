@@ -20,7 +20,6 @@ export type ActionItem = {
   senderEmail?: string;
   summary: string;
   reviewUrl?: string;
-  feedbackUrl?: string;
 };
 
 export type AutoFiledRow = {
@@ -34,7 +33,6 @@ export type AutoFiledGroup = {
   emailCount: number;
   clusterCount: number;
   rows: AutoFiledRow[];
-  feedbackUrl?: string;
 };
 
 export type DigestV2Props = {
@@ -101,24 +99,14 @@ function ActionItemCard({
       <Text className="text-[14px] text-gray-700 leading-[1.5] m-0">
         {item.summary}
       </Text>
-      {(variant === "uncertain" && item.reviewUrl) || item.feedbackUrl ? (
+      {variant === "uncertain" && item.reviewUrl ? (
         <Section className="mt-[12px] text-right">
-          {variant === "uncertain" && item.reviewUrl ? (
-            <Link
-              href={item.reviewUrl}
-              className="text-[13px] font-semibold text-amber-800 no-underline mr-[16px]"
-            >
-              Review in app →
-            </Link>
-          ) : null}
-          {item.feedbackUrl ? (
-            <Link
-              href={item.feedbackUrl}
-              className="text-[13px] text-gray-400 no-underline"
-            >
-              wrong label?
-            </Link>
-          ) : null}
+          <Link
+            href={item.reviewUrl}
+            className="text-[13px] font-semibold text-amber-800 no-underline"
+          >
+            Review in app →
+          </Link>
         </Section>
       ) : null}
     </Section>
@@ -151,16 +139,6 @@ function AutoFiledGroupCard({ group }: { group: AutoFiledGroup }) {
           {row.summary}
         </Text>
       ))}
-      {group.feedbackUrl ? (
-        <Text className="m-0 pt-[6px] text-right border-0 border-t border-solid border-black/5">
-          <Link
-            href={group.feedbackUrl}
-            className="text-[12px] text-gray-400 no-underline"
-          >
-            wrong label?
-          </Link>
-        </Text>
-      ) : null}
     </Section>
   );
 }
