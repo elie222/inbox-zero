@@ -4,7 +4,10 @@ import type {
   CalendarEvent,
   CalendarEventProvider,
 } from "@/utils/calendar/event-types";
-import { fetchUpcomingEvents } from "./fetch-upcoming-events";
+import {
+  fetchUpcomingEvents,
+  filterEventsWithExternalGuests,
+} from "./fetch-upcoming-events";
 import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/calendar/event-provider");
@@ -79,6 +82,49 @@ describe("fetchUpcomingEvents", () => {
     });
 
     expect(events.map((event) => event.id)).toEqual(["earlier", "later"]);
+  });
+});
+
+describe("filterEventsWithExternalGuests", () => {
+  it("keeps only events that have guests outside the user's team context", () => {
+    const events = [
+      createEvent({
+        id: "team-only",
+        attendees: [
+          { email: "user@company.com" },
+          { email: "teammate@company.com" },
+        ],
+      }),
+      createEvent({
+        id: "user-only",
+        attendees: [{ email: "user@company.com" }],
+      }),
+      createEvent({
+        id: "customer-call",
+        attendees: [
+          { email: "user@company.com" },
+          { email: "customer@example.com" },
+        ],
+      }),
+      createEvent({
+        id: "personal-domain-peer",
+        attendees: [
+          { email: "user@gmail.com" },
+          { email: "guest@gmail.com" },
+        ],
+      }),
+    ];
+
+    expect(
+      filterEventsWithExternalGuests(events.slice(0, 3), "user@company.com").map(
+        (event) => event.id,
+      ),
+    ).toEqual(["customer-call"]);
+    expect(
+      filterEventsWithExternalGuests(events.slice(3), "user@gmail.com").map(
+        (event) => event.id,
+      ),
+    ).toEqual(["personal-domain-peer"]);
   });
 });
 
