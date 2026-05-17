@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-04-27)
 
 **Core value:** Inbox only shows things that need Rebekah — everything else is already filed before she opens Gmail.
-**Current focus:** Phase 4 — Daily Digest
+**Current focus:** Phase 7 — Backlog Triage
 
 ## Current Position
 
-Phase: 4 of 7 (Daily Digest)
-Plan: 6 of 6 plans deployed to production. Day-2 organic verification pending (next-morning 9am ET digest auto-fire).
-Status: Phase 4 deployed 2026-05-05. DigestSend migration applied, Marketing rule has DIGEST action (matched by name; prod systemType was NULL, seed SQL's `WHERE systemType='MARKETING'` filter didn't match — patched ad-hoc with name match), single stale 8-day-old PENDING Digest cleared, systemd timer enabled and verified (NEXT: Tue 2026-05-05 13:00 UTC = 9am EDT). Smoke test returned `processedAccounts: 0` (no PENDING digests post-cleanup — correct, not an error). Real E2E proof comes tomorrow morning when organic email accumulation triggers the timer.
-Last activity: 2026-05-05 — Phase 4 deploy complete. Also: switched docker build to native arm64 (was 45min QEMU-emulated, now ~5min); fixed local vitest (Windows path-case quirk — must launch from canonical `Documents` not `documents`); excluded 6 inherited upstream assistant-chat tests in vitest.config.mts; saved EC2 SSH context to memory.
+Phase: 7 of 7 (Backlog Triage)
+Plan: Not yet planned.
+Status: Phase 6 closed 2026-05-17 via fork-revert. Deleted `apps/web/app/(app)/feedback/`, `apps/web/app/api/user/rule-feedback/`, and feedbackUrl wiring in `digest-v2.tsx` + `run-daily-digest.ts` to ease future upstream merges. Real-world classification accuracy made the fork's feedback page never-exercised, so removing was cleaner than maintaining. FEEDBACK-03/04/05 satisfied by upstream features (`/ai/chat`, Gmail history events); FEEDBACK-06 deferred.
+Last activity: 2026-05-17 — Phase 6 revert executed; ready for Phase 7 (100k email backlog triage).
 
-Progress: [████░░░░░░] 43% (3 of 7 phases complete)
+Progress: [███████░░░] 86% (6 of 7 phases complete)
 
 ## Performance Metrics
 
@@ -75,10 +75,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-05-04
-Stopped at: Phase 4 code complete. Two operator checkpoints remain — both run together in the next deploy session:
-  1. **Push to main** triggers GitHub Actions image build, then on EC2: `docker compose pull app && docker compose up -d app` (this applies the DigestSend Prisma migration via `prisma migrate deploy`).
-  2. **Run Plan 03 Task 2 SQL** against prod Postgres: Marketing DIGEST seed + 218-row backfill (cutoff timestamp must be updated to actual UTC time first). See `deploy/sql/README.md`.
-  3. **Install Plan 06 systemd units** on EC2: copy to /etc/systemd/system, daemon-reload, smoke-test the service unit, verify email arrives + DigestSend row, re-run for idempotency check, then enable the timer. See `deploy/systemd/README.md`.
-  4. **Day-2 async**: confirm next-morning auto-fired digest arrives without manual trigger; update `.planning/phases/04-daily-digest/04-06-SUMMARY.md` with the proof.
-Resume file: None
+Last session: 2026-05-17
+Stopped at: Phase 6 revert hand-executed and committed. Next: `/gsd-discuss-phase 7` for Backlog Triage (100k email backfill with batch approval) — the last phase.
+Resume file: .planning/phases/06-feedback-system/06-CONTEXT.md

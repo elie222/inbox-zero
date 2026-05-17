@@ -130,18 +130,18 @@
 | DIGEST-05 | Phase 4: Daily Digest | Pending |
 | DIGEST-06 | Phase 4: Daily Digest | Pending |
 | DIGEST-07 | Phase 6: Feedback System | Deferred (2026-05-04) |
-| RULES-01 | Phase 5: Rules Management UI | Pending |
-| RULES-02 | Phase 5: Rules Management UI | Pending |
-| RULES-03 | Phase 5: Rules Management UI | Pending |
-| RULES-04 | Phase 5: Rules Management UI | Pending |
-| RULES-05 | Phase 5: Rules Management UI | Pending |
-| RULES-06 | Phase 5: Rules Management UI | Pending |
-| FEEDBACK-01 | Phase 6: Feedback System | Pending |
-| FEEDBACK-02 | Phase 6: Feedback System | Pending |
-| FEEDBACK-03 | Phase 6: Feedback System | Pending |
-| FEEDBACK-04 | Phase 6: Feedback System | Pending |
-| FEEDBACK-05 | Phase 6: Feedback System | Pending |
-| FEEDBACK-06 | Phase 6: Feedback System | Pending |
+| RULES-01 | Phase 5: Rules Management UI | Satisfied by upstream (2026-05-17) |
+| RULES-02 | Phase 5: Rules Management UI | Satisfied by upstream (2026-05-17) |
+| RULES-03 | Phase 5: Rules Management UI | Satisfied by upstream (2026-05-17) |
+| RULES-04 | Phase 5: Rules Management UI | Satisfied by upstream (2026-05-17) |
+| RULES-05 | Phase 5: Rules Management UI | Satisfied by Phase 3 wiring; empirically validated 2026-05-17 |
+| RULES-06 | Phase 5: Rules Management UI | Reinterpreted — kept login (single-tenant, low-friction); 2026-05-17 |
+| FEEDBACK-01 | Phase 6: Feedback System | Dropped (2026-05-17) — accuracy made thumbs unnecessary; fork additions reverted |
+| FEEDBACK-02 | Phase 6: Feedback System | Dropped (2026-05-17) — narrative form link removed with the feedback page |
+| FEEDBACK-03 | Phase 6: Feedback System | Satisfied by upstream `/ai/chat` UI (2026-05-17) |
+| FEEDBACK-04 | Phase 6: Feedback System | Satisfied by upstream Gmail history labelAdded/Removed detection (2026-05-17) |
+| FEEDBACK-05 | Phase 6: Feedback System | Satisfied by upstream Gmail history messageDeleted detection (2026-05-17) |
+| FEEDBACK-06 | Phase 6: Feedback System | Deferred (2026-05-17) — accuracy doesn't need prompt-injected feedback; revisit if it degrades |
 | BACKLOG-01 | Phase 7: Backlog Triage | Pending |
 | BACKLOG-02 | Phase 7: Backlog Triage | Pending |
 | BACKLOG-03 | Phase 7: Backlog Triage | Pending |
