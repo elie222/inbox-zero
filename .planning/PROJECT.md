@@ -8,6 +8,22 @@ A single-tenant AI email management system built on a self-hosted fork of Inbox 
 
 On a normal Tuesday morning, Rebekah opens her inbox and only sees things that need her — everything else is already filed. A digest email told her what mattered before she even opened Gmail.
 
+## Current State
+
+**Shipped: v1.0 — 2026-05-17.** Three-tier classification pipeline (rules → Haiku → Sonnet) + 9am ET daily digest with Sonnet narrative running in production. The inbox now only contains Urgent and Uncertain items; everything else is auto-filed and surfaced in the morning digest. AI cost holds at ~$10/mo. Live classification accuracy has been high enough that planned feedback/UI/backlog phases (5, 6, 7) were closed as already-satisfied rather than built — see `milestones/v1.0-ROADMAP.md`.
+
+## Next Milestone Goals
+
+Open. Candidates from the v1.0 deferred/backlog list:
+- 999.1 — Sender/Domain Whitelist UI
+- 999.2 — 2FA short-delay auto-delete
+- 999.3 — Prompt drift / unrouted ExecutedRule rows fix
+- CLASS-09 — Gmail PROMOTIONS clean-route to Marketing
+- FEEDBACK-06 — Accumulated feedback in classification prompt (only if accuracy degrades)
+- LEARN/DEAL/MON families — Gmail filter graduation, per-sender deal thresholds, monitoring dashboard
+
+Run `/gsd-new-milestone` to define scope formally.
+
 ## Requirements
 
 ### Validated
@@ -21,20 +37,28 @@ On a normal Tuesday morning, Rebekah opens her inbox and only sees things that n
 - ✓ Nightly Postgres backups to S3 — existing infra
 - ✓ Gmail watch auto-renew cron — existing infra
 
+### Shipped in v1.0
+
+- [x] Every incoming email is automatically classified into one of 8 categories (refined to: Marketing, Receipts, Newsletters, Urgent, Uncertain, Internal, 2FA, TD Furn)
+- [x] Urgent + Uncertain emails stay in inbox; everything else is labeled and archived (Receipts kept in inbox per user preference)
+- [x] 9am ET daily digest with Sonnet narrative + per-item Urgent/Uncertain + clustered auto-filed roll-ups
+- [x] Rules management at inbox.tdfurn.com/rules (via upstream RuleForm UI)
+- [x] Gmail behavioral signals (deletes, relabels) captured (via upstream history handlers)
+- [x] Digest from-address fixed (`inbox-digest@tdfurn.com`)
+- [x] Signups locked to rebekah@trueocean.com only
+- [x] GitHub Actions CI/CD for ghcr.io/rebekah-create/inbox-zero-rebekah
+
 ### Active
 
-- [ ] Every incoming email is automatically classified into one of 8 categories
-- [ ] Urgent + Uncertain emails stay in inbox; everything else is labeled and archived
-- [ ] 6-7am daily digest delivered to rebekah@trueocean.com with actionable summary
-- [ ] In-email feedback (thumbs up/down) on uncertain classifications
-- [ ] Narrative feedback form for detailed corrections
-- [ ] Gmail behavioral signals (deletes, relabels) captured as feedback
-- [ ] Simple rules management page at inbox.tdfurn.com/rules
-- [ ] 100k backlog triage with AI-proposed batch actions and human approval
-- [ ] Classification improves from accumulated feedback over time
-- [ ] Digest from address fixed (currently broken — sends from wrong domain)
-- [ ] Signups locked to rebekah@trueocean.com only
-- [ ] GitHub Actions CI/CD for ghcr.io/rebekah-create/inbox-zero-rebekah
+(none — pending next milestone definition)
+
+### Dropped or Deferred
+
+- In-email thumbs-up/down feedback — dropped; accuracy made it unnecessary
+- Narrative feedback form — satisfied by upstream `/ai/chat` UI
+- 100k backlog triage with AI-proposed batch actions — satisfied by manual Gmail triage
+- Classification improves from accumulated feedback over time (FEEDBACK-06) — deferred unless accuracy degrades
+- 2FA auto-delete after 24h — deferred to Phase 999.2 (rescoped to ~1h)
 
 ### Out of Scope
 
@@ -98,4 +122,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-27 after initialization*
+*Last updated: 2026-05-17 after v1.0 milestone archival*

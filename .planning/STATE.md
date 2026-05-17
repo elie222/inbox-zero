@@ -5,19 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-04-27)
 
 **Core value:** Inbox only shows things that need Rebekah — everything else is already filed before she opens Gmail.
-**Current focus:** Milestone complete — all 7 phases closed
+**Current focus:** v1.0 shipped + archived. No active milestone.
 
 ## Current Position
 
-Phase: 7 of 7 (Backlog Triage) — CLOSED
-Plan: N/A
-Status: Phase 7 closed 2026-05-17 without implementation — manual Gmail triage (size-filtering, Promotions purge, mailing-list cleanup, top-sender filtering, unsubscribe+block) solved the backlog before Phase 7 ran. Live classification pipeline from Phases 1-6 handles new mail going forward. All 7 phases now complete.
+v1.0 milestone archived 2026-05-17 — see `.planning/milestones/v1.0-ROADMAP.md` and `.planning/milestones/v1.0-REQUIREMENTS.md`. Git tag `v1.0` marks the shipping commit.
 
-**Milestone v1 ready for retrospective / `/gsd-complete-milestone`.**
+Live classification + digest are running in production. Backlog (Phase 999.1/2/3 + deferred v2 items) is in `.planning/ROADMAP.md` ready for promotion into the next milestone.
 
-Last activity: 2026-05-17 — Phase 7 closed without code; project shipped.
+Last activity: 2026-05-17 — v1.0 archived, tagged, pushed.
 
-Progress: [██████████] 100% (7 of 7 phases complete)
+Progress: v1.0 [██████████] 100% (7 of 7 phases shipped)
 
 ## Performance Metrics
 
@@ -79,5 +77,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-05-17
-Stopped at: Phase 7 closed (manual Gmail triage solved the backlog before Phase 7 ran). Milestone v1 complete at 100%. Next: `/gsd-complete-milestone` for retrospective and archival, or start a new milestone.
+Stopped at: v1.0 archived and tagged. Next: `/gsd-new-milestone` when a new scope is in mind, or `/gsd-review-backlog` to promote 999.x phases.
 Resume file: None
