@@ -47,7 +47,7 @@ import {
   hasMicrosoftOauthConfig,
   hasAppleOauthConfig,
 } from "@/utils/oauth/provider-config";
-import { isLoginProviderEnabled } from "@/utils/oauth/login-providers";
+import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 import { getAppleClientSecret } from "@/utils/auth/apple-client-secret";
 import { assertCanGenerateScimToken } from "@/utils/auth/scim";
 import prisma from "@/utils/prisma";
@@ -58,13 +58,15 @@ const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();
 const hasMicrosoftConfig = hasMicrosoftOauthConfig();
 const hasAppleConfig = hasAppleOauthConfig();
 
-// Enforce `LOGIN_PROVIDERS` at the better-auth layer too, not just in the UI.
-// Without this, a client could bypass the allowlist by posting directly to
-// `/api/auth/sign-in/social`.
-const googleLoginEnabled = isLoginProviderEnabled("google");
-const microsoftLoginEnabled = isLoginProviderEnabled("microsoft");
-const appleLoginEnabled = isLoginProviderEnabled("apple");
-const ssoLoginEnabled = isLoginProviderEnabled("sso");
+// Enforce `LOGIN_PROVIDERS` at the better-auth social-provider layer too, not
+// just in the UI. Without this, a client could bypass the allowlist by posting
+// directly to `/api/auth/sign-in/social`. SSO is not gated here because the
+// plugin must stay structurally registered (other routes call `signInSSO`) and
+// SSO sign-in already requires a per-org `ssoProvider` DB record.
+const enabledLoginProviders = getEnabledLoginProviders();
+const googleLoginEnabled = enabledLoginProviders.has("google");
+const microsoftLoginEnabled = enabledLoginProviders.has("microsoft");
+const appleLoginEnabled = enabledLoginProviders.has("apple");
 
 type AppleProfile = {
   email?: string;
@@ -225,14 +227,10 @@ export const betterAuthConfig = betterAuth({
     provider: "postgresql",
   }),
   plugins: [
-    ...(ssoLoginEnabled
-      ? [
-          sso({
-            disableImplicitSignUp: false,
-            organizationProvisioning: { disabled: true },
-          }),
-        ]
-      : []),
+    sso({
+      disableImplicitSignUp: false,
+      organizationProvisioning: { disabled: true },
+    }),
     scim({
       providerOwnership: { enabled: true },
       storeSCIMToken: "hashed",
