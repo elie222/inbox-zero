@@ -68,6 +68,7 @@ You can use multiple conditions in a rule, but aim for simplicity.
 In most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
 If a rule can be handled fully with static conditions, do so, but this is rarely possible.
 If the rule is only matching exact sender addresses or domains, put those in static.from and leave aiInstructions empty. Do not restate the sender in aiInstructions.
+If a sender/domain is combined with topic, content, or intent requirements, static.from is not enough; set conditionalOperator to AND and put the non-sender requirements in aiInstructions.
 If the user did not specify any sender or domain, leave static.from empty. Never fill it with placeholders like none, null, or @*.
 aiInstructions are only for semantic or content matching. Do not repeat sender lists, label names, or actions there.
 Example sender-only rule shape: static.from="@airbnb.com|@booking.com|@delta.com" and no aiInstructions.
