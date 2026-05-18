@@ -164,6 +164,11 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/app",
+        destination: "https://apps.apple.com/app/inbox-zero-ai-email/id6759736561",
+        permanent: true,
+      },
+      {
         source: "/discord",
         destination: "https://go.getinboxzero.com/discord",
         permanent: true,
