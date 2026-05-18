@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as outlookMessageModule from "@/utils/outlook/message";
 import * as outlookLabelModule from "@/utils/outlook/label";
 import { createTestLogger } from "@/__tests__/helpers";
-import { OutlookProvider } from "./microsoft";
+import { OutlookProvider, stripGmailPrefixes } from "./microsoft";
 
 const { envMock, outlookMailMock, getFolderIdsMock } = vi.hoisted(() => ({
   envMock: {
@@ -788,3 +788,32 @@ function createMessage(input: {
     hasAttachments: false,
   };
 }
+
+
+describe("stripGmailPrefixes", () => {
+  it("strips quoted from: prefix to avoid Outlook `Syntax error: character ':' is not valid`", () => {
+    expect(stripGmailPrefixes('from:"John Doe"')).toBe("John Doe");
+  });
+
+  it("strips unquoted single-word prefixes", () => {
+    expect(stripGmailPrefixes("subject:invoice")).toBe("invoice");
+  });
+
+  it("strips participants: prefix used by the chat assistant on Outlook accounts", () => {
+    expect(stripGmailPrefixes("participants:foo@bar.com")).toBe("foo@bar.com");
+  });
+
+  it("strips multiple prefixes in the same query and collapses whitespace", () => {
+    expect(
+      stripGmailPrefixes('from:"John Doe" subject:invoice label:work'),
+    ).toBe("John Doe invoice work");
+  });
+
+  it("leaves text without prefixes unchanged", () => {
+    expect(stripGmailPrefixes("hello world")).toBe("hello world");
+  });
+
+  it("returns empty string for empty input", () => {
+    expect(stripGmailPrefixes("")).toBe("");
+  });
+});
