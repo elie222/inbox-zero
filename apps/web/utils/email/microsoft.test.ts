@@ -167,6 +167,40 @@ describe("OutlookProvider.getSentMessageIds", () => {
   });
 });
 
+describe("OutlookProvider.searchMessages", () => {
+  it("uses an exact OData sender filter when fromEmail is provided", async () => {
+    getFolderIdsMock.mockResolvedValue({
+      inbox: "folder-inbox",
+      archive: "folder-archive",
+      drafts: "folder-drafts",
+      deleteditems: "folder-trash",
+      junkemail: "folder-spam",
+      sentitems: "folder-sent",
+    });
+
+    const client = createMockOutlookClient([
+      createMessage({
+        id: "message-1",
+        conversationId: "thread-1",
+        parentFolderId: "folder-inbox",
+      }),
+    ]);
+    const provider = new OutlookProvider(client);
+
+    const result = await provider.searchMessages({
+      query: "",
+      fromEmail: "sender@example.com",
+      maxResults: 20,
+    });
+
+    expect(result.messages).toHaveLength(1);
+    expect(client.getRequestLog()).toContainEqual({
+      apiPath: "/me/messages",
+      filter: "from/emailAddress/address eq 'sender@example.com'",
+    });
+  });
+});
+
 describe("OutlookProvider.getThreadsWithQuery", () => {
   it("filters returned threads by explicit labelIds", async () => {
     getFolderIdsMock.mockResolvedValue({
