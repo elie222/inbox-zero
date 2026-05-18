@@ -611,6 +611,7 @@ describe("clearFollowUpLabel", () => {
     expect(prisma.threadTracker.updateMany).toHaveBeenCalledWith({
       where: {
         id: { in: ["tracker-1"] },
+        followUpNotifications: { not: Prisma.AnyNull },
       },
       data: {
         followUpNotifications: Prisma.JsonNull,
@@ -632,5 +633,53 @@ describe("clearFollowUpLabel", () => {
       "telegram-message-1",
       expect.stringMatching(/follow-up/i),
     );
+  });
+
+  it("does not update follow-up notifications when cleanup was already claimed", async () => {
+    const mockProvider = createMockEmailProvider({
+      getLabelByName: vi
+        .fn()
+        .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
+    });
+
+    prisma.threadTracker.findMany
+      .mockResolvedValueOnce([{ id: "tracker-1", followUpDraftId: null }])
+      .mockResolvedValueOnce([
+        {
+          id: "tracker-1",
+          followUpNotifications: [
+            {
+              messagingChannelId: "channel-1",
+              provider: MessagingProvider.SLACK,
+              providerThreadId: "C123",
+              providerMessageId: "1700000000.000100",
+            },
+          ],
+        },
+      ]);
+    prisma.threadTracker.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+
+    await clearFollowUpLabel({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(prisma.threadTracker.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["tracker-1"] },
+        followUpNotifications: { not: Prisma.AnyNull },
+      },
+      data: {
+        followUpNotifications: Prisma.JsonNull,
+      },
+    });
+    expect(prisma.messagingChannel.findMany).not.toHaveBeenCalled();
+    expect(messagingMocks.slackChatUpdate).not.toHaveBeenCalled();
+    expect(messagingMocks.teamsEditMessage).not.toHaveBeenCalled();
+    expect(messagingMocks.telegramEditMessage).not.toHaveBeenCalled();
   });
 });

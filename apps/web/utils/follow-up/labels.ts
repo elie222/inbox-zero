@@ -267,6 +267,24 @@ async function replaceFollowUpNotificationsWithReplyReceivedState({
     );
     if (notifications.length === 0) return;
 
+    const trackerIds = trackers.map((tracker) => tracker.id);
+    const claimed = await prisma.threadTracker.updateMany({
+      where: {
+        id: { in: trackerIds },
+        followUpNotifications: { not: Prisma.AnyNull },
+      },
+      data: {
+        followUpNotifications: Prisma.JsonNull,
+      },
+    });
+
+    if (claimed.count === 0) {
+      logger.info("Follow-up notification cleanup already claimed", {
+        threadId,
+      });
+      return;
+    }
+
     const messagingChannelIds = [
       ...new Set(
         notifications.map((notification) => notification.messagingChannelId),
@@ -299,15 +317,6 @@ async function replaceFollowUpNotificationsWithReplyReceivedState({
         }),
       ),
     );
-
-    await prisma.threadTracker.updateMany({
-      where: {
-        id: { in: trackers.map((tracker) => tracker.id) },
-      },
-      data: {
-        followUpNotifications: Prisma.JsonNull,
-      },
-    });
   } catch (error) {
     logger.warn("Failed to update follow-up notifications after reply", {
       threadId,
