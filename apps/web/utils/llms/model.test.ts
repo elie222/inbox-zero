@@ -59,7 +59,8 @@ vi.mock("@ai-sdk/openai-compatible", () => ({
 
 vi.mock("@/env", () => ({
   env: {
-    DEFAULT_LLM_PROVIDER: "openai",
+    DEFAULT_LLM_PROVIDER: "openrouter",
+    DEFAULT_LLM_MODEL: "openai/gpt-5.4-mini",
     DEFAULT_LLM_FALLBACKS: undefined,
     DEFAULT_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
     ECONOMY_LLM_PROVIDER: "openrouter",
@@ -112,8 +113,8 @@ vi.mock("./config", async () => {
 describe("Models", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai";
-    vi.mocked(env).DEFAULT_LLM_MODEL = undefined;
+    vi.mocked(env).DEFAULT_LLM_PROVIDER = "openrouter";
+    vi.mocked(env).DEFAULT_LLM_MODEL = "openai/gpt-5.4-mini";
     vi.mocked(env).DEFAULT_LLM_FALLBACKS = undefined;
     vi.mocked(env).ECONOMY_LLM_FALLBACKS = undefined;
     vi.mocked(env).CHAT_LLM_FALLBACKS = undefined;
@@ -147,14 +148,15 @@ describe("Models", () => {
       const userAi = defaultUserAi();
 
       const result = getModel(userAi);
-      expect(result.provider).toBe(Provider.OPEN_AI);
-      expect(result.modelName).toBe("gpt-5.4-mini");
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      expect(result.modelName).toBe("openai/gpt-5.4-mini");
     });
 
     it("should use LLM_API_KEY when provider-specific OpenAI key is not set", () => {
       const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai";
+      vi.mocked(env).DEFAULT_LLM_MODEL = undefined;
       vi.mocked(env).OPENAI_API_KEY = undefined;
       vi.mocked(env).LLM_API_KEY = "test-shared-ai-key";
 
@@ -183,8 +185,8 @@ describe("Models", () => {
       });
 
       const result = getModel(userAi);
-      expect(result.provider).toBe(Provider.OPEN_AI);
-      expect(result.modelName).toBe("gpt-5.4-mini");
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      expect(result.modelName).toBe("openai/gpt-5.4-mini");
     });
 
     it("should configure Google model correctly", () => {
@@ -678,13 +680,9 @@ describe("Models", () => {
     it("should use default model when modelType is 'default'", () => {
       const userAi = defaultUserAi();
 
-      // Reset to default
-      vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai";
-      vi.mocked(env).DEFAULT_LLM_MODEL = undefined;
-
       const result = getModel(userAi, "default");
-      expect(result.provider).toBe(Provider.OPEN_AI);
-      expect(result.modelName).toBe("gpt-5.4-mini");
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      expect(result.modelName).toBe("openai/gpt-5.4-mini");
     });
 
     it("should use OpenRouter with provider options for default model", () => {
