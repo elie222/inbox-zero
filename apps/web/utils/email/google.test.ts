@@ -5,30 +5,43 @@ import { GmailLabel } from "@/utils/gmail/label";
 import * as gmailLabelModule from "@/utils/gmail/label";
 import { GmailProvider } from "./google";
 
-const { envMock, gmailMailMock } = vi.hoisted(() => ({
-  envMock: {
-    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
-    EMAIL_ENCRYPT_SECRET: "test-encrypt-secret",
-    EMAIL_ENCRYPT_SALT: "test-encrypt-salt",
-  },
-  gmailMailMock: {
-    draftEmail: vi.fn().mockResolvedValue({ data: { id: "draft-1" } }),
-    forwardEmail: vi.fn(),
-    replyToEmail: vi.fn(),
-    sendEmailWithPlainText: vi.fn(),
-    sendEmailWithHtml: vi.fn(),
-  },
-}));
+const { envMock, gmailMailMock, handlePreviousDraftDeletionMock } = vi.hoisted(
+  () => ({
+    envMock: {
+      NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
+      EMAIL_ENCRYPT_SECRET: "test-encrypt-secret",
+      EMAIL_ENCRYPT_SALT: "test-encrypt-salt",
+    },
+    gmailMailMock: {
+      draftEmail: vi.fn().mockResolvedValue({ data: { id: "draft-1" } }),
+      forwardEmail: vi.fn(),
+      replyToEmail: vi.fn(),
+      sendEmailWithPlainText: vi.fn(),
+      sendEmailWithHtml: vi.fn(),
+    },
+    handlePreviousDraftDeletionMock: vi.fn().mockResolvedValue({
+      shouldCreateDraft: true,
+    }),
+  }),
+);
 
 vi.mock("@/env", () => ({
   env: envMock,
 }));
 
 vi.mock("@/utils/gmail/mail", () => gmailMailMock);
+vi.mock("@/utils/ai/choose-rule/draft-management", () => ({
+  handlePreviousDraftDeletion: handlePreviousDraftDeletionMock,
+}));
 
 describe("GmailProvider.getLatestMessageInThread", () => {
   afterEach(() => {
     envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = false;
+    vi.clearAllMocks();
+    gmailMailMock.draftEmail.mockResolvedValue({ data: { id: "draft-1" } });
+    handlePreviousDraftDeletionMock.mockResolvedValue({
+      shouldCreateDraft: true,
+    });
   });
 
   it("returns latest non-draft message when newest message is a draft", async () => {
@@ -94,6 +107,42 @@ describe("GmailProvider.getLatestMessageInThread", () => {
     );
 
     expect(result).toEqual({ draftId: "" });
+    expect(gmailMailMock.draftEmail).not.toHaveBeenCalled();
+  });
+
+  it("skips creating a replacement draft when an edited previous draft is preserved", async () => {
+    handlePreviousDraftDeletionMock.mockResolvedValueOnce({
+      shouldCreateDraft: false,
+      existingDraftId: "draft-previous",
+      reason: "modified",
+    });
+    const provider = new GmailProvider({} as any);
+
+    const result = await provider.draftEmail(
+      createParsedMessage({
+        id: "message-1",
+        threadId: "thread-1",
+        internalDate: "1000",
+      }),
+      { content: "New generated draft" },
+      "user@example.com",
+      {
+        id: "executed-rule-2",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+      },
+    );
+
+    expect(result).toEqual({ draftId: "" });
+    expect(handlePreviousDraftDeletionMock).toHaveBeenCalledWith({
+      client: provider,
+      executedRule: {
+        id: "executed-rule-2",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+      },
+      logger: expect.anything(),
+    });
     expect(gmailMailMock.draftEmail).not.toHaveBeenCalled();
   });
 });
