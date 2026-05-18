@@ -34,11 +34,6 @@ export default async function AuthenticationPage(props: {
   const session = await auth();
   const nextPath = normalizeInternalPath(searchParams?.next);
   const isSelfHosted = env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS;
-  const selfHostedLoginFooterText =
-    env.NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT ===
-    "NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT_PLACEHOLDER"
-      ? undefined
-      : env.NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT;
 
   if (session?.user && !searchParams?.error) {
     redirect(nextPath ?? WELCOME_PATH);
@@ -88,7 +83,9 @@ export default async function AuthenticationPage(props: {
 
         <LoginFooter
           isSelfHosted={isSelfHosted}
-          selfHostedLoginFooterText={selfHostedLoginFooterText}
+          selfHostedLoginFooterText={
+            env.NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT || undefined
+          }
         />
       </div>
     </div>
