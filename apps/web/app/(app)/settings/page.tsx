@@ -134,14 +134,16 @@ export default function SettingsPage() {
           </ItemCard>
         </SettingsGroup>
 
-        <SettingsGroup
-          icon={<SparklesIcon className="size-5" />}
-          title="AI Model"
-        >
-          <ItemCard className="p-4">
-            <ModelSection />
-          </ItemCard>
-        </SettingsGroup>
+        {!env.NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED && (
+          <SettingsGroup
+            icon={<SparklesIcon className="size-5" />}
+            title="AI Model"
+          >
+            <ItemCard className="p-4">
+              <ModelSection />
+            </ItemCard>
+          </SettingsGroup>
+        )}
 
         {(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false ||
           env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) && (
