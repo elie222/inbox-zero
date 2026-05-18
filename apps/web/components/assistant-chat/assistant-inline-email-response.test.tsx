@@ -9,7 +9,10 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AssistantInlineEmailResponse } from "@/components/assistant-chat/assistant-inline-email-response";
+import {
+  AssistantInlineEmailResponse,
+  normalizeAssistantInlineMarkup,
+} from "@/components/assistant-chat/assistant-inline-email-response";
 import { getEmailUrlForMessage } from "@/utils/url";
 
 const mockUseAccount = vi.fn();
@@ -123,52 +126,76 @@ describe("AssistantInlineEmailResponse", () => {
   });
 
   it("renders inline email detail views", () => {
-    mockUseThread.mockReturnValue({
-      data: {
-        thread: {
-          id: "thread-1",
-          messages: [
-            {
-              id: "message-1",
-              threadId: "thread-1",
-              subject: "Rendered detail subject",
-              snippet: "Rendered detail snippet",
-              date: "2026-03-11T11:00:00.000Z",
-              historyId: "history-1",
-              inline: [],
-              headers: {
-                from: "Sender <sender@example.com>",
-                to: "user@example.com",
-                date: "2026-03-11T11:00:00.000Z",
-                subject: "Rendered detail subject",
-              },
-              textPlain: "Rendered detail body",
-            },
-          ],
-        },
-      },
-      isLoading: false,
-      error: null,
-    });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
 
-    render(
+    mockRenderedThread();
+
+    try {
+      render(
+        createElement(
+          AssistantInlineEmailResponse,
+          null,
+          '\n<email-detail threadid="thread-1">Focus on the action item.</email-detail>\n',
+        ),
+      );
+
+      expect(screen.getByText("Subject")).toBeTruthy();
+      expect(screen.getByText("Focus on the action item.")).toBeTruthy();
+      expect(screen.getByText("Rendered detail body")).toBeTruthy();
+      expect(screen.getByRole("link").getAttribute("href")).toBe(
+        getEmailUrlForMessage(
+          "msg-thread-1",
+          "thread-1",
+          "user@example.com",
+          "google",
+        ),
+      );
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("renders inline email detail views inside numbered lists", () => {
+    mockRenderedThread();
+
+    const { container } = render(
       createElement(
         AssistantInlineEmailResponse,
         null,
-        '\n<email-detail threadid="thread-1">Focus on the action item.</email-detail>\n',
+        [
+          "Apart from the booking confirmations, the most recent emails are:",
+          "",
+          '1. **water bill receipt** (May 13, 2026, 11:31 AM)\n   <email-detail threadid="thread-1">A receipt for a water bill with an attachment.</email-detail>',
+        ].join("\n"),
       ),
     );
 
     expect(screen.getByText("Subject")).toBeTruthy();
-    expect(screen.getByText("Focus on the action item.")).toBeTruthy();
+    expect(
+      screen.getByText("A receipt for a water bill with an attachment."),
+    ).toBeTruthy();
     expect(screen.getByText("Rendered detail body")).toBeTruthy();
-    expect(screen.getByRole("link").getAttribute("href")).toBe(
-      getEmailUrlForMessage(
-        "msg-thread-1",
-        "thread-1",
-        "user@example.com",
-        "google",
+    expect(container.textContent).not.toContain("<email-detail");
+    expect(container.textContent).not.toContain("</email-detail>");
+  });
+
+  it("normalizes assistant inline markup that appears in list continuation lines", () => {
+    expect(
+      normalizeAssistantInlineMarkup(
+        [
+          "1. **water bill receipt**",
+          "   <email-detail",
+          "   threadid=\u201Cthread-1\u201D>Receipt attached.</email-detail>",
+        ].join("\n"),
       ),
+    ).toBe(
+      [
+        "1. **water bill receipt**",
+        '<email-detail threadid="thread-1">Receipt attached.</email-detail>',
+      ].join("\n"),
     );
   });
 
@@ -248,5 +275,35 @@ function openMoreActions() {
   fireEvent.pointerDown(screen.getByRole("button", { name: "More actions" }), {
     button: 0,
     ctrlKey: false,
+  });
+}
+
+function mockRenderedThread() {
+  mockUseThread.mockReturnValue({
+    data: {
+      thread: {
+        id: "thread-1",
+        messages: [
+          {
+            id: "message-1",
+            threadId: "thread-1",
+            subject: "Rendered detail subject",
+            snippet: "Rendered detail snippet",
+            date: "2026-03-11T11:00:00.000Z",
+            historyId: "history-1",
+            inline: [],
+            headers: {
+              from: "Sender <sender@example.com>",
+              to: "user@example.com",
+              date: "2026-03-11T11:00:00.000Z",
+              subject: "Rendered detail subject",
+            },
+            textPlain: "Rendered detail body",
+          },
+        ],
+      },
+    },
+    isLoading: false,
+    error: null,
   });
 }
