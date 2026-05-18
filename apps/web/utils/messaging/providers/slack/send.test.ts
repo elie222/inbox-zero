@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ThreadTrackerType } from "@/generated/prisma/enums";
 
 const { mockCreateSlackClient, mockPostMessage, mockJoinConversation } =
   vi.hoisted(() => ({
@@ -14,6 +15,7 @@ vi.mock("./client", () => ({
 import {
   sendChannelConfirmation,
   sendConnectionOnboardingDirectMessage,
+  sendFollowUpReminderToSlack,
 } from "./send";
 
 describe("slack send helpers", () => {
@@ -66,6 +68,61 @@ describe("slack send helpers", () => {
       botUserId: "UAPP123",
     });
 
+    expect(mockJoinConversation).toHaveBeenCalledWith({ channel: "C123" });
+    expect(mockPostMessage).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        channel: "C123",
+        unfurl_links: false,
+        unfurl_media: false,
+      }),
+    );
+  });
+
+  it("returns the Slack timestamp for follow-up reminders", async () => {
+    const result = await sendFollowUpReminderToSlack({
+      accessToken: "xoxb-token",
+      channelId: "C123",
+      subject: "Project update",
+      counterpartyName: "Alex Tester",
+      counterpartyEmail: "alex@example.com",
+      trackerType: ThreadTrackerType.AWAITING,
+      daysSinceSent: 3,
+      trackerId: "tracker-1",
+    });
+
+    expect(result).toBe("123.456");
+    expect(mockPostMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "C123",
+        text: expect.stringContaining("Follow-up: Project update"),
+        unfurl_links: false,
+        unfurl_media: false,
+      }),
+    );
+  });
+
+  it("returns the retried Slack timestamp after joining for follow-up reminders", async () => {
+    mockPostMessage
+      .mockRejectedValueOnce(
+        Object.assign(new Error("not in channel"), {
+          data: { error: "not_in_channel" },
+        }),
+      )
+      .mockResolvedValueOnce({ ts: "789.000" });
+
+    const result = await sendFollowUpReminderToSlack({
+      accessToken: "xoxb-token",
+      channelId: "C123",
+      subject: "Project update",
+      counterpartyName: "Alex Tester",
+      counterpartyEmail: "alex@example.com",
+      trackerType: ThreadTrackerType.AWAITING,
+      daysSinceSent: 3,
+      trackerId: "tracker-1",
+    });
+
+    expect(result).toBe("789.000");
     expect(mockJoinConversation).toHaveBeenCalledWith({ channel: "C123" });
     expect(mockPostMessage).toHaveBeenNthCalledWith(
       2,
