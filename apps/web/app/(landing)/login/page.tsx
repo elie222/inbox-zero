@@ -39,7 +39,7 @@ export default async function AuthenticationPage(props: {
     redirect(nextPath ?? WELCOME_PATH);
   }
 
-  const enabledProviders = getEnabledLoginProviders();
+  const enabledProviders = Array.from(getEnabledLoginProviders());
 
   return (
     <div className="flex h-screen flex-col justify-center text-foreground">
@@ -53,11 +53,8 @@ export default async function AuthenticationPage(props: {
         <div className="mt-4">
           <Suspense>
             <LoginForm
-              showGoogleLogin={enabledProviders.has("google")}
-              showAppleLogin={enabledProviders.has("apple")}
+              enabledProviders={enabledProviders}
               useGoogleOauthEmulator={isGoogleOauthEmulationEnabled()}
-              showMicrosoftLogin={enabledProviders.has("microsoft")}
-              showSsoLogin={enabledProviders.has("sso")}
             />
           </Suspense>
         </div>

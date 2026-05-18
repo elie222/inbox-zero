@@ -12,27 +12,26 @@ import { toastError } from "@/components/Toast";
 import { normalizeInternalPath } from "@/utils/path";
 import { buildRedirectUrl, redirectToSafeUrl } from "@/utils/redirect";
 import { createClientLogger } from "@/utils/logger-client";
+import type { LoginProvider } from "@/utils/oauth/login-providers";
 
 const logger = createClientLogger("login/LoginForm");
 const CONNECT_MAILBOX_PATH = "/connect-mailbox";
 
 export function LoginForm({
-  showAppleLogin,
+  enabledProviders,
   useGoogleOauthEmulator,
-  showGoogleLogin = true,
-  showMicrosoftLogin,
-  showSsoLogin,
 }: {
-  showAppleLogin?: boolean;
+  enabledProviders: readonly LoginProvider[];
   useGoogleOauthEmulator: boolean;
-  showGoogleLogin?: boolean;
-  showMicrosoftLogin?: boolean;
-  showSsoLogin?: boolean;
 }) {
   const searchParams = useSearchParams();
   const next = searchParams?.get("next");
   const { callbackURL, errorCallbackURL } = getAuthCallbackUrls(next);
   const appleCallbackURL = buildConnectMailboxUrl(callbackURL);
+  const showAppleLogin = enabledProviders.includes("apple");
+  const showGoogleLogin = enabledProviders.includes("google");
+  const showMicrosoftLogin = enabledProviders.includes("microsoft");
+  const showSsoLogin = enabledProviders.includes("sso");
 
   const [loadingApple, setLoadingApple] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
