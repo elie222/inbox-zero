@@ -22,7 +22,7 @@ Use SSO and SCIM when your organization wants to manage Inbox Zero access throug
 - An admin user listed in `ADMINS`.
 - SAML IdP metadata XML from your identity provider.
 - The organization domain users will sign in with.
-- `LOGIN_PROVIDERS` must include `sso` (e.g. `LOGIN_PROVIDERS=sso` for an SSO-only deployment, or `LOGIN_PROVIDERS=google,microsoft,sso` to keep social sign-in alongside SSO). If `LOGIN_PROVIDERS` is unset, SSO is hidden unless the legacy `SSO_LOGIN_ENABLED=true` flag is set.
+- `SSO_LOGIN_ENABLED=true` if you want to show and allow SSO login.
 
 ## Configure SSO
 

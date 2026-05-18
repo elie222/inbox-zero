@@ -276,8 +276,6 @@ const parsedEnv = createEnv({
     TELEGRAM_BOT_SECRET_TOKEN: z.string().optional(),
     APP_REVIEW_DEMO_ENABLED: booleanString.optional().default(false),
     APP_REVIEW_DEMO_ACCOUNTS: z.string().optional(),
-    LOGIN_PROVIDERS: z.string().optional(),
-    /** @deprecated Use `LOGIN_PROVIDERS=sso` instead. Kept as a fallback when `LOGIN_PROVIDERS` is unset. */
     SSO_LOGIN_ENABLED: booleanString.optional().default(false),
   },
   client: {

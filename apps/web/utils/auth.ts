@@ -43,10 +43,6 @@ import {
   updateAccountSeats,
 } from "@/utils/premium/seats";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
-import {
-  hasMicrosoftOauthConfig,
-  hasAppleOauthConfig,
-} from "@/utils/oauth/provider-config";
 import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 import { getAppleClientSecret } from "@/utils/auth/apple-client-secret";
 import { assertCanGenerateScimToken } from "@/utils/auth/scim";
@@ -55,14 +51,9 @@ import prisma from "@/utils/prisma";
 const logger = createScopedLogger("auth");
 const useGoogleOauthEmulator = isGoogleOauthEmulationEnabled();
 const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();
-const hasMicrosoftConfig = hasMicrosoftOauthConfig();
-const hasAppleConfig = hasAppleOauthConfig();
 
-// Enforce `LOGIN_PROVIDERS` at the better-auth social-provider layer too, not
-// just in the UI. Without this, a client could bypass the allowlist by posting
-// directly to `/api/auth/sign-in/social`. SSO is not gated here because the
-// plugin must stay structurally registered (other routes call `signInSSO`) and
-// SSO sign-in already requires a per-org `ssoProvider` DB record.
+// Register only configured OAuth providers so clients can't start disabled
+// providers by posting directly to `/api/auth/sign-in/social`.
 const enabledLoginProviders = getEnabledLoginProviders();
 const googleLoginEnabled = enabledLoginProviders.has("google");
 const microsoftLoginEnabled = enabledLoginProviders.has("microsoft");
@@ -92,7 +83,7 @@ const googleSocialProvider =
       }
     : null;
 const microsoftSocialProvider =
-  microsoftLoginEnabled && hasMicrosoftConfig && !useMicrosoftOauthEmulator
+  microsoftLoginEnabled && !useMicrosoftOauthEmulator
     ? {
         clientId: env.MICROSOFT_CLIENT_ID!,
         clientSecret: env.MICROSOFT_CLIENT_SECRET!,
@@ -104,44 +95,43 @@ const microsoftSocialProvider =
         }),
       }
     : null;
-const appleSocialProvider =
-  appleLoginEnabled && hasAppleConfig
-    ? {
-        clientId: env.APPLE_CLIENT_ID!,
-        get clientSecret() {
-          const clientSecret = getAppleClientSecret();
-          if (!clientSecret) throw new Error("Apple OAuth is not configured");
-          return clientSecret;
-        },
-        appBundleIdentifier: env.APPLE_APP_BUNDLE_IDENTIFIER,
-        mapProfileToUser: async (profile: AppleProfile) => {
-          if (profile.email) return {};
+const appleSocialProvider = appleLoginEnabled
+  ? {
+      clientId: env.APPLE_CLIENT_ID!,
+      get clientSecret() {
+        const clientSecret = getAppleClientSecret();
+        if (!clientSecret) throw new Error("Apple OAuth is not configured");
+        return clientSecret;
+      },
+      appBundleIdentifier: env.APPLE_APP_BUNDLE_IDENTIFIER,
+      mapProfileToUser: async (profile: AppleProfile) => {
+        if (profile.email) return {};
 
-          const existingAppleAccount = await prisma.account.findUnique({
-            where: {
-              provider_providerAccountId: {
-                provider: "apple",
-                providerAccountId: profile.sub,
+        const existingAppleAccount = await prisma.account.findUnique({
+          where: {
+            provider_providerAccountId: {
+              provider: "apple",
+              providerAccountId: profile.sub,
+            },
+          },
+          select: {
+            user: {
+              select: {
+                email: true,
               },
             },
-            select: {
-              user: {
-                select: {
-                  email: true,
-                },
-              },
-            },
-          });
+          },
+        });
 
-          return existingAppleAccount?.user.email
-            ? { email: existingAppleAccount.user.email }
-            : {};
-        },
-        ...(env.OAUTH_PROXY_URL && {
-          redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/apple`,
-        }),
-      }
-    : null;
+        return existingAppleAccount?.user.email
+          ? { email: existingAppleAccount.user.email }
+          : {};
+      },
+      ...(env.OAUTH_PROXY_URL && {
+        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/apple`,
+      }),
+    }
+  : null;
 const genericOauthConfig: GenericOAuthConfig[] = [
   ...(googleLoginEnabled && useGoogleOauthEmulator
     ? [
@@ -161,7 +151,7 @@ const genericOauthConfig: GenericOAuthConfig[] = [
         },
       ]
     : []),
-  ...(microsoftLoginEnabled && hasMicrosoftConfig && useMicrosoftOauthEmulator
+  ...(microsoftLoginEnabled && useMicrosoftOauthEmulator
     ? [
         {
           providerId: "microsoft",
