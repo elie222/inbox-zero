@@ -389,7 +389,7 @@ async function replaceFollowUpNotification({
             blocks: cardToBlockKit(card),
           }),
         );
-        return true;
+        break;
       }
       case MessagingProvider.TEAMS: {
         const teamsAdapter = getMessagingAdapterRegistry().typedAdapters.teams;
@@ -400,7 +400,7 @@ async function replaceFollowUpNotification({
           notification.providerMessageId,
           REPLY_RECEIVED_TEXT,
         );
-        return true;
+        break;
       }
       case MessagingProvider.TELEGRAM: {
         const telegramAdapter =
@@ -412,7 +412,7 @@ async function replaceFollowUpNotification({
           notification.providerMessageId,
           REPLY_RECEIVED_TEXT,
         );
-        return true;
+        break;
       }
     }
     return true;
