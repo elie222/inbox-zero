@@ -81,27 +81,6 @@ export function LoginForm({
 
   return (
     <div className="flex flex-col justify-center gap-2 px-4 sm:px-16">
-      {showAppleLogin ? (
-        <Button
-          size="2xl"
-          loading={loadingApple}
-          onClick={() =>
-            handleSocialSignIn({
-              provider: "apple",
-              providerName: "Apple",
-              callbackURL: appleCallbackURL,
-              errorCallbackURL,
-              setLoading: setLoadingApple,
-            })
-          }
-        >
-          <span className="flex items-center justify-center">
-            <AppleLogo className="size-6" aria-hidden="true" />
-            <span className="ml-2">Sign in with Apple</span>
-          </span>
-        </Button>
-      ) : null}
-
       {showGoogleLogin ? (
         <Button size="2xl" loading={loadingGoogle} onClick={handleGoogleSignIn}>
           <span className="flex items-center justify-center">
@@ -132,6 +111,28 @@ export function LoginForm({
               unoptimized
             />
             <span className="ml-2">Sign in with Microsoft</span>
+          </span>
+        </Button>
+      ) : null}
+
+      {showAppleLogin ? (
+        <Button
+          size="2xl"
+          color="white"
+          loading={loadingApple}
+          onClick={() =>
+            handleSocialSignIn({
+              provider: "apple",
+              providerName: "Apple",
+              callbackURL: appleCallbackURL,
+              errorCallbackURL,
+              setLoading: setLoadingApple,
+            })
+          }
+        >
+          <span className="flex items-center justify-center">
+            <AppleLogo className="size-6" aria-hidden="true" />
+            <span className="ml-2">Sign in with Apple</span>
           </span>
         </Button>
       ) : null}
