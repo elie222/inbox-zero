@@ -10,6 +10,7 @@ import { toolCallAgentStream } from "@/utils/llms";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import prisma from "@/utils/prisma";
 import type { SystemType } from "@/generated/prisma/enums";
+import { getWritingStyle } from "@/utils/user/get";
 import { addToKnowledgeBaseTool } from "./tools/rules/add-to-knowledge-base-tool";
 import { createRuleTool } from "./tools/rules/create-rule-tool";
 import { getLearnedPatternsTool } from "./tools/rules/get-learned-patterns-tool";
@@ -108,6 +109,22 @@ export async function aiProcessAssistantChat({
   const memoryConversationMessages = conversationMessagesForMemory ?? messages;
   const userTimezone = user.timezone || "UTC";
   const currentTimestamp = new Date().toISOString();
+
+  const [writingStyle, freshRuleState] = await Promise.all([
+    getWritingStyle({ emailAccountId }).catch((error) => {
+      logger.warn("Failed to load writing style for chat", { error });
+      return null;
+    }),
+    loadFreshRuleContext({
+      emailAccountId,
+      chatLastSeenRulesRevision,
+      chatHasHistory: chatHasHistory ?? false,
+    }).catch((error) => {
+      logger.warn("Failed to load fresh rule state for chat", { error });
+      return null;
+    }),
+  ]);
+
   const system = buildResolvedSystemPrompt({
     emailSendToolsEnabled,
     draftReplyActionsEnabled,
@@ -117,6 +134,7 @@ export async function aiProcessAssistantChat({
     messagingPlatform,
     userTimezone,
     currentTimestamp,
+    writingStyle,
   });
   const toolOptions = {
     email: user.email,
@@ -133,23 +151,12 @@ export async function aiProcessAssistantChat({
   const providerPolicy = getAssistantChatProvider(user.account.provider);
 
   let freshRuleContextMessage: ModelMessage[] = [];
-
-  try {
-    const freshRuleState = await loadFreshRuleContext({
-      emailAccountId,
-      chatLastSeenRulesRevision,
-      chatHasHistory: chatHasHistory ?? false,
-    });
-
-    if (freshRuleState) {
-      ruleReadState = freshRuleState.ruleReadState;
-      onRulesStateExposed?.(freshRuleState.snapshot.rulesRevision);
-      freshRuleContextMessage = [
-        buildFreshRuleContextMessage(freshRuleState.snapshot),
-      ];
-    }
-  } catch (error) {
-    logger.warn("Failed to load fresh rule state for chat", { error });
+  if (freshRuleState) {
+    ruleReadState = freshRuleState.ruleReadState;
+    onRulesStateExposed?.(freshRuleState.snapshot.rulesRevision);
+    freshRuleContextMessage = [
+      buildFreshRuleContextMessage(freshRuleState.snapshot),
+    ];
   }
 
   const hasConversationStatusInResults =
@@ -637,6 +644,7 @@ export function buildResolvedSystemPrompt({
   messagingPlatform,
   userTimezone,
   currentTimestamp,
+  writingStyle,
 }: {
   emailSendToolsEnabled: boolean;
   draftReplyActionsEnabled: boolean;
@@ -646,6 +654,7 @@ export function buildResolvedSystemPrompt({
   messagingPlatform?: MessagingPlatform;
   userTimezone: string;
   currentTimestamp: string;
+  writingStyle?: string | null;
 }) {
   const providerPolicy = getAssistantChatProvider(provider);
   const sections = [
@@ -673,6 +682,7 @@ export function buildResolvedSystemPrompt({
       emailSendToolsEnabled,
       draftReplyActionsEnabled,
     }),
+    getWritingStylePolicy(writingStyle),
     `Durable context destinations:
 - Choose where to store durable context by how it will be used, not by whether it needs confirmation.
 - Personal instructions are for stable user preferences, background, tone, and future assistant behavior across workflows.
@@ -746,6 +756,25 @@ export function buildResolvedSystemPrompt({
   ];
 
   return sections.filter(Boolean).join("\n\n");
+}
+
+function getWritingStylePolicy(writingStyle?: string | null) {
+  const trimmed = writingStyle?.trim();
+  if (!trimmed) return "";
+
+  return `Writing style:
+- When drafting, replying to, or forwarding emails on the user's behalf, match this writing style. Apply it across all surfaces (web, Slack, Telegram, etc.), not only auto-generated drafts. Mirror the original sender's tone only when the style does not otherwise apply.
+
+<writing_style>
+${escapeXmlText(trimmed)}
+</writing_style>`;
+}
+
+function escapeXmlText(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function getFormattingRules(responseSurface: "web" | "messaging") {
