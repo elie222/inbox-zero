@@ -32,6 +32,12 @@ import HostBookingConfirmationEmail, {
 import HostBookingCancellationEmail, {
   type HostBookingCancellationEmailProps,
 } from "../emails/host-booking-cancellation";
+import GuestBookingRescheduledEmail, {
+  type GuestBookingRescheduledEmailProps,
+} from "../emails/guest-booking-rescheduled";
+import HostBookingRescheduledEmail, {
+  type HostBookingRescheduledEmailProps,
+} from "../emails/host-booking-rescheduled";
 
 const RESEND_NOT_CONFIGURED_MESSAGE =
   "Resend is not configured. You need to add a RESEND_API_KEY in your .env file for emails to work.";
@@ -431,4 +437,44 @@ export const sendHostBookingCancellationEmail = async ({
     react: <HostBookingCancellationEmail {...emailProps} />,
     test,
     tags: [{ name: "category", value: "booking-cancellation" }],
+  });
+
+export const sendGuestBookingRescheduledEmail = async ({
+  from,
+  to,
+  test,
+  emailProps,
+}: {
+  from: string;
+  to: string;
+  test?: boolean;
+  emailProps: GuestBookingRescheduledEmailProps;
+}) =>
+  sendTransactionalEmail({
+    from,
+    to,
+    subject: `Rescheduled: ${emailProps.eventTitle}`,
+    react: <GuestBookingRescheduledEmail {...emailProps} />,
+    test,
+    tags: [{ name: "category", value: "booking-rescheduled" }],
+  });
+
+export const sendHostBookingRescheduledEmail = async ({
+  from,
+  to,
+  test,
+  emailProps,
+}: {
+  from: string;
+  to: string;
+  test?: boolean;
+  emailProps: HostBookingRescheduledEmailProps;
+}) =>
+  sendTransactionalEmail({
+    from,
+    to,
+    subject: `Booking rescheduled: ${emailProps.eventTitle}`,
+    react: <HostBookingRescheduledEmail {...emailProps} />,
+    test,
+    tags: [{ name: "category", value: "booking-rescheduled" }],
   });

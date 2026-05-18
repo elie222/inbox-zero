@@ -10,16 +10,20 @@ import {
   cancelPublicBooking,
   createPublicBooking,
   getPublicAvailability,
+  getPublicBookingForManagement,
   getPublicBookingLinkMetadata,
+  reschedulePublicBooking,
 } from "@/utils/booking/public";
 import { getUnifiedCalendarAvailability } from "@/utils/calendar/unified-availability";
 import {
   cancelCalendarEvent,
   createCalendarEvent,
+  updateCalendarEvent,
 } from "@/utils/calendar/event-writer";
 import {
   sendBookingCancellationEmails,
   sendBookingConfirmationEmails,
+  sendBookingRescheduledEmails,
 } from "@/utils/booking/emails";
 
 vi.mock("server-only", () => ({}));
@@ -30,10 +34,12 @@ vi.mock("@/utils/calendar/unified-availability", () => ({
 vi.mock("@/utils/calendar/event-writer", () => ({
   cancelCalendarEvent: vi.fn(),
   createCalendarEvent: vi.fn(),
+  updateCalendarEvent: vi.fn(),
 }));
 vi.mock("@/utils/booking/emails", () => ({
   sendBookingCancellationEmails: vi.fn(),
   sendBookingConfirmationEmails: vi.fn(),
+  sendBookingRescheduledEmails: vi.fn(),
 }));
 
 const logger = createTestLogger();
@@ -52,6 +58,7 @@ describe("public booking", () => {
     });
     vi.mocked(sendBookingConfirmationEmails).mockResolvedValue(undefined);
     vi.mocked(sendBookingCancellationEmails).mockResolvedValue(undefined);
+    vi.mocked(sendBookingRescheduledEmails).mockResolvedValue(undefined);
     mockBookingLinkConfig();
   });
 
@@ -221,8 +228,9 @@ describe("public booking", () => {
     expect(createCalendarEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         attendees: [{ name: "Guest <User>", email: "GUEST@EXAMPLE.COM" }],
-        description:
+        description: expect.stringContaining(
           "Booked with Guest <User>\nGuest email: GUEST@EXAMPLE.COM\nGuest note: Please share <agenda> & links.",
+        ),
         destinationCalendarId: "calendar-row-id",
         emailAccountId: "email-account-id",
         endTime: new Date("2026-05-04T09:30:00.000Z"),
@@ -232,6 +240,12 @@ describe("public booking", () => {
         timezone: "UTC",
         title: "Intro call",
       }),
+    );
+    const calendarEventCall = vi.mocked(createCalendarEvent).mock.calls[0][0];
+    expect(calendarEventCall.description).not.toContain("key=");
+    expect(calendarEventCall.description).not.toContain("/book/cancel/");
+    expect(calendarEventCall.description).toMatch(
+      /Need to reschedule or cancel\? https?:\/\/[^\s]+\/book\/reschedule\/booking-id\?token=/,
     );
     expect(prisma.booking.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -258,6 +272,9 @@ describe("public booking", () => {
       expect.objectContaining({
         booking: expect.objectContaining({ id: "booking-id" }),
         cancelUrl: expect.stringContaining("/book/cancel/booking-id?token="),
+        rescheduleUrl: expect.stringContaining(
+          "/book/reschedule/booking-id?token=",
+        ),
       }),
     );
     expect(result).toEqual(
@@ -267,9 +284,12 @@ describe("public booking", () => {
         startTime: "2026-05-04T09:00:00.000Z",
         endTime: "2026-05-04T09:30:00.000Z",
         cancelUrl: expect.stringContaining("/book/cancel/booking-id?token="),
+        rescheduleUrl: expect.stringContaining(
+          "/book/reschedule/booking-id?token=",
+        ),
       }),
     );
-    expectPublicBookingResult(result, { cancelUrl: "present" });
+    expectPublicBookingResult(result, { managementUrls: "present" });
   });
 
   it("returns an idempotent booking without creating a second event", async () => {
@@ -298,7 +318,7 @@ describe("public booking", () => {
       startTime: "2026-05-04T09:00:00.000Z",
       endTime: "2026-05-04T09:30:00.000Z",
     });
-    expectPublicBookingResult(result, { cancelUrl: "absent" });
+    expectPublicBookingResult(result, { managementUrls: "absent" });
   });
 
   it("retries a failed idempotent booking instead of returning it as success", async () => {
@@ -512,7 +532,7 @@ describe("public booking", () => {
       startTime: "2026-05-04T09:00:00.000Z",
       endTime: "2026-05-04T09:30:00.000Z",
     });
-    expectPublicBookingResult(result, { cancelUrl: "absent" });
+    expectPublicBookingResult(result, { managementUrls: "absent" });
   });
 
   it("still cancels the booking locally when the provider event cleanup fails", async () => {
@@ -635,6 +655,382 @@ describe("public booking", () => {
     expect(prisma.booking.updateMany).not.toHaveBeenCalled();
   });
 
+  it("reschedules a confirmed booking and updates the provider event", async () => {
+    vi.mocked(updateCalendarEvent).mockResolvedValue(undefined);
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        provider: "google",
+        providerConnectionId: "connection-id",
+        providerCalendarId: "primary",
+        providerEventId: "provider-event-id",
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+    prisma.booking.findMany.mockResolvedValue([]);
+    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    prisma.booking.findUniqueOrThrow.mockResolvedValue(
+      bookingRecord({
+        startTime: new Date("2026-05-11T09:00:00.000Z"),
+        endTime: new Date("2026-05-11T09:30:00.000Z"),
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+
+    const result = await reschedulePublicBooking({
+      id: "booking-id",
+      token: "manage-token",
+      startTime: "2026-05-11T09:00:00.000Z",
+      guestTimezone: "UTC",
+      logger,
+    });
+
+    expect(prisma.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "booking-id",
+          status: BookingStatus.CONFIRMED,
+          startTime: new Date("2026-05-04T09:00:00.000Z"),
+          endTime: new Date("2026-05-04T09:30:00.000Z"),
+        },
+        data: {
+          startTime: new Date("2026-05-11T09:00:00.000Z"),
+          endTime: new Date("2026-05-11T09:30:00.000Z"),
+        },
+      }),
+    );
+    expect(updateCalendarEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "email-account-id",
+        providerConnectionId: "connection-id",
+        providerCalendarId: "primary",
+        providerEventId: "provider-event-id",
+        startTime: new Date("2026-05-11T09:00:00.000Z"),
+        endTime: new Date("2026-05-11T09:30:00.000Z"),
+      }),
+    );
+    expect(sendBookingRescheduledEmails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        booking: expect.objectContaining({ status: BookingStatus.CONFIRMED }),
+        previousStartTime: new Date("2026-05-04T09:00:00.000Z"),
+        rescheduleUrl: expect.stringContaining(
+          "/book/reschedule/booking-id?token=",
+        ),
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: "booking-id",
+        status: BookingStatus.CONFIRMED,
+        startTime: "2026-05-11T09:00:00.000Z",
+        endTime: "2026-05-11T09:30:00.000Z",
+        rescheduleUrl: expect.stringContaining(
+          "/book/reschedule/booking-id?token=",
+        ),
+        cancelUrl: expect.stringContaining("/book/cancel/booking-id?token="),
+      }),
+    );
+  });
+
+  it("does not reschedule when another request already moved the booking", async () => {
+    vi.mocked(updateCalendarEvent).mockResolvedValue(undefined);
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        provider: "google",
+        providerConnectionId: "connection-id",
+        providerCalendarId: "primary",
+        providerEventId: "provider-event-id",
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+    prisma.booking.findMany.mockResolvedValue([]);
+    prisma.booking.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      reschedulePublicBooking({
+        id: "booking-id",
+        token: "manage-token",
+        startTime: "2026-05-11T09:00:00.000Z",
+        guestTimezone: "UTC",
+        logger,
+      }),
+    ).rejects.toThrow("Booking cannot be rescheduled");
+
+    expect(prisma.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "booking-id",
+          status: BookingStatus.CONFIRMED,
+          startTime: new Date("2026-05-04T09:00:00.000Z"),
+          endTime: new Date("2026-05-04T09:30:00.000Z"),
+        }),
+      }),
+    );
+    expect(updateCalendarEvent).not.toHaveBeenCalled();
+    expect(sendBookingRescheduledEmails).not.toHaveBeenCalled();
+  });
+
+  it("rolls back the local slot claim when the provider update fails", async () => {
+    vi.mocked(updateCalendarEvent).mockRejectedValue(new Error("provider 500"));
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        provider: "google",
+        providerConnectionId: "connection-id",
+        providerCalendarId: "primary",
+        providerEventId: "provider-event-id",
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+    prisma.booking.findMany.mockResolvedValue([]);
+    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(
+      reschedulePublicBooking({
+        id: "booking-id",
+        token: "manage-token",
+        startTime: "2026-05-11T09:00:00.000Z",
+        guestTimezone: "UTC",
+        logger,
+      }),
+    ).rejects.toThrow("Failed to update calendar event");
+
+    // First call claims the new slot, second call rolls it back.
+    expect(prisma.booking.updateMany).toHaveBeenCalledTimes(2);
+    expect(prisma.booking.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: {
+          startTime: new Date("2026-05-04T09:00:00.000Z"),
+          endTime: new Date("2026-05-04T09:30:00.000Z"),
+        },
+      }),
+    );
+    expect(sendBookingRescheduledEmails).not.toHaveBeenCalled();
+  });
+
+  it("logs when provider update rollback cannot find the claimed slot", async () => {
+    const errorSpy = vi.spyOn(logger, "error");
+    vi.mocked(updateCalendarEvent).mockRejectedValue(new Error("provider 500"));
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        provider: "google",
+        providerConnectionId: "connection-id",
+        providerCalendarId: "primary",
+        providerEventId: "provider-event-id",
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+    prisma.booking.findMany.mockResolvedValue([]);
+    prisma.booking.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      reschedulePublicBooking({
+        id: "booking-id",
+        token: "manage-token",
+        startTime: "2026-05-11T09:00:00.000Z",
+        guestTimezone: "UTC",
+        logger,
+      }),
+    ).rejects.toThrow("Failed to update calendar event");
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Failed to roll back reschedule slot claim",
+      expect.objectContaining({
+        bookingId: "booking-id",
+        reason: "no matching booking state",
+      }),
+    );
+  });
+
+  it("rejects reschedule with a generic error for invalid tokens", async () => {
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("correct-token"),
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+
+    await expect(
+      reschedulePublicBooking({
+        id: "booking-id",
+        token: "wrong-token",
+        startTime: "2026-05-11T09:00:00.000Z",
+        guestTimezone: "UTC",
+        logger,
+      }),
+    ).rejects.toMatchObject({
+      name: "SafeError",
+      safeMessage: "Invalid reschedule link",
+      statusCode: 404,
+    });
+
+    expect(prisma.booking.updateMany).not.toHaveBeenCalled();
+    expect(updateCalendarEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects reschedule when the booking has already started", async () => {
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        startTime: new Date("2026-05-03T23:59:00.000Z"),
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+
+    await expect(
+      reschedulePublicBooking({
+        id: "booking-id",
+        token: "manage-token",
+        startTime: "2026-05-11T09:00:00.000Z",
+        guestTimezone: "UTC",
+        logger,
+      }),
+    ).rejects.toThrow("Bookings that have started cannot be rescheduled");
+
+    expect(prisma.booking.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects reschedule to the same time", async () => {
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+
+    await expect(
+      reschedulePublicBooking({
+        id: "booking-id",
+        token: "manage-token",
+        startTime: "2026-05-04T09:00:00.000Z",
+        guestTimezone: "UTC",
+        logger,
+      }),
+    ).rejects.toThrow("Pick a different time to reschedule");
+
+    expect(prisma.booking.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("excludes the booking being rescheduled from the busy-period check", async () => {
+    vi.mocked(updateCalendarEvent).mockResolvedValue(undefined);
+    vi.mocked(getUnifiedCalendarAvailability).mockResolvedValue([
+      {
+        start: new Date("2026-05-04T09:00:00.000Z"),
+        end: new Date("2026-05-04T10:00:00.000Z"),
+      },
+    ]);
+    mockBookingLinkConfig({
+      durationMinutes: 60,
+      windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 11 * 60 }],
+    });
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        provider: "google",
+        providerConnectionId: "connection-id",
+        providerCalendarId: "primary",
+        providerEventId: "provider-event-id",
+        endTime: new Date("2026-05-04T10:00:00.000Z"),
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+    prisma.booking.findMany.mockResolvedValue([]);
+    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    prisma.booking.findUniqueOrThrow.mockResolvedValue(
+      bookingRecord({
+        startTime: new Date("2026-05-11T09:00:00.000Z"),
+        endTime: new Date("2026-05-11T09:30:00.000Z"),
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+
+    await reschedulePublicBooking({
+      id: "booking-id",
+      token: "manage-token",
+      startTime: "2026-05-04T09:30:00.000Z",
+      guestTimezone: "UTC",
+      logger,
+    });
+
+    expect(prisma.booking.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { not: "booking-id" },
+        }),
+      }),
+    );
+  });
+
+  it("returns public management metadata for confirmed future bookings", async () => {
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        startTime: new Date("2026-05-04T09:00:00.000Z"),
+        status: BookingStatus.CONFIRMED,
+        bookingLink: {
+          description: "Talk through fit.",
+          durationMinutes: 30,
+          slotIntervalMinutes: 30,
+          locationValue: "Room 3",
+        },
+      }),
+    );
+
+    const result = await getPublicBookingForManagement({
+      id: "booking-id",
+      token: "manage-token",
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: "booking-id",
+        status: BookingStatus.CONFIRMED,
+        bookingLink: expect.objectContaining({
+          description: "Talk through fit.",
+          locationValue: "Room 3",
+          hostName: "Host User",
+        }),
+      }),
+    );
+  });
+
+  it("does not return management metadata for canceled bookings", async () => {
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        status: BookingStatus.CANCELED,
+      }),
+    );
+
+    const result = await getPublicBookingForManagement({
+      id: "booking-id",
+      token: "manage-token",
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("does not return management metadata for bookings that have started", async () => {
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        startTime: new Date("2026-05-03T23:59:00.000Z"),
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+
+    const result = await getPublicBookingForManagement({
+      id: "booking-id",
+      token: "manage-token",
+    });
+
+    expect(result).toBeNull();
+  });
+
   it("rejects availability when the destination calendar is no longer enabled", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue({
       id: "booking-link-id",
@@ -681,12 +1077,17 @@ function publicBookingInput(
   };
 }
 
-function mockBookingLinkConfig() {
+function mockBookingLinkConfig(
+  overrides: {
+    durationMinutes?: number;
+    windows?: { weekday: number; startMinutes: number; endMinutes: number }[];
+  } = {},
+) {
   prisma.bookingLink.findFirst.mockResolvedValue({
     id: "booking-link-id",
     title: "Intro call",
     description: null,
-    durationMinutes: 30,
+    durationMinutes: overrides.durationMinutes ?? 30,
     locationType: BookingLinkLocationType.CUSTOM,
     locationValue: "Video link",
     minimumNoticeMinutes: 0,
@@ -694,7 +1095,9 @@ function mockBookingLinkConfig() {
     timezone: "UTC",
     emailAccountId: "email-account-id",
     destinationCalendarId: "calendar-row-id",
-    windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 10 * 60 }],
+    windows: overrides.windows ?? [
+      { weekday: 1, startMinutes: 9 * 60, endMinutes: 10 * 60 },
+    ],
     emailAccount: {
       calendarConnections: [
         { id: "connection-id", calendars: [{ id: "calendar-row-id" }] },
@@ -738,7 +1141,11 @@ function bookingRecordBase() {
     createdAt: new Date("2026-05-01T00:00:00.000Z"),
     updatedAt: new Date("2026-05-01T00:00:00.000Z"),
     bookingLink: {
+      slug: "intro",
       title: "Intro call",
+      description: null,
+      durationMinutes: 30,
+      slotIntervalMinutes: 30,
       locationType: BookingLinkLocationType.CUSTOM,
       locationValue: "Video link",
       timezone: "UTC",
@@ -752,7 +1159,7 @@ function bookingRecordBase() {
 
 function expectPublicBookingResult(
   result: Record<string, unknown>,
-  { cancelUrl }: { cancelUrl: "present" | "absent" },
+  { managementUrls }: { managementUrls: "present" | "absent" },
 ) {
   const privateFields = [
     "bookingLinkId",
@@ -776,10 +1183,14 @@ function expectPublicBookingResult(
     expect(result).not.toHaveProperty(field);
   }
 
-  if (cancelUrl === "present") {
+  if (managementUrls === "present") {
     expect(result.cancelUrl).toEqual(expect.stringContaining("/book/cancel/"));
+    expect(result.rescheduleUrl).toEqual(
+      expect.stringContaining("/book/reschedule/"),
+    );
   } else {
     expect(result).not.toHaveProperty("cancelUrl");
+    expect(result).not.toHaveProperty("rescheduleUrl");
   }
 }
 
