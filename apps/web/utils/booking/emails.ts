@@ -1,7 +1,9 @@
 import {
   sendGuestBookingConfirmationEmail,
+  sendGuestBookingRescheduledEmail,
   sendHostBookingCancellationEmail,
   sendHostBookingConfirmationEmail,
+  sendHostBookingRescheduledEmail,
 } from "@inboxzero/resend";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
@@ -33,11 +35,13 @@ export async function sendBookingConfirmationEmails({
   booking,
   guestTimezone,
   cancelUrl,
+  rescheduleUrl,
   logger,
 }: {
   booking: BookingEmailPayload;
   guestTimezone: string;
   cancelUrl: string;
+  rescheduleUrl: string;
   logger: Logger;
 }) {
   const link = booking.bookingLink;
@@ -61,6 +65,7 @@ export async function sendBookingConfirmationEmails({
         to: booking.guestEmail,
         emailProps: {
           cancelUrl,
+          rescheduleUrl,
           eventTitle: link.title,
           formattedTime: guestParts.formattedTime,
           guestName: booking.guestName,
@@ -95,6 +100,89 @@ export async function sendBookingConfirmationEmails({
     ]);
   } catch (error) {
     logger.error("Failed to send booking confirmation emails", {
+      bookingId: booking.id,
+      error,
+    });
+  }
+}
+
+export async function sendBookingRescheduledEmails({
+  booking,
+  previousStartTime,
+  guestTimezone,
+  cancelUrl,
+  rescheduleUrl,
+  logger,
+}: {
+  booking: BookingEmailPayload;
+  previousStartTime: Date;
+  guestTimezone: string;
+  cancelUrl: string;
+  rescheduleUrl: string;
+  logger: Logger;
+}) {
+  const link = booking.bookingLink;
+  const host = link.emailAccount;
+  const location = getLocationLabel(link);
+  const guestParts = formatBookingParts({
+    startTime: booking.startTime,
+    endTime: booking.endTime,
+    timezone: guestTimezone,
+  });
+  const hostParts = formatBookingParts({
+    startTime: booking.startTime,
+    endTime: booking.endTime,
+    timezone: link.timezone,
+  });
+
+  try {
+    await Promise.all([
+      sendGuestBookingRescheduledEmail({
+        from: env.RESEND_FROM_EMAIL,
+        to: booking.guestEmail,
+        emailProps: {
+          cancelUrl,
+          rescheduleUrl,
+          eventTitle: link.title,
+          formattedTime: guestParts.formattedTime,
+          previousFormattedTime: formatDateTimeInUserTimezone(
+            previousStartTime,
+            guestTimezone,
+          ),
+          guestName: booking.guestName,
+          hostName: host.name ?? host.email,
+          location,
+          dateMonth: guestParts.dateMonth,
+          dateDay: guestParts.dateDay,
+          dateWeekday: guestParts.dateWeekday,
+          timeRange: guestParts.timeRange,
+          timezoneLabel: guestTimezone,
+          meetingLink: getMeetingLink(booking),
+        },
+      }),
+      sendHostBookingRescheduledEmail({
+        from: env.RESEND_FROM_EMAIL,
+        to: host.email,
+        emailProps: {
+          eventTitle: link.title,
+          formattedTime: hostParts.formattedTime,
+          previousFormattedTime: formatDateTimeInUserTimezone(
+            previousStartTime,
+            link.timezone,
+          ),
+          guestEmail: booking.guestEmail,
+          guestName: booking.guestName,
+          location,
+          dateMonth: hostParts.dateMonth,
+          dateDay: hostParts.dateDay,
+          dateWeekday: hostParts.dateWeekday,
+          timeRange: hostParts.timeRange,
+          timezoneLabel: link.timezone,
+        },
+      }),
+    ]);
+  } catch (error) {
+    logger.error("Failed to send booking rescheduled emails", {
       bookingId: booking.id,
       error,
     });

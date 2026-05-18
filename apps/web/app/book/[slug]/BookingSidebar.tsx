@@ -39,7 +39,9 @@ import {
 
 const BRAND_HOMEPAGE_URL = "https://www.getinboxzero.com";
 
-type BookingLink = GetPublicBookingLinkResponse;
+type BookingLink = Omit<GetPublicBookingLinkResponse, "locationValue"> & {
+  locationValue: string | null;
+};
 
 export function BookingSidebar({
   bookingLink,

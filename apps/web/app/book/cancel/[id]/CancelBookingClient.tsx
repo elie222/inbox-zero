@@ -10,15 +10,14 @@ import { Input } from "@/components/Input";
 import { publicCancelBookingBody } from "@/utils/actions/booking.validation";
 import { getApiError } from "../../[slug]/booking-helpers";
 
-// The token comes from the URL; the form only collects the reason.
 const cancelFormSchema = publicCancelBookingBody.pick({ reason: true });
 type CancelFormValues = z.infer<typeof cancelFormSchema>;
 
 export function CancelBookingClient({
-  token,
+  bookingToken,
   id,
 }: {
-  token?: string;
+  bookingToken?: string;
   id: string;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -33,14 +32,14 @@ export function CancelBookingClient({
   });
 
   const onSubmit: SubmitHandler<CancelFormValues> = async (values) => {
-    if (!token) return;
+    if (!bookingToken) return;
     setError(null);
     try {
       const response = await fetch(`/api/public/bookings/${id}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          token,
+          token: bookingToken,
           reason: values.reason || undefined,
         }),
       });
@@ -56,6 +55,10 @@ export function CancelBookingClient({
     }
   };
 
+  const rescheduleHref = bookingToken
+    ? `/book/reschedule/${id}?token=${encodeURIComponent(bookingToken)}`
+    : null;
+
   return (
     <main className="min-h-screen bg-muted/30 px-4 py-10">
       <div className="mx-auto max-w-2xl space-y-5">
@@ -66,7 +69,7 @@ export function CancelBookingClient({
           <CardContent className="p-5">
             {done ? (
               <p className="text-sm text-muted-foreground">Booking canceled.</p>
-            ) : token ? (
+            ) : bookingToken ? (
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <Input
                   type="text"
@@ -78,13 +81,23 @@ export function CancelBookingClient({
                   error={errors.reason}
                 />
                 {error ? <p className="text-sm text-red-500">{error}</p> : null}
-                <Button type="submit" loading={isSubmitting}>
-                  Cancel booking
-                </Button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button type="submit" loading={isSubmitting}>
+                    Cancel booking
+                  </Button>
+                  {rescheduleHref ? (
+                    <a
+                      href={rescheduleHref}
+                      className="text-sm font-medium text-blue-600 underline"
+                    >
+                      Reschedule instead
+                    </a>
+                  ) : null}
+                </div>
               </form>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Cancellation token is missing.
+                Booking management token is missing.
               </p>
             )}
           </CardContent>
