@@ -21,6 +21,10 @@ vi.mock("@/utils/auth", () => ({
   },
 }));
 
+vi.mock("@/utils/oauth/login-providers", () => ({
+  getEnabledLoginProviders: vi.fn(() => new Set(["sso"])),
+}));
+
 // Mock Prisma
 vi.mock("@/utils/prisma", () => ({
   default: {
@@ -33,16 +37,19 @@ vi.mock("@/utils/prisma", () => ({
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { betterAuthConfig } from "@/utils/auth";
+import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 import prisma from "@/utils/prisma";
 import { GET } from "./route";
 
 const mockBetterAuthConfig = vi.mocked(betterAuthConfig);
+const mockGetEnabledLoginProviders = vi.mocked(getEnabledLoginProviders);
 
 describe("SSO Signin Route", () => {
   const mockContext = { params: Promise.resolve({}) };
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetEnabledLoginProviders.mockReturnValue(new Set(["sso"]));
   });
 
   // Helper function to create mock NextRequest with search params
@@ -88,6 +95,26 @@ describe("SSO Signin Route", () => {
   });
 
   describe("Organization-based provider lookup", () => {
+    test("should return 400 when SSO login is disabled", async () => {
+      mockGetEnabledLoginProviders.mockReturnValue(new Set(["google"]));
+
+      const request = createMockRequest({
+        email: "user@example.com",
+        organizationSlug: "test-org",
+      });
+
+      const response = await GET(request, mockContext);
+      const responseBody = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(responseBody).toEqual({
+        error: "SSO login is not enabled",
+        isKnownError: true,
+      });
+      expect(prisma.ssoProvider.findFirst).not.toHaveBeenCalled();
+      expect(mockBetterAuthConfig.api.signInSSO).not.toHaveBeenCalled();
+    });
+
     test("should find provider by organization slug", async () => {
       const mockSignInSSOResponse = { url: "https://sso.example.com/signin" };
       mockBetterAuthConfig.api.signInSSO.mockResolvedValue(

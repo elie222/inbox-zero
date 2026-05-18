@@ -13,12 +13,8 @@ const KNOWN_LOGIN_PROVIDERS: ReadonlySet<LoginProvider> = new Set([
   "sso",
 ]);
 
-/**
- * Pure parser for the `LOGIN_PROVIDERS` allowlist string. Returns `null` when
- * the string is unset/empty so callers can apply legacy fallback behaviour.
- * Unknown tokens are dropped; if every token is unknown we also return `null`
- * to avoid locking admins out of their own deployment.
- */
+// Returns `null` for unset/empty input, or when every token is unknown, so
+// callers fall back to legacy behaviour instead of locking admins out.
 function parseLoginProvidersAllowlist(
   raw: string | undefined,
 ): ReadonlySet<LoginProvider> | null {
@@ -35,28 +31,18 @@ function parseLoginProvidersAllowlist(
   return requested.size > 0 ? requested : null;
 }
 
-export type LoginProviderResolutionInputs = {
-  rawAllowlist?: string;
-  hasMicrosoftConfig?: boolean;
-  hasAppleConfig?: boolean;
-  legacySsoLoginEnabled?: boolean;
-};
-
-/**
- * Single source of truth for which login providers are enabled. Used by the
- * login page UI *and* by `utils/auth.ts` to gate which providers better-auth
- * registers, so a malicious client can't bypass the allowlist by calling the
- * sign-in API directly.
- *
- * Resolution:
- * 1. Parse `LOGIN_PROVIDERS` (server-side). When set, the result is intersected
- *    with what's actually configured at the credential layer — the var can
- *    only narrow, never widen.
- * 2. When `LOGIN_PROVIDERS` is unset, configured OAuth providers are enabled
- *    and SSO falls back to the legacy `SSO_LOGIN_ENABLED` flag.
- */
+// Single source of truth for which login providers are enabled. Used by the
+// login page UI *and* by `utils/auth.ts` to gate which providers better-auth
+// registers, so a client can't bypass the allowlist by calling the sign-in API
+// directly. When `LOGIN_PROVIDERS` is set, it can only narrow what is already
+// configured at the credential layer, never widen it.
 export function getEnabledLoginProviders(
-  inputs: LoginProviderResolutionInputs = {},
+  inputs: {
+    rawAllowlist?: string;
+    hasMicrosoftConfig?: boolean;
+    hasAppleConfig?: boolean;
+    legacySsoLoginEnabled?: boolean;
+  } = {},
 ): ReadonlySet<LoginProvider> {
   const {
     rawAllowlist = env.LOGIN_PROVIDERS,
@@ -83,8 +69,4 @@ export function getEnabledLoginProviders(
   }
 
   return enabled;
-}
-
-export function isLoginProviderEnabled(provider: LoginProvider): boolean {
-  return getEnabledLoginProviders().has(provider);
 }

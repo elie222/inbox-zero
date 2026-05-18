@@ -14,6 +14,9 @@ import prisma from "@/utils/__mocks__/prisma";
 import { GET } from "@/app/api/sso/signin/route";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/oauth/login-providers", () => ({
+  getEnabledLoginProviders: () => new Set(["sso"]),
+}));
 vi.mock("@inboxzero/loops", () => ({
   createContact: vi.fn().mockResolvedValue(undefined),
 }));
