@@ -100,7 +100,10 @@ function LoginFooter({
   selfHostedLoginFooterText?: string;
 }) {
   if (isSelfHosted && selfHostedLoginFooterText !== undefined) {
-    if (!selfHostedLoginFooterText) return null;
+    const trimmedFooterText = selfHostedLoginFooterText.trim();
+    if (!trimmedFooterText || trimmedFooterText.toLowerCase() === "none") {
+      return null;
+    }
 
     return (
       <MutedText className="whitespace-pre-line px-4 pt-10 text-center">
