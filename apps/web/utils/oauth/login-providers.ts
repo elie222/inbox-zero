@@ -39,7 +39,6 @@ export type LoginProviderResolutionInputs = {
   rawAllowlist?: string;
   hasMicrosoftConfig?: boolean;
   hasAppleConfig?: boolean;
-  legacyShowAppleLogin?: boolean;
   legacySsoLoginEnabled?: boolean;
 };
 
@@ -53,9 +52,8 @@ export type LoginProviderResolutionInputs = {
  * 1. Parse `LOGIN_PROVIDERS` (server-side). When set, the result is intersected
  *    with what's actually configured at the credential layer — the var can
  *    only narrow, never widen.
- * 2. When `LOGIN_PROVIDERS` is unset we keep the deployment running as before
- *    by falling back to the legacy `SSO_LOGIN_ENABLED` and
- *    `NEXT_PUBLIC_SHOW_APPLE_LOGIN` flags.
+ * 2. When `LOGIN_PROVIDERS` is unset, configured OAuth providers are enabled
+ *    and SSO falls back to the legacy `SSO_LOGIN_ENABLED` flag.
  */
 export function getEnabledLoginProviders(
   inputs: LoginProviderResolutionInputs = {},
@@ -64,7 +62,6 @@ export function getEnabledLoginProviders(
     rawAllowlist = env.LOGIN_PROVIDERS,
     hasMicrosoftConfig = hasMicrosoftOauthConfig(),
     hasAppleConfig = hasAppleOauthConfig(),
-    legacyShowAppleLogin = env.NEXT_PUBLIC_SHOW_APPLE_LOGIN,
     legacySsoLoginEnabled = env.SSO_LOGIN_ENABLED,
   } = inputs;
 
@@ -78,11 +75,7 @@ export function getEnabledLoginProviders(
   if ((!allowlist || allowlist.has("microsoft")) && hasMicrosoftConfig) {
     enabled.add("microsoft");
   }
-  if (
-    (!allowlist || allowlist.has("apple")) &&
-    hasAppleConfig &&
-    (allowlist ? true : legacyShowAppleLogin)
-  ) {
+  if ((!allowlist || allowlist.has("apple")) && hasAppleConfig) {
     enabled.add("apple");
   }
   if (allowlist ? allowlist.has("sso") : legacySsoLoginEnabled) {

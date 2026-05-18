@@ -56,21 +56,19 @@ describe("getEnabledLoginProviders", () => {
       const result = getEnabledLoginProviders({
         rawAllowlist: "facebook,twitter",
         ...allConfigured,
-        legacyShowAppleLogin: true,
         legacySsoLoginEnabled: true,
       });
-      // No valid tokens -> treated as unset, falls back to legacy flags.
+      // No valid tokens -> treated as unset.
       expect(result.has("google")).toBe(true);
       expect(result.has("microsoft")).toBe(true);
       expect(result.has("apple")).toBe(true);
       expect(result.has("sso")).toBe(true);
     });
 
-    it("supersedes the legacy NEXT_PUBLIC_SHOW_APPLE_LOGIN flag", () => {
+    it("enables Apple when allowlisted and configured", () => {
       const result = getEnabledLoginProviders({
         rawAllowlist: "apple",
         ...allConfigured,
-        legacyShowAppleLogin: false,
       });
       expect(result.has("apple")).toBe(true);
     });
@@ -85,7 +83,7 @@ describe("getEnabledLoginProviders", () => {
     });
   });
 
-  describe("legacy fallback when LOGIN_PROVIDERS is unset", () => {
+  describe("defaults when LOGIN_PROVIDERS is unset", () => {
     it("includes Google by default", () => {
       const result = getEnabledLoginProviders({
         rawAllowlist: undefined,
@@ -120,28 +118,19 @@ describe("getEnabledLoginProviders", () => {
       expect(withoutConfig.has("microsoft")).toBe(false);
     });
 
-    it("shows Apple only when configured AND legacy flag is true", () => {
-      const both = getEnabledLoginProviders({
+    it("shows Apple only when configured", () => {
+      const withConfig = getEnabledLoginProviders({
         rawAllowlist: undefined,
         hasMicrosoftConfig: false,
         hasAppleConfig: true,
-        legacyShowAppleLogin: true,
       });
-      const flagOnly = getEnabledLoginProviders({
+      const withoutConfig = getEnabledLoginProviders({
         rawAllowlist: undefined,
         hasMicrosoftConfig: false,
         hasAppleConfig: false,
-        legacyShowAppleLogin: true,
       });
-      const configOnly = getEnabledLoginProviders({
-        rawAllowlist: undefined,
-        hasMicrosoftConfig: false,
-        hasAppleConfig: true,
-        legacyShowAppleLogin: false,
-      });
-      expect(both.has("apple")).toBe(true);
-      expect(flagOnly.has("apple")).toBe(false);
-      expect(configOnly.has("apple")).toBe(false);
+      expect(withConfig.has("apple")).toBe(true);
+      expect(withoutConfig.has("apple")).toBe(false);
     });
 
     it("shows SSO only when legacy flag is true", () => {
