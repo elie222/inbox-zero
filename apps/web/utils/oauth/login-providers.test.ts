@@ -61,7 +61,7 @@ describe("getEnabledLoginProviders", () => {
       // No valid tokens -> treated as unset.
       expect(result.has("google")).toBe(true);
       expect(result.has("microsoft")).toBe(true);
-      expect(result.has("apple")).toBe(true);
+      expect(result.has("apple")).toBe(false);
       expect(result.has("sso")).toBe(true);
     });
 
@@ -118,19 +118,13 @@ describe("getEnabledLoginProviders", () => {
       expect(withoutConfig.has("microsoft")).toBe(false);
     });
 
-    it("shows Apple only when configured", () => {
+    it("does not show Apple by default even when configured", () => {
       const withConfig = getEnabledLoginProviders({
         rawAllowlist: undefined,
         hasMicrosoftConfig: false,
         hasAppleConfig: true,
       });
-      const withoutConfig = getEnabledLoginProviders({
-        rawAllowlist: undefined,
-        hasMicrosoftConfig: false,
-        hasAppleConfig: false,
-      });
-      expect(withConfig.has("apple")).toBe(true);
-      expect(withoutConfig.has("apple")).toBe(false);
+      expect(withConfig.has("apple")).toBe(false);
     });
 
     it("shows SSO only when legacy flag is true", () => {

@@ -75,7 +75,7 @@ export function getEnabledLoginProviders(
   if ((!allowlist || allowlist.has("microsoft")) && hasMicrosoftConfig) {
     enabled.add("microsoft");
   }
-  if ((!allowlist || allowlist.has("apple")) && hasAppleConfig) {
+  if (allowlist?.has("apple") && hasAppleConfig) {
     enabled.add("apple");
   }
   if (allowlist ? allowlist.has("sso") : legacySsoLoginEnabled) {
