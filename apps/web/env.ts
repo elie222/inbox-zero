@@ -356,6 +356,9 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_BOOKING_LINKS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_EXTERNAL_API_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: booleanString.optional(),
+    NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED: booleanString
+      .optional()
+      .default(false),
     // When true, the deployment default is enforced and account-level edits are disabled.
     NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED: booleanString
       .optional()
@@ -459,6 +462,8 @@ const parsedEnv = createEnv({
       process.env.NEXT_PUBLIC_EXTERNAL_API_ENABLED,
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED:
       process.env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED,
+    NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED:
+      process.env.NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED,
     NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED:
       process.env.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED,
     NEXT_PUBLIC_IS_RESEND_CONFIGURED:

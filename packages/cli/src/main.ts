@@ -1594,7 +1594,11 @@ const CONFIG_CATEGORIES: Record<
   },
   "App Settings": {
     description: "Application URL and feature flags",
-    keys: ["NEXT_PUBLIC_BASE_URL", "NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS"],
+    keys: [
+      "NEXT_PUBLIC_BASE_URL",
+      "NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS",
+      "NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED",
+    ],
   },
 };
 
