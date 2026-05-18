@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Card, CardText, type CardElement } from "chat";
 import { cardToBlockKit, cardToFallbackText } from "@chat-adapter/slack";
 import prisma from "@/utils/prisma";
@@ -262,29 +263,51 @@ async function replaceFollowUpNotificationsWithReplyReceivedState({
       },
     });
 
-    const notifications = trackers.flatMap((tracker) =>
-      parseFollowUpNotificationDeliveries(tracker.followUpNotifications),
-    );
-    if (notifications.length === 0) return;
+    const claimId = randomUUID();
+    const claimedAt = new Date();
+    const claimedTrackers: {
+      id: string;
+      notifications: FollowUpNotificationDelivery[];
+    }[] = [];
 
-    const trackerIds = trackers.map((tracker) => tracker.id);
-    const claimed = await prisma.threadTracker.updateMany({
-      where: {
-        id: { in: trackerIds },
-        followUpNotifications: { not: Prisma.AnyNull },
-      },
-      data: {
-        followUpNotifications: Prisma.JsonNull,
-      },
-    });
+    for (const tracker of trackers) {
+      const notifications = getClaimableFollowUpNotifications(
+        tracker.followUpNotifications,
+        claimedAt,
+      );
+      if (notifications.length === 0) continue;
 
-    if (claimed.count === 0) {
+      const claimed = await prisma.threadTracker.updateMany({
+        where: {
+          id: tracker.id,
+          followUpNotifications: {
+            equals: tracker.followUpNotifications as Prisma.InputJsonValue,
+          },
+        },
+        data: {
+          followUpNotifications: buildFollowUpNotificationCleanupClaim({
+            claimId,
+            claimedAt,
+            notifications,
+          }),
+        },
+      });
+
+      if (claimed.count === 1) {
+        claimedTrackers.push({ id: tracker.id, notifications });
+      }
+    }
+
+    if (claimedTrackers.length === 0) {
       logger.info("Follow-up notification cleanup already claimed", {
         threadId,
       });
       return;
     }
 
+    const notifications = claimedTrackers.flatMap(
+      (tracker) => tracker.notifications,
+    );
     const messagingChannelIds = [
       ...new Set(
         notifications.map((notification) => notification.messagingChannelId),
@@ -307,7 +330,7 @@ async function replaceFollowUpNotificationsWithReplyReceivedState({
     );
 
     const card = buildReplyReceivedFollowUpCard();
-    await Promise.all(
+    const results = await Promise.all(
       notifications.map((notification) =>
         replaceFollowUpNotification({
           notification,
@@ -317,6 +340,21 @@ async function replaceFollowUpNotificationsWithReplyReceivedState({
         }),
       ),
     );
+
+    if (!results.every(Boolean)) return;
+
+    await prisma.threadTracker.updateMany({
+      where: {
+        id: { in: claimedTrackers.map((tracker) => tracker.id) },
+        followUpNotifications: {
+          path: ["claimId"],
+          equals: claimId,
+        },
+      },
+      data: {
+        followUpNotifications: Prisma.JsonNull,
+      },
+    });
   } catch (error) {
     logger.warn("Failed to update follow-up notifications after reply", {
       threadId,
@@ -335,13 +373,13 @@ async function replaceFollowUpNotification({
   channel: FollowUpNotificationChannelForCleanup | undefined;
   card: CardElement;
   logger: Logger;
-}) {
-  if (!channel) return;
+}): Promise<boolean> {
+  if (!channel) return true;
 
   try {
     switch (notification.provider) {
       case MessagingProvider.SLACK: {
-        if (!channel.accessToken) return;
+        if (!channel.accessToken) return true;
 
         await createSlackClient(channel.accessToken).chat.update(
           disableSlackLinkUnfurls({
@@ -351,45 +389,93 @@ async function replaceFollowUpNotification({
             blocks: cardToBlockKit(card),
           }),
         );
-        return;
+        return true;
       }
       case MessagingProvider.TEAMS: {
         const teamsAdapter = getMessagingAdapterRegistry().typedAdapters.teams;
-        if (!teamsAdapter) return;
+        if (!teamsAdapter) return true;
 
         await teamsAdapter.editMessage(
           notification.providerThreadId,
           notification.providerMessageId,
           REPLY_RECEIVED_TEXT,
         );
-        return;
+        return true;
       }
       case MessagingProvider.TELEGRAM: {
         const telegramAdapter =
           getMessagingAdapterRegistry().typedAdapters.telegram;
-        if (!telegramAdapter) return;
+        if (!telegramAdapter) return true;
 
         await telegramAdapter.editMessage(
           notification.providerThreadId,
           notification.providerMessageId,
           REPLY_RECEIVED_TEXT,
         );
-        return;
+        return true;
       }
     }
+    return true;
   } catch (error) {
     logger.warn("Failed to update follow-up notification after reply", {
       provider: notification.provider,
       error,
     });
+    return false;
   }
 }
 
 const REPLY_RECEIVED_TEXT = "Reply received. Follow-up no longer needed.";
+const FOLLOW_UP_NOTIFICATION_CLEANUP_CLAIM_TYPE =
+  "reply-received-cleanup-claim";
+const FOLLOW_UP_NOTIFICATION_CLEANUP_CLAIM_TTL_MS = 5 * 60 * 1000;
 
 function buildReplyReceivedFollowUpCard() {
   return Card({
     title: "Reply received",
     children: [CardText("Follow-up no longer needed.")],
   });
+}
+
+function buildFollowUpNotificationCleanupClaim({
+  claimId,
+  claimedAt,
+  notifications,
+}: {
+  claimId: string;
+  claimedAt: Date;
+  notifications: FollowUpNotificationDelivery[];
+}): Prisma.InputJsonObject {
+  return {
+    type: FOLLOW_UP_NOTIFICATION_CLEANUP_CLAIM_TYPE,
+    claimId,
+    claimedAt: claimedAt.toISOString(),
+    notifications,
+  };
+}
+
+function getClaimableFollowUpNotifications(
+  value: unknown,
+  now: Date,
+): FollowUpNotificationDelivery[] {
+  const notifications = parseFollowUpNotificationDeliveries(value);
+  if (notifications.length > 0) return notifications;
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+
+  const claim = value as {
+    type?: unknown;
+    claimedAt?: unknown;
+    notifications?: unknown;
+  };
+  if (claim.type !== FOLLOW_UP_NOTIFICATION_CLEANUP_CLAIM_TYPE) return [];
+  if (typeof claim.claimedAt !== "string") return [];
+
+  const claimedAt = new Date(claim.claimedAt).getTime();
+  if (!Number.isFinite(claimedAt)) return [];
+  if (now.getTime() - claimedAt < FOLLOW_UP_NOTIFICATION_CLEANUP_CLAIM_TTL_MS) {
+    return [];
+  }
+
+  return parseFollowUpNotificationDeliveries(claim.notifications);
 }
