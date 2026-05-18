@@ -687,7 +687,12 @@ describe("public booking", () => {
 
     expect(prisma.booking.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "booking-id", status: BookingStatus.CONFIRMED },
+        where: {
+          id: "booking-id",
+          status: BookingStatus.CONFIRMED,
+          startTime: new Date("2026-05-04T09:00:00.000Z"),
+          endTime: new Date("2026-05-04T09:30:00.000Z"),
+        },
         data: {
           startTime: new Date("2026-05-11T09:00:00.000Z"),
           endTime: new Date("2026-05-11T09:30:00.000Z"),
@@ -725,6 +730,45 @@ describe("public booking", () => {
         cancelUrl: expect.stringContaining("/book/cancel/booking-id?token="),
       }),
     );
+  });
+
+  it("does not reschedule when another request already moved the booking", async () => {
+    vi.mocked(updateCalendarEvent).mockResolvedValue(undefined);
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        provider: "google",
+        providerConnectionId: "connection-id",
+        providerCalendarId: "primary",
+        providerEventId: "provider-event-id",
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+    prisma.booking.findMany.mockResolvedValue([]);
+    prisma.booking.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      reschedulePublicBooking({
+        id: "booking-id",
+        token: "manage-token",
+        startTime: "2026-05-11T09:00:00.000Z",
+        guestTimezone: "UTC",
+        logger,
+      }),
+    ).rejects.toThrow("Booking cannot be rescheduled");
+
+    expect(prisma.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "booking-id",
+          status: BookingStatus.CONFIRMED,
+          startTime: new Date("2026-05-04T09:00:00.000Z"),
+          endTime: new Date("2026-05-04T09:30:00.000Z"),
+        }),
+      }),
+    );
+    expect(updateCalendarEvent).not.toHaveBeenCalled();
+    expect(sendBookingRescheduledEmails).not.toHaveBeenCalled();
   });
 
   it("rolls back the local slot claim when the provider update fails", async () => {

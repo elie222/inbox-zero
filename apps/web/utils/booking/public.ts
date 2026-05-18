@@ -408,7 +408,12 @@ export async function reschedulePublicBooking({
   // another booking grabbed the slot we surface "no longer available".
   try {
     const transition = await prisma.booking.updateMany({
-      where: { id: booking.id, status: BookingStatus.CONFIRMED },
+      where: {
+        id: booking.id,
+        status: BookingStatus.CONFIRMED,
+        startTime: previousStartTime,
+        endTime: previousEndTime,
+      },
       data: { startTime: newStartTime, endTime: newEndTime },
     });
     if (transition.count === 0) {
