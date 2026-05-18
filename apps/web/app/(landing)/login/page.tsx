@@ -7,7 +7,7 @@ import { getRequiresReconsentDescription } from "@/app/(landing)/login/messages"
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { isGoogleOauthEmulationEnabled } from "@/utils/google/oauth";
-import { hasMicrosoftOauthConfig } from "@/utils/oauth/provider-config";
+import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 import { AlertBasic } from "@/components/Alert";
 import { Button } from "@/components/ui/button";
 import { WELCOME_PATH } from "@/utils/config";
@@ -34,10 +34,14 @@ export default async function AuthenticationPage(props: {
   const session = await auth();
   const nextPath = normalizeInternalPath(searchParams?.next);
   const isSelfHosted = env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS;
+  const selfHostedLoginFooterText =
+    env.NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT;
 
   if (session?.user && !searchParams?.error) {
     redirect(nextPath ?? WELCOME_PATH);
   }
+
+  const enabledProviders = Array.from(getEnabledLoginProviders());
 
   return (
     <div className="flex h-screen flex-col justify-center text-foreground">
@@ -51,10 +55,8 @@ export default async function AuthenticationPage(props: {
         <div className="mt-4">
           <Suspense>
             <LoginForm
-              showAppleLogin={env.NEXT_PUBLIC_SHOW_APPLE_LOGIN}
+              enabledProviders={enabledProviders}
               useGoogleOauthEmulator={isGoogleOauthEmulationEnabled()}
-              showMicrosoftLogin={hasMicrosoftOauthConfig()}
-              showSsoLogin={env.SSO_LOGIN_ENABLED}
             />
           </Suspense>
         </div>
@@ -81,23 +83,51 @@ export default async function AuthenticationPage(props: {
           </MutedText>
         ) : null}
 
-        <MutedText
-          className={
-            isSelfHosted ? "px-4 pt-10 text-center" : "px-4 pt-4 text-center"
-          }
-        >
-          {getPossessiveBrandName()} use and transfer of information received
-          from Google APIs to any other app will adhere to{" "}
-          <a
-            href="https://developers.google.com/terms/api-services-user-data-policy"
-            className="underline underline-offset-4 hover:text-foreground"
-          >
-            Google API Services User Data
-          </a>{" "}
-          Policy, including the Limited Use requirements.
-        </MutedText>
+        <LoginFooter
+          isSelfHosted={isSelfHosted}
+          selfHostedLoginFooterText={selfHostedLoginFooterText}
+        />
       </div>
     </div>
+  );
+}
+
+function LoginFooter({
+  isSelfHosted,
+  selfHostedLoginFooterText,
+}: {
+  isSelfHosted?: boolean;
+  selfHostedLoginFooterText?: string;
+}) {
+  if (isSelfHosted && selfHostedLoginFooterText !== undefined) {
+    const trimmedFooterText = selfHostedLoginFooterText.trim();
+    if (!trimmedFooterText || trimmedFooterText.toLowerCase() === "none") {
+      return null;
+    }
+
+    return (
+      <MutedText className="whitespace-pre-line px-4 pt-10 text-center">
+        {selfHostedLoginFooterText}
+      </MutedText>
+    );
+  }
+
+  return (
+    <MutedText
+      className={
+        isSelfHosted ? "px-4 pt-10 text-center" : "px-4 pt-4 text-center"
+      }
+    >
+      {getPossessiveBrandName()} use and transfer of information received from
+      Google APIs to any other app will adhere to{" "}
+      <a
+        href="https://developers.google.com/terms/api-services-user-data-policy"
+        className="underline underline-offset-4 hover:text-foreground"
+      >
+        Google API Services User Data
+      </a>{" "}
+      Policy, including the Limited Use requirements.
+    </MutedText>
   );
 }
 

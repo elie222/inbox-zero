@@ -12,25 +12,26 @@ import { toastError } from "@/components/Toast";
 import { normalizeInternalPath } from "@/utils/path";
 import { buildRedirectUrl, redirectToSafeUrl } from "@/utils/redirect";
 import { createClientLogger } from "@/utils/logger-client";
+import type { LoginProvider } from "@/utils/oauth/login-providers";
 
 const logger = createClientLogger("login/LoginForm");
 const CONNECT_MAILBOX_PATH = "/connect-mailbox";
 
 export function LoginForm({
-  showAppleLogin,
+  enabledProviders,
   useGoogleOauthEmulator,
-  showMicrosoftLogin,
-  showSsoLogin,
 }: {
-  showAppleLogin?: boolean;
+  enabledProviders: readonly LoginProvider[];
   useGoogleOauthEmulator: boolean;
-  showMicrosoftLogin?: boolean;
-  showSsoLogin?: boolean;
 }) {
   const searchParams = useSearchParams();
   const next = searchParams?.get("next");
   const { callbackURL, errorCallbackURL } = getAuthCallbackUrls(next);
   const appleCallbackURL = buildConnectMailboxUrl(callbackURL);
+  const showAppleLogin = enabledProviders.includes("apple");
+  const showGoogleLogin = enabledProviders.includes("google");
+  const showMicrosoftLogin = enabledProviders.includes("microsoft");
+  const showSsoLogin = enabledProviders.includes("sso");
 
   const [loadingApple, setLoadingApple] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
@@ -101,18 +102,20 @@ export function LoginForm({
         </Button>
       ) : null}
 
-      <Button size="2xl" loading={loadingGoogle} onClick={handleGoogleSignIn}>
-        <span className="flex items-center justify-center">
-          <Image
-            src="/images/google.svg"
-            alt="Google"
-            width={24}
-            height={24}
-            unoptimized
-          />
-          <span className="ml-2">Sign in with Google</span>
-        </span>
-      </Button>
+      {showGoogleLogin ? (
+        <Button size="2xl" loading={loadingGoogle} onClick={handleGoogleSignIn}>
+          <span className="flex items-center justify-center">
+            <Image
+              src="/images/google.svg"
+              alt="Google"
+              width={24}
+              height={24}
+              unoptimized
+            />
+            <span className="ml-2">Sign in with Google</span>
+          </span>
+        </Button>
+      ) : null}
 
       {showMicrosoftLogin ? (
         <Button
