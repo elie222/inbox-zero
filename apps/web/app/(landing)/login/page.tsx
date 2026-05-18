@@ -34,6 +34,8 @@ export default async function AuthenticationPage(props: {
   const session = await auth();
   const nextPath = normalizeInternalPath(searchParams?.next);
   const isSelfHosted = env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS;
+  const selfHostedLoginFooterText =
+    env.NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT;
 
   if (session?.user && !searchParams?.error) {
     redirect(nextPath ?? WELCOME_PATH);
@@ -81,23 +83,48 @@ export default async function AuthenticationPage(props: {
           </MutedText>
         ) : null}
 
-        <MutedText
-          className={
-            isSelfHosted ? "px-4 pt-10 text-center" : "px-4 pt-4 text-center"
-          }
-        >
-          {getPossessiveBrandName()} use and transfer of information received
-          from Google APIs to any other app will adhere to{" "}
-          <a
-            href="https://developers.google.com/terms/api-services-user-data-policy"
-            className="underline underline-offset-4 hover:text-foreground"
-          >
-            Google API Services User Data
-          </a>{" "}
-          Policy, including the Limited Use requirements.
-        </MutedText>
+        <LoginFooter
+          isSelfHosted={isSelfHosted}
+          selfHostedLoginFooterText={selfHostedLoginFooterText}
+        />
       </div>
     </div>
+  );
+}
+
+function LoginFooter({
+  isSelfHosted,
+  selfHostedLoginFooterText,
+}: {
+  isSelfHosted?: boolean;
+  selfHostedLoginFooterText?: string;
+}) {
+  if (isSelfHosted && selfHostedLoginFooterText !== undefined) {
+    if (!selfHostedLoginFooterText) return null;
+
+    return (
+      <MutedText className="whitespace-pre-line px-4 pt-10 text-center">
+        {selfHostedLoginFooterText}
+      </MutedText>
+    );
+  }
+
+  return (
+    <MutedText
+      className={
+        isSelfHosted ? "px-4 pt-10 text-center" : "px-4 pt-4 text-center"
+      }
+    >
+      {getPossessiveBrandName()} use and transfer of information received from
+      Google APIs to any other app will adhere to{" "}
+      <a
+        href="https://developers.google.com/terms/api-services-user-data-policy"
+        className="underline underline-offset-4 hover:text-foreground"
+      >
+        Google API Services User Data
+      </a>{" "}
+      Policy, including the Limited Use requirements.
+    </MutedText>
   );
 }
 
