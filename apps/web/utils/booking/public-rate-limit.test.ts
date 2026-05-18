@@ -5,6 +5,7 @@ import {
   enforcePublicAvailabilityRateLimit,
   enforcePublicBookingCancelRateLimit,
   enforcePublicBookingRateLimit,
+  enforcePublicBookingRescheduleRateLimit,
 } from "@/utils/booking/public-rate-limit";
 
 const rateLimitMocks = vi.hoisted(() => ({
@@ -97,6 +98,50 @@ describe("enforcePublicBookingRateLimit", () => {
       }),
     ).rejects.toMatchObject({
       name: "SafeError",
+      statusCode: 429,
+    } satisfies Partial<SafeError>);
+  });
+
+  it("checks booking reschedule limits in separate buckets from cancellations", async () => {
+    await enforcePublicBookingRescheduleRateLimit({
+      bookingId: "booking-id",
+      clientIp: "203.0.113.1",
+      logger: createTestLogger(),
+    });
+
+    expect(rateLimitMocks.checkRateLimit).toHaveBeenCalledTimes(3);
+    expect(
+      rateLimitMocks.checkRateLimit.mock.calls.map(([call]) => call.rule.id),
+    ).toEqual([
+      "ip-booking-reschedule-burst",
+      "ip-booking-reschedule-daily",
+      "booking-reschedule-hourly",
+    ]);
+    expect(
+      rateLimitMocks.checkRateLimit.mock.calls.map(([call]) => call.rule.key),
+    ).toEqual([
+      "rate-limit:public-booking-reschedule:ip-booking-burst:hash-booking-id:hash-203.0.113.1",
+      "rate-limit:public-booking-reschedule:ip-booking-daily:hash-booking-id:hash-203.0.113.1",
+      "rate-limit:public-booking-reschedule:booking-hourly:hash-booking-id",
+    ]);
+  });
+
+  it("throws a 429 safe error when a reschedule limit is exceeded", async () => {
+    rateLimitMocks.checkRateLimit.mockResolvedValueOnce({
+      limited: true,
+      limit: 10,
+      retryAfterSeconds: 600,
+    });
+
+    await expect(
+      enforcePublicBookingRescheduleRateLimit({
+        bookingId: "booking-id",
+        clientIp: "203.0.113.1",
+        logger: createTestLogger(),
+      }),
+    ).rejects.toMatchObject({
+      name: "SafeError",
+      safeMessage: "Too many reschedule attempts. Please try again later.",
       statusCode: 429,
     } satisfies Partial<SafeError>);
   });
