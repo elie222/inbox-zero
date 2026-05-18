@@ -15,7 +15,9 @@ fi
 
 echo "Replacing all statically built instances of $FROM with $TO."
 
+ESCAPED_TO=$(printf '%s' "$TO" | sed -e 's/[\\&|]/\\&/g')
+
 # We use || true to prevent the script from exiting if no files are found (egrep returns 1)
 for file in $(egrep -r -l "${FROM}" apps/web/.next/ apps/web/public/ || true); do
-    sed -i -e "s|$FROM|$TO|g" "$file"
+    sed -i -e "s|$FROM|$ESCAPED_TO|g" "$file"
 done

@@ -22,6 +22,10 @@ if [ -n "$NEXT_PUBLIC_EMAIL_SEND_ENABLED" ]; then
     /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_EMAIL_SEND_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_EMAIL_SEND_ENABLED"
 fi
 
+if [ -n "$NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT" ]; then
+    /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT_PLACEHOLDER" "$NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT"
+fi
+
 if [ -n "$NEXT_PUBLIC_CLEANER_ENABLED" ]; then
     /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_CLEANER_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_CLEANER_ENABLED"
 fi
