@@ -186,7 +186,7 @@ describe("emailToContent", () => {
       expect(result).not.toContain("https://tracker.example.com");
     });
 
-    it("skips images without useful alt text when image alt text is requested", () => {
+    it("uses a placeholder for images without useful alt text when requested", () => {
       const result = emailToContent(
         {
           textHtml:
@@ -197,8 +197,8 @@ describe("emailToContent", () => {
         { includeImageAltText: true },
       );
 
-      expect(result).toBe("See below.");
-      expect(result).not.toContain("[image");
+      expect(result).toContain("See below.");
+      expect(result).toContain("[image]");
       expect(result).not.toContain("https://tracker.example.com");
     });
   });

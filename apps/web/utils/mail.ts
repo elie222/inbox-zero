@@ -13,7 +13,8 @@ export function parseReply(plainText: string) {
 }
 
 const IMAGE_ALT_MAX_LENGTH = 160;
-const LOW_VALUE_IMAGE_ALT_TEXT_PATTERN =
+const IMAGE_PLACEHOLDER = "[image]";
+const GENERIC_IMAGE_ALT_TEXT_PATTERN =
   /^(?:avatar|decorative|graphic|icon|image|img|logo|photo|picture|pixel|spacer|tracking pixel)$/i;
 
 // important to do before processing html emails
@@ -49,20 +50,19 @@ function htmlToText(
 }
 
 const formatImageAltText: FormatCallback = (elem, _walk, builder) => {
-  const altText = normalizeImageAltText(elem.attribs?.alt);
-  if (!altText) return;
-
-  builder.addInline(`[image: ${altText}]`, { noWordTransform: true });
+  builder.addInline(getImageText(elem.attribs?.alt), {
+    noWordTransform: true,
+  });
 };
 
-function normalizeImageAltText(value: unknown) {
-  if (typeof value !== "string") return "";
+function getImageText(value: unknown) {
+  if (typeof value !== "string") return IMAGE_PLACEHOLDER;
 
   const altText = removeExcessiveWhitespace(value).trim();
-  if (!altText) return "";
-  if (LOW_VALUE_IMAGE_ALT_TEXT_PATTERN.test(altText)) return "";
+  if (!altText) return IMAGE_PLACEHOLDER;
+  if (GENERIC_IMAGE_ALT_TEXT_PATTERN.test(altText)) return IMAGE_PLACEHOLDER;
 
-  return truncate(altText, IMAGE_ALT_MAX_LENGTH);
+  return `[image: ${truncate(altText, IMAGE_ALT_MAX_LENGTH)}]`;
 }
 
 export function getEmailClient(messageId: string) {
