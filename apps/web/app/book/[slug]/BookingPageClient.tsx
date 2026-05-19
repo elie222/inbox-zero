@@ -392,7 +392,9 @@ export function BookingShell({
       <div
         className={cn(
           "w-full min-w-0 overflow-hidden rounded-xl border bg-background shadow-lg sm:rounded-2xl",
-          size === "compact" ? "max-w-3xl" : "max-w-5xl",
+          size === "compact"
+            ? "max-w-3xl"
+            : "max-w-5xl md:flex md:h-[48rem] md:max-h-[calc(100dvh-5rem)] md:flex-col",
         )}
       >
         {children}

@@ -46,9 +46,9 @@ export function PickTimeStep({
     detectDefaultHourFormat(),
   );
   return (
-    <div className="grid min-w-0 grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)_240px]">
+    <div className="grid min-w-0 grid-cols-1 overflow-hidden md:min-h-0 md:flex-1 md:grid-cols-[260px_minmax(0,1fr)_240px]">
       {sidebar}
-      <div className="min-w-0 border-t p-4 sm:p-6 md:border-l md:border-t-0 md:p-7">
+      <div className="min-w-0 border-t p-4 sm:p-6 md:min-h-0 md:overflow-y-auto md:border-l md:border-t-0 md:p-7">
         <BookingCalendar
           visibleMonth={visibleMonth}
           onMonthChange={onMonthChange}
@@ -58,8 +58,8 @@ export function PickTimeStep({
           timezone={timezone}
         />
       </div>
-      <div className="min-w-0 border-t bg-muted/30 p-4 sm:p-6 md:max-h-none md:border-l md:border-t-0 md:p-7">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="flex min-w-0 flex-col border-t bg-muted/30 p-4 sm:p-6 md:min-h-0 md:border-l md:border-t-0 md:p-7">
+        <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
           <div className="min-w-0 text-sm font-semibold text-foreground">
             {selectedDateKey
               ? formatSelectedDateHeading(selectedDateKey)
@@ -76,7 +76,7 @@ export function PickTimeStep({
             No slots available on this day.
           </p>
         ) : (
-          <div className="flex max-h-[min(50vh,22rem)] flex-col gap-1.5 overflow-y-auto pr-1 md:max-h-none">
+          <div className="flex max-h-[min(50vh,22rem)] flex-col gap-1.5 overflow-y-auto pr-1 md:min-h-0 md:flex-1 md:max-h-none">
             {slotsForDay.map((slot) => (
               <button
                 key={slot.startTime}
