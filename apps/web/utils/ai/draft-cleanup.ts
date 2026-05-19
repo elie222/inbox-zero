@@ -24,15 +24,14 @@ export async function cleanupAIDraftsForAccount({
       executedRule: { emailAccountId },
       type: ActionType.DRAFT_EMAIL,
       draftId: { not: null },
-      draftStatus: {
-        in: [DraftEmailStatus.PENDING, DraftEmailStatus.REPLIED_WITHOUT_DRAFT],
-      },
+      ...getDraftCleanupCandidateWhere(),
       createdAt: { lt: cutoffDate },
     },
     select: {
       id: true,
       draftId: true,
       draftStatus: true,
+      wasDraftSent: true,
       content: true,
     },
     orderBy: { createdAt: "asc" },
@@ -69,6 +68,7 @@ export async function cleanupAIDraftsForAccount({
       if (!draftDetails?.textPlain && !draftDetails?.textHtml) {
         const statusData = getDraftCleanupStatusData({
           draftStatus: action.draftStatus,
+          wasDraftSent: action.wasDraftSent,
           status: DraftEmailStatus.MISSING_FROM_PROVIDER,
         });
         if (statusData) {
@@ -97,6 +97,7 @@ export async function cleanupAIDraftsForAccount({
       await provider.deleteDraft(action.draftId);
       const statusData = getDraftCleanupStatusData({
         draftStatus: action.draftStatus,
+        wasDraftSent: action.wasDraftSent,
         status: DraftEmailStatus.CLEANED_UP_UNUSED,
       });
       if (statusData) {
@@ -149,12 +150,7 @@ export async function cleanupConfiguredAIDrafts({
             some: {
               type: ActionType.DRAFT_EMAIL,
               draftId: { not: null },
-              draftStatus: {
-                in: [
-                  DraftEmailStatus.PENDING,
-                  DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
-                ],
-              },
+              ...getDraftCleanupCandidateWhere(),
             },
           },
         },
@@ -222,17 +218,53 @@ export async function getConfiguredDraftCleanupDays(emailAccountId: string) {
 
 function getDraftCleanupStatusData({
   draftStatus,
+  wasDraftSent,
   status,
 }: {
   draftStatus?: DraftEmailStatus | null;
+  wasDraftSent?: boolean | null;
   status: DraftEmailStatus;
-}): { draftStatus: DraftEmailStatus } | null {
-  if (
-    draftStatus &&
-    draftStatus !== DraftEmailStatus.PENDING &&
-    draftStatus !== DraftEmailStatus.REPLIED_WITHOUT_DRAFT
-  ) {
-    return null;
+}): { draftStatus?: DraftEmailStatus; wasDraftSent?: null } | null {
+  const data: { draftStatus?: DraftEmailStatus; wasDraftSent?: null } = {};
+
+  if (canTransitionDraftStatus(draftStatus) && draftStatus !== status) {
+    data.draftStatus = status;
   }
-  return { draftStatus: status };
+  if (wasDraftSent === false) {
+    data.wasDraftSent = null;
+  }
+
+  return Object.keys(data).length > 0 ? data : null;
+}
+
+function canTransitionDraftStatus(
+  current: DraftEmailStatus | null | undefined,
+) {
+  return (
+    !current ||
+    current === DraftEmailStatus.PENDING ||
+    current === DraftEmailStatus.REPLIED_WITHOUT_DRAFT
+  );
+}
+
+function getDraftCleanupCandidateWhere() {
+  return {
+    OR: [
+      {
+        draftStatus: {
+          in: [
+            DraftEmailStatus.PENDING,
+            DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+          ],
+        },
+      },
+      { draftStatus: null },
+      // Legacy rows with wasDraftSent=false were migrated to CLEANED_UP_UNUSED,
+      // even when the provider draft still needed a retry.
+      {
+        draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+        wasDraftSent: false,
+      },
+    ],
+  };
 }
