@@ -108,17 +108,15 @@ describe("filterEventsWithExternalGuests", () => {
       }),
       createEvent({
         id: "personal-domain-peer",
-        attendees: [
-          { email: "user@gmail.com" },
-          { email: "guest@gmail.com" },
-        ],
+        attendees: [{ email: "user@gmail.com" }, { email: "guest@gmail.com" }],
       }),
     ];
 
     expect(
-      filterEventsWithExternalGuests(events.slice(0, 3), "user@company.com").map(
-        (event) => event.id,
-      ),
+      filterEventsWithExternalGuests(
+        events.slice(0, 3),
+        "user@company.com",
+      ).map((event) => event.id),
     ).toEqual(["customer-call"]);
     expect(
       filterEventsWithExternalGuests(events.slice(3), "user@gmail.com").map(
