@@ -138,37 +138,50 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update Homebrew formula
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          DARWIN_ARM64_SHA: ${{ steps.sha.outputs.darwin_arm64 }}
+          DARWIN_X64_SHA: ${{ steps.sha.outputs.darwin_x64 }}
+          LINUX_X64_SHA: ${{ steps.sha.outputs.linux_x64 }}
         run: |
           python3 << 'EOF'
+          import os
           import re
+
+          version = os.environ["VERSION"]
+          tag = os.environ["TAG"]
+          darwin_arm64_sha = os.environ["DARWIN_ARM64_SHA"]
+          darwin_x64_sha = os.environ["DARWIN_X64_SHA"]
+          linux_x64_sha = os.environ["LINUX_X64_SHA"]
           
           with open('Formula/inbox-zero.rb', 'r') as f:
               content = f.read()
           
           # Update version
-          content = re.sub(r'version "[^"]*"', 'version "${{ steps.version.outputs.version }}"', content)
+          content = re.sub(r'version "[^"]*"', f'version "{version}"', content)
           
           # Update URLs to current version (handles both cli-v* and v* formats)
-          content = re.sub(r'releases/download/(?:cli-)?v[^/]+/', 'releases/download/${{ steps.version.outputs.tag }}/', content)
+          content = re.sub(r'releases/download/(?:cli-)?v[^/]+/', f'releases/download/{tag}/', content)
           
           # Update SHA256 for darwin-arm64 (first sha256 after "on_arm do")
           content = re.sub(
               r'(on_arm do.*?sha256 ")[^"]*(")',
-              r'\g<1>${{ steps.sha.outputs.darwin_arm64 }}\2',
+              rf'\g<1>{darwin_arm64_sha}\2',
               content, count=1, flags=re.DOTALL
           )
           
           # Update SHA256 for darwin-x64 (first sha256 after "on_intel do" inside on_macos)
           content = re.sub(
               r'(on_macos do.*?on_intel do.*?sha256 ")[^"]*(")',
-              r'\g<1>${{ steps.sha.outputs.darwin_x64 }}\2',
+              rf'\g<1>{darwin_x64_sha}\2',
               content, count=1, flags=re.DOTALL
           )
           
           # Update SHA256 for linux-x64 (sha256 after "on_linux do")
           content = re.sub(
               r'(on_linux do.*?sha256 ")[^"]*(")',
-              r'\g<1>${{ steps.sha.outputs.linux_x64 }}\2',
+              rf'\g<1>{linux_x64_sha}\2',
               content, count=1, flags=re.DOTALL
           )
           
