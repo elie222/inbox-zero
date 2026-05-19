@@ -81,6 +81,8 @@ export async function generateFollowUpDraft({
         maxLength: index === threadMessages.length - 1 ? 2000 : 500,
         extractReply: true,
         removeForwarded: false,
+        includeLinkUrls: true,
+        includeImageAltText: true,
       }),
     }));
 

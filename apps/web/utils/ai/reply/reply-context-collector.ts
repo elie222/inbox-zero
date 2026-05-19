@@ -256,7 +256,13 @@ export async function searchReplyContextEmails({
     "id",
   )
     .slice(0, MAX_EXPANDED_EMAILS_PER_QUERY)
-    .map((message) => getEmailForLLM(message, { maxLength: 2000 }));
+    .map((message) =>
+      getEmailForLLM(message, {
+        maxLength: 2000,
+        includeLinkUrls: true,
+        includeImageAltText: true,
+      }),
+    );
 }
 
 async function getHistoricalThreadMessages({
