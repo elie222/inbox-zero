@@ -705,6 +705,85 @@ describe("clearFollowUpLabel", () => {
     expect(messagingMocks.telegramEditMessage).not.toHaveBeenCalled();
   });
 
+  it("reclaims expired follow-up notification cleanup claims", async () => {
+    const mockProvider = createMockEmailProvider({
+      getLabelByName: vi
+        .fn()
+        .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
+    });
+    const notifications = [
+      {
+        messagingChannelId: "channel-1",
+        provider: MessagingProvider.SLACK,
+        providerThreadId: "C123",
+        providerMessageId: "1700000000.000100",
+      },
+    ];
+    const expiredClaim = {
+      type: "reply-received-cleanup-claim",
+      claimId: "stale-claim",
+      claimedAt: "2000-01-01T00:00:00.000Z",
+      notifications,
+    };
+
+    prisma.threadTracker.findMany
+      .mockResolvedValueOnce([{ id: "tracker-1", followUpDraftId: null }])
+      .mockResolvedValueOnce([
+        {
+          id: "tracker-1",
+          followUpNotifications: expiredClaim,
+        },
+      ]);
+    prisma.threadTracker.updateMany.mockResolvedValue({ count: 1 });
+    prisma.messagingChannel.findMany.mockResolvedValue([
+      {
+        id: "channel-1",
+        provider: MessagingProvider.SLACK,
+        isConnected: true,
+        accessToken: "xoxb-token",
+      },
+    ]);
+
+    await clearFollowUpLabel({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(prisma.threadTracker.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "tracker-1",
+        followUpNotifications: { equals: expiredClaim },
+      },
+      data: {
+        followUpNotifications: expect.objectContaining({
+          type: "reply-received-cleanup-claim",
+          claimId: expect.any(String),
+          notifications,
+        }),
+      },
+    });
+    expect(messagingMocks.slackChatUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "C123",
+        ts: "1700000000.000100",
+      }),
+    );
+    expect(prisma.threadTracker.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["tracker-1"] },
+        followUpNotifications: {
+          path: ["claimId"],
+          equals: expect.any(String),
+        },
+      },
+      data: {
+        followUpNotifications: Prisma.JsonNull,
+      },
+    });
+  });
+
   it("keeps claimed follow-up notifications for retry when a messaging update fails", async () => {
     const mockProvider = createMockEmailProvider({
       getLabelByName: vi
