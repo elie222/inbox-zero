@@ -46,9 +46,9 @@ export function PickTimeStep({
     detectDefaultHourFormat(),
   );
   return (
-    <div className="grid min-w-0 grid-cols-1 overflow-hidden md:min-h-0 md:flex-1 md:grid-cols-[260px_minmax(0,1fr)_240px]">
+    <div className="grid min-w-0 grid-cols-1 overflow-hidden md:grid-cols-[260px_minmax(0,1fr)_240px]">
       {sidebar}
-      <div className="min-w-0 border-t p-4 sm:p-6 md:min-h-0 md:overflow-y-auto md:border-l md:border-t-0 md:p-7">
+      <div className="min-w-0 border-t p-4 sm:p-6 md:border-l md:border-t-0 md:p-7">
         <BookingCalendar
           visibleMonth={visibleMonth}
           onMonthChange={onMonthChange}
@@ -58,37 +58,39 @@ export function PickTimeStep({
           timezone={timezone}
         />
       </div>
-      <div className="flex min-w-0 flex-col border-t bg-muted/30 p-4 sm:p-6 md:min-h-0 md:border-l md:border-t-0 md:p-7">
-        <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
-          <div className="min-w-0 text-sm font-semibold text-foreground">
-            {selectedDateKey
-              ? formatSelectedDateHeading(selectedDateKey)
-              : "Pick a date"}
+      <div className="min-w-0 border-t bg-muted/30 md:relative md:border-l md:border-t-0">
+        <div className="flex flex-col p-4 sm:p-6 md:absolute md:inset-0 md:p-7">
+          <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0 text-sm font-semibold text-foreground">
+              {selectedDateKey
+                ? formatSelectedDateHeading(selectedDateKey)
+                : "Pick a date"}
+            </div>
+            <HourFormatToggle value={hourFormat} onChange={setHourFormat} />
           </div>
-          <HourFormatToggle value={hourFormat} onChange={setHourFormat} />
+          {loading ? (
+            <SlotSkeleton />
+          ) : error ? (
+            <p className="text-sm text-red-500">{error}</p>
+          ) : slotsForDay.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No slots available on this day.
+            </p>
+          ) : (
+            <div className="flex max-h-[min(50vh,22rem)] flex-col gap-1.5 overflow-y-auto pr-1 md:max-h-none md:min-h-0 md:flex-1">
+              {slotsForDay.map((slot) => (
+                <button
+                  key={slot.startTime}
+                  type="button"
+                  onClick={() => onPickSlot(slot)}
+                  className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm font-medium tabular-nums text-foreground transition-colors hover:border-blue-600 hover:text-blue-700"
+                >
+                  {formatSlotTime(slot.startTime, timezone, hourFormat)}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        {loading ? (
-          <SlotSkeleton />
-        ) : error ? (
-          <p className="text-sm text-red-500">{error}</p>
-        ) : slotsForDay.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No slots available on this day.
-          </p>
-        ) : (
-          <div className="flex max-h-[min(50vh,22rem)] flex-col gap-1.5 overflow-y-auto pr-1 md:min-h-0 md:flex-1 md:max-h-none">
-            {slotsForDay.map((slot) => (
-              <button
-                key={slot.startTime}
-                type="button"
-                onClick={() => onPickSlot(slot)}
-                className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm font-medium tabular-nums text-foreground transition-colors hover:border-blue-600 hover:text-blue-700"
-              >
-                {formatSlotTime(slot.startTime, timezone, hourFormat)}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
