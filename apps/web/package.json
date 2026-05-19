@@ -105,7 +105,7 @@
     "@sentry/nextjs": "10.53.1",
     "@serwist/next": "9.5.11",
     "@slack/types": "2.21.1",
-    "@slack/web-api": "7.16.0",
+    "@slack/web-api": "7.15.2",
     "@stripe/stripe-js": "9.5.0",
     "@t3-oss/env-nextjs": "0.13.11",
     "@tailwindcss/forms": "0.5.11",
