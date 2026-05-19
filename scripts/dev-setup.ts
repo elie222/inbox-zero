@@ -602,10 +602,8 @@ async function checkDatabaseExists(adminUrl: string, databaseName: string) {
   assertSafeWorktreeDatabaseName(databaseName);
   const output = await captureCommand("psql", [
     adminUrl,
-    "--set",
-    `database_name=${databaseName}`,
     "-Atqc",
-    "SELECT 1 FROM pg_database WHERE datname = :'database_name'",
+    `SELECT 1 FROM pg_database WHERE datname = ${toSqlString(databaseName)}`,
   ]);
 
   return output.trim() === "1";
@@ -617,10 +615,8 @@ async function createDatabase(adminUrl: string, databaseName: string) {
   log(`Creating database ${databaseName}`);
   await runCommand("psql", [
     adminUrl,
-    "--set",
-    `database_name=${databaseName}`,
     "-c",
-    'CREATE DATABASE :"database_name"',
+    `CREATE DATABASE ${toSqlIdentifier(databaseName)}`,
   ]);
 }
 
@@ -629,17 +625,13 @@ async function dropDatabase(adminUrl: string, databaseName: string) {
   assertSafeWorktreeDatabaseName(databaseName);
   await runCommand("psql", [
     adminUrl,
-    "--set",
-    `database_name=${databaseName}`,
     "-c",
-    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :'database_name' AND pid <> pg_backend_pid()",
+    `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ${toSqlString(databaseName)} AND pid <> pg_backend_pid()`,
   ]);
   await runCommand("psql", [
     adminUrl,
-    "--set",
-    `database_name=${databaseName}`,
     "-c",
-    'DROP DATABASE IF EXISTS :"database_name"',
+    `DROP DATABASE IF EXISTS ${toSqlIdentifier(databaseName)}`,
   ]);
 }
 
@@ -969,6 +961,14 @@ function slugify(value: string) {
 
 function shellQuote(value: string) {
   return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+function toSqlString(value: string) {
+  return `'${value.replaceAll("'", "''")}'`;
+}
+
+function toSqlIdentifier(value: string) {
+  return `"${value.replaceAll('"', '""')}"`;
 }
 
 function log(message: string) {
