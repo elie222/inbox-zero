@@ -85,6 +85,11 @@ export default function Components() {
           <div>
             <TextLink href="/components/slack">Slack Components →</TextLink>
           </div>
+          <div>
+            <TextLink href="/components/onboarding">
+              Onboarding Components →
+            </TextLink>
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -217,15 +222,19 @@ export default function Components() {
 
         <div className="space-y-6">
           <div className="underline">Badges</div>
-          <div className="space-x-4">
-            <Badge color="red">Red</Badge>
-            <Badge color="yellow">Yellow</Badge>
-            <Badge color="green">Green</Badge>
+          <div className="flex flex-wrap gap-2">
+            <Badge color="amber">Amber</Badge>
             <Badge color="blue">Blue</Badge>
-            <Badge color="indigo">Indigo</Badge>
-            <Badge color="purple">Purple</Badge>
-            <Badge color="pink">Pink</Badge>
+            <Badge color="cyan">Cyan</Badge>
             <Badge color="gray">Gray</Badge>
+            <Badge color="green">Green</Badge>
+            <Badge color="indigo">Indigo</Badge>
+            <Badge color="orange">Orange</Badge>
+            <Badge color="pink">Pink</Badge>
+            <Badge color="purple">Purple</Badge>
+            <Badge color="red">Red</Badge>
+            <Badge color="rose">Rose</Badge>
+            <Badge color="yellow">Yellow</Badge>
           </div>
         </div>
 
