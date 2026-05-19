@@ -30,8 +30,6 @@ async function getProcessedEmails({
   emailAccountId: string;
   emailProvider: EmailProvider;
 }) {
-  // Fetch a bit more than we need so dedupe-by-message doesn't undershoot when
-  // a message had multiple rules applied.
   const executedRules = await prisma.executedRule.findMany({
     where: {
       emailAccountId,
@@ -39,7 +37,8 @@ async function getProcessedEmails({
       rule: { isNot: null },
     },
     orderBy: { createdAt: "desc" },
-    take: ONBOARDING_PROCESS_EMAILS_COUNT * 2,
+    take: ONBOARDING_PROCESS_EMAILS_COUNT,
+    distinct: ["threadId"],
     select: {
       messageId: true,
       threadId: true,
@@ -56,26 +55,17 @@ async function getProcessedEmails({
     },
   });
 
-  const byMessageId = new Map<string, (typeof executedRules)[number]>();
-  for (const er of executedRules) {
-    if (!byMessageId.has(er.messageId)) byMessageId.set(er.messageId, er);
-  }
-  const uniqueExecutedRules = Array.from(byMessageId.values()).slice(
-    0,
-    ONBOARDING_PROCESS_EMAILS_COUNT,
-  );
-
-  if (uniqueExecutedRules.length === 0) {
+  if (executedRules.length === 0) {
     return { totalCount: 0, draftCount: 0, emails: [] };
   }
 
-  const messageIds = uniqueExecutedRules.map((er) => er.messageId);
+  const messageIds = executedRules.map((er) => er.messageId);
   const messages = await emailProvider
     .getMessagesBatch(messageIds)
     .catch(() => []);
   const messageById = new Map(messages.map((m) => [m.id, m]));
 
-  const emails = uniqueExecutedRules
+  const emails = executedRules
     .flatMap((er) => {
       const message = messageById.get(er.messageId);
       if (!message) return [];

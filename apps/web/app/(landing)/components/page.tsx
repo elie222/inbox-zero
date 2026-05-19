@@ -223,9 +223,7 @@ export default function Components() {
         <div className="space-y-6">
           <div className="underline">Badges</div>
           <div className="flex flex-wrap gap-2">
-            <Badge color="amber">Amber</Badge>
             <Badge color="blue">Blue</Badge>
-            <Badge color="cyan">Cyan</Badge>
             <Badge color="gray">Gray</Badge>
             <Badge color="green">Green</Badge>
             <Badge color="indigo">Indigo</Badge>
@@ -233,7 +231,6 @@ export default function Components() {
             <Badge color="pink">Pink</Badge>
             <Badge color="purple">Purple</Badge>
             <Badge color="red">Red</Badge>
-            <Badge color="rose">Rose</Badge>
             <Badge color="yellow">Yellow</Badge>
           </div>
         </div>
