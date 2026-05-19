@@ -6,6 +6,7 @@ import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
 import { extractNameFromEmail } from "@/utils/email";
 import { internalDateToDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
+import type { Logger } from "@/utils/logger";
 
 export type GetOnboardingProcessedEmailsResponse = Awaited<
   ReturnType<typeof getProcessedEmails>
@@ -17,6 +18,7 @@ export const GET = withEmailProvider(
     const result = await getProcessedEmails({
       emailAccountId: request.auth.emailAccountId,
       emailProvider: request.emailProvider,
+      logger: request.logger,
     });
 
     return NextResponse.json(result);
@@ -26,9 +28,11 @@ export const GET = withEmailProvider(
 async function getProcessedEmails({
   emailAccountId,
   emailProvider,
+  logger,
 }: {
   emailAccountId: string;
   emailProvider: EmailProvider;
+  logger: Logger;
 }) {
   const executedRules = await prisma.executedRule.findMany({
     where: {
@@ -60,7 +64,17 @@ async function getProcessedEmails({
   }
 
   const messageIds = executedRules.map((er) => er.messageId);
-  const messages = await emailProvider.getMessagesBatch(messageIds);
+  // Swallow provider errors: a failed preview shouldn't break the onboarding
+  // step. The labeling already ran server-side; the user can proceed and see
+  // results in their inbox.
+  const messages = await emailProvider
+    .getMessagesBatch(messageIds)
+    .catch((error) => {
+      logger.error("Failed to fetch messages for onboarding preview", {
+        error,
+      });
+      return [];
+    });
   const messageById = new Map(messages.map((m) => [m.id, m]));
 
   const emails = executedRules
