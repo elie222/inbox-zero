@@ -75,6 +75,18 @@ describe("getEmailForLLM", () => {
     expect(result.content).not.toContain("https://tracker.example.com");
   });
 
+  it("skips images without alt text when image alt text is requested", () => {
+    const msg = makeParsedMessage({
+      textHtml:
+        '<p>See below.</p><img src="https://tracker.example.com/pixel.png" />',
+    });
+    const result = getEmailForLLM(msg, { includeImageAltText: true });
+
+    expect(result.content).toBe("See below.");
+    expect(result.content).not.toContain("[image");
+    expect(result.content).not.toContain("https://tracker.example.com");
+  });
+
   it("strips display:none elements from HTML content", () => {
     const msg = makeParsedMessage({
       textHtml:
