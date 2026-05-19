@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import useSWR from "swr";
 import { ReplyIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
@@ -15,6 +16,7 @@ import { formatShortDate, internalDateToDate } from "@/utils/date";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { getEmailTerminology } from "@/utils/terminology";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { captureException } from "@/utils/error";
 import type { GetOnboardingProcessedEmailsResponse } from "@/app/api/user/onboarding/processed-emails/route";
 
 // Group SystemTypes by intent so the preview reads as semantically meaningful
@@ -41,14 +43,23 @@ function getSystemTypeBadgeColor(
 export function StepInboxProcessed({ onNext }: { onNext: () => void }) {
   const { isPremium } = usePremium();
   const { provider } = useAccount();
-  const { data, isLoading } = useSWR<GetOnboardingProcessedEmailsResponse>(
-    "/api/user/onboarding/processed-emails",
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      revalidateIfStale: false,
-    },
-  );
+  const { data, isLoading, error } =
+    useSWR<GetOnboardingProcessedEmailsResponse>(
+      "/api/user/onboarding/processed-emails",
+      {
+        revalidateOnFocus: false,
+        revalidateOnReconnect: false,
+        revalidateIfStale: false,
+      },
+    );
+
+  useEffect(() => {
+    if (error) {
+      captureException(error, {
+        extra: { context: "onboarding/processed-emails" },
+      });
+    }
+  }, [error]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-10">
