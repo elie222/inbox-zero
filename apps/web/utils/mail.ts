@@ -30,9 +30,7 @@ function htmlToText(
 ) {
   const text = convert(html, {
     wordwrap: 130,
-    formatters: includeImageAltText
-      ? { imageAltText: formatImageAltText }
-      : undefined,
+    formatters: { imageAltText: formatImageAltText },
     selectors: [
       {
         selector: "a",
@@ -40,9 +38,10 @@ function htmlToText(
           ? { hideLinkHrefIfSameAsText: true }
           : { ignoreHref: true },
       },
-      includeImageAltText
-        ? { selector: "img", format: "imageAltText" }
-        : { selector: "img", format: "skip" },
+      {
+        selector: "img",
+        format: includeImageAltText ? "imageAltText" : "skip",
+      },
     ],
   });
 
