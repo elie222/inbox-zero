@@ -13,13 +13,12 @@ import { getActionColor } from "@/components/PlanBadge";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
 import { formatShortDate, internalDateToDate } from "@/utils/date";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { getEmailTerminology } from "@/utils/terminology";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetOnboardingProcessedEmailsResponse } from "@/app/api/user/onboarding/processed-emails/route";
 
-// Mapping system types to badge colors, grouped by intent so the onboarding
-// preview reads as semantically meaningful rather than rainbow-noise. Five
-// buckets: action you own (green), time-bound (blue), subscribed content
-// (purple), transactional alerts (orange), informational/promotional (yellow).
+// Group SystemTypes by intent so the preview reads as semantically meaningful
+// rather than rainbow-noise.
 const systemTypeBadgeColor: Record<SystemType, Color> = {
   [SystemType.TO_REPLY]: "green",
   [SystemType.ACTIONED]: "green",
@@ -39,36 +38,23 @@ function getSystemTypeBadgeColor(
   return systemType ? systemTypeBadgeColor[systemType] : "gray";
 }
 
-// Outlook uses categories/folders rather than labels, so we adjust the
-// past-tense verb and the noun when the user is on Microsoft.
-function getProcessedTerminology(provider: string) {
-  if (isMicrosoftProvider(provider)) {
-    return {
-      pastVerb: "categorized",
-      pluralCapitalized: "Categories",
-    };
-  }
-  return {
-    pastVerb: "labeled",
-    pluralCapitalized: "Labels",
-  };
-}
-
 export function StepInboxProcessed({ onNext }: { onNext: () => void }) {
   const { isPremium } = usePremium();
   const { provider } = useAccount();
-  const { data, isLoading, error } =
-    useSWR<GetOnboardingProcessedEmailsResponse>(
-      "/api/user/onboarding/processed-emails",
-    );
-
-  const isInitialLoading = isLoading && !data && !error;
+  const { data, isLoading } = useSWR<GetOnboardingProcessedEmailsResponse>(
+    "/api/user/onboarding/processed-emails",
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      revalidateIfStale: false,
+    },
+  );
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-10">
       <StepInboxProcessedView
         data={data}
-        isLoading={isInitialLoading}
+        isLoading={isLoading}
         isPremium={isPremium}
         provider={provider}
         onNext={onNext}
@@ -91,16 +77,17 @@ export function StepInboxProcessedView({
   onNext: () => void;
 }) {
   const hasEmails = !!data && data.emails.length > 0;
-  const terminology = getProcessedTerminology(provider);
+  const { label } = getEmailTerminology(provider);
+  const pastVerb = isMicrosoftProvider(provider) ? "categorized" : "labeled";
 
   return (
     <div className="w-full max-w-xl">
       <div className="mb-6 text-center">
         <PageHeading className="mb-3">
-          {terminology.pluralCapitalized} and drafts are ready
+          {label.pluralCapitalized} and drafts are ready
         </PageHeading>
         <TypographyP className="text-muted-foreground">
-          {`We ${terminology.pastVerb} your last ${ONBOARDING_PROCESS_EMAILS_COUNT} emails and drafted replies. Nothing was archived.`}
+          {`We ${pastVerb} your last ${ONBOARDING_PROCESS_EMAILS_COUNT} emails and drafted replies. Nothing was archived.`}
         </TypographyP>
       </div>
 

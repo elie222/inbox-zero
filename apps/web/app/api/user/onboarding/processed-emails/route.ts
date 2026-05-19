@@ -60,9 +60,7 @@ async function getProcessedEmails({
   }
 
   const messageIds = executedRules.map((er) => er.messageId);
-  const messages = await emailProvider
-    .getMessagesBatch(messageIds)
-    .catch(() => []);
+  const messages = await emailProvider.getMessagesBatch(messageIds);
   const messageById = new Map(messages.map((m) => [m.id, m]));
 
   const emails = executedRules
@@ -77,7 +75,6 @@ async function getProcessedEmails({
       return [
         {
           messageId: er.messageId,
-          threadId: er.threadId,
           systemType: er.rule?.systemType ?? null,
           label: er.rule?.name ?? "Labeled",
           sender: extractNameFromEmail(message.headers.from),

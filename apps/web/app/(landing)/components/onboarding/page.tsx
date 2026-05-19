@@ -147,86 +147,26 @@ function OnboardingCompleteDemo({
   );
 }
 
-function getMockProcessedEmails(): GetOnboardingProcessedEmailsResponse {
-  const now = Date.now();
-  const hours = (n: number) => new Date(now - n * 60 * 60 * 1000).toISOString();
-  const days = (n: number) =>
-    new Date(now - n * 24 * 60 * 60 * 1000).toISOString();
+const NOW = Date.now();
+const hoursAgo = (n: number) =>
+  new Date(NOW - n * 60 * 60 * 1000).toISOString();
+const daysAgo = (n: number) =>
+  new Date(NOW - n * 24 * 60 * 60 * 1000).toISOString();
 
-  const samples: Array<{
-    systemType: SystemType;
-    sender: string;
-    subject: string;
-    date: string;
-    hasDraft?: boolean;
-  }> = [
-    {
-      systemType: SystemType.TO_REPLY,
-      sender: "Sarah Chen",
-      subject: "Re: design review on Thursday",
-      date: hours(2),
-      hasDraft: true,
-    },
-    {
-      systemType: SystemType.NEWSLETTER,
-      sender: "TechNews Daily",
-      subject: "Your Monday digest",
-      date: hours(3),
-    },
-    {
-      systemType: SystemType.MARKETING,
-      sender: "Notion",
-      subject: "New in Notion: AI blocks for everyone",
-      date: hours(4),
-    },
-    {
-      systemType: SystemType.NEWSLETTER,
-      sender: "Stratechery",
-      subject: "The platform shift nobody saw coming",
-      date: days(1),
-    },
-    {
-      systemType: SystemType.TO_REPLY,
-      sender: "Alex Park",
-      subject: "Quick question about onboarding",
-      date: days(1),
-      hasDraft: true,
-    },
-    {
-      systemType: SystemType.MARKETING,
-      sender: "Linear",
-      subject: "Try our new Cycles workflow",
-      date: days(2),
-    },
-    {
-      systemType: SystemType.NEWSLETTER,
-      sender: "Lenny's Newsletter",
-      subject: "How great PMs run weekly planning",
-      date: days(3),
-    },
-    {
-      systemType: SystemType.NEWSLETTER,
-      sender: "Morning Brew",
-      subject: "Markets had a weekend",
-      date: days(4),
-    },
-    {
-      systemType: SystemType.MARKETING,
-      sender: "Figma",
-      subject: "You're invited to Config 2026",
-      date: days(5),
-    },
-    {
-      systemType: SystemType.NEWSLETTER,
-      sender: "Not Boring",
-      subject: "The seven companies that matter",
-      date: days(6),
-    },
-  ];
+type MockSample = {
+  systemType: SystemType;
+  sender: string;
+  subject: string;
+  date: string;
+  hasDraft?: boolean;
+};
 
+function buildMockResponse(
+  idPrefix: string,
+  samples: MockSample[],
+): GetOnboardingProcessedEmailsResponse {
   const emails = samples.map((sample, index) => ({
-    messageId: `mock-${index}`,
-    threadId: `mock-${index}`,
+    messageId: `${idPrefix}-${index}`,
     systemType: sample.systemType,
     label: getRuleLabel(sample.systemType),
     sender: sample.sender,
@@ -242,19 +182,75 @@ function getMockProcessedEmails(): GetOnboardingProcessedEmailsResponse {
   };
 }
 
-function getAllSystemCategoriesMock(): GetOnboardingProcessedEmailsResponse {
-  const now = Date.now();
-  const hours = (n: number) => new Date(now - n * 60 * 60 * 1000).toISOString();
-  const days = (n: number) =>
-    new Date(now - n * 24 * 60 * 60 * 1000).toISOString();
+function getMockProcessedEmails(): GetOnboardingProcessedEmailsResponse {
+  return buildMockResponse("mock", [
+    {
+      systemType: SystemType.TO_REPLY,
+      sender: "Sarah Chen",
+      subject: "Re: design review on Thursday",
+      date: hoursAgo(2),
+      hasDraft: true,
+    },
+    {
+      systemType: SystemType.NEWSLETTER,
+      sender: "TechNews Daily",
+      subject: "Your Monday digest",
+      date: hoursAgo(3),
+    },
+    {
+      systemType: SystemType.MARKETING,
+      sender: "Notion",
+      subject: "New in Notion: AI blocks for everyone",
+      date: hoursAgo(4),
+    },
+    {
+      systemType: SystemType.NEWSLETTER,
+      sender: "Stratechery",
+      subject: "The platform shift nobody saw coming",
+      date: daysAgo(1),
+    },
+    {
+      systemType: SystemType.TO_REPLY,
+      sender: "Alex Park",
+      subject: "Quick question about onboarding",
+      date: daysAgo(1),
+      hasDraft: true,
+    },
+    {
+      systemType: SystemType.MARKETING,
+      sender: "Linear",
+      subject: "Try our new Cycles workflow",
+      date: daysAgo(2),
+    },
+    {
+      systemType: SystemType.NEWSLETTER,
+      sender: "Lenny's Newsletter",
+      subject: "How great PMs run weekly planning",
+      date: daysAgo(3),
+    },
+    {
+      systemType: SystemType.NEWSLETTER,
+      sender: "Morning Brew",
+      subject: "Markets had a weekend",
+      date: daysAgo(4),
+    },
+    {
+      systemType: SystemType.MARKETING,
+      sender: "Figma",
+      subject: "You're invited to Config 2026",
+      date: daysAgo(5),
+    },
+    {
+      systemType: SystemType.NEWSLETTER,
+      sender: "Not Boring",
+      subject: "The seven companies that matter",
+      date: daysAgo(6),
+    },
+  ]);
+}
 
-  // Alphabetized by display label so all variants are easy to scan.
-  const samples: Array<{
-    systemType: SystemType;
-    sender: string;
-    subject: string;
-    hasDraft?: boolean;
-  }> = [
+function getAllSystemCategoriesMock(): GetOnboardingProcessedEmailsResponse {
+  const samples: Omit<MockSample, "date">[] = [
     {
       systemType: SystemType.ACTIONED,
       sender: "Priya Sharma",
@@ -308,20 +304,11 @@ function getAllSystemCategoriesMock(): GetOnboardingProcessedEmailsResponse {
     },
   ];
 
-  const emails = samples.map((sample, index) => ({
-    messageId: `category-${sample.systemType}`,
-    threadId: `category-${sample.systemType}`,
-    systemType: sample.systemType,
-    label: getRuleLabel(sample.systemType),
-    sender: sample.sender,
-    subject: sample.subject,
-    date: index < 3 ? hours(index + 1) : days(index - 2),
-    hasDraft: sample.hasDraft ?? false,
-  }));
-
-  return {
-    totalCount: emails.length,
-    draftCount: emails.filter((e) => e.hasDraft).length,
-    emails,
-  };
+  return buildMockResponse(
+    "category",
+    samples.map((sample, index) => ({
+      ...sample,
+      date: index < 3 ? hoursAgo(index + 1) : daysAgo(index - 2),
+    })),
+  );
 }
