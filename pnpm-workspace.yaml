@@ -15,7 +15,7 @@ overrides:
   "@types/react": "19.2.14"
   "@types/react-dom": "19.2.3"
   "@xmldom/xmldom": "0.8.13"
-  axios: "1.15.2"
+  axios: "1.16.1"
   fast-xml-parser: "5.8.0"
   js-yaml: "3.14.2"
   jws: "4.0.1"
