@@ -390,6 +390,11 @@ function buildMicrosoftPermissionHelp(summary: string) {
         Ask your Microsoft 365 admin to approve {BRAND_NAME} for the Microsoft
         Graph permissions below, then try again.
       </p>
+      <Button asChild size="sm">
+        <Link href="/login/microsoft-admin-consent">
+          Open Microsoft admin approval
+        </Link>
+      </Button>
       <div>
         <p className="font-medium">Email and inbox connection</p>
         <PermissionList scopes={MICROSOFT_EMAIL_SCOPES} />

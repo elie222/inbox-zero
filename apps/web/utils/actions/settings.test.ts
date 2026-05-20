@@ -19,6 +19,7 @@ const { clearSpecificErrorMessagesMock, mockEnv } = vi.hoisted(() => ({
     AZURE_RESOURCE_NAME: "azure-resource",
     EMAIL_ENCRYPT_SECRET: "test-email-secret",
     EMAIL_ENCRYPT_SALT: "test-email-salt",
+    NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED: false,
     NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED: false,
   },
 }));
@@ -44,6 +45,7 @@ describe("updateAiSettingsAction", () => {
       aiApiKey: "stored-api-key",
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
     prisma.user.updateMany.mockResolvedValue({ count: 1 } as never);
+    mockEnv.NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED = false;
     mockEnv.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED = false;
   });
 
@@ -74,6 +76,21 @@ describe("updateAiSettingsAction", () => {
 
     expect(result?.serverError).toBe(
       "You must provide an API key for this provider",
+    );
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects account-level AI model updates when deployment settings are disabled", async () => {
+    mockEnv.NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED = true;
+
+    const result = await updateAiSettingsAction({
+      aiProvider: Provider.OPEN_AI,
+      aiModel: "gpt-5.1",
+      aiApiKey: "new-api-key",
+    });
+
+    expect(result?.serverError).toBe(
+      "AI model settings are managed by the deployment.",
     );
     expect(prisma.user.updateMany).not.toHaveBeenCalled();
   });

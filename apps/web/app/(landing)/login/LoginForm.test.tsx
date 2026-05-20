@@ -64,10 +64,27 @@ describe("LoginForm", () => {
     cleanup();
   });
 
+  it("places Apple after Google and Microsoft when all OAuth options are shown", () => {
+    render(
+      <LoginForm
+        enabledProviders={["google", "microsoft", "apple", "sso"]}
+        useGoogleOauthEmulator
+      />,
+    );
+
+    expect(
+      screen.getAllByRole("button").map((button) => button.textContent),
+    ).toEqual([
+      "Sign in with Google",
+      "Sign in with Microsoft",
+      "Sign in with Apple",
+    ]);
+  });
+
   it("starts Apple sign-in when the Apple option is shown", async () => {
     mockSignInSocial.mockResolvedValue(undefined);
 
-    render(<LoginForm showAppleLogin useGoogleOauthEmulator />);
+    render(<LoginForm enabledProviders={["apple"]} useGoogleOauthEmulator />);
 
     fireEvent.click(
       screen.getByRole("button", { name: /sign in with apple/i }),
@@ -89,7 +106,7 @@ describe("LoginForm", () => {
     });
     mockSignInSocial.mockResolvedValue(undefined);
 
-    render(<LoginForm showAppleLogin useGoogleOauthEmulator />);
+    render(<LoginForm enabledProviders={["apple"]} useGoogleOauthEmulator />);
 
     fireEvent.click(
       screen.getByRole("button", { name: /sign in with apple/i }),

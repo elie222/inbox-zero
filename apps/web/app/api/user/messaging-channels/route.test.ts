@@ -175,6 +175,47 @@ describe("GET /api/user/messaging-channels", () => {
     expect(body.availableProviders).toEqual(["SLACK"]);
   });
 
+  it("labels saved Slack channel routes as unavailable when the bot can no longer access the target", async () => {
+    const channels = [
+      {
+        id: "channel-1",
+        provider: "SLACK",
+        teamName: "Workspace",
+        teamId: "team-1",
+        providerUserId: "U123",
+        accessToken: "xoxb-token",
+        isConnected: true,
+        routes: [
+          {
+            purpose: "RULE_NOTIFICATIONS",
+            targetType: "CHANNEL",
+            targetId: "C_REMOVED",
+          },
+        ],
+        actions: [],
+      },
+    ] satisfies MessagingChannelRecord[];
+    prisma.messagingChannel.findMany.mockResolvedValue(channels);
+    vi.mocked(createSlackClient).mockReturnValue({} as never);
+    vi.mocked(listChannels).mockResolvedValue([
+      {
+        id: "C234",
+        name: "finance-alerts",
+        isPrivate: true,
+      },
+    ]);
+
+    const response = await GET(createRequest());
+    const body = await response.json();
+
+    expect(body.channels[0].destinations.ruleNotifications).toEqual({
+      enabled: true,
+      targetId: "C_REMOVED",
+      targetLabel: "Channel unavailable",
+      isDm: false,
+    });
+  });
+
   it("reuses a workspace target lookup for channels with the same Slack token", async () => {
     const channels = [
       {

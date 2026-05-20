@@ -86,6 +86,7 @@ const LOCAL_REDIS_HTTP_PORT = 8079;
 const LOCAL_REDIS_PORT = 6380;
 const LOCAL_REDIS_TOKEN = "dev_token";
 const WORKTREE_DATABASE_PREFIX = "inboxzero_wt_";
+const SAFE_DATABASE_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const APP_ENV_LINKS = [
   {
     required: true,
@@ -598,10 +599,11 @@ async function getCurrentBranch() {
 }
 
 async function checkDatabaseExists(adminUrl: string, databaseName: string) {
+  assertSafeWorktreeDatabaseName(databaseName);
   const output = await captureCommand("psql", [
     adminUrl,
     "-Atqc",
-    `SELECT 1 FROM pg_database WHERE datname = '${databaseName}'`,
+    `SELECT 1 FROM pg_database WHERE datname = ${toSqlString(databaseName)}`,
   ]);
 
   return output.trim() === "1";
@@ -614,7 +616,7 @@ async function createDatabase(adminUrl: string, databaseName: string) {
   await runCommand("psql", [
     adminUrl,
     "-c",
-    `CREATE DATABASE "${databaseName}"`,
+    `CREATE DATABASE ${toSqlIdentifier(databaseName)}`,
   ]);
 }
 
@@ -624,12 +626,12 @@ async function dropDatabase(adminUrl: string, databaseName: string) {
   await runCommand("psql", [
     adminUrl,
     "-c",
-    `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${databaseName}' AND pid <> pg_backend_pid()`,
+    `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ${toSqlString(databaseName)} AND pid <> pg_backend_pid()`,
   ]);
   await runCommand("psql", [
     adminUrl,
     "-c",
-    `DROP DATABASE IF EXISTS "${databaseName}"`,
+    `DROP DATABASE IF EXISTS ${toSqlIdentifier(databaseName)}`,
   ]);
 }
 
@@ -908,6 +910,15 @@ function assertSafeWorktreeDatabaseName(databaseName: string) {
       `Refusing to manage a database without the ${WORKTREE_DATABASE_PREFIX} prefix: ${databaseName}`,
     );
   }
+
+  if (
+    databaseName.length > 63 ||
+    !SAFE_DATABASE_NAME_PATTERN.test(databaseName)
+  ) {
+    throw new Error(
+      `Refusing to manage an unsafe worktree database name: ${databaseName}`,
+    );
+  }
 }
 
 function isMatchingSymlink(target: string, source: string) {
@@ -950,6 +961,14 @@ function slugify(value: string) {
 
 function shellQuote(value: string) {
   return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+function toSqlString(value: string) {
+  return `'${value.replaceAll("'", "''")}'`;
+}
+
+function toSqlIdentifier(value: string) {
+  return `"${value.replaceAll('"', '""')}"`;
 }
 
 function log(message: string) {

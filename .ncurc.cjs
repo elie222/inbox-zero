@@ -41,6 +41,10 @@ module.exports = {
     // See https://github.com/dubinc/dub-ts/issues/301
     "dub",
 
+    // Keep aligned with @chat-adapter/slack to avoid duplicate WebClient copies
+    // that bypass Slack integration test API mocks.
+    "@slack/web-api",
+
     "@types/node",
   ],
 };

@@ -23,6 +23,7 @@ vi.mock("@/utils/prisma");
 vi.mock("@/utils/booking/emails", () => ({
   sendBookingConfirmationEmails: vi.fn().mockResolvedValue(undefined),
   sendBookingCancellationEmails: vi.fn().mockResolvedValue(undefined),
+  sendBookingRescheduledEmails: vi.fn().mockResolvedValue(undefined),
 }));
 
 const getCalendarClientWithRefresh = vi.fn();
@@ -279,6 +280,7 @@ function bookingRecordBase() {
     createdAt: new Date("2026-05-01T00:00:00.000Z"),
     updatedAt: new Date("2026-05-01T00:00:00.000Z"),
     bookingLink: {
+      slug: "intro",
       title: "Intro call",
       locationType: BookingLinkLocationType.CUSTOM,
       locationValue: "Conference room",

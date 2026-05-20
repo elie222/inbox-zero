@@ -43,10 +43,7 @@ import {
   updateAccountSeats,
 } from "@/utils/premium/seats";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
-import {
-  hasMicrosoftOauthConfig,
-  hasAppleOauthConfig,
-} from "@/utils/oauth/provider-config";
+import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 import { getAppleClientSecret } from "@/utils/auth/apple-client-secret";
 import { assertCanGenerateScimToken } from "@/utils/auth/scim";
 import prisma from "@/utils/prisma";
@@ -54,8 +51,13 @@ import prisma from "@/utils/prisma";
 const logger = createScopedLogger("auth");
 const useGoogleOauthEmulator = isGoogleOauthEmulationEnabled();
 const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();
-const hasMicrosoftConfig = hasMicrosoftOauthConfig();
-const hasAppleConfig = hasAppleOauthConfig();
+
+// Register only configured OAuth providers so clients can't start disabled
+// providers by posting directly to `/api/auth/sign-in/social`.
+const enabledLoginProviders = getEnabledLoginProviders();
+const googleLoginEnabled = enabledLoginProviders.has("google");
+const microsoftLoginEnabled = enabledLoginProviders.has("microsoft");
+const appleLoginEnabled = enabledLoginProviders.has("apple");
 
 type AppleProfile = {
   email?: string;
@@ -65,22 +67,23 @@ type AppleProfile = {
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
   : [];
-const googleSocialProvider = !useGoogleOauthEmulator
-  ? {
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
-      scope: [...GMAIL_SCOPES],
-      accessType: "offline" as const,
-      prompt: "select_account consent" as const,
-      disableIdTokenSignIn: true,
-      // For preview deployments, redirect through staging (which proxies back to preview URL)
-      ...(env.OAUTH_PROXY_URL && {
-        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/google`,
-      }),
-    }
-  : null;
+const googleSocialProvider =
+  googleLoginEnabled && !useGoogleOauthEmulator
+    ? {
+        clientId: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
+        scope: [...GMAIL_SCOPES],
+        accessType: "offline" as const,
+        prompt: "select_account consent" as const,
+        disableIdTokenSignIn: true,
+        // For preview deployments, redirect through staging (which proxies back to preview URL)
+        ...(env.OAUTH_PROXY_URL && {
+          redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/google`,
+        }),
+      }
+    : null;
 const microsoftSocialProvider =
-  hasMicrosoftConfig && !useMicrosoftOauthEmulator
+  microsoftLoginEnabled && !useMicrosoftOauthEmulator
     ? {
         clientId: env.MICROSOFT_CLIENT_ID!,
         clientSecret: env.MICROSOFT_CLIENT_SECRET!,
@@ -92,7 +95,7 @@ const microsoftSocialProvider =
         }),
       }
     : null;
-const appleSocialProvider = hasAppleConfig
+const appleSocialProvider = appleLoginEnabled
   ? {
       clientId: env.APPLE_CLIENT_ID!,
       get clientSecret() {
@@ -130,7 +133,7 @@ const appleSocialProvider = hasAppleConfig
     }
   : null;
 const genericOauthConfig: GenericOAuthConfig[] = [
-  ...(useGoogleOauthEmulator
+  ...(googleLoginEnabled && useGoogleOauthEmulator
     ? [
         {
           providerId: "google",
@@ -148,7 +151,7 @@ const genericOauthConfig: GenericOAuthConfig[] = [
         },
       ]
     : []),
-  ...(hasMicrosoftConfig && useMicrosoftOauthEmulator
+  ...(microsoftLoginEnabled && useMicrosoftOauthEmulator
     ? [
         {
           providerId: "microsoft",

@@ -500,7 +500,10 @@ function selectDefaultModel(
   // If they do they can use the model of their choice
   if (aiApiKey) {
     aiProvider = userAi.aiProvider || env.DEFAULT_LLM_PROVIDER;
-    aiModel = userAi.aiModel || null;
+    aiModel =
+      userAi.aiModel ||
+      (userAi.aiProvider ? null : env.DEFAULT_LLM_MODEL) ||
+      null;
   } else {
     aiProvider = env.DEFAULT_LLM_PROVIDER;
     aiModel = env.DEFAULT_LLM_MODEL || null;

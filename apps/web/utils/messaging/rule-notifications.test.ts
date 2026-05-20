@@ -3,6 +3,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import {
   ActionType,
   AttachmentSourceType,
+  DraftEmailStatus,
   MessagingMessageStatus,
   MessagingProvider,
   MessagingRoutePurpose,
@@ -178,6 +179,106 @@ describe("handleRuleNotificationAction", () => {
     expect(cardText).toContain(
       "https://mail.google.com/mail/u/?authuser=user%40example.com#all/message-1",
     );
+  });
+
+  it("closes the Slack edit modal when the draft sends but the message update fails", async () => {
+    const provider = {
+      updateDraft: vi.fn().mockResolvedValue(undefined),
+      sendDraft: vi.fn().mockResolvedValue(undefined),
+      getDraft: vi.fn().mockResolvedValue({
+        id: "draft-1",
+        threadId: "thread-1",
+        textPlain: "Edited draft body",
+        subject: "Re: Test subject",
+        date: new Date().toISOString(),
+        snippet: "Edited draft body",
+        historyId: "1",
+        internalDate: "1",
+        headers: {
+          from: "user@example.com",
+          to: "sender@example.com",
+          subject: "Re: Test subject",
+          date: "Mon, 1 Jan 2024 12:00:00 +0000",
+        },
+        labelIds: [],
+        inline: [],
+      } satisfies ParsedMessage),
+      getMessage: vi.fn().mockResolvedValue({
+        id: "message-1",
+        threadId: "thread-1",
+        textPlain: "Original message body",
+        textHtml: "<p>Original message body</p>",
+        subject: "Test subject",
+        date: new Date().toISOString(),
+        snippet: "Original message body",
+        historyId: "2",
+        internalDate: "2",
+        headers: {
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Test subject",
+          date: "Mon, 1 Jan 2024 11:00:00 +0000",
+          "message-id": "<message-1@example.com>",
+        },
+        attachments: [],
+        labelIds: [],
+        inline: [],
+      } satisfies ParsedMessage),
+    };
+
+    mockCreateEmailProvider.mockResolvedValue(provider);
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: "Initial draft body",
+      messagingMessageId: "slack-ts-1",
+      mailboxDraftAction: {
+        id: "draft-action-1",
+        draftId: "draft-1",
+        subject: "Re: Test subject",
+      },
+    });
+    prisma.executedAction.update.mockResolvedValue({} as never);
+    prisma.executedAction.updateMany.mockResolvedValue({ count: 2 } as never);
+
+    const { handleSlackRuleNotificationModalSubmit } = await import(
+      "./rule-notifications"
+    );
+
+    const response = await handleSlackRuleNotificationModalSubmit({
+      event: {
+        privateMetadata: "action-1",
+        values: {
+          draft_content: "Edited draft body",
+        },
+        user: { userId: "user-1" },
+        raw: { team: { id: "team-1" } },
+        relatedMessage: {
+          edit: vi.fn().mockRejectedValue(new Error("Slack update failed")),
+        },
+      } as any,
+      logger,
+    });
+
+    expect(response).toEqual({ action: "close" });
+    expect(provider.sendDraft).toHaveBeenCalledWith("draft-1");
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        draftStatus: DraftEmailStatus.LIKELY_SENT,
+        messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
+      },
+    });
+    expect(mockSlackUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "C123",
+        ts: "slack-ts-1",
+        text: expect.stringContaining("Reply sent."),
+      }),
+    );
+    expect(
+      JSON.stringify(mockSlackUpdate.mock.calls[0]?.[0]?.blocks),
+    ).not.toContain("Send reply");
   });
 
   it("sends Telegram draft replies from the notification Send button", async () => {

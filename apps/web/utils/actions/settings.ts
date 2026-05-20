@@ -51,6 +51,10 @@ export const updateAiSettingsAction = actionClientUser
       ctx: { userId, logger },
       parsedInput: { aiProvider, aiModel, aiApiKey },
     }) => {
+      if (env.NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED) {
+        throw new SafeError("AI model settings are managed by the deployment.");
+      }
+
       if (aiProvider === Provider.AZURE && !env.AZURE_RESOURCE_NAME) {
         throw new Error(
           "Azure provider requires AZURE_RESOURCE_NAME to be configured on the server",

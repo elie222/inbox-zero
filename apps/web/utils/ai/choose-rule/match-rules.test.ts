@@ -1977,7 +1977,61 @@ describe("findMatchingRules - Integration Tests", () => {
     });
 
     expect(result.matches[0]?.rule.id).toBe("cold-email-rule");
+    expect(result.matches[0]?.matchReasons).toEqual([
+      { type: ConditionType.AI },
+    ]);
     expect(result.reasoning).toBe("ai");
+  });
+
+  it("returns learned pattern match reasons for cold email pattern hits", async () => {
+    const coldEmailRule = getRule({
+      id: "cold-email-rule",
+      systemType: SystemType.COLD_EMAIL,
+    });
+    const group = { id: "cold-email-group", name: "Cold Email" };
+    const groupItem = {
+      id: "cold-email-sender",
+      type: GroupItemType.FROM,
+      value: "coldemailer@example.com",
+      exclude: false,
+    };
+
+    vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
+    vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
+    vi.mocked(isColdEmail).mockResolvedValue({
+      isColdEmail: true,
+      reason: "ai-already-labeled",
+      patternMatch: {
+        group,
+        groupItem,
+      },
+    });
+    vi.mocked(prisma.rule.findUniqueOrThrow).mockResolvedValue(coldEmailRule);
+
+    const result = await findMatchingRules({
+      rules: [coldEmailRule],
+      message: getMessage({
+        headers: getHeaders({ from: "coldemailer@example.com" }),
+      }),
+      emailAccount: getEmailAccount(),
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(result.matches).toEqual([
+      {
+        rule: coldEmailRule,
+        matchReasons: [
+          {
+            type: ConditionType.LEARNED_PATTERN,
+            group,
+            groupItem,
+          },
+        ],
+      },
+    ]);
+    expect(result.reasoning).toBe("ai-already-labeled");
   });
 
   it("should skip cold email detection when rule is not enabled", async () => {

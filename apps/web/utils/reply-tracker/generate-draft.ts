@@ -220,6 +220,8 @@ async function generateDraftContent(
       maxLength: index === threadMessages.length - 1 ? 2000 : 500,
       extractReply: true,
       removeForwarded: false,
+      includeLinkUrls: true,
+      includeImageAltText: true,
     }),
   }));
 
@@ -243,6 +245,8 @@ async function generateDraftContent(
         maxLength: 1000,
         extractReply: true,
         removeForwarded: false,
+        includeLinkUrls: true,
+        includeImageAltText: true,
       }),
     );
   const senderEmail = extractEmailAddress(lastMessage.headers.from);

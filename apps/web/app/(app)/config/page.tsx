@@ -24,6 +24,7 @@ export default async function AdminConfigPage() {
     features: {
       emailSendEnabled: env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
       contactsEnabled: env.NEXT_PUBLIC_CONTACTS_ENABLED,
+      aiModelSettingsDisabled: env.NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED,
       bypassPremiumChecks: env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS ?? false,
     },
     providers: {
@@ -70,6 +71,12 @@ export default async function AdminConfigPage() {
           <Row
             label="Contacts"
             value={info.features.contactsEnabled ? "Enabled" : "Disabled"}
+          />
+          <Row
+            label="AI Model Settings"
+            value={
+              info.features.aiModelSettingsDisabled ? "Disabled" : "Enabled"
+            }
           />
           <Row
             label="Bypass Premium"

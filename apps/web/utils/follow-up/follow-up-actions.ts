@@ -1,5 +1,6 @@
 import { Card, CardText, type ActionEvent } from "chat";
 import { MessagingProvider } from "@/generated/prisma/enums";
+import { Prisma } from "@/generated/prisma/client";
 import type { Logger } from "@/utils/logger";
 import {
   getSlackTeamId,
@@ -58,12 +59,13 @@ export async function handleFollowUpReminderAction({
     return;
   }
 
-  if (!tracker.resolved) {
-    await prisma.threadTracker.update({
-      where: { id: trackerId },
-      data: { resolved: true },
-    });
-  }
+  await prisma.threadTracker.update({
+    where: { id: trackerId },
+    data: {
+      resolved: true,
+      followUpNotifications: Prisma.JsonNull,
+    },
+  });
 
   const feedback = tracker.resolved
     ? "This follow-up is already done."

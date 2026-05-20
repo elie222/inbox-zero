@@ -3,7 +3,7 @@ import {
   processAccountFollowUps,
   processAllFollowUpReminders,
 } from "./process";
-import { ThreadTrackerType } from "@/generated/prisma/enums";
+import { MessagingProvider, ThreadTrackerType } from "@/generated/prisma/enums";
 import { createTestLogger } from "@/__tests__/helpers";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
@@ -48,7 +48,10 @@ vi.mock("@/utils/follow-up/generate-draft", () => ({
 
 vi.mock("@/utils/follow-up/send-follow-up-notification", () => ({
   getFollowUpNotificationChannels: vi.fn().mockResolvedValue([]),
-  sendFollowUpNotification: vi.fn().mockResolvedValue(undefined),
+  parseFollowUpNotificationDeliveries: vi.fn((value: unknown) =>
+    Array.isArray(value) ? value : [],
+  ),
+  sendFollowUpNotification: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/utils/reply-tracker/label-helpers", () => ({
@@ -472,7 +475,91 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(prisma.threadTracker.create).toHaveBeenCalledTimes(1);
   });
 
-  it("does not use sentAt to skip resolved trackers with a different message", async () => {
+  it("does not notify again when a marked-done Outlook follow-up gets a different provider ID for the same sent message", async () => {
+    const sentAt = "2026-01-01T12:00:00.000Z";
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "thread-outlook-marked-done", messages: [], snippet: "" },
+        ]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(
+          mockAwaitingMessage("msg-outlook-marked-done-2", sentAt),
+        ),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(getFollowUpNotificationChannels).mockResolvedValue([
+      { id: "channel-outlook-marked-done" } as any,
+    ]);
+
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([
+      {
+        threadId: "thread-outlook-marked-done",
+        messageId: "msg-outlook-marked-done-1",
+        resolved: true,
+        sentAt: new Date(sentAt),
+        followUpAppliedAt: new Date("2026-01-02T12:00:00.000Z"),
+      } as any,
+    ]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(applyFollowUpLabel).not.toHaveBeenCalled();
+    expect(sendFollowUpNotification).not.toHaveBeenCalled();
+    expect(prisma.threadTracker.create).not.toHaveBeenCalled();
+  });
+
+  it("processes the first follow-up when a tracker has no follow-up history yet", async () => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "thread-first-follow-up", messages: [], snippet: "" },
+        ]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(
+          mockAwaitingMessage("msg-first-follow-up", OLD_DATE),
+        ),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+
+    vi.mocked(prisma.threadTracker.findMany).mockImplementation((args: any) => {
+      if (args?.where?.OR) return Promise.resolve([]);
+      return Promise.resolve([
+        {
+          threadId: "thread-first-follow-up",
+          messageId: "msg-first-follow-up",
+          sentAt: new Date(Number(OLD_DATE)),
+        } as any,
+      ]);
+    });
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-first-follow-up",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(applyFollowUpLabel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: "thread-first-follow-up",
+        messageId: "msg-first-follow-up",
+      }),
+    );
+    expect(generateFollowUpDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses sentAt to skip resolved Outlook trackers with a different provider ID", async () => {
     const sentAt = "2026-01-01T12:00:00.000Z";
     const provider = createMockProvider({
       getThreadsWithLabel: vi
@@ -492,6 +579,7 @@ describe("processAccountFollowUps - dedup logic", () => {
         messageId: "msg-resolved-old",
         resolved: true,
         sentAt: new Date(sentAt),
+        followUpAppliedAt: new Date("2026-01-02T12:00:00.000Z"),
       } as any,
     ]);
     vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
@@ -504,14 +592,9 @@ describe("processAccountFollowUps - dedup logic", () => {
       logger,
     });
 
-    expect(applyFollowUpLabel).toHaveBeenCalledWith(
-      expect.objectContaining({
-        threadId: "thread-resolved-repeat",
-        messageId: "msg-resolved-new",
-      }),
-    );
-    expect(prisma.threadTracker.create).toHaveBeenCalledTimes(1);
-    expect(generateFollowUpDraft).toHaveBeenCalledTimes(1);
+    expect(applyFollowUpLabel).not.toHaveBeenCalled();
+    expect(prisma.threadTracker.create).not.toHaveBeenCalled();
+    expect(generateFollowUpDraft).not.toHaveBeenCalled();
   });
 
   it("does not create a second draft when duplicate outbound processing resolved the tracker", async () => {
@@ -824,6 +907,59 @@ describe("processAccountFollowUps - dedup logic", () => {
         threadLinkLabel: "Open in Outlook",
       }),
     );
+  });
+
+  it("appends notification deliveries to existing tracker handles", async () => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "thread-repeat-notify", messages: [], snippet: "" },
+        ]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(mockAwaitingMessage("msg-repeat-notify", OLD_DATE)),
+    });
+    const previousDelivery = {
+      messagingChannelId: "channel-1",
+      provider: MessagingProvider.SLACK,
+      providerThreadId: "C123",
+      providerMessageId: "1700000000.000100",
+    };
+    const nextDelivery = {
+      messagingChannelId: "channel-2",
+      provider: MessagingProvider.TEAMS,
+      providerThreadId: "teams-thread-1",
+      providerMessageId: "teams-message-1",
+    };
+
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(getFollowUpNotificationChannels).mockResolvedValue([
+      { id: "channel-2" } as any,
+    ]);
+    vi.mocked(sendFollowUpNotification).mockResolvedValue([nextDelivery]);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue({
+      id: "tracker-repeat-notify",
+    } as any);
+    vi.mocked(prisma.threadTracker.update)
+      .mockResolvedValueOnce({
+        id: "tracker-repeat-notify",
+        followUpNotifications: [previousDelivery],
+      } as any)
+      .mockResolvedValueOnce({ id: "tracker-repeat-notify" } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(prisma.threadTracker.update).toHaveBeenNthCalledWith(2, {
+      where: { id: "tracker-repeat-notify" },
+      data: {
+        followUpNotifications: [previousDelivery, nextDelivery],
+      },
+    });
   });
 
   it("uses the sender as the notification counterparty for needs-reply follow-ups", async () => {
