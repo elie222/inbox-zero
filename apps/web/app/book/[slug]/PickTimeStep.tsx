@@ -158,7 +158,7 @@ function BookingCalendar({
           "bg-blue-600 text-white hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white",
         day_today: "ring-1 ring-blue-200",
         day_disabled:
-          "cursor-not-allowed text-muted-foreground opacity-40 hover:bg-transparent",
+          "pointer-events-none cursor-not-allowed text-muted-foreground opacity-40 hover:bg-transparent hover:text-muted-foreground",
       }}
     />
   );
