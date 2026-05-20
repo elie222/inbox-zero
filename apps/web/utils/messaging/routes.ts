@@ -118,7 +118,9 @@ export function formatRouteTargetLabelWithNames(
 ) {
   if (!route) return null;
   if (isDirectMessageRoute(route)) return "Direct message";
-  return targetNamesById?.[route.targetId] ?? formatRouteTargetLabel(route);
+  if (targetNamesById)
+    return targetNamesById[route.targetId] ?? "Channel unavailable";
+  return formatRouteTargetLabel(route);
 }
 
 export function getMessagingRouteSummary(
