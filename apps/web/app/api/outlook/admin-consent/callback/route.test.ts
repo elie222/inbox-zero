@@ -135,5 +135,7 @@ function expectStateCookieCleared(response: Response) {
   expect(response.headers.get("set-cookie")).toContain(
     `${MICROSOFT_ADMIN_CONSENT_STATE_COOKIE_NAME}=`,
   );
-  expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+  expect(response.headers.get("set-cookie")).toContain(
+    "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+  );
 }
