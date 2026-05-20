@@ -154,7 +154,9 @@ export async function clearFollowUpLabel({
       select: {
         id: true,
         messageId: true,
+        followUpAppliedAt: true,
         followUpDraftId: true,
+        resolved: true,
       },
     });
 
@@ -165,7 +167,10 @@ export async function clearFollowUpLabel({
 
     if (
       triggerMessageId &&
-      activeTrackers.every((tracker) => tracker.messageId === triggerMessageId)
+      activeTrackers.some(
+        (tracker) =>
+          tracker.messageId === triggerMessageId && tracker.followUpAppliedAt,
+      )
     ) {
       logger.info("Skipping follow-up cleanup for tracked message webhook", {
         threadId,
@@ -213,22 +218,24 @@ export async function clearFollowUpLabel({
       );
     }
 
-    // Clear followUpAppliedAt only on unresolved trackers (preserve resolved history)
-    await withPrismaRetry(
-      () =>
-        prisma.threadTracker.updateMany({
-          where: {
-            emailAccountId,
-            threadId,
-            resolved: false,
-            followUpAppliedAt: { not: null },
-          },
-          data: {
-            followUpAppliedAt: null,
-          },
-        }),
-      { logger },
-    );
+    const activeFollowUpTrackerIds = activeTrackers
+      .filter((tracker) => !tracker.resolved && tracker.followUpAppliedAt)
+      .map((tracker) => tracker.id);
+
+    if (activeFollowUpTrackerIds.length > 0) {
+      await withPrismaRetry(
+        () =>
+          prisma.threadTracker.updateMany({
+            where: {
+              id: { in: activeFollowUpTrackerIds },
+            },
+            data: {
+              resolved: true,
+            },
+          }),
+        { logger },
+      );
+    }
 
     // Always remove the label regardless of tracker state
     await removeFollowUpLabel({ provider, threadId, logger });
