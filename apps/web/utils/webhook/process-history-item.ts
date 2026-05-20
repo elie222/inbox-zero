@@ -257,6 +257,7 @@ export async function processHistoryItem(
       await clearFollowUpLabel({
         emailAccountId,
         threadId: actualThreadId,
+        triggerMessageId: parsedMessage.id,
         provider,
         logger,
       });

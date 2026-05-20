@@ -325,6 +325,7 @@ describe("clearFollowUpLabel", () => {
       },
       select: {
         id: true,
+        messageId: true,
         followUpDraftId: true,
       },
     });
@@ -520,6 +521,38 @@ describe("clearFollowUpLabel", () => {
       "thread-1",
       "label-123",
     );
+  });
+
+  it("does not clear follow-up state when the webhook is for the tracked message", async () => {
+    const mockProvider = createMockEmailProvider({
+      getLabelByName: vi
+        .fn()
+        .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
+    });
+
+    prisma.threadTracker.findMany.mockResolvedValue([
+      {
+        id: "tracker-1",
+        messageId: "tracked-message-1",
+        followUpDraftId: null,
+      },
+    ]);
+
+    await clearFollowUpLabel({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      triggerMessageId: "tracked-message-1",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(prisma.threadTracker.updateMany).not.toHaveBeenCalled();
+    expect(prisma.messagingChannel.findMany).not.toHaveBeenCalled();
+    expect(mockProvider.getLabelByName).not.toHaveBeenCalled();
+    expect(mockProvider.removeThreadLabel).not.toHaveBeenCalled();
+    expect(messagingMocks.slackChatUpdate).not.toHaveBeenCalled();
+    expect(messagingMocks.teamsEditMessage).not.toHaveBeenCalled();
+    expect(messagingMocks.telegramEditMessage).not.toHaveBeenCalled();
   });
 
   it("updates delivered follow-up notifications when a reply clears the follow-up", async () => {
