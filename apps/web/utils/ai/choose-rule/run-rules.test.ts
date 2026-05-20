@@ -25,6 +25,7 @@ import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { determineConversationStatus } from "@/utils/reply-tracker/handle-conversation-status";
+import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 
 const logger = createTestLogger();
 
@@ -550,6 +551,100 @@ describe("runRules draft attribution persistence", () => {
     ]);
   });
 
+  it("keeps a configured draft messaging channel when another matched rule has no channel", async () => {
+    const emailOnlyRule = createRule("email-only-rule", null, [
+      getAction({
+        id: "email-draft-action",
+        type: ActionType.DRAFT_EMAIL,
+        content: null,
+        ruleId: "email-only-rule",
+      }),
+    ]);
+    const channelRule = createRule("channel-rule", null, [
+      getAction({
+        id: "channel-draft-action",
+        type: ActionType.DRAFT_EMAIL,
+        content: null,
+        ruleId: "channel-rule",
+      }),
+      getAction({
+        id: "channel-delivery-action",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: null,
+        messagingChannelId: "channel-1",
+        ruleId: "channel-rule",
+      }),
+    ]);
+
+    mockMatchingRules([
+      {
+        rule: emailOnlyRule,
+        matchReasons: [{ type: ConditionType.STATIC }],
+      },
+      {
+        rule: channelRule,
+        matchReasons: [{ type: ConditionType.STATIC }],
+      },
+    ]);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    vi.mocked(getActionItemsWithAiArgs).mockImplementation(
+      async ({ selectedRule }) =>
+        selectedRule.actions.map((action) => ({
+          ...action,
+          content: isDraftReplyActionType(action.type)
+            ? "Generated draft content"
+            : action.content,
+        })),
+    );
+
+    const createdActionsByRule = new Map<string | null, ActionType[]>();
+    const createdMessagingChannelsByRule = new Map<
+      string | null,
+      Array<string | null | undefined>
+    >();
+    (prisma.executedRule.create as any).mockImplementation(
+      async (args: any) => {
+        const actionItems = args.data.actionItems?.createMany?.data || [];
+        const ruleId = args.data.rule?.connect?.id ?? null;
+        createdActionsByRule.set(
+          ruleId,
+          actionItems.map((action: any) => action.type),
+        );
+        createdMessagingChannelsByRule.set(
+          ruleId,
+          actionItems.map((action: any) => action.messagingChannelId),
+        );
+
+        return {
+          id: `exec-${createdActionsByRule.size}`,
+          status: ExecutedRuleStatus.APPLYING,
+          ruleId,
+          threadId,
+          messageId: "message-1",
+          actionItems: actionItems.map((action: any, index: number) => ({
+            ...action,
+            id: action.id || `action-${createdActionsByRule.size}-${index}`,
+            executedRuleId: `exec-${createdActionsByRule.size}`,
+          })),
+        };
+      },
+    );
+
+    await runRulesWithDefaults({
+      rules: [emailOnlyRule, channelRule],
+    });
+
+    expect(createdActionsByRule.get("email-only-rule")).toEqual([
+      ActionType.DRAFT_EMAIL,
+      ActionType.DRAFT_MESSAGING_CHANNEL,
+    ]);
+    expect(createdMessagingChannelsByRule.get("email-only-rule")).toEqual([
+      null,
+      "channel-1",
+    ]);
+    expect(createdActionsByRule.get("channel-rule")).toEqual([]);
+  });
+
   it("returns the final status after immediate actions execute", async () => {
     const draftRule = createRule("draft-rule", SystemType.TO_REPLY, [
       getAction({
@@ -1031,6 +1126,49 @@ describe("limitDraftEmailActions", () => {
 
     expect(result[0].rule.actions).toHaveLength(1);
     expect(result[0].rule.actions[0].id).toBe("draft-guest");
+    expect(result[1].rule.actions).toEqual([]);
+  });
+
+  it("moves configured draft messaging delivery to the selected draft rule", () => {
+    const emailOnlyRule = createRule("email-only-rule", null, [
+      getAction({
+        id: "email-draft-action",
+        type: ActionType.DRAFT_EMAIL,
+        content: null,
+        ruleId: "email-only-rule",
+      }),
+    ]);
+    const channelRule = createRule("channel-rule", null, [
+      getAction({
+        id: "channel-draft-action",
+        type: ActionType.DRAFT_EMAIL,
+        content: null,
+        ruleId: "channel-rule",
+      }),
+      getAction({
+        id: "channel-delivery-action",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: null,
+        messagingChannelId: "channel-1",
+        ruleId: "channel-rule",
+      }),
+    ]);
+
+    const result = limitDraftEmailActions(
+      [{ rule: emailOnlyRule }, { rule: channelRule }],
+      logger,
+    );
+
+    expect(result[0].rule.actions.map((action) => action.type)).toEqual([
+      ActionType.DRAFT_EMAIL,
+      ActionType.DRAFT_MESSAGING_CHANNEL,
+    ]);
+    expect(result[0].rule.actions[1]).toEqual(
+      expect.objectContaining({
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "channel-1",
+      }),
+    );
     expect(result[1].rule.actions).toEqual([]);
   });
 });
