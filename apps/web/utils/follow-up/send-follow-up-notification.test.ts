@@ -7,10 +7,10 @@ import {
 } from "@/generated/prisma/enums";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
-  parseFollowUpNotificationDeliveries,
   sendFollowUpNotification,
   type FollowUpNotificationChannel,
 } from "./send-follow-up-notification";
+import { parseFollowUpNotificationDeliveries } from "./notification-deliveries";
 import { FOLLOW_UP_MARK_DONE_ACTION_ID } from "./follow-up-actions";
 import {
   resolveSlackRouteDestination,

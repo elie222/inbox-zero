@@ -8,7 +8,18 @@ import {
   handleFollowUpReminderAction,
 } from "./follow-up-actions";
 
+const { slackChatUpdate } = vi.hoisted(() => ({
+  slackChatUpdate: vi
+    .fn()
+    .mockResolvedValue({ ok: true, ts: "1700000000.000100" }),
+}));
+
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/messaging/providers/slack/client", () => ({
+  createSlackClient: vi.fn(() => ({
+    chat: { update: slackChatUpdate },
+  })),
+}));
 
 const logger = createTestLogger();
 
@@ -98,6 +109,56 @@ describe("handleFollowUpReminderAction", () => {
     expect(threadId).toBe("slack:C_CHANNEL:1700000000.000100");
     expect(messageId).toBe("1700000000.000100");
     expect(JSON.stringify(card)).toMatch(/done/i);
+  });
+
+  it("replaces the stored Slack notification before clearing its reference", async () => {
+    const notification = {
+      messagingChannelId: "channel-1",
+      provider: MessagingProvider.SLACK,
+      providerThreadId: "C_CHANNEL",
+      providerMessageId: "1700000000.000100",
+    };
+
+    prisma.threadTracker.findUnique.mockResolvedValue({
+      id: "tracker-1",
+      resolved: false,
+      emailAccountId: "account-1",
+      followUpNotifications: [notification],
+    } as any);
+    prisma.messagingChannel.findFirst.mockResolvedValue({
+      id: "channel-1",
+    } as any);
+    prisma.messagingChannel.findMany.mockResolvedValue([
+      {
+        id: "channel-1",
+        provider: MessagingProvider.SLACK,
+        accessToken: "xoxb-token",
+      },
+    ] as any);
+    prisma.threadTracker.update.mockResolvedValue({} as any);
+
+    const { event, editMessage } = makeEvent();
+    await handleFollowUpReminderAction({ event, logger });
+
+    expect(prisma.threadTracker.update).toHaveBeenNthCalledWith(1, {
+      where: { id: "tracker-1" },
+      data: { resolved: true },
+    });
+    expect(slackChatUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "C_CHANNEL",
+        ts: "1700000000.000100",
+        text: expect.stringMatching(/done/i),
+        blocks: expect.any(Array),
+        unfurl_links: false,
+        unfurl_media: false,
+      }),
+    );
+    expect(editMessage).not.toHaveBeenCalled();
+    expect(prisma.threadTracker.update).toHaveBeenNthCalledWith(2, {
+      where: { id: "tracker-1" },
+      data: { followUpNotifications: Prisma.JsonNull },
+    });
   });
 
   it("scopes the channel auth lookup to the tracker's email account, slack, the slack team and the clicker", async () => {

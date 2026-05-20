@@ -8,10 +8,10 @@ import {
 import { generateFollowUpDraft } from "@/utils/follow-up/generate-draft";
 import {
   getFollowUpNotificationChannels,
-  parseFollowUpNotificationDeliveries,
   sendFollowUpNotification,
   type FollowUpNotificationChannel,
 } from "@/utils/follow-up/send-follow-up-notification";
+import { parseFollowUpNotificationDeliveries } from "@/utils/follow-up/notification-deliveries";
 import { ThreadTrackerType, SystemType } from "@/generated/prisma/enums";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
