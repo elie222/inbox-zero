@@ -326,7 +326,10 @@ describe("clearFollowUpLabel", () => {
       select: {
         id: true,
         messageId: true,
+        followUpAppliedAt: true,
         followUpDraftId: true,
+        followUpNotifications: true,
+        resolved: true,
       },
     });
     expect(prisma.threadTracker.updateMany).not.toHaveBeenCalled();
@@ -338,7 +341,7 @@ describe("clearFollowUpLabel", () => {
     expect(messagingMocks.telegramEditMessage).not.toHaveBeenCalled();
   });
 
-  it("removes label and clears followUpAppliedAt even without drafts", async () => {
+  it("removes label and resolves active follow-up without clearing followUpAppliedAt", async () => {
     const mockProvider = createMockEmailProvider({
       getLabelByName: vi
         .fn()
@@ -346,7 +349,13 @@ describe("clearFollowUpLabel", () => {
     });
 
     prisma.threadTracker.findMany.mockResolvedValue([
-      { id: "tracker-1", followUpDraftId: null },
+      {
+        id: "tracker-1",
+        messageId: "message-1",
+        followUpAppliedAt: new Date("2026-05-20T10:00:00.000Z"),
+        followUpDraftId: null,
+        resolved: false,
+      },
     ]);
     prisma.threadTracker.updateMany.mockResolvedValue({ count: 1 });
 
@@ -357,18 +366,19 @@ describe("clearFollowUpLabel", () => {
       logger,
     });
 
-    // Should clear followUpAppliedAt
     expect(prisma.threadTracker.updateMany).toHaveBeenCalledWith({
       where: {
-        emailAccountId: "account-1",
-        threadId: "thread-1",
-        resolved: false,
-        followUpAppliedAt: { not: null },
+        id: { in: ["tracker-1"] },
       },
       data: {
-        followUpAppliedAt: null,
+        resolved: true,
       },
     });
+    expect(prisma.threadTracker.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ followUpAppliedAt: null }),
+      }),
+    );
     expect(mockProvider.deleteDraft).not.toHaveBeenCalled();
     // Always removes label
     expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
@@ -386,7 +396,13 @@ describe("clearFollowUpLabel", () => {
     });
 
     prisma.threadTracker.findMany.mockResolvedValue([
-      { id: "tracker-1", followUpDraftId: "draft-abc" },
+      {
+        id: "tracker-1",
+        messageId: "message-1",
+        followUpAppliedAt: new Date("2026-05-20T10:00:00.000Z"),
+        followUpDraftId: "draft-abc",
+        resolved: false,
+      },
     ]);
     prisma.threadTracker.updateMany.mockResolvedValue({ count: 1 });
 
@@ -422,7 +438,13 @@ describe("clearFollowUpLabel", () => {
     });
 
     prisma.threadTracker.findMany.mockResolvedValue([
-      { id: "tracker-1", followUpDraftId: "draft-abc" },
+      {
+        id: "tracker-1",
+        messageId: "message-1",
+        followUpAppliedAt: new Date("2026-05-20T10:00:00.000Z"),
+        followUpDraftId: "draft-abc",
+        resolved: false,
+      },
     ]);
     prisma.threadTracker.updateMany.mockResolvedValue({ count: 1 });
 
@@ -441,18 +463,19 @@ describe("clearFollowUpLabel", () => {
         data: { followUpDraftId: null },
       }),
     );
-    // Still clears followUpAppliedAt and removes label
     expect(prisma.threadTracker.updateMany).toHaveBeenCalledWith({
       where: {
-        emailAccountId: "account-1",
-        threadId: "thread-1",
-        resolved: false,
-        followUpAppliedAt: { not: null },
+        id: { in: ["tracker-1"] },
       },
       data: {
-        followUpAppliedAt: null,
+        resolved: true,
       },
     });
+    expect(prisma.threadTracker.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ followUpAppliedAt: null }),
+      }),
+    );
     expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
       "thread-1",
       "label-123",
@@ -534,7 +557,9 @@ describe("clearFollowUpLabel", () => {
       {
         id: "tracker-1",
         messageId: "tracked-message-1",
+        followUpAppliedAt: new Date("2026-05-20T10:00:00.000Z"),
         followUpDraftId: null,
+        resolved: false,
       },
     ]);
 
@@ -553,6 +578,44 @@ describe("clearFollowUpLabel", () => {
     expect(messagingMocks.slackChatUpdate).not.toHaveBeenCalled();
     expect(messagingMocks.teamsEditMessage).not.toHaveBeenCalled();
     expect(messagingMocks.telegramEditMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not clear follow-up state for a tracked-message webhook when the thread has older trackers", async () => {
+    const mockProvider = createMockEmailProvider({
+      getLabelByName: vi
+        .fn()
+        .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
+    });
+
+    prisma.threadTracker.findMany.mockResolvedValue([
+      {
+        id: "tracker-1",
+        messageId: "tracked-message-1",
+        followUpAppliedAt: new Date("2026-05-20T10:00:00.000Z"),
+        followUpDraftId: null,
+        resolved: false,
+      },
+      {
+        id: "tracker-2",
+        messageId: "older-message-1",
+        followUpAppliedAt: new Date("2026-05-19T10:00:00.000Z"),
+        followUpDraftId: null,
+        resolved: true,
+      },
+    ]);
+
+    await clearFollowUpLabel({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      triggerMessageId: "tracked-message-1",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(prisma.threadTracker.updateMany).not.toHaveBeenCalled();
+    expect(prisma.messagingChannel.findMany).not.toHaveBeenCalled();
+    expect(mockProvider.getLabelByName).not.toHaveBeenCalled();
+    expect(mockProvider.removeThreadLabel).not.toHaveBeenCalled();
   });
 
   it("updates delivered follow-up notifications when a reply clears the follow-up", async () => {
@@ -709,9 +772,7 @@ describe("clearFollowUpLabel", () => {
           followUpNotifications: notifications,
         },
       ]);
-    prisma.threadTracker.updateMany
-      .mockResolvedValueOnce({ count: 1 })
-      .mockResolvedValueOnce({ count: 0 });
+    prisma.threadTracker.updateMany.mockResolvedValueOnce({ count: 0 });
 
     await clearFollowUpLabel({
       emailAccountId: "account-1",
@@ -911,7 +972,6 @@ describe("clearFollowUpLabel", () => {
         },
       ]);
     prisma.threadTracker.updateMany
-      .mockResolvedValueOnce({ count: 1 })
       .mockResolvedValueOnce({ count: 1 })
       .mockResolvedValueOnce({ count: 0 })
       .mockResolvedValueOnce({ count: 1 });
