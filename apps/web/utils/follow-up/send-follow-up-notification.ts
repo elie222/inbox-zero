@@ -1,4 +1,11 @@
-import { Actions, Card, CardText, LinkButton, type CardChild } from "chat";
+import {
+  Actions,
+  Button,
+  Card,
+  CardText,
+  LinkButton,
+  type CardChild,
+} from "chat";
 import { z } from "zod";
 import {
   MessagingProvider,
@@ -25,6 +32,7 @@ import {
   normalizeFollowUpText,
   truncateSnippet,
 } from "@/utils/follow-up/copy";
+import { FOLLOW_UP_MARK_DONE_ACTION_ID } from "@/utils/follow-up/follow-up-actions";
 
 const TELEGRAM_SNIPPET_MAX_CHARS = 3000;
 
@@ -320,6 +328,7 @@ function buildTelegramFollowUpCard({
   snippet,
   threadLink,
   threadLinkLabel,
+  trackerId,
 }: FollowUpNotificationContent) {
   const { directionLine, counterpartyPrefix, snippetLabel, emoji } =
     getFollowUpCopy(trackerType);
@@ -341,16 +350,23 @@ function buildTelegramFollowUpCard({
     children.push(CardText(`${snippetLabel}:\n${formattedSnippet}`));
   }
 
-  if (threadLink) {
-    children.push(
-      Actions([
-        LinkButton({
-          label: threadLinkLabel ?? "Open email",
-          url: threadLink,
-        }),
-      ]),
-    );
-  }
+  children.push(
+    Actions([
+      ...(threadLink
+        ? [
+            LinkButton({
+              label: threadLinkLabel ?? "Open email",
+              url: threadLink,
+            }),
+          ]
+        : []),
+      Button({
+        id: FOLLOW_UP_MARK_DONE_ACTION_ID,
+        label: "Mark done",
+        value: trackerId,
+      }),
+    ]),
+  );
 
   return Card({
     title: `${emoji} Follow-up nudge`,

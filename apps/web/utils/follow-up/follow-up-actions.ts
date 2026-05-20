@@ -2,6 +2,10 @@ import { Card, CardText, type ActionEvent } from "chat";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import { Prisma } from "@/generated/prisma/client";
 import type { Logger } from "@/utils/logger";
+import {
+  getSlackTeamId,
+  getTelegramChatId,
+} from "@/utils/messaging/action-event-identifiers";
 import prisma from "@/utils/prisma";
 
 export const FOLLOW_UP_MARK_DONE_ACTION_ID = "follow_up_mark_done";
@@ -32,13 +36,13 @@ export async function handleFollowUpReminderAction({
     return;
   }
 
-  const teamId = getSlackTeamId(event.raw);
-  const channel = teamId
+  const auth = getProviderAuth(event);
+  const channel = auth
     ? await prisma.messagingChannel.findFirst({
         where: {
           emailAccountId: tracker.emailAccountId,
-          provider: MessagingProvider.SLACK,
-          teamId,
+          provider: auth.provider,
+          teamId: auth.teamId,
           providerUserId: event.user.userId,
           isConnected: true,
         },
@@ -126,7 +130,16 @@ async function postFeedback(
   }
 }
 
-function getSlackTeamId(raw: unknown): string | null {
-  if (!raw || typeof raw !== "object") return null;
-  return (raw as { team?: { id?: string } }).team?.id || null;
+function getProviderAuth(
+  event: ActionEvent,
+): { provider: MessagingProvider; teamId: string } | null {
+  if (event.adapter.name === "slack") {
+    const teamId = getSlackTeamId(event.raw);
+    return teamId ? { provider: MessagingProvider.SLACK, teamId } : null;
+  }
+  if (event.adapter.name === "telegram") {
+    const teamId = getTelegramChatId(event);
+    return teamId ? { provider: MessagingProvider.TELEGRAM, teamId } : null;
+  }
+  return null;
 }

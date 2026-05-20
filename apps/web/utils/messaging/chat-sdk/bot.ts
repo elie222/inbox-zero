@@ -44,6 +44,7 @@ import {
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { consumeMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code-consume";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
+import { getSlackTeamId } from "@/utils/messaging/action-event-identifiers";
 import { buildPendingEmailPreview } from "@/utils/messaging/pending-email-preview";
 import { markdownToSlackMrkdwn } from "@/utils/messaging/providers/slack/format";
 import {
@@ -229,10 +230,6 @@ type PendingEmailActionResolution = {
 type ParsedPendingEmailActionValue =
   | { kind: "legacy"; payload: LegacyPendingEmailActionPayload }
   | { kind: "token"; token: string };
-
-type SlackActionRawPayload = {
-  team?: { id?: string };
-};
 
 declare global {
   var inboxZeroMessagingChatSdk: MessagingChatSdkContext | undefined;
@@ -1436,13 +1433,6 @@ function getMessagingCardText({
   return escapeTelegramMarkdown(text);
 }
 
-function getSlackTeamIdFromActionRaw(raw: unknown): string | null {
-  const teamId =
-    (raw as SlackActionRawPayload | null | undefined)?.team?.id ||
-    (raw as { team_id?: string } | null | undefined)?.team_id;
-  return teamId?.trim() || null;
-}
-
 async function postPendingEmailActionFeedback({
   event,
   provider,
@@ -1558,7 +1548,7 @@ function getTeamIdFromActionEvent({
   provider: SupportedPlatform;
   event: ActionEvent;
 }): string | null {
-  if (provider === "slack") return getSlackTeamIdFromActionRaw(event.raw);
+  if (provider === "slack") return getSlackTeamId(event.raw);
 
   if (provider === "teams") {
     const rawEvent = event.raw as TeamsRawActivity | null | undefined;
