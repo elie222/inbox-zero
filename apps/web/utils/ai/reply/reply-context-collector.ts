@@ -58,7 +58,7 @@ CRITICAL GUIDELINES:
 - Perform as many searches as needed to confidently gather context, but be efficient
 - Focus on emails that show how similar questions were answered before
 - Only include information that directly helps a downstream drafting agent
-- Omit unresolved historical threads that only ask for details already present in the current thread.
+- Omit historical threads whose only useful context asks for details already present in the current thread.
 
 IMPORTANT - For scheduling/meeting requests:
 - DO NOT include emails that show old availability times or scheduling patterns
