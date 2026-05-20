@@ -15,7 +15,7 @@ import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters
 import {
   parseFollowUpNotificationDeliveries,
   type FollowUpNotificationDelivery,
-} from "./send-follow-up-notification";
+} from "./notification-deliveries";
 
 export async function getOrCreateFollowUpLabel(
   provider: EmailProvider,

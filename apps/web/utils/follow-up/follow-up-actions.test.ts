@@ -8,7 +8,18 @@ import {
   handleFollowUpReminderAction,
 } from "./follow-up-actions";
 
+const { slackChatUpdate } = vi.hoisted(() => ({
+  slackChatUpdate: vi
+    .fn()
+    .mockResolvedValue({ ok: true, ts: "1700000000.000100" }),
+}));
+
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/messaging/providers/slack/client", () => ({
+  createSlackClient: vi.fn(() => ({
+    chat: { update: slackChatUpdate },
+  })),
+}));
 
 const logger = createTestLogger();
 
@@ -27,16 +38,12 @@ function makeEvent(
   const post = vi.fn().mockResolvedValue(undefined);
   const editMessage = vi.fn().mockResolvedValue(undefined);
   const value = "value" in overrides ? overrides.value : "tracker-1";
+  const raw = buildRaw(overrides);
   const event = {
     actionId: overrides.actionId ?? FOLLOW_UP_MARK_DONE_ACTION_ID,
     value,
     user: { userId: overrides.userId ?? "U_USER" },
-    raw:
-      "raw" in overrides
-        ? overrides.raw
-        : overrides.teamId === null
-          ? {}
-          : { team: { id: overrides.teamId ?? "T_TEAM" } },
+    raw,
     threadId: overrides.threadId ?? "slack:C_CHANNEL:1700000000.000100",
     messageId: "1700000000.000100",
     adapter: { name: overrides.adapterName ?? "slack", editMessage } as any,
@@ -45,6 +52,14 @@ function makeEvent(
     openModal: vi.fn(),
   };
   return { event: event as any, postEphemeral, post, editMessage };
+}
+
+function buildRaw(
+  overrides: Partial<{ raw: unknown; teamId: string | null }>,
+): unknown {
+  if ("raw" in overrides) return overrides.raw;
+  if (overrides.teamId === null) return {};
+  return { team: { id: overrides.teamId ?? "T_TEAM" } };
 }
 
 describe("handleFollowUpReminderAction", () => {
@@ -98,6 +113,56 @@ describe("handleFollowUpReminderAction", () => {
     expect(threadId).toBe("slack:C_CHANNEL:1700000000.000100");
     expect(messageId).toBe("1700000000.000100");
     expect(JSON.stringify(card)).toMatch(/done/i);
+  });
+
+  it("replaces the stored Slack notification before clearing its reference", async () => {
+    const notification = {
+      messagingChannelId: "channel-1",
+      provider: MessagingProvider.SLACK,
+      providerThreadId: "C_CHANNEL",
+      providerMessageId: "1700000000.000100",
+    };
+
+    prisma.threadTracker.findUnique.mockResolvedValue({
+      id: "tracker-1",
+      resolved: false,
+      emailAccountId: "account-1",
+      followUpNotifications: [notification],
+    } as any);
+    prisma.messagingChannel.findFirst.mockResolvedValue({
+      id: "channel-1",
+    } as any);
+    prisma.messagingChannel.findMany.mockResolvedValue([
+      {
+        id: "channel-1",
+        provider: MessagingProvider.SLACK,
+        accessToken: "xoxb-token",
+      },
+    ] as any);
+    prisma.threadTracker.update.mockResolvedValue({} as any);
+
+    const { event, editMessage } = makeEvent();
+    await handleFollowUpReminderAction({ event, logger });
+
+    expect(prisma.threadTracker.update).toHaveBeenNthCalledWith(1, {
+      where: { id: "tracker-1" },
+      data: { resolved: true },
+    });
+    expect(slackChatUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "C_CHANNEL",
+        ts: "1700000000.000100",
+        text: expect.stringMatching(/done/i),
+        blocks: expect.any(Array),
+        unfurl_links: false,
+        unfurl_media: false,
+      }),
+    );
+    expect(editMessage).not.toHaveBeenCalled();
+    expect(prisma.threadTracker.update).toHaveBeenNthCalledWith(2, {
+      where: { id: "tracker-1" },
+      data: { followUpNotifications: Prisma.JsonNull },
+    });
   });
 
   it("scopes the channel auth lookup to the tracker's email account, slack, the slack team and the clicker", async () => {

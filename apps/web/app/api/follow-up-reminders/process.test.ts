@@ -48,9 +48,6 @@ vi.mock("@/utils/follow-up/generate-draft", () => ({
 
 vi.mock("@/utils/follow-up/send-follow-up-notification", () => ({
   getFollowUpNotificationChannels: vi.fn().mockResolvedValue([]),
-  parseFollowUpNotificationDeliveries: vi.fn((value: unknown) =>
-    Array.isArray(value) ? value : [],
-  ),
   sendFollowUpNotification: vi.fn().mockResolvedValue([]),
 }));
 

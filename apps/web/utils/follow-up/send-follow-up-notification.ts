@@ -6,7 +6,6 @@ import {
   LinkButton,
   type CardChild,
 } from "chat";
-import { z } from "zod";
 import {
   MessagingProvider,
   MessagingRoutePurpose,
@@ -33,6 +32,7 @@ import {
   truncateSnippet,
 } from "@/utils/follow-up/copy";
 import { FOLLOW_UP_MARK_DONE_ACTION_ID } from "@/utils/follow-up/follow-up-actions";
+import type { FollowUpNotificationDelivery } from "@/utils/follow-up/notification-deliveries";
 
 const TELEGRAM_SNIPPET_MAX_CHARS = 3000;
 
@@ -61,27 +61,6 @@ type FollowUpNotificationContent = {
   threadLinkLabel?: string;
   trackerId: string;
 };
-
-export const followUpNotificationDeliverySchema = z.object({
-  messagingChannelId: z.string(),
-  provider: z.nativeEnum(MessagingProvider),
-  providerThreadId: z.string(),
-  providerMessageId: z.string(),
-});
-
-export type FollowUpNotificationDelivery = z.infer<
-  typeof followUpNotificationDeliverySchema
->;
-
-export const followUpNotificationDeliveriesSchema =
-  followUpNotificationDeliverySchema.array();
-
-export function parseFollowUpNotificationDeliveries(
-  value: unknown,
-): FollowUpNotificationDelivery[] {
-  const parsed = followUpNotificationDeliveriesSchema.safeParse(value);
-  return parsed.success ? parsed.data : [];
-}
 
 export async function getFollowUpNotificationChannels(
   emailAccountId: string,
