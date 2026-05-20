@@ -837,29 +837,34 @@ export class GmailProvider implements EmailProvider {
     });
 
     if (executedRule) {
-      const previousDraftHandling = await handlePreviousDraftDeletion({
-        client: this,
-        executedRule,
-        logger: this.logger,
+      // Run draft creation and previous draft deletion in parallel
+      const [result] = await Promise.all([
+        draftEmail(this.client, email, args, userEmail),
+        handlePreviousDraftDeletion({
+          client: this,
+          executedRule,
+          logger: this.logger,
+        }),
+      ]);
+
+      const draftId = result.data.id || "";
+      this.logger.info("Gmail draft created successfully", {
+        draftId,
+        gmailMessageId: result.data.message?.id,
       });
 
-      if (!previousDraftHandling.shouldCreateDraft) {
-        this.logger.info("Skipping Gmail draft creation", {
-          existingDraftId: previousDraftHandling.existingDraftId,
-          reason: previousDraftHandling.reason,
-        });
-        return { draftId: "" };
-      }
+      return { draftId };
+    } else {
+      const result = await draftEmail(this.client, email, args, userEmail);
+
+      const draftId = result.data.id || "";
+      this.logger.info("Gmail draft created successfully", {
+        draftId,
+        gmailMessageId: result.data.message?.id,
+      });
+
+      return { draftId };
     }
-
-    const result = await draftEmail(this.client, email, args, userEmail);
-    const draftId = result.data.id || "";
-    this.logger.info("Gmail draft created successfully", {
-      draftId,
-      gmailMessageId: result.data.message?.id,
-    });
-
-    return { draftId };
   }
 
   async replyToEmail(

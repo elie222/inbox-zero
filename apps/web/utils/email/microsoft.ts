@@ -648,32 +648,34 @@ export class OutlookProvider implements EmailProvider {
     });
 
     if (executedRule) {
-      const previousDraftHandling = await handlePreviousDraftDeletion({
-        client: this,
-        executedRule,
-        logger: this.logger,
+      // Run draft creation and previous draft deletion in parallel
+      const [result] = await Promise.all([
+        draftEmail(this.client, email, args, userEmail, this.logger),
+        handlePreviousDraftDeletion({
+          client: this,
+          executedRule,
+          logger: this.logger,
+        }),
+      ]);
+
+      this.logger.info("Outlook draft created successfully", {
+        draftId: result.id,
       });
+      return { draftId: result.id || "" };
+    } else {
+      const result = await draftEmail(
+        this.client,
+        email,
+        args,
+        userEmail,
+        this.logger,
+      );
 
-      if (!previousDraftHandling.shouldCreateDraft) {
-        this.logger.info("Skipping Outlook draft creation", {
-          existingDraftId: previousDraftHandling.existingDraftId,
-          reason: previousDraftHandling.reason,
-        });
-        return { draftId: "" };
-      }
+      this.logger.info("Outlook draft created successfully", {
+        draftId: result.id,
+      });
+      return { draftId: result.id || "" };
     }
-
-    const result = await draftEmail(
-      this.client,
-      email,
-      args,
-      userEmail,
-      this.logger,
-    );
-    this.logger.info("Outlook draft created successfully", {
-      draftId: result.id,
-    });
-    return { draftId: result.id || "" };
   }
 
   async replyToEmail(

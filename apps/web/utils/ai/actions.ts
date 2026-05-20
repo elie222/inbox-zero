@@ -26,6 +26,7 @@ import {
 } from "@/utils/messaging/rule-notifications";
 import { isMessagingDraftActionType } from "@/utils/actions/draft-reply";
 import { checkHasAccess } from "@/utils/premium/server";
+import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
 
 const MODULE = "ai-actions";
 
@@ -209,6 +210,20 @@ const draft: ActionFunction<{
     }
   }
 
+  const previousDraftHandling = await handlePreviousDraftDeletion({
+    client,
+    executedRule,
+    logger,
+  });
+
+  if (!previousDraftHandling.shouldCreateDraft) {
+    logger.info("Skipping draft creation", {
+      existingDraftId: previousDraftHandling.existingDraftId,
+      reason: previousDraftHandling.reason,
+    });
+    return { draftId: "" };
+  }
+
   const attachments = await resolveActionAttachments({
     email,
     emailAccount,
@@ -246,7 +261,6 @@ const draft: ActionFunction<{
     },
     draftArgs,
     emailAccount.email,
-    executedRule,
   );
   return { draftId: result.draftId };
 };
