@@ -165,13 +165,31 @@ export async function clearFollowUpLabel({
       return;
     }
 
-    if (
+    const triggerMatchesFollowUpTracker = Boolean(
       triggerMessageId &&
-      activeTrackers.some(
-        (tracker) =>
-          tracker.messageId === triggerMessageId && tracker.followUpAppliedAt,
-      )
-    ) {
+        activeTrackers.some(
+          (tracker) =>
+            tracker.messageId === triggerMessageId && tracker.followUpAppliedAt,
+        ),
+    );
+
+    logger.info("Loaded follow-up cleanup state", {
+      threadId,
+      triggerMessageId,
+      trackerCount: activeTrackers.length,
+      unresolvedFollowUpTrackerCount: activeTrackers.filter(
+        (tracker) => !tracker.resolved && tracker.followUpAppliedAt,
+      ).length,
+      draftTrackerCount: activeTrackers.filter(
+        (tracker) => tracker.followUpDraftId,
+      ).length,
+      notificationTrackerCount: activeTrackers.filter(
+        (tracker) => tracker.followUpNotifications,
+      ).length,
+      triggerMatchesFollowUpTracker,
+    });
+
+    if (triggerMatchesFollowUpTracker) {
       logger.info("Skipping follow-up cleanup for tracked message webhook", {
         threadId,
         messageId: triggerMessageId,
@@ -223,6 +241,11 @@ export async function clearFollowUpLabel({
       .map((tracker) => tracker.id);
 
     if (activeFollowUpTrackerIds.length > 0) {
+      logger.info("Resolving follow-up trackers while preserving ledger", {
+        threadId,
+        trackerCount: activeFollowUpTrackerIds.length,
+      });
+
       await withPrismaRetry(
         () =>
           prisma.threadTracker.updateMany({
@@ -248,6 +271,7 @@ export async function clearFollowUpLabel({
     logger.info("Cleared follow-up label and cleaned up trackers", {
       threadId,
       draftsDeleted: deletedDraftTrackerIds.length,
+      resolvedFollowUpTrackers: activeFollowUpTrackerIds.length,
     });
   } catch (error) {
     logger.error("Failed to clear follow-up label", { threadId, error });
