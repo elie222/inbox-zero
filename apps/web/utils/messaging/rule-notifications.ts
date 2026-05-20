@@ -737,14 +737,13 @@ export async function handleSlackRuleNotificationModalSubmit({
       context: { ...context, content: nextContent },
       logger,
       editMessage: async (card) => {
-        if (event.relatedMessage) {
-          await event.relatedMessage.edit(card);
-          return;
+        if (!event.relatedMessage) {
+          throw new Error(
+            "Slack draft modal submitted without related message",
+          );
         }
 
-        logger.warn("Slack draft modal submitted without related message", {
-          executedActionId: context.id,
-        });
+        await event.relatedMessage.edit(card);
       },
     });
   } catch (error) {
@@ -957,32 +956,147 @@ async function sendDraftReplyFromNotification({
     );
   }
 
-  await prisma.executedAction.update({
-    where: { id: context.id },
-    data: {
-      draftStatus: DraftEmailStatus.LIKELY_SENT,
-      messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
-    },
-  });
-
-  if (mailboxDraftAction?.id) {
-    await prisma.executedAction.update({
-      where: { id: mailboxDraftAction.id },
-      data: {
-        draftStatus: DraftEmailStatus.LIKELY_SENT,
-      },
+  try {
+    await Promise.all([
+      prisma.executedAction.update({
+        where: { id: context.id },
+        data: {
+          draftStatus: DraftEmailStatus.LIKELY_SENT,
+          messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
+        },
+      }),
+      ...(mailboxDraftAction?.id
+        ? [
+            prisma.executedAction.update({
+              where: { id: mailboxDraftAction.id },
+              data: { draftStatus: DraftEmailStatus.LIKELY_SENT },
+            }),
+          ]
+        : []),
+    ]);
+  } catch (error) {
+    logger.warn("Failed to mark notification draft reply as sent", {
+      executedActionId: context.id,
+      mailboxDraftActionId: mailboxDraftAction?.id,
+      error,
     });
   }
 
-  await editMessage(
-    buildHandledNotificationCard({
+  await updateSentDraftNotificationMessage({
+    context,
+    logger,
+    editMessage,
+    card: buildHandledNotificationCard({
       content: notificationContent,
       openLink: getNotificationOpenLink(context),
       status: "Reply sent.",
     }),
-  );
+  });
 
   return "sent";
+}
+
+async function updateSentDraftNotificationMessage({
+  context,
+  logger,
+  editMessage,
+  card,
+}: {
+  context: NotificationContext;
+  logger: Logger;
+  editMessage: (card: CardElement) => Promise<void>;
+  card: CardElement;
+}) {
+  try {
+    await editMessage(card);
+    return;
+  } catch (error) {
+    logger.warn("Failed to update sent draft notification message", {
+      executedActionId: context.id,
+      error,
+    });
+  }
+
+  await updateStoredSlackNotificationMessage({
+    context,
+    logger,
+    card,
+  });
+}
+
+async function updateStoredSlackNotificationMessage({
+  context,
+  logger,
+  card,
+}: {
+  context: NotificationContext;
+  logger: Logger;
+  card: CardElement;
+}) {
+  if (
+    !context.messagingMessageId ||
+    !context.messagingChannel ||
+    !isOperationalSlackChannel(context.messagingChannel)
+  ) {
+    return;
+  }
+
+  const route = getMessagingRoute(
+    context.messagingChannel.routes,
+    MessagingRoutePurpose.RULE_NOTIFICATIONS,
+  );
+
+  try {
+    const destinationChannelId = await resolveSlackRouteDestination({
+      accessToken: context.messagingChannel.accessToken,
+      route,
+    });
+
+    if (!destinationChannelId) {
+      logger.warn(
+        "Skipping sent Slack draft notification update with no route",
+        {
+          executedActionId: context.id,
+          messagingChannelId: context.messagingChannelId,
+        },
+      );
+      return;
+    }
+
+    await updateSlackCard({
+      accessToken: context.messagingChannel.accessToken,
+      channel: destinationChannelId,
+      ts: context.messagingMessageId,
+      card,
+    });
+  } catch (error) {
+    logger.warn("Failed to update stored Slack draft notification message", {
+      executedActionId: context.id,
+      messagingMessageId: context.messagingMessageId,
+      error,
+    });
+  }
+}
+
+async function updateSlackCard({
+  accessToken,
+  channel,
+  ts,
+  card,
+}: {
+  accessToken: string;
+  channel: string;
+  ts: string;
+  card: CardElement;
+}) {
+  await createSlackClient(accessToken).chat.update(
+    disableSlackLinkUnfurls({
+      channel,
+      ts,
+      text: cardToFallbackText(card),
+      blocks: cardToBlockKit(card),
+    }),
+  );
 }
 
 export function buildNotificationReplySendBody({
@@ -2148,16 +2262,12 @@ async function replaceMessagingDraftNotificationWithHandledOnWebState({
           return;
         }
 
-        await createSlackClient(
-          context.messagingChannel.accessToken,
-        ).chat.update(
-          disableSlackLinkUnfurls({
-            channel: destinationChannelId,
-            ts: context.messagingMessageId,
-            text: cardToFallbackText(card),
-            blocks: cardToBlockKit(card),
-          }),
-        );
+        await updateSlackCard({
+          accessToken: context.messagingChannel.accessToken,
+          channel: destinationChannelId,
+          ts: context.messagingMessageId,
+          card,
+        });
         break;
       }
       case MessagingProvider.TEAMS: {
