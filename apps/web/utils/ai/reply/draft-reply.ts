@@ -24,6 +24,7 @@ const DRAFT_OUTPUT_INSTRUCTION =
 const systemPrompt = `You are an expert assistant that drafts email replies.
 
 Use context from the previous emails and the provided knowledge base to make it relevant and accurate.
+Current thread facts override advisory context. Do not ask for details already present there.
 IMPORTANT: Do NOT simply repeat or mirror what the last email said. It doesn't add anything to the conversation to repeat back to them what they just said.
 Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
@@ -123,7 +124,7 @@ ${emailHistorySummary}
     : "";
 
   const precedentHistoryContext = emailHistoryContext?.relevantEmails.length
-    ? `Information from similar email threads that may be relevant to the current conversation to draft a reply.
+    ? `Advisory context from similar email threads that may help draft a reply.
 
 <email_history>
 ${emailHistoryContext.relevantEmails
