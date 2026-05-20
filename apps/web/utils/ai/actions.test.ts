@@ -10,6 +10,7 @@ import {
   getMessagingRuleNotificationResult,
   sendMessagingRuleNotification,
 } from "@/utils/messaging/rule-notifications";
+import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -28,6 +29,12 @@ vi.mock("@/utils/messaging/rule-notifications", () => ({
     kind: "interactive",
   }),
   sendMessagingRuleNotification: vi.fn().mockResolvedValue(true),
+}));
+
+vi.mock("@/utils/ai/choose-rule/draft-management", () => ({
+  handlePreviousDraftDeletion: vi.fn().mockResolvedValue({
+    shouldCreateDraft: true,
+  }),
 }));
 
 vi.mock("@/utils/prisma", () => ({
@@ -68,6 +75,9 @@ describe("runActionFunction", () => {
     vi.mocked(getMessagingRuleNotificationResult).mockResolvedValue({
       delivered: true,
       kind: "interactive",
+    });
+    vi.mocked(handlePreviousDraftDeletion).mockResolvedValue({
+      shouldCreateDraft: true,
     });
   });
 
@@ -136,7 +146,6 @@ describe("runActionFunction", () => {
         ],
       }),
       emailAccount.email,
-      expect.objectContaining({ id: "executed-rule-1" }),
     );
   });
 
@@ -170,8 +179,38 @@ describe("runActionFunction", () => {
         attachments: [],
       }),
       emailAccount.email,
-      expect.objectContaining({ id: "executed-rule-1" }),
     );
+  });
+
+  it("skips mailbox draft creation when preserving an existing edited draft", async () => {
+    const client = createMockEmailProvider();
+    vi.mocked(handlePreviousDraftDeletion).mockResolvedValueOnce({
+      shouldCreateDraft: false,
+      existingDraftId: "draft-1",
+      reason: "modified",
+    });
+
+    const result = await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.DRAFT_EMAIL,
+        content: "Replacement draft.",
+      },
+      emailAccount,
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(result).toEqual({ draftId: "" });
+    expect(resolveDraftAttachments).not.toHaveBeenCalled();
+    expect(client.draftEmail).not.toHaveBeenCalled();
   });
 
   it("sends chat drafts through the messaging notification path", async () => {
