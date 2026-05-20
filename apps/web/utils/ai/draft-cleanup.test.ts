@@ -59,6 +59,21 @@ describe("cleanupAIDraftsForAccount", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           executedRule: { emailAccountId: "email-account-1" },
+          OR: [
+            {
+              draftStatus: {
+                in: [
+                  DraftEmailStatus.PENDING,
+                  DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+                ],
+              },
+            },
+            { draftStatus: null },
+            {
+              draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+              wasDraftSent: false,
+            },
+          ],
           createdAt: { lt: expectedCutoffDate },
         }),
       }),
@@ -169,6 +184,77 @@ describe("cleanupAIDraftsForAccount", () => {
       cleanupDays: 14,
     });
   });
+
+  it("retries legacy cleanup records that still have provider drafts", async () => {
+    mocks.prisma.executedAction.findMany.mockResolvedValue([
+      {
+        id: "action-legacy-cleaned",
+        draftId: "draft-legacy-cleaned",
+        content: "Legacy generated reply.",
+        draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+        wasDraftSent: false,
+      },
+    ]);
+    mocks.provider.getDraft.mockResolvedValue({
+      textPlain: "Legacy generated reply.",
+      textHtml: null,
+    });
+
+    const result = await cleanupAIDraftsForAccount({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+      cleanupDays: 14,
+    });
+
+    expect(mocks.provider.deleteDraft).toHaveBeenCalledWith(
+      "draft-legacy-cleaned",
+    );
+    expect(mocks.prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-legacy-cleaned" },
+      data: {
+        wasDraftSent: null,
+      },
+    });
+    expect(result).toMatchObject({
+      total: 1,
+      deleted: 1,
+      cleanupDays: 14,
+    });
+  });
+
+  it("marks legacy cleanup records as checked when the provider draft is gone", async () => {
+    mocks.prisma.executedAction.findMany.mockResolvedValue([
+      {
+        id: "action-legacy-missing",
+        draftId: "draft-legacy-missing",
+        content: "Legacy generated reply.",
+        draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+        wasDraftSent: false,
+      },
+    ]);
+    mocks.provider.getDraft.mockResolvedValue(null);
+
+    const result = await cleanupAIDraftsForAccount({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+      cleanupDays: 14,
+    });
+
+    expect(mocks.provider.deleteDraft).not.toHaveBeenCalled();
+    expect(mocks.prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-legacy-missing" },
+      data: {
+        wasDraftSent: null,
+      },
+    });
+    expect(result).toMatchObject({
+      total: 1,
+      alreadyGone: 1,
+      cleanupDays: 14,
+    });
+  });
 });
 
 describe("cleanupConfiguredAIDrafts", () => {
@@ -199,12 +285,21 @@ describe("cleanupConfiguredAIDrafts", () => {
               some: {
                 type: ActionType.DRAFT_EMAIL,
                 draftId: { not: null },
-                draftStatus: {
-                  in: [
-                    DraftEmailStatus.PENDING,
-                    DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
-                  ],
-                },
+                OR: [
+                  {
+                    draftStatus: {
+                      in: [
+                        DraftEmailStatus.PENDING,
+                        DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+                      ],
+                    },
+                  },
+                  { draftStatus: null },
+                  {
+                    draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+                    wasDraftSent: false,
+                  },
+                ],
               },
             },
           },
