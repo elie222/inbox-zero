@@ -328,6 +328,7 @@ describe("clearFollowUpLabel", () => {
         messageId: true,
         followUpAppliedAt: true,
         followUpDraftId: true,
+        followUpNotifications: true,
         resolved: true,
       },
     });

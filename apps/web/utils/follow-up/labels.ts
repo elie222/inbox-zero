@@ -156,6 +156,7 @@ export async function clearFollowUpLabel({
         messageId: true,
         followUpAppliedAt: true,
         followUpDraftId: true,
+        followUpNotifications: true,
         resolved: true,
       },
     });
