@@ -126,11 +126,13 @@ export async function hasFollowUpLabel({
 export async function clearFollowUpLabel({
   emailAccountId,
   threadId,
+  triggerMessageId,
   provider,
   logger,
 }: {
   emailAccountId: string;
   threadId: string;
+  triggerMessageId?: string;
   provider: EmailProvider;
   logger: Logger;
 }): Promise<void> {
@@ -151,12 +153,24 @@ export async function clearFollowUpLabel({
       },
       select: {
         id: true,
+        messageId: true,
         followUpDraftId: true,
       },
     });
 
     if (activeTrackers.length === 0) {
       logger.info("No active follow-up state to clear", { threadId });
+      return;
+    }
+
+    if (
+      triggerMessageId &&
+      activeTrackers.every((tracker) => tracker.messageId === triggerMessageId)
+    ) {
+      logger.info("Skipping follow-up cleanup for tracked message webhook", {
+        threadId,
+        messageId: triggerMessageId,
+      });
       return;
     }
 
