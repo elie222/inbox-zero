@@ -153,7 +153,10 @@ describe("handleFollowUpReminderAction", () => {
     });
     expect(prisma.threadTracker.update).toHaveBeenCalledWith({
       where: { id: "tracker-1" },
-      data: { resolved: true },
+      data: {
+        resolved: true,
+        followUpNotifications: Prisma.JsonNull,
+      },
     });
     expect(post).toHaveBeenCalled();
   });
