@@ -38,16 +38,12 @@ function makeEvent(
   const post = vi.fn().mockResolvedValue(undefined);
   const editMessage = vi.fn().mockResolvedValue(undefined);
   const value = "value" in overrides ? overrides.value : "tracker-1";
+  const raw = buildRaw(overrides);
   const event = {
     actionId: overrides.actionId ?? FOLLOW_UP_MARK_DONE_ACTION_ID,
     value,
     user: { userId: overrides.userId ?? "U_USER" },
-    raw:
-      "raw" in overrides
-        ? overrides.raw
-        : overrides.teamId === null
-          ? {}
-          : { team: { id: overrides.teamId ?? "T_TEAM" } },
+    raw,
     threadId: overrides.threadId ?? "slack:C_CHANNEL:1700000000.000100",
     messageId: "1700000000.000100",
     adapter: { name: overrides.adapterName ?? "slack", editMessage } as any,
@@ -56,6 +52,14 @@ function makeEvent(
     openModal: vi.fn(),
   };
   return { event: event as any, postEphemeral, post, editMessage };
+}
+
+function buildRaw(
+  overrides: Partial<{ raw: unknown; teamId: string | null }>,
+): unknown {
+  if ("raw" in overrides) return overrides.raw;
+  if (overrides.teamId === null) return {};
+  return { team: { id: overrides.teamId ?? "T_TEAM" } };
 }
 
 describe("handleFollowUpReminderAction", () => {

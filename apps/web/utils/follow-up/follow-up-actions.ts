@@ -1,9 +1,12 @@
-import { Card, CardText, type ActionEvent } from "chat";
+import { Card, CardText, type ActionEvent, type CardElement } from "chat";
 import { cardToBlockKit, cardToFallbackText } from "@chat-adapter/slack";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import { Prisma } from "@/generated/prisma/client";
 import type { Logger } from "@/utils/logger";
-import { parseFollowUpNotificationDeliveries } from "@/utils/follow-up/notification-deliveries";
+import {
+  parseFollowUpNotificationDeliveries,
+  type FollowUpNotificationDelivery,
+} from "@/utils/follow-up/notification-deliveries";
 import {
   getSlackTeamId,
   getTelegramChatId,
@@ -68,51 +71,59 @@ export async function handleFollowUpReminderAction({
     return;
   }
 
+  const storedNotifications = parseFollowUpNotificationDeliveries(
+    tracker.followUpNotifications,
+  );
+  const card = buildResolvedCard();
+
+  // Mark resolved up front so the action is idempotent if subsequent steps fail.
   await prisma.threadTracker.update({
     where: { id: trackerId },
-    data: getInitialResolvedUpdateData(tracker.followUpNotifications),
+    data:
+      storedNotifications.length === 0
+        ? { resolved: true, followUpNotifications: Prisma.JsonNull }
+        : { resolved: true },
   });
+
+  const allStoredReplaced =
+    storedNotifications.length > 0 &&
+    (await replaceStoredResolvedCards({
+      emailAccountId: tracker.emailAccountId,
+      notifications: storedNotifications,
+      card,
+      logger,
+    }));
+
+  const fallbackHandled =
+    !allStoredReplaced && (await replaceWithResolvedCard(event, card, logger));
+
+  const shouldClearNotificationReferences =
+    storedNotifications.length > 0 && (allStoredReplaced || fallbackHandled);
 
   const feedback = tracker.resolved
     ? "This follow-up is already done."
     : "Marked done. We won't follow up on this thread again.";
 
-  const storedNotificationResult = await replaceStoredResolvedCards({
-    emailAccountId: tracker.emailAccountId,
-    notifications: tracker.followUpNotifications,
-    logger,
-  });
-  const fallbackResult =
-    storedNotificationResult !== "replaced"
-      ? await replaceWithResolvedCard(event, logger)
-      : false;
-
-  const shouldClearNotificationReferences =
-    storedNotificationResult === "replaced" ||
-    (storedNotificationResult === "failed" && fallbackResult);
-
   await Promise.all([
-    shouldClearNotificationReferences &&
-      prisma.threadTracker.update({
-        where: { id: trackerId },
-        data: { followUpNotifications: Prisma.JsonNull },
-      }),
+    shouldClearNotificationReferences
+      ? prisma.threadTracker.update({
+          where: { id: trackerId },
+          data: { followUpNotifications: Prisma.JsonNull },
+        })
+      : null,
     postFeedback(event, logger, feedback),
   ]);
 }
 
 async function replaceWithResolvedCard(
   event: ActionEvent,
+  card: CardElement,
   logger: Logger,
 ): Promise<boolean> {
   if (!event.threadId || !event.messageId) return false;
 
   try {
-    await event.adapter.editMessage(
-      event.threadId,
-      event.messageId,
-      buildResolvedCard(),
-    );
+    await event.adapter.editMessage(event.threadId, event.messageId, card);
     return true;
   } catch (error) {
     logger.warn("Failed to update follow-up notification after Mark done", {
@@ -123,34 +134,20 @@ async function replaceWithResolvedCard(
   }
 }
 
-function getInitialResolvedUpdateData(followUpNotifications: unknown) {
-  const notifications = parseFollowUpNotificationDeliveries(
-    followUpNotifications,
-  );
-
-  return notifications.length === 0
-    ? { resolved: true, followUpNotifications: Prisma.JsonNull }
-    : { resolved: true };
-}
-
 async function replaceStoredResolvedCards({
   emailAccountId,
   notifications,
+  card,
   logger,
 }: {
   emailAccountId: string;
-  notifications: unknown;
+  notifications: FollowUpNotificationDelivery[];
+  card: CardElement;
   logger: Logger;
-}): Promise<"none" | "replaced" | "failed"> {
-  const parsedNotifications =
-    parseFollowUpNotificationDeliveries(notifications);
-  if (parsedNotifications.length === 0) return "none";
-
+}): Promise<boolean> {
   const messagingChannelIds = [
     ...new Set(
-      parsedNotifications.map(
-        (notification) => notification.messagingChannelId,
-      ),
+      notifications.map((notification) => notification.messagingChannelId),
     ),
   ];
   const channels = await prisma.messagingChannel.findMany({
@@ -167,10 +164,11 @@ async function replaceStoredResolvedCards({
   const channelsById = new Map(
     channels.map((channel) => [channel.id, channel]),
   );
-  const card = buildResolvedCard();
+  const text = cardToFallbackText(card);
+  const blocks = cardToBlockKit(card);
 
   const results = await Promise.all(
-    parsedNotifications.map(async (notification) => {
+    notifications.map(async (notification) => {
       const channel = channelsById.get(notification.messagingChannelId);
       if (!channel) return true;
 
@@ -182,8 +180,8 @@ async function replaceStoredResolvedCards({
           disableSlackLinkUnfurls({
             channel: notification.providerThreadId,
             ts: notification.providerMessageId,
-            text: cardToFallbackText(card),
-            blocks: cardToBlockKit(card),
+            text,
+            blocks,
           }),
         );
         return true;
@@ -197,7 +195,7 @@ async function replaceStoredResolvedCards({
     }),
   );
 
-  return results.every(Boolean) ? "replaced" : "failed";
+  return results.every(Boolean);
 }
 
 function buildResolvedCard() {
