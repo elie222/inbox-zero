@@ -2026,6 +2026,7 @@ function buildEmailPreview(
   const rawPreview = emailToContent(email, {
     maxLength: 0,
     extractReply: true,
+    includeLinkUrls: true,
   });
   const preview = formatNotificationText(
     removeExcessiveWhitespace(he.decode(rawPreview)).trim(),

@@ -1245,6 +1245,43 @@ describe("sendMessagingRuleNotification", () => {
     expect(serializedBlocks).not.toContain("image.png");
   });
 
+  it("includes HTML link URLs in Slack draft notification previews", async () => {
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: "Draft body",
+    });
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Please click the link above.",
+        textHtml:
+          '<p>To finish the request, open the <a href="https://example.com/form">linked form</a>.</p><p>Please click the link above.</p>',
+      },
+      logger,
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockSlackPostMessage).toHaveBeenCalledTimes(1);
+
+    const [args] = mockSlackPostMessage.mock.calls[0];
+    const serializedBlocks = JSON.stringify(args.blocks);
+
+    expect(serializedBlocks).toContain("linked form");
+    expect(serializedBlocks).toContain("https://example.com/form");
+    expect(serializedBlocks).not.toContain("<a");
+  });
+
   it("prefers converted HTML over plain text for Slack notification previews", async () => {
     mockNotificationContext({
       id: "action-1",
