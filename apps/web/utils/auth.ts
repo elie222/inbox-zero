@@ -1,6 +1,5 @@
 import { sso } from "@better-auth/sso";
 import { scim } from "@better-auth/scim";
-import { expo } from "@better-auth/expo";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import type { GenericOAuthConfig } from "better-auth/plugins/generic-oauth";
 import { oAuthProxy } from "better-auth/plugins";
@@ -42,6 +41,7 @@ import {
   claimPendingPremiumInvite,
   updateAccountSeats,
 } from "@/utils/premium/seats";
+import { safeExpo } from "@/utils/mobile-auth/expo";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
 import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 import { getAppleClientSecret } from "@/utils/auth/apple-client-secret";
@@ -232,7 +232,7 @@ export const betterAuthConfig = betterAuth({
       },
     }),
     ...(genericOauthPlugin ? [genericOauthPlugin] : []),
-    ...(mobileAuthOrigins.length > 0 ? [expo()] : []),
+    ...(mobileAuthOrigins.length > 0 ? [safeExpo()] : []),
     // OAuth proxy for preview deployments (Google doesn't allow wildcard redirect URIs)
     ...(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER
       ? [

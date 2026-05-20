@@ -78,6 +78,7 @@ const parsedEnv = createEnv({
     APPLE_KEY_ID: z.string().optional(),
     APPLE_PRIVATE_KEY: z.string().optional(),
     APPLE_APP_BUNDLE_IDENTIFIER: z.string().optional(),
+    ANDROID_APP_CERT_SHA256_FINGERPRINTS: z.string().optional(),
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
 
