@@ -3,8 +3,15 @@ import type { ActionEvent } from "chat";
 export function getSlackTeamId(raw: unknown): string | null {
   if (!raw || typeof raw !== "object") return null;
 
-  const maybeTeam = (raw as { team?: { id?: string } }).team?.id;
-  return maybeTeam || null;
+  const payload = raw as {
+    team?: { id?: unknown };
+    team_id?: unknown;
+  };
+
+  return (
+    normalizeIdentifier(payload.team?.id) ??
+    normalizeIdentifier(payload.team_id)
+  );
 }
 
 export function getTelegramChatId(event: ActionEvent): string | null {
@@ -32,4 +39,10 @@ export function getTelegramChatId(event: ActionEvent): string | null {
   }
 
   return null;
+}
+
+function normalizeIdentifier(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+
+  return value.trim() || null;
 }
