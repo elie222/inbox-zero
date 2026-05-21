@@ -5,6 +5,16 @@ import prisma from "@/utils/__mocks__/prisma";
 import { listChannels } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 
+const { isAppReviewDemoAccountEmailMock, isPosthogFeatureEnabledMock } =
+  vi.hoisted(() => ({
+    isAppReviewDemoAccountEmailMock: vi.fn(),
+    isPosthogFeatureEnabledMock: vi.fn(),
+  }));
+
+vi.mock("@/utils/app-review-demo", () => ({
+  isAppReviewDemoAccountEmail: isAppReviewDemoAccountEmailMock,
+}));
+
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/middleware", async () => {
   const { createWithEmailAccountTestMiddleware } = await vi.importActual<
@@ -19,6 +29,9 @@ vi.mock("@/utils/messaging/providers/slack/channels", () => ({
 vi.mock("@/utils/messaging/providers/slack/client", () => ({
   createSlackClient: vi.fn(),
 }));
+vi.mock("@/utils/posthog", () => ({
+  isPosthogFeatureEnabled: isPosthogFeatureEnabledMock,
+}));
 
 const mockEnv = vi.hoisted(() => ({
   SLACK_CLIENT_ID: "slack-client-id" as string | undefined,
@@ -32,6 +45,7 @@ vi.mock("@/env", () => ({
   env: mockEnv,
 }));
 
+import { getAvailableMessagingProviders } from "@/utils/messaging/available-providers";
 import { GET } from "./route";
 
 const messagingChannelSelect = {
@@ -71,6 +85,13 @@ type MessagingChannelRecord = Prisma.MessagingChannelGetPayload<{
 describe("GET /api/user/messaging-channels", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnv.SLACK_CLIENT_ID = "slack-client-id";
+    mockEnv.SLACK_CLIENT_SECRET = "slack-client-secret";
+    mockEnv.TEAMS_BOT_APP_ID = undefined;
+    mockEnv.TEAMS_BOT_APP_PASSWORD = undefined;
+    mockEnv.TELEGRAM_BOT_TOKEN = undefined;
+    isAppReviewDemoAccountEmailMock.mockReturnValue(false);
+    isPosthogFeatureEnabledMock.mockResolvedValue(false);
   });
 
   it("omits provider user ids while returning route summaries", async () => {
@@ -357,6 +378,45 @@ describe("GET /api/user/messaging-channels", () => {
         canSendAsDm: false,
       }),
     ]);
+  });
+
+  it("returns Teams when the authenticated email has early access enabled", async () => {
+    mockEnv.TEAMS_BOT_APP_ID = "teams-app-id";
+    mockEnv.TEAMS_BOT_APP_PASSWORD = "teams-password";
+    isPosthogFeatureEnabledMock.mockResolvedValue(true);
+    prisma.messagingChannel.findMany.mockResolvedValue([]);
+
+    const response = await GET(createRequest());
+    const body = await response.json();
+
+    expect(body.availableProviders).toEqual(["SLACK", "TEAMS"]);
+    expect(isPosthogFeatureEnabledMock).toHaveBeenCalledWith({
+      distinctId: "user@example.com",
+      flagKey: "microsoft-teams",
+    });
+  });
+
+  it("hides Teams when early access is not enabled", async () => {
+    mockEnv.TEAMS_BOT_APP_ID = "teams-app-id";
+    mockEnv.TEAMS_BOT_APP_PASSWORD = "teams-password";
+
+    await expect(
+      getAvailableMessagingProviders({ email: "user@example.com" }),
+    ).resolves.toEqual(["SLACK"]);
+  });
+
+  it("allows Teams for configured app review demo accounts", async () => {
+    mockEnv.TEAMS_BOT_APP_ID = "teams-app-id";
+    mockEnv.TEAMS_BOT_APP_PASSWORD = "teams-password";
+    isAppReviewDemoAccountEmailMock.mockReturnValue(true);
+
+    await expect(
+      getAvailableMessagingProviders({ email: "Reviewer@Example.com" }),
+    ).resolves.toEqual(["SLACK", "TEAMS"]);
+    expect(isAppReviewDemoAccountEmailMock).toHaveBeenCalledWith(
+      "reviewer@example.com",
+    );
+    expect(isPosthogFeatureEnabledMock).not.toHaveBeenCalled();
   });
 });
 
