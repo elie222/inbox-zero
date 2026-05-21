@@ -149,6 +149,20 @@ function createMockProvider(
     ...overrides,
   } as any;
 
+  if (!provider.getThreadsWithQuery) {
+    provider.getThreadsWithQuery = vi.fn(
+      async ({
+        query,
+        maxResults,
+      }: Parameters<EmailProvider["getThreadsWithQuery"]>[0]) => ({
+        threads: await provider.getThreadsWithLabel({
+          labelId: query?.labelId || "",
+          maxResults,
+        }),
+      }),
+    );
+  }
+
   if (!provider.getLatestMessageFromThreadSnapshot) {
     provider.getLatestMessageFromThreadSnapshot = vi.fn(
       async (thread: { id: string }) =>
@@ -860,6 +874,26 @@ describe("processAccountFollowUps - dedup logic", () => {
       }),
     );
     expect(generateFollowUpDraft).not.toHaveBeenCalled();
+  });
+
+  it("excludes already follow-up-labeled threads from candidate scans", async () => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi.fn().mockResolvedValue([]),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(provider.getThreadsWithQuery).toHaveBeenCalledWith({
+      query: {
+        labelId: "awaiting-label",
+        excludeLabelNames: ["Follow-up"],
+      },
+      maxResults: 50,
+    });
   });
 
   it("uses the recipient as the notification counterparty for awaiting follow-ups", async () => {
