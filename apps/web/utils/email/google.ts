@@ -27,12 +27,15 @@ import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import {
+  createMail,
   draftEmail,
   forwardEmail,
   replyToEmail,
   sendEmailWithPlainText,
   sendEmailWithHtml,
 } from "@/utils/gmail/mail";
+import { convertEmailHtmlToText } from "@/utils/mail";
+import { buildThreadingHeaders } from "@/utils/email/threading";
 import {
   archiveThread,
   labelMessage,
@@ -78,18 +81,6 @@ import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
-
-/**
- * Build a raw RFC 2822 message and encode it as base64url for Gmail API
- */
-function buildRawMessageBase64(headers: string[], body: string): string {
-  const rawMessage = `${headers.join("\r\n")}\r\n\r\n${body}`;
-  return Buffer.from(rawMessage)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
 
 export class GmailProvider implements EmailProvider {
   readonly name = "google";
@@ -724,28 +715,32 @@ export class GmailProvider implements EmailProvider {
       replyToMessageId: params.replyToMessageId,
     });
 
-    // Build the raw email message
-    const headers = [
-      `To: ${params.to}`,
-      `Subject: ${params.subject}`,
-      "Content-Type: text/html; charset=utf-8",
-    ];
+    let threadId: string | undefined;
+    let headerMessageId = "";
+    let parentReferences: string | undefined;
 
-    // Add threading headers if replying
     if (params.replyToMessageId) {
       try {
         const originalMessage = await this.getMessage(params.replyToMessageId);
-        const messageIdHeader = originalMessage.headers?.["message-id"];
-        if (messageIdHeader) {
-          headers.push(`In-Reply-To: ${messageIdHeader}`);
-          headers.push(`References: ${messageIdHeader}`);
-        }
+        threadId = originalMessage.threadId;
+        headerMessageId = originalMessage.headers?.["message-id"] || "";
+        parentReferences = originalMessage.headers?.references;
       } catch {
         this.logger.warn("Could not get original message for threading");
       }
     }
 
-    const encodedMessage = buildRawMessageBase64(headers, params.messageHtml);
+    const encodedMessage = await createMail({
+      to: params.to,
+      subject: params.subject,
+      text: convertEmailHtmlToText({ htmlText: params.messageHtml }),
+      html: params.messageHtml,
+      ...buildThreadingHeaders({
+        headerMessageId,
+        references: parentReferences,
+      }),
+      headers: { "X-Mailer": "Inbox Zero Web" },
+    });
 
     const result = await withGmailRetry(() =>
       this.client.users.drafts.create({
@@ -753,7 +748,7 @@ export class GmailProvider implements EmailProvider {
         requestBody: {
           message: {
             raw: encodedMessage,
-            // Threading is handled by In-Reply-To/References headers, not threadId
+            threadId,
           },
         },
       }),
@@ -778,26 +773,21 @@ export class GmailProvider implements EmailProvider {
       throw new Error(`Draft ${draftId} not found`);
     }
 
-    // Build updated message
     const subject = params.subject || currentDraft.subject || "";
     const content = params.messageHtml || currentDraft.textHtml || "";
 
-    // Get the To address from the current draft headers
-    const toAddress = currentDraft.headers?.to || "";
-
-    const headers = [
-      `To: ${toAddress}`,
-      `Subject: ${subject}`,
-      "Content-Type: text/html; charset=utf-8",
-    ];
-
-    // Preserve threading headers for reply drafts
-    const inReplyTo = currentDraft.headers?.["in-reply-to"];
-    const references = currentDraft.headers?.references;
-    if (inReplyTo) headers.push(`In-Reply-To: ${inReplyTo}`);
-    if (references) headers.push(`References: ${references}`);
-
-    const encodedMessage = buildRawMessageBase64(headers, content);
+    const encodedMessage = await createMail({
+      to: currentDraft.headers?.to || "",
+      cc: currentDraft.headers?.cc,
+      bcc: currentDraft.headers?.bcc,
+      replyTo: currentDraft.headers?.["reply-to"],
+      subject,
+      text: convertEmailHtmlToText({ htmlText: content }),
+      html: content,
+      inReplyTo: currentDraft.headers?.["in-reply-to"],
+      references: currentDraft.headers?.references,
+      headers: { "X-Mailer": "Inbox Zero Web" },
+    });
 
     await withGmailRetry(() =>
       this.client.users.drafts.update({
@@ -805,6 +795,7 @@ export class GmailProvider implements EmailProvider {
         id: draftId,
         requestBody: {
           message: {
+            threadId: currentDraft.threadId,
             raw: encodedMessage,
           },
         },

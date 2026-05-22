@@ -571,7 +571,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       } = await import("@/utils/messaging/rule-notifications");
 
       const gmailEmail = "slack-draft-send@example.com";
-      const subject = getUniqueSubject("Edited draft");
+      const subject = getUniqueSubject("Edited draft câfé 👀🔍");
       const editedContent = "I reviewed this and sent the update.";
       const gmailHarness = await createGmailTestHarness({
         port: 4112,
@@ -857,7 +857,10 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           sentMessageId!,
         );
 
-        expect(sentReply.headers.subject).toBe(`Re: ${subject}`);
+        expect(sentReply.threadId).toBe(sourceMessage.threadId);
+        expect(decodeMimeSubject(sentReply.headers.subject)).toBe(
+          `Re: ${subject}`,
+        );
         expect(sentReply.textPlain || sentReply.textHtml || "").toContain(
           editedContent,
         );
@@ -1336,4 +1339,44 @@ function getActionLabels(blocks: unknown[] | undefined) {
 
 function getUniqueSubject(prefix: string) {
   return `${prefix} ${Date.now()} ${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function decodeMimeSubject(subject: string) {
+  const unfolded = subject.replace(/\r?\n[ \t]+/g, " ");
+  const encodedWordPattern = /=\?UTF-8\?([QB])\?([^?]+)\?=/gi;
+  let decoded = "";
+  let cursor = 0;
+  let match = encodedWordPattern.exec(unfolded);
+
+  while (match) {
+    decoded += unfolded.slice(cursor, match.index);
+    decoded += decodeMimeWord(match[1], match[2]);
+    cursor = encodedWordPattern.lastIndex;
+
+    const adjacentEncodedWordSpace = /^\s+(?==\?UTF-8\?[QB]\?)/i.exec(
+      unfolded.slice(cursor),
+    );
+    if (adjacentEncodedWordSpace) {
+      cursor += adjacentEncodedWordSpace[0].length;
+      encodedWordPattern.lastIndex = cursor;
+    }
+
+    match = encodedWordPattern.exec(unfolded);
+  }
+
+  return decoded + unfolded.slice(cursor);
+}
+
+function decodeMimeWord(encoding: string, value: string) {
+  if (encoding.toUpperCase() === "B") {
+    return Buffer.from(value, "base64").toString("utf8");
+  }
+
+  const binary = value
+    .replace(/_/g, " ")
+    .replace(/=([0-9A-F]{2})/gi, (_match, hex: string) =>
+      String.fromCharCode(Number.parseInt(hex, 16)),
+    );
+
+  return Buffer.from(binary, "binary").toString("utf8");
 }

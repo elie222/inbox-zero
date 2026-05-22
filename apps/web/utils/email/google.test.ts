@@ -5,7 +5,7 @@ import { GmailLabel } from "@/utils/gmail/label";
 import * as gmailLabelModule from "@/utils/gmail/label";
 import { GmailProvider } from "./google";
 
-const { envMock, gmailMailMock } = vi.hoisted(() => ({
+const { envMock, gmailMailMock, gmailDraftMock } = vi.hoisted(() => ({
   envMock: {
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
     EMAIL_ENCRYPT_SECRET: "test-encrypt-secret",
@@ -18,13 +18,23 @@ const { envMock, gmailMailMock } = vi.hoisted(() => ({
     sendEmailWithPlainText: vi.fn(),
     sendEmailWithHtml: vi.fn(),
   },
+  gmailDraftMock: {
+    getDraft: vi.fn(),
+    deleteDraft: vi.fn(),
+    sendDraft: vi.fn(),
+  },
 }));
 
 vi.mock("@/env", () => ({
   env: envMock,
 }));
 
-vi.mock("@/utils/gmail/mail", () => gmailMailMock);
+vi.mock("@/utils/gmail/mail", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/utils/gmail/mail")>();
+  return { ...actual, ...gmailMailMock };
+});
+
+vi.mock("@/utils/gmail/draft", () => gmailDraftMock);
 
 describe("GmailProvider.getLatestMessageInThread", () => {
   afterEach(() => {
@@ -150,6 +160,58 @@ describe("GmailProvider.getSentMessageIds", () => {
   });
 });
 
+describe("GmailProvider.updateDraft", () => {
+  it("keeps Gmail threading metadata and MIME-encodes non-ASCII subjects", async () => {
+    const update = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider({
+      users: { drafts: { update } },
+    } as any);
+    const subject = "Re: ok but you NEED to share your secrets 👀🔍";
+
+    gmailDraftMock.getDraft.mockResolvedValueOnce(
+      createParsedMessage({
+        id: "draft-message-1",
+        internalDate: "1000",
+        threadId: "thread-special",
+        subject,
+        labelIds: [GmailLabel.DRAFT],
+        headers: {
+          to: "sender@example.com",
+          subject,
+          "in-reply-to": "<original@example.com>",
+          references: "<root@example.com> <original@example.com>",
+        },
+      }),
+    );
+
+    await provider.updateDraft("r-123", {
+      subject,
+      messageHtml: "<p>Edited response.</p>",
+    });
+
+    expect(update).toHaveBeenCalledWith({
+      userId: "me",
+      id: "r-123",
+      requestBody: {
+        message: {
+          threadId: "thread-special",
+          raw: expect.any(String),
+        },
+      },
+    });
+
+    const raw = update.mock.calls[0]?.[0]?.requestBody?.message?.raw;
+    const decodedMessage = decodeBase64Url(raw);
+
+    expect(decodedMessage).toContain("Subject: =?UTF-8?");
+    expect(decodedMessage).toContain("In-Reply-To: <original@example.com>");
+    expect(decodedMessage).toContain(
+      "References: <root@example.com> <original@example.com>",
+    );
+    expect(decodedMessage).toContain("Edited response.");
+  });
+});
+
 describe("GmailProvider.getLabels", () => {
   it("returns visible user labels by default", async () => {
     vi.spyOn(gmailLabelModule, "getLabels").mockResolvedValue([
@@ -242,29 +304,40 @@ function createThread(messages: ParsedMessage[]): EmailThread {
 function createParsedMessage({
   id,
   internalDate,
+  threadId = "thread-1",
   labelIds,
+  subject = "Subject",
+  headers,
 }: {
   id: string;
   internalDate: string;
+  threadId?: string;
   labelIds?: string[];
+  subject?: string;
+  headers?: Partial<ParsedMessage["headers"]>;
 }): ParsedMessage {
   return {
     id,
-    threadId: "thread-1",
+    threadId,
     labelIds,
     snippet: "",
     historyId: "history-1",
     inline: [],
     headers: {
-      subject: "Subject",
+      subject,
       from: "sender@example.com",
       to: "recipient@example.com",
       date: "Mon, 01 Jan 2026 00:00:00 +0000",
+      ...headers,
     },
-    subject: "Subject",
+    subject,
     date: "Mon, 01 Jan 2026 00:00:00 +0000",
     internalDate,
     textPlain: "",
     textHtml: "",
   };
+}
+
+function decodeBase64Url(value: string): string {
+  return Buffer.from(value, "base64url").toString("utf8");
 }
