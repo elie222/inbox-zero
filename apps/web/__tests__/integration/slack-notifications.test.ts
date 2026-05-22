@@ -1005,15 +1005,20 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         ts: rootMessageId!,
       });
 
-      const texts =
-        replies.messages?.map((message) => message.text || "") || [];
-      expect(texts.some((text) => text.includes(firstSubject))).toBe(true);
-      expect(texts.some((text) => text.includes(secondSubject))).toBe(true);
       expect(replies.messages).toHaveLength(2);
+      const firstMessage = replies.messages?.find((message) =>
+        message.text?.includes(firstSubject),
+      );
+      const secondMessage = replies.messages?.find((message) =>
+        message.text?.includes(secondSubject),
+      );
+      expect(firstMessage?.ts).toBeTruthy();
+      expect(secondMessage?.ts).toBeTruthy();
+      expect(secondMessage?.ts).not.toBe(rootMessageId);
       expect(prisma.executedAction.update).toHaveBeenLastCalledWith({
         where: { id: "thread-action-2" },
         data: {
-          messagingMessageId: rootMessageId,
+          messagingMessageId: secondMessage?.ts,
           messagingMessageSentAt: expect.any(Date),
           messagingMessageStatus: "SENT",
         },
