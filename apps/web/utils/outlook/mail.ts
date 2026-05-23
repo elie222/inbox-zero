@@ -508,20 +508,24 @@ async function withPreservedUnreadStatus<T>(
   );
   const wasUnread = original.isRead === false;
 
-  const result = await fn();
-
-  if (wasUnread) {
-    await withOutlookRetry(
-      () =>
-        client
-          .getClient()
-          .api(`/me/messages/${messageId}`)
-          .patch({ isRead: false }),
-      logger,
-    );
+  try {
+    return await fn();
+  } finally {
+    if (wasUnread) {
+      try {
+        await withOutlookRetry(
+          () =>
+            client
+              .getClient()
+              .api(`/me/messages/${messageId}`)
+              .patch({ isRead: false }),
+          logger,
+        );
+      } catch (restoreError) {
+        logger.error("Failed to restore unread status", { restoreError });
+      }
+    }
   }
-
-  return result;
 }
 
 function buildGraphRecipients(
