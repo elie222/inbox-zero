@@ -257,6 +257,7 @@ describe("handleRuleNotificationAction", () => {
 
     expect(provider.sendDraft).toHaveBeenCalledWith("draft-1");
     expect(provider.sendEmailWithHtml).not.toHaveBeenCalled();
+    expect(prisma.executedAction.update).toHaveBeenCalledTimes(1);
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
       data: {
