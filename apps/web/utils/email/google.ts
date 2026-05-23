@@ -874,6 +874,7 @@ export class GmailProvider implements EmailProvider {
       replyTo?: string;
       from?: string;
       attachments?: MailAttachment[];
+      replyAll?: boolean;
     },
   ): Promise<void> {
     await replyToEmail(this.client, email, content, options?.from, options);

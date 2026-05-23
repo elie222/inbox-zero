@@ -103,7 +103,12 @@ export async function replyToEmail(
   message: EmailForAction,
   reply: string,
   logger: Logger,
-  options?: { replyTo?: string; from?: string; attachments?: Attachment[] },
+  options?: {
+    replyTo?: string;
+    from?: string;
+    attachments?: Attachment[];
+    replyAll?: boolean;
+  },
 ) {
   ensureEmailSendingEnabled();
 
@@ -112,55 +117,69 @@ export async function replyToEmail(
     message,
   });
 
-  // Use createReply to create a properly threaded draft
-  // Microsoft Graph's sendMail doesn't support setting In-Reply-To/References headers
-  // Only createReply/createReplyAll endpoints ensure proper threading
-  const replyDraft: Message = await withOutlookRetry(
-    () =>
-      client.getClient().api(`/me/messages/${message.id}/createReply`).post({}),
-    logger,
-  );
+  const isReplyAll = options?.replyAll === true;
 
-  const fromField = buildGraphFromField(
-    options?.from,
-    replyDraft.from?.emailAddress?.address,
-  );
-
-  // Update the draft with our content
-  await withOutlookRetry(
-    () =>
-      client
-        .getClient()
-        .api(`/me/messages/${replyDraft.id}`)
-        .patch({
-          body: {
-            contentType: "html",
-            content: html,
-          },
-          ...(fromField ? { from: fromField } : {}),
-          ...(options?.replyTo
-            ? {
-                replyTo: [{ emailAddress: { address: options.replyTo } }],
-              }
-            : {}),
-        }),
-    logger,
-  );
-
-  if (options?.attachments?.length) {
-    await addAttachmentsToDraft({
-      client,
-      draftId: replyDraft.id || "",
-      attachments: options.attachments,
+  // Use createReply/createReplyAll because Graph's sendMail doesn't set
+  // In-Reply-To/References headers needed for proper threading.
+  const performReply = async () => {
+    const replyDraft: Message = await withOutlookRetry(
+      () =>
+        client
+          .getClient()
+          .api(
+            `/me/messages/${message.id}/${isReplyAll ? "createReplyAll" : "createReply"}`,
+          )
+          .post({}),
       logger,
-    });
-  }
+    );
 
-  // Send the draft
-  await withOutlookRetry(
-    () => client.getClient().api(`/me/messages/${replyDraft.id}/send`).post({}),
-    logger,
-  );
+    const fromField = buildGraphFromField(
+      options?.from,
+      replyDraft.from?.emailAddress?.address,
+    );
+
+    await withOutlookRetry(
+      () =>
+        client
+          .getClient()
+          .api(`/me/messages/${replyDraft.id}`)
+          .patch({
+            body: {
+              contentType: "html",
+              content: html,
+            },
+            ...(fromField ? { from: fromField } : {}),
+            ...(options?.replyTo
+              ? {
+                  replyTo: [{ emailAddress: { address: options.replyTo } }],
+                }
+              : {}),
+          }),
+      logger,
+    );
+
+    if (options?.attachments?.length) {
+      await addAttachmentsToDraft({
+        client,
+        draftId: replyDraft.id || "",
+        attachments: options.attachments,
+        logger,
+      });
+    }
+
+    await withOutlookRetry(
+      () =>
+        client.getClient().api(`/me/messages/${replyDraft.id}/send`).post({}),
+      logger,
+    );
+
+    return replyDraft;
+  };
+
+  // createReplyAll marks the original as read; preserve unread state.
+  const replyDraft = isReplyAll
+    ? await withPreservedUnreadStatus(client, message.id, logger, performReply)
+    : await performReply();
 
   // Draft ID is no longer valid after /send; Graph doesn't return sent message ID
   return {
@@ -330,75 +349,58 @@ export async function draftEmail(
     },
   }));
 
-  // Get the original message's isRead status before creating the draft
-  // Microsoft Graph's createReplyAll automatically marks the original as read
-  const originalMessage: Message = await withOutlookRetry(
-    () =>
-      client
+  // createReplyAll marks the original as read; preserve unread state.
+  const { replyDraft, updatedDraft } = await withPreservedUnreadStatus(
+    client,
+    originalEmail.id,
+    logger,
+    async () => {
+      const replyDraft: Message = await withOutlookRetry(
+        () =>
+          client
+            .getClient()
+            .api(`/me/messages/${originalEmail.id}/createReplyAll`)
+            .post({}),
+        logger,
+      );
+
+      const updateRequest = client
         .getClient()
-        .api(`/me/messages/${originalEmail.id}`)
-        .select("isRead")
-        .get(),
-    logger,
+        .api(`/me/messages/${replyDraft.id}`);
+
+      // To handle change key error
+      const etag = (replyDraft as { "@odata.etag"?: string })?.["@odata.etag"];
+      if (etag) {
+        updateRequest.header("If-Match", etag);
+      }
+
+      const updatedDraft: Message = await withOutlookRetry(
+        () =>
+          updateRequest.patch({
+            subject: args.subject || originalEmail.headers.subject,
+            body: {
+              contentType: "html",
+              content: html,
+            },
+            toRecipients: [toRecipient],
+            ccRecipients,
+            bccRecipients,
+          }),
+        logger,
+      );
+
+      if (args.attachments?.length) {
+        await addAttachmentsToDraft({
+          client,
+          draftId: replyDraft.id || updatedDraft.id || "",
+          attachments: args.attachments,
+          logger,
+        });
+      }
+
+      return { replyDraft, updatedDraft };
+    },
   );
-  const wasUnread = originalMessage.isRead === false;
-
-  // Use createReplyAll endpoint to create a proper reply draft
-  // This ensures the draft is linked to the original message as a reply all
-  const replyDraft: Message = await withOutlookRetry(
-    () =>
-      client
-        .getClient()
-        .api(`/me/messages/${originalEmail.id}/createReplyAll`)
-        .post({}),
-    logger,
-  );
-
-  // Update the draft with our content
-  const updateRequest = client.getClient().api(`/me/messages/${replyDraft.id}`);
-
-  // To handle change key error
-  const etag = (replyDraft as { "@odata.etag"?: string })?.["@odata.etag"];
-  if (etag) {
-    updateRequest.header("If-Match", etag);
-  }
-
-  const updatedDraft: Message = await withOutlookRetry(
-    () =>
-      updateRequest.patch({
-        subject: args.subject || originalEmail.headers.subject,
-        body: {
-          contentType: "html",
-          content: html,
-        },
-        toRecipients: [toRecipient],
-        ccRecipients,
-        bccRecipients,
-      }),
-    logger,
-  );
-
-  if (args.attachments?.length) {
-    await addAttachmentsToDraft({
-      client,
-      draftId: replyDraft.id || updatedDraft.id || "",
-      attachments: args.attachments,
-      logger,
-    });
-  }
-
-  // Restore the original message's unread status if it was unread before
-  // createReplyAll automatically marks the original message as read
-  if (wasUnread) {
-    await withOutlookRetry(
-      () =>
-        client
-          .getClient()
-          .api(`/me/messages/${originalEmail.id}`)
-          .patch({ isRead: false }),
-      logger,
-    );
-  }
 
   // Use the original replyDraft.id since that's the stable ID
   // The PATCH response might not always include the full object?
@@ -487,6 +489,39 @@ async function sendReplyUsingCreateReply(
     id: "",
     conversationId: replyDraft.conversationId,
   };
+}
+
+async function withPreservedUnreadStatus<T>(
+  client: OutlookClient,
+  messageId: string,
+  logger: Logger,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const original: Message = await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/messages/${messageId}`)
+        .select("isRead")
+        .get(),
+    logger,
+  );
+  const wasUnread = original.isRead === false;
+
+  const result = await fn();
+
+  if (wasUnread) {
+    await withOutlookRetry(
+      () =>
+        client
+          .getClient()
+          .api(`/me/messages/${messageId}`)
+          .patch({ isRead: false }),
+      logger,
+    );
+  }
+
+  return result;
 }
 
 function buildGraphRecipients(
