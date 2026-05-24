@@ -3,12 +3,12 @@ import { makeSignature } from "better-auth/crypto";
 import {
   getConfiguredAppReviewDemoAccounts,
   isAppReviewDemoEnabled,
+  type ReviewDemoAccount,
 } from "@/utils/app-review-demo";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import type { ReviewDemoAccount } from "@/utils/review-demo-accounts";
 
 type MobileReviewConfigResult =
   | {
@@ -146,7 +146,7 @@ function getMobileReviewConfig(): MobileReviewConfigResult {
     return { ok: false, reason: "review_demo_disabled" };
   }
 
-  const reviewDemoAccounts = getConfiguredReviewAccounts();
+  const reviewDemoAccounts = getConfiguredAppReviewDemoAccounts();
 
   if (!reviewDemoAccounts.length) {
     return {
@@ -160,10 +160,6 @@ function getMobileReviewConfig(): MobileReviewConfigResult {
     ok: true,
     reviewDemoAccounts,
   };
-}
-
-function getConfiguredReviewAccounts(): ReviewDemoAccount[] {
-  return getConfiguredAppReviewDemoAccounts();
 }
 
 function getMatchingReviewAccount(input: {

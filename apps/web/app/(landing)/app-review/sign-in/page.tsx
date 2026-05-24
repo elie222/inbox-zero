@@ -16,8 +16,10 @@ export const metadata: Metadata = {
 export default async function ReviewSignInPage(props: {
   searchParams?: Promise<Record<string, string>>;
 }) {
-  const searchParams = await props.searchParams;
-  const session = await auth();
+  const [searchParams, session] = await Promise.all([
+    props.searchParams,
+    auth(),
+  ]);
   const nextPath = normalizeInternalPath(searchParams?.next);
 
   if (session?.user) {

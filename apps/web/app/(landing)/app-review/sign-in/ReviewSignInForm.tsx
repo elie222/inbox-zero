@@ -25,11 +25,10 @@ export function ReviewSignInForm() {
   const searchParams = useSearchParams();
   const nextPath = normalizeInternalPath(searchParams?.get("next"));
   const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<AppReviewSignInBody>({
     resolver: zodResolver(appReviewSignInBody),
   });
@@ -81,7 +80,6 @@ export function ReviewSignInForm() {
 
   async function handleSignIn(values: AppReviewSignInBody) {
     setError(null);
-    setIsSubmitting(true);
 
     try {
       const response = await fetch("/api/mobile-review/sign-in", {
@@ -98,8 +96,6 @@ export function ReviewSignInForm() {
       redirectToSafeUrl(nextPath ?? WELCOME_PATH);
     } catch {
       setError("Please try again or contact support.");
-    } finally {
-      setIsSubmitting(false);
     }
   }
 }
