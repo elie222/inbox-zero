@@ -1,5 +1,4 @@
 import { timingSafeEqual } from "node:crypto";
-import { makeSignature } from "better-auth/crypto";
 import {
   getConfiguredAppReviewDemoAccounts,
   isAppReviewDemoEnabled,
@@ -8,6 +7,7 @@ import {
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
+import { buildMobileSessionCookie } from "@/utils/mobile-auth/session-cookie";
 import prisma from "@/utils/prisma";
 
 type MobileReviewConfigResult =
@@ -88,41 +88,11 @@ export async function createMobileReviewSession(input: {
     userId: reviewUser.user.id,
     userEmail: reviewUser.user.email,
     emailAccountId: reviewUser.user.emailAccountId,
-    sessionCookie: await buildSessionCookie({
+    sessionCookie: await buildMobileSessionCookie({
       authContext,
       expiresAt: session.expiresAt,
       sessionToken: session.token,
     }),
-  };
-}
-
-async function buildSessionCookie(input: {
-  authContext: Awaited<typeof betterAuthConfig.$context>;
-  expiresAt: Date;
-  sessionToken: string;
-}) {
-  const signedSessionToken = await makeSignature(
-    input.sessionToken,
-    input.authContext.secret,
-  );
-  const attributes = input.authContext.authCookies.sessionToken.attributes;
-  const sameSite = attributes.sameSite;
-
-  return {
-    name: input.authContext.authCookies.sessionToken.name,
-    value: `${input.sessionToken}.${signedSessionToken}`,
-    options: {
-      domain: attributes.domain,
-      expires: input.expiresAt,
-      httpOnly: attributes.httpOnly,
-      maxAge: attributes.maxAge,
-      partitioned: attributes.partitioned,
-      path: attributes.path,
-      sameSite: sameSite
-        ? (sameSite.toLowerCase() as "strict" | "lax" | "none")
-        : undefined,
-      secure: attributes.secure,
-    },
   };
 }
 
