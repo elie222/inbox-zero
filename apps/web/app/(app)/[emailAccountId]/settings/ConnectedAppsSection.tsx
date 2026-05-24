@@ -35,6 +35,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toastSuccess, toastError, toastInfo } from "@/components/Toast";
+import { useTeamsEnabled } from "@/hooks/useFeatureFlags";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import {
   createMessagingLinkCodeAction,
@@ -95,10 +96,12 @@ export function ConnectedAppsSection({
   const hasTelegram = connectedChannels.some(
     (channel) => channel.provider === "TELEGRAM",
   );
+  const teamsEnabled = useTeamsEnabled();
   const slackAvailable =
     channelsData?.availableProviders?.includes("SLACK") ?? false;
   const teamsAvailable =
-    channelsData?.availableProviders?.includes("TEAMS") ?? false;
+    (channelsData?.availableProviders?.includes("TEAMS") ?? false) &&
+    !!teamsEnabled;
   const telegramAvailable =
     channelsData?.availableProviders?.includes("TELEGRAM") ?? false;
 
