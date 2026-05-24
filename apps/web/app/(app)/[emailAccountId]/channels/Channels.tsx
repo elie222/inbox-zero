@@ -50,6 +50,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useTeamsEnabled } from "@/hooks/useFeatureFlags";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useRules } from "@/hooks/useRules";
 import { useSlackConnect } from "@/hooks/useSlackConnect";
@@ -160,7 +161,10 @@ export function Channels() {
     [channelsData],
   );
 
-  const availableProviders = channelsData?.availableProviders ?? [];
+  const teamsEnabled = useTeamsEnabled();
+  const availableProviders = (channelsData?.availableProviders ?? []).filter(
+    (provider) => provider !== "TEAMS" || teamsEnabled,
+  );
   const visibleRules = useMemo(
     () =>
       sortRulesForAutomation((rulesData ?? []).filter((rule) => rule.enabled)),

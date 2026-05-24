@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
+import { env } from "@/env";
 import type { MessagingProvider } from "@/generated/prisma/enums";
 import { MessagingRoutePurpose } from "@/generated/prisma/enums";
 import {
   isMessagingChannelOperational,
   isOperationalSlackChannel,
 } from "@/utils/messaging/channel-validity";
-import { getAvailableMessagingProviders } from "@/utils/messaging/available-providers";
 import { getMessagingRouteSummary } from "@/utils/messaging/routes";
 import { listChannels } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
@@ -17,19 +17,13 @@ export type GetMessagingChannelsResponse = Awaited<ReturnType<typeof getData>>;
 export const GET = withEmailAccount(
   "user/messaging-channels",
   async (request) => {
-    const { email, emailAccountId } = request.auth;
-    const result = await getData({ email, emailAccountId });
+    const { emailAccountId } = request.auth;
+    const result = await getData({ emailAccountId });
     return NextResponse.json(result);
   },
 );
 
-async function getData({
-  email,
-  emailAccountId,
-}: {
-  email: string;
-  emailAccountId: string;
-}) {
+async function getData({ emailAccountId }: { emailAccountId: string }) {
   const channels = await prisma.messagingChannel.findMany({
     where: { emailAccountId },
     select: {
@@ -109,8 +103,17 @@ async function getData({
         };
       },
     ),
-    availableProviders: await getAvailableMessagingProviders({ email }),
+    availableProviders: getAvailableProviders(),
   };
+}
+
+function getAvailableProviders(): MessagingProvider[] {
+  const providers: MessagingProvider[] = [];
+  if (env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET) providers.push("SLACK");
+  if (env.TEAMS_BOT_APP_ID && env.TEAMS_BOT_APP_PASSWORD)
+    providers.push("TEAMS");
+  if (env.TELEGRAM_BOT_TOKEN) providers.push("TELEGRAM");
+  return providers;
 }
 
 async function getSlackTargetNames(

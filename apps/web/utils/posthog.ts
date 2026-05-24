@@ -9,17 +9,13 @@ import { redis } from "@/utils/redis";
 const logger = createScopedLogger("posthog");
 let posthogLlmClient: PostHog | undefined;
 
-function getPosthogHost() {
-  return env.NEXT_PUBLIC_POSTHOG_API_HOST?.startsWith("http")
-    ? env.NEXT_PUBLIC_POSTHOG_API_HOST
-    : undefined;
-}
-
 export function getPosthogLlmClient() {
   if (!env.NEXT_PUBLIC_POSTHOG_KEY) return;
 
   if (!posthogLlmClient) {
-    const host = getPosthogHost();
+    const host = env.NEXT_PUBLIC_POSTHOG_API_HOST?.startsWith("http")
+      ? env.NEXT_PUBLIC_POSTHOG_API_HOST
+      : undefined;
 
     posthogLlmClient = new PostHog(env.NEXT_PUBLIC_POSTHOG_KEY, {
       ...(host ? { host } : {}),
@@ -29,39 +25,6 @@ export function getPosthogLlmClient() {
   }
 
   return posthogLlmClient;
-}
-
-export async function isPosthogFeatureEnabled({
-  distinctId,
-  flagKey,
-}: {
-  distinctId: string;
-  flagKey: string;
-}) {
-  if (!env.NEXT_PUBLIC_POSTHOG_KEY) return false;
-
-  const host = getPosthogHost();
-  const client = new PostHog(env.NEXT_PUBLIC_POSTHOG_KEY, {
-    ...(host ? { host } : {}),
-    flushAt: 1,
-    flushInterval: 0,
-  });
-
-  try {
-    return (
-      (await client.isFeatureEnabled(flagKey, distinctId, {
-        personProperties: { email: distinctId },
-        sendFeatureFlagEvents: false,
-      })) === true
-    );
-  } catch (error) {
-    logger.warn("Error evaluating PostHog feature flag", { error, flagKey });
-    return false;
-  } finally {
-    await client.shutdown().catch((error) => {
-      logger.warn("Error shutting down PostHog client", { error });
-    });
-  }
 }
 
 export function isPosthogLlmEvalApproved(email: string) {
