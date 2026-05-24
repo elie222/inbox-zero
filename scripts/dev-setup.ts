@@ -352,7 +352,6 @@ async function cleanWorktree() {
   ensureSharedEnvLinks();
 
   const localEnv = readEnvFile(SHARED_ENV_LOCAL_PATH);
-  await ensureLocalDependencies(localEnv);
   const sourceDatabaseUrl = resolveTemplateDatabaseUrl(localEnv, {
     purpose: "clean the branch database",
   });
@@ -360,13 +359,23 @@ async function cleanWorktree() {
   assertSafeLocalDatabaseUrl(sourceDatabaseUrl);
   assertSafeWorktreeDatabaseName(dbName);
 
-  const adminUrl = toCliDatabaseUrl(sourceDatabaseUrl, "postgres");
-  await dropDatabase(adminUrl, dbName);
+  const parsedUrl = new URL(sourceDatabaseUrl);
+  const port = Number.parseInt(parsedUrl.port || "5432", 10);
+
+  if (await canConnectToPort(port, parsedUrl.hostname)) {
+    const adminUrl = toCliDatabaseUrl(sourceDatabaseUrl, "postgres");
+    await dropDatabase(adminUrl, dbName);
+    log(`Removed branch database ${dbName}`);
+  } else {
+    log(
+      `Skipping database drop for ${dbName}; no Postgres service is listening at ${parsedUrl.hostname}:${port}`,
+    );
+  }
 
   rmSync(GENERATED_EMULATE_CONFIG_PATH, { force: true });
   rmSync(STATE_PATH, { force: true });
 
-  log(`Removed branch database ${dbName}`);
+  log("Removed cached dev setup state");
 }
 
 function buildRuntimeEnv(state: WorktreeState) {
