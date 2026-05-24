@@ -620,6 +620,8 @@ function LinkCodeDialog({
 
   const providerName = dialog.provider === "TEAMS" ? "Teams" : "Telegram";
   const command = `/connect ${dialog.code}`;
+  const openBotLabel =
+    dialog.provider === "TEAMS" ? "Open Teams app" : "Open Telegram bot";
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -635,11 +637,11 @@ function LinkCodeDialog({
           <div className="text-xs text-muted-foreground">Command</div>
           <CopyInput value={command} />
         </div>
-        {dialog.provider === "TELEGRAM" && dialog.botUrl && (
+        {dialog.botUrl && (
           <div className="pt-1">
             <Button asChild size="sm">
               <a href={dialog.botUrl} target="_blank" rel="noopener noreferrer">
-                Open Telegram bot
+                {openBotLabel}
               </a>
             </Button>
           </div>

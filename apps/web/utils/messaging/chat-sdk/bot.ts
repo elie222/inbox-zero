@@ -1834,9 +1834,19 @@ async function handleMessagingLinkCommand({
     },
   });
 
-  await thread.post(
-    `Connected successfully. You can now chat with your Inbox Zero assistant in this ${provider} DM.`,
-  );
+  await postMessagingThreadMessage({
+    thread,
+    logger,
+    message: `Connected successfully. You can now chat with your Inbox Zero assistant in this ${provider} DM.`,
+    errorLogMessage: "Failed to send messaging link confirmation",
+    logMeta: {
+      provider,
+      emailAccountId: emailAccount.id,
+      messagingChannelId: messagingChannel.id,
+      teamId: identity.teamId,
+      providerUserId: identity.providerUserId,
+    },
+  });
 
   return true;
 }

@@ -314,7 +314,7 @@ export const createMessagingLinkCodeAction = actionClient
       provider,
     });
     const botUrl =
-      provider === "TELEGRAM" ? await getTelegramBotUrl() : undefined;
+      provider === "TELEGRAM" ? await getTelegramBotUrl() : getTeamsBotUrl();
 
     return {
       code,
@@ -456,6 +456,20 @@ async function getTelegramBotUrl() {
   } catch {
     return;
   }
+}
+
+function getTeamsBotUrl() {
+  if (!env.TEAMS_BOT_APP_ID) return;
+
+  const url = new URL(
+    `https://teams.microsoft.com/l/app/${env.TEAMS_BOT_APP_ID}`,
+  );
+
+  if (env.TEAMS_BOT_APP_TENANT_ID) {
+    url.searchParams.set("tenantId", env.TEAMS_BOT_APP_TENANT_ID);
+  }
+
+  return url.toString();
 }
 
 async function syncMessagingFeatureRoute({
