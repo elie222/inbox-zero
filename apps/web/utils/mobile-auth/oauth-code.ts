@@ -50,23 +50,30 @@ export async function consumeMobileAuthCode(input: {
 
   const token = hashMobileAuthCode(input.code);
 
-  let record: { identifier: string; expires: Date };
-  try {
-    record = await prisma.verificationToken.delete({ where: { token } });
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      throw new SafeError("Invalid or expired authentication code", 401);
-    }
-    throw error;
-  }
-
-  if (record.expires <= new Date()) {
+  const record = await prisma.verificationToken.findUnique({
+    where: { token },
+    select: { identifier: true, expires: true },
+  });
+  if (!record) {
     throw new SafeError("Invalid or expired authentication code", 401);
   }
 
   const parsedIdentifier = parseIdentifier(record.identifier);
   if (!parsedIdentifier || parsedIdentifier.state !== input.state) {
     throw new SafeError("Invalid authentication state", 401);
+  }
+
+  if (record.expires <= new Date()) {
+    throw new SafeError("Invalid or expired authentication code", 401);
+  }
+
+  try {
+    await prisma.verificationToken.delete({ where: { token } });
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      throw new SafeError("Invalid or expired authentication code", 401);
+    }
+    throw error;
   }
 
   return { userId: parsedIdentifier.userId };
