@@ -25,10 +25,9 @@ export const GET = withError("mobile-auth/callback", async (request) => {
   const session = await auth(request.headers);
   const userId = session?.user?.id;
   if (!userId) {
-    return redirectToMobileCallback({
+    return redirectToMobileCallback(query.state, {
       error: "missing_session",
-      errorDescription: "Authentication session was not found",
-      state: query.state,
+      error_description: "Authentication session was not found",
     });
   }
 
@@ -41,26 +40,17 @@ export const GET = withError("mobile-auth/callback", async (request) => {
     userId,
   });
 
-  return redirectToMobileCallback({
-    code,
-    state: query.state,
-  });
+  return redirectToMobileCallback(query.state, { code });
 });
 
 function redirectToMobileCallback(
-  params: { state: string } & (
-    | { code: string }
-    | { error: string; errorDescription: string }
-  ),
+  state: string,
+  params: Record<string, string>,
 ) {
   const redirectUrl = getMobileAuthCallbackUrl();
-  redirectUrl.searchParams.set("state", params.state);
-
-  if ("code" in params) {
-    redirectUrl.searchParams.set("code", params.code);
-  } else {
-    redirectUrl.searchParams.set("error", params.error);
-    redirectUrl.searchParams.set("error_description", params.errorDescription);
+  redirectUrl.searchParams.set("state", state);
+  for (const [key, value] of Object.entries(params)) {
+    redirectUrl.searchParams.set(key, value);
   }
 
   const response = NextResponse.redirect(redirectUrl);

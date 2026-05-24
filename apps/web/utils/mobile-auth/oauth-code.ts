@@ -1,7 +1,11 @@
 import { createHmac, randomBytes } from "node:crypto";
 import { env } from "@/env";
 import { SafeError } from "@/utils/error";
+import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { isNotFoundError } from "@/utils/prisma-helpers";
+
+const logger = createScopedLogger("mobile-auth/oauth-code");
 
 const MOBILE_AUTH_IDENTIFIER_PREFIX = "mobile-auth";
 const MOBILE_AUTH_CODE_TTL_MS = 5 * 60 * 1000;
@@ -19,7 +23,7 @@ export async function createMobileAuthCode(input: {
     throw new SafeError("Invalid authentication state", 400);
   }
 
-  await deleteExpiredMobileAuthCodes();
+  deleteExpiredMobileAuthCodes().catch(() => undefined);
 
   const code = randomBytes(32).toString("base64url");
   await prisma.verificationToken.create({
@@ -45,11 +49,18 @@ export async function consumeMobileAuthCode(input: {
   }
 
   const token = hashMobileAuthCode(input.code);
-  const record = await prisma.verificationToken.findUnique({
-    where: { token },
-  });
 
-  if (!record || record.expires <= new Date()) {
+  let record: { identifier: string; expires: Date };
+  try {
+    record = await prisma.verificationToken.delete({ where: { token } });
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      throw new SafeError("Invalid or expired authentication code", 401);
+    }
+    throw error;
+  }
+
+  if (record.expires <= new Date()) {
     throw new SafeError("Invalid or expired authentication code", 401);
   }
 
@@ -58,30 +69,22 @@ export async function consumeMobileAuthCode(input: {
     throw new SafeError("Invalid authentication state", 401);
   }
 
-  const deleted = await prisma.verificationToken.deleteMany({
-    where: {
-      expires: { gt: new Date() },
-      identifier: record.identifier,
-      token,
-    },
-  });
-
-  if (deleted.count !== 1) {
-    throw new SafeError("Invalid or expired authentication code", 401);
-  }
-
   return { userId: parsedIdentifier.userId };
 }
 
 async function deleteExpiredMobileAuthCodes() {
-  await prisma.verificationToken.deleteMany({
-    where: {
-      expires: { lt: new Date() },
-      identifier: {
-        startsWith: `${MOBILE_AUTH_IDENTIFIER_PREFIX}:`,
+  try {
+    await prisma.verificationToken.deleteMany({
+      where: {
+        expires: { lt: new Date() },
+        identifier: {
+          startsWith: `${MOBILE_AUTH_IDENTIFIER_PREFIX}:`,
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    logger.error("Failed to sweep expired mobile auth codes", { error });
+  }
 }
 
 function createIdentifier(input: { state: string; userId: string }): string {
@@ -91,13 +94,12 @@ function createIdentifier(input: { state: string; userId: string }): string {
 function parseIdentifier(
   identifier: string,
 ): { state: string; userId: string } | null {
-  const [prefix, state, ...userIdParts] = identifier.split(":");
-  const userId = userIdParts.join(":");
-
+  const parts = identifier.split(":");
+  if (parts.length !== 3) return null;
+  const [prefix, state, userId] = parts;
   if (prefix !== MOBILE_AUTH_IDENTIFIER_PREFIX || !state || !userId) {
     return null;
   }
-
   return { state, userId };
 }
 

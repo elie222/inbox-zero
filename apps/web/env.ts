@@ -79,7 +79,15 @@ const parsedEnv = createEnv({
     APPLE_PRIVATE_KEY: z.string().optional(),
     APPLE_APP_BUNDLE_IDENTIFIER: z.string().optional(),
     // Comma-separated SHA-256 fingerprints served from /.well-known/assetlinks.json
-    ANDROID_APP_CERT_SHA256_FINGERPRINTS: z.string().optional(),
+    ANDROID_APP_CERT_SHA256_FINGERPRINTS: z
+      .string()
+      .optional()
+      .transform((value) =>
+        value
+          ?.split(",")
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      ),
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
 

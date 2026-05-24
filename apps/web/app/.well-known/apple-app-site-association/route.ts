@@ -8,21 +8,10 @@ export function GET() {
     env.APPLE_TEAM_ID && env.APPLE_APP_BUNDLE_IDENTIFIER
       ? `${env.APPLE_TEAM_ID}.${env.APPLE_APP_BUNDLE_IDENTIFIER}`
       : null;
+  const details = appId ? [{ appID: appId, paths: AUTH_CALLBACK_PATHS }] : [];
 
   return NextResponse.json(
-    {
-      applinks: {
-        apps: [],
-        details: appId
-          ? [
-              {
-                appID: appId,
-                paths: AUTH_CALLBACK_PATHS,
-              },
-            ]
-          : [],
-      },
-    },
+    { applinks: { apps: [], details } },
     {
       headers: {
         "Cache-Control": "public, max-age=3600",

@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     verificationToken: {
       create: vi.fn(),
+      delete: vi.fn(),
       deleteMany: vi.fn(),
-      findUnique: vi.fn(),
     },
   },
 }));
@@ -57,7 +58,7 @@ describe("mobile auth OAuth code", () => {
   });
 
   it("consumes a matching unused code once", async () => {
-    prismaMock.verificationToken.findUnique.mockResolvedValue({
+    prismaMock.verificationToken.delete.mockResolvedValue({
       expires: new Date(Date.now() + 60_000),
       identifier: "mobile-auth:state-1234567890:user-1",
       token: "hashed-code",
@@ -69,13 +70,25 @@ describe("mobile auth OAuth code", () => {
         state: "state-1234567890",
       }),
     ).resolves.toEqual({ userId: "user-1" });
-    expect(prismaMock.verificationToken.deleteMany).toHaveBeenCalledWith({
-      where: {
-        expires: { gt: expect.any(Date) },
-        identifier: "mobile-auth:state-1234567890:user-1",
-        token: expect.any(String),
-      },
+    expect(prismaMock.verificationToken.delete).toHaveBeenCalledWith({
+      where: { token: expect.any(String) },
     });
+  });
+
+  it("rejects an unknown code", async () => {
+    prismaMock.verificationToken.delete.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Not found", {
+        code: "P2025",
+        clientVersion: "test",
+      }),
+    );
+
+    await expect(
+      consumeMobileAuthCode({
+        code: "code-1",
+        state: "state-1234567890",
+      }),
+    ).rejects.toThrow("Invalid or expired authentication code");
   });
 
   it("rejects invalid states", async () => {
@@ -90,7 +103,7 @@ describe("mobile auth OAuth code", () => {
   });
 
   it("rejects state mismatches during code exchange", async () => {
-    prismaMock.verificationToken.findUnique.mockResolvedValue({
+    prismaMock.verificationToken.delete.mockResolvedValue({
       expires: new Date(Date.now() + 60_000),
       identifier: "mobile-auth:state-1234567890:user-1",
       token: "hashed-code",
@@ -102,6 +115,5 @@ describe("mobile auth OAuth code", () => {
         state: "state-0987654321",
       }),
     ).rejects.toThrow("Invalid authentication state");
-    expect(prismaMock.verificationToken.deleteMany).not.toHaveBeenCalled();
   });
 });

@@ -4,9 +4,8 @@ import { env } from "@/env";
 const ANDROID_PACKAGE_NAME = "com.getinboxzero.app";
 
 export function GET() {
-  const fingerprints = getAndroidCertificateFingerprints();
-
-  return NextResponse.json(
+  const fingerprints = env.ANDROID_APP_CERT_SHA256_FINGERPRINTS ?? [];
+  const body =
     fingerprints.length > 0
       ? [
           {
@@ -18,19 +17,12 @@ export function GET() {
             },
           },
         ]
-      : [],
-    {
-      headers: {
-        "Cache-Control": "public, max-age=3600",
-        "Content-Type": "application/json",
-      },
-    },
-  );
-}
+      : [];
 
-function getAndroidCertificateFingerprints(): string[] {
-  return (env.ANDROID_APP_CERT_SHA256_FINGERPRINTS ?? "")
-    .split(",")
-    .map((fingerprint) => fingerprint.trim())
-    .filter(Boolean);
+  return NextResponse.json(body, {
+    headers: {
+      "Cache-Control": "public, max-age=3600",
+      "Content-Type": "application/json",
+    },
+  });
 }

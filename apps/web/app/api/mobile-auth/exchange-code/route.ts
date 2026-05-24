@@ -13,12 +13,12 @@ const exchangeCodeSchema = z.object({
 
 export const POST = withError("mobile-auth/exchange-code", async (request) => {
   const body = exchangeCodeSchema.parse(await request.json());
-  const { userId } = await consumeMobileAuthCode({
-    code: body.code,
-    state: body.state,
-  });
 
-  const authContext = await betterAuthConfig.$context;
+  const [{ userId }, authContext] = await Promise.all([
+    consumeMobileAuthCode({ code: body.code, state: body.state }),
+    betterAuthConfig.$context,
+  ]);
+
   const session = await authContext.internalAdapter.createSession(
     userId,
     false,
@@ -39,9 +39,11 @@ export const POST = withError("mobile-auth/exchange-code", async (request) => {
   });
 
   const response = NextResponse.json({ success: true });
-  response.cookies.set(sessionCookie.name, sessionCookie.value, {
-    ...sessionCookie.options,
-  });
+  response.cookies.set(
+    sessionCookie.name,
+    sessionCookie.value,
+    sessionCookie.options,
+  );
   response.headers.set("Cache-Control", "no-store");
 
   return response;
