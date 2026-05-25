@@ -29,6 +29,13 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { PremiumTooltip } from "@/components/PremiumAlert";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -273,6 +280,8 @@ export function MoreDropdown<T extends Row>({
 }) {
   const { provider } = useAccount();
   const terminology = getEmailTerminology(provider);
+  const isMobile = useIsMobile();
+  const [labelSheetOpen, setLabelSheetOpen] = useState(false);
   const { onBulkArchive, isBulkArchiving } = useBulkArchive({
     posthog,
     emailAccountId,
@@ -284,96 +293,135 @@ export function MoreDropdown<T extends Row>({
     emailAccountId,
   });
 
+  const handleLabelClick = async (label: EmailLabel) => {
+    const res = await createFilterAction(emailAccountId, {
+      from: item.name,
+      gmailLabelId: label.id,
+    });
+    if (res?.serverError) {
+      toastError({
+        title: "Error",
+        description: `Failed to add ${item.name} to ${label.name}. ${res.serverError || ""}`,
+      });
+    } else {
+      toastSuccess({
+        title: "Success!",
+        description: `Added ${item.name} to ${label.name}`,
+      });
+    }
+  };
+
+  const labelMenuLabel = `${terminology.label.action} future emails`;
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button aria-haspopup="true" size="icon" variant="ghost">
-          <MoreHorizontalIcon className="size-4" />
-          <span className="sr-only">Toggle menu</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {/* View section */}
-        {!!onOpenNewsletter && (
-          <DropdownMenuItem onClick={() => onOpenNewsletter(item)}>
-            <ExpandIcon className="mr-2 size-4" />
-            <span>View stats</span>
-          </DropdownMenuItem>
-        )}
-        {isGoogleProvider(provider) && (
-          <DropdownMenuItem asChild>
-            <Link
-              href={getGmailSearchUrl(item.name, userEmail)}
-              target="_blank"
-            >
-              <ExternalLinkIcon className="mr-2 size-4" />
-              <span>View in Gmail</span>
-            </Link>
-          </DropdownMenuItem>
-        )}
-
-        <DropdownMenuSeparator />
-
-        {/* Organization section */}
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <TagIcon className="mr-2 size-4" />
-            <span>{terminology.label.action} future emails</span>
-          </DropdownMenuSubTrigger>
-          <DropdownMenuPortal>
-            <LabelsSubMenu
-              labels={labels}
-              onClick={async (label) => {
-                const res = await createFilterAction(emailAccountId, {
-                  from: item.name,
-                  gmailLabelId: label.id,
-                });
-                if (res?.serverError) {
-                  toastError({
-                    title: "Error",
-                    description: `Failed to add ${item.name} to ${label.name}. ${res.serverError || ""}`,
-                  });
-                } else {
-                  toastSuccess({
-                    title: "Success!",
-                    description: `Added ${item.name} to ${label.name}`,
-                  });
-                }
-              }}
-            />
-          </DropdownMenuPortal>
-        </DropdownMenuSub>
-
-        <DropdownMenuSeparator />
-
-        {/* Bulk actions section */}
-        <DropdownMenuItem onClick={() => onBulkArchive([item])}>
-          {isBulkArchiving ? (
-            <ButtonLoader />
-          ) : (
-            <ArchiveIcon className="mr-2 size-4" />
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button aria-haspopup="true" size="icon" variant="ghost">
+            <MoreHorizontalIcon className="size-4" />
+            <span className="sr-only">Toggle menu</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {/* View section */}
+          {!!onOpenNewsletter && (
+            <DropdownMenuItem onClick={() => onOpenNewsletter(item)}>
+              <ExpandIcon className="mr-2 size-4" />
+              <span>View stats</span>
+            </DropdownMenuItem>
           )}
-          <span>Archive all</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            const yes = confirm(
-              `Are you sure you want to delete all emails from ${item.name}?`,
-            );
-            if (!yes) return;
-
-            onBulkDelete([item]);
-          }}
-        >
-          {isBulkDeleting ? (
-            <ButtonLoader />
-          ) : (
-            <TrashIcon className="mr-2 size-4" />
+          {isGoogleProvider(provider) && (
+            <DropdownMenuItem asChild>
+              <Link
+                href={getGmailSearchUrl(item.name, userEmail)}
+                target="_blank"
+              >
+                <ExternalLinkIcon className="mr-2 size-4" />
+                <span>View in Gmail</span>
+              </Link>
+            </DropdownMenuItem>
           )}
-          <span>Delete all</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+
+          <DropdownMenuSeparator />
+
+          {/* Organization section */}
+          {isMobile ? (
+            <DropdownMenuItem onSelect={() => setLabelSheetOpen(true)}>
+              <TagIcon className="mr-2 size-4" />
+              <span>{labelMenuLabel}</span>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <TagIcon className="mr-2 size-4" />
+                <span>{labelMenuLabel}</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <LabelsSubMenu labels={labels} onClick={handleLabelClick} />
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+          )}
+
+          <DropdownMenuSeparator />
+
+          {/* Bulk actions section */}
+          <DropdownMenuItem onClick={() => onBulkArchive([item])}>
+            {isBulkArchiving ? (
+              <ButtonLoader />
+            ) : (
+              <ArchiveIcon className="mr-2 size-4" />
+            )}
+            <span>Archive all</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              const yes = confirm(
+                `Are you sure you want to delete all emails from ${item.name}?`,
+              );
+              if (!yes) return;
+
+              onBulkDelete([item]);
+            }}
+          >
+            {isBulkDeleting ? (
+              <ButtonLoader />
+            ) : (
+              <TrashIcon className="mr-2 size-4" />
+            )}
+            <span>Delete all</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Sheet open={labelSheetOpen} onOpenChange={setLabelSheetOpen}>
+        <SheetContent side="bottom" className="max-h-[80vh]">
+          <SheetHeader>
+            <SheetTitle>{labelMenuLabel}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4 max-h-[60vh] space-y-1 overflow-y-auto">
+            {labels.length ? (
+              labels.map((label) => (
+                <button
+                  key={label.id}
+                  type="button"
+                  className="flex w-full items-center rounded-sm px-3 py-2 text-left text-sm hover:bg-accent"
+                  onClick={async () => {
+                    setLabelSheetOpen(false);
+                    await handleLabelClick(label);
+                  }}
+                >
+                  <span className="truncate">{label.name}</span>
+                </button>
+              ))
+            ) : (
+              <p className="px-3 py-2 text-sm text-muted-foreground">
+                You don't have any {terminology.label.plural} yet.
+              </p>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 
