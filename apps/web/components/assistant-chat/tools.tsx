@@ -1879,6 +1879,7 @@ function CollapsibleDiffContent({
 function parseManageInboxAction(
   action: string | undefined,
 ): ManageInboxAction | undefined {
+  if (action === "remove_category_threads") return "remove_label_threads";
   return isManageInboxAction(action) ? action : undefined;
 }
 
@@ -1912,6 +1913,9 @@ export function getManageInboxActionLabel({
   }
   if (action === "label_threads") {
     return inProgress ? "Labeling emails" : "Labeled emails";
+  }
+  if (action === "remove_label_threads") {
+    return inProgress ? "Removing labels" : "Removed labels";
   }
   if (action === "mark_read_threads") {
     if (inProgress) {

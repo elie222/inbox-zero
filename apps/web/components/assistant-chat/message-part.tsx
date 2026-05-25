@@ -778,6 +778,7 @@ function getManageInboxInputForDisplay(
 function normalizeManageInboxActionForDisplay(action: unknown) {
   if (typeof action !== "string") return;
   if (action === "categorize_threads") return "label_threads";
+  if (action === "remove_category_threads") return "remove_label_threads";
   return isManageInboxAction(action) ? action : undefined;
 }
 

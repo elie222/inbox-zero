@@ -860,6 +860,7 @@ const microsoftManageInboxActions = [
   "archive_threads",
   "trash_threads",
   "categorize_threads",
+  "remove_category_threads",
   "mark_read_threads",
   "bulk_archive_senders",
   "unsubscribe_senders",
@@ -869,12 +870,12 @@ const outlookManageInboxInputSchema = z.object({
   action: z
     .enum(microsoftManageInboxActions)
     .describe(
-      "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. categorize_threads: apply a category (requires categoryName). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide after the user confirms that broad scope (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
+      "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. categorize_threads: apply a category (requires categoryName). remove_category_threads: remove an existing category (requires categoryName). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide after the user confirms that broad scope (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
     ),
   threadIds: threadIdsSchema
     .nullish()
     .describe(
-      "Required for archive_threads, trash_threads, categorize_threads, and mark_read_threads. Use IDs from searchInbox results or thread IDs the user already provided.",
+      "Required for archive_threads, trash_threads, categorize_threads, remove_category_threads, and mark_read_threads. Use IDs from searchInbox results or thread IDs the user already provided.",
     ),
   category: z
     .string()
@@ -887,7 +888,9 @@ const outlookManageInboxInputSchema = z.object({
     .trim()
     .min(1)
     .nullish()
-    .describe("Exact Outlook category name to apply to the selected threads."),
+    .describe(
+      "Exact Outlook category name to apply to or remove from the selected threads.",
+    ),
   read: z
     .boolean()
     .nullish()
@@ -903,12 +906,12 @@ const gmailManageInboxInputSchema = z.object({
   action: z
     .enum(manageInboxActions)
     .describe(
-      "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. label_threads: apply a label (requires labelName). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide after the user confirms that broad scope (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
+      "archive_threads: archive by ID (default unless user says delete/trash). trash_threads: move to trash. label_threads: apply a label (requires labelName). remove_label_threads: remove an existing label (requires labelName). mark_read_threads: mark read/unread. bulk_archive_senders: archive ALL emails from senders server-wide after the user confirms that broad scope (never for trash/delete). unsubscribe_senders: unsubscribe and archive from senders (only for explicit unsubscribe requests).",
     ),
   threadIds: threadIdsSchema
     .nullish()
     .describe(
-      "Required for archive_threads, trash_threads, label_threads, and mark_read_threads. Use IDs from searchInbox results or thread IDs the user already provided.",
+      "Required for archive_threads, trash_threads, label_threads, remove_label_threads, and mark_read_threads. Use IDs from searchInbox results or thread IDs the user already provided.",
     ),
   label: z
     .string()
@@ -921,7 +924,9 @@ const gmailManageInboxInputSchema = z.object({
     .trim()
     .min(1)
     .nullish()
-    .describe("Exact Gmail label name to apply to the selected threads."),
+    .describe(
+      "Exact Gmail label name to apply to or remove from the selected threads.",
+    ),
   read: z
     .boolean()
     .nullish()
@@ -937,7 +942,7 @@ type ManageInboxTaxonomyConfig = {
   threadIdsRequiredError: string;
   labelNameRequiredError: string;
   labelResolutionFallbackError: string;
-  missingLabelError: (name: string) => string;
+  missingLabelError: (name: string, action: ManageInboxAction) => string;
   resultKeys: {
     id: "categoryId" | "labelId";
     name: "categoryName" | "labelName";
@@ -951,12 +956,14 @@ const outlookManageInboxTool = (options: InboxToolOptions) =>
     normalizeInput: normalizeOutlookManageInboxInput,
     taxonomy: {
       threadIdsRequiredError:
-        "threadIds is required when action is archive_threads, categorize_threads, or mark_read_threads",
+        "threadIds is required when action is archive_threads, categorize_threads, remove_category_threads, or mark_read_threads",
       labelNameRequiredError:
-        "categoryName is required when action is categorize_threads",
+        "categoryName is required when action is categorize_threads or remove_category_threads",
       labelResolutionFallbackError: "Failed to resolve category",
-      missingLabelError: (name) =>
-        `Category "${name}" does not exist. Use createOrGetCategory first if you want to create it.`,
+      missingLabelError: (name, action) =>
+        action === "remove_label_threads"
+          ? `Category "${name}" does not exist, so no category was removed.`
+          : `Category "${name}" does not exist. Use createOrGetCategory first if you want to create it.`,
       resultKeys: {
         id: "categoryId",
         name: "categoryName",
@@ -971,12 +978,14 @@ const gmailManageInboxTool = (options: InboxToolOptions) =>
     normalizeInput: normalizeGmailManageInboxInput,
     taxonomy: {
       threadIdsRequiredError:
-        "threadIds is required when action is archive_threads, label_threads, or mark_read_threads",
+        "threadIds is required when action is archive_threads, label_threads, remove_label_threads, or mark_read_threads",
       labelNameRequiredError:
-        "labelName is required when action is label_threads",
+        "labelName is required when action is label_threads or remove_label_threads",
       labelResolutionFallbackError: "Failed to resolve label",
-      missingLabelError: (name) =>
-        `Label "${name}" does not exist. Use createOrGetLabel first if you want to create it.`,
+      missingLabelError: (name, action) =>
+        action === "remove_label_threads"
+          ? `Label "${name}" does not exist, so no label was removed.`
+          : `Label "${name}" does not exist. Use createOrGetLabel first if you want to create it.`,
       resultKeys: {
         id: "labelId",
         name: "labelName",
@@ -1044,7 +1053,7 @@ const buildManageInboxTool = ({
         };
       }
 
-      if (action === "label_threads" && !labelName) {
+      if (isThreadLabelAction(action) && !labelName) {
         return {
           error: taxonomy.labelNameRequiredError,
         };
@@ -1134,11 +1143,12 @@ const buildManageInboxTool = ({
           ReturnType<typeof resolveThreadLabel>
         > | null = null;
 
-        if (action === "label_threads") {
+        if (isThreadLabelAction(action)) {
           try {
             resolvedThreadLabel = await resolveThreadLabel({
               emailProvider,
               labelName: labelName!,
+              action,
               missingLabelError: taxonomy.missingLabelError,
             });
           } catch (error) {
@@ -1174,6 +1184,11 @@ const buildManageInboxTool = ({
                 labelId: resolvedThreadLabel!.labelId,
                 labelName: resolvedThreadLabel!.labelName,
               });
+            } else if (action === "remove_label_threads") {
+              await emailProvider.removeThreadLabel(
+                threadId,
+                resolvedThreadLabel!.labelId,
+              );
             } else {
               await emailProvider.markReadThread(
                 threadId,
@@ -1949,16 +1964,18 @@ async function applyLabelToThread({
 async function resolveThreadLabel({
   emailProvider,
   labelName,
+  action,
   missingLabelError,
 }: {
   emailProvider: EmailProvider;
   labelName: string;
-  missingLabelError: (name: string) => string;
+  action: ManageInboxAction;
+  missingLabelError: (name: string, action: ManageInboxAction) => string;
 }) {
   const existingLabel = await emailProvider.getLabelByName(labelName);
 
   if (!existingLabel) {
-    throw new Error(missingLabelError(labelName));
+    throw new Error(missingLabelError(labelName, action));
   }
 
   return {
@@ -2380,7 +2397,9 @@ function normalizeOutlookManageInboxInput(
   const action: ManageInboxAction =
     originalAction === "categorize_threads"
       ? "label_threads"
-      : (originalAction as ManageInboxAction);
+      : originalAction === "remove_category_threads"
+        ? "remove_label_threads"
+        : (originalAction as ManageInboxAction);
 
   return {
     action,
@@ -2391,6 +2410,12 @@ function normalizeOutlookManageInboxInput(
     read: parsed.read as boolean | null | undefined,
     fromEmails: parsed.fromEmails as string[] | null | undefined,
   };
+}
+
+function isThreadLabelAction(
+  action: ManageInboxAction | undefined,
+): action is "label_threads" | "remove_label_threads" {
+  return action === "label_threads" || action === "remove_label_threads";
 }
 
 const LABEL_MESSAGE_CONCURRENCY = 1;
