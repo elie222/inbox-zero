@@ -492,6 +492,121 @@ describe("chat inbox tools", () => {
     expect(labelMessage).not.toHaveBeenCalled();
   });
 
+  it("resolves an exact labelName before removing labels from threads", async () => {
+    const getLabelByName = vi.fn().mockResolvedValue({
+      id: "Label_123",
+      name: "Finance",
+      type: "user",
+    });
+    const removeThreadLabel = vi.fn().mockResolvedValue(undefined);
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getLabelByName,
+      removeThreadLabel,
+    } as any);
+
+    const toolInstance = manageInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      action: "remove_label_threads",
+      labelName: "Finance",
+      threadIds: ["thread-1", "thread-2"],
+    });
+
+    expect(getLabelByName).toHaveBeenCalledWith("Finance");
+    expect(getLabelByName).toHaveBeenCalledTimes(1);
+    expect(removeThreadLabel).toHaveBeenNthCalledWith(
+      1,
+      "thread-1",
+      "Label_123",
+    );
+    expect(removeThreadLabel).toHaveBeenNthCalledWith(
+      2,
+      "thread-2",
+      "Label_123",
+    );
+    expect(result).toMatchObject({
+      action: "remove_label_threads",
+      success: true,
+      failedCount: 0,
+      successCount: 2,
+      requestedCount: 2,
+      labelId: "Label_123",
+      labelName: "Finance",
+    });
+  });
+
+  it("returns a transparent error when removing a label that does not exist", async () => {
+    const getLabelByName = vi.fn().mockResolvedValue(null);
+    const removeThreadLabel = vi.fn();
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getLabelByName,
+      removeThreadLabel,
+    } as any);
+
+    const toolInstance = manageInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      action: "remove_label_threads",
+      labelName: "Finance",
+      threadIds: ["thread-1"],
+    });
+
+    expect(result).toEqual({
+      error: 'Label "Finance" does not exist, so no label was removed.',
+      toolErrorVisibility: "hidden",
+    });
+    expect(getLabelByName).toHaveBeenCalledWith("Finance");
+    expect(removeThreadLabel).not.toHaveBeenCalled();
+  });
+
+  it("removes Outlook categories using category wording in the tool contract", async () => {
+    const getLabelByName = vi.fn().mockResolvedValue({
+      id: "category-123",
+      name: "Finance",
+      type: "user",
+    });
+    const removeThreadLabel = vi.fn().mockResolvedValue(undefined);
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getLabelByName,
+      removeThreadLabel,
+    } as any);
+
+    const toolInstance = manageInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      action: "remove_category_threads",
+      categoryName: "Finance",
+      threadIds: ["thread-1"],
+    });
+
+    expect(getLabelByName).toHaveBeenCalledWith("Finance");
+    expect(removeThreadLabel).toHaveBeenCalledWith("thread-1", "category-123");
+    expect(result).toMatchObject({
+      action: "remove_category_threads",
+      success: true,
+      categoryId: "category-123",
+      categoryName: "Finance",
+    });
+  });
+
   it("marks a thread labeling action as failed when any message label call fails", async () => {
     const getThreadMessages = vi.fn().mockResolvedValue([
       { id: "thread-1-message-1", threadId: "thread-1" },
