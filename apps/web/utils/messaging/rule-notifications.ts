@@ -969,7 +969,7 @@ async function sendDraftReplyFromNotification({
           messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
         },
       }),
-      ...(mailboxDraftAction?.id
+      ...(mailboxDraftAction?.id && mailboxDraftAction.id !== context.id
         ? [
             prisma.executedAction.update({
               where: { id: mailboxDraftAction.id },
@@ -1540,6 +1540,14 @@ async function getNotificationContext(executedActionId: string) {
 }
 
 function getMailboxDraftActionForMessagingDraft(context: NotificationContext) {
+  if (context.draftId) {
+    return {
+      id: context.id,
+      draftId: context.draftId,
+      subject: context.subject,
+    };
+  }
+
   return context.executedRule.actionItems?.[0] ?? null;
 }
 
