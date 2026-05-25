@@ -29,6 +29,9 @@ export function ChatHistoryItem({
       <DropdownMenuItem
         className="flex-1 truncate pr-9"
         onSelect={() => onSelect()}
+        onPointerLeave={(e) => {
+          if (menuOpen) e.preventDefault();
+        }}
       >
         <span className="truncate">{getChatHistoryLabel(chat)}</span>
       </DropdownMenuItem>
@@ -56,6 +59,7 @@ export function ChatHistoryItem({
           align="start"
           side="right"
           onCloseAutoFocus={(e) => e.preventDefault()}
+          onFocusOutside={(e) => e.preventDefault()}
         >
           <DropdownMenuItem
             onSelect={(e) => {
