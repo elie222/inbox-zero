@@ -346,12 +346,7 @@ export function MoreDropdown<T extends Row>({
 
           {/* Organization section */}
           {isMobile ? (
-            <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault();
-                setLabelSheetOpen(true);
-              }}
-            >
+            <DropdownMenuItem onSelect={() => setLabelSheetOpen(true)}>
               <TagIcon className="mr-2 size-4" />
               <span>{labelMenuLabel}</span>
             </DropdownMenuItem>
