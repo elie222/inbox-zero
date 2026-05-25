@@ -86,6 +86,7 @@ const LOCAL_REDIS_HTTP_PORT = 8079;
 const LOCAL_REDIS_PORT = 6380;
 const LOCAL_REDIS_TOKEN = "dev_token";
 const WORKTREE_DATABASE_PREFIX = "inboxzero_wt_";
+const SAFE_DATABASE_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const APP_ENV_LINKS = [
   {
     required: true,
@@ -351,7 +352,6 @@ async function cleanWorktree() {
   ensureSharedEnvLinks();
 
   const localEnv = readEnvFile(SHARED_ENV_LOCAL_PATH);
-  await ensureLocalDependencies(localEnv);
   const sourceDatabaseUrl = resolveTemplateDatabaseUrl(localEnv, {
     purpose: "clean the branch database",
   });
@@ -359,13 +359,23 @@ async function cleanWorktree() {
   assertSafeLocalDatabaseUrl(sourceDatabaseUrl);
   assertSafeWorktreeDatabaseName(dbName);
 
-  const adminUrl = toCliDatabaseUrl(sourceDatabaseUrl, "postgres");
-  await dropDatabase(adminUrl, dbName);
+  const parsedUrl = new URL(sourceDatabaseUrl);
+  const port = Number.parseInt(parsedUrl.port || "5432", 10);
+
+  if (await canConnectToPort(port, parsedUrl.hostname)) {
+    const adminUrl = toCliDatabaseUrl(sourceDatabaseUrl, "postgres");
+    await dropDatabase(adminUrl, dbName);
+    log(`Removed branch database ${dbName}`);
+  } else {
+    log(
+      `Skipping database drop for ${dbName}; no Postgres service is listening at ${parsedUrl.hostname}:${port}`,
+    );
+  }
 
   rmSync(GENERATED_EMULATE_CONFIG_PATH, { force: true });
   rmSync(STATE_PATH, { force: true });
 
-  log(`Removed branch database ${dbName}`);
+  log("Removed cached dev setup state");
 }
 
 function buildRuntimeEnv(state: WorktreeState) {
@@ -598,10 +608,11 @@ async function getCurrentBranch() {
 }
 
 async function checkDatabaseExists(adminUrl: string, databaseName: string) {
+  assertSafeWorktreeDatabaseName(databaseName);
   const output = await captureCommand("psql", [
     adminUrl,
     "-Atqc",
-    `SELECT 1 FROM pg_database WHERE datname = '${databaseName}'`,
+    `SELECT 1 FROM pg_database WHERE datname = ${toSqlString(databaseName)}`,
   ]);
 
   return output.trim() === "1";
@@ -614,7 +625,7 @@ async function createDatabase(adminUrl: string, databaseName: string) {
   await runCommand("psql", [
     adminUrl,
     "-c",
-    `CREATE DATABASE "${databaseName}"`,
+    `CREATE DATABASE ${toSqlIdentifier(databaseName)}`,
   ]);
 }
 
@@ -624,12 +635,12 @@ async function dropDatabase(adminUrl: string, databaseName: string) {
   await runCommand("psql", [
     adminUrl,
     "-c",
-    `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${databaseName}' AND pid <> pg_backend_pid()`,
+    `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ${toSqlString(databaseName)} AND pid <> pg_backend_pid()`,
   ]);
   await runCommand("psql", [
     adminUrl,
     "-c",
-    `DROP DATABASE IF EXISTS "${databaseName}"`,
+    `DROP DATABASE IF EXISTS ${toSqlIdentifier(databaseName)}`,
   ]);
 }
 
@@ -908,6 +919,15 @@ function assertSafeWorktreeDatabaseName(databaseName: string) {
       `Refusing to manage a database without the ${WORKTREE_DATABASE_PREFIX} prefix: ${databaseName}`,
     );
   }
+
+  if (
+    databaseName.length > 63 ||
+    !SAFE_DATABASE_NAME_PATTERN.test(databaseName)
+  ) {
+    throw new Error(
+      `Refusing to manage an unsafe worktree database name: ${databaseName}`,
+    );
+  }
 }
 
 function isMatchingSymlink(target: string, source: string) {
@@ -950,6 +970,14 @@ function slugify(value: string) {
 
 function shellQuote(value: string) {
   return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+function toSqlString(value: string) {
+  return `'${value.replaceAll("'", "''")}'`;
+}
+
+function toSqlIdentifier(value: string) {
+  return `"${value.replaceAll('"', '""')}"`;
 }
 
 function log(message: string) {

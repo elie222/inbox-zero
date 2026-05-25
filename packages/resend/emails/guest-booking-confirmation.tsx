@@ -3,6 +3,7 @@ import { BookingEmailLayout } from "./components/booking-email-layout";
 
 export type GuestBookingConfirmationEmailProps = {
   cancelUrl: string;
+  rescheduleUrl: string;
   eventTitle: string;
   formattedTime: string;
   guestName: string;
@@ -19,6 +20,7 @@ export type GuestBookingConfirmationEmailProps = {
 
 export default function GuestBookingConfirmationEmail({
   cancelUrl,
+  rescheduleUrl,
   eventTitle,
   formattedTime,
   guestName,
@@ -133,6 +135,12 @@ export default function GuestBookingConfirmationEmail({
           </Link>
         ) : null}
         <Link
+          href={rescheduleUrl}
+          className="mb-2 mr-2 inline-block rounded-md border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 no-underline"
+        >
+          Reschedule
+        </Link>
+        <Link
           href={cancelUrl}
           className="mb-2 mr-2 inline-block rounded-md border border-gray-200 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 no-underline"
         >
@@ -149,7 +157,10 @@ export default function GuestBookingConfirmationEmail({
 }
 
 GuestBookingConfirmationEmail.PreviewProps = {
-  cancelUrl: "https://www.getinboxzero.com/book/cancel/example?token=test",
+  cancelUrl:
+    "https://www.getinboxzero.com/book/cancel/example?token=test-token",
+  rescheduleUrl:
+    "https://www.getinboxzero.com/book/reschedule/example?token=test-token",
   eventTitle: "15 min intro",
   formattedTime: "Thu, Nov 12, 2026 · 10:00 AM",
   guestName: "Sarah Chen",

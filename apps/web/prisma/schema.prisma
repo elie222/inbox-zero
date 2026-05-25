@@ -880,6 +880,7 @@ model ThreadTracker {
 
   followUpAppliedAt DateTime?
   followUpDraftId   String?
+  followUpNotifications Json?
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)

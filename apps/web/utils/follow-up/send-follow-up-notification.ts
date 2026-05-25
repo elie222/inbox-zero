@@ -1,4 +1,11 @@
-import { Actions, Card, CardText, LinkButton, type CardChild } from "chat";
+import {
+  Actions,
+  Button,
+  Card,
+  CardText,
+  LinkButton,
+  type CardChild,
+} from "chat";
 import {
   MessagingProvider,
   MessagingRoutePurpose,
@@ -24,6 +31,8 @@ import {
   normalizeFollowUpText,
   truncateSnippet,
 } from "@/utils/follow-up/copy";
+import { FOLLOW_UP_MARK_DONE_ACTION_ID } from "@/utils/follow-up/follow-up-actions";
+import type { FollowUpNotificationDelivery } from "@/utils/follow-up/notification-deliveries";
 
 const TELEGRAM_SNIPPET_MAX_CHARS = 3000;
 
@@ -83,8 +92,8 @@ export async function sendFollowUpNotification({
 }: FollowUpNotificationContent & {
   channels: FollowUpNotificationChannel[];
   logger: Logger;
-}): Promise<void> {
-  const deliveryPromises: Promise<unknown>[] = [];
+}): Promise<FollowUpNotificationDelivery[]> {
+  const deliveryPromises: Promise<FollowUpNotificationDelivery | null>[] = [];
 
   for (const channel of channels) {
     const route = getMessagingRoute(
@@ -108,6 +117,7 @@ export async function sendFollowUpNotification({
         if (!channel.accessToken) continue;
         deliveryPromises.push(
           sendFollowUpViaSlack({
+            channelId: channel.id,
             accessToken: channel.accessToken,
             route,
             content,
@@ -117,7 +127,7 @@ export async function sendFollowUpNotification({
         break;
       case MessagingProvider.TEAMS:
         deliveryPromises.push(
-          sendAutomationMessage({
+          sendFollowUpViaAutomationMessage({
             channel,
             route,
             text: formatFollowUpText(content),
@@ -138,29 +148,37 @@ export async function sendFollowUpNotification({
     }
   }
 
-  if (deliveryPromises.length === 0) return;
+  if (deliveryPromises.length === 0) return [];
 
   const results = await Promise.allSettled(deliveryPromises);
+  const deliveries: FollowUpNotificationDelivery[] = [];
   for (const result of results) {
     if (result.status === "rejected") {
       logger.error("Follow-up delivery channel failed", {
         reason: result.reason,
       });
+      continue;
     }
+
+    if (result.value) deliveries.push(result.value);
   }
+
+  return deliveries;
 }
 
 async function sendFollowUpViaSlack({
+  channelId,
   accessToken,
   route,
   content,
   logger,
 }: {
+  channelId: string;
   accessToken: string;
   route: { targetId: string; targetType: MessagingRouteTargetType };
   content: FollowUpNotificationContent;
   logger: Logger;
-}) {
+}): Promise<FollowUpNotificationDelivery | null> {
   const destination = await resolveSlackRouteDestination({
     accessToken,
     route,
@@ -168,14 +186,51 @@ async function sendFollowUpViaSlack({
 
   if (!destination) {
     logger.warn("No Slack destination resolved for follow-up notification");
-    return;
+    return null;
   }
 
-  await sendFollowUpReminderToSlack({
+  const messageId = await sendFollowUpReminderToSlack({
     accessToken,
     channelId: destination,
     ...content,
   });
+
+  if (!messageId) return null;
+
+  return {
+    messagingChannelId: channelId,
+    provider: MessagingProvider.SLACK,
+    providerThreadId: destination,
+    providerMessageId: messageId,
+  };
+}
+
+async function sendFollowUpViaAutomationMessage({
+  channel,
+  route,
+  text,
+  logger,
+}: {
+  channel: FollowUpNotificationChannel;
+  route: { targetId: string; targetType: MessagingRouteTargetType };
+  text: string;
+  logger: Logger;
+}): Promise<FollowUpNotificationDelivery | null> {
+  const response = await sendAutomationMessage({
+    channel,
+    route,
+    text,
+    logger,
+  });
+
+  if (!response.channelId || !response.messageId) return null;
+
+  return {
+    messagingChannelId: channel.id,
+    provider: channel.provider,
+    providerThreadId: response.channelId,
+    providerMessageId: response.messageId,
+  };
 }
 
 async function sendFollowUpViaTelegram({
@@ -188,13 +243,13 @@ async function sendFollowUpViaTelegram({
   route: { targetId: string; targetType: MessagingRouteTargetType };
   content: FollowUpNotificationContent;
   logger: Logger;
-}) {
+}): Promise<FollowUpNotificationDelivery | null> {
   const destination =
     route.targetId || channel.teamId || channel.providerUserId;
 
   if (!destination) {
     logger.warn("No Telegram destination resolved for follow-up notification");
-    return;
+    return null;
   }
 
   const telegramAdapter = getMessagingAdapterRegistry().typedAdapters.telegram;
@@ -203,10 +258,19 @@ async function sendFollowUpViaTelegram({
   }
 
   const threadId = await telegramAdapter.openDM(destination);
-  await telegramAdapter.postMessage(
+  const response = await telegramAdapter.postMessage(
     threadId,
     buildTelegramFollowUpCard(content),
   );
+
+  if (!response.id) return null;
+
+  return {
+    messagingChannelId: channel.id,
+    provider: MessagingProvider.TELEGRAM,
+    providerThreadId: threadId,
+    providerMessageId: response.id,
+  };
 }
 
 function formatFollowUpText({
@@ -243,6 +307,7 @@ function buildTelegramFollowUpCard({
   snippet,
   threadLink,
   threadLinkLabel,
+  trackerId,
 }: FollowUpNotificationContent) {
   const { directionLine, counterpartyPrefix, snippetLabel, emoji } =
     getFollowUpCopy(trackerType);
@@ -264,16 +329,23 @@ function buildTelegramFollowUpCard({
     children.push(CardText(`${snippetLabel}:\n${formattedSnippet}`));
   }
 
-  if (threadLink) {
-    children.push(
-      Actions([
-        LinkButton({
-          label: threadLinkLabel ?? "Open email",
-          url: threadLink,
-        }),
-      ]),
-    );
-  }
+  children.push(
+    Actions([
+      ...(threadLink
+        ? [
+            LinkButton({
+              label: threadLinkLabel ?? "Open email",
+              url: threadLink,
+            }),
+          ]
+        : []),
+      Button({
+        id: FOLLOW_UP_MARK_DONE_ACTION_ID,
+        label: "Mark done",
+        value: trackerId,
+      }),
+    ]),
+  );
 
   return Card({
     title: `${emoji} Follow-up nudge`,

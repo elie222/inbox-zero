@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { Rule } from "@/generated/prisma/client";
+import type { Group, GroupItem, Rule } from "@/generated/prisma/client";
 import { GroupItemType } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
@@ -20,6 +20,11 @@ type ColdEmailBlockerReason =
   | "ai-already-labeled"
   | "excluded";
 
+export type ColdEmailPatternMatch = {
+  group: Pick<Group, "id" | "name">;
+  groupItem: Pick<GroupItem, "id" | "type" | "value" | "exclude">;
+};
+
 export async function isColdEmail({
   email,
   emailAccount,
@@ -36,6 +41,7 @@ export async function isColdEmail({
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
   aiReason?: string | null;
+  patternMatch?: ColdEmailPatternMatch;
 }> {
   const logger = createScopedLogger("ai-cold-email").with({
     emailAccountId: emailAccount.id,
@@ -48,7 +54,11 @@ export async function isColdEmail({
 
   // Check if we marked it as a cold email already
   const groupId = coldEmailRule?.groupId;
-  let patternMatch: { exclude: boolean } | null = null;
+  let patternMatch:
+    | (Pick<GroupItem, "id" | "type" | "value" | "exclude"> & {
+        group: Pick<Group, "id" | "name"> | null;
+      })
+    | null = null;
 
   if (groupId) {
     const normalizedFrom = extractEmailAddress(email.from) || email.from;
@@ -58,13 +68,24 @@ export async function isColdEmail({
         type: GroupItemType.FROM,
         value: normalizedFrom,
       },
-      select: { exclude: true },
+      select: {
+        id: true,
+        type: true,
+        value: true,
+        exclude: true,
+        group: { select: { id: true, name: true } },
+      },
     });
   }
 
   if (patternMatch && !patternMatch.exclude) {
     logger.info("Known cold email sender", { from: email.from });
-    return { isColdEmail: true, reason: "ai-already-labeled" };
+    const { group, ...groupItem } = patternMatch;
+    return {
+      isColdEmail: true,
+      reason: "ai-already-labeled",
+      ...(group ? { patternMatch: { group, groupItem } } : {}),
+    };
   }
 
   if (patternMatch?.exclude) {

@@ -4,6 +4,7 @@ import type {
   CalendarEvent,
   CalendarEventCancelInput,
   CalendarEventProvider,
+  CalendarEventUpdateInput,
   CalendarEventWriteInput,
   CalendarEventWriteResult,
 } from "@/utils/calendar/event-types";
@@ -160,12 +161,30 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
             : undefined,
       });
 
+    let videoConferenceLink = getJoinUrl(response);
+
+    // Graph initializes the Teams meeting after the event is created, so the
+    // POST response sometimes returns before `onlineMeeting` is populated.
+    // Refetch the event to retrieve the join URL when we asked for Teams.
+    if (useMicrosoftTeams && !videoConferenceLink && response.id) {
+      try {
+        const refetched: MicrosoftEvent = await client
+          .api(`/me/events/${response.id}`)
+          .get();
+        videoConferenceLink = getJoinUrl(refetched);
+      } catch (error) {
+        this.logger.warn(
+          "Failed to refetch Microsoft event for Teams join URL",
+          { eventId: response.id, error },
+        );
+      }
+    }
+
     return {
       id: response.id || "",
       providerCalendarId: input.calendarId,
       eventUrl: response.webLink,
-      videoConferenceLink:
-        response.onlineMeeting?.joinUrl || response.onlineMeetingUrl,
+      videoConferenceLink,
     };
   }
 
@@ -177,6 +196,21 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       .post({ comment: "" });
   }
 
+  async updateEvent(input: CalendarEventUpdateInput): Promise<void> {
+    const client = await this.getClient();
+
+    await client.api(`/me/events/${input.eventId}`).patch({
+      start: {
+        dateTime: formatMicrosoftUtcDateTime(input.startTime),
+        timeZone: "UTC",
+      },
+      end: {
+        dateTime: formatMicrosoftUtcDateTime(input.endTime),
+        timeZone: "UTC",
+      },
+    });
+  }
+
   private parseEvent(event: MicrosoftEvent) {
     return {
       id: event.id || "",
@@ -184,8 +218,7 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       description: event.bodyPreview || undefined,
       location: event.location?.displayName || undefined,
       eventUrl: event.webLink || undefined,
-      videoConferenceLink:
-        event.onlineMeeting?.joinUrl || event.onlineMeetingUrl || undefined,
+      videoConferenceLink: getJoinUrl(event),
       startTime: new Date(event.start?.dateTime || Date.now()),
       endTime: new Date(event.end?.dateTime || Date.now()),
       attendees:
@@ -200,4 +233,8 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
 function formatMicrosoftUtcDateTime(date: Date) {
   // Graph DateTimeTimeZone expects a local datetime for the supplied timezone.
   return date.toISOString().replace(/Z$/, "0000");
+}
+
+function getJoinUrl(event: MicrosoftEvent): string | undefined {
+  return event.onlineMeeting?.joinUrl || event.onlineMeetingUrl;
 }

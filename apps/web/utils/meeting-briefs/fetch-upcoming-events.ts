@@ -1,8 +1,8 @@
 import { addMinutes } from "date-fns/addMinutes";
 import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
-import { extractDomainFromEmail } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
+import { partitionAttendeesForBriefing } from "./attendees";
 
 const MAX_EVENTS_PER_PROVIDER = 20;
 
@@ -59,20 +59,9 @@ export function filterEventsWithExternalGuests(
   events: CalendarEvent[],
   userEmail: string,
 ): CalendarEvent[] {
-  const userDomain = extractDomainFromEmail(userEmail).toLowerCase();
-  const normalizedUserEmail = userEmail.toLowerCase();
-
-  return events.filter((event) =>
-    event.attendees.some((attendee) => {
-      const attendeeEmail = attendee.email.toLowerCase();
-      if (attendeeEmail === normalizedUserEmail) {
-        return false;
-      }
-      const attendeeDomain = extractDomainFromEmail(
-        attendee.email,
-      ).toLowerCase();
-      return attendeeDomain !== userDomain;
-    }),
+  return events.filter(
+    (event) =>
+      partitionAttendeesForBriefing(event, userEmail).external.length > 0,
   );
 }
 

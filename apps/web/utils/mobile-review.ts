@@ -1,16 +1,19 @@
 import { timingSafeEqual } from "node:crypto";
-import { makeSignature } from "better-auth/crypto";
-import { z } from "zod";
-import { env } from "@/env";
+import {
+  getConfiguredAppReviewDemoAccounts,
+  isAppReviewDemoEnabled,
+  type ReviewDemoAccount,
+} from "@/utils/app-review-demo";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
+import { buildMobileSessionCookie } from "@/utils/mobile-auth/session-cookie";
 import prisma from "@/utils/prisma";
 
 type MobileReviewConfigResult =
   | {
       ok: true;
-      reviewDemoAccounts: MobileReviewAccount[];
+      reviewDemoAccounts: ReviewDemoAccount[];
     }
   | {
       ok: false;
@@ -37,20 +40,8 @@ type MobileReviewUserResult =
       reason: "review_user_missing_email_account";
     };
 
-type MobileReviewAccount = {
-  code: string;
-  email: string;
-};
-
-const reviewDemoAccountsSchema = z.array(
-  z.object({
-    code: z.string().trim().min(1),
-    email: z.string().trim().toLowerCase().email(),
-  }),
-);
-
 export function isMobileReviewEnabled(): boolean {
-  return env.APP_REVIEW_DEMO_ENABLED;
+  return isAppReviewDemoEnabled();
 }
 
 export async function createMobileReviewSession(input: {
@@ -97,41 +88,11 @@ export async function createMobileReviewSession(input: {
     userId: reviewUser.user.id,
     userEmail: reviewUser.user.email,
     emailAccountId: reviewUser.user.emailAccountId,
-    sessionCookie: await buildSessionCookie({
+    sessionCookie: await buildMobileSessionCookie({
       authContext,
       expiresAt: session.expiresAt,
       sessionToken: session.token,
     }),
-  };
-}
-
-async function buildSessionCookie(input: {
-  authContext: Awaited<typeof betterAuthConfig.$context>;
-  expiresAt: Date;
-  sessionToken: string;
-}) {
-  const signedSessionToken = await makeSignature(
-    input.sessionToken,
-    input.authContext.secret,
-  );
-  const attributes = input.authContext.authCookies.sessionToken.attributes;
-  const sameSite = attributes.sameSite;
-
-  return {
-    name: input.authContext.authCookies.sessionToken.name,
-    value: `${input.sessionToken}.${signedSessionToken}`,
-    options: {
-      domain: attributes.domain,
-      expires: input.expiresAt,
-      httpOnly: attributes.httpOnly,
-      maxAge: attributes.maxAge,
-      partitioned: attributes.partitioned,
-      path: attributes.path,
-      sameSite: sameSite
-        ? (sameSite.toLowerCase() as "strict" | "lax" | "none")
-        : undefined,
-      secure: attributes.secure,
-    },
   };
 }
 
@@ -151,11 +112,11 @@ function normalizeCode(code: string): Buffer {
 }
 
 function getMobileReviewConfig(): MobileReviewConfigResult {
-  if (!env.APP_REVIEW_DEMO_ENABLED) {
+  if (!isAppReviewDemoEnabled()) {
     return { ok: false, reason: "review_demo_disabled" };
   }
 
-  const reviewDemoAccounts = getConfiguredReviewAccounts();
+  const reviewDemoAccounts = getConfiguredAppReviewDemoAccounts();
 
   if (!reviewDemoAccounts.length) {
     return {
@@ -171,27 +132,10 @@ function getMobileReviewConfig(): MobileReviewConfigResult {
   };
 }
 
-function getConfiguredReviewAccounts(): MobileReviewAccount[] {
-  return parseReviewDemoAccounts(env.APP_REVIEW_DEMO_ACCOUNTS);
-}
-
-function parseReviewDemoAccounts(
-  value: string | undefined,
-): MobileReviewAccount[] {
-  if (!value?.trim()) return [];
-
-  try {
-    const parsed = reviewDemoAccountsSchema.safeParse(JSON.parse(value));
-    return parsed.success ? parsed.data : [];
-  } catch {
-    return [];
-  }
-}
-
 function getMatchingReviewAccount(input: {
   code: string;
   email: string;
-  reviewDemoAccounts: MobileReviewAccount[];
+  reviewDemoAccounts: ReviewDemoAccount[];
 }) {
   const normalizedEmail = input.email.trim().toLowerCase();
 
@@ -202,7 +146,7 @@ function getMatchingReviewAccount(input: {
 }
 
 async function getMobileReviewUsers(
-  reviewDemoAccounts: MobileReviewAccount[],
+  reviewDemoAccounts: ReviewDemoAccount[],
 ): Promise<MobileReviewUserResult[]> {
   const emailAccounts = await prisma.emailAccount.findMany({
     where: {

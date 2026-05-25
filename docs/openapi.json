@@ -34,7 +34,9 @@
           "LABEL",
           "ARCHIVE",
           "MARK_READ",
+          "STAR",
           "DRAFT_EMAIL",
+          "DRAFT_MESSAGING_CHANNEL",
           "REPLY",
           "FORWARD",
           "SEND_EMAIL",
@@ -42,6 +44,7 @@
           "DIGEST",
           "CALL_WEBHOOK",
           "MOVE_FOLDER",
+          "NOTIFY_MESSAGING_CHANNEL",
           "NOTIFY_SENDER"
         ]
       },
@@ -85,6 +88,7 @@
         "type": "object",
         "properties": {
           "type": { "$ref": "#/components/schemas/ActionType" },
+          "messagingChannelId": { "type": "string", "nullable": true },
           "fields": { "$ref": "#/components/schemas/RuleActionFields" },
           "delayInMinutes": { "type": "number", "nullable": true }
         },
@@ -125,155 +129,6 @@
     "parameters": {}
   },
   "paths": {
-    "/group/{groupId}/emails": {
-      "get": {
-        "description": "Get group emails",
-        "security": [
-          {
-            "ApiKeyAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "description": "You can find the group id by going to `https://www.getinboxzero.com/automation?tab=groups`, clicking `Matching Emails`, and then copying the id from the URL."
-            },
-            "required": true,
-            "description": "You can find the group id by going to `https://www.getinboxzero.com/automation?tab=groups`, clicking `Matching Emails`, and then copying the id from the URL.",
-            "name": "groupId",
-            "in": "path"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "pageToken",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "number",
-              "nullable": true
-            },
-            "required": false,
-            "name": "from",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "number",
-              "nullable": true
-            },
-            "required": false,
-            "name": "to",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "email",
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "messages": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "threadId": {
-                            "type": "string"
-                          },
-                          "labelIds": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          },
-                          "snippet": {
-                            "type": "string"
-                          },
-                          "historyId": {
-                            "type": "string"
-                          },
-                          "attachments": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {}
-                            }
-                          },
-                          "inline": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {}
-                            }
-                          },
-                          "headers": {
-                            "type": "object",
-                            "properties": {}
-                          },
-                          "textPlain": {
-                            "type": "string"
-                          },
-                          "textHtml": {
-                            "type": "string"
-                          },
-                          "matchingGroupItem": {
-                            "type": "object",
-                            "nullable": true,
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "type": {
-                                "type": "string",
-                                "enum": ["FROM", "SUBJECT", "BODY"]
-                              },
-                              "value": {
-                                "type": "string"
-                              }
-                            },
-                            "required": ["id", "type", "value"]
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "threadId",
-                          "snippet",
-                          "historyId",
-                          "inline",
-                          "headers"
-                        ]
-                      }
-                    },
-                    "nextPageToken": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["messages"]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/stats/by-period": {
       "get": {
         "description": "Get email statistics grouped by time period. Returns counts of emails by status (all, sent, read, unread, archived, unarchived) for each period.",

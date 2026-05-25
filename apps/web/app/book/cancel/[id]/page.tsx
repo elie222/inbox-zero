@@ -17,5 +17,5 @@ export default async function CancelBookingPage({
 }) {
   const [{ id }, { token }] = await Promise.all([params, searchParams]);
 
-  return <CancelBookingClient id={id} token={token} />;
+  return <CancelBookingClient id={id} bookingToken={token} />;
 }

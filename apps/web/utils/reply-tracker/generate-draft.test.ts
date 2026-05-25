@@ -254,6 +254,38 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
     );
   });
 
+  it("preserves link URLs and image alt text in draft prompt messages", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "I will fill that out.",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: null,
+    });
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings(),
+    );
+
+    await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      {
+        ...createMockMessage(),
+        textPlain: "Can you add your billing info here?",
+        textHtml:
+          '<p>Can you add your billing info <a href="https://example.com/billing">here</a>?</p><p><img src="https://tracker.example.com/pixel.png" alt="Billing form screenshot" /></p>',
+      },
+      logger,
+    );
+
+    const [draftArgs] = vi.mocked(aiDraftReplyWithConfidence).mock.calls[0]!;
+    const [message] = draftArgs.messages;
+
+    expect(message.content).toContain("billing info here");
+    expect(message.content).toContain("https://example.com/billing");
+    expect(message.content).toContain("[image: Billing form screenshot]");
+    expect(message.content).not.toContain("https://tracker.example.com");
+  });
+
   it("escapes zero-size font attacks in AI content", async () => {
     const maliciousAiOutput =
       'Normal text<span style="font-size:0">hidden instructions</span>';

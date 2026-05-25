@@ -142,6 +142,66 @@ describe("emailToContent", () => {
       expect(result).not.toContain("\n\n\n\n");
     });
   });
+
+  describe("HTML link and image context", () => {
+    it("removes link URLs by default", () => {
+      const result = emailToContent({
+        textHtml:
+          '<p>Add your billing info <a href="https://example.com/billing">here</a>.</p>',
+        textPlain: "",
+        snippet: "",
+      });
+
+      expect(result).toContain("billing info here");
+      expect(result).not.toContain("https://example.com/billing");
+    });
+
+    it("preserves link URLs when requested", () => {
+      const result = emailToContent(
+        {
+          textHtml:
+            '<p>Add your billing info <a href="https://example.com/billing">here</a>.</p>',
+          textPlain: "",
+          snippet: "",
+        },
+        { includeLinkUrls: true },
+      );
+
+      expect(result).toContain("billing info here");
+      expect(result).toContain("https://example.com/billing");
+    });
+
+    it("preserves image alt text without exposing image sources when requested", () => {
+      const result = emailToContent(
+        {
+          textHtml:
+            '<p>See below.</p><img src="https://tracker.example.com/pixel.png" alt="Billing form screenshot" />',
+          textPlain: "",
+          snippet: "",
+        },
+        { includeImageAltText: true },
+      );
+
+      expect(result).toContain("[image: Billing form screenshot]");
+      expect(result).not.toContain("https://tracker.example.com");
+    });
+
+    it("uses a placeholder for images without useful alt text when requested", () => {
+      const result = emailToContent(
+        {
+          textHtml:
+            '<p>See below.</p><img src="https://tracker.example.com/pixel.png" alt="image" />',
+          textPlain: "",
+          snippet: "",
+        },
+        { includeImageAltText: true },
+      );
+
+      expect(result).toContain("See below.");
+      expect(result).toContain("[image]");
+      expect(result).not.toContain("https://tracker.example.com");
+    });
+  });
 });
 
 describe("convertEmailHtmlToText", () => {

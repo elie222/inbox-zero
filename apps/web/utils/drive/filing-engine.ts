@@ -307,6 +307,7 @@ export async function processAttachment({
         threadId: message.threadId,
         headerMessageId: message.headers["message-id"] || "",
         references: message.headers.references,
+        messageId: message.id,
       };
 
       try {

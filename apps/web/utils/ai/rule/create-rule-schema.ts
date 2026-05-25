@@ -38,7 +38,12 @@ const conditionSchema = z
           })
           .describe(STATIC_FROM_CONDITION_DESCRIPTION),
         to: z.string().nullish().describe("The to email address to match"),
-        subject: z.string().nullish().describe("The subject to match"),
+        subject: z
+          .string()
+          .nullish()
+          .describe(
+            "Exact subject-line text to match. Use this when the user explicitly asks to match the email subject. If the user describes email content, topic, meaning, or general keyword matching without naming the subject line, use aiInstructions instead.",
+          ),
       })
       .nullish()
       .describe(

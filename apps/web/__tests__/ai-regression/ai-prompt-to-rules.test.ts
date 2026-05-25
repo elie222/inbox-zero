@@ -1,8 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
-import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
+import {
+  type CreateRuleSchema,
+  createRuleSchema,
+} from "@/utils/ai/rule/create-rule-schema";
 import { ActionType } from "@/generated/prisma/enums";
 import { getEmailAccount } from "@/__tests__/helpers";
+import {
+  formatSemanticJudgeActual,
+  judgeEvalOutput,
+} from "@/__tests__/eval/semantic-judge";
 
 // Run with: pnpm test-ai ai-regression/ai-prompt-to-rules
 
@@ -33,66 +40,79 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       // receipts
       expect(result[0]).toMatchObject({
         name: expect.any(String),
-        condition: {
-          group: "Receipts",
-        },
         actions: [
           {
             type: ActionType.LABEL,
-            label: "Receipt",
+            fields: {
+              label: "Receipt",
+            },
           },
         ],
+      });
+      await expectConditionSemantics({
+        prompt: prompts[0],
+        rule: result[0],
+        expected:
+          "The condition should match receipt-like emails, such as receipts, invoices, purchase confirmations, or billing statements.",
       });
 
       // newsletters
       expect(result[1]).toMatchObject({
         name: expect.any(String),
-        condition: {
-          group: "Newsletters",
-        },
         actions: [
           {
             type: ActionType.ARCHIVE,
           },
           {
             type: ActionType.LABEL,
-            label: "Newsletter",
+            fields: {
+              label: "Newsletter",
+            },
           },
         ],
+      });
+      await expectConditionSemantics({
+        prompt: prompts[1],
+        rule: result[1],
+        expected: "The condition should match newsletter emails.",
       });
 
       // marketing
       expect(result[2]).toMatchObject({
         name: expect.any(String),
-        condition: {
-          aiInstructions: expect.any(String),
-        },
         actions: [
           {
             type: ActionType.ARCHIVE,
           },
           {
             type: ActionType.LABEL,
-            label: "Marketing",
+            fields: {
+              label: "Marketing",
+            },
           },
         ],
+      });
+      await expectConditionSemantics({
+        prompt: prompts[2],
+        rule: result[2],
+        expected: "The condition should match marketing emails.",
       });
 
       // internal
       expect(result[3]).toMatchObject({
         name: expect.any(String),
-        condition: {
-          static: {
-            from: "mycompany.com",
-          },
-        },
         actions: [
           {
             type: ActionType.LABEL,
-            label: "Internal",
+            fields: {
+              label: "Internal",
+            },
           },
         ],
       });
+      expect(["mycompany.com", "@mycompany.com"]).toContain(
+        result[3].condition.static?.from,
+      );
 
       // Validate each rule against the schema
       for (const rule of result) {
@@ -122,11 +142,12 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
     async () => {
       const emailAccount = getEmailAccount();
 
-      const promptFile = `
-      * Forward urgent emails about system outages to urgent@company.com and label as "Urgent"
-      * When someone asks for pricing, forward to sales@company.com and label as "Sales Lead"
-      * Forward emails from VIP clients (from @bigclient.com) to vip-support@company.com
-    `.trim();
+      const prompts = [
+        'Forward urgent emails about system outages to urgent@company.com and label as "Urgent"',
+        'When someone asks for pricing, forward to sales@company.com and label as "Sales Lead"',
+        "Forward emails from VIP clients (from @bigclient.com) to vip-support@company.com",
+      ];
+      const promptFile = prompts.map((prompt) => `* ${prompt}`).join("\n");
 
       const result = await aiPromptToRules({ emailAccount, promptFile });
 
@@ -135,37 +156,51 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       // System outages rule
       expect(result[0]).toMatchObject({
         name: expect.any(String),
-        condition: {
-          aiInstructions: expect.stringMatching(/system|outage|urgent/i),
-        },
         actions: [
           {
             type: ActionType.FORWARD,
-            to: "urgent@company.com",
+            fields: {
+              to: "urgent@company.com",
+            },
           },
           {
             type: ActionType.LABEL,
-            label: "Urgent",
+            fields: {
+              label: "Urgent",
+            },
           },
         ],
+      });
+      await expectConditionSemantics({
+        prompt: prompts[0],
+        rule: result[0],
+        expected:
+          "The condition should match urgent emails about system outages.",
       });
 
       // Sales lead rule
       expect(result[1]).toMatchObject({
         name: expect.any(String),
-        condition: {
-          aiInstructions: expect.stringMatching(/pricing|sales/i),
-        },
         actions: [
           {
             type: ActionType.FORWARD,
-            to: "sales@company.com",
+            fields: {
+              to: "sales@company.com",
+            },
           },
           {
             type: ActionType.LABEL,
-            label: "Sales Lead",
+            fields: {
+              label: "Sales Lead",
+            },
           },
         ],
+      });
+      await expectConditionSemantics({
+        prompt: prompts[1],
+        rule: result[1],
+        expected:
+          "The condition should match emails where someone asks about pricing.",
       });
 
       // VIP client rule
@@ -179,7 +214,9 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
         actions: [
           {
             type: ActionType.FORWARD,
-            to: "vip-support@company.com",
+            fields: {
+              to: "vip-support@company.com",
+            },
           },
         ],
       });
@@ -206,18 +243,22 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       expect(result.length).toBe(1);
       expect(result[0]).toMatchObject({
         name: expect.any(String),
-        condition: {
-          categories: {
-            categoryFilterType: "INCLUDE",
-            categoryFilters: ["Job Applications"],
-          },
-        },
         actions: [
           {
             type: ActionType.REPLY,
-            content: expect.stringMatching(/Thank you for your application/),
+            fields: {
+              content: expect.stringContaining(
+                "Thank you for your application",
+              ),
+            },
           },
         ],
+      });
+      await expectConditionSemantics({
+        prompt: promptFile,
+        rule: result[0],
+        expected:
+          "The condition should match emails that are job applications or candidate submissions.",
       });
     },
     TIMEOUT,
@@ -243,18 +284,27 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
           static: {
             from: "support@company.com",
           },
-          aiInstructions: expect.stringMatching(/urgent|escalation/i),
         },
         actions: [
           {
             type: ActionType.FORWARD,
-            to: "manager@company.com",
+            fields: {
+              to: "manager@company.com",
+            },
           },
           {
             type: ActionType.LABEL,
-            label: "Escalation",
+            fields: {
+              label: "Escalation",
+            },
           },
         ],
+      });
+      await expectConditionSemantics({
+        prompt: promptFile,
+        rule: result[0],
+        expected:
+          "The condition should require both the sender support@company.com and the semantic/content requirement that the email is urgent or contains an escalation request.",
       });
     },
     TIMEOUT,
@@ -268,7 +318,7 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       const promptFile = `
       When someone asks about pricing, reply with:
       """
-      Hi [firstName],
+      Hi {{firstName}},
 
       Thank you for your interest in our pricing. Our plans start at $10/month.
       
@@ -282,15 +332,20 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       expect(result.length).toBe(1);
       expect(result[0]).toMatchObject({
         name: expect.any(String),
-        condition: {
-          aiInstructions: expect.stringMatching(/pricing|price/i),
-        },
         actions: [
           {
             type: ActionType.REPLY,
-            content: expect.stringMatching(/Hi {{firstName}}/),
+            fields: {
+              content: expect.stringContaining("Hi {{firstName}}"),
+            },
           },
         ],
+      });
+      await expectConditionSemantics({
+        prompt: promptFile,
+        rule: result[0],
+        expected:
+          "The condition should match emails where someone asks about pricing.",
       });
 
       // Verify template variable is preserved in the content
@@ -302,3 +357,29 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
     TIMEOUT,
   );
 });
+
+async function expectConditionSemantics({
+  expected,
+  prompt,
+  rule,
+}: {
+  expected: string;
+  prompt: string;
+  rule: CreateRuleSchema;
+}) {
+  const output = JSON.stringify(rule.condition);
+  const judgeResult = await judgeEvalOutput({
+    input: prompt,
+    output,
+    expected,
+    criterion: {
+      name: "Rule condition semantics",
+      description:
+        "The generated rule condition should semantically capture the requested matching behavior. Exact wording is irrelevant. static.from is for sender filters, and aiInstructions is the correct place for semantic or content constraints because this schema has no separate body/keyword filter field. Missing semantic constraints should fail.",
+    },
+  });
+
+  expect(judgeResult.pass, formatSemanticJudgeActual(output, judgeResult)).toBe(
+    true,
+  );
+}

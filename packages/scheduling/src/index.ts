@@ -88,11 +88,14 @@ export function generateBookableSlots(
   for (const window of windows) {
     const windowStart = parseDate(window.startTime, "window.startTime");
     const windowEnd = parseDate(window.endTime, "window.endTime");
-    const windowStartMs = windowStart.getTime();
-    const rawFirst = Math.max(windowStartMs, rangeStart.getTime());
-    const offsetMs = rawFirst - windowStartMs;
-    const firstStart =
-      windowStartMs + Math.ceil(offsetMs / intervalMs) * intervalMs;
+    const rawFirst = new Date(
+      Math.max(windowStart.getTime(), rangeStart.getTime()),
+    );
+    const firstStart = roundUpToLocalIntervalGrid({
+      date: rawFirst,
+      timezone: input.timezone,
+      intervalMinutes: input.policy.slotIntervalMinutes,
+    }).getTime();
     const lastEnd = Math.min(windowEnd.getTime(), rangeEnd.getTime());
 
     for (
@@ -276,7 +279,6 @@ function isAlignedToAvailabilityGrid({
   selectedStart: Date;
   selectedEnd: Date;
 }) {
-  const intervalMs = minutesToMs(policy.slotIntervalMinutes);
   const selectedStartMs = selectedStart.getTime();
   const selectedEndMs = selectedEnd.getTime();
   const windows = expandWeeklyAvailability({
@@ -297,9 +299,58 @@ function isAlignedToAvailabilityGrid({
     return (
       selectedStartMs >= windowStartMs &&
       selectedEndMs <= windowEndMs &&
-      (selectedStartMs - windowStartMs) % intervalMs === 0
+      isAlignedToLocalIntervalGrid({
+        date: selectedStart,
+        timezone,
+        intervalMinutes: policy.slotIntervalMinutes,
+      })
     );
   });
+}
+
+function roundUpToLocalIntervalGrid({
+  date,
+  timezone,
+  intervalMinutes,
+}: {
+  date: Date;
+  timezone: string;
+  intervalMinutes: number;
+}) {
+  const { dateKey, msAfterMidnight } = getLocalDayPosition(date, timezone);
+  const intervalMs = minutesToMs(intervalMinutes);
+  const nextMs = Math.ceil(msAfterMidnight / intervalMs) * intervalMs;
+  const dayOffset = Math.floor(nextMs / minutesToMs(24 * 60));
+  const minutesAfterMidnight = (nextMs % minutesToMs(24 * 60)) / minutesToMs(1);
+
+  return zonedDateTimeToUtc(
+    addDaysToDateKey(dateKey, dayOffset),
+    minutesAfterMidnight,
+    timezone,
+  );
+}
+
+function isAlignedToLocalIntervalGrid({
+  date,
+  timezone,
+  intervalMinutes,
+}: {
+  date: Date;
+  timezone: string;
+  intervalMinutes: number;
+}) {
+  const { msAfterMidnight } = getLocalDayPosition(date, timezone);
+  return msAfterMidnight % minutesToMs(intervalMinutes) === 0;
+}
+
+function getLocalDayPosition(date: Date, timezone: string) {
+  const parts = getZonedParts(date, timezone);
+  return {
+    dateKey: formatDateKey(parts.year, parts.month, parts.day),
+    msAfterMidnight:
+      ((parts.hour * 60 + parts.minute) * 60 + parts.second) * 1000 +
+      date.getUTCMilliseconds(),
+  };
 }
 
 function validatePolicy(policy: BookingPolicy) {

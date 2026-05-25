@@ -78,6 +78,16 @@ const parsedEnv = createEnv({
     APPLE_KEY_ID: z.string().optional(),
     APPLE_PRIVATE_KEY: z.string().optional(),
     APPLE_APP_BUNDLE_IDENTIFIER: z.string().optional(),
+    // Comma-separated SHA-256 fingerprints served from /.well-known/assetlinks.json
+    ANDROID_APP_CERT_SHA256_FINGERPRINTS: z
+      .string()
+      .optional()
+      .transform((value) =>
+        value
+          ?.split(",")
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      ),
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
 
@@ -318,10 +328,10 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_BRAND_LOGO_URL: z.string().optional(),
     NEXT_PUBLIC_BRAND_ICON_URL: z.string().optional().default("/icon.png"),
     NEXT_PUBLIC_SLACK_BOT_NAME: z.string().trim().min(1).default("Inbox Zero"),
+    NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT: z.string().optional(),
     NEXT_PUBLIC_CONTACTS_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: booleanString.default(true),
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: booleanString.optional().default(true),
-    NEXT_PUBLIC_SHOW_APPLE_LOGIN: booleanString.optional().default(false),
     NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
     NEXT_PUBLIC_SUPPORT_EMAIL: z
       .string()
@@ -356,6 +366,9 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_BOOKING_LINKS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_EXTERNAL_API_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: booleanString.optional(),
+    NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED: booleanString
+      .optional()
+      .default(false),
     // When true, the deployment default is enforced and account-level edits are disabled.
     NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED: booleanString
       .optional()
@@ -420,11 +433,12 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_BRAND_LOGO_URL: process.env.NEXT_PUBLIC_BRAND_LOGO_URL,
     NEXT_PUBLIC_BRAND_ICON_URL: process.env.NEXT_PUBLIC_BRAND_ICON_URL,
     NEXT_PUBLIC_SLACK_BOT_NAME: process.env.NEXT_PUBLIC_SLACK_BOT_NAME,
+    NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT:
+      process.env.NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT,
     NEXT_PUBLIC_CONTACTS_ENABLED: process.env.NEXT_PUBLIC_CONTACTS_ENABLED,
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: process.env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED:
       process.env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED,
-    NEXT_PUBLIC_SHOW_APPLE_LOGIN: process.env.NEXT_PUBLIC_SHOW_APPLE_LOGIN,
     NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS:
       process.env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS,
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -458,6 +472,8 @@ const parsedEnv = createEnv({
       process.env.NEXT_PUBLIC_EXTERNAL_API_ENABLED,
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED:
       process.env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED,
+    NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED:
+      process.env.NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED,
     NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED:
       process.env.NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED,
     NEXT_PUBLIC_IS_RESEND_CONFIGURED:

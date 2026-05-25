@@ -7,7 +7,7 @@ import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-ad
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { sleep } from "@/utils/sleep";
-import { convertNewlinesToBr, escapeHtml } from "@/utils/string";
+import { convertNewlinesToBr, escapeHtml, truncate } from "@/utils/string";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import {
   type AssistantEmailConfirmationResult,
@@ -139,7 +139,7 @@ export async function confirmAssistantEmailActionForAccount({
       error,
       actionType,
     });
-    throw new SafeError(getAssistantEmailActionErrorMessage(actionType));
+    throw new SafeError(getAssistantEmailActionErrorMessage(actionType, error));
   }
 
   try {
@@ -1133,8 +1133,79 @@ async function resolveSentMessageId({
 
 function getAssistantEmailActionErrorMessage(
   actionType: AssistantPendingEmailActionType,
+  error?: unknown,
 ) {
-  return ASSISTANT_EMAIL_ACTION_METADATA[actionType].errorMessage;
+  const fallback = ASSISTANT_EMAIL_ACTION_METADATA[actionType].errorMessage;
+  const providerErrorMessage = getProviderErrorMessage(error);
+
+  return providerErrorMessage
+    ? `${fallback}: ${providerErrorMessage}`
+    : fallback;
+}
+
+function getProviderErrorMessage(error: unknown): string | null {
+  if (!isRecord(error)) return null;
+
+  const raw = extractRawProviderErrorMessage(error);
+  return raw ? sanitizeProviderErrorMessage(raw) : null;
+}
+
+function extractRawProviderErrorMessage(
+  error: Record<string, unknown>,
+): string | null {
+  const bodyMessage = getProviderErrorBodyMessage(error.body);
+  if (bodyMessage) return bodyMessage;
+
+  const nestedError = error.error;
+  if (isRecord(nestedError) && typeof nestedError.message === "string") {
+    return nestedError.message;
+  }
+
+  const hasMetadata = Boolean(
+    error.status ||
+      error.statusCode ||
+      error.code ||
+      error.body ||
+      error.response ||
+      error.data,
+  );
+  if (
+    hasMetadata &&
+    typeof error.message === "string" &&
+    error.message.trim()
+  ) {
+    return error.message;
+  }
+
+  return null;
+}
+
+function getProviderErrorBodyMessage(body: unknown): string | null {
+  if (typeof body !== "string" || !body.trim()) return null;
+
+  try {
+    const parsed = JSON.parse(body);
+    if (!isRecord(parsed)) return null;
+
+    const error = parsed.error;
+    if (isRecord(error) && typeof error.message === "string") {
+      return error.message;
+    }
+
+    if (typeof parsed.message === "string") return parsed.message;
+  } catch {}
+
+  return body;
+}
+
+function sanitizeProviderErrorMessage(message: string) {
+  const sanitized = message
+    .replace(/[\w.%+-]+@[\w.-]+\.[A-Z]{2,}/gi, "[email]")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!sanitized) return null;
+  return truncate(sanitized, 237);
 }
 
 function getAssistantToolTypeForAction(

@@ -58,6 +58,7 @@ CRITICAL GUIDELINES:
 - Perform as many searches as needed to confidently gather context, but be efficient
 - Focus on emails that show how similar questions were answered before
 - Only include information that directly helps a downstream drafting agent
+- Omit historical threads whose only useful context asks for details already present in the current thread.
 
 IMPORTANT - For scheduling/meeting requests:
 - DO NOT include emails that show old availability times or scheduling patterns
@@ -256,7 +257,13 @@ export async function searchReplyContextEmails({
     "id",
   )
     .slice(0, MAX_EXPANDED_EMAILS_PER_QUERY)
-    .map((message) => getEmailForLLM(message, { maxLength: 2000 }));
+    .map((message) =>
+      getEmailForLLM(message, {
+        maxLength: 2000,
+        includeLinkUrls: true,
+        includeImageAltText: true,
+      }),
+    );
 }
 
 async function getHistoricalThreadMessages({

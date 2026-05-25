@@ -108,6 +108,33 @@ describe("processAttachment", () => {
     expect(sendAskNotification).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { kind: "filed", confidence: 0.95, mock: () => sendFiledNotification },
+    { kind: "ask", confidence: 0.4, mock: () => sendAskNotification },
+  ])("passes the platform message id in sourceMessage for $kind notifications so Outlook can thread the reply", async ({
+    confidence,
+    mock,
+  }) => {
+    const { attachment, emailAccount, emailProvider, message } =
+      setupSuccessfulFiling({ confidence });
+
+    await processAttachment({
+      attachment,
+      emailAccount,
+      emailProvider,
+      logger,
+      message,
+    });
+
+    expect(mock()).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceMessage: expect.objectContaining({
+          messageId: message.id,
+        }),
+      }),
+    );
+  });
+
   it("skips filed confirmation emails when disabled", async () => {
     const { attachment, emailAccount, emailProvider, message, uploadFile } =
       setupSuccessfulFiling({

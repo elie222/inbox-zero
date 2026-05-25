@@ -125,13 +125,10 @@ async function getSlackTargetNames(
     providerUserId: string | null;
   }>,
 ) {
-  const targetNamesByChannelId = Object.fromEntries(
-    channels.map((channel) => [channel.id, {} as Record<string, string>]),
-  );
+  const targetNamesByChannelId: Record<string, Record<string, string>> = {};
 
-  const slackChannels = channels.filter(isOperationalSlackChannel);
   const channelIdsByToken = new Map<string, string[]>();
-  for (const channel of slackChannels) {
+  for (const channel of channels.filter(isOperationalSlackChannel)) {
     const accessToken = channel.accessToken;
     if (!accessToken) continue;
     const channelIds = channelIdsByToken.get(accessToken) ?? [];
@@ -152,7 +149,7 @@ async function getSlackTargetNames(
             targetNamesByChannelId[channelId] = targetNames;
           }
         } catch {
-          // Empty objects were already initialized; nothing to do.
+          // Leave channelId unset so callers fall back to the raw target id.
         }
       },
     ),

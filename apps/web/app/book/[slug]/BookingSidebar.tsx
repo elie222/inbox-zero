@@ -39,7 +39,9 @@ import {
 
 const BRAND_HOMEPAGE_URL = "https://www.getinboxzero.com";
 
-type BookingLink = GetPublicBookingLinkResponse;
+type BookingLink = Omit<GetPublicBookingLinkResponse, "locationValue"> & {
+  locationValue: string | null;
+};
 
 export function BookingSidebar({
   bookingLink,
@@ -59,7 +61,7 @@ export function BookingSidebar({
   const hostName = bookingLink.hostName || bookingLink.title;
   const initial = (hostName || "?").trim().charAt(0).toUpperCase();
   return (
-    <div className="flex min-h-0 flex-col gap-4 p-4 sm:p-6 md:p-7">
+    <div className="flex min-h-0 flex-col gap-4 overflow-y-auto p-4 sm:p-6 md:p-7">
       {backButton}
       <div className="flex size-12 items-center justify-center rounded-full bg-blue-50 text-lg font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
         {initial}

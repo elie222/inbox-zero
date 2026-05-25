@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { withError } from "@/utils/middleware";
+import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 import prisma from "@/utils/prisma";
 
 const getSsoSignInSchema = z.object({
@@ -23,6 +24,10 @@ export const GET = withError("sso/signin", async (request) => {
   });
 
   request.logger.info("SSO sign-in requested", { email, organizationSlug });
+
+  if (!getEnabledLoginProviders().has("sso")) {
+    throw new SafeError("SSO login is not enabled");
+  }
 
   const provider = await prisma.ssoProvider.findFirst({
     where: {

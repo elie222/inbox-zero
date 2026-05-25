@@ -4,12 +4,15 @@ import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import {
   sendBookingCancellationEmails,
   sendBookingConfirmationEmails,
+  sendBookingRescheduledEmails,
 } from "@/utils/booking/emails";
 
 const resendMocks = vi.hoisted(() => ({
   sendGuestBookingConfirmationEmail: vi.fn(),
+  sendGuestBookingRescheduledEmail: vi.fn(),
   sendHostBookingCancellationEmail: vi.fn(),
   sendHostBookingConfirmationEmail: vi.fn(),
+  sendHostBookingRescheduledEmail: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -27,8 +30,10 @@ describe("booking emails", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resendMocks.sendGuestBookingConfirmationEmail.mockResolvedValue(undefined);
+    resendMocks.sendGuestBookingRescheduledEmail.mockResolvedValue(undefined);
     resendMocks.sendHostBookingCancellationEmail.mockResolvedValue(undefined);
     resendMocks.sendHostBookingConfirmationEmail.mockResolvedValue(undefined);
+    resendMocks.sendHostBookingRescheduledEmail.mockResolvedValue(undefined);
   });
 
   it("uses the host name when present", async () => {
@@ -36,6 +41,8 @@ describe("booking emails", () => {
       booking: bookingEmailPayload(),
       guestTimezone: "UTC",
       cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
+      rescheduleUrl:
+        "https://example.com/book/reschedule/booking-uid?token=token",
       logger,
     });
 
@@ -64,6 +71,8 @@ describe("booking emails", () => {
       }),
       guestTimezone: "UTC",
       cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
+      rescheduleUrl:
+        "https://example.com/book/reschedule/booking-uid?token=token",
       logger,
     });
 
@@ -88,6 +97,8 @@ describe("booking emails", () => {
       }),
       guestTimezone: "UTC",
       cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
+      rescheduleUrl:
+        "https://example.com/book/reschedule/booking-uid?token=token",
       logger,
     });
 
@@ -96,6 +107,38 @@ describe("booking emails", () => {
         emailProps: expect.objectContaining({
           location: "Microsoft Teams",
           meetingLink: "https://teams.example.com/meeting",
+        }),
+      }),
+    );
+  });
+
+  it("sends reschedule emails to guest and host with previous time", async () => {
+    await sendBookingRescheduledEmails({
+      booking: bookingEmailPayload(),
+      previousStartTime: new Date("2026-05-04T09:00:00.000Z"),
+      guestTimezone: "UTC",
+      cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
+      rescheduleUrl:
+        "https://example.com/book/reschedule/booking-uid?token=token",
+      logger,
+    });
+
+    expect(resendMocks.sendGuestBookingRescheduledEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "guest@example.com",
+        emailProps: expect.objectContaining({
+          rescheduleUrl:
+            "https://example.com/book/reschedule/booking-uid?token=token",
+          cancelUrl: "https://example.com/book/cancel/booking-uid?token=token",
+          previousFormattedTime: expect.any(String),
+        }),
+      }),
+    );
+    expect(resendMocks.sendHostBookingRescheduledEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "host@example.com",
+        emailProps: expect.objectContaining({
+          previousFormattedTime: expect.any(String),
         }),
       }),
     );
