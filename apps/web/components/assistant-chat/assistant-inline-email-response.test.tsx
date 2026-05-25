@@ -201,6 +201,44 @@ describe("AssistantInlineEmailResponse", () => {
     });
   });
 
+  it("renders rule suggestions with attributes split across lines", () => {
+    render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        [
+          "\n<rule-suggestions>\n",
+          "<rule-suggestion\n",
+          'name="ProfitWell Updates"\n',
+          'when="emails from product@profitwell.com regarding goal updates"\n',
+          'archive="true"\n',
+          'label="Notification" />\n',
+          "<rule-suggestion\n",
+          'name="Sentry Alerts"\n',
+          'when="emails from noreply@sentry.io regarding infrastructure or load balancer changes"\n',
+          'archive="true"\n',
+          'label="Notification" />\n',
+          "</rule-suggestions>\n",
+        ].join(""),
+      ),
+    );
+
+    expect(screen.getByText("ProfitWell Updates")).toBeTruthy();
+    expect(screen.getByText("Sentry Alerts")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "emails from product@profitwell.com regarding goal updates",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "emails from noreply@sentry.io regarding infrastructure or load balancer changes",
+      ),
+    ).toBeTruthy();
+    expect(screen.getAllByText("Label as 'Notification'")).toHaveLength(2);
+    expect(screen.getAllByText("Archive")).toHaveLength(2);
+  });
+
   it("renders free-form rule suggestion actions as plain text", () => {
     render(
       createElement(

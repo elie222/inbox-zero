@@ -41,22 +41,43 @@ const components = {
 const literalTagContent = ["email", "email-detail", "rule-suggestion"];
 
 export const AssistantInlineEmailResponse = memo(
-  ({ className, ...props }: AssistantInlineEmailResponseProps) =>
-    createElement(Streamdown, {
-      className: cn(
-        "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-        "[&_[data-streamdown='heading-1']]:!mt-8",
-        "[&_[data-streamdown='heading-2']]:!mt-8",
-        "[&_[data-streamdown='heading-3']]:!mt-7",
-        "[&_a]:!text-inherit [&_a]:underline [&_a]:underline-offset-2 [&_a:hover]:opacity-80",
-        className,
-      ),
-      allowedTags,
-      components,
-      literalTagContent,
-      normalizeHtmlIndentation: true,
-      ...props,
-    }),
+  ({ className, children, ...props }: AssistantInlineEmailResponseProps) =>
+    createElement(
+      Streamdown,
+      {
+        className: cn(
+          "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+          "[&_[data-streamdown='heading-1']]:!mt-8",
+          "[&_[data-streamdown='heading-2']]:!mt-8",
+          "[&_[data-streamdown='heading-3']]:!mt-7",
+          "[&_a]:!text-inherit [&_a]:underline [&_a]:underline-offset-2 [&_a:hover]:opacity-80",
+          className,
+        ),
+        allowedTags,
+        components,
+        literalTagContent,
+        normalizeHtmlIndentation: true,
+        ...props,
+      },
+      normalizeSelfClosingAllowedTags(children),
+    ),
 );
 
 AssistantInlineEmailResponse.displayName = "AssistantInlineEmailResponse";
+
+const selfClosingAllowedTagPattern = new RegExp(
+  `<(${Object.keys(allowedTags).join("|")})(\\s(?:[^"'<>]|"[^"]*"|'[^']*')*)?\\s*/>`,
+  "gi",
+);
+
+function normalizeSelfClosingAllowedTags(
+  children: AssistantInlineEmailResponseProps["children"],
+) {
+  if (typeof children !== "string" || !children.includes("/>")) return children;
+
+  return children.replace(
+    selfClosingAllowedTagPattern,
+    (_match, tagName: string, attributes = "") =>
+      `<${tagName}${attributes}></${tagName}>`,
+  );
+}
