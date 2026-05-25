@@ -56,7 +56,7 @@ describe("booking link metadata", () => {
     });
   });
 
-  it("falls back to a booking description when the link has no description", () => {
+  it("falls back to a short booking description when the link has no description", () => {
     const bookingLink = {
       slug: "intro call",
       title: "Intro call",
@@ -66,9 +66,7 @@ describe("booking link metadata", () => {
     };
 
     expect(buildBookingLinkTitle(bookingLink)).toBe("Intro call | Host User");
-    expect(buildBookingLinkDescription(bookingLink)).toBe(
-      "Book a 45 min meeting with Host User.",
-    );
+    expect(buildBookingLinkDescription(bookingLink)).toBe("45 min meeting");
 
     expect(buildBookingLinkPageMetadata(bookingLink).openGraph).toMatchObject({
       url: "https://app.example.com/book/intro%20call",
@@ -90,8 +88,6 @@ describe("booking link metadata", () => {
     };
 
     expect(buildBookingLinkTitle(bookingLink)).toBe("Intro call | Inbox Zero");
-    expect(buildBookingLinkDescription(bookingLink)).toBe(
-      "Book a 30 min meeting.",
-    );
+    expect(buildBookingLinkDescription(bookingLink)).toBe("30 min meeting");
   });
 });
