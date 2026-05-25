@@ -17,11 +17,11 @@ export function LabelsSubMenu({
   const terminology = getEmailTerminology(provider);
 
   return (
-    <DropdownMenuSubContent className="max-h-[415px] overflow-auto">
+    <DropdownMenuSubContent className="max-h-[415px] max-w-[280px] overflow-auto">
       {labels.length ? (
         labels.map((label) => (
           <DropdownMenuItem key={label.id} onClick={() => onClick(label)}>
-            {label.name}
+            <span className="min-w-0 truncate">{label.name}</span>
           </DropdownMenuItem>
         ))
       ) : (
