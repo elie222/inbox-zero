@@ -59,7 +59,7 @@ const encodeMessage = (message: Buffer) =>
     .replace(/\//g, "_")
     .replace(/=+$/, "");
 
-const createMail = async (options: Mail.Options) => {
+export const createMail = async (options: Mail.Options) => {
   const mailComposer = new MailComposer(options);
   const message = await mailComposer.compile().build();
   return encodeMessage(message);
