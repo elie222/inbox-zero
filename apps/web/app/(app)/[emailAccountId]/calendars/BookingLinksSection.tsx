@@ -81,9 +81,7 @@ function InboxZeroBookingLinkPanel() {
   const timezone =
     data?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const defaultName = emailAccount?.name?.trim() || null;
-  const defaultTitle = defaultName
-    ? `${defaultName}'s booking link`
-    : "Booking link";
+  const defaultTitle = "Booking link";
   const defaultSlug = getBookingLinkSlugSuggestion(defaultName);
 
   const { executeAsync: createLink, isExecuting: isCreating } = useAction(

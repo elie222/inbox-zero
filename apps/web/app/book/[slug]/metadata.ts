@@ -63,12 +63,7 @@ export function buildBookingLinkDescription(bookingLink: BookingLinkMetadata) {
   const description = bookingLink.description?.trim();
   if (description) return description;
 
-  const hostName = bookingLink.hostName?.trim();
-  if (hostName) {
-    return `Book a ${bookingLink.durationMinutes} min meeting with ${hostName}.`;
-  }
-
-  return `Book a ${bookingLink.durationMinutes} min meeting.`;
+  return `${bookingLink.durationMinutes} min meeting`;
 }
 
 function getBookingLinkUrl(slug: string) {
