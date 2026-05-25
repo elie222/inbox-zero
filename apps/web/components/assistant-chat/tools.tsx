@@ -69,6 +69,7 @@ import { getActionColor } from "@/components/PlanBadge";
 import type { ActionType } from "@/generated/prisma/enums";
 import { formatShortDate } from "@/utils/date";
 import { trimToNonEmptyString } from "@/utils/string";
+import { decodeHtmlEntities } from "@/utils/gmail/decode";
 import { getEmailSearchUrl, getEmailUrlForOptionalMessage } from "@/utils/url";
 import {
   isManageInboxAction,
@@ -595,7 +596,7 @@ function EmailActionResult({
   const recipient =
     to || (actionType === "reply_email" ? referenceFrom : undefined);
   const referenceSubject = getPendingString(reference, "subject");
-  const displaySubject = subject || referenceSubject;
+  const displaySubject = decodeHtmlEntities(subject || referenceSubject);
   const body = getActionBodyText({ actionType, pendingAction });
   const [editedBody, setEditedBody] = useState(body || "");
 
@@ -2065,7 +2066,7 @@ function getActionBodyText({
     return htmlToText(messageHtml);
   }
 
-  return getPendingString(pendingAction, "content");
+  return decodeHtmlEntities(getPendingString(pendingAction, "content"));
 }
 
 function getEmailActionLabel(actionType: PendingEmailActionType) {
@@ -2105,14 +2106,15 @@ function getExternalMessageUrl({
   });
 }
 
-function htmlToText(html: string) {
-  return html
+export function htmlToText(html: string) {
+  const strippedText = html
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n")
     .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/[<>]/g, "")
+    .replace(/[<>]/g, "");
+
+  return decodeHtmlEntities(strippedText)
+    .replace(/\u00a0/g, " ")
     .replace(/ {2,}/g, " ")
     .replace(/\s+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
