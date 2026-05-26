@@ -433,7 +433,7 @@ function ConnectedChannelSection({
           )}
         </Item>
         <ItemSeparator />
-        <div className="max-h-80 overflow-y-auto">
+        <div className="max-h-[8.5rem] overflow-y-auto">
           {rules.length > 0 ? (
             rules.map((rule) => (
               <RuleToggle
