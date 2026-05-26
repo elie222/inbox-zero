@@ -146,11 +146,10 @@ describe("trackSentDraftStatus", () => {
         bodySimilarityStatus: "scored",
         sentText: "Please include pricing for seat counts.",
         similarityMetadata: expect.objectContaining({
-          diagnostics: expect.objectContaining({
-            lengthDirection: "user_lengthened",
+          draft: expect.objectContaining({
+            comparableBodyLength: "Thanks for reaching out.".length,
           }),
           sent: expect.objectContaining({
-            extractedReplyEmpty: false,
             extractedReplyLength: 39,
             selectedBodySource: "html",
           }),
@@ -367,7 +366,7 @@ describe("trackSentDraftStatus", () => {
     });
   });
 
-  it("records scoring diagnostics when sent reply text extraction is empty", async () => {
+  it("marks empty extracted sent reply text as non-scorable", async () => {
     vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
       id: "action-1",
       draftId: "draft-1",
@@ -397,14 +396,9 @@ describe("trackSentDraftStatus", () => {
         bodySimilarityStatus: "empty_sent_text",
         sentText: null,
         similarityMetadata: expect.objectContaining({
-          diagnostics: expect.objectContaining({
-            lengthDirection: "empty_sent_text",
-            scorePollutionSignals: expect.arrayContaining(["empty_sent_text"]),
-          }),
           sent: expect.objectContaining({
-            extractedReplyEmpty: true,
+            extractedReplyLength: 0,
             selectedBodySource: "html",
-            textHtmlLength: expect.any(Number),
           }),
         }),
       }),
@@ -443,11 +437,6 @@ describe("trackSentDraftStatus", () => {
         bodySimilarityScore: null,
         bodySimilarityStatus: "snippet_only_sent_body",
         similarityMetadata: expect.objectContaining({
-          diagnostics: expect.objectContaining({
-            scorePollutionSignals: expect.arrayContaining([
-              "snippet_only_sent_body",
-            ]),
-          }),
           sent: expect.objectContaining({
             fullBodyAvailable: false,
             selectedBodySource: "snippet",
@@ -505,16 +494,9 @@ describe("trackSentDraftStatus", () => {
         similarityMetadata: expect.objectContaining({
           draft: expect.objectContaining({
             comparableBodyLength: "Generated reply.".length,
-            hasReferralFooter: true,
           }),
           sent: expect.objectContaining({
             comparableBodyLength: "Generated reply.".length,
-          }),
-          diagnostics: expect.objectContaining({
-            scorePollutionSignals: expect.arrayContaining([
-              "draft_contains_referral_footer",
-              "sent_contains_referral_footer",
-            ]),
           }),
         }),
       }),
