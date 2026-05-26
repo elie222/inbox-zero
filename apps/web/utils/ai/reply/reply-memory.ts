@@ -24,8 +24,8 @@ const MAX_EXISTING_MEMORIES_IN_PROMPT = 16;
 const MAX_EXISTING_PREFERENCE_MEMORIES_IN_PROMPT = 8;
 const MAX_RETRIEVED_REPLY_MEMORIES = 6;
 const MAX_RETRIEVED_GLOBAL_REPLY_MEMORY_CANDIDATES = 24;
+const MAX_SELECTED_GLOBAL_REPLY_MEMORIES = 2;
 const MAX_RETRIEVED_TOPIC_REPLY_MEMORIES = 3;
-const MIN_GLOBAL_REPLY_MEMORY_SHARED_TERMS = 2;
 const MIN_GLOBAL_REPLY_MEMORY_SINGLE_TERM_LENGTH = 7;
 const PROMPTABLE_REPLY_MEMORY_KINDS = [
   ReplyMemoryKind.FACT,
@@ -223,19 +223,19 @@ export async function getReplyMemoriesForPrompt({
         `
       : [];
 
-    const relevantGlobalMemories = filterRelevantGlobalReplyMemories({
+    const rankedGlobalMemories = rankGlobalReplyMemories({
       globalMemories,
       normalizedEmailContent,
-    });
+    }).slice(0, MAX_SELECTED_GLOBAL_REPLY_MEMORIES);
 
-    const selected = dedupeReplyMemories(
-      sortReplyMemories([
+    const selected = dedupeReplyMemories([
+      ...sortReplyMemories([
         ...senderMemories,
         ...domainMemories,
         ...topicMemories,
-        ...relevantGlobalMemories,
       ]),
-    ).slice(0, MAX_RETRIEVED_REPLY_MEMORIES);
+      ...rankedGlobalMemories,
+    ]).slice(0, MAX_RETRIEVED_REPLY_MEMORIES);
 
     if (!selected.length) {
       return {
@@ -741,7 +741,7 @@ function normalizeMemoryText(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-function filterRelevantGlobalReplyMemories({
+function rankGlobalReplyMemories({
   globalMemories,
   normalizedEmailContent,
 }: {
@@ -749,31 +749,40 @@ function filterRelevantGlobalReplyMemories({
   normalizedEmailContent: string;
 }) {
   const emailTerms = getReplyMemoryRelevanceTerms(normalizedEmailContent);
-  if (!emailTerms.size) return [];
 
-  return globalMemories.filter((memory) =>
-    isGlobalReplyMemoryRelevantToEmail({
-      memory,
-      emailTerms,
-    }),
-  );
+  return [...globalMemories].sort((left, right) => {
+    const relevanceScore =
+      getGlobalReplyMemoryRelevanceScore({
+        memory: right,
+        emailTerms,
+      }) -
+      getGlobalReplyMemoryRelevanceScore({
+        memory: left,
+        emailTerms,
+      });
+    if (relevanceScore !== 0) return relevanceScore;
+
+    return right.updatedAt.getTime() - left.updatedAt.getTime();
+  });
 }
 
-function isGlobalReplyMemoryRelevantToEmail({
+function getGlobalReplyMemoryRelevanceScore({
   memory,
   emailTerms,
 }: {
   memory: ReplyMemory;
   emailTerms: Set<string>;
 }) {
+  if (!emailTerms.size) return 0;
+
   const memoryTerms = getReplyMemoryRelevanceTerms(memory.content);
   const sharedTerms = [...memoryTerms].filter((term) => emailTerms.has(term));
 
   return (
-    sharedTerms.length >= MIN_GLOBAL_REPLY_MEMORY_SHARED_TERMS ||
-    sharedTerms.some(
+    sharedTerms.length +
+    sharedTerms.filter(
       (term) => term.length >= MIN_GLOBAL_REPLY_MEMORY_SINGLE_TERM_LENGTH,
-    )
+    ).length
   );
 }
 

@@ -90,7 +90,7 @@ describe("reply-memory", () => {
     ).toBe(true);
   });
 
-  it("retrieves scoped memories and only relevant global reply memories", async () => {
+  it("retrieves scoped memories and ranked global reply memories", async () => {
     vi.mocked(prisma.replyMemory.findMany)
       .mockResolvedValueOnce([
         createReplyMemory({
@@ -136,7 +136,6 @@ describe("reply-memory", () => {
     });
 
     expect(result).toContain("current product positioning language");
-    expect(result).not.toContain("ticket number");
     expect(result).toContain("pricing depends on seat count");
     expect(result).toContain("annual billing first");
     expect(prisma.replyMemory.findMany).toHaveBeenNthCalledWith(1, {
@@ -163,6 +162,31 @@ describe("reply-memory", () => {
       take: 24,
     });
     expect(prisma.$queryRaw).toHaveBeenCalled();
+  });
+
+  it("does not require exact wording overlap for capped global memories", async () => {
+    vi.mocked(prisma.replyMemory.findMany)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([
+        createReplyMemory({
+          id: "global-billing",
+          title: "billing guidance",
+          content: "For billing requests, ask for the account identifier.",
+          kind: ReplyMemoryKind.PROCEDURE,
+          scopeType: ReplyMemoryScopeType.GLOBAL,
+        }),
+      ] as any);
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([] as any);
+
+    const result = await getReplyMemoryContent({
+      emailAccountId: "account-1",
+      senderEmail: "customer@example.com",
+      emailContent: "Can you send the invoice?",
+      logger,
+    });
+
+    expect(result).toContain("billing requests");
   });
 
   it("returns selected reply memory metadata for observability", async () => {
@@ -257,14 +281,21 @@ describe("reply-memory", () => {
       logger,
     });
 
-    expect(result.selectedMemories).toHaveLength(1);
-    expect(result.selectedMemories).toEqual([
-      {
-        id: "sender-memory",
-        kind: ReplyMemoryKind.FACT,
-        scopeType: ReplyMemoryScopeType.SENDER,
-      },
-    ]);
+    expect(result.selectedMemories).toHaveLength(2);
+    expect(result.selectedMemories).toEqual(
+      expect.arrayContaining([
+        {
+          id: "sender-memory",
+          kind: ReplyMemoryKind.FACT,
+          scopeType: ReplyMemoryScopeType.SENDER,
+        },
+        {
+          id: "global-memory",
+          kind: ReplyMemoryKind.PROCEDURE,
+          scopeType: ReplyMemoryScopeType.GLOBAL,
+        },
+      ]),
+    );
     expect(prisma.replyMemory.findMany).toHaveBeenCalledTimes(2);
     expect(prisma.replyMemory.findMany).not.toHaveBeenCalledWith(
       expect.objectContaining({
@@ -276,7 +307,7 @@ describe("reply-memory", () => {
     );
   });
 
-  it("does not fill capped retrieval with unrelated newer global memories", async () => {
+  it("limits global memories so they do not fill all memory slots", async () => {
     vi.mocked(prisma.replyMemory.findMany)
       .mockResolvedValueOnce([
         createReplyMemory({
@@ -312,8 +343,13 @@ describe("reply-memory", () => {
     });
 
     expect(result).toContain("annual billing first for this sender");
-    expect(result).not.toContain("Global memory");
-    expect(result?.split("\n")).toHaveLength(1);
+    expect(result).toContain("Global memory 5");
+    expect(result).toContain("Global memory 4");
+    expect(result).not.toContain("Global memory 3");
+    expect(result).not.toContain("Global memory 2");
+    expect(result).not.toContain("Global memory 1");
+    expect(result).not.toContain("Global memory 0");
+    expect(result?.split("\n")).toHaveLength(3);
     expect(result?.split("\n")[0]).toContain(
       "annual billing first for this sender",
     );
@@ -355,8 +391,13 @@ describe("reply-memory", () => {
     });
 
     expect(result).toContain("enterprise pricing depends on seat count");
-    expect(result).not.toContain("Global memory");
-    expect(result?.split("\n")).toHaveLength(1);
+    expect(result).toContain("Global memory 5");
+    expect(result).toContain("Global memory 4");
+    expect(result).not.toContain("Global memory 3");
+    expect(result).not.toContain("Global memory 2");
+    expect(result).not.toContain("Global memory 1");
+    expect(result).not.toContain("Global memory 0");
+    expect(result?.split("\n")).toHaveLength(3);
     expect(result?.split("\n")[0]).toContain(
       "enterprise pricing depends on seat count",
     );
