@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { LanguageModelUsage } from "ai";
 import { OPENROUTER_MODEL_PRICING } from "@/utils/llms/pricing.generated";
-import { calculateUsageCost, saveAiUsage } from "./usage";
+import { calculateUsageCost, saveAiUsage, subscribeToAiUsage } from "./usage";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
 import { saveUsage } from "@/utils/redis/usage";
 
@@ -149,6 +149,24 @@ describe("calculateUsageCost", () => {
         usage,
       }),
     ).toBe(0);
+  });
+
+  it("estimates DeepSeek V4 Flash costs", () => {
+    const provider = "openrouter";
+    const model = "deepseek/deepseek-v4-flash";
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      cachedInputTokens: 250,
+      outputTokens: 500,
+      totalTokens: 1500,
+    };
+
+    const expected =
+      750 * (0.1 / 1_000_000) +
+      250 * (0.02 / 1_000_000) +
+      500 * (0.2 / 1_000_000);
+
+    expect(calculateUsageCost({ provider, model, usage })).toBe(expected);
   });
 
   it("resolves prefixed OpenRouter pricing for non-prefixed model names", () => {
@@ -321,6 +339,50 @@ describe("saveAiUsage", () => {
         emailAccountId: "email-account-1",
         usage,
         cost: estimatedCost,
+      }),
+    );
+  });
+
+  it("notifies usage listeners with estimated and provider-reported costs", async () => {
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      outputTokens: 400,
+      totalTokens: 1400,
+    };
+    const estimatedCost = calculateUsageCost({
+      provider: "openrouter",
+      model: "deepseek/deepseek-v4-flash",
+      usage,
+    });
+    const listener = vi.fn();
+    const unsubscribe = subscribeToAiUsage(listener);
+
+    try {
+      await saveAiUsage({
+        userId: "user-1",
+        email: "user@example.com",
+        emailAccountId: "email-account-1",
+        provider: "openrouter",
+        model: "deepseek/deepseek-v4-flash",
+        usage,
+        label: "eval-test",
+        providerReportedCost: 0.000_18,
+      });
+    } finally {
+      unsubscribe();
+    }
+
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "openrouter",
+        model: "deepseek/deepseek-v4-flash",
+        label: "eval-test",
+        estimatedCost,
+        platformCost: estimatedCost,
+        providerReportedCost: 0.000_18,
+        inputTokens: 1000,
+        outputTokens: 400,
+        totalTokens: 1400,
       }),
     );
   });

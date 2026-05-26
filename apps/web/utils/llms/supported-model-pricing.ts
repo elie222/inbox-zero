@@ -136,6 +136,11 @@ export const STATIC_MODEL_PRICING: Record<string, ModelPricing> = {
   "google/gemini-3-flash-preview": gemini3_0flash,
   "google/gemini-3-pro": gemini3_0pro,
   "google/gemini-3-pro-preview": gemini3_0pro,
+  "deepseek/deepseek-v4-flash": {
+    input: 0.1 / 1_000_000,
+    output: 0.2 / 1_000_000,
+    cachedInput: 0.02 / 1_000_000,
+  },
   "meta-llama/llama-4-maverick": {
     input: 0.2 / 1_000_000,
     output: 0.85 / 1_000_000,
@@ -174,4 +179,5 @@ export const OPENROUTER_MODEL_ID_BY_SUPPORTED_MODEL: Partial<
   "gemini-2.5-flash": "google/gemini-2.5-flash",
   "gemini-3-flash": "google/gemini-3-flash-preview",
   "gemini-3-pro": "google/gemini-3-pro-preview",
+  "deepseek/deepseek-v4-flash": "deepseek/deepseek-v4-flash",
 };

@@ -15,6 +15,33 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("usage");
 
+export type AiUsageEvent = {
+  cachedInputTokens: number;
+  estimatedCost: number;
+  inputTokens: number;
+  label: string;
+  model: string;
+  outputTokens: number;
+  platformCost: number;
+  provider: string;
+  providerCostSource?: string;
+  providerReportedCost?: number;
+  providerUpstreamInferenceCost?: number;
+  reasoningTokens: number;
+  totalTokens: number;
+};
+
+type AiUsageListener = (event: AiUsageEvent) => void;
+
+const aiUsageListeners = new Set<AiUsageListener>();
+
+export function subscribeToAiUsage(listener: AiUsageListener): () => void {
+  aiUsageListeners.add(listener);
+  return () => {
+    aiUsageListeners.delete(listener);
+  };
+}
+
 export async function saveAiUsage({
   userId,
   email,
@@ -47,6 +74,27 @@ export async function saveAiUsage({
   const estimatedCost = calculateUsageCost({ provider, model, usage });
   const isUserApiKey = !!hasUserApiKey;
   const platformCost = isUserApiKey ? 0 : estimatedCost;
+  const inputTokens = usage.inputTokens ?? 0;
+  const outputTokens = usage.outputTokens ?? 0;
+  const cachedInputTokens = usage.cachedInputTokens ?? 0;
+  const reasoningTokens = usage.reasoningTokens ?? 0;
+  const totalTokens = usage.totalTokens ?? 0;
+
+  notifyAiUsageListeners({
+    cachedInputTokens,
+    estimatedCost,
+    inputTokens,
+    label,
+    model,
+    outputTokens,
+    platformCost,
+    provider,
+    providerCostSource,
+    providerReportedCost,
+    providerUpstreamInferenceCost,
+    reasoningTokens,
+    totalTokens,
+  });
 
   try {
     return Promise.all([
@@ -55,11 +103,11 @@ export async function saveAiUsage({
         emailAccountId,
         provider,
         model,
-        totalTokens: usage.totalTokens ?? 0,
-        completionTokens: usage.outputTokens ?? 0,
-        promptTokens: usage.inputTokens ?? 0,
-        cachedInputTokens: usage.cachedInputTokens ?? 0,
-        reasoningTokens: usage.reasoningTokens ?? 0,
+        totalTokens,
+        completionTokens: outputTokens,
+        promptTokens: inputTokens,
+        cachedInputTokens,
+        reasoningTokens,
         cost: platformCost,
         estimatedCost,
         providerReportedCost,
@@ -158,6 +206,16 @@ function buildModelLookupCandidates({
   }
 
   return [...new Set(candidates)];
+}
+
+function notifyAiUsageListeners(event: AiUsageEvent): void {
+  for (const listener of aiUsageListeners) {
+    try {
+      listener(event);
+    } catch (error) {
+      logger.error("AI usage listener failed", { error });
+    }
+  }
 }
 
 function toTinybirdBoolean(value: boolean): 0 | 1 {
