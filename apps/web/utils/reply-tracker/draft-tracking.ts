@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import type { Prisma } from "@/generated/prisma/client";
 import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
@@ -17,9 +18,23 @@ import { replaceMessagingDraftNotificationsWithHandledOnWebState } from "@/utils
 import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
 import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
 import { messageRepliesToSourceSender } from "@/utils/email";
+import {
+  hasReferralSignature,
+  stripReferralSignature,
+} from "@/utils/referral/signature";
 import { logReplyTrackerError } from "./error-logging";
 
 const DRAFT_SENT_SIMILARITY_THRESHOLD = 0.7;
+const BODY_SIMILARITY_STATUS = {
+  SCORED: "scored",
+  EMPTY_SENT_TEXT: "empty_sent_text",
+  MISSING_DRAFT_TEXT: "missing_draft_text",
+  MISSING_SENT_BODY: "missing_sent_body",
+  SNIPPET_ONLY_SENT_BODY: "snippet_only_sent_body",
+} as const;
+
+type BodySimilarityStatus =
+  (typeof BODY_SIMILARITY_STATUS)[keyof typeof BODY_SIMILARITY_STATUS];
 /**
  * Checks if a sent message originated from an AI draft and logs its similarity.
  */
@@ -108,6 +123,30 @@ export async function trackSentDraftStatus({
       sourceMessage,
     });
   const sentText = getSentReplyText(message);
+  const bodySimilarity = getBodySimilarityResult({
+    draftText: executedAction.content,
+    sentMessage: message,
+    sentText,
+    accountSignature,
+  });
+  const createDraftSendLogData = (draftStatus: DraftEmailStatus) => ({
+    executedActionId: executedActionId,
+    sentMessageId: sentMessageId,
+    similarityScore: similarityScore,
+    bodySimilarityScore: bodySimilarity.score,
+    bodySimilarityStatus: bodySimilarity.status,
+    sentText,
+    similarityMetadata: getDraftSendLogSimilarityMetadata({
+      draftText: executedAction.content,
+      sentMessage: message,
+      sentText,
+      bodySimilarity,
+      draftExists: !!draftExists,
+      sentMessageRepliesToSource,
+      draftStatus,
+      accountSignature,
+    }),
+  });
 
   logger.info("Calculated similarity score", {
     executedActionId,
@@ -130,12 +169,9 @@ export async function trackSentDraftStatus({
       () =>
         prisma.$transaction([
           prisma.draftSendLog.create({
-            data: {
-              executedActionId: executedActionId,
-              sentMessageId: sentMessageId,
-              similarityScore: similarityScore,
-              sentText,
-            },
+            data: createDraftSendLogData(
+              DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+            ),
           }),
           prisma.executedAction.update({
             where: { id: executedActionId },
@@ -193,12 +229,7 @@ export async function trackSentDraftStatus({
     () =>
       prisma.$transaction([
         prisma.draftSendLog.create({
-          data: {
-            executedActionId: executedActionId,
-            sentMessageId: sentMessageId,
-            similarityScore: similarityScore,
-            sentText,
-          },
+          data: createDraftSendLogData(draftStatus),
         }),
         prisma.executedAction.update({
           where: { id: executedActionId },
@@ -526,6 +557,189 @@ function getSentReplyText(message: ParsedMessage): string | null {
   ).trim();
 
   return sentText || null;
+}
+
+function getDraftSendLogSimilarityMetadata({
+  draftText,
+  sentMessage,
+  sentText,
+  bodySimilarity,
+  draftExists,
+  sentMessageRepliesToSource,
+  draftStatus,
+  accountSignature,
+}: {
+  draftText?: string | null;
+  sentMessage: ParsedMessage;
+  sentText: string | null;
+  bodySimilarity: BodySimilarityResult;
+  draftExists: boolean;
+  sentMessageRepliesToSource: boolean | null;
+  draftStatus: DraftEmailStatus;
+  accountSignature?: string | null;
+}) {
+  const draft = draftText ?? "";
+  const sent = sentText ?? "";
+  const draftLength = draft.length;
+  const sentTextLength = sent.length;
+  const textHtmlLength = sentMessage.textHtml?.length ?? 0;
+  const textPlainLength = sentMessage.textPlain?.length ?? 0;
+  const snippetLength = sentMessage.snippet?.length ?? 0;
+  const draftHasReferralFooter = hasReferralSignature(draft);
+  const sentHasReferralFooter = hasReferralSignature(sent);
+  const draftHasHtml = looksLikeHtml(draft);
+
+  const signals: string[] = [];
+  if (sentTextLength === 0) signals.push("empty_sent_text");
+  if (textHtmlLength === 0 && textPlainLength === 0) {
+    signals.push(
+      snippetLength > 0 ? "snippet_only_sent_body" : "missing_sent_body",
+    );
+  }
+  if (draftHasHtml) signals.push("draft_contains_html");
+  if (draftHasReferralFooter) signals.push("draft_contains_referral_footer");
+  if (sentHasReferralFooter) signals.push("sent_contains_referral_footer");
+  if (accountSignature?.trim()) signals.push("account_signature_configured");
+  if (draftLength > 0 && sentTextLength > 0) {
+    if (sentTextLength < draftLength * 0.35) {
+      signals.push("sent_much_shorter_than_draft");
+    } else if (sentTextLength > draftLength * 2) {
+      signals.push("sent_much_longer_than_draft");
+    }
+  }
+
+  return {
+    version: 2,
+    draft: {
+      length: draftLength,
+      hasHtml: draftHasHtml,
+      hasReferralFooter: draftHasReferralFooter,
+      comparableBodyLength: bodySimilarity.comparableDraftLength,
+      configuredSignatureLength: accountSignature?.trim().length ?? 0,
+    },
+    sent: {
+      bodyContentType: sentMessage.bodyContentType ?? null,
+      selectedBodySource: bodySimilarity.selectedBodySource,
+      textHtmlLength,
+      textPlainLength,
+      snippetLength,
+      extractedReplyLength: sentTextLength,
+      extractedReplyEmpty: sentTextLength === 0,
+      comparableBodyLength: bodySimilarity.comparableSentLength,
+      fullBodyAvailable: bodySimilarity.fullSentBodyAvailable,
+    },
+    lifecycle: {
+      draftExists,
+      sentMessageRepliesToSource,
+      draftStatus,
+    },
+    diagnostics: {
+      sentToDraftLengthRatio:
+        draftLength > 0 ? roundMetric(sentTextLength / draftLength) : null,
+      lengthDirection: getDraftSentLengthDirection({
+        draftLength,
+        sentTextLength,
+      }),
+      scorePollutionSignals: signals,
+    },
+  } satisfies Prisma.InputJsonObject;
+}
+
+type BodySimilarityResult = {
+  score: number | null;
+  status: BodySimilarityStatus;
+  comparableDraftLength: number;
+  comparableSentLength: number;
+  fullSentBodyAvailable: boolean;
+  selectedBodySource: ReturnType<typeof getSelectedProviderBodySource>;
+};
+
+function getBodySimilarityResult({
+  draftText,
+  sentMessage,
+  sentText,
+  accountSignature,
+}: {
+  draftText?: string | null;
+  sentMessage: ParsedMessage;
+  sentText: string | null;
+  accountSignature?: string | null;
+}): BodySimilarityResult {
+  const selectedBodySource = getSelectedProviderBodySource(sentMessage);
+  const comparableDraftText = stripReferralSignature(draftText ?? "");
+  const comparableSentText = stripReferralSignature(sentText ?? "");
+  const base = {
+    comparableDraftLength: comparableDraftText.length,
+    comparableSentLength: comparableSentText.length,
+    fullSentBodyAvailable:
+      selectedBodySource === "html" || selectedBodySource === "plain",
+    selectedBodySource,
+  };
+
+  const unscoredStatus = getUnscorableBodySimilarityStatus({
+    selectedBodySource,
+    comparableDraftText,
+    comparableSentText,
+  });
+  if (unscoredStatus) {
+    return { ...base, score: null, status: unscoredStatus };
+  }
+
+  return {
+    ...base,
+    score: calculateSimilarity(comparableDraftText, comparableSentText, {
+      excludedSignatures: accountSignature ? [accountSignature] : [],
+    }),
+    status: BODY_SIMILARITY_STATUS.SCORED,
+  };
+}
+
+function getUnscorableBodySimilarityStatus({
+  selectedBodySource,
+  comparableDraftText,
+  comparableSentText,
+}: {
+  selectedBodySource: ReturnType<typeof getSelectedProviderBodySource>;
+  comparableDraftText: string;
+  comparableSentText: string;
+}) {
+  if (selectedBodySource === "none")
+    return BODY_SIMILARITY_STATUS.MISSING_SENT_BODY;
+  if (selectedBodySource === "snippet")
+    return BODY_SIMILARITY_STATUS.SNIPPET_ONLY_SENT_BODY;
+  if (!comparableSentText.trim()) return BODY_SIMILARITY_STATUS.EMPTY_SENT_TEXT;
+  if (!comparableDraftText.trim())
+    return BODY_SIMILARITY_STATUS.MISSING_DRAFT_TEXT;
+  return null;
+}
+
+function getSelectedProviderBodySource(message: ParsedMessage) {
+  if (message.textHtml) return "html";
+  if (message.textPlain) return "plain";
+  if (message.snippet) return "snippet";
+  return "none";
+}
+
+function getDraftSentLengthDirection({
+  draftLength,
+  sentTextLength,
+}: {
+  draftLength: number;
+  sentTextLength: number;
+}) {
+  if (sentTextLength === 0) return "empty_sent_text";
+  if (draftLength === 0) return "missing_draft_text";
+  if (sentTextLength < draftLength * 0.65) return "user_shortened";
+  if (sentTextLength > draftLength * 1.35) return "user_lengthened";
+  return "similar_length";
+}
+
+function looksLikeHtml(value: string) {
+  return /<\/?[a-z][\s\S]*>/i.test(value);
+}
+
+function roundMetric(value: number) {
+  return Math.round(value * 1000) / 1000;
 }
 
 function getSentDraftStatus({
