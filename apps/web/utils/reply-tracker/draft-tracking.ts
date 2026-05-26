@@ -140,7 +140,6 @@ export async function trackSentDraftStatus({
       draftText: executedAction.content,
       sentMessage: message,
       sentText,
-      similarityScore,
       bodySimilarity,
       draftExists: !!draftExists,
       sentMessageRepliesToSource,
@@ -564,7 +563,6 @@ function getDraftSendLogSimilarityMetadata({
   draftText,
   sentMessage,
   sentText,
-  similarityScore,
   bodySimilarity,
   draftExists,
   sentMessageRepliesToSource,
@@ -574,7 +572,6 @@ function getDraftSendLogSimilarityMetadata({
   draftText?: string | null;
   sentMessage: ParsedMessage;
   sentText: string | null;
-  similarityScore: number;
   bodySimilarity: BodySimilarityResult;
   draftExists: boolean;
   sentMessageRepliesToSource: boolean | null;
@@ -613,10 +610,6 @@ function getDraftSendLogSimilarityMetadata({
 
   return {
     version: 2,
-    score: roundMetric(similarityScore),
-    bodyScore:
-      bodySimilarity.score === null ? null : roundMetric(bodySimilarity.score),
-    bodyScoreStatus: bodySimilarity.status,
     draft: {
       length: draftLength,
       hasHtml: draftHasHtml,

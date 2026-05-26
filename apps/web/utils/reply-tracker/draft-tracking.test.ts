@@ -146,8 +146,6 @@ describe("trackSentDraftStatus", () => {
         bodySimilarityStatus: "scored",
         sentText: "Please include pricing for seat counts.",
         similarityMetadata: expect.objectContaining({
-          bodyScore: 0.14,
-          bodyScoreStatus: "scored",
           diagnostics: expect.objectContaining({
             lengthDirection: "user_lengthened",
           }),
@@ -399,8 +397,6 @@ describe("trackSentDraftStatus", () => {
         bodySimilarityStatus: "empty_sent_text",
         sentText: null,
         similarityMetadata: expect.objectContaining({
-          bodyScore: null,
-          bodyScoreStatus: "empty_sent_text",
           diagnostics: expect.objectContaining({
             lengthDirection: "empty_sent_text",
             scorePollutionSignals: expect.arrayContaining(["empty_sent_text"]),
@@ -447,8 +443,6 @@ describe("trackSentDraftStatus", () => {
         bodySimilarityScore: null,
         bodySimilarityStatus: "snippet_only_sent_body",
         similarityMetadata: expect.objectContaining({
-          bodyScore: null,
-          bodyScoreStatus: "snippet_only_sent_body",
           diagnostics: expect.objectContaining({
             scorePollutionSignals: expect.arrayContaining([
               "snippet_only_sent_body",
@@ -509,8 +503,6 @@ describe("trackSentDraftStatus", () => {
         bodySimilarityScore: 1,
         bodySimilarityStatus: "scored",
         similarityMetadata: expect.objectContaining({
-          bodyScore: 1,
-          bodyScoreStatus: "scored",
           draft: expect.objectContaining({
             comparableBodyLength: "Generated reply.".length,
             hasReferralFooter: true,
