@@ -35,6 +35,7 @@ import {
   hasElapsedBusinessDays,
   internalDateToDate,
 } from "@/utils/date";
+import { emailToContent } from "@/utils/mail";
 import {
   extractEmailAddress,
   extractNameFromEmail,
@@ -46,6 +47,7 @@ import {
 } from "@/utils/email/provider-types";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { getEmailUrlForOptionalMessage } from "@/utils/url";
+import type { ParsedMessage } from "@/utils/types";
 import { env } from "@/env";
 
 const FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES = 15;
@@ -581,7 +583,7 @@ async function processFollowUpsForType({
               end: now,
               timezone: emailAccount.timezone,
             }),
-            snippet: lastMessage.snippet || undefined,
+            snippet: getFollowUpNotificationSnippet(lastMessage),
             threadLink:
               getEmailUrlForOptionalMessage({
                 messageId: lastMessage.id,
@@ -829,6 +831,14 @@ function resolveFollowUpCounterparty({
   const email = extractEmailAddress(header || "") || header || "";
   const name = extractNameFromEmail(header || "") || email || "someone";
   return { name, email };
+}
+
+function getFollowUpNotificationSnippet(
+  message: Pick<ParsedMessage, "snippet" | "textHtml" | "textPlain">,
+) {
+  return (
+    emailToContent(message, { maxLength: 0, extractReply: true }) || undefined
+  );
 }
 
 function getThreadLinkLabel(provider: string) {
