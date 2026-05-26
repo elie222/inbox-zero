@@ -138,12 +138,26 @@ describe("trackSentDraftStatus", () => {
       logger,
     });
     expect(prisma.draftSendLog.create).toHaveBeenCalledWith({
-      data: {
+      data: expect.objectContaining({
         executedActionId: "action-1",
         sentMessageId: "sent-1",
         similarityScore: 0.14,
+        bodySimilarityScore: 0.14,
+        bodySimilarityStatus: "scored",
         sentText: "Please include pricing for seat counts.",
-      },
+        similarityMetadata: expect.objectContaining({
+          bodyScore: 0.14,
+          bodyScoreStatus: "scored",
+          diagnostics: expect.objectContaining({
+            lengthDirection: "user_lengthened",
+          }),
+          sent: expect.objectContaining({
+            extractedReplyEmpty: false,
+            extractedReplyLength: 39,
+            selectedBodySource: "html",
+          }),
+        }),
+      }),
     });
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
@@ -245,12 +259,19 @@ describe("trackSentDraftStatus", () => {
     });
 
     expect(prisma.draftSendLog.create).toHaveBeenCalledWith({
-      data: {
+      data: expect.objectContaining({
         executedActionId: "action-1",
         sentMessageId: "sent-internal-forward-1",
         similarityScore: 0.08,
+        bodySimilarityScore: 0.08,
+        bodySimilarityStatus: "scored",
         sentText: "Can someone check this?",
-      },
+        similarityMetadata: expect.objectContaining({
+          lifecycle: expect.objectContaining({
+            sentMessageRepliesToSource: false,
+          }),
+        }),
+      }),
     });
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
@@ -325,12 +346,14 @@ describe("trackSentDraftStatus", () => {
     expect(saveDraftSendLogReplyMemory).not.toHaveBeenCalled();
     expect(syncReplyMemoriesFromDraftSendLogs).not.toHaveBeenCalled();
     expect(prisma.draftSendLog.create).toHaveBeenCalledWith({
-      data: {
+      data: expect.objectContaining({
         executedActionId: "action-1",
         sentMessageId: "sent-1",
         similarityScore: 0.98,
+        bodySimilarityScore: 0.98,
+        bodySimilarityStatus: "scored",
         sentText: "Please include pricing for seat counts.",
-      },
+      }),
     });
     expect(
       replaceMessagingDraftNotificationsWithHandledOnWebState,
@@ -343,6 +366,166 @@ describe("trackSentDraftStatus", () => {
       data: {
         draftStatus: DraftEmailStatus.LIKELY_SENT,
       },
+    });
+  });
+
+  it("records scoring diagnostics when sent reply text extraction is empty", async () => {
+    vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
+      id: "action-1",
+      draftId: "draft-1",
+      content: "Thanks for reaching out.",
+      executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
+    } as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(0);
+
+    await trackSentDraftStatus({
+      emailAccountId: "account-1",
+      message: {
+        ...createSentMessage(),
+        textPlain: "",
+        textHtml: '<div class="gmail_signature">Signature only</div>',
+      },
+      provider: {
+        getDraft: vi.fn().mockResolvedValue(null),
+        getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+      } as any,
+      logger,
+    });
+
+    expect(prisma.draftSendLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        bodySimilarityScore: null,
+        bodySimilarityStatus: "empty_sent_text",
+        sentText: null,
+        similarityMetadata: expect.objectContaining({
+          bodyScore: null,
+          bodyScoreStatus: "empty_sent_text",
+          diagnostics: expect.objectContaining({
+            lengthDirection: "empty_sent_text",
+            scorePollutionSignals: expect.arrayContaining(["empty_sent_text"]),
+          }),
+          sent: expect.objectContaining({
+            extractedReplyEmpty: true,
+            selectedBodySource: "html",
+            textHtmlLength: expect.any(Number),
+          }),
+        }),
+      }),
+    });
+  });
+
+  it("marks snippet-only sent bodies as non-scorable for body similarity", async () => {
+    vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
+      id: "action-1",
+      draftId: "draft-1",
+      content: "Generated reply.",
+      executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
+    } as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(0.22);
+
+    await trackSentDraftStatus({
+      emailAccountId: "account-1",
+      message: {
+        ...createSentMessage(),
+        textPlain: undefined,
+        textHtml: undefined,
+        snippet: "Generated reply.",
+      },
+      provider: {
+        getDraft: vi.fn().mockResolvedValue(null),
+        getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+      } as any,
+      logger,
+    });
+
+    expect(calculateSimilarity).toHaveBeenCalledTimes(1);
+    expect(prisma.draftSendLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        similarityScore: 0.22,
+        bodySimilarityScore: null,
+        bodySimilarityStatus: "snippet_only_sent_body",
+        similarityMetadata: expect.objectContaining({
+          bodyScore: null,
+          bodyScoreStatus: "snippet_only_sent_body",
+          diagnostics: expect.objectContaining({
+            scorePollutionSignals: expect.arrayContaining([
+              "snippet_only_sent_body",
+            ]),
+          }),
+          sent: expect.objectContaining({
+            fullBodyAvailable: false,
+            selectedBodySource: "snippet",
+          }),
+        }),
+      }),
+    });
+  });
+
+  it("records body similarity after removing product referral footer text", async () => {
+    const draftText =
+      'Generated reply.\n\nDrafted by <a href="https://example.com/ref">Inbox Zero</a>.';
+    vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
+      id: "action-1",
+      draftId: "draft-1",
+      content: draftText,
+      executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
+    } as any);
+    vi.mocked(calculateSimilarity)
+      .mockReturnValueOnce(0.63)
+      .mockReturnValueOnce(1);
+
+    await trackSentDraftStatus({
+      emailAccountId: "account-1",
+      message: {
+        ...createSentMessage(),
+        textPlain: "Generated reply.\n\nDrafted by Inbox Zero.",
+        textHtml: undefined,
+      },
+      provider: {
+        getDraft: vi.fn().mockResolvedValue(null),
+        getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+      } as any,
+      logger,
+    });
+
+    expect(calculateSimilarity).toHaveBeenNthCalledWith(
+      1,
+      draftText,
+      expect.objectContaining({ id: "sent-1" }),
+      { excludedSignatures: [] },
+    );
+    expect(calculateSimilarity).toHaveBeenNthCalledWith(
+      2,
+      "Generated reply.",
+      "Generated reply.",
+      { excludedSignatures: [] },
+    );
+    expect(prisma.draftSendLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        similarityScore: 0.63,
+        bodySimilarityScore: 1,
+        bodySimilarityStatus: "scored",
+        similarityMetadata: expect.objectContaining({
+          bodyScore: 1,
+          bodyScoreStatus: "scored",
+          draft: expect.objectContaining({
+            comparableBodyLength: "Generated reply.".length,
+            hasReferralFooter: true,
+          }),
+          sent: expect.objectContaining({
+            comparableBodyLength: "Generated reply.".length,
+          }),
+          diagnostics: expect.objectContaining({
+            scorePollutionSignals: expect.arrayContaining([
+              "draft_contains_referral_footer",
+              "sent_contains_referral_footer",
+            ]),
+          }),
+        }),
+      }),
     });
   });
 });

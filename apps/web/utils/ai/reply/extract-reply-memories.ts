@@ -122,19 +122,12 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
 
       if (!decision.newMemory) return null;
 
-      const newMemory = {
-        content: decision.newMemory.content.trim(),
-        kind: decision.newMemory.kind,
-        scopeType:
-          decision.newMemory.kind === ReplyMemoryKind.PREFERENCE
-            ? ReplyMemoryScopeType.GLOBAL
-            : decision.newMemory.scopeType,
-        scopeValue:
-          decision.newMemory.kind === ReplyMemoryKind.PREFERENCE ||
-          decision.newMemory.scopeType === ReplyMemoryScopeType.GLOBAL
-            ? ""
-            : decision.newMemory.scopeValue.trim(),
-      };
+      const newMemory = normalizeExtractedReplyMemory({
+        memory: decision.newMemory,
+        incomingEmailContent: normalizedIncomingEmailContent,
+        draftText: normalizedDraftText,
+        sentText: normalizedSentText,
+      });
 
       if (
         newMemory.scopeType === ReplyMemoryScopeType.TOPIC &&
@@ -250,6 +243,94 @@ function normalizeMemoryText(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+function normalizeExtractedReplyMemory({
+  memory,
+  incomingEmailContent,
+  draftText,
+  sentText,
+}: {
+  memory: z.infer<typeof newReplyMemorySchema>;
+  incomingEmailContent: string;
+  draftText: string;
+  sentText: string;
+}) {
+  const content = memory.content.trim();
+
+  if (memory.kind === ReplyMemoryKind.PREFERENCE) {
+    return {
+      content,
+      kind: memory.kind,
+      scopeType: ReplyMemoryScopeType.GLOBAL,
+      scopeValue: "",
+    };
+  }
+
+  const scopeValue = memory.scopeValue.trim();
+  const globalMemoryHasTopicScope =
+    memory.scopeType === ReplyMemoryScopeType.GLOBAL &&
+    isValidTopicScopeValue(scopeValue) &&
+    isTopicScopeValueRelevant({
+      scopeValue,
+      content,
+      incomingEmailContent,
+      draftText,
+      sentText,
+    });
+
+  if (globalMemoryHasTopicScope) {
+    return {
+      content,
+      kind: memory.kind,
+      scopeType: ReplyMemoryScopeType.TOPIC,
+      scopeValue,
+    };
+  }
+
+  return {
+    content,
+    kind: memory.kind,
+    scopeType: memory.scopeType,
+    scopeValue:
+      memory.scopeType === ReplyMemoryScopeType.GLOBAL ? "" : scopeValue,
+  };
+}
+
+function isTopicScopeValueRelevant({
+  scopeValue,
+  content,
+  incomingEmailContent,
+  draftText,
+  sentText,
+}: {
+  scopeValue: string;
+  content: string;
+  incomingEmailContent: string;
+  draftText: string;
+  sentText: string;
+}) {
+  const normalizedTopic = normalizeMemoryText(scopeValue);
+  if (!normalizedTopic) return false;
+  const normalizedTopicVariants = getTopicScopeValueVariants(normalizedTopic);
+
+  return [content, incomingEmailContent, draftText, sentText].some((value) =>
+    normalizedTopicVariants.some((topic) =>
+      normalizeMemoryText(value).includes(topic),
+    ),
+  );
+}
+
+function getTopicScopeValueVariants(normalizedTopic: string) {
+  const variants = new Set([normalizedTopic]);
+  const singularTerms = normalizedTopic
+    .split(" ")
+    .map((term) =>
+      term.length > 3 && term.endsWith("s") ? term.slice(0, -1) : term,
+    );
+
+  variants.add(singularTerms.join(" "));
+  return [...variants];
+}
+
 function isValidTopicScopeValue(value: string) {
   const normalizedTopic = value.trim();
   if (!normalizedTopic) return false;
@@ -296,9 +377,12 @@ Rules:
 - Use FACT when the edit adds reusable business information, policy, pricing, product capabilities, constraints, contacts, or logistics.
 - Use PROCEDURE when the edit shows a reusable way to handle a recurring class of replies.
 - Use PREFERENCE for stable tone, length, formatting, or phrasing preferences.
+- Use GLOBAL only for account-wide facts or procedures that should apply across nearly all replies regardless of sender, domain, or subject.
+- Do not use GLOBAL for a recurring class of replies with a subject area. Use TOPIC for memories like "For invoice replies...", "For scheduling replies...", or "For support replies...".
 - For GLOBAL scope, leave scopeValue empty.
 - For SENDER scope, use the exact sender email from the context.
 ${domainRuleLine}- For TOPIC scope, use a short stable topic phrase such as "pricing" or "refunds".
+- For TOPIC scope, choose the recurring subject area, not the full rule. Examples: "invoices", "scheduling", "support", "pricing", "refunds".
 - TOPIC scope values must be short topic labels, not copied sentences or arbitrary thread text.
 - Always include a scopeValue field. Use an empty string for GLOBAL scope.
 - Prefer matching an existing memory over creating a new one when the existing memory substantially covers the same durable idea, even if the wording is different.
