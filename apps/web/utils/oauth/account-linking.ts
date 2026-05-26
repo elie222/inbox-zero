@@ -58,36 +58,12 @@ export async function handleAccountLinking({
   if (!existingAccountId || !hasEmailAccount) {
     const existingEmailAccount = await prisma.emailAccount.findUnique({
       where: { email: providerEmail.trim().toLowerCase() },
-      select: {
-        accountId: true,
-        account: { select: { provider: true } },
-        userId: true,
-      },
+      select: { userId: true },
     });
 
     if (existingEmailAccount && existingEmailAccount.userId !== targetUserId) {
-      if (existingEmailAccount.account.provider !== provider) {
-        logger.warn(
-          "Create failed: account with this email already exists for another provider",
-          {
-            provider,
-            email: providerEmail,
-            existingProvider: existingEmailAccount.account.provider,
-            existingUserId: existingEmailAccount.userId,
-            targetUserId,
-          },
-        );
-
-        return {
-          type: "redirect",
-          response: createAccountLinkingRedirect({
-            query: { error: "account_already_exists" },
-          }),
-        };
-      }
-
       logger.warn(
-        "Account email exists for a different user, merging accounts",
+        "Create failed: account with this email already exists for a different user",
         {
           provider,
           email: providerEmail,
@@ -95,10 +71,12 @@ export async function handleAccountLinking({
           targetUserId,
         },
       );
+
       return {
-        type: "merge",
-        sourceAccountId: existingEmailAccount.accountId,
-        sourceUserId: existingEmailAccount.userId,
+        type: "redirect",
+        response: createAccountLinkingRedirect({
+          query: { error: "account_already_exists" },
+        }),
       };
     }
 
