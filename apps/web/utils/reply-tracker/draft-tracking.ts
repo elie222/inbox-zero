@@ -581,16 +581,37 @@ function getDraftSendLogSimilarityMetadata({
   draftStatus: DraftEmailStatus;
   accountSignature?: string | null;
 }) {
-  const draftLength = draftText?.length ?? 0;
-  const sentTextLength = sentText?.length ?? 0;
+  const draft = draftText ?? "";
+  const sent = sentText ?? "";
+  const draftLength = draft.length;
+  const sentTextLength = sent.length;
   const textHtmlLength = sentMessage.textHtml?.length ?? 0;
   const textPlainLength = sentMessage.textPlain?.length ?? 0;
   const snippetLength = sentMessage.snippet?.length ?? 0;
-  const lengthDirection = getDraftSentLengthDirection({
-    draftLength,
-    sentTextLength,
-  });
-  const metadata = {
+  const draftHasReferralFooter = hasReferralSignature(draft);
+  const sentHasReferralFooter = hasReferralSignature(sent);
+  const draftHasHtml = looksLikeHtml(draft);
+
+  const signals: string[] = [];
+  if (sentTextLength === 0) signals.push("empty_sent_text");
+  if (textHtmlLength === 0 && textPlainLength === 0) {
+    signals.push(
+      snippetLength > 0 ? "snippet_only_sent_body" : "missing_sent_body",
+    );
+  }
+  if (draftHasHtml) signals.push("draft_contains_html");
+  if (draftHasReferralFooter) signals.push("draft_contains_referral_footer");
+  if (sentHasReferralFooter) signals.push("sent_contains_referral_footer");
+  if (accountSignature?.trim()) signals.push("account_signature_configured");
+  if (draftLength > 0 && sentTextLength > 0) {
+    if (sentTextLength < draftLength * 0.35) {
+      signals.push("sent_much_shorter_than_draft");
+    } else if (sentTextLength > draftLength * 2) {
+      signals.push("sent_much_longer_than_draft");
+    }
+  }
+
+  return {
     version: 2,
     score: roundMetric(similarityScore),
     bodyScore:
@@ -598,14 +619,14 @@ function getDraftSendLogSimilarityMetadata({
     bodyScoreStatus: bodySimilarity.status,
     draft: {
       length: draftLength,
-      hasHtml: looksLikeHtml(draftText ?? ""),
-      hasReferralFooter: hasReferralSignature(draftText ?? ""),
+      hasHtml: draftHasHtml,
+      hasReferralFooter: draftHasReferralFooter,
       comparableBodyLength: bodySimilarity.comparableDraftLength,
       configuredSignatureLength: accountSignature?.trim().length ?? 0,
     },
     sent: {
       bodyContentType: sentMessage.bodyContentType ?? null,
-      selectedBodySource: getSelectedProviderBodySource(sentMessage),
+      selectedBodySource: bodySimilarity.selectedBodySource,
       textHtmlLength,
       textPlainLength,
       snippetLength,
@@ -622,22 +643,23 @@ function getDraftSendLogSimilarityMetadata({
     diagnostics: {
       sentToDraftLengthRatio:
         draftLength > 0 ? roundMetric(sentTextLength / draftLength) : null,
-      lengthDirection,
-      scorePollutionSignals: getScorePollutionSignals({
-        draftText: draftText ?? "",
-        sentText: sentText ?? "",
+      lengthDirection: getDraftSentLengthDirection({
         draftLength,
         sentTextLength,
-        textHtmlLength,
-        textPlainLength,
-        snippetLength,
-        accountSignature,
       }),
+      scorePollutionSignals: signals,
     },
   } satisfies Prisma.InputJsonObject;
-
-  return metadata;
 }
+
+type BodySimilarityResult = {
+  score: number | null;
+  status: BodySimilarityStatus;
+  comparableDraftLength: number;
+  comparableSentLength: number;
+  fullSentBodyAvailable: boolean;
+  selectedBodySource: ReturnType<typeof getSelectedProviderBodySource>;
+};
 
 function getBodySimilarityResult({
   draftText,
@@ -653,58 +675,49 @@ function getBodySimilarityResult({
   const selectedBodySource = getSelectedProviderBodySource(sentMessage);
   const comparableDraftText = stripReferralSignature(draftText ?? "");
   const comparableSentText = stripReferralSignature(sentText ?? "");
-  const fullSentBodyAvailable =
-    selectedBodySource === "html" || selectedBodySource === "plain";
+  const base = {
+    comparableDraftLength: comparableDraftText.length,
+    comparableSentLength: comparableSentText.length,
+    fullSentBodyAvailable:
+      selectedBodySource === "html" || selectedBodySource === "plain",
+    selectedBodySource,
+  };
 
-  if (selectedBodySource === "none") {
-    return {
-      score: null,
-      status: BODY_SIMILARITY_STATUS.MISSING_SENT_BODY,
-      comparableDraftLength: comparableDraftText.length,
-      comparableSentLength: comparableSentText.length,
-      fullSentBodyAvailable,
-    };
-  }
-
-  if (selectedBodySource === "snippet") {
-    return {
-      score: null,
-      status: BODY_SIMILARITY_STATUS.SNIPPET_ONLY_SENT_BODY,
-      comparableDraftLength: comparableDraftText.length,
-      comparableSentLength: comparableSentText.length,
-      fullSentBodyAvailable,
-    };
-  }
-
-  if (!comparableSentText.trim()) {
-    return {
-      score: null,
-      status: BODY_SIMILARITY_STATUS.EMPTY_SENT_TEXT,
-      comparableDraftLength: comparableDraftText.length,
-      comparableSentLength: comparableSentText.length,
-      fullSentBodyAvailable,
-    };
-  }
-
-  if (!comparableDraftText.trim()) {
-    return {
-      score: null,
-      status: BODY_SIMILARITY_STATUS.MISSING_DRAFT_TEXT,
-      comparableDraftLength: comparableDraftText.length,
-      comparableSentLength: comparableSentText.length,
-      fullSentBodyAvailable,
-    };
+  const unscoredStatus = getUnscorableBodySimilarityStatus({
+    selectedBodySource,
+    comparableDraftText,
+    comparableSentText,
+  });
+  if (unscoredStatus) {
+    return { ...base, score: null, status: unscoredStatus };
   }
 
   return {
+    ...base,
     score: calculateSimilarity(comparableDraftText, comparableSentText, {
       excludedSignatures: accountSignature ? [accountSignature] : [],
     }),
     status: BODY_SIMILARITY_STATUS.SCORED,
-    comparableDraftLength: comparableDraftText.length,
-    comparableSentLength: comparableSentText.length,
-    fullSentBodyAvailable,
   };
+}
+
+function getUnscorableBodySimilarityStatus({
+  selectedBodySource,
+  comparableDraftText,
+  comparableSentText,
+}: {
+  selectedBodySource: ReturnType<typeof getSelectedProviderBodySource>;
+  comparableDraftText: string;
+  comparableSentText: string;
+}) {
+  if (selectedBodySource === "none")
+    return BODY_SIMILARITY_STATUS.MISSING_SENT_BODY;
+  if (selectedBodySource === "snippet")
+    return BODY_SIMILARITY_STATUS.SNIPPET_ONLY_SENT_BODY;
+  if (!comparableSentText.trim()) return BODY_SIMILARITY_STATUS.EMPTY_SENT_TEXT;
+  if (!comparableDraftText.trim())
+    return BODY_SIMILARITY_STATUS.MISSING_DRAFT_TEXT;
+  return null;
 }
 
 function getSelectedProviderBodySource(message: ParsedMessage) {
@@ -728,50 +741,6 @@ function getDraftSentLengthDirection({
   return "similar_length";
 }
 
-function getScorePollutionSignals({
-  draftText,
-  sentText,
-  draftLength,
-  sentTextLength,
-  textHtmlLength,
-  textPlainLength,
-  snippetLength,
-  accountSignature,
-}: {
-  draftText: string;
-  sentText: string;
-  draftLength: number;
-  sentTextLength: number;
-  textHtmlLength: number;
-  textPlainLength: number;
-  snippetLength: number;
-  accountSignature?: string | null;
-}) {
-  const signals: string[] = [];
-
-  if (sentTextLength === 0) signals.push("empty_sent_text");
-  if (textHtmlLength === 0 && textPlainLength === 0) {
-    signals.push(
-      snippetLength > 0 ? "snippet_only_sent_body" : "missing_sent_body",
-    );
-  }
-  if (looksLikeHtml(draftText)) signals.push("draft_contains_html");
-  if (hasReferralSignature(draftText))
-    signals.push("draft_contains_referral_footer");
-  if (hasReferralSignature(sentText))
-    signals.push("sent_contains_referral_footer");
-  if (accountSignature?.trim()) signals.push("account_signature_configured");
-  if (draftLength > 0 && sentTextLength > 0) {
-    if (sentTextLength < draftLength * 0.35) {
-      signals.push("sent_much_shorter_than_draft");
-    } else if (sentTextLength > draftLength * 2) {
-      signals.push("sent_much_longer_than_draft");
-    }
-  }
-
-  return signals;
-}
-
 function looksLikeHtml(value: string) {
   return /<\/?[a-z][\s\S]*>/i.test(value);
 }
@@ -779,14 +748,6 @@ function looksLikeHtml(value: string) {
 function roundMetric(value: number) {
   return Math.round(value * 1000) / 1000;
 }
-
-type BodySimilarityResult = {
-  score: number | null;
-  status: BodySimilarityStatus;
-  comparableDraftLength: number;
-  comparableSentLength: number;
-  fullSentBodyAvailable: boolean;
-};
 
 function getSentDraftStatus({
   similarityScore,

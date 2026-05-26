@@ -255,6 +255,7 @@ function normalizeExtractedReplyMemory({
   sentText: string;
 }) {
   const content = memory.content.trim();
+  const scopeValue = memory.scopeValue.trim();
 
   if (memory.kind === ReplyMemoryKind.PREFERENCE) {
     return {
@@ -265,7 +266,6 @@ function normalizeExtractedReplyMemory({
     };
   }
 
-  const scopeValue = memory.scopeValue.trim();
   const globalMemoryHasTopicScope =
     memory.scopeType === ReplyMemoryScopeType.GLOBAL &&
     isValidTopicScopeValue(scopeValue) &&
@@ -312,11 +312,12 @@ function isTopicScopeValueRelevant({
   if (!normalizedTopic) return false;
   const normalizedTopicVariants = getTopicScopeValueVariants(normalizedTopic);
 
-  return [content, incomingEmailContent, draftText, sentText].some((value) =>
-    normalizedTopicVariants.some((topic) =>
-      normalizeMemoryText(value).includes(topic),
-    ),
-  );
+  return [content, incomingEmailContent, draftText, sentText].some((value) => {
+    const normalizedValue = normalizeMemoryText(value);
+    return normalizedTopicVariants.some((topic) =>
+      normalizedValue.includes(topic),
+    );
+  });
 }
 
 function getTopicScopeValueVariants(normalizedTopic: string) {
