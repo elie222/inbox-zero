@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
+import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
 import { cleanupOrphanedAccount } from "@/utils/user/orphaned-account";
 
 interface AccountLinkingParams {
@@ -28,7 +29,6 @@ export async function handleAccountLinking({
   | { type: "merge"; sourceAccountId: string; sourceUserId: string }
   | { type: "update_tokens"; existingAccountId: string }
 > {
-  const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
   const hasActiveTargetUser = await hasActiveAccountLinkingUser({
     targetUserId,
     logger,
@@ -58,12 +58,36 @@ export async function handleAccountLinking({
   if (!existingAccountId || !hasEmailAccount) {
     const existingEmailAccount = await prisma.emailAccount.findUnique({
       where: { email: providerEmail.trim().toLowerCase() },
-      select: { id: true, userId: true, email: true },
+      select: {
+        accountId: true,
+        account: { select: { provider: true } },
+        userId: true,
+      },
     });
 
     if (existingEmailAccount && existingEmailAccount.userId !== targetUserId) {
+      if (existingEmailAccount.account.provider !== provider) {
+        logger.warn(
+          "Create failed: account with this email already exists for another provider",
+          {
+            provider,
+            email: providerEmail,
+            existingProvider: existingEmailAccount.account.provider,
+            existingUserId: existingEmailAccount.userId,
+            targetUserId,
+          },
+        );
+
+        return {
+          type: "redirect",
+          response: createAccountLinkingRedirect({
+            query: { error: "account_already_exists" },
+          }),
+        };
+      }
+
       logger.warn(
-        "Create failed: account with this email already exists for a different user",
+        "Account email exists for a different user, merging accounts",
         {
           provider,
           email: providerEmail,
@@ -71,10 +95,10 @@ export async function handleAccountLinking({
           targetUserId,
         },
       );
-      redirectUrl.searchParams.set("error", "account_already_exists_use_merge");
       return {
-        type: "redirect",
-        response: NextResponse.redirect(redirectUrl),
+        type: "merge",
+        sourceAccountId: existingEmailAccount.accountId,
+        sourceUserId: existingEmailAccount.userId,
       };
     }
 

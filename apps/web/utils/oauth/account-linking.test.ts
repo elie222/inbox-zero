@@ -94,13 +94,15 @@ describe("handleAccountLinking", () => {
     });
   });
 
-  it("should redirect with error when creating account that already exists for different user", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(
-      getMockEmailAccountSelect({
+  it("should return merge when creating an account whose email already belongs to another user for the same provider", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      ...getMockEmailAccountSelect({
+        accountId: "existing-account-id",
         userId: "different-user-id",
         email: "existing@gmail.com",
-      }) as any,
-    );
+      }),
+      account: { provider: "google" },
+    } as any);
 
     const result = await handleAccountLinking({
       existingAccountId: null,
@@ -112,12 +114,37 @@ describe("handleAccountLinking", () => {
       logger,
     });
 
+    expect(result).toEqual({
+      type: "merge",
+      sourceAccountId: "existing-account-id",
+      sourceUserId: "different-user-id",
+    });
+  });
+
+  it("should redirect when the existing email belongs to another provider", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      ...getMockEmailAccountSelect({
+        accountId: "existing-account-id",
+        userId: "different-user-id",
+        email: "existing@gmail.com",
+      }),
+      account: { provider: "google" },
+    } as any);
+
+    const result = await handleAccountLinking({
+      existingAccountId: null,
+      hasEmailAccount: false,
+      existingUserId: null,
+      targetUserId: "target-user-id",
+      provider: "microsoft",
+      providerEmail: "existing@gmail.com",
+      logger,
+    });
+
     expect(result.type).toBe("redirect");
     if (result.type === "redirect") {
       const url = new URL(result.response.headers.get("location") || "");
-      expect(url.searchParams.get("error")).toBe(
-        "account_already_exists_use_merge",
-      );
+      expect(url.searchParams.get("error")).toBe("account_already_exists");
     }
   });
 
