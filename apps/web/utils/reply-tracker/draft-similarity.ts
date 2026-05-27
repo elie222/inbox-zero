@@ -127,7 +127,9 @@ function getUnscorableBodySimilarityStatus({
   return null;
 }
 
-function getSelectedProviderBodySource(message: ParsedMessage) {
+function getSelectedProviderBodySource(
+  message: ParsedMessage,
+): "html" | "plain" | "snippet" | "none" {
   if (message.textHtml) return "html";
   if (message.textPlain) return "plain";
   if (message.snippet) return "snippet";
