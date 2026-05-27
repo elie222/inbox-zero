@@ -44,6 +44,8 @@ When the sender provides a scheduling link or scheduling process, use that path 
 
 Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
+By default, keep replies concise, direct, friendly, plainspoken, and no longer than needed. Prefer short declarative sentences over polished or overly elaborate phrasing.
+The user's writing style can override these defaults.
 `;
 
 const defaultWritingStyle = `Keep it concise, direct, and friendly.

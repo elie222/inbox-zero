@@ -23,7 +23,10 @@ const MAX_REPLY_MEMORY_SOURCE_FETCH_ATTEMPTS = 3;
 const MAX_EXISTING_MEMORIES_IN_PROMPT = 16;
 const MAX_EXISTING_PREFERENCE_MEMORIES_IN_PROMPT = 8;
 const MAX_RETRIEVED_REPLY_MEMORIES = 6;
+const MAX_RETRIEVED_GLOBAL_REPLY_MEMORY_CANDIDATES = 24;
+const MAX_SELECTED_GLOBAL_REPLY_MEMORIES = 2;
 const MAX_RETRIEVED_TOPIC_REPLY_MEMORIES = 3;
+const MIN_GLOBAL_REPLY_MEMORY_SINGLE_TERM_LENGTH = 7;
 const PROMPTABLE_REPLY_MEMORY_KINDS = [
   ReplyMemoryKind.FACT,
   ReplyMemoryKind.PROCEDURE,
@@ -193,11 +196,14 @@ export async function getReplyMemoriesForPrompt({
             scopeValue: senderDomain,
           })
         : Promise.resolve([]),
-      fetchReplyMemoriesByScope({
-        emailAccountId,
-        kinds: PROMPTABLE_REPLY_MEMORY_KINDS,
-        scopeType: ReplyMemoryScopeType.GLOBAL,
-      }),
+      normalizedEmailContent
+        ? fetchReplyMemoriesByScope({
+            emailAccountId,
+            kinds: PROMPTABLE_REPLY_MEMORY_KINDS,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            take: MAX_RETRIEVED_GLOBAL_REPLY_MEMORY_CANDIDATES,
+          })
+        : Promise.resolve([]),
     ]);
 
     const topicMemories = normalizedEmailContent
@@ -217,14 +223,19 @@ export async function getReplyMemoriesForPrompt({
         `
       : [];
 
-    const selected = dedupeReplyMemories(
-      sortReplyMemories([
+    const rankedGlobalMemories = rankGlobalReplyMemories({
+      globalMemories,
+      normalizedEmailContent,
+    }).slice(0, MAX_SELECTED_GLOBAL_REPLY_MEMORIES);
+
+    const selected = dedupeReplyMemories([
+      ...sortReplyMemories([
         ...senderMemories,
         ...domainMemories,
-        ...globalMemories,
         ...topicMemories,
       ]),
-    ).slice(0, MAX_RETRIEVED_REPLY_MEMORIES);
+      ...rankedGlobalMemories,
+    ]).slice(0, MAX_RETRIEVED_REPLY_MEMORIES);
 
     if (!selected.length) {
       return {
@@ -585,11 +596,13 @@ async function fetchReplyMemoriesByScope({
   kinds,
   scopeType,
   scopeValue,
+  take = MAX_RETRIEVED_REPLY_MEMORIES,
 }: {
   emailAccountId: string;
   kinds: ReplyMemoryKind[];
   scopeType: ReplyMemoryScopeType;
   scopeValue?: string;
+  take?: number;
 }) {
   return prisma.replyMemory.findMany({
     where: {
@@ -599,7 +612,7 @@ async function fetchReplyMemoriesByScope({
       ...(scopeValue !== undefined ? { scopeValue } : {}),
     },
     orderBy: { updatedAt: "desc" },
-    take: MAX_RETRIEVED_REPLY_MEMORIES,
+    take,
   });
 }
 
@@ -726,6 +739,60 @@ async function maybeRefreshLearnedWritingStyle({
 
 function normalizeMemoryText(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function rankGlobalReplyMemories({
+  globalMemories,
+  normalizedEmailContent,
+}: {
+  globalMemories: ReplyMemory[];
+  normalizedEmailContent: string;
+}) {
+  const emailTerms = getReplyMemoryRelevanceTerms(normalizedEmailContent);
+
+  return [...globalMemories].sort((left, right) => {
+    const relevanceScore =
+      getGlobalReplyMemoryRelevanceScore({
+        memory: right,
+        emailTerms,
+      }) -
+      getGlobalReplyMemoryRelevanceScore({
+        memory: left,
+        emailTerms,
+      });
+    if (relevanceScore !== 0) return relevanceScore;
+
+    return right.updatedAt.getTime() - left.updatedAt.getTime();
+  });
+}
+
+function getGlobalReplyMemoryRelevanceScore({
+  memory,
+  emailTerms,
+}: {
+  memory: ReplyMemory;
+  emailTerms: Set<string>;
+}) {
+  if (!emailTerms.size) return 0;
+
+  const memoryTerms = getReplyMemoryRelevanceTerms(memory.content);
+  const sharedTerms = [...memoryTerms].filter((term) => emailTerms.has(term));
+
+  return (
+    sharedTerms.length +
+    sharedTerms.filter(
+      (term) => term.length >= MIN_GLOBAL_REPLY_MEMORY_SINGLE_TERM_LENGTH,
+    ).length
+  );
+}
+
+function getReplyMemoryRelevanceTerms(value: string) {
+  const matches = value
+    .normalize("NFKC")
+    .toLowerCase()
+    .match(/[\p{L}\p{N}][\p{L}\p{N}_-]{2,}/gu);
+
+  return new Set(matches ?? []);
 }
 
 function getReplyMemoryScopes({
