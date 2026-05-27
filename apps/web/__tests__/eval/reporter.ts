@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { JudgeResult } from "@/__tests__/eval/judge";
+import { subscribeToAiUsage, type AiUsageEvent } from "@/utils/usage";
 
 export interface EvalRecord {
   actual?: string;
@@ -16,20 +17,40 @@ const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
+const numberFormatter = new Intl.NumberFormat("en-US");
 
 class EvalReporter {
   private readonly records: EvalRecord[] = [];
+  private readonly usageEvents: AiUsageEvent[] = [];
+  private unsubscribeFromUsage: (() => void) | undefined;
+
+  constructor() {
+    this.unsubscribeFromUsage = subscribeToAiUsage((event) => {
+      this.usageEvents.push(event);
+    });
+  }
 
   record(result: EvalRecord): void {
     this.records.push(result);
   }
 
   printReport(): void {
-    if (this.records.length === 0) return;
-    console.log(`\n${this.generateConsoleReport()}`);
+    try {
+      if (this.records.length === 0) return;
 
-    if (process.env.EVAL_REPORT_PATH) {
-      this.writeReport(resolveEvalReportPath(process.env.EVAL_REPORT_PATH));
+      const reportParts = [
+        this.generateConsoleReport(),
+        this.generateCostConsoleReport(),
+      ].filter((part): part is string => Boolean(part));
+
+      console.log(`\n${reportParts.join("\n\n")}`);
+
+      if (process.env.EVAL_REPORT_PATH) {
+        this.writeReport(resolveEvalReportPath(process.env.EVAL_REPORT_PATH));
+      }
+    } finally {
+      this.unsubscribeFromUsage?.();
+      this.unsubscribeFromUsage = undefined;
     }
   }
 
@@ -52,6 +73,39 @@ class EvalReporter {
       return this.generateSingleModelConsole(models[0] ?? "Default", tests);
     }
     return this.generateComparisonConsole(models, tests);
+  }
+
+  private generateCostConsoleReport(): string | null {
+    const summary = summarizeUsageEvents(this.usageEvents);
+    if (summary.calls === 0) return null;
+
+    const lines = [
+      bold("Eval Cost"),
+      "",
+      `  Estimated total: ${formatUsd(summary.estimatedCost)}`,
+    ];
+
+    if (summary.providerReportedCost !== undefined) {
+      lines.push(
+        `  Provider-reported total: ${formatUsd(summary.providerReportedCost)}`,
+      );
+    }
+
+    if (summary.providerUpstreamInferenceCost !== undefined) {
+      lines.push(
+        `  Upstream inference total: ${formatUsd(summary.providerUpstreamInferenceCost)}`,
+      );
+    }
+
+    lines.push(`  ${formatTokenBreakdown(summary)}`, "");
+
+    for (const model of summary.models) {
+      lines.push(
+        `  ${formatUsageModelKey(model)} - ${model.calls} calls | estimated ${formatUsd(model.estimatedCost)}${formatReportedCostSuffix(model.providerReportedCost)}`,
+      );
+    }
+
+    return lines.join("\n");
   }
 
   private generateSingleModelConsole(model: string, tests: string[]): string {
@@ -127,10 +181,46 @@ class EvalReporter {
     const models = Array.from(new Set(this.records.map((r) => r.model)));
     const tests = Array.from(new Set(this.records.map((r) => r.testName)));
 
-    if (models.length <= 1) {
-      return this.generateSingleModelMarkdown(models[0] ?? "Default", tests);
+    const resultMarkdown =
+      models.length <= 1
+        ? this.generateSingleModelMarkdown(models[0] ?? "Default", tests)
+        : this.generateComparisonMarkdown(models, tests);
+    const costMarkdown = this.generateCostMarkdown();
+    if (!costMarkdown) return resultMarkdown;
+
+    return `${resultMarkdown}\n\n${costMarkdown}`;
+  }
+
+  private generateCostMarkdown(): string | null {
+    const summary = summarizeUsageEvents(this.usageEvents);
+    if (summary.calls === 0) return null;
+
+    const totals = [
+      `Estimated total: ${formatUsd(summary.estimatedCost)}`,
+      summary.providerReportedCost === undefined
+        ? null
+        : `Provider-reported total: ${formatUsd(summary.providerReportedCost)}`,
+      summary.providerUpstreamInferenceCost === undefined
+        ? null
+        : `Upstream inference total: ${formatUsd(summary.providerUpstreamInferenceCost)}`,
+      `Calls: ${summary.calls}`,
+      `Tokens: ${formatNumber(summary.totalTokens)}`,
+    ].filter((total): total is string => total !== null);
+
+    const lines = [
+      "## Eval Cost",
+      "",
+      totals.join(" | "),
+      "",
+      "| Model | Calls | Estimated | Provider Reported | Tokens |",
+      "|------|------:|------:|------:|------:|",
+    ];
+
+    for (const model of summary.models) {
+      lines.push(formatCostMarkdownRow(model));
     }
-    return this.generateComparisonMarkdown(models, tests);
+
+    return lines.join("\n");
   }
 
   private generateSingleModelMarkdown(model: string, tests: string[]): string {
@@ -196,6 +286,131 @@ class EvalReporter {
 
 export function createEvalReporter(): EvalReporter {
   return new EvalReporter();
+}
+
+type UsageSummary = {
+  cachedInputTokens: number;
+  calls: number;
+  estimatedCost: number;
+  inputTokens: number;
+  models: UsageSummaryByModel[];
+  outputTokens: number;
+  providerReportedCost?: number;
+  providerUpstreamInferenceCost?: number;
+  reasoningTokens: number;
+  totalTokens: number;
+};
+
+type UsageTotals = Omit<UsageSummary, "models">;
+
+type UsageSummaryByModel = UsageTotals & {
+  model: string;
+  provider: string;
+};
+
+function summarizeUsageEvents(events: AiUsageEvent[]): UsageSummary {
+  const summary = emptyUsageTotals();
+  const modelSummaries = new Map<string, UsageSummaryByModel>();
+
+  for (const event of events) {
+    addUsageEvent(summary, event);
+    const modelSummary = getOrCreateModelSummary(modelSummaries, event);
+    addUsageEvent(modelSummary, event);
+  }
+
+  return {
+    ...summary,
+    models: Array.from(modelSummaries.values()).sort((a, b) =>
+      formatUsageModelKey(a).localeCompare(formatUsageModelKey(b)),
+    ),
+  };
+}
+
+function emptyUsageTotals(): UsageTotals {
+  return {
+    cachedInputTokens: 0,
+    calls: 0,
+    estimatedCost: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    reasoningTokens: 0,
+    totalTokens: 0,
+  };
+}
+
+function addUsageEvent(summary: UsageTotals, event: AiUsageEvent): void {
+  summary.calls += 1;
+  summary.estimatedCost += event.estimatedCost;
+  summary.inputTokens += event.inputTokens;
+  summary.outputTokens += event.outputTokens;
+  summary.cachedInputTokens += event.cachedInputTokens;
+  summary.reasoningTokens += event.reasoningTokens;
+  summary.totalTokens += event.totalTokens;
+
+  if (event.providerReportedCost !== undefined) {
+    summary.providerReportedCost =
+      (summary.providerReportedCost ?? 0) + event.providerReportedCost;
+  }
+
+  if (event.providerUpstreamInferenceCost !== undefined) {
+    summary.providerUpstreamInferenceCost =
+      (summary.providerUpstreamInferenceCost ?? 0) +
+      event.providerUpstreamInferenceCost;
+  }
+}
+
+function getOrCreateModelSummary(
+  modelSummaries: Map<string, UsageSummaryByModel>,
+  event: AiUsageEvent,
+): UsageSummaryByModel {
+  const key = formatUsageModelKey(event);
+  const existingSummary = modelSummaries.get(key);
+  if (existingSummary) return existingSummary;
+
+  const modelSummary = {
+    ...emptyUsageTotals(),
+    provider: event.provider,
+    model: event.model,
+  } satisfies UsageSummaryByModel;
+  modelSummaries.set(key, modelSummary);
+  return modelSummary;
+}
+
+function formatTokenBreakdown(summary: UsageTotals): string {
+  return `Calls: ${summary.calls} | Tokens: ${formatNumber(summary.totalTokens)} total (${formatNumber(summary.inputTokens)} in, ${formatNumber(summary.outputTokens)} out, ${formatNumber(summary.cachedInputTokens)} cached, ${formatNumber(summary.reasoningTokens)} reasoning)`;
+}
+
+function formatCostMarkdownRow(model: UsageSummaryByModel): string {
+  return `| ${formatUsageModelKey(model)} | ${model.calls} | ${formatUsd(model.estimatedCost)} | ${formatUsdOrDash(model.providerReportedCost)} | ${formatNumber(model.totalTokens)} |`;
+}
+
+function formatUsageModelKey({
+  provider,
+  model,
+}: {
+  provider: string;
+  model: string;
+}): string {
+  return `${provider}:${model}`;
+}
+
+function formatReportedCostSuffix(value: number | undefined): string {
+  if (value === undefined) return "";
+  return ` | reported ${formatUsd(value)}`;
+}
+
+function formatUsdOrDash(value: number | undefined): string {
+  if (value === undefined) return "-";
+  return formatUsd(value);
+}
+
+function formatUsd(value: number): string {
+  if (value === 0) return "$0.00";
+  return `$${value.toFixed(6)}`;
+}
+
+function formatNumber(value: number): string {
+  return numberFormatter.format(value);
 }
 
 function resolveEvalReportPath(filePath: string): string {
