@@ -184,4 +184,27 @@ describe("gmail oauth client configuration", () => {
     });
     expect(saveTokens).not.toHaveBeenCalled();
   });
+
+  it("preserves the original refresh error when invalid token cleanup fails", async () => {
+    const refreshError = new Error(
+      "invalid_grant: token has been expired or revoked",
+    );
+    refreshAccessToken.mockRejectedValue(refreshError);
+    vi.mocked(cleanupInvalidTokens).mockRejectedValue(
+      new Error("cleanup failed"),
+    );
+
+    await expect(
+      getGmailClientWithRefresh({
+        accessToken: "stale-access-token",
+        refreshToken: "refresh-token",
+        expiresAt: Date.now() - 1000,
+        emailAccountId: "email-account-id",
+        logger,
+      }),
+    ).rejects.toBe(refreshError);
+
+    expect(cleanupInvalidTokens).toHaveBeenCalledTimes(1);
+    expect(saveTokens).not.toHaveBeenCalled();
+  });
 });

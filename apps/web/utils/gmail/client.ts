@@ -105,11 +105,21 @@ export const getGmailClientWithRefresh = async ({
         errorDescription: (error as any).response?.data?.error_description,
       });
 
-      await cleanupInvalidTokens({
-        emailAccountId,
-        reason: "invalid_grant",
-        logger,
-      });
+      try {
+        await cleanupInvalidTokens({
+          emailAccountId,
+          reason: "invalid_grant",
+          logger,
+        });
+      } catch (cleanupError) {
+        logger.error(
+          "Failed to clean up invalid tokens after refresh failure",
+          {
+            emailAccountId,
+            cleanupError,
+          },
+        );
+      }
     }
 
     throw error;
