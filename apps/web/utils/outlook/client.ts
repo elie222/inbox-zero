@@ -10,7 +10,7 @@ import {
   requestMicrosoftToken,
 } from "@/utils/microsoft/oauth";
 import { SCOPES } from "@/utils/outlook/scopes";
-import { SafeError } from "@/utils/error";
+import { isInvalidGrantError, SafeError } from "@/utils/error";
 
 // Add buffer time to prevent token expiry during long-running operations
 const TOKEN_REFRESH_BUFFER_MS = 10 * 60 * 1000; // 10 minutes
@@ -169,27 +169,25 @@ export const getOutlookClientWithRefresh = async ({
       // AADSTS70008 = Refresh token expired due to inactivity
       // AADSTS70011 = Invalid scope
       // AADSTS700082 = Refresh token expired
-      // AADSTS50173 = Invalid grant (refresh token revoked)
       // AADSTS65001 = User hasn't consented to permissions
       // AADSTS500011 = Resource principal not found (scope issue)
       // AADSTS54005 = Authorization code already redeemed
       // AADSTS50076 = MFA required (Conditional Access policy)
       // AADSTS50079 = MFA registration required
       // AADSTS50158 = External security challenge not satisfied
-      // invalid_grant = General token refresh failure
+      // Invalid grants are handled by isInvalidGrantError.
       const requiresReauth =
+        isInvalidGrantError(errorMessage) ||
         errorMessage.includes("AADSTS70000") ||
         errorMessage.includes("AADSTS70008") ||
         errorMessage.includes("AADSTS70011") ||
         errorMessage.includes("AADSTS700082") ||
-        errorMessage.includes("AADSTS50173") ||
         errorMessage.includes("AADSTS65001") ||
         errorMessage.includes("AADSTS500011") ||
         errorMessage.includes("AADSTS54005") ||
         errorMessage.includes("AADSTS50076") ||
         errorMessage.includes("AADSTS50079") ||
-        errorMessage.includes("AADSTS50158") ||
-        errorMessage.includes("invalid_grant");
+        errorMessage.includes("AADSTS50158");
 
       if (requiresReauth) {
         logger.warn(
@@ -228,12 +226,7 @@ export const getOutlookClientWithRefresh = async ({
 
     return createOutlookClient(tokens.access_token, logger);
   } catch (error) {
-    const isInvalidGrantError =
-      error instanceof Error &&
-      (error.message.includes("invalid_grant") ||
-        error.message.includes("AADSTS50173"));
-
-    if (isInvalidGrantError) {
+    if (isInvalidGrantError(error)) {
       logger.warn("Error refreshing Outlook access token", { error });
     }
 

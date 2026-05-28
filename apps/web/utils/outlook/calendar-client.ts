@@ -6,7 +6,7 @@ import {
   requestMicrosoftToken,
 } from "@/utils/microsoft/oauth";
 import { CALENDAR_SCOPES } from "@/utils/outlook/scopes";
-import { SafeError } from "@/utils/error";
+import { isInvalidGrantError, SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { saveCalendarTokens } from "@/utils/calendar/save-calendar-tokens";
 import {
@@ -122,13 +122,10 @@ export const getCalendarClientWithRefresh = async ({
       ...getMicrosoftGraphClientOptions(tokens.access_token),
     });
   } catch (error) {
-    const isInvalidGrantError =
-      error instanceof Error && error.message.includes("invalid_grant");
-
-    if (isInvalidGrantError) {
+    if (isInvalidGrantError(error)) {
       logger.warn("Error refreshing Calendar access token", {
         emailAccountId,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       });
     }
 

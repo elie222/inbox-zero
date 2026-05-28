@@ -4,7 +4,7 @@ import { saveTokens } from "@/utils/auth/save-tokens";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import type { Logger } from "@/utils/logger";
 import { SCOPES } from "@/utils/gmail/scopes";
-import { SafeError } from "@/utils/error";
+import { isInvalidGrantError, SafeError } from "@/utils/error";
 import { env } from "@/env";
 import {
   getGoogleGmailApiRootUrl,
@@ -94,13 +94,10 @@ export const getGmailClientWithRefresh = async ({
 
     return g;
   } catch (error) {
-    const isInvalidGrantError =
-      error instanceof Error && error.message.includes("invalid_grant");
-
-    if (isInvalidGrantError) {
+    if (isInvalidGrantError(error)) {
       logger.warn("Error refreshing Gmail access token", {
         emailAccountId,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
         errorDescription: (error as any).response?.data?.error_description,
       });

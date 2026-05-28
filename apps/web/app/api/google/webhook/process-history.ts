@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { GmailLabel } from "@/utils/gmail/label";
-import { captureException } from "@/utils/error";
+import { captureException, isInvalidGrantError } from "@/utils/error";
 import {
   HistoryEventType,
   type ProcessHistoryOptions,
@@ -195,7 +195,7 @@ export async function processHistoryForUser(
       },
     );
   } catch (error) {
-    if (error instanceof Error && error.message === "invalid_grant") {
+    if (isInvalidGrantError(error)) {
       logger.warn("Invalid grant", { email });
       return NextResponse.json({ ok: true });
     }

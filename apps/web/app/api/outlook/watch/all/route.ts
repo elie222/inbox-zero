@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { withError } from "@/utils/middleware";
-import { captureException } from "@/utils/error";
+import { captureException, isInvalidGrantError } from "@/utils/error";
 import {
   getPremiumUserFilter,
   getUserTier,
@@ -119,13 +119,12 @@ async function watchAllEmails(logger: Logger) {
       });
     } catch (error) {
       if (error instanceof Error) {
-        const warn = [
-          "invalid_grant",
-          "Mail service not enabled",
-          "Insufficient Permission",
-        ];
+        const warn = ["Mail service not enabled", "Insufficient Permission"];
 
-        if (warn.some((w) => error.message.includes(w))) {
+        if (
+          isInvalidGrantError(error) ||
+          warn.some((w) => error.message.includes(w))
+        ) {
           logger.warn("Not watching emails for user", {
             email: emailAccount.email,
             error,

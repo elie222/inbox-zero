@@ -158,6 +158,15 @@ export class SafeError extends Error {
   }
 }
 
+const INVALID_GRANT_ERROR_MARKERS = ["invalid_grant", "AADSTS50173"] as const;
+
+export function isInvalidGrantError(error: unknown): boolean {
+  const message = getErrorMessage(error);
+  if (!message) return false;
+
+  return INVALID_GRANT_ERROR_MARKERS.some((marker) => message.includes(marker));
+}
+
 export function isGmailInsufficientPermissionsError(error: unknown): boolean {
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   return (error as any)?.errors?.[0]?.reason === "insufficientPermissions";

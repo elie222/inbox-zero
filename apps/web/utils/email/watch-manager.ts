@@ -7,7 +7,7 @@ import {
 } from "@/utils/premium";
 import type { Logger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
-import { captureException } from "@/utils/error";
+import { captureException, isInvalidGrantError } from "@/utils/error";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import type { EmailProvider } from "@/utils/email/types";
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
@@ -97,13 +97,15 @@ async function watchEmailAccounts(
     } catch (error) {
       if (error instanceof Error) {
         const warn = [
-          "invalid_grant",
           "Mail service not enabled",
           "Insufficient Permission",
           "AADSTS7000215", // Raw Azure AD error for invalid client secret (old tokens after secret rotation)
         ];
 
-        if (warn.some((w) => error.message.includes(w))) {
+        if (
+          isInvalidGrantError(error) ||
+          warn.some((w) => error.message.includes(w))
+        ) {
           logger.warn("Not watching emails for user", {
             email: emailAccount.email,
             error,
@@ -254,7 +256,7 @@ async function watchEmails({
     const isInsufficientPermissions = errorMessage.includes(
       "Request had insufficient authentication scopes.",
     );
-    const isInvalidGrant = errorMessage.includes("invalid_grant");
+    const isInvalidGrant = isInvalidGrantError(error);
 
     if (isInsufficientPermissions || isInvalidGrant) {
       logger.warn("Auth failure while watching inbox - cleaning up tokens", {
@@ -289,7 +291,7 @@ export async function unwatchEmails({
 
     await provider.unwatchEmails(subscriptionId || undefined);
   } catch (error) {
-    if (error instanceof Error && error.message.includes("invalid_grant")) {
+    if (isInvalidGrantError(error)) {
       logger.warn("Error unwatching emails, invalid grant");
     } else {
       logger.error("Error unwatching emails", { error });
