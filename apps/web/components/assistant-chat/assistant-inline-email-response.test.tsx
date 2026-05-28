@@ -199,6 +199,9 @@ describe("AssistantInlineEmailResponse", () => {
         expect.stringContaining("Create this suggested rule: Monitoring"),
       );
     });
+
+    expect(screen.queryByRole("button", { name: /Approve/i })).toBeNull();
+    expect(screen.getByText("Rule created")).toBeTruthy();
   });
 
   it("renders rule suggestions with attributes split across lines", () => {
