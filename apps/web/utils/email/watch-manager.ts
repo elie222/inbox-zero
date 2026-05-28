@@ -251,10 +251,10 @@ async function watchEmails({
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
-    // Minimal centralized handling of permanent auth failures (exact checks only)
-    const isInsufficientPermissions =
-      errorMessage === "Request had insufficient authentication scopes.";
-    const isInvalidGrant = errorMessage === "invalid_grant";
+    const isInsufficientPermissions = errorMessage.includes(
+      "Request had insufficient authentication scopes.",
+    );
+    const isInvalidGrant = errorMessage.includes("invalid_grant");
 
     if (isInsufficientPermissions || isInvalidGrant) {
       logger.warn("Auth failure while watching inbox - cleaning up tokens", {

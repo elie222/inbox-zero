@@ -1,6 +1,7 @@
 import { auth, gmail, type gmail_v1 } from "@googleapis/gmail";
 import { people } from "@googleapis/people";
 import { saveTokens } from "@/utils/auth/save-tokens";
+import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import type { Logger } from "@/utils/logger";
 import { SCOPES } from "@/utils/gmail/scopes";
 import { SafeError } from "@/utils/error";
@@ -102,6 +103,12 @@ export const getGmailClientWithRefresh = async ({
         error: error.message,
         // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
         errorDescription: (error as any).response?.data?.error_description,
+      });
+
+      await cleanupInvalidTokens({
+        emailAccountId,
+        reason: "invalid_grant",
+        logger,
       });
     }
 
