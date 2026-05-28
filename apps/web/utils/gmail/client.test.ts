@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { people } from "@googleapis/people";
 import { auth } from "@googleapis/gmail";
 import { saveTokens } from "@/utils/auth/save-tokens";
+import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
   getContactsClient,
@@ -17,6 +18,10 @@ import { gmail } from "@googleapis/gmail";
 
 vi.mock("@/utils/auth/save-tokens", () => ({
   saveTokens: vi.fn(),
+}));
+
+vi.mock("@/utils/auth/cleanup-invalid-tokens", () => ({
+  cleanupInvalidTokens: vi.fn(),
 }));
 
 vi.mock("@/utils/google/oauth", () => ({
@@ -154,5 +159,52 @@ describe("gmail oauth client configuration", () => {
         }),
       }),
     );
+  });
+
+  it("cleans up invalid Gmail tokens when refresh reports invalid_grant", async () => {
+    refreshAccessToken.mockRejectedValue(
+      new Error("invalid_grant: token has been expired or revoked"),
+    );
+
+    await expect(
+      getGmailClientWithRefresh({
+        accessToken: "stale-access-token",
+        refreshToken: "refresh-token",
+        expiresAt: Date.now() - 1000,
+        emailAccountId: "email-account-id",
+        logger,
+      }),
+    ).rejects.toThrow("invalid_grant");
+
+    expect(cleanupInvalidTokens).toHaveBeenCalledTimes(1);
+    expect(cleanupInvalidTokens).toHaveBeenCalledWith({
+      emailAccountId: "email-account-id",
+      reason: "invalid_grant",
+      logger,
+    });
+    expect(saveTokens).not.toHaveBeenCalled();
+  });
+
+  it("preserves the original refresh error when invalid token cleanup fails", async () => {
+    const refreshError = new Error(
+      "invalid_grant: token has been expired or revoked",
+    );
+    refreshAccessToken.mockRejectedValue(refreshError);
+    vi.mocked(cleanupInvalidTokens).mockRejectedValue(
+      new Error("cleanup failed"),
+    );
+
+    await expect(
+      getGmailClientWithRefresh({
+        accessToken: "stale-access-token",
+        refreshToken: "refresh-token",
+        expiresAt: Date.now() - 1000,
+        emailAccountId: "email-account-id",
+        logger,
+      }),
+    ).rejects.toBe(refreshError);
+
+    expect(cleanupInvalidTokens).toHaveBeenCalledTimes(1);
+    expect(saveTokens).not.toHaveBeenCalled();
   });
 });
