@@ -77,6 +77,52 @@ describe("moveMessagesForSenders", () => {
       ownerEmail: "owner@example.com",
     });
   });
+
+  it("moves Outlook messages in small batches to avoid mailbox concurrency throttling", async () => {
+    const messages = Array.from({ length: 9 }, (_, index) => ({
+      id: `message-${index + 1}`,
+      conversationId: `thread-${index + 1}`,
+    }));
+    const batchPost = vi.fn(
+      async (body: {
+        requests: Array<{ id: string; url: string; method: string }>;
+      }) => ({
+        responses: body.requests.map((request) => ({
+          id: request.id,
+          status: 201,
+          body: {},
+        })),
+      }),
+    );
+    const client = createMockOutlookClient({
+      listMessages: async () => ({
+        value: messages,
+      }),
+      batchPost,
+    });
+
+    const movedCount = await moveMessagesForSenders({
+      client,
+      senders: ["sender@example.com"],
+      destinationId: "deleteditems",
+      action: "trash",
+      ownerEmail: "owner@example.com",
+      emailAccountId: "account-1",
+      logger: createTestLogger(),
+    });
+
+    expect(movedCount).toBe(9);
+    expect(batchPost).toHaveBeenCalledTimes(3);
+    expect(batchPost.mock.calls.map(([body]) => body.requests.length)).toEqual([
+      4, 4, 1,
+    ]);
+    expect(mockUpdateEmailMessagesForSender).toHaveBeenCalledWith({
+      sender: "sender@example.com",
+      messageIds: messages.map((message) => message.id),
+      emailAccountId: "account-1",
+      action: "trash",
+    });
+  });
 });
 
 function createMockOutlookClient({

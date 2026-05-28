@@ -8,6 +8,7 @@ import {
 } from "@/utils/email/bulk-action-tracking";
 
 const GRAPH_JSON_BATCH_LIMIT = 20; // Microsoft Graph JSON batching limit
+const GRAPH_MOVE_BATCH_LIMIT = 4;
 
 type GraphBatchRequestItem<TBody = unknown> = {
   id: string;
@@ -36,12 +37,14 @@ type MoveMessagesBatchResult = {
 async function batch<TRequestBody = unknown, TResponseBody = unknown>({
   client,
   requests,
+  chunkSize,
   onFailure,
   context,
   logger,
 }: {
   client: OutlookClient;
   requests: GraphBatchRequestItem<TRequestBody>[];
+  chunkSize?: number;
   onFailure?: (params: {
     request?: GraphBatchRequestItem<TRequestBody>;
     response: GraphBatchResponseItem<TResponseBody>;
@@ -53,13 +56,13 @@ async function batch<TRequestBody = unknown, TResponseBody = unknown>({
 
   const graphClient = client.getClient();
   const aggregatedResponses: GraphBatchResponseItem<TResponseBody>[] = [];
+  const effectiveChunkSize = Math.min(
+    chunkSize ?? GRAPH_JSON_BATCH_LIMIT,
+    GRAPH_JSON_BATCH_LIMIT,
+  );
 
-  for (
-    let start = 0;
-    start < requests.length;
-    start += GRAPH_JSON_BATCH_LIMIT
-  ) {
-    const chunk = requests.slice(start, start + GRAPH_JSON_BATCH_LIMIT);
+  for (let start = 0; start < requests.length; start += effectiveChunkSize) {
+    const chunk = requests.slice(start, start + effectiveChunkSize);
 
     try {
       const response = (await graphClient
@@ -133,6 +136,7 @@ async function moveMessagesInBatches({
   const responses = await batch({
     client,
     requests,
+    chunkSize: GRAPH_MOVE_BATCH_LIMIT,
     context: {
       action,
       destinationId,

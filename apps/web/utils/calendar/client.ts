@@ -2,7 +2,7 @@ import { auth, calendar, type calendar_v3 } from "@googleapis/calendar";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import { CALENDAR_SCOPES as GOOGLE_CALENDAR_SCOPES } from "@/utils/gmail/scopes";
-import { SafeError } from "@/utils/error";
+import { isInvalidGrantError, SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import {
   getGoogleApiRootUrl,
@@ -105,13 +105,10 @@ export const getCalendarClientWithRefresh = async ({
 
     return cal;
   } catch (error) {
-    const isInvalidGrantError =
-      error instanceof Error && error.message.includes("invalid_grant");
-
-    if (isInvalidGrantError) {
+    if (isInvalidGrantError(error)) {
       logger.warn("Error refreshing Calendar access token", {
         emailAccountId,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         errorDescription: (
           error as Error & {
             response?: { data?: { error_description?: string } };

@@ -18,6 +18,8 @@ vi.mock("@/utils/email/provider", () => ({
 
 vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
+  isInvalidGrantError: (error: unknown) =>
+    error instanceof Error && error.message.includes("invalid_grant"),
 }));
 
 vi.mock("@/utils/log-error-with-dedupe", () => ({
