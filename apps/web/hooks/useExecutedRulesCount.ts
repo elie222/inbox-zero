@@ -1,8 +1,10 @@
 import useSWR from "swr";
 import type { GetExecutedRulesCountResponse } from "@/app/api/organizations/[organizationId]/executed-rules-count/route";
 
-export function useExecutedRulesCount(organizationId: string) {
+export function useExecutedRulesCount(organizationId: string | null) {
   return useSWR<GetExecutedRulesCountResponse>(
-    `/api/organizations/${organizationId}/executed-rules-count`,
+    organizationId
+      ? `/api/organizations/${organizationId}/executed-rules-count`
+      : null,
   );
 }
