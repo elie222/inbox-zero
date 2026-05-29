@@ -40,8 +40,8 @@ type ActionFunction<T extends Partial<Omit<ActionItem, "type">>> = (options: {
 }) => Promise<unknown>;
 
 type MessagingNotificationActionType =
-  | ActionType.DRAFT_MESSAGING_CHANNEL
-  | ActionType.NOTIFY_MESSAGING_CHANNEL;
+  | typeof ActionType.DRAFT_MESSAGING_CHANNEL
+  | typeof ActionType.NOTIFY_MESSAGING_CHANNEL;
 
 export const runActionFunction = async (options: {
   client: EmailProvider;
