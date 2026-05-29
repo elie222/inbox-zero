@@ -21,6 +21,9 @@ vi.mock("@/utils/ai/reply/reply-memory", () => ({
   syncReplyMemoriesFromDraftSendLogs: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/utils/messaging/rule-notifications", () => ({
+  replaceMessagingDraftNotificationsWithDraftSentState: vi
+    .fn()
+    .mockResolvedValue(undefined),
   replaceMessagingDraftNotificationsWithHandledOnWebState: vi
     .fn()
     .mockResolvedValue(undefined),
@@ -33,7 +36,10 @@ import {
   saveDraftSendLogReplyMemory,
   syncReplyMemoriesFromDraftSendLogs,
 } from "@/utils/ai/reply/reply-memory";
-import { replaceMessagingDraftNotificationsWithHandledOnWebState } from "@/utils/messaging/rule-notifications";
+import {
+  replaceMessagingDraftNotificationsWithDraftSentState,
+  replaceMessagingDraftNotificationsWithHandledOnWebState,
+} from "@/utils/messaging/rule-notifications";
 
 const logger = createTestLogger();
 
@@ -91,11 +97,14 @@ describe("trackSentDraftStatus", () => {
       }),
     );
     expect(
-      replaceMessagingDraftNotificationsWithHandledOnWebState,
+      replaceMessagingDraftNotificationsWithDraftSentState,
     ).toHaveBeenCalledWith({
       executedRuleId: "executed-rule-1",
       logger,
     });
+    expect(
+      replaceMessagingDraftNotificationsWithHandledOnWebState,
+    ).not.toHaveBeenCalled();
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
       data: {
@@ -233,6 +242,12 @@ describe("trackSentDraftStatus", () => {
         draftStatus: DraftEmailStatus.LIKELY_SENT,
       },
     });
+    expect(
+      replaceMessagingDraftNotificationsWithDraftSentState,
+    ).toHaveBeenCalledWith({
+      executedRuleId: "executed-rule-1",
+      logger,
+    });
   });
 
   it("treats sent messages to someone else as ignored drafts and skips learning", async () => {
@@ -353,11 +368,14 @@ describe("trackSentDraftStatus", () => {
       }),
     });
     expect(
-      replaceMessagingDraftNotificationsWithHandledOnWebState,
+      replaceMessagingDraftNotificationsWithDraftSentState,
     ).toHaveBeenCalledWith({
       executedRuleId: "executed-rule-1",
       logger,
     });
+    expect(
+      replaceMessagingDraftNotificationsWithHandledOnWebState,
+    ).not.toHaveBeenCalled();
     expect(prisma.executedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
       data: {

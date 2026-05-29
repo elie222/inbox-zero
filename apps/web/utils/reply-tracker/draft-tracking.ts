@@ -13,7 +13,10 @@ import {
   syncReplyMemoriesFromDraftSendLogs,
 } from "@/utils/ai/reply/reply-memory";
 import { stripProviderSignatureFromParsedMessage } from "@/utils/email/signature-normalization";
-import { replaceMessagingDraftNotificationsWithHandledOnWebState } from "@/utils/messaging/rule-notifications";
+import {
+  replaceMessagingDraftNotificationsWithDraftSentState,
+  replaceMessagingDraftNotificationsWithHandledOnWebState,
+} from "@/utils/messaging/rule-notifications";
 import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
 import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
 import { messageRepliesToSourceSender } from "@/utils/email";
@@ -230,7 +233,10 @@ export async function trackSentDraftStatus({
     );
   }
 
-  await replaceMessagingDraftNotificationsWithHandledOnWebState({
+  const replaceMessagingDraftNotifications = wasLikelyDraftSent
+    ? replaceMessagingDraftNotificationsWithDraftSentState
+    : replaceMessagingDraftNotificationsWithHandledOnWebState;
+  await replaceMessagingDraftNotifications({
     executedRuleId: executedAction.executedRuleId,
     logger,
   });
