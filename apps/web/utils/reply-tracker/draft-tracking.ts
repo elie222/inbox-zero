@@ -17,6 +17,7 @@ import { replaceMessagingDraftNotificationsWithHandledOnWebState } from "@/utils
 import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
 import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
 import { messageRepliesToSourceSender } from "@/utils/email";
+import { getDraftSendLogSimilarityFields } from "./draft-similarity";
 import { logReplyTrackerError } from "./error-logging";
 
 const DRAFT_SENT_SIMILARITY_THRESHOLD = 0.7;
@@ -108,6 +109,21 @@ export async function trackSentDraftStatus({
       sourceMessage,
     });
   const sentText = getSentReplyText(message);
+  const similarityFields = getDraftSendLogSimilarityFields({
+    draftText: executedAction.content,
+    sentMessage: message,
+    sentText,
+    accountSignature,
+    draftExists: !!draftExists,
+    sentMessageRepliesToSource,
+  });
+  const createDraftSendLogData = () => ({
+    executedActionId: executedActionId,
+    sentMessageId: sentMessageId,
+    similarityScore: similarityScore,
+    sentText,
+    ...similarityFields,
+  });
 
   logger.info("Calculated similarity score", {
     executedActionId,
@@ -130,12 +146,7 @@ export async function trackSentDraftStatus({
       () =>
         prisma.$transaction([
           prisma.draftSendLog.create({
-            data: {
-              executedActionId: executedActionId,
-              sentMessageId: sentMessageId,
-              similarityScore: similarityScore,
-              sentText,
-            },
+            data: createDraftSendLogData(),
           }),
           prisma.executedAction.update({
             where: { id: executedActionId },
@@ -193,12 +204,7 @@ export async function trackSentDraftStatus({
     () =>
       prisma.$transaction([
         prisma.draftSendLog.create({
-          data: {
-            executedActionId: executedActionId,
-            sentMessageId: sentMessageId,
-            similarityScore: similarityScore,
-            sentText,
-          },
+          data: createDraftSendLogData(),
         }),
         prisma.executedAction.update({
           where: { id: executedActionId },

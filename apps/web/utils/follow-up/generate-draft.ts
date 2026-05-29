@@ -13,6 +13,7 @@ import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
 import { generateReferralLink } from "@/utils/referral/referral-link";
+import { renderReferralSignatureHtml } from "@/utils/referral/signature";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 
 /**
@@ -119,7 +120,7 @@ export async function generateFollowUpDraft({
         emailAccount.userId,
       );
       const referralLink = generateReferralLink(referralSignature.code);
-      const htmlSignature = `Drafted by <a href="${referralLink}">Inbox Zero</a>.`;
+      const htmlSignature = renderReferralSignatureHtml(referralLink);
       draftContent = `${draftContent}\n\n${htmlSignature}`;
     }
 

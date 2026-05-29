@@ -16,6 +16,7 @@ import { renderEmailTextWithSafeLinks } from "@/utils/email/render-safe-links";
 import { aiCollectReplyContext } from "@/utils/ai/reply/reply-context-collector";
 import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
 import { generateReferralLink } from "@/utils/referral/referral-link";
+import { renderReferralSignatureHtml } from "@/utils/referral/signature";
 import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import { env } from "@/env";
 import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
@@ -126,7 +127,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
       emailAccount.userId,
     );
     const referralLink = generateReferralLink(referralSignature.code);
-    const htmlSignature = `Drafted by <a href="${referralLink}">Inbox Zero</a>.`;
+    const htmlSignature = renderReferralSignatureHtml(referralLink);
     finalResult = `${finalResult}\n\n${htmlSignature}`;
   }
 
