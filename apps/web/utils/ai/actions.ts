@@ -39,6 +39,10 @@ type ActionFunction<T extends Partial<Omit<ActionItem, "type">>> = (options: {
   logger: Logger;
 }) => Promise<unknown>;
 
+type MessagingNotificationActionType =
+  | ActionType.DRAFT_MESSAGING_CHANNEL
+  | ActionType.NOTIFY_MESSAGING_CHANNEL;
+
 export const runActionFunction = async (options: {
   client: EmailProvider;
   email: EmailForAction;
@@ -267,63 +271,25 @@ const draft: ActionFunction<{
 
 const draft_messaging_channel: ActionFunction<{
   messagingChannelId?: string | null;
-}> = async ({ email, args, logger }) => {
-  if (!args.id) {
-    throw new Error("Missing action id for DRAFT_MESSAGING_CHANNEL");
-  }
-
-  if (!args.messagingChannelId) {
-    await failMessagingAction({
-      actionId: args.id,
-      logger,
-      reason: "Missing messaging channel for DRAFT_MESSAGING_CHANNEL",
-    });
-  }
-
-  const delivered = await sendMessagingRuleNotification({
-    executedActionId: args.id,
+}> = async ({ email, args, logger }) =>
+  runMessagingNotificationAction({
+    actionId: args.id,
+    actionType: ActionType.DRAFT_MESSAGING_CHANNEL,
+    messagingChannelId: args.messagingChannelId,
     email,
     logger,
   });
-
-  if (delivered) return;
-
-  await failMessagingAction({
-    actionId: args.id,
-    logger,
-    reason: "Failed to deliver DRAFT_MESSAGING_CHANNEL notification",
-  });
-};
 
 const notify_messaging_channel: ActionFunction<{
   messagingChannelId?: string | null;
-}> = async ({ email, args, logger }) => {
-  if (!args.id) {
-    throw new Error("Missing action id for NOTIFY_MESSAGING_CHANNEL");
-  }
-
-  if (!args.messagingChannelId) {
-    await failMessagingAction({
-      actionId: args.id,
-      logger,
-      reason: "Missing messaging channel for NOTIFY_MESSAGING_CHANNEL",
-    });
-  }
-
-  const delivered = await sendMessagingRuleNotification({
-    executedActionId: args.id,
+}> = async ({ email, args, logger }) =>
+  runMessagingNotificationAction({
+    actionId: args.id,
+    actionType: ActionType.NOTIFY_MESSAGING_CHANNEL,
+    messagingChannelId: args.messagingChannelId,
     email,
     logger,
   });
-
-  if (delivered) return;
-
-  await failMessagingAction({
-    actionId: args.id,
-    logger,
-    reason: "Failed to deliver NOTIFY_MESSAGING_CHANNEL notification",
-  });
-};
 
 const reply: ActionFunction<{
   content?: string | null;
@@ -662,7 +628,7 @@ async function lazyUpdateActionFolderId({
   }
 }
 
-async function failMessagingAction({
+async function markMessagingActionFailed({
   actionId,
   logger,
   reason,
@@ -670,7 +636,7 @@ async function failMessagingAction({
   actionId: string;
   logger: Logger;
   reason: string;
-}): Promise<never> {
+}) {
   try {
     await prisma.executedAction.update({
       where: { id: actionId },
@@ -684,8 +650,49 @@ async function failMessagingAction({
       error,
     });
   }
+  logger.warn(reason, { actionId });
+}
 
-  throw new Error(reason);
+async function runMessagingNotificationAction({
+  actionId,
+  actionType,
+  messagingChannelId,
+  email,
+  logger,
+}: {
+  actionId?: string | null;
+  actionType: MessagingNotificationActionType;
+  messagingChannelId?: string | null;
+  email: EmailForAction;
+  logger: Logger;
+}) {
+  if (!actionId) {
+    throw new Error(`Missing action id for ${actionType}`);
+  }
+
+  if (!messagingChannelId) {
+    await markMessagingActionFailed({
+      actionId,
+      logger,
+      reason: `Missing messaging channel for ${actionType}`,
+    });
+    return { success: false, errorCode: "MISSING_MESSAGING_CHANNEL" };
+  }
+
+  const delivered = await sendMessagingRuleNotification({
+    executedActionId: actionId,
+    email,
+    logger,
+  });
+
+  if (delivered) return { success: true };
+
+  await markMessagingActionFailed({
+    actionId,
+    logger,
+    reason: `Failed to deliver ${actionType} notification`,
+  });
+  return { success: false, errorCode: "MESSAGING_DELIVERY_FAILED" };
 }
 
 function isLegacyMessagingDraft({

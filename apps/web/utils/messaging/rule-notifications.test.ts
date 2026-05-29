@@ -1503,6 +1503,65 @@ describe("sendMessagingRuleNotification", () => {
     });
   });
 
+  it("delivers Telegram notifications through the linked channel DM when route data is missing", async () => {
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+      content: null,
+      messagingChannel: {
+        id: "channel-1",
+        provider: MessagingProvider.TELEGRAM,
+        isConnected: true,
+        teamId: "telegram-chat-1",
+        providerUserId: "telegram-user-1",
+        accessToken: null,
+        channelId: null,
+        routes: [],
+      },
+    });
+    mockSendAutomationMessage.mockResolvedValueOnce({
+      channelId: "telegram-chat-1",
+      messageId: "telegram-message-1",
+    });
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger,
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockSendAutomationMessage).toHaveBeenCalledWith({
+      channel: expect.objectContaining({
+        provider: MessagingProvider.TELEGRAM,
+        teamId: "telegram-chat-1",
+        providerUserId: "telegram-user-1",
+      }),
+      route: null,
+      text: expect.stringContaining("From: sender@example.com"),
+      logger: expect.anything(),
+    });
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        messagingMessageId: "telegram-message-1",
+        messagingMessageSentAt: expect.any(Date),
+        messagingMessageStatus: MessagingMessageStatus.SENT,
+      },
+    });
+  });
+
   it("sends plain draft previews through the linked messaging fallback", async () => {
     mockNotificationContext({
       id: "action-1",

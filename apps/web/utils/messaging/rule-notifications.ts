@@ -426,7 +426,10 @@ async function sendLinkedRuleNotification({
     MessagingRoutePurpose.RULE_NOTIFICATIONS,
   );
 
-  if (!route) {
+  if (
+    !route &&
+    !hasLinkedMessagingDirectMessageDestination(context.messagingChannel)
+  ) {
     logger.warn(
       "Skipping messaging notification with no linked channel route",
       {
@@ -485,6 +488,21 @@ async function sendLinkedRuleNotification({
       error,
     });
     return { delivered: false, kind: "none" };
+  }
+}
+
+function hasLinkedMessagingDirectMessageDestination(channel: {
+  provider: MessagingProvider;
+  providerUserId?: string | null;
+  teamId?: string | null;
+}) {
+  switch (channel.provider) {
+    case MessagingProvider.TEAMS:
+      return Boolean(channel.providerUserId);
+    case MessagingProvider.TELEGRAM:
+      return Boolean(channel.teamId || channel.providerUserId);
+    default:
+      return false;
   }
 }
 

@@ -150,6 +150,63 @@ describe("executeAct", () => {
     });
   });
 
+  it("continues later messaging notifications after one delivery failure", async () => {
+    mockRunActionFunction
+      .mockResolvedValueOnce({
+        success: false,
+        errorCode: "MESSAGING_DELIVERY_FAILED",
+      })
+      .mockResolvedValueOnce({ success: true });
+
+    const executedRule = {
+      ...baseExecutedRule,
+      actionItems: [
+        {
+          id: "telegram-action",
+          type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+          messagingChannelId: "telegram-channel",
+        },
+        {
+          id: "slack-action",
+          type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+          messagingChannelId: "slack-channel",
+        },
+      ],
+    } as any;
+
+    const result = await executeAct({
+      client: mockClient,
+      executedRule,
+      message,
+      emailAccount,
+      logger,
+    });
+
+    expect(result).toBe(ExecutedRuleStatus.ERROR);
+    expect(mockRunActionFunction).toHaveBeenCalledTimes(2);
+    expect(mockRunActionFunction).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        action: expect.objectContaining({ id: "telegram-action" }),
+      }),
+    );
+    expect(mockRunActionFunction).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        action: expect.objectContaining({ id: "slack-action" }),
+      }),
+    );
+    expect(mockExecutedRuleUpdate).toHaveBeenCalledTimes(1);
+    expect(mockExecutedRuleUpdate).toHaveBeenCalledWith({
+      where: { id: "executed-rule-1" },
+      data: {
+        status: ExecutedRuleStatus.ERROR,
+        reason:
+          "Rule matched\nAction failures: NOTIFY_MESSAGING_CHANNEL:MESSAGING_DELIVERY_FAILED",
+      },
+    });
+  });
+
   it("marks executed rule as APPLIED when actions succeed", async () => {
     mockRunActionFunction.mockResolvedValueOnce({ success: true });
 

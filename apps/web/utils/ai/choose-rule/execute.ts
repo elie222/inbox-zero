@@ -21,6 +21,12 @@ type ActionFailure = {
   errorCode: string;
 };
 
+const ACTION_FAILURE_TYPES = new Set<ActionType>([
+  ActionType.DRAFT_MESSAGING_CHANNEL,
+  ActionType.NOTIFY_MESSAGING_CHANNEL,
+  ActionType.NOTIFY_SENDER,
+]);
+
 export async function executeAct({
   client,
   executedRule,
@@ -156,7 +162,7 @@ function getActionFailure(
   actionType: ActionType,
   actionResult: unknown,
 ): ActionFailure | null {
-  if (actionType !== ActionType.NOTIFY_SENDER) return null;
+  if (!ACTION_FAILURE_TYPES.has(actionType)) return null;
 
   if (
     !actionResult ||
@@ -168,17 +174,21 @@ function getActionFailure(
 
   if (actionResult.success !== false) return null;
 
-  if (!("errorCode" in actionResult)) {
-    return { type: actionType, errorCode: "UNKNOWN_NOTIFY_FAILURE" };
-  }
+  const errorCode =
+    "errorCode" in actionResult && typeof actionResult.errorCode === "string"
+      ? actionResult.errorCode
+      : getUnknownActionFailureCode(actionType);
 
   return {
     type: actionType,
-    errorCode:
-      typeof actionResult.errorCode === "string"
-        ? actionResult.errorCode
-        : "UNKNOWN_NOTIFY_FAILURE",
+    errorCode,
   };
+}
+
+function getUnknownActionFailureCode(actionType: ActionType) {
+  return actionType === ActionType.NOTIFY_SENDER
+    ? "UNKNOWN_NOTIFY_FAILURE"
+    : "UNKNOWN_MESSAGING_FAILURE";
 }
 
 function buildFailureReason(

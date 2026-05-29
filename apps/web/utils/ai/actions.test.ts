@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ActionType, AttachmentSourceType } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  AttachmentSourceType,
+  MessagingMessageStatus,
+} from "@/generated/prisma/enums";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import { runActionFunction } from "@/utils/ai/actions";
 import {
@@ -76,6 +80,7 @@ describe("runActionFunction", () => {
       delivered: true,
       kind: "interactive",
     });
+    vi.mocked(sendMessagingRuleNotification).mockResolvedValue(true);
     vi.mocked(handlePreviousDraftDeletion).mockResolvedValue({
       shouldCreateDraft: true,
     });
@@ -216,7 +221,7 @@ describe("runActionFunction", () => {
   it("sends chat drafts through the messaging notification path", async () => {
     const client = createMockEmailProvider();
 
-    await runActionFunction({
+    const result = await runActionFunction({
       client,
       email,
       action: {
@@ -240,6 +245,7 @@ describe("runActionFunction", () => {
       email,
       logger: expect.anything(),
     });
+    expect(result).toEqual({ success: true });
     expect(client.draftEmail).not.toHaveBeenCalled();
   });
 
@@ -329,36 +335,45 @@ describe("runActionFunction", () => {
     expect(client.draftEmail).toHaveBeenCalled();
   });
 
-  it("throws when chat draft delivery cannot be completed", async () => {
+  it("marks chat draft actions failed when delivery cannot be completed", async () => {
     const client = createMockEmailProvider();
     vi.mocked(sendMessagingRuleNotification).mockResolvedValueOnce(false);
 
-    await expect(
-      runActionFunction({
-        client,
-        email,
-        action: {
-          id: "action-1",
-          type: ActionType.DRAFT_MESSAGING_CHANNEL,
-          messagingChannelId: "channel-1",
-          content: "Draft in chat",
-        },
-        emailAccount,
-        executedRule: {
-          id: "executed-rule-1",
-          threadId: "thread-1",
-          emailAccountId: "account-1",
-          ruleId: "rule-1",
-        } as any,
-        logger,
-      }),
-    ).rejects.toThrow("Failed to deliver DRAFT_MESSAGING_CHANNEL notification");
+    const result = await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "channel-1",
+        content: "Draft in chat",
+      },
+      emailAccount,
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      errorCode: "MESSAGING_DELIVERY_FAILED",
+    });
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        messagingMessageStatus: MessagingMessageStatus.FAILED,
+      },
+    });
   });
 
   it("sends NOTIFY_MESSAGING_CHANNEL actions through the messaging notification path", async () => {
     const client = createMockEmailProvider();
 
-    await runActionFunction({
+    const result = await runActionFunction({
       client,
       email,
       action: {
@@ -381,6 +396,7 @@ describe("runActionFunction", () => {
       email,
       logger: expect.anything(),
     });
+    expect(result).toEqual({ success: true });
   });
 
   it("stars the matched message for STAR actions", async () => {
@@ -406,28 +422,37 @@ describe("runActionFunction", () => {
     expect(client.starMessage).toHaveBeenCalledWith("message-1");
   });
 
-  it("throws when notify messaging actions are missing a channel id", async () => {
+  it("marks notify messaging actions failed when missing a channel id", async () => {
     const client = createMockEmailProvider();
 
-    await expect(
-      runActionFunction({
-        client,
-        email,
-        action: {
-          id: "action-1",
-          type: ActionType.NOTIFY_MESSAGING_CHANNEL,
-          messagingChannelId: null,
-        },
-        emailAccount,
-        executedRule: {
-          id: "executed-rule-1",
-          threadId: "thread-1",
-          emailAccountId: "account-1",
-          ruleId: "rule-1",
-        } as any,
-        logger,
-      }),
-    ).rejects.toThrow("Missing messaging channel for NOTIFY_MESSAGING_CHANNEL");
+    const result = await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        messagingChannelId: null,
+      },
+      emailAccount,
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      errorCode: "MISSING_MESSAGING_CHANNEL",
+    });
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        messagingMessageStatus: MessagingMessageStatus.FAILED,
+      },
+    });
   });
 
   it("passes static attachments into replies", async () => {
