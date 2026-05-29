@@ -95,6 +95,7 @@ export async function executeScheduledAction(
     });
 
     await markActionFailed(scheduledAction.id, error, log);
+    await checkAndCompleteExecutedRule(scheduledAction.executedRuleId, log);
     return { success: false, error };
   }
 }
@@ -289,13 +290,35 @@ async function checkAndCompleteExecutedRule(
   });
 
   if (pendingActions === 0) {
-    await prisma.executedRule.update({
-      where: { id: executedRuleId },
-      data: { status: ExecutedRuleStatus.APPLIED },
+    const failedActions = await prisma.scheduledAction.count({
+      where: {
+        executedRuleId,
+        status: ScheduledActionStatus.FAILED,
+      },
     });
 
-    log.info("Completed ExecutedRule - all scheduled actions finished", {
-      executedRuleId,
-    });
+    if (failedActions > 0) {
+      await prisma.executedRule.update({
+        where: { id: executedRuleId },
+        data: {
+          status: ExecutedRuleStatus.ERROR,
+          reason: "One or more scheduled actions failed",
+        },
+      });
+
+      log.info("ExecutedRule errored - some scheduled actions failed", {
+        executedRuleId,
+        failedActions,
+      });
+    } else {
+      await prisma.executedRule.update({
+        where: { id: executedRuleId },
+        data: { status: ExecutedRuleStatus.APPLIED },
+      });
+
+      log.info("Completed ExecutedRule - all scheduled actions finished", {
+        executedRuleId,
+      });
+    }
   }
 }

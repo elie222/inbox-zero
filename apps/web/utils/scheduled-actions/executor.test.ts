@@ -305,6 +305,23 @@ describe("executor", () => {
         reason: null,
         ruleId: null,
       } as any);
+      // pending=0, failed=1 → completion check runs and sets ERROR
+      prisma.scheduledAction.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(1);
+      prisma.executedRule.update.mockResolvedValue({
+        id: "rule-123",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        status: "ERROR",
+        automated: true,
+        reason: "One or more scheduled actions failed",
+        ruleId: null,
+        matchMetadata: null,
+      });
 
       const { runActionFunction } = await import("@/utils/ai/actions");
       const { getEmailAccountWithAiAndTokens } = await import(
@@ -351,6 +368,23 @@ describe("executor", () => {
         ...mockScheduledAction,
         status: ScheduledActionStatus.EXECUTING,
       } as any);
+      // pending=0, failed=1 → completion check sets ERROR
+      prisma.scheduledAction.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(1);
+      prisma.executedRule.update.mockResolvedValue({
+        id: "rule-123",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        status: "ERROR",
+        automated: true,
+        reason: "One or more scheduled actions failed",
+        ruleId: null,
+        matchMetadata: null,
+      });
 
       const { getEmailAccountWithAiAndTokens } = await import(
         "@/utils/user/get"
@@ -375,6 +409,364 @@ describe("executor", () => {
           status: ScheduledActionStatus.FAILED,
         },
       });
+    });
+    // @ana A001, A002, A003, A009, A010
+    it("should transition ExecutedRule to ERROR when last action fails", async () => {
+      prisma.scheduledAction.update.mockResolvedValue({
+        ...mockScheduledAction,
+        status: ScheduledActionStatus.FAILED,
+      } as any);
+      prisma.executedAction.create.mockResolvedValue({
+        id: "executed-action-123",
+        type: ActionType.ARCHIVE,
+        label: null,
+        labelId: null,
+        folderName: null,
+        folderId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        executedRuleId: "rule-123",
+        subject: null,
+        content: null,
+        to: null,
+        cc: null,
+        bcc: null,
+        url: null,
+        draftId: null,
+        draftStatus: null,
+      });
+      prisma.executedRule.findUnique.mockResolvedValue({
+        id: "rule-123",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        status: "APPLYING",
+        automated: true,
+        reason: null,
+        ruleId: null,
+      } as any);
+      // pending=0, failed=1 → should set ERROR
+      prisma.scheduledAction.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(1);
+      prisma.executedRule.update.mockResolvedValue({
+        id: "rule-123",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        status: "ERROR",
+        automated: true,
+        reason: "One or more scheduled actions failed",
+        ruleId: null,
+        matchMetadata: null,
+      });
+
+      const { runActionFunction } = await import("@/utils/ai/actions");
+      const { getEmailAccountWithAiAndTokens } = await import(
+        "@/utils/user/get"
+      );
+
+      (runActionFunction as any).mockRejectedValue(
+        new Error("Execution failed"),
+      );
+      (getEmailAccountWithAiAndTokens as any).mockResolvedValue({
+        id: "account-123",
+        userId: "user-123",
+        email: "test@example.com",
+        tokens: {
+          access_token: "token",
+          refresh_token: "refresh",
+          expires_at: Date.now() + 3_600_000,
+        },
+      });
+
+      const { createEmailProvider } = await import("@/utils/email/provider");
+      const mockEmailProvider = await createEmailProvider({
+        emailAccountId: "account-123",
+        provider: "google",
+      });
+
+      const result = await executeScheduledAction(
+        mockScheduledAction,
+        mockEmailProvider,
+        logger,
+      );
+
+      expect(result.success).toBe(false);
+      expect(prisma.scheduledAction.update).toHaveBeenCalledWith({
+        where: { id: "scheduled-action-123" },
+        data: { status: ScheduledActionStatus.FAILED },
+      });
+      expect(prisma.scheduledAction.count).toHaveBeenCalled();
+      expect(prisma.executedRule.update).toHaveBeenCalledWith({
+        where: { id: "rule-123" },
+        data: {
+          status: "ERROR",
+          reason: "One or more scheduled actions failed",
+        },
+      });
+    });
+
+    // @ana A004, A005
+    it("should transition ExecutedRule to ERROR when some actions fail and others succeed", async () => {
+      prisma.scheduledAction.update.mockResolvedValue({
+        ...mockScheduledAction,
+        status: ScheduledActionStatus.COMPLETED,
+      } as any);
+      prisma.executedAction.create.mockResolvedValue({
+        id: "executed-action-456",
+        type: ActionType.ARCHIVE,
+        label: null,
+        labelId: null,
+        folderName: null,
+        folderId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        executedRuleId: "rule-123",
+        subject: null,
+        content: null,
+        to: null,
+        cc: null,
+        bcc: null,
+        url: null,
+        draftId: null,
+        draftStatus: null,
+      });
+      prisma.executedRule.findUnique.mockResolvedValue({
+        id: "rule-123",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        status: "APPLYING",
+        automated: true,
+        reason: null,
+        ruleId: null,
+      } as any);
+      // pending=0, failed=2 (siblings failed earlier) → should set ERROR
+      prisma.scheduledAction.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(2);
+      prisma.executedRule.update.mockResolvedValue({
+        id: "rule-123",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        status: "ERROR",
+        automated: true,
+        reason: "One or more scheduled actions failed",
+        ruleId: null,
+        matchMetadata: null,
+      });
+
+      const { runActionFunction } = await import("@/utils/ai/actions");
+      const { getEmailAccountWithAiAndTokens } = await import(
+        "@/utils/user/get"
+      );
+
+      (runActionFunction as any).mockResolvedValue(undefined);
+      (getEmailAccountWithAiAndTokens as any).mockResolvedValue({
+        id: "account-123",
+        userId: "user-123",
+        email: "test@example.com",
+        tokens: {
+          access_token: "token",
+          refresh_token: "refresh",
+          expires_at: Date.now() + 3_600_000,
+        },
+      });
+
+      const { createEmailProvider } = await import("@/utils/email/provider");
+      const mockEmailProvider = await createEmailProvider({
+        emailAccountId: "account-123",
+        provider: "google",
+      });
+
+      const result = await executeScheduledAction(
+        mockScheduledAction,
+        mockEmailProvider,
+        logger,
+      );
+
+      expect(result.success).toBe(true);
+      expect(prisma.executedRule.update).toHaveBeenCalledWith({
+        where: { id: "rule-123" },
+        data: {
+          status: "ERROR",
+          reason: "One or more scheduled actions failed",
+        },
+      });
+    });
+
+    // @ana A006, A007
+    it("should transition ExecutedRule to APPLIED when all actions succeed", async () => {
+      prisma.scheduledAction.update.mockResolvedValue({
+        ...mockScheduledAction,
+        status: ScheduledActionStatus.COMPLETED,
+      } as any);
+      prisma.executedAction.create.mockResolvedValue({
+        id: "executed-action-789",
+        type: ActionType.ARCHIVE,
+        label: null,
+        labelId: null,
+        folderName: null,
+        folderId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        executedRuleId: "rule-123",
+        subject: null,
+        content: null,
+        to: null,
+        cc: null,
+        bcc: null,
+        url: null,
+        draftId: null,
+        draftStatus: null,
+      });
+      prisma.executedRule.findUnique.mockResolvedValue({
+        id: "rule-123",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        status: "APPLYING",
+        automated: true,
+        reason: null,
+        ruleId: null,
+      } as any);
+      // pending=0, failed=0 → should set APPLIED
+      prisma.scheduledAction.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0);
+      prisma.executedRule.update.mockResolvedValue({
+        id: "rule-123",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        status: "APPLIED",
+        automated: true,
+        reason: null,
+        ruleId: null,
+        matchMetadata: null,
+      });
+
+      const { runActionFunction } = await import("@/utils/ai/actions");
+      const { getEmailAccountWithAiAndTokens } = await import(
+        "@/utils/user/get"
+      );
+
+      (runActionFunction as any).mockResolvedValue(undefined);
+      (getEmailAccountWithAiAndTokens as any).mockResolvedValue({
+        id: "account-123",
+        userId: "user-123",
+        email: "test@example.com",
+        tokens: {
+          access_token: "token",
+          refresh_token: "refresh",
+          expires_at: Date.now() + 3_600_000,
+        },
+      });
+
+      const { createEmailProvider } = await import("@/utils/email/provider");
+      const mockEmailProvider = await createEmailProvider({
+        emailAccountId: "account-123",
+        provider: "google",
+      });
+
+      const result = await executeScheduledAction(
+        mockScheduledAction,
+        mockEmailProvider,
+        logger,
+      );
+
+      expect(result.success).toBe(true);
+      expect(prisma.executedRule.update).toHaveBeenCalledWith({
+        where: { id: "rule-123" },
+        data: { status: "APPLIED" },
+      });
+    });
+
+    // @ana A008
+    it("should not update ExecutedRule status when actions are still pending", async () => {
+      prisma.scheduledAction.update.mockResolvedValue({
+        ...mockScheduledAction,
+        status: ScheduledActionStatus.COMPLETED,
+      } as any);
+      prisma.executedAction.create.mockResolvedValue({
+        id: "executed-action-101",
+        type: ActionType.ARCHIVE,
+        label: null,
+        labelId: null,
+        folderName: null,
+        folderId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        executedRuleId: "rule-123",
+        subject: null,
+        content: null,
+        to: null,
+        cc: null,
+        bcc: null,
+        url: null,
+        draftId: null,
+        draftStatus: null,
+      });
+      prisma.executedRule.findUnique.mockResolvedValue({
+        id: "rule-123",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        status: "APPLYING",
+        automated: true,
+        reason: null,
+        ruleId: null,
+      } as any);
+      // pending=2 → should NOT update ExecutedRule
+      prisma.scheduledAction.count.mockResolvedValueOnce(2);
+
+      const { runActionFunction } = await import("@/utils/ai/actions");
+      const { getEmailAccountWithAiAndTokens } = await import(
+        "@/utils/user/get"
+      );
+
+      (runActionFunction as any).mockResolvedValue(undefined);
+      (getEmailAccountWithAiAndTokens as any).mockResolvedValue({
+        id: "account-123",
+        userId: "user-123",
+        email: "test@example.com",
+        tokens: {
+          access_token: "token",
+          refresh_token: "refresh",
+          expires_at: Date.now() + 3_600_000,
+        },
+      });
+
+      const { createEmailProvider } = await import("@/utils/email/provider");
+      const mockEmailProvider = await createEmailProvider({
+        emailAccountId: "account-123",
+        provider: "google",
+      });
+
+      const result = await executeScheduledAction(
+        mockScheduledAction,
+        mockEmailProvider,
+        logger,
+      );
+
+      expect(result.success).toBe(true);
+      expect(prisma.executedRule.update).not.toHaveBeenCalled();
     });
   });
 });
