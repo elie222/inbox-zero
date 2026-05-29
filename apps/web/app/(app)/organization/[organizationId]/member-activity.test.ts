@@ -29,7 +29,7 @@ describe("getMemberActivityStatus", () => {
     expect(
       getMemberActivityStatus({
         allowOrgAdminAnalytics: true,
-        lastProcessedEmailAt: new Date("2026-05-01T00:00:00.000Z"),
+        lastProcessedEmailAt: new Date("2026-05-28T00:01:00.000Z"),
         now,
       }),
     ).toBe("active");
@@ -39,7 +39,7 @@ describe("getMemberActivityStatus", () => {
     expect(
       getMemberActivityStatus({
         allowOrgAdminAnalytics: true,
-        lastProcessedEmailAt: new Date("2026-04-01T00:00:00.000Z"),
+        lastProcessedEmailAt: new Date("2026-05-27T23:59:00.000Z"),
         now,
       }),
     ).toBe("inactive");

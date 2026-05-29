@@ -1,4 +1,4 @@
-export const RECENT_ACTIVITY_DAYS = 30;
+export const RECENT_ACTIVITY_HOURS = 24;
 
 export type MemberActivityStatus =
   | "active"
@@ -23,9 +23,8 @@ export function getMemberActivityStatus({
   if (!lastProcessedEmailAt) return "none";
 
   const lastProcessedDate = new Date(lastProcessedEmailAt);
-  const recentActivityThreshold = new Date(now);
-  recentActivityThreshold.setDate(
-    recentActivityThreshold.getDate() - RECENT_ACTIVITY_DAYS,
+  const recentActivityThreshold = new Date(
+    now.getTime() - RECENT_ACTIVITY_HOURS * 60 * 60 * 1000,
   );
 
   return lastProcessedDate >= recentActivityThreshold ? "active" : "inactive";

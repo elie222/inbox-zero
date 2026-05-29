@@ -48,6 +48,7 @@ import { TypographyH3 } from "@/components/Typography";
 import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
 import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
 import {
+  RECENT_ACTIVITY_HOURS,
   getMemberActivityStatus,
   type MemberActivityStatus,
 } from "./member-activity";
@@ -516,7 +517,7 @@ const ACTIVITY_BADGE: Record<
     tooltip: () => "This member has not allowed org admin analytics.",
   },
   inactive: {
-    label: "No recent activity",
+    label: `No activity in ${RECENT_ACTIVITY_HOURS}h`,
     variant: "secondary",
     tooltip: ({ lastProcessedEmailAt }) =>
       `Last processed email ${formatRelativeDate(lastProcessedEmailAt)}.`,
