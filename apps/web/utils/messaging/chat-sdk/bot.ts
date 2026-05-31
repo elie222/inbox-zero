@@ -89,6 +89,7 @@ const CONNECT_COMMAND_REGEX =
 const PENDING_EMAIL_CONFIRM_ACTION_ID = "acpe";
 const LEGACY_PENDING_EMAIL_CONFIRM_ACTION_ID =
   "assistant_confirm_pending_email";
+const TEAMS_AI_GENERATED_CONTENT_NOTICE = `AI-generated content may be inaccurate. Review before using it. Report objectionable AI-generated content to ${env.NEXT_PUBLIC_SUPPORT_EMAIL}.`;
 const AFFIRMATIVE_REACTION_EMOJI_TOKENS = new Set(["👍", "✅", "☑", "✔"]);
 const AFFIRMATIVE_REACTION_ALIASES = new Set([
   "+1",
@@ -790,7 +791,7 @@ async function processMessagingAssistantMessage({
         if (!postedCard) {
           const fallbackText = buildPendingEmailCardFallbackText(fullText);
           await thread.post(
-            getMessagingAssistantPostPayload({
+            getMessagingAiGeneratedPostPayload({
               provider: context.provider,
               text: fallbackText,
             }),
@@ -798,7 +799,7 @@ async function processMessagingAssistantMessage({
         }
       } else {
         await thread.post(
-          getMessagingAssistantPostPayload({
+          getMessagingAiGeneratedPostPayload({
             provider: context.provider,
             text: fullText,
           }),
@@ -1084,6 +1085,7 @@ export function buildPendingEmailConfirmationCard({
       CardText(getMessagingCardText({ provider, text: preview })),
     );
   }
+  addTeamsAiGeneratedContentNotice({ children: cardChildren, provider });
   cardChildren.push(
     Actions([
       Button({
@@ -1325,6 +1327,10 @@ export function buildHandledPendingEmailCard({
       ),
     );
   }
+  addTeamsAiGeneratedContentNotice({
+    children,
+    provider: messagingProvider,
+  });
 
   children.push(
     CardText(
@@ -2844,6 +2850,42 @@ function getMessagingAssistantPostPayload({
   }
 
   return { markdown: text };
+}
+
+export function getMessagingAiGeneratedPostPayload({
+  provider,
+  text,
+}: {
+  provider: SupportedPlatform;
+  text: string;
+}) {
+  return getMessagingAssistantPostPayload({
+    provider,
+    text: appendTeamsAiGeneratedContentNotice({ provider, text }),
+  });
+}
+
+function addTeamsAiGeneratedContentNotice({
+  children,
+  provider,
+}: {
+  children: CardChild[];
+  provider: SupportedPlatform;
+}) {
+  if (provider !== "teams") return;
+  children.push(CardText(TEAMS_AI_GENERATED_CONTENT_NOTICE));
+}
+
+function appendTeamsAiGeneratedContentNotice({
+  provider,
+  text,
+}: {
+  provider: SupportedPlatform;
+  text: string;
+}) {
+  if (provider !== "teams") return text;
+  if (text.includes(TEAMS_AI_GENERATED_CONTENT_NOTICE)) return text;
+  return `${text}\n\n${TEAMS_AI_GENERATED_CONTENT_NOTICE}`;
 }
 
 function toMessagingProvider(provider: SupportedPlatform) {

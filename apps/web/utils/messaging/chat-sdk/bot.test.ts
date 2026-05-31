@@ -7,6 +7,7 @@ import {
   buildPendingEmailConfirmationCard,
   buildPendingEmailCardFallbackText,
   buildMessagingUserMessages,
+  getMessagingAiGeneratedPostPayload,
   getPendingEmailHandledOpenText,
   getPendingEmailHandledStatus,
   getPendingEmailHandledTitle,
@@ -294,6 +295,68 @@ describe("buildPendingEmailConfirmationCard", () => {
     expect(textChildren[0]).toContain("first_last@outlook.com");
     expect(textChildren[0]).toContain("Plan [draft]");
     expect(textChildren[1]).toContain("foo_bar *soon* [ok]");
+
+    const cardText = JSON.stringify(card.children);
+    expect(cardText).not.toContain("AI-generated content may be inaccurate");
+  });
+
+  it("adds an AI content disclosure to Teams pending email cards", () => {
+    const card = buildPendingEmailConfirmationCard({
+      chatMessageId: "chat-message-1",
+      part: {
+        type: "tool-sendEmail",
+        state: "output-available",
+        toolCallId: "tool-call-1",
+        output: {
+          confirmationState: "pending",
+          pendingAction: {
+            to: "first_last@outlook.com",
+            subject: "Plan",
+            messageHtml: "<p>Use foo soon</p>",
+          },
+        },
+      },
+      provider: "teams",
+    });
+
+    const cardText = JSON.stringify(card.children);
+    expect(cardText).toContain("AI-generated content may be inaccurate");
+    expect(cardText).toContain("Report objectionable AI-generated content");
+  });
+});
+
+describe("getMessagingAiGeneratedPostPayload", () => {
+  it("adds an AI content disclosure to Teams assistant messages", () => {
+    expect(
+      getMessagingAiGeneratedPostPayload({
+        provider: "teams",
+        text: "Here is your summary.",
+      }),
+    ).toEqual({
+      markdown: expect.stringContaining(
+        "AI-generated content may be inaccurate",
+      ),
+    });
+  });
+
+  it("does not add the Teams disclosure to Slack assistant messages", () => {
+    expect(
+      getMessagingAiGeneratedPostPayload({
+        provider: "slack",
+        text: "Here is your summary.",
+      }),
+    ).toEqual({
+      markdown: "Here is your summary.",
+    });
+  });
+
+  it("does not add the Teams disclosure to Telegram assistant messages", () => {
+    expect(
+      getMessagingAiGeneratedPostPayload({
+        provider: "telegram",
+        text: "Here is your summary.",
+      }),
+    ).not.toContain("AI-generated content may be inaccurate");
   });
 });
 

@@ -40,7 +40,7 @@ const { mockEnv, generateMessagingLinkCodeMock } = vi.hoisted(() => ({
   mockEnv: {
     TEAMS_BOT_APP_ID: "teams-app-id" as string | undefined,
     TEAMS_BOT_APP_PASSWORD: "teams-app-password",
-    TEAMS_BOT_APP_TENANT_ID: undefined as string | undefined,
+    TEAMS_BOT_APP_TENANT_ID: "tenant-id" as string | undefined,
     TELEGRAM_BOT_TOKEN: "telegram-bot-token" as string | undefined,
   },
   generateMessagingLinkCodeMock: vi.fn(
@@ -66,7 +66,7 @@ describe("createMessagingLinkCodeAction", () => {
 
     mockEnv.TEAMS_BOT_APP_ID = "teams-app-id";
     mockEnv.TEAMS_BOT_APP_PASSWORD = "teams-app-password";
-    mockEnv.TEAMS_BOT_APP_TENANT_ID = undefined;
+    mockEnv.TEAMS_BOT_APP_TENANT_ID = "tenant-id";
     mockEnv.TELEGRAM_BOT_TOKEN = "telegram-bot-token";
 
     prisma.emailAccount.findUnique.mockResolvedValue({
@@ -91,12 +91,13 @@ describe("createMessagingLinkCodeAction", () => {
       code: "test-link-code",
       provider: "TEAMS",
       expiresInSeconds: 600,
-      botUrl: "https://teams.microsoft.com/l/app/teams-app-id",
+      botUrl:
+        "https://teams.microsoft.com/l/app/teams-app-id?tenantId=tenant-id",
     });
   });
 
-  it("includes the Teams tenant id in the Teams bot URL when configured", async () => {
-    mockEnv.TEAMS_BOT_APP_TENANT_ID = "tenant-id";
+  it("returns an error when the Teams tenant id is missing", async () => {
+    mockEnv.TEAMS_BOT_APP_TENANT_ID = undefined;
 
     const result = await createMessagingLinkCodeAction(
       "email-account-1" as any,
@@ -105,10 +106,8 @@ describe("createMessagingLinkCodeAction", () => {
       },
     );
 
-    expect(result?.serverError).toBeUndefined();
-    expect(result?.data?.botUrl).toBe(
-      "https://teams.microsoft.com/l/app/teams-app-id?tenantId=tenant-id",
-    );
+    expect(result?.serverError).toBe("Teams integration is not configured");
+    expect(generateMessagingLinkCodeMock).not.toHaveBeenCalled();
   });
 
   it("returns an error when Teams is not configured", async () => {
