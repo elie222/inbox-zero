@@ -351,12 +351,12 @@ describe("getMessagingAiGeneratedPostPayload", () => {
   });
 
   it("does not add the Teams disclosure to Telegram assistant messages", () => {
-    expect(
-      getMessagingAiGeneratedPostPayload({
-        provider: "telegram",
-        text: "Here is your summary.",
-      }),
-    ).not.toContain("AI-generated content may be inaccurate");
+    const payload = getMessagingAiGeneratedPostPayload({
+      provider: "telegram",
+      text: "Here is your summary.",
+    });
+
+    expect(payload).toBe("Here is your summary.");
   });
 });
 
