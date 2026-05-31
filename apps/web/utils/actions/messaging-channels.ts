@@ -38,6 +38,7 @@ import { upsertSlackRoute } from "@/utils/messaging/slack-routes";
 import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
 import { lookupSlackUserByEmail } from "@/utils/messaging/providers/slack/users";
 import { callTelegramBotApi } from "@/utils/messaging/providers/telegram/api";
+import { isTeamsBotConfigured } from "@/utils/messaging/chat-sdk/teams-config";
 import { assertCanUseDigests } from "@/utils/premium/server";
 
 export const updateSlackRouteAction = actionClient
@@ -302,7 +303,7 @@ export const createMessagingLinkCodeAction = actionClient
   .inputSchema(createMessagingLinkCodeBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { provider } }) => {
     if (provider === "TEAMS") {
-      if (!env.TEAMS_BOT_APP_ID || !env.TEAMS_BOT_APP_PASSWORD) {
+      if (!isTeamsBotConfigured()) {
         throw new SafeError("Teams integration is not configured");
       }
     } else if (!env.TELEGRAM_BOT_TOKEN) {

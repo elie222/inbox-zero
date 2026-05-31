@@ -11,6 +11,7 @@ import {
 import { getMessagingRouteSummary } from "@/utils/messaging/routes";
 import { listChannels } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
+import { isTeamsBotConfigured } from "@/utils/messaging/chat-sdk/teams-config";
 
 export type GetMessagingChannelsResponse = Awaited<ReturnType<typeof getData>>;
 
@@ -110,8 +111,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
 function getAvailableProviders(): MessagingProvider[] {
   const providers: MessagingProvider[] = [];
   if (env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET) providers.push("SLACK");
-  if (env.TEAMS_BOT_APP_ID && env.TEAMS_BOT_APP_PASSWORD)
-    providers.push("TEAMS");
+  if (isTeamsBotConfigured()) providers.push("TEAMS");
   if (env.TELEGRAM_BOT_TOKEN) providers.push("TELEGRAM");
   return providers;
 }

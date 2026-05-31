@@ -25,6 +25,7 @@ const mockEnv = vi.hoisted(() => ({
   SLACK_CLIENT_SECRET: "slack-client-secret" as string | undefined,
   TEAMS_BOT_APP_ID: undefined as string | undefined,
   TEAMS_BOT_APP_PASSWORD: undefined as string | undefined,
+  TEAMS_BOT_APP_TENANT_ID: undefined as string | undefined,
   TELEGRAM_BOT_TOKEN: undefined as string | undefined,
 }));
 
@@ -71,6 +72,12 @@ type MessagingChannelRecord = Prisma.MessagingChannelGetPayload<{
 describe("GET /api/user/messaging-channels", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnv.SLACK_CLIENT_ID = "slack-client-id";
+    mockEnv.SLACK_CLIENT_SECRET = "slack-client-secret";
+    mockEnv.TEAMS_BOT_APP_ID = undefined;
+    mockEnv.TEAMS_BOT_APP_PASSWORD = undefined;
+    mockEnv.TEAMS_BOT_APP_TENANT_ID = undefined;
+    mockEnv.TELEGRAM_BOT_TOKEN = undefined;
   });
 
   it("omits provider user ids while returning route summaries", async () => {
@@ -173,6 +180,19 @@ describe("GET /api/user/messaging-channels", () => {
     expect(body.channels[0]).not.toHaveProperty("providerUserId");
     expect(body.channels[0]).not.toHaveProperty("accessToken");
     expect(body.availableProviders).toEqual(["SLACK"]);
+  });
+
+  it("includes Teams as an available provider when app id, password, and tenant id are configured", async () => {
+    mockEnv.TEAMS_BOT_APP_ID = "teams-app-id";
+    mockEnv.TEAMS_BOT_APP_PASSWORD = "teams-app-password";
+    mockEnv.TEAMS_BOT_APP_TENANT_ID = "teams-tenant-id";
+
+    prisma.messagingChannel.findMany.mockResolvedValue([]);
+
+    const response = await GET(createRequest());
+    const body = await response.json();
+
+    expect(body.availableProviders).toEqual(["SLACK", "TEAMS"]);
   });
 
   it("labels saved Slack channel routes as unavailable when the bot can no longer access the target", async () => {
