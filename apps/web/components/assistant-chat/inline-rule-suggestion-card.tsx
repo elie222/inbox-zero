@@ -54,6 +54,7 @@ export function InlineRuleSuggestionCard({
 }: InlineRuleSuggestionCardProps) {
   const { submitTextMessage } = useChat();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRuleCreated, setIsRuleCreated] = useState(false);
   const title = normalizeTagAttribute(name) || "Suggested rule";
   const whenText = normalizeTagAttribute(when);
   const actionText = normalizeTagAttribute(action);
@@ -85,6 +86,7 @@ export function InlineRuleSuggestionCard({
           .filter(Boolean)
           .join("\n"),
       );
+      setIsRuleCreated(true);
     } finally {
       setIsSubmitting(false);
     }
@@ -94,20 +96,27 @@ export function InlineRuleSuggestionCard({
     <RuleSummaryCard
       title={title}
       actions={
-        <Button
-          type="button"
-          size="sm"
-          className="h-8 shrink-0 gap-1.5"
-          disabled={isSubmitting}
-          onClick={handleApproveRule}
-        >
-          {isSubmitting ? (
-            <Loader2Icon className="size-3.5 animate-spin" />
-          ) : (
+        isRuleCreated ? (
+          <Badge color="green" className="shrink-0 gap-1.5">
             <CheckIcon className="size-3.5" />
-          )}
-          Approve
-        </Button>
+            Rule created
+          </Badge>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 shrink-0 gap-1.5"
+            disabled={isSubmitting}
+            onClick={handleApproveRule}
+          >
+            {isSubmitting ? (
+              <Loader2Icon className="size-3.5 animate-spin" />
+            ) : (
+              <CheckIcon className="size-3.5" />
+            )}
+            Approve
+          </Button>
+        )
       }
     >
       {whenText && <RuleSummaryRow label="When">{whenText}</RuleSummaryRow>}
