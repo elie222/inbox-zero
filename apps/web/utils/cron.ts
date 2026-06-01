@@ -1,4 +1,5 @@
 import { env } from "@/env";
+import { secureCompare } from "@/utils/crypto-compare";
 import type { RequestWithLogger } from "@/utils/middleware";
 
 export function hasCronSecret(request: RequestWithLogger) {
@@ -8,7 +9,7 @@ export function hasCronSecret(request: RequestWithLogger) {
   }
 
   const authHeader = request.headers.get("authorization");
-  const valid = authHeader === `Bearer ${env.CRON_SECRET}`;
+  const valid = secureCompare(authHeader, `Bearer ${env.CRON_SECRET}`);
 
   if (!valid)
     request.logger.error("Unauthorized cron request:", { authHeader });
@@ -25,7 +26,7 @@ export async function hasPostCronSecret(request: RequestWithLogger) {
   // Clone the request before consuming the body
   const clonedRequest = request.clone();
   const body = await clonedRequest.json();
-  const valid = body.CRON_SECRET === env.CRON_SECRET;
+  const valid = secureCompare(body.CRON_SECRET, env.CRON_SECRET);
 
   if (!valid) request.logger.error("Unauthorized cron request:", { body });
 

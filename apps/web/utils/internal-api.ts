@@ -1,4 +1,5 @@
 import { env } from "@/env";
+import { secureCompare } from "@/utils/crypto-compare";
 import { hash } from "@/utils/hash";
 import type { Logger } from "@/utils/logger";
 
@@ -56,7 +57,7 @@ export const isValidInternalApiKey = (
     return false;
   }
   const apiKey = headers.get(INTERNAL_API_KEY_HEADER);
-  const isValid = apiKey === env.INTERNAL_API_KEY;
+  const isValid = secureCompare(apiKey, env.INTERNAL_API_KEY);
   if (!isValid) {
     const origin = headers.get("origin");
     const referer = headers.get("referer");
