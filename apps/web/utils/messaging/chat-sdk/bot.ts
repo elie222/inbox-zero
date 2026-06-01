@@ -25,13 +25,16 @@ import {
   type ReactionEvent,
   type Thread,
 } from "chat";
+import { load } from "cheerio";
 import { env } from "@/env";
 import type { Prisma } from "@/generated/prisma/client";
 import {
+  ActionType,
   MessagingProvider,
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
+import { getActionDisplay } from "@/utils/action-display";
 import { confirmAssistantEmailActionForAccount } from "@/utils/actions/assistant-chat-confirmation";
 import type { AssistantPendingEmailActionType } from "@/utils/actions/assistant-chat.validation";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
@@ -2668,6 +2671,7 @@ export function stripLeadingSlackMention(text: string): string {
 export function normalizeMessagingAssistantText({ text }: { text: string }) {
   let normalized = text;
 
+  normalized = formatRuleSuggestionMarkupForMessaging(normalized);
   normalized = normalized.replace(
     /(?:you can|please)\s+click [^.]*button[^.]*\./gi,
     "This draft is pending confirmation.",
@@ -2905,4 +2909,119 @@ function prependAccountIndicator({
 }) {
   if (!hasMultipleAccounts) return text;
   return `[${email}]\n${text}`;
+}
+
+type ParsedRuleSuggestion = {
+  title: string;
+  when: string;
+  actions: string;
+  summary: string;
+};
+
+const ruleSuggestionPattern =
+  /<rule-suggestions\b[^>]*>[\s\S]*?<\/rule-suggestions>|<rule-suggestion\b[^>]*?\/\s*>|<rule-suggestion\b[^>]*>[\s\S]*?<\/rule-suggestion>/gi;
+
+function formatRuleSuggestionMarkupForMessaging(text: string) {
+  if (!/<rule-suggestion/i.test(text)) return text;
+
+  return text
+    .replace(ruleSuggestionPattern, (markup) => {
+      const suggestions = parseRuleSuggestionsMarkup(markup);
+      return suggestions.length
+        ? renderRuleSuggestionsForMessaging(suggestions)
+        : markup;
+    })
+    .replace(/\n{3,}/g, "\n\n");
+}
+
+function parseRuleSuggestionsMarkup(markup: string): ParsedRuleSuggestion[] {
+  const $ = load(markup, null, false);
+
+  return $("rule-suggestion")
+    .toArray()
+    .map((element) => {
+      const attrs = element.attribs ?? {};
+      const structuredActions = buildStructuredRuleActions(attrs).map(
+        (action) => getActionDisplay(action, "", []),
+      );
+      const freeFormAction = attrs.do?.trim() ?? "";
+
+      return {
+        title: attrs.name?.trim() || "Suggested rule",
+        when: attrs.when?.trim() ?? "",
+        actions: [...structuredActions, freeFormAction]
+          .filter(Boolean)
+          .join(", "),
+        summary: $(element).text().trim(),
+      };
+    });
+}
+
+function buildStructuredRuleActions(attrs: Record<string, string>) {
+  const actions: Array<{
+    type: ActionType;
+    label?: string;
+    notificationDestination?: string;
+  }> = [];
+  const label = attrs.label?.trim();
+  if (label) actions.push({ type: ActionType.LABEL, label });
+  if (isTrueAttribute(attrs.archive))
+    actions.push({ type: ActionType.ARCHIVE });
+  if (isTrueAttribute(attrs.draft)) {
+    actions.push({ type: ActionType.DRAFT_EMAIL });
+  }
+  const notify = attrs.notify?.trim();
+  if (notify && !isFalseAttribute(notify)) {
+    actions.push({
+      type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+      notificationDestination: isTrueAttribute(notify) ? undefined : notify,
+    });
+  }
+  if (isTrueAttribute(attrs.markread)) {
+    actions.push({ type: ActionType.MARK_READ });
+  }
+  return actions;
+}
+
+function renderRuleSuggestionsForMessaging(
+  suggestions: ParsedRuleSuggestion[],
+) {
+  const heading =
+    suggestions.length === 1 ? "Suggested rule:" : "Suggested rules:";
+
+  return [
+    heading,
+    suggestions.map(renderRuleSuggestionForMessaging).join("\n\n"),
+  ].join("\n");
+}
+
+function renderRuleSuggestionForMessaging(suggestion: ParsedRuleSuggestion) {
+  return [
+    `**${suggestion.title}**`,
+    suggestion.when ? `When: ${suggestion.when}` : null,
+    suggestion.actions ? `Then: ${suggestion.actions}` : null,
+    suggestion.summary ? `Context: ${suggestion.summary}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+// Tolerates shorthand and JSX-style booleans the model occasionally emits.
+function normalizeBooleanAttribute(value: string | undefined) {
+  return (
+    value
+      ?.trim()
+      .replace(/^\{(.+)\}$/, "$1")
+      .toLowerCase() ?? ""
+  );
+}
+
+function isTrueAttribute(value: string | undefined) {
+  const v = normalizeBooleanAttribute(value);
+  return value !== undefined && (v === "" || v === "true" || v === "yes");
+}
+
+function isFalseAttribute(value: string | undefined) {
+  const v = normalizeBooleanAttribute(value);
+  return v === "false" || v === "no";
 }

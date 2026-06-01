@@ -85,6 +85,71 @@ describe("normalizeMessagingAssistantText", () => {
       "I prepared that reply for you. This draft is pending confirmation.";
     expect(normalizeMessagingAssistantText({ text: input })).toBe(input);
   });
+
+  it("formats inline rule suggestions as readable messaging text", () => {
+    const output = normalizeMessagingAssistantText({
+      text: [
+        "Here are a few suggestions.",
+        "",
+        "<rule-suggestions>",
+        "<rule-suggestion",
+        'name="Monitoring"',
+        'when="mention alerts from monitoring tools"',
+        'label="Monitoring"',
+        'archive="true" />',
+        "<rule-suggestion",
+        'name="Digest Updates"',
+        'when="summary emails from Inbox Zero"',
+        'label="Notification"',
+        "archive={false}",
+        "/>",
+        "</rule-suggestions>",
+        "",
+        "Want me to create either one?",
+      ].join("\n"),
+    });
+
+    expect(output).toContain("Here are a few suggestions.");
+    expect(output).toContain("Suggested rules:");
+    expect(output).toContain("**Monitoring**");
+    expect(output).toContain("When: mention alerts from monitoring tools");
+    expect(output).toContain("Then: Label as 'Monitoring', Archive");
+    expect(output).toContain("**Digest Updates**");
+    expect(output).toContain("When: summary emails from Inbox Zero");
+    expect(output).toContain("Then: Label as 'Notification'");
+    expect(output).toContain("Want me to create either one?");
+    expect(output).not.toContain("<rule-suggestion");
+    expect(output).not.toContain("</rule-suggestions>");
+    expect(output).not.toContain("Then: Label as 'Notification', Archive");
+  });
+
+  it("formats standalone free-form rule suggestions", () => {
+    expect(
+      normalizeMessagingAssistantText({
+        text: '<rule-suggestion name="Road Trip Plans" when="emails discussing road trips" do="move to Travels and notify Telegram" />',
+      }),
+    ).toBe(
+      "Suggested rule:\n**Road Trip Plans**\nWhen: emails discussing road trips\nThen: move to Travels and notify Telegram",
+    );
+  });
+
+  it("formats differently-cased rule suggestion tags", () => {
+    expect(
+      normalizeMessagingAssistantText({
+        text: '<Rule-Suggestion name="Monitoring" when="alerts" archive="true" />',
+      }),
+    ).toBe("Suggested rule:\n**Monitoring**\nWhen: alerts\nThen: Archive");
+  });
+
+  it("treats shorthand boolean rule suggestion attributes as enabled", () => {
+    expect(
+      normalizeMessagingAssistantText({
+        text: '<rule-suggestion name="Updates" when="low-priority updates" archive draft markread />',
+      }),
+    ).toBe(
+      "Suggested rule:\n**Updates**\nWhen: low-priority updates\nThen: Archive, Draft Reply, Mark Read",
+    );
+  });
 });
 
 describe("normalizeMessagingUserText", () => {
