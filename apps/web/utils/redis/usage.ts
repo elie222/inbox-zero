@@ -199,19 +199,34 @@ export async function saveUsage(options: {
   ];
   const weeklyCostKey = userId ? getWeeklyUsageCostKey(userId, now) : null;
 
-  await Promise.all([
-    ...usageKeys.flatMap((key) =>
-      getUsageIncrementOperations(key, usage, cost),
-    ),
-    cost && weeklyCostKey
-      ? redis.hincrbyfloat(weeklyCostKey, "cost", cost)
-      : null,
-    cost && weeklyCostKey
-      ? redis.expire(weeklyCostKey, WEEKLY_USAGE_COST_TTL_SECONDS)
-      : null,
-  ]).catch((error) => {
-    logger.error("Error saving usage", { error: error.message, cost, usage });
-  });
+  const operations = usageKeys
+    .flatMap((key) => getUsageIncrementOperations(key, usage, cost))
+    .filter(Boolean);
+
+  // Best-effort: a failed increment must not break the AI call. Use allSettled
+  // so one rejection doesn't mask the others, and surface how many failed.
+  const results = await Promise.allSettled(operations);
+  const failedCount = results.filter((r) => r.status === "rejected").length;
+  if (failedCount > 0) {
+    logger.error("Error saving usage increments", {
+      failedCount,
+      totalCount: results.length,
+      cost,
+      usage,
+    });
+  }
+
+  // Increment the weekly cost, then set its TTL — sequenced so the key exists
+  // before expire runs (a concurrent expire can no-op on the first write of the
+  // week, leaving the key without a TTL).
+  if (cost && weeklyCostKey) {
+    try {
+      await redis.hincrbyfloat(weeklyCostKey, "cost", cost);
+      await redis.expire(weeklyCostKey, WEEKLY_USAGE_COST_TTL_SECONDS);
+    } catch (error) {
+      logger.error("Error saving weekly usage cost", { error, cost });
+    }
+  }
 }
 
 export async function getWeeklyUsageCost({
