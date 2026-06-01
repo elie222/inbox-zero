@@ -79,6 +79,7 @@ describe("handleRuleNotificationAction", () => {
     mockTelegramOpenDm.mockResolvedValue("telegram-thread-1");
     mockTelegramPostMessage.mockResolvedValue({ id: "telegram-message-1" });
     mockTelegramEditMessage.mockResolvedValue({ id: "telegram-message-1" });
+    prisma.executedAction.findMany.mockResolvedValue([] as never);
   });
 
   it("keeps the draft preview visible after sending from Slack", async () => {
@@ -266,6 +267,151 @@ describe("handleRuleNotificationAction", () => {
       },
     });
     expect(editMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("collapses sibling draft notifications when a draft is sent from Slack", async () => {
+    const provider = {
+      sendDraft: vi
+        .fn()
+        .mockResolvedValue({ messageId: "sent-1", threadId: "thread-1" }),
+      getDraft: vi.fn().mockResolvedValue({
+        id: "draft-1",
+        threadId: "thread-1",
+        textPlain: "Thanks for the note.",
+        subject: "Re: Test subject",
+        date: new Date().toISOString(),
+        snippet: "Thanks for the note.",
+        historyId: "1",
+        internalDate: "1",
+        headers: {
+          from: "user@example.com",
+          to: "sender@example.com",
+          subject: "Re: Test subject",
+          date: "Mon, 1 Jan 2024 12:00:00 +0000",
+        },
+        labelIds: [],
+        inline: [],
+      } satisfies ParsedMessage),
+      getMessage: vi.fn().mockResolvedValue({
+        id: "message-1",
+        threadId: "thread-1",
+        textPlain: "Original message body",
+        textHtml: "<p>Original message body</p>",
+        subject: "Test subject",
+        date: new Date().toISOString(),
+        snippet: "Original message body",
+        historyId: "2",
+        internalDate: "2",
+        headers: {
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Test subject",
+          date: "Mon, 1 Jan 2024 11:00:00 +0000",
+          "message-id": "<message-1@example.com>",
+        },
+        attachments: [],
+        labelIds: [],
+        inline: [],
+      } satisfies ParsedMessage),
+    };
+
+    mockCreateEmailProvider.mockResolvedValue(provider);
+
+    const slackContext = getNotificationContext({
+      id: "slack-action-1",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: "Thanks for the note.",
+      messagingMessageId: "slack-ts-1",
+      messagingMessageStatus: MessagingMessageStatus.SENT,
+      mailboxDraftAction: {
+        id: "draft-action-1",
+        draftId: "draft-1",
+        subject: "Re: Test subject",
+      },
+    });
+    const telegramContext = getNotificationContext({
+      id: "telegram-action-1",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: "Thanks for the note.",
+      messagingMessageId: "telegram-message-1",
+      messagingMessageStatus: MessagingMessageStatus.SENT,
+      messagingChannel: {
+        id: "telegram-channel-1",
+        provider: MessagingProvider.TELEGRAM,
+        isConnected: true,
+        teamId: "telegram-chat-1",
+        providerUserId: "telegram-user-1",
+        accessToken: null,
+        channelId: null,
+        routes: [
+          {
+            purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+            targetId: "telegram-chat-1",
+            targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+          },
+        ],
+      },
+      mailboxDraftAction: {
+        id: "draft-action-1",
+        draftId: "draft-1",
+        subject: "Re: Test subject",
+      },
+    });
+
+    prisma.executedAction.findUnique.mockImplementation(async ({ where }) => {
+      if (where?.id === "slack-action-1") return slackContext as never;
+      if (where?.id === "telegram-action-1") return telegramContext as never;
+      return null as never;
+    });
+    prisma.executedAction.findMany.mockResolvedValue([
+      { id: "telegram-action-1" },
+    ] as never);
+    prisma.executedAction.update.mockResolvedValue({} as never);
+    prisma.executedAction.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const editMessage = vi.fn().mockResolvedValue(undefined);
+    const event = createSlackActionEvent({
+      actionId: "rule_draft_send",
+      value: "slack-action-1",
+      editMessage,
+    });
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+
+    await handleRuleNotificationAction({
+      event,
+      logger,
+    });
+
+    expect(provider.sendDraft).toHaveBeenCalledWith("draft-1");
+    expect(editMessage).toHaveBeenCalledTimes(1);
+    expect(prisma.executedAction.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "telegram-action-1",
+        OR: [
+          { messagingMessageStatus: null },
+          {
+            messagingMessageStatus: {
+              in: [
+                MessagingMessageStatus.SENT,
+                MessagingMessageStatus.DRAFT_EDITED,
+              ],
+            },
+          },
+        ],
+      },
+      data: {
+        messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
+      },
+    });
+    expect(mockTelegramOpenDm).toHaveBeenCalledWith("telegram-chat-1");
+    expect(mockTelegramEditMessage).toHaveBeenCalledWith(
+      "telegram-thread-1",
+      "telegram-message-1",
+      "Draft already sent. No action needed.",
+    );
   });
 
   it("closes the Slack edit modal when the draft sends but the message update fails", async () => {

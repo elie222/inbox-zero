@@ -95,6 +95,8 @@ const RULE_NOTIFY_TRASH_ACTION_ID = "rule_notify_trash";
 const RULE_NOTIFY_MARK_SPAM_ACTION_ID = "rule_notify_mark_spam";
 export const SLACK_DRAFT_EDIT_MODAL_ID = "rule_draft_edit_modal";
 const SLACK_DRAFT_EDIT_FIELD_ID = "draft_content";
+const WEB_REPLY_HANDLED_TEXT = "Already replied on the web.";
+const DRAFT_ALREADY_SENT_TEXT = "Draft already sent. No action needed.";
 
 export const RULE_NOTIFICATION_ACTION_IDS = [
   RULE_DRAFT_SEND_ACTION_ID,
@@ -202,36 +204,100 @@ export async function replaceMessagingDraftNotificationsWithHandledOnWebState({
   executedRuleId: string;
   logger: Logger;
 }) {
-  const notificationActions = await prisma.executedAction.findMany({
-    where: {
-      executedRuleId,
-      type: ActionType.DRAFT_MESSAGING_CHANNEL,
-      messagingMessageId: { not: null },
-      messagingChannel: {
-        isConnected: true,
-      },
-    },
-    select: {
-      id: true,
-    },
+  await replaceMessagingDraftNotificationsWithTerminalState({
+    executedRuleId,
+    logger,
+    terminalStatus: MessagingMessageStatus.EXPIRED,
+    terminalMessage: WEB_REPLY_HANDLED_TEXT,
   });
+}
 
-  const results = await Promise.allSettled(
-    notificationActions.map(({ id }) =>
-      replaceMessagingDraftNotificationWithHandledOnWebState({
-        executedActionId: id,
-        logger,
-      }),
-    ),
-  );
+export async function replaceMessagingDraftNotificationsWithDraftSentState({
+  executedRuleId,
+  logger,
+  excludeExecutedActionId,
+}: {
+  executedRuleId: string;
+  logger: Logger;
+  excludeExecutedActionId?: string;
+}) {
+  await replaceMessagingDraftNotificationsWithTerminalState({
+    executedRuleId,
+    logger,
+    excludeExecutedActionId,
+    terminalStatus: MessagingMessageStatus.DRAFT_SENT,
+    terminalMessage: DRAFT_ALREADY_SENT_TEXT,
+  });
+}
 
-  for (const result of results) {
-    if (result.status === "rejected") {
-      logger.warn("Failed to collapse one messaging draft notification", {
+async function replaceMessagingDraftNotificationsWithTerminalState({
+  executedRuleId,
+  logger,
+  excludeExecutedActionId,
+  terminalStatus,
+  terminalMessage,
+}: {
+  executedRuleId: string;
+  logger: Logger;
+  excludeExecutedActionId?: string;
+  terminalStatus: MessagingMessageStatus;
+  terminalMessage: string;
+}) {
+  try {
+    const notificationActions = await prisma.executedAction.findMany({
+      where: {
+        id: excludeExecutedActionId
+          ? { not: excludeExecutedActionId }
+          : undefined,
         executedRuleId,
-        error: result.reason,
-      });
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingMessageId: { not: null },
+        messagingChannel: {
+          isConnected: true,
+        },
+        OR: [
+          { messagingMessageStatus: null },
+          {
+            messagingMessageStatus: {
+              in: [
+                MessagingMessageStatus.SENT,
+                MessagingMessageStatus.DRAFT_EDITED,
+              ],
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    const results = await Promise.allSettled(
+      notificationActions.map(({ id }) =>
+        replaceMessagingDraftNotificationWithTerminalState({
+          executedActionId: id,
+          logger,
+          terminalStatus,
+          terminalMessage,
+        }),
+      ),
+    );
+
+    for (const result of results) {
+      if (result.status === "rejected") {
+        logger.warn("Failed to collapse one messaging draft notification", {
+          executedRuleId,
+          terminalStatus,
+          error: result.reason,
+        });
+      }
     }
+  } catch (error) {
+    logger.warn("Failed to collapse messaging draft notifications", {
+      executedRuleId,
+      terminalStatus,
+      error,
+    });
   }
 }
 
@@ -1013,6 +1079,12 @@ async function sendDraftReplyFromNotification({
       openLink: getNotificationOpenLink(context),
       status: "Reply sent.",
     }),
+  });
+
+  await replaceMessagingDraftNotificationsWithDraftSentState({
+    executedRuleId: context.executedRule.id,
+    logger,
+    excludeExecutedActionId: context.id,
   });
 
   return "sent";
@@ -2203,22 +2275,20 @@ async function postSlackCard({
   }
 }
 
-async function replaceMessagingDraftNotificationWithHandledOnWebState({
+async function replaceMessagingDraftNotificationWithTerminalState({
   executedActionId,
   logger,
+  terminalStatus,
+  terminalMessage,
 }: {
   executedActionId: string;
   logger: Logger;
+  terminalStatus: MessagingMessageStatus;
+  terminalMessage: string;
 }) {
-  const context = await getNotificationContext(executedActionId);
-
-  if (!context?.messagingMessageId) {
-    return;
-  }
-
   const updated = await prisma.executedAction.updateMany({
     where: {
-      id: context.id,
+      id: executedActionId,
       OR: [
         { messagingMessageStatus: null },
         {
@@ -2232,11 +2302,17 @@ async function replaceMessagingDraftNotificationWithHandledOnWebState({
       ],
     },
     data: {
-      messagingMessageStatus: MessagingMessageStatus.EXPIRED,
+      messagingMessageStatus: terminalStatus,
     },
   });
 
   if (updated.count === 0) {
+    return;
+  }
+
+  const context = await getNotificationContext(executedActionId);
+
+  if (!context?.messagingMessageId) {
     return;
   }
 
@@ -2271,7 +2347,7 @@ async function replaceMessagingDraftNotificationWithHandledOnWebState({
 
   const card = buildTerminalCard({
     title: "Draft reply",
-    message: "Already replied on the web.",
+    message: terminalMessage,
   });
 
   try {
@@ -2334,7 +2410,7 @@ async function replaceMessagingDraftNotificationWithHandledOnWebState({
         await teamsAdapter.editMessage(
           threadId,
           context.messagingMessageId,
-          "Already replied on the web.",
+          terminalMessage,
         );
         break;
       }
@@ -2368,7 +2444,7 @@ async function replaceMessagingDraftNotificationWithHandledOnWebState({
         await telegramAdapter.editMessage(
           threadId,
           context.messagingMessageId,
-          "Already replied on the web.",
+          terminalMessage,
         );
         break;
       }
@@ -2377,10 +2453,11 @@ async function replaceMessagingDraftNotificationWithHandledOnWebState({
     }
   } catch (error) {
     logger.warn(
-      "Failed to collapse messaging draft notification after web reply",
+      "Failed to collapse messaging draft notification after terminal state",
       {
         executedActionId: context.id,
         provider: context.messagingChannel.provider,
+        terminalStatus,
         error,
       },
     );
