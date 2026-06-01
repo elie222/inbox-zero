@@ -104,7 +104,8 @@ export async function processHistoryForUser({
         const isInSentItems = message.labelIds?.includes("SENT") || false;
 
         if (!isInInbox && !isInSentItems) {
-          logger.info("Skipping message not in inbox or sent items", {
+          // trace: carries PII (subject is not redacted at info level)
+          logger.trace("Skipping message not in inbox or sent items", {
             labelIds: message.labelIds,
             from: message.headers.from,
             to: message.headers.to,

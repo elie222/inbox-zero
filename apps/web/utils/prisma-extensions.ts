@@ -13,7 +13,7 @@ import { decryptToken, encryptToken } from "@/utils/encryption";
  * EmailToken.token): random-IV encryption breaks WHERE lookups.
  */
 const ENCRYPTED_FIELDS = {
-  account: ["access_token", "refresh_token"],
+  account: ["access_token", "refresh_token", "id_token"],
   calendarConnection: ["accessToken", "refreshToken"],
   driveConnection: ["accessToken", "refreshToken"],
   messagingChannel: ["accessToken", "refreshToken"],
