@@ -5,6 +5,7 @@ import {
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { getMockMessage } from "@/__tests__/helpers";
+import { getStableMessageCacheKey } from "@/__tests__/eval/assistant-chat-eval-utils";
 import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
 import {
   cloneEmailAccountForProvider,
@@ -65,7 +66,12 @@ describe.runIf(shouldRunEval)("Eval: assistant chat Outlook folders", () => {
               testName,
               model: model.label,
               cacheKeyParts: [
-                { model, provider: "microsoft", searchMessages, messages },
+                {
+                  model,
+                  provider: "microsoft",
+                  searchMessages: getStableMessageCacheKey(searchMessages),
+                  messages,
+                },
               ],
             },
             async () => {

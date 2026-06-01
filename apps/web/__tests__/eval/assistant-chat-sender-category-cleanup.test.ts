@@ -2,7 +2,10 @@ import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { describeEvalMatrix } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { getMockMessage } from "@/__tests__/helpers";
-import type { RecordedToolCall } from "@/__tests__/eval/assistant-chat-eval-utils";
+import {
+  getStableMessageCacheKey,
+  type RecordedToolCall,
+} from "@/__tests__/eval/assistant-chat-eval-utils";
 import {
   cloneEmailAccountForProvider,
   getFirstSearchInboxCall,
@@ -120,7 +123,7 @@ describe.runIf(shouldRunEval)(
                     model,
                     provider,
                     label,
-                    searchMessages,
+                    searchMessages: getStableMessageCacheKey(searchMessages),
                     inboxStats,
                     messages,
                   },

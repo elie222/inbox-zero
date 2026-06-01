@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from "vitest";
 import { describeEvalMatrix } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { getMockMessage } from "@/__tests__/helpers";
+import { getStableMessageCacheKey } from "@/__tests__/eval/assistant-chat-eval-utils";
 import {
   cloneEmailAccountForProvider,
   getFirstSearchInboxCall,
@@ -72,7 +73,7 @@ describe.runIf(shouldRunEval)(
                     provider,
                     label,
                     unreadSignal,
-                    searchMessages,
+                    searchMessages: getStableMessageCacheKey(searchMessages),
                     inboxStats,
                     messages,
                   },
@@ -151,7 +152,13 @@ describe.runIf(shouldRunEval)(
                 testName,
                 model: model.label,
                 cacheKeyParts: [
-                  { model, provider, label, searchMessages, messages },
+                  {
+                    model,
+                    provider,
+                    label,
+                    searchMessages: getStableMessageCacheKey(searchMessages),
+                    messages,
+                  },
                 ],
               },
               async () => {

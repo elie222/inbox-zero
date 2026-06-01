@@ -12,6 +12,7 @@ import {
 import {
   captureAssistantChatToolCalls,
   getLastMatchingToolCall,
+  getStableMessageCacheKey,
   summarizeRecordedToolCalls,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
@@ -275,7 +276,9 @@ describe.runIf(shouldRunEval)("Eval: assistant chat trash/delete", () => {
               {
                 testName: scenario.reportName,
                 model: model.label,
-                cacheKeyParts: [{ model, scenario, messages }],
+                cacheKeyParts: [
+                  { model, scenario: getScenarioCacheKey(scenario), messages },
+                ],
               },
               async () => {
                 if (scenario.searchMessages) {
@@ -365,6 +368,14 @@ type EvalScenario = {
   searchMessages?: ReturnType<typeof getMockMessage>[];
   expectation: ScenarioExpectation;
 };
+
+function getScenarioCacheKey(scenario: EvalScenario) {
+  return {
+    ...scenario,
+    prefillSearch: getStableMessageCacheKey(scenario.prefillSearch),
+    searchMessages: getStableMessageCacheKey(scenario.searchMessages),
+  };
+}
 
 function isManageInboxInput(input: unknown): input is ManageInboxInput {
   return (

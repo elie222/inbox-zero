@@ -3,6 +3,7 @@ import { describeEvalMatrix } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { formatSemanticJudgeActual } from "@/__tests__/eval/semantic-judge";
 import { getMockMessage } from "@/__tests__/helpers";
+import { getStableMessageCacheKey } from "@/__tests__/eval/assistant-chat-eval-utils";
 import {
   cloneEmailAccountForProvider,
   getFirstSearchInboxCall,
@@ -71,7 +72,13 @@ describe.runIf(shouldRunEval)(
                 testName,
                 model: model.label,
                 cacheKeyParts: [
-                  { model, provider, label, userPrompt, searchMessages },
+                  {
+                    model,
+                    provider,
+                    label,
+                    userPrompt,
+                    searchMessages: getStableMessageCacheKey(searchMessages),
+                  },
                 ],
               },
               async () => {
@@ -150,7 +157,13 @@ describe.runIf(shouldRunEval)(
                 testName,
                 model: model.label,
                 cacheKeyParts: [
-                  { model, provider, label, userPrompt, searchMessages },
+                  {
+                    model,
+                    provider,
+                    label,
+                    userPrompt,
+                    searchMessages: getStableMessageCacheKey(searchMessages),
+                  },
                 ],
               },
               async () => {

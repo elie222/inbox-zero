@@ -13,6 +13,7 @@ import {
   captureAssistantChatToolCalls,
   getFirstMatchingToolCall,
   getLastMatchingToolCall,
+  getStableMessageCacheKey,
   summarizeRecordedToolCalls,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
@@ -249,7 +250,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat attachments", () => {
               cacheKeyParts: [
                 {
                   model,
-                  scenario,
+                  scenario: getScenarioCacheKey(scenario),
                   messages,
                 },
               ],
@@ -348,6 +349,13 @@ type EvalScenario = {
   searchMessages?: ReturnType<typeof getMockMessage>[];
   expectation: ScenarioExpectation;
 };
+
+function getScenarioCacheKey(scenario: EvalScenario) {
+  return {
+    ...scenario,
+    searchMessages: getStableMessageCacheKey(scenario.searchMessages),
+  };
+}
 
 function isSearchInboxInput(input: unknown): input is SearchInboxInput {
   return (
