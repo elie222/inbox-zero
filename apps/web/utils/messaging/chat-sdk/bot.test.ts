@@ -131,6 +131,24 @@ describe("normalizeMessagingAssistantText", () => {
       "Suggested rule:\n**Road Trip Plans**\nWhen: emails discussing road trips\nThen: move to Travels and notify Telegram",
     );
   });
+
+  it("formats differently-cased rule suggestion tags", () => {
+    expect(
+      normalizeMessagingAssistantText({
+        text: '<Rule-Suggestion name="Monitoring" when="alerts" archive="true" />',
+      }),
+    ).toBe("Suggested rule:\n**Monitoring**\nWhen: alerts\nThen: Archive");
+  });
+
+  it("treats shorthand boolean rule suggestion attributes as enabled", () => {
+    expect(
+      normalizeMessagingAssistantText({
+        text: '<rule-suggestion name="Updates" when="low-priority updates" archive draft markread />',
+      }),
+    ).toBe(
+      "Suggested rule:\n**Updates**\nWhen: low-priority updates\nThen: Archive, Draft Reply, Mark Read",
+    );
+  });
 });
 
 describe("normalizeMessagingUserText", () => {

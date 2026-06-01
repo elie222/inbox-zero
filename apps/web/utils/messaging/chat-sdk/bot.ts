@@ -2880,7 +2880,7 @@ const ruleSuggestionPattern =
   /<rule-suggestions\b[^>]*>[\s\S]*?<\/rule-suggestions>|<rule-suggestion\b[^>]*?\/\s*>|<rule-suggestion\b[^>]*>[\s\S]*?<\/rule-suggestion>/gi;
 
 function formatRuleSuggestionMarkupForMessaging(text: string) {
-  if (!text.includes("<rule-suggestion")) return text;
+  if (!/<rule-suggestion/i.test(text)) return text;
 
   return text
     .replace(ruleSuggestionPattern, (markup) => {
@@ -2964,7 +2964,7 @@ function renderRuleSuggestionForMessaging(suggestion: ParsedRuleSuggestion) {
     .join("\n");
 }
 
-// Tolerates JSX-style booleans the model occasionally emits, e.g. `archive={true}`.
+// Tolerates shorthand and JSX-style booleans the model occasionally emits.
 function normalizeBooleanAttribute(value: string | undefined) {
   return (
     value
@@ -2976,7 +2976,7 @@ function normalizeBooleanAttribute(value: string | undefined) {
 
 function isTrueAttribute(value: string | undefined) {
   const v = normalizeBooleanAttribute(value);
-  return v === "true" || v === "yes";
+  return value !== undefined && (v === "" || v === "true" || v === "yes");
 }
 
 function isFalseAttribute(value: string | undefined) {
