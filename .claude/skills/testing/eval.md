@@ -24,7 +24,7 @@ const isAiTest = process.env.RUN_AI_TESTS === "true";
 const TIMEOUT = 15_000;
 
 describe.runIf(isAiTest)("Eval: Your Feature", () => {
-  const evalReporter = createEvalReporter();
+  const evalReporter = createEvalReporter({ evalName: "your-feature" });
 
   describeEvalMatrix("feature", (model, emailAccount) => {
     test("case description", async () => {
@@ -90,13 +90,56 @@ EVAL_MODELS=gemini-2.5-flash,gpt-5.4-mini pnpm test-ai eval/your-feature
 
 # Save report to file
 EVAL_REPORT_PATH=eval-results/report.md EVAL_MODELS=all pnpm test-ai eval/your-feature
+
+# Reuse unchanged eval/model results from the local result cache
+EVAL_RESULT_CACHE=readwrite pnpm test-ai eval/your-feature
 ```
+
+## Result History and Cache
+
+Eval runs with `RUN_AI_TESTS=true` write JSON history to `.context/eval-results/<eval-name>/` by default. Set `EVAL_HISTORY_DIR=off` to disable this, or set `EVAL_HISTORY_DIR=path/to/dir` to choose a different location.
+
+Use `evalReporter.recordCached()` for eval cases where an unchanged scenario/model pair can reuse the previous result instead of calling the model and judge again:
+
+```typescript
+const record = await evalReporter.recordCached(
+  {
+    testName: "case",
+    model: model.label,
+    cacheKeyParts: [{ model, scenario }],
+  },
+  async () => {
+    const result = await yourFunction({ emailAccount, scenario });
+    const pass = result === expected;
+
+    return {
+      testName: "case",
+      model: model.label,
+      pass,
+      expected,
+      actual: String(result),
+    };
+  },
+);
+
+expect(record.pass).toBe(true);
+```
+
+Cache modes:
+
+- `EVAL_RESULT_CACHE=readwrite` — read cached records when present, run and write misses
+- `EVAL_RESULT_CACHE=readonly` — require cached records and fail on misses
+- `EVAL_RESULT_CACHE=refresh` — ignore cached records, run live, and overwrite
+- unset / other values — no result cache
+
+Cache records are stored in `.context/eval-result-cache/` by default. The cache key includes the eval name, test name, reported model, `cacheKeyParts`, and a conservative git fingerprint, so prompt/code changes miss the cache.
 
 ## Eval Utilities
 
 - `describeEvalMatrix(name, fn)` — runs tests across all models in `EVAL_MODELS`
 - `createEvalReporter()` — creates a reporter instance for recording pass/fail
 - `evalReporter.record(result)` — records pass/fail for the comparison report
+- `evalReporter.recordCached(options, fn)` — records a cached eval result when available, otherwise runs `fn`
 - `evalReporter.printReport()` — outputs console report + optionally writes files
 - `judgeBinary({ input, output, criterion })` — binary LLM-as-judge evaluation
 - `judgeMultiple({ input, output, criteria })` — evaluates multiple criteria
@@ -106,6 +149,9 @@ EVAL_REPORT_PATH=eval-results/report.md EVAL_MODELS=all pnpm test-ai eval/your-f
 
 - `EVAL_MODELS` — not set: single run with env model; `all`: all models; comma-separated: specific models
 - `EVAL_REPORT_PATH` — save markdown + JSON report to file
+- `EVAL_HISTORY_DIR` — save per-run JSON history; defaults to `.context/eval-results` for AI evals; set `off` to disable
+- `EVAL_RESULT_CACHE` — opt into scenario-level result caching: `readwrite`, `readonly`, or `refresh`
+- `EVAL_RESULT_CACHE_DIR` — cache directory; defaults to `.context/eval-result-cache`
 
 ## Anti-overfitting
 

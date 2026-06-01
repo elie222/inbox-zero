@@ -1,16 +1,39 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
 import type { JudgeResult } from "@/__tests__/eval/judge";
 import { subscribeToAiUsage, type AiUsageEvent } from "@/utils/usage";
 
 export interface EvalRecord {
   actual?: string;
+  cached?: boolean;
+  cacheKey?: string;
   criteria?: JudgeResult[];
   durationMs?: number;
   expected?: string;
   model: string;
   pass: boolean;
   testName: string;
+}
+
+export interface EvalReporterOptions {
+  evalName?: string;
+}
+
+export interface CachedEvalOptions {
+  cacheKeyParts?: unknown[];
+  cacheVersion?: string;
+  evalName?: string;
+  model: string;
+  testName: string;
+}
+
+interface CachedEvalFile {
+  cacheKey: string;
+  createdAt: string;
+  record: EvalRecord;
+  schemaVersion: 1;
 }
 
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -22,9 +45,11 @@ const numberFormatter = new Intl.NumberFormat("en-US");
 class EvalReporter {
   private readonly records: EvalRecord[] = [];
   private readonly usageEvents: AiUsageEvent[] = [];
+  private readonly evalName: string | undefined;
   private unsubscribeFromUsage: (() => void) | undefined;
 
-  constructor() {
+  constructor(options: EvalReporterOptions = {}) {
+    this.evalName = options.evalName;
     this.unsubscribeFromUsage = subscribeToAiUsage((event) => {
       this.usageEvents.push(event);
     });
@@ -32,6 +57,55 @@ class EvalReporter {
 
   record(result: EvalRecord): void {
     this.records.push(result);
+  }
+
+  async recordCached(
+    options: CachedEvalOptions,
+    run: () => Promise<EvalRecord>,
+  ): Promise<EvalRecord> {
+    const cacheMode = getEvalResultCacheMode();
+    const cacheKey = buildEvalCacheKey({
+      cacheKeyParts: options.cacheKeyParts ?? [],
+      cacheVersion: options.cacheVersion,
+      evalName: options.evalName ?? this.evalName,
+      model: options.model,
+      testName: options.testName,
+    });
+    const cachePath = getEvalResultCachePath(cacheKey);
+
+    if (cacheMode !== "off" && cacheMode !== "refresh") {
+      const cachedRecord = readCachedEvalRecord(cachePath);
+      if (cachedRecord) {
+        const record = {
+          ...cachedRecord,
+          cached: true,
+          cacheKey,
+        };
+        this.record(record);
+        return record;
+      }
+
+      if (cacheMode === "readonly") {
+        throw new Error(
+          `Eval result cache miss for ${options.testName} (${options.model})`,
+        );
+      }
+    }
+
+    const record = {
+      ...(await run()),
+      cacheKey,
+      cached: false,
+      model: options.model,
+      testName: options.testName,
+    };
+    this.record(record);
+
+    if (cacheMode === "readwrite" || cacheMode === "refresh") {
+      writeCachedEvalRecord(cachePath, cacheKey, record);
+    }
+
+    return record;
   }
 
   printReport(): void {
@@ -48,6 +122,8 @@ class EvalReporter {
       if (process.env.EVAL_REPORT_PATH) {
         this.writeReport(resolveEvalReportPath(process.env.EVAL_REPORT_PATH));
       }
+
+      this.writeHistoryReport();
     } finally {
       this.unsubscribeFromUsage?.();
       this.unsubscribeFromUsage = undefined;
@@ -63,6 +139,33 @@ class EvalReporter {
       ? filePath.replace(/\.md$/, ".json")
       : `${filePath}.json`;
     fs.writeFileSync(jsonPath, JSON.stringify(this.records, null, 2));
+  }
+
+  private writeHistoryReport(): void {
+    const historyDir = getEvalHistoryDir();
+    if (!historyDir) return;
+
+    const evalName = slugify(this.evalName ?? "eval-run");
+    const outDir = path.join(historyDir, evalName);
+    fs.mkdirSync(outDir, { recursive: true });
+
+    const createdAt = new Date().toISOString();
+    const fileName = `${createdAt.replace(/[:.]/g, "-")}--${process.pid}.json`;
+    fs.writeFileSync(
+      path.join(outDir, fileName),
+      `${JSON.stringify(
+        {
+          schemaVersion: 1,
+          evalName: this.evalName ?? null,
+          createdAt,
+          cacheMode: getEvalResultCacheMode(),
+          records: this.records,
+          usage: summarizeUsageEvents(this.usageEvents),
+        },
+        null,
+        2,
+      )}\n`,
+    );
   }
 
   private generateConsoleReport(): string {
@@ -116,9 +219,10 @@ class EvalReporter {
         (r) => r.testName === testName && r.model === model,
       );
       const status = record?.pass ? green("PASS") : red("FAIL");
+      const cacheDetail = record?.cached ? dim(" (cached)") : "";
       const detail =
         !record?.pass && record?.actual ? dim(` (got: ${record.actual})`) : "";
-      lines.push(`  ${status}  ${testName}${detail}`);
+      lines.push(`  ${status}  ${testName}${cacheDetail}${detail}`);
     }
 
     const passed = this.records.filter(
@@ -147,10 +251,11 @@ class EvalReporter {
         const record = this.records.find(
           (r) => r.testName === testName && r.model === model,
         );
-        if (record?.pass) return pad(green("PASS"), colWidth + 9);
+        const cached = record?.cached ? " (cached)" : "";
+        if (record?.pass) return pad(green(`PASS${cached}`), colWidth + 9);
         const actual = record?.actual
-          ? red(`FAIL (${record.actual})`)
-          : red("FAIL");
+          ? red(`FAIL${cached} (${record.actual})`)
+          : red(`FAIL${cached}`);
         return pad(actual, colWidth + 9);
       });
       return `  ${displayName.padEnd(40)} ${cells.join("  ")}`;
@@ -239,7 +344,7 @@ class EvalReporter {
       const record = this.records.find(
         (r) => r.testName === testName && r.model === model,
       );
-      const result = record?.pass ? "PASS" : "FAIL";
+      const result = `${record?.pass ? "PASS" : "FAIL"}${record?.cached ? " (cached)" : ""}`;
       const actual = record?.actual ?? "-";
       lines.push(`| ${testName} | ${result} | ${actual} |`);
     }
@@ -260,8 +365,11 @@ class EvalReporter {
         const record = this.records.find(
           (r) => r.testName === testName && r.model === model,
         );
-        if (record?.pass) return "PASS";
-        return record?.actual ? `FAIL (${record.actual})` : "FAIL";
+        const cached = record?.cached ? " (cached)" : "";
+        if (record?.pass) return `PASS${cached}`;
+        return record?.actual
+          ? `FAIL${cached} (${record.actual})`
+          : `FAIL${cached}`;
       });
       return `| ${testName} | ${cells.join(" | ")} |`;
     });
@@ -284,8 +392,10 @@ class EvalReporter {
   }
 }
 
-export function createEvalReporter(): EvalReporter {
-  return new EvalReporter();
+export function createEvalReporter(
+  options: EvalReporterOptions = {},
+): EvalReporter {
+  return new EvalReporter(options);
 }
 
 type UsageSummary = {
@@ -417,6 +527,153 @@ function resolveEvalReportPath(filePath: string): string {
   if (path.isAbsolute(filePath)) return filePath;
 
   return path.join(findWorkspaceRoot(process.cwd()), filePath);
+}
+
+type EvalResultCacheMode = "off" | "readonly" | "readwrite" | "refresh";
+
+function getEvalResultCacheMode(): EvalResultCacheMode {
+  const value = process.env.EVAL_RESULT_CACHE;
+  if (value === "readonly" || value === "readwrite" || value === "refresh") {
+    return value;
+  }
+  return "off";
+}
+
+function getEvalHistoryDir(): string | null {
+  if (process.env.EVAL_HISTORY_DIR === "off") return null;
+  if (process.env.EVAL_HISTORY_DIR) {
+    return resolveEvalReportPath(process.env.EVAL_HISTORY_DIR);
+  }
+  if (process.env.RUN_AI_TESTS === "true") {
+    return resolveEvalReportPath(".context/eval-results");
+  }
+  return null;
+}
+
+function getEvalResultCachePath(cacheKey: string): string {
+  const cacheDir = resolveEvalReportPath(
+    process.env.EVAL_RESULT_CACHE_DIR ?? ".context/eval-result-cache",
+  );
+  return path.join(cacheDir, `${cacheKey}.json`);
+}
+
+function readCachedEvalRecord(filePath: string): EvalRecord | null {
+  try {
+    const file = JSON.parse(
+      fs.readFileSync(filePath, "utf8"),
+    ) as Partial<CachedEvalFile>;
+    if (file.schemaVersion !== 1 || !file.record) return null;
+    return file.record;
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function writeCachedEvalRecord(
+  filePath: string,
+  cacheKey: string,
+  record: EvalRecord,
+): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tempPath = `${filePath}.${process.pid}.tmp`;
+  fs.writeFileSync(
+    tempPath,
+    `${JSON.stringify(
+      {
+        schemaVersion: 1,
+        cacheKey,
+        createdAt: new Date().toISOString(),
+        record,
+      } satisfies CachedEvalFile,
+      null,
+      2,
+    )}\n`,
+  );
+  fs.renameSync(tempPath, filePath);
+}
+
+function buildEvalCacheKey({
+  cacheKeyParts,
+  cacheVersion,
+  evalName,
+  model,
+  testName,
+}: {
+  cacheKeyParts: unknown[];
+  cacheVersion?: string;
+  evalName?: string;
+  model: string;
+  testName: string;
+}): string {
+  return hashJson({
+    schemaVersion: 1,
+    cacheVersion: cacheVersion ?? "1",
+    evalName: evalName ?? null,
+    testName,
+    model,
+    cacheKeyParts,
+    git: getGitFingerprint(),
+  });
+}
+
+function getGitFingerprint(): { diffHash: string | null; head: string | null } {
+  const repoRoot = findWorkspaceRoot(process.cwd());
+  return {
+    head: readGitOutput(repoRoot, ["rev-parse", "HEAD"]),
+    diffHash: hashString(readGitOutput(repoRoot, ["diff", "--no-ext-diff"])),
+  };
+}
+
+function readGitOutput(cwd: string, args: string[]): string | null {
+  try {
+    return execFileSync("git", args, {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+function hashJson(value: unknown): string {
+  return hashString(stableStringify(value));
+}
+
+function hashString(value: string | null): string | null {
+  if (value == null) return null;
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+
+  return `{${Object.entries(value)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`)
+    .join(",")}}`;
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
 }
 
 function findWorkspaceRoot(startDir: string): string {
