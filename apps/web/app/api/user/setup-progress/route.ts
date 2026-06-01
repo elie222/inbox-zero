@@ -85,9 +85,10 @@ async function getSetupProgress({
   const tabsExtensionCompleted = emailAccount.user.dismissedHints.includes(
     `setup:tabsExtension:${emailAccountId}`,
   );
-  const showCalendarStep =
+  const showCalendarStep = Boolean(
     env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED ||
-    env.NEXT_PUBLIC_BOOKING_LINKS_ENABLED;
+      env.NEXT_PUBLIC_BOOKING_LINKS_ENABLED,
+  );
 
   const teamInviteCompleted =
     hasTeamMembers || hasPendingInvitations || teamInviteDismissed;
