@@ -29,10 +29,8 @@ export type BatchError = {
   };
 };
 
-export function isBatchError(
-  message: MessageWithPayload | BatchError,
-): message is BatchError {
-  return (message as BatchError).error !== undefined;
+export function isBatchError<T>(item: T | BatchError): item is BatchError {
+  return (item as BatchError).error !== undefined;
 }
 
 export type MessageWithPayload = {
