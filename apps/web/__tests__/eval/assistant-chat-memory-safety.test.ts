@@ -32,7 +32,9 @@ import type { getEmailAccount } from "@/__tests__/helpers";
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 240_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-memory-safety",
+});
 const logger = createScopedLogger("eval-assistant-chat-memory-safety");
 const selectedScenarios =
   getEvalModels().length > 1
@@ -164,23 +166,42 @@ describe.runIf(shouldRunEval)("Eval: assistant chat memory safety", () => {
       test(
         scenario.title,
         async () => {
-          configureScenarioMocks(scenario);
+          const record = await evalReporter.recordCached(
+            {
+              testName: scenario.reportName,
+              model: model.label,
+              cacheKeyParts: [
+                {
+                  model,
+                  scenario,
+                  latestMemorySafetyEmailFixture,
+                  latestMemorySafetyAttachmentFixture,
+                },
+              ],
+            },
+            async () => {
+              configureScenarioMocks(scenario);
 
-          const result = await runAssistantChat({
-            emailAccount,
-            messages: scenario.messages,
-          });
+              const result = await runAssistantChat({
+                emailAccount,
+                messages: scenario.messages,
+              });
 
-          const evaluation = await evaluateScenario(result, scenario);
+              const evaluation = await evaluateScenario(result, scenario);
 
-          evalReporter.record({
-            testName: scenario.reportName,
-            model: model.label,
-            pass: evaluation.pass,
-            actual: evaluation.actual,
-          });
+              return {
+                testName: scenario.reportName,
+                model: model.label,
+                pass: evaluation.pass,
+                actual: evaluation.actual,
+              };
+            },
+          );
 
-          expect(evaluation.pass).toBe(true);
+          expect(
+            record.pass,
+            `Scenario should pass.\n\nActual:\n${record.actual}`,
+          ).toBe(true);
         },
         TIMEOUT,
       );

@@ -22,7 +22,9 @@ const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 90_000;
 
 describe.runIf(shouldRunEval)("reply guidance grounding eval", () => {
-  const evalReporter = createEvalReporter();
+  const evalReporter = createEvalReporter({
+    evalName: "reply-guidance-grounding",
+  });
 
   describeEvalMatrix(
     "stale guidance vs current facts",
@@ -46,42 +48,49 @@ Can you check why it is still firing?`,
               threadId: "current-thread",
             },
           ];
-          const provider = getProviderWithHistoricalAccountRequest();
 
-          const result = await aiCollectReplyContext({
-            currentThread,
-            emailAccount,
-            emailProvider: provider,
-          });
-
-          const output = JSON.stringify(result ?? {}, null, 2);
-          const judgeResult = await judgeEvalOutput({
-            input: JSON.stringify({ currentThread }, null, 2),
-            output,
-            expected:
-              "Collector output should not recommend asking for the affected account when the current thread already contains it, and should not treat a prior unresolved request for that same detail as useful drafting guidance.",
-            criterion: {
-              name: "No stale missing-info guidance",
-              description:
-                "The collector may return genuinely useful historical resolution details, but it must not pass along historical context whose only value is asking the sender for information that is already present in the current thread.",
+          const testName = "collector ignores stale missing-info guidance";
+          const record = await evalReporter.recordCached(
+            {
+              testName,
+              model: model.label,
+              cacheKeyParts: [{ model, currentThread }],
             },
-          });
+            async () => {
+              const provider = getProviderWithHistoricalAccountRequest();
 
-          evalReporter.record({
-            testName: "collector ignores stale missing-info guidance",
-            model: model.label,
-            pass: judgeResult.pass,
-            expected: "no stale request for already-provided details",
-            actual: formatSemanticJudgeActual(output, judgeResult),
-          });
+              const result = await aiCollectReplyContext({
+                currentThread,
+                emailAccount,
+                emailProvider: provider,
+              });
+
+              const output = JSON.stringify(result ?? {}, null, 2);
+              const judgeResult = await judgeEvalOutput({
+                input: JSON.stringify({ currentThread }, null, 2),
+                output,
+                expected:
+                  "Collector output should not recommend asking for the affected account when the current thread already contains it, and should not treat a prior unresolved request for that same detail as useful drafting guidance.",
+                criterion: {
+                  name: "No stale missing-info guidance",
+                  description:
+                    "The collector may return genuinely useful historical resolution details, but it must not pass along historical context whose only value is asking the sender for information that is already present in the current thread.",
+                },
+              });
+
+              return {
+                testName,
+                model: model.label,
+                pass: judgeResult.pass,
+                expected: "no stale request for already-provided details",
+                actual: formatSemanticJudgeActual(output, judgeResult),
+              };
+            },
+          );
 
           expect(
-            judgeResult.pass,
-            `Collector should not forward stale missing-info guidance.\n\nOutput:\n${output}\n\nJudge: ${JSON.stringify(
-              judgeResult,
-              null,
-              2,
-            )}`,
+            record.pass,
+            `Collector should not forward stale missing-info guidance.\n\nActual:\n${record.actual}`,
           ).toBe(true);
         },
         TIMEOUT,
@@ -107,59 +116,67 @@ Can you check why it is still firing?`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
-            messages,
-            emailAccount,
-            knowledgeBaseContent: null,
-            emailHistorySummary: null,
-            emailHistoryContext: {
-              notes:
-                "In a prior unresolved thread, support asked the sender to provide the affected account before investigating.",
-              relevantEmails: [
-                "Support reply in a prior thread: Could you share the affected account identifier so we can look into it?",
-              ],
-            },
-            calendarAvailability: null,
-            writingStyle: null,
-            mcpContext: null,
-            meetingContext: null,
-          });
+          const helperContext = {
+            notes:
+              "In a prior unresolved thread, support asked the sender to provide the affected account before investigating.",
+            relevantEmails: [
+              "Support reply in a prior thread: Could you share the affected account identifier so we can look into it?",
+            ],
+          };
 
-          const judgeResult = await judgeEvalOutput({
-            input: JSON.stringify(
-              {
-                currentThread: messages,
-                helperContext:
-                  "A helper says prior support asked for the affected account identifier.",
-              },
-              null,
-              2,
-            ),
-            output: result.reply,
-            expected:
-              "A concise support reply that acknowledges the issue and says the user is checking or investigating, without asking the sender to provide the affected account because the current thread already includes it.",
-            criterion: {
-              name: "Current thread facts override helper guidance",
-              description:
-                "The draft must use the current email thread as the primary source of truth. It must not ask for details that are already provided in the latest email just because helper or historical context suggested asking for them.",
+          const testName = "drafter ignores stale missing-info guidance";
+          const record = await evalReporter.recordCached(
+            {
+              testName,
+              model: model.label,
+              cacheKeyParts: [{ model, messages, helperContext }],
             },
-          });
+            async () => {
+              const result = await aiDraftReplyWithConfidence({
+                messages,
+                emailAccount,
+                knowledgeBaseContent: null,
+                emailHistorySummary: null,
+                emailHistoryContext: helperContext,
+                calendarAvailability: null,
+                writingStyle: null,
+                mcpContext: null,
+                meetingContext: null,
+              });
 
-          evalReporter.record({
-            testName: "drafter ignores stale missing-info guidance",
-            model: model.label,
-            pass: judgeResult.pass,
-            expected: "does not ask for already-provided account details",
-            actual: formatSemanticJudgeActual(result.reply, judgeResult),
-          });
+              const judgeResult = await judgeEvalOutput({
+                input: JSON.stringify(
+                  {
+                    currentThread: messages,
+                    helperContext:
+                      "A helper says prior support asked for the affected account identifier.",
+                  },
+                  null,
+                  2,
+                ),
+                output: result.reply,
+                expected:
+                  "A concise support reply that acknowledges the issue and says the user is checking or investigating, without asking the sender to provide the affected account because the current thread already includes it.",
+                criterion: {
+                  name: "Current thread facts override helper guidance",
+                  description:
+                    "The draft must use the current email thread as the primary source of truth. It must not ask for details that are already provided in the latest email just because helper or historical context suggested asking for them.",
+                },
+              });
+
+              return {
+                testName,
+                model: model.label,
+                pass: judgeResult.pass,
+                expected: "does not ask for already-provided account details",
+                actual: formatSemanticJudgeActual(result.reply, judgeResult),
+              };
+            },
+          );
 
           expect(
-            judgeResult.pass,
-            `Draft should not ask for already-provided details.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
-              judgeResult,
-              null,
-              2,
-            )}`,
+            record.pass,
+            `Draft should not ask for already-provided details.\n\nActual:\n${record.actual}`,
           ).toBe(true);
         },
         TIMEOUT,
