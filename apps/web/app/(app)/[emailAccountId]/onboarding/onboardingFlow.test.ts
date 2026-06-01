@@ -3,8 +3,10 @@ import {
   getOnboardingStepHref,
   getOnboardingStepIndex,
   getVisibleOnboardingStepKeys,
+  isDraftRepliesDisabledByRuleState,
   STEP_KEYS,
 } from "./onboardingFlow";
+import { ActionType, SystemType } from "@/generated/prisma/enums";
 
 describe("getVisibleOnboardingStepKeys", () => {
   it("returns the full onboarding flow when optional steps are available", () => {
@@ -44,6 +46,26 @@ describe("getVisibleOnboardingStepKeys", () => {
       STEP_KEYS.HOW_YOU_HEARD,
       STEP_KEYS.LABELS,
       STEP_KEYS.CUSTOM_RULES,
+      STEP_KEYS.INBOX_PROCESSED,
+    ]);
+  });
+
+  it("filters sales survey steps for self-hosted deployments", () => {
+    expect(
+      getVisibleOnboardingStepKeys({
+        canInviteTeam: true,
+        autoDraftDisabled: false,
+        isSelfHosted: true,
+      }),
+    ).toEqual([
+      STEP_KEYS.EMAILS_SORTED,
+      STEP_KEYS.CHAT,
+      STEP_KEYS.DRAFT_REPLIES,
+      STEP_KEYS.BULK_UNSUBSCRIBE,
+      STEP_KEYS.LABELS,
+      STEP_KEYS.DRAFT,
+      STEP_KEYS.CUSTOM_RULES,
+      STEP_KEYS.INVITE_TEAM,
       STEP_KEYS.INBOX_PROCESSED,
     ]);
   });
@@ -97,5 +119,36 @@ describe("getOnboardingStepHref", () => {
     expect(
       getOnboardingStepHref("acc_123", STEP_KEYS.LABELS, { force: true }),
     ).toBe("/acc_123/onboarding?step=labels&force=true");
+  });
+});
+
+describe("isDraftRepliesDisabledByRuleState", () => {
+  it("does not disable draft steps before the reply rule exists", () => {
+    expect(isDraftRepliesDisabledByRuleState([])).toBe(false);
+  });
+
+  it("disables draft steps when the reply rule has no draft action", () => {
+    expect(
+      isDraftRepliesDisabledByRuleState([
+        {
+          systemType: SystemType.TO_REPLY,
+          actions: [{ type: ActionType.LABEL }],
+        },
+      ]),
+    ).toBe(true);
+  });
+
+  it("keeps draft steps when the reply rule has a draft action", () => {
+    expect(
+      isDraftRepliesDisabledByRuleState([
+        {
+          systemType: SystemType.TO_REPLY,
+          actions: [
+            { type: ActionType.LABEL },
+            { type: ActionType.DRAFT_EMAIL },
+          ],
+        },
+      ]),
+    ).toBe(false);
   });
 });

@@ -31,10 +31,12 @@ import { StepInviteTeam } from "@/app/(app)/[emailAccountId]/onboarding/StepInvi
 import { toastError } from "@/components/Toast";
 import { usePremium } from "@/hooks/usePremium";
 import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
+import { useRules } from "@/hooks/useRules";
 import {
   getOnboardingStepHref,
   getOnboardingStepIndex,
   getVisibleOnboardingStepKeys,
+  isDraftRepliesDisabledByRuleState,
   isOptionalOnboardingStep,
   STEP_KEYS,
   type StepKey,
@@ -50,6 +52,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   const { isPremium } = usePremium();
   const { data: membership, isLoading: isMembershipLoading } =
     useOrganizationMembership();
+  const { data: rules, isLoading: isRulesLoading } = useRules(emailAccountId);
 
   useSignUpEvent();
 
@@ -109,7 +112,10 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
 
   const visibleStepKeys = getVisibleOnboardingStepKeys({
     canInviteTeam,
-    autoDraftDisabled: Boolean(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED),
+    autoDraftDisabled:
+      Boolean(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) ||
+      isDraftRepliesDisabledByRuleState(rules),
+    isSelfHosted: Boolean(env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS),
   }).filter((key) => isDefined(stepMap[key]));
   const steps = visibleStepKeys.map((key) => stepMap[key]).filter(isDefined);
 
@@ -134,8 +140,8 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   );
 
   useEffect(() => {
-    // Wait for membership data before firing — totalSteps can be wrong while loading
-    if (isMembershipLoading || !currentStepKey) return;
+    // Wait for step inputs before firing — totalSteps can be wrong while loading.
+    if (isMembershipLoading || isRulesLoading || !currentStepKey) return;
 
     if (clampedStep === 1 && !hasTrackedStart.current) {
       hasTrackedStart.current = true;
@@ -152,7 +158,14 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
       totalSteps,
       isOptional: isOptionalOnboardingStep(currentStepKey),
     });
-  }, [analytics, clampedStep, currentStepKey, isMembershipLoading, totalSteps]);
+  }, [
+    analytics,
+    clampedStep,
+    currentStepKey,
+    isMembershipLoading,
+    isRulesLoading,
+    totalSteps,
+  ]);
 
   const onNext = useCallback(async () => {
     if (!currentStepKey) return;
@@ -293,6 +306,10 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
 
   // Wait for membership data to load before determining steps
   if (isMembershipLoading) {
+    return null;
+  }
+
+  if (isRulesLoading) {
     return null;
   }
 
