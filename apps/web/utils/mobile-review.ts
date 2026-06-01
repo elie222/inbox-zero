@@ -1,10 +1,10 @@
-import { timingSafeEqual } from "node:crypto";
 import {
   getConfiguredAppReviewDemoAccounts,
   isAppReviewDemoEnabled,
   type ReviewDemoAccount,
 } from "@/utils/app-review-demo";
 import { betterAuthConfig } from "@/utils/auth";
+import { secureCompare } from "@/utils/crypto-compare";
 import { SafeError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { buildMobileSessionCookie } from "@/utils/mobile-auth/session-cookie";
@@ -100,15 +100,11 @@ function codesMatch(input: string, expected: string): boolean {
   const normalizedInput = normalizeCode(input);
   const normalizedExpected = normalizeCode(expected);
 
-  if (normalizedInput.length !== normalizedExpected.length) {
-    return false;
-  }
-
-  return timingSafeEqual(normalizedInput, normalizedExpected);
+  return secureCompare(normalizedInput, normalizedExpected);
 }
 
-function normalizeCode(code: string): Buffer {
-  return Buffer.from(code.trim(), "utf8");
+function normalizeCode(code: string): string {
+  return code.trim();
 }
 
 function getMobileReviewConfig(): MobileReviewConfigResult {
