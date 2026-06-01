@@ -47,6 +47,26 @@ describe("getVisibleOnboardingStepKeys", () => {
       STEP_KEYS.INBOX_PROCESSED,
     ]);
   });
+
+  it("filters sales survey steps for self-hosted deployments", () => {
+    expect(
+      getVisibleOnboardingStepKeys({
+        canInviteTeam: true,
+        autoDraftDisabled: false,
+        isSelfHosted: true,
+      }),
+    ).toEqual([
+      STEP_KEYS.EMAILS_SORTED,
+      STEP_KEYS.CHAT,
+      STEP_KEYS.DRAFT_REPLIES,
+      STEP_KEYS.BULK_UNSUBSCRIBE,
+      STEP_KEYS.LABELS,
+      STEP_KEYS.DRAFT,
+      STEP_KEYS.CUSTOM_RULES,
+      STEP_KEYS.INVITE_TEAM,
+      STEP_KEYS.INBOX_PROCESSED,
+    ]);
+  });
 });
 
 describe("getOnboardingStepIndex", () => {

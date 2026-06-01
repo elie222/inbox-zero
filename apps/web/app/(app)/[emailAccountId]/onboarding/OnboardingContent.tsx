@@ -110,6 +110,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   const visibleStepKeys = getVisibleOnboardingStepKeys({
     canInviteTeam,
     autoDraftDisabled: Boolean(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED),
+    isSelfHosted: Boolean(env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS),
   }).filter((key) => isDefined(stepMap[key]));
   const steps = visibleStepKeys.map((key) => stepMap[key]).filter(isDefined);
 

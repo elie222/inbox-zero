@@ -41,9 +41,11 @@ const legacyNumericOnboardingStepOrder: readonly (StepKey | "welcome")[] = [
 export function getVisibleOnboardingStepKeys({
   canInviteTeam,
   autoDraftDisabled,
+  isSelfHosted,
 }: {
   canInviteTeam: boolean;
   autoDraftDisabled: boolean;
+  isSelfHosted?: boolean;
 }) {
   return onboardingStepOrder.filter((stepKey) => {
     if (
@@ -54,6 +56,15 @@ export function getVisibleOnboardingStepKeys({
     }
 
     if (!canInviteTeam && stepKey === STEP_KEYS.INVITE_TEAM) {
+      return false;
+    }
+
+    if (
+      isSelfHosted &&
+      (stepKey === STEP_KEYS.WHO ||
+        stepKey === STEP_KEYS.COMPANY_SIZE ||
+        stepKey === STEP_KEYS.HOW_YOU_HEARD)
+    ) {
       return false;
     }
 
