@@ -26,7 +26,9 @@ import type { getEmailAccount } from "@/__tests__/helpers";
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 120_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-attachments",
+});
 const logger = createScopedLogger("eval-assistant-chat-attachments");
 
 const scenarios: EvalScenario[] = [
@@ -237,32 +239,50 @@ describe.runIf(shouldRunEval)("Eval: assistant chat attachments", () => {
       test(
         scenario.title,
         async () => {
-          if (scenario.searchMessages) {
-            mockSearchMessages.mockResolvedValueOnce({
-              messages: scenario.searchMessages,
-              nextPageToken: undefined,
-            });
-          }
+          const messages = [
+            { role: "user" as const, content: scenario.prompt },
+          ];
+          const record = await evalReporter.recordCached(
+            {
+              testName: scenario.reportName,
+              model: model.label,
+              cacheKeyParts: [
+                {
+                  model,
+                  scenario,
+                  messages,
+                },
+              ],
+            },
+            async () => {
+              if (scenario.searchMessages) {
+                mockSearchMessages.mockResolvedValueOnce({
+                  messages: scenario.searchMessages,
+                  nextPageToken: undefined,
+                });
+              }
 
-          const result = await runAssistantChat({
-            emailAccount,
-            messages: [{ role: "user", content: scenario.prompt }],
-          });
+              const result = await runAssistantChat({
+                emailAccount,
+                messages,
+              });
 
-          const evaluation = await evaluateScenario(
-            result,
-            scenario.prompt,
-            scenario.expectation,
+              const evaluation = await evaluateScenario(
+                result,
+                scenario.prompt,
+                scenario.expectation,
+              );
+
+              return {
+                testName: scenario.reportName,
+                model: model.label,
+                pass: evaluation.pass,
+                actual: evaluation.actual,
+              };
+            },
           );
 
-          evalReporter.record({
-            testName: scenario.reportName,
-            model: model.label,
-            pass: evaluation.pass,
-            actual: evaluation.actual,
-          });
-
-          expect(evaluation.pass).toBe(true);
+          expect(record.pass, record.actual).toBe(true);
         },
         TIMEOUT,
       );
