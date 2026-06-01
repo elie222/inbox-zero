@@ -25,7 +25,9 @@ import type { getEmailAccount } from "@/__tests__/helpers";
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-trash-delete",
+});
 const logger = createScopedLogger("eval-assistant-chat-trash-delete");
 
 const spamMessages = [
@@ -255,13 +257,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat trash/delete", () => {
         test(
           scenario.title,
           async () => {
-            if (scenario.searchMessages) {
-              mockSearchMessages.mockResolvedValueOnce({
-                messages: scenario.searchMessages,
-                nextPageToken: undefined,
-              });
-            }
-
             const messages: ModelMessage[] = [];
 
             if (scenario.prefillSearch) {
@@ -276,25 +271,41 @@ describe.runIf(shouldRunEval)("Eval: assistant chat trash/delete", () => {
 
             messages.push({ role: "user", content: scenario.prompt });
 
-            const result = await runAssistantChat({
-              emailAccount,
-              messages,
-            });
+            const record = await evalReporter.recordCached(
+              {
+                testName: scenario.reportName,
+                model: model.label,
+                cacheKeyParts: [{ model, scenario, messages }],
+              },
+              async () => {
+                if (scenario.searchMessages) {
+                  mockSearchMessages.mockResolvedValueOnce({
+                    messages: scenario.searchMessages,
+                    nextPageToken: undefined,
+                  });
+                }
 
-            const evaluation = await evaluateScenario(
-              result,
-              scenario.prompt,
-              scenario.expectation,
+                const result = await runAssistantChat({
+                  emailAccount,
+                  messages,
+                });
+
+                const evaluation = await evaluateScenario(
+                  result,
+                  scenario.prompt,
+                  scenario.expectation,
+                );
+
+                return {
+                  testName: scenario.reportName,
+                  model: model.label,
+                  pass: evaluation.pass,
+                  actual: evaluation.actual,
+                };
+              },
             );
 
-            evalReporter.record({
-              testName: scenario.reportName,
-              model: model.label,
-              pass: evaluation.pass,
-              actual: evaluation.actual,
-            });
-
-            expect(evaluation.pass).toBe(true);
+            expect(record.pass, record.actual).toBe(true);
           },
           TIMEOUT,
         );
