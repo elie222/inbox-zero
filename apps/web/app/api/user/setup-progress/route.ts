@@ -104,11 +104,13 @@ async function getSetupProgress({
       : true,
   };
 
-  const baseCompleted =
-    Number(steps.aiAssistant) +
-    Number(steps.bulkUnsubscribe) +
-    (showCalendarStep ? Number(steps.calendarConnected) : 0);
-  const baseTotal = 2 + (showCalendarStep ? 1 : 0);
+  const visibleSetupSteps = [
+    steps.aiAssistant,
+    steps.bulkUnsubscribe,
+    ...(showCalendarStep ? [steps.calendarConnected] : []),
+  ];
+  const baseCompleted = visibleSetupSteps.filter(Boolean).length;
+  const baseTotal = visibleSetupSteps.length;
 
   const completed = showTeamInviteStep
     ? baseCompleted + (teamInviteCompleted ? 1 : 0)
