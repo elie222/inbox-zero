@@ -3,8 +3,10 @@ import {
   getOnboardingStepHref,
   getOnboardingStepIndex,
   getVisibleOnboardingStepKeys,
+  isDraftRepliesDisabledByRuleState,
   STEP_KEYS,
 } from "./onboardingFlow";
+import { ActionType, SystemType } from "@/generated/prisma/enums";
 
 describe("getVisibleOnboardingStepKeys", () => {
   it("returns the full onboarding flow when optional steps are available", () => {
@@ -117,5 +119,36 @@ describe("getOnboardingStepHref", () => {
     expect(
       getOnboardingStepHref("acc_123", STEP_KEYS.LABELS, { force: true }),
     ).toBe("/acc_123/onboarding?step=labels&force=true");
+  });
+});
+
+describe("isDraftRepliesDisabledByRuleState", () => {
+  it("does not disable draft steps before the reply rule exists", () => {
+    expect(isDraftRepliesDisabledByRuleState([])).toBe(false);
+  });
+
+  it("disables draft steps when the reply rule has no draft action", () => {
+    expect(
+      isDraftRepliesDisabledByRuleState([
+        {
+          systemType: SystemType.TO_REPLY,
+          actions: [{ type: ActionType.LABEL }],
+        },
+      ]),
+    ).toBe(true);
+  });
+
+  it("keeps draft steps when the reply rule has a draft action", () => {
+    expect(
+      isDraftRepliesDisabledByRuleState([
+        {
+          systemType: SystemType.TO_REPLY,
+          actions: [
+            { type: ActionType.LABEL },
+            { type: ActionType.DRAFT_EMAIL },
+          ],
+        },
+      ]),
+    ).toBe(false);
   });
 });

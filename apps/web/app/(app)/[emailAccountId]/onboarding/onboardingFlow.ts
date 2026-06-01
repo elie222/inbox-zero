@@ -1,4 +1,5 @@
 import { prefixPath } from "@/utils/path";
+import { ActionType, SystemType } from "@/generated/prisma/enums";
 
 export const STEP_KEYS = {
   CHAT: "chat",
@@ -70,6 +71,25 @@ export function getVisibleOnboardingStepKeys({
 
     return true;
   });
+}
+
+type RuleDraftState = {
+  systemType: SystemType | null;
+  actions: readonly { type: ActionType }[];
+};
+
+export function isDraftRepliesDisabledByRuleState(
+  rules: readonly RuleDraftState[] | undefined,
+) {
+  const toReplyRule = rules?.find(
+    (rule) => rule.systemType === SystemType.TO_REPLY,
+  );
+
+  if (!toReplyRule) return false;
+
+  return !toReplyRule.actions.some(
+    (action) => action.type === ActionType.DRAFT_EMAIL,
+  );
 }
 
 export function getOnboardingStepHref(

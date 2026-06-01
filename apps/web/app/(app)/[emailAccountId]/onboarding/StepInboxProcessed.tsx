@@ -90,15 +90,20 @@ export function StepInboxProcessedView({
   const hasEmails = !!data && data.emails.length > 0;
   const { label } = getEmailTerminology(provider);
   const pastVerb = isMicrosoftProvider(provider) ? "categorized" : "labeled";
+  const hasDrafts = (data?.draftCount ?? 0) > 0;
 
   return (
     <div className="w-full max-w-xl">
       <div className="mb-6 text-center">
         <PageHeading className="mb-3">
-          {label.pluralCapitalized} and drafts are ready
+          {hasDrafts
+            ? `${label.pluralCapitalized} and drafts are ready`
+            : `${label.pluralCapitalized} are ready`}
         </PageHeading>
         <TypographyP className="text-muted-foreground">
-          {`We ${pastVerb} your last ${ONBOARDING_PROCESS_EMAILS_COUNT} emails and drafted replies. Nothing was archived.`}
+          {hasDrafts
+            ? `We ${pastVerb} your last ${ONBOARDING_PROCESS_EMAILS_COUNT} emails and drafted replies. Nothing was archived.`
+            : `We ${pastVerb} your last ${ONBOARDING_PROCESS_EMAILS_COUNT} emails. Nothing was archived.`}
         </TypographyP>
       </div>
 
@@ -205,7 +210,6 @@ function InboxPreviewSkeleton() {
     >
       <ul className="divide-y divide-slate-100 py-3.5">
         {Array.from({ length: 5 }).map((_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton list
           <li key={i} className="flex items-center gap-3 px-4 py-2.5">
             <Skeleton className="h-5 w-20 flex-shrink-0 rounded-md" />
             <div className="flex min-w-0 flex-1 items-center gap-2">
