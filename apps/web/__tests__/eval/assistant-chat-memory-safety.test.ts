@@ -190,8 +190,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat memory safety", () => {
               const evaluation = await evaluateScenario(result, scenario);
 
               return {
-                testName: scenario.reportName,
-                model: model.label,
                 pass: evaluation.pass,
                 actual: evaluation.actual,
               };

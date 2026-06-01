@@ -2,7 +2,10 @@ import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { describeEvalMatrix } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { getMockMessage } from "@/__tests__/helpers";
-import type { RecordedToolCall } from "@/__tests__/eval/assistant-chat-eval-utils";
+import {
+  getStableMessageCacheKey,
+  type RecordedToolCall,
+} from "@/__tests__/eval/assistant-chat-eval-utils";
 import {
   cloneEmailAccountForProvider,
   getFirstSearchInboxCall,
@@ -18,7 +21,9 @@ import {
 // pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-sender-category-cleanup.test.ts
 // Multi-model: EVAL_MODELS=all pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-sender-category-cleanup.test.ts
 
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-sender-category-cleanup",
+});
 
 const hoisted = vi.hoisted(() => ({
   mockGetCategoryOverview: vi.fn(),
@@ -74,64 +79,85 @@ describe.runIf(shouldRunEval)(
         test.each(inboxWorkflowProviders)(
           "generic cleanup stays search-led instead of entering sender categorization [$label]",
           async ({ provider, label }) => {
-            mockSearchMessages.mockResolvedValueOnce({
-              messages: [
-                getMockMessage({
-                  id: "msg-cleanup-1",
-                  threadId: "thread-cleanup-1",
-                  from: "founder@client.example",
-                  subject: "Need approval today",
-                  snippet: "Can you confirm the revised rollout before 3pm?",
-                  labelIds: ["UNREAD"],
-                }),
-                getMockMessage({
-                  id: "msg-cleanup-2",
-                  threadId: "thread-cleanup-2",
-                  from: "updates@vendor.example",
-                  subject: "Weekly product digest",
-                  snippet: "Here is the latest vendor platform update.",
-                  labelIds: [],
-                }),
-                getMockMessage({
-                  id: "msg-cleanup-3",
-                  threadId: "thread-cleanup-3",
-                  from: "receipts@bank.example",
-                  subject: "Your monthly receipt",
-                  snippet: "Receipt for your March statement.",
-                  labelIds: [],
-                }),
-              ],
-              nextPageToken: undefined,
-            });
+            const testName = `generic cleanup stays search-led (${label})`;
+            const searchMessages = [
+              getMockMessage({
+                id: "msg-cleanup-1",
+                threadId: "thread-cleanup-1",
+                from: "founder@client.example",
+                subject: "Need approval today",
+                snippet: "Can you confirm the revised rollout before 3pm?",
+                labelIds: ["UNREAD"],
+              }),
+              getMockMessage({
+                id: "msg-cleanup-2",
+                threadId: "thread-cleanup-2",
+                from: "updates@vendor.example",
+                subject: "Weekly product digest",
+                snippet: "Here is the latest vendor platform update.",
+                labelIds: [],
+              }),
+              getMockMessage({
+                id: "msg-cleanup-3",
+                threadId: "thread-cleanup-3",
+                from: "receipts@bank.example",
+                subject: "Your monthly receipt",
+                snippet: "Receipt for your March statement.",
+                labelIds: [],
+              }),
+            ];
+            const inboxStats = { total: 188, unread: 9 };
+            const messages = [
+              {
+                role: "user" as const,
+                content: "Clean up my inbox.",
+              },
+            ];
 
-            const { toolCalls, actual } = await runAssistantChat({
-              emailAccount: cloneEmailAccountForProvider(
-                emailAccount,
-                provider,
-              ),
-              inboxStats: { total: 188, unread: 9 },
-              messages: [
-                {
-                  role: "user",
-                  content: "Clean up my inbox.",
-                },
-              ],
-            });
+            const record = await evalReporter.recordCached(
+              {
+                testName,
+                model: model.label,
+                cacheKeyParts: [
+                  {
+                    model,
+                    provider,
+                    label,
+                    searchMessages: getStableMessageCacheKey(searchMessages),
+                    inboxStats,
+                    messages,
+                  },
+                ],
+              },
+              async () => {
+                mockSearchMessages.mockResolvedValueOnce({
+                  messages: searchMessages,
+                  nextPageToken: undefined,
+                });
 
-            const searchCall = getFirstSearchInboxCall(toolCalls);
-            const pass =
-              !!searchCall &&
-              hasSearchBeforeFirstWrite(toolCalls) &&
-              !usesSenderCategoryExecutionPath(toolCalls);
+                const { toolCalls, actual } = await runAssistantChat({
+                  emailAccount: cloneEmailAccountForProvider(
+                    emailAccount,
+                    provider,
+                  ),
+                  inboxStats,
+                  messages,
+                });
 
-            evalReporter.record({
-              testName: `generic cleanup stays search-led (${label})`,
-              model: model.label,
-              pass,
-              actual,
-            });
+                const searchCall = getFirstSearchInboxCall(toolCalls);
+                const pass =
+                  !!searchCall &&
+                  hasSearchBeforeFirstWrite(toolCalls) &&
+                  !usesSenderCategoryExecutionPath(toolCalls);
 
-            expect(pass).toBe(true);
+                return {
+                  pass,
+                  actual,
+                };
+              },
+            );
+
+            expect(record.pass, record.actual).toBe(true);
           },
           TIMEOUT,
         );
@@ -139,49 +165,70 @@ describe.runIf(shouldRunEval)(
         test.each(inboxWorkflowProviders)(
           "explicit category cleanup uses category tools when coverage is ready [$label]",
           async ({ provider, label }) => {
-            hoisted.mockGetCategoryOverview.mockResolvedValueOnce(
-              buildReadyCategoryOverview(),
+            const testName = `ready category cleanup uses category tools (${label})`;
+            const messages = [
+              {
+                role: "user" as const,
+                content: "Archive the Newsletters category.",
+              },
+            ];
+            const readyCategoryOverview = buildReadyCategoryOverview();
+            const archiveCategoryResult = buildArchiveCategoryResult();
+
+            const record = await evalReporter.recordCached(
+              {
+                testName,
+                model: model.label,
+                cacheKeyParts: [
+                  {
+                    model,
+                    provider,
+                    label,
+                    messages,
+                    readyCategoryOverview,
+                    archiveCategoryResult,
+                  },
+                ],
+              },
+              async () => {
+                hoisted.mockGetCategoryOverview.mockResolvedValueOnce(
+                  readyCategoryOverview,
+                );
+                hoisted.mockArchiveCategory.mockResolvedValueOnce(
+                  archiveCategoryResult,
+                );
+
+                const { toolCalls, actual } = await runAssistantChat({
+                  emailAccount: cloneEmailAccountForProvider(
+                    emailAccount,
+                    provider,
+                  ),
+                  messages,
+                });
+
+                const overviewCall = getFirstToolCallIndex(
+                  toolCalls,
+                  "getSenderCategoryOverview",
+                );
+                const manageCall =
+                  getFirstMatchingManageSenderCategoryCall(toolCalls);
+                const pass =
+                  overviewCall >= 0 &&
+                  !!manageCall &&
+                  overviewCall < manageCall.index &&
+                  referencesNewslettersCategory(manageCall.input) &&
+                  !hasToolCall(toolCalls, "searchInbox") &&
+                  !hasToolCall(toolCalls, "startSenderCategorization") &&
+                  !hasToolCall(toolCalls, "getSenderCategorizationStatus");
+
+                return {
+                  pass,
+                  actual,
+                };
+              },
             );
-            hoisted.mockArchiveCategory.mockResolvedValueOnce(
-              buildArchiveCategoryResult(),
-            );
 
-            const { toolCalls, actual } = await runAssistantChat({
-              emailAccount: cloneEmailAccountForProvider(
-                emailAccount,
-                provider,
-              ),
-              messages: [
-                {
-                  role: "user",
-                  content: "Archive the Newsletters category.",
-                },
-              ],
-            });
-
-            const overviewCall = getFirstToolCallIndex(
-              toolCalls,
-              "getSenderCategoryOverview",
-            );
-            const manageCall =
-              getFirstMatchingManageSenderCategoryCall(toolCalls);
-            const pass =
-              overviewCall >= 0 &&
-              !!manageCall &&
-              overviewCall < manageCall.index &&
-              referencesNewslettersCategory(manageCall.input) &&
-              !hasToolCall(toolCalls, "searchInbox") &&
-              !hasToolCall(toolCalls, "startSenderCategorization") &&
-              !hasToolCall(toolCalls, "getSenderCategorizationStatus");
-
-            evalReporter.record({
-              testName: `ready category cleanup uses category tools (${label})`,
-              model: model.label,
-              pass,
-              actual,
-            });
-
-            expect(pass).toBe(true);
+            expect(record.pass, record.actual).toBe(true);
           },
           TIMEOUT,
         );
@@ -189,64 +236,92 @@ describe.runIf(shouldRunEval)(
         test.each(inboxWorkflowProviders)(
           "missing category coverage starts categorization before any search fallback [$label]",
           async ({ provider, label }) => {
-            hoisted.mockGetCategoryOverview.mockResolvedValue(
-              buildUnreadyCategoryOverview(),
-            );
-            hoisted.mockStartBulkCategorization.mockResolvedValueOnce(
-              buildStartCategorizationResult(),
-            );
-            hoisted.mockGetCategorizationProgress.mockResolvedValue(
-              buildRunningCategorizationProgress(),
+            const testName = `missing coverage starts categorization before fallback (${label})`;
+            const messages = [
+              {
+                role: "user" as const,
+                content: "Archive the Newsletters category.",
+              },
+            ];
+            const unreadyCategoryOverview = buildUnreadyCategoryOverview();
+            const startCategorizationResult = buildStartCategorizationResult();
+            const runningCategorizationProgress =
+              buildRunningCategorizationProgress();
+
+            const record = await evalReporter.recordCached(
+              {
+                testName,
+                model: model.label,
+                cacheKeyParts: [
+                  {
+                    model,
+                    provider,
+                    label,
+                    messages,
+                    unreadyCategoryOverview,
+                    startCategorizationResult,
+                    runningCategorizationProgress,
+                  },
+                ],
+              },
+              async () => {
+                hoisted.mockGetCategoryOverview.mockResolvedValue(
+                  unreadyCategoryOverview,
+                );
+                hoisted.mockStartBulkCategorization.mockResolvedValueOnce(
+                  startCategorizationResult,
+                );
+                hoisted.mockGetCategorizationProgress.mockResolvedValue(
+                  runningCategorizationProgress,
+                );
+
+                const { toolCalls, actual } = await runAssistantChat({
+                  emailAccount: cloneEmailAccountForProvider(
+                    emailAccount,
+                    provider,
+                  ),
+                  messages,
+                });
+
+                const overviewCall = getFirstToolCallIndex(
+                  toolCalls,
+                  "getSenderCategoryOverview",
+                );
+                const startCall = getFirstToolCallIndex(
+                  toolCalls,
+                  "startSenderCategorization",
+                );
+                const statusCalls =
+                  getSenderCategorizationStatusCalls(toolCalls);
+                const firstSearchCall = getFirstToolCallIndex(
+                  toolCalls,
+                  "searchInbox",
+                );
+                const lastStatusCall = getLastToolCallIndex(
+                  toolCalls,
+                  "getSenderCategorizationStatus",
+                );
+                const pass =
+                  overviewCall >= 0 &&
+                  startCall > overviewCall &&
+                  !hasToolCall(toolCalls, "manageSenderCategory") &&
+                  statusCalls.length <= 3 &&
+                  statusCalls.every(
+                    (toolCall) => toolCall.input.waitMs <= 1500,
+                  ) &&
+                  (firstSearchCall < 0 ||
+                    (firstSearchCall > startCall &&
+                      (lastStatusCall < 0 ||
+                        firstSearchCall > lastStatusCall)));
+
+                return {
+                  pass,
+                  actual,
+                };
+              },
             );
 
-            const { toolCalls, actual } = await runAssistantChat({
-              emailAccount: cloneEmailAccountForProvider(
-                emailAccount,
-                provider,
-              ),
-              messages: [
-                {
-                  role: "user",
-                  content: "Archive the Newsletters category.",
-                },
-              ],
-            });
-
-            const overviewCall = getFirstToolCallIndex(
-              toolCalls,
-              "getSenderCategoryOverview",
-            );
-            const startCall = getFirstToolCallIndex(
-              toolCalls,
-              "startSenderCategorization",
-            );
-            const statusCalls = getSenderCategorizationStatusCalls(toolCalls);
-            const firstSearchCall = getFirstToolCallIndex(
-              toolCalls,
-              "searchInbox",
-            );
-            const lastStatusCall = getLastToolCallIndex(
-              toolCalls,
-              "getSenderCategorizationStatus",
-            );
-            const pass =
-              overviewCall >= 0 &&
-              startCall > overviewCall &&
-              !hasToolCall(toolCalls, "manageSenderCategory") &&
-              statusCalls.length <= 3 &&
-              statusCalls.every((toolCall) => toolCall.input.waitMs <= 1500) &&
-              (firstSearchCall < 0 ||
-                (firstSearchCall > startCall &&
-                  (lastStatusCall < 0 || firstSearchCall > lastStatusCall)));
-
-            evalReporter.record({
-              testName: `missing coverage starts categorization before fallback (${label})`,
-              model: model.label,
-              pass,
-              actual,
-            });
-
-            expect(pass).toBe(true);
+            expect(record.pass, record.actual).toBe(true);
           },
           TIMEOUT,
         );
