@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { secureCompare } from "./crypto-compare";
+import { secureCompare, secureCompareBuffers } from "./crypto-compare";
 
 describe("secureCompare", () => {
   it("returns true for equal strings", () => {
@@ -18,5 +18,14 @@ describe("secureCompare", () => {
     expect(secureCompare(null, "x")).toBe(false);
     expect(secureCompare("x", undefined)).toBe(false);
     expect(secureCompare(undefined, null)).toBe(false);
+  });
+
+  it("compares buffers without throwing on length mismatch", () => {
+    expect(secureCompareBuffers(Buffer.from("abc"), Buffer.from("abc"))).toBe(
+      true,
+    );
+    expect(secureCompareBuffers(Buffer.from("abc"), Buffer.from("abcd"))).toBe(
+      false,
+    );
   });
 });

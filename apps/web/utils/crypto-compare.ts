@@ -1,18 +1,22 @@
 import { timingSafeEqual } from "node:crypto";
 
-// Constant-time comparison for secrets/tokens (internal API key, cron secret).
-// Returns false for non-strings or a length mismatch. The length check is not
-// constant-time, but the secret's length is not itself sensitive here; this
-// avoids the byte-by-byte early-exit of `===` on the secret contents.
+// Length checks are not constant-time, but secret length is not itself
+// sensitive for these tokens. This avoids byte-by-byte early-exit comparisons.
 export function secureCompare(
   a: string | null | undefined,
   b: string | null | undefined,
 ): boolean {
   if (typeof a !== "string" || typeof b !== "string") return false;
 
-  const bufferA = Buffer.from(a);
-  const bufferB = Buffer.from(b);
-  if (bufferA.length !== bufferB.length) return false;
+  return secureCompareBuffers(Buffer.from(a), Buffer.from(b));
+}
 
-  return timingSafeEqual(bufferA, bufferB);
+export function secureCompareBuffers(
+  a: Buffer | null | undefined,
+  b: Buffer | null | undefined,
+): boolean {
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+
+  return timingSafeEqual(a, b);
 }

@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { addMinutes } from "date-fns";
 import {
   generateBookableSlots,
@@ -27,6 +27,7 @@ import {
   sendBookingConfirmationEmails,
   sendBookingRescheduledEmails,
 } from "@/utils/booking/emails";
+import { secureCompareBuffers } from "@/utils/crypto-compare";
 
 const MAX_AVAILABILITY_RANGE_MS = 32 * 24 * 60 * 60 * 1000;
 const PENDING_BOOKING_TIMEOUT_MS = 15 * 60 * 1000;
@@ -992,7 +993,7 @@ function isMatchingToken({
 }) {
   const actual = Buffer.from(hashToken(token), "hex");
   const expected = Buffer.from(tokenHash, "hex");
-  return actual.length === expected.length && timingSafeEqual(actual, expected);
+  return secureCompareBuffers(actual, expected);
 }
 
 type ManageableBooking = {
