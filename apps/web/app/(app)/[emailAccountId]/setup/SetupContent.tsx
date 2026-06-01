@@ -261,6 +261,7 @@ function Checklist({
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
   isCalendarConnected,
+  showCalendarStep,
   isTabsExtensionCompleted,
   teamInvite,
   onSetupProgressChanged,
@@ -272,6 +273,7 @@ function Checklist({
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
+  showCalendarStep: boolean;
   isTabsExtensionCompleted: boolean;
   teamInvite: {
     completed: boolean;
@@ -367,18 +369,20 @@ function Checklist({
         markDonePending={pendingStep === "bulkUnsubscribe"}
       />
 
-      <StepItem
-        href={prefixPath(emailAccountId, "/calendars")}
-        icon={<CalendarIcon size={18} />}
-        title="Connect your calendar"
-        timeEstimate="2 minutes"
-        completed={isCalendarConnected}
-        actionText="Connect"
-        onMarkDone={() => handleMarkStepDone("calendarConnected")}
-        showMarkDone
-        markDoneDisabled={isDismissingStep}
-        markDonePending={pendingStep === "calendarConnected"}
-      />
+      {showCalendarStep && (
+        <StepItem
+          href={prefixPath(emailAccountId, "/calendars")}
+          icon={<CalendarIcon size={18} />}
+          title="Connect your calendar"
+          timeEstimate="2 minutes"
+          completed={isCalendarConnected}
+          actionText="Connect"
+          onMarkDone={() => handleMarkStepDone("calendarConnected")}
+          showMarkDone
+          markDoneDisabled={isDismissingStep}
+          markDonePending={pendingStep === "calendarConnected"}
+        />
+      )}
 
       {teamInvite && (
         <StepItem
@@ -452,6 +456,7 @@ export function SetupContent() {
           isAiAssistantConfigured={data.steps.aiAssistant}
           isBulkUnsubscribeConfigured={data.steps.bulkUnsubscribe}
           isCalendarConnected={data.steps.calendarConnected}
+          showCalendarStep={data.showCalendarStep}
           isTabsExtensionCompleted={data.tabsExtensionCompleted}
           completedCount={data.completed}
           totalSteps={data.total}
@@ -471,6 +476,7 @@ function SetupPageContent({
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
   isCalendarConnected,
+  showCalendarStep,
   isTabsExtensionCompleted,
   completedCount,
   totalSteps,
@@ -484,6 +490,7 @@ function SetupPageContent({
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
+  showCalendarStep: boolean;
   isTabsExtensionCompleted: boolean;
   completedCount: number;
   totalSteps: number;
@@ -517,6 +524,7 @@ function SetupPageContent({
           isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
           isAiAssistantConfigured={isAiAssistantConfigured}
           isCalendarConnected={isCalendarConnected}
+          showCalendarStep={showCalendarStep}
           isTabsExtensionCompleted={isTabsExtensionCompleted}
           completedCount={completedCount}
           totalSteps={totalSteps}

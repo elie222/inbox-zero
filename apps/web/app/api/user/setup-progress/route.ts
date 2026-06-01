@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import { withEmailAccount } from "@/utils/middleware";
+import { env } from "@/env";
 
 export type GetSetupProgressResponse = Awaited<
   ReturnType<typeof getSetupProgress>
@@ -84,6 +85,9 @@ async function getSetupProgress({
   const tabsExtensionCompleted = emailAccount.user.dismissedHints.includes(
     `setup:tabsExtension:${emailAccountId}`,
   );
+  const showCalendarStep =
+    env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED ||
+    env.NEXT_PUBLIC_BOOKING_LINKS_ENABLED;
 
   const teamInviteCompleted =
     hasTeamMembers || hasPendingInvitations || teamInviteDismissed;
@@ -94,12 +98,17 @@ async function getSetupProgress({
     aiAssistant: emailAccount.rules.length > 0 || aiAssistantDismissed,
     bulkUnsubscribe:
       emailAccount.newsletters.length > 0 || bulkUnsubscribeDismissed,
-    calendarConnected:
-      emailAccount.calendarConnections.length > 0 || calendarConnectedDismissed,
+    calendarConnected: showCalendarStep
+      ? emailAccount.calendarConnections.length > 0 ||
+        calendarConnectedDismissed
+      : true,
   };
 
-  const baseCompleted = Object.values(steps).filter(Boolean).length;
-  const baseTotal = Object.keys(steps).length;
+  const baseCompleted =
+    Number(steps.aiAssistant) +
+    Number(steps.bulkUnsubscribe) +
+    (showCalendarStep ? Number(steps.calendarConnected) : 0);
+  const baseTotal = 2 + (showCalendarStep ? 1 : 0);
 
   const completed = showTeamInviteStep
     ? baseCompleted + (teamInviteCompleted ? 1 : 0)
@@ -111,6 +120,7 @@ async function getSetupProgress({
     completed,
     total,
     isComplete: completed === total,
+    showCalendarStep,
     tabsExtensionCompleted,
     teamInvite: showTeamInviteStep
       ? {
