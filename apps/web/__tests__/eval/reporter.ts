@@ -114,6 +114,7 @@ class EvalReporter {
 
       const reportParts = [
         this.generateConsoleReport(),
+        this.generateCacheConsoleReport(),
         this.generateCostConsoleReport(),
       ].filter((part): part is string => Boolean(part));
 
@@ -211,6 +212,18 @@ class EvalReporter {
     return lines.join("\n");
   }
 
+  private generateCacheConsoleReport(): string | null {
+    const cached = this.records.filter((record) => record.cached).length;
+    if (cached === 0) return null;
+
+    const total = this.records.length;
+    return [
+      bold("Eval Cache"),
+      "",
+      `  Cached records: ${cached}/${total}`,
+    ].join("\n");
+  }
+
   private generateSingleModelConsole(model: string, tests: string[]): string {
     const lines = [bold(`Eval Results: ${model}`), ""];
 
@@ -290,10 +303,25 @@ class EvalReporter {
       models.length <= 1
         ? this.generateSingleModelMarkdown(models[0] ?? "Default", tests)
         : this.generateComparisonMarkdown(models, tests);
+    const cacheMarkdown = this.generateCacheMarkdown();
     const costMarkdown = this.generateCostMarkdown();
-    if (!costMarkdown) return resultMarkdown;
+    const extraMarkdown = [cacheMarkdown, costMarkdown].filter(
+      (part): part is string => Boolean(part),
+    );
+    if (extraMarkdown.length === 0) return resultMarkdown;
 
-    return `${resultMarkdown}\n\n${costMarkdown}`;
+    return `${resultMarkdown}\n\n${extraMarkdown.join("\n\n")}`;
+  }
+
+  private generateCacheMarkdown(): string | null {
+    const cached = this.records.filter((record) => record.cached).length;
+    if (cached === 0) return null;
+
+    return [
+      "## Eval Cache",
+      "",
+      `Cached records: ${cached}/${this.records.length}`,
+    ].join("\n");
   }
 
   private generateCostMarkdown(): string | null {

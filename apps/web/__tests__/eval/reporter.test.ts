@@ -164,10 +164,11 @@ describe("eval reporter", () => {
   });
 
   it("reuses cached eval records in readwrite mode", async () => {
-    const { packageDir } = createTempWorkspace();
+    const { workspaceRoot, packageDir } = createTempWorkspace();
     process.chdir(packageDir);
     process.env.EVAL_RESULT_CACHE = "readwrite";
     process.env.EVAL_RESULT_CACHE_DIR = ".context/cache";
+    process.env.EVAL_REPORT_PATH = ".context/evals/report.md";
 
     const firstRun = vi.fn().mockResolvedValue({
       testName: "example case",
@@ -176,6 +177,7 @@ describe("eval reporter", () => {
       actual: "live result",
     });
     const secondRun = vi.fn();
+    const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
 
     const firstReporter = createEvalReporter({ evalName: "example eval" });
     const firstRecord = await firstReporter.recordCached(
@@ -196,6 +198,7 @@ describe("eval reporter", () => {
       },
       secondRun,
     );
+    secondReporter.printReport();
 
     expect(firstRun).toHaveBeenCalledTimes(1);
     expect(secondRun).not.toHaveBeenCalled();
@@ -207,6 +210,14 @@ describe("eval reporter", () => {
       actual: "live result",
       cached: true,
     });
+    expect(consoleLog.mock.calls.at(-1)?.[0]).toContain("Cached records: 1/1");
+
+    const markdown = fs.readFileSync(
+      path.join(workspaceRoot, ".context", "evals", "report.md"),
+      "utf8",
+    );
+    expect(markdown).toContain("## Eval Cache");
+    expect(markdown).toContain("Cached records: 1/1");
   });
 });
 
