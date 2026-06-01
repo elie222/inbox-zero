@@ -261,8 +261,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat email actions", () => {
               );
 
               return {
-                testName: scenario.reportName,
-                model: model.label,
                 pass: evaluation.pass,
                 actual: evaluation.actual,
               };

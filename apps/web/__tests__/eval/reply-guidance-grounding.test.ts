@@ -79,8 +79,6 @@ Can you check why it is still firing?`,
               });
 
               return {
-                testName,
-                model: model.label,
                 pass: judgeResult.pass,
                 expected: "no stale request for already-provided details",
                 actual: formatSemanticJudgeActual(output, judgeResult),
@@ -165,8 +163,6 @@ Can you check why it is still firing?`,
               });
 
               return {
-                testName,
-                model: model.label,
                 pass: judgeResult.pass,
                 expected: "does not ask for already-provided account details",
                 actual: formatSemanticJudgeActual(result.reply, judgeResult),

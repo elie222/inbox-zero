@@ -106,8 +106,6 @@ describe.runIf(shouldRunEval)(
                   hasNoWriteToolCalls(toolCalls);
 
                 return {
-                  testName,
-                  model: model.label,
                   pass,
                   actual,
                 };
@@ -179,8 +177,6 @@ describe.runIf(shouldRunEval)(
                   hasNoWriteToolCalls(toolCalls);
 
                 return {
-                  testName,
-                  model: model.label,
                   pass,
                   actual,
                 };

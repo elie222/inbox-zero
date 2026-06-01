@@ -105,8 +105,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat Outlook folders", () => {
                 );
 
               return {
-                testName,
-                model: model.label,
                 pass,
                 actual: `${actual} | folderName=${moveCall?.folderName ?? "none"} | moved=${Array.from(
                   movedThreadIds,
@@ -159,8 +157,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat Outlook folders", () => {
                 );
 
               return {
-                testName,
-                model: model.label,
                 pass,
                 actual: `${actual} | folderName=${folderCall?.name ?? "none"}`,
               };
@@ -214,8 +210,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat Outlook folders", () => {
                 );
 
               return {
-                testName,
-                model: model.label,
                 pass,
                 actual: `${actual} | output=${outputText}`,
               };

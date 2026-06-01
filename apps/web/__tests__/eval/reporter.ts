@@ -36,6 +36,10 @@ interface CachedEvalFile {
   schemaVersion: 1;
 }
 
+// `recordCached` always sets `model` and `testName` from its options, so the
+// callback only returns the parts that vary per run.
+type EvalRunResult = Omit<EvalRecord, "model" | "testName">;
+
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
@@ -61,7 +65,7 @@ class EvalReporter {
 
   async recordCached(
     options: CachedEvalOptions,
-    run: () => Promise<EvalRecord>,
+    run: () => Promise<EvalRunResult>,
   ): Promise<EvalRecord> {
     const cacheMode = getEvalResultCacheMode();
     const cacheKey = buildEvalCacheKey({

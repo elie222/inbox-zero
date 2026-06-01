@@ -148,8 +148,6 @@ describe.runIf(shouldRunEval)(
                   !usesSenderCategoryExecutionPath(toolCalls);
 
                 return {
-                  testName,
-                  model: model.label,
                   pass,
                   actual,
                 };
@@ -221,8 +219,6 @@ describe.runIf(shouldRunEval)(
                   !hasToolCall(toolCalls, "getSenderCategorizationStatus");
 
                 return {
-                  testName,
-                  model: model.label,
                   pass,
                   actual,
                 };
@@ -316,8 +312,6 @@ describe.runIf(shouldRunEval)(
                         firstSearchCall > lastStatusCall)));
 
                 return {
-                  testName,
-                  model: model.label,
                   pass,
                   actual,
                 };

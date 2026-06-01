@@ -173,8 +173,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
                 );
 
               return {
-                testName,
-                model: model.label,
                 pass,
                 actual,
               };
@@ -237,8 +235,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
                 labelThreadsIndex > createOrGetIndex;
 
               return {
-                testName,
-                model: model.label,
                 pass,
                 actual,
               };
@@ -288,8 +284,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
                 );
 
               return {
-                testName,
-                model: model.label,
                 pass,
                 actual,
               };
@@ -343,8 +337,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
                 );
 
               return {
-                testName,
-                model: model.label,
                 pass,
                 actual,
               };
@@ -399,8 +391,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
                 );
 
               return {
-                testName,
-                model: model.label,
                 pass,
                 actual,
               };
@@ -461,8 +451,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
                 );
 
               return {
-                testName,
-                model: model.label,
                 pass,
                 actual,
               };
