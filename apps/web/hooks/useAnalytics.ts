@@ -98,4 +98,7 @@ export const landingPageAnalytics = {
   pricingCtaClicked: (posthog: PostHog, tier: string, cta: string) => {
     posthog?.capture?.("Clicked Pricing CTA", { tier, cta });
   },
+  appDownloadClicked: (posthog: PostHog, platform: "ios" | "android") => {
+    posthog?.capture?.("Clicked App Download", { platform });
+  },
 };
