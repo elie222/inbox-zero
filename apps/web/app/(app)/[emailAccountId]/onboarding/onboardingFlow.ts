@@ -39,6 +39,13 @@ const legacyNumericOnboardingStepOrder: readonly (StepKey | "welcome")[] = [
   ...onboardingStepOrder,
 ];
 
+// Sales/marketing survey steps that are irrelevant for self-hosted deployments.
+const salesSurveyStepKeys: readonly StepKey[] = [
+  STEP_KEYS.WHO,
+  STEP_KEYS.COMPANY_SIZE,
+  STEP_KEYS.HOW_YOU_HEARD,
+];
+
 export function getVisibleOnboardingStepKeys({
   canInviteTeam,
   autoDraftDisabled,
@@ -60,12 +67,7 @@ export function getVisibleOnboardingStepKeys({
       return false;
     }
 
-    if (
-      isSelfHosted &&
-      (stepKey === STEP_KEYS.WHO ||
-        stepKey === STEP_KEYS.COMPANY_SIZE ||
-        stepKey === STEP_KEYS.HOW_YOU_HEARD)
-    ) {
+    if (isSelfHosted && salesSurveyStepKeys.includes(stepKey)) {
       return false;
     }
 

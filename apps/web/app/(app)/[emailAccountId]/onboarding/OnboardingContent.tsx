@@ -64,9 +64,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   const stepMap: Record<string, (() => React.ReactNode) | undefined> = {
     [STEP_KEYS.CHAT]: () => <StepChat onNext={onNext} />,
     [STEP_KEYS.EMAILS_SORTED]: () => <StepEmailsSorted onNext={onNext} />,
-    [STEP_KEYS.DRAFT_REPLIES]: env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
-      ? undefined
-      : () => <StepDraftReplies onNext={onNext} />,
+    [STEP_KEYS.DRAFT_REPLIES]: () => <StepDraftReplies onNext={onNext} />,
     [STEP_KEYS.BULK_UNSUBSCRIBE]: () => <StepBulkUnsubscribe onNext={onNext} />,
     [STEP_KEYS.WHO]: () => (
       <StepWho
@@ -84,15 +82,13 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
         onNext={onNext}
       />
     ),
-    [STEP_KEYS.DRAFT]: env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
-      ? undefined
-      : () => (
-          <StepDraft
-            provider={provider}
-            emailAccountId={emailAccountId}
-            onNext={onNext}
-          />
-        ),
+    [STEP_KEYS.DRAFT]: () => (
+      <StepDraft
+        provider={provider}
+        emailAccountId={emailAccountId}
+        onNext={onNext}
+      />
+    ),
     [STEP_KEYS.CUSTOM_RULES]: () => (
       <StepCustomRules provider={provider} onNext={onNext} />
     ),
@@ -299,17 +295,8 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
 
   const renderStep = steps[currentStepIndex] || steps[0];
 
-  // Show loading if provider is needed but not loaded yet
-  if (isLoading && !provider) {
-    return null;
-  }
-
-  // Wait for membership data to load before determining steps
-  if (isMembershipLoading) {
-    return null;
-  }
-
-  if (isRulesLoading) {
+  // Wait for the inputs that determine which steps are visible before rendering.
+  if ((isLoading && !provider) || isMembershipLoading || isRulesLoading) {
     return null;
   }
 
