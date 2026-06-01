@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
-import { Section, SectionContent } from "@/components/new-landing/common/Section";
+import {
+  Section,
+  SectionContent,
+} from "@/components/new-landing/common/Section";
 import {
   PageHeading,
   Paragraph,
