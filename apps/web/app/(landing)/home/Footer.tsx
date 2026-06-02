@@ -42,7 +42,13 @@ export const footerNavigation = {
     { name: "Accounting Firms", href: "/accounting-firms" },
   ],
   compare: [
+    {
+      name: "Best AI Email Assistants",
+      href: "/blog/post/best-ai-email-assistants",
+    },
     { name: "vs Fyxer.ai", href: "/best-fyxer-alternative" },
+    { name: "vs Superhuman", href: "/best-superhuman-alternative" },
+    { name: "vs Shortwave", href: "/best-shortwave-alternative" },
     {
       name: "vs Perplexity Email Assistant",
       href: "/best-perplexity-email-assistant-alternative",
