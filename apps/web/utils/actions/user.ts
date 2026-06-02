@@ -196,7 +196,10 @@ async function runDeleteEmailAccountTransaction(
   try {
     await prisma.$transaction([
       prisma.$queryRaw`
-        SELECT pg_advisory_xact_lock(539114481, hashtext(${userId}))
+        SELECT true AS locked
+        FROM (
+          SELECT pg_advisory_xact_lock(539114481, hashtext(${userId}))
+        ) lock
       `,
       ...operations,
     ]);
