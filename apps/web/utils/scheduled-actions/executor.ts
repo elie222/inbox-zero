@@ -49,6 +49,7 @@ export async function executeScheduledAction(
         log,
         "Email no longer exists",
       );
+      await checkAndCompleteExecutedRule(scheduledAction.executedRuleId, log);
       return { success: true, reason: "Email no longer exists" };
     }
 
@@ -276,7 +277,7 @@ async function markActionFailed(
  * Check if all scheduled actions for an ExecutedRule are complete
  * and update the ExecutedRule status accordingly
  */
-async function checkAndCompleteExecutedRule(
+export async function checkAndCompleteExecutedRule(
   executedRuleId: string,
   log: Logger,
 ) {

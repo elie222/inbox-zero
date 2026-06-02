@@ -5,7 +5,10 @@ import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { ScheduledActionStatus } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
-import { executeScheduledAction } from "@/utils/scheduled-actions/executor";
+import {
+  checkAndCompleteExecutedRule,
+  executeScheduledAction,
+} from "@/utils/scheduled-actions/executor";
 import { markQStashActionAsExecuting } from "@/utils/scheduled-actions/scheduler";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
@@ -93,6 +96,10 @@ async function processScheduledActions(logger: Logger) {
           where: { id: scheduledAction.id },
           data: { status: ScheduledActionStatus.FAILED },
         });
+        await checkAndCompleteExecutedRule(
+          scheduledAction.executedRuleId,
+          actionLogger,
+        );
         failed += 1;
         continue;
       }
@@ -128,6 +135,10 @@ async function processScheduledActions(logger: Logger) {
         where: { id: scheduledAction.id },
         data: { status: ScheduledActionStatus.FAILED },
       });
+      await checkAndCompleteExecutedRule(
+        scheduledAction.executedRuleId,
+        actionLogger,
+      );
       failed += 1;
     }
   }
