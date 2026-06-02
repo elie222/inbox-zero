@@ -3,10 +3,23 @@ import get from "lodash/get";
 import { log } from "next-axiom";
 import { serializeError } from "serialize-error";
 import { env } from "@/env";
+import {
+  CONTENT_FIELD_NAMES,
+  normalizeRedactionFieldName,
+  REDACTED_FIELD_NAMES,
+  SENSITIVE_FIELD_NAMES,
+} from "@/utils/redact-fields";
 
 export type Logger = ReturnType<typeof createScopedLogger>;
 
 type LogLevel = "info" | "error" | "warn" | "trace";
+
+const NORMALIZED_REDACTED_FIELD_NAMES =
+  normalizeFieldNames(REDACTED_FIELD_NAMES);
+const NORMALIZED_CONTENT_FIELD_NAMES = normalizeFieldNames(CONTENT_FIELD_NAMES);
+const NORMALIZED_SENSITIVE_FIELD_NAMES = normalizeFieldNames(
+  SENSITIVE_FIELD_NAMES,
+);
 
 const colors = {
   info: "\x1b[0m", // white
@@ -189,27 +202,6 @@ function getSimpleErrorMessage(error: unknown): string | undefined {
   return;
 }
 
-// Field names that contain PII and should be hashed in production
-const SENSITIVE_FIELD_NAMES = new Set(["from", "sender", "to", "replyTo"]);
-
-// Field names that should NEVER be logged - replaced with boolean
-const REDACTED_FIELD_NAMES = new Set([
-  "accessToken",
-  "access_token",
-  "refreshToken",
-  "refresh_token",
-  "idToken",
-  "id_token",
-  "headers",
-  "authorization",
-  "requestBodyValues",
-  "systemInstruction",
-  "contents",
-]);
-
-// Fields containing email/message content - redacted in production unless debug logs enabled
-const CONTENT_FIELD_NAMES = new Set(["text", "body", "content"]);
-
 /**
  * Recursively processes an object to protect sensitive data:
  * - REDACTED_FIELD_NAMES: Replaced with boolean (never logged)
@@ -235,13 +227,15 @@ function hashSensitiveFields<T>(obj: T, depth = 0): T {
   if (isPlainObject(obj)) {
     const processed: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
+      const normalizedKey = normalizeRedactionFieldName(key);
+
       // Always redact tokens - never log them
-      if (REDACTED_FIELD_NAMES.has(key)) {
+      if (NORMALIZED_REDACTED_FIELD_NAMES.has(normalizedKey)) {
         processed[key] = !!value;
       }
       // Redact content fields in production (unless debug logs enabled)
       else if (
-        CONTENT_FIELD_NAMES.has(key) &&
+        NORMALIZED_CONTENT_FIELD_NAMES.has(normalizedKey) &&
         env.NODE_ENV === "production" &&
         !env.ENABLE_DEBUG_LOGS
       ) {
@@ -249,7 +243,7 @@ function hashSensitiveFields<T>(obj: T, depth = 0): T {
       }
       // Hash emails in production only (server-side only)
       else if (
-        SENSITIVE_FIELD_NAMES.has(key) &&
+        NORMALIZED_SENSITIVE_FIELD_NAMES.has(normalizedKey) &&
         typeof value === "string" &&
         env.NODE_ENV === "production" &&
         typeof window === "undefined" // Server-side check
@@ -277,4 +271,8 @@ function isPlainObject(obj: unknown): obj is Record<string, unknown> {
   if (typeof obj !== "object" || obj === null) return false;
   const proto = Object.getPrototypeOf(obj);
   return proto === Object.prototype || proto === null;
+}
+
+function normalizeFieldNames(fieldNames: Set<string>) {
+  return new Set([...fieldNames].map(normalizeRedactionFieldName));
 }
