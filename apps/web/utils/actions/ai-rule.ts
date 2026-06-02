@@ -23,7 +23,7 @@ export const runRulesAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId, provider, logger: ctxLogger },
-      parsedInput: { messageId, threadId, rerun, isTest },
+      parsedInput: { messageId, threadId, rerun, isTest, isHistorical },
     }): Promise<RunRulesResult[]> => {
       const logger = ctxLogger.with({ messageId, threadId });
 
@@ -130,6 +130,7 @@ export const runRulesAction = actionClient
       logger.info("Invoking runRules");
       const result = await runRules({
         isTest,
+        isHistorical: !!isHistorical,
         provider: emailProvider,
         message,
         rules,

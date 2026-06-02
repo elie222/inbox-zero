@@ -2009,6 +2009,66 @@ describe("findMatchingRules - Integration Tests", () => {
     vi.clearAllMocks();
   });
 
+  it("historical run: categorizes a thread message even when the thread has no prior category", async () => {
+    vi.mocked(getColdEmailRule).mockResolvedValue(null);
+    vi.mocked(prisma.executedRule.findMany).mockResolvedValue([]); // no prior rule on thread
+    vi.mocked(aiChooseRule).mockResolvedValue({
+      rules: [],
+      reason: "",
+    } as never);
+
+    const categoryRule = getRule({
+      id: "notif",
+      name: "Notification",
+      runOnThreads: false,
+      instructions: "notifications",
+    });
+
+    const result = await findMatchingRules({
+      rules: [categoryRule],
+      message: getMessage({ headers: getHeaders() }),
+      emailAccount: getEmailAccount(),
+      provider: getProvider({ isThread: true }),
+      modelType: "default",
+      logger,
+      isHistorical: true,
+    });
+
+    expect(result.selectionMetadata.skippedThreadRuleNames).not.toContain(
+      "Notification",
+    );
+  });
+
+  it("real-time run: skips a non-runOnThreads rule on a thread message with no prior category (continuity preserved)", async () => {
+    vi.mocked(getColdEmailRule).mockResolvedValue(null);
+    vi.mocked(prisma.executedRule.findMany).mockResolvedValue([]);
+    vi.mocked(aiChooseRule).mockResolvedValue({
+      rules: [],
+      reason: "",
+    } as never);
+
+    const categoryRule = getRule({
+      id: "notif",
+      name: "Notification",
+      runOnThreads: false,
+      instructions: "notifications",
+    });
+
+    const result = await findMatchingRules({
+      rules: [categoryRule],
+      message: getMessage({ headers: getHeaders() }),
+      emailAccount: getEmailAccount(),
+      provider: getProvider({ isThread: true }),
+      modelType: "default",
+      logger,
+      // isHistorical omitted (real-time default)
+    });
+
+    expect(result.selectionMetadata.skippedThreadRuleNames).toContain(
+      "Notification",
+    );
+  });
+
   it("should detect and return cold email when enabled", async () => {
     const coldEmailRule = getRule({
       id: "cold-email-rule",
