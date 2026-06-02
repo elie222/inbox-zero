@@ -115,10 +115,10 @@ export function HeroVideoPlayer() {
             </DialogContent>
           </Dialog>
           <Image
-            src="https://img.youtube.com/vi/UusnveLKwWM/maxresdefault.jpg"
+            src="/images/new-landing/video-thumbnail.png"
             alt="an organized inbox"
-            width={1280}
-            height={720}
+            width={2000}
+            height={1000}
             className="w-full"
           />
           <UnicornScene className="h-[calc(100%+5px)] opacity-30" />
