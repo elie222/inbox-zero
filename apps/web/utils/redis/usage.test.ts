@@ -34,6 +34,42 @@ describe("redis usage tracking", () => {
     vi.mocked(redis.expire).mockResolvedValue(1);
   });
 
+  describe("saveUsage", () => {
+    const usage = {
+      inputTokens: 10,
+      outputTokens: 5,
+      totalTokens: 15,
+    } as never;
+
+    it("does not set the weekly cost TTL when the weekly increment fails", async () => {
+      vi.mocked(redis.hincrbyfloat).mockRejectedValue(new Error("redis down"));
+
+      await saveUsage({
+        userId: "user-1",
+        emailAccountId: "acc-1",
+        usage,
+        cost: 1,
+        now: NOW,
+      });
+
+      expect(redis.expire).not.toHaveBeenCalled();
+    });
+
+    it("does not throw when a usage write rejects", async () => {
+      vi.mocked(redis.hincrby).mockRejectedValue(new Error("redis down"));
+
+      await expect(
+        saveUsage({
+          userId: "user-1",
+          emailAccountId: "acc-1",
+          usage,
+          cost: 1,
+          now: NOW,
+        }),
+      ).resolves.toBeUndefined();
+    });
+  });
+
   it("reads usage by email account ID", async () => {
     vi.mocked(redis.hgetall).mockResolvedValue({ openaiCalls: 3 });
 
