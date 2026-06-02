@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
+import { DraftEmailStatus } from "@/generated/prisma/enums";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
@@ -121,6 +122,7 @@ export async function confirmAssistantEmailActionForAccount({
       emailProvider,
       emailAccountId,
       contentOverride,
+      logger,
     });
   } catch (error) {
     await clearPendingPartProcessing({
@@ -413,11 +415,13 @@ async function executeAssistantEmailAction({
   emailProvider,
   emailAccountId,
   contentOverride,
+  logger,
 }: {
   output: AssistantPendingEmailToolOutput;
   emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
   emailAccountId: string;
   contentOverride?: string;
+  logger: Logger;
 }): Promise<AssistantEmailConfirmationResult> {
   const confirmedAt = new Date().toISOString();
 
@@ -437,6 +441,7 @@ async function executeAssistantEmailAction({
         emailAccountId,
         confirmedAt,
         contentOverride,
+        logger,
       });
     case "forward_email":
       return confirmPendingForwardEmailAction({
@@ -467,7 +472,7 @@ async function confirmPendingSendEmailAction({
     (await getFormattedSenderAddress({ emailAccountId }));
 
   const messageHtml = contentOverride
-    ? convertNewlinesToBr(escapeHtml(contentOverride))
+    ? toMessageHtml(contentOverride)
     : output.pendingAction.messageHtml;
   const sentAfter = new Date();
 
@@ -502,13 +507,26 @@ async function confirmPendingReplyEmailAction({
   emailAccountId,
   confirmedAt,
   contentOverride,
+  logger,
 }: {
   output: PendingReplyEmailToolOutput;
   emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
   emailAccountId: string;
   confirmedAt: string;
   contentOverride?: string;
+  logger: Logger;
 }) {
+  if (output.pendingAction.existingDraftId) {
+    return confirmExistingDraftReplyAction({
+      output,
+      existingDraftId: output.pendingAction.existingDraftId,
+      emailProvider,
+      confirmedAt,
+      contentOverride,
+      logger,
+    });
+  }
+
   const sourceMessage = await emailProvider.getMessage(
     output.pendingAction.messageId,
   );
@@ -539,6 +557,72 @@ async function confirmPendingReplyEmailAction({
     subject: message.subject || message.headers.subject || null,
     confirmedAt,
   };
+}
+
+async function confirmExistingDraftReplyAction({
+  output,
+  existingDraftId,
+  emailProvider,
+  confirmedAt,
+  contentOverride,
+  logger,
+}: {
+  output: PendingReplyEmailToolOutput;
+  existingDraftId: string;
+  emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
+  confirmedAt: string;
+  contentOverride?: string;
+  logger: Logger;
+}) {
+  if (contentOverride) {
+    await emailProvider.updateDraft(existingDraftId, {
+      messageHtml: toMessageHtml(contentOverride),
+    });
+  }
+
+  const result = await emailProvider.sendDraft(existingDraftId);
+
+  await markExistingRuleGeneratedDraftLikelySent({
+    actionId: output.pendingAction.existingDraftActionId,
+    contentOverride,
+    logger,
+  });
+
+  return {
+    actionType: output.actionType,
+    messageId: result.messageId || null,
+    threadId: result.threadId || output.reference?.threadId || null,
+    to: output.reference?.from || null,
+    subject: output.reference?.subject || null,
+    confirmedAt,
+  };
+}
+
+async function markExistingRuleGeneratedDraftLikelySent({
+  actionId,
+  contentOverride,
+  logger,
+}: {
+  actionId?: string;
+  contentOverride?: string;
+  logger: Logger;
+}) {
+  if (!actionId) return;
+
+  try {
+    await prisma.executedAction.update({
+      where: { id: actionId },
+      data: {
+        draftStatus: DraftEmailStatus.LIKELY_SENT,
+        ...(contentOverride ? { content: contentOverride } : {}),
+      },
+    });
+  } catch (error) {
+    logger.warn("Failed to mark reused assistant draft as sent", {
+      error,
+      executedActionId: actionId,
+    });
+  }
 }
 
 async function confirmPendingForwardEmailAction({
@@ -1874,9 +1958,13 @@ function getPendingActionContentPatch(
   contentOverride: string,
 ): Record<string, string> {
   if (actionType === "send_email") {
-    return { messageHtml: convertNewlinesToBr(escapeHtml(contentOverride)) };
+    return { messageHtml: toMessageHtml(contentOverride) };
   }
   return { content: contentOverride };
+}
+
+function toMessageHtml(content: string) {
+  return convertNewlinesToBr(escapeHtml(content));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -320,6 +320,63 @@ describe("confirmAssistantEmailAction", () => {
     });
   });
 
+  it("sends the existing rule-generated draft when confirming a reused reply draft", async () => {
+    (prisma.emailAccount.findUnique as any)
+      .mockResolvedValueOnce({
+        email: "owner@example.com",
+        account: { userId: "u1", provider: "google" },
+      })
+      .mockResolvedValueOnce({
+        name: "Owner",
+        email: "owner@example.com",
+      });
+
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildPendingReplyPartWithExistingDraft()],
+    } as any);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+    prisma.executedAction.update.mockResolvedValue({} as any);
+
+    const replyToEmail = vi.fn().mockResolvedValue(undefined);
+    const sendDraft = vi.fn().mockResolvedValue({
+      messageId: "sent-draft-message-1",
+      threadId: "thread-1",
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      replyToEmail,
+      sendDraft,
+    } as any);
+
+    const result = await confirmAssistantEmailAction(
+      "ea_1" as any,
+      {
+        chatId: "chat-1",
+        chatMessageId: "chat-message-1",
+        toolCallId: "tool-1",
+        actionType: "reply_email",
+      } as any,
+    );
+
+    expect(sendDraft).toHaveBeenCalledWith("draft-1");
+    expect(replyToEmail).not.toHaveBeenCalled();
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "executed-action-1" },
+      data: { draftStatus: "LIKELY_SENT" },
+    });
+    expect(result?.data?.confirmationState).toBe("confirmed");
+    expect(result?.data?.confirmationResult).toMatchObject({
+      actionType: "reply_email",
+      messageId: "sent-draft-message-1",
+      threadId: "thread-1",
+      to: "sender@example.com",
+      subject: "Original subject",
+    });
+  });
+
   it("sends a pending prepared forward and persists confirmed output", async () => {
     (prisma.emailAccount.findUnique as any)
       .mockResolvedValueOnce({
@@ -1553,6 +1610,23 @@ function buildPendingReplyPart() {
         threadId: "thread-1",
         from: "sender@example.com",
         subject: "Original subject",
+      },
+    },
+  };
+}
+
+function buildPendingReplyPartWithExistingDraft() {
+  const pendingReplyPart = buildPendingReplyPart();
+
+  return {
+    ...pendingReplyPart,
+    output: {
+      ...pendingReplyPart.output,
+      pendingAction: {
+        ...pendingReplyPart.output.pendingAction,
+        content: "Existing rule draft.",
+        existingDraftId: "draft-1",
+        existingDraftActionId: "executed-action-1",
       },
     },
   };

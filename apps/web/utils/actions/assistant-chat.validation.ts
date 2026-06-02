@@ -53,6 +53,8 @@ export const pendingReplyEmailToolOutputSchema = z.object({
   pendingAction: z.object({
     messageId: z.string().trim().min(1),
     content: z.string().trim().min(1),
+    existingDraftId: z.string().trim().min(1).optional(),
+    existingDraftActionId: z.string().trim().min(1).optional(),
   }),
   reference: z
     .object({
