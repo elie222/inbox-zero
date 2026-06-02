@@ -1217,6 +1217,76 @@ Dana`,
       );
 
       test(
+        "does not claim inline screenshots are unavailable",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Jordan Blake <jordan@customer.example>",
+                to: emailAccount.email,
+                subject: "Setup error",
+                content: `Hi,
+
+I tried again but I get this error message:
+
+[image: setup error screenshot]
+
+What should I do next?
+
+Thanks,
+Jordan`,
+              }),
+              date: new Date("2026-05-04T10:15:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = "inline screenshot placeholder";
+          const judgeResult = await judgeEvalOutput({
+            input: formatThreadForJudge(messages),
+            output: result.reply,
+            expected:
+              "A natural support-style reply that treats the inline screenshot as present in the email and does not claim the image, screenshot, or attachment is missing, inaccessible, invisible, or unreadable. It may ask for the exact error text or a relevant detail if needed.",
+            criterion: {
+              name: "Inline image treated as present",
+              description:
+                "The draft should not tell the sender that the image cannot be seen, read, opened, accessed, or found. The sender included the screenshot; only the drafting model lacks visual details. The reply should proceed naturally from the surrounding text and optional image label.",
+            },
+          });
+          const pass = judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "no claim that inline screenshot is unavailable",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should treat the inline screenshot as present.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
         "mentions selected attachment when attachment context is provided",
         async () => {
           const messages = [
