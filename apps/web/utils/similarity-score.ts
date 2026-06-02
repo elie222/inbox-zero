@@ -1,3 +1,4 @@
+import he from "he";
 import * as stringSimilarity from "string-similarity";
 import {
   convertEmailHtmlToText,
@@ -75,7 +76,8 @@ function decodeHtmlEntities(text: string): string {
         return match;
       }
       return String.fromCodePoint(codePoint);
-    });
+    })
+    .replace(/&[a-zA-Z][a-zA-Z0-9]+;/g, (match) => he.decode(match));
 }
 
 /**
