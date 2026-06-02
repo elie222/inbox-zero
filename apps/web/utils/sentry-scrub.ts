@@ -1,6 +1,7 @@
 import type { Event } from "@sentry/nextjs";
 import {
   CONTENT_FIELD_NAMES,
+  normalizeRedactionFieldName,
   REDACTED_FIELD_NAMES,
   SENSITIVE_FIELD_NAMES,
 } from "@/utils/redact-fields";
@@ -8,11 +9,13 @@ import {
 const REDACTED = "[redacted]";
 const MAX_DEPTH = 10;
 
-const REDACT_KEYS = new Set<string>([
-  ...REDACTED_FIELD_NAMES,
-  ...CONTENT_FIELD_NAMES,
-  ...SENSITIVE_FIELD_NAMES,
-]);
+const REDACT_KEYS = new Set<string>(
+  [
+    ...REDACTED_FIELD_NAMES,
+    ...CONTENT_FIELD_NAMES,
+    ...SENSITIVE_FIELD_NAMES,
+  ].map(normalizeRedactionFieldName),
+);
 
 // Sentry is a third party. Before sending an event, redact PII/secrets from the
 // fields where captureException context and request data land. We redact (not
@@ -50,7 +53,7 @@ function redactPii<T>(value: T, depth = 0): T {
 
   const result: Record<string, unknown> = {};
   for (const [key, nested] of Object.entries(value)) {
-    result[key] = REDACT_KEYS.has(key)
+    result[key] = REDACT_KEYS.has(normalizeRedactionFieldName(key))
       ? REDACTED
       : redactPii(nested, depth + 1);
   }

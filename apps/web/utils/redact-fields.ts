@@ -26,4 +26,17 @@ export const REDACTED_FIELD_NAMES = new Set([
 ]);
 
 // Email/message content.
-export const CONTENT_FIELD_NAMES = new Set(["text", "body", "content"]);
+export const CONTENT_FIELD_NAMES = new Set([
+  "text",
+  "body",
+  "content",
+  "subject",
+  "textPlain",
+  "textHtml",
+  "snippet",
+  "decodedSnippet",
+]);
+
+export function normalizeRedactionFieldName(fieldName: string) {
+  return fieldName.toLowerCase().replace(/[\s_-]/g, "");
+}
