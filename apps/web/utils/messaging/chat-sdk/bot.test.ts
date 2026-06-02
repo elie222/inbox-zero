@@ -330,8 +330,8 @@ describe("buildPendingEmailConfirmationCard", () => {
       .map((child) => child.content);
 
     expect(textChildren[0]).toContain("first\\_last@outlook.com");
-    expect(textChildren[0]).toContain("Plan \\[draft]");
-    expect(textChildren[1]).toContain("foo\\_bar \\*soon\\* \\[ok]");
+    expect(textChildren[0]).toContain("Plan \\[draft\\]");
+    expect(textChildren[1]).toContain("foo\\_bar \\*soon\\* \\[ok\\]");
   });
 
   it("leaves non-Telegram pending email card text unchanged", () => {

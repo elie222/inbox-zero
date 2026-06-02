@@ -2090,7 +2090,7 @@ describe("sendMessagingRuleNotification", () => {
     expect(cardText).not.toContain("*They wrote:*");
     expect(cardText).not.toContain("Sender_Name");
     expect(cardText).toContain("Sender\\_Name");
-    expect(cardText).toContain("\\[billing]");
+    expect(cardText).toContain("\\[billing\\]");
     expect(cardText).toContain("5 \\* 6");
     expect(cardText).toContain(String.raw`C:\\labels\\account\_name`);
   });
