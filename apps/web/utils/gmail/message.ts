@@ -1,24 +1,18 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import chunk from "lodash/chunk";
 import {
-  type BatchError,
   type MessageWithPayload,
   type ParsedMessage,
   type ThreadWithPayloadMessages,
-  isBatchError,
   isDefined,
 } from "@/utils/types";
-import { getBatch } from "@/utils/gmail/batch";
+import { getBatchWithRetry } from "@/utils/gmail/batch-with-retry";
 import { getSearchTermForSender } from "@/utils/email";
-import { sleep } from "@/utils/sleep";
 import { getAccessTokenFromClient } from "@/utils/gmail/client";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import parse from "gmail-api-parse-message";
-import { isRetryableError, withGmailRetry } from "@/utils/gmail/retry";
+import { withGmailRetry } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
-
-const RATE_LIMIT_RETRY_BATCH_SIZE = 10;
 
 export function parseMessage(
   message: MessageWithPayload,
@@ -122,93 +116,16 @@ export async function getMessagesBatch({
   retryCount?: number;
   logger: Logger;
 }): Promise<ParsedMessage[]> {
-  if (!accessToken) throw new Error("No access token");
-
-  if (retryCount > 3) {
-    logger.error("Too many retries", { messageIds, retryCount });
-    return [];
-  }
   if (messageIds.length > 100) throw new Error("Too many messages. Max 100");
 
-  const batch: (MessageWithPayload | BatchError)[] = await getBatch(
-    messageIds,
-    "/gmail/v1/users/me/messages",
+  return getBatchWithRetry<MessageWithPayload, ParsedMessage>({
+    ids: messageIds,
+    endpoint: "/gmail/v1/users/me/messages",
     accessToken,
-  );
-
-  const missingMessageIds = new Set<string>();
-  let shouldRetryInSmallerBatches = false;
-
-  if (batch.some((m) => isBatchError(m) && m.error.code === 401)) {
-    logger.error("Error fetching messages", {
-      firstBatchItem: batch?.[0],
-    });
-    throw new Error("Invalid access token");
-  }
-
-  const messages = batch
-    .map((message, i) => {
-      if (isBatchError(message)) {
-        const { code, message: errorMessage, errors } = message.error;
-        const reason = errors?.[0]?.reason;
-
-        const { retryable, isRateLimit } = isRetryableError({
-          status: code,
-          reason,
-          errorMessage,
-        });
-
-        if (!retryable) {
-          logger.warn("Skipping message due to non-retryable error", {
-            messageId: messageIds[i],
-            code,
-            reason,
-            errorMessage,
-          });
-          return;
-        }
-
-        logger.error("Error fetching message, adding to retry queue", {
-          messageId: messageIds[i],
-          code,
-          errorMessage,
-          reason,
-        });
-        if (isRateLimit) shouldRetryInSmallerBatches = true;
-        missingMessageIds.add(messageIds[i]);
-        return;
-      }
-
-      return parseMessage(message as MessageWithPayload);
-    })
-    .filter(isDefined);
-
-  // if we errored, then try to refetch the missing messages
-  if (missingMessageIds.size > 0) {
-    const missingIds = Array.from(missingMessageIds);
-    logger.info("Missing messages", {
-      missingMessageIds: missingIds,
-      retryMode: shouldRetryInSmallerBatches ? "chunked" : "batch",
-    });
-    const nextRetryCount = retryCount + 1;
-    await sleep(1000 * nextRetryCount);
-    const missingMessages = shouldRetryInSmallerBatches
-      ? await getMessagesBatchInRetryChunks({
-          messageIds: missingIds,
-          accessToken,
-          retryCount: nextRetryCount,
-          logger,
-        })
-      : await getMessagesBatch({
-          messageIds: missingIds,
-          accessToken,
-          retryCount: nextRetryCount,
-          logger,
-        });
-    return [...messages, ...missingMessages];
-  }
-
-  return messages;
+    parse: (message) => parseMessage(message),
+    retryCount,
+    logger,
+  });
 }
 
 async function findPreviousEmailsWithSender(
@@ -379,31 +296,4 @@ export async function getSentMessages(
     logger,
   });
   return messages.messages;
-}
-
-async function getMessagesBatchInRetryChunks({
-  messageIds,
-  accessToken,
-  retryCount,
-  logger,
-}: {
-  messageIds: string[];
-  accessToken: string;
-  retryCount: number;
-  logger: Logger;
-}) {
-  const chunkedMessages = chunk(messageIds, RATE_LIMIT_RETRY_BATCH_SIZE);
-  const messages: ParsedMessage[] = [];
-
-  for (const messageIdsChunk of chunkedMessages) {
-    const chunkMessages = await getMessagesBatch({
-      messageIds: messageIdsChunk,
-      accessToken,
-      retryCount,
-      logger,
-    });
-    messages.push(...chunkMessages);
-  }
-
-  return messages;
 }

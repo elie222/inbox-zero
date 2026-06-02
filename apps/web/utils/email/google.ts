@@ -1210,6 +1210,7 @@ export class GmailProvider implements EmailProvider {
     const threads = await getThreadsBatch(
       threadIds,
       getAccessTokenFromClient(this.client),
+      this.logger,
     );
 
     return threads
@@ -1464,6 +1465,7 @@ export class GmailProvider implements EmailProvider {
       const threads = await getThreadsBatch(
         threadIds,
         getAccessTokenFromClient(this.client),
+        this.logger,
       );
 
       const emailThreads: EmailThread[] = threads
@@ -1508,6 +1510,7 @@ export class GmailProvider implements EmailProvider {
       this.getAccessToken(),
       sender,
       limit,
+      this.logger,
     );
   }
 
