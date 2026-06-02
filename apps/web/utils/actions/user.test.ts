@@ -71,6 +71,7 @@ describe("deleteEmailAccountAction", () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(prisma.$queryRaw).toHaveBeenCalledWith(
       expect.arrayContaining([
+        expect.stringContaining("SELECT true AS locked"),
         expect.stringContaining("pg_advisory_xact_lock"),
       ]),
       "user-1",
