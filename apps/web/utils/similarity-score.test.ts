@@ -268,6 +268,16 @@ Company
       expect(score).toBe(1.0);
     });
 
+    it("should decode named HTML entities before comparing plain text signatures", () => {
+      const storedContent = "Thanks for the update.\n\n&lt;3 Team";
+      const gmailMessage = createParsedMessage(
+        "Thanks for the update.\n\n<3 Team",
+      );
+
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBe(1.0);
+    });
+
     it.each([
       { emoji: "👋", hex: "&#x1F44B;", name: "waving hand" },
       { emoji: "😀", hex: "&#x1F600;", name: "grinning face" },
