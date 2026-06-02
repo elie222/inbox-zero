@@ -105,7 +105,7 @@ export function HeroVideoPlayer() {
               <DialogTitle className="sr-only">Video player</DialogTitle>
               <div className="relative aspect-video w-full">
                 <iframe
-                  src="https://www.youtube.com/embed/hfvKvTHBjG0?autoplay=1&rel=0"
+                  src="https://www.youtube.com/embed/UusnveLKwWM?autoplay=1&rel=0"
                   className="size-full rounded-lg"
                   title="Video content"
                   allowFullScreen
@@ -115,10 +115,10 @@ export function HeroVideoPlayer() {
             </DialogContent>
           </Dialog>
           <Image
-            src="/images/new-landing/video-thumbnail.png"
+            src="https://img.youtube.com/vi/UusnveLKwWM/maxresdefault.jpg"
             alt="an organized inbox"
-            width={2000}
-            height={1000}
+            width={1280}
+            height={720}
             className="w-full"
           />
           <UnicornScene className="h-[calc(100%+5px)] opacity-30" />

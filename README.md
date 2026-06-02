@@ -56,7 +56,7 @@ Learn more in our [docs](https://docs.getinboxzero.com).
 
 ## Demo Video
 
-[![Inbox Zero demo](/video-thumbnail.png)](http://www.youtube.com/watch?v=hfvKvTHBjG0)
+[![Inbox Zero demo](https://img.youtube.com/vi/UusnveLKwWM/maxresdefault.jpg)](https://youtu.be/UusnveLKwWM)
 
 ## Built with
 
