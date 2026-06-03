@@ -70,7 +70,7 @@ export async function getBatchWithRetry<TRaw, TParsed>({
           return;
         }
 
-        logger.error("Error fetching batch item, adding to retry queue", {
+        logger.warn("Error fetching batch item, adding to retry queue", {
           id: ids[i],
           code,
           errorMessage,
