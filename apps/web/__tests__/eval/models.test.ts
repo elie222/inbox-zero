@@ -60,7 +60,7 @@ describe("shouldRunEvalTests", () => {
   it("uses the default provider when no eval matrix is specified", () => {
     process.env.RUN_AI_TESTS = "true";
     process.env.EVAL_MODELS = undefined;
-    process.env.DEFAULT_LLM_PROVIDER = "openai";
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
     process.env.OPENAI_API_KEY = "openai-key";
     process.env.LLM_API_KEY = undefined;
 

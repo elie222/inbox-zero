@@ -8,6 +8,7 @@ import {
   ensureDatabaseUrlParameters,
   ensureRedisUrlParameter,
 } from "./aws-setup/ssm-urls";
+import { getDefaultLlmModels } from "./llm";
 import { generateSecret } from "./utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -102,7 +103,6 @@ export async function runAwsSetup(options: AwsSetupOptions) {
     p.log.error(`Invalid environment name: ${environmentError}`);
     process.exit(1);
   }
-
   const nonInteractive = options.yes === true;
   if (nonInteractive) {
     p.log.info("Running in non-interactive mode with defaults");
@@ -534,6 +534,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
       llmApiKey = apiKeyInput;
     }
   }
+  const defaultLlms = `${llmProvider}:${getDefaultLlmModels(llmProvider).default}`;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Begin Deployment
@@ -763,7 +764,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
   spinner.start("Updating service manifest variables...");
   updateServiceManifestVariables({
     baseUrl: initialBaseUrl,
-    llmProvider,
+    defaultLlms,
   });
   spinner.stop("Service manifest variables updated");
 
@@ -802,7 +803,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
       spinner.start("Updating base URL to service endpoint...");
       updateServiceManifestVariables({
         baseUrl: serviceUrl,
-        llmProvider,
+        defaultLlms,
       });
       spinner.stop("Base URL updated");
 
@@ -1392,7 +1393,7 @@ function updateServiceManifestSecrets(config: {
 
 function updateServiceManifestVariables(config: {
   baseUrl: string;
-  llmProvider: string;
+  defaultLlms: string;
 }): void {
   const copilotRoot = findCopilotRoot();
   if (!copilotRoot) return;
@@ -1406,11 +1407,9 @@ function updateServiceManifestVariables(config: {
     "NEXT_PUBLIC_BASE_URL",
     config.baseUrl,
   );
-  content = setManifestVariable(
-    content,
-    "DEFAULT_LLM_PROVIDER",
-    config.llmProvider,
-  );
+  content = content.replace(/^\s*DEFAULT_LLM_PROVIDER:.*\n?/m, "");
+  content = content.replace(/^\s*DEFAULT_LLM_MODEL:.*\n?/m, "");
+  content = setManifestVariable(content, "DEFAULT_LLMS", config.defaultLlms);
   writeFileSync(manifestPath, content);
 }
 
@@ -1451,10 +1450,9 @@ function resetServiceManifestVariables(): void {
     /^\s*NEXT_PUBLIC_BASE_URL:.*$/m,
     "  NEXT_PUBLIC_BASE_URL: # YOUR_DOMAIN, e.g. https://www.getinboxzero.com (with http or https)",
   );
-  content = content.replace(
-    /^\s*DEFAULT_LLM_PROVIDER:.*$/m,
-    "  DEFAULT_LLM_PROVIDER:",
-  );
+  content = content.replace(/^\s*DEFAULT_LLM_PROVIDER:.*\n?/m, "");
+  content = content.replace(/^\s*DEFAULT_LLM_MODEL:.*\n?/m, "");
+  content = content.replace(/^\s*DEFAULT_LLMS:.*$/m, "  DEFAULT_LLMS:");
   writeFileSync(manifestPath, content);
 }
 

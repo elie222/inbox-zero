@@ -175,7 +175,7 @@ export async function shouldForceNanoModel(options: {
     return { shouldForce: false, weeklySpendUsd: null, weeklyLimitUsd };
   }
 
-  if (!env.NANO_LLM_PROVIDER || !env.NANO_LLM_MODEL) {
+  if (!env.NANO_LLMS) {
     logger.warn("Nano model guard enabled but nano model is not configured", {
       label: options.label,
       userId: options.userId,

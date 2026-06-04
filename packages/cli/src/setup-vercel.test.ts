@@ -5,10 +5,8 @@ import { buildVercelEnvValues } from "./setup-vercel";
 describe("buildVercelEnvValues", () => {
   it("seeds required placeholders and target-specific base urls", () => {
     const llmEnv = {
-      DEFAULT_LLM_PROVIDER: "openai",
-      DEFAULT_LLM_MODEL: "gpt-5.4-mini",
-      ECONOMY_LLM_PROVIDER: "openai",
-      ECONOMY_LLM_MODEL: "gpt-5.4-nano",
+      DEFAULT_LLMS: "openai:gpt-5.4-mini",
+      ECONOMY_LLMS: "openai:gpt-5.4-nano",
       LLM_API_KEY: "replace-me",
     };
 
@@ -61,10 +59,8 @@ describe("buildVercelEnvValues", () => {
 
   it("marks generated secrets as sensitive and includes optional microsoft envs", () => {
     const llmEnv = {
-      DEFAULT_LLM_PROVIDER: "openai",
-      DEFAULT_LLM_MODEL: "gpt-5.4-mini",
-      ECONOMY_LLM_PROVIDER: "openai",
-      ECONOMY_LLM_MODEL: "gpt-5.4-nano",
+      DEFAULT_LLMS: "openai:gpt-5.4-mini",
+      ECONOMY_LLMS: "openai:gpt-5.4-nano",
       LLM_API_KEY: "replace-me",
     };
 
@@ -119,14 +115,13 @@ describe("buildVercelEnvValues", () => {
 
 describe("seedLlmPlaceholderCredentials", () => {
   it("fills bedrock placeholder credentials with defaults", () => {
-    const env = { DEFAULT_LLM_PROVIDER: "bedrock" };
+    const env = {};
 
     seedLlmPlaceholderCredentials("bedrock", env);
 
     expect(env).toMatchObject({
-      DEFAULT_LLM_MODEL: "global.anthropic.claude-sonnet-4-6",
-      ECONOMY_LLM_PROVIDER: "bedrock",
-      ECONOMY_LLM_MODEL: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+      DEFAULT_LLMS: "bedrock:global.anthropic.claude-sonnet-4-6",
+      ECONOMY_LLMS: "bedrock:global.anthropic.claude-haiku-4-5-20251001-v1:0",
       BEDROCK_ACCESS_KEY: "replace-me",
       BEDROCK_SECRET_KEY: "replace-me",
       BEDROCK_REGION: "us-west-2",

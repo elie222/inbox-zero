@@ -4,12 +4,18 @@ import type { MeetingBriefingData } from "@/utils/meeting-briefs/gather-context"
 vi.mock("@/env", () => ({
   env: {
     PERPLEXITY_API_KEY: "test-key",
-    DEFAULT_LLM_PROVIDER: "openai",
+    DEFAULT_LLMS: "openai:gpt-5.4-mini",
     EMAIL_ENCRYPT_SECRET: "test-encrypt-secret-for-testing",
     EMAIL_ENCRYPT_SALT: "test-encrypt-salt-for-testing",
   },
 }));
-vi.mock("@/utils/llms/model", () => ({ getModel: vi.fn() }));
+vi.mock("@/utils/llms/model", () => ({
+  getConfiguredRolePrimaryModelEntry: vi.fn(() => ({
+    provider: "openai",
+    modelName: "gpt-5.4-mini",
+  })),
+  getModel: vi.fn(),
+}));
 vi.mock("@/utils/llms", () => ({ createGenerateObject: vi.fn() }));
 vi.mock("@/utils/ai/helpers", () => ({
   getUserInfoPrompt: vi.fn(

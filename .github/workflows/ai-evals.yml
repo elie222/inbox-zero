@@ -78,8 +78,7 @@ jobs:
           EVAL_MODELS: ${{ github.event.inputs.eval_models || '' }}
           EVAL_REPORT_PATH: "eval-results/report.md"
           # LLM Configuration - using OpenRouter
-          DEFAULT_LLM_PROVIDER: openrouter
-          DEFAULT_LLM_MODEL: anthropic/claude-sonnet-4.5
+          DEFAULT_LLMS: openrouter:anthropic/claude-sonnet-4.5
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           # Minimal env vars required for test harness
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres"

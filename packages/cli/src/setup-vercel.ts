@@ -566,7 +566,6 @@ async function promptVercelLlmConfig(
   const llmEnv: EnvConfig = {};
 
   if (options.yes) {
-    llmEnv.DEFAULT_LLM_PROVIDER = "openai";
     seedLlmPlaceholderCredentials("openai", llmEnv);
     return llmEnv;
   }
@@ -579,7 +578,6 @@ async function promptVercelLlmConfig(
   if (p.isCancel(llmProvider)) cancelSetup();
   const selectedLlmProvider = String(llmProvider);
 
-  llmEnv.DEFAULT_LLM_PROVIDER = selectedLlmProvider;
   const configureRealKey = await p.confirm({
     message: "Add real AI credentials now?",
     initialValue: true,

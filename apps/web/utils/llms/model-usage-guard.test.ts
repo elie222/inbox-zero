@@ -40,8 +40,7 @@ vi.mock("@/env", () => ({
     AI_TRIAL_WEEKLY_SPEND_LIMIT_USD: undefined,
     NEXT_PUBLIC_BASE_URL: "https://example.com",
     RESEND_FROM_EMAIL: "support@example.com",
-    NANO_LLM_PROVIDER: undefined,
-    NANO_LLM_MODEL: undefined,
+    NANO_LLMS: undefined,
   },
 }));
 
@@ -50,8 +49,7 @@ describe("shouldForceNanoModel", () => {
     vi.clearAllMocks();
     vi.mocked(env).AI_NANO_WEEKLY_SPEND_LIMIT_USD = undefined;
     vi.mocked(env).AI_TRIAL_WEEKLY_SPEND_LIMIT_USD = undefined;
-    vi.mocked(env).NANO_LLM_PROVIDER = undefined;
-    vi.mocked(env).NANO_LLM_MODEL = undefined;
+    vi.mocked(env).NANO_LLMS = undefined;
   });
 
   it("does not force nano when the spend limit is not configured", async () => {
@@ -68,8 +66,7 @@ describe("shouldForceNanoModel", () => {
 
   it("does not force nano for users with their own API key", async () => {
     vi.mocked(env).AI_NANO_WEEKLY_SPEND_LIMIT_USD = 3;
-    vi.mocked(env).NANO_LLM_PROVIDER = "openai";
-    vi.mocked(env).NANO_LLM_MODEL = "gpt-5-nano";
+    vi.mocked(env).NANO_LLMS = "openai:gpt-5.4-nano";
 
     const result = await shouldForceNanoModel({
       userEmail: "user@example.com",
@@ -97,8 +94,7 @@ describe("shouldForceNanoModel", () => {
 
   it("forces nano when weekly spend meets the configured limit", async () => {
     vi.mocked(env).AI_NANO_WEEKLY_SPEND_LIMIT_USD = 3;
-    vi.mocked(env).NANO_LLM_PROVIDER = "openai";
-    vi.mocked(env).NANO_LLM_MODEL = "gpt-5-nano";
+    vi.mocked(env).NANO_LLMS = "openai:gpt-5.4-nano";
     vi.mocked(getWeeklyUsageCost).mockResolvedValue(3.25);
 
     const result = await shouldForceNanoModel({
@@ -115,8 +111,7 @@ describe("shouldForceNanoModel", () => {
 
   it("does not force nano when weekly spend is below the limit", async () => {
     vi.mocked(env).AI_NANO_WEEKLY_SPEND_LIMIT_USD = 3;
-    vi.mocked(env).NANO_LLM_PROVIDER = "openai";
-    vi.mocked(env).NANO_LLM_MODEL = "gpt-5-nano";
+    vi.mocked(env).NANO_LLMS = "openai:gpt-5.4-nano";
     vi.mocked(getWeeklyUsageCost).mockResolvedValue(2.99);
 
     const result = await shouldForceNanoModel({

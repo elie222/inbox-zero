@@ -44,7 +44,7 @@ jobs:
       GOOGLE_PUBSUB_TOPIC_NAME: "topic"
       EMAIL_ENCRYPT_SECRET: "secret"
       EMAIL_ENCRYPT_SALT: "salt"
-      DEFAULT_LLM_PROVIDER: "openai"
+      DEFAULT_LLMS: "openai:gpt-5.4-mini"
       INTERNAL_API_KEY: "secret"
       NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}

@@ -54,7 +54,7 @@ async function getData() {
   const usersById = new Map(users.map((user) => [user.id, user]));
 
   const nanoWeeklySpendLimitUsd = env.AI_NANO_WEEKLY_SPEND_LIMIT_USD ?? null;
-  const nanoModelConfigured = !!env.NANO_LLM_PROVIDER && !!env.NANO_LLM_MODEL;
+  const nanoModelConfigured = !!env.NANO_LLMS;
   const nanoLimiterEnabled =
     nanoWeeklySpendLimitUsd !== null && nanoModelConfigured;
 

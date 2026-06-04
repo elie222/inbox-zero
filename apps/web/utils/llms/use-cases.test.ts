@@ -57,22 +57,15 @@ vi.mock("@ai-sdk/openai-compatible", () => ({
 
 vi.mock("@/env", () => ({
   env: {
-    DEFAULT_LLM_PROVIDER: "openrouter",
-    DEFAULT_LLM_MODEL: "openai/gpt-5.4-mini",
-    DEFAULT_LLM_FALLBACKS: "openai:gpt-5-mini",
+    DEFAULT_LLMS: "openrouter:openai/gpt-5.4-mini,openai:gpt-5.4-mini",
     DEFAULT_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
-    ECONOMY_LLM_PROVIDER: "openrouter",
-    ECONOMY_LLM_MODEL: "google/gemini-2.5-flash",
-    ECONOMY_LLM_FALLBACKS: "anthropic:claude-3-5-haiku-latest",
+    ECONOMY_LLMS:
+      "openrouter:google/gemini-2.5-flash,anthropic:claude-3-5-haiku-latest",
     ECONOMY_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
-    CHAT_LLM_PROVIDER: "openrouter",
-    CHAT_LLM_MODEL: "moonshotai/kimi-k2",
-    CHAT_LLM_FALLBACKS: "google:gemini-2.5-flash",
+    CHAT_LLMS: "openrouter:moonshotai/kimi-k2,google:gemini-2.5-flash",
     CHAT_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
-    NANO_LLM_PROVIDER: undefined,
-    NANO_LLM_MODEL: undefined,
-    DRAFT_LLM_PROVIDER: "openrouter",
-    DRAFT_LLM_MODEL: "anthropic/claude-sonnet-4.6",
+    NANO_LLMS: undefined,
+    DRAFT_LLMS: "openrouter:anthropic/claude-sonnet-4.6,openai:gpt-5.4-mini",
     LLM_API_KEY: undefined,
     OPENAI_API_KEY: "test-openai-key",
     AZURE_API_KEY: "test-azure-key",

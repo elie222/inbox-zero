@@ -16,7 +16,7 @@ Start here:
 
 ## Providers
 
-Use one of these values for `*_LLM_PROVIDER`:
+Use one of these provider values before the colon in `*_LLMS` entries:
 
 | Provider | Value |
 |---|---|
@@ -36,23 +36,21 @@ Use one of these values for `*_LLM_PROVIDER`:
 
 ## Tiers
 
-For most self-hosted setups, configure these two tiers:
+For most self-hosted setups, configure the default tier and optionally override cheaper or role-specific tiers:
 
-- `DEFAULT_LLM_*` (required): primary model used for normal AI tasks.
-- `ECONOMY_LLM_*` (optional): lower-cost model for high-volume tasks. If unset, it falls back to `DEFAULT`.
-- `CHAT_LLM_*` (optional): model used for assistant chat. If unset, it falls back to `DEFAULT`.
-- `DRAFT_LLM_*` (optional): model used for drafting replies. If unset, it falls back to `DEFAULT`.
-- `NANO_LLM_*` (optional): very low-cost model for lightweight classification and extraction. If unset, it falls back to economy/default behavior.
+- `DEFAULT_LLMS` (required): normal AI tasks.
+- `ECONOMY_LLMS` (optional): lower-cost model for high-volume tasks. If unset, it falls back to default.
+- `CHAT_LLMS` (optional): assistant chat. If unset, it falls back to default.
+- `DRAFT_LLMS` (optional): reply drafting. If unset, it falls back to default.
+- `NANO_LLMS` (optional): lightweight classification and extraction. If unset, it falls back to economy/default behavior.
+
+Each value is an ordered comma-separated list in `provider:model` format. The first valid entry is the primary model. Later valid entries are ordered fallbacks. Model names can contain colons; only the first colon separates the provider from the model.
 
 Minimal example:
 
 ```env
-DEFAULT_LLM_PROVIDER=openai
-DEFAULT_LLM_MODEL=gpt-5.4-mini
-
-ECONOMY_LLM_PROVIDER=openai
-ECONOMY_LLM_MODEL=gpt-5.4-nano
-
+DEFAULT_LLMS=openai:gpt-5.4-mini
+ECONOMY_LLMS=openai:gpt-5.4-nano
 LLM_API_KEY=sk-...
 ```
 
@@ -80,15 +78,19 @@ NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED=false
 
 ## Fallbacks
 
-You can configure ordered provider fallbacks for default, economy, and chat tiers:
+Add fallbacks by adding more entries to the same role list:
 
 ```env
-DEFAULT_LLM_FALLBACKS=openrouter:anthropic/claude-sonnet-4.6,openai:gpt-5.4-mini
-ECONOMY_LLM_FALLBACKS=openrouter:google/gemini-2.5-flash
-CHAT_LLM_FALLBACKS=openrouter:anthropic/claude-haiku-4.5
+DEFAULT_LLMS=openrouter:anthropic/claude-sonnet-4.6,openai:gpt-5.4-mini
+ECONOMY_LLMS=openrouter:google/gemini-2.5-flash,openai:gpt-5.4-nano
+CHAT_LLMS=openrouter:anthropic/claude-haiku-4.5,openai:gpt-5.4-mini
 ```
 
-Each fallback entry must include both provider and model as `provider:model`.
+Unsupported providers, entries without configured credentials, entries without models, and duplicates are skipped with warnings.
+
+### Legacy variables
+
+The old `DEFAULT_LLM_PROVIDER` / `DEFAULT_LLM_MODEL`, role-specific `*_LLM_PROVIDER` / `*_LLM_MODEL`, and `*_LLM_FALLBACKS` variables are deprecated but still supported for existing deployments. At startup, they are converted into the corresponding `*_LLMS` value. New deployments and CLI-generated env files should use `*_LLMS`.
 
 ### CLI LLM providers
 
@@ -111,8 +113,7 @@ codex login
 
 ```env
 CLI_LLM_ENABLED=true
-DEFAULT_LLM_PROVIDER=codex-cli
-DEFAULT_LLM_MODEL=gpt-5.3-codex
+DEFAULT_LLMS=codex-cli:gpt-5.3-codex
 CODEX_CLI_ALLOW_NPX=false
 ```
 
@@ -126,6 +127,5 @@ claude auth login
 
 ```env
 CLI_LLM_ENABLED=true
-DEFAULT_LLM_PROVIDER=claude-code
-DEFAULT_LLM_MODEL=sonnet
+DEFAULT_LLMS=claude-code:sonnet
 ```

@@ -119,14 +119,11 @@ jobs:
             -e MICROSOFT_CLIENT_SECRET="${{ secrets.MICROSOFT_CLIENT_SECRET }}" \
             -e MICROSOFT_TENANT_ID="${{ secrets.MICROSOFT_TENANT_ID }}" \
             -e MICROSOFT_WEBHOOK_CLIENT_STATE="${{ secrets.MICROSOFT_WEBHOOK_CLIENT_STATE }}" \
-            -e DEFAULT_LLM_PROVIDER="${{ secrets.DEFAULT_LLM_PROVIDER }}" \
-            -e DEFAULT_LLM_MODEL="${{ secrets.DEFAULT_LLM_MODEL }}" \
+            -e DEFAULT_LLMS="${{ secrets.DEFAULT_LLMS || 'openai:gpt-5.4-mini' }}" \
             -e DEFAULT_OPENROUTER_PROVIDERS="${{ secrets.DEFAULT_OPENROUTER_PROVIDERS }}" \
-            -e ECONOMY_LLM_PROVIDER="${{ secrets.ECONOMY_LLM_PROVIDER }}" \
-            -e ECONOMY_LLM_MODEL="${{ secrets.ECONOMY_LLM_MODEL }}" \
+            -e ECONOMY_LLMS="${{ secrets.ECONOMY_LLMS }}" \
             -e ECONOMY_OPENROUTER_PROVIDERS="${{ secrets.ECONOMY_OPENROUTER_PROVIDERS }}" \
-            -e CHAT_LLM_PROVIDER="${{ secrets.CHAT_LLM_PROVIDER }}" \
-            -e CHAT_LLM_MODEL="${{ secrets.CHAT_LLM_MODEL }}" \
+            -e CHAT_LLMS="${{ secrets.CHAT_LLMS }}" \
             -e CHAT_OPENROUTER_PROVIDERS="${{ secrets.CHAT_OPENROUTER_PROVIDERS }}" \
             -e OPENROUTER_BACKUP_MODEL="${{ secrets.OPENROUTER_BACKUP_MODEL }}" \
             -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
@@ -235,14 +232,11 @@ jobs:
           MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
           MICROSOFT_WEBHOOK_CLIENT_STATE: ${{ secrets.MICROSOFT_WEBHOOK_CLIENT_STATE }}
           # AI provider secrets - configure whichever provider you use
-          DEFAULT_LLM_PROVIDER: ${{ secrets.DEFAULT_LLM_PROVIDER }}
-          DEFAULT_LLM_MODEL: ${{ secrets.DEFAULT_LLM_MODEL }}
+          DEFAULT_LLMS: ${{ secrets.DEFAULT_LLMS || 'openai:gpt-5.4-mini' }}
           DEFAULT_OPENROUTER_PROVIDERS: ${{ secrets.DEFAULT_OPENROUTER_PROVIDERS }}
-          ECONOMY_LLM_PROVIDER: ${{ secrets.ECONOMY_LLM_PROVIDER }}
-          ECONOMY_LLM_MODEL: ${{ secrets.ECONOMY_LLM_MODEL }}
+          ECONOMY_LLMS: ${{ secrets.ECONOMY_LLMS }}
           ECONOMY_OPENROUTER_PROVIDERS: ${{ secrets.ECONOMY_OPENROUTER_PROVIDERS }}
-          CHAT_LLM_PROVIDER: ${{ secrets.CHAT_LLM_PROVIDER }}
-          CHAT_LLM_MODEL: ${{ secrets.CHAT_LLM_MODEL }}
+          CHAT_LLMS: ${{ secrets.CHAT_LLMS }}
           CHAT_OPENROUTER_PROVIDERS: ${{ secrets.CHAT_OPENROUTER_PROVIDERS }}
           OPENROUTER_BACKUP_MODEL: ${{ secrets.OPENROUTER_BACKUP_MODEL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -307,4 +301,4 @@ jobs:
           echo "  - GOOGLE_PUBSUB_TOPIC_NAME, GOOGLE_PUBSUB_VERIFICATION_TOKEN"
           echo "  - MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET, MICROSOFT_WEBHOOK_CLIENT_STATE"
           echo "  - AI provider secrets (one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, OPENROUTER_API_KEY)"
-          echo "  - DEFAULT_LLM_PROVIDER (optional, defaults to openai)"
+          echo "  - DEFAULT_LLMS (optional, defaults to openai:gpt-5.4-mini)"

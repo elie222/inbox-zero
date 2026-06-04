@@ -70,15 +70,12 @@ QSTASH_TOKEN=""
 QSTASH_CURRENT_SIGNING_KEY=""
 QSTASH_NEXT_SIGNING_KEY=""
 
-# LLM - OpenAI
-DEFAULT_LLM_PROVIDER=openai
-DEFAULT_LLM_MODEL=gpt-4o
-CHAT_LLM_PROVIDER=openai
-CHAT_LLM_MODEL=gpt-4o-mini
-ECONOMY_LLM_PROVIDER=openai
-ECONOMY_LLM_MODEL=gpt-4o-mini
-# TODO: Add your OpenAI key from https://platform.openai.com/api-keys
-OPENAI_API_KEY=
+# LLM
+# Ordered provider:model lists used by the app's deployment-managed model resolver.
+DEFAULT_LLMS=openai:gpt-5.4-mini
+ECONOMY_LLMS=openai:gpt-5.4-nano
+CHAT_LLMS=openai:gpt-5.4-mini
+LLM_API_KEY=
 
 # Dev settings
 NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=true
@@ -97,7 +94,10 @@ echo ""
 echo "Next: Edit apps/web/.env and add your API keys:"
 echo "  - GOOGLE_CLIENT_ID"
 echo "  - GOOGLE_CLIENT_SECRET"
-echo "  - OPENAI_API_KEY"
+echo "  - DEFAULT_LLMS"
+echo "  - ECONOMY_LLMS"
+echo "  - CHAT_LLMS"
+echo "  - LLM_API_KEY"
 echo ""
 echo "Then run: pnpm dev"
 echo "=========================================="

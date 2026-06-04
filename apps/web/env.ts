@@ -1,6 +1,7 @@
 /* eslint-disable no-process-env */
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
+import { buildLegacyLlmsEnv, optionalEnvValue } from "@/env-legacy-llms";
 import { booleanString } from "@/utils/zod";
 
 const llmProviderEnum = z.enum([
@@ -32,6 +33,19 @@ const getBaseUrl = (): string | undefined => {
 
   return process.env.NEXT_PUBLIC_BASE_URL;
 };
+
+const legacyLlmsEnv = buildLegacyLlmsEnv(process.env);
+
+const llmsEnv = (legacyValue: string | undefined) =>
+  z.preprocess(
+    (value) => optionalEnvValue(value) ?? legacyValue,
+    z.string().optional(),
+  );
+
+const defaultLlmsEnv = z.preprocess(
+  (value) => optionalEnvValue(value) ?? legacyLlmsEnv.DEFAULT_LLMS,
+  z.string().min(1),
+);
 
 const parsedEnv = createEnv({
   server: {
@@ -91,26 +105,41 @@ const parsedEnv = createEnv({
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
 
-    DEFAULT_LLM_PROVIDER: z
-      // custom is deprecated
-      .enum([...llmProviderEnum.options, "custom"]),
-    DEFAULT_LLM_MODEL: z.string().optional(),
-    DEFAULT_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain; explicit model required (e.g., "openrouter:anthropic/claude-sonnet-4.6,openai:gpt-5.1")
-    DEFAULT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for default model (e.g., "Google Vertex,Anthropic")
-    // Set this to a cheaper model like Gemini Flash
-    ECONOMY_LLM_PROVIDER: llmProviderEnum.optional(),
-    ECONOMY_LLM_MODEL: z.string().optional(),
-    ECONOMY_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain for economy model; explicit model required
-    ECONOMY_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for economy model (e.g., "Google Vertex,Anthropic")
-    // Set this to a fast but strong model like Groq Kimi K2. Leaving blank will fallback to default which is also fine.
-    CHAT_LLM_PROVIDER: llmProviderEnum.optional(),
-    CHAT_LLM_MODEL: z.string().optional(),
-    CHAT_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain for chat model; explicit model required
+    DEFAULT_LLMS: defaultLlmsEnv, // Ordered provider:model chain; first valid entry is primary, later entries are fallbacks
+    ECONOMY_LLMS: llmsEnv(legacyLlmsEnv.ECONOMY_LLMS), // Ordered provider:model chain for economy model plus fallbacks
+    CHAT_LLMS: llmsEnv(legacyLlmsEnv.CHAT_LLMS), // Ordered provider:model chain for chat model plus fallbacks
+    NANO_LLMS: llmsEnv(legacyLlmsEnv.NANO_LLMS), // Ordered provider:model chain for nano model plus fallbacks
+    DRAFT_LLMS: llmsEnv(legacyLlmsEnv.DRAFT_LLMS), // Ordered provider:model chain for draft model plus fallbacks
     CHAT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for chat (e.g., "Google Vertex,Anthropic")
+    DEFAULT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for default model (e.g., "Google Vertex,Anthropic")
+    ECONOMY_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for economy model (e.g., "Google Vertex,Anthropic")
+    // Deprecated: use DEFAULT_LLMS instead. Kept so older deployments are converted at startup.
+    DEFAULT_LLM_PROVIDER: z
+      .enum([...llmProviderEnum.options, "custom"])
+      .optional(),
+    // Deprecated: use DEFAULT_LLMS instead. Kept so older deployments are converted at startup.
+    DEFAULT_LLM_MODEL: z.string().optional(),
+    // Deprecated: use DEFAULT_LLMS instead. Kept so older deployments are converted at startup.
+    DEFAULT_LLM_FALLBACKS: z.string().optional(),
+    // Deprecated: use ECONOMY_LLMS instead. Kept so older deployments are converted at startup.
+    ECONOMY_LLM_PROVIDER: llmProviderEnum.optional(),
+    // Deprecated: use ECONOMY_LLMS instead. Kept so older deployments are converted at startup.
+    ECONOMY_LLM_MODEL: z.string().optional(),
+    // Deprecated: use ECONOMY_LLMS instead. Kept so older deployments are converted at startup.
+    ECONOMY_LLM_FALLBACKS: z.string().optional(),
+    // Deprecated: use CHAT_LLMS instead. Kept so older deployments are converted at startup.
+    CHAT_LLM_PROVIDER: llmProviderEnum.optional(),
+    // Deprecated: use CHAT_LLMS instead. Kept so older deployments are converted at startup.
+    CHAT_LLM_MODEL: z.string().optional(),
+    // Deprecated: use CHAT_LLMS instead. Kept so older deployments are converted at startup.
+    CHAT_LLM_FALLBACKS: z.string().optional(),
+    // Deprecated: use NANO_LLMS instead. Kept so older deployments are converted at startup.
     NANO_LLM_PROVIDER: llmProviderEnum.optional(),
+    // Deprecated: use NANO_LLMS instead. Kept so older deployments are converted at startup.
     NANO_LLM_MODEL: z.string().optional(),
-    // Set this to override the model used for drafting replies
+    // Deprecated: use DRAFT_LLMS instead. Kept so older deployments are converted at startup.
     DRAFT_LLM_PROVIDER: llmProviderEnum.optional(),
+    // Deprecated: use DRAFT_LLMS instead. Kept so older deployments are converted at startup.
     DRAFT_LLM_MODEL: z.string().optional(),
     AI_NANO_WEEKLY_SPEND_LIMIT_USD: z.coerce.number().positive().optional(),
     AI_TRIAL_WEEKLY_SPEND_LIMIT_USD: z.coerce.number().positive().optional(),

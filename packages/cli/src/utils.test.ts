@@ -58,8 +58,11 @@ UPSTASH_REDIS_URL=placeholder
 AUTH_SECRET=
 GOOGLE_CLIENT_ID=
 MICROSOFT_CLIENT_ID=
-DEFAULT_LLM_PROVIDER=
-DEFAULT_LLM_MODEL=
+DEFAULT_LLMS=
+ECONOMY_LLMS=
+CHAT_LLMS=
+NANO_LLMS=
+DRAFT_LLMS=
 LLM_API_KEY=
 `;
 
@@ -72,10 +75,8 @@ LLM_API_KEY=
     GOOGLE_CLIENT_SECRET: "google-secret",
     MICROSOFT_CLIENT_ID: "microsoft-id",
     MICROSOFT_CLIENT_SECRET: "microsoft-secret",
-    DEFAULT_LLM_PROVIDER: "anthropic",
-    DEFAULT_LLM_MODEL: "claude-sonnet-4-6",
-    ECONOMY_LLM_PROVIDER: "anthropic",
-    ECONOMY_LLM_MODEL: "claude-haiku-4-5-20251001",
+    DEFAULT_LLMS: "anthropic:claude-sonnet-4-6",
+    ECONOMY_LLMS: "anthropic:claude-haiku-4-5-20251001",
     LLM_API_KEY: "sk-ant-xxx",
   };
 
@@ -159,15 +160,14 @@ WEB_PORT=
     });
 
     expect(result).toContain("LLM_API_KEY=sk-ant-xxx");
-    expect(result).toContain("DEFAULT_LLM_PROVIDER=anthropic");
+    expect(result).toContain("DEFAULT_LLMS=anthropic:claude-sonnet-4-6");
   });
 
   it("should handle OpenAI provider", () => {
     const openaiEnv: EnvConfig = {
       ...baseEnv,
       LLM_API_KEY: undefined,
-      DEFAULT_LLM_PROVIDER: "openai",
-      DEFAULT_LLM_MODEL: "gpt-4.1",
+      DEFAULT_LLMS: "openai:gpt-4.1",
       OPENAI_API_KEY: "sk-openai-xxx",
     };
 
@@ -179,14 +179,13 @@ WEB_PORT=
     });
 
     expect(result).toContain("LLM_API_KEY=sk-openai-xxx");
-    expect(result).toContain("DEFAULT_LLM_PROVIDER=openai");
+    expect(result).toContain("DEFAULT_LLMS=openai:gpt-4.1");
   });
 
   it("should handle Bedrock provider with multiple keys", () => {
     const bedrockEnv: EnvConfig = {
       ...baseEnv,
-      DEFAULT_LLM_PROVIDER: "bedrock",
-      DEFAULT_LLM_MODEL: "global.anthropic.claude-sonnet-4-6",
+      DEFAULT_LLMS: "bedrock:global.anthropic.claude-sonnet-4-6",
       BEDROCK_ACCESS_KEY: "AKIA-xxx",
       BEDROCK_SECRET_KEY: "secret-xxx",
       BEDROCK_REGION: "us-west-2",
@@ -214,8 +213,7 @@ BEDROCK_REGION=
     const openaiCompatibleEnv: EnvConfig = {
       ...baseEnv,
       LLM_API_KEY: "lm-studio-key",
-      DEFAULT_LLM_PROVIDER: "openai-compatible",
-      DEFAULT_LLM_MODEL: "llama-3.2-3b-instruct",
+      DEFAULT_LLMS: "openai-compatible:llama-3.2-3b-instruct",
       OPENAI_COMPATIBLE_BASE_URL: "http://localhost:1234/v1",
       OPENAI_COMPATIBLE_MODEL: "llama-3.2-3b-instruct",
     };
@@ -238,7 +236,9 @@ OPENAI_COMPATIBLE_MODEL=
     expect(result).toContain("OPENAI_COMPATIBLE_MODEL=llama-3.2-3b-instruct");
     expect(result).toContain("LLM_API_KEY=lm-studio-key");
     expect(result).not.toContain("OPENAI_COMPATIBLE_API_KEY=");
-    expect(result).toContain("DEFAULT_LLM_PROVIDER=openai-compatible");
+    expect(result).toContain(
+      "DEFAULT_LLMS=openai-compatible:llama-3.2-3b-instruct",
+    );
   });
 
   it("should handle commented lines in template", () => {
@@ -357,10 +357,11 @@ MICROSOFT_WEBHOOK_CLIENT_STATE=
 # =============================================================================
 # LLM Configuration
 # =============================================================================
-DEFAULT_LLM_PROVIDER=
-DEFAULT_LLM_MODEL=
-ECONOMY_LLM_PROVIDER=
-ECONOMY_LLM_MODEL=
+DEFAULT_LLMS=
+ECONOMY_LLMS=
+CHAT_LLMS=
+NANO_LLMS=
+DRAFT_LLMS=
 LLM_API_KEY=
 
 # =============================================================================
@@ -399,10 +400,8 @@ UPSTASH_REDIS_TOKEN=
       MICROSOFT_TENANT_ID: "common",
       MICROSOFT_WEBHOOK_CLIENT_STATE: "webhook-state-hex",
       // LLM
-      DEFAULT_LLM_PROVIDER: "anthropic",
-      DEFAULT_LLM_MODEL: "claude-sonnet-4-6",
-      ECONOMY_LLM_PROVIDER: "anthropic",
-      ECONOMY_LLM_MODEL: "claude-haiku-4-5-20251001",
+      DEFAULT_LLMS: "anthropic:claude-sonnet-4-6",
+      ECONOMY_LLMS: "anthropic:claude-haiku-4-5-20251001",
       LLM_API_KEY: "sk-ant-api-key-value",
     };
 
@@ -457,10 +456,11 @@ MICROSOFT_WEBHOOK_CLIENT_STATE=webhook-state-hex
 # =============================================================================
 # LLM Configuration
 # =============================================================================
-DEFAULT_LLM_PROVIDER=anthropic
-DEFAULT_LLM_MODEL=claude-sonnet-4-6
-ECONOMY_LLM_PROVIDER=anthropic
-ECONOMY_LLM_MODEL=claude-haiku-4-5-20251001
+DEFAULT_LLMS=anthropic:claude-sonnet-4-6
+ECONOMY_LLMS=anthropic:claude-haiku-4-5-20251001
+CHAT_LLMS=
+NANO_LLMS=
+DRAFT_LLMS=
 LLM_API_KEY=sk-ant-api-key-value
 
 # =============================================================================
@@ -603,7 +603,9 @@ describe("redactValue", () => {
   });
 
   it("should show non-sensitive values in full", () => {
-    expect(redactValue("DEFAULT_LLM_PROVIDER", "anthropic")).toBe("anthropic");
+    expect(redactValue("DEFAULT_LLMS", "anthropic:claude-sonnet-4-6")).toBe(
+      "anthropic:claude-sonnet-4-6",
+    );
     expect(redactValue("NEXT_PUBLIC_BASE_URL", "http://localhost:3000")).toBe(
       "http://localhost:3000",
     );
@@ -637,7 +639,7 @@ describe("isSensitiveKey", () => {
   });
 
   it("should not flag non-sensitive keys", () => {
-    expect(isSensitiveKey("DEFAULT_LLM_PROVIDER")).toBe(false);
+    expect(isSensitiveKey("DEFAULT_LLMS")).toBe(false);
     expect(isSensitiveKey("NEXT_PUBLIC_BASE_URL")).toBe(false);
   });
 });

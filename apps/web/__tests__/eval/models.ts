@@ -125,7 +125,7 @@ export function shouldRunEvalTests(): boolean {
     return models.every((model) => hasConfiguredProvider(model.provider));
   }
 
-  const defaultProvider = process.env.DEFAULT_LLM_PROVIDER;
+  const defaultProvider = getDefaultEvalProvider();
   return defaultProvider
     ? hasConfiguredProvider(defaultProvider)
     : hasAnyConfiguredProvider();
@@ -168,6 +168,10 @@ export function describeEvalMatrix(
       fn(model, getEmailAccountForModel(model, overrides));
     });
   }
+}
+
+function getDefaultEvalProvider(): string | undefined {
+  return process.env.DEFAULT_LLMS?.split(",").find(Boolean)?.split(":", 1)[0];
 }
 
 function getApiKeyForProvider(provider: string): string | null {

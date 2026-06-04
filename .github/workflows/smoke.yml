@@ -43,7 +43,7 @@ jobs:
       EMAIL_ENCRYPT_SECRET: secret
       EMAIL_ENCRYPT_SALT: salt
       INTERNAL_API_KEY: secret
-      DEFAULT_LLM_PROVIDER: openai
+      DEFAULT_LLMS: openai:gpt-5.4-mini
 
     steps:
       - name: Checkout repository

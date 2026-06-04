@@ -38,8 +38,7 @@ vi.mock("@posthog/ai/vercel", () => ({
 vi.mock("@/env", () => ({
   env: {
     NODE_ENV: "test",
-    NANO_LLM_PROVIDER: "",
-    NANO_LLM_MODEL: "",
+    NANO_LLMS: "",
     NEXT_PUBLIC_POSTHOG_KEY: "",
     EMAIL_ENCRYPT_SALT: "test-salt",
   },
