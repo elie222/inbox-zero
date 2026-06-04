@@ -18,13 +18,12 @@ describe("renderTerraformTfvars", () => {
       googleClientId: "google-$id",
       googleClientSecret: "google-secret",
       googlePubsubTopicName: "projects/demo/topics/inbox-zero",
-      defaultLlmProvider: "openai",
-      defaultLlmModel: "model-100%",
+      defaultLlms: "openai:model-100%",
     });
 
     expect(tfvars).toContain('app_name = "app-$${file(\\"/tmp/name\\")}"');
     expect(tfvars).toContain('environment = "%%{if true}prod%%{endif}"');
     expect(tfvars).toContain('google_client_id = "google-$id"');
-    expect(tfvars).toContain('default_llm_model = "model-100%"');
+    expect(tfvars).toContain('default_llms = "openai:model-100%"');
   });
 });

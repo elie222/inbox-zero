@@ -51,24 +51,29 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE` | No | Set to `true` to proxy remote images through the app's own Next.js route at `/api/image-proxy` instead of a separate proxy service | `false` |
 | `IMAGE_PROXY_SIGNING_SECRET` | No | Shared HMAC secret used to sign proxy URLs for the bundled Cloudflare Worker or a compatible proxy. Proxy validators may use a comma-separated list, but each signer should still be configured with a single secret. | — |
 | **LLM Provider Selection** ||||
-| `DEFAULT_LLM_PROVIDER` | Yes | Primary LLM provider (`anthropic`, `azure`, `vertex`, `google`, `openai`, `bedrock`, `openrouter`, `groq`, `aigateway`, `ollama`, `openai-compatible`, `codex-cli`, `claude-code`) | — |
-| `DEFAULT_LLM_MODEL` | No | Model to use with default provider | Provider default |
-| `DEFAULT_LLM_FALLBACKS` | No | Ordered fallback chain (`provider:model,provider:model`, explicit model required) | — |
+| `DEFAULT_LLMS` | Yes | Ordered default model list in `provider:model,provider:model` format. First valid entry is primary; later entries are fallbacks. | — |
+| `ECONOMY_LLMS` | No | Ordered model list for cheaper operations | Falls back to `DEFAULT_LLMS` |
+| `CHAT_LLMS` | No | Ordered model list for chat operations | Falls back to `DEFAULT_LLMS` |
+| `NANO_LLMS` | No | Ordered model list for lightweight classification/extraction tasks | Falls back to economy/default |
+| `DRAFT_LLMS` | No | Ordered model list for drafting replies | Falls back to `DEFAULT_LLMS` |
 | `DEFAULT_OPENROUTER_PROVIDERS` | No | Comma-separated list of OpenRouter providers | — |
-| `ECONOMY_LLM_PROVIDER` | No | Provider for cheaper operations | — |
-| `ECONOMY_LLM_MODEL` | No | Model for economy provider | — |
-| `ECONOMY_LLM_FALLBACKS` | No | Fallback chain for economy model type (`provider:model`, explicit model required) | — |
 | `ECONOMY_OPENROUTER_PROVIDERS` | No | OpenRouter providers for economy model | — |
-| `CHAT_LLM_PROVIDER` | No | Provider for chat operations | Falls back to default |
-| `CHAT_LLM_MODEL` | No | Model for chat provider | — |
-| `CHAT_LLM_FALLBACKS` | No | Fallback chain for chat model type (`provider:model`, explicit model required) | — |
 | `CHAT_OPENROUTER_PROVIDERS` | No | OpenRouter providers for chat | — |
-| `NANO_LLM_PROVIDER` | No | Provider for lightweight classification/extraction tasks | Falls back to economy/default |
-| `NANO_LLM_MODEL` | No | Model for nano provider | — |
-| `DRAFT_LLM_PROVIDER` | No | Provider for drafting replies | Falls back to default |
-| `DRAFT_LLM_MODEL` | No | Model for draft provider | — |
+| `DEFAULT_LLM_PROVIDER` | Deprecated | Legacy primary LLM provider. Converted into `DEFAULT_LLMS` at startup. | — |
+| `DEFAULT_LLM_MODEL` | Deprecated | Legacy default model. Converted into `DEFAULT_LLMS` at startup. | Provider default |
+| `DEFAULT_LLM_FALLBACKS` | Deprecated | Legacy default fallback chain. Converted into `DEFAULT_LLMS` at startup. | — |
+| `ECONOMY_LLM_PROVIDER` | Deprecated | Legacy economy provider. Converted into `ECONOMY_LLMS` at startup. | — |
+| `ECONOMY_LLM_MODEL` | Deprecated | Legacy economy model. Converted into `ECONOMY_LLMS` at startup. | — |
+| `ECONOMY_LLM_FALLBACKS` | Deprecated | Legacy economy fallback chain. Converted into `ECONOMY_LLMS` at startup. | — |
+| `CHAT_LLM_PROVIDER` | Deprecated | Legacy chat provider. Converted into `CHAT_LLMS` at startup. | — |
+| `CHAT_LLM_MODEL` | Deprecated | Legacy chat model. Converted into `CHAT_LLMS` at startup. | — |
+| `CHAT_LLM_FALLBACKS` | Deprecated | Legacy chat fallback chain. Converted into `CHAT_LLMS` at startup. | — |
+| `NANO_LLM_PROVIDER` | Deprecated | Legacy nano provider. Converted into `NANO_LLMS` at startup. | — |
+| `NANO_LLM_MODEL` | Deprecated | Legacy nano model. Converted into `NANO_LLMS` at startup. | — |
+| `DRAFT_LLM_PROVIDER` | Deprecated | Legacy draft provider. Converted into `DRAFT_LLMS` at startup. | — |
+| `DRAFT_LLM_MODEL` | Deprecated | Legacy draft model. Converted into `DRAFT_LLMS` at startup. | — |
 | **LLM Provider Credentials** ||||
-| `LLM_API_KEY` | No | Shared fallback API key for LLM providers. Used when a provider-specific key is not set. | — |
+| `LLM_API_KEY` | No | Shared fallback API key for simple single-provider setups; use provider-specific keys when mixing providers. | — |
 | `ANTHROPIC_API_KEY` | No | Anthropic API key | — |
 | `OPENAI_API_KEY` | No | OpenAI API key | — |
 | `OPENAI_ZERO_DATA_RETENTION` | No | Pass OpenAI zero-data-retention provider options when your OpenAI account is approved for it | `false` |

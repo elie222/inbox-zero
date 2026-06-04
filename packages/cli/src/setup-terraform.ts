@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import * as p from "@clack/prompts";
+import { getDefaultLlmModels } from "./llm";
 
 const DEFAULT_APP_NAME = "inbox-zero";
 const DEFAULT_ENVIRONMENT = "production";
@@ -97,8 +98,7 @@ interface TerraformVarsConfig {
   bedrockAccessKey?: string;
   bedrockRegion?: string;
   bedrockSecretKey?: string;
-  defaultLlmModel: string;
-  defaultLlmProvider: string;
+  defaultLlms: string;
   domainName: string;
   enableRedis: boolean;
   environment: string;
@@ -289,7 +289,7 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
           options: LLM_PROVIDER_OPTIONS,
         }));
   if (nonInteractive) {
-    assertNonEmpty("DEFAULT_LLM_PROVIDER", llmProvider);
+    assertNonEmpty("LLM provider", llmProvider);
   }
 
   const llmModel =
@@ -313,7 +313,11 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
     (llmProvider === "openai-compatible"
       ? llmSecrets.openaiCompatibleModel
       : undefined) ||
+    getProviderDefaultLlmModel(llmProvider) ||
     "";
+  if (nonInteractive) {
+    assertNonEmpty("LLM model", defaultLlmModel);
+  }
 
   const configureMicrosoft =
     options.microsoftClientId ||
@@ -368,8 +372,7 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
     googleClientId,
     googleClientSecret,
     googlePubsubTopicName,
-    defaultLlmProvider: llmProvider,
-    defaultLlmModel,
+    defaultLlms: `${llmProvider}:${defaultLlmModel}`,
     microsoftClientId,
     microsoftClientSecret,
     ...llmSecrets,
@@ -584,7 +587,7 @@ async function getLlmSecrets(config: {
         config.options.ollamaModel ||
         config.options.llmModel ||
         process.env.OLLAMA_MODEL ||
-        process.env.DEFAULT_LLM_MODEL ||
+        getModelFromDefaultLlms("ollama") ||
         (config.nonInteractive
           ? "qwen3.5:4b"
           : await promptRequiredText({
@@ -594,7 +597,7 @@ async function getLlmSecrets(config: {
             }));
       if (config.nonInteractive) {
         assertNonEmpty("OLLAMA_BASE_URL", ollamaBaseUrl);
-        assertNonEmpty("DEFAULT_LLM_MODEL or OLLAMA_MODEL", ollamaModel);
+        assertNonEmpty("DEFAULT_LLMS or OLLAMA_MODEL", ollamaModel);
       }
       return { ollamaBaseUrl, ollamaModel };
     }
@@ -612,7 +615,7 @@ async function getLlmSecrets(config: {
         config.options.openaiCompatibleModel ||
         config.options.llmModel ||
         process.env.OPENAI_COMPATIBLE_MODEL ||
-        process.env.DEFAULT_LLM_MODEL ||
+        getModelFromDefaultLlms("openai-compatible") ||
         (config.nonInteractive
           ? "qwen3.5:4b"
           : await promptRequiredText({
@@ -632,7 +635,7 @@ async function getLlmSecrets(config: {
       if (config.nonInteractive) {
         assertNonEmpty("OPENAI_COMPATIBLE_BASE_URL", openaiCompatibleBaseUrl);
         assertNonEmpty(
-          "DEFAULT_LLM_MODEL or OPENAI_COMPATIBLE_MODEL",
+          "DEFAULT_LLMS or OPENAI_COMPATIBLE_MODEL",
           openaiCompatibleModel,
         );
       }
@@ -715,6 +718,26 @@ function validateLlmProvider(
   }
   p.log.warn(`Unknown LLM provider "${value}". Please choose a valid option.`);
   return;
+}
+
+function getProviderDefaultLlmModel(provider: string): string | undefined {
+  try {
+    return getDefaultLlmModels(provider).default;
+  } catch {
+    return;
+  }
+}
+
+function getModelFromDefaultLlms(provider: string): string | undefined {
+  const entries = process.env.DEFAULT_LLMS?.split(",") ?? [];
+
+  for (const entry of entries) {
+    const separatorIndex = entry.indexOf(":");
+    if (separatorIndex === -1) continue;
+    if (entry.slice(0, separatorIndex).trim() !== provider) continue;
+
+    return entry.slice(separatorIndex + 1).trim() || undefined;
+  }
 }
 
 function validateInstanceClass(
@@ -834,14 +857,7 @@ export function renderTerraformTfvars(config: TerraformVarsConfig) {
     )}"`,
   );
 
-  lines.push(
-    `default_llm_provider = "${escapeTfValue(config.defaultLlmProvider)}"`,
-  );
-  if (config.defaultLlmModel) {
-    lines.push(
-      `default_llm_model = "${escapeTfValue(config.defaultLlmModel)}"`,
-    );
-  }
+  lines.push(`default_llms = "${escapeTfValue(config.defaultLlms)}"`);
 
   addOptionalTfVar(lines, "llm_api_key", config.llmApiKey);
   addOptionalTfVar(lines, "bedrock_access_key", config.bedrockAccessKey);
@@ -1252,8 +1268,7 @@ locals {
       { name = "NODE_ENV", value = "production" },
       { name = "HOSTNAME", value = "0.0.0.0" },
       { name = "NEXT_PUBLIC_BASE_URL", value = local.base_url },
-      { name = "DEFAULT_LLM_PROVIDER", value = var.default_llm_provider },
-      var.default_llm_model != "" ? { name = "DEFAULT_LLM_MODEL", value = var.default_llm_model } : null,
+      { name = "DEFAULT_LLMS", value = var.default_llms },
       var.bedrock_region != "" ? { name = "BEDROCK_REGION", value = var.bedrock_region } : null,
       var.ollama_base_url != "" ? { name = "OLLAMA_BASE_URL", value = var.ollama_base_url } : null,
       var.ollama_model != "" ? { name = "OLLAMA_MODEL", value = var.ollama_model } : null,
@@ -1560,18 +1575,13 @@ variable "google_pubsub_topic_name" {
   }
 }
 
-variable "default_llm_provider" {
+variable "default_llms" {
   type = string
 
   validation {
-    condition     = var.default_llm_provider != ""
-    error_message = "default_llm_provider is required."
+    condition     = var.default_llms != ""
+    error_message = "default_llms is required."
   }
-}
-
-variable "default_llm_model" {
-  type    = string
-  default = ""
 }
 
 variable "llm_api_key" {

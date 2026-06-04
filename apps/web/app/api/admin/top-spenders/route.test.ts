@@ -17,8 +17,7 @@ vi.mock("@/utils/redis/usage", () => ({
 vi.mock("@/env", () => ({
   env: {
     AI_NANO_WEEKLY_SPEND_LIMIT_USD: 2,
-    NANO_LLM_PROVIDER: "openai",
-    NANO_LLM_MODEL: "gpt-5-nano",
+    NANO_LLMS: "openai:gpt-5.4-nano",
   },
 }));
 

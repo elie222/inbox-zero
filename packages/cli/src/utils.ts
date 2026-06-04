@@ -129,11 +129,11 @@ export function generateEnvFile(config: {
   // LLM Configuration
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Set the active LLM provider
-  setValue("DEFAULT_LLM_PROVIDER", env.DEFAULT_LLM_PROVIDER);
-  setValue("DEFAULT_LLM_MODEL", env.DEFAULT_LLM_MODEL);
-  setValue("ECONOMY_LLM_PROVIDER", env.ECONOMY_LLM_PROVIDER);
-  setValue("ECONOMY_LLM_MODEL", env.ECONOMY_LLM_MODEL);
+  setValue("DEFAULT_LLMS", env.DEFAULT_LLMS);
+  setValue("ECONOMY_LLMS", env.ECONOMY_LLMS);
+  setValue("CHAT_LLMS", env.CHAT_LLMS);
+  setValue("NANO_LLMS", env.NANO_LLMS);
+  setValue("DRAFT_LLMS", env.DRAFT_LLMS);
 
   // Shared fallback key for cloud LLM providers.
   const legacyProviderApiKeyMap: Record<string, string> = {

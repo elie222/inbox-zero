@@ -15,11 +15,11 @@ graph LR
 
     subgraph External APIs
         Google[Google OAuth]
-        OpenAI[OpenAI]
+        LLM[LLM Provider]
     end
 
     App -.-> Google
-    App -.-> OpenAI
+    App -.-> LLM
 ```
 
 ## Quick Start
@@ -38,7 +38,8 @@ Setup runs automatically (installs deps, generates secrets, runs migrations).
 |----------|--------|
 | `GOOGLE_CLIENT_ID` | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) |
 | `GOOGLE_CLIENT_SECRET` | Same |
-| `OPENAI_API_KEY` | [OpenAI Platform](https://platform.openai.com/api-keys) |
+| `DEFAULT_LLMS` | `provider:model` for your preferred LLM provider |
+| `LLM_API_KEY` | API key for the configured LLM provider, if required |
 
 **Google OAuth setup:**
 - Create OAuth 2.0 Client ID (Web application)
@@ -57,4 +58,4 @@ Open http://localhost:3000
 
 - PostgreSQL + Redis (local containers)
 - Auth secrets (auto-generated)
-- LLM config (OpenAI gpt-4o / gpt-4o-mini)
+- LLM config placeholders (`DEFAULT_LLMS`, `ECONOMY_LLMS`, `CHAT_LLMS`)

@@ -68,7 +68,7 @@ export default defineConfig({
         EMAIL_ENCRYPT_SECRET: process.env.EMAIL_ENCRYPT_SECRET ?? "secret",
         EMAIL_ENCRYPT_SALT: process.env.EMAIL_ENCRYPT_SALT ?? "salt",
         INTERNAL_API_KEY: process.env.INTERNAL_API_KEY ?? "secret",
-        DEFAULT_LLM_PROVIDER: process.env.DEFAULT_LLM_PROVIDER ?? "openai",
+        DEFAULT_LLMS: process.env.DEFAULT_LLMS ?? "openai:gpt-5.4-mini",
         SMOKE_TEST_EMAIL: smokeTestEmail,
       },
     },

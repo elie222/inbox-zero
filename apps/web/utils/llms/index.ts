@@ -24,7 +24,6 @@ import {
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { withTracing } from "@posthog/ai/vercel";
 import { jsonrepair } from "jsonrepair";
-import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
 import type { EmailAccountWithAI, UserAIFields } from "@/utils/llms/types";
 import {
@@ -48,6 +47,7 @@ import {
 } from "@/utils/error";
 import { hash } from "@/utils/hash";
 import {
+  getConfiguredRolePrimaryModel,
   getModel,
   type ModelType,
   type ResolvedModel,
@@ -1116,11 +1116,11 @@ async function getCostControlledModelOptions({
 
   try {
     const nanoModelOptions = getModel(NO_USER_AI_FIELDS, "nano");
+    const configuredNanoModel = getConfiguredRolePrimaryModel("nano");
     const isResolvedConfiguredNanoModel =
-      !!env.NANO_LLM_PROVIDER &&
-      !!env.NANO_LLM_MODEL &&
-      nanoModelOptions.provider === env.NANO_LLM_PROVIDER &&
-      nanoModelOptions.modelName === env.NANO_LLM_MODEL;
+      !!configuredNanoModel &&
+      nanoModelOptions.provider === configuredNanoModel.provider &&
+      nanoModelOptions.modelName === configuredNanoModel.modelName;
 
     if (!isResolvedConfiguredNanoModel) {
       logger.warn(
@@ -1131,8 +1131,8 @@ async function getCostControlledModelOptions({
           emailAccountId,
           weeklySpendUsd: guard.weeklySpendUsd,
           weeklyLimitUsd: guard.weeklyLimitUsd,
-          configuredProvider: env.NANO_LLM_PROVIDER,
-          configuredModel: env.NANO_LLM_MODEL,
+          configuredProvider: configuredNanoModel?.provider,
+          configuredModel: configuredNanoModel?.modelName,
           resolvedProvider: nanoModelOptions.provider,
           resolvedModel: nanoModelOptions.modelName,
         },

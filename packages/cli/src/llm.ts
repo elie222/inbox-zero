@@ -68,25 +68,20 @@ export function seedLlmPlaceholderCredentials(
   if (provider === "openai-compatible") {
     env.OPENAI_COMPATIBLE_BASE_URL = "http://localhost:1234/v1";
     env.OPENAI_COMPATIBLE_MODEL = "qwen3.5:4b";
-    env.DEFAULT_LLM_MODEL = env.OPENAI_COMPATIBLE_MODEL;
-    env.ECONOMY_LLM_PROVIDER = provider;
-    env.ECONOMY_LLM_MODEL = env.OPENAI_COMPATIBLE_MODEL;
+    setRoleLlms(provider, env.OPENAI_COMPATIBLE_MODEL, env);
     env.LLM_API_KEY = "replace-me";
     return;
   }
 
   if (provider === "ollama") {
     env.OLLAMA_BASE_URL = "http://localhost:11434";
-    env.DEFAULT_LLM_MODEL = "qwen3.5:4b";
-    env.ECONOMY_LLM_PROVIDER = provider;
-    env.ECONOMY_LLM_MODEL = env.DEFAULT_LLM_MODEL;
+    env.OLLAMA_MODEL = "qwen3.5:4b";
+    setRoleLlms(provider, env.OLLAMA_MODEL, env);
     return;
   }
 
-  const models = getDefaultModels(provider);
-  env.DEFAULT_LLM_MODEL = models.default;
-  env.ECONOMY_LLM_PROVIDER = provider;
-  env.ECONOMY_LLM_MODEL = models.economy;
+  const models = getDefaultLlmModels(provider);
+  setRoleLlms(provider, models.default, env, models.economy);
 
   if (provider === "bedrock") {
     env.BEDROCK_ACCESS_KEY = "replace-me";
@@ -105,26 +100,22 @@ export async function promptLlmCredentials(
   if (provider === "openai-compatible") {
     const creds = await promptOpenAICompatibleCreds();
     env.OPENAI_COMPATIBLE_BASE_URL = creds.baseUrl;
+    env.OPENAI_COMPATIBLE_MODEL = creds.model;
     if (creds.apiKey) env.LLM_API_KEY = creds.apiKey;
-    env.DEFAULT_LLM_MODEL = creds.model;
-    env.ECONOMY_LLM_PROVIDER = provider;
-    env.ECONOMY_LLM_MODEL = creds.model;
+    setRoleLlms(provider, creds.model, env);
     return;
   }
 
   if (provider === "ollama") {
     const ollama = await promptOllamaCreds();
     env.OLLAMA_BASE_URL = ollama.baseUrl;
-    env.DEFAULT_LLM_MODEL = ollama.model;
-    env.ECONOMY_LLM_PROVIDER = provider;
-    env.ECONOMY_LLM_MODEL = ollama.model;
+    env.OLLAMA_MODEL = ollama.model;
+    setRoleLlms(provider, ollama.model, env);
     return;
   }
 
-  const models = getDefaultModels(provider);
-  env.DEFAULT_LLM_MODEL = models.default;
-  env.ECONOMY_LLM_PROVIDER = provider;
-  env.ECONOMY_LLM_MODEL = models.economy;
+  const models = getDefaultLlmModels(provider);
+  setRoleLlms(provider, models.default, env, models.economy);
 
   if (provider === "bedrock") {
     const bedrock = await promptBedrockCreds();
@@ -137,11 +128,21 @@ export async function promptLlmCredentials(
   env.LLM_API_KEY = await promptApiKey(provider);
 }
 
-function getDefaultModels(provider: string) {
+export function getDefaultLlmModels(provider: string) {
   const models = DEFAULT_MODELS[provider as DefaultModelProvider];
   if (models) return models;
 
   throw new Error(`Unsupported LLM provider: ${provider}`);
+}
+
+function setRoleLlms(
+  provider: string,
+  defaultModel: string,
+  env: EnvConfig,
+  economyModel = defaultModel,
+) {
+  env.DEFAULT_LLMS = `${provider}:${defaultModel}`;
+  env.ECONOMY_LLMS = `${provider}:${economyModel}`;
 }
 
 function cancelSetup(): never {
