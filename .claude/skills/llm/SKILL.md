@@ -133,7 +133,8 @@ ${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}`;
    - Only add deterministic filters when the product truly needs a hard rule outside the model
    - Do not add prompt examples that closely mirror eval fixtures just to make a test pass
 9. **Draft Attribution Versioning**:
-   - When changing draft-generation prompt inputs, retrieval context, routing, or post-processing, bump `apps/web/utils/ai/reply/draft-attribution.ts` `DRAFT_PIPELINE_VERSION`
+   - When changing draft-generation prompt inputs, retrieval context, model routing behavior, or post-processing, bump `apps/web/utils/ai/reply/draft-attribution.ts` `DRAFT_PIPELINE_VERSION`
+   - Do not bump it for behavior-preserving refactors that keep the same prompt, context, model role, and output processing
    - Treat that version as analytics attribution for reply-draft quality comparisons
 
 ## Testing
