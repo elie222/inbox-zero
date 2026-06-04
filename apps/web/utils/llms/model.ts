@@ -247,14 +247,13 @@ function selectModel(
         throw new SafeError(
           "DEFAULT_LLM_MODEL environment variable is not set",
         );
-      const baseURL =
-        env.OPENAI_COMPATIBLE_BASE_URL || "http://localhost:1234/v1";
+      const baseURL = getOpenAiCompatibleBaseUrl();
       const openAiCompatibleApiKey = resolveApiKey(aiApiKey, undefined);
       const openaiCompatible = createOpenAICompatible({
         name: "openai-compatible",
         baseURL,
         supportsStructuredOutputs: true,
-        ...(openAiCompatibleApiKey ? { apiKey: openAiCompatibleApiKey } : {}),
+        ...getOpenAiCompatibleAuthOptions(openAiCompatibleApiKey),
       });
       return {
         provider: Provider.OPENAI_COMPATIBLE,
@@ -567,7 +566,8 @@ function getProviderApiKey(provider: string) {
     [Provider.OLLAMA]: "ollama-local",
     // Returns a placeholder so the fallback chain doesn't skip this provider
     // when no API key is configured (many OpenAI-compatible servers don't require one)
-    [Provider.OPENAI_COMPATIBLE]: env.LLM_API_KEY || "not-required",
+    [Provider.OPENAI_COMPATIBLE]:
+      env.LLM_API_KEY || process.env.LLM_API_KEY || "not-required",
     [Provider.CODEX_CLI]: getCliProviderAvailability(Provider.CODEX_CLI),
     [Provider.CLAUDE_CODE]: getCliProviderAvailability(Provider.CLAUDE_CODE),
   };
@@ -588,7 +588,31 @@ function resolveApiKey(
   aiApiKey: string | null | undefined,
   providerApiKey: string | undefined,
 ) {
-  return aiApiKey || providerApiKey || env.LLM_API_KEY;
+  return (
+    aiApiKey || providerApiKey || env.LLM_API_KEY || process.env.LLM_API_KEY
+  );
+}
+
+function getOpenAiCompatibleBaseUrl() {
+  return (
+    env.OPENAI_COMPATIBLE_BASE_URL ||
+    process.env.OPENAI_COMPATIBLE_BASE_URL ||
+    "http://localhost:1234/v1"
+  );
+}
+
+function getOpenAiCompatibleAuthOptions(apiKey: string | undefined) {
+  if (!apiKey) return {};
+
+  const authHeader =
+    env.OPENAI_COMPATIBLE_AUTH_HEADER ||
+    process.env.OPENAI_COMPATIBLE_AUTH_HEADER;
+
+  if (authHeader === "api-key") {
+    return { headers: { "api-key": apiKey } };
+  }
+
+  return { apiKey };
 }
 
 function getVertexConfig(): {

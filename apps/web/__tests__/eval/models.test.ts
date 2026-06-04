@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { shouldRunEvalTests } from "@/__tests__/eval/models";
+import { getEvalModels, shouldRunEvalTests } from "@/__tests__/eval/models";
 
 const originalEnv = { ...process.env };
 
@@ -8,6 +8,36 @@ afterEach(() => {
 });
 
 describe("shouldRunEvalTests", () => {
+  it("exposes Azure DeepSeek presets without including them in all-model runs", () => {
+    process.env.EVAL_MODELS = "deepseek-v4-pro-azure";
+
+    expect(getEvalModels()).toEqual([
+      {
+        provider: "openai-compatible",
+        model: "DeepSeek-V4-Pro",
+        label: "DeepSeek V4 Pro Azure",
+        includeInAll: false,
+      },
+    ]);
+
+    process.env.EVAL_MODELS = "deepseek-v4-flash-azure";
+
+    expect(getEvalModels()).toEqual([
+      {
+        provider: "openai-compatible",
+        model: "DeepSeek-V4-Flash",
+        label: "DeepSeek V4 Flash Azure",
+        includeInAll: false,
+      },
+    ]);
+
+    process.env.EVAL_MODELS = "all";
+
+    expect(
+      getEvalModels().some((model) => model.model.startsWith("DeepSeek-V4-")),
+    ).toBe(false);
+  });
+
   it("allows openrouter eval presets when only LLM_API_KEY is configured", () => {
     process.env.RUN_AI_TESTS = "true";
     process.env.EVAL_MODELS = "gemini-3-flash";

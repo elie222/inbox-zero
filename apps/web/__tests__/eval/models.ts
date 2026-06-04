@@ -4,6 +4,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { Provider } from "@/utils/llms/config";
 
 export interface EvalModel {
+  includeInAll?: boolean;
   label: string;
   model: string;
   provider: string;
@@ -40,10 +41,23 @@ const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
     model: "deepseek/deepseek-v4-flash",
     label: "DeepSeek V4 Flash",
   },
+  "deepseek-v4-pro-azure": {
+    provider: "openai-compatible",
+    model: "DeepSeek-V4-Pro",
+    label: "DeepSeek V4 Pro Azure",
+    includeInAll: false,
+  },
+  "deepseek-v4-flash-azure": {
+    provider: "openai-compatible",
+    model: "DeepSeek-V4-Flash",
+    label: "DeepSeek V4 Flash Azure",
+    includeInAll: false,
+  },
   "ollama-gemma4-e2b": {
     provider: "ollama",
     model: "gemma4:e2b",
     label: "Ollama Gemma 4 E2B",
+    includeInAll: false,
   },
 };
 
@@ -61,7 +75,7 @@ export function getEvalModels(): EvalModel[] {
   if (!envModels) return [];
   if (envModels === "all") {
     return Object.entries(EVAL_MODEL_CATALOG)
-      .filter(([name]) => !name.includes("ollama"))
+      .filter(([, model]) => model.includeInAll !== false)
       .map(([, model]) => model);
   }
 

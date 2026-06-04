@@ -93,6 +93,7 @@ vi.mock("@/env", () => ({
     OLLAMA_MODEL: "llama3",
     OPENAI_COMPATIBLE_BASE_URL: "http://localhost:1234/v1",
     OPENAI_COMPATIBLE_MODEL: "llama-3.2-3b-instruct",
+    OPENAI_COMPATIBLE_AUTH_HEADER: undefined,
     CLI_LLM_ENABLED: false,
     CODEX_CLI_ALLOW_NPX: false,
     CODEX_CLI_PATH: undefined,
@@ -136,6 +137,7 @@ describe("Models", () => {
     vi.mocked(env).OLLAMA_MODEL = "llama3";
     vi.mocked(env).OPENAI_COMPATIBLE_BASE_URL = "http://localhost:1234/v1";
     vi.mocked(env).OPENAI_COMPATIBLE_MODEL = "llama-3.2-3b-instruct";
+    vi.mocked(env).OPENAI_COMPATIBLE_AUTH_HEADER = undefined;
     vi.mocked(env).CLI_LLM_ENABLED = false;
     vi.mocked(env).CODEX_CLI_ALLOW_NPX = false;
     vi.mocked(env).CODEX_CLI_PATH = undefined;
@@ -892,6 +894,66 @@ describe("Models", () => {
       expect(result.modelName).toBe("llama-3.2-3b-instruct");
     });
 
+    it("should support API-key header auth for OpenAI-compatible providers", () => {
+      const userAi = defaultUserAi();
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai-compatible";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "provider-deployment";
+      vi.mocked(env).OPENAI_COMPATIBLE_BASE_URL =
+        "https://provider.example.com/openai/v1";
+      vi.mocked(env).OPENAI_COMPATIBLE_AUTH_HEADER = "api-key";
+      vi.mocked(env).LLM_API_KEY = "test-provider-key";
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.OPENAI_COMPATIBLE);
+      expect(result.modelName).toBe("provider-deployment");
+      expect(createOpenAICompatible).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headers: { "api-key": "test-provider-key" },
+        }),
+      );
+      expect(createOpenAICompatible).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          apiKey: "test-provider-key",
+        }),
+      );
+    });
+
+    it("should use process env for OpenAI-compatible settings when env is partially mocked", () => {
+      const userAi = defaultUserAi();
+      const originalProcessEnv = {
+        LLM_API_KEY: process.env.LLM_API_KEY,
+        OPENAI_COMPATIBLE_BASE_URL: process.env.OPENAI_COMPATIBLE_BASE_URL,
+        OPENAI_COMPATIBLE_AUTH_HEADER:
+          process.env.OPENAI_COMPATIBLE_AUTH_HEADER,
+      };
+
+      try {
+        vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai-compatible";
+        vi.mocked(env).DEFAULT_LLM_MODEL = "provider-deployment";
+        vi.mocked(env).LLM_API_KEY = undefined;
+        vi.mocked(env).OPENAI_COMPATIBLE_BASE_URL = undefined;
+        vi.mocked(env).OPENAI_COMPATIBLE_AUTH_HEADER = undefined;
+        process.env.LLM_API_KEY = "test-process-key";
+        process.env.OPENAI_COMPATIBLE_BASE_URL =
+          "https://provider.example.com/openai/v1";
+        process.env.OPENAI_COMPATIBLE_AUTH_HEADER = "api-key";
+
+        const result = getModel(userAi);
+
+        expect(result.provider).toBe(Provider.OPENAI_COMPATIBLE);
+        expect(createOpenAICompatible).toHaveBeenCalledWith(
+          expect.objectContaining({
+            baseURL: "https://provider.example.com/openai/v1",
+            headers: { "api-key": "test-process-key" },
+          }),
+        );
+      } finally {
+        restoreProcessEnv(originalProcessEnv);
+      }
+    });
+
     it("should use explicit OpenAI-compatible fallback model without OPENAI_COMPATIBLE_MODEL", () => {
       const userAi = defaultUserAi();
 
@@ -975,4 +1037,18 @@ function defaultUserAi(overrides: Partial<UserAIFields> = {}): UserAIFields {
     aiModel: null,
     ...overrides,
   };
+}
+
+function restoreProcessEnv(values: {
+  LLM_API_KEY: string | undefined;
+  OPENAI_COMPATIBLE_BASE_URL: string | undefined;
+  OPENAI_COMPATIBLE_AUTH_HEADER: string | undefined;
+}) {
+  for (const [key, value] of Object.entries(values)) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
 }
