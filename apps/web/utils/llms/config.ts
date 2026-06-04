@@ -3,6 +3,7 @@ export const DEFAULT_PROVIDER = "DEFAULT";
 export const Provider = {
   OPEN_AI: "openai",
   AZURE: "azure",
+  AZURE_FOUNDRY: "azure-foundry",
   VERTEX: "vertex",
   ANTHROPIC: "anthropic",
   BEDROCK: "bedrock",
@@ -21,6 +22,7 @@ export const providerOptions: { label: string; value: string }[] = [
   { label: "Anthropic", value: Provider.ANTHROPIC },
   { label: "OpenAI", value: Provider.OPEN_AI },
   { label: "Azure OpenAI", value: Provider.AZURE },
+  { label: "Azure AI Foundry", value: Provider.AZURE_FOUNDRY },
   { label: "Google", value: Provider.GOOGLE },
   { label: "Groq", value: Provider.GROQ },
   { label: "OpenRouter", value: Provider.OPENROUTER },

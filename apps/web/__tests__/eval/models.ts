@@ -42,13 +42,13 @@ const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
     label: "DeepSeek V4 Flash",
   },
   "deepseek-v4-pro-azure": {
-    provider: "openai-compatible",
+    provider: "azure-foundry",
     model: "DeepSeek-V4-Pro",
     label: "DeepSeek V4 Pro Azure",
     includeInAll: false,
   },
   "deepseek-v4-flash-azure": {
-    provider: "openai-compatible",
+    provider: "azure-foundry",
     model: "DeepSeek-V4-Flash",
     label: "DeepSeek V4 Flash Azure",
     includeInAll: false,
@@ -181,6 +181,7 @@ function getApiKeyForProvider(provider: string): string | null {
     anthropic: process.env.ANTHROPIC_API_KEY,
     google: process.env.GOOGLE_API_KEY,
     groq: process.env.GROQ_API_KEY,
+    [Provider.AZURE_FOUNDRY]: process.env.AZURE_FOUNDRY_API_KEY,
     "openai-compatible": process.env.LLM_API_KEY || "not-required",
     ollama: "ollama-local",
   };
@@ -188,6 +189,8 @@ function getApiKeyForProvider(provider: string): string | null {
 }
 
 function hasConfiguredProvider(provider: string): boolean {
+  if (provider === Provider.AZURE_FOUNDRY) return hasAzureFoundryCredentials();
+
   if (process.env.LLM_API_KEY) return true;
 
   switch (provider) {
@@ -199,6 +202,8 @@ function hasConfiguredProvider(provider: string): boolean {
       return Boolean(
         process.env.AZURE_API_KEY && process.env.AZURE_RESOURCE_NAME,
       );
+    case Provider.AZURE_FOUNDRY:
+      return hasAzureFoundryCredentials();
     case Provider.ANTHROPIC:
       return Boolean(process.env.ANTHROPIC_API_KEY);
     case Provider.GOOGLE:
@@ -233,11 +238,18 @@ function hasAnyConfiguredProvider(): boolean {
       process.env.GOOGLE_VERTEX_PROJECT ||
       process.env.GROQ_API_KEY ||
       process.env.OPENROUTER_API_KEY ||
+      hasAzureFoundryCredentials() ||
       process.env.AI_GATEWAY_API_KEY ||
       (process.env.BEDROCK_ACCESS_KEY &&
         process.env.BEDROCK_SECRET_KEY &&
         process.env.BEDROCK_REGION) ||
       process.env.OPENAI_COMPATIBLE_BASE_URL ||
       process.env.OLLAMA_BASE_URL,
+  );
+}
+
+function hasAzureFoundryCredentials(): boolean {
+  return Boolean(
+    process.env.AZURE_FOUNDRY_API_KEY && process.env.AZURE_FOUNDRY_BASE_URL,
   );
 }
