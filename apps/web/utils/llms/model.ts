@@ -416,10 +416,27 @@ export function getConfiguredRolePrimaryModel(
 export function getConfiguredRolePrimaryModelEntry(
   modelType: ModelType,
 ): { provider: string; modelName: string } | null {
-  const entry = getFirstSupportedModelListEntry(modelType);
-  if (!entry?.modelName) return null;
+  const resolvedModel = getConfiguredRolePrimaryModel(modelType);
+  if (!resolvedModel) return null;
 
-  return { provider: entry.provider, modelName: entry.modelName };
+  return {
+    provider: resolvedModel.provider,
+    modelName: resolvedModel.modelName,
+  };
+}
+
+export function getResolvedDeploymentRolePrimaryModelEntry(
+  modelType: ModelType,
+): { provider: string; modelName: string } | null {
+  try {
+    const { primaryModel } = selectDeploymentModelByType(modelType);
+    return {
+      provider: primaryModel.provider,
+      modelName: primaryModel.modelName,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function getFirstSupportedModelListEntry(

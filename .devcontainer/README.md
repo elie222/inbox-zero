@@ -58,4 +58,4 @@ Open http://localhost:3000
 
 - PostgreSQL + Redis (local containers)
 - Auth secrets (auto-generated)
-- LLM config placeholders (`DEFAULT_LLMS`, `ECONOMY_LLMS`, `CHAT_LLMS`)
+- LLM config placeholders (`DEFAULT_LLMS`, `ECONOMY_LLMS`, `CHAT_LLMS`, `NANO_LLMS`, `DRAFT_LLMS`)

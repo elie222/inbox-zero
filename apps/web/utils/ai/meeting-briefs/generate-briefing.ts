@@ -5,8 +5,12 @@ import { openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
 import { env } from "@/env";
 import { createGenerateText } from "@/utils/llms";
-import { getConfiguredRolePrimaryModelEntry } from "@/utils/llms/model";
-import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
+import { getResolvedDeploymentRolePrimaryModelEntry } from "@/utils/llms/model";
+import {
+  getModelForUseCase,
+  LLM_USE_CASE_MODEL_TYPES,
+  LlmUseCase,
+} from "@/utils/llms/use-cases";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
@@ -294,10 +298,9 @@ type WebSearchConfig = {
 };
 
 function getWebSearchConfig(): WebSearchConfig | null {
-  const defaultProvider =
-    getConfiguredRolePrimaryModelEntry("default")?.provider;
+  const webSearchProvider = getMeetingWebSearchProvider();
 
-  switch (defaultProvider) {
+  switch (webSearchProvider) {
     case Provider.OPEN_AI:
       return {
         providerName: "OpenAI",
@@ -415,13 +418,7 @@ export function buildPrompt(
   // List available search tools for the prompt
   const availableTools: string[] = [];
   if (env.PERPLEXITY_API_KEY) availableTools.push("perplexitySearch");
-  const defaultProvider =
-    getConfiguredRolePrimaryModelEntry("default")?.provider;
-  if (
-    defaultProvider === Provider.OPEN_AI ||
-    defaultProvider === Provider.GOOGLE ||
-    defaultProvider === Provider.OPENROUTER
-  ) {
+  if (getWebSearchConfig()) {
     availableTools.push("webSearch");
   }
 
@@ -450,6 +447,12 @@ For each guest listed above:
 3. Once you have all information, call finalizeBriefing with the complete briefing`;
 
   return prompt;
+}
+
+function getMeetingWebSearchProvider(): string | undefined {
+  return getResolvedDeploymentRolePrimaryModelEntry(
+    LLM_USE_CASE_MODEL_TYPES[LlmUseCase.MeetingWebSearch],
+  )?.provider;
 }
 
 type GuestContextForPrompt = {
