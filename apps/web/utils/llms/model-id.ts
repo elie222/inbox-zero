@@ -1,7 +1,6 @@
 const OPENROUTER_PROVIDER_PREFIX_BY_PROVIDER: Record<string, string> = {
   openai: "openai",
   azure: "openai",
-  "azure-foundry": "openai",
   "openai-compatible": "openai",
   anthropic: "anthropic",
   bedrock: "anthropic",
