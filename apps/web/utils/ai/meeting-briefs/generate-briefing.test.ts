@@ -10,7 +10,7 @@ vi.mock("@/env", () => ({
   },
 }));
 vi.mock("@/utils/llms/model", () => ({
-  getConfiguredRolePrimaryModelEntry: vi.fn(() => ({
+  getResolvedDeploymentRolePrimaryModelEntry: vi.fn(() => ({
     provider: "openai",
     modelName: "gpt-5.4-mini",
   })),
@@ -45,9 +45,14 @@ vi.doUnmock("@/utils/date");
 
 import { buildPrompt } from "./generate-briefing";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { getResolvedDeploymentRolePrimaryModelEntry } from "@/utils/llms/model";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(getResolvedDeploymentRolePrimaryModelEntry).mockReturnValue({
+    provider: "openai",
+    modelName: "gpt-5.4-mini",
+  });
 });
 
 describe("buildPrompt timezone handling", () => {
@@ -185,5 +190,48 @@ describe("buildPrompt timezone handling", () => {
       2. Use search tools to find their professional background
       3. Once you have all information, call finalizeBriefing with the complete briefing"
     `);
+  });
+
+  it("uses the meeting web search role to decide web search availability", () => {
+    vi.mocked(getResolvedDeploymentRolePrimaryModelEntry).mockImplementation(
+      (modelType) => {
+        if (modelType === "economy") {
+          return {
+            provider: "anthropic",
+            modelName: "claude-haiku-4-5-20251001",
+          };
+        }
+
+        return {
+          provider: "openai",
+          modelName: "gpt-5.4-mini",
+        };
+      },
+    );
+
+    const briefingData: MeetingBriefingData = {
+      event: {
+        id: "upcoming",
+        title: "Intro Meeting",
+        startTime: new Date("2024-12-31T21:00:00Z"),
+        endTime: new Date("2024-12-31T22:00:00Z"),
+        attendees: [
+          { email: "user@company.com" },
+          { email: "newcontact@other.com", name: "New Person" },
+        ],
+      },
+      externalGuests: [{ email: "newcontact@other.com", name: "New Person" }],
+      internalTeamMembers: [],
+      emailThreads: [],
+      pastMeetings: [],
+    };
+
+    const prompt = buildPrompt(briefingData, mockEmailAccount);
+
+    expect(getResolvedDeploymentRolePrimaryModelEntry).toHaveBeenCalledWith(
+      "economy",
+    );
+    expect(prompt).toContain("Available search tools: perplexitySearch");
+    expect(prompt).not.toContain("webSearch");
   });
 });

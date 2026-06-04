@@ -75,6 +75,8 @@ QSTASH_NEXT_SIGNING_KEY=""
 DEFAULT_LLMS=openai:gpt-5.4-mini
 ECONOMY_LLMS=openai:gpt-5.4-nano
 CHAT_LLMS=openai:gpt-5.4-mini
+NANO_LLMS=openai:gpt-5.4-nano
+DRAFT_LLMS=openai:gpt-5.4-mini
 LLM_API_KEY=
 
 # Dev settings
@@ -97,6 +99,8 @@ echo "  - GOOGLE_CLIENT_SECRET"
 echo "  - DEFAULT_LLMS"
 echo "  - ECONOMY_LLMS"
 echo "  - CHAT_LLMS"
+echo "  - NANO_LLMS"
+echo "  - DRAFT_LLMS"
 echo "  - LLM_API_KEY"
 echo ""
 echo "Then run: pnpm dev"

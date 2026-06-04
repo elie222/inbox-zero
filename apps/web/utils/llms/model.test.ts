@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getModel } from "./model";
+import {
+  getConfiguredRolePrimaryModelEntry,
+  getModel,
+  getResolvedDeploymentRolePrimaryModelEntry,
+} from "./model";
 import { Provider } from "./config";
 import { env } from "@/env";
 import type { UserAIFields } from "./types";
@@ -809,6 +813,28 @@ describe("Models", () => {
       expect(result.provider).toBe(Provider.OPEN_AI);
       expect(result.modelName).toBe("gpt-5.4-mini");
       expect(result.fallbackModels).toEqual([]);
+    });
+
+    it("should return the first credentialed primary model entry", () => {
+      vi.mocked(env).DEFAULT_LLMS =
+        "bedrock:global.anthropic.claude-sonnet-4-6,openai:gpt-5.4-mini";
+      vi.mocked(env).BEDROCK_ACCESS_KEY = "";
+      vi.mocked(env).BEDROCK_SECRET_KEY = "";
+
+      expect(getConfiguredRolePrimaryModelEntry("default")).toEqual({
+        provider: Provider.OPEN_AI,
+        modelName: "gpt-5.4-mini",
+      });
+    });
+
+    it("should return the resolved deployment role primary entry with role fallbacks", () => {
+      setDefaultLlms(Provider.OPEN_AI, "gpt-5.4-mini");
+      vi.mocked(env).ECONOMY_LLMS = undefined;
+
+      expect(getResolvedDeploymentRolePrimaryModelEntry("economy")).toEqual({
+        provider: Provider.OPEN_AI,
+        modelName: "gpt-5.4-mini",
+      });
     });
 
     it("should omit duplicate LLMS entries from fallbacks", () => {
