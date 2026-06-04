@@ -3,7 +3,7 @@ import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import { PremiumTier } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import { createGenerateObject } from "@/utils/llms";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { appendOllamaOnlySystemGuidance } from "@/utils/llms/ollama-guidance";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
@@ -565,7 +565,10 @@ async function aiSelectRelevantAttachments({
   emailContent: string;
   logger: Logger;
 }): Promise<SelectedAttachment[]> {
-  const modelOptions = getModel(emailAccount.user, "economy");
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.DraftAttachmentSelection,
+  );
   logger.info("Selecting draft attachments", {
     candidateCount: candidates.length,
     emailAccountId: emailAccount.id,

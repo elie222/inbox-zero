@@ -47,6 +47,7 @@ import {
   type RuleReadState,
 } from "./chat-rule-state";
 import { getAssistantChatProvider } from "./chat-provider-shared";
+import { LlmUseCase } from "@/utils/llms/use-cases";
 
 export const maxDuration = 120;
 const ASSISTANT_CHAT_MAX_STEPS = 25;
@@ -297,7 +298,7 @@ export async function aiProcessAssistantChat({
     userId: user.userId,
     emailAccountId,
     userEmail: user.email,
-    modelType: "chat",
+    useCase: LlmUseCase.AssistantChat,
     usageLabel: "assistant-chat",
     promptHardening: { trust: "untrusted", level: "full" },
     providerOptions: getChatProviderOptionsForCaching({ chatId }),

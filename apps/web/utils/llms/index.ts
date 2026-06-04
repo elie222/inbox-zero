@@ -53,6 +53,7 @@ import {
   type ResolvedModel,
   type SelectModel,
 } from "@/utils/llms/model";
+import { getModelForUseCase, type LlmUseCase } from "@/utils/llms/use-cases";
 import {
   assertTrialAiUsageAllowed,
   shouldForceNanoModel,
@@ -137,6 +138,39 @@ const commonOptions: {
   headers?: Record<string, string>;
   providerOptions?: LLMProviderOptions;
 } = { experimental_telemetry: { isEnabled: true } };
+
+type ModelRouteSelection =
+  | { modelType?: ModelType; useCase?: never }
+  | { modelType?: never; useCase: LlmUseCase };
+
+type BaseStreamOptions = ModelRouteSelection & {
+  userAi: UserAIFields;
+  messages: ModelMessage[];
+  promptHardening: PromptHardening;
+  maxSteps?: number;
+  userId?: string;
+  emailAccountId: string;
+  userEmail: string;
+  usageLabel: string;
+  providerOptions?: LLMProviderOptions;
+  sensitiveDataPolicy?: string | null;
+};
+
+type ChatCompletionStreamOptions = BaseStreamOptions & {
+  tools?: Record<string, Tool>;
+  onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
+  onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
+};
+
+type ToolCallAgentStreamOptions = BaseStreamOptions & {
+  tools?: Record<string, Tool>;
+  activeTools?: Array<string>;
+  prepareStep?: PrepareStepFunction<Record<string, Tool>>;
+  onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
+  onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
+  onModelResolved?: (resolvedModel: ToolCallAgentResolvedModel) => void;
+  temperature?: number;
+};
 
 export function createGenerateText({
   emailAccount,
@@ -516,39 +550,25 @@ export function createGenerateObject({
   };
 }
 
-export async function chatCompletionStream({
-  userAi,
-  modelType,
-  messages,
-  promptHardening,
-  tools,
-  maxSteps,
-  userId,
-  emailAccountId,
-  userEmail,
-  usageLabel: label,
-  providerOptions: requestProviderOptions,
-  sensitiveDataPolicy,
-  onFinish,
-  onStepFinish,
-}: {
-  userAi: UserAIFields;
-  modelType?: ModelType;
-  messages: ModelMessage[];
-  promptHardening: PromptHardening;
-  tools?: Record<string, Tool>;
-  maxSteps?: number;
-  userId?: string;
-  emailAccountId: string;
-  userEmail: string;
-  usageLabel: string;
-  providerOptions?: LLMProviderOptions;
-  sensitiveDataPolicy?: string | null;
-  onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
-  onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
-}) {
+export async function chatCompletionStream(
+  options: ChatCompletionStreamOptions,
+) {
+  const {
+    messages,
+    promptHardening,
+    tools,
+    maxSteps,
+    userId,
+    emailAccountId,
+    userEmail,
+    usageLabel: label,
+    providerOptions: requestProviderOptions,
+    sensitiveDataPolicy,
+    onFinish,
+    onStepFinish,
+  } = options;
   const { modelOptions, modelCandidates } = await resolveModelCandidates({
-    modelOptions: getModel(userAi, modelType),
+    modelOptions: getModelOptionsForRoute(options),
     userEmail,
     userId,
     emailAccountId,
@@ -678,47 +698,27 @@ export async function chatCompletionStream({
   throw new Error("No models available for chat completion stream");
 }
 
-export async function toolCallAgentStream({
-  userAi,
-  modelType,
-  messages,
-  promptHardening,
-  tools,
-  activeTools,
-  prepareStep,
-  maxSteps,
-  userId,
-  emailAccountId,
-  userEmail,
-  usageLabel: label,
-  providerOptions: requestProviderOptions,
-  onFinish,
-  onStepFinish,
-  onModelResolved,
-  sensitiveDataPolicy,
-  temperature,
-}: {
-  userAi: UserAIFields;
-  modelType?: ModelType;
-  messages: ModelMessage[];
-  promptHardening: PromptHardening;
-  tools?: Record<string, Tool>;
-  activeTools?: Array<string>;
-  prepareStep?: PrepareStepFunction<Record<string, Tool>>;
-  maxSteps?: number;
-  userId?: string;
-  emailAccountId: string;
-  userEmail: string;
-  usageLabel: string;
-  providerOptions?: LLMProviderOptions;
-  onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
-  onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
-  onModelResolved?: (resolvedModel: ToolCallAgentResolvedModel) => void;
-  sensitiveDataPolicy?: string | null;
-  temperature?: number;
-}) {
+export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
+  const {
+    messages,
+    promptHardening,
+    tools,
+    activeTools,
+    prepareStep,
+    maxSteps,
+    userId,
+    emailAccountId,
+    userEmail,
+    usageLabel: label,
+    providerOptions: requestProviderOptions,
+    onFinish,
+    onStepFinish,
+    onModelResolved,
+    sensitiveDataPolicy,
+    temperature,
+  } = options;
   const { modelOptions, modelCandidates } = await resolveModelCandidates({
-    modelOptions: getModel(userAi, modelType),
+    modelOptions: getModelOptionsForRoute(options),
     userEmail,
     userId,
     emailAccountId,
@@ -884,6 +884,22 @@ export async function toolCallAgentStream({
   }
 
   throw new Error("No models available for tool-call stream");
+}
+
+function getModelOptionsForRoute({
+  userAi,
+  modelType,
+  useCase,
+}: {
+  userAi: UserAIFields;
+} & ModelRouteSelection): SelectModel {
+  if (modelType && useCase) {
+    throw new Error("Provide either useCase or modelType, not both");
+  }
+
+  return useCase
+    ? getModelForUseCase(userAi, useCase)
+    : getModel(userAi, modelType);
 }
 
 function wrapToolsWithSensitiveDataPolicy<TTools extends ToolSet | undefined>({

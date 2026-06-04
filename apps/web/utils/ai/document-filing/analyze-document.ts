@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { createGenerateObject } from "@/utils/llms";
 import { cleanExtractedText } from "@/utils/drive/document-extraction";
 
@@ -72,7 +72,10 @@ export async function analyzeDocument({
   attachment: AttachmentContext;
   folders: DriveFolder[];
 }): Promise<DocumentAnalysisResult> {
-  const modelOptions = getModel(emailAccount.user, "economy");
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.DocumentFiling,
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

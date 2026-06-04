@@ -2,7 +2,7 @@ import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { createDraftAttributionTracker } from "@/utils/ai/reply/draft-attribution";
 
 export async function aiGenerateNudge({
@@ -30,7 +30,10 @@ Write a brief follow-up email to politely nudge for a response.
 ${getTodayForLLM()}
 IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.from}.`;
 
-  const modelOptions = getModel(emailAccount.user, "chat");
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.ReplyNudge,
+  );
   const attributionTracker = createDraftAttributionTracker();
 
   const generateText = createGenerateText({

@@ -4,8 +4,8 @@ import { createPerplexity } from "@ai-sdk/perplexity";
 import { openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
 import { env } from "@/env";
-import { getModel } from "@/utils/llms/model";
 import { createGenerateText } from "@/utils/llms";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
@@ -101,7 +101,10 @@ export async function aiGenerateMeetingBriefing({
   }
 
   const prompt = buildPrompt(briefingData, emailAccount);
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.MeetingBriefing,
+  );
 
   const generateText = createGenerateText({
     emailAccount,
@@ -346,9 +349,9 @@ function createWebSearchTool({
       }
 
       try {
-        const modelOptions = getModel(
+        const modelOptions = getModelForUseCase(
           emailAccount.user,
-          "economy",
+          LlmUseCase.MeetingWebSearch,
           useOnlineVariant,
         );
 

@@ -8,7 +8,7 @@ import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM, ParsedMessage } from "@/utils/types";
 import { getTodayForLLM } from "@/utils/ai/helpers";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { captureException } from "@/utils/error";
@@ -102,7 +102,10 @@ ${getUserInfoPrompt({ emailAccount })}
 
 ${getTodayForLLM()}`;
 
-    const modelOptions = getModel(emailAccount.user, "economy");
+    const modelOptions = getModelForUseCase(
+      emailAccount.user,
+      LlmUseCase.ReplyContextCollector,
+    );
 
     const generateText = createGenerateText({
       emailAccount,
