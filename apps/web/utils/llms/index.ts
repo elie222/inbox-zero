@@ -53,6 +53,7 @@ import {
   type ResolvedModel,
   type SelectModel,
 } from "@/utils/llms/model";
+import { getModelForUseCase, type LlmUseCase } from "@/utils/llms/use-cases";
 import {
   assertTrialAiUsageAllowed,
   shouldForceNanoModel,
@@ -519,6 +520,7 @@ export function createGenerateObject({
 export async function chatCompletionStream({
   userAi,
   modelType,
+  useCase,
   messages,
   promptHardening,
   tools,
@@ -534,6 +536,7 @@ export async function chatCompletionStream({
 }: {
   userAi: UserAIFields;
   modelType?: ModelType;
+  useCase?: LlmUseCase;
   messages: ModelMessage[];
   promptHardening: PromptHardening;
   tools?: Record<string, Tool>;
@@ -548,7 +551,7 @@ export async function chatCompletionStream({
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
   const { modelOptions, modelCandidates } = await resolveModelCandidates({
-    modelOptions: getModel(userAi, modelType),
+    modelOptions: getModelOptionsForRoute({ userAi, modelType, useCase }),
     userEmail,
     userId,
     emailAccountId,
@@ -681,6 +684,7 @@ export async function chatCompletionStream({
 export async function toolCallAgentStream({
   userAi,
   modelType,
+  useCase,
   messages,
   promptHardening,
   tools,
@@ -700,6 +704,7 @@ export async function toolCallAgentStream({
 }: {
   userAi: UserAIFields;
   modelType?: ModelType;
+  useCase?: LlmUseCase;
   messages: ModelMessage[];
   promptHardening: PromptHardening;
   tools?: Record<string, Tool>;
@@ -718,7 +723,7 @@ export async function toolCallAgentStream({
   temperature?: number;
 }) {
   const { modelOptions, modelCandidates } = await resolveModelCandidates({
-    modelOptions: getModel(userAi, modelType),
+    modelOptions: getModelOptionsForRoute({ userAi, modelType, useCase }),
     userEmail,
     userId,
     emailAccountId,
@@ -884,6 +889,24 @@ export async function toolCallAgentStream({
   }
 
   throw new Error("No models available for tool-call stream");
+}
+
+function getModelOptionsForRoute({
+  userAi,
+  modelType,
+  useCase,
+}: {
+  userAi: UserAIFields;
+  modelType?: ModelType;
+  useCase?: LlmUseCase;
+}): SelectModel {
+  if (modelType && useCase) {
+    throw new Error("Provide either useCase or modelType, not both");
+  }
+
+  return useCase
+    ? getModelForUseCase(userAi, useCase)
+    : getModel(userAi, modelType);
 }
 
 function wrapToolsWithSensitiveDataPolicy<TTools extends ToolSet | undefined>({

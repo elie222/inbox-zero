@@ -1,9 +1,9 @@
 import type { ModelMessage } from "ai";
 import { z } from "zod";
-import { getModel } from "@/utils/llms/model";
 import { createGenerateText, createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import {
   getUserConversationMessages,
   validateUserMemoryEvidence,
@@ -99,7 +99,7 @@ export async function compactMessages({
 
   const serialized = serializeMessages(messagesToCompact);
 
-  const modelOptions = getModel(user.user, "economy");
+  const modelOptions = getModelForUseCase(user.user, LlmUseCase.ChatCompaction);
   const generateText = createGenerateText({
     emailAccount: user,
     label: "chat-compaction",
@@ -163,7 +163,10 @@ export async function extractMemories({
 
   const prompt = buildMemoryExtractionPrompt(userMessages);
 
-  const modelOptions = getModel(user.user, "economy");
+  const modelOptions = getModelForUseCase(
+    user.user,
+    LlmUseCase.ChatMemoryExtraction,
+  );
   const generateObject = createGenerateObject({
     emailAccount: user,
     label: "chat-memory-extraction",

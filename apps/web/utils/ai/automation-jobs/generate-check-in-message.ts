@@ -2,7 +2,7 @@ import { InvalidArgumentError } from "ai";
 import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import { isTransientNetworkError, withRetry } from "@/utils/llms/retry";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -55,7 +55,10 @@ export async function aiGenerateAutomationCheckInMessage({
     emailProvider.getInboxMessages(MAX_INBOX_MESSAGES_FOR_PROMPT),
   ]);
 
-  const modelOptions = getModel(emailAccount.user, "economy");
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.AutomationCheckInMessage,
+  );
   const generateObject = createGenerateObject({
     emailAccount,
     label: "Automation check-in message",

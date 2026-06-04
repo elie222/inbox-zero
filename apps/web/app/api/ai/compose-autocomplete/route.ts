@@ -4,6 +4,7 @@ import { composeAutocompleteBody } from "@/app/api/ai/compose-autocomplete/valid
 import { chatCompletionStream } from "@/utils/llms";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { assertHasAiAccess } from "@/utils/premium/limits";
+import { LlmUseCase } from "@/utils/llms/use-cases";
 
 export const POST = withEmailAccount(async (request) => {
   const emailAccountId = request.auth.emailAccountId;
@@ -28,6 +29,7 @@ Limit your response to no more than 200 characters, but make sure to construct c
     userAi: user.user,
     userId: user.userId,
     emailAccountId,
+    useCase: LlmUseCase.ComposeAutocomplete,
     promptHardening: { trust: "trusted" },
     messages: [
       {

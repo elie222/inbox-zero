@@ -7,7 +7,7 @@ import {
 } from "@/utils/ai/rule/create-rule-schema";
 import { createScopedLogger } from "@/utils/logger";
 import { convertMentionsToLabels } from "@/utils/mention";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 
 const logger = createScopedLogger("ai-prompt-to-rules");
 
@@ -28,7 +28,10 @@ export async function aiPromptToRules({
 ${cleanedPromptFile}
 </prompt>`;
 
-  const modelOptions = getModel(emailAccount.user, "chat");
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.PromptToRules,
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

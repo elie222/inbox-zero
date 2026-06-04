@@ -3,7 +3,7 @@ import { createGenerateObject } from "@/utils/llms";
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 
 const labelAnalysisSchema = z.object({
   optimizationSuggestions: z.array(
@@ -49,7 +49,10 @@ Based on the current labels and email content, suggest specific optimizations:
 
 Each suggestion should include the reason and expected impact.`;
 
-  const modelOptions = getModel(emailAccount.user, "economy");
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.EmailReportLabelAnalysis,
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

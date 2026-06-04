@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { createGenerateObject } from "@/utils/llms";
 import type { Logger } from "@/utils/logger";
 import {
@@ -94,7 +94,10 @@ ${getEmailListPrompt({ messages: emails, messageMaxLength: 500 })}
 </sample_emails>`;
 
   try {
-    const modelOptions = getModel(emailAccount.user, "chat");
+    const modelOptions = getModelForUseCase(
+      emailAccount.user,
+      LlmUseCase.DetectRecurringPattern,
+    );
 
     const generateObject = createGenerateObject({
       emailAccount,

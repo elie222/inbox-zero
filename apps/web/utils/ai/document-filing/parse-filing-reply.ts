@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { createGenerateObject } from "@/utils/llms";
 
 const system = `You are a document filing assistant. The user received a notification that we filed their document attachment to their Drive. They have replied to that email.
@@ -60,7 +60,10 @@ ${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}
 
 Determine the action and write a reply.`;
 
-  const modelOptions = getModel(emailAccount.user, "economy");
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.ParseFilingReply,
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

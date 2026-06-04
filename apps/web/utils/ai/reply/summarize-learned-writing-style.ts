@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { appendOllamaOnlySystemGuidance } from "@/utils/llms/ollama-guidance";
 import type { getEmailAccountWithAi } from "@/utils/user/get";
 
@@ -21,7 +21,10 @@ ${preferenceMemoryEvidence}
 
 Summarize the user's learned writing style from this preference evidence.`;
 
-  const modelOptions = getModel(emailAccount.user, "economy");
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.LearnedWritingStyleCompaction,
+  );
   const generateObject = createGenerateObject({
     emailAccount,
     label: "Learned writing style compaction",

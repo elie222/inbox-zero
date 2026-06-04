@@ -3,7 +3,7 @@ import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { UserPersona } from "@/utils/ai/report/build-user-persona";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 
 const actionableRecommendationsSchema = z.object({
   immediateActions: z.array(
@@ -56,7 +56,10 @@ Create actionable recommendations in three categories:
 
 Focus on practical, implementable solutions that improve email organization and workflow efficiency.`;
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.EmailReportActionableRecommendations,
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

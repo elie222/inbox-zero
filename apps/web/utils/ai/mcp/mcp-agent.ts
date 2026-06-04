@@ -2,7 +2,7 @@ import { stepCountIs, type ToolSet } from "ai";
 import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createMcpToolsForAgent } from "@/utils/ai/mcp/mcp-tools";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailListPrompt, getUserInfoPrompt } from "@/utils/ai/helpers";
 import { createScopedLogger } from "@/utils/logger";
@@ -55,7 +55,10 @@ The last emails in the thread are:
 ${getEmailListPrompt({ messages, messageMaxLength: 1000, maxMessages: 5 })}
 </thread>`;
 
-  const modelOptions = getModel(emailAccount.user, "economy");
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.McpAgent,
+  );
 
   const generateText = createGenerateText({
     emailAccount,

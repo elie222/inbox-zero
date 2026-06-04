@@ -2,7 +2,7 @@ import { z } from "zod";
 import { tool } from "ai";
 import type { Logger } from "@/utils/logger";
 import { createGenerateText } from "@/utils/llms";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { getUnifiedCalendarAvailability } from "@/utils/calendar/unified-availability";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
@@ -115,7 +115,10 @@ ${new Date().toISOString()}
 ${threadContent}
 </thread>`.trim();
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.CalendarAvailability,
+  );
 
   const generateText = createGenerateText({
     emailAccount,

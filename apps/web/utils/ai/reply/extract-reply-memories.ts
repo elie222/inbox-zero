@@ -7,7 +7,7 @@ import type { ReplyMemory } from "@/generated/prisma/client";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 import { extractDomainFromEmail, isPublicEmailDomain } from "@/utils/email";
 import { createGenerateObject } from "@/utils/llms";
-import { getModel } from "@/utils/llms/model";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import {
   appendOllamaOnlySystemGuidance,
   isOllamaProvider,
@@ -90,7 +90,10 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
     emailAccount,
   });
 
-  const modelOptions = getModel(emailAccount.user, "economy");
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.ReplyMemoryExtraction,
+  );
   const generateObject = createGenerateObject({
     emailAccount,
     label: "Reply memory extraction",
