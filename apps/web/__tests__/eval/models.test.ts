@@ -13,7 +13,7 @@ describe("shouldRunEvalTests", () => {
 
     expect(getEvalModels()).toEqual([
       {
-        provider: "openai-compatible",
+        provider: "azure-foundry",
         model: "DeepSeek-V4-Pro",
         label: "DeepSeek V4 Pro Azure",
         includeInAll: false,
@@ -24,7 +24,7 @@ describe("shouldRunEvalTests", () => {
 
     expect(getEvalModels()).toEqual([
       {
-        provider: "openai-compatible",
+        provider: "azure-foundry",
         model: "DeepSeek-V4-Flash",
         label: "DeepSeek V4 Flash Azure",
         includeInAll: false,
