@@ -596,6 +596,7 @@ async function runSetupQuick(options: { name?: string }) {
     DATABASE_URL: `postgresql://postgres:${dbPassword}@db:5432/inboxzero`,
     UPSTASH_REDIS_TOKEN: redisToken,
     UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
+    QUEUE_BACKEND: "internal",
     INTERNAL_API_URL: "http://web:3000",
     // Secrets
     AUTH_SECRET: generateSecret(32),
@@ -1108,6 +1109,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     env.REDIS_HTTP_PORT = redisHttpPort;
     env.WEB_PORT = webPort;
     env.UPSTASH_REDIS_TOKEN = redisToken;
+    env.QUEUE_BACKEND = "internal";
 
     if (runWebInDocker) {
       // Web app runs in Docker: use container hostnames
