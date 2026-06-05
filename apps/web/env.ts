@@ -200,7 +200,10 @@ const parsedEnv = createEnv({
     QSTASH_TOKEN: z.string().optional(),
     QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
     QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
-    QUEUE_BACKEND: z.enum(["bullmq", "internal", "qstash"]).optional(),
+    QUEUE_BACKEND: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.enum(["bullmq", "internal", "qstash"]).optional(),
+    ),
 
     GOOGLE_PUBSUB_TOPIC_NAME: z.string().min(1),
     GOOGLE_PUBSUB_VERIFICATION_TOKEN: z.string().optional(),

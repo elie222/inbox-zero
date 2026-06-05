@@ -72,12 +72,16 @@ export function generateEnvFile(config: {
     setValue("DIRECT_URL", wrapInQuotes(env.DIRECT_URL));
     setValue("UPSTASH_REDIS_URL", wrapInQuotes(env.UPSTASH_REDIS_URL));
     setValue("UPSTASH_REDIS_TOKEN", env.UPSTASH_REDIS_TOKEN);
+    setValue("REDIS_URL", wrapInQuotes(env.REDIS_URL));
+    setValue("QUEUE_BACKEND", env.QUEUE_BACKEND);
   } else {
     // External infra - set placeholders
     setValue("DATABASE_URL", wrapInQuotes(env.DATABASE_URL));
     setValue("DIRECT_URL", wrapInQuotes(env.DIRECT_URL));
     setValue("UPSTASH_REDIS_URL", wrapInQuotes(env.UPSTASH_REDIS_URL));
     setValue("UPSTASH_REDIS_TOKEN", env.UPSTASH_REDIS_TOKEN);
+    setValue("REDIS_URL", wrapInQuotes(env.REDIS_URL));
+    setValue("QUEUE_BACKEND", env.QUEUE_BACKEND);
   }
 
   // ─────────────────────────────────────────────────────────────────────────

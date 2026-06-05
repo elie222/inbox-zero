@@ -368,6 +368,8 @@ LLM_API_KEY=
 # Redis
 # =============================================================================
 UPSTASH_REDIS_TOKEN=
+REDIS_URL= # used for subscriptions and BullMQ worker
+QUEUE_BACKEND= # bullmq | qstash | internal
 `;
 
     const fullEnv: EnvConfig = {
@@ -379,6 +381,7 @@ UPSTASH_REDIS_TOKEN=
         "postgresql://postgres:supersecretpassword123@db:5432/inboxzero",
       UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
       UPSTASH_REDIS_TOKEN: "redis-token-abc123",
+      QUEUE_BACKEND: "internal",
       // App
       NEXT_PUBLIC_BASE_URL: "https://mail.example.com",
       NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true",
@@ -467,6 +470,8 @@ LLM_API_KEY=sk-ant-api-key-value
 # Redis
 # =============================================================================
 UPSTASH_REDIS_TOKEN=redis-token-abc123
+REDIS_URL= # used for subscriptions and BullMQ worker
+QUEUE_BACKEND=internal
 `;
 
     expect(result).toBe(expectedOutput);
