@@ -794,12 +794,12 @@ describe("Models", () => {
       const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLMS =
-        "azure:DeepSeek-V4-Pro,openrouter:anthropic/claude-sonnet-4.6,openai:gpt-5.4-mini";
+        "azure:my-gpt-5-4-mini-deployment,openrouter:anthropic/claude-sonnet-4.6,openai:gpt-5.4-mini";
 
       const result = getModel(userAi);
 
       expect(result.provider).toBe(Provider.AZURE);
-      expect(result.modelName).toBe("DeepSeek-V4-Pro");
+      expect(result.modelName).toBe("my-gpt-5-4-mini-deployment");
       expect(result.fallbackModels).toHaveLength(2);
       expect(result.fallbackModels[0]).toMatchObject({
         provider: Provider.OPENROUTER,

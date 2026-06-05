@@ -60,14 +60,6 @@ export const updateAiSettingsAction = actionClientUser
           "Azure provider requires AZURE_RESOURCE_NAME to be configured on the server",
         );
       }
-      if (
-        aiProvider === Provider.AZURE_FOUNDRY &&
-        !env.AZURE_FOUNDRY_BASE_URL
-      ) {
-        throw new Error(
-          "Azure Foundry provider requires AZURE_FOUNDRY_BASE_URL to be configured on the server",
-        );
-      }
 
       const providedAiApiKey = aiApiKey?.trim() || null;
 
