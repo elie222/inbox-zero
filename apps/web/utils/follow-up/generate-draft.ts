@@ -112,6 +112,10 @@ export async function generateFollowUpDraft({
       },
     });
 
+    if (emailAccountWithSignatures?.signature) {
+      draftContent = `${draftContent}\n\n${emailAccountWithSignatures.signature}`;
+    }
+
     if (
       !env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE &&
       emailAccountWithSignatures?.includeReferralSignature
@@ -122,10 +126,6 @@ export async function generateFollowUpDraft({
       const referralLink = generateReferralLink(referralSignature.code);
       const htmlSignature = renderReferralSignatureHtml(referralLink);
       draftContent = `${draftContent}\n\n${htmlSignature}`;
-    }
-
-    if (emailAccountWithSignatures?.signature) {
-      draftContent = `${draftContent}\n\n${emailAccountWithSignatures.signature}`;
     }
 
     const { draftId } = await provider.draftEmail(
