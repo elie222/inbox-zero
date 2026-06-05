@@ -14,6 +14,9 @@ import { createVertex } from "@ai-sdk/google-vertex";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
+const TEST_AZURE_FOUNDRY_API_KEY = "test-azure-foundry-key";
+const TEST_AZURE_FOUNDRY_BASE_URL = "https://foundry.example.com/openai/v1";
+
 // Mock AI provider imports
 vi.mock("@ai-sdk/openai", () => ({
   createOpenAI: vi.fn(() => (model: string) => ({ model })),
@@ -76,6 +79,8 @@ vi.mock("@/env", () => ({
     AZURE_API_KEY: "test-azure-key",
     AZURE_RESOURCE_NAME: "test-azure-resource",
     AZURE_API_VERSION: "2024-10-21",
+    AZURE_FOUNDRY_API_KEY: "test-azure-foundry-key",
+    AZURE_FOUNDRY_BASE_URL: "https://foundry.example.com/openai/v1",
     GOOGLE_API_KEY: "test-google-key",
     GOOGLE_THINKING_BUDGET: undefined,
     GOOGLE_VERTEX_PROJECT: "test-vertex-project",
@@ -125,6 +130,8 @@ describe("Models", () => {
     vi.mocked(env).AZURE_API_KEY = "test-azure-key";
     vi.mocked(env).AZURE_RESOURCE_NAME = "test-azure-resource";
     vi.mocked(env).AZURE_API_VERSION = "2024-10-21";
+    vi.mocked(env).AZURE_FOUNDRY_API_KEY = TEST_AZURE_FOUNDRY_API_KEY;
+    vi.mocked(env).AZURE_FOUNDRY_BASE_URL = TEST_AZURE_FOUNDRY_BASE_URL;
     vi.mocked(env).GOOGLE_API_KEY = "test-google-key";
     vi.mocked(env).GOOGLE_VERTEX_PROJECT = "test-vertex-project";
     vi.mocked(env).GOOGLE_VERTEX_LOCATION = "us-central1";
@@ -537,6 +544,75 @@ describe("Models", () => {
       expect(result.modelName).toBe("gpt-5.4-mini");
     });
 
+    it("should configure Azure Foundry provider via DEFAULT_LLMS", () => {
+      const userAi = defaultUserAi();
+
+      setDefaultLlms(Provider.AZURE_FOUNDRY, "deployment-name");
+      vi.mocked(env).AZURE_FOUNDRY_API_KEY = TEST_AZURE_FOUNDRY_API_KEY;
+      vi.mocked(env).AZURE_FOUNDRY_BASE_URL = TEST_AZURE_FOUNDRY_BASE_URL;
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.AZURE_FOUNDRY);
+      expect(result.modelName).toBe("deployment-name");
+      expect(createOpenAICompatible).toHaveBeenCalledWith({
+        name: "azure-foundry",
+        baseURL: TEST_AZURE_FOUNDRY_BASE_URL,
+        supportsStructuredOutputs: true,
+        headers: { "api-key": TEST_AZURE_FOUNDRY_API_KEY },
+      });
+    });
+
+    it("should skip Azure Foundry list entries without an API key", () => {
+      const userAi = defaultUserAi();
+
+      setDefaultLlms(Provider.AZURE_FOUNDRY, "deployment-name", [
+        "openai:gpt-5.4-mini",
+      ]);
+      vi.mocked(env).AZURE_FOUNDRY_API_KEY = undefined;
+      vi.mocked(env).AZURE_FOUNDRY_BASE_URL = TEST_AZURE_FOUNDRY_BASE_URL;
+      vi.mocked(env).LLM_API_KEY = "test-shared-ai-key";
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.OPEN_AI);
+      expect(result.modelName).toBe("gpt-5.4-mini");
+    });
+
+    it("should skip Azure Foundry list entries without a base URL", () => {
+      const userAi = defaultUserAi();
+
+      setDefaultLlms(Provider.AZURE_FOUNDRY, "deployment-name", [
+        "openai:gpt-5.4-mini",
+      ]);
+      vi.mocked(env).AZURE_FOUNDRY_API_KEY = TEST_AZURE_FOUNDRY_API_KEY;
+      vi.mocked(env).AZURE_FOUNDRY_BASE_URL = undefined;
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.OPEN_AI);
+      expect(result.modelName).toBe("gpt-5.4-mini");
+    });
+
+    it("should use Azure Foundry as an ordered fallback entry", () => {
+      const userAi = defaultUserAi();
+
+      setDefaultLlms(Provider.OPEN_AI, "gpt-5.4-mini", [
+        "azure-foundry:deployment-name",
+      ]);
+      vi.mocked(env).AZURE_FOUNDRY_API_KEY = TEST_AZURE_FOUNDRY_API_KEY;
+      vi.mocked(env).AZURE_FOUNDRY_BASE_URL = TEST_AZURE_FOUNDRY_BASE_URL;
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.OPEN_AI);
+      expect(result.fallbackModels).toHaveLength(1);
+      expect(result.fallbackModels[0]).toMatchObject({
+        provider: Provider.AZURE_FOUNDRY,
+        modelName: "deployment-name",
+      });
+    });
+
     it("should skip Vertex list entries without a project", () => {
       const userAi = defaultUserAi();
 
@@ -718,12 +794,12 @@ describe("Models", () => {
       const userAi = defaultUserAi();
 
       vi.mocked(env).DEFAULT_LLMS =
-        "azure:DeepSeek-V4-Pro,openrouter:anthropic/claude-sonnet-4.6,openai:gpt-5.4-mini";
+        "azure:my-gpt-5-4-mini-deployment,openrouter:anthropic/claude-sonnet-4.6,openai:gpt-5.4-mini";
 
       const result = getModel(userAi);
 
       expect(result.provider).toBe(Provider.AZURE);
-      expect(result.modelName).toBe("DeepSeek-V4-Pro");
+      expect(result.modelName).toBe("my-gpt-5-4-mini-deployment");
       expect(result.fallbackModels).toHaveLength(2);
       expect(result.fallbackModels[0]).toMatchObject({
         provider: Provider.OPENROUTER,

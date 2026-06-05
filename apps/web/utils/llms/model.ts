@@ -140,6 +140,35 @@ function selectModel(
         },
       };
     }
+    case Provider.AZURE_FOUNDRY: {
+      const modelName = aiModel;
+      if (!modelName) throw new SafeError("LLM model name is not set");
+
+      const apiKey = aiApiKey || env.AZURE_FOUNDRY_API_KEY;
+      if (!apiKey) {
+        throw new SafeError(
+          "AZURE_FOUNDRY_API_KEY environment variable is not set",
+        );
+      }
+      const baseURL = env.AZURE_FOUNDRY_BASE_URL;
+      if (!baseURL) {
+        throw new SafeError(
+          "AZURE_FOUNDRY_BASE_URL environment variable is not set",
+        );
+      }
+
+      const azureFoundry = createOpenAICompatible({
+        name: "azure-foundry",
+        baseURL,
+        supportsStructuredOutputs: true,
+        headers: { "api-key": apiKey },
+      });
+      return {
+        provider: Provider.AZURE_FOUNDRY,
+        modelName,
+        model: azureFoundry(modelName),
+      };
+    }
     case Provider.GOOGLE: {
       const mod = aiModel || "gemini-2.0-flash";
       const googleProviderOptions = getGoogleProviderOptions(mod);
@@ -491,6 +520,10 @@ function getProviderApiKey(provider: string) {
     [Provider.ANTHROPIC]: resolveApiKey(null, env.ANTHROPIC_API_KEY),
     [Provider.AZURE]:
       azureApiKey && env.AZURE_RESOURCE_NAME ? azureApiKey : undefined,
+    [Provider.AZURE_FOUNDRY]:
+      env.AZURE_FOUNDRY_API_KEY && env.AZURE_FOUNDRY_BASE_URL
+        ? env.AZURE_FOUNDRY_API_KEY
+        : undefined,
     [Provider.BEDROCK]:
       env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY
         ? "bedrock-credentials"
