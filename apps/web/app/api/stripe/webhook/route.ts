@@ -17,6 +17,10 @@ import { env } from "@/env";
 import { getStripeCancellationInitiatedAt } from "./cancellation-initiated";
 import { getStripeTrialConvertedAt } from "./trial-conversion";
 import {
+  getStripeSubscriptionConversionProperties,
+  trackServerConversionEvent,
+} from "@/utils/analytics/server-conversion-events";
+import {
   trackBillingTrialStarted,
   trackStripeEvent,
   trackSubscriptionTrialStarted,
@@ -114,6 +118,7 @@ export async function processEvent(event: Stripe.Event, logger: Logger) {
     trackEvent(email, event),
     trackBillingMilestones(email, event, customerId),
     handleReferralCompletion(customerId, event, logger),
+    trackPaidSubscriptionConversion(event, logger),
     recordCancellationInitiated(customerId, event, logger),
   ];
 
@@ -210,6 +215,24 @@ async function recordCancellationInitiated(
   logger.info("Recorded user-initiated cancellation timestamp", {
     customerId,
     initiatedAt,
+  });
+}
+
+async function trackPaidSubscriptionConversion(
+  event: Stripe.Event,
+  logger: Logger,
+) {
+  const trialConvertedAt = getStripeTrialConvertedAt(event);
+  if (!trialConvertedAt) return;
+
+  const subscription = event.data.object as Stripe.Subscription;
+
+  await trackServerConversionEvent({
+    name: "subscription_created",
+    id: event.id,
+    timestamp: trialConvertedAt,
+    ...getStripeSubscriptionConversionProperties(subscription),
+    logger,
   });
 }
 
