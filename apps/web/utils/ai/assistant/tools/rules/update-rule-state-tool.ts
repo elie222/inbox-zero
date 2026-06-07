@@ -8,6 +8,7 @@ import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
 import {
   buildHiddenRuleNotFoundError,
+  buildOrgManagedRuleError,
   trackRuleToolCall,
   validateRuleWasReadRecently,
 } from "./shared";
@@ -56,6 +57,7 @@ export const updateRuleStateTool = ({
             name: true,
             enabled: true,
             systemType: true,
+            organizationRuleId: true,
             updatedAt: true,
             emailAccount: {
               select: {
@@ -67,6 +69,10 @@ export const updateRuleStateTool = ({
 
         if (!rule) {
           return buildHiddenRuleNotFoundError();
+        }
+
+        if (rule.organizationRuleId) {
+          return buildOrgManagedRuleError();
         }
 
         const staleReadError = validateRuleWasReadRecently({

@@ -13,6 +13,7 @@ import {
 } from "@/utils/actions/messaging-channels.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
+import { RULE_MANAGED_BY_ORGANIZATION_ERROR } from "@/utils/organizations/rules";
 import { isNotFoundError } from "@/utils/prisma-helpers";
 import {
   ActionType,
@@ -347,6 +348,7 @@ export const toggleRuleChannelAction = actionClient
             },
           },
           select: {
+            organizationRuleId: true,
             actions: {
               where: { type: ActionType.DRAFT_EMAIL },
               select: { id: true },
@@ -379,6 +381,9 @@ export const toggleRuleChannelAction = actionClient
 
       if (!rule) {
         throw new SafeError("Rule not found");
+      }
+      if (rule.organizationRuleId) {
+        throw new SafeError(RULE_MANAGED_BY_ORGANIZATION_ERROR);
       }
       if (!channel) {
         throw new SafeError("Messaging channel not found");

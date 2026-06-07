@@ -11,6 +11,7 @@ import {
   testAiCustomContentBody,
 } from "@/utils/actions/ai-rule.validation";
 import { setRuleRunOnThreads } from "@/utils/rule/rule";
+import { assertRuleIsNotOrgManaged } from "@/utils/organizations/rules";
 import { actionClient } from "@/utils/actions/safe-action";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
@@ -242,6 +243,7 @@ export const setRuleRunOnThreadsAction = actionClient
       ctx: { emailAccountId },
       parsedInput: { ruleId, runOnThreads },
     }) => {
+      await assertRuleIsNotOrgManaged({ ruleId, emailAccountId });
       await setRuleRunOnThreads({ ruleId, emailAccountId, runOnThreads });
     },
   );

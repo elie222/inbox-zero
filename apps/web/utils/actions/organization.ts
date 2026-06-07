@@ -24,6 +24,8 @@ import {
 import { env } from "@/env";
 import { slugify } from "@/utils/string";
 import { posthogCaptureEvent } from "@/utils/posthog";
+import { createScopedLogger } from "@/utils/logger";
+import { syncOrganizationRulesForNewMember } from "@/utils/organizations/rules";
 
 export const createOrganizationAction = actionClient
   .metadata({ name: "createOrganization" })
@@ -304,6 +306,23 @@ async function acceptInvitation({
     where: { id: invitationId },
     data: { status: "accepted" },
   });
+
+  // A sync failure must not block joining the organization.
+  try {
+    await syncOrganizationRulesForNewMember({
+      organizationId: invitation.organizationId,
+      emailAccountId,
+      logger: createScopedLogger("organizations/rules").with({
+        emailAccountId,
+        organizationId: invitation.organizationId,
+      }),
+    });
+  } catch (error) {
+    createScopedLogger("organizations/rules").error(
+      "Failed to materialize org rules for new member",
+      { error, emailAccountId, organizationId: invitation.organizationId },
+    );
+  }
 
   const premium = await getOrganizationPremium(invitation.organizationId);
   if (premium) {
