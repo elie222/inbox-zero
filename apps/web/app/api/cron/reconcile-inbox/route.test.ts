@@ -69,6 +69,20 @@ describe("reconcile inbox cron route", () => {
     expect(captureExceptionMock).not.toHaveBeenCalled();
   });
 
+  it("rejects POST requests without the cron secret in the body", async () => {
+    const response = await POST(
+      new Request("http://localhost:3000/api/cron/reconcile-inbox", {
+        method: "POST",
+        body: JSON.stringify({ CRON_SECRET: "wrong-secret" }),
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.text()).resolves.toBe("Unauthorized");
+    expect(reconcileMock).not.toHaveBeenCalled();
+    expect(captureExceptionMock).toHaveBeenCalledTimes(1);
+  });
+
   it("runs inbox reconcile for POST requests with the cron secret in the body", async () => {
     const response = await POST(
       new Request("http://localhost:3000/api/cron/reconcile-inbox", {
