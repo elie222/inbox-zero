@@ -4,6 +4,7 @@ import { env } from "@/env";
 export const sendCompleteRegistrationEvent = async ({
   userId,
   email,
+  eventId,
   eventSourceUrl,
   ipAddress,
   userAgent,
@@ -12,6 +13,7 @@ export const sendCompleteRegistrationEvent = async ({
 }: {
   userId: string;
   email: string;
+  eventId: string;
   eventSourceUrl: string;
   ipAddress: string;
   userAgent: string;
@@ -29,6 +31,7 @@ export const sendCompleteRegistrationEvent = async ({
   const data = {
     event_name: "CompleteRegistration",
     event_time: Math.floor(Date.now() / 1000),
+    event_id: eventId,
     action_source: "website",
     event_source_url: eventSourceUrl,
     user_data: {

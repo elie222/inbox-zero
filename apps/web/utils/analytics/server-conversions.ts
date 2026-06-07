@@ -1,8 +1,13 @@
+import { createHash } from "node:crypto";
 import { ONE_HOUR_MS } from "@/utils/date";
 import { sendCompleteRegistrationEvent } from "@/utils/fb";
 import type { Logger } from "@/utils/logger";
 import { trackUserSignedUp } from "@/utils/posthog";
 import prisma from "@/utils/prisma";
+import { redis } from "@/utils/redis";
+
+const REGISTRATION_COMPLETED_EVENT = "registration_completed";
+const CONVERSION_DEDUPE_TTL_SECONDS = 24 * 60 * 60;
 
 type RegistrationCompletedConversionEligibility =
   | { eligible: false }
@@ -30,16 +35,36 @@ export async function trackRegistrationCompletedConversion({
   logger: Logger;
 }) {
   try {
-    const facebookPromise = sendCompleteRegistrationEvent({
+    const eventId = getRegistrationCompletedConversionEventId({
       userId,
-      email,
-      eventSourceUrl,
-      ipAddress,
-      userAgent,
-      fbc,
-      fbp,
+      createdAt,
     });
-    const posthogPromise = trackUserSignedUp(email, createdAt);
+    const facebookPromise = trackConversionOnce({
+      provider: "facebook",
+      eventName: REGISTRATION_COMPLETED_EVENT,
+      userId,
+      createdAt,
+      logger,
+      track: () =>
+        sendCompleteRegistrationEvent({
+          userId,
+          email,
+          eventId,
+          eventSourceUrl,
+          ipAddress,
+          userAgent,
+          fbc,
+          fbp,
+        }),
+    });
+    const posthogPromise = trackConversionOnce({
+      provider: "posthog",
+      eventName: REGISTRATION_COMPLETED_EVENT,
+      userId,
+      createdAt,
+      logger,
+      track: () => trackUserSignedUp(email, createdAt),
+    });
 
     const [facebookResult, posthogResult] = await Promise.allSettled([
       facebookPromise,
@@ -96,4 +121,141 @@ export async function getRegistrationCompletedConversionEligibility(
   }
 
   return { eligible: true, createdAt: userCreatedAt.createdAt };
+}
+
+async function trackConversionOnce({
+  provider,
+  eventName,
+  userId,
+  createdAt,
+  logger,
+  track,
+}: {
+  provider: string;
+  eventName: string;
+  userId: string;
+  createdAt: Date;
+  logger: Logger;
+  track: () => Promise<unknown>;
+}) {
+  const reservation = await reserveConversionTracking({
+    provider,
+    eventName,
+    userId,
+    createdAt,
+    logger,
+  });
+  if (!reservation.shouldTrack) return;
+
+  try {
+    await track();
+  } catch (error) {
+    if (reservation.key) {
+      await releaseConversionTrackingReservation({
+        key: reservation.key,
+        provider,
+        eventName,
+        userId,
+        logger,
+      });
+    }
+    throw error;
+  }
+}
+
+async function reserveConversionTracking({
+  provider,
+  eventName,
+  userId,
+  createdAt,
+  logger,
+}: {
+  provider: string;
+  eventName: string;
+  userId: string;
+  createdAt: Date;
+  logger: Logger;
+}) {
+  const key = getConversionTrackingDedupeKey({
+    provider,
+    eventName,
+    userId,
+    createdAt,
+  });
+
+  try {
+    const reserved = await redis.set(key, "1", {
+      ex: CONVERSION_DEDUPE_TTL_SECONDS,
+      nx: true,
+    });
+
+    return reserved ? { shouldTrack: true, key } : { shouldTrack: false };
+  } catch (error) {
+    logger.error("Conversion tracking dedupe failed", {
+      error,
+      provider,
+      eventName,
+      userId,
+    });
+    return { shouldTrack: true };
+  }
+}
+
+async function releaseConversionTrackingReservation({
+  key,
+  provider,
+  eventName,
+  userId,
+  logger,
+}: {
+  key: string;
+  provider: string;
+  eventName: string;
+  userId: string;
+  logger: Logger;
+}) {
+  try {
+    await redis.del(key);
+  } catch (error) {
+    logger.error("Conversion tracking dedupe release failed", {
+      error,
+      provider,
+      eventName,
+      userId,
+    });
+  }
+}
+
+function getRegistrationCompletedConversionEventId({
+  userId,
+  createdAt,
+}: {
+  userId: string;
+  createdAt: Date;
+}) {
+  return createHash("sha256")
+    .update(
+      `${REGISTRATION_COMPLETED_EVENT}:${userId}:${createdAt.toISOString()}`,
+    )
+    .digest("hex");
+}
+
+function getConversionTrackingDedupeKey({
+  provider,
+  eventName,
+  userId,
+  createdAt,
+}: {
+  provider: string;
+  eventName: string;
+  userId: string;
+  createdAt: Date;
+}) {
+  return [
+    "conversion",
+    provider,
+    eventName,
+    userId,
+    createdAt.toISOString(),
+  ].join(":");
 }

@@ -42,12 +42,22 @@ describe("sendCompleteRegistrationEvent", () => {
       sendCompleteRegistrationEvent(getEventInput()),
     ).rejects.toThrow("Facebook conversion event failed: 400");
   });
+
+  it("sends the provided event id for provider-side dedupe", async () => {
+    fetchMock.mockResolvedValue({ ok: true });
+
+    await sendCompleteRegistrationEvent(getEventInput());
+
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
+    expect(body.data[0].event_id).toBe("event-id");
+  });
 });
 
 function getEventInput() {
   return {
     userId: "user-id",
     email: "user@example.com",
+    eventId: "event-id",
     eventSourceUrl: "https://example.com/setup",
     ipAddress: "127.0.0.1",
     userAgent: "test-agent",
