@@ -1,5 +1,4 @@
-import { NextResponse } from "next/server";
-import { after } from "next/server";
+import { after, NextResponse } from "next/server";
 import { cookies, headers } from "next/headers";
 import { auth } from "@/utils/auth";
 import { withError } from "@/utils/middleware";
@@ -35,12 +34,14 @@ export const POST = withError("complete-registration", async (request) => {
     );
 
   if (conversionEligibility.eligible) {
+    const createdAt = conversionEligibility.createdAt;
+
     after(async () => {
       try {
         await trackRegistrationCompletedConversion({
           userId: session.user.id,
           email: session.user.email,
-          createdAt: conversionEligibility.createdAt,
+          createdAt,
           eventSourceUrl: eventSourceUrl || "",
           ipAddress: ip || "",
           userAgent: userAgent || "",

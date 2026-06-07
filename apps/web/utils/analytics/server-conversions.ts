@@ -4,6 +4,10 @@ import type { Logger } from "@/utils/logger";
 import { trackUserSignedUp } from "@/utils/posthog";
 import prisma from "@/utils/prisma";
 
+type RegistrationCompletedConversionEligibility =
+  | { eligible: false }
+  | { eligible: true; createdAt: Date };
+
 export async function trackRegistrationCompletedConversion({
   userId,
   email,
@@ -66,7 +70,7 @@ export async function trackRegistrationCompletedConversion({
 export async function getRegistrationCompletedConversionEligibility(
   userId: string,
   logger: Logger,
-) {
+): Promise<RegistrationCompletedConversionEligibility> {
   const userCreatedAt = await prisma.user.findUnique({
     where: { id: userId },
     select: { createdAt: true },
