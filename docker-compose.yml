@@ -153,6 +153,13 @@ services:
             sleep 21600
           done
         ) &
+        (
+          while true; do
+            echo \"[cron] Reconciling email inboxes...\"
+            curl -s -X GET 'http://web:3000/api/cron/reconcile-inbox' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: reconcile-inbox request failed\"
+            sleep 900
+          done
+        ) &
         wait
         }
       "

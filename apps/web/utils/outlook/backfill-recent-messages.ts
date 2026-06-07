@@ -6,6 +6,27 @@ import prisma from "@/utils/prisma";
 import type { ParsedMessage } from "@/utils/types";
 
 const OUTLOOK_RECONCILE_PAGE_SIZE = 50;
+export const OUTLOOK_RECONCILE_FALLBACK_MS = 3 * 24 * 60 * 60 * 1000;
+export const OUTLOOK_RECONCILE_BUFFER_MS = 60 * 60 * 1000;
+export const OUTLOOK_RECONCILE_MAX_MESSAGES = 100;
+
+export async function getOutlookReconcileStartDate(emailAccountId: string) {
+  const latestMessage = await prisma.emailMessage.findFirst({
+    where: { emailAccountId },
+    orderBy: { date: "desc" },
+    select: { date: true },
+  });
+
+  const fallbackStart = new Date(Date.now() - OUTLOOK_RECONCILE_FALLBACK_MS);
+  if (!latestMessage?.date) return fallbackStart;
+
+  return new Date(
+    Math.max(
+      latestMessage.date.getTime() - OUTLOOK_RECONCILE_BUFFER_MS,
+      fallbackStart.getTime(),
+    ),
+  );
+}
 
 export async function backfillRecentOutlookMessages({
   emailAccountId,
