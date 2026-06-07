@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { signUpEvent } from "@/utils/gtm";
+import { trackClientConversion } from "@/utils/analytics/client-conversions";
 
 export const useSignUpEvent = () => {
   useEffect(() => {
@@ -9,12 +9,20 @@ export const useSignUpEvent = () => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({}),
-    }).catch((error) => {
-      console.error("Failed to complete registration:", error);
-    });
-  }, []);
+    })
+      .then(async (response) => {
+        const result = (await response.json()) as {
+          registrationTracked?: boolean;
+        };
 
-  useEffect(() => {
-    signUpEvent();
+        if (result.registrationTracked) {
+          trackClientConversion({
+            name: "registration_completed",
+          });
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to complete registration:", error);
+      });
   }, []);
 };

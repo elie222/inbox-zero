@@ -548,7 +548,7 @@ export const generateCheckoutSessionAction = actionClientUser
     // ALWAYS create a checkout with a stripeCustomerId
     const checkout = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
-      success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success`,
+      success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
       mode: "subscription",
       subscription_data: { trial_period_days: 7 },
