@@ -358,55 +358,98 @@ async function materializeMemberRuleCopy({
     memberEnabled,
   });
 
-  const sharedData = {
-    name: organizationRule.name,
-    instructions: organizationRule.instructions,
-    runOnThreads: organizationRule.runOnThreads,
-    conditionalOperator: organizationRule.conditionalOperator,
-    from: organizationRule.from,
-    to: organizationRule.to,
-    subject: organizationRule.subject,
-    body: organizationRule.body,
-    enabled,
-    organizationRuleMemberEnabled: memberEnabled,
+  const writeCopy = (name: string) => {
+    const data = {
+      name,
+      instructions: organizationRule.instructions,
+      runOnThreads: organizationRule.runOnThreads,
+      conditionalOperator: organizationRule.conditionalOperator,
+      from: organizationRule.from,
+      to: organizationRule.to,
+      subject: organizationRule.subject,
+      body: organizationRule.body,
+      enabled,
+      organizationRuleMemberEnabled: memberEnabled,
+    };
+    return existing
+      ? prisma.rule.update({
+          where: { id: existing.id, emailAccountId },
+          // Overwrite managed fields/actions; the member's opt-in is preserved.
+          data: {
+            ...data,
+            actions: {
+              deleteMany: {},
+              createMany: { data: actionsCreateData },
+            },
+          },
+        })
+      : prisma.rule.create({
+          data: {
+            ...data,
+            emailAccountId,
+            organizationRuleId: organizationRule.id,
+            actions: { createMany: { data: actionsCreateData } },
+          },
+        });
   };
 
   try {
-    if (existing) {
-      // Overwrite managed fields/actions; the member's opt-in is preserved above.
-      await prisma.rule.update({
-        where: { id: existing.id, emailAccountId },
-        data: {
-          ...sharedData,
-          actions: {
-            deleteMany: {},
-            createMany: { data: actionsCreateData },
-          },
-        },
-      });
-    } else {
-      await prisma.rule.create({
-        data: {
-          ...sharedData,
-          emailAccountId,
-          organizationRuleId: organizationRule.id,
-          actions: { createMany: { data: actionsCreateData } },
-        },
-      });
-    }
+    await writeCopy(organizationRule.name);
   } catch (error) {
-    // Skip the member if they already have a personal rule with this name.
-    if (isDuplicateError(error, "name")) {
-      logger.warn("Skipping org rule copy due to member name conflict", {
-        organizationRuleId: organizationRule.id,
-        emailAccountId,
-      });
-      return;
-    }
     // A concurrent sync already materialized this copy.
     if (isDuplicateError(error, ["emailAccountId", "organizationRuleId"])) {
       return;
     }
+    // The member already has a (personal) rule with this name. Give the managed
+    // copy a unique name so it still materializes instead of being skipped.
+    if (isDuplicateError(error, "name")) {
+      const name = await availableRuleName({
+        emailAccountId,
+        desiredName: organizationRule.name,
+        excludeOrganizationRuleId: organizationRule.id,
+      });
+      logger.info("Renaming org rule copy to avoid member name conflict", {
+        organizationRuleId: organizationRule.id,
+        emailAccountId,
+        name,
+      });
+      try {
+        await writeCopy(name);
+      } catch (retryError) {
+        if (
+          isDuplicateError(retryError, ["emailAccountId", "organizationRuleId"])
+        ) {
+          return;
+        }
+        throw retryError;
+      }
+      return;
+    }
     throw error;
   }
+}
+
+async function availableRuleName({
+  emailAccountId,
+  desiredName,
+  excludeOrganizationRuleId,
+}: {
+  emailAccountId: string;
+  desiredName: string;
+  excludeOrganizationRuleId: string;
+}): Promise<string> {
+  const rules = await prisma.rule.findMany({
+    where: {
+      emailAccountId,
+      name: { startsWith: desiredName },
+      NOT: { organizationRuleId: excludeOrganizationRuleId },
+    },
+    select: { name: true },
+  });
+  const taken = new Set(rules.map((rule) => rule.name));
+  if (!taken.has(desiredName)) return desiredName;
+
+  let suffix = 2;
+  while (taken.has(`${desiredName} (${suffix})`)) suffix++;
+  return `${desiredName} (${suffix})`;
 }

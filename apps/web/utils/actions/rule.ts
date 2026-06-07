@@ -173,6 +173,8 @@ export const updateRuleSettingsAction = actionClient
   .inputSchema(updateRuleSettingsBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { id, instructions } }) => {
+      await assertRuleIsNotOrgManaged({ ruleId: id, emailAccountId });
+
       const currentRule = await prisma.rule.findUnique({
         where: { id, emailAccountId },
       });

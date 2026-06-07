@@ -57,6 +57,11 @@ export function RuleImportExportSetting({
         })),
       }));
 
+    if (exportData.length === 0) {
+      toastError({ description: "No personal rules to export." });
+      return;
+    }
+
     const blob = new Blob([JSON.stringify(exportData, null, 2)], {
       type: "application/json",
     });

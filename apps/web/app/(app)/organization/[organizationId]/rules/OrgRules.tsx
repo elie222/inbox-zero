@@ -72,17 +72,20 @@ export function OrgRules({ organizationId }: { organizationId: string }) {
         : data,
       { revalidate: false },
     );
-    const result = await setOrganizationRuleEnabledAction({
-      organizationId,
-      organizationRuleId: rule.id,
-      enabled,
-    });
-    if (result?.serverError) {
-      toastError({
-        description: `There was an error ${enabled ? "enabling" : "disabling"} the rule. ${result.serverError}`,
+    try {
+      const result = await setOrganizationRuleEnabledAction({
+        organizationId,
+        organizationRuleId: rule.id,
+        enabled,
       });
+      if (result?.serverError) {
+        toastError({
+          description: `There was an error ${enabled ? "enabling" : "disabling"} the rule. ${result.serverError}`,
+        });
+      }
+    } finally {
+      mutate();
     }
-    mutate();
   };
 
   const onDelete = async (rule: OrgRule) => {

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
@@ -208,6 +209,37 @@ describe("syncOrganizationRuleToMembers", () => {
     >;
     expect(createData.enabled).toBe(false);
     expect(createData.organizationRuleMemberEnabled).toBe(true);
+  });
+
+  it("renames the copy when the name conflicts with a member's personal rule", async () => {
+    prisma.member.findMany.mockResolvedValue([
+      { emailAccountId: "ea-1" },
+    ] as never);
+    prisma.rule.findFirst.mockResolvedValue(null as never);
+
+    const nameConflict = new Prisma.PrismaClientKnownRequestError("dup", {
+      code: "P2002",
+      clientVersion: "test",
+      meta: { target: ["name", "emailAccountId"] },
+    });
+    prisma.rule.create
+      .mockRejectedValueOnce(nameConflict)
+      .mockResolvedValueOnce({} as never);
+    // availableRuleName: the desired name is already taken by a personal rule.
+    prisma.rule.findMany.mockResolvedValue([{ name: "Invoices" }] as never);
+
+    await syncOrganizationRuleToMembers({
+      organizationRuleId: "org-rule-1",
+      logger,
+    });
+
+    expect(prisma.rule.create).toHaveBeenCalledTimes(2);
+    const retryData = prisma.rule.create.mock.calls[1]?.[0]?.data as Record<
+      string,
+      unknown
+    >;
+    expect(retryData.name).toBe("Invoices (2)");
+    expect(retryData.organizationRuleId).toBe("org-rule-1");
   });
 });
 

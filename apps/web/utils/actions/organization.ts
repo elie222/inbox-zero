@@ -13,7 +13,7 @@ import {
   createOrganizationAndInviteBody,
 } from "@/utils/actions/organization.validation";
 import prisma from "@/utils/prisma";
-import { SafeError } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import { getAuthorizedOrganizationAdminMembership } from "@/utils/organizations/access";
 import { sendOrganizationInvitation } from "@/utils/organizations/invitations";
 import {
@@ -307,21 +307,29 @@ async function acceptInvitation({
     data: { status: "accepted" },
   });
 
-  // A sync failure must not block joining the organization.
+  // A sync failure must not block joining the organization, but it is surfaced
+  // (logged + captured) so the team can recover the member's missing rule copies.
+  const syncLogger = createScopedLogger("organizations/rules").with({
+    emailAccountId,
+    organizationId: invitation.organizationId,
+  });
   try {
     await syncOrganizationRulesForNewMember({
       organizationId: invitation.organizationId,
       emailAccountId,
-      logger: createScopedLogger("organizations/rules").with({
-        emailAccountId,
-        organizationId: invitation.organizationId,
-      }),
+      logger: syncLogger,
     });
   } catch (error) {
-    createScopedLogger("organizations/rules").error(
-      "Failed to materialize org rules for new member",
-      { error, emailAccountId, organizationId: invitation.organizationId },
-    );
+    syncLogger.error("Failed to materialize org rules for new member", {
+      error,
+    });
+    captureException(error, {
+      emailAccountId,
+      extra: {
+        organizationId: invitation.organizationId,
+        context: "syncOrganizationRulesForNewMember",
+      },
+    });
   }
 
   const premium = await getOrganizationPremium(invitation.organizationId);

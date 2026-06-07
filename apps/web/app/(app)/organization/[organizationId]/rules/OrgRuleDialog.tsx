@@ -67,6 +67,7 @@ type ActionFormValue = {
   bcc: string;
   url: string;
   folderName: string;
+  delayInMinutes: number | null;
 };
 
 type OrgRuleFormValues = {
@@ -91,6 +92,7 @@ const EMPTY_ACTION: ActionFormValue = {
   bcc: "",
   url: "",
   folderName: "",
+  delayInMinutes: null,
 };
 
 export function OrgRuleDialog({
@@ -107,7 +109,8 @@ export function OrgRuleDialog({
   onSuccess: () => void;
 }) {
   const editing = !!rule;
-  const values = useMemo(() => toFormValues(rule), [rule]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: isOpen forces a re-derive so reopening "New rule" starts clean.
+  const values = useMemo(() => toFormValues(rule), [rule, isOpen]);
 
   const {
     register,
@@ -139,6 +142,7 @@ export function OrgRuleDialog({
       bcc: action.bcc || null,
       url: action.url || null,
       folderName: action.folderName || null,
+      delayInMinutes: action.delayInMinutes ?? null,
     }));
 
     const shared = {
@@ -362,95 +366,104 @@ function ActionFields({
   type: ActionType;
   register: ReturnType<typeof useForm<OrgRuleFormValues>>["register"];
 }) {
-  if (type === ActionType.LABEL) {
-    return (
-      <Input
-        type="text"
-        name={`actions.${index}.label`}
-        label="Label name"
-        registerProps={register(`actions.${index}.label`)}
-      />
-    );
-  }
+  const isSend = type === ActionType.SEND_EMAIL;
+  const isReply = type === ActionType.REPLY;
+  const isForward = type === ActionType.FORWARD;
+  const hasRecipients = isSend || isReply || isForward;
 
-  if (type === ActionType.MOVE_FOLDER) {
-    return (
-      <Input
-        type="text"
-        name={`actions.${index}.folderName`}
-        label="Folder name"
-        registerProps={register(`actions.${index}.folderName`)}
-      />
-    );
-  }
+  return (
+    <div className="space-y-3">
+      {type === ActionType.LABEL && (
+        <Input
+          type="text"
+          name={`actions.${index}.label`}
+          label="Label name"
+          registerProps={register(`actions.${index}.label`)}
+        />
+      )}
 
-  if (type === ActionType.CALL_WEBHOOK) {
-    return (
-      <Input
-        type="text"
-        name={`actions.${index}.url`}
-        label="Webhook URL"
-        registerProps={register(`actions.${index}.url`)}
-      />
-    );
-  }
+      {type === ActionType.MOVE_FOLDER && (
+        <Input
+          type="text"
+          name={`actions.${index}.folderName`}
+          label="Folder name"
+          registerProps={register(`actions.${index}.folderName`)}
+        />
+      )}
 
-  if (type === ActionType.FORWARD) {
-    return (
-      <Input
-        type="text"
-        name={`actions.${index}.to`}
-        label="Forward to"
-        registerProps={register(`actions.${index}.to`)}
-      />
-    );
-  }
+      {type === ActionType.CALL_WEBHOOK && (
+        <Input
+          type="text"
+          name={`actions.${index}.url`}
+          label="Webhook URL"
+          registerProps={register(`actions.${index}.url`)}
+        />
+      )}
 
-  if (type === ActionType.SEND_EMAIL || type === ActionType.REPLY) {
-    return (
-      <div className="space-y-3">
-        {type === ActionType.SEND_EMAIL && (
-          <Input
-            type="text"
-            name={`actions.${index}.to`}
-            label="To"
-            registerProps={register(`actions.${index}.to`)}
-          />
-        )}
+      {(isSend || isForward) && (
+        <Input
+          type="text"
+          name={`actions.${index}.to`}
+          label={isForward ? "Forward to" : "To"}
+          registerProps={register(`actions.${index}.to`)}
+        />
+      )}
+
+      {(isSend || isReply) && (
         <Input
           type="text"
           name={`actions.${index}.subject`}
           label="Subject"
           registerProps={register(`actions.${index}.subject`)}
         />
+      )}
+
+      {(isSend || isReply || type === ActionType.DRAFT_EMAIL) && (
         <Input
           type="text"
           as="textarea"
           autosizeTextarea
           rows={2}
           name={`actions.${index}.content`}
-          label="Content"
+          label={
+            type === ActionType.DRAFT_EMAIL
+              ? "Draft content (optional)"
+              : "Content"
+          }
           registerProps={register(`actions.${index}.content`)}
         />
-      </div>
-    );
-  }
+      )}
 
-  if (type === ActionType.DRAFT_EMAIL) {
-    return (
+      {hasRecipients && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Input
+            type="text"
+            name={`actions.${index}.cc`}
+            label="CC (optional)"
+            registerProps={register(`actions.${index}.cc`)}
+          />
+          <Input
+            type="text"
+            name={`actions.${index}.bcc`}
+            label="BCC (optional)"
+            registerProps={register(`actions.${index}.bcc`)}
+          />
+        </div>
+      )}
+
       <Input
-        type="text"
-        as="textarea"
-        autosizeTextarea
-        rows={2}
-        name={`actions.${index}.content`}
-        label="Draft content (optional)"
-        registerProps={register(`actions.${index}.content`)}
+        type="number"
+        name={`actions.${index}.delayInMinutes`}
+        label="Delay in minutes (optional)"
+        registerProps={register(`actions.${index}.delayInMinutes`, {
+          setValueAs: (value) =>
+            value === "" || value === null || value === undefined
+              ? null
+              : Number(value),
+        })}
       />
-    );
-  }
-
-  return null;
+    </div>
+  );
 }
 
 function toFormValues(rule?: OrgRule): OrgRuleFormValues {
@@ -474,6 +487,7 @@ function toFormValues(rule?: OrgRule): OrgRuleFormValues {
           bcc: action.bcc ?? "",
           url: action.url ?? "",
           folderName: action.folderName ?? "",
+          delayInMinutes: action.delayInMinutes ?? null,
         }))
       : [EMPTY_ACTION],
   };

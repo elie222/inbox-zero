@@ -2,6 +2,11 @@ import { z } from "zod";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
+import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
+import {
+  isWebhookActionEnabled,
+  WEBHOOK_ACTION_DISABLED_MESSAGE,
+} from "@/utils/webhook-action";
 
 // Messaging-channel actions are intentionally excluded: org rules are shared
 // across members and each member needs their own channel.
@@ -35,12 +40,24 @@ export const organizationRuleActionSchema = z
     staticAttachments: z.array(attachmentSourceInputSchema).nullish(),
   })
   .superRefine((data, ctx) => {
-    if (data.type === ActionType.LABEL && !data.label?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Please enter a label name for the Label action",
-        path: ["label"],
-      });
+    if (data.type === ActionType.LABEL) {
+      const label = data.label?.trim();
+      if (!label) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please enter a label name for the Label action",
+          path: ["label"],
+        });
+      } else {
+        const validation = validateLabelNameBasic(label);
+        if (!validation.valid) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: validation.error!,
+            path: ["label"],
+          });
+        }
+      }
     }
     if (
       (data.type === ActionType.FORWARD ||
@@ -53,12 +70,20 @@ export const organizationRuleActionSchema = z
         path: ["to"],
       });
     }
-    if (data.type === ActionType.CALL_WEBHOOK && !data.url?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Please enter a webhook URL",
-        path: ["url"],
-      });
+    if (data.type === ActionType.CALL_WEBHOOK) {
+      if (!isWebhookActionEnabled()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: WEBHOOK_ACTION_DISABLED_MESSAGE,
+          path: ["type"],
+        });
+      } else if (!data.url?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please enter a webhook URL",
+          path: ["url"],
+        });
+      }
     }
     if (data.type === ActionType.MOVE_FOLDER && !data.folderName?.trim()) {
       ctx.addIssue({
