@@ -30,6 +30,7 @@ import {
   updateOrganizationRuleAction,
 } from "@/utils/actions/organization-rule";
 import type { OrganizationRuleActionSchema } from "@/utils/actions/organization-rule.validation";
+import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import type { OrganizationRulesResponse } from "@/app/api/organizations/[organizationId]/rules/route";
 
 type OrgRule = OrganizationRulesResponse["rules"][number];
@@ -455,6 +456,8 @@ function ActionFields({
         type="number"
         name={`actions.${index}.delayInMinutes`}
         label="Delay in minutes (optional)"
+        min={1}
+        max={NINETY_DAYS_MINUTES}
         registerProps={register(`actions.${index}.delayInMinutes`, {
           setValueAs: (value) =>
             value === "" || value === null || value === undefined

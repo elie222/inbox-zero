@@ -32,6 +32,9 @@ export const ORGANIZATION_RULE_ACTION_COPY_FIELDS = [
 ] as const satisfies readonly (keyof OrganizationRuleAction &
   keyof RuleActionCreateData)[];
 
+// Bounds the rename retries when a member already has a rule with the same name.
+const MAX_NAME_CONFLICT_RETRIES = 5;
+
 // Need a per-account messaging channel, so they can't be shared across members.
 const UNSUPPORTED_ORGANIZATION_ACTION_TYPES: ActionType[] = [
   ActionType.NOTIFY_MESSAGING_CHANNEL,
@@ -393,40 +396,35 @@ async function materializeMemberRuleCopy({
         });
   };
 
-  try {
-    await writeCopy(organizationRule.name);
-  } catch (error) {
-    // A concurrent sync already materialized this copy.
-    if (isDuplicateError(error, ["emailAccountId", "organizationRuleId"])) {
+  // First attempt uses the org rule's name. On a member name conflict, retry
+  // with a freshly computed unique name (recomputed each time to tolerate
+  // concurrent collisions) instead of skipping or rethrowing.
+  for (let attempt = 0; attempt < MAX_NAME_CONFLICT_RETRIES; attempt++) {
+    const name =
+      attempt === 0
+        ? organizationRule.name
+        : await availableRuleName({
+            emailAccountId,
+            desiredName: organizationRule.name,
+            excludeOrganizationRuleId: organizationRule.id,
+          });
+    try {
+      await writeCopy(name);
       return;
-    }
-    // The member already has a (personal) rule with this name. Give the managed
-    // copy a unique name so it still materializes instead of being skipped.
-    if (isDuplicateError(error, "name")) {
-      const name = await availableRuleName({
-        emailAccountId,
-        desiredName: organizationRule.name,
-        excludeOrganizationRuleId: organizationRule.id,
-      });
-      logger.info("Renaming org rule copy to avoid member name conflict", {
-        organizationRuleId: organizationRule.id,
-        emailAccountId,
-        name,
-      });
-      try {
-        await writeCopy(name);
-      } catch (retryError) {
-        if (
-          isDuplicateError(retryError, ["emailAccountId", "organizationRuleId"])
-        ) {
-          return;
-        }
-        throw retryError;
+    } catch (error) {
+      // A concurrent sync already materialized this copy.
+      if (isDuplicateError(error, ["emailAccountId", "organizationRuleId"])) {
+        return;
       }
-      return;
+      if (isDuplicateError(error, "name")) continue;
+      throw error;
     }
-    throw error;
   }
+
+  logger.warn("Skipped org rule copy after repeated member name conflicts", {
+    organizationRuleId: organizationRule.id,
+    emailAccountId,
+  });
 }
 
 async function availableRuleName({
