@@ -12,9 +12,7 @@ async function getRules({ emailAccountId }: { emailAccountId: string }) {
       group: { select: { name: true } },
       organizationRule: {
         select: {
-          id: true,
           enabled: true,
-          organization: { select: { name: true } },
         },
       },
     },

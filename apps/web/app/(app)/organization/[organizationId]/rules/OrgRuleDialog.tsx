@@ -29,34 +29,22 @@ import {
   createOrganizationRuleAction,
   updateOrganizationRuleAction,
 } from "@/utils/actions/organization-rule";
-import type { OrganizationRuleActionSchema } from "@/utils/actions/organization-rule.validation";
+import {
+  organizationRuleActionType,
+  type OrganizationRuleActionSchema,
+} from "@/utils/actions/organization-rule.validation";
+import { ACTION_TYPE_LABELS } from "@/utils/action-display";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import type { OrganizationRulesResponse } from "@/app/api/organizations/[organizationId]/rules/route";
 
 type OrgRule = OrganizationRulesResponse["rules"][number];
 
-const ACTION_TYPE_OPTIONS: { value: ActionType; label: string }[] = [
-  { value: ActionType.LABEL, label: "Label" },
-  { value: ActionType.ARCHIVE, label: "Archive" },
-  { value: ActionType.MARK_READ, label: "Mark read" },
-  { value: ActionType.MARK_SPAM, label: "Mark spam" },
-  { value: ActionType.STAR, label: "Star" },
-  { value: ActionType.MOVE_FOLDER, label: "Move to folder" },
-  { value: ActionType.FORWARD, label: "Forward" },
-  { value: ActionType.REPLY, label: "Reply" },
-  { value: ActionType.SEND_EMAIL, label: "Send email" },
-  { value: ActionType.DRAFT_EMAIL, label: "Draft reply" },
-  { value: ActionType.CALL_WEBHOOK, label: "Call webhook" },
-  { value: ActionType.DIGEST, label: "Add to digest" },
-];
-
-const ACTION_TYPE_LABELS = new Map(
-  ACTION_TYPE_OPTIONS.map((option) => [option.value, option.label]),
-);
-
-export function getActionTypeLabel(type: ActionType): string {
-  return ACTION_TYPE_LABELS.get(type) ?? type;
-}
+// Offer exactly the action types the validation schema accepts, labeled from the
+// shared map, so the picker can never present something the server rejects.
+const ACTION_TYPE_OPTIONS = organizationRuleActionType.options.map((value) => ({
+  value,
+  label: ACTION_TYPE_LABELS[value],
+}));
 
 type ActionFormValue = {
   type: ActionType;

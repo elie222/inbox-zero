@@ -37,8 +37,9 @@ import {
   deleteOrganizationRuleAction,
   setOrganizationRuleEnabledAction,
 } from "@/utils/actions/organization-rule";
+import { ACTION_TYPE_LABELS } from "@/utils/action-display";
 import type { OrganizationRulesResponse } from "@/app/api/organizations/[organizationId]/rules/route";
-import { OrgRuleDialog, getActionTypeLabel } from "./OrgRuleDialog";
+import { OrgRuleDialog } from "./OrgRuleDialog";
 
 type OrgRule = OrganizationRulesResponse["rules"][number];
 
@@ -156,7 +157,7 @@ export function OrgRules({ organizationId }: { organizationId: string }) {
                             variant="secondary"
                             className="text-xs"
                           >
-                            {getActionTypeLabel(action.type)}
+                            {ACTION_TYPE_LABELS[action.type]}
                           </Badge>
                         ))}
                       </div>

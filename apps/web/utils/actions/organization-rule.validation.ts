@@ -10,7 +10,7 @@ import {
 
 // Messaging-channel actions are intentionally excluded: org rules are shared
 // across members and each member needs their own channel.
-const organizationRuleActionType = z.enum([
+export const organizationRuleActionType = z.enum([
   ActionType.ARCHIVE,
   ActionType.LABEL,
   ActionType.REPLY,
