@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import { cookies, headers } from "next/headers";
 import { auth } from "@/utils/auth";
 import { withError } from "@/utils/middleware";
-import { trackRegistrationCompletedConversion } from "@/utils/analytics/server-conversions";
+import {
+  getRegistrationCompletedConversionEligibility,
+  trackRegistrationCompletedConversion,
+} from "@/utils/analytics/server-conversions";
 import type { ReadonlyHeaders } from "next/dist/server/web/spec-extension/adapters/headers";
 
 export const POST = withError("complete-registration", async (request) => {
@@ -24,20 +28,38 @@ export const POST = withError("complete-registration", async (request) => {
   const fbc = c.get("_fbc")?.value;
   const fbp = c.get("_fbp")?.value;
 
-  const result = await trackRegistrationCompletedConversion({
-    userId: session.user.id,
-    email: session.user.email,
-    eventSourceUrl: eventSourceUrl || "",
-    ipAddress: ip || "",
-    userAgent: userAgent || "",
-    fbc: fbc || "",
-    fbp: fbp || "",
-    logger,
-  });
+  const conversionEligibility =
+    await getRegistrationCompletedConversionEligibility(
+      session.user.id,
+      logger,
+    );
+
+  if (conversionEligibility.eligible) {
+    after(async () => {
+      try {
+        await trackRegistrationCompletedConversion({
+          userId: session.user.id,
+          email: session.user.email,
+          createdAt: conversionEligibility.createdAt,
+          eventSourceUrl: eventSourceUrl || "",
+          ipAddress: ip || "",
+          userAgent: userAgent || "",
+          fbc: fbc || "",
+          fbp: fbp || "",
+          logger,
+        });
+      } catch (error) {
+        logger.error("Registration conversion tracking failed", {
+          error,
+          userId: session.user.id,
+        });
+      }
+    });
+  }
 
   return NextResponse.json({
     success: true,
-    clientConversionEligible: result.eligibleForClientConversion,
+    clientConversionEligible: conversionEligibility.eligible,
   });
 });
 

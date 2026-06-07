@@ -1,17 +1,22 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, trackRegistrationCompletedConversionMock } = vi.hoisted(
-  () => ({
-    authMock: vi.fn(),
-    trackRegistrationCompletedConversionMock: vi.fn(),
-  }),
-);
+const {
+  authMock,
+  getRegistrationCompletedConversionEligibilityMock,
+  trackRegistrationCompletedConversionMock,
+} = vi.hoisted(() => ({
+  authMock: vi.fn(),
+  getRegistrationCompletedConversionEligibilityMock: vi.fn(),
+  trackRegistrationCompletedConversionMock: vi.fn(),
+}));
 
 vi.mock("@/utils/auth", () => ({
   auth: authMock,
 }));
 vi.mock("@/utils/analytics/server-conversions", () => ({
+  getRegistrationCompletedConversionEligibility:
+    getRegistrationCompletedConversionEligibilityMock,
   trackRegistrationCompletedConversion:
     trackRegistrationCompletedConversionMock,
 }));
@@ -45,6 +50,9 @@ describe("complete registration route", () => {
       success: false,
       reason: "not_authenticated",
     });
+    expect(
+      getRegistrationCompletedConversionEligibilityMock,
+    ).not.toHaveBeenCalled();
     expect(trackRegistrationCompletedConversionMock).not.toHaveBeenCalled();
   });
 });

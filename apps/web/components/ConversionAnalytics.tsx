@@ -34,25 +34,48 @@ export function ConversionQueryParamEvents() {
   useEffect(() => {
     if (!eventName) return;
 
-    const storageKey = eventId
-      ? `conversion:${eventName}:${eventId}`
-      : `conversion:${eventName}:${pathname}`;
+    try {
+      const storageKey = eventId
+        ? `conversion:${eventName}:${eventId}`
+        : `conversion:${eventName}:${pathname}`;
 
-    if (window.sessionStorage.getItem(storageKey)) {
+      if (hasTrackedConversion(storageKey)) {
+        removeConversionParams();
+        return;
+      }
+
+      trackClientConversion({
+        name: eventName,
+        id: eventId,
+      });
+
+      rememberTrackedConversion(storageKey);
       removeConversionParams();
-      return;
+    } catch (error) {
+      console.error("Failed to track conversion event:", error);
+      try {
+        removeConversionParams();
+      } catch (removeError) {
+        console.error("Failed to remove conversion params:", removeError);
+      }
     }
-
-    trackClientConversion({
-      name: eventName,
-      id: eventId,
-    });
-
-    window.sessionStorage.setItem(storageKey, "1");
-    removeConversionParams();
   }, [eventName, eventId, pathname]);
 
   return null;
+}
+
+function hasTrackedConversion(storageKey: string) {
+  try {
+    return Boolean(window.sessionStorage.getItem(storageKey));
+  } catch {
+    return false;
+  }
+}
+
+function rememberTrackedConversion(storageKey: string) {
+  try {
+    window.sessionStorage.setItem(storageKey, "1");
+  } catch {}
 }
 
 function parseConversionEventName(
