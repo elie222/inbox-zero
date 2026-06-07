@@ -7,23 +7,9 @@ import {
   isWebhookActionEnabled,
   WEBHOOK_ACTION_DISABLED_MESSAGE,
 } from "@/utils/webhook-action";
+import { ORGANIZATION_RULE_ACTION_TYPES } from "@/utils/organizations/rule-action-types";
 
-// Messaging-channel actions are intentionally excluded: org rules are shared
-// across members and each member needs their own channel.
-export const organizationRuleActionType = z.enum([
-  ActionType.ARCHIVE,
-  ActionType.LABEL,
-  ActionType.REPLY,
-  ActionType.SEND_EMAIL,
-  ActionType.FORWARD,
-  ActionType.DRAFT_EMAIL,
-  ActionType.MARK_SPAM,
-  ActionType.CALL_WEBHOOK,
-  ActionType.MARK_READ,
-  ActionType.STAR,
-  ActionType.DIGEST,
-  ActionType.MOVE_FOLDER,
-]);
+const organizationRuleActionType = z.enum(ORGANIZATION_RULE_ACTION_TYPES);
 
 export const organizationRuleActionSchema = z
   .object({

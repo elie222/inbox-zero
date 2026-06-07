@@ -422,9 +422,10 @@ async function materializeMemberRuleCopy({
   }
 
   // Realistic conflicts resolve above. As a last resort (essentially never
-  // reached), fall back to a deterministic, collision-proof name so the member
-  // is never left without the rule. Using the org rule id keeps it stable across
-  // re-syncs (unlike a random suffix, which would rename the copy each time).
+  // reached), fall back to an org-rule-id suffix so the member is never left
+  // without the rule. The id keeps the name stable across re-syncs (unlike a
+  // random suffix), and availableRuleName guarantees a free variant even in the
+  // unlikely case a rule already uses that exact name.
   logger.warn(
     "Using fallback name for org rule copy after repeated conflicts",
     {
@@ -433,7 +434,13 @@ async function materializeMemberRuleCopy({
     },
   );
   try {
-    await writeCopy(`${organizationRule.name} (${organizationRule.id})`);
+    await writeCopy(
+      await availableRuleName({
+        emailAccountId,
+        desiredName: `${organizationRule.name} (${organizationRule.id})`,
+        excludeOrganizationRuleId: organizationRule.id,
+      }),
+    );
   } catch (error) {
     if (isDuplicateError(error, ["emailAccountId", "organizationRuleId"])) {
       return;

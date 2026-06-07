@@ -29,19 +29,17 @@ import {
   createOrganizationRuleAction,
   updateOrganizationRuleAction,
 } from "@/utils/actions/organization-rule";
-import {
-  organizationRuleActionType,
-  type OrganizationRuleActionSchema,
-} from "@/utils/actions/organization-rule.validation";
+import type { OrganizationRuleActionSchema } from "@/utils/actions/organization-rule.validation";
+import { ORGANIZATION_RULE_ACTION_TYPES } from "@/utils/organizations/rule-action-types";
 import { ACTION_TYPE_LABELS } from "@/utils/action-display";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import type { OrganizationRulesResponse } from "@/app/api/organizations/[organizationId]/rules/route";
 
 type OrgRule = OrganizationRulesResponse["rules"][number];
 
-// Offer exactly the action types the validation schema accepts, labeled from the
-// shared map, so the picker can never present something the server rejects.
-const ACTION_TYPE_OPTIONS = organizationRuleActionType.options.map((value) => ({
+// Offer exactly the action types the server accepts (same shared list the
+// validation schema is built from), labeled from the shared map.
+const ACTION_TYPE_OPTIONS = ORGANIZATION_RULE_ACTION_TYPES.map((value) => ({
   value,
   label: ACTION_TYPE_LABELS[value],
 }));
