@@ -1,28 +1,24 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, sendCompleteRegistrationEventMock, trackUserSignedUpMock } =
-  vi.hoisted(() => ({
-    authMock: vi.fn(),
-    sendCompleteRegistrationEventMock: vi.fn(),
-    trackUserSignedUpMock: vi.fn(),
-  }));
+const {
+  authMock,
+  getRegistrationCompletedConversionEligibilityMock,
+  trackRegistrationCompletedConversionMock,
+} = vi.hoisted(() => ({
+  authMock: vi.fn(),
+  getRegistrationCompletedConversionEligibilityMock: vi.fn(),
+  trackRegistrationCompletedConversionMock: vi.fn(),
+}));
 
 vi.mock("@/utils/auth", () => ({
   auth: authMock,
 }));
-vi.mock("@/utils/fb", () => ({
-  sendCompleteRegistrationEvent: sendCompleteRegistrationEventMock,
-}));
-vi.mock("@/utils/posthog", () => ({
-  trackUserSignedUp: trackUserSignedUpMock,
-}));
-vi.mock("@/utils/prisma", () => ({
-  default: {
-    user: {
-      findUnique: vi.fn(),
-    },
-  },
+vi.mock("@/utils/analytics/server-conversions", () => ({
+  getRegistrationCompletedConversionEligibility:
+    getRegistrationCompletedConversionEligibilityMock,
+  trackRegistrationCompletedConversion:
+    trackRegistrationCompletedConversionMock,
 }));
 vi.mock("@/utils/middleware", async () => {
   const { createWithErrorTestMiddleware } = await vi.importActual<
@@ -54,7 +50,9 @@ describe("complete registration route", () => {
       success: false,
       reason: "not_authenticated",
     });
-    expect(sendCompleteRegistrationEventMock).not.toHaveBeenCalled();
-    expect(trackUserSignedUpMock).not.toHaveBeenCalled();
+    expect(
+      getRegistrationCompletedConversionEligibilityMock,
+    ).not.toHaveBeenCalled();
+    expect(trackRegistrationCompletedConversionMock).not.toHaveBeenCalled();
   });
 });
