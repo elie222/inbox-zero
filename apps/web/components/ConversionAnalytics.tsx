@@ -46,10 +46,6 @@ export function ConversionQueryParamEvents() {
     trackClientConversion({
       name: eventName,
       id: eventId,
-      properties:
-        eventName === "trial_started"
-          ? { planId: "stripe_subscription" }
-          : undefined,
     });
 
     window.sessionStorage.setItem(storageKey, "1");
@@ -73,9 +69,6 @@ function removeConversionParams() {
   const url = new URL(window.location.href);
   url.searchParams.delete(CONVERSION_EVENT_PARAM);
   url.searchParams.delete(CONVERSION_EVENT_ID_PARAM);
-  window.history.replaceState(
-    null,
-    "",
-    `${url.pathname}${url.search}${url.hash}`,
-  );
+  const pathname = `/${url.pathname.replace(/^\/+/, "")}`;
+  window.history.replaceState(null, "", `${pathname}${url.search}${url.hash}`);
 }

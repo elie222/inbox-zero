@@ -42,19 +42,19 @@ export async function trackRegistrationCompletedConversion({
   if (facebookResult.status === "rejected") {
     logger.error("Facebook tracking failed", {
       error: facebookResult.reason,
-      email,
+      userId,
     });
   }
 
   if (posthogResult.status === "rejected") {
     logger.error("Posthog tracking failed", {
       error: posthogResult.reason,
-      email,
+      userId,
     });
   }
 
   return {
-    tracked:
+    eligibleForClientConversion:
       posthogResult.status === "fulfilled" && posthogResult.value === true,
   };
 }

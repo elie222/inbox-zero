@@ -42,11 +42,15 @@ export const sendCompleteRegistrationEvent = async ({
     custom_data: {},
   };
 
-  await fetch(url, {
+  const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ data: [data] }),
   });
+
+  if (!response.ok) {
+    throw new Error(`Facebook conversion event failed: ${response.status}`);
+  }
 
   return { success: true };
 };

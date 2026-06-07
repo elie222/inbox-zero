@@ -37,7 +37,7 @@ export const POST = withError("complete-registration", async (request) => {
 
   return NextResponse.json({
     success: true,
-    registrationTracked: result.tracked,
+    clientConversionEligible: result.eligibleForClientConversion,
   });
 });
 

@@ -12,10 +12,10 @@ export const useSignUpEvent = () => {
     })
       .then(async (response) => {
         const result = (await response.json()) as {
-          registrationTracked?: boolean;
+          clientConversionEligible?: boolean;
         };
 
-        if (result.registrationTracked) {
+        if (result.clientConversionEligible) {
           trackClientConversion({
             name: "registration_completed",
           });
