@@ -121,4 +121,24 @@ describe("LoginForm", () => {
       });
     });
   });
+
+  it("shows a stable message for Safari network failures during Microsoft sign-in", async () => {
+    mockSignInSocial.mockRejectedValue(new Error("Load failed"));
+
+    render(
+      <LoginForm enabledProviders={["microsoft"]} useGoogleOauthEmulator />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /sign in with microsoft/i }),
+    );
+
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith({
+        title: "Error signing in with Microsoft",
+        description:
+          "Could not start sign-in. Please check that this app is opened from its configured public URL, then try again.",
+      });
+    });
+  });
 });
