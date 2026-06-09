@@ -21,7 +21,10 @@ import {
   type MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
-import { MESSAGING_CHANNEL_ACTION_TYPES } from "@/utils/actions/draft-reply";
+import {
+  DRAFT_REPLY_ACTION_TYPES,
+  MESSAGING_CHANNEL_ACTION_TYPES,
+} from "@/utils/actions/draft-reply";
 import { env } from "@/env";
 import {
   getMessagingChannelReconnectMessage,
@@ -348,7 +351,7 @@ export const toggleRuleChannelAction = actionClient
           },
           select: {
             actions: {
-              where: { type: ActionType.DRAFT_EMAIL },
+              where: { type: { in: DRAFT_REPLY_ACTION_TYPES } },
               select: { id: true },
               take: 1,
             },
@@ -386,10 +389,10 @@ export const toggleRuleChannelAction = actionClient
 
       let actionType: ActionType =
         requestedType ?? ActionType.NOTIFY_MESSAGING_CHANNEL;
-      const hasDraftEmailAction = (rule.actions?.length ?? 0) > 0;
+      const hasDraftReplyAction = (rule.actions?.length ?? 0) > 0;
       if (
         actionType === ActionType.DRAFT_MESSAGING_CHANNEL &&
-        !hasDraftEmailAction
+        !hasDraftReplyAction
       ) {
         actionType = ActionType.NOTIFY_MESSAGING_CHANNEL;
       }
