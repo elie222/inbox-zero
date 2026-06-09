@@ -38,7 +38,7 @@ export async function redirectToEmailAccountPath(
 
   let emailAccountId = lastEmailAccountId;
 
-  // If no last account or it doesn't exist, fall back to first account
+  // If no last account is available, fall back to the first account.
   if (!emailAccountId) {
     const emailAccount = await measureRedirectStep(
       timing,
@@ -97,7 +97,7 @@ type RedirectTiming = {
   path: string;
   searchParamKeys: string[];
   startedAt: number;
-  steps: Record<string, number>;
+  stepDurationsMs: Record<string, number>;
 };
 
 function createRedirectTiming(
@@ -108,7 +108,7 @@ function createRedirectTiming(
     path,
     searchParamKeys: Object.keys(searchParams ?? {}).sort(),
     startedAt: Date.now(),
-    steps: {},
+    stepDurationsMs: {},
   };
 }
 
@@ -121,7 +121,7 @@ async function measureRedirectStep<T>(
   try {
     return await operation();
   } finally {
-    timing.steps[step] = Date.now() - startedAt;
+    timing.stepDurationsMs[step] = Date.now() - startedAt;
   }
 }
 
@@ -139,7 +139,7 @@ function logRedirectTiming(
     path: timing.path,
     searchParamKeys: timing.searchParamKeys,
     durationMs,
-    stepDurationsMs: timing.steps,
+    stepDurationsMs: timing.stepDurationsMs,
     ...metadata,
   });
 
