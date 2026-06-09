@@ -863,6 +863,8 @@ describe("processAccountFollowUps - dedup logic", () => {
   });
 
   it("uses the recipient as the notification counterparty for awaiting follow-ups", async () => {
+    const notificationBody =
+      "The provider preview stops here but the email keeps going with enough detail to make the follow-up notification clearly incomplete if we only send the preview.";
     const provider = createMockProvider({
       getThreadsWithLabel: vi
         .fn()
@@ -871,6 +873,8 @@ describe("processAccountFollowUps - dedup logic", () => {
         ]),
       getLatestMessageInThread: vi.fn().mockResolvedValue({
         ...mockAwaitingMessage("msg-awaiting-notify", OLD_DATE),
+        snippet: "The provider preview stops here",
+        textPlain: notificationBody,
         subject: "Pricing follow-up",
         headers: {
           from: "user@example.com",
@@ -901,6 +905,7 @@ describe("processAccountFollowUps - dedup logic", () => {
         counterpartyName: "Alex Partner",
         counterpartyEmail: "alex@partner.com",
         trackerType: ThreadTrackerType.AWAITING,
+        snippet: notificationBody,
         threadLinkLabel: "Open in Outlook",
       }),
     );
