@@ -47,6 +47,7 @@ import {
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { getEmailUrlForOptionalMessage } from "@/utils/url";
 import { env } from "@/env";
+import { FOLLOW_UP_LABEL } from "@/utils/label";
 
 const FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES = 15;
 const FOLLOW_UP_THREAD_SCAN_LIMIT = 50;
@@ -337,8 +338,11 @@ async function processFollowUpsForType({
     labelId = found.id;
   }
 
-  const threads = await provider.getThreadsWithLabel({
-    labelId,
+  const { threads } = await provider.getThreadsWithQuery({
+    query: {
+      labelId,
+      excludeLabelNames: [FOLLOW_UP_LABEL],
+    },
     maxResults: FOLLOW_UP_THREAD_SCAN_LIMIT,
   });
 
