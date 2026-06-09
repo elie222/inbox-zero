@@ -14,47 +14,126 @@ import {
   STATIC_FROM_CONDITION_DESCRIPTION,
 } from "@/utils/ai/rule/rule-condition-descriptions";
 
-const conditionSchema = z
+const conditionalOperatorSchema = z
+  .enum([LogicalOperator.AND, LogicalOperator.OR])
+  .nullable()
+  .describe(
+    "The conditional operator to use. AND means all conditions must be true for the rule to match. OR means any condition can be true for the rule to match. This does not impact sub-conditions.",
+  );
+
+const optionalAiInstructionsSchema = z
+  .string()
+  .nullish()
+  .transform((v) => (v?.trim() ? v : null))
+  .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION);
+
+const requiredAiInstructionsSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION);
+
+const optionalStaticFromSchema = z
+  .string()
+  .nullish()
+  .transform((v) => (v?.trim() ? v : null))
+  .refine((value) => !isInvalidStaticFromValue(value), {
+    message: INVALID_STATIC_FROM_MESSAGE,
+  })
+  .describe(STATIC_FROM_CONDITION_DESCRIPTION);
+
+const requiredStaticFromSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine((value) => !isInvalidStaticFromValue(value), {
+    message: INVALID_STATIC_FROM_MESSAGE,
+  })
+  .describe(STATIC_FROM_CONDITION_DESCRIPTION);
+
+const optionalStaticToSchema = z
+  .string()
+  .nullish()
+  .describe("The to email address to match");
+
+const requiredStaticToSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .describe("The to email address to match");
+
+const optionalStaticSubjectSchema = z
+  .string()
+  .nullish()
+  .describe(
+    "Exact subject-line text to match. Use this when the user explicitly asks to match the email subject. If the user describes email content, topic, meaning, or general keyword matching without naming the subject line, use aiInstructions instead.",
+  );
+
+const requiredStaticSubjectSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .describe(
+    "Exact subject-line text to match. Use this when the user explicitly asks to match the email subject. If the user describes email content, topic, meaning, or general keyword matching without naming the subject line, use aiInstructions instead.",
+  );
+
+const optionalStaticConditionSchema = z
   .object({
-    conditionalOperator: z
-      .enum([LogicalOperator.AND, LogicalOperator.OR])
-      .nullable()
-      .describe(
-        "The conditional operator to use. AND means all conditions must be true for the rule to match. OR means any condition can be true for the rule to match. This does not impact sub-conditions.",
-      ),
-    aiInstructions: z
-      .string()
-      .nullish()
-      .transform((v) => (v?.trim() ? v : null))
-      .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION),
-    static: z
-      .object({
-        from: z
-          .string()
-          .nullish()
-          .transform((v) => (v?.trim() ? v : null))
-          .refine((value) => !isInvalidStaticFromValue(value), {
-            message: INVALID_STATIC_FROM_MESSAGE,
-          })
-          .describe(STATIC_FROM_CONDITION_DESCRIPTION),
-        to: z.string().nullish().describe("The to email address to match"),
-        subject: z
-          .string()
-          .nullish()
-          .describe(
-            "Exact subject-line text to match. Use this when the user explicitly asks to match the email subject. If the user describes email content, topic, meaning, or general keyword matching without naming the subject line, use aiInstructions instead.",
-          ),
-      })
-      .nullish()
-      .describe(
-        "The static conditions to match. If multiple static conditions are specified, the rule will match if ALL of the conditions match (AND operation)",
-      ),
+    from: optionalStaticFromSchema,
+    to: optionalStaticToSchema,
+    subject: optionalStaticSubjectSchema,
   })
-  .refine(hasRuleCondition, {
-    message:
-      "A rule must include at least one condition in aiInstructions or static fields.",
-  })
-  .describe("The conditions to match");
+  .nullish()
+  .describe(
+    "The static conditions to match. If multiple static conditions are specified, the rule will match if ALL of the conditions match (AND operation)",
+  );
+
+const semanticConditionSchema = z.object({
+  conditionalOperator: conditionalOperatorSchema,
+  aiInstructions: requiredAiInstructionsSchema,
+  static: optionalStaticConditionSchema,
+});
+
+const staticFromConditionSchema = z.object({
+  conditionalOperator: conditionalOperatorSchema,
+  aiInstructions: optionalAiInstructionsSchema,
+  static: z.object({
+    from: requiredStaticFromSchema,
+    to: optionalStaticToSchema,
+    subject: optionalStaticSubjectSchema,
+  }),
+});
+
+const staticToConditionSchema = z.object({
+  conditionalOperator: conditionalOperatorSchema,
+  aiInstructions: optionalAiInstructionsSchema,
+  static: z.object({
+    from: optionalStaticFromSchema,
+    to: requiredStaticToSchema,
+    subject: optionalStaticSubjectSchema,
+  }),
+});
+
+const staticSubjectConditionSchema = z.object({
+  conditionalOperator: conditionalOperatorSchema,
+  aiInstructions: optionalAiInstructionsSchema,
+  static: z.object({
+    from: optionalStaticFromSchema,
+    to: optionalStaticToSchema,
+    subject: requiredStaticSubjectSchema,
+  }),
+});
+
+const conditionSchema = z
+  .union([
+    semanticConditionSchema,
+    staticFromConditionSchema,
+    staticToConditionSchema,
+    staticSubjectConditionSchema,
+  ])
+  .describe(
+    "The conditions to match. Include at least one semantic condition in aiInstructions or one static condition in from, to, or subject.",
+  );
 
 export function getAvailableActions(provider: string) {
   const availableActions = getAvailableActionsForRuleEditor({
@@ -285,20 +364,4 @@ function requiredStringField(description: string, message: string) {
     .transform((value) => value.trim())
     .refine(Boolean, message)
     .describe(description);
-}
-
-function hasRuleCondition(condition: {
-  aiInstructions?: string | null;
-  static?: {
-    from?: string | null;
-    to?: string | null;
-    subject?: string | null;
-  } | null;
-}) {
-  return Boolean(
-    condition.aiInstructions?.trim() ||
-      condition.static?.from?.trim() ||
-      condition.static?.to?.trim() ||
-      condition.static?.subject?.trim(),
-  );
 }

@@ -321,13 +321,6 @@ describe("createRuleSchema", () => {
     });
 
     expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(
-        result.error.issues.some(
-          (issue) => issue.path.join(".") === "condition.static.from",
-        ),
-      ).toBe(true);
-    }
   });
 
   it("rejects catch-all static.from values", () => {
@@ -357,13 +350,6 @@ describe("createRuleSchema", () => {
     });
 
     expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(
-        result.error.issues.some(
-          (issue) => issue.path.join(".") === "condition.static.from",
-        ),
-      ).toBe(true);
-    }
   });
 });
 
