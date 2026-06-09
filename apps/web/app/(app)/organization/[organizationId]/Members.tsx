@@ -33,6 +33,7 @@ import {
   BarChart3,
   BarChartIcon,
   ShieldIcon,
+  UsersIcon,
   XIcon,
 } from "lucide-react";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
@@ -41,6 +42,8 @@ import {
   removeMemberAction,
   updateMemberRoleAction,
 } from "@/utils/actions/organization";
+import { updateMemberTeamAction } from "@/utils/actions/organization-rule";
+import { useOrganizationTeams } from "@/hooks/useOrganizationTeams";
 import { toastSuccess, toastError } from "@/components/Toast";
 import type { OrganizationMembersResponse } from "@/app/api/organizations/[organizationId]/members/route";
 import { useExecutedRulesCount } from "@/hooks/useExecutedRulesCount";
@@ -62,6 +65,9 @@ export function Members({ organizationId }: { organizationId: string }) {
   const { data: membership } = useOrganizationMembership();
   const isAdmin = hasOrganizationAdminRole(membership?.role ?? "");
   const { data: executedRulesData } = useExecutedRulesCount(
+    isAdmin ? organizationId : null,
+  );
+  const { data: teamsData } = useOrganizationTeams(
     isAdmin ? organizationId : null,
   );
   const [pendingMemberId, setPendingMemberId] = useState<string | null>(null);
@@ -151,6 +157,18 @@ export function Members({ organizationId }: { organizationId: string }) {
     [handleAction],
   );
 
+  const handleUpdateTeam = useCallback(
+    (memberId: string, teamId: string | null) =>
+      handleAction(
+        memberId,
+        () => updateMemberTeamAction({ memberId, teamId }),
+        "Error updating team",
+        "Team updated. Organization rules were re-synced.",
+        "Failed to update team",
+      ),
+    [handleAction],
+  );
+
   return (
     <LoadingContent loading={isLoading} error={error}>
       <div>
@@ -176,6 +194,8 @@ export function Members({ organizationId }: { organizationId: string }) {
                 member={member}
                 onRemove={handleRemoveMember}
                 onUpdateRole={handleUpdateRole}
+                onUpdateTeam={handleUpdateTeam}
+                teams={teamsData?.teams ?? []}
                 executedRulesCount={executedRulesStats?.executedRulesCount}
                 lastProcessedEmailAt={
                   executedRulesStats?.lastProcessedEmailAt ?? null
@@ -242,6 +262,8 @@ function MemberCard({
   member,
   onRemove,
   onUpdateRole,
+  onUpdateTeam,
+  teams,
   executedRulesCount,
   lastProcessedEmailAt,
   isAdmin,
@@ -250,6 +272,8 @@ function MemberCard({
   member: Member;
   onRemove: (memberId: string) => void;
   onUpdateRole: (memberId: string, role: "admin" | "member") => void;
+  onUpdateTeam: (memberId: string, teamId: string | null) => void;
+  teams: { id: string; name: string }[];
   executedRulesCount?: number;
   lastProcessedEmailAt?: Date | string | null;
   isAdmin: boolean;
@@ -344,6 +368,37 @@ function MemberCard({
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               )}
+              {teams.length > 0 && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger disabled={isPending}>
+                    <UsersIcon className="mr-2 size-4" />
+                    Team
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuRadioGroup
+                      value={member.team?.id ?? "none"}
+                      onValueChange={(value) => {
+                        const teamId = value === "none" ? null : value;
+                        if (teamId === (member.team?.id ?? null)) return;
+                        onUpdateTeam(member.id, teamId);
+                      }}
+                    >
+                      <DropdownMenuRadioItem value="none" disabled={isPending}>
+                        No team
+                      </DropdownMenuRadioItem>
+                      {teams.map((team) => (
+                        <DropdownMenuRadioItem
+                          key={team.id}
+                          value={team.id}
+                          disabled={isPending}
+                        >
+                          {team.name}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => onRemove(member.id)}
@@ -367,6 +422,11 @@ function MemberCard({
         >
           {capitalizeRole(member.role)}
         </Badge>
+        {member.team && (
+          <Badge variant="outline" className="text-xs">
+            {member.team.name}
+          </Badge>
+        )}
         {isAdmin && (
           <MemberActivityBadge
             status={activityStatus}

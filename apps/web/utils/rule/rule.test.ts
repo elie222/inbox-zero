@@ -751,6 +751,74 @@ describe("draft messaging actions", () => {
   });
 });
 
+describe("organization-managed rules", () => {
+  beforeEach(resetRuleMocks);
+
+  function mockManagedRule() {
+    prisma.rule.findUnique.mockResolvedValue({
+      organizationRuleId: "org-rule-1",
+    } as any);
+  }
+
+  it("prevents deleting a managed rule", async () => {
+    mockManagedRule();
+
+    await expect(
+      deleteRule({ emailAccountId: EMAIL_ACCOUNT_ID, ruleId: RULE_ID }),
+    ).rejects.toThrow("managed by your organization");
+
+    expect(prisma.rule.delete).not.toHaveBeenCalled();
+  });
+
+  it("prevents toggling a managed rule", async () => {
+    mockManagedRule();
+
+    await expect(
+      setRuleEnabled({
+        ruleId: RULE_ID,
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        enabled: false,
+      }),
+    ).rejects.toThrow("managed by your organization");
+
+    expect(prisma.rule.update).not.toHaveBeenCalled();
+  });
+
+  it("prevents replacing a managed rule without organization access", async () => {
+    mockManagedRule();
+
+    await expect(
+      replaceRuleWithResolvedActions({
+        ruleId: RULE_ID,
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        data: { name: "New name" },
+        actions: [resolvedArchiveAction()],
+      }),
+    ).rejects.toThrow("managed by your organization");
+
+    expect(prisma.rule.update).not.toHaveBeenCalled();
+  });
+
+  it("prevents updating actions of a managed rule", async () => {
+    prisma.rule.findFirst.mockResolvedValue({
+      from: null,
+      organizationRuleId: "org-rule-1",
+    } as any);
+
+    await expect(
+      updateRuleActions({
+        ruleId: RULE_ID,
+        actions: [archiveAction()],
+        provider: "gmail",
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        logger,
+      }),
+    ).rejects.toThrow("managed by your organization");
+
+    expect(prisma.rule.update).not.toHaveBeenCalled();
+  });
+});
+
 function resetRuleMocks() {
   vi.clearAllMocks();
   mockEnv.webhookActionsEnabled = true;

@@ -121,7 +121,28 @@ type RuleRecordData = {
   subject?: string | null;
   body?: string | null;
   groupId?: string | null;
+  organizationRuleId?: string | null;
 };
+
+export const ORGANIZATION_MANAGED_RULE_MESSAGE =
+  "This rule is managed by your organization and can only be changed by an organization admin.";
+
+export async function assertRuleNotOrganizationManaged({
+  ruleId,
+  emailAccountId,
+}: {
+  ruleId: string;
+  emailAccountId: string;
+}) {
+  const rule = await prisma.rule.findUnique({
+    where: { id: ruleId, emailAccountId },
+    select: { organizationRuleId: true },
+  });
+
+  if (rule?.organizationRuleId) {
+    throw new SafeError(ORGANIZATION_MANAGED_RULE_MESSAGE, 403);
+  }
+}
 
 async function updateRuleAndQueueHistory({
   ruleId,
@@ -134,6 +155,8 @@ async function updateRuleAndQueueHistory({
   data: Prisma.RuleUpdateInput;
   triggerType: RuleHistoryTrigger;
 }) {
+  await assertRuleNotOrganizationManaged({ ruleId, emailAccountId });
+
   const rule = await prisma.rule.update({
     where: { id: ruleId, emailAccountId },
     data,
@@ -268,6 +291,7 @@ export async function createRuleWithResolvedActions({
       subject: data.subject ?? undefined,
       body: data.body ?? undefined,
       groupId: data.groupId ?? undefined,
+      organizationRuleId: data.organizationRuleId ?? undefined,
       actions: {
         createMany: {
           data: addNestedActionOwnershipToInputs(actions, emailAccountId),
@@ -285,18 +309,25 @@ export async function replaceRuleWithResolvedActions({
   emailAccountId,
   data,
   actions,
+  allowOrganizationManaged = false,
 }: {
   ruleId: string;
   emailAccountId: string;
   data: RuleRecordData;
   actions: RuleActionCreateData[];
+  // only the organization rule sync may modify managed rules
+  allowOrganizationManaged?: boolean;
 }): Promise<RuleWithRelations> {
   assertWebhookActionsAllowed(actions);
 
   const existingRule = await prisma.rule.findUnique({
     where: { id: ruleId, emailAccountId },
-    select: RULE_SCOPE_SELECT,
+    select: { ...RULE_SCOPE_SELECT, organizationRuleId: true },
   });
+
+  if (existingRule?.organizationRuleId && !allowOrganizationManaged) {
+    throw new SafeError(ORGANIZATION_MANAGED_RULE_MESSAGE, 403);
+  }
 
   await assertNoSenderOnlyOverlap({
     emailAccountId,
@@ -598,11 +629,15 @@ export async function updateRuleActions({
 
   const existingRule = await prisma.rule.findFirst({
     where: { id: ruleId, emailAccountId },
-    select: { from: true },
+    select: { from: true, organizationRuleId: true },
   });
 
   if (!existingRule) {
     throw new Error("Rule not found");
+  }
+
+  if (existingRule.organizationRuleId) {
+    throw new SafeError(ORGANIZATION_MANAGED_RULE_MESSAGE, 403);
   }
 
   validateLowTrustStaticFromOutboundActions({
@@ -645,6 +680,8 @@ export async function deleteRule({
   ruleId: string;
   groupId?: string | null;
 }) {
+  await assertRuleNotOrganizationManaged({ ruleId, emailAccountId });
+
   if (groupId) {
     const deletedGroups = await prisma.group.deleteMany({
       where: { id: groupId, emailAccountId },

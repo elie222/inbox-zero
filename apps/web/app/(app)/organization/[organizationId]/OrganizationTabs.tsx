@@ -32,6 +32,11 @@ export function OrganizationTabs({ organizationId }: OrganizationTabsProps) {
     ...(isAdmin
       ? [
           {
+            id: "rules",
+            label: "Rules",
+            href: `/organization/${organizationId}/rules`,
+          },
+          {
             id: "stats",
             label: "Analytics",
             href: `/organization/${organizationId}/stats`,
@@ -41,7 +46,11 @@ export function OrganizationTabs({ organizationId }: OrganizationTabsProps) {
   ];
 
   // Determine selected tab based on pathname
-  const selected = pathname.includes("/stats") ? "stats" : "members";
+  const selected = pathname.includes("/rules")
+    ? "rules"
+    : pathname.includes("/stats")
+      ? "stats"
+      : "members";
 
   return (
     <div>
