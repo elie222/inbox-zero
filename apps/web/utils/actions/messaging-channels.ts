@@ -351,7 +351,7 @@ export const toggleRuleChannelAction = actionClient
           },
           select: {
             actions: {
-              where: { type: { in: DRAFT_REPLY_ACTION_TYPES } },
+              where: { type: { in: [...DRAFT_REPLY_ACTION_TYPES] } },
               select: { id: true },
               take: 1,
             },
