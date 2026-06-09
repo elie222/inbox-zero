@@ -524,7 +524,7 @@ describe("aiProcessAssistantChat", () => {
     ).toBe(true);
   });
 
-  it("rejects updateRule payloads that omit required action fields", async () => {
+  it("rejects updateRule payloads that omit required label fields", async () => {
     const tools = await captureToolSet(true);
 
     expect(
@@ -541,6 +541,10 @@ describe("aiProcessAssistantChat", () => {
         },
       }).success,
     ).toBe(false);
+  });
+
+  it("accepts updateRule webhook actions without a URL", async () => {
+    const tools = await captureToolSet(true);
 
     expect(
       tools.updateRule.inputSchema.safeParse({
@@ -555,7 +559,7 @@ describe("aiProcessAssistantChat", () => {
           ],
         },
       }).success,
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("gates MOVE_FOLDER rule actions by provider", async () => {

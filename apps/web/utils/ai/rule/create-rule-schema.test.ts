@@ -242,7 +242,7 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects CALL_WEBHOOK without fields.webhookUrl", () => {
+  it("accepts CALL_WEBHOOK without fields.webhookUrl", () => {
     const result = createRuleSchema(provider).safeParse({
       ...buildRule({
         type: ActionType.CALL_WEBHOOK,
@@ -251,7 +251,7 @@ describe("createRuleSchema", () => {
       }),
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it("rejects MOVE_FOLDER actions for non-Microsoft providers", () => {

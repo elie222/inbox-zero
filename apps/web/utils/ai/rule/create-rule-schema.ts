@@ -207,7 +207,7 @@ export const createRuleActionSchema = (
       ? [
           createActionObjectSchema(
             ActionType.CALL_WEBHOOK,
-            createRequiredWebhookFieldsSchema(provider),
+            optionalFieldsSchema,
           ),
         ]
       : []),
@@ -301,16 +301,6 @@ function createRequiredRecipientFieldsSchema(provider: string) {
     to: requiredStringField(
       "The recipient email address. Required for SEND_EMAIL and FORWARD. Use REPLY when responding to the triggering inbound email.",
       "fields.to is required.",
-    ),
-  });
-}
-
-function createRequiredWebhookFieldsSchema(provider: string) {
-  return z.object({
-    ...createActionFieldShape(provider),
-    webhookUrl: requiredStringField(
-      "The webhook URL to call. Required for CALL_WEBHOOK; use CALL_WEBHOOK only when the user explicitly supplies a webhook URL.",
-      "CALL_WEBHOOK requires fields.webhookUrl.",
     ),
   });
 }
