@@ -50,6 +50,10 @@ const conditionSchema = z
         "The static conditions to match. If multiple static conditions are specified, the rule will match if ALL of the conditions match (AND operation)",
       ),
   })
+  .refine(hasRuleCondition, {
+    message:
+      "A rule must include at least one condition in aiInstructions or static fields.",
+  })
   .describe("The conditions to match");
 
 export function getAvailableActions(provider: string) {
@@ -190,7 +194,7 @@ function getActionTypeDescription(type: ActionType) {
     case ActionType.DIGEST:
       return "Include the matching email in a digest.";
     case ActionType.CALL_WEBHOOK:
-      return "Call a webhook for the matching email.";
+      return "Call a webhook for the matching email. Only use this when the user explicitly asks for a webhook, external HTTP callback, or integration URL and provides the webhook URL. Do not use this for ordinary labeling, archiving, categorization, notifications, folders, or other email automation.";
     case ActionType.MOVE_FOLDER:
       return "Move the matching email to a folder.";
     default:
@@ -226,7 +230,7 @@ function createRequiredWebhookFieldsSchema(provider: string) {
   return z.object({
     ...createActionFieldShape(provider),
     webhookUrl: requiredStringField(
-      "The webhook URL to call",
+      "The webhook URL to call. Required for CALL_WEBHOOK; use CALL_WEBHOOK only when the user explicitly supplies a webhook URL.",
       "CALL_WEBHOOK requires fields.webhookUrl.",
     ),
   });
@@ -258,7 +262,9 @@ function createActionFieldShape(provider: string) {
     bcc: optionalStringField("The bcc email address to send the email to"),
     subject: optionalStringField("The subject of the email"),
     content: optionalStringField("The content of the email"),
-    webhookUrl: optionalStringField("The webhook URL to call"),
+    webhookUrl: optionalStringField(
+      "The webhook URL to call. Only relevant for explicit webhook or external HTTP callback requests.",
+    ),
     ...(isMicrosoftProvider(provider) && {
       folderName: optionalStringField("The folder to move the email to"),
     }),
@@ -279,4 +285,20 @@ function requiredStringField(description: string, message: string) {
     .transform((value) => value.trim())
     .refine(Boolean, message)
     .describe(description);
+}
+
+function hasRuleCondition(condition: {
+  aiInstructions?: string | null;
+  static?: {
+    from?: string | null;
+    to?: string | null;
+    subject?: string | null;
+  } | null;
+}) {
+  return Boolean(
+    condition.aiInstructions?.trim() ||
+      condition.static?.from?.trim() ||
+      condition.static?.to?.trim() ||
+      condition.static?.subject?.trim(),
+  );
 }
