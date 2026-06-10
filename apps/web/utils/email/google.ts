@@ -81,12 +81,14 @@ import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
+import { extractUniqueEmailAddresses } from "@/utils/email";
 
 export class GmailProvider implements EmailProvider {
   readonly name = "google";
   private readonly client: gmail_v1.Gmail;
   private readonly logger: Logger;
   private readonly emailAccountId?: string;
+  private sendAsEmailAddressesPromise?: Promise<string[]>;
 
   constructor(
     client: gmail_v1.Gmail,
@@ -827,35 +829,30 @@ export class GmailProvider implements EmailProvider {
       contentLength: args.content?.length,
     });
 
+    const userEmails = await this.getSelfEmailAddresses(userEmail);
+    const draftPromise = draftEmail(this.client, email, args, userEmails);
+    let result: Awaited<typeof draftPromise>;
+
     if (executedRule) {
-      // Run draft creation and previous draft deletion in parallel
-      const [result] = await Promise.all([
-        draftEmail(this.client, email, args, userEmail),
+      [result] = await Promise.all([
+        draftPromise,
         handlePreviousDraftDeletion({
           client: this,
           executedRule,
           logger: this.logger,
         }),
       ]);
-
-      const draftId = result.data.id || "";
-      this.logger.info("Gmail draft created successfully", {
-        draftId,
-        gmailMessageId: result.data.message?.id,
-      });
-
-      return { draftId };
     } else {
-      const result = await draftEmail(this.client, email, args, userEmail);
-
-      const draftId = result.data.id || "";
-      this.logger.info("Gmail draft created successfully", {
-        draftId,
-        gmailMessageId: result.data.message?.id,
-      });
-
-      return { draftId };
+      result = await draftPromise;
     }
+
+    const draftId = result.data.id || "";
+    this.logger.info("Gmail draft created successfully", {
+      draftId,
+      gmailMessageId: result.data.message?.id,
+    });
+
+    return { draftId };
   }
 
   async replyToEmail(
@@ -1589,5 +1586,26 @@ export class GmailProvider implements EmailProvider {
       },
       operation,
     );
+  }
+
+  private async getSelfEmailAddresses(userEmail: string): Promise<string[]> {
+    try {
+      const sendAsEmailAddresses = await this.getSendAsEmailAddresses();
+      return extractUniqueEmailAddresses([userEmail, ...sendAsEmailAddresses]);
+    } catch (error) {
+      this.logger.warn("Failed to fetch Gmail send-as addresses", { error });
+      return extractUniqueEmailAddresses([userEmail]);
+    }
+  }
+
+  private getSendAsEmailAddresses(): Promise<string[]> {
+    this.sendAsEmailAddressesPromise ??= getGmailSignatures(this.client)
+      .then((signatures) => signatures.map((signature) => signature.email))
+      .catch((error) => {
+        this.sendAsEmailAddressesPromise = undefined;
+        throw error;
+      });
+
+    return this.sendAsEmailAddressesPromise;
   }
 }

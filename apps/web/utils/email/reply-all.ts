@@ -12,20 +12,23 @@ export interface ReplyAllRecipients {
  *
  * @param headers - Original email headers
  * @param overrideTo - Optional override for the TO field (e.g., for drafts)
- * @param currentUserEmail - Current user's email to exclude from CC
+ * @param currentUserEmails - Current user's email addresses to exclude from CC
  * @returns Object with TO and CC recipients for reply-all
  */
 export function buildReplyAllRecipients(
   headers: ParsedMessageHeaders,
   overrideTo: string | undefined,
-  currentUserEmail: string,
+  currentUserEmails: string | string[],
 ): ReplyAllRecipients {
   // Determine the primary recipient (TO field)
   const replyToRaw = overrideTo || headers["reply-to"] || headers.from;
   const replyTo = extractEmailAddress(replyToRaw);
 
-  // Extract current user's email
-  const currentUser = extractEmailAddress(currentUserEmail);
+  const currentUserEmailSet = new Set(
+    (Array.isArray(currentUserEmails) ? currentUserEmails : [currentUserEmails])
+      .map((email) => extractEmailAddress(email).toLowerCase())
+      .filter(Boolean),
+  );
 
   // Build CC list for reply-all behavior
   const ccSet = new Set<string>();
@@ -34,14 +37,14 @@ export function buildReplyAllRecipients(
   addHeaderRecipientsToCcSet({
     headerValue: headers.cc,
     replyTo,
-    currentUser,
+    currentUserEmailSet,
     seenEmails,
     ccSet,
   });
   addHeaderRecipientsToCcSet({
     headerValue: headers.to,
     replyTo,
-    currentUser,
+    currentUserEmailSet,
     seenEmails,
     ccSet,
   });
@@ -94,13 +97,13 @@ export function mergeAndDedupeRecipients(
 function addHeaderRecipientsToCcSet({
   headerValue,
   replyTo,
-  currentUser,
+  currentUserEmailSet,
   seenEmails,
   ccSet,
 }: {
   headerValue: string | undefined;
   replyTo: string;
-  currentUser: string;
+  currentUserEmailSet: Set<string>;
   seenEmails: Set<string>;
   ccSet: Set<string>;
 }) {
@@ -114,7 +117,7 @@ function addHeaderRecipientsToCcSet({
       const normalizedEmail = email.toLowerCase();
       return (
         normalizedEmail !== replyTo.toLowerCase() &&
-        normalizedEmail !== currentUser.toLowerCase()
+        !currentUserEmailSet.has(normalizedEmail)
       );
     });
 
