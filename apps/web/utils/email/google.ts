@@ -830,36 +830,29 @@ export class GmailProvider implements EmailProvider {
     });
 
     const userEmails = await this.getSelfEmailAddresses(userEmail);
+    const draftPromise = draftEmail(this.client, email, args, userEmails);
+    let result: Awaited<typeof draftPromise>;
 
     if (executedRule) {
-      // Run draft creation and previous draft deletion in parallel
-      const [result] = await Promise.all([
-        draftEmail(this.client, email, args, userEmails),
+      [result] = await Promise.all([
+        draftPromise,
         handlePreviousDraftDeletion({
           client: this,
           executedRule,
           logger: this.logger,
         }),
       ]);
-
-      const draftId = result.data.id || "";
-      this.logger.info("Gmail draft created successfully", {
-        draftId,
-        gmailMessageId: result.data.message?.id,
-      });
-
-      return { draftId };
     } else {
-      const result = await draftEmail(this.client, email, args, userEmails);
-
-      const draftId = result.data.id || "";
-      this.logger.info("Gmail draft created successfully", {
-        draftId,
-        gmailMessageId: result.data.message?.id,
-      });
-
-      return { draftId };
+      result = await draftPromise;
     }
+
+    const draftId = result.data.id || "";
+    this.logger.info("Gmail draft created successfully", {
+      draftId,
+      gmailMessageId: result.data.message?.id,
+    });
+
+    return { draftId };
   }
 
   async replyToEmail(
