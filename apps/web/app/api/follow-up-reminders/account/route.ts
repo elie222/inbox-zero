@@ -4,7 +4,7 @@ import { env } from "@/env";
 import { hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import { withError } from "@/utils/middleware";
-import { processFollowUpRemindersForEmailAccountId } from "../process";
+import { processFollowUpRemindersForEmailAccountId } from "@/utils/follow-up/process";
 
 export const maxDuration = 800;
 

@@ -21,7 +21,7 @@ import {
   senderListHasValue,
 } from "@/__tests__/eval/assistant-chat-rule-eval-test-utils";
 import { getMockMessage, type getEmailAccount } from "@/__tests__/helpers";
-import type { MessageContext } from "@/app/api/chat/validation";
+import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import {
   ActionType,
   GroupItemType,

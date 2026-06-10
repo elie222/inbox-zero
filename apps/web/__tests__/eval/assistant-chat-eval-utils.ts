@@ -1,7 +1,7 @@
 import type { ModelMessage } from "ai";
 import { ActionType, type LogicalOperator } from "@/generated/prisma/enums";
 import type { getEmailAccount } from "@/__tests__/helpers";
-import type { MessageContext } from "@/app/api/chat/validation";
+import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import { writeEvalDebugArtifact } from "@/__tests__/eval/debug-artifacts";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";

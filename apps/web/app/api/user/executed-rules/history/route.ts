@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import groupBy from "lodash/groupBy";
-import { serializedMatchMetadataSchema } from "@/app/api/chat/validation";
+import { serializedMatchMetadataSchema } from "@/utils/ai/assistant/chat-context-validation";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { ExecutedRuleStatus } from "@/generated/prisma/enums";

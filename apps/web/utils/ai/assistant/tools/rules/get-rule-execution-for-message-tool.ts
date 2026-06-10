@@ -2,7 +2,7 @@ import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import type { ExecutedRuleStatus } from "@/generated/prisma/enums";
-import { serializedMatchMetadataSchema } from "@/app/api/chat/validation";
+import { serializedMatchMetadataSchema } from "@/utils/ai/assistant/chat-context-validation";
 import prisma from "@/utils/prisma";
 import { trackRuleToolCall } from "./shared";
 

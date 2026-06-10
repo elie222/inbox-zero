@@ -3,7 +3,7 @@ import { z } from "zod";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { getQueueRetryBackoffSeconds } from "@/utils/queue/retry";
-import { processFollowUpRemindersForEmailAccountId } from "../../process";
+import { processFollowUpRemindersForEmailAccountId } from "@/utils/follow-up/process";
 
 export const maxDuration = 800;
 
