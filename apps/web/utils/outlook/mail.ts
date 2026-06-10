@@ -275,7 +275,7 @@ export async function draftEmail(
     bcc?: string;
     attachments?: Attachment[];
   },
-  userEmail: string,
+  userEmails: string | string[],
   logger: Logger,
 ) {
   const { html } = createOutlookReplyContent({
@@ -286,7 +286,7 @@ export async function draftEmail(
   const recipients = buildReplyAllRecipients(
     originalEmail.headers,
     args.to,
-    userEmail,
+    userEmails,
   );
 
   const overrideToRecipient = args.to
