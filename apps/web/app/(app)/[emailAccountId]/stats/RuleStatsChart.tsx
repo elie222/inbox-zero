@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import type { DateRange } from "react-day-picker";
 import { LabelList, Pie, PieChart } from "recharts";
-import { fromPairs } from "lodash";
+import fromPairs from "lodash/fromPairs";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
