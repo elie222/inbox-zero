@@ -248,6 +248,9 @@ cron:
     watch-renewal:
       schedule: "0 */6 * * *"
       path: /api/watch/all
+    reconcile-inbox:
+      schedule: "*/15 * * * *"
+      path: /api/cron/reconcile-inbox
   resources:
     requests:
       cpu: 25m

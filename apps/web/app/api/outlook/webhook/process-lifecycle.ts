@@ -1,13 +1,12 @@
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
-import { backfillRecentOutlookMessages } from "@/utils/outlook/backfill-recent-messages";
+import {
+  backfillRecentOutlookMessages,
+  getOutlookReconcileStartDate,
+  OUTLOOK_RECONCILE_MAX_MESSAGES,
+} from "@/utils/outlook/backfill-recent-messages";
 import type { Logger } from "@/utils/logger";
-import prisma from "@/utils/prisma";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
 import type { OutlookWebhookNotification } from "@/utils/webhook/outlook/types";
-
-const OUTLOOK_LIFECYCLE_RECONCILE_FALLBACK_MS = 3 * 24 * 60 * 60 * 1000;
-const OUTLOOK_LIFECYCLE_RECONCILE_BUFFER_MS = 60 * 60 * 1000;
-const OUTLOOK_LIFECYCLE_RECONCILE_MAX_MESSAGES = 100;
 
 export async function processOutlookLifecycleNotification({
   notification,
@@ -49,8 +48,8 @@ export async function processOutlookLifecycleNotification({
         emailAddress: emailAccount.email,
         subscriptionId:
           emailAccount.watchEmailsSubscriptionId || notification.subscriptionId,
-        after: await getLifecycleReconcileStartDate(emailAccount.id),
-        maxMessages: OUTLOOK_LIFECYCLE_RECONCILE_MAX_MESSAGES,
+        after: await getOutlookReconcileStartDate(emailAccount.id),
+        maxMessages: OUTLOOK_RECONCILE_MAX_MESSAGES,
         logger: log,
       });
       return;
@@ -67,8 +66,8 @@ export async function processOutlookLifecycleNotification({
         emailAccountId: emailAccount.id,
         emailAddress: emailAccount.email,
         subscriptionId: refreshed?.subscriptionId,
-        after: await getLifecycleReconcileStartDate(emailAccount.id),
-        maxMessages: OUTLOOK_LIFECYCLE_RECONCILE_MAX_MESSAGES,
+        after: await getOutlookReconcileStartDate(emailAccount.id),
+        maxMessages: OUTLOOK_RECONCILE_MAX_MESSAGES,
         logger: log,
       });
       return;
@@ -89,24 +88,4 @@ export async function processOutlookLifecycleNotification({
     default:
       log.warn("Unhandled Outlook lifecycle event");
   }
-}
-
-async function getLifecycleReconcileStartDate(emailAccountId: string) {
-  const latestMessage = await prisma.emailMessage.findFirst({
-    where: { emailAccountId },
-    orderBy: { date: "desc" },
-    select: { date: true },
-  });
-
-  const fallbackStart = new Date(
-    Date.now() - OUTLOOK_LIFECYCLE_RECONCILE_FALLBACK_MS,
-  );
-  if (!latestMessage?.date) return fallbackStart;
-
-  return new Date(
-    Math.max(
-      latestMessage.date.getTime() - OUTLOOK_LIFECYCLE_RECONCILE_BUFFER_MS,
-      fallbackStart.getTime(),
-    ),
-  );
 }
