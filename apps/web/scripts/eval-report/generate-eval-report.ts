@@ -9,6 +9,8 @@ import { renderDashboardHtml } from "./render-html";
 
 async function main() {
   const { values } = parseArgs({
+    // pnpm forwards a literal "--" when invoked as `pnpm eval-report -- --open`
+    args: process.argv.slice(2).filter((arg) => arg !== "--"),
     options: {
       "history-dir": { type: "string" },
       out: { type: "string" },
