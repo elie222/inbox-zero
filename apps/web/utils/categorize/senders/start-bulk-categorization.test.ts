@@ -49,14 +49,11 @@ vi.mock("@/utils/redis/categorization-progress", () => ({
   ) => mockDeleteCategorizationProgress(...args),
 }));
 
-vi.mock(
-  "@/app/api/user/categorize/senders/uncategorized/get-uncategorized-senders",
-  () => ({
-    getUncategorizedSenders: (
-      ...args: Parameters<typeof mockGetUncategorizedSenders>
-    ) => mockGetUncategorizedSenders(...args),
-  }),
-);
+vi.mock("@/utils/categorize/senders/get-uncategorized-senders", () => ({
+  getUncategorizedSenders: (
+    ...args: Parameters<typeof mockGetUncategorizedSenders>
+  ) => mockGetUncategorizedSenders(...args),
+}));
 
 vi.mock("@/utils/actions/stats-loading", () => ({
   loadEmails: (...args: Parameters<typeof mockLoadEmails>) =>

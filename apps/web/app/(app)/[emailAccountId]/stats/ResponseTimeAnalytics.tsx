@@ -13,8 +13,8 @@ import { BarChart } from "./BarChart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { COLORS } from "@/utils/colors";
 import { cn } from "@/utils";
-import type { ResponseTimeQuery } from "@/app/api/user/stats/response-time/validation";
-import type { ResponseTimeResponse } from "@/app/api/user/stats/response-time/controller";
+import type { ResponseTimeQuery } from "@/utils/stats/response-time/validation";
+import type { ResponseTimeResponse } from "@/utils/stats/response-time/controller";
 import { isDefined } from "@/utils/types";
 import { pluralize } from "@/utils/string";
 

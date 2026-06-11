@@ -3,7 +3,7 @@ import {
   calculateResponseTimes,
   calculateSummaryStats,
   calculateDistribution,
-} from "./calculate";
+} from "@/utils/stats/response-time/calculate";
 import { getMockMessage as getMockMessageHelper } from "../../../../../__tests__/helpers";
 import { createTestLogger } from "@/__tests__/helpers";
 import { sleep } from "@/utils/sleep";

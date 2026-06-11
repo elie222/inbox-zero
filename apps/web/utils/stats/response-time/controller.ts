@@ -12,8 +12,8 @@ import {
   type ResponseTimeEntry,
   type SummaryStats,
   type DistributionStats,
-} from "./calculate";
-import type { ResponseTimeQuery } from "@/app/api/user/stats/response-time/validation";
+} from "@/utils/stats/response-time/calculate";
+import type { ResponseTimeQuery } from "@/utils/stats/response-time/validation";
 
 const DEFAULT_MAX_SENT_MESSAGES = 50;
 const SENT_MESSAGES_PAGE_SIZE = 50;
