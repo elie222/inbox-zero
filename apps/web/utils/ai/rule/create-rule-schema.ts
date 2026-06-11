@@ -66,7 +66,7 @@ const optionalStaticSubjectSchema = z
   .string()
   .nullish()
   .describe(
-    "Exact subject-line text to match. Use this when the user explicitly asks to match the email subject. If the user describes email content, topic, meaning, or general keyword matching without naming the subject line, use aiInstructions instead.",
+    "Subject-line text to match. Use this when the user explicitly asks to match the email subject. If the user describes email content, topic, meaning, or general keyword matching without naming the subject line, use aiInstructions instead.",
   );
 
 const requiredStaticSubjectSchema = z
@@ -74,7 +74,7 @@ const requiredStaticSubjectSchema = z
   .trim()
   .min(1)
   .describe(
-    "Exact subject-line text to match. Use this when the user explicitly asks to match the email subject. If the user describes email content, topic, meaning, or general keyword matching without naming the subject line, use aiInstructions instead.",
+    "Subject-line text to match. Use this when the user explicitly asks to match the email subject. If the user describes email content, topic, meaning, or general keyword matching without naming the subject line, use aiInstructions instead.",
   );
 
 const optionalStaticConditionSchema = z
