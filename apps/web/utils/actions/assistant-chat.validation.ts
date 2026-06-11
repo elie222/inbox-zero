@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { messageContextSchema } from "@/app/api/chat/validation";
+import { messageContextSchema } from "@/utils/ai/assistant/chat-context-validation";
 import { inlineEmailActionSchema } from "@/utils/ai/assistant/inline-email-actions";
 
 export const assistantPendingEmailActionTypeSchema = z.enum([

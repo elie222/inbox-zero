@@ -1,6 +1,14 @@
-import type { AnalyzeSenderPatternBody } from "@/app/api/ai/analyze-sender-pattern/route";
+import { z } from "zod";
 import { getInternalApiHeaders, getInternalApiUrl } from "@/utils/internal-api";
 import type { Logger } from "@/utils/logger";
+
+export const analyzeSenderPatternBodySchema = z.object({
+  emailAccountId: z.string(),
+  from: z.string(),
+});
+export type AnalyzeSenderPatternBody = z.infer<
+  typeof analyzeSenderPatternBodySchema
+>;
 
 export async function analyzeSenderPattern(
   body: AnalyzeSenderPatternBody,
