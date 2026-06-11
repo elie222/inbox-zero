@@ -95,6 +95,17 @@ EVAL_REPORT_PATH=eval-results/report.md EVAL_MODELS=all pnpm test-ai eval/your-f
 EVAL_RESULT_CACHE=readwrite pnpm test-ai eval/your-feature
 ```
 
+## Dashboard
+
+Build a self-contained HTML dashboard from all recorded run history (model leaderboard, suite × model matrix, pass-rate trends, per-test drill-down with judge criteria, and spend):
+
+```bash
+pnpm --filter inbox-zero-ai eval-report           # writes eval-results/eval-dashboard.html
+pnpm --filter inbox-zero-ai eval-report -- --open # also opens it in the browser
+```
+
+Options: `--history-dir <dir>` (defaults to `.context/eval-results` or `EVAL_HISTORY_DIR`), `--out <file>`. The page works offline as a plain local file; regenerate it after new eval runs.
+
 ## Result History and Cache
 
 Eval runs with `RUN_AI_TESTS=true` write JSON history to `.context/eval-results/<eval-name>/` by default. Set `EVAL_HISTORY_DIR=off` to disable this, or set `EVAL_HISTORY_DIR=path/to/dir` to choose a different location.
