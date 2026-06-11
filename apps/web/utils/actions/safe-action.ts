@@ -13,8 +13,6 @@ import { captureException, SafeError } from "@/utils/error";
 import { env } from "@/env";
 import { runWithAuditContext, setAuditContext } from "@/utils/audit/context";
 
-// TODO: take functionality from `withActionInstrumentation` and move it here (apps/web/utils/actions/middleware.ts)
-
 const baseClient = createSafeActionClient({
   defineMetadataSchema() {
     return z.object({ name: z.string() });
@@ -148,22 +146,24 @@ export const actionClient = baseClient
       emailAccountId,
       provider: emailAccount.account.provider,
     });
-    logger.info("Calling action");
 
-    return withServerActionInstrumentation(metadata.name, async () =>
-      next({
-        ctx: {
-          ...ctx,
-          logger,
-          userId,
-          userEmail,
-          session,
-          emailAccountId,
-          emailAccount,
-          provider: emailAccount.account.provider,
-        },
-      }),
-    );
+    return runInstrumentedAction({
+      actionName: metadata.name,
+      logger,
+      run: () =>
+        next({
+          ctx: {
+            ...ctx,
+            logger,
+            userId,
+            userEmail,
+            session,
+            emailAccountId,
+            emailAccount,
+            provider: emailAccount.account.provider,
+          },
+        }),
+    });
   });
 
 // doesn't bind to a specific email
@@ -184,13 +184,15 @@ export const actionClientUser = baseClient.use(
     setAuditContext({ actorType: "user", userId });
 
     const logger = ctx.logger.with({ userId, userEmail });
-    logger.info("Calling action");
 
-    return withServerActionInstrumentation(metadata?.name, async () =>
-      next({
-        ctx: { ...ctx, userId, userEmail, logger },
-      }),
-    );
+    return runInstrumentedAction({
+      actionName: metadata.name,
+      logger,
+      run: () =>
+        next({
+          ctx: { ...ctx, userId, userEmail, logger },
+        }),
+    });
   },
 );
 
@@ -204,8 +206,23 @@ export const adminActionClient = baseClient.use(
 
     const logger = ctx.logger.with({ admin: true });
 
-    return withServerActionInstrumentation(metadata?.name, async () =>
-      next({ ctx: { ...ctx, logger } }),
-    );
+    return runInstrumentedAction({
+      actionName: metadata.name,
+      logger,
+      run: () => next({ ctx: { ...ctx, logger } }),
+    });
   },
 );
+
+function runInstrumentedAction<T>({
+  actionName,
+  logger,
+  run,
+}: {
+  actionName: string;
+  logger: ReturnType<typeof createScopedLogger>;
+  run: () => Promise<T>;
+}) {
+  logger.info("Calling action");
+  return withServerActionInstrumentation(actionName, run);
+}
