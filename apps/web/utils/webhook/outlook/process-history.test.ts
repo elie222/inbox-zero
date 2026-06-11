@@ -9,7 +9,7 @@ import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
 import { captureException } from "@/utils/error";
 import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
-import { learnFromOutlookLabelRemoval } from "./learn-label-removal";
+import { learnFromOutlookLabelRemoval } from "@/utils/webhook/outlook/learn-label-removal";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 
@@ -34,7 +34,7 @@ vi.mock("@/utils/redis/message-processing", () => ({
 vi.mock("@/utils/webhook/process-history-item", () => ({
   processHistoryItem: vi.fn(),
 }));
-vi.mock("./learn-label-removal", () => ({
+vi.mock("@/utils/webhook/outlook/learn-label-removal", () => ({
   learnFromOutlookLabelRemoval: vi.fn(),
 }));
 vi.mock("@/utils/prisma", () => ({

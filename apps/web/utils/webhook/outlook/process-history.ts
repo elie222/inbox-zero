@@ -6,7 +6,7 @@ import {
   isInvalidGrantError,
 } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
-import type { OutlookResourceData } from "@/app/api/outlook/webhook/types";
+import type { OutlookResourceData } from "@/utils/webhook/outlook/types";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import {
@@ -15,7 +15,7 @@ import {
 } from "@/utils/webhook/validate-webhook-account";
 import type { Logger } from "@/utils/logger";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
-import { learnFromOutlookLabelRemoval } from "@/app/api/outlook/webhook/learn-label-removal";
+import { learnFromOutlookLabelRemoval } from "@/utils/webhook/outlook/learn-label-removal";
 import prisma from "@/utils/prisma";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
