@@ -38,6 +38,10 @@ import {
   useMarkReadSenderStatus,
 } from "@/store/mark-read-sender-queue";
 import {
+  addToDeleteSenderQueue,
+  useDeleteSenderStatus,
+} from "@/store/delete-sender-queue";
+import {
   type BulkActionType,
   getActionLabels,
 } from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal";
@@ -223,12 +227,29 @@ export function BulkArchiveCards({
       (s) => selectedSenders[s.address] !== false,
     );
 
+    if (
+      bulkAction === "delete" &&
+      selectedToProcess.length > 0 &&
+      !window.confirm(
+        `Delete emails from ${selectedToProcess.length} sender${selectedToProcess.length === 1 ? "" : "s"}? This action cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
     setLoadingCategories((prev) => ({ ...prev, [categoryName]: true }));
 
     try {
       for (const sender of selectedToProcess) {
         if (bulkAction === "markRead") {
           await addToMarkReadSenderQueue({
+            sender: sender.address,
+            emailAccountId,
+          });
+        }
+
+        if (bulkAction === "delete") {
+          await addToDeleteSenderQueue({
             sender: sender.address,
             emailAccountId,
           });
@@ -241,12 +262,12 @@ export function BulkArchiveCards({
         });
       }
 
-      if (bulkAction === "markRead") {
+      if (bulkAction !== "archive") {
         setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
       }
     } catch {
       toastError({
-        description: `Failed to ${bulkAction === "markRead" ? "mark as read" : "archive"} some senders. Please try again.`,
+        description: `Failed to ${getBulkActionVerb(bulkAction)} some senders. Please try again.`,
       });
     } finally {
       setLoadingCategories((prev) => ({ ...prev, [categoryName]: false }));
@@ -319,7 +340,8 @@ export function BulkArchiveCards({
                     </h2>
                     <p className="text-sm text-muted-foreground">
                       {senders.length} senders
-                      {isArchived && " archived"}
+                      {isArchived &&
+                        ` ${actionLabels.completedLabel.toLowerCase()}`}
                     </p>
                   </div>
                 </div>
@@ -336,6 +358,9 @@ export function BulkArchiveCards({
                       onClick={(e) => handleCategoryAction(categoryName, e)}
                       size="sm"
                       disabled={isLoading}
+                      variant={
+                        bulkAction === "delete" ? "destructive" : "default"
+                      }
                     >
                       {isLoading ? (
                         <ButtonLoader />
@@ -399,6 +424,7 @@ export function BulkArchiveCards({
                           userEmail={userEmail}
                           categories={categories}
                           emailAccountId={emailAccountId}
+                          bulkAction={bulkAction}
                           onCategoryChange={onCategoryChange}
                         />
                       ))}
@@ -423,6 +449,7 @@ function SenderRow({
   userEmail,
   categories,
   emailAccountId,
+  bulkAction,
   onCategoryChange,
 }: {
   sender: EmailGroup;
@@ -433,10 +460,15 @@ function SenderRow({
   userEmail: string;
   categories: CategoryWithRules[];
   emailAccountId: string;
+  bulkAction: BulkActionType;
   onCategoryChange?: () => Promise<unknown>;
 }) {
   const archiveStatus = useArchiveSenderStatus(emailAccountId, sender.address);
-  const markReadStatus = useMarkReadSenderStatus(sender.address);
+  const markReadStatus = useMarkReadSenderStatus(
+    emailAccountId,
+    sender.address,
+  );
+  const deleteStatus = useDeleteSenderStatus(emailAccountId, sender.address);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   return (
@@ -468,8 +500,10 @@ function SenderRow({
         </div>
         <div className="mr-2 text-right">
           <SenderStatus
+            bulkAction={bulkAction}
             archiveStatus={archiveStatus}
             markReadStatus={markReadStatus}
+            deleteStatus={deleteStatus}
           />
         </div>
         <Button
@@ -599,64 +633,132 @@ function EditCategoryDialog({
 }
 
 function SenderStatus({
+  bulkAction,
   archiveStatus,
   markReadStatus,
+  deleteStatus,
 }: {
+  bulkAction: BulkActionType;
   archiveStatus: ReturnType<typeof useArchiveSenderStatus>;
   markReadStatus: ReturnType<typeof useMarkReadSenderStatus>;
+  deleteStatus: ReturnType<typeof useDeleteSenderStatus>;
 }) {
-  // Show archive status if it exists
-  if (archiveStatus?.status) {
-    switch (archiveStatus.status) {
-      case "pending":
-        return <span className="text-sm text-muted-foreground">Queued</span>;
-      case "processing":
-        return (
-          <span className="text-sm text-blue-600">
-            {archiveStatus.threadsTotal
-              ? `${archiveStatus.threadsTotal - archiveStatus.threadIds.length} / ${archiveStatus.threadsTotal}`
-              : "Archiving..."}
-          </span>
-        );
-      case "completed":
-        return (
-          <span className="text-sm text-green-600">
-            {archiveStatus.threadsTotal
-              ? `Archived ${archiveStatus.threadsTotal}!`
-              : "Archived"}
-          </span>
-        );
-      case "failed":
-        return <span className="text-sm text-red-600">Failed</span>;
-    }
+  if (bulkAction === "delete" && deleteStatus?.status) {
+    return <DeleteSenderStatus status={deleteStatus} />;
   }
 
-  // Show mark read status if it exists
+  if (bulkAction === "markRead" && markReadStatus?.status) {
+    return <MarkReadSenderStatus status={markReadStatus} />;
+  }
+
+  if (bulkAction === "archive" && archiveStatus?.status) {
+    return <ArchiveSenderStatus status={archiveStatus} />;
+  }
+
+  if (archiveStatus?.status) {
+    return <ArchiveSenderStatus status={archiveStatus} />;
+  }
+
   if (markReadStatus?.status) {
-    switch (markReadStatus.status) {
-      case "completed":
-        return (
-          <span className="text-sm text-green-600">
-            {markReadStatus.threadsTotal
-              ? `Marked ${markReadStatus.threadsTotal} read!`
-              : "Marked read"}
-          </span>
-        );
-      case "processing":
-        return (
-          <span className="text-sm text-blue-600">
-            {markReadStatus.threadsTotal - markReadStatus.threadIds.length} /{" "}
-            {markReadStatus.threadsTotal}
-          </span>
-        );
-      case "pending":
-        return (
-          <span className="text-sm text-muted-foreground">Pending...</span>
-        );
-    }
+    return <MarkReadSenderStatus status={markReadStatus} />;
+  }
+
+  if (deleteStatus?.status) {
+    return <DeleteSenderStatus status={deleteStatus} />;
   }
 
   return null;
+}
+
+function ArchiveSenderStatus({
+  status,
+}: {
+  status: ReturnType<typeof useArchiveSenderStatus>;
+}) {
+  switch (status?.status) {
+    case "pending":
+      return <span className="text-sm text-muted-foreground">Queued</span>;
+    case "processing":
+      return (
+        <span className="text-sm text-blue-600">
+          {status.threadsTotal
+            ? `${status.threadsTotal - status.threadIds.length} / ${status.threadsTotal}`
+            : "Archiving..."}
+        </span>
+      );
+    case "completed":
+      return (
+        <span className="text-sm text-green-600">
+          {status.threadsTotal
+            ? `Archived ${status.threadsTotal}!`
+            : "Archived"}
+        </span>
+      );
+    case "failed":
+      return <span className="text-sm text-red-600">Failed</span>;
+    default:
+      return null;
+  }
+}
+
+function MarkReadSenderStatus({
+  status,
+}: {
+  status: ReturnType<typeof useMarkReadSenderStatus>;
+}) {
+  switch (status?.status) {
+    case "completed":
+      return (
+        <span className="text-sm text-green-600">
+          {status.threadsTotal
+            ? `Marked ${status.threadsTotal} read!`
+            : "Marked read"}
+        </span>
+      );
+    case "processing":
+      return (
+        <span className="text-sm text-blue-600">
+          {status.threadsTotal - status.threadIds.length} /{" "}
+          {status.threadsTotal}
+        </span>
+      );
+    case "pending":
+      return <span className="text-sm text-muted-foreground">Pending...</span>;
+    default:
+      return null;
+  }
+}
+
+function DeleteSenderStatus({
+  status,
+}: {
+  status: ReturnType<typeof useDeleteSenderStatus>;
+}) {
+  switch (status?.status) {
+    case "completed":
+      return (
+        <span className="text-sm text-green-600">
+          {status.threadsTotal ? `Deleted ${status.threadsTotal}!` : "Deleted"}
+        </span>
+      );
+    case "processing":
+      return (
+        <span className="text-sm text-blue-600">
+          {status.threadsTotal - status.threadIds.length} /{" "}
+          {status.threadsTotal}
+        </span>
+      );
+    case "pending":
+      return <span className="text-sm text-muted-foreground">Pending...</span>;
+    default:
+      return null;
+  }
+}
+
+function getBulkActionVerb(action: BulkActionType) {
+  if (action === "markRead") return "mark as read";
+  if (action === "delete") return "delete";
+  return "archive";
 }
 
 function ExpandedEmails({
