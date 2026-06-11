@@ -645,7 +645,6 @@ model ExecutedAction {
   // additional fields as a result of the action
   draftId              String? // Gmail draft ID created by DRAFT_EMAIL action
   draftStatus          DraftEmailStatus? // Last observed/inferred draft lifecycle status; provider state may be stale or ambiguous.
-  wasDraftSent         Boolean? // @deprecated Use draftStatus. Kept for historical compatibility only.
   draftModelProvider   String?
   draftModelName       String?
   draftPipelineVersion Int?

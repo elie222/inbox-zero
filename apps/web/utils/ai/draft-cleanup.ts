@@ -31,7 +31,6 @@ export async function cleanupAIDraftsForAccount({
       id: true,
       draftId: true,
       draftStatus: true,
-      wasDraftSent: true,
       content: true,
     },
     orderBy: { createdAt: "asc" },
@@ -68,7 +67,6 @@ export async function cleanupAIDraftsForAccount({
       if (!draftDetails?.textPlain && !draftDetails?.textHtml) {
         const statusData = getDraftCleanupStatusData({
           draftStatus: action.draftStatus,
-          wasDraftSent: action.wasDraftSent,
           status: DraftEmailStatus.MISSING_FROM_PROVIDER,
         });
         if (statusData) {
@@ -97,7 +95,6 @@ export async function cleanupAIDraftsForAccount({
       await provider.deleteDraft(action.draftId);
       const statusData = getDraftCleanupStatusData({
         draftStatus: action.draftStatus,
-        wasDraftSent: action.wasDraftSent,
         status: DraftEmailStatus.CLEANED_UP_UNUSED,
       });
       if (statusData) {
@@ -218,23 +215,18 @@ export async function getConfiguredDraftCleanupDays(emailAccountId: string) {
 
 function getDraftCleanupStatusData({
   draftStatus,
-  wasDraftSent,
   status,
 }: {
   draftStatus?: DraftEmailStatus | null;
-  wasDraftSent?: boolean | null;
   status: DraftEmailStatus;
-}): { draftStatus?: DraftEmailStatus; wasDraftSent?: null } | null {
-  const data: { draftStatus?: DraftEmailStatus; wasDraftSent?: null } = {};
+}): { draftStatus: DraftEmailStatus } | null {
+  const data: { draftStatus?: DraftEmailStatus } = {};
 
   if (canTransitionDraftStatus(draftStatus) && draftStatus !== status) {
     data.draftStatus = status;
   }
-  if (wasDraftSent === false) {
-    data.wasDraftSent = null;
-  }
 
-  return Object.keys(data).length > 0 ? data : null;
+  return data.draftStatus ? { draftStatus: data.draftStatus } : null;
 }
 
 function canTransitionDraftStatus(
@@ -259,12 +251,6 @@ function getDraftCleanupCandidateWhere() {
         },
       },
       { draftStatus: null },
-      // Legacy rows with wasDraftSent=false were migrated to CLEANED_UP_UNUSED,
-      // even when the provider draft still needed a retry.
-      {
-        draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
-        wasDraftSent: false,
-      },
     ],
   };
 }
