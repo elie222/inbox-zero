@@ -28,7 +28,9 @@ import { createScopedLogger } from "@/utils/logger";
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 240_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-rule-editing-action-updates",
+});
 const logger = createScopedLogger(
   "eval-assistant-chat-rule-editing-action-updates",
 );

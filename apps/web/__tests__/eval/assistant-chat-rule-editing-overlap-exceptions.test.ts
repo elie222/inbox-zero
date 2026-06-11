@@ -35,7 +35,9 @@ import { createScopedLogger } from "@/utils/logger";
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 120_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-rule-editing-overlap-exceptions",
+});
 const logger = createScopedLogger(
   "eval-assistant-chat-rule-editing-overlap-exceptions",
 );

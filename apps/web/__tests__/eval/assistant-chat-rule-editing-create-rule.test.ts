@@ -28,7 +28,9 @@ import { createScopedLogger } from "@/utils/logger";
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-rule-editing
 
 const shouldRunEval = shouldRunEvalTests();
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-rule-editing-create-rule",
+});
 const logger = createScopedLogger(
   "eval-assistant-chat-rule-editing-create-rule",
 );

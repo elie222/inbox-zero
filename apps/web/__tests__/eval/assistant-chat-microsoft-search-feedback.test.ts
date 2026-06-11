@@ -25,7 +25,9 @@ import type { getEmailAccount } from "@/__tests__/helpers";
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 120_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-microsoft-search-feedback",
+});
 const logger = createScopedLogger(
   "eval-assistant-chat-microsoft-search-feedback",
 );

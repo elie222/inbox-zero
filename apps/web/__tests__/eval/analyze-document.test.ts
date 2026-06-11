@@ -79,7 +79,7 @@ const testCases = [
 ] as const;
 
 describe.runIf(shouldRunEval)("Eval: Analyze Document", () => {
-  const evalReporter = createEvalReporter();
+  const evalReporter = createEvalReporter({ evalName: "analyze-document" });
 
   describeEvalMatrix("analyze-document", (model, emailAccount) => {
     for (const testCase of testCases) {

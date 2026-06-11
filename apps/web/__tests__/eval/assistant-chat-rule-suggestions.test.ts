@@ -39,7 +39,9 @@ import { createScopedLogger } from "@/utils/logger";
 // pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-rule-suggestions.test.ts
 
 const shouldRunEval = shouldRunEvalTests();
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-rule-suggestions",
+});
 const logger = createScopedLogger("eval-assistant-chat-rule-suggestions");
 const TIMEOUT = 120_000;
 

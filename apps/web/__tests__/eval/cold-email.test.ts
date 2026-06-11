@@ -52,7 +52,7 @@ Would you be open to a quick call next week to see if we can help?`,
 ];
 
 describe.runIf(shouldRunEval)("Eval: cold email", () => {
-  const evalReporter = createEvalReporter();
+  const evalReporter = createEvalReporter({ evalName: "cold-email" });
 
   describeEvalMatrix("cold email", (model, emailAccount) => {
     for (const testCase of testCases) {

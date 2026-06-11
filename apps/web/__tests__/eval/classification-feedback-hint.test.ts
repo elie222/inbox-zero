@@ -243,7 +243,9 @@ const testCases = [
 ];
 
 describe.runIf(shouldRunEval)("Eval: Classification Feedback Hints", () => {
-  const evalReporter = createEvalReporter();
+  const evalReporter = createEvalReporter({
+    evalName: "classification-feedback-hint",
+  });
 
   describeEvalMatrix("classification-feedback-hint", (model, emailAccount) => {
     for (const tc of testCases) {

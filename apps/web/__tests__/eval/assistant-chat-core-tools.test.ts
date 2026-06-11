@@ -23,7 +23,9 @@ import type { getEmailAccount } from "@/__tests__/helpers";
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 const MULTI_STEP_TIMEOUT = 120_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-core-tools",
+});
 const logger = createScopedLogger("eval-assistant-chat-core-tools");
 
 const {

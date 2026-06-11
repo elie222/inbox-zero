@@ -24,7 +24,9 @@ import { createScopedLogger } from "@/utils/logger";
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 150_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-static-sender-rules-learned-patterns",
+});
 const logger = createScopedLogger(
   "eval-assistant-chat-static-sender-rules-learned-patterns",
 );

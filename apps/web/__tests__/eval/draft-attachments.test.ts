@@ -29,7 +29,7 @@ vi.mock("@/utils/drive/provider", () => ({
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({ evalName: "draft-attachments" });
 const logger = createScopedLogger("eval-draft-attachments");
 const recentDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
