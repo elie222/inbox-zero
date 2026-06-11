@@ -16,7 +16,7 @@ import {
   findRuleByLabelId,
   saveClassificationFeedback,
 } from "@/utils/rule/classification-feedback";
-import { fetchSenderFromMessage } from "@/app/api/google/webhook/fetch-sender-from-message";
+import { fetchSenderFromMessage } from "@/utils/webhook/google/fetch-sender-from-message";
 
 export async function handleLabelRemovedEvent(
   message: gmail_v1.Schema$HistoryLabelRemoved,

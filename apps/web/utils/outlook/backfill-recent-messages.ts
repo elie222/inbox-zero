@@ -1,4 +1,4 @@
-import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
+import { processHistoryForUser } from "@/utils/webhook/outlook/process-history";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";

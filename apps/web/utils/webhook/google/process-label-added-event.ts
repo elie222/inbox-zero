@@ -17,7 +17,7 @@ import {
   findRuleByLabelId,
   saveClassificationFeedback,
 } from "@/utils/rule/classification-feedback";
-import { fetchSenderFromMessage } from "@/app/api/google/webhook/fetch-sender-from-message";
+import { fetchSenderFromMessage } from "@/utils/webhook/google/fetch-sender-from-message";
 
 /**
  * When labels are added to an email:

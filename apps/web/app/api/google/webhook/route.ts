@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
-import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
+import { processHistoryForUser } from "@/utils/webhook/google/process-history";
 import type { Logger } from "@/utils/logger";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";

@@ -32,7 +32,7 @@ vi.mock("@/env", () => ({
   env: envMock,
 }));
 
-vi.mock("@/app/api/google/webhook/process-history", () => ({
+vi.mock("@/utils/webhook/google/process-history", () => ({
   processHistoryForUser: (...args: unknown[]) =>
     processHistoryForUserMock(...args),
 }));

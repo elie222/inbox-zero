@@ -7,8 +7,8 @@ import { captureException, isInvalidGrantError } from "@/utils/error";
 import {
   HistoryEventType,
   type ProcessHistoryOptions,
-} from "@/app/api/google/webhook/types";
-import { processHistoryItem } from "@/app/api/google/webhook/process-history-item";
+} from "@/utils/webhook/google/types";
+import { processHistoryItem } from "@/utils/webhook/google/process-history-item";
 import { getHistory } from "@/utils/gmail/history";
 import {
   validateWebhookAccount,
