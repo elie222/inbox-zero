@@ -227,52 +227,10 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
             {question.skippable ? "Skip" : "Next"}
           </Button>
         )}
-
-        {/* {!isFinalQuestion && (
-          <SkipOnboardingButton
-            searchParams={searchParams}
-            submitPosthog={submitPosthog}
-            posthog={posthog}
-            router={router}
-          />
-        )} */}
       </div>
     </form>
   );
 };
-
-// function SkipOnboardingButton({
-//   searchParams,
-//   submitPosthog,
-//   posthog,
-//   router,
-// }: {
-//   searchParams: URLSearchParams;
-//   submitPosthog: (responses: Properties) => void;
-//   posthog: PostHog;
-//   router: AppRouterInstance;
-// }) {
-//   // // A/B test whether to show skip onboarding button
-//   // if (posthog.getFeatureFlag("show-skip-onboarding-button") === "hide")
-//   //   return null;
-
-//   return (
-//     <Button
-//       variant="ghost"
-//       className="mt-8"
-//       type="button"
-//       onClick={async () => {
-//         const responses = getResponses(searchParams);
-//         submitPosthog(responses);
-//         posthog.capture("survey dismissed", { $survey_id: surveyId });
-//         await completedOnboardingAction();
-//         router.push("/setup");
-//       }}
-//     >
-//       Skip Onboarding
-//     </Button>
-//   );
-// }
 
 function getResponses(seachParams: URLSearchParams): Record<string, string> {
   const responses = survey.questions.reduce(

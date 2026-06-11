@@ -8,7 +8,7 @@ import {
   DEFAULT_FOLLOW_UP_DAYS,
 } from "@/utils/actions/follow-up-reminders.validation";
 import prisma from "@/utils/prisma";
-import { processAccountFollowUps } from "@/app/api/follow-up-reminders/process";
+import { processAccountFollowUps } from "@/utils/follow-up/process";
 import { SafeError } from "@/utils/error";
 import { env } from "@/env";
 

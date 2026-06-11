@@ -202,8 +202,22 @@ async function handleSocialSignIn({
 
 function getSocialSignInErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
+    if (isNetworkSignInError(error.message)) {
+      return "Could not start sign-in. Please check that this app is opened from its configured public URL, then try again.";
+    }
+
     return error.message;
   }
 
   return "Please try again or contact support.";
+}
+
+function isNetworkSignInError(message: string) {
+  const normalizedMessage = message.toLowerCase();
+
+  return (
+    normalizedMessage === "load failed" ||
+    normalizedMessage === "failed to fetch" ||
+    normalizedMessage === "networkerror when attempting to fetch resource."
+  );
 }

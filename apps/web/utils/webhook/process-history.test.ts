@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 import prisma from "@/utils/prisma";
 import { processProviderHistory } from "@/utils/webhook/process-history";
-import { processHistoryForUser as processGoogleHistoryForUser } from "@/app/api/google/webhook/process-history";
-import { processHistoryForUser as processOutlookHistoryForUser } from "@/app/api/outlook/webhook/process-history";
+import { processHistoryForUser as processGoogleHistoryForUser } from "@/utils/webhook/google/process-history";
+import { processHistoryForUser as processOutlookHistoryForUser } from "@/utils/webhook/outlook/process-history";
 import { backfillRecentOutlookMessages } from "@/utils/outlook/backfill-recent-messages";
 
 vi.mock("@/utils/prisma", () => ({
@@ -13,10 +13,10 @@ vi.mock("@/utils/prisma", () => ({
     },
   },
 }));
-vi.mock("@/app/api/google/webhook/process-history", () => ({
+vi.mock("@/utils/webhook/google/process-history", () => ({
   processHistoryForUser: vi.fn(),
 }));
-vi.mock("@/app/api/outlook/webhook/process-history", () => ({
+vi.mock("@/utils/webhook/outlook/process-history", () => ({
   processHistoryForUser: vi.fn(),
 }));
 vi.mock("@/utils/outlook/backfill-recent-messages", () => ({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
+import { webhookBodySchema } from "@/utils/webhook/outlook/types";
 
 describe("webhookBodySchema", () => {
   it("accepts lifecycle notifications with null resource data", () => {

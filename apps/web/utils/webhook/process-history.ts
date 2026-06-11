@@ -3,8 +3,8 @@ import {
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
 import type { Logger } from "@/utils/logger";
-import { processHistoryForUser as processGoogleHistoryForUser } from "@/app/api/google/webhook/process-history";
-import { processHistoryForUser as processOutlookHistoryForUser } from "@/app/api/outlook/webhook/process-history";
+import { processHistoryForUser as processGoogleHistoryForUser } from "@/utils/webhook/google/process-history";
+import { processHistoryForUser as processOutlookHistoryForUser } from "@/utils/webhook/outlook/process-history";
 import { backfillRecentOutlookMessages } from "@/utils/outlook/backfill-recent-messages";
 import prisma from "@/utils/prisma";
 

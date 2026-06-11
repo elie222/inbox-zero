@@ -31,7 +31,7 @@ import {
 import {
   getAdminResponseTimeProviderDelayMs,
   getResponseTimeStats,
-} from "@/app/api/user/stats/response-time/controller";
+} from "@/utils/stats/response-time/controller";
 
 export const adminProcessHistoryAction = adminActionClient
   .metadata({ name: "adminProcessHistory" })

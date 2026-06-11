@@ -280,7 +280,7 @@ export async function draftEmail(
     bcc?: string;
     attachments?: Attachment[];
   },
-  userEmail: string,
+  userEmails: string | string[],
 ) {
   const { html } = createReplyContent({
     textContent: args.content,
@@ -294,7 +294,7 @@ export async function draftEmail(
   const recipients = buildReplyAllRecipients(
     originalEmail.headers,
     args.to,
-    userEmail,
+    userEmails,
   );
 
   // Merge CC from reply-all with CC from args

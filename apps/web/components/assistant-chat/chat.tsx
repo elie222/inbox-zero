@@ -33,7 +33,7 @@ import { useLocalStorage } from "usehooks-ts";
 import { useSession } from "@/utils/auth-client";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
-import type { MessageContext } from "@/app/api/chat/validation";
+import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { ChatHistoryItem } from "@/components/assistant-chat/ChatHistoryItem";
 import {

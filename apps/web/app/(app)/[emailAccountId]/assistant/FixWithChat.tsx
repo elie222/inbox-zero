@@ -27,7 +27,7 @@ import {
   NEW_RULE_ID as CONST_NEW_RULE_ID,
   NONE_RULE_ID as CONST_NONE_RULE_ID,
 } from "@/app/(app)/[emailAccountId]/assistant/consts";
-import type { MessageContext } from "@/app/api/chat/validation";
+import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import {
   serializeMatchReasons,
   type SerializedMatchReason,

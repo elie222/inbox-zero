@@ -3,7 +3,7 @@ import prisma from "@/utils/prisma";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { GroupItemSource, SystemType } from "@/generated/prisma/enums";
 import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
-import { learnFromOutlookLabelRemoval } from "./learn-label-removal";
+import { learnFromOutlookLabelRemoval } from "@/utils/webhook/outlook/learn-label-removal";
 import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/prisma", () => ({

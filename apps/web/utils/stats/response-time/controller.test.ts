@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
-import { getResponseTimeStats } from "./controller";
+import { getResponseTimeStats } from "@/utils/stats/response-time/controller";
 import { sleep } from "@/utils/sleep";
 
 vi.mock("@/utils/prisma");
