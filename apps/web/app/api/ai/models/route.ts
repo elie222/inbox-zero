@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { Provider } from "@/utils/llms/config";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
 export type OpenAiModelsResponse = Awaited<ReturnType<typeof getOpenAiModels>>;
 
@@ -17,10 +17,7 @@ async function getOpenAiModels({ apiKey }: { apiKey: string }) {
 export const GET = withEmailAccount("api/ai/models", async (req) => {
   const { emailAccountId } = req.auth;
 
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: { user: { select: { aiApiKey: true, aiProvider: true } } },
-  });
+  const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
   if (
     !emailAccount?.user.aiApiKey ||

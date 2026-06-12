@@ -3,6 +3,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Prisma } from "@/generated/prisma/client";
 import type { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { env } from "@/env";
+import { getEffectiveAiSettings } from "@/utils/organizations/ai-settings";
 
 export type EmailAccountWithAIAndTokens = Prisma.EmailAccountGetPayload<{
   select: {
@@ -43,7 +44,7 @@ export async function getEmailAccountWithAi({
 }: {
   emailAccountId: string;
 }): Promise<(EmailAccountWithAI & { name: string | null }) | null> {
-  return prisma.emailAccount.findUnique({
+  const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
       id: true,
@@ -62,6 +63,12 @@ export async function getEmailAccountWithAi({
           aiApiKey: true,
         },
       },
+      members: {
+        take: 1,
+        select: {
+          organizationId: true,
+        },
+      },
       account: {
         select: {
           provider: true,
@@ -69,6 +76,23 @@ export async function getEmailAccountWithAi({
       },
     },
   });
+
+  if (!emailAccount) {
+    return null;
+  }
+
+  const effectiveAiSettings = await getEffectiveAiSettings({
+    userAiSettings: emailAccount.user,
+    organizationId: emailAccount.members[0]?.organizationId,
+    excludeUserId: emailAccount.userId,
+  });
+
+  const { members: _members, ...accountWithoutMembers } = emailAccount;
+
+  return {
+    ...accountWithoutMembers,
+    user: effectiveAiSettings,
+  };
 }
 
 export type EmailAccountForRuleExecution = EmailAccountWithAI & {
@@ -81,7 +105,7 @@ export async function getEmailAccountForRuleExecution({
 }: {
   emailAccountId: string;
 }): Promise<EmailAccountForRuleExecution | null> {
-  return prisma.emailAccount.findUnique({
+  const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
       id: true,
@@ -101,6 +125,12 @@ export async function getEmailAccountForRuleExecution({
           aiApiKey: true,
         },
       },
+      members: {
+        take: 1,
+        select: {
+          organizationId: true,
+        },
+      },
       account: {
         select: {
           provider: true,
@@ -108,6 +138,23 @@ export async function getEmailAccountForRuleExecution({
       },
     },
   });
+
+  if (!emailAccount) {
+    return null;
+  }
+
+  const effectiveAiSettings = await getEffectiveAiSettings({
+    userAiSettings: emailAccount.user,
+    organizationId: emailAccount.members[0]?.organizationId,
+    excludeUserId: emailAccount.userId,
+  });
+
+  const { members: _members, ...accountWithoutMembers } = emailAccount;
+
+  return {
+    ...accountWithoutMembers,
+    user: effectiveAiSettings,
+  };
 }
 
 export async function getEmailAccountWithAiAndTokens({
@@ -133,6 +180,12 @@ export async function getEmailAccountWithAiAndTokens({
           aiApiKey: true,
         },
       },
+      members: {
+        take: 1,
+        select: {
+          organizationId: true,
+        },
+      },
       account: {
         select: {
           access_token: true,
@@ -146,11 +199,20 @@ export async function getEmailAccountWithAiAndTokens({
 
   if (!emailAccount) return null;
 
+  const effectiveAiSettings = await getEffectiveAiSettings({
+    userAiSettings: emailAccount.user,
+    organizationId: emailAccount.members[0]?.organizationId,
+    excludeUserId: emailAccount.userId,
+  });
+
+  const { members: _members, ...accountWithoutMembers } = emailAccount;
+
   return {
-    ...emailAccount,
+    ...accountWithoutMembers,
+    user: effectiveAiSettings,
     tokens: {
-      ...emailAccount.account,
-      expires_at: emailAccount.account.expires_at?.getTime() ?? null,
+      ...accountWithoutMembers.account,
+      expires_at: accountWithoutMembers.account.expires_at?.getTime() ?? null,
     },
   };
 }

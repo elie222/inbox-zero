@@ -6,6 +6,7 @@ import {
   premiumEntitlementSelect,
 } from "@/utils/premium";
 import prisma from "@/utils/prisma";
+import { getEffectiveAiSettings } from "@/utils/organizations/ai-settings";
 
 export async function validateUserAndAiAccess({
   emailAccountId,
@@ -33,19 +34,41 @@ export async function validateUserAndAiAccess({
           },
         },
       },
+      members: {
+        take: 1,
+        select: {
+          organizationId: true,
+        },
+      },
       account: { select: { provider: true } },
     },
   });
   if (!emailAccount) throw new SafeError("User not found");
+
+  const effectiveAiSettings = await getEffectiveAiSettings({
+    userAiSettings: emailAccount.user,
+    organizationId: emailAccount.members[0]?.organizationId,
+    excludeUserId: emailAccount.userId,
+  });
 
   const isUserPremium = isPremiumRecord(emailAccount.user.premium);
   if (!isUserPremium) throw new SafeError("Please upgrade for AI access");
 
   const userHasAiAccess = hasAiAccess(
     getUserTier(emailAccount.user.premium),
-    !!emailAccount.user.aiApiKey,
+    !!effectiveAiSettings.aiApiKey,
   );
   if (!userHasAiAccess) throw new SafeError("Please upgrade for AI access");
 
-  return { emailAccount };
+  const { members: _members, ...accountWithoutMembers } = emailAccount;
+
+  return {
+    emailAccount: {
+      ...accountWithoutMembers,
+      user: {
+        ...accountWithoutMembers.user,
+        ...effectiveAiSettings,
+      },
+    },
+  };
 }

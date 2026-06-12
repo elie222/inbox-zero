@@ -24,6 +24,7 @@ import {
 import { env } from "@/env";
 import { slugify } from "@/utils/string";
 import { posthogCaptureEvent } from "@/utils/posthog";
+import { getOrganizationAiSettings } from "@/utils/organizations/ai-settings";
 
 export const createOrganizationAction = actionClient
   .metadata({ name: "createOrganization" })
@@ -305,9 +306,23 @@ async function acceptInvitation({
     data: { status: "accepted" },
   });
 
+  const emailAccount = await getUserFromEmailAccount(emailAccountId);
+  if (emailAccount?.user) {
+    const organizationAiSettings = await getOrganizationAiSettings({
+      organizationId: invitation.organizationId,
+      excludeUserId: emailAccount.user.id,
+    });
+
+    if (organizationAiSettings) {
+      await prisma.user.update({
+        where: { id: emailAccount.user.id },
+        data: organizationAiSettings,
+      });
+    }
+  }
+
   const premium = await getOrganizationPremium(invitation.organizationId);
   if (premium) {
-    const emailAccount = await getUserFromEmailAccount(emailAccountId);
     if (emailAccount?.user) {
       await claimPendingPremiumInvite({
         premiumId: premium.id,

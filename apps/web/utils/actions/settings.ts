@@ -24,6 +24,11 @@ import { env } from "@/env";
 import { addActionOwnershipToInput } from "@/utils/rule/rule";
 import { isSensitiveDataPolicyLocked } from "@/utils/dlp/policy.server";
 import { assertCanUseDigests } from "@/utils/premium/server";
+import {
+  getEffectiveAiSettings,
+  getOrganizationIdForUser,
+  syncAiSettingsToOrganizationUsers,
+} from "@/utils/organizations/ai-settings";
 
 export const updateEmailSettingsAction = actionClient
   .metadata({ name: "updateEmailSettings" })
@@ -62,54 +67,84 @@ export const updateAiSettingsAction = actionClientUser
       }
 
       const providedAiApiKey = aiApiKey?.trim() || null;
+      const organizationId = await getOrganizationIdForUser(userId);
 
       let nextAiApiKey: string | null = providedAiApiKey;
 
       if (!nextAiApiKey && aiProvider !== DEFAULT_PROVIDER) {
         const existingUser = await prisma.user.findUnique({
           where: { id: userId },
-          select: { aiProvider: true, aiApiKey: true },
+          select: { aiProvider: true, aiModel: true, aiApiKey: true },
         });
 
         if (!existingUser) throw new SafeError("User not found");
 
+        const existingAiSettings = await getEffectiveAiSettings({
+          userAiSettings: existingUser,
+          organizationId,
+          excludeUserId: userId,
+        });
+
         nextAiApiKey =
-          existingUser.aiProvider === aiProvider ? existingUser.aiApiKey : null;
+          existingAiSettings.aiProvider === aiProvider
+            ? existingAiSettings.aiApiKey
+            : null;
 
         if (!nextAiApiKey) {
           throw new SafeError("You must provide an API key for this provider");
         }
       }
 
-      const result = await prisma.user.updateMany({
-        where: { id: userId },
-        data:
-          aiProvider === DEFAULT_PROVIDER
-            ? { aiProvider: null, aiModel: null, aiApiKey: null }
-            : { aiProvider, aiModel, aiApiKey: nextAiApiKey },
-      });
+      const nextAiSettings =
+        aiProvider === DEFAULT_PROVIDER
+          ? { aiProvider: null, aiModel: null, aiApiKey: null }
+          : { aiProvider, aiModel, aiApiKey: nextAiApiKey };
 
-      if (result.count === 0) {
+      const syncedUserIds = organizationId
+        ? await syncAiSettingsToOrganizationUsers({
+            organizationId,
+            aiSettings: nextAiSettings,
+          })
+        : [];
+
+      if (organizationId ? syncedUserIds.length === 0 : false) {
         throw new SafeError("User not found");
+      }
+
+      if (!organizationId) {
+        const result = await prisma.user.updateMany({
+          where: { id: userId },
+          data: nextAiSettings,
+        });
+
+        if (result.count === 0) {
+          throw new SafeError("User not found");
+        }
       }
 
       // Clear AI-related error messages when user updates their settings
       // This allows them to be notified again if the new settings are also invalid
-      await clearSpecificErrorMessages({
-        userId,
-        errorTypes: [
-          ErrorType.INCORRECT_API_KEY,
-          ErrorType.INVALID_AI_MODEL,
-          ErrorType.API_KEY_DEACTIVATED,
-          ErrorType.AI_QUOTA_ERROR,
-          ErrorType.INSUFFICIENT_CREDITS,
-          // Legacy keys for old stored errors
-          ErrorType.INCORRECT_OPENAI_API_KEY,
-          ErrorType.OPENAI_API_KEY_DEACTIVATED,
-          ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
-        ],
-        logger,
-      });
+      const userIdsToClearErrorsFor = organizationId ? syncedUserIds : [userId];
+
+      await Promise.all(
+        userIdsToClearErrorsFor.map((targetUserId) =>
+          clearSpecificErrorMessages({
+            userId: targetUserId,
+            errorTypes: [
+              ErrorType.INCORRECT_API_KEY,
+              ErrorType.INVALID_AI_MODEL,
+              ErrorType.API_KEY_DEACTIVATED,
+              ErrorType.AI_QUOTA_ERROR,
+              ErrorType.INSUFFICIENT_CREDITS,
+              // Legacy keys for old stored errors
+              ErrorType.INCORRECT_OPENAI_API_KEY,
+              ErrorType.OPENAI_API_KEY_DEACTIVATED,
+              ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
+            ],
+            logger,
+          }),
+        ),
+      );
     },
   );
 
