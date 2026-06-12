@@ -20,6 +20,7 @@ import {
   formatCcList,
   mergeAndDedupeRecipients,
 } from "@/utils/email/reply-all";
+import { extractEmailAddress } from "@/utils/email";
 import { formatReplySubject } from "@/utils/email/subject";
 import { buildThreadingHeaders } from "@/utils/email/threading";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
@@ -161,7 +162,11 @@ export async function replyToEmail(
   >,
   reply: string,
   from?: string,
-  options?: { replyTo?: string; attachments?: Attachment[] },
+  options?: {
+    replyTo?: string;
+    attachments?: Attachment[];
+    replyAll?: boolean;
+  },
 ) {
   ensureEmailSendingEnabled();
 
@@ -174,10 +179,21 @@ export async function replyToEmail(
     message,
   });
 
-  // Only replying to the original sender
+  const replyAllRecipients = options?.replyAll
+    ? buildReplyAllRecipients(
+        message.headers,
+        undefined,
+        extractEmailAddress(from || ""),
+      )
+    : null;
+
   const raw = await createRawMailMessage({
-    to: message.headers["reply-to"] || message.headers.from,
+    to:
+      replyAllRecipients?.to ||
+      message.headers["reply-to"] ||
+      message.headers.from,
     from,
+    cc: replyAllRecipients ? formatCcList(replyAllRecipients.cc) : undefined,
     replyTo: options?.replyTo,
     subject: formatReplySubject(message.headers.subject),
     messageText,

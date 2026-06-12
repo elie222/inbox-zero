@@ -320,6 +320,62 @@ describe("confirmAssistantEmailAction", () => {
     });
   });
 
+  it("sends a pending prepared reply all with the account email for recipient exclusion", async () => {
+    (prisma.emailAccount.findUnique as any)
+      .mockResolvedValueOnce({
+        email: "owner@example.com",
+        account: { userId: "u1", provider: "google" },
+      })
+      .mockResolvedValueOnce({
+        name: "Owner",
+        email: "owner@example.com",
+      });
+
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildPendingReplyPart({ replyAll: true })],
+    } as any);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+
+    const sourceMessage = {
+      id: "source-message-1",
+      threadId: "thread-1",
+      headers: {
+        from: "sender@example.com",
+        to: "owner@example.com, teammate@example.com",
+        cc: "manager@example.com",
+        subject: "Original subject",
+      },
+      subject: "Original subject",
+    };
+    const replyToEmail = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getMessage: vi.fn().mockResolvedValue(sourceMessage),
+      replyToEmail,
+      getSentMessageIds: vi.fn().mockResolvedValue({
+        messages: [{ id: "reply-message-2", threadId: "thread-1" }],
+      }),
+    } as any);
+
+    await confirmAssistantEmailAction(
+      "ea_1" as any,
+      {
+        chatId: "chat-1",
+        chatMessageId: "chat-message-1",
+        toolCallId: "tool-1",
+        actionType: "reply_email",
+      } as any,
+    );
+
+    expect(replyToEmail).toHaveBeenCalledWith(sourceMessage, "Thanks!", {
+      from: "Owner <owner@example.com>",
+      replyAll: true,
+    });
+  });
+
   it("sends a pending prepared forward and persists confirmed output", async () => {
     (prisma.emailAccount.findUnique as any)
       .mockResolvedValueOnce({
@@ -1534,7 +1590,7 @@ function confirmPendingSendEmail() {
   );
 }
 
-function buildPendingReplyPart() {
+function buildPendingReplyPart({ replyAll = false } = {}) {
   return {
     type: "tool-replyEmail",
     toolCallId: "tool-1",
@@ -1547,6 +1603,7 @@ function buildPendingReplyPart() {
       pendingAction: {
         messageId: "source-message-1",
         content: "Thanks!",
+        replyAll,
       },
       reference: {
         messageId: "source-message-1",

@@ -517,12 +517,14 @@ async function confirmPendingReplyEmailAction({
     output.reference?.threadId,
   );
   const from = await getFormattedSenderAddress({ emailAccountId });
-  const replyOptions = from ? { from } : undefined;
   const sentAfter = new Date();
   await emailProvider.replyToEmail(
     message,
     contentOverride || output.pendingAction.content,
-    replyOptions,
+    {
+      ...(from ? { from } : {}),
+      ...(output.pendingAction.replyAll ? { replyAll: true } : {}),
+    },
   );
 
   const messageId = await resolveSentMessageId({
