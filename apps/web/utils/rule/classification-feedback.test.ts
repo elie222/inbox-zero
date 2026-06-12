@@ -1,4 +1,5 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 import {
   saveClassificationFeedback,
   getClassificationFeedback,
@@ -45,6 +46,24 @@ describe("saveClassificationFeedback", () => {
         }),
       }),
     );
+  });
+
+  it("treats duplicate feedback races as already saved", async () => {
+    vi.mocked(prisma.classificationFeedback.upsert).mockRejectedValueOnce(
+      createDuplicateFeedbackError(),
+    );
+
+    await expect(
+      saveClassificationFeedback({
+        emailAccountId: "acc-1",
+        sender: "user@example.com",
+        ruleId: "rule-1",
+        threadId: "thread-1",
+        messageId: "msg-1",
+        eventType: ClassificationFeedbackEventType.LABEL_REMOVED,
+        logger,
+      }),
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -222,3 +241,13 @@ describe("findRuleByLabelId", () => {
     expect(result).toBeNull();
   });
 });
+
+function createDuplicateFeedbackError() {
+  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+    code: "P2002",
+    clientVersion: "5.0.0",
+    meta: {
+      target: ["emailAccountId", "sender", "ruleId", "messageId", "eventType"],
+    },
+  });
+}
