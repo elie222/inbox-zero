@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { subDays } from "date-fns/subDays";
 import { ChevronDown } from "lucide-react";
@@ -268,6 +269,18 @@ export function BulkUnsubscribe() {
       count: suggestedRows.length,
     });
   }, [selectItems, suggestedRows, posthog]);
+
+  // Pre-select suggestions when arriving via ?select=suggested (e.g. from onboarding)
+  const searchParams = useSearchParams();
+  const shouldAutoSelectSuggested = searchParams.get("select") === "suggested";
+  const hasAutoSelectedSuggested = useRef(false);
+  useEffect(() => {
+    if (!shouldAutoSelectSuggested || hasAutoSelectedSuggested.current) return;
+    if (!suggestedRows.length) return;
+
+    hasAutoSelectedSuggested.current = true;
+    selectItems(suggestedRows.map((row) => row.name));
+  }, [shouldAutoSelectSuggested, suggestedRows, selectItems]);
 
   // Clear selection when filter changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally clearing selection when filter changes
