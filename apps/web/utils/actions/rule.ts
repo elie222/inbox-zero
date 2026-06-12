@@ -56,6 +56,7 @@ import { bulkProcessInboxEmails } from "@/utils/ai/choose-rule/bulk-process-emai
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import { assertCanUseDigestsIfNeeded } from "@/utils/premium/server";
+import { toCreateOrUpdateRuleCondition } from "@/utils/rule/create-rule-condition";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -86,15 +87,15 @@ export const createRuleAction = actionClient
         const rule = await createRule({
           result: {
             name,
-            condition: {
-              aiInstructions: conditions.instructions ?? null,
+            condition: toCreateOrUpdateRuleCondition({
+              aiInstructions: conditions.instructions,
               conditionalOperator: conditionalOperator || null,
               static: {
-                from: conditions.from || null,
-                to: conditions.to || null,
-                subject: conditions.subject || null,
+                from: conditions.from,
+                to: conditions.to,
+                subject: conditions.subject,
               },
-            },
+            }),
             actions: resolvedActions.map(mapActionToSanitizedFields),
           },
           emailAccountId,
@@ -141,15 +142,15 @@ export const updateRuleAction = actionClient
           ruleId: id,
           result: {
             name: name || "",
-            condition: {
-              aiInstructions: conditions.instructions ?? null,
+            condition: toCreateOrUpdateRuleCondition({
+              aiInstructions: conditions.instructions,
               conditionalOperator: conditionalOperator || null,
               static: {
-                from: conditions.from || null,
-                to: conditions.to || null,
-                subject: conditions.subject || null,
+                from: conditions.from,
+                to: conditions.to,
+                subject: conditions.subject,
               },
-            },
+            }),
             actions: resolvedActions.map(mapActionToSanitizedFields),
           },
           emailAccountId,
