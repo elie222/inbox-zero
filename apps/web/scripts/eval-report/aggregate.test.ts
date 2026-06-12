@@ -54,6 +54,21 @@ describe("loadHistoryEntries", () => {
 });
 
 describe("aggregateDashboardData", () => {
+  it("returns an empty all-history view when no history entries exist", () => {
+    const data = aggregate([]);
+
+    expect(data.defaultViewKey).toBe("all");
+    expect(data.views).toEqual([
+      expect.objectContaining({
+        key: "all",
+        models: [],
+        suites: [],
+        leaderboard: [],
+        runCount: 0,
+      }),
+    ]);
+  });
+
   it("keeps the latest record per test and model across runs", () => {
     const data = aggregate([
       entry("choose-rule", "2026-06-01T00:00:00.000Z", [

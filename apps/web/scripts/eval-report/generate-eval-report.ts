@@ -59,7 +59,13 @@ async function main() {
 
   if (values.open) {
     const opener = process.platform === "darwin" ? "open" : "xdg-open";
-    execFile(opener, [outPath]);
+    execFile(opener, [outPath], (error) => {
+      if (error) {
+        console.warn(
+          `Could not open dashboard automatically: ${error.message}`,
+        );
+      }
+    });
   }
 }
 
@@ -89,4 +95,7 @@ function findWorkspaceRoot(startDir: string): string {
   }
 }
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

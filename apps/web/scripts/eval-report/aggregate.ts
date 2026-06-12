@@ -190,7 +190,10 @@ export function aggregateDashboardData({
   warnings?: string[];
 }): DashboardData {
   const viewKeys = listViewKeys(entries);
-  const views = viewKeys.map((key) => buildDashboardView(entries, key));
+  const views =
+    viewKeys.length > 0
+      ? viewKeys.map((key) => buildDashboardView(entries, key))
+      : [buildDashboardView(entries, "all")];
 
   return {
     generatedAt,

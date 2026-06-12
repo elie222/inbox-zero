@@ -475,6 +475,18 @@ const MODEL_COST_RANK = {
   "Gemini 3 Flash": 6,
 };
 
+const EMPTY_VIEW = {
+  key: "all",
+  label: "All commits (mixed)",
+  gitHead: null,
+  lastRunAt: "",
+  runCount: 0,
+  models: [],
+  suites: [],
+  leaderboard: [],
+  cost: { byModel: [], totalCalls: 0, totalEstimatedCost: 0, totalReportedCost: null, totalTokens: 0 },
+};
+
 const state = {
   viewKey: DATA.defaultViewKey,
   baselineModel: "",
@@ -485,7 +497,7 @@ const state = {
 };
 
 function activeView() {
-  return DATA.views.find((view) => view.key === state.viewKey) || DATA.views[0];
+  return DATA.views.find((view) => view.key === state.viewKey) || DATA.views[0] || EMPTY_VIEW;
 }
 
 function latestStats(tests, model) {
@@ -499,11 +511,14 @@ function latestStats(tests, model) {
 }
 
 function modelCostRank(model) {
-  return model in MODEL_COST_RANK ? MODEL_COST_RANK[model] : 99;
+  return model in MODEL_COST_RANK ? MODEL_COST_RANK[model] : null;
 }
 
-function isCheaperThan(candidate, baseline) {
-  return modelCostRank(candidate) < modelCostRank(baseline);
+function costComparison(candidate, baseline) {
+  const candidateRank = modelCostRank(candidate);
+  const baselineRank = modelCostRank(baseline);
+  if (candidateRank == null || baselineRank == null) return "unranked";
+  return candidateRank < baselineRank ? "cheaper" : "not-cheaper";
 }
 
 function defaultBaselineModel(view) {
@@ -634,7 +649,7 @@ function renderMatrix() {
       const parity = suiteParity(baselineStats, { passed, total });
       const parityCls =
         model !== baseline &&
-        isCheaperThan(model, baseline) &&
+        costComparison(model, baseline) !== "not-cheaper" &&
         parity === "parity"
           ? " parity-match"
           : "";
@@ -663,26 +678,32 @@ function renderCostRouting() {
   const baseline = state.baselineModel || defaultBaselineModel(view);
   const note = document.getElementById("routing-note");
   note.textContent =
-    "cheaper models with the same pass count as " + baseline + " on a suite are safe cost-down candidates";
+    "lower-cost or unranked models with the same pass count as " + baseline + " on a suite are cost-down candidates";
 
   const candidates = view.models
-    .filter((model) => model !== baseline && isCheaperThan(model, baseline))
-    .sort((a, b) => modelCostRank(a) - modelCostRank(b));
+    .map((model) => ({ model, comparison: costComparison(model, baseline), rank: modelCostRank(model) }))
+    .filter((candidate) => candidate.model !== baseline && candidate.comparison !== "not-cheaper")
+    .sort((a, b) => {
+      if (a.rank != null && b.rank != null) return a.rank - b.rank;
+      if (a.rank != null) return -1;
+      if (b.rank != null) return 1;
+      return a.model.localeCompare(b.model);
+    });
 
   if (candidates.length === 0) {
-    el.innerHTML = '<div class="empty-state">no cheaper models in this view to compare</div>';
+    el.innerHTML = '<div class="empty-state">no lower-cost or unranked models in this view to compare</div>';
     return;
   }
 
   const rows = [];
-  let totalParitySuites = 0;
+  const paritySuiteNames = new Set();
   for (const candidate of candidates) {
     const paritySuites = [];
     const closeSuites = [];
     let compared = 0;
     for (const suite of view.suites) {
       const baselineStats = latestStats(suite.latestTests, baseline);
-      const candidateStats = latestStats(suite.latestTests, candidate);
+      const candidateStats = latestStats(suite.latestTests, candidate.model);
       const parity = suiteParity(baselineStats, candidateStats);
       if (!parity) continue;
       compared += 1;
@@ -692,34 +713,36 @@ function renderCostRouting() {
         closeSuites.push(suite.name);
       }
     }
-    totalParitySuites += paritySuites.length;
+    for (const suiteName of paritySuites) paritySuiteNames.add(suiteName);
     const parityList = paritySuites.length
       ? paritySuites.map((name) => '<span class="routing-suite">' + esc(name) + "</span>").join(", ")
       : '<span class="faint">none</span>';
     const closeList = closeSuites.length
       ? closeSuites.map((name) => esc(name)).join(", ")
       : "–";
+    const comparisonLabel = candidate.comparison === "cheaper" ? "lower" : "unranked";
     rows.push(
       "<tr>" +
-        "<td>" + esc(candidate) + "</td>" +
+        "<td>" + esc(candidate.model) + "</td>" +
+        "<td>" + esc(comparisonLabel) + "</td>" +
         '<td class="num">' + compared + "</td>" +
         '<td class="num">' + paritySuites.length + "</td>" +
         "<td>" + parityList + "</td>" +
         '<td class="num">' + closeSuites.length + "</td>" +
-        "<td>" + esc(closeList) + "</td>" +
+        "<td>" + closeList + "</td>" +
       "</tr>",
     );
   }
 
   const summary =
-    totalParitySuites === 0
+    paritySuiteNames.size === 0
       ? "No full parity yet on this commit — expand coverage or use ◆ cells in the matrix to spot near-matches."
-      : totalParitySuites + " suite" + (totalParitySuites === 1 ? "" : "s") +
-        " where a cheaper model already matches " + baseline + " pass-for-pass. Route those first when optimizing cost.";
+      : paritySuiteNames.size + " suite" + (paritySuiteNames.size === 1 ? "" : "s") +
+        " where a lower-cost or unranked model already matches " + baseline + " pass-for-pass. Route those first when optimizing cost.";
 
   el.innerHTML =
     '<div class="routing-summary">' + esc(summary) + "</div>" +
-    "<table><thead><tr><th>cheaper model</th><th class=\\"num\\">compared</th><th class=\\"num\\">parity</th><th>parity suites</th><th class=\\"num\\">close</th><th>close suites (≤1 miss or ≤5pp)</th></tr></thead><tbody>" +
+    "<table><thead><tr><th>candidate model</th><th>cost rank</th><th class=\\"num\\">compared</th><th class=\\"num\\">parity</th><th>parity suites</th><th class=\\"num\\">close</th><th>close suites (≤1 miss or ≤5pp)</th></tr></thead><tbody>" +
     rows.join("") +
     "</tbody></table>";
 }
