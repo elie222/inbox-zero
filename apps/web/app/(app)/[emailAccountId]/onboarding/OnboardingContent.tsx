@@ -303,7 +303,8 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
 
   return (
     <>
-      {/* Load per-sender stats early so they're ready for the bulk-unsubscribe step */}
+      {/* Start ingesting provider email stats into the database early so the
+          bulk-unsubscribe step's stats query has data by the time it runs */}
       <EmailStatsPreloader />
       {renderStep ? renderStep() : null}
     </>

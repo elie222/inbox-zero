@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { subDays } from "date-fns/subDays";
+import { startOfDay } from "date-fns/startOfDay";
 import { ArrowRightIcon, ExternalLinkIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,9 @@ const PREVIEW_COUNT = 5;
 export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
   const { emailAccountId } = useAccount();
 
-  const now = useMemo(() => new Date(), []);
+  // Day-boundary date range keeps the SWR key stable across mounts, so
+  // revisiting this step (back/forward) reuses the cached result.
+  const fromDate = useMemo(() => +subDays(startOfDay(new Date()), 90), []);
   // Mirrors the bulk unsubscribe page defaults: last 3 months, unhandled
   // senders, all email types, ordered by email count.
   const params: NewsletterStatsQuery = {
@@ -34,12 +37,11 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
     orderDirection: "desc",
     limit: 50,
     includeMissingUnsubscribe: true,
-    fromDate: +subDays(now, 90),
-    toDate: +now,
+    fromDate,
   };
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   const urlParams = new URLSearchParams(params as any);
-  const { data } = useSWR<NewsletterStatsResponse>(
+  const { data, isLoading } = useSWR<NewsletterStatsResponse>(
     `/api/user/stats/newsletters?${urlParams}`,
     {
       revalidateOnFocus: false,
@@ -53,8 +55,13 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
     [data],
   );
 
-  // While stats are loading, on error, or with nothing to suggest, fall back
-  // to the static marketing content — onboarding must never feel broken.
+  // Don't render the static content while the fetch is in flight, or the
+  // screen would swap to the personalized version under the user moments
+  // later. A brief blank matches how the onboarding shell loads.
+  if (isLoading && !data) return null;
+
+  // On error or with nothing to suggest, fall back to the static marketing
+  // content — onboarding must never feel broken.
   if (!suggestions.length) {
     return <StaticBulkUnsubscribeStep onNext={onNext} />;
   }
