@@ -189,9 +189,14 @@ export function BulkActions({
     );
   }, [selectedNewsletters]);
 
-  const allSelectedCanUnsubscribe = selectedNewsletters.every(
-    (n) => n.status !== NewsletterStatus.UNSUBSCRIBED,
-  );
+  // The selection map can hold senders no longer in the fetched rows (e.g.
+  // after a search or date-range change), so only offer unsubscribe when we
+  // have full rows to act on.
+  const allSelectedCanUnsubscribe =
+    selectedNewsletters.length > 0 &&
+    selectedNewsletters.every(
+      (n) => n.status !== NewsletterStatus.UNSUBSCRIBED,
+    );
 
   const hasUnsubscribeLinks = selectedNewsletters.some((n) =>
     getHttpUnsubscribeLink({ unsubscribeLink: n.unsubscribeLink }),

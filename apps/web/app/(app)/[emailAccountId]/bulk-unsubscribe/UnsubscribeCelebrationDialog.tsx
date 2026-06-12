@@ -5,7 +5,8 @@ import useSWR from "swr";
 import Image from "next/image";
 import Confetti from "react-dom-confetti";
 import { usePostHog } from "posthog-js/react";
-import { CopyIcon, LinkedinIcon, TwitterIcon } from "lucide-react";
+import { CopyIcon } from "lucide-react";
+import { LinkedinIcon, TwitterIcon } from "@/components/BrandIcons";
 import type { DateRange } from "react-day-picker";
 import {
   Dialog,
@@ -116,7 +117,7 @@ export function UnsubscribeCelebrationDialog({
           src={`/api/og/unsubscribed?count=${senderCount}`}
           width={1200}
           height={630}
-          alt={`${senderCount} email lists unsubscribed with Inbox Zero`}
+          alt={`${senderCount} email ${senderCount === 1 ? "list" : "lists"} unsubscribed with Inbox Zero`}
           unoptimized
           className="w-full rounded-lg border"
         />
