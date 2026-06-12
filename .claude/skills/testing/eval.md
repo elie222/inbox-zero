@@ -106,6 +106,10 @@ pnpm --filter inbox-zero-ai eval-report --open # also opens it in the browser
 
 Options: `--history-dir <dir>` (defaults to `.context/eval-results` or `EVAL_HISTORY_DIR`), `--out <file>`. The page works offline as a plain local file; regenerate it after new eval runs.
 
+The dashboard defaults to the **most recent git commit** in history (not a mixed cross-commit view). Use the commit dropdown to compare older runs or switch to "All commits (mixed)" when you want latest-wins across every recorded run. Each commit-scoped view only includes history files recorded on that commit, so stale pre-fix results do not leak into the current leaderboard.
+
+The **Cost routing** panel compares cheaper models against a quality baseline (defaults to the leaderboard leader). Suites where a cheaper model has the same pass count are highlighted in the matrix (◆). Use this for multi-model routing when optimizing for credits — not for comparing stale commits.
+
 ## Result History and Cache
 
 Eval runs with `RUN_AI_TESTS=true` write JSON history to `.context/eval-results/<eval-name>/` by default. Set `EVAL_HISTORY_DIR=off` to disable this, or set `EVAL_HISTORY_DIR=path/to/dir` to choose a different location.

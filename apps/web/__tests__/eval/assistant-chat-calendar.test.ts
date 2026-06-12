@@ -14,6 +14,7 @@ import {
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { getEmailAccount } from "@/__tests__/helpers";
+import { buildAssistantChatEvalEnv } from "@/__tests__/eval/assistant-chat-eval-env";
 
 // pnpm test-ai eval/assistant-chat-calendar
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-calendar
@@ -106,13 +107,7 @@ vi.mock("@/utils/email/provider", () => ({
 }));
 
 vi.mock("@/env", () => ({
-  env: {
-    AZURE_FOUNDRY_API_KEY: process.env.AZURE_FOUNDRY_API_KEY,
-    AZURE_FOUNDRY_BASE_URL: process.env.AZURE_FOUNDRY_BASE_URL,
-    NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
-    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
-    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
-  },
+  env: buildAssistantChatEvalEnv(),
 }));
 
 vi.mock("@/utils/calendar/event-provider", () => ({

@@ -26,7 +26,13 @@ ${CSS}
     <h1>EVAL&nbsp;DECK</h1>
     <span class="subtitle">Inbox Zero · model evaluation telemetry</span>
   </div>
-  <div class="masthead-meta" id="masthead-meta"></div>
+  <div class="masthead-controls">
+    <label class="commit-filter" for="commit-select">
+      <span>commit</span>
+      <select id="commit-select" aria-label="Filter by git commit"></select>
+    </label>
+    <div class="masthead-meta" id="masthead-meta"></div>
+  </div>
 </header>
 
 <main>
@@ -35,7 +41,7 @@ ${CSS}
   <section class="panel reveal">
     <div class="panel-head">
       <h2><span class="index">01</span> Model leaderboard</h2>
-      <span class="panel-note">latest result per suite · test · model</span>
+      <span class="panel-note" id="leaderboard-note">latest result per suite · test · model</span>
     </div>
     <div id="leaderboard"></div>
   </section>
@@ -43,14 +49,28 @@ ${CSS}
   <section class="panel reveal">
     <div class="panel-head">
       <h2><span class="index">02</span> Suite × model matrix</h2>
-      <span class="panel-note">click a cell to inspect</span>
+      <span class="panel-note" id="matrix-note">click a cell to inspect · ◆ = matches baseline pass count</span>
     </div>
     <div class="matrix-scroll" id="matrix"></div>
   </section>
 
   <section class="panel reveal">
     <div class="panel-head">
-      <h2><span class="index">03</span> Suite inspector</h2>
+      <h2><span class="index">03</span> Cost routing</h2>
+      <span class="panel-note" id="routing-note">suites where a cheaper model matches your quality baseline</span>
+    </div>
+    <div class="routing-controls">
+      <label for="baseline-select">
+        <span>quality baseline</span>
+        <select id="baseline-select" aria-label="Quality baseline model"></select>
+      </label>
+    </div>
+    <div id="routing"></div>
+  </section>
+
+  <section class="panel reveal">
+    <div class="panel-head">
+      <h2><span class="index">04</span> Suite inspector</h2>
       <span class="panel-note" id="inspector-note"></span>
     </div>
     <div class="inspector-controls">
@@ -65,8 +85,8 @@ ${CSS}
 
   <section class="panel reveal">
     <div class="panel-head">
-      <h2><span class="index">04</span> Spend</h2>
-      <span class="panel-note">summed across all recorded runs</span>
+      <h2><span class="index">05</span> Spend</h2>
+      <span class="panel-note" id="cost-note">summed for selected commit</span>
     </div>
     <div id="cost"></div>
   </section>
@@ -175,6 +195,34 @@ h1 {
 
 .subtitle { color: var(--dim); letter-spacing: 0.08em; }
 
+.masthead-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.commit-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--dim);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.commit-filter select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 10px;
+  min-width: 220px;
+}
+
 .masthead-meta { color: var(--faint); font-size: 11.5px; text-align: right; letter-spacing: 0.04em; }
 .masthead-meta b { color: var(--dim); font-weight: 400; }
 
@@ -278,6 +326,63 @@ td.cell:hover { transform: scale(1.06); outline: 1px solid var(--accent); }
 td.cell.empty { color: var(--faint); cursor: default; }
 td.cell.empty:hover { transform: none; outline: none; }
 
+.routing-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.routing-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--dim);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.routing-controls select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 10px;
+  min-width: 220px;
+}
+
+.routing-summary {
+  color: var(--dim);
+  font-size: 12px;
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.routing-suite {
+  color: var(--accent);
+}
+
+td.cell.parity-match {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+td.cell.parity-match::after {
+  content: "◆";
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 8px;
+  color: var(--accent);
+  opacity: 0.9;
+}
+
+td.cell {
+  position: relative;
+}
+
 .inspector-controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
 
 select, input[type="search"] {
@@ -354,9 +459,34 @@ const shortSha = (sha) => (sha ? sha.slice(0, 7) : "–");
 // Distinct from the pass/fail greens and reds so trend lines read as
 // model identity, not status.
 const PALETTE = ["#6fd6c9", "#9d8cff", "#e3b34f", "#5fa8ff", "#ff8e6b", "#ff6fb3", "#b5e36b", "#d8c9a3"];
-const modelColor = (model) => PALETTE[Math.max(0, DATA.models.indexOf(model)) % PALETTE.length];
+const modelColor = (model) => {
+  const models = activeView().models;
+  return PALETTE[Math.max(0, models.indexOf(model)) % PALETTE.length];
+};
 
-const state = { suite: null, model: "", failuresOnly: false, search: "" };
+// Lower index = cheaper model (rough eval cost order; tie-break when spend data is missing).
+const MODEL_COST_RANK = {
+  "DeepSeek V4 Flash Azure": 0,
+  "Gemini 3.1 Flash Lite": 1,
+  "GPT-5.4 Nano": 2,
+  "Gemini 2.5 Flash": 3,
+  "GPT-5.4 Mini": 4,
+  "DeepSeek V4 Pro Azure": 5,
+  "Gemini 3 Flash": 6,
+};
+
+const state = {
+  viewKey: DATA.defaultViewKey,
+  baselineModel: "",
+  suite: null,
+  model: "",
+  failuresOnly: false,
+  search: "",
+};
+
+function activeView() {
+  return DATA.views.find((view) => view.key === state.viewKey) || DATA.views[0];
+}
 
 function latestStats(tests, model) {
   let passed = 0, total = 0;
@@ -368,26 +498,83 @@ function latestStats(tests, model) {
   return { passed, total };
 }
 
+function modelCostRank(model) {
+  return model in MODEL_COST_RANK ? MODEL_COST_RANK[model] : 99;
+}
+
+function isCheaperThan(candidate, baseline) {
+  return modelCostRank(candidate) < modelCostRank(baseline);
+}
+
+function defaultBaselineModel(view) {
+  return view.leaderboard[0]?.model || view.models[0] || "";
+}
+
+function suiteParity(baselineStats, candidateStats) {
+  if (baselineStats.total === 0 || candidateStats.total === 0) {
+    return null;
+  }
+  if (candidateStats.passed === baselineStats.passed) {
+    return "parity";
+  }
+  const gap = baselineStats.passed - candidateStats.passed;
+  const rateGap =
+    baselineStats.passed / baselineStats.total -
+    candidateStats.passed / candidateStats.total;
+  if (gap === 1 || (gap <= 2 && rateGap <= 0.05)) {
+    return "close";
+  }
+  return "worse";
+}
+
+function syncBaselineSelect() {
+  const view = activeView();
+  const select = document.getElementById("baseline-select");
+  if (!state.baselineModel || !view.models.includes(state.baselineModel)) {
+    state.baselineModel = defaultBaselineModel(view);
+  }
+  select.innerHTML = view.models.map((model) => {
+    const row = view.leaderboard.find((item) => item.model === model);
+    const hint = row ? fmtPct(row.passed, row.total) + " overall" : "in view";
+    return '<option value="' + esc(model) + '"' + (model === state.baselineModel ? " selected" : "") + ">" +
+      esc(model) + " — " + esc(hint) + "</option>";
+  }).join("");
+}
+
+function renderCommitSelect() {
+  const select = document.getElementById("commit-select");
+  select.innerHTML = DATA.views.map((view) => {
+    const hint = view.key === "all"
+      ? "mixed history"
+      : view.runCount + " run" + (view.runCount === 1 ? "" : "s") + " · " + fmtAge(view.lastRunAt);
+    return '<option value="' + esc(view.key) + '"' + (view.key === state.viewKey ? " selected" : "") + ">" +
+      esc(view.label) + " — " + esc(hint) + "</option>";
+  }).join("");
+}
+
 function renderMasthead() {
-  const heads = new Set();
-  for (const s of DATA.suites) for (const r of s.runs) if (r.gitHead) heads.add(r.gitHead);
-  const latestHead = DATA.suites.flatMap((s) => s.runs).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const view = activeView();
+  const commitLine = view.key === "all"
+    ? "showing <b>all commits</b> (latest-wins per test — may mix stale results)"
+    : view.key === "legacy"
+      ? "showing <b>legacy runs</b> without a recorded commit"
+      : "showing commit <b>" + esc(shortSha(view.gitHead)) + "</b>";
   document.getElementById("masthead-meta").innerHTML =
     "generated <b>" + esc(new Date(DATA.generatedAt).toLocaleString()) + "</b><br/>" +
-    esc(DATA.historyDir) + " · " + DATA.runCount + " runs · head <b>" +
-    esc(shortSha(latestHead && latestHead.gitHead)) + (heads.size > 1 ? " (+" + (heads.size - 1) + " more)" : "") + "</b>";
+    esc(DATA.historyDir) + " · " + view.runCount + " run file" + (view.runCount === 1 ? "" : "s") + " · " + commitLine;
 }
 
 function renderKpis() {
-  const all = DATA.suites.flatMap((s) => s.latestTests);
+  const view = activeView();
+  const all = view.suites.flatMap((s) => s.latestTests);
   const { passed, total } = latestStats(all, "");
   const rate = total ? passed / total : 0;
   const kpis = [
-    { label: "pass rate", value: fmtPct(passed, total), cls: rate >= 0.9 ? "pass" : rate >= 0.7 ? "" : "fail", hint: passed + "/" + total + " latest results" },
-    { label: "suites", value: DATA.suites.length, hint: "eval files reporting" },
-    { label: "models", value: DATA.models.length, hint: "seen in history" },
-    { label: "runs recorded", value: DATA.runCount, hint: "history files" },
-    { label: "est. spend", value: fmtUsd(DATA.cost.totalEstimatedCost), hint: fmtNum(DATA.cost.totalTokens) + " tokens" },
+    { label: "pass rate", value: fmtPct(passed, total), cls: rate >= 0.9 ? "pass" : rate >= 0.7 ? "" : "fail", hint: passed + "/" + total + " for this commit" },
+    { label: "suites", value: view.suites.length, hint: "with results on this commit" },
+    { label: "models", value: view.models.length, hint: "in this view" },
+    { label: "runs recorded", value: view.runCount, hint: "history files for commit" },
+    { label: "est. spend", value: fmtUsd(view.cost.totalEstimatedCost), hint: fmtNum(view.cost.totalTokens) + " tokens" },
   ];
   document.getElementById("kpi-strip").innerHTML = kpis.map((k) =>
     '<div class="kpi"><div class="label">' + esc(k.label) + '</div><div class="value ' + (k.cls || "") + '">' + esc(k.value) + '</div><div class="hint">' + esc(k.hint) + "</div></div>"
@@ -395,11 +582,16 @@ function renderKpis() {
 }
 
 function renderLeaderboard() {
-  if (DATA.leaderboard.length === 0) {
+  const view = activeView();
+  const note = document.getElementById("leaderboard-note");
+  note.textContent = view.key === "all"
+    ? "latest result per suite · test · model (all commits)"
+    : "latest result per suite · test · model on " + view.label;
+  if (view.leaderboard.length === 0) {
     document.getElementById("leaderboard").innerHTML = '<div class="empty-state">no eval history found</div>';
     return;
   }
-  const rows = DATA.leaderboard.map((row, i) => {
+  const rows = view.leaderboard.map((row, i) => {
     const rate = row.total ? row.passed / row.total : 0;
     const barCls = rate >= 0.99 ? "" : rate >= 0.7 ? "mid" : "low";
     return "<tr>" +
@@ -425,16 +617,30 @@ function cellStyle(passed, total) {
 }
 
 function renderMatrix() {
-  if (DATA.suites.length === 0 || DATA.models.length === 0) {
+  const view = activeView();
+  const baseline = state.baselineModel || defaultBaselineModel(view);
+  document.getElementById("matrix-note").textContent =
+    "click a cell to inspect · ◆ = same pass count as " + baseline + " on that suite";
+  if (view.suites.length === 0 || view.models.length === 0) {
     document.getElementById("matrix").innerHTML = '<div class="empty-state">no eval history found</div>';
     return;
   }
-  const head = '<tr><th class="suite-col">suite</th>' + DATA.models.map((m) => "<th>" + esc(m) + "</th>").join("") + "</tr>";
-  const rows = DATA.suites.map((suite) => {
-    const cells = DATA.models.map((model) => {
+  const head = '<tr><th class="suite-col">suite</th>' + view.models.map((m) => "<th>" + esc(m) + "</th>").join("") + "</tr>";
+  const rows = view.suites.map((suite) => {
+    const baselineStats = latestStats(suite.latestTests, baseline);
+    const cells = view.models.map((model) => {
       const { passed, total } = latestStats(suite.latestTests, model);
       if (total === 0) return '<td class="cell empty">·</td>';
-      return '<td class="cell" style="' + cellStyle(passed, total) + '" data-suite="' + esc(suite.name) + '" data-model="' + esc(model) + '" title="' + esc(suite.name + " · " + model) + '">' + passed + "/" + total + "</td>";
+      const parity = suiteParity(baselineStats, { passed, total });
+      const parityCls =
+        model !== baseline &&
+        isCheaperThan(model, baseline) &&
+        parity === "parity"
+          ? " parity-match"
+          : "";
+      const title = suite.name + " · " + model +
+        (parityCls ? " · matches " + baseline + " (" + passed + "/" + total + ")" : "");
+      return '<td class="cell' + parityCls + '" style="' + cellStyle(passed, total) + '" data-suite="' + esc(suite.name) + '" data-model="' + esc(model) + '" title="' + esc(title) + '">' + passed + "/" + total + "</td>";
     }).join("");
     return '<tr><td class="suite-name" title="' + esc(suite.name) + '">' + esc(suite.name) + "</td>" + cells + "</tr>";
   }).join("");
@@ -451,10 +657,78 @@ function renderMatrix() {
   });
 }
 
+function renderCostRouting() {
+  const view = activeView();
+  const el = document.getElementById("routing");
+  const baseline = state.baselineModel || defaultBaselineModel(view);
+  const note = document.getElementById("routing-note");
+  note.textContent =
+    "cheaper models with the same pass count as " + baseline + " on a suite are safe cost-down candidates";
+
+  const candidates = view.models
+    .filter((model) => model !== baseline && isCheaperThan(model, baseline))
+    .sort((a, b) => modelCostRank(a) - modelCostRank(b));
+
+  if (candidates.length === 0) {
+    el.innerHTML = '<div class="empty-state">no cheaper models in this view to compare</div>';
+    return;
+  }
+
+  const rows = [];
+  let totalParitySuites = 0;
+  for (const candidate of candidates) {
+    const paritySuites = [];
+    const closeSuites = [];
+    let compared = 0;
+    for (const suite of view.suites) {
+      const baselineStats = latestStats(suite.latestTests, baseline);
+      const candidateStats = latestStats(suite.latestTests, candidate);
+      const parity = suiteParity(baselineStats, candidateStats);
+      if (!parity) continue;
+      compared += 1;
+      if (parity === "parity") {
+        paritySuites.push(suite.name);
+      } else if (parity === "close") {
+        closeSuites.push(suite.name);
+      }
+    }
+    totalParitySuites += paritySuites.length;
+    const parityList = paritySuites.length
+      ? paritySuites.map((name) => '<span class="routing-suite">' + esc(name) + "</span>").join(", ")
+      : '<span class="faint">none</span>';
+    const closeList = closeSuites.length
+      ? closeSuites.map((name) => esc(name)).join(", ")
+      : "–";
+    rows.push(
+      "<tr>" +
+        "<td>" + esc(candidate) + "</td>" +
+        '<td class="num">' + compared + "</td>" +
+        '<td class="num">' + paritySuites.length + "</td>" +
+        "<td>" + parityList + "</td>" +
+        '<td class="num">' + closeSuites.length + "</td>" +
+        "<td>" + esc(closeList) + "</td>" +
+      "</tr>",
+    );
+  }
+
+  const summary =
+    totalParitySuites === 0
+      ? "No full parity yet on this commit — expand coverage or use ◆ cells in the matrix to spot near-matches."
+      : totalParitySuites + " suite" + (totalParitySuites === 1 ? "" : "s") +
+        " where a cheaper model already matches " + baseline + " pass-for-pass. Route those first when optimizing cost.";
+
+  el.innerHTML =
+    '<div class="routing-summary">' + esc(summary) + "</div>" +
+    "<table><thead><tr><th>cheaper model</th><th class=\\"num\\">compared</th><th class=\\"num\\">parity</th><th>parity suites</th><th class=\\"num\\">close</th><th>close suites (≤1 miss or ≤5pp)</th></tr></thead><tbody>" +
+    rows.join("") +
+    "</tbody></table>";
+}
+
 function syncControls() {
+  const view = activeView();
   const suiteSelect = document.getElementById("suite-select");
-  suiteSelect.innerHTML = DATA.suites.map((s) => '<option value="' + esc(s.name) + '"' + (s.name === state.suite ? " selected" : "") + ">" + esc(s.name) + "</option>").join("");
-  const suite = DATA.suites.find((s) => s.name === state.suite);
+  suiteSelect.innerHTML = view.suites.map((s) => '<option value="' + esc(s.name) + '"' + (s.name === state.suite ? " selected" : "") + ">" + esc(s.name) + "</option>").join("");
+  const suite = view.suites.find((s) => s.name === state.suite);
   const models = suite ? Array.from(new Set(suite.latestTests.map((t) => t.model))).sort() : [];
   if (state.model && !models.includes(state.model)) state.model = "";
   document.getElementById("model-select").innerHTML =
@@ -558,18 +832,22 @@ function renderTests(suite) {
 }
 
 function renderInspector() {
-  const suite = DATA.suites.find((s) => s.name === state.suite);
+  const view = activeView();
+  const suite = view.suites.find((s) => s.name === state.suite);
   renderTrend(suite);
   renderTests(suite);
 }
 
 function renderCost() {
+  const view = activeView();
   const el = document.getElementById("cost");
-  if (DATA.cost.byModel.length === 0) {
+  const note = document.getElementById("cost-note");
+  note.textContent = view.key === "all" ? "summed across all recorded runs" : "summed for commit " + view.label;
+  if (view.cost.byModel.length === 0) {
     el.innerHTML = '<div class="empty-state">no usage data recorded</div>';
     return;
   }
-  const rows = DATA.cost.byModel.map((m) =>
+  const rows = view.cost.byModel.map((m) =>
     "<tr><td>" + esc(m.key) + "</td>" +
     '<td class="num">' + fmtNum(m.calls) + "</td>" +
     '<td class="num">' + fmtUsd(m.estimatedCost) + "</td>" +
@@ -577,7 +855,7 @@ function renderCost() {
     '<td class="num">' + fmtNum(m.totalTokens) + "</td></tr>"
   ).join("");
   el.innerHTML = "<table><thead><tr><th>provider:model</th><th class=\\"num\\">calls</th><th class=\\"num\\">estimated</th><th class=\\"num\\">reported</th><th class=\\"num\\">tokens</th></tr></thead><tbody>" + rows +
-    '<tr><td><b>total</b></td><td class="num">' + fmtNum(DATA.cost.totalCalls) + '</td><td class="num">' + fmtUsd(DATA.cost.totalEstimatedCost) + '</td><td class="num">' + fmtUsd(DATA.cost.totalReportedCost) + '</td><td class="num">' + fmtNum(DATA.cost.totalTokens) + "</td></tr></tbody></table>";
+    '<tr><td><b>total</b></td><td class="num">' + fmtNum(view.cost.totalCalls) + '</td><td class="num">' + fmtUsd(view.cost.totalEstimatedCost) + '</td><td class="num">' + fmtUsd(view.cost.totalReportedCost) + '</td><td class="num">' + fmtNum(view.cost.totalTokens) + "</td></tr></tbody></table>";
 }
 
 function renderWarnings() {
@@ -587,26 +865,52 @@ function renderWarnings() {
 }
 
 function pickDefaultSuite() {
+  const view = activeView();
   let best = null, bestAt = "";
-  for (const suite of DATA.suites) {
+  for (const suite of view.suites) {
     const last = suite.runs[suite.runs.length - 1];
     if (last && last.createdAt > bestAt) { best = suite.name; bestAt = last.createdAt; }
   }
-  return best || (DATA.suites[0] && DATA.suites[0].name) || null;
+  return best || (view.suites[0] && view.suites[0].name) || null;
 }
+
+function renderAll() {
+  renderMasthead();
+  renderKpis();
+  renderLeaderboard();
+  syncBaselineSelect();
+  renderMatrix();
+  renderCostRouting();
+  if (!activeView().suites.some((suite) => suite.name === state.suite)) {
+    state.suite = pickDefaultSuite();
+    state.model = "";
+  }
+  syncControls();
+  renderInspector();
+  renderCost();
+}
+
+document.getElementById("commit-select").addEventListener("change", (e) => {
+  state.viewKey = e.target.value;
+  state.baselineModel = "";
+  state.suite = pickDefaultSuite();
+  state.model = "";
+  renderAll();
+});
+
+document.getElementById("baseline-select").addEventListener("change", (e) => {
+  state.baselineModel = e.target.value;
+  renderMatrix();
+  renderCostRouting();
+});
 
 document.getElementById("suite-select").addEventListener("change", (e) => { state.suite = e.target.value; syncControls(); renderInspector(); });
 document.getElementById("model-select").addEventListener("change", (e) => { state.model = e.target.value; renderInspector(); });
 document.getElementById("failures-only").addEventListener("change", (e) => { state.failuresOnly = e.target.checked; renderInspector(); });
 document.getElementById("search").addEventListener("input", (e) => { state.search = e.target.value; renderInspector(); });
 
+renderCommitSelect();
 state.suite = pickDefaultSuite();
-renderMasthead();
-renderKpis();
-renderLeaderboard();
-renderMatrix();
-syncControls();
-renderInspector();
-renderCost();
+renderAll();
 renderWarnings();
 `;

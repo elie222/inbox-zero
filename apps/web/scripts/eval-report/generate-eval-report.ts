@@ -50,8 +50,11 @@ async function main() {
   for (const warning of warnings) {
     console.warn(`Warning: ${warning}`);
   }
+  const defaultView =
+    data.views.find((view) => view.key === data.defaultViewKey) ??
+    data.views[0];
   console.log(
-    `Eval dashboard written to ${outPath} (${entries.length} runs, ${data.suites.length} suites, ${data.models.length} models).`,
+    `Eval dashboard written to ${outPath} (${entries.length} runs, ${defaultView?.suites.length ?? 0} suites, ${defaultView?.models.length ?? 0} models on ${defaultView?.label ?? "unknown"}).`,
   );
 
   if (values.open) {
