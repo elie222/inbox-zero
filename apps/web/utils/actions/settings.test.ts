@@ -40,8 +40,10 @@ vi.mock("@/utils/error-messages", async (importActual) => {
 describe("updateAiSettingsAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.member.findFirst.mockResolvedValue(null as never);
     prisma.user.findUnique.mockResolvedValue({
       aiProvider: Provider.OPEN_AI,
+      aiModel: "gpt-5.1",
       aiApiKey: "stored-api-key",
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
     prisma.user.updateMany.mockResolvedValue({ count: 1 } as never);
@@ -78,6 +80,63 @@ describe("updateAiSettingsAction", () => {
       "You must provide an API key for this provider",
     );
     expect(prisma.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("updates AI settings for every user in the organization", async () => {
+    prisma.member.findFirst.mockResolvedValue({ organizationId: "org-1" } as never);
+    prisma.member.findMany.mockResolvedValue([
+      { emailAccount: { userId: "user-1" } },
+      { emailAccount: { userId: "user-2" } },
+    ] as never);
+
+    await updateAiSettingsAction({
+      aiProvider: Provider.OPEN_AI,
+      aiModel: "gpt-5.4-mini",
+      aiApiKey: "team-api-key",
+    });
+
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["user-1", "user-2"] } },
+      data: {
+        aiProvider: Provider.OPEN_AI,
+        aiModel: "gpt-5.4-mini",
+        aiApiKey: "team-api-key",
+      },
+    });
+    expect(clearSpecificErrorMessagesMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("reuses the organization's stored API key when a teammate saves without re-entering it", async () => {
+    prisma.member.findFirst.mockResolvedValue({ organizationId: "org-1" } as never);
+    prisma.user.findUnique.mockResolvedValue({
+      aiProvider: null,
+      aiModel: null,
+      aiApiKey: null,
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    prisma.user.findFirst.mockResolvedValue({
+      aiProvider: Provider.OPEN_AI,
+      aiModel: "gpt-5.1",
+      aiApiKey: "org-api-key",
+    } as never);
+    prisma.member.findMany.mockResolvedValue([
+      { emailAccount: { userId: "user-1" } },
+      { emailAccount: { userId: "user-2" } },
+    ] as never);
+
+    await updateAiSettingsAction({
+      aiProvider: Provider.OPEN_AI,
+      aiModel: "gpt-5.4-mini",
+      aiApiKey: undefined,
+    });
+
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["user-1", "user-2"] } },
+      data: {
+        aiProvider: Provider.OPEN_AI,
+        aiModel: "gpt-5.4-mini",
+        aiApiKey: "org-api-key",
+      },
+    });
   });
 
   it("rejects account-level AI model updates when deployment settings are disabled", async () => {

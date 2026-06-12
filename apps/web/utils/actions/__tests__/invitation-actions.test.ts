@@ -276,6 +276,15 @@ describe("createInvitationAction", () => {
     prisma.emailAccount.findFirst.mockResolvedValue({ id: "ea_user" } as any);
     prisma.member.findFirst.mockResolvedValueOnce(null as any); // no existing membership
     prisma.member.create.mockResolvedValue({ id: "mem_1" } as any);
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "user@test.com",
+      user: { id: "user-2" },
+    } as any);
+    prisma.user.findFirst.mockResolvedValue({
+      aiProvider: "openai",
+      aiModel: "gpt-5.4-mini",
+      aiApiKey: "shared-team-key",
+    } as any);
     prisma.invitation.update.mockResolvedValue({
       id: "inv_1",
       status: "accepted",
@@ -290,6 +299,14 @@ describe("createInvitationAction", () => {
         allowOrgAdminAnalytics: false,
       }),
       select: { id: true },
+    });
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-2" },
+      data: {
+        aiProvider: "openai",
+        aiModel: "gpt-5.4-mini",
+        aiApiKey: "shared-team-key",
+      },
     });
     expect(res?.data).toMatchObject({
       organizationId: "org_1",

@@ -152,4 +152,52 @@ describe("user/me route", () => {
     expect(body.premium.appleProductId).toBeUndefined();
     expect(body.premium.applePurchaseDate).toBeUndefined();
   });
+
+  it("falls back to organization AI settings when the current user has not configured their own key", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      aiProvider: null,
+      aiModel: null,
+      aiApiKey: null,
+      webhookSecret: null,
+      referralCode: null,
+      announcementDismissedAt: null,
+      dismissedHints: [],
+      premium: null,
+      emailAccounts: [
+        {
+          id: "acc-1",
+          email: "user@example.com",
+          name: "Example User",
+          members: [
+            {
+              organizationId: "org-1",
+              role: "admin",
+              organization: {
+                name: "Example Org",
+              },
+            },
+          ],
+        },
+      ],
+    } as unknown as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    prisma.user.findFirst.mockResolvedValue({
+      aiProvider: "openai",
+      aiModel: "gpt-5.4-mini",
+      aiApiKey: "org-secret-key",
+    } as never);
+
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/user/me"),
+      {} as never,
+    );
+
+    const body = await response.json();
+
+    expect(body.aiProvider).toBe("openai");
+    expect(body.aiModel).toBe("gpt-5.4-mini");
+    expect(body.hasAiApiKey).toBe(true);
+    expect(body.aiApiKey).toBeUndefined();
+  });
 });

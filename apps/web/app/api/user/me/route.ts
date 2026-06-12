@@ -4,6 +4,7 @@ import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { auth } from "@/utils/auth";
 import { premiumEntitlementSelect } from "@/utils/premium";
+import { getEffectiveAiSettings } from "@/utils/organizations/ai-settings";
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
 
@@ -71,19 +72,28 @@ async function getUser({
   );
 
   const { aiApiKey, webhookSecret, emailAccounts } = user;
+  const effectiveAiSettings = await getEffectiveAiSettings({
+    userAiSettings: {
+      aiProvider: user.aiProvider,
+      aiModel: user.aiModel,
+      aiApiKey,
+    },
+    organizationId: members[0]?.organizationId,
+    excludeUserId: user.id,
+  });
 
   return {
     id: user.id,
     createdAt: user.createdAt,
-    aiProvider: user.aiProvider,
-    aiModel: user.aiModel,
+    aiProvider: effectiveAiSettings.aiProvider,
+    aiModel: effectiveAiSettings.aiModel,
     announcementDismissedAt: user.announcementDismissedAt,
     dismissedHints: user.dismissedHints,
     premium: user.premium,
     emailAccounts: emailAccounts.map(({ members: _members, ...account }) => ({
       ...account,
     })),
-    hasAiApiKey: !!aiApiKey,
+    hasAiApiKey: !!effectiveAiSettings.aiApiKey,
     hasWebhookSecret: !!webhookSecret,
     members,
   };
