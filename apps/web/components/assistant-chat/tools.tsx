@@ -1453,7 +1453,6 @@ export function PendingDeleteRuleToolCard({
   );
   const ruleId = output.ruleId;
   const ruleName = output.ruleName || args.ruleName;
-  const wasEnabled = output.wasEnabled ?? true;
 
   const handleDelete = async () => {
     if (!ruleId) {
@@ -1492,9 +1491,6 @@ export function PendingDeleteRuleToolCard({
           <Badge color="green" className="shrink-0">
             Deleted
           </Badge>
-        )}
-        {!deleted && ruleId && (
-          <RuleEditToggleActions ruleId={ruleId} initialEnabled={wasEnabled} />
         )}
       </CardHeader>
 
@@ -1544,7 +1540,6 @@ export function PendingDeleteRulePreviewCard({
 }) {
   const deleted = output.confirmationState === "confirmed";
   const ruleName = output.ruleName || args.ruleName;
-  const wasEnabled = output.wasEnabled ?? true;
 
   return (
     <Card>
@@ -1561,7 +1556,6 @@ export function PendingDeleteRulePreviewCard({
             Deleted
           </Badge>
         )}
-        {!deleted && <RuleEditToggleActionsPreview enabled={wasEnabled} />}
       </CardHeader>
 
       {!deleted && (

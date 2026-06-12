@@ -536,6 +536,14 @@ export function MessagePart({
           />
         );
       }
+
+      const ruleName = getOutputField<string>(output, "ruleName");
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={`Deleted rule "${ruleName || part.input.ruleName}"`}
+        />
+      );
     }
   }
 
