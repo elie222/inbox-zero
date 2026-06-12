@@ -86,6 +86,27 @@ describe("trackServerConversionEvent", () => {
     });
   });
 
+  it.each([
+    "https://example.net/rill",
+    "//example.net/rill",
+    "rill",
+  ])("does not post to non-relative server conversion endpoint %s", async (endpoint) => {
+    envMock.CONVERSION_ANALYTICS_SERVER_URL = endpoint;
+
+    await trackServerConversionEvent({
+      name: "subscription_created",
+      id: "evt_paid",
+      timestamp: new Date("2026-06-08T00:00:00.000Z"),
+      logger,
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      "Server conversion tracking failed",
+      expect.objectContaining({ eventId: "evt_paid" }),
+    );
+  });
+
   it("logs and swallows private endpoint failures", async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 400 });
 

@@ -29,10 +29,7 @@ export async function trackServerConversionEvent({
   if (!env.CONVERSION_ANALYTICS_SERVER_URL) return;
 
   try {
-    const url = new URL(
-      env.CONVERSION_ANALYTICS_SERVER_URL,
-      env.NEXT_PUBLIC_BASE_URL,
-    );
+    const url = getServerConversionUrl(env.CONVERSION_ANALYTICS_SERVER_URL);
 
     const response = await fetch(url, {
       method: "POST",
@@ -77,4 +74,19 @@ export function getStripeSubscriptionConversionProperties(
       currency: price?.currency?.toUpperCase(),
     },
   };
+}
+
+function getServerConversionUrl(endpoint: string) {
+  const normalizedEndpoint = endpoint.trim();
+
+  if (
+    !normalizedEndpoint.startsWith("/") ||
+    normalizedEndpoint.startsWith("//")
+  ) {
+    throw new Error(
+      "CONVERSION_ANALYTICS_SERVER_URL must be a same-origin relative path",
+    );
+  }
+
+  return new URL(normalizedEndpoint, env.NEXT_PUBLIC_BASE_URL);
 }
