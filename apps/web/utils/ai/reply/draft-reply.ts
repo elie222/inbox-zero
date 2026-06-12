@@ -543,7 +543,7 @@ Do not suggest specific times. Acknowledge the request and suggest alternatives 
 
     parts.push(`Available time slots are in ${timezoneLabels}.
 If the sender requested or uses another timezone, express proposed times in that timezone after converting from the user's available slots.
-If you list specific times, include the user-facing timezone label shown for each slot and do not write raw timezone identifiers such as ${timezone}.
+If you list specific times, include the user-facing timezone label shown for each slot. Never write raw IANA timezone identifiers (the Region/City form); always use a human-friendly label like the abbreviated zone name or city.
 
 Available time slots:
 ${times}
@@ -621,8 +621,12 @@ function getTimezoneLabel(timezone: string, localTime?: string): string {
   const label =
     getIntlTimezoneName(timezone, date, "short") ||
     getIntlTimezoneName(timezone, date, "shortOffset");
+  if (label && label !== timezone) return label;
 
-  return label && label !== timezone ? label : timezone;
+  // Never fall back to the raw IANA identifier; drafts would leak it to
+  // recipients. Use the city part as a readable label instead.
+  const city = timezone.split("/").pop()?.replace(/_/g, " ");
+  return city ? `${city} time` : timezone;
 }
 
 function getTimezoneLabelsForSlots(

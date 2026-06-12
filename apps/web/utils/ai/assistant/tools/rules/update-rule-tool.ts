@@ -44,7 +44,7 @@ export const updateRuleTool = ({
 }) =>
   tool({
     description:
-      "Update an existing rule after reading the user's current rules. Use this for direct requests to change rule name, enabled state, conditions, or actions; no capabilities lookup is needed before editing an existing rule. This is a patch: only fields included in updates are changed, and omitted fields are preserved. Use updates.name to rename a rule. Use updates.enabled to enable, disable, pause, or resume a rule. Use updates.condition to change conditions; omit condition fields that should stay unchanged, and set a static field to null only when the user explicitly asks to clear it. Do not set aiInstructions to null to preserve instructions; omit it instead. Use clearAiInstructions only when the user explicitly asks to remove semantic instructions. Use updates.actions to replace the full action list; when changing actions, include every action that should remain. Use DRAFT_EMAIL for draft reply actions; do not use SEND_EMAIL or REPLY when the user asks to draft. Never use this tool to add/remove a sender or domain from an existing category rule; use updateLearnedPatterns for recurring sender/domain includes and excludes instead. Direct requests to change existing rule behavior are already confirmed; do not create a replacement rule for edits.",
+      "Update an existing rule after reading the user's current rules. Use this for direct requests to change rule name, enabled state, conditions, or actions; no capabilities lookup is needed before editing an existing rule. This is a patch: only fields included in updates are changed, and omitted fields are preserved. Include only the fields being changed; do not copy unchanged fields from the current rule into updates, even if you just read them. Use updates.name to rename a rule. Use updates.enabled to enable, disable, pause, or resume a rule. Use updates.condition to change conditions; omit condition fields that should stay unchanged, and set a static field to null only when the user explicitly asks to clear it. Do not set aiInstructions to null to preserve instructions; omit it instead. Use clearAiInstructions only when the user explicitly asks to remove semantic instructions. Use updates.actions to replace the full action list; when changing actions, include every action that should remain. Use DRAFT_EMAIL for draft reply actions; do not use SEND_EMAIL or REPLY when the user asks to draft. Never use this tool to add/remove a sender or domain from an existing category rule; use updateLearnedPatterns for recurring sender/domain includes and excludes instead. Direct requests to change existing rule behavior are already confirmed; do not create a replacement rule for edits.",
     inputSchema: z
       .object({
         ruleName: z.string().describe("The exact current name of the rule."),
@@ -307,7 +307,7 @@ function createPatchConditionSchema() {
         })
         .nullish()
         .describe(
-          "Static condition fields to patch. Omit fields to preserve them. Set a field to null only when the user explicitly asks to clear it.",
+          "Static condition fields to patch. Omit fields to preserve them. To clear one field, pass an object with only that field set to null (e.g. { from: null } to remove just the sender restriction). Setting the whole static object to null clears every static condition; do that only when the user asks to remove them all.",
         ),
       conditionalOperator: z
         .enum([LogicalOperator.AND, LogicalOperator.OR])

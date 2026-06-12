@@ -3,7 +3,6 @@ import { z } from "zod";
 import type { SystemType } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { setRuleEnabled } from "@/utils/rule/rule";
 import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
 import {
@@ -12,7 +11,7 @@ import {
   validateRuleWasReadRecently,
 } from "./shared";
 
-export const ruleStateOperationSchema = z.enum(["enable", "disable", "delete"]);
+export const ruleStateOperationSchema = z.enum(["delete"]);
 
 export const updateRuleStateTool = ({
   email,
@@ -31,7 +30,7 @@ export const updateRuleStateTool = ({
     inputSchema: z.object({
       ruleName: z.string().describe("The exact name of the rule to update"),
       operation: ruleStateOperationSchema.describe(
-        "delete asks the user to confirm deleting the rule. Use updateRule for enable or disable.",
+        "delete asks the user to confirm deleting the rule.",
       ),
     }),
     execute: async ({ ruleName, operation }) => {
@@ -82,45 +81,24 @@ export const updateRuleStateTool = ({
           });
         }
 
-        if (operation === "delete") {
-          if (rule.systemType) {
-            return {
-              success: false,
-              error:
-                "Default rules cannot be deleted. Disable the rule instead.",
-              ruleId: rule.id,
-              ruleName: rule.name,
-              systemType: rule.systemType,
-            };
-          }
-
+        if (rule.systemType) {
           return {
-            success: true,
-            actionType: "delete_rule" as const,
-            requiresConfirmation: true as const,
-            confirmationState: "pending" as const,
+            success: false,
+            error: "Default rules cannot be deleted. Disable the rule instead.",
             ruleId: rule.id,
             ruleName: rule.name,
-            wasEnabled: rule.enabled,
+            systemType: rule.systemType,
           };
-        }
-
-        const enabled = operation === "enable";
-        if (rule.enabled !== enabled) {
-          await setRuleEnabled({
-            ruleId: rule.id,
-            emailAccountId,
-            enabled,
-          });
         }
 
         return {
           success: true,
+          actionType: "delete_rule" as const,
+          requiresConfirmation: true as const,
+          confirmationState: "pending" as const,
           ruleId: rule.id,
           ruleName: rule.name,
-          operation,
-          enabled,
-          previousEnabled: rule.enabled,
+          wasEnabled: rule.enabled,
         };
       } catch (error) {
         logger.error("Failed to update rule state", { error, ruleName });
@@ -143,7 +121,9 @@ export type UpdateRuleStateOutput = {
   confirmationState?: "pending" | "processing" | "confirmed";
   ruleId?: string;
   ruleName?: string;
-  operation?: z.infer<typeof ruleStateOperationSchema>;
+  // Includes legacy values still present in persisted chat messages from when
+  // this tool also handled enable/disable.
+  operation?: "enable" | "disable" | "delete";
   enabled?: boolean;
   previousEnabled?: boolean;
   wasEnabled?: boolean;

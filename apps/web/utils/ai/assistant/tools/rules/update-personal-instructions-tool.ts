@@ -17,7 +17,7 @@ export const updatePersonalInstructionsTool = ({
   tool({
     description: `Update the user's personal instructions with durable preferences for how the assistant should behave in future chat responses and email handling.
 
-Use this for stable user preferences, background, tone, and future assistant behavior across workflows. Use saveMemory instead for facts or preferences that are only needed for future chat recall.
+Use this for stable user preferences, background, tone, and future assistant behavior across workflows. Use saveMemory instead for facts or preferences that are only needed for future chat recall. Do not use this when the preference describes which emails an existing automation rule should or should not match; that is a rule condition change, so read the rules and use updateRule instead.
 
 Write the instruction itself, not a wrapper like "add this to my instructions". Store only the new instruction text, not the existing instructions plus the new text. Prefer first-person or imperative wording such as "I prefer concise replies" instead of third-person like "the user prefers concise replies".
 

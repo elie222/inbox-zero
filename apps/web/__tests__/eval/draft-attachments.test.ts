@@ -15,12 +15,8 @@ import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachm
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/utils/user/get", () => ({
-  getUserPremium: vi.fn().mockResolvedValue({
-    tier: "PLUS_MONTHLY",
-    lemonSqueezyRenewsAt: null,
-    stripeSubscriptionStatus: "active",
-  }),
+vi.mock("@/utils/premium/server", () => ({
+  checkHasAccess: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@/utils/drive/provider", () => ({

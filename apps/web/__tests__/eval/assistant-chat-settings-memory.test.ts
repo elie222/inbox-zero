@@ -79,6 +79,8 @@ vi.mock("@/utils/email/provider", () => ({
 
 vi.mock("@/env", () => ({
   env: {
+    AZURE_FOUNDRY_API_KEY: process.env.AZURE_FOUNDRY_API_KEY,
+    AZURE_FOUNDRY_BASE_URL: process.env.AZURE_FOUNDRY_BASE_URL,
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
     NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
@@ -523,7 +525,11 @@ async function evaluateScenario(
   }
 }
 
-function hasNoToolCalls(toolCalls: RecordedToolCall[], toolNames: string[]) {
+function hasNoToolCalls(
+  toolCalls: RecordedToolCall[],
+  toolNames: string[] | undefined,
+) {
+  if (!toolNames?.length) return true;
   return !toolCalls.some((toolCall) => toolNames.includes(toolCall.toolName));
 }
 

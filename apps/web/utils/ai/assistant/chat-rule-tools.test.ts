@@ -194,38 +194,6 @@ describe("updateRuleStateTool", () => {
     });
   });
 
-  it("disables a rule without clearing its actions", async () => {
-    const result = await updateRuleStateTool({
-      email: "user@example.com",
-      emailAccountId: "email-account-id",
-      logger,
-      getRuleReadState: () => ({
-        readAt: Date.now(),
-        rulesRevision: 3,
-        ruleUpdatedAtByName: new Map([
-          ["Team Mail", "2026-04-27T00:00:00.000Z"],
-        ]),
-      }),
-    }).execute({
-      ruleName: "Team Mail",
-      operation: "disable",
-    });
-
-    expect(result).toEqual({
-      success: true,
-      ruleId: "rule-id",
-      ruleName: "Team Mail",
-      operation: "disable",
-      enabled: false,
-      previousEnabled: true,
-    });
-    expect(mockSetRuleEnabled).toHaveBeenCalledWith({
-      ruleId: "rule-id",
-      emailAccountId: "email-account-id",
-      enabled: false,
-    });
-  });
-
   it("returns a pending confirmation for deleting a custom rule", async () => {
     const result = await updateRuleStateTool({
       email: "user@example.com",
