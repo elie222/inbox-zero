@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { subDays } from "date-fns/subDays";
 import { ChevronDown } from "lucide-react";
@@ -270,23 +270,35 @@ export function BulkUnsubscribe() {
     });
   }, [selectItems, suggestedRows, posthog]);
 
-  // Pre-select suggestions when arriving via ?select=suggested (e.g. from onboarding)
-  const searchParams = useSearchParams();
-  const shouldAutoSelectSuggested = searchParams.get("select") === "suggested";
-  const hasAutoSelectedSuggested = useRef(false);
-  useEffect(() => {
-    if (!shouldAutoSelectSuggested || hasAutoSelectedSuggested.current) return;
-    if (!suggestedRows.length) return;
-
-    hasAutoSelectedSuggested.current = true;
-    selectItems(suggestedRows.map((row) => row.name));
-  }, [shouldAutoSelectSuggested, suggestedRows, selectItems]);
-
   // Clear selection when filter changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally clearing selection when filter changes
   useEffect(() => {
     clearSelection();
   }, [filter]);
+
+  // Deep link (e.g. from the inbox health email or onboarding):
+  // ?select=suggested auto-selects the suggested rows once after the first
+  // rows load, then strips the param so re-renders and filter changes don't
+  // reselect.
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const hasAppliedSelectParamRef = useRef(false);
+
+  useEffect(() => {
+    if (hasAppliedSelectParamRef.current) return;
+    if (searchParams.get("select") !== "suggested") return;
+    if (!rows) return;
+
+    hasAppliedSelectParamRef.current = true;
+    selectItems(rows.filter(isUnsubscribeSuggestion).map((row) => row.name));
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("select");
+    router.replace(nextParams.size ? `${pathname}?${nextParams}` : pathname, {
+      scroll: false,
+    });
+  }, [searchParams, rows, selectItems, router, pathname]);
 
   const isSomeSelected =
     Array.from(selected.values()).filter(Boolean).length > 0;
