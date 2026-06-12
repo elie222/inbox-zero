@@ -67,7 +67,7 @@ vi.mock("@/utils/email", () => ({
   extractEmailAddress: vi.fn().mockReturnValue("sender@example.com"),
 }));
 
-vi.mock("@/app/api/google/webhook/fetch-sender-from-message", () => ({
+vi.mock("@/utils/webhook/google/fetch-sender-from-message", () => ({
   fetchSenderFromMessage: vi.fn().mockResolvedValue("sender@example.com"),
 }));
 

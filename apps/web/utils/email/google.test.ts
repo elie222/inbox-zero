@@ -5,25 +5,29 @@ import { GmailLabel } from "@/utils/gmail/label";
 import * as gmailLabelModule from "@/utils/gmail/label";
 import { GmailProvider } from "./google";
 
-const { envMock, gmailMailMock, gmailDraftMock } = vi.hoisted(() => ({
-  envMock: {
-    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
-    EMAIL_ENCRYPT_SECRET: "test-encrypt-secret",
-    EMAIL_ENCRYPT_SALT: "test-encrypt-salt",
-  },
-  gmailMailMock: {
-    draftEmail: vi.fn().mockResolvedValue({ data: { id: "draft-1" } }),
-    forwardEmail: vi.fn(),
-    replyToEmail: vi.fn(),
-    sendEmailWithPlainText: vi.fn(),
-    sendEmailWithHtml: vi.fn(),
-  },
-  gmailDraftMock: {
-    getDraft: vi.fn(),
-    deleteDraft: vi.fn(),
-    sendDraft: vi.fn(),
-  },
-}));
+const { envMock, gmailMailMock, gmailDraftMock, gmailSignatureMock } =
+  vi.hoisted(() => ({
+    envMock: {
+      NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
+      EMAIL_ENCRYPT_SECRET: "test-encrypt-secret",
+      EMAIL_ENCRYPT_SALT: "test-encrypt-salt",
+    },
+    gmailMailMock: {
+      draftEmail: vi.fn().mockResolvedValue({ data: { id: "draft-1" } }),
+      forwardEmail: vi.fn(),
+      replyToEmail: vi.fn(),
+      sendEmailWithPlainText: vi.fn(),
+      sendEmailWithHtml: vi.fn(),
+    },
+    gmailDraftMock: {
+      getDraft: vi.fn(),
+      deleteDraft: vi.fn(),
+      sendDraft: vi.fn(),
+    },
+    gmailSignatureMock: {
+      getGmailSignatures: vi.fn().mockResolvedValue([]),
+    },
+  }));
 
 vi.mock("@/env", () => ({
   env: envMock,
@@ -36,9 +40,14 @@ vi.mock("@/utils/gmail/mail", async (importOriginal) => {
 
 vi.mock("@/utils/gmail/draft", () => gmailDraftMock);
 
+vi.mock("@/utils/gmail/signature-settings", () => gmailSignatureMock);
+
 describe("GmailProvider.getLatestMessageInThread", () => {
   afterEach(() => {
     envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = false;
+    vi.clearAllMocks();
+    gmailMailMock.draftEmail.mockResolvedValue({ data: { id: "draft-1" } });
+    gmailSignatureMock.getGmailSignatures.mockResolvedValue([]);
   });
 
   it("returns latest non-draft message when newest message is a draft", async () => {
@@ -105,6 +114,37 @@ describe("GmailProvider.getLatestMessageInThread", () => {
 
     expect(result).toEqual({ draftId: "" });
     expect(gmailMailMock.draftEmail).not.toHaveBeenCalled();
+  });
+
+  it("passes Gmail send-as aliases when creating drafts", async () => {
+    gmailSignatureMock.getGmailSignatures.mockResolvedValue([
+      {
+        email: "user@example.com",
+        signature: "",
+        isDefault: true,
+      },
+      {
+        email: "alias@example.com",
+        signature: "",
+        isDefault: false,
+      },
+    ]);
+    const provider = new GmailProvider({} as any);
+    const message = createParsedMessage({
+      id: "message-1",
+      internalDate: "1000",
+    });
+    const args = { content: "Follow up" };
+
+    const result = await provider.draftEmail(message, args, "user@example.com");
+
+    expect(result).toEqual({ draftId: "draft-1" });
+    expect(gmailMailMock.draftEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      message,
+      args,
+      ["user@example.com", "alias@example.com"],
+    );
   });
 });
 

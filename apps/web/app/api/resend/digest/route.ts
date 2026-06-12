@@ -18,7 +18,7 @@ import {
 import { DigestStatus, SystemType } from "@/generated/prisma/enums";
 import { extractNameFromEmail } from "../../../../utils/email";
 import { getRuleName } from "@/utils/rule/consts";
-import { camelCase } from "lodash";
+import camelCase from "lodash/camelCase";
 import { createEmailProvider } from "@/utils/email/provider";
 import { sleep } from "@/utils/sleep";
 import { withQstashOrInternal } from "@/utils/qstash";

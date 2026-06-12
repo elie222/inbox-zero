@@ -6,7 +6,7 @@ import { GroupItemSource } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import { saveClassificationFeedback } from "@/utils/rule/classification-feedback";
-import { fetchSenderFromMessage } from "@/app/api/google/webhook/fetch-sender-from-message";
+import { fetchSenderFromMessage } from "@/utils/webhook/google/fetch-sender-from-message";
 
 const logger = createTestLogger();
 
@@ -70,7 +70,7 @@ vi.mock("@/utils/email", () => ({
   extractEmailAddress: vi.fn().mockReturnValue("sender@example.com"),
 }));
 
-vi.mock("@/app/api/google/webhook/fetch-sender-from-message", () => ({
+vi.mock("@/utils/webhook/google/fetch-sender-from-message", () => ({
   fetchSenderFromMessage: vi.fn().mockResolvedValue("sender@example.com"),
 }));
 

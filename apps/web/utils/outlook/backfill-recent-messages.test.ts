@@ -3,7 +3,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 import { backfillRecentOutlookMessages } from "@/utils/outlook/backfill-recent-messages";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
-import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
+import { processHistoryForUser } from "@/utils/webhook/outlook/process-history";
 
 vi.mock("@/utils/prisma", () => ({
   default: {
@@ -15,7 +15,7 @@ vi.mock("@/utils/prisma", () => ({
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: vi.fn(),
 }));
-vi.mock("@/app/api/outlook/webhook/process-history", () => ({
+vi.mock("@/utils/webhook/outlook/process-history", () => ({
   processHistoryForUser: vi.fn(),
 }));
 

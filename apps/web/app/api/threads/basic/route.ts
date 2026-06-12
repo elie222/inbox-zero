@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import type { ThreadsResponse } from "@/app/api/threads/route";
+import { threadsQuery } from "@/utils/threads/validation";
 
 export type GetThreadsResponse = {
   threads: ThreadsResponse["threads"];
+  nextPageToken?: string;
 };
 
 export const maxDuration = 30;
@@ -13,19 +15,30 @@ export const GET = withEmailProvider("threads/basic", async (request) => {
   const { emailAccountId } = request.auth;
 
   const { searchParams } = new URL(request.url);
-  const fromEmail = searchParams.get("fromEmail");
-  const labelId = searchParams.get("labelId");
+  const query = threadsQuery
+    .pick({
+      fromEmail: true,
+      labelId: true,
+      limit: true,
+      nextPageToken: true,
+    })
+    .parse({
+      fromEmail: searchParams.get("fromEmail"),
+      labelId: searchParams.get("labelId"),
+      limit: searchParams.get("limit"),
+      nextPageToken: searchParams.get("nextPageToken"),
+    });
 
   try {
-    const { threads } = await emailProvider.getThreadsWithQuery({
-      query: {
-        fromEmail,
-        labelId,
-      },
+    const { threads, nextPageToken } = await emailProvider.getThreadsWithQuery({
+      query,
+      maxResults: query.limit || 100,
+      pageToken: query.nextPageToken || undefined,
     });
 
     return NextResponse.json({
       threads,
+      nextPageToken,
     });
   } catch (error) {
     request.logger.error("Error fetching basic threads", {

@@ -1,9 +1,8 @@
 import { atom, useAtomValue } from "jotai";
 import { jotaiStore } from "@/store";
-import type { GetThreadsResponse } from "@/app/api/threads/basic/route";
 import { isDefined } from "@/utils/types";
 import { useMemo } from "react";
-import { fetchWithAccount } from "@/utils/fetch";
+import { fetchAllSenderThreads } from "./fetch-sender-threads";
 
 type QueueStatus = "pending" | "processing" | "completed";
 
@@ -37,13 +36,19 @@ export function createSenderQueue(processThreads: ProcessThreadsFn) {
     onError?: (sender: string) => void;
     emailAccountId: string;
   }) {
+    const queueKey = getQueueKey(emailAccountId, sender);
+    let isAlreadyQueued = false;
+
     // Add sender with pending status
     jotaiStore.set(queueAtom, (prev) => {
       // Skip if sender is already in queue
-      if (prev.has(sender)) return prev;
+      if (prev.has(queueKey)) {
+        isAlreadyQueued = true;
+        return prev;
+      }
 
       const newQueue = new Map(prev);
-      newQueue.set(sender, {
+      newQueue.set(queueKey, {
         status: "pending",
         threadIds: [],
         threadsTotal: 0,
@@ -51,9 +56,12 @@ export function createSenderQueue(processThreads: ProcessThreadsFn) {
       return newQueue;
     });
 
+    if (isAlreadyQueued) return;
+
     try {
-      const data = await fetchSenderThreads({
+      const data = await fetchAllSenderThreads({
         sender,
+        labelId: "INBOX",
         emailAccountId,
       });
       const threads = data.threads;
@@ -64,7 +72,7 @@ export function createSenderQueue(processThreads: ProcessThreadsFn) {
       // Update with thread IDs
       jotaiStore.set(queueAtom, (prev) => {
         const newQueue = new Map(prev);
-        newQueue.set(sender, {
+        newQueue.set(queueKey, {
           status: threadIds.length > 0 ? "processing" : "completed",
           threadIds,
           threadsTotal: threads.length,
@@ -77,46 +85,51 @@ export function createSenderQueue(processThreads: ProcessThreadsFn) {
         return;
       }
 
-      // Process threads
+      const markThreadProcessed = (threadId: string) => {
+        const senderItem = jotaiStore.get(queueAtom).get(queueKey);
+        if (!senderItem) return;
+
+        // Remove processed thread from the list
+        const newThreadIds = senderItem.threadIds.filter(
+          (id) => id !== threadId,
+        );
+        // If all threads are processed, mark as completed
+        const newStatus = newThreadIds.length > 0 ? "processing" : "completed";
+
+        const updatedSender: QueueItem = {
+          threadIds: newThreadIds,
+          status: newStatus,
+          threadsTotal: senderItem.threadsTotal,
+        };
+
+        jotaiStore.set(queueAtom, (prev) => {
+          const newQueue = new Map(prev);
+          newQueue.set(queueKey, updatedSender);
+          return newQueue;
+        });
+
+        if (newStatus === "completed") {
+          onSuccess?.(senderItem.threadsTotal);
+        }
+      };
+
       await processThreads({
         threadIds,
         labelId,
         onSuccess: (threadId) => {
-          const senderItem = jotaiStore.get(queueAtom).get(sender);
-          if (!senderItem) return;
-
-          // Remove processed thread from the list
-          const newThreadIds = senderItem.threadIds.filter(
-            (id) => id !== threadId,
-          );
-          // If all threads are processed, mark as completed
-          const newStatus =
-            newThreadIds.length > 0 ? "processing" : "completed";
-
-          const updatedSender: QueueItem = {
-            threadIds: newThreadIds,
-            status: newStatus,
-            threadsTotal: senderItem.threadsTotal,
-          };
-
-          jotaiStore.set(queueAtom, (prev) => {
-            const newQueue = new Map(prev);
-            newQueue.set(sender, updatedSender);
-            return newQueue;
-          });
-
-          if (newStatus === "completed") {
-            onSuccess?.(senderItem.threadsTotal);
-          }
+          markThreadProcessed(threadId);
         },
-        onError,
+        onError: (threadId) => {
+          markThreadProcessed(threadId);
+          onError?.(sender);
+        },
         emailAccountId,
       });
     } catch (error) {
       // Remove sender from queue on error
       jotaiStore.set(queueAtom, (prev) => {
         const newQueue = new Map(prev);
-        newQueue.delete(sender);
+        newQueue.delete(queueKey);
         return newQueue;
       });
       throw error;
@@ -125,30 +138,21 @@ export function createSenderQueue(processThreads: ProcessThreadsFn) {
 
   const statusAtom = atom((get) => {
     const queue = get(queueAtom);
-    return (sender: string) => queue.get(sender);
+    return (emailAccountId: string, sender: string) =>
+      queue.get(getQueueKey(emailAccountId, sender));
   });
 
-  function useSenderStatus(sender: string) {
+  function useSenderStatus(emailAccountId: string, sender: string) {
     const getStatus = useAtomValue(statusAtom);
-    return useMemo(() => getStatus(sender), [getStatus, sender]);
+    return useMemo(
+      () => getStatus(emailAccountId, sender),
+      [emailAccountId, getStatus, sender],
+    );
   }
 
   return { addToQueue, useSenderStatus };
 }
 
-async function fetchSenderThreads({
-  sender,
-  emailAccountId,
-}: {
-  sender: string;
-  emailAccountId: string;
-}) {
-  const url = `/api/threads/basic?fromEmail=${encodeURIComponent(sender)}&labelId=INBOX`;
-  const res = await fetchWithAccount({ url, emailAccountId });
-
-  if (!res.ok) throw new Error("Failed to fetch threads");
-
-  const data: GetThreadsResponse = await res.json();
-
-  return data;
+function getQueueKey(emailAccountId: string, sender: string) {
+  return `${emailAccountId}:${sender.trim().toLowerCase()}`;
 }

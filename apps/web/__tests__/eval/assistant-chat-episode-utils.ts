@@ -4,7 +4,7 @@ import {
   captureAssistantChatTrace,
   type AssistantChatTrace,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
-import type { MessageContext } from "@/app/api/chat/validation";
+import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import type { Logger } from "@/utils/logger";
 
 export type AssistantChatEpisodeTurn = {

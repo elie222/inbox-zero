@@ -16,7 +16,7 @@ import { describe, test, expect, beforeAll, vi } from "vitest";
 import { NextRequest } from "next/server";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
-import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
+import { webhookBodySchema } from "@/utils/webhook/outlook/types";
 import {
   ensureCatchAllTestRule,
   ensureTestPremiumAccount,
