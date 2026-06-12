@@ -171,15 +171,10 @@ export async function aiProcessAssistantChat({
 
   const isFirstMessage = messages.filter((m) => m.role === "user").length <= 1;
 
-  const inboxContextMessage =
-    inboxStats && isFirstMessage
-      ? [
-          {
-            role: "user" as const,
-            content: `[Automated inbox snapshot — not a message from the user] Current inbox: ${inboxStats.total} emails total, ${inboxStats.unread} unread.`,
-          },
-        ]
-      : [];
+  const snapshotMessage = isFirstMessage
+    ? buildInboxSnapshotMessage(inboxStats)
+    : null;
+  const inboxContextMessage = snapshotMessage ? [snapshotMessage] : [];
 
   const hiddenContextMessage =
     context && context.type === "fix-rule"
@@ -629,6 +624,20 @@ function getEmailCapabilitiesPolicy({
   );
 }
 
+export function buildInboxSnapshotMessage(
+  inboxStats?: { total: number; unread: number } | null,
+): { role: "user"; content: string } | null {
+  if (!inboxStats) return null;
+
+  return {
+    role: "user",
+    content:
+      `[Automated inbox snapshot — not a message from the user] At conversation start: ${inboxStats.total} emails total, ${inboxStats.unread} unread. ` +
+      "This snapshot is a starting point only — counts may have changed since then as new mail arrives or actions are taken. " +
+      "Always call searchInbox to confirm the current state before answering questions about unread, new, or recent emails; do not rely on this number alone.",
+  };
+}
+
 export function buildResolvedSystemPrompt({
   emailSendToolsEnabled,
   draftReplyActionsEnabled,
@@ -718,7 +727,8 @@ export function buildResolvedSystemPrompt({
 - For low-priority repeated senders, you may suggest bulk archive by sender as an option, but default to archiving the specific threads shown.
 - For all-matching cleanup, paginate searchInbox until hasMore=false, collect matching threadIds across pages, then write in batches.
 - Do not turn one-time cleanup into a recurring rule unless the user asks for automation.
-- For ongoing sender-level batch cleanup, once the user confirms the category, continue subsequent batches without re-asking.`,
+- For ongoing sender-level batch cleanup, once the user confirms the category, continue subsequent batches without re-asking.
+- Never claim or report that the inbox is empty, fully caught up, or has no unread emails without first running searchInbox in this turn to confirm — the initial inbox snapshot and prior-turn results can be stale, and earlier search pages or filters may not cover the whole mailbox. Treat zero results from a single narrow query as inconclusive: broaden or re-run searchInbox before asserting absence. If the user signals doubt about a prior conclusion or asks you to re-check, re-run searchInbox with fresh (and broader, if the prior call was narrow) parameters and report the new results rather than rephrasing the prior conclusion.`,
     providerPolicy.ruleSuggestionPolicy,
     `Rules and automation:
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
