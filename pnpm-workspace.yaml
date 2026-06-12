@@ -2,6 +2,8 @@ packages:
   - packages/*
   - apps/*
 
+enableGlobalVirtualStore: true
+
 # Supply-chain hardening: block versions published <24h ago. Malicious npm releases
 # are typically yanked within hours, so the cooldown blocks the attack window.
 minimumReleaseAge: 1440
