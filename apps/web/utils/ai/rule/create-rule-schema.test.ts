@@ -190,6 +190,23 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("rejects rules without any semantic or static condition", () => {
+    const result = createRuleSchema(provider).safeParse({
+      ...buildRule({
+        type: ActionType.ARCHIVE,
+        fields: {},
+        delayInMinutes: null,
+      }),
+      condition: {
+        conditionalOperator: null,
+        aiInstructions: null,
+        static: null,
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it("accepts LABEL actions when only the label field is provided", () => {
     const result = createRuleSchema(provider).safeParse({
       ...buildRule({
@@ -252,6 +269,20 @@ describe("createRuleSchema", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("accepts CALL_WEBHOOK when fields.webhookUrl is present", () => {
+    const result = createRuleSchema(provider).safeParse({
+      ...buildRule({
+        type: ActionType.CALL_WEBHOOK,
+        fields: {
+          webhookUrl: "https://example.com/hooks/inbox",
+        },
+        delayInMinutes: null,
+      }),
+    });
+
+    expect(result.success).toBe(true);
   });
 
   it("rejects MOVE_FOLDER actions for non-Microsoft providers", () => {
