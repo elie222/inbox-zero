@@ -11,30 +11,32 @@ import {
   validateRuleWasReadRecently,
 } from "./shared";
 
-export const ruleStateOperationSchema = z.enum(["delete"]);
-
-export const updateRuleStateTool = ({
+export const deleteRuleTool = ({
   email,
   emailAccountId,
   logger,
   getRuleReadState,
+  markRuleDeletionPending,
 }: {
   email: string;
   emailAccountId: string;
   logger: Logger;
   getRuleReadState?: () => RuleReadState | null;
+  markRuleDeletionPending?: (ruleName: string) => void;
 }) =>
   tool({
     description:
-      "Request deletion of an existing rule. Use updateRule with updates.enabled for enable, disable, pause, or resume. Delete requests return requiresConfirmation; explain that deletion is pending and no rule has been deleted until the user confirms in the UI. Default/system rules cannot be deleted; disable them instead.",
+      "Request deletion of an existing custom rule after reading the user's current rules. First call getUserRulesAndSettings, then call this tool with the exact rule name from that result. Use updateRule with updates.enabled for enable, disable, pause, or resume. Delete requests return requiresConfirmation; explain that deletion is pending and no rule has been deleted until the user confirms in the UI. Default/system rules cannot be deleted; disable them instead.",
     inputSchema: z.object({
-      ruleName: z.string().describe("The exact name of the rule to update"),
-      operation: ruleStateOperationSchema.describe(
-        "delete asks the user to confirm deleting the rule.",
-      ),
+      ruleName: z
+        .string()
+        .describe(
+          "The exact name of the custom rule to delete, copied from getUserRulesAndSettings.",
+        ),
     }),
-    execute: async ({ ruleName, operation }) => {
-      trackRuleToolCall({ tool: "update_rule_state", email, logger });
+    execute: async ({ ruleName }) => {
+      trackRuleToolCall({ tool: "delete_rule", email, logger });
+      markRuleDeletionPending?.(ruleName);
       try {
         const readValidationError = validateRuleWasReadRecently({
           ruleName,
@@ -101,31 +103,24 @@ export const updateRuleStateTool = ({
           wasEnabled: rule.enabled,
         };
       } catch (error) {
-        logger.error("Failed to update rule state", { error, ruleName });
+        logger.error("Failed to prepare rule deletion", { error, ruleName });
         return {
           success: false,
-          error: "Failed to update rule state",
+          error: "Failed to prepare rule deletion",
         };
       }
     },
   });
 
-export type UpdateRuleStateTool = InferUITool<
-  ReturnType<typeof updateRuleStateTool>
->;
+export type DeleteRuleTool = InferUITool<ReturnType<typeof deleteRuleTool>>;
 
-export type UpdateRuleStateOutput = {
+export type DeleteRuleOutput = {
   success: boolean;
   actionType?: "delete_rule";
   requiresConfirmation?: true;
   confirmationState?: "pending" | "processing" | "confirmed";
   ruleId?: string;
   ruleName?: string;
-  // Includes legacy values still present in persisted chat messages from when
-  // this tool also handled enable/disable.
-  operation?: "enable" | "disable" | "delete";
-  enabled?: boolean;
-  previousEnabled?: boolean;
   wasEnabled?: boolean;
   systemType?: SystemType | null;
   error?: string;

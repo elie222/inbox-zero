@@ -35,16 +35,18 @@ export const updateRuleTool = ({
   provider,
   logger,
   getRuleReadState,
+  hasPendingRuleDeletion,
 }: {
   email: string;
   emailAccountId: string;
   provider: string;
   logger: Logger;
   getRuleReadState?: () => RuleReadState | null;
+  hasPendingRuleDeletion?: (ruleName: string) => boolean;
 }) =>
   tool({
     description:
-      "Update an existing rule after reading the user's current rules. Use this for direct requests to change rule name, enabled state, conditions, or actions; no capabilities lookup is needed before editing an existing rule. This is a patch: only fields included in updates are changed, and omitted fields are preserved. Include only the fields being changed; do not copy unchanged fields from the current rule into updates, even if you just read them. Use updates.name to rename a rule. Use updates.enabled to enable, disable, pause, or resume a rule. Use updates.condition to change conditions; omit condition fields that should stay unchanged, and set a static field to null only when the user explicitly asks to clear it. Do not set aiInstructions to null to preserve instructions; omit it instead. Use clearAiInstructions only when the user explicitly asks to remove semantic instructions. Use updates.actions to replace the full action list; when changing actions, include every action that should remain. Use DRAFT_EMAIL for draft reply actions; do not use SEND_EMAIL or REPLY when the user asks to draft. Never use this tool to add/remove a sender or domain from an existing category rule; use updateLearnedPatterns for recurring sender/domain includes and excludes instead. Direct requests to change existing rule behavior are already confirmed; do not create a replacement rule for edits.",
+      "Update an existing rule after reading the user's current rules. Use this for direct requests to change rule name, enabled state, conditions, or actions; no capabilities lookup is needed before editing an existing rule. This is a patch: only fields included in updates are changed, and omitted fields are preserved. Include only the fields being changed; do not copy unchanged fields from the current rule into updates, even if you just read them. For enable, disable, pause, or resume requests, include only updates.enabled and omit name, condition, and actions. Use updates.name to rename a rule. Use updates.enabled to enable, disable, pause, or resume a rule. Use updates.condition to change conditions; omit condition fields that should stay unchanged, and set a static field to null only when the user explicitly asks to clear it. Do not set aiInstructions to null to preserve instructions; omit it instead. Use clearAiInstructions only when the user explicitly asks to remove semantic instructions. Use updates.actions to replace the full action list; when changing actions, include every action that should remain. Use DRAFT_EMAIL for draft reply actions; do not use SEND_EMAIL or REPLY when the user asks to draft. Never use this tool to add/remove a sender or domain from an existing category rule; use updateLearnedPatterns for recurring sender/domain includes and excludes instead. Direct requests to change existing rule behavior are already confirmed; do not create a replacement rule for edits.",
     inputSchema: z
       .object({
         ruleName: z.string().describe("The exact current name of the rule."),
@@ -60,7 +62,7 @@ export const updateRuleTool = ({
               .boolean()
               .optional()
               .describe(
-                "Whether the rule should be enabled. Use false for pause/disable, true for enable/resume.",
+                "Whether the rule should be enabled. Use false for pause/disable, true for enable/resume. For enable-only or disable-only requests, this should be the only field in updates.",
               ),
             condition: createPatchConditionSchema().optional(),
             actions: z
@@ -142,6 +144,14 @@ export const updateRuleTool = ({
           });
         }
 
+        if (hasPendingRuleDeletion?.(rule.name)) {
+          return hideToolErrorFromUser({
+            success: false,
+            error:
+              "Deletion is already pending for this rule. Do not update or disable the same rule after requesting deletion.",
+          });
+        }
+
         const originalConditions = {
           aiInstructions: rule.instructions,
           static: filterNullProperties({
@@ -170,23 +180,28 @@ export const updateRuleTool = ({
           ),
           delayInMinutes: action.delayInMinutes,
         }));
+        const effectiveUpdates = normalizeRuleUpdates({
+          updates,
+          rule,
+          originalActions,
+        });
 
-        if (updates.name || updates.condition) {
+        if (effectiveUpdates.name || effectiveUpdates.condition) {
           await partialUpdateRule({
             ruleId: rule.id,
             emailAccountId,
             data: {
-              ...(updates.name && { name: updates.name }),
-              ...(updates.condition &&
-                buildConditionUpdateData(updates.condition)),
+              ...(effectiveUpdates.name && { name: effectiveUpdates.name }),
+              ...(effectiveUpdates.condition &&
+                buildConditionUpdateData(effectiveUpdates.condition)),
             },
           });
         }
 
-        if (updates.actions) {
+        if (effectiveUpdates.actions) {
           await updateRuleActions({
             ruleId: rule.id,
-            actions: updates.actions.map((action) => ({
+            actions: effectiveUpdates.actions.map((action) => ({
               type: action.type,
               fields: buildProviderRuleActionFields({
                 provider,
@@ -200,11 +215,14 @@ export const updateRuleTool = ({
           });
         }
 
-        if (updates.enabled !== undefined && updates.enabled !== rule.enabled) {
+        if (
+          effectiveUpdates.enabled !== undefined &&
+          effectiveUpdates.enabled !== rule.enabled
+        ) {
           await setRuleEnabled({
             ruleId: rule.id,
             emailAccountId,
-            enabled: updates.enabled,
+            enabled: effectiveUpdates.enabled,
           });
         }
 
@@ -212,13 +230,13 @@ export const updateRuleTool = ({
           success: true,
           ruleId: rule.id,
           originalName: rule.name,
-          updatedName: updates.name ?? rule.name,
+          updatedName: effectiveUpdates.name ?? rule.name,
           originalEnabled: rule.enabled,
-          updatedEnabled: updates.enabled ?? rule.enabled,
+          updatedEnabled: effectiveUpdates.enabled ?? rule.enabled,
           originalConditions,
-          updatedConditions: updates.condition,
+          updatedConditions: effectiveUpdates.condition,
           originalActions,
-          updatedActions: updates.actions,
+          updatedActions: effectiveUpdates.actions,
         };
       } catch (error) {
         logger.error("Failed to update rule", { error, ruleName });
@@ -273,6 +291,127 @@ type PatchCondition = {
   } | null;
   conditionalOperator?: LogicalOperator | null;
 };
+
+type RuleUpdatePatch = {
+  name?: string;
+  enabled?: boolean;
+  condition?: PatchCondition;
+  actions?: RuleAction[];
+};
+
+function normalizeRuleUpdates({
+  updates,
+  rule,
+  originalActions,
+}: {
+  updates: RuleUpdatePatch;
+  rule: {
+    conditionalOperator: LogicalOperator | null;
+    from: string | null;
+    instructions: string | null;
+    name: string;
+    subject: string | null;
+    to: string | null;
+  };
+  originalActions: NonNullable<UpdateRuleOutput["originalActions"]>;
+}): RuleUpdatePatch {
+  if (updates.enabled === undefined) return updates;
+
+  const normalized = { ...updates };
+  if (normalized.name === rule.name) normalized.name = undefined;
+  if (
+    normalized.condition &&
+    conditionLooksCopiedFromRule(normalized.condition, rule)
+  ) {
+    normalized.condition = undefined;
+  }
+  if (
+    normalized.actions &&
+    actionsLookCopiedFromRule(normalized.actions, originalActions)
+  ) {
+    normalized.actions = undefined;
+  }
+
+  return normalized;
+}
+
+function conditionLooksCopiedFromRule(
+  condition: PatchCondition,
+  rule: {
+    conditionalOperator: LogicalOperator | null;
+    from: string | null;
+    instructions: string | null;
+    subject: string | null;
+    to: string | null;
+  },
+) {
+  if (condition.clearAiInstructions && condition.aiInstructions !== undefined) {
+    return true;
+  }
+
+  const instructionsMatch =
+    !("aiInstructions" in condition) ||
+    condition.aiInstructions === rule.instructions;
+  const operatorMatches =
+    !("conditionalOperator" in condition) ||
+    condition.conditionalOperator === rule.conditionalOperator;
+  const staticMatches =
+    !("static" in condition) ||
+    staticLooksCopiedFromRule(condition.static, rule);
+
+  return instructionsMatch && operatorMatches && staticMatches;
+}
+
+function staticLooksCopiedFromRule(
+  staticCondition: PatchCondition["static"] | undefined,
+  rule: { from: string | null; subject: string | null; to: string | null },
+) {
+  if (staticCondition === undefined) return true;
+  if (staticCondition === null) {
+    return rule.from === null && rule.to === null && rule.subject === null;
+  }
+
+  return (
+    (!("from" in staticCondition) ||
+      normalizeNullableString(staticCondition.from) === rule.from) &&
+    (!("to" in staticCondition) ||
+      normalizeNullableString(staticCondition.to) === rule.to) &&
+    (!("subject" in staticCondition) ||
+      normalizeNullableString(staticCondition.subject) === rule.subject)
+  );
+}
+
+function actionsLookCopiedFromRule(
+  actions: RuleAction[],
+  originalActions: NonNullable<UpdateRuleOutput["originalActions"]>,
+) {
+  return (
+    JSON.stringify(actions.map(normalizeActionForComparison)) ===
+    JSON.stringify(originalActions.map(normalizeActionForComparison))
+  );
+}
+
+function normalizeActionForComparison(action: {
+  delayInMinutes?: number | null;
+  fields?: Record<string, string | null> | null;
+  type: string;
+}) {
+  return {
+    type: action.type,
+    delayInMinutes: action.delayInMinutes ?? null,
+    fields: Object.fromEntries(
+      Object.entries(action.fields ?? {})
+        .map(([key, value]) => [key, normalizeNullableString(value)] as const)
+        .filter(([, value]) => value !== null)
+        .sort(([a], [b]) => a.localeCompare(b)),
+    ),
+  };
+}
+
+function normalizeNullableString(value: string | null | undefined) {
+  if (value === undefined || value === null || value === "null") return null;
+  return value;
+}
 
 function createPatchConditionSchema() {
   return z

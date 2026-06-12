@@ -7,7 +7,7 @@ import {
 import { createTestLogger } from "@/__tests__/helpers";
 import { createRuleTool } from "./tools/rules/create-rule-tool";
 import { updateRuleTool } from "./tools/rules/update-rule-tool";
-import { updateRuleStateTool } from "./tools/rules/update-rule-state-tool";
+import { deleteRuleTool } from "./tools/rules/delete-rule-tool";
 
 const {
   mockCreateRule,
@@ -15,11 +15,13 @@ const {
   mockPartialUpdateRule,
   mockPrisma,
   mockSetRuleEnabled,
+  mockUpdateRuleActions,
 } = vi.hoisted(() => ({
   mockCreateRule: vi.fn(),
   mockOutboundActionsNeedChatRiskConfirmation: vi.fn(),
   mockPartialUpdateRule: vi.fn(),
   mockSetRuleEnabled: vi.fn(),
+  mockUpdateRuleActions: vi.fn(),
   mockPrisma: {
     rule: {
       findMany: vi.fn(),
@@ -42,6 +44,7 @@ vi.mock("@/utils/rule/rule", async (importOriginal) => {
       mockOutboundActionsNeedChatRiskConfirmation,
     partialUpdateRule: mockPartialUpdateRule,
     setRuleEnabled: mockSetRuleEnabled,
+    updateRuleActions: mockUpdateRuleActions,
   };
 });
 
@@ -178,9 +181,84 @@ describe("updateRuleTool", () => {
       },
     });
   });
+
+  it("strips copied rule fields from status-only updates before writing", async () => {
+    const result = await updateRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider: "google",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["Vendor Billing", "2026-04-27T00:00:00.000Z"],
+        ]),
+      }),
+    }).execute({
+      ruleName: "Vendor Billing",
+      updates: {
+        name: "Vendor Billing",
+        enabled: false,
+        condition: {
+          aiInstructions: "Billing notices.",
+          clearAiInstructions: true,
+          static: {
+            from: "billing@vendor.example",
+            subject: "invoice",
+          },
+          conditionalOperator: "AND",
+        },
+        actions: [],
+      },
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        updatedEnabled: false,
+        updatedName: "Vendor Billing",
+        updatedConditions: undefined,
+        updatedActions: undefined,
+      }),
+    );
+    expect(mockPartialUpdateRule).not.toHaveBeenCalled();
+    expect(mockUpdateRuleActions).not.toHaveBeenCalled();
+    expect(mockSetRuleEnabled).toHaveBeenCalledWith({
+      ruleId: "rule-id",
+      emailAccountId: "email-account-id",
+      enabled: false,
+    });
+  });
+
+  it("blocks updates after deletion is pending for the same rule", async () => {
+    const result = await updateRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider: "google",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["Vendor Billing", "2026-04-27T00:00:00.000Z"],
+        ]),
+      }),
+      hasPendingRuleDeletion: (ruleName) => ruleName === "Vendor Billing",
+    }).execute({
+      ruleName: "Vendor Billing",
+      updates: {
+        enabled: false,
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Deletion is already pending");
+    expect(mockSetRuleEnabled).not.toHaveBeenCalled();
+  });
 });
 
-describe("updateRuleStateTool", () => {
+describe("deleteRuleTool", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSetRuleEnabled.mockResolvedValue({ id: "rule-id", enabled: false });
@@ -195,7 +273,7 @@ describe("updateRuleStateTool", () => {
   });
 
   it("returns a pending confirmation for deleting a custom rule", async () => {
-    const result = await updateRuleStateTool({
+    const result = await deleteRuleTool({
       email: "user@example.com",
       emailAccountId: "email-account-id",
       logger,
@@ -208,7 +286,6 @@ describe("updateRuleStateTool", () => {
       }),
     }).execute({
       ruleName: "Team Mail",
-      operation: "delete",
     });
 
     expect(result).toEqual({
@@ -233,7 +310,7 @@ describe("updateRuleStateTool", () => {
       emailAccount: { rulesRevision: 3 },
     });
 
-    const result = await updateRuleStateTool({
+    const result = await deleteRuleTool({
       email: "user@example.com",
       emailAccountId: "email-account-id",
       logger,
@@ -246,7 +323,6 @@ describe("updateRuleStateTool", () => {
       }),
     }).execute({
       ruleName: "To Reply",
-      operation: "delete",
     });
 
     expect(result.success).toBe(false);

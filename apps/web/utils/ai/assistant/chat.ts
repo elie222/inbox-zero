@@ -18,7 +18,7 @@ import { getUserRulesAndSettingsTool } from "./tools/rules/get-user-rules-and-se
 import { updatePersonalInstructionsTool } from "./tools/rules/update-personal-instructions-tool";
 import { updateLearnedPatternsTool } from "./tools/rules/update-learned-patterns-tool";
 import { updateRuleTool } from "./tools/rules/update-rule-tool";
-import { updateRuleStateTool } from "./tools/rules/update-rule-state-tool";
+import { deleteRuleTool } from "./tools/rules/delete-rule-tool";
 import { getAssistantCapabilitiesTool } from "./tools/settings/get-assistant-capabilities-tool";
 import { updateAssistantSettingsTool } from "./tools/settings/update-assistant-settings-tool";
 import {
@@ -106,6 +106,7 @@ export async function aiProcessAssistantChat({
   const webhookActionsEnabled =
     env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false;
   let ruleReadState: RuleReadState | null = null;
+  const pendingRuleDeletionNames = new Set<string>();
   const memoryConversationMessages = conversationMessagesForMemory ?? messages;
   const userTimezone = user.timezone || "UTC";
   const currentTimestamp = new Date().toISOString();
@@ -129,6 +130,11 @@ export async function aiProcessAssistantChat({
       ruleReadState = state;
     },
     getRuleReadState: () => ruleReadState,
+    markRuleDeletionPending: (ruleName: string) => {
+      pendingRuleDeletionNames.add(ruleName);
+    },
+    hasPendingRuleDeletion: (ruleName: string) =>
+      pendingRuleDeletionNames.has(ruleName),
     onRulesStateExposed,
   };
   const providerPolicy = getAssistantChatProvider(user.account.provider);
@@ -253,7 +259,7 @@ export async function aiProcessAssistantChat({
     getLearnedPatterns: getLearnedPatternsTool(toolOptions),
     createRule: createRuleTool(toolOptions),
     updateRule: updateRuleTool(toolOptions),
-    updateRuleState: updateRuleStateTool(toolOptions),
+    deleteRule: deleteRuleTool(toolOptions),
     updateLearnedPatterns: updateLearnedPatternsTool(toolOptions),
     updatePersonalInstructions: updatePersonalInstructionsTool(toolOptions),
 
@@ -723,6 +729,8 @@ export function buildResolvedSystemPrompt({
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - Prefer updating an existing rule over creating an overlapping duplicate. Do not create semantic duplicates like "Notification" and "Notifications".
 - For direct requests to change an existing rule's behavior, read rules then use the relevant rule update tool. Do not ask for another confirmation unless multiple rules are similar or required data is missing.
+- For enable, disable, pause, or resume requests, call updateRule with only updates.enabled. Do not include copied name, condition, or actions fields.
+- For delete requests, call getUserRulesAndSettings first, then call deleteRule exactly once with the exact rule name. Do not disable the same rule after requesting deletion.
 - If multiple fetched rules are similar, ask the user which one to update instead of guessing.
 - Use short concise rule names and real sender or domain values. Ask when required data is missing.
 - Rules can use {{variables}} in action fields to insert AI-generated content.`,
