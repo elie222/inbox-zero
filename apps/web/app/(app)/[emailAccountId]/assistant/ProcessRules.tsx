@@ -135,6 +135,9 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
         threadId: message.threadId,
         isTest: testMode,
         rerun,
+        // This UI processes past emails (one representative message per thread),
+        // so allow categorization even when the thread isn't categorized yet.
+        isHistorical: true,
       });
       const logContext = {
         emailAccountId,

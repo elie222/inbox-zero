@@ -106,6 +106,7 @@ export async function runRules({
   rules,
   emailAccount,
   isTest,
+  isHistorical = false,
   modelType,
   logger,
   skipArchive,
@@ -115,6 +116,7 @@ export async function runRules({
   rules: RuleWithActions[];
   emailAccount: EmailAccountForDrafting;
   isTest: boolean;
+  isHistorical?: boolean;
   modelType: ModelType;
   logger: Logger;
   skipArchive?: boolean;
@@ -129,6 +131,7 @@ export async function runRules({
     provider,
     modelType,
     logger,
+    isHistorical,
   });
 
   const calendarAwareMatches = ensureConversationRuleForAiCalendarMatch({
