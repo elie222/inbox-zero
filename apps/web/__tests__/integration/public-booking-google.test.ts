@@ -146,7 +146,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(events.data.items).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            summary: "Intro call",
+            summary: "Intro call with Guest User",
             start: expect.objectContaining({
               dateTime: "2030-01-07T09:00:00.000Z",
             }),

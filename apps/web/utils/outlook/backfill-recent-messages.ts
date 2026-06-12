@@ -4,8 +4,10 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import type { ParsedMessage } from "@/utils/types";
+import { runWithBoundedConcurrency } from "@/utils/async";
 
 const OUTLOOK_RECONCILE_PAGE_SIZE = 50;
+const OUTLOOK_RECONCILE_MESSAGE_CONCURRENCY = 5;
 
 export async function backfillRecentOutlookMessages({
   emailAccountId,
@@ -60,6 +62,7 @@ export async function backfillRecentOutlookMessages({
       (left, right) =>
         new Date(left.date).getTime() - new Date(right.date).getTime(),
     );
+  const unseenThreads = getOldestMessagePerThread(unseenMessages);
 
   logger.info("Reconciling recent Outlook messages", {
     after,
@@ -67,13 +70,15 @@ export async function backfillRecentOutlookMessages({
     pageCount,
     candidateCount: candidateMessages.length,
     unseenCount: unseenMessages.length,
+    unseenThreadCount: unseenThreads.length,
     subscriptionId,
   });
 
-  let processedCount = 0;
-  for (const message of unseenMessages) {
-    try {
-      await processHistoryForUser({
+  const results = await runWithBoundedConcurrency({
+    items: unseenThreads,
+    concurrency: OUTLOOK_RECONCILE_MESSAGE_CONCURRENCY,
+    run: (message) =>
+      processHistoryForUser({
         emailAddress,
         subscriptionId,
         resourceData: {
@@ -81,14 +86,20 @@ export async function backfillRecentOutlookMessages({
           conversationId: message.threadId,
         },
         logger: logger.with({ messageId: message.id }),
-      });
+      }),
+  });
+
+  let processedCount = 0;
+  for (const { item: message, result } of results) {
+    if (result.status === "fulfilled") {
       processedCount++;
-    } catch (error) {
-      logger.error("Failed to process message during backfill", {
-        messageId: message.id,
-        error,
-      });
+      continue;
     }
+
+    logger.error("Failed to process message during backfill", {
+      messageId: message.id,
+      error: result.reason,
+    });
   }
 
   logger.info("Finished reconciling recent Outlook messages", {
@@ -97,6 +108,7 @@ export async function backfillRecentOutlookMessages({
     pageCount,
     candidateCount: candidateMessages.length,
     unseenCount: unseenMessages.length,
+    unseenThreadCount: unseenThreads.length,
     processedCount,
     subscriptionId,
   });
@@ -105,6 +117,27 @@ export async function backfillRecentOutlookMessages({
     processedCount,
     candidateCount: candidateMessages.length,
   };
+}
+
+function getOldestMessagePerThread(messages: ParsedMessage[]) {
+  const messagesByThread = new Map<string, ParsedMessage>();
+
+  for (const message of messages) {
+    const existing = messagesByThread.get(message.threadId);
+    if (!existing) {
+      messagesByThread.set(message.threadId, message);
+      continue;
+    }
+
+    if (new Date(message.date).getTime() < new Date(existing.date).getTime()) {
+      messagesByThread.set(message.threadId, message);
+    }
+  }
+
+  return [...messagesByThread.values()].sort(
+    (left, right) =>
+      new Date(left.date).getTime() - new Date(right.date).getTime(),
+  );
 }
 
 async function listRecentMessages({

@@ -144,13 +144,19 @@ function selectModel(
       const modelName = aiModel;
       if (!modelName) throw new SafeError("LLM model name is not set");
 
-      const apiKey = aiApiKey || env.AZURE_FOUNDRY_API_KEY;
+      // The process.env fallbacks are for eval/test runs, where `@/env` is
+      // mocked with a minimal object that omits the Azure Foundry vars.
+      const apiKey =
+        aiApiKey ||
+        env.AZURE_FOUNDRY_API_KEY ||
+        process.env.AZURE_FOUNDRY_API_KEY;
       if (!apiKey) {
         throw new SafeError(
           "AZURE_FOUNDRY_API_KEY environment variable is not set",
         );
       }
-      const baseURL = env.AZURE_FOUNDRY_BASE_URL;
+      const baseURL =
+        env.AZURE_FOUNDRY_BASE_URL || process.env.AZURE_FOUNDRY_BASE_URL;
       if (!baseURL) {
         throw new SafeError(
           "AZURE_FOUNDRY_BASE_URL environment variable is not set",

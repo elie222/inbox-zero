@@ -1,6 +1,11 @@
 "use client";
 
-import { ArchiveIcon, MailOpenIcon, SettingsIcon } from "lucide-react";
+import {
+  ArchiveIcon,
+  MailOpenIcon,
+  SettingsIcon,
+  TrashIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export type BulkActionType = "archive" | "markRead";
+export type BulkActionType = "archive" | "markRead" | "delete";
 
 interface BulkArchiveSettingsModalProps {
   onActionChange: (action: BulkActionType) => void;
@@ -69,6 +74,12 @@ export function BulkArchiveSettingsModal({
                     <span>Mark as read</span>
                   </div>
                 </SelectItem>
+                <SelectItem value="delete">
+                  <div className="flex items-center gap-2">
+                    <TrashIcon className="size-4" />
+                    <span>Delete</span>
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -79,6 +90,17 @@ export function BulkArchiveSettingsModal({
 }
 
 export function getActionLabels(action: BulkActionType) {
+  if (action === "delete") {
+    return {
+      buttonLabel: "Delete",
+      allLabel: "Delete all",
+      countLabel: (selected: number, total: number) =>
+        `Delete ${selected} of ${total}`,
+      completedLabel: "Deleted",
+      icon: TrashIcon,
+    };
+  }
+
   if (action === "markRead") {
     return {
       buttonLabel: "Mark as read",
