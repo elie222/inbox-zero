@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { NewsletterStatus } from "@/generated/prisma/enums";
-import { isUnsubscribeSuggestion } from "./suggestions";
+import {
+  getUnsubscribeSuggestions,
+  isUnsubscribeSuggestion,
+} from "./suggestions";
 
 describe("isUnsubscribeSuggestion", () => {
   it("suggests senders with a low read rate", () => {
@@ -40,5 +43,31 @@ describe("isUnsubscribeSuggestion", () => {
         autoArchived: { id: "filter-1" },
       }),
     ).toBe(false);
+  });
+});
+
+describe("getUnsubscribeSuggestions", () => {
+  it("keeps only suggested senders, ordered by email count descending", () => {
+    const wellRead = { name: "read", value: 50, readEmails: 45 };
+    const small = { name: "small", value: 5, readEmails: 0 };
+    const big = { name: "big", value: 30, readEmails: 1 };
+    const handled = {
+      name: "handled",
+      value: 20,
+      readEmails: 0,
+      status: NewsletterStatus.UNSUBSCRIBED,
+    };
+
+    expect(getUnsubscribeSuggestions([wellRead, small, handled, big])).toEqual([
+      big,
+      small,
+    ]);
+  });
+
+  it("returns an empty list when nothing qualifies", () => {
+    expect(getUnsubscribeSuggestions([])).toEqual([]);
+    expect(getUnsubscribeSuggestions([{ value: 10, readEmails: 8 }])).toEqual(
+      [],
+    );
   });
 });

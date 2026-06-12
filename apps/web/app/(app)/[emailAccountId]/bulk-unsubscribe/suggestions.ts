@@ -15,3 +15,11 @@ export function isUnsubscribeSuggestion(item: {
   const readRate = (item.readEmails / item.value) * 100;
   return readRate < SUGGESTION_READ_RATE_THRESHOLD;
 }
+
+export function getUnsubscribeSuggestions<
+  T extends Parameters<typeof isUnsubscribeSuggestion>[0],
+>(items: T[]): T[] {
+  return items
+    .filter(isUnsubscribeSuggestion)
+    .sort((a, b) => b.value - a.value);
+}
