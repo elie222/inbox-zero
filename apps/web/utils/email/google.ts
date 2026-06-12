@@ -1134,9 +1134,13 @@ export class GmailProvider implements EmailProvider {
     query: string;
     maxResults?: number;
     pageToken?: string;
+    fromEmail?: string;
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
+    const query = options.fromEmail
+      ? [`from:${options.fromEmail}`, options.query].filter(Boolean).join(" ")
+      : options.query;
     const response = await getMessages(this.client, {
-      query: options.query,
+      query,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken || undefined,
     });
