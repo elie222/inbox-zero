@@ -94,7 +94,7 @@ describe("handleAccountLinking", () => {
     });
   });
 
-  it("should redirect with error when creating account that already exists for different user", async () => {
+  it("should redirect with account_already_exists when creating an account whose email belongs to a different user", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(
       getMockEmailAccountSelect({
         userId: "different-user-id",
@@ -115,9 +115,7 @@ describe("handleAccountLinking", () => {
     expect(result.type).toBe("redirect");
     if (result.type === "redirect") {
       const url = new URL(result.response.headers.get("location") || "");
-      expect(url.searchParams.get("error")).toBe(
-        "account_already_exists_use_merge",
-      );
+      expect(url.searchParams.get("error")).toBe("account_already_exists");
     }
   });
 
