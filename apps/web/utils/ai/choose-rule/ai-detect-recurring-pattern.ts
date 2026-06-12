@@ -18,7 +18,7 @@ const schema = z.object({
 });
 export type DetectPatternResult = z.infer<typeof schema>;
 
-const MAX_PATTERN_SAMPLE_EMAILS = 20;
+const MAX_PATTERN_SAMPLE_EMAILS = 10;
 
 export async function aiDetectRecurringPattern({
   emails,

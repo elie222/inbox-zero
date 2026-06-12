@@ -60,9 +60,9 @@ describe("aiDetectRecurringPattern", () => {
 
     const prompt = generateObjectMock.mock.calls[0][0].prompt;
 
-    expect(prompt.match(/<email>/g)).toHaveLength(20);
-    expect(prompt).not.toContain("Unique body 4");
-    expect(prompt).toContain("Unique body 5");
+    expect(prompt.match(/<email>/g)).toHaveLength(10);
+    expect(prompt).not.toContain("Unique body 14");
+    expect(prompt).toContain("Unique body 15");
     expect(prompt).toContain("Unique body 24");
   });
 });
