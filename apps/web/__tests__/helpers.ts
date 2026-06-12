@@ -306,6 +306,7 @@ export function getRule(
     categoryFilterType: null,
     conditionalOperator: LogicalOperator.AND,
     systemType: null,
+    organizationRuleId: null,
     promptText: null,
   };
 }

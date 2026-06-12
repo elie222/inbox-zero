@@ -504,15 +504,16 @@ export const toggleAllRulesAction = actionClient
   .metadata({ name: "toggleAllRules" })
   .inputSchema(toggleAllRulesBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
+    // organization-managed rules are only toggled by organization admins
     if (enabled) {
       await prisma.rule.updateMany({
-        where: { emailAccountId },
+        where: { emailAccountId, organizationRuleId: null },
         data: { enabled },
       });
     } else {
       await prisma.$transaction([
         prisma.rule.updateMany({
-          where: { emailAccountId },
+          where: { emailAccountId, organizationRuleId: null },
           data: { enabled },
         }),
         prisma.emailAccount.update({

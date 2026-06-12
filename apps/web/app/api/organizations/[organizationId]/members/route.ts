@@ -47,6 +47,7 @@ async function getOrganizationMembers({
         role: true,
         createdAt: true,
         allowOrgAdminAnalytics: true,
+        team: { select: { id: true, name: true } },
         emailAccount: {
           select: {
             id: true,
