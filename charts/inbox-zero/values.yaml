@@ -242,6 +242,9 @@ cron:
     digest:
       schedule: "*/30 * * * *"
       path: /api/resend/digest/all
+    inbox-health:
+      schedule: "0 8 * * *"
+      path: /api/resend/inbox-health/all
     meeting-briefs:
       schedule: "*/15 * * * *"
       path: /api/meeting-briefs
