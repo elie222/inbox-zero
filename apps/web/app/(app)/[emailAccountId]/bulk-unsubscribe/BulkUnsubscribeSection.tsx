@@ -13,6 +13,7 @@ import {
   InboxIcon,
   ListIcon,
   MailXIcon,
+  SparklesIcon,
   ThumbsUpIcon,
 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
@@ -30,6 +31,10 @@ import {
   useBulkUnsubscribeShortcuts,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import type { NewsletterFilterType } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
+import {
+  isUnsubscribeSuggestion,
+  SUGGESTION_READ_RATE_THRESHOLD,
+} from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useLabels } from "@/hooks/useLabels";
@@ -60,6 +65,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -241,9 +252,22 @@ export function BulkUnsubscribe() {
     isAllSelected,
     onToggleSelect,
     onToggleSelectAll,
+    selectItems,
     clearSelection,
     deselectItem,
   } = useToggleSelect(rows?.map((item) => ({ id: item.name })) || []);
+
+  const suggestedRows = useMemo(
+    () => rows?.filter(isUnsubscribeSuggestion) ?? [],
+    [rows],
+  );
+
+  const onSelectSuggested = useCallback(() => {
+    selectItems(suggestedRows.map((row) => row.name));
+    posthog?.capture("Clicked Select Suggested Unsubscribes", {
+      count: suggestedRows.length,
+    });
+  }, [selectItems, suggestedRows, posthog]);
 
   // Clear selection when filter changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally clearing selection when filter changes
@@ -363,6 +387,32 @@ export function BulkUnsubscribe() {
             onSetDateDropdown={onSetDateDropdown}
           />
           <SearchBar onSearch={setSearch} />
+          {suggestedRows.length > 0 && (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10"
+                    onClick={onSelectSuggested}
+                  >
+                    <SparklesIcon className="size-4 text-amber-500" />
+                    <span className="ml-2">
+                      Select {suggestedRows.length} suggested
+                    </span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-xs">
+                    Selects senders you rarely read (under{" "}
+                    {SUGGESTION_READ_RATE_THRESHOLD}% read rate) so you can
+                    unsubscribe or archive them in one go.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </ActionBar>
       </div>
 

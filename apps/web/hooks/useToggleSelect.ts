@@ -48,6 +48,16 @@ export function useToggleSelect(items: { id: string }[]) {
     });
   }, [items, selected]);
 
+  const selectItems = useCallback((ids: string[]) => {
+    setSelected((prev) => {
+      const newSelected = new Map(prev);
+      for (const id of ids) {
+        newSelected.set(id, true);
+      }
+      return newSelected;
+    });
+  }, []);
+
   const clearSelection = useCallback(() => {
     setSelected(new Map());
     lastClickedIndexRef.current = null;
@@ -66,6 +76,7 @@ export function useToggleSelect(items: { id: string }[]) {
     isAllSelected,
     onToggleSelect,
     onToggleSelectAll,
+    selectItems,
     clearSelection,
     deselectItem,
   };
