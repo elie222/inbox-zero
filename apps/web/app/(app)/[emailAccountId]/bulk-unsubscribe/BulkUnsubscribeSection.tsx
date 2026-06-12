@@ -453,6 +453,7 @@ export function BulkUnsubscribe() {
         newsletters={rows}
         filter={filter}
         totalCount={rows?.length ?? 0}
+        dateRange={dateRange}
       />
 
       <Card className="mt-2 md:mt-4 max-sm:border-0 max-sm:shadow-none">
