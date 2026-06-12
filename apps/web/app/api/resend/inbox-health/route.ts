@@ -160,6 +160,12 @@ async function sendEmail({
     logger.info("Not enough unsubscribe suggestions, skipping", {
       senderCount: senders.length,
     });
+    // Still bump the timestamp so the daily fan-out doesn't re-run the
+    // expensive stats query for this account until the next 30-day window.
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { lastInboxHealthEmailAt: new Date() },
+    });
     return { success: true, skipped: "not enough suggestions" };
   }
 
