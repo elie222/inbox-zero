@@ -73,10 +73,10 @@ export const GET = withError("og/unsubscribed", async (request) => {
             letterSpacing: -1,
           }}
         >
-          {lists} unsubscribed
+          {`${lists} unsubscribed`}
         </div>
         <div style={{ fontSize: 30, color: "#94a3b8" }}>
-          I just cleaned up my inbox with {BRAND_NAME}
+          {`I just cleaned up my inbox with ${BRAND_NAME}`}
         </div>
       </div>
 
