@@ -4,6 +4,9 @@ const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   cookies: vi.fn(),
   findFirst: vi.fn(),
+  loggerInfo: vi.fn(),
+  flushLoggerSafely: vi.fn(),
+  after: vi.fn(),
   redirect: vi.fn((url: string) => {
     throw new Error(`redirect:${url}`);
   }),
@@ -19,6 +22,20 @@ vi.mock("next/headers", () => ({
 
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => mocks.redirect(url),
+}));
+
+vi.mock("next/server", () => ({
+  after: (callback: () => void | Promise<void>) => mocks.after(callback),
+}));
+
+vi.mock("@/utils/logger", () => ({
+  createScopedLogger: () => ({
+    info: (...args: unknown[]) => mocks.loggerInfo(...args),
+  }),
+}));
+
+vi.mock("@/utils/logger-flush", () => ({
+  flushLoggerSafely: (...args: unknown[]) => mocks.flushLoggerSafely(...args),
 }));
 
 vi.mock("@/utils/prisma", () => ({
@@ -48,7 +65,26 @@ describe("redirectToEmailAccountPath", () => {
 
     expect(mocks.findFirst).toHaveBeenCalledWith({
       where: { userId: "user_123" },
+      select: { id: true },
+      orderBy: { createdAt: "asc" },
     });
+    expect(mocks.loggerInfo).toHaveBeenCalledWith(
+      "Resolved account redirect",
+      expect.objectContaining({
+        path: "/setup",
+        outcome: "connect-mailbox",
+        usedLastEmailAccountCookie: false,
+        usedFallbackAccountLookup: true,
+        foundEmailAccount: false,
+        durationMs: expect.any(Number),
+        stepDurationsMs: expect.objectContaining({
+          auth: expect.any(Number),
+          "last-email-account-cookie": expect.any(Number),
+          "fallback-email-account-lookup": expect.any(Number),
+        }),
+      }),
+    );
+    expect(mocks.after).toHaveBeenCalledOnce();
     expect(mocks.redirect).toHaveBeenCalledWith(
       "/connect-mailbox?next=%2Fsetup",
     );
@@ -68,6 +104,42 @@ describe("redirectToEmailAccountPath", () => {
 
     expect(mocks.redirect).toHaveBeenCalledWith(
       "/connect-mailbox?next=%2Fsetup%3Fsource%3Dcheckout%26step%3Done%26step%3Dtwo",
+    );
+    expect(mocks.loggerInfo).toHaveBeenCalledWith(
+      "Resolved account redirect",
+      expect.objectContaining({
+        searchParamKeys: ["source", "step"],
+      }),
+    );
+  });
+
+  it("uses the last email account cookie without querying for an account", async () => {
+    mocks.cookies.mockResolvedValue({
+      get: () => ({
+        value: JSON.stringify({
+          userId: "user_123",
+          emailAccountId: "account_123",
+        }),
+      }),
+    });
+
+    await expect(redirectToEmailAccountPath("/setup")).rejects.toThrow(
+      "redirect:/account_123/setup",
+    );
+
+    expect(mocks.findFirst).not.toHaveBeenCalled();
+    expect(mocks.loggerInfo).toHaveBeenCalledWith(
+      "Resolved account redirect",
+      expect.objectContaining({
+        path: "/setup",
+        outcome: "account-path",
+        usedLastEmailAccountCookie: true,
+        usedFallbackAccountLookup: false,
+        foundEmailAccount: true,
+        stepDurationsMs: expect.not.objectContaining({
+          "fallback-email-account-lookup": expect.any(Number),
+        }),
+      }),
     );
   });
 });
