@@ -13,6 +13,7 @@ const {
   mockTrackBillingTrialStarted,
   mockTrackTrialStarted,
   mockTrackSubscriptionTrialStarted,
+  mockTrackServerConversionEvent,
   mockFindUnique,
   mockUpdateMany,
   mockCompleteReferralAndGrantReward,
@@ -25,6 +26,7 @@ const {
   mockTrackBillingTrialStarted: vi.fn(),
   mockTrackTrialStarted: vi.fn(),
   mockTrackSubscriptionTrialStarted: vi.fn(),
+  mockTrackServerConversionEvent: vi.fn(),
   mockFindUnique: vi.fn(),
   mockUpdateMany: vi.fn(),
   mockCompleteReferralAndGrantReward: vi.fn(),
@@ -73,6 +75,20 @@ vi.mock("@/utils/posthog", () => ({
   trackTrialStarted: mockTrackTrialStarted,
 }));
 
+vi.mock("@/utils/analytics/server-conversion-events", () => ({
+  getStripeSubscriptionConversionProperties: vi.fn((subscription) => ({
+    attributionId: subscription.metadata?.conversionAttributionId,
+    properties: {
+      planId: subscription.items?.data?.[0]?.price?.id,
+      amount:
+        subscription.items?.data?.[0]?.price?.unit_amount *
+        (subscription.items?.data?.[0]?.quantity || 1),
+      currency: subscription.items?.data?.[0]?.price?.currency?.toUpperCase(),
+    },
+  })),
+  trackServerConversionEvent: mockTrackServerConversionEvent,
+}));
+
 vi.mock("@/utils/prisma", () => ({
   default: {
     premium: {
@@ -103,6 +119,7 @@ describe("processEvent", () => {
     mockTrackBillingTrialStarted.mockResolvedValue(undefined);
     mockTrackTrialStarted.mockResolvedValue(undefined);
     mockTrackSubscriptionTrialStarted.mockResolvedValue(undefined);
+    mockTrackServerConversionEvent.mockResolvedValue(undefined);
     mockCompleteReferralAndGrantReward.mockResolvedValue(undefined);
   });
 
@@ -138,6 +155,79 @@ describe("processEvent", () => {
     expect(
       mockSyncAiGenerationOverageForUpcomingInvoice,
     ).not.toHaveBeenCalled();
+  });
+
+  it("tracks a paid subscription conversion when a trial converts", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+
+    await processEvent(
+      subscriptionEvent({
+        id: "evt_trial_converted",
+        created: 1_700_000_000,
+        data: {
+          object: {
+            id: "sub_test",
+            customer: "cus_test",
+            status: "active",
+            trial_end: 1_699_999_000,
+            metadata: {
+              conversionAttributionId: "attr_test",
+            },
+            items: {
+              data: [
+                {
+                  quantity: 2,
+                  price: {
+                    id: "price_test",
+                    unit_amount: 1000,
+                    currency: "usd",
+                  },
+                },
+              ],
+            },
+          },
+          previous_attributes: {
+            status: "trialing",
+          },
+        } as Stripe.Event.Data,
+      }),
+      logger,
+    );
+
+    expect(mockTrackServerConversionEvent).toHaveBeenCalledWith({
+      name: "subscription_created",
+      id: "evt_trial_converted",
+      timestamp: new Date("2023-11-14T22:13:20.000Z"),
+      attributionId: "attr_test",
+      properties: {
+        planId: "price_test",
+        amount: 2000,
+        currency: "USD",
+      },
+      logger,
+    });
+  });
+
+  it("does not track paid subscription conversions for non-conversion updates", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+
+    await processEvent(
+      subscriptionEvent({
+        data: {
+          object: {
+            customer: "cus_test",
+            status: "active",
+            trial_end: 1_699_999_000,
+          },
+          previous_attributes: {
+            status: "incomplete",
+          },
+        } as Stripe.Event.Data,
+      }),
+      logger,
+    );
+
+    expect(mockTrackServerConversionEvent).not.toHaveBeenCalled();
   });
 });
 
