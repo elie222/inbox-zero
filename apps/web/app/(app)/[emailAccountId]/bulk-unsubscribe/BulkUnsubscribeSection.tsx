@@ -276,9 +276,10 @@ export function BulkUnsubscribe() {
     clearSelection();
   }, [filter]);
 
-  // Deep link from the inbox health email: ?select=suggested auto-selects the
-  // suggested rows once after the first rows load, then strips the param so
-  // re-renders and filter changes don't reselect.
+  // Deep link (e.g. from the inbox health email or onboarding):
+  // ?select=suggested auto-selects the suggested rows once after the first
+  // rows load, then strips the param so re-renders and filter changes don't
+  // reselect.
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
