@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { subDays } from "date-fns/subDays";
 import { ChevronDown } from "lucide-react";
@@ -274,6 +275,30 @@ export function BulkUnsubscribe() {
   useEffect(() => {
     clearSelection();
   }, [filter]);
+
+  // Deep link (e.g. from the inbox health email or onboarding):
+  // ?select=suggested auto-selects the suggested rows once after the first
+  // rows load, then strips the param so re-renders and filter changes don't
+  // reselect.
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const hasAppliedSelectParamRef = useRef(false);
+
+  useEffect(() => {
+    if (hasAppliedSelectParamRef.current) return;
+    if (searchParams.get("select") !== "suggested") return;
+    if (!rows) return;
+
+    hasAppliedSelectParamRef.current = true;
+    selectItems(rows.filter(isUnsubscribeSuggestion).map((row) => row.name));
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("select");
+    router.replace(nextParams.size ? `${pathname}?${nextParams}` : pathname, {
+      scroll: false,
+    });
+  }, [searchParams, rows, selectItems, router, pathname]);
 
   const isSomeSelected =
     Array.from(selected.values()).filter(Boolean).length > 0;
