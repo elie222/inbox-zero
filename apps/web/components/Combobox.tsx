@@ -56,7 +56,7 @@ export function Combobox(props: {
             onValueChange={props.onSearch}
           />
           <CommandList
-            onWheelCapture={(e) => {
+            onWheelCapture={(e: React.WheelEvent<HTMLDivElement>) => {
               e.preventDefault();
               e.currentTarget.scrollTop += e.deltaY;
             }}
@@ -80,7 +80,7 @@ export function Combobox(props: {
                         ? [...options.keywords, options.label]
                         : [options.label]
                     }
-                    onSelect={(currentValue) => {
+                    onSelect={(currentValue: string) => {
                       onChangeValue(currentValue === value ? "" : currentValue);
                       setOpen(false);
                     }}

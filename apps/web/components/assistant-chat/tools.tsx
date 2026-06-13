@@ -1,3 +1,4 @@
+import type { ChangeEvent } from "react";
 import { useState } from "react";
 import { useQueryState } from "nuqs";
 import type { AddToKnowledgeBaseTool } from "@/utils/ai/assistant/tools/rules/add-to-knowledge-base-tool";
@@ -713,7 +714,9 @@ function EmailActionResult({
             <div className="space-y-2">
               <Textarea
                 value={editedBody}
-                onChange={(e) => setEditedBody(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                  setEditedBody(e.target.value)
+                }
                 className="min-h-[140px] resize-y text-sm leading-relaxed"
               />
               <div className="flex justify-end gap-2">

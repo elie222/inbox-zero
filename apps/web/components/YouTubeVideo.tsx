@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { type ComponentType, useEffect, useRef } from "react";
 import YouTube from "react-youtube";
-import type { YouTubeEvent, YouTubePlayer } from "react-youtube";
+import type { YouTubeEvent, YouTubePlayer, YouTubeProps } from "react-youtube";
 import { useVideoProgressMilestones } from "@/hooks/useVideoProgressMilestones";
 import { cn } from "@/utils";
+
+const YouTubePlayerComponent =
+  YouTube as unknown as ComponentType<YouTubeProps>;
 
 export function YouTubeVideo(props: {
   videoId: string;
@@ -102,7 +105,7 @@ export function YouTubeVideo(props: {
   };
 
   return (
-    <YouTube
+    <YouTubePlayerComponent
       videoId={props.videoId}
       title={props.title}
       className={cn("aspect-video h-full w-full rounded-lg", props.className)}

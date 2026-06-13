@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { MouseEvent } from "react";
 import { useCallback, useMemo, useState } from "react";
 import {
   ChevronRightIcon,
@@ -250,7 +251,7 @@ function EmailAccountSettingsCard({
         {hasUnconnectedProvider && (
           <Link
             href={`/${emailAccount.id}/channels`}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e: MouseEvent<HTMLAnchorElement>) => e.stopPropagation()}
           >
             <Badge
               variant="outline"

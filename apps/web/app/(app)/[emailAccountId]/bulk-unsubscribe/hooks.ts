@@ -817,11 +817,11 @@ export function useBulkArchive<T extends Row>({
     toast.promise(promise, {
       loading: `Archiving emails from ${displayNames}...`,
       success: () => `Archived emails from ${displayNames}`,
-      error: (error) =>
-        error instanceof Error
-          ? error.message
-          : error?.error?.serverError ||
-            "There was an error archiving the emails",
+      error: (error: unknown) =>
+        getBulkActionErrorMessage(
+          error,
+          "There was an error archiving the emails",
+        ),
     });
   };
 
@@ -865,7 +865,7 @@ async function deleteAllFromSender({
     },
     {
       loading: `Deleting all emails from ${name}`,
-      success: (data) =>
+      success: (data: number) =>
         data
           ? `Deleting ${data} emails from ${name}...`
           : `No emails to delete from ${name}`,
@@ -931,8 +931,11 @@ export function useBulkDelete<T extends Row>({
     toast.promise(promise, {
       loading: `Deleting emails from ${displayNames}...`,
       success: `Deleted emails from ${displayNames}`,
-      error: (error) =>
-        error?.error?.serverError || "There was an error trashing the emails",
+      error: (error: unknown) =>
+        getBulkActionErrorMessage(
+          error,
+          "There was an error trashing the emails",
+        ),
     });
   };
 
@@ -1173,4 +1176,22 @@ function getBulkUnsubscribeMessages<T extends Row>(items: T[]) {
     successMessage: "unsubscribed",
     errorMessage: "Failed to unsubscribe from",
   };
+}
+
+function getBulkActionErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message;
+
+  if (
+    error &&
+    typeof error === "object" &&
+    "error" in error &&
+    error.error &&
+    typeof error.error === "object" &&
+    "serverError" in error.error &&
+    typeof error.error.serverError === "string"
+  ) {
+    return error.error.serverError;
+  }
+
+  return fallback;
 }

@@ -2,7 +2,7 @@ import type Stripe from "stripe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 import { getStripeCancellationInitiatedAt } from "./cancellation-initiated";
-import { processEvent } from "./route";
+import { processEvent } from "./controller";
 import { getStripeTrialConvertedAt } from "./trial-conversion";
 
 const {

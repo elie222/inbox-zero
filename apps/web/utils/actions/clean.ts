@@ -13,7 +13,7 @@ import {
   GmailLabel,
   labelThread,
 } from "@/utils/gmail/label";
-import type { CleanThreadBody } from "@/app/api/clean/route";
+import type { CleanThreadBody } from "@/app/api/clean/controller";
 import { isDefined } from "@/utils/types";
 import { inboxZeroLabels } from "@/utils/label";
 import prisma from "@/utils/prisma";
