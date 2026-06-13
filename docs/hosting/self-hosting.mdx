@@ -158,6 +158,10 @@ The Docker Compose setup includes a `cron` container that handles scheduled task
 
 Replace `YOUR_CRON_SECRET` with the value of `CRON_SECRET` from your `.env` file.
 
+<Info>
+  These endpoints accept the secret as a `GET` header (`Authorization: Bearer YOUR_CRON_SECRET`, as above) or in a `POST` JSON body (`{ "CRON_SECRET": "YOUR_CRON_SECRET" }`).
+</Info>
+
 ## Optional: Background Job Backends
 
 Inbox Zero supports multiple background job backends for self-hosted deployments:
