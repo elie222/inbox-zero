@@ -19,13 +19,16 @@ import {
 import type { getEmailAccount } from "@/__tests__/helpers";
 import type { ActionType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
+import { buildAssistantChatEvalEnv } from "@/__tests__/eval/assistant-chat-eval-env";
 
 // pnpm test-ai eval/assistant-chat-static-sender-rules
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-static-sender-rules
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 150_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-static-sender-rules-static-from",
+});
 const logger = createScopedLogger(
   "eval-assistant-chat-static-sender-rules-static-from",
 );
@@ -131,11 +134,7 @@ vi.mock("@/utils/senders/unsubscribe", () => ({
 vi.mock("@/utils/prisma");
 
 vi.mock("@/env", () => ({
-  env: {
-    NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
-    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
-    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
-  },
+  env: buildAssistantChatEvalEnv(),
 }));
 
 describe.runIf(shouldRunEval)(

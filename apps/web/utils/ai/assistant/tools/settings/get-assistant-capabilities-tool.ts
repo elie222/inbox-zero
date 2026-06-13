@@ -23,7 +23,7 @@ export const getAssistantCapabilitiesTool = ({
 }) =>
   tool({
     description:
-      "Get a capability snapshot showing which assistant/account settings can be read or updated from chat.",
+      "Get a capability snapshot showing which assistant/account settings can be read or updated from chat. If the snapshot shows no writable path supports the user's request, explain that limitation instead of approximating the request through a different setting.",
     inputSchema: emptyInputSchema,
     execute: async () => {
       trackSettingsToolCall({

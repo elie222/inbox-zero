@@ -28,13 +28,16 @@ import { createScopedLogger } from "@/utils/logger";
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
 import type { getEmailAccount } from "@/__tests__/helpers";
+import { buildAssistantChatEvalEnv } from "@/__tests__/eval/assistant-chat-eval-env";
 
 // pnpm test-ai eval/assistant-chat-settings-memory
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-settings-memory
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-settings-memory",
+});
 const logger = createScopedLogger("eval-assistant-chat-settings-memory");
 const selectedScenarios =
   process.env.EVAL_MODELS === "all"
@@ -76,11 +79,7 @@ vi.mock("@/utils/email/provider", () => ({
 }));
 
 vi.mock("@/env", () => ({
-  env: {
-    NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
-    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
-    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
-  },
+  env: buildAssistantChatEvalEnv(),
 }));
 
 const mockIsActivePremium = vi.mocked(isActivePremium);
@@ -521,7 +520,11 @@ async function evaluateScenario(
   }
 }
 
-function hasNoToolCalls(toolCalls: RecordedToolCall[], toolNames: string[]) {
+function hasNoToolCalls(
+  toolCalls: RecordedToolCall[],
+  toolNames: string[] | undefined,
+) {
+  if (!toolNames?.length) return true;
   return !toolCalls.some((toolCall) => toolNames.includes(toolCall.toolName));
 }
 

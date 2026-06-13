@@ -7,7 +7,7 @@ import type { GetUserRulesAndSettingsTool } from "@/utils/ai/assistant/tools/rul
 import type { UpdatePersonalInstructionsTool } from "@/utils/ai/assistant/tools/rules/update-personal-instructions-tool";
 import type { UpdateLearnedPatternsTool } from "@/utils/ai/assistant/tools/rules/update-learned-patterns-tool";
 import type { UpdateRuleTool } from "@/utils/ai/assistant/tools/rules/update-rule-tool";
-import type { UpdateRuleStateTool } from "@/utils/ai/assistant/tools/rules/update-rule-state-tool";
+import type { DeleteRuleTool } from "@/utils/ai/assistant/tools/rules/delete-rule-tool";
 import type { GetAssistantCapabilitiesTool } from "@/utils/ai/assistant/tools/settings/get-assistant-capabilities-tool";
 import type { UpdateAssistantSettingsTool } from "@/utils/ai/assistant/tools/settings/update-assistant-settings-tool";
 import type {
@@ -52,7 +52,7 @@ export type ChatTools = {
   getLearnedPatterns: GetLearnedPatternsTool;
   createRule: CreateRuleTool;
   updateRule: UpdateRuleTool;
-  updateRuleState: UpdateRuleStateTool;
+  deleteRule: DeleteRuleTool;
   updateLearnedPatterns: UpdateLearnedPatternsTool;
   updatePersonalInstructions: UpdatePersonalInstructionsTool;
   addToKnowledgeBase: AddToKnowledgeBaseTool;

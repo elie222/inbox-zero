@@ -17,7 +17,9 @@ const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 
 describe.runIf(shouldRunEval)("Eval: prompt security core paths", () => {
-  const evalReporter = createEvalReporter();
+  const evalReporter = createEvalReporter({
+    evalName: "prompt-security-core-paths",
+  });
   const logger = createTestLogger();
 
   describeEvalMatrix("prompt-security core paths", (model, emailAccount) => {

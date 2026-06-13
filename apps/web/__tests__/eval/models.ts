@@ -36,11 +36,6 @@ const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
     model: "openai/gpt-5.4-mini",
     label: "GPT-5.4 Mini",
   },
-  "deepseek-v4-flash": {
-    provider: "openrouter",
-    model: "deepseek/deepseek-v4-flash",
-    label: "DeepSeek V4 Flash",
-  },
   "deepseek-v4-pro-azure": {
     provider: "azure-foundry",
     model: "DeepSeek-V4-Pro",

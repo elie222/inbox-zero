@@ -76,6 +76,20 @@ type ManageInboxInputForDisplay = {
   threadIds?: string[] | null;
 };
 
+type LegacyUpdateRuleStatePart = {
+  type: "tool-updateRuleState";
+  toolCallId: string;
+  state: string;
+  input: Parameters<typeof UpdatedRuleState>[0]["args"];
+  output?: unknown;
+};
+
+function isLegacyUpdateRuleStatePart(
+  part: ChatMessage["parts"][0],
+): part is LegacyUpdateRuleStatePart {
+  return part.type === "tool-updateRuleState";
+}
+
 function ErrorToolCard({ error }: { error: string }) {
   return <div className="text-xs text-muted-foreground">Error: {error}</div>;
 }
@@ -488,7 +502,52 @@ export function MessagePart({
     }
   }
 
-  if (part.type === "tool-updateRuleState") {
+  if (part.type === "tool-deleteRule") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={`Preparing to delete rule "${part.input.ruleName}"...`}
+        />
+      );
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return renderToolError(toolCallId, output);
+      }
+      const ruleId = getOutputField<string>(output, "ruleId");
+      if (!ruleId)
+        return (
+          <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />
+        );
+
+      const requiresDeleteConfirmation =
+        getOutputField<boolean>(output, "requiresConfirmation") === true &&
+        getOutputField<string>(output, "actionType") === "delete_rule";
+      if (requiresDeleteConfirmation) {
+        return (
+          <PendingDeleteRuleToolCard
+            key={toolCallId}
+            args={part.input}
+            output={output}
+            disableConfirm={disableConfirm || !isPersistedMessage}
+          />
+        );
+      }
+
+      const ruleName = getOutputField<string>(output, "ruleName");
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={`Deleted rule "${ruleName || part.input.ruleName}"`}
+        />
+      );
+    }
+  }
+
+  if (isLegacyUpdateRuleStatePart(part)) {
     const { toolCallId, state } = part;
     if (state === "input-available") {
       const verb =

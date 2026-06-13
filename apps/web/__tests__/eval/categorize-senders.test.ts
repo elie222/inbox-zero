@@ -357,7 +357,7 @@ const testCases = [
 ];
 
 describe.runIf(shouldRunEval)("Eval: Categorize Senders", () => {
-  const evalReporter = createEvalReporter();
+  const evalReporter = createEvalReporter({ evalName: "categorize-senders" });
 
   describeEvalMatrix("categorize", (model, emailAccount) => {
     for (const tc of testCases) {
