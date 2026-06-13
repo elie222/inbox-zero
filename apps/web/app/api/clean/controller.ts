@@ -131,10 +131,6 @@ export async function cleanThread({
     );
   }
 
-  function hasSentMail(message: ParsedMessage) {
-    return message.labelIds?.includes(GmailLabel.SENT);
-  }
-
   let needsLLMCheck = false;
 
   for (const message of messages) {
@@ -177,12 +173,12 @@ export async function cleanThread({
       }
     }
 
-    if (!hasSentMail(message) && hasUnsubscribeLink(message)) {
+    if (!isSent(message) && hasUnsubscribeLink(message)) {
       await publish({ markDone: true });
       return;
     }
 
-    if (!hasSentMail(message) && isNewsletterSender(message.headers.from)) {
+    if (!isSent(message) && isNewsletterSender(message.headers.from)) {
       await publish({ markDone: true });
       return;
     }

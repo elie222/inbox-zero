@@ -63,7 +63,7 @@ export async function processEvent(event: Stripe.Event, logger: Logger) {
 
   const [stripeSync] = syncResult;
 
-  const email = await getCustomerEmail(customerId);
+  const email = await getCustomerEmailOrUndefined(customerId, event, logger);
 
   const tasks: Promise<unknown>[] = [
     trackEvent(email, event),
@@ -227,6 +227,22 @@ async function getCustomerEmail(customerId: string) {
   });
 
   return premium?.users[0]?.email;
+}
+
+async function getCustomerEmailOrUndefined(
+  customerId: string,
+  event: Stripe.Event,
+  logger: Logger,
+) {
+  try {
+    return await getCustomerEmail(customerId);
+  } catch (error) {
+    logger.error("Failed to resolve Stripe customer email", {
+      customerId,
+      eventType: event.type,
+      error,
+    });
+  }
 }
 
 async function getStripeCustomerIdForEvent(event: Stripe.Event) {

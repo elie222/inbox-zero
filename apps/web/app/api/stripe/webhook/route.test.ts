@@ -142,6 +142,29 @@ describe("processEvent", () => {
     });
   });
 
+  it("continues billing syncs when customer email lookup fails", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+    mockFindUnique.mockRejectedValueOnce(new Error("lookup failed"));
+
+    await processEvent(invoiceEvent(), logger);
+
+    expect(mockTrackStripeEvent).toHaveBeenCalledWith(
+      "Unknown",
+      expect.objectContaining({
+        id: "evt_invoice_test",
+        type: "invoice.paid",
+      }),
+    );
+    expect(mockSyncStripeInvoicePayment).toHaveBeenCalledWith({
+      event: expect.objectContaining({ type: "invoice.paid" }),
+      logger,
+    });
+    expect(mockSyncAiGenerationOverageForUpcomingInvoice).toHaveBeenCalledWith({
+      event: expect.objectContaining({ type: "invoice.paid" }),
+      logger,
+    });
+  });
+
   it("skips dependent billing syncs after customer sync fails", async () => {
     mockSyncStripeDataToDb.mockRejectedValue(new Error("sync failed"));
 
