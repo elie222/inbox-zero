@@ -44,6 +44,7 @@ import {
   getActionTypesForCategoryAction,
 } from "@/utils/rule/consts";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
+import { assertRuleIsNotOrgManaged } from "@/utils/organizations/rules";
 import { env } from "@/env";
 import { prefixPath } from "@/utils/path";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
@@ -126,6 +127,8 @@ export const updateRuleAction = actionClient
         conditionalOperator,
       },
     }) => {
+      await assertRuleIsNotOrgManaged({ ruleId: id, emailAccountId });
+
       await assertCanUseDigestsIfNeeded(userId, actions);
 
       const conditions = flattenConditions(conditionsInput, logger);
@@ -171,6 +174,8 @@ export const updateRuleSettingsAction = actionClient
   .inputSchema(updateRuleSettingsBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { id, instructions } }) => {
+      await assertRuleIsNotOrgManaged({ ruleId: id, emailAccountId });
+
       const currentRule = await prisma.rule.findUnique({
         where: { id, emailAccountId },
       });
@@ -286,9 +291,14 @@ export const deleteRuleAction = actionClient
           emailAccountId,
         },
       },
-      select: { systemType: true, groupId: true },
+      select: { systemType: true, groupId: true, organizationRuleId: true },
     });
     if (!rule) return; // already deleted
+    if (rule.organizationRuleId) {
+      throw new SafeError(
+        "This rule is managed by your organization and can't be deleted here.",
+      );
+    }
     if (rule.systemType) {
       throw new SafeError(
         "Default rules cannot be deleted. Disable them instead.",
@@ -504,15 +514,16 @@ export const toggleAllRulesAction = actionClient
   .metadata({ name: "toggleAllRules" })
   .inputSchema(toggleAllRulesBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
+    // Org copies derive enabled from the org rule + opt-in; toggled separately.
     if (enabled) {
       await prisma.rule.updateMany({
-        where: { emailAccountId },
+        where: { emailAccountId, organizationRuleId: null },
         data: { enabled },
       });
     } else {
       await prisma.$transaction([
         prisma.rule.updateMany({
-          where: { emailAccountId },
+          where: { emailAccountId, organizationRuleId: null },
           data: { enabled },
         }),
         prisma.emailAccount.update({
@@ -567,11 +578,12 @@ export const copyRulesFromAccountAction = actionClientUser
         throw new SafeError("Target account not found or unauthorized");
       }
 
-      // Fetch selected rules from source account
+      // Exclude org-managed rules; they aren't copyable.
       const sourceRules = await prisma.rule.findMany({
         where: {
           emailAccountId: sourceEmailAccountId,
           id: { in: ruleIds },
+          organizationRuleId: null,
         },
         include: { actions: true },
       });
@@ -585,9 +597,12 @@ export const copyRulesFromAccountAction = actionClientUser
         sourceRules.flatMap((rule) => rule.actions),
       );
 
-      // Fetch existing rules in target account to check for duplicates
+      // Match only personal rules so org-managed copies aren't overwritten.
       const targetRules = await prisma.rule.findMany({
-        where: { emailAccountId: targetEmailAccountId },
+        where: {
+          emailAccountId: targetEmailAccountId,
+          organizationRuleId: null,
+        },
         select: { id: true, name: true, systemType: true },
       });
 
@@ -698,6 +713,8 @@ async function toggleRule({
   logger: Logger;
 }) {
   if (ruleId) {
+    // Org copies are toggled only via setMemberOrganizationRuleEnabled.
+    await assertRuleIsNotOrgManaged({ ruleId, emailAccountId });
     return await setRuleEnabled({ ruleId, emailAccountId, enabled });
   }
 
@@ -1050,9 +1067,9 @@ export const importRulesAction = actionClient
         rules.flatMap((rule) => rule.actions),
       );
 
-      // Fetch existing rules to check for duplicates by name or systemType
+      // Match only personal rules so org-managed copies aren't overwritten.
       const existingRules = await prisma.rule.findMany({
-        where: { emailAccountId },
+        where: { emailAccountId, organizationRuleId: null },
         select: { id: true, name: true, systemType: true },
       });
 

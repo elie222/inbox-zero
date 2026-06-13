@@ -34,8 +34,10 @@ import { createEmailProvider } from "@/utils/email/provider";
 import {
   deleteRuleAction,
   enableDraftRepliesAction,
+  toggleRuleAction,
   updateRuleAction,
 } from "@/utils/actions/rule";
+import { RULE_MANAGED_BY_ORGANIZATION_ERROR } from "@/utils/organizations/rules";
 
 describe("enableDraftRepliesAction", () => {
   beforeEach(() => {
@@ -224,5 +226,89 @@ describe("updateRuleAction", () => {
         },
       }),
     );
+  });
+
+  it("rejects updating an org-managed rule copy", async () => {
+    (
+      prisma.emailAccount.findUnique as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    });
+
+    prisma.rule.findUnique.mockResolvedValue({
+      organizationRuleId: "org-rule-1",
+    } as never);
+
+    const result = await updateRuleAction(
+      "ea_1" as never,
+      {
+        id: "managed-rule",
+        name: "Updated rule",
+        instructions: null,
+        groupId: null,
+        runOnThreads: true,
+        digest: false,
+        actions: [
+          {
+            type: ActionType.ARCHIVE,
+            messagingChannelId: null,
+            labelId: null,
+            subject: null,
+            content: null,
+            to: null,
+            cc: null,
+            bcc: null,
+            url: null,
+            folderName: null,
+            folderId: null,
+            delayInMinutes: null,
+          },
+        ],
+        conditions: [
+          {
+            type: ConditionType.STATIC,
+            instructions: null,
+            to: null,
+            from: "sender@example.com",
+            subject: null,
+            body: null,
+          },
+        ],
+        conditionalOperator: "AND",
+        systemType: null,
+      } as never,
+    );
+
+    expect(result?.serverError).toBe(RULE_MANAGED_BY_ORGANIZATION_ERROR);
+    expect(prisma.rule.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("toggleRuleAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(createEmailProvider).mockResolvedValue({} as any);
+  });
+
+  it("rejects toggling an org-managed rule copy via the personal path", async () => {
+    (
+      prisma.emailAccount.findUnique as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    });
+
+    prisma.rule.findUnique.mockResolvedValue({
+      organizationRuleId: "org-rule-1",
+    } as never);
+
+    const result = await toggleRuleAction(
+      "ea_1" as never,
+      { ruleId: "managed-rule", enabled: true } as never,
+    );
+
+    expect(result?.serverError).toBe(RULE_MANAGED_BY_ORGANIZATION_ERROR);
+    expect(setRuleEnabledMock).not.toHaveBeenCalled();
   });
 });

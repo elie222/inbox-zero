@@ -27,32 +27,40 @@ export function RuleImportExportSetting({
   const exportRules = useCallback(() => {
     if (!data) return;
 
-    const exportData = data.map((rule) => ({
-      name: rule.name,
-      instructions: rule.instructions,
-      enabled: rule.enabled,
-      automate: rule.automate,
-      runOnThreads: rule.runOnThreads,
-      systemType: rule.systemType,
-      conditionalOperator: rule.conditionalOperator,
-      from: rule.from,
-      to: rule.to,
-      subject: rule.subject,
-      body: rule.body,
-      categoryFilterType: rule.categoryFilterType,
-      actions: rule.actions.map((action) => ({
-        type: action.type,
-        label: action.label,
-        to: action.to,
-        cc: action.cc,
-        bcc: action.bcc,
-        subject: action.subject,
-        content: action.content,
-        folderName: action.folderName,
-        url: action.url,
-        delayInMinutes: action.delayInMinutes,
-      })),
-    }));
+    // Org-managed rules are owned by the organization and not portable.
+    const exportData = data
+      .filter((rule) => !rule.organizationRuleId)
+      .map((rule) => ({
+        name: rule.name,
+        instructions: rule.instructions,
+        enabled: rule.enabled,
+        automate: rule.automate,
+        runOnThreads: rule.runOnThreads,
+        systemType: rule.systemType,
+        conditionalOperator: rule.conditionalOperator,
+        from: rule.from,
+        to: rule.to,
+        subject: rule.subject,
+        body: rule.body,
+        categoryFilterType: rule.categoryFilterType,
+        actions: rule.actions.map((action) => ({
+          type: action.type,
+          label: action.label,
+          to: action.to,
+          cc: action.cc,
+          bcc: action.bcc,
+          subject: action.subject,
+          content: action.content,
+          folderName: action.folderName,
+          url: action.url,
+          delayInMinutes: action.delayInMinutes,
+        })),
+      }));
+
+    if (exportData.length === 0) {
+      toastError({ description: "No personal rules to export." });
+      return;
+    }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], {
       type: "application/json",

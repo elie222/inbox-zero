@@ -186,13 +186,16 @@ export const updateDigestItemsAction = actionClient
               id: ruleId,
               emailAccountId,
             },
-            select: { id: true, actions: true },
+            select: { id: true, actions: true, organizationRuleId: true },
           });
 
           if (!rule) {
             logger.error("Rule not found", { ruleId });
             return;
           }
+
+          // Skip org-managed copies (admin-owned actions).
+          if (rule.organizationRuleId) return;
 
           const hasDigestAction = rule.actions.some(
             (action) => action.type === ActionType.DIGEST,

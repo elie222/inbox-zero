@@ -10,6 +10,11 @@ async function getRules({ emailAccountId }: { emailAccountId: string }) {
     include: {
       actions: true,
       group: { select: { name: true } },
+      organizationRule: {
+        select: {
+          enabled: true,
+        },
+      },
     },
     orderBy: { createdAt: "asc" },
   });
