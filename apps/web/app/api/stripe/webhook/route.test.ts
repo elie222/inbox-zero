@@ -2,7 +2,7 @@ import type Stripe from "stripe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 import { getStripeCancellationInitiatedAt } from "./cancellation-initiated";
-import { processEvent } from "./route";
+import { processEvent } from "./controller";
 import { getStripeTrialConvertedAt } from "./trial-conversion";
 
 const {
@@ -132,6 +132,29 @@ describe("processEvent", () => {
       customerId: "cus_test",
       logger,
     });
+    expect(mockSyncStripeInvoicePayment).toHaveBeenCalledWith({
+      event: expect.objectContaining({ type: "invoice.paid" }),
+      logger,
+    });
+    expect(mockSyncAiGenerationOverageForUpcomingInvoice).toHaveBeenCalledWith({
+      event: expect.objectContaining({ type: "invoice.paid" }),
+      logger,
+    });
+  });
+
+  it("continues billing syncs when customer email lookup fails", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+    mockFindUnique.mockRejectedValueOnce(new Error("lookup failed"));
+
+    await processEvent(invoiceEvent(), logger);
+
+    expect(mockTrackStripeEvent).toHaveBeenCalledWith(
+      "Unknown",
+      expect.objectContaining({
+        id: "evt_invoice_test",
+        type: "invoice.paid",
+      }),
+    );
     expect(mockSyncStripeInvoicePayment).toHaveBeenCalledWith({
       event: expect.objectContaining({ type: "invoice.paid" }),
       logger,

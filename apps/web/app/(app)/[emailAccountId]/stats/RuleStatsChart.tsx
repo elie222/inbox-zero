@@ -1,5 +1,6 @@
 "use client";
 
+import type { ComponentType, ReactNode } from "react";
 import { useMemo } from "react";
 import type { DateRange } from "react-day-picker";
 import { LabelList, Pie, PieChart } from "recharts";
@@ -38,6 +39,24 @@ const CHART_COLORS = [
   "var(--chart-4)",
   "var(--chart-5)",
 ];
+
+const ChartPieChart = PieChart as unknown as ComponentType<{
+  children: ReactNode;
+}>;
+const ChartPie = Pie as unknown as ComponentType<{
+  children: ReactNode;
+  data: { fill: string; name: string; value: number }[];
+  dataKey: string;
+}>;
+const ChartLabelList = LabelList as unknown as ComponentType<{
+  className?: string;
+  dataKey: string;
+  fontSize?: number;
+  stroke?: string;
+}>;
+const ChartTooltipComponent = ChartTooltip as unknown as ComponentType<{
+  content: ReactNode;
+}>;
 
 export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
   const params = getDateRangeParams(dateRange);
@@ -129,21 +148,21 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
                     config={chartConfig}
                     className="mx-auto aspect-square max-h-[300px] [&_.recharts-text]:fill-background"
                   >
-                    <PieChart>
-                      <ChartTooltip
+                    <ChartPieChart>
+                      <ChartTooltipComponent
                         content={
                           <ChartTooltipContent nameKey="value" hideLabel />
                         }
                       />
-                      <Pie data={pieChartData} dataKey="value">
-                        <LabelList
+                      <ChartPie data={pieChartData} dataKey="value">
+                        <ChartLabelList
                           dataKey="name"
                           className="fill-background"
                           stroke="none"
                           fontSize={12}
                         />
-                      </Pie>
-                    </PieChart>
+                      </ChartPie>
+                    </ChartPieChart>
                   </ChartContainer>
                 </CardContent>
               </ShadcnCard>

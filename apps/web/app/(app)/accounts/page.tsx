@@ -3,7 +3,7 @@
 import { useAction } from "next-safe-action/hooks";
 import Link from "next/link";
 import { Trash2, MoreVertical, Settings } from "lucide-react";
-import type { ReactNode } from "react";
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { AlertError } from "@/components/Alert";
@@ -122,9 +122,9 @@ function AccountHeader({
         <CardDescription>{emailAccount.email}</CardDescription>
       </div>
       <div
-        onClick={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
+        onClick={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}
+        onMouseDown={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}
+        onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
           if (e.key === "Enter" || e.key === " ") {
             e.stopPropagation();
           }
@@ -177,12 +177,15 @@ function AccountOptionsDropdown({
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+      <DropdownMenuContent
+        align="end"
+        onClick={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}
+      >
         <DropdownMenuItem asChild>
           <Link
             href={prefixPath(emailAccount.id, "/setup")}
             className="flex items-center gap-2"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e: MouseEvent<HTMLAnchorElement>) => e.stopPropagation()}
           >
             <Settings className="size-4" />
             Setup
@@ -191,11 +194,11 @@ function AccountOptionsDropdown({
         <ConfirmDialog
           trigger={
             <DropdownMenuItem
-              onSelect={(e) => {
+              onSelect={(e: Event) => {
                 e?.preventDefault();
                 e?.stopPropagation?.();
               }}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}
               className="flex items-center gap-2 text-destructive focus:text-destructive"
               disabled={isExecuting}
             >

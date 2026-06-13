@@ -268,7 +268,7 @@ export const ComposeEmailForm = ({
                               key={person.emailAddress}
                               value={person.emailAddress}
                             >
-                              {({ selected }) => (
+                              {({ selected }: { selected: boolean }) => (
                                 <div className="my-2 flex items-center">
                                   {selected ? (
                                     <div className="flex h-12 w-12 items-center justify-center rounded-full">
