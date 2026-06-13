@@ -130,7 +130,7 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `NEXT_PUBLIC_IS_RESEND_CONFIGURED` | No | Client-side flag indicating if Resend is configured | — |
 | **Other** ||||
 | `API_KEY_SALT` | No* | Salt used to hash external API keys. Generate with `openssl rand -hex 32`. Required when `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true`. | — |
-| `CRON_SECRET` | No | Secret for cron job authentication | — |
+| `CRON_SECRET` | No | Shared secret that authenticates calls to the scheduled-task endpoints (`/api/cron/*`, `/api/watch/all`, `/api/meeting-briefs`, `/api/follow-up-reminders`). Required if you trigger these endpoints yourself instead of using the bundled Docker Compose `cron` container. Generate with `openssl rand -hex 32`. See [Scheduled Tasks](/hosting/self-hosting#scheduled-tasks). | — |
 | `HEALTH_API_KEY` | No | API key for health checks | — |
 | `WEBHOOK_URL` | No | External webhook URL | — |
 | `INTERNAL_API_URL` | No | Preferred callback base URL for QStash and server-side internal callbacks | `NEXT_PUBLIC_BASE_URL` |
