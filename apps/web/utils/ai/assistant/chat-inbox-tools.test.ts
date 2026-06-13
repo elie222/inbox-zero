@@ -183,6 +183,79 @@ describe("chat inbox tools", () => {
     });
   });
 
+  it("reuses an existing rule-generated draft for the same reply message", async () => {
+    const message: ParsedMessage = {
+      id: "message-1",
+      threadId: "thread-1",
+      snippet: "",
+      historyId: "",
+      inline: [],
+      headers: {
+        from: "contact@example.com",
+        to: TEST_EMAIL,
+        subject: "Question",
+        date: "2026-02-18T00:00:00.000Z",
+      },
+      subject: "Question",
+      date: "2026-02-18T00:00:00.000Z",
+    };
+    const existingDraft: ParsedMessage = {
+      id: "draft-message-1",
+      threadId: "thread-1",
+      snippet: "",
+      historyId: "",
+      inline: [],
+      headers: {
+        from: TEST_EMAIL,
+        to: "contact@example.com",
+        subject: "Re: Question",
+        date: "2026-02-18T00:01:00.000Z",
+      },
+      subject: "Re: Question",
+      date: "2026-02-18T00:01:00.000Z",
+      textPlain: "Existing rule draft.",
+    };
+    const getMessage = vi.fn().mockResolvedValue(message);
+    const getDraft = vi.fn().mockResolvedValue(existingDraft);
+    const replyToEmail = vi.fn().mockResolvedValue(undefined);
+
+    prisma.executedAction.findFirst.mockResolvedValue({
+      id: "executed-action-1",
+      draftId: "draft-1",
+      content: "Original generated draft.",
+    } as any);
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getMessage,
+      getDraft,
+      replyToEmail,
+    } as any);
+
+    const toolInstance = replyEmailTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      messageId: "message-1",
+      content: "New chat-generated draft.",
+    });
+
+    expect(getDraft).toHaveBeenCalledWith("draft-1");
+    expect(replyToEmail).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      success: true,
+      actionType: "reply_email",
+      pendingAction: {
+        messageId: "message-1",
+        content: "Existing rule draft.",
+        existingDraftId: "draft-1",
+        existingDraftActionId: "executed-action-1",
+      },
+    });
+  });
+
   it("prepares forward flow without sending immediately", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       name: "Test User",

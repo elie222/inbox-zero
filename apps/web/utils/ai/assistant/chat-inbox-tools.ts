@@ -10,11 +10,19 @@ import {
   splitRecipientList,
 } from "@/utils/email";
 import { getRuleLabel } from "@/utils/rule/consts";
-import { SystemType } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  DraftEmailStatus,
+  SystemType,
+} from "@/generated/prisma/enums";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
+import {
+  extractDraftPlainText,
+  stripQuotedContent,
+} from "@/utils/ai/choose-rule/draft-management";
 import { runWithBoundedConcurrency } from "@/utils/async";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import {
@@ -1298,11 +1306,21 @@ export const replyEmailTool = ({
           provider,
           logger,
         });
-        const message = await emailProvider.getMessage(
-          parsedInput.data.messageId,
-        );
+        const [message, existingDraft] = await Promise.all([
+          emailProvider.getMessage(parsedInput.data.messageId),
+          getExistingRuleGeneratedReplyDraft({
+            emailAccountId,
+            messageId: parsedInput.data.messageId,
+            emailProvider,
+            logger,
+          }),
+        ]);
 
-        return createPendingReplyEmailOutput(parsedInput.data, message);
+        return createPendingReplyEmailOutput(
+          parsedInput.data,
+          message,
+          existingDraft,
+        );
       } catch (error) {
         logger.error("Failed to prepare reply from chat", { error });
         return { error: "Failed to prepare reply" };
@@ -1391,6 +1409,11 @@ async function listLabelNames({
 }
 
 type PendingEmailActionType = "send_email" | "reply_email" | "forward_email";
+type ExistingRuleGeneratedReplyDraft = {
+  actionId: string;
+  draftId: string;
+  content: string;
+};
 
 function createPendingSendEmailOutput(
   input: z.infer<typeof sendEmailToolInputSchema>,
@@ -1417,6 +1440,7 @@ function createPendingSendEmailOutput(
 function createPendingReplyEmailOutput(
   input: z.infer<typeof replyEmailToolInputSchema>,
   message: ParsedMessage,
+  existingDraft?: ExistingRuleGeneratedReplyDraft | null,
 ) {
   return {
     success: true,
@@ -1425,7 +1449,13 @@ function createPendingReplyEmailOutput(
     confirmationState: "pending" as const,
     pendingAction: {
       messageId: input.messageId,
-      content: input.content,
+      content: existingDraft?.content ?? input.content,
+      ...(existingDraft
+        ? {
+            existingDraftId: existingDraft.draftId,
+            existingDraftActionId: existingDraft.actionId,
+          }
+        : {}),
     },
     reference: {
       messageId: message.id,
@@ -1434,6 +1464,63 @@ function createPendingReplyEmailOutput(
       subject: message.subject || message.headers.subject,
     },
   };
+}
+
+async function getExistingRuleGeneratedReplyDraft({
+  emailAccountId,
+  messageId,
+  emailProvider,
+  logger,
+}: {
+  emailAccountId: string;
+  messageId: string;
+  emailProvider: EmailProvider;
+  logger: Logger;
+}): Promise<ExistingRuleGeneratedReplyDraft | null> {
+  const existingDraftAction = await prisma.executedAction.findFirst({
+    where: {
+      executedRule: {
+        emailAccountId,
+        messageId,
+      },
+      type: ActionType.DRAFT_EMAIL,
+      draftId: { not: null },
+      draftSendLog: null,
+      OR: [{ draftStatus: null }, { draftStatus: DraftEmailStatus.PENDING }],
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      draftId: true,
+      content: true,
+    },
+  });
+
+  if (!existingDraftAction?.draftId) return null;
+
+  try {
+    const draft = await emailProvider.getDraft(existingDraftAction.draftId);
+    if (!draft) return null;
+
+    const content =
+      stripQuotedContent(extractDraftPlainText(draft)).trim() ||
+      existingDraftAction.content?.trim();
+
+    if (!content) return null;
+
+    return {
+      actionId: existingDraftAction.id,
+      draftId: existingDraftAction.draftId,
+      content,
+    };
+  } catch (error) {
+    logger.warn("Failed to load existing rule-generated draft for chat reply", {
+      error,
+      draftId: existingDraftAction.draftId,
+      executedActionId: existingDraftAction.id,
+    });
+    return null;
+  }
 }
 
 function createPendingForwardEmailOutput(
