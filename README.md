@@ -1,3 +1,5 @@
+[![Sponsor](https://readme.cash/i/hg3bchcqpo.svg)](https://readme.cash/c/hg3bchcqpo)
+
 [![](apps/web/app/opengraph-image.jpg)](https://www.getinboxzero.com)
 
 <p align="center">
