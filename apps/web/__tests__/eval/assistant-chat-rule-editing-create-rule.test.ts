@@ -195,6 +195,116 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule creation", () => {
 
       expect(pass).toBe(true);
     }, 120_000);
+
+    test("creates ordinary archive automation without webhook actions", async () => {
+      const request =
+        "Create a new rule called Vendor Updates that archives routine product update emails from software vendors.";
+      const { toolCalls, actual } = await runAssistantChat({
+        emailAccount,
+        messages: [
+          {
+            role: "user",
+            content: request,
+          },
+        ],
+      });
+
+      const createCall = getLastMatchingToolCall(
+        toolCalls,
+        "createRule",
+        isCreateRuleInput,
+      )?.input;
+      const judgeResult = createCall
+        ? await judgeEvalOutput({
+            input: request,
+            output: createCall.condition.aiInstructions ?? "",
+            expected:
+              "Semantic rule instructions that identify routine product update emails from software vendors or equivalent vendor update language. Exact wording does not need to match the prompt.",
+            criterion: {
+              name: "Archive rule condition",
+              description:
+                "The generated aiInstructions should semantically describe routine software vendor product updates, including concise phrases. It must not add unrelated webhook, external integration, or forwarding requirements.",
+            },
+          })
+        : null;
+
+      const pass =
+        !!createCall &&
+        !!judgeResult?.pass &&
+        createCall.name === "Vendor Updates" &&
+        hasActionType(createCall.actions, ActionType.ARCHIVE) &&
+        !hasActionType(createCall.actions, ActionType.CALL_WEBHOOK);
+
+      evalReporter.record({
+        testName: "create archive rule without webhook",
+        model: model.label,
+        pass,
+        actual: createCall
+          ? `${actual} | actions=${summarizeActionTypes(createCall.actions)} | ${formatSemanticJudgeActual(
+              createCall.condition.aiInstructions ?? "",
+              judgeResult!,
+            )}`
+          : actual,
+      });
+
+      expect(pass).toBe(true);
+    }, 120_000);
+
+    test("creates ordinary label and mark-read automation without webhook actions", async () => {
+      const request =
+        "Create a new rule called Finance FYI that labels payment confirmations as Finance FYI and marks them read.";
+      const { toolCalls, actual } = await runAssistantChat({
+        emailAccount,
+        messages: [
+          {
+            role: "user",
+            content: request,
+          },
+        ],
+      });
+
+      const createCall = getLastMatchingToolCall(
+        toolCalls,
+        "createRule",
+        isCreateRuleInput,
+      )?.input;
+      const judgeResult = createCall
+        ? await judgeEvalOutput({
+            input: request,
+            output: createCall.condition.aiInstructions ?? "",
+            expected:
+              "Semantic rule instructions that identify payment confirmations or equivalent finance confirmation emails. Exact wording does not need to match the prompt.",
+            criterion: {
+              name: "Label and mark-read rule condition",
+              description:
+                "The generated aiInstructions should semantically describe payment confirmations, including concise phrases. It must not add unrelated webhook, external integration, or forwarding requirements.",
+            },
+          })
+        : null;
+
+      const pass =
+        !!createCall &&
+        !!judgeResult?.pass &&
+        createCall.name === "Finance FYI" &&
+        hasActionType(createCall.actions, ActionType.LABEL) &&
+        hasActionType(createCall.actions, ActionType.MARK_READ) &&
+        hasLabelAction(createCall.actions, "Finance FYI") &&
+        !hasActionType(createCall.actions, ActionType.CALL_WEBHOOK);
+
+      evalReporter.record({
+        testName: "create label mark-read rule without webhook",
+        model: model.label,
+        pass,
+        actual: createCall
+          ? `${actual} | actions=${summarizeActionTypes(createCall.actions)} | ${formatSemanticJudgeActual(
+              createCall.condition.aiInstructions ?? "",
+              judgeResult!,
+            )}`
+          : actual,
+      });
+
+      expect(pass).toBe(true);
+    }, 120_000);
   });
 
   afterAll(() => {
@@ -272,6 +382,10 @@ function hasLabelAction(
       action.type === ActionType.LABEL &&
       action.fields?.label === expectedLabel,
   );
+}
+
+function summarizeActionTypes(actions: Array<{ type: ActionType }>) {
+  return actions.map((action) => action.type).join(",");
 }
 
 function summarizeToolCall(toolCall: { toolName: string; input: unknown }) {

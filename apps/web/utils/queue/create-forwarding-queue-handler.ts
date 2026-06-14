@@ -34,7 +34,7 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
 }) {
   const logger = createScopedLogger(loggerScope);
 
-  return handleCallback<z.infer<TSchema>>(
+  const queueHandler = handleCallback<z.infer<TSchema>>(
     async (message, metadata) => {
       const parseResult = schema.safeParse(message);
       if (!parseResult.success) {
@@ -71,4 +71,6 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
       }),
     },
   );
+
+  return (request: Request) => queueHandler(request);
 }

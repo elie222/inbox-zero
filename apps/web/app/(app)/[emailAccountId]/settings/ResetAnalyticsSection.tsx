@@ -39,7 +39,10 @@ export function ResetAnalyticsSection({
                 loading: "Resetting analytics...",
                 success: () =>
                   "Analytics reset! Visit the Unsubscriber or Analytics page and click the 'Load More' button to reload your data.",
-                error: (err) => `Error resetting analytics: ${err.message}`,
+                error: (err: unknown) =>
+                  `Error resetting analytics: ${
+                    err instanceof Error ? err.message : "Unknown error"
+                  }`,
               });
             }}
           >

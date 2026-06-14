@@ -1,17 +1,22 @@
 import type { RuleRequestBody } from "@/app/api/v1/rules/validation";
+import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
+import { toCreateOrUpdateRuleCondition } from "@/utils/rule/create-rule-condition";
 
-export function toRuleWriteInput(body: RuleRequestBody) {
+type RuleWriteInput = {
+  name: string;
+  condition: CreateOrUpdateRuleSchema["condition"];
+  actions: CreateOrUpdateRuleSchema["actions"];
+  runOnThreads: boolean;
+};
+
+export function toRuleWriteInput(body: RuleRequestBody): RuleWriteInput {
   return {
     name: body.name,
-    condition: {
+    condition: toCreateOrUpdateRuleCondition({
       conditionalOperator: body.condition.conditionalOperator ?? null,
-      aiInstructions: body.condition.aiInstructions ?? null,
-      static: {
-        from: body.condition.static?.from ?? null,
-        to: body.condition.static?.to ?? null,
-        subject: body.condition.static?.subject ?? null,
-      },
-    },
+      aiInstructions: body.condition.aiInstructions,
+      static: body.condition.static,
+    }),
     actions: body.actions.map((action) => ({
       type: action.type,
       messagingChannelId: action.messagingChannelId ?? null,

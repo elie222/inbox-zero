@@ -1,6 +1,0 @@
-{
-  "scripts": {
-    "run": "pnpm dev-setup dev --url conductor",
-    "archive": "node --no-warnings=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/dev-setup.ts clean"
-  }
-}

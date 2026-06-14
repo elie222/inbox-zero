@@ -6,8 +6,10 @@ import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { processMeetingBriefings } from "@/utils/meeting-briefs/process";
+import { runWithBoundedConcurrency } from "@/utils/async";
 
 export const maxDuration = 800;
+const MEETING_BRIEFING_ACCOUNT_CONCURRENCY = 5;
 
 export const GET = withError("meeting-briefs", async (request) => {
   if (!hasCronSecret(request)) {
@@ -62,28 +64,40 @@ async function processAllMeetingBriefings(logger: Logger) {
 
   logger.info("Found eligible accounts", { count: emailAccounts.length });
 
+  const results = await runWithBoundedConcurrency({
+    items: emailAccounts,
+    concurrency: MEETING_BRIEFING_ACCOUNT_CONCURRENCY,
+    run: (emailAccount) =>
+      processMeetingBriefings({
+        emailAccountId: emailAccount.id,
+        userEmail: emailAccount.email,
+        minutesBefore: emailAccount.meetingBriefingsMinutesBefore,
+        logger: logger.with({
+          emailAccountId: emailAccount.id,
+          email: emailAccount.email,
+        }),
+      }),
+  });
+
   let successCount = 0;
   let errorCount = 0;
 
-  for (const emailAccount of emailAccounts) {
+  for (const { item: emailAccount, result } of results) {
+    if (result.status === "fulfilled") {
+      successCount++;
+      continue;
+    }
+
     const log = logger.with({
       emailAccountId: emailAccount.id,
       email: emailAccount.email,
     });
 
-    try {
-      await processMeetingBriefings({
-        emailAccountId: emailAccount.id,
-        userEmail: emailAccount.email,
-        minutesBefore: emailAccount.meetingBriefingsMinutesBefore,
-        logger: log,
-      });
-      successCount++;
-    } catch (error) {
-      log.error("Failed to process meeting briefings for user", { error });
-      captureException(error);
-      errorCount++;
-    }
+    log.error("Failed to process meeting briefings for user", {
+      error: result.reason,
+    });
+    captureException(result.reason);
+    errorCount++;
   }
 
   logger.info("Completed processing meeting briefings", {

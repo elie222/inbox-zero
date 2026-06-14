@@ -1,4 +1,5 @@
 import { MessageCircleIcon } from "lucide-react";
+import type { ChangeEvent } from "react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { ParsedMessage } from "@/utils/types";
@@ -191,7 +192,9 @@ export function FixWithChat({
                   className="mt-1"
                   rows={2}
                   value={explanation}
-                  onChange={(e) => setExplanation(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                    setExplanation(e.target.value)
+                  }
                   aria-describedby="explanation-help"
                   autoFocus
                 />

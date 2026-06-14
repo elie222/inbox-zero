@@ -176,7 +176,11 @@ export async function createPublicBooking({
     createdEvent = await createCalendarEvent({
       emailAccountId: config.link.emailAccountId,
       destinationCalendarId: config.link.destinationCalendarId,
-      title: config.link.title,
+      title: getProviderEventTitle({
+        bookingLinkTitle: config.link.title,
+        guestName: input.guestName,
+        hostName: config.link.emailAccount.name,
+      }),
       description: getProviderEventDescription({
         guestName: input.guestName,
         guestEmail: input.guestEmail,
@@ -628,6 +632,7 @@ async function loadPublicBookingLink(slug: string) {
       },
       emailAccount: {
         select: {
+          name: true,
           calendarConnections: {
             where: { isConnected: true },
             select: {
@@ -913,6 +918,29 @@ function getProviderEventDescription({
   ]
     .filter((line) => line !== null)
     .join("\n");
+}
+
+function getProviderEventTitle({
+  bookingLinkTitle,
+  guestName,
+  hostName,
+}: {
+  bookingLinkTitle: string;
+  guestName: string;
+  hostName: string | null;
+}) {
+  const title = cleanCalendarTitleText(bookingLinkTitle) || "Meeting";
+  const host = hostName ? cleanCalendarTitleText(hostName) : "";
+  const guest = cleanCalendarTitleText(guestName);
+  const participant = guest || host;
+  const participants = host && guest ? ` between ${host} and ${guest}` : "";
+  const fallbackParticipant = participant ? ` with ${participant}` : "";
+
+  return `${title}${participants || fallbackParticipant}`;
+}
+
+function cleanCalendarTitleText(value: string) {
+  return cleanCalendarDescriptionText(value).replace(/\s+/g, " ").trim();
 }
 
 function cleanCalendarDescriptionText(value: string) {

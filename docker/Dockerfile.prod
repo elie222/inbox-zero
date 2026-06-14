@@ -39,8 +39,8 @@ COPY . .
 
  # Build app (Next.js standalone)
 ENV NODE_ENV=production
-# Increase V8 heap for Next build to avoid OOM in builder
-ENV NODE_OPTIONS=--max_old_space_size=4096
+# Increase V8 heap for the webpack production build.
+ENV NODE_OPTIONS=--max_old_space_size=8192
 ARG NEXT_PUBLIC_BASE_URL="http://NEXT_PUBLIC_BASE_URL_PLACEHOLDER"
 ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 ARG NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS="NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS_PLACEHOLDER"
@@ -88,7 +88,7 @@ ENV DOCKER_BUILD="true"
 
 RUN npx prisma generate --schema=apps/web/prisma/schema.prisma \
  && cd apps/web \
- && pnpm exec next build \
+ && pnpm exec next build --webpack \
  && cd ../.. \
  && pnpm --filter @inboxzero/worker deploy --legacy --prod /tmp/apps/worker \
  && cd /app \

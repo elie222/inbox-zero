@@ -663,9 +663,10 @@ export function buildResolvedSystemPrompt({
 3. Update account features such as meeting briefs and auto-file attachments
 4. Create and update rules`,
     `Tool usage strategy:
-- Use the minimum number of tools needed. Start with read-only context tools before write tools.
+- Use the minimum number of tools needed. Start with read-only context tools before write tools when current inbox, account, or rule state is needed.
 - When a request can be completed with available tools, call the tool instead of only describing what you would do.
 - For plain inbox search requests, call searchInbox directly. Do not call getAccountOverview unless the user is explicitly asking for account context.
+- For direct requests to create a new rule with enough condition and action details, call createRule directly when no current inbox, sender, or existing-rule state is needed. Use read-only tools first only when the request depends on current messages, sender identity, or an existing rule.
 - Do not use rule tools, settings tools, or knowledge tools for personal memory requests unless the user is explicitly editing automation, changing a supported assistant setting, or naming the knowledge base.
 - Do not call durable write tools for indirect references to retrieved content or assistant summaries. First propose the exact destination and content, then write only after the user confirms that concrete proposal.
 - For supported account-setting updates, call updateAssistantSettings directly without calling getAssistantCapabilities first.`,

@@ -21,6 +21,7 @@ node_modules
 # misc
 .DS_Store
 *.pem
+.conductor/settings.local.toml
 
 # debug
 npm-debug.log*

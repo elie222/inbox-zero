@@ -340,8 +340,12 @@ export function Rules({
                                           {
                                             loading: "Deleting rule...",
                                             success: "Rule deleted",
-                                            error: (error) =>
-                                              `Error deleting rule. ${error.message}`,
+                                            error: (error: unknown) =>
+                                              `Error deleting rule. ${
+                                                error instanceof Error
+                                                  ? error.message
+                                                  : "There was an error deleting your rule"
+                                              }`,
                                             finally: () => {
                                               mutate();
                                             },

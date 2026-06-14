@@ -91,8 +91,67 @@ describe("archive sender queue", () => {
     expect(queuedSenders).toBe(1);
     expect(mockFetchWithAccount).toHaveBeenCalledTimes(1);
     expect(mockFetchWithAccount).toHaveBeenCalledWith({
-      url: "/api/threads/basic?fromEmail=Sender%40example.com&labelId=INBOX",
+      url: "/api/threads/basic?fromEmail=Sender%40example.com&limit=100&labelId=INBOX",
       emailAccountId: "account-1",
+    });
+  });
+
+  it("fetches every sender thread page before queueing archive work", async () => {
+    mockFetchWithAccount
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: [{ id: "thread-1" }, { id: "thread-2" }],
+          nextPageToken: "page-2",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: [{ id: "thread-3" }],
+        }),
+      });
+
+    const { jotaiStore } = await import("@/store");
+    const { useArchiveSenderQueueActions, useArchiveSenderStatus } =
+      await import("./archive-sender-queue");
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <Provider store={jotaiStore}>{children}</Provider>
+    );
+
+    const { result: actionResult } = renderHook(
+      () => useArchiveSenderQueueActions("account-1"),
+      { wrapper },
+    );
+    const { result: statusResult } = renderHook(
+      () => useArchiveSenderStatus("account-1", "sender@example.com"),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await actionResult.current.queueArchiveSenders({
+        senders: ["sender@example.com"],
+      });
+    });
+
+    expect(mockFetchWithAccount).toHaveBeenNthCalledWith(1, {
+      url: "/api/threads/basic?fromEmail=sender%40example.com&limit=100&labelId=INBOX",
+      emailAccountId: "account-1",
+    });
+    expect(mockFetchWithAccount).toHaveBeenNthCalledWith(2, {
+      url: "/api/threads/basic?fromEmail=sender%40example.com&limit=100&labelId=INBOX&nextPageToken=page-2",
+      emailAccountId: "account-1",
+    });
+    expect(mockArchiveEmails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "account-1",
+        threadIds: ["thread-1", "thread-2", "thread-3"],
+      }),
+    );
+    expect(statusResult.current).toMatchObject({
+      status: "processing",
+      threadsTotal: 3,
     });
   });
 

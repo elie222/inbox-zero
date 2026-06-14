@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChangeEvent } from "react";
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess, toastInfo } from "@/components/Toast";
@@ -204,7 +205,9 @@ function SignatureDialog({
               <Textarea
                 id="signature"
                 value={manualSignature}
-                onChange={(e) => setManualSignature(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                  setManualSignature(e.target.value)
+                }
                 placeholder="Enter your email signature..."
                 className="min-h-[200px] font-mono text-sm"
               />

@@ -39,7 +39,11 @@ vi.mock("@/utils/automation-jobs/execute", async (importOriginal) => {
   };
 });
 
-import { POST } from "./route";
+import "./route";
+
+const queueCallback = handleCallbackMock.mock.calls[0]?.[0] as
+  | QueueCallback
+  | undefined;
 
 describe("automation job queue route", () => {
   beforeEach(() => {
@@ -52,7 +56,9 @@ describe("automation job queue route", () => {
   });
 
   it("ignores invalid queue payloads without executing a job run", async () => {
-    const queueCallback = POST as unknown as QueueCallback;
+    if (!queueCallback) {
+      throw new Error("Queue callback was not registered");
+    }
 
     await expect(
       queueCallback(

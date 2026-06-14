@@ -15,6 +15,10 @@ const withMDX = nextMdx({
 const isDevelopment = process.env.NODE_ENV === "development";
 const isProductionBuild = process.env.NODE_ENV === "production";
 const repoRoot = path.resolve(import.meta.dirname, "../..");
+const zodV4CorePath = path.join(
+  path.dirname(require.resolve("zod/package.json")),
+  "v4/core/index.js",
+);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -63,7 +67,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: repoRoot,
     resolveAlias: {
-      "zod/v4/core": "zod/v4/core/index.js",
+      "zod/v4/core": zodV4CorePath,
     },
     rules: {
       "*.svg": {
@@ -71,6 +75,14 @@ const nextConfig: NextConfig = {
         as: "*.js",
       },
     },
+  },
+  webpack: (config) => {
+    config.resolve ??= {};
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "zod/v4/core": zodV4CorePath,
+    };
+    return config;
   },
   pageExtensions: ["js", "jsx", "mdx", "ts", "tsx"],
   images: {

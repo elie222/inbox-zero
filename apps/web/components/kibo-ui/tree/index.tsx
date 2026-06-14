@@ -6,6 +6,8 @@ import {
   type ComponentProps,
   createContext,
   type HTMLAttributes,
+  type KeyboardEvent,
+  type MouseEvent,
   type ReactNode,
   useCallback,
   useContext,
@@ -243,12 +245,12 @@ export const TreeNodeTrigger = ({
         isSelected && "bg-accent/80",
         className,
       )}
-      onClick={(e) => {
+      onClick={(e: MouseEvent<HTMLDivElement>) => {
         toggleExpanded(nodeId);
         handleSelection(nodeId, e.ctrlKey || e.metaKey);
         onClick?.(e);
       }}
-      onKeyDown={(e) => {
+      onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           toggleExpanded(nodeId);
@@ -393,12 +395,12 @@ export const TreeExpander = ({
         "mr-1 flex h-4 w-4 cursor-pointer items-center justify-center",
         className,
       )}
-      onClick={(e) => {
+      onClick={(e: MouseEvent<HTMLDivElement>) => {
         e.stopPropagation();
         toggleExpanded(nodeId);
         onClick?.(e);
       }}
-      onKeyDown={(e) => {
+      onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           e.stopPropagation();

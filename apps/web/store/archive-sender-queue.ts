@@ -2,11 +2,10 @@
 
 import { atom, useAtomValue } from "jotai";
 import { useCallback, useMemo } from "react";
-import type { GetThreadsResponse } from "@/app/api/threads/basic/route";
 import { jotaiStore } from "@/store";
-import { fetchWithAccount } from "@/utils/fetch";
 import { isDefined } from "@/utils/types";
 import { archiveEmails } from "./archive-queue";
+import { fetchAllSenderThreads } from "./fetch-sender-threads";
 
 type QueueStatus = "pending" | "processing" | "completed" | "failed";
 
@@ -75,8 +74,9 @@ export async function addToArchiveSenderThreadQueue({
   });
 
   try {
-    const data = await fetchSenderThreads({
+    const data = await fetchAllSenderThreads({
       sender,
+      labelId: "INBOX",
       emailAccountId,
     });
     const threads = data.threads;
@@ -250,23 +250,4 @@ function getQueueKey(emailAccountId: string, sender: string) {
 
 function normalizeSender(sender: string) {
   return sender.trim().toLowerCase();
-}
-
-async function fetchSenderThreads({
-  sender,
-  emailAccountId,
-}: {
-  sender: string;
-  emailAccountId: string;
-}) {
-  const url = `/api/threads/basic?fromEmail=${encodeURIComponent(sender)}&labelId=INBOX`;
-  const response = await fetchWithAccount({ url, emailAccountId });
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch threads");
-  }
-
-  const data: GetThreadsResponse = await response.json();
-
-  return data;
 }
