@@ -14,24 +14,50 @@ export const GET = withError("og/unsubscribed", async (request) => {
   return new ImageResponse(
     <div
       style={{
+        position: "relative",
         width: "100%",
         height: "100%",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
-        color: "#f8fafc",
+        background:
+          "linear-gradient(135deg, #2563eb 0%, #1d4ed8 45%, #4338ca 100%)",
+        color: "#ffffff",
         padding: 80,
         fontFamily: "Arial, Helvetica, sans-serif",
       }}
     >
+      {/* Decorative glows */}
+      <div
+        style={{
+          position: "absolute",
+          top: -160,
+          right: -120,
+          width: 420,
+          height: 420,
+          borderRadius: 9999,
+          background: "rgba(125, 211, 252, 0.30)",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          bottom: -200,
+          left: -120,
+          width: 460,
+          height: 460,
+          borderRadius: 9999,
+          background: "rgba(99, 102, 241, 0.35)",
+        }}
+      />
+
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
         <div
           style={{
             width: 56,
             height: 56,
             borderRadius: 14,
-            background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+            background: "rgba(255, 255, 255, 0.15)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -54,33 +80,42 @@ export const GET = withError("og/unsubscribed", async (request) => {
         <div style={{ fontSize: 32, fontWeight: 700 }}>{BRAND_NAME}</div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column" }}>
         <div
           style={{
-            fontSize: 180,
+            fontSize: 200,
             lineHeight: 1,
-            fontWeight: 700,
-            letterSpacing: -6,
-            color: "#60a5fa",
+            fontWeight: 800,
+            letterSpacing: -8,
+            color: "#ffffff",
           }}
         >
           {count.toLocaleString("en-US")}
         </div>
         <div
           style={{
-            fontSize: 52,
+            marginTop: 8,
+            fontSize: 56,
             fontWeight: 700,
             letterSpacing: -1,
           }}
         >
-          {`${lists} unsubscribed`}
+          {`${lists} silenced`}
         </div>
-        <div style={{ fontSize: 30, color: "#94a3b8" }}>
+        <div
+          style={{
+            marginTop: 14,
+            fontSize: 30,
+            color: "rgba(255,255,255,0.75)",
+          }}
+        >
           {`I just cleaned up my inbox with ${BRAND_NAME}`}
         </div>
       </div>
 
-      <div style={{ fontSize: 28, color: "#64748b" }}>getinboxzero.com</div>
+      <div style={{ fontSize: 28, color: "rgba(255,255,255,0.6)" }}>
+        getinboxzero.com
+      </div>
     </div>,
     {
       width: 1200,

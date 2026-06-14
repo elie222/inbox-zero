@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import useSWR from "swr";
-import Image from "next/image";
 import Confetti from "react-dom-confetti";
 import { usePostHog } from "posthog-js/react";
 import { CopyIcon } from "lucide-react";
 import { LinkedinIcon, TwitterIcon } from "@/components/BrandIcons";
 import type { DateRange } from "react-day-picker";
+import { UnsubscribeShareCard } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeShareCard";
 import {
   Dialog,
   DialogContent,
@@ -113,13 +113,9 @@ export function UnsubscribeCelebrationDialog({
           />
         </div>
 
-        <Image
-          src={`/api/og/unsubscribed?count=${senderCount}`}
-          width={1200}
-          height={630}
-          alt={`${senderCount} email ${senderCount === 1 ? "list" : "lists"} unsubscribed with Inbox Zero`}
-          unoptimized
-          className="h-auto w-full rounded-lg border"
+        <UnsubscribeShareCard
+          senderCount={senderCount}
+          emailCount={emailCount}
         />
 
         <div className="flex flex-col gap-2 sm:flex-row">
