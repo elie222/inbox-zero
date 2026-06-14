@@ -93,7 +93,7 @@ export function UnsubscribeCelebrationDialog({
 
   return (
     <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
             You silenced {senderCount}{" "}
@@ -119,7 +119,7 @@ export function UnsubscribeCelebrationDialog({
           height={630}
           alt={`${senderCount} email ${senderCount === 1 ? "list" : "lists"} unsubscribed with Inbox Zero`}
           unoptimized
-          className="w-full rounded-lg border"
+          className="h-auto w-full rounded-lg border"
         />
 
         <div className="flex flex-col gap-2 sm:flex-row">
