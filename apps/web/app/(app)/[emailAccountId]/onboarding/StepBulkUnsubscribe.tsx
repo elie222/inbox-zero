@@ -1,29 +1,38 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import useSWR from "swr";
-import Link from "next/link";
 import { subDays } from "date-fns/subDays";
 import { startOfDay } from "date-fns/startOfDay";
-import { ArrowRightIcon, ExternalLinkIcon } from "lucide-react";
+import { ArrowRightIcon, MailXIcon, SparklesIcon } from "lucide-react";
+import { usePostHog } from "posthog-js/react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
+import { ButtonLoader } from "@/components/Loading";
 import { Progress } from "@/components/ui/progress";
+import { ButtonCheckbox } from "@/components/ButtonCheckbox";
 import { DomainIcon } from "@/components/charts/DomainIcon";
 import { BulkUnsubscribeIllustration } from "@/app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration";
 import { getUnsubscribeSuggestions } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
+import { useBulkUnsubscribe } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import type {
   NewsletterStatsQuery,
   NewsletterStatsResponse,
 } from "@/app/api/user/stats/newsletters/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { usePremium } from "@/hooks/usePremium";
+import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { extractDomainFromEmail } from "@/utils/email";
-import { prefixPath } from "@/utils/path";
+
+type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
 const PREVIEW_COUNT = 5;
 
 export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
   const { emailAccountId } = useAccount();
+  const posthog = usePostHog();
+  const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
+  const { PremiumModal, openModal } = usePremiumModal();
 
   // Day-boundary date range keeps the SWR key stable across mounts, so
   // revisiting this step (back/forward) reuses the cached result.
@@ -41,7 +50,7 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
   };
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   const urlParams = new URLSearchParams(params as any);
-  const { data, isLoading } = useSWR<NewsletterStatsResponse>(
+  const { data, isLoading, mutate } = useSWR<NewsletterStatsResponse>(
     `/api/user/stats/newsletters?${urlParams}`,
     {
       revalidateOnFocus: false,
@@ -53,6 +62,28 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
   const suggestions = useMemo(
     () => getUnsubscribeSuggestions(data?.newsletters ?? []),
     [data],
+  );
+  const previewSenders = useMemo(
+    () => suggestions.slice(0, PREVIEW_COUNT),
+    [suggestions],
+  );
+
+  // Track which previewed senders the user opted out of, so selection needs no
+  // effect to mirror the async data load (all previewed start selected).
+  const [deselected, setDeselected] = useState<Set<string>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
+
+  const { onBulkUnsubscribe } = useBulkUnsubscribe<Newsletter>({
+    hasUnsubscribeAccess,
+    mutate,
+    posthog,
+    refetchPremium,
+    emailAccountId,
+    filter: "unhandled",
+  });
+
+  const selectedSenders = previewSenders.filter(
+    (item) => !deselected.has(item.name),
   );
 
   // Don't render the static content while the fetch is in flight, or the
@@ -66,6 +97,40 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
     return <StaticBulkUnsubscribeStep onNext={onNext} />;
   }
 
+  const onToggle = (name: string) => {
+    setDeselected((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const onUnsubscribeSelected = async () => {
+    if (!selectedSenders.length) {
+      onNext();
+      return;
+    }
+    if (!hasUnsubscribeAccess) {
+      openModal();
+      return;
+    }
+
+    posthog?.capture("Onboarding Unsubscribed Suggested Senders", {
+      count: selectedSenders.length,
+    });
+
+    setSubmitting(true);
+    try {
+      await onBulkUnsubscribe(selectedSenders);
+    } finally {
+      setSubmitting(false);
+      onNext();
+    }
+  };
+
+  const hasMore = suggestions.length > previewSenders.length;
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-10">
       <div className="w-full max-w-xl">
@@ -75,7 +140,8 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
             {suggestions.length === 1 ? "sender" : "senders"} you rarely read
           </PageHeading>
           <TypographyP className="text-muted-foreground">
-            One-click unsubscribe and archive them in bulk.
+            We'll unsubscribe and archive these for you. Uncheck any you want to
+            keep.
           </TypographyP>
         </div>
 
@@ -84,36 +150,57 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
           className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
         >
           <ul className="divide-y divide-slate-100 py-1.5">
-            {suggestions.slice(0, PREVIEW_COUNT).map((item) => (
-              <SuggestionRow key={item.name} item={item} />
+            {previewSenders.map((item) => (
+              <SuggestionRow
+                key={item.name}
+                item={item}
+                checked={!deselected.has(item.name)}
+                onToggle={() => onToggle(item.name)}
+              />
             ))}
           </ul>
         </section>
 
-        <p className="mt-3 text-center text-sm text-muted-foreground">
-          No rush — you can clean these up after setup.
+        <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-sm text-muted-foreground">
+          <SparklesIcon className="size-3.5 text-amber-500" />
+          {hasMore
+            ? `Showing your top ${previewSenders.length}. We'll keep spotting more as you use Inbox Zero.`
+            : "We'll keep spotting more as you use Inbox Zero."}
         </p>
 
         <div className="mt-7 flex flex-col items-center gap-3">
-          <Button size="lg" className="w-full max-w-xs" onClick={onNext}>
-            Continue
-            <ArrowRightIcon className="size-4 ml-2" />
+          <Button
+            size="lg"
+            className="w-full max-w-xs"
+            onClick={onUnsubscribeSelected}
+            disabled={submitting}
+          >
+            {submitting && <ButtonLoader />}
+            {selectedSenders.length > 0 ? (
+              <>
+                <MailXIcon className="size-4 mr-2" />
+                Unsubscribe from {selectedSenders.length}
+              </>
+            ) : (
+              <>
+                Continue
+                <ArrowRightIcon className="size-4 ml-2" />
+              </>
+            )}
           </Button>
-          <Button variant="link" size="sm" asChild>
-            <Link
-              href={prefixPath(
-                emailAccountId,
-                "/bulk-unsubscribe?select=suggested",
-              )}
-              target="_blank"
-              rel="noopener noreferrer"
+          {selectedSenders.length > 0 && (
+            <Button
+              variant="link"
+              size="sm"
+              onClick={onNext}
+              disabled={submitting}
             >
-              Open Bulk Unsubscriber
-              <ExternalLinkIcon className="size-3.5 ml-1.5" />
-            </Link>
-          </Button>
+              Skip for now
+            </Button>
+          )}
         </div>
       </div>
+      <PremiumModal />
     </div>
   );
 }
@@ -146,8 +233,12 @@ function StaticBulkUnsubscribeStep({ onNext }: { onNext: () => void }) {
 
 function SuggestionRow({
   item,
+  checked,
+  onToggle,
 }: {
-  item: NewsletterStatsResponse["newsletters"][number];
+  item: Newsletter;
+  checked: boolean;
+  onToggle: () => void;
 }) {
   const domain = extractDomainFromEmail(item.name) || item.name;
   const readPercentage =
@@ -155,6 +246,8 @@ function SuggestionRow({
 
   return (
     <li className="flex items-center gap-3 px-4 py-2.5">
+      <ButtonCheckbox checked={checked} onChange={onToggle} />
+
       <DomainIcon domain={domain} size={32} variant="circular" />
 
       <div className="min-w-0 flex-1">
