@@ -406,7 +406,7 @@ export function EmailList({
         <ResizeGroup
           left={
             <ul
-              className="divide-y divide-border overflow-y-auto scroll-smooth"
+              className="min-w-0 divide-y divide-border overflow-x-hidden overflow-y-auto scroll-smooth"
               ref={listRef}
             >
               {threads.map((thread) => {
@@ -502,7 +502,12 @@ function ResizeGroup({
 
   return (
     <ResizablePanelGroup direction={isMobile ? "vertical" : "horizontal"}>
-      <ResizablePanel style={{ overflow: "auto" }} defaultSize={50} minSize={0}>
+      <ResizablePanel
+        style={{ overflow: "auto" }}
+        defaultSize={50}
+        minSize={0}
+        className="min-w-0"
+      >
         {left}
       </ResizablePanel>
       <ResizableHandle withHandle />
