@@ -34,7 +34,7 @@ COPY clone-marketing.sh clone-marketing.sh
 # Install deps with a hoisted node_modules layout so Turbopack resolves packages
 # from the workspace instead of following pnpm store symlinks outside package
 # peer dependency boundaries.
-RUN pnpm install --no-frozen-lockfile --prefer-offline --config.node-linker=hoisted
+RUN pnpm install --frozen-lockfile --prefer-offline --config.node-linker=hoisted
 
  # Copy the full repo
 COPY . .
