@@ -5,6 +5,7 @@ WORKDIR /app
 
 RUN apk add --no-cache openssl
 RUN npm install -g pnpm@11.0.9
+RUN pnpm config set store-dir /app/.pnpm-store
 
 # Docker build layers are non-interactive; let pnpm handle module purges without a TTY.
 ENV CI=true
@@ -30,16 +31,17 @@ COPY apps/web/prisma/schema.prisma apps/web/prisma/schema.prisma
 # Copy postinstall script
 COPY clone-marketing.sh clone-marketing.sh
 
-# Install deps
-# Use shamefully-hoist to ensure all packages are available at root level for webpack resolution
-RUN pnpm install --no-frozen-lockfile --prefer-offline --shamefully-hoist
+# Install deps with a hoisted node_modules layout so Turbopack resolves packages
+# from the workspace instead of following pnpm store symlinks outside package
+# peer dependency boundaries.
+RUN pnpm install --frozen-lockfile --prefer-offline --config.node-linker=hoisted
 
  # Copy the full repo
 COPY . .
 
  # Build app (Next.js standalone)
 ENV NODE_ENV=production
-# Increase V8 heap for the webpack production build.
+# Increase V8 heap for the production build.
 ENV NODE_OPTIONS=--max_old_space_size=8192
 ARG NEXT_PUBLIC_BASE_URL="http://NEXT_PUBLIC_BASE_URL_PLACEHOLDER"
 ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
@@ -86,13 +88,18 @@ ENV QSTASH_CURRENT_SIGNING_KEY="dummy_qstash_curr_key_for_build"
 ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
 ENV DOCKER_BUILD="true"
 
-RUN npx prisma generate --schema=apps/web/prisma/schema.prisma \
- && cd apps/web \
- && pnpm exec next build --webpack \
- && cd ../.. \
- && pnpm --filter @inboxzero/worker deploy --legacy --prod /tmp/apps/worker \
+RUN rm -f /app/apps/web/.env && touch /app/apps/web/.env
+
+RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
+
+RUN cd /app/apps/web \
+ && pnpm exec next build \
  && cd /app \
+ && pnpm --filter inbox-zero-ai deploy --legacy --prod /tmp/apps/web \
+ && pnpm --filter @inboxzero/worker deploy --legacy --prod /tmp/apps/worker \
  && rm -rf apps/web/.next/cache
+
+RUN rm -f /app/apps/web/.env /app/apps/web/.next/standalone/apps/web/.env
 
 FROM node:24-alpine AS runner
 
@@ -107,7 +114,12 @@ COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder /app/apps/web/prisma ./apps/web/prisma
+COPY --from=builder /tmp/apps/web/node_modules ./apps/web/node_modules
 COPY --from=builder /tmp/apps/worker ./apps/worker
+
+# Fail the image build if the standalone server is missing traced runtime deps.
+RUN test -f apps/web/server.js \
+ && node -e "require('node:module').createRequire('/app/apps/web/server.js')('next')"
 
 # Copy runtime scripts
 COPY docker/scripts /app/docker/scripts
