@@ -8,11 +8,24 @@ export const UnsubscribeShareCard = forwardRef<
   HTMLDivElement,
   {
     senderCount: number;
-    emailCount: number;
+    yearlyEmails?: number | null;
     className?: string;
   }
->(function UnsubscribeShareCard({ senderCount, emailCount, className }, ref) {
-  const lists = senderCount === 1 ? "email list" : "email lists";
+>(function UnsubscribeShareCard({ senderCount, yearlyEmails, className }, ref) {
+  const senders = senderCount === 1 ? "sender" : "senders";
+  // Lead with the future emails avoided (the real win); fall back to the
+  // sender count when we can't project a yearly figure.
+  const hero = yearlyEmails
+    ? {
+        number: yearlyEmails,
+        label: `fewer ${yearlyEmails === 1 ? "email" : "emails"} a year`,
+        caption: `after unsubscribing from ${senderCount} ${senders}`,
+      }
+    : {
+        number: senderCount,
+        label: `${senders} unsubscribed`,
+        caption: null,
+      };
 
   return (
     <div
@@ -32,18 +45,17 @@ export const UnsubscribeShareCard = forwardRef<
 
       <div className="relative mt-7">
         <div className="bg-gradient-to-b from-white to-sky-100 bg-clip-text text-7xl font-bold leading-none tracking-tight text-transparent tabular-nums sm:text-8xl">
-          {senderCount.toLocaleString("en-US")}
+          {hero.number.toLocaleString("en-US")}
         </div>
         <div className="mt-2 text-2xl font-semibold tracking-tight">
-          {lists} silenced
+          {hero.label}
         </div>
       </div>
 
-      {emailCount > 0 && (
+      {hero.caption && (
         <div className="relative mt-6 inline-flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 text-sm font-medium backdrop-blur-sm">
           <MailOpenIcon className="size-4" />
-          {emailCount.toLocaleString("en-US")} fewer{" "}
-          {emailCount === 1 ? "email" : "emails"} in my inbox
+          {hero.caption}
         </div>
       )}
 

@@ -24,6 +24,7 @@ import {
   buildLinkedInShareUrl,
   buildXShareUrl,
   DEFAULT_SHARE_LINK,
+  projectYearlyEmails,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/share";
 
 export type UnsubscribeCelebration = {
@@ -65,7 +66,8 @@ export function UnsubscribeCelebrationDialog({
   if (!celebration) return null;
 
   const { senderCount, emailCount } = celebration;
-  const shareParams = { senderCount, link };
+  const yearlyEmails = projectYearlyEmails({ emailCount, dateRange });
+  const shareParams = { senderCount, link, yearlyEmails };
 
   const onShare = (platform: "x" | "linkedin") => {
     posthog?.capture("Clicked Share Unsubscribe Celebration", { platform });
@@ -96,7 +98,7 @@ export function UnsubscribeCelebrationDialog({
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
-            You silenced {senderCount}{" "}
+            You unsubscribed from {senderCount}{" "}
             {senderCount === 1 ? "sender" : "senders"}
           </DialogTitle>
           {emailCount > 0 && (
@@ -115,7 +117,7 @@ export function UnsubscribeCelebrationDialog({
 
         <UnsubscribeShareCard
           senderCount={senderCount}
-          emailCount={emailCount}
+          yearlyEmails={yearlyEmails}
         />
 
         <div className="flex flex-col gap-2 sm:flex-row">
