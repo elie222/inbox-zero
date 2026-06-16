@@ -17,6 +17,10 @@ import {
   shouldRunEval,
   TIMEOUT,
 } from "@/__tests__/eval/assistant-chat-inbox-workflows-test-utils";
+import {
+  formatSemanticJudgeActual,
+  judgeEvalOutput,
+} from "@/__tests__/eval/semantic-judge";
 
 // pnpm test-ai eval/assistant-chat-inbox-workflows
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-inbox-workflows
@@ -186,6 +190,104 @@ describe.runIf(shouldRunEval)(
                 return {
                   pass,
                   actual,
+                };
+              },
+            );
+
+            expect(record.pass, record.actual).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test.each(inboxWorkflowProviders)(
+          "triage summary describes each email's actual content, not just the recommended action [$label]",
+          async ({ provider, label }) => {
+            const testName = `triage summary surfaces email content (${label})`;
+            const searchMessages = [
+              getMockMessage({
+                id: "msg-content-1",
+                threadId: "thread-content-1",
+                from: "partnerships@brand.example",
+                subject: "Collaboration proposal",
+                snippet:
+                  "We'd love to sponsor a post on your blog for $1,500 and ship you our new device to review.",
+                labelIds: ["UNREAD", "Label_To Reply"],
+              }),
+              getMockMessage({
+                id: "msg-content-2",
+                threadId: "thread-content-2",
+                from: "receipts@payments.example",
+                subject: "Your payout has arrived",
+                snippet:
+                  "A payout of $4,200 has cleared to your bank. Upload the attached receipt to your bookkeeping by Friday.",
+                labelIds: ["UNREAD"],
+              }),
+              getMockMessage({
+                id: "msg-content-3",
+                threadId: "thread-content-3",
+                from: "noreply@analytics.example",
+                subject: "Daily metrics recap",
+                snippet:
+                  "Yesterday you had 32 new signups and $980 in new MRR. Churn held flat.",
+                labelIds: ["UNREAD"],
+              }),
+            ];
+            const inboxStats = { total: 120, unread: 9 };
+            const messages = [
+              {
+                role: "user" as const,
+                content: "Help me handle my inbox today.",
+              },
+            ];
+
+            const record = await evalReporter.recordCached(
+              {
+                testName,
+                model: model.label,
+                cacheKeyParts: [
+                  {
+                    model,
+                    provider,
+                    label,
+                    searchMessages: getStableMessageCacheKey(searchMessages),
+                    inboxStats,
+                    messages,
+                  },
+                ],
+              },
+              async () => {
+                mockSearchMessages.mockResolvedValueOnce({
+                  messages: searchMessages,
+                  nextPageToken: undefined,
+                });
+
+                const { finalText, actual } = await runAssistantChat({
+                  emailAccount: cloneEmailAccountForProvider(
+                    emailAccount,
+                    provider,
+                  ),
+                  inboxStats,
+                  messages,
+                });
+
+                const judge = finalText
+                  ? await judgeEvalOutput({
+                      criterion: {
+                        name: "Summarizes email content",
+                        description:
+                          "PASS only if, for the substantive emails, the response tells the user what the email actually says: its concrete content such as the specific ask, news, amount, or deadline (for example, a sponsorship offer with a dollar amount, a payout that cleared, or specific metrics). FAIL if the per-email text only restates what to do with it or which triage group it belongs to (for example, 'worth deciding whether to reply', 'product update, probably not urgent', or 'safe to archive') without conveying the email's actual content. Sorting emails into groups is fine and expected; the failure is summaries that describe only the recommended action or priority and never the substance of the message.",
+                      },
+                      input: messages[0].content,
+                      output: finalText,
+                    })
+                  : null;
+
+                return {
+                  pass: !!judge?.pass,
+                  actual:
+                    judge && finalText
+                      ? `${actual} | ${formatSemanticJudgeActual(finalText, judge)}`
+                      : `no assistant text | ${actual}`,
                 };
               },
             );
