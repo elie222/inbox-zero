@@ -35,6 +35,18 @@ describe("buildShareText", () => {
       "I just unsubscribed from 12 email lists with Inbox Zero — that's ~2,400 fewer emails a year. https://www.getinboxzero.com",
     );
   });
+
+  it("treats a zero projection as a provided estimate", () => {
+    expect(
+      buildShareText({
+        senderCount: 1,
+        link: "https://www.getinboxzero.com",
+        yearlyEmails: 0,
+      }),
+    ).toBe(
+      "I just unsubscribed from 1 email list with Inbox Zero — that's ~0 fewer emails a year. https://www.getinboxzero.com",
+    );
+  });
 });
 
 describe("share intent URLs", () => {
@@ -98,6 +110,14 @@ describe("buildCelebrationSubline", () => {
     expect(
       buildCelebrationSubline({ emailCount: 384, dateRange: { from, to } }),
     ).toBe("At their current pace, that's about 1,600 fewer emails a year.");
+  });
+
+  it("treats a zero projection as a provided estimate", () => {
+    const from = new Date(2026, 0, 1);
+    const to = new Date(2028, 8, 27); // 1000 days
+    expect(
+      buildCelebrationSubline({ emailCount: 1, dateRange: { from, to } }),
+    ).toBe("At their current pace, that's about 0 fewer emails a year.");
   });
 
   it("falls back to the raw count when no range is available", () => {

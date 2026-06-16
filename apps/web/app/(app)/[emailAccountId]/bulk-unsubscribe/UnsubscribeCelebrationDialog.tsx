@@ -23,7 +23,6 @@ import {
   buildCelebrationSubline,
   buildLinkedInShareUrl,
   buildXShareUrl,
-  DEFAULT_SHARE_LINK,
   projectYearlyEmails,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/share";
 
@@ -47,9 +46,7 @@ export function UnsubscribeCelebrationDialog({
   const { data: codeData } = useSWR<GetReferralCodeResponse>(
     celebration ? "/api/referrals/code" : null,
   );
-  const link = codeData?.code
-    ? generateReferralLink(codeData.code)
-    : DEFAULT_SHARE_LINK;
+  const shareLink = codeData?.code ? generateReferralLink(codeData.code) : null;
 
   useEffect(() => {
     if (!celebration) {
@@ -67,9 +64,13 @@ export function UnsubscribeCelebrationDialog({
 
   const { senderCount, emailCount } = celebration;
   const yearlyEmails = projectYearlyEmails({ emailCount, dateRange });
-  const shareParams = { senderCount, link, yearlyEmails };
+  const shareParams = shareLink
+    ? { senderCount, link: shareLink, yearlyEmails }
+    : null;
 
   const onShare = (platform: "x" | "linkedin") => {
+    if (!shareParams) return;
+
     posthog?.capture("Clicked Share Unsubscribe Celebration", { platform });
     const url =
       platform === "x"
@@ -79,11 +80,13 @@ export function UnsubscribeCelebrationDialog({
   };
 
   const onCopyLink = async () => {
+    if (!shareLink) return;
+
     posthog?.capture("Clicked Share Unsubscribe Celebration", {
       platform: "copy_link",
     });
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(shareLink);
       toastSuccess({ description: "Link copied to clipboard!" });
     } catch {
       toastError({
@@ -125,6 +128,7 @@ export function UnsubscribeCelebrationDialog({
             variant="outline"
             className="flex-1"
             onClick={() => onShare("x")}
+            disabled={!shareParams}
           >
             <TwitterIcon className="mr-2 size-4" />
             Share on X
@@ -133,11 +137,17 @@ export function UnsubscribeCelebrationDialog({
             variant="outline"
             className="flex-1"
             onClick={() => onShare("linkedin")}
+            disabled={!shareParams}
           >
             <LinkedinIcon className="mr-2 size-4" />
             Share on LinkedIn
           </Button>
-          <Button variant="outline" className="flex-1" onClick={onCopyLink}>
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={onCopyLink}
+            disabled={!shareLink}
+          >
             <CopyIcon className="mr-2 size-4" />
             Copy link
           </Button>

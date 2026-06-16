@@ -1,7 +1,5 @@
 import { differenceInDays } from "date-fns/differenceInDays";
 
-export const DEFAULT_SHARE_LINK = "https://www.getinboxzero.com";
-
 type ShareParams = {
   senderCount: number;
   link: string;
@@ -15,7 +13,7 @@ export function buildShareText({
 }: ShareParams): string {
   const lists = senderCount === 1 ? "email list" : "email lists";
   const base = `I just unsubscribed from ${senderCount} ${lists} with Inbox Zero`;
-  if (yearlyEmails) {
+  if (yearlyEmails != null) {
     return `${base} — that's ~${yearlyEmails.toLocaleString("en-US")} fewer emails a year. ${link}`;
   }
   return `${base}. ${link}`;
@@ -54,7 +52,7 @@ export function buildCelebrationSubline({
   dateRange?: { from?: Date; to?: Date };
 }): string {
   const yearlyEmails = projectYearlyEmails({ emailCount, dateRange });
-  if (yearlyEmails) {
+  if (yearlyEmails != null) {
     return `At their current pace, that's about ${yearlyEmails.toLocaleString("en-US")} fewer ${yearlyEmails === 1 ? "email" : "emails"} a year.`;
   }
   if (emailCount > 0) {
