@@ -548,10 +548,7 @@ function appendSlackConnectionFailureDetails({
   errorReason: string | null;
   errorDetail: string | null;
 }): string {
-  const details = formatSlackConnectionFailureDetails(
-    errorReason,
-    errorDetail,
-  );
+  const details = formatSlackConnectionFailureDetails(errorReason, errorDetail);
 
   if (!details) {
     return description;
@@ -565,8 +562,10 @@ function formatSlackConnectionFailureDetails(
   errorDetail: string | null,
 ): string | null {
   const parts = [
-    errorReason && `reason ${sanitizeSlackConnectionFailureDetail(errorReason)}`,
-    errorDetail && `detail ${sanitizeSlackConnectionFailureDetail(errorDetail)}`,
+    errorReason &&
+      `reason ${sanitizeSlackConnectionFailureDetail(errorReason)}`,
+    errorDetail &&
+      `detail ${sanitizeSlackConnectionFailureDetail(errorDetail)}`,
   ].filter(Boolean);
 
   return parts.length ? parts.join("; ") : null;
