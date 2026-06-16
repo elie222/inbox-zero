@@ -42,6 +42,7 @@ import {
   type StepKey,
 } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 import { captureException, getActionErrorMessage } from "@/utils/error";
+import { EmailStatsPreloader } from "@/components/EmailStatsPreloader";
 
 interface OnboardingContentProps {
   step?: string;
@@ -300,5 +301,12 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     return null;
   }
 
-  return renderStep ? renderStep() : null;
+  return (
+    <>
+      {/* Start ingesting provider email stats into the database early so the
+          bulk-unsubscribe step's stats query has data by the time it runs */}
+      <EmailStatsPreloader />
+      {renderStep ? renderStep() : null}
+    </>
+  );
 }

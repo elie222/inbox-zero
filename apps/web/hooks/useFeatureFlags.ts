@@ -86,3 +86,18 @@ export function useWelcomePricingVariant() {
     ) as WelcomePricingVariant) || "control"
   );
 }
+
+export type OnboardingBulkUnsubscribeVariant = "control" | "inline-unsubscribe";
+
+// A/B test for the onboarding bulk-unsubscribe step: "control" shows the
+// static marketing slide, "inline-unsubscribe" shows the personalized,
+// actionable list. Reading the flag here is the experiment exposure
+// ($feature_flag_called). Defaults to control until the flag resolves and when
+// PostHog is unavailable (e.g. self-hosted), preserving the existing step.
+export function useOnboardingBulkUnsubscribeVariant() {
+  return (
+    (useFeatureFlagVariantKey(
+      "onboarding-bulk-unsubscribe",
+    ) as OnboardingBulkUnsubscribeVariant) || "control"
+  );
+}
