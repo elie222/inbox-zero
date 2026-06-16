@@ -254,6 +254,7 @@ function RuleMismatch({
             ...rules,
           ]}
           onSelect={onSelectExpectedRuleId}
+          itemClassName="h-auto min-h-10 justify-start whitespace-normal text-wrap py-2 text-left"
         />
       </div>
     </div>
