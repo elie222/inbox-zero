@@ -162,7 +162,7 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
         value={{
           fetcher: enhancedFetcher,
           provider: () => provider,
-          onError: (error) => console.log("SWR error:", error),
+          onError: (error: unknown) => console.log("SWR error:", error),
           ...getDevOnlySWRConfig(),
         }}
       >

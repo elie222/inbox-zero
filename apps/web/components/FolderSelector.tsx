@@ -1,3 +1,4 @@
+import type { MouseEvent, WheelEvent } from "react";
 import { useState } from "react";
 import {
   Check,
@@ -223,7 +224,7 @@ export function FolderSelector({
                   variant="ghost"
                   size="sm"
                   className="h-6 w-6 p-0 hover:bg-muted"
-                  onClick={(e) => {
+                  onClick={(e: MouseEvent<HTMLButtonElement>) => {
                     e.stopPropagation();
                     onChangeValue({ name: "", id: "" });
                   }}
@@ -244,7 +245,7 @@ export function FolderSelector({
               onValueChange={setSearchQuery}
             />
             <CommandList
-              onWheelCapture={(e) => {
+              onWheelCapture={(e: WheelEvent<HTMLDivElement>) => {
                 e.preventDefault();
                 e.currentTarget.scrollTop += e.deltaY;
               }}

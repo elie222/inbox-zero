@@ -487,9 +487,15 @@ export function useSlackNotifications({
     }
 
     if (error === "connection_failed" || errorDetail) {
+      const description = appendSlackConnectionFailureDetails({
+        description: getSlackConnectionFailedDescription(resolvedReason),
+        errorReason,
+        errorDetail,
+      });
+
       toastError({
         title: "Slack connection failed",
-        description: getSlackConnectionFailedDescription(resolvedReason),
+        description,
       });
     }
 
@@ -511,26 +517,62 @@ export function useSlackNotifications({
 }
 
 function getSlackConnectionFailedDescription(
-  errorReason: string | null,
+  resolvedReason: string | null,
 ): string {
-  if (errorReason === "oauth_invalid_team_for_non_distributed_app") {
+  if (resolvedReason === "oauth_invalid_team_for_non_distributed_app") {
     return "This Slack app is not distributed to every workspace yet. Use the currently supported workspace or contact support.";
   }
 
-  if (errorReason === "oauth_invalid_code") {
+  if (resolvedReason === "oauth_invalid_code") {
     return "Slack returned an invalid or expired code. Please try connecting again.";
   }
 
   if (
-    errorReason === "missing_code" ||
-    errorReason === "missing_state" ||
-    errorReason === "invalid_state" ||
-    errorReason === "invalid_state_format"
+    resolvedReason === "missing_code" ||
+    resolvedReason === "missing_state" ||
+    resolvedReason === "invalid_state" ||
+    resolvedReason === "invalid_state_format"
   ) {
     return "Slack session validation failed. Please try connecting again.";
   }
 
   return "We couldn't complete the Slack connection. Please try again.";
+}
+
+function appendSlackConnectionFailureDetails({
+  description,
+  errorReason,
+  errorDetail,
+}: {
+  description: string;
+  errorReason: string | null;
+  errorDetail: string | null;
+}): string {
+  const details = formatSlackConnectionFailureDetails(errorReason, errorDetail);
+
+  if (!details) {
+    return description;
+  }
+
+  return `${description} Details: ${details}`;
+}
+
+function formatSlackConnectionFailureDetails(
+  errorReason: string | null,
+  errorDetail: string | null,
+): string | null {
+  const parts = [
+    errorReason &&
+      `reason ${sanitizeSlackConnectionFailureDetail(errorReason)}`,
+    errorDetail &&
+      `detail ${sanitizeSlackConnectionFailureDetail(errorDetail)}`,
+  ].filter(Boolean);
+
+  return parts.length ? parts.join("; ") : null;
+}
+
+function sanitizeSlackConnectionFailureDetail(value: string): string {
+  return value.replace(/\s+/g, " ").trim().slice(0, 160);
 }
 
 function resolveSlackErrorReason(

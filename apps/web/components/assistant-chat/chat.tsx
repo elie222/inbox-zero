@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowUpIcon,
@@ -228,7 +229,9 @@ export function Chat({
         data-testid="chat-input"
         value={input}
         placeholder="Ask me anything"
-        onChange={(e) => setInput(e.currentTarget.value)}
+        onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+          setInput(e.currentTarget.value)
+        }
         onPaste={handlePaste}
         className="pr-24"
       />

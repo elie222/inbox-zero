@@ -18,6 +18,8 @@ const schema = z.object({
 });
 export type DetectPatternResult = z.infer<typeof schema>;
 
+const MAX_PATTERN_SAMPLE_EMAILS = 10;
+
 export async function aiDetectRecurringPattern({
   emails,
   emailAccount,
@@ -39,6 +41,13 @@ export async function aiDetectRecurringPattern({
   const senderEmail = emails[0].from;
 
   if (!senderEmail) return null;
+
+  if (emails.length > MAX_PATTERN_SAMPLE_EMAILS) {
+    logger.info("Truncating sender pattern history for prompt", {
+      emailCount: emails.length,
+      sampledEmailCount: MAX_PATTERN_SAMPLE_EMAILS,
+    });
+  }
 
   const system = `You are an AI assistant that helps analyze if a sender's emails should consistently be matched to a specific rule.
 
@@ -90,7 +99,11 @@ If you're not confident (at least 90% certain) that a single rule should handle 
 <sender>${senderEmail}</sender>
 
 <sample_emails>
-${getEmailListPrompt({ messages: emails, messageMaxLength: 500 })}
+${getEmailListPrompt({
+  messages: emails,
+  messageMaxLength: 500,
+  maxMessages: MAX_PATTERN_SAMPLE_EMAILS,
+})}
 </sample_emails>`;
 
   try {

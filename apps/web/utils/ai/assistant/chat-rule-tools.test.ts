@@ -178,6 +178,39 @@ describe("updateRuleTool", () => {
       },
     });
   });
+
+  it("keeps replacement AI instructions when clear flag is also present", async () => {
+    const result = await updateRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider: "google",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["Vendor Billing", "2026-04-27T00:00:00.000Z"],
+        ]),
+      }),
+    }).execute({
+      ruleName: "Vendor Billing",
+      updates: {
+        condition: {
+          aiInstructions: "Updated billing instructions.",
+          clearAiInstructions: true,
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockPartialUpdateRule).toHaveBeenCalledWith({
+      ruleId: "rule-id",
+      emailAccountId: "email-account-id",
+      data: {
+        instructions: "Updated billing instructions.",
+      },
+    });
+  });
 });
 
 describe("updateRuleStateTool", () => {

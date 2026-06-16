@@ -3,7 +3,7 @@ import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 
-export const querySchema = z.object({
+const querySchema = z.object({
   limit: z.preprocess(
     (v) => (v === null ? undefined : v),
     z.coerce.number().min(1).max(100).default(20),

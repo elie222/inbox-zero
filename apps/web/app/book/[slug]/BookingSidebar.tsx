@@ -181,7 +181,7 @@ function TimezonePicker({
                 <CommandItem
                   key={zone}
                   value={zone}
-                  onSelect={(selected) => {
+                  onSelect={(selected: string) => {
                     onChange(selected);
                     setOpen(false);
                   }}

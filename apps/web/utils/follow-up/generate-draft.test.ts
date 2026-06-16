@@ -124,6 +124,7 @@ describe("generateFollowUpDraft", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = false;
+    envMock.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE = true;
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
       includeReferralSignature: false,
       signature: null,
@@ -268,6 +269,52 @@ describe("generateFollowUpDraft", () => {
       userMessage2,
       expect.objectContaining({
         to: "bob@external.com",
+      }),
+      "user@example.com",
+      undefined,
+    );
+  });
+
+  it("places the referral signature after the configured user signature", async () => {
+    envMock.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE = false;
+    vi.mocked(aiDraftFollowUp).mockResolvedValue("What do you think about it?");
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+      includeReferralSignature: true,
+      signature: "Cheers!<br>Barbara",
+    } as any);
+
+    const userMessage = createMockMessage({
+      id: "user-msg",
+      headers: {
+        from: "user@example.com",
+        to: "bob@external.com",
+        subject: "Initial Question",
+        date: "2024-01-01T00:00:00Z",
+      },
+    });
+
+    const mockProvider = createMockProvider({
+      getThread: vi.fn().mockResolvedValue({
+        id: "thread-1",
+        messages: [userMessage],
+        snippet: "Test",
+      }),
+    });
+
+    await generateFollowUpDraft({
+      emailAccount: createMockEmailAccount(),
+      threadId: "thread-1",
+      messageId: "user-msg",
+      trackerId: "tracker-1",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(mockProvider.draftEmail).toHaveBeenCalledWith(
+      userMessage,
+      expect.objectContaining({
+        content:
+          'What do you think about it?\n\nCheers!<br>Barbara\n\nDrafted by <a href="https://getinboxzero.com/?ref=TEST123">Inbox Zero</a>.',
       }),
       "user@example.com",
       undefined,

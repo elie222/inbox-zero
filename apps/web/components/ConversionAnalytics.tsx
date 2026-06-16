@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
+import type { ComponentType } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import Script from "next/script";
+import NextScript from "next/script";
 import { env } from "@/env";
 import { trackClientConversion } from "@/utils/analytics/client-conversions";
 import {
@@ -11,11 +12,17 @@ import {
   type ConversionEventName,
 } from "@/utils/analytics/conversion-events";
 
+const ExternalScript = NextScript as unknown as ComponentType<{
+  id: string;
+  src: string;
+  strategy: "afterInteractive";
+}>;
+
 export function ConversionAnalyticsScript() {
   if (!env.NEXT_PUBLIC_CONVERSION_ANALYTICS_SCRIPT_URL) return null;
 
   return (
-    <Script
+    <ExternalScript
       id="conversion-analytics"
       src={env.NEXT_PUBLIC_CONVERSION_ANALYTICS_SCRIPT_URL}
       strategy="afterInteractive"

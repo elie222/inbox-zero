@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ArchiveIcon,
+  ArchiveRestoreIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   ExpandIcon,
@@ -50,6 +51,7 @@ import {
   useApproveButton,
   useBulkArchive,
   useBulkDelete,
+  useBulkAutoArchive,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import { ResubscribeDialog } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog";
 import { LabelsSubMenu } from "@/components/LabelsSubMenu";
@@ -125,6 +127,10 @@ export function ActionCell<T extends Row>({
         labels={labels}
         posthog={posthog}
         mutate={mutate}
+        hasUnsubscribeAccess={hasUnsubscribeAccess}
+        refetchPremium={refetchPremium}
+        filter={filter}
+        openPremiumModal={openPremiumModal}
       />
     </>
   );
@@ -269,6 +275,10 @@ export function MoreDropdown<T extends Row>({
   labels,
   posthog,
   mutate,
+  hasUnsubscribeAccess,
+  refetchPremium,
+  filter,
+  openPremiumModal,
 }: {
   onOpenNewsletter?: (row: T) => void;
   item: T;
@@ -277,6 +287,10 @@ export function MoreDropdown<T extends Row>({
   labels: EmailLabel[];
   posthog: PostHog;
   mutate: () => Promise<unknown>;
+  hasUnsubscribeAccess?: boolean;
+  refetchPremium?: () => Promise<UserResponse | null | undefined>;
+  filter?: NewsletterFilterType;
+  openPremiumModal?: () => void;
 }) {
   const { provider } = useAccount();
   const terminology = getEmailTerminology(provider);
@@ -292,6 +306,14 @@ export function MoreDropdown<T extends Row>({
     posthog,
     emailAccountId,
   });
+  const { onBulkAutoArchive } = useBulkAutoArchive({
+    hasUnsubscribeAccess: hasUnsubscribeAccess ?? false,
+    mutate,
+    refetchPremium: refetchPremium ?? noopRefetchPremium,
+    emailAccountId,
+    filter: filter ?? "all",
+  });
+  const showAutoArchive = typeof hasUnsubscribeAccess === "boolean";
 
   const handleLabelClick = async (label: EmailLabel) => {
     const res = await createFilterAction(emailAccountId, {
@@ -365,6 +387,21 @@ export function MoreDropdown<T extends Row>({
           <DropdownMenuSeparator />
 
           {/* Bulk actions section */}
+          {showAutoArchive && (
+            <DropdownMenuItem
+              onClick={() => {
+                if (!hasUnsubscribeAccess) {
+                  openPremiumModal?.();
+                  return;
+                }
+
+                onBulkAutoArchive([item]);
+              }}
+            >
+              <ArchiveRestoreIcon className="mr-2 size-4" />
+              <span>Auto archive</span>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => onBulkArchive([item])}>
             {isBulkArchiving ? (
               <ButtonLoader />
@@ -450,4 +487,8 @@ export function HeaderButton(props: {
       )}
     </Button>
   );
+}
+
+async function noopRefetchPremium() {
+  return null;
 }

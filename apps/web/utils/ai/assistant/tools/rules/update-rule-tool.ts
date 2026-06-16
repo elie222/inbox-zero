@@ -327,10 +327,10 @@ function buildConditionUpdateData(condition: PatchCondition) {
     conditionalOperator?: LogicalOperator;
   } = {};
 
-  if (condition.clearAiInstructions) {
-    data.instructions = null;
-  } else if ("aiInstructions" in condition) {
+  if (condition.aiInstructions !== undefined) {
     data.instructions = condition.aiInstructions;
+  } else if (condition.clearAiInstructions) {
+    data.instructions = null;
   }
 
   if (condition.conditionalOperator) {
