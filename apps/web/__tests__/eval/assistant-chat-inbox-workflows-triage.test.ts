@@ -1,8 +1,7 @@
-import { afterAll, describe, expect, test } from "vitest";
-import { describeEvalMatrix } from "@/__tests__/eval/models";
-import { createEvalReporter } from "@/__tests__/eval/reporter";
-import { getMockMessage } from "@/__tests__/helpers";
-import { getStableMessageCacheKey } from "@/__tests__/eval/assistant-chat-eval-utils";
+// Import test-utils first: it declares the vi.mock for the email provider and
+// prisma. Importing a module that pulls the real app graph (e.g.
+// assistant-chat-eval-utils) before this would bind the unmocked
+// createEmailProvider, so searchInbox would hit a real DB and return no content.
 import {
   cloneEmailAccountForProvider,
   getFirstSearchInboxCall,
@@ -17,6 +16,11 @@ import {
   shouldRunEval,
   TIMEOUT,
 } from "@/__tests__/eval/assistant-chat-inbox-workflows-test-utils";
+import { afterAll, describe, expect, test } from "vitest";
+import { describeEvalMatrix } from "@/__tests__/eval/models";
+import { createEvalReporter } from "@/__tests__/eval/reporter";
+import { getMockMessage } from "@/__tests__/helpers";
+import { getStableMessageCacheKey } from "@/__tests__/eval/assistant-chat-eval-utils";
 import {
   formatSemanticJudgeActual,
   judgeEvalOutput,
