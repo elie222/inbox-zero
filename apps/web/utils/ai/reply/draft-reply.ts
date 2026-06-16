@@ -74,6 +74,7 @@ const getUserPrompt = ({
   meetingContext,
   attachmentContext,
   hasConfiguredSignature,
+  currentDate,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: DraftEmailAccount;
@@ -89,6 +90,7 @@ const getUserPrompt = ({
   meetingContext: string | null;
   attachmentContext: string | null;
   hasConfiguredSignature: boolean;
+  currentDate?: Date;
 }) => {
   const userAbout = emailAccount.about
     ? `Context about the user:
@@ -233,7 +235,7 @@ Here is the context of the email thread (from oldest to newest):
 ${getEmailListPrompt({ messages, messageMaxLength: 3000 })}
 
 Please write a reply to the email.
-${getTodayForLLM()}
+${getTodayForLLM(currentDate)}
 IMPORTANT: You are writing an email as ${emailAccount.email}. Write the reply from their perspective.`;
 };
 
@@ -271,6 +273,7 @@ export async function aiDraftReplyWithConfidence({
   meetingContext,
   attachmentContext = null,
   hasConfiguredSignature = false,
+  currentDate,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: DraftEmailAccount;
@@ -286,6 +289,7 @@ export async function aiDraftReplyWithConfidence({
   meetingContext: string | null;
   attachmentContext?: string | null;
   hasConfiguredSignature?: boolean;
+  currentDate?: Date;
 }): Promise<DraftReplyResult> {
   logger.info("Drafting email reply", {
     messageCount: messages.length,
@@ -324,6 +328,7 @@ export async function aiDraftReplyWithConfidence({
     meetingContext,
     attachmentContext,
     hasConfiguredSignature,
+    currentDate,
   });
 
   const modelOptions = getModelForUseCase(
@@ -386,6 +391,7 @@ export async function aiDraftReply({
   meetingContext,
   attachmentContext = null,
   hasConfiguredSignature = false,
+  currentDate,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: DraftEmailAccount;
@@ -401,6 +407,7 @@ export async function aiDraftReply({
   meetingContext: string | null;
   attachmentContext?: string | null;
   hasConfiguredSignature?: boolean;
+  currentDate?: Date;
 }) {
   const result = await aiDraftReplyWithConfidence({
     messages,
@@ -417,6 +424,7 @@ export async function aiDraftReply({
     meetingContext,
     attachmentContext,
     hasConfiguredSignature,
+    currentDate,
   });
 
   return result.reply;
