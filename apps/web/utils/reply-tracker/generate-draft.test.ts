@@ -409,6 +409,31 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
     );
   });
 
+  it("places the referral signature after the configured user signature", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "What do you think about it?",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+    });
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings({
+        includeReferralSignature: true,
+        signature: "Cheers!<br>Barbara",
+      }),
+    );
+
+    const result = await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      logger,
+    );
+
+    expect(result).toBe(
+      'What do you think about it?\n\nCheers!<br>Barbara\n\nDrafted by <a href="https://getinboxzero.com/?ref=TEST123">Inbox Zero</a>.',
+    );
+  });
+
   it("converts AI link markup into provider-ready draft content for the reply-tracker flow", async () => {
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply:

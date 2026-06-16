@@ -119,6 +119,10 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
       emailAccountWithSignatures?.allowHiddenAiDraftLinks ?? false,
   });
 
+  if (emailAccountWithSignatures?.signature) {
+    finalResult = `${finalResult}\n\n${emailAccountWithSignatures.signature}`;
+  }
+
   if (
     !env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE &&
     emailAccountWithSignatures?.includeReferralSignature
@@ -129,10 +133,6 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
     const referralLink = generateReferralLink(referralSignature.code);
     const htmlSignature = renderReferralSignatureHtml(referralLink);
     finalResult = `${finalResult}\n\n${htmlSignature}`;
-  }
-
-  if (emailAccountWithSignatures?.signature) {
-    finalResult = `${finalResult}\n\n${emailAccountWithSignatures.signature}`;
   }
 
   return {
