@@ -15,7 +15,7 @@ import {
   RedditIcon,
   TwitterIcon,
   YoutubeIcon,
-} from "@/app/(app)/[emailAccountId]/onboarding/BrandIcons";
+} from "@/components/BrandIcons";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useState } from "react";
 import { PageHeading, TypographyP } from "@/components/Typography";

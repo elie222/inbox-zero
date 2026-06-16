@@ -1,20 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ComponentType } from "react";
-import ReactDomConfetti from "react-dom-confetti";
 import Image from "next/image";
+import { Confetti } from "@/components/Confetti";
 import { getCelebrationImage } from "@/utils/celebration";
 import { Button } from "@/components/Button";
-
-const Confetti = ReactDomConfetti as unknown as ComponentType<{
-  active: boolean;
-  config: {
-    duration: number;
-    elementCount: number;
-    spread: number;
-  };
-}>;
 
 export function Celebration(props: { message: string }) {
   const [active, setActive] = useState(false);
