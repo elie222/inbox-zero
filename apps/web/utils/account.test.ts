@@ -4,9 +4,14 @@ const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   cookies: vi.fn(),
   findFirst: vi.fn(),
-  loggerInfo: vi.fn(),
   flushLoggerSafely: vi.fn(),
   after: vi.fn(),
+  env: {
+    NODE_ENV: "test",
+    AXIOM_TOKEN: undefined,
+    NEXT_PUBLIC_LOG_SCOPES: undefined,
+    ENABLE_DEBUG_LOGS: false,
+  },
   redirect: vi.fn((url: string) => {
     throw new Error(`redirect:${url}`);
   }),
@@ -28,10 +33,8 @@ vi.mock("next/server", () => ({
   after: (callback: () => void | Promise<void>) => mocks.after(callback),
 }));
 
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: () => ({
-    info: (...args: unknown[]) => mocks.loggerInfo(...args),
-  }),
+vi.mock("@/env", () => ({
+  env: mocks.env,
 }));
 
 vi.mock("@/utils/logger-flush", () => ({
@@ -50,8 +53,11 @@ vi.mock("@/utils/prisma", () => ({
 import { redirectToEmailAccountPath } from "./account";
 
 describe("redirectToEmailAccountPath", () => {
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     mocks.auth.mockResolvedValue({ user: { id: "user_123" } });
     mocks.cookies.mockResolvedValue({ get: () => undefined });
   });
@@ -66,10 +72,9 @@ describe("redirectToEmailAccountPath", () => {
     expect(mocks.findFirst).toHaveBeenCalledWith({
       where: { userId: "user_123" },
       select: { id: true },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
-    expect(mocks.loggerInfo).toHaveBeenCalledWith(
-      "Resolved account redirect",
+    expect(getAccountRedirectLog(consoleLogSpy)).toEqual(
       expect.objectContaining({
         path: "/setup",
         outcome: "connect-mailbox",
@@ -105,8 +110,7 @@ describe("redirectToEmailAccountPath", () => {
     expect(mocks.redirect).toHaveBeenCalledWith(
       "/connect-mailbox?next=%2Fsetup%3Fsource%3Dcheckout%26step%3Done%26step%3Dtwo",
     );
-    expect(mocks.loggerInfo).toHaveBeenCalledWith(
-      "Resolved account redirect",
+    expect(getAccountRedirectLog(consoleLogSpy)).toEqual(
       expect.objectContaining({
         searchParamKeys: ["source", "step"],
       }),
@@ -128,8 +132,7 @@ describe("redirectToEmailAccountPath", () => {
     );
 
     expect(mocks.findFirst).not.toHaveBeenCalled();
-    expect(mocks.loggerInfo).toHaveBeenCalledWith(
-      "Resolved account redirect",
+    expect(getAccountRedirectLog(consoleLogSpy)).toEqual(
       expect.objectContaining({
         path: "/setup",
         outcome: "account-path",
@@ -143,3 +146,23 @@ describe("redirectToEmailAccountPath", () => {
     );
   });
 });
+
+function getAccountRedirectLog(consoleLogSpy: ReturnType<typeof vi.spyOn>) {
+  const logCall = [...consoleLogSpy.mock.calls]
+    .reverse()
+    .find(
+      ([message]) =>
+        typeof message === "string" &&
+        message.includes("[account-redirect]: Resolved account redirect"),
+    );
+
+  expect(logCall).toBeDefined();
+
+  const message = logCall?.[0];
+  expect(typeof message).toBe("string");
+
+  const jsonStart = (message as string).indexOf("{");
+  expect(jsonStart).toBeGreaterThanOrEqual(0);
+
+  return JSON.parse((message as string).slice(jsonStart));
+}

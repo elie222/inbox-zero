@@ -47,7 +47,7 @@ export async function redirectToEmailAccountPath(
         prisma.emailAccount.findFirst({
           where: { userId },
           select: { id: true },
-          orderBy: { createdAt: "asc" },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         }),
     );
     emailAccountId = emailAccount?.id ?? null;
