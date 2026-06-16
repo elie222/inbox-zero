@@ -37,7 +37,7 @@ Never use placeholders for the user's name. You do not need to sign off with the
 Do not invent information.
 Ground facts, terms, statuses, dates, approvals, attachments, completed actions, and external changes in the thread or provided context.
 When key context is missing, still draft the most useful reply you can, but use lower confidence when the draft relies on assumptions or user-fillable details.
-Inline image markers such as [image] or [image: ...] mean a real image exists in the email. Do not say it is missing or unreadable; respond from the available text and image label.
+Inline image markers such as [image] or [image: ...] mean the sender included a real image in the email, but only the marker and label are available in this prompt. Do not say the image is missing, unreadable, unavailable, or needs to be resent; respond from the available text and image label.
 Treat email dates as message metadata, not calendar context.
 Do not use em dashes unless the provided writing style explicitly calls for them.
 Don't suggest meeting times or mention availability unless specific calendar information is provided.
@@ -74,6 +74,7 @@ const getUserPrompt = ({
   meetingContext,
   attachmentContext,
   hasConfiguredSignature,
+  currentDate,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: DraftEmailAccount;
@@ -89,6 +90,7 @@ const getUserPrompt = ({
   meetingContext: string | null;
   attachmentContext: string | null;
   hasConfiguredSignature: boolean;
+  currentDate?: Date;
 }) => {
   const userAbout = emailAccount.about
     ? `Context about the user:
@@ -233,7 +235,7 @@ Here is the context of the email thread (from oldest to newest):
 ${getEmailListPrompt({ messages, messageMaxLength: 3000 })}
 
 Please write a reply to the email.
-${getTodayForLLM()}
+${getTodayForLLM(currentDate)}
 IMPORTANT: You are writing an email as ${emailAccount.email}. Write the reply from their perspective.`;
 };
 
@@ -271,6 +273,7 @@ export async function aiDraftReplyWithConfidence({
   meetingContext,
   attachmentContext = null,
   hasConfiguredSignature = false,
+  currentDate,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: DraftEmailAccount;
@@ -286,6 +289,7 @@ export async function aiDraftReplyWithConfidence({
   meetingContext: string | null;
   attachmentContext?: string | null;
   hasConfiguredSignature?: boolean;
+  currentDate?: Date;
 }): Promise<DraftReplyResult> {
   logger.info("Drafting email reply", {
     messageCount: messages.length,
@@ -324,6 +328,7 @@ export async function aiDraftReplyWithConfidence({
     meetingContext,
     attachmentContext,
     hasConfiguredSignature,
+    currentDate,
   });
 
   const modelOptions = getModelForUseCase(
@@ -386,6 +391,7 @@ export async function aiDraftReply({
   meetingContext,
   attachmentContext = null,
   hasConfiguredSignature = false,
+  currentDate,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: DraftEmailAccount;
@@ -401,6 +407,7 @@ export async function aiDraftReply({
   meetingContext: string | null;
   attachmentContext?: string | null;
   hasConfiguredSignature?: boolean;
+  currentDate?: Date;
 }) {
   const result = await aiDraftReplyWithConfidence({
     messages,
@@ -417,6 +424,7 @@ export async function aiDraftReply({
     meetingContext,
     attachmentContext,
     hasConfiguredSignature,
+    currentDate,
   });
 
   return result.reply;
