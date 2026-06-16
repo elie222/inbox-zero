@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import useSWR from "swr";
-import Confetti from "react-dom-confetti";
 import { usePostHog } from "posthog-js/react";
 import { CopyIcon } from "lucide-react";
 import { LinkedinIcon, TwitterIcon } from "@/components/BrandIcons";
+import { Confetti } from "@/components/Confetti";
 import type { DateRange } from "react-day-picker";
 import { UnsubscribeShareCard } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeShareCard";
 import {

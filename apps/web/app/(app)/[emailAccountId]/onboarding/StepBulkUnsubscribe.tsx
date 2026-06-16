@@ -59,7 +59,9 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
   const urlParams = new URLSearchParams(params as any);
   const { data, isLoading, mutate } = useSWR<NewsletterStatsResponse>(
     // Only fetch in the treatment arm; control never renders the list.
-    isTreatment ? `/api/user/stats/newsletters?${urlParams}` : null,
+    isTreatment && emailAccountId
+      ? [`/api/user/stats/newsletters?${urlParams}`, emailAccountId]
+      : null,
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
@@ -116,6 +118,7 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
 
   // Control arm (and PostHog-unavailable fallback) keeps the static slide.
   if (!isTreatment) return <StaticBulkUnsubscribeStep onNext={onNext} />;
+  if (!emailAccountId) return null;
 
   // Don't render the static content while the fetch is in flight, or the
   // screen would swap to the personalized version under the user moments
