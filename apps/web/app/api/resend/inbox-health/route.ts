@@ -135,6 +135,12 @@ async function sendEmail({
 
   if (!emailAccount.account.refresh_token) {
     logger.warn("Skipping inbox health email: account has no refresh token");
+    // Bump the timestamp so the daily fan-out doesn't re-enqueue this
+    // disconnected account every day until it reconnects.
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { lastInboxHealthEmailAt: new Date() },
+    });
     return { success: false, message: "Account has no refresh token" };
   }
 
