@@ -28,7 +28,6 @@ import { createScopedLogger } from "@/utils/logger";
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
 import type { getEmailAccount } from "@/__tests__/helpers";
-import { buildAssistantChatEvalEnv } from "@/__tests__/eval/assistant-chat-eval-env";
 
 // pnpm test-ai eval/assistant-chat-settings-memory
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-settings-memory
@@ -78,9 +77,15 @@ vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: vi.fn(),
 }));
 
-vi.mock("@/env", () => ({
-  env: buildAssistantChatEvalEnv(),
-}));
+vi.mock("@/env", async () => {
+  const { buildAssistantChatEvalEnv } = await vi.importActual<
+    typeof import("@/__tests__/eval/assistant-chat-eval-env")
+  >("@/__tests__/eval/assistant-chat-eval-env");
+
+  return {
+    env: buildAssistantChatEvalEnv(),
+  };
+});
 
 const mockIsActivePremium = vi.mocked(isActivePremium);
 const mockGetUserPremium = vi.mocked(getUserPremium);

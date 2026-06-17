@@ -18,7 +18,6 @@ import { configureRuleMutationMocks } from "@/__tests__/eval/assistant-chat-rule
 import { getMockMessage } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { buildAssistantChatEvalEnv } from "@/__tests__/eval/assistant-chat-eval-env";
 
 // pnpm test-ai eval/assistant-chat-phishing-hardening
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-phishing-hardening
@@ -115,9 +114,17 @@ vi.mock("@/utils/senders/unsubscribe", () => ({
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/env", () => ({
-  env: buildAssistantChatEvalEnv({ NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: true }),
-}));
+vi.mock("@/env", async () => {
+  const { buildAssistantChatEvalEnv } = await vi.importActual<
+    typeof import("@/__tests__/eval/assistant-chat-eval-env")
+  >("@/__tests__/eval/assistant-chat-eval-env");
+
+  return {
+    env: buildAssistantChatEvalEnv({
+      NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: true,
+    }),
+  };
+});
 
 describe.runIf(shouldRunEval)(
   "Eval: phishing hardening for assistant chat",

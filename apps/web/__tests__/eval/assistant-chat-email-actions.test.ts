@@ -21,7 +21,6 @@ import { getMockMessage } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { getEmailAccount } from "@/__tests__/helpers";
-import { buildAssistantChatEvalEnv } from "@/__tests__/eval/assistant-chat-eval-env";
 
 // pnpm test-ai eval/assistant-chat-email-actions
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-email-actions
@@ -176,9 +175,15 @@ vi.mock("@/utils/senders/unsubscribe", () => ({
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/env", () => ({
-  env: buildAssistantChatEvalEnv(),
-}));
+vi.mock("@/env", async () => {
+  const { buildAssistantChatEvalEnv } = await vi.importActual<
+    typeof import("@/__tests__/eval/assistant-chat-eval-env")
+  >("@/__tests__/eval/assistant-chat-eval-env");
+
+  return {
+    env: buildAssistantChatEvalEnv(),
+  };
+});
 
 describe.runIf(shouldRunEval)("Eval: assistant chat email actions", () => {
   beforeEach(() => {

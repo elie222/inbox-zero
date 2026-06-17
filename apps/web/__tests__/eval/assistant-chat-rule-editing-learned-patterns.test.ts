@@ -19,7 +19,6 @@ import {
 import type { getEmailAccount } from "@/__tests__/helpers";
 import { GroupItemType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
-import { buildAssistantChatEvalEnv } from "@/__tests__/eval/assistant-chat-eval-env";
 
 // pnpm test-ai eval/assistant-chat-rule-editing
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-rule-editing
@@ -129,9 +128,15 @@ vi.mock("@/utils/senders/unsubscribe", () => ({
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/env", () => ({
-  env: buildAssistantChatEvalEnv(),
-}));
+vi.mock("@/env", async () => {
+  const { buildAssistantChatEvalEnv } = await vi.importActual<
+    typeof import("@/__tests__/eval/assistant-chat-eval-env")
+  >("@/__tests__/eval/assistant-chat-eval-env");
+
+  return {
+    env: buildAssistantChatEvalEnv(),
+  };
+});
 
 describe.runIf(shouldRunEval)(
   "Eval: assistant chat rule editing learned patterns",

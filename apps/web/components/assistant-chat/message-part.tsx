@@ -38,6 +38,7 @@ import {
   type ManageInboxAction,
   requiresThreadIds,
 } from "@/utils/ai/assistant/manage-inbox-actions";
+import type { DeleteRuleOutput } from "@/utils/ai/assistant/tools/rules/delete-rule-tool";
 import { getUserVisibleToolFailureMessage } from "@/utils/ai/assistant/chat-response-guard";
 import { pluralize } from "@/utils/string";
 
@@ -85,9 +86,14 @@ type LegacyUpdateRuleStatePart = {
 };
 
 function isLegacyUpdateRuleStatePart(
-  part: ChatMessage["parts"][0],
+  part: unknown,
 ): part is LegacyUpdateRuleStatePart {
-  return part.type === "tool-updateRuleState";
+  return (
+    typeof part === "object" &&
+    part !== null &&
+    "type" in part &&
+    part.type === "tool-updateRuleState"
+  );
 }
 
 function ErrorToolCard({ error }: { error: string }) {
@@ -103,6 +109,15 @@ function renderToolError(toolCallId: string, output: unknown) {
 
 function isOutputWithError(output: unknown): output is { error: unknown } {
   return typeof output === "object" && output !== null && "error" in output;
+}
+
+function isDeleteRuleOutput(output: unknown): output is DeleteRuleOutput {
+  return (
+    typeof output === "object" &&
+    output !== null &&
+    "success" in output &&
+    typeof output.success === "boolean"
+  );
 }
 
 function getOutputField<T>(output: unknown, field: string): T | undefined {
@@ -527,6 +542,15 @@ export function MessagePart({
         getOutputField<boolean>(output, "requiresConfirmation") === true &&
         getOutputField<string>(output, "actionType") === "delete_rule";
       if (requiresDeleteConfirmation) {
+        if (!isDeleteRuleOutput(output)) {
+          return (
+            <ErrorToolCard
+              key={toolCallId}
+              error="Missing delete rule confirmation details"
+            />
+          );
+        }
+
         return (
           <PendingDeleteRuleToolCard
             key={toolCallId}
@@ -547,24 +571,25 @@ export function MessagePart({
     }
   }
 
-  if (isLegacyUpdateRuleStatePart(part)) {
-    const { toolCallId, state } = part;
+  const legacyPart = part as unknown;
+  if (isLegacyUpdateRuleStatePart(legacyPart)) {
+    const { toolCallId, state } = legacyPart;
     if (state === "input-available") {
       const verb =
-        part.input.operation === "delete"
+        legacyPart.input.operation === "delete"
           ? "Preparing to delete"
-          : part.input.operation === "enable"
+          : legacyPart.input.operation === "enable"
             ? "Enabling"
             : "Disabling";
       return (
         <BasicToolInfo
           key={toolCallId}
-          text={`${verb} rule "${part.input.ruleName}"...`}
+          text={`${verb} rule "${legacyPart.input.ruleName}"...`}
         />
       );
     }
     if (state === "output-available") {
-      const { output } = part;
+      const { output } = legacyPart;
       if (isOutputWithError(output)) {
         return renderToolError(toolCallId, output);
       }
@@ -578,10 +603,19 @@ export function MessagePart({
         getOutputField<boolean>(output, "requiresConfirmation") === true &&
         getOutputField<string>(output, "actionType") === "delete_rule";
       if (requiresDeleteConfirmation) {
+        if (!isDeleteRuleOutput(output)) {
+          return (
+            <ErrorToolCard
+              key={toolCallId}
+              error="Missing delete rule confirmation details"
+            />
+          );
+        }
+
         return (
           <PendingDeleteRuleToolCard
             key={toolCallId}
-            args={part.input}
+            args={legacyPart.input}
             output={output}
             disableConfirm={disableConfirm || !isPersistedMessage}
           />
@@ -589,7 +623,11 @@ export function MessagePart({
       }
 
       return (
-        <UpdatedRuleState key={toolCallId} args={part.input} output={output} />
+        <UpdatedRuleState
+          key={toolCallId}
+          args={legacyPart.input}
+          output={output}
+        />
       );
     }
   }

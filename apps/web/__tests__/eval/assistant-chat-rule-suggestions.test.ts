@@ -35,7 +35,6 @@ import type { DemoInboxFixture } from "@/__tests__/fixtures/inboxes/types";
 import { ActionType } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { buildAssistantChatEvalEnv } from "@/__tests__/eval/assistant-chat-eval-env";
 
 // pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-rule-suggestions.test.ts
 
@@ -105,9 +104,17 @@ vi.mock("@/utils/senders/unsubscribe", () => ({
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/env", () => ({
-  env: buildAssistantChatEvalEnv({ NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: true }),
-}));
+vi.mock("@/env", async () => {
+  const { buildAssistantChatEvalEnv } = await vi.importActual<
+    typeof import("@/__tests__/eval/assistant-chat-eval-env")
+  >("@/__tests__/eval/assistant-chat-eval-env");
+
+  return {
+    env: buildAssistantChatEvalEnv({
+      NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: true,
+    }),
+  };
+});
 
 type Scenario = {
   name: string;
