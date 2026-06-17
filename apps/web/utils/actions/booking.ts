@@ -120,7 +120,7 @@ export const updateBookingLinkAction = actionClient
         maxDaysAhead: parsedInput.maxDaysAhead,
         ...(destinationCalendarId === undefined
           ? {}
-          : { destinationCalendarId: destinationCalendarId.id }),
+          : { destinationCalendarId: destinationCalendarId?.id ?? null }),
       },
     });
 

@@ -330,6 +330,30 @@ describe("booking actions", () => {
     );
   });
 
+  it("clears the destination calendar when a null update resolves to no default calendar", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue({
+      id: "booking-link-id",
+      locationType: BookingLinkLocationType.CUSTOM,
+      destinationCalendar: null,
+    } as any);
+    prisma.calendar.findFirst.mockResolvedValue(null);
+    prisma.bookingLink.update.mockResolvedValue({} as any);
+
+    const result = await updateBookingLinkAction("email-account-id", {
+      id: "booking-link-id",
+      destinationCalendarId: null,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.bookingLink.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          destinationCalendarId: null,
+        }),
+      }),
+    );
+  });
+
   it("updates link minimum notice and other fields", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue({
       id: "booking-link-id",
