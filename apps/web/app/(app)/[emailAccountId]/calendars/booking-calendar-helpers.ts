@@ -1,8 +1,8 @@
 import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import {
-  isGoogleProvider,
-  isMicrosoftProvider,
-} from "@/utils/email/provider-types";
+  getProviderVideoLocationType,
+  isProviderVideoLocationType,
+} from "@/utils/booking/location";
 
 export type BookingLinkCalendarData = {
   calendarConnections: Array<{
@@ -47,26 +47,7 @@ export function getSelectedCalendarProvider(
   );
 }
 
-export function getProviderVideoLocationType(
-  provider: string | null | undefined,
-) {
-  if (isGoogleProvider(provider)) {
-    return BookingLinkLocationType.GOOGLE_MEET;
-  }
-  if (isMicrosoftProvider(provider)) {
-    return BookingLinkLocationType.MICROSOFT_TEAMS;
-  }
-  return null;
-}
-
-export function isProviderVideoLocationType(
-  locationType: BookingLinkLocationType,
-) {
-  return (
-    locationType === BookingLinkLocationType.GOOGLE_MEET ||
-    locationType === BookingLinkLocationType.MICROSOFT_TEAMS
-  );
-}
+export { getProviderVideoLocationType, isProviderVideoLocationType };
 
 export function getVideoLocationLabel(
   locationType: BookingLinkLocationType | null,
