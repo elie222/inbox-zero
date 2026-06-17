@@ -85,6 +85,10 @@ type LegacyUpdateRuleStatePart = {
   output?: unknown;
 };
 
+type LegacyUpdateRuleStateOutput = Parameters<
+  typeof UpdatedRuleState
+>[0]["output"];
+
 function isLegacyUpdateRuleStatePart(
   part: unknown,
 ): part is LegacyUpdateRuleStatePart {
@@ -118,6 +122,12 @@ function isDeleteRuleOutput(output: unknown): output is DeleteRuleOutput {
     "success" in output &&
     typeof output.success === "boolean"
   );
+}
+
+function isLegacyUpdateRuleStateOutput(
+  output: unknown,
+): output is LegacyUpdateRuleStateOutput {
+  return isDeleteRuleOutput(output);
 }
 
 function getOutputField<T>(output: unknown, field: string): T | undefined {
@@ -449,6 +459,11 @@ export function MessagePart({
       if (isOutputWithError(output)) {
         return renderToolError(toolCallId, output);
       }
+      if (!isLegacyUpdateRuleStateOutput(output)) {
+        return (
+          <ErrorToolCard key={toolCallId} error="Missing rule update details" />
+        );
+      }
       const ruleId = getOutputField<string>(output, "ruleId");
       if (!ruleId)
         return (
@@ -592,6 +607,11 @@ export function MessagePart({
       const { output } = legacyPart;
       if (isOutputWithError(output)) {
         return renderToolError(toolCallId, output);
+      }
+      if (!isLegacyUpdateRuleStateOutput(output)) {
+        return (
+          <ErrorToolCard key={toolCallId} error="Missing rule update details" />
+        );
       }
       const ruleId = getOutputField<string>(output, "ruleId");
       if (!ruleId)
