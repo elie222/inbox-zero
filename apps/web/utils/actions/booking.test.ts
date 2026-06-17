@@ -354,6 +354,31 @@ describe("booking actions", () => {
     );
   });
 
+  it("clears stale provider video when the destination calendar is cleared", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue({
+      id: "booking-link-id",
+      locationType: BookingLinkLocationType.MICROSOFT_TEAMS,
+      destinationCalendar: { connection: { provider: "microsoft" } },
+    } as any);
+    prisma.calendar.findFirst.mockResolvedValue(null);
+    prisma.bookingLink.update.mockResolvedValue({} as any);
+
+    const result = await updateBookingLinkAction("email-account-id", {
+      id: "booking-link-id",
+      destinationCalendarId: null,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.bookingLink.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          destinationCalendarId: null,
+          locationType: BookingLinkLocationType.CUSTOM,
+        }),
+      }),
+    );
+  });
+
   it("updates link minimum notice and other fields", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue({
       id: "booking-link-id",

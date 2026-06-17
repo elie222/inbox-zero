@@ -84,12 +84,14 @@ export const updateBookingLinkAction = actionClient
             emailAccountId,
             destinationCalendarId: parsedInput.destinationCalendarId,
           });
+    const destinationCalendarProvider =
+      destinationCalendarId === undefined
+        ? bookingLink.destinationCalendar?.connection.provider
+        : destinationCalendarId?.provider;
     const locationType = getUpdatedLocationType({
       currentLocationType: bookingLink.locationType,
       requestedLocationType: parsedInput.locationType,
-      destinationCalendarProvider:
-        destinationCalendarId?.provider ??
-        bookingLink.destinationCalendar?.connection.provider,
+      destinationCalendarProvider,
       destinationCalendarChanged: destinationCalendarId !== undefined,
     });
 
