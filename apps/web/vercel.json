@@ -74,6 +74,15 @@
           "retryAfterSeconds": 60
         }
       ]
+    },
+    "app/api/resend/inbox-health/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "resend-inbox-health",
+          "retryAfterSeconds": 60
+        }
+      ]
     }
   },
   "rewrites": [
@@ -98,6 +107,10 @@
     {
       "path": "/api/resend/digest/all",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/resend/inbox-health/all",
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/meeting-briefs",
