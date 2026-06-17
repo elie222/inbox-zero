@@ -12,9 +12,9 @@ import { getSlotIntervalMinutes } from "@/utils/booking/policy";
 import prisma from "@/utils/prisma";
 import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import {
-  isGoogleProvider,
-  isMicrosoftProvider,
-} from "@/utils/email/provider-types";
+  getProviderVideoLocationType,
+  isProviderVideoLocationType,
+} from "@/utils/booking/location";
 
 export const createBookingLinkAction = actionClient
   .metadata({ name: "createBookingLink" })
@@ -23,18 +23,19 @@ export const createBookingLinkAction = actionClient
     await assertNoBookingLinkForAccount({ emailAccountId });
     await assertBookingLinkSlugAvailable({ slug: parsedInput.slug });
 
-    const destinationCalendarId = await getOwnedDestinationCalendarId({
+    const destinationCalendar = await getOwnedDestinationCalendar({
       emailAccountId,
       destinationCalendarId: parsedInput.destinationCalendarId,
     });
-    if (!destinationCalendarId) {
+    if (!destinationCalendar) {
       throw new SafeError("Connect your calendar to create a booking link");
     }
 
     const durationMinutes = parsedInput.durationMinutes;
     const slotIntervalMinutes = getSlotIntervalMinutes(durationMinutes);
     const defaultLocationType =
-      await getDefaultLocationTypeForDestinationCalendar(destinationCalendarId);
+      getProviderVideoLocationType(destinationCalendar.provider) ??
+      BookingLinkLocationType.CUSTOM;
     const locationType = parsedInput.videoEnabled
       ? defaultLocationType
       : BookingLinkLocationType.CUSTOM;
@@ -49,7 +50,7 @@ export const createBookingLinkAction = actionClient
         slotIntervalMinutes,
         locationType,
         emailAccountId,
-        ...(destinationCalendarId ? { destinationCalendarId } : {}),
+        destinationCalendarId: destinationCalendar.id,
         windows: {
           create: getDefaultWindows(),
         },
@@ -64,7 +65,7 @@ export const updateBookingLinkAction = actionClient
   .metadata({ name: "updateBookingLink" })
   .inputSchema(updateBookingLinkActionBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
-    await ensureBookingLinkOwner({
+    const bookingLink = await ensureBookingLinkOwner({
       emailAccountId,
       bookingLinkId: parsedInput.id,
     });
@@ -79,10 +80,18 @@ export const updateBookingLinkAction = actionClient
     const destinationCalendarId =
       parsedInput.destinationCalendarId === undefined
         ? undefined
-        : await getOwnedDestinationCalendarId({
+        : await getOwnedDestinationCalendar({
             emailAccountId,
             destinationCalendarId: parsedInput.destinationCalendarId,
           });
+    const locationType = getUpdatedLocationType({
+      currentLocationType: bookingLink.locationType,
+      requestedLocationType: parsedInput.locationType,
+      destinationCalendarProvider:
+        destinationCalendarId?.provider ??
+        bookingLink.destinationCalendar?.connection.provider,
+      destinationCalendarChanged: destinationCalendarId !== undefined,
+    });
 
     await prisma.bookingLink.update({
       where: { id: parsedInput.id },
@@ -100,16 +109,18 @@ export const updateBookingLinkAction = actionClient
           parsedInput.durationMinutes === undefined
             ? undefined
             : getSlotIntervalMinutes(parsedInput.durationMinutes),
-        locationType: parsedInput.locationType,
+        locationType,
         locationValue:
-          parsedInput.locationValue === undefined
-            ? undefined
-            : emptyToNull(parsedInput.locationValue),
+          locationType && isProviderVideoLocationType(locationType)
+            ? null
+            : parsedInput.locationValue === undefined
+              ? undefined
+              : emptyToNull(parsedInput.locationValue),
         minimumNoticeMinutes: parsedInput.minimumNoticeMinutes,
         maxDaysAhead: parsedInput.maxDaysAhead,
         ...(destinationCalendarId === undefined
           ? {}
-          : { destinationCalendarId }),
+          : { destinationCalendarId: destinationCalendarId.id }),
       },
     });
 
@@ -160,7 +171,17 @@ async function ensureBookingLinkOwner({
 }) {
   const bookingLink = await prisma.bookingLink.findFirst({
     where: { id: bookingLinkId, emailAccountId },
-    select: { id: true },
+    select: {
+      id: true,
+      locationType: true,
+      destinationCalendar: {
+        select: {
+          connection: {
+            select: { provider: true },
+          },
+        },
+      },
+    },
   });
 
   if (!bookingLink) throw new SafeError("Booking link not found");
@@ -183,7 +204,7 @@ async function assertNoBookingLinkForAccount({
   }
 }
 
-async function getOwnedDestinationCalendarId({
+async function getOwnedDestinationCalendar({
   emailAccountId,
   destinationCalendarId,
 }: {
@@ -197,10 +218,17 @@ async function getOwnedDestinationCalendarId({
         connection: { emailAccountId, isConnected: true },
       },
       orderBy: [{ primary: "desc" }, { createdAt: "asc" }],
-      select: { id: true },
+      select: {
+        id: true,
+        connection: {
+          select: { provider: true },
+        },
+      },
     });
 
-    return calendar?.id ?? null;
+    return calendar
+      ? { id: calendar.id, provider: calendar.connection.provider }
+      : null;
   }
 
   const calendar = await prisma.calendar.findFirst({
@@ -209,12 +237,17 @@ async function getOwnedDestinationCalendarId({
       isEnabled: true,
       connection: { emailAccountId, isConnected: true },
     },
-    select: { id: true },
+    select: {
+      id: true,
+      connection: {
+        select: { provider: true },
+      },
+    },
   });
 
   if (!calendar) throw new SafeError("Destination calendar not found");
 
-  return calendar.id;
+  return { id: calendar.id, provider: calendar.connection.provider };
 }
 
 async function assertBookingLinkSlugAvailable({
@@ -237,31 +270,31 @@ async function assertBookingLinkSlugAvailable({
   }
 }
 
-async function getDefaultLocationTypeForDestinationCalendar(
-  destinationCalendarId: string | null,
-) {
-  if (!destinationCalendarId) return BookingLinkLocationType.CUSTOM;
+function getUpdatedLocationType({
+  currentLocationType,
+  requestedLocationType,
+  destinationCalendarProvider,
+  destinationCalendarChanged,
+}: {
+  currentLocationType: BookingLinkLocationType;
+  requestedLocationType?: BookingLinkLocationType;
+  destinationCalendarProvider?: string | null;
+  destinationCalendarChanged: boolean;
+}) {
+  const locationType = requestedLocationType ?? currentLocationType;
 
-  const calendar = await prisma.calendar.findUnique({
-    where: { id: destinationCalendarId },
-    select: {
-      connection: {
-        select: { provider: true },
-      },
-    },
-  });
-
-  return getProviderVideoLocationType(calendar?.connection.provider);
-}
-
-function getProviderVideoLocationType(provider: string | null | undefined) {
-  if (isGoogleProvider(provider)) {
-    return BookingLinkLocationType.GOOGLE_MEET;
+  if (!isProviderVideoLocationType(locationType)) {
+    return requestedLocationType;
   }
-  if (isMicrosoftProvider(provider)) {
-    return BookingLinkLocationType.MICROSOFT_TEAMS;
+
+  if (!requestedLocationType && !destinationCalendarChanged) {
+    return;
   }
-  return BookingLinkLocationType.CUSTOM;
+
+  return (
+    getProviderVideoLocationType(destinationCalendarProvider) ??
+    BookingLinkLocationType.CUSTOM
+  );
 }
 
 function getDefaultWindows() {

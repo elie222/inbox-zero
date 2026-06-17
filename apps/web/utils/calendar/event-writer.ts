@@ -7,6 +7,7 @@ import {
 } from "@/utils/email/provider-types";
 import { GoogleCalendarEventProvider } from "@/utils/calendar/providers/google-events";
 import { MicrosoftCalendarEventProvider } from "@/utils/calendar/providers/microsoft-events";
+import { getProviderAlignedLocationType } from "@/utils/booking/location";
 import type { BookingLinkLocationType } from "@/generated/prisma/enums";
 import type {
   CalendarEventAttendee,
@@ -64,7 +65,10 @@ export async function createCalendarEvent({
     endTime,
     timezone,
     attendees,
-    locationType,
+    locationType: getProviderAlignedLocationType({
+      locationType,
+      provider: destination.connection.provider,
+    }),
     locationValue,
   });
 

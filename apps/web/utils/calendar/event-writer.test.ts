@@ -5,6 +5,7 @@ import {
   cancelCalendarEvent,
   createCalendarEvent,
 } from "@/utils/calendar/event-writer";
+import { BookingLinkLocationType } from "@/generated/prisma/enums";
 
 const providerMocks = vi.hoisted(() => ({
   cancelEvent: vi.fn(),
@@ -197,7 +198,40 @@ describe("createCalendarEvent", () => {
     expect(providerMocks.createEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         calendarId: "microsoft-calendar",
+        locationType: "CUSTOM",
         title: "Intro call",
+      }),
+    );
+  });
+
+  it("normalizes stale provider video locations to the writable calendar provider", async () => {
+    prisma.calendar.findFirst.mockResolvedValue({
+      calendarId: "microsoft-calendar",
+      connection: {
+        id: "connection-id",
+        provider: "microsoft",
+        accessToken: "access-token",
+        refreshToken: "refresh-token",
+        expiresAt: new Date("2026-05-04T00:00:00.000Z"),
+      },
+    });
+
+    await createCalendarEvent({
+      attendees: [{ name: "Guest User", email: "guest@example.com" }],
+      destinationCalendarId: "calendar-row-id",
+      emailAccountId: "email-account-id",
+      endTime: new Date("2026-05-04T09:30:00.000Z"),
+      locationType: BookingLinkLocationType.GOOGLE_MEET,
+      logger: createTestLogger(),
+      startTime: new Date("2026-05-04T09:00:00.000Z"),
+      timezone: "UTC",
+      title: "Intro call",
+    });
+
+    expect(providerMocks.createEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        calendarId: "microsoft-calendar",
+        locationType: BookingLinkLocationType.MICROSOFT_TEAMS,
       }),
     );
   });
