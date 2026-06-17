@@ -97,17 +97,40 @@ async function bridgeClaudeCodeToolsIfNeeded<T extends Record<string, Tool>>({
   modelName,
   model,
   tools,
+  activeTools,
 }: {
   provider: string;
   modelName: string;
   model: LanguageModelV3;
   tools: T | undefined;
-}): Promise<{ model: LanguageModelV3; tools: T | undefined }> {
-  if (provider !== Provider.CLAUDE_CODE) return { model, tools };
-  if (!tools || Object.keys(tools).length === 0) return { model, tools };
+  activeTools?: Array<string>;
+}): Promise<{
+  model: LanguageModelV3;
+  tools: T | undefined;
+  bridged: boolean;
+}> {
+  if (provider !== Provider.CLAUDE_CODE)
+    return { model, tools, bridged: false };
+  if (!tools || Object.keys(tools).length === 0) {
+    return { model, tools, bridged: false };
+  }
+
+  const activeToolSet =
+    activeTools === undefined ? undefined : new Set(activeTools);
+  const toolsToBridge =
+    activeToolSet === undefined
+      ? tools
+      : (Object.fromEntries(
+          Object.entries(tools).filter(([name]) => activeToolSet.has(name)),
+        ) as T);
+
+  if (Object.keys(toolsToBridge).length === 0) {
+    return { model, tools: undefined, bridged: true };
+  }
+
   const bridged = await createClaudeCodeLanguageModelWithBridgedTools({
     modelName,
-    tools: tools as unknown as Record<
+    tools: toolsToBridge as unknown as Record<
       string,
       {
         description?: string;
@@ -116,7 +139,18 @@ async function bridgeClaudeCodeToolsIfNeeded<T extends Record<string, Tool>>({
       }
     >,
   });
-  return { model: bridged, tools: undefined };
+  return { model: bridged, tools: undefined, bridged: true };
+}
+
+function prepareOptionsForToolBridge<TOptions extends { tools?: unknown }>({
+  options,
+  bridged,
+}: {
+  options: TOptions;
+  bridged: { bridged: boolean };
+}): TOptions {
+  if (!bridged.bridged) return options;
+  return { ...options, tools: undefined };
 }
 
 const NO_USER_AI_FIELDS: UserAIFields = {
@@ -288,10 +322,14 @@ export function createGenerateText({
         model: candidate.model,
         tools: protectedTools,
       });
+      const protectedRequestOptions = prepareOptionsForToolBridge({
+        options: protectedOptions,
+        bridged,
+      });
 
       const result = await generateText(
         {
-          ...protectedOptions,
+          ...protectedRequestOptions,
           ...(bridged.tools ? { tools: bridged.tools } : {}),
           ...commonOptions,
           providerOptions,
@@ -810,6 +848,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       modelName: candidate.modelName,
       model: candidate.model,
       tools: candidateTools,
+      activeTools,
     });
     const model = withPosthogTracing({
       model: bridgedAgent.model,
@@ -850,9 +889,9 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
     const agent = new ToolLoopAgent({
       model,
       tools: bridgedAgent.tools,
-      activeTools: activeTools as
-        | Array<keyof typeof candidateTools>
-        | undefined,
+      activeTools: bridgedAgent.bridged
+        ? undefined
+        : (activeTools as Array<keyof typeof candidateTools> | undefined),
       prepareStep,
       stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
       temperature,
