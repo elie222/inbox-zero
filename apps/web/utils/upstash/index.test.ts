@@ -218,10 +218,14 @@ describe("publishToQstashQueue", () => {
       parallelism: 1,
       path: "/api/task",
       body: { id: "a" },
+      deduplicationId: "task-a-2026-06-16",
     });
 
     expect(mockQueueEnqueueJSON).toHaveBeenCalledWith(
-      expect.objectContaining({ url: "https://worker.example.com/api/task" }),
+      expect.objectContaining({
+        url: "https://worker.example.com/api/task",
+        deduplicationId: "task-a-2026-06-16",
+      }),
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });

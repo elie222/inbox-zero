@@ -7,6 +7,10 @@ import DigestEmail, {
   type DigestEmailProps,
   generateDigestSubject,
 } from "../emails/digest";
+import InboxHealthEmail, {
+  getSenderCountText,
+  type InboxHealthEmailProps,
+} from "../emails/inbox-health";
 import InvitationEmail, {
   type InvitationEmailProps,
 } from "../emails/invitation";
@@ -210,6 +214,33 @@ export const sendDigestEmail = async ({
       {
         name: "category",
         value: "digest",
+      },
+    ],
+  });
+
+export const sendInboxHealthEmail = async ({
+  from,
+  to,
+  test,
+  emailProps,
+}: {
+  from: string;
+  to: string;
+  test?: boolean;
+  emailProps: InboxHealthEmailProps;
+}) =>
+  sendEmail({
+    from,
+    to,
+    subject: `We found ${getSenderCountText(emailProps.suggestionCount)} you rarely read`,
+    react: <InboxHealthEmail {...emailProps} />,
+    test,
+    unsubscribeToken: emailProps.unsubscribeToken,
+    baseUrl: emailProps.baseUrl,
+    tags: [
+      {
+        name: "category",
+        value: "inbox-health",
       },
     ],
   });

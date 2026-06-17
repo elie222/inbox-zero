@@ -143,6 +143,7 @@ model EmailAccount {
   statsEmailFrequency       Frequency            @default(WEEKLY)
   summaryEmailFrequency     Frequency            @default(WEEKLY)
   lastSummaryEmailAt        DateTime?
+  lastInboxHealthEmailAt    DateTime?
   coldEmailBlocker          ColdEmailSetting? // @deprecated
   coldEmailDigest           Boolean              @default(false) // @deprecated
   coldEmailPrompt           String? // @deprecated
@@ -214,6 +215,7 @@ model EmailAccount {
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
+  @@index([lastInboxHealthEmailAt])
   @@index([watchEmailsSubscriptionId])
   @@index([watchEmailsSubscriptionHistory(ops: JsonbPathOps)], type: Gin)
 }
