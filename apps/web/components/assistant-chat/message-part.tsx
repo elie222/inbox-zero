@@ -39,6 +39,7 @@ import {
   requiresThreadIds,
 } from "@/utils/ai/assistant/manage-inbox-actions";
 import { getUserVisibleToolFailureMessage } from "@/utils/ai/assistant/chat-response-guard";
+import { normalizeClaudeCodeToolPart } from "@/utils/llms/claude-code-tool-bridge";
 import { pluralize } from "@/utils/string";
 
 interface MessagePartProps {
@@ -98,7 +99,7 @@ function getOutputField<T>(output: unknown, field: string): T | undefined {
 }
 
 export function MessagePart({
-  part,
+  part: rawPart,
   isStreaming,
   disableConfirm,
   isPersistedMessage,
@@ -107,6 +108,7 @@ export function MessagePart({
   threadLookup,
 }: MessagePartProps) {
   const key = `${messageId}-${partIndex}`;
+  const part = normalizeClaudeCodeToolPart(rawPart) as ChatMessage["parts"][0];
 
   if (part.type === "reasoning") {
     // Skip rendering if reasoning is redacted (limited token output from provider)

@@ -15,6 +15,7 @@ import {
 } from "@/components/ai-elements/conversation";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { Loader } from "@/components/ai-elements/loader";
+import { normalizeClaudeCodeToolPart } from "@/utils/llms/claude-code-tool-bridge";
 
 interface MessagesProps {
   footer?: ReactNode;
@@ -107,7 +108,8 @@ export function Messages({
 function buildEmailLookup(messages: Array<ChatMessage>): EmailLookup {
   const lookup: EmailLookup = new Map();
   for (const message of messages) {
-    for (const part of message.parts ?? []) {
+    for (const rawPart of message.parts ?? []) {
+      const part = normalizeClaudeCodeToolPart(rawPart);
       if (
         part.type === "tool-searchInbox" &&
         part.state === "output-available"

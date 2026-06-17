@@ -59,6 +59,8 @@ import {
   shouldForceNanoModel,
 } from "@/utils/llms/model-usage-guard";
 import { Provider } from "@/utils/llms/config";
+import { createClaudeCodeLanguageModelWithBridgedTools } from "@/utils/llms/cli-provider";
+import { normalizeClaudeCodeToolNamesInStepResult } from "@/utils/llms/claude-code-tool-bridge";
 import {
   appendOllamaOnlySystemGuidance,
   OLLAMA_STRUCTURED_OUTPUT_GUIDANCE,
@@ -86,6 +88,62 @@ import {
 const logger = createScopedLogger("llms");
 
 const MAX_LOG_LENGTH = 200;
+
+// The Claude Code CLI provider drops AI SDK tools at the LanguageModelV3
+// boundary. Route tool-bearing calls through the package's MCP bridge so the
+// CLI can execute them locally; clear `tools` so the AI SDK does not also try
+// to drive them. No-op for every other provider and for tool-less calls.
+async function bridgeClaudeCodeToolsIfNeeded<T extends Record<string, Tool>>({
+  provider,
+  modelName,
+  model,
+  tools,
+  activeTools,
+}: {
+  provider: string;
+  modelName: string;
+  model: LanguageModelV3;
+  tools: T | undefined;
+  activeTools?: Array<string>;
+}): Promise<{
+  model: LanguageModelV3;
+  tools: T | undefined;
+  bridged: boolean;
+}> {
+  if (provider !== Provider.CLAUDE_CODE) {
+    return { model, tools, bridged: false };
+  }
+  if (!tools || Object.keys(tools).length === 0) {
+    return { model, tools, bridged: false };
+  }
+
+  const activeToolSet =
+    activeTools === undefined ? undefined : new Set(activeTools);
+  const toolsToBridge =
+    activeToolSet === undefined
+      ? tools
+      : (Object.fromEntries(
+          Object.entries(tools).filter(([name]) => activeToolSet.has(name)),
+        ) as T);
+
+  if (Object.keys(toolsToBridge).length === 0) {
+    return { model, tools: undefined, bridged: true };
+  }
+
+  const bridged = await createClaudeCodeLanguageModelWithBridgedTools({
+    modelName,
+    tools: toolsToBridge as unknown as Record<
+      string,
+      {
+        description?: string;
+        inputSchema: unknown;
+        execute?: (input: never, options?: unknown) => unknown;
+      }
+    >,
+  });
+  return { model: bridged, tools: undefined, bridged: true };
+}
+
 const NO_USER_AI_FIELDS: UserAIFields = {
   aiProvider: null,
   aiModel: null,
@@ -249,14 +307,25 @@ export function createGenerateText({
         emailAccountId: emailAccount.id,
       });
 
+      const bridged = await bridgeClaudeCodeToolsIfNeeded({
+        provider: candidate.provider,
+        modelName: candidate.modelName,
+        model: candidate.model,
+        tools: protectedTools,
+      });
+      const protectedRequestOptions = prepareOptionsForToolBridge({
+        options: protectedOptions,
+        bridged,
+      });
+
       const result = await generateText(
         {
-          ...protectedOptions,
-          ...(protectedTools ? { tools: protectedTools } : {}),
+          ...protectedRequestOptions,
+          ...(bridged.tools ? { tools: bridged.tools } : {}),
           ...commonOptions,
           providerOptions,
           model: withPosthogTracing({
-            model: candidate.model,
+            model: bridged.model,
             userEmail: emailAccount.email,
             userId: emailAccount.userId,
             emailAccountId: emailAccount.id,
@@ -601,8 +670,21 @@ export async function chatCompletionStream(
       label,
       emailAccountId,
     });
-    const model = withPosthogTracing({
+    const protectedChatTools = wrapToolsWithSensitiveDataPolicy({
+      tools,
+      policy: sensitiveDataPolicy,
+      label,
+      userId,
+      emailAccountId,
+    });
+    const bridgedChat = await bridgeClaudeCodeToolsIfNeeded({
+      provider: candidate.provider,
+      modelName: candidate.modelName,
       model: candidate.model,
+      tools: protectedChatTools,
+    });
+    const model = withPosthogTracing({
+      model: bridgedChat.model,
       userEmail,
       userId,
       emailAccountId,
@@ -615,18 +697,15 @@ export async function chatCompletionStream(
       return streamText({
         model,
         messages: protectedMessages as ModelMessage[],
-        tools: wrapToolsWithSensitiveDataPolicy({
-          tools,
-          policy: sensitiveDataPolicy,
-          label,
-          userId,
-          emailAccountId,
-        }),
+        tools: bridgedChat.tools,
         stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
         ...commonOptions,
         providerOptions: providerOptions,
         experimental_transform: smoothStream({ chunking: "word" }),
-        onStepFinish,
+        onStepFinish: wrapClaudeCodeToolCallback({
+          callback: onStepFinish,
+          bridged: bridgedChat.bridged,
+        }),
         onFinish: async (result) => {
           const usagePromise = saveUsageWithMetadata({
             result,
@@ -751,21 +830,28 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       label,
       emailAccountId,
     });
-    const model = withPosthogTracing({
-      model: candidate.model,
-      userEmail,
-      userId,
-      emailAccountId,
-      label,
-      provider: candidate.provider,
-      modelName: candidate.modelName,
-    });
     const candidateTools = wrapToolsWithSensitiveDataPolicy({
       tools,
       policy: sensitiveDataPolicy,
       label,
       userId,
       emailAccountId,
+    });
+    const bridgedAgent = await bridgeClaudeCodeToolsIfNeeded({
+      provider: candidate.provider,
+      modelName: candidate.modelName,
+      model: candidate.model,
+      tools: candidateTools,
+      activeTools,
+    });
+    const model = withPosthogTracing({
+      model: bridgedAgent.model,
+      userEmail,
+      userId,
+      emailAccountId,
+      label,
+      provider: candidate.provider,
+      modelName: candidate.modelName,
     });
     const excludedTools: string[] = [];
     const replacedTools: string[] = [];
@@ -796,10 +882,10 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
 
     const agent = new ToolLoopAgent({
       model,
-      tools: candidateTools,
-      activeTools: activeTools as
-        | Array<keyof typeof candidateTools>
-        | undefined,
+      tools: bridgedAgent.tools,
+      activeTools: bridgedAgent.bridged
+        ? undefined
+        : (activeTools as Array<keyof typeof candidateTools> | undefined),
       prepareStep,
       stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
       temperature,
@@ -847,8 +933,11 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepFinish: onStepFinish
           ? async (stepResult) => {
+              const normalizedStepResult = bridgedAgent.bridged
+                ? normalizeClaudeCodeToolNamesInStepResult(stepResult)
+                : stepResult;
               await onStepFinish(
-                stepResult as Parameters<
+                normalizedStepResult as Parameters<
                   NonNullable<
                     StreamTextOnStepFinishCallback<Record<string, Tool>>
                   >
@@ -900,6 +989,39 @@ function getModelOptionsForRoute({
   return useCase
     ? getModelForUseCase(userAi, useCase)
     : getModel(userAi, modelType);
+}
+
+function prepareOptionsForToolBridge<TOptions extends { tools?: unknown }>({
+  options,
+  bridged,
+}: {
+  options: TOptions;
+  bridged: { bridged: boolean };
+}): TOptions {
+  if (!bridged.bridged) return options;
+
+  const nextOptions = { ...options, tools: undefined };
+
+  if ("stopWhen" in nextOptions && typeof nextOptions.stopWhen === "function") {
+    const stopWhen = nextOptions.stopWhen;
+    return {
+      ...nextOptions,
+      stopWhen: (result: unknown) =>
+        stopWhen(normalizeClaudeCodeToolNamesInStepResult(result)),
+    };
+  }
+
+  return nextOptions;
+}
+
+function wrapClaudeCodeToolCallback<
+  TResult,
+  TCallback extends ((result: TResult) => unknown) | undefined,
+>({ callback, bridged }: { callback: TCallback; bridged: boolean }): TCallback {
+  if (!callback || !bridged) return callback;
+
+  return ((result: TResult) =>
+    callback(normalizeClaudeCodeToolNamesInStepResult(result))) as TCallback;
 }
 
 function wrapToolsWithSensitiveDataPolicy<TTools extends ToolSet | undefined>({

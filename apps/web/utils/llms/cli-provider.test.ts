@@ -83,6 +83,49 @@ describe("createCliLanguageModel", () => {
     });
   });
 
+  it("creates a Claude Code model with bridged MCP tools", async () => {
+    const bridgedModel = { id: "bridged-model" };
+    const mcpServer = { type: "sdk", name: "inboxzero" };
+    const claudeCode = vi.fn(() => bridgedModel);
+    const createAiSdkMcpServer = vi.fn(() => mcpServer);
+    const tools = {
+      searchInbox: {
+        description: "Search inbox",
+        inputSchema: {},
+        execute: vi.fn(),
+      },
+      createRule: {
+        description: "Create rule",
+        inputSchema: {},
+        execute: vi.fn(),
+      },
+    };
+
+    const { createClaudeCodeLanguageModelWithBridgedTools } =
+      await loadCliProviderModule({
+        claudeModule: { claudeCode, createAiSdkMcpServer },
+      });
+
+    await expect(
+      createClaudeCodeLanguageModelWithBridgedTools({
+        modelName: "sonnet",
+        tools,
+      }),
+    ).resolves.toBe(bridgedModel);
+
+    expect(createAiSdkMcpServer).toHaveBeenCalledWith("inboxzero", tools);
+    expect(claudeCode).toHaveBeenCalledWith("sonnet", {
+      settingSources: [],
+      allowedTools: [
+        "mcp__inboxzero__searchInbox",
+        "mcp__inboxzero__createRule",
+      ],
+      mcpServers: { inboxzero: mcpServer },
+      permissionMode: "default",
+      sandbox: { enabled: true },
+    });
+  });
+
   it("surfaces a clear error when the provider package is missing its factory export", async () => {
     const { createCliLanguageModel } = await loadCliProviderModule({
       codexModule: { codexExec: undefined },

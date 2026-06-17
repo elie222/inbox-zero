@@ -2,6 +2,10 @@ import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { env } from "@/env";
 import { SafeError } from "@/utils/error";
 import { Provider } from "@/utils/llms/config";
+import {
+  CLAUDE_CODE_MCP_SERVER_NAME,
+  getClaudeCodeMcpToolName,
+} from "@/utils/llms/claude-code-tool-bridge";
 
 type CliProvider = string;
 
@@ -12,8 +16,21 @@ type CliModelFactory = (
   settings?: Record<string, unknown>,
 ) => LanguageModelV3;
 
+type McpBridgedTool = {
+  description?: string;
+  inputSchema: unknown;
+  execute?: (input: never, options?: unknown) => unknown;
+};
+
+type McpBridgeFactory = (
+  name: string,
+  tools: Record<string, McpBridgedTool>,
+) => unknown;
+
 const runtimeImport = (specifier: string): Promise<CliProviderModule> =>
   import(/* webpackIgnore: true */ specifier);
+
+const CLAUDE_CODE_PACKAGE = "ai-sdk-provider-claude-code";
 
 export function assertCliLlmEnabled(provider: CliProvider) {
   if (env.CLI_LLM_ENABLED) return;
@@ -57,6 +74,46 @@ export function createCliLanguageModel({
   } as unknown as LanguageModelV3;
 }
 
+// AI SDK tools cannot be auto-bridged at the LanguageModelV3 layer: by the
+// time the wrapper sees them they have been reduced to JSON schemas with no
+// `execute`. Callers that pass tools must therefore use this helper, which
+// wires the original tool record through `createAiSdkMcpServer` so the
+// Claude Code CLI can invoke them locally over MCP.
+export async function createClaudeCodeLanguageModelWithBridgedTools({
+  modelName,
+  tools,
+}: {
+  modelName: string;
+  tools: Record<string, McpBridgedTool>;
+}): Promise<LanguageModelV3> {
+  assertCliLlmEnabled(Provider.CLAUDE_CODE);
+
+  const module = await importOptionalProviderPackage(
+    CLAUDE_CODE_PACKAGE,
+    Provider.CLAUDE_CODE,
+  );
+  const claudeCode = getFactory(module, "claudeCode", Provider.CLAUDE_CODE);
+  const createBridge = getFactory(
+    module,
+    "createAiSdkMcpServer",
+    Provider.CLAUDE_CODE,
+  ) as McpBridgeFactory;
+
+  const toolNames = Object.keys(tools);
+  if (toolNames.length === 0) return createClaudeCodeLanguageModel(modelName);
+
+  const mcpServer = createBridge(CLAUDE_CODE_MCP_SERVER_NAME, tools);
+  const allowedTools = toolNames.map(getClaudeCodeMcpToolName);
+
+  return claudeCode(modelName, {
+    settingSources: [],
+    allowedTools,
+    mcpServers: { [CLAUDE_CODE_MCP_SERVER_NAME]: mcpServer },
+    permissionMode: "default",
+    sandbox: { enabled: true },
+  });
+}
+
 async function loadCliLanguageModel({
   provider,
   modelName,
@@ -93,7 +150,7 @@ async function createCodexCliLanguageModel(modelName: string) {
 
 async function createClaudeCodeLanguageModel(modelName: string) {
   const module = await importOptionalProviderPackage(
-    "ai-sdk-provider-claude-code",
+    CLAUDE_CODE_PACKAGE,
     Provider.CLAUDE_CODE,
   );
   const claudeCode = getFactory(module, "claudeCode", Provider.CLAUDE_CODE);

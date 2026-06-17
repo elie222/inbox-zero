@@ -12,6 +12,7 @@ const {
   mockWithTracing,
   mockGetPosthogLlmClient,
   mockIsPosthogLlmEvalApproved,
+  mockCreateClaudeCodeLanguageModelWithBridgedTools,
 } = vi.hoisted(() => ({
   mockGenerateText: vi.fn(),
   mockSaveAiUsage: vi.fn(),
@@ -22,6 +23,7 @@ const {
   mockWithTracing: vi.fn(),
   mockGetPosthogLlmClient: vi.fn(),
   mockIsPosthogLlmEvalApproved: vi.fn(),
+  mockCreateClaudeCodeLanguageModelWithBridgedTools: vi.fn(),
 }));
 
 vi.mock("ai", async () => {
@@ -44,6 +46,17 @@ vi.mock("@/utils/posthog", () => ({
 vi.mock("@posthog/ai/vercel", () => ({
   withTracing: mockWithTracing,
 }));
+
+vi.mock("@/utils/llms/cli-provider", async (importActual) => {
+  const actual =
+    await importActual<typeof import("@/utils/llms/cli-provider")>();
+
+  return {
+    ...actual,
+    createClaudeCodeLanguageModelWithBridgedTools:
+      mockCreateClaudeCodeLanguageModelWithBridgedTools,
+  };
+});
 
 vi.mock("./retry", async () => {
   const actual = await vi.importActual<typeof import("./retry")>("./retry");
@@ -76,6 +89,7 @@ describe("createGenerateText fallback chain", () => {
     mockIsPosthogLlmEvalApproved.mockReturnValue(false);
     mockWithTracing.mockImplementation((model) => model);
     mockSaveAiUsage.mockResolvedValue(undefined);
+    mockCreateClaudeCodeLanguageModelWithBridgedTools.mockReset();
   });
 
   it("falls back to the next provider on retryable provider failures", async () => {
@@ -487,6 +501,75 @@ describe("createGenerateText fallback chain", () => {
 
     expect(mockWithTracing).not.toHaveBeenCalled();
     expect(mockGenerateText.mock.calls[0][0].model).toBe(model);
+  });
+
+  it("bridges Claude Code tools and normalizes stop condition tool names", async () => {
+    const model = createModel("claude-code-model");
+    const bridgedModel = createModel("bridged-claude-code-model");
+    const tools = {
+      finalizeResults: {
+        description: "Finalize the result",
+        inputSchema: {},
+        execute: vi.fn(),
+      },
+    };
+    const stopWhen = vi.fn(
+      (result: { steps: Array<{ toolCalls: Array<{ toolName: string }> }> }) =>
+        result.steps.some((step) =>
+          step.toolCalls.some((call) => call.toolName === "finalizeResults"),
+        ),
+    );
+    mockCreateClaudeCodeLanguageModelWithBridgedTools.mockResolvedValue(
+      bridgedModel,
+    );
+    mockGenerateText.mockImplementationOnce(async (request) => {
+      expect(request.model).toBe(bridgedModel);
+      expect(request.tools).toBeUndefined();
+      expect(
+        request.stopWhen?.({
+          steps: [
+            {
+              toolCalls: [{ toolName: "mcp__inboxzero__finalizeResults" }],
+            },
+          ],
+        }),
+      ).toBe(true);
+
+      return createTextResult();
+    });
+
+    const generateText = createGenerateTextForTest({
+      label: "Claude Code bridge",
+      modelOptions: createModelOptions({
+        provider: "claude-code",
+        modelName: "sonnet",
+        model,
+      }),
+    });
+
+    await generateText({
+      prompt: "hello",
+      model,
+      tools,
+      stopWhen,
+    });
+
+    expect(
+      mockCreateClaudeCodeLanguageModelWithBridgedTools,
+    ).toHaveBeenCalledWith({
+      modelName: "sonnet",
+      tools,
+    });
+    expect(stopWhen).toHaveBeenCalledWith({
+      steps: [
+        {
+          toolCalls: [{ toolName: "finalizeResults" }],
+          toolResults: undefined,
+        },
+      ],
+      toolCalls: undefined,
+      toolResults: undefined,
+    });
   });
 });
 
