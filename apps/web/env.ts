@@ -151,6 +151,7 @@ const parsedEnv = createEnv({
 
     LLM_API_KEY: z.string().optional(),
     OPENAI_API_KEY: z.string().optional(),
+    OPENAI_ADS_PIXEL_ID: z.string().optional(),
     AZURE_API_KEY: z.string().optional(),
     AZURE_RESOURCE_NAME: z.string().optional(),
     AZURE_API_VERSION: z.string().optional(),
@@ -317,6 +318,7 @@ const parsedEnv = createEnv({
     SLACK_SIGNING_SECRET: z.string().optional(),
 
     // Chat SDK messaging adapters
+    TEAMS_BOT_APP_TYPE: z.string().optional(),
     TEAMS_BOT_APP_ID: z.string().optional(),
     TEAMS_BOT_APP_PASSWORD: z.string().optional(),
     TEAMS_BOT_APP_TENANT_ID: z.string().optional(),
