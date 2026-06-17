@@ -14,6 +14,7 @@ import {
   Row,
   Column,
 } from "@react-email/components";
+import { StatsEmailFooter } from "./components/stats-email-footer";
 
 type EmailItem = {
   from: string;
@@ -93,7 +94,10 @@ export default function SummaryEmail(props: SummaryEmailProps) {
 
             <ColdEmails coldEmailers={coldEmailers} baseUrl={baseUrl} />
 
-            <Footer baseUrl={baseUrl} unsubscribeToken={unsubscribeToken} />
+            <StatsEmailFooter
+              baseUrl={baseUrl}
+              unsubscribeToken={unsubscribeToken}
+            />
           </Container>
         </Body>
       </Tailwind>
@@ -286,37 +290,6 @@ function ColdEmails({
           </Button>
         </Section>
       )}
-    </Section>
-  );
-}
-
-function Footer({
-  baseUrl,
-  unsubscribeToken,
-}: {
-  baseUrl: string;
-  unsubscribeToken: string;
-}) {
-  return (
-    <Section>
-      <Text>
-        You're receiving this email because you're subscribed to Inbox Zero
-        stats updates. You can change this in your{" "}
-        <Link
-          href={`${baseUrl}/settings#email-updates`}
-          className="text-[15px]"
-        >
-          settings
-        </Link>
-        .
-      </Text>
-
-      <Link
-        href={`${baseUrl}/api/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`}
-        className="text-[15px]"
-      >
-        Unsubscribe from emails like this
-      </Link>
     </Section>
   );
 }

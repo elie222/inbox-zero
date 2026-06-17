@@ -83,6 +83,8 @@ async function sendInboxHealthAllUpdate(logger: Logger) {
     count: emailAccounts.length,
   });
 
+  const deduplicationDate = now.toISOString().slice(0, 10);
+
   for (const emailAccount of emailAccounts) {
     try {
       await enqueueBackgroundJob<SendInboxHealthEmailBody>({
@@ -93,6 +95,7 @@ async function sendInboxHealthAllUpdate(logger: Logger) {
           parallelism: 3,
           path: "/api/resend/inbox-health",
           headers: getCronSecretHeader(),
+          deduplicationId: `inbox-health:${emailAccount.id}:${deduplicationDate}`,
         },
         logger,
       });

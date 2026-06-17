@@ -14,6 +14,7 @@ import {
   Tailwind,
   Text,
 } from "@react-email/components";
+import { StatsEmailFooter } from "./components/stats-email-footer";
 
 type SuggestedSender = {
   name: string;
@@ -42,13 +43,13 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
   } = props;
 
   const bulkUnsubscribeUrl = `${baseUrl}/${emailAccountId}/bulk-unsubscribe?select=suggested`;
+  const senderCountText = getSenderCountText(suggestionCount);
 
   return (
     <Html>
       <Head />
       <Preview>
-        We found {suggestionCount.toString()} senders you rarely read. Clean
-        them up in one click.
+        We found {senderCountText} you rarely read. Clean them up in one click.
       </Preview>
       <Tailwind>
         <Body className="bg-white font-sans">
@@ -71,7 +72,7 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
               </Text>
 
               <Heading className="my-4 text-4xl font-medium leading-tight">
-                We found {suggestionCount} senders you rarely read
+                We found {senderCountText} you rarely read
               </Heading>
               <Text className="mb-8 text-lg leading-8">
                 Unsubscribing from them could save you around{" "}
@@ -109,7 +110,10 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
               </Section>
             </Section>
 
-            <Footer baseUrl={baseUrl} unsubscribeToken={unsubscribeToken} />
+            <StatsEmailFooter
+              baseUrl={baseUrl}
+              unsubscribeToken={unsubscribeToken}
+            />
           </Container>
         </Body>
       </Tailwind>
@@ -180,33 +184,6 @@ function SenderCard({ sender }: { sender: SuggestedSender }) {
   );
 }
 
-function Footer({
-  baseUrl,
-  unsubscribeToken,
-}: {
-  baseUrl: string;
-  unsubscribeToken: string;
-}) {
-  return (
-    <Section>
-      <Text>
-        You're receiving this email because you're subscribed to Inbox Zero
-        stats updates. You can change this in your{" "}
-        <Link
-          href={`${baseUrl}/settings#email-updates`}
-          className="text-[15px]"
-        >
-          settings
-        </Link>
-        .
-      </Text>
-
-      <Link
-        href={`${baseUrl}/api/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`}
-        className="text-[15px]"
-      >
-        Unsubscribe from emails like this
-      </Link>
-    </Section>
-  );
+export function getSenderCountText(count: number) {
+  return `${count} ${count === 1 ? "sender" : "senders"}`;
 }

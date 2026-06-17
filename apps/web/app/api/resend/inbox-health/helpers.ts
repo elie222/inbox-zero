@@ -1,6 +1,7 @@
 import { subDays } from "date-fns/subDays";
 import { Frequency, type NewsletterStatus } from "@/generated/prisma/enums";
 import { isUnsubscribeSuggestion } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
+import type { EmailFilter } from "@/utils/email/types";
 
 export const INBOX_HEALTH_MIN_SUGGESTIONS = 5;
 export const INBOX_HEALTH_MAX_LISTED_SENDERS = 10;
@@ -14,6 +15,7 @@ export type InboxHealthSenderStats = {
   /** Number of emails received in the last 3 months */
   value: number;
   readEmails: number;
+  autoArchived?: EmailFilter;
   status?: NewsletterStatus | null;
 };
 

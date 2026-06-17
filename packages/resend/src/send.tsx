@@ -8,6 +8,7 @@ import DigestEmail, {
   generateDigestSubject,
 } from "../emails/digest";
 import InboxHealthEmail, {
+  getSenderCountText,
   type InboxHealthEmailProps,
 } from "../emails/inbox-health";
 import InvitationEmail, {
@@ -231,7 +232,7 @@ export const sendInboxHealthEmail = async ({
   sendEmail({
     from,
     to,
-    subject: `We found ${emailProps.suggestionCount} senders you rarely read`,
+    subject: `We found ${getSenderCountText(emailProps.suggestionCount)} you rarely read`,
     react: <InboxHealthEmail {...emailProps} />,
     test,
     unsubscribeToken: emailProps.unsubscribeToken,

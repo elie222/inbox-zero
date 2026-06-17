@@ -82,12 +82,14 @@ export async function publishToQstashQueue<T>({
   path,
   body,
   headers,
+  deduplicationId,
 }: {
   queueName: string;
   parallelism: number;
   path: string;
   body: T;
   headers?: HeadersInit;
+  deduplicationId?: string;
 }) {
   const client = getQstashClient();
   if (client) {
@@ -96,7 +98,12 @@ export async function publishToQstashQueue<T>({
     try {
       const queue = client.queue({ queueName });
       await queue.upsert({ parallelism });
-      return await queue.enqueueJSON({ url: qstashUrl, body, headers });
+      return await queue.enqueueJSON({
+        url: qstashUrl,
+        body,
+        headers,
+        deduplicationId,
+      });
     } catch (error) {
       logger.error("Failed to publish to Qstash queue", {
         qstashUrl,

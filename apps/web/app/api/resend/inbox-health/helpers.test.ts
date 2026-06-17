@@ -33,6 +33,12 @@ describe("getInboxHealthEmailData", () => {
         value: 20,
         status: NewsletterStatus.UNSUBSCRIBED,
       }),
+      // already auto-archived by a provider filter
+      makeSender({
+        name: "auto-archived@example.com",
+        value: 20,
+        autoArchived: { id: "filter-1" },
+      }),
     ];
 
     expect(getInboxHealthEmailData(senders)).toBeNull();

@@ -10,11 +10,16 @@ import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { getSenderEmailStats } from "@/utils/sender-stats";
-import { findNewsletterStatus } from "@/app/api/user/stats/newsletters/helpers";
+import {
+  findAutoArchiveFilter,
+  findNewsletterStatus,
+  getAutoArchiveFilters,
+} from "@/app/api/user/stats/newsletters/helpers";
 import {
   extractEmailAddress,
   getNewsletterSenderDisplayName,
 } from "@/utils/email";
+import { createEmailProvider } from "@/utils/email/provider";
 import { sendInboxHealthEmailBody } from "./validation";
 import { getInboxHealthEmailData, getInboxHealthSkipReason } from "./helpers";
 
@@ -98,6 +103,12 @@ async function sendEmail({
       createdAt: true,
       statsEmailFrequency: true,
       lastInboxHealthEmailAt: true,
+      account: {
+        select: {
+          provider: true,
+          refresh_token: true,
+        },
+      },
     },
   });
 
@@ -122,14 +133,27 @@ async function sendEmail({
     }
   }
 
-  const [senderStats, newsletterStatuses] = await Promise.all([
-    getSenderEmailStats({
-      emailAccountId,
-      fromDate: subMonths(now, 3).getTime(),
-      logger,
-    }),
-    findNewsletterStatus({ emailAccountId }),
-  ]);
+  if (!emailAccount.account.refresh_token) {
+    logger.warn("Skipping inbox health email: account has no refresh token");
+    return { success: false, message: "Account has no refresh token" };
+  }
+
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider: emailAccount.account.provider,
+    logger,
+  });
+
+  const [senderStats, newsletterStatuses, autoArchiveFilters] =
+    await Promise.all([
+      getSenderEmailStats({
+        emailAccountId,
+        fromDate: subMonths(now, 3).getTime(),
+        logger,
+      }),
+      findNewsletterStatus({ emailAccountId }),
+      getAutoArchiveFilters(emailProvider, logger),
+    ]);
 
   const statusBySender = new Map(
     newsletterStatuses.map((newsletter) => [
@@ -150,6 +174,11 @@ async function sendEmail({
       }),
       value: stats.count,
       readEmails: stats.readEmails,
+      autoArchived: findAutoArchiveFilter(
+        autoArchiveFilters,
+        email,
+        emailProvider,
+      ),
       status: statusBySender.get(email),
     };
   });
