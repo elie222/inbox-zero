@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TelegramAdapter } from "@chat-adapter/telegram";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   ActionType,
@@ -2088,11 +2089,69 @@ describe("sendMessagingRuleNotification", () => {
     expect(card).not.toMatchObject({ title: expect.any(String) });
     expect(JSON.stringify(card)).not.toContain("**");
     expect(cardText).not.toContain("*They wrote:*");
-    expect(cardText).not.toContain("Sender_Name");
-    expect(cardText).toContain("Sender\\_Name");
-    expect(cardText).toContain("\\[billing\\]");
-    expect(cardText).toContain("5 \\* 6");
-    expect(cardText).toContain(String.raw`C:\\labels\\account\_name`);
+    expect(cardText).toContain("Sender_Name");
+    expect(cardText).toContain("[billing]_status");
+    expect(cardText).toContain("5 * 6");
+    expect(cardText).toContain(String.raw`C:\labels\account_name`);
+
+    const renderedText = await renderTelegramMessageTextForTest(card);
+    expect(renderedText).toContain("Sender\\_Name");
+    expect(renderedText).toContain("\\[billing\\]\\_status");
+    expect(renderedText).toContain("5 \\* 6");
+    expect(renderedText).toContain(String.raw`C:\\labels\\account\_name`);
+  });
+
+  it("renders Telegram draft cards with complex raw URLs as valid MarkdownV2", async () => {
+    let renderedText = "";
+    mockTelegramPostMessage.mockImplementationOnce(async (_threadId, card) => {
+      renderedText = await renderTelegramMessageTextForTest(card);
+      return { id: "telegram-message-1" };
+    });
+    mockNotificationContext({
+      id: "cmabcdef1234567890123456",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: "Draft body",
+      messagingChannel: {
+        id: "channel-1",
+        provider: MessagingProvider.TELEGRAM,
+        isConnected: true,
+        teamId: "telegram-chat-1",
+        providerUserId: "telegram-user-1",
+        accessToken: null,
+        channelId: null,
+        routes: [
+          {
+            purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+            targetId: "telegram-chat-1",
+            targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+          },
+        ],
+      },
+    });
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "cmabcdef1234567890123456",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Question about [billing]_status",
+        },
+        snippet:
+          "Please review https://example.com/path_(a)?item=[billing] before sending.",
+      },
+      logger,
+    });
+
+    expect(delivered).toBe(true);
+    expect(renderedText).not.toContain("[https://");
+    expect(renderedText).toContain(
+      "https://example.com/path_(a)?item=[billing]",
+    );
   });
 
   it("skips linked notifications when provider routing data is incomplete", async () => {
@@ -2616,6 +2675,28 @@ function createTelegramActionEvent({
     },
     thread: { post: vi.fn() },
   } as any;
+}
+
+async function renderTelegramMessageTextForTest(message: unknown) {
+  const adapter = new TelegramAdapter({ botToken: "test-token" });
+  let renderedText = "";
+
+  (adapter as any).telegramFetch = async (
+    _method: string,
+    body: { chat_id: string; text: string },
+  ) => {
+    renderedText = body.text;
+    return {
+      message_id: 1,
+      chat: { id: body.chat_id },
+      date: 0,
+      text: body.text,
+    };
+  };
+
+  await adapter.postMessage("telegram-chat-1", message as never);
+
+  return renderedText;
 }
 
 function getNotificationContext({
