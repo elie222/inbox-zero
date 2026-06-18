@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -57,6 +57,11 @@ import {
   FolderNode,
   NoFoldersFound,
 } from "./AllowedFolders";
+import {
+  applyFolderSelection,
+  buildFolderChildrenMap,
+  type FolderChildrenMap,
+} from "./allowed-folder-selection";
 import type {
   FolderItem,
   SavedFolder,
@@ -708,82 +713,132 @@ function SetupFolderSelection({
   const [optimisticFolderIds, setOptimisticFolderIds] = useState<Set<string>>(
     () => new Set(savedFolders.map((f) => f.folderId)),
   );
+  const [childrenByParentId, setChildrenByParentId] =
+    useState<FolderChildrenMap>(() => buildFolderChildrenMap(availableFolders));
   // TODO: This assumes a single drive connection; swap to a selected connection ID when multi-connection UX exists.
   const driveConnectionId = connections[0]?.id ?? null;
 
   // Sync optimistic state when server data changes
   const serverFolderIds = savedFolders.map((f) => f.folderId).join(",");
   const prevServerFolderIds = useRef(serverFolderIds);
-  if (serverFolderIds !== prevServerFolderIds.current) {
+  useEffect(() => {
+    if (serverFolderIds === prevServerFolderIds.current) return;
     prevServerFolderIds.current = serverFolderIds;
     setOptimisticFolderIds(new Set(savedFolders.map((f) => f.folderId)));
-  }
+  }, [savedFolders, serverFolderIds]);
+
+  const initialChildrenByParentId = useMemo(
+    () => buildFolderChildrenMap(availableFolders),
+    [availableFolders],
+  );
+  useEffect(() => {
+    setChildrenByParentId(initialChildrenByParentId);
+  }, [initialChildrenByParentId]);
+
+  const handleChildrenLoaded = useCallback(
+    (parentId: string, children: FolderItem[]) => {
+      setChildrenByParentId((prev) => {
+        const existingChildren = prev.get(parentId);
+        if (
+          existingChildren &&
+          existingChildren.map((child) => child.id).join(",") ===
+            children.map((child) => child.id).join(",")
+        ) {
+          return prev;
+        }
+
+        const next = new Map(prev);
+        next.set(parentId, children);
+        return next;
+      });
+    },
+    [],
+  );
 
   const handleFolderToggle = useCallback(
     async (folder: FolderItem, isChecked: boolean) => {
-      const folderPath = folder.path || folder.name;
-
-      // Optimistic update
-      setOptimisticFolderIds((prev) => {
-        const next = new Set(prev);
-        if (isChecked) {
-          next.add(folder.id);
-        } else {
-          next.delete(folder.id);
-        }
-        return next;
+      const previousFolderIds = optimisticFolderIds;
+      const { nextFolderIds, changedFolders } = applyFolderSelection({
+        folder,
+        isChecked,
+        selectedFolderIds: previousFolderIds,
+        childrenByParentId,
       });
 
-      if (isChecked) {
-        analytics.captureAction("auto_file_folder_selected", {
-          saved_folder_count: optimisticFolderIds.size + 1,
-        });
-        const result = await addFilingFolderAction(emailAccountId, {
-          folderId: folder.id,
-          folderName: folder.name,
-          folderPath,
-          driveConnectionId: folder.driveConnectionId,
-        });
+      setOptimisticFolderIds(nextFolderIds);
 
-        if (result?.serverError) {
-          // Revert on error
-          setOptimisticFolderIds((prev) => {
-            const next = new Set(prev);
-            next.delete(folder.id);
-            return next;
+      try {
+        if (isChecked) {
+          analytics.captureAction("auto_file_folder_selected", {
+            saved_folder_count:
+              optimisticFolderIds.size + changedFolders.length,
           });
-          toastError({
-            title: "Error adding folder",
-            description: result.serverError,
-          });
-        } else {
-          mutateFolders();
-        }
-      } else {
-        analytics.captureAction("auto_file_folder_removed", {
-          saved_folder_count: Math.max(optimisticFolderIds.size - 1, 0),
-        });
-        const result = await removeFilingFolderAction(emailAccountId, {
-          folderId: folder.id,
-        });
+          const results = await Promise.all(
+            changedFolders.map((changedFolder) =>
+              addFilingFolderAction(emailAccountId, {
+                folderId: changedFolder.id,
+                folderName: changedFolder.name,
+                folderPath: changedFolder.path || changedFolder.name,
+                driveConnectionId: changedFolder.driveConnectionId,
+              }),
+            ),
+          );
+          const serverError = results.find(
+            (result) => result?.serverError,
+          )?.serverError;
 
-        if (result?.serverError) {
-          // Revert on error
-          setOptimisticFolderIds((prev) => {
-            const next = new Set(prev);
-            next.add(folder.id);
-            return next;
-          });
-          toastError({
-            title: "Error removing folder",
-            description: result.serverError,
-          });
+          if (serverError) {
+            setOptimisticFolderIds(previousFolderIds);
+            toastError({
+              title: "Error adding folder",
+              description: serverError,
+            });
+          } else {
+            mutateFolders();
+          }
         } else {
-          mutateFolders();
+          analytics.captureAction("auto_file_folder_removed", {
+            saved_folder_count: Math.max(
+              optimisticFolderIds.size - changedFolders.length,
+              0,
+            ),
+          });
+          const results = await Promise.all(
+            changedFolders.map((changedFolder) =>
+              removeFilingFolderAction(emailAccountId, {
+                folderId: changedFolder.id,
+              }),
+            ),
+          );
+          const serverError = results.find(
+            (result) => result?.serverError,
+          )?.serverError;
+
+          if (serverError) {
+            setOptimisticFolderIds(previousFolderIds);
+            toastError({
+              title: "Error removing folder",
+              description: serverError,
+            });
+          } else {
+            mutateFolders();
+          }
         }
+      } catch {
+        setOptimisticFolderIds(previousFolderIds);
+        toastError({
+          title: isChecked ? "Error adding folder" : "Error removing folder",
+          description: "Please try again.",
+        });
       }
     },
-    [analytics, emailAccountId, mutateFolders, optimisticFolderIds.size],
+    [
+      analytics,
+      childrenByParentId,
+      emailAccountId,
+      mutateFolders,
+      optimisticFolderIds,
+    ],
   );
 
   const rootFolders = useMemo(() => {
@@ -801,17 +856,6 @@ function SetupFolderSelection({
     }
 
     return roots;
-  }, [availableFolders]);
-
-  const folderChildrenMap = useMemo(() => {
-    const map = new Map<string, FolderItem[]>();
-    for (const folder of availableFolders) {
-      if (folder.parentId) {
-        if (!map.has(folder.parentId)) map.set(folder.parentId, []);
-        map.get(folder.parentId)!.push(folder);
-      }
-    }
-    return map;
   }, [availableFolders]);
 
   return (
@@ -853,7 +897,9 @@ function SetupFolderSelection({
                       onToggle={handleFolderToggle}
                       level={0}
                       parentPath=""
-                      knownChildren={folderChildrenMap.get(folder.id)}
+                      childrenByParentId={childrenByParentId}
+                      onChildrenLoaded={handleChildrenLoaded}
+                      knownChildren={childrenByParentId.get(folder.id)}
                     />
                   ))}
                 </TreeView>
