@@ -180,6 +180,23 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       }
     }
 
+    if (useMicrosoftTeams && !videoConferenceLink && response.id) {
+      try {
+        const patched: MicrosoftEvent = await client
+          .api(`/me/events/${response.id}`)
+          .patch({
+            isOnlineMeeting: true,
+            onlineMeetingProvider: "teamsForBusiness",
+          });
+        videoConferenceLink = getJoinUrl(patched);
+      } catch (error) {
+        this.logger.warn("Failed to enable Microsoft Teams on event", {
+          eventId: response.id,
+          error,
+        });
+      }
+    }
+
     return {
       id: response.id || "",
       providerCalendarId: input.calendarId,
