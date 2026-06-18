@@ -4,8 +4,9 @@ import { MicrosoftCalendarEventProvider } from "@/utils/calendar/providers/micro
 
 const graphMocks = vi.hoisted(() => ({
   api: vi.fn(),
-  post: vi.fn(),
   get: vi.fn(),
+  patch: vi.fn(),
+  post: vi.fn(),
 }));
 
 vi.mock("@/utils/outlook/calendar-client", () => ({
@@ -18,8 +19,9 @@ describe("MicrosoftCalendarEventProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     graphMocks.api.mockReturnValue({
-      post: graphMocks.post,
       get: graphMocks.get,
+      patch: graphMocks.patch,
+      post: graphMocks.post,
     });
   });
 
@@ -30,15 +32,7 @@ describe("MicrosoftCalendarEventProvider", () => {
       webLink: "https://outlook.example.com/event",
     });
 
-    const provider = new MicrosoftCalendarEventProvider(
-      {
-        accessToken: "access-token",
-        emailAccountId: "email-account-id",
-        expiresAt: null,
-        refreshToken: "refresh-token",
-      },
-      createTestLogger(),
-    );
+    const provider = createProvider();
 
     const result = await provider.createEvent({
       attendees: [{ email: "guest@example.com", name: "Guest User" }],
@@ -96,15 +90,7 @@ describe("MicrosoftCalendarEventProvider", () => {
       webLink: "https://outlook.example.com/event",
     });
 
-    const provider = new MicrosoftCalendarEventProvider(
-      {
-        accessToken: "access-token",
-        emailAccountId: "email-account-id",
-        expiresAt: null,
-        refreshToken: "refresh-token",
-      },
-      createTestLogger(),
-    );
+    const provider = createProvider();
 
     const result = await provider.createEvent({
       attendees: [{ email: "guest@example.com", name: "Guest User" }],
@@ -126,21 +112,58 @@ describe("MicrosoftCalendarEventProvider", () => {
     expect(result.videoConferenceLink).toBe("https://teams.example.com/join");
   });
 
+  it("patches the event when Teams join URL is still missing after refetch", async () => {
+    graphMocks.post.mockResolvedValue({
+      id: "event-id",
+      isOnlineMeeting: false,
+      onlineMeetingProvider: "unknown",
+      onlineMeeting: null,
+      webLink: "https://outlook.example.com/event",
+    });
+    graphMocks.get.mockResolvedValue({
+      id: "event-id",
+      isOnlineMeeting: false,
+      onlineMeetingProvider: "unknown",
+      onlineMeeting: null,
+      webLink: "https://outlook.example.com/event",
+    });
+    graphMocks.patch.mockResolvedValue({
+      id: "event-id",
+      isOnlineMeeting: true,
+      onlineMeetingProvider: "teamsForBusiness",
+      onlineMeeting: { joinUrl: "https://teams.example.com/join" },
+      webLink: "https://outlook.example.com/event",
+    });
+
+    const provider = createProvider();
+
+    const result = await provider.createEvent({
+      attendees: [{ email: "guest@example.com", name: "Guest User" }],
+      calendarId: "calendar-id",
+      description: "Meeting description",
+      endTime: new Date("2026-05-04T09:30:00.000Z"),
+      locationType: "MICROSOFT_TEAMS",
+      locationValue: null,
+      startTime: new Date("2026-05-04T09:00:00.000Z"),
+      timezone: "America/New_York",
+      title: "Intro call",
+    });
+
+    expect(graphMocks.api).toHaveBeenCalledWith("/me/events/event-id");
+    expect(graphMocks.patch).toHaveBeenCalledWith({
+      isOnlineMeeting: true,
+      onlineMeetingProvider: "teamsForBusiness",
+    });
+    expect(result.videoConferenceLink).toBe("https://teams.example.com/join");
+  });
+
   it("does not refetch when Teams was not requested", async () => {
     graphMocks.post.mockResolvedValue({
       id: "event-id",
       webLink: "https://outlook.example.com/event",
     });
 
-    const provider = new MicrosoftCalendarEventProvider(
-      {
-        accessToken: "access-token",
-        emailAccountId: "email-account-id",
-        expiresAt: null,
-        refreshToken: "refresh-token",
-      },
-      createTestLogger(),
-    );
+    const provider = createProvider();
 
     await provider.createEvent({
       attendees: [{ email: "guest@example.com", name: "Guest User" }],
@@ -158,15 +181,7 @@ describe("MicrosoftCalendarEventProvider", () => {
   });
 
   it("cancels events through the Graph cancel action so attendees are notified", async () => {
-    const provider = new MicrosoftCalendarEventProvider(
-      {
-        accessToken: "access-token",
-        emailAccountId: "email-account-id",
-        expiresAt: null,
-        refreshToken: "refresh-token",
-      },
-      createTestLogger(),
-    );
+    const provider = createProvider();
 
     await provider.cancelEvent({
       calendarId: "calendar-id",
@@ -177,3 +192,15 @@ describe("MicrosoftCalendarEventProvider", () => {
     expect(graphMocks.post).toHaveBeenCalledWith({ comment: "" });
   });
 });
+
+function createProvider() {
+  return new MicrosoftCalendarEventProvider(
+    {
+      accessToken: "access-token",
+      emailAccountId: "email-account-id",
+      expiresAt: null,
+      refreshToken: "refresh-token",
+    },
+    createTestLogger(),
+  );
+}
