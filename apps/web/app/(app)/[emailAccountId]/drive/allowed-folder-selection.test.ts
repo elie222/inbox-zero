@@ -4,9 +4,39 @@ import {
   applyFolderSelection,
   buildFolderChildrenMap,
   getFolderSelectionState,
+  getRootFolders,
+  mergeFolderChildren,
 } from "./allowed-folder-selection";
 
 describe("allowed folder selection", () => {
+  it("returns folders without a loaded parent as roots", () => {
+    const folders = [
+      folder("parent"),
+      folder("child", "parent"),
+      folder("orphan", "missing"),
+    ];
+
+    expect(getRootFolders(folders).map((root) => root.id)).toEqual([
+      "parent",
+      "orphan",
+    ]);
+  });
+
+  it("preserves the children map when loaded children have not changed", () => {
+    const childrenByParentId = buildFolderChildrenMap([
+      folder("parent"),
+      folder("child", "parent"),
+    ]);
+
+    expect(
+      mergeFolderChildren({
+        childrenByParentId,
+        parentId: "parent",
+        children: [folder("child", "parent")],
+      }),
+    ).toBe(childrenByParentId);
+  });
+
   it("selects a folder and its loaded descendants", () => {
     const folders = [
       folder("parent"),

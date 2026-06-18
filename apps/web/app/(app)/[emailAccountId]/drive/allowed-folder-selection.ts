@@ -16,6 +16,45 @@ export function buildFolderChildrenMap(folders: FolderItem[]) {
   return map;
 }
 
+export function getRootFolders(folders: FolderItem[]) {
+  const folderMap = new Map<string, FolderItem>();
+  const roots: FolderItem[] = [];
+
+  for (const folder of folders) {
+    folderMap.set(folder.id, folder);
+  }
+
+  for (const folder of folders) {
+    if (!folder.parentId || !folderMap.has(folder.parentId)) {
+      roots.push(folder);
+    }
+  }
+
+  return roots;
+}
+
+export function mergeFolderChildren({
+  childrenByParentId,
+  parentId,
+  children,
+}: {
+  childrenByParentId: FolderChildrenMap;
+  parentId: string;
+  children: FolderItem[];
+}) {
+  const existingChildren = childrenByParentId.get(parentId);
+  if (
+    existingChildren &&
+    getFolderIdsKey(existingChildren) === getFolderIdsKey(children)
+  ) {
+    return childrenByParentId;
+  }
+
+  const next = new Map(childrenByParentId);
+  next.set(parentId, children);
+  return next;
+}
+
 export function getFolderSelectionState({
   folderId,
   selectedFolderIds,
@@ -84,4 +123,8 @@ function getLoadedDescendants(
   }
 
   return descendants;
+}
+
+function getFolderIdsKey(folders: FolderItem[]) {
+  return folders.map((folder) => folder.id).join(",");
 }

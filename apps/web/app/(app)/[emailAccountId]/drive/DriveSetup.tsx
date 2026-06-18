@@ -60,6 +60,8 @@ import {
 import {
   applyFolderSelection,
   buildFolderChildrenMap,
+  getRootFolders,
+  mergeFolderChildren,
   type FolderChildrenMap,
 } from "./allowed-folder-selection";
 import type {
@@ -727,30 +729,15 @@ function SetupFolderSelection({
     setOptimisticFolderIds(new Set(savedFolders.map((f) => f.folderId)));
   }, [savedFolders, serverFolderIds]);
 
-  const initialChildrenByParentId = useMemo(
-    () => buildFolderChildrenMap(availableFolders),
-    [availableFolders],
-  );
   useEffect(() => {
-    setChildrenByParentId(initialChildrenByParentId);
-  }, [initialChildrenByParentId]);
+    setChildrenByParentId(buildFolderChildrenMap(availableFolders));
+  }, [availableFolders]);
 
   const handleChildrenLoaded = useCallback(
     (parentId: string, children: FolderItem[]) => {
-      setChildrenByParentId((prev) => {
-        const existingChildren = prev.get(parentId);
-        if (
-          existingChildren &&
-          existingChildren.map((child) => child.id).join(",") ===
-            children.map((child) => child.id).join(",")
-        ) {
-          return prev;
-        }
-
-        const next = new Map(prev);
-        next.set(parentId, children);
-        return next;
-      });
+      setChildrenByParentId((prev) =>
+        mergeFolderChildren({ childrenByParentId: prev, parentId, children }),
+      );
     },
     [],
   );
@@ -841,22 +828,10 @@ function SetupFolderSelection({
     ],
   );
 
-  const rootFolders = useMemo(() => {
-    const folderMap = new Map<string, FolderItem>();
-    const roots: FolderItem[] = [];
-
-    for (const folder of availableFolders) {
-      folderMap.set(folder.id, folder);
-    }
-
-    for (const folder of availableFolders) {
-      if (!folder.parentId || !folderMap.has(folder.parentId)) {
-        roots.push(folder);
-      }
-    }
-
-    return roots;
-  }, [availableFolders]);
+  const rootFolders = useMemo(
+    () => getRootFolders(availableFolders),
+    [availableFolders],
+  );
 
   return (
     <div>
