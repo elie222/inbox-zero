@@ -147,6 +147,12 @@ describe("outlook linking callback route", () => {
             id: "provider-account-id",
             userPrincipalName: "user@example.com",
           }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            sub: "better-auth-subject",
+          }),
         }),
     );
 
@@ -192,6 +198,12 @@ describe("outlook linking callback route", () => {
           }),
         })
         .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            sub: "better-auth-subject",
+          }),
+        })
+        .mockResolvedValueOnce({
           ok: false,
         }),
     );
@@ -203,7 +215,14 @@ describe("outlook linking callback route", () => {
     const redirectLocation = response.headers.get("location");
     expect(redirectLocation).toContain("success=account_created_and_linked");
     expect(mockHandleAccountLinking).toHaveBeenCalled();
-    expect(prisma.account.create).toHaveBeenCalled();
+    expect(prisma.account.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          provider: "microsoft",
+          providerAccountId: "better-auth-subject",
+        }),
+      }),
+    );
     expect(mockSetOAuthCodeResult).toHaveBeenCalledWith("valid-auth-code", {
       success: "account_created_and_linked",
     });
@@ -285,6 +304,12 @@ describe("outlook linking callback route", () => {
             id: "provider-account-id",
             userPrincipalName: "user@example.com",
           }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            sub: "better-auth-subject",
+          }),
         }),
     );
 
@@ -348,6 +373,12 @@ describe("outlook linking callback route", () => {
           json: async () => ({
             id: "provider-account-id",
             userPrincipalName: "user@example.com",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            sub: "better-auth-subject",
           }),
         })
         .mockResolvedValueOnce({

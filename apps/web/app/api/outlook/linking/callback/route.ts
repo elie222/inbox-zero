@@ -24,6 +24,7 @@ import {
 } from "@/utils/oauth/microsoft-oauth";
 import {
   fetchMicrosoftGraph,
+  fetchMicrosoftOidcUserInfo,
   fetchMicrosoftUserProfile,
   MicrosoftUserProfileError,
   requestMicrosoftToken,
@@ -159,11 +160,17 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       ReturnType<typeof fetchMicrosoftUserProfile>
     >["profile"];
     let providerEmail: string;
+    let providerAccountId: string;
 
     try {
       const result = await fetchMicrosoftUserProfile(tokens.access_token);
       profile = result.profile;
       providerEmail = result.email;
+
+      const oidcUserInfo = await fetchMicrosoftOidcUserInfo(
+        tokens.access_token,
+      );
+      providerAccountId = oidcUserInfo.sub;
     } catch (error) {
       if (error instanceof MicrosoftUserProfileError) {
         if (error.status) {
@@ -176,12 +183,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       }
 
       throw error;
-    }
-
-    const providerAccountId = profile.id;
-
-    if (!providerAccountId) {
-      throw new SafeError("Profile missing required id");
     }
 
     const existingAccount = await prisma.account.findUnique({

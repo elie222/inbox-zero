@@ -4,6 +4,7 @@ import { Agent, type Dispatcher } from "undici";
 const MICROSOFT_LOGIN_BASE_URL = "https://login.microsoftonline.com";
 const MICROSOFT_GRAPH_BASE_URL = "https://graph.microsoft.com";
 const MICROSOFT_GRAPH_API_VERSION = "v1.0";
+const MICROSOFT_OIDC_USERINFO_PATH = "/oidc/userinfo";
 const MICROSOFT_IPV4_RETRY_HOSTS = new Set([
   new URL(MICROSOFT_LOGIN_BASE_URL).hostname,
   new URL(MICROSOFT_GRAPH_BASE_URL).hostname,
@@ -31,6 +32,14 @@ type MicrosoftUserProfile = {
   displayName?: string | null;
   givenName?: string | null;
   surname?: string | null;
+};
+
+type MicrosoftOidcUserInfo = {
+  sub?: string | null;
+  email?: string | null;
+  preferred_username?: string | null;
+  name?: string | null;
+  email_verified?: boolean | null;
 };
 
 export class MicrosoftUserProfileError extends Error {
@@ -96,8 +105,40 @@ export function getMicrosoftGraphUrl(path: string) {
   return `${getMicrosoftGraphApiRootUrl()}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+export function getMicrosoftOidcUserInfoUrl() {
+  const baseUrl = getMicrosoftBaseUrl();
+  return baseUrl
+    ? `${baseUrl}${MICROSOFT_OIDC_USERINFO_PATH}`
+    : `${MICROSOFT_GRAPH_BASE_URL}${MICROSOFT_OIDC_USERINFO_PATH}`;
+}
+
 export function fetchMicrosoftGraph(path: string, init?: RequestInit) {
   return fetchMicrosoftUrl(getMicrosoftGraphUrl(path), init);
+}
+
+export async function fetchMicrosoftOidcUserInfo(accessToken: string) {
+  const response = await fetchMicrosoftUrl(getMicrosoftOidcUserInfoUrl(), {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new MicrosoftUserProfileError(
+      "Failed to fetch Microsoft OIDC user info",
+      response.status,
+    );
+  }
+
+  const profile = (await response.json()) as MicrosoftOidcUserInfo;
+
+  if (!profile.sub) {
+    throw new MicrosoftUserProfileError(
+      "OIDC user info missing required subject",
+    );
+  }
+
+  return profile;
 }
 
 export async function fetchMicrosoftUserProfile(accessToken: string) {
