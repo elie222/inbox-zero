@@ -194,6 +194,21 @@ describe("microsoft oauth helpers", () => {
     ).rejects.toThrow("OIDC user info missing required subject");
   });
 
+  it("throws a typed error when the Microsoft OIDC user info request fails", async () => {
+    const oauth = await importMicrosoftOauthModule();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 503 }),
+    );
+
+    await expect(
+      oauth.fetchMicrosoftOidcUserInfo("access-token"),
+    ).rejects.toMatchObject({
+      message: "Failed to fetch Microsoft OIDC user info",
+      status: 503,
+    });
+  });
+
   it("throws a typed error when the Microsoft profile request fails", async () => {
     const oauth = await importMicrosoftOauthModule();
     vi.stubGlobal(
