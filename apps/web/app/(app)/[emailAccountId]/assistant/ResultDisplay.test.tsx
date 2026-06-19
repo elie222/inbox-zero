@@ -24,7 +24,10 @@ vi.mock("@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns", () => ({
   ),
 }));
 
-import { ResultDisplayContent } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
+import {
+  ResultDisplayContent,
+  getRuleResultReasonDisplay,
+} from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
 
 afterEach(() => {
   cleanup();
@@ -191,5 +194,34 @@ describe("ResultDisplayContent", () => {
     expect(
       screen.getByRole("button", { name: "View exclusions" }),
     ).toBeTruthy();
+  });
+});
+
+describe("getRuleResultReasonDisplay", () => {
+  it("decodes HTML entities and formats action failures for display", () => {
+    expect(
+      getRuleResultReasonDisplay(
+        "The sender asked about the user&#x27;s maps and said &quot;thanks&quot;.\nAction failures: DRAFT_MESSAGING_CHANNEL:MESSAGING_DELIVERY_FAILED",
+      ),
+    ).toEqual({
+      reason: 'The sender asked about the user\'s maps and said "thanks".',
+      actionFailureMessages: [
+        "The draft reply could not be sent to the messaging channel.",
+      ],
+    });
+  });
+
+  it("does not expose unknown internal action failure codes", () => {
+    const display = getRuleResultReasonDisplay(
+      "Rule matched\nAction failures: DRAFT_MESSAGING_CHANNEL:SOME_INTERNAL_CODE",
+    );
+
+    expect(display.reason).toBe("Rule matched");
+    expect(display.actionFailureMessages).toEqual([
+      "The draft reply action could not be completed.",
+    ]);
+    expect(display.actionFailureMessages.join(" ")).not.toContain(
+      "SOME_INTERNAL_CODE",
+    );
   });
 });
