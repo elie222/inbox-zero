@@ -115,10 +115,7 @@ function InviteForm({
     formState: { errors, isSubmitting },
   } = useForm<InviteFormValues>({
     defaultValues: {
-      invitations: [
-        { email: "", role: "member" },
-        { email: "", role: "member" },
-      ],
+      invitations: [{ email: "", role: "member" }],
     },
   });
 

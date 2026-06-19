@@ -1,7 +1,7 @@
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
-import { ArrowRightIcon, UsersIcon } from "lucide-react";
+import { ArrowRightIcon, PlusIcon, UsersIcon } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
@@ -14,6 +14,7 @@ import {
   createOrganizationAndInviteAction,
 } from "@/utils/actions/organization";
 import { isValidEmail } from "@/utils/email";
+import { MAX_BULK_INVITES } from "@/utils/actions/organization.validation";
 
 type InviteFormValues = {
   emails: { email: string }[];
@@ -42,11 +43,12 @@ export function StepInviteTeam({
     formState: { errors, isSubmitting },
   } = useForm<InviteFormValues>({
     defaultValues: {
-      emails: [{ email: "" }, { email: "" }, { email: "" }],
+      emails: [{ email: "" }],
     },
   });
 
-  const { fields } = useFieldArray({ name: "emails", control });
+  const { fields, append } = useFieldArray({ name: "emails", control });
+  const canAddMore = fields.length < MAX_BULK_INVITES;
 
   const filledEmailCount = watch("emails").filter(
     (e) => e.email.trim().length > 0,
@@ -141,12 +143,25 @@ export function StepInviteTeam({
                 name={`emails.${i}.email`}
                 registerProps={register(`emails.${i}.email`, {
                   validate: (v) =>
-                    !v || isValidEmail(v) || "Enter a valid email",
+                    !v.trim() ||
+                    isValidEmail(v.trim()) ||
+                    "Enter a valid email",
                 })}
                 placeholder="name@company.com"
                 error={errors.emails?.[i]?.email}
               />
             ))}
+
+            <Button
+              type="button"
+              variant="ghost"
+              className="px-2 -ml-2"
+              onClick={() => append({ email: "" })}
+              disabled={!canAddMore}
+            >
+              <PlusIcon className="size-4 mr-2" />
+              Add another email
+            </Button>
           </div>
 
           <div className="flex flex-col gap-2 w-full max-w-xs mx-auto mt-6">

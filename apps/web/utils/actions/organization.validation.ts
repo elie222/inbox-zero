@@ -82,7 +82,11 @@ export const createOrganizationAndInviteBody = z.object({
         .email()
         .transform((val) => val.toLowerCase()),
     )
-    .min(1, "At least one email is required"),
+    .min(1, "At least one email is required")
+    .max(
+      MAX_BULK_INVITES,
+      `You can invite up to ${MAX_BULK_INVITES} people at a time`,
+    ),
   userName: z.string().nullable().optional(),
 });
 export type CreateOrganizationAndInviteBody = z.infer<

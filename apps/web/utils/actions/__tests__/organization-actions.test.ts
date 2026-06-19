@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { createOrganizationAction } from "@/utils/actions/organization";
+import {
+  createOrganizationAction,
+  createOrganizationAndInviteAction,
+} from "@/utils/actions/organization";
+import { MAX_BULK_INVITES } from "@/utils/actions/organization.validation";
 
 const { mockEnv } = vi.hoisted(() => ({
   mockEnv: {
@@ -97,5 +101,18 @@ describe("organization actions", () => {
         allowOrgAdminAnalytics: true,
       },
     });
+  });
+
+  it("rejects oversized create-and-invite payloads before writing", async () => {
+    const result = await createOrganizationAndInviteAction("ea_1" as any, {
+      emails: Array.from(
+        { length: MAX_BULK_INVITES + 1 },
+        (_, index) => `user-${index}@test.com`,
+      ),
+    });
+
+    expect(result?.validationErrors).toBeDefined();
+    expect(prisma.organization.create).not.toHaveBeenCalled();
+    expect(prisma.invitation.create).not.toHaveBeenCalled();
   });
 });
