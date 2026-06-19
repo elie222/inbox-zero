@@ -24,6 +24,7 @@ import {
 } from "@/utils/oauth/microsoft-oauth";
 import {
   fetchMicrosoftGraph,
+  fetchMicrosoftOidcUserInfo,
   fetchMicrosoftUserProfile,
   MicrosoftUserProfileError,
   requestMicrosoftToken,
@@ -159,11 +160,19 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       ReturnType<typeof fetchMicrosoftUserProfile>
     >["profile"];
     let providerEmail: string;
+    let providerAccountId: string;
+    let legacyProviderAccountId: string | null = null;
 
     try {
       const result = await fetchMicrosoftUserProfile(tokens.access_token);
       profile = result.profile;
       providerEmail = result.email;
+      legacyProviderAccountId = profile.id || null;
+
+      const oidcUserInfo = await fetchMicrosoftOidcUserInfo(
+        tokens.access_token,
+      );
+      providerAccountId = oidcUserInfo.sub;
     } catch (error) {
       if (error instanceof MicrosoftUserProfileError) {
         if (error.status) {
@@ -178,27 +187,16 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       throw error;
     }
 
-    const providerAccountId = profile.id;
+    let existingAccount =
+      await findMicrosoftAccountByProviderAccountId(providerAccountId);
+    let shouldMigrateProviderAccountId = false;
 
-    if (!providerAccountId) {
-      throw new SafeError("Profile missing required id");
+    if (!existingAccount && legacyProviderAccountId) {
+      existingAccount = await findMicrosoftAccountByProviderAccountId(
+        legacyProviderAccountId,
+      );
+      shouldMigrateProviderAccountId = !!existingAccount;
     }
-
-    const existingAccount = await prisma.account.findUnique({
-      where: {
-        provider_providerAccountId: {
-          provider: "microsoft",
-          providerAccountId,
-        },
-      },
-      select: {
-        id: true,
-        userId: true,
-        refresh_token: true,
-        user: { select: { name: true, email: true } },
-        emailAccount: true,
-      },
-    });
 
     assertMicrosoftLinkingConsent({
       targetUserId,
@@ -343,6 +341,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       await updateMicrosoftAccountTokens(
         linkingResult.existingAccountId,
         tokens,
+        shouldMigrateProviderAccountId ? { providerAccountId } : undefined,
       );
 
       logger.info("Successfully updated tokens for Microsoft account", {
@@ -377,6 +376,16 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       name: existingAccount?.user.name || null,
       logger,
     });
+
+    if (shouldMigrateProviderAccountId) {
+      await updateMicrosoftAccountTokens(
+        linkingResult.sourceAccountId,
+        tokens,
+        {
+          providerAccountId,
+        },
+      );
+    }
 
     const successMessage =
       mergeType === "full_merge"
@@ -484,13 +493,35 @@ function parseMicrosoftExpiresAt(tokens: MicrosoftTokens): Date | null {
   return null;
 }
 
+function findMicrosoftAccountByProviderAccountId(providerAccountId: string) {
+  return prisma.account.findUnique({
+    where: {
+      provider_providerAccountId: {
+        provider: "microsoft",
+        providerAccountId,
+      },
+    },
+    select: {
+      id: true,
+      userId: true,
+      refresh_token: true,
+      user: { select: { name: true, email: true } },
+      emailAccount: true,
+    },
+  });
+}
+
 async function updateMicrosoftAccountTokens(
   accountId: string,
   tokens: MicrosoftTokens,
+  options?: { providerAccountId?: string },
 ) {
   await prisma.account.update({
     where: { id: accountId },
     data: {
+      ...(options?.providerAccountId && {
+        providerAccountId: options.providerAccountId,
+      }),
       access_token: tokens.access_token,
       // Only update refresh_token if provider returned one (preserves existing token)
       ...(tokens.refresh_token != null && {

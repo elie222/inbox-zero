@@ -147,6 +147,12 @@ describe("outlook linking callback route", () => {
             id: "provider-account-id",
             userPrincipalName: "user@example.com",
           }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            sub: "better-auth-subject",
+          }),
         }),
     );
 
@@ -192,6 +198,12 @@ describe("outlook linking callback route", () => {
           }),
         })
         .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            sub: "better-auth-subject",
+          }),
+        })
+        .mockResolvedValueOnce({
           ok: false,
         }),
     );
@@ -203,7 +215,14 @@ describe("outlook linking callback route", () => {
     const redirectLocation = response.headers.get("location");
     expect(redirectLocation).toContain("success=account_created_and_linked");
     expect(mockHandleAccountLinking).toHaveBeenCalled();
-    expect(prisma.account.create).toHaveBeenCalled();
+    expect(prisma.account.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          provider: "microsoft",
+          providerAccountId: "better-auth-subject",
+        }),
+      }),
+    );
     expect(mockSetOAuthCodeResult).toHaveBeenCalledWith("valid-auth-code", {
       success: "account_created_and_linked",
     });
@@ -285,6 +304,12 @@ describe("outlook linking callback route", () => {
             id: "provider-account-id",
             userPrincipalName: "user@example.com",
           }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            sub: "better-auth-subject",
+          }),
         }),
     );
 
@@ -295,6 +320,93 @@ describe("outlook linking callback route", () => {
     const redirectLocation = response.headers.get("location");
     expect(redirectLocation).toContain("success=tokens_updated");
     expect(mockHandleAccountLinking).toHaveBeenCalled();
+    expect(mockSetOAuthCodeResult).toHaveBeenCalledWith("valid-auth-code", {
+      success: "tokens_updated",
+    });
+  });
+
+  it("falls back to a legacy Graph ID account and migrates it to the OIDC subject", async () => {
+    prisma.account.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "account-123",
+        userId: "user-123",
+        refresh_token: "stored-refresh-token",
+        user: { name: "Test User", email: "user@example.com" },
+        emailAccount: { id: "email-account-123" },
+      } as Awaited<ReturnType<typeof prisma.account.findUnique>>);
+    mockHandleAccountLinking.mockResolvedValue({
+      type: "update_tokens",
+      existingAccountId: "account-123",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            access_token: "access-token",
+            refresh_token: "refresh-token",
+            scope: "Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
+            token_type: "Bearer",
+            expires_in: 3600,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            id: "legacy-provider-account-id",
+            userPrincipalName: "user@example.com",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            sub: "better-auth-subject",
+          }),
+        }),
+    );
+
+    const response = await GET(
+      createRequest("http://localhost:3000/api/outlook/linking/callback"),
+    );
+
+    expect(response.headers.get("location")).toContain(
+      "success=tokens_updated",
+    );
+    expect(prisma.account.findUnique).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: {
+          provider_providerAccountId: {
+            provider: "microsoft",
+            providerAccountId: "better-auth-subject",
+          },
+        },
+      }),
+    );
+    expect(prisma.account.findUnique).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: {
+          provider_providerAccountId: {
+            provider: "microsoft",
+            providerAccountId: "legacy-provider-account-id",
+          },
+        },
+      }),
+    );
+    expect(prisma.account.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "account-123" },
+        data: expect.objectContaining({
+          providerAccountId: "better-auth-subject",
+          access_token: "access-token",
+          refresh_token: "refresh-token",
+        }),
+      }),
+    );
     expect(mockSetOAuthCodeResult).toHaveBeenCalledWith("valid-auth-code", {
       success: "tokens_updated",
     });
@@ -348,6 +460,12 @@ describe("outlook linking callback route", () => {
           json: async () => ({
             id: "provider-account-id",
             userPrincipalName: "user@example.com",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            sub: "better-auth-subject",
           }),
         })
         .mockResolvedValueOnce({
