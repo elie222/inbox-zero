@@ -1071,7 +1071,8 @@ async function sendDraftReplyFromNotification({
     context,
     logger,
     editMessage,
-    card: buildHandledNotificationCard({
+    card: buildHandledNotificationCardForProvider({
+      provider: context.messagingChannel?.provider,
       content: notificationContent,
       openLink: getNotificationOpenLink(context),
       status: "Reply sent.",
@@ -1990,6 +1991,46 @@ function buildTelegramNotificationCard({
   return Card({
     children,
   });
+}
+
+function buildTelegramHandledNotificationCard({
+  content,
+  openLink,
+  status,
+}: {
+  content: NotificationContent;
+  openLink?: NotificationOpenLink | null;
+  status: string;
+}): CardElement {
+  const children = buildNotificationCardBody(
+    sanitizeTelegramNotificationContent(content),
+  );
+  children.push(CardText(sanitizeTelegramCardText(`Status: ${status}`)));
+  if (openLink) {
+    children.push(Actions([LinkButton(openLink)]));
+  }
+
+  return Card({
+    children,
+  });
+}
+
+function buildHandledNotificationCardForProvider({
+  provider,
+  content,
+  openLink,
+  status,
+}: {
+  provider?: MessagingProvider | null;
+  content: NotificationContent;
+  openLink?: NotificationOpenLink | null;
+  status: string;
+}): CardElement {
+  if (provider === MessagingProvider.TELEGRAM) {
+    return buildTelegramHandledNotificationCard({ content, openLink, status });
+  }
+
+  return buildHandledNotificationCard({ content, openLink, status });
 }
 
 function sanitizeTelegramNotificationContent(
