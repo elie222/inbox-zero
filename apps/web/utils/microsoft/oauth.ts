@@ -138,7 +138,7 @@ export async function fetchMicrosoftOidcUserInfo(accessToken: string) {
     );
   }
 
-  return profile;
+  return { ...profile, sub: profile.sub };
 }
 
 export async function fetchMicrosoftUserProfile(accessToken: string) {
