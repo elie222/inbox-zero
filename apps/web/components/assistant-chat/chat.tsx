@@ -501,14 +501,23 @@ function ChatHistoryDropdown() {
 
   return (
     <>
-      <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenu
+        open={open}
+        onOpenChange={(value) => {
+          setOpen(value);
+          if (value) setShouldLoadChats(true);
+        }}
+      >
         <Tooltip content="View previous conversations">
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
               onMouseEnter={() => setShouldLoadChats(true)}
-              onClick={() => mutate()}
+              onClick={() => {
+                setShouldLoadChats(true);
+                mutate();
+              }}
             >
               <HistoryIcon className="size-5" />
               <span className="sr-only">Chat History</span>
