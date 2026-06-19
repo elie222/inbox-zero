@@ -201,6 +201,7 @@ export function SearchInboxResult({ output }: { output: unknown }) {
       snippet: string;
       date: string;
       isUnread: boolean;
+      externalUrl?: string;
     }>
   >(output, "messages");
 
@@ -424,9 +425,11 @@ export function ReadEmailResult({ output }: { output: unknown }) {
   const content = getOutputField<string>(output, "content");
   const messageId = getOutputField<string>(output, "messageId");
   const threadId = getOutputField<string>(output, "threadId");
+  const outputExternalUrl = getOutputField<string>(output, "externalUrl");
   const externalUrl = getExternalMessageUrl({
     messageId,
     threadId,
+    externalUrl: outputExternalUrl,
     userEmail,
     provider,
   });
@@ -2093,14 +2096,19 @@ function getAssistantEmailSuccessMessage(actionType: PendingEmailActionType) {
 function getExternalMessageUrl({
   messageId,
   threadId,
+  externalUrl,
   userEmail,
   provider,
 }: {
   messageId?: string;
   threadId?: string;
+  externalUrl?: string;
   userEmail?: string | null;
   provider?: string;
 }) {
+  if (externalUrl) return externalUrl;
+  if (provider === "microsoft") return null;
+
   return getEmailUrlForOptionalMessage({
     messageId,
     threadId,
@@ -2208,6 +2216,7 @@ type ToolEmailRow = {
   snippet?: string;
   date: string;
   isUnread: boolean;
+  externalUrl?: string;
 };
 
 function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
@@ -2228,6 +2237,7 @@ function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
         snippet: email.snippet || "",
         date: email.date,
         isUnread: email.isUnread,
+        externalUrl: email.externalUrl,
       },
     ]),
   );

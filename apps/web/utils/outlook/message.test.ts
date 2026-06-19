@@ -115,6 +115,22 @@ describe("convertMessage", () => {
       expect(result.labelIds).toContain("INBOX");
       expect(result.labelIds).toContain("uuid-urgent-123");
     });
+
+    it("preserves the Outlook web link for opening the exact message", () => {
+      const message: Message = {
+        id: "msg-123",
+        conversationId: "thread-456",
+        webLink:
+          "https://outlook.office.com/mail/deeplink/read/msg-123?ispopout=0",
+        isRead: true,
+      };
+
+      const result = convertMessage(message, {});
+
+      expect(result.externalUrl).toBe(
+        "https://outlook.office.com/mail/deeplink/read/msg-123?ispopout=0",
+      );
+    });
   });
 });
 
