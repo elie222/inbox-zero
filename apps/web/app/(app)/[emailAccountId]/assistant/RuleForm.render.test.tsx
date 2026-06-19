@@ -487,6 +487,59 @@ describe("RuleForm", () => {
     expect(screen.queryByText(/Disconnected/)).toBeNull();
   });
 
+  it("saves legacy channel-less draft reply actions without requiring a chat destination", async () => {
+    const view = render(
+      <RuleForm
+        alwaysEditMode
+        rule={{
+          id: "cmjzoasfv000004ld2qar07t3",
+          name: "Legacy draft reply rule",
+          instructions: null,
+          groupId: null,
+          runOnThreads: false,
+          digest: false,
+          conditionalOperator: LogicalOperator.AND,
+          conditions: [
+            {
+              type: ConditionType.STATIC,
+              from: "sender@example.com",
+              to: null,
+              subject: null,
+              body: null,
+              instructions: null,
+            },
+          ],
+          actions: [
+            {
+              id: "action-legacy-draft",
+              type: ActionType.DRAFT_MESSAGING_CHANNEL,
+              messagingChannelId: null,
+              content: { value: "" },
+            },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(
+      within(view.container).getByRole("button", { name: "Save" }),
+    );
+
+    await waitFor(() => expect(mockUpdateRuleAction).toHaveBeenCalledTimes(1));
+
+    expect(mockUpdateRuleAction.mock.calls.at(-1)?.[1]).toMatchObject({
+      id: "cmjzoasfv000004ld2qar07t3",
+      actions: [
+        expect.objectContaining({
+          id: "action-legacy-draft",
+          type: ActionType.DRAFT_MESSAGING_CHANNEL,
+          messagingChannelId: null,
+        }),
+      ],
+    });
+    expect(screen.queryByText("Please choose a chat destination")).toBeNull();
+  });
+
   it("preserves the original action order when saving an unchanged rule", async () => {
     const view = render(
       <RuleForm

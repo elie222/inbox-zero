@@ -200,7 +200,9 @@ const zodAction = z
 
     if (
       data.type === ActionType.DRAFT_MESSAGING_CHANNEL &&
-      !data.messagingChannelId
+      // Persisted legacy rows can be channel-less; keep them editable.
+      !data.messagingChannelId &&
+      !data.id
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
