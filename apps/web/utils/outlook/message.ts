@@ -15,7 +15,7 @@ import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 // Standard fields to select when fetching messages from Microsoft Graph API
 // internetMessageId is the RFC 5322 Message-ID header, needed for cross-provider email threading
 export const MESSAGE_SELECT_FIELDS =
-  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId,hasAttachments";
+  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId,hasAttachments,webLink";
 
 // Expand attachments to get metadata (name, type, size) without fetching content
 export const MESSAGE_EXPAND_ATTACHMENTS =
@@ -953,6 +953,7 @@ export function convertMessage(
   return {
     id: message.id || "",
     threadId: message.conversationId || "",
+    externalUrl: message.webLink || undefined,
     snippet: message.bodyPreview || "",
     textPlain: bodyContent,
     textHtml: bodyContent,

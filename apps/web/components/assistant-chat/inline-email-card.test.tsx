@@ -148,6 +148,19 @@ describe("InlineEmailCard", () => {
           },
         ],
         [
+          "outlook-thread-1",
+          {
+            messageId: "outlook-message-1",
+            from: "Outlook Sender",
+            subject: "Outlook Subject",
+            snippet: "Outlook Snippet",
+            date: "2026-03-11T12:30:00.000Z",
+            isUnread: false,
+            externalUrl:
+              "https://outlook.office.com/mail/deeplink/read/outlook-message-1?ispopout=0",
+          },
+        ],
+        [
           "thread-2",
           {
             messageId: "msg-thread-2",
@@ -206,6 +219,50 @@ describe("InlineEmailCard", () => {
     expect(mockQueueAction).toHaveBeenCalledWith("archive_threads", [
       "19cdca06580b38e9",
     ]);
+  });
+
+  it("uses the provider URL for Outlook open-in-email links", () => {
+    mockUseAccount.mockReturnValue({
+      emailAccountId: "account-1",
+      provider: "microsoft",
+      userEmail: "user@example.com",
+    });
+
+    render(
+      <InlineEmailCard threadid="outlook-thread-1" action="none">
+        Outlook message
+      </InlineEmailCard>,
+    );
+
+    openMoreActions();
+
+    expect(
+      screen
+        .getByRole("menuitem", { name: "Open in email" })
+        .getAttribute("href"),
+    ).toBe(
+      "https://outlook.office.com/mail/deeplink/read/outlook-message-1?ispopout=0",
+    );
+  });
+
+  it("does not show an Outlook open-in-email link without a provider URL", () => {
+    mockUseAccount.mockReturnValue({
+      emailAccountId: "account-1",
+      provider: "microsoft",
+      userEmail: "user@example.com",
+    });
+
+    render(
+      <InlineEmailCard threadid="thread-1" action="none">
+        Outlook message
+      </InlineEmailCard>,
+    );
+
+    openMoreActions();
+
+    expect(
+      screen.queryByRole("menuitem", { name: "Open in email" }),
+    ).toBeNull();
   });
 
   it("renders the app email preview details from the menu", async () => {

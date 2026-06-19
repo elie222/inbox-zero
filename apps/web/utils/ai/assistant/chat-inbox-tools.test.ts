@@ -830,6 +830,8 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
           {
             id: "m1",
             threadId: "t1",
+            externalUrl:
+              "https://outlook.office.com/mail/deeplink/read/m1?ispopout=0",
             snippet: "Can you take a look?",
             historyId: "",
             inline: [],
@@ -882,6 +884,9 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
     expect(result.messages).toHaveLength(1);
     expect(result.queryUsed).toBe('"sender@example.com"');
+    expect(result.messages[0].externalUrl).toBe(
+      "https://outlook.office.com/mail/deeplink/read/m1?ispopout=0",
+    );
   });
 
   it("searchInbox passes structured Outlook category and read-state filters", async () => {

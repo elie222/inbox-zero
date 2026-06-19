@@ -54,6 +54,7 @@ export interface ParsedMessage {
   bodyContentType?: "text" | "html"; // For Outlook: indicates which format the body was originally in
   conversationIndex?: string | null;
   date: string;
+  externalUrl?: string;
   headers: ParsedMessageHeaders;
   historyId: string;
   id: string;

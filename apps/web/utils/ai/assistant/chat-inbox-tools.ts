@@ -703,6 +703,7 @@ export const readEmailTool = ({
         return {
           messageId: message.id,
           threadId: message.threadId,
+          externalUrl: message.externalUrl,
           from: emailForLLM.from,
           to: emailForLLM.to,
           cc: emailForLLM.cc,
@@ -1521,6 +1522,7 @@ function mapMessageForSearchResult(
   return {
     messageId: message.id,
     threadId: message.threadId,
+    externalUrl: message.externalUrl,
     subject: message.subject,
     from: message.headers.from,
     to: message.headers.to,

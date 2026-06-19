@@ -9,6 +9,7 @@ export type EmailMeta = {
   snippet: string;
   date: string;
   isUnread: boolean;
+  externalUrl?: string;
 };
 
 export type EmailLookup = Map<string, EmailMeta>;
