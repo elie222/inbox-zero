@@ -404,14 +404,14 @@ describe("getMessagingAiGeneratedPostPayload", () => {
     });
   });
 
-  it("does not add the Teams disclosure to Slack assistant messages", () => {
+  it("uses Slack text instead of markdown_text for assistant messages", () => {
     expect(
       getMessagingAiGeneratedPostPayload({
         provider: "slack",
-        text: "Here is your summary.",
+        text: "**Here is your summary.**",
       }),
     ).toEqual({
-      markdown: "Here is your summary.",
+      raw: "*Here is your summary.*",
     });
   });
 
