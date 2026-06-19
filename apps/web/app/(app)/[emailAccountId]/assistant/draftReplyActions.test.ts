@@ -25,6 +25,31 @@ describe("draftReplyActions", () => {
     ]);
   });
 
+  it("normalizes channel-less persisted chat drafts back to email drafts", () => {
+    const actions = normalizeDraftReplyActions([
+      {
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: null,
+        content: { value: "", setManually: false },
+      },
+      {
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "   ",
+      },
+    ]);
+
+    expect(actions).toEqual([
+      expect.objectContaining({
+        type: ActionType.DRAFT_EMAIL,
+        messagingChannelId: null,
+      }),
+      expect.objectContaining({
+        type: ActionType.DRAFT_EMAIL,
+        messagingChannelId: null,
+      }),
+    ]);
+  });
+
   it("denormalizes all adjacent draft messaging actions with the email content", () => {
     const actions = denormalizeDraftReplyActions([
       {

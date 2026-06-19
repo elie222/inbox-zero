@@ -17,6 +17,13 @@ export function normalizeDraftReplyActions(actions: RuleFormAction[]) {
       };
     }
 
+    if (
+      action.type === ActionType.DRAFT_MESSAGING_CHANNEL &&
+      !action.messagingChannelId?.trim()
+    ) {
+      return buildDraftEmailAction(action);
+    }
+
     return action;
   });
 }
