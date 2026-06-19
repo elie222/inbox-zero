@@ -2850,7 +2850,7 @@ function getMessagingAssistantPostPayload({
   }
 
   if (provider === "slack") {
-    return { markdown: markdownToSlackMrkdwn(text) };
+    return { raw: markdownToSlackMrkdwn(text) };
   }
 
   return { markdown: text };
