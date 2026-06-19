@@ -46,6 +46,24 @@ describe("handleGmailPermissionsCheck", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it("uses comma-separated stored granted scopes from better-auth in Google OAuth emulation", async () => {
+    const oauth = await import("@/utils/google/oauth");
+    vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(true);
+
+    const result = await handleGmailPermissionsCheck({
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      emailAccountId: "email-account-1",
+      grantedScope: SCOPES.join(","),
+    });
+
+    expect(result).toEqual({
+      hasAllPermissions: true,
+      missingScopes: [],
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("reports missing scopes from stored granted scopes in emulation", async () => {
     const oauth = await import("@/utils/google/oauth");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(true);

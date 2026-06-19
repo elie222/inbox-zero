@@ -116,3 +116,4 @@ eval-results/
 .agent-worktrees/
 .context/
 .deepsec/
+.tmp/
