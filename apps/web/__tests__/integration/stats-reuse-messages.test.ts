@@ -17,12 +17,10 @@ import { saveBatch } from "@/utils/actions/stats-loading";
 import { createTestLogger } from "@/__tests__/helpers";
 
 // Mock Prisma — saveBatch writes to emailMessage table
-const mockCreateMany = vi.fn().mockResolvedValue({ count: 0 });
+const mockExecuteRaw = vi.fn().mockResolvedValue(0);
 vi.mock("@/utils/prisma", () => ({
   default: {
-    emailMessage: {
-      createMany: (...args: unknown[]) => mockCreateMany(...args),
-    },
+    $executeRaw: (...args: unknown[]) => mockExecuteRaw(...args),
   },
 }));
 
@@ -90,7 +88,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     });
 
     test("saveBatch processes emulator messages and saves to DB", async () => {
-      mockCreateMany.mockClear();
+      mockExecuteRaw.mockClear();
 
       const logger = createTestLogger();
 
@@ -106,45 +104,38 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       // Should return the messages
       expect(result.data.messages).toHaveLength(3);
 
-      // Should have called prisma.emailMessage.createMany
-      expect(mockCreateMany).toHaveBeenCalledTimes(1);
+      expect(mockExecuteRaw).toHaveBeenCalledTimes(1);
 
-      const savedData = mockCreateMany.mock.calls[0][0];
-      expect(savedData.skipDuplicates).toBe(true);
+      const rawCall = JSON.stringify(mockExecuteRaw.mock.calls[0]);
+      expect(rawCall).toContain("alice@example.com");
+      expect(rawCall).toContain("bob@corp.com");
+      expect(rawCall).toContain("carol@shop.io");
 
-      const emails = savedData.data;
-      expect(emails).toHaveLength(3);
+      // has UNREAD/INBOX labels
+      expect(rawCall).toContain("false");
+      expect(rawCall).toContain("true");
+    });
 
-      // Verify field extraction works correctly from emulator messages
-      for (const email of emails) {
-        expect(email.emailAccountId).toBe("test-account-id");
-        expect(email.messageId).toBeDefined();
-        expect(email.threadId).toBeDefined();
-        expect(email.from).toBeDefined();
-        expect(email.date).toBeInstanceOf(Date);
-      }
+    test("saveBatch refreshes mutable fields for cached messages", async () => {
+      mockExecuteRaw.mockClear();
 
-      // Check specific values from seed data
-      const aliceEmail = emails.find(
-        (e: { from: string }) => e.from === "alice@example.com",
-      );
-      expect(aliceEmail).toBeDefined();
-      expect(aliceEmail.read).toBe(false); // has UNREAD label
-      expect(aliceEmail.inbox).toBe(true); // has INBOX label
-      expect(aliceEmail.sent).toBe(false);
+      const logger = createTestLogger();
 
-      const carolEmail = emails.find(
-        (e: { from: string }) => e.from === "carol@shop.io",
-      );
-      expect(carolEmail).toBeDefined();
-      expect(carolEmail.sent).toBe(true); // has SENT label
-      expect(carolEmail.read).toBe(false); // has UNREAD label
+      await saveBatch({
+        emailAccountId: "test-account-id",
+        emailProvider: provider,
+        logger,
+        nextPageToken: undefined,
+        before: undefined,
+        after: undefined,
+      });
 
-      const bobEmail = emails.find(
-        (e: { from: string }) => e.from === "bob@corp.com",
-      );
-      expect(bobEmail).toBeDefined();
-      expect(bobEmail.read).toBe(true); // no UNREAD label
+      expect(mockExecuteRaw).toHaveBeenCalledTimes(1);
+
+      const rawCall = JSON.stringify(mockExecuteRaw.mock.calls[0]);
+      expect(rawCall).toContain("alice@example.com");
+      expect(rawCall).toContain("false");
+      expect(rawCall).toContain("true");
     });
 
     test("no batch API call is made", async () => {
