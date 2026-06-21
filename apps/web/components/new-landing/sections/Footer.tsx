@@ -120,7 +120,7 @@ export function Footer({ className, variant = "default" }: FooterProps) {
           </div>
         </nav>
         <div className="mt-40 flex items-center justify-between">
-          <Logo variant="glass" />
+          <Logo />
           <div className="flex items-center gap-4">
             {footerNavigation.social.map((item) => (
               <Link
