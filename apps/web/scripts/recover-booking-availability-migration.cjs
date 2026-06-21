@@ -38,6 +38,27 @@ async function main() {
     }
 
     if (
+      state.availabilitySchedule &&
+      state.bookingWindow &&
+      !state.bookingLinkAvailabilityScheduleId
+    ) {
+      const availabilityScheduleCount =
+        await getAvailabilityScheduleCount(client);
+      if (availabilityScheduleCount !== 0) {
+        throw new Error(
+          `Unexpected non-empty AvailabilitySchedule table before ${MIGRATION_NAME}: ${availabilityScheduleCount} rows`,
+        );
+      }
+
+      console.log(
+        "[migration-recovery] Dropping empty AvailabilitySchedule table from failed retry.",
+      );
+      await client.query('DROP TABLE "AvailabilitySchedule"');
+      await resolveMigration("rolled-back");
+      return;
+    }
+
+    if (
       !state.availabilitySchedule ||
       !state.availabilityWindow ||
       !state.bookingLinkAvailabilityScheduleId
@@ -102,6 +123,13 @@ async function getSchemaState(client) {
       ) AS "bookingLinkTimezone"
   `);
   return result.rows[0];
+}
+
+async function getAvailabilityScheduleCount(client) {
+  const result = await client.query(
+    'SELECT COUNT(*)::integer AS count FROM "AvailabilitySchedule"',
+  );
+  return result.rows[0]?.count ?? 0;
 }
 
 async function completePartialMigration(client, state) {
