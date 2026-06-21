@@ -579,6 +579,7 @@ const gmailSearchInboxTool = ({
           taxonomyNamesKey: "labelNames",
         });
       } catch {
+        // Provider failures are logged and flushed at the provider boundary.
         return { queryUsed: query, error: "Failed to search inbox" };
       }
     },

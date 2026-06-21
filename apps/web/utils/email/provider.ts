@@ -54,6 +54,12 @@ export async function createEmailProvider({
       action: "createEmailProvider",
       flushReason: "provider-create-error",
       provider: rateLimitProvider,
+    }).catch((loggingError) => {
+      logger.warn("Failed to flush provider creation failure log", {
+        error: loggingError,
+        provider: rateLimitProvider,
+        source: "create-email-provider",
+      });
     });
     throw error;
   }
@@ -82,7 +88,7 @@ function withProviderFailureLogging(
           if (!isPromiseLike(result)) return result;
 
           return result.catch(async (error: unknown) => {
-            await logProviderOperationFailure({
+            await logProviderOperationFailureSafely({
               error,
               emailAccountId,
               provider,
@@ -92,17 +98,33 @@ function withProviderFailureLogging(
             throw error;
           });
         } catch (error) {
-          logger.warn("Email provider operation failed", {
+          logProviderOperationFailureSafely({
             error,
             emailAccountId,
             provider,
             operation: String(property),
-          });
+            logger,
+          }).catch(() => undefined);
           throw error;
         }
       };
     },
   }) as EmailProvider;
+}
+
+async function logProviderOperationFailureSafely(
+  input: ProviderOperationFailureLogInput,
+) {
+  try {
+    await logProviderOperationFailure(input);
+  } catch (loggingError) {
+    input.logger.warn("Failed to log provider operation failure", {
+      error: loggingError,
+      emailAccountId: input.emailAccountId,
+      provider: input.provider,
+      operation: input.operation,
+    });
+  }
 }
 
 async function logProviderOperationFailure({
@@ -131,6 +153,14 @@ async function logProviderOperationFailure({
     operation,
   });
 }
+
+type ProviderOperationFailureLogInput = {
+  error: unknown;
+  emailAccountId: string;
+  provider: "google" | "microsoft";
+  logger: Logger;
+  operation: string;
+};
 
 function isPromiseLike(value: unknown): value is Promise<unknown> {
   return (

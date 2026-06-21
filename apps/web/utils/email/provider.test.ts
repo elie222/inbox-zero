@@ -4,7 +4,8 @@ import { flushLoggerSafely } from "@/utils/logger-flush";
 import { getGmailClientForEmail } from "@/utils/email-account-client";
 import { assertProviderNotRateLimited } from "@/utils/email/rate-limit";
 
-const { gmailSearchMessagesMock } = vi.hoisted(() => ({
+const { gmailGetMessageMock, gmailSearchMessagesMock } = vi.hoisted(() => ({
+  gmailGetMessageMock: vi.fn(),
   gmailSearchMessagesMock: vi.fn(),
 }));
 
@@ -32,6 +33,10 @@ vi.mock("@/utils/email/google", () => ({
     searchMessages(...args: unknown[]) {
       return gmailSearchMessagesMock(...args);
     }
+
+    getMessage(...args: unknown[]) {
+      return gmailGetMessageMock(...args);
+    }
   },
 }));
 
@@ -47,6 +52,7 @@ describe("createEmailProvider", () => {
     vi.mocked(assertProviderNotRateLimited).mockResolvedValue(undefined);
     vi.mocked(getGmailClientForEmail).mockResolvedValue({} as any);
     vi.mocked(flushLoggerSafely).mockResolvedValue(undefined);
+    gmailGetMessageMock.mockResolvedValue({});
     gmailSearchMessagesMock.mockResolvedValue({ messages: [] });
   });
 
@@ -78,6 +84,33 @@ describe("createEmailProvider", () => {
         action: "createEmailProvider",
         flushReason: "provider-create-error",
         provider: "google",
+      }),
+    );
+  });
+
+  it("preserves provider creation failures when flushing logs fails", async () => {
+    const logger = createMockLogger();
+    vi.mocked(getGmailClientForEmail).mockRejectedValueOnce(
+      new Error("token refresh failed"),
+    );
+    vi.mocked(flushLoggerSafely).mockRejectedValueOnce(
+      new Error("flush failed"),
+    );
+
+    await expect(
+      createEmailProvider({
+        emailAccountId: "email-account-1",
+        provider: "google",
+        logger,
+      }),
+    ).rejects.toThrow("token refresh failed");
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Failed to flush provider creation failure log",
+      expect.objectContaining({
+        provider: "google",
+        source: "create-email-provider",
+        error: expect.any(Error),
       }),
     );
   });
@@ -117,6 +150,64 @@ describe("createEmailProvider", () => {
         operation: "searchMessages",
       }),
     );
+  });
+
+  it("preserves async provider operation failures when flushing logs fails", async () => {
+    const logger = createMockLogger();
+    gmailSearchMessagesMock.mockRejectedValueOnce(
+      new Error("provider request failed"),
+    );
+    vi.mocked(flushLoggerSafely).mockRejectedValueOnce(
+      new Error("flush failed"),
+    );
+
+    const provider = await createEmailProvider({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    await expect(
+      provider.searchMessages({ query: "in:inbox" }),
+    ).rejects.toThrow("provider request failed");
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Failed to log provider operation failure",
+      expect.objectContaining({
+        emailAccountId: "email-account-1",
+        provider: "google",
+        operation: "searchMessages",
+        error: expect.any(Error),
+      }),
+    );
+  });
+
+  it("logs and flushes sync provider operation failures without changing thrown errors", async () => {
+    const logger = createMockLogger();
+    gmailGetMessageMock.mockImplementationOnce(() => {
+      throw new Error("provider sync failed");
+    });
+
+    const provider = await createEmailProvider({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    expect(() => provider.getMessage("message-1")).toThrow(
+      "provider sync failed",
+    );
+    await vi.waitFor(() => {
+      expect(flushLoggerSafely).toHaveBeenCalledWith(
+        logger,
+        expect.objectContaining({
+          action: "emailProvider",
+          flushReason: "provider-operation-error",
+          provider: "google",
+          operation: "getMessage",
+        }),
+      );
+    });
   });
 });
 
