@@ -24,10 +24,12 @@ vi.mock("@/utils/prisma", () => ({
 }));
 
 import {
+  consumeMobileAuthState,
   consumeMobileAuthCode,
   createMobileAuthCode,
   createMobileAuthState,
   isValidMobileAuthState,
+  storeMobileAuthState,
 } from "./oauth-code";
 
 describe("mobile auth OAuth code", () => {
@@ -54,7 +56,10 @@ describe("mobile auth OAuth code", () => {
     expect(prismaMock.verificationToken.deleteMany).toHaveBeenCalledWith({
       where: {
         expires: { lt: expect.any(Date) },
-        identifier: { startsWith: "mobile-auth:" },
+        OR: [
+          { identifier: { startsWith: "mobile-auth:" } },
+          { identifier: { startsWith: "mobile-auth-state:" } },
+        ],
       },
     });
     expect(prismaMock.verificationToken.create).toHaveBeenCalledWith({
@@ -64,6 +69,74 @@ describe("mobile auth OAuth code", () => {
         token: expect.not.stringContaining(code),
       }),
     });
+  });
+
+  it("stores return URL mode bound to state", async () => {
+    await storeMobileAuthState({
+      returnUrlMode: "custom-scheme",
+      state: "state-1234567890",
+    });
+
+    expect(prismaMock.verificationToken.deleteMany).toHaveBeenCalledWith({
+      where: {
+        expires: { lt: expect.any(Date) },
+        OR: [
+          { identifier: { startsWith: "mobile-auth:" } },
+          { identifier: { startsWith: "mobile-auth-state:" } },
+        ],
+      },
+    });
+    expect(prismaMock.verificationToken.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        expires: expect.any(Date),
+        identifier: "mobile-auth-state:custom-scheme",
+        token: expect.any(String),
+      }),
+    });
+    expect(
+      prismaMock.verificationToken.create.mock.calls[0][0].data.token,
+    ).not.toBe("state-1234567890");
+  });
+
+  it("consumes return URL mode bound to state", async () => {
+    prismaMock.verificationToken.findUnique.mockResolvedValue({
+      expires: new Date(Date.now() + 60_000),
+      identifier: "mobile-auth-state:custom-scheme",
+    });
+    prismaMock.verificationToken.delete.mockResolvedValue({});
+
+    await expect(
+      consumeMobileAuthState({
+        state: "state-1234567890",
+      }),
+    ).resolves.toEqual({ returnUrlMode: "custom-scheme" });
+    expect(prismaMock.verificationToken.delete).toHaveBeenCalledWith({
+      where: { token: expect.any(String) },
+    });
+  });
+
+  it("defaults missing return URL mode state records to app links for old flows", async () => {
+    prismaMock.verificationToken.findUnique.mockResolvedValue(null);
+
+    await expect(
+      consumeMobileAuthState({
+        state: "state-1234567890",
+      }),
+    ).resolves.toEqual({ returnUrlMode: "app-link" });
+  });
+
+  it("rejects malformed return URL mode records", async () => {
+    prismaMock.verificationToken.findUnique.mockResolvedValue({
+      expires: new Date(Date.now() + 60_000),
+      identifier: "mobile-auth-state:javascript-alert",
+    });
+
+    await expect(
+      consumeMobileAuthState({
+        state: "state-1234567890",
+      }),
+    ).rejects.toThrow("Invalid authentication state");
+    expect(prismaMock.verificationToken.delete).not.toHaveBeenCalled();
   });
 
   it("consumes a matching unused code once", async () => {

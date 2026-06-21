@@ -37,13 +37,16 @@ describe("mobile auth URL helpers", () => {
   });
 
   it("builds custom-scheme callback URLs when requested", () => {
-    expect(
-      getMobileAuthWebCallbackUrl("state-1234567890", "custom-scheme"),
-    ).toBe(
-      "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&returnUrlMode=custom-scheme",
-    );
     expect(getMobileAuthAppCallbackUrl("custom-scheme").toString()).toBe(
       "inboxzero://auth-callback",
+    );
+  });
+
+  it("fails custom-scheme callback URL requests when the scheme is not configured", () => {
+    mockEnv.MOBILE_AUTH_ORIGIN = "";
+
+    expect(() => getMobileAuthAppCallbackUrl("custom-scheme")).toThrow(
+      "MOBILE_AUTH_ORIGIN is required for mobile custom scheme",
     );
   });
 

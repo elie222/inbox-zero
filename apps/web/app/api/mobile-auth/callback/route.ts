@@ -4,32 +4,28 @@ import { auth } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { withError } from "@/utils/middleware";
 import {
+  consumeMobileAuthState,
   createMobileAuthCode,
   isValidMobileAuthState,
 } from "@/utils/mobile-auth/oauth-code";
-import {
-  getMobileAuthAppCallbackUrl,
-  type MobileAuthReturnUrlMode,
-} from "@/utils/mobile-auth/url";
+import { getMobileAuthAppCallbackUrl } from "@/utils/mobile-auth/url";
 
-const mobileAuthReturnUrlModeSchema = z.enum(["app-link", "custom-scheme"]);
 const callbackQuerySchema = z.object({
   state: z.string().trim().min(1).max(256),
-  returnUrlMode: mobileAuthReturnUrlModeSchema.optional(),
 });
 
 export const GET = withError("mobile-auth/callback", async (request) => {
   const query = callbackQuerySchema.parse({
     state: request.nextUrl.searchParams.get("state"),
-    returnUrlMode:
-      request.nextUrl.searchParams.get("returnUrlMode") ?? undefined,
   });
-  const returnUrlMode: MobileAuthReturnUrlMode =
-    query.returnUrlMode ?? "app-link";
 
   if (!isValidMobileAuthState(query.state)) {
     throw new SafeError("Invalid authentication state", 400);
   }
+
+  const { returnUrlMode } = await consumeMobileAuthState({
+    state: query.state,
+  });
 
   const session = await auth(request.headers);
   const userId = session?.user?.id;
@@ -59,7 +55,7 @@ export const GET = withError("mobile-auth/callback", async (request) => {
 function redirectToMobileCallback(
   state: string,
   params: Record<string, string>,
-  returnUrlMode?: MobileAuthReturnUrlMode,
+  returnUrlMode?: Parameters<typeof getMobileAuthAppCallbackUrl>[0],
 ) {
   const redirectUrl = getMobileAuthAppCallbackUrl(returnUrlMode);
   redirectUrl.searchParams.set("state", state);

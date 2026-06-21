@@ -1,13 +1,19 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createMobileAuthStateMock, handlerMock, mockEnv } = vi.hoisted(() => ({
+const {
+  createMobileAuthStateMock,
+  handlerMock,
+  mockEnv,
+  storeMobileAuthStateMock,
+} = vi.hoisted(() => ({
   createMobileAuthStateMock: vi.fn(),
   handlerMock: vi.fn(),
   mockEnv: {
     MOBILE_AUTH_ORIGIN: "inboxzero://",
     NEXT_PUBLIC_BASE_URL: "https://www.getinboxzero.com",
   },
+  storeMobileAuthStateMock: vi.fn(),
 }));
 
 vi.mock("@/env", () => ({
@@ -22,6 +28,7 @@ vi.mock("@/utils/auth", () => ({
 
 vi.mock("@/utils/mobile-auth/oauth-code", () => ({
   createMobileAuthState: createMobileAuthStateMock,
+  storeMobileAuthState: storeMobileAuthStateMock,
 }));
 
 vi.mock("@/utils/middleware", async () => {
@@ -40,6 +47,7 @@ describe("mobile auth start route", () => {
     mockEnv.MOBILE_AUTH_ORIGIN = "inboxzero://";
     mockEnv.NEXT_PUBLIC_BASE_URL = "https://www.getinboxzero.com";
     createMobileAuthStateMock.mockReturnValue("state-1234567890");
+    storeMobileAuthStateMock.mockResolvedValue(undefined);
     handlerMock.mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -78,6 +86,10 @@ describe("mobile auth start route", () => {
       state: "state-1234567890",
     });
     expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(storeMobileAuthStateMock).toHaveBeenCalledWith({
+      returnUrlMode: "app-link",
+      state: "state-1234567890",
+    });
     expect(handlerMock).toHaveBeenCalledOnce();
     const [signInRequest] = handlerMock.mock.calls[0] as [Request];
     expect(signInRequest.url).toBe(
@@ -117,6 +129,10 @@ describe("mobile auth start route", () => {
       state: "state-1234567890",
     });
     expect(handlerMock).toHaveBeenCalledOnce();
+    expect(storeMobileAuthStateMock).toHaveBeenCalledWith({
+      returnUrlMode: "app-link",
+      state: "state-1234567890",
+    });
     const [signInRequest] = handlerMock.mock.calls[0] as [Request];
     expect(signInRequest.url).toBe(
       "http://localhost:3000/api/auth/sign-in/social",
@@ -153,15 +169,19 @@ describe("mobile auth start route", () => {
       state: "state-1234567890",
     });
     expect(handlerMock).toHaveBeenCalledOnce();
+    expect(storeMobileAuthStateMock).toHaveBeenCalledWith({
+      returnUrlMode: "custom-scheme",
+      state: "state-1234567890",
+    });
     const [signInRequest] = handlerMock.mock.calls[0] as [Request];
     await expect(signInRequest.json()).resolves.toEqual({
       provider: "google",
       callbackURL:
-        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&returnUrlMode=custom-scheme",
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890",
       errorCallbackURL:
-        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&returnUrlMode=custom-scheme",
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890",
       newUserCallbackURL:
-        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&returnUrlMode=custom-scheme",
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890",
       disableRedirect: true,
     });
   });
@@ -192,5 +212,6 @@ describe("mobile auth start route", () => {
       isKnownError: true,
     });
     expect(response.status).toBe(500);
+    expect(storeMobileAuthStateMock).not.toHaveBeenCalled();
   });
 });
