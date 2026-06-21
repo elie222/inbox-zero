@@ -10,10 +10,12 @@ import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/ai/choose-rule/run-r
 import { getRuleConfig } from "@/utils/rule/consts";
 import type { ClassificationFeedbackItem } from "@/utils/rule/classification-feedback";
 import { getEmail, getRule } from "@/__tests__/helpers";
+import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai eval/classification-feedback-hint
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/classification-feedback-hint
 
+const logger = createScopedLogger("eval-classification-feedback-hint");
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 
@@ -255,6 +257,7 @@ describe.runIf(shouldRunEval)("Eval: Classification Feedback Hints", () => {
             rules,
             emailAccount,
             classificationFeedback: tc.feedback,
+            logger,
           });
 
           const primaryRule = result.rules.find((r) => r.isPrimary);
