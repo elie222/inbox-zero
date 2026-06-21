@@ -580,7 +580,7 @@ const gmailSearchInboxTool = ({
           taxonomyNamesKey: "labelNames",
         });
       } catch (error) {
-        logger.error("Failed to search inbox", {
+        logger.warn("Failed to search inbox", {
           error,
           query,
           provider,
@@ -636,9 +636,17 @@ const outlookSearchInboxTool = ({
         });
 
         if (!searchResult.result) {
-          logger.error("Failed to search inbox", {
+          logger.warn("Failed to search inbox", {
             error: searchResult.lastError,
             query,
+            provider,
+            tool: "searchInbox",
+          });
+          await flushLoggerSafely(logger, {
+            action: "assistant-chat",
+            flushReason: "search-inbox-error",
+            provider,
+            tool: "searchInbox",
           });
           return buildMicrosoftSearchErrorResult({
             query,
@@ -655,7 +663,7 @@ const outlookSearchInboxTool = ({
           taxonomyNamesKey: "categoryNames",
         });
       } catch (error) {
-        logger.error("Failed to search inbox", {
+        logger.warn("Failed to search inbox", {
           error,
           query,
           provider,

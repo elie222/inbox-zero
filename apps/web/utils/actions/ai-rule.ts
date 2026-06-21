@@ -56,7 +56,7 @@ export const runRulesAction = actionClient
         provider,
         logger,
       }).catch((error) => {
-        logger.error("Failed to create email provider", { error });
+        logger.warn("Failed to create email provider", { error });
         return flushAndRethrowRunRulesActionError({
           logger,
           error,
@@ -70,7 +70,7 @@ export const runRulesAction = actionClient
       const message = await emailProvider
         .getMessage(messageId)
         .catch((error) => {
-          logger.error("Failed to fetch message for rule execution", { error });
+          logger.warn("Failed to fetch message for rule execution", { error });
           return flushAndRethrowRunRulesActionError({
             logger,
             error,
@@ -263,7 +263,7 @@ export const testAiCustomContentAction = actionClient
 
         return result;
       } catch (error) {
-        logger.error("testAiCustomContent failed", { error });
+        logger.warn("testAiCustomContent failed", { error });
         await flushLoggerSafely(logger, {
           action: "testAiCustomContent",
           flushReason: "test-mode-error",
