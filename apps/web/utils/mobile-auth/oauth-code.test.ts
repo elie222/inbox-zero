@@ -26,6 +26,7 @@ vi.mock("@/utils/prisma", () => ({
 import {
   consumeMobileAuthCode,
   createMobileAuthCode,
+  createMobileAuthState,
   isValidMobileAuthState,
 } from "./oauth-code";
 
@@ -34,6 +35,13 @@ describe("mobile auth OAuth code", () => {
     vi.clearAllMocks();
     prismaMock.verificationToken.create.mockResolvedValue({});
     prismaMock.verificationToken.deleteMany.mockResolvedValue({ count: 1 });
+  });
+
+  it("generates a valid server-side mobile auth state", () => {
+    const state = createMobileAuthState();
+
+    expect(state).toHaveLength(43);
+    expect(isValidMobileAuthState(state)).toBe(true);
   });
 
   it("stores a hashed one-time code bound to state and user", async () => {
