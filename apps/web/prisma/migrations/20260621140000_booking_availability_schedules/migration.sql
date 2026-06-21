@@ -66,10 +66,10 @@ ALTER INDEX "BookingWindow_bookingLinkId_idx" RENAME TO "AvailabilityWindow_book
 ALTER TABLE "AvailabilityWindow" DROP CONSTRAINT "BookingWindow_bookingLinkId_fkey";
 ALTER TABLE "AvailabilityWindow" RENAME COLUMN "bookingLinkId" TO "availabilityScheduleId";
 
-UPDATE "AvailabilityWindow" window
+UPDATE "AvailabilityWindow" availability_window
 SET "availabilityScheduleId" = bl."availabilityScheduleId"
 FROM "BookingLink" bl
-WHERE window."availabilityScheduleId" = bl.id;
+WHERE availability_window."availabilityScheduleId" = bl.id;
 
 ALTER INDEX "AvailabilityWindow_bookingLinkId_idx" RENAME TO "AvailabilityWindow_availabilityScheduleId_idx";
 
