@@ -9,6 +9,7 @@ const tinybirdAiCall = z.object({
   completionTokens: z.number().int(),
   promptTokens: z.number().int(),
   cachedInputTokens: z.number().int(),
+  cacheCreationInputTokens: z.number().int(),
   reasoningTokens: z.number().int(),
   cost: z.number(),
   estimatedCost: z.number(),
