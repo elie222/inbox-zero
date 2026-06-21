@@ -5,25 +5,19 @@ export const MOBILE_AUTH_APP_CALLBACK_PATH = "/auth-callback";
 
 export type MobileAuthReturnUrlMode = "app-link" | "custom-scheme";
 
-export function getMobileAuthWebCallbackUrl(
-  state: string,
-  returnUrlMode?: MobileAuthReturnUrlMode,
-): string {
+export function getMobileAuthWebCallbackUrl(state: string): string {
   const callbackUrl = new URL(
     MOBILE_AUTH_WEB_CALLBACK_PATH,
     getMobileAuthBaseUrlOrigin(),
   );
   callbackUrl.searchParams.set("state", state);
-  if (returnUrlMode === "custom-scheme") {
-    callbackUrl.searchParams.set("returnUrlMode", returnUrlMode);
-  }
   return callbackUrl.toString();
 }
 
 export function getMobileAuthAppCallbackUrl(
   returnUrlMode?: MobileAuthReturnUrlMode,
 ): URL {
-  if (returnUrlMode === "custom-scheme" && env.MOBILE_AUTH_ORIGIN) {
+  if (returnUrlMode === "custom-scheme") {
     return new URL(getMobileAuthCustomSchemeOrigin());
   }
 

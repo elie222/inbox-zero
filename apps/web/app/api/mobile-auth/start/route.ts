@@ -3,7 +3,10 @@ import { z } from "zod";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { withError } from "@/utils/middleware";
-import { createMobileAuthState } from "@/utils/mobile-auth/oauth-code";
+import {
+  createMobileAuthState,
+  storeMobileAuthState,
+} from "@/utils/mobile-auth/oauth-code";
 import {
   getMobileAuthAppCallbackUrl,
   getMobileAuthBaseUrlOrigin,
@@ -31,7 +34,9 @@ export const POST = withError("mobile-auth/start", async (request) => {
   const state = createMobileAuthState();
   const returnUrlMode: MobileAuthReturnUrlMode =
     body.returnUrlMode ?? "app-link";
-  const webCallbackUrl = getMobileAuthWebCallbackUrl(state, returnUrlMode);
+  const authSessionReturnUrl =
+    getMobileAuthAppCallbackUrl(returnUrlMode).toString();
+  const webCallbackUrl = getMobileAuthWebCallbackUrl(state);
 
   const signInResponse = await betterAuthConfig.handler(
     new Request(
@@ -62,9 +67,14 @@ export const POST = withError("mobile-auth/start", async (request) => {
     throw new SafeError("Failed to start authentication", 500);
   }
 
+  await storeMobileAuthState({
+    returnUrlMode,
+    state,
+  });
+
   const response: StartMobileAuthResponse = {
     authorizationURL: signInBody.url,
-    authSessionReturnUrl: getMobileAuthAppCallbackUrl(returnUrlMode).toString(),
+    authSessionReturnUrl,
     oauthState,
     state,
   };
