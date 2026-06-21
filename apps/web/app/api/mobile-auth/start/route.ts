@@ -8,12 +8,15 @@ import {
   getMobileAuthAppCallbackUrl,
   getMobileAuthBaseUrlOrigin,
   getMobileAuthWebCallbackUrl,
+  type MobileAuthReturnUrlMode,
 } from "@/utils/mobile-auth/url";
 
 const mobileAuthProviderSchema = z.enum(["apple", "google", "microsoft"]);
+const mobileAuthReturnUrlModeSchema = z.enum(["app-link", "custom-scheme"]);
 
 const startMobileAuthSchema = z.object({
   provider: mobileAuthProviderSchema,
+  returnUrlMode: mobileAuthReturnUrlModeSchema.optional(),
 });
 
 export type StartMobileAuthResponse = {
@@ -26,7 +29,9 @@ export type StartMobileAuthResponse = {
 export const POST = withError("mobile-auth/start", async (request) => {
   const body = startMobileAuthSchema.parse(await request.json());
   const state = createMobileAuthState();
-  const webCallbackUrl = getMobileAuthWebCallbackUrl(state);
+  const returnUrlMode: MobileAuthReturnUrlMode =
+    body.returnUrlMode ?? "app-link";
+  const webCallbackUrl = getMobileAuthWebCallbackUrl(state, returnUrlMode);
 
   const signInResponse = await betterAuthConfig.handler(
     new Request(
@@ -59,7 +64,7 @@ export const POST = withError("mobile-auth/start", async (request) => {
 
   const response: StartMobileAuthResponse = {
     authorizationURL: signInBody.url,
-    authSessionReturnUrl: getMobileAuthAppCallbackUrl().toString(),
+    authSessionReturnUrl: getMobileAuthAppCallbackUrl(returnUrlMode).toString(),
     oauthState,
     state,
   };
