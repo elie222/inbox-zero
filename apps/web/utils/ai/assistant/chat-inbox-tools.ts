@@ -1,7 +1,6 @@
 import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import type { Logger } from "@/utils/logger";
-import { flushLoggerSafely } from "@/utils/logger-flush";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -579,19 +578,7 @@ const gmailSearchInboxTool = ({
           labels,
           taxonomyNamesKey: "labelNames",
         });
-      } catch (error) {
-        logger.warn("Failed to search inbox", {
-          error,
-          query,
-          provider,
-          tool: "searchInbox",
-        });
-        await flushLoggerSafely(logger, {
-          action: "assistant-chat",
-          flushReason: "search-inbox-error",
-          provider,
-          tool: "searchInbox",
-        });
+      } catch {
         return { queryUsed: query, error: "Failed to search inbox" };
       }
     },
@@ -636,18 +623,6 @@ const outlookSearchInboxTool = ({
         });
 
         if (!searchResult.result) {
-          logger.warn("Failed to search inbox", {
-            error: searchResult.lastError,
-            query,
-            provider,
-            tool: "searchInbox",
-          });
-          await flushLoggerSafely(logger, {
-            action: "assistant-chat",
-            flushReason: "search-inbox-error",
-            provider,
-            tool: "searchInbox",
-          });
           return buildMicrosoftSearchErrorResult({
             query,
             failures: searchResult.failures,
@@ -663,18 +638,6 @@ const outlookSearchInboxTool = ({
           taxonomyNamesKey: "categoryNames",
         });
       } catch (error) {
-        logger.warn("Failed to search inbox", {
-          error,
-          query,
-          provider,
-          tool: "searchInbox",
-        });
-        await flushLoggerSafely(logger, {
-          action: "assistant-chat",
-          flushReason: "search-inbox-error",
-          provider,
-          tool: "searchInbox",
-        });
         return buildMicrosoftSearchErrorResult({
           query,
           failures: [{ query, error }],

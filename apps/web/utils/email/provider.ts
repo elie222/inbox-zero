@@ -8,6 +8,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { assertProviderNotRateLimited } from "@/utils/email/rate-limit";
 import { toRateLimitProvider } from "@/utils/email/rate-limit-mode-error";
 import type { Logger } from "@/utils/logger";
+import { flushLoggerSafely } from "@/utils/logger-flush";
 
 export async function createEmailProvider({
   emailAccountId,
@@ -21,18 +22,123 @@ export async function createEmailProvider({
   const rateLimitProvider = toRateLimitProvider(provider);
   if (!rateLimitProvider) throw new Error(`Unsupported provider: ${provider}`);
 
-  await assertProviderNotRateLimited({
-    emailAccountId,
-    provider: rateLimitProvider,
-    logger,
-    source: "create-email-provider",
-  });
+  try {
+    await assertProviderNotRateLimited({
+      emailAccountId,
+      provider: rateLimitProvider,
+      logger,
+      source: "create-email-provider",
+    });
 
-  if (rateLimitProvider === "google") {
-    const client = await getGmailClientForEmail({ emailAccountId, logger });
-    return new GmailProvider(client, logger, emailAccountId);
+    if (rateLimitProvider === "google") {
+      const client = await getGmailClientForEmail({ emailAccountId, logger });
+      return withProviderFailureLogging(
+        new GmailProvider(client, logger, emailAccountId),
+        { emailAccountId, provider: rateLimitProvider, logger },
+      );
+    }
+
+    const client = await getOutlookClientForEmail({ emailAccountId, logger });
+    return withProviderFailureLogging(new OutlookProvider(client, logger), {
+      emailAccountId,
+      provider: rateLimitProvider,
+      logger,
+    });
+  } catch (error) {
+    logger.warn("Failed to create email provider", {
+      error,
+      provider: rateLimitProvider,
+      source: "create-email-provider",
+    });
+    await flushLoggerSafely(logger, {
+      action: "createEmailProvider",
+      flushReason: "provider-create-error",
+      provider: rateLimitProvider,
+    });
+    throw error;
   }
+}
 
-  const client = await getOutlookClientForEmail({ emailAccountId, logger });
-  return new OutlookProvider(client, logger);
+function withProviderFailureLogging(
+  emailProvider: EmailProvider,
+  {
+    emailAccountId,
+    provider,
+    logger,
+  }: {
+    emailAccountId: string;
+    provider: "google" | "microsoft";
+    logger: Logger;
+  },
+): EmailProvider {
+  return new Proxy(emailProvider, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver);
+      if (typeof value !== "function") return value;
+
+      return (...args: unknown[]) => {
+        try {
+          const result = value.apply(target, args);
+          if (!isPromiseLike(result)) return result;
+
+          return result.catch(async (error: unknown) => {
+            await logProviderOperationFailure({
+              error,
+              emailAccountId,
+              provider,
+              logger,
+              operation: String(property),
+            });
+            throw error;
+          });
+        } catch (error) {
+          logger.warn("Email provider operation failed", {
+            error,
+            emailAccountId,
+            provider,
+            operation: String(property),
+          });
+          throw error;
+        }
+      };
+    },
+  }) as EmailProvider;
+}
+
+async function logProviderOperationFailure({
+  error,
+  emailAccountId,
+  provider,
+  logger,
+  operation,
+}: {
+  error: unknown;
+  emailAccountId: string;
+  provider: "google" | "microsoft";
+  logger: Logger;
+  operation: string;
+}) {
+  logger.warn("Email provider operation failed", {
+    error,
+    emailAccountId,
+    provider,
+    operation,
+  });
+  await flushLoggerSafely(logger, {
+    action: "emailProvider",
+    flushReason: "provider-operation-error",
+    provider,
+    operation,
+  });
+}
+
+function isPromiseLike(value: unknown): value is Promise<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in value &&
+    typeof value.then === "function" &&
+    "catch" in value &&
+    typeof value.catch === "function"
+  );
 }
