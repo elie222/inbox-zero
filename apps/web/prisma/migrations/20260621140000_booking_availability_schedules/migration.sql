@@ -14,7 +14,7 @@ CREATE TABLE "AvailabilitySchedule" (
 CREATE TEMP TABLE "BookingLinkAvailabilityScheduleMigration" (
     "bookingLinkId" TEXT NOT NULL,
     "availabilityScheduleId" TEXT NOT NULL
-) ON COMMIT DROP;
+);
 
 INSERT INTO "BookingLinkAvailabilityScheduleMigration" (
     "bookingLinkId",
@@ -99,3 +99,5 @@ ALTER TABLE "BookingLink" ADD CONSTRAINT "BookingLink_availabilityScheduleId_ema
 
 -- AddForeignKey
 ALTER TABLE "AvailabilityWindow" ADD CONSTRAINT "AvailabilityWindow_availabilityScheduleId_fkey" FOREIGN KEY ("availabilityScheduleId") REFERENCES "AvailabilitySchedule"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+DROP TABLE "BookingLinkAvailabilityScheduleMigration";
