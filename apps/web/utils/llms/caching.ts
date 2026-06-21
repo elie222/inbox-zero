@@ -13,12 +13,16 @@ const ANTHROPIC_CACHE_CONTROL_PROVIDERS = new Set<string>([
   Provider.AI_GATEWAY,
 ]);
 
-// OpenAI-family providers cache prefixes automatically; `promptCacheKey` only
-// steers cache routing, so we key it per email account for stable hits.
+// Providers whose models route through @ai-sdk/openai's chat model, which reads
+// provider options under the "openai" namespace and forwards `promptCacheKey`
+// (Azure included — createAzure builds an OpenAIChatLanguageModel). They cache
+// prefixes automatically; the key only steers routing, so we set it per account.
+// Azure Foundry is deliberately excluded: it's createOpenAICompatible({ name:
+// "azure-foundry" }), which reads options under the "azure-foundry" namespace
+// (not "openai") and serves non-OpenAI models, so `prompt_cache_key` is inert.
 const OPENAI_PROMPT_CACHE_PROVIDERS = new Set<string>([
   Provider.OPEN_AI,
   Provider.AZURE,
-  Provider.AZURE_FOUNDRY,
 ]);
 
 /**
