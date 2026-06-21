@@ -11,6 +11,10 @@ const MOBILE_AUTH_IDENTIFIER_PREFIX = "mobile-auth";
 const MOBILE_AUTH_CODE_TTL_MS = 5 * 60 * 1000;
 const MOBILE_AUTH_STATE_REGEX = /^[A-Za-z0-9._~-]{16,256}$/u;
 
+export function createMobileAuthState(): string {
+  return randomBytes(32).toString("base64url");
+}
+
 export function isValidMobileAuthState(state: string): boolean {
   return MOBILE_AUTH_STATE_REGEX.test(state);
 }
