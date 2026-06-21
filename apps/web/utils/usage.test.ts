@@ -198,6 +198,46 @@ describe("saveAiUsage", () => {
     vi.clearAllMocks();
   });
 
+  it("publishes cache-creation tokens, defaulting to zero when absent", async () => {
+    const usage: LanguageModelUsage = {
+      inputTokens: 700,
+      cachedInputTokens: 300,
+      outputTokens: 150,
+      totalTokens: 850,
+    };
+
+    await saveAiUsage({
+      userId: "user-1",
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "anthropic",
+      model: "claude-sonnet-4.5",
+      usage,
+      label: "Choose rule",
+      cacheCreationInputTokens: 512,
+    });
+
+    expect(publishAiCall).toHaveBeenCalledWith(
+      expect.objectContaining({ cacheCreationInputTokens: 512 }),
+    );
+
+    vi.clearAllMocks();
+
+    await saveAiUsage({
+      userId: "user-1",
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "anthropic",
+      model: "claude-sonnet-4.5",
+      usage,
+      label: "Choose rule",
+    });
+
+    expect(publishAiCall).toHaveBeenCalledWith(
+      expect.objectContaining({ cacheCreationInputTokens: 0 }),
+    );
+  });
+
   it("publishes cached and reasoning token counts to analytics", async () => {
     const usage: LanguageModelUsage = {
       inputTokens: 700,
