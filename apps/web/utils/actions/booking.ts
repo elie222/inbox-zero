@@ -54,8 +54,8 @@ export const createBookingLinkAction = actionClient
         durationMinutes,
         slotIntervalMinutes,
         locationType,
-        emailAccountId,
-        destinationCalendarId: destinationCalendar.id,
+        emailAccount: { connect: { id: emailAccountId } },
+        destinationCalendar: { connect: { id: destinationCalendar.id } },
         availabilitySchedule: defaultAvailabilitySchedule
           ? { connect: { id: defaultAvailabilitySchedule.id } }
           : {

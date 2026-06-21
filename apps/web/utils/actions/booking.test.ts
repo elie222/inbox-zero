@@ -50,12 +50,12 @@ describe("booking actions", () => {
     expect(prisma.bookingLink.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          emailAccountId: "email-account-id",
+          emailAccount: { connect: { id: "email-account-id" } },
           slug: "intro-call",
           durationMinutes: 30,
           slotIntervalMinutes: 30,
           locationType: BookingLinkLocationType.MICROSOFT_TEAMS,
-          destinationCalendarId: "calendar-id",
+          destinationCalendar: { connect: { id: "calendar-id" } },
           availabilitySchedule: {
             create: expect.objectContaining({
               name: "Default availability",
