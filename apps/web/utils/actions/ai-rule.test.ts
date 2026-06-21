@@ -166,6 +166,28 @@ describe("runRulesAction", () => {
       }),
     );
   });
+
+  it("flushes logs when a test-mode run fails before returning", async () => {
+    createEmailProviderMock.mockRejectedValueOnce(
+      new Error("provider unavailable"),
+    );
+
+    const result = await runRulesAction("account-1", {
+      messageId: "message-1",
+      threadId: "thread-1",
+      isTest: true,
+    });
+
+    expect(result?.serverError).toBe("An unknown error occurred.");
+    expect(flushLoggerSafelyMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        action: "runRules",
+        flushReason: "test-mode-error",
+        stage: "create-email-provider",
+      }),
+    );
+  });
 });
 
 describe("testAiCustomContentAction", () => {
@@ -230,6 +252,23 @@ describe("testAiCustomContentAction", () => {
       expect.objectContaining({
         action: "testAiCustomContent",
         flushReason: "test-mode",
+      }),
+    );
+  });
+
+  it("flushes logs when a custom content test run fails", async () => {
+    runRulesMock.mockRejectedValueOnce(new Error("rule execution failed"));
+
+    const result = await testAiCustomContentAction("account-1", {
+      content: "x",
+    });
+
+    expect(result?.serverError).toBe("An unknown error occurred.");
+    expect(flushLoggerSafelyMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        action: "testAiCustomContent",
+        flushReason: "test-mode-error",
       }),
     );
   });

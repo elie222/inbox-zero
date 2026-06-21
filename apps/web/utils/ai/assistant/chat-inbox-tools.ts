@@ -1,6 +1,7 @@
 import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import type { Logger } from "@/utils/logger";
+import { flushLoggerSafely } from "@/utils/logger-flush";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -579,7 +580,18 @@ const gmailSearchInboxTool = ({
           taxonomyNamesKey: "labelNames",
         });
       } catch (error) {
-        logger.error("Failed to search inbox", { error, query });
+        logger.error("Failed to search inbox", {
+          error,
+          query,
+          provider,
+          tool: "searchInbox",
+        });
+        await flushLoggerSafely(logger, {
+          action: "assistant-chat",
+          flushReason: "search-inbox-error",
+          provider,
+          tool: "searchInbox",
+        });
         return { queryUsed: query, error: "Failed to search inbox" };
       }
     },
@@ -643,7 +655,18 @@ const outlookSearchInboxTool = ({
           taxonomyNamesKey: "categoryNames",
         });
       } catch (error) {
-        logger.error("Failed to search inbox", { error, query });
+        logger.error("Failed to search inbox", {
+          error,
+          query,
+          provider,
+          tool: "searchInbox",
+        });
+        await flushLoggerSafely(logger, {
+          action: "assistant-chat",
+          flushReason: "search-inbox-error",
+          provider,
+          tool: "searchInbox",
+        });
         return buildMicrosoftSearchErrorResult({
           query,
           failures: [{ query, error }],

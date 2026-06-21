@@ -23,17 +23,23 @@ vi.mock("@/utils/posthog", () => ({
 }));
 
 const {
+  flushLoggerSafelyMock,
   mockArchiveCategory,
   mockGetCategoryOverview,
   mockStartBulkCategorization,
   mockGetCategorizationProgress,
   mockGetCategorizationStatusSnapshot,
 } = vi.hoisted(() => ({
+  flushLoggerSafelyMock: vi.fn().mockResolvedValue(undefined),
   mockArchiveCategory: vi.fn(),
   mockGetCategoryOverview: vi.fn(),
   mockStartBulkCategorization: vi.fn(),
   mockGetCategorizationProgress: vi.fn(),
   mockGetCategorizationStatusSnapshot: vi.fn(),
+}));
+
+vi.mock("@/utils/logger-flush", () => ({
+  flushLoggerSafely: flushLoggerSafelyMock,
 }));
 
 vi.mock("@/utils/categorize/senders/archive-category", () => ({
@@ -1391,6 +1397,15 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       error: "Failed to search inbox",
     });
     expect(searchMessages).toHaveBeenCalledTimes(1);
+    expect(flushLoggerSafelyMock).toHaveBeenCalledWith(
+      logger,
+      expect.objectContaining({
+        action: "assistant-chat",
+        flushReason: "search-inbox-error",
+        provider: "google",
+        tool: "searchInbox",
+      }),
+    );
   });
 });
 
