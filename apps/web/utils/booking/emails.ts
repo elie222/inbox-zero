@@ -23,7 +23,9 @@ type BookingEmailPayload = {
     title: string;
     locationType: BookingLinkLocationType;
     locationValue: string | null;
-    timezone: string;
+    availabilitySchedule: {
+      timezone: string;
+    };
     emailAccount: {
       email: string;
       name?: string | null;
@@ -47,6 +49,7 @@ export async function sendBookingConfirmationEmails({
   const link = booking.bookingLink;
   const host = link.emailAccount;
   const location = getLocationLabel(link);
+  const hostTimezone = link.availabilitySchedule.timezone;
   const guestParts = formatBookingParts({
     startTime: booking.startTime,
     endTime: booking.endTime,
@@ -55,7 +58,7 @@ export async function sendBookingConfirmationEmails({
   const hostParts = formatBookingParts({
     startTime: booking.startTime,
     endTime: booking.endTime,
-    timezone: link.timezone,
+    timezone: hostTimezone,
   });
 
   try {
@@ -93,7 +96,7 @@ export async function sendBookingConfirmationEmails({
           dateDay: hostParts.dateDay,
           dateWeekday: hostParts.dateWeekday,
           timeRange: hostParts.timeRange,
-          timezoneLabel: link.timezone,
+          timezoneLabel: hostTimezone,
           guestNote: booking.guestNote ?? null,
         },
       }),
@@ -124,6 +127,7 @@ export async function sendBookingRescheduledEmails({
   const link = booking.bookingLink;
   const host = link.emailAccount;
   const location = getLocationLabel(link);
+  const hostTimezone = link.availabilitySchedule.timezone;
   const guestParts = formatBookingParts({
     startTime: booking.startTime,
     endTime: booking.endTime,
@@ -132,7 +136,7 @@ export async function sendBookingRescheduledEmails({
   const hostParts = formatBookingParts({
     startTime: booking.startTime,
     endTime: booking.endTime,
-    timezone: link.timezone,
+    timezone: hostTimezone,
   });
 
   try {
@@ -168,7 +172,7 @@ export async function sendBookingRescheduledEmails({
           formattedTime: hostParts.formattedTime,
           previousFormattedTime: formatDateTimeInUserTimezone(
             previousStartTime,
-            link.timezone,
+            hostTimezone,
           ),
           guestEmail: booking.guestEmail,
           guestName: booking.guestName,
@@ -177,7 +181,7 @@ export async function sendBookingRescheduledEmails({
           dateDay: hostParts.dateDay,
           dateWeekday: hostParts.dateWeekday,
           timeRange: hostParts.timeRange,
-          timezoneLabel: link.timezone,
+          timezoneLabel: hostTimezone,
         },
       }),
     ]);
@@ -198,6 +202,7 @@ export async function sendBookingCancellationEmails({
 }) {
   const link = booking.bookingLink;
   const host = link.emailAccount;
+  const hostTimezone = link.availabilitySchedule.timezone;
 
   try {
     await sendHostBookingCancellationEmail({
@@ -207,7 +212,7 @@ export async function sendBookingCancellationEmails({
         eventTitle: link.title,
         formattedTime: formatDateTimeInUserTimezone(
           booking.startTime,
-          link.timezone,
+          hostTimezone,
         ),
         guestEmail: booking.guestEmail,
         guestName: booking.guestName,

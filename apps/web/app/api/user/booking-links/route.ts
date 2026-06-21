@@ -30,7 +30,6 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
           locationValue: true,
           minimumNoticeMinutes: true,
           maxDaysAhead: true,
-          timezone: true,
           destinationCalendarId: true,
           destinationCalendar: {
             select: {
@@ -40,13 +39,18 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
               primary: true,
             },
           },
-          windows: {
-            orderBy: [{ weekday: "asc" }, { startMinutes: "asc" }],
+          availabilitySchedule: {
             select: {
-              id: true,
-              weekday: true,
-              startMinutes: true,
-              endMinutes: true,
+              timezone: true,
+              windows: {
+                orderBy: [{ weekday: "asc" }, { startMinutes: "asc" }],
+                select: {
+                  id: true,
+                  weekday: true,
+                  startMinutes: true,
+                  endMinutes: true,
+                },
+              },
             },
           },
         },
@@ -77,7 +81,13 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
 
   return {
     timezone: emailAccount.timezone,
-    bookingLinks: emailAccount.bookingLinks,
+    bookingLinks: emailAccount.bookingLinks.map(
+      ({ availabilitySchedule, ...bookingLink }) => ({
+        ...bookingLink,
+        timezone: availabilitySchedule.timezone,
+        windows: availabilitySchedule.windows,
+      }),
+    ),
     calendarConnections: emailAccount.calendarConnections,
   };
 }

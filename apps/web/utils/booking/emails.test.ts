@@ -179,7 +179,9 @@ function bookingEmailPayload(
       title: "Intro call",
       locationType: BookingLinkLocationType.CUSTOM,
       locationValue: "Conference room",
-      timezone: "UTC",
+      availabilitySchedule: {
+        timezone: "UTC",
+      },
       emailAccount: {
         email: "host@example.com",
         name: "Host User",
