@@ -40,6 +40,9 @@ vi.mock("@/utils/ai/draft-cleanup", () => ({
 describe("deleteEmailAccountAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.emailAccount.delete.mockResolvedValue({
+      id: "primary-email-account",
+    } as any);
     prisma.account.delete.mockResolvedValue({ id: "account-1" } as any);
     prisma.user.update.mockResolvedValue({ id: "user-1" } as any);
     prisma.$queryRaw.mockResolvedValue([{ pg_advisory_xact_lock: "" }]);
@@ -88,6 +91,13 @@ describe("deleteEmailAccountAction", () => {
         image: "https://example.com/avatar.png",
       },
     });
+    expect(prisma.emailAccount.delete).toHaveBeenCalledWith({
+      where: {
+        id: "primary-email-account",
+        userId: "user-1",
+        accountId: "account-1",
+      },
+    });
     expect(prisma.account.delete).toHaveBeenCalledWith({
       where: { id: "account-1", userId: "user-1" },
     });
@@ -124,27 +134,106 @@ describe("deleteEmailAccountAction", () => {
       accountId: "account-2",
       user: { email: "primary@example.com" },
     } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
-    prisma.account.delete.mockRejectedValue(newPrismaNotFoundError());
+    prisma.emailAccount.delete.mockRejectedValue(newPrismaNotFoundError());
 
     const result = await deleteEmailAccountAction({
       emailAccountId: "alternate-email-account",
     });
 
     expect(result?.serverError).toBe("Email account already changed");
-    expect(prisma.account.delete).toHaveBeenCalledWith({
+    expect(prisma.emailAccount.delete).toHaveBeenCalledWith({
       where: {
-        id: "account-2",
+        id: "alternate-email-account",
         userId: "user-1",
-        emailAccount: { user: { email: "primary@example.com" } },
+        accountId: "account-2",
+        user: { email: "primary@example.com" },
       },
     });
+    expect(updateAccountSeats).not.toHaveBeenCalled();
+  });
+
+  it("shows a specific error when the remaining email is already in use", async () => {
+    prisma.emailAccount.findMany.mockResolvedValue([
+      {
+        id: "alternate-email-account",
+        email: "alternate@example.com",
+        name: "Alternate",
+        image: null,
+      },
+    ] as Awaited<ReturnType<typeof prisma.emailAccount.findMany>>);
+    prisma.$transaction.mockRejectedValue(
+      newPrismaKnownError("Unique constraint failed", "P2002", {
+        target: ["email"],
+      }),
+    );
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "primary-email-account",
+    });
+
+    expect(result?.serverError).toBe(
+      "We couldn't make the remaining email account primary because that email is already in use.",
+    );
+    expect(updateAccountSeats).not.toHaveBeenCalled();
+  });
+
+  it("shows a specific error when linked data blocks account deletion", async () => {
+    prisma.emailAccount.findMany.mockResolvedValue([
+      {
+        id: "alternate-email-account",
+        email: "alternate@example.com",
+        name: "Alternate",
+        image: null,
+      },
+    ] as Awaited<ReturnType<typeof prisma.emailAccount.findMany>>);
+    prisma.$transaction.mockRejectedValue(
+      newPrismaKnownError("Foreign key constraint failed", "P2003"),
+    );
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "primary-email-account",
+    });
+
+    expect(result?.serverError).toBe(
+      "We couldn't delete this email account because linked data still exists. Please contact support.",
+    );
+    expect(updateAccountSeats).not.toHaveBeenCalled();
+  });
+
+  it("shows an action-specific fallback for unexpected delete failures", async () => {
+    prisma.emailAccount.findMany.mockResolvedValue([
+      {
+        id: "alternate-email-account",
+        email: "alternate@example.com",
+        name: "Alternate",
+        image: null,
+      },
+    ] as Awaited<ReturnType<typeof prisma.emailAccount.findMany>>);
+    prisma.$transaction.mockRejectedValue(new Error("database unavailable"));
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "primary-email-account",
+    });
+
+    expect(result?.serverError).toBe(
+      "We couldn't delete this email account. Please contact support if this keeps happening.",
+    );
     expect(updateAccountSeats).not.toHaveBeenCalled();
   });
 });
 
 function newPrismaNotFoundError() {
-  return new Prisma.PrismaClientKnownRequestError("Record not found", {
-    code: "P2025",
+  return newPrismaKnownError("Record not found", "P2025");
+}
+
+function newPrismaKnownError(
+  message: string,
+  code: string,
+  meta?: Record<string, unknown>,
+) {
+  return new Prisma.PrismaClientKnownRequestError(message, {
+    code,
     clientVersion: "test",
+    meta,
   });
 }
