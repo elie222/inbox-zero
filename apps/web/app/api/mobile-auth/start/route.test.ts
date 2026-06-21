@@ -130,6 +130,42 @@ describe("mobile auth start route", () => {
     );
   });
 
+  it("starts mobile social auth with a custom-scheme return URL when requested", async () => {
+    const response = await POST(
+      new NextRequest("https://www.getinboxzero.com/api/mobile-auth/start", {
+        body: JSON.stringify({
+          provider: "google",
+          returnUrlMode: "custom-scheme",
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+      {} as never,
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      authorizationURL:
+        "https://accounts.google.com/o/oauth2/v2/auth?client_id=client",
+      authSessionReturnUrl: "inboxzero://auth-callback",
+      oauthState: "encrypted-oauth-state",
+      state: "state-1234567890",
+    });
+    expect(handlerMock).toHaveBeenCalledOnce();
+    const [signInRequest] = handlerMock.mock.calls[0] as [Request];
+    await expect(signInRequest.json()).resolves.toEqual({
+      provider: "google",
+      callbackURL:
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&returnUrlMode=custom-scheme",
+      errorCallbackURL:
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&returnUrlMode=custom-scheme",
+      newUserCallbackURL:
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&returnUrlMode=custom-scheme",
+      disableRedirect: true,
+    });
+  });
+
   it("returns a known error when Better Auth does not return a URL", async () => {
     handlerMock.mockResolvedValue(
       new Response(JSON.stringify({ redirect: false }), {

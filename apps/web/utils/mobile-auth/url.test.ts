@@ -36,6 +36,17 @@ describe("mobile auth URL helpers", () => {
     );
   });
 
+  it("builds custom-scheme callback URLs when requested", () => {
+    expect(
+      getMobileAuthWebCallbackUrl("state-1234567890", "custom-scheme"),
+    ).toBe(
+      "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&returnUrlMode=custom-scheme",
+    );
+    expect(getMobileAuthAppCallbackUrl("custom-scheme").toString()).toBe(
+      "inboxzero://auth-callback",
+    );
+  });
+
   it("uses the custom-scheme app callback URL for local development", () => {
     mockEnv.NEXT_PUBLIC_BASE_URL = "http://localhost:3000";
 
