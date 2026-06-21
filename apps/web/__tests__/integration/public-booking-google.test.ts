@@ -210,6 +210,10 @@ function mockBookingConfig() {
     emailAccountId: "email-account-id",
     destinationCalendarId: "calendar-row-id",
     windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 11 * 60 }],
+    availabilitySchedule: {
+      timezone: "UTC",
+      windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 11 * 60 }],
+    },
     emailAccount: {
       calendarConnections: [
         { id: "connection-id", calendars: [{ id: "calendar-row-id" }] },

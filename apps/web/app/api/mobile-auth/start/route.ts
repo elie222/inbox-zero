@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { env } from "@/env";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { withError } from "@/utils/middleware";
 import { createMobileAuthState } from "@/utils/mobile-auth/oauth-code";
+import {
+  getMobileAuthAppCallbackUrl,
+  getMobileAuthBaseUrlOrigin,
+  getMobileAuthWebCallbackUrl,
+} from "@/utils/mobile-auth/url";
 
 const mobileAuthProviderSchema = z.enum(["apple", "google", "microsoft"]);
 
@@ -25,19 +29,22 @@ export const POST = withError("mobile-auth/start", async (request) => {
   const webCallbackUrl = getMobileAuthWebCallbackUrl(state);
 
   const signInResponse = await betterAuthConfig.handler(
-    new Request(new URL("/api/auth/sign-in/social", getBaseUrlOrigin()), {
-      body: JSON.stringify({
-        provider: body.provider,
-        callbackURL: webCallbackUrl,
-        errorCallbackURL: webCallbackUrl,
-        newUserCallbackURL: webCallbackUrl,
-        disableRedirect: true,
-      }),
-      headers: {
-        "Content-Type": "application/json",
+    new Request(
+      new URL("/api/auth/sign-in/social", getMobileAuthBaseUrlOrigin()),
+      {
+        body: JSON.stringify({
+          provider: body.provider,
+          callbackURL: webCallbackUrl,
+          errorCallbackURL: webCallbackUrl,
+          newUserCallbackURL: webCallbackUrl,
+          disableRedirect: true,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
       },
-      method: "POST",
-    }),
+    ),
   );
   const signInBody = (await signInResponse.json().catch(() => null)) as {
     url?: string;
@@ -52,7 +59,7 @@ export const POST = withError("mobile-auth/start", async (request) => {
 
   const response: StartMobileAuthResponse = {
     authorizationURL: signInBody.url,
-    authSessionReturnUrl: getAuthSessionReturnUrl(),
+    authSessionReturnUrl: getMobileAuthAppCallbackUrl().toString(),
     oauthState,
     state,
   };
@@ -63,28 +70,6 @@ export const POST = withError("mobile-auth/start", async (request) => {
     },
   });
 });
-
-function getMobileAuthWebCallbackUrl(state: string): string {
-  const callbackUrl = new URL("/api/mobile-auth/callback", getBaseUrlOrigin());
-  callbackUrl.searchParams.set("state", state);
-  return callbackUrl.toString();
-}
-
-function getAuthSessionReturnUrl(): string {
-  const baseUrl = new URL(env.NEXT_PUBLIC_BASE_URL);
-  if (baseUrl.protocol !== "https:" && env.MOBILE_AUTH_ORIGIN) {
-    const origin = env.MOBILE_AUTH_ORIGIN.endsWith("://")
-      ? env.MOBILE_AUTH_ORIGIN
-      : `${env.MOBILE_AUTH_ORIGIN.replace(/\/+$/u, "")}/`;
-    return new URL(`${origin}auth-callback`).toString();
-  }
-
-  return new URL("/auth-callback", baseUrl.origin).toString();
-}
-
-function getBaseUrlOrigin(): string {
-  return new URL(env.NEXT_PUBLIC_BASE_URL).origin;
-}
 
 function getOAuthStateCookieValue(setCookie: string | null): string | null {
   if (!setCookie) return null;

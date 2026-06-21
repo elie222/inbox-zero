@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { withError } from "@/utils/middleware";
@@ -8,6 +7,7 @@ import {
   createMobileAuthCode,
   isValidMobileAuthState,
 } from "@/utils/mobile-auth/oauth-code";
+import { getMobileAuthAppCallbackUrl } from "@/utils/mobile-auth/url";
 
 const callbackQuerySchema = z.object({
   state: z.string().trim().min(1).max(256),
@@ -47,7 +47,7 @@ function redirectToMobileCallback(
   state: string,
   params: Record<string, string>,
 ) {
-  const redirectUrl = getMobileAuthCallbackUrl();
+  const redirectUrl = getMobileAuthAppCallbackUrl();
   redirectUrl.searchParams.set("state", state);
   for (const [key, value] of Object.entries(params)) {
     redirectUrl.searchParams.set(key, value);
@@ -56,16 +56,4 @@ function redirectToMobileCallback(
   const response = NextResponse.redirect(redirectUrl);
   response.headers.set("Cache-Control", "no-store");
   return response;
-}
-
-function getMobileAuthCallbackUrl(): URL {
-  const baseUrl = new URL(env.NEXT_PUBLIC_BASE_URL);
-  if (baseUrl.protocol !== "https:" && env.MOBILE_AUTH_ORIGIN) {
-    const origin = env.MOBILE_AUTH_ORIGIN.endsWith("://")
-      ? env.MOBILE_AUTH_ORIGIN
-      : `${env.MOBILE_AUTH_ORIGIN.replace(/\/+$/u, "")}/`;
-    return new URL(`${origin}auth-callback`);
-  }
-
-  return new URL("/auth-callback", baseUrl.origin);
 }
