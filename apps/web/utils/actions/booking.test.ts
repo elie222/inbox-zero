@@ -26,6 +26,7 @@ describe("booking actions", () => {
         provider: "google",
       },
     } as any);
+    prisma.availabilitySchedule.findFirst.mockResolvedValue(null);
   });
 
   it("creates a booking link with provider video and default windows", async () => {
@@ -55,15 +56,21 @@ describe("booking actions", () => {
           slotIntervalMinutes: 30,
           locationType: BookingLinkLocationType.MICROSOFT_TEAMS,
           destinationCalendarId: "calendar-id",
-          timezone: "UTC",
-          windows: {
-            create: [
-              { weekday: 1, startMinutes: 540, endMinutes: 1020 },
-              { weekday: 2, startMinutes: 540, endMinutes: 1020 },
-              { weekday: 3, startMinutes: 540, endMinutes: 1020 },
-              { weekday: 4, startMinutes: 540, endMinutes: 1020 },
-              { weekday: 5, startMinutes: 540, endMinutes: 1020 },
-            ],
+          availabilitySchedule: {
+            create: expect.objectContaining({
+              name: "Default availability",
+              isDefault: true,
+              timezone: "UTC",
+              windows: {
+                create: [
+                  { weekday: 1, startMinutes: 540, endMinutes: 1020 },
+                  { weekday: 2, startMinutes: 540, endMinutes: 1020 },
+                  { weekday: 3, startMinutes: 540, endMinutes: 1020 },
+                  { weekday: 4, startMinutes: 540, endMinutes: 1020 },
+                  { weekday: 5, startMinutes: 540, endMinutes: 1020 },
+                ],
+              },
+            }),
           },
         }),
       }),
@@ -97,11 +104,45 @@ describe("booking actions", () => {
     );
   });
 
+  it("reuses an existing default availability schedule when recreating a booking link", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue(null);
+    prisma.availabilitySchedule.findFirst.mockResolvedValue({
+      id: "availability-schedule-id",
+    } as any);
+    prisma.calendar.findFirst.mockResolvedValue({
+      id: "calendar-id",
+      connection: { provider: "google" },
+    } as any);
+    prisma.bookingLink.create.mockResolvedValue({
+      id: "booking-link-id",
+    } as any);
+
+    const result = await createBookingLinkAction("email-account-id", {
+      title: "Intro call",
+      slug: "intro-call",
+      timezone: "UTC",
+      durationMinutes: 30,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.bookingLink.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          availabilitySchedule: {
+            connect: { id: "availability-schedule-id" },
+          },
+        }),
+      }),
+    );
+  });
+
   it("derives slot interval from duration on update", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue({
       id: "booking-link-id",
+      availabilityScheduleId: "availability-schedule-id",
     } as any);
     prisma.bookingLink.update.mockResolvedValue({} as any);
+    prisma.availabilitySchedule.update.mockResolvedValue({} as any);
 
     await updateBookingLinkAction("email-account-id", {
       id: "booking-link-id",
@@ -404,6 +445,7 @@ describe("booking actions", () => {
   it("replaces availability windows in one update call", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue({
       id: "booking-link-id",
+      availabilityScheduleId: "availability-schedule-id",
     } as any);
     prisma.bookingLink.update.mockResolvedValue({} as any);
 
@@ -419,15 +461,20 @@ describe("booking actions", () => {
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(prisma.bookingLink.update).toHaveBeenCalledWith({
-      where: { id: "booking-link-id" },
+    expect(prisma.availabilitySchedule.update).toHaveBeenCalledWith({
+      where: { id: "availability-schedule-id" },
       data: {
         timezone: "America/New_York",
-        minimumNoticeMinutes: 240,
         windows: {
           deleteMany: {},
           create: windows,
         },
+      },
+    });
+    expect(prisma.bookingLink.update).toHaveBeenCalledWith({
+      where: { id: "booking-link-id" },
+      data: {
+        minimumNoticeMinutes: 240,
       },
     });
   });

@@ -1041,10 +1041,12 @@ describe("public booking", () => {
       locationValue: "Video link",
       minimumNoticeMinutes: 0,
       maxDaysAhead: 30,
-      timezone: "UTC",
       emailAccountId: "email-account-id",
       destinationCalendarId: "calendar-row-id",
-      windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 10 * 60 }],
+      availabilitySchedule: {
+        timezone: "UTC",
+        windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 10 * 60 }],
+      },
       emailAccount: {
         calendarConnections: [
           { id: "connection-id", calendars: [{ id: "other-calendar-id" }] },
@@ -1092,12 +1094,14 @@ function mockBookingLinkConfig(
     locationValue: "Video link",
     minimumNoticeMinutes: 0,
     maxDaysAhead: 30,
-    timezone: "UTC",
     emailAccountId: "email-account-id",
     destinationCalendarId: "calendar-row-id",
-    windows: overrides.windows ?? [
-      { weekday: 1, startMinutes: 9 * 60, endMinutes: 10 * 60 },
-    ],
+    availabilitySchedule: {
+      timezone: "UTC",
+      windows: overrides.windows ?? [
+        { weekday: 1, startMinutes: 9 * 60, endMinutes: 10 * 60 },
+      ],
+    },
     emailAccount: {
       name: "Host User",
       calendarConnections: [
@@ -1149,7 +1153,9 @@ function bookingRecordBase() {
       slotIntervalMinutes: 30,
       locationType: BookingLinkLocationType.CUSTOM,
       locationValue: "Video link",
-      timezone: "UTC",
+      availabilitySchedule: {
+        timezone: "UTC",
+      },
       emailAccount: {
         email: "host@example.com",
         name: "Host User",

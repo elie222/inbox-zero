@@ -1,9 +1,12 @@
+import { TZDate } from "@date-fns/tz";
+import { expandWeeklyAvailability } from "@inboxzero/scheduling";
 import { z } from "zod";
 import { tool } from "ai";
 import type { Logger } from "@/utils/logger";
 import { createGenerateText } from "@/utils/llms";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { getUnifiedCalendarAvailability } from "@/utils/calendar/unified-availability";
+import { formatInUserTimezone } from "@/utils/date";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import prisma from "@/utils/prisma";
@@ -31,6 +34,11 @@ const schema = z.object({
 export type CalendarAvailabilityContext = z.infer<typeof schema> & {
   timezone?: string | null;
 };
+
+type BusyPeriod = { start: string | Date; end: string | Date };
+type AvailabilityWindow = { startTime: string; endTime: string };
+
+const MODEL_TIME_FORMAT = "yyyy-MM-dd HH:mm";
 
 export async function aiGetCalendarAvailability({
   emailAccount,
@@ -61,24 +69,46 @@ export async function aiGetCalendarAvailability({
     return null;
   }
 
-  const calendarConnections = await prisma.calendarConnection.findMany({
-    where: {
-      emailAccountId: emailAccount.id,
-      isConnected: true,
-    },
-    include: {
-      calendars: {
-        where: { isEnabled: true },
-        select: {
-          calendarId: true,
-          timezone: true,
-          primary: true,
+  const [calendarConnections, defaultAvailabilitySchedule] = await Promise.all([
+    prisma.calendarConnection.findMany({
+      where: {
+        emailAccountId: emailAccount.id,
+        isConnected: true,
+      },
+      include: {
+        calendars: {
+          where: { isEnabled: true },
+          select: {
+            calendarId: true,
+            timezone: true,
+            primary: true,
+          },
         },
       },
-    },
-  });
+    }),
+    prisma.availabilitySchedule.findFirst({
+      where: {
+        emailAccountId: emailAccount.id,
+        isDefault: true,
+      },
+      orderBy: { createdAt: "asc" },
+      select: {
+        timezone: true,
+        windows: {
+          select: {
+            weekday: true,
+            startMinutes: true,
+            endMinutes: true,
+          },
+        },
+      },
+    }),
+  ]);
 
-  const userTimezone = getUserTimezone(emailAccount, calendarConnections);
+  const hasDefaultAvailabilitySchedule = defaultAvailabilitySchedule != null;
+  const userTimezone =
+    defaultAvailabilitySchedule?.timezone ??
+    getUserTimezone(emailAccount, calendarConnections);
 
   logger.trace("Determined user timezone", { userTimezone });
 
@@ -94,10 +124,12 @@ Your task is to:
 4. Suggest ONLY times that DO NOT overlap with busy periods
 5. Return time slots with start AND end times (infer duration from context: "quick call" = 30min, "meeting" = 60min)
 6. If there are NO available times (user is busy all day), set noAvailability=true and return empty suggestedTimes array
+${hasDefaultAvailabilitySchedule ? "7. When checkCalendarAvailability returns availabilityWindows, suggest ONLY times fully inside those windows." : ""}
 
 CRITICAL: Do NOT suggest times overlapping with busy periods.
 Example: If busy 2025-11-17 09:00 to 2025-11-17 17:00, suggest times AFTER 17:00 or BEFORE 09:00.
 Example: If busy all day (00:00 to 23:59), return empty array and set noAvailability=true.
+${hasDefaultAvailabilitySchedule ? "CRITICAL: Do NOT suggest times outside the returned availabilityWindows, even if the calendar is free then." : ""}
 
 Format: "YYYY-MM-DD HH:MM"
 If email mentions timezone (e.g., "5pm PST"), convert to ${userTimezone}.
@@ -128,6 +160,8 @@ ${threadContent}
   });
 
   let result: CalendarAvailabilityContext | null = null;
+  let lastBusyPeriods: BusyPeriod[] = [];
+  let lastAvailabilityWindows: AvailabilityWindow[] | null = null;
 
   await generateText({
     ...modelOptions,
@@ -168,7 +202,34 @@ ${threadContent}
               busyPeriods,
             });
 
-            return { busyPeriods };
+            lastBusyPeriods = busyPeriods;
+            lastAvailabilityWindows = defaultAvailabilitySchedule
+              ? expandWeeklyAvailability({
+                  start: startDate,
+                  end: endDate,
+                  timezone: userTimezone,
+                  rules: defaultAvailabilitySchedule.windows,
+                })
+              : null;
+
+            const availabilityWindows = lastAvailabilityWindows?.map(
+              (window) => ({
+                start: formatInUserTimezone(
+                  new Date(window.startTime),
+                  userTimezone,
+                  MODEL_TIME_FORMAT,
+                ),
+                end: formatInUserTimezone(
+                  new Date(window.endTime),
+                  userTimezone,
+                  MODEL_TIME_FORMAT,
+                ),
+              }),
+            );
+
+            return availabilityWindows
+              ? { busyPeriods, availabilityWindows }
+              : { busyPeriods };
           } catch (error) {
             logger.error("Error checking calendar availability", { error });
             return { busyPeriods: [] };
@@ -179,13 +240,85 @@ ${threadContent}
         description: "Return suggested times for a meeting",
         inputSchema: schema,
         execute: async (data) => {
-          result = { ...data, timezone: userTimezone };
+          const suggestedTimes = data.suggestedTimes.filter((slot) =>
+            isAllowedSuggestedSlot({
+              slot,
+              timezone: userTimezone,
+              busyPeriods: lastBusyPeriods,
+              availabilityWindows: lastAvailabilityWindows,
+            }),
+          );
+          const noAvailability =
+            data.noAvailability ||
+            (data.suggestedTimes.length > 0 && suggestedTimes.length === 0);
+
+          result = {
+            ...data,
+            suggestedTimes,
+            ...(noAvailability ? { noAvailability: true } : {}),
+            timezone: userTimezone,
+          };
         },
       }),
     },
   });
 
   return result;
+}
+
+function isAllowedSuggestedSlot({
+  slot,
+  timezone,
+  busyPeriods,
+  availabilityWindows,
+}: {
+  slot: z.infer<typeof timeSlotSchema>;
+  timezone: string;
+  busyPeriods: BusyPeriod[];
+  availabilityWindows: AvailabilityWindow[] | null;
+}) {
+  const start = parseModelLocalTime(slot.start, timezone);
+  const end = parseModelLocalTime(slot.end, timezone);
+
+  if (!start || !end || end <= start) return false;
+
+  if (
+    availabilityWindows &&
+    !availabilityWindows.some(
+      (window) =>
+        start >= new Date(window.startTime) && end <= new Date(window.endTime),
+    )
+  ) {
+    return false;
+  }
+
+  return !busyPeriods.some((busyPeriod) => {
+    const busyStart = new Date(busyPeriod.start);
+    const busyEnd = new Date(busyPeriod.end);
+
+    return start < busyEnd && end > busyStart;
+  });
+}
+
+function parseModelLocalTime(localTime: string, timezone: string) {
+  const match = localTime.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/);
+
+  if (!match) return null;
+
+  const [, year, month, day, hour, minute] = match;
+  const date = new TZDate(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    0,
+    0,
+    timezone,
+  );
+
+  const utcDate = new Date(date.getTime());
+  return Number.isNaN(utcDate.getTime()) ? null : utcDate;
 }
 
 function getUserTimezone(

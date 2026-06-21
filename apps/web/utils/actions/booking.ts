@@ -39,21 +39,36 @@ export const createBookingLinkAction = actionClient
     const locationType = parsedInput.videoEnabled
       ? defaultLocationType
       : BookingLinkLocationType.CUSTOM;
+    const defaultAvailabilitySchedule =
+      await prisma.availabilitySchedule.findFirst({
+        where: { emailAccountId, isDefault: true },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      });
 
     const bookingLink = await prisma.bookingLink.create({
       data: {
         title: parsedInput.title,
         slug: parsedInput.slug,
         description: emptyToNull(parsedInput.description),
-        timezone: parsedInput.timezone,
         durationMinutes,
         slotIntervalMinutes,
         locationType,
         emailAccountId,
         destinationCalendarId: destinationCalendar.id,
-        windows: {
-          create: getDefaultWindows(),
-        },
+        availabilitySchedule: defaultAvailabilitySchedule
+          ? { connect: { id: defaultAvailabilitySchedule.id } }
+          : {
+              create: {
+                name: "Default availability",
+                isDefault: true,
+                timezone: parsedInput.timezone,
+                emailAccount: { connect: { id: emailAccountId } },
+                windows: {
+                  create: getDefaultWindows(),
+                },
+              },
+            },
       },
       select: { id: true },
     });
@@ -104,7 +119,6 @@ export const updateBookingLinkAction = actionClient
           parsedInput.description === undefined
             ? undefined
             : emptyToNull(parsedInput.description),
-        timezone: parsedInput.timezone,
         isActive: parsedInput.isActive,
         durationMinutes: parsedInput.durationMinutes,
         slotIntervalMinutes:
@@ -144,22 +158,29 @@ export const updateBookingAvailabilityAction = actionClient
   .metadata({ name: "updateBookingAvailability" })
   .inputSchema(updateBookingAvailabilityBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
-    await ensureBookingLinkOwner({
+    const bookingLink = await ensureBookingLinkOwner({
       emailAccountId,
       bookingLinkId: parsedInput.bookingLinkId,
     });
 
-    await prisma.bookingLink.update({
-      where: { id: parsedInput.bookingLinkId },
-      data: {
-        timezone: parsedInput.timezone,
-        minimumNoticeMinutes: parsedInput.minimumNoticeMinutes,
-        windows: {
-          deleteMany: {},
-          create: parsedInput.windows,
+    await Promise.all([
+      prisma.availabilitySchedule.update({
+        where: { id: bookingLink.availabilityScheduleId },
+        data: {
+          timezone: parsedInput.timezone,
+          windows: {
+            deleteMany: {},
+            create: parsedInput.windows,
+          },
         },
-      },
-    });
+      }),
+      prisma.bookingLink.update({
+        where: { id: parsedInput.bookingLinkId },
+        data: {
+          minimumNoticeMinutes: parsedInput.minimumNoticeMinutes,
+        },
+      }),
+    ]);
 
     return { success: true };
   });
@@ -175,6 +196,7 @@ async function ensureBookingLinkOwner({
     where: { id: bookingLinkId, emailAccountId },
     select: {
       id: true,
+      availabilityScheduleId: true,
       locationType: true,
       destinationCalendar: {
         select: {

@@ -55,7 +55,6 @@ export const updateBookingLinkActionBody = z.object({
   title: z.string().trim().min(1).max(120).optional(),
   slug: slugSchema.optional(),
   description: z.string().trim().max(1000).optional().nullable(),
-  timezone: timezoneSchema.optional(),
   isActive: z.boolean().optional(),
   durationMinutes: positiveMinutesSchema.max(24 * 60).optional(),
   locationType: locationTypeSchema.optional(),
