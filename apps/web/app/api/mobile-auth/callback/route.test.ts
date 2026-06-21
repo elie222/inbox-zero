@@ -81,6 +81,19 @@ describe("mobile auth callback route", () => {
     );
   });
 
+  it("redirects to the custom scheme when requested by the mobile client", async () => {
+    const response = await GET(
+      new NextRequest(
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&returnUrlMode=custom-scheme",
+      ),
+      {} as never,
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "inboxzero://auth-callback?state=state-1234567890&code=one-time-code",
+    );
+  });
+
   it("redirects auth errors without minting a code when the web session is missing", async () => {
     authMock.mockResolvedValue(null);
 
