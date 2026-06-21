@@ -578,8 +578,8 @@ const gmailSearchInboxTool = ({
           labels,
           taxonomyNamesKey: "labelNames",
         });
-      } catch (error) {
-        logger.error("Failed to search inbox", { error, query });
+      } catch {
+        // Provider failures are logged and flushed at the provider boundary.
         return { queryUsed: query, error: "Failed to search inbox" };
       }
     },
@@ -624,10 +624,6 @@ const outlookSearchInboxTool = ({
         });
 
         if (!searchResult.result) {
-          logger.error("Failed to search inbox", {
-            error: searchResult.lastError,
-            query,
-          });
           return buildMicrosoftSearchErrorResult({
             query,
             failures: searchResult.failures,
@@ -643,7 +639,6 @@ const outlookSearchInboxTool = ({
           taxonomyNamesKey: "categoryNames",
         });
       } catch (error) {
-        logger.error("Failed to search inbox", { error, query });
         return buildMicrosoftSearchErrorResult({
           query,
           failures: [{ query, error }],
