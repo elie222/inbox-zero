@@ -6,6 +6,9 @@ import {
   isOutlookAccessDeniedError,
 } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
+import { redis } from "@/utils/redis";
+
+const PROVIDER_ISSUE_CLEANUP_DEDUPE_TTL_SECONDS = 15 * 60;
 
 type ProviderIssueReason =
   | "invalid_grant"
@@ -40,6 +43,15 @@ export async function recordEmailAccountProviderIssue({
     reason: issue.reason,
   });
 
+  const shouldRecord = await claimProviderIssueCleanup({
+    emailAccountId,
+    provider,
+    operation,
+    reason: issue.reason,
+    logger,
+  });
+  if (!shouldRecord) return;
+
   try {
     await cleanupInvalidTokens({
       emailAccountId,
@@ -53,6 +65,11 @@ export async function recordEmailAccountProviderIssue({
       provider,
       operation,
       reason: issue.reason,
+    });
+    await releaseProviderIssueCleanupClaim({
+      emailAccountId,
+      reason: issue.reason,
+      logger,
     });
   }
 }
@@ -99,4 +116,78 @@ export function classifyEmailAccountProviderIssue({
   }
 
   return null;
+}
+
+async function claimProviderIssueCleanup({
+  emailAccountId,
+  provider,
+  operation,
+  reason,
+  logger,
+}: {
+  emailAccountId: string;
+  provider: "google" | "microsoft";
+  operation: string;
+  reason: ProviderIssueReason;
+  logger: Logger;
+}) {
+  try {
+    const claimed = await redis.set(
+      getProviderIssueCleanupKey({ emailAccountId, reason }),
+      "1",
+      {
+        nx: true,
+        ex: PROVIDER_ISSUE_CLEANUP_DEDUPE_TTL_SECONDS,
+      },
+    );
+
+    if (claimed === "OK") return true;
+
+    logger.info("Skipping duplicate provider issue cleanup", {
+      emailAccountId,
+      provider,
+      operation,
+      reason,
+    });
+    return false;
+  } catch (error) {
+    logger.warn("Failed to claim provider issue cleanup", {
+      error,
+      emailAccountId,
+      provider,
+      operation,
+      reason,
+    });
+    return true;
+  }
+}
+
+async function releaseProviderIssueCleanupClaim({
+  emailAccountId,
+  reason,
+  logger,
+}: {
+  emailAccountId: string;
+  reason: ProviderIssueReason;
+  logger: Logger;
+}) {
+  try {
+    await redis.del(getProviderIssueCleanupKey({ emailAccountId, reason }));
+  } catch (error) {
+    logger.warn("Failed to release provider issue cleanup claim", {
+      error,
+      emailAccountId,
+      reason,
+    });
+  }
+}
+
+function getProviderIssueCleanupKey({
+  emailAccountId,
+  reason,
+}: {
+  emailAccountId: string;
+  reason: ProviderIssueReason;
+}) {
+  return `provider-issue-cleanup:${emailAccountId}:${reason}`;
 }

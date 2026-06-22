@@ -4,15 +4,25 @@ import {
   classifyEmailAccountProviderIssue,
   recordEmailAccountProviderIssue,
 } from "@/utils/email/provider-health";
+import { redis } from "@/utils/redis";
 
 vi.mock("@/utils/auth/cleanup-invalid-tokens", () => ({
   cleanupInvalidTokens: vi.fn(),
+}));
+
+vi.mock("@/utils/redis", () => ({
+  redis: {
+    set: vi.fn(),
+    del: vi.fn(),
+  },
 }));
 
 describe("provider health", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(cleanupInvalidTokens).mockResolvedValue(undefined);
+    vi.mocked(redis.set).mockResolvedValue("OK");
+    vi.mocked(redis.del).mockResolvedValue(1);
   });
 
   it("records missing refresh token failures as reconnect-required issues", async () => {
@@ -31,6 +41,11 @@ describe("provider health", () => {
       reason: "invalid_grant",
       logger,
     });
+    expect(redis.set).toHaveBeenCalledWith(
+      "provider-issue-cleanup:email-account-1:invalid_grant",
+      "1",
+      { ex: 900, nx: true },
+    );
   });
 
   it("records insufficient Gmail permissions as action-required issues", async () => {
@@ -49,6 +64,59 @@ describe("provider health", () => {
       reason: "insufficient_permissions",
       logger,
     });
+  });
+
+  it("skips cleanup when provider issue cleanup was recently claimed", async () => {
+    const logger = createMockLogger();
+    vi.mocked(redis.set).mockResolvedValueOnce(null);
+
+    await recordEmailAccountProviderIssue({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      error: new Error("No refresh token"),
+      logger,
+      operation: "createEmailProvider",
+    });
+
+    expect(cleanupInvalidTokens).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith(
+      "Skipping duplicate provider issue cleanup",
+      expect.objectContaining({
+        emailAccountId: "email-account-1",
+        provider: "google",
+        operation: "createEmailProvider",
+        reason: "invalid_grant",
+      }),
+    );
+  });
+
+  it("falls back to cleanup when Redis claim fails", async () => {
+    const logger = createMockLogger();
+    vi.mocked(redis.set).mockRejectedValueOnce(new Error("redis unavailable"));
+
+    await recordEmailAccountProviderIssue({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      error: new Error("No refresh token"),
+      logger,
+      operation: "createEmailProvider",
+    });
+
+    expect(cleanupInvalidTokens).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+      reason: "invalid_grant",
+      logger,
+    });
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Failed to claim provider issue cleanup",
+      expect.objectContaining({
+        emailAccountId: "email-account-1",
+        provider: "google",
+        operation: "createEmailProvider",
+        reason: "invalid_grant",
+        error: expect.any(Error),
+      }),
+    );
   });
 
   it("records Outlook access denied as action-required permission issues", async () => {
@@ -94,6 +162,9 @@ describe("provider health", () => {
         reason: "invalid_grant",
         error: expect.any(Error),
       }),
+    );
+    expect(redis.del).toHaveBeenCalledWith(
+      "provider-issue-cleanup:email-account-1:invalid_grant",
     );
   });
 
