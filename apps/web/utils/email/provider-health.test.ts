@@ -4,25 +4,28 @@ import {
   classifyEmailAccountProviderIssue,
   recordEmailAccountProviderIssue,
 } from "@/utils/email/provider-health";
-import { redis } from "@/utils/redis";
+import {
+  claimProviderIssueCleanupInRedis,
+  releaseProviderIssueCleanupClaimInRedis,
+} from "@/utils/redis/provider-issue-cleanup";
 
 vi.mock("@/utils/auth/cleanup-invalid-tokens", () => ({
   cleanupInvalidTokens: vi.fn(),
 }));
 
-vi.mock("@/utils/redis", () => ({
-  redis: {
-    set: vi.fn(),
-    del: vi.fn(),
-  },
+vi.mock("@/utils/redis/provider-issue-cleanup", () => ({
+  claimProviderIssueCleanupInRedis: vi.fn(),
+  releaseProviderIssueCleanupClaimInRedis: vi.fn(),
 }));
 
 describe("provider health", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(cleanupInvalidTokens).mockResolvedValue(undefined);
-    vi.mocked(redis.set).mockResolvedValue("OK");
-    vi.mocked(redis.del).mockResolvedValue(1);
+    vi.mocked(claimProviderIssueCleanupInRedis).mockResolvedValue(true);
+    vi.mocked(releaseProviderIssueCleanupClaimInRedis).mockResolvedValue(
+      undefined,
+    );
   });
 
   it("records missing refresh token failures as reconnect-required issues", async () => {
@@ -41,11 +44,10 @@ describe("provider health", () => {
       reason: "invalid_grant",
       logger,
     });
-    expect(redis.set).toHaveBeenCalledWith(
-      "provider-issue-cleanup:email-account-1:invalid_grant",
-      "1",
-      { ex: 900, nx: true },
-    );
+    expect(claimProviderIssueCleanupInRedis).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+      reason: "invalid_grant",
+    });
   });
 
   it("records insufficient Gmail permissions as action-required issues", async () => {
@@ -68,7 +70,7 @@ describe("provider health", () => {
 
   it("skips cleanup when provider issue cleanup was recently claimed", async () => {
     const logger = createMockLogger();
-    vi.mocked(redis.set).mockResolvedValueOnce(null);
+    vi.mocked(claimProviderIssueCleanupInRedis).mockResolvedValueOnce(false);
 
     await recordEmailAccountProviderIssue({
       emailAccountId: "email-account-1",
@@ -92,7 +94,9 @@ describe("provider health", () => {
 
   it("falls back to cleanup when Redis claim fails", async () => {
     const logger = createMockLogger();
-    vi.mocked(redis.set).mockRejectedValueOnce(new Error("redis unavailable"));
+    vi.mocked(claimProviderIssueCleanupInRedis).mockRejectedValueOnce(
+      new Error("redis unavailable"),
+    );
 
     await recordEmailAccountProviderIssue({
       emailAccountId: "email-account-1",
@@ -163,9 +167,10 @@ describe("provider health", () => {
         error: expect.any(Error),
       }),
     );
-    expect(redis.del).toHaveBeenCalledWith(
-      "provider-issue-cleanup:email-account-1:invalid_grant",
-    );
+    expect(releaseProviderIssueCleanupClaimInRedis).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+      reason: "invalid_grant",
+    });
   });
 
   it("records Google policy blocks as action-required issues", () => {

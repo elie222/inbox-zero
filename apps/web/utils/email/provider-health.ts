@@ -6,9 +6,10 @@ import {
   isOutlookAccessDeniedError,
 } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
-import { redis } from "@/utils/redis";
-
-const PROVIDER_ISSUE_CLEANUP_DEDUPE_TTL_SECONDS = 15 * 60;
+import {
+  claimProviderIssueCleanupInRedis,
+  releaseProviderIssueCleanupClaimInRedis,
+} from "@/utils/redis/provider-issue-cleanup";
 
 type ProviderIssueReason =
   | "invalid_grant"
@@ -132,16 +133,11 @@ async function claimProviderIssueCleanup({
   logger: Logger;
 }) {
   try {
-    const claimed = await redis.set(
-      getProviderIssueCleanupKey({ emailAccountId, reason }),
-      "1",
-      {
-        nx: true,
-        ex: PROVIDER_ISSUE_CLEANUP_DEDUPE_TTL_SECONDS,
-      },
-    );
-
-    if (claimed === "OK") return true;
+    const claimed = await claimProviderIssueCleanupInRedis({
+      emailAccountId,
+      reason,
+    });
+    if (claimed) return true;
 
     logger.info("Skipping duplicate provider issue cleanup", {
       emailAccountId,
@@ -172,7 +168,7 @@ async function releaseProviderIssueCleanupClaim({
   logger: Logger;
 }) {
   try {
-    await redis.del(getProviderIssueCleanupKey({ emailAccountId, reason }));
+    await releaseProviderIssueCleanupClaimInRedis({ emailAccountId, reason });
   } catch (error) {
     logger.warn("Failed to release provider issue cleanup claim", {
       error,
@@ -180,14 +176,4 @@ async function releaseProviderIssueCleanupClaim({
       reason,
     });
   }
-}
-
-function getProviderIssueCleanupKey({
-  emailAccountId,
-  reason,
-}: {
-  emailAccountId: string;
-  reason: ProviderIssueReason;
-}) {
-  return `provider-issue-cleanup:${emailAccountId}:${reason}`;
 }
