@@ -27,10 +27,7 @@ import {
 import { updateCalendarBookingLinkAction } from "@/utils/actions/calendar";
 import { updateBookingLinkBody } from "@/utils/actions/calendar.validation";
 import { getBookingLinkSlugSuggestion } from "@/utils/booking/slug";
-import {
-  ConfigureBookingLinkDialog,
-  type ConfigureBookingLinkTab,
-} from "./ConfigureBookingLinkDialog";
+import { ConfigureBookingLinkDialog } from "./ConfigureBookingLinkDialog";
 import { CreateBookingLinkDialog } from "./CreateBookingLinkDialog";
 
 type BookingLink = NonNullable<
@@ -69,8 +66,6 @@ function InboxZeroBookingLinkPanel() {
   const { emailAccountId, emailAccount } = useAccount();
   const { data, isLoading, error, mutate } = useBookingLinks();
   const [configureLinkId, setConfigureLinkId] = useState<string | null>(null);
-  const [configureInitialTab, setConfigureInitialTab] =
-    useState<ConfigureBookingLinkTab>("general");
   const [createOpen, setCreateOpen] = useState(false);
 
   const link = data?.bookingLinks[0] ?? null;
@@ -132,7 +127,6 @@ function InboxZeroBookingLinkPanel() {
             isToggling={isToggling}
             onToggle={handleToggle}
             onConfigure={() => {
-              setConfigureInitialTab("general");
               setConfigureLinkId(link.id);
             }}
           />
@@ -157,7 +151,6 @@ function InboxZeroBookingLinkPanel() {
             if (!newLinkId) return;
 
             setCreateOpen(false);
-            setConfigureInitialTab("availability");
             setConfigureLinkId(newLinkId);
             await mutate();
           }}
@@ -168,15 +161,12 @@ function InboxZeroBookingLinkPanel() {
       {configureLink ? (
         <ConfigureBookingLinkDialog
           link={configureLink}
-          initialTab={configureInitialTab}
           onClose={() => {
             setConfigureLinkId(null);
-            setConfigureInitialTab("general");
           }}
           onSaved={() => {
             mutate();
             setConfigureLinkId(null);
-            setConfigureInitialTab("general");
           }}
         />
       ) : null}
