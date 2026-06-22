@@ -414,6 +414,8 @@ const call_webhook: ActionFunction<{ url?: string | null }> = async ({
       cc: email.headers.cc,
       bcc: email.headers.bcc,
       headerMessageId: email.headers["message-id"] || "",
+      date: email.headers.date,
+      receivedAt: email.internalDate,
     },
     executedRule: {
       id: executedRule.id,
