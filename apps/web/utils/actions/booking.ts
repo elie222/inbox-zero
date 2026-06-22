@@ -7,6 +7,7 @@ import {
   deleteBookingLinkBody,
   updateBookingAvailabilityBody,
   updateBookingLinkActionBody,
+  updateDefaultAvailabilityBody,
 } from "@/utils/actions/booking.validation";
 import { getSlotIntervalMinutes } from "@/utils/booking/policy";
 import prisma from "@/utils/prisma";
@@ -181,6 +182,45 @@ export const updateBookingAvailabilityAction = actionClient
         },
       }),
     ]);
+
+    return { success: true };
+  });
+
+// Edits the account's default availability schedule directly, independent of a
+// booking link. The same schedule constrains AI-suggested meeting times and any
+// booking link, so users without a booking link can still set their hours.
+export const updateDefaultAvailabilityAction = actionClient
+  .metadata({ name: "updateDefaultAvailability" })
+  .inputSchema(updateDefaultAvailabilityBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+    const existingSchedule = await prisma.availabilitySchedule.findFirst({
+      where: { emailAccountId, isDefault: true },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+
+    if (existingSchedule) {
+      await prisma.availabilitySchedule.update({
+        where: { id: existingSchedule.id },
+        data: {
+          timezone: parsedInput.timezone,
+          windows: {
+            deleteMany: {},
+            create: parsedInput.windows,
+          },
+        },
+      });
+    } else {
+      await prisma.availabilitySchedule.create({
+        data: {
+          name: "Default availability",
+          isDefault: true,
+          timezone: parsedInput.timezone,
+          emailAccount: { connect: { id: emailAccountId } },
+          windows: { create: parsedInput.windows },
+        },
+      });
+    }
 
     return { success: true };
   });

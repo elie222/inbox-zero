@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, type ChangeEvent } from "react";
-import { Copy, Info, Plus, Trash2, X } from "lucide-react";
+import { useState, type ChangeEvent } from "react";
+import { Trash2, X } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { Input, Label } from "@/components/Input";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useBookingLinks } from "@/hooks/useBookingLinks";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -48,24 +47,13 @@ import {
   isProviderVideoLocationType,
 } from "./booking-calendar-helpers";
 import { VideoConferencingItem } from "./VideoConferencingItem";
+import { collectWindows } from "./availability-schedule";
+import { useWeeklyHours, WeeklyHoursEditor } from "./WeeklyHoursEditor";
 
 type BookingLink = NonNullable<
   ReturnType<typeof useBookingLinks>["data"]
 >["bookingLinks"][number];
 export type ConfigureBookingLinkTab = "general" | "availability" | "advanced";
-
-type Range = { start: string; end: string };
-type DayState = { enabled: boolean; ranges: Range[] };
-
-const DAY_LABELS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
 
 export function ConfigureBookingLinkDialog({
   link,
@@ -364,100 +352,25 @@ function AvailabilityTab({
 }) {
   const { emailAccountId } = useAccount();
 
-  const initialDays = useMemo(
-    () => buildDayState(link.windows ?? []),
-    [link.windows],
-  );
-  const [days, setDays] = useState<DayState[]>(initialDays);
+  const controller = useWeeklyHours(link.windows ?? []);
   const timezone =
     link.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC";
   const [minimumNoticeHours, setMinimumNoticeHours] = useState(() =>
     formatHours(link.minimumNoticeMinutes / 60),
   );
 
-  const {
-    executeAsync: updateAvailability,
-    isExecuting: isUpdatingAvailability,
-  } = useAction(updateBookingAvailabilityAction.bind(null, emailAccountId), {
-    onError: (error) => {
-      toastError({
-        description:
-          getActionErrorMessage(error.error) ?? "Failed to update availability",
-      });
+  const { executeAsync: updateAvailability, isExecuting: isSaving } = useAction(
+    updateBookingAvailabilityAction.bind(null, emailAccountId),
+    {
+      onError: (error) => {
+        toastError({
+          description:
+            getActionErrorMessage(error.error) ??
+            "Failed to update availability",
+        });
+      },
     },
-  });
-
-  const isSaving = isUpdatingAvailability;
-
-  const updateDay = (index: number, next: Partial<DayState>) => {
-    setDays((prev) =>
-      prev.map((day, dayIndex) =>
-        dayIndex === index ? { ...day, ...next } : day,
-      ),
-    );
-  };
-
-  const addRange = (dayIndex: number) => {
-    setDays((prev) =>
-      prev.map((day, index) =>
-        index === dayIndex
-          ? {
-              ...day,
-              ranges: [
-                ...day.ranges,
-                nextRangeAfter(day.ranges[day.ranges.length - 1]),
-              ],
-            }
-          : day,
-      ),
-    );
-  };
-
-  const removeRange = (dayIndex: number, rangeIndex: number) => {
-    setDays((prev) =>
-      prev.map((day, index) =>
-        index === dayIndex
-          ? {
-              ...day,
-              ranges: day.ranges.filter((_, i) => i !== rangeIndex),
-            }
-          : day,
-      ),
-    );
-  };
-
-  const updateRange = (
-    dayIndex: number,
-    rangeIndex: number,
-    next: Partial<Range>,
-  ) => {
-    setDays((prev) =>
-      prev.map((day, index) =>
-        index === dayIndex
-          ? {
-              ...day,
-              ranges: day.ranges.map((range, i) =>
-                i === rangeIndex ? { ...range, ...next } : range,
-              ),
-            }
-          : day,
-      ),
-    );
-  };
-
-  const copyDayToOthers = (dayIndex: number) => {
-    const source = days[dayIndex];
-    setDays((prev) =>
-      prev.map((day, index) =>
-        index === dayIndex
-          ? day
-          : {
-              enabled: source.enabled,
-              ranges: source.ranges.map((range) => ({ ...range })),
-            },
-      ),
-    );
-  };
+  );
 
   const handleSave = async () => {
     const minimumNoticeMinutes = parseMinimumNoticeHours(minimumNoticeHours);
@@ -468,31 +381,9 @@ function AvailabilityTab({
       return;
     }
 
-    const windows: Array<{
-      weekday: number;
-      startMinutes: number;
-      endMinutes: number;
-    }> = [];
-    for (let weekday = 0; weekday < 7; weekday++) {
-      const day = days[weekday];
-      if (!day.enabled) continue;
-      for (const range of day.ranges) {
-        const start = parseTime(range.start);
-        const end = parseTime(range.end);
-        if (start === null || end === null || end <= start) {
-          toastError({
-            description: `${DAY_LABELS[weekday]}: end time must be after start time.`,
-          });
-          return;
-        }
-        windows.push({ weekday, startMinutes: start, endMinutes: end });
-      }
-    }
-
-    if (windows.length === 0) {
-      toastError({
-        description: "Add at least one available time range.",
-      });
+    const collected = collectWindows(controller.days);
+    if (collected.error) {
+      toastError({ description: collected.error });
       return;
     }
 
@@ -501,7 +392,7 @@ function AvailabilityTab({
         bookingLinkId: link.id,
         minimumNoticeMinutes,
         timezone,
-        windows,
+        windows: collected.windows,
       });
       if (hasActionResultError(result)) return;
 
@@ -520,107 +411,7 @@ function AvailabilityTab({
   return (
     <>
       <div className="space-y-4 overflow-y-auto px-6 py-5">
-        <div>
-          <div className="text-sm font-semibold text-foreground">
-            Weekly hours
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Hours shown in {timezone}. Change in Calendar settings.
-          </p>
-        </div>
-
-        <div className="rounded-lg border bg-card">
-          {DAY_LABELS.map((dayLabel, dayIndex) => {
-            const day = days[dayIndex];
-            return (
-              <div
-                key={dayLabel}
-                className="flex items-start gap-4 border-b px-4 py-3 last:border-b-0"
-              >
-                <div className="flex w-32 items-center gap-2.5 pt-1.5">
-                  <Switch
-                    checked={day.enabled}
-                    size="sm"
-                    onCheckedChange={(next) =>
-                      updateDay(dayIndex, {
-                        enabled: next,
-                        ranges:
-                          next && day.ranges.length === 0
-                            ? [{ start: "09:00", end: "17:00" }]
-                            : day.ranges,
-                      })
-                    }
-                    aria-label={`Toggle ${dayLabel}`}
-                  />
-                  <span
-                    className={cn(
-                      "text-sm",
-                      day.enabled
-                        ? "font-medium text-foreground"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {dayLabel}
-                  </span>
-                </div>
-                <div className="flex flex-1 flex-col gap-2">
-                  {day.enabled ? (
-                    day.ranges.map((range, rangeIndex) => (
-                      <div key={rangeIndex} className="flex items-center gap-2">
-                        <TimeField
-                          value={range.start}
-                          onChange={(value) =>
-                            updateRange(dayIndex, rangeIndex, { start: value })
-                          }
-                        />
-                        <span className="text-sm text-muted-foreground">–</span>
-                        <TimeField
-                          value={range.end}
-                          onChange={(value) =>
-                            updateRange(dayIndex, rangeIndex, { end: value })
-                          }
-                        />
-                        {rangeIndex === 0 ? (
-                          <>
-                            <IconButton
-                              title="Add another range"
-                              onClick={() => addRange(dayIndex)}
-                            >
-                              <Plus className="size-4" />
-                            </IconButton>
-                            <IconButton
-                              title="Copy to other days"
-                              onClick={() => copyDayToOthers(dayIndex)}
-                            >
-                              <Copy className="size-3.5" />
-                            </IconButton>
-                          </>
-                        ) : (
-                          <IconButton
-                            title="Remove range"
-                            onClick={() => removeRange(dayIndex, rangeIndex)}
-                          >
-                            <X className="size-3.5" />
-                          </IconButton>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="flex h-8 items-center text-sm text-muted-foreground">
-                      Unavailable
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="flex items-start gap-2.5 rounded-lg border bg-muted/40 px-3.5 py-3 text-xs text-muted-foreground">
-          <Info className="size-3.5 shrink-0 text-muted-foreground" />
-          We hide times where you already have events on your connected
-          calendar.
-        </div>
+        <WeeklyHoursEditor controller={controller} timezone={timezone} />
 
         <Item variant="outline">
           <ItemContent>
@@ -748,86 +539,6 @@ function DialogFooter({
   );
 }
 
-function TimeField({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <input
-      type="time"
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="w-[110px] rounded-md border border-input bg-background px-2.5 py-1.5 text-center text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    />
-  );
-}
-
-function IconButton({
-  title,
-  onClick,
-  children,
-}: {
-  title: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      onClick={onClick}
-      className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-    >
-      {children}
-    </button>
-  );
-}
-
-function buildDayState(
-  windows: Array<{
-    weekday: number;
-    startMinutes: number;
-    endMinutes: number;
-  }>,
-): DayState[] {
-  const byDay = new Map<number, Range[]>();
-  for (const window of windows) {
-    const list = byDay.get(window.weekday) ?? [];
-    list.push({
-      start: minutesToTime(window.startMinutes),
-      end: minutesToTime(window.endMinutes),
-    });
-    byDay.set(window.weekday, list);
-  }
-  return DAY_LABELS.map((_, weekday) => {
-    const ranges = byDay.get(weekday) ?? [];
-    return ranges.length
-      ? { enabled: true, ranges }
-      : { enabled: false, ranges: [] };
-  });
-}
-
-function nextRangeAfter(previous?: Range): Range {
-  if (!previous) return { start: "09:00", end: "17:00" };
-  const previousEnd = parseTime(previous.end) ?? 17 * 60;
-  const start = Math.min(previousEnd + 30, 23 * 60);
-  const end = Math.min(start + 60, 24 * 60 - 1);
-  return { start: minutesToTime(start), end: minutesToTime(end) };
-}
-
-function parseTime(value: string): number | null {
-  const match = value.match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
-  return hours * 60 + minutes;
-}
-
 function parseMinimumNoticeHours(value: string) {
   const hours = Number(value);
   if (!Number.isFinite(hours) || hours < 0 || hours > 365 * 24) return null;
@@ -836,12 +547,6 @@ function parseMinimumNoticeHours(value: string) {
 
 function formatHours(value: number) {
   return Number.isInteger(value) ? String(value) : String(value.toFixed(2));
-}
-
-function minutesToTime(value: number) {
-  const hours = Math.floor(value / 60);
-  const minutes = value % 60;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
 function hasActionResultError(

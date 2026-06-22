@@ -102,6 +102,14 @@ export type UpdateBookingAvailabilityBody = z.infer<
   typeof updateBookingAvailabilityBody
 >;
 
+export const updateDefaultAvailabilityBody = z.object({
+  timezone: timezoneSchema,
+  windows: z.array(bookingWindowBody).min(1),
+});
+export type UpdateDefaultAvailabilityBody = z.infer<
+  typeof updateDefaultAvailabilityBody
+>;
+
 export const publicBookingBody = z.object({
   slug: slugSchema,
   startTime: z.string().datetime(),
