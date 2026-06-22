@@ -68,12 +68,12 @@ function Calendar({
         IconRight: () => <ChevronRight className="h-4 w-4" />,
         Months: ({ children }) => (
           <div className="flex flex-col sm:flex-row">
+            <div className="flex flex-col sm:flex-row">{children}</div>
             {rightContent ? (
-              <div className="order-first p-3 border-b border-gray-200 sm:order-last sm:border-b-0 sm:border-l">
+              <div className="order-first p-3 border-b border-gray-200 sm:order-none sm:border-b-0 sm:border-l">
                 {rightContent}
               </div>
             ) : null}
-            <div className="flex flex-col sm:flex-row">{children}</div>
           </div>
         ),
       }}
