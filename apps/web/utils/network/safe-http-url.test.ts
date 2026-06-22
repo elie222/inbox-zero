@@ -1,5 +1,5 @@
 import * as dns from "node:dns/promises";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isSafeExternalHttpUrl,
   resolveSafeExternalHttpUrl,
@@ -123,44 +123,45 @@ describe("isSafeExternalHttpUrl", () => {
   });
 });
 
-
-describe("WEBHOOK_ALLOW_PRIVATE_IPS opt-in (trusted self-host)", () => {
+describe("allowPrivateIps option (webhook sender opt-in only)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv("WEBHOOK_ALLOW_PRIVATE_IPS", "true");
   });
 
-  afterEach(() => {
-    vi.unstubAllEnvs();
+  it("allows private IPv4 literals when allowPrivateIps is set", () => {
+    expect(
+      isSafeExternalHttpUrl("http://10.0.0.1/webhook", {
+        allowPrivateIps: true,
+      }),
+    ).toBe(true);
+    expect(
+      isSafeExternalHttpUrl("http://127.0.0.1/webhook", {
+        allowPrivateIps: true,
+      }),
+    ).toBe(true);
   });
 
-  it("allows private IPv4 literals when enabled", () => {
-    expect(isSafeExternalHttpUrl("http://10.0.0.1/webhook")).toBe(true);
-    expect(isSafeExternalHttpUrl("http://127.0.0.1/webhook")).toBe(true);
-  });
-
-  it("allows private IPv4-mapped IPv6 literals when enabled", () => {
-    expect(isSafeExternalHttpUrl("http://[::ffff:127.0.0.1]/webhook")).toBe(
-      true,
-    );
-  });
-
-  it("allows hostnames resolving to private IPs (incl. Tailscale CGNAT) when enabled", async () => {
+  it("allows hostnames resolving to private IPs (incl. Tailscale CGNAT) when set", async () => {
     vi.mocked(dns.lookup).mockResolvedValue([
       { address: "100.100.100.100", family: 4 },
     ] as Awaited<ReturnType<typeof dns.lookup>>);
 
     await expect(
-      resolveSafeExternalHttpUrl("https://host.tailnet.ts.net/webhook"),
+      resolveSafeExternalHttpUrl("https://host.tailnet.ts.net/webhook", {
+        allowPrivateIps: true,
+      }),
     ).resolves.not.toBeNull();
   });
 
-  it("still rejects localhost even when enabled (blocked hostnames unchanged)", () => {
-    expect(isSafeExternalHttpUrl("https://localhost/webhook")).toBe(false);
+  it("still rejects private IPs by default (protects unsubscribe/upstash callers)", () => {
+    expect(isSafeExternalHttpUrl("http://10.0.0.1/x")).toBe(false);
   });
 
-  it("rejects private IPs again once disabled", () => {
-    vi.unstubAllEnvs();
-    expect(isSafeExternalHttpUrl("http://10.0.0.1/webhook")).toBe(false);
+  it("still blocks cloud-metadata hostnames even when allowPrivateIps is set", () => {
+    expect(
+      isSafeExternalHttpUrl("http://metadata.google.internal/x", {
+        allowPrivateIps: true,
+      }),
+    ).toBe(false);
   });
 });

@@ -58,7 +58,7 @@ const IPV6_PATTERN = /^(\[)?([0-9a-fA-F:]+)(\])?$/;
  * `apps/web/env.ts` for typing/validation/documentation. Matching the
  * `booleanString` semantics, any value other than unset/empty/"false" enables it.
  */
-function allowPrivateIps(): boolean {
+export function allowPrivateIps(): boolean {
   const value = process.env.WEBHOOK_ALLOW_PRIVATE_IPS;
   if (!value) return false;
   return value.toLowerCase() !== "false";

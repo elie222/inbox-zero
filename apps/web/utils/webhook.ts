@@ -5,7 +5,7 @@ import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import type { ExecutedRule } from "@/generated/prisma/client";
 import { resolveSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
-import { validateWebhookUrl } from "@/utils/webhook-validation";
+import { allowPrivateIps, validateWebhookUrl } from "@/utils/webhook-validation";
 import {
   ensureWebhookActionEnabled,
   WEBHOOK_ACTION_DISABLED_MESSAGE,
@@ -108,7 +108,9 @@ async function sendWebhookRequest({
   requestBody: string;
   webhookSecret: string;
 }) {
-  const resolvedUrl = await resolveSafeExternalHttpUrl(url);
+  const resolvedUrl = await resolveSafeExternalHttpUrl(url, {
+    allowPrivateIps: allowPrivateIps(),
+  });
   if (!resolvedUrl) {
     return { blocked: true, ok: false, statusCode: 0 };
   }
