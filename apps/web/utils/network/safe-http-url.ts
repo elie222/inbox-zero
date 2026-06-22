@@ -11,6 +11,9 @@ const BLOCKED_HOSTNAMES = new Set([
   "localhost.localdomain",
   "ip6-localhost",
   "ip6-loopback",
+  // Cloud metadata endpoints stay blocked by name even when allowPrivateIps is set.
+  "metadata.google.internal",
+  "metadata.gcp.internal",
 ]);
 
 type ResolvedAddress = {
@@ -18,34 +21,24 @@ type ResolvedAddress = {
   family: 4 | 6;
 };
 
-export type ResolvedSafeExternalHttpUrl = {
-  lookup: (
-    hostname: string,
-    options: number | LookupOneOptions | LookupAllOptions | undefined,
-    callback: (
-      error: NodeJS.ErrnoException | null,
-      address: string | LookupAddress[],
-      family?: number,
-    ) => void,
-  ) => void;
-  url: URL;
+export type SafeExternalHttpUrlOptions = {
+  /**
+   * Allow targets that are, or resolve to, private/internal IPs. Off by default.
+   *
+   * SECURITY: this is an SSRF bypass. Only opt in from a path with a
+   * trusted/operator-controlled destination — currently just the webhook sender,
+   * gated by the WEBHOOK_ALLOW_PRIVATE_IPS env flag. Callers that handle
+   * untrusted input (e.g. unsubscribe links from `List-Unsubscribe` headers, the
+   * upstash client) MUST leave this false so private IPs stay blocked.
+   * Cloud-metadata hostnames remain blocked regardless of this option.
+   */
+  allowPrivateIps?: boolean;
 };
 
-/**
- * Whether to allow outbound/webhook targets that resolve to private/internal IPs.
- * Mirrors `allowPrivateIps()` in `webhook-validation.ts`; read directly from
- * `process.env` so this module keeps zero internal imports. Declared in
- * `apps/web/env.ts`. Secure-by-default (off): any value other than
- * unset/empty/"false" enables it. SECURITY: only for trusted single-tenant
- * self-hosts; it disables SSRF protection for the app's safe outbound HTTP.
- */
-function allowPrivateIps(): boolean {
-  const value = process.env.WEBHOOK_ALLOW_PRIVATE_IPS;
-  if (!value) return false;
-  return value.toLowerCase() !== "false";
-}
-
-export function isSafeExternalHttpUrl(url: string) {
+export function isSafeExternalHttpUrl(
+  url: string,
+  { allowPrivateIps = false }: SafeExternalHttpUrlOptions = {},
+) {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
@@ -58,8 +51,8 @@ export function isSafeExternalHttpUrl(url: string) {
 
     const ipAddress = stripIpv6Brackets(hostname);
     const ipVersion = isIP(ipAddress);
-    if (ipVersion === 4) return allowPrivateIps() || !isPrivateIpv4(ipAddress);
-    if (ipVersion === 6) return allowPrivateIps() || !isPrivateIpv6(ipAddress);
+    if (ipVersion === 4) return allowPrivateIps || !isPrivateIpv4(ipAddress);
+    if (ipVersion === 6) return allowPrivateIps || !isPrivateIpv6(ipAddress);
 
     if (!hostname.includes(".")) return false;
     return true;
@@ -70,8 +63,9 @@ export function isSafeExternalHttpUrl(url: string) {
 
 export async function resolveSafeExternalHttpUrl(
   url: string,
+  { allowPrivateIps = false }: SafeExternalHttpUrlOptions = {},
 ): Promise<ResolvedSafeExternalHttpUrl | null> {
-  if (!isSafeExternalHttpUrl(url)) return null;
+  if (!isSafeExternalHttpUrl(url, { allowPrivateIps })) return null;
 
   const parsed = new URL(url);
   const hostname = normalizeHostname(parsed.hostname);
@@ -87,7 +81,10 @@ export async function resolveSafeExternalHttpUrl(
     };
   }
 
-  const resolvedAddresses = await resolvePublicAddresses(hostname);
+  const resolvedAddresses = await resolvePublicAddresses(
+    hostname,
+    allowPrivateIps,
+  );
   if (!resolvedAddresses) return null;
 
   return {
@@ -95,6 +92,19 @@ export async function resolveSafeExternalHttpUrl(
     lookup: createPinnedLookup(resolvedAddresses),
   };
 }
+
+export type ResolvedSafeExternalHttpUrl = {
+  lookup: (
+    hostname: string,
+    options: number | LookupOneOptions | LookupAllOptions | undefined,
+    callback: (
+      error: NodeJS.ErrnoException | null,
+      address: string | LookupAddress[],
+      family?: number,
+    ) => void,
+  ) => void;
+  url: URL;
+};
 
 function isPrivateIpv4(hostname: string) {
   const octets = hostname.split(".").map(Number);
@@ -175,6 +185,7 @@ function getMappedIpv4Address(ipv6Address: string) {
 
 async function resolvePublicAddresses(
   hostname: string,
+  allowPrivateIps: boolean,
 ): Promise<ResolvedAddress[] | null> {
   const results = await lookup(hostname, {
     all: true,
@@ -192,7 +203,10 @@ async function resolvePublicAddresses(
     family: result.family as 4 | 6,
   }));
 
-  if (addresses.some((result) => isResolvedAddressPrivate(result.address))) {
+  if (
+    !allowPrivateIps &&
+    addresses.some((result) => isResolvedAddressPrivate(result.address))
+  ) {
     return null;
   }
 
@@ -200,7 +214,6 @@ async function resolvePublicAddresses(
 }
 
 function isResolvedAddressPrivate(address: string) {
-  if (allowPrivateIps()) return false;
   const ipVersion = isIP(address);
   if (ipVersion === 4) return isPrivateIpv4(address);
   if (ipVersion === 6) return isPrivateIpv6(address);
