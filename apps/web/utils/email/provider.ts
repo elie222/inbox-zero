@@ -51,18 +51,12 @@ export async function createEmailProvider({
       provider: rateLimitProvider,
       source: "create-email-provider",
     });
-    await recordEmailAccountProviderIssue({
+    await recordProviderIssueSafely({
       emailAccountId,
       provider: rateLimitProvider,
       error,
       logger,
       operation: "createEmailProvider",
-    }).catch((recordError) => {
-      logger.warn("Failed to record provider creation issue", {
-        error: recordError,
-        provider: rateLimitProvider,
-        source: "create-email-provider",
-      });
     });
     await flushLoggerSafely(logger, {
       action: "createEmailProvider",
@@ -160,7 +154,7 @@ async function logProviderOperationFailure({
     provider,
     operation,
   });
-  await recordEmailAccountProviderIssue({
+  await recordProviderIssueSafely({
     emailAccountId,
     provider,
     error,
@@ -172,6 +166,29 @@ async function logProviderOperationFailure({
     flushReason: "provider-operation-error",
     provider,
     operation,
+  });
+}
+
+async function recordProviderIssueSafely({
+  emailAccountId,
+  provider,
+  error,
+  logger,
+  operation,
+}: ProviderOperationFailureLogInput) {
+  await recordEmailAccountProviderIssue({
+    emailAccountId,
+    provider,
+    error,
+    logger,
+    operation,
+  }).catch((recordError) => {
+    logger.warn("Failed to record provider issue", {
+      error: recordError,
+      emailAccountId,
+      provider,
+      operation,
+    });
   });
 }
 

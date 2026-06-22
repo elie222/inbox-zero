@@ -35,6 +35,7 @@ describe("cleanupInvalidTokens", () => {
     email: "test@example.com",
     accountId: "acc_1",
     userId: "user_1",
+    user: { email: "owner@example.com" },
     account: { disconnectedAt: null },
     watchEmailsExpirationDate: new Date(Date.now() + 1000 * 60 * 60), // Valid expiration
   };
@@ -58,6 +59,14 @@ describe("cleanupInvalidTokens", () => {
       }),
     );
     expect(sendReconnectionEmail).toHaveBeenCalled();
+    expect(sendReconnectionEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "owner@example.com",
+        emailProps: expect.objectContaining({
+          email: "test@example.com",
+        }),
+      }),
+    );
     expect(addUserErrorMessage).toHaveBeenCalledWith(
       "user_1",
       "Account disconnected",
@@ -84,7 +93,7 @@ describe("cleanupInvalidTokens", () => {
     expect(addUserErrorMessageWithNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user_1",
-        userEmail: "test@example.com",
+        userEmail: "owner@example.com",
         emailAccountId: "ea_1",
         errorType: "Account disconnected",
         errorMessage: expect.stringContaining("test@example.com"),
@@ -124,7 +133,7 @@ describe("cleanupInvalidTokens", () => {
     expect(addUserErrorMessageWithNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user_1",
-        userEmail: "test@example.com",
+        userEmail: "owner@example.com",
         emailAccountId: "ea_1",
         errorType: "Account disconnected",
         errorMessage: expect.stringContaining("missing required permissions"),
@@ -143,10 +152,16 @@ describe("cleanupInvalidTokens", () => {
       logger,
     });
 
+    expect(prisma.account.updateMany).toHaveBeenCalled();
     expect(sendReconnectionEmail).not.toHaveBeenCalled();
     expect(addUserErrorMessageWithNotification).toHaveBeenCalledWith(
       expect.objectContaining({
+        userId: "user_1",
+        userEmail: "owner@example.com",
+        emailAccountId: "ea_1",
+        errorType: "Account disconnected",
         errorMessage: expect.stringContaining("security policy"),
+        logger,
       }),
     );
   });

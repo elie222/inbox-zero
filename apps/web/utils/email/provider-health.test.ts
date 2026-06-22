@@ -51,6 +51,52 @@ describe("provider health", () => {
     });
   });
 
+  it("records Outlook access denied as action-required permission issues", async () => {
+    const logger = createMockLogger();
+
+    await recordEmailAccountProviderIssue({
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      error: new Error("Access is denied. Check credentials and try again."),
+      logger,
+      operation: "getMessage",
+    });
+
+    expect(cleanupInvalidTokens).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+      reason: "insufficient_permissions",
+      logger,
+    });
+  });
+
+  it("keeps provider error handling alive when cleanup fails", async () => {
+    const logger = createMockLogger();
+    vi.mocked(cleanupInvalidTokens).mockRejectedValueOnce(
+      new Error("cleanup failed"),
+    );
+
+    await expect(
+      recordEmailAccountProviderIssue({
+        emailAccountId: "email-account-1",
+        provider: "google",
+        error: new Error("No refresh token"),
+        logger,
+        operation: "createEmailProvider",
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Failed to clean up provider account issue",
+      expect.objectContaining({
+        emailAccountId: "email-account-1",
+        provider: "google",
+        operation: "createEmailProvider",
+        reason: "invalid_grant",
+        error: expect.any(Error),
+      }),
+    );
+  });
+
   it("records Google policy blocks as action-required issues", () => {
     expect(
       classifyEmailAccountProviderIssue({

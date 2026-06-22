@@ -3,8 +3,7 @@ import {
   getErrorMessage,
   isGmailInsufficientPermissionsError,
   isInvalidGrantError,
-  isOutlookItemNotFoundError,
-  isOutlookThrottlingError,
+  isOutlookAccessDeniedError,
 } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 
@@ -41,11 +40,21 @@ export async function recordEmailAccountProviderIssue({
     reason: issue.reason,
   });
 
-  await cleanupInvalidTokens({
-    emailAccountId,
-    reason: issue.reason,
-    logger,
-  });
+  try {
+    await cleanupInvalidTokens({
+      emailAccountId,
+      reason: issue.reason,
+      logger,
+    });
+  } catch (error) {
+    logger.warn("Failed to clean up provider account issue", {
+      error,
+      emailAccountId,
+      provider,
+      operation,
+      reason: issue.reason,
+    });
+  }
 }
 
 export function classifyEmailAccountProviderIssue({
@@ -62,6 +71,10 @@ export function classifyEmailAccountProviderIssue({
     (isGmailInsufficientPermissionsError(error) ||
       message?.includes("Request had insufficient authentication scopes"))
   ) {
+    return { reason: "insufficient_permissions" };
+  }
+
+  if (provider === "microsoft" && isOutlookAccessDeniedError(error)) {
     return { reason: "insufficient_permissions" };
   }
 
@@ -83,10 +96,6 @@ export function classifyEmailAccountProviderIssue({
     message?.includes("Invalid access token")
   ) {
     return { reason: "invalid_grant" };
-  }
-
-  if (isOutlookThrottlingError(error) || isOutlookItemNotFoundError(error)) {
-    return null;
   }
 
   return null;

@@ -40,6 +40,11 @@ export async function cleanupInvalidTokens({
       accountId: true,
       userId: true,
       watchEmailsExpirationDate: true,
+      user: {
+        select: {
+          email: true,
+        },
+      },
       account: {
         select: {
           disconnectedAt: true,
@@ -84,6 +89,7 @@ export async function cleanupInvalidTokens({
       ? await sendWatchedAccountReconnectionEmail({
           emailAccountId: emailAccount.id,
           email: emailAccount.email,
+          recipientEmail: emailAccount.user.email,
           watchEmailsExpirationDate: emailAccount.watchEmailsExpirationDate,
           logger,
         })
@@ -99,7 +105,7 @@ export async function cleanupInvalidTokens({
   } else {
     await addUserErrorMessageWithNotification({
       userId: emailAccount.userId,
-      userEmail: emailAccount.email,
+      userEmail: emailAccount.user.email,
       emailAccountId: emailAccount.id,
       errorType: ErrorType.ACCOUNT_DISCONNECTED,
       errorMessage,
@@ -113,11 +119,13 @@ export async function cleanupInvalidTokens({
 async function sendWatchedAccountReconnectionEmail({
   emailAccountId,
   email,
+  recipientEmail,
   watchEmailsExpirationDate,
   logger,
 }: {
   emailAccountId: string;
   email: string;
+  recipientEmail: string;
   watchEmailsExpirationDate: Date | null;
   logger: Logger;
 }) {
@@ -134,14 +142,14 @@ async function sendWatchedAccountReconnectionEmail({
 
     await sendReconnectionEmail({
       from: env.RESEND_FROM_EMAIL,
-      to: email,
+      to: recipientEmail,
       emailProps: {
         baseUrl: env.NEXT_PUBLIC_BASE_URL,
         email,
         unsubscribeToken,
       },
     });
-    logger.info("Reconnection email sent", { email });
+    logger.info("Reconnection email sent", { email, recipientEmail });
     return true;
   } catch (error) {
     logger.error("Failed to send reconnection email", {
@@ -152,7 +160,14 @@ async function sendWatchedAccountReconnectionEmail({
   }
 }
 
-function getAccountActionRequiredMessage(email: string, reason: string) {
+function getAccountActionRequiredMessage(
+  email: string,
+  reason:
+    | "invalid_grant"
+    | "insufficient_permissions"
+    | "policy_enforced"
+    | "mail_service_not_enabled",
+) {
   switch (reason) {
     case "insufficient_permissions":
       return `The connection for ${email} is missing required permissions. Please reconnect your account and approve the requested permissions to resume automation.`;

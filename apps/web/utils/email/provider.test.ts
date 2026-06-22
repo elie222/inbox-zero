@@ -126,6 +126,13 @@ describe("createEmailProvider", () => {
         error: expect.any(Error),
       }),
     );
+    expect(recordEmailAccountProviderIssue).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      error: expect.any(Error),
+      logger,
+      operation: "createEmailProvider",
+    });
   });
 
   it("logs and flushes provider operation failures without changing sync methods", async () => {
@@ -198,6 +205,45 @@ describe("createEmailProvider", () => {
         provider: "google",
         operation: "searchMessages",
         error: expect.any(Error),
+      }),
+    );
+  });
+
+  it("flushes provider operation failures when recording the account issue fails", async () => {
+    const logger = createMockLogger();
+    gmailSearchMessagesMock.mockRejectedValueOnce(
+      new Error("provider request failed"),
+    );
+    vi.mocked(recordEmailAccountProviderIssue).mockRejectedValueOnce(
+      new Error("record failed"),
+    );
+
+    const provider = await createEmailProvider({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    await expect(
+      provider.searchMessages({ query: "in:inbox" }),
+    ).rejects.toThrow("provider request failed");
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Failed to record provider issue",
+      expect.objectContaining({
+        emailAccountId: "email-account-1",
+        provider: "google",
+        operation: "searchMessages",
+        error: expect.any(Error),
+      }),
+    );
+    expect(flushLoggerSafely).toHaveBeenCalledWith(
+      logger,
+      expect.objectContaining({
+        action: "emailProvider",
+        flushReason: "provider-operation-error",
+        provider: "google",
+        operation: "searchMessages",
       }),
     );
   });
