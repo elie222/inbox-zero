@@ -392,26 +392,36 @@ async function runSetupQuick(options: { name?: string }) {
 
     p.note(
       "You need a Google OAuth app to connect your Gmail.\n\n" +
-        "First, set up the OAuth consent screen:\n" +
-        "1. Open: https://console.cloud.google.com/apis/credentials/consent\n" +
-        "2. User type:\n" +
+        "First, enable the required APIs (otherwise sign-in will fail):\n" +
+        "1. Open: https://console.cloud.google.com/apis/library\n" +
+        "2. Enable each of these for your project:\n" +
+        "   - Gmail API (gmail.googleapis.com)\n" +
+        "   - People API (people.googleapis.com)\n" +
+        "   - Google Calendar API (optional)\n" +
+        "   - Google Drive API (optional)\n\n" +
+        "Then, set up the OAuth consent screen:\n" +
+        "3. Open: https://console.cloud.google.com/apis/credentials/consent\n" +
+        '4. Click "Get Started" (if shown)\n' +
+        "5. User type:\n" +
         '   - "Internal" — Google Workspace only, all org members can sign in\n' +
         '   - "External" — works with any Google account (including personal Gmail)\n' +
-        "     You'll need to add yourself as a test user (step 5)\n" +
-        "3. Fill in the app name and your email\n" +
-        '4. Click "Save and Continue" through the scopes section\n' +
-        "5. If External: add your email as a test user\n" +
-        "6. Complete the wizard\n\n" +
+        "     You'll need to add yourself as a test user (step 8)\n" +
+        "6. Fill in the app name and your email\n" +
+        '7. Click "Save and Continue" through the scopes section\n' +
+        "8. If External: add your email as a test user\n" +
+        "9. Complete the wizard\n\n" +
         "Then, create OAuth credentials:\n" +
-        "7. Open: https://console.cloud.google.com/apis/credentials\n" +
-        `8. Click "Create Credentials" → "OAuth client ID"\n` +
-        `9. Select "Web application"\n` +
-        `10. Under "Authorized redirect URIs" add:\n` +
+        "10. Open: https://console.cloud.google.com/apis/credentials\n" +
+        `11. Click "Create Credentials" → "OAuth client ID"\n` +
+        `12. Select "Web application"\n` +
+        `13. Under "Authorized redirect URIs" add:\n` +
         `    ${callbackUrl}\n` +
         `    ${linkingCallbackUrl}\n` +
-        "11. Copy the Client ID and Client Secret\n\n" +
+        "14. Copy the Client ID and Client Secret\n\n" +
         "If External: you'll see a \"This app isn't verified\" warning when\n" +
         'signing in. Click "Advanced" then "Go to [app name]" to proceed.\n\n' +
+        "Tip: if you have the gcloud CLI, run 'inbox-zero setup-google'\n" +
+        "to enable APIs and set up Pub/Sub automatically.\n\n" +
         "Full guide: https://docs.getinboxzero.com/hosting/setup-guides",
       "Google OAuth",
     );
@@ -936,12 +946,20 @@ async function runSetupAdvanced(options: { name?: string }) {
   // Google OAuth
   if (wantsGoogle) {
     p.note(
-      `1. Go to Google Cloud Console: https://console.cloud.google.com/apis/credentials
-2. Create OAuth 2.0 Client ID (Web application)
-3. Add redirect URIs:
+      `1. Enable required APIs (Gmail, People; Calendar/Drive optional):
+   https://console.cloud.google.com/apis/library
+2. Configure the OAuth consent screen:
+   https://console.cloud.google.com/apis/credentials/consent
+   Click "Get Started" if shown, then complete the wizard.
+3. Create OAuth 2.0 Client ID (Web application):
+   https://console.cloud.google.com/apis/credentials
+4. Add redirect URIs:
    - http://localhost:${webPort}/api/auth/callback/google
    - http://localhost:${webPort}/api/google/linking/callback
-4. Copy Client ID and Client Secret
+5. Copy Client ID and Client Secret
+
+Tip: with the gcloud CLI installed, run 'inbox-zero setup-google'
+to enable APIs and provision Pub/Sub automatically.
 
 Full guide: https://docs.getinboxzero.com/self-hosting/google-oauth`,
       "Google OAuth Setup",

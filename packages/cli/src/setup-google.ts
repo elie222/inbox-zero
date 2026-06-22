@@ -135,16 +135,17 @@ export async function runGoogleSetup(options: GoogleSetupOptions) {
       `Before creating OAuth credentials, you need to configure the consent screen.
 
 Steps:
-1. User type:
+1. Click "Get Started" if the banner is shown
+2. User type:
    - "Internal" — Google Workspace only, all org members can sign in
    - "External" — any Google account (including personal Gmail)
-     You'll need to add yourself as a test user (step 6)
-2. App name: "Inbox Zero" (or your preferred name)
-3. User support email: Your email
-4. Developer contact: Your email
-5. Click "Save and Continue" through the scopes section
-6. If External: add your email as a test user
-7. Complete the wizard
+     You'll need to add yourself as a test user (step 7)
+3. App name: "Inbox Zero" (or your preferred name)
+4. User support email: Your email
+5. Developer contact: Your email
+6. Click "Save and Continue" through the scopes section
+7. If External: add your email as a test user
+8. Complete the wizard
 
 The console will open in your browser.`,
       "OAuth Consent Screen",
