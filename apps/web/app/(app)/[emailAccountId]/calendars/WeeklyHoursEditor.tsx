@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Info, Plus, X } from "lucide-react";
+import { Copy, Plus, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/utils";
 import {
@@ -102,10 +102,8 @@ export type WeeklyHoursController = ReturnType<typeof useWeeklyHours>;
 
 export function WeeklyHoursEditor({
   controller,
-  timezone,
 }: {
   controller: WeeklyHoursController;
-  timezone: string;
 }) {
   const {
     days,
@@ -118,15 +116,6 @@ export function WeeklyHoursEditor({
 
   return (
     <div className="space-y-4">
-      <div>
-        <div className="text-sm font-semibold text-foreground">
-          Weekly hours
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Hours shown in {timezone}. Change in Calendar settings.
-        </p>
-      </div>
-
       <div className="rounded-lg border bg-card">
         {DAY_LABELS.map((dayLabel, dayIndex) => {
           const day = days[dayIndex];
@@ -214,10 +203,9 @@ export function WeeklyHoursEditor({
         })}
       </div>
 
-      <div className="flex items-start gap-2.5 rounded-lg border bg-muted/40 px-3.5 py-3 text-xs text-muted-foreground">
-        <Info className="size-3.5 shrink-0 text-muted-foreground" />
+      <p className="text-xs text-muted-foreground">
         We hide times where you already have events on your connected calendar.
-      </div>
+      </p>
     </div>
   );
 }
