@@ -411,14 +411,12 @@ function AvailabilityTab({
   return (
     <>
       <div className="space-y-4 overflow-y-auto px-6 py-5">
-        <div>
-          <div className="text-sm font-semibold text-foreground">
-            Weekly hours
-          </div>
-          <p className="text-xs text-muted-foreground">
+        <ItemContent>
+          <ItemTitle>Weekly hours</ItemTitle>
+          <ItemDescription>
             Hours shown in {timezone}. Change in Calendar settings.
-          </p>
-        </div>
+          </ItemDescription>
+        </ItemContent>
         <WeeklyHoursEditor controller={controller} />
 
         <Item variant="outline">
