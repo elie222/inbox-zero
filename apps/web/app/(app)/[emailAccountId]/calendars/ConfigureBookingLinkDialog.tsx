@@ -31,7 +31,6 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { getActionErrorMessage } from "@/utils/error";
 import {
   deleteBookingLinkAction,
-  updateBookingAvailabilityAction,
   updateBookingLinkAction,
 } from "@/utils/actions/booking";
 import { BookingLinkLocationType } from "@/generated/prisma/enums";
@@ -47,26 +46,22 @@ import {
   isProviderVideoLocationType,
 } from "./booking-calendar-helpers";
 import { VideoConferencingItem } from "./VideoConferencingItem";
-import { collectWindows } from "./availability-schedule";
-import { useWeeklyHours, WeeklyHoursEditor } from "./WeeklyHoursEditor";
 
 type BookingLink = NonNullable<
   ReturnType<typeof useBookingLinks>["data"]
 >["bookingLinks"][number];
-export type ConfigureBookingLinkTab = "general" | "availability" | "advanced";
+type ConfigureBookingLinkTab = "general" | "advanced";
 
 export function ConfigureBookingLinkDialog({
   link,
-  initialTab = "general",
   onClose,
   onSaved,
 }: {
   link: BookingLink;
-  initialTab?: ConfigureBookingLinkTab;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [tab, setTab] = useState<ConfigureBookingLinkTab>(initialTab);
+  const [tab, setTab] = useState<ConfigureBookingLinkTab>("general");
 
   const publicUrl =
     typeof window !== "undefined"
@@ -107,12 +102,6 @@ export function ConfigureBookingLinkDialog({
               General
             </TabButton>
             <TabButton
-              active={tab === "availability"}
-              onClick={() => setTab("availability")}
-            >
-              Availability
-            </TabButton>
-            <TabButton
               active={tab === "advanced"}
               onClick={() => setTab("advanced")}
             >
@@ -122,9 +111,6 @@ export function ConfigureBookingLinkDialog({
         </div>
 
         {tab === "general" && <GeneralTab link={link} onSaved={onSaved} />}
-        {tab === "availability" && (
-          <AvailabilityTab link={link} onSaved={onSaved} />
-        )}
         {tab === "advanced" && <AdvancedTab link={link} onSaved={onSaved} />}
       </DialogContent>
     </Dialog>
@@ -169,6 +155,9 @@ function GeneralTab({
   const [title, setTitle] = useState(link.title);
   const [slug, setSlug] = useState(link.slug);
   const [duration, setDuration] = useState<number>(link.durationMinutes);
+  const [minimumNoticeHours, setMinimumNoticeHours] = useState(() =>
+    formatHours(link.minimumNoticeMinutes / 60),
+  );
   const defaultDestinationCalendarId = getDefaultDestinationCalendarId(data);
   const [destinationCalendarId, setDestinationCalendarId] = useState<string>(
     link.destinationCalendarId ?? defaultDestinationCalendarId,
@@ -210,6 +199,14 @@ function GeneralTab({
       : "/book/";
 
   const handleSave = async () => {
+    const minimumNoticeMinutes = parseMinimumNoticeHours(minimumNoticeHours);
+    if (minimumNoticeMinutes === null) {
+      toastError({
+        description: "Minimum notice must be 0 hours or more.",
+      });
+      return;
+    }
+
     try {
       const nextLocationType =
         videoEnabled && videoLocationType
@@ -227,6 +224,7 @@ function GeneralTab({
         title,
         description,
         durationMinutes: duration,
+        minimumNoticeMinutes,
         locationType: nextLocationType,
         locationValue: nextLocationValue,
         destinationCalendarId,
@@ -296,6 +294,31 @@ function GeneralTab({
           </div>
         </div>
 
+        <Item variant="outline">
+          <ItemContent>
+            <ItemTitle>Minimum notice</ItemTitle>
+            <ItemDescription>
+              Block new bookings this many hours into the future.
+            </ItemDescription>
+          </ItemContent>
+          <ItemActions>
+            <Input
+              type="number"
+              name="minimumNoticeHours"
+              min={0}
+              max={365 * 24}
+              step={0.25}
+              rightText="hours"
+              className="w-24 tabular-nums"
+              registerProps={{
+                value: minimumNoticeHours,
+                onChange: (event: ChangeEvent<HTMLInputElement>) =>
+                  setMinimumNoticeHours(event.target.value),
+              }}
+            />
+          </ItemActions>
+        </Item>
+
         <div>
           <Label name="destinationCalendarId" label="Add events to" />
           <Select
@@ -336,113 +359,6 @@ function GeneralTab({
               setDescription(event.target.value),
           }}
         />
-      </div>
-
-      <DialogFooter onSaved={onSaved} onSave={handleSave} loading={isSaving} />
-    </>
-  );
-}
-
-function AvailabilityTab({
-  link,
-  onSaved,
-}: {
-  link: BookingLink;
-  onSaved: () => void;
-}) {
-  const { emailAccountId } = useAccount();
-
-  const controller = useWeeklyHours(link.windows ?? []);
-  const timezone =
-    link.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC";
-  const [minimumNoticeHours, setMinimumNoticeHours] = useState(() =>
-    formatHours(link.minimumNoticeMinutes / 60),
-  );
-
-  const { executeAsync: updateAvailability, isExecuting: isSaving } = useAction(
-    updateBookingAvailabilityAction.bind(null, emailAccountId),
-    {
-      onError: (error) => {
-        toastError({
-          description:
-            getActionErrorMessage(error.error) ??
-            "Failed to update availability",
-        });
-      },
-    },
-  );
-
-  const handleSave = async () => {
-    const minimumNoticeMinutes = parseMinimumNoticeHours(minimumNoticeHours);
-    if (minimumNoticeMinutes === null) {
-      toastError({
-        description: "Minimum notice must be 0 hours or more.",
-      });
-      return;
-    }
-
-    const collected = collectWindows(controller.days);
-    if (collected.windows === null) {
-      toastError({ description: collected.error });
-      return;
-    }
-
-    try {
-      const result = await updateAvailability({
-        bookingLinkId: link.id,
-        minimumNoticeMinutes,
-        timezone,
-        windows: collected.windows,
-      });
-      if (hasActionResultError(result)) return;
-
-      toastSuccess({ description: "Availability updated" });
-      onSaved();
-    } catch (error) {
-      toastError({
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to update availability",
-      });
-    }
-  };
-
-  return (
-    <>
-      <div className="space-y-4 overflow-y-auto px-6 py-5">
-        <ItemContent>
-          <ItemTitle>Weekly hours</ItemTitle>
-          <ItemDescription>
-            Hours shown in {timezone}. Change in Calendar settings.
-          </ItemDescription>
-        </ItemContent>
-        <WeeklyHoursEditor controller={controller} />
-
-        <Item variant="outline">
-          <ItemContent>
-            <ItemTitle>Minimum notice</ItemTitle>
-            <ItemDescription>
-              Block new bookings this many hours into the future.
-            </ItemDescription>
-          </ItemContent>
-          <ItemActions>
-            <Input
-              type="number"
-              name="minimumNoticeHours"
-              min={0}
-              max={365 * 24}
-              step={0.25}
-              rightText="hours"
-              className="w-24 tabular-nums"
-              registerProps={{
-                value: minimumNoticeHours,
-                onChange: (event: ChangeEvent<HTMLInputElement>) =>
-                  setMinimumNoticeHours(event.target.value),
-              }}
-            />
-          </ItemActions>
-        </Item>
       </div>
 
       <DialogFooter onSaved={onSaved} onSave={handleSave} loading={isSaving} />
