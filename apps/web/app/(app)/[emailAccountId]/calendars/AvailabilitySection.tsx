@@ -98,7 +98,7 @@ function AvailabilityEditor({
 
   return (
     <div className="mt-4 space-y-4">
-      <WeeklyHoursEditor controller={controller} timezone={timezone} />
+      <WeeklyHoursEditor controller={controller} />
       <div className="flex justify-end">
         <Button onClick={handleSave} loading={isSaving}>
           Save
