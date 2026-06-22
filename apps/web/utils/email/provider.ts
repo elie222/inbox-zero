@@ -7,6 +7,7 @@ import { OutlookProvider } from "@/utils/email/microsoft";
 import type { EmailProvider } from "@/utils/email/types";
 import { assertProviderNotRateLimited } from "@/utils/email/rate-limit";
 import { toRateLimitProvider } from "@/utils/email/rate-limit-mode-error";
+import { recordEmailAccountProviderIssue } from "@/utils/email/provider-health";
 import type { Logger } from "@/utils/logger";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 
@@ -49,6 +50,19 @@ export async function createEmailProvider({
       error,
       provider: rateLimitProvider,
       source: "create-email-provider",
+    });
+    await recordEmailAccountProviderIssue({
+      emailAccountId,
+      provider: rateLimitProvider,
+      error,
+      logger,
+      operation: "createEmailProvider",
+    }).catch((recordError) => {
+      logger.warn("Failed to record provider creation issue", {
+        error: recordError,
+        provider: rateLimitProvider,
+        source: "create-email-provider",
+      });
     });
     await flushLoggerSafely(logger, {
       action: "createEmailProvider",
@@ -144,6 +158,13 @@ async function logProviderOperationFailure({
     error,
     emailAccountId,
     provider,
+    operation,
+  });
+  await recordEmailAccountProviderIssue({
+    emailAccountId,
+    provider,
+    error,
+    logger,
     operation,
   });
   await flushLoggerSafely(logger, {

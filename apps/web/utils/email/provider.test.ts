@@ -3,6 +3,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 import { getGmailClientForEmail } from "@/utils/email-account-client";
 import { assertProviderNotRateLimited } from "@/utils/email/rate-limit";
+import { recordEmailAccountProviderIssue } from "@/utils/email/provider-health";
 
 const { gmailGetMessageMock, gmailSearchMessagesMock } = vi.hoisted(() => ({
   gmailGetMessageMock: vi.fn(),
@@ -20,6 +21,10 @@ vi.mock("@/utils/email/rate-limit", () => ({
 
 vi.mock("@/utils/logger-flush", () => ({
   flushLoggerSafely: vi.fn(),
+}));
+
+vi.mock("@/utils/email/provider-health", () => ({
+  recordEmailAccountProviderIssue: vi.fn(),
 }));
 
 vi.mock("@/utils/email/google", () => ({
@@ -52,6 +57,7 @@ describe("createEmailProvider", () => {
     vi.mocked(assertProviderNotRateLimited).mockResolvedValue(undefined);
     vi.mocked(getGmailClientForEmail).mockResolvedValue({} as any);
     vi.mocked(flushLoggerSafely).mockResolvedValue(undefined);
+    vi.mocked(recordEmailAccountProviderIssue).mockResolvedValue(undefined);
     gmailGetMessageMock.mockResolvedValue({});
     gmailSearchMessagesMock.mockResolvedValue({ messages: [] });
   });
@@ -86,6 +92,13 @@ describe("createEmailProvider", () => {
         provider: "google",
       }),
     );
+    expect(recordEmailAccountProviderIssue).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      error: expect.any(Error),
+      logger,
+      operation: "createEmailProvider",
+    });
   });
 
   it("preserves provider creation failures when flushing logs fails", async () => {
@@ -150,6 +163,13 @@ describe("createEmailProvider", () => {
         operation: "searchMessages",
       }),
     );
+    expect(recordEmailAccountProviderIssue).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      error: expect.any(Error),
+      logger,
+      operation: "searchMessages",
+    });
   });
 
   it("preserves async provider operation failures when flushing logs fails", async () => {
