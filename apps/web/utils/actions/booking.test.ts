@@ -6,6 +6,7 @@ import {
   deleteBookingLinkAction,
   updateBookingAvailabilityAction,
   updateBookingLinkAction,
+  updateDefaultAvailabilityAction,
 } from "@/utils/actions/booking";
 
 vi.mock("server-only", () => ({}));
@@ -502,6 +503,71 @@ describe("booking actions", () => {
     expect(result?.validationErrors).toBeDefined();
     expect(prisma.bookingLink.findFirst).not.toHaveBeenCalled();
     expect(prisma.bookingLink.update).not.toHaveBeenCalled();
+  });
+
+  it("creates a default availability schedule when none exists", async () => {
+    prisma.availabilitySchedule.findFirst.mockResolvedValue(null);
+    prisma.availabilitySchedule.create.mockResolvedValue({} as any);
+
+    const windows = [
+      { weekday: 1, startMinutes: 9 * 60, endMinutes: 17 * 60 },
+      { weekday: 2, startMinutes: 9 * 60, endMinutes: 17 * 60 },
+    ];
+    const result = await updateDefaultAvailabilityAction("email-account-id", {
+      timezone: "America/New_York",
+      windows,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.availabilitySchedule.create).toHaveBeenCalledWith({
+      data: {
+        name: "Default availability",
+        isDefault: true,
+        timezone: "America/New_York",
+        emailAccount: { connect: { id: "email-account-id" } },
+        windows: { create: windows },
+      },
+    });
+    expect(prisma.availabilitySchedule.update).not.toHaveBeenCalled();
+  });
+
+  it("replaces windows on the existing default availability schedule", async () => {
+    prisma.availabilitySchedule.findFirst.mockResolvedValue({
+      id: "availability-schedule-id",
+    } as any);
+    prisma.availabilitySchedule.update.mockResolvedValue({} as any);
+
+    const windows = [
+      { weekday: 4, startMinutes: 10 * 60, endMinutes: 16 * 60 },
+    ];
+    const result = await updateDefaultAvailabilityAction("email-account-id", {
+      timezone: "Europe/London",
+      windows,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.availabilitySchedule.update).toHaveBeenCalledWith({
+      where: { id: "availability-schedule-id" },
+      data: {
+        timezone: "Europe/London",
+        windows: {
+          deleteMany: {},
+          create: windows,
+        },
+      },
+    });
+    expect(prisma.availabilitySchedule.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects default availability updates with no windows", async () => {
+    const result = await updateDefaultAvailabilityAction("email-account-id", {
+      timezone: "UTC",
+      windows: [],
+    });
+
+    expect(result?.validationErrors).toBeDefined();
+    expect(prisma.availabilitySchedule.create).not.toHaveBeenCalled();
+    expect(prisma.availabilitySchedule.update).not.toHaveBeenCalled();
   });
 
   it("deletes an owned booking link", async () => {
