@@ -223,6 +223,11 @@ const parsedEnv = createEnv({
 
     DISABLE_LOG_ZOD_ERRORS: booleanString.optional(),
     ENABLE_DEBUG_LOGS: booleanString.default(false),
+    // SECURITY: disables the webhook SSRF guard (allows webhook URLs that point
+    // to / resolve to private IP ranges, e.g. LAN or Tailscale 100.64.0.0/10).
+    // Defaults to false. Only enable on a trusted, single-tenant self-hosted
+    // deployment — never on a shared/multi-tenant instance.
+    WEBHOOK_ALLOW_PRIVATE_IPS: booleanString.optional().default(false),
     DIGEST_MAX_SUMMARIES_PER_24H: z.coerce
       .number()
       .int()
