@@ -1,5 +1,5 @@
 import * as dns from "node:dns/promises";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isSafeExternalHttpUrl,
   resolveSafeExternalHttpUrl,
@@ -120,5 +120,47 @@ describe("isSafeExternalHttpUrl", () => {
       address: "93.184.216.34",
       family: 4,
     });
+  });
+});
+
+
+describe("WEBHOOK_ALLOW_PRIVATE_IPS opt-in (trusted self-host)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubEnv("WEBHOOK_ALLOW_PRIVATE_IPS", "true");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("allows private IPv4 literals when enabled", () => {
+    expect(isSafeExternalHttpUrl("http://10.0.0.1/webhook")).toBe(true);
+    expect(isSafeExternalHttpUrl("http://127.0.0.1/webhook")).toBe(true);
+  });
+
+  it("allows private IPv4-mapped IPv6 literals when enabled", () => {
+    expect(isSafeExternalHttpUrl("http://[::ffff:127.0.0.1]/webhook")).toBe(
+      true,
+    );
+  });
+
+  it("allows hostnames resolving to private IPs (incl. Tailscale CGNAT) when enabled", async () => {
+    vi.mocked(dns.lookup).mockResolvedValue([
+      { address: "100.100.100.100", family: 4 },
+    ] as Awaited<ReturnType<typeof dns.lookup>>);
+
+    await expect(
+      resolveSafeExternalHttpUrl("https://host.tailnet.ts.net/webhook"),
+    ).resolves.not.toBeNull();
+  });
+
+  it("still rejects localhost even when enabled (blocked hostnames unchanged)", () => {
+    expect(isSafeExternalHttpUrl("https://localhost/webhook")).toBe(false);
+  });
+
+  it("rejects private IPs again once disabled", () => {
+    vi.unstubAllEnvs();
+    expect(isSafeExternalHttpUrl("http://10.0.0.1/webhook")).toBe(false);
   });
 });

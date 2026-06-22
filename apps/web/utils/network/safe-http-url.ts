@@ -31,6 +31,20 @@ export type ResolvedSafeExternalHttpUrl = {
   url: URL;
 };
 
+/**
+ * Whether to allow outbound/webhook targets that resolve to private/internal IPs.
+ * Mirrors `allowPrivateIps()` in `webhook-validation.ts`; read directly from
+ * `process.env` so this module keeps zero internal imports. Declared in
+ * `apps/web/env.ts`. Secure-by-default (off): any value other than
+ * unset/empty/"false" enables it. SECURITY: only for trusted single-tenant
+ * self-hosts; it disables SSRF protection for the app's safe outbound HTTP.
+ */
+function allowPrivateIps(): boolean {
+  const value = process.env.WEBHOOK_ALLOW_PRIVATE_IPS;
+  if (!value) return false;
+  return value.toLowerCase() !== "false";
+}
+
 export function isSafeExternalHttpUrl(url: string) {
   try {
     const parsed = new URL(url);
@@ -44,8 +58,8 @@ export function isSafeExternalHttpUrl(url: string) {
 
     const ipAddress = stripIpv6Brackets(hostname);
     const ipVersion = isIP(ipAddress);
-    if (ipVersion === 4) return !isPrivateIpv4(ipAddress);
-    if (ipVersion === 6) return !isPrivateIpv6(ipAddress);
+    if (ipVersion === 4) return allowPrivateIps() || !isPrivateIpv4(ipAddress);
+    if (ipVersion === 6) return allowPrivateIps() || !isPrivateIpv6(ipAddress);
 
     if (!hostname.includes(".")) return false;
     return true;
@@ -186,6 +200,7 @@ async function resolvePublicAddresses(
 }
 
 function isResolvedAddressPrivate(address: string) {
+  if (allowPrivateIps()) return false;
   const ipVersion = isIP(address);
   if (ipVersion === 4) return isPrivateIpv4(address);
   if (ipVersion === 6) return isPrivateIpv6(address);
