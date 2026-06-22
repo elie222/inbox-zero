@@ -382,7 +382,7 @@ function AvailabilityTab({
     }
 
     const collected = collectWindows(controller.days);
-    if (collected.error) {
+    if (collected.windows === null) {
       toastError({ description: collected.error });
       return;
     }
