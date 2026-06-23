@@ -17,6 +17,7 @@ import {
   convertGmailUrlBody,
   getLabelsBody,
   watchEmailsBody,
+  syncAppleSubscriptionForUserBody,
   syncStripeForUserBody,
   getUserInfoBody,
   loadResponseTimeDataBody,
@@ -24,6 +25,7 @@ import {
   cleanupDraftsBody,
 } from "@/utils/actions/admin.validation";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
+import { syncAppleSubscriptionToDb } from "@/ee/billing/apple";
 import {
   cleanupAIDraftsForAccount,
   getConfiguredDraftCleanupDays,
@@ -191,6 +193,55 @@ export const adminSyncStripeForUserAction = adminActionClient
       tier: premium?.tier ?? null,
     };
   });
+
+export const adminSyncAppleSubscriptionForUserAction = adminActionClient
+  .metadata({ name: "adminSyncAppleSubscriptionForUser" })
+  .inputSchema(syncAppleSubscriptionForUserBody)
+  .action(
+    async ({ parsedInput: { email, transactionId }, ctx: { logger } }) => {
+      const normalizedEmail = email.toLowerCase();
+      const normalizedTransactionId = transactionId.trim();
+
+      const user = await findUserByUserOrAccountEmail(normalizedEmail);
+
+      if (!user) {
+        throw new SafeError("User not found");
+      }
+
+      logger.info("Starting admin Apple subscription sync for user", {
+        userId: user.id,
+        transactionId: normalizedTransactionId,
+      });
+
+      const premium = await syncAppleSubscriptionToDb({
+        authenticatedUserId: user.id,
+        logger,
+        originalTransactionId: normalizedTransactionId,
+      });
+
+      if (!premium) {
+        throw new SafeError("Apple subscription could not be mapped to a user");
+      }
+
+      logger.info("Finished admin Apple subscription sync for user", {
+        userId: user.id,
+        premiumId: premium.id,
+        appleProductId: premium.appleProductId,
+        appleSubscriptionStatus: premium.appleSubscriptionStatus,
+        appleExpiresAt: premium.appleExpiresAt,
+        tier: premium.tier,
+      });
+
+      return {
+        appleEnvironment: premium.appleEnvironment,
+        appleExpiresAt: premium.appleExpiresAt,
+        appleProductId: premium.appleProductId,
+        appleRevokedAt: premium.appleRevokedAt,
+        appleSubscriptionStatus: premium.appleSubscriptionStatus,
+        tier: premium.tier,
+      };
+    },
+  );
 
 export const adminSyncAllStripeCustomersToDbAction = adminActionClient
   .metadata({ name: "adminSyncAllStripeCustomersToDb" })
