@@ -197,16 +197,18 @@ function getPlatformCost({
   providerReportedCost?: number;
   providerUpstreamInferenceCost?: number;
 }) {
-  if (isPositiveFiniteNumber(providerReportedCost)) return providerReportedCost;
-  if (isPositiveFiniteNumber(providerUpstreamInferenceCost)) {
+  if (isNonNegativeFiniteNumber(providerReportedCost)) {
+    return providerReportedCost;
+  }
+  if (isNonNegativeFiniteNumber(providerUpstreamInferenceCost)) {
     return providerUpstreamInferenceCost;
   }
 
   return estimatedCost;
 }
 
-function isPositiveFiniteNumber(value: number | undefined): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value > 0;
+function isNonNegativeFiniteNumber(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
 function buildModelLookupCandidates({

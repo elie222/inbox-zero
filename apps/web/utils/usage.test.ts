@@ -343,6 +343,52 @@ describe("saveAiUsage", () => {
     );
   });
 
+  it("uses zero provider-reported cost without falling back to estimates", async () => {
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      outputTokens: 400,
+      totalTokens: 1400,
+    };
+    const estimatedCost = calculateUsageCost({
+      provider: "openrouter",
+      model: "openai/gpt-5.1",
+      usage,
+    });
+
+    expect(estimatedCost).toBeGreaterThan(0);
+
+    await saveAiUsage({
+      userId: "user-1",
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "openrouter",
+      model: "openai/gpt-5.1",
+      usage,
+      label: "assistant-chat",
+      providerReportedCost: 0,
+      providerUpstreamInferenceCost: 0.3456,
+      providerCostSource: "openrouter_usage",
+    });
+
+    expect(publishAiCall).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cost: 0,
+        estimatedCost,
+        providerReportedCost: 0,
+        providerUpstreamInferenceCost: 0.3456,
+      }),
+    );
+
+    expect(saveUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        emailAccountId: "email-account-1",
+        usage,
+        cost: 0,
+      }),
+    );
+  });
+
   it("uses upstream inference cost when provider cost is unavailable", async () => {
     const usage: LanguageModelUsage = {
       inputTokens: 1000,
