@@ -200,7 +200,6 @@ export const adminSyncAppleSubscriptionForUserAction = adminActionClient
   .action(
     async ({ parsedInput: { email, transactionId }, ctx: { logger } }) => {
       const normalizedEmail = email.toLowerCase();
-      const normalizedTransactionId = transactionId.trim();
 
       const user = await findUserByUserOrAccountEmail(normalizedEmail);
 
@@ -210,13 +209,13 @@ export const adminSyncAppleSubscriptionForUserAction = adminActionClient
 
       logger.info("Starting admin Apple subscription sync for user", {
         userId: user.id,
-        transactionId: normalizedTransactionId,
+        transactionId,
       });
 
       const premium = await syncAppleSubscriptionToDb({
         authenticatedUserId: user.id,
         logger,
-        originalTransactionId: normalizedTransactionId,
+        originalTransactionId: transactionId,
       });
 
       if (!premium) {
