@@ -33,9 +33,7 @@ export function findSenderLabelFilters(
   const from = extractEmailAddress(fromEmail).toLowerCase();
 
   return filters.flatMap((filter) => {
-    const matchesSender = filter.criteria?.from
-      ?.toLowerCase()
-      .includes(from);
+    const matchesSender = filter.criteria?.from?.toLowerCase().includes(from);
     if (!matchesSender || isLabelWithArchiveFilter(filter)) return [];
 
     return (

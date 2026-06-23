@@ -18,9 +18,9 @@ describe("findSenderLabelFilters", () => {
       },
     ];
 
-    expect(findSenderLabelFilters(filters, "Updates <updates@example.com>")).toEqual([
-      { id: "filter-1", labelId: "Label_123" },
-    ]);
+    expect(
+      findSenderLabelFilters(filters, "Updates <updates@example.com>"),
+    ).toEqual([{ id: "filter-1", labelId: "Label_123" }]);
   });
 
   it("does not return auto-archive filters that also apply a label", () => {

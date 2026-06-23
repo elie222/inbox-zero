@@ -1,8 +1,8 @@
 import {
   DropdownMenuSubContent,
   DropdownMenuItem,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
-import { CheckIcon } from "lucide-react";
 import type { EmailLabel } from "@/providers/email-label-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getEmailTerminology } from "@/utils/terminology";
@@ -26,14 +26,14 @@ export function LabelsSubMenu({
           const active = isLabelActive?.(label);
 
           return (
-            <DropdownMenuItem
+            <DropdownMenuCheckboxItem
               key={label.id}
-              onClick={() => onClick(label)}
-              className="flex items-center justify-between gap-3"
+              checked={active}
+              onCheckedChange={() => onClick(label)}
+              className="gap-3"
             >
               <span className="truncate">{label.name}</span>
-              {active && <CheckIcon className="size-4 text-primary" />}
-            </DropdownMenuItem>
+            </DropdownMenuCheckboxItem>
           );
         })
       ) : (

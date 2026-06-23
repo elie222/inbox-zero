@@ -105,11 +105,7 @@ async function getEmailMessages(
       inboxEmails: email.inboxEmails,
       readEmails: email.readEmails,
       unsubscribeLink: email.unsubscribeLink,
-      autoArchived: findAutoArchiveFilter(
-        emailFilters,
-        from,
-        emailProvider,
-      ),
+      autoArchived: findAutoArchiveFilter(emailFilters, from, emailProvider),
       labelFilters: findSenderLabelFilters(emailFilters, from),
       status: userNewsletters?.find((n) => n.email === from)?.status,
     };
