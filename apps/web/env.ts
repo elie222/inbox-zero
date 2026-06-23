@@ -325,6 +325,10 @@ const parsedEnv = createEnv({
     APP_REVIEW_DEMO_ENABLED: booleanString.optional().default(false),
     APP_REVIEW_DEMO_ACCOUNTS: z.string().optional(),
     SSO_LOGIN_ENABLED: booleanString.optional().default(false),
+    // When true, the Call Webhook action's email payload includes the extra
+    // fields `date`, `receivedAt` and `gmailUrl`. Off by default so the payload
+    // stays backwards compatible for existing consumers.
+    WEBHOOK_EXTENDED_PAYLOAD: booleanString.optional().default(false),
   },
   client: {
     // stripe
