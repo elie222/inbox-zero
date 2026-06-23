@@ -17,6 +17,7 @@ import {
   adminDisableAllRulesAction,
   adminCleanupDraftsAction,
   adminLoadResponseTimeDataAction,
+  adminSyncAppleSubscriptionForUserAction,
   adminSyncStripeForUserAction,
 } from "@/utils/actions/admin";
 import { adminCheckPermissionsAction } from "@/utils/actions/permissions";
@@ -26,6 +27,8 @@ import { getActionErrorMessage } from "@/utils/error";
 export const AdminUserControls = () => {
   const [responseTimeMaxSentMessages, setResponseTimeMaxSentMessages] =
     useState(500);
+  const [appleOriginalTransactionId, setAppleOriginalTransactionId] =
+    useState("");
 
   const { execute: processHistory, isExecuting: isProcessing } = useAction(
     adminProcessHistoryAction,
@@ -104,6 +107,23 @@ export const AdminUserControls = () => {
       onError: (error) => {
         toastError({
           title: "Error syncing Stripe",
+          description: getActionErrorMessage(error.error),
+        });
+      },
+    },
+  );
+  const { execute: syncApple, isExecuting: isSyncingApple } = useAction(
+    adminSyncAppleSubscriptionForUserAction,
+    {
+      onSuccess: (result) => {
+        toastSuccess({
+          title: "Apple synced",
+          description: `Status: ${result.data?.appleSubscriptionStatus ?? "none"}; tier: ${result.data?.tier ?? "none"}`,
+        });
+      },
+      onError: (error) => {
+        toastError({
+          title: "Error syncing Apple",
           description: getActionErrorMessage(error.error),
         });
       },
@@ -206,6 +226,17 @@ export const AdminUserControls = () => {
             setResponseTimeMaxSentMessages(Number(event.target.value)),
         }}
       />
+      <Input
+        type="text"
+        name="appleOriginalTransactionId"
+        label="Apple original transaction ID"
+        placeholder="200000000000000"
+        registerProps={{
+          value: appleOriginalTransactionId,
+          onChange: (event: ChangeEvent<HTMLInputElement>) =>
+            setAppleOriginalTransactionId(event.target.value),
+        }}
+      />
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"
@@ -243,6 +274,19 @@ export const AdminUserControls = () => {
           }}
         >
           Sync Stripe
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          loading={isSyncingApple}
+          onClick={() => {
+            syncApple({
+              email: getValues("email"),
+              transactionId: appleOriginalTransactionId,
+            });
+          }}
+        >
+          Sync Apple
         </Button>
         <Button
           variant="outline"

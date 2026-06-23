@@ -1,11 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { adminSyncStripeForUserAction } from "./admin";
+import {
+  adminSyncAppleSubscriptionForUserAction,
+  adminSyncStripeForUserAction,
+} from "./admin";
 
-const { mockAuth, mockSyncStripeDataToDb } = vi.hoisted(() => ({
-  mockAuth: vi.fn(),
-  mockSyncStripeDataToDb: vi.fn(),
-}));
+const { mockAuth, mockSyncAppleSubscriptionToDb, mockSyncStripeDataToDb } =
+  vi.hoisted(() => ({
+    mockAuth: vi.fn(),
+    mockSyncAppleSubscriptionToDb: vi.fn(),
+    mockSyncStripeDataToDb: vi.fn(),
+  }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@sentry/nextjs", () => import("@/__tests__/mocks/sentry-nextjs.mock"));
@@ -21,6 +26,9 @@ vi.mock("@/env", () => ({
 }));
 vi.mock("@/ee/billing/stripe/sync-stripe", () => ({
   syncStripeDataToDb: mockSyncStripeDataToDb,
+}));
+vi.mock("@/ee/billing/apple", () => ({
+  syncAppleSubscriptionToDb: mockSyncAppleSubscriptionToDb,
 }));
 
 describe("adminSyncStripeForUserAction", () => {
@@ -173,5 +181,123 @@ describe("adminSyncStripeForUserAction", () => {
     expect(result?.serverError).toBe("Unauthorized");
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
     expect(mockSyncStripeDataToDb).not.toHaveBeenCalled();
+  });
+});
+
+describe("adminSyncAppleSubscriptionForUserAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuth.mockResolvedValue({
+      user: { id: "admin-user", email: "admin@example.com" },
+    });
+  });
+
+  it("normalizes user email, syncs the Apple original transaction, and returns refreshed premium state", async () => {
+    const expiresAt = new Date("2026-07-21T00:00:00Z");
+    prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      premium: null,
+    } as any);
+    mockSyncAppleSubscriptionToDb.mockResolvedValue({
+      id: "premium-1",
+      appleEnvironment: "Production",
+      appleExpiresAt: expiresAt,
+      appleProductId: "com.getinboxzero.starter.monthly.v2",
+      appleRevokedAt: null,
+      appleSubscriptionStatus: "ACTIVE",
+      tier: "STARTER_MONTHLY",
+    });
+
+    const result = await adminSyncAppleSubscriptionForUserAction({
+      email: "USER@EXAMPLE.COM ",
+      transactionId: " 200000000000000 ",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { email: "user@example.com" },
+      select: {
+        id: true,
+        premium: {
+          select: {
+            id: true,
+            stripeCustomerId: true,
+          },
+        },
+      },
+    });
+    expect(mockSyncAppleSubscriptionToDb).toHaveBeenCalledWith({
+      authenticatedUserId: "user-1",
+      logger: expect.anything(),
+      originalTransactionId: "200000000000000",
+    });
+    expect(result?.data).toEqual({
+      appleEnvironment: "Production",
+      appleExpiresAt: expiresAt,
+      appleProductId: "com.getinboxzero.starter.monthly.v2",
+      appleRevokedAt: null,
+      appleSubscriptionStatus: "ACTIVE",
+      tier: "STARTER_MONTHLY",
+    });
+  });
+
+  it("falls back to the owner of a matching email account", async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      user: {
+        id: "user-2",
+        premium: null,
+      },
+    } as any);
+    mockSyncAppleSubscriptionToDb.mockResolvedValue({
+      id: "premium-2",
+      appleEnvironment: "Production",
+      appleExpiresAt: null,
+      appleProductId: "com.getinboxzero.starter.monthly.v2",
+      appleRevokedAt: null,
+      appleSubscriptionStatus: "ACTIVE",
+      tier: "STARTER_MONTHLY",
+    });
+
+    const result = await adminSyncAppleSubscriptionForUserAction({
+      email: "alias@example.com",
+      transactionId: "200000000000000",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.emailAccount.findUnique).toHaveBeenCalledWith({
+      where: { email: "alias@example.com" },
+      select: {
+        user: {
+          select: {
+            id: true,
+            premium: {
+              select: {
+                id: true,
+                stripeCustomerId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(mockSyncAppleSubscriptionToDb).toHaveBeenCalledWith({
+      authenticatedUserId: "user-2",
+      logger: expect.anything(),
+      originalTransactionId: "200000000000000",
+    });
+  });
+
+  it("rejects missing users before syncing Apple", async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.emailAccount.findUnique.mockResolvedValue(null);
+
+    const result = await adminSyncAppleSubscriptionForUserAction({
+      email: "missing@example.com",
+      transactionId: "200000000000000",
+    });
+
+    expect(result?.serverError).toBe("User not found");
+    expect(mockSyncAppleSubscriptionToDb).not.toHaveBeenCalled();
   });
 });
