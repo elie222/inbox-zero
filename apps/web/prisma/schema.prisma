@@ -1303,6 +1303,11 @@ model MessagingChannel {
   refreshToken String?
   expiresAt    DateTime?
 
+  // Webhook provider target. Only set for provider=WEBHOOK channels.
+  // webhookSecret is encrypted via prisma-extensions.
+  webhookUrl    String?
+  webhookSecret String?
+
   emailAccountId  String
   emailAccount    EmailAccount     @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   routes          MessagingRoute[]
@@ -1836,6 +1841,7 @@ enum MessagingProvider {
   SLACK
   TEAMS
   TELEGRAM
+  WEBHOOK
 }
 
 enum MessagingRoutePurpose {

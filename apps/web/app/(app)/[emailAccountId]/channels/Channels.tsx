@@ -13,6 +13,7 @@ import {
   MoreVerticalIcon,
   Settings2Icon,
   SunIcon,
+  WebhookIcon,
 } from "lucide-react";
 import Image from "next/image";
 import { useAction } from "next-safe-action/hooks";
@@ -59,7 +60,11 @@ import {
   toggleRuleChannelAction,
   createMessagingLinkCodeAction,
   disconnectChannelAction,
+  createWebhookChannelAction,
+  updateWebhookChannelAction,
+  toggleWebhookDigestsAction,
 } from "@/utils/actions/messaging-channels";
+import { Input } from "@/components/ui/input";
 import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
 import { ProactiveUpdatesSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -88,14 +93,44 @@ type LinkableProvider = "TEAMS" | "TELEGRAM";
 
 const PROVIDER_CONFIG: Record<
   MessagingProvider,
-  { name: string; logo: string }
+  { name: string; logo?: string; icon?: React.ElementType }
 > = {
   SLACK: { name: "Slack", logo: "/images/slack.svg" },
   TEAMS: { name: "Teams", logo: "/images/teams.png" },
   TELEGRAM: { name: "Telegram", logo: "/images/telegram.svg" },
+  WEBHOOK: { name: "Webhook", icon: WebhookIcon },
 };
 
-const PROVIDER_ORDER: MessagingProvider[] = ["SLACK", "TEAMS", "TELEGRAM"];
+const PROVIDER_ORDER: MessagingProvider[] = [
+  "SLACK",
+  "TEAMS",
+  "TELEGRAM",
+  "WEBHOOK",
+];
+
+function ProviderIcon({
+  provider,
+  className = "size-5",
+}: {
+  provider: MessagingProvider;
+  className?: string;
+}) {
+  const config = PROVIDER_CONFIG[provider];
+  if (config.logo) {
+    return (
+      <Image
+        src={config.logo}
+        alt={config.name}
+        width={20}
+        height={20}
+        className={className}
+        unoptimized
+      />
+    );
+  }
+  const Icon = config.icon ?? BellIcon;
+  return <Icon className={className} />;
+}
 
 const CHANNEL_FEATURES: Array<{
   purpose: MessagingFeatureRoutePurpose;
@@ -209,19 +244,38 @@ export function Channels() {
             );
 
             if (providerChannels.length > 0) {
-              return providerChannels.map((channel) => (
-                <ConnectedChannelSection
-                  key={channel.id}
-                  channel={channel}
-                  rules={visibleRules}
-                  emailAccountId={emailAccountId}
-                  hasDigestAccess={hasDigestAccess}
-                  onUpdate={onUpdate}
-                />
-              ));
+              return providerChannels.map((channel) =>
+                channel.provider === "WEBHOOK" ? (
+                  <WebhookChannelSection
+                    key={channel.id}
+                    channel={channel}
+                    emailAccountId={emailAccountId}
+                    hasDigestAccess={hasDigestAccess}
+                    onUpdate={onUpdate}
+                  />
+                ) : (
+                  <ConnectedChannelSection
+                    key={channel.id}
+                    channel={channel}
+                    rules={visibleRules}
+                    emailAccountId={emailAccountId}
+                    hasDigestAccess={hasDigestAccess}
+                    onUpdate={onUpdate}
+                  />
+                ),
+              );
             }
 
             if (unconnectedProviders.includes(provider)) {
+              if (provider === "WEBHOOK") {
+                return (
+                  <AddWebhookSection
+                    key={provider}
+                    emailAccountId={emailAccountId}
+                    onConnected={mutateChannels}
+                  />
+                );
+              }
               return (
                 <UnconnectedProviderSection
                   key={provider}
@@ -371,16 +425,7 @@ function ConnectedChannelSection({
 
   return (
     <SectionGroup
-      icon={
-        <Image
-          src={config.logo}
-          alt={config.name}
-          width={20}
-          height={20}
-          className="size-5"
-          unoptimized
-        />
-      }
+      icon={<ProviderIcon provider={channel.provider} />}
       title={config.name}
       badge={
         <div className="flex items-center gap-1">
@@ -512,7 +557,9 @@ function UnconnectedProviderSection({
   emailAccountId,
   onConnected,
 }: {
-  provider: MessagingProvider;
+  // Webhook channels are handled by AddWebhookSection, not this OAuth/link-code
+  // connect flow.
+  provider: Exclude<MessagingProvider, "WEBHOOK">;
   emailAccountId: string;
   onConnected: () => void;
 }) {
@@ -564,16 +611,7 @@ function UnconnectedProviderSection({
   return (
     <>
       <SectionGroup
-        icon={
-          <Image
-            src={config.logo}
-            alt={config.name}
-            width={20}
-            height={20}
-            className="size-5"
-            unoptimized
-          />
-        }
+        icon={<ProviderIcon provider={provider} />}
         title={config.name}
       >
         <ItemCard>
@@ -917,6 +955,289 @@ function FeatureRouteAction({
         )}
       </Dialog>
     </>
+  );
+}
+
+function WebhookForm({
+  emailAccountId,
+  channelId,
+  initialUrl,
+  initialHasSecret,
+  submitLabel,
+  onSaved,
+}: {
+  emailAccountId: string;
+  channelId?: string;
+  initialUrl?: string;
+  initialHasSecret?: boolean;
+  submitLabel: string;
+  onSaved: () => void;
+}) {
+  const analytics = useProductAnalytics("channels");
+  const [url, setUrl] = useState(initialUrl ?? "");
+  const [secret, setSecret] = useState("");
+
+  const onSuccess = () => {
+    analytics.captureAction(channelId ? "webhook_updated" : "webhook_created");
+    toastSuccess({ description: "Webhook saved" });
+    setSecret("");
+    onSaved();
+  };
+  const onError = (error: { error: unknown }) => {
+    toastError({
+      description:
+        getActionErrorMessage(
+          error.error as Parameters<typeof getActionErrorMessage>[0],
+        ) ?? "Failed to save webhook",
+    });
+  };
+
+  const create = useAction(
+    createWebhookChannelAction.bind(null, emailAccountId),
+    {
+      onSuccess,
+      onError,
+    },
+  );
+  const update = useAction(
+    updateWebhookChannelAction.bind(null, emailAccountId),
+    {
+      onSuccess,
+      onError,
+    },
+  );
+
+  const status = channelId ? update.status : create.status;
+  const isExecuting = status === "executing";
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) return;
+    const trimmedSecret = secret.trim();
+    if (channelId) {
+      update.execute({
+        channelId,
+        webhookUrl: trimmedUrl,
+        webhookSecret: trimmedSecret || undefined,
+      });
+    } else {
+      create.execute({
+        webhookUrl: trimmedUrl,
+        webhookSecret: trimmedSecret || undefined,
+      });
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="space-y-1.5">
+        <label
+          htmlFor={`webhook-url-${channelId ?? "new"}`}
+          className="text-sm font-medium"
+        >
+          Webhook URL
+        </label>
+        <Input
+          id={`webhook-url-${channelId ?? "new"}`}
+          type="url"
+          required
+          placeholder="https://example.com/inbox-zero-webhook"
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label
+          htmlFor={`webhook-secret-${channelId ?? "new"}`}
+          className="text-sm font-medium"
+        >
+          Secret (optional)
+        </label>
+        <Input
+          id={`webhook-secret-${channelId ?? "new"}`}
+          type="password"
+          autoComplete="off"
+          placeholder={
+            initialHasSecret ? "Leave blank to keep current secret" : "Optional"
+          }
+          value={secret}
+          onChange={(event) => setSecret(event.target.value)}
+        />
+        <MutedText className="text-xs">
+          Sent as the <code>X-Webhook-Secret</code> header so your endpoint can
+          verify the request.
+        </MutedText>
+      </div>
+      <Button type="submit" size="sm" disabled={isExecuting || !url.trim()}>
+        {submitLabel}
+      </Button>
+    </form>
+  );
+}
+
+function AddWebhookSection({
+  emailAccountId,
+  onConnected,
+}: {
+  emailAccountId: string;
+  onConnected: () => void;
+}) {
+  return (
+    <SectionGroup
+      icon={<ProviderIcon provider="WEBHOOK" />}
+      title={PROVIDER_CONFIG.WEBHOOK.name}
+    >
+      <ItemCard>
+        <Item size="sm">
+          <ItemContent className="space-y-3">
+            <div>
+              <ItemTitle>Add a webhook</ItemTitle>
+              <ItemDescription>
+                Deliver your digest to any HTTPS endpoint. No app or OAuth
+                required — just a URL.
+              </ItemDescription>
+            </div>
+            <WebhookForm
+              emailAccountId={emailAccountId}
+              submitLabel="Add webhook"
+              onSaved={onConnected}
+            />
+          </ItemContent>
+        </Item>
+      </ItemCard>
+    </SectionGroup>
+  );
+}
+
+function WebhookChannelSection({
+  channel,
+  emailAccountId,
+  hasDigestAccess,
+  onUpdate,
+}: {
+  channel: ChannelFromResponse;
+  emailAccountId: string;
+  hasDigestAccess: boolean;
+  onUpdate: () => void;
+}) {
+  const analytics = useProductAnalytics("channels");
+  const config = PROVIDER_CONFIG.WEBHOOK;
+  const digestsEnabled = channel.destinations.digests.enabled;
+
+  const { execute: executeDisconnect, status: disconnectStatus } = useAction(
+    disconnectChannelAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        analytics.captureAction("channel_disconnected", {
+          provider: "WEBHOOK",
+        });
+        toastSuccess({ description: `${config.name} removed` });
+        onUpdate();
+      },
+      onError: (error) => {
+        toastError({
+          description: getActionErrorMessage(error.error) ?? "Failed to remove",
+        });
+      },
+    },
+  );
+
+  const { execute: executeToggleDigests, status: toggleStatus } = useAction(
+    toggleWebhookDigestsAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Settings saved" });
+        onUpdate();
+      },
+      onError: (error) => {
+        toastError({
+          description: getActionErrorMessage(error.error) ?? "Failed to update",
+        });
+      },
+    },
+  );
+
+  return (
+    <SectionGroup
+      icon={<ProviderIcon provider="WEBHOOK" />}
+      title={config.name}
+      badge={
+        <div className="flex items-center gap-1">
+          <Badge color="green">Connected</Badge>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                disabled={disconnectStatus === "executing"}
+              >
+                <MoreVerticalIcon className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => executeDisconnect({ channelId: channel.id })}
+                className="text-destructive focus:text-destructive"
+              >
+                <LogOutIcon className="mr-2 h-4 w-4" />
+                Remove webhook
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      }
+    >
+      <ItemCard>
+        <Item size="sm">
+          <ItemContent className="space-y-3">
+            <div>
+              <ItemTitle>Endpoint</ItemTitle>
+              <ItemDescription className="break-all">
+                {channel.webhookUrl ?? "No URL set"}
+              </ItemDescription>
+            </div>
+            <WebhookForm
+              emailAccountId={emailAccountId}
+              channelId={channel.id}
+              initialUrl={channel.webhookUrl ?? ""}
+              submitLabel="Save changes"
+              onSaved={onUpdate}
+            />
+          </ItemContent>
+        </Item>
+      </ItemCard>
+
+      <ItemCard>
+        <Item size="sm">
+          <ItemContent>
+            <ItemTitle>Digests</ItemTitle>
+            <ItemDescription>
+              POST your scheduled digest to this webhook.
+            </ItemDescription>
+          </ItemContent>
+          <ItemActions>
+            {hasDigestAccess ? (
+              <Toggle
+                name={`webhook-digests-${channel.id}`}
+                enabled={digestsEnabled}
+                disabled={toggleStatus === "executing"}
+                onChange={(enabled) => {
+                  analytics.captureAction("feature_route_toggled", {
+                    purpose: MessagingRoutePurpose.DIGESTS,
+                    enabled,
+                  });
+                  executeToggleDigests({ channelId: channel.id, enabled });
+                }}
+              />
+            ) : (
+              <UpgradeToPlusButton tooltip="Upgrade to the Plus plan to deliver digests to a webhook." />
+            )}
+          </ItemActions>
+        </Item>
+      </ItemCard>
+    </SectionGroup>
   );
 }
 

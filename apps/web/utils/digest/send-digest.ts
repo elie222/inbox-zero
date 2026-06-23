@@ -15,6 +15,7 @@ import {
   resolveSlackRouteDestination,
   sendDigestToSlack,
 } from "@/utils/messaging/providers/slack/send";
+import { sendDigestToWebhook } from "@/utils/messaging/providers/webhook/send";
 import {
   getMessagingRoute,
   getMessagingRouteWhere,
@@ -64,6 +65,8 @@ export async function sendDigest({
       accessToken: true,
       teamId: true,
       providerUserId: true,
+      webhookUrl: true,
+      webhookSecret: true,
       routes: {
         select: { purpose: true, targetType: true, targetId: true },
       },
@@ -120,6 +123,19 @@ export async function sendDigest({
           sendDigestViaMessagingApp({
             channel,
             route,
+            date,
+            ruleNames,
+            itemsByRule,
+            logger,
+          }),
+        );
+        break;
+      case MessagingProvider.WEBHOOK:
+        if (!channel.webhookUrl) continue;
+        deliveryPromises.push(
+          sendDigestViaWebhook({
+            webhookUrl: channel.webhookUrl,
+            webhookSecret: channel.webhookSecret,
             date,
             ruleNames,
             itemsByRule,
@@ -262,6 +278,37 @@ async function sendDigestViaMessagingApp({
   });
 
   logger.info("Digest sent to messaging app", { provider: channel.provider });
+}
+
+async function sendDigestViaWebhook({
+  webhookUrl,
+  webhookSecret,
+  date,
+  ruleNames,
+  itemsByRule,
+  logger,
+}: {
+  webhookUrl: string;
+  webhookSecret: string | null;
+  date: Date;
+  ruleNames: Record<string, string>;
+  itemsByRule: ItemsByRule;
+  logger: Logger;
+}) {
+  logger.info("Sending digest to webhook");
+  // Throws on blocked (SSRF) or non-2xx so this counts as a failed channel
+  // under Promise.allSettled, preventing the digest from being marked SENT.
+  await sendDigestToWebhook({
+    url: webhookUrl,
+    secret: webhookSecret,
+    payload: {
+      type: "digest",
+      date: date.toISOString(),
+      ruleNames,
+      itemsByRule,
+    },
+  });
+  logger.info("Digest sent to webhook");
 }
 
 function formatDigestText({
