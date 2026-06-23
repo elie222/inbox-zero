@@ -292,7 +292,7 @@ describe("saveAiUsage", () => {
     );
   });
 
-  it("stores provider-reported cost separately from local estimates", async () => {
+  it("uses provider-reported cost for platform spend", async () => {
     const usage: LanguageModelUsage = {
       inputTokens: 1000,
       outputTokens: 400,
@@ -323,7 +323,7 @@ describe("saveAiUsage", () => {
 
     expect(publishAiCall).toHaveBeenCalledWith(
       expect.objectContaining({
-        cost: estimatedCost,
+        cost: 1.2345,
         estimatedCost,
         providerReportedCost: 1.2345,
         providerUpstreamInferenceCost: 0.3456,
@@ -338,7 +338,90 @@ describe("saveAiUsage", () => {
         userId: "user-1",
         emailAccountId: "email-account-1",
         usage,
-        cost: estimatedCost,
+        cost: 1.2345,
+      }),
+    );
+  });
+
+  it("uses zero provider-reported cost without falling back to estimates", async () => {
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      outputTokens: 400,
+      totalTokens: 1400,
+    };
+    const estimatedCost = calculateUsageCost({
+      provider: "openrouter",
+      model: "openai/gpt-5.1",
+      usage,
+    });
+
+    expect(estimatedCost).toBeGreaterThan(0);
+
+    await saveAiUsage({
+      userId: "user-1",
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "openrouter",
+      model: "openai/gpt-5.1",
+      usage,
+      label: "assistant-chat",
+      providerReportedCost: 0,
+      providerUpstreamInferenceCost: 0.3456,
+      providerCostSource: "openrouter_usage",
+    });
+
+    expect(publishAiCall).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cost: 0,
+        estimatedCost,
+        providerReportedCost: 0,
+        providerUpstreamInferenceCost: 0.3456,
+      }),
+    );
+
+    expect(saveUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        emailAccountId: "email-account-1",
+        usage,
+        cost: 0,
+      }),
+    );
+  });
+
+  it("uses upstream inference cost when provider cost is unavailable", async () => {
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      outputTokens: 400,
+      totalTokens: 1400,
+    };
+
+    await saveAiUsage({
+      userId: "user-1",
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "openrouter",
+      model: "model-without-local-pricing",
+      usage,
+      label: "assistant-chat",
+      providerUpstreamInferenceCost: 0.3456,
+      providerCostSource: "openrouter_usage",
+    });
+
+    expect(publishAiCall).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cost: 0.3456,
+        estimatedCost: 0,
+        providerUpstreamInferenceCost: 0.3456,
+      }),
+    );
+
+    expect(saveUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        emailAccountId: "email-account-1",
+        usage,
+        cost: 0.3456,
       }),
     );
   });

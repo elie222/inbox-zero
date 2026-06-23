@@ -25,6 +25,7 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+const SUB_CENT_USD = 0.01;
 
 export function AdminTopSpenders() {
   const { data, isLoading, error } = useAdminTopSpenders();
@@ -80,7 +81,7 @@ export function AdminTopSpenders() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {currencyFormatter.format(spender.cost)}
+                      {formatCost(spender.cost)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -95,4 +96,10 @@ export function AdminTopSpenders() {
       </CardContent>
     </Card>
   );
+}
+
+function formatCost(cost: number) {
+  if (cost > 0 && cost < SUB_CENT_USD) return "<$0.01";
+
+  return currencyFormatter.format(cost);
 }
