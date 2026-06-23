@@ -7,6 +7,7 @@ import {
   saveEmailUpdateSettingsBody,
   saveDigestScheduleBody,
   updateDigestItemsBody,
+  updateDigestWebhookUrlBody,
   toggleDigestBody,
 } from "@/utils/actions/settings.validation";
 import { DEFAULT_PROVIDER, Provider } from "@/utils/llms/config";
@@ -165,6 +166,19 @@ export const updateDigestScheduleAction = actionClient
 
     return { success: true };
   });
+
+export const updateDigestWebhookUrlAction = actionClient
+  .metadata({ name: "updateDigestWebhookUrl" })
+  .inputSchema(updateDigestWebhookUrlBody)
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { digestWebhookUrl } }) => {
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        // Treat empty string as clearing the webhook.
+        data: { digestWebhookUrl: digestWebhookUrl || null },
+      });
+    },
+  );
 
 export const updateDigestItemsAction = actionClient
   .metadata({ name: "updateDigestItems" })

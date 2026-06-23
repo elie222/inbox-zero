@@ -168,6 +168,7 @@ model EmailAccount {
   followUpAutoDraftEnabled  Boolean @default(true)
 
   digestSendEmail     Boolean   @default(true)
+  digestWebhookUrl    String?
   digestSchedule      Schedule?
   learnedWritingStyle String?
 

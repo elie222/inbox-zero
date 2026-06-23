@@ -51,6 +51,17 @@ export const updateDigestItemsBody = z.object({
 });
 export type UpdateDigestItemsBody = z.infer<typeof updateDigestItemsBody>;
 
+export const updateDigestWebhookUrlBody = z.object({
+  // Empty string clears the webhook; otherwise it must be a valid URL.
+  digestWebhookUrl: z
+    .union([z.literal(""), z.string().url()])
+    .optional()
+    .nullable(),
+});
+export type UpdateDigestWebhookUrlBody = z.infer<
+  typeof updateDigestWebhookUrlBody
+>;
+
 export const toggleDigestBody = z.object({
   enabled: z.boolean(),
   timeOfDay: z.coerce.date().optional(),

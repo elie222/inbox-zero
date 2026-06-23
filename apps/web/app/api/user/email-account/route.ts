@@ -43,6 +43,7 @@ async function getEmailAccount({
       followUpNeedsReplyDays: true,
       followUpAutoDraftEnabled: true,
       digestSendEmail: true,
+      digestWebhookUrl: true,
     },
   });
 

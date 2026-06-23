@@ -46,10 +46,11 @@ export async function sendDigest({
 
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
-    select: { digestSendEmail: true },
+    select: { digestSendEmail: true, digestWebhookUrl: true },
   });
 
   const sendEmail = emailAccount?.digestSendEmail ?? true;
+  const digestWebhookUrl = emailAccount?.digestWebhookUrl ?? null;
 
   const channels = await prisma.messagingChannel.findMany({
     where: {
@@ -130,6 +131,18 @@ export async function sendDigest({
     }
   }
 
+  if (digestWebhookUrl) {
+    deliveryPromises.push(
+      sendDigestViaWebhook({
+        url: digestWebhookUrl,
+        date,
+        ruleNames,
+        itemsByRule,
+        logger,
+      }),
+    );
+  }
+
   if (deliveryPromises.length === 0) {
     if (channels.length > 0) {
       // Email is off and every configured messaging channel was skipped
@@ -190,6 +203,34 @@ async function sendDigestViaEmail({
     },
   });
   logger.info("Digest email sent");
+}
+
+async function sendDigestViaWebhook({
+  url,
+  date,
+  ruleNames,
+  itemsByRule,
+  logger,
+}: {
+  url: string;
+  date: Date;
+  ruleNames: Record<string, string>;
+  itemsByRule: ItemsByRule;
+  logger: Logger;
+}) {
+  logger.info("Sending digest via webhook");
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "digest", date, ruleNames, itemsByRule }),
+  });
+  if (!response.ok) {
+    // Throw so this counts as a channel failure in Promise.allSettled;
+    // otherwise a webhook-only digest could be marked SENT without actually
+    // delivering.
+    throw new Error(`Digest webhook responded with status ${response.status}`);
+  }
+  logger.info("Digest sent via webhook");
 }
 
 async function sendDigestViaSlack({

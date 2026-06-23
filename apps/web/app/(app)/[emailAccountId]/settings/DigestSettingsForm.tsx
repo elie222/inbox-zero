@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
 import { zodResolver } from "@hookform/resolvers/zod";
 import useSWR from "swr";
 import { z } from "zod";
+import { env } from "@/env";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/Input";
 import { Button } from "@/components/ui/button";
 import { TimePicker } from "@/components/TimePicker";
 import { Toggle } from "@/components/Toggle";
@@ -21,6 +23,7 @@ import { updateDigestEmailDeliveryAction } from "@/utils/actions/messaging-chann
 import {
   updateDigestItemsAction,
   updateDigestScheduleAction,
+  updateDigestWebhookUrlAction,
 } from "@/utils/actions/settings";
 import { ActionType } from "@/generated/prisma/enums";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -395,6 +398,14 @@ function DigestDeliveryChannels({
           onChange={(sendEmail) => execute({ sendEmail })}
         />
       </div>
+      {env.NEXT_PUBLIC_DIGEST_WEBHOOK_ENABLED && (
+        <DigestWebhookUrlField
+          emailAccountId={emailAccountId}
+          digestWebhookUrl={account?.digestWebhookUrl ?? ""}
+          disabled={isLoading}
+          onSaved={mutate}
+        />
+      )}
       {showChannelsHint && (
         <MutedText>
           Want digests in your chat app?{" "}
@@ -407,6 +418,69 @@ function DigestDeliveryChannels({
           .
         </MutedText>
       )}
+    </div>
+  );
+}
+
+function DigestWebhookUrlField({
+  emailAccountId,
+  digestWebhookUrl,
+  disabled,
+  onSaved,
+}: {
+  emailAccountId: string;
+  digestWebhookUrl: string;
+  disabled: boolean;
+  onSaved: () => void;
+}) {
+  const [value, setValue] = useState(digestWebhookUrl);
+
+  // Keep local state in sync once the account data loads.
+  useEffect(() => {
+    setValue(digestWebhookUrl);
+  }, [digestWebhookUrl]);
+
+  const { execute, isExecuting } = useAction(
+    updateDigestWebhookUrlAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Settings saved" });
+        onSaved();
+      },
+      onError: (error) => {
+        toastError({
+          description: getActionErrorMessage(error.error) ?? "Failed to update",
+        });
+      },
+    },
+  );
+
+  return (
+    <div className="space-y-2 pt-2">
+      <Label htmlFor="digestWebhookUrl">Digest webhook URL</Label>
+      <div className="flex items-center gap-2">
+        <Input
+          type="url"
+          name="digestWebhookUrl"
+          placeholder="https://example.com/webhooks/digest"
+          registerProps={{
+            value,
+            onChange: (event: ChangeEvent<HTMLInputElement>) =>
+              setValue(event.target.value),
+          }}
+        />
+        <Button
+          type="button"
+          loading={isExecuting}
+          disabled={disabled || value === digestWebhookUrl}
+          onClick={() => execute({ digestWebhookUrl: value })}
+        >
+          Save
+        </Button>
+      </div>
+      <MutedText>
+        When set, each digest is also POSTed as JSON to this URL.
+      </MutedText>
     </div>
   );
 }
