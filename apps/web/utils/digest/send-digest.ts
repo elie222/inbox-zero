@@ -1,5 +1,8 @@
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
 import { env } from "@/env";
 import { sendDigestEmail } from "@inboxzero/resend";
+import { resolveSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
 import {
   MessagingProvider,
   MessagingRoutePurpose,
@@ -24,6 +27,8 @@ import prisma from "@/utils/prisma";
 
 type DigestItem = { from: string; subject: string; content: string };
 type ItemsByRule = Record<string, DigestItem[] | undefined>;
+
+const DIGEST_WEBHOOK_TIMEOUT_MS = 5000;
 
 export async function sendDigest({
   emailAccountId,
@@ -219,17 +224,62 @@ async function sendDigestViaWebhook({
   logger: Logger;
 }) {
   logger.info("Sending digest via webhook");
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "digest", date, ruleNames, itemsByRule }),
+  const requestBody = JSON.stringify({
+    type: "digest",
+    date,
+    ruleNames,
+    itemsByRule,
   });
-  if (!response.ok) {
+
+  // SSRF protection: validate and pin the resolved address (no private/internal
+  // IPs, no DNS rebinding), mirroring the Call Webhook sender (utils/webhook.ts).
+  const resolvedUrl = await resolveSafeExternalHttpUrl(url);
+  if (!resolvedUrl) {
     // Throw so this counts as a channel failure in Promise.allSettled;
-    // otherwise a webhook-only digest could be marked SENT without actually
-    // delivering.
-    throw new Error(`Digest webhook responded with status ${response.status}`);
+    // otherwise a webhook-only digest could be marked SENT without delivering.
+    throw new Error(
+      "Digest webhook URL is not allowed (failed SSRF validation)",
+    );
   }
+
+  await new Promise<void>((resolve, reject) => {
+    const request = (
+      resolvedUrl.url.protocol === "https:" ? httpsRequest : httpRequest
+    )(
+      resolvedUrl.url,
+      {
+        method: "POST",
+        lookup: resolvedUrl.lookup,
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(requestBody).toString(),
+        },
+      },
+      (response) => {
+        response.resume();
+        response.on("error", reject);
+        response.on("end", () => {
+          const statusCode = response.statusCode || 0;
+          if (statusCode >= 200 && statusCode < 300) {
+            resolve();
+          } else {
+            // Throw so this counts as a channel failure in Promise.allSettled.
+            reject(
+              new Error(`Digest webhook responded with status ${statusCode}`),
+            );
+          }
+        });
+      },
+    );
+
+    request.setTimeout(DIGEST_WEBHOOK_TIMEOUT_MS, () => {
+      request.destroy(new Error("Digest webhook request timed out"));
+    });
+    request.on("error", reject);
+    request.write(requestBody);
+    request.end();
+  });
+
   logger.info("Digest sent via webhook");
 }
 

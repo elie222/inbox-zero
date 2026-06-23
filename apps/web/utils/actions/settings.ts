@@ -174,8 +174,14 @@ export const updateDigestWebhookUrlAction = actionClient
     async ({ ctx: { emailAccountId }, parsedInput: { digestWebhookUrl } }) => {
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
-        // Treat empty string as clearing the webhook.
-        data: { digestWebhookUrl: digestWebhookUrl || null },
+        // Empty string clears the webhook; an omitted (undefined) value leaves
+        // it unchanged so a partial update can't unintentionally delete it.
+        data: {
+          digestWebhookUrl:
+            digestWebhookUrl === undefined
+              ? undefined
+              : digestWebhookUrl || null,
+        },
       });
     },
   );
