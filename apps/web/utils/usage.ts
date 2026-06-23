@@ -73,7 +73,13 @@ export async function saveAiUsage({
 }) {
   const estimatedCost = calculateUsageCost({ provider, model, usage });
   const isUserApiKey = !!hasUserApiKey;
-  const platformCost = isUserApiKey ? 0 : estimatedCost;
+  const platformCost = isUserApiKey
+    ? 0
+    : getPlatformCost({
+        estimatedCost,
+        providerReportedCost,
+        providerUpstreamInferenceCost,
+      });
   const inputTokens = usage.inputTokens ?? 0;
   const outputTokens = usage.outputTokens ?? 0;
   const cachedInputTokens = usage.cachedInputTokens ?? 0;
@@ -180,6 +186,27 @@ function getModelPricing(options: {
   }
 
   return;
+}
+
+function getPlatformCost({
+  estimatedCost,
+  providerReportedCost,
+  providerUpstreamInferenceCost,
+}: {
+  estimatedCost: number;
+  providerReportedCost?: number;
+  providerUpstreamInferenceCost?: number;
+}) {
+  if (isPositiveFiniteNumber(providerReportedCost)) return providerReportedCost;
+  if (isPositiveFiniteNumber(providerUpstreamInferenceCost)) {
+    return providerUpstreamInferenceCost;
+  }
+
+  return estimatedCost;
+}
+
+function isPositiveFiniteNumber(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
 function buildModelLookupCandidates({
