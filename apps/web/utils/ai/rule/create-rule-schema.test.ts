@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { z } from "zod";
+import { z } from "zod";
 import { ActionType } from "@/generated/prisma/enums";
 import {
   createRuleSchema,
@@ -406,6 +406,58 @@ describe("getExtraActions", () => {
 
     expect(getExtraActions([ActionType.CALL_WEBHOOK])).not.toContain(
       ActionType.CALL_WEBHOOK,
+    );
+  });
+});
+
+// Anthropic's structured-outputs grammar compiler rejects schemas with more
+// than 24 optional parameters per tool. See issue #2323 — `aiPromptToRules`
+// uses `generateObject` whose schema is `z.array(createRuleSchema(provider))`,
+// so any growth in optional fields across the action union flows directly
+// into that limit. This test is the regression guard.
+const ANTHROPIC_STRICT_OPTIONAL_LIMIT = 24;
+
+function countOptionalParams(node: unknown): number {
+  if (!node || typeof node !== "object") return 0;
+  const schema = node as Record<string, unknown>;
+  let count = 0;
+
+  if (schema.type === "object" && schema.properties) {
+    const required = new Set((schema.required as string[]) ?? []);
+    for (const [key, child] of Object.entries(
+      schema.properties as Record<string, unknown>,
+    )) {
+      if (!required.has(key)) count += 1;
+      count += countOptionalParams(child);
+    }
+  }
+  if (schema.items) count += countOptionalParams(schema.items);
+  for (const key of ["anyOf", "oneOf", "allOf"] as const) {
+    if (Array.isArray(schema[key])) {
+      for (const child of schema[key] as unknown[]) {
+        count += countOptionalParams(child);
+      }
+    }
+  }
+  return count;
+}
+
+describe("createRuleSchema JSON schema budget (Anthropic strict-mode)", () => {
+  it("keeps optional-param count under Anthropic's 24 limit when used as a generateObject schema", () => {
+    const provider = "google";
+    const wrapper = z.object({
+      rules: z.array(createRuleSchema(provider)),
+    });
+
+    // Mirror the exact serialization the AI SDK uses to send schemas to
+    // Anthropic (see @ai-sdk/provider-utils → zod4Schema).
+    const jsonSchema = z.toJSONSchema(wrapper, {
+      target: "draft-7",
+      io: "input",
+      reused: "inline",
+    });
+    expect(countOptionalParams(jsonSchema)).toBeLessThanOrEqual(
+      ANTHROPIC_STRICT_OPTIONAL_LIMIT,
     );
   });
 });

@@ -354,9 +354,7 @@ function createActionFieldShape(provider: string) {
 
 function optionalStringField(description: string) {
   return z
-    .string()
-    .nullish()
-    .transform((value) => value ?? null)
+    .preprocess((value) => value ?? null, z.string().nullable())
     .describe(description);
 }
 
