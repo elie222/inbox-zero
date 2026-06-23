@@ -9,19 +9,42 @@ export async function getAutoArchiveFilters(
   emailProvider: EmailProvider,
   logger: Logger,
 ) {
+  const filters = await getEmailFilters(emailProvider, logger);
+  return filters.filter((filter) => isAutoArchiveFilter(filter, emailProvider));
+}
+
+export async function getEmailFilters(
+  emailProvider: EmailProvider,
+  logger: Logger,
+) {
   try {
-    const filters = await emailProvider.getFiltersList();
-
-    const autoArchiveFilters = filters.filter((filter) =>
-      isAutoArchiveFilter(filter, emailProvider),
-    );
-
-    return autoArchiveFilters;
+    return await emailProvider.getFiltersList();
   } catch (error) {
-    logger.error("Error getting auto-archive filters", { error });
+    logger.error("Error getting email filters", { error });
     // Return empty array instead of throwing, so the newsletter stats still work
     return [];
   }
+}
+
+export function findSenderLabelFilters(
+  filters: EmailFilter[],
+  fromEmail: string,
+): { id: string; labelId: string }[] {
+  const from = extractEmailAddress(fromEmail).toLowerCase();
+
+  return filters.flatMap((filter) => {
+    const matchesSender = filter.criteria?.from
+      ?.toLowerCase()
+      .includes(from);
+    if (!matchesSender || isLabelWithArchiveFilter(filter)) return [];
+
+    return (
+      filter.action?.addLabelIds?.map((labelId) => ({
+        id: filter.id,
+        labelId,
+      })) ?? []
+    );
+  });
 }
 
 export function findAutoArchiveFilter(
@@ -101,4 +124,12 @@ function isGmailAutoArchiveFilter(filter: EmailFilter): boolean {
 function isOutlookAutoArchiveFilter(filter: EmailFilter): boolean {
   // For Outlook: check if it moves to archive folder (removeLabelIds contains "INBOX")
   return Boolean(filter.action?.removeLabelIds?.includes("INBOX"));
+}
+
+function isLabelWithArchiveFilter(filter: EmailFilter) {
+  return Boolean(
+    filter.action?.removeLabelIds?.includes(GmailLabel.INBOX) ||
+      filter.action?.removeLabelIds?.includes("INBOX") ||
+      filter.action?.addLabelIds?.includes(GmailLabel.TRASH),
+  );
 }
