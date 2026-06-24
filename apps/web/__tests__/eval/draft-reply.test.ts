@@ -19,7 +19,7 @@ const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 90_000;
 
 describe.runIf(shouldRunEval)("draft-reply eval", () => {
-  const evalReporter = createEvalReporter();
+  const evalReporter = createEvalReporter({ evalName: "draft-reply" });
 
   describeEvalMatrix("draft quality", (model, emailAccount) => {
     const bookingLink = "https://cal.example.com/founder";

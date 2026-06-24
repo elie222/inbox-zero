@@ -18,9 +18,9 @@ import type {
   UpdateRuleTool,
 } from "@/utils/ai/assistant/tools/rules/update-rule-tool";
 import type {
-  UpdateRuleStateOutput,
-  UpdateRuleStateTool,
-} from "@/utils/ai/assistant/tools/rules/update-rule-state-tool";
+  DeleteRuleOutput,
+  DeleteRuleTool,
+} from "@/utils/ai/assistant/tools/rules/delete-rule-tool";
 import { cn } from "@/utils";
 import { isDefined } from "@/utils/types";
 import {
@@ -81,6 +81,17 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+
+type LegacyRuleStateInput = {
+  ruleName: string;
+  operation?: "enable" | "disable" | "delete";
+};
+
+type LegacyRuleStateOutput = DeleteRuleOutput & {
+  operation?: "enable" | "disable" | "delete";
+  enabled?: boolean;
+  previousEnabled?: boolean;
+};
 import {
   RuleSummaryCard,
   RuleSummaryCardHeader,
@@ -1401,8 +1412,8 @@ export function UpdatedRuleState({
   output,
   preview,
 }: {
-  args: UpdateRuleStateTool["input"];
-  output: UpdateRuleStateOutput;
+  args: LegacyRuleStateInput;
+  output: LegacyRuleStateOutput;
   preview?: boolean;
 }) {
   const ruleId = output.ruleId;
@@ -1437,8 +1448,8 @@ export function PendingDeleteRuleToolCard({
   output,
   disableConfirm,
 }: {
-  args: UpdateRuleStateTool["input"];
-  output: UpdateRuleStateOutput;
+  args: DeleteRuleTool["input"];
+  output: DeleteRuleOutput;
   disableConfirm: boolean;
 }) {
   const { emailAccountId } = useAccount();
@@ -1448,7 +1459,6 @@ export function PendingDeleteRuleToolCard({
   );
   const ruleId = output.ruleId;
   const ruleName = output.ruleName || args.ruleName;
-  const wasEnabled = output.wasEnabled ?? true;
 
   const handleDelete = async () => {
     if (!ruleId) {
@@ -1487,9 +1497,6 @@ export function PendingDeleteRuleToolCard({
           <Badge color="green" className="shrink-0">
             Deleted
           </Badge>
-        )}
-        {!deleted && ruleId && (
-          <RuleEditToggleActions ruleId={ruleId} initialEnabled={wasEnabled} />
         )}
       </CardHeader>
 
@@ -1534,12 +1541,11 @@ export function PendingDeleteRulePreviewCard({
   args,
   output,
 }: {
-  args: UpdateRuleStateTool["input"];
-  output: UpdateRuleStateOutput;
+  args: DeleteRuleTool["input"];
+  output: DeleteRuleOutput;
 }) {
   const deleted = output.confirmationState === "confirmed";
   const ruleName = output.ruleName || args.ruleName;
-  const wasEnabled = output.wasEnabled ?? true;
 
   return (
     <Card>
@@ -1556,7 +1562,6 @@ export function PendingDeleteRulePreviewCard({
             Deleted
           </Badge>
         )}
-        {!deleted && <RuleEditToggleActionsPreview enabled={wasEnabled} />}
       </CardHeader>
 
       {!deleted && (

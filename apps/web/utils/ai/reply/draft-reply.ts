@@ -551,7 +551,7 @@ Do not suggest specific times. Acknowledge the request and suggest alternatives 
 
     parts.push(`Available time slots are in ${timezoneLabels}.
 If the sender requested or uses another timezone, express proposed times in that timezone after converting from the user's available slots.
-If you list specific times, include the user-facing timezone label shown for each slot and do not write raw timezone identifiers such as ${timezone}.
+If you list specific times, include the user-facing timezone label shown for each slot. Do not write IANA Region/City timezone identifiers (the Continent/City form with a slash). Normal abbreviations such as EST, PST, IST, or GMT+3 are fine.
 
 Available time slots:
 ${times}
@@ -626,11 +626,22 @@ function getTimezoneLabel(timezone: string, localTime?: string): string {
   const date = localTime
     ? createDateFromLocalTime(localTime, timezone)
     : new Date();
-  const label =
-    getIntlTimezoneName(timezone, date, "short") ||
-    getIntlTimezoneName(timezone, date, "shortOffset");
 
-  return label && label !== timezone ? label : timezone;
+  for (const style of [
+    "short",
+    "shortOffset",
+    "shortGeneric",
+    "longOffset",
+  ] as const) {
+    const label = getIntlTimezoneName(timezone, date, style);
+    if (label && !looksLikeIanaTimezoneIdentifier(label)) return label;
+  }
+
+  return "UTC";
+}
+
+function looksLikeIanaTimezoneIdentifier(label: string): boolean {
+  return label.includes("/");
 }
 
 function getTimezoneLabelsForSlots(
@@ -666,7 +677,7 @@ function createDateFromLocalTime(localTime: string, timezone: string): Date {
 function getIntlTimezoneName(
   timezone: string,
   date: Date,
-  timeZoneName: "short" | "shortOffset",
+  timeZoneName: "short" | "shortOffset" | "shortGeneric" | "longOffset",
 ): string | null {
   try {
     const parts = new Intl.DateTimeFormat("en-US", {

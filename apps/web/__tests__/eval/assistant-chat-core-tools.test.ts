@@ -23,7 +23,9 @@ import type { getEmailAccount } from "@/__tests__/helpers";
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 const MULTI_STEP_TIMEOUT = 120_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-core-tools",
+});
 const logger = createScopedLogger("eval-assistant-chat-core-tools");
 
 const {
@@ -70,13 +72,15 @@ vi.mock("@/utils/senders/unsubscribe", () => ({
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/env", () => ({
-  env: {
-    NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
-    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
-    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
-  },
-}));
+vi.mock("@/env", async () => {
+  const { buildAssistantChatEvalEnv } = await vi.importActual<
+    typeof import("@/__tests__/eval/assistant-chat-eval-env")
+  >("@/__tests__/eval/assistant-chat-eval-env");
+
+  return {
+    env: buildAssistantChatEvalEnv(),
+  };
+});
 
 const baseAccountSnapshot = {
   id: "email-account-1",

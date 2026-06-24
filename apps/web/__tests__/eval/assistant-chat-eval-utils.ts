@@ -7,6 +7,7 @@ import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
 
 export type RecordedToolCall = {
+  toolCallId?: string;
   toolName: string;
   input: unknown;
   output?: unknown;
@@ -96,6 +97,7 @@ export async function captureAssistantChatTrace({
         )?.output;
 
         recordedToolCalls.push({
+          toolCallId: toolCall.toolCallId,
           toolName: toolCall.toolName,
           input: toolCall.input,
           output,
@@ -108,6 +110,18 @@ export async function captureAssistantChatTrace({
   });
 
   await result.consumeStream();
+  const finalToolResults = await Promise.resolve(result.toolResults);
+  const finalToolOutputsById = new Map(
+    finalToolResults
+      .filter(isToolResultWithOutput)
+      .map((toolResult) => [toolResult.toolCallId, toolResult.output]),
+  );
+
+  for (const toolCall of recordedToolCalls) {
+    if (toolCall.output !== undefined || !toolCall.toolCallId) continue;
+    toolCall.output = finalToolOutputsById.get(toolCall.toolCallId);
+  }
+
   const finalText = await Promise.resolve(result.text);
 
   const debugArtifactPath = writeEvalDebugArtifact({
@@ -134,6 +148,17 @@ export async function captureAssistantChatTrace({
     toolCalls: recordedToolCalls,
     stepTexts,
   };
+}
+
+function isToolResultWithOutput(
+  value: unknown,
+): value is { toolCallId: string; output: unknown } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { toolCallId?: unknown }).toolCallId === "string" &&
+    "output" in value
+  );
 }
 
 export async function captureAssistantChatToolCalls(

@@ -680,7 +680,7 @@ export const readEmailTool = ({
 }) =>
   tool({
     description:
-      "Read the full content of an email by message ID, up to 4000 characters with HTML converted to plain text.",
+      "Read the full content of an email by message ID, up to 4000 characters with HTML converted to plain text. Use this whenever the user asks for the full text, body, or details of a specific email: locate the email with searchInbox first, then call this with the messageId from the search results. Search results only include short snippets, not the full content.",
     inputSchema: readEmailInputSchema,
     execute: async ({ messageId }) => {
       trackToolCall({ tool: "read_email", email, logger });
