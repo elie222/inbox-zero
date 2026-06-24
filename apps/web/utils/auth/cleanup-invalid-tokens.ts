@@ -89,7 +89,7 @@ export async function cleanupInvalidTokens({
       ? await sendWatchedAccountReconnectionEmail({
           emailAccountId: emailAccount.id,
           email: emailAccount.email,
-          recipientEmail: emailAccount.user.email,
+          recipientEmail: emailAccount.email,
           watchEmailsExpirationDate: emailAccount.watchEmailsExpirationDate,
           logger,
         })
@@ -105,7 +105,7 @@ export async function cleanupInvalidTokens({
   } else {
     await addUserErrorMessageWithNotification({
       userId: emailAccount.userId,
-      userEmail: emailAccount.user.email,
+      userEmail: emailAccount.email,
       emailAccountId: emailAccount.id,
       errorType: ErrorType.ACCOUNT_DISCONNECTED,
       errorMessage,
