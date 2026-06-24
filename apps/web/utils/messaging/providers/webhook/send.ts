@@ -40,6 +40,15 @@ export async function sendDigestToWebhook({
     throw new Error("Webhook URL blocked by SSRF protection");
   }
 
+  // Never transmit the shared webhook secret over plaintext HTTP: a network
+  // observer could capture `X-Webhook-Secret` and forge authenticated requests.
+  // Plain HTTP is still allowed when no secret is configured.
+  if (secret && resolvedUrl.url.protocol !== "https:") {
+    throw new Error(
+      "Webhook secret can only be sent over HTTPS; use an https:// URL or remove the secret",
+    );
+  }
+
   const requestBody = JSON.stringify(payload);
 
   const headers: Record<string, string> = {
