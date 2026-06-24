@@ -237,8 +237,12 @@ export const createWebhookChannelAction = actionClient
         },
         update: {
           webhookUrl,
-          webhookSecret: webhookSecret || null,
           isConnected: true,
+          // Only overwrite the secret when one is explicitly provided, so
+          // reconnecting an existing channel preserves its stored secret.
+          ...(webhookSecret !== undefined && {
+            webhookSecret: webhookSecret || null,
+          }),
         },
         create: {
           provider: MessagingProvider.WEBHOOK,
@@ -282,7 +286,12 @@ export const updateWebhookChannelAction = actionClient
         where: { id_emailAccountId: { id: channelId, emailAccountId } },
         data: {
           webhookUrl,
-          webhookSecret: webhookSecret || null,
+          // Only overwrite the secret when one is explicitly provided, so that
+          // editing only the URL (leaving the secret field blank) preserves the
+          // existing secret instead of clearing it.
+          ...(webhookSecret !== undefined && {
+            webhookSecret: webhookSecret || null,
+          }),
         },
       });
     },
