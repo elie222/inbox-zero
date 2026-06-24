@@ -224,7 +224,6 @@ export function Rules({
                           : "cursor-pointer"
                       }`}
                       onClick={() => {
-                        // Org-managed copies are read-only for members.
                         if (isPlaceholder || isOrgManaged) return;
                         ruleDialog.onOpen({ ruleId: rule.id, editMode: false });
                       }}

@@ -514,7 +514,6 @@ export const toggleAllRulesAction = actionClient
   .metadata({ name: "toggleAllRules" })
   .inputSchema(toggleAllRulesBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
-    // Org copies derive enabled from the org rule + opt-in; toggled separately.
     if (enabled) {
       await prisma.rule.updateMany({
         where: { emailAccountId, organizationRuleId: null },
@@ -578,7 +577,6 @@ export const copyRulesFromAccountAction = actionClientUser
         throw new SafeError("Target account not found or unauthorized");
       }
 
-      // Exclude org-managed rules; they aren't copyable.
       const sourceRules = await prisma.rule.findMany({
         where: {
           emailAccountId: sourceEmailAccountId,
@@ -597,7 +595,6 @@ export const copyRulesFromAccountAction = actionClientUser
         sourceRules.flatMap((rule) => rule.actions),
       );
 
-      // Match only personal rules so org-managed copies aren't overwritten.
       const targetRules = await prisma.rule.findMany({
         where: {
           emailAccountId: targetEmailAccountId,
@@ -713,7 +710,6 @@ async function toggleRule({
   logger: Logger;
 }) {
   if (ruleId) {
-    // Org copies are toggled only via setMemberOrganizationRuleEnabled.
     await assertRuleIsNotOrgManaged({ ruleId, emailAccountId });
     return await setRuleEnabled({ ruleId, emailAccountId, enabled });
   }
@@ -1067,7 +1063,6 @@ export const importRulesAction = actionClient
         rules.flatMap((rule) => rule.actions),
       );
 
-      // Match only personal rules so org-managed copies aren't overwritten.
       const existingRules = await prisma.rule.findMany({
         where: { emailAccountId, organizationRuleId: null },
         select: { id: true, name: true, systemType: true },

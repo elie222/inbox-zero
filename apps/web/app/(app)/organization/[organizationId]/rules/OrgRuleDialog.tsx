@@ -37,8 +37,6 @@ import type { OrganizationRulesResponse } from "@/app/api/organizations/[organiz
 
 type OrgRule = OrganizationRulesResponse["rules"][number];
 
-// Offer exactly the action types the server accepts (same shared list the
-// validation schema is built from), labeled from the shared map.
 const ACTION_TYPE_OPTIONS = ORGANIZATION_RULE_ACTION_TYPES.map((value) => ({
   value,
   label: ACTION_TYPE_LABELS[value],
@@ -119,7 +117,6 @@ export function OrgRuleDialog({
 
   const onSubmit = handleSubmit(async (formValues) => {
     const actions = formValues.actions.map((action) => ({
-      // The Select only offers supported types; validated again server-side.
       type: action.type as OrganizationRuleActionSchema["type"],
       label: action.label || null,
       subject: action.subject || null,

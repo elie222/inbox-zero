@@ -13,10 +13,7 @@ import type { RuleActionCreateData } from "@/utils/rule/rule";
 export const RULE_MANAGED_BY_ORGANIZATION_ERROR =
   "This rule is managed by your organization and can't be edited here. Ask an organization admin to change it.";
 
-// Portable action fields copied into each member's Action row. Account-specific
-// ids (labelId, folderId, messagingChannel*) are excluded on purpose and
-// resolved per member at execution. The `satisfies` guard keeps this list valid
-// against both models.
+// Only fields safe to materialize for every member; account-specific ids are resolved at execution.
 export const ORGANIZATION_RULE_ACTION_COPY_FIELDS = [
   "type",
   "label",
@@ -32,10 +29,8 @@ export const ORGANIZATION_RULE_ACTION_COPY_FIELDS = [
 ] as const satisfies readonly (keyof OrganizationRuleAction &
   keyof RuleActionCreateData)[];
 
-// Bounds the rename retries when a member already has a rule with the same name.
 const MAX_NAME_CONFLICT_RETRIES = 5;
 
-// Need a per-account messaging channel, so they can't be shared across members.
 const UNSUPPORTED_ORGANIZATION_ACTION_TYPES: ActionType[] = [
   ActionType.NOTIFY_MESSAGING_CHANNEL,
   ActionType.DRAFT_MESSAGING_CHANNEL,
@@ -186,7 +181,6 @@ export async function deleteOrganizationRuleAndMemberCopies({
   organizationRuleId: string;
   organizationId: string;
 }) {
-  // Cascade deletes the org actions and the materialized member copies.
   await prisma.organizationRule.deleteMany({
     where: { id: organizationRuleId, organizationId },
   });
@@ -377,7 +371,6 @@ async function materializeMemberRuleCopy({
     return existing
       ? prisma.rule.update({
           where: { id: existing.id, emailAccountId },
-          // Overwrite managed fields/actions; the member's opt-in is preserved.
           data: {
             ...data,
             actions: {
@@ -396,9 +389,6 @@ async function materializeMemberRuleCopy({
         });
   };
 
-  // First attempt uses the org rule's name. On a member name conflict, retry
-  // with a freshly computed unique name (recomputed each time to tolerate
-  // concurrent collisions) instead of skipping or rethrowing.
   for (let attempt = 0; attempt < MAX_NAME_CONFLICT_RETRIES; attempt++) {
     const name =
       attempt === 0
@@ -421,11 +411,7 @@ async function materializeMemberRuleCopy({
     }
   }
 
-  // Realistic conflicts resolve above. As a last resort (essentially never
-  // reached), fall back to an org-rule-id suffix so the member is never left
-  // without the rule. The id keeps the name stable across re-syncs (unlike a
-  // random suffix), and availableRuleName guarantees a free variant even in the
-  // unlikely case a rule already uses that exact name.
+  // Use a stable suffix as a final fallback after repeated concurrent conflicts.
   logger.warn(
     "Using fallback name for org rule copy after repeated conflicts",
     {

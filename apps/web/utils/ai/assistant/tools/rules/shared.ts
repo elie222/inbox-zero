@@ -139,8 +139,7 @@ export function buildHiddenRuleNotFoundError() {
   });
 }
 
-// Visible (not hidden) so the assistant relays it to the user.
-export function buildOrgManagedRuleError() {
+export function buildVisibleOrgManagedRuleError() {
   return {
     success: false as const,
     error: RULE_MANAGED_BY_ORGANIZATION_ERROR,

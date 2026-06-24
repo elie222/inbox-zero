@@ -35,7 +35,6 @@ function orgAction(overrides: Record<string, unknown> = {}) {
     staticAttachments: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    // Provider-specific fields that must never be copied to member actions.
     labelId: "admin-label-id",
     folderId: "admin-folder-id",
     messagingChannelId: "admin-channel-id",
@@ -183,7 +182,6 @@ describe("syncOrganizationRuleToMembers", () => {
       id: "member-rule-1",
       emailAccountId: "ea-1",
     });
-    // org enabled (true) && member opt-out (false) => false
     expect(updateArgs.data.organizationRuleMemberEnabled).toBe(false);
     expect(updateArgs.data.enabled).toBe(false);
   });
@@ -225,7 +223,6 @@ describe("syncOrganizationRuleToMembers", () => {
     prisma.rule.create
       .mockRejectedValueOnce(nameConflict)
       .mockResolvedValueOnce({} as never);
-    // availableRuleName: the desired name is already taken by a personal rule.
     prisma.rule.findMany.mockResolvedValue([{ name: "Invoices" }] as never);
 
     await syncOrganizationRuleToMembers({

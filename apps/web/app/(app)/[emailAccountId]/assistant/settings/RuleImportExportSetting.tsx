@@ -27,7 +27,6 @@ export function RuleImportExportSetting({
   const exportRules = useCallback(() => {
     if (!data) return;
 
-    // Org-managed rules are owned by the organization and not portable.
     const exportData = data
       .filter((rule) => !rule.organizationRuleId)
       .map((rule) => ({

@@ -114,8 +114,6 @@ export function getActionDisplay(
   }
 }
 
-// Short action-type labels for pickers (sentence case). Distinct from
-// getActionDisplay, which renders badge text including dynamic values.
 export const ACTION_TYPE_LABELS = {
   [ActionType.LABEL]: "Label",
   [ActionType.ARCHIVE]: "Archive",

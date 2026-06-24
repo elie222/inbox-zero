@@ -953,7 +953,6 @@ export function getRuleActionTypeOptions({
 
   return [
     {
-      // Provider-aware terminology (e.g. "Categorize" on Outlook).
       label: labelActionText,
       value: ActionType.LABEL,
     },

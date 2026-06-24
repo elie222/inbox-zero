@@ -194,7 +194,6 @@ export const updateDigestItemsAction = actionClient
             return;
           }
 
-          // Skip org-managed copies (admin-owned actions).
           if (rule.organizationRuleId) return;
 
           const hasDigestAction = rule.actions.some(
