@@ -1,7 +1,10 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { getTopWeeklyUsageCosts } from "@/utils/redis/usage";
+import {
+  getTopWeeklyUsageCosts,
+  getWeeklyUsageCostWindow,
+} from "@/utils/redis/usage";
 import {
   getAdminAiModelSpendByPeriod,
   getAdminAiUserModelSpendByPeriod,
@@ -17,6 +20,7 @@ vi.mock("@/utils/middleware", async () => {
 });
 vi.mock("@/utils/redis/usage", () => ({
   getTopWeeklyUsageCosts: vi.fn(),
+  getWeeklyUsageCostWindow: vi.fn(),
 }));
 vi.mock("@inboxzero/tinybird-ai-analytics", () => ({
   getAdminAiModelSpendByPeriod: vi.fn(),
@@ -47,6 +51,10 @@ describe("GET /api/admin/top-spenders", () => {
     vi.mocked(getTopWeeklyUsageCosts).mockResolvedValue([
       { email: "account@example.com", cost: 3 },
     ]);
+    vi.mocked(getWeeklyUsageCostWindow).mockReturnValue({
+      startTimestampMs: Date.UTC(2026, 1, 18),
+      endTimestampMs: Date.UTC(2026, 1, 25),
+    });
     vi.mocked(getAdminAiModelSpendByPeriod).mockResolvedValue([
       {
         provider: "openrouter",
@@ -91,6 +99,9 @@ describe("GET /api/admin/top-spenders", () => {
       where: { email: { in: ["account@example.com"] } },
       select: { id: true, email: true, userId: true },
     });
+    expect(getWeeklyUsageCostWindow).toHaveBeenCalledWith(
+      new Date("2026-02-24T15:30:00.000Z"),
+    );
     expect(getAdminAiModelSpendByPeriod).toHaveBeenCalledWith({
       startTimestampMs: Date.UTC(2026, 1, 18),
       endTimestampMs: Date.UTC(2026, 1, 25),

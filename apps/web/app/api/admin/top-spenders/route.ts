@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { withAdmin } from "@/utils/middleware";
-import { getTopWeeklyUsageCosts } from "@/utils/redis/usage";
+import {
+  getTopWeeklyUsageCosts,
+  getWeeklyUsageCostWindow,
+} from "@/utils/redis/usage";
 import { createScopedLogger } from "@/utils/logger";
 import {
   getAdminAiModelSpendByPeriod,
@@ -12,7 +15,6 @@ import {
 export type GetAdminTopSpendersResponse = Awaited<ReturnType<typeof getData>>;
 
 const logger = createScopedLogger("admin/top-spenders");
-const SPEND_WINDOW_DAYS = 7;
 const TOP_SPENDER_LIMIT = 25;
 const MODEL_SPEND_LIMIT = 25;
 const USER_MODEL_SPEND_LIMIT = 3;
@@ -24,7 +26,7 @@ export const GET = withAdmin("admin/top-spenders", async () => {
 
 async function getData() {
   const now = new Date();
-  const { startTimestampMs, endTimestampMs } = getSpendWindow(now);
+  const { startTimestampMs, endTimestampMs } = getWeeklyUsageCostWindow(now);
   const [topSpenders, modelSpend] = await Promise.all([
     getTopWeeklyUsageCosts({ limit: TOP_SPENDER_LIMIT, now }),
     getModelSpend({ startTimestampMs, endTimestampMs }),
@@ -149,20 +151,4 @@ function groupUserModelSpendByUserId<T extends { userId: string }>(
   }
 
   return userModelSpendByUserId;
-}
-
-function getSpendWindow(now: Date) {
-  const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-  start.setUTCDate(start.getUTCDate() - (SPEND_WINDOW_DAYS - 1));
-
-  const end = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
-  );
-
-  return {
-    startTimestampMs: start.getTime(),
-    endTimestampMs: end.getTime(),
-  };
 }

@@ -12,7 +12,7 @@ SQL >
       AND timestamp < {{ Int64(endTimestampMs) }}
       AND cost > 0
     GROUP BY provider, model
-    ORDER BY cost DESC
+    ORDER BY cost DESC, calls DESC, provider ASC, model ASC
     LIMIT {{ Int32(limit) }}
 
 TYPE endpoint

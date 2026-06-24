@@ -14,7 +14,10 @@ SQL >
         model,
         cost,
         calls,
-        row_number() OVER (PARTITION BY userId ORDER BY cost DESC) AS modelRank
+        row_number() OVER (
+          PARTITION BY userId
+          ORDER BY cost DESC, calls DESC, provider ASC, model ASC
+        ) AS modelRank
       FROM (
         SELECT
           userId,
@@ -34,6 +37,6 @@ SQL >
       )
     )
     WHERE modelRank <= {{ Int32(perUserLimit) }}
-    ORDER BY userId, cost DESC
+    ORDER BY userId ASC, cost DESC, calls DESC, provider ASC, model ASC
 
 TYPE endpoint
