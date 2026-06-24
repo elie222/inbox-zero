@@ -138,13 +138,15 @@ function buildPricingMap(payload: OpenRouterModelsResponse) {
     const matchedPricing = candidateModelIds
       .map((candidateModelId) => openRouterPricingByModelId[candidateModelId])
       .find(Boolean);
+    const staticPricing = getStaticPricing(targetModelId);
 
-    if (!matchedPricing) {
+    if (matchedPricing) {
+      pricingByModelId[targetModelId] = matchedPricing;
+    } else if (staticPricing) {
+      pricingByModelId[targetModelId] = staticPricing;
+    } else {
       unresolvedModels.push(targetModelId);
-      continue;
     }
-
-    pricingByModelId[targetModelId] = matchedPricing;
   }
 
   for (const [alias, canonicalModelId] of Object.entries(
@@ -169,6 +171,17 @@ function buildPricingMap(payload: OpenRouterModelsResponse) {
   return Object.fromEntries(
     Object.entries(pricingByModelId).sort(([a], [b]) => a.localeCompare(b)),
   );
+}
+
+function getStaticPricing(modelId: string): ModelPricing | undefined {
+  const staticPricing = STATIC_MODEL_PRICING[modelId];
+  if (!staticPricing) return;
+
+  return {
+    input: staticPricing.input,
+    output: staticPricing.output,
+    cachedInput: staticPricing.cachedInput ?? staticPricing.input,
+  };
 }
 
 function parsePricing(pricing: OpenRouterModel["pricing"]) {

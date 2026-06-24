@@ -154,6 +154,9 @@ describe("calculateUsageCost", () => {
   it("estimates DeepSeek V4 Flash costs", () => {
     const provider = "openrouter";
     const model = "deepseek/deepseek-v4-flash";
+    const pricing = OPENROUTER_MODEL_PRICING[model];
+    if (!pricing) throw new Error("Expected pricing for deepseek-v4-flash");
+
     const usage: LanguageModelUsage = {
       inputTokens: 1000,
       cachedInputTokens: 250,
@@ -162,11 +165,50 @@ describe("calculateUsageCost", () => {
     };
 
     const expected =
-      750 * (0.1 / 1_000_000) +
-      250 * (0.02 / 1_000_000) +
-      500 * (0.2 / 1_000_000);
+      750 * pricing.input + 250 * pricing.cachedInput + 500 * pricing.output;
 
     expect(calculateUsageCost({ provider, model, usage })).toBe(expected);
+  });
+
+  it("estimates current platform model costs", () => {
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      cachedInputTokens: 250,
+      outputTokens: 500,
+      totalTokens: 1500,
+    };
+
+    expect(
+      calculateUsageCost({
+        provider: "azure-foundry",
+        model: "DeepSeek-V4-Pro",
+        usage,
+      }),
+    ).toBeCloseTo(
+      750 * (1.925 / 1_000_000) +
+        250 * (0.165 / 1_000_000) +
+        500 * (3.828 / 1_000_000),
+    );
+
+    expect(
+      calculateUsageCost({
+        provider: "openrouter",
+        model: "openai/gpt-5.4",
+        usage,
+      }),
+    ).toBeCloseTo(
+      750 * (2.5 / 1_000_000) +
+        250 * (0.25 / 1_000_000) +
+        500 * (15 / 1_000_000),
+    );
+
+    expect(
+      calculateUsageCost({
+        provider: "perplexity",
+        model: "sonar-pro",
+        usage,
+      }),
+    ).toBeCloseTo(1000 * (3 / 1_000_000) + 500 * (15 / 1_000_000));
   });
 
   it("resolves prefixed OpenRouter pricing for non-prefixed model names", () => {
@@ -343,7 +385,7 @@ describe("saveAiUsage", () => {
     );
   });
 
-  it("uses zero provider-reported cost without falling back to estimates", async () => {
+  it("uses estimated cost when provider-reported cost is zero", async () => {
     const usage: LanguageModelUsage = {
       inputTokens: 1000,
       outputTokens: 400,
@@ -366,16 +408,51 @@ describe("saveAiUsage", () => {
       usage,
       label: "assistant-chat",
       providerReportedCost: 0,
-      providerUpstreamInferenceCost: 0.3456,
+      providerCostSource: "openrouter_usage",
+    });
+
+    expect(publishAiCall).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cost: estimatedCost,
+        estimatedCost,
+        providerReportedCost: 0,
+      }),
+    );
+
+    expect(saveUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        emailAccountId: "email-account-1",
+        usage,
+        cost: estimatedCost,
+      }),
+    );
+  });
+
+  it("keeps zero provider-reported cost when pricing is unavailable", async () => {
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      outputTokens: 400,
+      totalTokens: 1400,
+    };
+
+    await saveAiUsage({
+      userId: "user-1",
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "openrouter",
+      model: "model-without-local-pricing",
+      usage,
+      label: "assistant-chat",
+      providerReportedCost: 0,
       providerCostSource: "openrouter_usage",
     });
 
     expect(publishAiCall).toHaveBeenCalledWith(
       expect.objectContaining({
         cost: 0,
-        estimatedCost,
+        estimatedCost: 0,
         providerReportedCost: 0,
-        providerUpstreamInferenceCost: 0.3456,
       }),
     );
 
@@ -461,7 +538,7 @@ describe("saveAiUsage", () => {
         model: "deepseek/deepseek-v4-flash",
         label: "eval-test",
         estimatedCost,
-        platformCost: estimatedCost,
+        platformCost: 0.000_18,
         providerReportedCost: 0.000_18,
         inputTokens: 1000,
         outputTokens: 400,
