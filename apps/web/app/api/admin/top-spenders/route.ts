@@ -13,6 +13,7 @@ export type GetAdminTopSpendersResponse = Awaited<ReturnType<typeof getData>>;
 
 const logger = createScopedLogger("admin/top-spenders");
 const SPEND_WINDOW_DAYS = 7;
+const TOP_SPENDER_LIMIT = 25;
 const MODEL_SPEND_LIMIT = 25;
 const USER_MODEL_SPEND_LIMIT = 3;
 
@@ -25,7 +26,7 @@ async function getData() {
   const now = new Date();
   const { startTimestampMs, endTimestampMs } = getSpendWindow(now);
   const [topSpenders, modelSpend] = await Promise.all([
-    getTopWeeklyUsageCosts({ limit: 25, now }),
+    getTopWeeklyUsageCosts({ limit: TOP_SPENDER_LIMIT, now }),
     getModelSpend({ startTimestampMs, endTimestampMs }),
   ]);
 
@@ -71,12 +72,7 @@ async function getData() {
     startTimestampMs,
     endTimestampMs,
   });
-  const userModelSpendByUserId = new Map<string, typeof userModelSpend>();
-  for (const spend of userModelSpend) {
-    const current = userModelSpendByUserId.get(spend.userId) ?? [];
-    current.push(spend);
-    userModelSpendByUserId.set(spend.userId, current);
-  }
+  const userModelSpendByUserId = groupUserModelSpendByUserId(userModelSpend);
 
   const nanoWeeklySpendLimitUsd = env.AI_NANO_WEEKLY_SPEND_LIMIT_USD ?? null;
   const nanoModelConfigured = !!env.NANO_LLMS;
@@ -125,22 +121,6 @@ async function getModelSpend(options: {
   }
 }
 
-function getSpendWindow(now: Date) {
-  const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-  start.setUTCDate(start.getUTCDate() - (SPEND_WINDOW_DAYS - 1));
-
-  const end = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
-  );
-
-  return {
-    startTimestampMs: start.getTime(),
-    endTimestampMs: end.getTime(),
-  };
-}
-
 async function getUserModelSpend(options: {
   userIds: string[];
   startTimestampMs: number;
@@ -155,4 +135,34 @@ async function getUserModelSpend(options: {
     logger.error("Failed to load admin user model spend", { error });
     return [];
   }
+}
+
+function groupUserModelSpendByUserId<T extends { userId: string }>(
+  userModelSpend: T[],
+) {
+  const userModelSpendByUserId = new Map<string, T[]>();
+
+  for (const spend of userModelSpend) {
+    const current = userModelSpendByUserId.get(spend.userId) ?? [];
+    current.push(spend);
+    userModelSpendByUserId.set(spend.userId, current);
+  }
+
+  return userModelSpendByUserId;
+}
+
+function getSpendWindow(now: Date) {
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  start.setUTCDate(start.getUTCDate() - (SPEND_WINDOW_DAYS - 1));
+
+  const end = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+  );
+
+  return {
+    startTimestampMs: start.getTime(),
+    endTimestampMs: end.getTime(),
+  };
 }

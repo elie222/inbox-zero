@@ -26,6 +26,7 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+const numberFormatter = new Intl.NumberFormat("en-US");
 const SUB_CENT_USD = 0.01;
 
 export function AdminTopSpenders() {
@@ -122,9 +123,7 @@ export function AdminTopSpenders() {
                   </TableHeader>
                   <TableBody>
                     {modelSpend.map((model, index) => (
-                      <TableRow
-                        key={`${model.provider}:${model.model}:${index}`}
-                      >
+                      <TableRow key={`${model.provider}:${model.model}`}>
                         <TableCell>{index + 1}</TableCell>
                         <TableCell className="font-mono text-xs">
                           {model.provider}
@@ -155,9 +154,8 @@ export function AdminTopSpenders() {
   );
 }
 
-type ModelSpend = NonNullable<
-  NonNullable<GetAdminTopSpendersResponse["topSpenders"][number]>["modelSpend"]
->;
+type TopSpender = GetAdminTopSpendersResponse["topSpenders"][number];
+type ModelSpend = TopSpender["modelSpend"];
 
 function ModelSpendList({ modelSpend }: { modelSpend: ModelSpend }) {
   if (!modelSpend.length) {
@@ -188,5 +186,3 @@ function formatCost(cost: number) {
 
   return currencyFormatter.format(cost);
 }
-
-const numberFormatter = new Intl.NumberFormat("en-US");
