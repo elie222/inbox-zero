@@ -54,7 +54,7 @@ export function FixWithChat({
   const [showExplanation, setShowExplanation] = useState(false);
 
   const { setOpen } = useSidebar();
-  const { setContext } = useChat();
+  const { setContext, submitTextMessage, chat } = useChat();
 
   const selectedRuleName = useMemo(() => {
     if (!data) return null;
@@ -68,7 +68,7 @@ export function FixWithChat({
     setShowExplanation(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedRuleId) return;
 
     let input: string;
@@ -126,9 +126,17 @@ export function FixWithChat({
     };
     setContext(context);
 
-    setInput(input);
     setOpen((arr) => [...arr, "chat-sidebar"]);
     setIsModalOpen(false);
+
+    // Auto-send the message instead of only populating the input. If the chat
+    // is mid-response, fall back to populating the input so we don't interleave
+    // with an in-flight message.
+    if (chat.status === "ready") {
+      await submitTextMessage(input);
+    } else {
+      setInput(input);
+    }
 
     // Reset state
     setSelectedRuleId(null);
