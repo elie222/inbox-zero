@@ -3,8 +3,18 @@ import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { withAdmin } from "@/utils/middleware";
 import { getTopWeeklyUsageCosts } from "@/utils/redis/usage";
+import { createScopedLogger } from "@/utils/logger";
+import {
+  getAdminAiModelSpendByPeriod,
+  getAdminAiUserModelSpendByPeriod,
+} from "@inboxzero/tinybird-ai-analytics";
 
 export type GetAdminTopSpendersResponse = Awaited<ReturnType<typeof getData>>;
+
+const logger = createScopedLogger("admin/top-spenders");
+const SPEND_WINDOW_DAYS = 7;
+const MODEL_SPEND_LIMIT = 25;
+const USER_MODEL_SPEND_LIMIT = 3;
 
 export const GET = withAdmin("admin/top-spenders", async () => {
   const result = await getData();
@@ -12,8 +22,12 @@ export const GET = withAdmin("admin/top-spenders", async () => {
 });
 
 async function getData() {
-  const topSpenders = await getTopWeeklyUsageCosts({ limit: 25 });
-  if (!topSpenders.length) return { topSpenders: [] };
+  const now = new Date();
+  const { startTimestampMs, endTimestampMs } = getSpendWindow(now);
+  const [topSpenders, modelSpend] = await Promise.all([
+    getTopWeeklyUsageCosts({ limit: 25, now }),
+    getModelSpend({ startTimestampMs, endTimestampMs }),
+  ]);
 
   const emails = topSpenders.flatMap((spender) =>
     "email" in spender ? [spender.email] : [],
@@ -52,6 +66,17 @@ async function getData() {
     emailAccounts.map((account) => [account.email, account]),
   );
   const usersById = new Map(users.map((user) => [user.id, user]));
+  const userModelSpend = await getUserModelSpend({
+    userIds,
+    startTimestampMs,
+    endTimestampMs,
+  });
+  const userModelSpendByUserId = new Map<string, typeof userModelSpend>();
+  for (const spend of userModelSpend) {
+    const current = userModelSpendByUserId.get(spend.userId) ?? [];
+    current.push(spend);
+    userModelSpendByUserId.set(spend.userId, current);
+  }
 
   const nanoWeeklySpendLimitUsd = env.AI_NANO_WEEKLY_SPEND_LIMIT_USD ?? null;
   const nanoModelConfigured = !!env.NANO_LLMS;
@@ -73,6 +98,7 @@ async function getData() {
         email: "email" in spender ? spender.email : (user?.email ?? null),
         emailAccountId: primaryEmailAccount?.id ?? null,
         userEmailAccountCount: user?.emailAccounts.length ?? 0,
+        modelSpend: userId ? (userModelSpendByUserId.get(userId) ?? []) : [],
         nanoLimitedBySpendGuard:
           nanoLimiterEnabled &&
           nanoWeeklySpendLimitUsd !== null &&
@@ -80,5 +106,53 @@ async function getData() {
           spender.cost >= nanoWeeklySpendLimitUsd,
       };
     }),
+    modelSpend,
   };
+}
+
+async function getModelSpend(options: {
+  startTimestampMs: number;
+  endTimestampMs: number;
+}) {
+  try {
+    return await getAdminAiModelSpendByPeriod({
+      ...options,
+      limit: MODEL_SPEND_LIMIT,
+    });
+  } catch (error) {
+    logger.error("Failed to load admin model spend", { error });
+    return [];
+  }
+}
+
+function getSpendWindow(now: Date) {
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  start.setUTCDate(start.getUTCDate() - (SPEND_WINDOW_DAYS - 1));
+
+  const end = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+  );
+
+  return {
+    startTimestampMs: start.getTime(),
+    endTimestampMs: end.getTime(),
+  };
+}
+
+async function getUserModelSpend(options: {
+  userIds: string[];
+  startTimestampMs: number;
+  endTimestampMs: number;
+}) {
+  try {
+    return await getAdminAiUserModelSpendByPeriod({
+      ...options,
+      perUserLimit: USER_MODEL_SPEND_LIMIT,
+    });
+  } catch (error) {
+    logger.error("Failed to load admin user model spend", { error });
+    return [];
+  }
 }
