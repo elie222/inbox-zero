@@ -144,6 +144,39 @@ export async function clearSpecificErrorMessages({
   }
 }
 
+export async function clearAccountDisconnectedErrorIfResolved({
+  userId,
+  logger,
+}: {
+  userId: string;
+  logger: Logger;
+}): Promise<void> {
+  let disconnectedAccounts: number;
+  try {
+    disconnectedAccounts = await prisma.emailAccount.count({
+      where: {
+        userId,
+        account: { disconnectedAt: { not: null } },
+      },
+    });
+  } catch (error) {
+    logger.error("Error checking account disconnected errors:", {
+      userId,
+      error,
+    });
+    captureException(error, { extra: { userId } });
+    return;
+  }
+
+  if (disconnectedAccounts > 0) return;
+
+  await clearSpecificErrorMessages({
+    userId,
+    errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
+    logger,
+  });
+}
+
 const errorTypeConfig: Record<
   PersistedErrorType,
   { label: string; actionUrl: string; actionLabel: string }

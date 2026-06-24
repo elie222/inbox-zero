@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { ErrorType, getUserErrorMessages } from "@/utils/error-messages";
+import {
+  clearAccountDisconnectedErrorIfResolved,
+  ErrorType,
+  getUserErrorMessages,
+} from "@/utils/error-messages";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/prisma");
 vi.mock("@inboxzero/resend", () => ({
@@ -82,5 +87,63 @@ describe("getUserErrorMessages", () => {
 
     expect(result).toEqual(errorMessages);
     expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("clearAccountDisconnectedErrorIfResolved", () => {
+  const logger = createTestLogger();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("keeps the disconnect error while another account remains disconnected", async () => {
+    prisma.emailAccount.count.mockResolvedValue(1);
+
+    await clearAccountDisconnectedErrorIfResolved({
+      userId: "user-1",
+      logger,
+    });
+
+    expect(prisma.emailAccount.count).toHaveBeenCalledWith({
+      where: {
+        userId: "user-1",
+        account: { disconnectedAt: { not: null } },
+      },
+    });
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("clears the disconnect error when no accounts remain disconnected", async () => {
+    prisma.emailAccount.count.mockResolvedValue(0);
+    prisma.user.findUnique.mockResolvedValue({
+      errorMessages: {
+        [ErrorType.ACCOUNT_DISCONNECTED]: {
+          message: "Reconnect",
+          timestamp: "2026-06-24T04:00:40.506Z",
+        },
+        [ErrorType.INVALID_AI_MODEL]: {
+          message: "Invalid model",
+          timestamp: "2026-06-24T04:00:40.506Z",
+        },
+      },
+    } as any);
+
+    await clearAccountDisconnectedErrorIfResolved({
+      userId: "user-1",
+      logger,
+    });
+
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        errorMessages: {
+          [ErrorType.INVALID_AI_MODEL]: {
+            message: "Invalid model",
+            timestamp: "2026-06-24T04:00:40.506Z",
+          },
+        },
+      },
+    });
   });
 });

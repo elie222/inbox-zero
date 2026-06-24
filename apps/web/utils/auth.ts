@@ -42,7 +42,7 @@ import {
   updateAccountSeats,
 } from "@/utils/premium/seats";
 import { safeExpo } from "@/utils/mobile-auth/expo";
-import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
+import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
 import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 import { getAppleClientSecret } from "@/utils/auth/apple-client-secret";
 import { assertCanGenerateScimToken } from "@/utils/auth/scim";
@@ -645,9 +645,8 @@ export async function handleLinkAccount(account: Account) {
         }),
       ]);
 
-      await clearSpecificErrorMessages({
+      await clearAccountDisconnectedErrorIfResolved({
         userId: account.userId,
-        errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
         logger,
       });
 
@@ -688,9 +687,8 @@ export async function handleLinkAccount(account: Account) {
       }),
     ]);
 
-    await clearSpecificErrorMessages({
+    await clearAccountDisconnectedErrorIfResolved({
       userId: account.userId,
-      errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
       logger,
     });
 

@@ -40,7 +40,7 @@ describe("cleanupInvalidTokens", () => {
     watchEmailsExpirationDate: new Date(Date.now() + 1000 * 60 * 60), // Valid expiration
   };
 
-  it("marks account as disconnected and sends email on invalid_grant when account is watched", async () => {
+  it("marks account as disconnected and sends email to the disconnected account on invalid_grant when account is watched", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(mockEmailAccount as any);
     prisma.account.updateMany.mockResolvedValue({ count: 1 });
 
@@ -61,7 +61,7 @@ describe("cleanupInvalidTokens", () => {
     expect(sendReconnectionEmail).toHaveBeenCalled();
     expect(sendReconnectionEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        to: "owner@example.com",
+        to: "test@example.com",
         emailProps: expect.objectContaining({
           email: "test@example.com",
         }),
@@ -93,7 +93,7 @@ describe("cleanupInvalidTokens", () => {
     expect(addUserErrorMessageWithNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user_1",
-        userEmail: "owner@example.com",
+        userEmail: "test@example.com",
         emailAccountId: "ea_1",
         errorType: "Account disconnected",
         errorMessage: expect.stringContaining("test@example.com"),
@@ -133,7 +133,7 @@ describe("cleanupInvalidTokens", () => {
     expect(addUserErrorMessageWithNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user_1",
-        userEmail: "owner@example.com",
+        userEmail: "test@example.com",
         emailAccountId: "ea_1",
         errorType: "Account disconnected",
         errorMessage: expect.stringContaining("missing required permissions"),
@@ -157,7 +157,7 @@ describe("cleanupInvalidTokens", () => {
     expect(addUserErrorMessageWithNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user_1",
-        userEmail: "owner@example.com",
+        userEmail: "test@example.com",
         emailAccountId: "ea_1",
         errorType: "Account disconnected",
         errorMessage: expect.stringContaining("security policy"),
