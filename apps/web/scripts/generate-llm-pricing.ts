@@ -140,7 +140,16 @@ function buildPricingMap(payload: OpenRouterModelsResponse) {
       .find(Boolean);
 
     if (!matchedPricing) {
-      unresolvedModels.push(targetModelId);
+      const staticPricing = STATIC_MODEL_PRICING[targetModelId];
+      if (staticPricing) {
+        pricingByModelId[targetModelId] = {
+          input: staticPricing.input,
+          output: staticPricing.output,
+          cachedInput: staticPricing.cachedInput ?? staticPricing.input,
+        };
+      } else {
+        unresolvedModels.push(targetModelId);
+      }
       continue;
     }
 
