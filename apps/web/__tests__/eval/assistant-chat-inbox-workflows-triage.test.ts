@@ -127,6 +127,122 @@ describe.runIf(shouldRunEval)(
         );
 
         test.each(inboxWorkflowProviders)(
+          "verifies with searchInbox before claiming no unread emails on follow-up [$label]",
+          async ({ provider, label, unreadSignal }) => {
+            mockSearchMessages.mockResolvedValueOnce({
+              messages: [
+                getMockMessage({
+                  id: "msg-still-unread-1",
+                  threadId: "thread-still-unread-1",
+                  from: "vendor@partner.example",
+                  subject: "Awaiting your reply",
+                  snippet: "Following up on my earlier note.",
+                  labelIds: ["UNREAD"],
+                }),
+              ],
+              nextPageToken: undefined,
+            });
+
+            const { toolCalls, actual } = await runAssistantChat({
+              emailAccount: cloneEmailAccountForProvider(
+                emailAccount,
+                provider,
+              ),
+              inboxStats: { total: 240, unread: 6 },
+              messages: [
+                {
+                  role: "user",
+                  content: "Show me anything I should reply to today.",
+                },
+                {
+                  role: "assistant",
+                  content:
+                    "I went through your inbox and replied to the urgent threads.",
+                },
+                {
+                  role: "user",
+                  content: "Do I have any other unread emails?",
+                },
+              ],
+            });
+
+            const searchCall = getFirstSearchInboxCall(toolCalls);
+
+            const pass =
+              !!searchCall &&
+              hasUnreadTriageSignal(searchCall.query, provider, unreadSignal);
+
+            evalReporter.record({
+              testName: `verifies unread on follow-up (${label})`,
+              model: model.label,
+              pass,
+              actual,
+            });
+
+            expect(pass).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test.each(inboxWorkflowProviders)(
+          "re-runs searchInbox when user pushes back with 'look again' [$label]",
+          async ({ provider, label, unreadSignal }) => {
+            mockSearchMessages.mockResolvedValueOnce({
+              messages: [
+                getMockMessage({
+                  id: "msg-rechecked-1",
+                  threadId: "thread-rechecked-1",
+                  from: "ops@partner.example",
+                  subject: "Quick decision needed",
+                  snippet: "Can you confirm by EOD?",
+                  labelIds: ["UNREAD"],
+                }),
+              ],
+              nextPageToken: undefined,
+            });
+
+            const { toolCalls, actual } = await runAssistantChat({
+              emailAccount: cloneEmailAccountForProvider(
+                emailAccount,
+                provider,
+              ),
+              inboxStats: { total: 240, unread: 6 },
+              messages: [
+                {
+                  role: "user",
+                  content: "Do I have any unread emails?",
+                },
+                {
+                  role: "assistant",
+                  content:
+                    "Your inbox looks caught up — no unread emails right now.",
+                },
+                {
+                  role: "user",
+                  content: "look again",
+                },
+              ],
+            });
+
+            const searchCall = getFirstSearchInboxCall(toolCalls);
+
+            const pass =
+              !!searchCall &&
+              hasUnreadTriageSignal(searchCall.query, provider, unreadSignal);
+
+            evalReporter.record({
+              testName: `re-runs searchInbox on look-again (${label})`,
+              model: model.label,
+              pass,
+              actual,
+            });
+
+            expect(pass).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test.each(inboxWorkflowProviders)(
           "uses read-only inbox search for reply triage requests [$label]",
           async ({ provider, label }) => {
             const testName = `reply triage stays read-only (${label})`;
