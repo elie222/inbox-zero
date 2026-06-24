@@ -39,9 +39,8 @@ export function AdminTopSpenders() {
       <CardHeader>
         <CardTitle>Top Spenders</CardTitle>
         <CardDescription>
-          Last 7 days (same window as spend limiter). Nano-Limited shows who is
-          currently forced onto nano via the Redis spend guard. User Accounts
-          shows how many current email accounts that user has connected.
+          Last 7 days. Nano-Limited comes from Redis; User Accounts is connected
+          email accounts.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -106,7 +105,7 @@ export function AdminTopSpenders() {
               <div>
                 <h3 className="font-medium text-sm">Spend by Model</h3>
                 <p className="text-muted-foreground text-sm">
-                  Platform spend from Tinybird AI call analytics.
+                  Tinybird platform spend.
                 </p>
               </div>
 
