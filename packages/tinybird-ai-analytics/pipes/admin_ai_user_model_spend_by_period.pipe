@@ -1,4 +1,4 @@
-NODE admin_ai_user_model_spend_by_period
+NODE user_model_spend_by_period
 SQL >
   %
     SELECT
@@ -25,14 +25,14 @@ SQL >
           model,
           sum(cost) AS cost,
           count() AS calls
-        FROM aiCall
+        FROM aiCall AS ai_call
         WHERE
           userId IN (
             SELECT arrayJoin(splitByChar(',', {{ String(userIdsCsv) }}))
           )
           AND timestamp >= {{ Int64(startTimestampMs) }}
           AND timestamp < {{ Int64(endTimestampMs) }}
-          AND cost > 0
+          AND ai_call.cost > 0
         GROUP BY userId, provider, model
       )
     )
