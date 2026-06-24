@@ -61,7 +61,6 @@ import {
   SYSTEM_RULE_ORDER,
   getDefaultActions,
 } from "@/utils/rule/consts";
-import { sortRulesForAutomation } from "@/utils/rule/sort";
 import {
   STEP_KEYS,
   getOnboardingStepHref,
@@ -130,7 +129,9 @@ export function Rules({
 
     const userRules = existingRules.filter((rule) => !rule.systemType);
 
-    return sortRulesForAutomation([...systemRulePlaceholders, ...userRules]);
+    return [...systemRulePlaceholders, ...userRules].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+    );
   }, [data, emailAccountId, provider]);
 
   const [searchQuery, setSearchQuery] = useState("");
