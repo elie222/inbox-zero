@@ -4,6 +4,11 @@ import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { trackStripeCheckoutCompleted } from "@/utils/posthog";
+import {
+  CONVERSION_EVENT_ID_PARAM,
+  CONVERSION_EVENT_PARAM,
+} from "@/utils/analytics/conversion-events";
+import { buildRedirectUrl } from "@/utils/redirect";
 
 export const GET = withAuth("stripe/success", async (request) => {
   const userId = request.auth.userId;
@@ -29,5 +34,13 @@ export const GET = withAuth("stripe/success", async (request) => {
     logger,
   });
 
-  redirect("/setup");
+  const stripeCheckoutSessionId =
+    request.nextUrl.searchParams.get("session_id");
+
+  redirect(
+    buildRedirectUrl("/setup", {
+      [CONVERSION_EVENT_PARAM]: "trial_started",
+      [CONVERSION_EVENT_ID_PARAM]: stripeCheckoutSessionId ?? undefined,
+    }),
+  );
 });

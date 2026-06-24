@@ -1,7 +1,9 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { isDefined } from "@/utils/types";
 import {
   extractDomainFromEmail,
@@ -211,10 +213,7 @@ export async function saveBatch({
 
   logger.info("Saving", { count: emailsToSave.length });
 
-  await prisma.emailMessage.createMany({
-    data: emailsToSave,
-    skipDuplicates: true,
-  });
+  await saveEmailMessages(emailsToSave);
 
   return {
     data: {
@@ -222,6 +221,81 @@ export async function saveBatch({
       nextPageToken: res.nextPageToken,
     },
   };
+}
+
+async function saveEmailMessages(
+  emails: {
+    threadId: string;
+    messageId: string;
+    from: string;
+    fromName: string;
+    fromDomain: string;
+    to: string;
+    date: Date;
+    unsubscribeLink: string | null | undefined;
+    read: boolean;
+    sent: boolean;
+    draft: boolean;
+    inbox: boolean;
+    emailAccountId: string;
+  }[],
+) {
+  if (emails.length === 0) return;
+
+  const rows = emails.map(
+    (email) => Prisma.sql`(
+      ${randomUUID()}::text,
+      ${email.emailAccountId}::text,
+      ${email.threadId}::text,
+      ${email.messageId}::text,
+      ${email.date}::timestamp,
+      ${email.from}::text,
+      ${email.fromName}::text,
+      ${email.fromDomain}::text,
+      ${email.to}::text,
+      ${email.unsubscribeLink}::text,
+      ${email.read}::boolean,
+      ${email.sent}::boolean,
+      ${email.draft}::boolean,
+      ${email.inbox}::boolean,
+      NOW(),
+      NOW()
+    )`,
+  );
+
+  await prisma.$executeRaw`
+    INSERT INTO "EmailMessage" (
+      "id",
+      "emailAccountId",
+      "threadId",
+      "messageId",
+      "date",
+      "from",
+      "fromName",
+      "fromDomain",
+      "to",
+      "unsubscribeLink",
+      "read",
+      "sent",
+      "draft",
+      "inbox",
+      "createdAt",
+      "updatedAt"
+    )
+    VALUES ${Prisma.join(rows)}
+    ON CONFLICT ("emailAccountId", "threadId", "messageId") DO UPDATE SET
+      "date" = EXCLUDED."date",
+      "from" = EXCLUDED."from",
+      "fromName" = EXCLUDED."fromName",
+      "fromDomain" = EXCLUDED."fromDomain",
+      "to" = EXCLUDED."to",
+      "unsubscribeLink" = EXCLUDED."unsubscribeLink",
+      "read" = EXCLUDED."read",
+      "sent" = EXCLUDED."sent",
+      "draft" = EXCLUDED."draft",
+      "inbox" = EXCLUDED."inbox",
+      "updatedAt" = NOW()
+  `;
 }
 
 function mergeUnsubscribeSources({

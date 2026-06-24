@@ -26,6 +26,7 @@ export const microsoftChatProviderConfig: AssistantChatProviderConfig = {
 - If you use \`from:\` or \`to:\`, keep it as a simple standalone filter instead of combining extra terms after the field value.
 - Keep Outlook queries to one simple clause whenever possible. Do not mix sender, unread/read, date, and subject constraints into one retry.
 - Use searchInbox structured fields for category/folder scope and read state; use query for sender, subject, body text, or date/age filters.
+- For date or age filters, use the received field with a comparison operator and an ISO date, like \`received<2024-01-31\` or \`received>=2024-01-01\`. There is no colon between the field and the operator; convert relative ages ("older than 3 years") to a concrete date first.
 - Do not use Gmail-specific operators.`,
   inboxTriagePolicy: `Provider inbox defaults:
 - For inbox triage summaries, include the literal token \`unread\` in the query unless the user asks to include read messages. Do not add unread/read to direct cleanup action searches unless the user asks for that read state.

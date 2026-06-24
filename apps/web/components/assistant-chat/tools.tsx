@@ -1,3 +1,4 @@
+import type { ChangeEvent } from "react";
 import { useState } from "react";
 import { useQueryState } from "nuqs";
 import type { AddToKnowledgeBaseTool } from "@/utils/ai/assistant/tools/rules/add-to-knowledge-base-tool";
@@ -17,9 +18,9 @@ import type {
   UpdateRuleTool,
 } from "@/utils/ai/assistant/tools/rules/update-rule-tool";
 import type {
-  UpdateRuleStateOutput,
-  UpdateRuleStateTool,
-} from "@/utils/ai/assistant/tools/rules/update-rule-state-tool";
+  DeleteRuleOutput,
+  DeleteRuleTool,
+} from "@/utils/ai/assistant/tools/rules/delete-rule-tool";
 import { cn } from "@/utils";
 import { isDefined } from "@/utils/types";
 import {
@@ -80,6 +81,17 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+
+type LegacyRuleStateInput = {
+  ruleName: string;
+  operation?: "enable" | "disable" | "delete";
+};
+
+type LegacyRuleStateOutput = DeleteRuleOutput & {
+  operation?: "enable" | "disable" | "delete";
+  enabled?: boolean;
+  previousEnabled?: boolean;
+};
 import {
   RuleSummaryCard,
   RuleSummaryCardHeader,
@@ -200,6 +212,7 @@ export function SearchInboxResult({ output }: { output: unknown }) {
       snippet: string;
       date: string;
       isUnread: boolean;
+      externalUrl?: string;
     }>
   >(output, "messages");
 
@@ -423,9 +436,11 @@ export function ReadEmailResult({ output }: { output: unknown }) {
   const content = getOutputField<string>(output, "content");
   const messageId = getOutputField<string>(output, "messageId");
   const threadId = getOutputField<string>(output, "threadId");
+  const outputExternalUrl = getOutputField<string>(output, "externalUrl");
   const externalUrl = getExternalMessageUrl({
     messageId,
     threadId,
+    externalUrl: outputExternalUrl,
     userEmail,
     provider,
   });
@@ -713,7 +728,9 @@ function EmailActionResult({
             <div className="space-y-2">
               <Textarea
                 value={editedBody}
-                onChange={(e) => setEditedBody(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                  setEditedBody(e.target.value)
+                }
                 className="min-h-[140px] resize-y text-sm leading-relaxed"
               />
               <div className="flex justify-end gap-2">
@@ -1395,8 +1412,8 @@ export function UpdatedRuleState({
   output,
   preview,
 }: {
-  args: UpdateRuleStateTool["input"];
-  output: UpdateRuleStateOutput;
+  args: LegacyRuleStateInput;
+  output: LegacyRuleStateOutput;
   preview?: boolean;
 }) {
   const ruleId = output.ruleId;
@@ -1431,8 +1448,8 @@ export function PendingDeleteRuleToolCard({
   output,
   disableConfirm,
 }: {
-  args: UpdateRuleStateTool["input"];
-  output: UpdateRuleStateOutput;
+  args: DeleteRuleTool["input"];
+  output: DeleteRuleOutput;
   disableConfirm: boolean;
 }) {
   const { emailAccountId } = useAccount();
@@ -1442,7 +1459,6 @@ export function PendingDeleteRuleToolCard({
   );
   const ruleId = output.ruleId;
   const ruleName = output.ruleName || args.ruleName;
-  const wasEnabled = output.wasEnabled ?? true;
 
   const handleDelete = async () => {
     if (!ruleId) {
@@ -1481,9 +1497,6 @@ export function PendingDeleteRuleToolCard({
           <Badge color="green" className="shrink-0">
             Deleted
           </Badge>
-        )}
-        {!deleted && ruleId && (
-          <RuleEditToggleActions ruleId={ruleId} initialEnabled={wasEnabled} />
         )}
       </CardHeader>
 
@@ -1528,12 +1541,11 @@ export function PendingDeleteRulePreviewCard({
   args,
   output,
 }: {
-  args: UpdateRuleStateTool["input"];
-  output: UpdateRuleStateOutput;
+  args: DeleteRuleTool["input"];
+  output: DeleteRuleOutput;
 }) {
   const deleted = output.confirmationState === "confirmed";
   const ruleName = output.ruleName || args.ruleName;
-  const wasEnabled = output.wasEnabled ?? true;
 
   return (
     <Card>
@@ -1550,7 +1562,6 @@ export function PendingDeleteRulePreviewCard({
             Deleted
           </Badge>
         )}
-        {!deleted && <RuleEditToggleActionsPreview enabled={wasEnabled} />}
       </CardHeader>
 
       {!deleted && (
@@ -2090,14 +2101,19 @@ function getAssistantEmailSuccessMessage(actionType: PendingEmailActionType) {
 function getExternalMessageUrl({
   messageId,
   threadId,
+  externalUrl,
   userEmail,
   provider,
 }: {
   messageId?: string;
   threadId?: string;
+  externalUrl?: string;
   userEmail?: string | null;
   provider?: string;
 }) {
+  if (externalUrl) return externalUrl;
+  if (provider === "microsoft") return null;
+
   return getEmailUrlForOptionalMessage({
     messageId,
     threadId,
@@ -2205,6 +2221,7 @@ type ToolEmailRow = {
   snippet?: string;
   date: string;
   isUnread: boolean;
+  externalUrl?: string;
 };
 
 function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
@@ -2225,6 +2242,7 @@ function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
         snippet: email.snippet || "",
         date: email.date,
         isUnread: email.isUnread,
+        externalUrl: email.externalUrl,
       },
     ]),
   );

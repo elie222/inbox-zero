@@ -9,10 +9,30 @@ export type ModelPricing = {
 };
 
 export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
+  "anthropic.claude-3-5-haiku-20241022-v1:0": {
+    input: 8.000_000_000_000_001e-7,
+    output: 0.000_004,
+    cachedInput: 8.000_000_000_000_001e-7,
+  },
+  "anthropic.claude-3-5-sonnet-20240620-v1:0": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
+  "anthropic.claude-3-5-sonnet-20241022-v2:0": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
+  "anthropic.claude-sonnet-4-6": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
   "anthropic/claude-3.5-sonnet": {
-    input: 0.000_006,
-    output: 0.000_03,
-    cachedInput: 6e-7,
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
   },
   "anthropic/claude-3.7-sonnet": {
     input: 0.000_003,
@@ -55,14 +75,14 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     cachedInput: 3e-7,
   },
   "claude-3-5-sonnet-20240620": {
-    input: 0.000_006,
-    output: 0.000_03,
-    cachedInput: 6e-7,
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
   },
   "claude-3-5-sonnet-20241022": {
-    input: 0.000_006,
-    output: 0.000_03,
-    cachedInput: 6e-7,
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
   },
   "claude-3-7-sonnet-20250219": {
     input: 0.000_003,
@@ -89,10 +109,40 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.000_015,
     cachedInput: 3e-7,
   },
+  "DeepSeek-V4-Pro": {
+    input: 0.000_001_925,
+    output: 0.000_003_828,
+    cachedInput: 1.65e-7,
+  },
+  "deepseek/deepseek-v4-flash": {
+    input: 9e-8,
+    output: 1.8e-7,
+    cachedInput: 2e-8,
+  },
+  "eu.anthropic.claude-sonnet-4-6": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
+  "gemini-1.5-flash-latest": {
+    input: 7.5e-8,
+    output: 3e-7,
+    cachedInput: 7.5e-8,
+  },
+  "gemini-1.5-pro-latest": {
+    input: 0.000_001_25,
+    output: 0.000_005,
+    cachedInput: 0.000_001_25,
+  },
   "gemini-2.0-flash": {
-    input: 1e-7,
-    output: 4e-7,
-    cachedInput: 2.5e-8,
+    input: 1.5e-7,
+    output: 6e-7,
+    cachedInput: 1.5e-7,
+  },
+  "gemini-2.0-flash-lite": {
+    input: 7.5e-8,
+    output: 3e-7,
+    cachedInput: 7.5e-8,
   },
   "gemini-2.5-flash": {
     input: 3e-7,
@@ -109,10 +159,40 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.000_003,
     cachedInput: 5e-8,
   },
+  "gemini-3-pro": {
+    input: 0.000_002,
+    output: 0.000_012,
+    cachedInput: 0.000_002,
+  },
+  "gemini-3-pro-preview": {
+    input: 0.000_002,
+    output: 0.000_012,
+    cachedInput: 0.000_002,
+  },
+  "global.anthropic.claude-haiku-4-5-20251001-v1:0": {
+    input: 0.000_001,
+    output: 0.000_005,
+    cachedInput: 1.000_000_000_000_000_1e-7,
+  },
+  "global.anthropic.claude-sonnet-4-5-20250929-v1:0": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
+  "global.anthropic.claude-sonnet-4-6": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
   "google/gemini-2.0-flash-001": {
-    input: 1e-7,
-    output: 4e-7,
-    cachedInput: 2.5e-8,
+    input: 1.5e-7,
+    output: 6e-7,
+    cachedInput: 1.5e-7,
+  },
+  "google/gemini-2.5-flash-preview-05-20": {
+    input: 1.5e-7,
+    output: 6e-7,
+    cachedInput: 1.5e-7,
   },
   "google/gemini-2.5-pro": {
     input: 0.000_001_25,
@@ -124,15 +204,35 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.000_01,
     cachedInput: 1.25e-7,
   },
+  "google/gemini-2.5-pro-preview-03-25": {
+    input: 0.000_001_25,
+    output: 0.000_01,
+    cachedInput: 0.000_001_25,
+  },
+  "google/gemini-2.5-pro-preview-06-05": {
+    input: 0.000_001_25,
+    output: 0.000_01,
+    cachedInput: 0.000_001_25,
+  },
+  "google/gemini-3-flash": {
+    input: 5e-7,
+    output: 0.000_003,
+    cachedInput: 5e-7,
+  },
   "google/gemini-3-flash-preview": {
     input: 5e-7,
     output: 0.000_003,
     cachedInput: 5e-8,
   },
+  "google/gemini-3-pro": {
+    input: 0.000_002,
+    output: 0.000_012,
+    cachedInput: 0.000_002,
+  },
   "google/gemini-3-pro-preview": {
     input: 0.000_002,
     output: 0.000_012,
-    cachedInput: 2e-7,
+    cachedInput: 0.000_002,
   },
   "gpt-3.5-turbo-0125": {
     input: 5e-7,
@@ -147,7 +247,7 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
   "gpt-4o": {
     input: 0.000_002_5,
     output: 0.000_01,
-    cachedInput: 0.000_001_25,
+    cachedInput: 0.000_002_5,
   },
   "gpt-4o-mini": {
     input: 1.5e-7,
@@ -162,22 +262,17 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
   "gpt-5-nano": {
     input: 5e-8,
     output: 4e-7,
-    cachedInput: 5e-9,
+    cachedInput: 1e-8,
   },
   "gpt-5.1": {
     input: 0.000_001_25,
     output: 0.000_01,
-    cachedInput: 1.25e-7,
+    cachedInput: 1.3e-7,
   },
-  "gemini-3-pro": {
-    input: 0.000_002,
-    output: 0.000_012,
-    cachedInput: 2e-7,
-  },
-  "gemini-3-pro-preview": {
-    input: 0.000_002,
-    output: 0.000_012,
-    cachedInput: 2e-7,
+  "gpt-5.4": {
+    input: 0.000_002_5,
+    output: 0.000_015,
+    cachedInput: 2.5e-7,
   },
   "gpt-5.4-mini": {
     input: 7.5e-7,
@@ -189,10 +284,10 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.000_001_25,
     cachedInput: 2e-8,
   },
-  "grok-4-fast": {
-    input: 2e-7,
-    output: 5e-7,
-    cachedInput: 5e-8,
+  "llama-3.3-70b-versatile": {
+    input: 5.9e-7,
+    output: 7.900_000_000_000_001e-7,
+    cachedInput: 5.9e-7,
   },
   "meta-llama/llama-4-maverick": {
     input: 1.5e-7,
@@ -200,28 +295,48 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     cachedInput: 1.5e-7,
   },
   "moonshotai/kimi-k2": {
-    input: 5e-7,
-    output: 0.000_002_4,
-    cachedInput: 5e-7,
+    input: 5.7e-7,
+    output: 0.000_002_3,
+    cachedInput: 5.7e-7,
   },
   "openai/gpt-5-nano": {
     input: 5e-8,
     output: 4e-7,
-    cachedInput: 5e-9,
+    cachedInput: 1e-8,
   },
   "openai/gpt-5-nano-2025-08-07": {
     input: 5e-8,
     output: 4e-7,
-    cachedInput: 5e-9,
+    cachedInput: 1e-8,
   },
-  "x-ai/grok-4-fast": {
-    input: 2e-7,
-    output: 5e-7,
-    cachedInput: 5e-8,
+  "sonar-pro": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 0.000_003,
   },
-  "x-ai/grok-4-fast-2025-08-28": {
-    input: 2e-7,
-    output: 5e-7,
-    cachedInput: 5e-8,
+  "us.anthropic.claude-3-5-haiku-20241022-v1:0": {
+    input: 8.000_000_000_000_001e-7,
+    output: 0.000_004,
+    cachedInput: 8.000_000_000_000_001e-7,
+  },
+  "us.anthropic.claude-3-5-sonnet-20241022-v2:0": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
+  "us.anthropic.claude-3-7-sonnet-20250219-v1:0": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
+  "us.anthropic.claude-sonnet-4-20250514-v1:0": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
+  "us.anthropic.claude-sonnet-4-6": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
   },
 };

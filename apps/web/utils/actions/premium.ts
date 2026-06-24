@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { after } from "next/server";
+import { cookies } from "next/headers";
 import uniq from "lodash/uniq";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
@@ -41,6 +42,10 @@ import {
   trackStripeCheckoutCreated,
   trackStripeCustomerCreated,
 } from "@/utils/posthog";
+import {
+  CONVERSION_ATTRIBUTION_COOKIE,
+  CONVERSION_ATTRIBUTION_METADATA_KEY,
+} from "@/utils/analytics/server-conversion-events";
 
 const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 const checkoutOfferSchema = z.enum(["BRIEF_MY_MEETING"]);
@@ -544,14 +549,26 @@ export const generateCheckoutSessionAction = actionClientUser
       priceId,
       users: user.premium?.users || [{ _count: user._count }],
     });
+    const conversionAttributionId = (await cookies()).get(
+      CONVERSION_ATTRIBUTION_COOKIE,
+    )?.value;
 
     // ALWAYS create a checkout with a stripeCustomerId
     const checkout = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
-      success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success`,
+      success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
       mode: "subscription",
-      subscription_data: { trial_period_days: 7 },
+      subscription_data: {
+        trial_period_days: 7,
+        ...(conversionAttributionId
+          ? {
+              metadata: {
+                [CONVERSION_ATTRIBUTION_METADATA_KEY]: conversionAttributionId,
+              },
+            }
+          : {}),
+      },
       line_items: [{ price: priceId, quantity }],
       allow_promotion_codes: true,
       payment_method_collection: "always",

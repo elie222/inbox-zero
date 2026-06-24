@@ -303,7 +303,7 @@ function ReplyPanel({
           <ComposeEmailFormLazy
             replyingToEmail={replyingToEmail}
             refetch={refetch}
-            onSuccess={(messageId, threadId) => {
+            onSuccess={(messageId: string, threadId: string) => {
               onSendSuccess(messageId, threadId);
               onCloseCompose();
             }}

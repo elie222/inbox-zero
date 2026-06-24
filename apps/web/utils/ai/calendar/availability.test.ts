@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
+import { getUnifiedCalendarAvailability } from "@/utils/calendar/unified-availability";
 
 const { mockGenerateText, mockCreateGenerateText } = vi.hoisted(() => {
   const mockGenerateText = vi.fn();
@@ -26,6 +27,9 @@ vi.mock("@/utils/prisma", () => ({
   default: {
     calendarConnection: {
       findMany: vi.fn(),
+    },
+    availabilitySchedule: {
+      findFirst: vi.fn(),
     },
   },
 }));
@@ -61,6 +65,8 @@ describe("aiGetCalendarAvailability", () => {
         ],
       },
     ] as Awaited<ReturnType<typeof prisma.calendarConnection.findMany>>);
+    vi.mocked(prisma.availabilitySchedule.findFirst).mockResolvedValue(null);
+    vi.mocked(getUnifiedCalendarAvailability).mockResolvedValue([]);
   });
 
   it("returns the timezone used to generate suggested slots", async () => {
@@ -127,5 +133,59 @@ describe("aiGetCalendarAvailability", () => {
         ),
       }),
     );
+  });
+
+  it("filters suggested times outside the default availability schedule", async () => {
+    const prisma = (await import("@/utils/prisma")).default;
+    vi.mocked(prisma.availabilitySchedule.findFirst).mockResolvedValue({
+      timezone: "America/Los_Angeles",
+      windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 17 * 60 }],
+    } as Awaited<ReturnType<typeof prisma.availabilitySchedule.findFirst>>);
+    mockGenerateText.mockImplementation(async ({ tools }) => {
+      await tools.checkCalendarAvailability.execute({
+        timeMin: "2026-05-04T00:00:00.000Z",
+        timeMax: "2026-05-05T00:00:00.000Z",
+      });
+      await tools.returnSuggestedTimes.execute({
+        suggestedTimes: [
+          {
+            start: "2026-05-04 08:00",
+            end: "2026-05-04 08:30",
+          },
+          {
+            start: "2026-05-04 10:30",
+            end: "2026-05-04 11:00",
+          },
+        ],
+      });
+    });
+
+    const result = await aiGetCalendarAvailability({
+      emailAccount: {
+        ...getEmailAccount(),
+        timezone: "America/New_York",
+      },
+      messages: [
+        {
+          id: "msg-1",
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Meeting",
+          content: "Can we meet Monday?",
+          date: new Date("2026-04-30T08:48:00.000Z"),
+        },
+      ],
+      logger: createTestLogger(),
+    });
+
+    expect(result).toEqual({
+      timezone: "America/Los_Angeles",
+      suggestedTimes: [
+        {
+          start: "2026-05-04 10:30",
+          end: "2026-05-04 11:00",
+        },
+      ],
+    });
   });
 });

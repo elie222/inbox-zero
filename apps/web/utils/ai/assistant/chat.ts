@@ -1,6 +1,6 @@
 import type { JSONValue, ModelMessage } from "ai";
 import type { Logger } from "@/utils/logger";
-import type { MessageContext } from "@/app/api/chat/validation";
+import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage } from "@/utils/types";
@@ -18,7 +18,7 @@ import { getUserRulesAndSettingsTool } from "./tools/rules/get-user-rules-and-se
 import { updatePersonalInstructionsTool } from "./tools/rules/update-personal-instructions-tool";
 import { updateLearnedPatternsTool } from "./tools/rules/update-learned-patterns-tool";
 import { updateRuleTool } from "./tools/rules/update-rule-tool";
-import { updateRuleStateTool } from "./tools/rules/update-rule-state-tool";
+import { deleteRuleTool } from "./tools/rules/delete-rule-tool";
 import { getAssistantCapabilitiesTool } from "./tools/settings/get-assistant-capabilities-tool";
 import { updateAssistantSettingsTool } from "./tools/settings/update-assistant-settings-tool";
 import {
@@ -106,6 +106,7 @@ export async function aiProcessAssistantChat({
   const webhookActionsEnabled =
     env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false;
   let ruleReadState: RuleReadState | null = null;
+  const pendingRuleDeletionNames = new Set<string>();
   const memoryConversationMessages = conversationMessagesForMemory ?? messages;
   const userTimezone = user.timezone || "UTC";
   const currentTimestamp = new Date().toISOString();
@@ -129,6 +130,11 @@ export async function aiProcessAssistantChat({
       ruleReadState = state;
     },
     getRuleReadState: () => ruleReadState,
+    markRuleDeletionPending: (ruleName: string) => {
+      pendingRuleDeletionNames.add(ruleName);
+    },
+    hasPendingRuleDeletion: (ruleName: string) =>
+      pendingRuleDeletionNames.has(ruleName),
     onRulesStateExposed,
   };
   const providerPolicy = getAssistantChatProvider(user.account.provider);
@@ -253,7 +259,7 @@ export async function aiProcessAssistantChat({
     getLearnedPatterns: getLearnedPatternsTool(toolOptions),
     createRule: createRuleTool(toolOptions),
     updateRule: updateRuleTool(toolOptions),
-    updateRuleState: updateRuleStateTool(toolOptions),
+    deleteRule: deleteRuleTool(toolOptions),
     updateLearnedPatterns: updateLearnedPatternsTool(toolOptions),
     updatePersonalInstructions: updatePersonalInstructionsTool(toolOptions),
 
@@ -657,9 +663,10 @@ export function buildResolvedSystemPrompt({
 3. Update account features such as meeting briefs and auto-file attachments
 4. Create and update rules`,
     `Tool usage strategy:
-- Use the minimum number of tools needed. Start with read-only context tools before write tools.
+- Use the minimum number of tools needed. Start with read-only context tools before write tools when current inbox, account, or rule state is needed.
 - When a request can be completed with available tools, call the tool instead of only describing what you would do.
 - For plain inbox search requests, call searchInbox directly. Do not call getAccountOverview unless the user is explicitly asking for account context.
+- For direct requests to create a new rule with enough condition and action details, call createRule directly when no current inbox, sender, or existing-rule state is needed. Use read-only tools first only when the request depends on current messages, sender identity, or an existing rule.
 - Do not use rule tools, settings tools, or knowledge tools for personal memory requests unless the user is explicitly editing automation, changing a supported assistant setting, or naming the knowledge base.
 - Do not call durable write tools for indirect references to retrieved content or assistant summaries. First propose the exact destination and content, then write only after the user confirms that concrete proposal.
 - For supported account-setting updates, call updateAssistantSettings directly without calling getAssistantCapabilities first.`,
@@ -723,6 +730,8 @@ export function buildResolvedSystemPrompt({
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - Prefer updating an existing rule over creating an overlapping duplicate. Do not create semantic duplicates like "Notification" and "Notifications".
 - For direct requests to change an existing rule's behavior, read rules then use the relevant rule update tool. Do not ask for another confirmation unless multiple rules are similar or required data is missing.
+- For enable, disable, pause, or resume requests, call updateRule with only updates.enabled. Do not include copied name, condition, or actions fields.
+- For delete requests, call getUserRulesAndSettings first, then call deleteRule exactly once with the exact rule name. Do not disable the same rule after requesting deletion.
 - If multiple fetched rules are similar, ask the user which one to update instead of guessing.
 - Use short concise rule names and real sender or domain values. Ask when required data is missing.
 - Rules can use {{variables}} in action fields to insert AI-generated content.`,
@@ -779,7 +788,7 @@ Inline email cards:
 - Number every <email> starting from 1, continuing across blocks within the same response (two groups of 4 are 1–8, not 1–4 twice). The index lets you map "#6" back to its threadid in later turns even if the list changes.
 - For a single email or thread, use <email-detail threadid="THREAD_ID">Brief context</email-detail>.
 - The threadid must be a threadId from searchInbox results (not the HTML id).
-- Inner text is your brief context or recommendation. Default to one sentence; use two only when the email has multiple parts that change how the user should act. Never pad.
+- Inner text must say what the email actually contains — its concrete ask, news, or detail (amounts, dates, requested actions) — drawn from the subject and snippet, so the user understands it without opening it. Do not just restate the group header or a recommendation like "worth deciding whether to reply"; the header already conveys what to do. Default to one sentence; use two only when the email has distinct parts the user needs to know. Never pad.
 - The UI resolves sender, subject, and date from the threadId — don't repeat them.
 - Group <emails> blocks under markdown ## headers when triage has categories.
 - Only render email widgets when they add clarity, not for every search result.`;

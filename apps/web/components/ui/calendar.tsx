@@ -67,10 +67,12 @@ function Calendar({
         IconLeft: () => <ChevronLeft className="h-4 w-4" />,
         IconRight: () => <ChevronRight className="h-4 w-4" />,
         Months: ({ children }) => (
-          <div className="flex">
-            <div className="flex flex-row">{children}</div>
+          <div className="flex flex-col sm:flex-row">
+            <div className="flex flex-col sm:flex-row">{children}</div>
             {rightContent ? (
-              <div className="p-3 border-l border-gray-200">{rightContent}</div>
+              <div className="order-first p-3 border-b border-gray-200 sm:order-none sm:border-b-0 sm:border-l">
+                {rightContent}
+              </div>
             ) : null}
           </div>
         ),

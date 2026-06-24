@@ -679,7 +679,7 @@ GreenLeaf Goods LLC | 200 Elm Street, Portland, OR 97201`,
 ];
 
 describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
-  const evalReporter = createEvalReporter();
+  const evalReporter = createEvalReporter({ evalName: "choose-rule" });
 
   describeEvalMatrix("choose-rule", (model, emailAccount) => {
     for (const tc of testCases) {

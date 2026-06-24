@@ -1,7 +1,7 @@
 import type { ModelMessage } from "ai";
 import { beforeEach, vi } from "vitest";
 import {
-  captureAssistantChatToolCalls,
+  captureAssistantChatTrace,
   getFirstMatchingToolCall,
   getLastMatchingToolCall as getSharedLastMatchingToolCall,
   summarizeRecordedToolCalls,
@@ -131,13 +131,15 @@ vi.mock("@/utils/senders/unsubscribe", () => ({
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/env", () => ({
-  env: {
-    NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
-    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
-    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
-  },
-}));
+vi.mock("@/env", async () => {
+  const { buildAssistantChatEvalEnv } = await vi.importActual<
+    typeof import("@/__tests__/eval/assistant-chat-eval-env")
+  >("@/__tests__/eval/assistant-chat-eval-env");
+
+  return {
+    env: buildAssistantChatEvalEnv(),
+  };
+});
 
 export function setupInboxWorkflowEval() {
   beforeEach(() => {
@@ -230,7 +232,7 @@ export async function runAssistantChat({
   messages: ModelMessage[];
   inboxStats?: { total: number; unread: number } | null;
 }) {
-  const toolCalls = await captureAssistantChatToolCalls({
+  const trace = await captureAssistantChatTrace({
     messages,
     emailAccount,
     inboxStats,
@@ -238,8 +240,9 @@ export async function runAssistantChat({
   });
 
   return {
-    toolCalls,
-    actual: summarizeRecordedToolCalls(toolCalls, summarizeToolCall),
+    toolCalls: trace.toolCalls,
+    finalText: trace.finalText,
+    actual: summarizeRecordedToolCalls(trace.toolCalls, summarizeToolCall),
   };
 }
 

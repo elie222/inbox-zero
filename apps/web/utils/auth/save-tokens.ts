@@ -2,7 +2,7 @@ import prisma from "@/utils/prisma";
 import { encryptToken } from "@/utils/encryption";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
-import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
+import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
 
 const logger = createScopedLogger("auth");
 
@@ -74,9 +74,8 @@ export async function saveTokens({
       }
 
       if (emailAccount) {
-        await clearSpecificErrorMessages({
+        await clearAccountDisconnectedErrorIfResolved({
           userId: emailAccount.userId,
-          errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
           logger,
         });
       }
@@ -95,9 +94,8 @@ export async function saveTokens({
       select: { userId: true },
     });
 
-    await clearSpecificErrorMessages({
+    await clearAccountDisconnectedErrorIfResolved({
       userId: emailAccount.userId,
-      errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
       logger,
     });
   } else {
@@ -121,9 +119,8 @@ export async function saveTokens({
       data,
     });
 
-    await clearSpecificErrorMessages({
+    await clearAccountDisconnectedErrorIfResolved({
       userId: account.userId,
-      errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
       logger,
     });
 

@@ -201,6 +201,7 @@ model EmailAccount {
   invitations            Invitation[]
   ssoproviders           SsoProvider[]
   calendarConnections    CalendarConnection[]
+  availabilitySchedules  AvailabilitySchedule[]
   bookingLinks           BookingLink[]
   bookings               Booking[]
   mcpConnections         McpConnection[]
@@ -1251,20 +1252,41 @@ model BookingLink {
   locationValue        String?
   minimumNoticeMinutes Int                     @default(120)
   maxDaysAhead         Int                     @default(90)
-  timezone             String
 
   emailAccountId        String       @unique // temporary: relax when we support multiple booking links per account
   emailAccount          EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   destinationCalendarId String?
   destinationCalendar   Calendar?    @relation(fields: [destinationCalendarId], references: [id], onDelete: SetNull)
+  availabilityScheduleId String
+  availabilitySchedule   AvailabilitySchedule @relation(fields: [availabilityScheduleId, emailAccountId], references: [id, emailAccountId], onDelete: NoAction)
 
-  windows  BookingWindow[]
   bookings Booking[]
 
   @@index([destinationCalendarId])
+  @@index([availabilityScheduleId])
 }
 
-model BookingWindow {
+model AvailabilitySchedule {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name      String
+  isDefault Boolean @default(false)
+  timezone  String
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  windows      AvailabilityWindow[]
+  bookingLinks BookingLink[]
+
+  @@index([emailAccountId])
+  @@index([emailAccountId, isDefault])
+  @@unique([id, emailAccountId])
+}
+
+model AvailabilityWindow {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1273,10 +1295,10 @@ model BookingWindow {
   startMinutes Int
   endMinutes   Int
 
-  bookingLinkId String
-  bookingLink   BookingLink @relation(fields: [bookingLinkId], references: [id], onDelete: Cascade)
+  availabilityScheduleId String
+  availabilitySchedule   AvailabilitySchedule @relation(fields: [availabilityScheduleId], references: [id], onDelete: Cascade)
 
-  @@index([bookingLinkId])
+  @@index([availabilityScheduleId])
 }
 
 model Booking {

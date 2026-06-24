@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { aiCategorizeSendersSchema } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
+import { aiCategorizeSendersSchema } from "@/utils/categorize/senders/batch-validation";
 import {
   categorizeWithAi,
   getCategories,

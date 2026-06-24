@@ -12,6 +12,7 @@ const {
   mockWithTracing,
   mockGetPosthogLlmClient,
   mockIsPosthogLlmEvalApproved,
+  mockCreateClaudeCodeLanguageModelWithBridgedTools,
 } = vi.hoisted(() => ({
   mockGenerateText: vi.fn(),
   mockSaveAiUsage: vi.fn(),
@@ -22,6 +23,7 @@ const {
   mockWithTracing: vi.fn(),
   mockGetPosthogLlmClient: vi.fn(),
   mockIsPosthogLlmEvalApproved: vi.fn(),
+  mockCreateClaudeCodeLanguageModelWithBridgedTools: vi.fn(),
 }));
 
 vi.mock("ai", async () => {
@@ -44,6 +46,17 @@ vi.mock("@/utils/posthog", () => ({
 vi.mock("@posthog/ai/vercel", () => ({
   withTracing: mockWithTracing,
 }));
+
+vi.mock("@/utils/llms/cli-provider", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/utils/llms/cli-provider")
+  >("@/utils/llms/cli-provider");
+  return {
+    ...actual,
+    createClaudeCodeLanguageModelWithBridgedTools:
+      mockCreateClaudeCodeLanguageModelWithBridgedTools,
+  };
+});
 
 vi.mock("./retry", async () => {
   const actual = await vi.importActual<typeof import("./retry")>("./retry");
@@ -76,6 +89,7 @@ describe("createGenerateText fallback chain", () => {
     mockIsPosthogLlmEvalApproved.mockReturnValue(false);
     mockWithTracing.mockImplementation((model) => model);
     mockSaveAiUsage.mockResolvedValue(undefined);
+    mockCreateClaudeCodeLanguageModelWithBridgedTools.mockReset();
   });
 
   it("falls back to the next provider on retryable provider failures", async () => {
@@ -170,6 +184,49 @@ describe("createGenerateText fallback chain", () => {
       provider: "openai",
       modelName: "gpt-5-mini",
     });
+  });
+
+  it("bridges Claude Code tools without passing duplicate AI SDK tools", async () => {
+    const originalModel = createModel("claude-code-model");
+    const bridgedModel = createModel("claude-code-bridged-model");
+    const tools = {
+      finalizeResults: {
+        description: "Finalize results",
+        inputSchema: {},
+        execute: vi.fn(),
+      },
+    };
+    mockCreateClaudeCodeLanguageModelWithBridgedTools.mockResolvedValue(
+      bridgedModel,
+    );
+    mockGenerateText.mockImplementation(async (request) => {
+      expect(request.model).toBe(bridgedModel);
+      expect(request.tools).toBeUndefined();
+      return createTextResult();
+    });
+
+    const generateText = createGenerateTextForTest({
+      label: "Claude Code bridge",
+      modelOptions: createModelOptions({
+        provider: "claude-code",
+        modelName: "sonnet",
+        model: originalModel,
+      }),
+    });
+
+    await generateText({
+      prompt: "hello",
+      model: originalModel,
+      tools,
+    });
+
+    expect(
+      mockCreateClaudeCodeLanguageModelWithBridgedTools,
+    ).toHaveBeenCalledWith({
+      modelName: "sonnet",
+      tools,
+    });
+    expect(mockGenerateText).toHaveBeenCalledTimes(1);
   });
 
   it("sets openrouter user from internal user id", async () => {

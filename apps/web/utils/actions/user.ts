@@ -2,11 +2,11 @@
 
 import { z } from "zod";
 import { after } from "next/server";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import { deleteUser } from "@/utils/user/delete";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
-import { SafeError } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import { updateAccountSeats } from "@/utils/premium/seats";
 import { betterAuthConfig } from "@/utils/auth";
 import { headers } from "next/headers";
@@ -22,7 +22,8 @@ import {
   cleanupAIDraftsForAccount,
   getConfiguredDraftCleanupDays,
 } from "@/utils/ai/draft-cleanup";
-import { isNotFoundError } from "@/utils/prisma-helpers";
+import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
+import type { Logger } from "@/utils/logger";
 
 export const saveAboutAction = actionClient
   .metadata({ name: "saveAbout" })
@@ -108,90 +109,119 @@ export const updateAIDraftCleanupSettingsAction = actionClient
 export const deleteEmailAccountAction = actionClientUser
   .metadata({ name: "deleteEmailAccount" })
   .inputSchema(z.object({ emailAccountId: z.string() }))
-  .action(async ({ ctx: { userId }, parsedInput: { emailAccountId } }) => {
-    const emailAccount = await prisma.emailAccount.findUnique({
-      where: { id: emailAccountId, userId },
-      select: {
-        email: true,
-        accountId: true,
-        user: { select: { email: true } },
-      },
-    });
-
-    if (!emailAccount) throw new SafeError("Email account not found");
-    if (!emailAccount.accountId) throw new SafeError("Account id not found");
-
-    const isPrimaryAccount = emailAccount.email === emailAccount.user.email;
-
-    if (isPrimaryAccount) {
-      // Check if there are other email accounts
-      const otherEmailAccounts = await prisma.emailAccount.findMany({
-        where: { userId, id: { not: emailAccountId } },
-        orderBy: { createdAt: "asc" },
-        take: 1,
+  .action(
+    async ({
+      ctx: { userId, userEmail, logger },
+      parsedInput: { emailAccountId },
+    }) => {
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId, userId },
         select: {
-          id: true,
           email: true,
-          name: true,
-          image: true,
+          accountId: true,
+          user: { select: { email: true } },
         },
       });
 
-      if (otherEmailAccounts.length === 0) {
-        throw new SafeError(
-          "Cannot delete your only email account. Go to the Settings page to delete your entire account.",
+      if (!emailAccount) throw new SafeError("Email account not found");
+      if (!emailAccount.accountId) throw new SafeError("Account id not found");
+
+      const isPrimaryAccount = emailAccount.email === emailAccount.user.email;
+
+      if (isPrimaryAccount) {
+        // Check if there are other email accounts
+        const otherEmailAccounts = await prisma.emailAccount.findMany({
+          where: { userId, id: { not: emailAccountId } },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            image: true,
+          },
+        });
+
+        if (otherEmailAccounts.length === 0) {
+          throw new SafeError(
+            "Cannot delete your only email account. Go to the Settings page to delete your entire account.",
+          );
+        }
+
+        // Promote the next email account to primary
+        const newPrimaryAccount = otherEmailAccounts[0];
+        const oldEmail = emailAccount.user.email;
+
+        await runDeleteEmailAccountTransaction(
+          userId,
+          [
+            prisma.user.update({
+              where: {
+                id: userId,
+                email: oldEmail,
+                emailAccounts: { some: { id: newPrimaryAccount.id } },
+              },
+              data: {
+                email: newPrimaryAccount.email,
+                name: newPrimaryAccount.name,
+                image: newPrimaryAccount.image,
+              },
+            }),
+            prisma.emailAccount.delete({
+              where: {
+                id: emailAccountId,
+                userId,
+                accountId: emailAccount.accountId,
+              },
+            }),
+            prisma.account.delete({
+              where: { id: emailAccount.accountId, userId },
+            }),
+          ],
+          { emailAccountId, logger, userEmail },
+        );
+
+        // Alias the old PostHog identity to the new one
+        after(async () => {
+          await aliasPosthogUser({
+            oldEmail,
+            newEmail: newPrimaryAccount.email,
+          });
+        });
+      } else {
+        await runDeleteEmailAccountTransaction(
+          userId,
+          [
+            prisma.emailAccount.delete({
+              where: {
+                id: emailAccountId,
+                userId,
+                accountId: emailAccount.accountId,
+                user: { email: emailAccount.user.email },
+              },
+            }),
+            prisma.account.delete({
+              where: { id: emailAccount.accountId, userId },
+            }),
+          ],
+          { emailAccountId, logger, userEmail },
         );
       }
 
-      // Promote the next email account to primary
-      const newPrimaryAccount = otherEmailAccounts[0];
-      const oldEmail = emailAccount.user.email;
-
-      await runDeleteEmailAccountTransaction(userId, [
-        prisma.user.update({
-          where: {
-            id: userId,
-            email: oldEmail,
-            emailAccounts: { some: { id: newPrimaryAccount.id } },
-          },
-          data: {
-            email: newPrimaryAccount.email,
-            name: newPrimaryAccount.name,
-            image: newPrimaryAccount.image,
-          },
-        }),
-        prisma.account.delete({
-          where: { id: emailAccount.accountId, userId },
-        }),
-      ]);
-
-      // Alias the old PostHog identity to the new one
       after(async () => {
-        await aliasPosthogUser({
-          oldEmail,
-          newEmail: newPrimaryAccount.email,
-        });
+        await updateAccountSeats({ userId });
       });
-    } else {
-      await runDeleteEmailAccountTransaction(userId, [
-        prisma.account.delete({
-          where: {
-            id: emailAccount.accountId,
-            userId,
-            emailAccount: { user: { email: emailAccount.user.email } },
-          },
-        }),
-      ]);
-    }
-
-    after(async () => {
-      await updateAccountSeats({ userId });
-    });
-  });
+    },
+  );
 
 async function runDeleteEmailAccountTransaction(
   userId: string,
   operations: Prisma.PrismaPromise<unknown>[],
+  context: {
+    emailAccountId: string;
+    logger: Logger;
+    userEmail?: string | null;
+  },
 ) {
   try {
     await prisma.$transaction([
@@ -204,10 +234,53 @@ async function runDeleteEmailAccountTransaction(
       ...operations,
     ]);
   } catch (error) {
+    context.logger.error("Delete email account transaction failed", {
+      error,
+      emailAccountId: context.emailAccountId,
+      prismaCode: getPrismaErrorCode(error),
+      prismaMeta: getPrismaErrorMeta(error),
+    });
+
     if (isNotFoundError(error)) {
       throw new SafeError("Email account already changed");
     }
 
-    throw error;
+    if (isDuplicateError(error, "email")) {
+      throw new SafeError(
+        "We couldn't make the remaining email account primary because that email is already in use.",
+      );
+    }
+
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2003"
+    ) {
+      throw new SafeError(
+        "We couldn't delete this email account because linked data still exists. Please contact support.",
+      );
+    }
+
+    captureException(error, {
+      userId,
+      userEmail: context.userEmail ?? undefined,
+      emailAccountId: context.emailAccountId,
+      extra: { action: "deleteEmailAccount" },
+    });
+
+    throw new SafeError(
+      "We couldn't delete this email account. Please contact support if this keeps happening.",
+    );
   }
+}
+
+function getPrismaErrorCode(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError
+    ? error.code
+    : undefined;
+}
+
+function getPrismaErrorMeta(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError
+    ? error.meta
+    : undefined;
 }

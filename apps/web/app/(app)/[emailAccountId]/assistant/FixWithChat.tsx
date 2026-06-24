@@ -1,4 +1,5 @@
 import { MessageCircleIcon } from "lucide-react";
+import type { ChangeEvent } from "react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { ParsedMessage } from "@/utils/types";
@@ -27,7 +28,7 @@ import {
   NEW_RULE_ID as CONST_NEW_RULE_ID,
   NONE_RULE_ID as CONST_NONE_RULE_ID,
 } from "@/app/(app)/[emailAccountId]/assistant/consts";
-import type { MessageContext } from "@/app/api/chat/validation";
+import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import {
   serializeMatchReasons,
   type SerializedMatchReason,
@@ -191,7 +192,9 @@ export function FixWithChat({
                   className="mt-1"
                   rows={2}
                   value={explanation}
-                  onChange={(e) => setExplanation(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                    setExplanation(e.target.value)
+                  }
                   aria-describedby="explanation-help"
                   autoFocus
                 />
@@ -251,6 +254,7 @@ function RuleMismatch({
             ...rules,
           ]}
           onSelect={onSelectExpectedRuleId}
+          itemClassName="h-auto min-h-10 justify-start whitespace-normal text-wrap py-2 text-left"
         />
       </div>
     </div>

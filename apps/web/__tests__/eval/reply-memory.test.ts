@@ -21,7 +21,7 @@ import { isDefined } from "@/utils/types";
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 180_000;
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({ evalName: "reply-memory" });
 
 describe.runIf(shouldRunEval)("reply memory eval", () => {
   describeEvalMatrix("reply memory", (model, emailAccount) => {

@@ -80,7 +80,8 @@ vi.mock("@/utils/parse/calender-event", () => ({
   getCalendarEventStatus: vi.fn().mockReturnValue({ isEvent: false }),
 }));
 
-import { POST, cleanThread } from "./route";
+import { cleanThread } from "./controller";
+import { POST } from "./route";
 
 const logger = createTestLogger();
 

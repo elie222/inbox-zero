@@ -307,6 +307,37 @@ describe("createRuleBody", () => {
       });
     });
 
+    describe("DRAFT_MESSAGING_CHANNEL action", () => {
+      it("requires messagingChannelId for new chat draft actions", () => {
+        const result = createRuleBody.safeParse({
+          ...validRule,
+          actions: [{ type: ActionType.DRAFT_MESSAGING_CHANNEL }],
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error.issues[0].message).toBe(
+            "Please choose a chat destination",
+          );
+        }
+      });
+
+      it("allows persisted legacy chat draft actions without messagingChannelId", () => {
+        const result = createRuleBody.safeParse({
+          ...validRule,
+          actions: [
+            {
+              id: "action-legacy-draft",
+              type: ActionType.DRAFT_MESSAGING_CHANNEL,
+              messagingChannelId: null,
+            },
+          ],
+        });
+
+        expect(result.success).toBe(true);
+      });
+    });
+
     describe("CALL_WEBHOOK action", () => {
       it("requires url.value for CALL_WEBHOOK action", () => {
         const result = createRuleBody.safeParse({

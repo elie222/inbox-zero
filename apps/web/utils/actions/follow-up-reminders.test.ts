@@ -20,7 +20,7 @@ vi.mock("@/env", () => ({
   env: envMock,
 }));
 
-vi.mock("@/app/api/follow-up-reminders/process", () => ({
+vi.mock("@/utils/follow-up/process", () => ({
   processAccountFollowUps: vi.fn(),
 }));
 

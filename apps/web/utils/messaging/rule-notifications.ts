@@ -71,10 +71,7 @@ import {
   getTelegramChatId,
 } from "@/utils/messaging/action-event-identifiers";
 import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters";
-import {
-  escapeTelegramMarkdown,
-  markdownToTelegramText,
-} from "@/utils/messaging/providers/telegram/format";
+import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
 import { getMessagingRoute } from "@/utils/messaging/routes";
 import { getEmailUrlForOptionalMessage } from "@/utils/url";
 import {
@@ -1074,7 +1071,8 @@ async function sendDraftReplyFromNotification({
     context,
     logger,
     editMessage,
-    card: buildHandledNotificationCard({
+    card: buildHandledNotificationCardForProvider({
+      provider: context.messagingChannel?.provider,
       content: notificationContent,
       openLink: getNotificationOpenLink(context),
       status: "Reply sent.",
@@ -1995,16 +1993,65 @@ function buildTelegramNotificationCard({
   });
 }
 
+function buildTelegramHandledNotificationCard({
+  content,
+  openLink,
+  status,
+}: {
+  content: NotificationContent;
+  openLink?: NotificationOpenLink | null;
+  status: string;
+}): CardElement {
+  const children = buildNotificationCardBody(
+    sanitizeTelegramNotificationContent(content),
+  );
+  children.push(CardText(sanitizeTelegramCardText(`Status: ${status}`)));
+  if (openLink) {
+    children.push(Actions([LinkButton(openLink)]));
+  }
+
+  return Card({
+    children,
+  });
+}
+
+function buildHandledNotificationCardForProvider({
+  provider,
+  content,
+  openLink,
+  status,
+}: {
+  provider?: MessagingProvider | null;
+  content: NotificationContent;
+  openLink?: NotificationOpenLink | null;
+  status: string;
+}): CardElement {
+  if (provider === MessagingProvider.TELEGRAM) {
+    return buildTelegramHandledNotificationCard({ content, openLink, status });
+  }
+
+  return buildHandledNotificationCard({ content, openLink, status });
+}
+
 function sanitizeTelegramNotificationContent(
   content: NotificationContent,
 ): NotificationContent {
   return {
-    title: escapeTelegramMarkdown(content.title),
-    summary: escapeTelegramMarkdown(markdownToTelegramText(content.summary)),
-    details: content.details?.map((detail) =>
-      escapeTelegramMarkdown(markdownToTelegramText(detail)),
-    ),
+    title: sanitizeTelegramCardText(content.title),
+    summary: sanitizeTelegramCardText(content.summary),
+    details: content.details?.map(sanitizeTelegramCardText),
   };
+}
+
+function sanitizeTelegramCardText(text: string) {
+  return neutralizeTelegramAutolinks(markdownToTelegramText(text));
+}
+
+function neutralizeTelegramAutolinks(text: string) {
+  return text.replace(
+    /https?:\/\/\S+|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,
+    (value) => `\`${value.replace(/`/g, "'")}\``,
+  );
 }
 
 function buildHandledNotificationCard({

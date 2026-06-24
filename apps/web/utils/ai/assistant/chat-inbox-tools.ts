@@ -578,8 +578,8 @@ const gmailSearchInboxTool = ({
           labels,
           taxonomyNamesKey: "labelNames",
         });
-      } catch (error) {
-        logger.error("Failed to search inbox", { error, query });
+      } catch {
+        // Provider failures are logged and flushed at the provider boundary.
         return { queryUsed: query, error: "Failed to search inbox" };
       }
     },
@@ -624,10 +624,6 @@ const outlookSearchInboxTool = ({
         });
 
         if (!searchResult.result) {
-          logger.error("Failed to search inbox", {
-            error: searchResult.lastError,
-            query,
-          });
           return buildMicrosoftSearchErrorResult({
             query,
             failures: searchResult.failures,
@@ -643,7 +639,6 @@ const outlookSearchInboxTool = ({
           taxonomyNamesKey: "categoryNames",
         });
       } catch (error) {
-        logger.error("Failed to search inbox", { error, query });
         return buildMicrosoftSearchErrorResult({
           query,
           failures: [{ query, error }],
@@ -685,7 +680,7 @@ export const readEmailTool = ({
 }) =>
   tool({
     description:
-      "Read the full content of an email by message ID, up to 4000 characters with HTML converted to plain text.",
+      "Read the full content of an email by message ID, up to 4000 characters with HTML converted to plain text. Use this whenever the user asks for the full text, body, or details of a specific email: locate the email with searchInbox first, then call this with the messageId from the search results. Search results only include short snippets, not the full content.",
     inputSchema: readEmailInputSchema,
     execute: async ({ messageId }) => {
       trackToolCall({ tool: "read_email", email, logger });
@@ -703,6 +698,7 @@ export const readEmailTool = ({
         return {
           messageId: message.id,
           threadId: message.threadId,
+          externalUrl: message.externalUrl,
           from: emailForLLM.from,
           to: emailForLLM.to,
           cc: emailForLLM.cc,
@@ -1521,6 +1517,7 @@ function mapMessageForSearchResult(
   return {
     messageId: message.id,
     threadId: message.threadId,
+    externalUrl: message.externalUrl,
     subject: message.subject,
     from: message.headers.from,
     to: message.headers.to,

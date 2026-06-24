@@ -1,5 +1,6 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import { useState } from "react";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { motion } from "motion/react";
@@ -42,7 +43,7 @@ export function ExpandableText({
 
       <motion.button
         type="button"
-        onClick={(e) => {
+        onClick={(e: MouseEvent<HTMLButtonElement>) => {
           e.stopPropagation();
           setIsExpanded(!isExpanded);
         }}

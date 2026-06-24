@@ -55,7 +55,6 @@ export const updateBookingLinkActionBody = z.object({
   title: z.string().trim().min(1).max(120).optional(),
   slug: slugSchema.optional(),
   description: z.string().trim().max(1000).optional().nullable(),
-  timezone: timezoneSchema.optional(),
   isActive: z.boolean().optional(),
   durationMinutes: positiveMinutesSchema.max(24 * 60).optional(),
   locationType: locationTypeSchema.optional(),
@@ -101,6 +100,14 @@ export const updateBookingAvailabilityBody = z.object({
 });
 export type UpdateBookingAvailabilityBody = z.infer<
   typeof updateBookingAvailabilityBody
+>;
+
+export const updateDefaultAvailabilityBody = z.object({
+  timezone: timezoneSchema,
+  windows: z.array(bookingWindowBody).min(1),
+});
+export type UpdateDefaultAvailabilityBody = z.infer<
+  typeof updateDefaultAvailabilityBody
 >;
 
 export const publicBookingBody = z.object({

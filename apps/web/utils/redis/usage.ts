@@ -425,6 +425,24 @@ export async function getTopWeeklyUsageCosts({
     .slice(0, limit);
 }
 
+export function getWeeklyUsageCostWindow(now: Date) {
+  const days = getWeeklyUsageCostDays(now);
+  const latestDay = days[0];
+  const earliestDay = days.at(-1);
+
+  if (!latestDay || !earliestDay) {
+    return { startTimestampMs: 0, endTimestampMs: 0 };
+  }
+
+  const end = new Date(`${latestDay}T00:00:00.000Z`);
+  end.setUTCDate(end.getUTCDate() + 1);
+
+  return {
+    startTimestampMs: new Date(`${earliestDay}T00:00:00.000Z`).getTime(),
+    endTimestampMs: end.getTime(),
+  };
+}
+
 function getUsageIncrementOperations(
   key: string,
   usage: LanguageModelUsage,

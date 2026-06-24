@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max_old_space_size=6144 next dev --turbopack",
     "dev:e2e": "dotenv -e .env.e2e -- cross-env NODE_OPTIONS=--max_old_space_size=6144 next dev --turbopack",
-    "build": "cross-env NODE_OPTIONS=--max_old_space_size=16384 prisma migrate deploy && next build",
-    "build:ci": "cross-env NODE_OPTIONS=--max_old_space_size=16384 next build",
+    "build": "node scripts/recover-booking-availability-migration.cjs && cross-env NODE_OPTIONS=--max_old_space_size=16384 prisma migrate deploy && next build --webpack",
+    "build:ci": "cross-env NODE_OPTIONS=--max_old_space_size=16384 next build --webpack",
     "start": "next start",
     "start:standalone": "node .next/standalone/server.js",
     "lint": "biome check .",
@@ -14,6 +14,7 @@
     "check-server-actions": "node scripts/check-server-action-exports.js",
     "check-client-redirects": "node scripts/check-client-redirects.js",
     "generate-llm-pricing": "tsx scripts/generate-llm-pricing.ts",
+    "eval-report": "tsx scripts/eval-report/generate-eval-report.ts",
     "test": "cross-env RUN_AI_TESTS=false vitest",
     "test-ai": "cross-env RUN_AI_TESTS=true vitest --run",
     "test-e2e": "cross-env RUN_E2E_TESTS=true vitest --run",

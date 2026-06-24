@@ -1,0 +1,18 @@
+NODE model_spend_by_period
+SQL >
+  %
+    SELECT
+      provider,
+      model,
+      sum(cost) AS cost,
+      count() AS calls
+    FROM aiCall AS ai_call
+    WHERE
+      timestamp >= {{ Int64(startTimestampMs) }}
+      AND timestamp < {{ Int64(endTimestampMs) }}
+      AND ai_call.cost > 0
+    GROUP BY provider, model
+    ORDER BY cost DESC, calls DESC, provider ASC, model ASC
+    LIMIT {{ Int32(limit) }}
+
+TYPE endpoint

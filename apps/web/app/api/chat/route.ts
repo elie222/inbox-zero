@@ -33,6 +33,7 @@ import {
   saveLastSeenRulesRevision,
 } from "@/utils/ai/assistant/chat-seen-rules-revision";
 import { getToolFailureWarning } from "@/utils/ai/assistant/chat-response-guard";
+import { flushLoggerSafely } from "@/utils/logger-flush";
 
 export const maxDuration = 120;
 
@@ -269,6 +270,10 @@ export const POST = withEmailAccount("chat", async (request) => {
         const warning = getToolFailureWarning(responseMessage);
         if (!warning) return;
 
+        request.logger.warn("Assistant chat completed with tool failures", {
+          chatId: chat.id,
+        });
+
         const warningPartId = crypto.randomUUID();
         writer.write({ type: "text-start", id: warningPartId });
         writer.write({
@@ -301,12 +306,23 @@ export const POST = withEmailAccount("chat", async (request) => {
             logger: request.logger,
           });
         }
+
+        await flushLoggerSafely(request.logger, {
+          action: "assistant-chat",
+          flushReason: "chat-stream-finish",
+          chatId: chat.id,
+        });
       },
     });
 
     return createUIMessageStreamResponse({ stream });
   } catch (error) {
     request.logger.error("Error in assistant chat", { error });
+    await flushLoggerSafely(request.logger, {
+      action: "assistant-chat",
+      flushReason: "chat-error",
+      chatId: chat.id,
+    });
     return NextResponse.json(
       { error: "Error in assistant chat" },
       { status: 500 },

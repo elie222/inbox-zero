@@ -3,6 +3,7 @@ import { redis } from "@/utils/redis";
 import {
   getTopWeeklyUsageCosts,
   getUsage,
+  getWeeklyUsageCostWindow,
   getWeeklyUsageCost,
   saveUsage,
 } from "@/utils/redis/usage";
@@ -386,6 +387,13 @@ describe("redis usage tracking", () => {
     expect(redis.hgetall).not.toHaveBeenCalledWith(
       "usage-weekly-cost:user:user-3:2026-02-10",
     );
+  });
+
+  it("returns the UTC day window used by weekly usage costs", () => {
+    expect(getWeeklyUsageCostWindow(NOW)).toEqual({
+      startTimestampMs: Date.UTC(2026, 1, 18),
+      endTimestampMs: Date.UTC(2026, 1, 25),
+    });
   });
 
   it("returns legacy weekly spenders before they have been migrated", async () => {

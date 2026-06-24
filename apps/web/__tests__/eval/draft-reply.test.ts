@@ -19,7 +19,7 @@ const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 90_000;
 
 describe.runIf(shouldRunEval)("draft-reply eval", () => {
-  const evalReporter = createEvalReporter();
+  const evalReporter = createEvalReporter({ evalName: "draft-reply" });
 
   describeEvalMatrix("draft quality", (model, emailAccount) => {
     const bookingLink = "https://cal.example.com/founder";
@@ -222,6 +222,7 @@ Alex`,
             writingStyle: null,
             mcpContext: null,
             meetingContext: null,
+            currentDate: new Date("2026-05-12T09:30:00Z"),
           });
 
           const testName = "booking-link-first scheduling request";
@@ -312,6 +313,7 @@ Morgan`,
             writingStyle: null,
             mcpContext: null,
             meetingContext: null,
+            currentDate: new Date("2026-05-12T09:30:00Z"),
           });
 
           const testName = "human-friendly timezone for suggested times";
@@ -1094,8 +1096,9 @@ Maya`,
       );
 
       test(
-        "uses supplied pricing terms when pricing context is provided",
+        "uses supplied pricing terms before the signing deadline",
         async () => {
+          const currentDate = new Date("2026-05-15T12:00:00Z");
           const messages = [
             {
               ...getEmail({
@@ -1124,23 +1127,27 @@ Maya`,
             writingStyle: null,
             mcpContext: null,
             meetingContext: null,
+            currentDate,
           });
 
-          const testName = "provided pricing context";
+          const testName = "provided pricing context before deadline";
           const judgeResult = await judgeEvalOutput({
             input: [
               formatThreadForJudge(messages),
+              "",
+              "## Today",
+              currentDate.toISOString(),
               "",
               "## Knowledge Base",
               "For this customer, the approved annual price is $4,800. A 15% renewal discount applies if they sign by May 31.",
             ].join("\n"),
             output: result.reply,
             expected:
-              "A reply that uses the supplied pricing context to answer the sender with the approved annual price, renewal discount, and signing deadline, without inventing extra pricing terms.",
+              "A reply that uses the supplied pricing context to answer the sender with the approved annual price, renewal discount, and signing deadline. Since today is before May 31, the draft may state that the discount still applies if they sign by the deadline.",
             criterion: {
-              name: "Pricing context used",
+              name: "Pre-deadline pricing context used",
               description:
-                "The draft should communicate the supplied annual price, discount, and deadline. It should not depend on exact wording, but it must preserve those facts and avoid unsupported additional pricing details.",
+                "The draft should communicate the supplied annual price, discount, and deadline. Since today is before May 31, it may say the discount still applies if they sign by May 31. It should avoid unsupported additional pricing details.",
             },
           });
           const pass = judgeResult.pass;
@@ -1155,7 +1162,85 @@ Maya`,
 
           expect(
             pass,
-            `Draft should use the supplied pricing terms.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+            `Draft should use the supplied pre-deadline pricing terms.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "uses supplied pricing terms after the signing deadline",
+        async () => {
+          const currentDate = new Date("2026-06-15T12:00:00Z");
+          const messages = [
+            {
+              ...getEmail({
+                from: "Maya Chen <maya@customer.example>",
+                to: emailAccount.email,
+                subject: "Pricing confirmation",
+                content: `Hi,
+
+Can you confirm the annual price and whether the discount we discussed still applies?
+
+Thanks,
+Maya`,
+              }),
+              date: new Date("2026-05-03T11:00:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent:
+              "For this customer, the approved annual price is $4,800. A 15% renewal discount applies if they sign by May 31.",
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+            currentDate,
+          });
+
+          const testName = "provided pricing context after deadline";
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              formatThreadForJudge(messages),
+              "",
+              "## Today",
+              currentDate.toISOString(),
+              "",
+              "## Knowledge Base",
+              "For this customer, the approved annual price is $4,800. A 15% renewal discount applies if they sign by May 31.",
+            ].join("\n"),
+            output: result.reply,
+            expected:
+              "A reply that uses the supplied pricing context to answer the sender with the approved annual price and explains that the May 31 signing deadline has passed, so the discount is no longer currently available unless separately re-approved.",
+            criterion: {
+              name: "Post-deadline pricing context used",
+              description:
+                "The draft should communicate the supplied annual price and correctly account for today's date being after the May 31 signing deadline. It should not offer the 15% discount as still available, and it should avoid unsupported additional pricing details.",
+            },
+          });
+          const pass = judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected:
+              "$4,800; May 31 deadline has passed; no unsupported pricing terms",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should use the supplied post-deadline pricing terms.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
               judgeResult,
               null,
               2,

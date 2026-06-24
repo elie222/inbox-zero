@@ -273,6 +273,7 @@ const parsedEnv = createEnv({
     LOOPS_API_SECRET: z.string().optional(),
     FB_CONVERSION_API_ACCESS_TOKEN: z.string().optional(),
     FB_PIXEL_ID: z.string().optional(),
+    CONVERSION_ANALYTICS_SERVER_URL: z.string().optional(),
     ADMINS: z
       .string()
       .optional()
@@ -375,6 +376,7 @@ const parsedEnv = createEnv({
       .optional()
       .default("support@getinboxzero.com"),
     NEXT_PUBLIC_GTM_ID: z.string().optional(),
+    NEXT_PUBLIC_CONVERSION_ANALYTICS_SCRIPT_URL: z.string().optional(),
     NEXT_PUBLIC_CRISP_WEBSITE_ID: z.string().optional(),
     NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED: booleanString
       .optional()
@@ -481,6 +483,8 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
     NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
     NEXT_PUBLIC_GTM_ID: process.env.NEXT_PUBLIC_GTM_ID,
+    NEXT_PUBLIC_CONVERSION_ANALYTICS_SCRIPT_URL:
+      process.env.NEXT_PUBLIC_CONVERSION_ANALYTICS_SCRIPT_URL,
     NEXT_PUBLIC_CRISP_WEBSITE_ID: process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID,
     NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED:
       process.env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED,

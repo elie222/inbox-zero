@@ -1,11 +1,15 @@
 import groupBy from "lodash/groupBy";
 import sortBy from "lodash/sortBy";
 import { capitalCase } from "capital-case";
+import he from "he";
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
 import { conditionTypesToString } from "@/utils/condition";
-import { ExecutedRuleStatus, LogicalOperator } from "@/generated/prisma/enums";
-import type { ActionType } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  ExecutedRuleStatus,
+  LogicalOperator,
+} from "@/generated/prisma/enums";
 import type { Rule } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
 import { MessageText, MutedText } from "@/components/Typography";
@@ -83,7 +87,10 @@ function ResultDisplay({
   }
 
   return (
-    <HoverCard content={<ResultDisplayContent result={result} />}>
+    <HoverCard
+      content={<ResultDisplayContent result={result} />}
+      className="w-max min-w-64 max-w-[min(32rem,calc(100vw-2rem))] overflow-visible"
+    >
       <Badge color={rule ? "green" : "red"} className="whitespace-nowrap">
         {rule
           ? rule.name
@@ -98,6 +105,7 @@ function ResultDisplay({
 
 export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
   const { rule, status, reason } = result;
+  const reasonDisplay = getRuleResultReasonDisplay(reason ?? "");
   const skippedThreadRuleNames =
     result.selectionMetadata?.skippedThreadRuleNames ?? [];
   const learnedPatternExcludedRules =
@@ -176,12 +184,29 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
         </div>
       )}
 
-      {!!reason && (
+      {(!!reasonDisplay.reason ||
+        reasonDisplay.actionFailureMessages.length > 0) && (
         <div className="mt-4 space-y-2 bg-muted p-2 rounded-md">
           <div className="font-medium text-sm">
             Reason for choosing this rule:
           </div>
-          <MessageText>{reason}</MessageText>
+          {!!reasonDisplay.reason && (
+            <MessageText className="whitespace-pre-wrap break-words">
+              {reasonDisplay.reason}
+            </MessageText>
+          )}
+          {reasonDisplay.actionFailureMessages.length > 0 && (
+            <div className="space-y-1">
+              <div className="font-medium text-sm">Action issues:</div>
+              <ul className="list-disc space-y-1 pl-4 text-sm text-slate-700 dark:text-foreground">
+                {reasonDisplay.actionFailureMessages.map((message) => (
+                  <li key={message} className="break-words">
+                    {message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
@@ -291,4 +316,85 @@ function PrettyConditions({
       ))}
     </div>
   );
+}
+
+export function getRuleResultReasonDisplay(reason: string): {
+  reason: string;
+  actionFailureMessages: string[];
+} {
+  const actionFailureMessages: string[] = [];
+  const reasonLines: string[] = [];
+
+  for (const line of he.decode(reason).split(/\r?\n/)) {
+    const trimmedLine = line.trim();
+    if (trimmedLine.startsWith("Action failures:")) {
+      actionFailureMessages.push(
+        ...getActionFailureMessages(
+          trimmedLine.slice("Action failures:".length),
+        ),
+      );
+    } else {
+      reasonLines.push(line);
+    }
+  }
+
+  return {
+    reason: reasonLines.join("\n").trim(),
+    actionFailureMessages,
+  };
+}
+
+function getActionFailureMessages(failures: string): string[] {
+  return failures
+    .split(",")
+    .map((failure) => failure.trim())
+    .filter(Boolean)
+    .map((failure) => {
+      const separatorIndex = failure.indexOf(":");
+      if (separatorIndex === -1) return getActionFailureMessage(failure, "");
+
+      return getActionFailureMessage(
+        failure.slice(0, separatorIndex),
+        failure.slice(separatorIndex + 1),
+      );
+    });
+}
+
+const ACTION_FAILURE_MESSAGES: Partial<
+  Record<ActionType, { fallback: string; codes: Record<string, string> }>
+> = {
+  [ActionType.DRAFT_MESSAGING_CHANNEL]: {
+    fallback: "The draft reply action could not be completed.",
+    codes: {
+      MESSAGING_DELIVERY_FAILED:
+        "The draft reply could not be sent to the messaging channel.",
+      MISSING_MESSAGING_CHANNEL:
+        "The draft reply action needs a messaging channel.",
+    },
+  },
+  [ActionType.NOTIFY_MESSAGING_CHANNEL]: {
+    fallback: "The messaging channel notification could not be completed.",
+    codes: {
+      MESSAGING_DELIVERY_FAILED:
+        "The messaging channel notification could not be sent.",
+      MISSING_MESSAGING_CHANNEL:
+        "The messaging channel notification needs a channel.",
+    },
+  },
+  [ActionType.NOTIFY_SENDER]: {
+    fallback: "The sender notification could not be completed.",
+    codes: {
+      RESEND_NOT_CONFIGURED:
+        "The sender notification could not be sent because email sending is not configured.",
+      MISSING_SENDER_EMAIL:
+        "The sender notification could not be sent because the sender email could not be found.",
+      SEND_FAILED: "The sender notification could not be sent.",
+    },
+  },
+};
+
+function getActionFailureMessage(actionType: string, errorCode: string) {
+  const entry = ACTION_FAILURE_MESSAGES[actionType as ActionType];
+  if (!entry) return "An action could not be completed.";
+  return entry.codes[errorCode] ?? entry.fallback;
 }

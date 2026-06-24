@@ -1,8 +1,14 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, createMobileAuthCodeMock, mockEnv } = vi.hoisted(() => ({
+const {
+  authMock,
+  consumeMobileAuthStateMock,
+  createMobileAuthCodeMock,
+  mockEnv,
+} = vi.hoisted(() => ({
   authMock: vi.fn(),
+  consumeMobileAuthStateMock: vi.fn(),
   createMobileAuthCodeMock: vi.fn(),
   mockEnv: {
     MOBILE_AUTH_ORIGIN: "inboxzero://",
@@ -24,6 +30,7 @@ vi.mock("@/utils/mobile-auth/oauth-code", async () => {
   >("@/utils/mobile-auth/oauth-code");
   return {
     isValidMobileAuthState: actual.isValidMobileAuthState,
+    consumeMobileAuthState: consumeMobileAuthStateMock,
     createMobileAuthCode: createMobileAuthCodeMock,
   };
 });
@@ -44,6 +51,7 @@ describe("mobile auth callback route", () => {
     mockEnv.MOBILE_AUTH_ORIGIN = "inboxzero://";
     mockEnv.NEXT_PUBLIC_BASE_URL = "https://www.getinboxzero.com";
     authMock.mockResolvedValue({ user: { id: "user-1" } });
+    consumeMobileAuthStateMock.mockResolvedValue({ returnUrlMode: "app-link" });
     createMobileAuthCodeMock.mockResolvedValue("one-time-code");
   });
 
@@ -56,6 +64,9 @@ describe("mobile auth callback route", () => {
     );
 
     expect(authMock).toHaveBeenCalledWith(expect.any(Headers));
+    expect(consumeMobileAuthStateMock).toHaveBeenCalledWith({
+      state: "state-1234567890",
+    });
     expect(createMobileAuthCodeMock).toHaveBeenCalledWith({
       state: "state-1234567890",
       userId: "user-1",
@@ -78,6 +89,38 @@ describe("mobile auth callback route", () => {
 
     expect(response.headers.get("location")).toBe(
       "inboxzero://auth-callback?state=state-1234567890&code=one-time-code",
+    );
+  });
+
+  it("redirects to the stored custom scheme mode", async () => {
+    consumeMobileAuthStateMock.mockResolvedValue({
+      returnUrlMode: "custom-scheme",
+    });
+
+    const response = await GET(
+      new NextRequest(
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890",
+      ),
+      {} as never,
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "inboxzero://auth-callback?state=state-1234567890&code=one-time-code",
+    );
+  });
+
+  it("ignores tampered return URL modes on callback URLs", async () => {
+    consumeMobileAuthStateMock.mockResolvedValue({ returnUrlMode: "app-link" });
+
+    const response = await GET(
+      new NextRequest(
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&returnUrlMode=custom-scheme",
+      ),
+      {} as never,
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "https://www.getinboxzero.com/auth-callback?state=state-1234567890&code=one-time-code",
     );
   });
 

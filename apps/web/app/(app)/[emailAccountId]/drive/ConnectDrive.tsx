@@ -137,6 +137,7 @@ export function ConnectDrive() {
               </div>
               <Button
                 size="sm"
+                variant="outline"
                 onClick={() => {
                   setGoogleDialogOpen(false);
                   handleConnectGoogle("limited");

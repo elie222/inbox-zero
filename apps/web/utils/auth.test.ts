@@ -9,7 +9,7 @@ import {
   handleReferralOnSignUp,
 } from "@/utils/auth";
 import prisma from "@/utils/__mocks__/prisma";
-import { clearSpecificErrorMessages } from "@/utils/error-messages";
+import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
 
 vi.mock("better-auth", () => ({
   betterAuth: vi.fn((options: unknown) => ({
@@ -22,7 +22,7 @@ vi.mock("better-auth", () => ({
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/error-messages", () => ({
   addUserErrorMessage: vi.fn().mockResolvedValue(undefined),
-  clearSpecificErrorMessages: vi.fn().mockResolvedValue(undefined),
+  clearAccountDisconnectedErrorIfResolved: vi.fn().mockResolvedValue(undefined),
   ErrorType: {
     ACCOUNT_DISCONNECTED: "Account disconnected",
   },
@@ -164,10 +164,9 @@ describe("saveTokens", () => {
         }),
       }),
     );
-    expect(clearSpecificErrorMessages).toHaveBeenCalledWith(
+    expect(clearAccountDisconnectedErrorIfResolved).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user_1",
-        errorTypes: ["Account disconnected"],
       }),
     );
   });
@@ -209,10 +208,9 @@ describe("saveTokens", () => {
       }),
     });
     expect(prisma.emailAccount.update).not.toHaveBeenCalled();
-    expect(clearSpecificErrorMessages).toHaveBeenCalledWith(
+    expect(clearAccountDisconnectedErrorIfResolved).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user_1",
-        errorTypes: ["Account disconnected"],
       }),
     );
   });
@@ -236,7 +234,7 @@ describe("saveTokens", () => {
     });
 
     expect(result).toEqual({ status: "conflict" });
-    expect(clearSpecificErrorMessages).not.toHaveBeenCalled();
+    expect(clearAccountDisconnectedErrorIfResolved).not.toHaveBeenCalled();
   });
 
   it("clears disconnectedAt and error messages when saving tokens via providerAccountId", async () => {
@@ -266,10 +264,9 @@ describe("saveTokens", () => {
         }),
       }),
     );
-    expect(clearSpecificErrorMessages).toHaveBeenCalledWith(
+    expect(clearAccountDisconnectedErrorIfResolved).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user_1",
-        errorTypes: ["Account disconnected"],
       }),
     );
   });
@@ -292,7 +289,7 @@ describe("handleLinkAccount", () => {
 
     expect(prisma.emailAccount.findUnique).not.toHaveBeenCalled();
     expect(prisma.emailAccount.upsert).not.toHaveBeenCalled();
-    expect(clearSpecificErrorMessages).not.toHaveBeenCalled();
+    expect(clearAccountDisconnectedErrorIfResolved).not.toHaveBeenCalled();
   });
 
   it("still requires an access token for mailbox providers", async () => {

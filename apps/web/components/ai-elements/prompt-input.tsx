@@ -13,6 +13,7 @@ import type { ChatStatus } from "ai";
 import { Loader2Icon, SendIcon, SquareIcon, XIcon } from "lucide-react";
 import type {
   ComponentProps,
+  ChangeEvent,
   HTMLAttributes,
   KeyboardEventHandler,
 } from "react";
@@ -76,7 +77,7 @@ export const PromptInputTextarea = ({
         className,
       )}
       name="message"
-      onChange={(e) => {
+      onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
         onChange?.(e);
       }}
       onKeyDown={handleKeyDown}

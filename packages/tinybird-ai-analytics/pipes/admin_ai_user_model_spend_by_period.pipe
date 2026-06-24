@@ -1,0 +1,42 @@
+NODE user_model_spend_by_period
+SQL >
+  %
+    SELECT
+      userId,
+      provider,
+      model,
+      cost,
+      calls
+    FROM (
+      SELECT
+        userId,
+        provider,
+        model,
+        cost,
+        calls,
+        row_number() OVER (
+          PARTITION BY userId
+          ORDER BY cost DESC, calls DESC, provider ASC, model ASC
+        ) AS modelRank
+      FROM (
+        SELECT
+          userId,
+          provider,
+          model,
+          sum(cost) AS cost,
+          count() AS calls
+        FROM aiCall AS ai_call
+        WHERE
+          userId IN (
+            SELECT arrayJoin(splitByChar(',', {{ String(userIdsCsv) }}))
+          )
+          AND timestamp >= {{ Int64(startTimestampMs) }}
+          AND timestamp < {{ Int64(endTimestampMs) }}
+          AND ai_call.cost > 0
+        GROUP BY userId, provider, model
+      )
+    )
+    WHERE modelRank <= {{ Int32(perUserLimit) }}
+    ORDER BY userId ASC, cost DESC, calls DESC, provider ASC, model ASC
+
+TYPE endpoint

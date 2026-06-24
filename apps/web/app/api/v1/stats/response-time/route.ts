@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withStatsApiKey } from "@/utils/api-middleware";
-import { getResponseTimeStats } from "@/app/api/user/stats/response-time/controller";
+import { getResponseTimeStats } from "@/utils/stats/response-time/controller";
 import { responseTimeQuerySchema } from "./validation";
 
 export const GET = withStatsApiKey(

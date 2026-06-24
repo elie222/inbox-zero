@@ -6,6 +6,7 @@ import {
   deleteBookingLinkAction,
   updateBookingAvailabilityAction,
   updateBookingLinkAction,
+  updateDefaultAvailabilityAction,
 } from "@/utils/actions/booking";
 
 vi.mock("server-only", () => ({}));
@@ -26,12 +27,13 @@ describe("booking actions", () => {
         provider: "google",
       },
     } as any);
+    prisma.availabilitySchedule.findFirst.mockResolvedValue(null);
   });
 
   it("creates a booking link with provider video and default windows", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue(null);
-    prisma.calendar.findFirst.mockResolvedValue({ id: "calendar-id" } as any);
-    prisma.calendar.findUnique.mockResolvedValue({
+    prisma.calendar.findFirst.mockResolvedValue({
+      id: "calendar-id",
       connection: { provider: "microsoft" },
     } as any);
     prisma.bookingLink.create.mockResolvedValue({
@@ -49,21 +51,27 @@ describe("booking actions", () => {
     expect(prisma.bookingLink.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          emailAccountId: "email-account-id",
+          emailAccount: { connect: { id: "email-account-id" } },
           slug: "intro-call",
           durationMinutes: 30,
           slotIntervalMinutes: 30,
           locationType: BookingLinkLocationType.MICROSOFT_TEAMS,
-          destinationCalendarId: "calendar-id",
-          timezone: "UTC",
-          windows: {
-            create: [
-              { weekday: 1, startMinutes: 540, endMinutes: 1020 },
-              { weekday: 2, startMinutes: 540, endMinutes: 1020 },
-              { weekday: 3, startMinutes: 540, endMinutes: 1020 },
-              { weekday: 4, startMinutes: 540, endMinutes: 1020 },
-              { weekday: 5, startMinutes: 540, endMinutes: 1020 },
-            ],
+          destinationCalendar: { connect: { id: "calendar-id" } },
+          availabilitySchedule: {
+            create: expect.objectContaining({
+              name: "Default availability",
+              isDefault: true,
+              timezone: "UTC",
+              windows: {
+                create: [
+                  { weekday: 1, startMinutes: 540, endMinutes: 1020 },
+                  { weekday: 2, startMinutes: 540, endMinutes: 1020 },
+                  { weekday: 3, startMinutes: 540, endMinutes: 1020 },
+                  { weekday: 4, startMinutes: 540, endMinutes: 1020 },
+                  { weekday: 5, startMinutes: 540, endMinutes: 1020 },
+                ],
+              },
+            }),
           },
         }),
       }),
@@ -72,8 +80,8 @@ describe("booking actions", () => {
 
   it("anchors 45-minute calls to a 30-minute slot interval", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue(null);
-    prisma.calendar.findFirst.mockResolvedValue({ id: "calendar-id" } as any);
-    prisma.calendar.findUnique.mockResolvedValue({
+    prisma.calendar.findFirst.mockResolvedValue({
+      id: "calendar-id",
       connection: { provider: "google" },
     } as any);
     prisma.bookingLink.create.mockResolvedValue({
@@ -97,11 +105,45 @@ describe("booking actions", () => {
     );
   });
 
+  it("reuses an existing default availability schedule when recreating a booking link", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue(null);
+    prisma.availabilitySchedule.findFirst.mockResolvedValue({
+      id: "availability-schedule-id",
+    } as any);
+    prisma.calendar.findFirst.mockResolvedValue({
+      id: "calendar-id",
+      connection: { provider: "google" },
+    } as any);
+    prisma.bookingLink.create.mockResolvedValue({
+      id: "booking-link-id",
+    } as any);
+
+    const result = await createBookingLinkAction("email-account-id", {
+      title: "Intro call",
+      slug: "intro-call",
+      timezone: "UTC",
+      durationMinutes: 30,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.bookingLink.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          availabilitySchedule: {
+            connect: { id: "availability-schedule-id" },
+          },
+        }),
+      }),
+    );
+  });
+
   it("derives slot interval from duration on update", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue({
       id: "booking-link-id",
+      availabilityScheduleId: "availability-schedule-id",
     } as any);
     prisma.bookingLink.update.mockResolvedValue({} as any);
+    prisma.availabilitySchedule.update.mockResolvedValue({} as any);
 
     await updateBookingLinkAction("email-account-id", {
       id: "booking-link-id",
@@ -135,8 +177,8 @@ describe("booking actions", () => {
 
   it("creates a booking link without provider video when disabled", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue(null);
-    prisma.calendar.findFirst.mockResolvedValue({ id: "calendar-id" } as any);
-    prisma.calendar.findUnique.mockResolvedValue({
+    prisma.calendar.findFirst.mockResolvedValue({
+      id: "calendar-id",
       connection: { provider: "microsoft" },
     } as any);
     prisma.bookingLink.create.mockResolvedValue({
@@ -270,6 +312,115 @@ describe("booking actions", () => {
     expect(prisma.bookingLink.update).not.toHaveBeenCalled();
   });
 
+  it("normalizes requested provider video to the destination calendar provider", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue({
+      id: "booking-link-id",
+      locationType: BookingLinkLocationType.GOOGLE_MEET,
+      destinationCalendar: { connection: { provider: "google" } },
+    } as any);
+    prisma.calendar.findFirst.mockResolvedValue({
+      id: "microsoft-calendar-id",
+      connection: { provider: "microsoft" },
+    } as any);
+    prisma.bookingLink.update.mockResolvedValue({} as any);
+
+    const result = await updateBookingLinkAction("email-account-id", {
+      id: "booking-link-id",
+      destinationCalendarId: "microsoft-calendar-id",
+      locationType: BookingLinkLocationType.GOOGLE_MEET,
+      locationValue: "stale provider location",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.bookingLink.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          destinationCalendarId: "microsoft-calendar-id",
+          locationType: BookingLinkLocationType.MICROSOFT_TEAMS,
+          locationValue: null,
+        }),
+      }),
+    );
+  });
+
+  it("updates existing provider video when only the destination calendar changes", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue({
+      id: "booking-link-id",
+      locationType: BookingLinkLocationType.GOOGLE_MEET,
+      destinationCalendar: { connection: { provider: "google" } },
+    } as any);
+    prisma.calendar.findFirst.mockResolvedValue({
+      id: "microsoft-calendar-id",
+      connection: { provider: "microsoft" },
+    } as any);
+    prisma.bookingLink.update.mockResolvedValue({} as any);
+
+    const result = await updateBookingLinkAction("email-account-id", {
+      id: "booking-link-id",
+      destinationCalendarId: "microsoft-calendar-id",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.bookingLink.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          destinationCalendarId: "microsoft-calendar-id",
+          locationType: BookingLinkLocationType.MICROSOFT_TEAMS,
+          locationValue: null,
+        }),
+      }),
+    );
+  });
+
+  it("clears the destination calendar when a null update resolves to no default calendar", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue({
+      id: "booking-link-id",
+      locationType: BookingLinkLocationType.CUSTOM,
+      destinationCalendar: null,
+    } as any);
+    prisma.calendar.findFirst.mockResolvedValue(null);
+    prisma.bookingLink.update.mockResolvedValue({} as any);
+
+    const result = await updateBookingLinkAction("email-account-id", {
+      id: "booking-link-id",
+      destinationCalendarId: null,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.bookingLink.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          destinationCalendarId: null,
+        }),
+      }),
+    );
+  });
+
+  it("clears stale provider video when the destination calendar is cleared", async () => {
+    prisma.bookingLink.findFirst.mockResolvedValue({
+      id: "booking-link-id",
+      locationType: BookingLinkLocationType.MICROSOFT_TEAMS,
+      destinationCalendar: { connection: { provider: "microsoft" } },
+    } as any);
+    prisma.calendar.findFirst.mockResolvedValue(null);
+    prisma.bookingLink.update.mockResolvedValue({} as any);
+
+    const result = await updateBookingLinkAction("email-account-id", {
+      id: "booking-link-id",
+      destinationCalendarId: null,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.bookingLink.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          destinationCalendarId: null,
+          locationType: BookingLinkLocationType.CUSTOM,
+        }),
+      }),
+    );
+  });
+
   it("updates link minimum notice and other fields", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue({
       id: "booking-link-id",
@@ -295,6 +446,7 @@ describe("booking actions", () => {
   it("replaces availability windows in one update call", async () => {
     prisma.bookingLink.findFirst.mockResolvedValue({
       id: "booking-link-id",
+      availabilityScheduleId: "availability-schedule-id",
     } as any);
     prisma.bookingLink.update.mockResolvedValue({} as any);
 
@@ -310,15 +462,20 @@ describe("booking actions", () => {
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(prisma.bookingLink.update).toHaveBeenCalledWith({
-      where: { id: "booking-link-id" },
+    expect(prisma.availabilitySchedule.update).toHaveBeenCalledWith({
+      where: { id: "availability-schedule-id" },
       data: {
         timezone: "America/New_York",
-        minimumNoticeMinutes: 240,
         windows: {
           deleteMany: {},
           create: windows,
         },
+      },
+    });
+    expect(prisma.bookingLink.update).toHaveBeenCalledWith({
+      where: { id: "booking-link-id" },
+      data: {
+        minimumNoticeMinutes: 240,
       },
     });
   });
@@ -346,6 +503,71 @@ describe("booking actions", () => {
     expect(result?.validationErrors).toBeDefined();
     expect(prisma.bookingLink.findFirst).not.toHaveBeenCalled();
     expect(prisma.bookingLink.update).not.toHaveBeenCalled();
+  });
+
+  it("creates a default availability schedule when none exists", async () => {
+    prisma.availabilitySchedule.findFirst.mockResolvedValue(null);
+    prisma.availabilitySchedule.create.mockResolvedValue({} as any);
+
+    const windows = [
+      { weekday: 1, startMinutes: 9 * 60, endMinutes: 17 * 60 },
+      { weekday: 2, startMinutes: 9 * 60, endMinutes: 17 * 60 },
+    ];
+    const result = await updateDefaultAvailabilityAction("email-account-id", {
+      timezone: "America/New_York",
+      windows,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.availabilitySchedule.create).toHaveBeenCalledWith({
+      data: {
+        name: "Default availability",
+        isDefault: true,
+        timezone: "America/New_York",
+        emailAccount: { connect: { id: "email-account-id" } },
+        windows: { create: windows },
+      },
+    });
+    expect(prisma.availabilitySchedule.update).not.toHaveBeenCalled();
+  });
+
+  it("replaces windows on the existing default availability schedule", async () => {
+    prisma.availabilitySchedule.findFirst.mockResolvedValue({
+      id: "availability-schedule-id",
+    } as any);
+    prisma.availabilitySchedule.update.mockResolvedValue({} as any);
+
+    const windows = [
+      { weekday: 4, startMinutes: 10 * 60, endMinutes: 16 * 60 },
+    ];
+    const result = await updateDefaultAvailabilityAction("email-account-id", {
+      timezone: "Europe/London",
+      windows,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.availabilitySchedule.update).toHaveBeenCalledWith({
+      where: { id: "availability-schedule-id" },
+      data: {
+        timezone: "Europe/London",
+        windows: {
+          deleteMany: {},
+          create: windows,
+        },
+      },
+    });
+    expect(prisma.availabilitySchedule.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects default availability updates with no windows", async () => {
+    const result = await updateDefaultAvailabilityAction("email-account-id", {
+      timezone: "UTC",
+      windows: [],
+    });
+
+    expect(result?.validationErrors).toBeDefined();
+    expect(prisma.availabilitySchedule.create).not.toHaveBeenCalled();
+    expect(prisma.availabilitySchedule.update).not.toHaveBeenCalled();
   });
 
   it("deletes an owned booking link", async () => {

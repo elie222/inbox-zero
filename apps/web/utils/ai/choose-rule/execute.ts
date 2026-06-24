@@ -9,6 +9,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import type { ActionExecutionEmailAccount } from "@/utils/ai/types";
 import { shouldSkipAutomatedArchiveForSender } from "@/utils/ai/automated-archive-exception";
+import { flushLoggerSafely } from "@/utils/logger-flush";
 
 const MODULE = "ai-execute-act";
 
@@ -89,6 +90,10 @@ export async function executeAct({
           draftId,
           logger,
         });
+      } else if (action.type === ActionType.DRAFT_EMAIL) {
+        log.warn("Draft action completed without a draft ID", {
+          actionId: action.id,
+        });
       }
     } catch (error) {
       await logErrorWithDedupe({
@@ -100,6 +105,12 @@ export async function executeAct({
           emailAccountId: emailAccount.id,
           actionType: action.type,
         },
+      });
+      await flushLoggerSafely(log, {
+        action: "executeAct",
+        flushReason: "action-error",
+        executedRuleId: executedRule.id,
+        actionType: action.type,
       });
       await prisma.executedRule.update({
         where: { id: executedRule.id },

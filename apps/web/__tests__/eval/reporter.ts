@@ -164,6 +164,10 @@ class EvalReporter {
           evalName: this.evalName ?? null,
           createdAt,
           cacheMode: getEvalResultCacheMode(),
+          gitHead: readGitOutput(findWorkspaceRoot(process.cwd()), [
+            "rev-parse",
+            "HEAD",
+          ]),
           records: this.records,
           usage: summarizeUsageEvents(this.usageEvents),
         },

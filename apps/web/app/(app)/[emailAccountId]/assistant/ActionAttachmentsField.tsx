@@ -23,6 +23,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -43,7 +45,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
-import type { DriveSourceItem } from "@/app/api/user/drive/source-items/route";
+import type { DriveSourceItem } from "@/utils/drive/source-items";
 
 export function ActionAttachmentsField({
   value,
@@ -64,8 +66,6 @@ export function ActionAttachmentsField({
 }) {
   const { data: connectionsData } = useDriveConnections();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [isSourcePickerOpen, setIsSourcePickerOpen] = useState(false);
   const [isSourcesExpanded, setIsSourcesExpanded] = useState(false);
 
   const isConnected = (connectionsData?.connections.length ?? 0) > 0;
@@ -74,50 +74,14 @@ export function ActionAttachmentsField({
   const hasAiSources = aiSourceCount > 0;
   const totalCount = value.length + aiSourceCount;
 
-  const selectedKeys = useMemo(
-    () => new Set(value.map((source) => getSourceKey(source))),
-    [value],
-  );
-
-  const aiSourceKeys = useMemo(
-    () => new Set(attachmentSources.map((source) => getSourceKey(source))),
-    [attachmentSources],
-  );
-
   const toggleSource = (source: AttachmentSourceInput, checked: boolean) => {
-    const key = getSourceKey(source);
-    if (checked) {
-      onChange(
-        [...value, source].filter(
-          (item, index, all) =>
-            index ===
-            all.findIndex(
-              (candidate) => getSourceKey(candidate) === getSourceKey(item),
-            ),
-        ),
-      );
-    } else {
-      onChange(value.filter((item) => getSourceKey(item) !== key));
-    }
+    onChange(updateSelectedSources(value, source, checked));
   };
 
   const toggleAiSource = (source: AttachmentSourceInput, checked: boolean) => {
-    const key = getSourceKey(source);
-    if (checked) {
-      onAttachmentSourcesChange(
-        [...attachmentSources, source].filter(
-          (item, index, all) =>
-            index ===
-            all.findIndex(
-              (candidate) => getSourceKey(candidate) === getSourceKey(item),
-            ),
-        ),
-      );
-    } else {
-      onAttachmentSourcesChange(
-        attachmentSources.filter((item) => getSourceKey(item) !== key),
-      );
-    }
+    onAttachmentSourcesChange(
+      updateSelectedSources(attachmentSources, source, checked),
+    );
   };
 
   return (
@@ -179,29 +143,14 @@ export function ActionAttachmentsField({
             />
           )}
 
-          <Dialog open={isPickerOpen} onOpenChange={setIsPickerOpen}>
-            <DialogTrigger asChild>
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-xs mt-1"
-              >
-                <PlusIcon className="mr-1 size-3" />
-                Select files
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>Select files to always attach</DialogTitle>
-              </DialogHeader>
-              <AttachmentPicker
-                selectedKeys={selectedKeys}
-                onToggle={toggleSource}
-                allowFolderSelection={false}
-              />
-            </DialogContent>
-          </Dialog>
+          <AttachmentSourcePickerDialog
+            value={value}
+            onChange={onChange}
+            triggerLabel="Select files"
+            title="Select files to always attach"
+            description="Choose files that this rule should always attach after you save."
+            allowFolderSelection={false}
+          />
         </div>
       )}
 
@@ -236,35 +185,105 @@ export function ActionAttachmentsField({
             />
           )}
 
-          <Dialog
-            open={isSourcePickerOpen}
-            onOpenChange={setIsSourcePickerOpen}
-          >
-            <DialogTrigger asChild>
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-xs mt-1"
-              >
-                <PlusIcon className="mr-1 size-3" />
-                Select sources for AI
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>Select sources for AI to search</DialogTitle>
-              </DialogHeader>
-              <AttachmentPicker
-                selectedKeys={aiSourceKeys}
-                onToggle={toggleAiSource}
-                allowFolderSelection
-              />
-            </DialogContent>
-          </Dialog>
+          <AttachmentSourcePickerDialog
+            value={attachmentSources}
+            onChange={onAttachmentSourcesChange}
+            triggerLabel="Select sources for AI"
+            title="Select sources for AI to search"
+            description="Choose files or folders the AI can search after you save."
+            allowFolderSelection
+          />
         </div>
       )}
     </div>
+  );
+}
+
+function AttachmentSourcePickerDialog({
+  value,
+  onChange,
+  triggerLabel,
+  title,
+  description,
+  allowFolderSelection = false,
+}: {
+  value: AttachmentSourceInput[];
+  onChange: (value: AttachmentSourceInput[]) => void;
+  triggerLabel: string;
+  title: string;
+  description: string;
+  allowFolderSelection?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [draftSources, setDraftSources] = useState(value);
+
+  const selectedKeys = useMemo(
+    () => new Set(draftSources.map((source) => getSourceKey(source))),
+    [draftSources],
+  );
+
+  const openPicker = () => {
+    setDraftSources(value);
+    setIsOpen(true);
+  };
+
+  const cancelPicker = () => {
+    setDraftSources(value);
+    setIsOpen(false);
+  };
+
+  const savePicker = () => {
+    onChange(draftSources);
+    setIsOpen(false);
+  };
+
+  const toggleDraftSource = (
+    source: AttachmentSourceInput,
+    checked: boolean,
+  ) => {
+    setDraftSources((current) =>
+      updateSelectedSources(current, source, checked),
+    );
+  };
+
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => (open ? openPicker() : cancelPicker())}
+    >
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="h-auto p-0 text-xs mt-1"
+        >
+          <PlusIcon className="mr-1 size-3" />
+          {triggerLabel}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {description}
+          </DialogDescription>
+        </DialogHeader>
+        <AttachmentPicker
+          selectedKeys={selectedKeys}
+          onToggle={toggleDraftSource}
+          allowFolderSelection={allowFolderSelection}
+        />
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={cancelPicker}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={savePicker}>
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -495,6 +514,24 @@ function toAttachmentSource(
 
 function getSourceKey(source: AttachmentSourceInput) {
   return `${source.driveConnectionId}:${source.type}:${source.sourceId}`;
+}
+
+function updateSelectedSources(
+  sources: AttachmentSourceInput[],
+  source: AttachmentSourceInput,
+  checked: boolean,
+) {
+  const key = getSourceKey(source);
+
+  if (!checked) {
+    return sources.filter((item) => getSourceKey(item) !== key);
+  }
+
+  if (sources.some((item) => getSourceKey(item) === key)) {
+    return sources;
+  }
+
+  return [...sources, source];
 }
 
 function getTreeNodeId(item: DriveSourceItem) {

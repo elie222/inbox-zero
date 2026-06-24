@@ -102,7 +102,7 @@ export async function getPublicAvailability({
 
   return generateBookableSlots({
     now,
-    timezone: config.link.timezone,
+    timezone: config.timezone,
     start,
     end,
     rules: config.windows,
@@ -176,7 +176,11 @@ export async function createPublicBooking({
     createdEvent = await createCalendarEvent({
       emailAccountId: config.link.emailAccountId,
       destinationCalendarId: config.link.destinationCalendarId,
-      title: config.link.title,
+      title: getProviderEventTitle({
+        bookingLinkTitle: config.link.title,
+        guestName: input.guestName,
+        hostName: config.link.emailAccount.name,
+      }),
       description: getProviderEventDescription({
         guestName: input.guestName,
         guestEmail: input.guestEmail,
@@ -188,7 +192,7 @@ export async function createPublicBooking({
       }),
       startTime: selectedStartTime,
       endTime: selectedEndTime,
-      timezone: config.link.timezone,
+      timezone: config.timezone,
       attendees: [{ name: input.guestName, email: input.guestEmail }],
       locationType: config.link.locationType,
       locationValue: config.link.locationValue,
@@ -440,7 +444,7 @@ export async function reschedulePublicBooking({
         providerEventId: booking.providerEventId,
         startTime: newStartTime,
         endTime: newEndTime,
-        timezone: booking.bookingLink.timezone,
+        timezone: booking.bookingLink.availabilitySchedule.timezone,
         logger,
       });
     } catch (error) {
@@ -595,7 +599,9 @@ function getBookingHostInclude() {
         title: true,
         locationType: true,
         locationValue: true,
-        timezone: true,
+        availabilitySchedule: {
+          select: { timezone: true },
+        },
         emailAccount: {
           select: { email: true, name: true },
         },
@@ -616,18 +622,23 @@ async function loadPublicBookingLink(slug: string) {
       locationValue: true,
       minimumNoticeMinutes: true,
       maxDaysAhead: true,
-      timezone: true,
       emailAccountId: true,
       destinationCalendarId: true,
-      windows: {
+      availabilitySchedule: {
         select: {
-          weekday: true,
-          startMinutes: true,
-          endMinutes: true,
+          timezone: true,
+          windows: {
+            select: {
+              weekday: true,
+              startMinutes: true,
+              endMinutes: true,
+            },
+          },
         },
       },
       emailAccount: {
         select: {
+          name: true,
           calendarConnections: {
             where: { isConnected: true },
             select: {
@@ -664,7 +675,8 @@ async function loadPublicBookingLink(slug: string) {
 
   return {
     link,
-    windows: link.windows.map((window) => ({
+    timezone: link.availabilitySchedule.timezone,
+    windows: link.availabilitySchedule.windows.map((window) => ({
       weekday: window.weekday,
       startMinutes: window.startMinutes,
       endMinutes: window.endMinutes,
@@ -701,7 +713,7 @@ async function assertSlotAvailable({
 
   const slotValidation = validateSelectedSlot({
     now: new Date(),
-    timezone: config.link.timezone,
+    timezone: config.timezone,
     start: startTime,
     end: endTime,
     selectedStartTime: startTime,
@@ -737,7 +749,7 @@ async function getBusyPeriods({
       emailAccountId: config.link.emailAccountId,
       startDate: start,
       endDate: end,
-      timezone: config.link.timezone,
+      timezone: config.timezone,
       logger,
       failClosed: true,
       excludeGoogleVirtualCalendars: true,
@@ -913,6 +925,29 @@ function getProviderEventDescription({
   ]
     .filter((line) => line !== null)
     .join("\n");
+}
+
+function getProviderEventTitle({
+  bookingLinkTitle,
+  guestName,
+  hostName,
+}: {
+  bookingLinkTitle: string;
+  guestName: string;
+  hostName: string | null;
+}) {
+  const title = cleanCalendarTitleText(bookingLinkTitle) || "Meeting";
+  const host = hostName ? cleanCalendarTitleText(hostName) : "";
+  const guest = cleanCalendarTitleText(guestName);
+  const participant = guest || host;
+  const participants = host && guest ? ` between ${host} and ${guest}` : "";
+  const fallbackParticipant = participant ? ` with ${participant}` : "";
+
+  return `${title}${participants || fallbackParticipant}`;
+}
+
+function cleanCalendarTitleText(value: string) {
+  return cleanCalendarDescriptionText(value).replace(/\s+/g, " ").trim();
 }
 
 function cleanCalendarDescriptionText(value: string) {

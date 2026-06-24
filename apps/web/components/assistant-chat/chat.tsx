@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowUpIcon,
@@ -33,7 +34,7 @@ import { useLocalStorage } from "usehooks-ts";
 import { useSession } from "@/utils/auth-client";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
-import type { MessageContext } from "@/app/api/chat/validation";
+import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { ChatHistoryItem } from "@/components/assistant-chat/ChatHistoryItem";
 import {
@@ -228,7 +229,9 @@ export function Chat({
         data-testid="chat-input"
         value={input}
         placeholder="Ask me anything"
-        onChange={(e) => setInput(e.currentTarget.value)}
+        onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+          setInput(e.currentTarget.value)
+        }
         onPaste={handlePaste}
         className="pr-24"
       />
@@ -498,14 +501,23 @@ function ChatHistoryDropdown() {
 
   return (
     <>
-      <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenu
+        open={open}
+        onOpenChange={(value) => {
+          setOpen(value);
+          if (value) setShouldLoadChats(true);
+        }}
+      >
         <Tooltip content="View previous conversations">
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
               onMouseEnter={() => setShouldLoadChats(true)}
-              onClick={() => mutate()}
+              onClick={() => {
+                setShouldLoadChats(true);
+                mutate();
+              }}
             >
               <HistoryIcon className="size-5" />
               <span className="sr-only">Chat History</span>

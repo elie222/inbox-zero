@@ -33,6 +33,9 @@ describe("microsoft oauth helpers", () => {
     expect(oauth.getMicrosoftGraphUrl("/me")).toBe(
       "https://graph.microsoft.com/v1.0/me",
     );
+    expect(oauth.getMicrosoftOidcUserInfoUrl()).toBe(
+      "https://graph.microsoft.com/oidc/userinfo",
+    );
     expect(oauth.getMicrosoftGraphClientOptions("token")).toEqual({});
   });
 
@@ -57,6 +60,9 @@ describe("microsoft oauth helpers", () => {
     );
     expect(oauth.getMicrosoftGraphUrl("me/photo/$value")).toBe(
       "http://localhost:4003/v1.0/me/photo/$value",
+    );
+    expect(oauth.getMicrosoftOidcUserInfoUrl()).toBe(
+      "http://localhost:4003/oidc/userinfo",
     );
     expect(oauth.getMicrosoftGraphClientOptions("emulator-token")).toEqual({
       baseUrl: "http://localhost:4003/",
@@ -142,6 +148,64 @@ describe("microsoft oauth helpers", () => {
         userPrincipalName: "user@example.com",
       },
       email: "user@example.com",
+    });
+  });
+
+  it("returns Microsoft OIDC user info with the Better Auth account subject", async () => {
+    const oauth = await importMicrosoftOauthModule();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        sub: "better-auth-subject",
+        email: "user@example.com",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      oauth.fetchMicrosoftOidcUserInfo("access-token"),
+    ).resolves.toEqual({
+      sub: "better-auth-subject",
+      email: "user@example.com",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://graph.microsoft.com/oidc/userinfo",
+      {
+        headers: {
+          Authorization: "Bearer access-token",
+        },
+      },
+    );
+  });
+
+  it("throws when Microsoft OIDC user info is missing the subject", async () => {
+    const oauth = await importMicrosoftOauthModule();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ email: "user@example.com" }),
+      }),
+    );
+
+    await expect(
+      oauth.fetchMicrosoftOidcUserInfo("access-token"),
+    ).rejects.toThrow("OIDC user info missing required subject");
+  });
+
+  it("throws a typed error when the Microsoft OIDC user info request fails", async () => {
+    const oauth = await importMicrosoftOauthModule();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 503 }),
+    );
+
+    await expect(
+      oauth.fetchMicrosoftOidcUserInfo("access-token"),
+    ).rejects.toMatchObject({
+      message: "Failed to fetch Microsoft OIDC user info",
+      status: 503,
     });
   });
 

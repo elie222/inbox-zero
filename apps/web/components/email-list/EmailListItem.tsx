@@ -87,11 +87,11 @@ export const EmailListItem = forwardRef(
           }}
         >
           <div className="px-4">
-            <div className="mx-auto flex">
+            <div className="mx-auto flex min-w-0 w-full">
               {/* left */}
               <div
                 className={clsx(
-                  "flex flex-1 items-center overflow-hidden whitespace-nowrap text-sm leading-6",
+                  "flex min-w-0 flex-1 items-center overflow-hidden whitespace-nowrap text-sm leading-6",
                   {
                     "font-semibold": isUnread,
                   },
@@ -132,10 +132,10 @@ export const EmailListItem = forwardRef(
                         </Link>
                       </Button>
                     )}
-                    <div className="ml-2 min-w-0 overflow-hidden text-foreground">
+                    <div className="ml-2 min-w-0 overflow-hidden truncate text-foreground">
                       {lastMessage.headers.subject}
                     </div>
-                    <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-muted-foreground">
+                    <div className="ml-4 mr-6 min-w-0 flex-1 overflow-hidden truncate font-normal leading-5 text-muted-foreground">
                       {decodedSnippet}
                     </div>
                   </>
@@ -143,7 +143,7 @@ export const EmailListItem = forwardRef(
               </div>
 
               {/* right */}
-              <div className="flex items-center justify-between">
+              <div className="flex shrink-0 items-center justify-between">
                 <div className="relative flex items-center">
                   <div
                     className="absolute right-0 z-20 hidden group-hover:block"
@@ -177,11 +177,11 @@ export const EmailListItem = forwardRef(
             </div>
 
             {splitView && (
-              <div className="mt-1.5 whitespace-nowrap text-sm leading-6">
-                <div className="min-w-0 overflow-hidden font-medium text-foreground">
+              <div className="mt-1.5 min-w-0 overflow-hidden text-sm leading-6">
+                <div className="min-w-0 overflow-hidden truncate font-medium text-foreground">
                   {lastMessage.headers.subject}
                 </div>
-                <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate pl-1 font-normal leading-5 text-muted-foreground">
+                <div className="mr-6 mt-0.5 min-w-0 overflow-hidden truncate pl-1 font-normal leading-5 text-muted-foreground">
                   {decodedSnippet}
                 </div>
                 {cta && (

@@ -83,6 +83,97 @@ describe("createCliLanguageModel", () => {
     });
   });
 
+  it("bridges AI SDK tools to Claude Code through MCP", async () => {
+    const doGenerate = vi.fn().mockResolvedValue({
+      content: [
+        {
+          type: "tool-call",
+          toolName: "mcp__inboxzero__searchInbox",
+          input: { query: "hello" },
+        },
+      ],
+    });
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue({
+          type: "tool-call",
+          toolName: "mcp__inboxzero__createRule",
+          input: { label: "later" },
+        });
+        controller.close();
+      },
+    });
+    const doStream = vi.fn().mockResolvedValue({ stream });
+    const innerModel = {
+      specificationVersion: "v3",
+      provider: "claude-code",
+      modelId: "sonnet",
+      supportedUrls: {},
+      doGenerate,
+      doStream,
+    };
+    const claudeCode = vi.fn(() => innerModel);
+    const mcpServer = { type: "mcp-server" };
+    const createAiSdkMcpServer = vi.fn(() => mcpServer);
+    const searchInbox = {
+      description: "Search inbox",
+      inputSchema: {},
+      execute: vi.fn(),
+    };
+    const createRule = {
+      description: "Create rule",
+      inputSchema: {},
+      execute: vi.fn(),
+    };
+
+    const { createClaudeCodeLanguageModelWithBridgedTools } =
+      await loadCliProviderModule({
+        claudeModule: { claudeCode, createAiSdkMcpServer },
+      });
+
+    const model = (await createClaudeCodeLanguageModelWithBridgedTools({
+      modelName: "sonnet",
+      tools: { searchInbox, createRule },
+    })) as any;
+
+    await expect(model.doGenerate("generate-request")).resolves.toEqual({
+      content: [
+        {
+          type: "tool-call",
+          toolName: "searchInbox",
+          input: { query: "hello" },
+        },
+      ],
+    });
+    const streamResult = await model.doStream("stream-request");
+    const reader = streamResult.stream.getReader();
+    await expect(reader.read()).resolves.toEqual({
+      done: false,
+      value: {
+        type: "tool-call",
+        toolName: "createRule",
+        input: { label: "later" },
+      },
+    });
+
+    expect(createAiSdkMcpServer).toHaveBeenCalledWith("inboxzero", {
+      searchInbox,
+      createRule,
+    });
+    expect(claudeCode).toHaveBeenCalledWith("sonnet", {
+      settingSources: [],
+      allowedTools: [
+        "mcp__inboxzero__searchInbox",
+        "mcp__inboxzero__createRule",
+      ],
+      mcpServers: { inboxzero: mcpServer },
+      permissionMode: "default",
+      sandbox: { enabled: true },
+    });
+    expect(doGenerate).toHaveBeenCalledWith("generate-request");
+    expect(doStream).toHaveBeenCalledWith("stream-request");
+  });
+
   it("surfaces a clear error when the provider package is missing its factory export", async () => {
     const { createCliLanguageModel } = await loadCliProviderModule({
       codexModule: { codexExec: undefined },

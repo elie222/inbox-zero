@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { cleanupInvalidTokens } from "./cleanup-invalid-tokens";
 import { sendReconnectionEmail } from "@inboxzero/resend";
-import { addUserErrorMessage } from "@/utils/error-messages";
+import {
+  addUserErrorMessage,
+  addUserErrorMessageWithNotification,
+} from "@/utils/error-messages";
 import { createTestLogger } from "@/__tests__/helpers";
 
 const logger = createTestLogger();
@@ -13,6 +16,7 @@ vi.mock("@inboxzero/resend", () => ({
 }));
 vi.mock("@/utils/error-messages", () => ({
   addUserErrorMessage: vi.fn().mockResolvedValue(undefined),
+  addUserErrorMessageWithNotification: vi.fn().mockResolvedValue(undefined),
   ErrorType: {
     ACCOUNT_DISCONNECTED: "Account disconnected",
   },
@@ -31,11 +35,12 @@ describe("cleanupInvalidTokens", () => {
     email: "test@example.com",
     accountId: "acc_1",
     userId: "user_1",
+    user: { email: "owner@example.com" },
     account: { disconnectedAt: null },
     watchEmailsExpirationDate: new Date(Date.now() + 1000 * 60 * 60), // Valid expiration
   };
 
-  it("marks account as disconnected and sends email on invalid_grant when account is watched", async () => {
+  it("marks account as disconnected and sends email to the disconnected account on invalid_grant when account is watched", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(mockEmailAccount as any);
     prisma.account.updateMany.mockResolvedValue({ count: 1 });
 
@@ -54,6 +59,14 @@ describe("cleanupInvalidTokens", () => {
       }),
     );
     expect(sendReconnectionEmail).toHaveBeenCalled();
+    expect(sendReconnectionEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "test@example.com",
+        emailProps: expect.objectContaining({
+          email: "test@example.com",
+        }),
+      }),
+    );
     expect(addUserErrorMessage).toHaveBeenCalledWith(
       "user_1",
       "Account disconnected",
@@ -62,7 +75,7 @@ describe("cleanupInvalidTokens", () => {
     );
   });
 
-  it("marks as disconnected but skips email if account is not watched", async () => {
+  it("marks as disconnected and sends action-required email if account is not watched", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       ...mockEmailAccount,
       watchEmailsExpirationDate: null,
@@ -77,11 +90,15 @@ describe("cleanupInvalidTokens", () => {
 
     expect(prisma.account.updateMany).toHaveBeenCalled();
     expect(sendReconnectionEmail).not.toHaveBeenCalled();
-    expect(addUserErrorMessage).toHaveBeenCalledWith(
-      "user_1",
-      "Account disconnected",
-      expect.stringContaining("test@example.com"),
-      logger,
+    expect(addUserErrorMessageWithNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user_1",
+        userEmail: "test@example.com",
+        emailAccountId: "ea_1",
+        errorType: "Account disconnected",
+        errorMessage: expect.stringContaining("test@example.com"),
+        logger,
+      }),
     );
   });
 
@@ -101,7 +118,7 @@ describe("cleanupInvalidTokens", () => {
     expect(sendReconnectionEmail).not.toHaveBeenCalled();
   });
 
-  it("does not send email for insufficient_permissions", async () => {
+  it("sends action-required email for insufficient permissions", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(mockEmailAccount as any);
     prisma.account.updateMany.mockResolvedValue({ count: 1 });
 
@@ -113,6 +130,39 @@ describe("cleanupInvalidTokens", () => {
 
     expect(prisma.account.updateMany).toHaveBeenCalled();
     expect(sendReconnectionEmail).not.toHaveBeenCalled();
-    expect(addUserErrorMessage).not.toHaveBeenCalled();
+    expect(addUserErrorMessageWithNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user_1",
+        userEmail: "test@example.com",
+        emailAccountId: "ea_1",
+        errorType: "Account disconnected",
+        errorMessage: expect.stringContaining("missing required permissions"),
+        logger,
+      }),
+    );
+  });
+
+  it("sends action-required email for provider policy blocks", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(mockEmailAccount as any);
+    prisma.account.updateMany.mockResolvedValue({ count: 1 });
+
+    await cleanupInvalidTokens({
+      emailAccountId: "ea_1",
+      reason: "policy_enforced",
+      logger,
+    });
+
+    expect(prisma.account.updateMany).toHaveBeenCalled();
+    expect(sendReconnectionEmail).not.toHaveBeenCalled();
+    expect(addUserErrorMessageWithNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user_1",
+        userEmail: "test@example.com",
+        emailAccountId: "ea_1",
+        errorType: "Account disconnected",
+        errorMessage: expect.stringContaining("security policy"),
+        logger,
+      }),
+    );
   });
 });

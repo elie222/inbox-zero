@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { sumBy } from "lodash";
+import sumBy from "lodash/sumBy";
 import { ReferralStatus } from "@/generated/prisma/enums";
 
 export type GetReferralStatsResponse = Awaited<

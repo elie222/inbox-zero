@@ -22,7 +22,9 @@ import {
 // pnpm test-ai eval/assistant-chat-inbox-workflows
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-inbox-workflows
 
-const evalReporter = createEvalReporter();
+const evalReporter = createEvalReporter({
+  evalName: "assistant-chat-inbox-workflows-actions",
+});
 
 describe.runIf(shouldRunEval)(
   "Eval: assistant chat inbox workflows actions",
