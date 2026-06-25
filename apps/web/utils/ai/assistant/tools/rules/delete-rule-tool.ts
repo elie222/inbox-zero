@@ -26,7 +26,7 @@ export const deleteRuleTool = ({
 }) =>
   tool({
     description:
-      "Request deletion of an existing custom rule after reading the user's current rules. First call getUserRulesAndSettings, then call this tool with the exact rule name from that result. Use updateRule with updates.enabled for enable, disable, pause, or resume. Delete requests return requiresConfirmation; explain that deletion is pending and no rule has been deleted until the user confirms in the UI. Default/system rules cannot be deleted; disable them instead.",
+      "Request deletion of an existing custom rule after reading the user's current rules. Use this only with the exact rule name from getUserRulesAndSettings. Delete requests return requiresConfirmation; explain that deletion is pending and no rule has been deleted until the user confirms in the UI. Default/system rules cannot be deleted; disable them instead.",
     inputSchema: z.object({
       ruleName: z
         .string()
@@ -36,7 +36,6 @@ export const deleteRuleTool = ({
     }),
     execute: async ({ ruleName }) => {
       trackRuleToolCall({ tool: "delete_rule", email, logger });
-      markRuleDeletionPending?.(ruleName);
       try {
         const readValidationError = validateRuleWasReadRecently({
           ruleName,
@@ -92,6 +91,8 @@ export const deleteRuleTool = ({
             systemType: rule.systemType,
           };
         }
+
+        markRuleDeletionPending?.(rule.name);
 
         return {
           success: true,
