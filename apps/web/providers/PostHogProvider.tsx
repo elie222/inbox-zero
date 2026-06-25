@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import posthog from "posthog-js";
+import type { BootstrapConfig, PostHogConfig } from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { useSession } from "@/utils/auth-client";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -13,6 +14,12 @@ import {
 } from "@/utils/analytics/product";
 
 // based on: https://posthog.com/docs/libraries/next-js
+let isPostHogInitialized = false;
+
+export function PostHogInit({ bootstrap }: { bootstrap?: BootstrapConfig }) {
+  initPostHog(bootstrap);
+  return null;
+}
 
 export function PostHogPageview() {
   const pathname = usePathname();
@@ -74,11 +81,24 @@ export function PostHogIdentify() {
   return null;
 }
 
-if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {
-  posthog.init(env.NEXT_PUBLIC_POSTHOG_KEY, {
+function initPostHog(bootstrap?: BootstrapConfig) {
+  if (
+    typeof window === "undefined" ||
+    !env.NEXT_PUBLIC_POSTHOG_KEY ||
+    isPostHogInitialized
+  ) {
+    return;
+  }
+
+  const config: Partial<PostHogConfig> = {
     api_host: env.NEXT_PUBLIC_POSTHOG_API_HOST, // https://posthog.com/docs/advanced/proxy/nextjs
     capture_pageview: false, // Disable automatic pageview capture, as we capture manually
-  });
+  };
+
+  if (bootstrap) config.bootstrap = bootstrap;
+
+  posthog.init(env.NEXT_PUBLIC_POSTHOG_KEY, config);
+  isPostHogInitialized = true;
 }
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {

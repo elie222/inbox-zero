@@ -1,12 +1,17 @@
 import "../../styles/globals.css";
 import type React from "react";
+import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { Inter } from "next/font/google";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
 import { auth } from "@/utils/auth";
-import { PostHogIdentify } from "@/providers/PostHogProvider";
+import {
+  PostHogIdentify,
+  PostHogInit,
+  PostHogPageview,
+} from "@/providers/PostHogProvider";
 import { CommandK } from "@/components/CommandK";
 import { AppProviders } from "@/providers/AppProviders";
 import { AssessUser } from "@/app/(app)/[emailAccountId]/assess";
@@ -72,6 +77,12 @@ export default async function AppLayout({
   return (
     <div className={inter.variable}>
       <div className="font-inter">
+        <PostHogInit />
+        <ErrorBoundary extra={{ component: "AppLayoutPageview" }}>
+          <Suspense>
+            <PostHogPageview />
+          </Suspense>
+        </ErrorBoundary>
         <AppProviders>
           <SideNavWithTopNav defaultOpen={!isClosed}>
             <AiAutomationStatusBanner />

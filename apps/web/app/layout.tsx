@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { Analytics } from "@vercel/analytics/react";
@@ -10,7 +9,7 @@ import { Geist } from "next/font/google";
 import localFont from "next/font/local";
 import type { WebApplication, WithContext } from "schema-dts";
 import "../styles/globals.css";
-import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
+import { PostHogProvider } from "@/providers/PostHogProvider";
 import { env } from "@/env";
 import { GlobalProviders } from "@/providers/GlobalProviders";
 import { UTM } from "@/app/utm";
@@ -142,9 +141,6 @@ export default async function RootLayout({
           }}
         />
         <PostHogProvider>
-          <Suspense>
-            <PostHogPageview />
-          </Suspense>
           <GlobalProviders>
             {children}
             <Toaster closeButton richColors theme="light" visibleToasts={9} />
