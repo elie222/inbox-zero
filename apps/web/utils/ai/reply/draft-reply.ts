@@ -551,7 +551,7 @@ Do not suggest specific times. Acknowledge the request and suggest alternatives 
 
     parts.push(`Available time slots are in ${timezoneLabels}.
 If the sender requested or uses another timezone, express proposed times in that timezone after converting from the user's available slots.
-If you list specific times, include the user-facing timezone label shown for each slot. Do not write IANA Region/City timezone identifiers (the Continent/City form with a slash). Normal abbreviations such as EST, PST, IST, or GMT+3 are fine.
+If you list specific times, include the user-facing timezone label shown for each slot, not a raw timezone identifier.
 
 Available time slots:
 ${times}

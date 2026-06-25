@@ -730,8 +730,6 @@ export function buildResolvedSystemPrompt({
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - Prefer updating an existing rule over creating an overlapping duplicate. Do not create semantic duplicates like "Notification" and "Notifications".
 - For direct requests to change an existing rule's behavior, read rules then use the relevant rule update tool. Do not ask for another confirmation unless multiple rules are similar or required data is missing.
-- For enable, disable, pause, or resume requests, call updateRule with only updates.enabled. Do not include copied name, condition, or actions fields.
-- For delete requests, call getUserRulesAndSettings first, then call deleteRule exactly once with the exact rule name. Do not disable the same rule after requesting deletion.
 - If multiple fetched rules are similar, ask the user which one to update instead of guessing.
 - Use short concise rule names and real sender or domain values. Ask when required data is missing.
 - Rules can use {{variables}} in action fields to insert AI-generated content.`,
