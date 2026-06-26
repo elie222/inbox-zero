@@ -161,6 +161,47 @@ describe("gmail oauth client configuration", () => {
     );
   });
 
+  it("reuses Gmail tokens that expire beyond the refresh buffer", async () => {
+    await getGmailClientWithRefresh({
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      expiresAt: Date.now() + 11 * 60 * 1000,
+      emailAccountId: "email-account-id",
+      logger,
+    });
+
+    expect(refreshAccessToken).not.toHaveBeenCalled();
+    expect(saveTokens).not.toHaveBeenCalled();
+  });
+
+  it("refreshes Gmail tokens before they expire", async () => {
+    const nearExpiryExpiresAt = Date.now() + 60 * 1000;
+    refreshAccessToken.mockResolvedValue({
+      credentials: {
+        access_token: "new-access-token",
+        expiry_date: Date.now() + 3_600_000,
+      },
+    });
+
+    await getGmailClientWithRefresh({
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      expiresAt: nearExpiryExpiresAt,
+      emailAccountId: "email-account-id",
+      logger,
+    });
+
+    expect(refreshAccessToken).toHaveBeenCalledTimes(1);
+    expect(saveTokens).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedExpiresAt: nearExpiryExpiresAt,
+        tokens: expect.objectContaining({
+          access_token: "new-access-token",
+        }),
+      }),
+    );
+  });
+
   it("cleans up invalid Gmail tokens when refresh reports invalid_grant", async () => {
     refreshAccessToken.mockRejectedValue(
       new Error("invalid_grant: token has been expired or revoked"),

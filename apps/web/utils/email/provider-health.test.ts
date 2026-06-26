@@ -50,6 +50,21 @@ describe("provider health", () => {
     });
   });
 
+  it("ignores invalid access token failures from provider operations", async () => {
+    const logger = createMockLogger();
+
+    await recordEmailAccountProviderIssue({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      error: new Error("Invalid access token"),
+      logger,
+      operation: "getThreadsWithLabel",
+    });
+
+    expect(cleanupInvalidTokens).not.toHaveBeenCalled();
+    expect(claimProviderIssueCleanupInRedis).not.toHaveBeenCalled();
+  });
+
   it("records insufficient Gmail permissions as action-required issues", async () => {
     const logger = createMockLogger();
 

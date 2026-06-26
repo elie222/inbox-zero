@@ -108,11 +108,7 @@ export function classifyEmailAccountProviderIssue({
     return { reason: "mail_service_not_enabled" };
   }
 
-  if (
-    isInvalidGrantError(error) ||
-    message?.includes("No refresh token") ||
-    message?.includes("Invalid access token")
-  ) {
+  if (isInvalidGrantError(error) || message?.includes("No refresh token")) {
     return { reason: "invalid_grant" };
   }
 
