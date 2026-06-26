@@ -10,9 +10,10 @@ import prisma from "@/utils/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import type { EmailProvider } from "@/utils/email/types";
 import {
-  getAutoArchiveFilters,
+  getEmailFilters,
   findNewsletterStatus,
   findAutoArchiveFilter,
+  findSenderLabelFilters,
   filterNewsletters,
 } from "@/app/api/user/stats/newsletters/helpers";
 
@@ -80,13 +81,13 @@ async function getEmailMessages(
   const { emailAccountId, emailProvider, logger } = options;
   const types = getTypeFilters(options.types);
 
-  const [counts, autoArchiveFilters, userNewsletters] = await Promise.all([
+  const [counts, emailFilters, userNewsletters] = await Promise.all([
     getNewsletterCounts({
       ...options,
       ...types,
       logger,
     }),
-    getAutoArchiveFilters(emailProvider, logger),
+    getEmailFilters(emailProvider, logger),
     findNewsletterStatus({ emailAccountId }),
   ]);
 
@@ -104,11 +105,8 @@ async function getEmailMessages(
       inboxEmails: email.inboxEmails,
       readEmails: email.readEmails,
       unsubscribeLink: email.unsubscribeLink,
-      autoArchived: findAutoArchiveFilter(
-        autoArchiveFilters,
-        from,
-        emailProvider,
-      ),
+      autoArchived: findAutoArchiveFilter(emailFilters, from, emailProvider),
+      labelFilters: findSenderLabelFilters(emailFilters, from),
       status: userNewsletters?.find((n) => n.email === from)?.status,
     };
   });

@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
+  CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   ExpandIcon,
@@ -40,7 +41,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { PremiumTooltip } from "@/components/PremiumAlert";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { createFilterAction } from "@/utils/actions/mail";
+import { createFilterAction, deleteFilterAction } from "@/utils/actions/mail";
 import { getGmailSearchUrl } from "@/utils/url";
 import { extractNameFromEmail } from "@/utils/email";
 import { Badge } from "@/components/ui/badge";
@@ -316,6 +317,27 @@ export function MoreDropdown<T extends Row>({
   const showAutoArchive = typeof hasUnsubscribeAccess === "boolean";
 
   const handleLabelClick = async (label: EmailLabel) => {
+    const activeFilter = getActiveLabelFilter(item, label);
+
+    if (activeFilter) {
+      const res = await deleteFilterAction(emailAccountId, {
+        id: activeFilter.id,
+      });
+      if (res?.serverError) {
+        toastError({
+          title: "Error",
+          description: `Failed to stop labeling ${item.name} as ${label.name}. ${res.serverError || ""}`,
+        });
+      } else {
+        toastSuccess({
+          title: "Success!",
+          description: `Stopped labeling ${item.name} as ${label.name}`,
+        });
+        await mutate();
+      }
+      return;
+    }
+
     const res = await createFilterAction(emailAccountId, {
       from: item.name,
       gmailLabelId: label.id,
@@ -330,6 +352,7 @@ export function MoreDropdown<T extends Row>({
         title: "Success!",
         description: `Added ${item.name} to ${label.name}`,
       });
+      await mutate();
     }
   };
 
@@ -379,7 +402,13 @@ export function MoreDropdown<T extends Row>({
                 <span>{labelMenuLabel}</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
-                <LabelsSubMenu labels={labels} onClick={handleLabelClick} />
+                <LabelsSubMenu
+                  labels={labels}
+                  onClick={handleLabelClick}
+                  isLabelActive={(label) =>
+                    Boolean(getActiveLabelFilter(item, label))
+                  }
+                />
               </DropdownMenuPortal>
             </DropdownMenuSub>
           )}
@@ -437,19 +466,24 @@ export function MoreDropdown<T extends Row>({
           </SheetHeader>
           <div className="mt-4 max-h-[60vh] space-y-1 overflow-y-auto">
             {labels.length ? (
-              labels.map((label) => (
-                <button
-                  key={label.id}
-                  type="button"
-                  className="flex w-full items-center rounded-sm px-3 py-2 text-left text-sm hover:bg-accent"
-                  onClick={async () => {
-                    setLabelSheetOpen(false);
-                    await handleLabelClick(label);
-                  }}
-                >
-                  <span className="truncate">{label.name}</span>
-                </button>
-              ))
+              labels.map((label) => {
+                const active = Boolean(getActiveLabelFilter(item, label));
+
+                return (
+                  <button
+                    key={label.id}
+                    type="button"
+                    className="flex w-full items-center justify-between gap-3 rounded-sm px-3 py-2 text-left text-sm hover:bg-accent"
+                    onClick={async () => {
+                      setLabelSheetOpen(false);
+                      await handleLabelClick(label);
+                    }}
+                  >
+                    <span className="truncate">{label.name}</span>
+                    {active && <CheckIcon className="size-4 text-primary" />}
+                  </button>
+                );
+              })
             ) : (
               <p className="px-3 py-2 text-sm text-muted-foreground">
                 You don't have any {terminology.label.plural} yet.
@@ -491,4 +525,20 @@ export function HeaderButton(props: {
 
 async function noopRefetchPremium() {
   return null;
+}
+
+function getActiveLabelFilter<T extends Row>(item: T, label: EmailLabel) {
+  const labelId = normalizeLabelValue(label.id);
+  const labelName = normalizeLabelValue(label.name);
+
+  return item.labelFilters?.find((filter) => {
+    if (!filter.id) return false;
+
+    const filterLabelId = normalizeLabelValue(filter.labelId);
+    return filterLabelId === labelId || filterLabelId === labelName;
+  });
+}
+
+function normalizeLabelValue(value: string) {
+  return value.trim().toLowerCase();
 }

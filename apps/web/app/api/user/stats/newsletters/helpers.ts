@@ -9,19 +9,41 @@ export async function getAutoArchiveFilters(
   emailProvider: EmailProvider,
   logger: Logger,
 ) {
+  const filters = await getEmailFilters(emailProvider, logger);
+  return filters.filter((filter) => isAutoArchiveFilter(filter, emailProvider));
+}
+
+export async function getEmailFilters(
+  emailProvider: EmailProvider,
+  logger: Logger,
+) {
   try {
-    const filters = await emailProvider.getFiltersList();
-
-    const autoArchiveFilters = filters.filter((filter) =>
-      isAutoArchiveFilter(filter, emailProvider),
-    );
-
-    return autoArchiveFilters;
+    return await emailProvider.getFiltersList();
   } catch (error) {
-    logger.error("Error getting auto-archive filters", { error });
+    logger.error("Error getting email filters", { error });
     // Return empty array instead of throwing, so the newsletter stats still work
     return [];
   }
+}
+
+export function findSenderLabelFilters(
+  filters: EmailFilter[],
+  fromEmail: string,
+): { id: string; labelId: string }[] {
+  return filters.flatMap((filter) => {
+    if (
+      !filterMatchesSender(filter, fromEmail) ||
+      isLabelWithArchiveFilter(filter)
+    )
+      return [];
+
+    return (
+      filter.action?.addLabelIds?.map((labelId) => ({
+        id: filter.id,
+        labelId,
+      })) ?? []
+    );
+  });
 }
 
 export function findAutoArchiveFilter(
@@ -29,13 +51,11 @@ export function findAutoArchiveFilter(
   fromEmail: string,
   emailProvider: EmailProvider,
 ) {
-  return autoArchiveFilters.find((filter) => {
-    const from = extractEmailAddress(fromEmail);
-    return (
-      filter.criteria?.from?.toLowerCase().includes(from.toLowerCase()) &&
-      isAutoArchiveFilter(filter, emailProvider)
-    );
-  });
+  return autoArchiveFilters.find(
+    (filter) =>
+      filterMatchesSender(filter, fromEmail) &&
+      isAutoArchiveFilter(filter, emailProvider),
+  );
 }
 
 export async function findNewsletterStatus({
@@ -101,4 +121,25 @@ function isGmailAutoArchiveFilter(filter: EmailFilter): boolean {
 function isOutlookAutoArchiveFilter(filter: EmailFilter): boolean {
   // For Outlook: check if it moves to archive folder (removeLabelIds contains "INBOX")
   return Boolean(filter.action?.removeLabelIds?.includes("INBOX"));
+}
+
+function isLabelWithArchiveFilter(filter: EmailFilter) {
+  return Boolean(
+    filter.action?.removeLabelIds?.includes(GmailLabel.INBOX) ||
+      filter.action?.removeLabelIds?.includes("INBOX") ||
+      filter.action?.addLabelIds?.includes(GmailLabel.TRASH),
+  );
+}
+
+function filterMatchesSender(filter: EmailFilter, fromEmail: string) {
+  const from = extractEmailAddress(fromEmail).toLowerCase();
+  if (!from) return false;
+
+  const rawFilterFrom = filter.criteria?.from?.trim().toLowerCase();
+  if (!rawFilterFrom) return false;
+
+  const normalizedFilterFrom =
+    extractEmailAddress(rawFilterFrom).toLowerCase() || rawFilterFrom;
+
+  return normalizedFilterFrom.includes(from);
 }
