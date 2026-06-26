@@ -30,11 +30,12 @@ export function findSenderLabelFilters(
   filters: EmailFilter[],
   fromEmail: string,
 ): { id: string; labelId: string }[] {
-  const from = extractEmailAddress(fromEmail).toLowerCase();
-
   return filters.flatMap((filter) => {
-    const matchesSender = filter.criteria?.from?.toLowerCase().includes(from);
-    if (!matchesSender || isLabelWithArchiveFilter(filter)) return [];
+    if (
+      !filterMatchesSender(filter, fromEmail) ||
+      isLabelWithArchiveFilter(filter)
+    )
+      return [];
 
     return (
       filter.action?.addLabelIds?.map((labelId) => ({
@@ -50,13 +51,11 @@ export function findAutoArchiveFilter(
   fromEmail: string,
   emailProvider: EmailProvider,
 ) {
-  return autoArchiveFilters.find((filter) => {
-    const from = extractEmailAddress(fromEmail);
-    return (
-      filter.criteria?.from?.toLowerCase().includes(from.toLowerCase()) &&
-      isAutoArchiveFilter(filter, emailProvider)
-    );
-  });
+  return autoArchiveFilters.find(
+    (filter) =>
+      filterMatchesSender(filter, fromEmail) &&
+      isAutoArchiveFilter(filter, emailProvider),
+  );
 }
 
 export async function findNewsletterStatus({
@@ -130,4 +129,17 @@ function isLabelWithArchiveFilter(filter: EmailFilter) {
       filter.action?.removeLabelIds?.includes("INBOX") ||
       filter.action?.addLabelIds?.includes(GmailLabel.TRASH),
   );
+}
+
+function filterMatchesSender(filter: EmailFilter, fromEmail: string) {
+  const from = extractEmailAddress(fromEmail).toLowerCase();
+  if (!from) return false;
+
+  const rawFilterFrom = filter.criteria?.from?.trim().toLowerCase();
+  if (!rawFilterFrom) return false;
+
+  const normalizedFilterFrom =
+    extractEmailAddress(rawFilterFrom).toLowerCase() || rawFilterFrom;
+
+  return normalizedFilterFrom.includes(from);
 }

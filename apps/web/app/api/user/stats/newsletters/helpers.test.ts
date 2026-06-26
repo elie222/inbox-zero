@@ -44,4 +44,47 @@ describe("findSenderLabelFilters", () => {
       { id: "label-filter", labelId: "Label_456" },
     ]);
   });
+
+  it("matches filters with a display-name sender criterion", () => {
+    const filters: EmailFilter[] = [
+      {
+        id: "filter-1",
+        criteria: { from: "Example Updates <updates@example.com>" },
+        action: { addLabelIds: ["Label_123"] },
+      },
+    ];
+
+    expect(findSenderLabelFilters(filters, "updates@example.com")).toEqual([
+      { id: "filter-1", labelId: "Label_123" },
+    ]);
+  });
+
+  it("does not match filters with empty sender criteria", () => {
+    const filters: EmailFilter[] = [
+      {
+        id: "filter-1",
+        criteria: { from: "" },
+        action: { addLabelIds: ["Label_123"] },
+      },
+      {
+        id: "filter-2",
+        criteria: {},
+        action: { addLabelIds: ["Label_456"] },
+      },
+    ];
+
+    expect(findSenderLabelFilters(filters, "updates@example.com")).toEqual([]);
+  });
+
+  it("does not match every filter when the sender email is empty", () => {
+    const filters: EmailFilter[] = [
+      {
+        id: "filter-1",
+        criteria: { from: "updates@example.com" },
+        action: { addLabelIds: ["Label_123"] },
+      },
+    ];
+
+    expect(findSenderLabelFilters(filters, "")).toEqual([]);
+  });
 });
