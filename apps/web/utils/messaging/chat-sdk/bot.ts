@@ -1191,7 +1191,7 @@ function getPendingEmailToolParts(parts: unknown[]): PendingEmailToolPart[] {
 
   for (let index = parts.length - 1; index >= 0; index -= 1) {
     const part = parts[index] as PendingEmailToolPart | undefined;
-    if (!part || part.state !== "output-available") continue;
+    if (part?.state !== "output-available") continue;
     if (
       part.type !== "tool-sendEmail" &&
       part.type !== "tool-replyEmail" &&
@@ -1670,7 +1670,7 @@ function getEmailToolPartByToolCallId(
 ): PendingEmailToolPart | null {
   for (let index = parts.length - 1; index >= 0; index -= 1) {
     const part = parts[index] as PendingEmailToolPart | undefined;
-    if (!part || part.state !== "output-available") continue;
+    if (part?.state !== "output-available") continue;
     if (part.toolCallId !== toolCallId) continue;
     if (
       part.type !== "tool-sendEmail" &&

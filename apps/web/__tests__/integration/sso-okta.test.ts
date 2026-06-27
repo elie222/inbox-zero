@@ -33,6 +33,7 @@ vi.mock("@inboxzero/tinybird-ai-analytics", () => ({
 
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS === "true";
 const TEST_PORT = 4121;
+const TEST_ORIGIN = `http://localhost:${TEST_PORT}`;
 const PROVIDER_ID = "okta-provider";
 const ORGANIZATION_SLUG = "okta-test-org";
 const ORGANIZATION_ID = "org_okta_test";
@@ -41,6 +42,17 @@ const CLIENT_ID = "okta-sso-client";
 const CLIENT_SECRET = "okta-sso-secret";
 const CALLBACK_URL =
   "http://localhost:3000/api/auth/sso/callback/okta-provider";
+
+vi.hoisted(() => {
+  const testOrigin = "http://localhost:4121";
+  const trustedOrigins = process.env.ADDITIONAL_TRUSTED_ORIGINS?.split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  process.env.ADDITIONAL_TRUSTED_ORIGINS = Array.from(
+    new Set([...(trustedOrigins ?? []), testOrigin]),
+  ).join(",");
+});
 
 describe.skipIf(!RUN_INTEGRATION_TESTS)(
   "Okta SSO integration",
@@ -85,10 +97,10 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         },
       });
 
-      const issuer = `${emulator.url}/oauth2/default`;
+      const issuer = `${TEST_ORIGIN}/oauth2/default`;
       const discoveredConfig = await discoverOIDCConfig({
         issuer,
-        isTrustedOrigin: (url) => url.startsWith(emulator.url),
+        isTrustedOrigin: (url) => url.startsWith(TEST_ORIGIN),
       });
 
       oidcConfig = {
@@ -165,7 +177,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(body.providerId).toBe(PROVIDER_ID);
 
       const redirectUrl = new URL(body.redirectUrl);
-      expect(redirectUrl.origin).toBe(emulator.url);
+      expect(redirectUrl.origin).toBe(TEST_ORIGIN);
       expect(redirectUrl.pathname).toBe("/oauth2/default/v1/authorize");
       expect(redirectUrl.searchParams.get("client_id")).toBe(CLIENT_ID);
       expect(redirectUrl.searchParams.get("redirect_uri")).toBe(CALLBACK_URL);

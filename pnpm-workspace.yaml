@@ -19,12 +19,14 @@ overrides:
   "@xmldom/xmldom": "0.8.13"
   axios: "1.16.1"
   fast-xml-parser: "5.8.0"
+  ioredis: "5.10.1"
   js-yaml: "3.14.2"
   jws: "4.0.1"
   lodash: "4.18.1"
   next: "16.2.6"
   postcss: "8.5.14"
   svelte: "5.55.5"
+  vite: "7.3.6"
   webpack: "5.106.2"
 
 # Only reviewed dependencies may run install scripts.
@@ -32,6 +34,7 @@ allowBuilds:
   "@google/genai": true
   "@prisma/engines": true
   "@sentry/cli": true
+  braintrust: true
   core-js: true
   esbuild: true
   msgpackr-extract: true
