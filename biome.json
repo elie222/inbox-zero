@@ -1,9 +1,9 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.1/schema.json",
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "style": {
         "noNonNullAssertion": "off",
         "noUselessElse": "off",
@@ -36,7 +36,9 @@
         "noTsIgnore": "off",
         "useIterableCallbackReturn": "off",
         "noUnknownAtRules": "off",
-        "noAlert": "off"
+        "noAlert": "off",
+        "noShadow": "off",
+        "noUnnecessaryConditions": "off"
       },
       "complexity": {
         "noForEach": "off",
@@ -45,9 +47,7 @@
         "useArrowFunction": "off"
       },
       "nursery": {
-        "useSortedClasses": "off",
-        "noShadow": "off",
-        "noUnnecessaryConditions": "off"
+        "useSortedClasses": "off"
       },
       "performance": {
         "useTopLevelRegex": "off",
@@ -81,6 +81,7 @@
       "!*.config.*",
       "!*.json",
       "!**/tsconfig*.json",
+      "!**/*.svg",
       "!.turbo/**",
       "!.next/**"
     ]
@@ -99,6 +100,7 @@
       "!*.config.*",
       "!*.json",
       "!**/tsconfig*.json",
+      "!**/*.svg",
       "!.turbo",
       "!.next",
       "!sw.js",

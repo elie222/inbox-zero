@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "main": "src/index.ts",
   "dependencies": {
-    "loops": "^6.3.0"
+    "loops": "^7.0.0"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

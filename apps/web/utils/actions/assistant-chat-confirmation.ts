@@ -1063,7 +1063,7 @@ async function clearPendingPartProcessing({
   if (!chatMessage) return;
 
   const lookup = findPart(chatMessage.parts);
-  if (!lookup || lookup.output.confirmationState !== "processing") return;
+  if (lookup?.output.confirmationState !== "processing") return;
 
   const pendingParts = updateAssistantEmailPartWithPending({
     parts: lookup.parts,

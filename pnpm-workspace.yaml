@@ -25,6 +25,7 @@ overrides:
   next: "16.2.6"
   postcss: "8.5.14"
   svelte: "5.55.5"
+  vite: "7.3.6"
   webpack: "5.106.2"
 
 # Only reviewed dependencies may run install scripts.
@@ -32,6 +33,7 @@ allowBuilds:
   "@google/genai": true
   "@prisma/engines": true
   "@sentry/cli": true
+  braintrust: true
   core-js: true
   esbuild: true
   msgpackr-extract: true
