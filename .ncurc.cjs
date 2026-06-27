@@ -41,9 +41,22 @@ module.exports = {
     // See https://github.com/dubinc/dub-ts/issues/301
     "dub",
 
-    // Keep aligned with @chat-adapter/slack to avoid duplicate WebClient copies
-    // that bypass Slack integration test API mocks.
+    // Keep the chat SDK family aligned with the Slack WebClient version to avoid
+    // bypassing Slack integration test API mocks.
+    "chat",
+    "@chat-adapter/slack",
+    "@chat-adapter/state-ioredis",
+    "@chat-adapter/state-memory",
+    "@chat-adapter/teams",
+    "@chat-adapter/telegram",
     "@slack/web-api",
+
+    // Vite 8/Rolldown breaks TSX parsing in Vitest.
+    "vite",
+
+    // Keep aligned with BullMQ's ioredis dependency to avoid protected type
+    // mismatches when passing Redis connections into queues.
+    "ioredis",
 
     "@types/node",
   ],
