@@ -3,7 +3,10 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { LoginForm } from "@/app/(landing)/login/LoginForm";
-import { getRequiresReconsentDescription } from "@/app/(landing)/login/messages";
+import {
+  getEmailAlreadyLinkedDescription,
+  getRequiresReconsentDescription,
+} from "@/app/(landing)/login/messages";
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { isGoogleOauthEmulationEnabled } from "@/utils/google/oauth";
@@ -166,7 +169,9 @@ function ErrorAlert({ error }: { error: string }) {
       <AlertBasic
         variant="destructive"
         title="Email Already Linked"
-        description={`This email address is already linked to another ${BRAND_NAME} account. Please sign in with the original account, or use a different email address. If this error persists please contact support at ${SUPPORT_EMAIL}`}
+        description={getEmailAlreadyLinkedDescription({
+          includeSupportText: true,
+        })}
       />
     );
   }
