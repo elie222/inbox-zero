@@ -59,8 +59,11 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === "true",
   },
   serverExternalPackages: [
+    "@chat-adapter/teams",
     "@sentry/nextjs",
     "@sentry/node",
+    "@vercel/queue",
+    "bullmq",
     "mammoth",
     "unpdf",
   ],
