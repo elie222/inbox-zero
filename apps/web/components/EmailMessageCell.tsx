@@ -2,7 +2,6 @@
 
 import { ExternalLinkIcon, MailIcon, TagsIcon } from "lucide-react";
 import Link from "next/link";
-import { getEmailUrlForMessage } from "@/utils/url";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { Tooltip } from "@/components/Tooltip";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
@@ -13,8 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { useEmail } from "@/providers/EmailProvider";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useMemo } from "react";
-import { isGoogleProvider } from "@/utils/email/provider-types";
 import { getEmailMessageCellLabels } from "@/components/EmailMessageCellLabels";
+import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
 
 const MAX_VISIBLE_LABELS = 2;
 
@@ -26,6 +25,7 @@ export function EmailMessageCell({
   threadId,
   messageId,
   hideViewEmailButton,
+  externalUrl,
   labelIds,
   filterReplyTrackerLabels,
   collapseLabels,
@@ -37,6 +37,7 @@ export function EmailMessageCell({
   threadId: string;
   messageId: string;
   hideViewEmailButton?: boolean;
+  externalUrl?: string;
   labelIds?: string[];
   filterReplyTrackerLabels?: boolean;
   collapseLabels?: boolean;
@@ -56,7 +57,14 @@ export function EmailMessageCell({
     [labelIds, userLabels, filterReplyTrackerLabels, provider],
   );
 
-  const showIcons = !hideViewEmailButton && isGoogleProvider(provider);
+  const emailActions = getEmailMessageCellActions({
+    externalUrl,
+    hideViewEmailButton,
+    messageId,
+    provider,
+    threadId,
+    userEmail,
+  });
   const visibleLabels = labelsToDisplay?.slice(0, MAX_VISIBLE_LABELS) ?? [];
   const overflowLabels = labelsToDisplay?.slice(MAX_VISIBLE_LABELS) ?? [];
 
@@ -109,18 +117,13 @@ export function EmailMessageCell({
                 )}
               </div>
             )}
-        {showIcons && (
+        {emailActions && (
           <div className="order-2 ml-auto flex shrink-0 items-center gap-2 text-muted-foreground sm:order-4 sm:ml-0">
             <Link
               className="hover:text-foreground"
-              href={getEmailUrlForMessage(
-                messageId,
-                threadId,
-                userEmail,
-                provider,
-              )}
+              href={emailActions.openUrl}
               target="_blank"
-              aria-label="Open in Gmail"
+              aria-label="Open in email"
             >
               <ExternalLinkIcon className="h-4 w-4" />
             </Link>
@@ -182,6 +185,7 @@ export function EmailMessageCellWithData({
       }
       threadId={threadId}
       messageId={messageId}
+      externalUrl={firstMessage?.externalUrl}
       labelIds={firstMessage?.labelIds}
       hideViewEmailButton={emailNotFound || !!error}
     />
