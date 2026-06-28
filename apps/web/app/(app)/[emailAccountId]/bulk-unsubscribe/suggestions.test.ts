@@ -44,6 +44,15 @@ describe("isUnsubscribeSuggestion", () => {
       }),
     ).toBe(false);
   });
+
+  it("does not require an unsubscribe link by default", () => {
+    expect(
+      isUnsubscribeSuggestion({
+        value: 10,
+        readEmails: 0,
+      }),
+    ).toBe(true);
+  });
 });
 
 describe("getUnsubscribeSuggestions", () => {
@@ -69,5 +78,27 @@ describe("getUnsubscribeSuggestions", () => {
     expect(getUnsubscribeSuggestions([{ value: 10, readEmails: 8 }])).toEqual(
       [],
     );
+  });
+
+  it("can keep only low-read senders with automatic unsubscribe links", () => {
+    const automatic = {
+      name: "automatic",
+      value: 30,
+      readEmails: 1,
+      unsubscribeLink: "https://example.com/unsubscribe",
+    };
+    const manual = {
+      name: "manual",
+      value: 40,
+      readEmails: 1,
+      unsubscribeLink: "mailto:unsubscribe@example.com",
+    };
+    const missing = { name: "missing", value: 50, readEmails: 1 };
+
+    expect(
+      getUnsubscribeSuggestions([missing, manual, automatic], {
+        requireAutomaticUnsubscribeLink: true,
+      }),
+    ).toEqual([automatic]);
   });
 });

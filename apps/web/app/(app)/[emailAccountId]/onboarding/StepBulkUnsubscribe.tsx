@@ -13,7 +13,10 @@ import { Progress } from "@/components/ui/progress";
 import { ButtonCheckbox } from "@/components/ButtonCheckbox";
 import { DomainIcon } from "@/components/charts/DomainIcon";
 import { BulkUnsubscribeIllustration } from "@/app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration";
-import { getUnsubscribeSuggestions } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
+import {
+  getUnsubscribeSuggestions,
+  hasAutomaticUnsubscribeLink,
+} from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
 import { useBulkUnsubscribe } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import type {
   NewsletterStatsQuery,
@@ -69,13 +72,24 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
     },
   );
 
-  const suggestions = useMemo(
+  const lowReadSuggestions = useMemo(
     () => getUnsubscribeSuggestions(data?.newsletters ?? []),
+    [data],
+  );
+  const suggestions = useMemo(
+    () =>
+      getUnsubscribeSuggestions(data?.newsletters ?? [], {
+        requireAutomaticUnsubscribeLink: true,
+      }),
     [data],
   );
   const previewSenders = useMemo(
     () => suggestions.slice(0, PREVIEW_COUNT),
     [suggestions],
+  );
+  const lowReadSuggestionsWithAutomaticUnsubscribe = useMemo(
+    () => lowReadSuggestions.filter(hasAutomaticUnsubscribeLink).length,
+    [lowReadSuggestions],
   );
 
   // Track which previewed senders the user opted out of, so selection needs no
@@ -107,11 +121,18 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
       variant,
       shownCount: previewSenders.length,
       totalSuggestions: suggestions.length,
+      lowReadSuggestionCount: lowReadSuggestions.length,
+      lowReadSuggestionWithAutomaticUnsubscribeCount:
+        lowReadSuggestionsWithAutomaticUnsubscribe,
+      lowReadSuggestionMissingAutomaticUnsubscribeCount:
+        lowReadSuggestions.length - lowReadSuggestionsWithAutomaticUnsubscribe,
     });
   }, [
     isTreatment,
     previewSenders.length,
     suggestions.length,
+    lowReadSuggestions.length,
+    lowReadSuggestionsWithAutomaticUnsubscribe,
     variant,
     posthog,
   ]);
@@ -154,7 +175,20 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
       onSkip();
       return;
     }
+
+    posthog?.capture("onboarding_unsubscribe_cta_clicked", {
+      variant,
+      selectedCount: selectedSenders.length,
+      totalSuggestions: suggestions.length,
+      hasUnsubscribeAccess,
+    });
+
     if (!hasUnsubscribeAccess) {
+      posthog?.capture("onboarding_unsubscribe_upgrade_prompt_shown", {
+        variant,
+        selectedCount: selectedSenders.length,
+        totalSuggestions: suggestions.length,
+      });
       openModal();
       return;
     }
