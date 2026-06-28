@@ -307,6 +307,8 @@ export function getRule(
     conditionalOperator: LogicalOperator.AND,
     systemType: null,
     promptText: null,
+    organizationRuleId: null,
+    organizationRuleMemberEnabled: null,
   };
 }
 

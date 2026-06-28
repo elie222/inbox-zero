@@ -232,6 +232,61 @@ model Organization {
   ScimProvider ScimProvider[]
   sessions     Session[]
   invitations  Invitation[]
+  rules        OrganizationRule[]
+}
+
+// Org-managed rule, materialized into a normal member Rule (+ Action) copy per
+// member so existing rule execution/history/stats keep working unchanged.
+model OrganizationRule {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  enabled Boolean @default(true)
+
+  name                String
+  instructions        String?
+  runOnThreads        Boolean         @default(false)
+  conditionalOperator LogicalOperator @default(AND)
+  from                String?
+  to                  String?
+  subject             String?
+  body                String?
+
+  actions     OrganizationRuleAction[]
+  memberRules Rule[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, enabled])
+}
+
+// Only portable action fields; account-specific ids (labelId, folderId,
+// messaging channels) are excluded and resolved per member at execution.
+model OrganizationRuleAction {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationRuleId String
+  organizationRule   OrganizationRule @relation(fields: [organizationRuleId], references: [id], onDelete: Cascade)
+
+  type ActionType
+
+  label             String?
+  subject           String?
+  content           String?
+  to                String?
+  cc                String?
+  bcc               String?
+  url               String?
+  folderName        String?
+  delayInMinutes    Int?
+  staticAttachments Json?
+
+  @@index([organizationRuleId])
 }
 
 model Member {
@@ -485,6 +540,13 @@ model Rule {
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
+  // Set only for materialized OrganizationRule copies (null for personal rules).
+  // For copies, organizationRuleMemberEnabled is the member's opt-in and
+  // enabled = OrganizationRule.enabled && organizationRuleMemberEnabled.
+  organizationRuleId            String?
+  organizationRule              OrganizationRule? @relation(fields: [organizationRuleId], references: [id], onDelete: Cascade)
+  organizationRuleMemberEnabled Boolean?
+
   executedRules          ExecutedRule[]
   classificationFeedback ClassificationFeedback[]
 
@@ -519,7 +581,9 @@ model Rule {
   @@unique([id, emailAccountId])
   @@unique([name, emailAccountId])
   @@unique([emailAccountId, systemType])
+  @@unique([emailAccountId, organizationRuleId])
   @@index([emailAccountId, enabled])
+  @@index([organizationRuleId])
 }
 
 model Action {

@@ -25,6 +25,7 @@ import type { RuleReadState } from "../../chat-rule-state";
 import {
   buildProviderRuleActionFields,
   buildHiddenRuleNotFoundError,
+  buildVisibleOrgManagedRuleError,
   trackRuleToolCall,
   validateRuleWasReadRecently,
 } from "./shared";
@@ -100,6 +101,7 @@ export const updateRuleTool = ({
             name: true,
             enabled: true,
             updatedAt: true,
+            organizationRuleId: true,
             instructions: true,
             from: true,
             to: true,
@@ -129,6 +131,10 @@ export const updateRuleTool = ({
 
         if (!rule) {
           return buildHiddenRuleNotFoundError();
+        }
+
+        if (rule.organizationRuleId) {
+          return buildVisibleOrgManagedRuleError();
         }
 
         const staleReadError = validateRuleWasReadRecently({

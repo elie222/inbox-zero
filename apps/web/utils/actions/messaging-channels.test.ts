@@ -572,6 +572,7 @@ describe("toggleRuleChannelAction", () => {
         },
       },
       select: {
+        organizationRuleId: true,
         actions: {
           where: {
             type: {

@@ -982,6 +982,8 @@ function getRule(): Rule {
     automate: true,
     runOnThreads: true,
     emailAccountId: "emailAccountId",
+    organizationRuleId: null,
+    organizationRuleMemberEnabled: null,
     promptText: null,
     categoryFilterType: null,
     systemType: null,

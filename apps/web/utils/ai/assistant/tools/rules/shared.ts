@@ -5,6 +5,7 @@ import type {
   CreateOrUpdateRuleSchema,
 } from "@/utils/ai/rule/create-rule-schema";
 import { posthogCaptureEvent } from "@/utils/posthog";
+import { RULE_MANAGED_BY_ORGANIZATION_ERROR } from "@/utils/organizations/rules";
 import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
 
@@ -136,4 +137,11 @@ export function buildHiddenRuleNotFoundError() {
     success: false,
     error: RULE_NOT_FOUND_ERROR,
   });
+}
+
+export function buildVisibleOrgManagedRuleError() {
+  return {
+    success: false as const,
+    error: RULE_MANAGED_BY_ORGANIZATION_ERROR,
+  };
 }

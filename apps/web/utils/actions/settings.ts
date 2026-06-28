@@ -186,13 +186,15 @@ export const updateDigestItemsAction = actionClient
               id: ruleId,
               emailAccountId,
             },
-            select: { id: true, actions: true },
+            select: { id: true, actions: true, organizationRuleId: true },
           });
 
           if (!rule) {
             logger.error("Rule not found", { ruleId });
             return;
           }
+
+          if (rule.organizationRuleId) return;
 
           const hasDigestAction = rule.actions.some(
             (action) => action.type === ActionType.DIGEST,
