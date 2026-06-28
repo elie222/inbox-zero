@@ -63,10 +63,10 @@ describe("MicrosoftCalendarEventProvider", () => {
     expect(graphMocks.api).toHaveBeenCalledWith(
       "/me/calendars/calendar-id/events",
     );
-    expect(graphMocks.post).toHaveBeenCalledWith(
+    const createPayload = graphMocks.post.mock.calls[0]?.[0];
+    expect(createPayload).toEqual(
       expect.objectContaining({
         isOnlineMeeting: true,
-        onlineMeetingProvider: "teamsForBusiness",
         location: undefined,
         start: {
           dateTime: "2026-05-04T09:00:00.0000000",
@@ -78,6 +78,7 @@ describe("MicrosoftCalendarEventProvider", () => {
         },
       }),
     );
+    expect(createPayload).not.toHaveProperty("onlineMeetingProvider");
     expect(result).toEqual({
       id: "event-id",
       providerCalendarId: "calendar-id",
@@ -112,12 +113,11 @@ describe("MicrosoftCalendarEventProvider", () => {
       title: "Intro call",
     });
 
-    expect(graphMocks.post).toHaveBeenCalledWith(
-      expect.objectContaining({
-        isOnlineMeeting: true,
-        onlineMeetingProvider: undefined,
-      }),
+    const createPayload = graphMocks.post.mock.calls[0]?.[0];
+    expect(createPayload).toEqual(
+      expect.objectContaining({ isOnlineMeeting: true }),
     );
+    expect(createPayload).not.toHaveProperty("onlineMeetingProvider");
   });
 
   it("refetches the event when Graph initializes the Teams join URL asynchronously", async () => {
@@ -212,38 +212,47 @@ describe("MicrosoftCalendarEventProvider", () => {
     expect(graphMocks.api).toHaveBeenCalledWith("/me/events/event-id");
     expect(graphMocks.patch).toHaveBeenCalledWith({
       isOnlineMeeting: true,
-      onlineMeetingProvider: "teamsForBusiness",
     });
     expect(result.videoConferenceLink).toBe("https://teams.example.com/join");
   });
 
-  it("rejects Teams events when the destination calendar does not support Teams", async () => {
+  it("creates a regular event when the destination calendar does not support Teams", async () => {
     graphMocks.get.mockResolvedValue({
       id: "calendar-id",
       allowedOnlineMeetingProviders: ["skypeForBusiness"],
       defaultOnlineMeetingProvider: "skypeForBusiness",
     });
+    graphMocks.post.mockResolvedValue({
+      id: "event-id",
+      webLink: "https://outlook.example.com/event",
+    });
 
     const provider = createProvider();
 
-    await expect(
-      provider.createEvent({
-        attendees: [{ email: "guest@example.com", name: "Guest User" }],
-        calendarId: "calendar-id",
-        description: "Meeting description",
-        endTime: new Date("2026-05-04T09:30:00.000Z"),
-        locationType: "MICROSOFT_TEAMS",
-        locationValue: null,
-        startTime: new Date("2026-05-04T09:00:00.000Z"),
-        timezone: "America/New_York",
-        title: "Intro call",
-      }),
-    ).rejects.toThrow("Microsoft Teams meetings are not supported");
+    const result = await provider.createEvent({
+      attendees: [{ email: "guest@example.com", name: "Guest User" }],
+      calendarId: "calendar-id",
+      description: "Meeting description",
+      endTime: new Date("2026-05-04T09:30:00.000Z"),
+      locationType: "MICROSOFT_TEAMS",
+      locationValue: null,
+      startTime: new Date("2026-05-04T09:00:00.000Z"),
+      timezone: "America/New_York",
+      title: "Intro call",
+    });
 
-    expect(graphMocks.post).not.toHaveBeenCalled();
+    const createPayload = graphMocks.post.mock.calls[0]?.[0];
+    expect(createPayload).not.toHaveProperty("isOnlineMeeting");
+    expect(createPayload).not.toHaveProperty("onlineMeetingProvider");
+    expect(result).toEqual({
+      id: "event-id",
+      providerCalendarId: "calendar-id",
+      eventUrl: "https://outlook.example.com/event",
+      videoConferenceLink: undefined,
+    });
   });
 
-  it("rejects Teams events when Graph creates the event without a Teams link", async () => {
+  it("keeps the Outlook event when Graph creates it without a Teams link", async () => {
     vi.useFakeTimers();
     try {
       graphMocks.get
@@ -288,13 +297,17 @@ describe("MicrosoftCalendarEventProvider", () => {
         title: "Intro call",
       });
 
-      const assertion = expect(promise).rejects.toThrow(
-        "Microsoft Teams meeting link was not generated",
-      );
+      const assertion = expect(promise).resolves.toEqual({
+        id: "event-id",
+        providerCalendarId: "calendar-id",
+        eventUrl: "https://outlook.example.com/event",
+        videoConferenceLink: undefined,
+      });
       await vi.runAllTimersAsync();
       await assertion;
-      expect(graphMocks.api).toHaveBeenCalledWith("/me/events/event-id/cancel");
-      expect(graphMocks.post).toHaveBeenCalledWith({ comment: "" });
+      expect(graphMocks.api).not.toHaveBeenCalledWith(
+        "/me/events/event-id/cancel",
+      );
     } finally {
       vi.useRealTimers();
     }
