@@ -375,8 +375,9 @@ export const copyRulesFromAccountBody = z.object({
 });
 export type CopyRulesFromAccountBody = z.infer<typeof copyRulesFromAccountBody>;
 
-// Schema for importing rules from JSON export
-const importedAction = z
+// Account-agnostic action schema (no label/folder IDs or messaging channels).
+// Used for importing rules from JSON export and for organization rules.
+export const portableActionSchema = z
   .object({
     type: zodActionType,
     label: z.string().nullish(),
@@ -467,7 +468,7 @@ const importedRule = z
     categoryFilterType: z
       .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
       .nullish(),
-    actions: z.array(importedAction).min(1),
+    actions: z.array(portableActionSchema).min(1),
     group: z.string().nullish(),
   })
   .refine(

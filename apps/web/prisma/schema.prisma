@@ -220,33 +220,111 @@ model EmailAccount {
 }
 
 model Organization {
-  id           String         @id @default(cuid())
+  id           String             @id @default(cuid())
   name         String
-  slug         String         @unique
+  slug         String             @unique
   logo         String?
   metadata     Json?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
   members      Member[]
   SsoProvider  SsoProvider[]
   ScimProvider ScimProvider[]
   sessions     Session[]
   invitations  Invitation[]
+  rules        OrganizationRule[]
+  teams        OrganizationTeam[]
 }
 
 model Member {
-  id                     String       @id @default(cuid())
+  id                     String            @id @default(cuid())
   organizationId         String
   emailAccountId         String
-  role                   String       @default("member") // "admin" | "member"
-  allowOrgAdminAnalytics Boolean      @default(false)
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
-  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  emailAccount           EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  role                   String            @default("member") // "admin" | "member"
+  allowOrgAdminAnalytics Boolean           @default(false)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  organization           Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  emailAccount           EmailAccount      @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  teamId                 String?
+  team                   OrganizationTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, emailAccountId])
   @@unique([emailAccountId])
+}
+
+// A team (job function) within an organization, e.g. "Engineering" or "Marketing".
+// Used to target organization rules at a subset of members.
+model OrganizationTeam {
+  id             String             @id @default(cuid())
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  name           String
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members        Member[]
+  rules          OrganizationRule[]
+
+  @@unique([organizationId, name])
+}
+
+// A rule managed by organization admins. It is provisioned into each targeted
+// member's email account as a Rule row (linked via Rule.organizationRuleId),
+// so the rule execution pipeline runs unchanged.
+model OrganizationRule {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name                String
+  enabled             Boolean         @default(true)
+  runOnThreads        Boolean         @default(false)
+  conditionalOperator LogicalOperator @default(AND)
+
+  // ai condition
+  instructions String?
+
+  // static condition
+  from    String?
+  to      String?
+  subject String?
+  body    String?
+
+  actions OrganizationRuleAction[]
+
+  // teams this rule applies to; empty means it applies to all members
+  teams OrganizationTeam[]
+
+  managedRules Rule[]
+
+  @@unique([organizationId, name])
+}
+
+// Account-agnostic action definition for an organization rule. Account-specific
+// fields (labelId, folderId, messaging channels) are resolved per member account
+// when the rule is provisioned or executed.
+model OrganizationRuleAction {
+  id                 String           @id @default(cuid())
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  organizationRuleId String
+  organizationRule   OrganizationRule @relation(fields: [organizationRuleId], references: [id], onDelete: Cascade)
+  type               ActionType
+
+  label          String?
+  subject        String?
+  content        String?
+  to             String?
+  cc             String?
+  bcc            String?
+  url            String?
+  folderName     String?
+  delayInMinutes Int?
+
+  @@index([organizationRuleId])
 }
 
 model Invitation {
@@ -512,6 +590,10 @@ model Rule {
 
   systemType SystemType?
 
+  // set when this rule is provisioned from an organization rule; members cannot modify managed rules
+  organizationRuleId String?
+  organizationRule   OrganizationRule? @relation(fields: [organizationRuleId], references: [id], onDelete: Cascade)
+
   promptText String? // natural language for this rule for prompt file. prompt file is combination of these fields
 
   history RuleHistory[]
@@ -519,6 +601,7 @@ model Rule {
   @@unique([id, emailAccountId])
   @@unique([name, emailAccountId])
   @@unique([emailAccountId, systemType])
+  @@unique([organizationRuleId, emailAccountId])
   @@index([emailAccountId, enabled])
 }
 

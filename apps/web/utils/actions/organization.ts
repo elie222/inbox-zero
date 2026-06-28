@@ -24,6 +24,11 @@ import {
 import { env } from "@/env";
 import { slugify } from "@/utils/string";
 import { posthogCaptureEvent } from "@/utils/posthog";
+import {
+  removeOrganizationRulesForMember,
+  syncOrganizationRulesForMember,
+} from "@/utils/organizations/organization-rules";
+import { createScopedLogger } from "@/utils/logger";
 
 export const createOrganizationAction = actionClient
   .metadata({ name: "createOrganization" })
@@ -305,6 +310,23 @@ async function acceptInvitation({
     data: { status: "accepted" },
   });
 
+  after(async () => {
+    const logger = createScopedLogger("organization-rules").with({
+      emailAccountId,
+    });
+    try {
+      await syncOrganizationRulesForMember({
+        emailAccountId,
+        organizationId: invitation.organizationId,
+        logger,
+      });
+    } catch (error) {
+      logger.error("Failed to sync organization rules for new member", {
+        error,
+      });
+    }
+  });
+
   const premium = await getOrganizationPremium(invitation.organizationId);
   if (premium) {
     const emailAccount = await getUserFromEmailAccount(emailAccountId);
@@ -358,6 +380,11 @@ export const removeMemberAction = actionClientUser
     }
 
     await prisma.member.delete({ where: { id: memberId } });
+
+    await removeOrganizationRulesForMember({
+      emailAccountId: targetMember.emailAccountId,
+      organizationId: targetMember.organizationId,
+    });
   });
 
 export const updateMemberRoleAction = actionClientUser

@@ -985,6 +985,7 @@ function getRule(): Rule {
     promptText: null,
     categoryFilterType: null,
     systemType: null,
+    organizationRuleId: null,
   };
 }
 

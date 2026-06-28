@@ -118,6 +118,7 @@ export function Rules({
         conditionalOperator: LogicalOperator.OR,
         groupId: null,
         systemType,
+        organizationRuleId: null,
         to: null,
         from: null,
         subject: null,
@@ -164,6 +165,7 @@ export function Rules({
               <TableBody>
                 {rules.map((rule) => {
                   const isPlaceholder = rule.id.startsWith("placeholder-");
+                  const isOrganizationManaged = !!rule.organizationRuleId;
 
                   return (
                     <TableRow
@@ -186,6 +188,7 @@ export function Rules({
                         <Switch
                           size="sm"
                           checked={rule.enabled}
+                          disabled={isOrganizationManaged}
                           onCheckedChange={async (enabled) => {
                             const isSystemRule = !!rule.systemType;
 
@@ -223,7 +226,12 @@ export function Rules({
                         />
                       </TableCell>
                       <TableCell className="font-medium p-2 sm:p-4">
-                        {rule.name}
+                        <div className="flex items-center gap-2">
+                          {rule.name}
+                          {isOrganizationManaged && (
+                            <Badge color="purple">Managed by org</Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell p-2 sm:p-4">
                         <TruncatedTooltipText
@@ -257,28 +265,35 @@ export function Rules({
                               align="end"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  ruleDialog.onOpen({
-                                    ruleId: rule.id,
-                                    editMode: true,
-                                  });
-                                }}
-                              >
-                                <PenIcon className="mr-2 size-4" />
-                                Edit manually
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setInput(
-                                    `I'd like to edit the "${rule.name}" rule:\n`,
-                                  );
-                                  setOpen((arr) => [...arr, "chat-sidebar"]);
-                                }}
-                              >
-                                <SparklesIcon className="mr-2 size-4" />
-                                Edit via AI
-                              </DropdownMenuItem>
+                              {!isOrganizationManaged && (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      ruleDialog.onOpen({
+                                        ruleId: rule.id,
+                                        editMode: true,
+                                      });
+                                    }}
+                                  >
+                                    <PenIcon className="mr-2 size-4" />
+                                    Edit manually
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setInput(
+                                        `I'd like to edit the "${rule.name}" rule:\n`,
+                                      );
+                                      setOpen((arr) => [
+                                        ...arr,
+                                        "chat-sidebar",
+                                      ]);
+                                    }}
+                                  >
+                                    <SparklesIcon className="mr-2 size-4" />
+                                    Edit via AI
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                               <DropdownMenuItem
                                 onClick={() => {
                                   ruleDialog.onOpen({
@@ -300,7 +315,7 @@ export function Rules({
                                   History
                                 </Link>
                               </DropdownMenuItem>
-                              {!rule.systemType && (
+                              {!rule.systemType && !isOrganizationManaged && (
                                 <>
                                   <DropdownMenuSeparator />
 
