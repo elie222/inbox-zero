@@ -414,6 +414,7 @@ function ProcessRulesRow({
               userEmail={userEmail}
               threadId={message.threadId}
               messageId={message.id}
+              externalUrl={message.externalUrl}
               labelIds={message.labelIds}
               collapseLabels={testMode}
             />
