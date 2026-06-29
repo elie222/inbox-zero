@@ -123,6 +123,7 @@ export function EmailMessageCell({
               className="hover:text-foreground"
               href={emailActions.openUrl}
               target="_blank"
+              rel="noopener noreferrer"
               aria-label="Open in email"
             >
               <ExternalLinkIcon className="h-4 w-4" />
