@@ -1,4 +1,5 @@
 import { getEmailUrlForMessage } from "@/utils/url";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 type GetEmailMessageCellActionsOptions = {
   externalUrl?: string;
@@ -19,9 +20,14 @@ export function getEmailMessageCellActions({
 }: GetEmailMessageCellActionsOptions) {
   if (hideViewEmailButton) return null;
 
+  const openUrl =
+    externalUrl ||
+    (isMicrosoftProvider(provider)
+      ? undefined
+      : getEmailUrlForMessage(messageId, threadId, userEmail, provider));
+
   return {
-    openUrl:
-      externalUrl ||
-      getEmailUrlForMessage(messageId, threadId, userEmail, provider),
+    openUrl,
+    showViewEmailButton: true,
   };
 }

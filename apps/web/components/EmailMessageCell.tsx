@@ -119,25 +119,29 @@ export function EmailMessageCell({
             )}
         {emailActions && (
           <div className="order-2 ml-auto flex shrink-0 items-center gap-2 text-muted-foreground sm:order-4 sm:ml-0">
-            <Link
-              className="hover:text-foreground"
-              href={emailActions.openUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Open in email"
-            >
-              <ExternalLinkIcon className="h-4 w-4" />
-            </Link>
-            <Tooltip content="View email">
-              <button
-                type="button"
+            {emailActions.openUrl && (
+              <Link
                 className="hover:text-foreground"
-                onClick={() => showEmail({ threadId, messageId })}
-                aria-label="View email"
+                href={emailActions.openUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open in email"
               >
-                <MailIcon className="h-4 w-4" />
-              </button>
-            </Tooltip>
+                <ExternalLinkIcon className="h-4 w-4" />
+              </Link>
+            )}
+            {emailActions.showViewEmailButton && (
+              <Tooltip content="View email">
+                <button
+                  type="button"
+                  className="hover:text-foreground"
+                  onClick={() => showEmail({ threadId, messageId })}
+                  aria-label="View email"
+                >
+                  <MailIcon className="h-4 w-4" />
+                </button>
+              </Tooltip>
+            )}
           </div>
         )}
       </div>

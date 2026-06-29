@@ -15,10 +15,11 @@ describe("getEmailMessageCellActions", () => {
     ).toEqual({
       openUrl:
         "https://outlook.office.com/mail/deeplink/read/outlook-message-1?ispopout=0",
+      showViewEmailButton: true,
     });
   });
 
-  it("falls back to the provider URL when Outlook has no external URL", () => {
+  it("does not use the generated fallback URL for Outlook", () => {
     expect(
       getEmailMessageCellActions({
         messageId: "outlook-message-1",
@@ -27,7 +28,23 @@ describe("getEmailMessageCellActions", () => {
         userEmail: "user@contoso.com",
       }),
     ).toEqual({
-      openUrl: "https://outlook.office.com/mail/inbox/id/outlook-message-1",
+      openUrl: undefined,
+      showViewEmailButton: true,
+    });
+  });
+
+  it("falls back to the provider URL for Gmail", () => {
+    expect(
+      getEmailMessageCellActions({
+        messageId: "message-1",
+        provider: "google",
+        threadId: "thread-1",
+        userEmail: "user@gmail.com",
+      }),
+    ).toEqual({
+      openUrl:
+        "https://mail.google.com/mail/u/?authuser=user%40gmail.com#all/message-1",
+      showViewEmailButton: true,
     });
   });
 
