@@ -311,6 +311,21 @@ async function getTeamsOnlineMeetingFields({
     return null;
   }
 
+  if (
+    settings?.defaultOnlineMeetingProvider &&
+    settings.defaultOnlineMeetingProvider !== MICROSOFT_TEAMS_PROVIDER
+  ) {
+    logger.warn(
+      "Microsoft Teams is not the default online meeting provider for calendar",
+      {
+        calendarId,
+        allowedOnlineMeetingProviders: settings.allowedOnlineMeetingProviders,
+        defaultOnlineMeetingProvider: settings.defaultOnlineMeetingProvider,
+      },
+    );
+    return null;
+  }
+
   // Graph can ignore explicit teamsForBusiness on some Outlook calendars and
   // create a regular event instead, so let the calendar's online provider
   // settings drive Teams generation.

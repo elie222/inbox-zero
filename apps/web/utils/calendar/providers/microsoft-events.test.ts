@@ -34,7 +34,7 @@ describe("MicrosoftCalendarEventProvider", () => {
     graphMocks.get.mockResolvedValue({
       id: "calendar-id",
       allowedOnlineMeetingProviders: ["teamsForBusiness"],
-      defaultOnlineMeetingProvider: "skypeForBusiness",
+      defaultOnlineMeetingProvider: "teamsForBusiness",
     });
     graphMocks.post.mockResolvedValue({
       id: "event-id",
@@ -127,7 +127,7 @@ describe("MicrosoftCalendarEventProvider", () => {
       .mockResolvedValueOnce({
         id: "calendar-id",
         allowedOnlineMeetingProviders: ["teamsForBusiness"],
-        defaultOnlineMeetingProvider: "skypeForBusiness",
+        defaultOnlineMeetingProvider: "teamsForBusiness",
       })
       .mockResolvedValueOnce({
         id: "event-id",
@@ -171,7 +171,7 @@ describe("MicrosoftCalendarEventProvider", () => {
       .mockResolvedValueOnce({
         id: "calendar-id",
         allowedOnlineMeetingProviders: ["teamsForBusiness"],
-        defaultOnlineMeetingProvider: "skypeForBusiness",
+        defaultOnlineMeetingProvider: "teamsForBusiness",
       })
       .mockResolvedValueOnce({
         id: "event-id",
@@ -252,6 +252,44 @@ describe("MicrosoftCalendarEventProvider", () => {
     });
   });
 
+  it("creates a regular event when Teams is not the calendar default", async () => {
+    graphMocks.get.mockResolvedValue({
+      id: "calendar-id",
+      allowedOnlineMeetingProviders: ["teamsForBusiness", "skypeForBusiness"],
+      defaultOnlineMeetingProvider: "skypeForBusiness",
+    });
+    graphMocks.post.mockResolvedValue({
+      id: "event-id",
+      webLink: "https://outlook.example.com/event",
+    });
+
+    const provider = createProvider();
+
+    const result = await provider.createEvent({
+      attendees: [{ email: "guest@example.com", name: "Guest User" }],
+      calendarId: "calendar-id",
+      description: "Meeting description",
+      endTime: new Date("2026-05-04T09:30:00.000Z"),
+      locationType: "MICROSOFT_TEAMS",
+      locationValue: null,
+      startTime: new Date("2026-05-04T09:00:00.000Z"),
+      timezone: "America/New_York",
+      title: "Intro call",
+    });
+
+    const createPayload = graphMocks.post.mock.calls[0]?.[0];
+    expect(createPayload).not.toHaveProperty("isOnlineMeeting");
+    expect(createPayload).not.toHaveProperty("onlineMeetingProvider");
+    expect(graphMocks.api).not.toHaveBeenCalledWith("/me/events/event-id");
+    expect(graphMocks.patch).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      id: "event-id",
+      providerCalendarId: "calendar-id",
+      eventUrl: "https://outlook.example.com/event",
+      videoConferenceLink: undefined,
+    });
+  });
+
   it("keeps the Outlook event when Graph creates it without a Teams link", async () => {
     vi.useFakeTimers();
     try {
@@ -259,7 +297,7 @@ describe("MicrosoftCalendarEventProvider", () => {
         .mockResolvedValueOnce({
           id: "calendar-id",
           allowedOnlineMeetingProviders: ["teamsForBusiness"],
-          defaultOnlineMeetingProvider: "skypeForBusiness",
+          defaultOnlineMeetingProvider: "teamsForBusiness",
         })
         .mockResolvedValue({
           id: "event-id",
