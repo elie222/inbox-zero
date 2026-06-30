@@ -9,10 +9,16 @@ import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { SystemType, ThreadTrackerType } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
-import { getMessagesBatch } from "@/utils/gmail/message";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { sendSummaryEmailBody } from "./validation";
+import { createEmailProvider } from "@/utils/email/provider";
+import type { ParsedMessage } from "@/utils/types";
+import {
+  ARCHIVED_EMAIL_DISPLAY_LIMIT,
+  buildArchivedEmailSummaryItems,
+  getArchivedActionWhere,
+} from "./archived-emails";
 
 export const maxDuration = 60;
 
@@ -115,7 +121,8 @@ async function sendEmail({
       email: true,
       account: {
         select: {
-          access_token: true,
+          provider: true,
+          refresh_token: true,
         },
       },
     },
@@ -138,58 +145,92 @@ async function sendEmail({
     select: { id: true },
   });
 
+  const archivedActionWhere = getArchivedActionWhere({
+    emailAccountId,
+    cutOffDate,
+  });
+
   // Get counts and recent threads for each type
-  const [counts, needsReply, awaitingReply, coldExecutedRules] =
-    await Promise.all([
-      // total count
-      // NOTE: should really be distinct by threadId. this will cause a mismatch in some cases
-      prisma.threadTracker.groupBy({
-        by: ["type"],
-        where: {
-          emailAccountId,
-          resolved: false,
-        },
-        _count: true,
-      }),
-      // needs reply
-      prisma.threadTracker.findMany({
-        where: {
-          emailAccountId,
-          type: ThreadTrackerType.NEEDS_REPLY,
-          resolved: false,
-        },
-        orderBy: { sentAt: "desc" },
-        take: 20,
-        distinct: ["threadId"],
-      }),
-      // awaiting reply
-      prisma.threadTracker.findMany({
-        where: {
-          emailAccountId,
-          type: ThreadTrackerType.AWAITING,
-          resolved: false,
-          // only show emails that are more than 3 days overdue
-          sentAt: { lt: subHours(new Date(), 24 * 3) },
-        },
-        orderBy: { sentAt: "desc" },
-        take: 20,
-        distinct: ["threadId"],
-      }),
-      // cold emails
-      coldEmailRule
-        ? prisma.executedRule.findMany({
-            where: {
-              ruleId: coldEmailRule.id,
-              automated: true,
-              createdAt: { gt: cutOffDate },
+  const [
+    counts,
+    needsReply,
+    awaitingReply,
+    coldExecutedRules,
+    archivedEmailCount,
+    archivedActions,
+  ] = await Promise.all([
+    // total count
+    // NOTE: should really be distinct by threadId. this will cause a mismatch in some cases
+    prisma.threadTracker.groupBy({
+      by: ["type"],
+      where: {
+        emailAccountId,
+        resolved: false,
+      },
+      _count: true,
+    }),
+    // needs reply
+    prisma.threadTracker.findMany({
+      where: {
+        emailAccountId,
+        type: ThreadTrackerType.NEEDS_REPLY,
+        resolved: false,
+      },
+      orderBy: { sentAt: "desc" },
+      take: 20,
+      distinct: ["threadId"],
+    }),
+    // awaiting reply
+    prisma.threadTracker.findMany({
+      where: {
+        emailAccountId,
+        type: ThreadTrackerType.AWAITING,
+        resolved: false,
+        // only show emails that are more than 3 days overdue
+        sentAt: { lt: subHours(new Date(), 24 * 3) },
+      },
+      orderBy: { sentAt: "desc" },
+      take: 20,
+      distinct: ["threadId"],
+    }),
+    // cold emails
+    coldEmailRule
+      ? prisma.executedRule.findMany({
+          where: {
+            ruleId: coldEmailRule.id,
+            automated: true,
+            createdAt: { gt: cutOffDate },
+          },
+          select: {
+            messageId: true,
+            createdAt: true,
+          },
+        })
+      : Promise.resolve([]),
+    prisma.executedAction.count({
+      where: archivedActionWhere,
+    }),
+    prisma.executedAction.findMany({
+      where: archivedActionWhere,
+      orderBy: { createdAt: "desc" },
+      take: ARCHIVED_EMAIL_DISPLAY_LIMIT,
+      select: {
+        id: true,
+        createdAt: true,
+        executedRule: {
+          select: {
+            messageId: true,
+            rule: {
+              select: {
+                name: true,
+                systemType: true,
+              },
             },
-            select: {
-              messageId: true,
-              createdAt: true,
-            },
-          })
-        : Promise.resolve([]),
-    ]);
+          },
+        },
+      },
+    }),
+  ]);
 
   const typeCounts = Object.fromEntries(
     counts.map((count) => [count.type, count._count]),
@@ -200,19 +241,20 @@ async function sendEmail({
     ...needsReply.map((m) => m.messageId),
     ...awaitingReply.map((m) => m.messageId),
     ...coldExecutedRules.map((r) => r.messageId),
+    ...archivedActions.map((a) => a.executedRule.messageId),
   ];
 
   logger.info("Getting messages", {
     messagesCount: messageIds.length,
   });
 
-  const messages = emailAccount.account.access_token
-    ? await getMessagesBatch({
-        messageIds,
-        accessToken: emailAccount.account.access_token,
-        logger,
-      })
-    : [];
+  const messages = await getMessages({
+    emailAccountId,
+    provider: emailAccount.account.provider,
+    hasRefreshToken: !!emailAccount.account.refresh_token,
+    messageIds,
+    logger,
+  });
 
   const messageMap = Object.fromEntries(
     messages.map((message) => [message.id, message]),
@@ -245,7 +287,13 @@ async function sendEmail({
     };
   });
 
+  const archivedEmails = buildArchivedEmailSummaryItems({
+    archivedActions,
+    messageMap,
+  });
+
   const shouldSendEmail = !!(
+    archivedEmailCount ||
     coldEmailers.length ||
     typeCounts[ThreadTrackerType.NEEDS_REPLY] ||
     typeCounts[ThreadTrackerType.AWAITING] ||
@@ -254,6 +302,8 @@ async function sendEmail({
 
   logger.info("Sending summary email to user", {
     shouldSendEmail,
+    archivedEmailCount,
+    archivedEmailsShown: archivedEmails.length,
     coldEmailers: coldEmailers.length,
     needsReplyCount: typeCounts[ThreadTrackerType.NEEDS_REPLY],
     awaitingReplyCount: typeCounts[ThreadTrackerType.AWAITING],
@@ -274,6 +324,8 @@ async function sendEmail({
       to: userEmail,
       emailProps: {
         baseUrl: env.NEXT_PUBLIC_BASE_URL,
+        archivedEmailCount,
+        archivedEmails,
         coldEmailers,
         needsReplyCount: typeCounts[ThreadTrackerType.NEEDS_REPLY],
         awaitingReplyCount: typeCounts[ThreadTrackerType.AWAITING],
@@ -296,4 +348,42 @@ async function sendEmail({
   ]);
 
   return { success: true };
+}
+
+async function getMessages({
+  emailAccountId,
+  provider,
+  hasRefreshToken,
+  messageIds,
+  logger,
+}: {
+  emailAccountId: string;
+  provider: string;
+  hasRefreshToken: boolean;
+  messageIds: string[];
+  logger: Logger;
+}): Promise<ParsedMessage[]> {
+  const uniqueMessageIds = Array.from(new Set(messageIds)).filter(Boolean);
+  if (!uniqueMessageIds.length) return [];
+
+  if (!hasRefreshToken) {
+    logger.warn("Skipping summary message fetch: account has no refresh token");
+    return [];
+  }
+
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider,
+    logger,
+  });
+
+  const messages: ParsedMessage[] = [];
+  const batchSize = 100;
+
+  for (let i = 0; i < uniqueMessageIds.length; i += batchSize) {
+    const batch = uniqueMessageIds.slice(i, i + batchSize);
+    messages.push(...(await emailProvider.getMessagesBatch(batch)));
+  }
+
+  return messages;
 }
