@@ -839,13 +839,15 @@ export function CreatedRuleToolCard({
   args,
   ruleId,
   preview,
+  status,
 }: {
   args: CreateRuleTool["input"];
   ruleId?: string;
   preview?: boolean;
+  status?: "created" | "pending";
 }) {
   const conditionText = buildConditionText(args.condition);
-  const isCreated = Boolean(ruleId);
+  const isCreated = status ? status === "created" : Boolean(ruleId);
 
   return (
     <RuleSummaryCard
