@@ -58,6 +58,10 @@ export function RuleSummaryRow({
   );
 }
 
+export function RuleSummaryText({ children }: { children: ReactNode }) {
+  return <p className="whitespace-pre-wrap break-words">{children}</p>;
+}
+
 export function RuleSummaryLabel({
   children,
   className,

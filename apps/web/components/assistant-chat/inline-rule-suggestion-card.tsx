@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import {
   RuleSummaryCard,
   RuleSummaryRow,
+  RuleSummaryText,
 } from "@/components/assistant-chat/rule-summary-card";
 import { getActionDisplay, getActionIcon } from "@/utils/action-display";
 import { getActionColor } from "@/components/PlanBadge";
@@ -119,7 +120,11 @@ export function InlineRuleSuggestionCard({
         )
       }
     >
-      {whenText && <RuleSummaryRow label="When">{whenText}</RuleSummaryRow>}
+      {whenText && (
+        <RuleSummaryRow label="When">
+          <RuleSummaryText>{whenText}</RuleSummaryText>
+        </RuleSummaryRow>
+      )}
 
       {(actionText || suggestedActions.length > 0) && (
         <RuleSummaryRow label="Then">

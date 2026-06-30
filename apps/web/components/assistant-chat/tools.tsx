@@ -97,6 +97,7 @@ import {
   RuleSummaryCardHeader,
   RuleSummaryLabel,
   RuleSummaryRow,
+  RuleSummaryText,
 } from "@/components/assistant-chat/rule-summary-card";
 import { getPendingEmailSubjectPrefix } from "@/components/assistant-chat/helpers";
 
@@ -865,7 +866,7 @@ export function CreatedRuleToolCard({
       }
     >
       <RuleSummaryRow label="When">
-        <p>{conditionText}</p>
+        <RuleSummaryText>{conditionText}</RuleSummaryText>
       </RuleSummaryRow>
 
       <RuleSummaryRow label="Then">
@@ -1202,7 +1203,7 @@ export function UpdatedRuleConditions({
       <CardContent className="space-y-3 px-4 py-3.5">
         <div className="flex gap-4 text-sm">
           <FieldLabel className="pt-0.5">When</FieldLabel>
-          <p>{conditionText}</p>
+          <RuleSummaryText>{conditionText}</RuleSummaryText>
         </div>
 
         {actions && actions.length > 0 && (
@@ -1270,7 +1271,7 @@ export function UpdatedRuleActions({
         {conditionText && (
           <div className="flex gap-4 text-sm">
             <FieldLabel className="pt-0.5">When</FieldLabel>
-            <p>{conditionText}</p>
+            <RuleSummaryText>{conditionText}</RuleSummaryText>
           </div>
         )}
 
@@ -1358,7 +1359,7 @@ export function UpdatedRule({
         {conditionText && (
           <div className="flex gap-4 text-sm">
             <FieldLabel className="pt-0.5">When</FieldLabel>
-            <p>{conditionText}</p>
+            <RuleSummaryText>{conditionText}</RuleSummaryText>
           </div>
         )}
 
