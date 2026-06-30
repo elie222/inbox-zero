@@ -2367,7 +2367,7 @@ function mergeUpdatedConditionsForDisplay({
   }
 
   const conditionalOperator =
-    "conditionalOperator" in updatedConditions
+    updatedConditions.conditionalOperator != null
       ? updatedConditions.conditionalOperator
       : originalConditions?.conditionalOperator;
 
