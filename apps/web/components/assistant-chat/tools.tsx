@@ -1305,7 +1305,13 @@ export function UpdatedRule({
   const ruleId = output.ruleId;
   const title = output.updatedName || args.updates.name || args.ruleName;
   const conditionText = output.updatedConditions
-    ? buildConditionText(output.updatedConditions)
+    ? buildConditionText(
+        output.currentRule?.conditions ||
+          mergeUpdatedConditionsForDisplay({
+            originalConditions: output.originalConditions,
+            updatedConditions: output.updatedConditions,
+          }),
+      )
     : null;
   const actions = output.updatedActions;
   const nameChanged =
@@ -2330,6 +2336,43 @@ function buildConditionText(condition: {
     if (staticParts.length > 0) parts.push(staticParts.join(", "));
   }
   return parts.join(` ${condition.conditionalOperator || "AND"} `);
+}
+
+function mergeUpdatedConditionsForDisplay({
+  originalConditions,
+  updatedConditions,
+}: {
+  originalConditions: UpdateRuleOutput["originalConditions"];
+  updatedConditions: NonNullable<UpdateRuleOutput["updatedConditions"]>;
+}) {
+  let staticCondition = originalConditions?.static;
+  if ("static" in updatedConditions) {
+    staticCondition =
+      updatedConditions.static === null
+        ? null
+        : {
+            ...(originalConditions?.static || {}),
+            ...(updatedConditions.static || {}),
+          };
+  }
+
+  let aiInstructions = originalConditions?.aiInstructions;
+  if ("aiInstructions" in updatedConditions) {
+    aiInstructions = updatedConditions.aiInstructions;
+  } else if (updatedConditions.clearAiInstructions) {
+    aiInstructions = null;
+  }
+
+  const conditionalOperator =
+    "conditionalOperator" in updatedConditions
+      ? updatedConditions.conditionalOperator
+      : originalConditions?.conditionalOperator;
+
+  return {
+    aiInstructions,
+    static: staticCondition,
+    conditionalOperator,
+  };
 }
 
 function formatActionsForDiff(

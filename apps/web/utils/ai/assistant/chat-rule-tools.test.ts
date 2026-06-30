@@ -367,6 +367,63 @@ describe("updateRuleTool", () => {
     expect(mockUpdateRuleActions).not.toHaveBeenCalled();
   });
 
+  it("applies static condition changes when copied instructions are included", async () => {
+    mockPrisma.rule.findUnique.mockResolvedValue(
+      vendorBillingRuleWithActions(),
+    );
+
+    const result = await updateRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider: "google",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["Vendor Billing", "2026-04-27T00:00:00.000Z"],
+        ]),
+      }),
+    }).execute({
+      ruleName: "Vendor Billing",
+      updates: {
+        condition: {
+          aiInstructions: "Billing notices.",
+          static: {
+            from: "accounts@vendor.example",
+            subject: "invoice",
+          },
+          conditionalOperator: "AND",
+        },
+      },
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        updatedConditions: {
+          aiInstructions: "Billing notices.",
+          static: {
+            from: "accounts@vendor.example",
+            subject: "invoice",
+          },
+          conditionalOperator: "AND",
+        },
+      }),
+    );
+    expect(result.alreadyApplied).toBeUndefined();
+    expect(mockPartialUpdateRule).toHaveBeenCalledWith({
+      ruleId: "rule-id",
+      emailAccountId: "email-account-id",
+      data: {
+        instructions: "Billing notices.",
+        from: "accounts@vendor.example",
+        subject: "invoice",
+        conditionalOperator: "AND",
+      },
+    });
+  });
+
   it("blocks updates after deletion is pending for the same rule", async () => {
     const result = await updateRuleTool({
       email: "user@example.com",

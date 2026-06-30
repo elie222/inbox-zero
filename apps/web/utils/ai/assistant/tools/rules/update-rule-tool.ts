@@ -404,9 +404,15 @@ function conditionChangesRule(
   },
 ) {
   if ("aiInstructions" in condition) {
-    return condition.aiInstructions !== rule.instructions;
+    if (condition.aiInstructions !== rule.instructions) return true;
   }
-  if (condition.clearAiInstructions && rule.instructions !== null) return true;
+  if (
+    condition.clearAiInstructions &&
+    !("aiInstructions" in condition) &&
+    rule.instructions !== null
+  ) {
+    return true;
+  }
   if (
     "conditionalOperator" in condition &&
     condition.conditionalOperator !== rule.conditionalOperator
