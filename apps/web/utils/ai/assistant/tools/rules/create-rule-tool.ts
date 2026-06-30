@@ -11,19 +11,25 @@ import {
 } from "@/utils/rule/sender-scope-overlap";
 import {
   buildCreateRuleSchemaFromChatToolInput,
+  loadRuleSnapshotAfterWrite,
   trackRuleToolCall,
 } from "./shared";
+import type { RuleReadState } from "../../chat-rule-state";
 
 export const createRuleTool = ({
   email,
   emailAccountId,
   provider,
   logger,
+  setRuleReadState,
+  onRulesStateExposed,
 }: {
   email: string;
   emailAccountId: string;
   provider: string;
   logger: Logger;
+  setRuleReadState?: (state: RuleReadState) => void;
+  onRulesStateExposed?: (rulesRevision: number) => void;
 }) =>
   tool({
     description: "Create a new rule.",
@@ -78,7 +84,21 @@ export const createRuleTool = ({
           enablement: { source: "chat" },
         });
 
-        return { success: true, ruleId: rule.id };
+        const snapshot = await loadRuleSnapshotAfterWrite({
+          emailAccountId,
+          logger,
+          setRuleReadState,
+          onRulesStateExposed,
+        });
+        const currentRule = snapshot?.rules.find(
+          (snapshotRule) => snapshotRule.name === resultPayload.name,
+        );
+
+        return {
+          success: true,
+          ruleId: rule.id,
+          currentRule,
+        };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
 
