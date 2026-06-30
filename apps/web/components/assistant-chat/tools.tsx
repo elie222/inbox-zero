@@ -2315,7 +2315,7 @@ function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
   );
 }
 
-function buildConditionText(condition: {
+type ConditionTextInput = {
   aiInstructions?: string | null;
   static?: {
     from?: string | null;
@@ -2323,7 +2323,9 @@ function buildConditionText(condition: {
     subject?: string | null;
   } | null;
   conditionalOperator?: string | null;
-}): string {
+};
+
+function buildConditionText(condition: ConditionTextInput): string {
   const parts: string[] = [];
   if (condition.aiInstructions) parts.push(condition.aiInstructions);
   if (condition.static) {
@@ -2345,7 +2347,8 @@ function mergeUpdatedConditionsForDisplay({
   originalConditions: UpdateRuleOutput["originalConditions"];
   updatedConditions: NonNullable<UpdateRuleOutput["updatedConditions"]>;
 }) {
-  let staticCondition = originalConditions?.static;
+  let staticCondition: ConditionTextInput["static"] =
+    originalConditions?.static;
   if ("static" in updatedConditions) {
     staticCondition =
       updatedConditions.static === null
