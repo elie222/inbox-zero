@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import useSWR from "swr";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -15,7 +14,6 @@ import {
 } from "@/utils/actions/settings.validation";
 import { ActionType } from "@/generated/prisma/enums";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import type { GetDigestSettingsResponse } from "@/app/api/user/digest-settings/route";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function DigestItemsForm({
@@ -30,15 +28,8 @@ export function DigestItemsForm({
     error: rulesError,
     mutate: mutateRules,
   } = useRules();
-  const {
-    data: digestSettings,
-    isLoading: digestLoading,
-    error: digestError,
-    mutate: mutateDigestSettings,
-  } = useSWR<GetDigestSettingsResponse>("/api/user/digest-settings");
-
-  const isLoading = rulesLoading || digestLoading;
-  const error = rulesError || digestError;
+  const isLoading = rulesLoading;
+  const error = rulesError;
 
   // Use local state for MultiSelectFilter
   const [selectedDigestItems, setSelectedDigestItems] = useState<Set<string>>(
@@ -52,9 +43,9 @@ export function DigestItemsForm({
     resolver: zodResolver(updateDigestItemsBody),
   });
 
-  // Initialize selected items from rules and digest settings data
+  // Initialize selected items from rules data
   useEffect(() => {
-    if (rules && digestSettings) {
+    if (rules) {
       const selectedItems = new Set<string>();
 
       // Add rules that have digest actions
@@ -64,14 +55,9 @@ export function DigestItemsForm({
         }
       });
 
-      // Add cold email if enabled
-      if (digestSettings.coldEmail) {
-        selectedItems.add("cold-emails");
-      }
-
       setSelectedDigestItems(selectedItems);
     }
-  }, [rules, digestSettings]);
+  }, [rules]);
 
   const onSubmit: SubmitHandler<UpdateDigestItemsBody> =
     useCallback(async () => {
@@ -85,9 +71,7 @@ export function DigestItemsForm({
 
       // Then set selected rules to true
       selectedDigestItems.forEach((itemId) => {
-        if (itemId !== "cold-emails") {
-          ruleDigestPreferences[itemId] = true;
-        }
+        ruleDigestPreferences[itemId] = true;
       });
 
       const result = await updateDigestItemsAction(emailAccountId, {
@@ -102,15 +86,8 @@ export function DigestItemsForm({
       } else {
         toastSuccess({ description: "Your digest items have been updated!" });
         mutateRules();
-        mutateDigestSettings();
       }
-    }, [
-      selectedDigestItems,
-      rules,
-      mutateRules,
-      mutateDigestSettings,
-      emailAccountId,
-    ]);
+    }, [selectedDigestItems, rules, mutateRules, emailAccountId]);
 
   const digestOptions =
     rules?.map((rule) => ({

@@ -24,7 +24,6 @@ import {
 } from "@/utils/actions/settings";
 import { ActionType } from "@/generated/prisma/enums";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import type { GetDigestSettingsResponse } from "@/app/api/user/digest-settings/route";
 import type { GetDigestScheduleResponse } from "@/app/api/user/digest-schedule/route";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -81,21 +80,14 @@ export function DigestSettingsForm({
   } = useRules();
 
   const {
-    data: digestSettings,
-    isLoading: digestLoading,
-    error: digestError,
-    mutate: mutateDigestSettings,
-  } = useSWR<GetDigestSettingsResponse>("/api/user/digest-settings");
-
-  const {
     data: scheduleData,
     isLoading: scheduleLoading,
     error: scheduleError,
     mutate: mutateSchedule,
   } = useSWR<GetDigestScheduleResponse>("/api/user/digest-schedule");
 
-  const isLoading = rulesLoading || digestLoading || scheduleLoading;
-  const error = rulesError || digestError || scheduleError;
+  const isLoading = rulesLoading || scheduleLoading;
+  const error = rulesError || scheduleError;
 
   const [selectedDigestItems, setSelectedDigestItems] = useState<Set<string>>(
     new Set(),
@@ -124,7 +116,6 @@ export function DigestSettingsForm({
     {
       onSuccess: () => {
         mutateRules();
-        mutateDigestSettings();
       },
       onError: (error) => {
         toastError({
@@ -152,7 +143,7 @@ export function DigestSettingsForm({
 
   // Initialize selected items and form data from API responses
   useEffect(() => {
-    if (rules && digestSettings && scheduleData) {
+    if (rules && scheduleData) {
       const selectedItems = new Set<string>();
 
       // Add rules that have digest actions
@@ -161,11 +152,6 @@ export function DigestSettingsForm({
           selectedItems.add(rule.id);
         }
       });
-
-      // Add cold email if enabled
-      if (digestSettings.coldEmail) {
-        selectedItems.add("cold-emails");
-      }
 
       setSelectedDigestItems(selectedItems);
 
@@ -176,7 +162,7 @@ export function DigestSettingsForm({
         ...initialScheduleProps,
       });
     }
-  }, [rules, digestSettings, scheduleData, reset]);
+  }, [rules, scheduleData, reset]);
 
   // Update form when selectedDigestItems changes
   useEffect(() => {
@@ -195,9 +181,7 @@ export function DigestSettingsForm({
 
       // Then set selected rules to true
       data.selectedItems.forEach((itemId) => {
-        if (itemId !== "cold-emails") {
-          ruleDigestPreferences[itemId] = true;
-        }
+        ruleDigestPreferences[itemId] = true;
       });
 
       // Handle schedule update
@@ -254,10 +238,6 @@ export function DigestSettingsForm({
       label: rule.name,
       value: rule.id,
     })) || []),
-    {
-      label: "Cold Emails",
-      value: "cold-emails",
-    },
   ];
 
   return (
@@ -418,10 +398,9 @@ function EmailPreview({
 }) {
   const { data: rules } = useRules();
 
-  const selectedDigestNames = Array.from(selectedDigestItems).map((itemId) => {
-    if (itemId === "cold-emails") return "Cold Emails";
-    return rules?.find((rule) => rule.id === itemId)?.name || itemId;
-  });
+  const selectedDigestNames = Array.from(selectedDigestItems).map(
+    (itemId) => rules?.find((rule) => rule.id === itemId)?.name || itemId,
+  );
 
   const { data: htmlContent } = useSWR<string>(
     selectedDigestNames.length > 0
