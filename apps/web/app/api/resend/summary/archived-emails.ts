@@ -1,10 +1,4 @@
-import type { Prisma } from "@/generated/prisma/client";
-import {
-  ActionType,
-  ExecutedRuleStatus,
-  ScheduledActionStatus,
-  type SystemType,
-} from "@/generated/prisma/enums";
+import { ActionType, type SystemType } from "@/generated/prisma/enums";
 import { shouldSkipAutomatedArchiveForSender } from "@/utils/ai/automated-archive-exception";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { getRuleName } from "@/utils/rule/consts";
@@ -26,34 +20,6 @@ type ArchivedActionSummary = {
     rule: { name: string; systemType: SystemType | null } | null;
   };
 };
-
-export function getArchivedActionWhere({
-  emailAccountId,
-  cutOffDate,
-}: {
-  emailAccountId: string;
-  cutOffDate: Date;
-}) {
-  return {
-    type: ActionType.ARCHIVE,
-    createdAt: { gt: cutOffDate },
-    executedRule: {
-      emailAccountId,
-      automated: true,
-    },
-    OR: [
-      {
-        scheduledAction: {
-          is: { status: ScheduledActionStatus.COMPLETED },
-        },
-      },
-      {
-        scheduledAction: { is: null },
-        executedRule: { status: ExecutedRuleStatus.APPLIED },
-      },
-    ],
-  } satisfies Prisma.ExecutedActionWhereInput;
-}
 
 export function buildArchivedEmailSummaryItems({
   archivedActions,

@@ -1,7 +1,12 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { ActionType, SystemType } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  ExecutedRuleStatus,
+  ScheduledActionStatus,
+  SystemType,
+} from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 
 vi.mock("@/utils/prisma");
@@ -290,7 +295,17 @@ describe("summary email route", () => {
           emailAccountId: "email-account-id",
           automated: true,
         }),
-        OR: expect.any(Array),
+        OR: [
+          {
+            scheduledAction: {
+              is: { status: ScheduledActionStatus.COMPLETED },
+            },
+          },
+          {
+            scheduledAction: { is: null },
+            executedRule: { status: ExecutedRuleStatus.APPLIED },
+          },
+        ],
       }),
     });
   });

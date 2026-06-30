@@ -6,8 +6,15 @@ import { env } from "@/env";
 import { hasCronSecret } from "@/utils/cron";
 import { isValidInternalApiKey } from "@/utils/internal-api";
 import { captureException } from "@/utils/error";
+import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
-import { SystemType, ThreadTrackerType } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  ExecutedRuleStatus,
+  ScheduledActionStatus,
+  SystemType,
+  ThreadTrackerType,
+} from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
@@ -21,7 +28,6 @@ import type { ParsedMessage } from "@/utils/types";
 import {
   ARCHIVED_EMAIL_DISPLAY_LIMIT,
   buildArchivedEmailSummaryItems,
-  getArchivedActionWhere,
 } from "./archived-emails";
 
 export const maxDuration = 60;
@@ -149,10 +155,25 @@ async function sendEmail({
     select: { id: true },
   });
 
-  const archivedActionWhere = getArchivedActionWhere({
-    emailAccountId,
-    cutOffDate,
-  });
+  const archivedActionWhere = {
+    type: ActionType.ARCHIVE,
+    createdAt: { gt: cutOffDate },
+    executedRule: {
+      emailAccountId,
+      automated: true,
+    },
+    OR: [
+      {
+        scheduledAction: {
+          is: { status: ScheduledActionStatus.COMPLETED },
+        },
+      },
+      {
+        scheduledAction: { is: null },
+        executedRule: { status: ExecutedRuleStatus.APPLIED },
+      },
+    ],
+  } satisfies Prisma.ExecutedActionWhereInput;
 
   // Get counts and recent threads for each type
   const [

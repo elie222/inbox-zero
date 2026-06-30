@@ -1,15 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  ActionType,
-  ExecutedRuleStatus,
-  ScheduledActionStatus,
-  SystemType,
-} from "@/generated/prisma/enums";
+import { SystemType } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
-import {
-  buildArchivedEmailSummaryItems,
-  getArchivedActionWhere,
-} from "./archived-emails";
+import { buildArchivedEmailSummaryItems } from "./archived-emails";
 
 const { mockShouldSkipAutomatedArchiveForSender } = vi.hoisted(() => ({
   mockShouldSkipAutomatedArchiveForSender: vi.fn(),
@@ -22,35 +14,6 @@ vi.mock("@/utils/ai/automated-archive-exception", () => ({
 }));
 
 describe("archived email summary", () => {
-  it("builds a filter for automated archive actions completed in the summary window", () => {
-    const cutOffDate = new Date("2026-06-01T00:00:00.000Z");
-
-    expect(
-      getArchivedActionWhere({
-        emailAccountId: "email-account-id",
-        cutOffDate,
-      }),
-    ).toEqual({
-      type: ActionType.ARCHIVE,
-      createdAt: { gt: cutOffDate },
-      executedRule: {
-        emailAccountId: "email-account-id",
-        automated: true,
-      },
-      OR: [
-        {
-          scheduledAction: {
-            is: { status: ScheduledActionStatus.COMPLETED },
-          },
-        },
-        {
-          scheduledAction: { is: null },
-          executedRule: { status: ExecutedRuleStatus.APPLIED },
-        },
-      ],
-    });
-  });
-
   it("maps archived actions to message rows grouped by rule metadata", () => {
     mockShouldSkipAutomatedArchiveForSender.mockReturnValue(false);
 
