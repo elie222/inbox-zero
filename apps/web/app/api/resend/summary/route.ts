@@ -13,6 +13,10 @@ import { decodeSnippet } from "@/utils/gmail/decode";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { sendSummaryEmailBody } from "./validation";
 import { createEmailProvider } from "@/utils/email/provider";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 import type { ParsedMessage } from "@/utils/types";
 import {
   ARCHIVED_EMAIL_DISPLAY_LIMIT,
@@ -368,6 +372,13 @@ async function getMessages({
 
   if (!hasRefreshToken) {
     logger.warn("Skipping summary message fetch: account has no refresh token");
+    return [];
+  }
+
+  if (!isGoogleProvider(provider) && !isMicrosoftProvider(provider)) {
+    logger.warn("Skipping summary message fetch: unsupported provider", {
+      provider,
+    });
     return [];
   }
 

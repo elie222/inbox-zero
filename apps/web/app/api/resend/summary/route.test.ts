@@ -206,6 +206,56 @@ describe("summary email route", () => {
     expect(prisma.emailAccount.update).toHaveBeenCalled();
   });
 
+  it("sends archive counts without fetching messages for unsupported providers", async () => {
+    const archivedAt = new Date("2026-06-28T12:00:00.000Z");
+
+    prisma.emailAccount.findUnique
+      .mockResolvedValueOnce({ lastSummaryEmailAt: null })
+      .mockResolvedValueOnce({
+        userId: "user-1",
+        email: "user@example.com",
+        account: {
+          provider: "unsupported",
+          refresh_token: "refresh-token",
+        },
+      });
+    prisma.rule.findUnique.mockResolvedValue(null);
+    prisma.threadTracker.groupBy.mockResolvedValue([]);
+    prisma.threadTracker.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    prisma.executedAction.count.mockResolvedValue(1);
+    prisma.executedAction.findMany.mockResolvedValue([
+      {
+        id: "archive-action-1",
+        createdAt: archivedAt,
+        executedRule: {
+          messageId: "archived-message-1",
+          rule: { name: "Marketing", systemType: SystemType.MARKETING },
+        },
+      },
+    ]);
+    prisma.emailAccount.update.mockResolvedValue({});
+
+    const response = await POST(
+      new NextRequest("http://localhost:3000/api/resend/summary", {
+        method: "POST",
+        body: JSON.stringify({ emailAccountId: "email-account-id" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
+    expect(mockSendSummaryEmail).toHaveBeenCalledWith({
+      from: expect.any(String),
+      to: "user@example.com",
+      emailProps: expect.objectContaining({
+        archivedEmailCount: 1,
+        archivedEmails: [],
+      }),
+    });
+  });
+
   it("counts only completed archive actions in the weekly archive summary query", async () => {
     prisma.emailAccount.findUnique
       .mockResolvedValueOnce({ lastSummaryEmailAt: null })
