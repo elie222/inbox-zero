@@ -273,6 +273,100 @@ describe("updateRuleTool", () => {
     });
   });
 
+  it("returns alreadyApplied without writing when all requested fields match the rule", async () => {
+    mockPrisma.rule.findUnique.mockResolvedValue(
+      vendorBillingRuleWithActions(),
+    );
+
+    const result = await updateRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider: "google",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["Vendor Billing", "2026-04-27T00:00:00.000Z"],
+        ]),
+      }),
+    }).execute({
+      ruleName: "Vendor Billing",
+      updates: {
+        name: "Vendor Billing",
+        condition: {
+          aiInstructions: "Billing notices.",
+          static: {
+            from: "billing@vendor.example",
+            subject: "invoice",
+          },
+          conditionalOperator: "AND",
+        },
+        actions: vendorBillingActionsInput(),
+      },
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        alreadyApplied: true,
+        currentRule: expect.objectContaining({
+          name: "Vendor Billing",
+        }),
+      }),
+    );
+    expect(mockPartialUpdateRule).not.toHaveBeenCalled();
+    expect(mockUpdateRuleActions).not.toHaveBeenCalled();
+    expect(mockSetRuleEnabled).not.toHaveBeenCalled();
+  });
+
+  it("strips copied actions while applying a real condition change", async () => {
+    mockPrisma.rule.findUnique.mockResolvedValue(
+      vendorBillingRuleWithActions(),
+    );
+
+    const result = await updateRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider: "google",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["Vendor Billing", "2026-04-27T00:00:00.000Z"],
+        ]),
+      }),
+    }).execute({
+      ruleName: "Vendor Billing",
+      updates: {
+        condition: {
+          aiInstructions: "Billing notices that need finance review.",
+        },
+        actions: vendorBillingActionsInput(),
+      },
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        updatedConditions: {
+          aiInstructions: "Billing notices that need finance review.",
+        },
+        updatedActions: undefined,
+      }),
+    );
+    expect(result.alreadyApplied).toBeUndefined();
+    expect(mockPartialUpdateRule).toHaveBeenCalledWith({
+      ruleId: "rule-id",
+      emailAccountId: "email-account-id",
+      data: {
+        instructions: "Billing notices that need finance review.",
+      },
+    });
+    expect(mockUpdateRuleActions).not.toHaveBeenCalled();
+  });
+
   it("blocks updates after deletion is pending for the same rule", async () => {
     const result = await updateRuleTool({
       email: "user@example.com",
@@ -432,4 +526,60 @@ function mockAssistantRuleSnapshot(
     })),
     messagingChannels: [],
   });
+}
+
+function vendorBillingRuleWithActions() {
+  return {
+    id: "rule-id",
+    name: "Vendor Billing",
+    enabled: true,
+    updatedAt: new Date("2026-04-27T00:00:00.000Z"),
+    emailAccount: { rulesRevision: 3 },
+    instructions: "Billing notices.",
+    from: "billing@vendor.example",
+    to: null,
+    subject: "invoice",
+    conditionalOperator: "AND",
+    actions: [
+      {
+        type: ActionType.LABEL,
+        content: null,
+        label: "Vendor Billing",
+        to: null,
+        cc: null,
+        bcc: null,
+        subject: null,
+        url: null,
+        folderName: null,
+        delayInMinutes: null,
+      },
+      {
+        type: ActionType.ARCHIVE,
+        content: null,
+        label: null,
+        to: null,
+        cc: null,
+        bcc: null,
+        subject: null,
+        url: null,
+        folderName: null,
+        delayInMinutes: null,
+      },
+    ],
+  };
+}
+
+function vendorBillingActionsInput() {
+  return [
+    {
+      type: ActionType.LABEL,
+      fields: { label: "Vendor Billing" },
+      delayInMinutes: null,
+    },
+    {
+      type: ActionType.ARCHIVE,
+      fields: {},
+      delayInMinutes: null,
+    },
+  ];
 }

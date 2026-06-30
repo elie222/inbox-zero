@@ -64,7 +64,7 @@ import { InlineEmailCard } from "@/components/assistant-chat/inline-email-card";
 import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/Badge";
+import { Badge, type Color } from "@/components/Badge";
 import { getActionDisplay, getActionIcon } from "@/utils/action-display";
 import { getActionColor } from "@/components/PlanBadge";
 import type { ActionType } from "@/generated/prisma/enums";
@@ -845,15 +845,23 @@ export function CreatedRuleToolCard({
   preview?: boolean;
 }) {
   const conditionText = buildConditionText(args.condition);
+  const isCreated = Boolean(ruleId);
 
   return (
     <RuleSummaryCard
       title={args.name}
+      status={
+        <RuleStatusBadge
+          label={isCreated ? "Created" : "Pending"}
+          color={isCreated ? "green" : "yellow"}
+        />
+      }
       actions={
-        <>
-          {ruleId && <RuleActions ruleId={ruleId} />}
-          {preview && <RuleActionsPreview />}
-        </>
+        preview ? (
+          <RuleActionsPreview />
+        ) : ruleId ? (
+          <RuleActions ruleId={ruleId} />
+        ) : null
       }
     >
       <RuleSummaryRow label="When">
@@ -1183,8 +1191,9 @@ export function UpdatedRuleConditions({
 
   return (
     <Card>
-      <RuleToolCardHeader
+      <RuleSummaryCardHeader
         title={args.ruleName}
+        status={<RuleStatusBadge label="Updated" color="blue" />}
         actions={
           preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />
         }
@@ -1249,8 +1258,9 @@ export function UpdatedRuleActions({
 
   return (
     <Card>
-      <RuleToolCardHeader
+      <RuleSummaryCardHeader
         title={args.ruleName}
+        status={<RuleStatusBadge label="Updated" color="blue" />}
         actions={
           preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />
         }
@@ -1294,15 +1304,34 @@ export function UpdatedRule({
 }) {
   const ruleId = output.ruleId;
   const title = output.updatedName || args.updates.name || args.ruleName;
-  const conditionText = args.updates.condition
-    ? buildConditionText(args.updates.condition)
+  const conditionText = output.updatedConditions
+    ? buildConditionText(output.updatedConditions)
     : null;
-  const actions = args.updates.actions;
+  const actions = output.updatedActions;
+  const nameChanged =
+    output.originalName &&
+    output.updatedName &&
+    output.originalName !== output.updatedName;
+  const enabledChanged =
+    output.originalEnabled !== undefined &&
+    output.updatedEnabled !== undefined &&
+    output.originalEnabled !== output.updatedEnabled;
+  const onlyEnabledChanged =
+    enabledChanged &&
+    !nameChanged &&
+    !output.updatedConditions &&
+    !output.updatedActions;
+  const status = getRuleUpdateStatus({
+    alreadyApplied: output.alreadyApplied,
+    onlyEnabledChanged,
+    updatedEnabled: output.updatedEnabled,
+  });
 
   return (
     <Card>
-      <RuleToolCardHeader
+      <RuleSummaryCardHeader
         title={title}
+        status={<RuleStatusBadge label={status.label} color={status.color} />}
         actions={
           preview ? (
             <RuleActionsPreview />
@@ -1313,10 +1342,10 @@ export function UpdatedRule({
       />
 
       <CardContent className="space-y-3 px-4 py-3.5">
-        {args.updates.name && (
+        {nameChanged && output.updatedName && (
           <div className="flex gap-4 text-sm">
             <FieldLabel className="pt-0.5">Name</FieldLabel>
-            <p>{args.updates.name}</p>
+            <p>{output.updatedName}</p>
           </div>
         )}
 
@@ -1327,10 +1356,10 @@ export function UpdatedRule({
           </div>
         )}
 
-        {args.updates.enabled !== undefined && (
+        {enabledChanged && output.updatedEnabled !== undefined && (
           <div className="flex gap-4 text-sm">
             <FieldLabel className="pt-0.5">Status</FieldLabel>
-            <p>{args.updates.enabled ? "Enabled" : "Disabled"}</p>
+            <p>{output.updatedEnabled ? "Enabled" : "Disabled"}</p>
           </div>
         )}
 
@@ -1341,17 +1370,15 @@ export function UpdatedRule({
           </div>
         )}
 
-        {output.originalName &&
-          output.updatedName &&
-          output.originalName !== output.updatedName && (
-            <ViewChangesCollapsible>
-              <CollapsibleDiffContent
-                title="Name:"
-                originalText={output.originalName}
-                updatedText={output.updatedName}
-              />
-            </ViewChangesCollapsible>
-          )}
+        {nameChanged && output.originalName && output.updatedName && (
+          <ViewChangesCollapsible>
+            <CollapsibleDiffContent
+              title="Name:"
+              originalText={output.originalName}
+              updatedText={output.updatedName}
+            />
+          </ViewChangesCollapsible>
+        )}
       </CardContent>
     </Card>
   );
@@ -1382,7 +1409,11 @@ export function UpdatedLearnedPatterns({
 
   return (
     <Card>
-      <RuleToolCardHeader title={args.ruleName} actions={actions} />
+      <RuleSummaryCardHeader
+        title={args.ruleName}
+        status={<RuleStatusBadge label="Patterns updated" color="blue" />}
+        actions={actions}
+      />
 
       <CardContent className="space-y-3 px-4 py-3.5">
         {args.learnedPatterns.map((pattern, i) => {
@@ -1423,8 +1454,11 @@ export function UpdatedRuleState({
 
   return (
     <Card>
-      <RuleToolCardHeader
+      <RuleSummaryCardHeader
         title={ruleName}
+        status={
+          <RuleStatusBadge label={label} color={enabled ? "green" : "gray"} />
+        }
         actions={
           preview ? (
             <RuleActionsPreview enabled={enabled} />
@@ -1800,14 +1834,31 @@ function LearnedPatternsActions({ ruleId }: { ruleId: string }) {
   );
 }
 
-function RuleToolCardHeader({
-  title,
-  actions,
+function RuleStatusBadge({ label, color }: { label: string; color: Color }) {
+  return (
+    <Badge color={color} className="shrink-0 text-[10px]">
+      {label}
+    </Badge>
+  );
+}
+
+function getRuleUpdateStatus({
+  alreadyApplied,
+  onlyEnabledChanged,
+  updatedEnabled,
 }: {
-  title: string;
-  actions: React.ReactNode;
-}) {
-  return <RuleSummaryCardHeader title={title} actions={actions} />;
+  alreadyApplied: boolean | undefined;
+  onlyEnabledChanged: boolean;
+  updatedEnabled: boolean | undefined;
+}): { label: string; color: Color } {
+  if (alreadyApplied) return { label: "Already applied", color: "gray" };
+
+  if (onlyEnabledChanged) {
+    return updatedEnabled
+      ? { label: "Enabled", color: "green" }
+      : { label: "Disabled", color: "gray" };
+  }
+  return { label: "Updated", color: "blue" };
 }
 
 function ExpandedToolCard({
