@@ -34,11 +34,14 @@ import {
   BarChartIcon,
   ShieldIcon,
   XIcon,
+  CrownIcon,
 } from "lucide-react";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
   cancelInvitationAction,
   removeMemberAction,
+  transferOwnershipAction,
   updateMemberRoleAction,
 } from "@/utils/actions/organization";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -61,6 +64,7 @@ export function Members({ organizationId }: { organizationId: string }) {
     useOrganizationMembers(organizationId);
   const { data: membership } = useOrganizationMembership();
   const isAdmin = hasOrganizationAdminRole(membership?.role ?? "");
+  const isOwner = membership?.role === "owner";
   const { data: executedRulesData } = useExecutedRulesCount(
     isAdmin ? organizationId : null,
   );
@@ -151,6 +155,18 @@ export function Members({ organizationId }: { organizationId: string }) {
     [handleAction],
   );
 
+  const handleTransferOwnership = useCallback(
+    (memberId: string) =>
+      handleAction(
+        memberId,
+        () => transferOwnershipAction({ organizationId, memberId }),
+        "Error transferring ownership",
+        "Ownership transferred successfully",
+        "Failed to transfer ownership",
+      ),
+    [handleAction, organizationId],
+  );
+
   return (
     <LoadingContent loading={isLoading} error={error}>
       <div>
@@ -176,11 +192,13 @@ export function Members({ organizationId }: { organizationId: string }) {
                 member={member}
                 onRemove={handleRemoveMember}
                 onUpdateRole={handleUpdateRole}
+                onTransferOwnership={handleTransferOwnership}
                 executedRulesCount={executedRulesStats?.executedRulesCount}
                 lastProcessedEmailAt={
                   executedRulesStats?.lastProcessedEmailAt ?? null
                 }
                 isAdmin={isAdmin}
+                isOwner={isOwner}
                 isPending={pendingMemberId === member.id}
               />
             );
@@ -242,21 +260,26 @@ function MemberCard({
   member,
   onRemove,
   onUpdateRole,
+  onTransferOwnership,
   executedRulesCount,
   lastProcessedEmailAt,
   isAdmin,
+  isOwner,
   isPending,
 }: {
   member: Member;
   onRemove: (memberId: string) => void;
   onUpdateRole: (memberId: string, role: "admin" | "member") => void;
+  onTransferOwnership: (memberId: string) => void;
   executedRulesCount?: number;
   lastProcessedEmailAt?: Date | string | null;
   isAdmin: boolean;
+  isOwner: boolean;
   isPending: boolean;
 }) {
   const { emailAccountId } = useAccount();
   const canChangeRole = member.role !== "owner";
+  const canTransferOwnership = isOwner && canChangeRole;
   const activityStatus = getMemberActivityStatus({
     allowOrgAdminAnalytics: member.allowOrgAdminAnalytics,
     disconnectedAt: member.emailAccount.disconnectedAt,
@@ -343,6 +366,26 @@ function MemberCard({
                     </DropdownMenuRadioGroup>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
+              )}
+              {canTransferOwnership && (
+                <ConfirmDialog
+                  trigger={
+                    <DropdownMenuItem
+                      onSelect={(e: Event) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      disabled={isPending}
+                    >
+                      <CrownIcon className="mr-2 size-4" />
+                      Transfer ownership
+                    </DropdownMenuItem>
+                  }
+                  title="Transfer ownership"
+                  description={`Transfer organization ownership to ${member.emailAccount.name || member.emailAccount.email}? You will become an admin.`}
+                  confirmText="Transfer"
+                  onConfirm={() => onTransferOwnership(member.id)}
+                />
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
