@@ -59,6 +59,13 @@ export const updateMemberRoleBody = z.object({
 
 export type UpdateMemberRoleBody = z.infer<typeof updateMemberRoleBody>;
 
+export const transferOwnershipBody = z.object({
+  organizationId: z.string().min(1, "Organization ID is required"),
+  memberId: z.string().min(1, "Member ID is required"),
+});
+
+export type TransferOwnershipBody = z.infer<typeof transferOwnershipBody>;
+
 export const cancelInvitationBody = z.object({
   invitationId: z.string().min(1, "Invitation ID is required"),
 });

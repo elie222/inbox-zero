@@ -24,6 +24,16 @@ import {
 } from "@/utils/ai/draft-cleanup";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
 import type { Logger } from "@/utils/logger";
+import {
+  DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
+  DELETE_EMAIL_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
+  getDeletableOrganizationIdsOrThrow,
+  getDeletedAccountOwnershipImpact,
+  getDeleteSoloOrganizationsOperation,
+  getUserDeletionOwnershipImpact,
+  isMemberEmailAccountForeignKeyError,
+  isOrganizationOwnerInvariantError,
+} from "@/utils/organizations/ownership";
 
 export const saveAboutAction = actionClient
   .metadata({ name: "saveAbout" })
@@ -68,6 +78,8 @@ export const resetAnalyticsAction = actionClient
 export const deleteAccountAction = actionClientUser
   .metadata({ name: "deleteAccount" })
   .action(async ({ ctx: { userId, logger } }) => {
+    await assertUserAccountCanBeDeleted(userId);
+
     await clearLastEmailAccountCookie().catch((error) => {
       logger.error("Failed to clear last email account cookie", { error });
     });
@@ -125,8 +137,14 @@ export const deleteEmailAccountAction = actionClientUser
 
       if (!emailAccount) throw new SafeError("Email account not found");
       if (!emailAccount.accountId) throw new SafeError("Account id not found");
+      const organizationIdsToDelete =
+        await assertEmailAccountCanBeDeleted(emailAccountId);
 
       const isPrimaryAccount = emailAccount.email === emailAccount.user.email;
+      const deleteSoloOrganizationsOperation =
+        getDeleteSoloOrganizationsOperation(organizationIdsToDelete, [
+          emailAccountId,
+        ]);
 
       if (isPrimaryAccount) {
         // Check if there are other email accounts
@@ -155,6 +173,7 @@ export const deleteEmailAccountAction = actionClientUser
         await runDeleteEmailAccountTransaction(
           userId,
           [
+            deleteSoloOrganizationsOperation,
             prisma.user.update({
               where: {
                 id: userId,
@@ -192,6 +211,7 @@ export const deleteEmailAccountAction = actionClientUser
         await runDeleteEmailAccountTransaction(
           userId,
           [
+            deleteSoloOrganizationsOperation,
             prisma.emailAccount.delete({
               where: {
                 id: emailAccountId,
@@ -252,6 +272,13 @@ async function runDeleteEmailAccountTransaction(
     }
 
     if (
+      isOrganizationOwnerInvariantError(error) ||
+      isMemberEmailAccountForeignKeyError(error)
+    ) {
+      throw new SafeError(DELETE_EMAIL_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR);
+    }
+
+    if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2003"
     ) {
@@ -283,4 +310,24 @@ function getPrismaErrorMeta(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError
     ? error.meta
     : undefined;
+}
+
+async function assertEmailAccountCanBeDeleted(emailAccountId: string) {
+  const ownershipImpact = await getDeletedAccountOwnershipImpact([
+    emailAccountId,
+  ]);
+
+  return getDeletableOrganizationIdsOrThrow(
+    ownershipImpact,
+    DELETE_EMAIL_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
+  );
+}
+
+async function assertUserAccountCanBeDeleted(userId: string) {
+  const ownershipImpact = await getUserDeletionOwnershipImpact(userId);
+
+  getDeletableOrganizationIdsOrThrow(
+    ownershipImpact,
+    DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
+  );
 }

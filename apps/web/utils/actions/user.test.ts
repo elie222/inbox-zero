@@ -3,7 +3,9 @@ import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/__mocks__/prisma";
 import { updateAccountSeats } from "@/utils/premium/seats";
 import { aliasPosthogUser } from "@/utils/posthog";
-import { deleteEmailAccountAction } from "./user";
+import { betterAuthConfig } from "@/utils/auth";
+import { deleteUser } from "@/utils/user/delete";
+import { deleteAccountAction, deleteEmailAccountAction } from "./user";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
@@ -12,7 +14,7 @@ vi.mock("@/utils/auth", () => ({
   })),
   betterAuthConfig: {
     api: {
-      signOut: vi.fn(),
+      signOut: vi.fn(() => Promise.resolve()),
     },
   },
 }));
@@ -21,7 +23,7 @@ vi.mock("next/headers", () => ({
 }));
 vi.mock("@sentry/nextjs", () => import("@/__tests__/mocks/sentry-nextjs.mock"));
 vi.mock("@/utils/cookies.server", () => ({
-  clearLastEmailAccountCookie: vi.fn(),
+  clearLastEmailAccountCookie: vi.fn(() => Promise.resolve()),
 }));
 vi.mock("@/utils/user/delete", () => ({
   deleteUser: vi.fn(),
@@ -49,6 +51,7 @@ describe("deleteEmailAccountAction", () => {
     prisma.$transaction.mockImplementation(async (operations) =>
       Promise.all(operations as Promise<unknown>[]),
     );
+    prisma.member.findMany.mockResolvedValue([]);
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "primary@example.com",
       accountId: "account-1",
@@ -200,6 +203,31 @@ describe("deleteEmailAccountAction", () => {
     expect(updateAccountSeats).not.toHaveBeenCalled();
   });
 
+  it("shows the ownership transfer message when membership blocks account deletion", async () => {
+    prisma.emailAccount.findMany.mockResolvedValue([
+      {
+        id: "alternate-email-account",
+        email: "alternate@example.com",
+        name: "Alternate",
+        image: null,
+      },
+    ] as Awaited<ReturnType<typeof prisma.emailAccount.findMany>>);
+    prisma.$transaction.mockRejectedValue(
+      newPrismaKnownError("Foreign key constraint failed", "P2003", {
+        field_name: "Member_emailAccountId_fkey",
+      }),
+    );
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "primary-email-account",
+    });
+
+    expect(result?.serverError).toBe(
+      "Transfer organization ownership before deleting this email account.",
+    );
+    expect(updateAccountSeats).not.toHaveBeenCalled();
+  });
+
   it("shows an action-specific fallback for unexpected delete failures", async () => {
     prisma.emailAccount.findMany.mockResolvedValue([
       {
@@ -219,6 +247,154 @@ describe("deleteEmailAccountAction", () => {
       "We couldn't delete this email account. Please contact support if this keeps happening.",
     );
     expect(updateAccountSeats).not.toHaveBeenCalled();
+  });
+
+  it("does not delete an email account when an organization would keep members but no owner", async () => {
+    prisma.member.findMany.mockResolvedValue([
+      { organizationId: "org-1" },
+    ] as Awaited<ReturnType<typeof prisma.member.findMany>>);
+    prisma.organization.findMany.mockResolvedValue([
+      {
+        id: "org-1",
+        name: "Org",
+        members: [
+          { emailAccountId: "primary-email-account", role: "owner" },
+          { emailAccountId: "other-email-account", role: "member" },
+        ],
+      },
+    ] as Awaited<ReturnType<typeof prisma.organization.findMany>>);
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "primary-email-account",
+    });
+
+    expect(result?.serverError).toBe(
+      "Transfer organization ownership before deleting this email account.",
+    );
+    expect(prisma.emailAccount.delete).not.toHaveBeenCalled();
+    expect(prisma.account.delete).not.toHaveBeenCalled();
+    expect(updateAccountSeats).not.toHaveBeenCalled();
+  });
+
+  it("deletes a solo organization before deleting its only email account", async () => {
+    prisma.emailAccount.findMany.mockResolvedValue([
+      {
+        id: "alternate-email-account",
+        email: "alternate@example.com",
+        name: "Alternate",
+        image: null,
+      },
+    ] as Awaited<ReturnType<typeof prisma.emailAccount.findMany>>);
+    prisma.member.findMany.mockResolvedValue([
+      { organizationId: "org-1" },
+    ] as Awaited<ReturnType<typeof prisma.member.findMany>>);
+    prisma.organization.findMany.mockResolvedValue([
+      {
+        id: "org-1",
+        name: "Org",
+        members: [{ emailAccountId: "primary-email-account", role: "owner" }],
+      },
+    ] as Awaited<ReturnType<typeof prisma.organization.findMany>>);
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "primary-email-account",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.organization.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["org-1"] },
+        members: {
+          every: {
+            emailAccountId: { in: ["primary-email-account"] },
+          },
+        },
+      },
+    });
+    expect(prisma.emailAccount.delete).toHaveBeenCalled();
+  });
+
+  it("shows the ownership transfer message when the database rejects a raced owner deletion", async () => {
+    prisma.emailAccount.findMany.mockResolvedValue([
+      {
+        id: "alternate-email-account",
+        email: "alternate@example.com",
+        name: "Alternate",
+        image: null,
+      },
+    ] as Awaited<ReturnType<typeof prisma.emailAccount.findMany>>);
+    prisma.$transaction.mockRejectedValue(
+      new Error("organization_must_have_owner"),
+    );
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "primary-email-account",
+    });
+
+    expect(result?.serverError).toBe(
+      "Transfer organization ownership before deleting this email account.",
+    );
+    expect(updateAccountSeats).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteAccountAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.emailAccount.findMany.mockResolvedValue([]);
+    prisma.member.findMany.mockResolvedValue([]);
+  });
+
+  it("does not sign out before blocking account deletion when an organization would keep members but no owner", async () => {
+    prisma.emailAccount.findMany.mockResolvedValue([
+      { id: "primary-email-account" },
+    ] as Awaited<ReturnType<typeof prisma.emailAccount.findMany>>);
+    prisma.member.findMany.mockResolvedValue([
+      { organizationId: "org-1" },
+    ] as Awaited<ReturnType<typeof prisma.member.findMany>>);
+    prisma.organization.findMany.mockResolvedValue([
+      {
+        id: "org-1",
+        name: "Org",
+        members: [
+          { emailAccountId: "primary-email-account", role: "owner" },
+          { emailAccountId: "other-email-account", role: "member" },
+        ],
+      },
+    ] as Awaited<ReturnType<typeof prisma.organization.findMany>>);
+
+    const result = await deleteAccountAction();
+
+    expect(result?.serverError).toBe(
+      "Transfer organization ownership before deleting your account.",
+    );
+    expect(betterAuthConfig.api.signOut).not.toHaveBeenCalled();
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("allows account deletion when every organization member belongs to the deleted user", async () => {
+    prisma.emailAccount.findMany.mockResolvedValue([
+      { id: "primary-email-account" },
+    ] as Awaited<ReturnType<typeof prisma.emailAccount.findMany>>);
+    prisma.member.findMany.mockResolvedValue([
+      { organizationId: "org-1" },
+    ] as Awaited<ReturnType<typeof prisma.member.findMany>>);
+    prisma.organization.findMany.mockResolvedValue([
+      {
+        id: "org-1",
+        name: "Org",
+        members: [{ emailAccountId: "primary-email-account", role: "owner" }],
+      },
+    ] as Awaited<ReturnType<typeof prisma.organization.findMany>>);
+
+    const result = await deleteAccountAction();
+
+    expect(result?.serverError).toBeUndefined();
+    expect(betterAuthConfig.api.signOut).toHaveBeenCalled();
+    expect(deleteUser).toHaveBeenCalledWith({
+      userId: "user-1",
+      logger: expect.anything(),
+    });
   });
 });
 

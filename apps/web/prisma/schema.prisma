@@ -298,7 +298,7 @@ model Member {
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
   organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  emailAccount           EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  emailAccount           EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Restrict)
 
   @@unique([organizationId, emailAccountId])
   @@unique([emailAccountId])

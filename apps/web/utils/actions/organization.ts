@@ -7,6 +7,7 @@ import {
   inviteMembersBody,
   removeMemberBody,
   updateMemberRoleBody,
+  transferOwnershipBody,
   cancelInvitationBody,
   handleInvitationBody,
   updateAnalyticsConsentBody,
@@ -407,6 +408,61 @@ export const updateMemberRoleAction = actionClientUser
       select: { id: true, role: true },
     });
   });
+
+export const transferOwnershipAction = actionClientUser
+  .metadata({ name: "transferOwnership" })
+  .inputSchema(transferOwnershipBody)
+  .action(
+    async ({ ctx: { userId }, parsedInput: { organizationId, memberId } }) => {
+      const targetMember = await prisma.member.findUnique({
+        where: { id: memberId },
+        select: {
+          id: true,
+          emailAccountId: true,
+          organizationId: true,
+          role: true,
+        },
+      });
+
+      if (!targetMember || targetMember.organizationId !== organizationId) {
+        throw new SafeError("Member not found.");
+      }
+
+      const callerMembership = await prisma.member.findFirst({
+        where: {
+          organizationId,
+          role: "owner",
+          emailAccount: { userId },
+        },
+        select: { id: true, emailAccountId: true },
+      });
+
+      if (!callerMembership) {
+        throw new SafeError("Only organization owners can transfer ownership.");
+      }
+
+      if (targetMember.emailAccountId === callerMembership.emailAccountId) {
+        throw new SafeError("You already own this organization.");
+      }
+
+      if (targetMember.role === "owner") {
+        return { id: targetMember.id, role: targetMember.role };
+      }
+
+      await prisma.$transaction([
+        prisma.member.update({
+          where: { id: targetMember.id },
+          data: { role: "owner" },
+        }),
+        prisma.member.update({
+          where: { id: callerMembership.id },
+          data: { role: "admin" },
+        }),
+      ]);
+
+      return { id: targetMember.id, role: "owner" };
+    },
+  );
 
 export const cancelInvitationAction = actionClientUser
   .metadata({ name: "cancelInvitation" })
