@@ -194,11 +194,43 @@ export const updateRuleTool = ({
           ),
           delayInMinutes: action.delayInMinutes,
         }));
+        const requestedChangesAlreadyMatchRule = !ruleUpdateHasChanges({
+          updates,
+          rule,
+          originalActions,
+        });
         const effectiveUpdates = normalizeRuleUpdates({
           updates,
           rule,
           originalActions,
         });
+        if (requestedChangesAlreadyMatchRule) {
+          const snapshot = await loadRuleSnapshotAfterWrite({
+            emailAccountId,
+            logger,
+            setRuleReadState,
+            onRulesStateExposed,
+          });
+          const currentRule = snapshot?.rules.find(
+            (snapshotRule) => snapshotRule.name === rule.name,
+          );
+
+          return {
+            success: true,
+            alreadyApplied: true,
+            message:
+              "The requested update already matches the current rule, so no write was applied.",
+            ruleId: rule.id,
+            originalName: rule.name,
+            updatedName: rule.name,
+            originalEnabled: rule.enabled,
+            updatedEnabled: rule.enabled,
+            originalConditions,
+            originalActions,
+            currentRule,
+          };
+        }
+
         if (effectiveUpdates.name || effectiveUpdates.condition) {
           await partialUpdateRule({
             ruleId: rule.id,
@@ -286,6 +318,8 @@ export type UpdateRuleTool = InferUITool<ReturnType<typeof updateRuleTool>>;
 
 export type UpdateRuleOutput = {
   success: boolean;
+  alreadyApplied?: boolean;
+  message?: string;
   ruleId?: string;
   error?: string;
   originalName?: string;
@@ -325,6 +359,73 @@ type RuleUpdatePatch = {
   actions?: RuleAction[];
 };
 
+function ruleUpdateHasChanges({
+  updates,
+  rule,
+  originalActions,
+}: {
+  updates: RuleUpdatePatch;
+  rule: {
+    conditionalOperator: LogicalOperator | null;
+    enabled: boolean;
+    from: string | null;
+    instructions: string | null;
+    name: string;
+    subject: string | null;
+    to: string | null;
+  };
+  originalActions: NonNullable<UpdateRuleOutput["originalActions"]>;
+}) {
+  if (updates.name !== undefined && updates.name !== rule.name) return true;
+  if (updates.enabled !== undefined && updates.enabled !== rule.enabled) {
+    return true;
+  }
+  if (updates.condition && conditionChangesRule(updates.condition, rule)) {
+    return true;
+  }
+  if (
+    updates.actions &&
+    !actionsLookCopiedFromRule(updates.actions, originalActions)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function conditionChangesRule(
+  condition: PatchCondition,
+  rule: {
+    conditionalOperator: LogicalOperator | null;
+    from: string | null;
+    instructions: string | null;
+    subject: string | null;
+    to: string | null;
+  },
+) {
+  if ("aiInstructions" in condition) {
+    if (condition.aiInstructions !== rule.instructions) return true;
+  }
+  if (
+    condition.clearAiInstructions &&
+    !("aiInstructions" in condition) &&
+    rule.instructions !== null
+  ) {
+    return true;
+  }
+  if (
+    "conditionalOperator" in condition &&
+    condition.conditionalOperator !== rule.conditionalOperator
+  ) {
+    return true;
+  }
+  if ("static" in condition) {
+    return !staticLooksCopiedFromRule(condition.static, rule);
+  }
+
+  return false;
+}
+
 function normalizeRuleUpdates({
   updates,
   rule,
@@ -341,8 +442,6 @@ function normalizeRuleUpdates({
   };
   originalActions: NonNullable<UpdateRuleOutput["originalActions"]>;
 }): RuleUpdatePatch {
-  if (updates.enabled === undefined) return updates;
-
   const normalized = { ...updates };
   if (normalized.name === rule.name) normalized.name = undefined;
   if (
@@ -371,21 +470,7 @@ function conditionLooksCopiedFromRule(
     to: string | null;
   },
 ) {
-  if (condition.clearAiInstructions && condition.aiInstructions !== undefined) {
-    return true;
-  }
-
-  const instructionsMatch =
-    !("aiInstructions" in condition) ||
-    condition.aiInstructions === rule.instructions;
-  const operatorMatches =
-    !("conditionalOperator" in condition) ||
-    condition.conditionalOperator === rule.conditionalOperator;
-  const staticMatches =
-    !("static" in condition) ||
-    staticLooksCopiedFromRule(condition.static, rule);
-
-  return instructionsMatch && operatorMatches && staticMatches;
+  return !conditionChangesRule(condition, rule);
 }
 
 function staticLooksCopiedFromRule(

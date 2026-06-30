@@ -6,16 +6,18 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export function RuleSummaryCard({
   title,
+  status,
   actions,
   children,
 }: {
   title: string;
+  status?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <Card>
-      <RuleSummaryCardHeader title={title} actions={actions} />
+      <RuleSummaryCardHeader title={title} status={status} actions={actions} />
       <CardContent className="space-y-3 px-4 py-3.5">{children}</CardContent>
     </Card>
   );
@@ -23,14 +25,19 @@ export function RuleSummaryCard({
 
 export function RuleSummaryCardHeader({
   title,
+  status,
   actions,
 }: {
   title: string;
+  status?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
-      <h3 className="text-base font-semibold">{title}</h3>
+    <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b px-4 py-3.5">
+      <div className="flex min-w-0 items-center gap-2">
+        <h3 className="truncate text-base font-semibold">{title}</h3>
+        {status}
+      </div>
       {actions}
     </CardHeader>
   );
