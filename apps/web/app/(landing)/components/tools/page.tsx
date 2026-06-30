@@ -44,6 +44,7 @@ export default function ToolsPage() {
           <MutedText>Created rules:</MutedText>
           <CreatedRuleToolCard
             preview
+            status="created"
             args={{
               name: "Hiring",
               condition: {
@@ -60,6 +61,7 @@ export default function ToolsPage() {
           />
           <CreatedRuleToolCard
             preview
+            status="created"
             args={{
               name: "Newsletter Archive",
               condition: {
@@ -80,6 +82,7 @@ export default function ToolsPage() {
           />
           <CreatedRuleToolCard
             preview
+            status="created"
             args={{
               name: "Billing Alerts",
               condition: {
