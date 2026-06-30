@@ -416,6 +416,73 @@ describe.runIf(shouldRunEval)(
         );
 
         test(
+          "does not repeat a rule update after confirmed current rule output",
+          async () => {
+            const ruleRows = cloneRuleRows(patchRuleRows);
+            configureRuleEvalPrisma({
+              about,
+              ruleRows,
+            });
+            configureRuleEvalProvider({
+              mockCreateEmailProvider,
+              ruleRows,
+            });
+            mockPartialUpdateRule.mockImplementation(
+              async ({ ruleId, data }) => {
+                const rule = ruleRows.find(
+                  (candidate) => candidate.id === ruleId,
+                );
+                if (rule) {
+                  Object.assign(rule, data, {
+                    updatedAt: new Date("2026-03-13T00:01:00.000Z"),
+                  });
+                }
+
+                return { id: ruleId };
+              },
+            );
+
+            const { toolCalls, actual } = await runAssistantChat({
+              emailAccount,
+              messages: [
+                {
+                  role: "user",
+                  content: `Update my "${staticConditionRuleName}" rule so it only catches billing emails that need finance review.`,
+                },
+              ],
+            });
+
+            const updateCalls = getSuccessfulUpdateRuleCalls(
+              toolCalls,
+              staticConditionRuleName,
+            );
+            const updateCall = updateCalls[0];
+            const pass =
+              updateCalls.length === 1 &&
+              !!updateCall?.input.updates.condition &&
+              getPatchConditionInstructions(updateCall.input)
+                .toLowerCase()
+                .includes("finance") &&
+              outputHasCurrentRule(updateCall.output) &&
+              !hasSuccessfulRuleUpdateAfter(toolCalls, {
+                ruleName: staticConditionRuleName,
+                startIndex: updateCall.index,
+              }) &&
+              hasNoCreateDeleteOrLegacyRuleMutations(toolCalls);
+
+            evalReporter.record({
+              testName: "confirmed rule update does not repeat",
+              model: model.label,
+              pass,
+              actual: summarizeRuleMutationCalls(toolCalls) || actual,
+            });
+
+            expect(pass).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test(
           "renames and updates actions in one patch without touching conditions",
           async () => {
             const { toolCalls, actual } = await runAssistantChat({
@@ -701,6 +768,26 @@ function hasSuccessfulRuleUpdateAfter(
     );
 }
 
+function getSuccessfulUpdateRuleCalls(
+  toolCalls: RecordedToolCall[],
+  ruleName: string,
+) {
+  return toolCalls.flatMap((toolCall, index) => {
+    if (toolCall.toolName !== "updateRule") return [];
+    if (!isUpdateRuleInput(toolCall.input)) return [];
+    if (toolCall.input.ruleName !== ruleName) return [];
+    if (!isSuccessfulOutput(toolCall.output)) return [];
+
+    return [
+      {
+        index,
+        input: toolCall.input,
+        output: toolCall.output,
+      },
+    ];
+  });
+}
+
 function isSuccessfulStatusOnlyUpdateOutput(
   output: unknown,
   enabled: boolean,
@@ -737,6 +824,14 @@ function isSuccessfulOutput(output: unknown): output is { success: true } {
     typeof output === "object" &&
     output !== null &&
     (output as { success?: unknown }).success === true
+  );
+}
+
+function outputHasCurrentRule(output: unknown) {
+  return (
+    isSuccessfulOutput(output) &&
+    typeof (output as { currentRule?: unknown }).currentRule === "object" &&
+    (output as { currentRule?: unknown }).currentRule !== null
   );
 }
 
@@ -820,4 +915,14 @@ function hasRuleReadBeforeUpdate(
       "getUserRulesAndSettings",
     ) >= 0
   );
+}
+
+function cloneRuleRows<T extends { updatedAt: Date; actions: unknown[] }>(
+  rules: T[],
+) {
+  return rules.map((rule) => ({
+    ...rule,
+    updatedAt: new Date(rule.updatedAt),
+    actions: rule.actions.map((action) => ({ ...action })),
+  }));
 }

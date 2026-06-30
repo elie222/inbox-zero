@@ -317,7 +317,15 @@ export async function aiProcessAssistantChat({
       });
       await onStepFinish?.(step);
     },
-    onModelResolved,
+    onModelResolved: (resolvedModel) => {
+      logger.info("Assistant chat model resolved", {
+        chatId,
+        emailAccountId,
+        provider: resolvedModel.provider,
+        modelName: resolvedModel.modelName,
+      });
+      onModelResolved?.(resolvedModel);
+    },
     maxSteps: ASSISTANT_CHAT_MAX_STEPS,
     tools: allTools,
   });

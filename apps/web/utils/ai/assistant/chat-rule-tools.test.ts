@@ -23,6 +23,9 @@ const {
   mockSetRuleEnabled: vi.fn(),
   mockUpdateRuleActions: vi.fn(),
   mockPrisma: {
+    emailAccount: {
+      findUnique: vi.fn(),
+    },
     rule: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -66,6 +69,20 @@ describe("createRuleTool overlap guard", () => {
       riskMessages: [],
     });
     mockCreateRule.mockResolvedValue({ id: "new-rule-id" });
+    mockAssistantRuleSnapshot([
+      {
+        name: "Urgent Action Mail",
+        instructions: "Only urgent requests from this sender domain.",
+        from: "@company.example",
+      },
+      {
+        name: "Vendor Billing",
+        instructions: "Updated billing instructions.",
+        from: "billing@vendor.example",
+        subject: "invoice",
+        conditionalOperator: "AND",
+      },
+    ]);
     mockPrisma.rule.findMany.mockResolvedValue([
       {
         name: "Team Mail",
@@ -123,7 +140,15 @@ describe("createRuleTool overlap guard", () => {
       actions: defaultActions,
     });
 
-    expect(result).toEqual({ success: true, ruleId: "new-rule-id" });
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        ruleId: "new-rule-id",
+        currentRule: expect.objectContaining({
+          name: "Urgent Action Mail",
+        }),
+      }),
+    );
     expect(mockCreateRule).toHaveBeenCalledOnce();
   });
 });
@@ -132,6 +157,15 @@ describe("updateRuleTool", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPartialUpdateRule.mockResolvedValue({ id: "rule-id" });
+    mockAssistantRuleSnapshot([
+      {
+        name: "Vendor Billing",
+        instructions: "Updated billing instructions.",
+        from: "billing@vendor.example",
+        subject: "invoice",
+        conditionalOperator: "AND",
+      },
+    ]);
     mockPrisma.rule.findUnique.mockResolvedValue({
       id: "rule-id",
       name: "Vendor Billing",
@@ -173,6 +207,14 @@ describe("updateRuleTool", () => {
     });
 
     expect(result.success).toBe(true);
+    expect(result.currentRule).toEqual(
+      expect.objectContaining({
+        name: "Vendor Billing",
+        conditions: expect.objectContaining({
+          aiInstructions: "Updated billing instructions.",
+        }),
+      }),
+    );
     expect(mockPartialUpdateRule).toHaveBeenCalledWith({
       ruleId: "rule-id",
       emailAccountId: "email-account-id",
@@ -363,3 +405,31 @@ describe("deleteRuleTool", () => {
     expect(mockSetRuleEnabled).not.toHaveBeenCalled();
   });
 });
+
+function mockAssistantRuleSnapshot(
+  rules: Array<{
+    name: string;
+    instructions: string | null;
+    from: string | null;
+    subject?: string | null;
+    conditionalOperator?: "AND" | "OR" | null;
+  }>,
+) {
+  mockPrisma.emailAccount.findUnique.mockResolvedValue({
+    about: null,
+    rulesRevision: 4,
+    rules: rules.map((rule) => ({
+      name: rule.name,
+      instructions: rule.instructions,
+      updatedAt: new Date("2026-04-27T00:01:00.000Z"),
+      from: rule.from,
+      to: null,
+      subject: rule.subject ?? null,
+      conditionalOperator: rule.conditionalOperator ?? null,
+      enabled: true,
+      runOnThreads: true,
+      actions: [],
+    })),
+    messagingChannels: [],
+  });
+}

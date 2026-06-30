@@ -21,11 +21,15 @@ import {
   STATIC_FROM_CONDITION_DESCRIPTION,
 } from "@/utils/ai/rule/rule-condition-descriptions";
 import { hideToolErrorFromUser } from "../../tool-error-visibility";
-import type { RuleReadState } from "../../chat-rule-state";
+import type {
+  AssistantRuleSnapshot,
+  RuleReadState,
+} from "../../chat-rule-state";
 import {
   buildProviderRuleActionFields,
   buildHiddenRuleNotFoundError,
   buildVisibleOrgManagedRuleError,
+  loadRuleSnapshotAfterWrite,
   trackRuleToolCall,
   validateRuleWasReadRecently,
 } from "./shared";
@@ -35,19 +39,23 @@ export const updateRuleTool = ({
   emailAccountId,
   provider,
   logger,
+  setRuleReadState,
   getRuleReadState,
+  onRulesStateExposed,
   hasPendingRuleDeletion,
 }: {
   email: string;
   emailAccountId: string;
   provider: string;
   logger: Logger;
+  setRuleReadState?: (state: RuleReadState) => void;
   getRuleReadState?: () => RuleReadState | null;
+  onRulesStateExposed?: (rulesRevision: number) => void;
   hasPendingRuleDeletion?: (ruleName: string) => boolean;
 }) =>
   tool({
     description:
-      "Update an existing rule after reading the user's current rules. Use this for direct requests to change rule name, enabled state, conditions, or actions; no capabilities lookup is needed before editing an existing rule. This is a patch: include only the fields being changed, and omitted fields are preserved. Use updates.name to rename a rule. Use updates.condition to change conditions; omit condition fields that should stay unchanged, and set a static field to null only when the user explicitly asks to clear it. Do not set aiInstructions to null to preserve instructions; omit it instead. Use clearAiInstructions only when the user explicitly asks to remove semantic instructions. Use updates.actions to replace the full action list; when changing actions, include every action that should remain. Use DRAFT_EMAIL for draft reply actions; do not use SEND_EMAIL or REPLY when the user asks to draft. Never use this tool to add/remove a sender or domain from an existing category rule; use updateLearnedPatterns for recurring sender/domain includes and excludes instead. Direct requests to change existing rule behavior are already confirmed; do not create a replacement rule for edits.",
+      "Update an existing rule after reading the user's current rules. Use this for direct requests to change rule name, enabled state, conditions, or actions; no capabilities lookup is needed before editing an existing rule. This is a patch: include only the fields being changed, and omitted fields are preserved. Use updates.name to rename a rule. Use updates.condition to change conditions; omit condition fields that should stay unchanged, and set a static field to null only when the user explicitly asks to clear it. Do not set aiInstructions to null to preserve instructions; omit it instead. Use clearAiInstructions only when the user explicitly asks to remove semantic instructions. Use DRAFT_EMAIL for draft reply actions; do not use SEND_EMAIL or REPLY when the user asks to draft. Never use this tool to add/remove a sender or domain from an existing category rule; use updateLearnedPatterns for recurring sender/domain includes and excludes instead. Direct requests to change existing rule behavior are already confirmed; do not create a replacement rule for edits.",
     inputSchema: z
       .object({
         ruleName: z.string().describe("The exact current name of the rule."),
@@ -71,7 +79,7 @@ export const updateRuleTool = ({
               .min(1, "Rules must have at least one action.")
               .optional()
               .describe(
-                "The full replacement list of actions. Include existing actions that should remain.",
+                "The full replacement list of actions. Use only when the user explicitly asks to change actions/outcomes. Omit for condition-only, name-only, or enabled-state-only edits; omitted actions are preserved. To remove one action, include every action that should remain and omit the action being removed. Empty action lists are invalid.",
               ),
           })
           .refine((updates) => Object.keys(updates).length > 0, {
@@ -191,7 +199,6 @@ export const updateRuleTool = ({
           rule,
           originalActions,
         });
-
         if (effectiveUpdates.name || effectiveUpdates.condition) {
           await partialUpdateRule({
             ruleId: rule.id,
@@ -232,6 +239,17 @@ export const updateRuleTool = ({
           });
         }
 
+        const snapshot = await loadRuleSnapshotAfterWrite({
+          emailAccountId,
+          logger,
+          setRuleReadState,
+          onRulesStateExposed,
+        });
+        const currentRule = snapshot?.rules.find(
+          (snapshotRule) =>
+            snapshotRule.name === (effectiveUpdates.name ?? rule.name),
+        );
+
         return {
           success: true,
           ruleId: rule.id,
@@ -243,6 +261,7 @@ export const updateRuleTool = ({
           updatedConditions: effectiveUpdates.condition,
           originalActions,
           updatedActions: effectiveUpdates.actions,
+          currentRule,
         };
       } catch (error) {
         logger.error("Failed to update rule", { error, ruleName });
@@ -285,6 +304,7 @@ export type UpdateRuleOutput = {
     delayInMinutes?: number | null;
   }>;
   updatedActions?: RuleAction[];
+  currentRule?: AssistantRuleSnapshot["rules"][number];
 };
 
 type PatchCondition = {
