@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
-import { TrashIcon, PlusIcon } from "lucide-react";
-import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
+import { useMemo, useState } from "react";
+import { useForm, useFieldArray, type UseFormReturn } from "react-hook-form";
+import { InboxIcon, ZapIcon, ChevronRightIcon } from "lucide-react";
+import { LogicalOperator } from "@/generated/prisma/enums";
 import {
   Dialog,
   DialogContent,
@@ -12,73 +12,40 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Toggle } from "@/components/Toggle";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { Form } from "@/components/ui/form";
+import { cn } from "@/utils";
 import { useAction } from "next-safe-action/hooks";
 import {
   createOrganizationRuleAction,
   updateOrganizationRuleAction,
 } from "@/utils/actions/organization-rule";
 import type { OrganizationRuleActionSchema } from "@/utils/actions/organization-rule.validation";
-import { ORGANIZATION_RULE_ACTION_TYPES } from "@/utils/organizations/rule-action-types";
-import { ACTION_TYPE_LABELS } from "@/utils/action-display";
-import { NINETY_DAYS_MINUTES } from "@/utils/date";
+import type { CreateRuleBody } from "@/utils/actions/rule.validation";
+import { ConditionType } from "@/utils/config";
+import {
+  getConditions,
+  getEmptyCondition,
+  flattenConditions,
+} from "@/utils/condition";
+import { createScopedLogger } from "@/utils/logger";
+import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
+import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSectionCard";
+import { OrgActionSteps } from "./OrgActionSteps";
+import { EMPTY_ORG_ACTION, type OrgRuleFormValues } from "./orgRuleForm";
 import type { OrganizationRulesResponse } from "@/app/api/organizations/[organizationId]/rules/route";
 
 type OrgRule = OrganizationRulesResponse["rules"][number];
 
-const ACTION_TYPE_OPTIONS = ORGANIZATION_RULE_ACTION_TYPES.map((value) => ({
-  value,
-  label: ACTION_TYPE_LABELS[value],
-}));
-
-type ActionFormValue = {
-  type: ActionType;
-  label: string;
-  subject: string;
-  content: string;
-  to: string;
-  cc: string;
-  bcc: string;
-  url: string;
-  folderName: string;
-  delayInMinutes: number | null;
-};
-
-type OrgRuleFormValues = {
-  name: string;
-  instructions: string;
-  from: string;
-  to: string;
-  subject: string;
-  body: string;
-  conditionalOperator: LogicalOperator;
-  runOnThreads: boolean;
-  actions: ActionFormValue[];
-};
-
-const EMPTY_ACTION: ActionFormValue = {
-  type: ActionType.LABEL,
-  label: "",
-  subject: "",
-  content: "",
-  to: "",
-  cc: "",
-  bcc: "",
-  url: "",
-  folderName: "",
-  delayInMinutes: null,
-};
+const logger = createScopedLogger("org-rule-dialog");
 
 export function OrgRuleDialog({
   organizationId,
@@ -97,25 +64,42 @@ export function OrgRuleDialog({
   // biome-ignore lint/correctness/useExhaustiveDependencies: isOpen forces a re-derive so reopening "New rule" starts clean.
   const values = useMemo(() => toFormValues(rule), [rule, isOpen]);
 
+  const form = useForm<OrgRuleFormValues>({ values });
   const {
     register,
     control,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
-  } = useForm<OrgRuleFormValues>({ values });
+  } = form;
 
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "actions",
-  });
-  const watchedActions = watch("actions");
+  const {
+    fields: conditionFields,
+    append: appendCondition,
+    remove: removeCondition,
+  } = useFieldArray({ control, name: "conditions" });
+  const {
+    fields: actionFields,
+    append: appendAction,
+    remove: removeAction,
+  } = useFieldArray({ control, name: "actions" });
 
   const createAction = useAction(createOrganizationRuleAction);
   const updateAction = useAction(updateOrganizationRuleAction);
   const isSubmitting = createAction.isExecuting || updateAction.isExecuting;
 
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+
+  const conditions = watch("conditions");
+  const conditionalOperator = watch("conditionalOperator");
+
   const onSubmit = handleSubmit(async (formValues) => {
+    const conditionFieldValues = flattenConditions(
+      formValues.conditions,
+      logger,
+    );
+
     const actions = formValues.actions.map((action) => ({
       type: action.type as OrganizationRuleActionSchema["type"],
       label: action.label || null,
@@ -126,15 +110,18 @@ export function OrgRuleDialog({
       bcc: action.bcc || null,
       url: action.url || null,
       folderName: action.folderName || null,
-      delayInMinutes: action.delayInMinutes ?? null,
+      delayInMinutes:
+        action.delayInMinutes && action.delayInMinutes > 0
+          ? action.delayInMinutes
+          : null,
     }));
 
     const shared = {
       name: formValues.name,
-      instructions: formValues.instructions || null,
-      from: formValues.from || null,
-      to: formValues.to || null,
-      subject: formValues.subject || null,
+      instructions: conditionFieldValues.instructions || null,
+      from: conditionFieldValues.from || null,
+      to: conditionFieldValues.to || null,
+      subject: conditionFieldValues.subject || null,
       body: formValues.body || null,
       conditionalOperator: formValues.conditionalOperator,
       runOnThreads: formValues.runOnThreads,
@@ -159,11 +146,14 @@ export function OrgRuleDialog({
       return;
     }
 
-    toastSuccess({
-      description: editing ? "Rule updated" : "Rule created",
-    });
+    toastSuccess({ description: editing ? "Rule updated" : "Rule created" });
     onSuccess();
   });
+
+  // ConditionSteps is typed against the personal-rule form, but only reads and
+  // writes `conditions` / `conditionalOperator`, which are identical in both
+  // forms. Casting here keeps the shared condition editor out of a generic.
+  const conditionStepsForm = form as unknown as UseFormReturn<CreateRuleBody>;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -177,289 +167,119 @@ export function OrgRuleDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <Input
-            type="text"
-            name="name"
-            label="Name"
-            registerProps={register("name")}
-            error={errors.name}
-            placeholder="e.g. Label invoices"
-          />
+        <Form {...form}>
+          <form onSubmit={onSubmit} className="space-y-6">
+            <Input
+              type="text"
+              name="name"
+              label="Name"
+              registerProps={register("name", {
+                required: "Please enter a name",
+              })}
+              error={errors.name}
+              placeholder="e.g. Label invoices"
+            />
 
-          <Input
-            type="text"
-            as="textarea"
-            autosizeTextarea
-            rows={2}
-            name="instructions"
-            label="AI instructions"
-            explainText="Describe in natural language which emails this rule should match."
-            registerProps={register("instructions")}
-            error={errors.instructions}
-            placeholder="e.g. Emails that look like invoices or receipts"
-          />
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input
-              type="text"
-              name="from"
-              label="From (static)"
-              registerProps={register("from")}
-              error={errors.from}
-              placeholder="e.g. @stripe.com"
-            />
-            <Input
-              type="text"
-              name="to"
-              label="To (static)"
-              registerProps={register("to")}
-              error={errors.to}
-            />
-            <Input
-              type="text"
-              name="subject"
-              label="Subject (static)"
-              registerProps={register("subject")}
-              error={errors.subject}
-            />
-            <Input
-              type="text"
-              name="body"
-              label="Body (static)"
-              registerProps={register("body")}
-              error={errors.body}
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-6">
-            <div className="space-y-1">
-              <Label>Match conditions with</Label>
-              <Controller
-                control={control}
-                name="conditionalOperator"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={LogicalOperator.AND}>AND</SelectItem>
-                      <SelectItem value={LogicalOperator.OR}>OR</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+            <RuleSectionCard
+              icon={InboxIcon}
+              color="blue"
+              title="When I get an email"
+            >
+              <ConditionSteps
+                conditionFields={conditionFields}
+                conditionalOperator={conditionalOperator}
+                removeCondition={removeCondition}
+                watch={conditionStepsForm.watch}
+                setValue={conditionStepsForm.setValue}
+                register={conditionStepsForm.register}
+                errors={conditionStepsForm.formState.errors}
+                conditions={conditions}
+                ruleSystemType={null}
+                appendCondition={appendCondition}
               />
-            </div>
-            <Controller
-              control={control}
-              name="runOnThreads"
-              render={({ field }) => (
-                <div className="space-y-1">
-                  <Label>Apply to threads</Label>
-                  <Toggle
-                    name="runOnThreads"
-                    enabled={field.value}
-                    onChange={field.onChange}
-                  />
-                </div>
-              )}
-            />
-          </div>
+            </RuleSectionCard>
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Actions</Label>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => append(EMPTY_ACTION)}
-              >
-                <PlusIcon className="mr-2 size-4" />
-                Add action
-              </Button>
-            </div>
+            <RuleSectionCard icon={ZapIcon} color="green" title="Then">
+              <OrgActionSteps
+                fields={actionFields}
+                register={register}
+                control={control}
+                watch={watch}
+                setValue={setValue}
+                append={appendAction}
+                remove={removeAction}
+              />
+            </RuleSectionCard>
 
-            {fields.map((fieldItem, index) => {
-              const type = watchedActions?.[index]?.type ?? ActionType.LABEL;
-              return (
-                <div
-                  key={fieldItem.id}
-                  className="space-y-3 rounded-lg border p-3"
+            <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 py-2 text-sm font-medium text-left text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <div className="flex items-center gap-2">
-                    <Controller
-                      control={control}
-                      name={`actions.${index}.type`}
-                      render={({ field }) => (
-                        <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ACTION_TYPE_OPTIONS.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      disabled={fields.length === 1}
-                      onClick={() => remove(index)}
-                    >
-                      <TrashIcon className="size-4" />
-                    </Button>
+                  <ChevronRightIcon
+                    className={cn(
+                      "size-4 transition-transform",
+                      isAdvancedOpen && "rotate-90",
+                    )}
+                  />
+                  Advanced options
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="rounded-md border">
+                  <div className="flex items-center justify-between gap-4 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium">Apply to threads</p>
+                      <p className="text-sm text-muted-foreground">
+                        Run on every reply in a conversation, not just the first
+                        message.
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      <Toggle
+                        name="runOnThreads"
+                        enabled={watch("runOnThreads")}
+                        onChange={(enabled) =>
+                          setValue("runOnThreads", enabled)
+                        }
+                      />
+                    </div>
                   </div>
-
-                  <ActionFields index={index} type={type} register={register} />
                 </div>
-              );
-            })}
-          </div>
+              </CollapsibleContent>
+            </Collapsible>
 
-          <DialogFooter>
-            <Button type="submit" loading={isSubmitting}>
-              {editing ? "Save rule" : "Create rule"}
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={isSubmitting}>
+                {editing ? "Save rule" : "Create rule"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
 }
 
-function ActionFields({
-  index,
-  type,
-  register,
-}: {
-  index: number;
-  type: ActionType;
-  register: ReturnType<typeof useForm<OrgRuleFormValues>>["register"];
-}) {
-  const isSend = type === ActionType.SEND_EMAIL;
-  const isReply = type === ActionType.REPLY;
-  const isForward = type === ActionType.FORWARD;
-  const hasRecipients = isSend || isReply || isForward;
-
-  return (
-    <div className="space-y-3">
-      {type === ActionType.LABEL && (
-        <Input
-          type="text"
-          name={`actions.${index}.label`}
-          label="Label name"
-          registerProps={register(`actions.${index}.label`)}
-        />
-      )}
-
-      {type === ActionType.MOVE_FOLDER && (
-        <Input
-          type="text"
-          name={`actions.${index}.folderName`}
-          label="Folder name"
-          registerProps={register(`actions.${index}.folderName`)}
-        />
-      )}
-
-      {type === ActionType.CALL_WEBHOOK && (
-        <Input
-          type="text"
-          name={`actions.${index}.url`}
-          label="Webhook URL"
-          registerProps={register(`actions.${index}.url`)}
-        />
-      )}
-
-      {(isSend || isForward) && (
-        <Input
-          type="text"
-          name={`actions.${index}.to`}
-          label={isForward ? "Forward to" : "To"}
-          registerProps={register(`actions.${index}.to`)}
-        />
-      )}
-
-      {(isSend || isReply) && (
-        <Input
-          type="text"
-          name={`actions.${index}.subject`}
-          label="Subject"
-          registerProps={register(`actions.${index}.subject`)}
-        />
-      )}
-
-      {(isSend || isReply || type === ActionType.DRAFT_EMAIL) && (
-        <Input
-          type="text"
-          as="textarea"
-          autosizeTextarea
-          rows={2}
-          name={`actions.${index}.content`}
-          label={
-            type === ActionType.DRAFT_EMAIL
-              ? "Draft content (optional)"
-              : "Content"
-          }
-          registerProps={register(`actions.${index}.content`)}
-        />
-      )}
-
-      {hasRecipients && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Input
-            type="text"
-            name={`actions.${index}.cc`}
-            label="CC (optional)"
-            registerProps={register(`actions.${index}.cc`)}
-          />
-          <Input
-            type="text"
-            name={`actions.${index}.bcc`}
-            label="BCC (optional)"
-            registerProps={register(`actions.${index}.bcc`)}
-          />
-        </div>
-      )}
-
-      <Input
-        type="number"
-        name={`actions.${index}.delayInMinutes`}
-        label="Delay in minutes (optional)"
-        min={1}
-        max={NINETY_DAYS_MINUTES}
-        registerProps={register(`actions.${index}.delayInMinutes`, {
-          setValueAs: (value) =>
-            value === "" || value === null || value === undefined
-              ? null
-              : Number(value),
-        })}
-      />
-    </div>
-  );
-}
-
 function toFormValues(rule?: OrgRule): OrgRuleFormValues {
+  // The shared condition editor has no Body type, so drop any legacy body-only
+  // condition from the editable list and carry the value through separately
+  // rather than surfacing it as a phantom empty Subject condition.
+  const conditions = (rule ? getConditions(rule) : []).filter(
+    (condition) => !(condition.type === ConditionType.STATIC && condition.body),
+  );
+  if (conditions.length === 0) {
+    conditions.push(getEmptyCondition(ConditionType.AI));
+  }
+
   return {
     name: rule?.name ?? "",
-    instructions: rule?.instructions ?? "",
-    from: rule?.from ?? "",
-    to: rule?.to ?? "",
-    subject: rule?.subject ?? "",
-    body: rule?.body ?? "",
+    conditions,
+    body: rule?.body ?? null,
     conditionalOperator: rule?.conditionalOperator ?? LogicalOperator.AND,
     runOnThreads: rule?.runOnThreads ?? false,
     actions: rule?.actions.length
@@ -475,6 +295,6 @@ function toFormValues(rule?: OrgRule): OrgRuleFormValues {
           folderName: action.folderName ?? "",
           delayInMinutes: action.delayInMinutes ?? null,
         }))
-      : [EMPTY_ACTION],
+      : [EMPTY_ORG_ACTION],
   };
 }

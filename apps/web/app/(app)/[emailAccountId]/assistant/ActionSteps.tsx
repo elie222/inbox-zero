@@ -40,6 +40,7 @@ import { Label } from "@/components/ui/label";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
+import { DelayInputControls } from "@/components/DelayInputControls";
 import { FolderSelector } from "@/components/FolderSelector";
 import { cn } from "@/utils";
 import { WebhookDocumentationLink } from "@/components/WebhookDocumentation";
@@ -441,9 +442,13 @@ function ActionCard({
                     <>
                       <span className="text-muted-foreground">after</span>
                       <DelayInputControls
-                        index={index}
-                        delayInMinutes={delayValue}
-                        setValue={setValue}
+                        name={`delay-${index}`}
+                        value={delayValue}
+                        onChange={(minutes) =>
+                          setValue(`actions.${index}.delayInMinutes`, minutes, {
+                            shouldValidate: true,
+                          })
+                        }
                       />
                     </>
                   )}
@@ -606,9 +611,13 @@ function ActionCard({
         <div className="flex items-center space-x-2">
           <span className="text-muted-foreground">after</span>
           <DelayInputControls
-            index={index}
-            delayInMinutes={delayValue}
-            setValue={setValue}
+            name={`delay-${index}`}
+            value={delayValue}
+            onChange={(minutes) =>
+              setValue(`actions.${index}.delayInMinutes`, minutes, {
+                shouldValidate: true,
+              })
+            }
           />
         </div>
 
@@ -1342,76 +1351,6 @@ function VariableProTip() {
   );
 }
 
-function DelayInputControls({
-  index,
-  delayInMinutes,
-  setValue,
-}: {
-  index: number;
-  delayInMinutes: number | null | undefined;
-  setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
-}) {
-  const { value: displayValue, unit } = getDisplayValueAndUnit(delayInMinutes);
-
-  const handleValueChange = (newValue: string, currentUnit: string) => {
-    const minutes = convertToMinutes(newValue, currentUnit);
-    setValue(`actions.${index}.delayInMinutes`, minutes, {
-      shouldValidate: true,
-    });
-  };
-
-  const handleUnitChange = (newUnit: string) => {
-    if (displayValue) {
-      const minutes = convertToMinutes(displayValue, newUnit);
-      setValue(`actions.${index}.delayInMinutes`, minutes);
-    }
-  };
-
-  const delayConfig = {
-    displayValue,
-    unit,
-    handleValueChange,
-    handleUnitChange,
-  };
-
-  return (
-    <div className="flex items-center space-x-2">
-      <Input
-        name={`delay-${index}`}
-        type="text"
-        placeholder="0"
-        className="w-20"
-        registerProps={{
-          value: delayConfig.displayValue,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-            const value = e.target.value.replace(/[^0-9]/g, "");
-            delayConfig.handleValueChange(value, delayConfig.unit);
-          },
-        }}
-      />
-      <Select
-        value={delayConfig.unit}
-        onValueChange={delayConfig.handleUnitChange}
-      >
-        <SelectTrigger className="w-24">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="minutes">
-            {delayInMinutes === 1 ? "Minute" : "Minutes"}
-          </SelectItem>
-          <SelectItem value="hours">
-            {delayInMinutes === 60 ? "Hour" : "Hours"}
-          </SelectItem>
-          <SelectItem value="days">
-            {delayInMinutes === 1440 ? "Day" : "Days"}
-          </SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
-
 function renderFieldRows(
   fields: Array<(typeof actionInputs)[ActionType]["fields"][number]>,
   renderField: (
@@ -1451,36 +1390,4 @@ function renderFieldRows(
   }
 
   return rows;
-}
-
-// minutes to user-friendly UI format
-function getDisplayValueAndUnit(minutes: number | null | undefined) {
-  if (minutes === null || minutes === undefined)
-    return { value: "", unit: "hours" };
-  if (minutes === -1 || minutes <= 0) return { value: "", unit: "hours" };
-
-  if (minutes >= 1440 && minutes % 1440 === 0) {
-    return { value: (minutes / 1440).toString(), unit: "days" };
-  } else if (minutes >= 60 && minutes % 60 === 0) {
-    return { value: (minutes / 60).toString(), unit: "hours" };
-  } else {
-    return { value: minutes.toString(), unit: "minutes" };
-  }
-}
-
-// user-friendly UI format to minutes
-function convertToMinutes(value: string, unit: string) {
-  const numValue = Number.parseInt(value, 10);
-  if (Number.isNaN(numValue) || numValue <= 0) return -1;
-
-  switch (unit) {
-    case "minutes":
-      return numValue;
-    case "hours":
-      return numValue * 60;
-    case "days":
-      return numValue * 1440;
-    default:
-      return numValue;
-  }
 }
