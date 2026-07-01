@@ -122,7 +122,7 @@ export function OrgRuleDialog({
       from: conditionFieldValues.from || null,
       to: conditionFieldValues.to || null,
       subject: conditionFieldValues.subject || null,
-      body: conditionFieldValues.body || null,
+      body: formValues.body || null,
       conditionalOperator: formValues.conditionalOperator,
       runOnThreads: formValues.runOnThreads,
       actions,
@@ -266,7 +266,12 @@ export function OrgRuleDialog({
 }
 
 function toFormValues(rule?: OrgRule): OrgRuleFormValues {
-  const conditions = rule ? getConditions(rule) : [];
+  // The shared condition editor has no Body type, so drop any legacy body-only
+  // condition from the editable list and carry the value through separately
+  // rather than surfacing it as a phantom empty Subject condition.
+  const conditions = (rule ? getConditions(rule) : []).filter(
+    (condition) => !(condition.type === ConditionType.STATIC && condition.body),
+  );
   if (conditions.length === 0) {
     conditions.push(getEmptyCondition(ConditionType.AI));
   }
@@ -274,6 +279,7 @@ function toFormValues(rule?: OrgRule): OrgRuleFormValues {
   return {
     name: rule?.name ?? "",
     conditions,
+    body: rule?.body ?? null,
     conditionalOperator: rule?.conditionalOperator ?? LogicalOperator.AND,
     runOnThreads: rule?.runOnThreads ?? false,
     actions: rule?.actions.length

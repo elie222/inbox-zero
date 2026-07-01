@@ -17,6 +17,9 @@ export type OrgActionFormValue = {
 export type OrgRuleFormValues = {
   name: string;
   conditions: ZodCondition[];
+  // Legacy body filter carried through untouched: the shared condition editor
+  // has no Body type (matching the personal editor), so it is not editable here.
+  body: string | null;
   conditionalOperator: LogicalOperator;
   runOnThreads: boolean;
   actions: OrgActionFormValue[];
