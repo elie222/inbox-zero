@@ -227,28 +227,26 @@ export function OrgRuleDialog({
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                {isAdvancedOpen ? (
-                  <div className="rounded-md border">
-                    <div className="flex items-center justify-between gap-4 px-4 py-3">
-                      <div>
-                        <p className="text-sm font-medium">Apply to threads</p>
-                        <p className="text-sm text-muted-foreground">
-                          Run on every reply in a conversation, not just the
-                          first message.
-                        </p>
-                      </div>
-                      <div className="shrink-0">
-                        <Toggle
-                          name="runOnThreads"
-                          enabled={watch("runOnThreads")}
-                          onChange={(enabled) =>
-                            setValue("runOnThreads", enabled)
-                          }
-                        />
-                      </div>
+                <div className="rounded-md border">
+                  <div className="flex items-center justify-between gap-4 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium">Apply to threads</p>
+                      <p className="text-sm text-muted-foreground">
+                        Run on every reply in a conversation, not just the first
+                        message.
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      <Toggle
+                        name="runOnThreads"
+                        enabled={watch("runOnThreads")}
+                        onChange={(enabled) =>
+                          setValue("runOnThreads", enabled)
+                        }
+                      />
                     </div>
                   </div>
-                ) : null}
+                </div>
               </CollapsibleContent>
             </Collapsible>
 
