@@ -32,6 +32,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { fetchWithAccount } from "@/utils/fetch";
 import { Toggle } from "@/components/Toggle";
 import { hasTierAccess } from "@/utils/premium";
+import { createSearchParams } from "@/utils/url";
 import { BulkProcessActivityLog } from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
 import {
   bulkRunReducer,
@@ -328,8 +329,7 @@ async function onRun(
       };
 
       const res = await fetchWithAccount({
-        // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
-        url: `/api/threads?${new URLSearchParams(query as any).toString()}`,
+        url: `/api/threads?${createSearchParams(query).toString()}`,
         emailAccountId,
       });
 

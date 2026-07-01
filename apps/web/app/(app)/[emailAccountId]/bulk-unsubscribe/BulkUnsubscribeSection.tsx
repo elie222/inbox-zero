@@ -31,6 +31,7 @@ import {
   useNewsletterFilter,
   useBulkUnsubscribeShortcuts,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
+import { createSearchParams } from "@/utils/url";
 import type { NewsletterFilterType } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import {
   isUnsubscribeSuggestion,
@@ -192,8 +193,7 @@ export function BulkUnsubscribe() {
     ...getDateRangeParams(dateRange),
     ...(search ? { search } : {}),
   };
-  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
-  const urlParams = new URLSearchParams(params as any);
+  const urlParams = createSearchParams(params);
   const { data, isLoading, isValidating, error, mutate } = useSWR<
     NewsletterStatsResponse,
     { error: string }

@@ -26,6 +26,7 @@ import type { RuleStatsResponse } from "@/app/api/user/stats/rule-stats/route";
 import { BarChart } from "./BarChart";
 import { CardBasic } from "@/components/ui/card";
 import { COLORS } from "@/utils/colors";
+import { createSearchParams } from "@/utils/url";
 
 interface RuleStatsChartProps {
   dateRange?: DateRange;
@@ -62,7 +63,7 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
   const params = getDateRangeParams(dateRange);
 
   const { data, isLoading, error } = useOrgSWR<RuleStatsResponse>(
-    `/api/user/stats/rule-stats?${new URLSearchParams(params as Record<string, string>)}`,
+    `/api/user/stats/rule-stats?${createSearchParams(params)}`,
   );
 
   const barChartData = useMemo(() => {
