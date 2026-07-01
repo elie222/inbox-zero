@@ -116,6 +116,56 @@ describe("deleteUser", () => {
     });
   });
 
+  it("deletes ownerless solo organizations before deleting the user", async () => {
+    prisma.account.findMany.mockResolvedValue([
+      {
+        provider: "google",
+        access_token: null,
+        refresh_token: null,
+        expires_at: null,
+        emailAccount: {
+          id: "email-account-1",
+          email: "admin@example.com",
+          watchEmailsSubscriptionId: null,
+        },
+      },
+    ] as Awaited<ReturnType<typeof prisma.account.findMany>>);
+    prisma.member.findMany.mockImplementation(async (args) => {
+      const roleFilter = (
+        args as Parameters<typeof prisma.member.findMany>[0] | undefined
+      )?.where?.role;
+
+      return (roleFilter ? [] : [{ organizationId: "org-1" }]) as Awaited<
+        ReturnType<typeof prisma.member.findMany>
+      >;
+    });
+    prisma.organization.findMany.mockResolvedValue([
+      {
+        id: "org-1",
+        name: "Org",
+        members: [{ emailAccountId: "email-account-1", role: "admin" }],
+      },
+    ] as Awaited<ReturnType<typeof prisma.organization.findMany>>);
+    prisma.executedRule.findMany.mockResolvedValue([]);
+    prisma.user.deleteMany.mockResolvedValue({ count: 1 } as any);
+
+    await deleteUser({ userId: "user-1", logger });
+
+    expect(prisma.organization.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["org-1"] },
+        members: {
+          every: {
+            emailAccountId: { in: ["email-account-1"] },
+          },
+        },
+      },
+    });
+    expect(prisma.user.deleteMany).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+    });
+  });
+
   it("surfaces the ownership transfer message when the database rejects a raced user deletion", async () => {
     prisma.account.findMany.mockResolvedValue([
       {
