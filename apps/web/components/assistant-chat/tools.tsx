@@ -1131,7 +1131,8 @@ function PendingCreateRuleCardContent({
         <AlertTitle>Review before enabling</AlertTitle>
         <AlertDescription className="space-y-2 text-sm">
           <p>
-            This rule can send email automatically. Review it before enabling.
+            This rule can automatically send email or share email data. Review
+            it before enabling.
           </p>
           {riskMessages.length === 1 ? (
             <p className="text-muted-foreground">{riskMessages[0]}</p>
