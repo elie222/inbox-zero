@@ -10,6 +10,9 @@ import {
   linkSlackWorkspaceBody,
   createMessagingLinkCodeBody,
   toggleRuleChannelBody,
+  createWebhookChannelBody,
+  updateWebhookChannelBody,
+  toggleWebhookDigestsBody,
 } from "@/utils/actions/messaging-channels.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
@@ -19,8 +22,9 @@ import {
   ActionType,
   MessagingProvider,
   MessagingRoutePurpose,
-  type MessagingRouteTargetType,
+  MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
+import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
 import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
 import {
   DRAFT_REPLY_ACTION_TYPES,
@@ -199,6 +203,159 @@ export const disconnectChannelAction = actionClient
       throw error;
     }
   });
+
+// Webhook channels have no provider workspace, so they share a single
+// constant teamId per email account (one webhook channel per account). The
+// DIGESTS route's target is unused by webhook delivery (it POSTs to the
+// channel's webhookUrl) but a route row must exist for the channel to be
+// selected in send-digest.
+const WEBHOOK_CHANNEL_TEAM_ID = "";
+const WEBHOOK_ROUTE_TARGET_ID = "webhook";
+
+export const createWebhookChannelAction = actionClient
+  .metadata({ name: "createWebhookChannel" })
+  .inputSchema(createWebhookChannelBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { webhookUrl, webhookSecret },
+    }) => {
+      if (!isSafeExternalHttpUrl(webhookUrl)) {
+        throw new SafeError(
+          "Webhook URL must be a public http(s) URL (private and local addresses are not allowed)",
+        );
+      }
+
+      // One webhook channel per account: re-adding reconnects the existing row
+      // (disconnect leaves the row with isConnected=false).
+      await prisma.messagingChannel.upsert({
+        where: {
+          emailAccountId_provider_teamId: {
+            emailAccountId,
+            provider: MessagingProvider.WEBHOOK,
+            teamId: WEBHOOK_CHANNEL_TEAM_ID,
+          },
+        },
+        update: {
+          webhookUrl,
+          isConnected: true,
+          // Only overwrite the secret when one is explicitly provided, so
+          // reconnecting an existing channel preserves its stored secret.
+          ...(webhookSecret !== undefined && {
+            webhookSecret: webhookSecret || null,
+          }),
+        },
+        create: {
+          provider: MessagingProvider.WEBHOOK,
+          teamId: WEBHOOK_CHANNEL_TEAM_ID,
+          emailAccountId,
+          webhookUrl,
+          webhookSecret: webhookSecret || null,
+          isConnected: true,
+        },
+      });
+    },
+  );
+
+export const updateWebhookChannelAction = actionClient
+  .metadata({ name: "updateWebhookChannel" })
+  .inputSchema(updateWebhookChannelBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { channelId, webhookUrl, webhookSecret },
+    }) => {
+      if (!isSafeExternalHttpUrl(webhookUrl)) {
+        throw new SafeError(
+          "Webhook URL must be a public http(s) URL (private and local addresses are not allowed)",
+        );
+      }
+
+      const channel = await prisma.messagingChannel.findUnique({
+        where: { id_emailAccountId: { id: channelId, emailAccountId } },
+        select: { provider: true },
+      });
+
+      if (!channel) {
+        throw new SafeError("Messaging channel not found");
+      }
+      if (channel.provider !== MessagingProvider.WEBHOOK) {
+        throw new SafeError("Messaging channel is not a webhook");
+      }
+
+      await prisma.messagingChannel.update({
+        where: { id_emailAccountId: { id: channelId, emailAccountId } },
+        data: {
+          webhookUrl,
+          // Only overwrite the secret when one is explicitly provided, so that
+          // editing only the URL (leaving the secret field blank) preserves the
+          // existing secret instead of clearing it.
+          ...(webhookSecret !== undefined && {
+            webhookSecret: webhookSecret || null,
+          }),
+        },
+      });
+    },
+  );
+
+export const toggleWebhookDigestsAction = actionClient
+  .metadata({ name: "toggleWebhookDigests" })
+  .inputSchema(toggleWebhookDigestsBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, userId },
+      parsedInput: { channelId, enabled },
+    }) => {
+      if (enabled) {
+        await assertCanUseDigests(userId);
+      }
+
+      const channel = await prisma.messagingChannel.findUnique({
+        where: { id_emailAccountId: { id: channelId, emailAccountId } },
+        select: { provider: true, webhookUrl: true },
+      });
+
+      if (!channel) {
+        throw new SafeError("Messaging channel not found");
+      }
+      if (channel.provider !== MessagingProvider.WEBHOOK) {
+        throw new SafeError("Messaging channel is not a webhook");
+      }
+
+      if (!enabled) {
+        await prisma.messagingRoute.deleteMany({
+          where: {
+            messagingChannelId: channelId,
+            purpose: MessagingRoutePurpose.DIGESTS,
+          },
+        });
+        return;
+      }
+
+      if (!channel.webhookUrl) {
+        throw new SafeError("Set a webhook URL before enabling digests");
+      }
+
+      // Seed the DIGESTS route directly. The target is unused by webhook
+      // delivery but a route row must exist for send-digest to pick up the
+      // channel.
+      await prisma.messagingRoute.upsert({
+        where: {
+          messagingChannelId_purpose: {
+            messagingChannelId: channelId,
+            purpose: MessagingRoutePurpose.DIGESTS,
+          },
+        },
+        update: {},
+        create: {
+          messagingChannelId: channelId,
+          purpose: MessagingRoutePurpose.DIGESTS,
+          targetType: MessagingRouteTargetType.CHANNEL,
+          targetId: WEBHOOK_ROUTE_TARGET_ID,
+        },
+      });
+    },
+  );
 
 export const linkSlackWorkspaceAction = actionClient
   .metadata({ name: "linkSlackWorkspace" })

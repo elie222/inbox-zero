@@ -179,7 +179,9 @@ describe("GET /api/user/messaging-channels", () => {
     ]);
     expect(body.channels[0]).not.toHaveProperty("providerUserId");
     expect(body.channels[0]).not.toHaveProperty("accessToken");
-    expect(body.availableProviders).toEqual(["SLACK"]);
+    expect(body.channels[0]).not.toHaveProperty("webhookSecret");
+    // Webhook needs no OAuth app/bot token, so it is always available.
+    expect(body.availableProviders).toEqual(["SLACK", "WEBHOOK"]);
   });
 
   it("includes Teams as an available provider when app id, password, and tenant id are configured", async () => {
@@ -192,7 +194,7 @@ describe("GET /api/user/messaging-channels", () => {
     const response = await GET(createRequest());
     const body = await response.json();
 
-    expect(body.availableProviders).toEqual(["SLACK", "TEAMS"]);
+    expect(body.availableProviders).toEqual(["SLACK", "TEAMS", "WEBHOOK"]);
   });
 
   it("labels saved Slack channel routes as unavailable when the bot can no longer access the target", async () => {
