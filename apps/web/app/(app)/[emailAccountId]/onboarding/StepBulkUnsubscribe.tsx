@@ -27,6 +27,7 @@ import { usePremium } from "@/hooks/usePremium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useOnboardingBulkUnsubscribeVariant } from "@/hooks/useFeatureFlags";
 import { extractDomainFromEmail } from "@/utils/email";
+import { createSearchParams } from "@/utils/url";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -58,8 +59,7 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
     includeMissingUnsubscribe: true,
     fromDate,
   };
-  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
-  const urlParams = new URLSearchParams(params as any);
+  const urlParams = createSearchParams(params);
   const { data, isLoading, mutate } = useSWR<NewsletterStatsResponse>(
     // Only fetch in the treatment arm; control never renders the list.
     isTreatment && emailAccountId

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  createSearchParams,
   getEmailUrl,
   getEmailUrlForMessage,
   getEmailUrlForOptionalMessage,
@@ -9,6 +10,37 @@ import {
   getGmailBasicSearchUrl,
   getGmailFilterSettingsUrl,
 } from "./url";
+
+describe("createSearchParams", () => {
+  it("coerces primitive and array values to URLSearchParams strings", () => {
+    const after = new Date("2026-07-01T00:00:00.000Z");
+    const params = createSearchParams({
+      query: "inbox",
+      limit: 25,
+      includeRead: false,
+      labelIds: ["Label_1", "Label_2"],
+      after,
+    });
+
+    expect(params.get("query")).toBe("inbox");
+    expect(params.get("limit")).toBe("25");
+    expect(params.get("includeRead")).toBe("false");
+    expect(params.get("labelIds")).toBe("Label_1,Label_2");
+    expect(params.get("after")).toBe(String(after));
+  });
+
+  it("omits nullish values", () => {
+    const params = createSearchParams({
+      keep: "value",
+      empty: "",
+      zero: 0,
+      missing: null,
+      unset: undefined,
+    });
+
+    expect(params.toString()).toBe("keep=value&empty=&zero=0");
+  });
+});
 
 describe("getEmailUrl", () => {
   it.each([

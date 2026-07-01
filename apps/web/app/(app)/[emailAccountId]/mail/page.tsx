@@ -11,6 +11,7 @@ import { refetchEmailListAtom } from "@/store/email";
 import { BetaBanner } from "@/app/(app)/[emailAccountId]/mail/BetaBanner";
 import { ClientOnly } from "@/components/ClientOnly";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
+import { createSearchParams } from "@/utils/url";
 
 export default function Mail(props: {
   searchParams: Promise<{ type?: string; labelId?: string }>;
@@ -36,8 +37,7 @@ export default function Mail(props: {
     if (pageIndex > 0 && previousPageData?.nextPageToken) {
       query.nextPageToken = previousPageData.nextPageToken;
     }
-    // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
-    const queryParams = new URLSearchParams(query as any);
+    const queryParams = createSearchParams(query);
 
     return `/api/threads?${queryParams.toString()}`;
   };

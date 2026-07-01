@@ -7,7 +7,7 @@ import type { SendersResponse } from "@/app/api/user/stats/senders/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getDateRangeParams } from "@/app/(app)/[emailAccountId]/stats/params";
-import { getGmailSearchUrl } from "@/utils/url";
+import { createSearchParams, getGmailSearchUrl } from "@/utils/url";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { BarListCard } from "@/app/(app)/[emailAccountId]/stats/BarListCard";
 import { Mail, Send } from "lucide-react";
@@ -21,8 +21,7 @@ export function EmailAnalytics(props: {
   const params = getDateRangeParams(props.dateRange);
 
   const { data, isLoading, error } = useSWR<SendersResponse, { error: string }>(
-    // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
-    `/api/user/stats/senders?${new URLSearchParams(params as any)}`,
+    `/api/user/stats/senders?${createSearchParams(params)}`,
     {
       refreshInterval: props.refreshInterval,
     },
@@ -33,8 +32,7 @@ export function EmailAnalytics(props: {
     isLoading: isLoadingRecipients,
     error: errorRecipients,
   } = useSWR<RecipientsResponse, { error: string }>(
-    // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
-    `/api/user/stats/recipients?${new URLSearchParams(params as any)}`,
+    `/api/user/stats/recipients?${createSearchParams(params)}`,
     {
       refreshInterval: props.refreshInterval,
     },

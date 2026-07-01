@@ -1,5 +1,16 @@
 import { extractDomainFromEmail } from "@/utils/email";
 
+export function createSearchParams(params: Record<string, unknown>) {
+  const searchParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === null || value === undefined) continue;
+    searchParams.set(key, String(value));
+  }
+
+  return searchParams;
+}
+
 function getGmailUrlForFragment(
   fragment: string,
   emailAddress?: string | null,
