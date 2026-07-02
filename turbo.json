@@ -347,7 +347,7 @@
     "lint": {},
     "check-enums": {},
     "check-server-actions": {},
-    "konsistent": {},
+    "//#konsistent": {},
     "dev": {
       "cache": false,
       "persistent": true
