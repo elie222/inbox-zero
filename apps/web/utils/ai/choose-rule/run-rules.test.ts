@@ -500,6 +500,37 @@ describe("runRules draft attribution persistence", () => {
     ]);
   });
 
+  it("records draft-only historical matches as skipped after draft replies are removed", async () => {
+    const draftOnlyRule = createRule("draft-only-rule", SystemType.TO_REPLY, [
+      getAction({
+        id: "draft-action-1",
+        type: ActionType.DRAFT_EMAIL,
+      }),
+    ]);
+
+    mockMatchingRules([{ rule: draftOnlyRule, matchReasons: [] }]);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    prisma.executedRule.create.mockResolvedValue({} as any);
+
+    const result = await runRulesWithDefaults({
+      rules: [draftOnlyRule],
+      skipDraftReplies: true,
+    });
+
+    expect(getActionItemsWithAiArgs).not.toHaveBeenCalled();
+    expect(result).toEqual([
+      expect.objectContaining({
+        rule: null,
+        status: ExecutedRuleStatus.SKIPPED,
+      }),
+    ]);
+    expect(prisma.executedRule.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        status: ExecutedRuleStatus.SKIPPED,
+      }),
+    });
+  });
+
   it("persists a null draft pipeline version when draft attribution is missing", async () => {
     const draftRule = createRule("draft-rule", SystemType.TO_REPLY, [
       getAction({

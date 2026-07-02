@@ -295,15 +295,17 @@ function removeDraftReplyActionsFromMatches<
     ruleCount: matchesWithDrafts.length,
   });
 
-  return matches.map((match) => ({
-    ...match,
-    rule: {
-      ...match.rule,
-      actions: match.rule.actions.filter(
-        (action) => !isDraftReplyActionType(action.type),
-      ),
-    },
-  }));
+  return matches
+    .map((match) => ({
+      ...match,
+      rule: {
+        ...match.rule,
+        actions: match.rule.actions.filter(
+          (action) => !isDraftReplyActionType(action.type),
+        ),
+      },
+    }))
+    .filter((match) => match.rule.actions.length > 0);
 }
 
 function prepareRulesWithMetaRule(rules: RuleWithActions[]): {
