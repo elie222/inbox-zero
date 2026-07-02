@@ -34,6 +34,8 @@ const LLM_LINKS: Record<string, string> = {
   groq: "https://console.groq.com/keys",
 };
 
+const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/api";
+
 const DEFAULT_MODELS = {
   anthropic: {
     default: "claude-sonnet-4-6",
@@ -74,7 +76,7 @@ export function seedLlmPlaceholderCredentials(
   }
 
   if (provider === "ollama") {
-    env.OLLAMA_BASE_URL = "http://localhost:11434";
+    env.OLLAMA_BASE_URL = DEFAULT_OLLAMA_BASE_URL;
     env.OLLAMA_MODEL = "qwen3.5:4b";
     setRoleLlms(provider, env.OLLAMA_MODEL, env);
     return;
@@ -159,8 +161,8 @@ async function promptOllamaCreds(): Promise<{
       baseUrl: () =>
         text({
           message: "Ollama Base URL",
-          placeholder: "http://localhost:11434",
-          initialValue: "http://localhost:11434",
+          placeholder: DEFAULT_OLLAMA_BASE_URL,
+          initialValue: DEFAULT_OLLAMA_BASE_URL,
         }),
       model: () =>
         text({
@@ -174,7 +176,7 @@ async function promptOllamaCreds(): Promise<{
   );
 
   return {
-    baseUrl: creds.baseUrl || "http://localhost:11434",
+    baseUrl: creds.baseUrl || DEFAULT_OLLAMA_BASE_URL,
     model: creds.model,
   };
 }

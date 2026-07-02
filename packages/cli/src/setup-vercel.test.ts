@@ -114,6 +114,19 @@ describe("buildVercelEnvValues", () => {
 });
 
 describe("seedLlmPlaceholderCredentials", () => {
+  it("fills ollama placeholder credentials with the API base URL", () => {
+    const env = {};
+
+    seedLlmPlaceholderCredentials("ollama", env);
+
+    expect(env).toMatchObject({
+      DEFAULT_LLMS: "ollama:qwen3.5:4b",
+      ECONOMY_LLMS: "ollama:qwen3.5:4b",
+      OLLAMA_BASE_URL: "http://localhost:11434/api",
+      OLLAMA_MODEL: "qwen3.5:4b",
+    });
+  });
+
   it("fills bedrock placeholder credentials with defaults", () => {
     const env = {};
 
