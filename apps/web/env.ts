@@ -274,13 +274,6 @@ const parsedEnv = createEnv({
     FB_CONVERSION_API_ACCESS_TOKEN: z.string().optional(),
     FB_PIXEL_ID: z.string().optional(),
     CONVERSION_ANALYTICS_SERVER_URL: z.string().optional(),
-    GOOGLE_ADS_DEVELOPER_TOKEN: z.string().optional(),
-    GOOGLE_ADS_CLIENT_ID: z.string().optional(),
-    GOOGLE_ADS_CLIENT_SECRET: z.string().optional(),
-    GOOGLE_ADS_REFRESH_TOKEN: z.string().optional(),
-    GOOGLE_ADS_CUSTOMER_ID: z.string().optional(),
-    GOOGLE_ADS_LOGIN_CUSTOMER_ID: z.string().optional(),
-    GOOGLE_ADS_SUBSCRIPTION_CONVERSION_ACTION_ID: z.string().optional(),
     ADMINS: z
       .string()
       .optional()
