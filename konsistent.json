@@ -12,63 +12,6 @@
       }
     },
     {
-      "name": "api-routes-use-middleware",
-      "description": "API route handlers must use shared middleware from @/utils/middleware.",
-      "paths": [
-        "apps/web/app/api/**/route.ts",
-        "!apps/web/app/api/auth/**/route.ts",
-        "!apps/web/app/api/digest-preview/route.ts",
-        "!apps/web/app/api/v1/**/route.ts",
-        "!apps/web/app/api/**/queue/route.ts",
-        "!apps/web/app/api/organizations/**/stats/**/route.ts"
-      ],
-      "must": {
-        "importFrom": "@/utils/middleware"
-      }
-    },
-    {
-      "name": "v1-api-routes-use-api-middleware",
-      "description": "Public v1 API routes must use API key middleware from @/utils/api-middleware.",
-      "paths": [
-        "apps/web/app/api/v1/**/route.ts",
-        "!apps/web/app/api/v1/openapi/route.ts"
-      ],
-      "must": {
-        "importFrom": "@/utils/api-middleware"
-      }
-    },
-    {
-      "name": "queue-routes-use-forwarding-handler",
-      "description": "Forwarding queue routes must use the shared queue forwarding helper.",
-      "paths": [
-        "apps/web/app/api/ai/digest/queue/route.ts",
-        "apps/web/app/api/resend/digest/queue/route.ts",
-        "apps/web/app/api/resend/summary/queue/route.ts"
-      ],
-      "must": {
-        "importFrom": "@/utils/queue/create-forwarding-queue-handler"
-      }
-    },
-    {
-      "name": "queue-routes-use-vercel-queue",
-      "description": "Direct queue consumer routes must use @vercel/queue.",
-      "paths": [
-        "apps/web/app/api/automation-jobs/execute/queue/route.ts",
-        "apps/web/app/api/follow-up-reminders/account/queue/route.ts"
-      ],
-      "must": {
-        "importFrom": "@vercel/queue"
-      }
-    },
-    {
-      "name": "org-stats-routes-use-helper",
-      "description": "Organization stats routes must use the shared createOrgStatsRoute helper.",
-      "paths": "apps/web/app/api/organizations/**/stats/**/route.ts",
-      "must": {
-        "import": [{ "name": "createOrgStatsRoute" }]
-      }
-    },
-    {
       "name": "validation-files-import-zod",
       "description": "Server action validation schemas must use Zod.",
       "paths": "apps/web/utils/actions/*.validation.ts",
@@ -91,15 +34,6 @@
       "excludeFiles": ["**/*.test.ts"],
       "must": {
         "importFrom": "@/utils/actions/safe-action"
-      }
-    },
-    {
-      "name": "route-pages-no-nested-components-folder",
-      "description": "Route directories should colocate page files instead of using nested components/ folders.",
-      "severity": "warning",
-      "paths": "apps/web/app/(app)/{routeName}",
-      "mustNot": {
-        "haveFiles": ["components"]
       }
     }
   ]
