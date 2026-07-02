@@ -160,7 +160,8 @@ export function BulkRunRules() {
             <DialogTitle>Bulk Process Emails</DialogTitle>
             <DialogDescription>
               Run your rules on emails in your inbox that haven't been handled
-              yet.
+              yet. Draft replies are skipped for past emails and will be
+              generated for new incoming emails.
             </DialogDescription>
           </DialogHeader>
           {progressMessage && (
@@ -374,9 +375,7 @@ async function onRun(
       onThreadsQueued(threadsToQueue);
       totalProcessed += threadsToQueue.length;
 
-      runAiRules(emailAccountId, threadsToQueue, false, {
-        skipDraftReplies: true,
-      });
+      runAiRules(emailAccountId, threadsToQueue, false, true);
 
       if (aborted) {
         onComplete("cancelled", totalProcessed);

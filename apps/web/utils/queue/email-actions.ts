@@ -10,7 +10,7 @@ export const runAiRules = async (
   emailAccountId: string,
   threadsArray: ThreadsResponse["threads"],
   rerun: boolean,
-  options: { skipDraftReplies?: boolean } = {},
+  skipDraftReplies = false,
 ) => {
   const threads = threadsArray.filter(isDefined);
   const threadIds = threads.map((t) => t.id);
@@ -25,7 +25,7 @@ export const runAiRules = async (
         threadId: thread.id,
         rerun,
         isTest: false,
-        skipDraftReplies: options.skipDraftReplies,
+        skipDraftReplies,
       });
       removeFromAiQueueAtom(thread.id);
     }),
