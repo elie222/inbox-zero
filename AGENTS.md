@@ -5,7 +5,6 @@
 - Build: `pnpm build`
 - Lint: `pnpm lint`
 - Format: Biome (`pnpm check` / `pnpm fix` via ultracite)
-- Structural conventions: `pnpm konsistent`
 - Run all tests: `pnpm test`
 - Run integration tests: `pnpm test-integration`
 - Run AI tests: `pnpm --filter inbox-zero-ai test-ai`
