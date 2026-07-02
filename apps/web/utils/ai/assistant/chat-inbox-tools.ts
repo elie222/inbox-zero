@@ -126,6 +126,12 @@ const replyEmailToolInputSchema = z
       .min(1)
       .max(10_000)
       .describe("Reply body content to include in the draft."),
+    replyAll: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set to true only when the user asks to reply all or include all original recipients.",
+      ),
   })
   .strict();
 const forwardEmailToolInputSchema = z
@@ -1422,6 +1428,7 @@ function createPendingReplyEmailOutput(
     pendingAction: {
       messageId: input.messageId,
       content: input.content,
+      replyAll: input.replyAll,
     },
     reference: {
       messageId: message.id,

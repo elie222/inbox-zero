@@ -241,6 +241,7 @@ export interface EmailProvider {
       replyTo?: string;
       from?: string;
       attachments?: MailAttachment[];
+      replyAll?: boolean;
     },
   ): Promise<void>;
   searchMessages(options: {

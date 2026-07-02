@@ -685,6 +685,7 @@ export class OutlookProvider implements EmailProvider {
       replyTo?: string;
       from?: string;
       attachments?: MailAttachment[];
+      replyAll?: boolean;
     },
   ): Promise<void> {
     await replyToEmail(this.client, email, content, this.logger, options);
