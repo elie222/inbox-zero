@@ -1,9 +1,18 @@
 import type Stripe from "stripe";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
+import type { Prisma } from "@/generated/prisma/client";
 
 export const CONVERSION_ATTRIBUTION_COOKIE = "iz_conversion_ref";
 export const CONVERSION_ATTRIBUTION_METADATA_KEY = "conversionAttributionId";
+export const CONVERSION_CLICK_IDS_METADATA_KEY = "conversionClickIds";
+const STRIPE_METADATA_VALUE_MAX_LENGTH = 500;
+
+type ConversionClickIds = {
+  gclid?: string;
+  gbraid?: string;
+  wbraid?: string;
+};
 
 type ServerConversionEvent = {
   name: "subscription_created";
@@ -15,6 +24,7 @@ type ServerConversionEvent = {
     amount?: number;
     currency?: string;
   };
+  clickIds?: ConversionClickIds;
   logger: Logger;
 };
 
@@ -24,6 +34,7 @@ export async function trackServerConversionEvent({
   timestamp,
   attributionId,
   properties,
+  clickIds,
   logger,
 }: ServerConversionEvent) {
   if (!env.CONVERSION_ANALYTICS_SERVER_URL) return;
@@ -40,6 +51,7 @@ export async function trackServerConversionEvent({
         timestamp: timestamp.toISOString(),
         attributionId,
         properties,
+        clickIds,
         sourceUrl: env.NEXT_PUBLIC_BASE_URL,
       }),
     });
@@ -66,14 +78,31 @@ export function getStripeSubscriptionConversionProperties(
       ? price.unit_amount * (item.quantity || 1)
       : undefined;
 
+  const clickIds = getConversionClickIdsFromMetadata(
+    subscription.metadata || {},
+  );
+
   return {
     attributionId: subscription.metadata?.[CONVERSION_ATTRIBUTION_METADATA_KEY],
+    ...(clickIds ? { clickIds } : {}),
     properties: {
       planId: price?.id,
       amount,
       currency: price?.currency?.toUpperCase(),
     },
   };
+}
+
+export function getConversionClickMetadataFromUtms(
+  utms: Prisma.JsonValue | null | undefined,
+) {
+  const clickIds = getConversionClickIdsFromObject(utms);
+  const serializedClickIds = JSON.stringify(clickIds);
+
+  return Object.keys(clickIds).length &&
+    serializedClickIds.length <= STRIPE_METADATA_VALUE_MAX_LENGTH
+    ? { [CONVERSION_CLICK_IDS_METADATA_KEY]: serializedClickIds }
+    : {};
 }
 
 function getServerConversionUrl(endpoint: string) {
@@ -89,4 +118,38 @@ function getServerConversionUrl(endpoint: string) {
   }
 
   return new URL(normalizedEndpoint, env.NEXT_PUBLIC_BASE_URL);
+}
+
+function getConversionClickIdsFromMetadata(
+  metadata: Stripe.Metadata,
+): ConversionClickIds | undefined {
+  const rawClickIds = metadata[CONVERSION_CLICK_IDS_METADATA_KEY];
+  if (!rawClickIds) return;
+
+  try {
+    const clickIds = getConversionClickIdsFromObject(JSON.parse(rawClickIds));
+    return Object.keys(clickIds).length ? clickIds : undefined;
+  } catch {
+    return;
+  }
+}
+
+function getConversionClickIdsFromObject(
+  value: Prisma.JsonValue | Record<string, unknown> | null | undefined,
+): ConversionClickIds {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+
+  const gclid = getStringValue(value.gclid);
+  const gbraid = getStringValue(value.gbraid);
+  const wbraid = getStringValue(value.wbraid);
+
+  return {
+    ...(gclid ? { gclid } : {}),
+    ...(gbraid ? { gbraid } : {}),
+    ...(wbraid ? { wbraid } : {}),
+  };
+}
+
+function getStringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }

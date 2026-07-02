@@ -14,7 +14,9 @@ vi.mock("@/env", () => ({
 }));
 
 import {
+  CONVERSION_CLICK_IDS_METADATA_KEY,
   CONVERSION_ATTRIBUTION_METADATA_KEY,
+  getConversionClickMetadataFromUtms,
   getStripeSubscriptionConversionProperties,
   trackServerConversionEvent,
 } from "@/utils/analytics/server-conversion-events";
@@ -55,6 +57,9 @@ describe("trackServerConversionEvent", () => {
       id: "evt_paid",
       timestamp: new Date("2026-06-08T00:00:00.000Z"),
       attributionId: "attr_test",
+      clickIds: {
+        gclid: "test-gclid",
+      },
       properties: {
         planId: "price_test",
         amount: 2900,
@@ -77,6 +82,9 @@ describe("trackServerConversionEvent", () => {
       id: "evt_paid",
       timestamp: "2026-06-08T00:00:00.000Z",
       attributionId: "attr_test",
+      clickIds: {
+        gclid: "test-gclid",
+      },
       properties: {
         planId: "price_test",
         amount: 2900,
@@ -127,7 +135,14 @@ describe("trackServerConversionEvent", () => {
 describe("getStripeSubscriptionConversionProperties", () => {
   it("extracts attribution and plan values from a Stripe subscription", () => {
     const subscription = {
-      metadata: { [CONVERSION_ATTRIBUTION_METADATA_KEY]: "attr_test" },
+      metadata: {
+        [CONVERSION_ATTRIBUTION_METADATA_KEY]: "attr_test",
+        [CONVERSION_CLICK_IDS_METADATA_KEY]: JSON.stringify({
+          gclid: " test-gclid ",
+          gbraid: "test-gbraid",
+          wbraid: "test-wbraid",
+        }),
+      },
       items: {
         data: [
           {
@@ -144,11 +159,41 @@ describe("getStripeSubscriptionConversionProperties", () => {
 
     expect(getStripeSubscriptionConversionProperties(subscription)).toEqual({
       attributionId: "attr_test",
+      clickIds: {
+        gclid: "test-gclid",
+        gbraid: "test-gbraid",
+        wbraid: "test-wbraid",
+      },
       properties: {
         planId: "price_test",
         amount: 3000,
         currency: "USD",
       },
     });
+  });
+
+  it("extracts conversion click metadata from stored UTMs", () => {
+    expect(
+      getConversionClickMetadataFromUtms({
+        gclid: " test-gclid ",
+        gbraid: "test-gbraid",
+        wbraid: "test-wbraid",
+        utmSource: "google",
+      }),
+    ).toEqual({
+      [CONVERSION_CLICK_IDS_METADATA_KEY]: JSON.stringify({
+        gclid: "test-gclid",
+        gbraid: "test-gbraid",
+        wbraid: "test-wbraid",
+      }),
+    });
+  });
+
+  it("drops click metadata when it would exceed Stripe metadata limits", () => {
+    expect(
+      getConversionClickMetadataFromUtms({
+        gclid: "x".repeat(501),
+      }),
+    ).toEqual({});
   });
 });
