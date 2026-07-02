@@ -60,14 +60,16 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
   return {
     channels: channels.map(
       ({ routes, providerUserId, accessToken: _accessToken, ...channel }) => {
+        const { webhookSecret: _webhookSecret, ...publicChannel } =
+          channel as typeof channel & { webhookSecret?: string | null };
         const isConnected = isMessagingChannelOperational({
-          ...channel,
+          ...publicChannel,
           providerUserId,
           accessToken: _accessToken,
         });
 
         return {
-          ...channel,
+          ...publicChannel,
           isConnected,
           canSendAsDm: channel.provider === "SLACK" && isConnected,
           destinations: {

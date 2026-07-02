@@ -1,6 +1,10 @@
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { resolveSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
+import {
+  assertWebhookSecretUsesHttps,
+  WEBHOOK_SECRET_REQUIRES_HTTPS_MESSAGE,
+} from "@/utils/messaging/providers/webhook/validation";
 
 const WEBHOOK_REQUEST_TIMEOUT_MS = 10_000;
 
@@ -40,12 +44,13 @@ export async function sendDigestToWebhook({
     throw new Error("Webhook URL blocked by SSRF protection");
   }
 
-  // Never transmit the shared webhook secret over plaintext HTTP: a network
-  // observer could capture `X-Webhook-Secret` and forge authenticated requests.
-  // Plain HTTP is still allowed when no secret is configured.
-  if (secret && resolvedUrl.url.protocol !== "https:") {
+  try {
+    assertWebhookSecretUsesHttps({ url: resolvedUrl.url.toString(), secret });
+  } catch (error) {
     throw new Error(
-      "Webhook secret can only be sent over HTTPS; use an https:// URL or remove the secret",
+      error instanceof Error
+        ? error.message
+        : WEBHOOK_SECRET_REQUIRES_HTTPS_MESSAGE,
     );
   }
 

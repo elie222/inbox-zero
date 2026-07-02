@@ -108,6 +108,23 @@ describe("sendDigestToWebhook", () => {
       }),
     ).rejects.toThrow(/status 500/);
   });
+
+  it("throws when a secret is configured for an HTTP URL", async () => {
+    resolveSafeExternalHttpUrlMock.mockResolvedValue({
+      url: new URL("http://example.com/hook"),
+      lookup: vi.fn(),
+    });
+
+    await expect(
+      sendDigestToWebhook({
+        url: "http://example.com/hook",
+        secret: "shh",
+        payload,
+      }),
+    ).rejects.toThrow(/secret can only be sent over HTTPS/);
+
+    expect(httpsRequestMock).not.toHaveBeenCalled();
+  });
 });
 
 function queueHttpsResponse({ statusCode }: { statusCode: number }) {

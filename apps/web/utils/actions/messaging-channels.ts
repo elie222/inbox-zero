@@ -25,6 +25,7 @@ import {
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
+import { assertWebhookSecretUsesHttps } from "@/utils/messaging/providers/webhook/validation";
 import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
 import {
   DRAFT_REPLY_ACTION_TYPES,
@@ -226,6 +227,11 @@ export const createWebhookChannelAction = actionClient
         );
       }
 
+      assertWebhookSecretUsesHttps({
+        url: webhookUrl,
+        secret: webhookSecret || null,
+      });
+
       // One webhook channel per account: re-adding reconnects the existing row
       // (disconnect leaves the row with isConnected=false).
       await prisma.messagingChannel.upsert({
@@ -273,7 +279,7 @@ export const updateWebhookChannelAction = actionClient
 
       const channel = await prisma.messagingChannel.findUnique({
         where: { id_emailAccountId: { id: channelId, emailAccountId } },
-        select: { provider: true },
+        select: { provider: true, webhookSecret: true },
       });
 
       if (!channel) {
@@ -282,6 +288,16 @@ export const updateWebhookChannelAction = actionClient
       if (channel.provider !== MessagingProvider.WEBHOOK) {
         throw new SafeError("Messaging channel is not a webhook");
       }
+
+      const effectiveSecret =
+        webhookSecret !== undefined
+          ? webhookSecret || null
+          : channel.webhookSecret;
+
+      assertWebhookSecretUsesHttps({
+        url: webhookUrl,
+        secret: effectiveSecret,
+      });
 
       await prisma.messagingChannel.update({
         where: { id_emailAccountId: { id: channelId, emailAccountId } },

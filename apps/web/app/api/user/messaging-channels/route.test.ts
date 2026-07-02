@@ -43,6 +43,7 @@ const messagingChannelSelect = {
   providerUserId: true,
   accessToken: true,
   isConnected: true,
+  webhookUrl: true,
   routes: {
     select: {
       purpose: true,
@@ -182,6 +183,44 @@ describe("GET /api/user/messaging-channels", () => {
     expect(body.channels[0]).not.toHaveProperty("webhookSecret");
     // Webhook needs no OAuth app/bot token, so it is always available.
     expect(body.availableProviders).toEqual(["SLACK", "WEBHOOK"]);
+  });
+
+  it("returns webhook channels without exposing the stored secret", async () => {
+    const channels = [
+      {
+        id: "channel-webhook-1",
+        provider: "WEBHOOK",
+        teamName: null,
+        teamId: "",
+        providerUserId: null,
+        accessToken: null,
+        isConnected: true,
+        webhookUrl: "https://example.com/hook",
+        routes: [
+          {
+            purpose: "DIGESTS",
+            targetType: "CHANNEL",
+            targetId: "webhook",
+          },
+        ],
+        actions: [],
+        webhookSecret: "super-secret",
+      },
+    ] satisfies MessagingChannelRecord[] & Array<{ webhookSecret: string }>;
+    prisma.messagingChannel.findMany.mockResolvedValue(channels);
+
+    const response = await GET(createRequest());
+    const body = await response.json();
+
+    expect(body.channels[0]).toEqual(
+      expect.objectContaining({
+        id: "channel-webhook-1",
+        provider: "WEBHOOK",
+        webhookUrl: "https://example.com/hook",
+        isConnected: true,
+      }),
+    );
+    expect(body.channels[0]).not.toHaveProperty("webhookSecret");
   });
 
   it("includes Teams as an available provider when app id, password, and tenant id are configured", async () => {
