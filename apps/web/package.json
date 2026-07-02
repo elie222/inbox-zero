@@ -14,6 +14,7 @@
     "check-server-actions": "node scripts/check-server-action-exports.js",
     "check-client-redirects": "node scripts/check-client-redirects.js",
     "generate-llm-pricing": "tsx scripts/generate-llm-pricing.ts",
+    "ads:weekly-report": "tsx scripts/google-ads-weekly-report.ts",
     "eval-report": "tsx scripts/eval-report/generate-eval-report.ts",
     "test": "cross-env RUN_AI_TESTS=false vitest",
     "test-ai": "cross-env RUN_AI_TESTS=true vitest --run",
