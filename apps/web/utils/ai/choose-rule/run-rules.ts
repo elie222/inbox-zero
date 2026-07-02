@@ -109,6 +109,7 @@ export async function runRules({
   modelType,
   logger,
   skipArchive,
+  skipDraftReplies,
 }: {
   provider: EmailProvider;
   message: ParsedMessage;
@@ -118,6 +119,7 @@ export async function runRules({
   modelType: ModelType;
   logger: Logger;
   skipArchive?: boolean;
+  skipDraftReplies?: boolean;
 }): Promise<RunRulesResult[]> {
   const batchTimestamp = new Date(); // Single timestamp for this batch execution
   const { regularRules, conversationRules } = prepareRulesWithMetaRule(rules);
@@ -191,7 +193,11 @@ export async function runRules({
     }
   }
 
-  const finalMatches = limitDraftEmailActions(matchesWithFlags, logger);
+  const executableMatches = skipDraftReplies
+    ? removeDraftReplyActionsFromMatches(matchesWithFlags, logger)
+    : matchesWithFlags;
+
+  const finalMatches = limitDraftEmailActions(executableMatches, logger);
 
   logger.trace("Matching rule", () => ({
     module: MODULE,
@@ -273,6 +279,31 @@ export async function runRules({
   }
 
   return executedRules;
+}
+
+function removeDraftReplyActionsFromMatches<
+  T extends { rule: RuleWithActions; matchReasons?: MatchReason[] },
+>(matches: T[], logger: Logger): T[] {
+  const matchesWithDrafts = matches.filter((match) =>
+    match.rule.actions.some((action) => isDraftReplyActionType(action.type)),
+  );
+
+  if (!matchesWithDrafts.length) return matches;
+
+  logger.info("Skipping draft reply actions for historical rule processing", {
+    module: MODULE,
+    ruleCount: matchesWithDrafts.length,
+  });
+
+  return matches.map((match) => ({
+    ...match,
+    rule: {
+      ...match.rule,
+      actions: match.rule.actions.filter(
+        (action) => !isDraftReplyActionType(action.type),
+      ),
+    },
+  }));
 }
 
 function prepareRulesWithMetaRule(rules: RuleWithActions[]): {

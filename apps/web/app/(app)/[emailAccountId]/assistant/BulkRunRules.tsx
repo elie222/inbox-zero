@@ -374,7 +374,9 @@ async function onRun(
       onThreadsQueued(threadsToQueue);
       totalProcessed += threadsToQueue.length;
 
-      runAiRules(emailAccountId, threadsToQueue, false);
+      runAiRules(emailAccountId, threadsToQueue, false, {
+        skipDraftReplies: true,
+      });
 
       if (aborted) {
         onComplete("cancelled", totalProcessed);
