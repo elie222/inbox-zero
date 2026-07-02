@@ -5,12 +5,6 @@
       "source": "vercel-labs/agent-browser",
       "sourceType": "github",
       "computedHash": "35478d4b0a33b3f98e22b7b4f3fe2d2919ebe72a6ca24b3a7175a9b17cc2788d"
-    },
-    "konsistent-config": {
-      "source": "vercel-labs/konsistent",
-      "sourceType": "github",
-      "skillPath": "skills/konsistent-config/SKILL.md",
-      "computedHash": "7a8e77f1ead2d471300a081d282abaef90701b7a555270d5028026739ecf6005"
     }
   }
 }
