@@ -11,6 +11,11 @@ type UtmValues = {
   utmMedium?: string;
   utmSource?: string;
   utmTerm?: string;
+  gclid?: string;
+  gbraid?: string;
+  wbraid?: string;
+  gadCampaignId?: string;
+  gadSource?: string;
   affiliate?: string;
   referralCode?: string;
 };
@@ -43,6 +48,11 @@ export function extractUtmValues(cookies: ReadonlyRequestCookies): UtmValues {
     utmMedium: decodeCookieValue(cookies.get("utm_medium")?.value),
     utmSource: decodeCookieValue(cookies.get("utm_source")?.value),
     utmTerm: decodeCookieValue(cookies.get("utm_term")?.value),
+    gclid: decodeCookieValue(cookies.get("gclid")?.value),
+    gbraid: decodeCookieValue(cookies.get("gbraid")?.value),
+    wbraid: decodeCookieValue(cookies.get("wbraid")?.value),
+    gadCampaignId: decodeCookieValue(cookies.get("gad_campaignid")?.value),
+    gadSource: decodeCookieValue(cookies.get("gad_source")?.value),
     affiliate: decodeCookieValue(cookies.get("affiliate")?.value),
     referralCode: decodeCookieValue(cookies.get("referral_code")?.value),
   };
@@ -61,6 +71,8 @@ export async function fetchUserAndStoreUtms(
   userId: string,
   utmValues: UtmValues,
 ) {
+  if (!hasAttributionValue(utmValues)) return;
+
   const user = await prisma.user
     .findUnique({
       where: { id: userId },
@@ -76,6 +88,10 @@ export async function fetchUserAndStoreUtms(
   }
 }
 
+function hasAttributionValue(utmValues: UtmValues) {
+  return Object.values(utmValues).some(Boolean);
+}
+
 async function storeUtms(userId: string, utmValues: UtmValues) {
   logger.info("Storing utms", { userId });
 
@@ -84,6 +100,11 @@ async function storeUtms(userId: string, utmValues: UtmValues) {
     utmMedium: utmValues.utmMedium,
     utmSource: utmValues.utmSource,
     utmTerm: utmValues.utmTerm,
+    gclid: utmValues.gclid,
+    gbraid: utmValues.gbraid,
+    wbraid: utmValues.wbraid,
+    gadCampaignId: utmValues.gadCampaignId,
+    gadSource: utmValues.gadSource,
     affiliate: utmValues.affiliate,
     referralCode: utmValues.referralCode,
   };
