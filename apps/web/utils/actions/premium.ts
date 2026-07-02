@@ -554,7 +554,7 @@ export const generateCheckoutSessionAction = actionClientUser
     const conversionAttributionId = (await cookies()).get(
       CONVERSION_ATTRIBUTION_COOKIE,
     )?.value;
-    const conversionMetadata = {
+    const conversionMetadata: Record<string, string> = {
       ...(conversionAttributionId
         ? { [CONVERSION_ATTRIBUTION_METADATA_KEY]: conversionAttributionId }
         : {}),

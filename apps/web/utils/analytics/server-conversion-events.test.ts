@@ -6,6 +6,7 @@ const { envMock } = vi.hoisted(() => ({
   envMock: {
     NEXT_PUBLIC_BASE_URL: "https://example.com",
     CONVERSION_ANALYTICS_SERVER_URL: "/rill",
+    CONVERSION_ANALYTICS_SERVER_SECRET: undefined as string | undefined,
   },
 }));
 
@@ -30,6 +31,7 @@ describe("trackServerConversionEvent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envMock.CONVERSION_ANALYTICS_SERVER_URL = "/rill";
+    envMock.CONVERSION_ANALYTICS_SERVER_SECRET = undefined;
     vi.stubGlobal("fetch", fetchMock);
     fetchMock.mockResolvedValue({ ok: true });
   });
@@ -92,6 +94,27 @@ describe("trackServerConversionEvent", () => {
       },
       sourceUrl: "https://example.com",
     });
+  });
+
+  it("sends the shared secret header when configured", async () => {
+    envMock.CONVERSION_ANALYTICS_SERVER_SECRET = "secret_test";
+
+    await trackServerConversionEvent({
+      name: "subscription_created",
+      id: "evt_paid",
+      timestamp: new Date("2026-06-08T00:00:00.000Z"),
+      logger,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL("https://example.com/rill"),
+      expect.objectContaining({
+        headers: {
+          "Content-Type": "application/json",
+          "x-conversion-analytics-secret": "secret_test",
+        },
+      }),
+    );
   });
 
   it.each([

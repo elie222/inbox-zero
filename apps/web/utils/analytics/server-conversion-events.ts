@@ -6,6 +6,7 @@ import type { Prisma } from "@/generated/prisma/client";
 export const CONVERSION_ATTRIBUTION_COOKIE = "iz_conversion_ref";
 export const CONVERSION_ATTRIBUTION_METADATA_KEY = "conversionAttributionId";
 export const CONVERSION_CLICK_IDS_METADATA_KEY = "conversionClickIds";
+const CONVERSION_ANALYTICS_AUTH_HEADER = "x-conversion-analytics-secret";
 const STRIPE_METADATA_VALUE_MAX_LENGTH = 500;
 
 type ConversionClickIds = {
@@ -44,7 +45,15 @@ export async function trackServerConversionEvent({
 
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(env.CONVERSION_ANALYTICS_SERVER_SECRET
+          ? {
+              [CONVERSION_ANALYTICS_AUTH_HEADER]:
+                env.CONVERSION_ANALYTICS_SERVER_SECRET,
+            }
+          : {}),
+      },
       body: JSON.stringify({
         name,
         id,
@@ -95,7 +104,7 @@ export function getStripeSubscriptionConversionProperties(
 
 export function getConversionClickMetadataFromUtms(
   utms: Prisma.JsonValue | null | undefined,
-) {
+): Record<string, string> {
   const clickIds = getConversionClickIdsFromObject(utms);
   const serializedClickIds = JSON.stringify(clickIds);
 
