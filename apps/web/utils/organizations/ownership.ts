@@ -21,16 +21,17 @@ export async function getDeletedAccountOwnershipImpact(
     };
   }
 
-  const ownerMemberships = await prisma.member.findMany({
+  // Ownerless organizations have no owner row to discover, so start from every
+  // deleted membership.
+  const memberships = await prisma.member.findMany({
     where: {
       emailAccountId: { in: [...deletedEmailAccountIds] },
-      role: "owner",
     },
     select: { organizationId: true },
   });
 
   const organizationIds = [
-    ...new Set(ownerMemberships.map((member) => member.organizationId)),
+    ...new Set(memberships.map((member) => member.organizationId)),
   ];
   if (organizationIds.length === 0) {
     return {
