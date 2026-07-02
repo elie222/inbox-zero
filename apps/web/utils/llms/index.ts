@@ -55,6 +55,10 @@ import {
 } from "@/utils/llms/model";
 import { getModelForUseCase, type LlmUseCase } from "@/utils/llms/use-cases";
 import {
+  buildCachedSystemMessages,
+  getSystemCacheProviderOptions,
+} from "@/utils/llms/caching";
+import {
   assertTrialAiUsageAllowed,
   shouldForceNanoModel,
 } from "@/utils/llms/model-usage-guard";
@@ -184,6 +188,7 @@ type UsageMetadata = {
   providerCostSource?: ProviderCostSource;
   stepCount?: number;
   toolCallCount?: number;
+  cacheCreationInputTokens?: number;
 };
 type LlmEmailAccount = {
   sensitiveDataPolicy?: EmailAccountWithAI["sensitiveDataPolicy"];
@@ -422,12 +427,17 @@ export function createGenerateObject({
   label,
   modelOptions,
   promptHardening,
+  cacheSystemPrompt,
   onModelUsed,
 }: {
   emailAccount: LlmEmailAccount;
   label: string;
   modelOptions: ReturnType<typeof getModel>;
   promptHardening: PromptHardening;
+  // Opt in to caching the (hardened, policy-enforced) system prompt. Only set
+  // this when the system prompt is stable across requests for a given account;
+  // see buildSystemPromptCacheOverrides.
+  cacheSystemPrompt?: boolean;
   onModelUsed?: (candidate: {
     provider: string;
     modelName: string;
@@ -517,6 +527,19 @@ export function createGenerateObject({
         emailAccountId: emailAccount.id,
       });
 
+      // When opted in, restructure the stable { system, prompt } into cache-marked
+      // messages after hardening + DLP, so we cache the exact bytes the provider
+      // sees. Overrides spread last to drop the top-level system/prompt and merge
+      // the cache provider options.
+      const cacheOverrides = cacheSystemPrompt
+        ? buildSystemPromptCacheOverrides({
+            protectedOptions,
+            providerOptions,
+            provider: candidate.provider,
+            cacheKey: emailAccount.id,
+          })
+        : undefined;
+
       const request = {
         experimental_repairText: async ({ text }: { text: string }) => {
           logger.info("Repairing text", { label });
@@ -536,6 +559,7 @@ export function createGenerateObject({
           provider: candidate.provider,
           modelName: candidate.modelName,
         }),
+        ...(cacheOverrides ?? {}),
       } as unknown as Parameters<
         typeof generateObject<SCHEMA, OUTPUT, RESULT>
       >[0];
@@ -1325,6 +1349,51 @@ function shouldFallbackToNextModel(error: unknown): boolean {
   return isTransientNetworkError(error);
 }
 
+// Restructures a hardened/policy-enforced { system, prompt } request into
+// cache-marked messages and merges the provider-level cache options. Returns
+// undefined for message-shaped requests (no `system`/`prompt` string), leaving
+// them untouched. The returned `system`/`prompt: undefined` drop the top-level
+// fields so the SDK uses the messages array instead.
+function buildSystemPromptCacheOverrides({
+  protectedOptions,
+  providerOptions,
+  provider,
+  cacheKey,
+}: {
+  protectedOptions: { system?: unknown; prompt?: unknown };
+  providerOptions: LLMProviderOptions;
+  provider: string;
+  cacheKey: string;
+}):
+  | {
+      messages: ModelMessage[];
+      system: undefined;
+      prompt: undefined;
+      providerOptions: LLMProviderOptions;
+    }
+  | undefined {
+  if (
+    typeof protectedOptions.system !== "string" ||
+    typeof protectedOptions.prompt !== "string"
+  ) {
+    return;
+  }
+
+  return {
+    messages: buildCachedSystemMessages({
+      system: protectedOptions.system,
+      prompt: protectedOptions.prompt,
+      provider,
+    }),
+    system: undefined,
+    prompt: undefined,
+    providerOptions: mergeProviderOptions(
+      providerOptions,
+      getSystemCacheProviderOptions(provider, { cacheKey }),
+    ),
+  };
+}
+
 function mergeProviderOptions(
   ...providerOptionsList: (LLMProviderOptions | undefined)[]
 ) {
@@ -1707,7 +1776,17 @@ function getUsageMetadata(result: unknown): UsageMetadata {
     providerReportedCost: providerCost.providerReportedCost,
     providerUpstreamInferenceCost: providerCost.providerUpstreamInferenceCost,
     providerCostSource: providerCost.providerCostSource,
+    cacheCreationInputTokens: getCacheCreationInputTokens(result),
   };
+}
+
+// Cache-write tokens aren't in LanguageModelUsage (which only reports cache
+// reads via cachedInputTokens). Anthropic surfaces them in providerMetadata, so
+// extract them here to make cache write volume measurable alongside reads.
+function getCacheCreationInputTokens(result: unknown): number | undefined {
+  const providerMetadata = getObjectProperty(result, "providerMetadata");
+  const anthropic = getObjectProperty(providerMetadata, "anthropic");
+  return getFiniteNumber(getProperty(anthropic, "cacheCreationInputTokens"));
 }
 
 async function saveUsageWithMetadata({
@@ -1747,6 +1826,7 @@ async function saveUsageWithMetadata({
     providerCostSource: usageMetadata.providerCostSource,
     stepCount: usageMetadata.stepCount,
     toolCallCount: usageMetadata.toolCallCount,
+    cacheCreationInputTokens: usageMetadata.cacheCreationInputTokens,
   });
 }
 
