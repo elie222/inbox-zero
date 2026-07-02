@@ -14,6 +14,7 @@ on:
       - "pnpm-workspace.yaml"
       - "turbo.json"
       - "tsconfig.json"
+      - "konsistent.json"
       - ".github/workflows/build-check.yml"
   pull_request:
     branches: [main]
@@ -25,6 +26,7 @@ on:
       - "pnpm-workspace.yaml"
       - "turbo.json"
       - "tsconfig.json"
+      - "konsistent.json"
       - ".github/workflows/build-check.yml"
 
 concurrency:

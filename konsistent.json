@@ -1,0 +1,40 @@
+{
+  "$schema": "node_modules/konsistent/konsistent.schema.json",
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "workspace-packages-required-files",
+      "description": "Workspace packages must include package.json and tsconfig.json.",
+      "paths": ["packages/{packageName}", "!packages/tsconfig"],
+      "must": {
+        "haveType": "directory",
+        "haveFiles": ["package.json", "tsconfig.json"]
+      }
+    },
+    {
+      "name": "validation-files-import-zod",
+      "description": "Server action validation schemas must use Zod.",
+      "paths": "apps/web/utils/actions/*.validation.ts",
+      "must": {
+        "import": [{ "name": "z", "from": "zod" }]
+      }
+    },
+    {
+      "name": "server-actions-use-safe-action",
+      "description": "Callable server action modules must use next-safe-action clients from safe-action.ts.",
+      "paths": [
+        "apps/web/utils/actions/{actionName}.ts",
+        "!apps/web/utils/actions/safe-action.ts",
+        "!apps/web/utils/actions/client.ts",
+        "!apps/web/utils/actions/error-handling.ts",
+        "!apps/web/utils/actions/stats-loading.ts",
+        "!apps/web/utils/actions/draft-reply.ts",
+        "!apps/web/utils/actions/assistant-chat-confirmation.ts"
+      ],
+      "excludeFiles": ["**/*.test.ts"],
+      "must": {
+        "importFrom": "@/utils/actions/safe-action"
+      }
+    }
+  ]
+}
