@@ -444,7 +444,7 @@ async function sendSlackRuleNotificationWithContext({
     await prisma.executedAction.update({
       where: { id: context.id },
       data: {
-        messagingMessageId: rootMessageId ?? responseTs ?? null,
+        messagingMessageId: responseTs ?? rootMessageId ?? null,
         messagingMessageSentAt: new Date(),
         messagingMessageStatus: MessagingMessageStatus.SENT,
       },
