@@ -24,6 +24,10 @@ export const runAiRules = async (
         threadId: thread.id,
         rerun,
         isTest: false,
+        // Bulk run over past threads (one representative message per thread):
+        // let categorization run even on a mid-thread message so the thread
+        // gets a label instead of being skipped.
+        isHistorical: true,
       });
       removeFromAiQueueAtom(thread.id);
     }),

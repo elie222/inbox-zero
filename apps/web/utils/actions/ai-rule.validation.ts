@@ -10,5 +10,8 @@ export const runRulesBody = z.object({
   threadId: z.string(),
   rerun: z.boolean().nullish(),
   isTest: z.boolean(),
+  // Set by the bulk "process past emails" UI: lets categorization run on a
+  // thread's representative message even when the thread isn't categorized yet.
+  isHistorical: z.boolean().nullish(),
 });
 export type RunRulesBody = z.infer<typeof runRulesBody>;
