@@ -255,10 +255,11 @@ function selectModel(
     case "ollama": {
       const modelName = aiModel || env.OLLAMA_MODEL;
       if (!modelName) throw new SafeError("LLM model name is not set");
+      const baseURL = getOllamaBaseUrl();
       return {
         provider: Provider.OLLAMA,
         modelName,
-        model: createOllama({ baseURL: env.OLLAMA_BASE_URL })(modelName),
+        model: createOllama({ baseURL })(modelName),
       };
     }
     case Provider.OPENAI_COMPATIBLE: {
@@ -580,6 +581,23 @@ function getOpenAiCompatibleBaseUrl() {
     process.env.OPENAI_COMPATIBLE_BASE_URL ||
     "http://localhost:1234/v1"
   );
+}
+
+function getOllamaBaseUrl(): string | undefined {
+  const baseURL = env.OLLAMA_BASE_URL?.trim();
+  if (!baseURL) return;
+
+  try {
+    const url = new URL(baseURL);
+    if (url.pathname === "/" || url.pathname === "") {
+      url.pathname = "/api";
+      return url.toString();
+    }
+  } catch {
+    return baseURL;
+  }
+
+  return baseURL.replace(/\/+$/, "");
 }
 
 function getOpenAiCompatibleAuthOptions(apiKey: string | undefined) {

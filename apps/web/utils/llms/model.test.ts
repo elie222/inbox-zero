@@ -13,6 +13,7 @@ import { createGateway } from "@ai-sdk/gateway";
 import { createVertex } from "@ai-sdk/google-vertex";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { createOllama } from "ollama-ai-provider-v2";
 
 const TEST_AZURE_FOUNDRY_API_KEY = "test-azure-foundry-key";
 const TEST_AZURE_FOUNDRY_BASE_URL = "https://foundry.example.com/openai/v1";
@@ -479,6 +480,33 @@ describe("Models", () => {
       expect(result.provider).toBe(Provider.OLLAMA);
       expect(result.modelName).toBe("llama3");
       expect(result.model).toBeDefined();
+    });
+
+    it("should accept an Ollama server origin without /api", () => {
+      const userAi = defaultUserAi();
+
+      setDefaultLlms(Provider.OLLAMA, "llama3.2");
+      vi.mocked(env).OLLAMA_BASE_URL = "http://localhost:11434";
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.OLLAMA);
+      expect(createOllama).toHaveBeenCalledWith({
+        baseURL: "http://localhost:11434/api",
+      });
+    });
+
+    it("should preserve explicit Ollama API base URLs", () => {
+      const userAi = defaultUserAi();
+
+      setDefaultLlms(Provider.OLLAMA, "llama3.2");
+      vi.mocked(env).OLLAMA_BASE_URL = "http://localhost:11434/api/";
+
+      getModel(userAi);
+
+      expect(createOllama).toHaveBeenCalledWith({
+        baseURL: "http://localhost:11434/api",
+      });
     });
 
     it("should configure Anthropic model correctly without Bedrock credentials", () => {
