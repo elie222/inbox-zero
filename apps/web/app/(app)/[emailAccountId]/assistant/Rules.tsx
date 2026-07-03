@@ -129,9 +129,11 @@ export function Rules({
 
     const userRules = existingRules.filter((rule) => !rule.systemType);
 
-    return [...systemRulePlaceholders, ...userRules].sort((a, b) =>
+    const sortedUserRules = userRules.sort((a, b) =>
       a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
     );
+
+    return [...systemRulePlaceholders, ...sortedUserRules];
   }, [data, emailAccountId, provider]);
 
   const [searchQuery, setSearchQuery] = useState("");
