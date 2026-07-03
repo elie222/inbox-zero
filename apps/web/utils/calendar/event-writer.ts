@@ -191,9 +191,10 @@ async function getWritableCalendar({
   emailAccountId: string;
   destinationCalendarId?: string | null;
 }) {
-  const where = destinationCalendarId
-    ? { id: destinationCalendarId }
-    : { primary: true };
+  // Without an explicit destination, prefer the primary calendar (via
+  // orderBy) but accept any enabled calendar — accounts synced before
+  // Microsoft primary tracking have no primary row.
+  const where = destinationCalendarId ? { id: destinationCalendarId } : {};
   // Availability scans only consider enabled calendars, so writing to a
   // disabled one would silently bypass conflict detection.
   const calendar = await prisma.calendar.findFirst({
