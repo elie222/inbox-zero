@@ -5,7 +5,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 export function useOrganizationMembership(emailAccountId?: string) {
   const { emailAccountId: contextId, isLoading: isLoadingEmailAccount } =
     useAccount();
-  const id = emailAccountId || contextId;
+  const id = emailAccountId ?? contextId;
   const swr = useSWR<GetOrganizationMembershipResponse>(
     id ? ["/api/user/organization-membership", id] : null,
   );
