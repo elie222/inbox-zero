@@ -325,8 +325,16 @@ export function getRuleResultReasonDisplay(reason: string): {
   const actionFailureMessages: string[] = [];
   const reasonLines: string[] = [];
 
-  for (const line of he.decode(reason).split(/\r?\n/)) {
-    const trimmedLine = line.trim();
+  // AI reasons sometimes include literal (or entity-encoded) HTML tags; strip
+  // them for display while keeping plain text like "a < b" intact. Block-level
+  // tags become whitespace so adjacent paragraphs don't run together.
+  const plainText = he
+    .decode(reason)
+    .replace(/<\/?(?:p|div|br|li|ul|ol|h[1-6])\b[^<>]*>/gi, " ")
+    .replace(/<\/?[a-z][^<>]*>/gi, "");
+
+  for (const line of plainText.split(/\r?\n/)) {
+    const trimmedLine = line.replace(/\s+/g, " ").trim();
     if (trimmedLine.startsWith("Action failures:")) {
       actionFailureMessages.push(
         ...getActionFailureMessages(
@@ -334,7 +342,7 @@ export function getRuleResultReasonDisplay(reason: string): {
         ),
       );
     } else {
-      reasonLines.push(line);
+      reasonLines.push(trimmedLine);
     }
   }
 
