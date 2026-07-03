@@ -117,6 +117,23 @@ existingConfigMap: ""
 extraEnv: []
 extraEnvFrom: []
 
+codexCli:
+  # Enables the experimental codex-cli LLM provider for trusted self-hosted
+  # deployments. Requires a Codex-enabled image and a Secret created from
+  # `codex login` auth/config files.
+  enabled: false
+  existingSecret: ""
+  mountPath: /root/.codex
+  secretMountPath: /var/run/inbox-zero/codex-cli
+  codexPath: /usr/local/bin/codex
+  allowNpx: false
+  # 0400 in decimal form for Kubernetes Secret volume defaultMode.
+  defaultMode: 256
+  # Optional Secret item mappings, for example:
+  # - key: auth.json
+  #   path: auth.json
+  items: []
+
 externalDatabase:
   # Set enabled=true to use managed Postgres instead of the bundled StatefulSet.
   # databaseUrl/directUrl are stored in the chart-created Secret. For production,
@@ -236,6 +253,9 @@ cron:
     draft-cleanup:
       schedule: "0 4 * * *"
       path: /api/cron/draft-cleanup
+    email-message-stats-reconciliation:
+      schedule: "30 4 * * *"
+      path: /api/cron/email-message-stats-reconciliation?batchSize=100&sampleLimit=0
     follow-up-reminders:
       schedule: "0 * * * *"
       path: /api/follow-up-reminders

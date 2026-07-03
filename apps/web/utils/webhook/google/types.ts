@@ -5,6 +5,7 @@ import type { EmailAccount } from "@/generated/prisma/client";
 
 export const HistoryEventType = {
   MESSAGE_ADDED: "messageAdded",
+  MESSAGE_DELETED: "messageDeleted",
   LABEL_ADDED: "labelAdded",
   LABEL_REMOVED: "labelRemoved",
 } as const;

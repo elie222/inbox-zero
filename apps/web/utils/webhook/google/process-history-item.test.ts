@@ -12,6 +12,16 @@ import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
 
+const {
+  reconcileStatsForCurrentGmailMessageMock,
+  reconcileStatsForDeletedMessageMock,
+  shouldReconcileStatsForLabelEventMock,
+} = vi.hoisted(() => ({
+  reconcileStatsForCurrentGmailMessageMock: vi.fn(),
+  reconcileStatsForDeletedMessageMock: vi.fn(),
+  shouldReconcileStatsForLabelEventMock: vi.fn(),
+}));
+
 const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
@@ -81,6 +91,15 @@ vi.mock("@/utils/reply-tracker/handle-outbound", () => ({
   handleOutboundMessage: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/utils/webhook/google/sync-email-message-stats", () => ({
+  reconcileStatsForCurrentGmailMessage: (...args: unknown[]) =>
+    reconcileStatsForCurrentGmailMessageMock(...args),
+  reconcileStatsForDeletedMessage: (...args: unknown[]) =>
+    reconcileStatsForDeletedMessageMock(...args),
+  shouldReconcileStatsForLabelEvent: (...args: unknown[]) =>
+    shouldReconcileStatsForLabelEventMock(...args),
+}));
+
 vi.mock("@/utils/gmail/label", async () => {
   const actual = await vi.importActual("@/utils/gmail/label");
   return {
@@ -104,6 +123,25 @@ vi.mock("@/utils/rule/learned-patterns", () => ({
 describe("processHistoryItem", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    shouldReconcileStatsForLabelEventMock.mockReturnValue(false);
+    reconcileStatsForDeletedMessageMock.mockResolvedValue(undefined);
+    reconcileStatsForCurrentGmailMessageMock.mockResolvedValue({
+      id: "123",
+      threadId: "thread-123",
+      labelIds: [GmailLabel.INBOX],
+      snippet: "Test email snippet",
+      historyId: "12345",
+      internalDate: "1704067200000",
+      sizeEstimate: 1024,
+      headers: {
+        from: "sender@example.com",
+        to: "user@test.com",
+        subject: "Test Email",
+        date: "2024-01-01T00:00:00Z",
+      },
+      textPlain: "Hello World",
+      textHtml: "<b>Hello World</b>",
+    });
   });
 
   const createHistoryItem = (
@@ -157,6 +195,128 @@ describe("processHistoryItem", () => {
       draftReplyConfidence: DraftReplyConfidence.ALL_EMAILS,
     };
   }
+
+  it("deletes local stats for Gmail message-deleted events without creating a provider", async () => {
+    const options = {
+      ...defaultOptions,
+      emailAccount: getDefaultEmailAccount(),
+    };
+
+    await processHistoryItem(
+      createHistoryItem(
+        "deleted-123",
+        undefined as any,
+        HistoryEventType.MESSAGE_DELETED,
+      ),
+      options,
+      logger,
+    );
+
+    expect(reconcileStatsForDeletedMessageMock).toHaveBeenCalledWith({
+      emailAccountId: options.emailAccount.id,
+      messageId: "deleted-123",
+      threadId: "thread-123",
+      logger: expect.anything(),
+    });
+    expect(createEmailProvider).not.toHaveBeenCalled();
+  });
+
+  it("reconciles stats for Gmail archive events before preserving learning behavior", async () => {
+    shouldReconcileStatsForLabelEventMock.mockReturnValueOnce(true);
+
+    const options = {
+      ...defaultOptions,
+      emailAccount: getDefaultEmailAccount(),
+    };
+
+    await processHistoryItem(
+      createHistoryItem("123", "thread-123", HistoryEventType.LABEL_REMOVED, [
+        GmailLabel.INBOX,
+      ]),
+      options,
+      logger,
+    );
+
+    expect(shouldReconcileStatsForLabelEventMock).toHaveBeenCalledWith([
+      GmailLabel.INBOX,
+    ]);
+    expect(reconcileStatsForCurrentGmailMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: options.emailAccount.id,
+        messageId: "123",
+        threadId: "thread-123",
+        reason: "gmail-label-removed",
+      }),
+    );
+  });
+
+  it("reconciles stats for Gmail trash label additions", async () => {
+    shouldReconcileStatsForLabelEventMock.mockReturnValueOnce(true);
+
+    const options = {
+      ...defaultOptions,
+      emailAccount: getDefaultEmailAccount(),
+    };
+
+    await processHistoryItem(
+      createHistoryItem("123", "thread-123", HistoryEventType.LABEL_ADDED, [
+        GmailLabel.TRASH,
+      ]),
+      options,
+      logger,
+    );
+
+    expect(reconcileStatsForCurrentGmailMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: options.emailAccount.id,
+        messageId: "123",
+        threadId: "thread-123",
+        reason: "gmail-label-added",
+      }),
+    );
+  });
+
+  it("reconciles stats for Gmail read/unread label changes", async () => {
+    shouldReconcileStatsForLabelEventMock.mockReturnValueOnce(true);
+
+    const options = {
+      ...defaultOptions,
+      emailAccount: getDefaultEmailAccount(),
+    };
+
+    await processHistoryItem(
+      createHistoryItem("123", "thread-123", HistoryEventType.LABEL_ADDED, [
+        GmailLabel.UNREAD,
+      ]),
+      options,
+      logger,
+    );
+
+    expect(reconcileStatsForCurrentGmailMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: "123",
+        reason: "gmail-label-added",
+      }),
+    );
+  });
+
+  it("reconciles message-added stats before shared processing", async () => {
+    const options = {
+      ...defaultOptions,
+      emailAccount: getDefaultEmailAccount(),
+    };
+
+    await processHistoryItem(createHistoryItem(), options, logger);
+
+    expect(reconcileStatsForCurrentGmailMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: options.emailAccount.id,
+        messageId: "123",
+        threadId: "thread-123",
+        reason: "gmail-message-added",
+      }),
+    );
+  });
 
   it("should skip if message is already being processed", async () => {
     vi.mocked(markMessageAsProcessing).mockResolvedValueOnce(false);
@@ -233,6 +393,7 @@ describe("processHistoryItem", () => {
     };
 
     vi.mocked(createEmailProvider).mockResolvedValueOnce(mockProvider as any);
+    reconcileStatsForCurrentGmailMessageMock.mockResolvedValueOnce(sentMessage);
 
     const options = {
       ...defaultOptions,

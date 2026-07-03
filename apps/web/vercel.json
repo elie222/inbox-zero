@@ -91,6 +91,10 @@
     {
       "path": "/api/cron/draft-cleanup",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/email-message-stats-reconciliation",
+      "schedule": "30 4 * * *"
     }
   ]
 }
