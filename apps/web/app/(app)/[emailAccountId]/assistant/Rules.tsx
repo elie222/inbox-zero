@@ -252,7 +252,9 @@ export function Rules({
                         <div className="flex items-center gap-2">
                           {rule.name}
                           {isOrgManaged && (
-                            <Badge color="blue">Managed by organization</Badge>
+                            <Tooltip content="Managed by Organization">
+                              <Badge color="blue">Org</Badge>
+                            </Tooltip>
                           )}
                         </div>
                       </TableCell>
