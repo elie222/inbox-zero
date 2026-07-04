@@ -26,7 +26,10 @@ import { env } from "@/env";
 import { slugify } from "@/utils/string";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createScopedLogger } from "@/utils/logger";
-import { syncOrganizationRulesForNewMember } from "@/utils/organizations/rules";
+import {
+  deleteMemberOrganizationRuleCopies,
+  syncOrganizationRulesForNewMember,
+} from "@/utils/organizations/rules";
 
 export const createOrganizationAction = actionClient
   .metadata({ name: "createOrganization" })
@@ -384,6 +387,11 @@ export const removeMemberAction = actionClientUser
         });
       }
     }
+
+    await deleteMemberOrganizationRuleCopies({
+      emailAccountId: targetMember.emailAccountId,
+      organizationId: targetMember.organizationId,
+    });
 
     await prisma.member.delete({ where: { id: memberId } });
   });
