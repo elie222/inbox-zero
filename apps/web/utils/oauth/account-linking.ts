@@ -53,6 +53,7 @@ export async function handleAccountLinking({
     });
 
     await cleanupOrphanedAccount(existingAccountId, logger);
+    return { type: "continue_create" };
   }
 
   if (!existingAccountId || !hasEmailAccount) {
@@ -67,9 +68,9 @@ export async function handleAccountLinking({
 
     if (!existingEmailAccount) return { type: "continue_create" };
 
-    if (existingEmailAccount.account.provider !== provider) {
+    if (existingEmailAccount.userId !== targetUserId) {
       logger.warn(
-        "Create failed: account with this email already exists for a different provider",
+        "Create failed: account with this email already exists for a different user",
         {
           provider,
           email: providerEmail,
@@ -87,37 +88,38 @@ export async function handleAccountLinking({
       };
     }
 
-    if (existingEmailAccount.userId === targetUserId) {
-      logger.info(
-        "providerAccountId changed but EmailAccount exists for same user. Updating existing account.",
+    if (existingEmailAccount.account.provider !== provider) {
+      logger.warn(
+        "Create failed: account with this email already exists for a different provider",
         {
           provider,
           email: providerEmail,
+          existingProvider: existingEmailAccount.account.provider,
           targetUserId,
-          accountId: existingEmailAccount.accountId,
         },
       );
 
       return {
-        type: "update_existing_account",
-        existingAccountId: existingEmailAccount.accountId,
+        type: "redirect",
+        response: createAccountLinkingRedirect({
+          query: { error: "account_already_exists" },
+        }),
       };
     }
 
     logger.info(
-      "Account with this email exists for different user on same provider, merging accounts",
+      "providerAccountId changed but EmailAccount exists for same user. Updating existing account.",
       {
         provider,
         email: providerEmail,
-        existingUserId: existingEmailAccount.userId,
         targetUserId,
+        accountId: existingEmailAccount.accountId,
       },
     );
 
     return {
-      type: "merge",
-      sourceAccountId: existingEmailAccount.accountId,
-      sourceUserId: existingEmailAccount.userId,
+      type: "update_existing_account",
+      existingAccountId: existingEmailAccount.accountId,
     };
   }
 

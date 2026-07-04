@@ -43,6 +43,7 @@ describe("handleAccountLinking", () => {
       logger,
     );
     expect(result).toEqual({ type: "continue_create" });
+    expect(prisma.emailAccount.findUnique).not.toHaveBeenCalled();
   });
 
   it("should return continue_create when no existing account", async () => {
@@ -114,7 +115,7 @@ describe("handleAccountLinking", () => {
     }
   });
 
-  it("should return merge when creating an account whose email belongs to a different user on the same provider", async () => {
+  it("should redirect with account_already_exists when creating an account whose email belongs to a different user on the same provider", async () => {
     mockExistingEmailAccount();
 
     const result = await handleAccountLinking({
@@ -127,11 +128,11 @@ describe("handleAccountLinking", () => {
       logger,
     });
 
-    expect(result).toEqual({
-      type: "merge",
-      sourceAccountId: "existing-account-id",
-      sourceUserId: "different-user-id",
-    });
+    expect(result.type).toBe("redirect");
+    if (result.type === "redirect") {
+      const url = new URL(result.response.headers.get("location") || "");
+      expect(url.searchParams.get("error")).toBe("account_already_exists");
+    }
   });
 
   it("should update the existing account when the provider account id changed for the same user", async () => {
@@ -151,26 +152,6 @@ describe("handleAccountLinking", () => {
       type: "update_existing_account",
       existingAccountId: "existing-account-id",
     });
-  });
-
-  it("should redirect with account_already_exists when an orphaned provider account would collide with another provider", async () => {
-    mockExistingEmailAccount({ provider: "microsoft" });
-
-    const result = await handleAccountLinking({
-      existingAccountId: "orphaned-account-id",
-      hasEmailAccount: false,
-      existingUserId: "orphaned-user-id",
-      targetUserId: "target-user-id",
-      provider: "google",
-      providerEmail: "existing@gmail.com",
-      logger,
-    });
-
-    expect(result.type).toBe("redirect");
-    if (result.type === "redirect") {
-      const url = new URL(result.response.headers.get("location") || "");
-      expect(url.searchParams.get("error")).toBe("account_already_exists");
-    }
   });
 
   it("redirects to logout when the linking session user no longer exists", async () => {
