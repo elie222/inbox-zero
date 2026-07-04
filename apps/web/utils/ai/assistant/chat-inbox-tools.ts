@@ -484,6 +484,14 @@ export type ManageSenderCategoryTool = InferUITool<
 >;
 
 const searchInboxBaseFields = {
+  fromEmail: z
+    .string()
+    .trim()
+    .email()
+    .nullish()
+    .describe(
+      "Exact sender email address to search by. Use this instead of a broad text query when the sender address is known.",
+    ),
   limit: z
     .number()
     .int()
@@ -496,17 +504,21 @@ const searchInboxBaseFields = {
   ),
 };
 
-const gmailSearchInboxInputSchema = z.object({
-  query: z
-    .string()
-    .trim()
-    .min(1)
-    .max(500)
-    .describe(
-      "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.",
-    ),
-  ...searchInboxBaseFields,
-});
+const gmailSearchInboxInputSchema = z
+  .object({
+    query: z
+      .string()
+      .trim()
+      .max(500)
+      .default("")
+      .describe(
+        "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.",
+      ),
+    ...searchInboxBaseFields,
+  })
+  .refine((value) => Boolean(value.query || value.fromEmail), {
+    message: "query or fromEmail is required",
+  });
 
 const outlookSearchInboxInputSchema = z
   .object({
@@ -535,9 +547,12 @@ const outlookSearchInboxInputSchema = z
       ),
   })
   .refine(
-    (value) => Boolean(value.query || value.readState || value.categoryName),
+    (value) =>
+      Boolean(
+        value.query || value.fromEmail || value.readState || value.categoryName,
+      ),
     {
-      message: "query, readState, or categoryName is required",
+      message: "query, fromEmail, readState, or categoryName is required",
     },
   );
 
@@ -554,7 +569,7 @@ const gmailSearchInboxTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
 
-      const { query, limit, pageToken } = input;
+      const { query = "", fromEmail, limit, pageToken } = input;
 
       try {
         const emailProvider = await createEmailProvider({
@@ -566,6 +581,7 @@ const gmailSearchInboxTool = ({
         const [searchResult, labels] = await Promise.all([
           emailProvider.searchMessages({
             query,
+            fromEmail: fromEmail ?? undefined,
             maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
             pageToken: pageToken ?? undefined,
           }),
@@ -574,7 +590,7 @@ const gmailSearchInboxTool = ({
 
         return formatSearchInboxResult({
           searchResult,
-          queryUsed: query,
+          queryUsed: formatQueryWithFromEmail(query, fromEmail),
           labels,
           taxonomyNamesKey: "labelNames",
         });
@@ -598,7 +614,14 @@ const outlookSearchInboxTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
 
-      const { query = "", limit, pageToken, readState, categoryName } = input;
+      const {
+        query = "",
+        fromEmail,
+        limit,
+        pageToken,
+        readState,
+        categoryName,
+      } = input;
 
       try {
         const emailProvider = await createEmailProvider({
@@ -612,6 +635,7 @@ const outlookSearchInboxTool = ({
         });
         const normalizedInput = normalizeOutlookSearchInput({
           query,
+          fromEmail,
           readState,
           categoryName,
         });
@@ -1644,7 +1668,7 @@ async function runOutlookSearch({
   addSearchQuery(fallbackQuery);
 
   let result: SearchMessagesResult | undefined;
-  let queryUsed = normalizedInput.query;
+  let executedQuery = normalizedInput.query;
   let lastError: unknown;
   const failures: Array<{ query: string; error: unknown }> = [];
   let retryGuidanceAdded = false;
@@ -1656,10 +1680,11 @@ async function runOutlookSearch({
         query: candidateQuery,
         maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
         pageToken: pageToken ?? undefined,
+        fromEmail: normalizedInput.fromEmail ?? undefined,
         readState: normalizedInput.readState ?? undefined,
         labelName: normalizedInput.categoryName ?? undefined,
       });
-      queryUsed = candidateQuery;
+      executedQuery = candidateQuery;
       break;
     } catch (error) {
       lastError = error;
@@ -1688,6 +1713,11 @@ async function runOutlookSearch({
     }
   }
 
+  let queryUsed = formatQueryWithFromEmail(
+    executedQuery,
+    normalizedInput.fromEmail,
+  );
+
   if (!result) {
     return { queryUsed, lastError, failures };
   }
@@ -1695,10 +1725,11 @@ async function runOutlookSearch({
   result = await skipEmptyOutlookSearchPages({
     emailProvider,
     searchResult: result,
-    queryUsed,
+    query: executedQuery,
     limit,
     readState: normalizedInput.readState,
     categoryName: normalizedInput.categoryName,
+    fromEmail: normalizedInput.fromEmail,
   });
 
   if (
@@ -1721,17 +1752,19 @@ async function runOutlookSearch({
 async function skipEmptyOutlookSearchPages({
   emailProvider,
   searchResult,
-  queryUsed,
+  query,
   limit,
   readState,
   categoryName,
+  fromEmail,
 }: {
   emailProvider: EmailProvider;
   searchResult: SearchMessagesResult;
-  queryUsed: string;
+  query: string;
   limit?: number;
   readState?: OutlookReadState | null;
   categoryName?: string | null;
+  fromEmail?: string | null;
 }) {
   let result = searchResult;
   let emptyPageSkips = 0;
@@ -1743,9 +1776,10 @@ async function skipEmptyOutlookSearchPages({
   ) {
     emptyPageSkips += 1;
     result = await emailProvider.searchMessages({
-      query: queryUsed,
+      query,
       maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
       pageToken: result.nextPageToken,
+      fromEmail: fromEmail ?? undefined,
       readState: readState ?? undefined,
       labelName: categoryName ?? undefined,
     });
@@ -1756,6 +1790,7 @@ async function skipEmptyOutlookSearchPages({
 
 type NormalizedOutlookSearchInput = {
   query: string;
+  fromEmail?: string | null;
   readState?: OutlookReadState | null;
   categoryName?: string | null;
   fallbackQuery?: string | null;
@@ -1763,10 +1798,12 @@ type NormalizedOutlookSearchInput = {
 
 function normalizeOutlookSearchInput({
   query,
+  fromEmail,
   readState,
   categoryName,
 }: {
   query: string;
+  fromEmail?: string | null;
   readState?: OutlookReadState | null;
   categoryName?: string | null;
 }): NormalizedOutlookSearchInput {
@@ -1776,6 +1813,22 @@ function normalizeOutlookSearchInput({
   const queryWithoutState = inferredReadState
     ? stripStandaloneOutlookStateTerms(normalizedQuery).trim()
     : normalizedQuery;
+  const explicitFromEmail = fromEmail?.trim() || null;
+  const queryFromEmail =
+    getStandaloneSenderEmailFromOutlookQuery(queryWithoutState);
+  const effectiveFromEmail = explicitFromEmail ?? queryFromEmail;
+
+  if (effectiveFromEmail) {
+    const queryIsRedundant =
+      !explicitFromEmail ||
+      queryFromEmail?.toLowerCase() === explicitFromEmail.toLowerCase();
+    return {
+      query: queryIsRedundant ? "" : queryWithoutState,
+      fromEmail: effectiveFromEmail,
+      readState: inferredReadState,
+      categoryName,
+    };
+  }
 
   if (categoryName) {
     return {
@@ -1809,6 +1862,24 @@ function normalizeOutlookSearchInput({
     categoryName: scopeCandidate,
     fallbackQuery: normalizedQuery,
   };
+}
+
+function getStandaloneSenderEmailFromOutlookQuery(query: string) {
+  const match = query
+    .trim()
+    .match(
+      /^(?:from\s*:\s*)?["']?([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})["']?$/i,
+    );
+  return match?.[1] ?? null;
+}
+
+function formatQueryWithFromEmail(
+  query: string,
+  fromEmail: string | null | undefined,
+) {
+  if (!fromEmail) return query;
+  if (!query.trim()) return `from:${fromEmail}`;
+  return `from:${fromEmail} ${query}`;
 }
 
 function inferOutlookReadStateFromQuery(
