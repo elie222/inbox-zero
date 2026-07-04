@@ -95,13 +95,7 @@ describe("handleAccountLinking", () => {
   });
 
   it("should redirect with account_already_exists when creating an account whose email belongs to a different provider", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue({
-      ...getMockEmailAccountSelect({
-        userId: "different-user-id",
-        email: "existing@gmail.com",
-      }),
-      account: { provider: "microsoft" },
-    } as any);
+    mockExistingEmailAccount({ provider: "microsoft" });
 
     const result = await handleAccountLinking({
       existingAccountId: null,
@@ -121,14 +115,7 @@ describe("handleAccountLinking", () => {
   });
 
   it("should return merge when creating an account whose email belongs to a different user on the same provider", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue({
-      ...getMockEmailAccountSelect({
-        accountId: "existing-account-id",
-        userId: "different-user-id",
-        email: "existing@gmail.com",
-      }),
-      account: { provider: "google" },
-    } as any);
+    mockExistingEmailAccount();
 
     const result = await handleAccountLinking({
       existingAccountId: null,
@@ -148,14 +135,7 @@ describe("handleAccountLinking", () => {
   });
 
   it("should update the existing account when the provider account id changed for the same user", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue({
-      ...getMockEmailAccountSelect({
-        accountId: "existing-account-id",
-        userId: "target-user-id",
-        email: "existing@gmail.com",
-      }),
-      account: { provider: "google" },
-    } as any);
+    mockExistingEmailAccount({ userId: "target-user-id" });
 
     const result = await handleAccountLinking({
       existingAccountId: null,
@@ -174,13 +154,7 @@ describe("handleAccountLinking", () => {
   });
 
   it("should redirect with account_already_exists when an orphaned provider account would collide with another provider", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue({
-      ...getMockEmailAccountSelect({
-        userId: "different-user-id",
-        email: "existing@gmail.com",
-      }),
-      account: { provider: "microsoft" },
-    } as any);
+    mockExistingEmailAccount({ provider: "microsoft" });
 
     const result = await handleAccountLinking({
       existingAccountId: "orphaned-account-id",
@@ -221,3 +195,24 @@ describe("handleAccountLinking", () => {
     expect(prisma.emailAccount.findUnique).not.toHaveBeenCalled();
   });
 });
+
+function mockExistingEmailAccount({
+  accountId = "existing-account-id",
+  email = "existing@gmail.com",
+  provider = "google",
+  userId = "different-user-id",
+}: {
+  accountId?: string;
+  email?: string;
+  provider?: "google" | "microsoft";
+  userId?: string;
+} = {}) {
+  prisma.emailAccount.findUnique.mockResolvedValue({
+    ...getMockEmailAccountSelect({
+      accountId,
+      email,
+      userId,
+    }),
+    account: { provider },
+  } as any);
+}
