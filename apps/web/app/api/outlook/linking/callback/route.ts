@@ -221,6 +221,36 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       return linkingResult.response;
     }
 
+    if (linkingResult.type === "update_existing_account") {
+      logger.info(
+        "Updating existing Microsoft account with new providerAccountId",
+        {
+          email: providerEmail,
+          targetUserId,
+          accountId: linkingResult.existingAccountId,
+        },
+      );
+
+      await updateMicrosoftAccountTokens(
+        linkingResult.existingAccountId,
+        tokens,
+        { providerAccountId },
+      );
+
+      logger.info("OAuth linking callback completed", {
+        accountId: linkingResult.existingAccountId,
+        outcome: "tokens_updated",
+        providerEmailHash: hash(providerEmail),
+        providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
+      });
+
+      await setOAuthCodeResult(code, { success: "tokens_updated" });
+      return createAccountLinkingRedirect({
+        query: { success: "tokens_updated" },
+        stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+      });
+    }
+
     if (linkingResult.type === "continue_create") {
       logger.info(
         "Creating new Microsoft account and linking to current user",
@@ -377,15 +407,9 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       logger,
     });
 
-    if (shouldMigrateProviderAccountId) {
-      await updateMicrosoftAccountTokens(
-        linkingResult.sourceAccountId,
-        tokens,
-        {
-          providerAccountId,
-        },
-      );
-    }
+    await updateMicrosoftAccountTokens(linkingResult.sourceAccountId, tokens, {
+      providerAccountId,
+    });
 
     const successMessage =
       mergeType === "full_merge"

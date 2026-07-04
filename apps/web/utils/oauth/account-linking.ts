@@ -27,6 +27,7 @@ export async function handleAccountLinking({
   | { type: "continue_create" }
   | { type: "redirect"; response: NextResponse }
   | { type: "merge"; sourceAccountId: string; sourceUserId: string }
+  | { type: "update_existing_account"; existingAccountId: string }
   | { type: "update_tokens"; existingAccountId: string }
 > {
   const hasActiveTargetUser = await hasActiveAccountLinkingUser({
@@ -52,21 +53,27 @@ export async function handleAccountLinking({
     });
 
     await cleanupOrphanedAccount(existingAccountId, logger);
-    return { type: "continue_create" };
   }
 
   if (!existingAccountId || !hasEmailAccount) {
     const existingEmailAccount = await prisma.emailAccount.findUnique({
       where: { email: providerEmail.trim().toLowerCase() },
-      select: { userId: true },
+      select: {
+        accountId: true,
+        userId: true,
+        account: { select: { provider: true } },
+      },
     });
 
-    if (existingEmailAccount && existingEmailAccount.userId !== targetUserId) {
+    if (!existingEmailAccount) return { type: "continue_create" };
+
+    if (existingEmailAccount.account.provider !== provider) {
       logger.warn(
-        "Create failed: account with this email already exists for a different user",
+        "Create failed: account with this email already exists for a different provider",
         {
           provider,
           email: providerEmail,
+          existingProvider: existingEmailAccount.account.provider,
           existingUserId: existingEmailAccount.userId,
           targetUserId,
         },
@@ -80,7 +87,38 @@ export async function handleAccountLinking({
       };
     }
 
-    return { type: "continue_create" };
+    if (existingEmailAccount.userId === targetUserId) {
+      logger.info(
+        "providerAccountId changed but EmailAccount exists for same user. Updating existing account.",
+        {
+          provider,
+          email: providerEmail,
+          targetUserId,
+          accountId: existingEmailAccount.accountId,
+        },
+      );
+
+      return {
+        type: "update_existing_account",
+        existingAccountId: existingEmailAccount.accountId,
+      };
+    }
+
+    logger.info(
+      "Account with this email exists for different user on same provider, merging accounts",
+      {
+        provider,
+        email: providerEmail,
+        existingUserId: existingEmailAccount.userId,
+        targetUserId,
+      },
+    );
+
+    return {
+      type: "merge",
+      sourceAccountId: existingEmailAccount.accountId,
+      sourceUserId: existingEmailAccount.userId,
+    };
   }
 
   if (existingUserId === targetUserId) {

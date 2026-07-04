@@ -136,6 +136,36 @@ export const GET = withError("google/linking/callback", async (request) => {
       return linkingResult.response;
     }
 
+    if (linkingResult.type === "update_existing_account") {
+      logger.info(
+        "Updating existing Google account with new providerAccountId",
+        {
+          email: providerEmail,
+          targetUserId,
+          accountId: linkingResult.existingAccountId,
+        },
+      );
+
+      await updateGoogleAccount({
+        accountId: linkingResult.existingAccountId,
+        providerAccountId,
+        tokens,
+      });
+
+      logger.info("OAuth linking callback completed", {
+        accountId: linkingResult.existingAccountId,
+        outcome: "tokens_updated",
+        providerEmailHash: hash(providerEmail),
+        providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
+      });
+
+      await setOAuthCodeResult(code, { success: "tokens_updated" });
+      return createAccountLinkingRedirect({
+        query: { success: "tokens_updated" },
+        stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+      });
+    }
+
     if (linkingResult.type === "continue_create") {
       if (isGoogleOauthEmulationEnabled()) {
         const existingEmulatedAccount = await prisma.emailAccount.findFirst({
@@ -306,6 +336,12 @@ export const GET = withError("google/linking/callback", async (request) => {
       email: providerEmail,
       name: existingAccount?.user.name || null,
       logger,
+    });
+
+    await updateGoogleAccount({
+      accountId: linkingResult.sourceAccountId,
+      providerAccountId,
+      tokens,
     });
 
     const successMessage =
