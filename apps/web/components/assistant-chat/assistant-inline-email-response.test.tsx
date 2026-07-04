@@ -123,33 +123,7 @@ describe("AssistantInlineEmailResponse", () => {
   });
 
   it("renders inline email detail views", () => {
-    mockUseThread.mockReturnValue({
-      data: {
-        thread: {
-          id: "thread-1",
-          messages: [
-            {
-              id: "message-1",
-              threadId: "thread-1",
-              subject: "Rendered detail subject",
-              snippet: "Rendered detail snippet",
-              date: "2026-03-11T11:00:00.000Z",
-              historyId: "history-1",
-              inline: [],
-              headers: {
-                from: "Sender <sender@example.com>",
-                to: "user@example.com",
-                date: "2026-03-11T11:00:00.000Z",
-                subject: "Rendered detail subject",
-              },
-              textPlain: "Rendered detail body",
-            },
-          ],
-        },
-      },
-      isLoading: false,
-      error: null,
-    });
+    mockRenderedThread();
 
     render(
       createElement(
@@ -170,6 +144,103 @@ describe("AssistantInlineEmailResponse", () => {
         "google",
       ),
     );
+  });
+
+  it("renders inline email detail views inside numbered lists", () => {
+    mockRenderedThread();
+
+    const { container } = render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        [
+          "Apart from the booking confirmations, the most recent emails are:",
+          "",
+          '1. **water bill receipt** (May 13, 2026, 11:31 AM)\n   <email-detail threadid="thread-1">A receipt for a water bill.</email-detail>',
+        ].join("\n"),
+      ),
+    );
+
+    expect(screen.getByText("Subject")).toBeTruthy();
+    expect(screen.getByText("A receipt for a water bill.")).toBeTruthy();
+    expect(container.textContent).not.toContain("<email-detail");
+    expect(container.textContent).not.toContain("</email-detail>");
+  });
+
+  it("renders email detail tags that contain blank lines", () => {
+    mockRenderedThread();
+
+    const { container } = render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        '<email-detail\n\nthreadid="thread-1">A receipt.</email-detail>',
+      ),
+    );
+
+    expect(screen.getByText("Subject")).toBeTruthy();
+    expect(screen.getByText("A receipt.")).toBeTruthy();
+    expect(container.textContent).not.toContain("<email-detail");
+  });
+
+  it("renders email detail tags with smart-quoted attributes", () => {
+    mockRenderedThread();
+
+    render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        "<email-detail threadid=“thread-1”>A receipt.</email-detail>",
+      ),
+    );
+
+    // Lookup succeeds only when the smart quotes are normalized away.
+    expect(screen.getByText("Subject")).toBeTruthy();
+    expect(screen.getByText("A receipt.")).toBeTruthy();
+  });
+
+  it("renders email detail tags with single smart-quoted attributes", () => {
+    mockRenderedThread();
+
+    render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        "<email-detail threadid=‘thread-1’>A receipt.</email-detail>",
+      ),
+    );
+
+    expect(screen.getByText("Subject")).toBeTruthy();
+  });
+
+  it("renders backslash-escaped email detail tags", () => {
+    mockRenderedThread();
+
+    const { container } = render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        '\\<email-detail threadid="thread-1">A receipt.\\</email-detail>',
+      ),
+    );
+
+    expect(screen.getByText("Subject")).toBeTruthy();
+    expect(container.textContent).not.toContain("<email-detail");
+  });
+
+  it("renders entity-escaped email detail tags", () => {
+    mockRenderedThread();
+
+    const { container } = render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        "&lt;email-detail threadid=&quot;thread-1&quot;&gt;A receipt.&lt;/email-detail&gt;",
+      ),
+    );
+
+    expect(screen.getByText("Subject")).toBeTruthy();
+    expect(container.textContent).not.toContain("<email-detail");
   });
 
   it("renders inline rule suggestions and can ask chat to create one", async () => {
@@ -289,5 +360,35 @@ function openMoreActions() {
   fireEvent.pointerDown(screen.getByRole("button", { name: "More actions" }), {
     button: 0,
     ctrlKey: false,
+  });
+}
+
+function mockRenderedThread() {
+  mockUseThread.mockReturnValue({
+    data: {
+      thread: {
+        id: "thread-1",
+        messages: [
+          {
+            id: "message-1",
+            threadId: "thread-1",
+            subject: "Rendered detail subject",
+            snippet: "Rendered detail snippet",
+            date: "2026-03-11T11:00:00.000Z",
+            historyId: "history-1",
+            inline: [],
+            headers: {
+              from: "Sender <sender@example.com>",
+              to: "user@example.com",
+              date: "2026-03-11T11:00:00.000Z",
+              subject: "Rendered detail subject",
+            },
+            textPlain: "Rendered detail body",
+          },
+        ],
+      },
+    },
+    isLoading: false,
+    error: null,
   });
 }
