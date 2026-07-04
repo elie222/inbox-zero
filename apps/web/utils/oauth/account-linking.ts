@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
+import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
 import { cleanupOrphanedAccount } from "@/utils/user/orphaned-account";
 
 interface AccountLinkingParams {
@@ -28,7 +29,6 @@ export async function handleAccountLinking({
   | { type: "merge"; sourceAccountId: string; sourceUserId: string }
   | { type: "update_tokens"; existingAccountId: string }
 > {
-  const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
   const hasActiveTargetUser = await hasActiveAccountLinkingUser({
     targetUserId,
     logger,
@@ -58,7 +58,7 @@ export async function handleAccountLinking({
   if (!existingAccountId || !hasEmailAccount) {
     const existingEmailAccount = await prisma.emailAccount.findUnique({
       where: { email: providerEmail.trim().toLowerCase() },
-      select: { id: true, userId: true, email: true },
+      select: { userId: true },
     });
 
     if (existingEmailAccount && existingEmailAccount.userId !== targetUserId) {
@@ -71,10 +71,12 @@ export async function handleAccountLinking({
           targetUserId,
         },
       );
-      redirectUrl.searchParams.set("error", "account_already_exists_use_merge");
+
       return {
         type: "redirect",
-        response: NextResponse.redirect(redirectUrl),
+        response: createAccountLinkingRedirect({
+          query: { error: "account_already_exists" },
+        }),
       };
     }
 

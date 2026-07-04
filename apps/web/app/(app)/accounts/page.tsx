@@ -307,10 +307,10 @@ function getAccountErrorMessage(
       description: `This account doesn't exist in ${BRAND_NAME} yet. Please select 'No, it's a new account' instead.`,
       toastDescription: `This account doesn't exist in ${BRAND_NAME} yet. Please select 'No, it's a new account' instead.`,
     },
-    account_already_exists_use_merge: {
+    account_already_exists: {
       title: "Account already exists",
-      description: `This account already exists in ${BRAND_NAME}. Please select 'Yes, it's an existing ${BRAND_NAME} account' to merge.`,
-      toastDescription: `This account already exists in ${BRAND_NAME}. Please select 'Yes, it's an existing ${BRAND_NAME} account' to merge.`,
+      description: `This account is already linked to another ${BRAND_NAME} profile. Sign in to that profile, use a different email account, or contact support if you need help.`,
+      toastDescription: `This account is already linked to another ${BRAND_NAME} profile. Sign in to that profile, use a different email account, or contact support if you need help.`,
     },
     already_linked_to_self: {
       title: "Account already linked",
