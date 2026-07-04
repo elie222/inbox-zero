@@ -237,17 +237,12 @@ export const GET = withError("outlook/linking/callback", async (request) => {
         { providerAccountId },
       );
 
-      logger.info("OAuth linking callback completed", {
+      return completeMicrosoftTokenUpdate({
         accountId: linkingResult.existingAccountId,
-        outcome: "tokens_updated",
-        providerEmailHash: hash(providerEmail),
-        providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
-      });
-
-      await setOAuthCodeResult(code, { success: "tokens_updated" });
-      return createAccountLinkingRedirect({
-        query: { success: "tokens_updated" },
-        stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+        code,
+        logger,
+        providerEmail,
+        providerAccountId,
       });
     }
 
@@ -379,17 +374,12 @@ export const GET = withError("outlook/linking/callback", async (request) => {
         targetUserId,
         accountId: linkingResult.existingAccountId,
       });
-      logger.info("OAuth linking callback completed", {
+      return completeMicrosoftTokenUpdate({
         accountId: linkingResult.existingAccountId,
-        outcome: "tokens_updated",
-        providerEmailHash: hash(providerEmail),
-        providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
-      });
-
-      await setOAuthCodeResult(code, { success: "tokens_updated" });
-      return createAccountLinkingRedirect({
-        query: { success: "tokens_updated" },
-        stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+        code,
+        logger,
+        providerEmail,
+        providerAccountId,
       });
     }
 
@@ -460,6 +450,33 @@ const MICROSOFT_LINKING_SCOPES_TO_VALIDATE = OUTLOOK_SCOPES.filter(
       scope,
     ),
 );
+
+async function completeMicrosoftTokenUpdate({
+  accountId,
+  code,
+  logger,
+  providerAccountId,
+  providerEmail,
+}: {
+  accountId: string;
+  code: string;
+  logger: Logger;
+  providerAccountId: string;
+  providerEmail: string;
+}) {
+  logger.info("OAuth linking callback completed", {
+    accountId,
+    outcome: "tokens_updated",
+    providerEmailHash: hash(providerEmail),
+    providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
+  });
+
+  await setOAuthCodeResult(code, { success: "tokens_updated" });
+  return createAccountLinkingRedirect({
+    query: { success: "tokens_updated" },
+    stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+  });
+}
 
 function assertMicrosoftLinkingConsent(params: {
   targetUserId: string;

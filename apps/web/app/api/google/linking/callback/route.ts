@@ -137,6 +137,8 @@ export const GET = withError("google/linking/callback", async (request) => {
     }
 
     if (linkingResult.type === "update_existing_account") {
+      assertVerifiedGoogleEmail(payload);
+
       logger.info(
         "Updating existing Google account with new providerAccountId",
         {
@@ -180,6 +182,8 @@ export const GET = withError("google/linking/callback", async (request) => {
         });
 
         if (existingEmulatedAccount) {
+          assertVerifiedGoogleEmail(payload);
+
           logger.info(
             "Updating existing Google emulator account for same user and email",
             {
@@ -329,6 +333,8 @@ export const GET = withError("google/linking/callback", async (request) => {
       targetUserId,
     });
 
+    assertVerifiedGoogleEmail(payload);
+
     const mergeType = await mergeAccount({
       sourceAccountId: linkingResult.sourceAccountId,
       sourceUserId: linkingResult.sourceUserId,
@@ -411,6 +417,12 @@ async function updateGoogleAccount({
       id_token: tokens.id_token,
     },
   });
+}
+
+function assertVerifiedGoogleEmail(payload: { email_verified?: boolean }) {
+  if (payload.email_verified !== true) {
+    throw new SafeError("Google email claim is not verified.");
+  }
 }
 
 async function getGoogleProfilePayload({
