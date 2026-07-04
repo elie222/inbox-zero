@@ -6,6 +6,13 @@ import { partitionAttendeesForBriefing } from "./attendees";
 
 const MAX_EVENTS_PER_PROVIDER = 20;
 
+// Must match the /api/meeting-briefs cron schedule in vercel.json.
+// The lookahead window extends by one cron interval so an event whose lead
+// window opens and closes between two cron ticks is still picked up at the
+// last tick before it starts. Duplicate sends are prevented by the
+// meetingBriefing unique-constraint claim in process.ts.
+const CRON_INTERVAL_MINUTES = 15;
+
 export async function fetchUpcomingEvents({
   emailAccountId,
   minutesBefore,
@@ -21,7 +28,7 @@ export async function fetchUpcomingEvents({
   }
 
   const timeMin = new Date();
-  const timeMax = addMinutes(timeMin, minutesBefore);
+  const timeMax = addMinutes(timeMin, minutesBefore + CRON_INTERVAL_MINUTES);
 
   const results = await Promise.allSettled(
     providers.map((provider) =>
