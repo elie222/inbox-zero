@@ -9,7 +9,11 @@ import {
   getCategoryMap,
   getFolderIds,
 } from "@/utils/outlook/message";
-import { withOutlookRetry } from "@/utils/outlook/retry";
+import {
+  extractErrorInfo,
+  isRetryableError,
+  withOutlookRetry,
+} from "@/utils/outlook/retry";
 import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 
 export async function getThread(
@@ -40,13 +44,19 @@ export async function getThread(
     // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
     const err = error as any;
 
-    logger.error("getThread failed", {
+    const context = {
       threadId,
       filter,
       error: error instanceof Error ? error.message : err,
       errorCode: err?.code,
       errorStatusCode: err?.statusCode,
-    });
+    };
+    // provider throttling is expected under load and handled by rate-limit state upstream
+    if (isRetryableError(extractErrorInfo(error)).isRateLimit) {
+      logger.warn("getThread failed", context);
+    } else {
+      logger.error("getThread failed", context);
+    }
     throw error;
   }
 }

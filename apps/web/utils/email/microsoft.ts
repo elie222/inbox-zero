@@ -77,7 +77,11 @@ import {
 } from "@/utils/outlook/folders";
 import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
 import { moveMessagesForSenders } from "@/utils/outlook/batch";
-import { withOutlookRetry } from "@/utils/outlook/retry";
+import {
+  extractErrorInfo,
+  isRetryableError,
+  withOutlookRetry,
+} from "@/utils/outlook/retry";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 
@@ -126,12 +130,18 @@ export class OutlookProvider implements EmailProvider {
         snippet: messages[0]?.snippet || "",
       };
     } catch (error) {
-      this.logger.error("getThread failed", {
+      const context = {
         threadId,
         error,
         // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
         errorCode: (error as any)?.code,
-      });
+      };
+      // provider throttling is expected under load and handled by rate-limit state upstream
+      if (isRetryableError(extractErrorInfo(error)).isRateLimit) {
+        this.logger.warn("getThread failed", context);
+      } else {
+        this.logger.error("getThread failed", context);
+      }
       throw error;
     }
   }
@@ -780,11 +790,16 @@ export class OutlookProvider implements EmailProvider {
     } catch (error) {
       // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
       const err = error as any;
-      this.logger.error("getThreadMessages failed", {
+      const context = {
         threadId,
         error,
         errorCode: err?.code,
-      });
+      };
+      if (isRetryableError(extractErrorInfo(error)).isRateLimit) {
+        this.logger.warn("getThreadMessages failed", context);
+      } else {
+        this.logger.error("getThreadMessages failed", context);
+      }
       throw error;
     }
   }
