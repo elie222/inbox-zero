@@ -274,6 +274,7 @@ const parsedEnv = createEnv({
     FB_CONVERSION_API_ACCESS_TOKEN: z.string().optional(),
     FB_PIXEL_ID: z.string().optional(),
     CONVERSION_ANALYTICS_SERVER_URL: z.string().optional(),
+    CONVERSION_ANALYTICS_SERVER_SECRET: z.string().optional(),
     ADMINS: z
       .string()
       .optional()
