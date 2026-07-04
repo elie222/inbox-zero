@@ -64,6 +64,10 @@ import {
   handleFollowUpReminderAction,
 } from "@/utils/follow-up/follow-up-actions";
 import {
+  getFollowUpNotificationReplyContext,
+  type FollowUpNotificationReplyContext,
+} from "@/utils/follow-up/notification-reply-context";
+import {
   handleRuleNotificationAction,
   handleSlackRuleNotificationModalSubmit,
   RULE_NOTIFICATION_ACTION_IDS,
@@ -161,6 +165,7 @@ type ImagePart = {
 type ResolvedMessagingContext = {
   chatId: string;
   emailAccountId: string;
+  followUpContext: FollowUpNotificationReplyContext | null;
   hasMultipleAccounts: boolean;
   hasUnsupportedAttachments: boolean;
   imageParts: ImagePart[];
@@ -660,6 +665,11 @@ async function processMessagingAssistantMessage({
         provider: context.provider,
       });
 
+    const followUpContextMessage = buildFollowUpHiddenContextMessage({
+      followUpContext: context.followUpContext,
+      userMessageId,
+    });
+
     await prisma.chatMessage.upsert({
       where: { id: userMessageId },
       create: {
@@ -710,6 +720,7 @@ async function processMessagingAssistantMessage({
       const result = await aiProcessAssistantChat({
         messages: await convertToModelMessages([
           ...existingMessages,
+          ...(followUpContextMessage ? [followUpContextMessage] : []),
           modelUserMessage,
         ]),
         emailAccountId: context.emailAccountId,
@@ -2106,12 +2117,26 @@ async function resolveSlackMessagingContext({
     return null;
   }
 
+  // A reply inside a follow-up notification thread has the notification's
+  // message ts as its threadTs, which is what we stored at delivery time.
+  const followUpContext = threadTs
+    ? await getFollowUpNotificationReplyContext({
+        provider: MessagingProvider.SLACK,
+        providerThreadId: channel,
+        providerMessageId: threadTs,
+        emailAccountIds: candidates.map(
+          (candidate) => candidate.emailAccountId,
+        ),
+      })
+    : null;
+
   const messagingChannel = await resolveSlackMessagingChannel({
     candidates,
     channel,
     chatThreadTs: threadTs || undefined,
     isDirectMessage: thread.isDM,
     logger,
+    preferredEmailAccountId: followUpContext?.emailAccountId,
     teamId,
     thread,
   });
@@ -2140,6 +2165,10 @@ async function resolveSlackMessagingContext({
   return {
     provider: "slack",
     emailAccountId: messagingChannel.emailAccountId,
+    followUpContext:
+      followUpContext?.emailAccountId === messagingChannel.emailAccountId
+        ? followUpContext
+        : null,
     hasMultipleAccounts: false,
     hasUnsupportedAttachments,
     imageParts,
@@ -2213,10 +2242,22 @@ async function resolveLinkedProviderMessagingContext({
     return null;
   }
 
+  const followUpContext =
+    provider === "telegram"
+      ? await lookupTelegramFollowUpReplyContext({
+          message,
+          threadId: thread.id,
+          emailAccountIds: candidates.map(
+            (candidate) => candidate.emailAccountId,
+          ),
+        })
+      : null;
+
   const linkedChannel = await resolveLinkedProviderCandidate({
     candidates,
     chatId,
     logger,
+    preferredEmailAccountId: followUpContext?.emailAccountId,
     provider,
     teamId: identity.teamId,
   });
@@ -2226,6 +2267,10 @@ async function resolveLinkedProviderMessagingContext({
   return {
     provider,
     emailAccountId: linkedChannel.emailAccountId,
+    followUpContext:
+      followUpContext?.emailAccountId === linkedChannel.emailAccountId
+        ? followUpContext
+        : null,
     hasMultipleAccounts:
       new Set(candidates.map((c) => c.emailAccountId)).size > 1,
     hasUnsupportedAttachments: identity.hasUnsupportedAttachments,
@@ -2239,6 +2284,37 @@ async function resolveLinkedProviderMessagingContext({
       providerUserId: identity.providerUserId,
     },
   };
+}
+
+type TelegramRawMessageWithReply = TelegramRawMessage & {
+  reply_to_message?: { message_id?: number };
+};
+
+async function lookupTelegramFollowUpReplyContext({
+  message,
+  threadId,
+  emailAccountIds,
+}: {
+  message: Message;
+  threadId: string;
+  emailAccountIds: string[];
+}): Promise<FollowUpNotificationReplyContext | null> {
+  const rawMessage = message.raw as TelegramRawMessageWithReply;
+
+  const replyToMessageId = rawMessage.reply_to_message?.message_id;
+  if (!replyToMessageId) return null;
+
+  const chatId = rawMessage.chat?.id;
+  if (chatId === undefined || chatId === null) return null;
+
+  return getFollowUpNotificationReplyContext({
+    provider: MessagingProvider.TELEGRAM,
+    providerThreadId: threadId,
+    // Matches @chat-adapter/telegram's "<chatId>:<messageId>" message id
+    // encoding, which is what we persisted when sending the notification.
+    providerMessageId: `${chatId}:${replyToMessageId}`,
+    emailAccountIds,
+  });
 }
 
 function resolveTeamsIdentity({
@@ -2430,15 +2506,23 @@ async function resolveLinkedProviderCandidate({
   candidates,
   chatId,
   logger,
+  preferredEmailAccountId,
   provider,
   teamId,
 }: {
   candidates: LinkedProviderCandidate[];
   chatId: string;
   logger: Logger;
+  preferredEmailAccountId?: string;
   provider: "teams" | "telegram";
   teamId: string;
 }): Promise<LinkedProviderCandidate> {
+  const preferred = findCandidateByEmailAccountId(
+    candidates,
+    preferredEmailAccountId,
+  );
+  if (preferred) return preferred;
+
   return selectCandidateFromExistingChat({
     candidates,
     chatId,
@@ -2455,6 +2539,7 @@ async function resolveSlackMessagingChannel({
   chatThreadTs,
   isDirectMessage,
   logger,
+  preferredEmailAccountId,
   teamId,
   thread,
 }: {
@@ -2463,9 +2548,16 @@ async function resolveSlackMessagingChannel({
   chatThreadTs: string | undefined;
   isDirectMessage: boolean;
   logger: Logger;
+  preferredEmailAccountId?: string;
   teamId?: string | null;
   thread: MessagingThread;
 }): Promise<SlackCandidate | null> {
+  const preferred = findCandidateByEmailAccountId(
+    candidates,
+    preferredEmailAccountId,
+  );
+  if (preferred) return preferred;
+
   if (!isDirectMessage) {
     const channelMatch = candidates.find((candidate) =>
       hasMessagingChannelTargetRoute(candidate.routes, channel),
@@ -2491,6 +2583,18 @@ async function resolveSlackMessagingChannel({
     warningMessage: "Multiple accounts in Slack DM, using first match",
     warningMeta: { teamId },
   });
+}
+
+function findCandidateByEmailAccountId<
+  TCandidate extends { emailAccountId: string },
+>(
+  candidates: TCandidate[],
+  preferredEmailAccountId: string | undefined,
+): TCandidate | undefined {
+  if (!preferredEmailAccountId) return;
+  return candidates.find(
+    (candidate) => candidate.emailAccountId === preferredEmailAccountId,
+  );
 }
 
 async function selectCandidateFromExistingChat<
@@ -2741,6 +2845,28 @@ export function buildPendingEmailCardFallbackText(normalizedText: string) {
   }
 
   return `${normalizedText}\n\n${failureGuidance}`;
+}
+
+export function buildFollowUpHiddenContextMessage({
+  followUpContext,
+  userMessageId,
+}: {
+  followUpContext: FollowUpNotificationReplyContext | null;
+  userMessageId: string;
+}): UIMessage | null {
+  if (!followUpContext) return null;
+
+  const text = [
+    "[Hidden context — not user-typed] The user is replying inside a follow-up notification about one specific email.",
+    `Referenced email — threadId: ${followUpContext.threadId}, messageId: ${followUpContext.messageId}.`,
+    "When the user asks you to draft, send, or modify a reply without pointing at a different email, act on this exact message: call replyEmail with this messageId directly. Do not search the inbox to find it; you already have the correct messageId. Only search if the user clearly references a different email.",
+  ].join("\n");
+
+  return {
+    id: `${userMessageId}-follow-up-context`,
+    role: "user",
+    parts: [{ type: "text", text }],
+  };
 }
 
 export function buildMessagingUserMessages({
