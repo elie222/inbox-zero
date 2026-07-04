@@ -183,6 +183,54 @@ describe("chat inbox tools", () => {
     });
   });
 
+  it("preserves reply-all intent in the pending reply action", async () => {
+    const message: ParsedMessage = {
+      id: "message-1",
+      threadId: "thread-1",
+      snippet: "",
+      historyId: "",
+      inline: [],
+      headers: {
+        from: "contact@example.com",
+        to: `${TEST_EMAIL}, teammate@example.com`,
+        cc: "manager@example.com",
+        subject: "Question",
+        date: "2026-02-18T00:00:00.000Z",
+      },
+      subject: "Question",
+      date: "2026-02-18T00:00:00.000Z",
+    };
+
+    const getMessage = vi.fn().mockResolvedValue(message);
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getMessage,
+    } as any);
+
+    const toolInstance = replyEmailTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      messageId: "message-1",
+      content: "Thanks for the update.",
+      replyAll: true,
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      actionType: "reply_email",
+      pendingAction: {
+        messageId: "message-1",
+        content: "Thanks for the update.",
+        replyAll: true,
+      },
+    });
+  });
+
   it("prepares forward flow without sending immediately", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       name: "Test User",
