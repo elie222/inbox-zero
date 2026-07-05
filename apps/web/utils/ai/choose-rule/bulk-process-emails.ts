@@ -71,6 +71,7 @@ export async function bulkProcessInboxEmails({
           rules,
           emailAccount,
           isTest: false,
+          isHistorical: true,
           modelType: "economy",
           logger,
           skipArchive,

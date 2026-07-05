@@ -77,6 +77,7 @@ export async function findMatchingRules({
   provider,
   modelType,
   logger: log,
+  isHistorical = false,
 }: {
   rules: RuleWithActions[];
   message: ParsedMessage;
@@ -84,6 +85,7 @@ export async function findMatchingRules({
   provider: EmailProvider;
   modelType: ModelType;
   logger: Logger;
+  isHistorical?: boolean;
 }): Promise<MatchingRulesResult> {
   const logger = log.with({ module: MODULE });
   const coldEmailRule = await getColdEmailRule(emailAccount.id);
@@ -140,6 +142,7 @@ export async function findMatchingRules({
     provider,
     modelType,
     logger,
+    isHistorical,
   );
 
   return results;
@@ -169,6 +172,7 @@ async function findPotentialMatchingRules({
   rules,
   message,
   isThread,
+  isHistorical = false,
   provider,
   emailAccountId,
   logger,
@@ -176,6 +180,10 @@ async function findPotentialMatchingRules({
   rules: RuleWithActions[];
   message: ParsedMessage;
   isThread: boolean;
+  // Historical/bulk runs process one representative message per thread (deduped
+  // upstream), so the thread-continuity guard below would otherwise leave the
+  // thread uncategorized. Bypass it so categorization rules can still run.
+  isHistorical?: boolean;
   provider: EmailProvider;
   emailAccountId: string;
   logger: Logger;
@@ -215,7 +223,9 @@ async function findPotentialMatchingRules({
     // Skip rules with runOnThreads=false, unless this rule was previously applied in the thread
     // This ensures thread continuity (e.g., notifications continue to be labeled as notifications)
     // Must be checked before learned patterns to prevent pattern matches from bypassing this guard
-    if (isThread && !rule.runOnThreads) {
+    // Historical/bulk runs bypass this so a thread still gets categorized when its first
+    // message (which would normally categorize it) is out of range or not processed.
+    if (isThread && !isHistorical && !rule.runOnThreads) {
       const previousRuleIds = await previousRulesLoader.getRuleIds();
       const wasPreviouslyApplied = previousRuleIds.has(rule.id);
 
@@ -520,6 +530,7 @@ async function findMatchingRulesWithReasons(
   provider: EmailProvider,
   modelType: ModelType,
   logger: Logger,
+  isHistorical = false,
 ): Promise<MatchingRulesResult> {
   const isThread = provider.isReplyInThread(message);
 
@@ -528,6 +539,7 @@ async function findMatchingRulesWithReasons(
       rules,
       message,
       isThread,
+      isHistorical,
       provider,
       emailAccountId: emailAccount.id,
       logger,
