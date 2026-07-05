@@ -20,6 +20,7 @@ export default async function OnboardingPage(props: {
   searchParams: Promise<{
     step?: string | string[];
     force?: string | string[];
+    variant?: string | string[];
   }>;
 }) {
   const [searchParams, { emailAccountId }, cookieStore] = await Promise.all([
@@ -29,6 +30,7 @@ export default async function OnboardingPage(props: {
   ]);
   const step = getSingleSearchParamValue(searchParams.step);
   const force = getSingleSearchParamValue(searchParams.force);
+  const variant = getSingleSearchParamValue(searchParams.variant);
 
   const utmValues = registerUtmTracking({
     authPromise: auth(),
@@ -41,7 +43,7 @@ export default async function OnboardingPage(props: {
 
   return (
     <Suspense>
-      <Onboarding step={step} />
+      <Onboarding step={step} forcedVariant={variant} />
     </Suspense>
   );
 }
