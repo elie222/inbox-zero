@@ -186,9 +186,6 @@ export const actionClientUser = baseClient.use(
     if (!session?.user) {
       // expected when the session has expired or the user logged out
       ctx.logger.warn("Unauthorized", metadata);
-      captureException(new Error(`Unauthorized: ${metadata.name}`), {
-        extra: metadata,
-      });
       throw new SafeError("Unauthorized");
     }
 
