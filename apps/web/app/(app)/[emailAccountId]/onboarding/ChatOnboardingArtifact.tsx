@@ -15,6 +15,7 @@ import {
   type IconCircleColor,
 } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { UnsubscribeSuggestionRow } from "@/app/(app)/[emailAccountId]/onboarding/UnsubscribeSuggestionRow";
+import { ONBOARDING_ENTER_ANIMATION } from "@/app/(app)/[emailAccountId]/onboarding/ChatOnboardingChatPane";
 import type { ChatOnboardingCategory } from "@/app/(app)/[emailAccountId]/onboarding/chatOnboardingScript";
 import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
 import { cn } from "@/utils";
@@ -146,7 +147,7 @@ function LabelsContent({
   categories: ChatOnboardingCategory[];
 }) {
   return (
-    <div className="flex flex-col gap-2 duration-300 animate-in fade-in slide-in-from-bottom-2">
+    <div className={cn("flex flex-col gap-2", ONBOARDING_ENTER_ANIMATION)}>
       <p className="mb-1 text-sm text-muted-foreground">
         I'll auto-apply these to every incoming email:
       </p>
@@ -174,7 +175,7 @@ function RulesContent({
   categories: ChatOnboardingCategory[];
 }) {
   return (
-    <div className="flex flex-col gap-2.5 duration-300 animate-in fade-in slide-in-from-bottom-2">
+    <div className={cn("flex flex-col gap-2.5", ONBOARDING_ENTER_ANIMATION)}>
       <p className="mb-0.5 text-sm text-muted-foreground">
         Automations that run the moment mail lands:
       </p>
@@ -220,7 +221,7 @@ function UnsubscribeContent({
   const moreCount = totalCount - senders.length;
 
   return (
-    <div className="flex h-full flex-col duration-300 animate-in fade-in slide-in-from-bottom-2">
+    <div className={cn("flex h-full flex-col", ONBOARDING_ENTER_ANIMATION)}>
       <div className="mb-2.5 flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           Uncheck any you want to keep.
@@ -293,7 +294,7 @@ function SummaryContent({
   ];
 
   return (
-    <div className="flex flex-col gap-3.5 duration-300 animate-in fade-in slide-in-from-bottom-2">
+    <div className={cn("flex flex-col gap-3.5", ONBOARDING_ENTER_ANIMATION)}>
       <div className="flex items-center gap-3 rounded-xl bg-green-50 p-3.5 dark:bg-green-950">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-green-600 text-white">
           <CheckIcon className="size-5" />

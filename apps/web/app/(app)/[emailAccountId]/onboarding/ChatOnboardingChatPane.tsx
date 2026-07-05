@@ -14,6 +14,11 @@ export type ChatOnboardingMessage = {
   text: string;
 };
 
+// Entrance animation shared by chat bubbles and artifact panels so the whole
+// onboarding flow slides content in consistently.
+export const ONBOARDING_ENTER_ANIMATION =
+  "duration-300 animate-in fade-in slide-in-from-bottom-2";
+
 export function ChatOnboardingChatPane({
   messages,
   typing,
@@ -131,7 +136,12 @@ export function ChatOnboardingChatPane({
 function MessageBubble({ message }: { message: ChatOnboardingMessage }) {
   if (message.from === "user") {
     return (
-      <div className="mb-3.5 flex justify-end duration-300 animate-in fade-in slide-in-from-bottom-2">
+      <div
+        className={cn(
+          "mb-3.5 flex justify-end",
+          ONBOARDING_ENTER_ANIMATION,
+        )}
+      >
         <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-blue-600 px-3.5 py-2.5 text-sm leading-relaxed text-white">
           {message.text}
         </div>
@@ -140,7 +150,11 @@ function MessageBubble({ message }: { message: ChatOnboardingMessage }) {
   }
 
   return (
-    <div className="mb-3.5 flex items-start gap-2.5 duration-300 animate-in fade-in slide-in-from-bottom-2">
+    <div
+      className={cn(
+        "mb-3.5 flex items-start gap-2.5",
+        ONBOARDING_ENTER_ANIMATION,
+      )}
       <AssistantAvatar />
       <div className="max-w-[82%] rounded-2xl rounded-tl-sm bg-slate-100 px-3.5 py-2.5 text-sm leading-relaxed text-slate-900 dark:bg-slate-800 dark:text-slate-100">
         {message.text}
@@ -164,7 +178,7 @@ function AssistantAvatar() {
 function TypingDot({ delay }: { delay: string }) {
   return (
     <span
-      className={cn("size-1.5 animate-bounce rounded-full bg-slate-400")}
+      className="size-1.5 animate-bounce rounded-full bg-slate-400"
       style={{ animationDelay: delay }}
     />
   );

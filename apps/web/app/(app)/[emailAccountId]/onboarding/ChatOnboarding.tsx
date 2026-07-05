@@ -53,7 +53,6 @@ const SHOWN_UNSUBSCRIBE_COUNT = 6;
 const STATS_WAIT_TIMEOUT_MS = 15_000;
 
 const FIRST_MESSAGE_DELAY_MS = 700;
-const BETWEEN_MESSAGES_DELAY_MS = 650;
 
 const BEAT_STEP: Record<ChatBeatKey, number> = {
   role: 1,
@@ -183,7 +182,7 @@ export function ChatOnboarding() {
     preMessages: string[] = [],
   ) => {
     const beatDef = CHAT_BEATS[key];
-    const texts = [
+    const text = [
       ...preMessages,
       ...beatDef.messages({
         answers: answersByKeyRef.current,
@@ -191,7 +190,7 @@ export function ChatOnboarding() {
         unsubscribedFromCount: ctx?.unsubscribedFromCount ?? 0,
         skippedCleanup: ctx?.skippedCleanup ?? false,
       }),
-    ];
+    ].join(" ");
 
     setBeat(key);
     setTyping(true);
@@ -202,19 +201,12 @@ export function ChatOnboarding() {
       totalSteps: TOTAL_STEPS,
     });
 
-    texts.forEach((text, index) => {
-      const timeout = setTimeout(
-        () => {
-          pushMessage("assistant", text);
-          if (index === texts.length - 1) {
-            setTyping(false);
-            setAwaiting(Boolean(beatDef.chips || beatDef.placeholder));
-          }
-        },
-        FIRST_MESSAGE_DELAY_MS + BETWEEN_MESSAGES_DELAY_MS * index,
-      );
-      timeoutsRef.current.push(timeout);
-    });
+    const timeout = setTimeout(() => {
+      pushMessage("assistant", text);
+      setTyping(false);
+      setAwaiting(Boolean(beatDef.chips || beatDef.placeholder));
+    }, FIRST_MESSAGE_DELAY_MS);
+    timeoutsRef.current.push(timeout);
   };
 
   const goToDone = (ctx: DoneContext, preMessages: string[] = []) => {
