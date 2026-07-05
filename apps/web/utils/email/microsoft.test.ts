@@ -631,6 +631,65 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
   });
 });
 
+describe("OutlookProvider.labelMessage", () => {
+  it("recreates a deleted category by name and applies it", async () => {
+    vi.spyOn(outlookLabelModule, "getLabels").mockResolvedValue([]);
+    vi.spyOn(outlookLabelModule, "getLabel").mockResolvedValue(null);
+    const createLabelSpy = vi
+      .spyOn(outlookLabelModule, "createLabel")
+      .mockResolvedValue({ id: "new-category-id", displayName: "To Reply" });
+    const labelMessageSpy = vi
+      .spyOn(outlookLabelModule, "labelMessage")
+      .mockResolvedValue(undefined);
+
+    const provider = new OutlookProvider(
+      createMockOutlookClient([], {
+        responsesByApiPath: {
+          "/me/messages/message-1": () => ({ categories: [] }),
+        } as any,
+      }),
+    );
+
+    const result = await provider.labelMessage({
+      messageId: "message-1",
+      labelId: "deleted-category-id",
+      labelName: "To Reply",
+    });
+
+    expect(createLabelSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "To Reply" }),
+    );
+    expect(labelMessageSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: "message-1",
+        categories: ["To Reply"],
+      }),
+    );
+    expect(result).toEqual({
+      usedFallback: true,
+      actualLabelId: "new-category-id",
+    });
+  });
+
+  it("skips the label action when the category is gone and no name is available", async () => {
+    vi.spyOn(outlookLabelModule, "getLabels").mockResolvedValue([]);
+    const createLabelSpy = vi.spyOn(outlookLabelModule, "createLabel");
+    const labelMessageSpy = vi.spyOn(outlookLabelModule, "labelMessage");
+
+    const provider = new OutlookProvider(createMockOutlookClient([]));
+
+    const result = await provider.labelMessage({
+      messageId: "message-1",
+      labelId: "deleted-category-id",
+      labelName: null,
+    });
+
+    expect(createLabelSpy).not.toHaveBeenCalled();
+    expect(labelMessageSpy).not.toHaveBeenCalled();
+    expect(result).toEqual({});
+  });
+});
+
 describe("OutlookProvider.getThreadsWithParticipant", () => {
   it("filters broad search results to exact participant matches", async () => {
     const participantEmail = "participant@example.com";

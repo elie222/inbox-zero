@@ -1,6 +1,8 @@
 import he from "he";
 
-export function escapeHtml(text: string): string {
+// accepts nullish because provider messages can lack headers (drafts, calendar invites)
+export function escapeHtml(text: string | null | undefined): string {
+  if (!text) return "";
   return he.escape(text);
 }
 
