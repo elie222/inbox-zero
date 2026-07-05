@@ -30,6 +30,11 @@ overrides:
   vite: "7.3.6"
   webpack: "5.106.2"
 
+packageExtensions:
+  tiptap-markdown:
+    dependencies:
+      "@tiptap/pm": "2.26.1"
+
 # Only reviewed dependencies may run install scripts.
 allowBuilds:
   "@google/genai": true

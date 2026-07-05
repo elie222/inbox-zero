@@ -23,6 +23,8 @@ overrides:
   vite: 7.3.6
   webpack: 5.106.2
 
+packageExtensionsChecksum: sha256-m/XXBrCDeU981EvNI2KoDcWBzdw6AArS5CoqlTGz8CU=
+
 importers:
 
   .:
@@ -24617,6 +24619,7 @@ snapshots:
   tiptap-markdown@0.8.10(@tiptap/core@2.27.2(@tiptap/pm@2.26.1)):
     dependencies:
       '@tiptap/core': 2.27.2(@tiptap/pm@2.26.1)
+      '@tiptap/pm': 2.26.1
       '@types/markdown-it': 13.0.9
       markdown-it: 14.1.1
       markdown-it-task-lists: 2.1.1
