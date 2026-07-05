@@ -10,16 +10,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
-import { ButtonCheckbox } from "@/components/ButtonCheckbox";
-import { DomainIcon } from "@/components/charts/DomainIcon";
-import { Progress } from "@/components/ui/progress";
 import {
   IconCircle,
   type IconCircleColor,
 } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
+import { UnsubscribeSuggestionRow } from "@/app/(app)/[emailAccountId]/onboarding/UnsubscribeSuggestionRow";
 import type { ChatOnboardingCategory } from "@/app/(app)/[emailAccountId]/onboarding/chatOnboardingScript";
 import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
-import { extractDomainFromEmail } from "@/utils/email";
 import { cn } from "@/utils";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
@@ -234,46 +231,19 @@ function UnsubscribeContent({
       </div>
 
       <div className="flex flex-1 flex-col gap-2">
-        {senders.map((sender) => {
-          const domain = extractDomainFromEmail(sender.name) || sender.name;
-          const readPercentage =
-            sender.value > 0
-              ? Math.round((sender.readEmails / sender.value) * 100)
-              : 0;
-
-          return (
-            // biome-ignore lint/a11y/useKeyWithClickEvents: the row only enlarges the ButtonCheckbox's click target; keyboard users toggle via the focusable checkbox
-            <div
-              key={sender.name}
-              onClick={() => onToggle(sender.name)}
-              className="flex cursor-pointer items-center gap-3 rounded-lg border bg-background px-3 py-2.5 text-left"
-            >
-              <ButtonCheckbox
-                checked={!deselected.has(sender.name)}
-                onChange={() => onToggle(sender.name)}
-              />
-              <DomainIcon domain={domain} size={28} variant="circular" />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">
-                  {sender.fromName || sender.name}
-                </div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {sender.value} {sender.value === 1 ? "email" : "emails"}
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <Progress
-                  value={readPercentage}
-                  className="h-1.5 w-14 bg-amber-100 dark:bg-amber-950"
-                  innerClassName="bg-amber-400"
-                />
-                <span className="w-12 whitespace-nowrap text-xs tabular-nums text-amber-600 dark:text-amber-400">
-                  {readPercentage}% read
-                </span>
-              </div>
-            </div>
-          );
-        })}
+        {senders.map((sender) => (
+          <UnsubscribeSuggestionRow
+            key={sender.name}
+            sender={sender}
+            checked={!deselected.has(sender.name)}
+            onToggle={() => onToggle(sender.name)}
+            clickable
+            iconSize={28}
+            progressClassName="w-14"
+            labelClassName="w-12"
+            className="cursor-pointer rounded-lg border bg-background px-3 py-2.5 text-left"
+          />
+        ))}
         {moreCount > 0 && (
           <p className="px-0.5 py-1 text-xs text-muted-foreground">
             + {moreCount} more like these — find them in Bulk Unsubscribe later.

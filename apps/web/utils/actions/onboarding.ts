@@ -168,6 +168,7 @@ export const saveOnboardingChatAnswersAction = actionClientUser
       ctx: { userId, userEmail, logger },
     }) => {
       const struggle = answers.find((a) => a.key === "struggle")?.answer;
+      const latestAnswer = answers.at(-1);
 
       await prisma.user.update({
         where: { id: userId },
@@ -177,7 +178,7 @@ export const saveOnboardingChatAnswersAction = actionClientUser
         },
       });
 
-      if (struggle) {
+      if (struggle && latestAnswer?.key === "struggle") {
         after(async () => {
           await trackOnboardingAnswer(userEmail, {
             surveyGoal: struggle,

@@ -9,10 +9,8 @@ import { usePostHog } from "posthog-js/react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
-import { Progress } from "@/components/ui/progress";
-import { ButtonCheckbox } from "@/components/ButtonCheckbox";
-import { DomainIcon } from "@/components/charts/DomainIcon";
 import { BulkUnsubscribeIllustration } from "@/app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration";
+import { UnsubscribeSuggestionRow } from "@/app/(app)/[emailAccountId]/onboarding/UnsubscribeSuggestionRow";
 import {
   getUnsubscribeSuggestions,
   hasAutomaticUnsubscribeLink,
@@ -26,7 +24,6 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { usePremium } from "@/hooks/usePremium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useOnboardingBulkUnsubscribeVariant } from "@/hooks/useFeatureFlags";
-import { extractDomainFromEmail } from "@/utils/email";
 import { createSearchParams } from "@/utils/url";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
@@ -230,11 +227,12 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
         >
           <ul className="divide-y divide-slate-100 py-1.5">
             {previewSenders.map((item) => (
-              <SuggestionRow
+              <UnsubscribeSuggestionRow
                 key={item.name}
-                item={item}
+                sender={item}
                 checked={!deselected.has(item.name)}
                 onToggle={() => onToggle(item.name)}
+                className="px-4 py-2.5"
               />
             ))}
           </ul>
@@ -307,47 +305,5 @@ function StaticBulkUnsubscribeStep({ onNext }: { onNext: () => void }) {
         </div>
       </div>
     </div>
-  );
-}
-
-function SuggestionRow({
-  item,
-  checked,
-  onToggle,
-}: {
-  item: Newsletter;
-  checked: boolean;
-  onToggle: () => void;
-}) {
-  const domain = extractDomainFromEmail(item.name) || item.name;
-  const readPercentage =
-    item.value > 0 ? Math.round((item.readEmails / item.value) * 100) : 0;
-
-  return (
-    <li className="flex items-center gap-3 px-4 py-2.5">
-      <ButtonCheckbox checked={checked} onChange={onToggle} />
-
-      <DomainIcon domain={domain} size={32} variant="circular" />
-
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium text-foreground">
-          {item.fromName || item.name}
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {item.value} {item.value === 1 ? "email" : "emails"}
-        </div>
-      </div>
-
-      <div className="flex flex-shrink-0 items-center gap-2">
-        <Progress
-          value={readPercentage}
-          className="h-1.5 w-16 bg-amber-100 dark:bg-amber-950"
-          innerClassName="bg-amber-400"
-        />
-        <span className="w-14 whitespace-nowrap text-xs text-amber-600 dark:text-amber-400 tabular-nums">
-          {readPercentage}% read
-        </span>
-      </div>
-    </li>
   );
 }

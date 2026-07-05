@@ -17,11 +17,16 @@ import { z } from "zod";
 
 export const updateEmailAccountRoleAction = actionClient
   .metadata({ name: "updateEmailAccountRole" })
-  .inputSchema(z.object({ role: z.string() }))
+  .inputSchema(
+    z.object({
+      role: z.string(),
+      writeOnboardingAnswers: z.boolean().optional().default(true),
+    }),
+  )
   .action(
     async ({
       ctx: { emailAccountId, userEmail, userId, logger },
-      parsedInput: { role },
+      parsedInput: { role, writeOnboardingAnswers },
     }) => {
       await prisma.$transaction([
         prisma.emailAccount.update({
@@ -31,7 +36,9 @@ export const updateEmailAccountRoleAction = actionClient
         prisma.user.update({
           where: { id: userId },
           data: {
-            onboardingAnswers: { answers: { role } },
+            ...(writeOnboardingAnswers
+              ? { onboardingAnswers: { answers: { role } } }
+              : {}),
             surveyRole: role,
           },
         }),

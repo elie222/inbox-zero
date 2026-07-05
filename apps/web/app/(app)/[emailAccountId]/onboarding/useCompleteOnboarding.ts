@@ -28,8 +28,6 @@ export function useCompleteOnboarding() {
   const destination = isPremium ? "setup" : "welcome-upgrade";
 
   const completeAndRedirect = useCallback(async () => {
-    markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
-
     let result: Awaited<ReturnType<typeof completeOnboarding>>;
     try {
       result = await completeOnboarding();
@@ -66,6 +64,8 @@ export function useCompleteOnboarding() {
       });
       return;
     }
+
+    markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
 
     if (isPremium) {
       router.push(prefixPath(emailAccountId, "/setup"));

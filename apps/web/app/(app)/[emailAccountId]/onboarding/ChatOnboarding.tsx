@@ -42,6 +42,7 @@ import { usePremium } from "@/hooks/usePremium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useOnboardingAnalytics } from "@/hooks/useAnalytics";
 import { useSignUpEvent } from "@/hooks/useSignupEvent";
+import { captureException } from "@/utils/error";
 import { createSearchParams } from "@/utils/url";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
@@ -160,12 +161,15 @@ export function ChatOnboarding() {
     { key: string; question: string; answer: string; isFreeform: boolean }[]
   >([]);
   const answersByKeyRef = useRef<ChatAnswers>({});
+  const saveAnswersQueueRef = useRef<Promise<unknown>>(Promise.resolve());
   const rulesCreatedRef = useRef(false);
 
   const { execute: saveRole } = useAction(
     updateEmailAccountRoleAction.bind(null, emailAccountId),
   );
-  const { execute: saveAnswers } = useAction(saveOnboardingChatAnswersAction);
+  const { executeAsync: saveAnswers } = useAction(
+    saveOnboardingChatAnswersAction,
+  );
 
   const pushMessage = (from: "assistant" | "user", text: string) => {
     messageIdRef.current += 1;
@@ -242,13 +246,18 @@ export function ChatOnboarding() {
     });
 
     if (key === "role") {
-      // updateEmailAccountRoleAction also writes User.onboardingAnswers, so
-      // don't save the transcript concurrently — later beats include the role
-      // answer and overwrite it with the full transcript.
-      saveRole({ role: answer });
-    } else {
-      saveAnswers({ answers: answersRef.current });
+      saveRole({ role: answer, writeOnboardingAnswers: false });
     }
+
+    const answers = answersRef.current;
+    saveAnswersQueueRef.current = saveAnswersQueueRef.current
+      .catch(() => undefined)
+      .then(() => saveAnswers({ answers }))
+      .catch((error) => {
+        captureException(error, {
+          extra: { context: "chat-onboarding", step: "save-answers", key },
+        });
+      });
   };
 
   const createRules = () => {
@@ -433,20 +442,42 @@ export function ChatOnboarding() {
     recordAnswer("unsubscribe", answer, false);
 
     setSubmittingUnsubscribe(true);
+    let successCount = 0;
+    let failureCount = 0;
     try {
-      await onBulkUnsubscribe(selectedSenders);
+      const result = await onBulkUnsubscribe(selectedSenders);
+      successCount = result?.successCount ?? selectedSenders.length;
+      failureCount = result?.failureCount ?? 0;
     } finally {
       setSubmittingUnsubscribe(false);
     }
-    goToDone({
-      unsubscribedFromCount: selectedSenders.length,
-      skippedCleanup: false,
-    });
+    const preMessages =
+      failureCount > 0
+        ? [
+            successCount > 0
+              ? `I cleaned up ${successCount} ${
+                  successCount === 1 ? "sender" : "senders"
+                }, but couldn't finish ${failureCount}. You can retry those from Bulk Unsubscribe.`
+              : "I couldn't complete that cleanup just now, so I left those senders unchanged. You can retry from Bulk Unsubscribe.",
+          ]
+        : [];
+    goToDone(
+      {
+        unsubscribedFromCount: successCount,
+        skippedCleanup: false,
+      },
+      preMessages,
+    );
   };
 
   const onFinish = async () => {
     if (finishing) return;
     setFinishing(true);
+    analytics.onNext({
+      step: TOTAL_STEPS,
+      stepKey: "done",
+      totalSteps: TOTAL_STEPS,
+    });
     analytics.onComplete({
       step: TOTAL_STEPS,
       stepKey: "done",

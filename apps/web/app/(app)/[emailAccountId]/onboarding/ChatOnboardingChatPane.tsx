@@ -38,11 +38,11 @@ export function ChatOnboardingChatPane({
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-scroll whenever anything is added to the conversation, including the typing indicator and CTA
+  // biome-ignore lint/correctness/useExhaustiveDependencies: these values intentionally trigger scrolling when conversation state changes
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length, typing, awaiting, cta]);
+  }, [messages.length, typing, awaiting, cta?.label, cta?.loading]);
 
   const sendFreeform = () => {
     const text = input.trim();
