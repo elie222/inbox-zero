@@ -30,7 +30,6 @@ export async function getBatchWithRetry<TRaw, TParsed>({
   if (!accessToken) throw new Error("No access token");
 
   if (retryCount > 3) {
-    // hitting the retry cap means sustained provider rate limiting, not a bug
     logger.warn("Too many batch retries", { ids, retryCount });
     return [];
   }

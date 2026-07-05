@@ -51,7 +51,6 @@ export async function getThread(
       errorCode: err?.code,
       errorStatusCode: err?.statusCode,
     };
-    // provider throttling is expected under load and handled by rate-limit state upstream
     if (isRetryableError(extractErrorInfo(error)).isRateLimit) {
       logger.warn("getThread failed", context);
     } else {

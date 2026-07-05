@@ -159,7 +159,6 @@ async function moveMessagesInBatches({
         status: response.status,
         error: errorMessage,
       };
-      // 429s are provider throttling, expected during bulk operations
       if (response.status === 429) {
         logger.warn("Failed to move message via batch", context);
       } else {

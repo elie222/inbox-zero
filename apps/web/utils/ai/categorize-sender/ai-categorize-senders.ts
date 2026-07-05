@@ -13,7 +13,7 @@ export const UNKNOWN_CATEGORY = "Other";
 const categorizeSendersSchema = z.object({
   senders: z.array(
     z.object({
-      // nullish: reasoning models often skip it, and a missing rationale shouldn't fail categorization
+      // reasoning models often omit this; a missing rationale shouldn't fail categorization
       rationale: z.string().nullish().describe("Keep it short."),
       sender: z.string(),
       category: z.string(), // not using enum, because sometimes the ai creates new categories, which throws an error. we prefer to handle this ourselves

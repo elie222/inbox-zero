@@ -20,7 +20,6 @@ export async function handleBatchRequest(
     await handleBatchInternal(request);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    // SafeErrors are expected rejections (e.g. no AI access), not bugs
     if (error instanceof SafeError) {
       request.logger.warn("Handle batch request error", { error });
     } else {

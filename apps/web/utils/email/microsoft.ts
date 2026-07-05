@@ -136,7 +136,6 @@ export class OutlookProvider implements EmailProvider {
         // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
         errorCode: (error as any)?.code,
       };
-      // provider throttling is expected under load and handled by rate-limit state upstream
       if (isRetryableError(extractErrorInfo(error)).isRateLimit) {
         this.logger.warn("getThread failed", context);
       } else {

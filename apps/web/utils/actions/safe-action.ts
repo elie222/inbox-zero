@@ -37,9 +37,8 @@ const baseClient = createSafeActionClient({
         userEmail: context?.userEmail,
         emailAccountId: context?.emailAccountId,
       });
-    // SafeError is the "expected, user-facing rejection" type: below we already
-    // return its message to the client and skip Sentry capture, so log it as a
-    // warning rather than an error
+    // SafeErrors are expected user-facing rejections (shown to the client,
+    // never sent to Sentry), so they log as warnings
     if (error instanceof SafeError) {
       logger.warn("Server action error:", {
         metadata,

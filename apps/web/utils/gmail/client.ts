@@ -63,7 +63,7 @@ export const getGmailClientWithRefresh = async ({
   logger: Logger;
 }): Promise<gmail_v1.Gmail> => {
   if (!refreshToken) {
-    // expected for disconnected accounts; callers handle the SafeError
+    // expected for disconnected accounts
     logger.warn("No refresh token", { emailAccountId });
     throw new SafeError("No refresh token");
   }

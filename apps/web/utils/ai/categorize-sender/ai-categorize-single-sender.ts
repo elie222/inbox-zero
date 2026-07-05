@@ -63,7 +63,7 @@ ${formatCategoriesForPrompt(categories)}
     system,
     prompt,
     schema: z.object({
-      // nullish: reasoning models often skip it, and a missing rationale shouldn't fail categorization
+      // reasoning models often omit this; a missing rationale shouldn't fail categorization
       rationale: z
         .string()
         .nullish()

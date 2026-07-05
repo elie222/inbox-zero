@@ -118,7 +118,7 @@ export const getOutlookClientWithRefresh = async ({
   logger: Logger;
 }): Promise<OutlookClient> => {
   if (!refreshToken) {
-    // expected for disconnected accounts; callers handle the SafeError
+    // expected for disconnected accounts
     logger.warn("No refresh token", { emailAccountId });
     throw new SafeError("No refresh token");
   }
