@@ -87,6 +87,20 @@ export function useWelcomePricingVariant() {
   );
 }
 
+export type OnboardingChatVariant = "control" | "chat";
+
+// A/B test for the onboarding flow itself: "control" keeps the step-by-step
+// flow, "chat" swaps in the conversational onboarding that builds the user's
+// setup as they talk. Reading the flag here is the experiment exposure
+// ($feature_flag_called). Defaults to control until the flag resolves and when
+// PostHog is unavailable (e.g. self-hosted), preserving the existing flow.
+export function useOnboardingChatVariant() {
+  return (
+    (useFeatureFlagVariantKey("onboarding-chat") as OnboardingChatVariant) ||
+    "control"
+  );
+}
+
 export type OnboardingBulkUnsubscribeVariant = "control" | "inline-unsubscribe";
 
 // A/B test for the onboarding bulk-unsubscribe step: "control" shows the

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { OnboardingContent } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingContent";
+import { Onboarding } from "@/app/(app)/[emailAccountId]/onboarding/Onboarding";
 import { registerUtmTracking } from "@/app/(landing)/welcome/utms";
 import { auth } from "@/utils/auth";
 import { BRAND_NAME, getBrandTitle } from "@/utils/branding";
@@ -41,7 +41,7 @@ export default async function OnboardingPage(props: {
 
   return (
     <Suspense>
-      <OnboardingContent step={step} />
+      <Onboarding step={step} />
     </Suspense>
   );
 }
