@@ -113,6 +113,9 @@ qa/browser-flows/results/*
 # eval reports
 eval-results/
 
+# Nix build output
+result*
+
 .agent-worktrees/
 .context/
 .deepsec/
