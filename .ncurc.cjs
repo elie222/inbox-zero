@@ -1,6 +1,7 @@
 "use strict";
 
 module.exports = {
+  peer: true,
   reject: [
     // >=27.4.0 has ESM/CJS incompatibility that breaks Vercel runtime
     "jsdom",

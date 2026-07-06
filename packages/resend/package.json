@@ -7,12 +7,12 @@
   },
   "dependencies": {
     "@react-email/components": "1.0.12",
-    "@react-email/render": "2.0.9",
+    "@react-email/render": "2.0.10",
     "nanoid": "5.1.16",
     "react": "19.2.7",
     "react-dom": "19.2.7",
-    "react-email": "6.6.5",
-    "resend": "6.16.0"
+    "react-email": "6.6.6",
+    "resend": "6.17.1"
   },
   "devDependencies": {
     "@react-email/preview-server": "5.2.10",
