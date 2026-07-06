@@ -121,14 +121,16 @@ stdenv.mkDerivation (finalAttrs: {
   installPhase = ''
     runHook preInstall
 
-    mkdir -p $out/apps/web/.next/standalone
-    mkdir -p $out/apps/web/public
-    mkdir -p $out/apps/web/prisma
-
-    cp -r ${webDir}/.next/standalone/* $out/apps/web/.next/standalone/
+    # Mirror the Docker standalone layout: the bundle expands to
+    # $out/apps/web/server.js, and Next resolves static/public/prisma relative
+    # to that dir (server.js __dirname), so they must sit alongside it. Trailing
+    # /. copies include dotfiles (e.g. public/.well-known) and avoid nesting.
+    cp -r ${webDir}/.next/standalone/. $out/
     cp -r ${webDir}/.next/static $out/apps/web/.next/static
-    cp -r ${webDir}/public/* $out/apps/web/public/
-    cp -r ${prismaDir} $out/apps/web/prisma
+    mkdir -p $out/apps/web/public
+    cp -r ${webDir}/public/. $out/apps/web/public/
+    mkdir -p $out/apps/web/prisma
+    cp -r ${prismaDir}/. $out/apps/web/prisma/
 
     # Worker (BullMQ). Bundle to a single file so the output is self-contained
     # without the pnpm store symlink tree. bullmq ships its Lua scripts compiled
@@ -146,7 +148,7 @@ stdenv.mkDerivation (finalAttrs: {
 
     cat > $out/bin/inbox-zero-server << SCRIPT
 #!${stdenv.shell}
-exec ${nodejs}/bin/node "$out/apps/web/.next/standalone/apps/web/server.js" "\$@"
+exec ${nodejs}/bin/node "$out/apps/web/server.js" "\$@"
 SCRIPT
     chmod +x $out/bin/inbox-zero-server
 

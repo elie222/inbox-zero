@@ -39,7 +39,10 @@ The Nix sandbox has no network, but `app/layout.tsx` (Geist) and
 `app/(app)/layout.tsx` (Inter) use `next/font/google`, which fetches at build
 time. Fix:
 - Vendored the CSS (`Geist.css`, `Inter.css`) and the 12 referenced `.woff2`
-  files. Both fonts: latin, weights 400/500/600/700, `display: swap`.
+  files. Both fonts: weights 400/500/600/700, `display: swap`. The vendored CSS
+  is the full `css2` response (all subsets Google serves — latin, latin-ext,
+  greek, cyrillic, vietnamese, …); the app requests `subsets: ["latin"]`, which
+  only controls which subset is preloaded, not what the CSS contains.
 - `fonts/font-mock.cjs` is loaded via `NODE_OPTIONS="--require …"` during
   `next build`. It:
   1. Patches Next 16's `fetch-css-from-google-fonts` / `fetch-font-file`
@@ -76,14 +79,14 @@ Why bundle instead of copying node_modules:
 - `pnpm deploy` re-resolves against the registry; `--legacy`/`--offline` need a
   metadata mirror the fetchPnpmDeps CAS store doesn't have → fails offline.
 
-## Open questions for tomorrow (2026-07-07)
+## Maintenance notes
 
-1. **Font binaries in-repo** — 12 `.woff2` (~300 KB total) committed directly.
-   Alternatives: git-lfs, or fetch via a pinned fixed-output derivation. Decide.
-2. **Worker bundle size** — single `index.mjs` is ~1.5 MB. Fine, but if the
-   worker later gains workspace-package deps, revisit (bundling workspace pkgs
-   is fiddly; may want its own derivation then).
-3. **pnpmDeps hash** — `pkgs/inbox-zero.nix` pins
-   `hash = "sha256-uPONTamu8bzVFgdQ8NSAAmk50xh3+YmYM09Xw+1M5Hk="`. Must be
-   updated whenever the lockfile changes.
-4. Not committed yet — review the diff, then commit.
+- **pnpmDeps hash** — `pkgs/inbox-zero.nix` pins
+  `hash = "sha256-…"`. It must be updated whenever `pnpm-lock.yaml` changes
+  (a stale hash fails the build with a hash mismatch).
+- **Font binaries in-repo** — the 12 `.woff2` (~300 KB total) are committed
+  directly. If that becomes undesirable, alternatives are git-lfs or fetching
+  via a pinned fixed-output derivation.
+- **Worker bundle** — a single `index.mjs` (~1.5 MB). If the worker later gains
+  workspace-package deps, bundling gets fiddly; a separate derivation may be
+  warranted then.
