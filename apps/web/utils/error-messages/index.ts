@@ -15,6 +15,7 @@ export const ErrorType = {
   INSUFFICIENT_CREDITS: "Insufficient AI credits",
   TRIAL_AI_LIMIT_REACHED: "Trial AI limit reached",
   ACCOUNT_DISCONNECTED: "Account disconnected",
+  EMAIL_WATCH_LAPSED: "Email automation stopped",
   // Legacy keys kept for clearing old stored errors
   INCORRECT_OPENAI_API_KEY: "Incorrect OpenAI API key",
   OPENAI_API_KEY_DEACTIVATED: "OpenAI API key deactivated",
@@ -177,6 +178,37 @@ export async function clearAccountDisconnectedErrorIfResolved({
   });
 }
 
+export async function clearWatchLapsedErrorIfResolved({
+  userId,
+  logger,
+}: {
+  userId: string;
+  logger: Logger;
+}): Promise<void> {
+  let lapsedAccounts: number;
+  try {
+    lapsedAccounts = await prisma.emailAccount.count({
+      where: {
+        userId,
+        account: { disconnectedAt: null },
+        watchEmailsExpirationDate: { lt: new Date() },
+      },
+    });
+  } catch (error) {
+    logger.error("Error checking watch lapsed errors:", { userId, error });
+    captureException(error, { extra: { userId } });
+    return;
+  }
+
+  if (lapsedAccounts > 0) return;
+
+  await clearSpecificErrorMessages({
+    userId,
+    errorTypes: [ErrorType.EMAIL_WATCH_LAPSED],
+    logger,
+  });
+}
+
 const errorTypeConfig: Record<
   PersistedErrorType,
   { label: string; actionUrl: string; actionLabel: string }
@@ -208,6 +240,11 @@ const errorTypeConfig: Record<
   },
   [ErrorType.ACCOUNT_DISCONNECTED]: {
     label: "Account Disconnected",
+    actionUrl: "/accounts",
+    actionLabel: "Reconnect Account",
+  },
+  [ErrorType.EMAIL_WATCH_LAPSED]: {
+    label: "Email Automation Stopped",
     actionUrl: "/accounts",
     actionLabel: "Reconnect Account",
   },

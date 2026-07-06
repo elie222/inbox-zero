@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
+import { sendActionRequiredEmail } from "@inboxzero/resend";
 import {
+  addUserErrorMessageWithNotification,
   clearAccountDisconnectedErrorIfResolved,
+  clearWatchLapsedErrorIfResolved,
   ErrorType,
   getUserErrorMessages,
 } from "@/utils/error-messages";
@@ -142,6 +145,127 @@ describe("clearAccountDisconnectedErrorIfResolved", () => {
             message: "Invalid model",
             timestamp: "2026-06-24T04:00:40.506Z",
           },
+        },
+      },
+    });
+  });
+});
+
+describe("clearWatchLapsedErrorIfResolved", () => {
+  const logger = createTestLogger();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("keeps the lapse error while a connected account still has an expired watch", async () => {
+    prisma.emailAccount.count.mockResolvedValue(1);
+
+    await clearWatchLapsedErrorIfResolved({ userId: "user-1", logger });
+
+    expect(prisma.emailAccount.count).toHaveBeenCalledWith({
+      where: {
+        userId: "user-1",
+        account: { disconnectedAt: null },
+        watchEmailsExpirationDate: { lt: expect.any(Date) },
+      },
+    });
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("clears only the lapse error when no lapsed watches remain", async () => {
+    prisma.emailAccount.count.mockResolvedValue(0);
+    prisma.user.findUnique.mockResolvedValue({
+      errorMessages: {
+        [ErrorType.EMAIL_WATCH_LAPSED]: {
+          message: "Automation stopped",
+          timestamp: "2026-07-01T04:00:40.506Z",
+          emailSentAt: "2026-07-01T04:00:40.506Z",
+        },
+        [ErrorType.INVALID_AI_MODEL]: {
+          message: "Invalid model",
+          timestamp: "2026-06-24T04:00:40.506Z",
+        },
+      },
+    } as any);
+
+    await clearWatchLapsedErrorIfResolved({ userId: "user-1", logger });
+
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        errorMessages: {
+          [ErrorType.INVALID_AI_MODEL]: {
+            message: "Invalid model",
+            timestamp: "2026-06-24T04:00:40.506Z",
+          },
+        },
+      },
+    });
+  });
+});
+
+describe("addUserErrorMessageWithNotification", () => {
+  const logger = createTestLogger();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("sends the notification email on the first occurrence and records emailSentAt", async () => {
+    prisma.user.findUnique.mockResolvedValue({ errorMessages: {} } as any);
+
+    await addUserErrorMessageWithNotification({
+      userId: "user-1",
+      userEmail: "user@example.com",
+      emailAccountId: "email-account-1",
+      errorType: ErrorType.EMAIL_WATCH_LAPSED,
+      errorMessage: "Automation stopped",
+      logger,
+    });
+
+    expect(sendActionRequiredEmail).toHaveBeenCalledTimes(1);
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        errorMessages: {
+          [ErrorType.EMAIL_WATCH_LAPSED]: expect.objectContaining({
+            message: "Automation stopped",
+            emailSentAt: expect.any(String),
+          }),
+        },
+      },
+    });
+  });
+
+  it("does not send another email while the error is still active", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      errorMessages: {
+        [ErrorType.EMAIL_WATCH_LAPSED]: {
+          message: "Automation stopped",
+          timestamp: "2026-07-01T04:00:40.506Z",
+          emailSentAt: "2026-07-01T04:00:40.506Z",
+        },
+      },
+    } as any);
+
+    await addUserErrorMessageWithNotification({
+      userId: "user-1",
+      userEmail: "user@example.com",
+      emailAccountId: "email-account-1",
+      errorType: ErrorType.EMAIL_WATCH_LAPSED,
+      errorMessage: "Automation stopped",
+      logger,
+    });
+
+    expect(sendActionRequiredEmail).not.toHaveBeenCalled();
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        errorMessages: {
+          [ErrorType.EMAIL_WATCH_LAPSED]: expect.objectContaining({
+            emailSentAt: "2026-07-01T04:00:40.506Z",
+          }),
         },
       },
     });
