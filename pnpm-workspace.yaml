@@ -31,6 +31,9 @@ overrides:
   webpack: "5.106.2"
 
 packageExtensions:
+  "@hookform/resolvers":
+    dependencies:
+      zod: "4.2.1"
   tiptap-markdown:
     dependencies:
       "@tiptap/pm": "2.26.1"

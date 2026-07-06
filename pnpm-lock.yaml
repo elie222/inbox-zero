@@ -23,7 +23,7 @@ overrides:
   vite: 7.3.6
   webpack: 5.106.2
 
-packageExtensionsChecksum: sha256-m/XXBrCDeU981EvNI2KoDcWBzdw6AArS5CoqlTGz8CU=
+packageExtensionsChecksum: sha256-U6NxPIp6wwiac0WjvL3F7zQT/qi8LW56svxk8nZmv7I=
 
 importers:
 
@@ -14484,6 +14484,7 @@ snapshots:
     dependencies:
       '@standard-schema/utils': 0.3.0
       react-hook-form: 7.80.0(react@19.2.7)
+      zod: 4.2.1
 
   '@iconify/types@2.0.0': {}
 
