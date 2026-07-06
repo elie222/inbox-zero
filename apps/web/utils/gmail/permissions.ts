@@ -47,7 +47,7 @@ async function checkGmailPermissions({
       };
     }
 
-    const grantedScopes = grantedScope.split(" ").filter(Boolean);
+    const grantedScopes = grantedScope.split(/[,\s]+/).filter(Boolean);
     const missingScopes = SCOPES.filter(
       (scope) => !grantedScopes.includes(scope),
     );
