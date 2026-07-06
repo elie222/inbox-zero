@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FileTextIcon,
   FolderIcon,
@@ -12,7 +12,10 @@ import {
   HardDriveIcon,
 } from "lucide-react";
 import { AttachmentSourceType } from "@/generated/prisma/enums";
-import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import {
+  getAttachmentSourceKey,
+  type AttachmentSourceInput,
+} from "@/utils/attachments/source-schema";
 import { useDriveConnections } from "@/hooks/useDriveConnections";
 import { useDriveSourceItems } from "@/hooks/useDriveSourceItems";
 import { useDriveSourceChildren } from "@/hooks/useDriveSourceChildren";
@@ -46,6 +49,13 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import type { DriveSourceItem } from "@/utils/drive/source-items";
+import {
+  applyAttachmentSourceSelection,
+  buildDriveSourceChildrenMap,
+  driveSourceSelection,
+  getDriveSourceTreeNodeId,
+  type DriveSourceChildrenMap,
+} from "./attachment-source-selection";
 
 export function ActionAttachmentsField({
   value,
@@ -74,14 +84,12 @@ export function ActionAttachmentsField({
   const hasAiSources = aiSourceCount > 0;
   const totalCount = value.length + aiSourceCount;
 
-  const toggleSource = (source: AttachmentSourceInput, checked: boolean) => {
-    onChange(updateSelectedSources(value, source, checked));
+  const removeSource = (source: AttachmentSourceInput) => {
+    onChange(removeSelectedSource(value, source));
   };
 
-  const toggleAiSource = (source: AttachmentSourceInput, checked: boolean) => {
-    onAttachmentSourcesChange(
-      updateSelectedSources(attachmentSources, source, checked),
-    );
+  const removeAiSource = (source: AttachmentSourceInput) => {
+    onAttachmentSourcesChange(removeSelectedSource(attachmentSources, source));
   };
 
   return (
@@ -137,10 +145,7 @@ export function ActionAttachmentsField({
           </button>
 
           {isExpanded && hasAttachments && (
-            <SourceList
-              items={value}
-              onRemove={(source) => toggleSource(source, false)}
-            />
+            <SourceList items={value} onRemove={removeSource} />
           )}
 
           <AttachmentSourcePickerDialog
@@ -179,10 +184,7 @@ export function ActionAttachmentsField({
           </button>
 
           {isSourcesExpanded && hasAiSources && (
-            <SourceList
-              items={attachmentSources}
-              onRemove={(source) => toggleAiSource(source, false)}
-            />
+            <SourceList items={attachmentSources} onRemove={removeAiSource} />
           )}
 
           <AttachmentSourcePickerDialog
@@ -217,11 +219,6 @@ function AttachmentSourcePickerDialog({
   const [isOpen, setIsOpen] = useState(false);
   const [draftSources, setDraftSources] = useState(value);
 
-  const selectedKeys = useMemo(
-    () => new Set(draftSources.map((source) => getSourceKey(source))),
-    [draftSources],
-  );
-
   const openPicker = () => {
     setDraftSources(value);
     setIsOpen(true);
@@ -235,15 +232,6 @@ function AttachmentSourcePickerDialog({
   const savePicker = () => {
     onChange(draftSources);
     setIsOpen(false);
-  };
-
-  const toggleDraftSource = (
-    source: AttachmentSourceInput,
-    checked: boolean,
-  ) => {
-    setDraftSources((current) =>
-      updateSelectedSources(current, source, checked),
-    );
   };
 
   return (
@@ -270,8 +258,8 @@ function AttachmentSourcePickerDialog({
           </DialogDescription>
         </DialogHeader>
         <AttachmentPicker
-          selectedKeys={selectedKeys}
-          onToggle={toggleDraftSource}
+          selectedSources={draftSources}
+          onSelectedSourcesChange={setDraftSources}
           allowFolderSelection={allowFolderSelection}
         />
         <DialogFooter>
@@ -288,25 +276,58 @@ function AttachmentSourcePickerDialog({
 }
 
 function AttachmentPicker({
-  selectedKeys,
-  onToggle,
+  selectedSources,
+  onSelectedSourcesChange,
   allowFolderSelection = false,
 }: {
-  selectedKeys: Set<string>;
-  onToggle: (source: AttachmentSourceInput, checked: boolean) => void;
+  selectedSources: AttachmentSourceInput[];
+  onSelectedSourcesChange: (sources: AttachmentSourceInput[]) => void;
   allowFolderSelection?: boolean;
 }) {
   const { data, isLoading, error } = useDriveSourceItems(true);
+  const items = data?.items;
+  const selectedKeys = useMemo(
+    () =>
+      new Set(selectedSources.map((source) => getAttachmentSourceKey(source))),
+    [selectedSources],
+  );
+  const [loadedChildren, setLoadedChildren] = useState<DriveSourceChildrenMap>(
+    () => new Map(),
+  );
 
-  const rootItems = useMemo(() => {
-    const items = data?.items ?? [];
-    const itemIds = new Set(items.map((item) => getTreeNodeId(item)));
-    return items.filter(
-      (item) =>
-        !item.parentId ||
-        !itemIds.has(`${item.driveConnectionId}:folder:${item.parentId}`),
+  const childrenByParentId = useMemo(() => {
+    const map = buildDriveSourceChildrenMap(items ?? []);
+    for (const [parentId, children] of loadedChildren) {
+      map.set(parentId, children);
+    }
+    return map;
+  }, [items, loadedChildren]);
+
+  const rootItems = useMemo(
+    () => driveSourceSelection.getRootItems(items ?? []),
+    [items],
+  );
+
+  const handleChildrenLoaded = useCallback(
+    (parentId: string, children: DriveSourceItem[]) => {
+      setLoadedChildren((current) => {
+        if (current.has(parentId)) return current;
+        return new Map(current).set(parentId, children);
+      });
+    },
+    [],
+  );
+
+  const handleToggle = (item: DriveSourceItem, checked: boolean) => {
+    onSelectedSourcesChange(
+      applyAttachmentSourceSelection({
+        item,
+        checked,
+        selectedSources,
+        childrenByParentId,
+      }),
     );
-  }, [data?.items]);
+  };
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -330,12 +351,14 @@ function AttachmentPicker({
           <TreeView className="max-h-[460px] overflow-y-auto p-0">
             {rootItems.map((item, index) => (
               <AttachmentSourceNode
-                key={getTreeNodeId(item)}
+                key={getDriveSourceTreeNodeId(item)}
                 item={item}
                 isLast={index === rootItems.length - 1}
                 level={0}
                 selectedKeys={selectedKeys}
-                onToggle={onToggle}
+                onToggle={handleToggle}
+                onChildrenLoaded={handleChildrenLoaded}
+                childrenByParentId={childrenByParentId}
                 allowFolderSelection={allowFolderSelection}
               />
             ))}
@@ -352,29 +375,32 @@ function AttachmentSourceNode({
   level,
   selectedKeys,
   onToggle,
-  parentPath = "",
+  onChildrenLoaded,
+  childrenByParentId,
   allowFolderSelection = false,
 }: {
   item: DriveSourceItem;
   isLast: boolean;
   level: number;
   selectedKeys: Set<string>;
-  onToggle: (source: AttachmentSourceInput, checked: boolean) => void;
-  parentPath?: string;
+  onToggle: (item: DriveSourceItem, checked: boolean) => void;
+  onChildrenLoaded: (parentId: string, children: DriveSourceItem[]) => void;
+  childrenByParentId: DriveSourceChildrenMap;
   allowFolderSelection?: boolean;
 }) {
   const { expandedIds } = useTree();
-  const nodeId = getTreeNodeId(item);
+  const nodeId = getDriveSourceTreeNodeId(item);
   const isExpanded = expandedIds.has(nodeId);
-  const currentPath = parentPath
-    ? `${parentPath}/${item.name}`
-    : item.path || item.name;
   const isFolder = item.type === "folder";
-  const source = toAttachmentSource(item, currentPath);
-  const isSelected = selectedKeys.has(getSourceKey(source));
+  const checkboxState = driveSourceSelection.getSelectionState({
+    item,
+    selectedKeys,
+    childrenByParentId,
+  });
 
+  const knownChildren = childrenByParentId.get(nodeId);
   const { data, isLoading } = useDriveSourceChildren(
-    isFolder && isExpanded
+    isFolder && isExpanded && !knownChildren
       ? {
           folderId: item.id,
           driveConnectionId: item.driveConnectionId,
@@ -382,7 +408,21 @@ function AttachmentSourceNode({
       : null,
   );
 
-  const children = data?.items ?? [];
+  const children = useMemo(
+    () =>
+      knownChildren ??
+      (data?.items ?? []).map((child) => ({
+        ...child,
+        parentId: item.id,
+        path: `${item.path || item.name}/${child.name}`,
+      })),
+    [knownChildren, data?.items, item],
+  );
+
+  useEffect(() => {
+    if (!data?.items || knownChildren) return;
+    onChildrenLoaded(nodeId, children);
+  }, [children, data?.items, knownChildren, nodeId, onChildrenLoaded]);
 
   if (!isFolder) {
     return (
@@ -392,8 +432,8 @@ function AttachmentSourceNode({
           <FileTextIcon className="size-4 text-muted-foreground" />
           <div className="flex flex-1 items-center gap-2">
             <Checkbox
-              checked={isSelected}
-              onCheckedChange={(checked) => onToggle(source, checked === true)}
+              checked={checkboxState}
+              onCheckedChange={(checked) => onToggle(item, checked === true)}
               onClick={(event) => event.stopPropagation()}
             />
             <TreeLabel>{item.name}</TreeLabel>
@@ -417,8 +457,8 @@ function AttachmentSourceNode({
         <div className="flex flex-1 items-center gap-2">
           {allowFolderSelection && (
             <Checkbox
-              checked={isSelected}
-              onCheckedChange={(checked) => onToggle(source, checked === true)}
+              checked={checkboxState}
+              onCheckedChange={(checked) => onToggle(item, checked === true)}
               onClick={(event) => event.stopPropagation()}
             />
           )}
@@ -429,13 +469,14 @@ function AttachmentSourceNode({
         {children.length > 0 ? (
           children.map((child, index) => (
             <AttachmentSourceNode
-              key={getTreeNodeId(child)}
+              key={getDriveSourceTreeNodeId(child)}
               item={child}
               isLast={index === children.length - 1}
               level={level + 1}
               selectedKeys={selectedKeys}
               onToggle={onToggle}
-              parentPath={currentPath}
+              onChildrenLoaded={onChildrenLoaded}
+              childrenByParentId={childrenByParentId}
               allowFolderSelection={allowFolderSelection}
             />
           ))
@@ -463,7 +504,7 @@ function SourceList({
     <div className="mt-1 space-y-1">
       {items.map((source) => (
         <div
-          key={getSourceKey(source)}
+          key={getAttachmentSourceKey(source)}
           className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
         >
           <div className="min-w-0 flex items-center gap-2">
@@ -496,44 +537,10 @@ function SourceList({
   );
 }
 
-function toAttachmentSource(
-  item: DriveSourceItem,
-  sourcePath: string,
-): AttachmentSourceInput {
-  return {
-    driveConnectionId: item.driveConnectionId,
-    name: item.name,
-    sourceId: item.id,
-    sourcePath,
-    type:
-      item.type === "folder"
-        ? AttachmentSourceType.FOLDER
-        : AttachmentSourceType.FILE,
-  };
-}
-
-function getSourceKey(source: AttachmentSourceInput) {
-  return `${source.driveConnectionId}:${source.type}:${source.sourceId}`;
-}
-
-function updateSelectedSources(
+function removeSelectedSource(
   sources: AttachmentSourceInput[],
   source: AttachmentSourceInput,
-  checked: boolean,
 ) {
-  const key = getSourceKey(source);
-
-  if (!checked) {
-    return sources.filter((item) => getSourceKey(item) !== key);
-  }
-
-  if (sources.some((item) => getSourceKey(item) === key)) {
-    return sources;
-  }
-
-  return [...sources, source];
-}
-
-function getTreeNodeId(item: DriveSourceItem) {
-  return `${item.driveConnectionId}:${item.type}:${item.id}`;
+  const key = getAttachmentSourceKey(source);
+  return sources.filter((item) => getAttachmentSourceKey(item) !== key);
 }

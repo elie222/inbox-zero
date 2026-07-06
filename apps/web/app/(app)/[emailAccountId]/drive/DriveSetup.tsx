@@ -58,10 +58,7 @@ import {
   NoFoldersFound,
 } from "./AllowedFolders";
 import {
-  applyFolderSelection,
-  buildFolderChildrenMap,
-  getRootFolders,
-  mergeFolderChildren,
+  folderSelection,
   type FolderChildrenMap,
 } from "./allowed-folder-selection";
 import type {
@@ -716,7 +713,9 @@ function SetupFolderSelection({
     () => new Set(savedFolders.map((f) => f.folderId)),
   );
   const [childrenByParentId, setChildrenByParentId] =
-    useState<FolderChildrenMap>(() => buildFolderChildrenMap(availableFolders));
+    useState<FolderChildrenMap>(() =>
+      folderSelection.buildChildrenMap(availableFolders),
+    );
   // TODO: This assumes a single drive connection; swap to a selected connection ID when multi-connection UX exists.
   const driveConnectionId = connections[0]?.id ?? null;
 
@@ -730,13 +729,17 @@ function SetupFolderSelection({
   }, [savedFolders, serverFolderIds]);
 
   useEffect(() => {
-    setChildrenByParentId(buildFolderChildrenMap(availableFolders));
+    setChildrenByParentId(folderSelection.buildChildrenMap(availableFolders));
   }, [availableFolders]);
 
   const handleChildrenLoaded = useCallback(
     (parentId: string, children: FolderItem[]) => {
       setChildrenByParentId((prev) =>
-        mergeFolderChildren({ childrenByParentId: prev, parentId, children }),
+        folderSelection.mergeChildren({
+          childrenByParentId: prev,
+          parentId,
+          children,
+        }),
       );
     },
     [],
@@ -745,12 +748,13 @@ function SetupFolderSelection({
   const handleFolderToggle = useCallback(
     async (folder: FolderItem, isChecked: boolean) => {
       const previousFolderIds = optimisticFolderIds;
-      const { nextFolderIds, changedFolders } = applyFolderSelection({
-        folder,
-        isChecked,
-        selectedFolderIds: previousFolderIds,
-        childrenByParentId,
-      });
+      const { nextKeys: nextFolderIds, changedItems: changedFolders } =
+        folderSelection.applySelection({
+          item: folder,
+          checked: isChecked,
+          selectedKeys: previousFolderIds,
+          childrenByParentId,
+        });
 
       setOptimisticFolderIds(nextFolderIds);
 
@@ -829,7 +833,7 @@ function SetupFolderSelection({
   );
 
   const rootFolders = useMemo(
-    () => getRootFolders(availableFolders),
+    () => folderSelection.getRootItems(availableFolders),
     [availableFolders],
   );
 

@@ -63,11 +63,7 @@ import { Input } from "@/components/Input";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useDriveConnections } from "@/hooks/useDriveConnections";
 import {
-  applyFolderSelection,
-  buildFolderChildrenMap,
-  getFolderSelectionState,
-  getRootFolders,
-  mergeFolderChildren,
+  folderSelection,
   type FolderChildrenMap,
 } from "./allowed-folder-selection";
 
@@ -117,7 +113,9 @@ function AllowedFoldersContent({
   );
   const prevServerFolderIds = useRef(serverFolderIds);
   const [childrenByParentId, setChildrenByParentId] =
-    useState<FolderChildrenMap>(() => buildFolderChildrenMap(availableFolders));
+    useState<FolderChildrenMap>(() =>
+      folderSelection.buildChildrenMap(availableFolders),
+    );
 
   useEffect(() => {
     if (serverFolderIds === prevServerFolderIds.current) return;
@@ -126,13 +124,17 @@ function AllowedFoldersContent({
   }, [savedFolders, serverFolderIds]);
 
   useEffect(() => {
-    setChildrenByParentId(buildFolderChildrenMap(availableFolders));
+    setChildrenByParentId(folderSelection.buildChildrenMap(availableFolders));
   }, [availableFolders]);
 
   const handleChildrenLoaded = useCallback(
     (parentId: string, children: FolderItem[]) => {
       setChildrenByParentId((prev) =>
-        mergeFolderChildren({ childrenByParentId: prev, parentId, children }),
+        folderSelection.mergeChildren({
+          childrenByParentId: prev,
+          parentId,
+          children,
+        }),
       );
     },
     [],
@@ -141,12 +143,13 @@ function AllowedFoldersContent({
   const handleFolderToggle = useCallback(
     async (folder: FolderItem, isChecked: boolean) => {
       const previousFolderIds = optimisticFolderIds;
-      const { nextFolderIds, changedFolders } = applyFolderSelection({
-        folder,
-        isChecked,
-        selectedFolderIds: previousFolderIds,
-        childrenByParentId,
-      });
+      const { nextKeys: nextFolderIds, changedItems: changedFolders } =
+        folderSelection.applySelection({
+          item: folder,
+          checked: isChecked,
+          selectedKeys: previousFolderIds,
+          childrenByParentId,
+        });
 
       setOptimisticFolderIds(nextFolderIds);
 
@@ -209,7 +212,7 @@ function AllowedFoldersContent({
   );
 
   const rootFolders = useMemo(
-    () => getRootFolders(availableFolders),
+    () => folderSelection.getRootItems(availableFolders),
     [availableFolders],
   );
 
@@ -327,9 +330,9 @@ export function FolderNode({
       })),
     [currentPath, folder.id, rawSubfolders],
   );
-  const checkboxState = getFolderSelectionState({
-    folderId: folder.id,
-    selectedFolderIds,
+  const checkboxState = folderSelection.getSelectionState({
+    item: folder,
+    selectedKeys: selectedFolderIds,
     childrenByParentId,
   });
   const hasLoadedChildren = subfolders.length > 0;
