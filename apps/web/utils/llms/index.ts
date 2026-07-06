@@ -36,11 +36,11 @@ import {
   captureException,
   isAnthropicInsufficientBalanceError,
   isContentFilterRefusal,
-  isIncorrectOpenAIAPIKeyError,
+  isIncorrectAPIKeyError,
   isInsufficientCreditsError,
   isInvalidAIModelError,
   type LlmRepairMetadata,
-  isOpenAIAPIKeyDeactivatedError,
+  isAPIKeyDeactivatedError,
   isAiQuotaExceededError,
   markAsHandledUserKeyError,
   SafeError,
@@ -1141,7 +1141,7 @@ async function handleError(
       });
     };
 
-    if (isIncorrectOpenAIAPIKeyError(error)) {
+    if (isIncorrectAPIKeyError(error)) {
       return await notifyUser(
         ErrorType.INCORRECT_API_KEY,
         "Your AI API key is invalid. Please update it in your settings.",
@@ -1158,7 +1158,7 @@ async function handleError(
       );
     }
 
-    if (isOpenAIAPIKeyDeactivatedError(error)) {
+    if (isAPIKeyDeactivatedError(error)) {
       return await notifyUser(
         ErrorType.API_KEY_DEACTIVATED,
         "Your AI API key has been deactivated. Please update it in your settings.",

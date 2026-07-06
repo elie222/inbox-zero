@@ -85,14 +85,6 @@ export default async function ReplyTrackerPage(props: {
                   <ClockIcon className="h-4 w-4" />
                   Waiting
                 </TabsTrigger>
-                {/* <TabsTrigger
-                value="needsAction"
-                className="flex items-center gap-2"
-              >
-                <AlertCircleIcon className="h-4 w-4" />
-                Needs Action
-              </TabsTrigger> */}
-
                 <TabsTrigger
                   value="resolved"
                   className="flex items-center gap-2"
@@ -128,10 +120,6 @@ export default async function ReplyTrackerPage(props: {
             isAnalyzing={isAnalyzing}
           />
         </TabsContent>
-
-        {/* <TabsContent value="needsAction" className="mt-0 flex-1">
-        <NeedsAction userId={userId} userEmail={userEmail} page={page} />
-      </TabsContent> */}
 
         <TabsContent value="resolved" className="mt-0 flex-1">
           <Resolved
