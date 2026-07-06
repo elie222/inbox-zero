@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max_old_space_size=6144 next dev --turbopack",
     "dev:e2e": "dotenv -e .env.e2e -- cross-env NODE_OPTIONS=--max_old_space_size=6144 next dev --turbopack",
-    "build": "node scripts/recover-booking-availability-migration.cjs && prisma migrate deploy && cross-env NODE_OPTIONS=--max_old_space_size=16384 next build --webpack",
+    "build": "prisma migrate deploy && cross-env NODE_OPTIONS=--max_old_space_size=16384 next build --webpack",
     "build:ci": "cross-env NODE_OPTIONS=--max_old_space_size=16384 next build --webpack",
     "start": "next start",
     "start:standalone": "node .next/standalone/server.js",
