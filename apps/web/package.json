@@ -245,7 +245,7 @@
   },
   "optionalDependencies": {
     "@sanity/client": "7.23.0",
-    "@sanity/icons": "5.0.0",
+    "@sanity/icons": "3.7.4",
     "@sanity/image-url": "2",
     "@sanity/vision": "6",
     "next-sanity": "13",
