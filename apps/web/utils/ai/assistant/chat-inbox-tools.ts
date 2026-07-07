@@ -46,6 +46,10 @@ import {
   getCategorizationStatusSnapshot,
 } from "@/utils/redis/categorization-progress";
 import { extractErrorInfo, isRetryableError } from "@/utils/outlook/retry";
+import {
+  extractErrorInfo as extractGmailErrorInfo,
+  isRetryableError as isGmailRetryableError,
+} from "@/utils/gmail/retry";
 import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
 
 const SEARCH_INBOX_MAX_RESULTS = 20;
@@ -487,10 +491,13 @@ const searchInboxBaseFields = {
   limit: z
     .number()
     .int()
-    .min(1)
-    .max(SEARCH_INBOX_MAX_RESULTS)
     .default(SEARCH_INBOX_MAX_RESULTS)
-    .describe("Maximum number of messages to return."),
+    .transform((value) =>
+      Math.min(Math.max(value, 1), SEARCH_INBOX_MAX_RESULTS),
+    )
+    .describe(
+      `Maximum number of messages to return, up to ${SEARCH_INBOX_MAX_RESULTS}. Larger values are clamped; use pagination for more results.`,
+    ),
   pageToken: microsoftGraphPageTokenSchema.describe(
     "Use the page token returned from a prior search to paginate.",
   ),
@@ -549,7 +556,7 @@ const gmailSearchInboxTool = ({
 }: InboxToolOptions) =>
   tool({
     description:
-      "Search inbox messages and return concise message metadata. Limit must be between 1 and 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion. totalReturned is only the number of messages returned by this call, so do not present it or a single search page as an exact mailbox, folder, or label count. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
+      "Search inbox messages and return concise message metadata. Returns at most 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion. totalReturned is only the number of messages returned by this call, so do not present it or a single search page as an exact mailbox, folder, or label count. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
     inputSchema: gmailSearchInboxInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
@@ -578,9 +585,21 @@ const gmailSearchInboxTool = ({
           labels,
           taxonomyNamesKey: "labelNames",
         });
-      } catch {
+      } catch (error) {
         // Provider failures are logged and flushed at the provider boundary.
-        return { queryUsed: query, error: "Failed to search inbox" };
+        const errorInfo = extractGmailErrorInfo(error);
+        const { retryable } = isGmailRetryableError(errorInfo);
+        return {
+          queryUsed: query,
+          error: "Failed to search inbox",
+          searchFeedback: {
+            status: errorInfo.status,
+            message: (
+              errorInfo.errorMessage || "Gmail search request failed"
+            ).slice(0, 300),
+            retryable,
+          },
+        };
       }
     },
   });
@@ -593,7 +612,7 @@ const outlookSearchInboxTool = ({
 }: InboxToolOptions) =>
   tool({
     description:
-      "Search inbox messages and return concise message metadata. Limit must be between 1 and 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion, even when the current page has zero messages. Outlook filtered searches can return an empty page before later matching pages. totalReturned is only the number of messages returned by this call, so do not present it or a single search page as an exact mailbox, folder, or category count. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
+      "Search inbox messages and return concise message metadata. Returns at most 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion, even when the current page has zero messages. Outlook filtered searches can return an empty page before later matching pages. totalReturned is only the number of messages returned by this call, so do not present it or a single search page as an exact mailbox, folder, or category count. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
     inputSchema: outlookSearchInboxInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
