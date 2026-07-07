@@ -252,7 +252,7 @@
         "APP_REVIEW_DEMO_ACCOUNTS",
         "SSO_LOGIN_ENABLED"
       ],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map"]
     },
     "build:ci": {
       "env": [
@@ -367,7 +367,7 @@
         "APP_REVIEW_DEMO_ACCOUNTS",
         "SSO_LOGIN_ENABLED"
       ],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map"]
     },
     "test": {
       "env": ["RUN_AI_TESTS"]

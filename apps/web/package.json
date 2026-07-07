@@ -231,7 +231,7 @@
     "dotenv": "17.4.2",
     "dotenv-cli": "11.0.0",
     "emulate": "npm:@inbox-zero/emulate@0.5.0",
-    "esbuild": "^0.28.1",
+    "esbuild": "0.28.1",
     "jsdom": "27.3.0",
     "postcss": "8.5.6",
     "serwist": "9.5.11",
