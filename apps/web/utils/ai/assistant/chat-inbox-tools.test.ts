@@ -797,6 +797,50 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
   });
 
+  it("searchInbox clamps out-of-range limits instead of rejecting them", async () => {
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const schema = toolInstance.inputSchema as any;
+
+    expect(schema.parse({ query: "is:unread", limit: 100 }).limit).toBe(20);
+    expect(schema.parse({ query: "is:unread", limit: 0 }).limit).toBe(1);
+    expect(schema.parse({ query: "is:unread" }).limit).toBe(20);
+  });
+
+  it("searchInbox returns provider failure feedback the model can act on", async () => {
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages: vi.fn().mockRejectedValue({
+        status: 429,
+        message: "Rate limit exceeded",
+      }),
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "is:unread",
+      limit: 20,
+    });
+
+    expect(result.error).toBe("Failed to search inbox");
+    expect(result.searchFeedback).toMatchObject({
+      status: 429,
+      message: "Rate limit exceeded",
+      retryable: true,
+    });
+  });
+
   it("searchInbox result reports hasMore=false when no more pages", async () => {
     (createEmailProvider as any).mockResolvedValue({
       searchMessages: vi.fn().mockResolvedValue({
@@ -1369,7 +1413,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     );
   });
 
-  it("searchInbox keeps the generic Google failure payload unchanged", async () => {
+  it("searchInbox reports non-retryable Google failures with the failure detail", async () => {
     const searchMessages = vi
       .fn()
       .mockRejectedValue(new Error("Search syntax failed"));
@@ -1391,9 +1435,11 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       limit: 20,
     });
 
-    expect(result).toEqual({
-      queryUsed: "from:sender@example.com",
-      error: "Failed to search inbox",
+    expect(result.queryUsed).toBe("from:sender@example.com");
+    expect(result.error).toBe("Failed to search inbox");
+    expect(result.searchFeedback).toMatchObject({
+      message: "Search syntax failed",
+      retryable: false,
     });
     expect(searchMessages).toHaveBeenCalledTimes(1);
   });
