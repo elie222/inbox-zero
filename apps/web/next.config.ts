@@ -1,7 +1,6 @@
 import { withSentryConfig } from "@sentry/nextjs";
 import { withAxiom } from "next-axiom";
 import nextMdx from "@next/mdx";
-import withSerwistInit from "@serwist/next";
 import { realpathSync } from "node:fs";
 import path from "node:path";
 import { env } from "./env";
@@ -399,12 +398,6 @@ const sentryConfig = {
   // For all available options, see:
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
 
-  // Upload a larger set of source maps for prettier stack traces (increases build time)
-  widenClientFileUpload: true,
-
-  // Transpiles SDK to be compatible with IE11 (increases bundle size)
-  transpileClientSDK: true,
-
   // Routes browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers (increases server load)
   tunnelRoute: "/monitoring",
 
@@ -445,14 +438,10 @@ if (env.MICROSOFT_CLIENT_ID && !env.MICROSOFT_WEBHOOK_CLIENT_STATE) {
   );
 }
 
-const withSerwist = withSerwistInit({
-  swSrc: "app/sw.ts",
-  swDest: "public/sw.js",
-  disable: process.env.NODE_ENV !== "production",
-  maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3MB
-});
+// The service worker is built separately by `serwist build` (serwist.config.mjs)
+// because the @serwist/next webpack plugin doesn't support Turbopack.
 
-export default withAxiom(withSerwist(exportConfig));
+export default withAxiom(exportConfig);
 
 function commonAncestorPath(firstPath: string, secondPath: string) {
   const [firstParts, secondParts] = [firstPath, secondPath].map((value) =>

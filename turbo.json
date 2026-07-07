@@ -7,6 +7,7 @@
         "VERCEL_ENV",
         "VERCEL_URL",
         "NODE_ENV",
+        "SKIP_TYPE_CHECK",
         "DATABASE_URL",
         "DIRECT_URL",
         "DATABASE_URL_UNPOOLED",
@@ -19,6 +20,13 @@
 
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",
+        "GOOGLE_ADS_DEVELOPER_TOKEN",
+        "GOOGLE_ADS_CLIENT_ID",
+        "GOOGLE_ADS_CLIENT_SECRET",
+        "GOOGLE_ADS_REFRESH_TOKEN",
+        "GOOGLE_ADS_CUSTOMER_ID",
+        "GOOGLE_ADS_LOGIN_CUSTOMER_ID",
+        "GOOGLE_ADS_SUBSCRIPTION_CONVERSION_ACTION_ID",
         "GOOGLE_BASE_URL",
         "GOOGLE_PUBSUB_TOPIC_NAME",
         "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
@@ -35,6 +43,11 @@
         "APPLE_KEY_ID",
         "APPLE_PRIVATE_KEY",
         "APPLE_APP_BUNDLE_IDENTIFIER",
+        "APPLE_IAP_ISSUER_ID",
+        "APPLE_IAP_KEY_ID",
+        "APPLE_IAP_PRIVATE_KEY",
+        "APPLE_IAP_BUNDLE_ID",
+        "APPLE_IAP_APPLE_ID",
         "ANDROID_APP_CERT_SHA256_FINGERPRINTS",
 
         "DEFAULT_LLMS",
@@ -239,19 +252,27 @@
         "APP_REVIEW_DEMO_ACCOUNTS",
         "SSO_LOGIN_ENABLED"
       ],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map"]
     },
     "build:ci": {
       "env": [
         "VERCEL_ENV",
         "VERCEL_URL",
         "NODE_ENV",
+        "SKIP_TYPE_CHECK",
         "DATABASE_URL",
         "AUTH_SECRET",
         "AUTH_ALLOWED_EMAILS",
         "AUTH_ALLOWED_EMAIL_DOMAINS",
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",
+        "GOOGLE_ADS_DEVELOPER_TOKEN",
+        "GOOGLE_ADS_CLIENT_ID",
+        "GOOGLE_ADS_CLIENT_SECRET",
+        "GOOGLE_ADS_REFRESH_TOKEN",
+        "GOOGLE_ADS_CUSTOMER_ID",
+        "GOOGLE_ADS_LOGIN_CUSTOMER_ID",
+        "GOOGLE_ADS_SUBSCRIPTION_CONVERSION_ACTION_ID",
         "GOOGLE_BASE_URL",
         "MICROSOFT_BASE_URL",
         "APPLE_CLIENT_ID",
@@ -259,6 +280,11 @@
         "APPLE_KEY_ID",
         "APPLE_PRIVATE_KEY",
         "APPLE_APP_BUNDLE_IDENTIFIER",
+        "APPLE_IAP_ISSUER_ID",
+        "APPLE_IAP_KEY_ID",
+        "APPLE_IAP_PRIVATE_KEY",
+        "APPLE_IAP_BUNDLE_ID",
+        "APPLE_IAP_APPLE_ID",
         "ANDROID_APP_CERT_SHA256_FINGERPRINTS",
         "GOOGLE_PUBSUB_TOPIC_NAME",
         "EMAIL_ENCRYPT_SECRET",
@@ -341,7 +367,7 @@
         "APP_REVIEW_DEMO_ACCOUNTS",
         "SSO_LOGIN_ENABLED"
       ],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map"]
     },
     "test": {
       "env": ["RUN_AI_TESTS"]
