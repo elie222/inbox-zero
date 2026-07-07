@@ -140,6 +140,7 @@ describe("LLM use cases", () => {
       [LlmUseCase.PromptToRules]: "chat",
       [LlmUseCase.ReplyContextCollector]: "economy",
       [LlmUseCase.ReplyMemoryExtraction]: "economy",
+      [LlmUseCase.ReplyMemorySelection]: "economy",
       [LlmUseCase.ReplyNudge]: "chat",
       [LlmUseCase.Summarise]: "default",
       [LlmUseCase.WritingStyleAnalysis]: "default",
