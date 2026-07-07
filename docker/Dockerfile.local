@@ -100,6 +100,7 @@ RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
 RUN --mount=type=cache,target=/app/apps/web/.next/cache \
     cd apps/web && \
     ../../node_modules/.bin/next build --webpack && \
+    ../../node_modules/.bin/serwist build serwist.config.mjs && \
     cd ../.. && \
     pnpm --filter @inboxzero/worker deploy --legacy --prod /tmp/apps/worker
 
