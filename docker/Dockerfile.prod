@@ -94,6 +94,7 @@ RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
 
 RUN cd /app/apps/web \
  && pnpm exec next build \
+ && pnpm exec serwist build serwist.config.mjs \
  && cd /app \
  && pnpm --filter inbox-zero-ai deploy --legacy --prod /tmp/apps/web \
  && pnpm --filter @inboxzero/worker deploy --legacy --prod /tmp/apps/worker \
