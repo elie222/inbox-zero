@@ -318,6 +318,9 @@ describe("deleteEmailAccountAction", () => {
         user: { email: "owner@example.com" },
       },
     });
+    expect(prisma.account.delete).toHaveBeenCalledWith({
+      where: { id: "account-2", userId: "user-1" },
+    });
     expect(updateAccountSeats).toHaveBeenCalledWith({ userId: "user-1" });
   });
 
