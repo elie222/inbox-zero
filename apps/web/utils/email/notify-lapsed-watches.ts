@@ -9,6 +9,7 @@ import {
 import {
   addUserErrorMessageWithNotification,
   ErrorType,
+  watchLapsedErrorKey,
 } from "@/utils/error-messages";
 
 // Grace period so a few missed or failed cron runs don't trigger a notification.
@@ -16,15 +17,22 @@ const MIN_LAPSE_MS = 24 * 60 * 60 * 1000;
 // Only notify recent lapses. This is not a backfill: accounts that lapsed long
 // ago must never receive this email.
 const MAX_LAPSE_MS = 7 * 24 * 60 * 60 * 1000;
+// Safety cap so a large backlog can't blow up a single cron run.
+const MAX_ACCOUNTS_PER_RUN = 500;
+// Notifications hit the DB and an email API, so process them in small
+// concurrent batches rather than unboundedly or fully serially.
+const NOTIFY_CONCURRENCY = 10;
 
 /**
  * State-based detection of email accounts whose watch/subscription silently
  * stopped renewing. Runs after the watch renewal pass, so anything still
  * expired here has been failing renewal despite the cron.
  *
- * Notification is once per lapse: `addUserErrorMessageWithNotification`
- * only emails while no `emailSentAt` is recorded for the error type, and the
- * error is cleared when a lapsed watch is successfully re-established.
+ * Notification is once per lapse, per account: `addUserErrorMessageWithNotification`
+ * only emails while no `emailSentAt` is recorded for that account's entry,
+ * and it's a no-op write once an account has already been notified with the
+ * same message. The error is cleared when that specific account's watch is
+ * successfully re-established.
  */
 export async function notifyLapsedWatches({ logger }: { logger: Logger }) {
   const emailAccounts = await getRecentlyLapsedEmailAccounts();
@@ -33,34 +41,49 @@ export async function notifyLapsedWatches({ logger }: { logger: Logger }) {
 
   logger.info("Found recently lapsed watch accounts", {
     count: emailAccounts.length,
+    truncated: emailAccounts.length === MAX_ACCOUNTS_PER_RUN,
   });
 
   let notified = 0;
 
-  for (const emailAccount of emailAccounts) {
-    const { user } = emailAccount;
-
-    const userHasAiAccess = hasAiAccess(
-      getUserTier(user.premium),
-      !!user.aiApiKey,
+  for (let i = 0; i < emailAccounts.length; i += NOTIFY_CONCURRENCY) {
+    const batch = emailAccounts.slice(i, i + NOTIFY_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map((emailAccount) => notifyIfEligible(emailAccount, logger)),
     );
-    if (!userHasAiAccess) continue;
-
-    await addUserErrorMessageWithNotification({
-      userId: emailAccount.userId,
-      userEmail: emailAccount.email,
-      emailAccountId: emailAccount.id,
-      errorType: ErrorType.EMAIL_WATCH_LAPSED,
-      errorMessage: `Email automation for ${emailAccount.email} has stopped. Please reconnect your account to resume automation.`,
-      logger: logger.with({ emailAccountId: emailAccount.id }),
-    });
-
-    notified++;
+    notified += results.filter(Boolean).length;
   }
 
   logger.info("Processed lapsed watch notifications", { notified });
 
   return { notified };
+}
+
+async function notifyIfEligible(
+  emailAccount: Awaited<
+    ReturnType<typeof getRecentlyLapsedEmailAccounts>
+  >[number],
+  logger: Logger,
+): Promise<boolean> {
+  const { user } = emailAccount;
+
+  const userHasAiAccess = hasAiAccess(
+    getUserTier(user.premium),
+    !!user.aiApiKey,
+  );
+  if (!userHasAiAccess) return false;
+
+  await addUserErrorMessageWithNotification({
+    userId: emailAccount.userId,
+    userEmail: emailAccount.email,
+    emailAccountId: emailAccount.id,
+    errorType: ErrorType.EMAIL_WATCH_LAPSED,
+    storageKey: watchLapsedErrorKey(emailAccount.id),
+    errorMessage: `Email automation for ${emailAccount.email} has stopped. Please reconnect your account to resume automation.`,
+    logger: logger.with({ emailAccountId: emailAccount.id }),
+  });
+
+  return true;
 }
 
 async function getRecentlyLapsedEmailAccounts() {
@@ -86,5 +109,6 @@ async function getRecentlyLapsedEmailAccounts() {
         },
       },
     },
+    take: MAX_ACCOUNTS_PER_RUN,
   });
 }

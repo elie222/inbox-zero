@@ -35,6 +35,12 @@ export type PersistedErrorType = Exclude<
   typeof ErrorType.TRIAL_AI_LIMIT_REACHED
 >;
 
+// EMAIL_WATCH_LAPSED is stored per email account (a user can have several),
+// so each account's lapse is notified and cleared independently.
+export function watchLapsedErrorKey(emailAccountId: string): string {
+  return `${ErrorType.EMAIL_WATCH_LAPSED}:${emailAccountId}`;
+}
+
 export async function getUserErrorMessages(
   userId: string,
 ): Promise<ErrorMessages | null> {
@@ -113,7 +119,9 @@ export async function clearSpecificErrorMessages({
   logger,
 }: {
   userId: string;
-  errorTypes: ErrorTypeValue[];
+  // Accepts raw storage keys, not just canonical ErrorType values, since some
+  // error types (e.g. EMAIL_WATCH_LAPSED) are stored per email account.
+  errorTypes: string[];
   logger: Logger;
 }): Promise<void> {
   try {
@@ -178,33 +186,23 @@ export async function clearAccountDisconnectedErrorIfResolved({
   });
 }
 
+// Called right after a specific account's watch is successfully
+// (re-)established, so the caller has already confirmed that account is no
+// longer lapsed. Only that account's entry is cleared, so an unrelated
+// lapsed/disconnected account belonging to the same user can't block this or
+// suppress future notifications.
 export async function clearWatchLapsedErrorIfResolved({
   userId,
+  emailAccountId,
   logger,
 }: {
   userId: string;
+  emailAccountId: string;
   logger: Logger;
 }): Promise<void> {
-  let lapsedAccounts: number;
-  try {
-    lapsedAccounts = await prisma.emailAccount.count({
-      where: {
-        userId,
-        account: { disconnectedAt: null },
-        watchEmailsExpirationDate: { lt: new Date() },
-      },
-    });
-  } catch (error) {
-    logger.error("Error checking watch lapsed errors:", { userId, error });
-    captureException(error, { extra: { userId } });
-    return;
-  }
-
-  if (lapsedAccounts > 0) return;
-
   await clearSpecificErrorMessages({
     userId,
-    errorTypes: [ErrorType.EMAIL_WATCH_LAPSED],
+    errorTypes: [watchLapsedErrorKey(emailAccountId)],
     logger,
   });
 }
@@ -272,6 +270,7 @@ export async function addUserErrorMessageWithNotification({
   emailAccountId,
   errorType,
   errorMessage,
+  storageKey = errorType,
   logger,
 }: {
   userId: string;
@@ -279,6 +278,10 @@ export async function addUserErrorMessageWithNotification({
   emailAccountId: string;
   errorType: PersistedErrorType;
   errorMessage: string;
+  // Key used to store/dedupe the entry in errorMessages, if different from
+  // errorType (e.g. a per-account key for error types that can recur
+  // independently across a user's email accounts).
+  storageKey?: string;
   logger: Logger;
 }): Promise<void> {
   try {
@@ -293,8 +296,14 @@ export async function addUserErrorMessageWithNotification({
     }
 
     const currentErrorMessages = (user.errorMessages as ErrorMessages) || {};
-    const existingEntry = currentErrorMessages[errorType];
+    const existingEntry = currentErrorMessages[storageKey];
     const shouldSendEmail = !existingEntry?.emailSentAt;
+
+    if (!shouldSendEmail && existingEntry?.message === errorMessage) {
+      // Already notified and nothing has changed - skip the write so
+      // repeatedly-checked, already-notified accounts don't churn the row.
+      return;
+    }
 
     const newEntry: ErrorMessageEntry = {
       message: errorMessage,
@@ -335,7 +344,7 @@ export async function addUserErrorMessageWithNotification({
 
     const newErrorMessages = {
       ...currentErrorMessages,
-      [errorType]: newEntry,
+      [storageKey]: newEntry,
     };
 
     await prisma.user.update({

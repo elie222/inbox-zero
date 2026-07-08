@@ -215,7 +215,11 @@ async function watchEmailAccount(
   if (wasLapsed) {
     // The watch is healthy again, so clear the lapse error. This lets us
     // notify again if the account lapses in the future.
-    await clearWatchLapsedErrorIfResolved({ userId: user.id, logger });
+    await clearWatchLapsedErrorIfResolved({
+      userId: user.id,
+      emailAccountId: emailAccount.id,
+      logger,
+    });
   }
 
   return {

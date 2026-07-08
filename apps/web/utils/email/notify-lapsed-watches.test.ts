@@ -19,6 +19,8 @@ vi.mock("@/utils/premium", () => ({
 vi.mock("@/utils/error-messages", () => ({
   ErrorType: { EMAIL_WATCH_LAPSED: "Email automation stopped" },
   addUserErrorMessageWithNotification: vi.fn(),
+  watchLapsedErrorKey: (emailAccountId: string) =>
+    `Email automation stopped:${emailAccountId}`,
 }));
 
 const logger = createTestLogger();
@@ -90,6 +92,7 @@ describe("notifyLapsedWatches", () => {
         userEmail: "user@example.com",
         emailAccountId: "email-account-1",
         errorType: "Email automation stopped",
+        storageKey: "Email automation stopped:email-account-1",
       }),
     );
     expect(addUserErrorMessageWithNotification).toHaveBeenCalledWith(
@@ -97,6 +100,7 @@ describe("notifyLapsedWatches", () => {
         userId: "user-2",
         userEmail: "other@example.com",
         emailAccountId: "email-account-2",
+        storageKey: "Email automation stopped:email-account-2",
       }),
     );
   });

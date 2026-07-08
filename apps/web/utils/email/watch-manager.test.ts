@@ -125,7 +125,10 @@ describe("ensureEmailAccountsWatched", () => {
       }),
     ]);
     expect(clearWatchLapsedErrorIfResolved).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: "user-id" }),
+      expect.objectContaining({
+        userId: "user-id",
+        emailAccountId: "email-account-id",
+      }),
     );
   });
 
