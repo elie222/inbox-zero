@@ -591,6 +591,13 @@ describe("updateEnvValue", () => {
     const result = updateEnvValue(content, "FOO", "new-$&-value");
     expect(result).toBe("FOO=new-$&-value");
   });
+
+  it("matches keys with regex metacharacters literally", () => {
+    const content = "FOO_BAR=old\nFOO.BAR=old";
+    const result = updateEnvValue(content, "FOO.BAR", "new");
+
+    expect(result).toBe("FOO_BAR=old\nFOO.BAR=new");
+  });
 });
 
 describe("redactValue", () => {

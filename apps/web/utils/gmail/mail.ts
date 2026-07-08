@@ -123,13 +123,7 @@ export async function sendEmailWithHtml(
     messageText = convertEmailHtmlToText({ htmlText: body.messageHtml });
   } catch (error) {
     logger.error("Error converting email html to text", { error });
-    // Strip HTML tags as a fallback
-    // Keep new lines
-    messageText = body.messageHtml
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/p>/gi, "\n")
-      .replace(/<[^>]*>/g, "")
-      .trim();
+    messageText = stripHtmlTagsForPlainText(body.messageHtml).trim();
   }
 
   const raw = await createRawMailMessage({ ...body, messageText });
@@ -393,4 +387,53 @@ function renderReplyBodyAsPlainText(textContent?: string) {
     .replace(/\r\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function stripHtmlTagsForPlainText(html: string) {
+  let plainText = "";
+
+  for (let index = 0; index < html.length; index++) {
+    const char = html[index];
+    if (char !== "<") {
+      plainText += char;
+      continue;
+    }
+
+    const isClosingTag = html[index + 1] === "/";
+    const tagStart = index + (isClosingTag ? 2 : 1);
+    const tagName = readHtmlTagName(html, tagStart);
+    if (!tagName) {
+      plainText += char;
+      continue;
+    }
+
+    const tagEnd = html.indexOf(">", tagStart + tagName.length);
+    if (tagEnd === -1) break;
+
+    if (tagName === "br" || (isClosingTag && tagName === "p")) {
+      plainText += "\n";
+    }
+
+    index = tagEnd;
+  }
+
+  return plainText;
+}
+
+function readHtmlTagName(value: string, start: number) {
+  let tagName = "";
+
+  for (let index = start; index < value.length; index++) {
+    const char = value[index]?.toLowerCase();
+    if (!char) break;
+
+    const isTagNameChar =
+      (char >= "a" && char <= "z") ||
+      (tagName.length > 0 && char >= "0" && char <= "9");
+    if (!isTagNameChar) break;
+
+    tagName += char;
+  }
+
+  return tagName;
 }

@@ -325,13 +325,7 @@ export function getRuleResultReasonDisplay(reason: string): {
   const actionFailureMessages: string[] = [];
   const reasonLines: string[] = [];
 
-  // AI reasons sometimes include literal (or entity-encoded) HTML tags; strip
-  // them for display while keeping plain text like "a < b" intact. Block-level
-  // tags become whitespace so adjacent paragraphs don't run together.
-  const plainText = he
-    .decode(reason)
-    .replace(/<\/?(?:p|div|br|li|ul|ol|h[1-6])\b[^<>]*>/gi, " ")
-    .replace(/<\/?[a-z][^<>]*>/gi, "");
+  const plainText = stripHtmlTagsFromReason(he.decode(reason));
 
   for (const line of plainText.split(/\r?\n/)) {
     const trimmedLine = line.replace(/\s+/g, " ").trim();
@@ -350,6 +344,66 @@ export function getRuleResultReasonDisplay(reason: string): {
     reason: reasonLines.join("\n").trim(),
     actionFailureMessages,
   };
+}
+
+function stripHtmlTagsFromReason(reason: string) {
+  let plainText = "";
+
+  for (let index = 0; index < reason.length; index++) {
+    const char = reason[index];
+    if (char !== "<") {
+      plainText += char;
+      continue;
+    }
+
+    const tagStart = index + (reason[index + 1] === "/" ? 2 : 1);
+    const tagName = readTagName(reason, tagStart);
+    if (!tagName) {
+      plainText += char;
+      continue;
+    }
+
+    const tagEnd = reason.indexOf(">", tagStart + tagName.length);
+    if (tagEnd === -1) break;
+
+    if (BLOCK_REASON_TAGS.has(tagName)) plainText += " ";
+    index = tagEnd;
+  }
+
+  return plainText;
+}
+
+const BLOCK_REASON_TAGS = new Set([
+  "p",
+  "div",
+  "br",
+  "li",
+  "ul",
+  "ol",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+]);
+
+function readTagName(value: string, start: number) {
+  let tagName = "";
+
+  for (let index = start; index < value.length; index++) {
+    const char = value[index]?.toLowerCase();
+    if (!char) break;
+
+    const isTagNameChar =
+      (char >= "a" && char <= "z") ||
+      (tagName.length > 0 && char >= "0" && char <= "9");
+    if (!isTagNameChar) break;
+
+    tagName += char;
+  }
+
+  return tagName;
 }
 
 function getActionFailureMessages(failures: string): string[] {

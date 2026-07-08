@@ -299,6 +299,16 @@ describe("getEmailClient", () => {
     ["Gmail", "<abc123@mail.gmail.com>", "gmail"],
     ["Superhuman", "<msg@we.are.superhuman.com>", "superhuman"],
     ["Shortwave", "<email@mail.shortwave.com>", "shortwave"],
+    [
+      "lookalike Gmail host",
+      "<abc123@mail.gmail.com.attacker.example>",
+      "mail.gmail.com.attacker.example",
+    ],
+    [
+      "Gmail string in URL path",
+      "<abc123@attacker.example/mail.gmail.com>",
+      "attacker.example",
+    ],
     ["generic email client", "<message@company.com>", "company.com"],
     [
       "message IDs with multiple @ symbols",

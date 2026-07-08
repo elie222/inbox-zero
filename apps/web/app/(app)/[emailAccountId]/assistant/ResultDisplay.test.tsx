@@ -241,6 +241,10 @@ describe("getRuleResultReasonDisplay", () => {
     ).toBe("The sender confirmed the user's order.");
   });
 
+  it("removes an unterminated encoded tag instead of rendering it as text", () => {
+    expect(getRuleResultReasonDisplay("&lt;script").reason).toBe("");
+  });
+
   it("keeps comparison text that only looks like angle brackets", () => {
     expect(
       getRuleResultReasonDisplay("Priority is < 3 and score > 5.").reason,
