@@ -8,6 +8,16 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { actionClient } from "@/utils/actions/safe-action";
 import { createEmailProvider } from "@/utils/email/provider";
 import { SafeError } from "@/utils/error";
+import { emailToContent, hasQuotedReplyContent } from "@/utils/mail";
+import type { ParsedMessage } from "@/utils/types";
+
+// Sampling a larger pool and filtering to in-thread replies keeps the style
+// analysis representative of the quick replies drafts are generated for,
+// rather than being skewed long by cold outreach, forwards, and intros
+// mixed into "sent mail".
+const SENT_MESSAGE_SAMPLE_POOL_SIZE = 60;
+const STYLE_SAMPLE_SIZE = 20;
+const MIN_REPLY_SAMPLES_FOR_STYLE = 5;
 
 // to help with onboarding and provide the best flow to new users
 export const assessAction = actionClient
@@ -58,17 +68,21 @@ export const analyzeWritingStyleAction = actionClient
 
     if (emailAccount?.writingStyle) return { success: true, skipped: true };
 
-    // fetch last 20 sent emails using the provider's getSentMessages method
     const emailProvider = await createEmailProvider({
       emailAccountId,
       provider,
       logger,
     });
-    const sentMessages = await emailProvider.getSentMessages(20);
+    const sentMessages = await emailProvider.getSentMessages(
+      SENT_MESSAGE_SAMPLE_POOL_SIZE,
+    );
+    const styleSourceMessages = selectWritingStyleSampleMessages(
+      sentMessages,
+    ).slice(0, STYLE_SAMPLE_SIZE);
 
     // analyze writing style
     const style = await aiAnalyzeWritingStyle({
-      emails: sentMessages.map((email) =>
+      emails: styleSourceMessages.map((email) =>
         getEmailForLLM(email, { extractReply: true }),
       ),
       emailAccount: { ...emailAccount, account: { provider } },
@@ -98,3 +112,18 @@ export const analyzeWritingStyleAction = actionClient
 
     return { success: true };
   });
+
+// Prefers in-thread replies (what draft generation writes) over composed-
+// from-scratch sent mail, which trends longer and skews the style analysis.
+// Falls back to the full pool when too few replies are available.
+export function selectWritingStyleSampleMessages(
+  sentMessages: ParsedMessage[],
+) {
+  const replyMessages = sentMessages.filter((message) =>
+    hasQuotedReplyContent(emailToContent(message, { maxLength: 0 })),
+  );
+
+  return replyMessages.length >= MIN_REPLY_SAMPLES_FOR_STYLE
+    ? replyMessages
+    : sentMessages;
+}

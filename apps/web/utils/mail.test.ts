@@ -4,6 +4,7 @@ import {
   emailToContent,
   convertEmailHtmlToText,
   parseReply,
+  hasQuotedReplyContent,
 } from "./mail";
 
 describe("emailToContent", () => {
@@ -291,6 +292,22 @@ On Jan 1, 2024, someone@example.com wrote:
     const plainText = "Simple message without any quotes";
     const result = parseReply(plainText);
     expect(result).toBe("Simple message without any quotes");
+  });
+});
+
+describe("hasQuotedReplyContent", () => {
+  it("returns true for a reply quoting an earlier message", () => {
+    const plainText = `Thanks, that works for me.
+
+On Jan 1, 2024, someone@example.com wrote:
+> Does tomorrow work?`;
+
+    expect(hasQuotedReplyContent(plainText)).toBe(true);
+  });
+
+  it("returns false for a freshly composed message", () => {
+    const plainText = "Hey team, just wanted to check in on the project.";
+    expect(hasQuotedReplyContent(plainText)).toBe(false);
   });
 });
 
