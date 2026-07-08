@@ -145,6 +145,12 @@ export const deleteEmailAccountAction = actionClientUser
         getDeleteSoloOrganizationsOperation(organizationIdsToDelete, [
           emailAccountId,
         ]);
+      const deleteRemainingMembershipsOperation = prisma.member.deleteMany({
+        where: {
+          emailAccountId,
+          organizationId: { notIn: organizationIdsToDelete },
+        },
+      });
 
       if (isPrimaryAccount) {
         // Check if there are other email accounts
@@ -174,6 +180,7 @@ export const deleteEmailAccountAction = actionClientUser
           userId,
           [
             deleteSoloOrganizationsOperation,
+            deleteRemainingMembershipsOperation,
             prisma.user.update({
               where: {
                 id: userId,
@@ -212,6 +219,7 @@ export const deleteEmailAccountAction = actionClientUser
           userId,
           [
             deleteSoloOrganizationsOperation,
+            deleteRemainingMembershipsOperation,
             prisma.emailAccount.delete({
               where: {
                 id: emailAccountId,
