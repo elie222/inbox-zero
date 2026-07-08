@@ -42,7 +42,6 @@ import type { SerializedMatchReason } from "@/utils/ai/choose-rule/types";
 import {
   buildFreshRuleContextMessage,
   buildRuleReadState,
-  loadCurrentRulesRevision,
   loadAssistantRuleSnapshot,
   type RuleReadState,
 } from "./chat-rule-state";
@@ -150,10 +149,12 @@ export async function aiProcessAssistantChat({
 
     if (freshRuleState) {
       ruleReadState = freshRuleState.ruleReadState;
-      onRulesStateExposed?.(freshRuleState.snapshot.rulesRevision);
-      freshRuleContextMessage = [
-        buildFreshRuleContextMessage(freshRuleState.snapshot),
-      ];
+      if (freshRuleState.hasNewRuleState) {
+        onRulesStateExposed?.(freshRuleState.snapshot.rulesRevision);
+        freshRuleContextMessage = [
+          buildFreshRuleContextMessage(freshRuleState.snapshot),
+        ];
+      }
     }
   } catch (error) {
     logger.warn("Failed to load fresh rule state for chat", { error });
@@ -328,7 +329,7 @@ export async function aiProcessAssistantChat({
   return result;
 }
 
-async function loadFreshRuleContext({
+export async function loadFreshRuleContext({
   emailAccountId,
   chatLastSeenRulesRevision,
   chatHasHistory,
@@ -341,19 +342,15 @@ async function loadFreshRuleContext({
 
   const knownRulesRevision = chatLastSeenRulesRevision ?? -1;
 
-  const currentRulesRevision = await loadCurrentRulesRevision({
-    emailAccountId,
-  });
-
-  if (currentRulesRevision <= knownRulesRevision) return null;
-
   const snapshot = await loadAssistantRuleSnapshot({ emailAccountId });
 
-  if (snapshot.rulesRevision <= knownRulesRevision) return null;
-
+  // Rule-write tools reject writes without a recent read. The chat already saw
+  // this exact revision, so hydrate the read state even when nothing changed;
+  // only inject the fresh-context message when the revision advanced.
   return {
     snapshot,
     ruleReadState: buildRuleReadState(snapshot),
+    hasNewRuleState: snapshot.rulesRevision > knownRulesRevision,
   };
 }
 

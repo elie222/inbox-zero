@@ -1227,28 +1227,24 @@ describe("aiProcessAssistantChat", () => {
     mockToolCallAgentStream.mockResolvedValue({
       toUIMessageStreamResponse: vi.fn(),
     });
-    mockPrisma.emailAccount.findUnique
-      .mockResolvedValueOnce({
-        rulesRevision: 2,
-      })
-      .mockResolvedValueOnce({
-        about: "About",
-        rulesRevision: 2,
-        rules: [
-          {
-            name: "To Reply",
-            instructions: "Emails I need to respond to",
-            updatedAt: new Date("2026-02-13T10:00:00.000Z"),
-            from: null,
-            to: null,
-            subject: null,
-            conditionalOperator: null,
-            enabled: true,
-            runOnThreads: true,
-            actions: [],
-          },
-        ],
-      });
+    mockPrisma.emailAccount.findUnique.mockResolvedValueOnce({
+      about: "About",
+      rulesRevision: 2,
+      rules: [
+        {
+          name: "To Reply",
+          instructions: "Emails I need to respond to",
+          updatedAt: new Date("2026-02-13T10:00:00.000Z"),
+          from: null,
+          to: null,
+          subject: null,
+          conditionalOperator: null,
+          enabled: true,
+          runOnThreads: true,
+          actions: [],
+        },
+      ],
+    });
     mockPrisma.rule.findUnique.mockResolvedValue({
       id: "rule-1",
       name: "To Reply",
@@ -1319,6 +1315,93 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 
+  it("hydrates rule read state without reinjecting rules when the revision is unchanged", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+    const onRulesStateExposed = vi.fn();
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+    mockPrisma.emailAccount.findUnique.mockResolvedValue({
+      about: "About",
+      rulesRevision: 2,
+      rules: [
+        {
+          name: "To Reply",
+          instructions: "Emails I need to respond to",
+          updatedAt: new Date("2026-02-13T10:00:00.000Z"),
+          from: null,
+          to: null,
+          subject: null,
+          conditionalOperator: null,
+          enabled: true,
+          runOnThreads: true,
+          actions: [],
+        },
+      ],
+    });
+    mockPrisma.rule.findUnique.mockResolvedValue({
+      id: "rule-1",
+      name: "To Reply",
+      updatedAt: new Date("2026-02-13T10:00:00.000Z"),
+      enabled: true,
+      emailAccount: {
+        rulesRevision: 2,
+      },
+      instructions: "Emails I need to respond to",
+      from: null,
+      to: null,
+      subject: null,
+      conditionalOperator: "AND",
+      actions: [],
+    });
+    mockPrisma.rule.update.mockResolvedValue({
+      id: "rule-1",
+      actions: [],
+      group: null,
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      chatLastSeenRulesRevision: 2,
+      chatHasHistory: true,
+      onRulesStateExposed,
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    const freshRuleContext = args.messages.find(
+      (message: { role: string; content: string }) =>
+        message.role === "user" &&
+        message.content.includes("[Fresh rule state update"),
+    );
+
+    expect(freshRuleContext).toBeUndefined();
+    expect(onRulesStateExposed).not.toHaveBeenCalled();
+
+    // The chat already saw this revision, so a rule write must succeed without
+    // requiring another getUserRulesAndSettings round trip first.
+    const result = await args.tools.updateRule.execute({
+      ruleName: "To Reply",
+      updates: {
+        condition: {
+          aiInstructions: "Updated instructions",
+        },
+      },
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        ruleId: "rule-1",
+      }),
+    );
+  });
+
   it("injects fresh rule state for legacy chats with history but no cursor", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,
@@ -1328,28 +1411,24 @@ describe("aiProcessAssistantChat", () => {
     mockToolCallAgentStream.mockResolvedValue({
       toUIMessageStreamResponse: vi.fn(),
     });
-    mockPrisma.emailAccount.findUnique
-      .mockResolvedValueOnce({
-        rulesRevision: 0,
-      })
-      .mockResolvedValueOnce({
-        about: "About",
-        rulesRevision: 0,
-        rules: [
-          {
-            name: "Newsletter",
-            instructions: "Archive newsletters",
-            updatedAt: new Date("2026-02-13T10:00:00.000Z"),
-            from: null,
-            to: null,
-            subject: null,
-            conditionalOperator: null,
-            enabled: true,
-            runOnThreads: true,
-            actions: [],
-          },
-        ],
-      });
+    mockPrisma.emailAccount.findUnique.mockResolvedValueOnce({
+      about: "About",
+      rulesRevision: 0,
+      rules: [
+        {
+          name: "Newsletter",
+          instructions: "Archive newsletters",
+          updatedAt: new Date("2026-02-13T10:00:00.000Z"),
+          from: null,
+          to: null,
+          subject: null,
+          conditionalOperator: null,
+          enabled: true,
+          runOnThreads: true,
+          actions: [],
+        },
+      ],
+    });
 
     await aiProcessAssistantChat({
       messages: baseMessages,

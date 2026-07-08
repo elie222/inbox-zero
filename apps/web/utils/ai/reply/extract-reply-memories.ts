@@ -230,6 +230,18 @@ ${getUserInfoPrompt({ emailAccount })}
 Extract reusable reply memories from this draft edit.`;
 }
 
+export function formatReplyMemoryPromptLine(
+  memory: Pick<
+    ReplyMemory,
+    "id" | "content" | "kind" | "scopeType" | "scopeValue"
+  >,
+  index: number,
+) {
+  return `${index + 1}. id=${memory.id}\n[${memory.kind} | ${memory.scopeType}${
+    memory.scopeValue ? `:${memory.scopeValue}` : ""
+  }] ${memory.content}`;
+}
+
 function formatExistingMemories(
   memories: Pick<
     ReplyMemory,
@@ -240,12 +252,7 @@ function formatExistingMemories(
 
   return memories
     .slice(0, MAX_EXISTING_MEMORIES_IN_PROMPT)
-    .map(
-      (memory, index) =>
-        `${index + 1}. id=${memory.id}\n[${memory.kind} | ${memory.scopeType}${
-          memory.scopeValue ? `:${memory.scopeValue}` : ""
-        }] ${memory.content}`,
-    )
+    .map(formatReplyMemoryPromptLine)
     .join("\n");
 }
 
