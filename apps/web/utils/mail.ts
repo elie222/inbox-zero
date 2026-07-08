@@ -12,8 +12,6 @@ export function parseReply(plainText: string) {
   return result;
 }
 
-// True when the message quotes an earlier message in the thread (a reply),
-// as opposed to a freshly composed email, forward, or newsletter reply.
 export function hasQuotedReplyContent(plainText: string): boolean {
   return new EmailReplyParser().read(plainText).getQuotedText().length > 0;
 }

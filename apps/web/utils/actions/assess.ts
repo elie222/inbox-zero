@@ -11,10 +11,6 @@ import { SafeError } from "@/utils/error";
 import { emailToContent, hasQuotedReplyContent } from "@/utils/mail";
 import type { ParsedMessage } from "@/utils/types";
 
-// Sampling a larger pool and filtering to in-thread replies keeps the style
-// analysis representative of the quick replies drafts are generated for,
-// rather than being skewed long by cold outreach, forwards, and intros
-// mixed into "sent mail".
 const SENT_MESSAGE_SAMPLE_POOL_SIZE = 60;
 const STYLE_SAMPLE_SIZE = 20;
 const MIN_REPLY_SAMPLES_FOR_STYLE = 5;
@@ -113,9 +109,6 @@ export const analyzeWritingStyleAction = actionClient
     return { success: true };
   });
 
-// Prefers in-thread replies (what draft generation writes) over composed-
-// from-scratch sent mail, which trends longer and skews the style analysis.
-// Falls back to the full pool when too few replies are available.
 export function selectWritingStyleSampleMessages(
   sentMessages: ParsedMessage[],
 ) {
