@@ -227,7 +227,7 @@ export async function getReplyMemoriesForPrompt({
     );
 
     const selected = await selectReplyMemoriesForEmail({
-      candidates,
+      prioritizedCandidates: candidates,
       emailContent,
       emailAccount,
       logger,
