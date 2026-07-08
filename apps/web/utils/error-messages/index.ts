@@ -35,8 +35,8 @@ export type PersistedErrorType = Exclude<
   typeof ErrorType.TRIAL_AI_LIMIT_REACHED
 >;
 
-// EMAIL_WATCH_LAPSED is stored per email account (a user can have several),
-// so each account's lapse is notified and cleared independently.
+// A user can have several accounts, so EMAIL_WATCH_LAPSED is keyed per account
+// rather than per errorType.
 export function watchLapsedErrorKey(emailAccountId: string): string {
   return `${ErrorType.EMAIL_WATCH_LAPSED}:${emailAccountId}`;
 }
@@ -119,8 +119,6 @@ export async function clearSpecificErrorMessages({
   logger,
 }: {
   userId: string;
-  // Accepts raw storage keys, not just canonical ErrorType values, since some
-  // error types (e.g. EMAIL_WATCH_LAPSED) are stored per email account.
   errorTypes: string[];
   logger: Logger;
 }): Promise<void> {
@@ -186,11 +184,7 @@ export async function clearAccountDisconnectedErrorIfResolved({
   });
 }
 
-// Called right after a specific account's watch is successfully
-// (re-)established, so the caller has already confirmed that account is no
-// longer lapsed. Only that account's entry is cleared, so an unrelated
-// lapsed/disconnected account belonging to the same user can't block this or
-// suppress future notifications.
+// Callers must confirm the account's watch is healthy before calling this.
 export async function clearWatchLapsedErrorIfResolved({
   userId,
   emailAccountId,
@@ -278,9 +272,6 @@ export async function addUserErrorMessageWithNotification({
   emailAccountId: string;
   errorType: PersistedErrorType;
   errorMessage: string;
-  // Key used to store/dedupe the entry in errorMessages, if different from
-  // errorType (e.g. a per-account key for error types that can recur
-  // independently across a user's email accounts).
   storageKey?: string;
   logger: Logger;
 }): Promise<void> {
@@ -299,11 +290,8 @@ export async function addUserErrorMessageWithNotification({
     const existingEntry = currentErrorMessages[storageKey];
     const shouldSendEmail = !existingEntry?.emailSentAt;
 
-    if (!shouldSendEmail && existingEntry?.message === errorMessage) {
-      // Already notified and nothing has changed - skip the write so
-      // repeatedly-checked, already-notified accounts don't churn the row.
-      return;
-    }
+    // Nothing changed since the last write - skip it.
+    if (!shouldSendEmail && existingEntry?.message === errorMessage) return;
 
     const newEntry: ErrorMessageEntry = {
       message: errorMessage,

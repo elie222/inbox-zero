@@ -12,28 +12,13 @@ import {
   watchLapsedErrorKey,
 } from "@/utils/error-messages";
 
-// Grace period so a few missed or failed cron runs don't trigger a notification.
+// A few missed or failed cron runs shouldn't trigger a notification.
 const MIN_LAPSE_MS = 24 * 60 * 60 * 1000;
-// Only notify recent lapses. This is not a backfill: accounts that lapsed long
-// ago must never receive this email.
+// Not a backfill: accounts that lapsed long ago must never receive this email.
 const MAX_LAPSE_MS = 7 * 24 * 60 * 60 * 1000;
-// Safety cap so a large backlog can't blow up a single cron run.
 const MAX_ACCOUNTS_PER_RUN = 500;
-// Notifications hit the DB and an email API, so process them in small
-// concurrent batches rather than unboundedly or fully serially.
 const NOTIFY_CONCURRENCY = 10;
 
-/**
- * State-based detection of email accounts whose watch/subscription silently
- * stopped renewing. Runs after the watch renewal pass, so anything still
- * expired here has been failing renewal despite the cron.
- *
- * Notification is once per lapse, per account: `addUserErrorMessageWithNotification`
- * only emails while no `emailSentAt` is recorded for that account's entry,
- * and it's a no-op write once an account has already been notified with the
- * same message. The error is cleared when that specific account's watch is
- * successfully re-established.
- */
 export async function notifyLapsedWatches({ logger }: { logger: Logger }) {
   const emailAccounts = await getRecentlyLapsedEmailAccounts();
 
