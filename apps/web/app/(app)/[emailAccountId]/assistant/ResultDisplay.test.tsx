@@ -241,6 +241,12 @@ describe("getRuleResultReasonDisplay", () => {
     ).toBe("The sender confirmed the user's order.");
   });
 
+  it("keeps malformed encoded tag-like text", () => {
+    expect(getRuleResultReasonDisplay("&lt;script text").reason).toBe(
+      "<script text",
+    );
+  });
+
   it("keeps comparison text that only looks like angle brackets", () => {
     expect(
       getRuleResultReasonDisplay("Priority is < 3 and score > 5.").reason,
