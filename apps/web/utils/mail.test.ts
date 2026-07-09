@@ -316,6 +316,7 @@ describe("getEmailClient", () => {
       "something",
     ],
     ["Outlook-style message IDs", "<BLUPR01MB1234@outlook.com>", "outlook.com"],
+    ["missing host", "not-a-message-id", "unknown"],
   ])("identifies %s", (_name, messageId, expected) => {
     expect(getEmailClient(messageId)).toBe(expected);
   });

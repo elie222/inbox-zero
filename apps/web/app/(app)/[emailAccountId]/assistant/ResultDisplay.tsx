@@ -364,7 +364,10 @@ function stripHtmlTagsFromReason(reason: string) {
     }
 
     const tagEnd = reason.indexOf(">", tagStart + tagName.length);
-    if (tagEnd === -1) break;
+    if (tagEnd === -1) {
+      plainText += char;
+      continue;
+    }
 
     if (BLOCK_REASON_TAGS.has(tagName)) plainText += " ";
     index = tagEnd;

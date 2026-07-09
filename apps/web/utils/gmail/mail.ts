@@ -389,13 +389,20 @@ function renderReplyBodyAsPlainText(textContent?: string) {
     .trim();
 }
 
-function stripHtmlTagsForPlainText(html: string) {
+export function stripHtmlTagsForPlainText(html: string) {
   let plainText = "";
 
   for (let index = 0; index < html.length; index++) {
     const char = html[index];
     if (char !== "<") {
       plainText += char;
+      continue;
+    }
+
+    if (html.startsWith("<!--", index)) {
+      const commentEnd = html.indexOf("-->", index + 4);
+      if (commentEnd === -1) break;
+      index = commentEnd + 2;
       continue;
     }
 
@@ -408,7 +415,10 @@ function stripHtmlTagsForPlainText(html: string) {
     }
 
     const tagEnd = html.indexOf(">", tagStart + tagName.length);
-    if (tagEnd === -1) break;
+    if (tagEnd === -1) {
+      plainText += char;
+      continue;
+    }
 
     if (tagName === "br" || (isClosingTag && tagName === "p")) {
       plainText += "\n";

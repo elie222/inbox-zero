@@ -241,8 +241,10 @@ describe("getRuleResultReasonDisplay", () => {
     ).toBe("The sender confirmed the user's order.");
   });
 
-  it("removes an unterminated encoded tag instead of rendering it as text", () => {
-    expect(getRuleResultReasonDisplay("&lt;script").reason).toBe("");
+  it("keeps malformed encoded tag-like text", () => {
+    expect(getRuleResultReasonDisplay("&lt;script text").reason).toBe(
+      "<script text",
+    );
   });
 
   it("keeps comparison text that only looks like angle brackets", () => {
