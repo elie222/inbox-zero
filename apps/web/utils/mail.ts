@@ -12,6 +12,10 @@ export function parseReply(plainText: string) {
   return result;
 }
 
+export function hasQuotedReplyContent(plainText: string): boolean {
+  return new EmailReplyParser().read(plainText).getQuotedText().length > 0;
+}
+
 const IMAGE_ALT_MAX_LENGTH = 160;
 const IMAGE_PLACEHOLDER = "[image]";
 const GENERIC_IMAGE_ALT_TEXT_PATTERN =
