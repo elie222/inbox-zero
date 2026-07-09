@@ -20,13 +20,18 @@ const MAX_ACCOUNTS_PER_RUN = 500;
 const NOTIFY_CONCURRENCY = 10;
 
 export async function notifyLapsedWatches({ logger }: { logger: Logger }) {
-  const emailAccounts = await getRecentlyLapsedEmailAccounts();
+  const fetched = await getRecentlyLapsedEmailAccounts();
 
-  if (!emailAccounts.length) return { notified: 0 };
+  if (!fetched.length) return { notified: 0 };
+
+  const truncated = fetched.length > MAX_ACCOUNTS_PER_RUN;
+  const emailAccounts = truncated
+    ? fetched.slice(0, MAX_ACCOUNTS_PER_RUN)
+    : fetched;
 
   logger.info("Found recently lapsed watch accounts", {
     count: emailAccounts.length,
-    truncated: emailAccounts.length === MAX_ACCOUNTS_PER_RUN,
+    truncated,
   });
 
   let notified = 0;
@@ -94,6 +99,9 @@ async function getRecentlyLapsedEmailAccounts() {
         },
       },
     },
-    take: MAX_ACCOUNTS_PER_RUN,
+    // Oldest expirations first, so a batch capped below the true match count
+    // still notifies the accounts closest to aging out of the window.
+    orderBy: { watchEmailsExpirationDate: "asc" },
+    take: MAX_ACCOUNTS_PER_RUN + 1,
   });
 }

@@ -124,4 +124,42 @@ describe("notifyLapsedWatches", () => {
       expect.objectContaining({ emailAccountId: "email-account-1" }),
     );
   });
+
+  it("queries oldest-expired-first and requests one extra row to detect truncation", async () => {
+    prisma.emailAccount.findMany.mockResolvedValue([]);
+
+    await notifyLapsedWatches({ logger });
+
+    expect(prisma.emailAccount.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: { watchEmailsExpirationDate: "asc" },
+        take: 501,
+      }),
+    );
+  });
+
+  it("processes all 500 accounts when the match count exactly equals the cap", async () => {
+    const exactlyCapped = Array.from({ length: 500 }, (_, i) =>
+      getLapsedEmailAccount({ id: `email-account-${i}`, userId: `user-${i}` }),
+    );
+    prisma.emailAccount.findMany.mockResolvedValue(exactlyCapped as any);
+
+    const result = await notifyLapsedWatches({ logger });
+
+    expect(result).toEqual({ notified: 500 });
+  });
+
+  it("drops the extra row fetched to detect truncation instead of processing it", async () => {
+    const overCapped = Array.from({ length: 501 }, (_, i) =>
+      getLapsedEmailAccount({ id: `email-account-${i}`, userId: `user-${i}` }),
+    );
+    prisma.emailAccount.findMany.mockResolvedValue(overCapped as any);
+
+    const result = await notifyLapsedWatches({ logger });
+
+    expect(result).toEqual({ notified: 500 });
+    expect(addUserErrorMessageWithNotification).not.toHaveBeenCalledWith(
+      expect.objectContaining({ emailAccountId: "email-account-500" }),
+    );
+  });
 });
