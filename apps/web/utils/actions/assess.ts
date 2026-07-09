@@ -3,17 +3,15 @@
 import prisma from "@/utils/prisma";
 import { assessUser } from "@/utils/assess";
 import { aiAnalyzeWritingStyle } from "@/utils/ai/knowledge/writing-style";
+import { selectWritingStyleSampleMessages } from "@/utils/ai/knowledge/select-writing-style-samples";
 import { formatBulletList } from "@/utils/string";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { actionClient } from "@/utils/actions/safe-action";
 import { createEmailProvider } from "@/utils/email/provider";
 import { SafeError } from "@/utils/error";
-import { emailToContent, hasQuotedReplyContent } from "@/utils/mail";
-import type { ParsedMessage } from "@/utils/types";
 
 const SENT_MESSAGE_SAMPLE_POOL_SIZE = 60;
 const STYLE_SAMPLE_SIZE = 20;
-const MIN_REPLY_SAMPLES_FOR_STYLE = 5;
 
 // to help with onboarding and provide the best flow to new users
 export const assessAction = actionClient
@@ -108,15 +106,3 @@ export const analyzeWritingStyleAction = actionClient
 
     return { success: true };
   });
-
-export function selectWritingStyleSampleMessages(
-  sentMessages: ParsedMessage[],
-) {
-  const replyMessages = sentMessages.filter((message) =>
-    hasQuotedReplyContent(emailToContent(message, { maxLength: 0 })),
-  );
-
-  return replyMessages.length >= MIN_REPLY_SAMPLES_FOR_STYLE
-    ? replyMessages
-    : sentMessages;
-}

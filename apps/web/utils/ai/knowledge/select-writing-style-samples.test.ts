@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
-import { selectWritingStyleSampleMessages } from "./assess";
+import { selectWritingStyleSampleMessages } from "./select-writing-style-samples";
 
 describe("selectWritingStyleSampleMessages", () => {
   it("keeps only in-thread replies when there are enough of them", () => {
