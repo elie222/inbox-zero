@@ -38,52 +38,45 @@ const selectionSchema = z.object({
     ),
 });
 
-/**
- * Narrows a candidate pool (pre-sorted by scope priority) down to the
- * memories worth injecting into the draft prompt. Falls back to the
- * scope-priority order when AI selection fails.
- */
 export async function selectReplyMemoriesForEmail<
   T extends ReplyMemoryCandidate,
 >({
-  candidates,
+  prioritizedCandidates,
   emailContent,
   emailAccount,
   logger,
 }: {
-  candidates: T[];
+  prioritizedCandidates: T[];
   emailContent: string;
   emailAccount: EmailAccountWithAI;
   logger: Logger;
 }): Promise<T[]> {
-  if (candidates.length <= MAX_SELECTED_REPLY_MEMORIES) return candidates;
+  if (prioritizedCandidates.length <= MAX_SELECTED_REPLY_MEMORIES) {
+    return prioritizedCandidates;
+  }
 
   const selectedIds = await aiSelectRelevantReplyMemories({
-    candidates,
+    candidates: prioritizedCandidates,
     emailContent,
     emailAccount,
     logger,
   });
 
-  // Selection failed; fall back to scope-priority + recency.
   if (selectedIds === null) {
-    return candidates.slice(0, MAX_SELECTED_REPLY_MEMORIES);
+    return prioritizedCandidates.slice(0, MAX_SELECTED_REPLY_MEMORIES);
   }
 
   const candidatesById = new Map(
-    candidates.map((memory) => [memory.id, memory]),
+    prioritizedCandidates.map((memory) => [memory.id, memory]),
   );
 
-  // Keep the model's most-relevant-first ordering.
+  // Keep the model's most-relevant-first ordering rather than reverting to
+  // prioritizedCandidates' scope-priority order.
   return selectedIds
     .map((id) => candidatesById.get(id))
     .filter((memory): memory is T => memory !== undefined);
 }
 
-/**
- * Returns the selected memory ids, or null on failure so callers can fall
- * back to heuristic selection.
- */
 export async function aiSelectRelevantReplyMemories({
   candidates,
   emailContent,

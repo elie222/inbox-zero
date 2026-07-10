@@ -4,6 +4,7 @@ import {
   emailToContent,
   convertEmailHtmlToText,
   parseReply,
+  hasQuotedReplyContent,
 } from "./mail";
 
 describe("emailToContent", () => {
@@ -294,11 +295,37 @@ On Jan 1, 2024, someone@example.com wrote:
   });
 });
 
+describe("hasQuotedReplyContent", () => {
+  it("returns true for a reply quoting an earlier message", () => {
+    const plainText = `Thanks, that works for me.
+
+On Jan 1, 2024, someone@example.com wrote:
+> Does tomorrow work?`;
+
+    expect(hasQuotedReplyContent(plainText)).toBe(true);
+  });
+
+  it("returns false for a freshly composed message", () => {
+    const plainText = "Hey team, just wanted to check in on the project.";
+    expect(hasQuotedReplyContent(plainText)).toBe(false);
+  });
+});
+
 describe("getEmailClient", () => {
   it.each([
     ["Gmail", "<abc123@mail.gmail.com>", "gmail"],
     ["Superhuman", "<msg@we.are.superhuman.com>", "superhuman"],
     ["Shortwave", "<email@mail.shortwave.com>", "shortwave"],
+    [
+      "lookalike Gmail host",
+      "<abc123@mail.gmail.com.attacker.example>",
+      "mail.gmail.com.attacker.example",
+    ],
+    [
+      "Gmail string in URL path",
+      "<abc123@attacker.example/mail.gmail.com>",
+      "attacker.example",
+    ],
     ["generic email client", "<message@company.com>", "company.com"],
     [
       "message IDs with multiple @ symbols",
@@ -306,6 +333,7 @@ describe("getEmailClient", () => {
       "something",
     ],
     ["Outlook-style message IDs", "<BLUPR01MB1234@outlook.com>", "outlook.com"],
+    ["missing host", "not-a-message-id", "unknown"],
   ])("identifies %s", (_name, messageId, expected) => {
     expect(getEmailClient(messageId)).toBe(expected);
   });
