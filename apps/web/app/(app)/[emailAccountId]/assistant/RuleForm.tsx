@@ -12,6 +12,7 @@ import { type SubmitHandler, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { usePostHog } from "posthog-js/react";
 import { env } from "@/env";
+import { isDeleteEmailActionEnabled } from "@/utils/delete-email-action";
 import {
   PencilIcon,
   TrashIcon,
@@ -928,7 +929,7 @@ function getRuleEditorActions(actions: CreateRuleBody["actions"]) {
     );
   }
 
-  if (!env.NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED) {
+  if (!isDeleteEmailActionEnabled()) {
     filteredActions = filteredActions.filter(
       (action) => action.type !== ActionType.DELETE,
     );
@@ -986,7 +987,7 @@ export function getRuleActionTypeOptions({
       label: ACTION_TYPE_LABELS[ActionType.ARCHIVE],
       value: ActionType.ARCHIVE,
     },
-    ...(env.NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED ||
+    ...(isDeleteEmailActionEnabled() ||
     existingActionTypes.includes(ActionType.DELETE)
       ? [
           {
