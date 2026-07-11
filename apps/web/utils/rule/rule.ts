@@ -30,6 +30,10 @@ import {
   ensureWebhookActionEnabled,
   hasWebhookAction,
 } from "@/utils/webhook-action";
+import {
+  ensureDeleteEmailActionEnabled,
+  hasDeleteEmailAction,
+} from "@/utils/delete-email-action";
 import { assertNoSenderOnlyOverlap } from "@/utils/rule/sender-scope-overlap";
 
 type CreateRuleEnablement =
@@ -240,6 +244,7 @@ export async function createRuleWithResolvedActions({
   skipSenderOnlyOverlapCheck?: boolean;
 }): Promise<RuleWithRelations> {
   assertWebhookActionsAllowed(actions);
+  assertDeleteEmailActionsAllowed(actions);
 
   if (!skipSenderOnlyOverlapCheck) {
     await assertNoSenderOnlyOverlap({ emailAccountId, rule: data });
@@ -292,6 +297,7 @@ export async function replaceRuleWithResolvedActions({
   actions: RuleActionCreateData[];
 }): Promise<RuleWithRelations> {
   assertWebhookActionsAllowed(actions);
+  assertDeleteEmailActionsAllowed(actions);
 
   const existingRule = await prisma.rule.findUnique({
     where: { id: ruleId, emailAccountId },
@@ -370,6 +376,7 @@ export async function createRule({
     });
 
     assertWebhookActionsAllowed(result.actions);
+    assertDeleteEmailActionsAllowed(result.actions);
 
     await assertNoSenderOnlyOverlap({
       emailAccountId,
@@ -452,6 +459,7 @@ export async function updateRule({
     });
 
     assertWebhookActionsAllowed(result.actions);
+    assertDeleteEmailActionsAllowed(result.actions);
 
     validateLowTrustStaticFromOutboundActions({
       from: result.condition.static?.from,
@@ -595,6 +603,7 @@ export async function updateRuleActions({
   logger: Logger;
 }) {
   assertWebhookActionsAllowed(actions);
+  assertDeleteEmailActionsAllowed(actions);
 
   const existingRule = await prisma.rule.findFirst({
     where: { id: ruleId, emailAccountId },
@@ -770,6 +779,13 @@ function assertWebhookActionsAllowed(
 ) {
   if (!hasWebhookAction(actions)) return;
   ensureWebhookActionEnabled();
+}
+
+function assertDeleteEmailActionsAllowed(
+  actions: ReadonlyArray<{ type: ActionType | string }>,
+) {
+  if (!hasDeleteEmailAction(actions)) return;
+  ensureDeleteEmailActionEnabled();
 }
 
 async function mapActionFields(

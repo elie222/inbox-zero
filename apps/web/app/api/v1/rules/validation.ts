@@ -6,6 +6,10 @@ import {
   isWebhookActionEnabled,
   WEBHOOK_ACTION_DISABLED_MESSAGE,
 } from "@/utils/webhook-action";
+import {
+  DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
+  isDeleteEmailActionEnabled,
+} from "@/utils/delete-email-action";
 
 const conditionSchema = z
   .object({
@@ -48,6 +52,7 @@ const ruleActionTypeSchema = z.enum([
   ActionType.MOVE_FOLDER,
   ActionType.NOTIFY_MESSAGING_CHANNEL,
   ActionType.NOTIFY_SENDER,
+  ActionType.DELETE,
 ]);
 
 const actionSchema = z
@@ -77,6 +82,15 @@ const actionSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: WEBHOOK_ACTION_DISABLED_MESSAGE,
+        path: ["type"],
+      });
+      return;
+    }
+
+    if (action.type === ActionType.DELETE && !isDeleteEmailActionEnabled()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
         path: ["type"],
       });
       return;

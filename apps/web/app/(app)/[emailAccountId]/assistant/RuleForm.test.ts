@@ -8,6 +8,7 @@ vi.mock("@/env", () => ({
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: true,
+    NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED: false,
     NEXT_PUBLIC_IS_RESEND_CONFIGURED: true,
     EMAIL_ENCRYPT_SECRET: "test-secret",
     EMAIL_ENCRYPT_SALT: "test-salt",
@@ -81,5 +82,29 @@ describe("getRuleActionTypeOptions", () => {
       ),
     ).toBe(true);
     expect(env.NEXT_PUBLIC_IS_RESEND_CONFIGURED).toBe(true);
+  });
+
+  it("does not expose delete unless the feature is enabled or already configured", () => {
+    const disabledOptions = getRuleActionTypeOptions({
+      provider: "",
+      labelActionText: "Label",
+      systemType: null,
+      existingActionTypes: [],
+    });
+    const existingDeleteOptions = getRuleActionTypeOptions({
+      provider: "",
+      labelActionText: "Label",
+      systemType: null,
+      existingActionTypes: [ActionType.DELETE],
+    });
+
+    expect(
+      disabledOptions.some((option) => option.value === ActionType.DELETE),
+    ).toBe(false);
+    expect(
+      existingDeleteOptions.some(
+        (option) => option.value === ActionType.DELETE,
+      ),
+    ).toBe(true);
   });
 });

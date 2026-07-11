@@ -7,6 +7,10 @@ import {
   isWebhookActionEnabled,
   WEBHOOK_ACTION_DISABLED_MESSAGE,
 } from "@/utils/webhook-action";
+import {
+  DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
+  isDeleteEmailActionEnabled,
+} from "@/utils/delete-email-action";
 import { ORGANIZATION_RULE_ACTION_TYPES } from "@/utils/organizations/rule-action-types";
 
 const organizationRuleActionType = z.enum(ORGANIZATION_RULE_ACTION_TYPES);
@@ -70,6 +74,13 @@ export const organizationRuleActionSchema = z
           path: ["url"],
         });
       }
+    }
+    if (data.type === ActionType.DELETE && !isDeleteEmailActionEnabled()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
+        path: ["type"],
+      });
     }
     if (data.type === ActionType.MOVE_FOLDER && !data.folderName?.trim()) {
       ctx.addIssue({

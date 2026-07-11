@@ -9,6 +9,7 @@ const SUPPORTED_DELAYED_ACTIONS: ActionType[] = [
   ActionType.FORWARD,
   ActionType.MARK_READ,
   ActionType.STAR,
+  ActionType.DELETE,
   ActionType.MOVE_FOLDER,
 ];
 

@@ -16,6 +16,10 @@ import {
   WEBHOOK_ACTION_DISABLED_MESSAGE,
 } from "@/utils/webhook-action";
 import {
+  DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
+  isDeleteEmailActionEnabled,
+} from "@/utils/delete-email-action";
+import {
   AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
   INVALID_STATIC_FROM_MESSAGE,
   isInvalidStaticFromValue,
@@ -81,6 +85,7 @@ const zodActionType = z.enum([
   ActionType.CALL_WEBHOOK,
   ActionType.MARK_READ,
   ActionType.STAR,
+  ActionType.DELETE,
   ActionType.DIGEST,
   ActionType.MOVE_FOLDER,
   ActionType.NOTIFY_SENDER,
@@ -152,6 +157,15 @@ const zodAction = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: WEBHOOK_ACTION_DISABLED_MESSAGE,
+        path: ["type"],
+      });
+      return;
+    }
+
+    if (data.type === ActionType.DELETE && !isDeleteEmailActionEnabled()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
         path: ["type"],
       });
       return;
@@ -394,6 +408,15 @@ const importedAction = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: WEBHOOK_ACTION_DISABLED_MESSAGE,
+        path: ["type"],
+      });
+      return;
+    }
+
+    if (data.type === ActionType.DELETE && !isDeleteEmailActionEnabled()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
         path: ["type"],
       });
       return;

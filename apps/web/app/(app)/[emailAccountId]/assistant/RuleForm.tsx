@@ -920,11 +920,21 @@ function restorePersistedActionSequence({
 }
 
 function getRuleEditorActions(actions: CreateRuleBody["actions"]) {
+  let filteredActions = actions;
+
   if (env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED === false) {
-    return actions.filter((action) => action.type !== ActionType.CALL_WEBHOOK);
+    filteredActions = filteredActions.filter(
+      (action) => action.type !== ActionType.CALL_WEBHOOK,
+    );
   }
 
-  return actions;
+  if (!env.NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED) {
+    filteredActions = filteredActions.filter(
+      (action) => action.type !== ActionType.DELETE,
+    );
+  }
+
+  return filteredActions;
 }
 
 type ActionTypeOption = {
@@ -976,6 +986,15 @@ export function getRuleActionTypeOptions({
       label: ACTION_TYPE_LABELS[ActionType.ARCHIVE],
       value: ActionType.ARCHIVE,
     },
+    ...(env.NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED ||
+    existingActionTypes.includes(ActionType.DELETE)
+      ? [
+          {
+            label: ACTION_TYPE_LABELS[ActionType.DELETE],
+            value: ActionType.DELETE,
+          },
+        ]
+      : []),
     {
       label: ACTION_TYPE_LABELS[ActionType.MARK_READ],
       value: ActionType.MARK_READ,
