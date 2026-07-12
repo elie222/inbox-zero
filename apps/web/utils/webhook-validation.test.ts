@@ -327,13 +327,6 @@ describe("WEBHOOK_ALLOW_PRIVATE_IPS flag", () => {
       vi.stubEnv("WEBHOOK_ALLOW_PRIVATE_IPS", "true");
     });
 
-    // NOTE: private-IP *literals* are exercised through validateWebhookUrlFormat
-    // (the creation-time entry point used by rule.ts). They are intentionally
-    // not tested through validateWebhookUrl: dns.resolve throws ENOTFOUND on any
-    // IP literal (public or private), so validateWebhookUrl rejects all bare-IP
-    // literals at send time regardless of this flag — a pre-existing quirk that
-    // is out of scope here. Hostname targets (incl. Tailscale MagicDNS) work
-    // end-to-end and are covered below.
     it("allows private IPv4 literals (validateWebhookUrlFormat)", () => {
       expect(validateWebhookUrlFormat("https://192.168.1.10/hook").valid).toBe(
         true,
@@ -362,6 +355,18 @@ describe("WEBHOOK_ALLOW_PRIVATE_IPS flag", () => {
       expect(validateWebhookUrlFormat("https://[fd00::1]/hook").valid).toBe(
         true,
       );
+    });
+
+    it.each([
+      "https://192.168.1.10/hook",
+      "https://[fd00::1]/hook",
+    ])("allows private IP literal delivery for %s", async (url) => {
+      const enotfound = Object.assign(new Error("ENOTFOUND"), {
+        code: "ENOTFOUND",
+      });
+      vi.mocked(dns.resolve).mockRejectedValue(enotfound);
+
+      await expect(validateWebhookUrl(url)).resolves.toEqual({ valid: true });
     });
 
     it("allows hostnames that resolve to a private IP", async () => {

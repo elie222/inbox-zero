@@ -1,4 +1,5 @@
 import * as dns from "node:dns/promises";
+import { isIP } from "node:net";
 
 // Private/internal IP ranges that should be blocked
 const PRIVATE_IP_RANGES = [
@@ -133,6 +134,12 @@ export async function validateWebhookUrl(
 
   const parsedUrl = new URL(url);
   const hostname = parsedUrl.hostname.toLowerCase();
+  const ipAddress =
+    hostname.startsWith("[") && hostname.endsWith("]")
+      ? hostname.slice(1, -1)
+      : hostname;
+
+  if (isIP(ipAddress)) return { valid: true };
 
   // Resolve DNS and check if any resolved IP is private
   // Check both IPv4 (A records) and IPv6 (AAAA records) to prevent bypass
@@ -169,17 +176,11 @@ export async function validateWebhookUrl(
     // IPv6 resolution failure is OK if we have IPv4 addresses
   }
 
-  // If no addresses were resolved at all, the hostname might be an IP literal
-  // which we've already validated above
   if (allAddresses.length === 0) {
-    const isIpLiteral =
-      IPV4_PATTERN.test(hostname) || IPV6_PATTERN.test(hostname);
-    if (!isIpLiteral) {
-      return {
-        valid: false,
-        error: "Webhook URL hostname could not be resolved",
-      };
-    }
+    return {
+      valid: false,
+      error: "Webhook URL hostname could not be resolved",
+    };
   }
 
   // Check all resolved addresses for private IPs.
