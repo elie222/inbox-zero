@@ -182,16 +182,6 @@ export function getGmailBasicSearchUrl(emailAddress: string, query: string) {
   );
 }
 
-// export function getGmailCreateFilterUrl(
-//   search: string,
-//   emailAddress?: string | null,
-// ) {
-//   return `${getGmailBaseUrl(
-//     emailAddress,
-//     emailAddress,
-//   )}/#create-filter/from=${encodeURIComponent(search)}`;
-// }
-
 export function getGmailFilterSettingsUrl(emailAddress?: string | null) {
   return getGmailUrlForFragment("settings/filters", emailAddress);
 }
