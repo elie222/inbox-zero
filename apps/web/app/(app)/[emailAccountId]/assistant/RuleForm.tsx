@@ -929,12 +929,6 @@ function getRuleEditorActions(actions: CreateRuleBody["actions"]) {
     );
   }
 
-  if (!isDeleteEmailActionEnabled()) {
-    filteredActions = filteredActions.filter(
-      (action) => action.type !== ActionType.DELETE,
-    );
-  }
-
   return filteredActions;
 }
 
@@ -987,7 +981,8 @@ export function getRuleActionTypeOptions({
       label: ACTION_TYPE_LABELS[ActionType.ARCHIVE],
       value: ActionType.ARCHIVE,
     },
-    ...(isDeleteEmailActionEnabled()
+    ...(isDeleteEmailActionEnabled() ||
+    existingActionTypes.includes(ActionType.DELETE)
       ? [
           {
             label: ACTION_TYPE_LABELS[ActionType.DELETE],

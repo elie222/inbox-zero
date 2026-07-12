@@ -146,7 +146,13 @@ const zodAction = z
     staticAttachments: z.array(attachmentSourceInputSchema).optional(),
   })
   .superRefine((data, ctx) => {
-    if (addDisabledRuleActionIssue(data.type, ctx)) return;
+    if (
+      addDisabledRuleActionIssue(data.type, ctx, {
+        allowExisting: Boolean(data.id),
+      })
+    ) {
+      return;
+    }
 
     if (data.type === ActionType.LABEL) {
       const labelValue =

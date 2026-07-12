@@ -27,8 +27,9 @@ import {
 import type { RuleWithRelations } from "@/utils/rule/types";
 import type { RuleConditions } from "@/utils/condition";
 import {
+  assertRuleActionUpdateEnabled,
   assertRuleActionsEnabled,
-  getDisabledRuleActionTypes,
+  getDisabledRuleActionTypesToPreserve,
 } from "@/utils/rule-action-feature-gates";
 import { hasWebhookAction } from "@/utils/webhook-action";
 import { assertNoSenderOnlyOverlap } from "@/utils/rule/sender-scope-overlap";
@@ -292,12 +293,15 @@ export async function replaceRuleWithResolvedActions({
   data: RuleRecordData;
   actions: RuleActionCreateData[];
 }): Promise<RuleWithRelations> {
-  assertRuleActionsEnabled(actions);
-
   const existingRule = await prisma.rule.findUnique({
     where: { id: ruleId, emailAccountId },
-    select: RULE_SCOPE_SELECT,
+    select: {
+      ...RULE_SCOPE_SELECT,
+      actions: { select: { type: true } },
+    },
   });
+
+  assertRuleActionUpdateEnabled(actions, existingRule?.actions ?? []);
 
   await assertNoSenderOnlyOverlap({
     emailAccountId,
@@ -591,16 +595,19 @@ export async function updateRuleActions({
   emailAccountId: string;
   logger: Logger;
 }) {
-  assertRuleActionsEnabled(actions);
-
   const existingRule = await prisma.rule.findFirst({
     where: { id: ruleId, emailAccountId },
-    select: { from: true },
+    select: {
+      from: true,
+      actions: { select: { type: true } },
+    },
   });
 
   if (!existingRule) {
     throw new Error("Rule not found");
   }
+
+  assertRuleActionUpdateEnabled(actions, existingRule.actions);
 
   validateLowTrustStaticFromOutboundActions({
     from: existingRule.from,
@@ -763,7 +770,7 @@ function validateLowTrustStaticFromOutboundActions({
 }
 
 function getReplaceableRuleActionsWhere() {
-  const disabledActionTypes = getDisabledRuleActionTypes();
+  const disabledActionTypes = getDisabledRuleActionTypesToPreserve();
   return disabledActionTypes.length
     ? { type: { notIn: disabledActionTypes } }
     : {};

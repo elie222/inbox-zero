@@ -528,9 +528,12 @@ describe("replaceRuleWithResolvedActions", () => {
     expect(prisma.group.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("preserves existing delete actions when the feature is disabled", async () => {
+  it("allows removing an existing delete action when the feature is disabled", async () => {
     mockEnv.deleteEmailActionEnabled = false;
-    prisma.rule.findUnique.mockResolvedValue({ groupId: null } as any);
+    prisma.rule.findUnique.mockResolvedValue({
+      groupId: null,
+      actions: [{ type: ActionType.DELETE }],
+    } as any);
     prisma.rule.update.mockResolvedValue({
       id: RULE_ID,
       groupId: null,
@@ -549,23 +552,66 @@ describe("replaceRuleWithResolvedActions", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           actions: expect.objectContaining({
-            deleteMany: {
-              type: { notIn: expect.arrayContaining([ActionType.DELETE]) },
-            },
+            deleteMany: {},
           }),
         }),
       }),
     );
+  });
+
+  it("allows retaining an existing delete action when the feature is disabled", async () => {
+    mockEnv.deleteEmailActionEnabled = false;
+    prisma.rule.findUnique.mockResolvedValue({
+      groupId: null,
+      actions: [{ type: ActionType.DELETE }],
+    } as any);
+    prisma.rule.update.mockResolvedValue({
+      id: RULE_ID,
+      groupId: null,
+      actions: [],
+      group: null,
+    } as any);
+
+    await replaceRuleWithResolvedActions({
+      ruleId: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      data: {},
+      actions: [resolvedDeleteAction()],
+    });
+
+    expect(prisma.rule.update).toHaveBeenCalled();
+  });
+
+  it("rejects adding a delete action when the feature is disabled", async () => {
+    mockEnv.deleteEmailActionEnabled = false;
+    prisma.rule.findUnique.mockResolvedValue({
+      groupId: null,
+      actions: [],
+    } as any);
+
+    await expect(
+      replaceRuleWithResolvedActions({
+        ruleId: RULE_ID,
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        data: {},
+        actions: [resolvedDeleteAction()],
+      }),
+    ).rejects.toThrow(DELETE_EMAIL_ACTION_DISABLED_MESSAGE);
+
+    expect(prisma.rule.update).not.toHaveBeenCalled();
   });
 });
 
 describe("updateRuleActions", () => {
   beforeEach(resetRuleMocks);
 
-  it("preserves existing disabled actions", async () => {
+  it("preserves disabled actions that cannot be edited", async () => {
     mockEnv.webhookActionsEnabled = false;
     mockEnv.deleteEmailActionEnabled = false;
-    prisma.rule.findFirst.mockResolvedValue({ from: null } as any);
+    prisma.rule.findFirst.mockResolvedValue({
+      from: null,
+      actions: [{ type: ActionType.CALL_WEBHOOK }, { type: ActionType.DELETE }],
+    } as any);
     prisma.rule.update.mockResolvedValue({
       id: RULE_ID,
       actions: [],
@@ -586,10 +632,7 @@ describe("updateRuleActions", () => {
           actions: expect.objectContaining({
             deleteMany: {
               type: {
-                notIn: expect.arrayContaining([
-                  ActionType.CALL_WEBHOOK,
-                  ActionType.DELETE,
-                ]),
+                notIn: expect.arrayContaining([ActionType.CALL_WEBHOOK]),
               },
             },
           }),
@@ -953,6 +996,10 @@ function resolvedArchiveAction(): ResolvedRuleAction {
 
 function resolvedWebhookAction(url: string): ResolvedRuleAction {
   return { type: ActionType.CALL_WEBHOOK, url } as ResolvedRuleAction;
+}
+
+function resolvedDeleteAction(): ResolvedRuleAction {
+  return { type: ActionType.DELETE } as ResolvedRuleAction;
 }
 
 function resolvedNotifyMessagingChannelAction(): ResolvedRuleAction {

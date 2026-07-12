@@ -3,6 +3,7 @@ import {
   delayInMinutesSchema,
   createRuleBody,
   type CreateRuleBody,
+  updateRuleBody,
   updateRuleConditionSchema,
 } from "./rule.validation";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
@@ -416,6 +417,18 @@ describe("createRuleBody", () => {
         const result = createRuleBody.safeParse({
           ...validRule,
           actions: [{ type: ActionType.DELETE }],
+        });
+
+        expect(result.success).toBe(true);
+      });
+
+      it("accepts an existing DELETE on update when the feature is disabled", () => {
+        mockEnv.deleteEmailActionEnabled = false;
+
+        const result = updateRuleBody.safeParse({
+          ...validRule,
+          id: "rule-id",
+          actions: [{ id: "action-id", type: ActionType.DELETE }],
         });
 
         expect(result.success).toBe(true);

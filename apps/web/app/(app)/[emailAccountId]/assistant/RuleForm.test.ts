@@ -96,7 +96,7 @@ describe("getRuleActionTypeOptions", () => {
     expect(env.NEXT_PUBLIC_IS_RESEND_CONFIGURED).toBe(true);
   });
 
-  it("only exposes delete when the feature is enabled", () => {
+  it("exposes delete only when enabled or already configured", () => {
     const disabledOptions = getRuleActionTypeOptions({
       provider: "",
       labelActionText: "Label",
@@ -124,7 +124,7 @@ describe("getRuleActionTypeOptions", () => {
       disabledExistingOptions.some(
         (option) => option.value === ActionType.DELETE,
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       enabledOptions.some((option) => option.value === ActionType.DELETE),
     ).toBe(true);
