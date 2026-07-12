@@ -231,6 +231,54 @@ describe("processEvent", () => {
     });
   });
 
+  it("tracks a trial-start conversion from a new trialing subscription", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+
+    await processEvent(
+      subscriptionEvent({
+        id: "evt_trial_started",
+        type: "customer.subscription.created",
+        data: {
+          object: {
+            id: "sub_test",
+            customer: "cus_test",
+            status: "trialing",
+            trial_start: 1_700_000_000,
+            metadata: {
+              conversionAttributionId: "attr_test",
+            },
+            items: {
+              data: [
+                {
+                  quantity: 1,
+                  price: {
+                    id: "price_test",
+                    unit_amount: 2000,
+                    currency: "usd",
+                  },
+                },
+              ],
+            },
+          },
+        } as Stripe.Event.Data,
+      }),
+      logger,
+    );
+
+    expect(mockTrackServerConversionEvent).toHaveBeenCalledWith({
+      name: "trial_started",
+      id: "evt_trial_started:trial_started",
+      timestamp: new Date("2023-11-14T22:13:20.000Z"),
+      attributionId: "attr_test",
+      properties: {
+        planId: "price_test",
+        amount: 2000,
+        currency: "USD",
+      },
+      logger,
+    });
+  });
+
   it("does not track paid subscription conversions for non-conversion updates", async () => {
     mockSyncStripeDataToDb.mockResolvedValue(undefined);
 

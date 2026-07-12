@@ -16,7 +16,7 @@ type ConversionClickIds = {
 };
 
 type ServerConversionEvent = {
-  name: "subscription_created";
+  name: "subscription_created" | "trial_started";
   id: string;
   timestamp: Date;
   attributionId?: string;

@@ -96,6 +96,35 @@ describe("trackServerConversionEvent", () => {
     });
   });
 
+  it("posts trial-start conversion events to the configured private endpoint", async () => {
+    await trackServerConversionEvent({
+      name: "trial_started",
+      id: "evt_trial:trial_started",
+      timestamp: new Date("2026-07-13T00:00:00.000Z"),
+      clickIds: { gclid: "test-gclid" },
+      properties: { planId: "price_test" },
+      logger,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL("https://example.com/rill"),
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
+    expect(body).toEqual({
+      name: "trial_started",
+      id: "evt_trial:trial_started",
+      timestamp: "2026-07-13T00:00:00.000Z",
+      clickIds: { gclid: "test-gclid" },
+      properties: { planId: "price_test" },
+      sourceUrl: "https://example.com",
+    });
+  });
+
   it("sends the shared secret header when configured", async () => {
     envMock.CONVERSION_ANALYTICS_SERVER_SECRET = "secret_test";
 
