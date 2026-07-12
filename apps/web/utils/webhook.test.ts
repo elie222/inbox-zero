@@ -1,26 +1,29 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { SafeError } from "@/utils/error";
-import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
 import { callWebhook } from "./webhook";
 
 vi.mock("@/utils/prisma");
 
 const {
-  ensureWebhookActionEnabledMock,
+  mockEnv,
   httpsRequestMock,
   resolveSafeExternalHttpUrlMock,
   validateWebhookUrlMock,
 } = vi.hoisted(() => ({
-  ensureWebhookActionEnabledMock: vi.fn(),
+  mockEnv: {
+    webhookActionsEnabled: true,
+  },
   httpsRequestMock: vi.fn(),
   resolveSafeExternalHttpUrlMock: vi.fn(),
   validateWebhookUrlMock: vi.fn(),
 }));
 
-vi.mock("@/utils/webhook-action", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/utils/webhook-action")>()),
-  ensureWebhookActionEnabled: ensureWebhookActionEnabledMock,
+vi.mock("@/env", () => ({
+  env: {
+    get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
+      return mockEnv.webhookActionsEnabled;
+    },
+  },
 }));
 
 vi.mock("node:https", () => ({
@@ -32,14 +35,15 @@ vi.mock("@/utils/network/safe-http-url", () => ({
     resolveSafeExternalHttpUrlMock(...args),
 }));
 
-vi.mock("@/utils/webhook-validation", () => ({
+vi.mock("@/utils/webhook-validation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/webhook-validation")>()),
   validateWebhookUrl: (...args: unknown[]) => validateWebhookUrlMock(...args),
 }));
 
 describe("callWebhook", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    ensureWebhookActionEnabledMock.mockImplementation(() => undefined);
+    mockEnv.webhookActionsEnabled = true;
     validateWebhookUrlMock.mockResolvedValue({ valid: true });
     prisma.user.findUnique.mockResolvedValue({
       webhookSecret: "webhook-secret",
@@ -55,9 +59,7 @@ describe("callWebhook", () => {
   });
 
   it("skips existing webhook actions when webhook actions are disabled", async () => {
-    ensureWebhookActionEnabledMock.mockImplementationOnce(() => {
-      throw new SafeError(WEBHOOK_ACTION_DISABLED_MESSAGE);
-    });
+    mockEnv.webhookActionsEnabled = false;
 
     await expect(
       callWebhook("user-1", "https://example.com/webhook", getPayload()),
