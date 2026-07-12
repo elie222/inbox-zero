@@ -86,7 +86,8 @@ describe("callWebhook", () => {
     expect(validateWebhookUrlMock).toHaveBeenCalledWith(
       "https://example.com/webhook",
     );
-    expect(resolveSafeExternalHttpUrlMock).toHaveBeenCalledWith(
+    expect(resolveSafeExternalHttpUrlMock).toHaveBeenCalledTimes(1);
+    expect(resolveSafeExternalHttpUrlMock.mock.calls[0]?.[0]).toBe(
       "https://example.com/webhook",
     );
     expect(httpsRequestMock).toHaveBeenCalledWith(
