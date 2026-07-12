@@ -186,6 +186,20 @@ export async function deleteOrganizationRuleAndMemberCopies({
   });
 }
 
+// Removes the materialized org-rule copies for a member leaving an organization.
+// Personal rules (organizationRuleId null) never match the relation filter.
+export async function deleteMemberOrganizationRuleCopies({
+  emailAccountId,
+  organizationId,
+}: {
+  emailAccountId: string;
+  organizationId: string;
+}) {
+  await prisma.rule.deleteMany({
+    where: { emailAccountId, organizationRule: { organizationId } },
+  });
+}
+
 export async function setOrganizationRuleEnabled({
   organizationRuleId,
   organizationId,

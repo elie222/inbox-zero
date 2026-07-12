@@ -156,19 +156,6 @@ export async function loadAssistantRuleSnapshot({
   };
 }
 
-export async function loadCurrentRulesRevision({
-  emailAccountId,
-}: {
-  emailAccountId: string;
-}) {
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: { rulesRevision: true },
-  });
-
-  return emailAccount?.rulesRevision ?? 0;
-}
-
 export function buildRuleReadState(
   snapshot: AssistantRuleSnapshot,
 ): RuleReadState {

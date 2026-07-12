@@ -57,6 +57,57 @@ describe("collectWindows", () => {
     expect(result.error).toBe("Add at least one available time range.");
   });
 
+  it("returns an error when ranges on the same day overlap", () => {
+    const days = buildDayState([
+      { weekday: 1, startMinutes: 9 * 60, endMinutes: 11 * 60 },
+      { weekday: 1, startMinutes: 10 * 60 + 30, endMinutes: 12 * 60 },
+    ]);
+
+    const result = collectWindows(days);
+
+    expect(result.windows).toBeNull();
+    expect(result.error).toBe("Monday: time ranges overlap.");
+  });
+
+  it("detects overlaps regardless of range order", () => {
+    const days = buildDayState([
+      { weekday: 4, startMinutes: 13 * 60, endMinutes: 15 * 60 },
+      { weekday: 4, startMinutes: 9 * 60, endMinutes: 14 * 60 },
+    ]);
+
+    const result = collectWindows(days);
+
+    expect(result.windows).toBeNull();
+    expect(result.error).toBe("Thursday: time ranges overlap.");
+  });
+
+  it("allows adjacent ranges on the same day", () => {
+    const days = buildDayState([
+      { weekday: 1, startMinutes: 9 * 60, endMinutes: 11 * 60 },
+      { weekday: 1, startMinutes: 11 * 60, endMinutes: 13 * 60 },
+    ]);
+
+    const result = collectWindows(days);
+
+    expect(result.error).toBeNull();
+    expect(result.windows).toEqual([
+      { weekday: 1, startMinutes: 9 * 60, endMinutes: 11 * 60 },
+      { weekday: 1, startMinutes: 11 * 60, endMinutes: 13 * 60 },
+    ]);
+  });
+
+  it("allows overlapping times on different days", () => {
+    const days = buildDayState([
+      { weekday: 1, startMinutes: 9 * 60, endMinutes: 11 * 60 },
+      { weekday: 2, startMinutes: 10 * 60, endMinutes: 12 * 60 },
+    ]);
+
+    const result = collectWindows(days);
+
+    expect(result.error).toBeNull();
+    expect(result.windows).toHaveLength(2);
+  });
+
   it("ignores ranges on disabled days", () => {
     const days = buildDayState([
       { weekday: 1, startMinutes: 9 * 60, endMinutes: 17 * 60 },

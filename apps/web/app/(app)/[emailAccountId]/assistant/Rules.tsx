@@ -10,8 +10,9 @@ import {
   Trash2Icon,
   SparklesIcon,
   CopyIcon,
+  SearchIcon,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader } from "@/components/ui/card";
@@ -31,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
 import { setMemberOrganizationRuleEnabledAction } from "@/utils/actions/organization-rule";
 import { Badge } from "@/components/Badge";
@@ -61,7 +63,6 @@ import {
   SYSTEM_RULE_ORDER,
   getDefaultActions,
 } from "@/utils/rule/consts";
-import { sortRulesForAutomation } from "@/utils/rule/sort";
 import {
   STEP_KEYS,
   getOnboardingStepHref,
@@ -175,13 +176,41 @@ export function Rules({
 
     const userRules = existingRules.filter((rule) => !rule.systemType);
 
-    return sortRulesForAutomation([...systemRulePlaceholders, ...userRules]);
+    const sortedUserRules = userRules.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+    );
+
+    return [...systemRulePlaceholders, ...sortedUserRules];
   }, [data, emailAccountId, provider]);
+
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredRules = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return rules;
+    return rules.filter(
+      (rule) =>
+        rule.name.toLowerCase().includes(query) ||
+        conditionsToString(rule).toLowerCase().includes(query),
+    );
+  }, [rules, searchQuery]);
 
   const hasRules = !!rules?.length;
 
   return (
     <div className="space-y-6">
+      {hasRules && (
+        <div className="relative max-w-xs">
+          <SearchIcon className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search rules..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+      )}
       <Card>
         <LoadingContent loading={isLoading} error={error}>
           {hasRules ? (
@@ -209,7 +238,17 @@ export function Rules({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rules.map((rule) => {
+                {filteredRules.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="py-8 text-center text-muted-foreground"
+                    >
+                      No rules match "{searchQuery}".
+                    </TableCell>
+                  </TableRow>
+                )}
+                {filteredRules.map((rule) => {
                   const isPlaceholder = rule.id.startsWith("placeholder-");
                   const isOrgManaged = !!rule.organizationRuleId;
                   const isDisabledByOrg =
@@ -252,7 +291,9 @@ export function Rules({
                         <div className="flex items-center gap-2">
                           {rule.name}
                           {isOrgManaged && (
-                            <Badge color="blue">Managed by organization</Badge>
+                            <Tooltip content="Managed by Organization">
+                              <Badge color="blue">Org</Badge>
+                            </Tooltip>
                           )}
                         </div>
                       </TableCell>

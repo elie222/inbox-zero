@@ -83,7 +83,7 @@ export function BulkUnsubscribeIllustration() {
     .reduce((sum, sender) => sum + sender.emailCount, 0);
 
   return (
-    <div className="relative flex h-[200px] w-[420px] items-center justify-center gap-6">
+    <div className="relative flex h-[200px] w-full max-w-[420px] items-center justify-center gap-4 sm:gap-6">
       <div className="relative z-10 flex h-[160px] w-[150px] flex-col rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-slate-800">
         <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-700">
           <div className="text-[10px] font-medium text-gray-600 dark:text-gray-300">

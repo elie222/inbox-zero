@@ -15,6 +15,7 @@ type DedupeLogInput = {
   ttlSeconds?: number;
   summaryIntervalSeconds?: number;
   enabled?: boolean;
+  level?: "error" | "warn";
 };
 
 const DEFAULT_TTL_SECONDS = 5 * 60;
@@ -30,9 +31,13 @@ export async function logErrorWithDedupe({
   ttlSeconds = DEFAULT_TTL_SECONDS,
   summaryIntervalSeconds = DEFAULT_SUMMARY_INTERVAL_SECONDS,
   enabled = true,
+  level = "error",
 }: DedupeLogInput): Promise<void> {
+  const log =
+    level === "warn" ? logger.warn.bind(logger) : logger.error.bind(logger);
+
   if (!enabled) {
-    logger.error(message, { ...context, error });
+    log(message, { ...context, error });
     return;
   }
 
@@ -61,11 +66,11 @@ export async function logErrorWithDedupe({
   if (decision.type === "summary") {
     payload.suppressedCount = decision.suppressedCount;
     payload.lastError = getErrorMessage(error);
-    logger.error(message, payload);
+    log(message, payload);
     return;
   }
 
-  logger.error(message, {
+  log(message, {
     ...payload,
     error,
   });

@@ -849,22 +849,12 @@ function ActionCard({
   const moreOptions = (
     <>
       {showDeliveryActions ? (
-        <DropdownMenuItem
-          onClick={(event) => {
-            event.preventDefault();
-            setDeliveryDialogOpen(true);
-          }}
-        >
+        <DropdownMenuItem onClick={() => setDeliveryDialogOpen(true)}>
           {deliverySummary ? "Delivery options" : "Configure delivery"}
         </DropdownMenuItem>
       ) : null}
       {showAttachmentsAction ? (
-        <DropdownMenuItem
-          onClick={(event) => {
-            event.preventDefault();
-            setAttachmentsDialogOpen(true);
-          }}
-        >
+        <DropdownMenuItem onClick={() => setAttachmentsDialogOpen(true)}>
           <PaperclipIcon className="mr-2 size-4" />
           Configure attachments
         </DropdownMenuItem>

@@ -13,6 +13,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import { clearWatchLapsedErrorIfResolved } from "@/utils/error-messages";
 
 export type WatchEmailAccountResult =
   | {
@@ -205,6 +206,20 @@ async function watchEmailAccount(
           ? result.error.message
           : String(result.error),
     };
+  }
+
+  const wasLapsed =
+    !watchEmailsExpirationDate ||
+    new Date(watchEmailsExpirationDate) < new Date();
+
+  if (wasLapsed) {
+    // The watch is healthy again, so clear the lapse error. This lets us
+    // notify again if the account lapses in the future.
+    await clearWatchLapsedErrorIfResolved({
+      userId: user.id,
+      emailAccountId: emailAccount.id,
+      logger,
+    });
   }
 
   return {

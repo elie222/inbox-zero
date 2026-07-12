@@ -46,7 +46,7 @@ describe("handleGmailPermissionsCheck", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it("uses comma-separated stored granted scopes from better-auth in Google OAuth emulation", async () => {
+  it("accepts comma-separated stored scopes in Google OAuth emulation", async () => {
     const oauth = await import("@/utils/google/oauth");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(true);
 

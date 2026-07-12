@@ -100,6 +100,35 @@ describe("removeMemberAction", () => {
     vi.clearAllMocks();
   });
 
+  it("deletes the member's org rule copies scoped to the organization, leaving personal rules untouched", async () => {
+    prisma.member.findUnique.mockResolvedValue({
+      id: "member-2",
+      emailAccountId: "email-account-2",
+      organizationId: "org-1",
+      role: "member",
+    } as any);
+    prisma.member.findFirst.mockResolvedValue({
+      role: "owner",
+      emailAccountId: "email-account-1",
+      emailAccount: { user: { premium: null } },
+    } as any);
+    prisma.rule.deleteMany.mockResolvedValue({ count: 2 } as any);
+    prisma.member.delete.mockResolvedValue({} as any);
+
+    const result = await removeMemberAction({ memberId: "member-2" });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.rule.deleteMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "email-account-2",
+        organizationRule: { organizationId: "org-1" },
+      },
+    });
+    expect(prisma.member.delete).toHaveBeenCalledWith({
+      where: { id: "member-2" },
+    });
+  });
+
   it("prevents callers from removing themselves", async () => {
     prisma.member.findUnique.mockResolvedValue({
       id: "member-1",

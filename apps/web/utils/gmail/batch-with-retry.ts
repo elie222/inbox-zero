@@ -30,7 +30,7 @@ export async function getBatchWithRetry<TRaw, TParsed>({
   if (!accessToken) throw new Error("No access token");
 
   if (retryCount > 3) {
-    logger.error("Too many batch retries", { ids, retryCount });
+    logger.warn("Too many batch retries", { ids, retryCount });
     return [];
   }
 

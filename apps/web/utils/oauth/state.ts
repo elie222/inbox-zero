@@ -122,10 +122,15 @@ export const getMcpOAuthStateType = (integration: IntegrationKey) =>
   `${integration}-mcp`;
 
 function signOAuthStatePayload(payloadEncoded: string): string {
-  return crypto
+  // OAuth state needs an HMAC signature for integrity, not a password hashing
+  // algorithm.
+  // codeql[js/insufficient-password-hash]
+  const signature = crypto
     .createHmac("sha256", getOAuthStateSigningSecret())
     .update(payloadEncoded)
     .digest("base64url");
+
+  return signature;
 }
 
 function getOAuthStateSigningSecret(): string {

@@ -444,7 +444,7 @@ async function sendSlackRuleNotificationWithContext({
     await prisma.executedAction.update({
       where: { id: context.id },
       data: {
-        messagingMessageId: rootMessageId ?? responseTs ?? null,
+        messagingMessageId: responseTs ?? rootMessageId ?? null,
         messagingMessageSentAt: new Date(),
         messagingMessageStatus: MessagingMessageStatus.SENT,
       },
@@ -2621,12 +2621,11 @@ function toCalendarPreviewMessage(
 }
 
 function stripSlackFormatting(text: string) {
-  return text
+  const slackText = text
     .replace(/<([^|>]+)\|([^>]+)>/g, "$2: $1")
-    .replace(/\*([^*]+)\*/g, "$1")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+    .replace(/\*([^*]+)\*/g, "$1");
+
+  return he.decode(slackText);
 }
 
 function getLinkedProviderLimitationText({

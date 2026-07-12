@@ -315,7 +315,7 @@ async function generateDraftContent(
       logger,
     }),
     getReplyMemoriesForPrompt({
-      emailAccountId: emailAccount.id,
+      emailAccount,
       senderEmail,
       emailContent: lastMessageContent,
       logger,

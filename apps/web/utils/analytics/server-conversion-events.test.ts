@@ -6,6 +6,7 @@ const { envMock } = vi.hoisted(() => ({
   envMock: {
     NEXT_PUBLIC_BASE_URL: "https://example.com",
     CONVERSION_ANALYTICS_SERVER_URL: "/rill",
+    CONVERSION_ANALYTICS_SERVER_SECRET: undefined as string | undefined,
   },
 }));
 
@@ -14,7 +15,9 @@ vi.mock("@/env", () => ({
 }));
 
 import {
+  CONVERSION_CLICK_IDS_METADATA_KEY,
   CONVERSION_ATTRIBUTION_METADATA_KEY,
+  getConversionClickMetadataFromUtms,
   getStripeSubscriptionConversionProperties,
   trackServerConversionEvent,
 } from "@/utils/analytics/server-conversion-events";
@@ -28,6 +31,7 @@ describe("trackServerConversionEvent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envMock.CONVERSION_ANALYTICS_SERVER_URL = "/rill";
+    envMock.CONVERSION_ANALYTICS_SERVER_SECRET = undefined;
     vi.stubGlobal("fetch", fetchMock);
     fetchMock.mockResolvedValue({ ok: true });
   });
@@ -55,6 +59,9 @@ describe("trackServerConversionEvent", () => {
       id: "evt_paid",
       timestamp: new Date("2026-06-08T00:00:00.000Z"),
       attributionId: "attr_test",
+      clickIds: {
+        gclid: "test-gclid",
+      },
       properties: {
         planId: "price_test",
         amount: 2900,
@@ -77,6 +84,9 @@ describe("trackServerConversionEvent", () => {
       id: "evt_paid",
       timestamp: "2026-06-08T00:00:00.000Z",
       attributionId: "attr_test",
+      clickIds: {
+        gclid: "test-gclid",
+      },
       properties: {
         planId: "price_test",
         amount: 2900,
@@ -84,6 +94,27 @@ describe("trackServerConversionEvent", () => {
       },
       sourceUrl: "https://example.com",
     });
+  });
+
+  it("sends the shared secret header when configured", async () => {
+    envMock.CONVERSION_ANALYTICS_SERVER_SECRET = "secret_test";
+
+    await trackServerConversionEvent({
+      name: "subscription_created",
+      id: "evt_paid",
+      timestamp: new Date("2026-06-08T00:00:00.000Z"),
+      logger,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL("https://example.com/rill"),
+      expect.objectContaining({
+        headers: {
+          "Content-Type": "application/json",
+          "x-conversion-analytics-secret": "secret_test",
+        },
+      }),
+    );
   });
 
   it.each([
@@ -127,7 +158,14 @@ describe("trackServerConversionEvent", () => {
 describe("getStripeSubscriptionConversionProperties", () => {
   it("extracts attribution and plan values from a Stripe subscription", () => {
     const subscription = {
-      metadata: { [CONVERSION_ATTRIBUTION_METADATA_KEY]: "attr_test" },
+      metadata: {
+        [CONVERSION_ATTRIBUTION_METADATA_KEY]: "attr_test",
+        [CONVERSION_CLICK_IDS_METADATA_KEY]: JSON.stringify({
+          gclid: " test-gclid ",
+          gbraid: "test-gbraid",
+          wbraid: "test-wbraid",
+        }),
+      },
       items: {
         data: [
           {
@@ -144,11 +182,41 @@ describe("getStripeSubscriptionConversionProperties", () => {
 
     expect(getStripeSubscriptionConversionProperties(subscription)).toEqual({
       attributionId: "attr_test",
+      clickIds: {
+        gclid: "test-gclid",
+        gbraid: "test-gbraid",
+        wbraid: "test-wbraid",
+      },
       properties: {
         planId: "price_test",
         amount: 3000,
         currency: "USD",
       },
     });
+  });
+
+  it("extracts conversion click metadata from stored UTMs", () => {
+    expect(
+      getConversionClickMetadataFromUtms({
+        gclid: " test-gclid ",
+        gbraid: "test-gbraid",
+        wbraid: "test-wbraid",
+        utmSource: "google",
+      }),
+    ).toEqual({
+      [CONVERSION_CLICK_IDS_METADATA_KEY]: JSON.stringify({
+        gclid: "test-gclid",
+        gbraid: "test-gbraid",
+        wbraid: "test-wbraid",
+      }),
+    });
+  });
+
+  it("drops click metadata when it would exceed Stripe metadata limits", () => {
+    expect(
+      getConversionClickMetadataFromUtms({
+        gclid: "x".repeat(501),
+      }),
+    ).toEqual({});
   });
 });

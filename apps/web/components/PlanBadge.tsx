@@ -160,6 +160,7 @@ export function getActionColor(actionType: ActionType): Color {
     case ActionType.ARCHIVE:
     case ActionType.MARK_READ:
     case ActionType.STAR:
+    case ActionType.DELETE:
       return "yellow";
     case ActionType.LABEL:
       return "blue";

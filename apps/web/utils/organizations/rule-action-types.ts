@@ -14,4 +14,5 @@ export const ORGANIZATION_RULE_ACTION_TYPES = [
   ActionType.DRAFT_EMAIL,
   ActionType.CALL_WEBHOOK,
   ActionType.DIGEST,
+  ActionType.DELETE,
 ] as const;
