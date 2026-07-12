@@ -17,6 +17,7 @@ const actionNames: Record<ActionType, string> = {
   [ActionType.LABEL]: "Label",
   [ActionType.MOVE_FOLDER]: "Move to folder",
   [ActionType.ARCHIVE]: "Archive",
+  [ActionType.DELETE]: "Delete",
   [ActionType.DRAFT_EMAIL]: "Draft replies",
   [ActionType.DRAFT_MESSAGING_CHANNEL]: "Draft replies",
   [ActionType.REPLY]: "Send replies",

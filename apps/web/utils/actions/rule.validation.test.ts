@@ -3,16 +3,19 @@ import {
   delayInMinutesSchema,
   createRuleBody,
   type CreateRuleBody,
+  updateRuleBody,
   updateRuleConditionSchema,
 } from "./rule.validation";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
+import { DELETE_EMAIL_ACTION_DISABLED_MESSAGE } from "@/utils/delete-email-action";
 
 const { mockEnv } = vi.hoisted(() => ({
   mockEnv: {
     webhookActionsEnabled: true,
+    deleteEmailActionEnabled: false,
   },
 }));
 
@@ -20,6 +23,9 @@ vi.mock("@/env", () => ({
   env: {
     get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
       return mockEnv.webhookActionsEnabled;
+    },
+    get NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED() {
+      return mockEnv.deleteEmailActionEnabled;
     },
   },
 }));
@@ -206,6 +212,7 @@ describe("createRuleBody", () => {
   describe("action-specific validation (superRefine)", () => {
     beforeEach(() => {
       mockEnv.webhookActionsEnabled = true;
+      mockEnv.deleteEmailActionEnabled = false;
     });
 
     describe("LABEL action", () => {
@@ -383,6 +390,48 @@ describe("createRuleBody", () => {
           );
           expect(result.error.issues[0].path).toEqual(["actions", 0, "type"]);
         }
+      });
+    });
+
+    describe("DELETE action", () => {
+      it("rejects DELETE when delete email actions are disabled", () => {
+        mockEnv.deleteEmailActionEnabled = false;
+
+        const result = createRuleBody.safeParse({
+          ...validRule,
+          actions: [{ type: ActionType.DELETE }],
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error.issues[0].message).toBe(
+            DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
+          );
+          expect(result.error.issues[0].path).toEqual(["actions", 0, "type"]);
+        }
+      });
+
+      it("accepts DELETE when delete email actions are enabled", () => {
+        mockEnv.deleteEmailActionEnabled = true;
+
+        const result = createRuleBody.safeParse({
+          ...validRule,
+          actions: [{ type: ActionType.DELETE }],
+        });
+
+        expect(result.success).toBe(true);
+      });
+
+      it("accepts an existing DELETE on update when the feature is disabled", () => {
+        mockEnv.deleteEmailActionEnabled = false;
+
+        const result = updateRuleBody.safeParse({
+          ...validRule,
+          id: "rule-id",
+          actions: [{ id: "action-id", type: ActionType.DELETE }],
+        });
+
+        expect(result.success).toBe(true);
       });
     });
 

@@ -7,6 +7,7 @@
         "VERCEL_ENV",
         "VERCEL_URL",
         "NODE_ENV",
+        "SKIP_TYPE_CHECK",
         "DATABASE_URL",
         "DIRECT_URL",
         "DATABASE_URL_UNPOOLED",
@@ -242,6 +243,7 @@
         "NEXT_PUBLIC_SMART_FILING_ENABLED",
         "NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED",
         "NEXT_PUBLIC_CLEANER_ENABLED",
+        "NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED",
         "NEXT_PUBLIC_BOOKING_LINKS_ENABLED",
         "NEXT_PUBLIC_AUTO_DRAFT_DISABLED",
         "SUPERWALL_APP_STORE_CONNECT_FORWARD_URL",
@@ -249,13 +251,14 @@
         "APP_REVIEW_DEMO_ACCOUNTS",
         "SSO_LOGIN_ENABLED"
       ],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map"]
     },
     "build:ci": {
       "env": [
         "VERCEL_ENV",
         "VERCEL_URL",
         "NODE_ENV",
+        "SKIP_TYPE_CHECK",
         "DATABASE_URL",
         "AUTH_SECRET",
         "AUTH_ALLOWED_EMAILS",
@@ -354,6 +357,7 @@
         "NEXT_PUBLIC_SMART_FILING_ENABLED",
         "NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED",
         "NEXT_PUBLIC_CLEANER_ENABLED",
+        "NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED",
         "NEXT_PUBLIC_BOOKING_LINKS_ENABLED",
         "NEXT_PUBLIC_AUTO_DRAFT_DISABLED",
         "SUPERWALL_APP_STORE_CONNECT_FORWARD_URL",
@@ -361,7 +365,7 @@
         "APP_REVIEW_DEMO_ACCOUNTS",
         "SSO_LOGIN_ENABLED"
       ],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map"]
     },
     "test": {
       "env": ["RUN_AI_TESTS"]
