@@ -15,21 +15,6 @@ describe("allowed folder selection", () => {
     ).toEqual(["parent", "orphan"]);
   });
 
-  it("preserves the children map when loaded children have not changed", () => {
-    const childrenByParentId = folderSelection.buildChildrenMap([
-      folder("parent"),
-      folder("child", "parent"),
-    ]);
-
-    expect(
-      folderSelection.mergeChildren({
-        childrenByParentId,
-        parentId: "parent",
-        children: [folder("child", "parent")],
-      }),
-    ).toBe(childrenByParentId);
-  });
-
   it("selects a folder and its loaded descendants", () => {
     const folders = [
       folder("parent"),

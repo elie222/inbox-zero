@@ -338,9 +338,15 @@ export function FolderNode({
   const hasLoadedChildren = subfolders.length > 0;
 
   useEffect(() => {
-    if (!subfoldersData?.folders) return;
+    if (!subfoldersData?.folders || knownChildren) return;
     onChildrenLoaded(folder.id, subfolders);
-  }, [folder.id, onChildrenLoaded, subfolders, subfoldersData?.folders]);
+  }, [
+    folder.id,
+    knownChildren,
+    onChildrenLoaded,
+    subfolders,
+    subfoldersData?.folders,
+  ]);
 
   return (
     <TreeNode nodeId={folder.id} level={level} isLast={isLast}>

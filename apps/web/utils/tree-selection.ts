@@ -44,11 +44,7 @@ export function createTreeSelection<TItem>({
     parentId: string;
     children: TItem[];
   }) {
-    const existingChildren = childrenByParentId.get(parentId);
-    if (
-      existingChildren &&
-      getIdsKey(existingChildren) === getIdsKey(children)
-    ) {
+    if (childrenByParentId.get(parentId) === children) {
       return childrenByParentId;
     }
 
@@ -124,10 +120,6 @@ export function createTreeSelection<TItem>({
     }
 
     return descendants;
-  }
-
-  function getIdsKey(items: TItem[]) {
-    return items.map(getId).join(",");
   }
 
   return {

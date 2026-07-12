@@ -49,27 +49,25 @@ export function applyAttachmentSourceSelection({
   item,
   checked,
   selectedSources,
-  childrenByParentId,
 }: {
   item: DriveSourceItem;
   checked: boolean;
   selectedSources: AttachmentSourceInput[];
-  childrenByParentId: DriveSourceChildrenMap;
 }): AttachmentSourceInput[] {
-  const { nextKeys, changedItems } = driveSourceSelection.applySelection({
-    item,
-    checked,
-    selectedKeys: new Set(selectedSources.map(getAttachmentSourceKey)),
-    childrenByParentId,
-  });
+  const source = toAttachmentSource(item);
+  const sourceKey = getAttachmentSourceKey(source);
 
-  if (!checked) {
-    return selectedSources.filter((source) =>
-      nextKeys.has(getAttachmentSourceKey(source)),
-    );
+  if (checked) {
+    return selectedSources.some(
+      (selectedSource) => getAttachmentSourceKey(selectedSource) === sourceKey,
+    )
+      ? selectedSources
+      : [...selectedSources, source];
   }
 
-  return [...selectedSources, ...changedItems.map(toAttachmentSource)];
+  return selectedSources.filter(
+    (selectedSource) => getAttachmentSourceKey(selectedSource) !== sourceKey,
+  );
 }
 
 export function getDriveSourceTreeNodeId(item: DriveSourceItem) {

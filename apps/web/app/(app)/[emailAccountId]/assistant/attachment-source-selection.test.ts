@@ -12,64 +12,33 @@ import {
 } from "./attachment-source-selection";
 
 describe("attachment source selection", () => {
-  it("selects a folder and its loaded descendant folders and files", () => {
-    const items = [
-      folder("parent", "Trips"),
-      folder("child-folder", "France 2025", "parent", "Trips/France 2025"),
-      file("child-file", "Itinerary.pdf", "parent", "Trips/Itinerary.pdf"),
-      file(
-        "grandchild-file",
-        "Tickets.pdf",
-        "child-folder",
-        "Trips/France 2025/Tickets.pdf",
-      ),
-    ];
-
+  it("selects a recursive folder source once", () => {
     const result = applyAttachmentSourceSelection({
-      item: items[0],
+      item: folder("parent", "Trips"),
       checked: true,
       selectedSources: [source("existing", "Existing.pdf")],
-      childrenByParentId: buildDriveSourceChildrenMap(items),
     });
 
     expect(result.map(getAttachmentSourceKey)).toEqual([
       "drive-connection:FILE:existing",
       "drive-connection:FOLDER:parent",
-      "drive-connection:FOLDER:child-folder",
-      "drive-connection:FILE:grandchild-file",
-      "drive-connection:FILE:child-file",
     ]);
     expect(result.map((item) => item.sourcePath)).toEqual([
       "Existing.pdf",
       "Trips",
-      "Trips/France 2025",
-      "Trips/France 2025/Tickets.pdf",
-      "Trips/Itinerary.pdf",
     ]);
   });
 
-  it("deselects a folder and its loaded descendant folders and files", () => {
-    const items = [
-      folder("parent", "Trips"),
-      folder("child-folder", "France 2025", "parent", "Trips/France 2025"),
-      file("child-file", "Itinerary.pdf", "parent", "Trips/Itinerary.pdf"),
-      file("unrelated", "Unrelated.pdf"),
-    ];
+  it("deselects a recursive folder without loading its descendants", () => {
+    const parent = folder("parent", "Trips");
 
     const result = applyAttachmentSourceSelection({
-      item: items[0],
+      item: parent,
       checked: false,
-      selectedSources: items.map((item) =>
-        source(
-          item.id,
-          item.name,
-          item.type === "folder"
-            ? AttachmentSourceType.FOLDER
-            : AttachmentSourceType.FILE,
-          item.path,
-        ),
-      ),
-      childrenByParentId: buildDriveSourceChildrenMap(items),
+      selectedSources: [
+        source("parent", "Trips", AttachmentSourceType.FOLDER, "Trips"),
+        source("unrelated", "Unrelated.pdf"),
+      ],
     });
 
     expect(result.map(getAttachmentSourceKey)).toEqual([

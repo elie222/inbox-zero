@@ -324,7 +324,6 @@ function AttachmentPicker({
         item,
         checked,
         selectedSources,
-        childrenByParentId,
       }),
     );
   };
