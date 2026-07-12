@@ -11,14 +11,7 @@ import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
-import {
-  isWebhookActionEnabled,
-  WEBHOOK_ACTION_DISABLED_MESSAGE,
-} from "@/utils/webhook-action";
-import {
-  DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
-  isDeleteEmailActionEnabled,
-} from "@/utils/delete-email-action";
+import { addDisabledRuleActionIssue } from "@/utils/rule-action-feature-gates";
 import {
   AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
   INVALID_STATIC_FROM_MESSAGE,
@@ -153,23 +146,7 @@ const zodAction = z
     staticAttachments: z.array(attachmentSourceInputSchema).optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.type === ActionType.CALL_WEBHOOK && !isWebhookActionEnabled()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: WEBHOOK_ACTION_DISABLED_MESSAGE,
-        path: ["type"],
-      });
-      return;
-    }
-
-    if (data.type === ActionType.DELETE && !isDeleteEmailActionEnabled()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
-        path: ["type"],
-      });
-      return;
-    }
+    if (addDisabledRuleActionIssue(data.type, ctx)) return;
 
     if (data.type === ActionType.LABEL) {
       const labelValue =
@@ -404,23 +381,7 @@ const importedAction = z
     delayInMinutes: delayInMinutesSchema,
   })
   .superRefine((data, ctx) => {
-    if (data.type === ActionType.CALL_WEBHOOK && !isWebhookActionEnabled()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: WEBHOOK_ACTION_DISABLED_MESSAGE,
-        path: ["type"],
-      });
-      return;
-    }
-
-    if (data.type === ActionType.DELETE && !isDeleteEmailActionEnabled()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
-        path: ["type"],
-      });
-      return;
-    }
+    if (addDisabledRuleActionIssue(data.type, ctx)) return;
 
     if (data.type === ActionType.LABEL) {
       const labelValue = data.label?.trim();

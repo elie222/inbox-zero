@@ -1,14 +1,22 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { env } from "@/env";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
 import { getRuleActionTypeOptions } from "./RuleForm";
+
+const { mockEnv } = vi.hoisted(() => ({
+  mockEnv: {
+    deleteEmailActionEnabled: false,
+  },
+}));
 
 vi.mock("@/env", () => ({
   env: {
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: true,
-    NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED: false,
+    get NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED() {
+      return mockEnv.deleteEmailActionEnabled;
+    },
     NEXT_PUBLIC_IS_RESEND_CONFIGURED: true,
     EMAIL_ENCRYPT_SECRET: "test-secret",
     EMAIL_ENCRYPT_SALT: "test-salt",
@@ -16,6 +24,10 @@ vi.mock("@/env", () => ({
 }));
 
 describe("getRuleActionTypeOptions", () => {
+  beforeEach(() => {
+    mockEnv.deleteEmailActionEnabled = false;
+  });
+
   it("keeps move to folder available for existing rules before provider data loads", () => {
     const options = getRuleActionTypeOptions({
       provider: "",
@@ -84,27 +96,37 @@ describe("getRuleActionTypeOptions", () => {
     expect(env.NEXT_PUBLIC_IS_RESEND_CONFIGURED).toBe(true);
   });
 
-  it("does not expose delete unless the feature is enabled or already configured", () => {
+  it("only exposes delete when the feature is enabled", () => {
     const disabledOptions = getRuleActionTypeOptions({
       provider: "",
       labelActionText: "Label",
       systemType: null,
       existingActionTypes: [],
     });
-    const existingDeleteOptions = getRuleActionTypeOptions({
+    const disabledExistingOptions = getRuleActionTypeOptions({
       provider: "",
       labelActionText: "Label",
       systemType: null,
       existingActionTypes: [ActionType.DELETE],
+    });
+    mockEnv.deleteEmailActionEnabled = true;
+    const enabledOptions = getRuleActionTypeOptions({
+      provider: "",
+      labelActionText: "Label",
+      systemType: null,
+      existingActionTypes: [],
     });
 
     expect(
       disabledOptions.some((option) => option.value === ActionType.DELETE),
     ).toBe(false);
     expect(
-      existingDeleteOptions.some(
+      disabledExistingOptions.some(
         (option) => option.value === ActionType.DELETE,
       ),
+    ).toBe(false);
+    expect(
+      enabledOptions.some((option) => option.value === ActionType.DELETE),
     ).toBe(true);
   });
 });

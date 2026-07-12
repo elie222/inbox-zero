@@ -2,14 +2,7 @@ import { z } from "zod";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
-import {
-  isWebhookActionEnabled,
-  WEBHOOK_ACTION_DISABLED_MESSAGE,
-} from "@/utils/webhook-action";
-import {
-  DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
-  isDeleteEmailActionEnabled,
-} from "@/utils/delete-email-action";
+import { addDisabledRuleActionIssue } from "@/utils/rule-action-feature-gates";
 
 const conditionSchema = z
   .object({
@@ -78,23 +71,7 @@ const actionSchema = z
       .nullish(),
   })
   .superRefine((action, ctx) => {
-    if (action.type === ActionType.CALL_WEBHOOK && !isWebhookActionEnabled()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: WEBHOOK_ACTION_DISABLED_MESSAGE,
-        path: ["type"],
-      });
-      return;
-    }
-
-    if (action.type === ActionType.DELETE && !isDeleteEmailActionEnabled()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
-        path: ["type"],
-      });
-      return;
-    }
+    if (addDisabledRuleActionIssue(action.type, ctx)) return;
 
     addMissingRecipientIssue({
       actionType: action.type,

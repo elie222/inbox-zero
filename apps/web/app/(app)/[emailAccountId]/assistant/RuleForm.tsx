@@ -987,8 +987,7 @@ export function getRuleActionTypeOptions({
       label: ACTION_TYPE_LABELS[ActionType.ARCHIVE],
       value: ActionType.ARCHIVE,
     },
-    ...(isDeleteEmailActionEnabled() ||
-    existingActionTypes.includes(ActionType.DELETE)
+    ...(isDeleteEmailActionEnabled()
       ? [
           {
             label: ACTION_TYPE_LABELS[ActionType.DELETE],

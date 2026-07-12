@@ -3,15 +3,8 @@ import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
-import {
-  isWebhookActionEnabled,
-  WEBHOOK_ACTION_DISABLED_MESSAGE,
-} from "@/utils/webhook-action";
-import {
-  DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
-  isDeleteEmailActionEnabled,
-} from "@/utils/delete-email-action";
 import { ORGANIZATION_RULE_ACTION_TYPES } from "@/utils/organizations/rule-action-types";
+import { addDisabledRuleActionIssue } from "@/utils/rule-action-feature-gates";
 
 const organizationRuleActionType = z.enum(ORGANIZATION_RULE_ACTION_TYPES);
 
@@ -60,26 +53,12 @@ export const organizationRuleActionSchema = z
         path: ["to"],
       });
     }
-    if (data.type === ActionType.CALL_WEBHOOK) {
-      if (!isWebhookActionEnabled()) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: WEBHOOK_ACTION_DISABLED_MESSAGE,
-          path: ["type"],
-        });
-      } else if (!data.url?.trim()) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Please enter a webhook URL",
-          path: ["url"],
-        });
-      }
-    }
-    if (data.type === ActionType.DELETE && !isDeleteEmailActionEnabled()) {
+    if (addDisabledRuleActionIssue(data.type, ctx)) return;
+    if (data.type === ActionType.CALL_WEBHOOK && !data.url?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
-        path: ["type"],
+        message: "Please enter a webhook URL",
+        path: ["url"],
       });
     }
     if (data.type === ActionType.MOVE_FOLDER && !data.folderName?.trim()) {

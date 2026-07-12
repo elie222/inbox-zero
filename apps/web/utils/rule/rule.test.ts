@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { ActionType, GroupItemType } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
+import { DELETE_EMAIL_ACTION_DISABLED_MESSAGE } from "@/utils/delete-email-action";
 import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
 import { getActionRiskLevel } from "@/utils/risk";
 
@@ -9,6 +10,7 @@ const { createRuleHistoryMock, mockEnv } = vi.hoisted(() => ({
   createRuleHistoryMock: vi.fn(),
   mockEnv: {
     webhookActionsEnabled: true,
+    deleteEmailActionEnabled: true,
   },
 }));
 
@@ -42,6 +44,9 @@ vi.mock("@/env", () => ({
   env: {
     get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
       return mockEnv.webhookActionsEnabled;
+    },
+    get NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED() {
+      return mockEnv.deleteEmailActionEnabled;
     },
   },
 }));
@@ -450,6 +455,25 @@ describe("outbound action guardrails", () => {
     expect(prisma.rule.create).not.toHaveBeenCalled();
     expect(createEmailProvider).not.toHaveBeenCalled();
   });
+
+  it("rejects creating delete rules when delete actions are disabled", async () => {
+    mockEnv.deleteEmailActionEnabled = false;
+
+    await expect(
+      createRule({
+        result: createRuleResult({
+          name: "Delete rule",
+          actions: [deleteAction()],
+        }),
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        provider: "gmail",
+        runOnThreads: true,
+        logger,
+      }),
+    ).rejects.toThrow(DELETE_EMAIL_ACTION_DISABLED_MESSAGE);
+
+    expect(prisma.rule.create).not.toHaveBeenCalled();
+  });
 });
 
 describe("replaceRuleWithResolvedActions", () => {
@@ -502,6 +526,76 @@ describe("replaceRuleWithResolvedActions", () => {
     });
 
     expect(prisma.group.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("preserves existing delete actions when the feature is disabled", async () => {
+    mockEnv.deleteEmailActionEnabled = false;
+    prisma.rule.findUnique.mockResolvedValue({ groupId: null } as any);
+    prisma.rule.update.mockResolvedValue({
+      id: RULE_ID,
+      groupId: null,
+      actions: [],
+      group: null,
+    } as any);
+
+    await replaceRuleWithResolvedActions({
+      ruleId: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      data: {},
+      actions: [resolvedArchiveAction()],
+    });
+
+    expect(prisma.rule.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          actions: expect.objectContaining({
+            deleteMany: {
+              type: { notIn: expect.arrayContaining([ActionType.DELETE]) },
+            },
+          }),
+        }),
+      }),
+    );
+  });
+});
+
+describe("updateRuleActions", () => {
+  beforeEach(resetRuleMocks);
+
+  it("preserves existing disabled actions", async () => {
+    mockEnv.webhookActionsEnabled = false;
+    mockEnv.deleteEmailActionEnabled = false;
+    prisma.rule.findFirst.mockResolvedValue({ from: null } as any);
+    prisma.rule.update.mockResolvedValue({
+      id: RULE_ID,
+      actions: [],
+      group: null,
+    } as any);
+
+    await updateRuleActions({
+      ruleId: RULE_ID,
+      actions: [archiveAction()],
+      provider: "gmail",
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      logger,
+    });
+
+    expect(prisma.rule.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          actions: expect.objectContaining({
+            deleteMany: {
+              type: {
+                notIn: expect.arrayContaining([
+                  ActionType.CALL_WEBHOOK,
+                  ActionType.DELETE,
+                ]),
+              },
+            },
+          }),
+        },
+      }),
+    );
   });
 });
 
@@ -754,6 +848,7 @@ describe("draft messaging actions", () => {
 function resetRuleMocks() {
   vi.clearAllMocks();
   mockEnv.webhookActionsEnabled = true;
+  mockEnv.deleteEmailActionEnabled = true;
   vi.mocked(getActionRiskLevel).mockReturnValue({
     level: "low",
     message: "safe",
@@ -820,6 +915,14 @@ function webhookRuleAction(webhookUrl: string): RuleAction {
   return {
     type: ActionType.CALL_WEBHOOK,
     fields: { webhookUrl } as any,
+    delayInMinutes: null,
+  } as RuleAction;
+}
+
+function deleteAction(): RuleAction {
+  return {
+    type: ActionType.DELETE,
+    fields: null,
     delayInMinutes: null,
   } as RuleAction;
 }
