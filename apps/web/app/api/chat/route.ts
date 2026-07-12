@@ -35,7 +35,7 @@ import {
 import { getToolFailureWarning } from "@/utils/ai/assistant/chat-response-guard";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 
-export const maxDuration = 120;
+export const maxDuration = 800;
 
 export const POST = withEmailAccount("chat", async (request) => {
   const emailAccountId = request.auth.emailAccountId;

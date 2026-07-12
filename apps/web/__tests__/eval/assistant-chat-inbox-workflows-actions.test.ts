@@ -325,6 +325,69 @@ describe.runIf(shouldRunEval)(
         );
 
         test.each(inboxWorkflowProviders)(
+          "uses sender-wide unsubscribe and trash when both are explicit [$label]",
+          async ({ provider, label }) => {
+            const { toolCalls, actual } = await runAssistantChat({
+              emailAccount: cloneEmailAccountForProvider(
+                emailAccount,
+                provider,
+              ),
+              messages: [
+                {
+                  role: "user",
+                  content:
+                    "Unsubscribe from newsletter-a@example.com and newsletter-b@example.com, then trash all emails from both senders.",
+                },
+              ],
+            });
+
+            const unsubscribeIndex = toolCalls.findIndex(
+              (toolCall) =>
+                toolCall.toolName === "manageInbox" &&
+                isSenderActionInput(toolCall.input, "unsubscribe_senders"),
+            );
+            const trashIndex = toolCalls.findIndex(
+              (toolCall) =>
+                toolCall.toolName === "manageInbox" &&
+                isSenderActionInput(toolCall.input, "bulk_trash_senders"),
+            );
+            const unsubscribeCall = toolCalls[unsubscribeIndex];
+            const trashCall = toolCalls[trashIndex];
+            const pass =
+              unsubscribeIndex >= 0 &&
+              trashIndex > unsubscribeIndex &&
+              isSenderActionInput(
+                unsubscribeCall?.input,
+                "unsubscribe_senders",
+              ) &&
+              isSenderActionInput(trashCall?.input, "bulk_trash_senders") &&
+              unsubscribeCall.input.fromEmails.includes(
+                "newsletter-a@example.com",
+              ) &&
+              unsubscribeCall.input.fromEmails.includes(
+                "newsletter-b@example.com",
+              ) &&
+              trashCall.input.fromEmails.includes("newsletter-a@example.com") &&
+              trashCall.input.fromEmails.includes("newsletter-b@example.com") &&
+              !toolCalls.some(
+                (toolCall) =>
+                  toolCall.toolName === "manageInbox" &&
+                  isBulkArchiveSendersInput(toolCall.input),
+              );
+
+            evalReporter.record({
+              testName: `explicit unsubscribe and trash composes sender actions (${label})`,
+              model: model.label,
+              pass,
+              actual,
+            });
+
+            expect(pass, actual).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test.each(inboxWorkflowProviders)(
           "archives specific searched threads instead of bulk sender cleanup [$label]",
           async ({ provider, label }) => {
             mockSearchMessages.mockResolvedValueOnce({
@@ -637,6 +700,21 @@ function isSearchInboxInput(input: unknown): input is SearchInboxInput {
     typeof input === "object" &&
     typeof (input as { query?: unknown }).query === "string"
   );
+}
+
+function isSenderActionInput<
+  TAction extends "unsubscribe_senders" | "bulk_trash_senders",
+>(
+  input: unknown,
+  action: TAction,
+): input is {
+  action: TAction;
+  fromEmails: string[];
+} {
+  if (!input || typeof input !== "object") return false;
+
+  const value = input as { action?: unknown; fromEmails?: unknown };
+  return value.action === action && Array.isArray(value.fromEmails);
 }
 
 function buildBulkArchiveMessages(count: number, startIndex: number) {

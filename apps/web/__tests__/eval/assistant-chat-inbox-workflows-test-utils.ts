@@ -79,6 +79,7 @@ const hoisted = vi.hoisted(() => ({
   mockArchiveThreadWithLabel: vi.fn(),
   mockMarkReadThread: vi.fn(),
   mockBulkArchiveFromSenders: vi.fn(),
+  mockBulkTrashFromSenders: vi.fn(),
   mockGetFolders: vi.fn(),
   mockGetOrCreateFolderIdByName: vi.fn(),
   mockMoveThreadToFolder: vi.fn(),
@@ -94,6 +95,7 @@ const {
   mockArchiveThreadWithLabel,
   mockMarkReadThread,
   mockBulkArchiveFromSenders,
+  mockBulkTrashFromSenders,
 } = hoisted;
 
 export const mockSearchMessages = hoisted.mockSearchMessages;
@@ -149,6 +151,9 @@ export function setupInboxWorkflowEval() {
     mockPartialUpdateRule.mockResolvedValue({ id: "updated-rule-id" });
     mockUpdateRuleActions.mockResolvedValue({ id: "updated-rule-id" });
     mockSaveLearnedPatterns.mockResolvedValue({ success: true });
+    hoisted.mockUnsubscribeSenderAndMark.mockResolvedValue({
+      unsubscribe: { attempted: true, success: true, method: "post" },
+    });
 
     prisma.emailAccount.findUnique.mockImplementation(async ({ select }) => {
       if (select?.rules) {
@@ -212,6 +217,8 @@ export function setupInboxWorkflowEval() {
       archiveThreadWithLabel: mockArchiveThreadWithLabel,
       markReadThread: mockMarkReadThread,
       bulkArchiveFromSenders: mockBulkArchiveFromSenders,
+      bulkTrashFromSenders: mockBulkTrashFromSenders,
+      getMessagesFromSender: vi.fn().mockResolvedValue({ messages: [] }),
       getFolders: mockGetFolders,
       getOrCreateFolderIdByName: mockGetOrCreateFolderIdByName,
       moveThreadToFolder: mockMoveThreadToFolder,

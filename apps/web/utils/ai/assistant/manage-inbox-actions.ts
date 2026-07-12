@@ -6,6 +6,7 @@ export const manageInboxActions = [
   "mark_read_threads",
   "bulk_archive_senders",
   "unsubscribe_senders",
+  "bulk_trash_senders",
 ] as const;
 
 export type ManageInboxAction = (typeof manageInboxActions)[number];
@@ -21,6 +22,7 @@ const threadIdManageInboxActions = [
 const senderManageInboxActions = [
   "bulk_archive_senders",
   "unsubscribe_senders",
+  "bulk_trash_senders",
 ] as const satisfies readonly ManageInboxAction[];
 
 export function isManageInboxAction(

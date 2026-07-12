@@ -486,6 +486,7 @@ export class GmailProvider implements EmailProvider {
               query: `from:${sender}`,
               maxResults: 500,
               pageToken: nextPageToken,
+              includeSpamTrash: true,
             },
           );
 
