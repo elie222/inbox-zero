@@ -2272,7 +2272,6 @@ describe("aiProcessAssistantChat", () => {
 
     for (const action of [
       "bulk_archive_senders",
-      "bulk_trash_senders",
       "unsubscribe_senders",
     ] as const) {
       const result = await tools.manageInbox.execute({
@@ -2289,7 +2288,7 @@ describe("aiProcessAssistantChat", () => {
     expect(mockCreateEmailProvider).not.toHaveBeenCalled();
   });
 
-  it("executes unsubscribe sender inbox action without moving messages", async () => {
+  it("executes unsubscribe sender inbox action and archives sender messages", async () => {
     const tools = await captureToolSet();
 
     const getMessagesFromSender = vi.fn().mockResolvedValue({
@@ -2346,7 +2345,11 @@ describe("aiProcessAssistantChat", () => {
         listUnsubscribeHeader: "<https://example.com/unsubscribe?id=1>",
       }),
     );
-    expect(bulkArchiveFromSenders).not.toHaveBeenCalled();
+    expect(bulkArchiveFromSenders).toHaveBeenCalledWith(
+      ["sender@example.com"],
+      expect.any(String),
+      "email-account-id",
+    );
     expect(result).toEqual(
       expect.objectContaining({
         success: true,
@@ -2360,7 +2363,7 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 
-  it("reports failed automatic unsubscribe without moving messages", async () => {
+  it("archives sender messages even when automatic unsubscribe fails", async () => {
     const tools = await captureToolSet();
 
     const getMessagesFromSender = vi.fn().mockResolvedValue({
@@ -2407,7 +2410,11 @@ describe("aiProcessAssistantChat", () => {
       fromEmails: ["sender@example.com"],
     });
 
-    expect(bulkArchiveFromSenders).not.toHaveBeenCalled();
+    expect(bulkArchiveFromSenders).toHaveBeenCalledWith(
+      ["sender@example.com"],
+      expect.any(String),
+      "email-account-id",
+    );
     expect(result).toEqual(
       expect.objectContaining({
         success: false,

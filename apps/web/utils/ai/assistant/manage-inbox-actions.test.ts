@@ -11,7 +11,6 @@ describe("manageInbox action helpers", () => {
     expect(isManageInboxAction("trash_threads")).toBe(true);
     expect(isManageInboxAction("label_threads")).toBe(true);
     expect(isManageInboxAction("remove_label_threads")).toBe(true);
-    expect(isManageInboxAction("bulk_trash_senders")).toBe(true);
     expect(isManageInboxAction("unknown_action")).toBe(false);
     expect(isManageInboxAction(undefined)).toBe(false);
   });
@@ -28,7 +27,6 @@ describe("manageInbox action helpers", () => {
   it("flags actions that require sender emails", () => {
     expect(requiresSenderEmails("bulk_archive_senders")).toBe(true);
     expect(requiresSenderEmails("unsubscribe_senders")).toBe(true);
-    expect(requiresSenderEmails("bulk_trash_senders")).toBe(true);
     expect(requiresSenderEmails("archive_threads")).toBe(false);
     expect(requiresSenderEmails("trash_threads")).toBe(false);
   });

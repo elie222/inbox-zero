@@ -48,7 +48,7 @@ import {
 import { getAssistantChatProvider } from "./chat-provider-shared";
 import { LlmUseCase } from "@/utils/llms/use-cases";
 
-export const maxDuration = 800;
+export const maxDuration = 300;
 const ASSISTANT_CHAT_MAX_STEPS = 25;
 const ASSISTANT_CHAT_REASONING_MAX_TOKENS = 100;
 
@@ -707,7 +707,6 @@ export function buildResolvedSystemPrompt({
     `Write and confirmation policy:
 - When the user gives a direct inbox action request (${providerPolicy.threadActionPolicy}), search for the relevant threads and then execute the action using the returned threadIds. The user's request is the confirmation — do not stop after searching to summarize or ask for permission.
 - For delete or trash requests, use trash_threads on matching threadIds; do not use sender-wide archive actions.
-- When the user explicitly asks to unsubscribe from senders and trash all of their mail, first use unsubscribe_senders and then use bulk_trash_senders with the same sender addresses. Keep these as two ordered actions so each result is reported accurately.
 - Do not expand a request for the threads shown or found in this turn into a broader sender-level or category-level cleanup on your own. If broader scope is only inferred from a search sample rather than clearly requested, ask one brief confirmation before writing.
 - For ambiguous requests where the intent is unclear (archive vs trash vs mark read), ask a brief clarification question before writing.
 - Never claim that you changed a setting, rule, inbox state, or memory unless the corresponding write tool call in this turn succeeded.

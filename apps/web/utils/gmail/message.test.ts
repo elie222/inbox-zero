@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
-  getMessages,
   getMessagesBatch,
   hasPreviousCommunicationsWithSenderOrDomain,
 } from "./message";
@@ -14,21 +13,6 @@ vi.mock("@/utils/sleep", () => ({
 vi.mock("gmail-api-parse-message", () => ({
   default: vi.fn((m) => m),
 }));
-
-describe("getMessages", () => {
-  it("passes includeSpamTrash through to Gmail list requests", async () => {
-    const list = vi.fn().mockResolvedValue({ data: { messages: [] } });
-
-    await getMessages({ users: { messages: { list } } } as any, {
-      query: "from:newsletter@example.com",
-      includeSpamTrash: true,
-    });
-
-    expect(list).toHaveBeenCalledWith(
-      expect.objectContaining({ includeSpamTrash: true }),
-    );
-  });
-});
 
 describe("getMessagesBatch", () => {
   const logger = createTestLogger();

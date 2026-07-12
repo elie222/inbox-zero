@@ -28,18 +28,12 @@ const {
   mockStartBulkCategorization,
   mockGetCategorizationProgress,
   mockGetCategorizationStatusSnapshot,
-  mockUnsubscribeSenderAndMark,
 } = vi.hoisted(() => ({
   mockArchiveCategory: vi.fn(),
   mockGetCategoryOverview: vi.fn(),
   mockStartBulkCategorization: vi.fn(),
   mockGetCategorizationProgress: vi.fn(),
   mockGetCategorizationStatusSnapshot: vi.fn(),
-  mockUnsubscribeSenderAndMark: vi.fn(),
-}));
-
-vi.mock("@/utils/senders/unsubscribe", () => ({
-  unsubscribeSenderAndMark: mockUnsubscribeSenderAndMark,
 }));
 
 vi.mock("@/utils/categorize/senders/archive-category", () => ({
@@ -318,84 +312,6 @@ describe("chat inbox tools", () => {
       failedCount: 0,
       successCount: 2,
       requestedCount: 2,
-    });
-  });
-
-  it("unsubscribes from senders without moving their mail", async () => {
-    const bulkArchiveFromSenders = vi.fn();
-    const bulkTrashFromSenders = vi.fn();
-    const getMessagesFromSender = vi.fn().mockResolvedValue({ messages: [] });
-
-    mockUnsubscribeSenderAndMark.mockResolvedValue({
-      unsubscribe: { attempted: true, success: true, method: "post" },
-    });
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      bulkArchiveFromSenders,
-      bulkTrashFromSenders,
-      getMessagesFromSender,
-    } as any);
-
-    const toolInstance = manageInboxTool({
-      email: TEST_EMAIL,
-      emailAccountId: "email-account-1",
-      provider: "google",
-      logger,
-    });
-
-    const result = await (toolInstance.execute as any)({
-      action: "unsubscribe_senders",
-      fromEmails: ["newsletter@example.com"],
-    });
-
-    expect(mockUnsubscribeSenderAndMark).toHaveBeenCalledWith(
-      expect.objectContaining({
-        emailAccountId: "email-account-1",
-        newsletterEmail: "newsletter@example.com",
-      }),
-    );
-    expect(bulkArchiveFromSenders).not.toHaveBeenCalled();
-    expect(bulkTrashFromSenders).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      action: "unsubscribe_senders",
-      sendersCount: 1,
-      success: true,
-      successCount: 1,
-      failedCount: 0,
-    });
-  });
-
-  it("trashes all sender mail without unsubscribing or archiving", async () => {
-    const bulkArchiveFromSenders = vi.fn();
-    const bulkTrashFromSenders = vi.fn().mockResolvedValue(undefined);
-
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      bulkArchiveFromSenders,
-      bulkTrashFromSenders,
-    } as any);
-
-    const toolInstance = manageInboxTool({
-      email: TEST_EMAIL,
-      emailAccountId: "email-account-1",
-      provider: "google",
-      logger,
-    });
-
-    const result = await (toolInstance.execute as any)({
-      action: "bulk_trash_senders",
-      fromEmails: ["newsletter@example.com"],
-    });
-
-    expect(bulkTrashFromSenders).toHaveBeenCalledWith(
-      ["newsletter@example.com"],
-      TEST_EMAIL,
-      "email-account-1",
-    );
-    expect(bulkArchiveFromSenders).not.toHaveBeenCalled();
-    expect(mockUnsubscribeSenderAndMark).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      action: "bulk_trash_senders",
-      sendersCount: 1,
-      success: true,
     });
   });
 

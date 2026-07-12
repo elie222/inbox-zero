@@ -185,7 +185,6 @@ export async function getMessages(
     maxResults?: number;
     pageToken?: string;
     labelIds?: string[];
-    includeSpamTrash?: boolean;
   },
 ): Promise<{
   messages: {
@@ -201,7 +200,6 @@ export async function getMessages(
       q: options.query,
       pageToken: options.pageToken,
       labelIds: options.labelIds,
-      includeSpamTrash: options.includeSpamTrash,
     }),
   );
 
