@@ -122,3 +122,46 @@ describe("isSafeExternalHttpUrl", () => {
     });
   });
 });
+
+describe("allowPrivateIps option (webhook sender opt-in only)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("allows private IPv4 literals when allowPrivateIps is set", () => {
+    expect(
+      isSafeExternalHttpUrl("http://10.0.0.1/webhook", {
+        allowPrivateIps: true,
+      }),
+    ).toBe(true);
+    expect(
+      isSafeExternalHttpUrl("http://127.0.0.1/webhook", {
+        allowPrivateIps: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("allows hostnames resolving to private IPs (incl. Tailscale CGNAT) when set", async () => {
+    vi.mocked(dns.lookup).mockResolvedValue([
+      { address: "100.100.100.100", family: 4 },
+    ] as Awaited<ReturnType<typeof dns.lookup>>);
+
+    await expect(
+      resolveSafeExternalHttpUrl("https://host.tailnet.ts.net/webhook", {
+        allowPrivateIps: true,
+      }),
+    ).resolves.not.toBeNull();
+  });
+
+  it("still rejects private IPs by default (protects unsubscribe/upstash callers)", () => {
+    expect(isSafeExternalHttpUrl("http://10.0.0.1/x")).toBe(false);
+  });
+
+  it("still blocks cloud-metadata hostnames even when allowPrivateIps is set", () => {
+    expect(
+      isSafeExternalHttpUrl("http://metadata.google.internal/x", {
+        allowPrivateIps: true,
+      }),
+    ).toBe(false);
+  });
+});

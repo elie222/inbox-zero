@@ -312,6 +312,149 @@ describe("validateWebhookUrl", () => {
   });
 });
 
+describe("WEBHOOK_ALLOW_PRIVATE_IPS flag", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  describe("when enabled", () => {
+    beforeEach(() => {
+      vi.stubEnv("WEBHOOK_ALLOW_PRIVATE_IPS", "true");
+    });
+
+    // NOTE: private-IP *literals* are exercised through validateWebhookUrlFormat
+    // (the creation-time entry point used by rule.ts). They are intentionally
+    // not tested through validateWebhookUrl: dns.resolve throws ENOTFOUND on any
+    // IP literal (public or private), so validateWebhookUrl rejects all bare-IP
+    // literals at send time regardless of this flag — a pre-existing quirk that
+    // is out of scope here. Hostname targets (incl. Tailscale MagicDNS) work
+    // end-to-end and are covered below.
+    it("allows private IPv4 literals (validateWebhookUrlFormat)", () => {
+      expect(validateWebhookUrlFormat("https://192.168.1.10/hook").valid).toBe(
+        true,
+      );
+      expect(validateWebhookUrlFormat("https://172.16.0.1/hook").valid).toBe(
+        true,
+      );
+    });
+
+    it("allows Tailscale CGNAT (100.64.0.0/10) literals", () => {
+      expect(validateWebhookUrlFormat("https://100.64.0.1/hook").valid).toBe(
+        true,
+      );
+      expect(
+        validateWebhookUrlFormat("https://100.100.100.100/hook").valid,
+      ).toBe(true);
+    });
+
+    it("allows loopback IP literals", () => {
+      expect(validateWebhookUrlFormat("https://127.0.0.1/hook").valid).toBe(
+        true,
+      );
+    });
+
+    it("allows private IPv6 literals", () => {
+      expect(validateWebhookUrlFormat("https://[fd00::1]/hook").valid).toBe(
+        true,
+      );
+    });
+
+    it("allows hostnames that resolve to a private IP", async () => {
+      vi.mocked(dns.resolve).mockResolvedValue(["10.1.2.3"]);
+      vi.mocked(dns.resolve6).mockRejectedValue(new Error("ENODATA"));
+
+      const result = await validateWebhookUrl(
+        "https://host.tailnet.ts.net/webhook",
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it("allows hostnames that resolve to Tailscale CGNAT", async () => {
+      vi.mocked(dns.resolve).mockResolvedValue(["100.96.0.5"]);
+      vi.mocked(dns.resolve6).mockRejectedValue(new Error("ENODATA"));
+
+      const result = await validateWebhookUrl(
+        "https://nas.tailnet.ts.net/webhook",
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it("allows hostnames that resolve to a private IPv6", async () => {
+      const enodata = new Error("ENODATA") as NodeJS.ErrnoException;
+      enodata.code = "ENODATA";
+      vi.mocked(dns.resolve).mockRejectedValue(enodata);
+      vi.mocked(dns.resolve6).mockResolvedValue(["fd00::1"]);
+
+      const result = await validateWebhookUrl(
+        "https://internal-ipv6.example.com/webhook",
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    // The flag relaxes ONLY the private-IP checks. The blocked-hostname and
+    // HTTPS-only-in-production constraints remain enforced (defense in depth).
+    it("still rejects blocked hostnames (localhost)", async () => {
+      const result = await validateWebhookUrl("https://localhost/webhook");
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.error).toBe("Webhook URL hostname is not allowed");
+      }
+    });
+
+    it("still rejects named cloud metadata hostnames", () => {
+      const result = validateWebhookUrlFormat(
+        "https://metadata.google.internal/computeMetadata/v1/",
+      );
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.error).toBe("Webhook URL hostname is not allowed");
+      }
+    });
+
+    it("still rejects HTTP in production", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      const result = validateWebhookUrlFormat("http://192.168.1.10/webhook");
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.error).toBe("Only HTTPS URLs are allowed for webhooks");
+      }
+    });
+  });
+
+  describe("when unset (default) or disabled", () => {
+    it("rejects private IP literals when unset", () => {
+      expect(validateWebhookUrlFormat("https://10.0.0.1/hook").valid).toBe(
+        false,
+      );
+    });
+
+    it("rejects private IP literals when explicitly false", () => {
+      vi.stubEnv("WEBHOOK_ALLOW_PRIVATE_IPS", "false");
+      expect(validateWebhookUrlFormat("https://10.0.0.1/hook").valid).toBe(
+        false,
+      );
+    });
+
+    it("rejects DNS-resolved private IPs when unset", async () => {
+      vi.mocked(dns.resolve).mockResolvedValue(["10.0.0.1"]);
+      vi.mocked(dns.resolve6).mockRejectedValue(new Error("ENODATA"));
+
+      const result = await validateWebhookUrl("https://internal.example.com/h");
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.error).toBe(
+          "Webhook URL cannot resolve to private IP addresses",
+        );
+      }
+    });
+  });
+});
+
 describe("validateWebhookUrlFormat", () => {
   afterEach(() => {
     vi.unstubAllEnvs();

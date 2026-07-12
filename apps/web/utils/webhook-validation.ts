@@ -40,6 +40,30 @@ const BLOCKED_HOSTNAMES = [
 const IPV4_PATTERN = /^(\d{1,3}\.){3}\d{1,3}$/;
 const IPV6_PATTERN = /^(\[)?([0-9a-fA-F:]+)(\])?$/;
 
+/**
+ * SECURITY: Opt-in escape hatch for trusted single-tenant self-hosted deployments.
+ *
+ * When `WEBHOOK_ALLOW_PRIVATE_IPS` is enabled, the private/internal IP checks
+ * (both for IP literals and DNS-resolved addresses) are bypassed so self-hosters
+ * can target internal services (LAN, Tailscale CGNAT `100.64.0.0/10`, etc.).
+ *
+ * This DISABLES SSRF protection for webhook URLs and must ONLY be used on a
+ * trusted, single-tenant deployment. Never enable it on a shared/multi-tenant
+ * (hosted) instance: it lets any user with webhook access reach internal
+ * infrastructure and cloud metadata endpoints by IP.
+ *
+ * Defaults to false. Read directly from `process.env` (mirroring how `NODE_ENV`
+ * is read in this file) so the validator keeps zero internal imports and stays
+ * trivially testable via `vi.stubEnv`. The value is also declared in
+ * `apps/web/env.ts` for typing/validation/documentation. Matching the
+ * `booleanString` semantics, any value other than unset/empty/"false" enables it.
+ */
+export function allowPrivateIps(): boolean {
+  const value = process.env.WEBHOOK_ALLOW_PRIVATE_IPS;
+  if (!value) return false;
+  return value.toLowerCase() !== "false";
+}
+
 export type WebhookUrlValidationResult =
   | { valid: true }
   | { valid: false; error: string };
@@ -95,6 +119,11 @@ export function validateWebhookUrlFormat(
  * - No IP addresses in the hostname (must use DNS names)
  * - No private/internal hostnames (localhost, metadata endpoints, etc.)
  * - DNS resolution must not resolve to private/internal IP addresses (both IPv4 and IPv6)
+ *
+ * The private-IP checks (literal and DNS-resolved) can be bypassed by setting
+ * WEBHOOK_ALLOW_PRIVATE_IPS for trusted single-tenant self-hosts (see
+ * allowPrivateIps). The blocked-hostname (localhost, cloud metadata) and
+ * HTTPS-only-in-production constraints are NOT relaxed by that flag.
  */
 export async function validateWebhookUrl(
   url: string,
@@ -153,13 +182,17 @@ export async function validateWebhookUrl(
     }
   }
 
-  // Check all resolved addresses for private IPs
-  for (const ip of allAddresses) {
-    if (isPrivateIP(ip)) {
-      return {
-        valid: false,
-        error: "Webhook URL cannot resolve to private IP addresses",
-      };
+  // Check all resolved addresses for private IPs.
+  // SECURITY: bypassed only when WEBHOOK_ALLOW_PRIVATE_IPS is explicitly enabled
+  // for a trusted single-tenant self-hosted deployment (see allowPrivateIps).
+  if (!allowPrivateIps()) {
+    for (const ip of allAddresses) {
+      if (isPrivateIP(ip)) {
+        return {
+          valid: false,
+          error: "Webhook URL cannot resolve to private IP addresses",
+        };
+      }
     }
   }
 
@@ -173,6 +206,10 @@ function isPrivateIP(ip: string): boolean {
 function checkPrivateIpLiteral(
   hostname: string,
 ): WebhookUrlValidationResult | null {
+  // SECURITY: bypassed only when WEBHOOK_ALLOW_PRIVATE_IPS is explicitly enabled
+  // for a trusted single-tenant self-hosted deployment (see allowPrivateIps).
+  if (allowPrivateIps()) return null;
+
   if (IPV4_PATTERN.test(hostname)) {
     if (isPrivateIP(hostname)) {
       return {
