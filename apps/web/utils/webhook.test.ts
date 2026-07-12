@@ -1,29 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
+import { SafeError } from "@/utils/error";
+import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
 import { callWebhook } from "./webhook";
 
 vi.mock("@/utils/prisma");
 
 const {
-  mockEnv,
+  ensureWebhookActionEnabledMock,
   httpsRequestMock,
   resolveSafeExternalHttpUrlMock,
   validateWebhookUrlMock,
 } = vi.hoisted(() => ({
-  mockEnv: {
-    webhookActionsEnabled: true,
-  },
+  ensureWebhookActionEnabledMock: vi.fn(),
   httpsRequestMock: vi.fn(),
   resolveSafeExternalHttpUrlMock: vi.fn(),
   validateWebhookUrlMock: vi.fn(),
 }));
 
-vi.mock("@/env", () => ({
-  env: {
-    get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
-      return mockEnv.webhookActionsEnabled;
-    },
-  },
+vi.mock("@/utils/webhook-action", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/webhook-action")>()),
+  ensureWebhookActionEnabled: ensureWebhookActionEnabledMock,
 }));
 
 vi.mock("node:https", () => ({
@@ -42,7 +39,7 @@ vi.mock("@/utils/webhook-validation", () => ({
 describe("callWebhook", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockEnv.webhookActionsEnabled = true;
+    ensureWebhookActionEnabledMock.mockImplementation(() => undefined);
     validateWebhookUrlMock.mockResolvedValue({ valid: true });
     prisma.user.findUnique.mockResolvedValue({
       webhookSecret: "webhook-secret",
@@ -58,7 +55,9 @@ describe("callWebhook", () => {
   });
 
   it("skips existing webhook actions when webhook actions are disabled", async () => {
-    mockEnv.webhookActionsEnabled = false;
+    ensureWebhookActionEnabledMock.mockImplementationOnce(() => {
+      throw new SafeError(WEBHOOK_ACTION_DISABLED_MESSAGE);
+    });
 
     await expect(
       callWebhook("user-1", "https://example.com/webhook", getPayload()),
