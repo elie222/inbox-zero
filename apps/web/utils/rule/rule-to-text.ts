@@ -37,6 +37,9 @@ export function ruleToText(rule: RuleWithActions): string {
       case ActionType.ARCHIVE:
         actions.push("Archive");
         break;
+      case ActionType.DELETE:
+        actions.push("Delete");
+        break;
       case ActionType.LABEL:
         if (action.label) {
           actions.push(`Label as @[${action.label}]`);

@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType } from "@/generated/prisma/enums";
 import { ruleRequestBodySchema, rulesResponseSchema } from "./validation";
+import { DELETE_EMAIL_ACTION_DISABLED_MESSAGE } from "@/utils/delete-email-action";
 import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
 
 const { mockEnv } = vi.hoisted(() => ({
   mockEnv: {
     webhookActionsEnabled: true,
+    deleteEmailActionEnabled: false,
   },
 }));
 
@@ -14,12 +16,16 @@ vi.mock("@/env", () => ({
     get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
       return mockEnv.webhookActionsEnabled;
     },
+    get NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED() {
+      return mockEnv.deleteEmailActionEnabled;
+    },
   },
 }));
 
 describe("rule API validation", () => {
   beforeEach(() => {
     mockEnv.webhookActionsEnabled = true;
+    mockEnv.deleteEmailActionEnabled = false;
   });
 
   it.each([
@@ -206,5 +212,39 @@ describe("rule API validation", () => {
       WEBHOOK_ACTION_DISABLED_MESSAGE,
     );
     expect(result.error?.issues[0]?.path).toEqual(["actions", 0, "type"]);
+  });
+
+  it("rejects DELETE when delete email actions are disabled", () => {
+    mockEnv.deleteEmailActionEnabled = false;
+
+    const result = ruleRequestBodySchema.safeParse({
+      name: "Rule",
+      runOnThreads: true,
+      condition: {
+        aiInstructions: "Match this email",
+      },
+      actions: [{ type: ActionType.DELETE }],
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(
+      DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
+    );
+    expect(result.error?.issues[0]?.path).toEqual(["actions", 0, "type"]);
+  });
+
+  it("accepts DELETE when delete email actions are enabled", () => {
+    mockEnv.deleteEmailActionEnabled = true;
+
+    const result = ruleRequestBodySchema.safeParse({
+      name: "Rule",
+      runOnThreads: true,
+      condition: {
+        aiInstructions: "Match this email",
+      },
+      actions: [{ type: ActionType.DELETE }],
+    });
+
+    expect(result.success).toBe(true);
   });
 });
