@@ -106,14 +106,23 @@ describe("trackServerConversionEvent", () => {
       logger,
     });
 
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    expect(body).toEqual(
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL("https://example.com/rill"),
       expect.objectContaining({
-        name: "trial_started",
-        id: "evt_trial:trial_started",
-        clickIds: { gclid: "test-gclid" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
       }),
     );
+
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
+    expect(body).toEqual({
+      name: "trial_started",
+      id: "evt_trial:trial_started",
+      timestamp: "2026-07-13T00:00:00.000Z",
+      clickIds: { gclid: "test-gclid" },
+      properties: { planId: "price_test" },
+      sourceUrl: "https://example.com",
+    });
   });
 
   it("sends the shared secret header when configured", async () => {
