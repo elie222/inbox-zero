@@ -69,6 +69,7 @@ export async function processEvent(event: Stripe.Event, logger: Logger) {
     trackEvent(email, event),
     trackBillingMilestones(email, event, customerId),
     handleReferralCompletion(customerId, event, logger),
+    trackTrialStartedConversion(event, logger),
     trackPaidSubscriptionConversion(event, logger),
     recordCancellationInitiated(customerId, event, logger),
   ];
@@ -181,6 +182,24 @@ async function trackPaidSubscriptionConversion(
     name: "subscription_created",
     id: event.id,
     timestamp: trialConvertedAt,
+    ...getStripeSubscriptionConversionProperties(subscription),
+    logger,
+  });
+}
+
+async function trackTrialStartedConversion(
+  event: Stripe.Event,
+  logger: Logger,
+) {
+  if (event.type !== "customer.subscription.created") return;
+
+  const subscription = event.data.object as Stripe.Subscription;
+  if (subscription.status !== "trialing" || !subscription.trial_start) return;
+
+  await trackServerConversionEvent({
+    name: "trial_started",
+    id: `${event.id}:trial_started`,
+    timestamp: new Date(subscription.trial_start * 1000),
     ...getStripeSubscriptionConversionProperties(subscription),
     logger,
   });
