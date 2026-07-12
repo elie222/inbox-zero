@@ -53,6 +53,7 @@ import {
   applyAttachmentSourceSelection,
   buildDriveSourceChildrenMap,
   driveSourceSelection,
+  getAttachmentSourceNodeSelection,
   getDriveSourceTreeNodeId,
   type DriveSourceChildrenMap,
 } from "./attachment-source-selection";
@@ -376,6 +377,7 @@ function AttachmentSourceNode({
   onToggle,
   onChildrenLoaded,
   childrenByParentId,
+  ancestorFolderSelected = false,
   allowFolderSelection = false,
 }: {
   item: DriveSourceItem;
@@ -385,17 +387,20 @@ function AttachmentSourceNode({
   onToggle: (item: DriveSourceItem, checked: boolean) => void;
   onChildrenLoaded: (parentId: string, children: DriveSourceItem[]) => void;
   childrenByParentId: DriveSourceChildrenMap;
+  ancestorFolderSelected?: boolean;
   allowFolderSelection?: boolean;
 }) {
   const { expandedIds } = useTree();
   const nodeId = getDriveSourceTreeNodeId(item);
   const isExpanded = expandedIds.has(nodeId);
   const isFolder = item.type === "folder";
-  const checkboxState = driveSourceSelection.getSelectionState({
-    item,
-    selectedKeys,
-    childrenByParentId,
-  });
+  const { checkboxState, isSelectionInherited, descendantsAreSelected } =
+    getAttachmentSourceNodeSelection({
+      item,
+      selectedKeys,
+      childrenByParentId,
+      ancestorFolderSelected,
+    });
 
   const knownChildren = childrenByParentId.get(nodeId);
   const { data, isLoading } = useDriveSourceChildren(
@@ -432,6 +437,7 @@ function AttachmentSourceNode({
           <div className="flex flex-1 items-center gap-2">
             <Checkbox
               checked={checkboxState}
+              disabled={isSelectionInherited}
               onCheckedChange={(checked) => onToggle(item, checked === true)}
               onClick={(event) => event.stopPropagation()}
             />
@@ -457,6 +463,7 @@ function AttachmentSourceNode({
           {allowFolderSelection && (
             <Checkbox
               checked={checkboxState}
+              disabled={isSelectionInherited}
               onCheckedChange={(checked) => onToggle(item, checked === true)}
               onClick={(event) => event.stopPropagation()}
             />
@@ -476,6 +483,7 @@ function AttachmentSourceNode({
               onToggle={onToggle}
               onChildrenLoaded={onChildrenLoaded}
               childrenByParentId={childrenByParentId}
+              ancestorFolderSelected={descendantsAreSelected}
               allowFolderSelection={allowFolderSelection}
             />
           ))

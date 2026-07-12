@@ -9,6 +9,7 @@ import {
   applyAttachmentSourceSelection,
   buildDriveSourceChildrenMap,
   driveSourceSelection,
+  getAttachmentSourceNodeSelection,
 } from "./attachment-source-selection";
 
 describe("attachment source selection", () => {
@@ -60,6 +61,44 @@ describe("attachment source selection", () => {
         childrenByParentId: buildDriveSourceChildrenMap(items),
       }),
     ).toBe("indeterminate");
+  });
+
+  it("inherits recursive selection from an ancestor folder", () => {
+    const child = folder("child", "France 2025", "parent");
+
+    expect(
+      getAttachmentSourceNodeSelection({
+        item: child,
+        selectedKeys: new Set(),
+        childrenByParentId: new Map(),
+        ancestorFolderSelected: true,
+      }),
+    ).toEqual({
+      checkboxState: true,
+      isSelectionInherited: true,
+      descendantsAreSelected: true,
+    });
+  });
+
+  it("inherits selection only from directly selected folders", () => {
+    const items = [
+      folder("parent", "Trips"),
+      file("child", "Itinerary.pdf", "parent"),
+    ];
+    const childrenByParentId = buildDriveSourceChildrenMap(items);
+
+    expect(
+      getAttachmentSourceNodeSelection({
+        item: items[0],
+        selectedKeys: new Set(["drive-connection:FILE:child"]),
+        childrenByParentId,
+        ancestorFolderSelected: false,
+      }),
+    ).toEqual({
+      checkboxState: true,
+      isSelectionInherited: false,
+      descendantsAreSelected: false,
+    });
   });
 });
 

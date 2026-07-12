@@ -70,6 +70,35 @@ export function applyAttachmentSourceSelection({
   );
 }
 
+export function getAttachmentSourceNodeSelection({
+  item,
+  selectedKeys,
+  childrenByParentId,
+  ancestorFolderSelected,
+}: {
+  item: DriveSourceItem;
+  selectedKeys: Set<string>;
+  childrenByParentId: DriveSourceChildrenMap;
+  ancestorFolderSelected: boolean;
+}) {
+  const isDirectlySelected = selectedKeys.has(
+    getAttachmentSourceKey(toAttachmentSource(item)),
+  );
+
+  return {
+    checkboxState: ancestorFolderSelected
+      ? true
+      : driveSourceSelection.getSelectionState({
+          item,
+          selectedKeys,
+          childrenByParentId,
+        }),
+    isSelectionInherited: ancestorFolderSelected,
+    descendantsAreSelected:
+      ancestorFolderSelected || (item.type === "folder" && isDirectlySelected),
+  };
+}
+
 export function getDriveSourceTreeNodeId(item: DriveSourceItem) {
   return `${item.driveConnectionId}:${item.type}:${item.id}`;
 }
