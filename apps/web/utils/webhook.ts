@@ -23,6 +23,12 @@ type WebhookPayload = {
     cc?: string;
     bcc?: string;
     headerMessageId: string;
+    /** The email's Date header, as supplied by the sender. */
+    date?: string;
+    /** Provider received timestamp (Gmail internalDate, ms-epoch string). */
+    receivedAt?: string | null;
+    /** Gmail deep link to the message. */
+    gmailUrl?: string;
   };
   executedRule: Pick<
     ExecutedRule,

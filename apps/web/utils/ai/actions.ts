@@ -405,6 +405,22 @@ const call_webhook: ActionFunction<{ url?: string | null }> = async ({
 }) => {
   if (!args.url) return;
 
+  const messageId = email.headers["message-id"] || "";
+
+  // Opt-in extra fields. Off by default so the payload stays exactly the
+  // original shape for existing consumers (backwards compatible).
+  const extendedFields = env.WEBHOOK_EXTENDED_PAYLOAD
+    ? {
+        date: email.headers.date,
+        receivedAt: email.internalDate,
+        gmailUrl: messageId
+          ? `https://mail.google.com/mail/u/0/#search/rfc822msgid:${encodeURIComponent(
+              messageId,
+            )}`
+          : `https://mail.google.com/mail/u/0/#all/${email.threadId}`,
+      }
+    : {};
+
   const payload = {
     email: {
       threadId: email.threadId,
@@ -413,7 +429,8 @@ const call_webhook: ActionFunction<{ url?: string | null }> = async ({
       from: email.headers.from,
       cc: email.headers.cc,
       bcc: email.headers.bcc,
-      headerMessageId: email.headers["message-id"] || "",
+      headerMessageId: messageId,
+      ...extendedFields,
     },
     executedRule: {
       id: executedRule.id,
