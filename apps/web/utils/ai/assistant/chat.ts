@@ -48,7 +48,7 @@ import {
 import { getAssistantChatProvider } from "./chat-provider-shared";
 import { LlmUseCase } from "@/utils/llms/use-cases";
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 const ASSISTANT_CHAT_MAX_STEPS = 25;
 const ASSISTANT_CHAT_REASONING_MAX_TOKENS = 100;
 
