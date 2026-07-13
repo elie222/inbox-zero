@@ -19,6 +19,28 @@ import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 
+const { mockEnv } = vi.hoisted(() => ({
+  mockEnv: {
+    deleteEmailActionEnabled: true,
+    autoDraftDisabled: false,
+    emailSendEnabled: true,
+  },
+}));
+
+vi.mock("@/env", () => ({
+  env: {
+    get NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED() {
+      return mockEnv.deleteEmailActionEnabled;
+    },
+    get NEXT_PUBLIC_AUTO_DRAFT_DISABLED() {
+      return mockEnv.autoDraftDisabled;
+    },
+    get NEXT_PUBLIC_EMAIL_SEND_ENABLED() {
+      return mockEnv.emailSendEnabled;
+    },
+  },
+}));
+
 vi.mock("@/utils/attachments/draft-attachments", () => ({
   resolveDraftAttachments: vi.fn().mockResolvedValue([]),
   selectDraftAttachmentsForRule: vi.fn().mockResolvedValue({
@@ -611,5 +633,57 @@ describe("runActionFunction", () => {
 
     expect(resolveDraftAttachments).not.toHaveBeenCalled();
     expect(client.draftEmail).toHaveBeenCalled();
+  });
+
+  it("trashes the thread when delete action is enabled", async () => {
+    mockEnv.deleteEmailActionEnabled = true;
+    const client = createMockEmailProvider();
+
+    await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.DELETE,
+      },
+      emailAccount,
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(client.trashThread).toHaveBeenCalledWith(
+      "thread-1",
+      emailAccount.email,
+      "automation",
+    );
+  });
+
+  it("skips delete action when delete email actions are disabled", async () => {
+    mockEnv.deleteEmailActionEnabled = false;
+    const client = createMockEmailProvider();
+
+    await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.DELETE,
+      },
+      emailAccount,
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(client.trashThread).not.toHaveBeenCalled();
   });
 });

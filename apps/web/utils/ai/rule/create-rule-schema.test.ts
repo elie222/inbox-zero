@@ -410,6 +410,18 @@ describe("getExtraActions", () => {
   });
 });
 
+describe("delete action availability", () => {
+  const provider = "google";
+
+  it("does not expose DELETE in AI rule schemas", () => {
+    expect(getAvailableActions(provider)).not.toContain(ActionType.DELETE);
+    expect(getExtraActions()).not.toContain(ActionType.DELETE);
+    expect(getExtraActions([ActionType.DELETE])).not.toContain(
+      ActionType.DELETE,
+    );
+  });
+});
+
 type CreateRuleInput = z.input<ReturnType<typeof createRuleSchema>>;
 type RuleActionFixture = CreateRuleInput["actions"][number] & {
   fields?: Partial<{

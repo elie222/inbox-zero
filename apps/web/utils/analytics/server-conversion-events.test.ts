@@ -17,7 +17,7 @@ vi.mock("@/env", () => ({
 import {
   CONVERSION_CLICK_IDS_METADATA_KEY,
   CONVERSION_ATTRIBUTION_METADATA_KEY,
-  getConversionClickMetadataFromUtms,
+  getConversionClickMetadata,
   getStripeSubscriptionConversionProperties,
   trackServerConversionEvent,
 } from "@/utils/analytics/server-conversion-events";
@@ -96,6 +96,35 @@ describe("trackServerConversionEvent", () => {
     });
   });
 
+  it("posts trial-start conversion events to the configured private endpoint", async () => {
+    await trackServerConversionEvent({
+      name: "trial_started",
+      id: "evt_trial:trial_started",
+      timestamp: new Date("2026-07-13T00:00:00.000Z"),
+      clickIds: { gclid: "test-gclid" },
+      properties: { planId: "price_test" },
+      logger,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL("https://example.com/rill"),
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
+    expect(body).toEqual({
+      name: "trial_started",
+      id: "evt_trial:trial_started",
+      timestamp: "2026-07-13T00:00:00.000Z",
+      clickIds: { gclid: "test-gclid" },
+      properties: { planId: "price_test" },
+      sourceUrl: "https://example.com",
+    });
+  });
+
   it("sends the shared secret header when configured", async () => {
     envMock.CONVERSION_ANALYTICS_SERVER_SECRET = "secret_test";
 
@@ -164,6 +193,8 @@ describe("getStripeSubscriptionConversionProperties", () => {
           gclid: " test-gclid ",
           gbraid: "test-gbraid",
           wbraid: "test-wbraid",
+          fbc: "fb.1.click",
+          fbp: "fb.1.browser",
         }),
       },
       items: {
@@ -186,6 +217,8 @@ describe("getStripeSubscriptionConversionProperties", () => {
         gclid: "test-gclid",
         gbraid: "test-gbraid",
         wbraid: "test-wbraid",
+        fbc: "fb.1.click",
+        fbp: "fb.1.browser",
       },
       properties: {
         planId: "price_test",
@@ -197,25 +230,31 @@ describe("getStripeSubscriptionConversionProperties", () => {
 
   it("extracts conversion click metadata from stored UTMs", () => {
     expect(
-      getConversionClickMetadataFromUtms({
-        gclid: " test-gclid ",
-        gbraid: "test-gbraid",
-        wbraid: "test-wbraid",
-        utmSource: "google",
+      getConversionClickMetadata({
+        utms: {
+          gclid: " test-gclid ",
+          gbraid: "test-gbraid",
+          wbraid: "test-wbraid",
+          utmSource: "google",
+        },
+        fbc: "fb.1.click",
+        fbp: "fb.1.browser",
       }),
     ).toEqual({
       [CONVERSION_CLICK_IDS_METADATA_KEY]: JSON.stringify({
         gclid: "test-gclid",
         gbraid: "test-gbraid",
         wbraid: "test-wbraid",
+        fbc: "fb.1.click",
+        fbp: "fb.1.browser",
       }),
     });
   });
 
   it("drops click metadata when it would exceed Stripe metadata limits", () => {
     expect(
-      getConversionClickMetadataFromUtms({
-        gclid: "x".repeat(501),
+      getConversionClickMetadata({
+        utms: { gclid: "x".repeat(501) },
       }),
     ).toEqual({});
   });

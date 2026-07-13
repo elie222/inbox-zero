@@ -27,9 +27,11 @@ import {
 import type { RuleWithRelations } from "@/utils/rule/types";
 import type { RuleConditions } from "@/utils/condition";
 import {
-  ensureWebhookActionEnabled,
-  hasWebhookAction,
-} from "@/utils/webhook-action";
+  assertRuleActionUpdateEnabled,
+  assertRuleActionsEnabled,
+  getDisabledRuleActionTypesToPreserve,
+} from "@/utils/rule-action-feature-gates";
+import { hasWebhookAction } from "@/utils/webhook-action";
 import { assertNoSenderOnlyOverlap } from "@/utils/rule/sender-scope-overlap";
 
 type CreateRuleEnablement =
@@ -239,7 +241,7 @@ export async function createRuleWithResolvedActions({
   actions: RuleActionCreateData[];
   skipSenderOnlyOverlapCheck?: boolean;
 }): Promise<RuleWithRelations> {
-  assertWebhookActionsAllowed(actions);
+  assertRuleActionsEnabled(actions);
 
   if (!skipSenderOnlyOverlapCheck) {
     await assertNoSenderOnlyOverlap({ emailAccountId, rule: data });
@@ -291,12 +293,15 @@ export async function replaceRuleWithResolvedActions({
   data: RuleRecordData;
   actions: RuleActionCreateData[];
 }): Promise<RuleWithRelations> {
-  assertWebhookActionsAllowed(actions);
-
   const existingRule = await prisma.rule.findUnique({
     where: { id: ruleId, emailAccountId },
-    select: RULE_SCOPE_SELECT,
+    select: {
+      ...RULE_SCOPE_SELECT,
+      actions: { select: { type: true } },
+    },
   });
+
+  assertRuleActionUpdateEnabled(actions, existingRule?.actions ?? []);
 
   await assertNoSenderOnlyOverlap({
     emailAccountId,
@@ -328,7 +333,7 @@ export async function replaceRuleWithResolvedActions({
       body: data.body,
       groupId: data.groupId,
       actions: {
-        deleteMany: {},
+        deleteMany: getReplaceableRuleActionsWhere(),
         createMany: {
           data: addNestedActionOwnershipToInputs(actions, emailAccountId),
         },
@@ -368,8 +373,6 @@ export async function createRule({
       name: result.name,
       systemType,
     });
-
-    assertWebhookActionsAllowed(result.actions);
 
     await assertNoSenderOnlyOverlap({
       emailAccountId,
@@ -450,8 +453,6 @@ export async function updateRule({
       name: result.name,
       ruleId,
     });
-
-    assertWebhookActionsAllowed(result.actions);
 
     validateLowTrustStaticFromOutboundActions({
       from: result.condition.static?.from,
@@ -594,16 +595,19 @@ export async function updateRuleActions({
   emailAccountId: string;
   logger: Logger;
 }) {
-  assertWebhookActionsAllowed(actions);
-
   const existingRule = await prisma.rule.findFirst({
     where: { id: ruleId, emailAccountId },
-    select: { from: true },
+    select: {
+      from: true,
+      actions: { select: { type: true } },
+    },
   });
 
   if (!existingRule) {
     throw new Error("Rule not found");
   }
+
+  assertRuleActionUpdateEnabled(actions, existingRule.actions);
 
   validateLowTrustStaticFromOutboundActions({
     from: existingRule.from,
@@ -622,7 +626,7 @@ export async function updateRuleActions({
     where: { id: ruleId, emailAccountId },
     data: {
       actions: {
-        deleteMany: {},
+        deleteMany: getReplaceableRuleActionsWhere(),
         createMany: {
           data: addNestedActionOwnershipToInputs(mappedActions, emailAccountId),
         },
@@ -765,11 +769,11 @@ function validateLowTrustStaticFromOutboundActions({
   throw new SafeError(LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE, 400);
 }
 
-function assertWebhookActionsAllowed(
-  actions: ReadonlyArray<{ type: ActionType | string }>,
-) {
-  if (!hasWebhookAction(actions)) return;
-  ensureWebhookActionEnabled();
+function getReplaceableRuleActionsWhere() {
+  const disabledActionTypes = getDisabledRuleActionTypesToPreserve();
+  return disabledActionTypes.length
+    ? { type: { notIn: disabledActionTypes } }
+    : {};
 }
 
 async function mapActionFields(

@@ -12,6 +12,7 @@ import { type SubmitHandler, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { usePostHog } from "posthog-js/react";
 import { env } from "@/env";
+import { isDeleteEmailActionEnabled } from "@/utils/delete-email-action";
 import {
   PencilIcon,
   TrashIcon,
@@ -920,11 +921,15 @@ function restorePersistedActionSequence({
 }
 
 function getRuleEditorActions(actions: CreateRuleBody["actions"]) {
+  let filteredActions = actions;
+
   if (env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED === false) {
-    return actions.filter((action) => action.type !== ActionType.CALL_WEBHOOK);
+    filteredActions = filteredActions.filter(
+      (action) => action.type !== ActionType.CALL_WEBHOOK,
+    );
   }
 
-  return actions;
+  return filteredActions;
 }
 
 type ActionTypeOption = {
@@ -976,6 +981,15 @@ export function getRuleActionTypeOptions({
       label: ACTION_TYPE_LABELS[ActionType.ARCHIVE],
       value: ActionType.ARCHIVE,
     },
+    ...(isDeleteEmailActionEnabled() ||
+    existingActionTypes.includes(ActionType.DELETE)
+      ? [
+          {
+            label: ACTION_TYPE_LABELS[ActionType.DELETE],
+            value: ActionType.DELETE,
+          },
+        ]
+      : []),
     {
       label: ACTION_TYPE_LABELS[ActionType.MARK_READ],
       value: ActionType.MARK_READ,

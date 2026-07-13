@@ -8,6 +8,41 @@ afterEach(() => {
 });
 
 describe("shouldRunEvalTests", () => {
+  it("exposes Azure GPT-5.6 presets without duplicating them in all-model runs", () => {
+    process.env.EVAL_MODELS = "gpt-5.6-luna-azure,gpt-5.6-terra-azure";
+
+    expect(getEvalModels()).toEqual([
+      {
+        provider: "azure-foundry",
+        model: "gpt-5.6-luna",
+        label: "GPT-5.6 Luna Azure",
+        includeInAll: false,
+      },
+      {
+        provider: "azure-foundry",
+        model: "gpt-5.6-terra",
+        label: "GPT-5.6 Terra Azure",
+        includeInAll: false,
+      },
+    ]);
+
+    process.env.EVAL_MODELS = "all";
+
+    expect(getEvalModels()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ model: "openai/gpt-5.6-luna" }),
+        expect.objectContaining({ model: "openai/gpt-5.6-terra" }),
+      ]),
+    );
+    expect(
+      getEvalModels().some(
+        (model) =>
+          model.provider === "azure-foundry" &&
+          model.model.startsWith("gpt-5.6-"),
+      ),
+    ).toBe(false);
+  });
+
   it("exposes Azure DeepSeek presets without including them in all-model runs", () => {
     process.env.EVAL_MODELS = "deepseek-v4-pro-azure";
 

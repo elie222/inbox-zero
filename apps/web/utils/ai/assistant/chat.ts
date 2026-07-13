@@ -48,8 +48,11 @@ import {
 import { getAssistantChatProvider } from "./chat-provider-shared";
 import { LlmUseCase } from "@/utils/llms/use-cases";
 
-export const maxDuration = 120;
-const ASSISTANT_CHAT_MAX_STEPS = 25;
+export const maxDuration = 300;
+const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
+  web: 240_000,
+  messaging: 60_000,
+} satisfies Record<"web" | "messaging", number>;
 const ASSISTANT_CHAT_REASONING_MAX_TOKENS = 100;
 
 type AssistantChatOnStepFinish = NonNullable<
@@ -94,6 +97,8 @@ export async function aiProcessAssistantChat({
   onModelResolved?: AssistantChatOnModelResolved;
   logger: Logger;
 }) {
+  const startedAt = Date.now();
+
   if (chatLastSeenRulesRevision !== undefined && chatHasHistory === undefined) {
     throw new Error(
       "chatHasHistory must be provided when chatLastSeenRulesRevision is set",
@@ -322,7 +327,19 @@ export async function aiProcessAssistantChat({
       });
       onModelResolved?.(resolvedModel);
     },
-    maxSteps: ASSISTANT_CHAT_MAX_STEPS,
+    stopWhen: () => false,
+    prepareStep: () => {
+      if (
+        Date.now() - startedAt <
+        ASSISTANT_CHAT_TOOL_BUDGET_MS[responseSurface]
+      )
+        return;
+
+      return {
+        activeTools: [],
+        toolChoice: "none",
+      };
+    },
     tools: allTools,
   });
 
@@ -738,7 +755,7 @@ export function buildResolvedSystemPrompt({
 - For low-priority repeated senders, you may suggest bulk archive by sender as an option, but default to archiving the specific threads shown.
 - For all-matching cleanup, paginate searchInbox until hasMore=false, collect matching threadIds across pages, then write in batches.
 - Do not turn one-time cleanup into a recurring rule unless the user asks for automation.
-- For ongoing sender-level batch cleanup, once the user confirms the category, continue subsequent batches without re-asking.
+- For confirmed multi-batch cleanup, continue search and action batches within the current response until the requested scope is complete. Do not pause merely to provide progress updates or ask the user to trigger the next batch, and never claim work will continue after the response ends.
 - Never claim or report that the inbox is empty, fully caught up, or has no unread emails without first running searchInbox in this turn to confirm — the initial inbox snapshot and prior-turn results can be stale, and earlier search pages or filters may not cover the whole mailbox. Treat zero results from a single narrow query as inconclusive: broaden or re-run searchInbox before asserting absence. If the user signals doubt about a prior conclusion or asks you to re-check, re-run searchInbox with fresh (and broader, if the prior call was narrow) parameters and report the new results rather than rephrasing the prior conclusion.`,
     providerPolicy.ruleSuggestionPolicy,
     `Rules and automation:

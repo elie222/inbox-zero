@@ -686,8 +686,9 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
       const expectedLabel = Array.isArray(tc.expectedRule)
         ? tc.expectedRule.join(" | ")
         : (tc.expectedRule ?? "no match");
+      const testName = `${tc.email.from} / ${tc.email.subject} → ${expectedLabel}`;
       test(
-        `${tc.email.from} → ${expectedLabel}`,
+        testName,
         async () => {
           const result = await aiChooseRule({
             email: tc.email,
@@ -705,7 +706,7 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
           const pass = acceptable.includes(actual);
 
           evalReporter.record({
-            testName: `${tc.email.from} → ${expectedLabel}`,
+            testName,
             model: model.label,
             pass,
             expected: expectedLabel,
