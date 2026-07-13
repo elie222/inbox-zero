@@ -30,7 +30,11 @@ export function UnsubscribeSuggestionRow({
 }) {
   const content = (
     <>
-      <ButtonCheckbox checked={checked} onChange={onToggle} />
+      <ButtonCheckbox
+        label={`Select ${sender.fromName || sender.name}`}
+        checked={checked}
+        onChange={onToggle}
+      />
 
       <DomainIcon
         domain={extractDomainFromEmail(sender.name) || sender.name}
