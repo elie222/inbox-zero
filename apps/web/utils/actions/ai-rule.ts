@@ -24,7 +24,7 @@ export const runRulesAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId, provider, logger: ctxLogger },
-      parsedInput: { messageId, threadId, rerun, isTest },
+      parsedInput: { messageId, threadId, rerun, isTest, skipDraftReplies },
     }): Promise<RunRulesResult[]> => {
       const logger = ctxLogger.with({ messageId, threadId });
 
@@ -162,6 +162,7 @@ export const runRulesAction = actionClient
         emailAccount,
         logger,
         modelType: "chat",
+        skipDraftReplies,
       }).catch((error) => {
         logger.error("runRules failed", { error });
         return flushAndRethrowRunRulesActionError({

@@ -74,6 +74,7 @@ export async function bulkProcessInboxEmails({
           modelType: "economy",
           logger,
           skipArchive,
+          skipDraftReplies: true,
         });
         processedCount++;
       } catch (error) {

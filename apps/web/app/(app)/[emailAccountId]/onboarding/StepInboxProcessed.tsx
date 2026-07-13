@@ -90,20 +90,15 @@ export function StepInboxProcessedView({
   const hasEmails = !!data && data.emails.length > 0;
   const { label } = getEmailTerminology(provider);
   const pastVerb = isMicrosoftProvider(provider) ? "categorized" : "labeled";
-  const hasDrafts = (data?.draftCount ?? 0) > 0;
 
   return (
     <div className="w-full max-w-xl">
       <div className="mb-6 text-center">
         <PageHeading className="mb-3">
-          {hasDrafts
-            ? `${label.pluralCapitalized} and drafts are ready`
-            : `${label.pluralCapitalized} are ready`}
+          {label.pluralCapitalized} are ready
         </PageHeading>
         <TypographyP className="text-muted-foreground">
-          {hasDrafts
-            ? `We ${pastVerb} your last ${ONBOARDING_PROCESS_EMAILS_COUNT} emails and drafted replies. Nothing was archived.`
-            : `We ${pastVerb} your last ${ONBOARDING_PROCESS_EMAILS_COUNT} emails. Nothing was archived.`}
+          {`We ${pastVerb} your last ${ONBOARDING_PROCESS_EMAILS_COUNT} emails. Draft replies will start with new incoming emails. Nothing was archived.`}
         </TypographyP>
       </div>
 
