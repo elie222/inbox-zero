@@ -163,6 +163,25 @@ describe("eval reporter", () => {
     });
   });
 
+  it("rejects duplicate test records for the same model", () => {
+    const reporter = createEvalReporter({ evalName: "example eval" });
+    reporter.record({
+      testName: "example case",
+      model: "Example Model",
+      pass: true,
+    });
+
+    expect(() =>
+      reporter.record({
+        testName: "example case",
+        model: "Example Model",
+        pass: false,
+      }),
+    ).toThrowError(
+      'Duplicate eval record for "example case" using "Example Model"',
+    );
+  });
+
   it("reuses cached eval records in readwrite mode", async () => {
     const { workspaceRoot, packageDir } = createTempWorkspace();
     process.chdir(packageDir);
