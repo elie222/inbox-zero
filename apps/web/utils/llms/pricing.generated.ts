@@ -115,9 +115,9 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     cachedInput: 1.65e-7,
   },
   "deepseek/deepseek-v4-flash": {
-    input: 9e-8,
-    output: 1.8e-7,
-    cachedInput: 2e-8,
+    input: 7.7e-8,
+    output: 1.54e-7,
+    cachedInput: 1.54e-8,
   },
   "eu.anthropic.claude-sonnet-4-6": {
     input: 0.000_003,
@@ -284,15 +284,25 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.000_001_25,
     cachedInput: 2e-8,
   },
+  "gpt-5.6-luna": {
+    input: 0.000_001,
+    output: 0.000_006,
+    cachedInput: 1e-7,
+  },
+  "gpt-5.6-terra": {
+    input: 0.000_002_5,
+    output: 0.000_015,
+    cachedInput: 2.5e-7,
+  },
   "llama-3.3-70b-versatile": {
     input: 5.9e-7,
     output: 7.900_000_000_000_001e-7,
     cachedInput: 5.9e-7,
   },
   "meta-llama/llama-4-maverick": {
-    input: 1.5e-7,
-    output: 6e-7,
-    cachedInput: 1.5e-7,
+    input: 2e-7,
+    output: 8e-7,
+    cachedInput: 2e-7,
   },
   "moonshotai/kimi-k2": {
     input: 5.7e-7,

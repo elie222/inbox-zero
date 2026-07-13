@@ -163,6 +163,25 @@ describe("eval reporter", () => {
     });
   });
 
+  it("rejects duplicate test records for the same model", () => {
+    const reporter = createEvalReporter({ evalName: "example eval" });
+    reporter.record({
+      testName: "example case",
+      model: "Example Model",
+      pass: true,
+    });
+
+    expect(() =>
+      reporter.record({
+        testName: "example case",
+        model: "Example Model",
+        pass: false,
+      }),
+    ).toThrowError(
+      'Duplicate eval record for "example case" using "Example Model"',
+    );
+  });
+
   it("reuses cached eval records in readwrite mode", async () => {
     const { workspaceRoot, packageDir } = createTempWorkspace();
     process.chdir(packageDir);
@@ -218,6 +237,32 @@ describe("eval reporter", () => {
     );
     expect(markdown).toContain("## Eval Cache");
     expect(markdown).toContain("Cached records: 1/1");
+  });
+
+  it("reuses an identical cached scenario on the same reporter", async () => {
+    const { packageDir } = createTempWorkspace();
+    process.chdir(packageDir);
+    process.env.EVAL_RESULT_CACHE = "readwrite";
+    process.env.EVAL_RESULT_CACHE_DIR = ".context/cache";
+
+    const firstRun = vi.fn().mockResolvedValue({
+      pass: true,
+      actual: "live result",
+    });
+    const secondRun = vi.fn();
+    const options = {
+      testName: "example case",
+      model: "Example Model",
+      cacheKeyParts: [{ input: "hello" }],
+    };
+    const reporter = createEvalReporter({ evalName: "example eval" });
+
+    const firstRecord = await reporter.recordCached(options, firstRun);
+    const secondRecord = await reporter.recordCached(options, secondRun);
+
+    expect(firstRun).toHaveBeenCalledTimes(1);
+    expect(secondRun).not.toHaveBeenCalled();
+    expect(secondRecord).toBe(firstRecord);
   });
 });
 
