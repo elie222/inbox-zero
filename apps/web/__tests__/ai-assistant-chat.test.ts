@@ -213,6 +213,43 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.forwardEmail).toBeDefined();
   }, 30_000);
 
+  it("continues tool calls without a step cap and reserves time for a final response", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+
+    try {
+      const { aiProcessAssistantChat } = await loadAssistantChatModule({
+        emailSend: true,
+      });
+
+      mockToolCallAgentStream.mockResolvedValue({
+        toUIMessageStreamResponse: vi.fn(),
+      });
+
+      await aiProcessAssistantChat({
+        messages: baseMessages,
+        emailAccountId: "email-account-id",
+        user: getEmailAccount(),
+        logger,
+      });
+
+      const args = mockToolCallAgentStream.mock.lastCall?.[0];
+
+      expect(args.maxSteps).toBeUndefined();
+      expect(args.stopWhen()).toBe(false);
+      expect(await args.prepareStep()).toBeUndefined();
+
+      vi.advanceTimersByTime(240_000);
+
+      expect(await args.prepareStep()).toEqual({
+        activeTools: [],
+        toolChoice: "none",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  }, 30_000);
+
   it.each([
     ["slack"],
     ["teams"],

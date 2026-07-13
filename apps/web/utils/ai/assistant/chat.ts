@@ -49,7 +49,7 @@ import { getAssistantChatProvider } from "./chat-provider-shared";
 import { LlmUseCase } from "@/utils/llms/use-cases";
 
 export const maxDuration = 300;
-const ASSISTANT_CHAT_MAX_STEPS = 25;
+const ASSISTANT_CHAT_TOOL_BUDGET_MS = 240_000;
 const ASSISTANT_CHAT_REASONING_MAX_TOKENS = 100;
 
 type AssistantChatOnStepFinish = NonNullable<
@@ -94,6 +94,8 @@ export async function aiProcessAssistantChat({
   onModelResolved?: AssistantChatOnModelResolved;
   logger: Logger;
 }) {
+  const startedAt = Date.now();
+
   if (chatLastSeenRulesRevision !== undefined && chatHasHistory === undefined) {
     throw new Error(
       "chatHasHistory must be provided when chatLastSeenRulesRevision is set",
@@ -322,7 +324,15 @@ export async function aiProcessAssistantChat({
       });
       onModelResolved?.(resolvedModel);
     },
-    maxSteps: ASSISTANT_CHAT_MAX_STEPS,
+    stopWhen: () => false,
+    prepareStep: () => {
+      if (Date.now() - startedAt < ASSISTANT_CHAT_TOOL_BUDGET_MS) return;
+
+      return {
+        activeTools: [],
+        toolChoice: "none",
+      };
+    },
     tools: allTools,
   });
 
