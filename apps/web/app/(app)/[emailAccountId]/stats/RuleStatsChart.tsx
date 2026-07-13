@@ -79,6 +79,7 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
       return { pieChartData: [], chartConfig: {}, barChartConfig: {} };
 
     const pieData = data.ruleStats.map((rule, index) => ({
+      configKey: `rule-${index}`,
       name: rule.ruleName,
       value: rule.executedCount,
       fill: CHART_COLORS[index % CHART_COLORS.length],
@@ -90,7 +91,7 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
       },
       ...fromPairs(
         data.ruleStats.map((rule, index) => [
-          rule.ruleName,
+          `rule-${index}`,
           {
             label: rule.ruleName,
             color: CHART_COLORS[index % CHART_COLORS.length],
@@ -152,7 +153,7 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
                     <ChartPieChart>
                       <ChartTooltipComponent
                         content={
-                          <ChartTooltipContent nameKey="value" hideLabel />
+                          <ChartTooltipContent nameKey="configKey" hideLabel />
                         }
                       />
                       <ChartPie data={pieChartData} dataKey="value">
