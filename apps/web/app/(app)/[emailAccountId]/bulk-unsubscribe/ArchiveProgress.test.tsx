@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ArchiveProgress } from "./ArchiveProgress";
 
 const mockUseArchiveQueueProgress = vi.fn();
@@ -29,6 +29,10 @@ describe("ArchiveProgress", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseArchiveQueueProgress.mockReturnValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("prefers sender archive progress when present", () => {
@@ -62,5 +66,20 @@ describe("ArchiveProgress", () => {
 
     expect(screen.getByText("Archiving emails...")).toBeTruthy();
     expect(screen.getByText("3 of 4 emails processed")).toBeTruthy();
+  });
+
+  it("does not reset archive progress after unmounting", () => {
+    vi.useFakeTimers();
+    mockUseQueueState.mockReturnValue({
+      totalThreads: 1,
+      activeThreads: {},
+    });
+
+    const { unmount } = render(<ArchiveProgress />);
+
+    unmount();
+    vi.runAllTimers();
+
+    expect(mockResetTotalThreads).not.toHaveBeenCalled();
   });
 });
