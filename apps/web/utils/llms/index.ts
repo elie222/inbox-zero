@@ -18,6 +18,7 @@ import {
   type StreamTextOnFinishCallback,
   type StreamTextOnStepFinishCallback,
   type PrepareStepFunction,
+  type StopCondition,
   NoObjectGeneratedError,
   TypeValidationError,
 } from "ai";
@@ -233,6 +234,7 @@ type ToolCallAgentStreamOptions = BaseStreamOptions & {
   tools?: Record<string, Tool>;
   activeTools?: Array<string>;
   prepareStep?: PrepareStepFunction<Record<string, Tool>>;
+  stopWhen?: StopCondition<Record<string, Tool>>;
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
   onModelResolved?: (resolvedModel: ToolCallAgentResolvedModel) => void;
@@ -790,6 +792,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
     tools,
     activeTools,
     prepareStep,
+    stopWhen,
     maxSteps,
     userId,
     emailAccountId,
@@ -893,7 +896,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
         ? undefined
         : (activeTools as Array<keyof typeof candidateTools> | undefined),
       prepareStep,
-      stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
+      stopWhen: stopWhen ?? (maxSteps ? stepCountIs(maxSteps) : undefined),
       temperature,
       ...commonOptions,
       providerOptions,
