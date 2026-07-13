@@ -17,7 +17,7 @@ vi.mock("@/env", () => ({
 import {
   CONVERSION_CLICK_IDS_METADATA_KEY,
   CONVERSION_ATTRIBUTION_METADATA_KEY,
-  getConversionClickMetadataFromUtms,
+  getConversionClickMetadata,
   getStripeSubscriptionConversionProperties,
   trackServerConversionEvent,
 } from "@/utils/analytics/server-conversion-events";
@@ -193,6 +193,8 @@ describe("getStripeSubscriptionConversionProperties", () => {
           gclid: " test-gclid ",
           gbraid: "test-gbraid",
           wbraid: "test-wbraid",
+          fbc: "fb.1.click",
+          fbp: "fb.1.browser",
         }),
       },
       items: {
@@ -215,6 +217,8 @@ describe("getStripeSubscriptionConversionProperties", () => {
         gclid: "test-gclid",
         gbraid: "test-gbraid",
         wbraid: "test-wbraid",
+        fbc: "fb.1.click",
+        fbp: "fb.1.browser",
       },
       properties: {
         planId: "price_test",
@@ -226,25 +230,31 @@ describe("getStripeSubscriptionConversionProperties", () => {
 
   it("extracts conversion click metadata from stored UTMs", () => {
     expect(
-      getConversionClickMetadataFromUtms({
-        gclid: " test-gclid ",
-        gbraid: "test-gbraid",
-        wbraid: "test-wbraid",
-        utmSource: "google",
+      getConversionClickMetadata({
+        utms: {
+          gclid: " test-gclid ",
+          gbraid: "test-gbraid",
+          wbraid: "test-wbraid",
+          utmSource: "google",
+        },
+        fbc: "fb.1.click",
+        fbp: "fb.1.browser",
       }),
     ).toEqual({
       [CONVERSION_CLICK_IDS_METADATA_KEY]: JSON.stringify({
         gclid: "test-gclid",
         gbraid: "test-gbraid",
         wbraid: "test-wbraid",
+        fbc: "fb.1.click",
+        fbp: "fb.1.browser",
       }),
     });
   });
 
   it("drops click metadata when it would exceed Stripe metadata limits", () => {
     expect(
-      getConversionClickMetadataFromUtms({
-        gclid: "x".repeat(501),
+      getConversionClickMetadata({
+        utms: { gclid: "x".repeat(501) },
       }),
     ).toEqual({});
   });
