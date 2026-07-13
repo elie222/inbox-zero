@@ -39,7 +39,7 @@ export async function onRun(
   }
 
   async function run() {
-    for (let i = 0; i < 100; i++) {
+    while (true) {
       if (completeIfCancelled()) return;
 
       const query: ThreadsQuery = {

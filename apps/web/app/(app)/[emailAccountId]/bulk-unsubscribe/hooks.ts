@@ -516,19 +516,24 @@ export function useAutoArchive<T extends Row>({
 
     setAutoArchiveLoading(true);
 
-    await autoArchive({
-      name: item.name,
-      labelId: undefined,
-      labelName: undefined,
-      mutate,
-      refetchPremium,
-      emailAccountId,
-      queueArchiveSenders,
-    });
+    try {
+      await autoArchive({
+        name: item.name,
+        labelId: undefined,
+        labelName: undefined,
+        mutate,
+        refetchPremium,
+        emailAccountId,
+        queueArchiveSenders,
+      });
 
-    posthog.capture("Clicked Auto Archive");
-
-    setAutoArchiveLoading(false);
+      posthog.capture("Clicked Auto Archive");
+    } catch (error) {
+      captureException(error);
+      toast.error("Failed to enable auto archive");
+    } finally {
+      setAutoArchiveLoading(false);
+    }
   }, [
     item.name,
     mutate,
@@ -542,20 +547,25 @@ export function useAutoArchive<T extends Row>({
   const onDisableAutoArchive = useCallback(async () => {
     setAutoArchiveLoading(true);
 
-    if (item.autoArchived?.id) {
-      await onDeleteFilter({
-        emailAccountId,
-        filterId: item.autoArchived.id,
+    try {
+      if (item.autoArchived?.id) {
+        await onDeleteFilter({
+          emailAccountId,
+          filterId: item.autoArchived.id,
+        });
+      }
+      const statusResult = await setNewsletterStatusAction(emailAccountId, {
+        newsletterEmail: item.name,
+        status: null,
       });
+      assertActionSucceeded(statusResult);
+      await mutate();
+    } catch (error) {
+      captureException(error);
+      toast.error("Failed to disable auto archive");
+    } finally {
+      setAutoArchiveLoading(false);
     }
-    const statusResult = await setNewsletterStatusAction(emailAccountId, {
-      newsletterEmail: item.name,
-      status: null,
-    });
-    assertActionSucceeded(statusResult);
-    await mutate();
-
-    setAutoArchiveLoading(false);
   }, [item.name, item.autoArchived?.id, mutate, emailAccountId]);
 
   const onAutoArchiveAndLabel = useCallback(
@@ -564,17 +574,22 @@ export function useAutoArchive<T extends Row>({
 
       setAutoArchiveLoading(true);
 
-      await autoArchive({
-        name: item.name,
-        labelId,
-        labelName,
-        mutate,
-        refetchPremium,
-        emailAccountId,
-        queueArchiveSenders,
-      });
-
-      setAutoArchiveLoading(false);
+      try {
+        await autoArchive({
+          name: item.name,
+          labelId,
+          labelName,
+          mutate,
+          refetchPremium,
+          emailAccountId,
+          queueArchiveSenders,
+        });
+      } catch (error) {
+        captureException(error);
+        toast.error("Failed to enable auto archive");
+      } finally {
+        setAutoArchiveLoading(false);
+      }
     },
     [
       item.name,
