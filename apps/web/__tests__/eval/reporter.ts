@@ -86,6 +86,11 @@ class EvalReporter {
       model: options.model,
       testName: options.testName,
     });
+    const existingRecord = this.records.find(
+      (record) => record.cacheKey === cacheKey,
+    );
+    if (existingRecord) return existingRecord;
+
     const cachePath = getEvalResultCachePath(cacheKey);
 
     if (cacheMode !== "off" && cacheMode !== "refresh") {
