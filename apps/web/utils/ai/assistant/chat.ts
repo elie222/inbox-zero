@@ -49,7 +49,10 @@ import { getAssistantChatProvider } from "./chat-provider-shared";
 import { LlmUseCase } from "@/utils/llms/use-cases";
 
 export const maxDuration = 300;
-const ASSISTANT_CHAT_TOOL_BUDGET_MS = 240_000;
+const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
+  web: 240_000,
+  messaging: 60_000,
+} satisfies Record<"web" | "messaging", number>;
 const ASSISTANT_CHAT_REASONING_MAX_TOKENS = 100;
 
 type AssistantChatOnStepFinish = NonNullable<
@@ -326,7 +329,11 @@ export async function aiProcessAssistantChat({
     },
     stopWhen: () => false,
     prepareStep: () => {
-      if (Date.now() - startedAt < ASSISTANT_CHAT_TOOL_BUDGET_MS) return;
+      if (
+        Date.now() - startedAt <
+        ASSISTANT_CHAT_TOOL_BUDGET_MS[responseSurface]
+      )
+        return;
 
       return {
         activeTools: [],
