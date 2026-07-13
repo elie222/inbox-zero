@@ -3,7 +3,7 @@ import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { auth } from "@/utils/auth";
-import { premiumEntitlementSelect } from "@/utils/premium";
+import { isAdminForPremium, premiumEntitlementSelect } from "@/utils/premium";
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
 
@@ -33,10 +33,12 @@ async function getUser({
           stripeCustomerId: true,
           stripePriceId: true,
           stripeSubscriptionId: true,
+          stripeInvoiceEmailsEnabled: true,
           unsubscribeCredits: true,
           emailAccountsAccess: true,
           lemonLicenseKey: true,
           pendingInvites: true,
+          admins: { select: { id: true } },
         },
       },
       emailAccounts: {
@@ -71,6 +73,14 @@ async function getUser({
   );
 
   const { aiApiKey, webhookSecret, emailAccounts } = user;
+  let premium = null;
+  if (user.premium) {
+    const { admins, ...premiumData } = user.premium;
+    premium = {
+      ...premiumData,
+      isAdmin: isAdminForPremium(admins, user.id),
+    };
+  }
 
   return {
     id: user.id,
@@ -79,7 +89,7 @@ async function getUser({
     aiModel: user.aiModel,
     announcementDismissedAt: user.announcementDismissedAt,
     dismissedHints: user.dismissedHints,
-    premium: user.premium,
+    premium,
     emailAccounts: emailAccounts.map(({ members: _members, ...account }) => ({
       ...account,
     })),

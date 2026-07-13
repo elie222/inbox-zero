@@ -8,6 +8,7 @@ import { getStripeTrialConvertedAt } from "./trial-conversion";
 const {
   mockSyncStripeDataToDb,
   mockSyncStripeInvoicePayment,
+  mockSendStripeInvoiceEmail,
   mockSyncAiGenerationOverageForUpcomingInvoice,
   mockTrackStripeEvent,
   mockTrackBillingTrialStarted,
@@ -22,6 +23,7 @@ const {
 } = vi.hoisted(() => ({
   mockSyncStripeDataToDb: vi.fn(),
   mockSyncStripeInvoicePayment: vi.fn(),
+  mockSendStripeInvoiceEmail: vi.fn(),
   mockSyncAiGenerationOverageForUpcomingInvoice: vi.fn(),
   mockTrackStripeEvent: vi.fn(),
   mockTrackBillingTrialStarted: vi.fn(),
@@ -57,6 +59,10 @@ vi.mock("@/ee/billing/stripe/sync-stripe", () => ({
 
 vi.mock("@/ee/billing/stripe/payments", () => ({
   syncStripeInvoicePayment: mockSyncStripeInvoicePayment,
+}));
+
+vi.mock("@/ee/billing/stripe/invoice-email", () => ({
+  sendStripeInvoiceEmail: mockSendStripeInvoiceEmail,
 }));
 
 vi.mock("@/ee/billing/stripe/ai-overage", () => ({
@@ -124,6 +130,7 @@ describe("processEvent", () => {
     mockFindUnique.mockResolvedValue(null);
     mockUpdateMany.mockResolvedValue({ count: 0 });
     mockSyncStripeInvoicePayment.mockResolvedValue(undefined);
+    mockSendStripeInvoiceEmail.mockResolvedValue(undefined);
     mockSyncAiGenerationOverageForUpcomingInvoice.mockResolvedValue(undefined);
     mockTrackStripeEvent.mockResolvedValue(undefined);
     mockTrackBillingTrialStarted.mockResolvedValue(undefined);
@@ -144,6 +151,10 @@ describe("processEvent", () => {
       logger,
     });
     expect(mockSyncStripeInvoicePayment).toHaveBeenCalledWith({
+      event: expect.objectContaining({ type: "invoice.paid" }),
+      logger,
+    });
+    expect(mockSendStripeInvoiceEmail).toHaveBeenCalledWith({
       event: expect.objectContaining({ type: "invoice.paid" }),
       logger,
     });
@@ -186,6 +197,7 @@ describe("processEvent", () => {
       logger,
     });
     expect(mockSyncStripeInvoicePayment).not.toHaveBeenCalled();
+    expect(mockSendStripeInvoiceEmail).not.toHaveBeenCalled();
     expect(
       mockSyncAiGenerationOverageForUpcomingInvoice,
     ).not.toHaveBeenCalled();

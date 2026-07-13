@@ -462,6 +462,7 @@ model Premium {
   stripeAiOverageLastInvoiceId  String?
   stripeAiOverageLastPeriodEnd  DateTime?
   stripeAiOverageLastUnits      Int?
+  stripeInvoiceEmailsEnabled    Boolean   @default(false)
 
   // apple app store
   appleOriginalTransactionId       String?   @unique
@@ -1106,6 +1107,7 @@ model Payment {
 
   // Metadata
   billingReason String? // initial, renewal, update, etc.
+  invoiceEmailSentAt DateTime?
 
   @@index([premiumId, createdAt])
 }

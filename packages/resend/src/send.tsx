@@ -2,6 +2,7 @@ import { render } from "@react-email/render";
 import { nanoid } from "nanoid";
 import { resend } from "./client";
 import type { ReactElement } from "react";
+import type { Attachment } from "resend";
 import SummaryEmail, { type SummaryEmailProps } from "../emails/summary";
 import DigestEmail, {
   type DigestEmailProps,
@@ -38,6 +39,7 @@ import GuestBookingRescheduledEmail, {
 import HostBookingRescheduledEmail, {
   type HostBookingRescheduledEmailProps,
 } from "../emails/host-booking-rescheduled";
+import InvoiceEmail, { type InvoiceEmailProps } from "../emails/invoice";
 
 const RESEND_NOT_CONFIGURED_MESSAGE =
   "Resend is not configured. You need to add a RESEND_API_KEY in your .env file for emails to work.";
@@ -100,6 +102,7 @@ const sendTransactionalEmail = async ({
   react,
   test,
   tags,
+  attachments,
 }: {
   from: string;
   to: string;
@@ -107,6 +110,7 @@ const sendTransactionalEmail = async ({
   react: ReactElement;
   test?: boolean;
   tags?: { name: string; value: string }[];
+  attachments?: Attachment[];
 }) => {
   if (!resend) {
     console.log(RESEND_NOT_CONFIGURED_MESSAGE);
@@ -121,6 +125,7 @@ const sendTransactionalEmail = async ({
     subject,
     react,
     text,
+    attachments,
     headers: {
       "X-Entity-Ref-ID": nanoid(),
     },
@@ -477,4 +482,29 @@ export const sendHostBookingRescheduledEmail = async ({
     react: <HostBookingRescheduledEmail {...emailProps} />,
     test,
     tags: [{ name: "category", value: "booking-rescheduled" }],
+  });
+
+export const sendInvoiceEmail = async ({
+  from,
+  to,
+  test,
+  emailProps,
+  attachmentUrl,
+}: {
+  from: string;
+  to: string;
+  test?: boolean;
+  emailProps: InvoiceEmailProps;
+  attachmentUrl?: string;
+}) =>
+  sendTransactionalEmail({
+    from,
+    to,
+    subject: "Your Inbox Zero invoice",
+    react: <InvoiceEmail {...emailProps} />,
+    test,
+    attachments: attachmentUrl
+      ? [{ filename: "invoice.pdf", path: attachmentUrl }]
+      : undefined,
+    tags: [{ name: "category", value: "invoice" }],
   });

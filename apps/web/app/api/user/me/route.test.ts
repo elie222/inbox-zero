@@ -124,11 +124,13 @@ describe("user/me route", () => {
         stripePriceId: null,
         stripeSubscriptionId: null,
         stripeSubscriptionStatus: null,
+        stripeInvoiceEmailsEnabled: false,
         unsubscribeCredits: 0,
         tier: null,
         emailAccountsAccess: 0,
         lemonLicenseKey: null,
         pendingInvites: [],
+        admins: [{ id: "user-1" }],
       },
       emailAccounts: [],
     } as unknown as Awaited<ReturnType<typeof prisma.user.findUnique>>);
@@ -144,7 +146,9 @@ describe("user/me route", () => {
       appleExpiresAt: "2026-02-01T00:00:00.000Z",
       appleRevokedAt: null,
       appleSubscriptionStatus: "ACTIVE",
+      isAdmin: true,
     });
+    expect(body.premium.admins).toBeUndefined();
     expect(body.premium.appleAppAccountToken).toBeUndefined();
     expect(body.premium.appleEnvironment).toBeUndefined();
     expect(body.premium.appleLatestTransactionId).toBeUndefined();
