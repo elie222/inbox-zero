@@ -325,7 +325,11 @@ function SuggestionRow({
 
   return (
     <li className="flex items-center gap-3 px-4 py-2.5">
-      <ButtonCheckbox checked={checked} onChange={onToggle} />
+      <ButtonCheckbox
+        label={`Select ${item.fromName || item.name}`}
+        checked={checked}
+        onChange={onToggle}
+      />
 
       <DomainIcon domain={domain} size={32} variant="circular" />
 
