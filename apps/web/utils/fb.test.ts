@@ -11,7 +11,10 @@ vi.mock("@/env", () => ({
   env: envMock,
 }));
 
-import { sendCompleteRegistrationEvent } from "@/utils/fb";
+import {
+  sendCompleteRegistrationEvent,
+  sendFacebookConversionEvent,
+} from "@/utils/fb";
 
 describe("sendCompleteRegistrationEvent", () => {
   const fetchMock = vi.fn();
@@ -50,6 +53,76 @@ describe("sendCompleteRegistrationEvent", () => {
 
     const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
     expect(body.data[0].event_id).toBe("event-id");
+  });
+});
+
+describe("sendFacebookConversionEvent", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    envMock.FB_CONVERSION_API_ACCESS_TOKEN = "token";
+    envMock.FB_PIXEL_ID = "pixel-id";
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockResolvedValue({ ok: true });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends a timestamped trial event with Meta attribution", async () => {
+    await sendFacebookConversionEvent({
+      eventName: "StartTrial",
+      eventTime: new Date("2026-07-13T12:00:00.000Z"),
+      eventId: "evt_trial:trial_started",
+      eventSourceUrl: "https://www.getinboxzero.com/premium",
+      userId: "user-id",
+      email: "USER@example.com ",
+      fbc: "fb.1.click",
+      fbp: "fb.1.browser",
+      customData: {
+        currency: "USD",
+        value: 0,
+        content_name: "price_pro",
+      },
+    });
+
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
+    expect(body.data[0]).toEqual(
+      expect.objectContaining({
+        event_name: "StartTrial",
+        event_time: 1_783_944_000,
+        event_id: "evt_trial:trial_started",
+        action_source: "website",
+        event_source_url: "https://www.getinboxzero.com/premium",
+        user_data: expect.objectContaining({
+          fbc: "fb.1.click",
+          fbp: "fb.1.browser",
+        }),
+        custom_data: {
+          currency: "USD",
+          value: 0,
+          content_name: "price_pro",
+        },
+      }),
+    );
+  });
+
+  it("omits missing browser identifiers instead of sending empty values", async () => {
+    await sendFacebookConversionEvent({
+      eventName: "Subscribe",
+      eventTime: new Date("2026-07-13T12:00:00.000Z"),
+      eventId: "evt_paid",
+      eventSourceUrl: "https://www.getinboxzero.com/premium",
+      userId: "user-id",
+      email: "user@example.com",
+      customData: { currency: "USD", value: 20 },
+    });
+
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
+    expect(body.data[0].user_data).not.toHaveProperty("fbc");
+    expect(body.data[0].user_data).not.toHaveProperty("fbp");
   });
 });
 

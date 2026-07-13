@@ -13,6 +13,8 @@ type ConversionClickIds = {
   gclid?: string;
   gbraid?: string;
   wbraid?: string;
+  fbc?: string;
+  fbp?: string;
 };
 
 type ServerConversionEvent = {
@@ -102,10 +104,22 @@ export function getStripeSubscriptionConversionProperties(
   };
 }
 
-export function getConversionClickMetadataFromUtms(
-  utms: Prisma.JsonValue | null | undefined,
-): Record<string, string> {
-  const clickIds = getConversionClickIdsFromObject(utms);
+export function getConversionClickMetadata({
+  utms,
+  fbc,
+  fbp,
+}: {
+  utms: Prisma.JsonValue | null | undefined;
+  fbc?: string;
+  fbp?: string;
+}): Record<string, string> {
+  const normalizedFbc = getStringValue(fbc);
+  const normalizedFbp = getStringValue(fbp);
+  const clickIds = {
+    ...getConversionClickIdsFromObject(utms),
+    ...(normalizedFbc ? { fbc: normalizedFbc } : {}),
+    ...(normalizedFbp ? { fbp: normalizedFbp } : {}),
+  };
   const serializedClickIds = JSON.stringify(clickIds);
 
   return Object.keys(clickIds).length &&
@@ -151,11 +165,15 @@ function getConversionClickIdsFromObject(
   const gclid = getStringValue(value.gclid);
   const gbraid = getStringValue(value.gbraid);
   const wbraid = getStringValue(value.wbraid);
+  const fbc = getStringValue(value.fbc);
+  const fbp = getStringValue(value.fbp);
 
   return {
     ...(gclid ? { gclid } : {}),
     ...(gbraid ? { gbraid } : {}),
     ...(wbraid ? { wbraid } : {}),
+    ...(fbc ? { fbc } : {}),
+    ...(fbp ? { fbp } : {}),
   };
 }
 

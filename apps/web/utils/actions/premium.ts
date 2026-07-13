@@ -45,7 +45,7 @@ import {
 import {
   CONVERSION_ATTRIBUTION_COOKIE,
   CONVERSION_ATTRIBUTION_METADATA_KEY,
-  getConversionClickMetadataFromUtms,
+  getConversionClickMetadata,
 } from "@/utils/analytics/server-conversion-events";
 
 const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
@@ -551,14 +551,19 @@ export const generateCheckoutSessionAction = actionClientUser
       priceId,
       users: user.premium?.users || [{ _count: user._count }],
     });
-    const conversionAttributionId = (await cookies()).get(
+    const cookieStore = await cookies();
+    const conversionAttributionId = cookieStore.get(
       CONVERSION_ATTRIBUTION_COOKIE,
     )?.value;
     const conversionMetadata: Record<string, string> = {
       ...(conversionAttributionId
         ? { [CONVERSION_ATTRIBUTION_METADATA_KEY]: conversionAttributionId }
         : {}),
-      ...getConversionClickMetadataFromUtms(user.utms),
+      ...getConversionClickMetadata({
+        utms: user.utms,
+        fbc: cookieStore.get("_fbc")?.value,
+        fbp: cookieStore.get("_fbp")?.value,
+      }),
     };
 
     // ALWAYS create a checkout with a stripeCustomerId
