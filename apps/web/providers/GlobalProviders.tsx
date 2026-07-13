@@ -1,10 +1,6 @@
 import type React from "react";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SerwistProvider } from "@serwist/next/react";
-import { SWRProvider } from "@/providers/SWRProvider";
-import { StatLoaderProvider } from "@/providers/StatLoaderProvider";
-import { ComposeModalProvider } from "@/providers/ComposeModalProvider";
-import { EmailAccountProvider } from "@/providers/EmailAccountProvider";
 
 export function GlobalProviders(props: { children: React.ReactNode }) {
   return (
@@ -16,15 +12,7 @@ export function GlobalProviders(props: { children: React.ReactNode }) {
       cacheOnNavigation={false}
       disable={process.env.NODE_ENV !== "production"}
     >
-      <NuqsAdapter>
-        <EmailAccountProvider>
-          <SWRProvider>
-            <StatLoaderProvider>
-              <ComposeModalProvider>{props.children}</ComposeModalProvider>
-            </StatLoaderProvider>
-          </SWRProvider>
-        </EmailAccountProvider>
-      </NuqsAdapter>
+      <NuqsAdapter>{props.children}</NuqsAdapter>
     </SerwistProvider>
   );
 }
