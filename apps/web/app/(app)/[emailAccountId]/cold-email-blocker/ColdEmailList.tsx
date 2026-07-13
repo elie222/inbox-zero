@@ -88,6 +88,11 @@ export function ColdEmailList() {
               <TableRow>
                 <TableHead className="text-center">
                   <Checkbox
+                    label={
+                      isAllSelected
+                        ? "Deselect all cold emails"
+                        : "Select all cold emails"
+                    }
                     checked={isAllSelected}
                     onChange={onToggleSelectAll}
                   />
@@ -146,6 +151,7 @@ function Row({
     <TableRow key={row.id}>
       <TableCell className="text-center">
         <Checkbox
+          label={`Select ${row.fromEmail}`}
           checked={selected.get(row.id) || false}
           onChange={() => onToggleSelect(row.id)}
         />

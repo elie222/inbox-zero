@@ -534,6 +534,15 @@ export function getActionErrorMessage(
   return message || fallback;
 }
 
+export function assertActionSucceeded(
+  result: SafeActionError | undefined,
+): void {
+  if (!result) return;
+
+  const message = extractActionErrorMessage(result);
+  if (message) throw new Error(message);
+}
+
 function extractActionErrorMessage(error: SafeActionError): string | null {
   if (error.serverError) {
     return error.serverError;

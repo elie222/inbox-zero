@@ -45,6 +45,9 @@ export function BulkUnsubscribeDesktop({
         <TableRow>
           <TableHead className="w-10 pr-0">
             <ButtonCheckbox
+              label={
+                isAllSelected ? "Deselect all senders" : "Select all senders"
+              }
               checked={isAllSelected}
               indeterminate={isSomeSelected && !isAllSelected}
               onChange={() => onToggleSelectAll()}
@@ -115,6 +118,7 @@ export function BulkUnsubscribeRowDesktop({
     >
       <TableCell className="w-10 pr-0" data-cell="checkbox">
         <ButtonCheckbox
+          label={`Select ${item.fromName || item.name}`}
           checked={checked}
           onChange={(shiftKey) => onToggleSelect?.(item.name, shiftKey)}
         />
