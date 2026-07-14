@@ -67,28 +67,30 @@ export function StepWho({
 
   // Scroll to selected role on mount
   useEffect(() => {
-    if (defaultRole && scrollContainerRef.current) {
-      // Find the button with the selected role
-      // biome-ignore lint/complexity/useIndexOf: indexOf requires exact type match but defaultRole is `string` while array has a narrower union type
-      const selectedIndex = displayedRoleValues.findIndex(
-        (role) => role === defaultRole,
-      );
-      if (selectedIndex !== -1) {
-        const buttons = scrollContainerRef.current.querySelectorAll(
-          'button[type="button"]',
-        );
-        const selectedButton = buttons[selectedIndex];
-        if (selectedButton) {
-          // Use setTimeout to ensure the DOM is ready
-          setTimeout(() => {
-            selectedButton.scrollIntoView({
-              behavior: "smooth",
-              block: "center",
-            });
-          }, 100);
-        }
-      }
-    }
+    if (!defaultRole || !scrollContainerRef.current) return;
+
+    // Find the button with the selected role
+    // biome-ignore lint/complexity/useIndexOf: indexOf requires exact type match but defaultRole is `string` while array has a narrower union type
+    const selectedIndex = displayedRoleValues.findIndex(
+      (role) => role === defaultRole,
+    );
+    if (selectedIndex === -1) return;
+
+    const buttons = scrollContainerRef.current.querySelectorAll(
+      'button[type="button"]',
+    );
+    const selectedButton = buttons[selectedIndex];
+    if (!selectedButton) return;
+
+    // Use setTimeout to ensure the DOM is ready
+    const scrollTimeout = setTimeout(() => {
+      selectedButton.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 100);
+
+    return () => clearTimeout(scrollTimeout);
   }, [defaultRole, displayedRoleValues]);
 
   return (
