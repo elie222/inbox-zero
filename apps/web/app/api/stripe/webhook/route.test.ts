@@ -8,7 +8,7 @@ import { getStripeTrialConvertedAt } from "./trial-conversion";
 const {
   mockSyncStripeDataToDb,
   mockSyncStripeInvoicePayment,
-  mockSendStripeInvoiceEmail,
+  mockEnqueueStripeInvoiceEmail,
   mockSyncAiGenerationOverageForUpcomingInvoice,
   mockTrackStripeEvent,
   mockTrackBillingTrialStarted,
@@ -23,7 +23,7 @@ const {
 } = vi.hoisted(() => ({
   mockSyncStripeDataToDb: vi.fn(),
   mockSyncStripeInvoicePayment: vi.fn(),
-  mockSendStripeInvoiceEmail: vi.fn(),
+  mockEnqueueStripeInvoiceEmail: vi.fn(),
   mockSyncAiGenerationOverageForUpcomingInvoice: vi.fn(),
   mockTrackStripeEvent: vi.fn(),
   mockTrackBillingTrialStarted: vi.fn(),
@@ -62,7 +62,7 @@ vi.mock("@/ee/billing/stripe/payments", () => ({
 }));
 
 vi.mock("@/ee/billing/stripe/invoice-email", () => ({
-  sendStripeInvoiceEmail: mockSendStripeInvoiceEmail,
+  enqueueStripeInvoiceEmail: mockEnqueueStripeInvoiceEmail,
 }));
 
 vi.mock("@/ee/billing/stripe/ai-overage", () => ({
@@ -130,7 +130,7 @@ describe("processEvent", () => {
     mockFindUnique.mockResolvedValue(null);
     mockUpdateMany.mockResolvedValue({ count: 0 });
     mockSyncStripeInvoicePayment.mockResolvedValue(undefined);
-    mockSendStripeInvoiceEmail.mockResolvedValue(undefined);
+    mockEnqueueStripeInvoiceEmail.mockResolvedValue(undefined);
     mockSyncAiGenerationOverageForUpcomingInvoice.mockResolvedValue(undefined);
     mockTrackStripeEvent.mockResolvedValue(undefined);
     mockTrackBillingTrialStarted.mockResolvedValue(undefined);
@@ -154,7 +154,7 @@ describe("processEvent", () => {
       event: expect.objectContaining({ type: "invoice.paid" }),
       logger,
     });
-    expect(mockSendStripeInvoiceEmail).toHaveBeenCalledWith({
+    expect(mockEnqueueStripeInvoiceEmail).toHaveBeenCalledWith({
       event: expect.objectContaining({ type: "invoice.paid" }),
       logger,
     });
@@ -197,7 +197,7 @@ describe("processEvent", () => {
       logger,
     });
     expect(mockSyncStripeInvoicePayment).not.toHaveBeenCalled();
-    expect(mockSendStripeInvoiceEmail).not.toHaveBeenCalled();
+    expect(mockEnqueueStripeInvoiceEmail).not.toHaveBeenCalled();
     expect(
       mockSyncAiGenerationOverageForUpcomingInvoice,
     ).not.toHaveBeenCalled();

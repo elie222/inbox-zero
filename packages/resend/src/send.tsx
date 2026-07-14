@@ -103,6 +103,7 @@ const sendTransactionalEmail = async ({
   test,
   tags,
   attachments,
+  idempotencyKey,
 }: {
   from: string;
   to: string;
@@ -111,6 +112,7 @@ const sendTransactionalEmail = async ({
   test?: boolean;
   tags?: { name: string; value: string }[];
   attachments?: Attachment[];
+  idempotencyKey?: string;
 }) => {
   if (!resend) {
     console.log(RESEND_NOT_CONFIGURED_MESSAGE);
@@ -119,18 +121,21 @@ const sendTransactionalEmail = async ({
 
   const text = await render(react, { plainText: true });
 
-  const result = await resend.emails.send({
-    from,
-    to: test ? "delivered@resend.dev" : to,
-    subject,
-    react,
-    text,
-    attachments,
-    headers: {
-      "X-Entity-Ref-ID": nanoid(),
+  const result = await resend.emails.send(
+    {
+      from,
+      to: test ? "delivered@resend.dev" : to,
+      subject,
+      react,
+      text,
+      attachments,
+      headers: {
+        "X-Entity-Ref-ID": nanoid(),
+      },
+      tags,
     },
-    tags,
-  });
+    idempotencyKey ? { idempotencyKey } : undefined,
+  );
 
   if (result.error) {
     console.error("Error sending email", result.error);
@@ -490,12 +495,14 @@ export const sendInvoiceEmail = async ({
   test,
   emailProps,
   attachmentUrl,
+  idempotencyKey,
 }: {
   from: string;
   to: string;
   test?: boolean;
   emailProps: InvoiceEmailProps;
   attachmentUrl?: string;
+  idempotencyKey: string;
 }) =>
   sendTransactionalEmail({
     from,
@@ -506,5 +513,6 @@ export const sendInvoiceEmail = async ({
     attachments: attachmentUrl
       ? [{ filename: "invoice.pdf", path: attachmentUrl }]
       : undefined,
+    idempotencyKey,
     tags: [{ name: "category", value: "invoice" }],
   });

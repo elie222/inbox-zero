@@ -6,7 +6,7 @@ import {
 } from "@/ee/billing/stripe/refunds";
 import { syncAiGenerationOverageForUpcomingInvoice } from "@/ee/billing/stripe/ai-overage";
 import { syncStripeInvoicePayment } from "@/ee/billing/stripe/payments";
-import { sendStripeInvoiceEmail } from "@/ee/billing/stripe/invoice-email";
+import { enqueueStripeInvoiceEmail } from "@/ee/billing/stripe/invoice-email";
 import { getStripeTrialStartedProperties } from "@/ee/billing/stripe/posthog-events";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { env } from "@/env";
@@ -81,7 +81,7 @@ export async function processEvent(event: Stripe.Event, logger: Logger) {
   if (stripeSync.status === "fulfilled") {
     tasks.push(
       syncStripeInvoicePayment({ event, logger }).then(() =>
-        sendStripeInvoiceEmail({ event, logger }),
+        enqueueStripeInvoiceEmail({ event, logger }),
       ),
     );
     tasks.push(syncAiGenerationOverageForUpcomingInvoice({ event, logger }));
