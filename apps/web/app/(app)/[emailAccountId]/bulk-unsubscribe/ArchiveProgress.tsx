@@ -19,11 +19,13 @@ export const ArchiveProgress = memo(() => {
   const isLocalCompleted = localProgress === 100;
 
   useEffect(() => {
-    if (isLocalCompleted) {
-      setTimeout(() => {
-        resetTotalThreads();
-      }, 5000);
-    }
+    if (!isLocalCompleted) return;
+
+    const resetTimeout = setTimeout(() => {
+      resetTotalThreads();
+    }, 5000);
+
+    return () => clearTimeout(resetTimeout);
   }, [isLocalCompleted]);
 
   if (hasBackendProgress) {

@@ -30,6 +30,16 @@ overrides:
   vite: "7.3.6"
   webpack: "5.106.2"
 
+packageExtensions:
+  tiptap-markdown:
+    dependencies:
+      "@tiptap/pm": "2.26.1"
+  # @hookform/resolvers imports zod/v4/core without declaring zod, which breaks
+  # module resolution in isolated node_modules layouts (e.g. Turbopack builds).
+  "@hookform/resolvers":
+    peerDependencies:
+      zod: "*"
+
 # Only reviewed dependencies may run install scripts.
 allowBuilds:
   "@google/genai": true

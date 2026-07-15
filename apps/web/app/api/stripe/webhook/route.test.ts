@@ -14,6 +14,7 @@ const {
   mockTrackTrialStarted,
   mockTrackSubscriptionTrialStarted,
   mockTrackServerConversionEvent,
+  mockSendFacebookConversionEvent,
   mockFindUnique,
   mockUpdateMany,
   mockCompleteReferralAndGrantReward,
@@ -27,6 +28,7 @@ const {
   mockTrackTrialStarted: vi.fn(),
   mockTrackSubscriptionTrialStarted: vi.fn(),
   mockTrackServerConversionEvent: vi.fn(),
+  mockSendFacebookConversionEvent: vi.fn(),
   mockFindUnique: vi.fn(),
   mockUpdateMany: vi.fn(),
   mockCompleteReferralAndGrantReward: vi.fn(),
@@ -65,6 +67,7 @@ vi.mock("@/ee/billing/stripe/ai-overage", () => ({
 vi.mock("@/env", () => ({
   env: {
     STRIPE_WEBHOOK_SECRET: "whsec_test",
+    NEXT_PUBLIC_BASE_URL: "https://example.com",
   },
 }));
 
@@ -78,6 +81,9 @@ vi.mock("@/utils/posthog", () => ({
 vi.mock("@/utils/analytics/server-conversion-events", () => ({
   getStripeSubscriptionConversionProperties: vi.fn((subscription) => ({
     attributionId: subscription.metadata?.conversionAttributionId,
+    clickIds: subscription.metadata?.conversionClickIds
+      ? JSON.parse(subscription.metadata.conversionClickIds)
+      : undefined,
     properties: {
       planId: subscription.items?.data?.[0]?.price?.id,
       amount:
@@ -87,6 +93,10 @@ vi.mock("@/utils/analytics/server-conversion-events", () => ({
     },
   })),
   trackServerConversionEvent: mockTrackServerConversionEvent,
+}));
+
+vi.mock("@/utils/fb", () => ({
+  sendFacebookConversionEvent: mockSendFacebookConversionEvent,
 }));
 
 vi.mock("@/utils/prisma", () => ({
@@ -120,6 +130,7 @@ describe("processEvent", () => {
     mockTrackTrialStarted.mockResolvedValue(undefined);
     mockTrackSubscriptionTrialStarted.mockResolvedValue(undefined);
     mockTrackServerConversionEvent.mockResolvedValue(undefined);
+    mockSendFacebookConversionEvent.mockResolvedValue(undefined);
     mockCompleteReferralAndGrantReward.mockResolvedValue(undefined);
   });
 
@@ -182,6 +193,10 @@ describe("processEvent", () => {
 
   it("tracks a paid subscription conversion when a trial converts", async () => {
     mockSyncStripeDataToDb.mockResolvedValue(undefined);
+    mockFindUnique.mockResolvedValue({
+      id: "premium_test",
+      users: [{ id: "user_test", email: "user@example.com" }],
+    });
 
     await processEvent(
       subscriptionEvent({
@@ -195,6 +210,10 @@ describe("processEvent", () => {
             trial_end: 1_699_999_000,
             metadata: {
               conversionAttributionId: "attr_test",
+              conversionClickIds: JSON.stringify({
+                fbc: "fb.1.click",
+                fbp: "fb.1.browser",
+              }),
             },
             items: {
               data: [
@@ -227,7 +246,101 @@ describe("processEvent", () => {
         amount: 2000,
         currency: "USD",
       },
+      clickIds: {
+        fbc: "fb.1.click",
+        fbp: "fb.1.browser",
+      },
       logger,
+    });
+    expect(mockSendFacebookConversionEvent).toHaveBeenCalledWith({
+      eventName: "Subscribe",
+      eventTime: new Date("2023-11-14T22:13:20.000Z"),
+      eventId: "evt_trial_converted",
+      eventSourceUrl: "https://example.com",
+      userId: "user_test",
+      email: "user@example.com",
+      fbc: "fb.1.click",
+      fbp: "fb.1.browser",
+      customData: {
+        currency: "USD",
+        value: 20,
+        content_name: "price_test",
+      },
+    });
+  });
+
+  it("tracks a trial-start conversion from a new trialing subscription", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+    mockFindUnique.mockResolvedValue({
+      id: "premium_test",
+      users: [{ id: "user_test", email: "user@example.com" }],
+    });
+
+    await processEvent(
+      subscriptionEvent({
+        id: "evt_trial_started",
+        type: "customer.subscription.created",
+        data: {
+          object: {
+            id: "sub_test",
+            customer: "cus_test",
+            status: "trialing",
+            trial_start: 1_700_000_000,
+            metadata: {
+              conversionAttributionId: "attr_test",
+              conversionClickIds: JSON.stringify({
+                fbc: "fb.1.click",
+                fbp: "fb.1.browser",
+              }),
+            },
+            items: {
+              data: [
+                {
+                  quantity: 1,
+                  price: {
+                    id: "price_test",
+                    unit_amount: 2000,
+                    currency: "usd",
+                  },
+                },
+              ],
+            },
+          },
+        } as Stripe.Event.Data,
+      }),
+      logger,
+    );
+
+    expect(mockTrackServerConversionEvent).toHaveBeenCalledWith({
+      name: "trial_started",
+      id: "evt_trial_started:trial_started",
+      timestamp: new Date("2023-11-14T22:13:20.000Z"),
+      attributionId: "attr_test",
+      properties: {
+        planId: "price_test",
+        amount: 2000,
+        currency: "USD",
+      },
+      clickIds: {
+        fbc: "fb.1.click",
+        fbp: "fb.1.browser",
+      },
+      logger,
+    });
+    expect(mockSendFacebookConversionEvent).toHaveBeenCalledWith({
+      eventName: "StartTrial",
+      eventTime: new Date("2023-11-14T22:13:20.000Z"),
+      eventId: "evt_trial_started:trial_started",
+      eventSourceUrl: "https://example.com",
+      userId: "user_test",
+      email: "user@example.com",
+      fbc: "fb.1.click",
+      fbp: "fb.1.browser",
+      customData: {
+        currency: "USD",
+        value: 0,
+        content_name: "price_test",
+      },
     });
   });
 

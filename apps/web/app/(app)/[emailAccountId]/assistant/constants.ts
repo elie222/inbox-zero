@@ -12,6 +12,7 @@ import {
   FolderInputIcon,
   BellIcon,
   StarIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { ActionType } from "@/generated/prisma/enums";
 
@@ -23,6 +24,7 @@ export const ACTION_TYPE_TEXT_COLORS = {
   [ActionType.SEND_EMAIL]: "text-purple-500",
   [ActionType.FORWARD]: "text-purple-500",
   [ActionType.ARCHIVE]: "text-yellow-500",
+  [ActionType.DELETE]: "text-red-500",
   [ActionType.MARK_READ]: "text-orange-500",
   [ActionType.STAR]: "text-yellow-500",
   [ActionType.MARK_SPAM]: "text-red-500",
@@ -41,6 +43,7 @@ export const ACTION_TYPE_ICONS = {
   [ActionType.SEND_EMAIL]: SendIcon,
   [ActionType.FORWARD]: ForwardIcon,
   [ActionType.ARCHIVE]: ArchiveIcon,
+  [ActionType.DELETE]: Trash2Icon,
   [ActionType.MARK_READ]: MailOpenIcon,
   [ActionType.STAR]: StarIcon,
   [ActionType.MARK_SPAM]: ShieldCheckIcon,

@@ -103,6 +103,7 @@ export const EmailListItem = forwardRef(
                   onKeyDown={preventPropagation}
                 >
                   <Checkbox
+                    label={`Select email: ${lastMessage.headers.subject || "No subject"}`}
                     checked={!!props.selected}
                     onChange={onRowSelected}
                   />

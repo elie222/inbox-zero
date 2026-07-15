@@ -1,12 +1,3 @@
-import { afterAll, describe, expect, test } from "vitest";
-import {
-  describeEvalMatrix,
-  shouldRunEvalTests,
-} from "@/__tests__/eval/models";
-import { createEvalReporter } from "@/__tests__/eval/reporter";
-import { getMockMessage } from "@/__tests__/helpers";
-import { getStableMessageCacheKey } from "@/__tests__/eval/assistant-chat-eval-utils";
-import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
 import {
   cloneEmailAccountForProvider,
   getLastMatchingToolCall,
@@ -17,6 +8,15 @@ import {
   setupInboxWorkflowEval,
   TIMEOUT,
 } from "@/__tests__/eval/assistant-chat-inbox-workflows-test-utils";
+import { afterAll, describe, expect, test } from "vitest";
+import { getStableMessageCacheKey } from "@/__tests__/eval/message-cache-key";
+import {
+  describeEvalMatrix,
+  shouldRunEvalTests,
+} from "@/__tests__/eval/models";
+import { createEvalReporter } from "@/__tests__/eval/reporter";
+import { getMockMessage } from "@/__tests__/helpers";
+import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
 
 // pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-outlook-folders.test.ts
 // Multi-model: EVAL_MODELS=all pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-outlook-folders.test.ts

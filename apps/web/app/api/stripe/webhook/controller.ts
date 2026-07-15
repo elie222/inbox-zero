@@ -8,11 +8,13 @@ import { syncAiGenerationOverageForUpcomingInvoice } from "@/ee/billing/stripe/a
 import { syncStripeInvoicePayment } from "@/ee/billing/stripe/payments";
 import { getStripeTrialStartedProperties } from "@/ee/billing/stripe/posthog-events";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
+import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import {
   getStripeSubscriptionConversionProperties,
   trackServerConversionEvent,
 } from "@/utils/analytics/server-conversion-events";
+import { sendFacebookConversionEvent } from "@/utils/fb";
 import {
   trackBillingTrialStarted,
   trackStripeEvent,
@@ -63,13 +65,15 @@ export async function processEvent(event: Stripe.Event, logger: Logger) {
 
   const [stripeSync] = syncResult;
 
-  const email = await getCustomerEmailOrUndefined(customerId, event, logger);
+  const customer = await getCustomerOrUndefined(customerId, event, logger);
+  const email = customer?.email;
 
   const tasks: Promise<unknown>[] = [
     trackEvent(email, event),
     trackBillingMilestones(email, event, customerId),
     handleReferralCompletion(customerId, event, logger),
-    trackPaidSubscriptionConversion(event, logger),
+    trackTrialStartedConversion(event, customer, logger),
+    trackPaidSubscriptionConversion(event, customer, logger),
     recordCancellationInitiated(customerId, event, logger),
   ];
 
@@ -170,20 +174,122 @@ async function recordCancellationInitiated(
 
 async function trackPaidSubscriptionConversion(
   event: Stripe.Event,
+  customer: StripeCustomerIdentity | undefined,
   logger: Logger,
 ) {
   const trialConvertedAt = getStripeTrialConvertedAt(event);
   if (!trialConvertedAt) return;
 
   const subscription = event.data.object as Stripe.Subscription;
+  const conversion = getStripeSubscriptionConversionProperties(subscription);
 
-  await trackServerConversionEvent({
-    name: "subscription_created",
-    id: event.id,
-    timestamp: trialConvertedAt,
-    ...getStripeSubscriptionConversionProperties(subscription),
-    logger,
-  });
+  await Promise.all([
+    trackServerConversionEvent({
+      name: "subscription_created",
+      id: event.id,
+      timestamp: trialConvertedAt,
+      ...conversion,
+      logger,
+    }),
+    trackFacebookBillingConversion({
+      eventName: "Subscribe",
+      eventId: event.id,
+      eventTime: trialConvertedAt,
+      conversion,
+      customer,
+      logger,
+    }),
+  ]);
+}
+
+async function trackTrialStartedConversion(
+  event: Stripe.Event,
+  customer: StripeCustomerIdentity | undefined,
+  logger: Logger,
+) {
+  if (event.type !== "customer.subscription.created") return;
+
+  const subscription = event.data.object as Stripe.Subscription;
+  if (subscription.status !== "trialing" || !subscription.trial_start) return;
+  const eventId = `${event.id}:trial_started`;
+  const eventTime = new Date(subscription.trial_start * 1000);
+  const conversion = getStripeSubscriptionConversionProperties(subscription);
+
+  await Promise.all([
+    trackServerConversionEvent({
+      name: "trial_started",
+      id: eventId,
+      timestamp: eventTime,
+      ...conversion,
+      logger,
+    }),
+    trackFacebookBillingConversion({
+      eventName: "StartTrial",
+      eventId,
+      eventTime,
+      conversion,
+      customer,
+      logger,
+    }),
+  ]);
+}
+
+type StripeCustomerIdentity = {
+  userId: string;
+  email: string;
+};
+
+async function trackFacebookBillingConversion({
+  eventName,
+  eventId,
+  eventTime,
+  conversion,
+  customer,
+  logger,
+}: {
+  eventName: "StartTrial" | "Subscribe";
+  eventId: string;
+  eventTime: Date;
+  conversion: ReturnType<typeof getStripeSubscriptionConversionProperties>;
+  customer: StripeCustomerIdentity | undefined;
+  logger: Logger;
+}) {
+  if (!customer) {
+    logger.warn("Skipping Facebook billing conversion without a customer", {
+      eventName,
+      eventId,
+    });
+    return;
+  }
+
+  const { clickIds, properties } = conversion;
+  const customData = {
+    ...(properties.currency ? { currency: properties.currency } : {}),
+    ...(properties.planId ? { content_name: properties.planId } : {}),
+    ...(properties.currency && typeof properties.amount === "number"
+      ? { value: eventName === "StartTrial" ? 0 : properties.amount / 100 }
+      : {}),
+  };
+
+  try {
+    await sendFacebookConversionEvent({
+      eventName,
+      eventTime,
+      eventId,
+      eventSourceUrl: env.NEXT_PUBLIC_BASE_URL,
+      userId: customer.userId,
+      email: customer.email,
+      fbc: clickIds?.fbc,
+      fbp: clickIds?.fbp,
+      customData,
+    });
+  } catch (error) {
+    logger.error("Facebook billing conversion tracking failed", {
+      error,
+      eventName,
+      eventId,
+    });
+  }
 }
 
 async function trackEvent(email: string | undefined, event: Stripe.Event) {
@@ -220,24 +326,25 @@ async function trackBillingMilestones(
   }
 }
 
-async function getCustomerEmail(customerId: string) {
+async function getCustomer(customerId: string) {
   const premium = await prisma.premium.findUnique({
     where: { stripeCustomerId: customerId },
-    select: { users: { select: { email: true } } },
+    select: { users: { select: { id: true, email: true } } },
   });
 
-  return premium?.users[0]?.email;
+  const user = premium?.users[0];
+  return user ? { userId: user.id, email: user.email } : undefined;
 }
 
-async function getCustomerEmailOrUndefined(
+async function getCustomerOrUndefined(
   customerId: string,
   event: Stripe.Event,
   logger: Logger,
 ) {
   try {
-    return await getCustomerEmail(customerId);
+    return await getCustomer(customerId);
   } catch (error) {
-    logger.error("Failed to resolve Stripe customer email", {
+    logger.error("Failed to resolve Stripe customer", {
       customerId,
       eventType: event.type,
       error,

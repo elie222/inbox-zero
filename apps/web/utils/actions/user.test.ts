@@ -276,6 +276,54 @@ describe("deleteEmailAccountAction", () => {
     expect(updateAccountSeats).not.toHaveBeenCalled();
   });
 
+  it("deletes an admin membership before deleting its email account when another owner remains", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "admin@example.com",
+      accountId: "account-2",
+      user: { email: "owner@example.com" },
+    } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
+    prisma.member.findMany.mockResolvedValue([
+      { organizationId: "org-1" },
+    ] as Awaited<ReturnType<typeof prisma.member.findMany>>);
+    prisma.organization.findMany.mockResolvedValue([
+      {
+        id: "org-1",
+        name: "Org",
+        members: [
+          { emailAccountId: "owner-email-account", role: "owner" },
+          { emailAccountId: "admin-email-account", role: "admin" },
+        ],
+      },
+    ] as Awaited<ReturnType<typeof prisma.organization.findMany>>);
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "admin-email-account",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.member.deleteMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "admin-email-account",
+        organizationId: { notIn: [] },
+      },
+    });
+    expect(prisma.member.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(
+      prisma.emailAccount.delete.mock.invocationCallOrder[0],
+    );
+    expect(prisma.emailAccount.delete).toHaveBeenCalledWith({
+      where: {
+        id: "admin-email-account",
+        userId: "user-1",
+        accountId: "account-2",
+        user: { email: "owner@example.com" },
+      },
+    });
+    expect(prisma.account.delete).toHaveBeenCalledWith({
+      where: { id: "account-2", userId: "user-1" },
+    });
+    expect(updateAccountSeats).toHaveBeenCalledWith({ userId: "user-1" });
+  });
+
   it("deletes a solo organization before deleting its only email account", async () => {
     prisma.emailAccount.findMany.mockResolvedValue([
       {

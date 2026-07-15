@@ -111,7 +111,7 @@ async function process({
     }
 
     if (threadsWithMessages.length === 0) {
-      logger.error("No threads found from this sender", {
+      logger.info("No threads found from this sender", {
         provider: account.provider,
       });
 

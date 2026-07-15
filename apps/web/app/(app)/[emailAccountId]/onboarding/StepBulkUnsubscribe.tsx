@@ -211,7 +211,7 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
   const hasMore = suggestions.length > previewSenders.length;
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-10">
+    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4 py-10">
       <div className="w-full max-w-xl">
         <div className="mb-6 text-center">
           <PageHeading className="mb-3">
@@ -286,7 +286,7 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
 
 function StaticBulkUnsubscribeStep({ onNext }: { onNext: () => void }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
+    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4 py-8">
       <div className="flex flex-col items-center text-center max-w-md">
         <div className="mb-6 h-[240px] flex items-end justify-center">
           <BulkUnsubscribeIllustration />
@@ -325,7 +325,11 @@ function SuggestionRow({
 
   return (
     <li className="flex items-center gap-3 px-4 py-2.5">
-      <ButtonCheckbox checked={checked} onChange={onToggle} />
+      <ButtonCheckbox
+        label={`Select ${item.fromName || item.name}`}
+        checked={checked}
+        onChange={onToggle}
+      />
 
       <DomainIcon domain={domain} size={32} variant="circular" />
 

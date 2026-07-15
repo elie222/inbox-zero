@@ -15,7 +15,7 @@ import { parseFollowUpNotificationDeliveries } from "@/utils/follow-up/notificat
 import { ThreadTrackerType, SystemType } from "@/generated/prisma/enums";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
-import { captureException } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import {
   getProviderRateLimitDelayMs,
   withRateLimitRecording,
@@ -786,6 +786,13 @@ async function processLoadedFollowUpReminderAccount({
         },
       );
       return "rate-limited";
+    }
+
+    if (error instanceof SafeError && error.message === "No refresh token") {
+      logger.warn(
+        "Skipping follow-up reminders for account without refresh token",
+      );
+      return "error";
     }
 
     logger.error("Failed to process follow-up reminders for user", {

@@ -77,8 +77,11 @@ import {
 } from "@/utils/outlook/folders";
 import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
 import { moveMessagesForSenders } from "@/utils/outlook/batch";
-import { withOutlookRetry } from "@/utils/outlook/retry";
-import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import {
+  extractErrorInfo,
+  isRetryableError,
+  withOutlookRetry,
+} from "@/utils/outlook/retry";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 
 export class OutlookProvider implements EmailProvider {
@@ -126,12 +129,17 @@ export class OutlookProvider implements EmailProvider {
         snippet: messages[0]?.snippet || "",
       };
     } catch (error) {
-      this.logger.error("getThread failed", {
+      const context = {
         threadId,
         error,
         // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
         errorCode: (error as any)?.code,
-      });
+      };
+      if (isRetryableError(extractErrorInfo(error)).isRateLimit) {
+        this.logger.warn("getThread failed", context);
+      } else {
+        this.logger.error("getThread failed", context);
+      }
       throw error;
     }
   }
@@ -455,7 +463,7 @@ export class OutlookProvider implements EmailProvider {
     labelId: string;
     labelName: string | null;
   }): Promise<{ usedFallback?: boolean; actualLabelId?: string }> {
-    const { category, usedFallback } = await this.resolveCategoryWithFallback(
+    let { category, usedFallback } = await this.resolveCategoryWithFallback(
       labelId,
       labelName,
     );
@@ -468,22 +476,13 @@ export class OutlookProvider implements EmailProvider {
         );
         return {};
       }
-      await logErrorWithDedupe({
-        logger: this.logger,
-        message: "Category not found",
-        error: new Error("Category not found while labeling message"),
-        context: { labelId },
-        dedupeKeyParts: {
-          scope: "email/microsoft",
-          operation: "label-message-category-lookup",
-          labelId,
-        },
-        ttlSeconds: 15 * 60,
-        summaryIntervalSeconds: 5 * 60,
+      // mirror Gmail: recreate the deleted category by name and continue
+      this.logger.warn("Category was deleted, recreating by name", {
+        labelId,
+        labelName,
       });
-      throw new Error(
-        `Category with ID ${labelId}${labelName ? ` or name ${labelName}` : ""} not found`,
-      );
+      category = await this.createLabel(labelName);
+      usedFallback = true;
     }
 
     // Get current message categories to avoid replacing them
@@ -780,11 +779,16 @@ export class OutlookProvider implements EmailProvider {
     } catch (error) {
       // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
       const err = error as any;
-      this.logger.error("getThreadMessages failed", {
+      const context = {
         threadId,
         error,
         errorCode: err?.code,
-      });
+      };
+      if (isRetryableError(extractErrorInfo(error)).isRateLimit) {
+        this.logger.warn("getThreadMessages failed", context);
+      } else {
+        this.logger.error("getThreadMessages failed", context);
+      }
       throw error;
     }
   }

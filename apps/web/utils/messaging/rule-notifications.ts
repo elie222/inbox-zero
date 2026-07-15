@@ -2621,12 +2621,11 @@ function toCalendarPreviewMessage(
 }
 
 function stripSlackFormatting(text: string) {
-  return text
+  const slackText = text
     .replace(/<([^|>]+)\|([^>]+)>/g, "$2: $1")
-    .replace(/\*([^*]+)\*/g, "$1")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+    .replace(/\*([^*]+)\*/g, "$1");
+
+  return he.decode(slackText);
 }
 
 function getLinkedProviderLimitationText({

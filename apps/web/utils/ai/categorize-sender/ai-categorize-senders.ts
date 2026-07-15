@@ -6,6 +6,7 @@ import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-c
 import { extractEmailAddress } from "@/utils/email";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { createGenerateObject } from "@/utils/llms";
+import { strictOptional } from "@/utils/llms/strict-optional";
 
 export const REQUEST_MORE_INFORMATION_CATEGORY = "RequestMoreInformation";
 export const UNKNOWN_CATEGORY = "Other";
@@ -13,7 +14,7 @@ export const UNKNOWN_CATEGORY = "Other";
 const categorizeSendersSchema = z.object({
   senders: z.array(
     z.object({
-      rationale: z.string().describe("Keep it short."),
+      rationale: strictOptional(z.string()).describe("Keep it short."),
       sender: z.string(),
       category: z.string(), // not using enum, because sometimes the ai creates new categories, which throws an error. we prefer to handle this ourselves
     }),

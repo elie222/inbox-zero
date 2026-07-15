@@ -106,6 +106,17 @@
   font-variant-ligatures: none;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Bulk unsubscribe table → card layout on mobile */
 @media (max-width: 640px) {
   /* Constrain the wrapper div that the Table component adds */
