@@ -12,7 +12,7 @@ import {
 } from "@/utils/actions/unsubscriber";
 import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
 import { NewsletterStatus } from "@/generated/prisma/enums";
-import { captureException } from "@/utils/error";
+import { assertActionSucceeded, captureException } from "@/utils/error";
 import {
   addToArchiveSenderThreadQueue,
   useArchiveSenderQueueActions,
@@ -224,16 +224,19 @@ async function blockSender({
   labelName?: string;
   queueArchiveSenders: QueueArchiveSendersFn;
 }): Promise<boolean> {
-  const ok = await onAutoArchive({
-    emailAccountId,
-    from: sender,
-    gmailLabelId: labelId,
-    labelName,
-  });
-  await setNewsletterStatusAction(emailAccountId, {
-    newsletterEmail: sender,
-    status: NewsletterStatus.AUTO_ARCHIVED,
-  });
+  const [ok, statusResult] = await Promise.all([
+    onAutoArchive({
+      emailAccountId,
+      from: sender,
+      gmailLabelId: labelId,
+      labelName,
+    }),
+    setNewsletterStatusAction(emailAccountId, {
+      newsletterEmail: sender,
+      status: NewsletterStatus.AUTO_ARCHIVED,
+    }),
+  ]);
+  assertActionSucceeded(statusResult);
   await decrementUnsubscribeCreditAction();
 
   if (labelId) {
@@ -288,10 +291,11 @@ export function useUnsubscribe<T extends Row>({
       });
 
       if (item.status === NewsletterStatus.UNSUBSCRIBED) {
-        await setNewsletterStatusAction(emailAccountId, {
+        const statusResult = await setNewsletterStatusAction(emailAccountId, {
           newsletterEmail: item.name,
           status: null,
         });
+        assertActionSucceeded(statusResult);
         await mutate();
       } else {
         if (!userFacingUnsubscribeLink) {
@@ -512,19 +516,24 @@ export function useAutoArchive<T extends Row>({
 
     setAutoArchiveLoading(true);
 
-    await autoArchive({
-      name: item.name,
-      labelId: undefined,
-      labelName: undefined,
-      mutate,
-      refetchPremium,
-      emailAccountId,
-      queueArchiveSenders,
-    });
+    try {
+      await autoArchive({
+        name: item.name,
+        labelId: undefined,
+        labelName: undefined,
+        mutate,
+        refetchPremium,
+        emailAccountId,
+        queueArchiveSenders,
+      });
 
-    posthog.capture("Clicked Auto Archive");
-
-    setAutoArchiveLoading(false);
+      posthog.capture("Clicked Auto Archive");
+    } catch (error) {
+      captureException(error);
+      toast.error("Failed to enable auto archive");
+    } finally {
+      setAutoArchiveLoading(false);
+    }
   }, [
     item.name,
     mutate,
@@ -538,19 +547,25 @@ export function useAutoArchive<T extends Row>({
   const onDisableAutoArchive = useCallback(async () => {
     setAutoArchiveLoading(true);
 
-    if (item.autoArchived?.id) {
-      await onDeleteFilter({
-        emailAccountId,
-        filterId: item.autoArchived.id,
+    try {
+      if (item.autoArchived?.id) {
+        await onDeleteFilter({
+          emailAccountId,
+          filterId: item.autoArchived.id,
+        });
+      }
+      const statusResult = await setNewsletterStatusAction(emailAccountId, {
+        newsletterEmail: item.name,
+        status: null,
       });
+      assertActionSucceeded(statusResult);
+      await mutate();
+    } catch (error) {
+      captureException(error);
+      toast.error("Failed to disable auto archive");
+    } finally {
+      setAutoArchiveLoading(false);
     }
-    await setNewsletterStatusAction(emailAccountId, {
-      newsletterEmail: item.name,
-      status: null,
-    });
-    await mutate();
-
-    setAutoArchiveLoading(false);
   }, [item.name, item.autoArchived?.id, mutate, emailAccountId]);
 
   const onAutoArchiveAndLabel = useCallback(
@@ -559,17 +574,22 @@ export function useAutoArchive<T extends Row>({
 
       setAutoArchiveLoading(true);
 
-      await autoArchive({
-        name: item.name,
-        labelId,
-        labelName,
-        mutate,
-        refetchPremium,
-        emailAccountId,
-        queueArchiveSenders,
-      });
-
-      setAutoArchiveLoading(false);
+      try {
+        await autoArchive({
+          name: item.name,
+          labelId,
+          labelName,
+          mutate,
+          refetchPremium,
+          emailAccountId,
+          queueArchiveSenders,
+        });
+      } catch (error) {
+        captureException(error);
+        toast.error("Failed to enable auto archive");
+      } finally {
+        setAutoArchiveLoading(false);
+      }
     },
     [
       item.name,
@@ -726,10 +746,11 @@ export function useApproveButton<T extends Row>({
         });
       }
       // Set the new status
-      await setNewsletterStatusAction(emailAccountId, {
+      const result = await setNewsletterStatusAction(emailAccountId, {
         newsletterEmail: item.name,
         status: newStatus,
       });
+      assertActionSucceeded(result);
       // Don't revalidate - the optimistic update is correct
     } catch (error) {
       // Revert on error by revalidating
@@ -782,10 +803,11 @@ export function useBulkApprove<T extends Row>({
       successMessage: actionPast,
       errorMessage: `Failed to ${unapprove ? "unapprove" : "approve"}`,
       processItem: async (item) => {
-        await setNewsletterStatusAction(emailAccountId, {
+        const result = await setNewsletterStatusAction(emailAccountId, {
           newsletterEmail: item.name,
           status: newStatus,
         });
+        assertActionSucceeded(result);
       },
     });
   };
@@ -1012,10 +1034,11 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
           }).then((ok) => {
             if (ok) toastSuccess({ description: "Auto archive enabled!" });
           });
-          await setNewsletterStatusAction(emailAccountId, {
+          const statusResult = await setNewsletterStatusAction(emailAccountId, {
             newsletterEmail: item.name,
             status: NewsletterStatus.AUTO_ARCHIVED,
           });
+          assertActionSucceeded(statusResult);
           await mutate();
           await decrementUnsubscribeCreditAction();
           await refetchPremium();
@@ -1070,10 +1093,11 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
         if (e.key === "a") {
           // approve
           e.preventDefault();
-          await setNewsletterStatusAction(emailAccountId, {
+          const statusResult = await setNewsletterStatusAction(emailAccountId, {
             newsletterEmail: item.name,
             status: NewsletterStatus.APPROVED,
           });
+          assertActionSucceeded(statusResult);
           await mutate();
           return;
         }

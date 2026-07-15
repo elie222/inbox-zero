@@ -18,6 +18,15 @@ type Context = {
 
 const EmailAccountContext = createContext<Context | undefined>(undefined);
 
+const previewContextValue: Context = {
+  emailAccount: undefined,
+  emailAccountId: "",
+  userEmail: "",
+  isLoading: false,
+  provider: "",
+  providerRateLimit: null,
+};
+
 export function EmailAccountProvider({
   children,
 }: {
@@ -81,6 +90,18 @@ export function EmailAccountProvider({
         providerRateLimit: emailAccount?.providerRateLimit ?? null,
       }}
     >
+      {children}
+    </EmailAccountContext.Provider>
+  );
+}
+
+export function EmailAccountPreviewProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <EmailAccountContext.Provider value={previewContextValue}>
       {children}
     </EmailAccountContext.Provider>
   );

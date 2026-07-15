@@ -12,6 +12,10 @@ export function parseReply(plainText: string) {
   return result;
 }
 
+export function hasQuotedReplyContent(plainText: string): boolean {
+  return new EmailReplyParser().read(plainText).getQuotedText().length > 0;
+}
+
 const IMAGE_ALT_MAX_LENGTH = 160;
 const IMAGE_PLACEHOLDER = "[image]";
 const GENERIC_IMAGE_ALT_TEXT_PATTERN =
@@ -66,13 +70,24 @@ function getImageText(value: unknown) {
 }
 
 export function getEmailClient(messageId: string) {
-  if (messageId.includes("mail.gmail.com")) return "gmail";
-  if (messageId.includes("we.are.superhuman.com")) return "superhuman";
-  if (messageId.includes("mail.shortwave.com")) return "shortwave";
+  const host = getMessageIdHost(messageId);
+  if (host === "mail.gmail.com") return "gmail";
+  if (host === "we.are.superhuman.com") return "superhuman";
+  if (host === "mail.shortwave.com") return "shortwave";
+  if (host) return host;
 
-  // take part after @ and remove final >
-  const emailClient = messageId.split("@")[1].split(">")[0];
-  return emailClient;
+  return "unknown";
+}
+
+function getMessageIdHost(messageId: string) {
+  const rawHost = messageId.split("@")[1]?.split(">")[0];
+  if (!rawHost) return;
+
+  try {
+    return new URL(`https://${rawHost}`).hostname.toLowerCase();
+  } catch {
+    return rawHost.toLowerCase();
+  }
 }
 
 const FORWARDED_CONTENT_PATTERNS = [

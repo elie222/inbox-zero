@@ -19,6 +19,7 @@ import { extractEmailAddress } from "@/utils/email";
 import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
+import { isDeleteEmailActionEnabled } from "@/utils/delete-email-action";
 import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import {
   getMessagingRuleNotificationResult,
@@ -95,6 +96,14 @@ export const runActionFunction = async (options: {
       return mark_read(opts);
     case ActionType.STAR:
       return star(opts);
+    case ActionType.DELETE:
+      if (!isDeleteEmailActionEnabled()) {
+        log.info(
+          "Skipping delete action because delete email actions are disabled",
+        );
+        return;
+      }
+      return delete_email(opts);
     case ActionType.DIGEST:
       return digest(opts);
     case ActionType.MOVE_FOLDER:
@@ -432,6 +441,14 @@ const mark_read: ActionFunction<Record<string, unknown>> = async ({
   email,
 }) => {
   await client.markRead(email.threadId);
+};
+
+const delete_email: ActionFunction<Record<string, unknown>> = async ({
+  client,
+  email,
+  emailAccount,
+}) => {
+  await client.trashThread(email.threadId, emailAccount.email, "automation");
 };
 
 const star: ActionFunction<Record<string, unknown>> = async ({

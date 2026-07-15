@@ -241,7 +241,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
     );
 
     expect(getReplyMemoriesForPrompt).toHaveBeenCalledWith({
-      emailAccountId: "test-account-id",
+      emailAccount: expect.objectContaining({ id: "test-account-id" }),
       senderEmail: "sender@example.com",
       emailContent: expect.stringContaining("Hello, how are you?"),
       logger,

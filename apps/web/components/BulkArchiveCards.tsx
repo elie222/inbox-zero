@@ -398,6 +398,7 @@ export function BulkArchiveCards({
                       {/* Select all row */}
                       <div className="flex items-center gap-3 bg-muted/30 px-4 py-3">
                         <ButtonCheckbox
+                          label={`Select all senders in ${categoryName}`}
                           checked={areAllSelectedInCategory(categoryName)}
                           indeterminate={areSomeSelectedInCategory(
                             categoryName,
@@ -487,6 +488,7 @@ function SenderRow({
         tabIndex={0}
       >
         <ButtonCheckbox
+          label={`Select ${sender.name || sender.address}`}
           checked={isSelected}
           onChange={() => onToggleSelection()}
         />

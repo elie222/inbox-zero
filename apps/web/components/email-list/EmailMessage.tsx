@@ -213,12 +213,14 @@ function ReplyPanel({
   const [reply, setReply] = useState<string | null>(null);
   // scroll to the reply panel when it first opens
   useEffect(() => {
-    if (defaultShowReply && replyRef.current) {
-      // hacky using setTimeout
-      setTimeout(() => {
-        replyRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-      }, 500);
-    }
+    if (!defaultShowReply || !replyRef.current) return;
+
+    // Wait for the reply panel layout before scrolling.
+    const scrollTimeout = setTimeout(() => {
+      replyRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }, 500);
+
+    return () => clearTimeout(scrollTimeout);
   }, [defaultShowReply]);
 
   useEffect(() => {

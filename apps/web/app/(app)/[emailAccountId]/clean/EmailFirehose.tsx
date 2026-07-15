@@ -74,9 +74,14 @@ export function EmailFirehose({
       virtualizer.scrollToIndex(emails.length - 1, { align: "end" });
 
       // Clear flag after scrolling is likely complete
-      setTimeout(() => {
+      const scrollTimeout = setTimeout(() => {
         isProgrammaticScrollRef.current = false;
       }, 100);
+
+      return () => {
+        clearTimeout(scrollTimeout);
+        isProgrammaticScrollRef.current = false;
+      };
     }
   }, [isPaused, tab, emails.length, virtualizer, userHasScrolled]);
 

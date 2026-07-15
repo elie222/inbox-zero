@@ -5,6 +5,7 @@ import { formatEmailDate } from "@/utils/gmail/reply";
 import {
   buildReplyMessageText,
   convertTextToHtmlParagraphs,
+  stripHtmlTagsForPlainText,
 } from "@/utils/gmail/mail";
 
 describe("convertTextToHtmlParagraphs", () => {
@@ -79,5 +80,21 @@ describe("convertTextToHtmlParagraphs", () => {
     expect(plainText).toContain("John Doe <john@example.com> wrote:");
     expect(plainText).toContain("> Original message content");
     expect(plainText).not.toContain("<a href=");
+  });
+});
+
+describe("stripHtmlTagsForPlainText", () => {
+  it("skips HTML comments while preserving surrounding text", () => {
+    expect(
+      stripHtmlTagsForPlainText(
+        "<p>Hello</p><!-- hidden metadata --><p>Regards</p>",
+      ).trim(),
+    ).toBe("Hello\nRegards");
+  });
+
+  it("preserves malformed tag-like text without dropping the rest", () => {
+    expect(stripHtmlTagsForPlainText("Hello <broken text")).toBe(
+      "Hello <broken text",
+    );
   });
 });

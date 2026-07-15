@@ -4,16 +4,12 @@ import { useReducer, useRef, useState } from "react";
 import { PauseIcon, PlayIcon, SquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionDescription } from "@/components/Typography";
-import type { ThreadsResponse } from "@/app/api/threads/route";
-import type { ThreadsQuery } from "@/utils/threads/validation";
 import { LoadingContent } from "@/components/LoadingContent";
-import { runAiRules } from "@/utils/queue/email-actions";
 import {
   pauseAiQueue,
   resumeAiQueue,
   clearAiQueue,
 } from "@/utils/queue/ai-queue";
-import { sleep } from "@/utils/sleep";
 import { toastError } from "@/components/Toast";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { usePremium } from "@/hooks/usePremium";
@@ -29,10 +25,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { fetchWithAccount } from "@/utils/fetch";
 import { Toggle } from "@/components/Toggle";
 import { hasTierAccess } from "@/utils/premium";
-import { createSearchParams } from "@/utils/url";
 import { BulkProcessActivityLog } from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
 import {
   bulkRunReducer,
@@ -40,6 +34,7 @@ import {
   initialBulkRunState,
 } from "@/app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer";
 import { useEndStripeTrial } from "@/hooks/useEndStripeTrial";
+import { onRun } from "@/app/(app)/[emailAccountId]/assistant/bulk-run";
 
 const TRIAL_BULK_PROCESS_EMAIL_LIMIT = 200;
 
@@ -285,115 +280,4 @@ export function BulkRunRules() {
       </Dialog>
     </div>
   );
-}
-
-// fetch batches of messages and add them to the ai queue
-async function onRun(
-  emailAccountId: string,
-  {
-    startDate,
-    endDate,
-    includeRead,
-    maxEmails,
-  }: {
-    startDate: Date;
-    endDate?: Date;
-    includeRead?: boolean;
-    maxEmails?: number;
-  },
-  onThreadsQueued: (threads: ThreadsResponse["threads"]) => void,
-  onComplete: (
-    status: "success" | "error" | "cancelled",
-    count: number,
-  ) => void,
-) {
-  let nextPageToken = "";
-  const LIMIT = 25;
-  let totalProcessed = 0;
-
-  let aborted = false;
-
-  function abort() {
-    aborted = true;
-  }
-
-  async function run() {
-    for (let i = 0; i < 100; i++) {
-      const query: ThreadsQuery = {
-        type: "inbox",
-        limit: LIMIT,
-        after: startDate,
-        ...(endDate ? { before: endDate } : {}),
-        ...(!includeRead ? { isUnread: true } : {}),
-        ...(nextPageToken ? { nextPageToken } : {}),
-      };
-
-      const res = await fetchWithAccount({
-        url: `/api/threads?${createSearchParams(query).toString()}`,
-        emailAccountId,
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        console.error("Failed to fetch threads:", res.status, errorData);
-        toastError({
-          title: "Failed to fetch emails",
-          description:
-            typeof errorData.error === "string"
-              ? errorData.error
-              : `Error: ${res.status}`,
-        });
-        onComplete("error", totalProcessed);
-        return;
-      }
-
-      const data: ThreadsResponse = await res.json();
-
-      if (!data.threads) {
-        console.error("Invalid response: missing threads", data);
-        toastError({
-          title: "Invalid response",
-          description: "Failed to process emails. Please try again.",
-        });
-        onComplete("error", totalProcessed);
-        return;
-      }
-
-      nextPageToken = data.nextPageToken || "";
-
-      const threadsWithoutPlan = data.threads.filter((t) => !t.plan);
-      const remainingEmails =
-        maxEmails === undefined ? undefined : maxEmails - totalProcessed;
-      if (remainingEmails !== undefined && remainingEmails <= 0) break;
-
-      const threadsToQueue =
-        remainingEmails === undefined
-          ? threadsWithoutPlan
-          : threadsWithoutPlan.slice(0, remainingEmails);
-
-      onThreadsQueued(threadsToQueue);
-      totalProcessed += threadsToQueue.length;
-
-      runAiRules(emailAccountId, threadsToQueue, false);
-
-      if (aborted) {
-        onComplete("cancelled", totalProcessed);
-        return;
-      }
-
-      if (maxEmails !== undefined && totalProcessed >= maxEmails) break;
-
-      if (!nextPageToken) break;
-
-      // avoid gmail api rate limits
-      // ai takes longer anyway
-      await sleep(threadsToQueue.length ? 5000 : 2000);
-    }
-
-    onComplete("success", totalProcessed);
-  }
-
-  run();
-
-  return abort;
 }

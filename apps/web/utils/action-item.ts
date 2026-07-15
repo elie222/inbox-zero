@@ -113,6 +113,7 @@ export const actionInputs: Record<
     ],
   },
   [ActionType.MARK_SPAM]: { fields: [] },
+  [ActionType.DELETE]: { fields: [] },
   [ActionType.CALL_WEBHOOK]: {
     fields: [
       {
@@ -230,6 +231,7 @@ export function sanitizeActionFields(
     case ActionType.MARK_READ:
     case ActionType.STAR:
     case ActionType.DIGEST:
+    case ActionType.DELETE:
       return base;
     case ActionType.MOVE_FOLDER: {
       return {

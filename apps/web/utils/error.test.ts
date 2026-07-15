@@ -13,6 +13,7 @@ vi.mock("@sentry/nextjs", () => ({
 }));
 
 import {
+  assertActionSucceeded,
   attachLlmRepairMetadata,
   captureException,
   checkCommonErrors,
@@ -28,6 +29,29 @@ import {
   isOutlookThrottlingError,
   markAsHandledUserKeyError,
 } from "./error";
+
+describe("assertActionSucceeded", () => {
+  it("does not throw for a successful action result", () => {
+    expect(() => assertActionSucceeded({})).not.toThrow();
+  });
+
+  it("throws the server error from a failed action result", () => {
+    expect(() =>
+      assertActionSucceeded({ serverError: "Unable to update sender" }),
+    ).toThrow("Unable to update sender");
+  });
+
+  it("throws flattened validation errors", () => {
+    expect(() =>
+      assertActionSucceeded({
+        validationErrors: {
+          formErrors: ["Invalid request"],
+          fieldErrors: {},
+        },
+      }),
+    ).toThrow("Invalid request");
+  });
+});
 
 describe("getUserFacingErrorMessage", () => {
   it.each([

@@ -19,6 +19,10 @@ export function validateConfigName(name: string): string {
   return name;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+}
+
 export function getEnvFileName(name?: string): string {
   return name ? `.env.${validateConfigName(name)}` : ".env";
 }
@@ -40,10 +44,11 @@ export function generateEnvFile(config: {
   // Helper to set a value (handles both commented and uncommented lines)
   const setValue = (key: string, value: string | undefined) => {
     if (value === undefined) return;
+    const escapedKey = escapeRegExp(key);
     // Match both commented (# KEY=) and uncommented (KEY=) forms
     const patterns = [
-      new RegExp(`^${key}=.*$`, "m"),
-      new RegExp(`^# ${key}=.*$`, "m"),
+      new RegExp(`^${escapedKey}=.*$`, "m"),
+      new RegExp(`^# ${escapedKey}=.*$`, "m"),
     ];
     for (const pattern of patterns) {
       if (pattern.test(content)) {
@@ -234,12 +239,13 @@ export function updateEnvValue(
   const needsQuotes = /[\s"'#]/.test(value) || value.includes("://");
   const formatted = needsQuotes ? `"${escapeEnvQuotedValue(value)}"` : value;
 
-  const uncommented = new RegExp(`^${key}=.*$`, "m");
+  const escapedKey = escapeRegExp(key);
+  const uncommented = new RegExp(`^${escapedKey}=.*$`, "m");
   if (uncommented.test(content)) {
     return content.replace(uncommented, () => `${key}=${formatted}`);
   }
 
-  const commented = new RegExp(`^# ${key}=.*$`, "m");
+  const commented = new RegExp(`^# ${escapedKey}=.*$`, "m");
   if (commented.test(content)) {
     return content.replace(commented, () => `${key}=${formatted}`);
   }

@@ -70,6 +70,16 @@ export const STATIC_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 1.25 / 1_000_000,
     cachedInput: 0.02 / 1_000_000,
   },
+  "gpt-5.6-luna": {
+    input: 1 / 1_000_000,
+    output: 6 / 1_000_000,
+    cachedInput: 0.1 / 1_000_000,
+  },
+  "gpt-5.6-terra": {
+    input: 2.5 / 1_000_000,
+    output: 15 / 1_000_000,
+    cachedInput: 0.25 / 1_000_000,
+  },
   "gpt-5-mini": {
     input: 0.25 / 1_000_000,
     output: 2 / 1_000_000,
@@ -183,6 +193,8 @@ export const OPENROUTER_MODEL_ID_BY_SUPPORTED_MODEL: Partial<
   "gpt-5.4": "openai/gpt-5.4",
   "gpt-5.4-mini": "openai/gpt-5.4-mini",
   "gpt-5.4-nano": "openai/gpt-5.4-nano",
+  "gpt-5.6-luna": "openai/gpt-5.6-luna",
+  "gpt-5.6-terra": "openai/gpt-5.6-terra",
   "gpt-5-mini": "openai/gpt-5-mini",
   "gpt-5.1": "openai/gpt-5.1",
   "claude-3-5-sonnet-20240620": "anthropic/claude-3.5-sonnet",

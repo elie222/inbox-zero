@@ -36,6 +36,28 @@ const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
     model: "openai/gpt-5.4-mini",
     label: "GPT-5.4 Mini",
   },
+  "gpt-5.6-luna": {
+    provider: "openrouter",
+    model: "openai/gpt-5.6-luna",
+    label: "GPT-5.6 Luna",
+  },
+  "gpt-5.6-terra": {
+    provider: "openrouter",
+    model: "openai/gpt-5.6-terra",
+    label: "GPT-5.6 Terra",
+  },
+  "gpt-5.6-luna-azure": {
+    provider: "azure-foundry",
+    model: "gpt-5.6-luna",
+    label: "GPT-5.6 Luna Azure",
+    includeInAll: false,
+  },
+  "gpt-5.6-terra-azure": {
+    provider: "azure-foundry",
+    model: "gpt-5.6-terra",
+    label: "GPT-5.6 Terra Azure",
+    includeInAll: false,
+  },
   "deepseek-v4-pro-azure": {
     provider: "azure-foundry",
     model: "DeepSeek-V4-Pro",

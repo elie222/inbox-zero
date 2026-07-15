@@ -17,15 +17,19 @@ export const runAiRules = async (
 
   aiQueue.addAll(
     threads.map((thread) => async () => {
-      const message = thread.messages?.[thread.messages.length - 1];
-      if (!message) return;
-      await runRulesAction(emailAccountId, {
-        messageId: message.id,
-        threadId: thread.id,
-        rerun,
-        isTest: false,
-      });
-      removeFromAiQueueAtom(thread.id);
+      try {
+        const message = thread.messages?.[thread.messages.length - 1];
+        if (!message) return;
+
+        await runRulesAction(emailAccountId, {
+          messageId: message.id,
+          threadId: thread.id,
+          rerun,
+          isTest: false,
+        });
+      } finally {
+        removeFromAiQueueAtom(thread.id);
+      }
     }),
   );
 };

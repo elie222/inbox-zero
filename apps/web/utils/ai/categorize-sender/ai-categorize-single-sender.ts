@@ -4,6 +4,7 @@ import type { Category } from "@/generated/prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { createGenerateObject } from "@/utils/llms";
+import { strictOptional } from "@/utils/llms/strict-optional";
 
 export async function aiCategorizeSender({
   emailAccount,
@@ -63,11 +64,9 @@ ${formatCategoriesForPrompt(categories)}
     system,
     prompt,
     schema: z.object({
-      // reasoning models often omit this; a missing rationale shouldn't fail categorization
-      rationale: z
-        .string()
-        .nullish()
-        .describe("Keep it short. 1-2 sentences max."),
+      rationale: strictOptional(z.string()).describe(
+        "Keep it short. 1-2 sentences max.",
+      ),
       category: z.string(),
     }),
   });
