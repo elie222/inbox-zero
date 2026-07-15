@@ -23,7 +23,24 @@ GOOGLE_CLIENT_ID, REDIS_URL, …) — verified: the server boots to "Ready" and
 then fails env validation; the worker loads its deps and hits its own
 `REDIS_URL is required` check.
 
-Dev shell: `nix develop` (Node 24, pnpm, typescript, docker-compose, curl, jq).
+`NEXT_PUBLIC_*` values are different: Next.js embeds them at build time, and
+the Nix store is immutable, so setting them when starting the server cannot
+change the client bundle. The default package targets local self-hosting. For
+another URL or feature configuration, override `nextPublicEnv` and rebuild:
+
+```nix
+inbox-zero.override {
+  nextPublicEnv = {
+    NEXT_PUBLIC_BASE_URL = "https://inbox.example.com";
+    NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = "true";
+    NEXT_PUBLIC_EMAIL_SEND_ENABLED = "true";
+  };
+}
+```
+
+Linux dev shell: `nix develop` (Node 24, pnpm, typescript, docker-compose,
+curl, jq). The package and shell are exposed for `x86_64-linux` and
+`aarch64-linux`.
 
 ## Design notes / gotchas (why it's built this way)
 
@@ -55,6 +72,9 @@ time. Fix:
      strict resolver in the pnpm store layout. (Docker builds dodge this via a
      different node_modules layout; instrumentation.ts always imports Sentry.)
 
+The vendored fonts remain under the SIL Open Font License 1.1; their copyright
+notices and license terms are in `OFL-Geist.txt` and `OFL-Inter.txt`.
+
 If the fonts or their params change, re-vendor: fetch the `css2` URLs with a
 modern browser User-Agent (so Google serves woff2), then download every
 `fonts.gstatic.com/*.woff2` the CSS references into `fonts/`.
@@ -64,6 +84,9 @@ modern browser User-Agent (so Google serves woff2), then download every
 (the writable build dir) — NOT `$src` (the read-only store copy). Getting this
 wrong makes installPhase read an empty `.next` and fail with a cryptic
 `cp: missing destination file operand`.
+
+The build then runs `serwist build serwist.config.mjs`, matching the app's
+production build scripts so the service worker is present in `public/`.
 
 ### Worker is bundled, not a separate derivation
 `apps/worker` is self-contained ESM needing only `bullmq` + `ioredis`. We

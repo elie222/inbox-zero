@@ -4,15 +4,15 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    inbox-zero-src = {
-      url = "path:.";
-      flake = false;
-    };
   };
 
   outputs =
-    { self, nixpkgs, flake-utils, inbox-zero-src }:
+    { self, nixpkgs, flake-utils }:
     let
+      supportedSystems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
       out = system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
@@ -26,24 +26,21 @@
           devShells.default = applied.inbox-zero-dev-shell;
         };
     in
-    flake-utils.lib.eachDefaultSystem out // {
+    flake-utils.lib.eachSystem supportedSystems out // {
       overlays.default = final: prev:
         let
           nodejs = prev.nodejs_24;
           pnpm = prev.pnpm;
 
-          inbox-zero-drv =
-            (prev.callPackage ./nix/pkgs/inbox-zero.nix {
-              inherit nodejs pnpm;
-              fetchPnpmDeps = prev.fetchPnpmDeps;
-              pnpmConfigHook = prev.pnpmConfigHook;
-              writableTmpDirAsHomeHook = prev.writableTmpDirAsHomeHook;
-              prisma = prev.prisma;
-              prisma-engines = prev.prisma-engines;
-              srcPath = inbox-zero-src;
-            }).overrideAttrs (old: {
-              src = inbox-zero-src;
-            });
+          inbox-zero-drv = prev.callPackage ./nix/pkgs/inbox-zero.nix {
+            inherit nodejs pnpm;
+            fetchPnpmDeps = prev.fetchPnpmDeps;
+            pnpmConfigHook = prev.pnpmConfigHook;
+            writableTmpDirAsHomeHook = prev.writableTmpDirAsHomeHook;
+            prisma = prev.prisma;
+            prisma-engines = prev.prisma-engines;
+            src = self;
+          };
         in
         {
           inherit inbox-zero-drv;

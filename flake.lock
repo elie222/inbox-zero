@@ -18,18 +18,6 @@
         "type": "github"
       }
     },
-    "inbox-zero-src": {
-      "flake": false,
-      "locked": {
-        "path": ".",
-        "type": "path"
-      },
-      "original": {
-        "path": ".",
-        "type": "path"
-      },
-      "parent": []
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1783279667,
@@ -49,7 +37,6 @@
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
-        "inbox-zero-src": "inbox-zero-src",
         "nixpkgs": "nixpkgs"
       }
     },

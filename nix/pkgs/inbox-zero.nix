@@ -12,7 +12,12 @@
 , esbuild
 , prisma
 , prisma-engines
-, srcPath ? null
+, src
+, nextPublicEnv ? {
+    NEXT_PUBLIC_BASE_URL = "http://localhost:3000";
+    NEXT_PUBLIC_EMAIL_SEND_ENABLED = "true";
+    NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = "true";
+  }
 , ...
 }:
 
@@ -46,10 +51,6 @@ let
     QSTASH_CURRENT_SIGNING_KEY = "dummy_qstash_curr_key_for_build";
     QSTASH_NEXT_SIGNING_KEY = "dummy_qstash_next_key_for_build";
 
-    NEXT_PUBLIC_BASE_URL = "http://localhost:3000";
-    NEXT_PUBLIC_EMAIL_SEND_ENABLED = "true";
-    NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = "true";
-
     PRISMA_SKIP_POSTINSTALL_GENERATE = "true";
     PRISMA_SCHEMA_ENGINE_BINARY = "${prisma-engines}/bin/schema-engine";
     CI = "true";
@@ -60,7 +61,7 @@ stdenv.mkDerivation (finalAttrs: {
   pname = "inbox-zero";
   version = "0.0.0";
 
-  src = null; # flake overlay override
+  inherit src;
 
   dontUnpack = true;
 
@@ -83,7 +84,7 @@ stdenv.mkDerivation (finalAttrs: {
     fetcherVersion = 4;
     dontUnpack = true;
     preInstall = ''
-      cp -rT ${srcPath} "$PWD"
+      cp -rT ${src} "$PWD"
       chmod -R u+w "$PWD"
     '';
     preFixup = ''
@@ -91,10 +92,10 @@ stdenv.mkDerivation (finalAttrs: {
         jq empty "$1" 2>/dev/null || rm -f "$1"
       ' _ {} \;
     '';
-    hash = "sha256-uPONTamu8bzVFgdQ8NSAAmk50xh3+YmYM09Xw+1M5Hk=";
+    hash = lib.fakeHash;
   };
 
-  env = defaultBuildEnv;
+  env = defaultBuildEnv // nextPublicEnv;
 
   preConfigure = ''
     cp -rT "$src" "$PWD"
@@ -111,8 +112,9 @@ stdenv.mkDerivation (finalAttrs: {
 
     cd ${webDir}
     # Nix sandbox has no network; serve next/font/google from vendored files.
-    NODE_OPTIONS="--max_old_space_size=8192 --require $src/nix/fonts/font-mock.cjs" \
-      next build --webpack
+    export NODE_OPTIONS="--max_old_space_size=8192 --require $src/nix/fonts/font-mock.cjs"
+    next build
+    serwist build serwist.config.mjs
     cd "$buildRoot"
 
     runHook postBuild
@@ -131,6 +133,10 @@ stdenv.mkDerivation (finalAttrs: {
     cp -r ${webDir}/public/. $out/apps/web/public/
     mkdir -p $out/apps/web/prisma
     cp -r ${prismaDir}/. $out/apps/web/prisma/
+    install -Dm644 $src/nix/fonts/OFL-Geist.txt \
+      $out/share/licenses/inbox-zero/fonts/OFL-Geist.txt
+    install -Dm644 $src/nix/fonts/OFL-Inter.txt \
+      $out/share/licenses/inbox-zero/fonts/OFL-Inter.txt
 
     # Worker (BullMQ). Bundle to a single file so the output is self-contained
     # without the pnpm store symlink tree. bullmq ships its Lua scripts compiled
@@ -139,7 +145,7 @@ stdenv.mkDerivation (finalAttrs: {
     # msgpackr falls back to pure JS.
     mkdir -p $out/apps/worker
     esbuild apps/worker/src/index.mjs \
-      --bundle --platform=node --format=esm --target=node22 \
+      --bundle --platform=node --format=esm --target=node24 \
       --external:msgpackr-extract \
       --banner:js="import{createRequire as __cr}from'module';const require=__cr(import.meta.url);" \
       --outfile=$out/apps/worker/index.mjs
