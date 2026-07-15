@@ -4,6 +4,7 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createEmailProvider } from "@/utils/email/provider";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 import {
   extractEmailAddress,
   extractUniqueEmailAddresses,
@@ -16,6 +17,8 @@ import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
 import { runWithBoundedConcurrency } from "@/utils/async";
+import { findNestedLabelMatches } from "@/utils/label/find-nested-label-matches";
+import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import {
   buildOutlookSearchFallbackQuery,
@@ -1164,6 +1167,7 @@ const buildManageInboxTool = ({
               emailProvider,
               labelName: labelName!,
               action,
+              matchNestedLabels: isGoogleProvider(provider),
               missingLabelError: taxonomy.missingLabelError,
             });
           } catch (error) {
@@ -1981,23 +1985,51 @@ async function resolveThreadLabel({
   emailProvider,
   labelName,
   action,
+  matchNestedLabels,
   missingLabelError,
 }: {
   emailProvider: EmailProvider;
   labelName: string;
   action: ManageInboxAction;
+  matchNestedLabels: boolean;
   missingLabelError: (name: string, action: ManageInboxAction) => string;
 }) {
   const existingLabel = await emailProvider.getLabelByName(labelName);
 
-  if (!existingLabel) {
-    throw new Error(missingLabelError(labelName, action));
+  if (existingLabel) {
+    return {
+      labelId: existingLabel.id,
+      labelName: existingLabel.name,
+    };
   }
 
-  return {
-    labelId: existingLabel.id,
-    labelName: existingLabel.name,
-  };
+  if (matchNestedLabels) {
+    const labels = await emailProvider.getLabels({ includeHidden: true });
+    const nestedMatches = findNestedLabelMatches({
+      labels,
+      name: labelName,
+      getLabelName: (label) => label.name,
+      normalize: normalizeLabelName,
+    });
+
+    if (nestedMatches.length === 1) {
+      return {
+        labelId: nestedMatches[0].id,
+        labelName: nestedMatches[0].name,
+      };
+    }
+
+    if (nestedMatches.length > 1) {
+      const paths = nestedMatches
+        .map((label) => JSON.stringify(label.name))
+        .join(", ");
+      throw new Error(
+        `Multiple Gmail labels match "${labelName}": ${paths}. Use the full label path.`,
+      );
+    }
+  }
+
+  throw new Error(missingLabelError(labelName, action));
 }
 
 async function runSenderUnsubscribeActions({
