@@ -88,10 +88,20 @@ export function ChatOnboardingArtifact({
   summary: {
     unsubscribedFromCount: number;
     skippedCleanup: boolean;
+    setupSucceeded: boolean;
   };
   className?: string;
 }) {
-  const header = HEADERS[mode];
+  const header =
+    mode === "summary" && !summary.setupSucceeded
+      ? {
+          ...HEADERS.summary,
+          title: "Finish your setup",
+          status: "Pending",
+          Icon: PenLineIcon,
+          iconColor: "bg-amber-50 text-amber-600 dark:bg-amber-950",
+        }
+      : HEADERS[mode];
 
   return (
     <div
@@ -270,14 +280,23 @@ function SummaryContent({
   categories,
   unsubscribedFromCount,
   skippedCleanup,
+  setupSucceeded,
 }: {
   categories: ChatOnboardingCategory[];
   unsubscribedFromCount: number;
   skippedCleanup: boolean;
+  setupSucceeded: boolean;
 }) {
   const items = [
-    { Icon: TagsIcon, label: `${categories.length} labels created` },
-    { Icon: WandSparklesIcon, label: `${categories.length} rules turned on` },
+    ...(setupSucceeded
+      ? [
+          { Icon: TagsIcon, label: `${categories.length} labels created` },
+          {
+            Icon: WandSparklesIcon,
+            label: `${categories.length} rules turned on`,
+          },
+        ]
+      : []),
     { Icon: PenLineIcon, label: "Learning how you work from this chat" },
     ...(unsubscribedFromCount > 0
       ? [
@@ -295,16 +314,34 @@ function SummaryContent({
 
   return (
     <div className={cn("flex flex-col gap-3.5", ONBOARDING_ENTER_ANIMATION)}>
-      <div className="flex items-center gap-3 rounded-xl bg-green-50 p-3.5 dark:bg-green-950">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-green-600 text-white">
-          <CheckIcon className="size-5" />
+      <div
+        className={cn(
+          "flex items-center gap-3 rounded-xl p-3.5",
+          setupSucceeded
+            ? "bg-green-50 dark:bg-green-950"
+            : "bg-amber-50 dark:bg-amber-950",
+        )}
+      >
+        <span
+          className={cn(
+            "flex size-9 shrink-0 items-center justify-center rounded-lg text-white",
+            setupSucceeded ? "bg-green-600" : "bg-amber-600",
+          )}
+        >
+          {setupSucceeded ? (
+            <CheckIcon className="size-5" />
+          ) : (
+            <PenLineIcon className="size-5" />
+          )}
         </span>
         <div>
           <div className="text-sm font-semibold">
-            Your inbox is running itself
+            {setupSucceeded ? "Your inbox is running itself" : "Setup paused"}
           </div>
           <div className="text-xs text-muted-foreground">
-            Everything below is live right now.
+            {setupSucceeded
+              ? "Everything below is live right now."
+              : "Your answers are saved; finish labels and rules from Assistant."}
           </div>
         </div>
       </div>

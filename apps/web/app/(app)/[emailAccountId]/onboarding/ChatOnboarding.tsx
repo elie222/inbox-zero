@@ -42,7 +42,7 @@ import { usePremium } from "@/hooks/usePremium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useOnboardingAnalytics } from "@/hooks/useAnalytics";
 import { useSignUpEvent } from "@/hooks/useSignupEvent";
-import { captureException } from "@/utils/error";
+import { assertActionSucceeded, captureException } from "@/utils/error";
 import { createSearchParams } from "@/utils/url";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
@@ -67,7 +67,11 @@ const BEAT_STEP: Record<ChatBeatKey, number> = {
 };
 const TOTAL_STEPS = 7;
 
-type DoneContext = { unsubscribedFromCount: number; skippedCleanup: boolean };
+type DoneContext = {
+  unsubscribedFromCount: number;
+  skippedCleanup: boolean;
+  setupSucceeded: boolean;
+};
 
 export function ChatOnboarding() {
   const { emailAccountId, provider } = useAccount();
@@ -151,6 +155,7 @@ export function ChatOnboarding() {
   const [doneContext, setDoneContext] = useState<DoneContext>({
     unsubscribedFromCount: 0,
     skippedCleanup: false,
+    setupSucceeded: false,
   });
   const [finishing, setFinishing] = useState(false);
 
@@ -161,9 +166,9 @@ export function ChatOnboarding() {
   >([]);
   const answersByKeyRef = useRef<ChatAnswers>({});
   const saveAnswersQueueRef = useRef<Promise<unknown>>(Promise.resolve());
-  const rulesCreatedRef = useRef(false);
+  const rulesCreationRef = useRef<Promise<boolean> | null>(null);
 
-  const { execute: saveRole } = useAction(
+  const { executeAsync: saveRole } = useAction(
     updateEmailAccountRoleAction.bind(null, emailAccountId),
   );
   const { executeAsync: saveAnswers } = useAction(
@@ -189,6 +194,7 @@ export function ChatOnboarding() {
         unsubscribeCount: ctx?.unsubscribeCount ?? 0,
         unsubscribedFromCount: ctx?.unsubscribedFromCount ?? 0,
         skippedCleanup: ctx?.skippedCleanup ?? false,
+        setupSucceeded: ctx?.setupSucceeded ?? false,
       }),
     ].join(" ");
 
@@ -209,9 +215,15 @@ export function ChatOnboarding() {
     timeoutsRef.current.push(timeout);
   };
 
-  const goToDone = (ctx: DoneContext, preMessages: string[] = []) => {
-    setDoneContext(ctx);
-    deliver("done", ctx, preMessages);
+  const goToDone = async (
+    ctx: Omit<DoneContext, "setupSucceeded">,
+    preMessages: string[] = [],
+  ) => {
+    const setupSucceeded = await (rulesCreationRef.current ??
+      Promise.resolve(false));
+    const doneContext = { ...ctx, setupSucceeded };
+    setDoneContext(doneContext);
+    deliver("done", doneContext, preMessages);
   };
 
   const recordAnswer = (
@@ -237,14 +249,21 @@ export function ChatOnboarding() {
       totalSteps: TOTAL_STEPS,
     });
 
-    if (key === "role") {
-      saveRole({ role: answer, writeOnboardingAnswers: false });
-    }
-
     const answers = answersRef.current;
     saveAnswersQueueRef.current = saveAnswersQueueRef.current
       .catch(() => undefined)
-      .then(() => saveAnswers({ answers }))
+      .then(async () => {
+        if (key === "role") {
+          const roleResult = await saveRole({
+            role: answer,
+            writeOnboardingAnswers: false,
+          });
+          assertActionSucceeded(roleResult);
+        }
+
+        const answersResult = await saveAnswers({ answers });
+        assertActionSucceeded(answersResult);
+      })
       .catch((error) => {
         captureException(error, {
           extra: { context: "chat-onboarding", step: "save-answers", key },
@@ -253,20 +272,31 @@ export function ChatOnboarding() {
   };
 
   const createRules = () => {
-    if (rulesCreatedRef.current) return;
-    rulesCreatedRef.current = true;
+    if (rulesCreationRef.current) return;
     const configs = categoryConfig(provider).map((category) => ({
       name: category.key,
       description: "",
       action: category.action,
       key: category.key,
     }));
-    // Runs in the background so the conversation keeps moving
-    createRulesOnboardingAction(emailAccountId, configs);
-    posthog?.capture("onboarding_chat_rules_created", {
-      variant: "onboarding-chat",
-      count: configs.length,
-    });
+    rulesCreationRef.current = createRulesOnboardingAction(
+      emailAccountId,
+      configs,
+    )
+      .then((result) => {
+        assertActionSucceeded(result);
+        posthog?.capture("onboarding_chat_rules_created", {
+          variant: "onboarding-chat",
+          count: configs.length,
+        });
+        return true;
+      })
+      .catch((error) => {
+        captureException(error, {
+          extra: { context: "chat-onboarding", step: "create-rules" },
+        });
+        return false;
+      });
   };
 
   const goToCleanup = (preMessages: string[]) => {
@@ -276,7 +306,7 @@ export function ChatOnboarding() {
     setPendingCleanup({ preMessages });
   };
 
-  const respond = (text: string, isFreeform: boolean) => {
+  const respond = async (text: string, isFreeform: boolean) => {
     if (!awaiting || beat === "cleanupPending") return;
     const currentBeat = beat;
 
@@ -307,18 +337,17 @@ export function ChatOnboarding() {
         if (text === RULES_TWEAK_CHIP) {
           deliver("rulesTweak");
         } else {
-          createRules();
+          if (!isFreeform) createRules();
           goToCleanup(isFreeform ? [RULES_NOTED_MESSAGE] : []);
         }
         break;
       case "rulesTweak":
-        createRules();
         goToCleanup([RULES_NOTED_MESSAGE]);
         break;
       case "unsubscribe":
         // We can't reliably act on a typed keep-list without an LLM, so keep
         // everything — never unsubscribe on a guess.
-        goToDone({ unsubscribedFromCount: 0, skippedCleanup: false }, [
+        await goToDone({ unsubscribedFromCount: 0, skippedCleanup: false }, [
           KEEP_NOTED_MESSAGE,
         ]);
         break;
@@ -407,7 +436,10 @@ export function ChatOnboarding() {
       setAwaiting(false);
       pushMessage("user", "Keep them all");
       recordAnswer("unsubscribe", "Keep them all", false);
-      goToDone({ unsubscribedFromCount: 0, skippedCleanup: false });
+      await goToDone({
+        unsubscribedFromCount: 0,
+        skippedCleanup: false,
+      });
       return;
     }
 
@@ -453,7 +485,7 @@ export function ChatOnboarding() {
               : "I couldn't complete that cleanup just now, so I left those senders unchanged. You can retry from Bulk Unsubscribe.",
           ]
         : [];
-    goToDone(
+    await goToDone(
       {
         unsubscribedFromCount: successCount,
         skippedCleanup: false,
@@ -476,6 +508,10 @@ export function ChatOnboarding() {
       totalSteps: TOTAL_STEPS,
       destination,
     });
+    await Promise.all([
+      saveAnswersQueueRef.current,
+      rulesCreationRef.current ?? Promise.resolve(),
+    ]);
     await completeAndRedirect();
     setFinishing(false);
   };
@@ -489,6 +525,10 @@ export function ChatOnboarding() {
       totalSteps: TOTAL_STEPS,
       destination,
     });
+    await Promise.all([
+      saveAnswersQueueRef.current,
+      rulesCreationRef.current ?? Promise.resolve(),
+    ]);
     await completeAndRedirect();
     setFinishing(false);
   };

@@ -25,7 +25,7 @@ export const RULES_TWEAK_CHIP = "Let me adjust them";
 export const LABELS_NOTED_MESSAGE =
   "Noted — I'll keep that in mind. You can rename or add labels anytime from Settings.";
 export const RULES_NOTED_MESSAGE =
-  "Noted — I've saved that. I've turned on the standard set to get you started; you can fine-tune every rule from the Assistant tab.";
+  "Noted — I've saved that. I'll leave the standard rules off so you can finish them from the Assistant tab.";
 export const KEEP_NOTED_MESSAGE =
   "Got it — I'll leave them alone. You can run a full cleanup anytime from the Bulk Unsubscribe page.";
 
@@ -37,6 +37,7 @@ type ChatBeat = {
     unsubscribeCount: number;
     unsubscribedFromCount: number;
     skippedCleanup: boolean;
+    setupSucceeded: boolean;
   }) => string[];
   chips?: string[];
   placeholder?: string;
@@ -122,17 +123,19 @@ export const CHAT_BEATS: Record<ChatBeatKey, ChatBeat> = {
   },
   done: {
     question: "",
-    messages: ({ unsubscribedFromCount, skippedCleanup }) => [
+    messages: ({ unsubscribedFromCount, skippedCleanup, setupSucceeded }) => [
       ...(skippedCleanup
         ? [
             "I also checked for newsletter clutter — your inbox looks pretty clean, so nothing to unsubscribe from right now.",
           ]
         : []),
-      unsubscribedFromCount > 0
-        ? `Done — and it's all live. Your inbox is labeled, the rules are running, and ${unsubscribedFromCount} noisy ${
-            unsubscribedFromCount === 1 ? "sender is" : "senders are"
-          } gone.`
-        : "Done — and it's all live. Your inbox is labeled and the rules are running.",
+      setupSucceeded
+        ? unsubscribedFromCount > 0
+          ? `Done — and it's all live. Your inbox is labeled, the rules are running, and ${unsubscribedFromCount} noisy ${
+              unsubscribedFromCount === 1 ? "sender is" : "senders are"
+            } gone.`
+          : "Done — and it's all live. Your inbox is labeled and the rules are running."
+        : "I saved what I learned, but your labels and rules aren't on yet. You can finish them from the Assistant tab.",
       "This whole chat also teaches me how you work, so it keeps getting sharper from here.",
     ],
   },

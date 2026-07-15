@@ -136,7 +136,9 @@ export function ChatOnboardingChatPane({
 function MessageBubble({ message }: { message: ChatOnboardingMessage }) {
   if (message.from === "user") {
     return (
-      <div className={cn("mb-3.5 flex justify-end", ONBOARDING_ENTER_ANIMATION)}>
+      <div
+        className={cn("mb-3.5 flex justify-end", ONBOARDING_ENTER_ANIMATION)}
+      >
         <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-blue-600 px-3.5 py-2.5 text-sm leading-relaxed text-white">
           {message.text}
         </div>
