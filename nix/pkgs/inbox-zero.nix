@@ -92,7 +92,7 @@ stdenv.mkDerivation (finalAttrs: {
         jq empty "$1" 2>/dev/null || rm -f "$1"
       ' _ {} \;
     '';
-    hash = lib.fakeHash;
+    hash = "sha256-lNgcXA2gADhi6cdRcX1AkO4+eqOpv2UYIw2GzOCIjaU=";
   };
 
   env = defaultBuildEnv // nextPublicEnv;
