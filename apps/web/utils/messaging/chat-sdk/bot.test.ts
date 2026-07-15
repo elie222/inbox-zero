@@ -658,7 +658,6 @@ describe("buildFollowUpHiddenContextMessage", () => {
   it("returns a hidden user message that pins the referenced email", () => {
     const message = buildFollowUpHiddenContextMessage({
       followUpContext: {
-        trackerId: "tracker-1",
         emailAccountId: "email-account-1",
         threadId: "thread-abc",
         messageId: "message-xyz",

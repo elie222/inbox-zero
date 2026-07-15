@@ -13,7 +13,6 @@ describe("getFollowUpNotificationReplyContext", () => {
 
   it("returns the referenced email for a tracker whose stored delivery matches the notification message", async () => {
     prisma.threadTracker.findFirst.mockResolvedValue({
-      id: "tracker-1",
       emailAccountId: "email-account-1",
       threadId: "thread-abc",
       messageId: "message-xyz",
@@ -27,7 +26,6 @@ describe("getFollowUpNotificationReplyContext", () => {
     });
 
     expect(result).toEqual({
-      trackerId: "tracker-1",
       emailAccountId: "email-account-1",
       threadId: "thread-abc",
       messageId: "message-xyz",

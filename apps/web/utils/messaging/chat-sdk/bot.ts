@@ -632,7 +632,7 @@ async function processMessagingAssistantMessage({
         id: context.chatId,
         emailAccountId: context.emailAccountId,
       },
-      update: {},
+      update: { emailAccountId: context.emailAccountId },
       select: {
         id: true,
         lastSeenRulesRevision: true,

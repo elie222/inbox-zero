@@ -2,7 +2,6 @@ import type { MessagingProvider } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 
 export type FollowUpNotificationReplyContext = {
-  trackerId: string;
   emailAccountId: string;
   threadId: string;
   messageId: string;
@@ -39,7 +38,6 @@ export async function getFollowUpNotificationReplyContext({
     },
     orderBy: { updatedAt: "desc" },
     select: {
-      id: true,
       emailAccountId: true,
       threadId: true,
       messageId: true,
@@ -49,7 +47,6 @@ export async function getFollowUpNotificationReplyContext({
   if (!tracker) return null;
 
   return {
-    trackerId: tracker.id,
     emailAccountId: tracker.emailAccountId,
     threadId: tracker.threadId,
     messageId: tracker.messageId,
