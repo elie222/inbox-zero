@@ -18,6 +18,7 @@ import {
   type StreamTextOnFinishCallback,
   type StreamTextOnStepFinishCallback,
   type PrepareStepFunction,
+  type StopCondition,
   NoObjectGeneratedError,
   TypeValidationError,
 } from "ai";
@@ -36,11 +37,11 @@ import {
   captureException,
   isAnthropicInsufficientBalanceError,
   isContentFilterRefusal,
-  isIncorrectOpenAIAPIKeyError,
+  isIncorrectAPIKeyError,
   isInsufficientCreditsError,
   isInvalidAIModelError,
   type LlmRepairMetadata,
-  isOpenAIAPIKeyDeactivatedError,
+  isAPIKeyDeactivatedError,
   isAiQuotaExceededError,
   markAsHandledUserKeyError,
   SafeError,
@@ -233,6 +234,7 @@ type ToolCallAgentStreamOptions = BaseStreamOptions & {
   tools?: Record<string, Tool>;
   activeTools?: Array<string>;
   prepareStep?: PrepareStepFunction<Record<string, Tool>>;
+  stopWhen?: StopCondition<Record<string, Tool>>;
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
   onModelResolved?: (resolvedModel: ToolCallAgentResolvedModel) => void;
@@ -790,6 +792,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
     tools,
     activeTools,
     prepareStep,
+    stopWhen,
     maxSteps,
     userId,
     emailAccountId,
@@ -893,7 +896,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
         ? undefined
         : (activeTools as Array<keyof typeof candidateTools> | undefined),
       prepareStep,
-      stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
+      stopWhen: stopWhen ?? (maxSteps ? stepCountIs(maxSteps) : undefined),
       temperature,
       ...commonOptions,
       providerOptions,
@@ -1141,7 +1144,7 @@ async function handleError(
       });
     };
 
-    if (isIncorrectOpenAIAPIKeyError(error)) {
+    if (isIncorrectAPIKeyError(error)) {
       return await notifyUser(
         ErrorType.INCORRECT_API_KEY,
         "Your AI API key is invalid. Please update it in your settings.",
@@ -1158,7 +1161,7 @@ async function handleError(
       );
     }
 
-    if (isOpenAIAPIKeyDeactivatedError(error)) {
+    if (isAPIKeyDeactivatedError(error)) {
       return await notifyUser(
         ErrorType.API_KEY_DEACTIVATED,
         "Your AI API key has been deactivated. Please update it in your settings.",

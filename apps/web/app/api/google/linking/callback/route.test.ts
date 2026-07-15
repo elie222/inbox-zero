@@ -126,6 +126,7 @@ describe("google linking callback route", () => {
     mockFetchGoogleOpenIdProfile.mockResolvedValue({
       sub: "new-provider-account-id",
       email: "user@example.com",
+      email_verified: true,
       name: "Test User",
       picture: "https://example.com/avatar.png",
     });
@@ -168,6 +169,30 @@ describe("google linking callback route", () => {
     });
   });
 
+  it("rejects existing-account recovery when the Google email claim is unverified", async () => {
+    mockHandleAccountLinking.mockResolvedValue({
+      type: "update_existing_account",
+      existingAccountId: "existing-account-123",
+    });
+    mockFetchGoogleOpenIdProfile.mockResolvedValue({
+      sub: "new-provider-account-id",
+      email: "user@example.com",
+      email_verified: false,
+      name: "Test User",
+      picture: "https://example.com/avatar.png",
+    });
+
+    const response = await GET(
+      createRequest("http://localhost:3000/api/google/linking/callback"),
+    );
+
+    const redirectLocation = response.headers.get("location");
+    expect(redirectLocation).toContain("error=link_failed");
+    expect(redirectLocation).toContain("Google+email+claim+is+not+verified");
+    expect(prisma.account.update).not.toHaveBeenCalled();
+    expect(mockClearOAuthCode).toHaveBeenCalledWith("valid-auth-code");
+  });
+
   it("keeps the create path outside Google OAuth emulation", async () => {
     mockIsGoogleOauthEmulationEnabled.mockReturnValue(false);
     mockHandleAccountLinking.mockResolvedValue({
@@ -178,6 +203,7 @@ describe("google linking callback route", () => {
         getPayload: () => ({
           sub: "new-provider-account-id",
           email: "user@example.com",
+          email_verified: true,
           name: "Test User",
           picture: "https://example.com/avatar.png",
         }),

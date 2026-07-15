@@ -37,11 +37,21 @@ const baseClient = createSafeActionClient({
         userEmail: context?.userEmail,
         emailAccountId: context?.emailAccountId,
       });
-    logger.error("Server action error:", {
-      metadata,
-      bindArgsClientInputs,
-      error,
-    });
+    // SafeErrors are expected user-facing rejections (shown to the client,
+    // never sent to Sentry), so they log as warnings
+    if (error instanceof SafeError) {
+      logger.warn("Server action error:", {
+        metadata,
+        bindArgsClientInputs,
+        error,
+      });
+    } else {
+      logger.error("Server action error:", {
+        metadata,
+        bindArgsClientInputs,
+        error,
+      });
+    }
     after(async () => {
       await flushLoggerSafely(logger, {
         action: metadata?.name,
@@ -128,7 +138,8 @@ export const actionClient = baseClient
       },
     });
     if (!emailAccount || emailAccount?.account.userId !== userId) {
-      ctx.logger.error("Unauthorized", metadata);
+      // expected with stale client state (e.g. account removed or switched)
+      ctx.logger.warn("Unauthorized", metadata);
       throw new SafeError("Unauthorized");
     }
 
@@ -172,10 +183,8 @@ export const actionClientUser = baseClient.use(
     const session = await auth();
 
     if (!session?.user) {
-      ctx.logger.error("Unauthorized", metadata);
-      captureException(new Error(`Unauthorized: ${metadata.name}`), {
-        extra: metadata,
-      });
+      // expected when the session has expired or the user logged out
+      ctx.logger.warn("Unauthorized", metadata);
       throw new SafeError("Unauthorized");
     }
 

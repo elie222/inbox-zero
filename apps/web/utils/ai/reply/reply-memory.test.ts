@@ -6,8 +6,8 @@ import {
   ReplyMemoryScopeType,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
+import { getEmailAccount } from "@/__tests__/helpers";
 import {
-  getReplyMemoryContent,
   getReplyMemoriesForPrompt,
   isMeaningfulDraftEdit,
   syncReplyMemoriesFromDraftSendLogs,
@@ -55,6 +55,11 @@ vi.mock("@/utils/user/get", () => ({
 }));
 
 const logger = createTestLogger();
+
+const testEmailAccount = {
+  ...getEmailAccount({ email: "user@example.com" }),
+  id: "account-1",
+};
 
 describe("reply-memory", () => {
   beforeEach(() => {
@@ -109,7 +114,8 @@ describe("reply-memory", () => {
           kind: ReplyMemoryKind.PROCEDURE,
           scopeType: ReplyMemoryScopeType.GLOBAL,
         }),
-      ] as any);
+      ] as any)
+      .mockResolvedValueOnce([] as any);
     vi.mocked(prisma.$queryRaw).mockResolvedValue([
       createReplyMemory({
         id: "topic-pricing",
@@ -121,16 +127,20 @@ describe("reply-memory", () => {
       }),
     ] as any);
 
-    const result = await getReplyMemoryContent({
-      emailAccountId: "account-1",
+    const result = await getReplyMemoriesForPrompt({
+      emailAccount: testEmailAccount,
       senderEmail: "sales@example.com",
       emailContent: "What pricing should I share for a 30 seat team?",
       logger,
     });
 
-    expect(result).toContain("Use the current product positioning language.");
-    expect(result).toContain("pricing depends on seat count");
-    expect(result).toContain("annual billing first");
+    expect(result.content).toContain(
+      "Use the current product positioning language.",
+    );
+    expect(result.content).toContain("pricing depends on seat count");
+    expect(result.content).toContain("annual billing first");
+    // Few candidates: injected directly without an AI selection call.
+    expect(mockGenerateObject).not.toHaveBeenCalled();
     expect(prisma.replyMemory.findMany).toHaveBeenNthCalledWith(1, {
       where: {
         emailAccountId: "account-1",
@@ -141,7 +151,7 @@ describe("reply-memory", () => {
         scopeValue: "sales@example.com",
       },
       orderBy: { updatedAt: "desc" },
-      take: 6,
+      take: 10,
     });
     expect(prisma.replyMemory.findMany).toHaveBeenNthCalledWith(3, {
       where: {
@@ -152,8 +162,16 @@ describe("reply-memory", () => {
         scopeType: ReplyMemoryScopeType.GLOBAL,
       },
       orderBy: { updatedAt: "desc" },
-      take: 6,
+      take: 25,
     });
+    expect(prisma.replyMemory.findMany).toHaveBeenNthCalledWith(
+      4,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          scopeType: ReplyMemoryScopeType.TOPIC,
+        }),
+      }),
+    );
     expect(prisma.$queryRaw).toHaveBeenCalled();
   });
 
@@ -178,7 +196,8 @@ describe("reply-memory", () => {
           kind: ReplyMemoryKind.PROCEDURE,
           scopeType: ReplyMemoryScopeType.GLOBAL,
         }),
-      ] as any);
+      ] as any)
+      .mockResolvedValueOnce([] as any);
     vi.mocked(prisma.$queryRaw).mockResolvedValue([
       createReplyMemory({
         id: "topic-memory",
@@ -191,7 +210,7 @@ describe("reply-memory", () => {
     ] as any);
 
     const result = await getReplyMemoriesForPrompt({
-      emailAccountId: "account-1",
+      emailAccount: testEmailAccount,
       senderEmail: "sales@example.com",
       emailContent: "What pricing should I share for a 30 seat team?",
       logger,
@@ -240,18 +259,19 @@ describe("reply-memory", () => {
           kind: ReplyMemoryKind.PROCEDURE,
           scopeType: ReplyMemoryScopeType.GLOBAL,
         }),
-      ] as any);
+      ] as any)
+      .mockResolvedValueOnce([] as any);
     vi.mocked(prisma.$queryRaw).mockResolvedValue([] as any);
 
     const result = await getReplyMemoriesForPrompt({
-      emailAccountId: "account-1",
+      emailAccount: testEmailAccount,
       senderEmail: "customer@gmail.com",
       emailContent: "Can you help with my event?",
       logger,
     });
 
     expect(result.selectedMemories).toHaveLength(2);
-    expect(prisma.replyMemory.findMany).toHaveBeenCalledTimes(2);
+    expect(prisma.replyMemory.findMany).toHaveBeenCalledTimes(3);
     expect(prisma.replyMemory.findMany).not.toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -262,7 +282,90 @@ describe("reply-memory", () => {
     );
   });
 
-  it("keeps sender memories ahead of newer global memories when retrieval is capped", async () => {
+  it("uses AI selection when candidates exceed the injection cap and ignores unknown ids", async () => {
+    vi.mocked(prisma.replyMemory.findMany)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce(
+        Array.from({ length: 6 }, (_, index) =>
+          createReplyMemory({
+            id: `global-${index}`,
+            title: `global ${index}`,
+            content: `Global memory ${index}.`,
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            updatedAt: new Date(`2026-03-17T09:0${index}:00.000Z`),
+          }),
+        ) as any,
+      )
+      .mockResolvedValueOnce([] as any);
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([
+      createReplyMemory({
+        id: "topic-pricing",
+        title: "pricing guidance",
+        content: "Mention that enterprise pricing depends on seat count.",
+        kind: ReplyMemoryKind.FACT,
+        scopeType: ReplyMemoryScopeType.TOPIC,
+        scopeValue: "pricing",
+        updatedAt: new Date("2026-03-16T08:00:00.000Z"),
+      }),
+    ] as any);
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        selectedMemoryIds: ["topic-pricing", "global-2", "unknown-id"],
+      },
+    });
+
+    const result = await getReplyMemoriesForPrompt({
+      emailAccount: testEmailAccount,
+      senderEmail: "sales@example.com",
+      emailContent: "Can you resend the pricing guidance?",
+      logger,
+    });
+
+    expect(mockGenerateObject).toHaveBeenCalledTimes(1);
+    expect(result.content).toContain(
+      "enterprise pricing depends on seat count",
+    );
+    expect(result.content).toContain("Global memory 2.");
+    expect(result.selectedMemories).toHaveLength(2);
+    expect(result.selectedMemories.map((memory) => memory.id)).toEqual(
+      expect.arrayContaining(["topic-pricing", "global-2"]),
+    );
+  });
+
+  it("injects nothing when AI selection finds no relevant memories", async () => {
+    vi.mocked(prisma.replyMemory.findMany)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce(
+        Array.from({ length: 7 }, (_, index) =>
+          createReplyMemory({
+            id: `global-${index}`,
+            content: `Global memory ${index}.`,
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+          }),
+        ) as any,
+      )
+      .mockResolvedValueOnce([] as any);
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([] as any);
+    mockGenerateObject.mockResolvedValue({
+      object: { selectedMemoryIds: [] },
+    });
+
+    const result = await getReplyMemoriesForPrompt({
+      emailAccount: testEmailAccount,
+      senderEmail: "sales@example.com",
+      emailContent: "Quick question about invoices.",
+      logger,
+    });
+
+    expect(result.content).toBeNull();
+    expect(result.selectedMemories).toHaveLength(0);
+  });
+
+  it("falls back to scope-priority order when AI selection fails", async () => {
     vi.mocked(prisma.replyMemory.findMany)
       .mockResolvedValueOnce([
         createReplyMemory({
@@ -287,62 +390,22 @@ describe("reply-memory", () => {
             updatedAt: new Date(`2026-03-17T09:0${index}:00.000Z`),
           }),
         ) as any,
-      );
+      )
+      .mockResolvedValueOnce([] as any);
     vi.mocked(prisma.$queryRaw).mockResolvedValue([] as any);
+    mockGenerateObject.mockRejectedValue(new Error("selection unavailable"));
 
-    const result = await getReplyMemoryContent({
-      emailAccountId: "account-1",
+    const result = await getReplyMemoriesForPrompt({
+      emailAccount: testEmailAccount,
       senderEmail: "sales@example.com",
       emailContent: "Can you share pricing details?",
       logger,
     });
 
-    expect(result).toContain("annual billing first for this sender");
-    expect(result?.split("\n")).toHaveLength(6);
-    expect(result?.split("\n")[0]).toContain(
+    expect(result.content).toContain("annual billing first for this sender");
+    expect(result.content?.split("\n")).toHaveLength(6);
+    expect(result.content?.split("\n")[0]).toContain(
       "annual billing first for this sender",
-    );
-  });
-
-  it("keeps topic memories ahead of newer global memories when retrieval is capped", async () => {
-    vi.mocked(prisma.replyMemory.findMany)
-      .mockResolvedValueOnce([] as any)
-      .mockResolvedValueOnce([] as any)
-      .mockResolvedValueOnce(
-        Array.from({ length: 6 }, (_, index) =>
-          createReplyMemory({
-            id: `global-${index}`,
-            title: `global ${index}`,
-            content: `Global memory ${index}.`,
-            kind: ReplyMemoryKind.FACT,
-            scopeType: ReplyMemoryScopeType.GLOBAL,
-            updatedAt: new Date(`2026-03-17T09:0${index}:00.000Z`),
-          }),
-        ) as any,
-      );
-    vi.mocked(prisma.$queryRaw).mockResolvedValue([
-      createReplyMemory({
-        id: "topic-pricing",
-        title: "pricing guidance",
-        content: "Mention that enterprise pricing depends on seat count.",
-        kind: ReplyMemoryKind.FACT,
-        scopeType: ReplyMemoryScopeType.TOPIC,
-        scopeValue: "pricing",
-        updatedAt: new Date("2026-03-16T08:00:00.000Z"),
-      }),
-    ] as any);
-
-    const result = await getReplyMemoryContent({
-      emailAccountId: "account-1",
-      senderEmail: "sales@example.com",
-      emailContent: "Can you resend the pricing guidance?",
-      logger,
-    });
-
-    expect(result).toContain("enterprise pricing depends on seat count");
-    expect(result?.split("\n")).toHaveLength(6);
-    expect(result?.split("\n")[0]).toContain(
-      "enterprise pricing depends on seat count",
     );
   });
 

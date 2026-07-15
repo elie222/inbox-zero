@@ -20,7 +20,11 @@ export async function handleBatchRequest(
     await handleBatchInternal(request);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    request.logger.error("Handle batch request error", { error });
+    if (error instanceof SafeError) {
+      request.logger.warn("Handle batch request error", { error });
+    } else {
+      request.logger.error("Handle batch request error", { error });
+    }
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

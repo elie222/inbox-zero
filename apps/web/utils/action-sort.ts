@@ -10,6 +10,7 @@ const ACTION_TYPE_PRIORITY_ORDER: ActionType[] = [
 
   ActionType.MOVE_FOLDER,
   ActionType.ARCHIVE,
+  ActionType.DELETE,
   ActionType.MARK_READ,
   ActionType.STAR,
 

@@ -60,6 +60,17 @@ class EvalReporter {
   }
 
   record(result: EvalRecord): void {
+    if (
+      this.records.some(
+        (record) =>
+          record.testName === result.testName && record.model === result.model,
+      )
+    ) {
+      throw new Error(
+        `Duplicate eval record for "${result.testName}" using "${result.model}"`,
+      );
+    }
+
     this.records.push(result);
   }
 
@@ -75,6 +86,11 @@ class EvalReporter {
       model: options.model,
       testName: options.testName,
     });
+    const existingRecord = this.records.find(
+      (record) => record.cacheKey === cacheKey,
+    );
+    if (existingRecord) return existingRecord;
+
     const cachePath = getEvalResultCachePath(cacheKey);
 
     if (cacheMode !== "off" && cacheMode !== "refresh") {

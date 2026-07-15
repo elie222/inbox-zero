@@ -13,10 +13,10 @@ import {
   captureAssistantChatTrace,
   getFirstMatchingToolCall,
   getLastMatchingToolCall,
-  getStableMessageCacheKey,
   summarizeRecordedToolCalls,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
+import { getStableMessageCacheKey } from "@/__tests__/eval/message-cache-key";
 import { getMockMessage } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";

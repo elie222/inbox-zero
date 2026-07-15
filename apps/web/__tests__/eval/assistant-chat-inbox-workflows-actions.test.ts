@@ -52,7 +52,7 @@ describe.runIf(shouldRunEval)(
           },
         ])(
           "continues Outlook mark-read cleanup through empty filtered pages [$name]",
-          async ({ prompt, categoryName }) => {
+          async ({ name, prompt, categoryName }) => {
             mockSearchMessages.mockImplementation(
               async (input: ProviderSearchInput) => {
                 if (
@@ -131,8 +131,7 @@ describe.runIf(shouldRunEval)(
               );
 
             evalReporter.record({
-              testName:
-                "outlook scoped mark read paginates empty filtered page",
+              testName: `outlook scoped mark read paginates empty filtered page (${name})`,
               model: model.label,
               pass,
               actual: `${actual} | providerSearch=${summarizeProviderSearchCalls(providerSearchCalls)}`,

@@ -358,7 +358,13 @@ export function EmailList({
       {!(isEmpty && hideActionBarWhenEmpty) && (
         <div className="flex items-center border-b border-l-4 border-border bg-background px-4 py-1">
           <div className="pl-1">
-            <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
+            <Checkbox
+              label={
+                isAllSelected ? "Deselect all emails" : "Select all emails"
+              }
+              checked={isAllSelected}
+              onChange={onToggleSelectAll}
+            />
           </div>
           <div className="ml-2">
             <ActionButtonsBulk
