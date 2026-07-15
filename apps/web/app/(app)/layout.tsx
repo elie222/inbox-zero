@@ -1,4 +1,5 @@
 import "../../styles/globals.css";
+import type { Metadata } from "next";
 import type React from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -31,6 +32,13 @@ const inter = Inter({
   preload: true,
   display: "swap",
 });
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export const viewport = {
   themeColor: "#FFF",
