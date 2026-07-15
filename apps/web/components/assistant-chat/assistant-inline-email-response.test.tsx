@@ -9,7 +9,10 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AssistantInlineEmailResponse } from "@/components/assistant-chat/assistant-inline-email-response";
+import {
+  AssistantInlineEmailResponse,
+  normalizeAssistantTagMarkup,
+} from "@/components/assistant-chat/assistant-inline-email-response";
 import { getEmailUrlForMessage } from "@/utils/url";
 
 const mockUseAccount = vi.fn();
@@ -39,9 +42,13 @@ vi.mock("@/components/Tooltip", () => ({
 vi.mock("@/components/ui/button", () => ({
   Button: ({
     children,
+    loading: _loading,
+    Icon: _Icon,
     ...props
   }: {
     children?: ReactNode;
+    loading?: boolean;
+    Icon?: React.ComponentType;
   } & React.ButtonHTMLAttributes<HTMLButtonElement>) =>
     createElement("button", { type: "button", ...props }, children || "button"),
 }));
@@ -123,27 +130,35 @@ describe("AssistantInlineEmailResponse", () => {
   });
 
   it("renders inline email detail views", () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     mockRenderedThread();
 
-    render(
-      createElement(
-        AssistantInlineEmailResponse,
-        null,
-        '\n<email-detail threadid="thread-1">Focus on the action item.</email-detail>\n',
-      ),
-    );
+    try {
+      render(
+        createElement(
+          AssistantInlineEmailResponse,
+          null,
+          '\n<email-detail threadid="thread-1">Focus on the action item.</email-detail>\n',
+        ),
+      );
 
-    expect(screen.getByText("Subject")).toBeTruthy();
-    expect(screen.getByText("Focus on the action item.")).toBeTruthy();
-    expect(screen.getByText("Rendered detail body")).toBeTruthy();
-    expect(screen.getByRole("link").getAttribute("href")).toBe(
-      getEmailUrlForMessage(
-        "msg-thread-1",
-        "thread-1",
-        "user@example.com",
-        "google",
-      ),
-    );
+      expect(screen.getByText("Subject")).toBeTruthy();
+      expect(screen.getByText("Focus on the action item.")).toBeTruthy();
+      expect(screen.getByText("Rendered detail body")).toBeTruthy();
+      expect(screen.getByRole("link").getAttribute("href")).toBe(
+        getEmailUrlForMessage(
+          "msg-thread-1",
+          "thread-1",
+          "user@example.com",
+          "google",
+        ),
+      );
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("renders inline email detail views inside numbered lists", () => {
@@ -197,6 +212,7 @@ describe("AssistantInlineEmailResponse", () => {
     // Lookup succeeds only when the smart quotes are normalized away.
     expect(screen.getByText("Subject")).toBeTruthy();
     expect(screen.getByText("A receipt.")).toBeTruthy();
+    expect(mockUseThread).toHaveBeenCalledWith({ id: "thread-1" });
   });
 
   it("renders email detail tags with single smart-quoted attributes", () => {
@@ -211,6 +227,7 @@ describe("AssistantInlineEmailResponse", () => {
     );
 
     expect(screen.getByText("Subject")).toBeTruthy();
+    expect(mockUseThread).toHaveBeenCalledWith({ id: "thread-1" });
   });
 
   it("renders backslash-escaped email detail tags", () => {
@@ -226,6 +243,7 @@ describe("AssistantInlineEmailResponse", () => {
 
     expect(screen.getByText("Subject")).toBeTruthy();
     expect(container.textContent).not.toContain("<email-detail");
+    expect(container.textContent).not.toContain("</email-detail>");
   });
 
   it("renders entity-escaped email detail tags", () => {
@@ -241,6 +259,71 @@ describe("AssistantInlineEmailResponse", () => {
 
     expect(screen.getByText("Subject")).toBeTruthy();
     expect(container.textContent).not.toContain("<email-detail");
+  });
+
+  it.each([
+    [
+      "entity-escaped",
+      "&lt;rule-suggestion name=&quot;Large messages&quot; when=&quot;size &gt; 10MB&quot; archive=&quot;true&quot; /&gt;",
+    ],
+    [
+      "smart-quoted",
+      "<rule-suggestion name=“Large messages” when=“size > 10MB” archive=“true” />",
+    ],
+  ])("renders %s rule tags with greater-than signs in quoted attributes", (_format, content) => {
+    render(createElement(AssistantInlineEmailResponse, null, content));
+
+    expect(screen.getByText("Large messages")).toBeTruthy();
+    expect(screen.getByText("size > 10MB")).toBeTruthy();
+    expect(screen.getByText("Archive")).toBeTruthy();
+  });
+
+  it.each([
+    "&apos;",
+    "&#x27;",
+  ])("decodes %s delimiters in entity-escaped tag attributes", (quoteEntity) => {
+    mockRenderedThread();
+
+    render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        `&lt;email-detail threadid=${quoteEntity}thread-1${quoteEntity}&gt;A receipt.&lt;/email-detail&gt;`,
+      ),
+    );
+
+    expect(mockUseThread).toHaveBeenCalledWith({ id: "thread-1" });
+  });
+
+  it("preserves whitespace inside quoted rule attributes", () => {
+    expect(
+      normalizeAssistantTagMarkup(
+        '<rule-suggestion\nname="Large  messages"\narchive="true" />',
+      ),
+    ).toBe(
+      '<rule-suggestion name="Large  messages" archive="true"></rule-suggestion>',
+    );
+  });
+
+  it("does not normalize similarly prefixed tags", () => {
+    const content = "<email.foo />";
+
+    expect(normalizeAssistantTagMarkup(content)).toBe(content);
+  });
+
+  it("keeps escaped assistant tags inside inline code as code", () => {
+    const { container } = render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        '`\\<email-detail threadid="thread-1">A receipt.\\</email-detail>`',
+      ),
+    );
+
+    expect(container.querySelector("code")?.textContent).toBe(
+      '<email-detail threadid="thread-1">A receipt.</email-detail>',
+    );
+    expect(screen.queryByText("Subject")).toBeNull();
   });
 
   it("renders inline rule suggestions and can ask chat to create one", async () => {

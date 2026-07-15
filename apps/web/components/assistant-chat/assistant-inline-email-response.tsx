@@ -1,7 +1,15 @@
 "use client";
 
 import { cn } from "@/utils/index";
-import { createElement, memo, type ComponentProps } from "react";
+import {
+  Children,
+  createElement,
+  isValidElement,
+  memo,
+  type ComponentProps,
+  type HTMLAttributes,
+  type ReactNode,
+} from "react";
 import { Streamdown } from "streamdown";
 import {
   InlineEmailCard,
@@ -31,7 +39,9 @@ const allowedTags = {
     "markread",
   ],
 };
+const assistantBlockTagNames = new Set(Object.keys(allowedTags));
 const components = {
+  p: AssistantParagraph,
   emails: InlineEmailList,
   email: InlineEmailCard,
   "email-detail": InlineEmailDetail,
@@ -59,18 +69,27 @@ export const AssistantInlineEmailResponse = memo(
         normalizeHtmlIndentation: true,
         ...props,
       },
-      normalizeAssistantTags(children),
+      typeof children === "string"
+        ? normalizeAssistantTagMarkup(children)
+        : children,
     ),
 );
 
 AssistantInlineEmailResponse.displayName = "AssistantInlineEmailResponse";
 
 const tagAlternation = Object.keys(allowedTags).join("|");
+const encodedDoubleQuotePattern = "(?:&quot;|&#34;|&#x22;)";
+const encodedSingleQuotePattern = "(?:&apos;|&#39;|&#x27;)";
+const encodedQuotedValuePattern =
+  `(?:${encodedDoubleQuotePattern}(?:(?!${encodedDoubleQuotePattern})[\\s\\S])*${encodedDoubleQuotePattern}` +
+  `|${encodedSingleQuotePattern}(?:(?!${encodedSingleQuotePattern})[\\s\\S])*${encodedSingleQuotePattern})`;
+const quotedValuePattern = `(?:"[^"]*"|'[^']*'|[“”][^“”]*[“”]|[‘’][^‘’]*[‘’])`;
+const encodedUnquotedCharacterPattern = `(?!(?:&gt;|${encodedDoubleQuotePattern}|${encodedSingleQuotePattern}|["'“”‘’]))[\\s\\S]`;
 
 // Models sometimes escape the structured tags they were asked to emit, which
 // would otherwise surface raw markup text to the user.
 const entityEscapedTagPattern = new RegExp(
-  `&lt;(/?(?:${tagAlternation})(?:(?!&[lg]t;)[^<>])*)&gt;`,
+  `&lt;(/?(?:${tagAlternation})(?=[\\s/>])(?:${encodedQuotedValuePattern}|${quotedValuePattern}|${encodedUnquotedCharacterPattern})*)&gt;`,
   "gi",
 );
 const backslashEscapedTagPattern = new RegExp(
@@ -79,27 +98,19 @@ const backslashEscapedTagPattern = new RegExp(
 );
 // Quote-aware so attribute values may contain ">".
 const assistantTagPattern = new RegExp(
-  `</?(?:${tagAlternation})(?=[\\s/>])(?:"[^"]*"|'[^']*'|[^>"'])*>`,
+  `</?(?:${tagAlternation})(?=[\\s/>])(?:${quotedValuePattern}|[^>"'“”‘’])*>`,
   "gi",
 );
 const smartDoubleQuotedAttributePattern = /=\s*[“”]([^“”]*)[“”]/g;
 const smartSingleQuotedAttributePattern = /=\s*[‘’]([^‘’]*)[‘’]/g;
+const tagWhitespacePattern = /("[^"]*"|'[^']*')|\s+/g;
 const selfClosingTagPattern = new RegExp(
-  `<(${tagAlternation})(?![\\w-])((?:"[^"]*"|'[^']*'|[^>"'])*?)\\s*/>`,
+  `<(${tagAlternation})(?=[\\s/>])((?:${quotedValuePattern}|[^>"'“”‘’])*?)\\s*/>`,
   "gi",
 );
 
-/**
- * Normalizes assistant structured tags so intermittent model formatting
- * (escaped tags, blank lines inside tags, smart-quoted attributes,
- * self-closing tags) still renders as cards instead of raw markup.
- */
-function normalizeAssistantTags(
-  children: AssistantInlineEmailResponseProps["children"],
-) {
-  if (typeof children !== "string") return children;
-
-  return children
+export function normalizeAssistantTagMarkup(content: string) {
+  return content
     .replace(entityEscapedTagPattern, (_match, inner: string) =>
       decodeTagEntities(`<${inner}>`),
     )
@@ -112,12 +123,52 @@ function normalizeTag(tag: string) {
   return tag
     .replace(smartDoubleQuotedAttributePattern, '="$1"')
     .replace(smartSingleQuotedAttributePattern, "='$1'")
-    .replace(/\s+/g, " ");
+    .replace(
+      tagWhitespacePattern,
+      (_match, quotedAttribute: string | undefined) => quotedAttribute ?? " ",
+    );
 }
 
 function decodeTagEntities(tag: string) {
   return tag
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/g, "'")
+    .replace(/&(?:quot|#34|#x22);/gi, '"')
+    .replace(/&(?:apos|#39|#x27);/gi, "'")
     .replace(/&amp;/gi, "&");
+}
+
+function AssistantParagraph({
+  children,
+  node: _node,
+  ...props
+}: HTMLAttributes<HTMLParagraphElement> & {
+  children?: ReactNode;
+  node?: unknown;
+}) {
+  const meaningfulChildren = Children.toArray(children).filter(
+    (child) => child !== "",
+  );
+
+  if (
+    meaningfulChildren.length === 1 &&
+    shouldUnwrapParagraphChild(meaningfulChildren[0])
+  ) {
+    return <>{children}</>;
+  }
+
+  return <p {...props}>{children}</p>;
+}
+
+function shouldUnwrapParagraphChild(child: ReactNode) {
+  if (!isValidElement(child)) return false;
+
+  const childProps = child.props as {
+    node?: { tagName?: string };
+    "data-block"?: string;
+  };
+  const tagName = childProps.node?.tagName?.toLowerCase();
+
+  if (tagName && assistantBlockTagNames.has(tagName)) return true;
+  if (tagName === "img") return true;
+
+  return tagName === "code" && "data-block" in childProps;
 }
