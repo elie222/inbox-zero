@@ -51,6 +51,8 @@ import { env } from "@/env";
 
 const FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES = 15;
 const FOLLOW_UP_THREAD_SCAN_LIMIT = 50;
+// Avoid carrying an entire email through channel fan-out beyond any preview limit.
+const FOLLOW_UP_SNIPPET_SOURCE_MAX_CHARS = 3000;
 
 const followUpReminderAccountSelect = {
   id: true,
@@ -586,9 +588,11 @@ async function processFollowUpsForType({
             // parsed body lets each channel truncate with an ellipsis instead.
             snippet:
               emailToContent(lastMessage, {
-                maxLength: 0,
+                maxLength: FOLLOW_UP_SNIPPET_SOURCE_MAX_CHARS,
                 extractReply: true,
-              }) || undefined,
+              }) ||
+              lastMessage.snippet ||
+              undefined,
             threadLink:
               getEmailUrlForOptionalMessage({
                 messageId: lastMessage.id,

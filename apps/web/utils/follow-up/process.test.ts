@@ -906,9 +906,30 @@ describe("processAccountFollowUps - dedup logic", () => {
     );
   });
 
-  it("derives the notification snippet from the message body instead of the provider preview", async () => {
-    const fullBody =
-      "The provider preview stops early but the email keeps going with enough detail for the user to recognize the thread and decide whether to follow up right away.";
+  const fullNotificationBody =
+    "The provider preview stops early but the email keeps going with enough detail for the user to recognize the thread and decide whether to follow up right away.";
+
+  it.each([
+    {
+      name: "derives the notification snippet from the message body instead of the provider preview",
+      providerSnippet: "The provider preview stops early",
+      textPlain: fullNotificationBody,
+      expectedSnippet: fullNotificationBody,
+    },
+    {
+      name: "falls back to the provider preview when the message has no body",
+      providerSnippet: "Preview from the provider",
+      textPlain: "",
+      expectedSnippet: "Preview from the provider",
+    },
+    {
+      name: "falls back to the provider preview when reply extraction removes the body",
+      providerSnippet: "Preview from the provider",
+      textPlain:
+        "On Tue, Jul 14, 2026 at 10:00 AM Alex <alex@example.com> wrote:\n> Prior message",
+      expectedSnippet: "Preview from the provider",
+    },
+  ])("$name", async ({ providerSnippet, textPlain, expectedSnippet }) => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi
         .fn()
@@ -917,8 +938,9 @@ describe("processAccountFollowUps - dedup logic", () => {
         ]),
       getLatestMessageInThread: vi.fn().mockResolvedValue({
         ...mockAwaitingMessage("msg-snippet-source", OLD_DATE),
-        snippet: "The provider preview stops early",
-        textPlain: fullBody,
+        snippet: providerSnippet,
+        textPlain,
+        textHtml: "",
       }),
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
@@ -937,41 +959,7 @@ describe("processAccountFollowUps - dedup logic", () => {
     });
 
     expect(sendFollowUpNotification).toHaveBeenCalledWith(
-      expect.objectContaining({ snippet: fullBody }),
-    );
-  });
-
-  it("falls back to the provider preview when the message has no body", async () => {
-    const provider = createMockProvider({
-      getThreadsWithLabel: vi
-        .fn()
-        .mockResolvedValue([
-          { id: "thread-snippet-fallback", messages: [], snippet: "" },
-        ]),
-      getLatestMessageInThread: vi.fn().mockResolvedValue({
-        ...mockAwaitingMessage("msg-snippet-fallback", OLD_DATE),
-        snippet: "Preview from the provider",
-        textPlain: "",
-        textHtml: "",
-      }),
-    });
-    vi.mocked(createEmailProvider).mockResolvedValue(provider);
-    vi.mocked(getFollowUpNotificationChannels).mockResolvedValue([
-      { id: "channel-1" } as any,
-    ]);
-    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
-    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
-      id: "tracker-snippet-fallback",
-    } as any);
-
-    await processAccountFollowUps({
-      emailAccount: createMockAccount(),
-      logger,
-    });
-
-    expect(sendFollowUpNotification).toHaveBeenCalledWith(
-      expect.objectContaining({ snippet: "Preview from the provider" }),
+      expect.objectContaining({ snippet: expectedSnippet }),
     );
   });
 
