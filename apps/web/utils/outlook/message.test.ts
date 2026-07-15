@@ -246,6 +246,61 @@ describe("queryBatchMessages", () => {
     expect(request.search).toHaveBeenCalledWith('"newsletter"');
     expect(request.filter).not.toHaveBeenCalled();
   });
+
+  it("escapes exact sender filters and omits incompatible ordering", async () => {
+    const request = createMockMessagesRequest();
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(api);
+
+    await queryBatchMessages(
+      client,
+      {
+        fromEmail: "o'connor@example.com",
+        maxResults: 20,
+      },
+      createTestLogger(),
+    );
+
+    expect(request.filter).toHaveBeenCalledWith(
+      "from/emailAddress/address eq 'o''connor@example.com'",
+    );
+    expect(request.orderby).not.toHaveBeenCalled();
+  });
+
+  it("filters Outlook search pages to the exact sender", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [
+        {
+          id: "matching-message",
+          conversationId: "matching-thread",
+          from: { emailAddress: { address: "Sender@Example.com" } },
+        },
+        {
+          id: "non-matching-message",
+          conversationId: "non-matching-thread",
+          from: { emailAddress: { address: "other@example.com" } },
+        },
+      ],
+    });
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(api);
+
+    const result = await queryBatchMessages(
+      client,
+      {
+        searchQuery: "invoice",
+        fromEmail: "sender@example.com",
+        maxResults: 20,
+      },
+      createTestLogger(),
+    );
+
+    expect(request.search).toHaveBeenCalledWith('"invoice"');
+    expect(result.messages.map((message) => message.id)).toEqual([
+      "matching-message",
+    ]);
+  });
 });
 
 describe("queryMessagesWithFilters", () => {

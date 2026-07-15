@@ -1819,11 +1819,10 @@ function normalizeOutlookSearchInput({
   const effectiveFromEmail = explicitFromEmail ?? queryFromEmail;
 
   if (effectiveFromEmail) {
-    const queryIsRedundant =
-      !explicitFromEmail ||
-      queryFromEmail?.toLowerCase() === explicitFromEmail.toLowerCase();
+    const queryContainsOnlySameSender =
+      queryFromEmail?.toLowerCase() === effectiveFromEmail.toLowerCase();
     return {
-      query: queryIsRedundant ? "" : queryWithoutState,
+      query: queryContainsOnlySameSender ? "" : queryWithoutState,
       fromEmail: effectiveFromEmail,
       readState: inferredReadState,
       categoryName,
