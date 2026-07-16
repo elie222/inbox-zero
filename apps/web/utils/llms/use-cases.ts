@@ -40,6 +40,7 @@ export const LlmUseCase = {
   ReplyMemorySelection: "reply-memory-selection",
   ReplyNudge: "reply-nudge",
   Summarise: "summarise",
+  ThunderbirdTriage: "thunderbird-triage",
   WritingStyleAnalysis: "writing-style-analysis",
 } as const;
 
@@ -83,6 +84,7 @@ export const LLM_USE_CASE_MODEL_TYPES = {
   [LlmUseCase.ReplyMemorySelection]: "economy",
   [LlmUseCase.ReplyNudge]: "chat",
   [LlmUseCase.Summarise]: "default",
+  [LlmUseCase.ThunderbirdTriage]: "economy",
   [LlmUseCase.WritingStyleAnalysis]: "default",
 } as const satisfies Record<LlmUseCase, ModelType>;
 

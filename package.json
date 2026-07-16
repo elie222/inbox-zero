@@ -22,7 +22,8 @@
     "start:cli": "tsx packages/cli/src/main.ts start",
     "docker:local:build": "./docker/scripts/publish-ghcr.sh --local",
     "docker:local:push": "./docker/scripts/publish-ghcr.sh",
-    "docker:local:run": "./docker/scripts/run-local.sh"
+    "docker:local:run": "./docker/scripts/run-local.sh",
+    "setup:thunderbird": "pnpm --filter inbox-zero-ai exec dotenv -e .env.local -- tsx scripts/setup-thunderbird-bridge.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.2",
