@@ -9,10 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  AssistantInlineEmailResponse,
-  normalizeAssistantTagMarkup,
-} from "@/components/assistant-chat/assistant-inline-email-response";
+import { AssistantInlineEmailResponse } from "@/components/assistant-chat/assistant-inline-email-response";
 import { getEmailUrlForMessage } from "@/utils/url";
 
 const mockUseAccount = vi.fn();
@@ -232,13 +229,10 @@ describe("AssistantInlineEmailResponse", () => {
 
   it("renders backslash-escaped email detail tags", () => {
     mockRenderedThread();
+    const content = String.raw`\<email-detail threadid="thread-1">A receipt.\</email-detail>`;
 
     const { container } = render(
-      createElement(
-        AssistantInlineEmailResponse,
-        null,
-        '\\<email-detail threadid="thread-1">A receipt.\\</email-detail>',
-      ),
+      createElement(AssistantInlineEmailResponse, null, content),
     );
 
     expect(screen.getByText("Subject")).toBeTruthy();
@@ -293,22 +287,6 @@ describe("AssistantInlineEmailResponse", () => {
     );
 
     expect(mockUseThread).toHaveBeenCalledWith({ id: "thread-1" });
-  });
-
-  it("preserves whitespace inside quoted rule attributes", () => {
-    expect(
-      normalizeAssistantTagMarkup(
-        '<rule-suggestion\nname="Large  messages"\narchive="true" />',
-      ),
-    ).toBe(
-      '<rule-suggestion name="Large  messages" archive="true"></rule-suggestion>',
-    );
-  });
-
-  it("does not normalize similarly prefixed tags", () => {
-    const content = "<email.foo />";
-
-    expect(normalizeAssistantTagMarkup(content)).toBe(content);
   });
 
   it("keeps escaped assistant tags inside inline code as code", () => {

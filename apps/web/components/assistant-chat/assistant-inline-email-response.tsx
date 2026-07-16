@@ -20,26 +20,14 @@ import {
   InlineRuleSuggestionCard,
   InlineRuleSuggestions,
 } from "@/components/assistant-chat/inline-rule-suggestion-card";
+import {
+  assistantAllowedTags,
+  normalizeAssistantTagMarkup,
+} from "@/components/assistant-chat/assistant-tag-normalization";
 
 type AssistantInlineEmailResponseProps = ComponentProps<typeof Streamdown>;
 
-const allowedTags = {
-  emails: [],
-  email: ["id", "threadid", "index"],
-  "email-detail": ["id", "threadid"],
-  "rule-suggestions": [],
-  "rule-suggestion": [
-    "name",
-    "when",
-    "do",
-    "label",
-    "archive",
-    "notify",
-    "draft",
-    "markread",
-  ],
-};
-const assistantBlockTagNames = new Set(Object.keys(allowedTags));
+const assistantBlockTagNames = new Set(Object.keys(assistantAllowedTags));
 const components = {
   p: AssistantParagraph,
   emails: InlineEmailList,
@@ -63,7 +51,7 @@ export const AssistantInlineEmailResponse = memo(
           "[&_a]:!text-inherit [&_a]:underline [&_a]:underline-offset-2 [&_a:hover]:opacity-80",
           className,
         ),
-        allowedTags,
+        allowedTags: assistantAllowedTags,
         components,
         literalTagContent,
         normalizeHtmlIndentation: true,
@@ -76,65 +64,6 @@ export const AssistantInlineEmailResponse = memo(
 );
 
 AssistantInlineEmailResponse.displayName = "AssistantInlineEmailResponse";
-
-const tagAlternation = Object.keys(allowedTags).join("|");
-const encodedDoubleQuotePattern = "(?:&quot;|&#34;|&#x22;)";
-const encodedSingleQuotePattern = "(?:&apos;|&#39;|&#x27;)";
-const encodedQuotedValuePattern =
-  `(?:${encodedDoubleQuotePattern}(?:(?!${encodedDoubleQuotePattern})[\\s\\S])*${encodedDoubleQuotePattern}` +
-  `|${encodedSingleQuotePattern}(?:(?!${encodedSingleQuotePattern})[\\s\\S])*${encodedSingleQuotePattern})`;
-const quotedValuePattern = `(?:"[^"]*"|'[^']*'|[“”][^“”]*[“”]|[‘’][^‘’]*[‘’])`;
-const encodedUnquotedCharacterPattern = `(?!(?:&gt;|${encodedDoubleQuotePattern}|${encodedSingleQuotePattern}|["'“”‘’]))[\\s\\S]`;
-
-// Models sometimes escape the structured tags they were asked to emit, which
-// would otherwise surface raw markup text to the user.
-const entityEscapedTagPattern = new RegExp(
-  `&lt;(/?(?:${tagAlternation})(?=[\\s/>])(?:${encodedQuotedValuePattern}|${quotedValuePattern}|${encodedUnquotedCharacterPattern})*)&gt;`,
-  "gi",
-);
-const backslashEscapedTagPattern = new RegExp(
-  `\\\\(</?(?:${tagAlternation})(?=[\\s/>]))`,
-  "gi",
-);
-// Quote-aware so attribute values may contain ">".
-const assistantTagPattern = new RegExp(
-  `</?(?:${tagAlternation})(?=[\\s/>])(?:${quotedValuePattern}|[^>"'“”‘’])*>`,
-  "gi",
-);
-const smartDoubleQuotedAttributePattern = /=\s*[“”]([^“”]*)[“”]/g;
-const smartSingleQuotedAttributePattern = /=\s*[‘’]([^‘’]*)[‘’]/g;
-const tagWhitespacePattern = /("[^"]*"|'[^']*')|\s+/g;
-const selfClosingTagPattern = new RegExp(
-  `<(${tagAlternation})(?=[\\s/>])((?:${quotedValuePattern}|[^>"'“”‘’])*?)\\s*/>`,
-  "gi",
-);
-
-export function normalizeAssistantTagMarkup(content: string) {
-  return content
-    .replace(entityEscapedTagPattern, (_match, inner: string) =>
-      decodeTagEntities(`<${inner}>`),
-    )
-    .replace(backslashEscapedTagPattern, "$1")
-    .replace(assistantTagPattern, normalizeTag)
-    .replace(selfClosingTagPattern, "<$1$2></$1>");
-}
-
-function normalizeTag(tag: string) {
-  return tag
-    .replace(smartDoubleQuotedAttributePattern, '="$1"')
-    .replace(smartSingleQuotedAttributePattern, "='$1'")
-    .replace(
-      tagWhitespacePattern,
-      (_match, quotedAttribute: string | undefined) => quotedAttribute ?? " ",
-    );
-}
-
-function decodeTagEntities(tag: string) {
-  return tag
-    .replace(/&(?:quot|#34|#x22);/gi, '"')
-    .replace(/&(?:apos|#39|#x27);/gi, "'")
-    .replace(/&amp;/gi, "&");
-}
 
 function AssistantParagraph({
   children,
