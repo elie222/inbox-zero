@@ -656,6 +656,7 @@ describe("chat inbox tools", () => {
       toolErrorVisibility: "hidden",
     });
     expect(getLabelByName).toHaveBeenCalledWith("Finance");
+    expect(getLabels).toHaveBeenCalledWith({ includeHidden: true });
     expect(removeThreadLabel).not.toHaveBeenCalled();
   });
 
