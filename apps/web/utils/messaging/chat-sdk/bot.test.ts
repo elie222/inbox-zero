@@ -18,6 +18,7 @@ import {
   normalizeMessagingAssistantText,
   normalizeMessagingUserText,
   stripLeadingSlackMention,
+  upsertMessagingChat,
 } from "@/utils/messaging/chat-sdk/bot";
 
 vi.mock("@/utils/prisma");
@@ -672,5 +673,61 @@ describe("buildFollowUpHiddenContextMessage", () => {
     const text = (message?.parts[0] as { type: "text"; text: string }).text;
     expect(text).toContain("thread-abc");
     expect(text).toContain("message-xyz");
+  });
+});
+
+describe("upsertMessagingChat", () => {
+  it("clears account-specific history when the chat changes accounts", async () => {
+    prisma.chat.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-a",
+    } as any);
+    prisma.chat.upsert.mockResolvedValue({
+      id: "telegram-123",
+      lastSeenRulesRevision: null,
+      messages: [],
+      compactions: [],
+    } as any);
+
+    await upsertMessagingChat({
+      chatId: "telegram-123",
+      emailAccountId: "email-account-b",
+    });
+
+    expect(prisma.chat.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: {
+          emailAccountId: "email-account-b",
+          messages: { deleteMany: {} },
+          compactions: { deleteMany: {} },
+          memories: { set: [] },
+          compactionCount: 0,
+          lastSeenRulesRevision: null,
+        },
+      }),
+    );
+  });
+
+  it("keeps history when the chat remains on the same account", async () => {
+    prisma.chat.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-b",
+    } as any);
+    prisma.chat.upsert.mockResolvedValue({
+      id: "telegram-123",
+      lastSeenRulesRevision: 3,
+      messages: [{ id: "message-1", role: "user", parts: [] }],
+      compactions: [{ id: "compaction-1" }],
+    } as any);
+
+    const chat = await upsertMessagingChat({
+      chatId: "telegram-123",
+      emailAccountId: "email-account-b",
+    });
+
+    expect(chat.messages).toHaveLength(1);
+    expect(prisma.chat.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: { emailAccountId: "email-account-b" },
+      }),
+    );
   });
 });

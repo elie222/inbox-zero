@@ -626,26 +626,9 @@ async function processMessagingAssistantMessage({
       return false;
     }
 
-    const chat = await prisma.chat.upsert({
-      where: { id: context.chatId },
-      create: {
-        id: context.chatId,
-        emailAccountId: context.emailAccountId,
-      },
-      update: { emailAccountId: context.emailAccountId },
-      select: {
-        id: true,
-        lastSeenRulesRevision: true,
-        messages: {
-          orderBy: { createdAt: "desc" },
-          take: MAX_CHAT_CONTEXT_MESSAGES,
-        },
-        compactions: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: { id: true },
-        },
-      },
+    const chat = await upsertMessagingChat({
+      chatId: context.chatId,
+      emailAccountId: context.emailAccountId,
     });
 
     const existingMessages: UIMessage[] = [...chat.messages]
@@ -1943,10 +1926,9 @@ async function handleSwitchCommand({
   if (channels.length === 1) {
     const only = channels[0];
     if (only.emailAccountId !== existingChat?.emailAccountId) {
-      await prisma.chat.upsert({
-        where: { id: chatId },
-        update: { emailAccountId: only.emailAccountId },
-        create: { id: chatId, emailAccountId: only.emailAccountId },
+      await upsertMessagingChat({
+        chatId,
+        emailAccountId: only.emailAccountId,
       });
     }
     await thread.post(`Only one account connected: ${only.emailAccount.email}`);
@@ -1983,10 +1965,9 @@ async function handleSwitchCommand({
     return true;
   }
 
-  await prisma.chat.upsert({
-    where: { id: chatId },
-    update: { emailAccountId: selected.emailAccountId },
-    create: { id: chatId, emailAccountId: selected.emailAccountId },
+  await upsertMessagingChat({
+    chatId,
+    emailAccountId: selected.emailAccountId,
   });
 
   await thread.post(`Switched to ${selected.emailAccount.email}.`);
@@ -3150,4 +3131,47 @@ function isTrueAttribute(value: string | undefined) {
 function isFalseAttribute(value: string | undefined) {
   const v = normalizeBooleanAttribute(value);
   return v === "false" || v === "no";
+}
+
+export async function upsertMessagingChat({
+  chatId,
+  emailAccountId,
+}: {
+  chatId: string;
+  emailAccountId: string;
+}) {
+  const existingChat = await prisma.chat.findUnique({
+    where: { id: chatId },
+    select: { emailAccountId: true },
+  });
+  const accountChanged =
+    existingChat !== null && existingChat.emailAccountId !== emailAccountId;
+
+  return prisma.chat.upsert({
+    where: { id: chatId },
+    create: { id: chatId, emailAccountId },
+    update: accountChanged
+      ? {
+          emailAccountId,
+          messages: { deleteMany: {} },
+          compactions: { deleteMany: {} },
+          memories: { set: [] },
+          compactionCount: 0,
+          lastSeenRulesRevision: null,
+        }
+      : { emailAccountId },
+    select: {
+      id: true,
+      lastSeenRulesRevision: true,
+      messages: {
+        orderBy: { createdAt: "desc" },
+        take: MAX_CHAT_CONTEXT_MESSAGES,
+      },
+      compactions: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { id: true },
+      },
+    },
+  });
 }
