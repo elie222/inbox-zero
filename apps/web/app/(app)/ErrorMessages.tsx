@@ -15,9 +15,13 @@ export async function ErrorMessages() {
   return (
     <AppAlertBanner
       title="Action Required"
-      description={Object.values(errorMessages).map((error) => (
-        <p key={error.message}>{error.message}</p>
-      ))}
+      description={
+        <ul className="list-none space-y-1">
+          {Object.values(errorMessages).map((error) => (
+            <li key={error.message}>{error.message}</li>
+          ))}
+        </ul>
+      }
       action={
         <form action={clearUserErrorMessagesAction as () => void}>
           <Button type="submit" variant="red" size="sm">
