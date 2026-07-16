@@ -1091,6 +1091,39 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     expect(contractText).not.toMatch(/\blabels?\b/i);
   });
 
+  it("uses provider-specific sender search contracts", () => {
+    const toolOptions = {
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      logger,
+    };
+    const gmailTool = searchInboxTool({
+      ...toolOptions,
+      provider: "google",
+    });
+    const outlookTool = searchInboxTool({
+      ...toolOptions,
+      provider: "microsoft",
+    });
+    const gmailSchema = gmailTool.inputSchema as {
+      def?: { shape?: Record<string, unknown> };
+    };
+    const outlookSchema = outlookTool.inputSchema as {
+      def?: { shape?: Record<string, unknown> };
+    };
+
+    expect(Object.keys(gmailSchema.def?.shape ?? {})).not.toContain(
+      "fromEmail",
+    );
+    expect(Object.keys(outlookSchema.def?.shape ?? {})).toContain("fromEmail");
+    expect(serializeToolContract(gmailTool)).toContain(
+      "Use from:person@example.com for an exact sender search",
+    );
+    expect(serializeToolContract(outlookTool)).toContain(
+      "Exact sender email address",
+    );
+  });
+
   it("searchInbox normalizes simple Outlook scope queries before provider search", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [],
@@ -1373,6 +1406,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
 
     await (toolInstance.execute as any)({
       query: "newsletter",
+      fromEmail: "sender@example.com",
       labelName: "Newsletter",
       readState: "unread",
       limit: 20,

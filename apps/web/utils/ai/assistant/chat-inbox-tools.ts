@@ -484,14 +484,6 @@ export type ManageSenderCategoryTool = InferUITool<
 >;
 
 const searchInboxBaseFields = {
-  fromEmail: z
-    .string()
-    .trim()
-    .email()
-    .nullish()
-    .describe(
-      "Exact sender email address to search by. Use this instead of a broad text query when the sender address is known.",
-    ),
   limit: z
     .number()
     .int()
@@ -504,21 +496,17 @@ const searchInboxBaseFields = {
   ),
 };
 
-const gmailSearchInboxInputSchema = z
-  .object({
-    query: z
-      .string()
-      .trim()
-      .max(500)
-      .default("")
-      .describe(
-        "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.",
-      ),
-    ...searchInboxBaseFields,
-  })
-  .refine((value) => Boolean(value.query || value.fromEmail), {
-    message: "query or fromEmail is required",
-  });
+const gmailSearchInboxInputSchema = z.object({
+  query: z
+    .string()
+    .trim()
+    .min(1)
+    .max(500)
+    .describe(
+      "Gmail search query. Use from:person@example.com for an exact sender search. Also supports: to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.",
+    ),
+  ...searchInboxBaseFields,
+});
 
 const outlookSearchInboxInputSchema = z
   .object({
@@ -528,9 +516,17 @@ const outlookSearchInboxInputSchema = z
       .max(500)
       .default("")
       .describe(
-        "Outlook search query for sender, subject, message-content, or date/age filters. Do not put a mailbox category, folder, mail class, or read/unread state here.",
+        "Outlook search for a sender name or brand, recipient, subject, message content, or date/age filters. Use to:person@example.com for an exact recipient. Do not put an exact sender address, mailbox category, folder, mail class, or read/unread state here.",
       ),
     ...searchInboxBaseFields,
+    fromEmail: z
+      .string()
+      .trim()
+      .email()
+      .nullish()
+      .describe(
+        "Exact sender email address. Use this instead of query when the sender address is known.",
+      ),
     readState: z
       .enum(["read", "unread"])
       .nullish()
@@ -569,7 +565,7 @@ const gmailSearchInboxTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
 
-      const { query = "", fromEmail, limit, pageToken } = input;
+      const { query, limit, pageToken } = input;
 
       try {
         const emailProvider = await createEmailProvider({
@@ -581,7 +577,6 @@ const gmailSearchInboxTool = ({
         const [searchResult, labels] = await Promise.all([
           emailProvider.searchMessages({
             query,
-            fromEmail: fromEmail ?? undefined,
             maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
             pageToken: pageToken ?? undefined,
           }),
@@ -590,7 +585,7 @@ const gmailSearchInboxTool = ({
 
         return formatSearchInboxResult({
           searchResult,
-          queryUsed: formatQueryWithFromEmail(query, fromEmail),
+          queryUsed: query,
           labels,
           taxonomyNamesKey: "labelNames",
         });

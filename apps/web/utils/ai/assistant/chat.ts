@@ -731,8 +731,8 @@ export function buildResolvedSystemPrompt({
 - User timezone: ${userTimezone}. Current timestamp: ${currentTimestamp}. Resolve relative dates like today, tomorrow, this afternoon, Monday, or Friday from this timezone before calling calendar or inbox date-range tools.`,
     providerPolicy.searchSyntaxPolicy,
     `Search strategy:
-- If the user names a sender or brand but the actual email address is not known yet, search first, inspect the returned \`from\` values, and then refine with the provider's exact sender field before writing when needed.
-- When the sender or domain is known, prefer the provider's sender-focused syntax over a broad bare keyword.`,
+- If the user names a sender or brand but the actual email address is not known yet, search first, inspect the returned \`from\` values, and then refine to an exact sender search before writing when needed.
+- When the sender or domain is known, prefer an exact sender search over a broad bare keyword.`,
     providerPolicy.inboxTriagePolicy,
     `Inbox workflows:
 - For inbox updates, "what came in today?", or recent-attention requests, search first with a tight time range in the user's timezone, then summarize into must handle now, can wait, and can archive or mark read.

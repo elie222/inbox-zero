@@ -21,12 +21,7 @@ export const microsoftChatProviderConfig: AssistantChatProviderConfig = {
       "boolean actions in archive/draft/markread, the notification provider in notify, and use do for category/folder actions or any action that cannot be represented by those attributes",
   },
   searchSyntaxPolicy: `Provider search syntax:
-- Use Outlook search syntax with keyword search, unread/read, and simple subject: filters.
-- When the exact sender address is known, pass it in searchInbox.fromEmail instead of query.
-- If only a sender name or brand is known, search first, inspect the returned from values, then retry with searchInbox.fromEmail when you have the exact address.
-- If you use \`from:\` or \`to:\`, keep it as a simple standalone filter instead of combining extra terms after the field value.
-- Keep Outlook queries to one simple clause whenever possible. Do not mix sender, unread/read, date, and subject constraints into one retry.
-- Use searchInbox structured fields for sender, category/folder scope, and read state; use query for subject, body text, or date/age filters.
+- Keep Outlook queries to one simple clause whenever possible.
 - For date or age filters, use the received field with a comparison operator and an ISO date, like \`received<2024-01-31\` or \`received>=2024-01-01\`. There is no colon between the field and the operator; convert relative ages ("older than 3 years") to a concrete date first.
 - Do not use Gmail-specific operators.`,
   inboxTriagePolicy: `Provider inbox defaults:
