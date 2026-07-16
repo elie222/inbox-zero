@@ -677,6 +677,36 @@ describe("buildFollowUpHiddenContextMessage", () => {
 });
 
 describe("upsertMessagingChat", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("creates a new chat without clearing history", async () => {
+    prisma.chat.findUnique.mockResolvedValue(null);
+    prisma.chat.upsert.mockResolvedValue({
+      id: "telegram-123",
+      lastSeenRulesRevision: null,
+      messages: [],
+      compactions: [],
+    } as any);
+
+    await upsertMessagingChat({
+      chatId: "telegram-123",
+      emailAccountId: "email-account-b",
+    });
+
+    expect(prisma.chat.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "telegram-123" },
+        create: {
+          id: "telegram-123",
+          emailAccountId: "email-account-b",
+        },
+        update: { emailAccountId: "email-account-b" },
+      }),
+    );
+  });
+
   it("clears account-specific history when the chat changes accounts", async () => {
     prisma.chat.findUnique.mockResolvedValue({
       emailAccountId: "email-account-a",
