@@ -906,6 +906,63 @@ describe("processAccountFollowUps - dedup logic", () => {
     );
   });
 
+  const fullNotificationBody =
+    "The provider preview stops early but the email keeps going with enough detail for the user to recognize the thread and decide whether to follow up right away.";
+
+  it.each([
+    {
+      name: "derives the notification snippet from the message body instead of the provider preview",
+      providerSnippet: "The provider preview stops early",
+      textPlain: fullNotificationBody,
+      expectedSnippet: fullNotificationBody,
+    },
+    {
+      name: "falls back to the provider preview when the message has no body",
+      providerSnippet: "Preview from the provider",
+      textPlain: "",
+      expectedSnippet: "Preview from the provider",
+    },
+    {
+      name: "falls back to the provider preview when reply extraction removes the body",
+      providerSnippet: "Preview from the provider",
+      textPlain:
+        "On Tue, Jul 14, 2026 at 10:00 AM Alex <alex@example.com> wrote:\n> Prior message",
+      expectedSnippet: "Preview from the provider",
+    },
+  ])("$name", async ({ providerSnippet, textPlain, expectedSnippet }) => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "thread-snippet-source", messages: [], snippet: "" },
+        ]),
+      getLatestMessageInThread: vi.fn().mockResolvedValue({
+        ...mockAwaitingMessage("msg-snippet-source", OLD_DATE),
+        snippet: providerSnippet,
+        textPlain,
+        textHtml: "",
+      }),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(getFollowUpNotificationChannels).mockResolvedValue([
+      { id: "channel-1" } as any,
+    ]);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-snippet-source",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(sendFollowUpNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ snippet: expectedSnippet }),
+    );
+  });
+
   it("appends notification deliveries to existing tracker handles", async () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi
