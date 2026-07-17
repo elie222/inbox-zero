@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import type { Logger } from "@/utils/logger";
 import {
   claimOAuthCode,
   clearOAuthCode,
   getOAuthCodeResult,
   isOAuthCodeStoreConfigured,
+  type OAuthCodeResult,
   setOAuthCodeResult,
 } from "@/utils/redis/oauth-code";
 import { WELCOME_PATH } from "@/utils/config";
@@ -11,7 +13,12 @@ import { WELCOME_PATH } from "@/utils/config";
 const CALLBACK_PATH_REGEX = /\/api\/auth\/(?:oauth2\/)?callback\/([^/]+)\/?$/;
 const CALLBACK_RESULT_POLL_INTERVAL_MS = 250;
 const CALLBACK_RESULT_WAIT_MS = 15_000;
+const CALLBACK_RESULT_TTL_SECONDS = 600;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const OAUTH_STATE_COOKIE_NAMES = new Set([
+  "__Secure-better-auth.oauth_state",
+  "better-auth.oauth_state",
+]);
 
 export async function deduplicateOAuthCallback({
   request,
@@ -26,10 +33,13 @@ export async function deduplicateOAuthCallback({
   if (!callback || !isOAuthCodeStoreConfigured()) return handleRequest();
 
   const { code, provider } = callback;
+  const requestFingerprint = getOAuthStateFingerprint(request);
+  if (!requestFingerprint) return handleRequest();
+
   let claim: Awaited<ReturnType<typeof claimOAuthCode>>;
 
   try {
-    claim = await claimOAuthCode(code);
+    claim = await claimOAuthCode(code, requestFingerprint);
   } catch (error) {
     logger.warn("OAuth callback deduplication unavailable", {
       error,
@@ -38,12 +48,12 @@ export async function deduplicateOAuthCallback({
     return handleRequest();
   }
 
-  if (typeof claim === "object") {
+  if (claim?.status === "success") {
     logger.info("Reusing completed OAuth callback", { provider });
-    return createCachedRedirect(request, claim.params);
+    return createCachedRedirect({ request, requestFingerprint, result: claim });
   }
 
-  if (claim === "processing") {
+  if (claim?.status === "processing") {
     logger.info("Waiting for in-flight OAuth callback", { provider });
     const inFlightResult = await waitForOAuthCodeResult({
       code,
@@ -53,7 +63,11 @@ export async function deduplicateOAuthCallback({
 
     if (inFlightResult) {
       logger.info("Reusing in-flight OAuth callback result", { provider });
-      return createCachedRedirect(request, inFlightResult.params);
+      return createCachedRedirect({
+        request,
+        requestFingerprint,
+        result: inFlightResult,
+      });
     }
 
     logger.warn("OAuth callback wait timed out", { provider });
@@ -66,9 +80,18 @@ export async function deduplicateOAuthCallback({
 
     if (location && REDIRECT_STATUSES.has(response.status)) {
       try {
-        await setOAuthCodeResult(code, {
+        const params: Record<string, string> = {
           redirect: location,
           status: response.status.toString(),
+        };
+        const setCookies = getSetCookieHeaders(response.headers);
+        if (setCookies.length > 0) {
+          params.setCookies = JSON.stringify(setCookies);
+        }
+
+        await setOAuthCodeResult(code, params, {
+          requestFingerprint,
+          ttlSeconds: CALLBACK_RESULT_TTL_SECONDS,
         });
       } catch (error) {
         logger.warn("Failed to cache OAuth callback result", {
@@ -137,10 +160,16 @@ async function waitForOAuthCodeResult({
   return null;
 }
 
-function createCachedRedirect(
-  request: Request,
-  params: Record<string, string>,
-) {
+function createCachedRedirect({
+  request,
+  requestFingerprint,
+  result,
+}: {
+  request: Request;
+  requestFingerprint?: string;
+  result: OAuthCodeResult;
+}) {
+  const { params } = result;
   const redirect = params.redirect;
   const status = Number(params.status);
 
@@ -150,5 +179,54 @@ function createCachedRedirect(
 
   const redirectUrl = new URL(redirect, request.url);
   const redirectStatus = REDIRECT_STATUSES.has(status) ? status : 302;
-  return Response.redirect(redirectUrl, redirectStatus);
+  const headers = new Headers({ location: redirectUrl.toString() });
+
+  if (
+    requestFingerprint &&
+    requestFingerprint === result.requestFingerprint &&
+    params.setCookies
+  ) {
+    for (const cookie of parseSetCookies(params.setCookies)) {
+      headers.append("set-cookie", cookie);
+    }
+  }
+
+  return new Response(null, { headers, status: redirectStatus });
+}
+
+function getSetCookieHeaders(headers: Headers) {
+  const getSetCookie = (headers as Headers & { getSetCookie?: () => string[] })
+    .getSetCookie;
+
+  return getSetCookie?.call(headers) ?? [];
+}
+
+function getOAuthStateFingerprint(request: Request) {
+  const cookieHeader = request.headers.get("cookie");
+  if (!cookieHeader) return;
+
+  for (const cookie of cookieHeader.split(";")) {
+    const separator = cookie.indexOf("=");
+    if (separator === -1) continue;
+
+    const name = cookie.slice(0, separator).trim();
+    if (!OAUTH_STATE_COOKIE_NAMES.has(name)) continue;
+
+    const value = cookie.slice(separator + 1);
+    if (!value) return;
+
+    return createHash("sha256").update(value).digest("hex");
+  }
+}
+
+function parseSetCookies(value: string) {
+  try {
+    const cookies = JSON.parse(value) as unknown;
+    return Array.isArray(cookies) &&
+      cookies.every((cookie) => typeof cookie === "string")
+      ? cookies
+      : [];
+  } catch {
+    return [];
+  }
 }

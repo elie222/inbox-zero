@@ -23,13 +23,18 @@ describe("claimOAuthCode", () => {
   it("atomically claims an unused code", async () => {
     vi.mocked(redis.set).mockResolvedValue(null);
 
-    await expect(claimOAuthCode("oauth-code")).resolves.toBe("acquired");
+    await expect(
+      claimOAuthCode("oauth-code", "request-fingerprint"),
+    ).resolves.toBeNull();
 
     expect(redis.set).toHaveBeenCalledWith(
       expect.stringMatching(/^oauth-code:/),
-      "processing",
       {
-        ex: 60,
+        requestFingerprint: "request-fingerprint",
+        status: "processing",
+      },
+      {
+        ex: 600,
         get: true,
         nx: true,
       },
@@ -37,9 +42,13 @@ describe("claimOAuthCode", () => {
   });
 
   it("reports an in-flight callback", async () => {
-    vi.mocked(redis.set).mockResolvedValue("processing");
+    const processing = {
+      requestFingerprint: "request-fingerprint",
+      status: "processing" as const,
+    };
+    vi.mocked(redis.set).mockResolvedValue(processing);
 
-    await expect(claimOAuthCode("oauth-code")).resolves.toBe("processing");
+    await expect(claimOAuthCode("oauth-code")).resolves.toBe(processing);
   });
 
   it("returns a completed callback result", async () => {

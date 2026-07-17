@@ -11,35 +11,38 @@ function getCodeKey(code: string) {
   return `oauth-code:${createOAuthCodeCacheKey(code)}`;
 }
 
-interface OAuthCodeResult {
+export interface OAuthCodeResult {
   params: Record<string, string>;
+  requestFingerprint?: string;
   status: "success";
 }
 
-type OAuthCodeClaim = "acquired" | "processing" | OAuthCodeResult;
+interface OAuthCodeProcessing {
+  requestFingerprint?: string;
+  status: "processing";
+}
+
+type OAuthCodeClaim = OAuthCodeProcessing | OAuthCodeResult | null;
 
 export function isOAuthCodeStoreConfigured() {
   return Boolean(env.UPSTASH_REDIS_URL && env.UPSTASH_REDIS_TOKEN);
 }
 
-export async function claimOAuthCode(code: string): Promise<OAuthCodeClaim> {
-  const existing = await redis.set<string | OAuthCodeResult>(
+export async function claimOAuthCode(
+  code: string,
+  requestFingerprint?: string,
+): Promise<OAuthCodeClaim> {
+  const existing = await redis.set<OAuthCodeProcessing | OAuthCodeResult>(
     getCodeKey(code),
-    "processing",
+    { requestFingerprint, status: "processing" },
     {
-      ex: 60,
+      ex: 600,
       get: true,
       nx: true,
     },
   );
 
-  if (!existing || existing === "OK") return "acquired";
-  if (existing === "processing") return existing;
-  if (typeof existing === "object" && existing.status === "success") {
-    return existing;
-  }
-
-  return "processing";
+  return existing as OAuthCodeClaim;
 }
 
 export async function acquireOAuthCodeLock(code: string): Promise<boolean> {
@@ -70,13 +73,20 @@ export async function getOAuthCodeResult(
 export async function setOAuthCodeResult(
   code: string,
   params: Record<string, string>,
+  options?: {
+    requestFingerprint?: string;
+    ttlSeconds?: number;
+  },
 ): Promise<void> {
   const result: OAuthCodeResult = {
     status: "success",
     params,
+    requestFingerprint: options?.requestFingerprint,
   };
 
-  await redis.set(getCodeKey(code), result, { ex: 60 });
+  await redis.set(getCodeKey(code), result, {
+    ex: options?.ttlSeconds ?? 60,
+  });
 }
 
 /**

@@ -6,6 +6,7 @@ import { createScopedLogger } from "@/utils/logger";
 const logger = createScopedLogger("auth/oauth-callback");
 const handlers = toNextJsHandler(betterAuthConfig);
 
+export const maxDuration = 300;
 export const { POST, PUT, PATCH, DELETE } = handlers;
 
 export const GET: typeof handlers.GET = async (...args) => {
