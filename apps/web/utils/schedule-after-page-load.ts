@@ -8,7 +8,7 @@ export function scheduleAfterPageLoad(
   { fallbackDelay, idleTimeout }: ScheduleAfterPageLoadOptions,
 ) {
   let idleCallbackId: number | undefined;
-  let timeoutId: number | undefined;
+  let timeoutId: ReturnType<typeof globalThis.setTimeout> | undefined;
 
   const schedule = () => {
     if ("requestIdleCallback" in window) {
@@ -32,7 +32,7 @@ export function scheduleAfterPageLoad(
       window.cancelIdleCallback(idleCallbackId);
     }
     if (timeoutId !== undefined) {
-      window.clearTimeout(timeoutId);
+      globalThis.clearTimeout(timeoutId);
     }
   };
 }
