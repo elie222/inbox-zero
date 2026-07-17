@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AxiomWebVitals } from "next-axiom";
+import { GoogleTagManager } from "@next/third-parties/google";
 import { Analytics as DubAnalytics } from "@dub/analytics/react";
 import { Geist } from "next/font/google";
 import localFont from "next/font/local";
@@ -14,7 +15,6 @@ import { env } from "@/env";
 import { GlobalProviders } from "@/providers/GlobalProviders";
 import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
-import { ConversionTagManager } from "@/components/ConversionTagManager";
 import { Toaster } from "@/components/Toast";
 import { BRAND_ICON_URL, BRAND_NAME, toAbsoluteUrl } from "@/utils/branding";
 
@@ -161,7 +161,9 @@ export default async function RootLayout({
             domainsConfig={{ refer: env.NEXT_PUBLIC_DUB_REFER_DOMAIN }}
           />
         )}
-        <ConversionTagManager />
+        {env.NEXT_PUBLIC_GTM_ID ? (
+          <GoogleTagManager gtmId={env.NEXT_PUBLIC_GTM_ID} />
+        ) : null}
       </body>
     </html>
   );
