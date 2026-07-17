@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/utils/auth";
 import prisma from "@/utils/prisma";
+import { redirectToEmailAccountPath } from "@/utils/account";
 
 export default async function WelcomeRedirectPage(props: {
   searchParams: Promise<{ force?: boolean }>;
@@ -18,6 +19,8 @@ export default async function WelcomeRedirectPage(props: {
   // Session exists but user doesn't - invalid state, log out
   if (!user) redirect("/logout");
   if (searchParams.force) redirect("/onboarding");
-  if (user.completedOnboardingAt) redirect("/setup");
+  if (user.completedOnboardingAt) {
+    await redirectToEmailAccountPath("/automation");
+  }
   redirect("/onboarding");
 }
