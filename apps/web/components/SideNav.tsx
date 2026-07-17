@@ -64,7 +64,6 @@ import { NavUser } from "@/components/NavUser";
 import { PremiumCard } from "@/components/PremiumCard";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 
-
 type NavItem = {
   name: string;
   href: string;
