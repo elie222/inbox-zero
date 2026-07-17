@@ -72,6 +72,7 @@ vi.mock("@/utils/email/provider", () => ({
 
 import { POST } from "./route";
 import prisma from "@/utils/prisma";
+import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 
 describe("analyze sender pattern route", () => {
   beforeEach(() => {
@@ -117,6 +118,7 @@ describe("analyze sender pattern route", () => {
         patternAnalyzed: true,
       },
     });
+    expect(aiDetectRecurringPattern).not.toHaveBeenCalled();
   });
 });
 
