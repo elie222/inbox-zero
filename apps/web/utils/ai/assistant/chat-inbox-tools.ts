@@ -54,6 +54,8 @@ import {
   isRetryableError as isGmailRetryableError,
 } from "@/utils/gmail/retry";
 import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
+import { validateUserAndAiAccess } from "@/utils/user/validate";
+import { SafeError } from "@/utils/error";
 
 const SEARCH_INBOX_MAX_RESULTS = 20;
 const OUTLOOK_EMPTY_PAGE_AUTOPAGINATION_LIMIT = 5;
@@ -376,6 +378,8 @@ export const startSenderCategorizationTool = ({
       trackToolCall({ tool: "start_sender_categorization", email, logger });
 
       try {
+        await validateUserAndAiAccess({ emailAccountId });
+
         const emailProvider = await createEmailProvider({
           emailAccountId,
           provider,
@@ -388,6 +392,11 @@ export const startSenderCategorizationTool = ({
           logger,
         });
       } catch (error) {
+        if (error instanceof SafeError) {
+          logger.warn("Unable to start sender categorization", { error });
+          return { error: error.message };
+        }
+
         logger.error("Failed to start sender categorization", { error });
         return {
           error: "Failed to start sender categorization",

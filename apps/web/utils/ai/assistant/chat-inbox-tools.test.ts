@@ -3,6 +3,7 @@ import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
+import { SafeError } from "@/utils/error";
 import {
   forwardEmailTool,
   getAccountOverviewTool,
@@ -28,12 +29,14 @@ const {
   mockStartBulkCategorization,
   mockGetCategorizationProgress,
   mockGetCategorizationStatusSnapshot,
+  mockValidateUserAndAiAccess,
 } = vi.hoisted(() => ({
   mockArchiveCategory: vi.fn(),
   mockGetCategoryOverview: vi.fn(),
   mockStartBulkCategorization: vi.fn(),
   mockGetCategorizationProgress: vi.fn(),
   mockGetCategorizationStatusSnapshot: vi.fn(),
+  mockValidateUserAndAiAccess: vi.fn(),
 }));
 
 vi.mock("@/utils/categorize/senders/archive-category", () => ({
@@ -59,6 +62,12 @@ vi.mock("@/utils/redis/categorization-progress", () => ({
   getCategorizationStatusSnapshot: (
     ...args: Parameters<typeof mockGetCategorizationStatusSnapshot>
   ) => mockGetCategorizationStatusSnapshot(...args),
+}));
+
+vi.mock("@/utils/user/validate", () => ({
+  validateUserAndAiAccess: (
+    ...args: Parameters<typeof mockValidateUserAndAiAccess>
+  ) => mockValidateUserAndAiAccess(...args),
 }));
 
 const TEST_EMAIL = "user@test.com";
@@ -1537,6 +1546,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
 describe("chat inbox tools - sender categories", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockValidateUserAndAiAccess.mockResolvedValue(undefined);
   });
 
   it("getSenderCategoryOverview returns the shared overview payload", async () => {
@@ -1596,6 +1606,9 @@ describe("chat inbox tools - sender categories", () => {
 
     const result = await (toolInstance.execute as any)({});
 
+    expect(mockValidateUserAndAiAccess).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+    });
     expect(createEmailProvider).toHaveBeenCalledWith({
       emailAccountId: "email-account-1",
       provider: "google",
@@ -1607,6 +1620,25 @@ describe("chat inbox tools - sender categories", () => {
       logger,
     });
     expect(result.totalQueuedSenders).toBe(8);
+  });
+
+  it("startSenderCategorization reports an AI access error before queuing work", async () => {
+    mockValidateUserAndAiAccess.mockRejectedValue(
+      new SafeError("Please upgrade for AI access"),
+    );
+
+    const toolInstance = startSenderCategorizationTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({});
+
+    expect(result).toEqual({ error: "Please upgrade for AI access" });
+    expect(createEmailProvider).not.toHaveBeenCalled();
+    expect(mockStartBulkCategorization).not.toHaveBeenCalled();
   });
 
   it("getSenderCategorizationStatus waits briefly before reading progress", async () => {
