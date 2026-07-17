@@ -34,8 +34,9 @@ export const GET = withAuth("stripe/success", async (request) => {
     logger,
   });
 
-  const stripeCheckoutSessionId =
-    request.nextUrl.searchParams.get("session_id");
+  const stripeCheckoutSessionId = new URL(request.url).searchParams.get(
+    "session_id",
+  );
 
   redirect(
     buildRedirectUrl("/setup", {
