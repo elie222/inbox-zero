@@ -4,5 +4,5 @@
     "context": ".."
   },
   "install": "pnpm install",
-  "start": "sudo dockerd &>/dev/null &"
+  "start": "sudo dockerd >/dev/null 2>&1 &"
 }
