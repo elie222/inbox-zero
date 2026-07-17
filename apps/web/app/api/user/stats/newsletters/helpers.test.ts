@@ -2,15 +2,12 @@ import { describe, expect, it } from "vitest";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { EmailFilter } from "@/utils/email/types";
 import { GmailLabel } from "@/utils/gmail/label";
-import {
-  findNewsletterStatusForSender,
-  findSenderLabelFilters,
-} from "./helpers";
+import { findNewsletterStatus, findSenderLabelFilters } from "./helpers";
 
-describe("findNewsletterStatusForSender", () => {
+describe("findNewsletterStatus", () => {
   it("matches sender addresses case-insensitively", () => {
     expect(
-      findNewsletterStatusForSender(
+      findNewsletterStatus(
         [
           {
             email: "Sender@Example.COM",
@@ -24,7 +21,7 @@ describe("findNewsletterStatusForSender", () => {
 
   it("preserves a handled status when a legacy duplicate is unhandled", () => {
     expect(
-      findNewsletterStatusForSender(
+      findNewsletterStatus(
         [
           { email: "sender@example.com", status: null },
           {

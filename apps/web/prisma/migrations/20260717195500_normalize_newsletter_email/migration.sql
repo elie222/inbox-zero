@@ -1,5 +1,6 @@
 CREATE TEMP TABLE "_NewsletterCanonical" AS
 SELECT
+    -- Keep a handled variant so an automatically created null duplicate cannot erase user state.
     (array_agg("id" ORDER BY ("status" IS NOT NULL) DESC, "updatedAt" DESC, "id"))[1] AS "survivorId",
     count(*) AS "variantCount",
     "emailAccountId",

@@ -74,7 +74,7 @@ async function process({
     const existingCheck = await prisma.newsletter.findUnique({
       where: {
         email_emailAccountId: {
-          email: canonicalizeEmailAddress(from),
+          email: from,
           emailAccountId: emailAccount.id,
         },
       },

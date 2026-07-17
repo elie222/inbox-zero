@@ -58,7 +58,7 @@ export function findAutoArchiveFilter(
   );
 }
 
-export async function findNewsletterStatus({
+export async function getNewsletterStatuses({
   emailAccountId,
 }: {
   emailAccountId: string;
@@ -70,14 +70,14 @@ export async function findNewsletterStatus({
   return userNewsletters;
 }
 
-export function findNewsletterStatusForSender(
+export function findNewsletterStatus(
   newsletters: { email: string; status: NewsletterStatus | null }[],
   senderEmail: string,
-) {
+): NewsletterStatus | undefined {
   const canonicalSender = canonicalizeEmailAddress(senderEmail);
   return newsletters.find(
     ({ email, status }) =>
-      status && canonicalizeEmailAddress(email) === canonicalSender,
+      status !== null && canonicalizeEmailAddress(email) === canonicalSender,
   )?.status;
 }
 
