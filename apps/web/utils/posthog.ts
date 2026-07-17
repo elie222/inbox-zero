@@ -432,6 +432,12 @@ export async function trackOnboardingAnswer(
   });
 }
 
+export async function trackProductFeedback(email: string, feedback: string) {
+  return posthogCaptureEvent(email, "Product feedback submitted", {
+    feedback,
+  });
+}
+
 function getPosthogLlmEvalApprovedEmails() {
   return (
     env.POSTHOG_LLM_EVALS_APPROVED_EMAILS?.split(",")

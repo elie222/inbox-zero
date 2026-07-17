@@ -62,6 +62,8 @@ import { prefixPath } from "@/utils/path";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
 import { PremiumCard } from "@/components/PremiumCard";
+import { FeedbackDialog } from "@/components/FeedbackDialog";
+
 
 type NavItem = {
   name: string;
@@ -323,6 +325,12 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarFooter className="pb-4">
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
+
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <FeedbackDialog />
+          </SidebarMenuItem>
+        </SidebarMenu>
 
         <NavUser />
       </SidebarFooter>
