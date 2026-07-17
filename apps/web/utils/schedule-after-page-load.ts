@@ -16,7 +16,7 @@ export function scheduleAfterPageLoad(
         timeout: idleTimeout,
       });
     } else {
-      timeoutId = window.setTimeout(callback, fallbackDelay);
+      timeoutId = globalThis.setTimeout(callback, fallbackDelay);
     }
   };
 
