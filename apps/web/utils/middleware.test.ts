@@ -8,6 +8,8 @@ import {
   withEmailAccount,
   withEmailProvider,
   type RequestWithAuth,
+  type RequestWithEmailAccount,
+  type RequestWithEmailProvider,
   type NextHandler,
 } from "./middleware";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
@@ -286,6 +288,28 @@ describe("Middleware", () => {
       );
     });
 
+    it("preserves NextRequest APIs when adding auth info", async () => {
+      mockReq = createMockRequest("GET", "http://localhost/test?view=all", {
+        cookie: "display=compact",
+      });
+      mockAuth.mockResolvedValue({ user: { id: mockUserId } } as any);
+      const handler = vi.fn(async (request: RequestWithAuth) =>
+        NextResponse.json({
+          pathname: request.nextUrl.pathname,
+          view: request.nextUrl.searchParams.get("view"),
+          display: request.cookies.get("display")?.value,
+        }),
+      );
+
+      const response = await withAuth(handler)(mockReq, mockContext);
+
+      await expect(response.json()).resolves.toEqual({
+        pathname: "/test",
+        view: "all",
+        display: "compact",
+      });
+    });
+
     it("should return 401 if session does not exist", async () => {
       mockAuth.mockResolvedValue(null as any);
       const handler: NextHandler<RequestWithAuth> = vi.fn();
@@ -434,6 +458,29 @@ describe("Middleware", () => {
       );
     });
 
+    it("preserves NextRequest APIs when adding email account info", async () => {
+      mockReq = createMockRequest("GET", "http://localhost/api/test?view=all", {
+        [EMAIL_ACCOUNT_HEADER]: mockAccountId,
+        cookie: "display=compact",
+      });
+      mockGetEmailAccount.mockResolvedValue(mockEmail);
+      const handler = vi.fn(async (request: RequestWithEmailAccount) =>
+        NextResponse.json({
+          pathname: request.nextUrl.pathname,
+          view: request.nextUrl.searchParams.get("view"),
+          display: request.cookies.get("display")?.value,
+        }),
+      );
+
+      const response = await withEmailAccount(handler)(mockReq, mockContext);
+
+      await expect(response.json()).resolves.toEqual({
+        pathname: "/api/test",
+        view: "all",
+        display: "compact",
+      });
+    });
+
     it("should return 403 if email account header is missing", async () => {
       const handler = createEmailAccountHandler();
       const wrappedHandler = withEmailAccount(handler);
@@ -484,6 +531,41 @@ describe("Middleware", () => {
 
     beforeEach(() => {
       mockAuth.mockResolvedValue({ user: { id: mockUserId } } as any);
+    });
+
+    it("preserves NextRequest APIs when adding an email provider", async () => {
+      mockReq = createMockRequest(
+        "GET",
+        "http://localhost/api/labels?view=all",
+        {
+          [EMAIL_ACCOUNT_HEADER]: mockAccountId,
+          cookie: "display=compact",
+        },
+      );
+      mockGetEmailAccount.mockResolvedValue(mockEmail);
+      mockPrismaEmailAccountFindUnique.mockResolvedValue({
+        id: mockAccountId,
+        account: { provider: "google" },
+      } as any);
+      const emailProvider = { name: "provider" };
+      mockCreateEmailProvider.mockResolvedValue(emailProvider as any);
+      const handler = vi.fn(async (request: RequestWithEmailProvider) =>
+        NextResponse.json({
+          pathname: request.nextUrl.pathname,
+          view: request.nextUrl.searchParams.get("view"),
+          display: request.cookies.get("display")?.value,
+          hasEmailProvider: request.emailProvider === emailProvider,
+        }),
+      );
+
+      const response = await withEmailProvider(handler)(mockReq, mockContext);
+
+      await expect(response.json()).resolves.toEqual({
+        pathname: "/api/labels",
+        view: "all",
+        display: "compact",
+        hasEmailProvider: true,
+      });
     });
 
     it.each([
@@ -560,7 +642,6 @@ function createMockRequest(
     method,
     headers: new Headers(headers),
   });
-  request.clone = vi.fn(() => request) as any;
   return request;
 }
 
