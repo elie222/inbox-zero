@@ -128,7 +128,7 @@ export function StartedInMinutes({ title, subtitle }: StartedInMinutesProps) {
                   alt="Pre-drafted replies"
                   width={1407}
                   height={852}
-                  sizes="(min-width: 1280px) 350px, (min-width: 1024px) 30vw, (min-width: 768px) calc(100vw - 368px), (min-width: 640px) calc(100vw - 128px), calc(100vw - 48px)"
+                  sizes="(min-width: 1280px) 333px, (min-width: 1152px) 312px, (min-width: 1024px) calc(33.333vw - 72px), (min-width: 768px) calc(100vw - 432px), (min-width: 640px) calc(100vw - 192px), calc(100vw - 112px)"
                   className="h-auto w-full"
                 />
               </div>
