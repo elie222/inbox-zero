@@ -7,7 +7,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import { analyzeSenderPatternBodySchema } from "@/utils/ai/choose-rule/analyze-sender-pattern";
 import { isValidInternalApiKey } from "@/utils/internal-api";
-import { extractEmailAddress } from "@/utils/email";
+import { canonicalizeEmailAddress, extractEmailAddress } from "@/utils/email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { GroupItemSource } from "@/generated/prisma/enums";
@@ -34,7 +34,7 @@ export const POST = withError(
 
     const data = analyzeSenderPatternBodySchema.parse(json);
     const { emailAccountId } = data;
-    const from = extractEmailAddress(data.from);
+    const from = canonicalizeEmailAddress(data.from);
 
     logger = logger.with({ from });
 
@@ -74,7 +74,7 @@ async function process({
     const existingCheck = await prisma.newsletter.findUnique({
       where: {
         email_emailAccountId: {
-          email: extractEmailAddress(from),
+          email: canonicalizeEmailAddress(from),
           emailAccountId: emailAccount.id,
         },
       },

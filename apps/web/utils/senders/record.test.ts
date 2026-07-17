@@ -14,7 +14,7 @@ describe("sender-record", () => {
   it("normalizes email addresses when upserting newsletter records", async () => {
     await upsertSenderRecord({
       emailAccountId: "email-account-1",
-      newsletterEmail: "Sender <sender@example.com>",
+      newsletterEmail: "Sender <Sender@Example.COM>",
       changes: { status: NewsletterStatus.UNSUBSCRIBED },
     });
 

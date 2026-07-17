@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withEmailProvider } from "@/utils/middleware";
 import {
-  extractEmailAddress,
+  canonicalizeEmailAddress,
   getNewsletterSenderDisplayName,
 } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
@@ -13,6 +13,7 @@ import {
   getEmailFilters,
   findNewsletterStatus,
   findAutoArchiveFilter,
+  findNewsletterStatusForSender,
   findSenderLabelFilters,
   filterNewsletters,
 } from "@/app/api/user/stats/newsletters/helpers";
@@ -92,7 +93,7 @@ async function getEmailMessages(
   ]);
 
   const newsletters = counts.map((email) => {
-    const from = extractEmailAddress(email.from);
+    const from = canonicalizeEmailAddress(email.from);
     return {
       name: from,
       fromName: getNewsletterSenderDisplayName({
@@ -107,7 +108,7 @@ async function getEmailMessages(
       unsubscribeLink: email.unsubscribeLink,
       autoArchived: findAutoArchiveFilter(emailFilters, from, emailProvider),
       labelFilters: findSenderLabelFilters(emailFilters, from),
-      status: userNewsletters?.find((n) => n.email === from)?.status,
+      status: findNewsletterStatusForSender(userNewsletters, from),
     };
   });
 

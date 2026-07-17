@@ -8,7 +8,10 @@ import {
 import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
 import { processAttachment } from "@/utils/drive/filing-engine";
-import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import {
+  DraftReplyConfidence,
+  NewsletterStatus,
+} from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 
 vi.mock("@/utils/prisma", () => ({
@@ -155,6 +158,40 @@ describe("Provider Edge Cases", () => {
   });
 
   describe("Message processing", () => {
+    it("blocks unsubscribed senders when the provider changes address casing", async () => {
+      vi.mocked(prisma.newsletter.findFirst).mockResolvedValueOnce({
+        id: "newsletter-1",
+      } as any);
+      const provider = createMockEmailProvider({
+        getMessage: vi.fn().mockResolvedValue(
+          getMockParsedMessage({
+            labelIds: ["INBOX"],
+            headers: {
+              from: "Sender <Sender@Example.COM>",
+              to: "user@test.com",
+              subject: "Test",
+              date: "2024-01-01",
+            },
+          }),
+        ),
+        isSentMessage: vi.fn().mockReturnValue(false),
+      });
+
+      await processHistoryItem(
+        { messageId: "msg-123", threadId: "thread-123" },
+        { ...baseOptions, provider },
+      );
+
+      expect(prisma.newsletter.findFirst).toHaveBeenCalledWith({
+        where: {
+          emailAccountId: baseOptions.emailAccount.id,
+          email: "sender@example.com",
+          status: NewsletterStatus.UNSUBSCRIBED,
+        },
+      });
+      expect(provider.blockUnsubscribedEmail).toHaveBeenCalledWith("msg-123");
+    });
+
     it("processes inbox messages correctly", async () => {
       const provider = createMockEmailProvider({
         getMessage: vi.fn().mockResolvedValue(

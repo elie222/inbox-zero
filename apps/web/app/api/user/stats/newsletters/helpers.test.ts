@@ -1,7 +1,42 @@
 import { describe, expect, it } from "vitest";
+import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { EmailFilter } from "@/utils/email/types";
 import { GmailLabel } from "@/utils/gmail/label";
-import { findSenderLabelFilters } from "./helpers";
+import {
+  findNewsletterStatusForSender,
+  findSenderLabelFilters,
+} from "./helpers";
+
+describe("findNewsletterStatusForSender", () => {
+  it("matches sender addresses case-insensitively", () => {
+    expect(
+      findNewsletterStatusForSender(
+        [
+          {
+            email: "Sender@Example.COM",
+            status: NewsletterStatus.UNSUBSCRIBED,
+          },
+        ],
+        "sender@example.com",
+      ),
+    ).toBe(NewsletterStatus.UNSUBSCRIBED);
+  });
+
+  it("preserves a handled status when a legacy duplicate is unhandled", () => {
+    expect(
+      findNewsletterStatusForSender(
+        [
+          { email: "sender@example.com", status: null },
+          {
+            email: "Sender@Example.COM",
+            status: NewsletterStatus.UNSUBSCRIBED,
+          },
+        ],
+        "SENDER@example.com",
+      ),
+    ).toBe(NewsletterStatus.UNSUBSCRIBED);
+  });
+});
 
 describe("findSenderLabelFilters", () => {
   it("returns label-only filters for the sender", () => {

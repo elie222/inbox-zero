@@ -1,5 +1,5 @@
 import type { NewsletterStatus } from "@/generated/prisma/enums";
-import { extractEmailAddress } from "@/utils/email";
+import { canonicalizeEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
 
 type NewsletterRecordChanges = {
@@ -9,7 +9,7 @@ type NewsletterRecordChanges = {
 };
 
 export function extractEmailOrThrow(newsletterEmail: string) {
-  const email = extractEmailAddress(newsletterEmail);
+  const email = canonicalizeEmailAddress(newsletterEmail);
   if (!email) throw new Error("Invalid newsletter email address");
   return email;
 }

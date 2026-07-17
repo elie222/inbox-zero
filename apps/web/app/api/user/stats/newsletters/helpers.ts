@@ -1,5 +1,5 @@
 import type { EmailProvider, EmailFilter } from "@/utils/email/types";
-import { extractEmailAddress } from "@/utils/email";
+import { canonicalizeEmailAddress, extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -68,6 +68,17 @@ export async function findNewsletterStatus({
     select: { email: true, status: true },
   });
   return userNewsletters;
+}
+
+export function findNewsletterStatusForSender(
+  newsletters: { email: string; status: NewsletterStatus | null }[],
+  senderEmail: string,
+) {
+  const canonicalSender = canonicalizeEmailAddress(senderEmail);
+  return newsletters.find(
+    ({ email, status }) =>
+      status && canonicalizeEmailAddress(email) === canonicalSender,
+  )?.status;
 }
 
 export function filterNewsletters<

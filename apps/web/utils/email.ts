@@ -69,11 +69,12 @@ export function extractEmailAddress(email: string): string {
   return "";
 }
 
+export function canonicalizeEmailAddress(email: string): string {
+  return extractEmailAddress(email).toLowerCase();
+}
+
 export function isSameEmailAddress(left: string, right: string) {
-  return (
-    extractEmailAddress(left).trim().toLowerCase() ===
-    extractEmailAddress(right).trim().toLowerCase()
-  );
+  return canonicalizeEmailAddress(left) === canonicalizeEmailAddress(right);
 }
 
 export function messageRepliesToSourceSender({
