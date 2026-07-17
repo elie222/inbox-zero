@@ -11,6 +11,7 @@ import {
   getAppPageViewProperties,
   PRODUCT_ANALYTICS_EVENTS,
 } from "@/utils/analytics/product";
+import { ONE_DAY_MS } from "@/utils/date";
 
 // based on: https://posthog.com/docs/libraries/next-js
 
@@ -46,11 +47,17 @@ export function PostHogIdentify() {
   const { emailAccount } = useAccount();
 
   useEffect(() => {
-    if (session?.user.email)
-      posthog.identify(session.user.email, {
-        email: session.user.email,
-      });
-  }, [session?.user.email]);
+    const user = session?.user;
+    if (!user?.email) return;
+
+    const signedUpOverOneDayAgo =
+      Date.now() - new Date(user.createdAt).getTime() > ONE_DAY_MS;
+
+    posthog.identify(user.email, {
+      email: user.email,
+      ...(signedUpOverOneDayAgo && { signed_up_over_1_day: true }),
+    });
+  }, [session?.user.createdAt, session?.user.email]);
 
   useEffect(() => {
     // Set super properties that will be included with all events
