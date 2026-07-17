@@ -172,6 +172,7 @@ export const useNavigation = () => {
   );
 
   return {
+    homeHref: prefixPath(currentEmailAccountId, "/automation"),
     manageItems,
     cleanupItems,
     moreItems,
@@ -263,7 +264,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader className="gap-0 pb-0">
         {state.includes("left-sidebar") ? (
           <div className="flex items-center rounded-md pl-2 pr-0.5 py-3 text-foreground justify-between">
-            <Link href="/setup">
+            <Link href={navigation.homeHref}>
               <Logo className="h-3.5" />
             </Link>
             <SidebarTrigger name="left-sidebar" />
