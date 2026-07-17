@@ -92,7 +92,7 @@ export function FeedbackDialog() {
             registerProps={register("feedback")}
             error={errors.feedback}
           />
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
