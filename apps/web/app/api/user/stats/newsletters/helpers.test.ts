@@ -33,6 +33,20 @@ describe("findNewsletterStatus", () => {
       ),
     ).toBe(NewsletterStatus.UNSUBSCRIBED);
   });
+
+  it("does not match invalid sender values", () => {
+    expect(
+      findNewsletterStatus(
+        [
+          {
+            email: "invalid stored sender",
+            status: NewsletterStatus.UNSUBSCRIBED,
+          },
+        ],
+        "invalid message sender",
+      ),
+    ).toBeUndefined();
+  });
 });
 
 describe("findSenderLabelFilters", () => {

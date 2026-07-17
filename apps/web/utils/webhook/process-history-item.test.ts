@@ -13,6 +13,7 @@ import {
   NewsletterStatus,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
+import { categorizeSender } from "@/utils/categorize/senders/categorize";
 
 vi.mock("@/utils/prisma", () => ({
   default: {
@@ -193,6 +194,45 @@ describe("Provider Edge Cases", () => {
         },
       });
       expect(provider.blockUnsubscribedEmail).toHaveBeenCalledWith("msg-123");
+    });
+
+    it("does not store an address-only header as the sender display name", async () => {
+      const provider = createMockEmailProvider({
+        getMessage: vi.fn().mockResolvedValue(
+          getMockParsedMessage({
+            labelIds: ["INBOX"],
+            headers: {
+              from: "Sender@Example.COM",
+              to: "user@test.com",
+              subject: "Test",
+              date: "2024-01-01",
+            },
+          }),
+        ),
+        isSentMessage: vi.fn().mockReturnValue(false),
+      });
+      const emailAccount = {
+        ...getDefaultEmailAccount(),
+        autoCategorizeSenders: true,
+      };
+
+      await processHistoryItem(
+        { messageId: "msg-123", threadId: "thread-123" },
+        {
+          ...baseOptions,
+          emailAccount,
+          hasAiAccess: true,
+          provider,
+        },
+      );
+
+      expect(categorizeSender).toHaveBeenCalledWith(
+        "sender@example.com",
+        emailAccount,
+        provider,
+        undefined,
+        undefined,
+      );
     });
 
     it("processes inbox messages correctly", async () => {

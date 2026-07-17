@@ -215,7 +215,7 @@ async function getNewsletterCounts(
   const query = Prisma.sql`
     WITH email_message_stats AS (
       SELECT 
-        "from",
+        LOWER("from") AS "from",
         MAX(NULLIF("fromName", '')) as "fromName",
         MIN(NULLIF("fromName", '')) as "minFromName",
         COUNT(*)::int as "count",
@@ -224,7 +224,7 @@ async function getNewsletterCounts(
         MAX("unsubscribeLink") as "unsubscribeLink"
       FROM "EmailMessage"
       ${whereClause}
-      GROUP BY "from"
+      GROUP BY LOWER("from")
     )
     SELECT * FROM email_message_stats
     ORDER BY ${Prisma.raw(orderByClause)}

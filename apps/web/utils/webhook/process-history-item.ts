@@ -172,6 +172,10 @@ export async function processHistoryItem(
     if (emailAccount.autoCategorizeSenders) {
       const sender = email;
       const senderName = extractNameFromEmail(parsedMessage.headers.from);
+      const displayName =
+        canonicalizeEmailAddress(senderName) === sender
+          ? undefined
+          : senderName;
       const existingSender = await prisma.newsletter.findFirst({
         where: {
           emailAccountId,
@@ -185,7 +189,7 @@ export async function processHistoryItem(
           emailAccount,
           provider,
           undefined,
-          senderName !== sender ? senderName : undefined,
+          displayName,
         );
       }
     }

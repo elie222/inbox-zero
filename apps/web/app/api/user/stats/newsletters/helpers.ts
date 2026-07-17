@@ -75,6 +75,8 @@ export function findNewsletterStatus(
   senderEmail: string,
 ): NewsletterStatus | undefined {
   const canonicalSender = canonicalizeEmailAddress(senderEmail);
+  if (!canonicalSender) return;
+
   return newsletters.find(
     ({ email, status }) =>
       status !== null && canonicalizeEmailAddress(email) === canonicalSender,
