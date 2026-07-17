@@ -1,5 +1,6 @@
-import { redis } from "@/utils/redis";
 import { createHash } from "node:crypto";
+import { env } from "@/env";
+import { redis } from "@/utils/redis";
 
 // Not password hashing - creating a short cache key for OAuth authorization codes
 function createOAuthCodeCacheKey(code: string): string {
@@ -13,6 +14,32 @@ function getCodeKey(code: string) {
 interface OAuthCodeResult {
   params: Record<string, string>;
   status: "success";
+}
+
+type OAuthCodeClaim = "acquired" | "processing" | OAuthCodeResult;
+
+export function isOAuthCodeStoreConfigured() {
+  return Boolean(env.UPSTASH_REDIS_URL && env.UPSTASH_REDIS_TOKEN);
+}
+
+export async function claimOAuthCode(code: string): Promise<OAuthCodeClaim> {
+  const existing = await redis.set<string | OAuthCodeResult>(
+    getCodeKey(code),
+    "processing",
+    {
+      ex: 60,
+      get: true,
+      nx: true,
+    },
+  );
+
+  if (!existing || existing === "OK") return "acquired";
+  if (existing === "processing") return existing;
+  if (typeof existing === "object" && existing.status === "success") {
+    return existing;
+  }
+
+  return "processing";
 }
 
 export async function acquireOAuthCodeLock(code: string): Promise<boolean> {
