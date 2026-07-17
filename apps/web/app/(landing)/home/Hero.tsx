@@ -83,7 +83,7 @@ export function HeroVideoPlayer() {
           width={4600}
           height={2524}
           sizes="(min-width: 1280px) 1152px, (min-width: 1024px) calc(100vw - 64px), calc(100vw - 48px)"
-          preload
+          loading="eager"
           fetchPriority="high"
           className="h-auto w-full"
         />
