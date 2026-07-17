@@ -4,7 +4,9 @@ import prisma from "@/utils/prisma";
 
 type NewsletterRecordChanges = {
   categoryId?: string | null;
+  lastAnalyzedAt?: Date | null;
   name?: string | null;
+  patternAnalyzed?: boolean;
   status?: NewsletterStatus | null;
 };
 
@@ -24,6 +26,16 @@ export async function upsertSenderRecord({
   changes: NewsletterRecordChanges;
 }) {
   const email = extractEmailOrThrow(newsletterEmail);
+
+  const [updated] = await prisma.newsletter.updateManyAndReturn({
+    where: {
+      emailAccountId,
+      email: { equals: email, mode: "insensitive" },
+    },
+    data: changes,
+  });
+
+  if (updated) return updated;
 
   return prisma.newsletter.upsert({
     where: {

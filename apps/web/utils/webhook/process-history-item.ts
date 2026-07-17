@@ -151,7 +151,7 @@ export async function processHistoryItem(
     const sender = await prisma.newsletter.findFirst({
       where: {
         emailAccountId,
-        email,
+        email: { equals: email, mode: "insensitive" },
         status: NewsletterStatus.UNSUBSCRIBED,
       },
     });
@@ -172,9 +172,10 @@ export async function processHistoryItem(
     if (emailAccount.autoCategorizeSenders) {
       const sender = email;
       const senderName = extractNameFromEmail(parsedMessage.headers.from);
-      const existingSender = await prisma.newsletter.findUnique({
+      const existingSender = await prisma.newsletter.findFirst({
         where: {
-          email_emailAccountId: { email: sender, emailAccountId },
+          emailAccountId,
+          email: { equals: sender, mode: "insensitive" },
         },
         select: { category: true },
       });

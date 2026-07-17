@@ -14,6 +14,7 @@ import { GroupItemSource } from "@/generated/prisma/enums";
 import { checkSenderRuleHistory } from "@/utils/rule/check-sender-rule-history";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
+import { upsertSenderRecord } from "@/utils/senders/record";
 
 export const maxDuration = 60;
 
@@ -71,12 +72,10 @@ async function process({
       return NextResponse.json({ success: false }, { status: 404 });
     }
 
-    const existingCheck = await prisma.newsletter.findUnique({
+    const existingCheck = await prisma.newsletter.findFirst({
       where: {
-        email_emailAccountId: {
-          email: from,
-          emailAccountId: emailAccount.id,
-        },
+        emailAccountId: emailAccount.id,
+        email: { equals: from, mode: "insensitive" },
       },
     });
 
@@ -221,20 +220,10 @@ async function savePatternCheck({
   emailAccountId: string;
   from: string;
 }) {
-  await prisma.newsletter.upsert({
-    where: {
-      email_emailAccountId: {
-        email: from,
-        emailAccountId,
-      },
-    },
-    update: {
-      patternAnalyzed: true,
-      lastAnalyzedAt: new Date(),
-    },
-    create: {
-      email: from,
-      emailAccountId,
+  await upsertSenderRecord({
+    emailAccountId,
+    newsletterEmail: from,
+    changes: {
       patternAnalyzed: true,
       lastAnalyzedAt: new Date(),
     },

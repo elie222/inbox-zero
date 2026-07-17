@@ -185,7 +185,10 @@ describe("Provider Edge Cases", () => {
       expect(prisma.newsletter.findFirst).toHaveBeenCalledWith({
         where: {
           emailAccountId: baseOptions.emailAccount.id,
-          email: "sender@example.com",
+          email: {
+            equals: "sender@example.com",
+            mode: "insensitive",
+          },
           status: NewsletterStatus.UNSUBSCRIBED,
         },
       });
