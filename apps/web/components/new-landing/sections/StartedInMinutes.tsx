@@ -126,8 +126,10 @@ export function StartedInMinutes({ title, subtitle }: StartedInMinutesProps) {
                 <Image
                   src="/images/new-landing/new-message.png"
                   alt="Pre-drafted replies"
-                  width={1000}
-                  height={400}
+                  width={1407}
+                  height={852}
+                  sizes="(min-width: 1280px) 350px, (min-width: 1024px) 30vw, (min-width: 768px) calc(100vw - 368px), (min-width: 640px) calc(100vw - 128px), calc(100vw - 48px)"
+                  className="h-auto w-full"
                 />
               </div>
             </DisplayCard>
