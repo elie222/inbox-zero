@@ -1,5 +1,7 @@
 BEGIN;
 
+LOCK TABLE "Newsletter" IN SHARE ROW EXCLUSIVE MODE;
+
 CREATE TEMP TABLE "NewsletterEmailMerge" ON COMMIT DROP AS
 SELECT
   (ARRAY_AGG(
@@ -40,5 +42,10 @@ SET
   "updatedAt" = merged."updatedAt"
 FROM "NewsletterEmailMerge" AS merged
 WHERE newsletter."id" = merged."keeperId";
+
+CREATE UNIQUE INDEX "Newsletter_emailAccountId_lower_email_key"
+ON "Newsletter" ("emailAccountId", LOWER("email"));
+
+DROP INDEX "Newsletter_emailAccountId_lower_email_idx";
 
 COMMIT;
