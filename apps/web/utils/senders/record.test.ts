@@ -8,6 +8,7 @@ vi.mock("@/utils/prisma");
 describe("sender-record", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.$queryRaw.mockResolvedValue([]);
     prisma.newsletter.updateManyAndReturn.mockResolvedValue([]);
     prisma.newsletter.upsert.mockResolvedValue({ id: "newsletter-1" } as any);
   });
@@ -38,6 +39,10 @@ describe("sender-record", () => {
   });
 
   it("updates every legacy casing variant instead of creating another record", async () => {
+    prisma.$queryRaw.mockResolvedValue([
+      { id: "newsletter-1" },
+      { id: "newsletter-2" },
+    ]);
     prisma.newsletter.updateManyAndReturn.mockResolvedValue([
       { id: "newsletter-1" } as any,
       { id: "newsletter-2" } as any,
@@ -50,13 +55,7 @@ describe("sender-record", () => {
     });
 
     expect(prisma.newsletter.updateManyAndReturn).toHaveBeenCalledWith({
-      where: {
-        emailAccountId: "email-account-1",
-        email: {
-          equals: "sender@example.com",
-          mode: "insensitive",
-        },
-      },
+      where: { id: { in: ["newsletter-1", "newsletter-2"] } },
       data: { status: null },
     });
     expect(prisma.newsletter.upsert).not.toHaveBeenCalled();

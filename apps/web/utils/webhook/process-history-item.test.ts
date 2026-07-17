@@ -22,6 +22,7 @@ vi.mock("@/utils/prisma", () => ({
     },
     newsletter: {
       findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
       findUnique: vi.fn().mockResolvedValue(null),
     },
   },
@@ -233,6 +234,44 @@ describe("Provider Edge Cases", () => {
         undefined,
         undefined,
       );
+    });
+
+    it("categorizes when any sender casing variant has no category", async () => {
+      vi.mocked(prisma.newsletter.findFirst).mockResolvedValueOnce(null);
+      vi.mocked(prisma.newsletter.findMany).mockResolvedValue([
+        { categoryId: "category-1" },
+        { categoryId: null },
+      ] as any);
+      const provider = createMockEmailProvider({
+        getMessage: vi.fn().mockResolvedValue(
+          getMockParsedMessage({
+            labelIds: ["INBOX"],
+            headers: {
+              from: "Sender <Sender@Example.COM>",
+              to: "user@test.com",
+              subject: "Test",
+              date: "2024-01-01",
+            },
+          }),
+        ),
+        isSentMessage: vi.fn().mockReturnValue(false),
+      });
+
+      await processHistoryItem(
+        { messageId: "msg-123", threadId: "thread-123" },
+        {
+          ...baseOptions,
+          emailAccount: {
+            ...getDefaultEmailAccount(),
+            autoCategorizeSenders: true,
+          },
+          hasAiAccess: true,
+          provider,
+        },
+      );
+
+      expect(prisma.newsletter.findMany).toHaveBeenCalledOnce();
+      expect(categorizeSender).toHaveBeenCalledOnce();
     });
 
     it("processes inbox messages correctly", async () => {

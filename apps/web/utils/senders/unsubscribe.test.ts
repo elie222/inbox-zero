@@ -29,6 +29,7 @@ describe("sender-unsubscribe", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.$queryRaw.mockResolvedValue([]);
     prisma.newsletter.updateManyAndReturn.mockResolvedValue([]);
     prisma.newsletter.upsert.mockResolvedValue({ id: "newsletter-1" } as any);
   });

@@ -76,10 +76,11 @@ async function process({
       where: {
         emailAccountId: emailAccount.id,
         email: { equals: from, mode: "insensitive" },
+        patternAnalyzed: true,
       },
     });
 
-    if (existingCheck?.patternAnalyzed) {
+    if (existingCheck) {
       logger.info("Sender has already been analyzed");
       return NextResponse.json({ success: true });
     }

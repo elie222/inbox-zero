@@ -38,6 +38,7 @@ vi.mock("@/utils/prisma", () => ({
       findUnique: vi.fn(),
     },
     newsletter: {
+      findFirst: vi.fn(),
       findUnique: vi.fn(),
       upsert: vi.fn(),
     },
@@ -49,6 +50,7 @@ vi.mock("@/utils/ai/choose-rule/ai-detect-recurring-pattern", () => ({
 }));
 
 vi.mock("@/utils/email", () => ({
+  canonicalizeEmailAddress: vi.fn((value: string) => value.toLowerCase()),
   extractEmailAddress: vi.fn((value: string) => value),
 }));
 
@@ -69,6 +71,7 @@ vi.mock("@/utils/email/provider", () => ({
 }));
 
 import { POST } from "./route";
+import prisma from "@/utils/prisma";
 
 describe("analyze sender pattern route", () => {
   beforeEach(() => {
@@ -87,6 +90,33 @@ describe("analyze sender pattern route", () => {
       error: "Invalid API key",
     });
     expect(afterMock).not.toHaveBeenCalled();
+  });
+
+  it("skips analysis when any sender casing variant was already analyzed", async () => {
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+      id: "email-account-1",
+    } as any);
+    vi.mocked(prisma.newsletter.findFirst).mockResolvedValue({
+      id: "newsletter-1",
+      patternAnalyzed: true,
+    } as any);
+
+    const response = await POST(createRequest() as never);
+
+    expect(response.status).toBe(200);
+    const processInBackground = afterMock.mock.calls[0]?.[0];
+    if (!processInBackground) throw new Error("Background process not queued");
+    await processInBackground();
+    expect(prisma.newsletter.findFirst).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "email-account-1",
+        email: {
+          equals: "sender@example.com",
+          mode: "insensitive",
+        },
+        patternAnalyzed: true,
+      },
+    });
   });
 });
 

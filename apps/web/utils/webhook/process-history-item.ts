@@ -176,14 +176,17 @@ export async function processHistoryItem(
         canonicalizeEmailAddress(senderName) === sender
           ? undefined
           : senderName;
-      const existingSender = await prisma.newsletter.findFirst({
+      const existingSenders = await prisma.newsletter.findMany({
         where: {
           emailAccountId,
           email: { equals: sender, mode: "insensitive" },
         },
-        select: { category: true },
+        select: { categoryId: true },
       });
-      if (!existingSender?.category) {
+      if (
+        existingSenders.length === 0 ||
+        existingSenders.some(({ categoryId }) => !categoryId)
+      ) {
         await categorizeSender(
           sender,
           emailAccount,

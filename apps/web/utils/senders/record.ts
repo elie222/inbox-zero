@@ -27,15 +27,21 @@ export async function upsertSenderRecord({
 }) {
   const email = extractEmailOrThrow(newsletterEmail);
 
-  const [updated] = await prisma.newsletter.updateManyAndReturn({
-    where: {
-      emailAccountId,
-      email: { equals: email, mode: "insensitive" },
-    },
-    data: changes,
-  });
+  const existing = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT "id"
+    FROM "Newsletter"
+    WHERE "emailAccountId" = ${emailAccountId}
+      AND LOWER("email") = ${email}
+  `;
 
-  if (updated) return updated;
+  if (existing.length > 0) {
+    const [updated] = await prisma.newsletter.updateManyAndReturn({
+      where: { id: { in: existing.map(({ id }) => id) } },
+      data: changes,
+    });
+
+    if (updated) return updated;
+  }
 
   return prisma.newsletter.upsert({
     where: {

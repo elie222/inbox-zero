@@ -77,10 +77,11 @@ export function findNewsletterStatus(
   const canonicalSender = canonicalizeEmailAddress(senderEmail);
   if (!canonicalSender) return;
 
-  return newsletters.find(
+  const newsletter = newsletters.find(
     ({ email, status }) =>
       status !== null && canonicalizeEmailAddress(email) === canonicalSender,
-  )?.status;
+  );
+  return newsletter?.status ?? undefined;
 }
 
 export function filterNewsletters<
