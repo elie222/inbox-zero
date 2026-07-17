@@ -42,6 +42,8 @@ export async function claimOAuthCode(
     },
   );
 
+  if (typeof existing === "string") return { status: "processing" };
+
   return existing as OAuthCodeClaim;
 }
 

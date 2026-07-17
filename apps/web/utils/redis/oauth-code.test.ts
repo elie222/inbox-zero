@@ -51,6 +51,14 @@ describe("claimOAuthCode", () => {
     await expect(claimOAuthCode("oauth-code")).resolves.toBe(processing);
   });
 
+  it("normalizes a legacy string lock as an in-flight callback", async () => {
+    vi.mocked(redis.set).mockResolvedValue("processing");
+
+    await expect(claimOAuthCode("oauth-code")).resolves.toEqual({
+      status: "processing",
+    });
+  });
+
   it("returns a completed callback result", async () => {
     const completed = {
       params: { redirect: "https://example.com/welcome-redirect" },
