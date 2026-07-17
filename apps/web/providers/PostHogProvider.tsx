@@ -11,6 +11,7 @@ import {
   getAppPageViewProperties,
   PRODUCT_ANALYTICS_EVENTS,
 } from "@/utils/analytics/product";
+import { scheduleAfterPageLoad } from "@/utils/schedule-after-page-load";
 
 // based on: https://posthog.com/docs/libraries/next-js
 
@@ -78,9 +79,42 @@ if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {
   posthog.init(env.NEXT_PUBLIC_POSTHOG_KEY, {
     api_host: env.NEXT_PUBLIC_POSTHOG_API_HOST, // https://posthog.com/docs/advanced/proxy/nextjs
     capture_pageview: false, // Disable automatic pageview capture, as we capture manually
+    disable_session_recording: true,
+    disable_surveys: true,
   });
 }
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
-  return <PHProvider client={posthog}>{children}</PHProvider>;
+  return (
+    <PHProvider client={posthog}>
+      {children}
+      <DeferredPostHogFeatures />
+    </PHProvider>
+  );
+}
+
+let deferredFeaturesEnabled = false;
+
+function DeferredPostHogFeatures() {
+  useEffect(() => {
+    if (!env.NEXT_PUBLIC_POSTHOG_KEY || deferredFeaturesEnabled) return;
+
+    const enableDeferredFeatures = () => {
+      if (deferredFeaturesEnabled) return;
+
+      deferredFeaturesEnabled = true;
+      posthog.set_config({
+        disable_session_recording: false,
+        disable_surveys: false,
+      });
+      posthog.reloadFeatureFlags();
+    };
+
+    return scheduleAfterPageLoad(enableDeferredFeatures, {
+      fallbackDelay: 2000,
+      idleTimeout: 5000,
+    });
+  }, []);
+
+  return null;
 }
