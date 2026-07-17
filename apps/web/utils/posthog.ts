@@ -433,8 +433,31 @@ export async function trackOnboardingAnswer(
 }
 
 export async function trackProductFeedback(email: string, feedback: string) {
-  return posthogCaptureEvent(email, "Product feedback submitted", {
+  // Regular analytics event so feedback remains queryable even if survey quota is hit
+  await posthogCaptureEvent(email, "Product feedback submitted", {
     feedback,
+  });
+
+  const surveyId = env.POSTHOG_FEEDBACK_SURVEY_ID;
+  const questionId = env.POSTHOG_FEEDBACK_SURVEY_QUESTION_ID;
+  if (!surveyId || !questionId) {
+    logger.warn(
+      "POSTHOG_FEEDBACK_SURVEY_ID or POSTHOG_FEEDBACK_SURVEY_QUESTION_ID not set",
+    );
+    return;
+  }
+
+  // Surveys API event — ID-based response key (current PostHog recommendation)
+  await posthogCaptureEvent(email, "survey sent", {
+    $survey_id: surveyId,
+    [`$survey_response_${questionId}`]: feedback,
+    $survey_questions: [
+      {
+        id: questionId,
+        question: "What's your feedback?",
+      },
+    ],
+    $survey_completed: true,
   });
 }
 

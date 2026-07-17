@@ -1,14 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/prisma";
 
+const mockEnv = vi.hoisted(() => ({
+  NEXT_PUBLIC_POSTHOG_KEY: "phc_test_key",
+  NEXT_PUBLIC_POSTHOG_API_HOST: undefined as string | undefined,
+  POSTHOG_API_SECRET: "posthog-secret",
+  POSTHOG_PROJECT_ID: "project-1",
+  POSTHOG_FEEDBACK_SURVEY_ID: "survey-1" as string | undefined,
+  POSTHOG_FEEDBACK_SURVEY_QUESTION_ID: "question-1" as string | undefined,
+  NODE_ENV: "test",
+}));
+
 vi.mock("@/env", () => ({
-  env: {
-    NEXT_PUBLIC_POSTHOG_KEY: "phc_test_key",
-    NEXT_PUBLIC_POSTHOG_API_HOST: undefined,
-    POSTHOG_API_SECRET: "posthog-secret",
-    POSTHOG_PROJECT_ID: "project-1",
-    NODE_ENV: "test",
-  },
+  env: mockEnv,
 }));
 
 const captureMock = vi.fn();
@@ -33,6 +37,7 @@ import {
   FIRST_TIME_EVENTS,
   deletePosthogUser,
   trackFirstTimeEvent,
+  trackProductFeedback,
   trackUserDeleted,
   trackUserDeletionRequested,
 } from "./posthog";
@@ -212,5 +217,55 @@ describe("user deletion events", () => {
       sendFeatureFlags: false,
     });
     expect(shutdownMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("trackProductFeedback", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockEnv.POSTHOG_FEEDBACK_SURVEY_ID = "survey-1";
+    mockEnv.POSTHOG_FEEDBACK_SURVEY_QUESTION_ID = "question-1";
+  });
+
+  it("captures a regular event and an ID-based survey sent event", async () => {
+    await trackProductFeedback("user@example.com", "Love the assistant");
+
+    expect(captureMock).toHaveBeenCalledTimes(2);
+    expect(captureMock).toHaveBeenNthCalledWith(1, {
+      distinctId: "user@example.com",
+      event: "Product feedback submitted",
+      properties: { feedback: "Love the assistant" },
+      sendFeatureFlags: undefined,
+    });
+    expect(captureMock).toHaveBeenNthCalledWith(2, {
+      distinctId: "user@example.com",
+      event: "survey sent",
+      properties: {
+        $survey_id: "survey-1",
+        "$survey_response_question-1": "Love the assistant",
+        $survey_questions: [
+          {
+            id: "question-1",
+            question: "What's your feedback?",
+          },
+        ],
+        $survey_completed: true,
+      },
+      sendFeatureFlags: undefined,
+    });
+  });
+  it("still captures the regular event when survey env vars are missing", async () => {
+    mockEnv.POSTHOG_FEEDBACK_SURVEY_ID = undefined;
+    mockEnv.POSTHOG_FEEDBACK_SURVEY_QUESTION_ID = undefined;
+
+    await trackProductFeedback("user@example.com", "Still useful");
+
+    expect(captureMock).toHaveBeenCalledTimes(1);
+    expect(captureMock).toHaveBeenCalledWith({
+      distinctId: "user@example.com",
+      event: "Product feedback submitted",
+      properties: { feedback: "Still useful" },
+      sendFeatureFlags: undefined,
+    });
   });
 });
