@@ -74,24 +74,24 @@ export function Hero({
 
 export function HeroVideoPlayer() {
   return (
-    <BlurFade delay={0.4}>
-      <div className="relative w-full">
-        <div className="relative border border-[#EFEFEF] rounded-3xl md:rounded-[43px] overflow-hidden block">
+    <div className="relative w-full">
+      <div className="relative border border-[#EFEFEF] rounded-3xl md:rounded-[43px] overflow-hidden block">
+        <BlurFade delay={0.4} className="absolute inset-0 z-10" duration={0.4}>
           <HeroVideoDialog />
-          <Image
-            src="/images/new-landing/video-thumbnail.png"
-            alt="an organized inbox"
-            width={4600}
-            height={2524}
-            sizes="(min-width: 1280px) 1152px, (min-width: 1024px) calc(100vw - 64px), calc(100vw - 48px)"
-            loading="eager"
-            fetchPriority="high"
-            className="h-auto w-full"
-          />
-          <UnicornScene className="h-[calc(100%+5px)] opacity-30" />
-        </div>
+        </BlurFade>
+        <Image
+          src="/images/new-landing/video-thumbnail.png"
+          alt="an organized inbox"
+          width={4600}
+          height={2524}
+          sizes="(min-width: 1280px) 1152px, (min-width: 1024px) calc(100vw - 64px), calc(100vw - 48px)"
+          loading="eager"
+          fetchPriority="high"
+          className="h-auto w-full"
+        />
+        <UnicornScene className="h-[calc(100%+5px)] opacity-30" />
       </div>
-    </BlurFade>
+    </div>
   );
 }
 
