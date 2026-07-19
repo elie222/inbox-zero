@@ -103,6 +103,24 @@ describe("publishToQstash", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("forwards iterable delivery headers", async () => {
+    const fetchMock = setupFetchMock();
+    const upstash = await loadUpstashModule({ qstashToken: "token" });
+
+    await upstash.publishToQstash(
+      "/api/process",
+      { id: 1 },
+      undefined,
+      new Map([["x-delivery-secret", "secret_test"]]).entries(),
+    );
+
+    expect(mockPublishJSON).toHaveBeenCalledOnce();
+    const request = mockPublishJSON.mock.calls[0]?.[0];
+    expect(request?.headers.get("x-delivery-secret")).toBe("secret_test");
+    expect(request?.headers.get("Retry-After")).toBe("10");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("falls back to internal URL when QStash client is unavailable", async () => {
     const fetchMock = setupFetchMock();
     const upstash = await loadUpstashModule({ qstashToken: undefined });
