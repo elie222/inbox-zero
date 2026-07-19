@@ -27,7 +27,7 @@ export async function publishToQstash<T>(
   flowControl?: FlowControl,
   headers?: HeadersInit,
 ) {
-  const requestHeaders = new Headers(headers);
+  const requestHeaders = createHeaders(headers);
   requestHeaders.set("Retry-After", "10");
 
   const client = getQstashClient();
@@ -136,15 +136,7 @@ async function fallbackPublishToQstash<T>(
 ) {
   logger.warn("Qstash client not found");
 
-  const internalHeaders = new Headers(
-    headers instanceof Headers
-      ? headers
-      : Array.isArray(headers)
-        ? headers
-        : headers && typeof headers === "object" && Symbol.iterator in headers
-          ? Array.from(headers as Iterable<[string, string]>)
-          : headers,
-  );
+  const internalHeaders = createHeaders(headers);
   internalHeaders.set("Content-Type", "application/json");
   for (const [key, value] of Object.entries(getInternalApiHeaders())) {
     internalHeaders.set(key, value);
@@ -196,4 +188,12 @@ function getQstashCallbackBaseUrl() {
   if (safeExternalUrl) return normalizeBaseUrl(safeExternalUrl);
 
   return normalizeBaseUrl(getInternalApiUrl());
+}
+
+function createHeaders(headers?: HeadersInit) {
+  if (headers && Symbol.iterator in headers) {
+    return new Headers(Array.from(headers));
+  }
+
+  return new Headers(headers);
 }
