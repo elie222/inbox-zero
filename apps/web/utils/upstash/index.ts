@@ -25,7 +25,11 @@ export async function publishToQstash<T>(
   path: string,
   body: T,
   flowControl?: FlowControl,
+  headers?: HeadersInit,
 ) {
+  const requestHeaders = new Headers(headers);
+  requestHeaders.set("Retry-After", "10");
+
   const client = getQstashClient();
   if (client) {
     const qstashUrl = `${getQstashCallbackBaseUrl()}${path}`;
@@ -34,14 +38,12 @@ export async function publishToQstash<T>(
       body,
       flowControl,
       retries: 3,
-      headers: {
-        "Retry-After": "10", // 10 seconds
-      },
+      headers: requestHeaders,
     });
   }
 
   const fallbackUrl = `${getInternalApiUrl()}${path}`;
-  return fallbackPublishToQstash(fallbackUrl, body, undefined);
+  return fallbackPublishToQstash(fallbackUrl, body, requestHeaders);
 }
 
 export async function bulkPublishToQstash<T>({
