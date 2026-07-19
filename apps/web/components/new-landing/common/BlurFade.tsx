@@ -21,10 +21,7 @@ interface BlurFadeProps {
   duration?: number;
   inView?: boolean;
   inViewMargin?: MarginType;
-  variant?: {
-    hidden: { y: number };
-    visible: { y: number };
-  };
+  variant?: Variants;
   yOffset?: number;
 }
 
