@@ -74,13 +74,7 @@ export function Hero({
 
 export function HeroVideoPlayer() {
   return (
-    <BlurFade
-      delay={0.4}
-      variant={{
-        hidden: { y: 6, opacity: 0.75, filter: "blur(4px)" },
-        visible: { y: 0, opacity: 1, filter: "blur(0px)" },
-      }}
-    >
+    <BlurFade delay={0.4}>
       <div className="relative w-full">
         <div className="relative border border-[#EFEFEF] rounded-3xl md:rounded-[43px] overflow-hidden block">
           <HeroVideoDialog />
