@@ -475,6 +475,7 @@ model Premium {
   applePurchaseDate                DateTime?
   appleExpiresAt                   DateTime?
   appleRevokedAt                   DateTime?
+  appleOfferDiscountType           String?
 
   // manually granted by admin
   adminGrantExpiresAt DateTime?
