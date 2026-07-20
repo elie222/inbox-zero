@@ -18,6 +18,23 @@ describe("runAiRules", () => {
     vi.clearAllMocks();
   });
 
+  it("rejects when rule processing returns a server error", async () => {
+    vi.mocked(runRulesAction).mockResolvedValue({
+      serverError: "AI automation is unavailable.",
+    });
+    await runAiRules(
+      "account-id",
+      [{ id: "thread-id", messages: [{ id: "message-id" }] } as never],
+      false,
+    );
+
+    await expect(runQueuedTask()).rejects.toThrow(
+      "AI automation is unavailable.",
+    );
+
+    expect(removeFromAiQueueAtom).toHaveBeenCalledWith("thread-id");
+  });
+
   it("removes a thread without messages from the visible queue", async () => {
     await runAiRules(
       "account-id",

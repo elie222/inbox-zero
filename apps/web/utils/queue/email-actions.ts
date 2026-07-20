@@ -10,26 +10,30 @@ export const runAiRules = async (
   emailAccountId: string,
   threadsArray: ThreadsResponse["threads"],
   rerun: boolean,
+  signal?: AbortSignal,
 ) => {
   const threads = threadsArray.filter(isDefined);
   const threadIds = threads.map((t) => t.id);
   pushToAiQueueAtom(threadIds);
 
-  aiQueue.addAll(
+  return aiQueue.addAll(
     threads.map((thread) => async () => {
       try {
         const message = thread.messages?.[thread.messages.length - 1];
         if (!message) return;
 
-        await runRulesAction(emailAccountId, {
+        const result = await runRulesAction(emailAccountId, {
           messageId: message.id,
           threadId: thread.id,
           rerun,
           isTest: false,
         });
+
+        if (result?.serverError) throw new Error(result.serverError);
       } finally {
         removeFromAiQueueAtom(thread.id);
       }
     }),
+    { signal },
   );
 };
