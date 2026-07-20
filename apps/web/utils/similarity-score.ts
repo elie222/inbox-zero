@@ -119,30 +119,53 @@ export function calculateSimilarity(
   providerMessage?: string | ParsedMessage | null,
   options: { excludedSignatures?: string[] } = {},
 ): number {
+  return calculateSimilarityDetails(storedContent, providerMessage, options)
+    .score;
+}
+
+export function calculateSimilarityDetails(
+  storedContent?: string | null,
+  providerMessage?: string | ParsedMessage | null,
+  options: { excludedSignatures?: string[] } = {},
+): {
+  score: number;
+  normalizedStoredContentLength: number;
+  normalizedProviderMessageLength: number;
+} {
   if (!storedContent || !providerMessage) {
-    return 0.0;
+    return {
+      score: 0.0,
+      normalizedStoredContentLength: 0,
+      normalizedProviderMessageLength: 0,
+    };
   }
 
-  const [normalized1, normalized2] = normalizePair({
+  const baselinePair = normalizePair({
     storedContent,
     providerMessage,
     stripSignature: false,
     excludedSignatures: options.excludedSignatures,
   });
-  const baselineScore = compareNormalizedStrings(normalized1, normalized2);
+  const baselineScore = compareNormalizedStrings(...baselinePair);
 
-  const [signatureStripped1, signatureStripped2] = normalizePair({
+  const signatureStrippedPair = normalizePair({
     storedContent,
     providerMessage,
     stripSignature: true,
     excludedSignatures: options.excludedSignatures,
   });
   const signatureStrippedScore = compareNormalizedStrings(
-    signatureStripped1,
-    signatureStripped2,
+    ...signatureStrippedPair,
   );
+  const useSignatureStrippedPair = signatureStrippedScore >= baselineScore;
+  const [normalizedStoredContent, normalizedProviderMessage] =
+    useSignatureStrippedPair ? signatureStrippedPair : baselinePair;
 
-  return Math.max(baselineScore, signatureStrippedScore);
+  return {
+    score: Math.max(baselineScore, signatureStrippedScore),
+    normalizedStoredContentLength: normalizedStoredContent.length,
+    normalizedProviderMessageLength: normalizedProviderMessage.length,
+  };
 }
 
 function normalizePair({
