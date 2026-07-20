@@ -1,11 +1,34 @@
-import { describe, expect, test, vi } from "vitest";
-import { searchReplyContextEmails } from "./reply-context-collector";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  aiCollectReplyContext,
+  searchReplyContextEmails,
+} from "./reply-context-collector";
 import type { EmailProvider } from "@/utils/email/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";
 
 vi.mock("server-only", () => ({}));
 
+const { mockCreateGenerateText, mockGetModelForUseCase } = vi.hoisted(() => ({
+  mockCreateGenerateText: vi.fn(),
+  mockGetModelForUseCase: vi.fn(),
+}));
+
+vi.mock("@/utils/llms", () => ({
+  createGenerateText: mockCreateGenerateText,
+}));
+
+vi.mock("@/utils/llms/use-cases", () => ({
+  getModelForUseCase: mockGetModelForUseCase,
+  LlmUseCase: { ReplyContextCollector: "reply-context-collector" },
+}));
+
 describe("searchReplyContextEmails", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetModelForUseCase.mockReturnValue({});
+  });
+
   test("prioritizes search hits, nearby context, and sent replies in long threads", async () => {
     const threadMessages = Array.from({ length: 100 }, (_, index) =>
       getMessage({
@@ -54,7 +77,7 @@ describe("searchReplyContextEmails", () => {
     expect(resultIds).toContain("message-69");
     expect(resultIds).not.toContain("message-1");
     expect(resultIds).not.toContain("message-40");
-    expect(results.length).toBeLessThanOrEqual(12);
+    expect(results.length).toBeLessThanOrEqual(8);
   });
 
   test("keeps short historical threads intact", async () => {
@@ -64,9 +87,10 @@ describe("searchReplyContextEmails", () => {
         id: "message-2",
         from: "account@example.com",
         labelIds: ["SENT"],
-        textPlain: "Useful answer",
+        textPlain:
+          "Useful answer\n\nOn Mon, May 1, 2026, customer wrote:\n> Matching request",
       }),
-      getMessage({ id: "message-3", textPlain: "Follow-up" }),
+      getMessage({ id: "message-3", textPlain: "x".repeat(1800) }),
     ];
     const provider = getProvider({
       searchResults: [threadMessages[0]],
@@ -85,6 +109,75 @@ describe("searchReplyContextEmails", () => {
       "message-2",
       "message-3",
     ]);
+    expect(results[1].content).toBe("Useful answer");
+    expect(results[2].content.length).toBeLessThanOrEqual(1503);
+  });
+
+  test("bounds and deduplicates accumulated search context", async () => {
+    const searchResults: unknown[] = [];
+    mockCreateGenerateText.mockImplementation(
+      () =>
+        async (options: {
+          tools: {
+            searchEmails: {
+              execute: (input: { query: string }) => Promise<unknown>;
+            };
+          };
+        }) => {
+          const search = options.tools.searchEmails.execute;
+          searchResults.push(await search({ query: "first" }));
+          searchResults.push(await search({ query: "first" }));
+          searchResults.push(await search({ query: "second" }));
+          searchResults.push(await search({ query: "third" }));
+        },
+    );
+
+    const getMessagesWithPagination = vi.fn(
+      async ({ query }: { query: string }) => ({
+        messages: Array.from({ length: 4 }, (_, index) =>
+          getMessage({
+            id: `${query}-match-${index}`,
+            threadId: `${query}-thread-${index}`,
+            textPlain: `Match for ${query}`,
+          }),
+        ),
+      }),
+    );
+    const getThreadMessages = vi.fn(async (threadId: string) =>
+      Array.from({ length: 8 }, (_, index) =>
+        getMessage({
+          id: `${threadId}-message-${index}`,
+          threadId,
+          textPlain: `Thread context ${index}`,
+        }),
+      ),
+    );
+    const emailProvider = {
+      name: "google",
+      getMessagesWithPagination,
+      getThreadMessages,
+    } as unknown as EmailProvider;
+
+    await aiCollectReplyContext({
+      currentThread: [],
+      emailAccount: {
+        id: "email-account-1",
+        email: "account@example.com",
+        userId: "user-1",
+        user: {},
+      } as EmailAccountWithAI,
+      emailProvider,
+    });
+
+    expect(getMessagesWithPagination).toHaveBeenCalledTimes(3);
+    expect(searchResults).toHaveLength(4);
+    expect(searchResults[0]).toHaveLength(20);
+    expect(searchResults[1]).toEqual([]);
+    expect(searchResults[2]).toHaveLength(20);
+    expect(searchResults[3]).toEqual({
+      success: false,
+      error: "Search limit reached. Finalize with the context already found.",
+    });
   });
 });
 
@@ -106,12 +199,14 @@ function getProvider({
 
 function getMessage({
   id,
+  threadId = "thread-1",
   from = "customer@example.com",
   labelIds = ["INBOX"],
   parentFolderId,
   textPlain,
 }: {
   id: string;
+  threadId?: string;
   from?: string;
   labelIds?: string[];
   parentFolderId?: string;
@@ -119,7 +214,7 @@ function getMessage({
 }): ParsedMessage {
   return {
     id,
-    threadId: "thread-1",
+    threadId,
     historyId: "history-1",
     date: "2026-05-01T00:00:00.000Z",
     internalDate: "1777593600000",

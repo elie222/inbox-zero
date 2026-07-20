@@ -179,6 +179,16 @@ describe("Models", () => {
       );
     });
 
+    it("should use medium reasoning effort for direct OpenAI chat models without matching model names", () => {
+      const userAi = defaultUserAi();
+
+      setChatLlms(Provider.OPEN_AI, "custom-reasoning-model");
+
+      const result = getModel(userAi, "chat");
+
+      expect(result.providerOptions?.openai?.reasoningEffort).toBe("medium");
+    });
+
     it("should use user's provider and model when API key is provided", () => {
       const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
@@ -456,6 +466,16 @@ describe("Models", () => {
       });
     });
 
+    it("should configure AI Gateway draft models with medium reasoning effort", () => {
+      const userAi = defaultUserAi();
+
+      setDraftLlms(Provider.AI_GATEWAY, "openai/gpt-5.6-luna");
+
+      const result = getModel(userAi, "draft");
+
+      expect(result.providerOptions?.openai?.reasoningEffort).toBe("medium");
+    });
+
     it("should configure Ollama model via DEFAULT_LLMS", () => {
       const userAi = defaultUserAi();
 
@@ -556,6 +576,16 @@ describe("Models", () => {
       expect(result.modelName).toBe("my-mini-deployment");
       expect(result.providerOptions?.openai?.reasoningEffort).toBe("low");
       expect(result.model).toBeDefined();
+    });
+
+    it("should configure Azure draft models with medium reasoning effort", () => {
+      const userAi = defaultUserAi();
+
+      setDraftLlms(Provider.AZURE, "my-draft-deployment");
+
+      const result = getModel(userAi, "draft");
+
+      expect(result.providerOptions?.openai?.reasoningEffort).toBe("medium");
     });
 
     it("should skip Azure list entries without a resource name", () => {
@@ -704,8 +734,46 @@ describe("Models", () => {
       expect(result.providerOptions).toEqual({
         openrouter: {
           provider: { order: ["Google Vertex", "Anthropic"] },
-          reasoning: { max_tokens: 20 },
+          reasoning: { effort: "low" },
         },
+      });
+    });
+
+    it("should use low OpenRouter reasoning effort for arbitrary economy models", () => {
+      const userAi = defaultUserAi();
+
+      setEconomyLlms(Provider.OPENROUTER, "custom/self-hosted-model");
+      vi.mocked(env).ECONOMY_OPENROUTER_PROVIDERS = undefined;
+
+      const result = getModel(userAi, "economy");
+
+      expect(result.providerOptions?.openrouter?.reasoning).toEqual({
+        effort: "low",
+      });
+    });
+
+    it("should use medium OpenRouter reasoning effort for arbitrary chat models", () => {
+      const userAi = defaultUserAi();
+
+      setChatLlms(Provider.OPENROUTER, "anthropic/claude-sonnet-4.6");
+      vi.mocked(env).CHAT_OPENROUTER_PROVIDERS = undefined;
+
+      const result = getModel(userAi, "chat");
+
+      expect(result.providerOptions?.openrouter?.reasoning).toEqual({
+        effort: "medium",
+      });
+    });
+
+    it("should use medium OpenRouter reasoning effort for arbitrary draft models", () => {
+      const userAi = defaultUserAi();
+
+      setDraftLlms(Provider.OPENROUTER, "custom/self-hosted-model");
+
+      const result = getModel(userAi, "draft");
+
+      expect(result.providerOptions?.openrouter?.reasoning).toEqual({
+        effort: "medium",
       });
     });
 
@@ -801,7 +869,7 @@ describe("Models", () => {
       ]);
     });
 
-    it("should not include OpenRouter reasoning max_tokens for Grok models", () => {
+    it("should use the role reasoning effort for Grok models", () => {
       const userAi = defaultUserAi();
 
       setDefaultLlms(Provider.OPENROUTER, "x-ai/grok-4.1-fast");
@@ -815,7 +883,9 @@ describe("Models", () => {
         "Google Vertex",
         "Anthropic",
       ]);
-      expect(result.providerOptions?.openrouter?.reasoning).toBeUndefined();
+      expect(result.providerOptions?.openrouter?.reasoning).toEqual({
+        effort: "low",
+      });
     });
 
     it("should resolve DEFAULT_LLMS as primary plus ordered fallbacks", () => {
@@ -989,7 +1059,7 @@ describe("Models", () => {
       expect(result.providerOptions).toEqual({
         openrouter: {
           provider: { order: ["Google Vertex", "Anthropic"] },
-          reasoning: { max_tokens: 20 },
+          reasoning: { effort: "low" },
         },
       });
       expect(result.fallbackModels[0]).toMatchObject({
@@ -1001,7 +1071,7 @@ describe("Models", () => {
       ).toEqual(["Google Vertex", "Anthropic"]);
       expect(
         result.fallbackModels[0].providerOptions?.openrouter?.reasoning,
-      ).toBeUndefined();
+      ).toEqual({ effort: "low" });
     });
 
     it("should resolve ordered fallback models for default model type", () => {
@@ -1030,7 +1100,7 @@ describe("Models", () => {
       });
     });
 
-    it("should omit OpenRouter reasoning options for Grok fallback models", () => {
+    it("should apply reasoning effort to Grok fallback models", () => {
       const userAi = defaultUserAi();
 
       setDefaultLlms(Provider.OPEN_AI, "gpt-5.4-mini", [
@@ -1049,7 +1119,7 @@ describe("Models", () => {
       });
       expect(
         result.fallbackModels[0].providerOptions?.openrouter?.reasoning,
-      ).toBeUndefined();
+      ).toEqual({ effort: "low" });
     });
 
     it("should skip fallback models for users with their own API key", () => {
@@ -1351,6 +1421,16 @@ function setChatLlms(
   fallbacks: string[] = [],
 ) {
   vi.mocked(env).CHAT_LLMS = [`${provider}:${modelName}`, ...fallbacks].join(
+    ",",
+  );
+}
+
+function setDraftLlms(
+  provider: string,
+  modelName: string,
+  fallbacks: string[] = [],
+) {
+  vi.mocked(env).DRAFT_LLMS = [`${provider}:${modelName}`, ...fallbacks].join(
     ",",
   );
 }
