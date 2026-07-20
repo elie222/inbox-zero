@@ -755,7 +755,7 @@ describe("Models", () => {
     it("should use medium OpenRouter reasoning effort for arbitrary chat models", () => {
       const userAi = defaultUserAi();
 
-      setChatLlms(Provider.OPENROUTER, "anthropic/claude-sonnet-4.6");
+      setChatLlms(Provider.OPENROUTER, "google/gemini-3-flash");
       vi.mocked(env).CHAT_OPENROUTER_PROVIDERS = undefined;
 
       const result = getModel(userAi, "chat");

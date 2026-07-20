@@ -20,13 +20,9 @@ type ReplyContextThreadEmail = EmailForLLM & {
 
 const logger = createScopedLogger("reply-context-collector");
 const SEARCH_RESULTS_PER_QUERY = 20;
-const MAX_SEARCH_CALLS = 3;
-const MAX_AGENT_STEPS = 8;
-const MAX_TOTAL_CONTEXT_EMAILS = 40;
-const MAX_EXPANDED_THREADS_PER_QUERY = 4;
-const MAX_EXPANDED_EMAILS_PER_QUERY = 20;
-const MAX_CONTEXT_EMAILS_PER_THREAD = 8;
-const MAX_CONTEXT_EMAIL_BODY_LENGTH = 1500;
+const MAX_EXPANDED_THREADS_PER_QUERY = 5;
+const MAX_EXPANDED_EMAILS_PER_QUERY = 40;
+const MAX_CONTEXT_EMAILS_PER_THREAD = 12;
 const THREAD_CONTEXT_BEFORE_MATCH = 2;
 const THREAD_CONTEXT_AFTER_MATCH = 4;
 
@@ -59,7 +55,7 @@ CRITICAL GUIDELINES:
 - The current email thread is already provided to the drafting agent - DO NOT include it in relevantEmails
 - The relevantEmails array should ONLY contain past emails found through your searches that could help draft a response
 - If no relevant past emails are found through searching, leave the relevantEmails array empty
-- Make at most ${MAX_SEARCH_CALLS} search calls. Prefer one targeted search, and use follow-up searches only when they are likely to find meaningfully different context
+- Perform as many searches as needed to confidently gather context, but be efficient
 - Focus on emails that show how similar questions were answered before
 - Only include information that directly helps a downstream drafting agent
 - Omit historical threads whose only useful context asks for details already present in the current thread.
@@ -119,7 +115,6 @@ ${getTodayForLLM()}`;
     });
 
     let result: ReplyContextCollectorResult | null = null;
-    let searchCallCount = 0;
     const seenSearchResultIds = new Set<string>();
 
     await generateText({
@@ -129,7 +124,7 @@ ${getTodayForLLM()}`;
       stopWhen: (result) =>
         result.steps.some((step) =>
           step.toolCalls?.some((call) => call.toolName === "finalizeResults"),
-        ) || result.steps.length >= MAX_AGENT_STEPS,
+        ) || result.steps.length > 25,
       tools: {
         searchEmails: tool({
           description:
@@ -140,23 +135,6 @@ ${getTodayForLLM()}`;
               .describe("Search query to find relevant emails in history"),
           }),
           execute: async ({ query }) => {
-            if (searchCallCount >= MAX_SEARCH_CALLS) {
-              return {
-                success: false,
-                error:
-                  "Search limit reached. Finalize with the context already found.",
-              };
-            }
-
-            if (seenSearchResultIds.size >= MAX_TOTAL_CONTEXT_EMAILS) {
-              return {
-                success: false,
-                error:
-                  "Context limit reached. Finalize with the context already found.",
-              };
-            }
-
-            searchCallCount += 1;
             logger.info("Searching emails", { query });
             try {
               const emails = await searchReplyContextEmails({
@@ -166,30 +144,22 @@ ${getTodayForLLM()}`;
                 currentThread,
               });
 
-              const remainingContextBudget =
-                MAX_TOTAL_CONTEXT_EMAILS - seenSearchResultIds.size;
               const unseenEmails = emails.filter(
                 (email) => !seenSearchResultIds.has(email.id),
               );
-              const returnedEmails = unseenEmails.slice(
-                0,
-                remainingContextBudget,
-              );
 
-              for (const email of returnedEmails) {
+              for (const email of unseenEmails) {
                 seenSearchResultIds.add(email.id);
               }
 
               logger.info("Found emails", {
                 emailCount: emails.length,
-                returnedEmailCount: returnedEmails.length,
+                returnedEmailCount: unseenEmails.length,
                 duplicateEmailCount: emails.length - unseenEmails.length,
-                contextBudgetRemaining:
-                  MAX_TOTAL_CONTEXT_EMAILS - seenSearchResultIds.size,
               });
               // logger.trace("Found emails", { emails });
 
-              return returnedEmails;
+              return unseenEmails;
             } catch (error) {
               const errorMessage =
                 error instanceof Error ? error.message : "Unknown error";
@@ -305,22 +275,15 @@ export async function searchReplyContextEmails({
     .slice(0, MAX_EXPANDED_EMAILS_PER_QUERY)
     .map((message) => {
       const email = getEmailForLLM(message, {
-        maxLength: MAX_CONTEXT_EMAIL_BODY_LENGTH,
+        maxLength: 2000,
         extractReply: true,
-        removeForwarded: true,
         includeLinkUrls: true,
         includeImageAltText: true,
       });
 
       return {
-        id: email.id,
+        ...email,
         threadId: message.threadId,
-        from: email.from,
-        to: email.to,
-        cc: email.cc,
-        subject: email.subject,
-        content: email.content,
-        date: email.date,
       };
     });
 }

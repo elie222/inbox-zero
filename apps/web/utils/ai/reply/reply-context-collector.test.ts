@@ -77,7 +77,7 @@ describe("searchReplyContextEmails", () => {
     expect(resultIds).toContain("message-69");
     expect(resultIds).not.toContain("message-1");
     expect(resultIds).not.toContain("message-40");
-    expect(results.length).toBeLessThanOrEqual(8);
+    expect(results.length).toBeLessThanOrEqual(12);
   });
 
   test("keeps short historical threads intact", async () => {
@@ -90,7 +90,7 @@ describe("searchReplyContextEmails", () => {
         textPlain:
           "Useful answer\n\nOn Mon, May 1, 2026, customer wrote:\n> Matching request",
       }),
-      getMessage({ id: "message-3", textPlain: "x".repeat(1800) }),
+      getMessage({ id: "message-3", textPlain: "Follow-up" }),
     ];
     const provider = getProvider({
       searchResults: [threadMessages[0]],
@@ -110,10 +110,9 @@ describe("searchReplyContextEmails", () => {
       "message-3",
     ]);
     expect(results[1].content).toBe("Useful answer");
-    expect(results[2].content.length).toBeLessThanOrEqual(1503);
   });
 
-  test("bounds and deduplicates accumulated search context", async () => {
+  test("deduplicates context without limiting follow-up searches", async () => {
     const searchResults: unknown[] = [];
     mockCreateGenerateText.mockImplementation(
       () =>
@@ -134,23 +133,23 @@ describe("searchReplyContextEmails", () => {
 
     const getMessagesWithPagination = vi.fn(
       async ({ query }: { query: string }) => ({
-        messages: Array.from({ length: 4 }, (_, index) =>
-          getMessage({
+        messages: Array.from({ length: 4 }, (_, index) => ({
+          ...getMessage({
             id: `${query}-match-${index}`,
-            threadId: `${query}-thread-${index}`,
             textPlain: `Match for ${query}`,
           }),
-        ),
+          threadId: `${query}-thread-${index}`,
+        })),
       }),
     );
     const getThreadMessages = vi.fn(async (threadId: string) =>
-      Array.from({ length: 8 }, (_, index) =>
-        getMessage({
+      Array.from({ length: 8 }, (_, index) => ({
+        ...getMessage({
           id: `${threadId}-message-${index}`,
-          threadId,
           textPlain: `Thread context ${index}`,
         }),
-      ),
+        threadId,
+      })),
     );
     const emailProvider = {
       name: "google",
@@ -169,15 +168,12 @@ describe("searchReplyContextEmails", () => {
       emailProvider,
     });
 
-    expect(getMessagesWithPagination).toHaveBeenCalledTimes(3);
+    expect(getMessagesWithPagination).toHaveBeenCalledTimes(4);
     expect(searchResults).toHaveLength(4);
-    expect(searchResults[0]).toHaveLength(20);
+    expect(searchResults[0]).not.toEqual([]);
     expect(searchResults[1]).toEqual([]);
-    expect(searchResults[2]).toHaveLength(20);
-    expect(searchResults[3]).toEqual({
-      success: false,
-      error: "Search limit reached. Finalize with the context already found.",
-    });
+    expect(searchResults[2]).not.toEqual([]);
+    expect(searchResults[3]).not.toEqual([]);
   });
 });
 
@@ -199,14 +195,12 @@ function getProvider({
 
 function getMessage({
   id,
-  threadId = "thread-1",
   from = "customer@example.com",
   labelIds = ["INBOX"],
   parentFolderId,
   textPlain,
 }: {
   id: string;
-  threadId?: string;
   from?: string;
   labelIds?: string[];
   parentFolderId?: string;
@@ -214,7 +208,7 @@ function getMessage({
 }): ParsedMessage {
   return {
     id,
-    threadId,
+    threadId: "thread-1",
     historyId: "history-1",
     date: "2026-05-01T00:00:00.000Z",
     internalDate: "1777593600000",
