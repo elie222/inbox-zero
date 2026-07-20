@@ -245,9 +245,33 @@ describe("Models", () => {
       expect(result.providerOptions).toEqual({
         google: {
           thinkingConfig: {
-            thinkingLevel: "minimal",
+            thinkingLevel: "low",
           },
         },
+      });
+    });
+
+    it("should configure Gemini 3 chat models with medium thinking", () => {
+      const userAi = defaultUserAi();
+
+      setChatLlms(Provider.GOOGLE, "gemini-3-flash");
+
+      const result = getModel(userAi, "chat");
+
+      expect(result.providerOptions?.google?.thinkingConfig).toEqual({
+        thinkingLevel: "medium",
+      });
+    });
+
+    it("should use dynamic thinking for Gemini 2.5 chat models", () => {
+      const userAi = defaultUserAi();
+
+      setChatLlms(Provider.GOOGLE, "gemini-2.5-flash");
+
+      const result = getModel(userAi, "chat");
+
+      expect(result.providerOptions?.google?.thinkingConfig).toEqual({
+        thinkingBudget: -1,
       });
     });
 
@@ -356,7 +380,7 @@ describe("Models", () => {
       expect(result.providerOptions).toEqual({
         vertex: {
           thinkingConfig: {
-            thinkingLevel: "minimal",
+            thinkingLevel: "low",
           },
         },
       });
@@ -388,7 +412,7 @@ describe("Models", () => {
       expect(result.model).toBeDefined();
     });
 
-    it("should configure AI Gateway Gemini 3 model with minimal thinking", () => {
+    it("should configure AI Gateway Gemini 3 model with low thinking", () => {
       const userAi = defaultUserAi();
 
       setDefaultLlms(Provider.AI_GATEWAY, "google/gemini-3-flash");
@@ -400,7 +424,7 @@ describe("Models", () => {
       expect(result.providerOptions).toEqual({
         google: {
           thinkingConfig: {
-            thinkingLevel: "minimal",
+            thinkingLevel: "low",
           },
         },
       });

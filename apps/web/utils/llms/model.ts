@@ -190,7 +190,7 @@ function selectModel(
     }
     case Provider.GOOGLE: {
       const mod = aiModel || "gemini-2.0-flash";
-      const googleProviderOptions = getGoogleProviderOptions(mod);
+      const googleProviderOptions = getGoogleProviderOptions(mod, modelType);
       return {
         provider: Provider.GOOGLE,
         modelName: mod,
@@ -204,7 +204,10 @@ function selectModel(
     }
     case Provider.VERTEX: {
       const modelName = aiModel || "gemini-3-flash";
-      const googleProviderOptions = getGoogleProviderOptions(modelName);
+      const googleProviderOptions = getGoogleProviderOptions(
+        modelName,
+        modelType,
+      );
       return {
         provider: Provider.VERTEX,
         modelName,
@@ -692,8 +695,9 @@ function getOpenRouterProviderOptions(
 
 function getGoogleProviderOptions(
   modelName: string,
+  modelType: ModelType,
 ): GoogleGenerativeAIProviderOptions | undefined {
-  const thinkingConfig = getGoogleThinkingConfig(modelName);
+  const thinkingConfig = getGoogleThinkingConfig(modelName, modelType);
   if (!thinkingConfig) return;
 
   return { thinkingConfig };
@@ -701,21 +705,27 @@ function getGoogleProviderOptions(
 
 function getGoogleThinkingConfig(
   modelName: string,
+  modelType: ModelType,
 ): GoogleGenerativeAIProviderOptions["thinkingConfig"] | undefined {
   if (isGemini3Model(modelName)) {
-    return { thinkingLevel: "minimal" };
+    return { thinkingLevel: REASONING_EFFORT_BY_MODEL_TYPE[modelType] };
   }
 
-  const thinkingBudget = getGoogleThinkingBudget();
+  const thinkingBudget = getGoogleThinkingBudget(modelType);
   if (thinkingBudget === undefined) return;
 
   return { thinkingBudget };
 }
 
-function getGoogleThinkingBudget(): number | undefined {
+function getGoogleThinkingBudget(modelType: ModelType): number | undefined {
   if (env.GOOGLE_THINKING_BUDGET === 0) return;
+  if (env.GOOGLE_THINKING_BUDGET !== undefined) {
+    return env.GOOGLE_THINKING_BUDGET;
+  }
 
-  return env.GOOGLE_THINKING_BUDGET ?? DEFAULT_GOOGLE_THINKING_BUDGET;
+  return REASONING_EFFORT_BY_MODEL_TYPE[modelType] === "medium"
+    ? -1
+    : DEFAULT_GOOGLE_THINKING_BUDGET;
 }
 
 function isGemini3Model(modelName: string): boolean {
@@ -729,7 +739,10 @@ function getAiGatewayProviderOptions(
   const normalizedModelName = modelName.toLowerCase();
 
   if (normalizedModelName.startsWith("google/")) {
-    const googleProviderOptions = getGoogleProviderOptions(modelName);
+    const googleProviderOptions = getGoogleProviderOptions(
+      modelName,
+      modelType,
+    );
     return {
       ...(googleProviderOptions ? { google: googleProviderOptions } : {}),
     };
