@@ -50,11 +50,14 @@ describe("onRun", () => {
         threads: [{ id: "thread-id", messages: [{ id: "message-id" }] }],
       }),
     } as Response);
+    const activeAction = createDeferred();
     vi.mocked(runAiRules).mockImplementation(
       (_emailAccountId, _threads, _rerun, signal) =>
         new Promise((_resolve, reject) => {
           signal?.addEventListener("abort", () => {
-            reject(new DOMException("Aborted", "AbortError"));
+            activeAction.promise.then(() => {
+              reject(new DOMException("Aborted", "AbortError"));
+            });
           });
         }),
     );
@@ -68,6 +71,10 @@ describe("onRun", () => {
     );
     await vi.waitFor(() => expect(runAiRules).toHaveBeenCalled());
     abort();
+    await Promise.resolve();
+    expect(onComplete).not.toHaveBeenCalled();
+
+    activeAction.resolve();
 
     await vi.waitFor(() => {
       expect(onComplete).toHaveBeenCalledWith("cancelled", 0);
@@ -131,3 +138,11 @@ describe("onRun", () => {
     });
   });
 });
+
+function createDeferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}

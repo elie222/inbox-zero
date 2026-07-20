@@ -11,7 +11,7 @@ import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { usePremium } from "@/hooks/usePremium";
 import { SetDateDropdown } from "@/app/(app)/[emailAccountId]/assistant/SetDateDropdown";
 import { useBeforeUnload } from "@/hooks/useBeforeUnload";
-import { useAiQueueState, clearAiQueueAtom } from "@/store/ai-queue";
+import { useAiQueueState } from "@/store/ai-queue";
 import {
   Dialog,
   DialogContent,
@@ -113,7 +113,6 @@ export function BulkRunRules() {
         },
         (completionStatus, count) => {
           if (completionStatus !== "success") {
-            clearAiQueueAtom();
             dispatch({ type: "STOP", completedCount: count });
             return;
           }
@@ -144,7 +143,6 @@ export function BulkRunRules() {
   const handleStop = () => {
     dispatch({ type: "STOP", completedCount: completed });
     abortRef.current?.();
-    clearAiQueueAtom();
   };
 
   const progressMessage = getProgressMessage(state, remaining);
