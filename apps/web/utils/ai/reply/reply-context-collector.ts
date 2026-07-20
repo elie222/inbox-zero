@@ -115,6 +115,7 @@ ${getTodayForLLM()}`;
     });
 
     let result: ReplyContextCollectorResult | null = null;
+    const seenSearchResultIds = new Set<string>();
 
     await generateText({
       ...modelOptions,
@@ -143,10 +144,22 @@ ${getTodayForLLM()}`;
                 currentThread,
               });
 
-              logger.info("Found emails", { emails: emails.length });
+              const unseenEmails = emails.filter(
+                (email) => !seenSearchResultIds.has(email.id),
+              );
+
+              for (const email of unseenEmails) {
+                seenSearchResultIds.add(email.id);
+              }
+
+              logger.info("Found emails", {
+                emailCount: emails.length,
+                returnedEmailCount: unseenEmails.length,
+                duplicateEmailCount: emails.length - unseenEmails.length,
+              });
               // logger.trace("Found emails", { emails });
 
-              return emails;
+              return unseenEmails;
             } catch (error) {
               const errorMessage =
                 error instanceof Error ? error.message : "Unknown error";
@@ -219,7 +232,7 @@ export async function searchReplyContextEmails({
   query: string;
   after: Date;
   currentThread: ReplyContextThreadEmail[];
-}): Promise<EmailForLLM[]> {
+}): Promise<ReplyContextThreadEmail[]> {
   const { messages } = await emailProvider.getMessagesWithPagination({
     query,
     maxResults: SEARCH_RESULTS_PER_QUERY,
@@ -260,13 +273,19 @@ export async function searchReplyContextEmails({
     "id",
   )
     .slice(0, MAX_EXPANDED_EMAILS_PER_QUERY)
-    .map((message) =>
-      getEmailForLLM(message, {
+    .map((message) => {
+      const email = getEmailForLLM(message, {
         maxLength: 2000,
+        extractReply: true,
         includeLinkUrls: true,
         includeImageAltText: true,
-      }),
-    );
+      });
+
+      return {
+        ...email,
+        threadId: message.threadId,
+      };
+    });
 }
 
 async function getHistoricalThreadMessages({

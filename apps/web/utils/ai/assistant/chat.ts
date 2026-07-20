@@ -53,7 +53,6 @@ const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 240_000,
   messaging: 60_000,
 } satisfies Record<"web" | "messaging", number>;
-const ASSISTANT_CHAT_REASONING_MAX_TOKENS = 100;
 
 type AssistantChatOnStepFinish = NonNullable<
   Parameters<typeof toolCallAgentStream>[0]["onStepFinish"]
@@ -504,11 +503,6 @@ function formatFixRuleExpectedOutcome(context: MessageContext) {
 
 function getChatProviderOptionsForCaching({ chatId }: { chatId?: string }) {
   return {
-    openrouter: {
-      reasoning: {
-        max_tokens: ASSISTANT_CHAT_REASONING_MAX_TOKENS,
-      },
-    },
     ...(chatId
       ? {
           openai: {

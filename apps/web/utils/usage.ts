@@ -54,6 +54,7 @@ export async function saveAiUsage({
   providerReportedCost,
   providerUpstreamInferenceCost,
   providerCostSource,
+  providerRequestIds,
   stepCount,
   toolCallCount,
 }: {
@@ -68,6 +69,7 @@ export async function saveAiUsage({
   providerReportedCost?: number;
   providerUpstreamInferenceCost?: number;
   providerCostSource?: string;
+  providerRequestIds?: string[];
   stepCount?: number;
   toolCallCount?: number;
 }) {
@@ -85,6 +87,29 @@ export async function saveAiUsage({
   const cachedInputTokens = usage.cachedInputTokens ?? 0;
   const reasoningTokens = usage.reasoningTokens ?? 0;
   const totalTokens = usage.totalTokens ?? 0;
+
+  logger.info("AI call completed", {
+    userId,
+    emailAccountId,
+    label,
+    provider,
+    model,
+    isUserApiKey,
+    inputTokens,
+    cachedInputTokens,
+    outputTokens,
+    reasoningTokens,
+    totalTokens,
+    estimatedCost,
+    platformCost,
+    providerReportedCost,
+    providerUpstreamInferenceCost,
+    providerCostSource,
+    providerRequestId: providerRequestIds?.at(-1),
+    providerRequestIds,
+    stepCount,
+    toolCallCount,
+  });
 
   notifyAiUsageListeners({
     cachedInputTokens,
