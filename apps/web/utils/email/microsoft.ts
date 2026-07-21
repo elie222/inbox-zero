@@ -2081,8 +2081,8 @@ function getRequiredOutlookThreadLabelIds({
   labelIds,
   type,
 }: Pick<ThreadsQuery, "labelId" | "labelIds" | "type">): string[] | undefined {
-  if (labelId) return [labelId];
   if (labelIds?.length) return labelIds;
+  if (labelId) return [labelId];
 
   switch (type) {
     case "all":
