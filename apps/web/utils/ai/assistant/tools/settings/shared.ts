@@ -192,16 +192,42 @@ export const updateAssistantSettingsInputSchema = z.object({
     .describe("Structured settings changes to apply."),
 });
 
+const settingsPrimitiveValueSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+
+// The value accepted by a settings change depends on the path. Rather than
+// `z.unknown()` (which produces a typeless `{}` JSON Schema node that strict
+// "openai-compatible" endpoints reject when building a constrained-decoding
+// grammar - "Unrecognized schema"), we describe the full set of shapes any path
+// can take. The exact per-path type is still re-validated downstream against
+// `settingsChangeSchema`, so this only needs to be a permissive superset.
+const settingsLlmValueSchema = z.union([
+  settingsPrimitiveValueSchema,
+  z.array(settingsPrimitiveValueSchema),
+  draftKnowledgeUpsertSchema,
+  z.object({
+    title: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .describe("Title of the draft knowledge item to delete."),
+  }),
+  scheduledCheckInsConfigSchema,
+]);
+
 export const updateAssistantSettingsLlmChangeSchema = z
   .object({
     path: settingsPathSchema.describe(
       "Writable settings path (use a path returned by getAssistantCapabilities).",
     ),
-    value: z
-      .unknown()
-      .describe(
-        "Setting value for the path. Type depends on the path definition.",
-      ),
+    value: settingsLlmValueSchema.describe(
+      "Setting value for the path: a primitive (string, number, boolean, or null), an array of primitives, or an object whose shape depends on the path.",
+    ),
     mode: z
       .enum(["append", "replace"])
       .nullish()
