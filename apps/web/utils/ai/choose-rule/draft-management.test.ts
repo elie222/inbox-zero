@@ -3,9 +3,9 @@ import {
   handlePreviousDraftDeletion,
   extractDraftPlainText,
   stripQuotedContent,
-  stripQuotedHtmlContent,
   isDraftUnmodified,
 } from "@/utils/ai/choose-rule/draft-management";
+import { stripQuotedHtmlContent } from "@/utils/email/parse-message-reply";
 import prisma from "@/utils/prisma";
 import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
