@@ -3,6 +3,7 @@ import type { EmailThread } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { GmailLabel } from "@/utils/gmail/label";
 import * as gmailLabelModule from "@/utils/gmail/label";
+import * as gmailThreadModule from "@/utils/gmail/thread";
 import { GmailProvider } from "./google";
 
 const { envMock, gmailMailMock, gmailDraftMock, gmailSignatureMock } =
@@ -197,6 +198,35 @@ describe("GmailProvider.getSentMessageIds", () => {
       pageToken: undefined,
       labelIds: [GmailLabel.SENT],
     });
+  });
+});
+
+describe("GmailProvider.getThreadsWithQuery", () => {
+  it("uses multiple label IDs in preference to the legacy single label", async () => {
+    const getThreadsWithNextPageToken = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValue({ threads: [], nextPageToken: undefined });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch").mockResolvedValue([]);
+    const provider = new GmailProvider({
+      context: {
+        _options: {
+          auth: { credentials: { access_token: "access-token" } },
+        },
+      },
+    } as any);
+
+    await provider.getThreadsWithQuery({
+      query: {
+        labelId: "Label_123",
+        labelIds: ["Label_123", GmailLabel.INBOX],
+      },
+    });
+
+    expect(getThreadsWithNextPageToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        labelIds: ["Label_123", GmailLabel.INBOX],
+      }),
+    );
   });
 });
 

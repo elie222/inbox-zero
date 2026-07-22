@@ -1415,9 +1415,10 @@ export class GmailProvider implements EmailProvider {
       }
 
       function getLabelIds(type?: string | null) {
-        if (labelIds) {
+        if (labelIds?.length) {
           return labelIds;
         }
+        if (labelId) return [labelId];
 
         switch (type) {
           case "inbox":
@@ -1451,7 +1452,7 @@ export class GmailProvider implements EmailProvider {
         await getThreadsWithNextPageToken({
           gmail: this.client,
           q: getQuery(),
-          labelIds: labelId ? [labelId] : getLabelIds(type) || [],
+          labelIds: getLabelIds(type) || [],
           maxResults: options.maxResults || 50,
           pageToken: options.pageToken || undefined,
           logger: this.logger,
