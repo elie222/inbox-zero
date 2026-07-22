@@ -5,10 +5,8 @@ import {
   parseReply,
   stripForwardedContent,
 } from "@/utils/mail";
-import {
-  stripQuotedContent,
-  stripQuotedHtmlContent,
-} from "@/utils/ai/choose-rule/draft-management";
+import { stripQuotedContent } from "@/utils/ai/choose-rule/draft-management";
+import { stripQuotedHtmlContent } from "@/utils/email/parse-message-reply";
 import {
   stripPlainTextSignature,
   stripProviderSignatureHtml,

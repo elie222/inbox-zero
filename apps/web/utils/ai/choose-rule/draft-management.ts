@@ -1,4 +1,3 @@
-import { load } from "cheerio";
 import prisma from "@/utils/prisma";
 import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import type { ExecutedRule } from "@/generated/prisma/client";
@@ -6,6 +5,7 @@ import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 import { convertEmailHtmlToText } from "@/utils/mail";
 import type { ParsedMessage } from "@/utils/types";
+import { stripQuotedHtmlContent } from "@/utils/email/parse-message-reply";
 
 export type PreviousDraftHandlingResult =
   | {
@@ -175,21 +175,6 @@ export function extractDraftPlainText(draft: ParsedMessage): string {
       : "";
   }
   return draft.textPlain || "";
-}
-
-export function stripQuotedHtmlContent(html: string): string {
-  const $ = load(html, null, false);
-
-  $(
-    [
-      ".gmail_quote_container",
-      ".gmail_quote",
-      ".gmail_attr",
-      "blockquote[type='cite']",
-    ].join(", "),
-  ).remove();
-
-  return $.root().html() || html;
 }
 
 /**
