@@ -59,4 +59,21 @@ describe("GET /api/threads", () => {
       pageToken: undefined,
     });
   });
+
+  it("trims comma-separated and repeated label IDs", async () => {
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/threads?labelIds=Label_123%2C%20INBOX&labelIds=%20STARRED%20&labelIds=%20",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetThreadsWithQuery).toHaveBeenCalledWith({
+      query: expect.objectContaining({
+        labelIds: ["Label_123", "INBOX", "STARRED"],
+      }),
+      maxResults: 50,
+      pageToken: undefined,
+    });
+  });
 });

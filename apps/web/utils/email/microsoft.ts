@@ -1546,7 +1546,7 @@ export class OutlookProvider implements EmailProvider {
       if (type === "sent" && !hasExplicitLabelFilters) {
         endpoint = "/me/mailFolders('sentitems')/messages";
       } else {
-        if (labelId) {
+        if (labelId && !labelIds?.length) {
           const labelFilter = await resolveOutlookThreadQueryFilter({
             client: this.client,
             folderIds: resolvedFolderIds,

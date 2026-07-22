@@ -223,31 +223,31 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     vi.spyOn(outlookMessageModule, "getCategoryMap").mockResolvedValue(
       new Map([["To Reply", "label-to-reply"]]),
     );
-    const provider = new OutlookProvider(
-      createMockOutlookClient([
-        createMessage({
-          id: "inbox-message",
-          conversationId: "inbox-thread",
-          categories: ["To Reply"],
-          parentFolderId: "folder-inbox",
-        }),
-        createMessage({
-          id: "archived-message",
-          conversationId: "archived-thread",
-          categories: ["To Reply"],
-          parentFolderId: "folder-archive",
-        }),
-      ]),
-    );
+    const client = createMockOutlookClient([
+      createMessage({
+        id: "inbox-message",
+        conversationId: "inbox-thread",
+        categories: ["To Reply"],
+        parentFolderId: "folder-inbox",
+      }),
+      createMessage({
+        id: "archived-message",
+        conversationId: "archived-thread",
+        categories: ["To Reply"],
+        parentFolderId: "folder-archive",
+      }),
+    ]);
+    const provider = new OutlookProvider(client);
 
     const result = await provider.getThreadsWithQuery({
       query: {
-        labelId: "label-to-reply",
+        labelId: "ARCHIVE",
         labelIds: ["label-to-reply", "INBOX"],
       },
     });
 
     expect(result.threads.map((thread) => thread.id)).toEqual(["inbox-thread"]);
+    expect(client.getRequestLog()[0]?.filter).toBeUndefined();
   });
 
   it("keeps paging until explicit labelIds produce enough matching threads", async () => {

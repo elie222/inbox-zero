@@ -24,6 +24,7 @@ export const GET = withEmailProvider(
     const labelIds = searchParams
       .getAll("labelIds")
       .flatMap((value) => value.split(","))
+      .map((labelId) => labelId.trim())
       .filter(Boolean);
     const after = searchParams.get("after");
     const before = searchParams.get("before");
