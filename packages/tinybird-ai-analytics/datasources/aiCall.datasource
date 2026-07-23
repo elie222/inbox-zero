@@ -6,6 +6,7 @@ SCHEMA >
     `completionTokens` UInt64 `json:$.completionTokens`,
     `promptTokens` UInt64 `json:$.promptTokens`,
     `cachedInputTokens` UInt64 `json:$.cachedInputTokens`,
+    `cacheCreationInputTokens` Nullable(UInt64) `json:$.cacheCreationInputTokens`,
     `reasoningTokens` UInt64 `json:$.reasoningTokens`,
     `cost` Float32 `json:$.cost`,
     `estimatedCost` Nullable(Float32) `json:$.estimatedCost`,
