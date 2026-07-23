@@ -1136,6 +1136,7 @@ export class OutlookProvider implements EmailProvider {
     query: string;
     maxResults?: number;
     pageToken?: string;
+    fromEmail?: string;
     readState?: "read" | "unread";
     labelName?: string;
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
@@ -1145,6 +1146,7 @@ export class OutlookProvider implements EmailProvider {
         searchQuery: options.query,
         maxResults: options.maxResults || 20,
         pageToken: options.pageToken,
+        fromEmail: options.fromEmail,
         readState: options.readState,
         categoryNames: options.labelName ? [options.labelName] : [],
       },

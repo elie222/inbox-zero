@@ -447,6 +447,13 @@ function matchesOutlookMetadataFilters(
   return true;
 }
 
+function matchesOutlookSender(message: Message, normalizedFromEmail: string) {
+  return (
+    message.from?.emailAddress?.address?.trim().toLowerCase() ===
+    normalizedFromEmail
+  );
+}
+
 function createOutlookMetadataODataFilters(filters: OutlookMetadataFilters) {
   const odataFilters: string[] = [];
 
@@ -471,12 +478,14 @@ export async function queryBatchMessages(
     maxResults?: number;
     pageToken?: string;
     folderId?: string;
+    fromEmail?: string;
     readState?: "read" | "unread";
     categoryNames?: string[];
   },
   logger: Logger,
 ) {
   const { searchQuery, dateFilters, pageToken, folderId } = options;
+  const normalizedFromEmail = options.fromEmail?.trim().toLowerCase();
 
   const MAX_RESULTS = 20;
 
@@ -513,6 +522,12 @@ export async function queryBatchMessages(
 
     const filteredMessages = response.value.filter((message) => {
       if (folderId && message.parentFolderId !== folderId) return false;
+      if (
+        normalizedFromEmail &&
+        !matchesOutlookSender(message, normalizedFromEmail)
+      ) {
+        return false;
+      }
       return matchesOutlookMetadataFilters(message, metadataSearch.filters);
     });
     const messages = await convertMessages(
@@ -573,6 +588,12 @@ export async function queryBatchMessages(
 
     const filteredMessages = response.value.filter((message) => {
       if (folderId && message.parentFolderId !== folderId) return false;
+      if (
+        normalizedFromEmail &&
+        !matchesOutlookSender(message, normalizedFromEmail)
+      ) {
+        return false;
+      }
       return matchesOutlookMetadataFilters(message, metadataSearch.filters);
     });
     const messages = await convertMessages(
@@ -604,6 +625,12 @@ export async function queryBatchMessages(
       filters.push(...metadataSearch.odataFilters);
     }
 
+    if (options.fromEmail) {
+      filters.push(
+        `from/emailAddress/address eq '${escapeODataString(options.fromEmail)}'`,
+      );
+    }
+
     // Add date filters if provided
     if (hasDateFilters) {
       filters.push(...dateFilters!);
@@ -616,7 +643,7 @@ export async function queryBatchMessages(
       folderFilter,
       metadataFilters: metadataSearch.odataFilters,
       dateFilters: dateFilters || [],
-      combinedFilter,
+      hasSenderFilter: !!normalizedFromEmail,
     });
 
     // Only apply filter if we have something to filter
@@ -624,7 +651,9 @@ export async function queryBatchMessages(
       request = request.filter(combinedFilter);
     }
 
-    if (!metadataSearch.odataFilters.length) {
+    // Graph rejects $orderby combined with $filter on sender or metadata
+    // properties (InefficientFilter), so only sort when those are absent
+    if (!metadataSearch.odataFilters.length && !options.fromEmail) {
       request = request.orderby("receivedDateTime DESC");
     }
 
@@ -641,7 +670,7 @@ export async function queryBatchMessages(
     logger.info("Filter results", {
       messageCount: messages.length,
       hasNextPageToken: !!nextPageToken,
-      combinedFilter,
+      hasSenderFilter: !!normalizedFromEmail,
     });
 
     return { messages, nextPageToken };

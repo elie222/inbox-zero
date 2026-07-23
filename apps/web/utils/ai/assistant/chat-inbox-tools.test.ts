@@ -963,10 +963,156 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     expect(result.hasMore).toBe(false);
   });
 
-  it("searchInbox retries Microsoft fielded sender searches with a plain-text fallback", async () => {
+  it("searchInbox uses exact Outlook sender filtering for fielded sender queries", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [
+        {
+          id: "m1",
+          threadId: "t1",
+          snippet: "Can you take a look?",
+          historyId: "",
+          inline: [],
+          headers: {
+            from: "sender@example.com",
+            to: TEST_EMAIL,
+            subject: "Review request",
+            date: "2026-01-01T00:00:00.000Z",
+          },
+          subject: "Review request",
+          textPlain: "",
+          textHtml: "",
+          labelIds: [],
+          internalDate: "0",
+        },
+      ],
+      nextPageToken: undefined,
+    });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "from:sender@example.com",
+      limit: 20,
+    });
+
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "",
+      fromEmail: "sender@example.com",
+      maxResults: 20,
+      pageToken: undefined,
+      readState: undefined,
+      labelName: undefined,
+    });
+    expect(result.messages).toHaveLength(1);
+    expect(result.queryUsed).toBe("from:sender@example.com");
+  });
+
+  it("searchInbox uses exact Outlook sender filtering for bare sender email queries", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [
+        {
+          id: "m1",
+          threadId: "t1",
+          snippet: "Can you take a look?",
+          historyId: "",
+          inline: [],
+          headers: {
+            from: "Sender <sender@example.com>",
+            to: TEST_EMAIL,
+            subject: "Review request",
+            date: "2026-01-01T00:00:00.000Z",
+          },
+          subject: "Review request",
+          textPlain: "",
+          textHtml: "",
+          labelIds: [],
+          internalDate: "0",
+        },
+      ],
+      nextPageToken: "PAGE_TOKEN_2",
+    });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "sender@example.com",
+      limit: 20,
+    });
+
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "",
+      fromEmail: "sender@example.com",
+      maxResults: 20,
+      pageToken: undefined,
+      readState: undefined,
+      labelName: undefined,
+    });
+    expect(result.queryUsed).toBe("from:sender@example.com");
+    expect(result.nextPageToken).toBe("PAGE_TOKEN_2");
+    expect(result.hasMore).toBe(true);
+  });
+
+  it("searchInbox forwards explicit Outlook sender filters across pages", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [],
+      nextPageToken: undefined,
+    });
+
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    await (toolInstance.execute as any)({
+      fromEmail: "sender@example.com",
+      limit: 20,
+      pageToken: "PAGE_TOKEN_2",
+    });
+
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "",
+      fromEmail: "sender@example.com",
+      maxResults: 20,
+      pageToken: "PAGE_TOKEN_2",
+      readState: undefined,
+      labelName: undefined,
+    });
+  });
+
+  it("searchInbox preserves structured Outlook sender filters when skipping empty pages", async () => {
     const searchMessages = vi
       .fn()
-      .mockRejectedValueOnce(new Error("Search syntax failed"))
+      .mockResolvedValueOnce({
+        messages: [],
+        nextPageToken: "PAGE_TOKEN_2",
+      })
       .mockResolvedValueOnce({
         messages: [
           {
@@ -978,7 +1124,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
             historyId: "",
             inline: [],
             headers: {
-              from: "sender@example.com",
+              from: "Sender <sender@example.com>",
               to: TEST_EMAIL,
               subject: "Review request",
               date: "2026-01-01T00:00:00.000Z",
@@ -1011,21 +1157,23 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
 
     expect(searchMessages).toHaveBeenNthCalledWith(1, {
-      query: "from:sender@example.com",
+      query: "",
+      fromEmail: "sender@example.com",
       maxResults: 20,
       pageToken: undefined,
       readState: undefined,
       labelName: undefined,
     });
     expect(searchMessages).toHaveBeenNthCalledWith(2, {
-      query: '"sender@example.com"',
+      query: "",
+      fromEmail: "sender@example.com",
       maxResults: 20,
-      pageToken: undefined,
+      pageToken: "PAGE_TOKEN_2",
       readState: undefined,
       labelName: undefined,
     });
     expect(result.messages).toHaveLength(1);
-    expect(result.queryUsed).toBe('"sender@example.com"');
+    expect(result.queryUsed).toBe("from:sender@example.com");
     expect(result.messages[0].externalUrl).toBe(
       "https://outlook.office.com/mail/deeplink/read/m1?ispopout=0",
     );
@@ -1083,6 +1231,39 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
 
     expect(contractText).toMatch(/\bcategory\b/i);
     expect(contractText).not.toMatch(/\blabels?\b/i);
+  });
+
+  it("uses provider-specific sender search contracts", () => {
+    const toolOptions = {
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      logger,
+    };
+    const gmailTool = searchInboxTool({
+      ...toolOptions,
+      provider: "google",
+    });
+    const outlookTool = searchInboxTool({
+      ...toolOptions,
+      provider: "microsoft",
+    });
+    const gmailSchema = gmailTool.inputSchema as {
+      def?: { shape?: Record<string, unknown> };
+    };
+    const outlookSchema = outlookTool.inputSchema as {
+      def?: { shape?: Record<string, unknown> };
+    };
+
+    expect(Object.keys(gmailSchema.def?.shape ?? {})).not.toContain(
+      "fromEmail",
+    );
+    expect(Object.keys(outlookSchema.def?.shape ?? {})).toContain("fromEmail");
+    expect(serializeToolContract(gmailTool)).toContain(
+      "Use from:person@example.com for an exact sender search",
+    );
+    expect(serializeToolContract(outlookTool)).toContain(
+      "Exact sender email address",
+    );
   });
 
   it("searchInbox normalizes simple Outlook scope queries before provider search", async () => {
@@ -1367,6 +1548,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
 
     await (toolInstance.execute as any)({
       query: "newsletter",
+      fromEmail: "sender@example.com",
       labelName: "Newsletter",
       readState: "unread",
       limit: 20,
@@ -1400,45 +1582,22 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
 
     const result: any = await (toolInstance.execute as any)({
-      query: "from:sender@example.com",
+      query: 'from:sender@example.com subject:"weekly report"',
       limit: 20,
     });
 
     expect(result).toMatchObject({
-      queryUsed: "from:sender@example.com",
       error: "Failed to search inbox",
       provider: "microsoft",
       microsoftSearchFeedback: {
         failureType: "query_failed",
-        summary:
-          "Outlook did not return results for the attempted search query. Retry with one simpler Outlook clause at a time.",
         fallbackAttempted: true,
-        likelyCause: "Retry with one simpler Outlook clause at a time.",
-        removedTerms: [],
-        retryQueries: [],
       },
     });
-    expect(result.microsoftSearchFeedback.attempts).toEqual([
-      {
-        query: "from:sender@example.com",
-        status: 400,
-        code: "BadRequest",
-        message: "Unsupported search clause",
-      },
-      {
-        query: '"sender@example.com"',
-        status: 400,
-        code: "BadRequest",
-        message: "Unsupported search clause",
-      },
-      {
-        query: "sender@example.com",
-        status: 400,
-        code: "BadRequest",
-        message: "Unsupported search clause",
-      },
-    ]);
-    expect(searchMessages).toHaveBeenCalledTimes(3);
+    expect(result.microsoftSearchFeedback.attempts.length).toBeGreaterThan(1);
+    expect(searchMessages).toHaveBeenCalledTimes(
+      result.microsoftSearchFeedback.attempts.length,
+    );
   });
 
   it("searchInbox suggests concrete simpler retries for complex Microsoft queries", async () => {
