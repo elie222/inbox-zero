@@ -42,7 +42,8 @@ function mapLabelColor(provider: string, label: any): EmailLabel["color"] {
     };
   }
 
-  throw new Error(`Unsupported provider: ${provider}`);
+  // Thunderbird (and other non-Gmail/Outlook providers) have no color map.
+  return;
 }
 
 export function EmailProvider(props: { children: React.ReactNode }) {

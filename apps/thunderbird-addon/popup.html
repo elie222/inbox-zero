@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Inbox Zero Bridge</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        min-width: 260px;
+        margin: 0.75rem;
+      }
+      button {
+        display: block;
+        width: 100%;
+        margin-top: 0.4rem;
+        padding: 0.45rem;
+      }
+      #status {
+        margin-top: 0.75rem;
+        font-size: 0.85rem;
+        color: #333;
+        white-space: pre-wrap;
+      }
+      .muted {
+        color: #666;
+        font-size: 0.8rem;
+      }
+    </style>
+  </head>
+  <body>
+    <strong>Inbox Zero Bridge</strong>
+    <p id="conn" class="muted">Checking connection…</p>
+    <button id="openSettings" type="button">Settings</button>
+    <button id="testConnection" type="button">Test connection</button>
+    <button id="processUnread" type="button">Process unread</button>
+    <button id="processRecent" type="button">Process recent (25)</button>
+    <button id="processRecent50" type="button">Process recent (50)</button>
+    <button id="pollActions" type="button">Apply pending actions</button>
+    <p id="status"></p>
+    <script src="popup.js"></script>
+  </body>
+</html>

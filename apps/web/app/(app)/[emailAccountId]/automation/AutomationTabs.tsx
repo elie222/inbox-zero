@@ -7,39 +7,45 @@ import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
 import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/settings/SettingsTab";
 import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTabNew";
+import { ThunderbirdPendingReview } from "@/app/(app)/[emailAccountId]/automation/ThunderbirdPendingReview";
 import { useInfiniteMessages } from "@/hooks/useMessages";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { isThunderbirdProvider } from "@/utils/email/provider-types";
 
-const automationTabs = ["rules", "test", "history", "settings"] as const;
+const automationTabs = [
+  "rules",
+  "pending",
+  "test",
+  "history",
+  "settings",
+] as const;
 type AutomationTab = (typeof automationTabs)[number];
 
 const defaultTab: AutomationTab = "rules";
 
-const tabOptions = [
-  {
-    id: "rules",
-    label: "Rules",
-  },
-  {
-    id: "test",
-    label: "Test",
-  },
-  {
-    id: "history",
-    label: "History",
-  },
-  {
-    id: "settings",
-    label: "Settings",
-  },
-] satisfies { id: AutomationTab; label: string }[];
-
 export function AutomationTabs() {
+  const { provider } = useAccount();
+  const isThunderbird = isThunderbirdProvider(provider);
   const [tab, setTab] = useQueryState("tab", {
     defaultValue: defaultTab,
     history: "push",
   });
-  const selectedTab = isAutomationTab(tab) ? tab : defaultTab;
+  const selectedTab = isAutomationTab(tab)
+    ? tab === "pending" && !isThunderbird
+      ? defaultTab
+      : tab
+    : defaultTab;
   usePrefetchTestTabMessages(selectedTab);
+
+  const tabOptions = [
+    { id: "rules" as const, label: "Rules" },
+    ...(isThunderbird
+      ? [{ id: "pending" as const, label: "Pending" }]
+      : []),
+    { id: "test" as const, label: "Test" },
+    { id: "history" as const, label: "History" },
+    { id: "settings" as const, label: "Settings" },
+  ];
 
   const onSelect = useCallback(
     (value: AutomationTab) => {
@@ -60,6 +66,9 @@ export function AutomationTabs() {
 
       <div className="mt-2 mb-10">
         {selectedTab === "rules" && <RulesTab />}
+        {selectedTab === "pending" && isThunderbird && (
+          <ThunderbirdPendingReview />
+        )}
         {selectedTab === "settings" && <SettingsTab />}
         {selectedTab === "test" && <Process />}
         {selectedTab === "history" && <History />}

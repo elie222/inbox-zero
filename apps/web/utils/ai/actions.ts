@@ -97,7 +97,12 @@ export const runActionFunction = async (options: {
     case ActionType.STAR:
       return star(opts);
     case ActionType.DELETE:
-      if (!isDeleteEmailActionEnabled()) {
+      // Thunderbird bridge applies trash via the add-on; allow it even when the
+      // Gmail/Outlook delete feature flag is off.
+      if (
+        !isDeleteEmailActionEnabled() &&
+        options.client.name !== "thunderbird"
+      ) {
         log.info(
           "Skipping delete action because delete email actions are disabled",
         );

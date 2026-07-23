@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Inbox Zero Bridge Settings</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 40rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.4;
+      }
+      label {
+        display: block;
+        margin-top: 1rem;
+        font-weight: 600;
+      }
+      input {
+        width: 100%;
+        padding: 0.5rem;
+        margin-top: 0.25rem;
+        box-sizing: border-box;
+      }
+      button {
+        margin-top: 1.25rem;
+        padding: 0.6rem 1rem;
+      }
+      .hint {
+        color: #555;
+        font-size: 0.9rem;
+      }
+      #status {
+        margin-top: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Inbox Zero Bridge</h1>
+    <p class="hint">
+      Point this add-on at your local Inbox Zero app. Use the same secret as
+      <code>THUNDERBIRD_BRIDGE_SECRET</code> or <code>INTERNAL_API_KEY</code>.
+    </p>
+
+    <label for="baseUrl">Inbox Zero base URL</label>
+    <input id="baseUrl" type="url" placeholder="http://localhost:3000" />
+
+    <label for="secret">Bridge secret</label>
+    <input id="secret" type="password" autocomplete="off" />
+
+    <label>
+      <input id="enabled" type="checkbox" checked />
+      Process new inbox mail automatically
+    </label>
+
+    <label for="pollSeconds">Action poll interval (seconds)</label>
+    <input id="pollSeconds" type="number" min="5" value="15" />
+    <p class="hint">
+      Uses Thunderbird alarms so polling keeps working while minimized. Leave
+      Thunderbird running (tray is fine); fully quitting it stops the bridge.
+      The Inbox Zero browser tab can be minimized — only the local server needs
+      to stay up.
+    </p>
+
+    <button id="save" type="button">Save</button>
+    <button id="test" type="button">Test connection</button>
+    <button id="register" type="button">Register Thunderbird accounts</button>
+    <button id="processUnread" type="button">Process unread inbox now</button>
+    <button id="processRecent" type="button">Process recent mail (25)</button>
+    <button id="processRecent50" type="button">Process recent mail (50)</button>
+
+    <p id="status"></p>
+    <script src="options.js"></script>
+  </body>
+</html>

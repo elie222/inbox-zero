@@ -44,6 +44,7 @@ To help you spend less time in your inbox, so you can focus on what matters most
 - **Meeting Briefs:** Get personalized briefings before every meeting, pulling context from your email and calendar.
 - **Smart Filing:** Automatically save email attachments to Google Drive or OneDrive.
 - **Slack & Telegram Integration:** Chat with your AI assistant from Slack or Telegram to manage your inbox without leaving the apps you already use.
+- **Thunderbird Bridge (experimental):** Run AI rules against mailboxes already signed into Thunderbird via a local MailExtension — no Gmail/Outlook OAuth required for that path.
 
 
 Learn more in our [docs](https://docs.getinboxzero.com).
@@ -112,6 +113,18 @@ pnpm dev
 ```
 
 Open http://localhost:3000
+
+### Thunderbird bridge (experimental)
+
+Use accounts already signed into Thunderbird with a local Inbox Zero instance:
+
+1. Set `INTERNAL_API_KEY` (or optional `THUNDERBIRD_BRIDGE_SECRET`) in `apps/web/.env.local`
+2. Run `pnpm setup:thunderbird` (optionally pass a mailbox email to seed starter rules)
+3. Load the temporary add-on from `apps/thunderbird-addon/manifest.json` in Thunderbird
+4. Point the add-on at `http://localhost:3000` and register your Thunderbird accounts
+5. Review proposed actions at `/bridge`, then let the add-on apply archive / tag / draft / etc.
+
+Full setup, architecture, and API details: [`apps/thunderbird-addon/README.md`](apps/thunderbird-addon/README.md).
 
 After `pnpm install`, if you want to use the local Google emulator, start it with:
 

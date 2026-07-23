@@ -212,6 +212,7 @@ model EmailAccount {
   filingFolders          FilingFolder[]
   apiKeys                ApiKey[]
   classificationFeedback ClassificationFeedback[]
+  thunderbirdReviewItems ThunderbirdReviewItem[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -916,6 +917,33 @@ model EmailMessage {
   @@index([emailAccountId, date])
   @@index([emailAccountId, from])
   @@index([emailAccountId, fromName])
+}
+
+/// Pending AI suggestions from Thunderbird bridge, awaiting user approve/reject in the web UI.
+model ThunderbirdReviewItem {
+  id                   String                  @id @default(cuid())
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  messageId            String
+  threadId             String
+  thunderbirdMessageId Int?
+  thunderbirdAccountId String?
+  subject              String
+  from                 String
+  to                   String?
+  snippet              String?
+  textPlain            String?
+  messageDate          DateTime?
+  status               ThunderbirdReviewStatus @default(PENDING)
+  ruleNames            String[]                @default([])
+  reason               String?
+  proposedActions      Json
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([emailAccountId, status, createdAt])
+  @@index([emailAccountId, messageId])
 }
 
 model ResponseTime {
@@ -1790,6 +1818,13 @@ enum ExecutedRuleStatus {
   PENDING // @deprecated - No longer created. Kept for historical data only.
   SKIPPED
   ERROR
+}
+
+enum ThunderbirdReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  APPLIED
 }
 
 enum GroupItemType {
