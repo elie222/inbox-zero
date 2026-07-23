@@ -105,8 +105,13 @@ export async function onRun(
       if (completeIfCancelled()) return;
 
       onThreadsQueued(threadsToQueue);
+      await runAiRules(
+        emailAccountId,
+        threadsToQueue,
+        false,
+        abortController.signal,
+      );
       totalProcessed += threadsToQueue.length;
-      runAiRules(emailAccountId, threadsToQueue, false);
 
       if (maxEmails !== undefined && totalProcessed >= maxEmails) break;
       if (!nextPageToken) break;
@@ -124,10 +129,13 @@ export async function onRun(
   }
 
   run().catch((error) => {
+    if (completeIfCancelled()) return;
+
+    abortController.abort();
     captureException(error);
     toastError({
       title: "Failed to process emails",
-      description: "Please try again.",
+      description: error instanceof Error ? error.message : "Please try again.",
     });
     onComplete("error", totalProcessed);
   });

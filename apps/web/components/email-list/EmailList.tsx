@@ -341,8 +341,7 @@ export function EmailList({
           .filter(([, selected]) => selected)
           .map(([id]) => threads.find((t) => t.id === id)!);
 
-        runAiRules(emailAccountId, selectedThreads, false);
-        // runAiRules(threadIds, () => refetch(threadIds));
+        await runAiRules(emailAccountId, selectedThreads, false);
       },
       {
         success: "Running AI rules...",
