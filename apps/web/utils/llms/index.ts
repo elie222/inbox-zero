@@ -174,6 +174,19 @@ type RepairAttemptState = {
   successfulCandidateKind?: RepairCandidateKind;
 };
 
+type LlmFallbackFailureCategory =
+  | "content_filter"
+  | "network"
+  | "rate_limit"
+  | "server_error"
+  | "unknown";
+
+type LlmFallbackFailure = {
+  provider: string;
+  model: string;
+  category: LlmFallbackFailureCategory;
+};
+
 type ProviderCostSource =
   | "openrouter_usage"
   | "openrouter_usage_with_step_fallback"
@@ -457,6 +470,7 @@ export function createGenerateObject({
         label,
       });
     let latestRepairAttempt: RepairAttemptState | undefined;
+    const fallbackFailures: LlmFallbackFailure[] = [];
 
     const generate = async (candidate: ResolvedModel) => {
       const systemText = applyPromptHardeningToSystem({
@@ -576,7 +590,7 @@ export function createGenerateObject({
       latestRepairAttempt = undefined;
 
       try {
-        return await withLLMRetry(
+        const result = await withLLMRetry(
           () =>
             withNetworkRetry(() => generate(candidate), {
               label,
@@ -587,6 +601,24 @@ export function createGenerateObject({
             }),
           { label },
         );
+
+        logger.info("LLM object generation completed", {
+          label,
+          candidateCount: modelCandidates.length,
+          fallbackUsed: index > 0,
+          fallbackDepth: index,
+          selectedProvider: candidate.provider,
+          selectedModel: candidate.modelName,
+          attemptedModels: modelCandidates
+            .slice(0, index + 1)
+            .map(getResolvedModelKey),
+          failedModels: fallbackFailures.map(
+            ({ provider, model }) => `${provider}:${model}`,
+          ),
+          failureCategories: fallbackFailures.map(({ category }) => category),
+        });
+
+        return result;
       } catch (error) {
         if (error instanceof SafeError) throw error;
 
@@ -601,6 +633,11 @@ export function createGenerateObject({
         );
 
         if (nextCandidate && shouldFallbackToNextModel(error)) {
+          fallbackFailures.push({
+            provider: candidate.provider,
+            model: candidate.modelName,
+            category: getLlmFallbackFailureCategory(error),
+          });
           logger.warn("LLM object generation failed, trying fallback model", {
             label,
             provider: candidate.provider,
@@ -1310,6 +1347,28 @@ function getModelCandidates(modelOptions: SelectModel): ResolvedModel[] {
   };
 
   return [primaryModel, ...modelOptions.fallbackModels];
+}
+
+function getResolvedModelKey({ provider, modelName }: ResolvedModel): string {
+  return `${provider}:${modelName}`;
+}
+
+function getLlmFallbackFailureCategory(
+  error: unknown,
+): LlmFallbackFailureCategory {
+  if (isContentFilterRefusal(error)) return "content_filter";
+
+  const errorInfo = extractLLMErrorInfo(error);
+  if (
+    errorInfo.isRateLimit ||
+    (RetryError.isInstance(error) && isAiQuotaExceededError(error))
+  ) {
+    return "rate_limit";
+  }
+  if (isTransientNetworkError(error)) return "network";
+  if (errorInfo.retryable) return "server_error";
+
+  return "unknown";
 }
 
 function shouldFallbackToNextModel(error: unknown): boolean {
