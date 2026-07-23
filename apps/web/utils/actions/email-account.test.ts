@@ -66,6 +66,21 @@ describe("updateEmailAccountRoleAction", () => {
     });
   });
 
+  it("can skip writing onboarding answers when another flow owns the transcript", async () => {
+    const result = await updateEmailAccountRoleAction("email-account-1", {
+      role: "Founder",
+      writeOnboardingAnswers: false,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        surveyRole: "Founder",
+      },
+    });
+  });
+
   it("does not schedule the Loops role update when the DB transaction fails", async () => {
     prisma.$transaction.mockRejectedValue(new Error("db down"));
 

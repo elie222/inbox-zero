@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { OnboardingContent } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingContent";
+import { Onboarding } from "@/app/(app)/[emailAccountId]/onboarding/Onboarding";
 import { registerUtmTracking } from "@/app/(landing)/welcome/utms";
 import { auth } from "@/utils/auth";
 import { BRAND_NAME, getBrandTitle } from "@/utils/branding";
@@ -20,6 +20,7 @@ export default async function OnboardingPage(props: {
   searchParams: Promise<{
     step?: string | string[];
     force?: string | string[];
+    variant?: string | string[];
   }>;
 }) {
   const [searchParams, { emailAccountId }, cookieStore] = await Promise.all([
@@ -29,6 +30,7 @@ export default async function OnboardingPage(props: {
   ]);
   const step = getSingleSearchParamValue(searchParams.step);
   const force = getSingleSearchParamValue(searchParams.force);
+  const variant = getSingleSearchParamValue(searchParams.variant);
 
   const utmValues = registerUtmTracking({
     authPromise: auth(),
@@ -41,7 +43,7 @@ export default async function OnboardingPage(props: {
 
   return (
     <Suspense>
-      <OnboardingContent step={step} />
+      <Onboarding step={step} forcedVariant={variant} />
     </Suspense>
   );
 }

@@ -45,6 +45,12 @@ type MutateFn = (
 
 type QueueArchiveSendersFn = (params: { senders: string[] }) => Promise<number>;
 
+type BulkOperationResult = {
+  total: number;
+  successCount: number;
+  failureCount: number;
+};
+
 function pluralize(count: number, singular: string): string {
   return count === 1 ? singular : `${singular}s`;
 }
@@ -103,7 +109,7 @@ async function executeBulkOperation<T extends Row>({
   errorMessage: string;
   onComplete?: () => Promise<unknown>;
   onSuccess?: () => void;
-}) {
+}): Promise<BulkOperationResult> {
   const total = items.length;
   const toastId = toast.loading(
     `${loadingMessage} ${total} ${pluralize(total, "sender")}...`,
@@ -179,6 +185,12 @@ async function executeBulkOperation<T extends Row>({
     });
     onSuccess?.();
   }
+
+  return {
+    total,
+    successCount: total - failures.length,
+    failureCount: failures.length,
+  };
 }
 
 async function unsubscribeAndArchive({
@@ -392,7 +404,13 @@ export function useBulkUnsubscribe<T extends Row>({
 
   const onBulkUnsubscribe = useCallback(
     async (items: T[]) => {
-      if (!hasUnsubscribeAccess) return;
+      if (!hasUnsubscribeAccess) {
+        return {
+          total: items.length,
+          successCount: 0,
+          failureCount: items.length,
+        };
+      }
       posthog.capture("Clicked Bulk Unsubscribe");
       analytics.captureAction("bulk_unsubscribe_started", {
         item_count: items.length,
@@ -401,7 +419,7 @@ export function useBulkUnsubscribe<T extends Row>({
 
       const messages = getBulkUnsubscribeMessages(items);
 
-      await executeBulkOperation({
+      const result = await executeBulkOperation({
         items,
         mutate,
         filter,
@@ -442,8 +460,11 @@ export function useBulkUnsubscribe<T extends Row>({
       });
       analytics.captureAction("bulk_unsubscribe_completed", {
         item_count: items.length,
+        success_count: result.successCount,
+        failure_count: result.failureCount,
         filter,
       });
+      return result;
     },
     [
       hasUnsubscribeAccess,

@@ -87,6 +87,15 @@ export function useWelcomePricingVariant() {
   );
 }
 
+export type OnboardingChatVariant = "control" | "chat";
+
+export function useOnboardingChatVariant() {
+  return (
+    (useFeatureFlagVariantKey("onboarding-chat") as OnboardingChatVariant) ||
+    "control"
+  );
+}
+
 export type OnboardingBulkUnsubscribeVariant = "control" | "inline-unsubscribe";
 
 // A/B test for the onboarding bulk-unsubscribe step: "control" shows the
