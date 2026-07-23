@@ -35,7 +35,11 @@ import {
   sendEmailTool,
   startSenderCategorizationTool,
 } from "./chat-inbox-tools";
-import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
+import {
+  deleteMemoryTool,
+  saveMemoryTool,
+  searchMemoriesTool,
+} from "./chat-memory-tools";
 import { getCalendarEventsTool } from "./chat-calendar-tools";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 import type { SerializedMatchReason } from "@/utils/ai/choose-rule/types";
@@ -281,6 +285,7 @@ export async function aiProcessAssistantChat({
     updateAssistantSettings: updateAssistantSettingsTool(toolOptions),
     // Memory
     searchMemories: searchMemoriesTool(toolOptions),
+    deleteMemory: deleteMemoryTool(toolOptions),
     saveMemory: saveMemoryTool({
       ...toolOptions,
       chatId,
@@ -713,8 +718,9 @@ export function buildResolvedSystemPrompt({
 - Knowledge base entries are reusable drafting reference material.
 - Rules and settings are for automation behavior and supported account features.`,
     `Memory and knowledge routing:
-- Memory requests have three possible outcomes. If saveMemory returned saved=true, say the memory is saved. If saveMemory returned requiresConfirmation=true, say it still needs UI confirmation before it is saved. If no memory write tool was called or the tool failed, say nothing changed or ask for the missing detail.
-- Match your response to the actual memory outcome. Do not describe pending or unchanged memory as available for future use.`,
+- Memory save requests have three possible outcomes. If saveMemory returned saved=true, say the memory is saved. If saveMemory returned requiresConfirmation=true, say it still needs UI confirmation before it is saved. If no memory write tool was called or the tool failed, say nothing changed or ask for the missing detail.
+- For memory deletion requests, use deleteMemory. If the user describes the memory without exact wording, searchMemories first, then deleteMemory with a specific matching phrase. If deleteMemory returned deleted=true, say the memory was removed. If it returned deleted=false, say no memory was removed and follow the tool message.
+- Match your response to the actual memory outcome. Do not describe pending, deleted=false, or failed memory changes as available for future use.`,
     `Write and confirmation policy:
 - When the user gives a direct inbox action request (${providerPolicy.threadActionPolicy}), search for the relevant threads and then execute the action using the returned threadIds. The user's request is the confirmation — do not stop after searching to summarize or ask for permission.
 - For delete or trash requests, use trash_threads on matching threadIds; do not use sender-wide archive actions.
@@ -767,6 +773,7 @@ export function buildResolvedSystemPrompt({
 - Choose the durable write path by user intent:
   * updatePersonalInstructions for how the assistant should behave in future.
   * saveMemory for a fact or preference the user states or asks you to remember.
+  * deleteMemory when the user asks to remove a saved chat memory.
   * updateAssistantSettings only for supported assistant.* settings.
   * addToKnowledgeBase only when the user explicitly asks for the knowledge base or reusable reference material.`,
     `Response style and formatting:

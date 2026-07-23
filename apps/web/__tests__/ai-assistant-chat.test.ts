@@ -52,6 +52,7 @@ const {
     },
     chatMemory: {
       create: vi.fn(),
+      deleteMany: vi.fn(),
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
     },
@@ -2114,6 +2115,60 @@ describe("aiProcessAssistantChat", () => {
         },
       ],
     });
+  });
+
+  it("deleteMemory removes the single matching memory", async () => {
+    const tools = await captureToolSet();
+    mockPrisma.chatMemory.findMany.mockResolvedValue([
+      {
+        id: "memory-1",
+        content: "I like cats",
+      },
+    ]);
+    mockPrisma.chatMemory.deleteMany.mockResolvedValue({ count: 1 });
+
+    const result = await tools.deleteMemory.execute({ query: "cats" });
+
+    expect(result).toEqual({
+      success: true,
+      deleted: true,
+      content: "I like cats",
+    });
+    expect(mockPrisma.chatMemory.deleteMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "email-account-id",
+        id: "memory-1",
+      },
+    });
+    expect(mockPrisma.emailAccount.update).not.toHaveBeenCalled();
+  });
+
+  it("deleteMemory does not delete when multiple memories match", async () => {
+    const tools = await captureToolSet();
+    mockPrisma.chatMemory.findMany.mockResolvedValue([
+      {
+        id: "memory-1",
+        content: "I like cats",
+      },
+      {
+        id: "memory-2",
+        content: "My cat is named Maple",
+      },
+    ]);
+
+    const result = await tools.deleteMemory.execute({ query: "cat" });
+
+    expect(result).toEqual({
+      success: true,
+      deleted: false,
+      matches: [
+        { content: "I like cats" },
+        { content: "My cat is named Maple" },
+      ],
+      message:
+        "Multiple matching memories found. Ask the user which one to delete.",
+    });
+    expect(mockPrisma.chatMemory.deleteMany).not.toHaveBeenCalled();
   });
 
   it("saveMemory uses pre-compaction conversation messages when provided", async () => {

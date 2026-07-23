@@ -17,7 +17,7 @@ export const searchMemoriesTool = ({
 }) =>
   tool({
     description:
-      "Search saved chat memories from previous conversations. For broad recall requests, use an empty query.",
+      "Search saved chat memories from previous conversations. For broad recall requests, use an empty query. For deletion requests with non-exact wording, search first, then call deleteMemory with a specific matching phrase.",
     inputSchema: z.object({
       query: z
         .string()
@@ -74,6 +74,96 @@ export const searchMemoriesTool = ({
 export type SearchMemoriesTool = InferUITool<
   ReturnType<typeof searchMemoriesTool>
 >;
+
+const deleteMemoryInputSchema = z.object({
+  query: z
+    .string()
+    .trim()
+    .min(1)
+    .max(300)
+    .describe(
+      "Short phrase identifying the saved chat memory to delete. Use the user's phrase or the most specific term from a prior searchMemories result.",
+    ),
+});
+
+export const deleteMemoryTool = ({
+  email,
+  emailAccountId,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  logger: Logger;
+}) =>
+  tool({
+    description: `Delete one saved chat memory. Use this when the user explicitly asks to erase, forget, remove, or delete a saved memory.
+
+This only affects assistant-chat memories. Do not use settings, rules, personal instructions, or knowledge-base tools for chat-memory deletion.
+
+The tool deletes only when exactly one saved memory matches the query. If multiple memories match, ask the user which one to delete instead of guessing.`,
+    inputSchema: deleteMemoryInputSchema,
+    execute: async ({ query }) => {
+      logger.trace("Tool call: delete_memory", { email });
+      try {
+        const matchingMemories = await prisma.chatMemory.findMany({
+          where: {
+            emailAccountId,
+            content: {
+              contains: query,
+              mode: "insensitive" as const,
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+          select: {
+            id: true,
+            content: true,
+          },
+        });
+
+        if (matchingMemories.length === 0) {
+          return {
+            success: true,
+            deleted: false,
+            message: "No matching memory found.",
+          };
+        }
+
+        if (matchingMemories.length > 1) {
+          return {
+            success: true,
+            deleted: false,
+            matches: matchingMemories.map((memory) => ({
+              content: memory.content,
+            })),
+            message:
+              "Multiple matching memories found. Ask the user which one to delete.",
+          };
+        }
+
+        const memory = matchingMemories[0];
+        await prisma.chatMemory.deleteMany({
+          where: {
+            emailAccountId,
+            id: memory.id,
+          },
+        });
+
+        return {
+          success: true,
+          deleted: true,
+          content: memory.content,
+        };
+      } catch (error) {
+        logger.error("Failed to delete memory", { error });
+        return {
+          error: "Failed to delete memory",
+        };
+      }
+    },
+  });
+
+export type DeleteMemoryTool = InferUITool<ReturnType<typeof deleteMemoryTool>>;
 
 const memoryContentSchema = z
   .string()
