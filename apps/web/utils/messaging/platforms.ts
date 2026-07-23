@@ -1,10 +1,14 @@
+// Lowercase platforms correspond to the real-time chat-SDK bot integrations.
+// Webhook is a one-way delivery provider with no bot platform, so it is
+// intentionally not a MessagingPlatform.
 export type MessagingPlatform = "slack" | "teams" | "telegram";
-export type MessagingProvider = "SLACK" | "TEAMS" | "TELEGRAM";
+export type MessagingProvider = "SLACK" | "TEAMS" | "TELEGRAM" | "WEBHOOK";
 
 const PROVIDER_NAMES: Record<MessagingProvider, string> = {
   SLACK: "Slack",
   TEAMS: "Teams",
   TELEGRAM: "Telegram",
+  WEBHOOK: "Webhook",
 };
 
 export function getMessagingProviderName(
