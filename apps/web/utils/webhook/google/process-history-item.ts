@@ -8,14 +8,22 @@ import { processHistoryItem as processHistoryItemShared } from "@/utils/webhook/
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { GmailLabel } from "@/utils/gmail/label";
 import type { Logger } from "@/utils/logger";
+import {
+  reconcileStatsForCurrentGmailMessage,
+  reconcileStatsForDeletedMessage,
+  shouldReconcileStatsForLabelEvent,
+} from "@/utils/webhook/google/sync-email-message-stats";
+
+type GmailHistoryItem =
+  | gmail_v1.Schema$HistoryMessageAdded
+  | gmail_v1.Schema$HistoryMessageDeleted
+  | gmail_v1.Schema$HistoryLabelAdded
+  | gmail_v1.Schema$HistoryLabelRemoved;
 
 export async function processHistoryItem(
   historyItem: {
     type: HistoryEventType;
-    item:
-      | gmail_v1.Schema$HistoryMessageAdded
-      | gmail_v1.Schema$HistoryLabelAdded
-      | gmail_v1.Schema$HistoryLabelRemoved;
+    item: GmailHistoryItem;
   },
   options: ProcessHistoryOptions,
   logger: Logger,
@@ -26,12 +34,24 @@ export async function processHistoryItem(
   const threadId = item.message?.threadId;
   const emailAccountId = emailAccount.id;
 
-  if (!messageId || !threadId) return;
+  if (!messageId) return;
 
   logger.info("Gmail history item received", {
     eventType: type,
-    labelIds: item.message?.labelIds,
+    labelIds: "labelIds" in item ? item.labelIds : undefined,
   });
+
+  if (type === HistoryEventType.MESSAGE_DELETED) {
+    await reconcileStatsForDeletedMessage({
+      emailAccountId,
+      messageId,
+      threadId,
+      logger,
+    });
+    return;
+  }
+
+  if (!threadId) return;
 
   const provider = await createEmailProvider({
     emailAccountId,
@@ -39,7 +59,17 @@ export async function processHistoryItem(
     logger,
   });
 
-  const lockAndProcessShared = async () => {
+  const reconcileCurrentMessage = async (reason: string) =>
+    reconcileStatsForCurrentGmailMessage({
+      emailAccountId,
+      messageId,
+      threadId,
+      provider,
+      logger,
+      reason,
+    });
+
+  const lockAndProcessShared = async (reason: string) => {
     const isFree = await markMessageAsProcessing({
       userEmail: emailAccount.email,
       messageId,
@@ -49,10 +79,13 @@ export async function processHistoryItem(
       return;
     }
 
+    const message = await reconcileCurrentMessage(reason);
+    if (!message) return;
+
     logger.info("Gmail lock acquired, calling shared processor");
 
     return processHistoryItemShared(
-      { messageId, threadId },
+      { messageId, threadId, message },
       {
         provider,
         emailAccount,
@@ -66,9 +99,15 @@ export async function processHistoryItem(
 
   // Handle Google-specific label events
   if (type === HistoryEventType.LABEL_REMOVED) {
+    const labelRemovedItem = item as gmail_v1.Schema$HistoryLabelRemoved;
+
+    if (shouldReconcileStatsForLabelEvent(labelRemovedItem.labelIds)) {
+      await reconcileCurrentMessage("gmail-label-removed");
+    }
+
     logger.info("Processing label removed event for learning");
     return handleLabelRemovedEvent(
-      item as gmail_v1.Schema$HistoryLabelRemoved,
+      labelRemovedItem,
       {
         emailAccount,
         provider,
@@ -79,7 +118,11 @@ export async function processHistoryItem(
     const labelAddedItem = item as gmail_v1.Schema$HistoryLabelAdded;
 
     if (labelAddedItem.labelIds?.includes(GmailLabel.SENT)) {
-      return lockAndProcessShared();
+      return lockAndProcessShared("gmail-sent-label-added");
+    }
+
+    if (shouldReconcileStatsForLabelEvent(labelAddedItem.labelIds)) {
+      await reconcileCurrentMessage("gmail-label-added");
     }
 
     logger.info("Processing label added event for learning");
@@ -93,5 +136,5 @@ export async function processHistoryItem(
     );
   }
 
-  return lockAndProcessShared();
+  return lockAndProcessShared("gmail-message-added");
 }

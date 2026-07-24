@@ -225,6 +225,7 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
   for (const h of history) {
     const historyMessages = [
       ...(h.messagesAdded || []),
+      ...(h.messagesDeleted || []),
       ...(h.labelsAdded || []),
       ...(h.labelsRemoved || []),
     ];
@@ -244,6 +245,10 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
           return isRelevant;
         })
         .map((m) => ({ type: HistoryEventType.MESSAGE_ADDED, item: m })),
+      ...(h.messagesDeleted || []).map((m) => ({
+        type: HistoryEventType.MESSAGE_DELETED,
+        item: m,
+      })),
       ...(h.labelsAdded || []).map((m) => ({
         type: HistoryEventType.LABEL_ADDED,
         item: m,
@@ -254,10 +259,7 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
       })),
     ];
 
-    const uniqueEvents = uniqBy(
-      allEvents,
-      (e) => `${e.type}:${e.item.message?.id}`,
-    );
+    const uniqueEvents = uniqBy(allEvents, getHistoryEventDedupeKey);
 
     for (const event of uniqueEvents) {
       const log = logger.with({
@@ -311,6 +313,26 @@ async function updateLastSyncedHistoryId({
       OR CAST("lastSyncedHistoryId" AS NUMERIC) < CAST(${lastSyncedHistoryId} AS NUMERIC)
     )
   `;
+}
+
+function getHistoryEventDedupeKey(event: {
+  type: HistoryEventType;
+  item: {
+    message?: { id?: string | null } | null;
+    labelIds?: string[] | null;
+  };
+}) {
+  const messageId = event.item.message?.id ?? "missing-message-id";
+
+  if (
+    event.type === HistoryEventType.LABEL_ADDED ||
+    event.type === HistoryEventType.LABEL_REMOVED
+  ) {
+    const labelKey = [...(event.item.labelIds ?? [])].sort().join(",");
+    return `${event.type}:${messageId}:${labelKey}`;
+  }
+
+  return `${event.type}:${messageId}`;
 }
 
 const isInboxOrSentMessage = (message: {
@@ -419,7 +441,12 @@ async function fetchGmailHistoryResilient({
         gmail,
         {
           startHistoryId,
-          historyTypes: ["messageAdded", "labelAdded", "labelRemoved"],
+          historyTypes: [
+            "messageAdded",
+            "messageDeleted",
+            "labelAdded",
+            "labelRemoved",
+          ],
           maxResults: GMAIL_HISTORY_PAGE_SIZE,
           pageToken,
         },

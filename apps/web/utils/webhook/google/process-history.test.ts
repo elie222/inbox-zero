@@ -211,7 +211,15 @@ describe("processHistoryForUser - 404 Handling", () => {
 
     expect(getHistory).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ startHistoryId: "1000" }),
+      expect.objectContaining({
+        startHistoryId: "1000",
+        historyTypes: [
+          "messageAdded",
+          "messageDeleted",
+          "labelAdded",
+          "labelRemoved",
+        ],
+      }),
       expect.any(Object),
     );
   });
