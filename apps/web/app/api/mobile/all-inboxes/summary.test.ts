@@ -107,6 +107,64 @@ describe("loadAllInboxesSummary", () => {
       "error",
     ]);
   });
+
+  it("settles the started inbox request when label loading fails", async () => {
+    let rejectInbox!: (reason?: unknown) => void;
+    const inboxPromise = new Promise<never>((_, reject) => {
+      rejectInbox = reject;
+    });
+    const provider = {
+      getLabels: vi.fn().mockRejectedValue(new Error("Labels unavailable")),
+      getThreadsWithQuery: vi.fn().mockReturnValue(inboxPromise),
+    } as unknown as EmailProvider;
+    let settled = false;
+
+    const resultPromise = loadAllInboxesSummary({
+      accounts: [
+        { id: "account-1", email: "one@example.com", provider: "google" },
+      ],
+      after: new Date("2026-07-23T00:00:00.000Z"),
+      createProvider: vi.fn().mockResolvedValue(provider),
+      logger,
+    }).then((result) => {
+      settled = true;
+      return result;
+    });
+
+    await vi.waitFor(() => expect(provider.getLabels).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(settled).toBe(false);
+
+    rejectInbox(new Error("Inbox unavailable"));
+
+    await expect(resultPromise).resolves.toMatchObject({
+      failedAccountIds: ["account-1"],
+      accounts: [{ accountId: "account-1", status: "error" }],
+    });
+  });
+
+  it("drops threads emptied by ignored-sender filtering", async () => {
+    const provider = createProvider({
+      replies: [
+        thread(
+          "ignored-thread",
+          ["INBOX", "reply-label"],
+          "Reminder <reminder@superhuman.com>",
+        ),
+      ],
+    });
+
+    const result = await loadAllInboxesSummary({
+      accounts: [
+        { id: "account-1", email: "one@example.com", provider: "google" },
+      ],
+      after: new Date("2026-07-23T00:00:00.000Z"),
+      createProvider: vi.fn().mockResolvedValue(provider),
+      logger,
+    });
+
+    expect(result.accounts[0].replies).toEqual([]);
+  });
 });
 
 function createProvider({
@@ -137,7 +195,11 @@ function createProviderResult() {
   return createProvider({});
 }
 
-function thread(id: string, labelIds: string[]): EmailThread {
+function thread(
+  id: string,
+  labelIds: string[],
+  from = "Sender <sender@example.com>",
+): EmailThread {
   return {
     id,
     snippet: id,
@@ -153,7 +215,7 @@ function thread(id: string, labelIds: string[]): EmailThread {
         subject: id,
         headers: {
           date: "2026-07-23T12:00:00.000Z",
-          from: "Sender <sender@example.com>",
+          from,
           subject: id,
           to: "recipient@example.com",
         },

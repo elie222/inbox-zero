@@ -105,4 +105,41 @@ describe("POST /api/mobile/all-inboxes/archive", () => {
       failed: [{ accountId: "owned-account", threadId: "thread-2" }],
     });
   });
+
+  it("reports every account thread when provider initialization fails", async () => {
+    prisma.emailAccount.findMany.mockResolvedValue([
+      {
+        id: "owned-account",
+        email: "owner@example.com",
+        account: { provider: "google" },
+      },
+    ] as never);
+    createEmailProviderMock.mockRejectedValueOnce(
+      new Error("Provider unavailable"),
+    );
+
+    const response = await POST(
+      new NextRequest("http://localhost:3000/api/mobile/all-inboxes/archive", {
+        method: "POST",
+        body: JSON.stringify({
+          threads: [
+            { accountId: "owned-account", threadId: "thread-1" },
+            { accountId: "owned-account", threadId: "thread-2" },
+          ],
+        }),
+      }),
+      {} as never,
+    );
+
+    expect(archiveThreadMock).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      archived: 0,
+      total: 2,
+      succeeded: [],
+      failed: [
+        { accountId: "owned-account", threadId: "thread-1" },
+        { accountId: "owned-account", threadId: "thread-2" },
+      ],
+    });
+  });
 });

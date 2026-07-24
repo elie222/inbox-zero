@@ -1,6 +1,7 @@
 import type { EmailProvider, EmailThread } from "@/utils/email/types";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { Logger } from "@/utils/logger";
+import { mapWithConcurrency } from "./map-with-concurrency";
 
 const INBOX_LABEL_ID = "INBOX";
 const TO_REPLY_LABEL_NAME = "To Reply";
@@ -49,11 +50,17 @@ export async function loadAllInboxesSummary({
 
       try {
         const emailProvider = await createProvider(account);
-        const inboxPromise = emailProvider.getThreadsWithQuery({
-          query: { type: "inbox", after },
-          maxResults: 100,
-        });
-        const labels = await emailProvider.getLabels();
+        const [inboxResult, labelsResult] = await Promise.allSettled([
+          emailProvider.getThreadsWithQuery({
+            query: { type: "inbox", after },
+            maxResults: 100,
+          }),
+          emailProvider.getLabels(),
+        ]);
+        if (labelsResult.status === "rejected") {
+          throw labelsResult.reason;
+        }
+        const labels = labelsResult.value;
         const toReplyLabel = labels.find(
           (label) =>
             label.name.toLowerCase() === TO_REPLY_LABEL_NAME.toLowerCase(),
@@ -68,17 +75,13 @@ export async function loadAllInboxesSummary({
         const repliesPromise = toReplyLabel
           ? emailProvider.getThreadsWithQuery({
               query: {
-                labelId: toReplyLabel.id,
                 labelIds: [toReplyLabel.id, INBOX_LABEL_ID],
               },
               maxResults: 20,
             })
           : Promise.resolve({ threads: [] as EmailThread[] });
 
-        const [inboxResult, repliesResult] = await Promise.allSettled([
-          inboxPromise,
-          repliesPromise,
-        ]);
+        const [repliesResult] = await Promise.allSettled([repliesPromise]);
         const inboxThreads =
           inboxResult.status === "fulfilled"
             ? normalizeThreads(inboxResult.value.threads)
@@ -150,11 +153,10 @@ export async function loadAllInboxesSummary({
 }
 
 function normalizeThreads(threads: EmailThread[]): EmailThread[] {
-  return threads.map((thread) => ({
-    ...thread,
+  return threads.flatMap((thread) => {
     // List and category screens only need metadata. Full bodies and attachment
     // details are fetched by the existing thread-detail endpoint on demand.
-    messages: thread.messages
+    const messages = thread.messages
       .filter((message) => {
         if (!message.headers?.from) return true;
         return !isIgnoredSender(message.headers.from);
@@ -166,27 +168,8 @@ function normalizeThreads(threads: EmailThread[]): EmailThread[] {
         rawRecipients: undefined,
         textHtml: undefined,
         textPlain: undefined,
-      })),
-  }));
-}
+      }));
 
-export async function mapWithConcurrency<Input, Output>(
-  values: Input[],
-  concurrency: number,
-  mapper: (value: Input) => Promise<Output>,
-): Promise<Output[]> {
-  const results = new Array<Output>(values.length);
-  let nextIndex = 0;
-
-  async function worker() {
-    while (nextIndex < values.length) {
-      const index = nextIndex++;
-      results[index] = await mapper(values[index]);
-    }
-  }
-
-  await Promise.all(
-    Array.from({ length: Math.min(concurrency, values.length) }, worker),
-  );
-  return results;
+    return messages.length ? [{ ...thread, messages }] : [];
+  });
 }

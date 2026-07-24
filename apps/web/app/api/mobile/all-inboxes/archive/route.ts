@@ -3,10 +3,12 @@ import { z } from "zod";
 import { createEmailProvider } from "@/utils/email/provider";
 import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { mapWithConcurrency } from "../summary";
+import { mapWithConcurrency } from "../map-with-concurrency";
 
 const ARCHIVE_CONCURRENCY = 4;
 const ACCOUNT_CONCURRENCY = 4;
+
+export const maxDuration = 300;
 
 const bodySchema = z.object({
   threads: z
