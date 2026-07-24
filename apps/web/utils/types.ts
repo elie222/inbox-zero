@@ -85,6 +85,7 @@ export interface Attachment {
 
 interface Headers {
   "content-description": string;
+  "content-disposition"?: string;
   "content-id": string;
   "content-transfer-encoding": string;
   "content-type": string;
