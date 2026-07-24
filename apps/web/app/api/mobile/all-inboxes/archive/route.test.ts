@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 
-const { archiveThreadMock, createEmailProviderMock } = vi.hoisted(() => ({
-  archiveThreadMock: vi.fn(),
+const { bulkArchiveThreadsMock, createEmailProviderMock } = vi.hoisted(() => ({
+  bulkArchiveThreadsMock: vi.fn(),
   createEmailProviderMock: vi.fn(),
 }));
 
@@ -25,9 +25,14 @@ describe("POST /api/mobile/all-inboxes/archive", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     createEmailProviderMock.mockResolvedValue({
-      archiveThreadWithLabel: archiveThreadMock,
+      bulkArchiveThreads: bulkArchiveThreadsMock,
     });
-    archiveThreadMock.mockResolvedValue(undefined);
+    bulkArchiveThreadsMock.mockImplementation(async (threads) => ({
+      succeededThreadIds: threads.map(
+        (thread: { threadId: string }) => thread.threadId,
+      ),
+      failedThreadIds: [],
+    }));
   });
 
   it("archives only accounts owned by the authenticated user", async () => {
@@ -44,9 +49,21 @@ describe("POST /api/mobile/all-inboxes/archive", () => {
         method: "POST",
         body: JSON.stringify({
           threads: [
-            { accountId: "owned-account", threadId: "thread-1" },
-            { accountId: "owned-account", threadId: "thread-1" },
-            { accountId: "other-account", threadId: "thread-2" },
+            {
+              accountId: "owned-account",
+              threadId: "thread-1",
+              messageIds: ["message-1"],
+            },
+            {
+              accountId: "owned-account",
+              threadId: "thread-1",
+              messageIds: ["message-1"],
+            },
+            {
+              accountId: "other-account",
+              threadId: "thread-2",
+              messageIds: ["message-2"],
+            },
           ],
         }),
       }),
@@ -61,12 +78,12 @@ describe("POST /api/mobile/all-inboxes/archive", () => {
         }),
       }),
     );
-    expect(archiveThreadMock).toHaveBeenCalledTimes(1);
-    expect(archiveThreadMock).toHaveBeenCalledWith(
-      "thread-1",
+    expect(bulkArchiveThreadsMock).toHaveBeenCalledTimes(1);
+    expect(bulkArchiveThreadsMock).toHaveBeenCalledWith(
+      [{ threadId: "thread-1", messageIds: ["message-1"] }],
       "owner@example.com",
     );
-    await expect(response.json()).resolves.toMatchObject({
+    await expect(response.json()).resolves.toEqual({
       archived: 1,
       total: 2,
       succeeded: [{ accountId: "owned-account", threadId: "thread-1" }],
@@ -74,7 +91,7 @@ describe("POST /api/mobile/all-inboxes/archive", () => {
     });
   });
 
-  it("reports individual provider failures without failing the whole request", async () => {
+  it("reports partial bulk provider failures without failing the whole request", async () => {
     prisma.emailAccount.findMany.mockResolvedValue([
       {
         id: "owned-account",
@@ -82,26 +99,36 @@ describe("POST /api/mobile/all-inboxes/archive", () => {
         account: { provider: "google" },
       },
     ] as never);
-    archiveThreadMock
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error("Provider failure"));
+    bulkArchiveThreadsMock.mockResolvedValueOnce({
+      succeededThreadIds: ["thread-1"],
+      failedThreadIds: ["thread-2"],
+    });
 
     const response = await POST(
       new NextRequest("http://localhost:3000/api/mobile/all-inboxes/archive", {
         method: "POST",
         body: JSON.stringify({
           threads: [
-            { accountId: "owned-account", threadId: "thread-1" },
-            { accountId: "owned-account", threadId: "thread-2" },
+            {
+              accountId: "owned-account",
+              threadId: "thread-1",
+              messageIds: ["message-1"],
+            },
+            {
+              accountId: "owned-account",
+              threadId: "thread-2",
+              messageIds: ["message-2"],
+            },
           ],
         }),
       }),
       {} as never,
     );
 
-    await expect(response.json()).resolves.toMatchObject({
+    await expect(response.json()).resolves.toEqual({
       archived: 1,
       total: 2,
+      succeeded: [{ accountId: "owned-account", threadId: "thread-1" }],
       failed: [{ accountId: "owned-account", threadId: "thread-2" }],
     });
   });
@@ -123,15 +150,23 @@ describe("POST /api/mobile/all-inboxes/archive", () => {
         method: "POST",
         body: JSON.stringify({
           threads: [
-            { accountId: "owned-account", threadId: "thread-1" },
-            { accountId: "owned-account", threadId: "thread-2" },
+            {
+              accountId: "owned-account",
+              threadId: "thread-1",
+              messageIds: ["message-1"],
+            },
+            {
+              accountId: "owned-account",
+              threadId: "thread-2",
+              messageIds: ["message-2"],
+            },
           ],
         }),
       }),
       {} as never,
     );
 
-    expect(archiveThreadMock).not.toHaveBeenCalled();
+    expect(bulkArchiveThreadsMock).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({
       archived: 0,
       total: 2,

@@ -5,7 +5,6 @@ import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { mapWithConcurrency } from "../map-with-concurrency";
 
-const ARCHIVE_CONCURRENCY = 4;
 const ACCOUNT_CONCURRENCY = 4;
 
 export const maxDuration = 300;
@@ -16,11 +15,15 @@ const bodySchema = z.object({
       z.object({
         accountId: z.string().min(1),
         threadId: z.string().min(1),
+        messageIds: z.array(z.string().min(1)).min(1),
       }),
     )
     .min(1)
     .max(500),
 });
+
+type ArchiveThread = z.infer<typeof bodySchema>["threads"][number];
+type ArchiveThreadRef = Pick<ArchiveThread, "accountId" | "threadId">;
 
 export const POST = withAuth("mobile/all-inboxes/archive", async (request) => {
   const { threads } = bodySchema.parse(await request.json());
@@ -52,8 +55,8 @@ export const POST = withAuth("mobile/all-inboxes/archive", async (request) => {
   const accountsById = new Map(
     accounts.map((account) => [account.id, account]),
   );
-  const succeeded: typeof uniqueThreads = [];
-  const failed: typeof uniqueThreads = [];
+  const succeeded: ArchiveThreadRef[] = [];
+  const failed: ArchiveThreadRef[] = [];
 
   await mapWithConcurrency(
     accountIds,
@@ -64,7 +67,7 @@ export const POST = withAuth("mobile/all-inboxes/archive", async (request) => {
       );
       const account = accountsById.get(accountId);
       if (!account) {
-        failed.push(...accountThreads);
+        failed.push(...accountThreads.map(toArchiveThreadRef));
         return;
       }
 
@@ -75,34 +78,32 @@ export const POST = withAuth("mobile/all-inboxes/archive", async (request) => {
           provider: account.account.provider,
           logger,
         });
-        await mapWithConcurrency(
-          accountThreads,
-          ARCHIVE_CONCURRENCY,
-          async (thread) => {
-            try {
-              await emailProvider.archiveThreadWithLabel(
-                thread.threadId,
-                account.email,
-              );
-              succeeded.push(thread);
-            } catch (error) {
-              logger.warn("Failed to archive all-inboxes thread", {
-                error,
-                threadId: thread.threadId,
-              });
-              failed.push(thread);
-            }
-          },
+        const result = await emailProvider.bulkArchiveThreads(
+          accountThreads.map(({ threadId, messageIds }) => ({
+            threadId,
+            messageIds,
+          })),
+          account.email,
         );
+        const succeededThreadIds = new Set(result.succeededThreadIds);
+        const failedThreadIds = new Set(result.failedThreadIds);
+
+        for (const thread of accountThreads) {
+          if (
+            succeededThreadIds.has(thread.threadId) &&
+            !failedThreadIds.has(thread.threadId)
+          ) {
+            succeeded.push(toArchiveThreadRef(thread));
+          } else {
+            failed.push(toArchiveThreadRef(thread));
+          }
+        }
       } catch (error) {
-        request.logger.warn(
-          "Failed to initialize all-inboxes archive provider",
-          {
-            error,
-            emailAccountId: account.id,
-          },
-        );
-        failed.push(...accountThreads);
+        request.logger.warn("Failed to archive all-inboxes account threads", {
+          error,
+          emailAccountId: account.id,
+        });
+        failed.push(...accountThreads.map(toArchiveThreadRef));
       }
     },
   );
@@ -114,3 +115,10 @@ export const POST = withAuth("mobile/all-inboxes/archive", async (request) => {
     failed,
   });
 });
+
+function toArchiveThreadRef(thread: ArchiveThread): ArchiveThreadRef {
+  return {
+    accountId: thread.accountId,
+    threadId: thread.threadId,
+  };
+}

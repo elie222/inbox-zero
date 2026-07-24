@@ -78,6 +78,10 @@ export const createMockEmailProvider = (
   getPreviousConversationMessages: vi.fn().mockResolvedValue([]),
   archiveThread: vi.fn().mockResolvedValue(undefined),
   archiveThreadWithLabel: vi.fn().mockResolvedValue(undefined),
+  bulkArchiveThreads: vi.fn().mockResolvedValue({
+    succeededThreadIds: [],
+    failedThreadIds: [],
+  }),
   archiveMessage: vi.fn().mockResolvedValue(undefined),
   trashThread: vi.fn().mockResolvedValue(undefined),
   bulkArchiveFromSenders: vi.fn().mockResolvedValue(undefined),

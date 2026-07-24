@@ -32,6 +32,13 @@ describe("loadAllInboxesSummary", () => {
     });
 
     expect(result.failedAccountIds).toEqual([]);
+    expect(accountOneProvider.getThreadsWithQuery).toHaveBeenCalledWith({
+      query: {
+        type: "inbox",
+        after: new Date("2026-07-23T00:00:00.000Z"),
+      },
+      maxResults: 20,
+    });
     expect(
       result.accounts[0].categories[0].threads[0].messages[0],
     ).toMatchObject({

@@ -53,7 +53,7 @@ export async function loadAllInboxesSummary({
         const [inboxResult, labelsResult] = await Promise.allSettled([
           emailProvider.getThreadsWithQuery({
             query: { type: "inbox", after },
-            maxResults: 100,
+            maxResults: 20,
           }),
           emailProvider.getLabels(),
         ]);
