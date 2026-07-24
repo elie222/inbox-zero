@@ -27,14 +27,29 @@ type ArchiveThreadRef = Pick<ArchiveThread, "accountId" | "threadId">;
 
 export const POST = withAuth("mobile/all-inboxes/archive", async (request) => {
   const { threads } = bodySchema.parse(await request.json());
-  const uniqueThreads = [
-    ...new Map(
-      threads.map((thread) => [
-        `${thread.accountId}:${thread.threadId}`,
-        thread,
-      ]),
-    ).values(),
-  ];
+  const threadsByKey = new Map<
+    string,
+    Omit<ArchiveThread, "messageIds"> & { messageIds: Set<string> }
+  >();
+  for (const thread of threads) {
+    const key = `${thread.accountId}:${thread.threadId}`;
+    const existingThread = threadsByKey.get(key);
+    if (existingThread) {
+      for (const messageId of thread.messageIds) {
+        existingThread.messageIds.add(messageId);
+      }
+    } else {
+      threadsByKey.set(key, {
+        accountId: thread.accountId,
+        threadId: thread.threadId,
+        messageIds: new Set(thread.messageIds),
+      });
+    }
+  }
+  const uniqueThreads = [...threadsByKey.values()].map((thread) => ({
+    ...thread,
+    messageIds: [...thread.messageIds],
+  }));
   const accountIds = [
     ...new Set(uniqueThreads.map((thread) => thread.accountId)),
   ];

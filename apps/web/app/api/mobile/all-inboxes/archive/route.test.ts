@@ -52,17 +52,17 @@ describe("POST /api/mobile/all-inboxes/archive", () => {
             {
               accountId: "owned-account",
               threadId: "thread-1",
-              messageIds: ["message-1"],
+              messageIds: ["message-1", "message-2"],
             },
             {
               accountId: "owned-account",
               threadId: "thread-1",
-              messageIds: ["message-1"],
+              messageIds: ["message-2", "message-3"],
             },
             {
               accountId: "other-account",
               threadId: "thread-2",
-              messageIds: ["message-2"],
+              messageIds: ["message-4"],
             },
           ],
         }),
@@ -80,7 +80,12 @@ describe("POST /api/mobile/all-inboxes/archive", () => {
     );
     expect(bulkArchiveThreadsMock).toHaveBeenCalledTimes(1);
     expect(bulkArchiveThreadsMock).toHaveBeenCalledWith(
-      [{ threadId: "thread-1", messageIds: ["message-1"] }],
+      [
+        {
+          threadId: "thread-1",
+          messageIds: ["message-1", "message-2", "message-3"],
+        },
+      ],
       "owner@example.com",
     );
     await expect(response.json()).resolves.toEqual({
