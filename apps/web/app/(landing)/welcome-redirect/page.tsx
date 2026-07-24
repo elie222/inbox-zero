@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/utils/auth";
 import prisma from "@/utils/prisma";
 import { redirectToEmailAccountPath } from "@/utils/account";
+import { isPremiumRecord, premiumEntitlementSelect } from "@/utils/premium";
 
 export default async function WelcomeRedirectPage(props: {
   searchParams: Promise<{ force?: boolean }>;
@@ -13,7 +14,10 @@ export default async function WelcomeRedirectPage(props: {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { completedOnboardingAt: true },
+    select: {
+      completedOnboardingAt: true,
+      premiumId: true,
+    },
   });
 
   // Session exists but user doesn't - invalid state, log out
@@ -22,5 +26,17 @@ export default async function WelcomeRedirectPage(props: {
   if (user.completedOnboardingAt) {
     await redirectToEmailAccountPath("/automation");
   }
+
+  if (user.premiumId) {
+    const premium = await prisma.premium.findUnique({
+      where: { id: user.premiumId },
+      select: premiumEntitlementSelect,
+    });
+
+    if (isPremiumRecord(premium)) {
+      await redirectToEmailAccountPath("/setup");
+    }
+  }
+
   redirect("/onboarding");
 }
