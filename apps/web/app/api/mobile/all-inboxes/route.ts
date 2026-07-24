@@ -8,6 +8,7 @@ import { loadAllInboxesSummary } from "./summary";
 export const maxDuration = 30;
 
 const querySchema = z.object({
+  accountId: z.string().min(1).optional(),
   after: z.coerce.date(),
 });
 
@@ -16,11 +17,12 @@ export type GetAllInboxesResponse = Awaited<
 >;
 
 export const GET = withAuth("mobile/all-inboxes", async (request) => {
-  const { after } = querySchema.parse(
+  const { accountId, after } = querySchema.parse(
     Object.fromEntries(new URL(request.url).searchParams),
   );
   const accounts = await prisma.emailAccount.findMany({
     where: {
+      ...(accountId ? { id: accountId } : {}),
       userId: request.auth.userId,
       account: { disconnectedAt: null },
     },

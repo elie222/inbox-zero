@@ -79,4 +79,40 @@ describe("GET /api/mobile/all-inboxes", () => {
       failedAccountIds: [],
     });
   });
+
+  it("can scope the summary to one owned account", async () => {
+    prisma.emailAccount.findMany.mockResolvedValue([
+      {
+        id: "account-2",
+        email: "two@example.com",
+        account: { provider: "microsoft" },
+      },
+    ] as never);
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/mobile/all-inboxes?accountId=account-2&after=2026-07-23T00%3A00%3A00.000Z",
+      ),
+      {} as never,
+    );
+
+    expect(prisma.emailAccount.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "account-2",
+          userId: "user-1",
+          account: { disconnectedAt: null },
+        },
+      }),
+    );
+    await expect(response.json()).resolves.toMatchObject({
+      accounts: [
+        {
+          accountId: "account-2",
+          email: "two@example.com",
+          status: "ok",
+        },
+      ],
+    });
+  });
 });
