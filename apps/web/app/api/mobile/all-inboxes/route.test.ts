@@ -66,7 +66,7 @@ describe("GET /api/mobile/all-inboxes", () => {
         type: "inbox",
         after: new Date("2026-07-23T00:00:00.000Z"),
       },
-      maxResults: 100,
+      maxResults: 20,
     });
     await expect(response.json()).resolves.toMatchObject({
       accounts: [
