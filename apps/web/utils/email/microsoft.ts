@@ -63,6 +63,8 @@ import type {
   EmailFilter,
   EmailSignature,
   SentMessagePage,
+  BulkArchiveThread,
+  BulkArchiveResult,
 } from "@/utils/email/types";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
@@ -76,7 +78,10 @@ import {
   getOutlookFolderTree,
 } from "@/utils/outlook/folders";
 import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
-import { moveMessagesForSenders } from "@/utils/outlook/batch";
+import {
+  moveMessagesForSenders,
+  moveThreadsInBatches,
+} from "@/utils/outlook/batch";
 import {
   extractErrorInfo,
   isRetryableError,
@@ -436,6 +441,19 @@ export class OutlookProvider implements EmailProvider {
       ownerEmail,
       actionSource: "user",
       folderId: "archive",
+      logger: this.logger,
+    });
+  }
+
+  async bulkArchiveThreads(
+    threads: BulkArchiveThread[],
+    ownerEmail: string,
+  ): Promise<BulkArchiveResult> {
+    return moveThreadsInBatches({
+      client: this.client,
+      threads,
+      destinationId: "archive",
+      ownerEmail,
       logger: this.logger,
     });
   }

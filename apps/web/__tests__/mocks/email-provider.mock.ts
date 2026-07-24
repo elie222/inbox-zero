@@ -106,6 +106,10 @@ export function createMockEmailProvider(
     // Thread/message actions
     archiveThread: vi.fn().mockResolvedValue(undefined),
     archiveThreadWithLabel: vi.fn().mockResolvedValue(undefined),
+    bulkArchiveThreads: vi.fn().mockResolvedValue({
+      succeededThreadIds: [],
+      failedThreadIds: [],
+    }),
     archiveMessage: vi.fn().mockResolvedValue(undefined),
     trashThread: vi.fn().mockResolvedValue(undefined),
     markSpam: vi.fn().mockResolvedValue(undefined),

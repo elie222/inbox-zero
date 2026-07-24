@@ -1,4 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
+import chunk from "lodash/chunk";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import type { MessageWithPayload, ParsedMessage } from "@/utils/types";
 import { parseMessage } from "@/utils/gmail/message";
@@ -59,7 +60,11 @@ import {
 } from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { getDraft, deleteDraft, sendDraft } from "@/utils/gmail/draft";
-import { extractErrorInfo, withGmailRetry } from "@/utils/gmail/retry";
+import {
+  extractErrorInfo,
+  isRetryableError,
+  withGmailRetry,
+} from "@/utils/gmail/retry";
 import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import {
@@ -76,6 +81,8 @@ import type {
   EmailFilter,
   EmailSignature,
   SentMessagePage,
+  BulkArchiveThread,
+  BulkArchiveResult,
 } from "@/utils/email/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
@@ -315,6 +322,81 @@ export class GmailProvider implements EmailProvider {
       actionSource: "user",
       labelId,
     });
+  }
+
+  async bulkArchiveThreads(
+    threads: BulkArchiveThread[],
+    ownerEmail: string,
+  ): Promise<BulkArchiveResult> {
+    const threadIdsByMessageId = new Map<string, Set<string>>();
+    const failedThreadIds = new Set<string>();
+
+    for (const thread of threads) {
+      if (thread.messageIds.length === 0) {
+        failedThreadIds.add(thread.threadId);
+      }
+      for (const messageId of thread.messageIds) {
+        const threadIds = threadIdsByMessageId.get(messageId) ?? new Set();
+        threadIds.add(thread.threadId);
+        threadIdsByMessageId.set(messageId, threadIds);
+      }
+    }
+
+    const messageIdChunks = chunk([...threadIdsByMessageId.keys()], 1000);
+    for (let index = 0; index < messageIdChunks.length; index++) {
+      const messageIds = messageIdChunks[index];
+
+      try {
+        await this.withRateLimitTracking("bulk-archive-threads", () =>
+          withGmailRetry(() =>
+            this.client.users.messages.batchModify({
+              userId: "me",
+              requestBody: {
+                ids: messageIds,
+                removeLabelIds: [GmailLabel.INBOX],
+              },
+            }),
+          ),
+        );
+      } catch (error) {
+        for (const messageId of messageIds) {
+          for (const threadId of threadIdsByMessageId.get(messageId) ?? []) {
+            failedThreadIds.add(threadId);
+          }
+        }
+
+        if (isRetryableError(extractErrorInfo(error)).isRateLimit) {
+          for (const remainingMessageIds of messageIdChunks.slice(index + 1)) {
+            for (const messageId of remainingMessageIds) {
+              for (const threadId of threadIdsByMessageId.get(messageId) ??
+                []) {
+                failedThreadIds.add(threadId);
+              }
+            }
+          }
+          break;
+        }
+      }
+    }
+
+    const succeededThreadIds = threads
+      .map((thread) => thread.threadId)
+      .filter((threadId) => !failedThreadIds.has(threadId));
+
+    if (succeededThreadIds.length > 0) {
+      await publishBulkActionToTinybird({
+        threadIds: succeededThreadIds,
+        action: "archive",
+        ownerEmail,
+      });
+    }
+
+    return {
+      succeededThreadIds,
+      failedThreadIds: threads
+        .map((thread) => thread.threadId)
+        .filter((threadId) => failedThreadIds.has(threadId)),
+    };
   }
 
   async archiveMessage(messageId: string): Promise<void> {
