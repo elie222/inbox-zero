@@ -259,6 +259,7 @@ describe("researchCompanyAction", () => {
   beforeEach(() => {
     prisma.company.findFirst.mockResolvedValue(null);
     prisma.company.update.mockResolvedValue({} as any);
+    prisma.companyLabel.findMany.mockResolvedValue([]);
     createEmailProviderMock.mockResolvedValue({
       getMessagesFromSender: vi.fn().mockResolvedValue({ messages: [] }),
     });
@@ -285,6 +286,7 @@ describe("researchCompanyAction", () => {
       summary: "700Credit provides credit and compliance tools to dealers.",
       suggestedName: "700Credit",
       renamed: true,
+      suggestedLabel: null,
     });
     expect(prisma.company.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -314,6 +316,7 @@ describe("researchCompanyAction", () => {
       summary: "A dealership group in the northeastern US.",
       suggestedName: "Nucar Automotive Group",
       renamed: false,
+      suggestedLabel: null,
     });
     expect(prisma.company.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -342,5 +345,91 @@ describe("researchCompanyAction", () => {
     expect(prisma.company.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { aiSummary: "Summary." } }),
     );
+  });
+});
+
+describe("researchCompanyAction label suggestions", () => {
+  beforeEach(() => {
+    prisma.company.update.mockResolvedValue({} as any);
+    createEmailProviderMock.mockResolvedValue({
+      getMessagesFromSender: vi.fn().mockResolvedValue({ messages: [] }),
+    });
+  });
+
+  it("suggests an existing label without applying it", async () => {
+    prisma.company.findFirst.mockResolvedValueOnce({
+      id: "co-1",
+      name: "Toyota",
+      domains: ["toyota.com"],
+      labelId: null,
+    } as any);
+    prisma.companyLabel.findMany.mockResolvedValue([
+      { id: "lb-1", name: "Factory", parentId: null },
+      { id: "lb-2", name: "Toyota Brands", parentId: "lb-1" },
+    ] as any);
+    aiResearchCompanyMock.mockResolvedValue({
+      name: null,
+      summary: "Summary.",
+      label: { name: "toyota brands", parentName: "Factory" },
+    });
+
+    const result = await researchCompanyAction("account-1", { id: "co-1" });
+
+    expect(result?.data?.suggestedLabel).toEqual({
+      name: "Toyota Brands",
+      parentName: "Factory",
+      isNew: false,
+    });
+    // Manual research never applies labels on its own
+    expect(prisma.company.update).toHaveBeenCalledTimes(1);
+    expect(prisma.company.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { aiSummary: "Summary." } }),
+    );
+  });
+
+  it("marks a label the user doesn't have yet as new", async () => {
+    prisma.company.findFirst.mockResolvedValueOnce({
+      id: "co-1",
+      name: "Stripe",
+      domains: ["stripe.com"],
+      labelId: null,
+    } as any);
+    prisma.companyLabel.findMany.mockResolvedValue([
+      { id: "lb-1", name: "Factory", parentId: null },
+    ] as any);
+    aiResearchCompanyMock.mockResolvedValue({
+      name: null,
+      summary: "Summary.",
+      label: { name: "Payments", parentName: "Vendors" },
+    });
+
+    const result = await researchCompanyAction("account-1", { id: "co-1" });
+
+    expect(result?.data?.suggestedLabel).toEqual({
+      name: "Payments",
+      parentName: "Vendors",
+      isNew: true,
+    });
+  });
+
+  it("suggests nothing when the AI's pick is the current label", async () => {
+    prisma.company.findFirst.mockResolvedValueOnce({
+      id: "co-1",
+      name: "Toyota",
+      domains: ["toyota.com"],
+      labelId: "lb-2",
+    } as any);
+    prisma.companyLabel.findMany.mockResolvedValue([
+      { id: "lb-2", name: "Factory", parentId: null },
+    ] as any);
+    aiResearchCompanyMock.mockResolvedValue({
+      name: null,
+      summary: "Summary.",
+      label: { name: "Factory", parentName: null },
+    });
+
+    const result = await researchCompanyAction("account-1", { id: "co-1" });
+
+    expect(result?.data?.suggestedLabel).toBeNull();
   });
 });

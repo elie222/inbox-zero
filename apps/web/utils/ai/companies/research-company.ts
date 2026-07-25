@@ -19,6 +19,24 @@ const schema = z.object({
     .describe(
       "2-4 sentences: who this company is and what they do — products/services, industry, and anything notable (size, location, who they serve). Ground every claim in the research or the emails.",
     ),
+  label: z
+    .object({
+      name: z
+        .string()
+        .describe(
+          "An existing label's exact name when one fits, otherwise a short new label name.",
+        ),
+      parentName: z
+        .string()
+        .nullable()
+        .describe(
+          "The exact name of the existing top-level label to nest under, or null for top level.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "The label this company belongs under, given the user's label structure. Strongly prefer an existing label; only propose a new one (optionally nested under an existing top-level label) when nothing fits. Null when there's no sensible fit at all.",
+    ),
 });
 export type CompanyResearchResult = z.infer<typeof schema>;
 
@@ -33,12 +51,16 @@ export async function aiResearchCompany({
   companyName,
   domains,
   emails,
+  labels,
   logger,
 }: {
   emailAccount: EmailAccountWithAI;
   companyName: string;
   domains: string[];
   emails: EmailForLLM[];
+  // The user's label structure ("Factory", "Factory › Toyota", …) so the
+  // AI can suggest where this company belongs
+  labels: { name: string; parentName: string | null }[];
   logger: Logger;
 }): Promise<CompanyResearchResult | null> {
   const webNotes = await runWebResearch({
@@ -57,11 +79,24 @@ You are given research material about the company currently saved as "${companyN
 Your task:
 1. Determine the company's properly formatted official name — the capitalization and spacing they actually use, which domain names lose (e.g. the domain "700credit.com" belongs to "700Credit", "route24autogroup.com" to "Route 24 Auto Group").
 2. Write a short summary of who they are and what they do, so the user can read about them at a glance.
+3. Suggest which of the user's labels this company belongs under. Strongly prefer an existing label (use its exact name). Only propose a new label — optionally nested under an existing top-level label — when nothing existing fits; keep new names short and consistent with the user's naming style. Return null when no label makes sense.
 
 Rules:
 - Only state what the research material or emails support. Never invent facts about the company.
 - If the material doesn't identify the company, return null for the name and summarize only what the emails show about the relationship.
 </instructions>
+
+<existing_labels>
+${
+  labels.length
+    ? labels
+        .map((label) =>
+          label.parentName ? `${label.parentName} › ${label.name}` : label.name,
+        )
+        .join("\n")
+    : "(none yet)"
+}
+</existing_labels>
 
 ${getUserInfoPrompt({ emailAccount })}
 
@@ -69,6 +104,7 @@ ${getUserInfoPrompt({ emailAccount })}
 Respond with a JSON object:
 - "name": string or null — the properly formatted company name.
 - "summary": string — 2-4 sentences on who they are and what they do.
+- "label": { "name": string, "parentName": string or null } or null — where this company belongs in the user's labels; an existing label's exact name, or a new one when nothing fits.
 </outputFormat>`;
 
   const prompt = `${
