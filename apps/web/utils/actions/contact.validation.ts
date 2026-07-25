@@ -68,6 +68,12 @@ export const setDomainIgnoredBody = z.object({
 });
 export type SetDomainIgnoredBody = z.infer<typeof setDomainIgnoredBody>;
 
+export const setContactIgnoredBody = z.object({
+  email: z.string().trim().min(1).max(320),
+  ignored: z.boolean(),
+});
+export type SetContactIgnoredBody = z.infer<typeof setContactIgnoredBody>;
+
 export const updateCompanyBody = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(200).optional(),

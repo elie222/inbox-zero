@@ -11,6 +11,7 @@ import {
   deleteContactBody,
   enrichContactBody,
   setCarddavAccessBody,
+  setContactIgnoredBody,
   setDomainIgnoredBody,
   setGoogleContactsSyncBody,
   updateCompanyBody,
@@ -363,6 +364,36 @@ export const setDomainIgnoredAction = actionClient
       }
 
       return { domain: normalized, ignored };
+    },
+  );
+
+// Hides one address from the contacts list — for robots that slip past the
+// automated-sender heuristics (or any address the user never wants to see).
+// A saved Contact row stays (and keeps syncing) so restoring is lossless;
+// only the list output is suppressed. Restorable from the Suggested view.
+export const setContactIgnoredAction = actionClient
+  .metadata({ name: "setContactIgnored" })
+  .inputSchema(setContactIgnoredBody)
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { email, ignored } }) => {
+      const normalized = email.trim().toLowerCase();
+
+      if (ignored) {
+        await prisma.$executeRaw`
+          UPDATE "EmailAccount"
+          SET "ignoredContactEmails" = (
+            SELECT COALESCE(array_agg(DISTINCT e), ARRAY[]::text[])
+            FROM unnest(array_append("ignoredContactEmails", ${normalized})) AS e
+          )
+          WHERE id = ${emailAccountId}`;
+      } else {
+        await prisma.$executeRaw`
+          UPDATE "EmailAccount"
+          SET "ignoredContactEmails" = array_remove("ignoredContactEmails", ${normalized})
+          WHERE id = ${emailAccountId}`;
+      }
+
+      return { email: normalized, ignored };
     },
   );
 

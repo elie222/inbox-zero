@@ -184,6 +184,9 @@ model EmailAccount {
   carddavPasswordHash       String?
   // Email domains dismissed from the contacts "Suggested companies" list
   ignoredContactDomains     String[]  @default([])
+  // Individual addresses hidden from the contacts list (robots that slip
+  // past the automated-sender heuristics); restorable from Suggested
+  ignoredContactEmails      String[]  @default([])
 
   digestSendEmail     Boolean   @default(true)
   digestSchedule      Schedule?

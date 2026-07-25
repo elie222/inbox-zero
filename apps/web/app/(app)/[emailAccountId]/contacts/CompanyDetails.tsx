@@ -89,11 +89,25 @@ export function CompanyDetails({
   const staleCount = members.filter((c) => c.stale).length;
 
   // Already volume-sorted when fetched; re-sort covers the window fallback
-  const topContacts = [...members]
-    .sort(
-      (a, b) => b.receivedCount + b.sentCount - (a.receivedCount + a.sentCount),
-    )
-    .slice(0, 5);
+  const sortedMembers = [...members].sort(
+    (a, b) => b.receivedCount + b.sentCount - (a.receivedCount + a.sentCount),
+  );
+
+  // Search the company's full-history people; without a search, show the
+  // top 5 with a reveal for the rest
+  const [peopleSearch, setPeopleSearch] = useState("");
+  const [showAllPeople, setShowAllPeople] = useState(false);
+  const searchTerm = peopleSearch.trim().toLowerCase();
+  const matchedMembers = searchTerm
+    ? sortedMembers.filter(
+        (contact) =>
+          contact.email.toLowerCase().includes(searchTerm) ||
+          contact.name?.toLowerCase().includes(searchTerm) ||
+          contact.title?.toLowerCase().includes(searchTerm),
+      )
+    : showAllPeople
+      ? sortedMembers
+      : sortedMembers.slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -182,43 +196,65 @@ export function CompanyDetails({
             </p>
           )}
 
-          {topContacts.length === 0 &&
+          {sortedMembers.length === 0 &&
             !fetchedMembers.data &&
             !fetchedMembers.error &&
             group.domains.length > 0 && (
               <p className="text-sm text-muted-foreground">Loading people…</p>
             )}
 
-          {topContacts.length > 0 && (
+          {sortedMembers.length > 0 && (
             <div>
               <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
-                Top people
+                People
               </h3>
-              <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-                {topContacts.map((contact) => (
-                  <button
-                    key={contact.email}
-                    type="button"
-                    className="flex w-full items-center gap-3 bg-background px-3 py-2 text-left hover:bg-muted/50"
-                    onClick={() => onSelectContact(contact)}
-                  >
-                    <ContactAvatar contact={contact} companies={companies} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">
-                        {contact.name || contact.email}
+              <Input
+                value={peopleSearch}
+                placeholder={`Search ${company?.name ?? group.name} people…`}
+                className="mb-2"
+                onChange={(event) => setPeopleSearch(event.target.value)}
+              />
+              {matchedMembers.length ? (
+                <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+                  {matchedMembers.map((contact) => (
+                    <button
+                      key={contact.email}
+                      type="button"
+                      className="flex w-full items-center gap-3 bg-background px-3 py-2 text-left hover:bg-muted/50"
+                      onClick={() => onSelectContact(contact)}
+                    >
+                      <ContactAvatar contact={contact} companies={companies} />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">
+                          {contact.name || contact.email}
+                        </div>
+                        <div className="truncate text-sm text-muted-foreground">
+                          {[contact.title, contact.email]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </div>
                       </div>
-                      <div className="truncate text-sm text-muted-foreground">
-                        {[contact.title, contact.email]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </div>
-                    </div>
-                    <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
-                      {contact.receivedCount + contact.sentCount}
-                    </span>
-                  </button>
-                ))}
-              </div>
+                      <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                        {contact.receivedCount + contact.sentCount}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No people match.
+                </p>
+              )}
+              {!searchTerm && !showAllPeople && sortedMembers.length > 5 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setShowAllPeople(true)}
+                >
+                  Show all {sortedMembers.length} people
+                </Button>
+              )}
             </div>
           )}
         </>
