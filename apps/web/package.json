@@ -13,6 +13,7 @@
     "check-enums": "node scripts/check-enum-imports.js",
     "check-server-actions": "node scripts/check-server-action-exports.js",
     "check-client-redirects": "node scripts/check-client-redirects.js",
+    "lint:no-pii": "tsx scripts/lint-no-pii.ts",
     "generate-llm-pricing": "tsx scripts/generate-llm-pricing.ts",
     "eval-report": "tsx scripts/eval-report/generate-eval-report.ts",
     "test": "cross-env RUN_AI_TESTS=false vitest",

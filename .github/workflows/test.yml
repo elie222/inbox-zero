@@ -67,6 +67,9 @@ jobs:
       - name: Check client redirects
         run: pnpm -F inbox-zero-ai check-client-redirects
 
+      - name: Check no production data in repo
+        run: pnpm -F inbox-zero-ai lint:no-pii
+
       - name: Run tests
         run: pnpm -F inbox-zero-ai test
         env:
