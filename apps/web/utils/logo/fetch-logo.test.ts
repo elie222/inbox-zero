@@ -84,6 +84,29 @@ describe("fetchLogo", () => {
     );
   });
 
+  it("rejects an oversized response (Content-Length over the cap)", async () => {
+    const oversized = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array(4096).fill(1), {
+          status: 200,
+          headers: {
+            "content-type": PNG,
+            "content-length": String(5 * 1024 * 1024),
+          },
+        }),
+      )
+      .mockResolvedValue(image(2000));
+
+    // clearbit is rejected for its declared size; duckduckgo then answers
+    const logo = await fetchLogo({
+      domain: "example.com",
+      fetchImpl: oversized,
+    });
+    expect(logo?.body.byteLength).toBe(2000);
+    expect(oversized.mock.calls[1][0]).toContain("duckduckgo");
+  });
+
   it("returns null when every provider fails", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(image(10));
 

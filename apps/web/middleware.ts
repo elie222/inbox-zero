@@ -10,6 +10,12 @@ export const config = {
 
 const TUNNELED_METHODS = new Set(["PROPFIND", "REPORT"]);
 
+// The tunnel's self-request must target our own origin, never a host taken
+// from the incoming request — a spoofed Host header would otherwise redirect
+// this server-side fetch at an internal address (SSRF). NEXT_PUBLIC_BASE_URL
+// is a required, build-inlined env, so it's always present here.
+const SELF_ORIGIN = process.env.NEXT_PUBLIC_BASE_URL;
+
 export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname === "/.well-known/carddav") {
     return NextResponse.redirect(new URL("/api/carddav", request.url), 301);
@@ -19,6 +25,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (!SELF_ORIGIN) {
+    return new NextResponse("CardDAV is not configured", { status: 500 });
+  }
+
+  const target = new URL(
+    request.nextUrl.pathname + request.nextUrl.search,
+    SELF_ORIGIN,
+  );
+
   const headers = new Headers();
   headers.set("x-webdav-method", request.method);
   for (const name of ["authorization", "content-type", "depth"]) {
@@ -26,7 +41,7 @@ export async function middleware(request: NextRequest) {
     if (value) headers.set(name, value);
   }
 
-  const response = await fetch(new URL(request.nextUrl.pathname, request.url), {
+  const response = await fetch(target, {
     method: "POST",
     headers,
     body: await request.text(),

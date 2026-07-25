@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import { fetchLogo, normalizeLogoDomain } from "@/utils/logo/fetch-logo";
 
 export const runtime = "nodejs";
@@ -8,10 +8,12 @@ export const runtime = "nodejs";
 // must finish on its own; a platform timeout surfaces as a 5xx
 export const maxDuration = 30;
 
-// Public logo proxy: the browser never talks to the logo providers
-// directly, and the provider chain runs behind SSRF guards because the
-// domain comes from contact data (see utils/logo/fetch-logo.ts)
-export const GET = withError("logo", async (request) => {
+// Logo proxy: the browser never talks to the logo providers directly, and
+// the provider chain runs behind SSRF guards because the domain comes from
+// contact data (see utils/logo/fetch-logo.ts). Gated by withAuth so only a
+// signed-in session (the only context that renders logos) can drive the
+// outbound fetches — <img> sends the session cookie, no header needed.
+export const GET = withAuth("logo", async (request) => {
   const raw = request.nextUrl.searchParams.get("domain") ?? "";
   const domain = normalizeLogoDomain(raw);
   if (!domain) {
