@@ -286,6 +286,27 @@ describe("Middleware", () => {
       );
     });
 
+    it("preserves NextRequest semantics (nextUrl) on the request the handler receives", async () => {
+      // Regression: the middleware used req.clone(), which returns a plain
+      // Request without NextRequest internals — a handler reading
+      // request.nextUrl (e.g. /api/public/logo) then crashed with a 500
+      mockAuth.mockResolvedValue({ user: { id: mockUserId } } as any);
+      const handler = vi.fn(async (req: RequestWithAuth, _ctx: any) =>
+        NextResponse.json({
+          domain: req.nextUrl.searchParams.get("domain"),
+        }),
+      );
+      const wrappedHandler = withAuth(handler);
+
+      const req = new NextRequest(
+        "http://localhost:3000/api/public/logo?domain=example.com",
+      );
+      const response = await wrappedHandler(req, mockContext);
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ domain: "example.com" });
+    });
+
     it("should return 401 if session does not exist", async () => {
       mockAuth.mockResolvedValue(null as any);
       const handler: NextHandler<RequestWithAuth> = vi.fn();

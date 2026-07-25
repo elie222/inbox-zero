@@ -284,7 +284,10 @@ async function authMiddleware(
     );
   }
 
-  const authReq = req.clone() as RequestWithAuth;
+  // Annotate the original request rather than clone() it: Request.clone()
+  // returns a plain Request, silently dropping NextRequest internals — a
+  // handler touching request.nextUrl on the clone crashes the route
+  const authReq = req as RequestWithAuth;
   authReq.auth = { userId: session.user.id };
 
   authReq.logger = baseLogger.with({ userId: session.user.id });
@@ -398,7 +401,8 @@ async function emailAccountMiddleware(
           userId,
         });
 
-        const emailAccountReq = req.clone() as RequestWithEmailAccount;
+        // Annotate, don't clone() — see authMiddleware
+        const emailAccountReq = req as RequestWithEmailAccount;
         emailAccountReq.auth = {
           userId,
           emailAccountId,
@@ -428,8 +432,9 @@ async function emailAccountMiddleware(
       userId,
     });
 
-    // Create a new request with email account info
-    const emailAccountReq = req.clone() as RequestWithEmailAccount;
+    // Annotate the request with email account info (don't clone() — see
+    // authMiddleware)
+    const emailAccountReq = req as RequestWithEmailAccount;
     emailAccountReq.auth = { userId, emailAccountId, email };
     emailAccountReq.logger = emailAccountLogger;
 
@@ -494,10 +499,10 @@ async function emailProviderMiddleware(
         }),
     });
 
-    const providerReq = emailAccountReq.clone() as RequestWithEmailProvider;
-    providerReq.auth = emailAccountReq.auth;
+    // Annotate, don't clone() — see authMiddleware. auth and logger are
+    // already on the request from emailAccountMiddleware.
+    const providerReq = emailAccountReq as RequestWithEmailProvider;
     providerReq.emailProvider = provider;
-    providerReq.logger = emailAccountReq.logger;
 
     return providerReq;
   } catch (error) {

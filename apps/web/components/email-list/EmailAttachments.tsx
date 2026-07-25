@@ -4,7 +4,7 @@ import { AttachmentDownloadButton } from "@/components/email-list/AttachmentDown
 
 export function EmailAttachments({ message }: { message: ThreadMessage }) {
   return (
-    <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-3">
+    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
       {message.attachments?.map((attachment) => {
         const searchParams = new URLSearchParams({
           messageId: message.id,
@@ -16,8 +16,10 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
         const url = `/api/messages/attachment?${searchParams.toString()}`;
 
         return (
-          <CardBasic key={attachment.filename} className="p-4">
-            <div className="text-muted-foreground">{attachment.filename}</div>
+          <CardBasic key={attachment.filename} className="min-w-0 p-4">
+            <div className="truncate text-muted-foreground">
+              {attachment.filename}
+            </div>
             <div className="mt-4 flex items-center justify-between">
               <div className="text-muted-foreground">
                 {mimeTypeToString(attachment.mimeType)}
