@@ -309,6 +309,16 @@ describe("isLikelyAutomatedSender", () => {
     "billing@stripe.com",
     "team@costalerts.amazonaws.com",
     "info@mailer.linkedin.com",
+    // Shared inboxes — mailboxes, not people
+    "info@dealer.com",
+    "sales@vendor.com",
+    "support@saas.io",
+    "hello@agency.co",
+    // Machine-minted: bounce rewrites and long random tokens
+    "srs0=abcd=fg@forwarder.net",
+    "bounces-12345678@mta.example.com",
+    "a1b2c3d4e5f6a7b8c9d0e1f2@tracking.example.com",
+    "x9k2mq84rz71pw3v@blast.example.com",
   ])("flags %s as automated", (email) => {
     expect(isLikelyAutomatedSender(email)).toBe(true);
   });
@@ -318,7 +328,9 @@ describe("isLikelyAutomatedSender", () => {
     "leah@northstar.vc",
     "chris@nucar.com",
     "anna.newsletter-jones@agency.com",
-    "sales@toyota.co.uk",
+    // Names with a few digits stay people; only long tokens are machines
+    "john.smith2@dealer.com",
+    "mike1975@gmail.com",
   ])("keeps %s as a real person", (email) => {
     expect(isLikelyAutomatedSender(email)).toBe(false);
   });

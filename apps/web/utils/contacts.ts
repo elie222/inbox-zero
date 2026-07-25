@@ -335,11 +335,60 @@ const AUTOMATED_LOCAL_PARTS = new Set([
   "statements",
   "reminder",
   "reminders",
+  // Shared inboxes — a mailbox, not a person
+  "info",
+  "contact",
+  "hello",
+  "admin",
+  "administrator",
+  "support",
+  "help",
+  "helpdesk",
+  "sales",
+  "service",
+  "services",
+  "team",
+  "office",
+  "orders",
+  "careers",
+  "jobs",
+  "hr",
+  "feedback",
+  "survey",
+  "surveys",
+  "promo",
+  "promotions",
+  "offers",
+  "webmaster",
+  "security",
+  "abuse",
+  "system",
+  "daemon",
+  "root",
+  "customerservice",
+  "customercare",
+  "memberservices",
+  "subscriptions",
+  "email",
+  "mail",
+  "mailer",
 ]);
 const NO_REPLY_PATTERN =
   /no[-._]?repl(y|ies)|do[-._]?not[-._]?reply|dont[-._]?reply|donotreply|unattended|automated/i;
 const AUTOMATED_DOMAIN_LABEL =
   /alert|notif|no-?reply|donotreply|bounce|mailer|newsletter|marketing|transactional/i;
+
+// Bounce/VERP rewrites (srs0=…, prvs=…) and long random tokens are
+// machine-minted addresses, not people
+function looksMachineGenerated(localPart: string): boolean {
+  if (localPart.length > 30) return true;
+  if (/^(srs[01]|prvs|msprvs|btv1)[=.]/.test(localPart)) return true;
+  if (localPart.includes("=")) return true;
+  if (/[0-9a-f]{16,}/.test(localPart)) return true;
+  if (/\d{8,}/.test(localPart)) return true;
+  const digits = (localPart.match(/\d/g) ?? []).length;
+  return localPart.length >= 16 && digits >= 6;
+}
 
 export function isLikelyAutomatedSender(email: string): boolean {
   const [localPart = "", domain = ""] = email.toLowerCase().split("@");
@@ -348,6 +397,7 @@ export function isLikelyAutomatedSender(email: string): boolean {
   // Plus-addressing on inbound senders (invoice+statements@…) is a robot tag
   if (localPart.includes("+")) return true;
   if (AUTOMATED_LOCAL_PARTS.has(localPart)) return true;
+  if (looksMachineGenerated(localPart)) return true;
 
   // Sending-infrastructure subdomains: costalerts.amazonaws.com, mailer.x.com
   const labels = domain.split(".").slice(0, -1);

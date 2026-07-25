@@ -2,7 +2,10 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
-import { mergeContactActivity } from "@/utils/contacts";
+import {
+  isLikelyAutomatedSender,
+  mergeContactActivity,
+} from "@/utils/contacts";
 import { queryContactActivity } from "@/utils/contacts-activity";
 
 const querySchema = z.object({
@@ -117,16 +120,23 @@ async function getContacts({
           ?.toLowerCase()
           .includes(searchTerm)),
   );
+  // Robots (no-reply@, info@, bounce hashes…) aren't contacts — drop
+  // activity-derived ones. Saved rows always show: the user (or their
+  // Google address book) chose to keep them.
+  const humans = merged.filter(
+    (contact) => contact.isSaved || !isLikelyAutomatedSender(contact.email),
+  );
+
   // Saved-only contacts are appended after the activity window; a name sort
   // must hold across both
   const contacts =
     sort === "name"
-      ? merged.sort((a, b) =>
+      ? humans.sort((a, b) =>
           (a.name || a.email).localeCompare(b.name || b.email, undefined, {
             sensitivity: "base",
           }),
         )
-      : merged;
+      : humans;
 
   const syncState = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
