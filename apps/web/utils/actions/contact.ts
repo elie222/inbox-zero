@@ -954,6 +954,11 @@ async function runCompanyResearch({
   summary: string;
   suggestedName: string | null;
   renamed: boolean;
+  suggestedLabel: {
+    name: string;
+    parentName: string | null;
+    isNew: boolean;
+  } | null;
 } | null> {
   const company = await prisma.company.findFirst({
     where: { id: companyId, emailAccountId },
