@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ComponentProps } from "react";
 import type { LucideIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { cn } from "@/utils";
@@ -35,6 +36,10 @@ type NavItem = {
   new?: boolean;
   // Nesting depth for tree-style panels (labels → companies)
   indent?: 1 | 2;
+  // Collapsible tree parents render a chevron that toggles their children
+  expandable?: boolean;
+  expanded?: boolean;
+  onToggleExpand?: () => void;
 };
 
 export function SideNavMenu({
@@ -101,6 +106,36 @@ export function SideNavMenu({
               {typeof item.count === "number" && item.count > 0 && (
                 <span className="ml-auto shrink-0 text-xs font-medium tabular-nums text-primary">
                   {item.count > 999 ? "999+" : item.count}
+                </span>
+              )}
+              {item.expandable && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label={item.expanded ? "Collapse" : "Expand"}
+                  className={cn(
+                    "shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground",
+                    !(typeof item.count === "number" && item.count > 0) &&
+                      "ml-auto",
+                  )}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    item.onToggleExpand?.();
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      item.onToggleExpand?.();
+                    }
+                  }}
+                >
+                  {item.expanded ? (
+                    <ChevronDownIcon className="size-3.5" />
+                  ) : (
+                    <ChevronRightIcon className="size-3.5" />
+                  )}
                 </span>
               )}
               {item.new && (

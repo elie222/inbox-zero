@@ -74,6 +74,10 @@ type NavItem = {
   new?: boolean;
   // Nesting depth for tree-style panels (labels → companies)
   indent?: 1 | 2;
+  // Collapsible tree parents render a chevron that toggles their children
+  expandable?: boolean;
+  expanded?: boolean;
+  onToggleExpand?: () => void;
 };
 
 const mailFolders = [
@@ -173,8 +177,29 @@ const FOLDER_DOT_COLORS = [
   "bg-cyan-500",
 ];
 
-// Stable per-folder accent dot, hashed from the folder name
-function FolderDot({ name }: { name: string }) {
+// Stable per-folder accent dot, hashed from the folder name. A label tree
+// passes hue/lightness instead so everything under one parent stays in the
+// parent's color family, just in different shades.
+function FolderDot({
+  name,
+  hue,
+  lightness,
+}: {
+  name: string;
+  hue?: number;
+  lightness?: number;
+}) {
+  if (hue !== undefined) {
+    return (
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        <span
+          className="size-2 rounded-full"
+          style={{ backgroundColor: `hsl(${hue} 65% ${lightness ?? 55}%)` }}
+        />
+      </span>
+    );
+  }
+
   let hash = 0;
   for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) | 0;
   const color = FOLDER_DOT_COLORS[Math.abs(hash) % FOLDER_DOT_COLORS.length];
@@ -185,6 +210,17 @@ function FolderDot({ name }: { name: string }) {
     </span>
   );
 }
+
+// The family's base hue, hashed from the parent label's name
+function familyHue(name: string): number {
+  let hash = 0;
+  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) | 0;
+  return Math.abs(hash) % 360;
+}
+
+// Shade ladder inside a family: the parent gets the base, descendants walk
+// through visibly distinct lightness steps of the same hue
+const FAMILY_LIGHTNESS = [55, 70, 42, 78, 48, 64, 36, 74];
 
 // Small "synced" heartbeat like a desktop mail client — stamps the time of
 // the latest unread-counts refresh (shared SWR cache, no extra request)
@@ -254,6 +290,10 @@ function AppRail({ path }: { path: string }) {
 function ContactsNav({ path }: { path: string }) {
   const { emailAccountId } = useAccount();
   const searchParams = useSearchParams();
+  // Label tree starts collapsed; expanding a parent reveals what's inside
+  const [expandedLabels, setExpandedLabels] = useState<Set<string>>(
+    () => new Set(),
+  );
   const { data } = useSWR<ContactsResponse>(
     "/api/contacts?sort=recent&limit=100",
   );
@@ -325,42 +365,81 @@ function ContactsNav({ path }: { path: string }) {
         0,
       );
     const labelHref = (id: string) =>
-      `${contactsPath}?view=companies&label=${encodeURIComponent(id)}`;
+      `${contactsPath}?view=labels&label=${encodeURIComponent(id)}`;
     const companyItem = (
       group: (typeof groups)[number],
       indent: 1 | 2,
+      hue?: number,
+      lightness?: number,
     ): NavItem => ({
       name: group.name,
       href: `${contactsPath}?group=${encodeURIComponent(group.key)}`,
-      icon: () => <FolderDot name={group.name} />,
+      icon: () => (
+        <FolderDot name={group.name} hue={hue} lightness={lightness} />
+      ),
       count: group.contacts.length,
       active: currentGroup === group.key,
       indent,
     });
 
+    const toggleLabel = (id: string) =>
+      setExpandedLabels((previous) => {
+        const next = new Set(previous);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        return next;
+      });
+
     for (const root of [...roots.values()].sort((a, b) =>
       a.name.localeCompare(b.name),
     )) {
+      // Everything inside a parent stays in the parent's color family —
+      // descendants walk the shade ladder so each row reads distinct
+      const hue = familyHue(root.name);
+      let shadeIndex = 0;
+      const nextShade = () =>
+        FAMILY_LIGHTNESS[++shadeIndex % FAMILY_LIGHTNESS.length];
+      const expanded = expandedLabels.has(root.id);
+
       base.push({
         name: root.name,
         href: labelHref(root.id),
-        icon: () => <FolderDot name={root.name} />,
+        icon: () => (
+          <FolderDot
+            name={root.name}
+            hue={hue}
+            lightness={FAMILY_LIGHTNESS[0]}
+          />
+        ),
         count: countOf(root),
         active: currentLabel === root.id,
+        expandable: true,
+        expanded,
+        onToggleExpand: () => toggleLabel(root.id),
       });
-      for (const group of root.groups) base.push(companyItem(group, 1));
+      if (!expanded) continue;
+
+      for (const group of root.groups)
+        base.push(companyItem(group, 1, hue, nextShade()));
       for (const child of [...root.children.values()].sort((a, b) =>
         a.name.localeCompare(b.name),
       )) {
+        const childLightness = nextShade();
         base.push({
           name: child.name,
           href: labelHref(child.id),
-          icon: () => <FolderDot name={child.name} />,
+          icon: () => (
+            <FolderDot name={child.name} hue={hue} lightness={childLightness} />
+          ),
           count: countOf(child),
           active: currentLabel === child.id,
           indent: 1,
         });
-        for (const group of child.groups) base.push(companyItem(group, 2));
+        for (const group of child.groups)
+          base.push(companyItem(group, 2, hue, nextShade()));
       }
     }
 
@@ -404,7 +483,7 @@ function ContactsNav({ path }: { path: string }) {
     }
 
     return base;
-  }, [emailAccountId, data, domainsData, path, searchParams]);
+  }, [emailAccountId, data, domainsData, path, searchParams, expandedLabels]);
 
   return (
     <SidebarGroup>

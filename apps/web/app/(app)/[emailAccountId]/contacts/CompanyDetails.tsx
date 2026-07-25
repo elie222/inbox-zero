@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { useForm } from "react-hook-form";
 import { formatDistanceToNow } from "date-fns";
@@ -279,7 +279,9 @@ function CompanyEditor({
         ))}
       </div>
 
-      {tab === "details" && <DetailsTab company={company} mutate={mutate} />}
+      {tab === "details" && (
+        <DetailsTab company={company} companies={companies} mutate={mutate} />
+      )}
       {tab === "logo" && <LogoTab company={company} mutate={mutate} />}
       {tab === "manage" && (
         <ManageTab
@@ -295,24 +297,55 @@ function CompanyEditor({
 
 function DetailsTab({
   company,
+  companies,
   mutate,
 }: {
   company: CompanySummary;
+  companies: CompanySummary[];
   mutate: () => void;
 }) {
   const { emailAccountId } = useAccount();
 
+  // Every label already in use, selectable directly; "new" reveals inputs
+  const labelOptions = useMemo(() => {
+    const options = new Map<string, { name: string; parentName: string }>();
+    for (const candidate of companies) {
+      const label = candidate.label;
+      if (!label) continue;
+      if (label.parent) {
+        options.set(`${label.parent.name}\u0000`, {
+          name: label.parent.name,
+          parentName: "",
+        });
+      }
+      options.set(`${label.parent?.name ?? ""}\u0000${label.name}`, {
+        name: label.name,
+        parentName: label.parent?.name ?? "",
+      });
+    }
+    return [...options.entries()]
+      .map(([key, value]) => ({ key, ...value }))
+      .sort((a, b) =>
+        `${a.parentName} ${a.name}`.localeCompare(`${b.parentName} ${b.name}`),
+      );
+  }, [companies]);
+
+  const currentKey = company.label
+    ? `${company.label.parent?.name ?? ""}\u0000${company.label.name}`
+    : "none";
+  const [labelChoice, setLabelChoice] = useState(currentKey);
+
   const { register, handleSubmit } = useForm<{
     name: string;
     domains: string;
-    labelName: string;
-    labelParentName: string;
+    newLabelName: string;
+    newLabelParent: string;
   }>({
     defaultValues: {
       name: company.name,
       domains: company.domains.join(", "),
-      labelName: company.label?.name ?? "",
-      labelParentName: company.label?.parent?.name ?? "",
+      newLabelName: "",
+      newLabelParent: "",
     },
   });
 
@@ -329,7 +362,12 @@ function DetailsTab({
   return (
     <form
       className="space-y-4"
-      onSubmit={handleSubmit((values) =>
+      onSubmit={handleSubmit((values) => {
+        const picked =
+          labelChoice === "none" || labelChoice === "new"
+            ? null
+            : (labelOptions.find((option) => option.key === labelChoice) ??
+              null);
         update.execute({
           id: company.id,
           name: values.name.trim(),
@@ -337,10 +375,16 @@ function DetailsTab({
             .split(",")
             .map((domain) => domain.trim())
             .filter(Boolean),
-          labelName: values.labelName.trim(),
-          labelParentName: values.labelParentName.trim(),
-        }),
-      )}
+          labelName:
+            labelChoice === "new"
+              ? values.newLabelName.trim()
+              : (picked?.name ?? ""),
+          labelParentName:
+            labelChoice === "new"
+              ? values.newLabelParent.trim()
+              : (picked?.parentName ?? ""),
+        });
+      })}
     >
       <div>
         <Label htmlFor="company-name">Name</Label>
@@ -359,29 +403,55 @@ function DetailsTab({
           Separate with commas.
         </p>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label htmlFor="company-label">Label</Label>
-          <Input
-            id="company-label"
-            className="mt-2"
-            placeholder="e.g. Factory"
-            {...register("labelName")}
-          />
-        </div>
-        <div>
-          <Label htmlFor="company-label-parent">Parent label</Label>
-          <Input
-            id="company-label-parent"
-            className="mt-2"
-            placeholder="Nests under this label"
-            {...register("labelParentName")}
-          />
-        </div>
+      <div>
+        <Label htmlFor="company-label">Label</Label>
+        <Select value={labelChoice} onValueChange={setLabelChoice}>
+          <SelectTrigger id="company-label" className="mt-2">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No label</SelectItem>
+            {labelOptions.map((option) => (
+              <SelectItem key={option.key} value={option.key}>
+                {option.parentName
+                  ? `${option.parentName} › ${option.name}`
+                  : option.name}
+              </SelectItem>
+            ))}
+            <SelectItem value="new">+ New label…</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
-      <Button type="submit" size="sm" loading={update.isExecuting}>
-        Save
-      </Button>
+      {labelChoice === "new" && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="company-new-label">New label</Label>
+            <Input
+              id="company-new-label"
+              className="mt-2"
+              placeholder="e.g. Factory"
+              {...register("newLabelName")}
+            />
+          </div>
+          <div>
+            <Label htmlFor="company-new-label-parent">
+              Parent label (optional)
+            </Label>
+            <Input
+              id="company-new-label-parent"
+              className="mt-2"
+              placeholder="Nests under this label"
+              {...register("newLabelParent")}
+            />
+          </div>
+        </div>
+      )}
+      {/* Anchored so Save stays reachable while the pane scrolls */}
+      <div className="sticky bottom-0 border-t border-border bg-background py-3">
+        <Button type="submit" size="sm" loading={update.isExecuting}>
+          Save
+        </Button>
+      </div>
     </form>
   );
 }
