@@ -15,6 +15,7 @@ import {
   type ContactListItem,
   type DomainStat,
   domainLogoUrl,
+  isLikelyAutomatedSender,
 } from "@/utils/contacts";
 import {
   createCompanyAction,
@@ -237,8 +238,12 @@ function DomainMembers({
   const { data, isLoading, error } = useSWR<ContactsResponse>(
     `/api/contacts?search=${encodeURIComponent(domain)}&limit=100`,
   );
+  // Exclude automated senders here too, so the drill-down matches the
+  // "{N} people" count (which comes from the automation-filtered stats) and
+  // the view's promise that no-reply/alert addresses are filtered out
   const members = (data?.contacts ?? []).filter(
-    (contact) => contact.domain === domain,
+    (contact) =>
+      contact.domain === domain && !isLikelyAutomatedSender(contact.email),
   );
 
   return (

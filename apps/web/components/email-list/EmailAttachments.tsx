@@ -1,8 +1,6 @@
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { DownloadIcon } from "lucide-react";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { CardBasic } from "@/components/ui/card";
+import { AttachmentDownloadButton } from "@/components/email-list/AttachmentDownloadButton";
 
 export function EmailAttachments({ message }: { message: ThreadMessage }) {
   return (
@@ -24,12 +22,10 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
               <div className="text-muted-foreground">
                 {mimeTypeToString(attachment.mimeType)}
               </div>
-              <Button variant="outline" size="sm" asChild>
-                <Link href={url} target="_blank">
-                  <DownloadIcon className="mr-2 h-4 w-4" />
-                  Download
-                </Link>
-              </Button>
+              <AttachmentDownloadButton
+                url={url}
+                filename={attachment.filename}
+              />
             </div>
           </CardBasic>
         );

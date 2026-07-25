@@ -66,6 +66,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       loading = false,
       children,
       Icon,
+      disabled,
       ...props
     },
     ref,
@@ -77,7 +78,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         className={cn(buttonVariants({ variant, size, loading, className }))}
         ref={ref}
         type={type}
-        disabled={loading || props.disabled}
+        // Destructure disabled out of props so this computed value wins;
+        // spreading props last would otherwise let a caller's disabled prop
+        // clobber the loading guard and leave the button clickable mid-action
+        disabled={loading || disabled}
         {...props}
       >
         {loading || Icon ? (

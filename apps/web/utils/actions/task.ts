@@ -17,12 +17,17 @@ export const createTaskAction = actionClient
   .metadata({ name: "createTask" })
   .inputSchema(createTaskBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+    const now = new Date();
+    const status = parsedInput.status ?? TaskStatus.TODO;
+    const open = isTaskOpen(status);
     const assigneeEmail = normalizeAssignee(parsedInput.assigneeEmail);
+    // A task created already closed is done on arrival: stamp completion and
+    // never arm follow-up (mirrors the update path's close handling)
     const followUp = resolveFollowUp({
-      followUpEnabled: parsedInput.followUpEnabled,
+      followUpEnabled: open ? parsedInput.followUpEnabled : false,
       cadenceDays: parsedInput.followUpCadenceDays,
       assigneeEmail,
-      now: new Date(),
+      now,
     });
 
     const task = await prisma.task.create({
@@ -30,7 +35,8 @@ export const createTaskAction = actionClient
         emailAccountId,
         title: parsedInput.title.trim(),
         description: parsedInput.description?.trim() || null,
-        status: parsedInput.status ?? TaskStatus.TODO,
+        status,
+        ...(!open && { completedAt: now }),
         ...(parsedInput.priority && { priority: parsedInput.priority }),
         dueAt: parsedInput.dueAt ? new Date(parsedInput.dueAt) : null,
         assigneeEmail,
@@ -62,15 +68,19 @@ export const updateTaskAction = actionClient
         : existing.assigneeEmail;
 
     // Follow-up needs an assignee; recompute the next run only when the
-    // toggle or cadence actually changes, so an unrelated edit doesn't
-    // reset the schedule
+    // toggle, cadence, or assignee actually changes value. The detail form
+    // always sends followUpEnabled/cadence even on an unrelated edit, so
+    // compare against the stored row rather than mere presence — otherwise
+    // every save would reset an unsent schedule to now + cadence.
     const wantsFollowUp =
       parsedInput.followUpEnabled ?? existing.followUpEnabled;
     const cadence =
       parsedInput.followUpCadenceDays ?? existing.followUpCadenceDays;
     const followUpChanged =
-      parsedInput.followUpEnabled !== undefined ||
-      parsedInput.followUpCadenceDays !== undefined ||
+      (parsedInput.followUpEnabled !== undefined &&
+        parsedInput.followUpEnabled !== existing.followUpEnabled) ||
+      (parsedInput.followUpCadenceDays !== undefined &&
+        parsedInput.followUpCadenceDays !== existing.followUpCadenceDays) ||
       (parsedInput.assigneeEmail !== undefined &&
         assigneeEmail !== existing.assigneeEmail);
 
