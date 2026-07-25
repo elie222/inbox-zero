@@ -13,6 +13,7 @@ import {
   type ContactListItem,
   type DomainStat,
   groupContacts,
+  resolveContactCompany,
 } from "@/utils/contacts";
 import { cn } from "@/utils";
 import { Badge } from "@/components/Badge";
@@ -100,7 +101,23 @@ export function CompaniesView({
     ];
   }, [groups, groupBy]);
 
-  if (!sections.length) {
+  // Saved people who belong to no curated company and aren't Personal —
+  // without this section, imports (e.g. a Google pull) look like they
+  // vanished, since this view only renders curated companies
+  const unfiled = useMemo(
+    () =>
+      labelFilter
+        ? []
+        : contacts.filter(
+            (contact) =>
+              contact.isSaved &&
+              !contact.isPersonal &&
+              !resolveContactCompany(contact, companies),
+          ),
+    [contacts, companies, labelFilter],
+  );
+
+  if (!sections.length && !unfiled.length) {
     return (
       <p className="py-12 text-center text-sm text-muted-foreground">
         No companies yet. Check the Suggested tab to add them from the domains
@@ -134,6 +151,41 @@ export function CompaniesView({
           </div>
         </div>
       ))}
+
+      {unfiled.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
+            Unfiled ({unfiled.length})
+          </h3>
+          <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+            {unfiled.map((contact) => (
+              <button
+                key={contact.email}
+                type="button"
+                className={cn(
+                  "flex w-full items-center gap-3 bg-background px-3 py-2 text-left hover:bg-muted/50",
+                  contact.email === activeEmail && "bg-muted/50",
+                )}
+                onClick={() => onSelectContact(contact)}
+              >
+                <ContactAvatar contact={contact} companies={companies} />
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium">
+                    {contact.name || contact.email}
+                  </div>
+                  <div className="truncate text-sm text-muted-foreground">
+                    {[contact.email, contact.title].filter(Boolean).join(" · ")}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Saved people without a company — open one to set a company or mark
+            it personal.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

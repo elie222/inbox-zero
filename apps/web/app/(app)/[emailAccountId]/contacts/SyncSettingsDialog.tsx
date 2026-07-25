@@ -94,7 +94,7 @@ export function SyncSettingsDialog({
       onSuccess: (result) => {
         const { created = 0, updated = 0, deleted = 0 } = result.data ?? {};
         toastSuccess({
-          description: `Synced: ${created} new, ${updated} updated, ${deleted} removed`,
+          description: `Pulled: ${created} new, ${updated} updated, ${deleted} removed. New people are in the People tab; anyone without a company shows under Unfiled.`,
         });
         mutateContacts();
       },
