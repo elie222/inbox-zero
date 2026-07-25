@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { cleanerEnv, mockGetEmailAccount, subscriberState } = vi.hoisted(() => {
+const { streamEnv, mockGetEmailAccount, subscriberState } = vi.hoisted(() => {
   const listeners = new Map<
     string,
     Set<(...args: [string, string, string]) => void>
@@ -21,6 +21,11 @@ const { cleanerEnv, mockGetEmailAccount, subscriberState } = vi.hoisted(() => {
   const subscriber = {
     psubscribe: vi.fn(
       (_pattern: string, callback?: (error: Error | null) => void) => {
+        callback?.(null);
+      },
+    ),
+    subscribe: vi.fn(
+      (_channel: string, callback?: (error: Error | null) => void) => {
         callback?.(null);
       },
     ),
@@ -47,8 +52,8 @@ const { cleanerEnv, mockGetEmailAccount, subscriberState } = vi.hoisted(() => {
   };
 
   return {
-    cleanerEnv: {
-      NEXT_PUBLIC_CLEANER_ENABLED: true,
+    streamEnv: {
+      REDIS_URL: "redis://localhost:6379" as string | undefined,
     },
     mockGetEmailAccount: vi.fn(),
     subscriberState: {
@@ -64,6 +69,7 @@ const { cleanerEnv, mockGetEmailAccount, subscriberState } = vi.hoisted(() => {
       reset() {
         listeners.clear();
         subscriber.psubscribe.mockClear();
+        subscriber.subscribe.mockClear();
         subscriber.punsubscribe.mockClear();
         subscriber.disconnect.mockClear();
         subscriber.on.mockClear();
@@ -74,7 +80,7 @@ const { cleanerEnv, mockGetEmailAccount, subscriberState } = vi.hoisted(() => {
 });
 
 vi.mock("@/env", () => ({
-  env: cleanerEnv,
+  env: streamEnv,
 }));
 
 vi.mock("@/utils/middleware", async () => {
@@ -100,7 +106,7 @@ import { GET } from "./route";
 describe("email-stream route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    cleanerEnv.NEXT_PUBLIC_CLEANER_ENABLED = true;
+    streamEnv.REDIS_URL = "redis://localhost:6379";
     subscriberState.reset();
     mockGetEmailAccount.mockImplementation(
       async ({ emailAccountId }: { emailAccountId: string }) => ({
@@ -157,15 +163,14 @@ describe("email-stream route", () => {
     expect(subscriberState.listenerCount("pmessage")).toBe(0);
   });
 
-  it("returns a not found error when cleaner is disabled on self-hosted", async () => {
-    cleanerEnv.NEXT_PUBLIC_CLEANER_ENABLED = false;
+  it("returns a 503 when live updates are not configured", async () => {
+    streamEnv.REDIS_URL = undefined;
 
     const response = await GET(createRequest("account-a"));
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(503);
     expect(await response.json()).toEqual({
-      error: "Cleaner is not enabled",
-      isKnownError: true,
+      error: "Live updates not configured",
     });
     expect(subscriberState.subscriber.psubscribe).not.toHaveBeenCalled();
   });

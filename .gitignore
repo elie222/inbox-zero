@@ -68,7 +68,9 @@ dist
 
 TODO.md
 
-tasks/ 
+# Root-level scratch dir only; must not swallow app route dirs named "tasks"
+# (e.g. apps/web/app/(app)/[emailAccountId]/tasks and app/api/tasks)
+/tasks/
 
 # prisma
 apps/web/generated

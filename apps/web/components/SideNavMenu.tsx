@@ -60,7 +60,10 @@ export function SideNavMenu({
         >
           <SidebarMenuButton
             asChild
-            isActive={item.active || activeHref === item.href}
+            // An item that computes its own active state wins; the
+            // path-equality fallback is only for items that don't set one
+            // (it can't tell sub-views apart since it ignores the query)
+            isActive={item.active ?? activeHref === item.href}
             className={cn(
               "h-9",
               item.indent === 1 && "pl-5",

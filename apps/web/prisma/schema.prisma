@@ -223,6 +223,7 @@ model EmailAccount {
   contacts               Contact[]
   companies              Company[]
   companyLabels          CompanyLabel[]
+  tasks                  Task[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -1004,6 +1005,69 @@ model CompanyLabel {
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, name])
+}
+
+// A task the user (or the AI) tracks to completion. When an assignee is set
+// and follow-up is on, the AI nudges them for updates and mines inbound
+// email (and later meeting data) to keep aiStatusSummary/status current.
+model Task {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  priority    TaskPriority @default(NORMAL)
+  dueAt       DateTime?
+  completedAt DateTime?
+
+  // Who is responsible. Stored as an email (contacts are derived, not a hard
+  // FK); null means the user owns it themselves.
+  assigneeEmail String?
+
+  // Where the task came from, if created off an email
+  sourceThreadId  String?
+  sourceMessageId String?
+
+  // AI's running read of where the task stands, from mined email/meeting data
+  aiStatusSummary String?
+
+  // Autonomous follow-up (the agent emails the assignee for updates)
+  followUpEnabled   Boolean   @default(false)
+  followUpCadenceDays Int     @default(3)
+  lastFollowUpAt    DateTime?
+  nextFollowUpAt    DateTime?
+  followUpCount     Int       @default(0)
+
+  activity TaskActivity[]
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([emailAccountId, status, dueAt])
+  @@index([emailAccountId, assigneeEmail])
+  // The follow-up cron scans on this
+  @@index([followUpEnabled, nextFollowUpAt])
+}
+
+// A timeline entry for a task: manual notes plus the agent's actions and
+// findings (follow-up sent, reply detected, status change, AI update).
+model TaskActivity {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  type    TaskActivityType
+  content String
+
+  // Links back to the email that produced this entry, when relevant
+  threadId  String?
+  messageId String?
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
 }
 
 model ResponseTime {
@@ -1899,6 +1963,30 @@ enum ThreadTrackerType {
   AWAITING // We're waiting for their reply
   NEEDS_REPLY // We need to reply to this
   NEEDS_ACTION // We need to do something else
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TaskActivityType {
+  CREATED
+  NOTE // A manual note from the user
+  STATUS_CHANGE
+  FOLLOW_UP_SENT // The agent emailed the assignee for an update
+  REPLY_DETECTED // An inbound email relevant to this task arrived
+  AI_UPDATE // The AI revised the status/summary from mined data
 }
 
 enum ProcessorType {
