@@ -6,6 +6,8 @@ import { after } from "next/server";
 import { z } from "zod";
 import {
   createCompanyBody,
+  deleteCompanyBody,
+  mergeCompaniesBody,
   deleteContactBody,
   enrichContactBody,
   setCarddavAccessBody,
@@ -393,6 +395,66 @@ export const updateCompanyAction = actionClient
       });
 
       return { company };
+    },
+  );
+
+// Deleting a company clears its contacts' membership (onDelete: SetNull);
+// their domains fall back to auto grouping and the Suggested view
+export const deleteCompanyAction = actionClient
+  .metadata({ name: "deleteCompany" })
+  .inputSchema(deleteCompanyBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
+    await prisma.company.deleteMany({ where: { id, emailAccountId } });
+    return { deleted: true };
+  });
+
+// Absorbs one company into another: explicit members and domains move to
+// the target, then the source is deleted. The target keeps its own name,
+// logo, and label; gaps are filled from the source.
+export const mergeCompaniesAction = actionClient
+  .metadata({ name: "mergeCompanies" })
+  .inputSchema(mergeCompaniesBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { sourceId, targetId },
+    }) => {
+      if (sourceId === targetId) {
+        throw new SafeError("Pick a different company to merge into");
+      }
+
+      const [source, target] = await Promise.all([
+        prisma.company.findFirst({ where: { id: sourceId, emailAccountId } }),
+        prisma.company.findFirst({ where: { id: targetId, emailAccountId } }),
+      ]);
+      if (!source || !target) throw new SafeError("Company not found");
+
+      // One transaction so the one-owner-per-domain invariant holds: the
+      // source is gone before its domains land on the target
+      await prisma.$transaction([
+        prisma.contact.updateMany({
+          where: { emailAccountId, companyId: sourceId },
+          data: { companyId: targetId },
+        }),
+        prisma.company.delete({ where: { id: sourceId } }),
+        prisma.company.update({
+          where: { id: targetId },
+          data: {
+            domains: [...new Set([...target.domains, ...source.domains])],
+            ...(!target.logoUrl && source.logoUrl
+              ? { logoUrl: source.logoUrl }
+              : {}),
+            ...(!target.labelId && source.labelId
+              ? { labelId: source.labelId }
+              : {}),
+            ...(!target.logoWhiteBackground && source.logoWhiteBackground
+              ? { logoWhiteBackground: true }
+              : {}),
+          },
+        }),
+      ]);
+
+      return { merged: true, targetId };
     },
   );
 

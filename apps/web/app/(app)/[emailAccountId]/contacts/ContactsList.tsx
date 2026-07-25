@@ -275,7 +275,6 @@ export function ContactsList() {
                     activeGroupKey={isWide ? selectedGroupKey : null}
                     onSelectContact={setSelected}
                     onSelectCompany={setSelectedGroup}
-                    mutate={mutate}
                   />
                 ) : view === "suggested" ? (
                   <DomainSuggestions
@@ -330,6 +329,8 @@ export function ContactsList() {
               domainStats={domainStats}
               onSelectContact={setSelected}
               mutateContacts={mutate}
+              // Deleted or merged away — stop showing it in the pane
+              onDeleted={() => setSelectedGroupKey(null)}
             />
           ) : isWide && displayed ? (
             <ContactDetails
