@@ -1,13 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useAction } from "next-safe-action/hooks";
-import { useForm } from "react-hook-form";
 import {
   BuildingIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  PencilIcon,
   UserIcon,
 } from "lucide-react";
 import {
@@ -17,23 +14,9 @@ import {
   type DomainStat,
   groupContacts,
 } from "@/utils/contacts";
-import { updateCompanyAction } from "@/utils/actions/contact";
-import type { UpdateCompanyBody } from "@/utils/actions/contact.validation";
-import { useAccount } from "@/providers/EmailAccountProvider";
-import { getActionErrorMessage } from "@/utils/error";
-import { toastError, toastSuccess } from "@/components/Toast";
 import { cn } from "@/utils";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { ContactAvatar } from "./ContactsList";
 import { useCompanyMembers } from "./useCompanyMembers";
 
@@ -46,7 +29,6 @@ export function CompaniesView({
   activeGroupKey,
   onSelectContact,
   onSelectCompany,
-  mutate,
 }: {
   contacts: ContactListItem[];
   companies: CompanySummary[];
@@ -60,10 +42,7 @@ export function CompaniesView({
   onSelectContact: (contact: ContactListItem) => void;
   // Clicking a company row shows its details in the pane
   onSelectCompany: (key: string) => void;
-  mutate: () => void;
 }) {
-  const [editing, setEditing] = useState<CompanySummary | null>(null);
-
   // Only purposely-added companies (plus Personal) — auto domain groups
   // live in the Suggested view until the user adds or ignores them
   const groups = useMemo(() => {
@@ -137,22 +116,11 @@ export function CompaniesView({
                 onSelectCompany={
                   group.company ? () => onSelectCompany(group.key) : undefined
                 }
-                onEdit={
-                  group.company ? () => setEditing(group.company) : undefined
-                }
               />
             ))}
           </div>
         </div>
       ))}
-
-      {editing && (
-        <CompanyEditDialog
-          company={editing}
-          onClose={() => setEditing(null)}
-          mutate={mutate}
-        />
-      )}
     </div>
   );
 }
@@ -165,7 +133,6 @@ function CompanyRow({
   active,
   onSelectContact,
   onSelectCompany,
-  onEdit,
 }: {
   group: ContactGroup;
   companies: CompanySummary[];
@@ -174,7 +141,6 @@ function CompanyRow({
   active: boolean;
   onSelectContact: (contact: ContactListItem) => void;
   onSelectCompany?: () => void;
-  onEdit?: () => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -266,12 +232,6 @@ function CompanyRow({
         {group.company?.label && (
           <Badge color="blue">{group.company.label.name}</Badge>
         )}
-        {onEdit && (
-          <Button variant="ghost" size="iconSm" onClick={onEdit}>
-            <span className="sr-only">Edit company</span>
-            <PencilIcon className="size-4" />
-          </Button>
-        )}
       </div>
 
       {open && (
@@ -311,142 +271,5 @@ function CompanyRow({
         </div>
       )}
     </div>
-  );
-}
-
-function CompanyEditDialog({
-  company,
-  onClose,
-  mutate,
-}: {
-  company: CompanySummary;
-  onClose: () => void;
-  mutate: () => void;
-}) {
-  const { emailAccountId } = useAccount();
-  const [logoWhiteBackground, setLogoWhiteBackground] = useState(
-    company.logoWhiteBackground,
-  );
-
-  const { register, handleSubmit } = useForm<{
-    name: string;
-    domains: string;
-    logoUrl: string;
-    labelName: string;
-    labelParentName: string;
-  }>({
-    defaultValues: {
-      name: company.name,
-      domains: company.domains.join(", "),
-      logoUrl: company.logoUrl ?? "",
-      labelName: company.label?.name ?? "",
-      labelParentName: company.label?.parent?.name ?? "",
-    },
-  });
-
-  const update = useAction(updateCompanyAction.bind(null, emailAccountId), {
-    onSuccess: () => {
-      toastSuccess({ description: "Company saved" });
-      mutate();
-      onClose();
-    },
-    onError: (error) => {
-      toastError({ description: getActionErrorMessage(error.error) });
-    },
-  });
-
-  const onSubmit = handleSubmit((values) => {
-    const body: Omit<UpdateCompanyBody, "id"> & { id: string } = {
-      id: company.id,
-      name: values.name.trim(),
-      domains: values.domains
-        .split(",")
-        .map((domain) => domain.trim())
-        .filter(Boolean),
-      logoUrl: values.logoUrl.trim(),
-      logoWhiteBackground,
-      labelName: values.labelName.trim(),
-      labelParentName: values.labelParentName.trim(),
-    };
-    update.execute(body);
-  });
-
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit company</DialogTitle>
-        </DialogHeader>
-        <form className="space-y-4" onSubmit={onSubmit}>
-          <div>
-            <Label htmlFor="company-name">Name</Label>
-            <Input id="company-name" className="mt-2" {...register("name")} />
-          </div>
-          <div>
-            <Label htmlFor="company-domains">Email domains</Label>
-            <Input
-              id="company-domains"
-              className="mt-2"
-              placeholder="toyota.com, lexus.com"
-              {...register("domains")}
-            />
-            <p className="mt-1 text-sm text-muted-foreground">
-              Everyone emailing from these domains is grouped under this
-              company. Separate with commas.
-            </p>
-          </div>
-          <div>
-            <Label htmlFor="company-logo">Logo URL</Label>
-            <Input
-              id="company-logo"
-              className="mt-2"
-              placeholder="Leave empty to use the domain's logo"
-              {...register("logoUrl")}
-            />
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <Label htmlFor="company-logo-bg">White logo background</Label>
-              <p className="mt-1 text-sm text-muted-foreground">
-                For dark logos that disappear against the dark theme.
-              </p>
-            </div>
-            <Switch
-              id="company-logo-bg"
-              checked={logoWhiteBackground}
-              onCheckedChange={setLogoWhiteBackground}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="company-label">Label</Label>
-              <Input
-                id="company-label"
-                className="mt-2"
-                placeholder="e.g. Factory"
-                {...register("labelName")}
-              />
-            </div>
-            <div>
-              <Label htmlFor="company-label-parent">Parent label</Label>
-              <Input
-                id="company-label-parent"
-                className="mt-2"
-                placeholder="Optional"
-                {...register("labelParentName")}
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" loading={update.isExecuting}>
-              Save
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }

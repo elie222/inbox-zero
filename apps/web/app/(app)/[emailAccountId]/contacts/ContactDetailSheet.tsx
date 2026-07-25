@@ -70,6 +70,7 @@ export function ContactDetailSheet({
             domainStats={domainStats}
             onSelectContact={onSelectContact}
             mutateContacts={mutateContacts}
+            onDeleted={onClose}
           />
         ) : contact ? (
           <ContactDetails

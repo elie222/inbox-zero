@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
+import { useForm } from "react-hook-form";
 import { formatDistanceToNow } from "date-fns";
-import { BuildingIcon, CheckIcon } from "lucide-react";
+import { BuildingIcon, CheckIcon, PencilIcon, XIcon } from "lucide-react";
 import {
   type CompanySummary,
   type ContactGroup,
@@ -12,33 +13,52 @@ import {
   domainLogoUrl,
 } from "@/utils/contacts";
 import type { LogoSource } from "@/utils/logo/fetch-logo";
-import { updateCompanyAction } from "@/utils/actions/contact";
+import {
+  deleteCompanyAction,
+  mergeCompaniesAction,
+  updateCompanyAction,
+} from "@/utils/actions/contact";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getActionErrorMessage } from "@/utils/error";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { cn } from "@/utils";
 import { Badge } from "@/components/Badge";
 import { Tooltip } from "@/components/Tooltip";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ContactAvatar } from "./ContactsList";
 import { useCompanyMembers } from "./useCompanyMembers";
 
-// Right-pane details for a company group: how you and this company interact
-// (full-history volumes per domain), the busiest people, and a logo picker
-// built from the company's domains.
+// Right-pane details for a company group: stats and top people, plus an
+// in-pane tabbed editor (Details / Logo / Manage) behind the Edit button —
+// editing, logo choice, merge, and delete all live here now.
 export function CompanyDetails({
   group,
   companies,
   domainStats,
   onSelectContact,
   mutateContacts,
+  onDeleted,
 }: {
   group: ContactGroup;
   companies: CompanySummary[];
   domainStats: DomainStat[];
   onSelectContact: (contact: ContactListItem) => void;
   mutateContacts: () => void;
+  // The company was deleted or merged away — clear the selection
+  onDeleted?: () => void;
 }) {
   const company = group.company;
+  const [editing, setEditing] = useState(false);
 
   // The page's contact list is a recency window — fetch this company's
   // people from the full history so the list below matches the stats
@@ -98,7 +118,7 @@ export function CompanyDetails({
             <BuildingIcon className="size-5" />
           </div>
         )}
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2 className="truncate font-display text-2xl tracking-tight">
             {group.name}
           </h2>
@@ -106,69 +126,102 @@ export function CompanyDetails({
             {group.domains.join(", ") || "No domains yet"}
           </p>
         </div>
-      </div>
-
-      {company?.label && (
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge color="blue">
-            {company.label.parent
-              ? `${company.label.parent.name} › ${company.label.name}`
-              : company.label.name}
-          </Badge>
-          {staleCount > 0 && <Badge color="yellow">{staleCount} stale</Badge>}
-        </div>
-      )}
-
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard label="People" value={people} />
-        <StatCard label="Received" value={received} />
-        <StatCard label="Sent" value={sent} />
-      </div>
-      {lastInteractionAt && (
-        <p className="text-sm text-muted-foreground">
-          Last activity{" "}
-          {formatDistanceToNow(lastInteractionAt, { addSuffix: true })}
-        </p>
-      )}
-
-      {company && <LogoPicker company={company} mutate={mutateContacts} />}
-
-      {topContacts.length === 0 &&
-        !fetchedMembers.data &&
-        !fetchedMembers.error &&
-        group.domains.length > 0 && (
-          <p className="text-sm text-muted-foreground">Loading people…</p>
+        {company && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={() => setEditing(!editing)}
+          >
+            {editing ? (
+              <>
+                <XIcon className="mr-1.5 size-3.5" />
+                Done
+              </>
+            ) : (
+              <>
+                <PencilIcon className="mr-1.5 size-3.5" />
+                Edit
+              </>
+            )}
+          </Button>
         )}
+      </div>
 
-      {topContacts.length > 0 && (
-        <div>
-          <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
-            Top people
-          </h3>
-          <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-            {topContacts.map((contact) => (
-              <button
-                key={contact.email}
-                type="button"
-                className="flex w-full items-center gap-3 bg-background px-3 py-2 text-left hover:bg-muted/50"
-                onClick={() => onSelectContact(contact)}
-              >
-                <ContactAvatar contact={contact} companies={companies} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">
-                    {contact.name || contact.email}
-                  </div>
-                  <div className="truncate text-sm text-muted-foreground">
-                    {[contact.title, contact.email].filter(Boolean).join(" · ")}
-                  </div>
-                </div>
-                <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
-                  {contact.receivedCount + contact.sentCount}
-                </span>
-              </button>
-            ))}
+      {editing && company ? (
+        <CompanyEditor
+          company={company}
+          companies={companies}
+          mutate={mutateContacts}
+          onDeleted={onDeleted}
+        />
+      ) : (
+        <>
+          {company?.label && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge color="blue">
+                {company.label.parent
+                  ? `${company.label.parent.name} › ${company.label.name}`
+                  : company.label.name}
+              </Badge>
+              {staleCount > 0 && (
+                <Badge color="yellow">{staleCount} stale</Badge>
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-3">
+            <StatCard label="People" value={people} />
+            <StatCard label="Received" value={received} />
+            <StatCard label="Sent" value={sent} />
           </div>
-        </div>
+          {lastInteractionAt && (
+            <p className="text-sm text-muted-foreground">
+              Last activity{" "}
+              {formatDistanceToNow(lastInteractionAt, { addSuffix: true })}
+            </p>
+          )}
+
+          {topContacts.length === 0 &&
+            !fetchedMembers.data &&
+            !fetchedMembers.error &&
+            group.domains.length > 0 && (
+              <p className="text-sm text-muted-foreground">Loading people…</p>
+            )}
+
+          {topContacts.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
+                Top people
+              </h3>
+              <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+                {topContacts.map((contact) => (
+                  <button
+                    key={contact.email}
+                    type="button"
+                    className="flex w-full items-center gap-3 bg-background px-3 py-2 text-left hover:bg-muted/50"
+                    onClick={() => onSelectContact(contact)}
+                  >
+                    <ContactAvatar contact={contact} companies={companies} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">
+                        {contact.name || contact.email}
+                      </div>
+                      <div className="truncate text-sm text-muted-foreground">
+                        {[contact.title, contact.email]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                      {contact.receivedCount + contact.sentCount}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -180,6 +233,325 @@ function StatCard({ label, value }: { label: string; value: number }) {
       <div className="font-display text-2xl tabular-nums">{value}</div>
       <div className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
         {label}
+      </div>
+    </div>
+  );
+}
+
+const EDITOR_TABS = [
+  { key: "details", label: "Details" },
+  { key: "logo", label: "Logo" },
+  { key: "manage", label: "Manage" },
+] as const;
+type EditorTab = (typeof EDITOR_TABS)[number]["key"];
+
+// The in-pane editor: everything the old edit modal held, broken out by tab
+function CompanyEditor({
+  company,
+  companies,
+  mutate,
+  onDeleted,
+}: {
+  company: CompanySummary;
+  companies: CompanySummary[];
+  mutate: () => void;
+  onDeleted?: () => void;
+}) {
+  const [tab, setTab] = useState<EditorTab>("details");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 rounded-lg bg-muted p-1">
+        {EDITOR_TABS.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            className={cn(
+              "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              tab === key
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+            onClick={() => setTab(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "details" && <DetailsTab company={company} mutate={mutate} />}
+      {tab === "logo" && <LogoTab company={company} mutate={mutate} />}
+      {tab === "manage" && (
+        <ManageTab
+          company={company}
+          companies={companies}
+          mutate={mutate}
+          onDeleted={onDeleted}
+        />
+      )}
+    </div>
+  );
+}
+
+function DetailsTab({
+  company,
+  mutate,
+}: {
+  company: CompanySummary;
+  mutate: () => void;
+}) {
+  const { emailAccountId } = useAccount();
+
+  const { register, handleSubmit } = useForm<{
+    name: string;
+    domains: string;
+    labelName: string;
+    labelParentName: string;
+  }>({
+    defaultValues: {
+      name: company.name,
+      domains: company.domains.join(", "),
+      labelName: company.label?.name ?? "",
+      labelParentName: company.label?.parent?.name ?? "",
+    },
+  });
+
+  const update = useAction(updateCompanyAction.bind(null, emailAccountId), {
+    onSuccess: () => {
+      toastSuccess({ description: "Company saved" });
+      mutate();
+    },
+    onError: (error) => {
+      toastError({ description: getActionErrorMessage(error.error) });
+    },
+  });
+
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={handleSubmit((values) =>
+        update.execute({
+          id: company.id,
+          name: values.name.trim(),
+          domains: values.domains
+            .split(",")
+            .map((domain) => domain.trim())
+            .filter(Boolean),
+          labelName: values.labelName.trim(),
+          labelParentName: values.labelParentName.trim(),
+        }),
+      )}
+    >
+      <div>
+        <Label htmlFor="company-name">Name</Label>
+        <Input id="company-name" className="mt-2" {...register("name")} />
+      </div>
+      <div>
+        <Label htmlFor="company-domains">Email domains</Label>
+        <Input
+          id="company-domains"
+          className="mt-2"
+          placeholder="toyota.com, lexus.com"
+          {...register("domains")}
+        />
+        <p className="mt-1 text-sm text-muted-foreground">
+          Everyone emailing from these domains is grouped under this company.
+          Separate with commas.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="company-label">Label</Label>
+          <Input
+            id="company-label"
+            className="mt-2"
+            placeholder="e.g. Factory"
+            {...register("labelName")}
+          />
+        </div>
+        <div>
+          <Label htmlFor="company-label-parent">Parent label</Label>
+          <Input
+            id="company-label-parent"
+            className="mt-2"
+            placeholder="Nests under this label"
+            {...register("labelParentName")}
+          />
+        </div>
+      </div>
+      <Button type="submit" size="sm" loading={update.isExecuting}>
+        Save
+      </Button>
+    </form>
+  );
+}
+
+function LogoTab({
+  company,
+  mutate,
+}: {
+  company: CompanySummary;
+  mutate: () => void;
+}) {
+  const { emailAccountId } = useAccount();
+  const [logoUrl, setLogoUrl] = useState(company.logoUrl ?? "");
+
+  const update = useAction(updateCompanyAction.bind(null, emailAccountId), {
+    onSuccess: () => {
+      toastSuccess({ description: "Company saved" });
+      mutate();
+    },
+    onError: (error) => {
+      toastError({ description: getActionErrorMessage(error.error) });
+    },
+  });
+
+  return (
+    <div className="space-y-5">
+      <LogoPicker company={company} mutate={mutate} />
+
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <Label htmlFor="company-logo-bg">White logo background</Label>
+          <p className="mt-1 text-sm text-muted-foreground">
+            For dark logos that disappear against the dark theme.
+          </p>
+        </div>
+        <Switch
+          id="company-logo-bg"
+          checked={company.logoWhiteBackground}
+          disabled={update.isExecuting}
+          onCheckedChange={(checked) =>
+            update.execute({ id: company.id, logoWhiteBackground: checked })
+          }
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="company-logo-url">Custom logo URL</Label>
+        <div className="mt-2 flex gap-2">
+          <Input
+            id="company-logo-url"
+            value={logoUrl}
+            placeholder="Leave empty to use the sources above"
+            onChange={(event) => setLogoUrl(event.target.value)}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            loading={update.isExecuting}
+            onClick={() =>
+              update.execute({ id: company.id, logoUrl: logoUrl.trim() })
+            }
+          >
+            Save
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ManageTab({
+  company,
+  companies,
+  mutate,
+  onDeleted,
+}: {
+  company: CompanySummary;
+  companies: CompanySummary[];
+  mutate: () => void;
+  onDeleted?: () => void;
+}) {
+  const { emailAccountId } = useAccount();
+  const [mergeTargetId, setMergeTargetId] = useState<string>("");
+
+  const merge = useAction(mergeCompaniesAction.bind(null, emailAccountId), {
+    onSuccess: () => {
+      toastSuccess({ description: "Companies merged" });
+      mutate();
+      onDeleted?.();
+    },
+    onError: (error) => {
+      toastError({ description: getActionErrorMessage(error.error) });
+    },
+  });
+
+  const del = useAction(deleteCompanyAction.bind(null, emailAccountId), {
+    onSuccess: () => {
+      toastSuccess({ description: "Company deleted" });
+      mutate();
+      onDeleted?.();
+    },
+    onError: (error) => {
+      toastError({ description: getActionErrorMessage(error.error) });
+    },
+  });
+
+  const targets = companies.filter((candidate) => candidate.id !== company.id);
+  const target = targets.find((candidate) => candidate.id === mergeTargetId);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <Label htmlFor="merge-target">Merge into another company</Label>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {company.name}'s people and domains move to the company you pick, then{" "}
+          {company.name} is deleted.
+        </p>
+        <div className="mt-2 flex gap-2">
+          <Select value={mergeTargetId} onValueChange={setMergeTargetId}>
+            <SelectTrigger id="merge-target" className="flex-1">
+              <SelectValue placeholder="Pick a company" />
+            </SelectTrigger>
+            <SelectContent>
+              {targets.map((candidate) => (
+                <SelectItem key={candidate.id} value={candidate.id}>
+                  {candidate.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!target}
+            loading={merge.isExecuting}
+            onClick={() => {
+              if (
+                target &&
+                confirm(
+                  `Merge ${company.name} into ${target.name}? ${company.name} will be deleted.`,
+                )
+              ) {
+                merge.execute({ sourceId: company.id, targetId: target.id });
+              }
+            }}
+          >
+            Merge
+          </Button>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-destructive/40 p-4">
+        <Label>Delete company</Label>
+        <p className="mt-1 text-sm text-muted-foreground">
+          People keep their history; they just stop being grouped under{" "}
+          {company.name}, and its domains return to Suggested.
+        </p>
+        <Button
+          variant="destructiveSoft"
+          size="sm"
+          className="mt-3"
+          loading={del.isExecuting}
+          onClick={() => {
+            if (confirm(`Delete ${company.name}?`)) {
+              del.execute({ id: company.id });
+            }
+          }}
+        >
+          Delete company
+        </Button>
       </div>
     </div>
   );
@@ -234,7 +606,7 @@ function LogoPicker({
   return (
     <div>
       <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
-        Logo
+        Sources
       </h3>
       {visible.length ? (
         <div className="flex flex-wrap items-start gap-3">
@@ -294,8 +666,7 @@ function LogoPicker({
       )}
       <p className="mt-1 text-xs text-muted-foreground">
         Pick which source's logo represents the company — it shows for everyone
-        here, across all of its domains. A custom URL can be set from the edit
-        dialog.
+        here, across all of its domains.
       </p>
     </div>
   );

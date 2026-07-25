@@ -78,3 +78,15 @@ export const updateCompanyBody = z.object({
   labelParentName: z.string().max(100).nullish(),
 });
 export type UpdateCompanyBody = z.infer<typeof updateCompanyBody>;
+
+export const deleteCompanyBody = z.object({
+  id: z.string().min(1),
+});
+export type DeleteCompanyBody = z.infer<typeof deleteCompanyBody>;
+
+export const mergeCompaniesBody = z.object({
+  // The source is absorbed into the target and deleted
+  sourceId: z.string().min(1),
+  targetId: z.string().min(1),
+});
+export type MergeCompaniesBody = z.infer<typeof mergeCompaniesBody>;
