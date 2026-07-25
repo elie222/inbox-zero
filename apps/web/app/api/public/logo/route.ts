@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
 import { withAuth } from "@/utils/middleware";
-import { fetchLogo, normalizeLogoDomain } from "@/utils/logo/fetch-logo";
+import {
+  fetchLogo,
+  type LogoAttempt,
+  normalizeLogoDomain,
+} from "@/utils/logo/fetch-logo";
 
 export const runtime = "nodejs";
 // Comfortably above the 12s provider budget in fetch-logo.ts — the chain
@@ -20,12 +24,41 @@ export const GET = withAuth("logo", async (request) => {
     return NextResponse.json({ error: "Invalid domain" }, { status: 400 });
   }
 
+  const debug = request.nextUrl.searchParams.get("debug") === "1";
+
+  const attempts: LogoAttempt[] = [];
   const logo = await fetchLogo({
     domain,
     logoDevToken: env.LOGO_DEV_TOKEN,
+    onAttempt: (attempt) => attempts.push(attempt),
   });
 
+  // Answers "why is there no logo for X?" without log access: shows whether
+  // logo.dev is configured and what every provider returned. Signed-in only
+  // (whole route is behind withAuth); tokens never appear in attempt URLs.
+  if (debug) {
+    return NextResponse.json(
+      {
+        domain,
+        logoDevConfigured: Boolean(env.LOGO_DEV_TOKEN),
+        found: !!logo,
+        ...(logo && {
+          contentType: logo.contentType,
+          bytes: logo.body.byteLength,
+          provider: providerHost(attempts),
+        }),
+        attempts: attempts.map(redactAttempt),
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   if (!logo) {
+    request.logger.info("No logo found", {
+      domain,
+      logoDevConfigured: Boolean(env.LOGO_DEV_TOKEN),
+      attempts: attempts.map(redactAttempt),
+    });
     return NextResponse.json(
       { error: "No logo found" },
       // Cache misses briefly (browser and CDN) so a flaky provider can
@@ -43,6 +76,21 @@ export const GET = withAuth("logo", async (request) => {
       "Cache-Control":
         "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
       "X-Content-Type-Options": "nosniff",
+      // Which provider served this logo — checkable from the network tab
+      "X-Logo-Provider": providerHost(attempts) ?? "unknown",
     },
   });
 });
+
+// The winning attempt's host, e.g. "img.logo.dev" or "icons.duckduckgo.com"
+function providerHost(attempts: LogoAttempt[]): string | null {
+  const hit = attempts.find((attempt) => attempt.outcome === "hit");
+  return hit ? new URL(hit.url).hostname : null;
+}
+
+// The logo.dev URL carries the token as a query param — strip query strings
+// before attempts leave the server (debug JSON, logs)
+function redactAttempt(attempt: LogoAttempt): LogoAttempt {
+  const url = new URL(attempt.url);
+  return { ...attempt, url: `${url.origin}${url.pathname}` };
+}

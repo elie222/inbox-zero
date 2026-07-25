@@ -21,6 +21,25 @@ export type FetchedLogo = {
   contentType: string;
 };
 
+// One provider attempt's outcome, reported through onAttempt so the route
+// can answer "why is there no logo for this domain?" (debug view + logs)
+export type LogoAttempt = {
+  url: string;
+  outcome:
+    | "hit"
+    | "bad-status"
+    | "not-an-image"
+    | "svg-rejected"
+    | "too-small-or-capped"
+    | "timeout"
+    | "error"
+    | "skipped-unresponsive-host"
+    | "skipped-budget";
+  status?: number;
+  contentType?: string;
+  bytes?: number;
+};
+
 // Hostname shape only — the safe fetch enforces the blocked-host policy
 // and public-IP resolution on top
 const DOMAIN_PATTERN =
@@ -43,10 +62,12 @@ export async function fetchLogo({
   domain,
   logoDevToken,
   fetchImpl = createSafeImageProxyFetch,
+  onAttempt,
 }: {
   domain: string;
   logoDevToken?: string;
   fetchImpl?: (input: string, init?: RequestInit) => Promise<Response>;
+  onAttempt?: (attempt: LogoAttempt) => void;
 }): Promise<FetchedLogo | null> {
   const deadline = Date.now() + TOTAL_BUDGET_MS;
   // A host that just timed out won't answer for its other candidate paths
@@ -56,12 +77,18 @@ export async function fetchLogo({
   for (const url of providerUrls(domain, logoDevToken)) {
     // Attempts must FINISH inside the budget, or the route itself gets
     // killed by the platform's function timeout and the client sees a 5xx
-    if (Date.now() + ATTEMPT_TIMEOUT_MS > deadline) return null;
+    if (Date.now() + ATTEMPT_TIMEOUT_MS > deadline) {
+      onAttempt?.({ url, outcome: "skipped-budget" });
+      continue;
+    }
 
     const host = new URL(url).hostname;
-    if (unresponsiveHosts.has(host)) continue;
+    if (unresponsiveHosts.has(host)) {
+      onAttempt?.({ url, outcome: "skipped-unresponsive-host" });
+      continue;
+    }
 
-    const attempt = await attemptFetch(url, fetchImpl);
+    const attempt = await attemptFetch(url, fetchImpl, onAttempt);
     if (attempt.logo) return attempt.logo;
     if (attempt.timedOut) unresponsiveHosts.add(host);
   }
@@ -89,33 +116,56 @@ function providerUrls(domain: string, logoDevToken?: string): string[] {
 async function attemptFetch(
   url: string,
   fetchImpl: (input: string, init?: RequestInit) => Promise<Response>,
+  onAttempt?: (attempt: LogoAttempt) => void,
 ): Promise<{ logo: FetchedLogo | null; timedOut: boolean }> {
   try {
     const response = await fetchWithRedirects(url, fetchImpl);
-    if (!response?.ok) return { logo: null, timedOut: false };
+    if (!response?.ok) {
+      onAttempt?.({ url, outcome: "bad-status", status: response?.status });
+      return { logo: null, timedOut: false };
+    }
 
     const contentType = response.headers.get("content-type") ?? "";
     // Reject SVG: it passes the image/ prefix but is an active document that
     // can carry <script>, which would run if this same-origin logo URL is
     // opened as a top-level navigation. Logos are raster in practice.
     if (!contentType.startsWith("image/") || contentType.includes("svg")) {
+      onAttempt?.({
+        url,
+        outcome: contentType.includes("svg") ? "svg-rejected" : "not-an-image",
+        status: response.status,
+        contentType,
+      });
       return { logo: null, timedOut: false };
     }
 
     const body = await readCappedBody(response);
     if (!body || body.byteLength < MIN_IMAGE_BYTES) {
+      onAttempt?.({
+        url,
+        outcome: "too-small-or-capped",
+        status: response.status,
+        contentType,
+        bytes: body?.byteLength ?? undefined,
+      });
       return { logo: null, timedOut: false };
     }
 
+    onAttempt?.({
+      url,
+      outcome: "hit",
+      status: response.status,
+      contentType,
+      bytes: body.byteLength,
+    });
     return { logo: { body, contentType }, timedOut: false };
   } catch (error) {
     // DNS failures and TLS errors just move down the chain; timeouts are
     // reported so the caller can skip the host's remaining candidates
     const name = error instanceof Error ? error.name : "";
-    return {
-      logo: null,
-      timedOut: name === "AbortError" || name === "TimeoutError",
-    };
+    const timedOut = name === "AbortError" || name === "TimeoutError";
+    onAttempt?.({ url, outcome: timedOut ? "timeout" : "error" });
+    return { logo: null, timedOut };
   }
 }
 
