@@ -95,7 +95,10 @@ async function attemptFetch(
     if (!response?.ok) return { logo: null, timedOut: false };
 
     const contentType = response.headers.get("content-type") ?? "";
-    if (!contentType.startsWith("image/")) {
+    // Reject SVG: it passes the image/ prefix but is an active document that
+    // can carry <script>, which would run if this same-origin logo URL is
+    // opened as a top-level navigation. Logos are raster in practice.
+    if (!contentType.startsWith("image/") || contentType.includes("svg")) {
       return { logo: null, timedOut: false };
     }
 

@@ -38,16 +38,22 @@ export function AddTaskDialog({
     onSuccess: () => {
       toastSuccess({ description: "Task added" });
       mutate();
-      reset();
-      onClose();
+      closeAndReset();
     },
     onError: (error) => {
       toastError({ description: getActionErrorMessage(error.error) });
     },
   });
 
+  // The dialog stays mounted, so its form state survives a close; clear it on
+  // every close path (cancel, Escape, outside-click) to avoid a stale draft
+  const closeAndReset = () => {
+    reset();
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+    <Dialog open={open} onOpenChange={(next) => !next && closeAndReset()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add task</DialogTitle>
@@ -104,7 +110,7 @@ export function AddTaskDialog({
             </div>
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={closeAndReset}>
               Cancel
             </Button>
             <Button type="submit" loading={create.isExecuting}>

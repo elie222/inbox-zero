@@ -291,6 +291,12 @@ export const createCompanyAction = actionClient
         where: { emailAccountId_name: { emailAccountId, name: trimmedName } },
       });
 
+      await assertDomainsUnowned({
+        emailAccountId,
+        domains: normalized,
+        excludeCompanyId: existing?.id,
+      });
+
       const company = existing
         ? await prisma.company.update({
             where: { id: existing.id },
@@ -349,12 +355,22 @@ export const updateCompanyAction = actionClient
       });
       if (!existing) throw new SafeError("Company not found");
 
+      const normalizedDomains =
+        domains !== undefined ? normalizeDomains(domains) : undefined;
+      if (normalizedDomains !== undefined) {
+        await assertDomainsUnowned({
+          emailAccountId,
+          domains: normalizedDomains,
+          excludeCompanyId: id,
+        });
+      }
+
       const company = await prisma.company.update({
         where: { id },
         data: {
           ...(name !== undefined && { name: name.trim() }),
-          ...(domains !== undefined && {
-            domains: normalizeDomains(domains),
+          ...(normalizedDomains !== undefined && {
+            domains: normalizedDomains,
           }),
           ...(logoUrl !== undefined && { logoUrl: logoUrl?.trim() || null }),
           ...(labelName !== undefined && {
@@ -469,9 +485,14 @@ async function resolveLabelId({
       })
     : null;
 
+  // A cleared parent field (empty string) must un-nest the label; only an
+  // omitted field (undefined) leaves the existing parent untouched
+  const parentUpdate =
+    labelParentName === undefined ? {} : { parentId: parent?.id ?? null };
+
   const label = await prisma.companyLabel.upsert({
     where: { emailAccountId_name: { emailAccountId, name } },
-    update: { ...(parent && { parentId: parent.id }) },
+    update: parentUpdate,
     create: { emailAccountId, name, parentId: parent?.id },
   });
 
@@ -502,6 +523,34 @@ async function maybePushToGoogle({
       logger.warn("Failed to push contact to Google", { email, error });
     }
   });
+}
+
+// A domain belongs to exactly one company, so client display (first match)
+// and the server lock (oldest owner) can never disagree. Reject a save that
+// would let a second company claim a domain another already owns.
+async function assertDomainsUnowned({
+  emailAccountId,
+  domains,
+  excludeCompanyId,
+}: {
+  emailAccountId: string;
+  domains: string[];
+  excludeCompanyId?: string;
+}): Promise<void> {
+  if (!domains.length) return;
+  const conflict = await prisma.company.findFirst({
+    where: {
+      emailAccountId,
+      domains: { hasSome: domains },
+      ...(excludeCompanyId && { id: { not: excludeCompanyId } }),
+    },
+    select: { name: true, domains: true },
+  });
+  if (!conflict) return;
+  const clash = domains.find((domain) => conflict.domains.includes(domain));
+  throw new SafeError(
+    `${conflict.name} already owns ${clash}. Remove it from ${conflict.name} first, or add those contacts to ${conflict.name}.`,
+  );
 }
 
 function normalizeDomains(domains: string[]): string[] {

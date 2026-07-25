@@ -68,12 +68,18 @@ export function AddContactDialog({
         <form
           className="space-y-4"
           onSubmit={handleSubmit((values) =>
+            // This calls the create-or-update upsert, so a blank field must
+            // be omitted (undefined), not sent as "" — otherwise re-adding an
+            // already-saved contact would wipe their name/title/phone/company
+            // (and push that wipe to Google). Personal still clears company.
             add.execute({
               email: values.email.trim(),
-              name: values.name,
-              title: values.title,
-              phone: values.phone,
-              companyName: isPersonal ? "" : values.companyName,
+              name: values.name.trim() || undefined,
+              title: values.title.trim() || undefined,
+              phone: values.phone.trim() || undefined,
+              companyName: isPersonal
+                ? ""
+                : values.companyName.trim() || undefined,
               isPersonal,
             }),
           )}

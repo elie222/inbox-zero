@@ -84,6 +84,22 @@ describe("fetchLogo", () => {
     );
   });
 
+  it("rejects an SVG response (active content) and keeps looking", async () => {
+    const fetchImpl = vi
+      .fn()
+      // clearbit: a large SVG — over the byte floor but must be refused,
+      // since svg can carry <script> and this endpoint is served same-origin
+      .mockResolvedValueOnce(image(4096, "image/svg+xml"))
+      // duckduckgo: a real raster image
+      .mockResolvedValueOnce(image(2000));
+
+    const logo = await fetchLogo({ domain: "example.com", fetchImpl });
+
+    expect(logo?.contentType).toBe(PNG);
+    expect(logo?.body.byteLength).toBe(2000);
+    expect(fetchImpl.mock.calls[1][0]).toContain("duckduckgo");
+  });
+
   it("rejects an oversized response (Content-Length over the cap)", async () => {
     const oversized = vi
       .fn()
