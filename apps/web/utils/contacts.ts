@@ -227,7 +227,12 @@ export function groupContacts({
     const bSpecial = special.indexOf(b.key);
     if (aSpecial !== bSpecial)
       return (aSpecial + 1 || 99) - (bSpecial + 1 || 99);
-    return b.contacts.length - a.contacts.length;
+    // Companies read A→Z (case-insensitive, natural numbers) so the list
+    // is scannable and stable instead of reshuffling with email volume
+    return a.name.localeCompare(b.name, undefined, {
+      sensitivity: "base",
+      numeric: true,
+    });
   });
 }
 
