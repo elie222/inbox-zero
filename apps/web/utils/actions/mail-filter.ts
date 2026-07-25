@@ -44,17 +44,23 @@ export const createMailFilterAction = actionClient
     }) => {
       const conditionValue = normalizeFilterValue(matchType, value);
 
+      const condition =
+        matchType === "subject"
+          ? {
+              conditionalOperator: null,
+              aiInstructions: null,
+              static: { from: null, to: null, subject: conditionValue },
+            }
+          : {
+              conditionalOperator: null,
+              aiInstructions: null,
+              static: { from: conditionValue, to: null, subject: null },
+            };
+
       const rule = await createRule({
         result: {
           name: `Filter: ${conditionValue}`,
-          condition: {
-            conditionalOperator: null,
-            aiInstructions: null,
-            static:
-              matchType === "subject"
-                ? { from: null, to: null, subject: conditionValue }
-                : { from: conditionValue, to: null, subject: null },
-          },
+          condition,
           // The label resolves by name — created on the provider when it
           // doesn't exist yet
           actions: [
