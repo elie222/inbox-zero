@@ -7,7 +7,10 @@ describe("generateVCard", () => {
       uid: "abc-123",
       email: "jane@example.com",
       name: "Jane van Doe",
-      phone: "+1 555 0100",
+      phones: [
+        { label: "Mobile", value: "+1 555 0100" },
+        { label: "Work", value: "+1 555 0111" },
+      ],
       title: "CTO",
       companyName: "Example, Corp",
       updatedAt: new Date("2026-07-24T12:00:00Z"),
@@ -19,6 +22,7 @@ describe("generateVCard", () => {
     expect(vcard).toContain("N:Doe;Jane van;;;");
     expect(vcard).toContain("EMAIL;TYPE=INTERNET:jane@example.com");
     expect(vcard).toContain("TEL;TYPE=CELL:+1 555 0100");
+    expect(vcard).toContain("TEL;TYPE=WORK:+1 555 0111");
     expect(vcard).toContain("ORG:Example\\, Corp");
     expect(vcard).toContain("TITLE:CTO");
     expect(vcard.endsWith("END:VCARD\r\n")).toBe(true);
@@ -29,7 +33,7 @@ describe("generateVCard", () => {
       uid: "u1",
       email: "x@y.com",
       name: null,
-      phone: null,
+      phones: [],
       title: null,
       companyName: null,
       updatedAt: new Date(),
@@ -46,7 +50,10 @@ describe("parseVCard", () => {
       uid: "abc-123",
       email: "jane@example.com",
       name: "Jane Doe",
-      phone: "+1 555 0100",
+      phones: [
+        { label: "Mobile", value: "+1 555 0100" },
+        { label: "Fax", value: "+1 555 0199" },
+      ],
       title: "CTO",
       companyName: "Example, Corp",
       updatedAt: new Date(),
@@ -56,7 +63,10 @@ describe("parseVCard", () => {
       uid: "abc-123",
       email: "jane@example.com",
       name: "Jane Doe",
-      phone: "+1 555 0100",
+      phones: [
+        { label: "Mobile", value: "+1 555 0100" },
+        { label: "Fax", value: "+1 555 0199" },
+      ],
       title: "CTO",
       companyName: "Example, Corp",
     });
@@ -81,7 +91,7 @@ describe("parseVCard", () => {
       uid: "1D0C50F1-6E9A-4C6F-9F1C-000000000000",
       email: "tom@vercel.app",
       name: "Tom Ortiz",
-      phone: "+1 (555) 010-0000",
+      phones: [{ label: "Mobile", value: "+1 (555) 010-0000" }],
       title: null,
       companyName: "Vercel",
     });

@@ -25,9 +25,18 @@ const schema = z.object({
       "The company or organization they work for, from signatures or context, or null if not evident.",
     ),
   phones: z
-    .array(z.string())
+    .array(
+      z.object({
+        label: z
+          .string()
+          .describe(
+            'The kind of line as indicated in the signature — "Mobile", "Work", "Fax", … Use "Other" when unlabeled.',
+          ),
+        value: z.string().describe("The phone number, formatted as written."),
+      }),
+    )
     .describe(
-      "Phone numbers found in their email signatures, formatted as written. Empty array if none.",
+      "Phone numbers found in their email signatures. Empty array if none.",
     ),
   summary: z
     .string()
@@ -78,7 +87,7 @@ Respond with a JSON object with the following fields:
 - "name": string or null — their full name as signed.
 - "title": string or null — their job title.
 - "company": string or null — their company.
-- "phones": string[] — phone numbers from their signatures. Empty array if none.
+- "phones": array of { "label": string, "value": string } — phone numbers from their signatures with the kind of line ("Mobile", "Work", "Fax", "Other"). Empty array if none.
 - "summary": string — 2-4 sentence relationship summary.
 </outputFormat>`;
 

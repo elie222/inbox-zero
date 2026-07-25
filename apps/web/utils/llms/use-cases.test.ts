@@ -145,6 +145,7 @@ describe("LLM use cases", () => {
       [LlmUseCase.ReplyMemoryExtraction]: "economy",
       [LlmUseCase.ReplyMemorySelection]: "economy",
       [LlmUseCase.ReplyNudge]: "chat",
+      [LlmUseCase.ResearchCompany]: "chat",
       [LlmUseCase.Summarise]: "default",
       [LlmUseCase.WritingStyleAnalysis]: "default",
     });

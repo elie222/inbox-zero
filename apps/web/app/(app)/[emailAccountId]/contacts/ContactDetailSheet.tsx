@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -10,8 +10,10 @@ import {
   EyeOffIcon,
   InboxIcon,
   MailIcon,
+  PlusIcon,
   SparklesIcon,
   Trash2Icon,
+  XIcon,
 } from "lucide-react";
 import {
   type CompanySummary,
@@ -386,7 +388,12 @@ type Suggestion = {
   field: "name" | "title" | "companyName" | "phone";
   label: string;
   value: string;
+  // For phone suggestions: the kind of line ("Mobile", "Work", …)
+  phoneLabel?: string;
 };
+
+// Label datalist options for a phone row; free text is fine too
+const PHONE_LABELS = ["Mobile", "Work", "Home", "Main", "Fax", "Other"];
 
 function ContactEditForm({
   contact,
@@ -409,10 +416,10 @@ function ContactEditForm({
   const [useCompanyLogo, setUseCompanyLogo] = useState(contact.useCompanyLogo);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 
-  const { register, handleSubmit, setValue } = useForm<{
+  const { register, handleSubmit, setValue, control } = useForm<{
     name: string;
     title: string;
-    phone: string;
+    phones: { label: string; value: string }[];
     companyName: string;
     photoUrl: string;
     notes: string;
@@ -420,12 +427,13 @@ function ContactEditForm({
     defaultValues: {
       name: contact.name ?? "",
       title: contact.title ?? "",
-      phone: contact.phone ?? "",
+      phones: contact.phones,
       companyName,
       photoUrl: contact.photoUrl ?? "",
       notes: contact.notes ?? "",
     },
   });
+  const phoneRows = useFieldArray({ control, name: "phones" });
 
   const update = useAction(updateContactAction.bind(null, emailAccountId), {
     onSuccess: () => {
@@ -461,8 +469,12 @@ function ContactEditForm({
           : []),
         ...phones.map((phone) => ({
           field: "phone" as const,
-          label: "Phone",
-          value: phone,
+          label:
+            phone.label && phone.label !== "Other"
+              ? `Phone (${phone.label})`
+              : "Phone",
+          value: phone.value,
+          phoneLabel: phone.label || "Other",
         })),
       ];
       setSuggestions(found);
@@ -487,7 +499,7 @@ function ContactEditForm({
           email: contact.email,
           name: values.name,
           title: values.title,
-          phone: values.phone,
+          phones: values.phones,
           // The form keeps a value even when the input is disabled — omit
           // it so saving other fields can't trip the server's domain lock
           companyName:
@@ -530,9 +542,16 @@ function ContactEditForm({
                 variant="outline"
                 size="xs"
                 onClick={() => {
-                  setValue(suggestion.field, suggestion.value, {
-                    shouldDirty: true,
-                  });
+                  if (suggestion.field === "phone") {
+                    phoneRows.append({
+                      label: suggestion.phoneLabel ?? "Other",
+                      value: suggestion.value,
+                    });
+                  } else {
+                    setValue(suggestion.field, suggestion.value, {
+                      shouldDirty: true,
+                    });
+                  }
                   setSuggestions((prev) =>
                     prev.filter((s) => s !== suggestion),
                   );
@@ -591,18 +610,59 @@ function ContactEditForm({
           )}
         </div>
         <div>
-          <Label htmlFor="contact-phone">Phone</Label>
-          <Input id="contact-phone" className="mt-2" {...register("phone")} />
+          <Label htmlFor="contact-photo">Photo URL</Label>
+          <Input
+            id="contact-photo"
+            className="mt-2"
+            placeholder="https://…"
+            {...register("photoUrl")}
+          />
         </div>
       </div>
       <div>
-        <Label htmlFor="contact-photo">Photo URL</Label>
-        <Input
-          id="contact-photo"
+        <Label>Phone numbers</Label>
+        {phoneRows.fields.map((field, index) => (
+          <div key={field.id} className="mt-2 flex gap-2">
+            <Input
+              className="w-28 shrink-0"
+              placeholder="Label"
+              list="contact-phone-labels"
+              aria-label="Phone label"
+              {...register(`phones.${index}.label`)}
+            />
+            <Input
+              className="min-w-0 flex-1"
+              placeholder="+1 555 010 0000"
+              aria-label="Phone number"
+              {...register(`phones.${index}.value`)}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="iconSm"
+              className="shrink-0"
+              onClick={() => phoneRows.remove(index)}
+            >
+              <span className="sr-only">Remove phone</span>
+              <XIcon className="size-4" />
+            </Button>
+          </div>
+        ))}
+        <datalist id="contact-phone-labels">
+          {PHONE_LABELS.map((label) => (
+            <option key={label} value={label} />
+          ))}
+        </datalist>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
           className="mt-2"
-          placeholder="https://…"
-          {...register("photoUrl")}
-        />
+          onClick={() => phoneRows.append({ label: "Mobile", value: "" })}
+        >
+          <PlusIcon className="mr-1.5 size-3.5" />
+          Add phone
+        </Button>
       </div>
       <div className="flex items-center justify-between gap-4">
         <div>

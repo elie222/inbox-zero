@@ -6,6 +6,7 @@ import {
   PERSON_FIELDS,
   UPDATE_PERSON_FIELDS,
 } from "@/utils/contacts-sync/mappers";
+import type { ContactPhone } from "@/utils/contacts";
 import type { Logger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
@@ -73,7 +74,7 @@ export async function pushContactToGoogle({
       id: true,
       email: true,
       name: true,
-      phone: true,
+      phones: true,
       title: true,
       googleResourceName: true,
       googleEtag: true,
@@ -86,7 +87,7 @@ export async function pushContactToGoogle({
   const payload = contactToPersonPayload({
     email: contact.email,
     name: contact.name,
-    phone: contact.phone,
+    phones: (contact.phones ?? []) as ContactPhone[],
     title: contact.title,
     companyName: contact.company?.name,
   });
@@ -204,7 +205,7 @@ async function pullWithToken({
       // (notes, aiSummary, company assignment, personal flag) are untouched
       const googleFields = {
         name: mapped.name,
-        phone: mapped.phone,
+        phones: mapped.phones,
         title: mapped.title,
         ...(mapped.photoUrl ? { photoUrl: mapped.photoUrl } : {}),
         googleResourceName: mapped.resourceName,

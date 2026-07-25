@@ -1,5 +1,5 @@
 import type { people_v1 } from "@googleapis/people";
-import { normalizeDisplayName } from "@/utils/contacts";
+import { type ContactPhone, normalizeDisplayName } from "@/utils/contacts";
 
 // Person fields we read from and write to Google Contacts. Notes and photos
 // are read-only on our side: notes stay private to Zerrow, photos can't be
@@ -14,7 +14,7 @@ export type MappedPerson = {
   etag: string | null;
   email: string;
   name: string | null;
-  phone: string | null;
+  phones: ContactPhone[];
   title: string | null;
   companyName: string | null;
   photoUrl: string | null;
@@ -40,7 +40,7 @@ export function mapPersonToContact(
     name: normalizeDisplayName(
       pickPrimary(person.names)?.displayName?.trim() || null,
     ),
-    phone: pickPrimary(person.phoneNumbers)?.value?.trim() || null,
+    phones: mapPhoneNumbers(person.phoneNumbers),
     title: organization?.title?.trim() || null,
     companyName: organization?.name?.trim() || null,
     photoUrl: photo?.url ?? null,
@@ -51,14 +51,17 @@ export function mapPersonToContact(
 export function contactToPersonPayload(contact: {
   email: string;
   name: string | null;
-  phone: string | null;
+  phones: ContactPhone[];
   title: string | null;
   companyName?: string | null;
 }): people_v1.Schema$Person {
   return {
     names: contact.name ? [{ unstructuredName: contact.name }] : [],
     emailAddresses: [{ value: contact.email }],
-    phoneNumbers: contact.phone ? [{ value: contact.phone }] : [],
+    phoneNumbers: contact.phones.map((phone) => ({
+      value: phone.value,
+      type: googleTypeFromLabel(phone.label),
+    })),
     organizations:
       contact.title || contact.companyName
         ? [
@@ -76,4 +79,61 @@ function pickPrimary<T extends { metadata?: people_v1.Schema$FieldMetadata }>(
 ): T | undefined {
   if (!items?.length) return;
   return items.find((item) => item.metadata?.primary) ?? items[0];
+}
+
+// All numbers, primary first, Google's type as a human label
+function mapPhoneNumbers(
+  phoneNumbers: people_v1.Schema$PhoneNumber[] | undefined | null,
+): ContactPhone[] {
+  if (!phoneNumbers?.length) return [];
+  return [...phoneNumbers]
+    .sort(
+      (a, b) => Number(!!b.metadata?.primary) - Number(!!a.metadata?.primary),
+    )
+    .flatMap((phone) => {
+      const value = phone.value?.trim();
+      if (!value) return [];
+      return [{ label: labelFromGoogleType(phone.type), value }];
+    });
+}
+
+const GOOGLE_TYPE_LABELS: Record<string, string> = {
+  mobile: "Mobile",
+  workmobile: "Mobile",
+  work: "Work",
+  main: "Main",
+  home: "Home",
+  homefax: "Fax",
+  workfax: "Fax",
+  otherfax: "Fax",
+  pager: "Pager",
+  other: "Other",
+};
+
+function labelFromGoogleType(type: string | null | undefined): string {
+  const normalized = type?.trim().toLowerCase();
+  if (!normalized) return "Other";
+  return (
+    GOOGLE_TYPE_LABELS[normalized] ??
+    normalized.charAt(0).toUpperCase() + normalized.slice(1)
+  );
+}
+
+// Google accepts free-form types but canonical values render nicely in its
+// UI, so map our common labels onto them
+const LABEL_GOOGLE_TYPES: Record<string, string> = {
+  mobile: "mobile",
+  cell: "mobile",
+  work: "work",
+  office: "work",
+  main: "main",
+  home: "home",
+  fax: "workFax",
+  pager: "pager",
+  other: "other",
+};
+
+function googleTypeFromLabel(label: string): string {
+  const normalized = label.trim().toLowerCase();
+  return LABEL_GOOGLE_TYPES[normalized] ?? (normalized || "other");
 }

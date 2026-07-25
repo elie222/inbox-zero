@@ -17,7 +17,10 @@ describe("mapPersonToContact", () => {
         { value: "old@example.com" },
         { value: "Jane@Example.com ", metadata: { primary: true } },
       ],
-      phoneNumbers: [{ value: "+1 555 0100", metadata: { primary: true } }],
+      phoneNumbers: [
+        { value: "+1 555 0111", type: "work" },
+        { value: "+1 555 0100", type: "mobile", metadata: { primary: true } },
+      ],
       organizations: [
         { name: "Example Corp", title: "CTO", metadata: { primary: true } },
       ],
@@ -32,7 +35,10 @@ describe("mapPersonToContact", () => {
       etag: "etag-1",
       email: "jane@example.com",
       name: "Jane Doe",
-      phone: "+1 555 0100",
+      phones: [
+        { label: "Mobile", value: "+1 555 0100" },
+        { label: "Work", value: "+1 555 0111" },
+      ],
       title: "CTO",
       companyName: "Example Corp",
       photoUrl: "https://g/jane.png",
@@ -72,14 +78,20 @@ describe("contactToPersonPayload", () => {
       contactToPersonPayload({
         email: "jane@example.com",
         name: "Jane Doe",
-        phone: "+1 555 0100",
+        phones: [
+          { label: "Mobile", value: "+1 555 0100" },
+          { label: "Office", value: "+1 555 0111" },
+        ],
         title: "CTO",
         companyName: "Example Corp",
       }),
     ).toEqual({
       names: [{ unstructuredName: "Jane Doe" }],
       emailAddresses: [{ value: "jane@example.com" }],
-      phoneNumbers: [{ value: "+1 555 0100" }],
+      phoneNumbers: [
+        { value: "+1 555 0100", type: "mobile" },
+        { value: "+1 555 0111", type: "work" },
+      ],
       organizations: [{ title: "CTO", name: "Example Corp" }],
     });
   });
@@ -89,7 +101,7 @@ describe("contactToPersonPayload", () => {
       contactToPersonPayload({
         email: "jane@example.com",
         name: null,
-        phone: null,
+        phones: [],
         title: null,
       }),
     ).toEqual({

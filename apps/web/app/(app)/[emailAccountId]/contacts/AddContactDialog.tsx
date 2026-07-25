@@ -80,7 +80,9 @@ export function AddContactDialog({
               email: values.email.trim(),
               name: values.name.trim() || undefined,
               title: values.title.trim() || undefined,
-              phone: values.phone.trim() || undefined,
+              phones: values.phone.trim()
+                ? [{ label: "Mobile", value: values.phone.trim() }]
+                : undefined,
               companyName: isPersonal
                 ? ""
                 : values.companyName.trim() || undefined,
