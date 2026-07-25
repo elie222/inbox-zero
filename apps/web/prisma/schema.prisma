@@ -115,6 +115,14 @@ enum GoogleContactsSyncMode {
   TWO_WAY
 }
 
+enum ContactInboxPriority {
+  OFF
+  // This sender's mail always stays in the inbox, skipping all rules
+  ALWAYS
+  // An AI check of the contact's instructions decides per email
+  AI
+}
+
 enum ApiKeyScope {
   STATS_READ
   RULES_READ
@@ -963,6 +971,12 @@ model Contact {
 
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  // Overrides the rules engine for this sender: ALWAYS keeps their mail in
+  // the inbox untouched; AI evaluates inboxPriorityInstructions per email
+  // and falls through to the normal rules when they don't apply
+  inboxPriority             ContactInboxPriority @default(OFF)
+  inboxPriorityInstructions String?
 
   // Google People API linkage for two-way sync
   googleResourceName String?

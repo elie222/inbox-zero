@@ -70,6 +70,8 @@ async function getContacts({
       useCompanyLogo: true,
       isPersonal: true,
       companyId: true,
+      inboxPriority: true,
+      inboxPriorityInstructions: true,
     },
   });
 

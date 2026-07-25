@@ -12,6 +12,7 @@ import {
   enrichContactBody,
   setCarddavAccessBody,
   setContactIgnoredBody,
+  setContactInboxPriorityBody,
   setDomainIgnoredBody,
   setGoogleContactsSyncBody,
   updateCompanyBody,
@@ -27,7 +28,10 @@ import {
   pushContactToGoogle,
 } from "@/utils/contacts-sync/google";
 import type { Logger } from "@/utils/logger";
-import { GoogleContactsSyncMode } from "@/generated/prisma/enums";
+import {
+  ContactInboxPriority,
+  GoogleContactsSyncMode,
+} from "@/generated/prisma/enums";
 import { runWithBoundedConcurrency } from "@/utils/async";
 import { isPublicEmailDomain } from "@/utils/email";
 import { emailDomain } from "@/utils/contacts";
@@ -144,6 +148,38 @@ export const deleteContactAction = actionClient
       }
 
       return { deleted: true };
+    },
+  );
+
+// Per-sender override of the rules engine: ALWAYS keeps their mail in the
+// inbox no matter what the rules say; AI evaluates the saved instructions
+// against each email and falls through to the rules when they don't apply.
+export const setContactInboxPriorityAction = actionClient
+  .metadata({ name: "setContactInboxPriority" })
+  .inputSchema(setContactInboxPriorityBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { email, priority, instructions },
+    }) => {
+      const normalizedEmail = email.trim().toLowerCase();
+      const details = {
+        inboxPriority: priority,
+        inboxPriorityInstructions:
+          priority === ContactInboxPriority.AI
+            ? (instructions?.trim() ?? null)
+            : null,
+      };
+
+      await prisma.contact.upsert({
+        where: {
+          emailAccountId_email: { emailAccountId, email: normalizedEmail },
+        },
+        update: details,
+        create: { emailAccountId, email: normalizedEmail, ...details },
+      });
+
+      return { email: normalizedEmail, priority };
     },
   );
 

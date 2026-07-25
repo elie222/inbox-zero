@@ -9,6 +9,7 @@ import {
 import type { Prisma, Rule } from "@/generated/prisma/client";
 import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
+import { getContactInboxPriorityOverride } from "@/utils/ai/choose-rule/contact-inbox-priority";
 import {
   getActionItemsWithAiArgs,
   type EmailAccountForDrafting,
@@ -120,6 +121,44 @@ export async function runRules({
   skipArchive?: boolean;
 }): Promise<RunRulesResult[]> {
   const batchTimestamp = new Date(); // Single timestamp for this batch execution
+
+  // Per-contact inbox priority beats every rule: when it applies, the email
+  // stays in the inbox untouched (same shape as the no-match path below)
+  const priorityOverride = await getContactInboxPriorityOverride({
+    message,
+    emailAccount,
+    logger,
+  });
+  if (priorityOverride) {
+    logger.info("Contact inbox priority override", {
+      reason: priorityOverride.reason,
+    });
+    if (!isTest) {
+      await withPrismaRetry(
+        () =>
+          prisma.executedRule.create({
+            data: {
+              threadId: message.threadId,
+              messageId: message.id,
+              automated: true,
+              reason: priorityOverride.reason,
+              status: ExecutedRuleStatus.SKIPPED,
+              emailAccount: { connect: { id: emailAccount.id } },
+            },
+          }),
+        { logger },
+      );
+    }
+    return [
+      {
+        rule: null,
+        reason: priorityOverride.reason,
+        status: ExecutedRuleStatus.SKIPPED,
+        createdAt: batchTimestamp,
+      },
+    ];
+  }
+
   const { regularRules, conversationRules } = prepareRulesWithMetaRule(rules);
 
   const results = await findMatchingRules({

@@ -8,6 +8,7 @@ import { formatDistanceToNow } from "date-fns";
 import {
   CheckIcon,
   EyeOffIcon,
+  InboxIcon,
   MailIcon,
   SparklesIcon,
   Trash2Icon,
@@ -24,8 +25,10 @@ import {
   deleteContactAction,
   enrichContactAction,
   setContactIgnoredAction,
+  setContactInboxPriorityAction,
   updateContactAction,
 } from "@/utils/actions/contact";
+import { ContactInboxPriority } from "@/generated/prisma/enums";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useThreads } from "@/hooks/useThreads";
 import { prefixPath } from "@/utils/path";
@@ -39,6 +42,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ContactAvatar } from "./ContactsList";
 import { CompanyDetails } from "./CompanyDetails";
@@ -241,6 +251,12 @@ export function ContactDetails({
         )}
       </div>
 
+      <InboxPrioritySection
+        key={`priority-${formEpoch}`}
+        contact={contact}
+        mutateContacts={mutateContacts}
+      />
+
       <ContactEditForm
         companies={companies}
         key={formEpoch}
@@ -254,6 +270,114 @@ export function ContactDetails({
       />
 
       <RecentEmails email={contact.email} />
+    </div>
+  );
+}
+
+// Per-sender override of the mail rules. OFF/ALWAYS save on selection; AI
+// waits for instructions so a half-configured override never goes live.
+function InboxPrioritySection({
+  contact,
+  mutateContacts,
+}: {
+  contact: ContactListItem;
+  mutateContacts: () => void;
+}) {
+  const { emailAccountId } = useAccount();
+  const [priority, setPriority] = useState<ContactInboxPriority>(
+    contact.inboxPriority,
+  );
+  const [instructions, setInstructions] = useState(
+    contact.inboxPriorityInstructions ?? "",
+  );
+
+  const update = useAction(
+    setContactInboxPriorityAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Inbox priority saved" });
+        mutateContacts();
+      },
+      onError: (error) => {
+        toastError({ description: getActionErrorMessage(error.error) });
+      },
+    },
+  );
+
+  const aiUnsaved =
+    priority === ContactInboxPriority.AI &&
+    (contact.inboxPriority !== ContactInboxPriority.AI ||
+      instructions.trim() !== (contact.inboxPriorityInstructions ?? "").trim());
+
+  return (
+    <div className="rounded-lg border border-border p-4">
+      <h3 className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
+        <InboxIcon className="size-3 text-primary" />
+        Inbox priority
+      </h3>
+      <div className="mt-3">
+        <Select
+          value={priority}
+          onValueChange={(value) => {
+            const next = value as ContactInboxPriority;
+            setPriority(next);
+            // AI needs instructions before it can go live — save on the
+            // button below instead
+            if (next !== ContactInboxPriority.AI) {
+              update.execute({ email: contact.email, priority: next });
+            }
+          }}
+        >
+          <SelectTrigger disabled={update.isExecuting}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ContactInboxPriority.OFF}>
+              Normal — rules decide
+            </SelectItem>
+            <SelectItem value={ContactInboxPriority.ALWAYS}>
+              Always keep in inbox
+            </SelectItem>
+            <SelectItem value={ContactInboxPriority.AI}>
+              AI decides per email
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {priority === ContactInboxPriority.OFF &&
+            "Their email follows your normal rules."}
+          {priority === ContactInboxPriority.ALWAYS &&
+            "Every email from them stays in the inbox — no rule can move it."}
+          {priority === ContactInboxPriority.AI &&
+            "Emails matching your instructions stay in the inbox; the rest follow your normal rules."}
+        </p>
+      </div>
+      {priority === ContactInboxPriority.AI && (
+        <div className="mt-3 space-y-2">
+          <Label htmlFor="inbox-priority-instructions">Instructions</Label>
+          <Textarea
+            id="inbox-priority-instructions"
+            rows={3}
+            placeholder="e.g. Keep it in my inbox when they mention me by name or ask me a direct question"
+            value={instructions}
+            onChange={(event) => setInstructions(event.target.value)}
+          />
+          <Button
+            size="sm"
+            loading={update.isExecuting}
+            disabled={!instructions.trim() || !aiUnsaved}
+            onClick={() =>
+              update.execute({
+                email: contact.email,
+                priority: ContactInboxPriority.AI,
+                instructions: instructions.trim(),
+              })
+            }
+          >
+            Save instructions
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

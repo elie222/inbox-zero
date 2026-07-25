@@ -16,6 +16,7 @@ import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck"
 import { createSearchParams } from "@/utils/url";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useInboxStream } from "@/hooks/useInboxStream";
+import { ContactPeekProvider } from "./ContactPeek";
 
 export default function Mail(props: {
   searchParams: Promise<{ type?: string; labelId?: string; q?: string }>;
@@ -145,45 +146,47 @@ export default function Mail(props: {
 
   return (
     <PinnedPage>
-      <PermissionsCheck />
-      <div className="relative border-b border-border px-4 py-1.5">
-        <SearchIcon className="pointer-events-none absolute left-6 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="search"
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          placeholder="Search by name, email, or subject"
-          className="h-8 w-full rounded-md border-0 bg-muted pl-8 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring [&::-webkit-search-cancel-button]:hidden"
-        />
-        {searchInput && (
-          <button
-            type="button"
-            aria-label="Clear search"
-            onClick={() => setSearchInput("")}
-            className="absolute right-6 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-          >
-            <XIcon className="size-4" />
-          </button>
-        )}
-      </div>
-      <LoadingContent
-        loading={isLoading && !data}
-        error={error}
-        loadingComponent={<EmailListSkeleton />}
-      >
-        {allThreads && (
-          <List
-            emails={allThreads}
-            refetch={refetch}
-            type={searchParams.type}
-            labelId={searchParams.labelId}
-            searchQuery={searchQuery}
-            showLoadMore={showLoadMore}
-            handleLoadMore={handleLoadMore}
-            isLoadingMore={isLoadingMore}
+      <ContactPeekProvider>
+        <PermissionsCheck />
+        <div className="relative border-b border-border px-4 py-1.5">
+          <SearchIcon className="pointer-events-none absolute left-6 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder="Search by name, email, or subject"
+            className="h-8 w-full rounded-md border-0 bg-muted pl-8 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring [&::-webkit-search-cancel-button]:hidden"
           />
-        )}
-      </LoadingContent>
+          {searchInput && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearchInput("")}
+              className="absolute right-6 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <XIcon className="size-4" />
+            </button>
+          )}
+        </div>
+        <LoadingContent
+          loading={isLoading && !data}
+          error={error}
+          loadingComponent={<EmailListSkeleton />}
+        >
+          {allThreads && (
+            <List
+              emails={allThreads}
+              refetch={refetch}
+              type={searchParams.type}
+              labelId={searchParams.labelId}
+              searchQuery={searchQuery}
+              showLoadMore={showLoadMore}
+              handleLoadMore={handleLoadMore}
+              isLoadingMore={isLoadingMore}
+            />
+          )}
+        </LoadingContent>
+      </ContactPeekProvider>
     </PinnedPage>
   );
 }
