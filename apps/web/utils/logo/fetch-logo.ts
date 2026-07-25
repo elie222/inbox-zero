@@ -12,6 +12,9 @@ const MAX_REDIRECT_HOPS = 3;
 // Anything smaller is a placeholder pixel or an empty "default" icon —
 // fall through to the next provider
 const MIN_IMAGE_BYTES = 600;
+// Real logos/favicons are tiny; a larger response is either not a logo or a
+// resource-exhaustion attempt. Cap what we buffer into memory.
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 export type FetchedLogo = {
   body: ArrayBuffer;
@@ -96,8 +99,8 @@ async function attemptFetch(
       return { logo: null, timedOut: false };
     }
 
-    const body = await response.arrayBuffer();
-    if (body.byteLength < MIN_IMAGE_BYTES) {
+    const body = await readCappedBody(response);
+    if (!body || body.byteLength < MIN_IMAGE_BYTES) {
       return { logo: null, timedOut: false };
     }
 
@@ -148,4 +151,36 @@ function isRedirect(status: number) {
     status === 307 ||
     status === 308
   );
+}
+
+// Reads the body with a hard byte ceiling so an oversized (or lying
+// Content-Length) upstream can't exhaust memory. Reject fast on a declared
+// length over the cap; otherwise stop reading once the cap is crossed.
+async function readCappedBody(response: Response): Promise<ArrayBuffer | null> {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_IMAGE_BYTES) return null;
+
+  const reader = response.body?.getReader();
+  if (!reader) return null;
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_IMAGE_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out.buffer;
 }
