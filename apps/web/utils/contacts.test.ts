@@ -34,6 +34,8 @@ const saved = (overrides: Partial<SavedContact> = {}): SavedContact => ({
   useCompanyLogo: true,
   isPersonal: false,
   companyId: null,
+  inboxPriority: "OFF",
+  inboxPriorityInstructions: null,
   ...overrides,
 });
 
@@ -64,6 +66,8 @@ const item = (overrides: Partial<ContactListItem> = {}): ContactListItem => ({
   lastInteractionAt: new Date("2026-07-01"),
   stale: false,
   isSaved: false,
+  inboxPriority: "OFF",
+  inboxPriorityInstructions: null,
   ...overrides,
 });
 

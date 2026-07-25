@@ -14,7 +14,12 @@ import { ActionButtons } from "@/components/ActionButtons";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PlanBadge } from "@/components/PlanBadge";
 import type { Thread } from "@/components/email-list/types";
-import { extractNameFromEmail, participant } from "@/utils/email";
+import { useContactPeek } from "@/components/email-list/contact-peek-context";
+import {
+  extractEmailAddress,
+  extractNameFromEmail,
+  participant,
+} from "@/utils/email";
 import { Checkbox } from "@/components/Checkbox";
 import { EmailDate } from "@/components/email-list/EmailDate";
 import { decodeSnippet } from "@/utils/gmail/decode";
@@ -138,9 +143,9 @@ export const EmailListItem = forwardRef(
                   </div>
 
                   <div className="ml-4 min-w-0 flex-1 overflow-hidden truncate text-foreground md:w-48 md:flex-none">
-                    {extractNameFromEmail(
-                      participant(lastMessage, props.userEmail),
-                    )}{" "}
+                    <SenderName
+                      header={participant(lastMessage, props.userEmail)}
+                    />{" "}
                     {thread.messages.length > 1 ? (
                       <span className="font-normal">
                         ({thread.messages.length})
@@ -262,6 +267,29 @@ export const EmailListItem = forwardRef(
 );
 
 EmailListItem.displayName = "EmailListItem";
+
+// A sender name that opens the contact sheet when the page provides one
+// (the mail page); plain text elsewhere. Row clicks must not fire too.
+export function SenderName({ header }: { header: string }) {
+  const openContactPeek = useContactPeek();
+  const name = extractNameFromEmail(header);
+
+  if (!openContactPeek) return <>{name}</>;
+
+  return (
+    <button
+      type="button"
+      className="max-w-full truncate align-bottom hover:underline"
+      onClick={(e) => {
+        e.stopPropagation();
+        openContactPeek(extractEmailAddress(header) || header);
+      }}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      {name}
+    </button>
+  );
+}
 
 // Touch rows swipe horizontally: right reveals archive, left reveals trash.
 // The transform lives on this inner wrapper — the parent li's transform is

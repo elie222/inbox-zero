@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { GoogleContactsSyncMode } from "@/generated/prisma/enums";
+import {
+  ContactInboxPriority,
+  GoogleContactsSyncMode,
+} from "@/generated/prisma/enums";
 
 // Absolute URLs, or an app-relative logo-proxy path (what the company
 // logo picker stores), or empty to clear
@@ -67,6 +70,26 @@ export const setDomainIgnoredBody = z.object({
   ignored: z.boolean(),
 });
 export type SetDomainIgnoredBody = z.infer<typeof setDomainIgnoredBody>;
+
+export const setContactInboxPriorityBody = z
+  .object({
+    email: z.string().trim().min(1).max(320),
+    // OFF (follow rules) | ALWAYS (skip rules, stay in inbox) | AI
+    // (instructions decide per email)
+    priority: z.nativeEnum(ContactInboxPriority),
+    instructions: z.string().max(2000).nullish(),
+  })
+  .refine(
+    (data) =>
+      data.priority !== ContactInboxPriority.AI || !!data.instructions?.trim(),
+    {
+      message: "Add instructions so the AI knows what should stay in the inbox",
+      path: ["instructions"],
+    },
+  );
+export type SetContactInboxPriorityBody = z.infer<
+  typeof setContactInboxPriorityBody
+>;
 
 export const setContactIgnoredBody = z.object({
   email: z.string().trim().min(1).max(320),

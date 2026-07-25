@@ -115,6 +115,7 @@ describe("LLM use cases", () => {
       [LlmUseCase.ChatMemoryExtraction]: "economy",
       [LlmUseCase.CleanInbox]: "default",
       [LlmUseCase.ComposeAutocomplete]: "default",
+      [LlmUseCase.ContactInboxPriority]: "economy",
       [LlmUseCase.DetectRecurringPattern]: "chat",
       [LlmUseCase.DigestEmailSummary]: "economy",
       [LlmUseCase.DocumentFiling]: "economy",

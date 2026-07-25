@@ -6,7 +6,7 @@ import {
   ChevronsDownUpIcon,
 } from "lucide-react";
 import { Tooltip } from "@/components/Tooltip";
-import { extractNameFromEmail } from "@/utils/email";
+import { SenderName } from "@/components/email-list/EmailListItem";
 import { formatShortDate } from "@/utils/date";
 import { ComposeEmailFormLazy } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy";
 import { Button } from "@/components/ui/button";
@@ -137,9 +137,11 @@ function TopBar({
         <div className="flex items-center">
           <h3 className="text-base font-medium">
             <span className="text-foreground">
-              {message.labelIds?.includes("SENT")
-                ? "Me"
-                : extractNameFromEmail(message.headers.from)}
+              {message.labelIds?.includes("SENT") ? (
+                "Me"
+              ) : (
+                <SenderName header={message.headers.from} />
+              )}
             </span>{" "}
             {expanded && <span className="text-muted-foreground">wrote</span>}
           </h3>

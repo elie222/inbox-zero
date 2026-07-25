@@ -1,3 +1,4 @@
+import type { ContactInboxPriority } from "@/generated/prisma/enums";
 import { isPublicEmailDomain } from "@/utils/email";
 
 // No email in or out for this long → the relationship may be going stale
@@ -22,6 +23,8 @@ export type SavedContact = {
   useCompanyLogo: boolean;
   isPersonal: boolean;
   companyId: string | null;
+  inboxPriority: ContactInboxPriority;
+  inboxPriorityInstructions: string | null;
 };
 
 export type CompanySummary = {
@@ -55,6 +58,8 @@ export type ContactListItem = {
   lastInteractionAt: Date | null;
   stale: boolean;
   isSaved: boolean;
+  inboxPriority: ContactInboxPriority;
+  inboxPriorityInstructions: string | null;
 };
 
 export type ContactGroup = {
@@ -146,6 +151,9 @@ export function mergeContactActivity({
       lastInteractionAt,
       stale: isStale(lastInteractionAt, now),
       isSaved: !!savedContact,
+      inboxPriority: savedContact?.inboxPriority ?? "OFF",
+      inboxPriorityInstructions:
+        savedContact?.inboxPriorityInstructions ?? null,
     };
   };
 

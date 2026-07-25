@@ -1446,6 +1446,97 @@ describe("runRules - double draft prevention", () => {
   });
 });
 
+describe("runRules contact inbox priority", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("keeps mail in the inbox and skips all rules for an ALWAYS contact", async () => {
+    prisma.contact.findUnique.mockResolvedValue({
+      inboxPriority: "ALWAYS",
+      inboxPriorityInstructions: null,
+    } as any);
+    prisma.executedRule.create.mockResolvedValue({} as any);
+
+    const results = await runRulesWithDefaults({ rules: [regularRule] });
+
+    expect(findMatchingRules).not.toHaveBeenCalled();
+    expect(results).toHaveLength(1);
+    expect(results[0].status).toBe(ExecutedRuleStatus.SKIPPED);
+    expect(results[0].rule).toBeNull();
+    expect(results[0].reason).toContain("always stay in the inbox");
+    expect(prisma.executedRule.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: ExecutedRuleStatus.SKIPPED,
+          messageId: "message-1",
+        }),
+      }),
+    );
+  });
+
+  it("does not record an ExecutedRule for test runs", async () => {
+    prisma.contact.findUnique.mockResolvedValue({
+      inboxPriority: "ALWAYS",
+      inboxPriorityInstructions: null,
+    } as any);
+
+    const results = await runRulesWithDefaults({
+      rules: [regularRule],
+      isTest: true,
+    });
+
+    expect(results[0].status).toBe(ExecutedRuleStatus.SKIPPED);
+    expect(prisma.executedRule.create).not.toHaveBeenCalled();
+  });
+
+  it("runs the normal rules when the sender has no saved contact", async () => {
+    prisma.contact.findUnique.mockResolvedValue(null);
+    mockMatchingRules([]);
+    prisma.executedRule.create.mockResolvedValue({} as any);
+
+    await runRulesWithDefaults({ rules: [regularRule] });
+
+    expect(findMatchingRules).toHaveBeenCalled();
+  });
+
+  it("runs the normal rules when the contact's priority is OFF", async () => {
+    prisma.contact.findUnique.mockResolvedValue({
+      inboxPriority: "OFF",
+      inboxPriorityInstructions: null,
+    } as any);
+    mockMatchingRules([]);
+    prisma.executedRule.create.mockResolvedValue({} as any);
+
+    await runRulesWithDefaults({ rules: [regularRule] });
+
+    expect(findMatchingRules).toHaveBeenCalled();
+  });
+
+  it("looks up the contact by the parsed, lowercased sender address", async () => {
+    prisma.contact.findUnique.mockResolvedValue(null);
+    mockMatchingRules([]);
+    prisma.executedRule.create.mockResolvedValue({} as any);
+
+    await runRulesWithDefaults({
+      rules: [regularRule],
+      message: getRunRulesMessage({
+        headers: { from: "Jane Doe <Jane.Doe@Example.com>" },
+      }),
+    });
+
+    expect(prisma.contact.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          emailAccountId_email: expect.objectContaining({
+            email: "jane.doe@example.com",
+          }),
+        },
+      }),
+    );
+  });
+});
+
 function mockMatchingRules(
   matches: {
     rule: RuleWithActions;
