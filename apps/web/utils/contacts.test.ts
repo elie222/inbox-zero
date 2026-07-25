@@ -41,6 +41,7 @@ const company = (overrides: Partial<CompanySummary> = {}): CompanySummary => ({
   name: "Example Corp",
   domains: ["example.com"],
   logoUrl: null,
+  logoWhiteBackground: false,
   label: null,
   ...overrides,
 });

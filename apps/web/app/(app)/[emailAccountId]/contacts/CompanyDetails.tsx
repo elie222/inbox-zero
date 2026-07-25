@@ -87,7 +87,10 @@ export function CompanyDetails({
             onError={(event) => {
               event.currentTarget.style.visibility = "hidden";
             }}
-            className="size-12 shrink-0 rounded-lg bg-muted object-cover p-1"
+            className={cn(
+              "size-12 shrink-0 rounded-lg object-cover p-1",
+              company?.logoWhiteBackground ? "bg-white" : "bg-muted",
+            )}
           />
         ) : (
           <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted">
@@ -249,7 +252,10 @@ function LogoPicker({
                         (previous) => new Set([...previous, domain]),
                       );
                     }}
-                    className="size-9 object-cover"
+                    className={cn(
+                      "size-9 object-cover",
+                      company.logoWhiteBackground && "rounded bg-white p-0.5",
+                    )}
                   />
                 )}
                 {selected && (

@@ -975,6 +975,9 @@ model Company {
   name    String
   domains String[] @default([])
   logoUrl String?
+  // Render this company's logo on a white chip — dark transparent-background
+  // marks are invisible on the dark theme
+  logoWhiteBackground Boolean @default(false)
 
   labelId String?
   label   CompanyLabel? @relation(fields: [labelId], references: [id], onDelete: SetNull)

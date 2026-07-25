@@ -71,6 +71,7 @@ export const updateCompanyBody = z.object({
   name: z.string().min(1).max(200).optional(),
   domains: z.array(z.string().min(1).max(200)).max(50).optional(),
   logoUrl: urlOrEmpty.nullish(),
+  logoWhiteBackground: z.boolean().optional(),
   // "" clears the label; a name finds-or-creates one, optionally nested
   // under a parent label ("Factory" > Toyota)
   labelName: z.string().max(100).nullish(),

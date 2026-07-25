@@ -62,10 +62,12 @@ export const GET = withAuth("logo", async (request) => {
     return NextResponse.json(
       { error: "No logo found" },
       // Cache misses briefly (browser and CDN) so a flaky provider can
-      // recover without the chain re-running on every avatar render
+      // recover without the chain re-running on every avatar render — but
+      // short enough that fixing a provider (e.g. the logo.dev token) shows
+      // up in minutes, not an hour
       {
         status: 404,
-        headers: { "Cache-Control": "public, max-age=3600, s-maxage=3600" },
+        headers: { "Cache-Control": "public, max-age=600, s-maxage=600" },
       },
     );
   }

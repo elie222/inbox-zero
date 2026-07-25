@@ -503,6 +503,12 @@ export function ContactAvatar({
   const src = contactAvatarUrl(contact, companies);
   const initial = (contact.name || contact.email).charAt(0).toUpperCase();
 
+  // A company logo (not a personal photo) honors the company's white-chip
+  // setting so dark marks stay visible on the dark theme
+  const isLogo = !!src && src !== contact.photoUrl;
+  const whiteChip =
+    isLogo && !!resolveContactCompany(contact, companies)?.logoWhiteBackground;
+
   if (src && src !== failedSrc) {
     return (
       // biome-ignore lint/performance/noImgElement: external favicons/photos, not build assets
@@ -512,10 +518,11 @@ export function ContactAvatar({
         width={32}
         height={32}
         onError={() => setFailedSrc(src)}
-        className={
+        className={cn(
           className ??
-          "size-8 shrink-0 rounded-full bg-muted object-cover p-0.5"
-        }
+            "size-8 shrink-0 rounded-full bg-muted object-cover p-0.5",
+          whiteChip && "bg-white",
+        )}
       />
     );
   }

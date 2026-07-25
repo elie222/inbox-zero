@@ -93,6 +93,7 @@ async function getContacts({
       name: true,
       domains: true,
       logoUrl: true,
+      logoWhiteBackground: true,
       label: {
         select: {
           id: true,

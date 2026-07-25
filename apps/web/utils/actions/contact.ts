@@ -348,7 +348,15 @@ export const updateCompanyAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId },
-      parsedInput: { id, name, domains, logoUrl, labelName, labelParentName },
+      parsedInput: {
+        id,
+        name,
+        domains,
+        logoUrl,
+        logoWhiteBackground,
+        labelName,
+        labelParentName,
+      },
     }) => {
       const existing = await prisma.company.findFirst({
         where: { id, emailAccountId },
@@ -373,6 +381,7 @@ export const updateCompanyAction = actionClient
             domains: normalizedDomains,
           }),
           ...(logoUrl !== undefined && { logoUrl: logoUrl?.trim() || null }),
+          ...(logoWhiteBackground !== undefined && { logoWhiteBackground }),
           ...(labelName !== undefined && {
             labelId: await resolveLabelId({
               emailAccountId,
