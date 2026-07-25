@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchLogo, normalizeLogoDomain } from "@/utils/logo/fetch-logo";
+import {
+  fetchLogo,
+  type LogoAttempt,
+  normalizeLogoDomain,
+} from "@/utils/logo/fetch-logo";
 
 const PNG = "image/png";
 
@@ -121,6 +125,33 @@ describe("fetchLogo", () => {
     });
     expect(logo?.body.byteLength).toBe(2000);
     expect(oversized.mock.calls[1][0]).toContain("duckduckgo");
+  });
+
+  it("reports each attempt's outcome through onAttempt", async () => {
+    const fetchImpl = vi
+      .fn()
+      // clearbit: 404
+      .mockResolvedValueOnce(new Response("nope", { status: 404 }))
+      // duckduckgo: placeholder below the size floor
+      .mockResolvedValueOnce(image(50))
+      // apple-touch-icon: a real image
+      .mockResolvedValueOnce(image(2048));
+
+    const attempts: LogoAttempt[] = [];
+    const logo = await fetchLogo({
+      domain: "example.com",
+      fetchImpl,
+      onAttempt: (attempt) => attempts.push(attempt),
+    });
+
+    expect(logo?.body.byteLength).toBe(2048);
+    expect(attempts.map((attempt) => attempt.outcome)).toEqual([
+      "bad-status",
+      "too-small-or-capped",
+      "hit",
+    ]);
+    expect(attempts[0].status).toBe(404);
+    expect(attempts[2].bytes).toBe(2048);
   });
 
   it("returns null when every provider fails", async () => {

@@ -110,6 +110,7 @@
 
         "UPSTASH_REDIS_URL",
         "UPSTASH_REDIS_TOKEN",
+        "LOGO_DEV_TOKEN",
         "KV_REST_API_URL",
         "KV_REST_API_TOKEN",
         "KV_URL",
