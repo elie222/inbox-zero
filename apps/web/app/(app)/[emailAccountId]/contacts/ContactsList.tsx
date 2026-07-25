@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
 import { formatDistanceToNow } from "date-fns";
-import { PlusIcon, RefreshCwIcon, StickyNoteIcon } from "lucide-react";
+import { PlusIcon, RefreshCwIcon, StickyNoteIcon, TagIcon } from "lucide-react";
 import type { ContactsResponse } from "@/app/api/contacts/route";
 import type { ContactDomainsResponse } from "@/app/api/contacts/domains/route";
 import {
@@ -34,6 +34,7 @@ import { CompaniesView } from "./CompaniesView";
 import { CompanyDetails } from "./CompanyDetails";
 import { DomainSuggestions } from "./DomainSuggestions";
 import { AddContactDialog } from "./AddContactDialog";
+import { ManageLabelsDialog } from "./ManageLabelsDialog";
 import { SyncSettingsDialog } from "./SyncSettingsDialog";
 
 const DEFAULT_LIMIT = 100;
@@ -51,6 +52,7 @@ export function ContactsList() {
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [showSync, setShowSync] = useState(false);
+  const [managingLabels, setManagingLabels] = useState(false);
 
   // Tabs sync selection to the URL, so view and sort live there too;
   // the sidebar's GROUPS panel drives ?group= and ?label=. The curated
@@ -289,6 +291,16 @@ export function ContactsList() {
                 </Tabs>
               </>
             )}
+            {view === "labels" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setManagingLabels(true)}
+              >
+                <TagIcon className="mr-1.5 size-3.5" />
+                Manage labels
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -364,6 +376,7 @@ export function ContactsList() {
               key={selectedGroup.key}
               group={selectedGroup}
               companies={companies}
+              labels={data?.labels ?? []}
               domainStats={domainStats}
               onSelectContact={setSelected}
               mutateContacts={mutate}
@@ -392,6 +405,7 @@ export function ContactsList() {
         contact={isWide ? null : selected}
         group={isWide ? null : selectedGroup}
         companies={companies}
+        labels={data?.labels ?? []}
         domainStats={domainStats}
         onClose={() => {
           setSelectedContact(null);
@@ -406,6 +420,14 @@ export function ContactsList() {
         companies={companies}
         mutateContacts={mutate}
       />
+      {data && (
+        <ManageLabelsDialog
+          open={managingLabels}
+          onClose={() => setManagingLabels(false)}
+          labels={data.labels}
+          mutate={mutate}
+        />
+      )}
       {data && (
         <SyncSettingsDialog
           open={showSync}

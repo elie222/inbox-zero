@@ -117,6 +117,19 @@ export const updateCompanyBody = z.object({
 });
 export type UpdateCompanyBody = z.infer<typeof updateCompanyBody>;
 
+export const updateCompanyLabelBody = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(100).optional(),
+  // null moves the label to the top level; undefined leaves nesting alone
+  parentId: z.string().min(1).nullish(),
+});
+export type UpdateCompanyLabelBody = z.infer<typeof updateCompanyLabelBody>;
+
+export const deleteCompanyLabelBody = z.object({
+  id: z.string().min(1),
+});
+export type DeleteCompanyLabelBody = z.infer<typeof deleteCompanyLabelBody>;
+
 export const researchCompanyBody = z.object({
   id: z.string().min(1),
 });

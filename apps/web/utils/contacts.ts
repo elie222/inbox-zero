@@ -68,6 +68,13 @@ export type ContactListItem = {
   inboxPriorityInstructions: string | null;
 };
 
+// A company label row as the pickers and the label manager consume it
+export type LabelSummary = {
+  id: string;
+  name: string;
+  parentId: string | null;
+};
+
 export type ContactGroup = {
   // Company id, "domain:<domain>" for auto groups, "personal", or "other"
   key: string;

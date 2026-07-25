@@ -8,9 +8,11 @@ import {
   createCompanyBody,
   deleteCompanyBody,
   mergeCompaniesBody,
+  deleteCompanyLabelBody,
   deleteContactBody,
   enrichContactBody,
   researchCompanyBody,
+  updateCompanyLabelBody,
   setCarddavAccessBody,
   setContactIgnoredBody,
   setContactInboxPriorityBody,
@@ -401,6 +403,89 @@ export const createCompanyAction = actionClient
       return { company, researching };
     },
   );
+
+// Renames a label and/or moves it under a different parent (null = top
+// level). Companies keep pointing at the label, so their grouping follows.
+export const updateCompanyLabelAction = actionClient
+  .metadata({ name: "updateCompanyLabel" })
+  .inputSchema(updateCompanyLabelBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { id, name, parentId },
+    }) => {
+      const label = await prisma.companyLabel.findFirst({
+        where: { id, emailAccountId },
+        select: { id: true },
+      });
+      if (!label) throw new SafeError("Label not found");
+
+      const trimmedName = name?.trim();
+      if (trimmedName) {
+        const clash = await prisma.companyLabel.findFirst({
+          where: {
+            emailAccountId,
+            name: { equals: trimmedName, mode: "insensitive" },
+            id: { not: id },
+          },
+          select: { name: true },
+        });
+        if (clash) {
+          throw new SafeError(`A label called ${clash.name} already exists`);
+        }
+      }
+
+      if (parentId) {
+        if (parentId === id) {
+          throw new SafeError("A label can't be its own parent");
+        }
+        const parent = await prisma.companyLabel.findFirst({
+          where: { id: parentId, emailAccountId },
+          select: { parentId: true },
+        });
+        if (!parent) throw new SafeError("Parent label not found");
+        // Two levels deep is the ceiling: nesting under a child would
+        // create cycles or deeper trees the UI can't show
+        if (parent.parentId === id) {
+          throw new SafeError("A label can't be nested under its own child");
+        }
+        if (parent.parentId) {
+          throw new SafeError(
+            "Labels only nest one level deep — pick a top-level label as the parent",
+          );
+        }
+        const child = await prisma.companyLabel.findFirst({
+          where: { emailAccountId, parentId: id },
+          select: { name: true },
+        });
+        if (child) {
+          throw new SafeError(
+            `This label has labels nested under it (e.g. ${child.name}) — move those out first`,
+          );
+        }
+      }
+
+      const updated = await prisma.companyLabel.update({
+        where: { id },
+        data: {
+          ...(trimmedName && { name: trimmedName }),
+          ...(parentId !== undefined && { parentId: parentId ?? null }),
+        },
+      });
+
+      return { label: updated };
+    },
+  );
+
+// Deleting a label unlabels its companies and promotes its children to the
+// top level (both relations SetNull) — nothing else is removed.
+export const deleteCompanyLabelAction = actionClient
+  .metadata({ name: "deleteCompanyLabel" })
+  .inputSchema(deleteCompanyLabelBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
+    await prisma.companyLabel.deleteMany({ where: { id, emailAccountId } });
+    return { deleted: true };
+  });
 
 // On-demand company research: who they are, what they do, and their
 // properly formatted name — from the web (when available) plus the user's

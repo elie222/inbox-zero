@@ -16,6 +16,7 @@ import {
   type ContactGroup,
   type ContactListItem,
   type DomainStat,
+  type LabelSummary,
   domainLogoUrl,
 } from "@/utils/contacts";
 import type { LogoSource } from "@/utils/logo/fetch-logo";
@@ -51,6 +52,7 @@ import { useCompanyMembers } from "./useCompanyMembers";
 export function CompanyDetails({
   group,
   companies,
+  labels,
   domainStats,
   onSelectContact,
   mutateContacts,
@@ -58,6 +60,8 @@ export function CompanyDetails({
 }: {
   group: ContactGroup;
   companies: CompanySummary[];
+  // Every label on the account — feeds the label/parent pickers
+  labels: LabelSummary[];
   domainStats: DomainStat[];
   onSelectContact: (contact: ContactListItem) => void;
   mutateContacts: () => void;
@@ -173,6 +177,7 @@ export function CompanyDetails({
         <CompanyEditor
           company={company}
           companies={companies}
+          labels={labels}
           mutate={mutateContacts}
           onDeleted={onDeleted}
         />
@@ -388,11 +393,13 @@ type EditorTab = (typeof EDITOR_TABS)[number]["key"];
 function CompanyEditor({
   company,
   companies,
+  labels,
   mutate,
   onDeleted,
 }: {
   company: CompanySummary;
   companies: CompanySummary[];
+  labels: LabelSummary[];
   mutate: () => void;
   onDeleted?: () => void;
 }) {
@@ -419,7 +426,7 @@ function CompanyEditor({
       </div>
 
       {tab === "details" && (
-        <DetailsTab company={company} companies={companies} mutate={mutate} />
+        <DetailsTab company={company} labels={labels} mutate={mutate} />
       )}
       {tab === "logo" && <LogoTab company={company} mutate={mutate} />}
       {tab === "manage" && (
@@ -436,55 +443,50 @@ function CompanyEditor({
 
 function DetailsTab({
   company,
-  companies,
+  labels,
   mutate,
 }: {
   company: CompanySummary;
-  companies: CompanySummary[];
+  labels: LabelSummary[];
   mutate: () => void;
 }) {
   const { emailAccountId } = useAccount();
 
-  // Every label already in use, selectable directly; "new" reveals inputs
-  const labelOptions = useMemo(() => {
-    const options = new Map<string, { name: string; parentName: string }>();
-    for (const candidate of companies) {
-      const label = candidate.label;
-      if (!label) continue;
-      if (label.parent) {
-        options.set(`${label.parent.name}\u0000`, {
-          name: label.parent.name,
-          parentName: "",
-        });
-      }
-      options.set(`${label.parent?.name ?? ""}\u0000${label.name}`, {
-        name: label.name,
-        parentName: label.parent?.name ?? "",
-      });
-    }
-    return [...options.entries()]
-      .map(([key, value]) => ({ key, ...value }))
-      .sort((a, b) =>
-        `${a.parentName} ${a.name}`.localeCompare(`${b.parentName} ${b.name}`),
-      );
-  }, [companies]);
+  // All labels on the account, children shown with their nesting path
+  const labelById = useMemo(
+    () => new Map(labels.map((label) => [label.id, label])),
+    [labels],
+  );
+  const labelOptions = useMemo(
+    () =>
+      labels
+        .map((label) => ({
+          ...label,
+          path: label.parentId
+            ? `${labelById.get(label.parentId)?.name ?? "?"} › ${label.name}`
+            : label.name,
+        }))
+        .sort((a, b) => a.path.localeCompare(b.path)),
+    [labels, labelById],
+  );
+  const topLevelLabels = labelOptions.filter((label) => !label.parentId);
 
-  const currentKey = company.label
-    ? `${company.label.parent?.name ?? ""}\u0000${company.label.name}`
-    : "none";
-  const [labelChoice, setLabelChoice] = useState(currentKey);
+  // Existing label id, "none", or "new"; a new label's parent picker holds
+  // an existing top-level label id, "none", or "new" (name typed below)
+  const [labelChoice, setLabelChoice] = useState(company.label?.id ?? "none");
+  const [parentChoice, setParentChoice] = useState("none");
 
   const { register, handleSubmit } = useForm<{
     name: string;
     domains: string;
     newLabelName: string;
-    newLabelParent: string;
+    newParentName: string;
   }>({
     defaultValues: {
       name: company.name,
       domains: company.domains.join(", "),
       newLabelName: "",
-      newLabelParent: "",
+      newParentName: "",
     },
   });
 
@@ -502,11 +504,22 @@ function DetailsTab({
     <form
       className="space-y-4"
       onSubmit={handleSubmit((values) => {
+        // The action takes names: an existing pick sends its current
+        // name+parent (a no-op for nesting); "new" find-or-creates
         const picked =
           labelChoice === "none" || labelChoice === "new"
             ? null
-            : (labelOptions.find((option) => option.key === labelChoice) ??
-              null);
+            : (labelById.get(labelChoice) ?? null);
+        const pickedParentName = picked?.parentId
+          ? (labelById.get(picked.parentId)?.name ?? "")
+          : "";
+        const newParentName =
+          parentChoice === "none"
+            ? ""
+            : parentChoice === "new"
+              ? values.newParentName.trim()
+              : (labelById.get(parentChoice)?.name ?? "");
+
         update.execute({
           id: company.id,
           name: values.name.trim(),
@@ -519,9 +532,7 @@ function DetailsTab({
               ? values.newLabelName.trim()
               : (picked?.name ?? ""),
           labelParentName:
-            labelChoice === "new"
-              ? values.newLabelParent.trim()
-              : (picked?.parentName ?? ""),
+            labelChoice === "new" ? newParentName : pickedParentName,
         });
       })}
     >
@@ -551,10 +562,8 @@ function DetailsTab({
           <SelectContent>
             <SelectItem value="none">No label</SelectItem>
             {labelOptions.map((option) => (
-              <SelectItem key={option.key} value={option.key}>
-                {option.parentName
-                  ? `${option.parentName} › ${option.name}`
-                  : option.name}
+              <SelectItem key={option.id} value={option.id}>
+                {option.path}
               </SelectItem>
             ))}
             <SelectItem value="new">+ New label…</SelectItem>
@@ -562,9 +571,9 @@ function DetailsTab({
         </Select>
       </div>
       {labelChoice === "new" && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-3 rounded-md border border-border p-3">
           <div>
-            <Label htmlFor="company-new-label">New label</Label>
+            <Label htmlFor="company-new-label">New label name</Label>
             <Input
               id="company-new-label"
               className="mt-2"
@@ -573,16 +582,33 @@ function DetailsTab({
             />
           </div>
           <div>
-            <Label htmlFor="company-new-label-parent">
-              Parent label (optional)
-            </Label>
-            <Input
-              id="company-new-label-parent"
-              className="mt-2"
-              placeholder="Nests under this label"
-              {...register("newLabelParent")}
-            />
+            <Label htmlFor="company-new-label-parent">Nest under</Label>
+            <Select value={parentChoice} onValueChange={setParentChoice}>
+              <SelectTrigger id="company-new-label-parent" className="mt-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No parent (top level)</SelectItem>
+                {topLevelLabels.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.name}
+                  </SelectItem>
+                ))}
+                <SelectItem value="new">+ New parent…</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+          {parentChoice === "new" && (
+            <div>
+              <Label htmlFor="company-new-parent-name">New parent name</Label>
+              <Input
+                id="company-new-parent-name"
+                className="mt-2"
+                placeholder="e.g. Vendors"
+                {...register("newParentName")}
+              />
+            </div>
+          )}
         </div>
       )}
       {/* Anchored so Save stays reachable while the pane scrolls */}
