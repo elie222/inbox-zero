@@ -55,6 +55,7 @@ export function DomainSuggestions({
   ignoredDomains,
   ignoredEmails,
   companies,
+  search = "",
   activeEmail,
   onSelectContact,
   mutate,
@@ -64,6 +65,8 @@ export function DomainSuggestions({
   // Individually ignored addresses, restorable here
   ignoredEmails: string[];
   companies: CompanySummary[];
+  // The page's search term narrows all three lists by domain/address
+  search?: string;
   activeEmail: string | null;
   onSelectContact: (contact: ContactListItem) => void;
   mutate: () => void;
@@ -71,6 +74,17 @@ export function DomainSuggestions({
   const [adding, setAdding] = useState<string | null>(null);
   const [showIgnored, setShowIgnored] = useState(false);
   const [showIgnoredPeople, setShowIgnoredPeople] = useState(false);
+
+  const term = search.trim().toLowerCase();
+  const visibleStats = term
+    ? stats.filter((stat) => stat.domain.includes(term))
+    : stats;
+  const visibleIgnoredDomains = term
+    ? ignoredDomains.filter((domain) => domain.includes(term))
+    : ignoredDomains;
+  const visibleIgnoredEmails = term
+    ? ignoredEmails.filter((email) => email.includes(term))
+    : ignoredEmails;
 
   return (
     <div className="space-y-6">
@@ -80,9 +94,9 @@ export function DomainSuggestions({
           no-reply and alert senders are filtered out. Add the ones you care
           about; everyone on that domain groups under the company.
         </p>
-        {stats.length ? (
+        {visibleStats.length ? (
           <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-            {stats.map((stat) => (
+            {visibleStats.map((stat) => (
               <SuggestionRow
                 key={stat.domain}
                 stat={stat}
@@ -96,12 +110,14 @@ export function DomainSuggestions({
           </div>
         ) : (
           <p className="py-12 text-center text-sm text-muted-foreground">
-            All caught up — no unadded domains right now.
+            {term
+              ? `No suggested domains match “${search.trim()}”.`
+              : "All caught up — no unadded domains right now."}
           </p>
         )}
       </div>
 
-      {ignoredDomains.length > 0 && (
+      {visibleIgnoredDomains.length > 0 && (
         <div>
           <button
             type="button"
@@ -113,11 +129,11 @@ export function DomainSuggestions({
             ) : (
               <ChevronRightIcon className="size-3.5" />
             )}
-            Ignored ({ignoredDomains.length})
+            Ignored ({visibleIgnoredDomains.length})
           </button>
           {showIgnored && (
             <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-              {[...ignoredDomains].sort().map((domain) => (
+              {[...visibleIgnoredDomains].sort().map((domain) => (
                 <IgnoredRow key={domain} domain={domain} mutate={mutate} />
               ))}
             </div>
@@ -125,7 +141,7 @@ export function DomainSuggestions({
         </div>
       )}
 
-      {ignoredEmails.length > 0 && (
+      {visibleIgnoredEmails.length > 0 && (
         <div>
           <button
             type="button"
@@ -137,11 +153,11 @@ export function DomainSuggestions({
             ) : (
               <ChevronRightIcon className="size-3.5" />
             )}
-            Ignored people ({ignoredEmails.length})
+            Ignored people ({visibleIgnoredEmails.length})
           </button>
           {showIgnoredPeople && (
             <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-              {[...ignoredEmails].sort().map((email) => (
+              {[...visibleIgnoredEmails].sort().map((email) => (
                 <IgnoredPersonRow key={email} email={email} mutate={mutate} />
               ))}
             </div>
@@ -411,8 +427,12 @@ function AddCompanyDialog({
   const [intent, setIntent] = useState<"new" | "existing" | null>(null);
 
   const create = useAction(createCompanyAction.bind(null, emailAccountId), {
-    onSuccess: () => {
-      toastSuccess({ description: "Company saved" });
+    onSuccess: (result) => {
+      toastSuccess({
+        description: result.data?.researching
+          ? "Company saved — the AI is researching its proper name and details in the background."
+          : "Company saved",
+      });
       mutate();
       onClose();
     },

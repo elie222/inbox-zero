@@ -5,10 +5,12 @@ const {
   createEmailProviderMock,
   getEmailAccountWithAiAndTokensMock,
   aiEnrichContactMock,
+  aiResearchCompanyMock,
 } = vi.hoisted(() => ({
   createEmailProviderMock: vi.fn(),
   getEmailAccountWithAiAndTokensMock: vi.fn(),
   aiEnrichContactMock: vi.fn(),
+  aiResearchCompanyMock: vi.fn(),
 }));
 
 vi.mock("@/utils/prisma");
@@ -26,9 +28,13 @@ vi.mock("@/utils/user/get", () => ({
 vi.mock("@/utils/ai/contacts/enrich-contact", () => ({
   aiEnrichContact: aiEnrichContactMock,
 }));
+vi.mock("@/utils/ai/companies/research-company", () => ({
+  aiResearchCompany: aiResearchCompanyMock,
+}));
 
 import {
   enrichContactAction,
+  researchCompanyAction,
   updateContactAction,
 } from "@/utils/actions/contact";
 
@@ -64,7 +70,7 @@ describe("enrichContactAction", () => {
       name: "Jane Doe",
       title: "VP of Sales",
       company: "Example Corp",
-      phones: ["+1 555 0100"],
+      phones: [{ label: "Mobile", value: "+1 555 0100" }],
       summary: "Jane is the user's account manager at Example Corp.",
     });
 
@@ -76,7 +82,7 @@ describe("enrichContactAction", () => {
       name: "Jane Doe",
       title: "VP of Sales",
       company: "Example Corp",
-      phones: ["+1 555 0100"],
+      phones: [{ label: "Mobile", value: "+1 555 0100" }],
     });
     expect(prisma.contact.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -199,12 +205,11 @@ describe("updateContactAction company lock", () => {
   });
 
   it("still assigns unclaimed-domain contacts, teaching the company the domain", async () => {
-    prisma.company.findFirst.mockResolvedValue(null);
-    prisma.company.upsert.mockResolvedValue({
-      id: "co-2",
-      name: "Acme",
-      domains: [],
-    } as any);
+    prisma.company.findFirst
+      // No company owns acme.com yet…
+      .mockResolvedValueOnce(null)
+      // …and "Acme" exists but hasn't adopted the domain
+      .mockResolvedValueOnce({ id: "co-2", name: "Acme", domains: [] } as any);
     prisma.company.update.mockResolvedValue({} as any);
 
     await updateContactAction("account-1", {
@@ -227,7 +232,8 @@ describe("updateContactAction company lock", () => {
   });
 
   it("assigns public-email-domain contacts freely, without domain adoption", async () => {
-    prisma.company.upsert.mockResolvedValue({
+    prisma.company.findFirst.mockResolvedValue(null);
+    prisma.company.create.mockResolvedValue({
       id: "co-3",
       name: "Acme",
       domains: [],
@@ -246,5 +252,95 @@ describe("updateContactAction company lock", () => {
     );
     // gmail.com must never become a company domain
     expect(prisma.company.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("researchCompanyAction", () => {
+  beforeEach(() => {
+    prisma.company.findFirst.mockResolvedValue(null);
+    prisma.company.update.mockResolvedValue({} as any);
+    createEmailProviderMock.mockResolvedValue({
+      getMessagesFromSender: vi.fn().mockResolvedValue({ messages: [] }),
+    });
+  });
+
+  it("auto-renames when the AI name only fixes formatting", async () => {
+    prisma.company.findFirst
+      // The company being researched…
+      .mockResolvedValueOnce({
+        id: "co-1",
+        name: "700credit",
+        domains: ["700credit.com"],
+      } as any)
+      // …and no name clash with the AI's version
+      .mockResolvedValueOnce(null);
+    aiResearchCompanyMock.mockResolvedValue({
+      name: "700Credit",
+      summary: "700Credit provides credit and compliance tools to dealers.",
+    });
+
+    const result = await researchCompanyAction("account-1", { id: "co-1" });
+
+    expect(result?.data).toEqual({
+      summary: "700Credit provides credit and compliance tools to dealers.",
+      suggestedName: "700Credit",
+      renamed: true,
+    });
+    expect(prisma.company.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          name: "700Credit",
+          aiSummary:
+            "700Credit provides credit and compliance tools to dealers.",
+        },
+      }),
+    );
+  });
+
+  it("only suggests a genuinely different name, saving just the summary", async () => {
+    prisma.company.findFirst.mockResolvedValueOnce({
+      id: "co-1",
+      name: "Nucar",
+      domains: ["nucar.com"],
+    } as any);
+    aiResearchCompanyMock.mockResolvedValue({
+      name: "Nucar Automotive Group",
+      summary: "A dealership group in the northeastern US.",
+    });
+
+    const result = await researchCompanyAction("account-1", { id: "co-1" });
+
+    expect(result?.data).toEqual({
+      summary: "A dealership group in the northeastern US.",
+      suggestedName: "Nucar Automotive Group",
+      renamed: false,
+    });
+    expect(prisma.company.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { aiSummary: "A dealership group in the northeastern US." },
+      }),
+    );
+  });
+
+  it("never renames into an existing company's name", async () => {
+    prisma.company.findFirst
+      .mockResolvedValueOnce({
+        id: "co-1",
+        name: "700credit",
+        domains: ["700credit.com"],
+      } as any)
+      // Another company already holds the AI's name
+      .mockResolvedValueOnce({ id: "co-2" } as any);
+    aiResearchCompanyMock.mockResolvedValue({
+      name: "700Credit",
+      summary: "Summary.",
+    });
+
+    const result = await researchCompanyAction("account-1", { id: "co-1" });
+
+    expect(result?.data?.renamed).toBe(false);
+    expect(prisma.company.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { aiSummary: "Summary." } }),
+    );
   });
 });

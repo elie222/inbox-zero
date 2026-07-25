@@ -4,7 +4,13 @@ import { useMemo, useState } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { useForm } from "react-hook-form";
 import { formatDistanceToNow } from "date-fns";
-import { BuildingIcon, CheckIcon, PencilIcon, XIcon } from "lucide-react";
+import {
+  BuildingIcon,
+  CheckIcon,
+  PencilIcon,
+  SparklesIcon,
+  XIcon,
+} from "lucide-react";
 import {
   type CompanySummary,
   type ContactGroup,
@@ -16,6 +22,7 @@ import type { LogoSource } from "@/utils/logo/fetch-logo";
 import {
   deleteCompanyAction,
   mergeCompaniesAction,
+  researchCompanyAction,
   updateCompanyAction,
 } from "@/utils/actions/contact";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -196,6 +203,10 @@ export function CompanyDetails({
             </p>
           )}
 
+          {company && (
+            <CompanyAbout company={company} mutate={mutateContacts} />
+          )}
+
           {sortedMembers.length === 0 &&
             !fetchedMembers.data &&
             !fetchedMembers.error &&
@@ -258,6 +269,98 @@ export function CompanyDetails({
             </div>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+// AI research: the summary of who the company is, a Research button that
+// (re)runs it — reading their website via web search when available, plus
+// the user's email history — and an Apply chip when the AI proposes a
+// genuinely different official name (pure formatting fixes apply themselves)
+function CompanyAbout({
+  company,
+  mutate,
+}: {
+  company: CompanySummary;
+  mutate: () => void;
+}) {
+  const { emailAccountId } = useAccount();
+  const [suggestedName, setSuggestedName] = useState<string | null>(null);
+
+  const research = useAction(researchCompanyAction.bind(null, emailAccountId), {
+    onSuccess: (result) => {
+      mutate();
+      if (!result.data) return;
+      if (result.data.renamed) {
+        toastSuccess({
+          description: `Saved — and renamed to ${result.data.suggestedName}`,
+        });
+      } else {
+        toastSuccess({ description: "Company research saved" });
+      }
+      if (
+        result.data.suggestedName &&
+        !result.data.renamed &&
+        result.data.suggestedName !== company.name
+      ) {
+        setSuggestedName(result.data.suggestedName);
+      }
+    },
+    onError: (error) => {
+      toastError({ description: getActionErrorMessage(error.error) });
+    },
+  });
+
+  const rename = useAction(updateCompanyAction.bind(null, emailAccountId), {
+    onSuccess: () => {
+      toastSuccess({ description: "Company renamed" });
+      setSuggestedName(null);
+      mutate();
+    },
+    onError: (error) => {
+      toastError({ description: getActionErrorMessage(error.error) });
+    },
+  });
+
+  return (
+    <div className="rounded-lg border border-border p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
+          <SparklesIcon className="size-3 text-primary" />
+          About
+        </h3>
+        <Button
+          variant="outline"
+          size="xs"
+          loading={research.isExecuting}
+          onClick={() => research.execute({ id: company.id })}
+        >
+          Research
+        </Button>
+      </div>
+      <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+        {company.aiSummary ??
+          "No summary yet — Research has the AI read the web and your email history to describe who this company is and what they do."}
+      </p>
+      {suggestedName && (
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-md border border-border p-2 text-sm">
+          <span className="min-w-0 truncate text-muted-foreground">
+            Official name:{" "}
+            <span className="text-foreground">{suggestedName}</span>
+          </span>
+          <Button
+            variant="outline"
+            size="xs"
+            loading={rename.isExecuting}
+            onClick={() =>
+              rename.execute({ id: company.id, name: suggestedName })
+            }
+          >
+            <CheckIcon className="mr-1 size-3" />
+            Apply
+          </Button>
+        </div>
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 import prisma from "@/utils/prisma";
 import { contactEtag, generateVCard, parseVCard } from "@/utils/carddav/vcard";
+import type { ContactPhone } from "@/utils/contacts";
 
 // A deliberately small CardDAV server: one addressbook per email account,
 // serving the account's saved contacts. Implements the subset iOS/macOS
@@ -199,7 +200,7 @@ async function putContact({
 
   const details = {
     name: parsed.name,
-    phone: parsed.phone,
+    phones: parsed.phones,
     title: parsed.title,
     carddavUid: parsed.uid ?? uid,
   };
@@ -250,7 +251,7 @@ async function loadFullContacts(emailAccountId: string) {
       carddavUid: true,
       email: true,
       name: true,
-      phone: true,
+      phones: true,
       title: true,
       updatedAt: true,
       company: { select: { name: true } },
@@ -266,7 +267,7 @@ async function findByUid(emailAccountId: string, uid: string) {
       carddavUid: true,
       email: true,
       name: true,
-      phone: true,
+      phones: true,
       title: true,
       updatedAt: true,
       company: { select: { name: true } },
@@ -283,7 +284,7 @@ function contactVCard(contact: FullContact): string {
     uid: contact.carddavUid ?? contact.id,
     email: contact.email,
     name: contact.name,
-    phone: contact.phone,
+    phones: (contact.phones ?? []) as ContactPhone[],
     title: contact.title,
     companyName: contact.company?.name ?? null,
     updatedAt: contact.updatedAt,

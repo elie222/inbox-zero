@@ -1,16 +1,9 @@
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 import { createPerplexity } from "@ai-sdk/perplexity";
-import { openai } from "@ai-sdk/openai";
-import { google } from "@ai-sdk/google";
 import { env } from "@/env";
 import { createGenerateText } from "@/utils/llms";
-import { getResolvedDeploymentRolePrimaryModelEntry } from "@/utils/llms/model";
-import {
-  getModelForUseCase,
-  LLM_USE_CASE_MODEL_TYPES,
-  LlmUseCase,
-} from "@/utils/llms/use-cases";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
@@ -25,8 +18,8 @@ import {
   setCachedResearch,
 } from "@/utils/redis/research-cache";
 import type { Logger } from "@/utils/logger";
-import { Provider } from "@/utils/llms/config";
 import { createMcpToolsForAgent } from "@/utils/ai/mcp/mcp-tools";
+import { getWebSearchConfig } from "@/utils/ai/web-search";
 
 const MAX_AGENT_STEPS = 15;
 const MAX_EMAILS_PER_GUEST = 10;
@@ -291,40 +284,6 @@ async function buildSearchTools({
   };
 }
 
-type WebSearchConfig = {
-  providerName: string;
-  useOnlineVariant: boolean;
-  getSearchTools?: () => ToolSet;
-};
-
-function getWebSearchConfig(): WebSearchConfig | null {
-  const webSearchProvider = getMeetingWebSearchProvider();
-
-  switch (webSearchProvider) {
-    case Provider.OPEN_AI:
-      return {
-        providerName: "OpenAI",
-        useOnlineVariant: false,
-        getSearchTools: () => ({ web_search: openai.tools.webSearch({}) }),
-      };
-    case Provider.GOOGLE:
-      return {
-        providerName: "Google",
-        useOnlineVariant: false,
-        getSearchTools: () => ({
-          google_search: google.tools.googleSearch({}),
-        }),
-      };
-    case Provider.OPENROUTER:
-      return {
-        providerName: "OpenRouter",
-        useOnlineVariant: true,
-      };
-    default:
-      return null;
-  }
-}
-
 function createWebSearchTool({
   emailAccount,
   logger,
@@ -447,12 +406,6 @@ For each guest listed above:
 3. Once you have all information, call finalizeBriefing with the complete briefing`;
 
   return prompt;
-}
-
-function getMeetingWebSearchProvider(): string | undefined {
-  return getResolvedDeploymentRolePrimaryModelEntry(
-    LLM_USE_CASE_MODEL_TYPES[LlmUseCase.MeetingWebSearch],
-  )?.provider;
 }
 
 type GuestContextForPrompt = {

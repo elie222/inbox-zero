@@ -306,6 +306,7 @@ export function ContactsList() {
                     domainStats={domainStats}
                     groupBy={view === "labels" ? "label" : "company"}
                     labelFilter={labelFilter}
+                    search={search}
                     activeEmail={activeEmail}
                     activeGroupKey={isWide ? selectedGroupKey : null}
                     onSelectContact={setSelected}
@@ -317,6 +318,7 @@ export function ContactsList() {
                     ignoredDomains={data.ignoredDomains}
                     ignoredEmails={data.ignoredEmails}
                     companies={companies}
+                    search={search}
                     activeEmail={activeEmail}
                     onSelectContact={setSelected}
                     mutate={mutate}

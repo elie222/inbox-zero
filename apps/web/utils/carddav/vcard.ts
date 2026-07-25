@@ -1,12 +1,14 @@
 // Minimal vCard 3.0 support: enough for iOS/macOS Contacts round-trips.
-// We own name/email/phone/title/org; everything else a client sends is
+// We own name/email/phones/title/org; everything else a client sends is
 // ignored rather than stored.
+
+import type { ContactPhone } from "@/utils/contacts";
 
 export type VCardContact = {
   uid: string;
   email: string;
   name: string | null;
-  phone: string | null;
+  phones: ContactPhone[];
   title: string | null;
   companyName: string | null;
   updatedAt: Date;
@@ -20,7 +22,10 @@ export function generateVCard(contact: VCardContact): string {
     `FN:${escapeValue(contact.name || contact.email)}`,
     `N:${escapeValue(lastName(contact.name))};${escapeValue(firstNames(contact.name))};;;`,
     `EMAIL;TYPE=INTERNET:${escapeValue(contact.email)}`,
-    ...(contact.phone ? [`TEL;TYPE=CELL:${escapeValue(contact.phone)}`] : []),
+    ...contact.phones.map(
+      (phone) =>
+        `TEL;TYPE=${vcardTypeFromLabel(phone.label)}:${escapeValue(phone.value)}`,
+    ),
     ...(contact.companyName ? [`ORG:${escapeValue(contact.companyName)}`] : []),
     ...(contact.title ? [`TITLE:${escapeValue(contact.title)}`] : []),
     `REV:${contact.updatedAt.toISOString()}`,
@@ -33,7 +38,7 @@ export type ParsedVCard = {
   uid: string | null;
   email: string | null;
   name: string | null;
-  phone: string | null;
+  phones: ContactPhone[];
   title: string | null;
   companyName: string | null;
 };
@@ -47,7 +52,7 @@ export function parseVCard(raw: string): ParsedVCard {
     uid: null,
     email: null,
     name: null,
-    phone: null,
+    phones: [],
     title: null,
     companyName: null,
   };
@@ -56,7 +61,8 @@ export function parseVCard(raw: string): ParsedVCard {
     const colonIndex = line.indexOf(":");
     if (colonIndex === -1) continue;
 
-    const key = line.slice(0, colonIndex).split(";")[0].toUpperCase();
+    const propName = line.slice(0, colonIndex);
+    const key = propName.split(";")[0].toUpperCase();
     const value = unescapeValue(line.slice(colonIndex + 1).trim());
     if (!value) continue;
 
@@ -72,7 +78,10 @@ export function parseVCard(raw: string): ParsedVCard {
         if (!result.email) result.email = value.toLowerCase();
         break;
       case "TEL":
-        if (!result.phone) result.phone = value;
+        result.phones.push({
+          label: labelFromVcardParams(propName),
+          value,
+        });
         break;
       case "TITLE":
         result.title = value;
@@ -106,6 +115,41 @@ function unescapeValue(value: string): string {
     .replace(/\\,/g, ",")
     .replace(/\\;/g, ";")
     .replace(/\\\\/g, "\\");
+}
+
+// "TEL;type=CELL;type=pref" → the vCard TYPE params carry the kind of line
+const VCARD_TYPE_LABELS: Record<string, string> = {
+  CELL: "Mobile",
+  WORK: "Work",
+  HOME: "Home",
+  MAIN: "Main",
+  FAX: "Fax",
+  PAGER: "Pager",
+};
+
+function labelFromVcardParams(propName: string): string {
+  const params = propName.split(";").slice(1);
+  for (const param of params) {
+    const raw = (
+      param.includes("=") ? param.split("=")[1] : param
+    ).toUpperCase();
+    for (const type of raw.split(",")) {
+      const label = VCARD_TYPE_LABELS[type.trim()];
+      if (label) return label;
+    }
+  }
+  return "Other";
+}
+
+function vcardTypeFromLabel(label: string): string {
+  const normalized = label.trim().toLowerCase();
+  const match = Object.entries(VCARD_TYPE_LABELS).find(
+    ([, human]) => human.toLowerCase() === normalized,
+  );
+  if (match) return match[0];
+  if (normalized === "cell" || normalized === "mobile") return "CELL";
+  if (normalized === "office") return "WORK";
+  return "VOICE";
 }
 
 function lastName(name: string | null): string {

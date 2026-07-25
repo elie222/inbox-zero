@@ -12,11 +12,15 @@ export type ContactActivity = {
   lastInteractionAt: Date;
 };
 
+// A labeled phone number ("Mobile", "Work", "Fax", …); stored on Contact
+// as a Json array so one person can hold several lines
+export type ContactPhone = { label: string; value: string };
+
 export type SavedContact = {
   email: string;
   name: string | null;
   title: string | null;
-  phone: string | null;
+  phones: ContactPhone[];
   notes: string | null;
   aiSummary: string | null;
   photoUrl: string | null;
@@ -34,6 +38,8 @@ export type CompanySummary = {
   logoUrl: string | null;
   // Render the logo on a white chip (dark marks vanish on the dark theme)
   logoWhiteBackground: boolean;
+  // AI research: who the company is and what they do
+  aiSummary: string | null;
   label: {
     id: string;
     name: string;
@@ -46,7 +52,7 @@ export type ContactListItem = {
   domain: string;
   name: string | null;
   title: string | null;
-  phone: string | null;
+  phones: ContactPhone[];
   notes: string | null;
   aiSummary: string | null;
   photoUrl: string | null;
@@ -139,7 +145,7 @@ export function mergeContactActivity({
       domain: emailDomain(email),
       name: normalizeDisplayName(savedContact?.name || entry?.name || null),
       title: savedContact?.title ?? null,
-      phone: savedContact?.phone ?? null,
+      phones: savedContact?.phones ?? [],
       notes: savedContact?.notes ?? null,
       aiSummary: savedContact?.aiSummary ?? null,
       photoUrl: savedContact?.photoUrl ?? null,

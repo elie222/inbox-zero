@@ -27,6 +27,7 @@ export function CompaniesView({
   domainStats,
   groupBy,
   labelFilter,
+  search = "",
   activeEmail,
   activeGroupKey,
   onSelectContact,
@@ -41,25 +42,41 @@ export function CompaniesView({
   groupBy: "company" | "label";
   // Restrict to companies under this label id (from the sidebar's GROUPS)
   labelFilter?: string | null;
+  // The page's search term — `contacts` is already narrowed to matching
+  // people server-side; this narrows the company/label rows themselves
+  search?: string;
   activeEmail: string | null;
   activeGroupKey: string | null;
   onSelectContact: (contact: ContactListItem) => void;
   // Clicking a company row shows its details in the pane
   onSelectCompany: (key: string) => void;
 }) {
+  const term = search.trim().toLowerCase();
+
   // Only purposely-added companies (plus Personal) — auto domain groups
   // live in the Suggested view until the user adds or ignores them
   const groups = useMemo(() => {
-    const all = groupContacts({ contacts, companies }).filter(
+    let all = groupContacts({ contacts, companies }).filter(
       (group) => group.company || group.key === "personal",
     );
+    // A group survives the search when it still has matching people (the
+    // server already narrowed `contacts`) or its own name/domains match —
+    // so searching a person shows exactly the companies/labels holding them
+    if (term) {
+      all = all.filter(
+        (group) =>
+          group.contacts.length > 0 ||
+          group.name.toLowerCase().includes(term) ||
+          group.domains.some((domain) => domain.includes(term)),
+      );
+    }
     if (!labelFilter) return all;
     return all.filter(
       (group) =>
         group.company?.label?.id === labelFilter ||
         group.company?.label?.parent?.id === labelFilter,
     );
-  }, [contacts, companies, labelFilter]);
+  }, [contacts, companies, labelFilter, term]);
 
   // Label grouping sections by label path ("Factory" then "Factory > …"),
   // then unlabeled companies, then Personal; company grouping is one flat
@@ -120,8 +137,9 @@ export function CompaniesView({
   if (!sections.length && !unfiled.length) {
     return (
       <p className="py-12 text-center text-sm text-muted-foreground">
-        No companies yet. Check the Suggested tab to add them from the domains
-        in your email, or use “Add contact” and set a company.
+        {term
+          ? `No companies or people match “${search.trim()}”.`
+          : "No companies yet. Check the Suggested tab to add them from the domains in your email, or use “Add contact” and set a company."}
       </p>
     );
   }

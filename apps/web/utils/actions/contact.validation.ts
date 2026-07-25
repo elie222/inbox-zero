@@ -18,11 +18,18 @@ const urlOrEmpty = z
   )
   .or(z.literal(""));
 
+// One labeled number ("Mobile", "Office", …); a contact can hold several
+export const contactPhoneEntry = z.object({
+  label: z.string().max(50),
+  value: z.string().min(1).max(100),
+});
+
 export const updateContactBody = z.object({
   email: z.string().email(),
   name: z.string().max(200).nullish(),
   title: z.string().max(200).nullish(),
-  phone: z.string().max(100).nullish(),
+  // undefined leaves phones untouched; [] clears them
+  phones: z.array(contactPhoneEntry).max(10).optional(),
   notes: z.string().max(10_000).nullish(),
   photoUrl: urlOrEmpty.nullish(),
   useCompanyLogo: z.boolean().optional(),
@@ -109,6 +116,11 @@ export const updateCompanyBody = z.object({
   labelParentName: z.string().max(100).nullish(),
 });
 export type UpdateCompanyBody = z.infer<typeof updateCompanyBody>;
+
+export const researchCompanyBody = z.object({
+  id: z.string().min(1),
+});
+export type ResearchCompanyBody = z.infer<typeof researchCompanyBody>;
 
 export const deleteCompanyBody = z.object({
   id: z.string().min(1),

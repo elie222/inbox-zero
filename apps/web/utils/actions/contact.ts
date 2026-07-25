@@ -10,6 +10,7 @@ import {
   mergeCompaniesBody,
   deleteContactBody,
   enrichContactBody,
+  researchCompanyBody,
   setCarddavAccessBody,
   setContactIgnoredBody,
   setContactInboxPriorityBody,
@@ -39,6 +40,8 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiEnrichContact } from "@/utils/ai/contacts/enrich-contact";
+import { aiResearchCompany } from "@/utils/ai/companies/research-company";
+import type { EmailForLLM } from "@/utils/types";
 import prisma from "@/utils/prisma";
 
 export const updateContactAction = actionClient
@@ -51,7 +54,7 @@ export const updateContactAction = actionClient
         email,
         name,
         title,
-        phone,
+        phones,
         notes,
         photoUrl,
         useCompanyLogo,
@@ -66,7 +69,7 @@ export const updateContactAction = actionClient
       const details = {
         ...(name !== undefined && { name: name?.trim() || null }),
         ...(title !== undefined && { title: title?.trim() || null }),
-        ...(phone !== undefined && { phone: phone?.trim() || null }),
+        ...(phones !== undefined && { phones: cleanPhones(phones) }),
         ...(notes !== undefined && { notes: notes?.trim() || null }),
         ...(photoUrl !== undefined && { photoUrl: photoUrl?.trim() || null }),
         ...(useCompanyLogo !== undefined && { useCompanyLogo }),
@@ -344,7 +347,10 @@ export const createCompanyAction = actionClient
   .metadata({ name: "createCompany" })
   .inputSchema(createCompanyBody)
   .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { name, domains } }) => {
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { name, domains },
+    }) => {
       const trimmedName = name.trim();
       const normalized = normalizeDomains(domains ?? []);
 
@@ -369,7 +375,59 @@ export const createCompanyAction = actionClient
             data: { emailAccountId, name: trimmedName, domains: normalized },
           });
 
-      return { company };
+      // Fresh companies get researched in the background: the AI writes the
+      // "who they are" summary and fixes the domain-derived name's
+      // capitalization/spacing (700credit → 700Credit) while the user moves on
+      const researching = !existing && normalized.length > 0;
+      if (researching) {
+        after(async () => {
+          try {
+            await runCompanyResearch({
+              emailAccountId,
+              companyId: company.id,
+              provider,
+              logger,
+              renamePolicy: "default-name",
+            });
+          } catch (error) {
+            logger.warn("Background company research failed", {
+              companyId: company.id,
+              error,
+            });
+          }
+        });
+      }
+
+      return { company, researching };
+    },
+  );
+
+// On-demand company research: who they are, what they do, and their
+// properly formatted name — from the web (when available) plus the user's
+// email history with the company's domains.
+export const researchCompanyAction = actionClient
+  .metadata({ name: "researchCompany" })
+  .inputSchema(researchCompanyBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { id },
+    }) => {
+      const result = await runCompanyResearch({
+        emailAccountId,
+        companyId: id,
+        provider,
+        logger,
+        // Manual research fixes pure formatting automatically; a genuinely
+        // different name is only suggested, never forced
+        renamePolicy: "formatting-only",
+      });
+      if (!result) {
+        throw new SafeError(
+          "Couldn't research this company — no web results or email history to learn from yet.",
+        );
+      }
+      return result;
     },
   );
 
@@ -778,4 +836,138 @@ function normalizeDomains(domains: string[]): string[] {
         .filter(Boolean),
     ),
   ];
+}
+
+function cleanPhones(
+  phones: { label: string; value: string }[],
+): { label: string; value: string }[] {
+  return phones
+    .map((phone) => ({
+      label: phone.label.trim() || "Other",
+      value: phone.value.trim(),
+    }))
+    .filter((phone) => phone.value);
+}
+
+// Shared by the research action and the create-company background hook.
+// Saves the AI summary; renames per policy — "formatting-only" only fixes
+// capitalization/spacing of the current name, "default-name" additionally
+// trusts the AI when the current name is just the domain string.
+async function runCompanyResearch({
+  emailAccountId,
+  companyId,
+  provider,
+  logger,
+  renamePolicy,
+}: {
+  emailAccountId: string;
+  companyId: string;
+  provider: string;
+  logger: Logger;
+  renamePolicy: "formatting-only" | "default-name";
+}): Promise<{
+  summary: string;
+  suggestedName: string | null;
+  renamed: boolean;
+} | null> {
+  const company = await prisma.company.findFirst({
+    where: { id: companyId, emailAccountId },
+    select: { id: true, name: true, domains: true },
+  });
+  if (!company) throw new SafeError("Company not found");
+
+  const emailAccount = await getEmailAccountWithAiAndTokens({
+    emailAccountId,
+  });
+  if (!emailAccount) throw new SafeError("Email account not found");
+
+  // Recent mail from the company's domain grounds the summary in the real
+  // relationship (Gmail's from: accepts a bare domain)
+  let emails: EmailForLLM[] = [];
+  if (company.domains.length) {
+    try {
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+        logger,
+      });
+      const { messages } = await emailProvider.getMessagesFromSender({
+        senderEmail: company.domains[0],
+        maxResults: 10,
+      });
+      emails = messages.map((message) =>
+        getEmailForLLM(message, { removeForwarded: true, maxLength: 1000 }),
+      );
+    } catch (error) {
+      logger.warn("Couldn't load email history for company research", {
+        companyId,
+        error,
+      });
+    }
+  }
+
+  const result = await aiResearchCompany({
+    emailAccount,
+    companyName: company.name,
+    domains: company.domains,
+    emails,
+    logger,
+  });
+  if (!result) return null;
+
+  const aiName = result.name?.trim() || null;
+  let renamed = false;
+
+  if (aiName && aiName !== company.name) {
+    const formattingOnly = companyNamesEquivalent(aiName, company.name);
+    const isDefaultName = company.domains.some((domain) =>
+      domain
+        .split(".")
+        .some((part) => companyNamesEquivalent(company.name, part)),
+    );
+    const shouldRename =
+      formattingOnly || (renamePolicy === "default-name" && isDefaultName);
+
+    if (shouldRename) {
+      // Company names are unique per account — never rename into a clash
+      const conflict = await prisma.company.findFirst({
+        where: {
+          emailAccountId,
+          name: { equals: aiName, mode: "insensitive" },
+          id: { not: company.id },
+        },
+        select: { id: true },
+      });
+      if (!conflict) {
+        await prisma.company.update({
+          where: { id: company.id },
+          data: { name: aiName, aiSummary: result.summary },
+        });
+        renamed = true;
+        logger.info("Company renamed from research", {
+          companyId,
+          from: company.name,
+          to: aiName,
+        });
+      }
+    }
+  }
+
+  if (!renamed) {
+    await prisma.company.update({
+      where: { id: company.id },
+      data: { aiSummary: result.summary },
+    });
+  }
+
+  return { summary: result.summary, suggestedName: aiName, renamed };
+}
+
+// "700credit" vs "700Credit" vs "700 Credit" — same company, different
+// formatting. Compares with case/spacing/punctuation stripped.
+function companyNamesEquivalent(a: string, b: string): boolean {
+  const normalize = (value: string) =>
+    value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const left = normalize(a);
+  return !!left && left === normalize(b);
 }

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import {
+  type ContactPhone,
   isLikelyAutomatedSender,
   mergeContactActivity,
 } from "@/utils/contacts";
@@ -57,13 +58,13 @@ async function getContacts({
   });
   const hasMore = activity.length === limit;
 
-  const saved = await prisma.contact.findMany({
+  const savedRows = await prisma.contact.findMany({
     where: { emailAccountId },
     select: {
       email: true,
       name: true,
       title: true,
-      phone: true,
+      phones: true,
       notes: true,
       aiSummary: true,
       photoUrl: true,
@@ -74,6 +75,11 @@ async function getContacts({
       inboxPriorityInstructions: true,
     },
   });
+  // phones is a Json column; give it its concrete shape once here
+  const saved = savedRows.map((contact) => ({
+    ...contact,
+    phones: (contact.phones ?? []) as ContactPhone[],
+  }));
 
   // Saved contacts whose activity fell outside the search/limit window would
   // otherwise show zeroed stats — fetch their aggregates directly
@@ -99,6 +105,7 @@ async function getContacts({
       domains: true,
       logoUrl: true,
       logoWhiteBackground: true,
+      aiSummary: true,
       label: {
         select: {
           id: true,
@@ -129,6 +136,7 @@ async function getContacts({
       !searchTerm ||
       contact.email.includes(searchTerm) ||
       contact.name?.toLowerCase().includes(searchTerm) ||
+      contact.title?.toLowerCase().includes(searchTerm) ||
       (contact.companyId &&
         companyNameById
           .get(contact.companyId)

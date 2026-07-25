@@ -85,7 +85,7 @@ function emptyContact(email: string): ContactListItem {
     domain: emailDomain(email),
     name: null,
     title: null,
-    phone: null,
+    phones: [],
     notes: null,
     aiSummary: null,
     photoUrl: null,
