@@ -954,10 +954,15 @@ async function runCompanyResearch({
   summary: string;
   suggestedName: string | null;
   renamed: boolean;
+  suggestedLabel: {
+    name: string;
+    parentName: string | null;
+    isNew: boolean;
+  } | null;
 } | null> {
   const company = await prisma.company.findFirst({
     where: { id: companyId, emailAccountId },
-    select: { id: true, name: true, domains: true },
+    select: { id: true, name: true, domains: true, labelId: true },
   });
   if (!company) throw new SafeError("Company not found");
 
@@ -991,11 +996,26 @@ async function runCompanyResearch({
     }
   }
 
+  // The label structure lets the AI file the company (or notice a gap and
+  // propose a new sub-label)
+  const labelRows = await prisma.companyLabel.findMany({
+    where: { emailAccountId },
+    select: { id: true, name: true, parentId: true },
+    orderBy: { name: "asc" },
+  });
+  const labelNameById = new Map(labelRows.map((row) => [row.id, row.name]));
+
   const result = await aiResearchCompany({
     emailAccount,
     companyName: company.name,
     domains: company.domains,
     emails,
+    labels: labelRows.map((row) => ({
+      name: row.name,
+      parentName: row.parentId
+        ? (labelNameById.get(row.parentId) ?? null)
+        : null,
+    })),
     logger,
   });
   if (!result) return null;
@@ -1045,7 +1065,52 @@ async function runCompanyResearch({
     });
   }
 
-  return { summary: result.summary, suggestedName: aiName, renamed };
+  // Label suggestion: an existing label auto-applies only in the background
+  // create flow on an unlabeled company; everything else surfaces as a
+  // suggestion the user applies explicitly
+  const suggestion = result.label ?? null;
+  const existingLabel = suggestion
+    ? (labelRows.find(
+        (row) => row.name.toLowerCase() === suggestion.name.toLowerCase(),
+      ) ?? null)
+    : null;
+  let labelApplied = false;
+  if (
+    suggestion &&
+    existingLabel &&
+    renamePolicy === "default-name" &&
+    !company.labelId
+  ) {
+    await prisma.company.update({
+      where: { id: company.id },
+      data: { labelId: existingLabel.id },
+    });
+    labelApplied = true;
+    logger.info("Company labeled from research", {
+      companyId,
+      labelId: existingLabel.id,
+    });
+  }
+
+  const suggestedLabel =
+    suggestion && !labelApplied && existingLabel?.id !== company.labelId
+      ? {
+          name: existingLabel?.name ?? suggestion.name.trim(),
+          parentName: existingLabel
+            ? existingLabel.parentId
+              ? (labelNameById.get(existingLabel.parentId) ?? null)
+              : null
+            : suggestion.parentName?.trim() || null,
+          isNew: !existingLabel,
+        }
+      : null;
+
+  return {
+    summary: result.summary,
+    suggestedName: aiName,
+    renamed,
+    suggestedLabel,
+  };
 }
 
 // "700credit" vs "700Credit" vs "700 Credit" — same company, different

@@ -292,6 +292,11 @@ function CompanyAbout({
 }) {
   const { emailAccountId } = useAccount();
   const [suggestedName, setSuggestedName] = useState<string | null>(null);
+  const [suggestedLabel, setSuggestedLabel] = useState<{
+    name: string;
+    parentName: string | null;
+    isNew: boolean;
+  } | null>(null);
 
   const research = useAction(researchCompanyAction.bind(null, emailAccountId), {
     onSuccess: (result) => {
@@ -311,6 +316,7 @@ function CompanyAbout({
       ) {
         setSuggestedName(result.data.suggestedName);
       }
+      setSuggestedLabel(result.data.suggestedLabel ?? null);
     },
     onError: (error) => {
       toastError({ description: getActionErrorMessage(error.error) });
@@ -321,6 +327,17 @@ function CompanyAbout({
     onSuccess: () => {
       toastSuccess({ description: "Company renamed" });
       setSuggestedName(null);
+      mutate();
+    },
+    onError: (error) => {
+      toastError({ description: getActionErrorMessage(error.error) });
+    },
+  });
+
+  const applyLabel = useAction(updateCompanyAction.bind(null, emailAccountId), {
+    onSuccess: () => {
+      toastSuccess({ description: "Label applied" });
+      setSuggestedLabel(null);
       mutate();
     },
     onError: (error) => {
@@ -360,6 +377,34 @@ function CompanyAbout({
             loading={rename.isExecuting}
             onClick={() =>
               rename.execute({ id: company.id, name: suggestedName })
+            }
+          >
+            <CheckIcon className="mr-1 size-3" />
+            Apply
+          </Button>
+        </div>
+      )}
+      {suggestedLabel && (
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-md border border-border p-2 text-sm">
+          <span className="min-w-0 truncate text-muted-foreground">
+            Suggested label:{" "}
+            <span className="text-foreground">
+              {suggestedLabel.parentName
+                ? `${suggestedLabel.parentName} › ${suggestedLabel.name}`
+                : suggestedLabel.name}
+            </span>
+            {suggestedLabel.isNew && " (new)"}
+          </span>
+          <Button
+            variant="outline"
+            size="xs"
+            loading={applyLabel.isExecuting}
+            onClick={() =>
+              applyLabel.execute({
+                id: company.id,
+                labelName: suggestedLabel.name,
+                labelParentName: suggestedLabel.parentName ?? "",
+              })
             }
           >
             <CheckIcon className="mr-1 size-3" />

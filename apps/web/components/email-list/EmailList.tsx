@@ -5,7 +5,12 @@ import { useQueryState } from "nuqs";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ChevronsDownIcon } from "lucide-react";
+import {
+  ChevronsDownIcon,
+  FilterIcon,
+  MessageCircleIcon,
+  SparklesIcon,
+} from "lucide-react";
 import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
@@ -17,6 +22,11 @@ import { MessageText } from "@/components/Typography";
 import { AlertBasic } from "@/components/Alert";
 import { EmailListItem } from "@/components/email-list/EmailListItem";
 import { FolderHeader } from "@/components/email-list/FolderSettings";
+import { RowContextMenu } from "@/components/email-list/RowContextMenu";
+import { FilterLikeThisDialog } from "@/components/email-list/FilterLikeThisDialog";
+import { AiRuleFromEmailDialog } from "@/components/email-list/AiRuleFromEmailDialog";
+import { useChat } from "@/providers/ChatProvider";
+import { useSidebar } from "@/components/ui/sidebar";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -208,6 +218,39 @@ export function EmailList({
   const closePanel = useCallback(
     () => setOpenThreadId(null),
     [setOpenThreadId],
+  );
+
+  // Right-click on a row: filter builder, AI rule, or chat about the email
+  const [rowMenu, setRowMenu] = useState<{
+    x: number;
+    y: number;
+    thread: Thread;
+  } | null>(null);
+  const [filterThread, setFilterThread] = useState<Thread | null>(null);
+  const [aiRuleThread, setAiRuleThread] = useState<Thread | null>(null);
+  const onRowContextMenu = useCallback(
+    (event: React.MouseEvent, thread: Thread) => {
+      setRowMenu({ x: event.clientX, y: event.clientY, thread });
+    },
+    [],
+  );
+
+  const { setInput } = useChat();
+  const { setOpen: setOpenSidebars } = useSidebar();
+  const chatAboutThread = useCallback(
+    (thread: Thread) => {
+      const message = thread.messages?.at(-1);
+      if (!message) return;
+      setInput(
+        `About the email from ${message.headers.from} with the subject "${message.headers.subject}": `,
+      );
+      setOpenSidebars((sidebars) =>
+        sidebars.includes("chat-sidebar")
+          ? sidebars
+          : [...sidebars, "chat-sidebar"],
+      );
+    },
+    [setInput, setOpenSidebars],
   );
 
   const openedRow = useMemo(
@@ -572,6 +615,7 @@ export function EmailList({
                         onPlanAiAction={onPlanAiAction}
                         onArchive={onArchive}
                         onDelete={onDelete}
+                        onRowContextMenu={onRowContextMenu}
                         refetch={refetch}
                       />
                     );
@@ -613,6 +657,46 @@ export function EmailList({
             }
           />
         </div>
+      )}
+
+      {rowMenu && (
+        <RowContextMenu
+          position={rowMenu}
+          onClose={() => setRowMenu(null)}
+          items={[
+            {
+              label: "Filter messages like this…",
+              icon: FilterIcon,
+              onClick: () => setFilterThread(rowMenu.thread),
+            },
+            {
+              label: "Create rule with AI…",
+              icon: SparklesIcon,
+              onClick: () => setAiRuleThread(rowMenu.thread),
+            },
+            {
+              label: "Chat with AI about this",
+              icon: MessageCircleIcon,
+              onClick: () => chatAboutThread(rowMenu.thread),
+            },
+          ]}
+        />
+      )}
+      {filterThread && (
+        <FilterLikeThisDialog
+          key={filterThread.id}
+          thread={filterThread}
+          onClose={() => setFilterThread(null)}
+          refetch={() => refetch()}
+        />
+      )}
+      {aiRuleThread && (
+        <AiRuleFromEmailDialog
+          key={aiRuleThread.id}
+          thread={aiRuleThread}
+          onClose={() => setAiRuleThread(null)}
+          refetch={() => refetch()}
+        />
       )}
     </>
   );
