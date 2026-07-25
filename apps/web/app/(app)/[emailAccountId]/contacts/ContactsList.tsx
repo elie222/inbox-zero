@@ -146,9 +146,12 @@ export function ContactsList() {
     setSelectedContact(null);
     setSelectedGroupKey(key);
   };
-  const selectedGroup = selectedGroupKey
-    ? (groups.find((group) => group.key === selectedGroupKey) ?? null)
-    : null;
+  // A company selection only makes sense on the companies view; switching
+  // to People/Suggested shouldn't leave company details hanging in the pane
+  const selectedGroup =
+    selectedGroupKey && view === "companies"
+      ? (groups.find((group) => group.key === selectedGroupKey) ?? null)
+      : null;
 
   const isWide = useIsWideScreen();
 
@@ -333,6 +336,9 @@ export function ContactsList() {
               contact={displayed}
               companies={companies}
               mutateContacts={mutate}
+              // Clear the selection so the pane doesn't keep showing a
+              // just-deleted contact from the captured fallback
+              onDeleted={() => setSelectedContact(null)}
             />
           ) : (
             <p className="py-12 text-center text-sm text-muted-foreground">

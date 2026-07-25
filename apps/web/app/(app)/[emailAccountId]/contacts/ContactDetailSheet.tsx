@@ -101,6 +101,9 @@ export function ContactDetails({
 }) {
   const { emailAccountId } = useAccount();
   const company = resolveContactCompany(contact, companies);
+  // Domain-owned membership is authoritative, so when it applies both the
+  // displayed value and the lock must name the same company
+  const lockedCompany = companyOwningDomain(contact.domain, companies);
 
   // Remount the edit form only when the saved row disappears (deleted here
   // or by a synced client) so cleared fields don't linger. Keying on isSaved
@@ -205,13 +208,11 @@ export function ContactDetails({
       <ContactEditForm
         key={formEpoch}
         contact={contact}
-        companyName={company?.name ?? ""}
-        // Domain-owned membership is authoritative: the per-contact company
-        // field locks so one person's edit can't diverge from (or hijack)
-        // the domain's company
-        lockedCompanyName={
-          companyOwningDomain(contact.domain, companies)?.name ?? null
-        }
+        // Locked contacts show the owning company; the field then locks so
+        // one person's edit can't diverge from (or hijack) the domain's
+        // company
+        companyName={(lockedCompany ?? company)?.name ?? ""}
+        lockedCompanyName={lockedCompany?.name ?? null}
         mutateContacts={mutateContacts}
       />
 

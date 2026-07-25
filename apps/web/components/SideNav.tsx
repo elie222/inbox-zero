@@ -272,7 +272,11 @@ function ContactsNav({ path }: { path: string }) {
         href: contactsPath,
         icon: UsersRoundIcon,
         count: data?.contacts.length,
-        active: path.includes("/contacts") && !currentGroup && !currentLabel,
+        active:
+          path.includes("/contacts") &&
+          !currentGroup &&
+          !currentLabel &&
+          searchParams.get("view") !== "suggested",
       },
     ];
 
