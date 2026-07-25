@@ -46,6 +46,8 @@ export const EmailListItem = forwardRef(
       onPlanAiAction: (thread: Thread) => void;
       onArchive: (thread: Thread) => void;
       onDelete: (thread: Thread) => void;
+      // Right-click: the row's context menu (filter/rule/chat)
+      onRowContextMenu?: (event: React.MouseEvent, thread: Thread) => void;
       refetch: () => void;
       // virtualization: index for dynamic row measurement + positioning styles
       dataIndex?: number;
@@ -100,6 +102,11 @@ export const EmailListItem = forwardRef(
             },
           )}
           onClick={props.onClick}
+          onContextMenu={(e) => {
+            if (!props.onRowContextMenu) return;
+            e.preventDefault();
+            props.onRowContextMenu(e, thread);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
