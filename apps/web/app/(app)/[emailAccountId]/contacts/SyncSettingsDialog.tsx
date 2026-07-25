@@ -8,7 +8,9 @@ import {
   setGoogleContactsSyncAction,
   syncGoogleContactsAction,
 } from "@/utils/actions/contact";
+import type { GoogleContactsSyncMode } from "@/generated/prisma/enums";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { cn } from "@/utils";
 import { getActionErrorMessage } from "@/utils/error";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
@@ -23,10 +25,34 @@ import {
 
 export type SyncState = {
   provider: string | null;
-  googleEnabled: boolean;
+  googleMode: GoogleContactsSyncMode;
   googleSyncedAt: Date | string | null;
   carddavEnabled: boolean;
 };
+
+const GOOGLE_MODES: {
+  mode: GoogleContactsSyncMode;
+  label: string;
+  description: string;
+}[] = [
+  {
+    mode: "OFF",
+    label: "Off",
+    description: "No syncing with Google Contacts.",
+  },
+  {
+    mode: "PULL",
+    label: "Pull only (one-way)",
+    description:
+      "Imports and updates contacts from Google. Nothing is pushed back, so you can review and enrich freely.",
+  },
+  {
+    mode: "TWO_WAY",
+    label: "Two-way sync",
+    description:
+      "Pulls from Google and pushes your edits and deletes back. Turning this on pushes everything saved here to Google once.",
+  },
+];
 
 export function SyncSettingsDialog({
   open,
@@ -41,14 +67,17 @@ export function SyncSettingsDialog({
 }) {
   const { emailAccountId, userEmail } = useAccount();
 
-  const toggle = useAction(
+  const setMode = useAction(
     setGoogleContactsSyncAction.bind(null, emailAccountId),
     {
       onSuccess: (result) => {
         toastSuccess({
-          description: result.data?.enabled
-            ? "Google Contacts sync is on"
-            : "Google Contacts sync is off",
+          description:
+            result.data?.mode === "OFF"
+              ? "Google Contacts sync is off"
+              : result.data?.mode === "PULL"
+                ? "Pulling contacts from Google (one-way)"
+                : "Two-way sync is on — pushing saved contacts to Google",
         });
         mutateContacts();
       },
@@ -101,31 +130,40 @@ export function SyncSettingsDialog({
 
         {isGoogle ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <Label htmlFor="google-sync">Google Contacts</Label>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Two-way sync: pulls your Google contacts in, and pushes name,
-                  title, company, and phone edits back.
-                </p>
+            <div>
+              <Label>Google Contacts</Label>
+              <div className="mt-2 space-y-2">
+                {GOOGLE_MODES.map(({ mode, label, description }) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    disabled={setMode.isExecuting}
+                    className={cn(
+                      "w-full rounded-lg border p-3 text-left",
+                      sync.googleMode === mode
+                        ? "border-primary ring-1 ring-primary"
+                        : "border-border hover:border-muted-foreground/40",
+                    )}
+                    onClick={() => setMode.execute({ mode })}
+                  >
+                    <div className="text-sm font-medium">{label}</div>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      {description}
+                    </p>
+                  </button>
+                ))}
               </div>
-              <Switch
-                id="google-sync"
-                checked={sync.googleEnabled}
-                disabled={toggle.isExecuting}
-                onCheckedChange={(enabled) => toggle.execute({ enabled })}
-              />
             </div>
 
-            {sync.googleEnabled && (
+            {sync.googleMode !== "OFF" && (
               <div className="flex items-center justify-between gap-4">
                 <p className="text-sm text-muted-foreground">
                   {sync.googleSyncedAt
-                    ? `Last synced ${formatDistanceToNow(
+                    ? `Last pulled ${formatDistanceToNow(
                         new Date(sync.googleSyncedAt),
                         { addSuffix: true },
-                      )}. Also syncs hourly.`
-                    : "Not synced yet."}
+                      )}. Also pulls hourly.`
+                    : "Not pulled yet."}
                 </p>
                 <Button
                   variant="outline"
@@ -133,7 +171,7 @@ export function SyncSettingsDialog({
                   loading={syncNow.isExecuting}
                   onClick={() => syncNow.execute({})}
                 >
-                  Sync now
+                  Pull now
                 </Button>
               </div>
             )}

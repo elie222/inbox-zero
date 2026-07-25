@@ -107,6 +107,14 @@ model User {
   scimProviders    ScimProvider[]
 }
 
+enum GoogleContactsSyncMode {
+  OFF
+  // One-way import: Google -> Zerrow only, nothing is pushed back
+  PULL
+  // Pull plus pushing local edits/deletes back to Google
+  TWO_WAY
+}
+
 enum ApiKeyScope {
   STATS_READ
   RULES_READ
@@ -167,9 +175,11 @@ model EmailAccount {
   followUpNeedsReplyDays    Float?
   followUpAutoDraftEnabled  Boolean @default(true)
 
-  googleContactsSyncEnabled Boolean   @default(false)
-  googleContactsSyncToken   String?
-  googleContactsSyncedAt    DateTime?
+  // OFF = no sync; PULL = one-way import from Google; TWO_WAY = pull plus
+  // pushing local edits/deletes back to Google
+  googleContactsSyncMode  GoogleContactsSyncMode @default(OFF)
+  googleContactsSyncToken String?
+  googleContactsSyncedAt  DateTime?
   // App password (hashed) for CardDAV clients like iOS Contacts
   carddavPasswordHash       String?
   // Email domains dismissed from the contacts "Suggested companies" list

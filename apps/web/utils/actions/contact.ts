@@ -26,6 +26,8 @@ import {
   pushContactToGoogle,
 } from "@/utils/contacts-sync/google";
 import type { Logger } from "@/utils/logger";
+import { GoogleContactsSyncMode } from "@/generated/prisma/enums";
+import { runWithBoundedConcurrency } from "@/utils/async";
 import { isPublicEmailDomain } from "@/utils/email";
 import { emailDomain } from "@/utils/contacts";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -112,13 +114,16 @@ export const deleteContactAction = actionClient
       });
 
       // Two-way sync: without this the hourly pull resurrects the contact,
-      // and a later re-save would create a duplicate Google person
+      // and a later re-save would create a duplicate Google person. In PULL
+      // mode nothing is deleted from Google (one-way by design).
       if (contact?.googleResourceName) {
         const account = await prisma.emailAccount.findUnique({
           where: { id: emailAccountId },
-          select: { googleContactsSyncEnabled: true },
+          select: { googleContactsSyncMode: true },
         });
-        if (account?.googleContactsSyncEnabled) {
+        if (
+          account?.googleContactsSyncMode === GoogleContactsSyncMode.TWO_WAY
+        ) {
           const resourceName = contact.googleResourceName;
           after(async () => {
             try {
@@ -141,23 +146,40 @@ export const deleteContactAction = actionClient
     },
   );
 
-// Turns Google Contacts two-way sync on/off; enabling kicks off a pull
+// Sets the Google Contacts sync mode. PULL is a one-way import (Google →
+// here, nothing pushed back) so contacts can be brought in and enriched
+// safely; TWO_WAY adds pushing local edits/deletes back to Google.
 export const setGoogleContactsSyncAction = actionClient
   .metadata({ name: "setGoogleContactsSync" })
   .inputSchema(setGoogleContactsSyncBody)
   .action(
-    async ({ ctx: { emailAccountId, logger }, parsedInput: { enabled } }) => {
-      await prisma.emailAccount.update({
+    async ({ ctx: { emailAccountId, logger }, parsedInput: { mode } }) => {
+      const previous = await prisma.emailAccount.findUnique({
         where: { id: emailAccountId },
-        data: { googleContactsSyncEnabled: enabled },
+        select: { googleContactsSyncMode: true },
       });
 
-      if (enabled) {
-        const result = await pullGoogleContacts({ emailAccountId, logger });
-        return { enabled, ...result };
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { googleContactsSyncMode: mode },
+      });
+
+      // Entering two-way pushes everything saved locally to Google once, so
+      // details enriched while push was off (or before sync existed) land
+      // there too — after that, pushes happen per save
+      if (
+        mode === GoogleContactsSyncMode.TWO_WAY &&
+        previous?.googleContactsSyncMode !== GoogleContactsSyncMode.TWO_WAY
+      ) {
+        after(() => pushAllSavedContactsToGoogle({ emailAccountId, logger }));
       }
 
-      return { enabled };
+      if (mode !== GoogleContactsSyncMode.OFF) {
+        const result = await pullGoogleContacts({ emailAccountId, logger });
+        return { mode, ...result };
+      }
+
+      return { mode };
     },
   );
 
@@ -583,9 +605,12 @@ async function maybePushToGoogle({
 }) {
   const account = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
-    select: { googleContactsSyncEnabled: true },
+    select: { googleContactsSyncMode: true },
   });
-  if (!account?.googleContactsSyncEnabled) return;
+  // PULL is one-way by design — local edits never leave
+  if (account?.googleContactsSyncMode !== GoogleContactsSyncMode.TWO_WAY) {
+    return;
+  }
 
   after(async () => {
     try {
@@ -593,6 +618,50 @@ async function maybePushToGoogle({
     } catch (error) {
       logger.warn("Failed to push contact to Google", { email, error });
     }
+  });
+}
+
+// The one-time backfill when two-way sync turns on: every saved contact is
+// pushed so Google catches up with local edits made while push was off
+async function pushAllSavedContactsToGoogle({
+  emailAccountId,
+  logger,
+}: {
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  const saved = await prisma.contact.findMany({
+    where: { emailAccountId },
+    select: { email: true },
+  });
+
+  let pushed = 0;
+  let failed = 0;
+  await runWithBoundedConcurrency({
+    items: saved,
+    concurrency: 3,
+    run: async (contact) => {
+      try {
+        await pushContactToGoogle({
+          emailAccountId,
+          email: contact.email,
+          logger,
+        });
+        pushed++;
+      } catch (error) {
+        failed++;
+        logger.warn("Failed to push contact to Google", {
+          email: contact.email,
+          error,
+        });
+      }
+    },
+  });
+
+  logger.info("Initial two-way sync push finished", {
+    total: saved.length,
+    pushed,
+    failed,
   });
 }
 

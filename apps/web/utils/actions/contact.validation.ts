@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { GoogleContactsSyncMode } from "@/generated/prisma/enums";
 
 // Absolute URLs, or an app-relative logo-proxy path (what the company
 // logo picker stores), or empty to clear
@@ -43,7 +44,8 @@ export const deleteContactBody = z.object({
 export type DeleteContactBody = z.infer<typeof deleteContactBody>;
 
 export const setGoogleContactsSyncBody = z.object({
-  enabled: z.boolean(),
+  // OFF | PULL (one-way import) | TWO_WAY (import + push local edits back)
+  mode: z.nativeEnum(GoogleContactsSyncMode),
 });
 export type SetGoogleContactsSyncBody = z.infer<
   typeof setGoogleContactsSyncBody

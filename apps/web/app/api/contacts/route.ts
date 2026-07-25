@@ -121,7 +121,7 @@ async function getContacts({
   const syncState = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
-      googleContactsSyncEnabled: true,
+      googleContactsSyncMode: true,
       googleContactsSyncedAt: true,
       carddavPasswordHash: true,
       ignoredContactDomains: true,
@@ -136,7 +136,7 @@ async function getContacts({
     ignoredDomains: syncState?.ignoredContactDomains ?? [],
     sync: {
       provider: syncState?.account.provider ?? null,
-      googleEnabled: syncState?.googleContactsSyncEnabled ?? false,
+      googleMode: syncState?.googleContactsSyncMode ?? "OFF",
       googleSyncedAt: syncState?.googleContactsSyncedAt ?? null,
       carddavEnabled: !!syncState?.carddavPasswordHash,
     },
