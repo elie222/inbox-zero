@@ -7,7 +7,7 @@ import { queryContactActivity } from "@/utils/contacts-activity";
 
 const querySchema = z.object({
   search: z.string().optional(),
-  sort: z.enum(["recent", "frequent"]).default("recent"),
+  sort: z.enum(["recent", "frequent", "name"]).default("recent"),
   limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 
@@ -40,7 +40,7 @@ async function getContacts({
   emailAccountId: string;
   userEmail: string;
   search?: string;
-  sort: "recent" | "frequent";
+  sort: "recent" | "frequent" | "name";
   limit: number;
 }) {
   const searchTerm = search?.trim().toLowerCase();
@@ -106,7 +106,7 @@ async function getContacts({
   });
 
   const companyNameById = new Map(companies.map((c) => [c.id, c.name]));
-  const contacts = mergeContactActivity({ activity, saved }).filter(
+  const merged = mergeContactActivity({ activity, saved }).filter(
     (contact) =>
       !searchTerm ||
       contact.email.includes(searchTerm) ||
@@ -117,6 +117,16 @@ async function getContacts({
           ?.toLowerCase()
           .includes(searchTerm)),
   );
+  // Saved-only contacts are appended after the activity window; a name sort
+  // must hold across both
+  const contacts =
+    sort === "name"
+      ? merged.sort((a, b) =>
+          (a.name || a.email).localeCompare(b.name || b.email, undefined, {
+            sensitivity: "base",
+          }),
+        )
+      : merged;
 
   const syncState = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },

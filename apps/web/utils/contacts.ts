@@ -67,6 +67,49 @@ export type ContactGroup = {
   contacts: ContactListItem[];
 };
 
+// Corporate address books emit "Last, First [M.]" — flip it to
+// "First [M.] Last". Conservative: only a single comma with plausible name
+// parts flips; suffixes (Jr., III, Inc., PhD…) and anything with digits are
+// left alone so org names and honorifics don't get mangled.
+const NAME_SUFFIXES = new Set([
+  "jr",
+  "jr.",
+  "sr",
+  "sr.",
+  "ii",
+  "iii",
+  "iv",
+  "inc",
+  "inc.",
+  "llc",
+  "llc.",
+  "ltd",
+  "ltd.",
+  "co",
+  "co.",
+  "corp",
+  "corp.",
+  "phd",
+  "ph.d.",
+  "md",
+  "m.d.",
+  "esq",
+  "esq.",
+  "dds",
+  "d.d.s.",
+  "cpa",
+]);
+
+export function normalizeDisplayName(name: string | null): string | null {
+  if (!name) return name;
+  const match = name.trim().match(/^([^,]+),\s*([^,]+)$/);
+  if (!match) return name;
+  const [, last, first] = match;
+  if (/\d/.test(name)) return name;
+  if (NAME_SUFFIXES.has(first.trim().toLowerCase())) return name;
+  return `${first.trim()} ${last.trim()}`;
+}
+
 export function mergeContactActivity({
   activity,
   saved,
@@ -89,7 +132,7 @@ export function mergeContactActivity({
     return {
       email,
       domain: emailDomain(email),
-      name: savedContact?.name || entry?.name || null,
+      name: normalizeDisplayName(savedContact?.name || entry?.name || null),
       title: savedContact?.title ?? null,
       phone: savedContact?.phone ?? null,
       notes: savedContact?.notes ?? null,

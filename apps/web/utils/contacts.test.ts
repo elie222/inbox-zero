@@ -4,6 +4,7 @@ import {
   groupContacts,
   isLikelyAutomatedSender,
   mergeContactActivity,
+  normalizeDisplayName,
   pendingDomainStats,
   resolveContactCompany,
   type CompanySummary,
@@ -64,6 +65,28 @@ const item = (overrides: Partial<ContactListItem> = {}): ContactListItem => ({
   stale: false,
   isSaved: false,
   ...overrides,
+});
+
+describe("normalizeDisplayName", () => {
+  it('flips "Last, First" to "First Last"', () => {
+    expect(normalizeDisplayName("Doe, Jane")).toBe("Jane Doe");
+  });
+
+  it("keeps a middle initial in place", () => {
+    expect(normalizeDisplayName("Doe, John Q.")).toBe("John Q. Doe");
+  });
+
+  it("leaves suffixes, org names, and plain names alone", () => {
+    expect(normalizeDisplayName("Acme, Inc.")).toBe("Acme, Inc.");
+    expect(normalizeDisplayName("Smith, Jr.")).toBe("Smith, Jr.");
+    expect(normalizeDisplayName("Jane Doe")).toBe("Jane Doe");
+    expect(normalizeDisplayName("Support, Tier 2")).toBe("Support, Tier 2");
+    expect(normalizeDisplayName(null)).toBe(null);
+  });
+
+  it("leaves multi-comma strings alone", () => {
+    expect(normalizeDisplayName("Doe, Jane, CPA")).toBe("Doe, Jane, CPA");
+  });
 });
 
 describe("mergeContactActivity", () => {

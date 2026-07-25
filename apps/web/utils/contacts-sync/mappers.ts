@@ -1,4 +1,5 @@
 import type { people_v1 } from "@googleapis/people";
+import { normalizeDisplayName } from "@/utils/contacts";
 
 // Person fields we read from and write to Google Contacts. Notes and photos
 // are read-only on our side: notes stay private to Zerrow, photos can't be
@@ -35,7 +36,10 @@ export function mapPersonToContact(
     resourceName: person.resourceName,
     etag: person.etag ?? null,
     email: primaryEmail?.toLowerCase() ?? "",
-    name: pickPrimary(person.names)?.displayName?.trim() || null,
+    // "Last, First" address-book styling flips to "First Last" on import
+    name: normalizeDisplayName(
+      pickPrimary(person.names)?.displayName?.trim() || null,
+    ),
     phone: pickPrimary(person.phoneNumbers)?.value?.trim() || null,
     title: organization?.title?.trim() || null,
     companyName: organization?.name?.trim() || null,

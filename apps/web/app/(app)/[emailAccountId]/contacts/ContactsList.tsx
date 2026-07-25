@@ -59,10 +59,19 @@ export function ContactsList() {
   const viewParam = searchParams.get("view");
   const view = searchParams.get("group")
     ? "people"
-    : viewParam === "people" || viewParam === "suggested"
+    : viewParam === "people" ||
+        viewParam === "suggested" ||
+        viewParam === "labels"
       ? viewParam
       : "companies";
-  const sort = searchParams.get("sort") === "frequent" ? "frequent" : "recent";
+  // People (no grouping) reads A→Z by default; the other views keep recency
+  const sortParam = searchParams.get("sort");
+  const sort =
+    sortParam === "frequent" || sortParam === "name" || sortParam === "recent"
+      ? sortParam
+      : viewParam === "people"
+        ? "name"
+        : "recent";
   const groupKey = searchParams.get("group");
   // A label selection carries across the Companies/People tabs but means
   // nothing on Suggested — dropping it there keeps the header and detail
@@ -149,7 +158,7 @@ export function ContactsList() {
   // A company selection only makes sense on the companies view; switching
   // to People/Suggested shouldn't leave company details hanging in the pane
   const selectedGroup =
-    selectedGroupKey && view === "companies"
+    selectedGroupKey && (view === "companies" || view === "labels")
       ? (groups.find((group) => group.key === selectedGroupKey) ?? null)
       : null;
 
@@ -173,7 +182,7 @@ export function ContactsList() {
       ? (data?.contacts.find((contact) =>
           suggestedDomains.has(contact.domain),
         ) ?? null)
-      : view === "companies" && !labelFilter
+      : (view === "companies" || view === "labels") && !labelFilter
         ? ((
             groups.find(
               (group) => group.company && group.contacts.length > 0,
@@ -241,6 +250,7 @@ export function ContactsList() {
             <Tabs defaultValue="companies" searchParam="view">
               <TabsList>
                 <TabsTrigger value="companies">Companies</TabsTrigger>
+                <TabsTrigger value="labels">Labels</TabsTrigger>
                 <TabsTrigger value="people">People</TabsTrigger>
                 <TabsTrigger value="suggested">
                   Suggested{suggestedCount > 0 && ` (${suggestedCount})`}
@@ -248,8 +258,9 @@ export function ContactsList() {
               </TabsList>
             </Tabs>
             {view === "people" && (
-              <Tabs defaultValue="recent" searchParam="sort">
+              <Tabs defaultValue="name" searchParam="sort">
                 <TabsList>
+                  <TabsTrigger value="name">Name</TabsTrigger>
                   <TabsTrigger value="recent">Recent</TabsTrigger>
                   <TabsTrigger value="frequent">Most emails</TabsTrigger>
                 </TabsList>
@@ -265,11 +276,12 @@ export function ContactsList() {
           <LoadingContent loading={isLoading && !data} error={error}>
             {data &&
               (data.contacts.length || companies.length ? (
-                view === "companies" ? (
+                view === "companies" || view === "labels" ? (
                   <CompaniesView
                     contacts={data.contacts}
                     companies={companies}
                     domainStats={domainStats}
+                    groupBy={view === "labels" ? "label" : "company"}
                     labelFilter={labelFilter}
                     activeEmail={activeEmail}
                     activeGroupKey={isWide ? selectedGroupKey : null}
@@ -320,7 +332,7 @@ export function ContactsList() {
             rest). The container is CSS-gated so the list doesn't reflow
             when the isWide hook resolves after hydration; the content is
             JS-gated so narrow screens never mount it (or its fetches). */}
-        <aside className="hidden w-[400px] shrink-0 overflow-y-auto border-l border-border p-5 xl:block">
+        <aside className="hidden w-[480px] shrink-0 overflow-y-auto border-l border-border p-5 xl:block">
           {isWide && selectedGroup ? (
             <CompanyDetails
               key={selectedGroup.key}

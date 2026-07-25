@@ -16,7 +16,7 @@ export async function queryContactActivity({
   emailAccountId: string;
   userEmail: string;
   searchTerm?: string;
-  sort?: "recent" | "frequent";
+  sort?: "recent" | "frequent" | "name";
   limit?: number;
   emails?: string[];
 }): Promise<ContactActivity[]> {
@@ -28,7 +28,9 @@ export async function queryContactActivity({
   const orderByClause =
     sort === "frequent"
       ? Prisma.sql`("receivedCount" + "sentCount") DESC`
-      : Prisma.sql`"lastInteractionAt" DESC`;
+      : sort === "name"
+        ? Prisma.sql`LOWER(COALESCE(NULLIF(name, ''), email)) ASC`
+        : Prisma.sql`"lastInteractionAt" DESC`;
   const limitClause = limit ? Prisma.sql`LIMIT ${limit}` : Prisma.empty;
 
   return prisma.$queryRaw<ContactActivity[]>`

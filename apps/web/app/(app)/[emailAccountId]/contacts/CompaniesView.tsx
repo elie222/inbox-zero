@@ -24,6 +24,7 @@ export function CompaniesView({
   contacts,
   companies,
   domainStats,
+  groupBy,
   labelFilter,
   activeEmail,
   activeGroupKey,
@@ -35,6 +36,8 @@ export function CompaniesView({
   // Full-history per-domain people counts — the row header must not show
   // the loaded window's count (often 0) under a company that has people
   domainStats: DomainStat[];
+  // "company": one flat A→Z list; "label": sectioned by label path
+  groupBy: "company" | "label";
   // Restrict to companies under this label id (from the sidebar's GROUPS)
   labelFilter?: string | null;
   activeEmail: string | null;
@@ -57,9 +60,19 @@ export function CompaniesView({
     );
   }, [contacts, companies, labelFilter]);
 
-  // Labeled companies section by label path ("Factory" then "Factory > …"),
-  // then unlabeled companies, then Personal
+  // Label grouping sections by label path ("Factory" then "Factory > …"),
+  // then unlabeled companies, then Personal; company grouping is one flat
+  // A→Z list (plus Personal)
   const sections = useMemo(() => {
+    if (groupBy === "company") {
+      const personal = groups.filter((group) => group.key === "personal");
+      const rest = groups.filter((group) => group.key !== "personal");
+      return [
+        ...(rest.length ? [{ title: "Companies", groups: rest }] : []),
+        ...personal.map((group) => ({ title: group.name, groups: [group] })),
+      ];
+    }
+
     const byLabel = new Map<string, ContactGroup[]>();
     const unlabeled: ContactGroup[] = [];
     const special: ContactGroup[] = [];
@@ -85,7 +98,7 @@ export function CompaniesView({
       ...(unlabeled.length ? [{ title: "Companies", groups: unlabeled }] : []),
       ...special.map((group) => ({ title: group.name, groups: [group] })),
     ];
-  }, [groups]);
+  }, [groups, groupBy]);
 
   if (!sections.length) {
     return (

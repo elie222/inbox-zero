@@ -470,9 +470,12 @@ function ContactEditForm({
           {...register("notes")}
         />
       </div>
-      <Button type="submit" size="sm" loading={update.isExecuting}>
-        Save
-      </Button>
+      {/* Anchored so Save stays reachable while the pane scrolls */}
+      <div className="sticky bottom-0 border-t border-border bg-background py-3">
+        <Button type="submit" size="sm" loading={update.isExecuting}>
+          Save
+        </Button>
+      </div>
     </form>
   );
 }
