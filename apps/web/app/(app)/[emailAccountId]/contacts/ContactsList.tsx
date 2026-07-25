@@ -315,6 +315,7 @@ export function ContactsList() {
                   <DomainSuggestions
                     stats={pendingSuggestions}
                     ignoredDomains={data.ignoredDomains}
+                    ignoredEmails={data.ignoredEmails}
                     companies={companies}
                     activeEmail={activeEmail}
                     onSelectContact={setSelected}

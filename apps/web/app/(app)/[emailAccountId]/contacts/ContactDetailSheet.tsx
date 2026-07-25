@@ -5,7 +5,13 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
 import { formatDistanceToNow } from "date-fns";
-import { CheckIcon, MailIcon, SparklesIcon, Trash2Icon } from "lucide-react";
+import {
+  CheckIcon,
+  EyeOffIcon,
+  MailIcon,
+  SparklesIcon,
+  Trash2Icon,
+} from "lucide-react";
 import {
   type CompanySummary,
   companyOwningDomain,
@@ -17,6 +23,7 @@ import {
 import {
   deleteContactAction,
   enrichContactAction,
+  setContactIgnoredAction,
   updateContactAction,
 } from "@/utils/actions/contact";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -131,6 +138,23 @@ export function ContactDetails({
     },
   );
 
+  const ignoreContact = useAction(
+    setContactIgnoredAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({
+          description:
+            "Ignored — it won't appear in contacts again. Restore it anytime from the Suggested tab.",
+        });
+        mutateContacts();
+        onDeleted?.();
+      },
+      onError: (error) => {
+        toastError({ description: getActionErrorMessage(error.error) });
+      },
+    },
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -187,6 +211,17 @@ export function ContactDetails({
             <MailIcon className="mr-1.5 size-3.5" />
             Search in Mail
           </Link>
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          loading={ignoreContact.isExecuting}
+          onClick={() =>
+            ignoreContact.execute({ email: contact.email, ignored: true })
+          }
+        >
+          <EyeOffIcon className="mr-1.5 size-3.5" />
+          Ignore
         </Button>
         {contact.isSaved && (
           <Button

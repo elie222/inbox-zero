@@ -108,6 +108,19 @@ async function getContacts({
     orderBy: { name: "asc" },
   });
 
+  const syncState = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      googleContactsSyncMode: true,
+      googleContactsSyncedAt: true,
+      carddavPasswordHash: true,
+      ignoredContactDomains: true,
+      ignoredContactEmails: true,
+      account: { select: { provider: true } },
+    },
+  });
+  const ignoredEmails = new Set(syncState?.ignoredContactEmails ?? []);
+
   const companyNameById = new Map(companies.map((c) => [c.id, c.name]));
   const merged = mergeContactActivity({ activity, saved }).filter(
     (contact) =>
@@ -122,9 +135,12 @@ async function getContacts({
   );
   // Robots (no-reply@, info@, bounce hashes…) aren't contacts — drop
   // activity-derived ones. Saved rows always show: the user (or their
-  // Google address book) chose to keep them.
+  // Google address book) chose to keep them. Individually ignored
+  // addresses are suppressed either way (restorable from Suggested).
   const humans = merged.filter(
-    (contact) => contact.isSaved || !isLikelyAutomatedSender(contact.email),
+    (contact) =>
+      !ignoredEmails.has(contact.email) &&
+      (contact.isSaved || !isLikelyAutomatedSender(contact.email)),
   );
 
   // Saved-only contacts are appended after the activity window; a name sort
@@ -138,22 +154,12 @@ async function getContacts({
         )
       : humans;
 
-  const syncState = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: {
-      googleContactsSyncMode: true,
-      googleContactsSyncedAt: true,
-      carddavPasswordHash: true,
-      ignoredContactDomains: true,
-      account: { select: { provider: true } },
-    },
-  });
-
   return {
     contacts,
     companies,
     hasMore,
     ignoredDomains: syncState?.ignoredContactDomains ?? [],
+    ignoredEmails: syncState?.ignoredContactEmails ?? [],
     sync: {
       provider: syncState?.account.provider ?? null,
       googleMode: syncState?.googleContactsSyncMode ?? "OFF",

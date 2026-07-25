@@ -19,6 +19,7 @@ import {
 } from "@/utils/contacts";
 import {
   createCompanyAction,
+  setContactIgnoredAction,
   setDomainIgnoredAction,
 } from "@/utils/actions/contact";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -52,6 +53,7 @@ import { ContactAvatar } from "./ContactsList";
 export function DomainSuggestions({
   stats,
   ignoredDomains,
+  ignoredEmails,
   companies,
   activeEmail,
   onSelectContact,
@@ -59,6 +61,8 @@ export function DomainSuggestions({
 }: {
   stats: DomainStat[];
   ignoredDomains: string[];
+  // Individually ignored addresses, restorable here
+  ignoredEmails: string[];
   companies: CompanySummary[];
   activeEmail: string | null;
   onSelectContact: (contact: ContactListItem) => void;
@@ -66,6 +70,7 @@ export function DomainSuggestions({
 }) {
   const [adding, setAdding] = useState<string | null>(null);
   const [showIgnored, setShowIgnored] = useState(false);
+  const [showIgnoredPeople, setShowIgnoredPeople] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -120,6 +125,30 @@ export function DomainSuggestions({
         </div>
       )}
 
+      {ignoredEmails.length > 0 && (
+        <div>
+          <button
+            type="button"
+            className="mb-2 flex items-center gap-1 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70"
+            onClick={() => setShowIgnoredPeople(!showIgnoredPeople)}
+          >
+            {showIgnoredPeople ? (
+              <ChevronDownIcon className="size-3.5" />
+            ) : (
+              <ChevronRightIcon className="size-3.5" />
+            )}
+            Ignored people ({ignoredEmails.length})
+          </button>
+          {showIgnoredPeople && (
+            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+              {[...ignoredEmails].sort().map((email) => (
+                <IgnoredPersonRow key={email} email={email} mutate={mutate} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {adding && (
         <AddCompanyDialog
           domain={adding}
@@ -128,6 +157,46 @@ export function DomainSuggestions({
           mutate={mutate}
         />
       )}
+    </div>
+  );
+}
+
+// An individually ignored address with its way back
+function IgnoredPersonRow({
+  email,
+  mutate,
+}: {
+  email: string;
+  mutate: () => void;
+}) {
+  const { emailAccountId } = useAccount();
+
+  const restore = useAction(
+    setContactIgnoredAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: `Restored ${email}` });
+        mutate();
+      },
+      onError: (error) => {
+        toastError({ description: getActionErrorMessage(error.error) });
+      },
+    },
+  );
+
+  return (
+    <div className="flex items-center gap-3 bg-background px-3 py-2">
+      <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+        {email}
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        loading={restore.isExecuting}
+        onClick={() => restore.execute({ email, ignored: false })}
+      >
+        Restore
+      </Button>
     </div>
   );
 }
