@@ -125,6 +125,31 @@ describe("Outlook email formatting", () => {
     expect(html).not.toMatch(/<td><br>/);
   });
 
+  it("keeps escaped markup in text content escaped", () => {
+    const message: Pick<ParsedMessage, "headers" | "textPlain" | "textHtml"> = {
+      headers: {
+        date: "Thu, 6 Feb 2025 23:23:47 +0200",
+        from: "John Doe <john@example.com>",
+        subject: "Test Email",
+        to: "jane@example.com",
+        "message-id": "<123@example.com>",
+      },
+      textPlain: "Original message content",
+      textHtml: "<div>Original message content</div>",
+    };
+
+    const { html } = createOutlookReplyContent({
+      textContent:
+        'Use &lt;script&gt;alert("unsafe")&lt;/script&gt;\nNext line',
+      message,
+    });
+
+    expect(html).toContain(
+      'Use &lt;script&gt;alert("unsafe")&lt;/script&gt;<br>Next line',
+    );
+    expect(html).not.toContain("<script>");
+  });
+
   it("formats reply email correctly for RTL content with Outlook styling", () => {
     const textContent = "שלום, מה שלומך?"; // "Hello, how are you?" in Hebrew
     const message: Pick<ParsedMessage, "headers" | "textPlain" | "textHtml"> = {

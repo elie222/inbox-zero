@@ -76,7 +76,7 @@ function renderMixedContentAsHtml(content: string): string {
     .each((_index, node) => {
       if (node.type !== "text") return;
 
-      $(node).replaceWith(convertNewlinesToBr(node.data));
+      $(node).replaceWith(convertNewlinesToBr(escapeHtml(node.data)));
     });
 
   return $.root().html() ?? "";
