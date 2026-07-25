@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEmailAccount } from "@/__tests__/helpers";
+import { ASSISTANT_CHAT_MAX_TEXT_LENGTH } from "@/utils/actions/assistant-chat.validation";
 import prisma from "@/utils/__mocks__/prisma";
 
 const {
@@ -203,6 +204,20 @@ describe("chat route rule freshness persistence", () => {
       error: "Email account not found",
     });
     expect(mockGetInboxStatsForChatContext).not.toHaveBeenCalled();
+    expect(mockAiProcessAssistantChat).not.toHaveBeenCalled();
+  });
+
+  it("returns a safe validation error for oversized messages", async () => {
+    const response = await POST(
+      createRequest("a".repeat(ASSISTANT_CHAT_MAX_TEXT_LENGTH + 1)),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Messages can be up to 20,000 characters.",
+    });
+    expect(prisma.chat.findUnique).not.toHaveBeenCalled();
+    expect(prisma.chatMessage.create).not.toHaveBeenCalled();
     expect(mockAiProcessAssistantChat).not.toHaveBeenCalled();
   });
 
@@ -437,7 +452,7 @@ describe("chat route rule freshness persistence", () => {
   });
 });
 
-function createRequest() {
+function createRequest(text = "Update my rules") {
   return new NextRequest("http://localhost/api/chat", {
     method: "POST",
     headers: {
@@ -448,7 +463,7 @@ function createRequest() {
       message: {
         id: "user-message-1",
         role: "user",
-        parts: [{ type: "text", text: "Update my rules" }],
+        parts: [{ type: "text", text }],
       },
     }),
   });

@@ -191,7 +191,7 @@ export function Chat({
     <PromptInput
       onSubmit={(e) => {
         e.preventDefault();
-        if (hasContent && status === "ready") {
+        if (hasContent && (status === "ready" || status === "error")) {
           analytics.captureAction("chat_message_submitted", {
             has_text: input.trim().length > 0,
             attachment_count: attachments.length,
@@ -199,7 +199,6 @@ export function Chat({
             message_count: messages.length,
           });
           handleSubmit();
-          setLocalStorageInput("");
         }
       }}
       className="relative divide-y-0 rounded-2xl"
@@ -273,7 +272,9 @@ export function Chat({
                 ? "submitted"
                 : "ready"
           }
-          disabled={status === "ready" ? !hasContent : status === "error"}
+          disabled={
+            status === "ready" || status === "error" ? !hasContent : false
+          }
           className="h-9 w-9 rounded-full bg-blue-500 text-white hover:bg-blue-600"
           onClick={(e) => {
             if (status === "streaming" || status === "submitted") {
