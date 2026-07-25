@@ -314,8 +314,9 @@ export function isLikelyAutomatedSender(email: string): boolean {
 // Served by our SSRF-guarded provider chain (logo.dev → Clearbit →
 // DuckDuckGo → the domain's own icons → Google favicons) so the browser
 // never talks to those services directly. See app/api/public/logo.
-export function domainLogoUrl(domain: string) {
-  return `/api/public/logo?domain=${encodeURIComponent(domain)}`;
+export function domainLogoUrl(domain: string, source?: string) {
+  const base = `/api/public/logo?domain=${encodeURIComponent(domain)}`;
+  return source ? `${base}&source=${encodeURIComponent(source)}` : base;
 }
 
 // The avatar shown for a contact: company logo by default, personal photo

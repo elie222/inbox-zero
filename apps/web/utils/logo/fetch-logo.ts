@@ -25,6 +25,17 @@ export type FetchedLogo = {
   contentType: string;
 };
 
+// A provider family the chain can be restricted to ("site" covers the
+// company's own apple-touch-icon/favicon candidates) — lets the logo picker
+// offer one image per source instead of only the chain's first hit
+export const LOGO_SOURCES = [
+  "logo-dev",
+  "duckduckgo",
+  "site",
+  "google",
+] as const;
+export type LogoSource = (typeof LOGO_SOURCES)[number];
+
 // One provider attempt's outcome, reported through onAttempt so the route
 // can answer "why is there no logo for this domain?" (debug view + logs)
 export type LogoAttempt = {
@@ -65,11 +76,15 @@ export function normalizeLogoDomain(input: string): string | null {
 export async function fetchLogo({
   domain,
   logoDevToken,
+  source,
   fetchImpl = createSafeImageProxyFetch,
   onAttempt,
 }: {
   domain: string;
   logoDevToken?: string;
+  // Restrict the chain to one provider family (the logo picker offers an
+  // image per source); omitted = the full chain, first hit wins
+  source?: LogoSource;
   fetchImpl?: (input: string, init?: RequestInit) => Promise<Response>;
   onAttempt?: (attempt: LogoAttempt) => void;
 }): Promise<FetchedLogo | null> {
@@ -78,7 +93,11 @@ export async function fetchLogo({
   // either — skip them instead of burning 4s on each
   const unresponsiveHosts = new Set<string>();
 
-  for (const { url, minBytes } of providerUrls(domain, logoDevToken)) {
+  const providers = providerUrls(domain, logoDevToken).filter(
+    (provider) => !source || provider.source === source,
+  );
+
+  for (const { url, minBytes } of providers) {
     // Attempts must FINISH inside the budget, or the route itself gets
     // killed by the platform's function timeout and the client sees a 5xx
     if (Date.now() + ATTEMPT_TIMEOUT_MS > deadline) {
@@ -100,7 +119,7 @@ export async function fetchLogo({
   return null;
 }
 
-type ProviderUrl = { url: string; minBytes: number };
+type ProviderUrl = { url: string; minBytes: number; source: LogoSource };
 
 // Clearbit's logo API is gone (502s since the shutdown) — it's no longer in
 // the chain; keeping it just burned budget ahead of the working fallbacks
@@ -112,28 +131,34 @@ function providerUrls(domain: string, logoDevToken?: string): ProviderUrl[] {
           {
             url: `https://img.logo.dev/${encoded}?token=${encodeURIComponent(logoDevToken)}&size=128&format=png`,
             minBytes: MIN_AGGREGATOR_IMAGE_BYTES,
+            source: "logo-dev" as const,
           },
         ]
       : []),
     {
       url: `https://icons.duckduckgo.com/ip3/${encoded}.ico`,
       minBytes: MIN_AGGREGATOR_IMAGE_BYTES,
+      source: "duckduckgo" as const,
     },
     {
       url: `https://${domain}/apple-touch-icon.png`,
       minBytes: MIN_OWN_SITE_IMAGE_BYTES,
+      source: "site" as const,
     },
     {
       url: `https://${domain}/apple-touch-icon-precomposed.png`,
       minBytes: MIN_OWN_SITE_IMAGE_BYTES,
+      source: "site" as const,
     },
     {
       url: `https://${domain}/favicon.ico`,
       minBytes: MIN_OWN_SITE_IMAGE_BYTES,
+      source: "site" as const,
     },
     {
       url: `https://www.google.com/s2/favicons?domain=${encoded}&sz=128`,
       minBytes: MIN_AGGREGATOR_IMAGE_BYTES,
+      source: "google" as const,
     },
   ];
 }

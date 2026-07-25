@@ -194,6 +194,28 @@ describe("fetchLogo", () => {
     expect(attempts[2].bytes).toBe(2048);
   });
 
+  it("restricts the chain to one source when given", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(image(10)); // nothing hits
+
+    await fetchLogo({ domain: "example.com", source: "site", fetchImpl });
+
+    // Only the site's own three icon candidates are tried
+    expect(fetchImpl.mock.calls.map(([url]: [string]) => url)).toEqual([
+      "https://example.com/apple-touch-icon.png",
+      "https://example.com/apple-touch-icon-precomposed.png",
+      "https://example.com/favicon.ico",
+    ]);
+  });
+
+  it("source logo-dev without a configured token tries nothing", async () => {
+    const fetchImpl = vi.fn();
+
+    expect(
+      await fetchLogo({ domain: "example.com", source: "logo-dev", fetchImpl }),
+    ).toBe(null);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it("returns null when every provider fails", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(image(10));
 

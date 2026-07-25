@@ -3,7 +3,9 @@ import { env } from "@/env";
 import { withAuth } from "@/utils/middleware";
 import {
   fetchLogo,
+  LOGO_SOURCES,
   type LogoAttempt,
+  type LogoSource,
   normalizeLogoDomain,
 } from "@/utils/logo/fetch-logo";
 
@@ -26,10 +28,21 @@ export const GET = withAuth("logo", async (request) => {
 
   const debug = request.nextUrl.searchParams.get("debug") === "1";
 
+  // Restrict to one provider family (the logo picker offers per-source
+  // images); an unknown value 400s rather than silently running the chain
+  const rawSource = request.nextUrl.searchParams.get("source");
+  const source = (LOGO_SOURCES as readonly string[]).includes(rawSource ?? "")
+    ? (rawSource as LogoSource)
+    : undefined;
+  if (rawSource && !source) {
+    return NextResponse.json({ error: "Invalid source" }, { status: 400 });
+  }
+
   const attempts: LogoAttempt[] = [];
   const logo = await fetchLogo({
     domain,
     logoDevToken: env.LOGO_DEV_TOKEN,
+    source,
     onAttempt: (attempt) => attempts.push(attempt),
   });
 
@@ -40,6 +53,7 @@ export const GET = withAuth("logo", async (request) => {
     return NextResponse.json(
       {
         domain,
+        ...(source && { source }),
         logoDevConfigured: Boolean(env.LOGO_DEV_TOKEN),
         found: !!logo,
         ...(logo && {
