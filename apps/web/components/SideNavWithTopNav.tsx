@@ -36,7 +36,7 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
     >
       <SidebarInset
         className={cn(
-          "overflow-hidden bg-background pt-9 max-w-full",
+          "overflow-hidden bg-background pt-[calc(2.25rem_+_env(safe-area-inset-top))] max-w-full",
           // Leave room for the mobile bottom app tray
           "pb-14 md:pb-0",
           noTopPadding && "pt-0",
@@ -114,11 +114,11 @@ function MobileAppTray() {
 
 function MobileHeader() {
   return (
-    <header className="pointer-events-none fixed top-0 left-0 right-0 z-50 h-9 md:hidden">
+    <header className="pointer-events-none fixed top-0 left-0 right-0 z-50 h-[calc(2.25rem_+_env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] md:hidden">
       <div className="flex h-full items-center px-4">
         <SidebarTrigger
           name="left-sidebar"
-          className="pointer-events-auto size-6"
+          className="pointer-events-auto size-9"
         />
       </div>
     </header>

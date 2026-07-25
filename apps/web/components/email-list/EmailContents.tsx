@@ -99,7 +99,7 @@ export function HtmlEmail({ html }: { html: string }) {
 
 export function PlainEmail({ text }: { text: string }) {
   return (
-    <pre className="whitespace-pre-wrap text-foreground">
+    <pre className="whitespace-pre-wrap break-words text-foreground [overflow-wrap:anywhere]">
       {decodeHtmlEntities(text)}
     </pre>
   );
