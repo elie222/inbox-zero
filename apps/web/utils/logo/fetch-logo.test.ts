@@ -50,7 +50,7 @@ describe("fetchLogo", () => {
     expect(logo?.contentType).toBe(PNG);
     expect(logo?.body.byteLength).toBe(2000);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(fetchImpl.mock.calls[0][0]).toContain("logo.clearbit.com");
+    expect(fetchImpl.mock.calls[0][0]).toContain("duckduckgo");
   });
 
   it("starts at logo.dev when a token is configured", async () => {
@@ -65,43 +65,81 @@ describe("fetchLogo", () => {
   it("falls through on non-image, too-small, and error responses", async () => {
     const fetchImpl = vi
       .fn()
-      // clearbit: an HTML error page
+      // duckduckgo: an HTML error page
       .mockResolvedValueOnce(
         new Response("<html>not found</html>", {
           status: 200,
           headers: { "content-type": "text/html" },
         }),
       )
-      // duckduckgo: a placeholder pixel below the size floor
+      // apple-touch-icon: a truncated/near-empty response
       .mockResolvedValueOnce(image(50))
-      // apple-touch-icon: network error
+      // apple-touch-icon-precomposed: network error
       .mockRejectedValueOnce(new Error("boom"))
-      // apple-touch-icon-precomposed: a real image
+      // favicon.ico: a real image
       .mockResolvedValueOnce(image(4096));
 
     const logo = await fetchLogo({ domain: "example.com", fetchImpl });
 
     expect(logo?.body.byteLength).toBe(4096);
     expect(fetchImpl).toHaveBeenCalledTimes(4);
-    expect(fetchImpl.mock.calls[3][0]).toBe(
-      "https://example.com/apple-touch-icon-precomposed.png",
-    );
+    expect(fetchImpl.mock.calls[3][0]).toBe("https://example.com/favicon.ico");
+  });
+
+  it("accepts a small favicon from the company's own site", async () => {
+    // Regression: 700credit.com served a real 497-byte favicon that the
+    // one-size-fits-all 600-byte floor rejected. Own-site responses have no
+    // placeholder problem, so only near-empty ones are refused.
+    const fetchImpl = vi
+      .fn()
+      // duckduckgo: 404
+      .mockResolvedValueOnce(new Response("nope", { status: 404 }))
+      // apple-touch-icon + precomposed: 404
+      .mockResolvedValueOnce(new Response("nope", { status: 404 }))
+      .mockResolvedValueOnce(new Response("nope", { status: 404 }))
+      // favicon.ico: real but small
+      .mockResolvedValueOnce(image(497));
+
+    const logo = await fetchLogo({ domain: "example.com", fetchImpl });
+
+    expect(logo?.body.byteLength).toBe(497);
+    expect(fetchImpl.mock.calls[3][0]).toBe("https://example.com/favicon.ico");
+  });
+
+  it("still rejects small placeholder icons from aggregators", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(image(497));
+
+    // Every provider returns 497 bytes: the own-site ones accept it, so the
+    // chain stops at the first own-site candidate — but if aggregators were
+    // the only sources (no own-site hit), 497 bytes would be refused there.
+    const aggregatorsOnly = vi
+      .fn()
+      .mockImplementation((url: string) =>
+        Promise.resolve(url.includes("example.com/") ? image(10) : image(497)),
+      );
+
+    expect(
+      await fetchLogo({ domain: "example.com", fetchImpl: aggregatorsOnly }),
+    ).toBe(null);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("rejects an SVG response (active content) and keeps looking", async () => {
     const fetchImpl = vi
       .fn()
-      // clearbit: a large SVG — over the byte floor but must be refused,
+      // duckduckgo: a large SVG — over the byte floor but must be refused,
       // since svg can carry <script> and this endpoint is served same-origin
       .mockResolvedValueOnce(image(4096, "image/svg+xml"))
-      // duckduckgo: a real raster image
+      // apple-touch-icon: a real raster image
       .mockResolvedValueOnce(image(2000));
 
     const logo = await fetchLogo({ domain: "example.com", fetchImpl });
 
     expect(logo?.contentType).toBe(PNG);
     expect(logo?.body.byteLength).toBe(2000);
-    expect(fetchImpl.mock.calls[1][0]).toContain("duckduckgo");
+    expect(fetchImpl.mock.calls[1][0]).toBe(
+      "https://example.com/apple-touch-icon.png",
+    );
   });
 
   it("rejects an oversized response (Content-Length over the cap)", async () => {
@@ -118,23 +156,25 @@ describe("fetchLogo", () => {
       )
       .mockResolvedValue(image(2000));
 
-    // clearbit is rejected for its declared size; duckduckgo then answers
+    // duckduckgo is rejected for its declared size; the next provider answers
     const logo = await fetchLogo({
       domain: "example.com",
       fetchImpl: oversized,
     });
     expect(logo?.body.byteLength).toBe(2000);
-    expect(oversized.mock.calls[1][0]).toContain("duckduckgo");
+    expect(oversized.mock.calls[1][0]).toBe(
+      "https://example.com/apple-touch-icon.png",
+    );
   });
 
   it("reports each attempt's outcome through onAttempt", async () => {
     const fetchImpl = vi
       .fn()
-      // clearbit: 404
+      // duckduckgo: 404
       .mockResolvedValueOnce(new Response("nope", { status: 404 }))
-      // duckduckgo: placeholder below the size floor
+      // apple-touch-icon: near-empty, below even the own-site floor
       .mockResolvedValueOnce(image(50))
-      // apple-touch-icon: a real image
+      // apple-touch-icon-precomposed: a real image
       .mockResolvedValueOnce(image(2048));
 
     const attempts: LogoAttempt[] = [];
@@ -158,8 +198,8 @@ describe("fetchLogo", () => {
     const fetchImpl = vi.fn().mockResolvedValue(image(10));
 
     expect(await fetchLogo({ domain: "example.com", fetchImpl })).toBe(null);
-    // full chain without logo.dev (no token): 6 providers
-    expect(fetchImpl).toHaveBeenCalledTimes(6);
+    // full chain without logo.dev (no token): 5 providers
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
   });
 
   it("follows redirects, revalidating each hop through the safe fetch", async () => {
@@ -228,7 +268,7 @@ describe("fetchLogo", () => {
       .mockResolvedValue(Response.redirect("https://example.com/next", 302));
 
     expect(await fetchLogo({ domain: "example.com", fetchImpl })).toBe(null);
-    // 6 providers × (1 request + 3 hops) = 24
-    expect(fetchImpl).toHaveBeenCalledTimes(24);
+    // 5 providers × (1 request + 3 hops) = 20
+    expect(fetchImpl).toHaveBeenCalledTimes(20);
   });
 });

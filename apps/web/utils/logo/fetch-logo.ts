@@ -9,9 +9,13 @@ const ATTEMPT_TIMEOUT_MS = 4000;
 // past this point and return not-found instead of timing out the request
 const TOTAL_BUDGET_MS = 12_000;
 const MAX_REDIRECT_HOPS = 3;
-// Anything smaller is a placeholder pixel or an empty "default" icon —
-// fall through to the next provider
-const MIN_IMAGE_BYTES = 600;
+// Aggregators (Google s2) serve placeholder/default icons for unknown
+// domains — anything this small from them is a placeholder, fall through.
+// The company's own site has no placeholder problem: a 200 there is a real
+// icon even when it's a few hundred bytes (e.g. a 16px favicon), so its
+// floor only rejects empty/corrupt responses.
+const MIN_AGGREGATOR_IMAGE_BYTES = 600;
+const MIN_OWN_SITE_IMAGE_BYTES = 100;
 // Real logos/favicons are tiny; a larger response is either not a logo or a
 // resource-exhaustion attempt. Cap what we buffer into memory.
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
@@ -74,7 +78,7 @@ export async function fetchLogo({
   // either — skip them instead of burning 4s on each
   const unresponsiveHosts = new Set<string>();
 
-  for (const url of providerUrls(domain, logoDevToken)) {
+  for (const { url, minBytes } of providerUrls(domain, logoDevToken)) {
     // Attempts must FINISH inside the budget, or the route itself gets
     // killed by the platform's function timeout and the client sees a 5xx
     if (Date.now() + ATTEMPT_TIMEOUT_MS > deadline) {
@@ -88,7 +92,7 @@ export async function fetchLogo({
       continue;
     }
 
-    const attempt = await attemptFetch(url, fetchImpl, onAttempt);
+    const attempt = await attemptFetch(url, minBytes, fetchImpl, onAttempt);
     if (attempt.logo) return attempt.logo;
     if (attempt.timedOut) unresponsiveHosts.add(host);
   }
@@ -96,25 +100,47 @@ export async function fetchLogo({
   return null;
 }
 
-function providerUrls(domain: string, logoDevToken?: string): string[] {
+type ProviderUrl = { url: string; minBytes: number };
+
+// Clearbit's logo API is gone (502s since the shutdown) — it's no longer in
+// the chain; keeping it just burned budget ahead of the working fallbacks
+function providerUrls(domain: string, logoDevToken?: string): ProviderUrl[] {
   const encoded = encodeURIComponent(domain);
   return [
     ...(logoDevToken
       ? [
-          `https://img.logo.dev/${encoded}?token=${encodeURIComponent(logoDevToken)}&size=128&format=png`,
+          {
+            url: `https://img.logo.dev/${encoded}?token=${encodeURIComponent(logoDevToken)}&size=128&format=png`,
+            minBytes: MIN_AGGREGATOR_IMAGE_BYTES,
+          },
         ]
       : []),
-    `https://logo.clearbit.com/${encoded}`,
-    `https://icons.duckduckgo.com/ip3/${encoded}.ico`,
-    `https://${domain}/apple-touch-icon.png`,
-    `https://${domain}/apple-touch-icon-precomposed.png`,
-    `https://${domain}/favicon.ico`,
-    `https://www.google.com/s2/favicons?domain=${encoded}&sz=128`,
+    {
+      url: `https://icons.duckduckgo.com/ip3/${encoded}.ico`,
+      minBytes: MIN_AGGREGATOR_IMAGE_BYTES,
+    },
+    {
+      url: `https://${domain}/apple-touch-icon.png`,
+      minBytes: MIN_OWN_SITE_IMAGE_BYTES,
+    },
+    {
+      url: `https://${domain}/apple-touch-icon-precomposed.png`,
+      minBytes: MIN_OWN_SITE_IMAGE_BYTES,
+    },
+    {
+      url: `https://${domain}/favicon.ico`,
+      minBytes: MIN_OWN_SITE_IMAGE_BYTES,
+    },
+    {
+      url: `https://www.google.com/s2/favicons?domain=${encoded}&sz=128`,
+      minBytes: MIN_AGGREGATOR_IMAGE_BYTES,
+    },
   ];
 }
 
 async function attemptFetch(
   url: string,
+  minBytes: number,
   fetchImpl: (input: string, init?: RequestInit) => Promise<Response>,
   onAttempt?: (attempt: LogoAttempt) => void,
 ): Promise<{ logo: FetchedLogo | null; timedOut: boolean }> {
@@ -140,7 +166,7 @@ async function attemptFetch(
     }
 
     const body = await readCappedBody(response);
-    if (!body || body.byteLength < MIN_IMAGE_BYTES) {
+    if (!body || body.byteLength < minBytes) {
       onAttempt?.({
         url,
         outcome: "too-small-or-capped",

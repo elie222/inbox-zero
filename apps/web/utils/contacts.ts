@@ -29,6 +29,8 @@ export type CompanySummary = {
   name: string;
   domains: string[];
   logoUrl: string | null;
+  // Render the logo on a white chip (dark marks vanish on the dark theme)
+  logoWhiteBackground: boolean;
   label: {
     id: string;
     name: string;

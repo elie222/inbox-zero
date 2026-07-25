@@ -27,6 +27,7 @@ import { Badge } from "@/components/Badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -239,7 +240,10 @@ function CompanyRow({
               onError={(event) => {
                 event.currentTarget.style.visibility = "hidden";
               }}
-              className="size-7 shrink-0 rounded bg-muted object-cover p-0.5"
+              className={cn(
+                "size-7 shrink-0 rounded object-cover p-0.5",
+                group.company?.logoWhiteBackground ? "bg-white" : "bg-muted",
+              )}
             />
           ) : (
             <div className="flex size-7 shrink-0 items-center justify-center rounded bg-muted">
@@ -320,6 +324,9 @@ function CompanyEditDialog({
   mutate: () => void;
 }) {
   const { emailAccountId } = useAccount();
+  const [logoWhiteBackground, setLogoWhiteBackground] = useState(
+    company.logoWhiteBackground,
+  );
 
   const { register, handleSubmit } = useForm<{
     name: string;
@@ -357,6 +364,7 @@ function CompanyEditDialog({
         .map((domain) => domain.trim())
         .filter(Boolean),
       logoUrl: values.logoUrl.trim(),
+      logoWhiteBackground,
       labelName: values.labelName.trim(),
       labelParentName: values.labelParentName.trim(),
     };
@@ -394,6 +402,19 @@ function CompanyEditDialog({
               className="mt-2"
               placeholder="Leave empty to use the domain's logo"
               {...register("logoUrl")}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label htmlFor="company-logo-bg">White logo background</Label>
+              <p className="mt-1 text-sm text-muted-foreground">
+                For dark logos that disappear against the dark theme.
+              </p>
+            </div>
+            <Switch
+              id="company-logo-bg"
+              checked={logoWhiteBackground}
+              onCheckedChange={setLogoWhiteBackground}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
