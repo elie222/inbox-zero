@@ -14,6 +14,7 @@ import {
   type CompanySummary,
   type ContactGroup,
   type ContactListItem,
+  type DomainStat,
   groupContacts,
 } from "@/utils/contacts";
 import { updateCompanyAction } from "@/utils/actions/contact";
@@ -33,10 +34,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ContactAvatar } from "./ContactsList";
+import { useCompanyMembers } from "./useCompanyMembers";
 
 export function CompaniesView({
   contacts,
   companies,
+  domainStats,
   labelFilter,
   activeEmail,
   activeGroupKey,
@@ -46,6 +49,9 @@ export function CompaniesView({
 }: {
   contacts: ContactListItem[];
   companies: CompanySummary[];
+  // Full-history per-domain people counts — the row header must not show
+  // the loaded window's count (often 0) under a company that has people
+  domainStats: DomainStat[];
   // Restrict to companies under this label id (from the sidebar's GROUPS)
   labelFilter?: string | null;
   activeEmail: string | null;
@@ -123,6 +129,7 @@ export function CompaniesView({
                 key={group.key}
                 group={group}
                 companies={companies}
+                domainStats={domainStats}
                 activeEmail={activeEmail}
                 active={group.key === activeGroupKey}
                 onSelectContact={onSelectContact}
@@ -152,6 +159,7 @@ export function CompaniesView({
 function CompanyRow({
   group,
   companies,
+  domainStats,
   activeEmail,
   active,
   onSelectContact,
@@ -160,6 +168,7 @@ function CompanyRow({
 }: {
   group: ContactGroup;
   companies: CompanySummary[];
+  domainStats: DomainStat[];
   activeEmail: string | null;
   active: boolean;
   onSelectContact: (contact: ContactListItem) => void;
@@ -167,6 +176,28 @@ function CompanyRow({
   onEdit?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+
+  // The page's contact list is a recency window, so a company's people may
+  // not be in it at all — fetch them on expand from the full history (the
+  // window's members render instantly as a fallback meanwhile)
+  const fetchedMembers = useCompanyMembers({
+    domains: group.domains,
+    companyId: group.company?.id,
+    enabled: open && !!group.company,
+  });
+  const members = fetchedMembers.data ?? group.contacts;
+  const membersLoading =
+    open && !!group.company && !fetchedMembers.data && !fetchedMembers.error;
+
+  // Header count from the full history, not the loaded window
+  const historyPeople = group.domains.reduce(
+    (total, domain) =>
+      total + (domainStats.find((stat) => stat.domain === domain)?.people ?? 0),
+    0,
+  );
+  const peopleCount =
+    fetchedMembers.data?.length ??
+    Math.max(historyPeople, group.contacts.length);
 
   return (
     <div className="bg-background">
@@ -225,7 +256,7 @@ function CompanyRow({
           <span className="hidden min-w-0 truncate text-sm text-muted-foreground sm:inline">
             {group.domains.join(", ")}
             {group.domains.length > 0 && " · "}
-            {group.contacts.length}
+            {peopleCount}
           </span>
         </button>
         {group.company?.label && (
@@ -241,8 +272,8 @@ function CompanyRow({
 
       {open && (
         <div className="border-t border-border">
-          {group.contacts.length ? (
-            group.contacts.map((contact) => (
+          {members.length ? (
+            members.map((contact) => (
               <button
                 key={contact.email}
                 type="button"
@@ -270,7 +301,7 @@ function CompanyRow({
             ))
           ) : (
             <p className="px-3 py-2 text-sm text-muted-foreground">
-              No contacts yet.
+              {membersLoading ? "Loading…" : "No contacts yet."}
             </p>
           )}
         </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { formatDistanceToNow } from "date-fns";
 import { BuildingIcon, CheckIcon } from "lucide-react";
@@ -18,6 +19,7 @@ import { cn } from "@/utils";
 import { Badge } from "@/components/Badge";
 import { Tooltip } from "@/components/Tooltip";
 import { ContactAvatar } from "./ContactsList";
+import { useCompanyMembers } from "./useCompanyMembers";
 
 // Right-pane details for a company group: how you and this company interact
 // (full-history volumes per domain), the busiest people, and a logo picker
@@ -37,8 +39,15 @@ export function CompanyDetails({
 }) {
   const company = group.company;
 
-  // Full-history volumes across the company's domains; the member list
-  // below is limited to the currently loaded contacts window
+  // The page's contact list is a recency window — fetch this company's
+  // people from the full history so the list below matches the stats
+  const fetchedMembers = useCompanyMembers({
+    domains: group.domains,
+    companyId: company?.id,
+  });
+  const members = fetchedMembers.data ?? group.contacts;
+
+  // Full-history volumes across the company's domains
   const statsByDomain = new Map(domainStats.map((stat) => [stat.domain, stat]));
   const companyStats = group.domains
     .map((domain) => statsByDomain.get(domain))
@@ -47,18 +56,19 @@ export function CompanyDetails({
   const sent = companyStats.reduce((total, s) => total + s.sent, 0);
   const people = Math.max(
     companyStats.reduce((total, s) => total + s.people, 0),
-    group.contacts.length,
+    members.length,
   );
   const lastInteractionAt = [
     ...companyStats.map((s) => s.lastInteractionAt),
-    ...group.contacts.map((c) => c.lastInteractionAt),
+    ...members.map((c) => c.lastInteractionAt),
   ]
     .filter(Boolean)
     .map((date) => new Date(date as Date | string))
     .sort((a, b) => b.getTime() - a.getTime())[0];
-  const staleCount = group.contacts.filter((c) => c.stale).length;
+  const staleCount = members.filter((c) => c.stale).length;
 
-  const topContacts = [...group.contacts]
+  // Already volume-sorted when fetched; re-sort covers the window fallback
+  const topContacts = [...members]
     .sort(
       (a, b) => b.receivedCount + b.sentCount - (a.receivedCount + a.sentCount),
     )
@@ -119,6 +129,13 @@ export function CompanyDetails({
 
       {company && <LogoPicker company={company} mutate={mutateContacts} />}
 
+      {topContacts.length === 0 &&
+        !fetchedMembers.data &&
+        !fetchedMembers.error &&
+        group.domains.length > 0 && (
+          <p className="text-sm text-muted-foreground">Loading people…</p>
+        )}
+
       {topContacts.length > 0 && (
         <div>
           <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
@@ -174,6 +191,11 @@ function LogoPicker({
   mutate: () => void;
 }) {
   const { emailAccountId } = useAccount();
+  // Domains with no findable logo (proxy 404) get an icon placeholder
+  // instead of an invisible <img> leaving a blank tile
+  const [failedDomains, setFailedDomains] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const update = useAction(updateCompanyAction.bind(null, emailAccountId), {
     onSuccess: () => {
@@ -213,17 +235,23 @@ function LogoPicker({
                   update.execute({ id: company.id, logoUrl: candidate })
                 }
               >
-                {/* biome-ignore lint/performance/noImgElement: external favicons, not build assets */}
-                <img
-                  src={candidate}
-                  alt={`${domain} logo`}
-                  width={40}
-                  height={40}
-                  onError={(event) => {
-                    event.currentTarget.style.visibility = "hidden";
-                  }}
-                  className="size-9 object-cover"
-                />
+                {failedDomains.has(domain) ? (
+                  <BuildingIcon className="size-5 text-muted-foreground" />
+                ) : (
+                  // biome-ignore lint/performance/noImgElement: external favicons, not build assets
+                  <img
+                    src={candidate}
+                    alt={`${domain} logo`}
+                    width={40}
+                    height={40}
+                    onError={() => {
+                      setFailedDomains(
+                        (previous) => new Set([...previous, domain]),
+                      );
+                    }}
+                    className="size-9 object-cover"
+                  />
+                )}
                 {selected && (
                   <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
                     <CheckIcon className="size-3" />

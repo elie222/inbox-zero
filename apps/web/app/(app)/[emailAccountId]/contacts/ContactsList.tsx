@@ -269,6 +269,7 @@ export function ContactsList() {
                   <CompaniesView
                     contacts={data.contacts}
                     companies={companies}
+                    domainStats={domainStats}
                     labelFilter={labelFilter}
                     activeEmail={activeEmail}
                     activeGroupKey={isWide ? selectedGroupKey : null}
