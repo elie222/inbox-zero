@@ -211,6 +211,41 @@ describe("groupContacts", () => {
     const groups = groupContacts({ contacts: [], companies: [company()] });
     expect(groups[0].key).toBe("co-1");
   });
+
+  it("orders companies A→Z regardless of member count, specials pinned", () => {
+    const zebra = company({
+      id: "co-z",
+      name: "Zebra",
+      domains: ["zebra.com"],
+    });
+    const apple = company({
+      id: "co-a",
+      name: "apple",
+      domains: ["apple.com"],
+    });
+    const mango = company({
+      id: "co-m",
+      name: "Mango",
+      domains: ["mango.com"],
+    });
+    const groups = groupContacts({
+      contacts: [
+        // Zebra has the most members — must still sort last among companies
+        item({ email: "a@zebra.com", domain: "zebra.com" }),
+        item({ email: "b@zebra.com", domain: "zebra.com" }),
+        item({ email: "c@mango.com", domain: "mango.com" }),
+        item({ email: "mom@gmail.com", domain: "gmail.com", isPersonal: true }),
+      ],
+      companies: [zebra, apple, mango],
+    });
+
+    expect(groups.map((group) => group.key)).toEqual([
+      "personal",
+      "co-a",
+      "co-m",
+      "co-z",
+    ]);
+  });
 });
 
 describe("contactAvatarUrl", () => {
