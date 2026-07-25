@@ -4,6 +4,7 @@ import { captureException } from "@/utils/error";
 import { type RequestWithLogger, withError } from "@/utils/middleware";
 import { pullGoogleContacts } from "@/utils/contacts-sync/google";
 import { runWithBoundedConcurrency } from "@/utils/async";
+import { GoogleContactsSyncMode } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 
 export const maxDuration = 300;
@@ -31,9 +32,10 @@ export const POST = withError("cron/google-contacts-sync", async (request) => {
 });
 
 async function runSync(request: RequestWithLogger) {
+  // Both PULL and TWO_WAY import hourly; pushes happen per save
   const accounts = await prisma.emailAccount.findMany({
     where: {
-      googleContactsSyncEnabled: true,
+      googleContactsSyncMode: { not: GoogleContactsSyncMode.OFF },
       account: { provider: "google" },
     },
     select: { id: true, email: true },
