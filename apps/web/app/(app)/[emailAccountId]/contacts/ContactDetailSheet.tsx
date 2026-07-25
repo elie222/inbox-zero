@@ -21,6 +21,7 @@ import {
   type ContactGroup,
   type ContactListItem,
   type DomainStat,
+  type LabelSummary,
   resolveContactCompany,
 } from "@/utils/contacts";
 import {
@@ -61,6 +62,7 @@ export function ContactDetailSheet({
   contact,
   group,
   companies,
+  labels,
   domainStats,
   onClose,
   onSelectContact,
@@ -69,6 +71,7 @@ export function ContactDetailSheet({
   contact: ContactListItem | null;
   group: ContactGroup | null;
   companies: CompanySummary[];
+  labels: LabelSummary[];
   domainStats: DomainStat[];
   onClose: () => void;
   onSelectContact: (contact: ContactListItem) => void;
@@ -86,6 +89,7 @@ export function ContactDetailSheet({
             key={group.key}
             group={group}
             companies={companies}
+            labels={labels}
             domainStats={domainStats}
             onSelectContact={onSelectContact}
             mutateContacts={mutateContacts}

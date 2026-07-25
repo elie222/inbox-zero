@@ -117,6 +117,15 @@ async function getContacts({
     orderBy: { name: "asc" },
   });
 
+  // Every label, including ones no company uses yet — the pickers and the
+  // label manager need the full set, not just what's derivable from
+  // companies
+  const labels = await prisma.companyLabel.findMany({
+    where: { emailAccountId },
+    select: { id: true, name: true, parentId: true },
+    orderBy: { name: "asc" },
+  });
+
   const syncState = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
@@ -167,6 +176,7 @@ async function getContacts({
   return {
     contacts,
     companies,
+    labels,
     hasMore,
     ignoredDomains: syncState?.ignoredContactDomains ?? [],
     ignoredEmails: syncState?.ignoredContactEmails ?? [],

@@ -306,10 +306,9 @@ function CompanyRow({
           <span className="min-w-0 truncate text-sm font-semibold uppercase tracking-wide">
             {group.name}
           </span>
-          <span className="hidden min-w-0 truncate text-sm text-muted-foreground sm:inline">
-            {group.domains.join(", ")}
-            {group.domains.length > 0 && " · "}
-            {peopleCount}
+          {/* Domains live in the details pane; the row just shows the size */}
+          <span className="hidden shrink-0 text-sm text-muted-foreground sm:inline">
+            {peopleCount} {peopleCount === 1 ? "person" : "people"}
           </span>
         </button>
         {group.company?.label && (
