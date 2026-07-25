@@ -7,14 +7,22 @@ import useSWR from "swr";
 import type { LabelCountsResponse } from "@/app/api/labels/counts/route";
 import type { ContactsResponse } from "@/app/api/contacts/route";
 import type { ContactDomainsResponse } from "@/app/api/contacts/domains/route";
+import type { TasksResponse } from "@/app/api/tasks/route";
 import type { UserLabelsResponse } from "@/app/api/user/labels/route";
 import { groupContacts, pendingDomainStats } from "@/utils/contacts";
+import {
+  isTaskOpen,
+  isTaskOverdue,
+  TASK_STATUS_LABELS,
+  TASK_STATUS_ORDER,
+} from "@/utils/tasks";
 import { getLabelIcon } from "@/utils/label-icons";
 import { getEmailTerminology } from "@/utils/terminology";
 import {
   ArchiveIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  CircleCheckBigIcon,
   FileIcon,
   InboxIcon,
   type LucideIcon,
@@ -130,6 +138,8 @@ function SideNavBody({ path }: { path: string }) {
         <SidebarGroupContent>
           {activeApp === "contacts" ? (
             <ContactsNav path={path} />
+          ) : activeApp === "tasks" ? (
+            <TasksNav path={path} />
           ) : activeApp === "settings" ? null : (
             <MailNav path={path} />
           )}
@@ -396,6 +406,66 @@ function ContactsNav({ path }: { path: string }) {
     <SidebarGroup>
       <SidebarGroupLabel className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground/70">
         Groups
+      </SidebarGroupLabel>
+      <SideNavMenu items={items} activeHref={path} />
+    </SidebarGroup>
+  );
+}
+
+// VIEWS panel for the Tasks app: All / My tasks / Delegated / Overdue, then a
+// count per status. Shares the page's SWR cache.
+function TasksNav({ path }: { path: string }) {
+  const { emailAccountId } = useAccount();
+  const searchParams = useSearchParams();
+  const { data } = useSWR<TasksResponse>("/api/tasks");
+
+  const items: NavItem[] = useMemo(() => {
+    const tasksPath = prefixPath(emailAccountId, "/tasks");
+    const currentView = searchParams.get("view");
+    const currentStatus = searchParams.get("status");
+    const onTasks = path.includes("/tasks");
+    const tasks = data?.tasks ?? [];
+    const open = tasks.filter((task) => isTaskOpen(task.status));
+
+    const views: NavItem[] = [
+      {
+        name: "All tasks",
+        href: tasksPath,
+        icon: CircleCheckBigIcon,
+        count: open.length,
+        active: onTasks && !currentView && !currentStatus,
+      },
+      {
+        name: "Delegated",
+        href: `${tasksPath}?view=delegated`,
+        icon: () => <FolderDot name="Delegated" />,
+        count: open.filter((task) => task.assigneeEmail).length,
+        active: currentView === "delegated",
+      },
+      {
+        name: "Overdue",
+        href: `${tasksPath}?view=overdue`,
+        icon: () => <FolderDot name="Overdue" />,
+        count: open.filter((task) => isTaskOverdue(task)).length,
+        active: currentView === "overdue",
+      },
+    ];
+
+    const byStatus: NavItem[] = TASK_STATUS_ORDER.map((status) => ({
+      name: TASK_STATUS_LABELS[status],
+      href: `${tasksPath}?status=${status}`,
+      icon: () => <FolderDot name={TASK_STATUS_LABELS[status]} />,
+      count: tasks.filter((task) => task.status === status).length,
+      active: currentStatus === status,
+    }));
+
+    return [...views, ...byStatus];
+  }, [emailAccountId, data, path, searchParams]);
+
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground/70">
+        Views
       </SidebarGroupLabel>
       <SideNavMenu items={items} activeHref={path} />
     </SidebarGroup>

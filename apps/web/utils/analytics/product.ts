@@ -108,6 +108,7 @@ export const APP_PAGES = {
   calendars: { label: "Calendars", area: "more" },
   integrations: { label: "Integrations", area: "more" },
   contacts: { label: "Contacts", area: "more" },
+  tasks: { label: "Tasks", area: "more" },
 } as const;
 
 export type AppPage = keyof typeof APP_PAGES;
@@ -131,6 +132,7 @@ const APP_ROUTE_SEGMENTS: Array<{ segment: string; page: AppPage }> = [
   { segment: "calendars", page: "calendars" },
   { segment: "integrations", page: "integrations" },
   { segment: "contacts", page: "contacts" },
+  { segment: "tasks", page: "tasks" },
 ];
 
 const NAV_ITEM_PAGES: Record<string, AppPage> = {
@@ -155,6 +157,7 @@ const NAV_ITEM_PAGES: Record<string, AppPage> = {
   Calendars: "calendars",
   Integrations: "integrations",
   Contacts: "contacts",
+  Tasks: "tasks",
 };
 
 export function getAppPageFromPathname(
