@@ -1,0 +1,302 @@
+import {
+  DIFFICULTY_AXES,
+  DIFFICULTY_LEVELS,
+  type DifficultyAxis,
+  type DifficultyLevel,
+} from "@/__tests__/eval/harness/case-schema";
+import type {
+  EvalResultRecord,
+  EvalRun,
+} from "@/__tests__/eval/harness/run-suite";
+import {
+  bootstrapPassRate,
+  type PassRateInterval,
+} from "@/__tests__/eval/harness/stats";
+
+/**
+ * docs/case-design.md: baseline sendReady must land roughly between 45% and 70%.
+ * An instrument pinned at the top of its range is broken, and the suite that
+ * reported 19/19 was pinned. Above this line the number is not reportable.
+ */
+export const CEILING_THRESHOLD = 0.8;
+export const TARGET_BAND: [number, number] = [0.45, 0.7];
+
+export type CeilingLevel = "ceiling" | "near-ceiling" | "in-band" | "floor";
+
+export type EvalReport = {
+  sendReady: PassRateInterval;
+  casePass: PassRateInterval;
+  ceilingLevel: CeilingLevel;
+  banner: string | null;
+  markdown: string;
+};
+
+export function buildEvalReport({
+  run,
+  iterations = 10_000,
+  alpha = 0.05,
+  seed = 20_260_726,
+}: {
+  run: EvalRun;
+  iterations?: number;
+  alpha?: number;
+  seed?: number;
+}): EvalReport {
+  const records = run.records;
+  const sendReady = bootstrapPassRate({
+    cases: clusterByCase(records, (record) => record.sendReady === true),
+    iterations,
+    alpha,
+    seed,
+  });
+  const casePass = bootstrapPassRate({
+    cases: clusterByCase(records, (record) => record.pass),
+    iterations,
+    alpha,
+    seed,
+  });
+
+  const ceilingLevel = classifyCeiling(sendReady.estimate);
+  const banner = buildBanner(ceilingLevel, sendReady);
+
+  const markdown = [
+    `# ${run.evalName} — ${run.model} (${run.variantId})`,
+    "",
+    banner ? `${banner}\n` : "",
+    section("Headline", [
+      `**sendReady: ${pct(sendReady.estimate)}**  (95% CI ${pct(sendReady.lower)} – ${pct(sendReady.upper)}, cluster bootstrap over ${sendReady.caseCount} cases)`,
+      "",
+      `Case pass (assertions + criteria + sendReady): ${pct(casePass.estimate)} (${pct(casePass.lower)} – ${pct(casePass.upper)})`,
+      "",
+      `Split \`${run.filters.split}\` · ${run.selectedCaseCount} cases · ${records.length} samples · ${run.filters.shard ? `shard ${run.filters.shard.index}/${run.filters.shard.total} · ` : ""}${durationSummary(run)}`,
+    ]),
+    section("Why it fails", failureHistogram(records)),
+    section("By difficulty axis", axisTable(records)),
+    section("By difficulty", difficultyTable(records)),
+    section("Assertion failures", assertionHistogram(records)),
+    section("Run health", runHealth(records)),
+    banner ? `\n${banner}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return { sendReady, casePass, ceilingLevel, banner, markdown };
+}
+
+export function printEvalReport(report: EvalReport) {
+  console.log(`\n${report.markdown}\n`);
+}
+
+function classifyCeiling(estimate: number): CeilingLevel {
+  if (!Number.isFinite(estimate)) return "in-band";
+  if (estimate > CEILING_THRESHOLD) return "ceiling";
+  if (estimate > TARGET_BAND[1]) return "near-ceiling";
+  if (estimate < TARGET_BAND[0]) return "floor";
+  return "in-band";
+}
+
+function buildBanner(
+  level: CeilingLevel,
+  sendReady: PassRateInterval,
+): string | null {
+  if (level === "in-band") return null;
+
+  const rate = pct(sendReady.estimate);
+  const lines =
+    level === "ceiling"
+      ? [
+          `CEILING WARNING: sendReady = ${rate}, above the ${pct(CEILING_THRESHOLD)} limit.`,
+          "",
+          "The case set is too easy to measure improvement. An instrument pinned at",
+          "the top of its range cannot detect a regression or a win, and this is the",
+          "exact condition that produced a 19/19 eval alongside a 5/10 product.",
+          "",
+          "Per docs/case-design.md the case set gets REGENERATED, not celebrated.",
+          "Do not report this number as a result.",
+        ]
+      : level === "near-ceiling"
+        ? [
+            `Approaching ceiling: sendReady = ${rate}, above the ${pct(TARGET_BAND[1])} target band.`,
+            "Headroom is thin. Add harder cases before running experiments on this set.",
+          ]
+        : [
+            `Floor warning: sendReady = ${rate}, below the ${pct(TARGET_BAND[0])} target band.`,
+            "Either the harness is broken or the cases test something the product never claimed.",
+            "Check the run health section for timeouts and errors before reading anything into this.",
+          ];
+
+  return box(lines);
+}
+
+function failureHistogram(records: EvalResultRecord[]): string[] {
+  const failures = records.filter((record) => record.sendReady !== true);
+  if (failures.length === 0) return ["No sendReady failures."];
+
+  const counts = new Map<string, number>();
+  for (const record of failures) {
+    const key = record.error
+      ? `${record.error.toUpperCase()} (no verdict)`
+      : (record.primaryIssue ?? "UNCLASSIFIED");
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  const rows = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(
+      ([mode, count]) =>
+        `| ${mode} | ${count} | ${pct(count / failures.length)} | ${pct(count / records.length)} |`,
+    );
+
+  return [
+    `${failures.length} of ${records.length} samples were not send-ready.`,
+    "",
+    "| primaryIssue | count | share of failures | share of all samples |",
+    "|---|---:|---:|---:|",
+    ...rows,
+  ];
+}
+
+function axisTable(records: EvalResultRecord[]): string[] {
+  const rows = DIFFICULTY_AXES.map((axis) =>
+    axisRow(
+      axis,
+      records.filter((record) => record.difficultyAxes.includes(axis)),
+    ),
+  ).filter((row): row is string => row !== null);
+
+  if (rows.length === 0) return ["No cases declare a difficulty axis."];
+
+  return [
+    "| axis | cases | samples | sendReady |",
+    "|---|---:|---:|---:|",
+    ...rows,
+  ];
+}
+
+function axisRow(
+  axis: DifficultyAxis,
+  matching: EvalResultRecord[],
+): string | null {
+  if (matching.length === 0) return null;
+  return `| ${axis} | ${countCases(matching)} | ${matching.length} | ${rateOf(matching)} |`;
+}
+
+function difficultyTable(records: EvalResultRecord[]): string[] {
+  const rows = DIFFICULTY_LEVELS.map((level) =>
+    difficultyRow(
+      level,
+      records.filter((record) => record.difficulty === level),
+    ),
+  ).filter((row): row is string => row !== null);
+
+  if (rows.length === 0) return ["No records."];
+
+  return [
+    "| difficulty | cases | samples | sendReady |",
+    "|---|---:|---:|---:|",
+    ...rows,
+  ];
+}
+
+function difficultyRow(
+  level: DifficultyLevel,
+  matching: EvalResultRecord[],
+): string | null {
+  if (matching.length === 0) return null;
+  return `| ${level} | ${countCases(matching)} | ${matching.length} | ${rateOf(matching)} |`;
+}
+
+function assertionHistogram(records: EvalResultRecord[]): string[] {
+  const counts = new Map<string, number>();
+  for (const record of records) {
+    for (const failure of record.assertionFailures) {
+      const name = failure.split(":")[0] ?? failure;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+    for (const failure of record.criteriaFailures) {
+      const key = `criterion:${failure}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+
+  if (counts.size === 0) return ["No assertion or criterion failures."];
+
+  return [
+    "| check | failures |",
+    "|---|---:|",
+    ...[...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => `| ${name} | ${count} |`),
+  ];
+}
+
+function runHealth(records: EvalResultRecord[]): string[] {
+  const timeouts = records.filter(
+    (record) => record.error === "timeout",
+  ).length;
+  const errors = records.filter(
+    (record) => record.error !== null && record.error !== "timeout",
+  ).length;
+  const unjudged = records.filter(
+    (record) => record.sendReady === null && record.error === null,
+  ).length;
+
+  const lines = [
+    `Timeouts: ${timeouts} · other errors: ${errors} · samples with no judge verdict: ${unjudged}`,
+  ];
+
+  if (timeouts + errors > 0) {
+    lines.push(
+      "",
+      "Timed-out and errored samples are counted as failures, not dropped. Dropping them would inflate the rate.",
+    );
+  }
+  return lines;
+}
+
+function clusterByCase(
+  records: EvalResultRecord[],
+  passed: (record: EvalResultRecord) => boolean,
+): { caseId: string; passes: boolean[] }[] {
+  const byCase = new Map<string, boolean[]>();
+  for (const record of records) {
+    const passes = byCase.get(record.caseId) ?? [];
+    passes.push(passed(record));
+    byCase.set(record.caseId, passes);
+  }
+  return [...byCase.entries()].map(([caseId, passes]) => ({ caseId, passes }));
+}
+
+function countCases(records: EvalResultRecord[]): number {
+  return new Set(records.map((record) => record.caseId)).size;
+}
+
+function rateOf(records: EvalResultRecord[]): string {
+  const passed = records.filter((record) => record.sendReady === true).length;
+  return `${pct(passed / records.length)} (${passed}/${records.length})`;
+}
+
+function durationSummary(run: EvalRun): string {
+  const seconds = Math.round(
+    (Date.parse(run.finishedAt) - Date.parse(run.startedAt)) / 1000,
+  );
+  return `${seconds}s wall`;
+}
+
+function section(title: string, body: string[]): string {
+  return `## ${title}\n\n${body.join("\n")}\n`;
+}
+
+function box(lines: string[]): string {
+  const rule = "=".repeat(78);
+  return [
+    rule,
+    ...lines.map((line) => (line ? `!! ${line}` : "!!")),
+    rule,
+  ].join("\n");
+}
+
+function pct(value: number): string {
+  if (!Number.isFinite(value)) return "n/a";
+  return `${(value * 100).toFixed(1)}%`;
+}

@@ -569,7 +569,9 @@ ${parts.join("\n\n")}
 `;
 }
 
-function getCalendarBookingLinkForDraft(emailAccount: DraftEmailAccount) {
+export function getCalendarBookingLinkForDraft(
+  emailAccount: Pick<DraftEmailAccount, "bookingLinks" | "calendarBookingLink">,
+) {
   const inboxZeroBookingLink = emailAccount.bookingLinks?.[0];
 
   if (inboxZeroBookingLink) {
