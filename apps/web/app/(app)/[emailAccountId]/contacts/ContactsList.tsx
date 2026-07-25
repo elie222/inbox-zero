@@ -73,6 +73,11 @@ export function ContactsList() {
         ? "name"
         : "recent";
   const groupKey = searchParams.get("group");
+  // People-tab filter: everyone, only those with a company, or unassigned
+  // (personal contacts are deliberately companyless, so they're excluded
+  // from "No company")
+  const whoParam = searchParams.get("who");
+  const who = whoParam === "company" || whoParam === "none" ? whoParam : "all";
   // A label selection carries across the Companies/People tabs but means
   // nothing on Suggested — dropping it there keeps the header and detail
   // pane from contradicting the suggestions list
@@ -124,8 +129,17 @@ export function ContactsList() {
         )
         .flatMap((group) => group.contacts);
     }
-    return data?.contacts ?? [];
-  }, [data?.contacts, groups, groupKey, labelFilter]);
+    const all = data?.contacts ?? [];
+    if (view === "people" && who !== "all") {
+      return all.filter((contact) => {
+        const hasCompany = !!resolveContactCompany(contact, companies);
+        return who === "company"
+          ? hasCompany
+          : !hasCompany && !contact.isPersonal;
+      });
+    }
+    return all;
+  }, [data?.contacts, groups, groupKey, labelFilter, view, who, companies]);
 
   const activeLabelName = labelFilter
     ? groups
@@ -258,13 +272,22 @@ export function ContactsList() {
               </TabsList>
             </Tabs>
             {view === "people" && (
-              <Tabs defaultValue="name" searchParam="sort">
-                <TabsList>
-                  <TabsTrigger value="name">Name</TabsTrigger>
-                  <TabsTrigger value="recent">Recent</TabsTrigger>
-                  <TabsTrigger value="frequent">Most emails</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <>
+                <Tabs defaultValue="name" searchParam="sort">
+                  <TabsList>
+                    <TabsTrigger value="name">Name</TabsTrigger>
+                    <TabsTrigger value="recent">Recent</TabsTrigger>
+                    <TabsTrigger value="frequent">Most emails</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <Tabs defaultValue="all" searchParam="who">
+                  <TabsList>
+                    <TabsTrigger value="all">Everyone</TabsTrigger>
+                    <TabsTrigger value="company">With company</TabsTrigger>
+                    <TabsTrigger value="none">No company</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </>
             )}
           </div>
         )}
@@ -377,6 +400,7 @@ export function ContactsList() {
       <AddContactDialog
         open={adding}
         onClose={() => setAdding(false)}
+        companies={companies}
         mutateContacts={mutate}
       />
       {data && (

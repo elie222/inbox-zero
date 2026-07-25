@@ -207,6 +207,7 @@ export function ContactDetails({
       </div>
 
       <ContactEditForm
+        companies={companies}
         key={formEpoch}
         contact={contact}
         // Locked contacts show the owning company; the field then locks so
@@ -230,11 +231,14 @@ type Suggestion = {
 
 function ContactEditForm({
   contact,
+  companies,
   companyName,
   lockedCompanyName,
   mutateContacts,
 }: {
   contact: ContactListItem;
+  // Existing companies feed the company field's type-ahead
+  companies: CompanySummary[];
   companyName: string;
   // Set when a company owns the contact's email domain — the company
   // field is read-only then (change the company's domains instead)
@@ -408,9 +412,18 @@ function ContactEditForm({
             id="contact-company"
             className="mt-2"
             disabled={isPersonal || !!lockedCompanyName}
-            placeholder="Where they work"
+            placeholder="Pick a company or type a new one"
+            list="contact-company-options"
             {...register("companyName")}
           />
+          {/* Type-ahead of existing companies; assigning one also adopts
+              this contact's email domain onto it, grouping their whole
+              domain under the company. Free text creates a new company. */}
+          <datalist id="contact-company-options">
+            {companies.map((option) => (
+              <option key={option.id} value={option.name} />
+            ))}
+          </datalist>
           {lockedCompanyName && !isPersonal && (
             <p className="mt-1 text-xs text-muted-foreground">
               Set automatically — {lockedCompanyName} owns @{contact.domain}.

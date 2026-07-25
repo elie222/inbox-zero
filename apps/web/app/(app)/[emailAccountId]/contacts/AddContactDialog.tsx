@@ -3,6 +3,7 @@
 import { useForm } from "react-hook-form";
 import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
+import type { CompanySummary } from "@/utils/contacts";
 import { updateContactAction } from "@/utils/actions/contact";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getActionErrorMessage } from "@/utils/error";
@@ -21,10 +22,13 @@ import {
 export function AddContactDialog({
   open,
   onClose,
+  companies,
   mutateContacts,
 }: {
   open: boolean;
   onClose: () => void;
+  // Existing companies feed the company field's type-ahead
+  companies: CompanySummary[];
   mutateContacts: () => void;
 }) {
   const { emailAccountId } = useAccount();
@@ -112,8 +116,15 @@ export function AddContactDialog({
                 id="add-company"
                 className="mt-2"
                 disabled={isPersonal}
+                placeholder="Pick or type a new one"
+                list="add-company-options"
                 {...register("companyName")}
               />
+              <datalist id="add-company-options">
+                {companies.map((option) => (
+                  <option key={option.id} value={option.name} />
+                ))}
+              </datalist>
             </div>
             <div>
               <Label htmlFor="add-phone">Phone</Label>

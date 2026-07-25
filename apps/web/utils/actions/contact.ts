@@ -537,15 +537,19 @@ async function resolveCompanyId({
   const domain = emailDomain(contactEmail);
   const adoptDomain = !!domain && !isPublicEmailDomain(domain);
 
-  const company = await prisma.company.upsert({
-    where: { emailAccountId_name: { emailAccountId, name } },
-    update: {},
-    create: {
-      emailAccountId,
-      name,
-      domains: adoptDomain ? [domain] : [],
-    },
-  });
+  // Match existing companies case-insensitively so typing "toyota" joins
+  // Toyota instead of creating a duplicate
+  const company =
+    (await prisma.company.findFirst({
+      where: { emailAccountId, name: { equals: name, mode: "insensitive" } },
+    })) ??
+    (await prisma.company.create({
+      data: {
+        emailAccountId,
+        name,
+        domains: adoptDomain ? [domain] : [],
+      },
+    }));
 
   if (adoptDomain && !company.domains.includes(domain)) {
     await prisma.company.update({
