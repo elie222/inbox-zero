@@ -143,6 +143,7 @@ describe("LLM use cases", () => {
       [LlmUseCase.ReplyMemorySelection]: "economy",
       [LlmUseCase.ReplyNudge]: "chat",
       [LlmUseCase.Summarise]: "default",
+      [LlmUseCase.ThunderbirdTriage]: "economy",
       [LlmUseCase.WritingStyleAnalysis]: "default",
     });
   });

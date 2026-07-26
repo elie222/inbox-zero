@@ -325,6 +325,25 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts MOVE_FOLDER with folderName on Thunderbird providers", () => {
+    const result = createRuleSchema("thunderbird").safeParse(
+      buildRule({
+        type: ActionType.MOVE_FOLDER,
+        fields: {
+          folderName: "Receipts",
+        },
+        delayInMinutes: null,
+      }),
+    );
+
+    expect(result.success).toBe(true);
+  });
+
+  it("builds a Thunderbird create-rule schema without throwing", () => {
+    expect(() => createRuleSchema("thunderbird")).not.toThrow();
+    expect(getAvailableActions("thunderbird")).toContain(ActionType.MOVE_FOLDER);
+  });
+
   it("rejects structurally invalid static.from values", () => {
     const result = createRuleSchema(provider).safeParse({
       ...buildRule({

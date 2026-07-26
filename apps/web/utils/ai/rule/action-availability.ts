@@ -1,6 +1,9 @@
 import { env } from "@/env";
 import { ActionType } from "@/generated/prisma/enums";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import {
+  isMicrosoftProvider,
+  isThunderbirdProvider,
+} from "@/utils/email/provider-types";
 
 export function getAvailableActionsForRuleEditor({
   provider,
@@ -14,6 +17,7 @@ export function getAvailableActionsForRuleEditor({
 
   const supportsMoveFolder =
     isMicrosoftProvider(provider) ||
+    isThunderbirdProvider(provider) ||
     includesExistingActionType(ActionType.MOVE_FOLDER);
   // The rule editor exposes a single "Draft reply" option for both persisted
   // draft action variants, so the UI only needs the normalized DRAFT_EMAIL type.
@@ -28,6 +32,10 @@ export function getAvailableActionsForRuleEditor({
     ActionType.ARCHIVE,
     ActionType.MARK_READ,
     ActionType.STAR,
+    ...(isThunderbirdProvider(provider) ||
+    includesExistingActionType(ActionType.DELETE)
+      ? [ActionType.DELETE]
+      : []),
     ...(showsDraftReplyOption ? [ActionType.DRAFT_EMAIL] : []),
     ...getAvailableSendActions(existingActionTypes),
     ActionType.MARK_SPAM,

@@ -1,0 +1,41 @@
+{
+  "manifest_version": 2,
+  "name": "Inbox Zero Bridge",
+  "description": "Send Thunderbird mail to a local Inbox Zero instance for AI rules, then apply resulting actions.",
+  "version": "0.1.0",
+  "applications": {
+    "gecko": {
+      "id": "inbox-zero-bridge@getinboxzero.com",
+      "strict_min_version": "115.0"
+    }
+  },
+  "permissions": [
+    "accountsRead",
+    "messagesRead",
+    "messagesMove",
+    "messagesDelete",
+    "messagesUpdate",
+    "messagesTags",
+    "messagesTagsList",
+    "compose",
+    "storage",
+    "notifications",
+    "menus",
+    "tabs",
+    "alarms",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "browser_action": {
+    "default_title": "Inbox Zero Bridge",
+    "default_popup": "popup.html"
+  }
+}

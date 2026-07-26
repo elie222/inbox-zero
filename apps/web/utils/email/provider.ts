@@ -4,6 +4,7 @@ import {
 } from "@/utils/email-account-client";
 import { GmailProvider } from "@/utils/email/google";
 import { OutlookProvider } from "@/utils/email/microsoft";
+import { ThunderbirdProvider } from "@/utils/email/thunderbird";
 import type { EmailProvider } from "@/utils/email/types";
 import { assertProviderNotRateLimited } from "@/utils/email/rate-limit";
 import { toRateLimitProvider } from "@/utils/email/rate-limit-mode-error";
@@ -24,6 +25,10 @@ export async function createEmailProvider({
   if (!rateLimitProvider) throw new Error(`Unsupported provider: ${provider}`);
 
   try {
+    if (rateLimitProvider === "thunderbird") {
+      return new ThunderbirdProvider({ emailAccountId, logger });
+    }
+
     await assertProviderNotRateLimited({
       emailAccountId,
       provider: rateLimitProvider,

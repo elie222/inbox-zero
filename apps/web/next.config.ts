@@ -457,6 +457,14 @@ function commonAncestorPath(firstPath: string, secondPath: string) {
     commonParts.push(firstParts[index]);
   }
 
+  // Windows drive root: ["C:"] must become "C:\", not "C:"
+  if (
+    commonParts.length === 1 &&
+    /^[A-Za-z]:$/.test(commonParts[0] ?? "")
+  ) {
+    return `${commonParts[0]}${path.sep}`;
+  }
+
   return commonParts.length === 1 && commonParts[0] === ""
     ? path.sep
     : commonParts.join(path.sep);

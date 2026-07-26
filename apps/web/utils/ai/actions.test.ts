@@ -686,4 +686,32 @@ describe("runActionFunction", () => {
 
     expect(client.trashThread).not.toHaveBeenCalled();
   });
+
+  it("allows delete for Thunderbird even when the delete feature flag is off", async () => {
+    mockEnv.deleteEmailActionEnabled = false;
+    const client = createMockEmailProvider({ name: "thunderbird" });
+
+    await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.DELETE,
+      },
+      emailAccount,
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(client.trashThread).toHaveBeenCalledWith(
+      "thread-1",
+      emailAccount.email,
+      "automation",
+    );
+  });
 });

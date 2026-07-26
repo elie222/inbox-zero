@@ -29,6 +29,12 @@ export const loadEmailStatsAction = actionClient
         throw new SafeError("Email account or provider not found");
       }
 
+      // Thunderbird is push-only — stats come from bridge process indexing.
+      if (emailAccount.account.provider === "thunderbird") {
+        logger.info("Skipping loadEmails for Thunderbird; using indexed mail");
+        return { skipped: true as const, reason: "thunderbird" };
+      }
+
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider: emailAccount.account.provider,
