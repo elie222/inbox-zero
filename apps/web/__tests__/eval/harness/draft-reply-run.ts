@@ -101,5 +101,6 @@ export function runDraftReplyEval<
       };
     },
     describeOutput: (output) => output.reply,
+    confidenceOf: (output) => output.confidence,
   });
 }

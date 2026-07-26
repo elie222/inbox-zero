@@ -44,6 +44,13 @@ export type EvalResultRecord = {
   sendReady: boolean | null;
   primaryIssue: EditFailureMode | null;
   severity: string | null;
+  /**
+   * The drafter's own self-reported confidence. Recorded because it gates
+   * whether a draft is shown at all in production, via the account's
+   * draftReplyConfidence threshold. If it does not track send-readiness, that
+   * threshold is not protecting anyone.
+   */
+  confidence: string | null;
   assertionFailures: string[];
   criteriaFailures: string[];
   durationMs: number;
@@ -122,6 +129,7 @@ export async function runEvalSuite<
   assert,
   judge,
   describeOutput,
+  confidenceOf,
   model,
   variantId = "baseline",
   samples = defaultSamples(),
@@ -145,6 +153,7 @@ export async function runEvalSuite<
     signal: AbortSignal;
   }) => Promise<EvalJudgeOutcome>;
   describeOutput?: (output: TOutput) => string;
+  confidenceOf?: (output: TOutput) => string | null;
   model: string;
   variantId?: string;
   samples?: number;
@@ -174,6 +183,7 @@ export async function runEvalSuite<
       assert,
       judge,
       describeOutput,
+      confidenceOf,
       ...task,
     });
     onRecord?.(record);
@@ -224,6 +234,7 @@ async function runOne<
   assert,
   judge,
   describeOutput,
+  confidenceOf,
 }: {
   evalName: string;
   evalCase: TCase;
@@ -231,6 +242,7 @@ async function runOne<
   model: string;
   variantId: string;
   timeoutMs: number;
+  confidenceOf?: (output: TOutput) => string | null;
   invoke: (args: {
     evalCase: TCase;
     sampleIndex: number;
@@ -285,6 +297,7 @@ async function runOne<
       sendReady: verdict?.sendReady ?? null,
       primaryIssue: verdict?.primaryIssue ?? null,
       severity: verdict?.severity ?? null,
+      confidence: confidenceOf ? confidenceOf(output) : null,
       assertionFailures,
       criteriaFailures,
       durationMs: Date.now() - startedAt,

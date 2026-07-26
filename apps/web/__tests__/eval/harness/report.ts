@@ -251,6 +251,18 @@ function runHealth(records: EvalResultRecord[]): string[] {
     `Timeouts: ${timeouts} · other errors: ${errors} · samples with no judge verdict: ${unjudged}`,
   ];
 
+  // A bug in the harness surfaces as a wave of errored samples, and because
+  // errors count as failures it reads as a low score rather than as a broken
+  // run. A ReferenceError once turned every sample into a "failure" this way.
+  const errorRate =
+    records.length > 0 ? (timeouts + errors) / records.length : 0;
+  if (errorRate > 0.1) {
+    lines.push(
+      "",
+      `!! ${pct(errorRate)} of samples errored or timed out. This is a broken run, not a low score. Fix the harness before reading any number above.`,
+    );
+  }
+
   if (timeouts + errors > 0) {
     lines.push(
       "",
