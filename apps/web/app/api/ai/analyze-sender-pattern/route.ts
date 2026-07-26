@@ -33,7 +33,7 @@ export const POST = withError(
     }
 
     const data = analyzeSenderPatternBodySchema.parse(json);
-    const { emailAccountId } = data;
+    const { emailAccountId, force } = data;
     const from = extractEmailAddress(data.from);
 
     logger = logger.with({ from });
@@ -41,7 +41,7 @@ export const POST = withError(
     logger.trace("Analyzing sender pattern");
 
     // return immediately and process in background
-    after(() => process({ emailAccountId, from, logger }));
+    after(() => process({ emailAccountId, from, force, logger }));
     return NextResponse.json({ processing: true });
   },
 );
@@ -57,10 +57,12 @@ export const POST = withError(
 async function process({
   emailAccountId,
   from,
+  force,
   logger,
 }: {
   emailAccountId: string;
   from: string;
+  force?: boolean;
   logger: Logger;
 }) {
   try {
@@ -80,7 +82,9 @@ async function process({
       },
     });
 
-    if (existingCheck?.patternAnalyzed) {
+    // A previous check (e.g. inconsistent history at the time) normally ends
+    // analysis for good; manual learning passes force to try again
+    if (existingCheck?.patternAnalyzed && !force) {
       logger.info("Sender has already been analyzed");
       return NextResponse.json({ success: true });
     }
