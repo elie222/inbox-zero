@@ -13,6 +13,8 @@ import {
   type EvalRun,
 } from "@/__tests__/eval/harness/run-suite";
 import { judgeSendReady } from "@/__tests__/eval/harness/send-ready-judge";
+import { getJudgeFingerprint } from "@/__tests__/eval/harness/judge-model";
+import { contentHashForCase } from "@/__tests__/eval/harness/split-lock";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 
 /**
@@ -103,5 +105,7 @@ export function runDraftReplyEval<
     },
     describeOutput: (output) => output.reply,
     confidenceOf: (output) => output.confidence,
+    caseFingerprintOf: (evalCase) => contentHashForCase(evalCase),
+    judgeFingerprint: getJudgeFingerprint(),
   });
 }

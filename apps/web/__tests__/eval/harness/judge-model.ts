@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { buildJudgeSystemPrompt } from "@/__tests__/eval/harness/send-ready-judge-contract";
 import { getModel } from "@/utils/llms/model";
 import { getEvalJudgeUserAi } from "@/__tests__/eval/judge-provider";
 
@@ -21,4 +23,23 @@ export function getHarnessJudgeModel() {
     );
   }
   return getModel(judgeUserAi);
+}
+
+/**
+ * Identifies the judge for cache keying: its model and its rubric. A cached
+ * verdict is that judge's opinion, so reusing it after either changed would
+ * report an opinion nothing currently holds.
+ */
+export function getJudgeFingerprint(): string {
+  const judgeUserAi = getEvalJudgeUserAi();
+  return createHash("sha256")
+    .update(
+      JSON.stringify([
+        judgeUserAi?.aiProvider ?? "none",
+        judgeUserAi?.aiModel ?? "none",
+        buildJudgeSystemPrompt(),
+      ]),
+    )
+    .digest("hex")
+    .slice(0, 16);
 }

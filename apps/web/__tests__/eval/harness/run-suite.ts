@@ -9,6 +9,12 @@ import {
   type EvalSplit,
 } from "@/__tests__/eval/harness/case-schema";
 import type { AssertionOutcome } from "@/__tests__/eval/harness/assertions";
+import {
+  buildCacheKey,
+  readCachedRecord,
+  rehydrate,
+  writeCachedRecord,
+} from "@/__tests__/eval/harness/result-cache";
 import type { EditFailureMode } from "@/__tests__/eval/harness/taxonomy";
 
 export const DEFAULT_CONCURRENCY = 8;
@@ -137,6 +143,8 @@ export async function runEvalSuite<
   judge,
   describeOutput,
   confidenceOf,
+  caseFingerprintOf,
+  judgeFingerprint,
   model,
   variantId = "baseline",
   samples = defaultSamples(),
@@ -161,6 +169,12 @@ export async function runEvalSuite<
   }) => Promise<EvalJudgeOutcome>;
   describeOutput?: (output: TOutput) => string;
   confidenceOf?: (output: TOutput) => string | null;
+  /**
+   * Enables the result cache. Both must be supplied: a cache keyed on the case
+   * but not the judge would reuse a verdict from a judge that no longer exists.
+   */
+  caseFingerprintOf?: (evalCase: TCase) => string;
+  judgeFingerprint?: string;
   model: string;
   variantId?: string;
   samples?: number;
@@ -191,6 +205,8 @@ export async function runEvalSuite<
       judge,
       describeOutput,
       confidenceOf,
+      caseFingerprintOf,
+      judgeFingerprint,
       ...task,
     });
     onRecord?.(record);
@@ -242,6 +258,8 @@ async function runOne<
   judge,
   describeOutput,
   confidenceOf,
+  caseFingerprintOf,
+  judgeFingerprint,
 }: {
   evalName: string;
   evalCase: TCase;
@@ -250,6 +268,8 @@ async function runOne<
   variantId: string;
   timeoutMs: number;
   confidenceOf?: (output: TOutput) => string | null;
+  caseFingerprintOf?: (evalCase: TCase) => string;
+  judgeFingerprint?: string;
   invoke: (args: {
     evalCase: TCase;
     sampleIndex: number;
@@ -278,6 +298,22 @@ async function runOne<
     sourceRoot: evalCase.__sourceRoot ?? null,
   };
 
+  const cacheKey =
+    caseFingerprintOf && judgeFingerprint
+      ? buildCacheKey({
+          caseFingerprint: caseFingerprintOf(evalCase),
+          judgeFingerprint,
+          model,
+          sampleIndex,
+          variantId,
+        })
+      : null;
+
+  if (cacheKey) {
+    const cached = readCachedRecord(cacheKey);
+    if (cached) return rehydrate(cached, base);
+  }
+
   const signal = AbortSignal.timeout(timeoutMs);
 
   try {
@@ -295,7 +331,7 @@ async function runOne<
       : null;
     const criteriaFailures = verdict?.criteriaFailures ?? [];
 
-    return {
+    const record: EvalResultRecord = {
       ...base,
       pass:
         assertionFailures.length === 0 &&
@@ -313,6 +349,9 @@ async function runOne<
       actual: describeOutput ? describeOutput(output) : null,
       error: null,
     };
+
+    if (cacheKey) writeCachedRecord(cacheKey, record);
+    return record;
   } catch (error) {
     // A dropped case silently inflates the pass rate, so a timeout or a crash
     // is recorded as a failed sample rather than removed from the denominator.

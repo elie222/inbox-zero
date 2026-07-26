@@ -55,6 +55,19 @@ Don't be pushy.
 Write in a plainspoken, professional tone.
 Prefer short declarative sentences over polished or overly elaborate phrasing.`;
 
+/**
+ * Appended whenever a user's own style replaces the default above, because
+ * otherwise the only length guidance in the prompt disappears for them — which
+ * is nearly everyone who has used the product long enough to have a style.
+ *
+ * Deliberately about proportionality rather than a sentence count. A user whose
+ * style asks for thorough replies is not contradicted by this: a long answer to
+ * a complex question is still proportionate. It only rules out padding,
+ * restatement, and unrequested additions, which no style asks for.
+ */
+const LENGTH_DISCIPLINE =
+  "Match the length of the reply to what was actually asked. Do not restate the incoming message, pad with filler, or add offers, next steps, or availability that nobody requested.";
+
 type DraftEmailAccount = EmailAccountWithAI & {
   bookingLinks?: { slug: string }[];
 };
@@ -305,10 +318,11 @@ export async function aiDraftReplyWithConfidence({
 
   const normalizedWritingStyle = writingStyle?.trim() || null;
   const normalizedLearnedWritingStyle = learnedWritingStyle?.trim() || null;
-  const effectiveWritingStyle =
-    normalizedWritingStyle ||
-    normalizedLearnedWritingStyle ||
-    defaultWritingStyle;
+  const customWritingStyle =
+    normalizedWritingStyle || normalizedLearnedWritingStyle;
+  const effectiveWritingStyle = customWritingStyle
+    ? `${customWritingStyle}\n\n${LENGTH_DISCIPLINE}`
+    : defaultWritingStyle;
   const advisoryLearnedWritingStyle = normalizedWritingStyle
     ? normalizedLearnedWritingStyle
     : null;
