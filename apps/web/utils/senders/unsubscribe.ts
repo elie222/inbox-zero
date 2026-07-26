@@ -4,7 +4,7 @@ import type { IncomingHttpHeaders } from "node:http";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
-import { findAutoArchiveFilter } from "@/utils/senders/filters";
+import { findAutoArchiveFilters } from "@/utils/senders/filters";
 import {
   extractEmailOrThrow,
   upsertSenderRecord,
@@ -49,10 +49,10 @@ export async function setSenderStatus({
 }
 
 /**
- * Records the status and brings the provider-side auto-archive filter in line
- * with it: `AUTO_ARCHIVED` creates the filter, `APPROVED` and `null` remove it,
- * and `UNSUBSCRIBED` leaves an existing one alone. Pass `labelId`/`labelName`
- * to also label the sender's mail while archiving it.
+ * Records the status and brings the provider-side auto-archive filters in line
+ * with it: `AUTO_ARCHIVED` creates a filter, `APPROVED` and `null` remove every
+ * filter for the sender, and `UNSUBSCRIBED` leaves existing ones alone. Pass
+ * `labelId`/`labelName` to also label the sender's mail while archiving it.
  *
  * The status is written first so a provider failure leaves the sender in the
  * state the user asked for rather than leaving an unreferenced filter behind.
@@ -78,7 +78,7 @@ export async function setSenderStatusWithAutoArchive({
   // rendering, which here would look like "no filter exists" and silently skip
   // removing one.
   const filters = await emailProvider.getFiltersList();
-  const existingFilter = findAutoArchiveFilter(
+  const existingFilters = findAutoArchiveFilters(
     filters,
     senderEmail,
     emailProvider,
@@ -97,20 +97,24 @@ export async function setSenderStatusWithAutoArchive({
   if (shouldAutoArchive) {
     // Always create, even when a filter already exists, so a newly requested
     // label reaches the provider. Both providers treat a duplicate as success.
+    // This can leave a sender with an unlabelled and a labelled rule, which is
+    // harmless while auto archiving but must all be removed below.
     await emailProvider.createAutoArchiveFilter({
       from: senderEmail,
       gmailLabelId: labelId,
       labelName,
     });
-  } else if (shouldRemoveFilter && existingFilter) {
-    await emailProvider.deleteFilter(existingFilter.id);
+  } else if (shouldRemoveFilter) {
+    for (const filter of existingFilters) {
+      await emailProvider.deleteFilter(filter.id);
+    }
   }
 
   return {
     senderEmail,
     status,
     autoArchived:
-      shouldAutoArchive || (!!existingFilter && !shouldRemoveFilter),
+      shouldAutoArchive || (existingFilters.length > 0 && !shouldRemoveFilter),
   };
 }
 

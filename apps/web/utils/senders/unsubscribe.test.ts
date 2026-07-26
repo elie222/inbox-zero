@@ -160,6 +160,41 @@ describe("setSenderStatusWithAutoArchive", () => {
     expect(emailProvider.deleteFilter).toHaveBeenCalledWith("filter-1");
   });
 
+  it("removes every filter for the sender, not just the first", async () => {
+    // Re-applying auto archive with a label leaves both an unlabelled and a
+    // labelled rule. Missing one keeps the sender archived after approval.
+    const labelledFilter = {
+      id: "filter-2",
+      criteria: { from: "news@example.com" },
+      action: { removeLabelIds: ["INBOX"], addLabelIds: ["label-1"] },
+    };
+
+    const { emailProvider } = await setStatus({
+      status: NewsletterStatus.APPROVED,
+      filters: [autoArchiveFilter, labelledFilter],
+    });
+
+    expect(emailProvider.deleteFilter).toHaveBeenCalledTimes(2);
+    expect(emailProvider.deleteFilter).toHaveBeenCalledWith("filter-1");
+    expect(emailProvider.deleteFilter).toHaveBeenCalledWith("filter-2");
+  });
+
+  it("leaves filters for other senders alone", async () => {
+    const otherSenderFilter = {
+      id: "filter-other",
+      criteria: { from: "other@example.com" },
+      action: { removeLabelIds: ["INBOX"] },
+    };
+
+    const { emailProvider } = await setStatus({
+      status: NewsletterStatus.APPROVED,
+      filters: [autoArchiveFilter, otherSenderFilter],
+    });
+
+    expect(emailProvider.deleteFilter).toHaveBeenCalledTimes(1);
+    expect(emailProvider.deleteFilter).toHaveBeenCalledWith("filter-1");
+  });
+
   it("keeps the filter when the sender is unsubscribed", async () => {
     const { emailProvider, result } = await setStatus({
       status: NewsletterStatus.UNSUBSCRIBED,
