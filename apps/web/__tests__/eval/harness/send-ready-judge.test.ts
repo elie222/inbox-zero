@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SEND_READY_SYSTEM_PROMPT } from "@/__tests__/eval/harness/send-ready-judge";
+import { SEND_READY_SYSTEM_PROMPT } from "@/__tests__/eval/harness/send-ready-judge-contract";
 import { USABILITY_OUTCOMES } from "@/__tests__/eval/harness/taxonomy";
 
 /**
