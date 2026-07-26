@@ -17,18 +17,36 @@ import { flushLoggerSafely } from "@/utils/logger-flush";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
+import { checkHasAccess } from "@/utils/premium/server";
+import {
+  RERUN_MINIMUM_TIER,
+  RERUN_UPGRADE_MESSAGE,
+} from "@/utils/premium/rerun";
 
 export const runRulesAction = actionClient
   .metadata({ name: "runRules" })
   .inputSchema(runRulesBody)
   .action(
     async ({
-      ctx: { emailAccountId, provider, logger: ctxLogger },
+      ctx: { emailAccountId, userId, provider, logger: ctxLogger },
       parsedInput: { messageId, threadId, rerun, isTest },
     }): Promise<RunRulesResult[]> => {
       const logger = ctxLogger.with({ messageId, threadId });
 
       logger.info("runRulesAction started", { isTest, rerun });
+
+      // Re-running discards the existing result and pays for a fresh LLM call,
+      // so it's limited to the top tier.
+      if (rerun && !isTest) {
+        const hasAccess = await checkHasAccess({
+          userId,
+          minimumTier: RERUN_MINIMUM_TIER,
+        });
+        if (!hasAccess) {
+          logger.warn("Blocked rerun without Professional access");
+          throw new SafeError(RERUN_UPGRADE_MESSAGE);
+        }
+      }
 
       logger.info("Loading email account for rule execution");
       const emailAccount = await getEmailAccountForRuleExecution({

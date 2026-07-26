@@ -15,11 +15,13 @@ export async function onRun(
     startDate,
     endDate,
     includeRead,
+    rerun,
     maxEmails,
   }: {
     startDate: Date;
     endDate?: Date;
     includeRead?: boolean;
+    rerun?: boolean;
     maxEmails?: number;
   },
   onThreadsQueued: (threads: ThreadsResponse["threads"]) => void,
@@ -92,21 +94,23 @@ export async function onRun(
 
       nextPageToken = data.nextPageToken || "";
 
-      const threadsWithoutPlan = data.threads.filter((thread) => !thread.plan);
+      const eligibleThreads = rerun
+        ? data.threads
+        : data.threads.filter((thread) => !thread.plan);
       const remainingEmails =
         maxEmails === undefined ? undefined : maxEmails - totalProcessed;
       if (remainingEmails !== undefined && remainingEmails <= 0) break;
 
       const threadsToQueue =
         remainingEmails === undefined
-          ? threadsWithoutPlan
-          : threadsWithoutPlan.slice(0, remainingEmails);
+          ? eligibleThreads
+          : eligibleThreads.slice(0, remainingEmails);
 
       if (completeIfCancelled()) return;
 
       onThreadsQueued(threadsToQueue);
       totalProcessed += threadsToQueue.length;
-      runAiRules(emailAccountId, threadsToQueue, false);
+      runAiRules(emailAccountId, threadsToQueue, !!rerun);
 
       if (maxEmails !== undefined && totalProcessed >= maxEmails) break;
       if (!nextPageToken) break;
