@@ -128,12 +128,6 @@ async function sendEmail({
     return { success: false, message: "Account has no refresh token" };
   }
 
-  const emailProvider = await createEmailProvider({
-    emailAccountId,
-    provider: emailAccount.account.provider,
-    logger,
-  });
-
   const digestScheduleData = await getDigestSchedule({ emailAccountId });
   const digestScheduleProgression = digestScheduleData
     ? getDigestScheduleProgression(digestScheduleData, now)
@@ -153,10 +147,13 @@ async function sendEmail({
     }
   }
 
-  const pendingDigests = await prisma.digest.findMany({
+  const pendingDigests = await prisma.digest.updateManyAndReturn({
     where: {
       emailAccountId,
       status: DigestStatus.PENDING,
+    },
+    data: {
+      status: DigestStatus.PROCESSING,
     },
     select: {
       id: true,
@@ -182,20 +179,6 @@ async function sendEmail({
     },
   });
 
-  if (pendingDigests.length) {
-    // Mark all found digests as processing
-    await prisma.digest.updateMany({
-      where: {
-        id: {
-          in: pendingDigests.map((d) => d.id),
-        },
-      },
-      data: {
-        status: DigestStatus.PROCESSING,
-      },
-    });
-  }
-
   try {
     // Return early if no digests were found, unless force is true
     if (pendingDigests.length === 0) {
@@ -215,6 +198,12 @@ async function sendEmail({
       // When force is true, send an empty digest to indicate the system is working
       logger.info("Force sending empty digest", { emailAccountId });
     }
+
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider: emailAccount.account.provider,
+      logger,
+    });
 
     // Store the digest IDs for the final update
     const processedDigestIds = pendingDigests.map((d) => d.id);
