@@ -69,6 +69,12 @@ export function buildEvalReport({
       `Case pass (assertions + criteria + sendReady): ${pct(casePass.estimate)} (${pct(casePass.lower)} – ${pct(casePass.upper)})`,
       "",
       `Split \`${run.filters.split}\` · ${run.selectedCaseCount} cases · ${records.length} samples · ${run.filters.shard ? `shard ${run.filters.shard.index}/${run.filters.shard.total} · ` : ""}${durationSummary(run)}`,
+      ...(process.env.EVAL_INCLUDE_UNREVIEWED === "true"
+        ? [
+            "",
+            "**PROVISIONAL** — includes unreviewed generated cases. Not a reportable baseline until a human has reviewed them.",
+          ]
+        : []),
     ]),
     section("Why it fails", failureHistogram(records)),
     section("By difficulty axis", axisTable(records)),

@@ -83,8 +83,15 @@ export function selectEvalCases<TCase extends EvalCaseEnvelope>({
   cases: TCase[];
   filters: EvalFilters;
 }): TCase[] {
+  // Unreviewed synthetic cases are excluded by default: a large generated set
+  // moves the measured number without moving the product, which is the failure
+  // this harness exists to prevent. The opt-in exists so a freshly generated
+  // set can be read provisionally before someone has reviewed it; every report
+  // from such a run is labelled provisional.
+  const includeUnreviewed = process.env.EVAL_INCLUDE_UNREVIEWED === "true";
+
   return cases.filter((evalCase) => {
-    if (!isCountableCase(evalCase)) return false;
+    if (!includeUnreviewed && !isCountableCase(evalCase)) return false;
     if (filters.split !== "all" && evalCase.split !== filters.split)
       return false;
     if (filters.caseIds.length > 0 && !filters.caseIds.includes(evalCase.id))
