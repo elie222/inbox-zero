@@ -116,7 +116,9 @@ export async function onRun(
       if (maxEmails !== undefined && totalProcessed >= maxEmails) break;
       if (!nextPageToken) break;
 
-      await sleep(threadsToQueue.length ? 5000 : 2000);
+      if (threadsToQueue.length === 0) {
+        await sleep(2000);
+      }
     }
 
     onComplete("success", totalProcessed);

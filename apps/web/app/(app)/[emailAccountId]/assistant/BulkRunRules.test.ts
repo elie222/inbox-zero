@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchWithAccount } from "@/utils/fetch";
 import { runAiRules } from "@/utils/queue/email-actions";
 import { toastError } from "@/components/Toast";
+import { sleep } from "@/utils/sleep";
 import { onRun } from "./bulk-run";
 
 vi.mock("@/utils/fetch", () => ({ fetchWithAccount: vi.fn() }));
@@ -108,6 +109,7 @@ describe("onRun", () => {
     });
     expect(fetchWithAccount).toHaveBeenCalledTimes(101);
     expect(runAiRules).toHaveBeenCalledTimes(101);
+    expect(sleep).not.toHaveBeenCalled();
   });
 
   it("stops and reports an error when queued rule processing fails", async () => {
