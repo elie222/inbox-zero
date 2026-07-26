@@ -29,6 +29,19 @@ export type EditFailureMode = (typeof EDIT_FAILURE_MODES)[number];
 
 export const EDIT_SEVERITIES = ["none", "minor", "major", "total"] as const;
 
+/**
+ * A draft that leaves an honest gap for the user to fill is not the same
+ * product outcome as one that invents the missing fact, but a binary
+ * send-ready flag scores them identically. Separating them is what makes the
+ * "use a placeholder when you do not know" strategy measurable: it should
+ * convert not-usable drafts into needs-fill ones without inventing anything.
+ */
+export const USABILITY_OUTCOMES = [
+  "send-ready",
+  "needs-fill",
+  "not-usable",
+] as const;
+
 export const MODE_DEFINITIONS: Record<EditFailureMode, string> = {
   VERBOSE_PADDING:
     "The user cut filler, restatement, or over-explanation. The core message of the draft survived, just shorter.",

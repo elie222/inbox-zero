@@ -76,6 +76,7 @@ export function buildEvalReport({
           ]
         : []),
     ]),
+    section("Usability", usabilityTable(records)),
     section("Why it fails", failureHistogram(records)),
     section("By difficulty axis", axisTable(records)),
     section("By difficulty", difficultyTable(records)),
@@ -132,6 +133,42 @@ function buildBanner(
           ];
 
   return box(lines);
+}
+
+/**
+ * needs-fill and not-usable both fail sendReady, but only one is safe. Keeping
+ * them apart is what lets a "leave a placeholder when you do not know" change
+ * show up as progress: it should move drafts out of not-usable into needs-fill
+ * without moving anything into it from send-ready.
+ */
+function usabilityTable(records: EvalResultRecord[]): string[] {
+  const graded = records.filter((record) => record.usability !== null);
+  if (graded.length === 0) return ["No usability verdicts recorded."];
+
+  const counts = new Map<string, number>();
+  for (const record of graded) {
+    const key = record.usability ?? "unknown";
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  const order = ["send-ready", "needs-fill", "not-usable"];
+  const rows = order
+    .filter((outcome) => counts.has(outcome))
+    .map(
+      (outcome) =>
+        `| ${outcome} | ${counts.get(outcome)} | ${pct((counts.get(outcome) ?? 0) / graded.length)} |`,
+    );
+
+  const safe =
+    (counts.get("send-ready") ?? 0) + (counts.get("needs-fill") ?? 0);
+
+  return [
+    "| outcome | samples | share |",
+    "|---|---:|---:|",
+    ...rows,
+    "",
+    `Safe to surface (send-ready + needs-fill): ${pct(safe / graded.length)}. A needs-fill draft leaves the sender one slot to complete; a not-usable one has to be rewritten or would go out wrong.`,
+  ];
 }
 
 function failureHistogram(records: EvalResultRecord[]): string[] {

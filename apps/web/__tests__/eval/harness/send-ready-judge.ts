@@ -5,6 +5,7 @@ import {
   EDIT_FAILURE_MODES,
   EDIT_SEVERITIES,
   MODE_DEFINITIONS,
+  USABILITY_OUTCOMES,
   type EditFailureMode,
 } from "@/__tests__/eval/harness/taxonomy";
 
@@ -61,10 +62,16 @@ const judgeSchema = z.object({
     .describe(
       "none when send-ready, minor for a stylistic rewrite, major for a substantive correction or omission, total when the user would start over.",
     ),
+  usability: z
+    .enum(USABILITY_OUTCOMES)
+    .describe(
+      "send-ready when it goes as written. needs-fill when the draft is correct and complete except that it openly leaves a fact for the user to supply, via a placeholder or an explicit gap. not-usable when it is wrong, incomplete, or would embarrass the sender.",
+    ),
 });
 
 export type SendReadyVerdict = {
   sendReady: boolean;
+  usability: (typeof USABILITY_OUTCOMES)[number];
   primaryIssue: EditFailureMode | null;
   severity: (typeof EDIT_SEVERITIES)[number];
   reasoning: string;
@@ -126,7 +133,17 @@ A single-line reply that fully answers the question is an excellent draft, not a
 - Stating a fact the sender would plausibly know about their own business, schedule, or product, even if the context does not repeat it.
 - Wording that differs from the ground truth. The ground truth describes what the reply must accomplish, not how it must be phrased.
 - Formatting or paragraph choices a person would not bother to change.
-- Placeholders are not automatically a failure, but a draft the user must fill in before sending is not send-ready.
+- Placeholders are not automatically a failure, but a draft the user must fill in before sending is not send-ready. Grade it "needs-fill" rather than "not-usable" (see below).
+
+## The three usability outcomes
+
+The sendReady field is the strict question. The usability field records what the draft is actually worth, because a draft that leaves an honest gap and a draft that invents the missing value are not the same product outcome even though both fail sendReady.
+
+- **send-ready** — goes out as written. Always set this when sendReady is true.
+- **needs-fill** — correct and complete except that it openly leaves something for the sender to supply: a bracketed placeholder, an explicit blank, or a plainly flagged gap. The sender fills one slot and sends. Nothing in it is wrong.
+- **not-usable** — wrong, incomplete, or embarrassing. Use this whenever the draft asserts something it cannot support, misses an ask without flagging it, or would need rewriting rather than filling.
+
+A draft that states an invented figure is **not-usable**, never needs-fill, however confidently or politely it is phrased. Inventing a value and marking a gap are opposites: one is a silent error the sender may miss, the other is a visible instruction the sender acts on.
 
 ## Filling in the fields
 
@@ -136,7 +153,8 @@ A single-line reply that fully answers the question is an excellent draft, not a
 - unsupportedClaims: quote only spans that CONFLICT with the thread or context, or state a specific external fact nobody in this conversation could have supplied. Do not list facts the sender would know about their own business.
 - reasoning: name the single most damaging thing. If it passes, name the thing that nearly made it fail.
 - primaryIssue: when it fails, the one mode that best explains the failure. Pick the most specific applicable mode, not the most general.
-- severity: how much work the user would have to do to fix it.`;
+- severity: how much work the user would have to do to fix it.
+- usability: one of the three outcomes above. Set it from what the draft actually is, not from how confident it sounds.`;
 
 export async function judgeSendReady({
   inboundThread,
@@ -207,8 +225,27 @@ function applyConsistencyGuards(
     if (severity === "none") severity = "major";
   }
 
+  // The two fields answer different questions and the model can report them
+  // inconsistently, so send-ready wins and usability is reconciled to it.
+  // A draft that invented a fact is never merely needs-fill, however honestly
+  // it framed the invention.
+  let usability = object.usability;
+  if (sendReady) {
+    usability = "send-ready";
+  } else if (usability === "send-ready") {
+    guardsFired.push("usability_contradicts_send_ready");
+    usability = "not-usable";
+  } else if (
+    usability === "needs-fill" &&
+    object.unsupportedClaims.length > 0
+  ) {
+    guardsFired.push("needs_fill_with_unsupported_claims");
+    usability = "not-usable";
+  }
+
   return {
     sendReady,
+    usability,
     primaryIssue,
     severity,
     reasoning: object.reasoning,

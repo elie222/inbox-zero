@@ -23,6 +23,7 @@ export type EvalFilters = {
 
 export type EvalJudgeOutcome = {
   sendReady: boolean;
+  usability: string | null;
   primaryIssue: EditFailureMode | null;
   severity: string | null;
   reasoning: string;
@@ -42,6 +43,12 @@ export type EvalResultRecord = {
   sampleIndex: number;
   pass: boolean;
   sendReady: boolean | null;
+  /**
+   * send-ready / needs-fill / not-usable. Separates a draft that honestly
+   * leaves a gap from one that invented the missing value; both fail
+   * sendReady, but only one is safe to ship behind a placeholder strategy.
+   */
+  usability: string | null;
   primaryIssue: EditFailureMode | null;
   severity: string | null;
   /**
@@ -295,6 +302,7 @@ async function runOne<
         criteriaFailures.length === 0 &&
         (verdict === null || verdict.sendReady),
       sendReady: verdict?.sendReady ?? null,
+      usability: verdict?.usability ?? null,
       primaryIssue: verdict?.primaryIssue ?? null,
       severity: verdict?.severity ?? null,
       confidence: confidenceOf ? confidenceOf(output) : null,
@@ -313,6 +321,7 @@ async function runOne<
       ...base,
       pass: false,
       sendReady: null,
+      usability: null,
       primaryIssue: null,
       severity: null,
       assertionFailures: [],

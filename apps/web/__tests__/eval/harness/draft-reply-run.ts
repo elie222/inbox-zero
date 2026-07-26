@@ -94,6 +94,7 @@ export function runDraftReplyEval<
 
       return {
         sendReady: verdict.sendReady,
+        usability: verdict.usability,
         primaryIssue: verdict.primaryIssue,
         severity: verdict.severity,
         reasoning: verdict.reasoning,
