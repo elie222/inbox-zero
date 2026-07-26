@@ -15,7 +15,7 @@
  *   pnpm -F inbox-zero-ai eval:compare            # two most recent runs
  */
 
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import type {
   EvalResultRecord,
@@ -144,8 +144,13 @@ function modeShifts(
     const counts = new Map<string, number>();
     for (const record of records) {
       if (!shared.has(record.caseId)) continue;
-      if (record.sendReady !== false) continue;
-      const mode = record.primaryIssue ?? "UNCLASSIFIED";
+      if (record.sendReady === true) continue;
+      // An errored sample has no verdict but is still a failure, so it gets its
+      // own row rather than dropping out of the table: a shift in the error rate
+      // between two runs is exactly the kind of thing this table should surface.
+      const mode = record.error
+        ? `${record.error.toUpperCase()} (no verdict)`
+        : (record.primaryIssue ?? "UNCLASSIFIED");
       counts.set(mode, (counts.get(mode) ?? 0) + 1);
     }
     return counts;
@@ -169,7 +174,18 @@ function modeShifts(
 
 function resolveRuns(): [string | undefined, string | undefined] {
   const fromArgs = process.argv.slice(2).filter((arg) => arg.endsWith(".json"));
-  if (fromArgs.length >= 2) return [fromArgs[0], fromArgs[1]];
+  if (fromArgs.length > 0) {
+    // Falling back to the two newest runs here would quietly compare something
+    // other than what was asked for after a typo or a half-typed command.
+    if (fromArgs.length !== 2) {
+      console.error(
+        `Pass exactly two run JSON paths, or none to compare the two most recent. Got ${fromArgs.length}.`,
+      );
+      process.exit(1);
+    }
+    return [fromArgs[0], fromArgs[1]];
+  }
+  if (!existsSync(RUN_DIR)) return [undefined, undefined];
 
   const files = readdirSync(RUN_DIR)
     .filter((name) => name.endsWith(".json"))

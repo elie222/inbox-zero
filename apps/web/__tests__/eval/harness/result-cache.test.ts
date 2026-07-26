@@ -28,8 +28,8 @@ beforeEach(() => {
 
 afterEach(() => {
   rmSync(cacheDir, { recursive: true, force: true });
-  process.env.EVAL_CACHE_DIR = undefined;
-  process.env.EVAL_CACHE = undefined;
+  delete process.env.EVAL_CACHE_DIR;
+  delete process.env.EVAL_CACHE;
 });
 
 describe("result cache keys", () => {
@@ -89,7 +89,7 @@ describe("result cache storage", () => {
 
   it("is off unless asked for", () => {
     const key = buildCacheKey(BASE_KEY);
-    process.env.EVAL_CACHE = undefined;
+    delete process.env.EVAL_CACHE;
     writeCachedRecord(key, record({ sendReady: true }));
     expect(readCachedRecord(key)).toBeNull();
   });

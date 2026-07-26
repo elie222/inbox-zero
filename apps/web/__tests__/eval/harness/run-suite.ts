@@ -363,6 +363,7 @@ async function runOne<
       usability: null,
       primaryIssue: null,
       severity: null,
+      confidence: null,
       assertionFailures: [],
       criteriaFailures: [],
       durationMs: Date.now() - startedAt,

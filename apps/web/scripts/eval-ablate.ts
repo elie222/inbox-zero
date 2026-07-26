@@ -40,6 +40,7 @@ import {
   loadEvalCases,
   type LoadedCase,
 } from "@/__tests__/eval/harness/load-cases";
+import { PROVISIONAL_NOTE } from "@/__tests__/eval/harness/report";
 import {
   readEvalFiltersFromEnv,
   selectEvalCases,
@@ -55,6 +56,7 @@ import {
   type PairedCase,
 } from "@/__tests__/eval/harness/stats";
 import { getEvalJudgeUserAi } from "@/__tests__/eval/judge-provider";
+import { getCacheMode } from "@/__tests__/eval/harness/result-cache";
 import {
   getEmailAccountForModel,
   getEvalModels,
@@ -99,10 +101,11 @@ async function main() {
     );
   }
 
-  const model = getEvalModels()[0];
-  if (!model) {
+  const models = getEvalModels();
+  const model = models[0];
+  if (!model || models.length > 1) {
     throw new Error(
-      "EVAL_MODELS is not set to a known model. Ablation compares arms of one model, so set exactly one.",
+      `EVAL_MODELS must resolve to exactly one known model, got ${models.length}. Ablation compares arms of one model against each other, so "all" or a list would silently run only the first.`,
     );
   }
   const emailAccount = getEmailAccountForModel(model);
@@ -485,6 +488,11 @@ function renderReport({
   return [
     `# Context-source ablation — ${SUITE} — ${model}`,
     "",
+    // This runner is normally pointed at freshly generated cases, so the same
+    // provisional label the standard report carries has to appear here too.
+    ...(process.env.EVAL_INCLUDE_UNREVIEWED === "true"
+      ? [PROVISIONAL_NOTE, ""]
+      : []),
     `Baseline over the union of eligible cases: **${formatPercent(baselineOverall.estimate)} send-ready** (95% CI ${formatPercent(baselineOverall.lower)} – ${formatPercent(baselineOverall.upper)}, ${unionCaseCount} cases, k=${samples}).`,
     "",
     `${selectedCaseCount} cases selected · ${unionCaseCount} carry at least one ablatable source · one shared baseline arm · ${outcomes.length} ablated arms.`,
@@ -598,6 +606,10 @@ function writeRun({
         startedAt,
         finishedAt: new Date().toISOString(),
         judgeModel: getEvalJudgeUserAi()?.aiModel ?? null,
+        // Recorded so pooling can refuse a run that replayed cached verdicts.
+        // Two cache-hit runs are the same numbers twice: pooling them doubles
+        // the apparent sample size while adding no information.
+        cacheMode: getCacheMode(),
         arms: outcomes.map((outcome) => ({
           source: outcome.source,
           eligibleCaseCount: outcome.eligibleCaseCount,

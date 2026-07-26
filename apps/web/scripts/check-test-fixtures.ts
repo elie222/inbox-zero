@@ -87,7 +87,7 @@ process.exit(1);
 
 function findCommittedDatasets(stagedOnly: boolean): Finding[] {
   const files = stagedOnly
-    ? stagedFiles().filter((path) => path.endsWith(".jsonl"))
+    ? stagedFiles().filter(isForbiddenDataset)
     : FORBIDDEN_GLOBS.flatMap((pattern) =>
         globSync(pattern, { cwd: REPO_ROOT }),
       );
@@ -178,6 +178,11 @@ function stagedFiles(): string[] {
     { cwd: REPO_ROOT, encoding: "utf8" },
   );
   return output.split("\n").filter(Boolean);
+}
+
+/** The staged equivalent of FORBIDDEN_GLOBS: a .jsonl elsewhere is not ours. */
+function isForbiddenDataset(path: string): boolean {
+  return path.startsWith("apps/web/__tests__/") && path.endsWith(".jsonl");
 }
 
 function isScanned(path: string): boolean {

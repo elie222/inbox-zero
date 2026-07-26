@@ -21,6 +21,13 @@ import {
 export const CEILING_THRESHOLD = 0.8;
 export const TARGET_BAND: [number, number] = [0.45, 0.7];
 
+/**
+ * Every report over unreviewed generated cases carries this, so the label
+ * cannot drift between the reports that have to agree on what is reportable.
+ */
+export const PROVISIONAL_NOTE =
+  "**PROVISIONAL** — includes unreviewed generated cases. Not a reportable baseline until a human has reviewed them.";
+
 export type CeilingLevel = "ceiling" | "near-ceiling" | "in-band" | "floor";
 
 export type EvalReport = {
@@ -70,10 +77,7 @@ export function buildEvalReport({
       "",
       `Split \`${run.filters.split}\` · ${run.selectedCaseCount} cases · ${records.length} samples · ${run.filters.shard ? `shard ${run.filters.shard.index}/${run.filters.shard.total} · ` : ""}${durationSummary(run)}`,
       ...(process.env.EVAL_INCLUDE_UNREVIEWED === "true"
-        ? [
-            "",
-            "**PROVISIONAL** — includes unreviewed generated cases. Not a reportable baseline until a human has reviewed them.",
-          ]
+        ? ["", PROVISIONAL_NOTE]
         : []),
     ]),
     section("Usability", usabilityTable(records)),

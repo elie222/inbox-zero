@@ -15,10 +15,9 @@
  *   pnpm -F inbox-zero-ai eval:pool-ablations a.json b.json
  */
 
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import {
-  holmAdjust,
   summarizeComparison,
   type PairedCase,
 } from "@/__tests__/eval/harness/stats";
@@ -27,6 +26,9 @@ type ArmPair = { caseId: string; baseline: boolean[]; variant: boolean[] };
 type AblationFile = {
   samples: number;
   model: string;
+  /** Absent on runs written before cache reporting existed. */
+  cacheMode?: string;
+  filters?: { split?: string; shard?: { index: number; total: number } | null };
   arms: { source: string; eligibleCaseCount: number; pairs: ArmPair[] }[];
 };
 
@@ -48,6 +50,13 @@ function main() {
   const runs = files.map(
     (file) => JSON.parse(readFileSync(file, "utf8")) as AblationFile,
   );
+
+  const refusal = poolingRefusal(runs, files);
+  if (refusal) {
+    console.error(refusal);
+    process.exit(1);
+  }
+
   const totalSamples = runs.reduce((sum, run) => sum + run.samples, 0);
 
   console.log(
@@ -63,18 +72,25 @@ function main() {
   const pooled = poolBySource(runs);
   const perRun = perRunDeltas(runs);
 
-  const summaries = [...pooled.entries()].map(([source, pairs]) => ({
-    source,
-    pairs,
-    summary: summarizeComparison({ pairs }),
-  }));
+  const entries = [...pooled.entries()];
 
-  const adjusted = holmAdjust(
-    summaries.map((entry) => entry.summary.mcnemar.pValue),
+  // The verdict depends on the Holm-adjusted p, and Holm needs the whole family
+  // of arms, so the raw McNemar p-values are collected in a first pass. Judging
+  // each arm against a family of one would report IMPROVED or REGRESSED for
+  // arms that do not survive correction.
+  const rawPValues = entries.map(
+    ([, pairs]) => summarizeComparison({ pairs }).mcnemar.pValue,
   );
 
-  const rows = summaries
-    .map((entry, index) => ({ ...entry, holm: adjusted[index] ?? 1 }))
+  const rows = entries
+    .map(([source, pairs], index) => ({
+      source,
+      pairs,
+      summary: summarizeComparison({
+        pairs,
+        otherPValuesInFamily: rawPValues.filter((_, other) => other !== index),
+      }),
+    }))
     .sort((a, b) => Math.abs(b.summary.delta) - Math.abs(a.summary.delta));
 
   console.log(
@@ -87,13 +103,66 @@ function main() {
       .join(" / ");
     const flipped = signFlipped(perRun.get(row.source) ?? []);
     console.log(
-      `| \`${row.source}\` | ${row.pairs.length} | ${formatDelta(row.summary.delta)} [${formatDelta(row.summary.lower)}, ${formatDelta(row.summary.upper)}] | ${row.summary.mcnemar.pValue.toFixed(3)} | ${row.holm.toFixed(3)} | ${deltas}${flipped ? " **flips**" : ""} | ${flipped ? "NOISE — sign not stable across runs" : row.summary.verdict} |`,
+      `| \`${row.source}\` | ${row.pairs.length} | ${formatDelta(row.summary.delta)} [${formatDelta(row.summary.lower)}, ${formatDelta(row.summary.upper)}] | ${row.summary.mcnemar.pValue.toFixed(3)} | ${row.summary.adjustedPValue.toFixed(3)} | ${deltas}${flipped ? " **flips**" : ""} | ${flipped ? "NOISE — sign not stable across runs" : row.summary.verdict} |`,
     );
   }
 
   console.log(
     "\nAn arm whose per-run deltas disagree in sign is reported as noise regardless of its pooled p-value: pooling raises power, it does not rescue an unstable measurement.",
   );
+}
+
+/**
+ * Pooling treats each run as an independent sample of every case. Two things
+ * break that, and both make the interval narrower rather than wider, so the
+ * result looks better instead of obviously wrong.
+ *
+ * A run that replayed cached verdicts is the earlier run's numbers again: the
+ * cache key covers the case, model, code, judge, and sample index, so a hit
+ * returns an identical record. Pooling it doubles k and adds nothing.
+ *
+ * Runs over different models, splits, or shards are not measuring the same
+ * thing at all, and their per-case sets may not even overlap.
+ */
+function poolingRefusal(runs: AblationFile[], files: string[]): string | null {
+  const cached = runs
+    .map((run, index) => ({ run, file: files[index] }))
+    .filter(({ run }) => run.cacheMode && run.cacheMode !== "off");
+  if (cached.length > 0) {
+    return [
+      "Refusing to pool: these runs replayed cached verdicts, so they are the",
+      "same numbers more than once. Pooling would narrow the interval without",
+      "adding information.",
+      "",
+      ...cached.map(
+        ({ run, file }) =>
+          `  ${path.basename(file ?? "?")} — EVAL_CACHE=${run.cacheMode}`,
+      ),
+      "",
+      "Re-run with EVAL_CACHE=refresh or EVAL_CACHE=off to get fresh samples.",
+    ].join("\n");
+  }
+
+  const models = new Set(runs.map((run) => run.model));
+  if (models.size > 1) {
+    return `Refusing to pool runs from different models: ${[...models].join(", ")}. They are not samples of the same measurement.`;
+  }
+
+  const scopes = new Set(
+    runs.map((run) =>
+      JSON.stringify([
+        run.filters?.split ?? "unknown",
+        run.filters?.shard
+          ? `${run.filters.shard.index}/${run.filters.shard.total}`
+          : "full",
+      ]),
+    ),
+  );
+  if (scopes.size > 1) {
+    return `Refusing to pool runs over different case scopes: ${[...scopes].join(" vs ")}. They do not cover the same cases.`;
+  }
+
+  return null;
 }
 
 function poolBySource(runs: AblationFile[]): Map<string, PairedCase[]> {
@@ -124,18 +193,22 @@ function poolBySource(runs: AblationFile[]): Map<string, PairedCase[]> {
   );
 }
 
+/**
+ * One entry per run, in run order, so the column lines up with the run list
+ * printed above the table. An arm missing from a run gets null on both sides of
+ * where it does appear, including the runs before it was first seen.
+ */
 function perRunDeltas(runs: AblationFile[]): Map<string, (number | null)[]> {
   const deltas = new Map<string, (number | null)[]>();
-  for (const run of runs) {
-    const seen = new Set<string>();
+  for (const [index, run] of runs.entries()) {
     for (const arm of run.arms) {
-      seen.add(arm.source);
-      const list = deltas.get(arm.source) ?? [];
+      const list: (number | null)[] =
+        deltas.get(arm.source) ?? Array.from({ length: index }, () => null);
       list.push(rateOf(arm.pairs, "variant") - rateOf(arm.pairs, "baseline"));
       deltas.set(arm.source, list);
     }
-    for (const [source, list] of deltas) {
-      if (!seen.has(source)) list.push(null);
+    for (const list of deltas.values()) {
+      if (list.length <= index) list.push(null);
     }
   }
   return deltas;
@@ -162,6 +235,7 @@ function signFlipped(deltas: (number | null)[]): boolean {
 function resolveFiles(): string[] {
   const fromArgs = process.argv.slice(2).filter((arg) => arg.endsWith(".json"));
   if (fromArgs.length > 0) return fromArgs;
+  if (!existsSync(RUN_DIR)) return [];
 
   return readdirSync(RUN_DIR)
     .filter((name) => name.endsWith(".json"))
