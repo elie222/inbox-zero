@@ -67,6 +67,9 @@ jobs:
       - name: Check client redirects
         run: pnpm -F inbox-zero-ai check-client-redirects
 
+      - name: Check test fixture hygiene
+        run: pnpm -F inbox-zero-ai check-test-fixtures
+
       - name: Run tests
         run: pnpm -F inbox-zero-ai test
         env:
