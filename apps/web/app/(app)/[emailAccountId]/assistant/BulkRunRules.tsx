@@ -35,7 +35,7 @@ import {
   getProgressMessage,
   initialBulkRunState,
 } from "@/app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer";
-import { useEndStripeTrial } from "@/hooks/useEndStripeTrial";
+import { EndTrialButton } from "@/components/EndTrialButton";
 import { onRun } from "@/app/(app)/[emailAccountId]/assistant/bulk-run";
 import { useAiAutomationStatus } from "@/hooks/useAiAutomationStatus";
 
@@ -55,7 +55,6 @@ export function BulkRunRules() {
     premium,
     tier,
   } = usePremium();
-  const { loading: loadingEndTrial, endTrial } = useEndStripeTrial();
   const { data: aiAutomationStatus } = useAiAutomationStatus();
 
   const isBusinessPlusTier = hasTierAccess({
@@ -244,16 +243,11 @@ export function BulkRunRules() {
                     {trialAiLimitMessage ??
                       `Trials can process up to ${TRIAL_BULK_PROCESS_EMAIL_LIMIT} past emails at a time.`}
                   </span>
-                  <Button
-                    type="button"
+                  <EndTrialButton
                     size="sm"
                     variant="outline"
-                    loading={loadingEndTrial}
-                    onClick={endTrial}
                     className="self-start border-blue-300 bg-white text-blue-900 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-100 dark:hover:bg-blue-900 sm:self-auto"
-                  >
-                    Start paid plan now
-                  </Button>
+                  />
                 </div>
               )}
 
