@@ -11,6 +11,7 @@ import {
 import type { AssertionOutcome } from "@/__tests__/eval/harness/assertions";
 import {
   buildCacheKey,
+  getCodeFingerprint,
   readCachedRecord,
   rehydrate,
   writeCachedRecord,
@@ -71,6 +72,19 @@ export type EvalResultRecord = {
   actual: string | null;
   error: string | null;
   sourceRoot: string | null;
+  /**
+   * Hash of the files that shape a draft, so a stored record says which build
+   * produced it.
+   *
+   * The cache already keys on this, which stops a stale verdict being served.
+   * It does not make a record self-describing: two runs of the same model under
+   * different prompts land in separate cache files whose contents are identical
+   * in every field, so a before/after comparison cannot be told apart
+   * afterwards. Since run history goes to a gitignored directory and the cache
+   * outlives it, that meant the evidence for a prompt change disappeared as
+   * soon as the run ended.
+   */
+  codeFingerprint: string | null;
 };
 
 export type EvalRun = {
@@ -146,7 +160,7 @@ export async function runEvalSuite<
   caseFingerprintOf,
   judgeFingerprint,
   model,
-  variantId = "baseline",
+  variantId = defaultVariantId(),
   samples = defaultSamples(),
   concurrency = DEFAULT_CONCURRENCY,
   timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -296,6 +310,10 @@ async function runOne<
     variantId,
     sampleIndex,
     sourceRoot: evalCase.__sourceRoot ?? null,
+    // Safe to stamp the current fingerprint even on a rehydrated cache hit: the
+    // fingerprint is part of the cache key, so a hit can only have been written
+    // under this same one.
+    codeFingerprint: getCodeFingerprint(),
   };
 
   const cacheKey =
@@ -430,6 +448,15 @@ function errorMessage(error: unknown): string {
 function defaultSamples(): number {
   const raw = Number(process.env.EVAL_SAMPLES);
   return Number.isInteger(raw) && raw > 0 ? raw : 1;
+}
+
+/**
+ * Names the arm a run belongs to. Part of the cache key, so two arms never
+ * share a cached verdict, and stored on every record so a finished experiment
+ * can still be told apart from the run it was compared against.
+ */
+function defaultVariantId(): string {
+  return process.env.EVAL_VARIANT_ID?.trim() || "baseline";
 }
 
 function parseSplit(value: string | undefined): EvalSplit | "all" {

@@ -191,4 +191,52 @@ describe("runEvalSuite", () => {
     expect(failed?.pass).toBe(false);
     expect(failed?.error).toContain("provider exploded");
   });
+  it("stamps every record with the fingerprint of the code that produced it", async () => {
+    const run = await runEvalSuite({
+      evalName: "unit",
+      model: "test-model",
+      writeHistory: false,
+      filters: noFilters,
+      cases: [makeCase({ id: "a" })],
+      invoke: async () => "reply",
+    });
+
+    // Two arms of an experiment are the same model on the same cases, so
+    // without this the only thing distinguishing their stored records is which
+    // prompt was on disk at the time, which nothing records.
+    const [only] = run.records;
+    expect(only?.codeFingerprint).toEqual(expect.any(String));
+    expect(only?.codeFingerprint).not.toBe("");
+  });
+
+  it("names the arm from EVAL_VARIANT_ID and falls back to baseline", async () => {
+    const previous = process.env.EVAL_VARIANT_ID;
+    try {
+      process.env.EVAL_VARIANT_ID = "grounded-rubric";
+      const named = await runEvalSuite({
+        evalName: "unit",
+        model: "test-model",
+        writeHistory: false,
+        filters: noFilters,
+        cases: [makeCase({ id: "a" })],
+        invoke: async () => "reply",
+      });
+      expect(named.variantId).toBe("grounded-rubric");
+      expect(named.records[0]?.variantId).toBe("grounded-rubric");
+
+      process.env.EVAL_VARIANT_ID = "   ";
+      const blank = await runEvalSuite({
+        evalName: "unit",
+        model: "test-model",
+        writeHistory: false,
+        filters: noFilters,
+        cases: [makeCase({ id: "a" })],
+        invoke: async () => "reply",
+      });
+      expect(blank.variantId).toBe("baseline");
+    } finally {
+      if (previous === undefined) delete process.env.EVAL_VARIANT_ID;
+      else process.env.EVAL_VARIANT_ID = previous;
+    }
+  });
 });
