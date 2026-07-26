@@ -2,6 +2,7 @@
 
 import { cn } from "@/utils";
 import { useEffect } from "react";
+import { scheduleAfterPageLoad } from "@/utils/schedule-after-page-load";
 
 type UnicornStudioInitFlag = {
   isInitialized: boolean;
@@ -25,7 +26,9 @@ interface UnicornSceneProps {
 
 export function UnicornScene({ className }: UnicornSceneProps) {
   useEffect(() => {
-    if (!window.UnicornStudio) {
+    const loadUnicornStudio = () => {
+      if (window.UnicornStudio) return;
+
       // @ts-expect-error - window.UnicornStudio is a flag object, not the global UnicornStudio
       window.UnicornStudio = {
         isInitialized: false,
@@ -43,7 +46,12 @@ export function UnicornScene({ className }: UnicornSceneProps) {
         }
       };
       (document.head || document.body).appendChild(script);
-    }
+    };
+
+    return scheduleAfterPageLoad(loadUnicornStudio, {
+      fallbackDelay: 1000,
+      idleTimeout: 4000,
+    });
   }, []);
 
   return (

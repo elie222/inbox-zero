@@ -284,7 +284,7 @@ async function authMiddleware(
     );
   }
 
-  const authReq = req.clone() as RequestWithAuth;
+  const authReq = req as RequestWithAuth;
   authReq.auth = { userId: session.user.id };
 
   authReq.logger = baseLogger.with({ userId: session.user.id });
@@ -398,7 +398,7 @@ async function emailAccountMiddleware(
           userId,
         });
 
-        const emailAccountReq = req.clone() as RequestWithEmailAccount;
+        const emailAccountReq = authReq as RequestWithEmailAccount;
         emailAccountReq.auth = {
           userId,
           emailAccountId,
@@ -428,8 +428,7 @@ async function emailAccountMiddleware(
       userId,
     });
 
-    // Create a new request with email account info
-    const emailAccountReq = req.clone() as RequestWithEmailAccount;
+    const emailAccountReq = authReq as RequestWithEmailAccount;
     emailAccountReq.auth = { userId, emailAccountId, email };
     emailAccountReq.logger = emailAccountLogger;
 
@@ -451,9 +450,6 @@ async function emailProviderMiddleware(
   if (emailAccountReq instanceof Response) return emailAccountReq;
 
   const { userId, emailAccountId } = emailAccountReq.auth;
-  const reqWithAuth = req as RequestWithEmailAccount;
-  reqWithAuth.auth = emailAccountReq.auth;
-  reqWithAuth.logger = emailAccountReq.logger;
   const middlewareStartTime = Date.now();
 
   try {
@@ -494,7 +490,7 @@ async function emailProviderMiddleware(
         }),
     });
 
-    const providerReq = emailAccountReq.clone() as RequestWithEmailProvider;
+    const providerReq = emailAccountReq as RequestWithEmailProvider;
     providerReq.auth = emailAccountReq.auth;
     providerReq.emailProvider = provider;
     providerReq.logger = emailAccountReq.logger;

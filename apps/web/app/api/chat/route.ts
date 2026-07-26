@@ -24,6 +24,7 @@ import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stat
 import { formatUtcDate } from "@/utils/date";
 import { mapUiMessagesToChatMessageRows } from "@/app/api/chat/chat-message-persistence";
 import {
+  ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE,
   type AssistantInput,
   assistantInputSchema,
 } from "@/utils/actions/assistant-chat.validation";
@@ -58,7 +59,40 @@ export const POST = withEmailAccount("chat", async (request) => {
   const json = await request.json();
   const { data, error } = assistantInputSchema.safeParse(json);
 
-  if (error) return NextResponse.json({ error: error.issues }, { status: 400 });
+  if (error) {
+    const requestMetadata = getInvalidChatRequestMetadata(json);
+    const messageTooLong = error.issues.some(
+      (issue) =>
+        issue.code === "too_big" &&
+        issue.path.length === 4 &&
+        issue.path[0] === "message" &&
+        issue.path[1] === "parts" &&
+        typeof issue.path[2] === "number" &&
+        issue.path[3] === "text",
+    );
+
+    request.logger.warn("Assistant chat request rejected", {
+      ...requestMetadata,
+      failureCategory: messageTooLong ? "message_too_long" : "validation_error",
+      statusCode: 400,
+      validationIssueCodes: [
+        ...new Set(error.issues.map((issue) => issue.code)),
+      ],
+    });
+    await flushLoggerSafely(request.logger, {
+      action: "assistant-chat",
+      flushReason: "chat-validation-error",
+    });
+
+    return NextResponse.json(
+      {
+        error: messageTooLong
+          ? ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE
+          : "Invalid chat message.",
+      },
+      { status: 400 },
+    );
+  }
 
   const chat =
     (await getChatWithCompactions(data.id)) ||
@@ -442,5 +476,37 @@ function getToolCallIdsFromUiParts(parts: UIMessage["parts"] | undefined) {
   return (
     parts?.flatMap((part) => ("toolCallId" in part ? [part.toolCallId] : [])) ||
     []
+  );
+}
+
+function getInvalidChatRequestMetadata(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return { attachmentCount: 0, textLength: 0 };
+  }
+
+  const message = (value as Record<string, unknown>).message;
+  if (!message || typeof message !== "object") {
+    return { attachmentCount: 0, textLength: 0 };
+  }
+
+  const parts = (message as Record<string, unknown>).parts;
+  if (!Array.isArray(parts)) {
+    return { attachmentCount: 0, textLength: 0 };
+  }
+
+  return parts.reduce(
+    (metadata, part) => {
+      if (!part || typeof part !== "object") return metadata;
+
+      const candidate = part as Record<string, unknown>;
+      if (candidate.type === "text" && typeof candidate.text === "string") {
+        metadata.textLength += candidate.text.length;
+      } else if (candidate.type === "file") {
+        metadata.attachmentCount += 1;
+      }
+
+      return metadata;
+    },
+    { attachmentCount: 0, textLength: 0 },
   );
 }

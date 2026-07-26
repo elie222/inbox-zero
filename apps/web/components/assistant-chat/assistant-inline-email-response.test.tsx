@@ -39,9 +39,13 @@ vi.mock("@/components/Tooltip", () => ({
 vi.mock("@/components/ui/button", () => ({
   Button: ({
     children,
+    loading: _loading,
+    Icon: _Icon,
     ...props
   }: {
     children?: ReactNode;
+    loading?: boolean;
+    Icon?: React.ComponentType;
   } & React.ButtonHTMLAttributes<HTMLButtonElement>) =>
     createElement("button", { type: "button", ...props }, children || "button"),
 }));
@@ -123,53 +127,181 @@ describe("AssistantInlineEmailResponse", () => {
   });
 
   it("renders inline email detail views", () => {
-    mockUseThread.mockReturnValue({
-      data: {
-        thread: {
-          id: "thread-1",
-          messages: [
-            {
-              id: "message-1",
-              threadId: "thread-1",
-              subject: "Rendered detail subject",
-              snippet: "Rendered detail snippet",
-              date: "2026-03-11T11:00:00.000Z",
-              historyId: "history-1",
-              inline: [],
-              headers: {
-                from: "Sender <sender@example.com>",
-                to: "user@example.com",
-                date: "2026-03-11T11:00:00.000Z",
-                subject: "Rendered detail subject",
-              },
-              textPlain: "Rendered detail body",
-            },
-          ],
-        },
-      },
-      isLoading: false,
-      error: null,
-    });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mockRenderedThread();
+
+    try {
+      render(
+        createElement(
+          AssistantInlineEmailResponse,
+          null,
+          '\n<email-detail threadid="thread-1">Focus on the action item.</email-detail>\n',
+        ),
+      );
+
+      expect(screen.getByText("Subject")).toBeTruthy();
+      expect(screen.getByText("Focus on the action item.")).toBeTruthy();
+      expect(screen.getByText("Rendered detail body")).toBeTruthy();
+      expect(screen.getByRole("link").getAttribute("href")).toBe(
+        getEmailUrlForMessage(
+          "msg-thread-1",
+          "thread-1",
+          "user@example.com",
+          "google",
+        ),
+      );
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("renders inline email detail views inside numbered lists", () => {
+    mockRenderedThread();
+
+    const { container } = render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        [
+          "Apart from the booking confirmations, the most recent emails are:",
+          "",
+          '1. **water bill receipt** (May 13, 2026, 11:31 AM)\n   <email-detail threadid="thread-1">A receipt for a water bill.</email-detail>',
+        ].join("\n"),
+      ),
+    );
+
+    expect(screen.getByText("Subject")).toBeTruthy();
+    expect(screen.getByText("A receipt for a water bill.")).toBeTruthy();
+    expect(container.textContent).not.toContain("<email-detail");
+    expect(container.textContent).not.toContain("</email-detail>");
+  });
+
+  it("renders email detail tags that contain blank lines", () => {
+    mockRenderedThread();
+
+    const { container } = render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        '<email-detail\n\nthreadid="thread-1">A receipt.</email-detail>',
+      ),
+    );
+
+    expect(screen.getByText("Subject")).toBeTruthy();
+    expect(screen.getByText("A receipt.")).toBeTruthy();
+    expect(container.textContent).not.toContain("<email-detail");
+  });
+
+  it("renders email detail tags with smart-quoted attributes", () => {
+    mockRenderedThread();
 
     render(
       createElement(
         AssistantInlineEmailResponse,
         null,
-        '\n<email-detail threadid="thread-1">Focus on the action item.</email-detail>\n',
+        "<email-detail threadid=“thread-1”>A receipt.</email-detail>",
+      ),
+    );
+
+    // Lookup succeeds only when the smart quotes are normalized away.
+    expect(screen.getByText("Subject")).toBeTruthy();
+    expect(screen.getByText("A receipt.")).toBeTruthy();
+    expect(mockUseThread).toHaveBeenCalledWith({ id: "thread-1" });
+  });
+
+  it("renders email detail tags with single smart-quoted attributes", () => {
+    mockRenderedThread();
+
+    render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        "<email-detail threadid=‘thread-1’>A receipt.</email-detail>",
       ),
     );
 
     expect(screen.getByText("Subject")).toBeTruthy();
-    expect(screen.getByText("Focus on the action item.")).toBeTruthy();
-    expect(screen.getByText("Rendered detail body")).toBeTruthy();
-    expect(screen.getByRole("link").getAttribute("href")).toBe(
-      getEmailUrlForMessage(
-        "msg-thread-1",
-        "thread-1",
-        "user@example.com",
-        "google",
+    expect(mockUseThread).toHaveBeenCalledWith({ id: "thread-1" });
+  });
+
+  it("renders backslash-escaped email detail tags", () => {
+    mockRenderedThread();
+    const content = String.raw`\<email-detail threadid="thread-1">A receipt.\</email-detail>`;
+
+    const { container } = render(
+      createElement(AssistantInlineEmailResponse, null, content),
+    );
+
+    expect(screen.getByText("Subject")).toBeTruthy();
+    expect(container.textContent).not.toContain("<email-detail");
+    expect(container.textContent).not.toContain("</email-detail>");
+  });
+
+  it("renders entity-escaped email detail tags", () => {
+    mockRenderedThread();
+
+    const { container } = render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        "&lt;email-detail threadid=&quot;thread-1&quot;&gt;A receipt.&lt;/email-detail&gt;",
       ),
     );
+
+    expect(screen.getByText("Subject")).toBeTruthy();
+    expect(container.textContent).not.toContain("<email-detail");
+  });
+
+  it.each([
+    [
+      "entity-escaped",
+      "&lt;rule-suggestion name=&quot;Large messages&quot; when=&quot;size &gt; 10MB&quot; archive=&quot;true&quot; /&gt;",
+    ],
+    [
+      "smart-quoted",
+      "<rule-suggestion name=“Large messages” when=“size > 10MB” archive=“true” />",
+    ],
+  ])("renders %s rule tags with greater-than signs in quoted attributes", (_format, content) => {
+    render(createElement(AssistantInlineEmailResponse, null, content));
+
+    expect(screen.getByText("Large messages")).toBeTruthy();
+    expect(screen.getByText("size > 10MB")).toBeTruthy();
+    expect(screen.getByText("Archive")).toBeTruthy();
+  });
+
+  it.each([
+    "&apos;",
+    "&#x27;",
+  ])("decodes %s delimiters in entity-escaped tag attributes", (quoteEntity) => {
+    mockRenderedThread();
+
+    render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        `&lt;email-detail threadid=${quoteEntity}thread-1${quoteEntity}&gt;A receipt.&lt;/email-detail&gt;`,
+      ),
+    );
+
+    expect(mockUseThread).toHaveBeenCalledWith({ id: "thread-1" });
+  });
+
+  it("keeps escaped assistant tags inside inline code as code", () => {
+    const { container } = render(
+      createElement(
+        AssistantInlineEmailResponse,
+        null,
+        '`\\<email-detail threadid="thread-1">A receipt.\\</email-detail>`',
+      ),
+    );
+
+    expect(container.querySelector("code")?.textContent).toBe(
+      '<email-detail threadid="thread-1">A receipt.</email-detail>',
+    );
+    expect(screen.queryByText("Subject")).toBeNull();
   });
 
   it("renders inline rule suggestions and can ask chat to create one", async () => {
@@ -289,5 +421,35 @@ function openMoreActions() {
   fireEvent.pointerDown(screen.getByRole("button", { name: "More actions" }), {
     button: 0,
     ctrlKey: false,
+  });
+}
+
+function mockRenderedThread() {
+  mockUseThread.mockReturnValue({
+    data: {
+      thread: {
+        id: "thread-1",
+        messages: [
+          {
+            id: "message-1",
+            threadId: "thread-1",
+            subject: "Rendered detail subject",
+            snippet: "Rendered detail snippet",
+            date: "2026-03-11T11:00:00.000Z",
+            historyId: "history-1",
+            inline: [],
+            headers: {
+              from: "Sender <sender@example.com>",
+              to: "user@example.com",
+              date: "2026-03-11T11:00:00.000Z",
+              subject: "Rendered detail subject",
+            },
+            textPlain: "Rendered detail body",
+          },
+        ],
+      },
+    },
+    isLoading: false,
+    error: null,
   });
 }

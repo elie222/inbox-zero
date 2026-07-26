@@ -385,6 +385,45 @@ describe("saveAiUsage", () => {
     );
   });
 
+  it("logs completed AI calls with usage and provider request metadata", async () => {
+    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      cachedInputTokens: 200,
+      outputTokens: 400,
+      reasoningTokens: 100,
+      totalTokens: 1500,
+    };
+
+    await saveAiUsage({
+      userId: "user-1",
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "openrouter",
+      model: "openai/gpt-5.6-luna",
+      usage,
+      label: "Reply context collector",
+      providerReportedCost: 0.42,
+      providerRequestIds: ["gen-step-1", "gen-step-2"],
+      stepCount: 2,
+      toolCallCount: 4,
+    });
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[usage]: AI call completed"),
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"inputTokens": 1000'),
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"providerRequestIds"'),
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"gen-step-2"'),
+    );
+    consoleLogSpy.mockRestore();
+  });
+
   it("uses estimated cost when provider-reported cost is zero", async () => {
     const usage: LanguageModelUsage = {
       inputTokens: 1000,

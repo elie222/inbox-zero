@@ -8,8 +8,12 @@ import {
 import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
 import { processAttachment } from "@/utils/drive/filing-engine";
-import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import {
+  DraftReplyConfidence,
+  NewsletterStatus,
+} from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
+import { categorizeSender } from "@/utils/categorize/senders/categorize";
 
 vi.mock("@/utils/prisma", () => ({
   default: {
@@ -18,6 +22,7 @@ vi.mock("@/utils/prisma", () => ({
     },
     newsletter: {
       findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
       findUnique: vi.fn().mockResolvedValue(null),
     },
   },
@@ -155,6 +160,120 @@ describe("Provider Edge Cases", () => {
   });
 
   describe("Message processing", () => {
+    it("blocks unsubscribed senders when the provider changes address casing", async () => {
+      vi.mocked(prisma.newsletter.findFirst).mockResolvedValueOnce({
+        id: "newsletter-1",
+      } as any);
+      const provider = createMockEmailProvider({
+        getMessage: vi.fn().mockResolvedValue(
+          getMockParsedMessage({
+            labelIds: ["INBOX"],
+            headers: {
+              from: "Sender <Sender@Example.COM>",
+              to: "user@test.com",
+              subject: "Test",
+              date: "2024-01-01",
+            },
+          }),
+        ),
+        isSentMessage: vi.fn().mockReturnValue(false),
+      });
+
+      await processHistoryItem(
+        { messageId: "msg-123", threadId: "thread-123" },
+        { ...baseOptions, provider },
+      );
+
+      expect(prisma.newsletter.findFirst).toHaveBeenCalledWith({
+        where: {
+          emailAccountId: baseOptions.emailAccount.id,
+          email: {
+            equals: "sender@example.com",
+            mode: "insensitive",
+          },
+          status: NewsletterStatus.UNSUBSCRIBED,
+        },
+      });
+      expect(provider.blockUnsubscribedEmail).toHaveBeenCalledWith("msg-123");
+    });
+
+    it("does not store an address-only header as the sender display name", async () => {
+      const provider = createMockEmailProvider({
+        getMessage: vi.fn().mockResolvedValue(
+          getMockParsedMessage({
+            labelIds: ["INBOX"],
+            headers: {
+              from: "Sender@Example.COM",
+              to: "user@test.com",
+              subject: "Test",
+              date: "2024-01-01",
+            },
+          }),
+        ),
+        isSentMessage: vi.fn().mockReturnValue(false),
+      });
+      const emailAccount = {
+        ...getDefaultEmailAccount(),
+        autoCategorizeSenders: true,
+      };
+
+      await processHistoryItem(
+        { messageId: "msg-123", threadId: "thread-123" },
+        {
+          ...baseOptions,
+          emailAccount,
+          hasAiAccess: true,
+          provider,
+        },
+      );
+
+      expect(categorizeSender).toHaveBeenCalledWith(
+        "sender@example.com",
+        emailAccount,
+        provider,
+        undefined,
+        undefined,
+      );
+    });
+
+    it("categorizes when any sender casing variant has no category", async () => {
+      vi.mocked(prisma.newsletter.findFirst).mockResolvedValueOnce(null);
+      vi.mocked(prisma.newsletter.findMany).mockResolvedValue([
+        { categoryId: "category-1" },
+        { categoryId: null },
+      ] as any);
+      const provider = createMockEmailProvider({
+        getMessage: vi.fn().mockResolvedValue(
+          getMockParsedMessage({
+            labelIds: ["INBOX"],
+            headers: {
+              from: "Sender <Sender@Example.COM>",
+              to: "user@test.com",
+              subject: "Test",
+              date: "2024-01-01",
+            },
+          }),
+        ),
+        isSentMessage: vi.fn().mockReturnValue(false),
+      });
+
+      await processHistoryItem(
+        { messageId: "msg-123", threadId: "thread-123" },
+        {
+          ...baseOptions,
+          emailAccount: {
+            ...getDefaultEmailAccount(),
+            autoCategorizeSenders: true,
+          },
+          hasAiAccess: true,
+          provider,
+        },
+      );
+
+      expect(prisma.newsletter.findMany).toHaveBeenCalledOnce();
+      expect(categorizeSender).toHaveBeenCalledOnce();
+    });
+
     it("processes inbox messages correctly", async () => {
       const provider = createMockEmailProvider({
         getMessage: vi.fn().mockResolvedValue(

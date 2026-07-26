@@ -4,6 +4,7 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createEmailProvider } from "@/utils/email/provider";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 import {
   extractEmailAddress,
   extractUniqueEmailAddresses,
@@ -16,6 +17,8 @@ import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
 import { runWithBoundedConcurrency } from "@/utils/async";
+import { findNestedLabelMatches } from "@/utils/label/find-nested-label-matches";
+import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import {
   buildOutlookSearchFallbackQuery,
@@ -51,6 +54,8 @@ import {
   isRetryableError as isGmailRetryableError,
 } from "@/utils/gmail/retry";
 import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
+import { validateUserAndAiAccess } from "@/utils/user/validate";
+import { SafeError } from "@/utils/error";
 
 const SEARCH_INBOX_MAX_RESULTS = 20;
 const OUTLOOK_EMPTY_PAGE_AUTOPAGINATION_LIMIT = 5;
@@ -373,6 +378,8 @@ export const startSenderCategorizationTool = ({
       trackToolCall({ tool: "start_sender_categorization", email, logger });
 
       try {
+        await validateUserAndAiAccess({ emailAccountId });
+
         const emailProvider = await createEmailProvider({
           emailAccountId,
           provider,
@@ -385,6 +392,11 @@ export const startSenderCategorizationTool = ({
           logger,
         });
       } catch (error) {
+        if (error instanceof SafeError) {
+          logger.warn("Unable to start sender categorization", { error });
+          return { error: error.message };
+        }
+
         logger.error("Failed to start sender categorization", { error });
         return {
           error: "Failed to start sender categorization",
@@ -1164,6 +1176,7 @@ const buildManageInboxTool = ({
               emailProvider,
               labelName: labelName!,
               action,
+              matchNestedLabels: isGoogleProvider(provider),
               missingLabelError: taxonomy.missingLabelError,
             });
           } catch (error) {
@@ -1981,23 +1994,51 @@ async function resolveThreadLabel({
   emailProvider,
   labelName,
   action,
+  matchNestedLabels,
   missingLabelError,
 }: {
   emailProvider: EmailProvider;
   labelName: string;
   action: ManageInboxAction;
+  matchNestedLabels: boolean;
   missingLabelError: (name: string, action: ManageInboxAction) => string;
 }) {
   const existingLabel = await emailProvider.getLabelByName(labelName);
 
-  if (!existingLabel) {
-    throw new Error(missingLabelError(labelName, action));
+  if (existingLabel) {
+    return {
+      labelId: existingLabel.id,
+      labelName: existingLabel.name,
+    };
   }
 
-  return {
-    labelId: existingLabel.id,
-    labelName: existingLabel.name,
-  };
+  if (matchNestedLabels) {
+    const labels = await emailProvider.getLabels({ includeHidden: true });
+    const nestedMatches = findNestedLabelMatches({
+      labels,
+      name: labelName,
+      getLabelName: (label) => label.name,
+      normalize: normalizeLabelName,
+    });
+
+    if (nestedMatches.length === 1) {
+      return {
+        labelId: nestedMatches[0].id,
+        labelName: nestedMatches[0].name,
+      };
+    }
+
+    if (nestedMatches.length > 1) {
+      const paths = nestedMatches
+        .map((label) => JSON.stringify(label.name))
+        .join(", ");
+      throw new Error(
+        `Multiple Gmail labels match "${labelName}": ${paths}. Use the full label path.`,
+      );
+    }
+  }
+
+  throw new Error(missingLabelError(labelName, action));
 }
 
 async function runSenderUnsubscribeActions({

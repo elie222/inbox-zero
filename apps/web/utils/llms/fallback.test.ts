@@ -326,11 +326,14 @@ describe("createGenerateText fallback chain", () => {
             },
           },
         },
+        response: { id: "gen-final" },
         steps: [
           {
+            response: { id: "gen-step-1" },
             toolCalls: [{ toolName: "searchEmails" }],
           },
           {
+            response: { id: "gen-final" },
             toolCalls: [{ toolName: "finalizeResults" }],
           },
         ],
@@ -353,6 +356,7 @@ describe("createGenerateText fallback chain", () => {
         providerReportedCost: 0.42,
         providerUpstreamInferenceCost: 0.12,
         providerCostSource: "openrouter_usage",
+        providerRequestIds: ["gen-step-1", "gen-final"],
         stepCount: 2,
         toolCallCount: 2,
       }),

@@ -20,18 +20,20 @@ export function OrganizedInbox({ title, subtitle }: OrganizedInboxProps) {
       <SectionSubtitle>{subtitle}</SectionSubtitle>
       <SectionContent className="flex justify-center">
         <Image
-          className="hidden md:block"
+          className="hidden h-auto w-full md:block"
           src="/images/new-landing/an-organized-inbox.png"
           alt="an organized inbox"
-          width={1000}
-          height={1000}
+          width={2120}
+          height={1294}
+          sizes="(min-width: 1280px) 1152px, (min-width: 1024px) calc(100vw - 64px), calc(100vw - 48px)"
         />
         <Image
-          className="block md:hidden"
+          className="block h-auto w-full md:hidden"
           src="/images/new-landing/an-organized-inbox-mobile.png"
           alt="an organized inbox"
-          width={1000}
-          height={1000}
+          width={1431}
+          height={3301}
+          sizes="calc(100vw - 48px)"
         />
       </SectionContent>
     </Section>

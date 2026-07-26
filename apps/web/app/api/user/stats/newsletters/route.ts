@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withEmailProvider } from "@/utils/middleware";
 import {
-  extractEmailAddress,
+  canonicalizeEmailAddress,
   getNewsletterSenderDisplayName,
 } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
@@ -11,8 +11,9 @@ import { Prisma } from "@/generated/prisma/client";
 import type { EmailProvider } from "@/utils/email/types";
 import {
   getEmailFilters,
-  findNewsletterStatus,
+  getNewsletterStatuses,
   findAutoArchiveFilter,
+  findNewsletterStatus,
   findSenderLabelFilters,
   filterNewsletters,
 } from "@/app/api/user/stats/newsletters/helpers";
@@ -81,18 +82,18 @@ async function getEmailMessages(
   const { emailAccountId, emailProvider, logger } = options;
   const types = getTypeFilters(options.types);
 
-  const [counts, emailFilters, userNewsletters] = await Promise.all([
+  const [counts, emailFilters, newsletterStatuses] = await Promise.all([
     getNewsletterCounts({
       ...options,
       ...types,
       logger,
     }),
     getEmailFilters(emailProvider, logger),
-    findNewsletterStatus({ emailAccountId }),
+    getNewsletterStatuses({ emailAccountId }),
   ]);
 
   const newsletters = counts.map((email) => {
-    const from = extractEmailAddress(email.from);
+    const from = canonicalizeEmailAddress(email.from);
     return {
       name: from,
       fromName: getNewsletterSenderDisplayName({
@@ -107,7 +108,7 @@ async function getEmailMessages(
       unsubscribeLink: email.unsubscribeLink,
       autoArchived: findAutoArchiveFilter(emailFilters, from, emailProvider),
       labelFilters: findSenderLabelFilters(emailFilters, from),
-      status: userNewsletters?.find((n) => n.email === from)?.status,
+      status: findNewsletterStatus(newsletterStatuses, from),
     };
   });
 
@@ -214,7 +215,7 @@ async function getNewsletterCounts(
   const query = Prisma.sql`
     WITH email_message_stats AS (
       SELECT 
-        "from",
+        LOWER("from") AS "from",
         MAX(NULLIF("fromName", '')) as "fromName",
         MIN(NULLIF("fromName", '')) as "minFromName",
         COUNT(*)::int as "count",
@@ -223,7 +224,7 @@ async function getNewsletterCounts(
         MAX("unsubscribeLink") as "unsubscribeLink"
       FROM "EmailMessage"
       ${whereClause}
-      GROUP BY "from"
+      GROUP BY LOWER("from")
     )
     SELECT * FROM email_message_stats
     ORDER BY ${Prisma.raw(orderByClause)}

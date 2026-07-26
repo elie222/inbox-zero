@@ -174,6 +174,19 @@ type RepairAttemptState = {
   successfulCandidateKind?: RepairCandidateKind;
 };
 
+type LlmFallbackFailureCategory =
+  | "content_filter"
+  | "network"
+  | "rate_limit"
+  | "server_error"
+  | "unknown";
+
+type LlmFallbackFailure = {
+  provider: string;
+  model: string;
+  category: LlmFallbackFailureCategory;
+};
+
 type ProviderCostSource =
   | "openrouter_usage"
   | "openrouter_usage_with_step_fallback"
@@ -183,6 +196,7 @@ type UsageMetadata = {
   providerReportedCost?: number;
   providerUpstreamInferenceCost?: number;
   providerCostSource?: ProviderCostSource;
+  providerRequestIds?: string[];
   stepCount?: number;
   toolCallCount?: number;
 };
@@ -306,7 +320,6 @@ export function createGenerateText({
 
       const providerOptions = buildProviderOptions({
         provider: candidate.provider,
-        modelName: candidate.modelName,
         modelProviderOptions: candidate.providerOptions as
           | LLMProviderOptions
           | undefined,
@@ -457,6 +470,7 @@ export function createGenerateObject({
         label,
       });
     let latestRepairAttempt: RepairAttemptState | undefined;
+    const fallbackFailures: LlmFallbackFailure[] = [];
 
     const generate = async (candidate: ResolvedModel) => {
       const systemText = applyPromptHardeningToSystem({
@@ -507,7 +521,6 @@ export function createGenerateObject({
 
       const providerOptions = buildProviderOptions({
         provider: candidate.provider,
-        modelName: candidate.modelName,
         modelProviderOptions: candidate.providerOptions as
           | LLMProviderOptions
           | undefined,
@@ -577,7 +590,7 @@ export function createGenerateObject({
       latestRepairAttempt = undefined;
 
       try {
-        return await withLLMRetry(
+        const result = await withLLMRetry(
           () =>
             withNetworkRetry(() => generate(candidate), {
               label,
@@ -588,6 +601,24 @@ export function createGenerateObject({
             }),
           { label },
         );
+
+        logger.info("LLM object generation completed", {
+          label,
+          candidateCount: modelCandidates.length,
+          fallbackUsed: index > 0,
+          fallbackDepth: index,
+          selectedProvider: candidate.provider,
+          selectedModel: candidate.modelName,
+          attemptedModels: modelCandidates
+            .slice(0, index + 1)
+            .map(getResolvedModelKey),
+          failedModels: fallbackFailures.map(
+            ({ provider, model }) => `${provider}:${model}`,
+          ),
+          failureCategories: fallbackFailures.map(({ category }) => category),
+        });
+
+        return result;
       } catch (error) {
         if (error instanceof SafeError) throw error;
 
@@ -602,6 +633,11 @@ export function createGenerateObject({
         );
 
         if (nextCandidate && shouldFallbackToNextModel(error)) {
+          fallbackFailures.push({
+            provider: candidate.provider,
+            model: candidate.modelName,
+            category: getLlmFallbackFailureCategory(error),
+          });
           logger.warn("LLM object generation failed, trying fallback model", {
             label,
             provider: candidate.provider,
@@ -672,7 +708,6 @@ export async function chatCompletionStream(
     const nextCandidate = modelCandidates[index + 1];
     const providerOptions = buildProviderOptions({
       provider: candidate.provider,
-      modelName: candidate.modelName,
       modelProviderOptions: candidate.providerOptions as
         | LLMProviderOptions
         | undefined,
@@ -830,7 +865,6 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
     const nextCandidate = modelCandidates[index + 1];
     const providerOptions = buildProviderOptions({
       provider: candidate.provider,
-      modelName: candidate.modelName,
       modelProviderOptions: candidate.providerOptions as
         | LLMProviderOptions
         | undefined,
@@ -1315,6 +1349,28 @@ function getModelCandidates(modelOptions: SelectModel): ResolvedModel[] {
   return [primaryModel, ...modelOptions.fallbackModels];
 }
 
+function getResolvedModelKey({ provider, modelName }: ResolvedModel): string {
+  return `${provider}:${modelName}`;
+}
+
+function getLlmFallbackFailureCategory(
+  error: unknown,
+): LlmFallbackFailureCategory {
+  if (isContentFilterRefusal(error)) return "content_filter";
+
+  const errorInfo = extractLLMErrorInfo(error);
+  if (
+    errorInfo.isRateLimit ||
+    (RetryError.isInstance(error) && isAiQuotaExceededError(error))
+  ) {
+    return "rate_limit";
+  }
+  if (isTransientNetworkError(error)) return "network";
+  if (errorInfo.retryable) return "server_error";
+
+  return "unknown";
+}
+
 function shouldFallbackToNextModel(error: unknown): boolean {
   if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {
     return true;
@@ -1349,7 +1405,6 @@ function mergeProviderOptions(
 
 function buildProviderOptions({
   provider,
-  modelName,
   modelProviderOptions,
   requestProviderOptions,
   userId,
@@ -1357,7 +1412,6 @@ function buildProviderOptions({
   emailAccountId,
 }: {
   provider: string;
-  modelName?: string;
   modelProviderOptions?: LLMProviderOptions;
   requestProviderOptions?: LLMProviderOptions;
   userId?: string;
@@ -1378,11 +1432,7 @@ function buildProviderOptions({
     emailAccountId,
   });
 
-  return normalizeOpenRouterReasoningOptions({
-    provider,
-    modelName,
-    providerOptions: withMetadata,
-  });
+  return withMetadata;
 }
 
 function withOpenRouterMetadata({
@@ -1450,49 +1500,6 @@ function withOpenRouterMetadata({
     ...providerOptions,
     openrouter: nextOpenRouterOptions,
   };
-}
-
-function normalizeOpenRouterReasoningOptions({
-  provider,
-  modelName,
-  providerOptions,
-}: {
-  provider: string;
-  modelName?: string;
-  providerOptions: LLMProviderOptions;
-}) {
-  if (provider !== Provider.OPENROUTER) return providerOptions;
-  if (!isOpenRouterXaiGrokModel(modelName)) return providerOptions;
-
-  const openRouterOptions = providerOptions.openrouter;
-  if (!isJsonObject(openRouterOptions)) return providerOptions;
-
-  const reasoningOptions = openRouterOptions.reasoning;
-  if (!isJsonObject(reasoningOptions)) return providerOptions;
-
-  const { max_tokens: _maxTokens, ...restReasoningOptions } = reasoningOptions;
-  const normalizedReasoning: Record<string, JSONValue> = {
-    ...restReasoningOptions,
-  };
-
-  if (
-    !("enabled" in normalizedReasoning) &&
-    !("effort" in normalizedReasoning)
-  ) {
-    normalizedReasoning.enabled = true;
-  }
-
-  return {
-    ...providerOptions,
-    openrouter: {
-      ...openRouterOptions,
-      reasoning: normalizedReasoning,
-    },
-  };
-}
-
-function isOpenRouterXaiGrokModel(modelName?: string) {
-  return modelName?.toLowerCase().startsWith("x-ai/grok-");
 }
 
 function repairObjectText(text: string, label: string) {
@@ -1707,6 +1714,7 @@ function getUsageMetadata(result: unknown): UsageMetadata {
   return {
     stepCount,
     toolCallCount,
+    providerRequestIds: getProviderRequestIds(result),
     providerReportedCost: providerCost.providerReportedCost,
     providerUpstreamInferenceCost: providerCost.providerUpstreamInferenceCost,
     providerCostSource: providerCost.providerCostSource,
@@ -1748,9 +1756,28 @@ async function saveUsageWithMetadata({
     providerReportedCost: usageMetadata.providerReportedCost,
     providerUpstreamInferenceCost: usageMetadata.providerUpstreamInferenceCost,
     providerCostSource: usageMetadata.providerCostSource,
+    providerRequestIds: usageMetadata.providerRequestIds,
     stepCount: usageMetadata.stepCount,
     toolCallCount: usageMetadata.toolCallCount,
   });
+}
+
+function getProviderRequestIds(result: unknown): string[] | undefined {
+  const requestIds = new Set<string>();
+
+  for (const step of getObjectArrayProperty(result, "steps") ?? []) {
+    addProviderRequestId(requestIds, step);
+  }
+  addProviderRequestId(requestIds, result);
+
+  return requestIds.size > 0 ? [...requestIds] : undefined;
+}
+
+function addProviderRequestId(requestIds: Set<string>, result: unknown) {
+  const response = getObjectProperty(result, "response");
+  const id = getProperty(response, "id");
+
+  if (typeof id === "string" && id) requestIds.add(id);
 }
 
 function getStepCount(result: unknown) {

@@ -23,7 +23,6 @@ import type {
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { usePremium } from "@/hooks/usePremium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
-import { useOnboardingBulkUnsubscribeVariant } from "@/hooks/useFeatureFlags";
 import { createSearchParams } from "@/utils/url";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
@@ -35,12 +34,6 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
   const posthog = usePostHog();
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
   const { PremiumModal, openModal } = usePremiumModal();
-
-  // A/B test: "inline-unsubscribe" shows the personalized, actionable list;
-  // "control" keeps the static marketing slide. Reading the variant is the
-  // experiment exposure.
-  const variant = useOnboardingBulkUnsubscribeVariant();
-  const isTreatment = variant === "inline-unsubscribe";
 
   // Day-boundary date range keeps the SWR key stable across mounts, so
   // revisiting this step (back/forward) reuses the cached result.
@@ -58,8 +51,7 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
   };
   const urlParams = createSearchParams(params);
   const { data, isLoading, mutate } = useSWR<NewsletterStatsResponse>(
-    // Only fetch in the treatment arm; control never renders the list.
-    isTreatment && emailAccountId
+    emailAccountId
       ? [`/api/user/stats/newsletters?${urlParams}`, emailAccountId]
       : null,
     {
@@ -107,15 +99,14 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
     (item) => !deselected.has(item.name),
   );
 
-  // Record (once) when the treatment user is actually shown the suggestion
-  // list, so we can measure how often the data was ready in time.
+  // Record (once) when the user is actually shown the suggestion list, so we
+  // can measure how often the data was ready in time.
   const suggestionsShownRef = useRef(false);
   useEffect(() => {
-    if (!isTreatment || suggestionsShownRef.current) return;
+    if (suggestionsShownRef.current) return;
     if (!previewSenders.length) return;
     suggestionsShownRef.current = true;
     posthog?.capture("onboarding_unsubscribe_suggestions_shown", {
-      variant,
       shownCount: previewSenders.length,
       totalSuggestions: suggestions.length,
       lowReadSuggestionCount: lowReadSuggestions.length,
@@ -125,17 +116,13 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
         lowReadSuggestions.length - lowReadSuggestionsWithAutomaticUnsubscribe,
     });
   }, [
-    isTreatment,
     previewSenders.length,
     suggestions.length,
     lowReadSuggestions.length,
     lowReadSuggestionsWithAutomaticUnsubscribe,
-    variant,
     posthog,
   ]);
 
-  // Control arm (and PostHog-unavailable fallback) keeps the static slide.
-  if (!isTreatment) return <StaticBulkUnsubscribeStep onNext={onNext} />;
   if (!emailAccountId) return null;
 
   // Don't render the static content while the fetch is in flight, or the
@@ -160,7 +147,6 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
 
   const onSkip = () => {
     posthog?.capture("onboarding_unsubscribe_skipped", {
-      variant,
       selectedCount: selectedSenders.length,
       totalSuggestions: suggestions.length,
     });
@@ -174,7 +160,6 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
     }
 
     posthog?.capture("onboarding_unsubscribe_cta_clicked", {
-      variant,
       selectedCount: selectedSenders.length,
       totalSuggestions: suggestions.length,
       hasUnsubscribeAccess,
@@ -182,7 +167,6 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
 
     if (!hasUnsubscribeAccess) {
       posthog?.capture("onboarding_unsubscribe_upgrade_prompt_shown", {
-        variant,
         selectedCount: selectedSenders.length,
         totalSuggestions: suggestions.length,
       });
@@ -191,7 +175,6 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
     }
 
     posthog?.capture("onboarding_unsubscribe_clicked", {
-      variant,
       count: selectedSenders.length,
       totalSuggestions: suggestions.length,
     });

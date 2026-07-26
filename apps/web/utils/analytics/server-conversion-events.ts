@@ -1,7 +1,9 @@
 import type Stripe from "stripe";
+import type { HeadersInit } from "@upstash/qstash";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import type { Prisma } from "@/generated/prisma/client";
+import { publishToQstash } from "@/utils/upstash";
 
 export const CONVERSION_ATTRIBUTION_COOKIE = "iz_conversion_ref";
 export const CONVERSION_ATTRIBUTION_METADATA_KEY = "conversionAttributionId";
@@ -18,14 +20,21 @@ type ConversionClickIds = {
 };
 
 type ServerConversionEvent = {
-  name: "subscription_created" | "trial_started";
+  name: "apple_subscription_synced" | "subscription_created" | "trial_started";
   id: string;
   timestamp: Date;
+  userId?: string;
   attributionId?: string;
   properties?: {
     planId?: string;
     amount?: number;
     currency?: string;
+    currentOfferDiscountType?: string | null;
+    currentSubscriptionStatus?: string;
+    environment?: string;
+    originalTransactionId?: string;
+    previousOfferDiscountType?: string | null;
+    previousSubscriptionStatus?: string | null;
   };
   clickIds?: ConversionClickIds;
   logger: Logger;
@@ -35,6 +44,7 @@ export async function trackServerConversionEvent({
   name,
   id,
   timestamp,
+  userId,
   attributionId,
   properties,
   clickIds,
@@ -43,33 +53,30 @@ export async function trackServerConversionEvent({
   if (!env.CONVERSION_ANALYTICS_SERVER_URL) return;
 
   try {
-    const url = getServerConversionUrl(env.CONVERSION_ANALYTICS_SERVER_URL);
+    const path = getServerConversionPath(env.CONVERSION_ANALYTICS_SERVER_URL);
+    const headers: HeadersInit | undefined =
+      env.CONVERSION_ANALYTICS_SERVER_SECRET
+        ? {
+            [CONVERSION_ANALYTICS_AUTH_HEADER]:
+              env.CONVERSION_ANALYTICS_SERVER_SECRET,
+          }
+        : undefined;
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(env.CONVERSION_ANALYTICS_SERVER_SECRET
-          ? {
-              [CONVERSION_ANALYTICS_AUTH_HEADER]:
-                env.CONVERSION_ANALYTICS_SERVER_SECRET,
-            }
-          : {}),
-      },
-      body: JSON.stringify({
+    await publishToQstash(
+      path,
+      {
         name,
         id,
         timestamp: timestamp.toISOString(),
+        userId,
         attributionId,
         properties,
         clickIds,
         sourceUrl: env.NEXT_PUBLIC_BASE_URL,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Server conversion event failed: ${response.status}`);
-    }
+      },
+      undefined,
+      headers,
+    );
   } catch (error) {
     logger.error("Server conversion tracking failed", {
       error,
@@ -128,7 +135,7 @@ export function getConversionClickMetadata({
     : {};
 }
 
-function getServerConversionUrl(endpoint: string) {
+function getServerConversionPath(endpoint: string) {
   const normalizedEndpoint = endpoint.trim();
 
   if (
@@ -140,7 +147,7 @@ function getServerConversionUrl(endpoint: string) {
     );
   }
 
-  return new URL(normalizedEndpoint, env.NEXT_PUBLIC_BASE_URL);
+  return normalizedEndpoint;
 }
 
 function getConversionClickIdsFromMetadata(

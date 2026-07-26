@@ -1,3 +1,4 @@
+import { load } from "cheerio";
 import type { ParsedMessage } from "@/utils/types";
 import {
   buildQuotedPlainText,
@@ -37,7 +38,7 @@ export const createOutlookReplyContent = ({
     (message.textPlain ? convertNewlinesToBr(message.textPlain) : "");
 
   const contentHtml =
-    htmlContent || (textContent ? convertNewlinesToBr(textContent) : "");
+    htmlContent || (textContent ? renderMixedContentAsHtml(textContent) : "");
 
   // Outlook-specific font styling with Aptos as default
   const outlookFontStyle =
@@ -65,6 +66,20 @@ function detectTextDirection(text: string): "ltr" | "rtl" {
   const rtlRegex =
     /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/;
   return rtlRegex.test(text.trim().charAt(0)) ? "rtl" : "ltr";
+}
+
+function renderMixedContentAsHtml(content: string): string {
+  const $ = load(content, null, false);
+
+  $.root()
+    .contents()
+    .each((_index, node) => {
+      if (node.type !== "text") return;
+
+      $(node).replaceWith(convertNewlinesToBr(escapeHtml(node.data)));
+    });
+
+  return $.root().html() ?? "";
 }
 
 export function formatEmailDate(date: Date): string {

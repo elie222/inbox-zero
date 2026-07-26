@@ -364,6 +364,38 @@ export const claimPremiumAdminAction = actionClientUser
     });
   });
 
+export const updateStripeInvoiceEmailsAction = actionClientUser
+  .metadata({ name: "updateStripeInvoiceEmails" })
+  .inputSchema(z.object({ enabled: z.boolean() }))
+  .action(async ({ ctx: { userId }, parsedInput: { enabled } }) => {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        premium: {
+          select: {
+            id: true,
+            stripeCustomerId: true,
+            admins: { select: { id: true } },
+          },
+        },
+      },
+    });
+
+    if (!user?.premium?.stripeCustomerId) {
+      throw new SafeError("Stripe billing account not found");
+    }
+    if (!isAdminForPremium(user.premium.admins, userId)) {
+      throw new SafeError("Not admin");
+    }
+
+    await prisma.premium.update({
+      where: { id: user.premium.id },
+      data: { stripeInvoiceEmailsEnabled: enabled },
+    });
+
+    return { enabled };
+  });
+
 export const getBillingPortalUrlAction = actionClientUser
   .metadata({ name: "getBillingPortalUrl" })
   .inputSchema(z.object({ tier: z.nativeEnum(PremiumTier).optional() }))

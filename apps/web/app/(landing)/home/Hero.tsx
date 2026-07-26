@@ -1,7 +1,4 @@
-"use client";
-
 import Image from "next/image";
-import { usePostHog } from "posthog-js/react";
 import { Gmail } from "@/components/new-landing/icons/Gmail";
 import { Outlook } from "@/components/new-landing/icons/Outlook";
 import {
@@ -13,22 +10,14 @@ import {
   Paragraph,
 } from "@/components/new-landing/common/Typography";
 import { CallToAction } from "@/components/new-landing/CallToAction";
-import { LiquidGlassButton } from "@/components/new-landing/LiquidGlassButton";
-import { Play } from "@/components/new-landing/icons/Play";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { BlurFade } from "@/components/new-landing/common/BlurFade";
 import { UnicornScene } from "@/components/new-landing/UnicornScene";
-import { landingPageAnalytics } from "@/hooks/useAnalytics";
 import {
   Badge,
   type BadgeVariant,
 } from "@/components/new-landing/common/Badge";
 import { BrandScroller } from "@/components/new-landing/BrandScroller";
+import { HeroVideoDialog } from "@/app/(landing)/home/HeroVideoDialog";
 
 interface HeroProps {
   badge?: React.ReactNode;
@@ -84,45 +73,19 @@ export function Hero({
 }
 
 export function HeroVideoPlayer() {
-  const posthog = usePostHog();
-
   return (
     <BlurFade delay={0.125 * 9}>
       <div className="relative w-full">
         <div className="relative border border-[#EFEFEF] rounded-3xl md:rounded-[43px] overflow-hidden block">
-          <Dialog>
-            <DialogTrigger
-              asChild
-              onClick={() => landingPageAnalytics.videoClicked(posthog)}
-            >
-              <LiquidGlassButton
-                aria-label="Play product demo video"
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-              >
-                <div>
-                  <Play className="translate-x-[2px]" />
-                </div>
-              </LiquidGlassButton>
-            </DialogTrigger>
-            <DialogContent className="max-w-7xl border-0 bg-transparent p-0">
-              <DialogTitle className="sr-only">Video player</DialogTitle>
-              <div className="relative aspect-video w-full">
-                <iframe
-                  src="https://www.youtube.com/embed/UusnveLKwWM?autoplay=1&rel=0"
-                  className="size-full rounded-lg"
-                  title="Video content"
-                  allowFullScreen
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
+          <HeroVideoDialog />
           <Image
             src="/images/new-landing/video-thumbnail.png"
             alt="an organized inbox"
-            width={2000}
-            height={1000}
-            className="w-full"
+            width={4600}
+            height={2524}
+            sizes="(min-width: 1280px) 1152px, (min-width: 1024px) calc(100vw - 64px), calc(100vw - 48px)"
+            preload
+            className="h-auto w-full"
           />
           <UnicornScene className="h-[calc(100%+5px)] opacity-30" />
         </div>

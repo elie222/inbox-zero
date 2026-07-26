@@ -3,31 +3,41 @@ import type { EmailThread } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { GmailLabel } from "@/utils/gmail/label";
 import * as gmailLabelModule from "@/utils/gmail/label";
+import * as gmailThreadModule from "@/utils/gmail/thread";
 import { GmailProvider } from "./google";
 
-const { envMock, gmailMailMock, gmailDraftMock, gmailSignatureMock } =
-  vi.hoisted(() => ({
-    envMock: {
-      NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
-      EMAIL_ENCRYPT_SECRET: "test-encrypt-secret",
-      EMAIL_ENCRYPT_SALT: "test-encrypt-salt",
-    },
-    gmailMailMock: {
-      draftEmail: vi.fn().mockResolvedValue({ data: { id: "draft-1" } }),
-      forwardEmail: vi.fn(),
-      replyToEmail: vi.fn(),
-      sendEmailWithPlainText: vi.fn(),
-      sendEmailWithHtml: vi.fn(),
-    },
-    gmailDraftMock: {
-      getDraft: vi.fn(),
-      deleteDraft: vi.fn(),
-      sendDraft: vi.fn(),
-    },
-    gmailSignatureMock: {
-      getGmailSignatures: vi.fn().mockResolvedValue([]),
-    },
-  }));
+const {
+  envMock,
+  gmailMailMock,
+  gmailDraftMock,
+  gmailSignatureMock,
+  bulkActionTrackingMock,
+} = vi.hoisted(() => ({
+  envMock: {
+    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
+    EMAIL_ENCRYPT_SECRET: "test-encrypt-secret",
+    EMAIL_ENCRYPT_SALT: "test-encrypt-salt",
+  },
+  gmailMailMock: {
+    draftEmail: vi.fn().mockResolvedValue({ data: { id: "draft-1" } }),
+    forwardEmail: vi.fn(),
+    replyToEmail: vi.fn(),
+    sendEmailWithPlainText: vi.fn(),
+    sendEmailWithHtml: vi.fn(),
+  },
+  gmailDraftMock: {
+    getDraft: vi.fn(),
+    deleteDraft: vi.fn(),
+    sendDraft: vi.fn(),
+  },
+  gmailSignatureMock: {
+    getGmailSignatures: vi.fn().mockResolvedValue([]),
+  },
+  bulkActionTrackingMock: {
+    publishBulkActionToTinybird: vi.fn().mockResolvedValue(undefined),
+    updateEmailMessagesForSender: vi.fn().mockResolvedValue(undefined),
+  },
+}));
 
 vi.mock("@/env", () => ({
   env: envMock,
@@ -41,6 +51,44 @@ vi.mock("@/utils/gmail/mail", async (importOriginal) => {
 vi.mock("@/utils/gmail/draft", () => gmailDraftMock);
 
 vi.mock("@/utils/gmail/signature-settings", () => gmailSignatureMock);
+vi.mock("@/utils/email/bulk-action-tracking", () => bulkActionTrackingMock);
+
+describe("GmailProvider.bulkArchiveThreads", () => {
+  it("archives all supplied messages with one Gmail batch modification", async () => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider({
+      users: { messages: { batchModify } },
+    } as any);
+
+    const result = await provider.bulkArchiveThreads(
+      [
+        { threadId: "thread-1", messageIds: ["message-1", "message-2"] },
+        { threadId: "thread-2", messageIds: ["message-3"] },
+      ],
+      "owner@example.com",
+    );
+
+    expect(batchModify).toHaveBeenCalledTimes(1);
+    expect(batchModify).toHaveBeenCalledWith({
+      userId: "me",
+      requestBody: {
+        ids: ["message-1", "message-2", "message-3"],
+        removeLabelIds: [GmailLabel.INBOX],
+      },
+    });
+    expect(
+      bulkActionTrackingMock.publishBulkActionToTinybird,
+    ).toHaveBeenCalledWith({
+      threadIds: ["thread-1", "thread-2"],
+      action: "archive",
+      ownerEmail: "owner@example.com",
+    });
+    expect(result).toEqual({
+      succeededThreadIds: ["thread-1", "thread-2"],
+      failedThreadIds: [],
+    });
+  });
+});
 
 describe("GmailProvider.getLatestMessageInThread", () => {
   afterEach(() => {
@@ -197,6 +245,35 @@ describe("GmailProvider.getSentMessageIds", () => {
       pageToken: undefined,
       labelIds: [GmailLabel.SENT],
     });
+  });
+});
+
+describe("GmailProvider.getThreadsWithQuery", () => {
+  it("uses multiple label IDs in preference to the legacy single label", async () => {
+    const getThreadsWithNextPageToken = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValue({ threads: [], nextPageToken: undefined });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch").mockResolvedValue([]);
+    const provider = new GmailProvider({
+      context: {
+        _options: {
+          auth: { credentials: { access_token: "access-token" } },
+        },
+      },
+    } as any);
+
+    await provider.getThreadsWithQuery({
+      query: {
+        labelId: "Label_123",
+        labelIds: ["Label_123", GmailLabel.INBOX],
+      },
+    });
+
+    expect(getThreadsWithNextPageToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        labelIds: ["Label_123", GmailLabel.INBOX],
+      }),
+    );
   });
 });
 

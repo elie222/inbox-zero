@@ -61,22 +61,24 @@ function FeatureCard({
   return (
     <Link href={prefixPath(emailAccountId, href)} className="block">
       <div className="h-full rounded-lg p-6 shadow transition-shadow hover:bg-muted/50 hover:shadow-md">
-        <div
-          className={cn(
-            "p-px rounded-lg shadow-sm bg-gradient-to-b mb-4 inline-flex",
-            "from-new-blue-150 to-new-blue-200",
-          )}
-        >
+        <div className="mb-2 flex items-center gap-3">
           <div
             className={cn(
-              "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[7px] bg-gradient-to-b shadow-sm transition-transform",
-              "from-new-blue-50 to-new-blue-100",
+              "inline-flex rounded-lg bg-gradient-to-b p-px shadow-sm",
+              "from-new-blue-150 to-new-blue-200",
             )}
           >
-            <Icon className={cn("h-4 w-4", "text-new-blue-600")} />
+            <div
+              className={cn(
+                "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[7px] bg-gradient-to-b shadow-sm transition-transform",
+                "from-new-blue-50 to-new-blue-100",
+              )}
+            >
+              <Icon className={cn("h-4 w-4", "text-new-blue-600")} />
+            </div>
           </div>
+          <h3 className="text-lg font-medium text-foreground">{title}</h3>
         </div>
-        <h3 className="mb-2 text-lg font-medium text-foreground">{title}</h3>
         <MutedText>{description}</MutedText>
       </div>
     </Link>

@@ -349,6 +349,43 @@ describe("createGenerateObject repairText", () => {
     expect(mockGenerateObject).toHaveBeenCalledTimes(2);
   });
 
+  it("logs the successful model and sanitized fallback path", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const contentFilterError = mockContentFilterRefusal();
+
+    mockGenerateObject
+      .mockRejectedValueOnce(contentFilterError)
+      .mockResolvedValueOnce({ object: { ok: true }, usage: null });
+
+    const generateObject = await createGenerateObjectWithFallback();
+
+    try {
+      await generateObject({
+        system: "Return JSON.",
+        prompt: "Return JSON.",
+        schema: {} as any,
+      } as any);
+
+      const outcomeLog = logSpy.mock.calls
+        .flat()
+        .find(
+          (value) =>
+            typeof value === "string" &&
+            value.includes("LLM object generation completed"),
+        );
+
+      expect(outcomeLog).toContain('"fallbackDepth": 1');
+      expect(outcomeLog).toContain('"selectedProvider": "anthropic"');
+      expect(outcomeLog).toContain('"selectedModel": "claude-test"');
+      expect(outcomeLog).toContain('"openai:gpt-test"');
+      expect(outcomeLog).toContain('"failureCategories"');
+      expect(outcomeLog).toContain('"content_filter"');
+      expect(outcomeLog).not.toContain(contentFilterError.message);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
   it("throws content-filter refusal without Sentry noise when no fallback is configured", async () => {
     const contentFilterError = mockContentFilterRefusal();
 

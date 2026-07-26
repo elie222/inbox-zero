@@ -26,12 +26,16 @@ const evalReporter = createEvalReporter({
 const logger = createScopedLogger("eval-assistant-chat-label-management");
 
 const {
+  mockCreateLabel,
   mockCreateEmailProvider,
+  mockLabelMessage,
   mockPosthogCaptureEvent,
   mockRedis,
   mockUnsubscribeSenderAndMark,
 } = vi.hoisted(() => ({
+  mockCreateLabel: vi.fn(),
   mockCreateEmailProvider: vi.fn(),
+  mockLabelMessage: vi.fn(),
   mockPosthogCaptureEvent: vi.fn(),
   mockRedis: {
     set: vi.fn(),
@@ -83,7 +87,19 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
       { id: "Label_Existing", name: "Existing", type: "user" },
       { id: "Label_Travel", name: "Travel", type: "user" },
       { id: "Label_04_ARCHIVES", name: "04 ARCHIVES", type: "user" },
+      { id: "Label_L3_L4", name: "L3/L4", type: "user" },
     ];
+
+    mockCreateLabel.mockImplementation(async (name: string) => {
+      const createdLabel = {
+        id: `Label_${name.replace(/\s+/g, "_")}`,
+        name,
+        type: "user",
+      };
+      labels = [...labels, createdLabel];
+      return createdLabel;
+    });
+    mockLabelMessage.mockResolvedValue(undefined);
 
     prisma.emailAccount.findUnique.mockResolvedValue({
       about: "I use labels to organize my inbox.",
@@ -100,15 +116,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
         nextPageToken: undefined,
       }),
       getLabels: vi.fn().mockImplementation(async () => labels),
-      createLabel: vi.fn().mockImplementation(async (name: string) => {
-        const createdLabel = {
-          id: `Label_${name.replace(/\s+/g, "_")}`,
-          name,
-          type: "user",
-        };
-        labels = [...labels, createdLabel];
-        return createdLabel;
-      }),
+      createLabel: mockCreateLabel,
       getLabelById: vi
         .fn()
         .mockImplementation(
@@ -125,7 +133,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
         .mockImplementation(async (threadId: string) => [
           { id: `${threadId}-message-1`, threadId },
         ]),
-      labelMessage: vi.fn().mockResolvedValue(undefined),
+      labelMessage: mockLabelMessage,
       archiveThreadWithLabel: vi.fn(),
       markReadThread: vi.fn(),
       bulkArchiveFromSenders: vi.fn(),
@@ -341,6 +349,60 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
               return {
                 pass,
                 actual,
+              };
+            },
+          );
+
+          expect(record.pass, record.actual).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "resolves a unique nested Gmail label from its leaf name",
+        async () => {
+          const testName = "apply unique nested label by leaf name";
+          const messages = [
+            {
+              role: "user" as const,
+              content: "Label thread-1 as L4.",
+            },
+          ];
+
+          const record = await evalReporter.recordCached(
+            {
+              testName,
+              model: model.label,
+              cacheKeyParts: [{ model, messages, existingLabels: ["L3/L4"] }],
+            },
+            async () => {
+              const { toolCalls, actual } = await runAssistantChat({
+                emailAccount,
+                messages,
+              });
+
+              const labelThreadsMatch = getLastMatchingToolCall(
+                toolCalls,
+                "manageInbox",
+                isManageInboxLabelThreadsInput,
+              );
+              const labelThreadsCall = labelThreadsMatch?.input ?? null;
+              const appliedNestedLabel = mockLabelMessage.mock.calls.some(
+                ([input]) =>
+                  input?.labelId === "Label_L3_L4" &&
+                  input?.labelName === "L3/L4",
+              );
+              const pass =
+                !!labelThreadsCall &&
+                labelThreadsCall.threadIds.length === 1 &&
+                labelThreadsCall.threadIds[0] === "thread-1" &&
+                ["L4", "L3/L4"].includes(labelThreadsCall.labelName) &&
+                mockCreateLabel.mock.calls.length === 0 &&
+                appliedNestedLabel;
+
+              return {
+                pass,
+                actual: `${actual}; providerCreateCalls=${mockCreateLabel.mock.calls.length}; appliedNestedLabel=${appliedNestedLabel}`,
               };
             },
           );

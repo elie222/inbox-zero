@@ -2,6 +2,10 @@ import { z } from "zod";
 import { messageContextSchema } from "@/utils/ai/assistant/chat-context-validation";
 import { inlineEmailActionSchema } from "@/utils/ai/assistant/inline-email-actions";
 
+export const ASSISTANT_CHAT_MAX_TEXT_LENGTH = 20_000;
+export const ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE =
+  "Messages can be up to 20,000 characters.";
+
 export const assistantPendingEmailActionTypeSchema = z.enum([
   "send_email",
   "reply_email",
@@ -166,7 +170,7 @@ export type ConfirmAssistantSaveMemoryBody = z.infer<
 
 const assistantChatTextPartSchema = z.object({
   type: z.literal("text"),
-  text: z.string().min(1).max(3000),
+  text: z.string().min(1).max(ASSISTANT_CHAT_MAX_TEXT_LENGTH),
 });
 
 const assistantChatFilePartSchema = z.object({

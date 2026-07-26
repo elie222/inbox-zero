@@ -47,6 +47,16 @@ export interface SentMessagePage {
   nextPageToken?: string;
 }
 
+export type BulkArchiveThread = {
+  threadId: string;
+  messageIds: string[];
+};
+
+export type BulkArchiveResult = {
+  succeededThreadIds: string[];
+  failedThreadIds: string[];
+};
+
 export interface EmailProvider {
   archiveMessage(messageId: string): Promise<void>;
   archiveThread(threadId: string, ownerEmail: string): Promise<void>;
@@ -61,6 +71,10 @@ export interface EmailProvider {
     ownerEmail: string,
     emailAccountId: string,
   ): Promise<void>;
+  bulkArchiveThreads(
+    threads: BulkArchiveThread[],
+    ownerEmail: string,
+  ): Promise<BulkArchiveResult>;
   bulkTrashFromSenders(
     fromEmails: string[],
     ownerEmail: string,

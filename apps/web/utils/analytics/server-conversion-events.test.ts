@@ -1,17 +1,22 @@
 import type Stripe from "stripe";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Logger } from "@/utils/logger";
 
-const { envMock } = vi.hoisted(() => ({
+const { envMock, publishToQstashMock } = vi.hoisted(() => ({
   envMock: {
     NEXT_PUBLIC_BASE_URL: "https://example.com",
     CONVERSION_ANALYTICS_SERVER_URL: "/rill",
     CONVERSION_ANALYTICS_SERVER_SECRET: undefined as string | undefined,
   },
+  publishToQstashMock: vi.fn(),
 }));
 
 vi.mock("@/env", () => ({
   env: envMock,
+}));
+
+vi.mock("@/utils/upstash", () => ({
+  publishToQstash: publishToQstashMock,
 }));
 
 import {
@@ -23,7 +28,6 @@ import {
 } from "@/utils/analytics/server-conversion-events";
 
 describe("trackServerConversionEvent", () => {
-  const fetchMock = vi.fn();
   const logger = {
     error: vi.fn(),
   } as unknown as Logger;
@@ -32,12 +36,7 @@ describe("trackServerConversionEvent", () => {
     vi.clearAllMocks();
     envMock.CONVERSION_ANALYTICS_SERVER_URL = "/rill";
     envMock.CONVERSION_ANALYTICS_SERVER_SECRET = undefined;
-    vi.stubGlobal("fetch", fetchMock);
-    fetchMock.mockResolvedValue({ ok: true });
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
+    publishToQstashMock.mockResolvedValue(undefined);
   });
 
   it("skips tracking when no server conversion endpoint is configured", async () => {
@@ -50,7 +49,7 @@ describe("trackServerConversionEvent", () => {
       logger,
     });
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(publishToQstashMock).not.toHaveBeenCalled();
   });
 
   it("posts conversion events to the configured private endpoint", async () => {
@@ -70,15 +69,14 @@ describe("trackServerConversionEvent", () => {
       logger,
     });
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      new URL("https://example.com/rill"),
-      expect.objectContaining({
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      }),
+    expect(publishToQstashMock).toHaveBeenCalledWith(
+      "/rill",
+      expect.any(Object),
+      undefined,
+      undefined,
     );
 
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
+    const body = publishToQstashMock.mock.calls[0]?.[1];
     expect(body).toEqual({
       name: "subscription_created",
       id: "evt_paid",
@@ -106,21 +104,54 @@ describe("trackServerConversionEvent", () => {
       logger,
     });
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      new URL("https://example.com/rill"),
-      expect.objectContaining({
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      }),
-    );
-
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
+    const body = publishToQstashMock.mock.calls[0]?.[1];
     expect(body).toEqual({
       name: "trial_started",
       id: "evt_trial:trial_started",
       timestamp: "2026-07-13T00:00:00.000Z",
       clickIds: { gclid: "test-gclid" },
       properties: { planId: "price_test" },
+      sourceUrl: "https://example.com",
+    });
+  });
+
+  it("hands Apple subscription state to the private endpoint", async () => {
+    await trackServerConversionEvent({
+      name: "apple_subscription_synced",
+      id: "transaction-1:user-1",
+      timestamp: new Date("2026-07-18T00:00:00.000Z"),
+      userId: "user-1",
+      properties: {
+        planId: "com.getinboxzero.pro.monthly",
+        amount: 29,
+        currency: "USD",
+        currentOfferDiscountType: null,
+        currentSubscriptionStatus: "ACTIVE",
+        environment: "Production",
+        originalTransactionId: "original-1",
+        previousOfferDiscountType: "FREE_TRIAL",
+        previousSubscriptionStatus: "ACTIVE",
+      },
+      logger,
+    });
+
+    const body = publishToQstashMock.mock.calls[0]?.[1];
+    expect(body).toEqual({
+      name: "apple_subscription_synced",
+      id: "transaction-1:user-1",
+      timestamp: "2026-07-18T00:00:00.000Z",
+      userId: "user-1",
+      properties: {
+        planId: "com.getinboxzero.pro.monthly",
+        amount: 29,
+        currency: "USD",
+        currentOfferDiscountType: null,
+        currentSubscriptionStatus: "ACTIVE",
+        environment: "Production",
+        originalTransactionId: "original-1",
+        previousOfferDiscountType: "FREE_TRIAL",
+        previousSubscriptionStatus: "ACTIVE",
+      },
       sourceUrl: "https://example.com",
     });
   });
@@ -135,14 +166,11 @@ describe("trackServerConversionEvent", () => {
       logger,
     });
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      new URL("https://example.com/rill"),
-      expect.objectContaining({
-        headers: {
-          "Content-Type": "application/json",
-          "x-conversion-analytics-secret": "secret_test",
-        },
-      }),
+    expect(publishToQstashMock).toHaveBeenCalledWith(
+      "/rill",
+      expect.any(Object),
+      undefined,
+      { "x-conversion-analytics-secret": "secret_test" },
     );
   });
 
@@ -160,7 +188,7 @@ describe("trackServerConversionEvent", () => {
       logger,
     });
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(publishToQstashMock).not.toHaveBeenCalled();
     expect(logger.error).toHaveBeenCalledWith(
       "Server conversion tracking failed",
       expect.objectContaining({ eventId: "evt_paid" }),
@@ -168,7 +196,7 @@ describe("trackServerConversionEvent", () => {
   });
 
   it("logs and swallows private endpoint failures", async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 400 });
+    publishToQstashMock.mockRejectedValue(new Error("Delivery failed"));
 
     await trackServerConversionEvent({
       name: "subscription_created",

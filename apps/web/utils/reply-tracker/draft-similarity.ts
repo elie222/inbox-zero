@@ -1,7 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import type { ParsedMessage } from "@/utils/types";
 import { stripReferralSignature } from "@/utils/referral/signature";
-import { calculateSimilarity } from "@/utils/similarity-score";
+import { calculateSimilarityDetails } from "@/utils/similarity-score";
 
 const BODY_SIMILARITY_STATUS = {
   SCORED: "scored",
@@ -40,7 +40,7 @@ export function getDraftSendLogSimilarityFields({
     bodySimilarityScore: bodySimilarity.score,
     bodySimilarityStatus: bodySimilarity.status,
     similarityMetadata: {
-      version: 1,
+      version: 2,
       draft: {
         length: draftText?.length ?? 0,
         comparableBodyLength: bodySimilarity.comparableDraftLength,
@@ -99,11 +99,19 @@ function getBodySimilarityResult({
     return { ...base, score: null, status: unscoredStatus };
   }
 
+  const similarity = calculateSimilarityDetails(
+    comparableDraftText,
+    comparableSentText,
+    {
+      excludedSignatures: accountSignature ? [accountSignature] : [],
+    },
+  );
+
   return {
     ...base,
-    score: calculateSimilarity(comparableDraftText, comparableSentText, {
-      excludedSignatures: accountSignature ? [accountSignature] : [],
-    }),
+    comparableDraftLength: similarity.normalizedStoredContentLength,
+    comparableSentLength: similarity.normalizedProviderMessageLength,
+    score: similarity.score,
     status: BODY_SIMILARITY_STATUS.SCORED,
   };
 }

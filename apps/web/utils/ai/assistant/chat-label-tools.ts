@@ -2,6 +2,7 @@ import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
+import { findNestedLabelMatches } from "@/utils/label/find-nested-label-matches";
 import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { posthogCaptureEvent } from "@/utils/posthog";
 
@@ -76,14 +77,21 @@ function buildCreateOrGetTool({
       .trim()
       .min(1)
       .max(200)
-      .describe(`Exact ${terms.resource} name to reuse or create.`),
+      .describe(
+        terms.resource === "label"
+          ? "Exact Gmail label path, or a leaf name that uniquely identifies an existing nested label."
+          : `Exact ${terms.resource} name to reuse or create.`,
+      ),
   });
 
   const listToolName =
     terms.resource === "label" ? "listLabels" : "listCategories";
 
   return tool({
-    description: `Reuse an existing ${terms.resource} by exact name or create it if it does not exist yet. Do not call ${listToolName} first — this tool handles the check-and-create in one step.`,
+    description:
+      terms.resource === "label"
+        ? `Reuse an existing Gmail label by exact path. A leaf name also reuses a uniquely matching nested label; if multiple nested labels share that leaf, this returns their full paths instead of creating a root label. Create the label only when no match exists. Do not call ${listToolName} first — this tool handles resolution and creation in one step.`
+        : `Reuse an existing ${terms.resource} by exact name or create it if it does not exist yet. Do not call ${listToolName} first — this tool handles the check-and-create in one step.`,
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: terms.createToolName, email, logger });
@@ -115,6 +123,29 @@ function buildCreateOrGetTool({
             created: false,
             [terms.resource]: pickLabelFields(existingHidden),
           };
+        }
+
+        if (terms.resource === "label") {
+          const nestedMatches = findNestedLabelMatches({
+            labels: hiddenAware,
+            name: input.name,
+            getLabelName: (label) => label.name,
+            normalize: normalizeLabelName,
+          });
+
+          if (nestedMatches.length === 1) {
+            return {
+              created: false,
+              label: pickLabelFields(nestedMatches[0]),
+            };
+          }
+
+          if (nestedMatches.length > 1) {
+            return {
+              error: `Multiple Gmail labels match "${input.name}". Use the full label path.`,
+              labels: nestedMatches.map(pickLabelFields),
+            };
+          }
         }
 
         const created = await emailProvider.createLabel(input.name);

@@ -14,6 +14,7 @@ import {
 } from "react";
 import { useSWRConfig } from "swr";
 import { captureException } from "@/utils/error";
+import { toastError } from "@/components/Toast";
 import { convertToUIMessages } from "@/components/assistant-chat/helpers";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import { useChatMessages } from "@/hooks/useChatMessages";
@@ -26,6 +27,13 @@ import {
   type InlineEmailAction,
   type InlineEmailActionType,
 } from "@/utils/ai/assistant/inline-email-actions";
+import {
+  ASSISTANT_CHAT_MAX_TEXT_LENGTH,
+  ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE,
+} from "@/utils/actions/assistant-chat.validation";
+import { createClientLogger } from "@/utils/logger-client";
+
+const logger = createClientLogger("assistant-chat");
 
 export type Attachment = {
   id: string;
@@ -35,6 +43,16 @@ export type Attachment = {
 };
 
 export type Chat = ReturnType<typeof useAiChat<ChatMessage>>;
+
+type ChatMessagePart =
+  | { type: "file"; url: string; filename: string; mediaType: string }
+  | { type: "text"; text: string };
+
+type PendingChatRequest = {
+  attachmentCount: number;
+  chatId: string;
+  textLength: number;
+};
 
 type ChatContextType = {
   chat: Chat;
@@ -65,6 +83,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [inlineActions, setInlineActions] = useState<InlineEmailAction[]>([]);
   const inlineActionsRef = useRef(inlineActions);
   const pendingInlineActionsRef = useRef<InlineEmailAction[] | null>(null);
+  const pendingRequestRef = useRef<PendingChatRequest | null>(null);
   const previousChatIdRef = useRef(chatId);
   const previousEmailAccountIdRef = useRef<string | null>(null);
 
@@ -111,12 +130,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     generateId: generateUUID,
     onFinish: async () => {
       pendingInlineActionsRef.current = null;
+      pendingRequestRef.current = null;
       await Promise.all([
         mutate("/api/user/rules"),
         chatId ? mutate(`/api/chats/${chatId}`) : Promise.resolve(),
       ]);
     },
     onError: (error) => {
+      const pendingRequest = pendingRequestRef.current;
       const pendingInlineActions = pendingInlineActionsRef.current;
       if (pendingInlineActions?.length) {
         setInlineActions((current) =>
@@ -128,8 +149,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         pendingInlineActionsRef.current = null;
       }
 
-      console.error(error);
-      captureException(error);
+      reportChatRequestError({
+        emailAccountId,
+        error,
+        fallbackChatId: chatId ?? chat.id,
+        request: pendingRequest,
+      });
+      pendingRequestRef.current = null;
     },
   });
 
@@ -146,6 +172,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     previousChatIdRef.current = chatId;
     pendingInlineActionsRef.current = null;
+    pendingRequestRef.current = null;
     setInlineActions([]);
   }, [chatId]);
 
@@ -161,6 +188,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     previousEmailAccountIdRef.current = emailAccountId;
     pendingInlineActionsRef.current = null;
+    pendingRequestRef.current = null;
     setChatId(null);
     chat.setMessages([]);
     setInput("");
@@ -170,14 +198,34 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }, [chat.setMessages, emailAccountId, setChatId]);
 
   const sendMessageParts = useCallback(
-    async (
-      parts: Array<
-        | { type: "file"; url: string; filename: string; mediaType: string }
-        | { type: "text"; text: string }
-      >,
-    ) => {
+    (parts: ChatMessagePart[]) => {
+      const textLength = getChatTextLength(parts);
+      const attachmentCount = parts.filter(
+        (part) => part.type === "file",
+      ).length;
+
+      if (textLength > ASSISTANT_CHAT_MAX_TEXT_LENGTH) {
+        logger.warn("Assistant chat input rejected", {
+          attachmentCount,
+          chatId: chatId ?? chat.id,
+          emailAccountId,
+          failureCategory: "message_too_long",
+          maxTextLength: ASSISTANT_CHAT_MAX_TEXT_LENGTH,
+          statusCode: null,
+          textLength,
+        });
+        logger.flush().catch(() => undefined);
+        toastError({ description: ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE });
+        throw new ChatInputValidationError();
+      }
+
       if (!chatId) setChatId(chat.id);
 
+      pendingRequestRef.current = {
+        attachmentCount,
+        chatId: chatId ?? chat.id,
+        textLength,
+      };
       pendingInlineActionsRef.current = inlineActionsRef.current.length
         ? inlineActionsRef.current
         : null;
@@ -186,9 +234,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setInlineActions([]);
       }
 
-      await chat.sendMessage({ role: "user", parts });
+      return chat.sendMessage({ role: "user", parts });
     },
-    [chat.id, chat.sendMessage, chatId, setChatId],
+    [chat.id, chat.sendMessage, chatId, emailAccountId, setChatId],
   );
 
   const submitTextMessage = useCallback(
@@ -205,6 +253,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const handleSubmit = useCallback(() => {
     const text = input.trim();
     if (!text && attachments.length === 0) return;
+    const submittedInput = input;
+    const submittedAttachments = attachments;
 
     const fileParts = attachments.map((attachment) => ({
       type: "file" as const,
@@ -213,19 +263,38 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       mediaType: attachment.contentType,
     }));
 
-    const parts: Array<
-      | { type: "file"; url: string; filename: string; mediaType: string }
-      | { type: "text"; text: string }
-    > = [...fileParts];
+    const parts: ChatMessagePart[] = [...fileParts];
 
     if (text) {
       parts.push({ type: "text", text });
     }
 
-    sendMessageParts(parts).catch(captureException);
+    let sendPromise: Promise<void>;
+    try {
+      sendPromise = sendMessageParts(parts);
+    } catch (error) {
+      if (!(error instanceof ChatInputValidationError)) {
+        reportChatRequestError({
+          emailAccountId,
+          error,
+          fallbackChatId: chatId ?? chat.id,
+          request: pendingRequestRef.current,
+        });
+      }
+      return;
+    }
+
     setAttachments([]);
     setInput("");
-  }, [attachments, input, sendMessageParts]);
+    sendPromise.catch(() => {
+      setInput((current) =>
+        current ? `${submittedInput}\n\n${current}` : submittedInput,
+      );
+      setAttachments((current) =>
+        mergeAttachments(submittedAttachments, current),
+      );
+    });
+  }, [attachments, chat.id, chatId, emailAccountId, input, sendMessageParts]);
 
   return (
     <ChatContext.Provider
@@ -267,4 +336,64 @@ function generateUUID(): string {
     const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+function getChatTextLength(parts: ChatMessagePart[]) {
+  return parts.reduce(
+    (length, part) => length + (part.type === "text" ? part.text.length : 0),
+    0,
+  );
+}
+
+function mergeAttachments(
+  submitted: Attachment[],
+  current: Attachment[],
+): Attachment[] {
+  const currentIds = new Set(current.map((attachment) => attachment.id));
+  return [
+    ...submitted.filter((attachment) => !currentIds.has(attachment.id)),
+    ...current,
+  ];
+}
+
+class ChatInputValidationError extends Error {
+  constructor() {
+    super(ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE);
+    this.name = "ChatInputValidationError";
+  }
+}
+
+function reportChatRequestError({
+  emailAccountId,
+  error,
+  fallbackChatId,
+  request,
+}: {
+  emailAccountId: string;
+  error: unknown;
+  fallbackChatId: string;
+  request: PendingChatRequest | null;
+}) {
+  logger.error("Assistant chat request failed", {
+    attachmentCount: request?.attachmentCount ?? 0,
+    chatId: request?.chatId ?? fallbackChatId,
+    emailAccountId,
+    errorName: error instanceof Error ? error.name : "UnknownError",
+    failureCategory: "request_error",
+    statusCode: getErrorStatusCode(error),
+    textLength: request?.textLength ?? 0,
+  });
+  logger.flush().catch(() => undefined);
+  toastError({
+    description: "We couldn't send your message. Please try again.",
+  });
+  console.error(error);
+  captureException(error);
+}
+
+function getErrorStatusCode(error: unknown) {
+  if (!error || typeof error !== "object") return null;
+
+  const statusCode = (error as Record<string, unknown>).statusCode;
+  return typeof statusCode === "number" ? statusCode : null;
 }

@@ -7,13 +7,14 @@ import type { ParsedMessage } from "@/utils/types";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import { analyzeSenderPatternBodySchema } from "@/utils/ai/choose-rule/analyze-sender-pattern";
 import { isValidInternalApiKey } from "@/utils/internal-api";
-import { extractEmailAddress } from "@/utils/email";
+import { canonicalizeEmailAddress, extractEmailAddress } from "@/utils/email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { GroupItemSource } from "@/generated/prisma/enums";
 import { checkSenderRuleHistory } from "@/utils/rule/check-sender-rule-history";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
+import { upsertSenderRecord } from "@/utils/senders/record";
 
 export const maxDuration = 60;
 
@@ -34,7 +35,7 @@ export const POST = withError(
 
     const data = analyzeSenderPatternBodySchema.parse(json);
     const { emailAccountId } = data;
-    const from = extractEmailAddress(data.from);
+    const from = canonicalizeEmailAddress(data.from);
 
     logger = logger.with({ from });
 
@@ -71,16 +72,15 @@ async function process({
       return NextResponse.json({ success: false }, { status: 404 });
     }
 
-    const existingCheck = await prisma.newsletter.findUnique({
+    const existingCheck = await prisma.newsletter.findFirst({
       where: {
-        email_emailAccountId: {
-          email: extractEmailAddress(from),
-          emailAccountId: emailAccount.id,
-        },
+        emailAccountId: emailAccount.id,
+        email: { equals: from, mode: "insensitive" },
+        patternAnalyzed: true,
       },
     });
 
-    if (existingCheck?.patternAnalyzed) {
+    if (existingCheck) {
       logger.info("Sender has already been analyzed");
       return NextResponse.json({ success: true });
     }
@@ -221,20 +221,10 @@ async function savePatternCheck({
   emailAccountId: string;
   from: string;
 }) {
-  await prisma.newsletter.upsert({
-    where: {
-      email_emailAccountId: {
-        email: from,
-        emailAccountId,
-      },
-    },
-    update: {
-      patternAnalyzed: true,
-      lastAnalyzedAt: new Date(),
-    },
-    create: {
-      email: from,
-      emailAccountId,
+  await upsertSenderRecord({
+    emailAccountId,
+    newsletterEmail: from,
+    changes: {
       patternAnalyzed: true,
       lastAnalyzedAt: new Date(),
     },

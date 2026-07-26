@@ -47,6 +47,15 @@
           "retryAfterSeconds": 60
         }
       ]
+    },
+    "app/api/stripe/invoice-email/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "stripe-invoice-email",
+          "retryAfterSeconds": 60
+        }
+      ]
     }
   },
   "rewrites": [

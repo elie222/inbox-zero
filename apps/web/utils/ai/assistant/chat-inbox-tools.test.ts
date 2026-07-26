@@ -3,6 +3,7 @@ import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
+import { SafeError } from "@/utils/error";
 import {
   forwardEmailTool,
   getAccountOverviewTool,
@@ -28,12 +29,14 @@ const {
   mockStartBulkCategorization,
   mockGetCategorizationProgress,
   mockGetCategorizationStatusSnapshot,
+  mockValidateUserAndAiAccess,
 } = vi.hoisted(() => ({
   mockArchiveCategory: vi.fn(),
   mockGetCategoryOverview: vi.fn(),
   mockStartBulkCategorization: vi.fn(),
   mockGetCategorizationProgress: vi.fn(),
   mockGetCategorizationStatusSnapshot: vi.fn(),
+  mockValidateUserAndAiAccess: vi.fn(),
 }));
 
 vi.mock("@/utils/categorize/senders/archive-category", () => ({
@@ -59,6 +62,12 @@ vi.mock("@/utils/redis/categorization-progress", () => ({
   getCategorizationStatusSnapshot: (
     ...args: Parameters<typeof mockGetCategorizationStatusSnapshot>
   ) => mockGetCategorizationStatusSnapshot(...args),
+}));
+
+vi.mock("@/utils/user/validate", () => ({
+  validateUserAndAiAccess: (
+    ...args: Parameters<typeof mockValidateUserAndAiAccess>
+  ) => mockValidateUserAndAiAccess(...args),
 }));
 
 const TEST_EMAIL = "user@test.com";
@@ -460,11 +469,13 @@ describe("chat inbox tools", () => {
   it("returns a descriptive error when label_threads receives an unknown labelName", async () => {
     const getThreadMessages = vi.fn();
     const getLabelByName = vi.fn().mockResolvedValue(null);
+    const getLabels = vi.fn().mockResolvedValue([]);
     const labelMessage = vi.fn();
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       getThreadMessages,
       getLabelByName,
+      getLabels,
       labelMessage,
     } as any);
 
@@ -488,6 +499,90 @@ describe("chat inbox tools", () => {
     });
     expect(getLabelByName).toHaveBeenCalledWith("Finance");
     expect(getLabelByName).toHaveBeenCalledTimes(1);
+    expect(getLabels).toHaveBeenCalledWith({ includeHidden: true });
+    expect(getThreadMessages).not.toHaveBeenCalled();
+    expect(labelMessage).not.toHaveBeenCalled();
+  });
+
+  it("applies a unique nested Gmail label when given its leaf name", async () => {
+    const getLabelByName = vi.fn().mockResolvedValue(null);
+    const getLabels = vi.fn().mockResolvedValue([
+      { id: "Label_parent", name: "L3", type: "user" },
+      { id: "Label_child", name: "L3/L4", type: "user" },
+    ]);
+    const getThreadMessages = vi
+      .fn()
+      .mockResolvedValue([{ id: "message-1", threadId: "thread-1" }]);
+    const labelMessage = vi.fn().mockResolvedValue(undefined);
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getLabelByName,
+      getLabels,
+      getThreadMessages,
+      labelMessage,
+    } as any);
+
+    const toolInstance = manageInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      action: "label_threads",
+      labelName: "L4",
+      threadIds: ["thread-1"],
+    });
+
+    expect(getLabelByName).toHaveBeenCalledWith("L4");
+    expect(getLabels).toHaveBeenCalledWith({ includeHidden: true });
+    expect(labelMessage).toHaveBeenCalledWith({
+      messageId: "message-1",
+      labelId: "Label_child",
+      labelName: "L3/L4",
+    });
+    expect(result).toMatchObject({
+      success: true,
+      labelId: "Label_child",
+      labelName: "L3/L4",
+    });
+  });
+
+  it("does not apply an ambiguous nested Gmail leaf name", async () => {
+    const getLabelByName = vi.fn().mockResolvedValue(null);
+    const getLabels = vi.fn().mockResolvedValue([
+      { id: "Label_1", name: "L3/L4", type: "user" },
+      { id: "Label_2", name: "Projects/L4", type: "user" },
+    ]);
+    const getThreadMessages = vi.fn();
+    const labelMessage = vi.fn();
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getLabelByName,
+      getLabels,
+      getThreadMessages,
+      labelMessage,
+    } as any);
+
+    const toolInstance = manageInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      action: "label_threads",
+      labelName: "L4",
+      threadIds: ["thread-1"],
+    });
+
+    expect(result).toEqual({
+      error:
+        'Multiple Gmail labels match "L4": "L3/L4", "Projects/L4". Use the full label path.',
+      toolErrorVisibility: "hidden",
+    });
     expect(getThreadMessages).not.toHaveBeenCalled();
     expect(labelMessage).not.toHaveBeenCalled();
   });
@@ -543,10 +638,12 @@ describe("chat inbox tools", () => {
 
   it("returns a transparent error when removing a label that does not exist", async () => {
     const getLabelByName = vi.fn().mockResolvedValue(null);
+    const getLabels = vi.fn().mockResolvedValue([]);
     const removeThreadLabel = vi.fn();
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       getLabelByName,
+      getLabels,
       removeThreadLabel,
     } as any);
 
@@ -568,6 +665,7 @@ describe("chat inbox tools", () => {
       toolErrorVisibility: "hidden",
     });
     expect(getLabelByName).toHaveBeenCalledWith("Finance");
+    expect(getLabels).toHaveBeenCalledWith({ includeHidden: true });
     expect(removeThreadLabel).not.toHaveBeenCalled();
   });
 
@@ -1448,6 +1546,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
 describe("chat inbox tools - sender categories", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockValidateUserAndAiAccess.mockResolvedValue(undefined);
   });
 
   it("getSenderCategoryOverview returns the shared overview payload", async () => {
@@ -1507,6 +1606,9 @@ describe("chat inbox tools - sender categories", () => {
 
     const result = await (toolInstance.execute as any)({});
 
+    expect(mockValidateUserAndAiAccess).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+    });
     expect(createEmailProvider).toHaveBeenCalledWith({
       emailAccountId: "email-account-1",
       provider: "google",
@@ -1518,6 +1620,25 @@ describe("chat inbox tools - sender categories", () => {
       logger,
     });
     expect(result.totalQueuedSenders).toBe(8);
+  });
+
+  it("startSenderCategorization reports an AI access error before queuing work", async () => {
+    mockValidateUserAndAiAccess.mockRejectedValue(
+      new SafeError("Please upgrade for AI access"),
+    );
+
+    const toolInstance = startSenderCategorizationTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({});
+
+    expect(result).toEqual({ error: "Please upgrade for AI access" });
+    expect(createEmailProvider).not.toHaveBeenCalled();
+    expect(mockStartBulkCategorization).not.toHaveBeenCalled();
   });
 
   it("getSenderCategorizationStatus waits briefly before reading progress", async () => {

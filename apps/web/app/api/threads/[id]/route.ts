@@ -2,6 +2,7 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import type { EmailProvider } from "@/utils/email/types";
+import { parseMessageReply } from "@/utils/email/parse-message-reply";
 
 const threadQuery = z.object({ id: z.string() });
 export type ThreadQuery = z.infer<typeof threadQuery>;
@@ -10,13 +11,18 @@ export type ThreadResponse = Awaited<ReturnType<typeof getThread>>;
 async function getThread(
   id: string,
   includeDrafts: boolean,
+  parseReplies: boolean,
   emailProvider: EmailProvider,
 ) {
   const thread = await emailProvider.getThread(id);
 
-  const filteredMessages = includeDrafts
+  let filteredMessages = includeDrafts
     ? thread.messages
     : thread.messages.filter((msg) => !msg.labelIds?.includes("DRAFT"));
+
+  if (parseReplies) {
+    filteredMessages = filteredMessages.map(parseMessageReply);
+  }
 
   return {
     thread: {
@@ -39,9 +45,15 @@ export const GET = withEmailProvider(
 
     const { searchParams } = new URL(request.url);
     const includeDrafts = searchParams.get("includeDrafts") === "true";
+    const parseReplies = searchParams.get("parseReplies") === "true";
 
     try {
-      const thread = await getThread(id, includeDrafts, emailProvider);
+      const thread = await getThread(
+        id,
+        includeDrafts,
+        parseReplies,
+        emailProvider,
+      );
       return NextResponse.json(thread);
     } catch (error) {
       request.logger.error("Error fetching thread", {

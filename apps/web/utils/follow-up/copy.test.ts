@@ -23,4 +23,14 @@ describe("follow-up notification copy", () => {
     expect(snippet.length).toBeGreaterThan(280);
     expect(truncateSnippet(snippet)).toBe(snippet);
   });
+
+  it("ends a truncated snippet with an ellipsis so users know there is more", () => {
+    const maxChars = 100;
+    const snippet = "All work and no play makes Jack a dull boy. ".repeat(5);
+
+    const truncated = truncateSnippet(snippet, maxChars);
+
+    expect(truncated.length).toBeLessThanOrEqual(maxChars);
+    expect(truncated.endsWith("…")).toBe(true);
+  });
 });
