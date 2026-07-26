@@ -139,7 +139,97 @@ describe("onRun", () => {
       description: "AI automation is unavailable.",
     });
   });
+
+  it("skips already processed threads by default", async () => {
+    mockSinglePageResponse();
+    const onComplete = vi.fn();
+
+    await onRun(
+      "account-id",
+      { startDate: new Date("2026-01-01T00:00:00.000Z") },
+      vi.fn(),
+      onComplete,
+    );
+
+    await vi.waitFor(() => {
+      expect(onComplete).toHaveBeenCalledWith("success", 1);
+    });
+    expect(runAiRules).toHaveBeenCalledWith(
+      "account-id",
+      [expect.objectContaining({ id: "unprocessed-thread" })],
+      false,
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("includes already processed threads when rerunning", async () => {
+    mockSinglePageResponse();
+    const onComplete = vi.fn();
+
+    await onRun(
+      "account-id",
+      { startDate: new Date("2026-01-01T00:00:00.000Z"), rerun: true },
+      vi.fn(),
+      onComplete,
+    );
+
+    await vi.waitFor(() => {
+      expect(onComplete).toHaveBeenCalledWith("success", 2);
+    });
+    expect(runAiRules).toHaveBeenCalledWith(
+      "account-id",
+      [
+        expect.objectContaining({ id: "processed-thread" }),
+        expect.objectContaining({ id: "unprocessed-thread" }),
+      ],
+      true,
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("still respects maxEmails when rerunning", async () => {
+    mockSinglePageResponse();
+    const onComplete = vi.fn();
+
+    await onRun(
+      "account-id",
+      {
+        startDate: new Date("2026-01-01T00:00:00.000Z"),
+        rerun: true,
+        maxEmails: 1,
+      },
+      vi.fn(),
+      onComplete,
+    );
+
+    await vi.waitFor(() => {
+      expect(onComplete).toHaveBeenCalledWith("success", 1);
+    });
+    expect(runAiRules).toHaveBeenCalledWith(
+      "account-id",
+      [expect.objectContaining({ id: "processed-thread" })],
+      true,
+      expect.any(AbortSignal),
+    );
+  });
 });
+
+function mockSinglePageResponse() {
+  vi.mocked(fetchWithAccount).mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      threads: [
+        {
+          id: "processed-thread",
+          messages: [{ id: "message-1" }],
+          plan: { id: "executed-rule-id" },
+        },
+        { id: "unprocessed-thread", messages: [{ id: "message-2" }] },
+      ],
+      nextPageToken: undefined,
+    }),
+  } as Response);
+}
 
 function createDeferred() {
   let resolve!: () => void;

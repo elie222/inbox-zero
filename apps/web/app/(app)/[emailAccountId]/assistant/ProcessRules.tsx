@@ -41,6 +41,13 @@ import {
 } from "@/utils/ai/choose-rule/selection-metadata-summary";
 import { useRules } from "@/hooks/useRules";
 import { useInfiniteMessages } from "@/hooks/useMessages";
+import { usePremium } from "@/hooks/usePremium";
+import { hasTierAccess } from "@/utils/premium";
+import {
+  RERUN_MINIMUM_TIER,
+  RERUN_UPGRADE_MESSAGE,
+} from "@/utils/premium/rerun";
+import { Tooltip } from "@/components/Tooltip";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -79,6 +86,13 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
   const { data: rules } = useRules();
   const { emailAccountId, userEmail } = useAccount();
+  const { tier } = usePremium();
+
+  // Re-applying rules costs a fresh LLM call, so it's gated. Re-testing isn't:
+  // test runs never overwrite a stored result.
+  const canRerun =
+    testMode ||
+    hasTierAccess({ tier: tier || null, minimumTier: RERUN_MINIMUM_TIER });
 
   // Fetch existing executed rules for current messages
   const messageIdsToFetch = useMemo(
@@ -311,6 +325,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
                     results={allResults[message.id]}
                     onRun={(rerun) => onRun(message, rerun)}
                     testMode={testMode}
+                    canRerun={canRerun}
                     setInput={setInput}
                   />
                 ))}
@@ -388,6 +403,7 @@ function ProcessRulesRow({
   results,
   onRun,
   testMode,
+  canRerun,
   setInput,
 }: {
   message: Message;
@@ -396,6 +412,7 @@ function ProcessRulesRow({
   results: RunRulesResult[];
   onRun: (rerun?: boolean) => void;
   testMode: boolean;
+  canRerun: boolean;
   setInput: (input: string) => void;
 }) {
   return (
@@ -428,17 +445,12 @@ function ProcessRulesRow({
                   message={message}
                   results={results}
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isRunning}
-                  onClick={() => onRun(true)}
-                >
-                  <RefreshCcwIcon
-                    className={cn("mr-2 size-4", isRunning && "animate-spin")}
-                  />
-                  <span>{testMode ? "Retest" : "Rerun"}</span>
-                </Button>
+                <RerunButton
+                  isRunning={isRunning}
+                  canRerun={canRerun}
+                  testMode={testMode}
+                  onRun={onRun}
+                />
               </>
             ) : (
               <Button
@@ -455,5 +467,39 @@ function ProcessRulesRow({
         </div>
       </TableCell>
     </TableRow>
+  );
+}
+
+function RerunButton({
+  isRunning,
+  canRerun,
+  testMode,
+  onRun,
+}: {
+  isRunning: boolean;
+  canRerun: boolean;
+  testMode: boolean;
+  onRun: (rerun?: boolean) => void;
+}) {
+  const button = (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={isRunning || !canRerun}
+      onClick={() => onRun(true)}
+    >
+      <RefreshCcwIcon
+        className={cn("mr-2 size-4", isRunning && "animate-spin")}
+      />
+      <span>{testMode ? "Retest" : "Rerun"}</span>
+    </Button>
+  );
+
+  if (canRerun) return button;
+
+  return (
+    <Tooltip content={RERUN_UPGRADE_MESSAGE}>
+      <span className="inline-flex cursor-not-allowed">{button}</span>
+    </Tooltip>
   );
 }

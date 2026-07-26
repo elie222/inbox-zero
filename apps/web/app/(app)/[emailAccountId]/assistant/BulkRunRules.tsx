@@ -22,7 +22,13 @@ import {
 } from "@/components/ui/dialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { Toggle } from "@/components/Toggle";
+import { Badge } from "@/components/ui/badge";
 import { hasTierAccess } from "@/utils/premium";
+import {
+  RERUN_MINIMUM_TIER,
+  RERUN_UPGRADE_MESSAGE,
+} from "@/utils/premium/rerun";
+import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { BulkProcessActivityLog } from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
 import {
   bulkRunReducer,
@@ -56,6 +62,10 @@ export function BulkRunRules() {
     tier: tier || null,
     minimumTier: "PROFESSIONAL_MONTHLY",
   });
+  const hasRerunAccess = hasTierAccess({
+    tier: tier || null,
+    minimumTier: RERUN_MINIMUM_TIER,
+  });
   const isTrial = premium?.stripeSubscriptionStatus === "trialing";
   const trialAiLimitMessage =
     aiAutomationStatus?.status === "trial_ai_limit_reached"
@@ -65,6 +75,7 @@ export function BulkRunRules() {
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [includeRead, setIncludeRead] = useState(false);
+  const [rerun, setRerun] = useState(false);
 
   const abortRef = useRef<() => void>(undefined);
 
@@ -106,6 +117,7 @@ export function BulkRunRules() {
           startDate,
           endDate,
           includeRead,
+          rerun: rerun && hasRerunAccess,
           maxEmails: isTrial ? TRIAL_BULK_PROCESS_EMAIL_LIMIT : undefined,
         },
         (threads) => {
@@ -159,8 +171,7 @@ export function BulkRunRules() {
           <DialogHeader>
             <DialogTitle>Bulk Process Emails</DialogTitle>
             <DialogDescription>
-              Run your rules on emails in your inbox that haven't been handled
-              yet.
+              Run your rules on emails already in your inbox.
             </DialogDescription>
           </DialogHeader>
           {progressMessage && (
@@ -207,6 +218,21 @@ export function BulkRunRules() {
                     : undefined
                 }
               />
+
+              <div className="flex items-center gap-2">
+                <Toggle
+                  name="rerun"
+                  label="Re-process emails already handled"
+                  enabled={rerun && hasRerunAccess}
+                  onChange={(enabled) => setRerun(enabled)}
+                  disabled={isProcessing || !hasRerunAccess}
+                  disabledTooltipText={
+                    hasRerunAccess ? undefined : RERUN_UPGRADE_MESSAGE
+                  }
+                  tooltipText="Runs your rules again on emails that already have a result. Use this after changing your rules."
+                />
+                {!hasRerunAccess && <ProfessionalPlanBadge />}
+              </div>
 
               {isTrial && (
                 <div className="flex flex-col gap-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
@@ -280,7 +306,7 @@ export function BulkRunRules() {
 
               {state.runResult && state.runResult.count === 0 && (
                 <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
-                  No {includeRead ? "" : "unread, "}unprocessed emails found in
+                  No {describeTargetedEmails({ includeRead, rerun })} found in
                   the selected date range.
                 </div>
               )}
@@ -290,4 +316,34 @@ export function BulkRunRules() {
       </Dialog>
     </div>
   );
+}
+
+function ProfessionalPlanBadge() {
+  const { PremiumModal, openModal } = usePremiumModal();
+
+  return (
+    <>
+      <button type="button" onClick={openModal} aria-label="Upgrade plan">
+        <Badge variant="secondary" className="cursor-pointer hover:opacity-80">
+          Professional
+        </Badge>
+      </button>
+      <PremiumModal />
+    </>
+  );
+}
+
+function describeTargetedEmails({
+  includeRead,
+  rerun,
+}: {
+  includeRead: boolean;
+  rerun: boolean;
+}) {
+  const qualifiers = [
+    includeRead ? null : "unread",
+    rerun ? null : "unprocessed",
+  ].filter(Boolean);
+
+  return qualifiers.length ? `${qualifiers.join(", ")} emails` : "emails";
 }
