@@ -13,8 +13,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { createGroupAction } from "@/utils/actions/group";
+import { learnPatternsFromHistoryAction } from "@/utils/actions/learn-patterns";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { toastError } from "@/components/Toast";
+import { toastError, toastSuccess } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -91,7 +92,51 @@ export function LearnedPatternsDialog({
             <ViewLearnedPatterns groupId={learnedPatternGroupId} />
           )
         )}
+
+        <LearnFromHistory ruleId={ruleId} />
       </DialogContent>
     </Dialog>
+  );
+}
+
+// Patterns normally accrue only as new AI-matched mail arrives; this mines
+// the mail this rule has already been applied to, on demand
+function LearnFromHistory({ ruleId }: { ruleId: string }) {
+  const { emailAccountId } = useAccount();
+
+  const learn = useAction(
+    learnPatternsFromHistoryAction.bind(null, emailAccountId),
+    {
+      onSuccess: (result) => {
+        if (!result.data) return;
+        const { candidates, queued } = result.data;
+        toastSuccess({
+          description: candidates
+            ? `Analyzing ${queued} sender${queued === 1 ? "" : "s"} from this rule's history — patterns that qualify appear here within a few minutes.`
+            : "No senders qualify yet — a sender needs at least 3 emails this rule was consistently applied to.",
+        });
+      },
+      onError: (error) => {
+        toastError({ description: getActionErrorMessage(error.error) });
+      },
+    },
+  );
+
+  return (
+    <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+      <p className="text-sm text-muted-foreground">
+        Patterns are learned as new mail matches this rule with AI. You can also
+        learn from mail it already handled.
+      </p>
+      <Button
+        variant="outline"
+        size="sm"
+        className="shrink-0"
+        loading={learn.isExecuting}
+        onClick={() => learn.execute({ ruleId })}
+      >
+        Learn from history
+      </Button>
+    </div>
   );
 }
