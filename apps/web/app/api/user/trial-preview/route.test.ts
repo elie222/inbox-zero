@@ -2,13 +2,17 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 
-const { createPreviewMock } = vi.hoisted(() => ({
+const { createPreviewMock, retrieveSubscriptionMock } = vi.hoisted(() => ({
   createPreviewMock: vi.fn(),
+  retrieveSubscriptionMock: vi.fn(),
 }));
 
 vi.mock("@/utils/prisma");
 vi.mock("@/ee/billing/stripe", () => ({
-  getStripe: () => ({ invoices: { createPreview: createPreviewMock } }),
+  getStripe: () => ({
+    invoices: { createPreview: createPreviewMock },
+    subscriptions: { retrieve: retrieveSubscriptionMock },
+  }),
 }));
 vi.mock("@/utils/middleware", async () => {
   const { createWithAuthTestMiddleware } = await vi.importActual<
@@ -27,6 +31,7 @@ describe("user/trial-preview route", () => {
       amount_due: 21_600,
       currency: "usd",
     });
+    mockSubscriptionInterval("year");
     mockPremium({
       tier: "STARTER_ANNUALLY",
       stripeSubscriptionId: "sub_1",
@@ -36,12 +41,12 @@ describe("user/trial-preview route", () => {
   });
 
   it("returns the exact amount the user would be charged today", async () => {
-    const response = await GET(request());
+    const response = await callRoute();
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       planName: "Starter",
-      isAnnual: true,
+      interval: "year",
       trialEnd: "2026-08-03T00:00:00.000Z",
       amountDue: 21_600,
       currency: "usd",
@@ -52,17 +57,28 @@ describe("user/trial-preview route", () => {
     });
   });
 
-  it("reports monthly plans as not annual", async () => {
+  it("takes the billing period from the price, not the tier name", async () => {
+    mockSubscriptionInterval("year");
     mockPremium({
-      tier: "STARTER_MONTHLY",
+      tier: null,
       stripeSubscriptionId: "sub_1",
       stripeSubscriptionStatus: "trialing",
       stripeTrialEnd: null,
     });
 
-    const response = await GET(request());
+    const response = await callRoute();
 
-    await expect(response.json()).resolves.toMatchObject({ isAnnual: false });
+    await expect(response.json()).resolves.toMatchObject({ interval: "year" });
+  });
+
+  it("returns a null interval when the price has no recurring schedule", async () => {
+    retrieveSubscriptionMock.mockResolvedValue({
+      items: { data: [{ price: {} }] },
+    });
+
+    const response = await callRoute();
+
+    await expect(response.json()).resolves.toMatchObject({ interval: null });
   });
 
   it("errors when the subscription is no longer trialing", async () => {
@@ -73,7 +89,7 @@ describe("user/trial-preview route", () => {
       stripeTrialEnd: null,
     });
 
-    const response = await GET(request());
+    const response = await callRoute();
 
     expect(response.status).toBe(400);
     expect(createPreviewMock).not.toHaveBeenCalled();
@@ -82,7 +98,7 @@ describe("user/trial-preview route", () => {
   it("errors when there is no Stripe subscription", async () => {
     mockPremium(null);
 
-    const response = await GET(request());
+    const response = await callRoute();
 
     expect(response.status).toBe(400);
     expect(createPreviewMock).not.toHaveBeenCalled();
@@ -95,6 +111,15 @@ function mockPremium(premium: Record<string, unknown> | null) {
   >);
 }
 
-function request() {
-  return new NextRequest("https://example.com/api/user/trial-preview");
+function mockSubscriptionInterval(interval: string) {
+  retrieveSubscriptionMock.mockResolvedValue({
+    items: { data: [{ price: { recurring: { interval } } }] },
+  });
+}
+
+function callRoute() {
+  return GET(
+    new NextRequest("https://example.com/api/user/trial-preview"),
+    {} as never,
+  );
 }

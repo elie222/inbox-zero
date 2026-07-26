@@ -21,6 +21,7 @@ import { toastError } from "@/components/Toast";
 import type { GetTrialPreviewResponse } from "@/app/api/user/trial-preview/route";
 import { endStripeTrialAction } from "@/utils/actions/premium";
 import { formatDateSimple } from "@/utils/date";
+import { formatStripeAmount } from "@/utils/stripe-amount";
 
 export function EndTrialButton({
   variant,
@@ -31,13 +32,14 @@ export function EndTrialButton({
   const [endingTrial, setEndingTrial] = useState(false);
   const { mutate } = useSWRConfig();
 
+  // Revalidate on focus: a dialog left open in a background tab must not
+  // charge an amount that no longer matches what is on screen.
   const {
     data: preview,
     isLoading,
+    isValidating,
     error,
-  } = useSWR<GetTrialPreviewResponse>(open ? "/api/user/trial-preview" : null, {
-    revalidateOnFocus: false,
-  });
+  } = useSWR<GetTrialPreviewResponse>(open ? "/api/user/trial-preview" : null);
 
   const endTrial = async () => {
     setEndingTrial(true);
@@ -82,10 +84,13 @@ export function EndTrialButton({
                   <p>
                     We will charge your card{" "}
                     <span className="font-semibold text-foreground">
-                      {formatAmount(preview.amountDue, preview.currency)}
+                      {formatStripeAmount(preview.amountDue, preview.currency)}
                     </span>{" "}
-                    immediately for the {preview.planName} plan, billed{" "}
-                    {preview.isAnnual ? "yearly" : "monthly"}.
+                    immediately for the {preview.planName} plan
+                    {preview.interval
+                      ? `, billed ${billingCadence[preview.interval]}`
+                      : ""}
+                    .
                   </p>
                   {preview.trialEnd && (
                     <p>
@@ -109,9 +114,13 @@ export function EndTrialButton({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Keep my free trial</AlertDialogCancel>
-          <Button loading={endingTrial} disabled={!preview} onClick={endTrial}>
+          <Button
+            loading={endingTrial}
+            disabled={!preview || isValidating}
+            onClick={endTrial}
+          >
             {preview
-              ? `Pay ${formatAmount(preview.amountDue, preview.currency)} now`
+              ? `Pay ${formatStripeAmount(preview.amountDue, preview.currency)} now`
               : "Pay now"}
           </Button>
         </AlertDialogFooter>
@@ -120,9 +129,12 @@ export function EndTrialButton({
   );
 }
 
-function formatAmount(amountInMinorUnits: number, currency: string) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency.toUpperCase(),
-  }).format(amountInMinorUnits / 100);
-}
+const billingCadence: Record<
+  NonNullable<GetTrialPreviewResponse["interval"]>,
+  string
+> = {
+  day: "daily",
+  week: "weekly",
+  month: "monthly",
+  year: "yearly",
+};
