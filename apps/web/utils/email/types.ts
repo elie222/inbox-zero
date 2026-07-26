@@ -307,6 +307,8 @@ export interface EmailProvider {
     actionSource: "user" | "automation",
   ): Promise<void>;
   unarchiveThread(threadId: string): Promise<void>;
+  /** Moves a trashed thread back to the inbox, to undo `trashThread`. */
+  untrashThread(threadId: string): Promise<void>;
   unwatchEmails(subscriptionId?: string): Promise<void>;
   updateDraft(
     draftId: string,
