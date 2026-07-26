@@ -504,20 +504,20 @@ export async function archiveThread({
 const THREAD_MESSAGE_PAGE_SIZE = 100;
 const MAX_THREAD_MESSAGE_PAGES = 20;
 
-/**
- * Moves a conversation's messages out of one well-known folder and into the
- * inbox.
- *
- * Scoping to a source folder is what keeps the sent and deleted messages of the
- * same conversation where they are — Outlook has no thread-level state to
- * restore, so the source folder is the only signal for which messages the user
- * actually meant.
- */
 const SOURCE_FOLDER_LABELS = {
   archive: "Archive",
   deleteditems: "Deleted items",
 } as const;
 
+/**
+ * Moves a conversation's messages out of one well-known folder and into the
+ * inbox.
+ *
+ * Scoping to a source folder is what keeps the sent and deleted messages of the
+ * same conversation where they are. Outlook has no thread-level state to
+ * restore, so the source folder is the only signal for which messages the user
+ * actually meant.
+ */
 async function moveThreadFromFolderToInbox({
   client,
   threadId,
@@ -620,8 +620,8 @@ export async function unarchiveThread({
  * Moves a trashed thread back to the inbox.
  *
  * Unlike Gmail's untrash this cannot restore the thread to wherever it was
- * before, because Outlook does not record that — messages deleted from a
- * custom folder come back to the inbox.
+ * before, because Outlook does not record that. Messages deleted from a custom
+ * folder come back to the inbox.
  */
 export async function untrashThread({
   client,
