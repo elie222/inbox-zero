@@ -87,6 +87,10 @@ export function BulkRunRules() {
   const isProcessing = queue.size > 0;
   const isPaused = state.status === "paused";
   const isBusy = isProcessing || state.status === "processing";
+  // Access can drop while the toggle is still on (the tier is revalidated in
+  // the background), so everything reads the gated value rather than the raw
+  // toggle state.
+  const isRerunEnabled = rerun && hasRerunAccess;
 
   // Warn user before leaving page during processing (includes initial fetch)
   useBeforeUnload(isBusy);
@@ -117,7 +121,7 @@ export function BulkRunRules() {
           startDate,
           endDate,
           includeRead,
-          rerun: rerun && hasRerunAccess,
+          rerun: isRerunEnabled,
           maxEmails: isTrial ? TRIAL_BULK_PROCESS_EMAIL_LIMIT : undefined,
         },
         (threads) => {
@@ -223,7 +227,7 @@ export function BulkRunRules() {
                 <Toggle
                   name="rerun"
                   label="Re-process emails already handled"
-                  enabled={rerun && hasRerunAccess}
+                  enabled={isRerunEnabled}
                   onChange={(enabled) => setRerun(enabled)}
                   disabled={isProcessing || !hasRerunAccess}
                   disabledTooltipText={
@@ -306,8 +310,12 @@ export function BulkRunRules() {
 
               {state.runResult && state.runResult.count === 0 && (
                 <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
-                  No {describeTargetedEmails({ includeRead, rerun })} found in
-                  the selected date range.
+                  No{" "}
+                  {describeTargetedEmails({
+                    includeRead,
+                    rerun: isRerunEnabled,
+                  })}{" "}
+                  found in the selected date range.
                 </div>
               )}
             </div>
