@@ -4,8 +4,8 @@ import { withEmailProvider } from "@/utils/middleware";
 import { forwardMessage } from "@/utils/email/forward-message";
 
 const bodySchema = z.object({
-  messageId: z.string().min(1),
-  to: z.string().min(1),
+  messageId: z.string().trim().min(1),
+  to: z.string().trim().min(1),
   cc: z.string().nullish(),
   bcc: z.string().nullish(),
   content: z.string().nullish(),
@@ -27,28 +27,20 @@ export const POST = withEmailProvider("messages/forward", async (request) => {
     await request.json(),
   );
 
-  try {
-    const message = await request.emailProvider.getMessage(messageId);
+  const message = await request.emailProvider.getMessage(messageId);
 
-    await forwardMessage({
-      emailProvider: request.emailProvider,
-      emailAccountId: request.auth.emailAccountId,
-      message,
-      to,
-      cc,
-      bcc,
-      content,
-    });
+  await forwardMessage({
+    emailProvider: request.emailProvider,
+    emailAccountId: request.auth.emailAccountId,
+    message,
+    to,
+    cc,
+    bcc,
+    content,
+  });
 
-    return NextResponse.json({
-      success: true,
-      threadId: message.threadId,
-    } satisfies ForwardMessageResponse);
-  } catch (error) {
-    request.logger.error("Failed to forward email", { error, messageId });
-    return NextResponse.json(
-      { error: "Failed to forward email" },
-      { status: 500 },
-    );
-  }
+  return NextResponse.json({
+    success: true,
+    threadId: message.threadId,
+  } satisfies ForwardMessageResponse);
 });

@@ -27,7 +27,6 @@ export const POST = withEmailProvider(
       status,
       labelId,
       labelName,
-      logger: request.logger,
     });
 
     return NextResponse.json(result satisfies SetSenderStatusResponse);

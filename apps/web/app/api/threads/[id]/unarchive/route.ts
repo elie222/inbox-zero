@@ -16,8 +16,6 @@ export const POST = withEmailProvider(
 
     try {
       await request.emailProvider.unarchiveThread(threadId);
-
-      return NextResponse.json({ success: true });
     } catch (error) {
       if (isThreadNotFoundError(error)) {
         return NextResponse.json(
@@ -25,12 +23,11 @@ export const POST = withEmailProvider(
           { status: 404 },
         );
       }
-
-      request.logger.error("Failed to unarchive thread", { error, threadId });
-      return NextResponse.json(
-        { error: "Failed to unarchive email" },
-        { status: 500 },
-      );
+      // Rethrow so the middleware can map auth and rate limit failures to their
+      // own status codes rather than flattening everything to 500.
+      throw error;
     }
+
+    return NextResponse.json({ success: true });
   },
 );

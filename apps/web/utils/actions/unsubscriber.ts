@@ -32,7 +32,6 @@ export const setSenderStatusAction = actionClient
         status,
         labelId,
         labelName,
-        logger,
       });
     },
   );

@@ -4,10 +4,7 @@ import type { IncomingHttpHeaders } from "node:http";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
-import {
-  findAutoArchiveFilter,
-  getEmailFilters,
-} from "@/utils/senders/filters";
+import { findAutoArchiveFilter } from "@/utils/senders/filters";
 import {
   extractEmailOrThrow,
   upsertSenderRecord,
@@ -67,7 +64,6 @@ export async function setSenderStatusWithAutoArchive({
   status,
   labelId,
   labelName,
-  logger,
 }: {
   emailAccountId: string;
   emailProvider: EmailProvider;
@@ -75,11 +71,13 @@ export async function setSenderStatusWithAutoArchive({
   status: NewsletterStatus | null;
   labelId?: string;
   labelName?: string;
-  logger: Logger;
 }) {
   const senderEmail = extractEmailOrThrow(rawSenderEmail);
 
-  const filters = await getEmailFilters(emailProvider, logger);
+  // Not `getEmailFilters`: that swallows provider errors to keep the stats page
+  // rendering, which here would look like "no filter exists" and silently skip
+  // removing one.
+  const filters = await emailProvider.getFiltersList();
   const existingFilter = findAutoArchiveFilter(
     filters,
     senderEmail,
@@ -96,7 +94,9 @@ export async function setSenderStatusWithAutoArchive({
     status,
   });
 
-  if (shouldAutoArchive && !existingFilter) {
+  if (shouldAutoArchive) {
+    // Always create, even when a filter already exists, so a newly requested
+    // label reaches the provider. Both providers treat a duplicate as success.
     await emailProvider.createAutoArchiveFilter({
       from: senderEmail,
       gmailLabelId: labelId,

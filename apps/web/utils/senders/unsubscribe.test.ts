@@ -35,8 +35,6 @@ const autoArchiveFilter = {
 };
 
 describe("setSenderStatusWithAutoArchive", () => {
-  const logger = createTestLogger();
-
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.$queryRaw.mockResolvedValue([]);
@@ -69,7 +67,6 @@ describe("setSenderStatusWithAutoArchive", () => {
       status,
       labelId,
       labelName,
-      logger,
     });
 
     return { emailProvider, result };
@@ -106,13 +103,41 @@ describe("setSenderStatusWithAutoArchive", () => {
     });
   });
 
-  it("does not create a second filter when one already exists", async () => {
+  it("still applies a newly requested label when a filter already exists", async () => {
     const { emailProvider } = await setStatus({
       status: NewsletterStatus.AUTO_ARCHIVED,
       filters: [autoArchiveFilter],
+      labelId: "label-1",
+      labelName: "Newsletters",
     });
 
-    expect(emailProvider.createAutoArchiveFilter).not.toHaveBeenCalled();
+    expect(emailProvider.createAutoArchiveFilter).toHaveBeenCalledWith({
+      from: "news@example.com",
+      gmailLabelId: "label-1",
+      labelName: "Newsletters",
+    });
+    expect(emailProvider.deleteFilter).not.toHaveBeenCalled();
+  });
+
+  it("fails rather than guessing when the filter list is unavailable", async () => {
+    const emailProvider = {
+      name: "google" as const,
+      getFiltersList: vi.fn().mockRejectedValue(new Error("filters down")),
+      createAutoArchiveFilter: vi.fn(),
+      deleteFilter: vi.fn(),
+    };
+
+    await expect(
+      setSenderStatusWithAutoArchive({
+        emailAccountId: "email-account-1",
+        emailProvider: emailProvider as never,
+        senderEmail: "news@example.com",
+        status: NewsletterStatus.APPROVED,
+      }),
+    ).rejects.toThrow("filters down");
+
+    // Nothing was written, so the sender is not left approved but still archived.
+    expect(prisma.newsletter.upsert).not.toHaveBeenCalled();
     expect(emailProvider.deleteFilter).not.toHaveBeenCalled();
   });
 

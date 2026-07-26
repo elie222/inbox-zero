@@ -204,8 +204,8 @@ async function unsubscribeAndArchive({
 
   await mutate();
   await decrementUnsubscribeCreditAction();
-  await refetchPremium();
   await queueArchiveSenders({ senders: [senderEmail] });
+  await refreshPremium(refetchPremium);
 
   return true;
 }
@@ -302,7 +302,7 @@ export function useUnsubscribe<T extends Row>({
             description: "Sender blocked. Future emails will be archived.",
           });
           await mutate();
-          await refetchPremium();
+          await refreshPremium(refetchPremium);
           return;
         }
 
@@ -426,7 +426,7 @@ export function useBulkUnsubscribe<T extends Row>({
         },
         onComplete: async () => {
           await mutate();
-          await refetchPremium();
+          await refreshPremium(refetchPremium);
         },
         onSuccess: () => onSuccess?.(items),
       });
@@ -478,7 +478,7 @@ async function autoArchive({
   });
   toastSuccess({ description: "Auto archive enabled!" });
   await mutate();
-  await refetchPremium();
+  await refreshPremium(refetchPremium);
 }
 
 export function useAutoArchive<T extends Row>({
@@ -1012,7 +1012,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
           toastSuccess({ description: "Auto archive enabled!" });
           await mutate();
           await decrementUnsubscribeCreditAction();
-          await refetchPremium();
+          await refreshPremium(refetchPremium);
           return;
         }
         if (e.key === "u") {
@@ -1035,7 +1035,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
               description: "Sender blocked. Future emails will be archived.",
             });
             await mutate();
-            await refetchPremium();
+            await refreshPremium(refetchPremium);
             return;
           }
 
@@ -1176,6 +1176,20 @@ function getBulkUnsubscribeMessages<T extends Row>(items: T[]) {
     successMessage: "unsubscribed",
     errorMessage: "Failed to unsubscribe from",
   };
+}
+
+/**
+ * A stale premium count is cosmetic, so refreshing it must never turn an
+ * operation that already succeeded into a failure toast.
+ */
+async function refreshPremium(
+  refetchPremium: () => Promise<UserResponse | null | undefined>,
+) {
+  try {
+    await refetchPremium();
+  } catch (error) {
+    captureException(error);
+  }
 }
 
 function getBulkActionErrorMessage(error: unknown, fallback: string) {

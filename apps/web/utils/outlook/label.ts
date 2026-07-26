@@ -500,8 +500,9 @@ export async function archiveThread({
 }
 
 // Graph pages at 10 messages by default, which would silently leave the rest of
-// a long thread archived.
-const MAX_THREAD_MESSAGES = 200;
+// a long thread archived. Pages beyond this are followed via @odata.nextLink.
+const THREAD_MESSAGE_PAGE_SIZE = 100;
+const MAX_THREAD_MESSAGE_PAGES = 20;
 
 export async function unarchiveThread({
   client,
@@ -524,22 +525,46 @@ export async function unarchiveThread({
     throw new Error("Archive folder not found, cannot unarchive thread");
   }
 
-  const messages: { value: { id?: string | null }[] } = await withOutlookRetry(
-    () =>
-      client
-        .getClient()
-        .api("/me/messages")
-        .filter(
-          `conversationId eq '${escapeODataString(threadId)}' and parentFolderId eq '${escapeODataString(archiveFolderId)}'`,
-        )
-        .select("id")
-        .top(MAX_THREAD_MESSAGES)
-        .get(),
-    logger,
-  );
+  const messageIds: string[] = [];
+  let nextLink: string | undefined;
+
+  for (let page = 0; page < MAX_THREAD_MESSAGE_PAGES; page++) {
+    const response: {
+      value: { id?: string | null }[];
+      "@odata.nextLink"?: string;
+    } = await withOutlookRetry(
+      () =>
+        nextLink
+          ? client.getClient().api(nextLink).get()
+          : client
+              .getClient()
+              .api("/me/messages")
+              .filter(
+                `conversationId eq '${escapeODataString(threadId)}' and parentFolderId eq '${escapeODataString(archiveFolderId)}'`,
+              )
+              .select("id")
+              .top(THREAD_MESSAGE_PAGE_SIZE)
+              .get(),
+      logger,
+    );
+
+    messageIds.push(
+      ...response.value.map((message) => message.id).filter(isDefined),
+    );
+
+    nextLink = response["@odata.nextLink"];
+    if (!nextLink) break;
+  }
+
+  if (nextLink) {
+    logger.warn("Stopped paging archived thread messages at the page limit", {
+      threadId,
+      messageCount: messageIds.length,
+    });
+  }
 
   await runThreadMessageMutation({
-    messageIds: messages.value.map((message) => message.id).filter(isDefined),
+    messageIds,
     threadId,
     logger,
     messageHandler: (messageId) =>

@@ -36,6 +36,7 @@ describe("POST /api/threads/[id]/unarchive", () => {
 
     expect(mockEmailProvider.unarchiveThread).toHaveBeenCalledWith("thread-1");
     expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ success: true });
   });
 
   it("returns 404 when the thread no longer exists", async () => {
@@ -46,15 +47,25 @@ describe("POST /api/threads/[id]/unarchive", () => {
     const response = await unarchive();
 
     expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: "Thread not found",
+    });
   });
 
-  it("returns 500 when the provider fails for another reason", async () => {
+  it("returns 404 when Outlook reports the item as missing", async () => {
     mockEmailProvider.unarchiveThread.mockRejectedValue(
-      new Error("Provider unavailable"),
+      Object.assign(new Error("item missing"), { code: "ErrorItemNotFound" }),
     );
 
     const response = await unarchive();
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(404);
+  });
+
+  it("lets other provider failures reach the middleware's error mapping", async () => {
+    const providerError = new Error("Provider unavailable");
+    mockEmailProvider.unarchiveThread.mockRejectedValue(providerError);
+
+    await expect(unarchive()).rejects.toThrow(providerError);
   });
 });
