@@ -568,6 +568,29 @@ describe("getFilableAttachments", () => {
     expect(getFilableAttachments(message)).toEqual([documentAttachment]);
   });
 
+  it("keeps attachments when inline appears only in a disposition parameter", () => {
+    const documentAttachment = {
+      ...createAttachment({
+        attachmentId: "attachment-1",
+        filename: "inline-report.pdf",
+        mimeType: "application/pdf",
+      }),
+      headers: {
+        "content-description": "",
+        "content-disposition": 'attachment; filename="inline-report.pdf"',
+        "content-id": "",
+        "content-transfer-encoding": "base64",
+        "content-type": 'application/pdf; name="inline-report.pdf"',
+      },
+    };
+
+    const message = getMockParsedMessage({
+      attachments: [documentAttachment],
+    });
+
+    expect(getFilableAttachments(message)).toEqual([documentAttachment]);
+  });
+
   it("excludes calendar invite attachments", () => {
     const documentAttachment = createAttachment({
       attachmentId: "attachment-1",
