@@ -180,13 +180,19 @@ export function applyConsistencyGuards(
   let primaryIssue: EditFailureMode | null = object.primaryIssue;
   let severity = object.severity;
 
-  if (sendReady && object.unaddressedAsks.length > 0) {
+  // Both read the model's own verdict rather than the running one. Chaining
+  // off the mutated value meant the second guard could never fire once the
+  // first had, so a draft that both missed an ask and asserted something
+  // unsupported recorded only half of what the judge found.
+  if (object.sendReady && object.unaddressedAsks.length > 0) {
     guardsFired.push("unaddressed_asks");
     sendReady = false;
     primaryIssue = "MISSED_ASK";
   }
 
-  if (sendReady && object.unsupportedClaims.length > 0) {
+  // Ordered after the ask guard so it wins when both hold: a false statement
+  // goes out and misleads, where a missing answer is visible to the reader.
+  if (object.sendReady && object.unsupportedClaims.length > 0) {
     guardsFired.push("unsupported_claims");
     sendReady = false;
     primaryIssue = "FACTUAL_CORRECTION";

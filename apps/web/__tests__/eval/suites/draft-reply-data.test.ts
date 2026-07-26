@@ -51,10 +51,20 @@ describe.runIf(shouldRun)("draft-reply data suite", () => {
 
   it("has not edited a held-out test case since it was locked", () => {
     const lock = mergeSplitLocks(roots);
+    const heldOut = loaded.cases.filter(
+      (evalCase) => evalCase.split === "test",
+    );
+
+    // Without a lock there is nothing stopping a held-out case being softened
+    // until it passes, which is the whole point of holding it out. Warning and
+    // returning left the run green with the guarantee silently absent, so an
+    // unlocked dataset that has held-out cases fails instead.
     if (Object.keys(lock).length === 0) {
-      console.warn(
-        `[${SUITE}] no ${SPLIT_LOCK_FILENAME} in any dataset root; split locking is not enforced for this run.`,
-      );
+      expect(
+        heldOut.length === 0
+          ? ""
+          : `${heldOut.length} held-out cases but no ${SPLIT_LOCK_FILENAME} in any dataset root (${roots.join(", ")}). Run the dataset lock script.`,
+      ).toBe("");
       return;
     }
 

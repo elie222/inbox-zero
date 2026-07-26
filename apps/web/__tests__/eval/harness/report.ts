@@ -28,7 +28,12 @@ export const TARGET_BAND: [number, number] = [0.45, 0.7];
 export const PROVISIONAL_NOTE =
   "**PROVISIONAL** — includes unreviewed generated cases. Not a reportable baseline until a human has reviewed them.";
 
-export type CeilingLevel = "ceiling" | "near-ceiling" | "in-band" | "floor";
+export type CeilingLevel =
+  | "ceiling"
+  | "near-ceiling"
+  | "in-band"
+  | "floor"
+  | "empty";
 
 export type EvalReport = {
   sendReady: PassRateInterval;
@@ -99,7 +104,9 @@ export function printEvalReport(report: EvalReport) {
 }
 
 function classifyCeiling(estimate: number): CeilingLevel {
-  if (!Number.isFinite(estimate)) return "in-band";
+  // A run that graded nothing has a non-finite estimate. Calling that in-band
+  // reports a healthy instrument for a run that measured nothing at all.
+  if (!Number.isFinite(estimate)) return "empty";
   if (estimate > CEILING_THRESHOLD) return "ceiling";
   if (estimate > TARGET_BAND[1]) return "near-ceiling";
   if (estimate < TARGET_BAND[0]) return "floor";
@@ -111,6 +118,15 @@ function buildBanner(
   sendReady: PassRateInterval,
 ): string | null {
   if (level === "in-band") return null;
+
+  if (level === "empty") {
+    return box([
+      "EMPTY RUN: no samples were graded.",
+      "",
+      "Filters may have selected no cases, or every sample errored. There is no",
+      "rate here to read. Check the run health section.",
+    ]);
+  }
 
   const rate = pct(sendReady.estimate);
   const lines =
