@@ -490,20 +490,24 @@ function isLikelyListItem(line: string): boolean {
   return /^(\s*[-*]\s+|\s*\d+[.)]\s+|\s*[a-zA-Z][.)]\s+|>\s+)/.test(line);
 }
 
+/**
+ * Exported so the eval harness inverts this rather than restating it. The
+ * harness reports the model-facing label, and a silent remap here would
+ * otherwise leave it reporting the old semantics with nothing failing.
+ */
+export const DRAFT_CONFIDENCE_BY_LLM_LABEL = {
+  LOW: DraftReplyConfidence.ALL_EMAILS,
+  MEDIUM: DraftReplyConfidence.STANDARD,
+  HIGH: DraftReplyConfidence.HIGH_CONFIDENCE,
+} as const;
+
 function mapLlmDraftConfidence(confidence: unknown): DraftReplyConfidence {
   const llmConfidence = llmDraftConfidenceSchema.safeParse(confidence);
   if (!llmConfidence.success) {
     return normalizeDraftReplyConfidence(confidence);
   }
 
-  switch (llmConfidence.data) {
-    case "LOW":
-      return DraftReplyConfidence.ALL_EMAILS;
-    case "MEDIUM":
-      return DraftReplyConfidence.STANDARD;
-    case "HIGH":
-      return DraftReplyConfidence.HIGH_CONFIDENCE;
-  }
+  return DRAFT_CONFIDENCE_BY_LLM_LABEL[llmConfidence.data];
 }
 
 // Matches any non-separator, non-whitespace character repeated 50+ times in a row

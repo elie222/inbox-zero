@@ -1,27 +1,19 @@
 /**
- * Blocks production-derived data from reaching this public repo.
- *
- * Eval datasets mined from or shaped by real user behavior live in a separate
- * private repo and load at runtime via EVAL_DATA_DIRS. This check is
- * deterministic, runs on every PR, and targets the actual leak vector rather
- * than scanning everything.
+ * Test fixture hygiene.
  *
  * Two rules:
  *
- * 1. No dataset files (.jsonl) under __tests__ at all. Datasets are JSONL by
- *    convention, so their mere presence here means the private/public boundary
- *    was crossed. Unambiguous, zero false positives.
- * 2. Content scan of the directories that hold generated or simulated inbox
- *    content, where a real address could realistically slip in.
+ * 1. Fixtures use reserved example domains only (RFC 2606 / RFC 6761), so a
+ *    test can never send mail, resolve DNS, or name a real party.
+ * 2. Eval case data is supplied at runtime via EVAL_DATA_DIRS and is not
+ *    committed here, so a stray .jsonl under __tests__ is a mistake.
  *
- * Hand-authored .test.ts files are deliberately out of scope. They are written
- * and reviewed by humans and are not the leak vector; several legitimately name
- * real public companies (categorize-senders tests real newsletter senders), so
- * scanning them produces noise that trains people to ignore this check.
+ * Scope is narrow on purpose. Hand-authored .test.ts files are excluded:
+ * several deliberately reference real public services, because that is what
+ * they are testing, and flagging those trains people to skip the check.
  *
- * Usage:
- *   tsx scripts/lint-no-pii.ts            # scan default paths
- *   tsx scripts/lint-no-pii.ts --staged   # staged files only (pre-commit)
+ *   tsx scripts/check-test-fixtures.ts            # scan default paths
+ *   tsx scripts/check-test-fixtures.ts --staged   # staged files only
  */
 
 import { execFileSync } from "node:child_process";
@@ -31,22 +23,19 @@ import { parse } from "tldts";
 
 const REPO_ROOT = resolve(import.meta.dirname, "../../..");
 
-/** Datasets are JSONL. None may exist in this repo. */
 const FORBIDDEN_GLOBS = ["apps/web/__tests__/**/*.jsonl"];
 
-/** Directories holding generated or simulated content, scanned for real entities. */
 const SCANNED_GLOBS = [
   "apps/web/__tests__/sim/**/*.{ts,json,md}",
   "apps/web/__tests__/eval/data/**/*.{ts,json,md}",
   "apps/web/__tests__/eval/harness/**/*.{ts,json,md}",
+  "apps/web/__tests__/eval/suites/**/*.{ts,json,md}",
 ];
 
 /**
- * Domains that cannot belong to a real person. RFC 2606 + RFC 6761, plus
- * test.com, which is this repo's long-standing fixture convention (the default
- * in `getEmail`). test.com is a registered domain, so it is a mild anti-pattern
- * for new code, but it carries no user data and rejecting it would flag
- * hundreds of existing fixtures.
+ * test.com is a registered domain and so a mild anti-pattern, but it is this
+ * repo's long-standing fixture default and carries nothing. Prefer example.com
+ * in new fixtures.
  */
 const RESERVED_SUFFIXES = [
   "example.com",
@@ -75,28 +64,28 @@ type Finding = {
 
 const staged = process.argv.includes("--staged");
 const findings = [
-  ...findForbiddenDatasets(staged),
+  ...findCommittedDatasets(staged),
   ...scan(collectFiles(staged)),
 ];
 
 if (findings.length === 0) {
-  console.log("lint-no-pii: clean");
+  console.log("check-test-fixtures: clean");
   process.exit(0);
 }
 
-console.error(`lint-no-pii: ${findings.length} problem(s)\n`);
+console.error(`check-test-fixtures: ${findings.length} problem(s)\n`);
 for (const finding of findings) {
   console.error(`  ${finding.file}:${finding.line}:${finding.column}`);
   console.error(`    ${finding.reason}: ${finding.snippet}\n`);
 }
 console.error(
-  "Production-derived data must not enter this public repo.\n" +
-    "Eval datasets belong in the private evals repo and load at runtime via\n" +
-    "EVAL_DATA_DIRS. Synthetic fixtures must use example.com, *.test, or *.invalid.",
+  "Fixtures must use example.com, *.test, or *.invalid so a test can never\n" +
+    "reach a real address or host. Eval case data loads at runtime via\n" +
+    "EVAL_DATA_DIRS rather than being committed.",
 );
 process.exit(1);
 
-function findForbiddenDatasets(stagedOnly: boolean): Finding[] {
+function findCommittedDatasets(stagedOnly: boolean): Finding[] {
   const files = stagedOnly
     ? stagedFiles().filter((path) => path.endsWith(".jsonl"))
     : FORBIDDEN_GLOBS.flatMap((pattern) =>
@@ -107,8 +96,8 @@ function findForbiddenDatasets(stagedOnly: boolean): Finding[] {
     column: 1,
     file,
     line: 1,
-    reason: "dataset file in public repo",
-    snippet: "move to the private evals repo and load via EVAL_DATA_DIRS",
+    reason: "committed eval dataset",
+    snippet: "case data loads at runtime via EVAL_DATA_DIRS",
   }));
 }
 
@@ -129,7 +118,7 @@ function scan(files: string[]): Finding[] {
 
   for (const file of files) {
     const lines = readFileSync(join(REPO_ROOT, file), "utf8").split("\n");
-    // Phone numbers and account numbers appear in email content, not in source.
+    // Phone and account numbers appear in fixture content, not in source.
     // Scanning .ts for digit runs just flags constants like 2**30.
     const isContentFile = !file.endsWith(".ts");
 
@@ -137,14 +126,16 @@ function scan(files: string[]): Finding[] {
       for (const match of line.matchAll(EMAIL_PATTERN)) {
         const domain = match[0].split("@")[1];
         if (domain && !isReserved(domain)) {
-          findings.push(toFinding(file, index, match, "real email domain"));
+          findings.push(
+            toFinding(file, index, match, "non-reserved email domain"),
+          );
         }
       }
 
       for (const match of line.matchAll(URL_PATTERN)) {
         const host = match[0].replace(/^https?:\/\//, "");
         if (!isReserved(host)) {
-          findings.push(toFinding(file, index, match, "real URL host"));
+          findings.push(toFinding(file, index, match, "non-reserved URL host"));
         }
       }
 
@@ -193,7 +184,8 @@ function isScanned(path: string): boolean {
   return (
     path.startsWith("apps/web/__tests__/sim/") ||
     path.startsWith("apps/web/__tests__/eval/data/") ||
-    path.startsWith("apps/web/__tests__/eval/harness/")
+    path.startsWith("apps/web/__tests__/eval/harness/") ||
+    path.startsWith("apps/web/__tests__/eval/suites/")
   );
 }
 

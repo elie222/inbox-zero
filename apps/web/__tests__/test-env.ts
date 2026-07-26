@@ -17,7 +17,7 @@ setEnvDefault("AUTH_SECRET", "test-auth-secret");
 setEnvDefault("EMAIL_ENCRYPT_SECRET", "test-email-encrypt-secret");
 setEnvDefault("EMAIL_ENCRYPT_SALT", "test-email-encrypt-salt");
 setEnvDefault("INTERNAL_API_KEY", "test-internal-api-key");
-setEnvDefault("DEFAULT_LLMS", "openrouter:openai/gpt-5.4-mini");
+setEnvDefault("DEFAULT_LLMS", "openrouter:openai/gpt-5.6-luna");
 setEnvDefault("NEXT_PUBLIC_BASE_URL", "http://localhost:3000");
 
 function setEnvDefault(key: string, value: string) {

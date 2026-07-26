@@ -1,4 +1,7 @@
-import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
+import {
+  aiDraftReplyWithConfidence,
+  DRAFT_CONFIDENCE_BY_LLM_LABEL,
+} from "@/utils/ai/reply/draft-reply";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmail } from "@/__tests__/helpers";
@@ -107,21 +110,28 @@ function toEmailForLLM(
 }
 
 /**
- * The product maps LOW/MEDIUM/HIGH onto the `DraftReplyConfidence` enum that
- * gates whether a draft is shown. Cases assert on the model-facing labels, so
- * map back through the same three-way correspondence.
+ * Cases assert on the model-facing label, the product returns the enum that
+ * gates whether a draft is shown. Inverting the product's own table rather
+ * than restating the correspondence means a remap on that side cannot leave
+ * the harness silently reporting the previous semantics.
  */
 function toLlmConfidence(
   confidence: Awaited<
     ReturnType<typeof aiDraftReplyWithConfidence>
   >["confidence"],
 ): DraftOutput["confidence"] {
-  switch (confidence) {
-    case "ALL_EMAILS":
-      return "LOW";
-    case "STANDARD":
-      return "MEDIUM";
-    case "HIGH_CONFIDENCE":
-      return "HIGH";
+  const label = LLM_LABEL_BY_DRAFT_CONFIDENCE.get(confidence);
+  if (!label) {
+    throw new Error(
+      `No model-facing label maps to DraftReplyConfidence.${confidence}. Update DRAFT_CONFIDENCE_BY_LLM_LABEL or the case schema.`,
+    );
   }
+  return label;
 }
+
+const LLM_LABEL_BY_DRAFT_CONFIDENCE = new Map(
+  Object.entries(DRAFT_CONFIDENCE_BY_LLM_LABEL).map(([label, confidence]) => [
+    confidence,
+    label as DraftOutput["confidence"],
+  ]),
+);
