@@ -46,12 +46,17 @@ export function findSenderLabelFilters(
   });
 }
 
-export function findAutoArchiveFilter(
+/**
+ * Returns every match, because a sender can end up with more than one rule: for
+ * example re-applying auto archive with a label adds a second one alongside the
+ * unlabelled rule. Removing auto archive has to delete all of them.
+ */
+export function findAutoArchiveFilters(
   autoArchiveFilters: EmailFilter[],
   fromEmail: string,
   emailProvider: EmailProvider,
 ) {
-  return autoArchiveFilters.find(
+  return autoArchiveFilters.filter(
     (filter) =>
       filterMatchesSender(filter, fromEmail) &&
       isAutoArchiveFilter(filter, emailProvider),

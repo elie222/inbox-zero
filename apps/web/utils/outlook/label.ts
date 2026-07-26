@@ -13,6 +13,9 @@ import {
   sanitizeOutlookCategoryName,
 } from "@/utils/outlook/label-validation";
 import { findLabelByName } from "@/utils/label/find-label-by-name";
+import { escapeODataString } from "@/utils/outlook/odata-escape";
+import { getFolderIds } from "@/utils/outlook/message";
+import { isDefined } from "@/utils/types";
 import type {
   OutlookCategory,
   Message,
@@ -494,6 +497,87 @@ export async function archiveThread({
       throw directError;
     }
   }
+}
+
+// Graph pages at 10 messages by default, which would silently leave the rest of
+// a long thread archived. Pages beyond this are followed via @odata.nextLink.
+const THREAD_MESSAGE_PAGE_SIZE = 100;
+const MAX_THREAD_MESSAGE_PAGES = 20;
+
+export async function unarchiveThread({
+  client,
+  threadId,
+  logger,
+}: {
+  client: OutlookClient;
+  threadId: string;
+  logger: Logger;
+}) {
+  const folderIds = await getFolderIds(client, logger, {
+    includeDrafts: false,
+  });
+  const archiveFolderId = folderIds[WELL_KNOWN_FOLDERS.archive];
+
+  // Without the archive folder we can't tell archived messages apart from the
+  // sent and deleted messages in the same conversation, and moving those into
+  // the inbox would be worse than failing.
+  if (!archiveFolderId) {
+    throw new Error("Archive folder not found, cannot unarchive thread");
+  }
+
+  const messageIds: string[] = [];
+  let nextLink: string | undefined;
+
+  for (let page = 0; page < MAX_THREAD_MESSAGE_PAGES; page++) {
+    const response: {
+      value: { id?: string | null }[];
+      "@odata.nextLink"?: string;
+    } = await withOutlookRetry(
+      () =>
+        nextLink
+          ? client.getClient().api(nextLink).get()
+          : client
+              .getClient()
+              .api("/me/messages")
+              .filter(
+                `conversationId eq '${escapeODataString(threadId)}' and parentFolderId eq '${escapeODataString(archiveFolderId)}'`,
+              )
+              .select("id")
+              .top(THREAD_MESSAGE_PAGE_SIZE)
+              .get(),
+      logger,
+    );
+
+    messageIds.push(
+      ...response.value.map((message) => message.id).filter(isDefined),
+    );
+
+    nextLink = response["@odata.nextLink"];
+    if (!nextLink) break;
+  }
+
+  if (nextLink) {
+    logger.warn("Stopped paging archived thread messages at the page limit", {
+      threadId,
+      messageCount: messageIds.length,
+    });
+  }
+
+  await runThreadMessageMutation({
+    messageIds,
+    threadId,
+    logger,
+    messageHandler: (messageId) =>
+      withOutlookRetry(
+        () =>
+          client
+            .getClient()
+            .api(`/me/messages/${messageId}/move`)
+            .post({ destinationId: WELL_KNOWN_FOLDERS.inbox }),
+        logger,
+      ),
+    failureMessage: "Failed to move message back to inbox",
+  });
 }
 
 export async function markReadThread({

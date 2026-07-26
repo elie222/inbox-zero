@@ -215,7 +215,7 @@ function UnsubscribeButton<T extends Row>({
         open={resubscribeDialogOpen}
         onOpenChange={setResubscribeDialogOpen}
         senderName={senderName}
-        newsletterEmail={item.name}
+        senderEmail={item.name}
         emailAccountId={emailAccountId}
         mutate={mutate}
       />

@@ -98,6 +98,28 @@ export function createWithEmailAccountTestMiddleware(
   };
 }
 
+export function createWithEmailProviderTestMiddleware(
+  emailProvider: unknown,
+  options?: Parameters<typeof addTestEmailAccountAuth>[1] &
+    TestSafeErrorOptions,
+) {
+  const { withEmailAccount } = createWithEmailAccountTestMiddleware(options);
+
+  return {
+    withEmailProvider: (
+      scopeOrHandler: string | TestMiddlewareHandler,
+      handler?: TestMiddlewareHandler,
+    ) => {
+      const wrapped =
+        typeof scopeOrHandler === "string" ? handler! : scopeOrHandler;
+
+      return withEmailAccount((request, ...context) =>
+        wrapped(Object.assign(request, { emailProvider }), ...context),
+      );
+    },
+  };
+}
+
 export function addTestAuth<TRequest extends Request>(
   request: TRequest,
   {

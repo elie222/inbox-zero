@@ -2,7 +2,19 @@ import type { OutlookCategory } from "@microsoft/microsoft-graph-types";
 import { describe, expect, it, vi } from "vitest";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createTestLogger } from "@/__tests__/helpers";
-import { createLabel, getLabel, getOrCreateLabels } from "./label";
+import {
+  createLabel,
+  getLabel,
+  getOrCreateLabels,
+  unarchiveThread,
+} from "./label";
+
+const mockGetFolderIds = vi.fn();
+
+vi.mock("@/utils/outlook/message", () => ({
+  getFolderIds: (...args: Parameters<typeof mockGetFolderIds>) =>
+    mockGetFolderIds(...args),
+}));
 
 describe("createLabel", () => {
   it("sanitizes comma-containing category names before Graph API call", async () => {
@@ -87,6 +99,68 @@ describe("getOrCreateLabels", () => {
         logger: createTestLogger(),
       }),
     ).rejects.toThrow("Ambiguous Outlook category match");
+
+    expect(post).not.toHaveBeenCalled();
+  });
+});
+
+describe("unarchiveThread", () => {
+  function createPagingClient(
+    pages: { value: { id: string }[]; next?: string }[],
+  ) {
+    const post = vi.fn().mockResolvedValue(undefined);
+    let pageIndex = 0;
+
+    const api = vi.fn().mockImplementation((path: string) => {
+      if (path.includes("/move")) return { post };
+
+      const builder = {
+        filter: () => builder,
+        select: () => builder,
+        top: () => builder,
+        get: vi.fn().mockImplementation(() => {
+          const page = pages[pageIndex++];
+          return Promise.resolve({
+            value: page.value,
+            ...(page.next ? { "@odata.nextLink": page.next } : {}),
+          });
+        }),
+      };
+      return builder;
+    });
+
+    return { client: createMockOutlookClient(api), api, post };
+  }
+
+  it("moves every archived message back, following paged results", async () => {
+    mockGetFolderIds.mockResolvedValue({ archive: "archive-id" });
+    const { client, post } = createPagingClient([
+      { value: [{ id: "m1" }, { id: "m2" }], next: "https://graph/next" },
+      { value: [{ id: "m3" }] },
+    ]);
+
+    await unarchiveThread({
+      client,
+      threadId: "thread-1",
+      logger: createTestLogger(),
+    });
+
+    // Without following @odata.nextLink, m3 would silently stay archived.
+    expect(post).toHaveBeenCalledTimes(3);
+    expect(post).toHaveBeenCalledWith({ destinationId: "inbox" });
+  });
+
+  it("refuses to run when the archive folder cannot be resolved", async () => {
+    mockGetFolderIds.mockResolvedValue({});
+    const { client, post } = createPagingClient([{ value: [] }]);
+
+    await expect(
+      unarchiveThread({
+        client,
+        threadId: "thread-1",
+        logger: createTestLogger(),
+      }),
+    ).rejects.toThrow("Archive folder not found");
 
     expect(post).not.toHaveBeenCalled();
   });

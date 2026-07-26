@@ -12,11 +12,11 @@ import type { EmailProvider } from "@/utils/email/types";
 import {
   getEmailFilters,
   getNewsletterStatuses,
-  findAutoArchiveFilter,
+  findAutoArchiveFilters,
   findNewsletterStatus,
   findSenderLabelFilters,
   filterNewsletters,
-} from "@/app/api/user/stats/newsletters/helpers";
+} from "@/utils/senders/filters";
 
 const newsletterStatsQuery = z.object({
   limit: z.coerce.number().nullish(),
@@ -106,7 +106,11 @@ async function getEmailMessages(
       inboxEmails: email.inboxEmails,
       readEmails: email.readEmails,
       unsubscribeLink: email.unsubscribeLink,
-      autoArchived: findAutoArchiveFilter(emailFilters, from, emailProvider),
+      autoArchived: findAutoArchiveFilters(
+        emailFilters,
+        from,
+        emailProvider,
+      )[0],
       labelFilters: findSenderLabelFilters(emailFilters, from),
       status: findNewsletterStatus(newsletterStatuses, from),
     };

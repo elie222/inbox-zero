@@ -16,7 +16,7 @@ describe("sender-record", () => {
   it("normalizes email addresses when upserting newsletter records", async () => {
     await upsertSenderRecord({
       emailAccountId: "email-account-1",
-      newsletterEmail: "Sender <Sender@Example.COM>",
+      senderEmail: "Sender <Sender@Example.COM>",
       changes: { status: NewsletterStatus.UNSUBSCRIBED },
     });
 
@@ -50,7 +50,7 @@ describe("sender-record", () => {
 
     await upsertSenderRecord({
       emailAccountId: "email-account-1",
-      newsletterEmail: "Sender@Example.COM",
+      senderEmail: "Sender@Example.COM",
       changes: { status: null },
     });
 
@@ -61,9 +61,9 @@ describe("sender-record", () => {
     expect(prisma.newsletter.upsert).not.toHaveBeenCalled();
   });
 
-  it("throws for invalid newsletter emails", () => {
+  it("throws for invalid sender emails", () => {
     expect(() => extractEmailOrThrow("invalid-email")).toThrow(
-      "Invalid newsletter email address",
+      "Invalid sender email address",
     );
   });
 });

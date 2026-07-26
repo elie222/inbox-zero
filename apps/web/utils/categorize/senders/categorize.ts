@@ -104,7 +104,7 @@ export async function updateSenderCategory({
   // save category
   const newsletter = await upsertSenderRecord({
     emailAccountId,
-    newsletterEmail: sender,
+    senderEmail: sender,
     changes: {
       categoryId: category.id,
       ...(senderName && { name: senderName }),
@@ -130,7 +130,7 @@ export async function updateCategoryForSender({
 }) {
   await upsertSenderRecord({
     emailAccountId,
-    newsletterEmail: sender,
+    senderEmail: sender,
     changes: {
       categoryId,
       ...(senderName && { name: senderName }),

@@ -43,6 +43,7 @@ import {
   labelThread,
   markReadThread,
   removeThreadLabel,
+  unarchiveThread,
 } from "@/utils/gmail/label";
 import { trashThread } from "@/utils/gmail/trash";
 import { markSpam } from "@/utils/gmail/spam";
@@ -322,6 +323,10 @@ export class GmailProvider implements EmailProvider {
       actionSource: "user",
       labelId,
     });
+  }
+
+  async unarchiveThread(threadId: string): Promise<void> {
+    await unarchiveThread({ gmail: this.client, threadId });
   }
 
   async bulkArchiveThreads(

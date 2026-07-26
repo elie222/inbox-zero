@@ -10,22 +10,22 @@ type NewsletterRecordChanges = {
   status?: NewsletterStatus | null;
 };
 
-export function extractEmailOrThrow(newsletterEmail: string) {
-  const email = canonicalizeEmailAddress(newsletterEmail);
-  if (!email) throw new Error("Invalid newsletter email address");
+export function extractEmailOrThrow(senderEmail: string) {
+  const email = canonicalizeEmailAddress(senderEmail);
+  if (!email) throw new Error("Invalid sender email address");
   return email;
 }
 
 export async function upsertSenderRecord({
   emailAccountId,
-  newsletterEmail,
+  senderEmail,
   changes,
 }: {
   emailAccountId: string;
-  newsletterEmail: string;
+  senderEmail: string;
   changes: NewsletterRecordChanges;
 }) {
-  const email = extractEmailOrThrow(newsletterEmail);
+  const email = extractEmailOrThrow(senderEmail);
 
   const existing = await prisma.$queryRaw<{ id: string }[]>`
     SELECT "id"

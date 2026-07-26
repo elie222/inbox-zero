@@ -183,6 +183,22 @@ export async function archiveThread({
   return archiveResult.value;
 }
 
+export async function unarchiveThread({
+  gmail,
+  threadId,
+}: {
+  gmail: gmail_v1.Gmail;
+  threadId: string;
+}) {
+  return withGmailRetry(() =>
+    gmail.users.threads.modify({
+      userId: "me",
+      id: threadId,
+      requestBody: { addLabelIds: [GmailLabel.INBOX] },
+    }),
+  );
+}
+
 export async function labelMessage({
   gmail,
   messageId,

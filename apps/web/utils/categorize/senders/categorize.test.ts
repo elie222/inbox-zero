@@ -53,7 +53,7 @@ describe("categorizeSender", () => {
 
     expect(upsertSenderRecord).toHaveBeenCalledWith({
       emailAccountId: emailAccount.id,
-      newsletterEmail: "unknown@example.com",
+      senderEmail: "unknown@example.com",
       changes: {
         categoryId: "cat-other",
       },
