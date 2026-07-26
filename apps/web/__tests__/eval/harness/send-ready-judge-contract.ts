@@ -219,6 +219,14 @@ export function applyConsistencyGuards(
   ) {
     guardsFired.push("needs_fill_with_unsupported_claims");
     usability = "not-usable";
+  } else if (usability === "needs-fill" && object.unaddressedAsks.length > 0) {
+    // needs-fill promises the draft is complete apart from one slot the sender
+    // fills in. A silently unanswered ask is not that: the sender has to notice
+    // the omission first, which is the work needs-fill claims to have done.
+    // A deferral the draft states out loud already counts as addressed, so it
+    // never reaches here.
+    guardsFired.push("needs_fill_with_unaddressed_asks");
+    usability = "not-usable";
   }
 
   return {
