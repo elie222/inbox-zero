@@ -1,5 +1,5 @@
 import { getModel } from "@/utils/llms/model";
-import { getEvalJudgeUserAi } from "@/__tests__/eval/semantic-judge";
+import { getEvalJudgeUserAi } from "@/__tests__/eval/judge-provider";
 
 /**
  * The judge is deliberately from a different model family than the system under

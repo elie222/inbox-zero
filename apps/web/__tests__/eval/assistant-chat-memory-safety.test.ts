@@ -12,9 +12,9 @@ import {
   memorySafetyScenarios,
   type MemorySafetyScenario,
 } from "@/__tests__/eval/assistant-chat-memory-safety.scenarios";
+import { getEvalModels } from "@/__tests__/eval/model-catalog";
 import {
   describeEvalMatrix,
-  getEvalModels,
   shouldRunEvalTests,
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";

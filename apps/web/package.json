@@ -16,6 +16,7 @@
     "lint:no-pii": "tsx scripts/lint-no-pii.ts",
     "generate-llm-pricing": "tsx scripts/generate-llm-pricing.ts",
     "eval-report": "tsx scripts/eval-report/generate-eval-report.ts",
+    "eval:ablate": "dotenv -o -e .env.test -- tsx --tsconfig tsconfig.eval-script.json scripts/eval-ablate.ts",
     "test": "cross-env RUN_AI_TESTS=false vitest",
     "test-ai": "cross-env RUN_AI_TESTS=true vitest --run",
     "test-e2e": "cross-env RUN_E2E_TESTS=true vitest --run",

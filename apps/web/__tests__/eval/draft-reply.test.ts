@@ -6,10 +6,10 @@ import {
   describeEvalMatrix,
   shouldRunEvalTests,
 } from "@/__tests__/eval/models";
+import { getEvalJudgeUserAi } from "@/__tests__/eval/judge-provider";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import {
   formatSemanticJudgeActual,
-  getEvalJudgeUserAi,
   judgeEvalOutput,
 } from "@/__tests__/eval/semantic-judge";
 

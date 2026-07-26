@@ -4,13 +4,7 @@ import {
   describeEvalMatrix,
   shouldRunEvalTests,
 } from "@/__tests__/eval/models";
-import { runDraftReplyAssertions } from "@/__tests__/eval/harness/assertions";
-import { judgeCriteria } from "@/__tests__/eval/harness/criteria-judge";
-import {
-  describeContext,
-  describeThread,
-  invokeDraftReply,
-} from "@/__tests__/eval/harness/draft-reply-adapter";
+import { runDraftReplyEval } from "@/__tests__/eval/harness/draft-reply-run";
 import { draftReplyCaseSchema } from "@/__tests__/eval/harness/draft-reply-schema";
 import {
   formatLoadIssues,
@@ -21,8 +15,6 @@ import {
   buildEvalReport,
   printEvalReport,
 } from "@/__tests__/eval/harness/report";
-import { runEvalSuite } from "@/__tests__/eval/harness/run-suite";
-import { judgeSendReady } from "@/__tests__/eval/harness/send-ready-judge";
 import {
   checkSplitLock,
   formatSplitLockViolation,
@@ -78,49 +70,11 @@ describe.runIf(shouldRun)("draft-reply data suite", () => {
     it(
       "reports the send-ready rate of the real drafting function",
       async () => {
-        const run = await runEvalSuite({
+        const run = await runDraftReplyEval({
           evalName: SUITE,
           model: model.label,
           cases: loaded.cases,
-          invoke: ({ evalCase }) =>
-            invokeDraftReply({ evalCase, emailAccount }),
-          assert: ({ evalCase, output }) =>
-            runDraftReplyAssertions({
-              assertions: evalCase.assertions,
-              output,
-              input: evalCase.input,
-            }),
-          judge: async ({ evalCase, output, signal }) => {
-            const inboundThread = describeThread(evalCase);
-            const context = describeContext(evalCase);
-
-            const [criteria, verdict] = await Promise.all([
-              judgeCriteria({
-                inboundThread,
-                draft: output.reply,
-                criteria: evalCase.judgeCriteria,
-                groundTruth: evalCase.expectedGroundTruth,
-                context,
-                signal,
-              }),
-              judgeSendReady({
-                inboundThread,
-                draft: output.reply,
-                groundTruth: evalCase.expectedGroundTruth,
-                context,
-                signal,
-              }),
-            ]);
-
-            return {
-              sendReady: verdict.sendReady,
-              primaryIssue: verdict.primaryIssue,
-              severity: verdict.severity,
-              reasoning: verdict.reasoning,
-              criteriaFailures: criteria.failures,
-            };
-          },
-          describeOutput: (output) => output.reply,
+          emailAccount,
         });
 
         printEvalReport(buildEvalReport({ run }));
