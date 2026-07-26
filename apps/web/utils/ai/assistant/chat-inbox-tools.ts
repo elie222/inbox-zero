@@ -2066,7 +2066,7 @@ async function runSenderUnsubscribeActions({
 
       return unsubscribeSenderAndMark({
         emailAccountId,
-        newsletterEmail: senderEmail,
+        senderEmail: senderEmail,
         listUnsubscribeHeader,
         unsubscribeLink,
         logger,

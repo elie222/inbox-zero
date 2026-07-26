@@ -223,7 +223,7 @@ async function savePatternCheck({
 }) {
   await upsertSenderRecord({
     emailAccountId,
-    newsletterEmail: from,
+    senderEmail: from,
     changes: {
       patternAnalyzed: true,
       lastAnalyzedAt: new Date(),

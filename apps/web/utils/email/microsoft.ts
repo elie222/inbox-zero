@@ -37,6 +37,7 @@ import {
   markStarredMessage,
   markReadThread,
   removeThreadLabel,
+  unarchiveThread,
 } from "@/utils/outlook/label";
 import { trashThread } from "@/utils/outlook/trash";
 import { markSpam } from "@/utils/outlook/spam";
@@ -441,6 +442,14 @@ export class OutlookProvider implements EmailProvider {
       ownerEmail,
       actionSource: "user",
       folderId: "archive",
+      logger: this.logger,
+    });
+  }
+
+  async unarchiveThread(threadId: string): Promise<void> {
+    await unarchiveThread({
+      client: this.client,
+      threadId,
       logger: this.logger,
     });
   }

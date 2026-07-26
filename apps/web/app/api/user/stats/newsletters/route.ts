@@ -16,7 +16,7 @@ import {
   findNewsletterStatus,
   findSenderLabelFilters,
   filterNewsletters,
-} from "@/app/api/user/stats/newsletters/helpers";
+} from "@/utils/senders/filters";
 
 const newsletterStatsQuery = z.object({
   limit: z.coerce.number().nullish(),

@@ -306,6 +306,7 @@ export interface EmailProvider {
     ownerEmail: string,
     actionSource: "user" | "automation",
   ): Promise<void>;
+  unarchiveThread(threadId: string): Promise<void>;
   unwatchEmails(subscriptionId?: string): Promise<void>;
   updateDraft(
     draftId: string,

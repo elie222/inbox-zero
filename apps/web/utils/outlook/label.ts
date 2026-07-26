@@ -13,6 +13,9 @@ import {
   sanitizeOutlookCategoryName,
 } from "@/utils/outlook/label-validation";
 import { findLabelByName } from "@/utils/label/find-label-by-name";
+import { escapeODataString } from "@/utils/outlook/odata-escape";
+import { getFolderIds } from "@/utils/outlook/message";
+import { isDefined } from "@/utils/types";
 import type {
   OutlookCategory,
   Message,
@@ -494,6 +497,62 @@ export async function archiveThread({
       throw directError;
     }
   }
+}
+
+// Graph pages at 10 messages by default, which would silently leave the rest of
+// a long thread archived.
+const MAX_THREAD_MESSAGES = 200;
+
+export async function unarchiveThread({
+  client,
+  threadId,
+  logger,
+}: {
+  client: OutlookClient;
+  threadId: string;
+  logger: Logger;
+}) {
+  const folderIds = await getFolderIds(client, logger, {
+    includeDrafts: false,
+  });
+  const archiveFolderId = folderIds[WELL_KNOWN_FOLDERS.archive];
+
+  // Without the archive folder we can't tell archived messages apart from the
+  // sent and deleted messages in the same conversation, and moving those into
+  // the inbox would be worse than failing.
+  if (!archiveFolderId) {
+    throw new Error("Archive folder not found, cannot unarchive thread");
+  }
+
+  const messages: { value: { id?: string | null }[] } = await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api("/me/messages")
+        .filter(
+          `conversationId eq '${escapeODataString(threadId)}' and parentFolderId eq '${escapeODataString(archiveFolderId)}'`,
+        )
+        .select("id")
+        .top(MAX_THREAD_MESSAGES)
+        .get(),
+    logger,
+  );
+
+  await runThreadMessageMutation({
+    messageIds: messages.value.map((message) => message.id).filter(isDefined),
+    threadId,
+    logger,
+    messageHandler: (messageId) =>
+      withOutlookRetry(
+        () =>
+          client
+            .getClient()
+            .api(`/me/messages/${messageId}/move`)
+            .post({ destinationId: WELL_KNOWN_FOLDERS.inbox }),
+        logger,
+      ),
+    failureMessage: "Failed to move message back to inbox",
+  });
 }
 
 export async function markReadThread({
