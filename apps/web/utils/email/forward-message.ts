@@ -33,6 +33,6 @@ export async function forwardMessage({
     cc: cc || undefined,
     bcc: bcc || undefined,
     content: content || undefined,
-    ...(from ? { from } : {}),
+    from: from || undefined,
   });
 }

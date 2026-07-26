@@ -74,9 +74,8 @@ export async function setSenderStatusWithAutoArchive({
 }) {
   const senderEmail = extractEmailOrThrow(rawSenderEmail);
 
-  // Not `getEmailFilters`: that swallows provider errors to keep the stats page
-  // rendering, which here would look like "no filter exists" and silently skip
-  // removing one.
+  // Deliberately not `getEmailFilters`, which returns [] on provider errors so
+  // the stats page still renders. Here that would read as "no filter exists".
   const filters = await emailProvider.getFiltersList();
   const existingFilters = findAutoArchiveFilters(
     filters,
@@ -85,26 +84,20 @@ export async function setSenderStatusWithAutoArchive({
   );
 
   const shouldAutoArchive = status === NewsletterStatus.AUTO_ARCHIVED;
-  const shouldRemoveFilter =
+  const shouldRemoveFilters =
     status === NewsletterStatus.APPROVED || status === null;
 
-  await setSenderStatus({
-    emailAccountId,
-    senderEmail: senderEmail,
-    status,
-  });
+  await setSenderStatus({ emailAccountId, senderEmail, status });
 
   if (shouldAutoArchive) {
-    // Always create, even when a filter already exists, so a newly requested
-    // label reaches the provider. Both providers treat a duplicate as success.
-    // This can leave a sender with an unlabelled and a labelled rule, which is
-    // harmless while auto archiving but must all be removed below.
+    // Create even when a filter exists, so a newly requested label reaches the
+    // provider. Providers treat an identical filter as success.
     await emailProvider.createAutoArchiveFilter({
       from: senderEmail,
       gmailLabelId: labelId,
       labelName,
     });
-  } else if (shouldRemoveFilter) {
+  } else if (shouldRemoveFilters) {
     for (const filter of existingFilters) {
       await emailProvider.deleteFilter(filter.id);
     }
@@ -113,8 +106,9 @@ export async function setSenderStatusWithAutoArchive({
   return {
     senderEmail,
     status,
-    autoArchived:
-      shouldAutoArchive || (existingFilters.length > 0 && !shouldRemoveFilter),
+    autoArchived: shouldRemoveFilters
+      ? false
+      : shouldAutoArchive || existingFilters.length > 0,
   };
 }
 

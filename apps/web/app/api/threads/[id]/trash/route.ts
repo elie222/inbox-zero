@@ -21,7 +21,7 @@ export const POST = withEmailProvider(
         "user",
       );
     } catch (error) {
-      // Both providers already treat a missing thread as success, so this only
+      // Both providers usually treat a missing thread as success, so this only
       // catches the paths that surface it as an error.
       if (isThreadNotFoundError(error)) {
         return NextResponse.json(
@@ -29,8 +29,7 @@ export const POST = withEmailProvider(
           { status: 404 },
         );
       }
-      // Rethrow so the middleware can map auth and rate limit failures to their
-      // own status codes rather than flattening everything to 500.
+      // Let the middleware map auth and rate limit failures to their own codes.
       throw error;
     }
 

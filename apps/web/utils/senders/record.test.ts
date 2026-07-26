@@ -61,9 +61,9 @@ describe("sender-record", () => {
     expect(prisma.newsletter.upsert).not.toHaveBeenCalled();
   });
 
-  it("throws for invalid newsletter emails", () => {
+  it("throws for invalid sender emails", () => {
     expect(() => extractEmailOrThrow("invalid-email")).toThrow(
-      "Invalid newsletter email address",
+      "Invalid sender email address",
     );
   });
 });

@@ -80,11 +80,14 @@ async function runThreadAction({
   try {
     switch (action) {
       case "archive":
-        return await emailProvider.archiveThreadWithLabel(threadId, ownerEmail);
+        await emailProvider.archiveThreadWithLabel(threadId, ownerEmail);
+        break;
       case "unarchive":
-        return await emailProvider.unarchiveThread(threadId);
+        await emailProvider.unarchiveThread(threadId);
+        break;
       case "trash":
-        return await emailProvider.trashThread(threadId, ownerEmail, "user");
+        await emailProvider.trashThread(threadId, ownerEmail, "user");
+        break;
     }
   } catch (error) {
     if (isThreadNotFoundError(error)) return;

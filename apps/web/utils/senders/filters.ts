@@ -47,10 +47,9 @@ export function findSenderLabelFilters(
 }
 
 /**
- * A sender can end up with more than one auto-archive filter, for example after
- * auto archive is re-applied with a label. Callers removing auto archive must
- * use this rather than {@link findAutoArchiveFilter}, or the leftover rules keep
- * archiving the sender.
+ * Returns every match, because a sender can end up with more than one rule: for
+ * example re-applying auto archive with a label adds a second one alongside the
+ * unlabelled rule. Removing auto archive has to delete all of them.
  */
 export function findAutoArchiveFilters(
   autoArchiveFilters: EmailFilter[],
@@ -62,18 +61,6 @@ export function findAutoArchiveFilters(
       filterMatchesSender(filter, fromEmail) &&
       isAutoArchiveFilter(filter, emailProvider),
   );
-}
-
-export function findAutoArchiveFilter(
-  autoArchiveFilters: EmailFilter[],
-  fromEmail: string,
-  emailProvider: EmailProvider,
-) {
-  return findAutoArchiveFilters(
-    autoArchiveFilters,
-    fromEmail,
-    emailProvider,
-  )[0];
 }
 
 export async function getNewsletterStatuses({

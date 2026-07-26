@@ -5,9 +5,10 @@ import { isOutlookItemNotFoundError } from "@/utils/error";
  * callers can tell "already handled" apart from a real failure.
  */
 export function isThreadNotFoundError(error: unknown): boolean {
-  const isGmailNotFound =
-    error instanceof Error &&
-    error.message.includes("Requested entity was not found");
+  if (isOutlookItemNotFoundError(error)) return true;
 
-  return isGmailNotFound || isOutlookItemNotFoundError(error);
+  return (
+    error instanceof Error &&
+    error.message.includes("Requested entity was not found")
+  );
 }

@@ -12,7 +12,7 @@ type NewsletterRecordChanges = {
 
 export function extractEmailOrThrow(senderEmail: string) {
   const email = canonicalizeEmailAddress(senderEmail);
-  if (!email) throw new Error("Invalid newsletter email address");
+  if (!email) throw new Error("Invalid sender email address");
   return email;
 }
 
