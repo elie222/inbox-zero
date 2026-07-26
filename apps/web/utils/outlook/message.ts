@@ -19,7 +19,7 @@ export const MESSAGE_SELECT_FIELDS =
 
 // Expand attachments to get metadata (name, type, size) without fetching content
 export const MESSAGE_EXPAND_ATTACHMENTS =
-  "attachments($select=id,name,contentType,size)";
+  "attachments($select=id,name,contentType,size,isInline)";
 
 export async function getFolderIds(
   client: OutlookClient,
@@ -995,18 +995,20 @@ function convertAttachments(
     return;
   }
 
-  return graphAttachments.map((attachment) => ({
-    filename: attachment.name || "",
-    mimeType: attachment.contentType || "application/octet-stream",
-    size: attachment.size || 0,
-    attachmentId: attachment.id || "",
-    headers: {
-      "content-type": attachment.contentType || "",
-      "content-description": "",
-      "content-transfer-encoding": "",
-      "content-id": "",
-    },
-  }));
+  return graphAttachments
+    .filter((attachment) => !attachment.isInline)
+    .map((attachment) => ({
+      filename: attachment.name || "",
+      mimeType: attachment.contentType || "application/octet-stream",
+      size: attachment.size || 0,
+      attachmentId: attachment.id || "",
+      headers: {
+        "content-type": attachment.contentType || "",
+        "content-description": "",
+        "content-transfer-encoding": "",
+        "content-id": "",
+      },
+    }));
 }
 
 function logWellKnownFolderFetchError(
