@@ -504,25 +504,43 @@ export async function archiveThread({
 const THREAD_MESSAGE_PAGE_SIZE = 100;
 const MAX_THREAD_MESSAGE_PAGES = 20;
 
-export async function unarchiveThread({
+const SOURCE_FOLDER_LABELS = {
+  archive: "Archive",
+  deleteditems: "Deleted items",
+} as const;
+
+/**
+ * Moves a conversation's messages out of one well-known folder and into the
+ * inbox.
+ *
+ * Scoping to a source folder is what keeps the sent and deleted messages of the
+ * same conversation where they are. Outlook has no thread-level state to
+ * restore, so the source folder is the only signal for which messages the user
+ * actually meant.
+ */
+async function moveThreadFromFolderToInbox({
   client,
   threadId,
+  sourceFolder,
   logger,
 }: {
   client: OutlookClient;
   threadId: string;
+  sourceFolder: keyof typeof SOURCE_FOLDER_LABELS;
   logger: Logger;
 }) {
   const folderIds = await getFolderIds(client, logger, {
     includeDrafts: false,
   });
-  const archiveFolderId = folderIds[WELL_KNOWN_FOLDERS.archive];
+  const sourceFolderId = folderIds[WELL_KNOWN_FOLDERS[sourceFolder]];
 
-  // Without the archive folder we can't tell archived messages apart from the
-  // sent and deleted messages in the same conversation, and moving those into
-  // the inbox would be worse than failing.
-  if (!archiveFolderId) {
-    throw new Error("Archive folder not found, cannot unarchive thread");
+  // Without the source folder we can't tell the messages apart from the sent
+  // and deleted ones in the same conversation, and moving those into the inbox
+  // would be worse than failing.
+  if (!sourceFolderId) {
+    throw new Error(
+      `${SOURCE_FOLDER_LABELS[sourceFolder]} folder not found, cannot move thread to inbox`,
+    );
   }
 
   const messageIds: string[] = [];
@@ -540,7 +558,7 @@ export async function unarchiveThread({
               .getClient()
               .api("/me/messages")
               .filter(
-                `conversationId eq '${escapeODataString(threadId)}' and parentFolderId eq '${escapeODataString(archiveFolderId)}'`,
+                `conversationId eq '${escapeODataString(threadId)}' and parentFolderId eq '${escapeODataString(sourceFolderId)}'`,
               )
               .select("id")
               .top(THREAD_MESSAGE_PAGE_SIZE)
@@ -557,8 +575,9 @@ export async function unarchiveThread({
   }
 
   if (nextLink) {
-    logger.warn("Stopped paging archived thread messages at the page limit", {
+    logger.warn("Stopped paging thread messages at the page limit", {
       threadId,
+      sourceFolder,
       messageCount: messageIds.length,
     });
   }
@@ -577,6 +596,47 @@ export async function unarchiveThread({
         logger,
       ),
     failureMessage: "Failed to move message back to inbox",
+  });
+}
+
+export async function unarchiveThread({
+  client,
+  threadId,
+  logger,
+}: {
+  client: OutlookClient;
+  threadId: string;
+  logger: Logger;
+}) {
+  await moveThreadFromFolderToInbox({
+    client,
+    threadId,
+    sourceFolder: "archive",
+    logger,
+  });
+}
+
+/**
+ * Moves a trashed thread back to the inbox.
+ *
+ * Unlike Gmail's untrash this cannot restore the thread to wherever it was
+ * before, because Outlook does not record that. Messages deleted from a custom
+ * folder come back to the inbox.
+ */
+export async function untrashThread({
+  client,
+  threadId,
+  logger,
+}: {
+  client: OutlookClient;
+  threadId: string;
+  logger: Logger;
+}) {
+  await moveThreadFromFolderToInbox({
+    client,
+    threadId,
+    sourceFolder: "deleteditems",
+    logger,
   });
 }
 

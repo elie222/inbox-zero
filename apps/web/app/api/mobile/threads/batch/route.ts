@@ -10,7 +10,7 @@ const THREAD_CONCURRENCY = 4;
 export const maxDuration = 300;
 
 const bodySchema = z.object({
-  action: z.enum(["archive", "unarchive", "trash"]),
+  action: z.enum(["archive", "unarchive", "trash", "untrash"]),
   threadIds: z.array(z.string().min(1)).min(1).max(500),
 });
 
@@ -87,6 +87,9 @@ async function runThreadAction({
         break;
       case "trash":
         await emailProvider.trashThread(threadId, ownerEmail, "user");
+        break;
+      case "untrash":
+        await emailProvider.untrashThread(threadId);
         break;
     }
   } catch (error) {

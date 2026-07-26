@@ -34,10 +34,11 @@ import {
 import {
   archiveThread,
   labelMessage,
-  markStarredMessage,
   markReadThread,
+  markStarredMessage,
   removeThreadLabel,
   unarchiveThread,
+  untrashThread,
 } from "@/utils/outlook/label";
 import { trashThread } from "@/utils/outlook/trash";
 import { markSpam } from "@/utils/outlook/spam";
@@ -448,6 +449,14 @@ export class OutlookProvider implements EmailProvider {
 
   async unarchiveThread(threadId: string): Promise<void> {
     await unarchiveThread({
+      client: this.client,
+      threadId,
+      logger: this.logger,
+    });
+  }
+
+  async untrashThread(threadId: string): Promise<void> {
+    await untrashThread({
       client: this.client,
       threadId,
       logger: this.logger,
