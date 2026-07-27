@@ -232,11 +232,48 @@ export const extractContactsFromEmailAction = actionClient
         : [];
       const saved = new Set(existing.map((contact) => contact.email));
 
+      // Company membership is domain-authoritative — when a person's domain
+      // already belongs to one of the user's companies, show and save that
+      // company, not whatever name the email used (a mismatch would make
+      // the add fail the domain-lock check)
+      const domains = [
+        ...new Set(
+          people
+            .map((person) => emailDomain(person.email))
+            .filter(
+              (domain): domain is string =>
+                !!domain && !isPublicEmailDomain(domain),
+            ),
+        ),
+      ];
+      const owners = domains.length
+        ? await prisma.company.findMany({
+            where: { emailAccountId, domains: { hasSome: domains } },
+            select: { name: true, domains: true },
+            // Deterministic pick if two companies ever share a domain —
+            // matches resolveLockedCompanyId
+            orderBy: { createdAt: "asc" },
+          })
+        : [];
+      const ownerByDomain = new Map<string, string>();
+      for (const company of owners) {
+        for (const domain of company.domains) {
+          if (!ownerByDomain.has(domain)) {
+            ownerByDomain.set(domain, company.name);
+          }
+        }
+      }
+
       return {
-        people: people.map((person) => ({
-          ...person,
-          alreadySaved: saved.has(person.email),
-        })),
+        people: people.map((person) => {
+          const domain = emailDomain(person.email);
+          const ownerName = domain ? ownerByDomain.get(domain) : undefined;
+          return {
+            ...person,
+            companyName: ownerName ?? person.companyName,
+            alreadySaved: saved.has(person.email),
+          };
+        }),
       };
     },
   );
@@ -744,10 +781,11 @@ export const mergeCompaniesAction = actionClient
   );
 
 // Company membership is domain-authoritative: when a contact's email
-// domain already belongs to a company, their company can't be changed per
-// contact — edit the company's domain list (or mark the contact personal)
-// instead. This also means reassigning one person can never silently move
-// everyone else on their domain.
+// domain already belongs to a company, that company wins — whatever name
+// was submitted (an email's wording, a form typo) the contact attaches to
+// the domain's owner. Reassigning one person can therefore never silently
+// move everyone else on their domain; to actually change companies, edit
+// the owner's domain list or mark the contact personal.
 async function resolveLockedCompanyId({
   emailAccountId,
   companyName,
@@ -772,12 +810,7 @@ async function resolveLockedCompanyId({
       orderBy: { createdAt: "asc" },
     });
 
-    if (owner) {
-      if (name.toLowerCase() === owner.name.toLowerCase()) return owner.id;
-      throw new SafeError(
-        `${owner.name} owns the ${domain} domain, so this contact's company is set automatically. Edit ${owner.name}'s domains to change that, or mark the contact as personal.`,
-      );
-    }
+    if (owner) return owner.id;
   }
 
   return resolveCompanyId({ emailAccountId, companyName, contactEmail });

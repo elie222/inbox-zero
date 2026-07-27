@@ -6,11 +6,13 @@ const {
   getEmailAccountWithAiAndTokensMock,
   aiEnrichContactMock,
   aiResearchCompanyMock,
+  aiExtractContactsMock,
 } = vi.hoisted(() => ({
   createEmailProviderMock: vi.fn(),
   getEmailAccountWithAiAndTokensMock: vi.fn(),
   aiEnrichContactMock: vi.fn(),
   aiResearchCompanyMock: vi.fn(),
+  aiExtractContactsMock: vi.fn(),
 }));
 
 vi.mock("@/utils/prisma");
@@ -31,9 +33,13 @@ vi.mock("@/utils/ai/contacts/enrich-contact", () => ({
 vi.mock("@/utils/ai/companies/research-company", () => ({
   aiResearchCompany: aiResearchCompanyMock,
 }));
+vi.mock("@/utils/ai/contacts/extract-contacts-from-email", () => ({
+  aiExtractContactsFromEmail: aiExtractContactsMock,
+}));
 
 import {
   enrichContactAction,
+  extractContactsFromEmailAction,
   researchCompanyAction,
   updateContactAction,
 } from "@/utils/actions/contact";
@@ -133,7 +139,7 @@ describe("enrichContactAction", () => {
 });
 
 describe("updateContactAction company lock", () => {
-  it("rejects moving a contact whose domain a company owns", async () => {
+  it("attaches to the domain-owning company even when another name is submitted", async () => {
     prisma.company.findFirst.mockResolvedValue({
       id: "co-1",
       name: "Vercel",
@@ -144,8 +150,12 @@ describe("updateContactAction company lock", () => {
       companyName: "Acme",
     });
 
-    expect(result?.serverError).toContain("Vercel owns the vercel.com domain");
-    expect(prisma.contact.upsert).not.toHaveBeenCalled();
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.contact.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ companyId: "co-1" }),
+      }),
+    );
   });
 
   it("blank company at an owned domain saves fine (domain grouping takes over)", async () => {
@@ -252,6 +262,66 @@ describe("updateContactAction company lock", () => {
     );
     // gmail.com must never become a company domain
     expect(prisma.company.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("extractContactsFromEmailAction", () => {
+  it("shows the domain-owning company instead of the name written in the email", async () => {
+    aiExtractContactsMock.mockResolvedValue({
+      people: [
+        {
+          name: "Michael McGuire",
+          email: "MichaelM@dealeruplift.com",
+          title: null,
+          phones: [{ label: "Mobile", value: "443-391-9713" }],
+          companyName: "Dealer Uplift",
+        },
+      ],
+    });
+    prisma.contact.findMany.mockResolvedValue([]);
+    prisma.company.findMany.mockResolvedValue([
+      { name: "Armatus (Dealer Uplift)", domains: ["dealeruplift.com"] },
+    ] as any);
+
+    const result = await extractContactsFromEmailAction("account-1", {
+      from: "Dylan Elkins <dylane@dealeruplift.com>",
+      subject: "Contact Info",
+      content: "Michael McGuire 443-391-9713 michaelm@dealeruplift.com",
+    });
+
+    expect(result?.data?.people).toEqual([
+      expect.objectContaining({
+        email: "michaelm@dealeruplift.com",
+        companyName: "Armatus (Dealer Uplift)",
+        alreadySaved: false,
+      }),
+    ]);
+  });
+
+  it("keeps the email's company name when no company owns the domain", async () => {
+    aiExtractContactsMock.mockResolvedValue({
+      people: [
+        {
+          name: "Jane Doe",
+          email: "jane@newvendor.com",
+          title: null,
+          phones: [],
+          companyName: "New Vendor Inc",
+        },
+      ],
+    });
+    prisma.contact.findMany.mockResolvedValue([]);
+    prisma.company.findMany.mockResolvedValue([]);
+
+    const result = await extractContactsFromEmailAction("account-1", {
+      from: "jane@newvendor.com",
+      subject: "Intro",
+      content: "Jane Doe jane@newvendor.com",
+    });
+
+    expect(result?.data?.people?.[0]).toMatchObject({
+      companyName: "New Vendor Inc",
+    });
   });
 });
 
