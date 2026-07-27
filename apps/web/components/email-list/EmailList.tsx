@@ -24,6 +24,7 @@ import { EmailListItem } from "@/components/email-list/EmailListItem";
 import { FolderHeader } from "@/components/email-list/FolderSettings";
 import { RowContextMenu } from "@/components/email-list/RowContextMenu";
 import { FilterLikeThisDialog } from "@/components/email-list/FilterLikeThisDialog";
+import { ReprocessEmailDialog } from "@/components/email-list/ReprocessEmailDialog";
 import { AiRuleFromEmailDialog } from "@/components/email-list/AiRuleFromEmailDialog";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -228,6 +229,8 @@ export function EmailList({
   } | null>(null);
   const [filterThreads, setFilterThreads] = useState<Thread[] | null>(null);
   const [aiRuleThread, setAiRuleThread] = useState<Thread | null>(null);
+  // Sparkles icon on a row: reprocess with the ask-before-move dialog
+  const [reprocessThread, setReprocessThread] = useState<Thread | null>(null);
   const onRowContextMenu = useCallback(
     (event: React.MouseEvent, thread: Thread) => {
       setRowMenu({ x: event.clientX, y: event.clientY, thread });
@@ -630,6 +633,7 @@ export function EmailList({
                         splitView={!!openThreadId}
                         onClick={onOpen}
                         onPlanAiAction={onPlanAiAction}
+                        onReprocess={setReprocessThread}
                         onArchive={onArchive}
                         onDelete={onDelete}
                         onRowContextMenu={onRowContextMenu}
@@ -699,6 +703,15 @@ export function EmailList({
           ]}
         />
       )}
+      {reprocessThread && (
+        <ReprocessEmailDialog
+          thread={reprocessThread}
+          folderType={folderType}
+          onClose={() => setReprocessThread(null)}
+          refetch={refetch}
+        />
+      )}
+
       {filterThreads?.length ? (
         <FilterLikeThisDialog
           key={filterThreads.map((thread) => thread.id).join(",")}

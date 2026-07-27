@@ -45,6 +45,8 @@ export const EmailListItem = forwardRef(
       closePanel: () => void;
       onSelected: (id: string) => void;
       onPlanAiAction: (thread: Thread) => void;
+      // Sparkles icon: reprocess with the ask-before-move dialog
+      onReprocess: (thread: Thread) => void;
       onArchive: (thread: Thread) => void;
       onDelete: (thread: Thread) => void;
       // Right-click: the row's context menu (filter/rule/chat)
@@ -220,7 +222,7 @@ export const EmailListItem = forwardRef(
                         className="ml-3 shrink-0 text-primary"
                         onClick={(event) => {
                           event.stopPropagation();
-                          props.onPlanAiAction(thread);
+                          props.onReprocess(thread);
                         }}
                         onKeyDown={preventPropagation}
                       >
