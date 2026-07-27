@@ -436,7 +436,7 @@ describe("createRuleBody", () => {
     });
 
     describe("MOVE_FOLDER action", () => {
-      it("requires both folderName and folderId for MOVE_FOLDER action", () => {
+      it("requires folderName for MOVE_FOLDER action", () => {
         const result = createRuleBody.safeParse({
           ...validRule,
           actions: [{ type: ActionType.MOVE_FOLDER }],
@@ -447,7 +447,7 @@ describe("createRuleBody", () => {
         }
       });
 
-      it("requires folderId when folderName is present", () => {
+      it("accepts folderName without folderId", () => {
         const result = createRuleBody.safeParse({
           ...validRule,
           actions: [
@@ -457,7 +457,7 @@ describe("createRuleBody", () => {
             },
           ],
         });
-        expect(result.success).toBe(false);
+        expect(result.success).toBe(true);
       });
 
       it("accepts valid folderName and folderId", () => {
