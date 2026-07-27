@@ -12,6 +12,9 @@ import {
 } from "@/utils/actions/ai-rule.validation";
 import { setRuleRunOnThreads } from "@/utils/rule/rule";
 import { assertRuleIsNotOrgManaged } from "@/utils/organizations/rules";
+import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
+import type { EmailProvider } from "@/utils/email/types";
+import type { Logger } from "@/utils/logger";
 import { actionClient } from "@/utils/actions/safe-action";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
@@ -178,6 +181,21 @@ export const runRulesAction = actionClient
         skippedCount: result.filter((item) => !item.rule).length,
       });
 
+      // Manual processing is the user asking "where does this belong NOW" —
+      // folder labels stale rule runs applied earlier get cleaned up so the
+      // answer and the mailbox agree
+      if (!isTest) {
+        await reconcileStaleFolderLabels({
+          emailAccountId,
+          emailProvider,
+          threadId,
+          results: result,
+          logger,
+        }).catch((error) => {
+          logger.error("Stale folder label cleanup failed", { error });
+        });
+      }
+
       if (isTest) {
         await flushLoggerSafely(logger, {
           action: "runRules",
@@ -309,4 +327,87 @@ async function flushAndRethrowRunRulesActionError({
   }
 
   throw error;
+}
+
+// Prior rule runs may have filed this thread into folders the current
+// decision no longer supports (a since-fixed misroute, an edited rule).
+// Strips those rule-applied labels — never labels the user added by hand,
+// since only executed-rule history is consulted — and when nothing matches
+// at all, returns the mail to the inbox where unmatched mail lives.
+async function reconcileStaleFolderLabels({
+  emailAccountId,
+  emailProvider,
+  threadId,
+  results,
+  logger,
+}: {
+  emailAccountId: string;
+  emailProvider: EmailProvider;
+  threadId: string;
+  results: RunRulesResult[];
+  logger: Logger;
+}) {
+  // What the current decision files into
+  const currentLabelKeys = new Set<string>();
+  for (const result of results) {
+    for (const item of result.actionItems ?? []) {
+      if (item.type !== ActionType.LABEL) continue;
+      if (item.labelId) currentLabelKeys.add(item.labelId);
+      if (item.label) currentLabelKeys.add(item.label.toLowerCase());
+    }
+  }
+
+  const priorExecutions = await prisma.executedRule.findMany({
+    where: {
+      emailAccountId,
+      threadId,
+      status: ExecutedRuleStatus.APPLIED,
+    },
+    select: {
+      actionItems: { select: { type: true, label: true, labelId: true } },
+    },
+  });
+  const staleItems = priorExecutions
+    .flatMap((executed) => executed.actionItems)
+    .filter(
+      (item) =>
+        item.type === ActionType.LABEL &&
+        !(item.labelId && currentLabelKeys.has(item.labelId)) &&
+        !(item.label && currentLabelKeys.has(item.label.toLowerCase())),
+    );
+  if (!staleItems.length) return;
+
+  // Only strip what's actually still on the thread
+  const messages = await emailProvider.getThreadMessages(threadId);
+  const presentLabelIds = new Set(
+    messages.flatMap((message) => message.labelIds ?? []),
+  );
+
+  const staleLabelIds = new Set<string>();
+  for (const item of staleItems) {
+    const id =
+      item.labelId ??
+      (item.label
+        ? ((await emailProvider.getLabelByName(item.label))?.id ?? null)
+        : null);
+    if (id && presentLabelIds.has(id) && !currentLabelKeys.has(id)) {
+      staleLabelIds.add(id);
+    }
+  }
+  if (!staleLabelIds.size) return;
+
+  await emailProvider.removeThreadLabels(threadId, [...staleLabelIds]);
+  logger.info("Removed stale rule-applied folder labels", {
+    removed: staleLabelIds.size,
+  });
+
+  const matchedAnyRule = results.some((result) => result.rule);
+  if (
+    !matchedAnyRule &&
+    !presentLabelIds.has("INBOX") &&
+    emailProvider.unarchiveThread
+  ) {
+    await emailProvider.unarchiveThread(threadId);
+    logger.info("Restored thread to inbox after stale label cleanup");
+  }
 }
