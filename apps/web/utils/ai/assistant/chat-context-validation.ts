@@ -1,18 +1,21 @@
 import { z } from "zod";
 import { GroupItemType, SystemType } from "@/generated/prisma/enums";
 
+// Headers besides From are forgiving: real mail (bcc'd, automated,
+// invites) can lack To/Subject/Date, and rejecting the whole context here
+// used to surface as a silent 400 on send
 const parsedMessageSchema = z.object({
   id: z.string(),
   threadId: z.string(),
-  snippet: z.string(),
+  snippet: z.string().default(""),
   textPlain: z.string().optional(),
   textHtml: z.string().optional(),
   headers: z.object({
     from: z.string(),
-    to: z.string(),
-    subject: z.string(),
+    to: z.string().default(""),
+    subject: z.string().default(""),
     cc: z.string().optional(),
-    date: z.string(),
+    date: z.string().default(""),
     "reply-to": z.string().optional(),
   }),
   internalDate: z.string().optional().nullable(),

@@ -45,6 +45,14 @@ export const enrichContactBody = z.object({
 });
 export type EnrichContactBody = z.infer<typeof enrichContactBody>;
 
+// The opened email whose body should be scanned for people to add
+export const extractContactsBody = z.object({
+  from: z.string().max(500),
+  subject: z.string().max(500),
+  content: z.string().min(1).max(20_000),
+});
+export type ExtractContactsBody = z.infer<typeof extractContactsBody>;
+
 // Looser than .email() on purpose: rows created by CardDAV/Google sync can
 // hold addresses that fail the strict regex, and delete is an exact-match
 // lookup scoped to the account — format doesn't matter

@@ -142,7 +142,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
+  const chatStatusRef = useRef(chat.status);
+  chatStatusRef.current = chat.status;
   useEffect(() => {
+    // Re-seeding from the server mid-stream would truncate the assistant
+    // reply (it's only persisted on finish) — skip while a send is live
+    if (
+      chatStatusRef.current === "streaming" ||
+      chatStatusRef.current === "submitted"
+    ) {
+      return;
+    }
     chat.setMessages(data ? convertToUIMessages(data) : []);
   }, [chat.setMessages, data]);
 
@@ -213,7 +223,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const handleSubmit = useCallback(() => {
     const text = input.trim();
-    if (!text && attachments.length === 0) return;
+    const hasContext = !!contextRef.current;
+    if (!text && attachments.length === 0 && !hasContext) return;
 
     const fileParts = attachments.map((attachment) => ({
       type: "file" as const,
@@ -229,6 +240,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     if (text) {
       parts.push({ type: "text", text });
+    } else if (!parts.length && hasContext) {
+      // Context chip attached, textarea cleared — send a sensible default
+      parts.push({ type: "text", text: "Fix how this email was handled." });
     }
 
     sendMessageParts(parts).catch(captureException);

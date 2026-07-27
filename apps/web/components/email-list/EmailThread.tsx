@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailMessage } from "@/components/email-list/EmailMessage";
+import { getDisplayedMessage } from "@/utils/email/displayed-message";
 
 export function EmailThread({
   messages,
+  folderType,
   refetch,
   showReplyButton,
   autoOpenReplyForMessageId,
@@ -12,6 +14,9 @@ export function EmailThread({
   withHeader,
 }: {
   messages: ThreadMessage[];
+  // Which message opens expanded follows the folder (inbox → the message
+  // that's actually in the inbox); the rest stay collapsed
+  folderType?: string;
   refetch: () => void;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
@@ -44,10 +49,13 @@ export function EmailThread({
     }));
   }, [messages]);
 
-  const lastMessageId = organizedMessages.at(-1)?.message.id;
+  const initialMessageId = getDisplayedMessage(
+    { messages: organizedMessages.map((entry) => entry.message) },
+    folderType,
+  )?.id;
 
   const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(
-    new Set(lastMessageId ? [lastMessageId] : []),
+    new Set(initialMessageId ? [initialMessageId] : []),
   );
 
   return (

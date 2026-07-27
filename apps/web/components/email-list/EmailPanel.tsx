@@ -11,11 +11,13 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { MutedText } from "@/components/Typography";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useThread } from "@/hooks/useThread";
+import { getDisplayedMessage } from "@/utils/email/displayed-message";
 import { useChat } from "@/providers/ChatProvider";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 
 export function EmailPanel({
   row,
+  folderType,
   onPlanAiAction,
   onArchive,
   advanceToAdjacentThread,
@@ -23,6 +25,7 @@ export function EmailPanel({
   refetch,
 }: {
   row: Thread;
+  folderType?: string;
   onPlanAiAction: (thread: Thread) => void;
   onArchive: (thread: Thread) => void;
   advanceToAdjacentThread: () => void;
@@ -43,8 +46,12 @@ export function EmailPanel({
   } = useThread({ id: row.id }, { includeDrafts: true });
 
   // "This was filed wrong" flow: hand the email + what matched to the
-  // assistant chat so the user can correct the rule/folder
-  const fullLastMessage = data?.thread.messages?.at(-1);
+  // assistant chat so the user can correct the rule/folder. Uses the
+  // folder's lead message (in the inbox: the mail actually sitting there),
+  // not blindly the thread's newest.
+  const fullLastMessage = data?.thread
+    ? getDisplayedMessage(data.thread, folderType)
+    : undefined;
   const fixResults = row.plan?.rule
     ? [
         {
@@ -61,7 +68,9 @@ export function EmailPanel({
     refetch();
   }, [mutateThread, refetch]);
 
-  const lastMessage = row.messages?.[row.messages.length - 1];
+  const lastMessage =
+    getDisplayedMessage(row, folderType) ??
+    row.messages?.[row.messages.length - 1];
 
   const plan = row.plan;
 
@@ -115,6 +124,7 @@ export function EmailPanel({
             <EmailThread
               key={row.id}
               messages={data.thread.messages}
+              folderType={folderType}
               refetch={refetchThread}
               showReplyButton
             />

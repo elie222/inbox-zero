@@ -20,6 +20,7 @@ import { cn } from "@/utils";
 import { generateNudgeReplyAction } from "@/utils/actions/generate-reply";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailDetails } from "@/components/email-list/EmailDetails";
+import { DetectedContacts } from "@/components/email-list/DetectedContacts";
 import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
 import { EmailAttachments } from "@/components/email-list/EmailAttachments";
 import { Loading } from "@/components/Loading";
@@ -87,6 +88,8 @@ export function EmailMessage({
       {expanded && (
         <>
           {showDetails && <EmailDetails message={message} />}
+
+          <DetectedContacts message={message} />
 
           {message.textHtml ? (
             <HtmlEmail html={message.textHtml} />

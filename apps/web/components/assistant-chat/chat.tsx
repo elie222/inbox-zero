@@ -74,7 +74,8 @@ export function Chat({
     attachments,
     setAttachments,
   } = useChat();
-  const { messages, status, stop, regenerate, setMessages } = chat;
+  const { messages, status, stop, regenerate, setMessages, error, clearError } =
+    chat;
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "input",
     "",
@@ -93,10 +94,11 @@ export function Chat({
     setLocalStorageInput(input);
   }, [input, setLocalStorageInput]);
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount — but never over a prefill (e.g.
+  // Fix-with-chat sets the input right before opening this sidebar)
   // biome-ignore lint/correctness/useExhaustiveDependencies: Only run on mount
   useEffect(() => {
-    if (localStorageInput) {
+    if (localStorageInput && !input) {
       setInput(localStorageInput);
     }
   }, []);
@@ -188,114 +190,126 @@ export function Chat({
     input.trim().length > 0 || attachments.length > 0 || !!context;
 
   const inputArea = (
-    <PromptInput
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (hasContent && status === "ready") {
-          analytics.captureAction("chat_message_submitted", {
-            has_text: input.trim().length > 0,
-            attachment_count: attachments.length,
-            has_context: Boolean(context),
-            message_count: messages.length,
-          });
-          handleSubmit();
-          setLocalStorageInput("");
-        }
-      }}
-      className="relative divide-y-0 rounded-2xl"
-    >
-      {(attachments.length > 0 || uploadQueue.length > 0) && (
-        <div className="flex gap-2 overflow-x-auto p-2 pb-0">
-          {attachments.map((attachment) => (
-            <PreviewAttachment
-              key={attachment.id}
-              attachment={attachment}
-              onRemove={() =>
-                setAttachments((prev) => prev.filter((a) => a !== attachment))
-              }
-            />
-          ))}
-          {uploadQueue.map((name) => (
-            <PreviewAttachment
-              key={name}
-              attachment={{ name, url: "", contentType: "" }}
-              isUploading
-            />
-          ))}
+    <>
+      {error && (
+        <div className="mb-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
+          <span className="font-medium">Something went wrong:</span>{" "}
+          {error.message || "The assistant couldn't respond."} Edit your message
+          and send again.
         </div>
       )}
-
-      <PromptInputTextarea
-        data-testid="chat-input"
-        value={input}
-        placeholder="Ask me anything"
-        onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
-          setInput(e.currentTarget.value)
-        }
-        onPaste={handlePaste}
-        className="pr-24"
-      />
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
-        multiple
-        className="hidden"
-        onChange={handleFileChange}
-        tabIndex={-1}
-      />
-
-      <div className="absolute bottom-2 right-2 flex items-center gap-1">
-        <Tooltip content="Attach images">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-9 rounded-full text-muted-foreground hover:text-foreground"
-            onClick={() => {
-              analytics.captureAction("chat_attach_button_clicked", {
-                attachment_count: attachments.length,
-              });
-              fileInputRef.current?.click();
-            }}
-            disabled={attachments.length >= MAX_FILES}
-          >
-            <PaperclipIcon className="size-4" />
-          </Button>
-        </Tooltip>
-
-        <PromptInputSubmit
-          status={
-            status === "streaming"
-              ? "streaming"
-              : status === "submitted"
-                ? "submitted"
-                : "ready"
+      <PromptInput
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (hasContent && (status === "ready" || status === "error")) {
+            if (status === "error") clearError();
+            analytics.captureAction("chat_message_submitted", {
+              has_text: input.trim().length > 0,
+              attachment_count: attachments.length,
+              has_context: Boolean(context),
+              message_count: messages.length,
+            });
+            handleSubmit();
+            setLocalStorageInput("");
           }
-          disabled={status === "ready" ? !hasContent : status === "error"}
-          className="h-9 w-9 rounded-full bg-blue-500 text-white hover:bg-blue-600"
-          onClick={(e) => {
-            if (status === "streaming" || status === "submitted") {
-              analytics.captureAction("chat_generation_stopped", {
-                status,
-              });
-              e.preventDefault();
-              stop();
-              setMessages((messages) => messages);
+        }}
+        className="relative divide-y-0 rounded-2xl"
+      >
+        {(attachments.length > 0 || uploadQueue.length > 0) && (
+          <div className="flex gap-2 overflow-x-auto p-2 pb-0">
+            {attachments.map((attachment) => (
+              <PreviewAttachment
+                key={attachment.id}
+                attachment={attachment}
+                onRemove={() =>
+                  setAttachments((prev) => prev.filter((a) => a !== attachment))
+                }
+              />
+            ))}
+            {uploadQueue.map((name) => (
+              <PreviewAttachment
+                key={name}
+                attachment={{ name, url: "", contentType: "" }}
+                isUploading
+              />
+            ))}
+          </div>
+        )}
+
+        <PromptInputTextarea
+          data-testid="chat-input"
+          value={input}
+          placeholder="Ask me anything"
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+            setInput(e.currentTarget.value)
+          }
+          onPaste={handlePaste}
+          className="pr-24"
+        />
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          multiple
+          className="hidden"
+          onChange={handleFileChange}
+          tabIndex={-1}
+        />
+
+        <div className="absolute bottom-2 right-2 flex items-center gap-1">
+          <Tooltip content="Attach images">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-9 rounded-full text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                analytics.captureAction("chat_attach_button_clicked", {
+                  attachment_count: attachments.length,
+                });
+                fileInputRef.current?.click();
+              }}
+              disabled={attachments.length >= MAX_FILES}
+            >
+              <PaperclipIcon className="size-4" />
+            </Button>
+          </Tooltip>
+
+          <PromptInputSubmit
+            status={
+              status === "streaming"
+                ? "streaming"
+                : status === "submitted"
+                  ? "submitted"
+                  : "ready"
             }
-          }}
-        >
-          {status === "submitted" ? (
-            <Loader2 className="size-5 animate-spin" />
-          ) : status === "streaming" ? (
-            <SquareIcon className="size-4" />
-          ) : (
-            <ArrowUpIcon className="size-5" />
-          )}
-        </PromptInputSubmit>
-      </div>
-    </PromptInput>
+            disabled={
+              status === "ready" || status === "error" ? !hasContent : false
+            }
+            className="h-9 w-9 rounded-full bg-blue-500 text-white hover:bg-blue-600"
+            onClick={(e) => {
+              if (status === "streaming" || status === "submitted") {
+                analytics.captureAction("chat_generation_stopped", {
+                  status,
+                });
+                e.preventDefault();
+                stop();
+                setMessages((messages) => messages);
+              }
+            }}
+          >
+            {status === "submitted" ? (
+              <Loader2 className="size-5 animate-spin" />
+            ) : status === "streaming" ? (
+              <SquareIcon className="size-4" />
+            ) : (
+              <ArrowUpIcon className="size-5" />
+            )}
+          </PromptInputSubmit>
+        </div>
+      </PromptInput>
+    </>
   );
 
   return (
@@ -378,8 +392,14 @@ function ChatMessagesView({
             {context ? (
               <div className="mb-2 flex items-center gap-2">
                 <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-                  Fix: {context.message.headers.subject.slice(0, 60)}
-                  {context.message.headers.subject.length > 60 ? "..." : ""}
+                  Fix:{" "}
+                  {(context.message.headers.subject || "(no subject)").slice(
+                    0,
+                    60,
+                  )}
+                  {(context.message.headers.subject || "").length > 60
+                    ? "..."
+                    : ""}
                   <button
                     type="button"
                     aria-label="Remove context"

@@ -136,7 +136,7 @@ export function List({
       {emails.length ? (
         <EmailList
           threads={filteredEmails}
-          folderType={type}
+          folderType={type ?? "inbox"}
           showLoadMore={showLoadMore}
           isLoadingMore={isLoadingMore}
           handleLoadMore={handleLoadMore}
@@ -647,6 +647,7 @@ export function EmailList({
               !!(openThreadId && openedRow) && (
                 <EmailPanel
                   row={openedRow}
+                  folderType={folderType}
                   onPlanAiAction={onPlanAiAction}
                   onArchive={onArchive}
                   advanceToAdjacentThread={advanceToAdjacentThread}

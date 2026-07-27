@@ -131,6 +131,7 @@ describe("LLM use cases", () => {
       [LlmUseCase.EmailReportSummaryGeneration]: "economy",
       [LlmUseCase.EmailReportUserPersona]: "default",
       [LlmUseCase.EnrichContact]: "chat",
+      [LlmUseCase.ExtractContacts]: "economy",
       [LlmUseCase.FindSnippets]: "chat",
       [LlmUseCase.GenerateFolderInstructions]: "chat",
       [LlmUseCase.KnowledgeExtraction]: "economy",
