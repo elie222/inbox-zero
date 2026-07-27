@@ -60,7 +60,11 @@ describe("isColdEmail", () => {
       email,
       emailAccount,
       provider: mockProvider as never,
-      coldEmailRule: { instructions: "test instructions", groupId },
+      coldEmailRule: {
+        instructions: "test instructions",
+        groupId,
+        excludeKnownContacts: false,
+      },
     });
 
     expect(result.isColdEmail).toBe(true);
@@ -119,7 +123,11 @@ describe("isColdEmail", () => {
       email,
       emailAccount,
       provider: mockProvider as never,
-      coldEmailRule: { instructions: "test instructions", groupId },
+      coldEmailRule: {
+        instructions: "test instructions",
+        groupId,
+        excludeKnownContacts: false,
+      },
     });
 
     expect(result.isColdEmail).toBe(false);
@@ -182,7 +190,11 @@ describe("isColdEmail", () => {
         email,
         emailAccount,
         provider: mockProvider as never,
-        coldEmailRule: { instructions: "test instructions", groupId },
+        coldEmailRule: {
+          instructions: "test instructions",
+          groupId,
+          excludeKnownContacts: false,
+        },
       });
 
       expect(result.isColdEmail).toBe(true);
@@ -205,5 +217,89 @@ describe("isColdEmail", () => {
         },
       });
     }
+  });
+
+  it("never marks a known contact as cold, even with a learned cold pattern", async () => {
+    const emailAccount = getEmailAccount({ id: "test-account-id" });
+    const sender = "friend@partner.com";
+
+    vi.mocked(prisma.contact.findUnique).mockResolvedValue({
+      id: "contact-1",
+    } as any);
+    // A stale learned cold pattern exists but must not be consulted
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
+      id: "group-item-id",
+      type: GroupItemType.FROM,
+      value: sender,
+      exclude: false,
+      group: { id: "group-1", name: "Cold Email" },
+    } as any);
+
+    const email: EmailForLLM = {
+      id: "msg3",
+      from: `"Friend" <${sender}>`,
+      to: emailAccount.email,
+      subject: "Hello",
+      content: "Checking in",
+      date: new Date(),
+    };
+
+    const result = await isColdEmail({
+      email,
+      emailAccount,
+      provider: mockProvider as never,
+      coldEmailRule: {
+        instructions: "test instructions",
+        groupId: "group-1",
+        excludeKnownContacts: true,
+      },
+    });
+
+    expect(result).toEqual({ isColdEmail: false, reason: "knownContact" });
+    expect(prisma.contact.findUnique).toHaveBeenCalledWith({
+      where: {
+        emailAccountId_email: {
+          emailAccountId: emailAccount.id,
+          email: sender,
+        },
+      },
+      select: { id: true },
+    });
+    expect(prisma.groupItem.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("checks non-contacts normally when the toggle is on", async () => {
+    const emailAccount = getEmailAccount({ id: "test-account-id" });
+    const sender = "cold.sender@example.com";
+
+    vi.mocked(prisma.contact.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
+      id: "group-item-id",
+      type: GroupItemType.FROM,
+      value: sender,
+      exclude: false,
+      group: { id: "group-1", name: "Cold Email" },
+    } as any);
+
+    const result = await isColdEmail({
+      email: {
+        id: "msg4",
+        from: sender,
+        to: emailAccount.email,
+        subject: "Buy now",
+        content: "Cold pitch",
+        date: new Date(),
+      },
+      emailAccount,
+      provider: mockProvider as never,
+      coldEmailRule: {
+        instructions: "test instructions",
+        groupId: "group-1",
+        excludeKnownContacts: true,
+      },
+    });
+
+    expect(result.isColdEmail).toBe(true);
+    expect(result.reason).toBe("ai-already-labeled");
   });
 });

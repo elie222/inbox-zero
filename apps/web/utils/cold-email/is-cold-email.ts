@@ -11,11 +11,13 @@ import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { extractEmailAddress } from "@/utils/email";
+import { isKnownContact } from "@/utils/contact/is-known-contact";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
 type ColdEmailBlockerReason =
   | "hasPreviousEmail"
+  | "knownContact"
   | "ai"
   | "ai-already-labeled"
   | "excluded";
@@ -36,7 +38,10 @@ export async function isColdEmail({
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
   modelType?: ModelType;
-  coldEmailRule: Pick<Rule, "instructions" | "groupId"> | null;
+  coldEmailRule: Pick<
+    Rule,
+    "instructions" | "groupId" | "excludeKnownContacts"
+  > | null;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
@@ -51,6 +56,19 @@ export async function isColdEmail({
   });
 
   logger.info("Checking is cold email");
+
+  // Known contacts are never cold — checked before learned cold-sender
+  // patterns so a past misclassification can't stick to a saved contact
+  if (coldEmailRule?.excludeKnownContacts) {
+    const knownContact = await isKnownContact({
+      emailAccountId: emailAccount.id,
+      from: email.from,
+    });
+    if (knownContact) {
+      logger.info("Sender is a known contact, never cold");
+      return { isColdEmail: false, reason: "knownContact" };
+    }
+  }
 
   // Check if we marked it as a cold email already
   const groupId = coldEmailRule?.groupId;

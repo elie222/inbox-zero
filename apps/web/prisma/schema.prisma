@@ -283,6 +283,8 @@ model OrganizationRule {
   name                String
   instructions        String?
   runOnThreads        Boolean         @default(false)
+  // Senders in the contact list are never matched by this rule
+  excludeKnownContacts Boolean        @default(false)
   conditionalOperator LogicalOperator @default(AND)
   from                String?
   to                  String?

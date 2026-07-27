@@ -16,6 +16,7 @@ import {
   type CategoryAction,
   toggleRuleBody,
   toggleAllRulesBody,
+  setRuleExcludeKnownContactsBody,
   copyRulesFromAccountBody,
   importRulesBody,
 } from "@/utils/actions/rule.validation";
@@ -506,6 +507,21 @@ export const toggleRuleAction = actionClient
         emailAccountId,
         provider,
         logger,
+      });
+    },
+  );
+
+export const setRuleExcludeKnownContactsAction = actionClient
+  .metadata({ name: "setRuleExcludeKnownContacts" })
+  .inputSchema(setRuleExcludeKnownContactsBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { ruleId, excludeKnownContacts },
+    }) => {
+      await prisma.rule.update({
+        where: { id: ruleId, emailAccountId },
+        data: { excludeKnownContacts },
       });
     },
   );

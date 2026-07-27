@@ -37,6 +37,8 @@ async function getFolderRule({
       from: true,
       conditionalOperator: true,
       organizationRuleId: true,
+      systemType: true,
+      excludeKnownContacts: true,
     },
     orderBy: { createdAt: "asc" },
   });

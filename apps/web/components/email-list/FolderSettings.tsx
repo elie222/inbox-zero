@@ -28,7 +28,10 @@ import {
   updateLabelVisibilityAction,
 } from "@/utils/actions/mail";
 import { generateFolderInstructionsAction } from "@/utils/actions/folder-rule";
-import { toggleRuleAction } from "@/utils/actions/rule";
+import {
+  setRuleExcludeKnownContactsAction,
+  toggleRuleAction,
+} from "@/utils/actions/rule";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { getActionErrorMessage } from "@/utils/error";
 import { isGoogleProvider } from "@/utils/email/provider-types";
@@ -357,6 +360,20 @@ function FolderRuleForm({
     },
   });
 
+  const excludeContacts = useAction(
+    setRuleExcludeKnownContactsAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Known contact handling updated" });
+        mutateRule();
+      },
+      onError: (error) => {
+        toastError({ description: getActionErrorMessage(error.error) });
+        mutateRule();
+      },
+    },
+  );
+
   const generate = useAction(
     generateFolderInstructionsAction.bind(null, emailAccountId),
     {
@@ -407,6 +424,32 @@ function FolderRuleForm({
           />
         )}
       </div>
+
+      {rule && (
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <Label htmlFor="folder-rule-known-contacts">
+              Skip known contacts
+            </Label>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {rule.systemType === "COLD_EMAIL"
+                ? "People in your contacts are never marked as cold email."
+                : "People in your contacts are never filed here by this rule."}
+            </p>
+          </div>
+          <Switch
+            id="folder-rule-known-contacts"
+            checked={rule.excludeKnownContacts}
+            disabled={isOrgManaged || excludeContacts.isExecuting}
+            onCheckedChange={(checked) =>
+              excludeContacts.execute({
+                ruleId: rule.id,
+                excludeKnownContacts: checked,
+              })
+            }
+          />
+        </div>
+      )}
 
       {isOrgManaged ? (
         <p className="text-sm text-muted-foreground">
