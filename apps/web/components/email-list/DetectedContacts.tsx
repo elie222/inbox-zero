@@ -25,6 +25,11 @@ type DetectedPerson = {
 
 const MAX_CONTENT = 20_000;
 
+// "443-391-9713", "(443) 391-9713", "+1 443.391.9713" — a body that pairs
+// addresses with phone numbers reads as contact info worth extracting
+const PHONE_PATTERN =
+  /(?:\+\d{1,3}[\s.-]?)?(?:\(\d{3}\)\s?|\d{3}[\s.-])\d{3}[\s.-]\d{4}/;
+
 // When an email's body carries other people's addresses (a roster, an
 // intro, forwarded signatures), a chip overlays the message; extracting
 // runs the AI and turns it into an add-as-contact card.
@@ -33,14 +38,16 @@ export function DetectedContacts({ message }: { message: ParsedMessage }) {
   const [dismissed, setDismissed] = useState(false);
   const [people, setPeople] = useState<DetectedPerson[] | null>(null);
 
-  // Free gate: only offer extraction when the BODY mentions addresses that
-  // aren't already the conversation's participants
+  // Free gate: offer extraction when the BODY mentions addresses beyond the
+  // conversation's participants — or the participants themselves when the
+  // body pairs addresses with phone numbers (a roster of people who are
+  // also CC'd is the classic case; the extraction captures the phones and
+  // titles the headers don't carry). The user's own address never counts.
   const candidates = useMemo(() => {
     const text = getMessageText(message);
     if (!text) return [];
     const participants = new Set(
       [
-        userEmail,
         ...extractEmailAddresses(message.headers.from ?? ""),
         ...extractEmailAddresses(message.headers.to ?? ""),
         ...extractEmailAddresses(message.headers.cc ?? ""),
@@ -48,11 +55,15 @@ export function DetectedContacts({ message }: { message: ParsedMessage }) {
         .filter(Boolean)
         .map((email) => email.toLowerCase()),
     );
+    const ownEmail = userEmail?.toLowerCase();
+    const hasPhoneNumbers = PHONE_PATTERN.test(text);
     return [
       ...new Set(
         extractEmailAddresses(text).map((email) => email.toLowerCase()),
       ),
-    ].filter((email) => !participants.has(email));
+    ]
+      .filter((email) => email !== ownEmail)
+      .filter((email) => hasPhoneNumbers || !participants.has(email));
   }, [message, userEmail]);
 
   const extract = useAction(
