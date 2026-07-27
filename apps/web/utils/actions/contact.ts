@@ -232,11 +232,48 @@ export const extractContactsFromEmailAction = actionClient
         : [];
       const saved = new Set(existing.map((contact) => contact.email));
 
+      // Company membership is domain-authoritative — when a person's domain
+      // already belongs to one of the user's companies, show and save that
+      // company, not whatever name the email used (a mismatch would make
+      // the add fail the domain-lock check)
+      const domains = [
+        ...new Set(
+          people
+            .map((person) => emailDomain(person.email))
+            .filter(
+              (domain): domain is string =>
+                !!domain && !isPublicEmailDomain(domain),
+            ),
+        ),
+      ];
+      const owners = domains.length
+        ? await prisma.company.findMany({
+            where: { emailAccountId, domains: { hasSome: domains } },
+            select: { name: true, domains: true },
+            // Deterministic pick if two companies ever share a domain —
+            // matches resolveLockedCompanyId
+            orderBy: { createdAt: "asc" },
+          })
+        : [];
+      const ownerByDomain = new Map<string, string>();
+      for (const company of owners) {
+        for (const domain of company.domains) {
+          if (!ownerByDomain.has(domain)) {
+            ownerByDomain.set(domain, company.name);
+          }
+        }
+      }
+
       return {
-        people: people.map((person) => ({
-          ...person,
-          alreadySaved: saved.has(person.email),
-        })),
+        people: people.map((person) => {
+          const domain = emailDomain(person.email);
+          const ownerName = domain ? ownerByDomain.get(domain) : undefined;
+          return {
+            ...person,
+            companyName: ownerName ?? person.companyName,
+            alreadySaved: saved.has(person.email),
+          };
+        }),
       };
     },
   );
