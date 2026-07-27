@@ -19,7 +19,9 @@ function record(overrides: Partial<EvalResultRecord> = {}): EvalResultRecord {
     sampleIndex: 0,
     pass: true,
     sendReady: true,
+    usability: "send-ready",
     primaryIssue: null,
+    confidence: "HIGH",
     severity: "none",
     assertionFailures: [],
     criteriaFailures: [],
@@ -28,6 +30,7 @@ function record(overrides: Partial<EvalResultRecord> = {}): EvalResultRecord {
     actual: null,
     error: null,
     sourceRoot: null,
+    codeFingerprint: null,
     ...overrides,
   };
 }
@@ -152,5 +155,105 @@ describe("buildEvalReport", () => {
 
     expect(report.sendReady.caseCount).toBe(2);
     expect(report.sendReady.estimate).toBe(0.25);
+  });
+  describe("confidence gate", () => {
+    function tiered(
+      tier: string,
+      total: number,
+      ready: number,
+      prefix: string,
+    ) {
+      return Array.from({ length: total }, (_, i) =>
+        record({
+          caseId: `${prefix}-${i}`,
+          confidence: tier,
+          sendReady: i < ready,
+          pass: i < ready,
+        }),
+      );
+    }
+
+    it("reports the send-ready rate within each tier", () => {
+      const report = buildEvalReport({
+        run: makeRun([
+          ...tiered("HIGH", 10, 8, "h"),
+          ...tiered("MEDIUM", 10, 3, "m"),
+        ]),
+        iterations: 200,
+      });
+
+      expect(report.markdown).toContain("| HIGH | 10 | 50.0% | 80.0% |");
+      expect(report.markdown).toContain("| MEDIUM | 10 | 50.0% | 30.0% |");
+    });
+
+    it("names a tier the drafter never returns", () => {
+      const report = buildEvalReport({
+        run: makeRun(tiered("HIGH", 4, 4, "h")),
+        iterations: 200,
+      });
+
+      expect(report.markdown).toContain("Never emitted: LOW, MEDIUM");
+    });
+
+    it("says nothing about unused tiers when every tier is used", () => {
+      const report = buildEvalReport({
+        run: makeRun([
+          ...tiered("HIGH", 4, 4, "h"),
+          ...tiered("MEDIUM", 4, 2, "m"),
+          ...tiered("LOW", 4, 0, "l"),
+        ]),
+        iterations: 200,
+      });
+
+      expect(report.markdown).not.toContain("Never emitted");
+    });
+
+    it("counts the send-ready drafts the strictest setting would hold back", () => {
+      const report = buildEvalReport({
+        run: makeRun([
+          ...tiered("HIGH", 10, 8, "h"),
+          ...tiered("MEDIUM", 10, 3, "m"),
+        ]),
+        iterations: 200,
+      });
+
+      expect(report.markdown).toContain(
+        "`HIGH_CONFIDENCE` would surface 10 of 20 drafts at 80.0% send-ready, against 55.0% across all of them — and would hold back 3 that were send-ready.",
+      );
+    });
+
+    it("shows a collapsed scale as equal rates rather than hiding it in the headline", () => {
+      // A drafter that returns HIGH for everything and one that is perfectly
+      // calibrated produce the same sendReady figure. Only the per-tier split
+      // tells them apart, which is the reason this section exists.
+      const collapsed = buildEvalReport({
+        run: makeRun([
+          ...tiered("HIGH", 10, 8, "a"),
+          ...tiered("HIGH", 10, 3, "b"),
+        ]),
+        iterations: 200,
+      });
+      const informative = buildEvalReport({
+        run: makeRun([
+          ...tiered("HIGH", 10, 8, "a"),
+          ...tiered("MEDIUM", 10, 3, "b"),
+        ]),
+        iterations: 200,
+      });
+
+      expect(collapsed.sendReady.estimate).toBe(informative.sendReady.estimate);
+      expect(collapsed.markdown).toContain("| HIGH | 20 | 100.0% | 55.0% |");
+      expect(collapsed.markdown).toContain("Never emitted: LOW, MEDIUM");
+      expect(informative.markdown).toContain("| HIGH | 10 | 50.0% | 80.0% |");
+    });
+
+    it("reports nothing rather than dividing by zero when confidence is absent", () => {
+      const report = buildEvalReport({
+        run: makeRun([record({ confidence: null })]),
+        iterations: 200,
+      });
+
+      expect(report.markdown).toContain("No confidence values recorded.");
+    });
   });
 });

@@ -150,6 +150,7 @@ function record(overrides: Partial<EvalResultRecord>): EvalResultRecord {
     actual: "Yes, that works.",
     error: null,
     sourceRoot: null,
+    codeFingerprint: "fingerprint",
     ...overrides,
   };
 }

@@ -89,6 +89,7 @@ export function buildEvalReport({
     section("Why it fails", failureHistogram(records)),
     section("By difficulty axis", axisTable(records)),
     section("By difficulty", difficultyTable(records)),
+    section("Confidence gate", confidenceTable(records)),
     section("Assertion failures", assertionHistogram(records)),
     section("Run health", runHealth(records)),
     banner ? `\n${banner}` : "",
@@ -153,6 +154,68 @@ function buildBanner(
           ];
 
   return box(lines);
+}
+
+/** The tiers the drafter can return, weakest first. */
+const CONFIDENCE_TIERS = ["LOW", "MEDIUM", "HIGH"] as const;
+
+/**
+ * Whether the drafter's self-report is worth gating on.
+ *
+ * In production it is the only thing between a bad draft and the user: the
+ * account's `draftReplyConfidence` sets a minimum and anything below it is
+ * never surfaced. Nothing else in this report would reveal that the scale has
+ * collapsed — a model that returns HIGH for everything produces exactly the
+ * same sendReady rate as a well-calibrated one, while the gate quietly stops
+ * filtering and the setting keeps promising that it filters.
+ *
+ * So the table reports the send-ready rate *within* each tier. Equal rates
+ * across tiers mean the label carries no information, whatever the headline
+ * says.
+ */
+function confidenceTable(records: EvalResultRecord[]): string[] {
+  const graded = records.filter(
+    (record) => record.confidence !== null && record.sendReady !== null,
+  );
+  if (graded.length === 0) return ["No confidence values recorded."];
+
+  const readyIn = (subset: EvalResultRecord[]) =>
+    subset.filter((record) => record.sendReady === true).length;
+
+  const rows = CONFIDENCE_TIERS.map((tier) => {
+    const inTier = graded.filter((record) => record.confidence === tier);
+    const rate =
+      inTier.length === 0 ? "—" : pct(readyIn(inTier) / inTier.length);
+    return `| ${tier} | ${inTier.length} | ${pct(inTier.length / graded.length)} | ${rate} |`;
+  });
+
+  const lines = [
+    "| confidence | samples | share | send-ready |",
+    "|---|---:|---:|---:|",
+    ...rows,
+    "",
+  ];
+
+  const unusedTiers = CONFIDENCE_TIERS.filter(
+    (tier) => !graded.some((record) => record.confidence === tier),
+  );
+  if (unusedTiers.length > 0) {
+    lines.push(
+      `Never emitted: ${unusedTiers.join(", ")}. A tier the drafter does not use is a cut point that never cuts, so any \`draftReplyConfidence\` setting whose only effect is to exclude it does nothing at all.`,
+      "",
+    );
+  }
+
+  // What the strictest setting would actually buy, in drafts rather than rates.
+  const high = graded.filter((record) => record.confidence === "HIGH");
+  const held = graded.filter((record) => record.confidence !== "HIGH");
+  if (high.length > 0 && held.length > 0) {
+    lines.push(
+      `\`HIGH_CONFIDENCE\` would surface ${high.length} of ${graded.length} drafts at ${pct(readyIn(high) / high.length)} send-ready, against ${pct(readyIn(graded) / graded.length)} across all of them — and would hold back ${readyIn(held)} that were send-ready.`,
+    );
+  }
+
+  return lines;
 }
 
 /**
