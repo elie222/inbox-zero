@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
+import { createRuleBody } from "@/utils/actions/rule.validation";
 import { toCreateRuleBodyFromAiRule } from "@/utils/rule/mobile-rule";
 
 describe("toCreateRuleBodyFromAiRule", () => {
@@ -78,5 +79,27 @@ describe("toCreateRuleBodyFromAiRule", () => {
         },
       ],
     });
+  });
+
+  it("produces a move folder rule that passes rule validation without a folder id", () => {
+    const result = createRuleBody.safeParse(
+      toCreateRuleBodyFromAiRule({
+        name: "Receipts",
+        condition: {
+          aiInstructions: "Receipts from online purchases",
+          conditionalOperator: LogicalOperator.AND,
+          static: null,
+        },
+        actions: [
+          {
+            type: ActionType.MOVE_FOLDER,
+            fields: { folderName: "Receipts" },
+            delayInMinutes: null,
+          },
+        ],
+      }),
+    );
+
+    expect(result.success).toBe(true);
   });
 });

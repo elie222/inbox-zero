@@ -218,9 +218,11 @@ const zodAction = z
         path: ["messagingChannelId"],
       });
     }
+    // folderId is optional: name-only input (from AI-generated rules) is
+    // resolved to a folder id before the rule is saved.
     if (
       data.type === ActionType.MOVE_FOLDER &&
-      (!data.folderName?.value?.trim() || !data.folderId?.value?.trim())
+      !data.folderName?.value?.trim()
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
