@@ -7,6 +7,7 @@ import {
   type RunRulesResult,
 } from "@/utils/ai/choose-rule/run-rules";
 import {
+  finalizeReprocessBody,
   runRulesBody,
   testAiCustomContentBody,
 } from "@/utils/actions/ai-rule.validation";
@@ -204,6 +205,67 @@ export const runRulesAction = actionClient
       }
 
       return result;
+    },
+  );
+
+// The user confirmed the reprocess dialog's outcome, so the move is
+// deterministic: drop the thread's other folder labels (the dialog listed
+// them) regardless of how they got there, keep only the folder the current
+// decision files into, and return to the inbox when nothing matched.
+// Status labels re-apply on later runs via conversation tracking.
+export const finalizeReprocessAction = actionClient
+  .metadata({ name: "finalizeReprocess" })
+  .inputSchema(finalizeReprocessBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { threadId, keepLabelName, returnToInbox },
+    }) => {
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+        logger,
+      });
+
+      const labels = await emailProvider.getLabels();
+      const userLabelIds = new Set(
+        labels
+          .filter((label) => label.type === "user")
+          .map((label) => label.id),
+      );
+      const keepLabelId = keepLabelName
+        ? (labels.find(
+            (label) => label.type === "user" && label.name === keepLabelName,
+          )?.id ?? null)
+        : null;
+
+      const messages = await emailProvider.getThreadMessages(threadId);
+      const presentLabelIds = new Set(
+        messages.flatMap((message) => message.labelIds ?? []),
+      );
+
+      const stripIds = [...presentLabelIds].filter(
+        (id) => userLabelIds.has(id) && id !== keepLabelId,
+      );
+      if (stripIds.length) {
+        await emailProvider.removeThreadLabels(threadId, stripIds);
+      }
+
+      if (
+        returnToInbox &&
+        !presentLabelIds.has("INBOX") &&
+        emailProvider.unarchiveThread
+      ) {
+        await emailProvider.unarchiveThread(threadId);
+      }
+
+      logger.info("Finalized reprocess", {
+        threadId,
+        removed: stripIds.length,
+        returnToInbox,
+      });
+
+      return { removed: stripIds.length };
     },
   );
 

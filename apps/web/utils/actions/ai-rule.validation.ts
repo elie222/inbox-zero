@@ -12,3 +12,13 @@ export const runRulesBody = z.object({
   isTest: z.boolean(),
 });
 export type RunRulesBody = z.infer<typeof runRulesBody>;
+
+// The confirmed outcome of the ask-before-move reprocess dialog: keep the
+// target folder (when a rule filed it), drop the rest, optionally return
+// the thread to the inbox
+export const finalizeReprocessBody = z.object({
+  threadId: z.string(),
+  keepLabelName: z.string().nullish(),
+  returnToInbox: z.boolean(),
+});
+export type FinalizeReprocessBody = z.infer<typeof finalizeReprocessBody>;
