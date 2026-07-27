@@ -1,0 +1,54 @@
+# Private OVH rehearsal only. Credentials are supplied from the existing
+# Kubernetes Secret materialized from Infisical; this file contains no values.
+fullnameOverride: inbox-zero
+
+image:
+  repository: ghcr.io/thethomasjfellows/inbox-zero
+  tag: codex-20260703-gmail-stats-reconcile-prod1
+  digest: sha256:9b1ea25652fbd0df6c989b960713a4ca94192bdfdca9f377aeb72462ef8f3f7b
+  pullPolicy: IfNotPresent
+imagePullSecrets:
+  - name: ghcr-thethomasjfellows
+
+existingSecret: inbox-zero-runtime-secret
+
+# Do not run application code or accept traffic during the data rehearsal.
+web:
+  replicaCount: 1
+worker:
+  enabled: false
+cron:
+  enabled: false
+ingress:
+  enabled: false
+codexCli:
+  enabled: false
+redisHttp:
+  enabled: false
+
+# Keep every external action inert during the private rehearsal.
+env:
+  NEXT_PUBLIC_BASE_URL: http://inbox-zero-web.inbox-zero.svc.cluster.local
+  NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true"
+  NEXT_PUBLIC_EMAIL_SEND_ENABLED: "false"
+  NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: "false"
+  NEXT_PUBLIC_INTEGRATIONS_ENABLED: "false"
+  NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED: "true"
+  DEFAULT_LLMS: openai:gpt-5.4-mini
+  GOOGLE_PUBSUB_TOPIC_NAME: disabled
+  QUEUE_BACKEND: internal
+
+# Recreate the source data services privately before restoring PostgreSQL.
+postgresql:
+  enabled: true
+  auth:
+    username: postgres
+    database: inboxzero
+  persistence:
+    enabled: true
+    size: 20Gi
+redis:
+  enabled: true
+  persistence:
+    enabled: true
+    size: 5Gi
