@@ -167,6 +167,7 @@ export function Rules({
         to: null,
         from: null,
         subject: null,
+        subjectMatchMode: "CONTAINS" as const,
         body: null,
         promptText: null,
         organizationRuleId: null,

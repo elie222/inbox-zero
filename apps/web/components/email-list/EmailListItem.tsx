@@ -10,6 +10,7 @@ import Link from "next/link";
 import clsx from "clsx";
 import { motion, type PanInfo } from "framer-motion";
 import { ArchiveIcon, SparklesIcon, Trash2Icon } from "lucide-react";
+import { Tooltip } from "@/components/Tooltip";
 import { ActionButtons } from "@/components/ActionButtons";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PlanBadge } from "@/components/PlanBadge";
@@ -209,6 +210,25 @@ export const EmailListItem = forwardRef(
                     />
                   </div>
 
+                  {/* The AI's read on this email — hover for the reason,
+                      click to reprocess */}
+                  {!!thread.plan?.reason && (
+                    <Tooltip content={thread.plan.reason}>
+                      <button
+                        type="button"
+                        aria-label="AI reasoning — click to reprocess"
+                        className="ml-3 shrink-0 text-primary"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          props.onPlanAiAction(thread);
+                        }}
+                        onKeyDown={preventPropagation}
+                      >
+                        <SparklesIcon className="size-3.5" />
+                      </button>
+                    </Tooltip>
+                  )}
+
                   {!!thread.plan && (
                     <div className="ml-3 flex min-w-0 max-w-[40vw] items-center md:max-w-56">
                       <PlanBadge plan={thread.plan} provider={provider} />
@@ -216,14 +236,6 @@ export const EmailListItem = forwardRef(
                   )}
                 </div>
               </div>
-
-              {/* The AI's read on this email, when a rule matched */}
-              {!!thread.plan?.reason && (
-                <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-primary">
-                  <SparklesIcon className="size-3 shrink-0" />
-                  <span className="min-w-0 truncate">{thread.plan.reason}</span>
-                </div>
-              )}
 
               {/* Stacked subject/snippet: always in split view, and on mobile where the inline layout doesn't fit */}
               <div

@@ -300,6 +300,7 @@ export function getRule(
     groupId: null,
     from: null,
     subject: null,
+    subjectMatchMode: "CONTAINS" as const,
     body: null,
     to: null,
     enabled: true,

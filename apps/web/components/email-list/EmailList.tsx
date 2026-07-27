@@ -665,7 +665,6 @@ export function EmailList({
                 <EmailPanel
                   row={openedRow}
                   folderType={folderType}
-                  onPlanAiAction={onPlanAiAction}
                   onArchive={onArchive}
                   advanceToAdjacentThread={advanceToAdjacentThread}
                   close={closePanel}

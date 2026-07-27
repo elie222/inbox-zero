@@ -3,6 +3,7 @@ import { after } from "next/server";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
+import type { SubjectMatchMode } from "@/generated/prisma/enums";
 import type { Prisma, Rule } from "@/generated/prisma/client";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";
@@ -120,6 +121,7 @@ type RuleRecordData = {
   from?: string | null;
   to?: string | null;
   subject?: string | null;
+  subjectMatchMode?: SubjectMatchMode | null;
   body?: string | null;
   groupId?: string | null;
 };
@@ -267,6 +269,7 @@ export async function createRuleWithResolvedActions({
       from: data.from ?? undefined,
       to: data.to ?? undefined,
       subject: data.subject ?? undefined,
+      subjectMatchMode: data.subjectMatchMode ?? undefined,
       body: data.body ?? undefined,
       groupId: data.groupId ?? undefined,
       actions: {
@@ -329,6 +332,7 @@ export async function replaceRuleWithResolvedActions({
       from: data.from,
       to: data.to,
       subject: data.subject,
+      subjectMatchMode: data.subjectMatchMode ?? undefined,
       body: data.body,
       groupId: data.groupId,
       actions: {
@@ -356,6 +360,7 @@ export async function createRule({
   systemType,
   provider,
   runOnThreads,
+  subjectMatchMode,
   logger,
   enablement = { source: "default" } satisfies CreateRuleEnablement,
 }: {
@@ -364,6 +369,7 @@ export async function createRule({
   systemType?: SystemType | null;
   provider: string;
   runOnThreads: boolean;
+  subjectMatchMode?: SubjectMatchMode | null;
   logger: Logger;
   enablement?: CreateRuleEnablement;
 }) {
@@ -418,6 +424,7 @@ export async function createRule({
         from: result.condition.static?.from,
         to: result.condition.static?.to,
         subject: result.condition.static?.subject,
+        subjectMatchMode,
       },
       actions: mappedActions,
       skipSenderOnlyOverlapCheck: true,
@@ -439,6 +446,7 @@ export async function updateRule({
   provider,
   logger,
   runOnThreads,
+  subjectMatchMode,
 }: {
   ruleId: string;
   result: CreateOrUpdateRuleSchema;
@@ -446,6 +454,7 @@ export async function updateRule({
   provider: string;
   logger: Logger;
   runOnThreads?: boolean;
+  subjectMatchMode?: SubjectMatchMode | null;
 }) {
   try {
     logger.info("Updating rule", {
@@ -475,6 +484,7 @@ export async function updateRule({
         from: result.condition.static?.from,
         to: result.condition.static?.to,
         subject: result.condition.static?.subject,
+        ...(subjectMatchMode !== undefined && { subjectMatchMode }),
         ...(runOnThreads !== undefined && { runOnThreads }),
       },
       actions: mappedActions,

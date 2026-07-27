@@ -23,7 +23,11 @@ import {
 import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
 import { flattenConditions } from "@/utils/condition";
-import { ActionType, SystemType } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  SystemType,
+  SubjectMatchMode,
+} from "@/generated/prisma/enums";
 import { sanitizeActionFields } from "@/utils/action-item";
 import {
   deleteRule,
@@ -103,6 +107,8 @@ export const createRuleAction = actionClient
           emailAccountId,
           provider,
           runOnThreads: runOnThreads ?? true,
+          subjectMatchMode:
+            conditions.subjectMatchMode ?? SubjectMatchMode.CONTAINS,
           logger,
         });
 
@@ -161,6 +167,8 @@ export const updateRuleAction = actionClient
           provider,
           logger,
           runOnThreads: runOnThreads ?? undefined,
+          subjectMatchMode:
+            conditions.subjectMatchMode ?? SubjectMatchMode.CONTAINS,
         });
 
         return { rule };

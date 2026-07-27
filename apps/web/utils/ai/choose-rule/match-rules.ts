@@ -8,6 +8,7 @@ import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import {
   ExecutedRuleStatus,
   LogicalOperator,
+  SubjectMatchMode,
   SystemType,
 } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
@@ -658,7 +659,9 @@ function combineReasoning(...reasons: (string | undefined)[]) {
 }
 
 export function matchesStaticRule(
-  rule: Pick<RuleWithActions, "from" | "to" | "subject" | "body">,
+  rule: Pick<RuleWithActions, "from" | "to" | "subject" | "body"> & {
+    subjectMatchMode?: SubjectMatchMode | null;
+  },
   message: ParsedMessage,
   logger: Logger,
 ) {
@@ -701,7 +704,9 @@ export function matchesStaticRule(
       })
     : true;
   const subjectMatch = subject
-    ? matchesTextPattern(subject, message.headers.subject, log)
+    ? matchesTextPattern(subject, message.headers.subject, log, {
+        anchorStart: rule.subjectMatchMode === SubjectMatchMode.STARTS_WITH,
+      })
     : true;
   const bodyMatch = body
     ? matchesTextPattern(body, message.textPlain || "", log)
@@ -948,17 +953,26 @@ function normalizeEmailDisplayNameHeaderForRuleMatching(header: string) {
     .join(", ");
 }
 
-function matchesTextPattern(pattern: string, text: string, logger: Logger) {
+function matchesTextPattern(
+  pattern: string,
+  text: string,
+  logger: Logger,
+  options?: { anchorStart?: boolean },
+) {
   try {
-    return matchesRulePattern(pattern, text);
+    return matchesRulePattern(pattern, text, options?.anchorStart);
   } catch (error) {
     logger.error("Invalid regex pattern", { pattern, error });
     return false;
   }
 }
 
-function matchesRulePattern(pattern: string, text: string) {
-  return createRulePatternRegex(pattern).test(text);
+function matchesRulePattern(
+  pattern: string,
+  text: string,
+  anchorStart?: boolean,
+) {
+  return createRulePatternRegex(pattern, anchorStart).test(text);
 }
 
 // Escape regex metacharacters, then turn the `*` glob into `.*`.
@@ -966,9 +980,11 @@ function globToRegexSource(pattern: string) {
   return pattern.replace(/[.+?^${}()[\]\\]/g, "\\$&").replace(/\*/g, ".*");
 }
 
-// Unanchored: intended for subject/body keyword and display-name substring matching.
-function createRulePatternRegex(pattern: string) {
-  return new RegExp(globToRegexSource(pattern));
+// Unanchored by default: intended for subject/body keyword and display-name
+// substring matching. anchorStart pins the pattern to the beginning ("starts
+// with" subject conditions).
+function createRulePatternRegex(pattern: string, anchorStart?: boolean) {
+  return new RegExp((anchorStart ? "^" : "") + globToRegexSource(pattern));
 }
 
 // Anchored: for from/to address patterns, so a pattern matches a whole address

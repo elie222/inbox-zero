@@ -7,7 +7,7 @@ import type { FieldError, FieldErrors } from "react-hook-form";
 import { useEffect } from "react";
 import { Input, Label, ErrorMessage } from "@/components/Input";
 import { toastError } from "@/components/Toast";
-import { LogicalOperator } from "@/generated/prisma/enums";
+import { LogicalOperator, SubjectMatchMode } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import type {
@@ -391,7 +391,7 @@ export function ConditionSteps({
                         type="text"
                         name={`conditions.${index}.from`}
                         registerProps={register(`conditions.${index}.from`)}
-                        placeholder="hello@example.com OR support@test.com"
+                        placeholder="@company.com, hello@example.com"
                         className="pr-8"
                         error={
                           (
@@ -420,7 +420,7 @@ export function ConditionSteps({
                         type="text"
                         name={`conditions.${index}.to`}
                         registerProps={register(`conditions.${index}.to`)}
-                        placeholder="hello@example.com OR support@test.com"
+                        placeholder="@company.com, hello@example.com"
                         className="pr-8"
                         error={
                           (
@@ -444,28 +444,56 @@ export function ConditionSteps({
 
                 if (uiType === "subject") {
                   return (
-                    <div className="relative">
-                      <Input
-                        type="text"
-                        name={`conditions.${index}.subject`}
-                        registerProps={register(`conditions.${index}.subject`)}
-                        placeholder="Receipt for your purchase"
-                        className="pr-8"
-                        error={
-                          (
-                            errors.conditions?.[index] as {
-                              subject?: FieldError;
-                            }
-                          )?.subject
+                    <div className="flex gap-2">
+                      <Select
+                        value={
+                          currentCondition?.subjectMatchMode ??
+                          SubjectMatchMode.CONTAINS
                         }
-                      />
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                        <TooltipExplanation
-                          text="Only apply this rule to emails with this subject. e.g. Receipt for your purchase"
-                          side="right"
-                          size="sm"
-                          className="text-gray-400"
+                        onValueChange={(value) => {
+                          setValue(
+                            `conditions.${index}.subjectMatchMode`,
+                            value as SubjectMatchMode,
+                          );
+                        }}
+                      >
+                        <SelectTrigger className="w-[120px] shrink-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={SubjectMatchMode.CONTAINS}>
+                            Contains
+                          </SelectItem>
+                          <SelectItem value={SubjectMatchMode.STARTS_WITH}>
+                            Starts with
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className="relative flex-1">
+                        <Input
+                          type="text"
+                          name={`conditions.${index}.subject`}
+                          registerProps={register(
+                            `conditions.${index}.subject`,
+                          )}
+                          placeholder="Receipt for your purchase"
+                          className="pr-8"
+                          error={
+                            (
+                              errors.conditions?.[index] as {
+                                subject?: FieldError;
+                              }
+                            )?.subject
+                          }
                         />
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                          <TooltipExplanation
+                            text="Only apply this rule to emails whose subject contains (or starts with) this text. e.g. Receipt for your purchase"
+                            side="right"
+                            size="sm"
+                            className="text-gray-400"
+                          />
+                        </div>
                       </div>
                     </div>
                   );
