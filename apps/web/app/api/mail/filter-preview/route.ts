@@ -5,7 +5,8 @@ import { withEmailAccount } from "@/utils/middleware";
 
 const querySchema = z.object({
   matchType: z.enum(["sender", "domain", "subject"]),
-  value: z.string().min(1).max(320),
+  // One value or a comma-separated list (bulk selection)
+  value: z.string().min(1).max(2000),
 });
 
 export type FilterPreviewResponse = Awaited<ReturnType<typeof getPreview>>;
@@ -52,10 +53,18 @@ async function getPreview({
     };
   }
 
+  const parts = value
+    .split(/[|,]/)
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean);
   const match =
     matchType === "sender"
-      ? { from: { equals: value.trim(), mode: "insensitive" as const } }
-      : { fromDomain: value.trim().replace(/^@/, "").toLowerCase() };
+      ? {
+          OR: parts.map((part) => ({
+            from: { equals: part, mode: "insensitive" as const },
+          })),
+        }
+      : { fromDomain: { in: parts.map((part) => part.replace(/^@/, "")) } };
 
   const [total, inbox, last7Days, scanned7Days] = await Promise.all([
     prisma.emailMessage.count({ where: { ...received, ...match } }),

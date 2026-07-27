@@ -226,7 +226,7 @@ export function EmailList({
     y: number;
     thread: Thread;
   } | null>(null);
-  const [filterThread, setFilterThread] = useState<Thread | null>(null);
+  const [filterThreads, setFilterThreads] = useState<Thread[] | null>(null);
   const [aiRuleThread, setAiRuleThread] = useState<Thread | null>(null);
   const onRowContextMenu = useCallback(
     (event: React.MouseEvent, thread: Thread) => {
@@ -484,6 +484,9 @@ export function EmailList({
   }, [emailAccountId, selectedRows, threads]);
 
   const isEmpty = threads.length === 0;
+  const selectedCount = threads.filter(
+    (thread) => selectedRows[thread.id],
+  ).length;
 
   return (
     <>
@@ -498,7 +501,7 @@ export function EmailList({
               onChange={onToggleSelectAll}
             />
           </div>
-          <div className="ml-2">
+          <div className="ml-2 flex items-center gap-1">
             <ActionButtonsBulk
               isPlanning={false}
               isArchiving={false}
@@ -507,6 +510,20 @@ export function EmailList({
               onArchive={onArchiveBulk}
               onDelete={onTrashBulk}
             />
+            {selectedCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setFilterThreads(
+                    threads.filter((thread) => selectedRows[thread.id]),
+                  )
+                }
+              >
+                <FilterIcon className="mr-1.5 size-3.5" />
+                Filter selected ({selectedCount})
+              </Button>
+            )}
           </div>
           {/* <div className="ml-auto gap-1 flex items-center">
             <Button variant="ghost" size='icon'>
@@ -668,7 +685,7 @@ export function EmailList({
             {
               label: "Filter messages like this…",
               icon: FilterIcon,
-              onClick: () => setFilterThread(rowMenu.thread),
+              onClick: () => setFilterThreads([rowMenu.thread]),
             },
             {
               label: "Create rule with AI…",
@@ -683,14 +700,14 @@ export function EmailList({
           ]}
         />
       )}
-      {filterThread && (
+      {filterThreads?.length ? (
         <FilterLikeThisDialog
-          key={filterThread.id}
-          thread={filterThread}
-          onClose={() => setFilterThread(null)}
+          key={filterThreads.map((thread) => thread.id).join(",")}
+          threads={filterThreads}
+          onClose={() => setFilterThreads(null)}
           refetch={() => refetch()}
         />
-      )}
+      ) : null}
       {aiRuleThread && (
         <AiRuleFromEmailDialog
           key={aiRuleThread.id}
