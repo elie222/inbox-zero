@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import useSWR from "swr";
 import { useAction } from "next-safe-action/hooks";
 import { CheckIcon, SparklesIcon, UserPlusIcon, XIcon } from "lucide-react";
 import type { ParsedMessage } from "@/utils/types";
+import type { SavedContactsResponse } from "@/app/api/contacts/saved/route";
 import {
   extractContactsFromEmailAction,
   updateContactAction,
@@ -66,6 +68,23 @@ export function DetectedContacts({ message }: { message: ParsedMessage }) {
       .filter((email) => hasPhoneNumbers || !participants.has(email));
   }, [message, userEmail]);
 
+  // People already in the contact list don't need offering again — once
+  // everyone mentioned is saved, the chip disappears entirely (and stays
+  // gone across re-renders)
+  const { data: savedData, mutate: mutateSaved } =
+    useSWR<SavedContactsResponse>(
+      candidates.length
+        ? `/api/contacts/saved?emails=${encodeURIComponent(candidates.join(","))}`
+        : null,
+    );
+  const savedEmails = useMemo(
+    () => new Set(savedData?.saved ?? []),
+    [savedData],
+  );
+  const unsavedCandidates = candidates.filter(
+    (email) => !savedEmails.has(email),
+  );
+
   const extract = useAction(
     extractContactsFromEmailAction.bind(null, emailAccountId),
     {
@@ -87,6 +106,10 @@ export function DetectedContacts({ message }: { message: ParsedMessage }) {
   );
 
   if (dismissed || !candidates.length) return null;
+  // Wait for the saved-contacts check so the chip doesn't flash for people
+  // who turn out to be saved already
+  if (!savedData) return null;
+  if (!unsavedCandidates.length && !people) return null;
 
   if (!people) {
     return (
@@ -94,9 +117,9 @@ export function DetectedContacts({ message }: { message: ParsedMessage }) {
         <p className="flex min-w-0 items-center gap-2 text-sm">
           <SparklesIcon className="size-4 shrink-0 text-primary" />
           <span className="min-w-0 truncate">
-            This email mentions {candidates.length}{" "}
-            {candidates.length === 1 ? "person" : "people"} you could add to
-            contacts.
+            This email mentions {unsavedCandidates.length}{" "}
+            {unsavedCandidates.length === 1 ? "person" : "people"} you could add
+            to contacts.
           </span>
         </p>
         <div className="flex shrink-0 items-center gap-1">
@@ -138,6 +161,7 @@ export function DetectedContacts({ message }: { message: ParsedMessage }) {
             ) ?? null,
         )
       }
+      onSaved={() => mutateSaved()}
       onClose={() => setDismissed(true)}
     />
   );
@@ -146,10 +170,13 @@ export function DetectedContacts({ message }: { message: ParsedMessage }) {
 function DetectedContactsCard({
   people,
   onUpdatePerson,
+  onSaved,
   onClose,
 }: {
   people: DetectedPerson[];
   onUpdatePerson: (email: string, patch: Partial<DetectedPerson>) => void;
+  // Lets the gate's saved-contacts knowledge refresh after adds
+  onSaved: () => void;
   onClose: () => void;
 }) {
   const { emailAccountId } = useAccount();
@@ -174,6 +201,7 @@ function DetectedContactsCard({
     try {
       await addPerson(person);
       onUpdatePerson(person.email, { alreadySaved: true });
+      onSaved();
       toastSuccess({
         description: `${person.name || person.email} added to contacts`,
       });
@@ -202,6 +230,7 @@ function DetectedContactsCard({
       }
     }
     setAddingAll(false);
+    if (added) onSaved();
     if (failed) {
       toastError({
         description: `Added ${added}; ${failed} couldn't be saved.`,
