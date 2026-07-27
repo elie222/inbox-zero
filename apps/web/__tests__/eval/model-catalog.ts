@@ -140,7 +140,7 @@ export function getEmailAccountForModel(
 
 function getApiKeyForProvider(provider: string): string | null {
   const keys: Record<string, string | undefined> = {
-    openrouter: process.env.OPENROUTER_API_KEY,
+    openrouter: process.env.OPENROUTER_API_KEY || process.env.LLM_API_KEY,
     openai: process.env.OPENAI_API_KEY,
     anthropic: process.env.ANTHROPIC_API_KEY,
     google: process.env.GOOGLE_API_KEY,

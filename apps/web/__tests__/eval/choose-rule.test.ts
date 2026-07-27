@@ -226,6 +226,7 @@ const borderlineMultiRuleTestCases = [
     }),
     acceptablePrimaryRuleNames: ["Account notifications"],
     allowedRuleNames: ["Account notifications"],
+    allowNoMatch: true,
     maxRuleCount: 1,
   },
   {
@@ -799,9 +800,11 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
             const unexpectedRuleNames = actualRuleNames.filter(
               (ruleName) => !tc.allowedRuleNames.includes(ruleName),
             );
+            const allowsNoMatch = tc.allowNoMatch ?? false;
             const pass =
-              actualPrimaryRule !== null &&
-              tc.acceptablePrimaryRuleNames.includes(actualPrimaryRule) &&
+              (actualPrimaryRule === null
+                ? allowsNoMatch
+                : tc.acceptablePrimaryRuleNames.includes(actualPrimaryRule)) &&
               actualRuleNames.length <= tc.maxRuleCount &&
               unexpectedRuleNames.length === 0;
 
@@ -810,7 +813,10 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
               model: model.label,
               pass,
               expected: [
-                `primary one of=${tc.acceptablePrimaryRuleNames.join(", ")}`,
+                `primary one of=${[
+                  ...tc.acceptablePrimaryRuleNames,
+                  ...(allowsNoMatch ? ["no match"] : []),
+                ].join(", ")}`,
                 `allowed=${tc.allowedRuleNames.join(", ")}`,
                 `max=${tc.maxRuleCount}`,
               ].join("; "),
@@ -822,8 +828,13 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
               ].join("; "),
             });
 
-            expect(actualPrimaryRule).not.toBeNull();
-            expect(tc.acceptablePrimaryRuleNames).toContain(actualPrimaryRule);
+            if (actualPrimaryRule === null) {
+              expect(allowsNoMatch).toBe(true);
+            } else {
+              expect(tc.acceptablePrimaryRuleNames).toContain(
+                actualPrimaryRule,
+              );
+            }
             expect(actualRuleNames.length).toBeLessThanOrEqual(tc.maxRuleCount);
             expect(unexpectedRuleNames).toEqual([]);
           },
