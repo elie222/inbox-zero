@@ -53,6 +53,7 @@ describe("createMailFilterAction", () => {
     });
     expect(createRuleMock).toHaveBeenCalledWith(
       expect.objectContaining({
+        runOnThreads: true,
         result: expect.objectContaining({
           condition: {
             conditionalOperator: "OR",
@@ -114,6 +115,7 @@ describe("createMailFilterAction", () => {
       data: {
         from: "old@x.com, new@y.com",
         instructions: "Existing guidance\nAlso shipping updates",
+        runOnThreads: true,
         conditionalOperator: "OR",
       },
     });
@@ -140,6 +142,7 @@ describe("createMailFilterAction", () => {
       data: {
         from: "new@y.com",
         instructions: "Existing guidance",
+        runOnThreads: true,
         conditionalOperator: "OR",
       },
     });

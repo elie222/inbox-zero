@@ -3,6 +3,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { isDefined, type EmailForLLM } from "@/utils/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
+import { LogicalOperator } from "@/generated/prisma/enums";
 import { createGenerateObject } from "@/utils/llms";
 import {
   appendOllamaOnlySystemGuidance,
@@ -22,7 +23,16 @@ type GetAiResponseOptions = {
 };
 
 export async function aiChooseRule<
-  T extends { name: string; instructions: string; systemType?: string | null },
+  T extends {
+    name: string;
+    instructions: string;
+    systemType?: string | null;
+    from?: string | null;
+    to?: string | null;
+    subject?: string | null;
+    body?: string | null;
+    conditionalOperator?: string | null;
+  },
 >({
   email,
   rules,
@@ -44,10 +54,14 @@ export async function aiChooseRule<
   if (!rules.length) return { rules: [], reason: "No rules to evaluate" };
 
   const orderedRules = sortRulesForAutomation(rules);
+  const promptRules = orderedRules.map((rule) => ({
+    ...rule,
+    instructions: withUnmatchedSenderNote(rule),
+  }));
 
   const { result: aiResponse } = await getAiResponse({
     email,
-    rules: orderedRules,
+    rules: promptRules,
     emailAccount,
     modelType,
     classificationFeedback,
@@ -433,6 +447,29 @@ User has manually classified emails from this sender into these rules:
 ${lines.join("\n")}
 These are hints from past user actions. Still evaluate the current email on its own merits.
 </classification_feedback>`;
+}
+
+// The AI pool only sees a rule's name and instructions. An OR rule whose
+// explicit senders didn't match still lands in the pool, and without this
+// note the model can't tell the rule is scoped to senders that don't
+// include this email — so it picks purely on semantics and misroutes.
+// Only from-only rules get the note: with other static fields present, a
+// failed static match doesn't prove the sender was the mismatch.
+function withUnmatchedSenderNote(rule: {
+  instructions: string;
+  from?: string | null;
+  to?: string | null;
+  subject?: string | null;
+  body?: string | null;
+  conditionalOperator?: string | null;
+}): string {
+  const senderScopedOnly = rule.from && !rule.to && !rule.subject && !rule.body;
+  if (!senderScopedOnly || rule.conditionalOperator !== LogicalOperator.OR) {
+    return rule.instructions;
+  }
+  return `${rule.instructions}
+
+Note: this rule also matches specific senders directly (${rule.from}). This email's sender is NOT one of them — that check already ran. Only select this rule if the email clearly fits the criteria above in its own right.`;
 }
 
 const OLLAMA_MULTI_RULE_SELECTION_GUIDANCE = [

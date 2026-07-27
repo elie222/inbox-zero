@@ -112,7 +112,7 @@ export function FilterLikeThisDialog({
         toastSuccess({
           description: result.data?.backfillQueued
             ? `${created} — existing matches are being moved in the background.`
-            : created,
+            : `${created} — moving ${single ? "this email" : "the selected emails"} there now.`,
         });
         refetch();
         onClose();
@@ -165,6 +165,9 @@ export function FilterLikeThisDialog({
       instructions: why.trim() || undefined,
       skipInbox: true,
       applyToExisting: applyTo === "past",
+      // These threads always move, so the mail the user acted on ends up
+      // in exactly one folder even with "future only"
+      threadIds: threads.map((thread) => thread.id),
     });
   };
 
@@ -308,6 +311,11 @@ export function FilterLikeThisDialog({
                   selected={applyTo === "future"}
                   onClick={() => setApplyTo("future")}
                   title="Future emails only"
+                  description={
+                    single
+                      ? "This email still moves there now."
+                      : "The selected emails still move there now."
+                  }
                 />
                 <ApplyOption
                   selected={applyTo === "past"}

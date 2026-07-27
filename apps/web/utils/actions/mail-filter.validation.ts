@@ -20,6 +20,9 @@ export const createMailFilterBody = z.object({
   star: z.boolean().optional(),
   // Also move existing matching mail (wherever it sits) into the folder
   applyToExisting: z.boolean().optional(),
+  // The threads the filter was created from — always moved to the folder
+  // (and stripped of other folder labels), even when applyToExisting is off
+  threadIds: z.array(z.string().min(1).max(200)).max(100).optional(),
 });
 export type CreateMailFilterBody = z.infer<typeof createMailFilterBody>;
 

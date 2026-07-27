@@ -47,6 +47,7 @@ export const createMailFilterAction = actionClient
         markRead,
         star,
         applyToExisting,
+        threadIds,
       },
     }) => {
       const conditionValue = normalizeFilterValue(matchType, value);
@@ -92,6 +93,10 @@ export const createMailFilterAction = actionClient
           data: {
             from: mergedFrom,
             instructions: mergedInstructions,
+            // "Always goes to this folder" includes replies in a thread —
+            // otherwise the thread guard skips this rule for any thread it
+            // hasn't run on before and the filter never fires
+            runOnThreads: true,
             // Static senders and AI instructions each suffice on their own
             ...(mergedFrom && mergedInstructions
               ? { conditionalOperator: LogicalOperator.OR }
@@ -143,7 +148,9 @@ export const createMailFilterAction = actionClient
           },
           emailAccountId,
           provider,
-          runOnThreads: false,
+          // Filters are deterministic filing — they apply to thread replies
+          // too, or mail threading onto an old conversation escapes them
+          runOnThreads: true,
           logger,
         });
 
@@ -168,7 +175,7 @@ export const createMailFilterAction = actionClient
         });
       }
 
-      if (applyToExisting) {
+      if (applyToExisting || threadIds?.length) {
         const account = await prisma.emailAccount.findUnique({
           where: { id: emailAccountId },
           select: { email: true },
@@ -182,16 +189,32 @@ export const createMailFilterAction = actionClient
                 provider,
                 logger,
               });
-              await applyFilterToExistingMail({
-                emailProvider,
-                ownerEmail,
-                matchType,
-                value: conditionValue,
-                labelId: resolvedLabelId,
-                labelName,
-                skipInbox,
-                logger,
-              });
+              // The threads the user filtered from always move — a filter
+              // whose own email stays put (or keeps a second folder label)
+              // reads as broken
+              if (threadIds?.length) {
+                await applyFilterToThreads({
+                  emailProvider,
+                  ownerEmail,
+                  threadIds,
+                  labelId: resolvedLabelId,
+                  labelName,
+                  skipInbox,
+                  logger,
+                });
+              }
+              if (applyToExisting) {
+                await applyFilterToExistingMail({
+                  emailProvider,
+                  ownerEmail,
+                  matchType,
+                  value: conditionValue,
+                  labelId: resolvedLabelId,
+                  labelName,
+                  skipInbox,
+                  logger,
+                });
+              }
             } catch (error) {
               logger.error("Filter backfill failed", { ruleId, error });
             }
@@ -329,23 +352,15 @@ async function applyFilterToExistingMail({
           : `from:${parts[0]?.replace(/^@/, "")}`
         : `subject:"${value.replace(/"/g, "")}"`;
 
-  // A merged rule may carry no label id — resolve it so the move can label
-  let targetLabelId = labelId;
-  if (!targetLabelId) {
-    targetLabelId = (await emailProvider.getLabelByName(labelName))?.id ?? null;
-  }
-  if (!targetLabelId) {
-    logger.error("Filter backfill couldn't resolve the folder label", {
-      labelName,
-    });
-    return;
-  }
+  const targetLabelId = await resolveTargetLabelId({
+    emailProvider,
+    labelId,
+    labelName,
+    logger,
+  });
+  if (!targetLabelId) return;
 
-  // Other user folders' labels get replaced — that's the move
-  const labels = await emailProvider.getLabels();
-  const userLabelIds = new Set(
-    labels.filter((label) => label.type === "user").map((label) => label.id),
-  );
+  const userLabelIds = await getUserLabelIds(emailProvider);
 
   const threadLabelIds = new Map<string, Set<string>>();
   const threadMessageIds = new Map<string, string[]>();
@@ -374,7 +389,139 @@ async function applyFilterToExistingMail({
     pageToken = nextPageToken;
   }
 
-  const resolvedTargetLabelId = targetLabelId;
+  const failed = await moveThreadsToFolder({
+    emailProvider,
+    ownerEmail,
+    targetLabelId,
+    labelName,
+    skipInbox,
+    userLabelIds,
+    threadLabelIds,
+    threadMessageIds,
+  });
+  logger.info("Filter backfill finished", {
+    threads: threadLabelIds.size,
+    failed,
+  });
+}
+
+// Moves the specific threads a filter was created from: target label on,
+// inbox/other folder labels off. Unlike the search-based backfill this
+// works from thread ids, so it covers the exact mail the user acted on.
+async function applyFilterToThreads({
+  emailProvider,
+  ownerEmail,
+  threadIds,
+  labelId,
+  labelName,
+  skipInbox,
+  logger,
+}: {
+  emailProvider: EmailProvider;
+  ownerEmail: string;
+  threadIds: string[];
+  labelId: string | null;
+  labelName: string;
+  skipInbox: boolean;
+  logger: Logger;
+}) {
+  const targetLabelId = await resolveTargetLabelId({
+    emailProvider,
+    labelId,
+    labelName,
+    logger,
+  });
+  if (!targetLabelId) return;
+
+  const userLabelIds = await getUserLabelIds(emailProvider);
+
+  const threadLabelIds = new Map<string, Set<string>>();
+  const threadMessageIds = new Map<string, string[]>();
+  for (const threadId of threadIds) {
+    try {
+      const messages = await emailProvider.getThreadMessages(threadId);
+      const labelSet = new Set<string>();
+      for (const message of messages) {
+        for (const id of message.labelIds ?? []) labelSet.add(id);
+      }
+      threadLabelIds.set(threadId, labelSet);
+      threadMessageIds.set(
+        threadId,
+        messages.map((message) => message.id),
+      );
+    } catch (error) {
+      logger.error("Filter couldn't load a selected thread", {
+        threadId,
+        error,
+      });
+    }
+  }
+
+  const failed = await moveThreadsToFolder({
+    emailProvider,
+    ownerEmail,
+    targetLabelId,
+    labelName,
+    skipInbox,
+    userLabelIds,
+    threadLabelIds,
+    threadMessageIds,
+  });
+  logger.info("Filter moved selected threads", {
+    threads: threadLabelIds.size,
+    failed,
+  });
+}
+
+// A merged rule may carry no label id — resolve it so the move can label
+async function resolveTargetLabelId({
+  emailProvider,
+  labelId,
+  labelName,
+  logger,
+}: {
+  emailProvider: EmailProvider;
+  labelId: string | null;
+  labelName: string;
+  logger: Logger;
+}): Promise<string | null> {
+  const targetLabelId =
+    labelId ?? (await emailProvider.getLabelByName(labelName))?.id ?? null;
+  if (!targetLabelId) {
+    logger.error("Filter couldn't resolve the folder label", { labelName });
+  }
+  return targetLabelId;
+}
+
+// Other user folders' labels get replaced — that's the move
+async function getUserLabelIds(
+  emailProvider: EmailProvider,
+): Promise<Set<string>> {
+  const labels = await emailProvider.getLabels();
+  return new Set(
+    labels.filter((label) => label.type === "user").map((label) => label.id),
+  );
+}
+
+async function moveThreadsToFolder({
+  emailProvider,
+  ownerEmail,
+  targetLabelId,
+  labelName,
+  skipInbox,
+  userLabelIds,
+  threadLabelIds,
+  threadMessageIds,
+}: {
+  emailProvider: EmailProvider;
+  ownerEmail: string;
+  targetLabelId: string;
+  labelName: string;
+  skipInbox: boolean;
+  userLabelIds: Set<string>;
+  threadLabelIds: Map<string, Set<string>>;
+  threadMessageIds: Map<string, string[]>;
+}): Promise<number> {
   const results = await runWithBoundedConcurrency({
     items: [...threadLabelIds.keys()],
     concurrency: BACKFILL_CONCURRENCY,
@@ -385,21 +532,21 @@ async function applyFilterToExistingMail({
         await emailProvider.archiveThreadWithLabel(
           threadId,
           ownerEmail,
-          resolvedTargetLabelId,
+          targetLabelId,
         );
       } else {
         const messageIds = threadMessageIds.get(threadId) ?? [];
         for (const messageId of messageIds) {
           await emailProvider.labelMessage({
             messageId,
-            labelId: resolvedTargetLabelId,
+            labelId: targetLabelId,
             labelName,
           });
         }
       }
 
       const stripIds = [...present].filter(
-        (id) => userLabelIds.has(id) && id !== resolvedTargetLabelId,
+        (id) => userLabelIds.has(id) && id !== targetLabelId,
       );
       if (stripIds.length) {
         await emailProvider.removeThreadLabels(threadId, stripIds);
@@ -407,13 +554,7 @@ async function applyFilterToExistingMail({
     },
   });
 
-  const failed = results.filter(
-    (entry) => entry.result.status === "rejected",
-  ).length;
-  logger.info("Filter backfill finished", {
-    threads: threadLabelIds.size,
-    failed,
-  });
+  return results.filter((entry) => entry.result.status === "rejected").length;
 }
 
 // Learned patterns match FROM by bidirectional substring, exactly like the

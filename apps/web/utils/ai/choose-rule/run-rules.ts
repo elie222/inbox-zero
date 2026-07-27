@@ -230,7 +230,10 @@ export async function runRules({
     }
   }
 
-  const finalMatches = limitDraftEmailActions(matchesWithFlags, logger);
+  const finalMatches = limitFolderLabelActions(
+    limitDraftEmailActions(matchesWithFlags, logger),
+    logger,
+  );
 
   logger.trace("Matching rule", () => ({
     module: MODULE,
@@ -892,6 +895,55 @@ function isConversationRule(ruleId: string): boolean {
  * selected draft rule so the single generated draft can still fan out to every
  * matched channel.
  */
+/**
+ * An email lives in exactly one folder. When several matched custom rules
+ * would each file it (LABEL / MOVE_FOLDER actions), the first match keeps
+ * its filing action — candidate order puts learned-pattern and static
+ * matches ahead of AI picks — and filing is dropped from the rest. Their
+ * other actions still run. System rules (conversation status, calendar,
+ * cold email) are exempt: their labels are status markers that stack on
+ * top of a folder by design.
+ */
+export function limitFolderLabelActions<T extends { rule: RuleWithActions }>(
+  matches: T[],
+  logger: Logger,
+): T[] {
+  const isFiling = (action: { type: ActionType }) =>
+    action.type === ActionType.LABEL || action.type === ActionType.MOVE_FOLDER;
+
+  const filingMatches = matches.filter(
+    (match) => !match.rule.systemType && match.rule.actions.some(isFiling),
+  );
+  if (filingMatches.length <= 1) return matches;
+
+  const keptRuleId = filingMatches[0].rule.id;
+  logger.info("Limiting folder filing to a single rule match", {
+    module: MODULE,
+    keptRuleId,
+    droppedRuleNames: filingMatches
+      .slice(1)
+      .map((match) => match.rule.name)
+      .join(", "),
+  });
+
+  return matches.map((match) => {
+    if (
+      match.rule.id === keptRuleId ||
+      match.rule.systemType ||
+      !match.rule.actions.some(isFiling)
+    ) {
+      return match;
+    }
+    return {
+      ...match,
+      rule: {
+        ...match.rule,
+        actions: match.rule.actions.filter((action) => !isFiling(action)),
+      },
+    };
+  });
+}
+
 export function limitDraftEmailActions<
   T extends { rule: RuleWithActions; matchReasons?: MatchReason[] },
 >(matches: T[], logger: Logger): T[] {
