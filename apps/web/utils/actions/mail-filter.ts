@@ -3,8 +3,14 @@
 import { after } from "next/server";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
-import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  GroupItemSource,
+  GroupItemType,
+  LogicalOperator,
+} from "@/generated/prisma/enums";
 import { createRule } from "@/utils/rule/rule";
+import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { createEmailProvider } from "@/utils/email/provider";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { aiProposeRuleFromEmail } from "@/utils/ai/rule/propose-rule-from-email";
@@ -147,6 +153,19 @@ export const createMailFilterAction = actionClient
         resolvedLabelId =
           rule.actions?.find((action) => action.type === ActionType.LABEL)
             ?.labelId ?? null;
+      }
+
+      // Retrain learned patterns: a stale pattern on another rule (e.g. an
+      // earlier misfiling the AI "learned") short-circuits rule selection
+      // and would keep beating this filter's senders. Remove the conflicts
+      // and pin these senders to this rule instead.
+      if (matchType !== "subject") {
+        await retrainLearnedPatterns({
+          emailAccountId,
+          ruleId,
+          values: splitPatterns(conditionValue),
+          logger,
+        });
       }
 
       if (applyToExisting) {
@@ -395,4 +414,67 @@ async function applyFilterToExistingMail({
     threads: threadLabelIds.size,
     failed,
   });
+}
+
+// Learned patterns match FROM by bidirectional substring, exactly like the
+// engine (utils/group/find-matching-group.ts) — conflicts are judged the
+// same way so we only delete patterns that would actually collide.
+async function retrainLearnedPatterns({
+  emailAccountId,
+  ruleId,
+  values,
+  logger,
+}: {
+  emailAccountId: string;
+  ruleId: string;
+  values: string[];
+  logger: Logger;
+}) {
+  const normalized = values
+    .map((value) => value.replace(/^@/, "").toLowerCase())
+    .filter(Boolean);
+  if (!normalized.length) return;
+
+  // exclude:true items only prevent the other rule from matching — they
+  // can't misroute mail here, so they stay
+  const otherPatterns = await prisma.groupItem.findMany({
+    where: {
+      type: GroupItemType.FROM,
+      exclude: false,
+      group: {
+        emailAccountId,
+        rule: { is: { id: { not: ruleId } } },
+      },
+    },
+    select: { id: true, value: true },
+  });
+
+  const conflicting = otherPatterns.filter((item) => {
+    const itemValue = item.value.toLowerCase();
+    return normalized.some(
+      (value) => itemValue.includes(value) || value.includes(itemValue),
+    );
+  });
+
+  if (conflicting.length) {
+    await prisma.groupItem.deleteMany({
+      where: { id: { in: conflicting.map((item) => item.id) } },
+    });
+    logger.info("Removed conflicting learned patterns", {
+      ruleId,
+      removed: conflicting.length,
+    });
+  }
+
+  // Pinning the senders to this rule makes the filter win deterministically
+  // even when another rule's AI condition would also match
+  for (const value of values) {
+    await saveLearnedPattern({
+      emailAccountId,
+      from: value,
+      ruleId,
+      logger,
+      source: GroupItemSource.USER,
+    });
+  }
 }

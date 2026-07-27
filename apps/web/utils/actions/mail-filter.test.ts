@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 
-const { createRuleMock } = vi.hoisted(() => ({
+const { createRuleMock, saveLearnedPatternMock } = vi.hoisted(() => ({
   createRuleMock: vi.fn(),
+  saveLearnedPatternMock: vi.fn(),
 }));
 
 vi.mock("@/utils/prisma");
@@ -13,6 +14,9 @@ vi.mock("@/utils/auth", () => ({
 }));
 vi.mock("@/utils/rule/rule", () => ({
   createRule: createRuleMock,
+}));
+vi.mock("@/utils/rule/learned-patterns", () => ({
+  saveLearnedPattern: saveLearnedPatternMock,
 }));
 
 import { createMailFilterAction } from "@/utils/actions/mail-filter";
@@ -25,6 +29,7 @@ beforeEach(() => {
     account: { userId: "user-1", provider: "google" },
   } as any);
   prisma.rule.findFirst.mockResolvedValue(null);
+  prisma.groupItem.findMany.mockResolvedValue([]);
   createRuleMock.mockResolvedValue({
     id: "rule-1",
     name: "Filter: Notifications",
@@ -138,5 +143,42 @@ describe("createMailFilterAction", () => {
         conditionalOperator: "OR",
       },
     });
+  });
+
+  it("retrains learned patterns: deletes conflicts on other rules and pins senders", async () => {
+    prisma.groupItem.findMany.mockResolvedValue([
+      { id: "item-1", value: "feedback@drivecentric.com" },
+      { id: "item-2", value: "unrelated@elsewhere.com" },
+    ] as any);
+    prisma.groupItem.deleteMany.mockResolvedValue({ count: 1 } as any);
+
+    await createMailFilterAction("account-1", {
+      matchType: "domain",
+      value: "drivecentric.com",
+      labelName: "Notifications",
+    });
+
+    expect(prisma.groupItem.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["item-1"] } },
+    });
+    expect(saveLearnedPatternMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "account-1",
+        from: "@drivecentric.com",
+        ruleId: "rule-1",
+        source: "USER",
+      }),
+    );
+  });
+
+  it("skips learned-pattern retraining for subject filters", async () => {
+    await createMailFilterAction("account-1", {
+      matchType: "subject",
+      value: "Weekly digest",
+      labelName: "Notifications",
+    });
+
+    expect(prisma.groupItem.findMany).not.toHaveBeenCalled();
+    expect(saveLearnedPatternMock).not.toHaveBeenCalled();
   });
 });
