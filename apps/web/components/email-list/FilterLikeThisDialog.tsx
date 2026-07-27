@@ -19,6 +19,7 @@ import { cn } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -37,33 +38,50 @@ const MATCH_OPTIONS: {
   { type: "subject", label: "Subject", icon: TypeIcon },
 ];
 
-// "Filter messages like this": build a filing rule from an email — match by
-// sender/domain/subject, send matches to a folder (or pin the sender to the
-// inbox), optionally sweeping existing mail too.
+// "Filter messages like this": build a filing rule from one email or a
+// bulk selection — match by sender(s)/domain(s)/subject, send matches to a
+// folder (or pin the senders to the inbox), optionally say why (becomes the
+// rule's AI instructions), and optionally move existing matches too.
 export function FilterLikeThisDialog({
-  thread,
+  threads,
   onClose,
   refetch,
 }: {
-  thread: Thread;
+  threads: Thread[];
   onClose: () => void;
   refetch: () => void;
 }) {
   const { emailAccountId } = useAccount();
-  const lastMessage = thread.messages?.at(-1);
-  const senderEmail = extractEmailAddress(
-    lastMessage?.headers.from ?? "",
-  ).toLowerCase();
-  const senderDomain = senderEmail.split("@")[1] ?? "";
+  const lastMessage = threads[0]?.messages?.at(-1);
+  const senderEmails = [
+    ...new Set(
+      threads
+        .map((thread) =>
+          extractEmailAddress(
+            thread.messages?.at(-1)?.headers.from ?? "",
+          ).toLowerCase(),
+        )
+        .filter(Boolean),
+    ),
+  ];
+  const senderDomains = [
+    ...new Set(
+      senderEmails
+        .map((email) => email.split("@")[1])
+        .filter((domain): domain is string => !!domain),
+    ),
+  ];
+  const single = threads.length === 1;
 
   const defaults: Record<FilterMatchType, string> = {
-    sender: senderEmail,
-    domain: senderDomain ? `@${senderDomain}` : "",
-    subject: lastMessage?.headers.subject ?? "",
+    sender: senderEmails.join(", "),
+    domain: senderDomains.map((domain) => `@${domain}`).join(", "),
+    subject: single ? (lastMessage?.headers.subject ?? "") : "",
   };
 
   const [matchType, setMatchType] = useState<FilterMatchType>("sender");
   const [value, setValue] = useState(defaults.sender);
+  const [why, setWhy] = useState("");
   // "inbox" (keep visible, sender-only) or a label id
   const [target, setTarget] = useState<string | null>(null);
   const [applyTo, setApplyTo] = useState<"future" | "past">("future");
@@ -88,10 +106,13 @@ export function FilterLikeThisDialog({
     createMailFilterAction.bind(null, emailAccountId),
     {
       onSuccess: (result) => {
+        const created = result.data?.merged
+          ? `Added to the existing ${result.data.ruleName} rule`
+          : "Filter created";
         toastSuccess({
           description: result.data?.backfillQueued
-            ? "Filter created — existing matches are being moved in the background."
-            : "Filter created",
+            ? `${created} — existing matches are being moved in the background.`
+            : created,
         });
         refetch();
         onClose();
@@ -107,7 +128,10 @@ export function FilterLikeThisDialog({
     {
       onSuccess: () => {
         toastSuccess({
-          description: `${senderEmail} will always stay in your inbox`,
+          description:
+            senderEmails.length === 1
+              ? `${senderEmails[0]} will always stay in your inbox`
+              : `${senderEmails.length} senders will always stay in your inbox`,
         });
         onClose();
       },
@@ -119,15 +143,18 @@ export function FilterLikeThisDialog({
 
   const targetLabel = userLabels.find((label) => label.id === target);
   const canCreate =
-    !!trimmedValue && (target === "inbox" ? !!senderEmail : !!targetLabel);
+    !!trimmedValue &&
+    (target === "inbox" ? senderEmails.length > 0 : !!targetLabel);
   const creating = createFilter.isExecuting || keepInInbox.isExecuting;
 
   const create = () => {
     if (target === "inbox") {
-      keepInInbox.execute({
-        email: senderEmail,
-        priority: ContactInboxPriority.ALWAYS,
-      });
+      for (const email of senderEmails) {
+        keepInInbox.execute({
+          email,
+          priority: ContactInboxPriority.ALWAYS,
+        });
+      }
       return;
     }
     if (!targetLabel) return;
@@ -135,6 +162,7 @@ export function FilterLikeThisDialog({
       matchType,
       value: trimmedValue,
       labelName: targetLabel.name,
+      instructions: why.trim() || undefined,
       skipInbox: true,
       applyToExisting: applyTo === "past",
     });
@@ -142,9 +170,13 @@ export function FilterLikeThisDialog({
 
   const valueLabel =
     matchType === "sender"
-      ? "Sender address"
+      ? senderEmails.length > 1
+        ? "Sender addresses"
+        : "Sender address"
       : matchType === "domain"
-        ? "Domain"
+        ? senderDomains.length > 1
+          ? "Domains"
+          : "Domain"
         : "Subject contains";
 
   return (
@@ -164,7 +196,9 @@ export function FilterLikeThisDialog({
               Match by
             </h3>
             <div className="grid grid-cols-3 gap-2">
-              {MATCH_OPTIONS.map(({ type, label, icon: Icon }) => (
+              {MATCH_OPTIONS.filter(
+                ({ type }) => single || type !== "subject",
+              ).map(({ type, label, icon: Icon }) => (
                 <button
                   key={type}
                   type="button"
@@ -246,6 +280,24 @@ export function FilterLikeThisDialog({
             </div>
           </div>
 
+          {target !== "inbox" && target && (
+            <div>
+              <Label htmlFor="filter-why">Tell the AI why (optional)</Label>
+              <Textarea
+                id="filter-why"
+                className="mt-2"
+                rows={2}
+                placeholder="e.g. Order and shipping notifications belong here, even from new senders"
+                value={why}
+                onChange={(event) => setWhy(event.target.value)}
+              />
+              <p className="mt-1 text-sm text-muted-foreground">
+                Saved as the rule's AI instructions, so similar mail from other
+                senders files here too.
+              </p>
+            </div>
+          )}
+
           {target !== "inbox" && (
             <div>
               <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
@@ -262,9 +314,9 @@ export function FilterLikeThisDialog({
                   onClick={() => setApplyTo("past")}
                   title="Future and past matches"
                   description={
-                    preview?.countable && preview.inbox !== null
-                      ? `${preview.inbox} existing ${preview.inbox === 1 ? "email" : "emails"} will be moved.`
-                      : "Existing matches in your inbox will be moved."
+                    preview?.countable && preview.total !== null
+                      ? `${preview.total} existing ${preview.total === 1 ? "email" : "emails"} will be moved here — including any filed in other folders.`
+                      : "Existing matches will be moved here, including any filed in other folders."
                   }
                 />
               </div>

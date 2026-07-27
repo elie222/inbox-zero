@@ -7,13 +7,18 @@ export type FilterMatchType = z.infer<typeof filterMatchType>;
 
 export const createMailFilterBody = z.object({
   matchType: filterMatchType,
-  value: z.string().trim().min(1).max(320),
+  // A single sender/domain/subject, or a comma-separated list of
+  // senders/domains (bulk selection)
+  value: z.string().trim().min(1).max(2000),
   // Resolved by name; the folder is created when it doesn't exist yet
   labelName: z.string().trim().min(1).max(100),
+  // Optional "why": becomes the rule's AI instructions, ORed with the
+  // static match
+  instructions: z.string().max(2000).nullish(),
   skipInbox: z.boolean().optional(),
   markRead: z.boolean().optional(),
   star: z.boolean().optional(),
-  // Also move mail already sitting in the inbox that matches
+  // Also move existing matching mail (wherever it sits) into the folder
   applyToExisting: z.boolean().optional(),
 });
 export type CreateMailFilterBody = z.infer<typeof createMailFilterBody>;

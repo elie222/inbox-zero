@@ -3,7 +3,7 @@
 import { after } from "next/server";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { createRule } from "@/utils/rule/rule";
 import { createEmailProvider } from "@/utils/email/provider";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
@@ -21,11 +21,11 @@ import {
 const BACKFILL_MAX_MESSAGES = 500;
 const BACKFILL_CONCURRENCY = 3;
 
-// Creates a filing rule from the mail list ("filter messages like this"):
-// matching mail gets the folder's label and, unless skipInbox is off,
-// leaves the inbox. The folder is created when it doesn't exist yet, and
-// applyToExisting sweeps mail already sitting in the inbox in the
-// background.
+// Creates (or extends) a filing rule from the mail list: matching mail gets
+// the folder's label and, unless skipInbox is off, leaves the inbox. When a
+// rule already files into that folder, the senders/instructions merge into
+// it instead of creating an overlapping rule. applyToExisting moves mail
+// that already matches — wherever it currently sits — in the background.
 export const createMailFilterAction = actionClient
   .metadata({ name: "createMailFilter" })
   .inputSchema(createMailFilterBody)
@@ -36,6 +36,7 @@ export const createMailFilterAction = actionClient
         matchType,
         value,
         labelName,
+        instructions,
         skipInbox = true,
         markRead,
         star,
@@ -43,43 +44,110 @@ export const createMailFilterAction = actionClient
       },
     }) => {
       const conditionValue = normalizeFilterValue(matchType, value);
+      const trimmedInstructions = instructions?.trim() || null;
 
-      const condition =
+      // A second sender-only rule for the same folder would be rejected as
+      // overlapping — merge into the existing rule instead
+      const existingRule =
         matchType === "subject"
-          ? {
-              conditionalOperator: null,
-              aiInstructions: null,
-              static: { from: null, to: null, subject: conditionValue },
-            }
-          : {
-              conditionalOperator: null,
-              aiInstructions: null,
-              static: { from: conditionValue, to: null, subject: null },
-            };
+          ? null
+          : await prisma.rule.findFirst({
+              where: {
+                emailAccountId,
+                enabled: true,
+                actions: {
+                  some: { type: ActionType.LABEL, label: labelName },
+                },
+              },
+              select: {
+                id: true,
+                name: true,
+                from: true,
+                instructions: true,
+                actions: { select: { type: true, labelId: true } },
+              },
+            });
 
-      const rule = await createRule({
-        result: {
-          name: `Filter: ${conditionValue}`,
-          condition,
-          // The label resolves by name — created on the provider when it
-          // doesn't exist yet
-          actions: [
-            { type: ActionType.LABEL, fields: { label: labelName } },
-            ...(skipInbox ? [{ type: ActionType.ARCHIVE }] : []),
-            ...(markRead ? [{ type: ActionType.MARK_READ }] : []),
-            ...(star ? [{ type: ActionType.STAR }] : []),
-          ],
-        },
-        emailAccountId,
-        provider,
-        runOnThreads: false,
-        logger,
-      });
+      let ruleId: string;
+      let ruleName: string;
+      let resolvedLabelId: string | null;
+      let merged = false;
 
-      // The label action carries the resolved (possibly just-created) id
-      const resolvedLabelId =
-        rule.actions?.find((action) => action.type === ActionType.LABEL)
-          ?.labelId ?? null;
+      if (existingRule) {
+        const mergedFrom = mergePatterns(existingRule.from, conditionValue);
+        const mergedInstructions = trimmedInstructions
+          ? existingRule.instructions
+            ? `${existingRule.instructions}\n${trimmedInstructions}`
+            : trimmedInstructions
+          : existingRule.instructions;
+
+        await prisma.rule.update({
+          where: { id: existingRule.id },
+          data: {
+            from: mergedFrom,
+            instructions: mergedInstructions,
+            // Static senders and AI instructions each suffice on their own
+            ...(mergedFrom && mergedInstructions
+              ? { conditionalOperator: LogicalOperator.OR }
+              : {}),
+          },
+        });
+
+        ruleId = existingRule.id;
+        ruleName = existingRule.name;
+        resolvedLabelId =
+          existingRule.actions.find(
+            (action) => action.type === ActionType.LABEL,
+          )?.labelId ?? null;
+        merged = true;
+        logger.info("Merged filter into existing rule", {
+          ruleId,
+          matchType,
+        });
+      } else {
+        const condition =
+          matchType === "subject"
+            ? {
+                conditionalOperator: trimmedInstructions
+                  ? LogicalOperator.OR
+                  : null,
+                aiInstructions: trimmedInstructions,
+                static: { from: null, to: null, subject: conditionValue },
+              }
+            : {
+                conditionalOperator: trimmedInstructions
+                  ? LogicalOperator.OR
+                  : null,
+                aiInstructions: trimmedInstructions,
+                static: { from: conditionValue, to: null, subject: null },
+              };
+
+        const rule = await createRule({
+          result: {
+            name: `Filter: ${labelName}`,
+            condition,
+            // The label resolves by name — created on the provider when it
+            // doesn't exist yet
+            actions: [
+              { type: ActionType.LABEL, fields: { label: labelName } },
+              ...(skipInbox ? [{ type: ActionType.ARCHIVE }] : []),
+              ...(markRead ? [{ type: ActionType.MARK_READ }] : []),
+              ...(star ? [{ type: ActionType.STAR }] : []),
+            ],
+          },
+          emailAccountId,
+          provider,
+          runOnThreads: false,
+          logger,
+        });
+
+        ruleId = rule.id;
+        ruleName = rule.name;
+        // The label action carries the resolved (possibly just-created) id
+        resolvedLabelId =
+          rule.actions?.find((action) => action.type === ActionType.LABEL)
+            ?.labelId ?? null;
+      }
 
       if (applyToExisting) {
         const account = await prisma.emailAccount.findUnique({
@@ -106,18 +174,16 @@ export const createMailFilterAction = actionClient
                 logger,
               });
             } catch (error) {
-              logger.error("Filter backfill failed", {
-                ruleId: rule.id,
-                error,
-              });
+              logger.error("Filter backfill failed", { ruleId, error });
             }
           });
         }
       }
 
       return {
-        ruleId: rule.id,
-        ruleName: rule.name,
+        ruleId,
+        ruleName,
+        merged,
         labelId: resolvedLabelId,
         backfillQueued: !!applyToExisting,
       };
@@ -170,21 +236,49 @@ export const proposeRuleFromEmailAction = actionClient
     },
   );
 
+function splitPatterns(value: string | null | undefined): string[] {
+  return (value ?? "")
+    .split(/[|,]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+// Normalizes one value or a comma-separated list ("a@x.com, b@y.com" /
+// "@x.com, y.com") into the rule engine's canonical comma-joined form
 function normalizeFilterValue(
   matchType: FilterMatchType,
   value: string,
 ): string {
-  const trimmed = value.trim();
+  if (matchType === "subject") return value.trim();
+  const parts = splitPatterns(value);
   if (matchType === "domain") {
-    const domain = trimmed.replace(/^@/, "").toLowerCase();
-    return `@${domain}`;
+    return [
+      ...new Set(
+        parts.map((part) => `@${part.replace(/^@/, "").toLowerCase()}`),
+      ),
+    ].join(", ");
   }
-  if (matchType === "sender") return trimmed.toLowerCase();
-  return trimmed;
+  return [...new Set(parts.map((part) => part.toLowerCase()))].join(", ");
 }
 
-// Sweeps matching mail that's already in the inbox into the new filter's
-// folder. Bounded: a few pages of matches, a few threads at a time.
+// Union of two pattern lists, first-seen order, case-insensitive dedupe
+function mergePatterns(existing: string | null, incoming: string): string {
+  const seen = new Set<string>();
+  const union: string[] = [];
+  for (const part of [...splitPatterns(existing), ...splitPatterns(incoming)]) {
+    const key = part.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    union.push(part);
+  }
+  return union.join(", ");
+}
+
+// Moves matching mail into the filter's folder — wherever it currently
+// sits, not just the inbox: mail already filed under another folder gets
+// that label replaced (this is what "apply to past matches" means when the
+// old rule filed things wrong). Bounded: a few pages, a few threads at a
+// time.
 async function applyFilterToExistingMail({
   emailProvider,
   ownerEmail,
@@ -204,67 +298,101 @@ async function applyFilterToExistingMail({
   skipInbox: boolean;
   logger: Logger;
 }) {
+  const parts = splitPatterns(value);
   const query =
     matchType === "sender"
-      ? `from:${value}`
+      ? parts.length > 1
+        ? `from:(${parts.join(" OR ")})`
+        : `from:${parts[0]}`
       : matchType === "domain"
-        ? `from:${value.replace(/^@/, "")}`
+        ? parts.length > 1
+          ? `from:(${parts.map((part) => part.replace(/^@/, "")).join(" OR ")})`
+          : `from:${parts[0]?.replace(/^@/, "")}`
         : `subject:"${value.replace(/"/g, "")}"`;
 
-  const threadIds = new Set<string>();
-  const messageIds: string[] = [];
+  // A merged rule may carry no label id — resolve it so the move can label
+  let targetLabelId = labelId;
+  if (!targetLabelId) {
+    targetLabelId = (await emailProvider.getLabelByName(labelName))?.id ?? null;
+  }
+  if (!targetLabelId) {
+    logger.error("Filter backfill couldn't resolve the folder label", {
+      labelName,
+    });
+    return;
+  }
+
+  // Other user folders' labels get replaced — that's the move
+  const labels = await emailProvider.getLabels();
+  const userLabelIds = new Set(
+    labels.filter((label) => label.type === "user").map((label) => label.id),
+  );
+
+  const threadLabelIds = new Map<string, Set<string>>();
+  const threadMessageIds = new Map<string, string[]>();
+  let fetched = 0;
   let pageToken: string | undefined;
-  while (messageIds.length < BACKFILL_MAX_MESSAGES) {
+  while (fetched < BACKFILL_MAX_MESSAGES) {
     const { messages, nextPageToken } =
       await emailProvider.getMessagesWithPagination({
         query,
         maxResults: 100,
         pageToken,
-        // Moving mail out of the inbox only touches what's in it; a
-        // label-only filter tags everything matching
-        inboxOnly: skipInbox,
       });
     for (const message of messages) {
-      messageIds.push(message.id);
-      if (message.threadId) threadIds.add(message.threadId);
+      fetched++;
+      if (!message.threadId) continue;
+      const labelSet =
+        threadLabelIds.get(message.threadId) ?? new Set<string>();
+      for (const id of message.labelIds ?? []) labelSet.add(id);
+      threadLabelIds.set(message.threadId, labelSet);
+      threadMessageIds.set(message.threadId, [
+        ...(threadMessageIds.get(message.threadId) ?? []),
+        message.id,
+      ]);
     }
     if (!nextPageToken || !messages.length) break;
     pageToken = nextPageToken;
   }
 
-  if (skipInbox) {
-    const results = await runWithBoundedConcurrency({
-      items: [...threadIds],
-      concurrency: BACKFILL_CONCURRENCY,
-      run: (threadId) =>
-        emailProvider.archiveThreadWithLabel(
+  const resolvedTargetLabelId = targetLabelId;
+  const results = await runWithBoundedConcurrency({
+    items: [...threadLabelIds.keys()],
+    concurrency: BACKFILL_CONCURRENCY,
+    run: async (threadId) => {
+      const present = threadLabelIds.get(threadId) ?? new Set<string>();
+
+      if (skipInbox) {
+        await emailProvider.archiveThreadWithLabel(
           threadId,
           ownerEmail,
-          labelId ?? undefined,
-        ),
-    });
-    const failed = results.filter(
-      (entry) => entry.result.status === "rejected",
-    ).length;
-    logger.info("Filter backfill finished", {
-      threads: threadIds.size,
-      failed,
-    });
-    return;
-  }
+          resolvedTargetLabelId,
+        );
+      } else {
+        const messageIds = threadMessageIds.get(threadId) ?? [];
+        for (const messageId of messageIds) {
+          await emailProvider.labelMessage({
+            messageId,
+            labelId: resolvedTargetLabelId,
+            labelName,
+          });
+        }
+      }
 
-  if (!labelId) return;
-  const results = await runWithBoundedConcurrency({
-    items: messageIds,
-    concurrency: BACKFILL_CONCURRENCY,
-    run: (messageId) =>
-      emailProvider.labelMessage({ messageId, labelId, labelName }),
+      const stripIds = [...present].filter(
+        (id) => userLabelIds.has(id) && id !== resolvedTargetLabelId,
+      );
+      if (stripIds.length) {
+        await emailProvider.removeThreadLabels(threadId, stripIds);
+      }
+    },
   });
+
   const failed = results.filter(
     (entry) => entry.result.status === "rejected",
   ).length;
   logger.info("Filter backfill finished", {
-    messages: messageIds.length,
+    threads: threadLabelIds.size,
     failed,
   });
 }
