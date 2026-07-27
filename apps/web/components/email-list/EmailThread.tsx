@@ -58,6 +58,22 @@ export function EmailThread({
     new Set(initialMessageId ? [initialMessageId] : []),
   );
 
+  // The pane leads with the folder's message only; the rest of the
+  // conversation stays behind a toggle. Draft replies force the full view —
+  // the draft may hang off an earlier message.
+  const hasDraftReply = organizedMessages.some(
+    ({ message, draftMessage }) =>
+      draftMessage || autoOpenReplyForMessageId === message.id,
+  );
+  const [showFullThread, setShowFullThread] = useState(hasDraftReply);
+  const visibleMessages =
+    showFullThread || !initialMessageId
+      ? organizedMessages
+      : organizedMessages.filter(
+          (entry) => entry.message.id === initialMessageId,
+        );
+  const hiddenCount = organizedMessages.length - visibleMessages.length;
+
   return (
     <div className="flex-1 overflow-auto bg-muted p-4">
       {withHeader && (
@@ -70,8 +86,18 @@ export function EmailThread({
           )}
         </div>
       )}
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          className="mt-4 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
+          onClick={() => setShowFullThread(true)}
+        >
+          Show full conversation ({hiddenCount} more{" "}
+          {hiddenCount === 1 ? "message" : "messages"})
+        </button>
+      )}
       <ul className="mt-4 space-y-2 sm:space-y-4">
-        {organizedMessages.map(({ message, draftMessage }) => {
+        {visibleMessages.map(({ message, draftMessage }) => {
           const defaultShowReply =
             autoOpenReplyForMessageId === message.id || Boolean(draftMessage);
           return (
@@ -90,6 +116,9 @@ export function EmailThread({
                 });
               }}
               onSendSuccess={(messageId) => {
+                // The just-sent reply must be visible even if the chain was
+                // collapsed
+                setShowFullThread(true);
                 setExpandedMessageIds((prev) => {
                   if (prev.has(messageId)) return prev;
                   return new Set(prev).add(messageId);

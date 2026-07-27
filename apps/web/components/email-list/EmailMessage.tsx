@@ -1,4 +1,11 @@
-import { useCallback, useMemo, useState, useRef, useEffect } from "react";
+import {
+  Fragment,
+  useCallback,
+  useMemo,
+  useState,
+  useRef,
+  useEffect,
+} from "react";
 import {
   ForwardIcon,
   ReplyIcon,
@@ -27,6 +34,7 @@ import { Loading } from "@/components/Loading";
 import { MessageText, MutedText } from "@/components/Typography";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { formatReplySubject } from "@/utils/email/subject";
+import { splitRecipientList } from "@/utils/email";
 
 export function EmailMessage({
   message,
@@ -136,9 +144,9 @@ function TopBar({
 }) {
   return (
     <div className="sm:flex sm:items-center sm:justify-between">
-      <div className="flex items-center gap-2">
-        <div className="flex items-center">
-          <h3 className="text-base font-medium">
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 items-center">
+          <h3 className="min-w-0 truncate text-base font-medium">
             <span className="text-foreground">
               {message.labelIds?.includes("SENT") ? (
                 "Me"
@@ -146,7 +154,12 @@ function TopBar({
                 <SenderName header={message.headers.from} />
               )}
             </span>{" "}
-            {expanded && <span className="text-muted-foreground">wrote</span>}
+            {expanded && (
+              <span className="text-muted-foreground">
+                wrote
+                <RecipientNames message={message} />
+              </span>
+            )}
           </h3>
         </div>
         {expanded && (
@@ -360,6 +373,28 @@ const prepareForwardingEmail = (message: ParsedMessage): ReplyingToEmail => ({
   draftHtml: forwardEmailHtml({ content: "", message }),
   quotedContentHtml: "",
 });
+
+// "wrote to X, Y" — every recipient opens their contact card, same as the
+// sender
+function RecipientNames({ message }: { message: ParsedMessage }) {
+  const recipients = [
+    ...splitRecipientList(message.headers.to || ""),
+    ...splitRecipientList(message.headers.cc || ""),
+  ];
+  if (!recipients.length) return null;
+
+  return (
+    <span>
+      {" to "}
+      {recipients.map((recipient, i) => (
+        <Fragment key={recipient}>
+          {i > 0 && ", "}
+          <SenderName header={recipient} />
+        </Fragment>
+      ))}
+    </span>
+  );
+}
 
 function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
   const splitHtml = extractEmailReply(draft.textHtml || "");
