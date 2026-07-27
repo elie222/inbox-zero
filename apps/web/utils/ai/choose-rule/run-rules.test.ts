@@ -4,6 +4,7 @@ import {
   ensureConversationRuleForAiCalendarMatch,
   CONVERSATION_TRACKING_META_RULE_ID,
   limitDraftEmailActions,
+  limitFolderLabelActions,
   runRules,
 } from "./run-rules";
 import {
@@ -780,6 +781,136 @@ describe("runRules selection metadata", () => {
         skippedThreadRuleNames: ["Notification"],
       },
     });
+  });
+});
+
+describe("limitFolderLabelActions", () => {
+  it("returns original matches when at most one rule files into a folder", () => {
+    const matches = [
+      {
+        rule: createRule("rule-1", null, [
+          getAction({
+            id: "label-1",
+            type: ActionType.LABEL,
+            label: "Notifications",
+            ruleId: "rule-1",
+          }),
+        ]),
+      },
+      {
+        rule: createRule("rule-2", null, [
+          getAction({
+            id: "archive-1",
+            type: ActionType.ARCHIVE,
+            ruleId: "rule-2",
+          }),
+        ]),
+      },
+    ];
+
+    const result = limitFolderLabelActions(matches, logger);
+
+    expect(result).toBe(matches);
+  });
+
+  it("keeps only the first match's folder label when several rules would file", () => {
+    const matches = [
+      {
+        rule: createRule("rule-1", null, [
+          getAction({
+            id: "label-1",
+            type: ActionType.LABEL,
+            label: "Notifications",
+            ruleId: "rule-1",
+          }),
+        ]),
+      },
+      {
+        rule: createRule("rule-2", null, [
+          getAction({
+            id: "label-2",
+            type: ActionType.LABEL,
+            label: "Factory",
+            ruleId: "rule-2",
+          }),
+          getAction({
+            id: "archive-2",
+            type: ActionType.ARCHIVE,
+            ruleId: "rule-2",
+          }),
+        ]),
+      },
+    ];
+
+    const result = limitFolderLabelActions(matches, logger);
+
+    expect(
+      result[0].rule.actions.filter(
+        (action) => action.type === ActionType.LABEL,
+      ),
+    ).toHaveLength(1);
+    // The second rule loses its filing action but keeps the rest
+    expect(result[1].rule.actions.map((action) => action.type)).toStrictEqual([
+      ActionType.ARCHIVE,
+    ]);
+  });
+
+  it("leaves system-rule status labels alone", () => {
+    const matches = [
+      {
+        rule: createRule("rule-1", null, [
+          getAction({
+            id: "label-1",
+            type: ActionType.LABEL,
+            label: "Notifications",
+            ruleId: "rule-1",
+          }),
+        ]),
+      },
+      {
+        rule: createRule("rule-2", SystemType.TO_REPLY, [
+          getAction({
+            id: "label-2",
+            type: ActionType.LABEL,
+            label: "To Reply",
+            ruleId: "rule-2",
+          }),
+        ]),
+      },
+    ];
+
+    const result = limitFolderLabelActions(matches, logger);
+
+    expect(result).toBe(matches);
+  });
+
+  it("also limits Outlook folder moves", () => {
+    const matches = [
+      {
+        rule: createRule("rule-1", null, [
+          getAction({
+            id: "label-1",
+            type: ActionType.LABEL,
+            label: "Notifications",
+            ruleId: "rule-1",
+          }),
+        ]),
+      },
+      {
+        rule: createRule("rule-2", null, [
+          getAction({
+            id: "move-1",
+            type: ActionType.MOVE_FOLDER,
+            folderName: "Factory",
+            ruleId: "rule-2",
+          }),
+        ]),
+      },
+    ];
+
+    const result = limitFolderLabelActions(matches, logger);
+
+    expect(result[1].rule.actions).toHaveLength(0);
   });
 });
 
