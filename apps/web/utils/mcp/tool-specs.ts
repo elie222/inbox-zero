@@ -290,6 +290,33 @@ export function buildDefaultIntegrationArgs(
 }
 
 /**
+ * Builds stored args from an AI-authored action's flat fields, applying the
+ * spec's defaults so an omitted field means "the AI writes it at execution".
+ */
+export function buildIntegrationArgsFromFields({
+  spec,
+  fields,
+}: {
+  spec: IntegrationToolSpec;
+  fields?: Record<string, string | null | undefined> | null;
+}): Record<string, string> {
+  const args = buildDefaultIntegrationArgs(spec);
+
+  for (const arg of spec.args) {
+    const value = fields?.[arg.key];
+    if (value == null) continue;
+
+    const normalized =
+      arg.control.type === "select"
+        ? normalizeSelectArgValue(arg, value)
+        : value;
+    if (normalized !== undefined) args[arg.key] = normalized;
+  }
+
+  return args;
+}
+
+/**
  * Maps a loosely-specified select value (e.g. "in 7 days" from an AI-authored
  * rule) onto the option value we store, so the editor can show the choice.
  */

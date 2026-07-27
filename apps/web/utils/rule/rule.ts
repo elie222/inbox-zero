@@ -33,10 +33,9 @@ import {
 } from "@/utils/rule-action-feature-gates";
 import { findIntegration } from "@/utils/mcp/integrations";
 import {
-  buildDefaultIntegrationArgs,
+  buildIntegrationArgsFromFields,
   getIntegrationToolSpec,
   getOnlyIntegrationToolSpec,
-  normalizeSelectArgValue,
 } from "@/utils/mcp/tool-specs";
 import { hasWebhookAction } from "@/utils/webhook-action";
 import { assertNoSenderOnlyOverlap } from "@/utils/rule/sender-scope-overlap";
@@ -878,15 +877,18 @@ function getIntegrationCreateFields(action: MappableAction) {
   const integrationName = action.integrationName ?? defaultSpec?.integration;
   const integrationToolName = action.integrationToolName ?? defaultSpec?.tool;
 
+  const spec = getIntegrationToolSpec(integrationName, integrationToolName);
+
   return {
     integrationName: integrationName ?? null,
     integrationToolName: integrationToolName ?? null,
     integrationArgs: (action.integrationArgs ??
-      buildIntegrationArgsFromFields({
-        integrationName,
-        integrationToolName,
-        fields: action.fields,
-      })) as Prisma.InputJsonValue,
+      (spec
+        ? buildIntegrationArgsFromFields({
+            spec,
+            fields: action.fields,
+          })
+        : {})) as Prisma.InputJsonValue,
   };
 }
 
@@ -909,40 +911,6 @@ function buildRiskAction(action: MappableAction): RiskAction {
       (integrationFields?.integrationArgs as Prisma.JsonValue | undefined) ??
       null,
   };
-}
-
-/**
- * Builds stored args from an AI-authored action's flat fields, applying the
- * spec's defaults so an omitted field means "the AI writes it at execution".
- */
-function buildIntegrationArgsFromFields({
-  integrationName,
-  integrationToolName,
-  fields,
-}: {
-  integrationName: string | null | undefined;
-  integrationToolName: string | null | undefined;
-  fields: MappableAction["fields"];
-}) {
-  const spec = getIntegrationToolSpec(integrationName, integrationToolName);
-  if (!spec) return {};
-
-  const args = buildDefaultIntegrationArgs(spec);
-
-  for (const arg of spec.args) {
-    const value = (
-      fields as Record<string, string | null | undefined> | null
-    )?.[arg.key];
-    if (value == null) continue;
-
-    const normalized =
-      arg.control.type === "select"
-        ? normalizeSelectArgValue(arg, value)
-        : value;
-    if (normalized !== undefined) args[arg.key] = normalized;
-  }
-
-  return args;
 }
 
 export async function assertIntegrationActionsConnected(

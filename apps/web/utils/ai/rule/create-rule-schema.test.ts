@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { z } from "zod";
+import { z } from "zod";
 import { ActionType } from "@/generated/prisma/enums";
 import {
   createRuleSchema,
@@ -73,6 +73,58 @@ describe("createRuleSchema", () => {
 
   it("includes SEND_EMAIL in available actions for this test provider", () => {
     assertSendEmailAvailable();
+  });
+
+  it.each([
+    ["google", false],
+    ["google", true],
+    ["microsoft", false],
+    ["microsoft", true],
+  ] as const)(
+    "stays within structured-output provider optional parameter limits (%s, integration=%s)",
+    (schemaProvider, integrationActionsEnabled) => {
+      const jsonSchema = z.toJSONSchema(
+        createRuleSchema(schemaProvider, integrationActionsEnabled),
+        { io: "input" },
+      );
+
+      expect(countOptionalProperties(jsonSchema)).toBeLessThanOrEqual(24);
+      expect(countUnionParameters(jsonSchema)).toBeLessThanOrEqual(16);
+    },
+  );
+
+  it("keeps Todoist integration args on flattened actions", () => {
+    const result = createRuleSchema(provider, true).safeParse({
+      name: "TaskRule",
+      condition: {
+        conditionalOperator: null,
+        aiInstructions: "Emails with follow-up tasks",
+        static: null,
+      },
+      actions: [
+        {
+          type: ActionType.INTEGRATION,
+          fields: {
+            content: "Follow up",
+            description: "From the email",
+            projectId: "inbox",
+            dueString: "tomorrow",
+          },
+          delayInMinutes: null,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.actions[0].fields).toEqual(
+      expect.objectContaining({
+        content: "Follow up",
+        description: "From the email",
+        projectId: "inbox",
+        dueString: "tomorrow",
+      }),
+    );
   });
 
   it("rejects SEND_EMAIL without fields.to", () => {
@@ -477,6 +529,9 @@ type RuleActionFixture = CreateRuleInput["actions"][number] & {
     content: string | null;
     webhookUrl: string | null;
     folderName: string | null;
+    description: string | null;
+    projectId: string | null;
+    dueString: string | null;
   }> | null;
 };
 
@@ -490,4 +545,49 @@ function buildRule(action: RuleActionFixture) {
     },
     actions: [action],
   };
+}
+
+function countOptionalProperties(value: unknown): number {
+  if (Array.isArray(value)) {
+    return value.reduce(
+      (count, item) => count + countOptionalProperties(item),
+      0,
+    );
+  }
+  if (!value || typeof value !== "object") return 0;
+
+  const schema = value as {
+    properties?: Record<string, unknown>;
+    required?: string[];
+  };
+  const required = new Set(schema.required ?? []);
+  const optionalProperties = schema.properties
+    ? Object.keys(schema.properties).filter((key) => !required.has(key)).length
+    : 0;
+
+  return (
+    optionalProperties +
+    Object.values(schema).reduce(
+      (count, item) => count + countOptionalProperties(item),
+      0,
+    )
+  );
+}
+
+function countUnionParameters(value: unknown): number {
+  if (Array.isArray(value)) {
+    return value.reduce((count, item) => count + countUnionParameters(item), 0);
+  }
+  if (!value || typeof value !== "object") return 0;
+
+  const schema = value as { anyOf?: unknown; type?: unknown };
+  const isUnion = Boolean(schema.anyOf) || Array.isArray(schema.type);
+
+  return (
+    Number(isUnion) +
+    Object.values(schema).reduce(
+      (count, item) => count + countUnionParameters(item),
+      0,
+    )
+  );
 }
