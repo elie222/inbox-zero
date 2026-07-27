@@ -11,10 +11,12 @@ import { getRuleConfig } from "@/utils/rule/consts";
 import type { ClassificationFeedbackItem } from "@/utils/rule/classification-feedback";
 import { createScopedLogger } from "@/utils/logger";
 import { getEmail, getRule } from "@/__tests__/helpers";
+import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai eval/classification-feedback-hint
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/classification-feedback-hint
 
+const logger = createScopedLogger("eval-classification-feedback-hint");
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 const logger = createScopedLogger("eval-classification-feedback-hint");
