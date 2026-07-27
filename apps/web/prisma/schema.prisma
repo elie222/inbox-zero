@@ -102,8 +102,8 @@ model User {
   emailAccounts EmailAccount[]
 
   // Referral relationships
-  referralsMade    Referral[] @relation("ReferrerUser")
-  referralReceived Referral?  @relation("ReferredUser")
+  referralsMade    Referral[]     @relation("ReferrerUser")
+  referralReceived Referral?      @relation("ReferredUser")
   scimProviders    ScimProvider[]
 }
 
@@ -189,12 +189,12 @@ model EmailAccount {
   googleContactsSyncToken String?
   googleContactsSyncedAt  DateTime?
   // App password (hashed) for CardDAV clients like iOS Contacts
-  carddavPasswordHash       String?
+  carddavPasswordHash     String?
   // Email domains dismissed from the contacts "Suggested companies" list
-  ignoredContactDomains     String[]  @default([])
+  ignoredContactDomains   String[]               @default([])
   // Individual addresses hidden from the contacts list (robots that slip
   // past the automated-sender heuristics); restorable from Suggested
-  ignoredContactEmails      String[]  @default([])
+  ignoredContactEmails    String[]               @default([])
 
   digestSendEmail     Boolean   @default(true)
   digestSchedule      Schedule?
@@ -253,13 +253,13 @@ model EmailAccount {
 }
 
 model Organization {
-  id           String         @id @default(cuid())
+  id           String             @id @default(cuid())
   name         String
-  slug         String         @unique
+  slug         String             @unique
   logo         String?
   metadata     Json?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
   members      Member[]
   SsoProvider  SsoProvider[]
   ScimProvider ScimProvider[]
@@ -283,8 +283,6 @@ model OrganizationRule {
   name                String
   instructions        String?
   runOnThreads        Boolean         @default(false)
-  // Senders in the contact list are never matched by this rule
-  excludeKnownContacts Boolean        @default(false)
   conditionalOperator LogicalOperator @default(AND)
   from                String?
   to                  String?
@@ -563,15 +561,17 @@ model Label {
 }
 
 model Rule {
-  id                String             @id @default(cuid())
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  name              String
-  actions           Action[]
-  attachmentSources AttachmentSource[]
-  enabled           Boolean            @default(true)
-  automate          Boolean            @default(true) // @deprecated - No longer used. All rules are now automated. Kept for historical data only.
-  runOnThreads      Boolean            @default(false) // if disabled, only runs on individual emails
+  id                   String             @id @default(cuid())
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  name                 String
+  actions              Action[]
+  attachmentSources    AttachmentSource[]
+  enabled              Boolean            @default(true)
+  automate             Boolean            @default(true) // @deprecated - No longer used. All rules are now automated. Kept for historical data only.
+  runOnThreads         Boolean            @default(false) // if disabled, only runs on individual emails
+  // Senders in the contact list are never matched by this rule
+  excludeKnownContacts Boolean            @default(false)
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -959,14 +959,14 @@ model Contact {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  email     String
-  name      String?
-  title     String?
+  email          String
+  name           String?
+  title          String?
   // Labeled numbers: [{ "label": "Mobile", "value": "+1 555 0100" }, …]
-  phones    Json     @default("[]")
-  notes     String?
-  aiSummary String?
-  photoUrl  String?
+  phones         Json    @default("[]")
+  notes          String?
+  aiSummary      String?
+  photoUrl       String?
   // Company logo is the default avatar; flip to use the personal photo
   useCompanyLogo Boolean @default(true)
   // Personal contacts group under "Personal" instead of their company
@@ -1002,14 +1002,14 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  name    String
-  domains String[] @default([])
-  logoUrl String?
+  name                String
+  domains             String[] @default([])
+  logoUrl             String?
   // Render this company's logo on a white chip — dark transparent-background
   // marks are invisible on the dark theme
-  logoWhiteBackground Boolean @default(false)
+  logoWhiteBackground Boolean  @default(false)
   // AI research: who the company is and what they do
-  aiSummary String?
+  aiSummary           String?
 
   labelId String?
   label   CompanyLabel? @relation(fields: [labelId], references: [id], onDelete: SetNull)
@@ -1052,7 +1052,7 @@ model Task {
 
   title       String
   description String?
-  status      TaskStatus @default(TODO)
+  status      TaskStatus   @default(TODO)
   priority    TaskPriority @default(NORMAL)
   dueAt       DateTime?
   completedAt DateTime?
@@ -1069,11 +1069,11 @@ model Task {
   aiStatusSummary String?
 
   // Autonomous follow-up (the agent emails the assignee for updates)
-  followUpEnabled   Boolean   @default(false)
-  followUpCadenceDays Int     @default(3)
-  lastFollowUpAt    DateTime?
-  nextFollowUpAt    DateTime?
-  followUpCount     Int       @default(0)
+  followUpEnabled     Boolean   @default(false)
+  followUpCadenceDays Int       @default(3)
+  lastFollowUpAt      DateTime?
+  nextFollowUpAt      DateTime?
+  followUpCount       Int       @default(0)
 
   activity TaskActivity[]
 
@@ -1132,8 +1132,8 @@ model ThreadTracker {
   resolved  Boolean           @default(false)
   type      ThreadTrackerType
 
-  followUpAppliedAt DateTime?
-  followUpDraftId   String?
+  followUpAppliedAt     DateTime?
+  followUpDraftId       String?
   followUpNotifications Json?
 
   emailAccountId String
@@ -1442,10 +1442,10 @@ model BookingLink {
   minimumNoticeMinutes Int                     @default(120)
   maxDaysAhead         Int                     @default(90)
 
-  emailAccountId        String       @unique // temporary: relax when we support multiple booking links per account
-  emailAccount          EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  destinationCalendarId String?
-  destinationCalendar   Calendar?    @relation(fields: [destinationCalendarId], references: [id], onDelete: SetNull)
+  emailAccountId         String               @unique // temporary: relax when we support multiple booking links per account
+  emailAccount           EmailAccount         @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  destinationCalendarId  String?
+  destinationCalendar    Calendar?            @relation(fields: [destinationCalendarId], references: [id], onDelete: SetNull)
   availabilityScheduleId String
   availabilitySchedule   AvailabilitySchedule @relation(fields: [availabilityScheduleId, emailAccountId], references: [id, emailAccountId], onDelete: NoAction)
 
@@ -1470,9 +1470,9 @@ model AvailabilitySchedule {
   windows      AvailabilityWindow[]
   bookingLinks BookingLink[]
 
+  @@unique([id, emailAccountId])
   @@index([emailAccountId])
   @@index([emailAccountId, isDefault])
-  @@unique([id, emailAccountId])
 }
 
 model AvailabilityWindow {
@@ -1495,20 +1495,20 @@ model Booking {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  guestName           String
-  guestEmail          String
-  guestNote           String?
-  startTime           DateTime
-  endTime             DateTime
+  guestName            String
+  guestEmail           String
+  guestNote            String?
+  startTime            DateTime
+  endTime              DateTime
   status               BookingStatus @default(PENDING_PROVIDER_EVENT)
   provider             String?
   providerConnectionId String?
   providerCalendarId   String?
   providerEventId      String?
   videoConferenceLink  String?
-  cancelTokenHash     String
-  cancellationReason  String?
-  idempotencyToken    String?
+  cancelTokenHash      String
+  cancellationReason   String?
+  idempotencyToken     String?
 
   bookingLinkId  String
   bookingLink    BookingLink  @relation(fields: [bookingLinkId], references: [id], onDelete: Cascade)
@@ -1714,10 +1714,10 @@ model DocumentFiling {
   emailAccountId    String
   emailAccount      EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
+  @@unique([emailAccountId, messageId, attachmentId])
   @@index([emailAccountId, status])
   @@index([driveConnectionId])
   @@index([messageId])
-  @@unique([emailAccountId, messageId, attachmentId])
 }
 
 model AttachmentSource {
