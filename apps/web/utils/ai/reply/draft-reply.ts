@@ -252,6 +252,26 @@ ${getTodayForLLM(currentDate)}
 IMPORTANT: You are writing an email as ${emailAccount.email}. Write the reply from their perspective.`;
 };
 
+/**
+ * Rewriting this rubric does not work. It has been tested against the offline
+ * eval suite and the null was a real one, not an underpowered shrug.
+ *
+ * The label does not track groundedness: on cases built so the fact the reply
+ * needs is withheld from every context source — the rubric's own negative
+ * example for HIGH — the drafter still returns HIGH most of the time. Restating
+ * HIGH as an explicit procedure (enumerate the claims, locate each one, let
+ * what you cannot locate pick the level) moved that by nothing at all, while
+ * demonstrably changing what the model wrote. So the label is not derived from
+ * the criterion stated here, and no restatement of the criterion reaches it —
+ * which also rules out reordering the levels, fronting the disqualifier, and
+ * adding examples.
+ *
+ * A real fix has to compute groundedness outside the drafter: a separate pass
+ * over the drafted text and the assembled context, rather than asking the model
+ * to introspect. Please do not spend another round on the wording.
+ *
+ * Numbers and method are in the private evals repo, not here.
+ */
 const llmDraftConfidenceSchema = z.enum(["LOW", "MEDIUM", "HIGH"]);
 
 const draftSchema = z.object({
@@ -527,6 +547,26 @@ function mapLlmDraftConfidence(confidence: unknown): DraftReplyConfidence {
 // Matches any non-separator, non-whitespace character repeated 50+ times in a row
 const REPETITIVE_TEXT_PATTERN = /([^\s\-=_*.#~])\1{49,}/u;
 
+/**
+ * Do not delete this block to improve the eval score. It has been tried.
+ *
+ * An earlier ablation appeared to show that removing calendar availability
+ * improved draft quality. That was an artifact of the case set: almost every
+ * calendar case at the time was built so that over-committing to a time was the
+ * failure, so nothing in the set could reward keeping the context and removing
+ * it could only ever score well.
+ *
+ * Once cases were added where scheduling is the genuine ask and the supplied
+ * availability is the answer, the sign reversed — removing this block is a
+ * clear regression, concentrated exactly on the threads where someone actually
+ * wanted a time.
+ *
+ * The more promising direction is how many options the reply offers rather than
+ * whether the context exists at all. That is the change worth testing, not
+ * deletion.
+ *
+ * Measurements are in the private evals repo, not here.
+ */
 function getSchedulingContext({
   calendarBookingLink,
   calendarAvailability,

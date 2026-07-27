@@ -8,6 +8,22 @@ const DRAFT_REPLY_CONFIDENCE_RANK: Record<DraftReplyConfidence, number> = {
   [DraftReplyConfidence.HIGH_CONFIDENCE]: 2,
 };
 
+/**
+ * Descriptions are deliberately modest about what this gate delivers.
+ *
+ * Offline evaluation found the drafter's self-reported confidence tracks
+ * quality more weakly than the previous copy implied: requiring HIGH improves
+ * what gets shown, but not reliably enough to call it an assurance. "Very sure
+ * of the right reply" was a promise the model's own label cannot keep.
+ *
+ * STANDARD is weaker again. It excludes only LOW, which the drafter returns
+ * rarely enough that the setting filters very little, so "skip drafting when
+ * the AI is unsure how to respond" described something it does not do. Whether
+ * the tier should exist at all is a product question this does not settle; the
+ * copy at least stops overstating it.
+ *
+ * Measurements are in the private evals repo, not here.
+ */
 export const DRAFT_REPLY_CONFIDENCE_OPTIONS = [
   {
     value: DraftReplyConfidence.ALL_EMAILS,
@@ -17,12 +33,14 @@ export const DRAFT_REPLY_CONFIDENCE_OPTIONS = [
   {
     value: DraftReplyConfidence.STANDARD,
     label: "Standard",
-    description: "Skip drafting when the AI is unsure how to respond.",
+    description:
+      "Skip the few replies the AI flags as low confidence. In practice this filters very little.",
   },
   {
     value: DraftReplyConfidence.HIGH_CONFIDENCE,
     label: "High confidence",
-    description: "Only draft when the AI is very sure of the right reply.",
+    description:
+      "Only draft when the AI rates its own reply highly. Fewer drafts, and somewhat more of them usable as written.",
   },
 ] as const;
 
