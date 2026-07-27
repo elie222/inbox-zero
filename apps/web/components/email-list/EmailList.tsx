@@ -281,16 +281,6 @@ export function EmailList({
     setSelectedRows(newState);
   }, [threads, isAllSelected, selectedRows]);
 
-  const onPlanAiAction = useCallback(
-    (thread: Thread) => {
-      toast.promise(() => runAiRules(emailAccountId, [thread], true), {
-        success: "Running...",
-        error: "There was an error running the AI rules :(",
-      });
-    },
-    [emailAccountId],
-  );
-
   const undoSupported = isGoogleProvider(provider);
 
   const undoArchive = useCallback(
@@ -632,7 +622,6 @@ export function EmailList({
                         onSelected={onSetSelectedRow}
                         splitView={!!openThreadId}
                         onClick={onOpen}
-                        onPlanAiAction={onPlanAiAction}
                         onReprocess={setReprocessThread}
                         onArchive={onArchive}
                         onDelete={onDelete}

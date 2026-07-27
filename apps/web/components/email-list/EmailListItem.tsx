@@ -12,6 +12,7 @@ import { motion, type PanInfo } from "framer-motion";
 import { ArchiveIcon, SparklesIcon, Trash2Icon } from "lucide-react";
 import { Tooltip } from "@/components/Tooltip";
 import { ActionButtons } from "@/components/ActionButtons";
+import { LoadingMiniSpinner } from "@/components/Loading";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PlanBadge } from "@/components/PlanBadge";
 import type { Thread } from "@/components/email-list/types";
@@ -44,8 +45,7 @@ export const EmailListItem = forwardRef(
       onClick: MouseEventHandler<HTMLLIElement>;
       closePanel: () => void;
       onSelected: (id: string) => void;
-      onPlanAiAction: (thread: Thread) => void;
-      // Sparkles icon: reprocess with the ask-before-move dialog
+      // Sparkles icon / mobile AI button: reprocess with the ask-before-move dialog
       onReprocess: (thread: Thread) => void;
       onArchive: (thread: Thread) => void;
       onDelete: (thread: Thread) => void;
@@ -199,7 +199,6 @@ export const EmailListItem = forwardRef(
                         threadId={thread.id!}
                         shadow
                         isPlanning={isPlanning}
-                        onPlanAiAction={() => props.onPlanAiAction(thread)}
                         onArchive={() => {
                           props.onArchive(thread);
                           props.closePanel();
@@ -212,24 +211,36 @@ export const EmailListItem = forwardRef(
                     />
                   </div>
 
-                  {/* The AI's read on this email — hover for the reason,
-                      click to reprocess */}
-                  {!!thread.plan?.reason && (
-                    <Tooltip content={thread.plan.reason}>
-                      <button
-                        type="button"
-                        aria-label="AI reasoning — click to reprocess"
-                        className="ml-3 shrink-0 text-primary"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          props.onReprocess(thread);
-                        }}
-                        onKeyDown={preventPropagation}
-                      >
+                  {/* The AI's read on this email: orange when it left a
+                      reason (hover to read it), gray otherwise — click to
+                      reprocess either way */}
+                  <Tooltip
+                    content={
+                      thread.plan?.reason ?? "Process this email with AI"
+                    }
+                  >
+                    <button
+                      type="button"
+                      aria-label="Process with AI"
+                      className={clsx(
+                        "ml-3 shrink-0",
+                        thread.plan?.reason
+                          ? "text-primary"
+                          : "text-muted-foreground/50 hover:text-muted-foreground",
+                      )}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        props.onReprocess(thread);
+                      }}
+                      onKeyDown={preventPropagation}
+                    >
+                      {isPlanning ? (
+                        <LoadingMiniSpinner />
+                      ) : (
                         <SparklesIcon className="size-3.5" />
-                      </button>
-                    </Tooltip>
-                  )}
+                      )}
+                    </button>
+                  </Tooltip>
 
                   {!!thread.plan && (
                     <div className="ml-3 flex min-w-0 max-w-[40vw] items-center md:max-w-56">
@@ -269,7 +280,7 @@ export const EmailListItem = forwardRef(
                     <ActionButtons
                       threadId={thread.id!}
                       isPlanning={isPlanning}
-                      onPlanAiAction={() => props.onPlanAiAction(thread)}
+                      onPlanAiAction={() => props.onReprocess(thread)}
                       onArchive={() => {
                         props.onArchive(thread);
                         props.closePanel();

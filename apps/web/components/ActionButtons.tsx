@@ -23,7 +23,8 @@ export function ActionButtons({
   threadId: string;
   isPlanning: boolean;
   shadow?: boolean;
-  onPlanAiAction: () => void;
+  // Omit to hide the AI button (rows use their own always-visible icon)
+  onPlanAiAction?: () => void;
   onArchive: () => void;
   refetch: (threadId?: string) => void;
 }) {
@@ -57,15 +58,19 @@ export function ActionButtons({
             },
           ]
         : []),
-      {
-        tooltip: "Process with assistant",
-        onClick: onPlanAiAction,
-        icon: isPlanning ? (
-          <LoadingMiniSpinner />
-        ) : (
-          <SparklesIcon className="size-4" aria-hidden="true" />
-        ),
-      },
+      ...(onPlanAiAction
+        ? [
+            {
+              tooltip: "Process with assistant",
+              onClick: onPlanAiAction,
+              icon: isPlanning ? (
+                <LoadingMiniSpinner />
+              ) : (
+                <SparklesIcon className="size-4" aria-hidden="true" />
+              ),
+            },
+          ]
+        : []),
       {
         tooltip: "Archive",
         onClick: onArchive,
