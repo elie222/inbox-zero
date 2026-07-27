@@ -1,4 +1,17 @@
-import { SYSTEM_RULE_ORDER } from "@/utils/rule/consts";
+import { SystemType } from "@/generated/prisma/enums";
+
+export const SYSTEM_RULE_ORDER: SystemType[] = [
+  SystemType.TO_REPLY,
+  SystemType.AWAITING_REPLY,
+  SystemType.FYI,
+  SystemType.ACTIONED,
+  SystemType.NEWSLETTER,
+  SystemType.MARKETING,
+  SystemType.CALENDAR,
+  SystemType.RECEIPT,
+  SystemType.NOTIFICATION,
+  SystemType.COLD_EMAIL,
+];
 
 type SortableRule = {
   enabled?: boolean | null;
@@ -7,7 +20,7 @@ type SortableRule = {
   instructions?: string | null;
 };
 
-export function sortRulesForAutomation<T extends SortableRule>(
+export function sortRulesByCanonicalOrder<T extends SortableRule>(
   rules: T[],
 ): T[] {
   return [...rules].sort((a, b) => {
