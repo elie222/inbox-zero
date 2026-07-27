@@ -255,6 +255,14 @@ export const POST = withEmailAccount("chat", async (request) => {
     });
 
     const stream = createUIMessageStream({
+      // Without this, any model/tool failure reaches the client as the
+      // SDK's opaque "An error occurred." — say what actually broke
+      onError: (error) => {
+        request.logger.error("Assistant chat stream error", { error });
+        return error instanceof Error
+          ? error.message
+          : "The assistant hit an unexpected error.";
+      },
       execute: async ({ writer }) => {
         let responseMessage: UIMessage | null = null;
 
