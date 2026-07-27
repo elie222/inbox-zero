@@ -15,7 +15,10 @@ import { Loading } from "@/components/Loading";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useLabels } from "@/hooks/useLabels";
 import { getDisplayedMessage } from "@/utils/email/displayed-message";
-import { runRulesAction } from "@/utils/actions/ai-rule";
+import {
+  finalizeReprocessAction,
+  runRulesAction,
+} from "@/utils/actions/ai-rule";
 import { ActionType } from "@/generated/prisma/enums";
 import { toastError, toastSuccess } from "@/components/Toast";
 
@@ -117,10 +120,22 @@ export function ReprocessEmailDialog({
         toastError({ description: result.serverError });
         return;
       }
+      // The user confirmed the move — make it stick regardless of how the
+      // old folder labels got there (backfills and hand-applied labels
+      // leave no rule-execution trail for the automatic cleanup)
+      const finalize = await finalizeReprocessAction(emailAccountId, {
+        threadId: thread.id,
+        keepLabelName: proposal?.folderName ?? null,
+        returnToInbox: !proposal?.folderName,
+      });
+      if (finalize?.serverError) {
+        toastError({ description: finalize.serverError });
+        return;
+      }
       toastSuccess({
         description: proposal?.folderName
           ? `Moved to ${proposal.folderName}`
-          : "Cleaned up — returned to the inbox.",
+          : "Returned to the inbox.",
       });
       refetch();
       onClose();
@@ -165,8 +180,11 @@ export function ReprocessEmailDialog({
                 ) : currentFolderNames.length ? (
                   <>
                     It currently sits in {currentFolderNames.join(", ")}.
-                    Applying removes AI-applied folder labels and returns it to
-                    the inbox.
+                    Applying removes it from{" "}
+                    {currentFolderNames.length === 1
+                      ? "that folder"
+                      : "those folders"}{" "}
+                    and returns it to the inbox.
                   </>
                 ) : (
                   <>Nothing to move — no rule files this email anywhere.</>
