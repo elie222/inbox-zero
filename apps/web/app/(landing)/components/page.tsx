@@ -981,6 +981,7 @@ function getRule(): Rule {
     enabled: true,
     automate: true,
     runOnThreads: true,
+    excludeKnownContacts: false,
     emailAccountId: "emailAccountId",
     organizationRuleId: null,
     organizationRuleMemberEnabled: null,
