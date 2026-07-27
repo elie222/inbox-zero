@@ -139,7 +139,7 @@ describe("enrichContactAction", () => {
 });
 
 describe("updateContactAction company lock", () => {
-  it("rejects moving a contact whose domain a company owns", async () => {
+  it("attaches to the domain-owning company even when another name is submitted", async () => {
     prisma.company.findFirst.mockResolvedValue({
       id: "co-1",
       name: "Vercel",
@@ -150,8 +150,12 @@ describe("updateContactAction company lock", () => {
       companyName: "Acme",
     });
 
-    expect(result?.serverError).toContain("Vercel owns the vercel.com domain");
-    expect(prisma.contact.upsert).not.toHaveBeenCalled();
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.contact.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ companyId: "co-1" }),
+      }),
+    );
   });
 
   it("blank company at an owned domain saves fine (domain grouping takes over)", async () => {

@@ -781,10 +781,11 @@ export const mergeCompaniesAction = actionClient
   );
 
 // Company membership is domain-authoritative: when a contact's email
-// domain already belongs to a company, their company can't be changed per
-// contact — edit the company's domain list (or mark the contact personal)
-// instead. This also means reassigning one person can never silently move
-// everyone else on their domain.
+// domain already belongs to a company, that company wins — whatever name
+// was submitted (an email's wording, a form typo) the contact attaches to
+// the domain's owner. Reassigning one person can therefore never silently
+// move everyone else on their domain; to actually change companies, edit
+// the owner's domain list or mark the contact personal.
 async function resolveLockedCompanyId({
   emailAccountId,
   companyName,
@@ -809,12 +810,7 @@ async function resolveLockedCompanyId({
       orderBy: { createdAt: "asc" },
     });
 
-    if (owner) {
-      if (name.toLowerCase() === owner.name.toLowerCase()) return owner.id;
-      throw new SafeError(
-        `${owner.name} owns the ${domain} domain, so this contact's company is set automatically. Edit ${owner.name}'s domains to change that, or mark the contact as personal.`,
-      );
-    }
+    if (owner) return owner.id;
   }
 
   return resolveCompanyId({ emailAccountId, companyName, contactEmail });
