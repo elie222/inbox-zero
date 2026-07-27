@@ -200,7 +200,14 @@ async function generateDraftContent(
         draft: cachedReply.reply,
         confidence: cachedReply.confidence,
         attribution: cachedReply.attribution,
-        draftContextMetadata: cachedReply.draftContextMetadata,
+        // Recomputed, not replayed: the account's minimum may have changed
+        // since this was cached.
+        draftContextMetadata: cachedReply.draftContextMetadata
+          ? {
+              ...cachedReply.draftContextMetadata,
+              draft: { confidence: cachedReply.confidence, meetsThreshold },
+            }
+          : cachedReply.draftContextMetadata,
         ...(selectedRuleId ? { attachments: cachedReply.attachments } : {}),
       };
     }
@@ -436,12 +443,13 @@ async function generateDraftContent(
     attachmentContext: attachmentSelection.attachmentContext,
   });
 
-  if (
-    !meetsDraftReplyConfidenceRequirement({
-      draftConfidence: confidence,
-      minimumConfidence,
-    })
-  ) {
+  const meetsThreshold = meetsDraftReplyConfidenceRequirement({
+    draftConfidence: confidence,
+    minimumConfidence,
+  });
+  draftContextMetadata.draft = { confidence, meetsThreshold };
+
+  if (!meetsThreshold) {
     logger.info("Skipping draft due to low confidence", {
       draftConfidence: confidence,
       minimumConfidence,
