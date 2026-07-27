@@ -11,6 +11,7 @@ import {
   deleteCompanyLabelBody,
   deleteContactBody,
   enrichContactBody,
+  extractContactsBody,
   researchCompanyBody,
   updateCompanyLabelBody,
   setCarddavAccessBody,
@@ -42,6 +43,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiEnrichContact } from "@/utils/ai/contacts/enrich-contact";
+import { aiExtractContactsFromEmail } from "@/utils/ai/contacts/extract-contacts-from-email";
 import { aiResearchCompany } from "@/utils/ai/companies/research-company";
 import type { EmailForLLM } from "@/utils/types";
 import prisma from "@/utils/prisma";
@@ -185,6 +187,57 @@ export const setContactInboxPriorityAction = actionClient
       });
 
       return { email: normalizedEmail, priority };
+    },
+  );
+
+// Scans an opened email's body for people (rosters, intro lists, forwarded
+// signatures) so each can be added as a contact with one click. Returns the
+// extracted people annotated with whether they're already saved.
+export const extractContactsFromEmailAction = actionClient
+  .metadata({ name: "extractContactsFromEmail" })
+  .inputSchema(extractContactsBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { from, subject, content },
+    }) => {
+      const emailAccount = await getEmailAccountWithAiAndTokens({
+        emailAccountId,
+      });
+      if (!emailAccount) throw new SafeError("Email account not found");
+
+      const result = await aiExtractContactsFromEmail({
+        emailAccount,
+        from,
+        subject,
+        content,
+      });
+      if (!result) throw new SafeError("Couldn't read this email");
+
+      const people = result.people
+        .map((person) => ({
+          ...person,
+          email: person.email.trim().toLowerCase(),
+        }))
+        .filter((person) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(person.email));
+
+      const existing = people.length
+        ? await prisma.contact.findMany({
+            where: {
+              emailAccountId,
+              email: { in: people.map((person) => person.email) },
+            },
+            select: { email: true },
+          })
+        : [];
+      const saved = new Set(existing.map((contact) => contact.email));
+
+      return {
+        people: people.map((person) => ({
+          ...person,
+          alreadySaved: saved.has(person.email),
+        })),
+      };
     },
   );
 
