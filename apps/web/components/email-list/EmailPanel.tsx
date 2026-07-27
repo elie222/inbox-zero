@@ -4,28 +4,17 @@ import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import type { Thread } from "@/components/email-list/types";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { PlanExplanation } from "@/components/email-list/PlanExplanation";
+import { ReprocessEmailDialog } from "@/components/email-list/ReprocessEmailDialog";
 import { useIsInAiQueue } from "@/store/ai-queue";
 import { EmailThread } from "@/components/email-list/EmailThread";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { MutedText } from "@/components/Typography";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useThread } from "@/hooks/useThread";
-import { useLabels } from "@/hooks/useLabels";
 import { getDisplayedMessage } from "@/utils/email/displayed-message";
 import { useChat } from "@/providers/ChatProvider";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
-import { runRulesAction } from "@/utils/actions/ai-rule";
-import { ActionType } from "@/generated/prisma/enums";
-import { toastError, toastSuccess } from "@/components/Toast";
 
 export function EmailPanel({
   row,
@@ -84,92 +73,9 @@ export function EmailPanel({
 
   const plan = row.plan;
 
-  // Reprocessing the open email dry-runs first: when the AI's decision
-  // differs from where the email currently sits, a dialog asks before
-  // anything moves. Bulk/row processing stays the direct queue.
-  const { emailAccountId } = useAccount();
-  const { userLabels } = useLabels();
-  const [checking, setChecking] = useState(false);
-  const [applying, setApplying] = useState(false);
-  const [proposal, setProposal] = useState<{
-    ruleName: string | null;
-    folderName: string | null;
-  } | null>(null);
-
-  const currentFolderNames = [
-    ...new Set(
-      (row.messages ?? [])
-        .flatMap((message) => message.labelIds ?? [])
-        .map((id) => userLabels.find((label) => label.id === id)?.name)
-        .filter((name): name is string => !!name),
-    ),
-  ];
-
-  const reprocess = async () => {
-    setChecking(true);
-    try {
-      const result = await runRulesAction(emailAccountId, {
-        messageId: lastMessage.id,
-        threadId: row.id!,
-        isTest: true,
-        rerun: true,
-      });
-      if (result?.serverError || !result?.data) {
-        toastError({
-          description: result?.serverError ?? "Couldn't check this email",
-        });
-        return;
-      }
-      const matched = result.data.find((entry) => entry.rule);
-      const labelItem = matched?.actionItems?.find(
-        (item) => item.type === ActionType.LABEL,
-      );
-      const folderName =
-        labelItem?.label ??
-        (labelItem?.labelId
-          ? (userLabels.find((label) => label.id === labelItem.labelId)?.name ??
-            null)
-          : null);
-
-      if (folderName && currentFolderNames.includes(folderName)) {
-        toastSuccess({
-          description: `Already filed under ${folderName} — nothing to change.`,
-        });
-        return;
-      }
-      setProposal({
-        ruleName: matched?.rule?.name ?? null,
-        folderName,
-      });
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  const applyProposal = async () => {
-    setApplying(true);
-    try {
-      const result = await runRulesAction(emailAccountId, {
-        messageId: lastMessage.id,
-        threadId: row.id!,
-        isTest: false,
-        rerun: true,
-      });
-      if (result?.serverError) {
-        toastError({ description: result.serverError });
-        return;
-      }
-      toastSuccess({
-        description: proposal?.folderName
-          ? `Moved to ${proposal.folderName}`
-          : "Cleaned up — returned to the inbox.",
-      });
-      setProposal(null);
-      refetchThread();
-    } finally {
-      setApplying(false);
-    }
-  };
+  // Reprocessing the open email goes through the shared ask-before-move
+  // dialog (dry-run, then confirm)
+  const [reprocessOpen, setReprocessOpen] = useState(false);
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-hidden border-l border-border">
@@ -198,8 +104,8 @@ export function EmailPanel({
           )}
           <ActionButtons
             threadId={row.id!}
-            isPlanning={isPlanning || checking}
-            onPlanAiAction={reprocess}
+            isPlanning={isPlanning}
+            onPlanAiAction={() => setReprocessOpen(true)}
             onArchive={() => {
               onArchive(row);
               advanceToAdjacentThread();
@@ -229,50 +135,13 @@ export function EmailPanel({
         </LoadingContent>
       </div>
 
-      {proposal && (
-        <Dialog open onOpenChange={(isOpen) => !isOpen && setProposal(null)}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>
-                {proposal.folderName
-                  ? `Move to ${proposal.folderName}?`
-                  : "No rules match this email"}
-              </DialogTitle>
-              <DialogDescription>
-                {proposal.folderName ? (
-                  <>
-                    The AI files this under{" "}
-                    <span className="font-medium text-foreground">
-                      {proposal.folderName}
-                    </span>
-                    {proposal.ruleName ? ` (rule: ${proposal.ruleName})` : ""}
-                    {currentFolderNames.length
-                      ? ` — it currently sits in ${currentFolderNames.join(", ")}.`
-                      : "."}
-                  </>
-                ) : currentFolderNames.length ? (
-                  <>
-                    It currently sits in {currentFolderNames.join(", ")}.
-                    Applying removes AI-applied folder labels and returns it to
-                    the inbox.
-                  </>
-                ) : (
-                  <>Nothing to move — no rule files this email anywhere.</>
-                )}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setProposal(null)}>
-                Leave it
-              </Button>
-              <Button loading={applying} onClick={applyProposal}>
-                {proposal.folderName
-                  ? `Move to ${proposal.folderName}`
-                  : "Return to inbox"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      {reprocessOpen && (
+        <ReprocessEmailDialog
+          thread={row}
+          folderType={folderType}
+          onClose={() => setReprocessOpen(false)}
+          refetch={refetchThread}
+        />
       )}
     </div>
   );
