@@ -360,6 +360,11 @@ export const toggleRuleBody = z
     message: "Either ruleId or systemType must be provided",
   });
 
+export const setRuleExcludeKnownContactsBody = z.object({
+  ruleId: z.string().min(1),
+  excludeKnownContacts: z.boolean(),
+});
+
 export const toggleAllRulesBody = z.object({
   enabled: z.boolean(),
 });

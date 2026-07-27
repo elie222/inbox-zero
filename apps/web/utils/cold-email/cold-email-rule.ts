@@ -18,6 +18,7 @@ export async function getColdEmailRule(emailAccountId: string) {
       enabled: true,
       instructions: true,
       groupId: true,
+      excludeKnownContacts: true,
       actions: {
         select: {
           type: true,

@@ -73,6 +73,7 @@ const createRule = (
   updatedAt: new Date(),
   actions,
   runOnThreads: false,
+  excludeKnownContacts: false,
   from: null,
   to: null,
   subject: null,

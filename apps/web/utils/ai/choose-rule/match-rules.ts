@@ -42,6 +42,7 @@ import {
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import { getClassificationFeedback } from "@/utils/rule/classification-feedback";
+import { isKnownContact } from "@/utils/contact/is-known-contact";
 import {
   getSelectionMetadataTraceDetails,
   summarizeSelectionMetadata,
@@ -195,6 +196,10 @@ async function findPotentialMatchingRules({
     emailAccountId,
     threadId: message.threadId,
   });
+  const knownContactLoader = new KnownContactLoader({
+    emailAccountId,
+    from: message.headers.from,
+  });
 
   // Go through all rules and collect matches and potential AI matches
   for (const rule of rules) {
@@ -225,6 +230,18 @@ async function findPotentialMatchingRules({
       }
 
       continuedThreadRuleNames.push(rule.name);
+    }
+
+    // Rules can opt out of matching saved contacts entirely — checked
+    // before learned patterns so nothing learned can override it
+    if (rule.excludeKnownContacts) {
+      const senderIsKnownContact = await knownContactLoader.isKnown();
+      if (senderIsKnownContact) {
+        logger.info("Skipping rule: sender is a known contact", {
+          ruleName: rule.name,
+        });
+        continue;
+      }
     }
 
     // Learned patterns (groups)
@@ -435,6 +452,35 @@ class LearnedPatternsLoader {
 }
 
 // Lazy load previously executed rules in thread when needed
+// Lazy one-shot contact lookup: only queries when a rule opts out of
+// known contacts, and at most once per message
+class KnownContactLoader {
+  private known?: boolean;
+  private readonly emailAccountId: string;
+  private readonly from: string;
+
+  constructor({
+    emailAccountId,
+    from,
+  }: {
+    emailAccountId: string;
+    from: string;
+  }) {
+    this.emailAccountId = emailAccountId;
+    this.from = from;
+  }
+
+  async isKnown(): Promise<boolean> {
+    if (this.known === undefined) {
+      this.known = await isKnownContact({
+        emailAccountId: this.emailAccountId,
+        from: this.from,
+      });
+    }
+    return this.known;
+  }
+}
+
 class PreviousThreadRulesLoader {
   private ruleIds?: Set<string>;
   private readonly emailAccountId: string;

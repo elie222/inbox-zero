@@ -2,8 +2,7 @@ import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schem
 import { after } from "next/server";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
-import { ActionType } from "@/generated/prisma/enums";
-import type { SystemType } from "@/generated/prisma/enums";
+import { ActionType, SystemType } from "@/generated/prisma/enums";
 import type { Prisma, Rule } from "@/generated/prisma/client";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";
@@ -525,6 +524,10 @@ export async function upsertSystemRule({
     systemType,
     runOnThreads,
     enabled,
+    // Cold email should never catch people the user already knows
+    ...(systemType === SystemType.COLD_EMAIL
+      ? { excludeKnownContacts: true }
+      : {}),
   };
 
   if (existingRule) {

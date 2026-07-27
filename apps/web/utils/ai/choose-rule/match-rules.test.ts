@@ -990,6 +990,48 @@ describe("findMatchingRule", () => {
     ]);
   });
 
+  it("skips a rule that excludes known contacts when the sender is a contact", async () => {
+    const rule = getRule({
+      from: "test@example.com",
+      excludeKnownContacts: true,
+    });
+    prisma.contact.findUnique.mockResolvedValue({ id: "contact-1" } as any);
+
+    const result = await findMatchingRules({
+      rules: [rule],
+      message: getMessage({
+        headers: getHeaders({ from: "test@example.com" }),
+      }),
+      emailAccount: getEmailAccount(),
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(result.matches).toHaveLength(0);
+  });
+
+  it("matches normally when the exclude-contacts rule sender is not a contact", async () => {
+    const rule = getRule({
+      from: "test@example.com",
+      excludeKnownContacts: true,
+    });
+    prisma.contact.findUnique.mockResolvedValue(null);
+
+    const result = await findMatchingRules({
+      rules: [rule],
+      message: getMessage({
+        headers: getHeaders({ from: "test@example.com" }),
+      }),
+      emailAccount: getEmailAccount(),
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(result.matches[0]?.rule.id).toBe(rule.id);
+  });
+
   it("matches a static domain", async () => {
     const rule = getRule({ from: "@example.com" });
     const rules = [rule];
@@ -1848,6 +1890,7 @@ function getRule(overrides: Partial<RuleWithActions> = {}): RuleWithActions {
     categoryFilterType = null,
     systemType = null,
     promptText = null,
+    excludeKnownContacts = false,
     actions = [],
   } = overrides;
 
@@ -1870,6 +1913,7 @@ function getRule(overrides: Partial<RuleWithActions> = {}): RuleWithActions {
     categoryFilterType,
     systemType,
     promptText,
+    excludeKnownContacts,
     actions,
   };
 }
