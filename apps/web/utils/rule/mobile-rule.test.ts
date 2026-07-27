@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { createRuleBody } from "@/utils/actions/rule.validation";
+import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { toCreateRuleBodyFromAiRule } from "@/utils/rule/mobile-rule";
 
 describe("toCreateRuleBodyFromAiRule", () => {
@@ -101,5 +102,28 @@ describe("toCreateRuleBodyFromAiRule", () => {
     );
 
     expect(result.success).toBe(true);
+  });
+
+  it("treats an AI-generated zero-minute delay as no delay", () => {
+    const generatedRule = createRuleSchema("google").parse({
+      name: "Invoices",
+      condition: {
+        aiInstructions: null,
+        conditionalOperator: null,
+        static: { subject: "Invoice" },
+      },
+      actions: [
+        {
+          type: ActionType.ARCHIVE,
+          fields: null,
+          delayInMinutes: 0,
+        },
+      ],
+    });
+
+    const rule = toCreateRuleBodyFromAiRule(generatedRule);
+
+    expect(rule.actions[0].delayInMinutes).toBeUndefined();
+    expect(createRuleBody.safeParse(rule).success).toBe(true);
   });
 });
