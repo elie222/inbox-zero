@@ -92,6 +92,10 @@ export const createMailFilterAction = actionClient
           data: {
             from: mergedFrom,
             instructions: mergedInstructions,
+            // "Always goes to this folder" includes replies in a thread —
+            // otherwise the thread guard skips this rule for any thread it
+            // hasn't run on before and the filter never fires
+            runOnThreads: true,
             // Static senders and AI instructions each suffice on their own
             ...(mergedFrom && mergedInstructions
               ? { conditionalOperator: LogicalOperator.OR }
@@ -143,7 +147,9 @@ export const createMailFilterAction = actionClient
           },
           emailAccountId,
           provider,
-          runOnThreads: false,
+          // Filters are deterministic filing — they apply to thread replies
+          // too, or mail threading onto an old conversation escapes them
+          runOnThreads: true,
           logger,
         });
 
