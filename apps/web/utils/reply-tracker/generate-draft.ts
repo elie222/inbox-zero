@@ -213,6 +213,7 @@ async function generateDraftContent(
     }
 
     logger.info("Skipping cached draft due to low confidence", {
+      emailAccountId: emailAccount.id,
       draftConfidence: cachedReply.confidence,
       minimumConfidence,
       threadId: lastMessage.threadId,
@@ -450,7 +451,10 @@ async function generateDraftContent(
   draftContextMetadata.draft = { confidence, meetsThreshold };
 
   if (!meetsThreshold) {
+    // A suppressed draft creates no action and so no ExecutedAction row. This
+    // log is the only per-account record that the gate fired.
     logger.info("Skipping draft due to low confidence", {
+      emailAccountId: emailAccount.id,
       draftConfidence: confidence,
       minimumConfidence,
       threadId: lastMessage.threadId,
