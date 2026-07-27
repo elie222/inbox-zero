@@ -303,6 +303,47 @@ describe("matchesStaticRule", () => {
     expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
+  it("starts-with subject mode matches only at the beginning", () => {
+    const rule = getStaticRule({
+      subject: "Invoice",
+      subjectMatchMode: "STARTS_WITH",
+    });
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({ headers: getHeaders({ subject: "Invoice #123" }) }),
+        logger,
+      ),
+    ).toBe(true);
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ subject: "Your Invoice is ready" }),
+        }),
+        logger,
+      ),
+    ).toBe(false);
+  });
+
+  it("contains subject mode still matches mid-string", () => {
+    const rule = getStaticRule({
+      subject: "Invoice",
+      subjectMatchMode: "CONTAINS",
+    });
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ subject: "Your Invoice is ready" }),
+        }),
+        logger,
+      ),
+    ).toBe(true);
+  });
+
   it("should match Creator Message subject pattern", () => {
     const rule = getStaticRule({ subject: "[Creator Message]*" });
     const message = getMessage({
@@ -1886,6 +1927,7 @@ function getRule(overrides: Partial<RuleWithActions> = {}): RuleWithActions {
     from = null,
     to = null,
     subject = null,
+    subjectMatchMode = "CONTAINS" as const,
     body = null,
     categoryFilterType = null,
     systemType = null,
@@ -1909,6 +1951,7 @@ function getRule(overrides: Partial<RuleWithActions> = {}): RuleWithActions {
     from,
     to,
     subject,
+    subjectMatchMode,
     body,
     categoryFilterType,
     systemType,
@@ -3197,7 +3240,12 @@ describe("evaluateRuleConditions", () => {
 });
 
 function getStaticRule(
-  rule: Partial<Pick<RuleWithActions, "from" | "to" | "subject" | "body">>,
+  rule: Partial<
+    Pick<
+      RuleWithActions,
+      "from" | "to" | "subject" | "body" | "subjectMatchMode"
+    >
+  >,
 ) {
   return {
     from: null,

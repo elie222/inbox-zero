@@ -5,6 +5,7 @@ import {
   DraftReplyConfidence,
   LogicalOperator,
   SystemType,
+  SubjectMatchMode,
 } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
@@ -107,6 +108,7 @@ const zodStaticCondition = z.object({
   to: z.string().nullish(),
   from: z.string().nullish(),
   subject: z.string().nullish(),
+  subjectMatchMode: z.nativeEnum(SubjectMatchMode).nullish(),
   body: z.string().nullish(),
 });
 

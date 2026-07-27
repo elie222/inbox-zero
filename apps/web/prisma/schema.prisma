@@ -572,6 +572,8 @@ model Rule {
   runOnThreads         Boolean            @default(false) // if disabled, only runs on individual emails
   // Senders in the contact list are never matched by this rule
   excludeKnownContacts Boolean            @default(false)
+  // How the subject condition matches: substring anywhere, or anchored at the start
+  subjectMatchMode     SubjectMatchMode   @default(CONTAINS)
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -2136,4 +2138,9 @@ enum AutomationJobRunStatus {
   SENT
   SKIPPED
   FAILED
+}
+
+enum SubjectMatchMode {
+  CONTAINS
+  STARTS_WITH
 }

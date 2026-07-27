@@ -1,4 +1,5 @@
 import { LogicalOperator } from "@/generated/prisma/enums";
+import type { SubjectMatchMode } from "@/generated/prisma/enums";
 import type { Rule } from "@/generated/prisma/client";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
 import type {
@@ -15,6 +16,7 @@ export type RuleConditions = Partial<
     | "from"
     | "to"
     | "subject"
+    | "subjectMatchMode"
     | "body"
     | "conditionalOperator"
   > & {
@@ -81,6 +83,7 @@ export function getConditions(rule: RuleConditions) {
         from: null,
         to: null,
         subject: rule.subject,
+        subjectMatchMode: rule.subjectMatchMode ?? null,
         body: null,
         instructions: null,
       });
@@ -141,6 +144,7 @@ type FlattenedConditions = {
   from?: string | null;
   to?: string | null;
   subject?: string | null;
+  subjectMatchMode?: SubjectMatchMode | null;
   body?: string | null;
 };
 
@@ -157,6 +161,8 @@ export const flattenConditions = (
         if (condition.to) acc.to = condition.to;
         if (condition.from) acc.from = condition.from;
         if (condition.subject) acc.subject = condition.subject;
+        if (condition.subjectMatchMode)
+          acc.subjectMatchMode = condition.subjectMatchMode;
         if (condition.body) acc.body = condition.body;
         break;
       default:

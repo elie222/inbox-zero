@@ -77,6 +77,7 @@ const createRule = (
   from: null,
   to: null,
   subject: null,
+  subjectMatchMode: "CONTAINS" as const,
   body: null,
   groupId: null,
   conditionalOperator: "AND" as const,
