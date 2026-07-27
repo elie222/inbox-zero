@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
+import { sortRulesByCanonicalOrder } from "@/utils/rule/sort";
 
 export type RulesResponse = Awaited<ReturnType<typeof getRules>>;
 
 async function getRules({ emailAccountId }: { emailAccountId: string }) {
-  return await prisma.rule.findMany({
+  const rules = await prisma.rule.findMany({
     where: { emailAccountId },
     include: {
       actions: true,
@@ -18,6 +19,8 @@ async function getRules({ emailAccountId }: { emailAccountId: string }) {
     },
     orderBy: { createdAt: "asc" },
   });
+
+  return sortRulesByCanonicalOrder(rules);
 }
 
 export const GET = withEmailAccount(

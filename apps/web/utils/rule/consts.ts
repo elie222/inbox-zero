@@ -157,19 +157,6 @@ export function getCategoryAction(systemType: SystemType, provider: string) {
   return config.categoryAction;
 }
 
-export const SYSTEM_RULE_ORDER: SystemType[] = [
-  SystemType.TO_REPLY,
-  SystemType.AWAITING_REPLY,
-  SystemType.FYI,
-  SystemType.ACTIONED,
-  SystemType.NEWSLETTER,
-  SystemType.MARKETING,
-  SystemType.CALENDAR,
-  SystemType.RECEIPT,
-  SystemType.NOTIFICATION,
-  SystemType.COLD_EMAIL,
-];
-
 export function getDefaultActions(
   systemType: SystemType,
   provider: string,

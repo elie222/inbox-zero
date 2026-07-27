@@ -56,12 +56,11 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useLabels } from "@/hooks/useLabels";
 import { conditionsToString } from "@/utils/condition";
 import { TruncatedTooltipText } from "@/components/TruncatedTooltipText";
+import { getRuleConfig, getDefaultActions } from "@/utils/rule/consts";
 import {
-  getRuleConfig,
   SYSTEM_RULE_ORDER,
-  getDefaultActions,
-} from "@/utils/rule/consts";
-import { sortRulesForAutomation } from "@/utils/rule/sort";
+  sortRulesByCanonicalOrder,
+} from "@/utils/rule/sort";
 import {
   STEP_KEYS,
   getOnboardingStepHref,
@@ -175,7 +174,7 @@ export function Rules({
 
     const userRules = existingRules.filter((rule) => !rule.systemType);
 
-    return sortRulesForAutomation([...systemRulePlaceholders, ...userRules]);
+    return sortRulesByCanonicalOrder([...systemRulePlaceholders, ...userRules]);
   }, [data, emailAccountId, provider]);
 
   const hasRules = !!rules?.length;
