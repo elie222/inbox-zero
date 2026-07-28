@@ -15,7 +15,7 @@ import type {
 } from "@/utils/ai/types";
 import type { EmailProvider } from "@/utils/email/types";
 import {
-  getPersistedActionError,
+  normalizeActionExecutionError,
   persistExecutedActionOutcome,
 } from "@/utils/ai/executed-action-outcome";
 
@@ -234,7 +234,7 @@ async function executeDelayedAction({
     await persistExecutedActionOutcome({
       actionId: executedAction.id,
       status: ExecutedActionStatus.FAILED,
-      error: getPersistedActionError(error),
+      error: normalizeActionExecutionError(error),
       logger: log,
     });
     throw error;

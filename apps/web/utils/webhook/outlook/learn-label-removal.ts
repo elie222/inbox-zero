@@ -1,3 +1,4 @@
+import type { Prisma } from "@/generated/prisma/client";
 import {
   ActionType,
   ExecutedActionStatus,
@@ -9,6 +10,20 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { recordLabelRemovalLearning } from "@/utils/rule/record-label-removal-learning";
 import type { ParsedMessage } from "@/utils/types";
+
+const SUCCESSFUL_LABEL_OR_FOLDER_ACTION = {
+  executionStatus: ExecutedActionStatus.SUCCEEDED,
+  OR: [
+    {
+      type: ActionType.LABEL,
+      OR: [{ labelId: { not: null } }, { label: { not: null } }],
+    },
+    {
+      type: ActionType.MOVE_FOLDER,
+      folderId: { not: null },
+    },
+  ],
+} satisfies Prisma.ExecutedActionWhereInput;
 
 export async function learnFromOutlookLabelRemoval({
   message,
@@ -34,19 +49,7 @@ export async function learnFromOutlookLabelRemoval({
       status: ExecutedRuleStatus.APPLIED,
       rule: { systemType: { not: null } },
       actionItems: {
-        some: {
-          executionStatus: ExecutedActionStatus.SUCCEEDED,
-          OR: [
-            {
-              type: ActionType.LABEL,
-              OR: [{ labelId: { not: null } }, { label: { not: null } }],
-            },
-            {
-              type: ActionType.MOVE_FOLDER,
-              folderId: { not: null },
-            },
-          ],
-        },
+        some: SUCCESSFUL_LABEL_OR_FOLDER_ACTION,
       },
     },
     select: {
@@ -57,19 +60,7 @@ export async function learnFromOutlookLabelRemoval({
         },
       },
       actionItems: {
-        where: {
-          executionStatus: ExecutedActionStatus.SUCCEEDED,
-          OR: [
-            {
-              type: ActionType.LABEL,
-              OR: [{ labelId: { not: null } }, { label: { not: null } }],
-            },
-            {
-              type: ActionType.MOVE_FOLDER,
-              folderId: { not: null },
-            },
-          ],
-        },
+        where: SUCCESSFUL_LABEL_OR_FOLDER_ACTION,
         select: {
           type: true,
           labelId: true,

@@ -4,7 +4,7 @@ import { getErrorMessage } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
-export type PersistedActionError = {
+type ActionExecutionError = {
   code: string;
   message: string;
   stack: string | null;
@@ -20,7 +20,7 @@ export async function persistExecutedActionOutcome({
 }: {
   actionId: string;
   status: ExecutedActionStatus;
-  error: PersistedActionError | null;
+  error: ActionExecutionError | null;
   logger: Logger;
 }) {
   try {
@@ -41,7 +41,9 @@ export async function persistExecutedActionOutcome({
   }
 }
 
-export function getPersistedActionError(error: unknown): PersistedActionError {
+export function normalizeActionExecutionError(
+  error: unknown,
+): ActionExecutionError {
   const outer = asRecord(error);
   const nested = asRecord(outer?.error);
   const headers = asRecord(outer?.headers);

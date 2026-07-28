@@ -2,9 +2,9 @@ import { runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import {
+  ActionType,
   ExecutedActionStatus,
   ExecutedRuleStatus,
-  ActionType,
 } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
@@ -15,7 +15,7 @@ import type { ActionExecutionEmailAccount } from "@/utils/ai/types";
 import { shouldSkipAutomatedArchiveForSender } from "@/utils/ai/automated-archive-exception";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 import {
-  getPersistedActionError,
+  normalizeActionExecutionError,
   persistExecutedActionOutcome,
 } from "@/utils/ai/executed-action-outcome";
 
@@ -133,7 +133,7 @@ export async function executeAct({
       await persistExecutedActionOutcome({
         actionId: action.id,
         status: ExecutedActionStatus.FAILED,
-        error: getPersistedActionError(error),
+        error: normalizeActionExecutionError(error),
         logger: log,
       });
       await logErrorWithDedupe({
@@ -229,13 +229,18 @@ function getActionFailure(
     "errorCode" in actionResult && typeof actionResult.errorCode === "string"
       ? actionResult.errorCode
       : getUnknownActionFailureCode(actionType);
-  const errorMessage =
+  let errorMessage = "Action reported failure";
+  if (
     "errorMessage" in actionResult &&
     typeof actionResult.errorMessage === "string"
-      ? actionResult.errorMessage
-      : "error" in actionResult && typeof actionResult.error === "string"
-        ? actionResult.error
-        : "Action reported failure";
+  ) {
+    errorMessage = actionResult.errorMessage;
+  } else if (
+    "error" in actionResult &&
+    typeof actionResult.error === "string"
+  ) {
+    errorMessage = actionResult.error;
+  }
 
   return {
     type: actionType,
