@@ -15,7 +15,7 @@ import { labelMessageAndSync } from "@/utils/label.server";
 import { hasVariables } from "@/utils/template";
 import prisma from "@/utils/prisma";
 import { sendColdEmailNotification } from "@/utils/cold-email/send-notification";
-import { extractEmailAddress } from "@/utils/email";
+import { extractEmailAddress, isSameOrganization } from "@/utils/email";
 import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
@@ -538,6 +538,14 @@ const notify_sender: ActionFunction<Record<string, unknown>> = async ({
   if (!senderEmail) {
     logger.error("Could not extract sender email for notify_sender action");
     return { success: false, errorCode: "MISSING_SENDER_EMAIL" };
+  }
+
+  // Last line of defence before we email a real person. Most cold email matches come
+  // from a stored sender pattern rather than a fresh classification, so a single bad
+  // pattern would otherwise keep telling a colleague their email was unsolicited.
+  if (isSameOrganization(senderEmail, emailAccount.email)) {
+    logger.warn("Skipping cold email notification to an internal sender");
+    return { success: false, errorCode: "INTERNAL_SENDER" };
   }
 
   const result = await sendColdEmailNotification({

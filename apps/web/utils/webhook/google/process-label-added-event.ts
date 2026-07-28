@@ -9,6 +9,7 @@ import {
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
+import type { ParsedMessage } from "@/utils/types";
 import { GMAIL_SYSTEM_LABELS, GmailLabel } from "@/utils/gmail/label";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -18,6 +19,7 @@ import {
   saveClassificationFeedback,
 } from "@/utils/rule/classification-feedback";
 import { fetchSenderFromMessage } from "@/utils/webhook/google/fetch-sender-from-message";
+import { canonicalizeEmailAddress, isSameOrganization } from "@/utils/email";
 
 /**
  * When labels are added to an email:
@@ -66,7 +68,8 @@ export async function handleLabelAddedEvent(
       sender,
       messageId,
       threadId,
-      emailAccountId,
+      emailAccount,
+      provider,
       logger,
     });
   }
@@ -89,19 +92,42 @@ async function learnColdEmailFromSpam({
   sender,
   messageId,
   threadId,
-  emailAccountId,
+  emailAccount,
+  provider,
   logger,
 }: {
   sender: string;
   messageId: string;
   threadId: string;
-  emailAccountId: string;
+  emailAccount: EmailAccountWithAI;
+  provider: EmailProvider;
   logger: Logger;
 }) {
+  const emailAccountId = emailAccount.id;
+
   logger.info("SPAM label added, learning cold email pattern", {
     messageId,
     threadId,
   });
+
+  // Someone at your own company is never a cold emailer, and junking their message
+  // must not turn into an automated "your email was unsolicited" reply to a colleague.
+  if (isSameOrganization(sender, emailAccount.email)) {
+    logger.info("Skipping cold email learning for an internal sender");
+    return;
+  }
+
+  // Gmail applies SPAM to every message in a thread, so this handler runs once per
+  // message. Only a one-way thread identifies a cold emailer; junking a conversation
+  // means "get this out of my inbox", not "everyone who replied is a cold emailer".
+  if (
+    !(await isOneWayThreadFromSender({ sender, threadId, provider, logger }))
+  ) {
+    logger.info(
+      "Skipping cold email learning - junked thread is a conversation",
+    );
+    return;
+  }
 
   const coldEmailRule = await prisma.rule.findFirst({
     where: {
@@ -199,6 +225,43 @@ async function recordClassificationFromLabelAdd({
     eventType: ClassificationFeedbackEventType.LABEL_ADDED,
     logger,
   });
+}
+
+/**
+ * A thread is one-way when every message in it came from the same sender.
+ * Returns false if the thread can't be read, so an unreadable thread never teaches us a pattern.
+ */
+async function isOneWayThreadFromSender({
+  sender,
+  threadId,
+  provider,
+  logger,
+}: {
+  sender: string;
+  threadId: string;
+  provider: EmailProvider;
+  logger: Logger;
+}): Promise<boolean> {
+  let messages: ParsedMessage[];
+
+  try {
+    messages = await provider.getThreadMessages(threadId);
+  } catch (error) {
+    logger.warn("Could not read junked thread to check for a conversation", {
+      threadId,
+      error,
+    });
+    return false;
+  }
+
+  if (!messages.length) return false;
+
+  const expectedSender = canonicalizeEmailAddress(sender);
+
+  return messages.every(
+    (message) =>
+      canonicalizeEmailAddress(message.headers.from) === expectedSender,
+  );
 }
 
 async function wasLabelAppliedBySystem({

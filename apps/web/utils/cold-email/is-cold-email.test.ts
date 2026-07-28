@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { isColdEmail } from "./is-cold-email";
 import { getEmailAccount } from "@/__tests__/helpers";
 import type { EmailForLLM } from "@/utils/types";
-import { GroupItemType } from "@/generated/prisma/enums";
+import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import { extractEmailAddress } from "@/utils/email";
 
@@ -87,6 +87,7 @@ describe("isColdEmail", () => {
         type: true,
         value: true,
         exclude: true,
+        source: true,
         group: { select: { id: true, name: true } },
       },
     });
@@ -136,6 +137,7 @@ describe("isColdEmail", () => {
         type: true,
         value: true,
         exclude: true,
+        source: true,
         group: { select: { id: true, name: true } },
       },
     });
@@ -201,9 +203,76 @@ describe("isColdEmail", () => {
           type: true,
           value: true,
           exclude: true,
+          source: true,
           group: { select: { id: true, name: true } },
         },
       });
     }
+  });
+
+  describe("patterns learned from marking as spam", () => {
+    const groupId = "test-group-id";
+    const sender = "colleague@example.com";
+
+    const mockSpamLearnedPattern = (source: GroupItemSource) => {
+      vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
+        id: "group-item-id",
+        type: GroupItemType.FROM,
+        value: sender,
+        exclude: false,
+        source,
+        group: { id: groupId, name: "Cold Email" },
+      } as any);
+    };
+
+    const runCheck = () =>
+      isColdEmail({
+        email: {
+          id: "msg-spam-learned",
+          from: sender,
+          to: "user@example.com",
+          subject: "Quick question",
+          content: "Following up on the thread",
+          date: new Date(),
+        },
+        emailAccount: getEmailAccount({ id: "test-account-id" }),
+        provider: mockProvider as never,
+        coldEmailRule: { instructions: "test instructions", groupId },
+      });
+
+    it("should not block a spam-learned sender the user has corresponded with", async () => {
+      mockSpamLearnedPattern(GroupItemSource.LABEL_ADDED);
+      mockProvider.hasPreviousCommunicationsWithSenderOrDomain.mockResolvedValue(
+        true,
+      );
+
+      const result = await runCheck();
+
+      expect(result.isColdEmail).toBe(false);
+      expect(result.reason).toBe("hasPreviousEmail");
+    });
+
+    it("should block a spam-learned sender with no prior communication", async () => {
+      mockSpamLearnedPattern(GroupItemSource.LABEL_ADDED);
+      mockProvider.hasPreviousCommunicationsWithSenderOrDomain.mockResolvedValue(
+        false,
+      );
+
+      const result = await runCheck();
+
+      expect(result.isColdEmail).toBe(true);
+      expect(result.reason).toBe("ai-already-labeled");
+    });
+
+    it("should not re-check prior communication for AI-learned patterns", async () => {
+      mockSpamLearnedPattern(GroupItemSource.AI);
+
+      const result = await runCheck();
+
+      expect(result.isColdEmail).toBe(true);
+      expect(
+        mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
+      ).not.toHaveBeenCalled();
+    });
   });
 });

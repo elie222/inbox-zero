@@ -11,6 +11,7 @@ import {
   formatEmailWithName,
   getNewsletterSenderDisplayName,
   messageRepliesToSourceSender,
+  isSameOrganization,
 } from "./email";
 
 describe("email utils", () => {
@@ -513,6 +514,46 @@ describe("email utils", () => {
 
     it.each(cases)("handles %s", (_caseName, sender, expected) => {
       expect(getNewsletterSenderDisplayName(sender)).toBe(expected);
+    });
+  });
+
+  describe("isSameOrganization", () => {
+    it.each([
+      ["identical addresses", "a@acme.com", "a@acme.com", true],
+      ["same address in different case", "A@Acme.com", "a@acme.com", true],
+      [
+        "same address with display name",
+        "Ann <a@acme.com>",
+        "a@acme.com",
+        true,
+      ],
+      [
+        "colleagues on a company domain",
+        "ceo@acme.com",
+        "staff@acme.com",
+        true,
+      ],
+      [
+        "different company domains",
+        "sales@vendor.com",
+        "staff@acme.com",
+        false,
+      ],
+      [
+        "different people on a public provider",
+        "someone@gmail.com",
+        "user@gmail.com",
+        false,
+      ],
+      [
+        "same person on a public provider",
+        "user@gmail.com",
+        "user@gmail.com",
+        true,
+      ],
+      ["missing address", "", "user@acme.com", false],
+    ])("returns %s", (_caseName, left, right, expected) => {
+      expect(isSameOrganization(left, right)).toBe(expected);
     });
   });
 });

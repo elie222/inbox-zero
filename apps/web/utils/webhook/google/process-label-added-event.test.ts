@@ -66,10 +66,6 @@ vi.mock("@/utils/gmail/label", () => ({
   ],
 }));
 
-vi.mock("@/utils/email", () => ({
-  extractEmailAddress: vi.fn().mockReturnValue("sender@example.com"),
-}));
-
 vi.mock("@/utils/webhook/google/fetch-sender-from-message", () => ({
   fetchSenderFromMessage: vi.fn().mockResolvedValue("sender@example.com"),
 }));
@@ -102,6 +98,7 @@ describe("process-label-added-event", () => {
     getMessage: vi.fn().mockResolvedValue({
       headers: { from: "sender@example.com" },
     }),
+    getThreadMessages: vi.fn(),
   } as any;
 
   const defaultOptions = {
@@ -109,7 +106,21 @@ describe("process-label-added-event", () => {
     provider: mockProvider,
   };
 
+  const mockThreadSenders = (...senders: string[]) => {
+    vi.mocked(mockProvider.getThreadMessages).mockResolvedValue(
+      senders.map((from, index) => ({
+        id: `msg-${index}`,
+        headers: { from },
+      })),
+    );
+  };
+
   describe("handleLabelAddedEvent", () => {
+    beforeEach(() => {
+      mockThreadSenders("sender@example.com");
+      vi.mocked(fetchSenderFromMessage).mockResolvedValue("sender@example.com");
+    });
+
     it("should save cold email pattern when SPAM label is added", async () => {
       vi.mocked(prisma.rule.findFirst).mockResolvedValue({
         id: "rule-123",
@@ -242,6 +253,91 @@ describe("process-label-added-event", () => {
           source: GroupItemSource.LABEL_ADDED,
         }),
       );
+    });
+
+    describe("junking a thread", () => {
+      beforeEach(() => {
+        vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+          id: "rule-123",
+        } as any);
+      });
+
+      it("should not learn any sender when the thread has replies from others", async () => {
+        mockThreadSenders("cold@vendor.com", "colleague@test.com");
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue(
+          "colleague@test.com",
+        );
+
+        await handleLabelAddedEvent(
+          createLabelAddedItem(),
+          defaultOptions,
+          logger,
+        );
+
+        expect(saveLearnedPattern).not.toHaveBeenCalled();
+      });
+
+      it("should not learn the sender when the user replied in the thread", async () => {
+        mockThreadSenders("cold@vendor.com", "user@test.com");
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");
+
+        await handleLabelAddedEvent(
+          createLabelAddedItem(),
+          defaultOptions,
+          logger,
+        );
+
+        expect(saveLearnedPattern).not.toHaveBeenCalled();
+      });
+
+      it("should learn the sole sender of a one-way thread", async () => {
+        mockThreadSenders("cold@vendor.com", "cold@vendor.com");
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");
+
+        await handleLabelAddedEvent(
+          createLabelAddedItem(),
+          defaultOptions,
+          logger,
+        );
+
+        expect(saveLearnedPattern).toHaveBeenCalledWith(
+          expect.objectContaining({ from: "cold@vendor.com" }),
+        );
+      });
+    });
+
+    describe("internal senders", () => {
+      beforeEach(() => {
+        vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+          id: "rule-123",
+        } as any);
+      });
+
+      it("should not learn the account owner's own address", async () => {
+        mockThreadSenders("user@test.com");
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue("user@test.com");
+
+        await handleLabelAddedEvent(
+          createLabelAddedItem(),
+          defaultOptions,
+          logger,
+        );
+
+        expect(saveLearnedPattern).not.toHaveBeenCalled();
+      });
+
+      it("should not learn a colleague on the account owner's domain", async () => {
+        mockThreadSenders("ceo@test.com");
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue("ceo@test.com");
+
+        await handleLabelAddedEvent(
+          createLabelAddedItem(),
+          defaultOptions,
+          logger,
+        );
+
+        expect(saveLearnedPattern).not.toHaveBeenCalled();
+      });
     });
   });
 });
