@@ -23,6 +23,16 @@ export type MeetingAttendeeSuggestion = {
   lastMeetingTitle: string;
 };
 
+// An empty list has several very different causes, and "no new people"
+// covers all of them badly. The counts let the UI say which one it is.
+export type MeetingAttendeeResult = {
+  attendees: MeetingAttendeeSuggestion[];
+  calendarsConnected: number;
+  eventsScanned: number;
+  // Attendees dropped because they're already saved, ignored, or you
+  alreadyKnown: number;
+};
+
 export async function getMeetingAttendeeSuggestions({
   emailAccountId,
   userEmail,
@@ -31,9 +41,16 @@ export async function getMeetingAttendeeSuggestions({
   emailAccountId: string;
   userEmail: string;
   logger: Logger;
-}): Promise<MeetingAttendeeSuggestion[]> {
+}): Promise<MeetingAttendeeResult> {
   const providers = await createCalendarEventProviders(emailAccountId, logger);
-  if (!providers.length) return [];
+  if (!providers.length) {
+    return {
+      attendees: [],
+      calendarsConnected: 0,
+      eventsScanned: 0,
+      alreadyKnown: 0,
+    };
+  }
 
   const now = new Date();
   const results = await Promise.allSettled(
@@ -85,7 +102,25 @@ export async function getMeetingAttendeeSuggestions({
     ),
   );
 
-  return collectAttendees({ events, excluded, ignoredDomains });
+  const { attendees, alreadyKnown } = collectAttendees({
+    events,
+    excluded,
+    ignoredDomains,
+  });
+
+  logger.info("Built meeting attendee suggestions", {
+    calendarsConnected: providers.length,
+    eventsScanned: events.length,
+    suggested: attendees.length,
+    alreadyKnown,
+  });
+
+  return {
+    attendees,
+    calendarsConnected: providers.length,
+    eventsScanned: events.length,
+    alreadyKnown,
+  };
 }
 
 function collectAttendees({
@@ -96,16 +131,25 @@ function collectAttendees({
   events: CalendarEvent[];
   excluded: Set<string>;
   ignoredDomains: Set<string>;
-}): MeetingAttendeeSuggestion[] {
+}): { attendees: MeetingAttendeeSuggestion[]; alreadyKnown: number } {
   const byEmail = new Map<string, MeetingAttendeeSuggestion>();
+  const known = new Set<string>();
 
   for (const event of events) {
     for (const attendee of event.attendees) {
       const email = attendee.email.trim().toLowerCase();
-      if (!email || excluded.has(email)) continue;
+      if (!email) continue;
+      if (excluded.has(email)) {
+        known.add(email);
+        continue;
+      }
 
       const domain = extractDomainFromEmail(email).toLowerCase();
-      if (!domain || ignoredDomains.has(domain)) continue;
+      if (!domain) continue;
+      if (ignoredDomains.has(domain)) {
+        known.add(email);
+        continue;
+      }
 
       const existing = byEmail.get(email);
       if (!existing) {
@@ -134,7 +178,10 @@ function collectAttendees({
     }
   }
 
-  return [...byEmail.values()].sort(
-    (a, b) => b.lastMetAt.getTime() - a.lastMetAt.getTime(),
-  );
+  return {
+    attendees: [...byEmail.values()].sort(
+      (a, b) => b.lastMetAt.getTime() - a.lastMetAt.getTime(),
+    ),
+    alreadyKnown: known.size,
+  };
 }

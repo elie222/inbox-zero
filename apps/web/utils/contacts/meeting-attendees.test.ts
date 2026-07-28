@@ -169,12 +169,13 @@ describe("getMeetingAttendeeSuggestions", () => {
   });
 });
 
-function suggestions() {
-  return getMeetingAttendeeSuggestions({
+async function suggestions() {
+  const result = await getMeetingAttendeeSuggestions({
     emailAccountId: "email-account-1",
     userEmail: USER_EMAIL,
     logger,
   });
+  return result.attendees;
 }
 
 function event(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
@@ -187,3 +188,52 @@ function event(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
     ...overrides,
   };
 }
+
+// An empty list has several causes and the UI needs to tell them apart
+describe("empty-list diagnostics", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.contact.findMany.mockResolvedValue([] as never);
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      ignoredContactEmails: [],
+      ignoredContactDomains: [],
+    } as never);
+  });
+
+  it("reports no calendar connected", async () => {
+    const { createCalendarEventProviders } = await import(
+      "@/utils/calendar/event-provider"
+    );
+    vi.mocked(createCalendarEventProviders).mockResolvedValueOnce([]);
+
+    const result = await getMeetingAttendeeSuggestions({
+      emailAccountId: "email-account-1",
+      userEmail: USER_EMAIL,
+      logger,
+    });
+
+    expect(result).toMatchObject({ calendarsConnected: 0, eventsScanned: 0 });
+  });
+
+  it("separates 'no events' from 'everyone already known'", async () => {
+    prisma.contact.findMany.mockResolvedValue([
+      { email: "known@partner.com" },
+    ] as never);
+    fetchEvents.mockResolvedValue([
+      event({ attendees: [{ email: "known@partner.com" }] }),
+    ]);
+
+    const result = await getMeetingAttendeeSuggestions({
+      emailAccountId: "email-account-1",
+      userEmail: USER_EMAIL,
+      logger,
+    });
+
+    expect(result).toMatchObject({
+      attendees: [],
+      calendarsConnected: 1,
+      eventsScanned: 1,
+      alreadyKnown: 1,
+    });
+  });
+});

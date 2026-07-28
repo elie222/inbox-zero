@@ -7,8 +7,8 @@ export type MeetingAttendeesResponse = Awaited<
 >;
 
 // People from your calendar invites who aren't saved contacts yet. Ignored
-// addresses and domains are already filtered out, so the list only holds
-// people you could act on.
+// addresses and domains are filtered out, and the counts alongside let the
+// UI explain an empty list instead of guessing at it.
 export const GET = withEmailAccount(
   "contacts/meeting-attendees",
   async (request) => {

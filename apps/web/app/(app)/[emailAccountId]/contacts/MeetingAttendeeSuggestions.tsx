@@ -14,7 +14,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { setContactIgnoredAction } from "@/utils/actions/contact";
 import { getActionErrorMessage } from "@/utils/error";
 
-type Attendee = MeetingAttendeesResponse[number];
+type Attendee = MeetingAttendeesResponse["attendees"][number];
 
 export function MeetingAttendeeSuggestions({
   onPick,
@@ -39,7 +39,7 @@ export function MeetingAttendeeSuggestions({
   });
 
   const term = search.trim().toLowerCase();
-  const attendees = (data ?? [])
+  const attendees = (data?.attendees ?? [])
     .filter((attendee) => !dismissed.includes(attendee.email))
     .filter(
       (attendee) =>
@@ -57,14 +57,13 @@ export function MeetingAttendeeSuggestions({
       />
 
       <LoadingContent loading={isLoading} error={error}>
-        {data && data.length === 0 && (
+        {data && data.attendees.length === 0 && (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            No new people on your recent invites. Connect a calendar in Settings
-            if you expected to see some.
+            {emptyReason(data)}
           </p>
         )}
 
-        {data && data.length > 0 && attendees.length === 0 && (
+        {data && data.attendees.length > 0 && attendees.length === 0 && (
           <p className="py-6 text-center text-sm text-muted-foreground">
             No matches.
           </p>
@@ -116,4 +115,18 @@ export function MeetingAttendeeSuggestions({
       </LoadingContent>
     </div>
   );
+}
+
+// Each of these is a different problem with a different fix, so say which
+function emptyReason(data: MeetingAttendeesResponse) {
+  if (data.calendarsConnected === 0) {
+    return "No calendar is connected. Connect one in Settings and your meeting guests will show up here.";
+  }
+  if (data.eventsScanned === 0) {
+    return "Your calendar is connected, but there are no events in the last 90 days or the next 30.";
+  }
+  if (data.alreadyKnown > 0) {
+    return `Everyone on your recent meetings is already a contact (${data.alreadyKnown} checked).`;
+  }
+  return `Scanned ${data.eventsScanned} ${data.eventsScanned === 1 ? "event" : "events"} and found no guests besides you.`;
 }
