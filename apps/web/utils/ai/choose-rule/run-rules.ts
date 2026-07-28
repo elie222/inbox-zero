@@ -241,8 +241,16 @@ export async function runRules({
   }));
 
   if (!finalMatches.length) {
+    // A silent thread-guard skip reads as "no rules matched" with no hint
+    // that a rule WOULD have matched — name the skipped rules and the fix
+    const skippedThreadRuleNames =
+      results.selectionMetadata?.skippedThreadRuleNames ?? [];
     const reason =
-      skippedConversationReason || results.reasoning || "No rules matched";
+      skippedConversationReason ||
+      results.reasoning ||
+      (skippedThreadRuleNames.length
+        ? `No rules matched. This is a reply in a conversation, so ${skippedThreadRuleNames.join(", ")} ${skippedThreadRuleNames.length === 1 ? "was" : "were"} not checked — enable "Apply to threads" on a rule to run it on replies.`
+        : "No rules matched");
     if (!isTest) {
       await withPrismaRetry(
         () =>
