@@ -590,17 +590,26 @@ export function createGenerateObject({
       }
 
       if (result.usage) {
-        await saveUsageWithMetadata({
-          result,
-          usage: result.usage,
-          userId: emailAccount.userId,
-          email: emailAccount.email,
-          emailAccountId: emailAccount.id,
-          provider: candidate.provider,
-          model: candidate.modelName,
-          label,
-          hasUserApiKey: effectiveModelOptions.hasUserApiKey,
-        });
+        try {
+          await saveUsageWithMetadata({
+            result,
+            usage: result.usage,
+            userId: emailAccount.userId,
+            email: emailAccount.email,
+            emailAccountId: emailAccount.id,
+            provider: candidate.provider,
+            model: candidate.modelName,
+            label,
+            hasUserApiKey: effectiveModelOptions.hasUserApiKey,
+          });
+        } catch (usageError) {
+          logger.error("Failed to save usage for object generation", {
+            error: usageError,
+            label,
+            provider: candidate.provider,
+            model: candidate.modelName,
+          });
+        }
       }
 
       await onModelUsed?.({

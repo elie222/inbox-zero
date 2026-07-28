@@ -440,6 +440,44 @@ describe("createGenerateObject repairText", () => {
     ).resolves.toEqual({ object: { ok: true }, usage: null });
 
     expect(mockGenerateObject).toHaveBeenCalledTimes(2);
+    expect(mockSaveAiUsage).toHaveBeenCalledTimes(1);
+    expect(mockSaveAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ usage: failedUsage }),
+    );
+  });
+
+  it("returns a generated object when successful usage accounting errors", async () => {
+    const usage = {
+      inputTokens: 1000,
+      outputTokens: 100,
+      totalTokens: 1100,
+    };
+    const result = {
+      object: { ok: true },
+      usage,
+    };
+    const onModelUsed = vi.fn();
+
+    mockGenerateObject.mockResolvedValueOnce(result);
+    mockSaveAiUsage.mockRejectedValueOnce(new Error("Usage accounting failed"));
+
+    const generateObject = await createTestGenerateObject({ onModelUsed });
+
+    await expect(
+      generateObject({
+        system: "Return JSON.",
+        prompt: "Return JSON.",
+        schema: {} as any,
+      } as any),
+    ).resolves.toEqual(result);
+
+    expect(mockSaveAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ usage }),
+    );
+    expect(onModelUsed).toHaveBeenCalledWith({
+      provider: "openai",
+      modelName: "gpt-test",
+    });
   });
 
   it("logs the successful model and sanitized fallback path", async () => {
@@ -554,12 +592,14 @@ type TestModel = {
 
 type GenerateObjectOverrides = Partial<TestModel> & {
   fallbackModels?: TestModel[];
+  onModelUsed?: (model: TestModel) => void | Promise<void>;
 };
 
 async function createTestGenerateObject({
   provider = "openai",
   modelName = "gpt-test",
   fallbackModels = [],
+  onModelUsed,
 }: GenerateObjectOverrides = {}) {
   const { createGenerateObject } = await import("./index");
 
@@ -576,6 +616,7 @@ async function createTestGenerateObject({
       fallbackModels: fallbackModels.map(createResolvedModel),
     } as any,
     promptHardening: { trust: "untrusted", level: "full" },
+    onModelUsed,
   });
 }
 
