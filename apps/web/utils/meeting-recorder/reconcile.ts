@@ -17,6 +17,7 @@ import {
   MAX_EVENTS_PER_PROVIDER,
   RECONCILE_WINDOW_MINUTES,
   STUCK_PROCESSING_MINUTES,
+  STUCK_TRANSCRIPT_REQUEST_MINUTES,
 } from "@/utils/meeting-recorder/config";
 import {
   createMeetingBotProvider,
@@ -601,6 +602,7 @@ export async function sweepRecordings({
   }
 
   await failAbandonedRecordings({ now, logger });
+  await retryStuckTranscriptRequests({ now, logger });
   await requeueStuckTranscripts({ now, logger });
   await requeueStuckMeetings({ logger });
   await retryPendingMediaDeletion({ logger });
@@ -658,6 +660,59 @@ async function failAbandonedRecordings({
     logger.info("Swept abandoned meeting recordings", {
       count: abandoned.length,
     });
+  }
+}
+
+/**
+ * Re-requests transcription for recordings whose create-transcript call was
+ * claimed but never produced a transcript, because the worker died or the
+ * provider never accepted the request.
+ *
+ * The claim is deliberately not released on failure, so this sweep is the only
+ * thing that recovers such a recording. It waits a long time before retrying,
+ * since a request that actually landed and is merely slow would otherwise be
+ * paid for twice.
+ */
+async function retryStuckTranscriptRequests({
+  now,
+  logger,
+}: {
+  now: Date;
+  logger: Logger;
+}): Promise<void> {
+  const stuck = await prisma.meetingRecording.findMany({
+    where: {
+      externalRecordingId: { not: null },
+      externalTranscriptId: null,
+      status: { in: LIVE_STATUSES },
+      transcriptRequestedAt: {
+        lt: subMinutes(now, STUCK_TRANSCRIPT_REQUEST_MINUTES),
+      },
+    },
+    take: 50,
+  });
+
+  for (const recording of stuck) {
+    if (!recording.externalRecordingId) continue;
+
+    try {
+      const provider = createMeetingBotProvider(recording.botProvider, logger);
+      await provider.createTranscript(recording.externalRecordingId);
+      await prisma.meetingRecording.update({
+        where: { id: recording.id },
+        data: { transcriptRequestedAt: now },
+      });
+    } catch (error) {
+      logger.error("Failed to re-request transcription", {
+        recordingId: recording.id,
+        error,
+      });
+      captureException(error);
+    }
+  }
+
+  if (stuck.length > 0) {
+    logger.info("Re-requested stuck transcriptions", { count: stuck.length });
   }
 }
 

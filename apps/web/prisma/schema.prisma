@@ -1399,9 +1399,12 @@ model MeetingRecording {
   botProvider          String   @default("recall")
   // Null between claiming the row and the provider call returning.
   externalBotId        String?
-  // Set when the provider reports the recording is ready. Doubles as the claim
-  // that stops us asking for the same transcript to be produced twice.
+  // Set when the provider reports the recording is ready.
   externalRecordingId  String?
+  // Claim for the create-transcript call, kept separate from the id above so a
+  // failed call does not have to choose between losing the recording id and
+  // losing the claim. The sweep retries a claim that goes stale.
+  transcriptRequestedAt DateTime?
   externalTranscriptId String?
   // Raw join URL including credentials (Zoom pwd etc.) - what the bot joins with.
   meetingUrl           String

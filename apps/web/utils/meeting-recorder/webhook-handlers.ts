@@ -92,9 +92,11 @@ export async function handleTranscriptReady({
  * asynchronously need to be asked to start, which is a separate call from
  * scheduling the bot.
  *
- * Claimed on `externalRecordingId` so a redelivered event cannot ask for the
- * same recording to be transcribed twice, which would bill twice and produce
- * two `transcript.done` events.
+ * `transcriptRequestedAt` is the claim, so a redelivered event cannot ask for
+ * the same recording twice and be billed twice. It is deliberately never
+ * released on failure: a request that threw may still have been accepted, and
+ * releasing would let a redelivery double-request. The stale-claim sweep is
+ * what retries a request that genuinely never landed.
  */
 export async function handleRecordingReady({
   botProvider,
@@ -107,33 +109,35 @@ export async function handleRecordingReady({
   externalRecordingId: string;
   logger: Logger;
 }): Promise<void> {
-  const claim = await prisma.meetingRecording.updateMany({
-    where: {
-      botProvider,
-      externalBotId,
-      externalRecordingId: null,
-    },
-    data: { externalRecordingId },
+  const recording = await prisma.meetingRecording.findUnique({
+    where: { botProvider_externalBotId: { botProvider, externalBotId } },
+    select: { id: true },
   });
 
-  if (claim.count === 0) {
-    logger.info("Transcription already requested for this recording", {
-      externalBotId,
+  // An unknown bot is not the same as an already-claimed one. It means we have
+  // lost track of a recording we are paying for, which is worth alerting on.
+  if (!recording) {
+    logger.warn("Recording ready for an unknown bot", { externalBotId });
+    captureException(new Error("Meeting recorder recording for unknown bot"), {
+      extra: { botProvider, externalBotId },
     });
     return;
   }
 
-  try {
-    const provider = createMeetingBotProvider(botProvider, logger);
-    await provider.createTranscript(externalRecordingId);
-    logger.info("Requested transcription", { externalBotId });
-  } catch (error) {
-    // Release the claim so the redelivery retries rather than silently
-    // leaving a recording that is never transcribed.
-    await prisma.meetingRecording.updateMany({
-      where: { botProvider, externalBotId, externalRecordingId },
-      data: { externalRecordingId: null },
+  const claim = await prisma.meetingRecording.updateMany({
+    where: { id: recording.id, transcriptRequestedAt: null },
+    data: { externalRecordingId, transcriptRequestedAt: new Date() },
+  });
+
+  if (claim.count === 0) {
+    logger.info("Transcription already requested for this recording", {
+      recordingId: recording.id,
     });
-    throw error;
+    return;
   }
+
+  const provider = createMeetingBotProvider(botProvider, logger);
+  await provider.createTranscript(externalRecordingId);
+
+  logger.info("Requested transcription", { recordingId: recording.id });
 }

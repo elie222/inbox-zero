@@ -397,6 +397,53 @@ describe.skipIf(!RUN_DB_TESTS)(
       ).not.toBeNull();
     });
 
+    test("re-requests transcription when the first request never produced one", async () => {
+      const recording = await prisma.meetingRecording.create({
+        data: {
+          meetingUrl: "https://meet.google.com/mmm-nnnn-ooo",
+          normalizedMeetingUrl: "meet.google.com/mmm-nnnn-ooo",
+          activeKey: "meet.google.com/mmm-nnnn-ooo",
+          meetingStartTime: new Date(),
+          status: MeetingRecordingStatus.CALL_ENDED,
+          externalBotId: "bot_awaiting_transcript",
+          externalRecordingId: "rec_awaiting",
+          // The claim is never released on failure, so without this sweep the
+          // recording would sit here forever.
+          transcriptRequestedAt: subHours(new Date(), 4),
+        },
+      });
+
+      await reconcile.sweepRecordings({ logger });
+
+      expect(fakeProvider.transcriptsRequested).toEqual(["rec_awaiting"]);
+      const retried = await prisma.meetingRecording.findUniqueOrThrow({
+        where: { id: recording.id },
+      });
+      expect(retried.transcriptRequestedAt?.getTime()).toBeGreaterThan(
+        recording.transcriptRequestedAt?.getTime() ?? 0,
+      );
+    });
+
+    test("leaves a recent transcription request alone", async () => {
+      await prisma.meetingRecording.create({
+        data: {
+          meetingUrl: "https://meet.google.com/ppp-qqqq-rrr",
+          normalizedMeetingUrl: "meet.google.com/ppp-qqqq-rrr",
+          activeKey: "meet.google.com/ppp-qqqq-rrr",
+          meetingStartTime: new Date(),
+          status: MeetingRecordingStatus.CALL_ENDED,
+          externalBotId: "bot_recent_request",
+          externalRecordingId: "rec_recent",
+          transcriptRequestedAt: new Date(),
+        },
+      });
+
+      await reconcile.sweepRecordings({ logger });
+
+      // Re-requesting a transcript that is merely slow would pay for it twice.
+      expect(fakeProvider.transcriptsRequested).toEqual([]);
+    });
+
     test("clears stale claims and fails recordings that never reported back", async () => {
       const stale = await prisma.meetingRecording.create({
         data: {

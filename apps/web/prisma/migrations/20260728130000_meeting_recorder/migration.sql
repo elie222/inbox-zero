@@ -21,6 +21,7 @@ CREATE TABLE "MeetingRecording" (
     "botProvider" TEXT NOT NULL DEFAULT 'recall',
     "externalBotId" TEXT,
     "externalRecordingId" TEXT,
+    "transcriptRequestedAt" TIMESTAMP(3),
     "externalTranscriptId" TEXT,
     "meetingUrl" TEXT NOT NULL,
     "normalizedMeetingUrl" TEXT NOT NULL,

@@ -33,6 +33,11 @@ const prismaMock = vi.hoisted(() => ({
 }));
 
 const enqueueBackgroundJobMock = vi.hoisted(() => vi.fn());
+const captureExceptionMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/utils/error", () => ({
+  captureException: (...args: unknown[]) => captureExceptionMock(...args),
+}));
 
 vi.mock("@/env", () => ({ env: envMock }));
 vi.mock("@/utils/prisma", () => ({ default: prismaMock }));
@@ -152,16 +157,16 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       // Async transcription has to be asked for; `recording.done` is what
       // triggers it, and without this step no transcript is ever produced.
+      prismaMock.meetingRecording.findUnique.mockResolvedValue({
+        id: "recording-1",
+        transcriptFetchedAt: null,
+      });
+
       const recordingId = emulator.getBot(externalBotId)?.recording_id ?? "";
       await deliver(
         recallWebhookPayloads.recordingDone(externalBotId, recordingId),
       );
       expect(emulator.transcriptRequested(externalBotId)).toBe(true);
-
-      prismaMock.meetingRecording.findUnique.mockResolvedValue({
-        id: "recording-1",
-        transcriptFetchedAt: null,
-      });
 
       await deliver(
         recallWebhookPayloads.transcriptDone(externalBotId, transcriptId),
@@ -233,6 +238,53 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       };
       expect(data.status).toBe(MeetingRecordingStatus.FAILED);
       expect(data.failureReason).toMatch(/declined/i);
+    });
+
+    test("does not request transcription twice for a redelivered recording", async () => {
+      const { externalBotId } = await provider.scheduleBot({
+        meetingUrl: "https://meet.google.com/abc-defg-hij",
+        joinAt: new Date("2026-05-04T09:00:00.000Z"),
+      });
+      const recordingId = emulator.getBot(externalBotId)?.recording_id ?? "";
+
+      prismaMock.meetingRecording.findUnique.mockResolvedValue({
+        id: "recording-1",
+      });
+      // The claim is taken on the first delivery and refused on the second.
+      prismaMock.meetingRecording.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 0 });
+
+      const payload = recallWebhookPayloads.recordingDone(
+        externalBotId,
+        recordingId,
+      );
+      await deliver(payload);
+      await deliver(payload);
+
+      // Billing is per transcript, so the duplicate must not reach the provider.
+      const requests = emulator.requests.filter((request) =>
+        request.path.endsWith("/create_transcript/"),
+      );
+      expect(requests).toHaveLength(1);
+    });
+
+    test("alerts rather than shrugging when the bot is unknown", async () => {
+      prismaMock.meetingRecording.findUnique.mockResolvedValue(null);
+
+      const response = await deliver(
+        recallWebhookPayloads.recordingDone("bot_unknown", "rec_unknown"),
+      );
+
+      // An unknown bot means a recording we are paying for has been lost track
+      // of, which must not be mistaken for an already-claimed duplicate.
+      expect(response.status).toBe(200);
+      expect(captureExceptionMock).toHaveBeenCalled();
+      expect(
+        emulator.requests.some((request) =>
+          request.path.endsWith("/create_transcript/"),
+        ),
+      ).toBe(false);
     });
 
     test("rejects a webhook signed with the wrong secret", async () => {

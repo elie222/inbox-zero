@@ -17,3 +17,8 @@ export const MAX_EVENTS_PER_PROVIDER = 50;
 // Longer than the process route's maxDuration, so a run that is merely slow is
 // never picked up or requeued while it is still going.
 export const STUCK_PROCESSING_MINUTES = 15;
+
+// Transcribing an hour-long call takes a while, so wait well past the point a
+// transcript would normally have arrived before asking for one again. Retrying
+// too eagerly risks paying for the same transcript twice.
+export const STUCK_TRANSCRIPT_REQUEST_MINUTES = 90;
