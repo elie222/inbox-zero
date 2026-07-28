@@ -128,7 +128,7 @@ export async function saveAiUsage({
   });
 
   const [analyticsResult, redisResult] = await Promise.allSettled([
-    Promise.resolve().then(() =>
+    invokeUsageSink(() =>
       publishAiCall({
         userId: userId ?? email,
         emailAccountId,
@@ -151,7 +151,7 @@ export async function saveAiUsage({
         toolCallCount,
       }),
     ),
-    Promise.resolve().then(() =>
+    invokeUsageSink(() =>
       saveUsage({ userId, emailAccountId, cost: platformCost, usage }),
     ),
   ]);
@@ -295,4 +295,8 @@ function notifyAiUsageListeners(event: AiUsageEvent): void {
 
 function toTinybirdBoolean(value: boolean): 0 | 1 {
   return value ? 1 : 0;
+}
+
+function invokeUsageSink(operation: () => unknown) {
+  return new Promise<unknown>((resolve) => resolve(operation()));
 }
