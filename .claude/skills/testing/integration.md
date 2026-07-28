@@ -159,6 +159,39 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)("Slack test", { timeout: 30_000 }, () =>
 
 **Limitation**: DM via `chat.postMessage({ channel: userId })` is not supported by the emulator — it only resolves channel IDs/names, not user IDs. Test DM flows by mocking at a higher level or by creating a named channel as a stand-in.
 
+### Recall emulator setup pattern
+
+Recall.ai is not part of `@inbox-zero/emulate`, so its emulator lives in-repo at `__tests__/emulators/recall.ts`. Same idea: stateful, real HTTP, no network. Point the client at it with `RECALL_BASE_URL` (the same override pattern as `GOOGLE_BASE_URL`).
+
+```typescript
+import { createRecallEmulator, type RecallEmulator } from "@/__tests__/emulators/recall";
+
+const envMock = vi.hoisted(() => ({ RECALL_API_KEY: "", RECALL_BASE_URL: "" }));
+vi.mock("@/env", () => ({ env: envMock }));
+
+let emulator: RecallEmulator;
+
+beforeAll(async () => {
+  emulator = await createRecallEmulator({ port: 4097 });
+  envMock.RECALL_BASE_URL = emulator.apiBase;
+  envMock.RECALL_API_KEY = emulator.apiKey;
+
+  // Import the client AFTER the env mock is populated.
+  const { RecallBotProvider } = await import("@/utils/recall/client");
+  provider = new RecallBotProvider(createTestLogger());
+});
+```
+
+**Driving a call**: `emulator.advance(botId, code)` pushes a bot to the next lifecycle code; `emulator.attachTranscript(botId, turns)` stores transcript JSON and returns the transcript id. `emulator.requests` is a log for asserting on what the client actually sent.
+
+**Webhooks**: `emulator.signWebhook(payload)` returns a Svix-signed `Request` to hand straight to the webhook route's `POST` (mirrors `createSignedSlackRequest`). Use `recallWebhookPayloads.statusChange(botId, code, subCode?)` and `recallWebhookPayloads.transcriptDone(botId, transcriptId)` to build bodies. Pass `{ secret }` to sign with the wrong key and assert the route rejects it.
+
+**Ports**: Google 4099, Slack 4098, Recall 4097 / 4096.
+
+**Manual use**: `pnpm emulate:recall` runs it standalone and prints the env vars to paste into `.env.local`. Type `advance <botId> <code>` or `transcript <botId>` to emit a webhook body you can POST at `/api/recall/webhook`.
+
+**Fidelity caveat**: unlike the Google/Slack emulators, this one encodes *our reading* of Recall's API. It catches regressions in our client, not a misreading of theirs. Correct it from real responses whenever we learn something new.
+
 ### Key points
 
 - **`describe.skipIf(!RUN_INTEGRATION_TESTS)`** — tests are skipped by default, safe in CI
