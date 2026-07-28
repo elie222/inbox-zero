@@ -33,7 +33,6 @@ export function RuleImportExportSetting({
         name: rule.name,
         instructions: rule.instructions,
         enabled: rule.enabled,
-        automate: rule.automate,
         runOnThreads: rule.runOnThreads,
         systemType: rule.systemType,
         conditionalOperator: rule.conditionalOperator,
@@ -41,7 +40,6 @@ export function RuleImportExportSetting({
         to: rule.to,
         subject: rule.subject,
         body: rule.body,
-        categoryFilterType: rule.categoryFilterType,
         actions: rule.actions.map((action) => ({
           type: action.type,
           label: action.label,

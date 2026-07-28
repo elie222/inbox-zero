@@ -49,6 +49,7 @@ export function useCompanyMembers({
           if (contact.isPersonal) continue;
           // Automated mailboxes are excluded from the company's people
           // count, so exclude them here too
+          if (!contact.email) continue;
           if (isLikelyAutomatedSender(contact.email)) continue;
           // An explicit assignment to another company wins over the domain
           if (contact.companyId && contact.companyId !== companyId) continue;

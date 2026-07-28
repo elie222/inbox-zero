@@ -13,6 +13,7 @@ import {
   enrichContactBody,
   extractContactsBody,
   researchCompanyBody,
+  scanBusinessCardBody,
   updateCompanyLabelBody,
   setCarddavAccessBody,
   setContactIgnoredBody,
@@ -44,6 +45,7 @@ import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiEnrichContact } from "@/utils/ai/contacts/enrich-contact";
 import { aiExtractContactsFromEmail } from "@/utils/ai/contacts/extract-contacts-from-email";
+import { aiScanBusinessCard } from "@/utils/ai/contacts/scan-business-card";
 import { aiResearchCompany } from "@/utils/ai/companies/research-company";
 import type { EmailForLLM } from "@/utils/types";
 import prisma from "@/utils/prisma";
@@ -56,6 +58,7 @@ export const updateContactAction = actionClient
     async ({
       ctx: { emailAccountId, logger },
       parsedInput: {
+        contactId,
         email,
         name,
         title,
@@ -67,7 +70,10 @@ export const updateContactAction = actionClient
         companyName,
       },
     }) => {
-      const normalizedEmail = email.trim().toLowerCase();
+      const normalizedEmail = email?.trim().toLowerCase() || null;
+      if (!contactId && !normalizedEmail) {
+        throw new SafeError("A contact needs an email address");
+      }
 
       // Only touch fields the caller sent, so partial updates can't wipe
       // previously saved details
@@ -88,19 +94,35 @@ export const updateContactAction = actionClient
         }),
       };
 
-      const contact = await prisma.contact.upsert({
-        where: {
-          emailAccountId_email: { emailAccountId, email: normalizedEmail },
-        },
-        update: details,
-        create: { emailAccountId, email: normalizedEmail, ...details },
-      });
+      // A phone-only contact has no address to upsert on, so it's addressed
+      // by id and must already exist
+      const contact = contactId
+        ? await prisma.contact.update({
+            where: { id: contactId, emailAccountId },
+            data: details,
+          })
+        : await prisma.contact.upsert({
+            where: {
+              emailAccountId_email: {
+                emailAccountId,
+                email: normalizedEmail ?? "",
+              },
+            },
+            update: details,
+            create: {
+              emailAccountId,
+              email: normalizedEmail,
+              ...details,
+            },
+          });
 
-      await maybePushToGoogle({
-        emailAccountId,
-        email: normalizedEmail,
-        logger,
-      });
+      if (contact.email) {
+        await maybePushToGoogle({
+          emailAccountId,
+          email: contact.email,
+          logger,
+        });
+      }
 
       return { contact };
     },
@@ -112,19 +134,26 @@ export const deleteContactAction = actionClient
   .metadata({ name: "deleteContact" })
   .inputSchema(deleteContactBody)
   .action(
-    async ({ ctx: { emailAccountId, logger }, parsedInput: { email } }) => {
-      const normalizedEmail = email.trim().toLowerCase();
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { contactId, email },
+    }) => {
+      const normalizedEmail = email?.trim().toLowerCase() || null;
+      if (!contactId && !normalizedEmail) {
+        throw new SafeError("A contact needs an email address");
+      }
 
-      const contact = await prisma.contact.findUnique({
-        where: {
-          emailAccountId_email: { emailAccountId, email: normalizedEmail },
-        },
+      // Phone-only contacts are addressed by id; everyone else by address
+      const where = contactId
+        ? { emailAccountId, id: contactId }
+        : { emailAccountId, email: normalizedEmail };
+
+      const contact = await prisma.contact.findFirst({
+        where,
         select: { googleResourceName: true },
       });
 
-      await prisma.contact.deleteMany({
-        where: { emailAccountId, email: normalizedEmail },
-      });
+      await prisma.contact.deleteMany({ where });
 
       // Two-way sync: without this the hourly pull resurrects the contact,
       // and a later re-save would create a duplicate Google person. In PULL
@@ -194,6 +223,32 @@ export const setContactInboxPriorityAction = actionClient
 // Scans an opened email's body for people (rosters, intro lists, forwarded
 // signatures) so each can be added as a contact with one click. Returns the
 // extracted people annotated with whether they're already saved.
+// Reads a photo of a paper business card into draft fields. The dialog
+// prefills its form with the result so every value is reviewed before it's
+// saved — the model transcribes, it doesn't decide.
+export const scanBusinessCardAction = actionClient
+  .metadata({ name: "scanBusinessCard" })
+  .inputSchema(scanBusinessCardBody)
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { imageDataUrl } }) => {
+      const emailAccount = await getEmailAccountWithAiAndTokens({
+        emailAccountId,
+      });
+      if (!emailAccount) throw new SafeError("Email account not found");
+
+      const card = await aiScanBusinessCard({ emailAccount, imageDataUrl });
+
+      return {
+        name: card.name?.trim() || null,
+        title: card.title?.trim() || null,
+        companyName: card.companyName?.trim() || null,
+        email: card.email?.trim().toLowerCase() || null,
+        phones: cleanPhones(card.phones),
+        website: card.website?.trim() || null,
+      };
+    },
+  );
+
 export const extractContactsFromEmailAction = actionClient
   .metadata({ name: "extractContactsFromEmail" })
   .inputSchema(extractContactsBody)
@@ -231,7 +286,9 @@ export const extractContactsFromEmailAction = actionClient
             select: { email: true },
           })
         : [];
-      const saved = new Set(existing.map((contact) => contact.email));
+      const saved = new Set(
+        existing.flatMap((contact) => (contact.email ? [contact.email] : [])),
+      );
 
       // Company membership is domain-authoritative — when a person's domain
       // already belongs to one of the user's companies, show and save that
@@ -800,14 +857,15 @@ async function resolveLockedCompanyId({
 }: {
   emailAccountId: string;
   companyName: string | null | undefined;
-  contactEmail: string;
+  contactEmail: string | null;
 }): Promise<string | null> {
   // Blank always means "no explicit assignment" — domain grouping (or the
   // personal flag) takes over, so plain adds at owned domains keep working
   const name = companyName?.trim();
   if (!name) return null;
 
-  const domain = emailDomain(contactEmail);
+  // A phone-only contact has no domain to lock against
+  const domain = contactEmail ? emailDomain(contactEmail) : "";
 
   if (domain && !isPublicEmailDomain(domain)) {
     const owner = await prisma.company.findFirst({
@@ -832,12 +890,12 @@ async function resolveCompanyId({
 }: {
   emailAccountId: string;
   companyName: string | null | undefined;
-  contactEmail: string;
+  contactEmail: string | null;
 }): Promise<string | null> {
   const name = companyName?.trim();
   if (!name) return null;
 
-  const domain = emailDomain(contactEmail);
+  const domain = contactEmail ? emailDomain(contactEmail) : "";
   const adoptDomain = !!domain && !isPublicEmailDomain(domain);
 
   // Match existing companies case-insensitively so typing "toyota" joins
@@ -937,36 +995,35 @@ async function pushAllSavedContactsToGoogle({
   emailAccountId: string;
   logger: Logger;
 }) {
+  // pushContactToGoogle looks the contact up by email, so phone-only rows
+  // aren't pushable — they only ever arrive from Google in the first place
   const saved = await prisma.contact.findMany({
-    where: { emailAccountId },
+    where: { emailAccountId, email: { not: null } },
     select: { email: true },
   });
+
+  const emails = saved.flatMap((contact) =>
+    contact.email ? [contact.email] : [],
+  );
 
   let pushed = 0;
   let failed = 0;
   await runWithBoundedConcurrency({
-    items: saved,
+    items: emails,
     concurrency: 3,
-    run: async (contact) => {
+    run: async (email) => {
       try {
-        await pushContactToGoogle({
-          emailAccountId,
-          email: contact.email,
-          logger,
-        });
+        await pushContactToGoogle({ emailAccountId, email, logger });
         pushed++;
       } catch (error) {
         failed++;
-        logger.warn("Failed to push contact to Google", {
-          email: contact.email,
-          error,
-        });
+        logger.warn("Failed to push contact to Google", { email, error });
       }
     },
   });
 
   logger.info("Initial two-way sync push finished", {
-    total: saved.length,
+    total: emails.length,
     pushed,
     failed,
   });

@@ -85,9 +85,7 @@ const createRule = (
   groupId: null,
   conditionalOperator: "AND" as const,
   systemType,
-  automate: true,
   promptText: null,
-  categoryFilterType: null,
 });
 
 const conversationMetaRule = createRule(CONVERSATION_TRACKING_META_RULE_ID);

@@ -12,7 +12,7 @@ export const UPDATE_PERSON_FIELDS =
 export type MappedPerson = {
   resourceName: string;
   etag: string | null;
-  email: string;
+  email: string | null;
   name: string | null;
   phones: ContactPhone[];
   title: string | null;
@@ -27,20 +27,26 @@ export function mapPersonToContact(
   if (!person.resourceName) return null;
 
   const primaryEmail = pickPrimary(person.emailAddresses)?.value?.trim();
-  if (!primaryEmail && !person.metadata?.deleted) return null;
-
   const organization = pickPrimary(person.organizations);
   const photo = person.photos?.find((p) => p.url && !p.default);
+  // "Last, First" address-book styling flips to "First Last" on import
+  const name = normalizeDisplayName(
+    pickPrimary(person.names)?.displayName?.trim() || null,
+  );
+  const phones = mapPhoneNumbers(person.phoneNumbers);
+
+  // A person with nothing identifying isn't a contact. Deletions still map,
+  // since they're matched on resourceName alone.
+  if (!primaryEmail && !name && !phones.length && !person.metadata?.deleted) {
+    return null;
+  }
 
   return {
     resourceName: person.resourceName,
     etag: person.etag ?? null,
-    email: primaryEmail?.toLowerCase() ?? "",
-    // "Last, First" address-book styling flips to "First Last" on import
-    name: normalizeDisplayName(
-      pickPrimary(person.names)?.displayName?.trim() || null,
-    ),
-    phones: mapPhoneNumbers(person.phoneNumbers),
+    email: primaryEmail?.toLowerCase() ?? null,
+    name,
+    phones,
     title: organization?.title?.trim() || null,
     companyName: organization?.name?.trim() || null,
     photoUrl: photo?.url ?? null,
@@ -49,7 +55,7 @@ export function mapPersonToContact(
 }
 
 export function contactToPersonPayload(contact: {
-  email: string;
+  email: string | null;
   name: string | null;
   phones: ContactPhone[];
   title: string | null;
@@ -57,7 +63,7 @@ export function contactToPersonPayload(contact: {
 }): people_v1.Schema$Person {
   return {
     names: contact.name ? [{ unstructuredName: contact.name }] : [],
-    emailAddresses: [{ value: contact.email }],
+    emailAddresses: contact.email ? [{ value: contact.email }] : [],
     phoneNumbers: contact.phones.map((phone) => ({
       value: phone.value,
       type: googleTypeFromLabel(phone.label),

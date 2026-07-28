@@ -45,6 +45,7 @@ export const LlmUseCase = {
   ReplyMemorySelection: "reply-memory-selection",
   ReplyNudge: "reply-nudge",
   ResearchCompany: "research-company",
+  ScanBusinessCard: "scan-business-card",
   Summarise: "summarise",
   WritingStyleAnalysis: "writing-style-analysis",
 } as const;
@@ -94,6 +95,8 @@ export const LLM_USE_CASE_MODEL_TYPES = {
   [LlmUseCase.ReplyMemorySelection]: "economy",
   [LlmUseCase.ReplyNudge]: "chat",
   [LlmUseCase.ResearchCompany]: "chat",
+  // Reading a photo needs a vision-capable model, so this rides the chat tier
+  [LlmUseCase.ScanBusinessCard]: "chat",
   [LlmUseCase.Summarise]: "default",
   [LlmUseCase.WritingStyleAnalysis]: "default",
 } as const satisfies Record<LlmUseCase, ModelType>;

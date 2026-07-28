@@ -61,7 +61,6 @@ export async function createRuleHistory({
       name: rule.name,
       instructions: rule.instructions,
       enabled: rule.enabled,
-      automate: rule.automate,
       runOnThreads: rule.runOnThreads,
       conditionalOperator: rule.conditionalOperator,
       from: rule.from,

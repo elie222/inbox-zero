@@ -4,11 +4,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
 import { formatDistanceToNow } from "date-fns";
-import { PlusIcon, RefreshCwIcon, StickyNoteIcon, TagIcon } from "lucide-react";
+import {
+  IdCardIcon,
+  PlusIcon,
+  RefreshCwIcon,
+  StickyNoteIcon,
+  TagIcon,
+} from "lucide-react";
 import type { ContactsResponse } from "@/app/api/contacts/route";
 import type { ContactDomainsResponse } from "@/app/api/contacts/domains/route";
 import {
   contactAvatarUrl,
+  contactDisplayName,
+  contactKey,
   type CompanySummary,
   type ContactListItem,
   groupContacts,
@@ -35,6 +43,7 @@ import { CompanyDetails } from "./CompanyDetails";
 import { DomainSuggestions } from "./DomainSuggestions";
 import { AddContactDialog } from "./AddContactDialog";
 import { ManageLabelsDialog } from "./ManageLabelsDialog";
+import { MyCardDialog } from "./MyCardDialog";
 import { SyncSettingsDialog } from "./SyncSettingsDialog";
 
 const DEFAULT_LIMIT = 100;
@@ -52,6 +61,7 @@ export function ContactsList() {
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [showSync, setShowSync] = useState(false);
+  const [showMyCard, setShowMyCard] = useState(false);
   const [managingLabels, setManagingLabels] = useState(false);
 
   // Tabs sync selection to the URL, so view and sort live there too;
@@ -160,7 +170,7 @@ export function ContactsList() {
   // fall back to the captured object for out-of-window selections
   const selected = selectedContact
     ? (data?.contacts.find(
-        (contact) => contact.email === selectedContact.email,
+        (contact) => contactKey(contact) === contactKey(selectedContact),
       ) ?? selectedContact)
     : null;
   const setSelected = (contact: ContactListItem) => {
@@ -206,8 +216,8 @@ export function ContactsList() {
           )?.contacts[0] ?? null)
         : (filteredContacts[0] ?? null);
   const displayed = selected ?? fallback;
-  const activeEmail =
-    isWide && !selectedGroup ? (displayed?.email ?? null) : null;
+  const activeContactKey =
+    isWide && !selectedGroup && displayed ? contactKey(displayed) : null;
 
   const companyCount = companies.length;
   const suggestedCount = pendingSuggestions.length;
@@ -245,6 +255,14 @@ export function ContactsList() {
             className="w-full min-w-0 flex-1 sm:w-auto sm:max-w-md"
           />
           <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowMyCard(true)}
+            >
+              <IdCardIcon className="mr-1.5 size-3.5" />
+              My card
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -319,7 +337,7 @@ export function ContactsList() {
                     groupBy={view === "labels" ? "label" : "company"}
                     labelFilter={labelFilter}
                     search={search}
-                    activeEmail={activeEmail}
+                    activeContactKey={activeContactKey}
                     activeGroupKey={isWide ? selectedGroupKey : null}
                     onSelectContact={setSelected}
                     onSelectCompany={setSelectedGroup}
@@ -331,7 +349,7 @@ export function ContactsList() {
                     ignoredEmails={data.ignoredEmails}
                     companies={companies}
                     search={search}
-                    activeEmail={activeEmail}
+                    activeContactKey={activeContactKey}
                     onSelectContact={setSelected}
                     mutate={mutate}
                   />
@@ -340,7 +358,7 @@ export function ContactsList() {
                     <PeopleTable
                       contacts={filteredContacts}
                       companies={companies}
-                      activeEmail={activeEmail}
+                      activeContactKey={activeContactKey}
                       onSelect={setSelected}
                     />
                     {data.hasMore && limit < MAX_LIMIT && (
@@ -385,7 +403,7 @@ export function ContactsList() {
             />
           ) : isWide && displayed ? (
             <ContactDetails
-              key={displayed.email}
+              key={contactKey(displayed)}
               contact={displayed}
               companies={companies}
               mutateContacts={mutate}
@@ -436,6 +454,8 @@ export function ContactsList() {
           mutateContacts={mutate}
         />
       )}
+
+      <MyCardDialog open={showMyCard} onClose={() => setShowMyCard(false)} />
     </div>
   );
 }
@@ -443,12 +463,12 @@ export function ContactsList() {
 function PeopleTable({
   contacts,
   companies,
-  activeEmail,
+  activeContactKey,
   onSelect,
 }: {
   contacts: ContactListItem[];
   companies: CompanySummary[];
-  activeEmail: string | null;
+  activeContactKey: string | null;
   onSelect: (contact: ContactListItem) => void;
 }) {
   return (
@@ -471,10 +491,10 @@ function PeopleTable({
       <TableBody>
         {contacts.map((contact) => (
           <ContactRow
-            key={contact.email}
+            key={contactKey(contact)}
             contact={contact}
             companies={companies}
-            active={contact.email === activeEmail}
+            active={contactKey(contact) === activeContactKey}
             onSelect={() => onSelect(contact)}
           />
         ))}
@@ -507,7 +527,7 @@ function ContactRow({
           <ContactAvatar contact={contact} companies={companies} />
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 truncate font-medium">
-              {contact.name || contact.email}
+              {contactDisplayName(contact)}
               {contact.notes && (
                 <StickyNoteIcon className="size-3.5 shrink-0 text-muted-foreground" />
               )}
@@ -550,6 +570,7 @@ export function ContactAvatar({
     ContactListItem,
     | "name"
     | "email"
+    | "phones"
     | "photoUrl"
     | "useCompanyLogo"
     | "isPersonal"
@@ -563,7 +584,7 @@ export function ContactAvatar({
   // initial instead of a broken-image glyph
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const src = contactAvatarUrl(contact, companies);
-  const initial = (contact.name || contact.email).charAt(0).toUpperCase();
+  const initial = contactDisplayName(contact).charAt(0).toUpperCase();
 
   // A company logo (not a personal photo) honors the company's white-chip
   // setting so dark marks stay visible on the dark theme

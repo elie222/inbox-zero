@@ -120,10 +120,8 @@ type RuleRecordData = {
   systemType?: SystemType | null;
   instructions?: string | null;
   enabled?: boolean;
-  automate?: boolean;
   runOnThreads?: boolean;
   conditionalOperator?: Rule["conditionalOperator"] | null;
-  categoryFilterType?: Rule["categoryFilterType"] | null;
   from?: string | null;
   fromExclude?: boolean;
   to?: string | null;
@@ -274,10 +272,8 @@ export async function createRuleWithResolvedActions({
       systemType: data.systemType ?? undefined,
       instructions: data.instructions ?? undefined,
       enabled: data.enabled ?? undefined,
-      automate: data.automate ?? undefined,
       runOnThreads: data.runOnThreads ?? undefined,
       conditionalOperator: data.conditionalOperator ?? undefined,
-      categoryFilterType: data.categoryFilterType ?? undefined,
       from: data.from ?? undefined,
       fromExclude: data.fromExclude ?? undefined,
       to: data.to ?? undefined,
@@ -345,10 +341,8 @@ export async function replaceRuleWithResolvedActions({
       systemType: data.systemType,
       instructions: data.instructions,
       enabled: data.enabled,
-      automate: data.automate,
       runOnThreads: data.runOnThreads,
       conditionalOperator: data.conditionalOperator ?? undefined,
-      categoryFilterType: data.categoryFilterType,
       from: data.from,
       fromExclude: data.fromExclude ?? undefined,
       to: data.to,

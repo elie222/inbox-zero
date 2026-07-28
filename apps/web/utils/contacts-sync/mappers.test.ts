@@ -54,11 +54,36 @@ describe("mapPersonToContact", () => {
     expect(result?.email).toBe("a@b.com");
   });
 
-  it("returns null for people without an email (nothing to key on)", () => {
+  // Google address books hold phone-only people; dropping them lost real
+  // contacts silently
+  it("maps a person who has a name and phone but no email", () => {
+    const result = mapPersonToContact({
+      resourceName: "people/c1",
+      names: [{ displayName: "Alex Bois" }],
+      phoneNumbers: [{ value: "+1 555 0123", type: "mobile" }],
+    });
+
+    expect(result).toMatchObject({
+      email: null,
+      name: "Alex Bois",
+      phones: [{ label: "Mobile", value: "+1 555 0123" }],
+    });
+  });
+
+  it("maps a person known only by name", () => {
+    const result = mapPersonToContact({
+      resourceName: "people/c1",
+      names: [{ displayName: "Just A Name" }],
+    });
+
+    expect(result).toMatchObject({ email: null, name: "Just A Name" });
+  });
+
+  it("returns null when nothing identifies the person", () => {
     expect(
       mapPersonToContact({
         resourceName: "people/c1",
-        names: [{ displayName: "No Email" }],
+        organizations: [{ name: "Example Corp" }],
       }),
     ).toBe(null);
   });
@@ -68,7 +93,7 @@ describe("mapPersonToContact", () => {
       resourceName: "people/c1",
       metadata: { deleted: true },
     });
-    expect(result).toMatchObject({ deleted: true, email: "" });
+    expect(result).toMatchObject({ deleted: true, email: null });
   });
 });
 
@@ -93,6 +118,22 @@ describe("contactToPersonPayload", () => {
         { value: "+1 555 0111", type: "work" },
       ],
       organizations: [{ title: "CTO", name: "Example Corp" }],
+    });
+  });
+
+  it("omits the email group for a phone-only contact", () => {
+    expect(
+      contactToPersonPayload({
+        email: null,
+        name: "Alex Bois",
+        phones: [{ label: "Mobile", value: "+1 555 0123" }],
+        title: null,
+      }),
+    ).toEqual({
+      names: [{ unstructuredName: "Alex Bois" }],
+      emailAddresses: [],
+      phoneNumbers: [{ value: "+1 555 0123", type: "mobile" }],
+      organizations: [],
     });
   });
 

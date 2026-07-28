@@ -24,8 +24,11 @@ export const contactPhoneEntry = z.object({
   value: z.string().min(1).max(100),
 });
 
+// A contact is addressed by email, or by contactId when it has none —
+// Google and iOS both allow phone-only contacts
 export const updateContactBody = z.object({
-  email: z.string().email(),
+  contactId: z.string().nullish(),
+  email: z.string().email().nullish(),
   name: z.string().max(200).nullish(),
   title: z.string().max(200).nullish(),
   // undefined leaves phones untouched; [] clears them
@@ -43,6 +46,20 @@ export type UpdateContactBody = z.infer<typeof updateContactBody>;
 export const enrichContactBody = z.object({
   email: z.string().email(),
 });
+
+// A photo of a paper business card, as a base64 data URL. Capped well under
+// the model's limits — phone cameras produce multi-megabyte JPEGs and the
+// client downscales before sending.
+export const scanBusinessCardBody = z.object({
+  imageDataUrl: z
+    .string()
+    .max(8_000_000)
+    .refine(
+      (value) => /^data:image\/(jpeg|png|webp|heic|heif);base64,/.test(value),
+      "Upload a photo of the card (JPEG, PNG, WebP, or HEIC)",
+    ),
+});
+export type ScanBusinessCardBody = z.infer<typeof scanBusinessCardBody>;
 export type EnrichContactBody = z.infer<typeof enrichContactBody>;
 
 // The opened email whose body should be scanned for people to add
@@ -57,7 +74,8 @@ export type ExtractContactsBody = z.infer<typeof extractContactsBody>;
 // hold addresses that fail the strict regex, and delete is an exact-match
 // lookup scoped to the account — format doesn't matter
 export const deleteContactBody = z.object({
-  email: z.string().trim().min(1).max(320),
+  contactId: z.string().nullish(),
+  email: z.string().trim().min(1).max(320).nullish(),
 });
 export type DeleteContactBody = z.infer<typeof deleteContactBody>;
 

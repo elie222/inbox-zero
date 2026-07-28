@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
-import { getUserCategoriesWithRules } from "@/utils/category.server";
+import { getUserCategorySummaries } from "@/utils/category.server";
 
 export type CategorizedSendersResponse = Awaited<
   ReturnType<typeof getCategorizedSenders>
@@ -22,7 +22,7 @@ async function getCategorizedSenders({
         category: { select: { id: true, description: true, name: true } },
       },
     }),
-    getUserCategoriesWithRules({ emailAccountId }),
+    getUserCategorySummaries({ emailAccountId }),
     prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
       select: { autoCategorizeSenders: true },

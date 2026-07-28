@@ -14,7 +14,6 @@ function sampleRule(
     name: "Newsletters",
     instructions: "Match recurring mail",
     enabled: true,
-    automate: true,
     runOnThreads: false,
     conditionalOperator: "AND",
     from: "news@example.com",

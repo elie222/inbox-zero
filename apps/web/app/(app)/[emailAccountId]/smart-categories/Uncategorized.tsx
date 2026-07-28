@@ -23,14 +23,14 @@ import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { Toggle } from "@/components/Toggle";
 import { setAutoCategorizeAction } from "@/utils/actions/categorize";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import type { CategoryWithRules } from "@/utils/category.server";
+import type { CategorySummary } from "@/utils/category.server";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function Uncategorized({
   categories,
   autoCategorizeSenders,
 }: {
-  categories: CategoryWithRules[];
+  categories: CategorySummary[];
   autoCategorizeSenders: boolean;
 }) {
   const { hasAiAccess } = usePremium();

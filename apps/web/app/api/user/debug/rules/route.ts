@@ -32,7 +32,6 @@ async function getDebugRules({ emailAccountId }: { emailAccountId: string }) {
     id: rule.id,
     name: rule.name,
     enabled: rule.enabled,
-    automate: rule.automate,
     runOnThreads: rule.runOnThreads,
     conditionalOperator: rule.conditionalOperator,
     systemType: rule.systemType,

@@ -5,12 +5,7 @@ import {
   type GroupsWithRules,
 } from "@/utils/group/find-matching-group";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
-import {
-  ExecutedRuleStatus,
-  LogicalOperator,
-  SubjectMatchMode,
-  SystemType,
-} from "@/generated/prisma/enums";
+import { LogicalOperator, SystemType } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
@@ -23,18 +18,8 @@ import type {
   PotentialAiMatchRule,
   RuleSelectionMetadata,
 } from "@/utils/ai/choose-rule/types";
-import {
-  extractEmailAddress,
-  extractEmailAddresses,
-  extractNameFromEmail,
-  splitRecipientList,
-} from "@/utils/email";
+import { extractEmailAddress } from "@/utils/email";
 import { isCalendarInvite } from "@/utils/parse/calender-event";
-import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
-import {
-  isAddressLikeEmailPattern,
-  splitEmailPatterns,
-} from "@/utils/rule/email-from-pattern";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ModelType } from "@/utils/llms/model";
 import {
@@ -42,27 +27,24 @@ import {
   isColdEmailRuleEnabled,
 } from "@/utils/cold-email/cold-email-rule";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
-import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import { getClassificationFeedback } from "@/utils/rule/classification-feedback";
 import { isKnownContact } from "@/utils/contact/is-known-contact";
 import {
   getSelectionMetadataTraceDetails,
   summarizeSelectionMetadata,
 } from "@/utils/ai/choose-rule/selection-metadata-summary";
+import { getStaticConditionFailures } from "@/utils/ai/choose-rule/match-static-conditions";
+import {
+  filterConversationStatusRulesWithMetadata,
+  filterMultipleSystemRules,
+  getPreviouslyExecutedRuleIds,
+} from "@/utils/ai/choose-rule/filter-selectable-rules";
+import {
+  combineReasoning,
+  getMatchesReasoning,
+} from "@/utils/ai/choose-rule/match-reasons";
 
 const MODULE = "match-rules";
-
-const TO_REPLY_RECEIVED_THRESHOLD = 10;
-const NO_REPLY_PREFIXES = [
-  "noreply@",
-  "no-reply@",
-  "notifications@",
-  "notif@",
-  "info@",
-  "newsletter@",
-  "updates@",
-  "account@",
-];
 
 type MatchingRulesResult = {
   matches: {
@@ -146,6 +128,108 @@ export async function findMatchingRules({
   );
 
   return results;
+}
+
+export function evaluateRuleConditions({
+  rule,
+  message,
+  logger,
+}: {
+  rule: RuleWithActions;
+  message: ParsedMessage;
+  logger: Logger;
+}): {
+  matched: boolean;
+  potentialAiMatch: boolean;
+  matchReasons: MatchReason[];
+  // The rule was dropped from selection because its static conditions
+  // didn't match — surfaced so the drop is diagnosable, not silent
+  staticFailed: boolean;
+  // Which conditions rejected the email (e.g. `From: @gm.com`), so the
+  // user sees what the rule requires without opening the editor
+  failedStaticConditions: string[];
+} {
+  const { conditionalOperator: operator } = rule;
+  const conditionTypes = getConditionTypes(rule);
+  const hasAiCondition = conditionTypes.AI && isAIRule(rule);
+  const hasStaticCondition = conditionTypes.STATIC;
+
+  const matchReasons: MatchReason[] = [];
+
+  // Check STATIC condition
+  const staticResult = hasStaticCondition
+    ? getStaticConditionFailures(rule, message, logger)
+    : { matched: false, failedConditions: [] };
+  const staticMatch = staticResult.matched;
+  const failedStaticConditions = staticResult.failedConditions;
+  if (staticMatch) {
+    matchReasons.push({ type: ConditionType.STATIC });
+  }
+
+  // Determine result based on what we have
+  if (operator === LogicalOperator.OR) {
+    // OR logic
+    if (staticMatch) {
+      // Found a match, no need for AI
+      return {
+        matched: true,
+        potentialAiMatch: false,
+        matchReasons,
+        staticFailed: false,
+        failedStaticConditions,
+      };
+    }
+    if (hasAiCondition) {
+      // No static match, but have AI - need to check AI (the rule stays in
+      // play, so a failed static leg isn't a drop)
+      return {
+        matched: false,
+        potentialAiMatch: true,
+        matchReasons,
+        staticFailed: false,
+        failedStaticConditions,
+      };
+    }
+    // No conditions means no match
+    return {
+      matched: false,
+      potentialAiMatch: false,
+      matchReasons,
+      staticFailed: hasStaticCondition && !staticMatch,
+      failedStaticConditions,
+    };
+  } else {
+    // AND logic
+    if (hasStaticCondition && !staticMatch) {
+      // Static failed, so AND fails
+      return {
+        matched: false,
+        potentialAiMatch: false,
+        matchReasons: [],
+        staticFailed: true,
+        failedStaticConditions,
+      };
+    }
+    if (hasAiCondition) {
+      // Static passed (or doesn't exist), but need AI to complete AND
+      return {
+        matched: false,
+        potentialAiMatch: true,
+        matchReasons,
+        staticFailed: false,
+        failedStaticConditions,
+      };
+    }
+    // Only static (and it passed), or no conditions (no match)
+    const matched = hasStaticCondition ? staticMatch : false;
+    return {
+      matched,
+      potentialAiMatch: false,
+      matchReasons,
+      staticFailed: false,
+      failedStaticConditions,
+    };
+  }
 }
 
 /**
@@ -414,233 +498,6 @@ async function findPotentialMatchingRules({
   };
 }
 
-export function evaluateRuleConditions({
-  rule,
-  message,
-  logger,
-}: {
-  rule: RuleWithActions;
-  message: ParsedMessage;
-  logger: Logger;
-}): {
-  matched: boolean;
-  potentialAiMatch: boolean;
-  matchReasons: MatchReason[];
-  // The rule was dropped from selection because its static conditions
-  // didn't match — surfaced so the drop is diagnosable, not silent
-  staticFailed: boolean;
-  // Which conditions rejected the email (e.g. `From: @gm.com`), so the
-  // user sees what the rule requires without opening the editor
-  failedStaticConditions: string[];
-} {
-  const { conditionalOperator: operator } = rule;
-  const conditionTypes = getConditionTypes(rule);
-  const hasAiCondition = conditionTypes.AI && isAIRule(rule);
-  const hasStaticCondition = conditionTypes.STATIC;
-
-  const matchReasons: MatchReason[] = [];
-
-  // Check STATIC condition
-  const staticResult = hasStaticCondition
-    ? getStaticConditionFailures(rule, message, logger)
-    : { matched: false, failedConditions: [] };
-  const staticMatch = staticResult.matched;
-  const failedStaticConditions = staticResult.failedConditions;
-  if (staticMatch) {
-    matchReasons.push({ type: ConditionType.STATIC });
-  }
-
-  // Determine result based on what we have
-  if (operator === LogicalOperator.OR) {
-    // OR logic
-    if (staticMatch) {
-      // Found a match, no need for AI
-      return {
-        matched: true,
-        potentialAiMatch: false,
-        matchReasons,
-        staticFailed: false,
-        failedStaticConditions,
-      };
-    }
-    if (hasAiCondition) {
-      // No static match, but have AI - need to check AI (the rule stays in
-      // play, so a failed static leg isn't a drop)
-      return {
-        matched: false,
-        potentialAiMatch: true,
-        matchReasons,
-        staticFailed: false,
-        failedStaticConditions,
-      };
-    }
-    // No conditions means no match
-    return {
-      matched: false,
-      potentialAiMatch: false,
-      matchReasons,
-      staticFailed: hasStaticCondition && !staticMatch,
-      failedStaticConditions,
-    };
-  } else {
-    // AND logic
-    if (hasStaticCondition && !staticMatch) {
-      // Static failed, so AND fails
-      return {
-        matched: false,
-        potentialAiMatch: false,
-        matchReasons: [],
-        staticFailed: true,
-        failedStaticConditions,
-      };
-    }
-    if (hasAiCondition) {
-      // Static passed (or doesn't exist), but need AI to complete AND
-      return {
-        matched: false,
-        potentialAiMatch: true,
-        matchReasons,
-        staticFailed: false,
-        failedStaticConditions,
-      };
-    }
-    // Only static (and it passed), or no conditions (no match)
-    const matched = hasStaticCondition ? staticMatch : false;
-    return {
-      matched,
-      potentialAiMatch: false,
-      matchReasons,
-      staticFailed: false,
-      failedStaticConditions,
-    };
-  }
-}
-
-// Lazy load learned patterns when needed
-class LearnedPatternsLoader {
-  private groups?: GroupsWithRules | null;
-
-  async getGroups(emailAccountId: string) {
-    if (this.groups === undefined)
-      this.groups = await getGroupsWithRules({ emailAccountId });
-    return this.groups;
-  }
-}
-
-// Lazy load previously executed rules in thread when needed
-// Lazy one-shot contact lookup: only queries when a rule opts out of
-// known contacts, and at most once per message
-class KnownContactLoader {
-  private known?: boolean;
-  private readonly emailAccountId: string;
-  private readonly from: string;
-
-  constructor({
-    emailAccountId,
-    from,
-  }: {
-    emailAccountId: string;
-    from: string;
-  }) {
-    this.emailAccountId = emailAccountId;
-    this.from = from;
-  }
-
-  async isKnown(): Promise<boolean> {
-    if (this.known === undefined) {
-      this.known = await isKnownContact({
-        emailAccountId: this.emailAccountId,
-        from: this.from,
-      });
-    }
-    return this.known;
-  }
-}
-
-class PreviousThreadRulesLoader {
-  private ruleIds?: Set<string>;
-  private readonly emailAccountId: string;
-  private readonly threadId: string;
-
-  constructor({
-    emailAccountId,
-    threadId,
-  }: {
-    emailAccountId: string;
-    threadId: string;
-  }) {
-    this.emailAccountId = emailAccountId;
-    this.threadId = threadId;
-  }
-
-  async getRuleIds(): Promise<Set<string>> {
-    if (this.ruleIds === undefined) {
-      this.ruleIds = await getPreviouslyExecutedRuleIds({
-        emailAccountId: this.emailAccountId,
-        threadId: this.threadId,
-      });
-    }
-    return this.ruleIds;
-  }
-}
-
-function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
-  if (!matchReasons || matchReasons.length === 0) return;
-
-  return matchReasons
-    .map((reason) => {
-      switch (reason.type) {
-        case ConditionType.STATIC:
-          return "Matched static conditions";
-        case ConditionType.LEARNED_PATTERN:
-          return `Matched learned pattern: "${reason.groupItem.type}: ${reason.groupItem.value}"`;
-        case ConditionType.PRESET:
-          return "Matched a system preset";
-        case ConditionType.AI:
-          return "Matched via AI";
-      }
-    })
-    .join(", ");
-}
-
-function joinLogValues(values: (string | null | undefined)[]) {
-  return values.filter((value): value is string => !!value).join(", ");
-}
-
-function createRuleSelectionMetadata({
-  isThread,
-  skippedThreadRuleNames = [],
-  continuedThreadRuleNames = [],
-  knownContactSkippedRuleNames = [],
-  staticFailedRuleNames = [],
-  learnedPatternExcludedRules = [],
-  filteredConversationRuleNames = [],
-  conversationFilterReason,
-  remainingAiRuleNames = [],
-}: {
-  isThread: boolean;
-  skippedThreadRuleNames?: string[];
-  continuedThreadRuleNames?: string[];
-  knownContactSkippedRuleNames?: string[];
-  staticFailedRuleNames?: string[];
-  learnedPatternExcludedRules?: RuleSelectionMetadata["learnedPatternExcludedRules"];
-  filteredConversationRuleNames?: string[];
-  conversationFilterReason?: string;
-  remainingAiRuleNames?: string[];
-}): RuleSelectionMetadata {
-  return {
-    isThread,
-    skippedThreadRuleNames,
-    continuedThreadRuleNames,
-    knownContactSkippedRuleNames,
-    staticFailedRuleNames,
-    learnedPatternExcludedRules,
-    filteredConversationRuleNames,
-    conversationFilterReason,
-    remainingAiRuleNames,
-  };
-}
-
 async function findMatchingRulesWithReasons(
   rules: RuleWithActions[],
   message: ParsedMessage,
@@ -728,139 +585,6 @@ function mergeMatchesWithAiResults(
   ];
 }
 
-function getMatchesReasoning(
-  matches: { matchReasons?: MatchReason[] }[],
-): string {
-  return matches
-    .map((match) => getMatchReason(match.matchReasons))
-    .filter((reason): reason is string => !!reason)
-    .join(", ");
-}
-
-function combineReasoning(...reasons: (string | undefined)[]) {
-  return reasons
-    .map((reason) => reason?.trim())
-    .filter((reason): reason is string => !!reason)
-    .join("; ");
-}
-
-export function matchesStaticRule(
-  rule: Pick<RuleWithActions, "from" | "to" | "subject" | "body"> & {
-    subjectMatchMode?: SubjectMatchMode | null;
-    fromExclude?: boolean;
-    toExclude?: boolean;
-    subjectExclude?: boolean;
-  },
-  message: ParsedMessage,
-  logger: Logger,
-) {
-  return getStaticConditionFailures(rule, message, logger).matched;
-}
-
-// Per-field results so a failed rule can say WHICH condition rejected the
-// email and what that condition requires — "conditions didn't match" alone
-// sends the user hunting through the rule editor blind
-export function getStaticConditionFailures(
-  rule: Pick<RuleWithActions, "from" | "to" | "subject" | "body"> & {
-    subjectMatchMode?: SubjectMatchMode | null;
-    fromExclude?: boolean;
-    toExclude?: boolean;
-    subjectExclude?: boolean;
-  },
-  message: ParsedMessage,
-  logger: Logger,
-): { matched: boolean; failedConditions: string[] } {
-  const log = logger.with({ module: MODULE });
-  const { from, to, subject, body } = rule;
-
-  if (!from && !to && !subject && !body)
-    return { matched: false, failedConditions: [] };
-
-  const {
-    fromAddressHeader,
-    toAddressHeader,
-    fromDisplayNameHeader,
-    toDisplayNameHeader,
-  } = getNormalizedEmailMatchHeaders(message);
-
-  const failedConditions: string[] = [];
-
-  const fromPatternMatch = from
-    ? matchesEmailFieldPattern({
-        pattern: from,
-        addressText: fromAddressHeader.toLowerCase(),
-        displayNameText: fromDisplayNameHeader.toLowerCase(),
-        logInvalidPattern: (pattern, error) =>
-          logInvalidEmailMatchPattern({
-            logger: log,
-            pattern,
-            error,
-          }),
-      })
-    : true;
-  // An excluded condition matches when the pattern does NOT match
-  const fromMatch = from
-    ? rule.fromExclude
-      ? !fromPatternMatch
-      : fromPatternMatch
-    : true;
-  if (!fromMatch && from) {
-    failedConditions.push(
-      rule.fromExclude ? `Not From: ${from}` : `From: ${from}`,
-    );
-  }
-
-  const toPatternMatch = to
-    ? matchesEmailFieldPattern({
-        pattern: to,
-        addressText: toAddressHeader.toLowerCase(),
-        displayNameText: toDisplayNameHeader.toLowerCase(),
-        logInvalidPattern: (pattern, error) =>
-          logInvalidEmailMatchPattern({
-            logger: log,
-            pattern,
-            error,
-          }),
-      })
-    : true;
-  const toMatch = to
-    ? rule.toExclude
-      ? !toPatternMatch
-      : toPatternMatch
-    : true;
-  if (!toMatch && to) {
-    failedConditions.push(rule.toExclude ? `Not To: ${to}` : `To: ${to}`);
-  }
-
-  const subjectPatternMatch = subject
-    ? matchesSubjectPattern(subject, message.headers.subject, log, {
-        anchorStart: rule.subjectMatchMode === SubjectMatchMode.STARTS_WITH,
-      })
-    : true;
-  const subjectMatch = subject
-    ? rule.subjectExclude
-      ? !subjectPatternMatch
-      : subjectPatternMatch
-    : true;
-  if (!subjectMatch && subject) {
-    failedConditions.push(
-      rule.subjectExclude
-        ? `Not Subject: "${subject}"`
-        : `Subject: "${subject}"`,
-    );
-  }
-
-  const bodyMatch = body
-    ? matchesTextPattern(body, message.textPlain || "", log)
-    : true;
-  if (!bodyMatch && body) failedConditions.push(`Body: "${body}"`);
-
-  return {
-    matched: fromMatch && toMatch && subjectMatch && bodyMatch,
-    failedConditions,
-  };
-}
-
 function matchesGroupRule(
   rule: RuleWithActions,
   groups: GroupsWithRules,
@@ -903,413 +627,108 @@ function matchesGroupRule(
   };
 }
 
-export async function filterConversationStatusRules<
-  T extends { id: string; name: string; systemType: SystemType | null },
->(
-  potentialMatches: T[],
-  message: ParsedMessage,
-  provider: EmailProvider,
-  logger: Logger,
-): Promise<T[]> {
-  const result = await filterConversationStatusRulesWithMetadata(
-    potentialMatches,
-    message,
-    provider,
-    logger,
-  );
-
-  return result.rules;
-}
-
-async function filterConversationStatusRulesWithMetadata<
-  T extends { id: string; name: string; systemType: SystemType | null },
->(
-  potentialMatches: T[],
-  message: ParsedMessage,
-  provider: EmailProvider,
-  logger: Logger,
-): Promise<{
-  rules: T[];
-  filteredRuleNames: string[];
-  filterReason?: "no_reply_sender" | "reply_history_threshold";
-}> {
-  const log = logger.with({ module: MODULE });
-  const toReplyRule = potentialMatches.find(
-    (r) => r.systemType === SystemType.TO_REPLY,
-  );
-
-  if (!toReplyRule) {
-    return { rules: potentialMatches, filteredRuleNames: [] };
-  }
-
-  const senderEmail = message.headers.from;
-  if (!senderEmail) {
-    return { rules: potentialMatches, filteredRuleNames: [] };
-  }
-
-  const extractedSenderEmail = extractEmailAddress(senderEmail);
-
-  const filteredConversationRuleNames = potentialMatches
-    .filter((r) => isConversationStatusType(r.systemType))
-    .map((r) => r.name);
-
-  function filteredOutConversationStatusRules() {
-    return potentialMatches.filter(
-      (r) => !isConversationStatusType(r.systemType),
-    );
-  }
-
-  if (
-    NO_REPLY_PREFIXES.some((prefix) => extractedSenderEmail.startsWith(prefix))
-  ) {
-    return {
-      rules: filteredOutConversationStatusRules(),
-      filteredRuleNames: filteredConversationRuleNames,
-      filterReason: "no_reply_sender",
-    };
-  }
-
-  try {
-    const { hasReplied, receivedCount } = await checkSenderReplyHistory(
-      provider,
-      senderEmail,
-      TO_REPLY_RECEIVED_THRESHOLD,
-    );
-
-    if (!hasReplied && receivedCount >= TO_REPLY_RECEIVED_THRESHOLD) {
-      log.info(
-        "Filtering out TO_REPLY rule due to no prior reply and high received count",
-        {
-          ruleId: toReplyRule.id,
-          senderEmail,
-          receivedCount,
-        },
-      );
-      return {
-        rules: filteredOutConversationStatusRules(),
-        filteredRuleNames: filteredConversationRuleNames,
-        filterReason: "reply_history_threshold",
-      };
-    }
-  } catch (error) {
-    log.error("Error checking reply history for TO_REPLY filter", {
-      senderEmail,
-      error,
-    });
-  }
-
-  return { rules: potentialMatches, filteredRuleNames: [] };
-}
-
-/**
- * Filter system rules: if multiple system rules were matched, only keep the primary one.
- * Always keep all conversation rules (non-system rules).
- */
-export function filterMultipleSystemRules<
-  T extends { name: string; instructions: string; systemType?: string | null },
->(selectedRules: { rule: T; isPrimary?: boolean }[]): T[] {
-  const systemRules = selectedRules.filter((r) => r.rule?.systemType);
-  const conversationRules = selectedRules.filter(
-    (r) => r.rule && !r.rule?.systemType,
-  );
-
-  let filteredSystemRules = systemRules;
-  if (systemRules.length > 1) {
-    // Only keep the primary system rule
-    const primarySystemRule = systemRules.find((r) => r.isPrimary);
-    filteredSystemRules = primarySystemRule ? [primarySystemRule] : systemRules;
-  }
-
-  return [...filteredSystemRules, ...conversationRules].map((r) => r.rule);
-}
-
-/**
- * Gets the IDs of rules that were previously executed in this thread.
- * This allows us to continue applying the same rules to a thread for consistency,
- * even if `runOnThreads` is false.
- */
-async function getPreviouslyExecutedRuleIds({
-  emailAccountId,
-  threadId,
+function createRuleSelectionMetadata({
+  isThread,
+  skippedThreadRuleNames = [],
+  continuedThreadRuleNames = [],
+  knownContactSkippedRuleNames = [],
+  staticFailedRuleNames = [],
+  learnedPatternExcludedRules = [],
+  filteredConversationRuleNames = [],
+  conversationFilterReason,
+  remainingAiRuleNames = [],
 }: {
-  emailAccountId: string;
-  threadId: string;
-}): Promise<Set<string>> {
-  const previousRules = await prisma.executedRule.findMany({
-    where: {
-      emailAccountId,
-      threadId,
-      status: ExecutedRuleStatus.APPLIED,
-      ruleId: { not: null },
-    },
-    select: { ruleId: true },
-    distinct: ["ruleId"],
-  });
-
-  return new Set(
-    previousRules.map((r) => r.ruleId).filter((id): id is string => !!id),
-  );
-}
-
-function normalizeEmailHeaderForRuleMatching(
-  header: string,
-  allowMultiple = false,
-) {
-  if (!header) return "";
-
-  if (allowMultiple) {
-    return extractEmailAddresses(header).join(", ");
-  }
-
-  return extractEmailAddress(header);
-}
-
-function getNormalizedEmailMatchHeaders(message: ParsedMessage) {
+  isThread: boolean;
+  skippedThreadRuleNames?: string[];
+  continuedThreadRuleNames?: string[];
+  knownContactSkippedRuleNames?: string[];
+  staticFailedRuleNames?: string[];
+  learnedPatternExcludedRules?: RuleSelectionMetadata["learnedPatternExcludedRules"];
+  filteredConversationRuleNames?: string[];
+  conversationFilterReason?: string;
+  remainingAiRuleNames?: string[];
+}): RuleSelectionMetadata {
   return {
-    fromAddressHeader: normalizeEmailHeaderForRuleMatching(
-      message.headers.from,
-    ),
-    toAddressHeader: normalizeEmailHeaderForRuleMatching(
-      message.headers.to,
-      true,
-    ),
-    fromDisplayNameHeader: normalizeEmailDisplayNameHeaderForRuleMatching(
-      message.headers.from,
-    ),
-    toDisplayNameHeader: normalizeEmailDisplayNameHeaderForRuleMatching(
-      message.headers.to,
-    ),
+    isThread,
+    skippedThreadRuleNames,
+    continuedThreadRuleNames,
+    knownContactSkippedRuleNames,
+    staticFailedRuleNames,
+    learnedPatternExcludedRules,
+    filteredConversationRuleNames,
+    conversationFilterReason,
+    remainingAiRuleNames,
   };
 }
 
-function normalizeEmailDisplayNameHeaderForRuleMatching(header: string) {
-  if (!header) return "";
-
-  return splitRecipientList(header)
-    .map((part) => {
-      const name = extractNameFromEmail(part).trim();
-      const email = extractEmailAddress(part).trim().toLowerCase();
-
-      if (!name) return "";
-      if (email && name.toLowerCase() === email) return "";
-
-      return name;
-    })
-    .filter(Boolean)
-    .join(", ");
+function joinLogValues(values: (string | null | undefined)[]) {
+  return values.filter((value): value is string => !!value).join(", ");
 }
 
-function matchesTextPattern(
-  pattern: string,
-  text: string,
-  logger: Logger,
-  options?: { anchorStart?: boolean },
-) {
-  try {
-    return matchesRulePattern(pattern, text, options?.anchorStart);
-  } catch (error) {
-    logger.error("Invalid regex pattern", { pattern, error });
-    return false;
+// Lazy load learned patterns when needed
+class LearnedPatternsLoader {
+  private groups?: GroupsWithRules | null;
+
+  async getGroups(emailAccountId: string) {
+    if (this.groups === undefined)
+      this.groups = await getGroupsWithRules({ emailAccountId });
+    return this.groups;
   }
 }
 
-// Stacked reply/forward markers mailers prepend: "Re:", "RE: RE:", "Fwd:",
-// "Fw:", "Re[2]:" — a subject rule describes the conversation topic, so
-// replies must keep matching it (a "starts with Daily Report" rule has to
-// catch "Re: Daily Report")
-const REPLY_PREFIX_REGEX = /^(?:\s*(?:re|fwd?)(?:\[\d+\])?:\s*)+/i;
+// Lazy one-shot contact lookup: only queries when a rule opts out of
+// known contacts, and at most once per message
+class KnownContactLoader {
+  private known?: boolean;
+  private readonly emailAccountId: string;
+  private readonly from: string;
 
-function matchesSubjectPattern(
-  pattern: string,
-  subject: string,
-  logger: Logger,
-  options?: { anchorStart?: boolean },
-) {
-  if (matchesTextPattern(pattern, subject, logger, options)) return true;
-
-  // Users write conditions from what they see ("RE: Daily") and mailers
-  // stack prefixes freely — strip them from BOTH sides so the condition
-  // describes the topic, and original vs reply match alike
-  const strippedSubject = subject.replace(REPLY_PREFIX_REGEX, "");
-  const strippedPattern = pattern.replace(REPLY_PREFIX_REGEX, "");
-  if (strippedSubject === subject && strippedPattern === pattern) return false;
-  return matchesTextPattern(strippedPattern, strippedSubject, logger, options);
-}
-
-function matchesRulePattern(
-  pattern: string,
-  text: string,
-  anchorStart?: boolean,
-) {
-  // Case-insensitive: a rule for "RE: Daily" must match "Re: Daily Report" —
-  // nobody types conditions to match mailer casing
-  return matchesGlob({
-    pattern: pattern.toLowerCase(),
-    text: text.toLowerCase(),
-    anchorStart,
-  });
-}
-
-// Non-backtracking glob matching: `*` spans any characters (newlines
-// included, exactly like the `.*` regex this replaced). Splitting the
-// pattern into literal segments and locating them left-to-right with
-// indexOf is equivalent for existence checks and runs in linear time —
-// where a wildcard regex suffers catastrophic backtracking on crafted
-// inputs, and the matched text here is raw email content that any remote
-// sender controls (a confirmed denial-of-service vector).
-function matchesGlob({
-  pattern,
-  text,
-  anchorStart = false,
-  anchorEnd = false,
-}: {
-  pattern: string;
-  text: string;
-  anchorStart?: boolean;
-  anchorEnd?: boolean;
-}): boolean {
-  const segments = pattern.split("*");
-
-  if (segments.length === 1) {
-    if (anchorStart && anchorEnd) return text === pattern;
-    if (anchorStart) return text.startsWith(pattern);
-    if (anchorEnd) return text.endsWith(pattern);
-    return text.includes(pattern);
+  constructor({
+    emailAccountId,
+    from,
+  }: {
+    emailAccountId: string;
+    from: string;
+  }) {
+    this.emailAccountId = emailAccountId;
+    this.from = from;
   }
 
-  const first = segments[0];
-  const last = segments[segments.length - 1];
-
-  // Earliest placement of each segment is always optimal: it leaves the
-  // most room for the segments that follow.
-  let pos = 0;
-  if (anchorStart) {
-    if (!text.startsWith(first)) return false;
-    pos = first.length;
-  } else if (first) {
-    const index = text.indexOf(first);
-    if (index === -1) return false;
-    pos = index + first.length;
-  }
-
-  let end = text.length;
-  const lastIsPinned = anchorEnd && last !== "";
-  if (lastIsPinned) {
-    if (!text.endsWith(last)) return false;
-    end = text.length - last.length;
-    if (end < pos) return false;
-  }
-
-  const middleEnd = lastIsPinned ? segments.length - 1 : segments.length;
-  for (let i = 1; i < middleEnd; i++) {
-    const segment = segments[i];
-    if (!segment) continue;
-    const index = text.indexOf(segment, pos);
-    if (index === -1 || index + segment.length > end) return false;
-    pos = index + segment.length;
-  }
-
-  return true;
-}
-
-// Anchored: from/to address patterns match whole-address boundaries, so a
-// rule for `boss@company.com` cannot be satisfied by a spoofed prefix or
-// suffix like boss@company.com.evil.com. Both sides arrive lowercased.
-function matchesAnchoredAddressPattern(
-  pattern: string,
-  address: string,
-): boolean {
-  // `@domain` → any local part, exact domain (no subdomain), e.g. user@domain
-  if (pattern.startsWith("@")) {
-    return matchesGlob({ pattern, text: address, anchorEnd: true });
-  }
-  // `local@domain` → exact address (local part may contain `*` wildcards)
-  if (pattern.includes("@")) {
-    return matchesGlob({
-      pattern,
-      text: address,
-      anchorStart: true,
-      anchorEnd: true,
-    });
-  }
-  // Bare domain → addresses at that domain or a subdomain: the pattern must
-  // cover everything after an `@` or `.` boundary, never a lookalike domain
-  // (e.g. `example.com` must not match myexample.com)
-  for (let i = address.length - 1; i >= 0; i--) {
-    const boundary = address[i];
-    if (boundary !== "@" && boundary !== ".") continue;
-    if (
-      matchesGlob({
-        pattern,
-        text: address.slice(i + 1),
-        anchorStart: true,
-        anchorEnd: true,
-      })
-    ) {
-      return true;
+  async isKnown(): Promise<boolean> {
+    if (this.known === undefined) {
+      this.known = await isKnownContact({
+        emailAccountId: this.emailAccountId,
+        from: this.from,
+      });
     }
+    return this.known;
   }
-  return false;
 }
 
-function matchesEmailFieldPattern({
-  pattern,
-  addressText,
-  displayNameText,
-  logInvalidPattern,
-}: {
-  pattern: string;
-  addressText: string;
-  displayNameText: string;
-  logInvalidPattern: (pattern: string, error: unknown) => void;
-}) {
-  try {
-    const patterns = splitEmailPatterns(pattern);
+// Lazy load previously executed rules in thread when needed
+class PreviousThreadRulesLoader {
+  private ruleIds?: Set<string>;
+  private readonly emailAccountId: string;
+  private readonly threadId: string;
 
-    for (const patternPart of patterns) {
-      const normalizedPattern = patternPart.trim().toLowerCase();
+  constructor({
+    emailAccountId,
+    threadId,
+  }: {
+    emailAccountId: string;
+    threadId: string;
+  }) {
+    this.emailAccountId = emailAccountId;
+    this.threadId = threadId;
+  }
 
-      if (isAddressLikeEmailPattern(patternPart)) {
-        // `addressText` may hold several recipients joined as "a@x, b@y";
-        // the anchored match must be tested against each address individually.
-        const addresses = addressText.split(", ").filter(Boolean);
-        if (
-          addresses.some((address) =>
-            matchesAnchoredAddressPattern(normalizedPattern, address),
-          )
-        ) {
-          return true;
-        }
-        continue;
-      }
-
-      if (
-        displayNameText &&
-        matchesGlob({ pattern: normalizedPattern, text: displayNameText })
-      ) {
-        return true;
-      }
-      if (matchesGlob({ pattern: normalizedPattern, text: addressText })) {
-        return true;
-      }
+  async getRuleIds(): Promise<Set<string>> {
+    if (this.ruleIds === undefined) {
+      this.ruleIds = await getPreviouslyExecutedRuleIds({
+        emailAccountId: this.emailAccountId,
+        threadId: this.threadId,
+      });
     }
-
-    return false;
-  } catch (error) {
-    logInvalidPattern(pattern, error);
-    return false;
+    return this.ruleIds;
   }
-}
-
-function logInvalidEmailMatchPattern({
-  logger,
-  pattern,
-  error,
-}: {
-  logger: Logger;
-  pattern: string;
-  error: unknown;
-}) {
-  logger.error("Invalid email match pattern");
-  logger.trace("Invalid email match pattern details", { pattern, error });
 }

@@ -12,6 +12,8 @@ import {
 import type { ContactsResponse } from "@/app/api/contacts/route";
 import {
   type CompanySummary,
+  contactDisplayName,
+  contactKey,
   type ContactListItem,
   type DomainStat,
   domainLogoUrl,
@@ -56,7 +58,7 @@ export function DomainSuggestions({
   ignoredEmails,
   companies,
   search = "",
-  activeEmail,
+  activeContactKey,
   onSelectContact,
   mutate,
 }: {
@@ -67,7 +69,7 @@ export function DomainSuggestions({
   companies: CompanySummary[];
   // The page's search term narrows all three lists by domain/address
   search?: string;
-  activeEmail: string | null;
+  activeContactKey: string | null;
   onSelectContact: (contact: ContactListItem) => void;
   mutate: () => void;
 }) {
@@ -101,7 +103,7 @@ export function DomainSuggestions({
                 key={stat.domain}
                 stat={stat}
                 companies={companies}
-                activeEmail={activeEmail}
+                activeContactKey={activeContactKey}
                 onSelectContact={onSelectContact}
                 onAdd={() => setAdding(stat.domain)}
                 mutate={mutate}
@@ -220,14 +222,14 @@ function IgnoredPersonRow({
 function SuggestionRow({
   stat,
   companies,
-  activeEmail,
+  activeContactKey,
   onSelectContact,
   onAdd,
   mutate,
 }: {
   stat: DomainStat;
   companies: CompanySummary[];
-  activeEmail: string | null;
+  activeContactKey: string | null;
   onSelectContact: (contact: ContactListItem) => void;
   onAdd: () => void;
   mutate: () => void;
@@ -299,7 +301,7 @@ function SuggestionRow({
         <DomainMembers
           domain={domain}
           companies={companies}
-          activeEmail={activeEmail}
+          activeContactKey={activeContactKey}
           onSelectContact={onSelectContact}
         />
       )}
@@ -312,12 +314,12 @@ function SuggestionRow({
 function DomainMembers({
   domain,
   companies,
-  activeEmail,
+  activeContactKey,
   onSelectContact,
 }: {
   domain: string;
   companies: CompanySummary[];
-  activeEmail: string | null;
+  activeContactKey: string | null;
   onSelectContact: (contact: ContactListItem) => void;
 }) {
   const { data, isLoading, error } = useSWR<ContactsResponse>(
@@ -328,7 +330,9 @@ function DomainMembers({
   // the view's promise that no-reply/alert addresses are filtered out
   const members = (data?.contacts ?? []).filter(
     (contact) =>
-      contact.domain === domain && !isLikelyAutomatedSender(contact.email),
+      contact.domain === domain &&
+      !!contact.email &&
+      !isLikelyAutomatedSender(contact.email),
   );
 
   return (
@@ -343,18 +347,18 @@ function DomainMembers({
         {members.length ? (
           members.map((contact) => (
             <button
-              key={contact.email}
+              key={contactKey(contact)}
               type="button"
               className={cn(
                 "flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-muted/50",
-                contact.email === activeEmail && "bg-muted/50",
+                contactKey(contact) === activeContactKey && "bg-muted/50",
               )}
               onClick={() => onSelectContact(contact)}
             >
               <ContactAvatar contact={contact} companies={companies} />
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium">
-                  {contact.name || contact.email}
+                  {contactDisplayName(contact)}
                 </div>
                 <div className="truncate text-sm text-muted-foreground">
                   {[contact.email, `${contact.receivedCount} received`]

@@ -100,7 +100,9 @@ describe("Google webhook route", () => {
     expect(processHistoryForUserMock).not.toHaveBeenCalled();
   });
 
-  it("allows requests without a token when verification is intentionally disabled", async () => {
+  // A blank token used to mean "verification disabled", which opened this
+  // endpoint to anyone who could force Gmail history processing
+  it("rejects every request when no verification token is configured", async () => {
     envMock.GOOGLE_PUBSUB_VERIFICATION_TOKEN = "";
     const request = createRequest({
       emailAddress: "user@example.com",
@@ -110,13 +112,9 @@ describe("Google webhook route", () => {
     const response = await POST(request as any);
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body).toEqual({ ok: true });
-    expect(processHistoryForUserMock).toHaveBeenCalledWith(
-      { emailAddress: "user@example.com", historyId: 123 },
-      { preloadedEmailAccount: null },
-      expect.anything(),
-    );
+    expect(response.status).toBe(503);
+    expect(body).toEqual({ message: "Google webhook is not configured" });
+    expect(processHistoryForUserMock).not.toHaveBeenCalled();
   });
 
   it("acknowledges valid requests and processes history asynchronously", async () => {

@@ -1,7 +1,6 @@
 import { z } from "zod";
 import {
   ActionType,
-  CategoryFilterType,
   DraftReplyConfidence,
   LogicalOperator,
   SystemType,
@@ -453,7 +452,6 @@ const importedRule = z
     name: z.string().min(1),
     instructions: z.string().nullish(),
     enabled: z.boolean().optional().default(true),
-    automate: z.boolean().optional().default(true),
     runOnThreads: z.boolean().optional().default(false),
     systemType: zodSystemRule.nullish(),
     conditionalOperator: z
@@ -464,9 +462,6 @@ const importedRule = z
     to: z.string().nullish(),
     subject: z.string().nullish(),
     body: z.string().nullish(),
-    categoryFilterType: z
-      .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
-      .nullish(),
     actions: z.array(importedAction).min(1),
     group: z.string().nullish(),
   })

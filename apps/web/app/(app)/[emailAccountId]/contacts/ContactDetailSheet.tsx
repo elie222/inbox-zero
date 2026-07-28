@@ -18,6 +18,8 @@ import {
 import {
   type CompanySummary,
   companyOwningDomain,
+  contactDisplayName,
+  contactKey,
   type ContactGroup,
   type ContactListItem,
   type DomainStat,
@@ -97,7 +99,7 @@ export function ContactDetailSheet({
           />
         ) : contact ? (
           <ContactDetails
-            key={contact.email}
+            key={contactKey(contact)}
             contact={contact}
             companies={companies}
             mutateContacts={mutateContacts}
@@ -124,6 +126,9 @@ export function ContactDetails({
   onDeleted?: () => void;
 }) {
   const { emailAccountId } = useAccount();
+  // Bound locally so the email-only affordances below narrow inside their
+  // callbacks — a phone-only contact has no address
+  const email = contact.email;
   const company = resolveContactCompany(contact, companies);
   // Domain-owned membership is authoritative, so when it applies both the
   // displayed value and the lock must name the same company
@@ -181,7 +186,7 @@ export function ContactDetails({
         />
         <div className="min-w-0">
           <h2 className="truncate font-display text-2xl tracking-tight">
-            {contact.name || contact.email}
+            {contactDisplayName(contact)}
           </h2>
           <p className="truncate text-sm text-muted-foreground">
             {[contact.title, company?.name, contact.email]
@@ -217,28 +222,30 @@ export function ContactDetails({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button asChild variant="outline" size="sm">
-          <Link
-            href={prefixPath(
-              emailAccountId,
-              `/mail?q=${encodeURIComponent(contact.email)}`,
-            )}
-          >
-            <MailIcon className="mr-1.5 size-3.5" />
-            Search in Mail
-          </Link>
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          loading={ignoreContact.isExecuting}
-          onClick={() =>
-            ignoreContact.execute({ email: contact.email, ignored: true })
-          }
-        >
-          <EyeOffIcon className="mr-1.5 size-3.5" />
-          Ignore
-        </Button>
+        {email && (
+          <>
+            <Button asChild variant="outline" size="sm">
+              <Link
+                href={prefixPath(
+                  emailAccountId,
+                  `/mail?q=${encodeURIComponent(email)}`,
+                )}
+              >
+                <MailIcon className="mr-1.5 size-3.5" />
+                Search in Mail
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              loading={ignoreContact.isExecuting}
+              onClick={() => ignoreContact.execute({ email, ignored: true })}
+            >
+              <EyeOffIcon className="mr-1.5 size-3.5" />
+              Ignore
+            </Button>
+          </>
+        )}
         {contact.isSaved && (
           <Button
             variant="destructiveSoft"
@@ -248,7 +255,11 @@ export function ContactDetails({
               const yes = confirm(
                 "Delete this contact's saved details (and their Google Contacts entry when sync is on)? They'll still appear in the list while you have email history together.",
               );
-              if (yes) deleteContact.execute({ email: contact.email });
+              if (yes)
+                deleteContact.execute({
+                  contactId: contact.contactId,
+                  email: contact.email,
+                });
             }}
           >
             <Trash2Icon className="mr-1.5 size-3.5" />
@@ -257,11 +268,15 @@ export function ContactDetails({
         )}
       </div>
 
-      <InboxPrioritySection
-        key={`priority-${formEpoch}`}
-        contact={contact}
-        mutateContacts={mutateContacts}
-      />
+      {/* Inbox priority acts on incoming mail from an address */}
+      {email && (
+        <InboxPrioritySection
+          key={`priority-${formEpoch}`}
+          contact={contact}
+          email={email}
+          mutateContacts={mutateContacts}
+        />
+      )}
 
       <ContactEditForm
         companies={companies}
@@ -275,7 +290,7 @@ export function ContactDetails({
         mutateContacts={mutateContacts}
       />
 
-      <RecentEmails email={contact.email} />
+      {email && <RecentEmails email={email} />}
     </div>
   );
 }
@@ -284,9 +299,11 @@ export function ContactDetails({
 // waits for instructions so a half-configured override never goes live.
 function InboxPrioritySection({
   contact,
+  email,
   mutateContacts,
 }: {
   contact: ContactListItem;
+  email: string;
   mutateContacts: () => void;
 }) {
   const { emailAccountId } = useAccount();
@@ -330,7 +347,7 @@ function InboxPrioritySection({
             // AI needs instructions before it can go live — save on the
             // button below instead
             if (next !== ContactInboxPriority.AI) {
-              update.execute({ email: contact.email, priority: next });
+              update.execute({ email, priority: next });
             }
           }}
         >
@@ -374,7 +391,7 @@ function InboxPrioritySection({
             disabled={!instructions.trim() || !aiUnsaved}
             onClick={() =>
               update.execute({
-                email: contact.email,
+                email,
                 priority: ContactInboxPriority.AI,
                 instructions: instructions.trim(),
               })
@@ -416,6 +433,8 @@ function ContactEditForm({
   mutateContacts: () => void;
 }) {
   const { emailAccountId } = useAccount();
+  // Enrichment reads their email history, so it needs an address
+  const email = contact.email;
   const [isPersonal, setIsPersonal] = useState(contact.isPersonal);
   const [useCompanyLogo, setUseCompanyLogo] = useState(contact.useCompanyLogo);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -500,6 +519,7 @@ function ContactEditForm({
       className="space-y-4"
       onSubmit={handleSubmit((values) =>
         update.execute({
+          contactId: contact.contactId,
           email: contact.email,
           name: values.name,
           title: values.title,
@@ -517,16 +537,18 @@ function ContactEditForm({
     >
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">Details</h3>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          loading={enrich.isExecuting}
-          onClick={() => enrich.execute({ email: contact.email })}
-        >
-          <SparklesIcon className="mr-1.5 size-3.5" />
-          Suggest from emails
-        </Button>
+        {email && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            loading={enrich.isExecuting}
+            onClick={() => enrich.execute({ email })}
+          >
+            <SparklesIcon className="mr-1.5 size-3.5" />
+            Suggest from emails
+          </Button>
+        )}
       </div>
 
       {suggestions.length > 0 && (

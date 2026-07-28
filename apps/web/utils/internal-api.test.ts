@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// isValidInternalApiKey rejects anything under 32 characters before it even
+// compares, so the fixture key has to be a realistic length
+const VALID_INTERNAL_API_KEY = "expected-internal-key-0123456789ab";
+
 async function loadInternalApiModule({
   nextPublicBaseUrl = "https://mail.example.com",
   internalApiUrl = "https://www.getinboxzero.com",
-  internalApiKey = "expected-internal-key",
+  internalApiKey = VALID_INTERNAL_API_KEY,
 }: {
   nextPublicBaseUrl?: string;
   internalApiUrl?: string;
@@ -52,7 +56,7 @@ describe("internal-api", () => {
     const headers = getInternalApiHeaders();
 
     expect(headers).toMatchObject({
-      "x-api-key": "expected-internal-key",
+      "x-api-key": VALID_INTERNAL_API_KEY,
       "x-inbox-zero-caller-id": "mail.example.com",
       "x-inbox-zero-caller-app": "inbox-zero-web",
       "x-inbox-zero-caller-runtime": "self-hosted",
@@ -99,5 +103,19 @@ describe("internal-api", () => {
       '"callerDeploymentUrl": "self-hosted-preview.example.com"',
     );
     expect(logLine).toContain('"callerGitCommit": "commit_123"');
+  });
+
+  // A short key is brute-forceable and these routes mutate arbitrary
+  // mailboxes, so a weak deployment must fail closed rather than accept it
+  it("rejects every request when the configured key is too short", async () => {
+    const { createScopedLogger, getInternalApiHeaders, isValidInternalApiKey } =
+      await loadInternalApiModule({ internalApiKey: "short-key" });
+
+    const headers = new Headers(getInternalApiHeaders());
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(
+      isValidInternalApiKey(headers, createScopedLogger("internal-api-test")),
+    ).toBe(false);
   });
 });

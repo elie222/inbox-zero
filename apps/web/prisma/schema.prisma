@@ -245,6 +245,7 @@ model EmailAccount {
   companies              Company[]
   companyLabels          CompanyLabel[]
   tasks                  Task[]
+  contactCard            ContactCard?
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -568,7 +569,6 @@ model Rule {
   actions              Action[]
   attachmentSources    AttachmentSource[]
   enabled              Boolean            @default(true)
-  automate             Boolean            @default(true) // @deprecated - No longer used. All rules are now automated. Kept for historical data only.
   runOnThreads         Boolean            @default(false) // if disabled, only runs on individual emails
   // Senders in the contact list are never matched by this rule
   excludeKnownContacts Boolean            @default(false)
@@ -588,7 +588,7 @@ model Rule {
   executedRules          ExecutedRule[]
   classificationFeedback ClassificationFeedback[]
 
-  // conditions: ai, group, static, category
+  // conditions: ai, group, static
   conditionalOperator LogicalOperator @default(AND)
 
   // ai conditions
@@ -610,11 +610,6 @@ model Rule {
   fromExclude    Boolean @default(false)
   toExclude      Boolean @default(false)
   subjectExclude Boolean @default(false)
-
-  // category condition
-  // only apply to (or do not apply to) senders in these categories
-  categoryFilterType CategoryFilterType? // deprecated
-  categoryFilters    Category[] // deprecated
 
   systemType SystemType?
 
@@ -675,18 +670,15 @@ model RuleHistory {
   name                String
   instructions        String?
   enabled             Boolean
-  automate            Boolean
   runOnThreads        Boolean
   conditionalOperator String
   from                String?
   to                  String?
   subject             String?
   body                String?
-  categoryFilterType  String? // deprecated
   systemType          String?
 
-  actions         Json
-  categoryFilters Json? // deprecated
+  actions Json
 
   @@unique([ruleId, version])
   @@index([ruleId, createdAt])
@@ -878,7 +870,6 @@ model Category {
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   emailSenders Newsletter[]
-  rules        Rule[]
 
   @@unique([name, emailAccountId])
   @@index([emailAccountId])
@@ -967,7 +958,10 @@ model Contact {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  email          String
+  // Optional: Google (and iOS) address books hold phone-only contacts, and
+  // dropping them was silently losing real people. Postgres allows many
+  // NULLs under the unique index below, so real addresses stay unique.
+  email          String?
   name           String?
   title          String?
   // Labeled numbers: [{ "label": "Mobile", "value": "+1 555 0100" }, …]
@@ -1001,6 +995,49 @@ model Contact {
 
   @@unique([emailAccountId, email])
   @@index([emailAccountId, googleResourceName])
+}
+
+// The user's own digital business card, served at /card/<slug> to anyone
+// with the link. One per email account.
+model ContactCard {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  slug     String  @unique
+  isActive Boolean @default(true)
+
+  displayName String
+  headline    String?
+  title       String?
+  companyName String?
+  email       String?
+  phone       String?
+  website     String?
+  photoUrl    String?
+
+  emailAccountId String       @unique
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  views ContactCardView[]
+}
+
+// One row per view. Keeping them per-day per-visitor gives a trend and a
+// unique-visitor count; visitorHash is a salted digest, never a raw IP.
+model ContactCardView {
+  id       String   @id @default(cuid())
+  viewedAt DateTime @default(now())
+  // Date the view landed on, so a refresh the same day doesn't recount
+  day      DateTime @db.Date
+
+  visitorHash String
+  referrer    String?
+
+  contactCardId String      @map("cardId")
+  contactCard   ContactCard @relation(fields: [contactCardId], references: [id], onDelete: Cascade)
+
+  @@unique([contactCardId, visitorHash, day])
+  @@index([contactCardId, day])
 }
 
 // A company groups contacts by its email domains. Contacts with a matching
@@ -1990,11 +2027,6 @@ enum GroupItemType {
   FROM
   SUBJECT
   BODY
-}
-
-enum CategoryFilterType {
-  INCLUDE
-  EXCLUDE
 }
 
 enum LogicalOperator {
