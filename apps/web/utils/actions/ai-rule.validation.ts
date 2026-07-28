@@ -23,3 +23,10 @@ export const finalizeReprocessBody = z.object({
   returnToInbox: z.boolean(),
 });
 export type FinalizeReprocessBody = z.infer<typeof finalizeReprocessBody>;
+
+// Reprocess many threads in one request: the provider, rules, and labels
+// are resolved once and each thread is run + filed server-side
+export const bulkProcessThreadsBody = z.object({
+  threadIds: z.array(z.string()).min(1).max(100),
+});
+export type BulkProcessThreadsBody = z.infer<typeof bulkProcessThreadsBody>;

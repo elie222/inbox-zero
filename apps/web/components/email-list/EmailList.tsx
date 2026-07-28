@@ -33,13 +33,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import {
-  finalizeReprocessAction,
-  runRulesAction,
-} from "@/utils/actions/ai-rule";
-import { getDisplayedMessage } from "@/utils/email/displayed-message";
-import { useLabels } from "@/hooks/useLabels";
-import { ActionType } from "@/generated/prisma/enums";
+import { bulkProcessThreadsAction } from "@/utils/actions/ai-rule";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import {
@@ -467,78 +461,44 @@ export function EmailList({
     });
   }, [selectedRows, refetch, emailAccountId, undoSupported, undoTrash]);
 
-  // Bulk "Process with AI": the exact per-row sparkles process — a fresh
-  // rule run per thread, then the deterministic finalize that makes the
-  // decision stick (move to the chosen folder, or return to the inbox on
-  // no match) — run sequentially with live progress.
+  // Bulk "Process with AI": one server action reprocesses every selected
+  // thread — a fresh rule run plus the deterministic finalize that makes
+  // the decision stick — resolving provider/rules/labels once and running
+  // the threads with server-side concurrency (the old client loop fired
+  // two serialized server actions per thread).
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
-  const { userLabels } = useLabels();
 
   const onPlanAiBulk = useCallback(async () => {
-    const selectedThreads = threads.filter((thread) => selectedRows[thread.id]);
-    if (!selectedThreads.length || isBulkProcessing) return;
+    const selectedThreadIds = threads
+      .filter((thread) => selectedRows[thread.id])
+      .map((thread) => thread.id);
+    if (!selectedThreadIds.length || isBulkProcessing) return;
 
     setIsBulkProcessing(true);
     const toastId = toast.loading(
-      `Processing 0/${selectedThreads.length} with AI…`,
+      `Processing ${selectedThreadIds.length} email${selectedThreadIds.length === 1 ? "" : "s"} with AI…`,
     );
-    let failed = 0;
 
     try {
-      for (const [index, thread] of selectedThreads.entries()) {
-        const message =
-          getDisplayedMessage(thread, folderType) ?? thread.messages?.at(-1);
-        if (!message) {
-          failed++;
-          continue;
-        }
-
-        try {
-          const result = await runRulesAction(emailAccountId, {
-            messageId: message.id,
-            threadId: thread.id,
-            isTest: false,
-            rerun: true,
-          });
-          if (result?.serverError || !result?.data)
-            throw new Error(result?.serverError ?? "Rule run failed");
-
-          const matched = result.data.find((entry) => entry.rule);
-          const labelItem = matched?.actionItems?.find(
-            (item) => item.type === ActionType.LABEL,
-          );
-          const folderName =
-            labelItem?.label ??
-            (labelItem?.labelId
-              ? (userLabels.find((label) => label.id === labelItem.labelId)
-                  ?.name ?? null)
-              : null);
-
-          const finalize = await finalizeReprocessAction(emailAccountId, {
-            threadId: thread.id,
-            messageId: message.id,
-            keepLabelName: folderName,
-            returnToInbox: !folderName,
-          });
-          if (finalize?.serverError) throw new Error(finalize.serverError);
-        } catch {
-          failed++;
-        }
-
-        toast.loading(
-          `Processing ${index + 1}/${selectedThreads.length} with AI…`,
-          { id: toastId },
-        );
+      const result = await bulkProcessThreadsAction(emailAccountId, {
+        threadIds: selectedThreadIds,
+      });
+      if (result?.serverError || !result?.data) {
+        toast.error(result?.serverError ?? "Couldn't process the emails.", {
+          id: toastId,
+        });
+        return;
       }
 
+      const { processed, failed } = result.data;
       if (failed) {
         toast.error(
-          `Processed ${selectedThreads.length - failed} of ${selectedThreads.length} emails — ${failed} failed.`,
+          `Processed ${processed} of ${processed + failed} emails — ${failed} failed.`,
           { id: toastId },
         );
       } else {
         toast.success(
-          `Processed ${selectedThreads.length} email${selectedThreads.length === 1 ? "" : "s"} with AI.`,
+          `Processed ${processed} email${processed === 1 ? "" : "s"} with AI.`,
           { id: toastId },
         );
       }
@@ -547,15 +507,7 @@ export function EmailList({
     } finally {
       setIsBulkProcessing(false);
     }
-  }, [
-    emailAccountId,
-    selectedRows,
-    threads,
-    folderType,
-    userLabels,
-    isBulkProcessing,
-    refetch,
-  ]);
+  }, [emailAccountId, selectedRows, threads, isBulkProcessing, refetch]);
 
   const isEmpty = threads.length === 0;
   const selectedCount = threads.filter(
