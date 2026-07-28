@@ -1127,9 +1127,13 @@ function matchesSubjectPattern(
 ) {
   if (matchesTextPattern(pattern, subject, logger, options)) return true;
 
-  const withoutReplyPrefixes = subject.replace(REPLY_PREFIX_REGEX, "");
-  if (withoutReplyPrefixes === subject) return false;
-  return matchesTextPattern(pattern, withoutReplyPrefixes, logger, options);
+  // Users write conditions from what they see ("RE: Daily") and mailers
+  // stack prefixes freely — strip them from BOTH sides so the condition
+  // describes the topic, and original vs reply match alike
+  const strippedSubject = subject.replace(REPLY_PREFIX_REGEX, "");
+  const strippedPattern = pattern.replace(REPLY_PREFIX_REGEX, "");
+  if (strippedSubject === subject && strippedPattern === pattern) return false;
+  return matchesTextPattern(strippedPattern, strippedSubject, logger, options);
 }
 
 function matchesRulePattern(
@@ -1140,16 +1144,19 @@ function matchesRulePattern(
   return createRulePatternRegex(pattern, anchorStart).test(text);
 }
 
-// Escape regex metacharacters, then turn the `*` glob into `.*`.
+// Escape regex metacharacters (pipes included — from/to lists are split on
+// them BEFORE reaching here, so a pipe in a subject/body pattern is literal
+// text), then turn the `*` glob into `.*`.
 function globToRegexSource(pattern: string) {
-  return pattern.replace(/[.+?^${}()[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+  return pattern.replace(/[.+?^${}()[\]\\|]/g, "\\$&").replace(/\*/g, ".*");
 }
 
 // Unanchored by default: intended for subject/body keyword and display-name
 // substring matching. anchorStart pins the pattern to the beginning ("starts
-// with" subject conditions).
+// with" subject conditions). Case-insensitive: a rule for "RE: Daily" must
+// match "Re: Daily Report" — nobody types conditions to match mailer casing.
 function createRulePatternRegex(pattern: string, anchorStart?: boolean) {
-  return new RegExp((anchorStart ? "^" : "") + globToRegexSource(pattern));
+  return new RegExp((anchorStart ? "^" : "") + globToRegexSource(pattern), "i");
 }
 
 // Anchored: for from/to address patterns, so a pattern matches a whole address

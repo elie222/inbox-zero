@@ -613,13 +613,43 @@ describe("matchesStaticRule", () => {
     expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
-  it("should be case sensitive", () => {
+  it("matches subjects regardless of casing", () => {
     const rule = getStaticRule({ subject: "URGENT" });
     const message = getMessage({
       headers: getHeaders({ subject: "urgent" }),
     });
 
-    expect(matchesStaticRule(rule, message, logger)).toBe(false);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
+  });
+
+  it("matches a pattern that itself includes a reply prefix", () => {
+    // The user typed the condition from what they saw in their mailbox
+    const rule = getStaticRule({
+      subject: "RE: Daily",
+      subjectMatchMode: "STARTS_WITH",
+    });
+
+    for (const subject of [
+      "Re: Daily Report - Automall St Albans - July 24, 2026",
+      "RE: RE: Daily Report",
+      "Daily Report - Nissan Keene", // the original, unprefixed email
+    ]) {
+      expect(
+        matchesStaticRule(
+          rule,
+          getMessage({ headers: getHeaders({ subject }) }),
+          logger,
+        ),
+      ).toBe(true);
+    }
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({ headers: getHeaders({ subject: "Weekly Summary" }) }),
+        logger,
+      ),
+    ).toBe(false);
   });
 
   it("should handle empty header values gracefully", () => {
