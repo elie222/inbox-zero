@@ -6,7 +6,10 @@ import {
   ClassificationFeedbackEventType,
   SystemType,
 } from "@/generated/prisma/enums";
-import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import {
+  retrainLearnedPatterns,
+  saveLearnedPattern,
+} from "@/utils/rule/learned-patterns";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { GMAIL_SYSTEM_LABELS, GmailLabel } from "@/utils/gmail/label";
@@ -198,6 +201,20 @@ async function recordClassificationFromLabelAdd({
     messageId,
     eventType: ClassificationFeedbackEventType.LABEL_ADDED,
     logger,
+  });
+
+  // Hand-filing an email into a folder is a direct correction: pin the
+  // sender to this folder's rule so future mail files deterministically.
+  // LABEL_ADDED source keeps it reversible the same way spam-undo works.
+  await retrainLearnedPatterns({
+    emailAccountId,
+    ruleId: rule.id,
+    values: [sender],
+    logger,
+    source: GroupItemSource.LABEL_ADDED,
+    reason: "Label added by user",
+    messageId,
+    threadId,
   });
 }
 

@@ -18,6 +18,7 @@ export type RunRulesBody = z.infer<typeof runRulesBody>;
 // the thread to the inbox
 export const finalizeReprocessBody = z.object({
   threadId: z.string(),
+  messageId: z.string(),
   keepLabelName: z.string().nullish(),
   returnToInbox: z.boolean(),
 });

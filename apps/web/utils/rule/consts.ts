@@ -136,7 +136,11 @@ export function getRuleLabel(systemType: SystemType) {
   return getRuleConfig(systemType).label;
 }
 
-export function shouldLearnFromLabelRemoval(systemType: SystemType): boolean {
+export function shouldLearnFromLabelRemoval(
+  systemType: SystemType | null | undefined,
+): boolean {
+  // Custom rules always learn; only conversation-status system rules opt out
+  if (!systemType) return true;
   return getRuleConfig(systemType).shouldLearn;
 }
 

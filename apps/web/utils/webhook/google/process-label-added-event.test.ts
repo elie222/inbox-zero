@@ -1,11 +1,17 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { handleLabelAddedEvent } from "./process-label-added-event";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import {
+  retrainLearnedPatterns,
+  saveLearnedPattern,
+} from "@/utils/rule/learned-patterns";
 import { GroupItemSource } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
-import { saveClassificationFeedback } from "@/utils/rule/classification-feedback";
+import {
+  findRuleByLabelId,
+  saveClassificationFeedback,
+} from "@/utils/rule/classification-feedback";
 import { fetchSenderFromMessage } from "@/utils/webhook/google/fetch-sender-from-message";
 
 const logger = createTestLogger();
@@ -26,6 +32,7 @@ vi.mock("@/utils/prisma", () => ({
 
 vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPattern: vi.fn().mockResolvedValue(undefined),
+  retrainLearnedPatterns: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/utils/rule/classification-feedback", () => ({
@@ -220,6 +227,53 @@ describe("process-label-added-event", () => {
       );
 
       expect(saveLearnedPattern).not.toHaveBeenCalled();
+    });
+
+    it("pins the sender to a rule when the user hand-adds its folder label", async () => {
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
+        id: "rule-custom",
+        systemType: null,
+      } as any);
+      vi.mocked(prisma.executedAction.findFirst).mockResolvedValue(null);
+
+      await handleLabelAddedEvent(
+        createLabelAddedItem("123", "thread-123", ["label-custom"]),
+        defaultOptions,
+        logger,
+      );
+
+      expect(saveClassificationFeedback).toHaveBeenCalledWith(
+        expect.objectContaining({ ruleId: "rule-custom" }),
+      );
+      expect(retrainLearnedPatterns).toHaveBeenCalledWith({
+        emailAccountId: "email-account-id",
+        ruleId: "rule-custom",
+        values: ["sender@example.com"],
+        logger: expect.anything(),
+        source: GroupItemSource.LABEL_ADDED,
+        reason: "Label added by user",
+        messageId: "123",
+        threadId: "thread-123",
+      });
+    });
+
+    it("does not learn when the system itself applied the label", async () => {
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
+        id: "rule-custom",
+        systemType: null,
+      } as any);
+      vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
+        id: "executed-action-1",
+      } as any);
+
+      await handleLabelAddedEvent(
+        createLabelAddedItem("123", "thread-123", ["label-custom"]),
+        defaultOptions,
+        logger,
+      );
+
+      expect(saveClassificationFeedback).not.toHaveBeenCalled();
+      expect(retrainLearnedPatterns).not.toHaveBeenCalled();
     });
 
     it("should save pattern when group exists but sender is new", async () => {

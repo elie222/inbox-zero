@@ -141,6 +141,7 @@ export function ReprocessEmailDialog({
       // leave no rule-execution trail for the automatic cleanup)
       const finalize = await finalizeReprocessAction(emailAccountId, {
         threadId: thread.id,
+        messageId: message.id,
         keepLabelName: proposal?.folderName ?? null,
         returnToInbox: !proposal?.folderName,
       });

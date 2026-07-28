@@ -21,6 +21,8 @@ import { flushLoggerSafely } from "@/utils/logger-flush";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
+import { suppressLabelLearning } from "@/utils/redis/label-learning-suppression";
+import { recordReprocessLearning } from "@/utils/rule/reprocess-learning";
 
 export const runRulesAction = actionClient
   .metadata({ name: "runRules" })
@@ -219,7 +221,7 @@ export const finalizeReprocessAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId, provider, logger },
-      parsedInput: { threadId, keepLabelName, returnToInbox },
+      parsedInput: { threadId, messageId, keepLabelName, returnToInbox },
     }) => {
       const emailProvider = await createEmailProvider({
         emailAccountId,
@@ -248,6 +250,14 @@ export const finalizeReprocessAction = actionClient
         (id) => userLabelIds.has(id) && id !== keepLabelId,
       );
       if (stripIds.length) {
+        // These strips echo back through the provider webhook looking like
+        // user corrections — the authoritative learning happens below
+        await suppressLabelLearning({
+          emailAccountId,
+          threadId,
+          labelIds: stripIds,
+          logger,
+        });
         await emailProvider.removeThreadLabels(threadId, stripIds);
       }
 
@@ -258,6 +268,20 @@ export const finalizeReprocessAction = actionClient
       ) {
         await emailProvider.unarchiveThread(threadId);
       }
+
+      // The confirmed dialog outcome is the strongest correction signal we
+      // get — record it so filing improves. Never fail the move over it.
+      await recordReprocessLearning({
+        emailAccountId,
+        provider: emailProvider,
+        messageId,
+        threadId,
+        keepLabelId,
+        strippedLabelIds: stripIds,
+        logger,
+      }).catch((error) => {
+        logger.error("Failed to record reprocess learning", { error });
+      });
 
       logger.info("Finalized reprocess", {
         threadId,
@@ -458,6 +482,12 @@ async function reconcileStaleFolderLabels({
   }
   if (!staleLabelIds.size) return;
 
+  await suppressLabelLearning({
+    emailAccountId,
+    threadId,
+    labelIds: [...staleLabelIds],
+    logger,
+  });
   await emailProvider.removeThreadLabels(threadId, [...staleLabelIds]);
   logger.info("Removed stale rule-applied folder labels", {
     removed: staleLabelIds.size,

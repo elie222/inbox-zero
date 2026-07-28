@@ -3,7 +3,10 @@ import { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { GroupItemType } from "@/generated/prisma/enums";
-import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
+import {
+  removeConflictingFromPatterns,
+  saveLearnedPatterns,
+} from "@/utils/rule/learned-patterns";
 import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
 import {
@@ -26,7 +29,7 @@ export const updateLearnedPatternsTool = ({
 }) =>
   tool({
     description:
-      "Update the learned patterns of an existing inbox rule after you have identified the exact rule to change. Use when an existing category rule already fits and the user wants recurring senders added or removed, instead of creating a new rule or editing static from/to fields. If a recurring sender should move from one rule to another, update both rules with learned-pattern includes and excludes.",
+      "Update the learned patterns of an existing inbox rule after you have identified the exact rule to change. Use when an existing category rule already fits and the user wants recurring senders added or removed, instead of creating a new rule or editing static from/to fields. Sender includes automatically remove conflicting sender patterns from other rules, so adding a sender here is enough to move them from another rule; still add an explicit exclude on the old rule when the user wants that rule to never match the sender again.",
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
       learnedPatterns: z
@@ -169,6 +172,23 @@ export const updateLearnedPatternsTool = ({
               success: false,
               error: result.error,
             };
+          }
+
+          // An include only helps if it wins: clear colliding sender
+          // patterns on other rules so the moved sender files here
+          const includedSenders = patternsToSave
+            .filter(
+              (pattern) =>
+                pattern.type === GroupItemType.FROM && !pattern.exclude,
+            )
+            .map((pattern) => pattern.value);
+          if (includedSenders.length > 0) {
+            await removeConflictingFromPatterns({
+              emailAccountId,
+              ruleId: rule.id,
+              values: includedSenders,
+              logger,
+            });
           }
         }
 
