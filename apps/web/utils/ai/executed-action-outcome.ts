@@ -50,16 +50,6 @@ export async function persistExecutedActionOutcome({
   }
 }
 
-/** An action declining to run on purpose. Not a failure, so it must not be reported as one. */
-export function isActionResultSkipped(actionResult: unknown): boolean {
-  return (
-    !!actionResult &&
-    typeof actionResult === "object" &&
-    "skipped" in actionResult &&
-    actionResult.skipped === true
-  );
-}
-
 export function getActionResultError(
   actionType: ActionType,
   actionResult: unknown,
@@ -132,6 +122,13 @@ export function normalizeActionExecutionError(
       getString(headers, "request-id") ||
       getString(headers, "client-request-id"),
   };
+}
+
+/** An action declining to run on purpose. Not a failure, so it must not be reported as one. */
+export type ActionSkipped = { skipped: true };
+
+export function isActionResultSkipped(actionResult: unknown): boolean {
+  return asRecord(actionResult)?.skipped === true;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

@@ -102,10 +102,7 @@ describe("process-label-added-event", () => {
     hasPreviousCommunicationsWithSenderOrDomain: vi.fn(),
   } as any;
 
-  const defaultOptions = {
-    emailAccount: mockEmailAccount,
-    provider: mockProvider,
-  };
+  let defaultOptions: Parameters<typeof handleLabelAddedEvent>[1];
 
   // The junked message is always "123" so it is found in the thread.
   const mockThreadSenders = (...senders: string[]) => {
@@ -123,6 +120,11 @@ describe("process-label-added-event", () => {
 
   describe("handleLabelAddedEvent", () => {
     beforeEach(() => {
+      defaultOptions = {
+        emailAccount: mockEmailAccount,
+        provider: mockProvider,
+        spamLearnedThreadIds: new Set<string>(),
+      };
       mockThreadSenders("sender@example.com");
       vi.mocked(fetchSenderFromMessage).mockResolvedValue("sender@example.com");
       vi.mocked(
@@ -321,14 +323,11 @@ describe("process-label-added-event", () => {
       it("should only read the thread once when a whole thread is junked", async () => {
         mockThreadSenders("cold@vendor.com", "cold@vendor.com");
         vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");
-        const spamLearnedThreadIds = new Set<string>();
-        const options = { ...defaultOptions, spamLearnedThreadIds };
-
         // Gmail fires one event per message in the junked thread.
-        await handleLabelAddedEvent(createLabelAddedItem(), options, logger);
+        await junkMessage();
         await handleLabelAddedEvent(
           createLabelAddedItem("456", "thread-123"),
-          options,
+          defaultOptions,
           logger,
         );
 

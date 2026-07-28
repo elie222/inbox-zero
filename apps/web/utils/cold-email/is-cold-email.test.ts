@@ -141,6 +141,34 @@ describe("isColdEmail", () => {
     });
   });
 
+  // Guarded here rather than only at the actions, so a colleague is never labelled
+  // or archived either.
+  it("should not classify a colleague as cold", async () => {
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
+
+    const result = await isColdEmail({
+      email: {
+        id: "msg-internal",
+        from: "ceo@company.com",
+        to: "user@company.com",
+        subject: "Quick favour",
+        content: "Can you take a look at this?",
+        date: new Date(),
+      },
+      emailAccount: getEmailAccount({
+        id: "test-account-id",
+        email: "user@company.com",
+      }),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+    });
+
+    expect(result.isColdEmail).toBe(false);
+    expect(
+      mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
+    ).not.toHaveBeenCalled();
+  });
+
   // Blocking a sender we could not verify is worse than missing a cold email.
   it("should not classify as cold when prior contact cannot be checked", async () => {
     vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);

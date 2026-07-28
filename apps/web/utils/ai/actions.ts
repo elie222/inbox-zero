@@ -27,6 +27,7 @@ import {
 } from "@/utils/messaging/rule-notifications";
 import { isMessagingDraftActionType } from "@/utils/actions/draft-reply";
 import { checkHasAccess } from "@/utils/premium/server";
+import type { ActionSkipped } from "@/utils/ai/executed-action-outcome";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
 
 const MODULE = "ai-actions";
@@ -544,7 +545,7 @@ const notify_sender: ActionFunction<Record<string, unknown>> = async ({
   // this action emails the sender, and a wrong one accuses a colleague of spamming.
   if (isSameOrganization(senderEmail, emailAccount.email)) {
     logger.warn("Skipping cold email notification to an internal sender");
-    return { skipped: true };
+    return { skipped: true } satisfies ActionSkipped;
   }
 
   const result = await sendColdEmailNotification({

@@ -20,8 +20,13 @@ export async function processHistoryItem(
   options: ProcessHistoryOptions,
   logger: Logger,
 ) {
-  const { emailAccount, hasAutomationRules, hasAiAccess, rules } = options;
-  const { spamLearnedThreadIds } = options;
+  const {
+    emailAccount,
+    hasAutomationRules,
+    hasAiAccess,
+    rules,
+    spamLearnedThreadIds,
+  } = options;
   const { type, item } = historyItem;
   const messageId = item.message?.id;
   const threadId = item.message?.threadId;

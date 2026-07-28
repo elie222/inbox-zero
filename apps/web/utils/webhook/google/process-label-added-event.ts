@@ -20,6 +20,7 @@ import {
 import { fetchSenderFromMessage } from "@/utils/webhook/google/fetch-sender-from-message";
 import { isSameEmailAddress, isSameOrganization } from "@/utils/email";
 import { internalDateToDate } from "@/utils/date";
+import { hasPriorContactOrAssumeYes } from "@/utils/cold-email/has-prior-contact";
 
 /**
  * When labels are added to an email:
@@ -35,7 +36,7 @@ export async function handleLabelAddedEvent(
   }: {
     emailAccount: EmailAccountWithAI;
     provider: EmailProvider;
-    spamLearnedThreadIds?: Set<string>;
+    spamLearnedThreadIds: Set<string>;
   },
   logger: Logger,
 ) {
@@ -54,7 +55,11 @@ export async function handleLabelAddedEvent(
     (labelId) => !GMAIL_SYSTEM_LABELS.includes(labelId),
   );
 
-  if (!hasSpam && classifiableLabelIds.length === 0) {
+  // Junking a thread fires one event per message, but spam learning is thread-scoped
+  // and the answer is the same for all of them, so only the first event does the work.
+  const shouldLearnSpam = hasSpam && !spamLearnedThreadIds.has(threadId);
+
+  if (!shouldLearnSpam && classifiableLabelIds.length === 0) {
     logger.trace("No actionable labels added, skipping", {
       messageId,
       addedLabelIds,
@@ -62,13 +67,12 @@ export async function handleLabelAddedEvent(
     return;
   }
 
+  if (shouldLearnSpam) spamLearnedThreadIds.add(threadId);
+
   const sender = await fetchSenderFromMessage(messageId, provider, logger);
   if (!sender) return;
 
-  // Junking a thread fires one event per message, but the answer is the same for all
-  // of them, so only the first pays for the thread read.
-  if (hasSpam && !spamLearnedThreadIds?.has(threadId)) {
-    spamLearnedThreadIds?.add(threadId);
+  if (shouldLearnSpam) {
     await learnColdEmailFromSpam({
       sender,
       messageId,
@@ -177,13 +181,13 @@ async function learnColdEmailFromSpam({
   // The check every other pattern writer runs. Junking one message from someone you
   // already correspond with does not make them a cold emailer.
   const junkedMessage = threadMessages.find((m) => m.id === messageId);
-  const hasPreviousEmail = junkedMessage
-    ? await provider.hasPreviousCommunicationsWithSenderOrDomain({
-        from: sender,
-        date: internalDateToDate(junkedMessage.internalDate),
-        messageId,
-      })
-    : true;
+  const hasPreviousEmail = await hasPriorContactOrAssumeYes({
+    provider,
+    from: sender,
+    date: junkedMessage && internalDateToDate(junkedMessage.internalDate),
+    messageId,
+    logger,
+  });
 
   if (hasPreviousEmail) {
     logger.info("Skipping cold email learning - sender is a known contact");

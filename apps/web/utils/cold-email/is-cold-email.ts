@@ -10,7 +10,8 @@ import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
-import { extractEmailAddress } from "@/utils/email";
+import { extractEmailAddress, isSameOrganization } from "@/utils/email";
+import { hasPriorContactOrAssumeYes } from "@/utils/cold-email/has-prior-contact";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
@@ -95,16 +96,20 @@ export async function isColdEmail({
     return { isColdEmail: false, reason: "excluded" };
   }
 
-  // Without a date or id we cannot check for prior contact. Assume there was some:
-  // blocking a sender we could not verify is worse than missing a cold email.
-  const hasPreviousEmail =
-    email.date && email.id
-      ? await provider.hasPreviousCommunicationsWithSenderOrDomain({
-          from: extractEmailAddress(email.from) || email.from,
-          date: email.date,
-          messageId: email.id,
-        })
-      : true;
+  // Nobody at your own company is a cold emailer. Checked here rather than only at the
+  // actions, so a colleague is never labelled or archived either.
+  if (isSameOrganization(email.from, emailAccount.email)) {
+    logger.info("Sender is internal");
+    return { isColdEmail: false, reason: "hasPreviousEmail" };
+  }
+
+  const hasPreviousEmail = await hasPriorContactOrAssumeYes({
+    provider,
+    from: extractEmailAddress(email.from) || email.from,
+    date: email.date,
+    messageId: email.id,
+    logger,
+  });
 
   if (hasPreviousEmail) {
     logger.info("Has previous email");

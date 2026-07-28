@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
-import { GroupItemType, type GroupItemSource } from "@/generated/prisma/enums";
+import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 
 /**
@@ -56,13 +56,16 @@ export async function saveLearnedPattern({
       },
     },
     // Undefined fields are left untouched by Prisma, so a caller only overwrites what
-    // it actually knows. `source` records how the pattern was first learned: rewriting
-    // it would erase a user's own correction and break undoing a junk action.
+    // it actually knows. Inferred writers must not restate `source`, which records how
+    // the pattern was first learned and is what undoing a junk action keys off. An
+    // explicit user correction is not an inference and does claim the row, so undoing a
+    // junk action can never delete it.
     update: {
       exclude,
       reason,
       threadId,
       messageId,
+      source: source === GroupItemSource.USER ? source : undefined,
     },
     create: {
       groupId,

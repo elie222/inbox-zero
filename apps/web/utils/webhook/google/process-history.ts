@@ -158,6 +158,7 @@ export async function processHistoryForUser(
           await processHistory(
             {
               history: historyEntries,
+              spamLearnedThreadIds: new Set<string>(),
               gmail,
               accessToken: accountAccessToken,
               hasAutomationRules,
@@ -218,10 +219,6 @@ export async function processHistoryForUser(
 
 async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
   const { history, emailAccount } = options;
-  const batchOptions: ProcessHistoryOptions = {
-    ...options,
-    spamLearnedThreadIds: new Set<string>(),
-  };
   const { email: userEmail, id: emailAccountId } = emailAccount;
 
   if (!history?.length) return;
@@ -270,7 +267,7 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
       });
 
       try {
-        await processHistoryItem(event, batchOptions, log);
+        await processHistoryItem(event, options, log);
       } catch (error) {
         captureException(error, {
           userEmail,
