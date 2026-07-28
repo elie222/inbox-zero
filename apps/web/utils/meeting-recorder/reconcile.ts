@@ -381,20 +381,17 @@ async function updateBookingForEvent({
   }
 
   // Same meeting, fresher link: normalization drops credentials, so this is
-  // where a rotated meeting password shows up. A bot already booked holds the
-  // old one and would be turned away at the door, so rebook it, but only when
-  // nobody else is relying on this recording. When the recording is shared we
-  // cannot rebook without cancelling someone else's bot, so the newest link is
-  // stored for whoever books next and the existing bot is left alone.
+  // where a rotated meeting password shows up. Recall can update a scheduled
+  // bot's URL in place, which preserves a recording shared by several accounts.
   if (recording.meetingUrl !== event.videoConferenceLink) {
-    const sharedWith = await prisma.meeting.count({
-      where: { recordingId, id: { not: meetingId } },
-    });
-
-    if (sharedWith === 0 && recording.externalBotId) {
-      logger.info("Meeting credentials changed, rebooking", { recordingId });
-      await releaseMeeting({ meetingId, recordingId, logger });
-      return false;
+    if (
+      recording.externalBotId &&
+      CHANGEABLE_STATUSES.includes(recording.status)
+    ) {
+      const provider = createMeetingBotProvider(recording.botProvider, logger);
+      await provider.updateBot(recording.externalBotId, {
+        meetingUrl: event.videoConferenceLink,
+      });
     }
 
     await prisma.meetingRecording.updateMany({
@@ -412,7 +409,7 @@ async function updateBookingForEvent({
   if (!recording.externalBotId) return true;
 
   const provider = createMeetingBotProvider(recording.botProvider, logger);
-  await provider.rescheduleBot(recording.externalBotId, {
+  await provider.updateBot(recording.externalBotId, {
     joinAt: event.startTime,
   });
 
@@ -852,7 +849,7 @@ async function requeueStuckMeetings({
       ],
     },
     select: { id: true },
-    orderBy: { startTime: "desc" },
+    orderBy: { startTime: "asc" },
     take: 50,
   });
   if (stuck.length === 0) return;

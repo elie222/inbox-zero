@@ -67,15 +67,17 @@ export const setMeetingJoinOverrideAction = actionClient
         throw new SafeError("The notetaker is turned off for this account");
       }
 
-      // The cron filters on the paid tier before it books anything, and this
-      // path books too, so it has to apply the same entitlement. A bot costs
-      // money and is visible to everyone in the call.
-      const hasAccess = await checkHasAccess({
-        userId: emailAccount.userId,
-        minimumTier: MEETING_RECORDER_MIN_TIER,
-      });
-      if (!hasAccess) {
-        throw new SafeError("The notetaker is not included in your plan");
+      if (join) {
+        // The cron filters on the paid tier before it books anything, and this
+        // path books too, so it has to apply the same entitlement. Turning a
+        // meeting off must remain available after a downgrade.
+        const hasAccess = await checkHasAccess({
+          userId: emailAccount.userId,
+          minimumTier: MEETING_RECORDER_MIN_TIER,
+        });
+        if (!hasAccess) {
+          throw new SafeError("The notetaker is not included in your plan");
+        }
       }
 
       const timeMin = new Date();

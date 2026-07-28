@@ -286,7 +286,9 @@ export async function createRecallEmulator({
     if (method === "GET") return { status: 200, body: serializeBot(bot) };
 
     if (method === "PATCH") {
-      const payload = body as { join_at?: string } | undefined;
+      const payload = body as
+        | { join_at?: string; meeting_url?: string }
+        | undefined;
       if (!isScheduled(bot)) {
         return {
           status: 400,
@@ -294,6 +296,7 @@ export async function createRecallEmulator({
         };
       }
       if (payload?.join_at) bot.join_at = payload.join_at;
+      if (payload?.meeting_url) bot.meeting_url = payload.meeting_url;
       return { status: 200, body: serializeBot(bot) };
     }
 

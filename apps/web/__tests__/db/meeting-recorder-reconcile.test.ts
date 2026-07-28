@@ -222,7 +222,7 @@ describe.skipIf(!RUN_DB_TESTS)(
         logger,
       });
 
-      expect(fakeProvider.rescheduled).toEqual([
+      expect(fakeProvider.updated).toEqual([
         { botId: fakeProvider.scheduled[0]?.botId, joinAt: movedTo },
       ]);
       const recording = await prisma.meetingRecording.findFirstOrThrow();
@@ -397,7 +397,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       ).not.toBeNull();
     });
 
-    test("rebooks a sole-owner bot when only the meeting password changes", async () => {
+    test("updates a sole-owner bot when only the meeting password changes", async () => {
       const event = calendarEvent({
         videoConferenceLink: "https://acme.zoom.us/j/8123456789?pwd=old",
       });
@@ -417,11 +417,42 @@ describe.skipIf(!RUN_DB_TESTS)(
         logger,
       });
 
-      expect(fakeProvider.scheduled).toHaveLength(2);
-      expect(fakeProvider.scheduled[1]?.meetingUrl).toContain("pwd=new");
-      expect(fakeProvider.cancelled).toEqual([
-        fakeProvider.scheduled[0]?.botId,
-      ]);
+      expect(fakeProvider.updated).toContainEqual({
+        botId: fakeProvider.scheduled[0]?.botId,
+        meetingUrl: "https://acme.zoom.us/j/8123456789?pwd=new",
+      });
+      expect(fakeProvider.scheduled).toHaveLength(1);
+      expect(fakeProvider.cancelled).toHaveLength(0);
+    });
+
+    test("updates a shared bot when the meeting password changes", async () => {
+      const event = calendarEvent({
+        videoConferenceLink: "https://acme.zoom.us/j/8123456789?pwd=old",
+      });
+      await reconcile.reconcileSingleEvent({
+        emailAccount: account(accountAId, ACCOUNT_A),
+        event,
+        logger,
+      });
+      await reconcile.reconcileSingleEvent({
+        emailAccount: account(accountBId, ACCOUNT_B),
+        event: { ...event, id: "event-b" },
+        logger,
+      });
+
+      const meetingUrl = "https://acme.zoom.us/j/8123456789?pwd=new";
+      await reconcile.reconcileSingleEvent({
+        emailAccount: account(accountAId, ACCOUNT_A),
+        event: { ...event, videoConferenceLink: meetingUrl },
+        logger,
+      });
+
+      expect(fakeProvider.updated).toContainEqual({
+        botId: fakeProvider.scheduled[0]?.botId,
+        meetingUrl,
+      });
+      expect(fakeProvider.cancelled).toHaveLength(0);
+      expect(fakeProvider.scheduled).toHaveLength(1);
     });
 
     test("stores the join link encrypted at rest", async () => {
@@ -517,10 +548,8 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(fakeProvider.scheduled).toHaveLength(1);
 
       // Moving the event proves which branch ran. Treating the differing raw
-      // link as a changed meeting releases and rebooks, so the bot is never
-      // moved; recognising it as the same meeting reschedules it. The release
-      // path is also what lets a concurrent release by the other account cancel
-      // the shared bot while this one still wants it.
+      // link as a changed meeting releases and rebooks; recognising it as the
+      // same meeting updates the existing shared bot.
       const movedTo = addMinutes(otherEvent.startTime, 45);
       await reconcile.reconcileSingleEvent({
         emailAccount: account(accountBId, ACCOUNT_B),
@@ -528,9 +557,10 @@ describe.skipIf(!RUN_DB_TESTS)(
         logger,
       });
 
-      expect(fakeProvider.rescheduled).toEqual([
-        { botId: fakeProvider.scheduled[0]?.botId, joinAt: movedTo },
-      ]);
+      expect(fakeProvider.updated).toContainEqual({
+        botId: fakeProvider.scheduled[0]?.botId,
+        joinAt: movedTo,
+      });
       expect(fakeProvider.cancelled).toHaveLength(0);
       expect(fakeProvider.scheduled).toHaveLength(1);
     });
@@ -563,6 +593,40 @@ describe.skipIf(!RUN_DB_TESTS)(
       await reconcile.sweepRecordings({ logger });
 
       expect(enqueueMock).not.toHaveBeenCalled();
+    });
+
+    test("requeues the oldest stuck meetings first", async () => {
+      const now = new Date();
+      await prisma.meetingRecording.createMany({
+        data: Array.from({ length: 51 }, (_, index) => ({
+          id: `stuck-recording-${index}`,
+          meetingUrl: `https://meet.google.com/stuck-${index}`,
+          normalizedMeetingUrl: `meet.google.com/stuck-${index}`,
+          meetingStartTime: subMinutes(now, 51 - index),
+          status: MeetingRecordingStatus.DONE,
+          transcript: [],
+        })),
+      });
+      await prisma.meeting.createMany({
+        data: Array.from({ length: 51 }, (_, index) => ({
+          id: `stuck-meeting-${index}`,
+          calendarEventId: `stuck-event-${index}`,
+          eventTitle: "Stuck meeting",
+          startTime: subMinutes(now, 51 - index),
+          endTime: subMinutes(now, 50 - index),
+          attendees: [],
+          emailAccountId: accountAId,
+          recordingId: `stuck-recording-${index}`,
+        })),
+      });
+
+      await reconcile.sweepRecordings({ logger });
+
+      const enqueuedIds = enqueueMock.mock.calls.map(
+        ([payload]) => payload.body.meetingId,
+      );
+      expect(enqueuedIds).toContain("stuck-meeting-0");
+      expect(enqueuedIds).not.toContain("stuck-meeting-50");
     });
 
     test("re-requests transcription when the first request never produced one", async () => {

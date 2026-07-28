@@ -17,7 +17,11 @@ export class FakeBotProvider implements MeetingBotProvider {
     meetingUrl: string;
     joinAt: Date;
   }> = [];
-  readonly rescheduled: Array<{ botId: string; joinAt: Date }> = [];
+  readonly updated: Array<{
+    botId: string;
+    joinAt?: Date;
+    meetingUrl?: string;
+  }> = [];
   readonly cancelled: string[] = [];
   readonly deletedMedia: string[] = [];
   readonly transcriptsRequested: string[] = [];
@@ -49,11 +53,11 @@ export class FakeBotProvider implements MeetingBotProvider {
     return { externalBotId };
   }
 
-  async rescheduleBot(
+  async updateBot(
     externalBotId: string,
-    { joinAt }: { joinAt: Date },
+    params: { joinAt?: Date; meetingUrl?: string },
   ): Promise<void> {
-    this.rescheduled.push({ botId: externalBotId, joinAt });
+    this.updated.push({ botId: externalBotId, ...params });
   }
 
   async cancelBot(externalBotId: string): Promise<void> {
@@ -78,7 +82,7 @@ export class FakeBotProvider implements MeetingBotProvider {
 
   reset() {
     this.scheduled.length = 0;
-    this.rescheduled.length = 0;
+    this.updated.length = 0;
     this.cancelled.length = 0;
     this.deletedMedia.length = 0;
     this.transcriptsRequested.length = 0;

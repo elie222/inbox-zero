@@ -17,6 +17,17 @@ describe("getMeetingDetailState", () => {
     ).toBe("notes");
   });
 
+  it("shows a transcript while its summary is still being written", () => {
+    expect(
+      getMeetingDetailState({
+        hasSummary: false,
+        hasTranscript: true,
+        recordingStatus: MeetingRecordingStatus.DONE,
+        processingStatus: MeetingProcessingStatus.PROCESSING,
+      }),
+    ).toBe("notes");
+  });
+
   it("says the meeting has not been recorded before the call", () => {
     expect(
       getMeetingDetailState({
@@ -24,6 +35,17 @@ describe("getMeetingDetailState", () => {
         hasTranscript: false,
         recordingStatus: MeetingRecordingStatus.SCHEDULED,
         processingStatus: MeetingProcessingStatus.PENDING,
+      }),
+    ).toBe("not-recorded");
+  });
+
+  it("treats missing statuses as a meeting that has not been recorded", () => {
+    expect(
+      getMeetingDetailState({
+        hasSummary: false,
+        hasTranscript: false,
+        recordingStatus: undefined,
+        processingStatus: undefined,
       }),
     ).toBe("not-recorded");
   });
@@ -61,5 +83,27 @@ describe("getMeetingDetailState", () => {
         processingStatus: MeetingProcessingStatus.FAILED,
       }),
     ).toBe("processing-failed");
+  });
+
+  it("surfaces a processing failure while keeping the transcript available", () => {
+    expect(
+      getMeetingDetailState({
+        hasSummary: false,
+        hasTranscript: true,
+        recordingStatus: MeetingRecordingStatus.DONE,
+        processingStatus: MeetingProcessingStatus.FAILED,
+      }),
+    ).toBe("processing-failed");
+  });
+
+  it("stops promising notes after processing completes without content", () => {
+    expect(
+      getMeetingDetailState({
+        hasSummary: false,
+        hasTranscript: false,
+        recordingStatus: MeetingRecordingStatus.DONE,
+        processingStatus: MeetingProcessingStatus.COMPLETED,
+      }),
+    ).toBe("notes-unavailable");
   });
 });

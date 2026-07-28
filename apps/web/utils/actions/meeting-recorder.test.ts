@@ -89,11 +89,30 @@ describe("setMeetingJoinOverrideAction", () => {
   it("books for an entitled account", async () => {
     mockCheckHasAccess.mockResolvedValue(true);
 
-    await setMeetingJoinOverrideAction(EMAIL_ACCOUNT_ID, {
+    const result = await setMeetingJoinOverrideAction(EMAIL_ACCOUNT_ID, {
       join: true,
       calendarEventId: "event-1",
     });
 
     expect(mockReconcileSingleEvent).toHaveBeenCalled();
+    expect(result?.serverError).toBeUndefined();
+  });
+
+  it("lets an account without the paid tier turn off an existing booking", async () => {
+    mockCheckHasAccess.mockResolvedValue(false);
+
+    const result = await setMeetingJoinOverrideAction(EMAIL_ACCOUNT_ID, {
+      join: false,
+      calendarEventId: "event-1",
+    });
+
+    expect(mockCheckHasAccess).not.toHaveBeenCalled();
+    expect(mockUpsertMeeting).toHaveBeenCalledWith({
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      event: expect.objectContaining({ id: "event-1" }),
+      joinOverride: false,
+    });
+    expect(mockReconcileSingleEvent).toHaveBeenCalled();
+    expect(result?.serverError).toBeUndefined();
   });
 });

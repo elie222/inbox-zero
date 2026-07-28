@@ -5,6 +5,7 @@ import {
 
 export type MeetingDetailState =
   | "notes"
+  | "notes-unavailable"
   | "not-recorded"
   | "processing"
   | "processing-failed"
@@ -26,16 +27,20 @@ export function getMeetingDetailState({
   recordingStatus: MeetingRecordingStatus | undefined;
   processingStatus: MeetingProcessingStatus | undefined;
 }): MeetingDetailState {
-  if (hasSummary || hasTranscript) return "notes";
+  if (hasSummary) return "notes";
   if (recordingStatus === MeetingRecordingStatus.FAILED) {
     return "recording-failed";
   }
+  if (processingStatus === MeetingProcessingStatus.FAILED) {
+    return "processing-failed";
+  }
+  if (processingStatus === MeetingProcessingStatus.COMPLETED) {
+    return "notes-unavailable";
+  }
+  if (hasTranscript) return "notes";
   if (recordingStatus !== MeetingRecordingStatus.DONE) return "not-recorded";
 
-  // The recording is there but the notes are not. Processing retries are
-  // capped, so FAILED is terminal: promising notes that will never arrive
-  // leaves the user waiting forever.
-  return processingStatus === MeetingProcessingStatus.FAILED
-    ? "processing-failed"
-    : "processing";
+  // The recording is there but the notes are not and processing is still
+  // eligible to make progress.
+  return "processing";
 }

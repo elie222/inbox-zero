@@ -71,6 +71,17 @@ export function MeetingDetail({
             </Alert>
           )}
 
+          {state === "notes-unavailable" && (
+            <Alert>
+              <AlertTitle>No summary was created</AlertTitle>
+              <AlertDescription>
+                {transcript?.length
+                  ? "The transcript is still available below."
+                  : "No usable transcript was available for this meeting."}
+              </AlertDescription>
+            </Alert>
+          )}
+
           {state === "processing" && (
             <p className="text-sm text-muted-foreground">
               The notes are still being written. Check back in a minute.
@@ -98,7 +109,10 @@ export function MeetingDetail({
                   <MeetingSummaryView summary={summary} />
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    The summary is still being written.
+                    {state === "processing-failed" ||
+                    state === "notes-unavailable"
+                      ? "No summary is available for this meeting."
+                      : "The summary is still being written."}
                   </p>
                 )}
               </TabsContent>

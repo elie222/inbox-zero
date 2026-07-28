@@ -42,9 +42,13 @@ export interface MeetingBotProvider {
   deleteMedia(externalBotId: string): Promise<void>;
   fetchTranscript(externalTranscriptId: string): Promise<NormalizedTranscript>;
   readonly name: string;
-  rescheduleBot(externalBotId: string, params: { joinAt: Date }): Promise<void>;
   scheduleBot(params: {
     meetingUrl: string;
     joinAt: Date;
   }): Promise<{ externalBotId: string }>;
+  /** Updates a bot that has been scheduled but has not started joining yet. */
+  updateBot(
+    externalBotId: string,
+    params: { joinAt?: Date; meetingUrl?: string },
+  ): Promise<void>;
 }

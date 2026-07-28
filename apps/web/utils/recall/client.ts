@@ -64,13 +64,16 @@ export class RecallBotProvider implements MeetingBotProvider {
     return { externalBotId: bot.id };
   }
 
-  async rescheduleBot(
+  async updateBot(
     externalBotId: string,
-    { joinAt }: { joinAt: Date },
+    { joinAt, meetingUrl }: { joinAt?: Date; meetingUrl?: string },
   ): Promise<void> {
     await this.request(`/bot/${externalBotId}/`, {
       method: "PATCH",
-      body: { join_at: joinAt.toISOString() },
+      body: {
+        ...(joinAt && { join_at: joinAt.toISOString() }),
+        ...(meetingUrl && { meeting_url: meetingUrl }),
+      },
     });
   }
 

@@ -110,11 +110,23 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
 
       const movedTo = new Date("2026-05-04T10:00:00.000Z");
-      await provider.rescheduleBot(externalBotId, { joinAt: movedTo });
+      await provider.updateBot(externalBotId, { joinAt: movedTo });
 
       expect(emulator.getBot(externalBotId)?.join_at).toBe(
         movedTo.toISOString(),
       );
+    });
+
+    test("updates the meeting URL for a scheduled bot", async () => {
+      const { externalBotId } = await provider.scheduleBot({
+        meetingUrl: "https://acme.zoom.us/j/8123456789?pwd=old",
+        joinAt: new Date("2026-05-04T09:00:00.000Z"),
+      });
+
+      const meetingUrl = "https://acme.zoom.us/j/8123456789?pwd=new";
+      await provider.updateBot(externalBotId, { meetingUrl });
+
+      expect(emulator.getBot(externalBotId)?.meeting_url).toBe(meetingUrl);
     });
 
     test("cancels a scheduled bot", async () => {
