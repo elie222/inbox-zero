@@ -11,8 +11,8 @@ import {
   MessageCircleIcon,
   SparklesIcon,
 } from "lucide-react";
-import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
+import { BulkActionBar } from "@/components/email-list/BulkActionBar";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
 import type { Thread } from "@/components/email-list/types";
 import { Tabs } from "@/components/Tabs";
@@ -33,7 +33,13 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { runAiRules } from "@/utils/queue/email-actions";
+import {
+  finalizeReprocessAction,
+  runRulesAction,
+} from "@/utils/actions/ai-rule";
+import { getDisplayedMessage } from "@/utils/email/displayed-message";
+import { useLabels } from "@/hooks/useLabels";
+import { ActionType } from "@/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import {
@@ -419,6 +425,7 @@ export function EmailList({
     archiveEmails({
       threadIds,
       onSuccess: () => {
+        setSelectedRows({});
         refetch({ removedThreadIds: threadIds });
         toast.success("Emails archived", {
           id: toastId,
@@ -443,6 +450,7 @@ export function EmailList({
     deleteEmails({
       threadIds,
       onSuccess: () => {
+        setSelectedRows({});
         refetch({ removedThreadIds: threadIds });
         toast.success("Emails deleted!", {
           id: toastId,
@@ -459,22 +467,95 @@ export function EmailList({
     });
   }, [selectedRows, refetch, emailAccountId, undoSupported, undoTrash]);
 
-  const onPlanAiBulk = useCallback(async () => {
-    toast.promise(
-      async () => {
-        const selectedThreads = Object.entries(selectedRows)
-          .filter(([, selected]) => selected)
-          .map(([id]) => threads.find((t) => t.id === id)!);
+  // Bulk "Process with AI": the exact per-row sparkles process — a fresh
+  // rule run per thread, then the deterministic finalize that makes the
+  // decision stick (move to the chosen folder, or return to the inbox on
+  // no match) — run sequentially with live progress.
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  const { userLabels } = useLabels();
 
-        runAiRules(emailAccountId, selectedThreads, false);
-        // runAiRules(threadIds, () => refetch(threadIds));
-      },
-      {
-        success: "Running AI rules...",
-        error: "There was an error running the AI rules :(",
-      },
+  const onPlanAiBulk = useCallback(async () => {
+    const selectedThreads = threads.filter((thread) => selectedRows[thread.id]);
+    if (!selectedThreads.length || isBulkProcessing) return;
+
+    setIsBulkProcessing(true);
+    const toastId = toast.loading(
+      `Processing 0/${selectedThreads.length} with AI…`,
     );
-  }, [emailAccountId, selectedRows, threads]);
+    let failed = 0;
+
+    try {
+      for (const [index, thread] of selectedThreads.entries()) {
+        const message =
+          getDisplayedMessage(thread, folderType) ?? thread.messages?.at(-1);
+        if (!message) {
+          failed++;
+          continue;
+        }
+
+        try {
+          const result = await runRulesAction(emailAccountId, {
+            messageId: message.id,
+            threadId: thread.id,
+            isTest: false,
+            rerun: true,
+          });
+          if (result?.serverError || !result?.data)
+            throw new Error(result?.serverError ?? "Rule run failed");
+
+          const matched = result.data.find((entry) => entry.rule);
+          const labelItem = matched?.actionItems?.find(
+            (item) => item.type === ActionType.LABEL,
+          );
+          const folderName =
+            labelItem?.label ??
+            (labelItem?.labelId
+              ? (userLabels.find((label) => label.id === labelItem.labelId)
+                  ?.name ?? null)
+              : null);
+
+          const finalize = await finalizeReprocessAction(emailAccountId, {
+            threadId: thread.id,
+            messageId: message.id,
+            keepLabelName: folderName,
+            returnToInbox: !folderName,
+          });
+          if (finalize?.serverError) throw new Error(finalize.serverError);
+        } catch {
+          failed++;
+        }
+
+        toast.loading(
+          `Processing ${index + 1}/${selectedThreads.length} with AI…`,
+          { id: toastId },
+        );
+      }
+
+      if (failed) {
+        toast.error(
+          `Processed ${selectedThreads.length - failed} of ${selectedThreads.length} emails — ${failed} failed.`,
+          { id: toastId },
+        );
+      } else {
+        toast.success(
+          `Processed ${selectedThreads.length} email${selectedThreads.length === 1 ? "" : "s"} with AI.`,
+          { id: toastId },
+        );
+      }
+      setSelectedRows({});
+      refetch();
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  }, [
+    emailAccountId,
+    selectedRows,
+    threads,
+    folderType,
+    userLabels,
+    isBulkProcessing,
+    refetch,
+  ]);
 
   const isEmpty = threads.length === 0;
   const selectedCount = threads.filter(
@@ -494,30 +575,11 @@ export function EmailList({
               onChange={onToggleSelectAll}
             />
           </div>
-          <div className="ml-2 flex items-center gap-1">
-            <ActionButtonsBulk
-              isPlanning={false}
-              isArchiving={false}
-              isDeleting={false}
-              onPlanAiAction={onPlanAiBulk}
-              onArchive={onArchiveBulk}
-              onDelete={onTrashBulk}
-            />
-            {selectedCount > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setFilterThreads(
-                    threads.filter((thread) => selectedRows[thread.id]),
-                  )
-                }
-              >
-                <FilterIcon className="mr-1.5 size-3.5" />
-                Filter selected ({selectedCount})
-              </Button>
-            )}
-          </div>
+          {selectedCount > 0 && (
+            <span className="ml-3 text-sm text-muted-foreground">
+              {selectedCount} selected
+            </span>
+          )}
           {/* <div className="ml-auto gap-1 flex items-center">
             <Button variant="ghost" size='icon'>
               <ChevronLeftIcon className='h-4 w-4' />
@@ -669,6 +731,22 @@ export function EmailList({
         </div>
       )}
 
+      {selectedCount > 0 && (
+        <BulkActionBar
+          count={selectedCount}
+          isProcessing={isBulkProcessing}
+          onProcessAi={onPlanAiBulk}
+          onMoveToFolder={() =>
+            setFilterThreads(
+              threads.filter((thread) => selectedRows[thread.id]),
+            )
+          }
+          onArchive={onArchiveBulk}
+          onDelete={onTrashBulk}
+          onClear={() => setSelectedRows({})}
+        />
+      )}
+
       {rowMenu && (
         <RowContextMenu
           position={rowMenu}
@@ -706,7 +784,10 @@ export function EmailList({
           key={filterThreads.map((thread) => thread.id).join(",")}
           threads={filterThreads}
           onClose={() => setFilterThreads(null)}
-          refetch={() => refetch()}
+          refetch={() => {
+            setSelectedRows({});
+            refetch();
+          }}
         />
       ) : null}
       {aiRuleThread && (
