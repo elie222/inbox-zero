@@ -15,6 +15,8 @@ import { getColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 import { internalDateToDate } from "@/utils/date";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
+import { suppressLabelLearning } from "@/utils/redis/label-learning-suppression";
+import type { Logger } from "@/utils/logger";
 
 export const markNotColdEmailAction = actionClient
   .metadata({ name: "markNotColdEmail" })
@@ -47,16 +49,30 @@ export const markNotColdEmailAction = actionClient
           logger,
           source: GroupItemSource.USER,
         }),
-        removeColdEmailLabelFromSender(emailProvider, sender, coldEmailRule),
+        removeColdEmailLabelFromSender({
+          emailProvider,
+          emailAccountId,
+          sender,
+          coldEmailRule,
+          logger,
+        }),
       ]);
     },
   );
 
-async function removeColdEmailLabelFromSender(
-  emailProvider: EmailProvider,
-  sender: string,
-  coldEmailRule: { actions: { labelId: string | null }[] },
-) {
+async function removeColdEmailLabelFromSender({
+  emailProvider,
+  emailAccountId,
+  sender,
+  coldEmailRule,
+  logger,
+}: {
+  emailProvider: EmailProvider;
+  emailAccountId: string;
+  sender: string;
+  coldEmailRule: { actions: { labelId: string | null }[] };
+  logger: Logger;
+}) {
   const labelIds = coldEmailRule.actions
     .map((action) => action.labelId)
     .filter((id): id is string => Boolean(id));
@@ -69,6 +85,14 @@ async function removeColdEmailLabelFromSender(
   });
 
   for (const thread of threads) {
+    // The learned exclusion above already records this correction — don't
+    // let the strip echo back through the webhook as a second lesson
+    await suppressLabelLearning({
+      emailAccountId,
+      threadId: thread.id,
+      labelIds,
+      logger,
+    });
     await emailProvider.removeThreadLabels(thread.id, labelIds);
   }
 }

@@ -25,8 +25,8 @@ export async function recordLabelRemovalLearning({
     return;
   }
 
-  if (!ruleId || !systemType || !shouldLearnFromLabelRemoval(systemType)) {
-    logger.info("Label removal does not match a learnable system rule", {
+  if (!ruleId || !shouldLearnFromLabelRemoval(systemType)) {
+    logger.info("Label removal does not match a learnable rule", {
       systemType,
     });
     return;

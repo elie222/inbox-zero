@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
-import { GroupItemType, type GroupItemSource } from "@/generated/prisma/enums";
+import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 
 /**
@@ -164,6 +164,104 @@ export async function saveLearnedPatterns({
   }
 
   return { success: true };
+}
+
+/**
+ * Pins senders to a rule and removes learned patterns on other rules that
+ * would collide — one correction makes future filing deterministic instead
+ * of leaving two rules fighting over the same sender.
+ */
+export async function retrainLearnedPatterns({
+  emailAccountId,
+  ruleId,
+  values,
+  logger,
+  source = GroupItemSource.USER,
+  reason,
+  messageId,
+  threadId,
+}: {
+  emailAccountId: string;
+  ruleId: string;
+  values: string[];
+  logger: Logger;
+  source?: GroupItemSource;
+  reason?: string | null;
+  messageId?: string | null;
+  threadId?: string | null;
+}) {
+  await removeConflictingFromPatterns({
+    emailAccountId,
+    ruleId,
+    values,
+    logger,
+  });
+
+  // Pinning the senders to this rule makes it win deterministically even
+  // when another rule's AI condition would also match
+  for (const value of values) {
+    await saveLearnedPattern({
+      emailAccountId,
+      from: value,
+      ruleId,
+      logger,
+      source,
+      reason,
+      messageId,
+      threadId,
+    });
+  }
+}
+
+// Learned patterns match FROM by bidirectional substring, exactly like the
+// engine (utils/group/find-matching-group.ts) — conflicts are judged the
+// same way so we only delete patterns that would actually collide.
+export async function removeConflictingFromPatterns({
+  emailAccountId,
+  ruleId,
+  values,
+  logger,
+}: {
+  emailAccountId: string;
+  ruleId: string;
+  values: string[];
+  logger: Logger;
+}) {
+  const normalized = values
+    .map((value) => value.replace(/^@/, "").toLowerCase())
+    .filter(Boolean);
+  if (!normalized.length) return;
+
+  // exclude:true items only prevent the other rule from matching — they
+  // can't misroute mail here, so they stay
+  const otherPatterns = await prisma.groupItem.findMany({
+    where: {
+      type: GroupItemType.FROM,
+      exclude: false,
+      group: {
+        emailAccountId,
+        rule: { is: { id: { not: ruleId } } },
+      },
+    },
+    select: { id: true, value: true },
+  });
+
+  const conflicting = otherPatterns.filter((item) => {
+    const itemValue = item.value.toLowerCase();
+    return normalized.some(
+      (value) => itemValue.includes(value) || value.includes(itemValue),
+    );
+  });
+
+  if (conflicting.length) {
+    await prisma.groupItem.deleteMany({
+      where: { id: { in: conflicting.map((item) => item.id) } },
+    });
+    logger.info("Removed conflicting learned patterns", {
+      ruleId,
+      removed: conflicting.length,
+    });
+  }
 }
 
 async function getOrCreateGroupForRule({

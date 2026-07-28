@@ -17,6 +17,7 @@ import {
   saveClassificationFeedback,
 } from "@/utils/rule/classification-feedback";
 import { fetchSenderFromMessage } from "@/utils/webhook/google/fetch-sender-from-message";
+import { isLabelLearningSuppressed } from "@/utils/redis/label-learning-suppression";
 
 export async function handleLabelRemovedEvent(
   message: gmail_v1.Schema$HistoryLabelRemoved,
@@ -115,6 +116,19 @@ async function learnFromRemovedLabel({
   logger: Logger;
 }) {
   logger = logger.with({ labelId });
+
+  // Our own strips (reprocess finalize, reconcile, backfill, cold-email
+  // undo) arrive here looking like user corrections — never learn from them
+  const suppressed = await isLabelLearningSuppressed({
+    emailAccountId,
+    threadId,
+    labelId,
+    logger,
+  });
+  if (suppressed) {
+    logger.info("Label removal was system-initiated, skipping learning");
+    return;
+  }
 
   const rule = await findRuleByLabelId({ labelId, emailAccountId });
 

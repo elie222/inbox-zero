@@ -10,7 +10,11 @@ import {
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
-import { findRuleByLabelId } from "@/utils/rule/classification-feedback";
+import {
+  findRuleByLabelId,
+  saveClassificationFeedback,
+} from "@/utils/rule/classification-feedback";
+import { isLabelLearningSuppressed } from "@/utils/redis/label-learning-suppression";
 
 const logger = createTestLogger();
 
@@ -84,9 +88,14 @@ vi.mock("@/utils/rule/consts", async (importOriginal) => {
   };
 });
 
+vi.mock("@/utils/redis/label-learning-suppression", () => ({
+  isLabelLearningSuppressed: vi.fn().mockResolvedValue(false),
+}));
+
 describe("process-label-removed-event", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(isLabelLearningSuppressed).mockResolvedValue(false);
   });
 
   const createLabelRemovedHistoryItem = (
@@ -247,6 +256,47 @@ describe("process-label-removed-event", () => {
       expect(saveLearnedPattern).toHaveBeenCalledWith(
         expect.objectContaining({ ruleId: "rule-2" }),
       );
+    });
+
+    it("learns an exclusion when a custom rule's folder label is removed", async () => {
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
+        id: "rule-custom",
+        systemType: null,
+      } as any);
+
+      const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
+        "label-2",
+      ]);
+
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
+
+      expect(saveLearnedPattern).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ruleId: "rule-custom",
+          exclude: true,
+          source: GroupItemSource.LABEL_REMOVED,
+        }),
+      );
+      expect(saveClassificationFeedback).toHaveBeenCalledWith(
+        expect.objectContaining({ ruleId: "rule-custom" }),
+      );
+    });
+
+    it("skips learning entirely when the removal was system-initiated", async () => {
+      vi.mocked(isLabelLearningSuppressed).mockResolvedValue(true);
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
+        id: "rule-custom",
+        systemType: null,
+      } as any);
+
+      const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
+        "label-2",
+      ]);
+
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
+
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
+      expect(saveClassificationFeedback).not.toHaveBeenCalled();
     });
 
     it("should skip learning when no rule is found for the removed label", async () => {

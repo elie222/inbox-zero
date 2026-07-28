@@ -5,6 +5,7 @@ import { runWithBoundedConcurrency } from "@/utils/async";
 import { filterMatchType } from "@/utils/actions/mail-filter.validation";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
+import { suppressLabelLearning } from "@/utils/redis/label-learning-suppression";
 
 const BACKFILL_MAX_MESSAGES = 500;
 const BACKFILL_CONCURRENCY = 3;
@@ -77,6 +78,7 @@ export async function runApplyFilter({
   if (body.threadIds.length) {
     await applyFilterToThreads({
       emailProvider,
+      emailAccountId: body.emailAccountId,
       ownerEmail,
       threadIds: body.threadIds,
       labelId,
@@ -89,6 +91,7 @@ export async function runApplyFilter({
   if (body.applyToExisting) {
     await applyFilterToExistingMail({
       emailProvider,
+      emailAccountId: body.emailAccountId,
       ownerEmail,
       matchType,
       value,
@@ -114,6 +117,7 @@ export function splitPatterns(value: string | null | undefined): string[] {
 // time.
 async function applyFilterToExistingMail({
   emailProvider,
+  emailAccountId,
   ownerEmail,
   matchType,
   value,
@@ -123,6 +127,7 @@ async function applyFilterToExistingMail({
   logger,
 }: {
   emailProvider: EmailProvider;
+  emailAccountId: string;
   ownerEmail: string;
   matchType: z.infer<typeof filterMatchType>;
   value: string;
@@ -189,6 +194,7 @@ async function applyFilterToExistingMail({
 
   const failed = await moveThreadsToFolder({
     emailProvider,
+    emailAccountId,
     ownerEmail,
     targetLabelId,
     labelName,
@@ -196,6 +202,7 @@ async function applyFilterToExistingMail({
     userLabelIds,
     threadLabelIds,
     threadMessageIds,
+    logger,
   });
   logger.info("Filter backfill finished", {
     threads: threadLabelIds.size,
@@ -208,6 +215,7 @@ async function applyFilterToExistingMail({
 // works from thread ids, so it covers the exact mail the user acted on.
 async function applyFilterToThreads({
   emailProvider,
+  emailAccountId,
   ownerEmail,
   threadIds,
   labelId,
@@ -216,6 +224,7 @@ async function applyFilterToThreads({
   logger,
 }: {
   emailProvider: EmailProvider;
+  emailAccountId: string;
   ownerEmail: string;
   threadIds: string[];
   labelId: string | null;
@@ -259,6 +268,7 @@ async function applyFilterToThreads({
 
   const failed = await moveThreadsToFolder({
     emailProvider,
+    emailAccountId,
     ownerEmail,
     targetLabelId,
     labelName,
@@ -266,6 +276,7 @@ async function applyFilterToThreads({
     userLabelIds,
     threadLabelIds,
     threadMessageIds,
+    logger,
   });
   logger.info("Filter moved selected threads", {
     threads: threadLabelIds.size,
@@ -305,6 +316,7 @@ async function getUserLabelIds(
 
 async function moveThreadsToFolder({
   emailProvider,
+  emailAccountId,
   ownerEmail,
   targetLabelId,
   labelName,
@@ -312,8 +324,10 @@ async function moveThreadsToFolder({
   userLabelIds,
   threadLabelIds,
   threadMessageIds,
+  logger,
 }: {
   emailProvider: EmailProvider;
+  emailAccountId: string;
   ownerEmail: string;
   targetLabelId: string;
   labelName: string;
@@ -321,6 +335,7 @@ async function moveThreadsToFolder({
   userLabelIds: Set<string>;
   threadLabelIds: Map<string, Set<string>>;
   threadMessageIds: Map<string, string[]>;
+  logger: Logger;
 }): Promise<number> {
   const results = await runWithBoundedConcurrency({
     items: [...threadLabelIds.keys()],
@@ -349,6 +364,13 @@ async function moveThreadsToFolder({
         (id) => userLabelIds.has(id) && id !== targetLabelId,
       );
       if (stripIds.length) {
+        // Don't let our own strip echo back as a learned exclusion
+        await suppressLabelLearning({
+          emailAccountId,
+          threadId,
+          labelIds: stripIds,
+          logger,
+        });
         await emailProvider.removeThreadLabels(threadId, stripIds);
       }
     },

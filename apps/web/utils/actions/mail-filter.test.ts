@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 
-const { createRuleMock, saveLearnedPatternMock } = vi.hoisted(() => ({
+const { createRuleMock, retrainLearnedPatternsMock } = vi.hoisted(() => ({
   createRuleMock: vi.fn(),
-  saveLearnedPatternMock: vi.fn(),
+  retrainLearnedPatternsMock: vi.fn(),
 }));
 
 vi.mock("@/utils/prisma");
@@ -16,7 +16,7 @@ vi.mock("@/utils/rule/rule", () => ({
   createRule: createRuleMock,
 }));
 vi.mock("@/utils/rule/learned-patterns", () => ({
-  saveLearnedPattern: saveLearnedPatternMock,
+  retrainLearnedPatterns: retrainLearnedPatternsMock,
 }));
 
 import { createMailFilterAction } from "@/utils/actions/mail-filter";
@@ -148,28 +148,18 @@ describe("createMailFilterAction", () => {
     });
   });
 
-  it("retrains learned patterns: deletes conflicts on other rules and pins senders", async () => {
-    prisma.groupItem.findMany.mockResolvedValue([
-      { id: "item-1", value: "feedback@drivecentric.com" },
-      { id: "item-2", value: "unrelated@elsewhere.com" },
-    ] as any);
-    prisma.groupItem.deleteMany.mockResolvedValue({ count: 1 } as any);
-
+  it("retrains learned patterns with the filter's senders", async () => {
     await createMailFilterAction("account-1", {
       matchType: "domain",
       value: "drivecentric.com",
       labelName: "Notifications",
     });
 
-    expect(prisma.groupItem.deleteMany).toHaveBeenCalledWith({
-      where: { id: { in: ["item-1"] } },
-    });
-    expect(saveLearnedPatternMock).toHaveBeenCalledWith(
+    expect(retrainLearnedPatternsMock).toHaveBeenCalledWith(
       expect.objectContaining({
         emailAccountId: "account-1",
-        from: "@drivecentric.com",
         ruleId: "rule-1",
-        source: "USER",
+        values: ["@drivecentric.com"],
       }),
     );
   });
@@ -181,7 +171,6 @@ describe("createMailFilterAction", () => {
       labelName: "Notifications",
     });
 
-    expect(prisma.groupItem.findMany).not.toHaveBeenCalled();
-    expect(saveLearnedPatternMock).not.toHaveBeenCalled();
+    expect(retrainLearnedPatternsMock).not.toHaveBeenCalled();
   });
 });

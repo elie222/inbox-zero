@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { saveLearnedPattern, saveLearnedPatterns } from "./learned-patterns";
+import {
+  removeConflictingFromPatterns,
+  retrainLearnedPatterns,
+  saveLearnedPattern,
+  saveLearnedPatterns,
+} from "./learned-patterns";
 import prisma from "@/utils/__mocks__/prisma";
 import { GroupItemType, GroupItemSource } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
@@ -196,6 +201,118 @@ describe("saveLearnedPattern", () => {
         },
       }),
     );
+  });
+});
+
+describe("retrainLearnedPatterns", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("deletes colliding include patterns on other rules and pins the sender", async () => {
+    // Conflict scan finds one bidirectional-substring match and one unrelated
+    vi.mocked(prisma.groupItem.findMany).mockResolvedValue([
+      { id: "item-conflict", value: "@nucar.com" },
+      { id: "item-unrelated", value: "other@elsewhere.com" },
+    ] as any);
+    vi.mocked(prisma.groupItem.deleteMany).mockResolvedValue({ count: 1 });
+    vi.mocked(prisma.rule.findUnique).mockResolvedValue({
+      id: "rule-1",
+      name: "GM Responses",
+      groupId: "group-1",
+    } as any);
+    vi.mocked(prisma.groupItem.upsert).mockResolvedValue({} as any);
+
+    await retrainLearnedPatterns({
+      emailAccountId: "email-account-id",
+      ruleId: "rule-1",
+      values: ["shawn@nucar.com"],
+      logger: createTestLogger(),
+      source: GroupItemSource.LABEL_ADDED,
+      reason: "Label added by user",
+      messageId: "message-1",
+      threadId: "thread-1",
+    });
+
+    // Only non-exclude patterns on OTHER rules are considered conflicts
+    expect(prisma.groupItem.findMany).toHaveBeenCalledWith({
+      where: {
+        type: GroupItemType.FROM,
+        exclude: false,
+        group: {
+          emailAccountId: "email-account-id",
+          rule: { is: { id: { not: "rule-1" } } },
+        },
+      },
+      select: { id: true, value: true },
+    });
+    expect(prisma.groupItem.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["item-conflict"] } },
+    });
+    expect(prisma.groupItem.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          groupId: "group-1",
+          value: "shawn@nucar.com",
+          exclude: false,
+          source: GroupItemSource.LABEL_ADDED,
+          reason: "Label added by user",
+          messageId: "message-1",
+          threadId: "thread-1",
+        }),
+      }),
+    );
+  });
+
+  it("does nothing when no values are given", async () => {
+    await retrainLearnedPatterns({
+      emailAccountId: "email-account-id",
+      ruleId: "rule-1",
+      values: [],
+      logger: createTestLogger(),
+    });
+
+    expect(prisma.groupItem.findMany).not.toHaveBeenCalled();
+    expect(prisma.groupItem.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("removeConflictingFromPatterns", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("skips deletion when nothing collides", async () => {
+    vi.mocked(prisma.groupItem.findMany).mockResolvedValue([
+      { id: "item-1", value: "someoneelse@another.com" },
+    ] as any);
+
+    await removeConflictingFromPatterns({
+      emailAccountId: "email-account-id",
+      ruleId: "rule-1",
+      values: ["shawn@nucar.com"],
+      logger: createTestLogger(),
+    });
+
+    expect(prisma.groupItem.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("matches domain patterns against full addresses in both directions", async () => {
+    vi.mocked(prisma.groupItem.findMany).mockResolvedValue([
+      { id: "item-full", value: "shawn@nucar.com" },
+    ] as any);
+    vi.mocked(prisma.groupItem.deleteMany).mockResolvedValue({ count: 1 });
+
+    await removeConflictingFromPatterns({
+      emailAccountId: "email-account-id",
+      ruleId: "rule-1",
+      values: ["@nucar.com"],
+      logger: createTestLogger(),
+    });
+
+    expect(prisma.groupItem.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["item-full"] } },
+    });
   });
 });
 
