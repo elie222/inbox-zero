@@ -20,6 +20,7 @@ import type { Logger } from "@/utils/logger";
 import type {
   MatchReason,
   MatchingRuleResult,
+  PotentialAiMatchRule,
   RuleSelectionMetadata,
 } from "@/utils/ai/choose-rule/types";
 import {
@@ -186,7 +187,7 @@ async function findPotentialMatchingRules({
     rule: RuleWithActions;
     matchReasons: MatchReason[];
   }[] = [];
-  const potentialAiMatches: (RuleWithActions & { instructions: string })[] = [];
+  const potentialAiMatches: PotentialAiMatchRule[] = [];
   const skippedThreadRuleNames: string[] = [];
   const continuedThreadRuleNames: string[] = [];
   const learnedPatternExcludedRules: RuleSelectionMetadata["learnedPatternExcludedRules"] =
@@ -300,6 +301,14 @@ async function findPotentialMatchingRules({
       potentialAiMatches.push({
         ...rule,
         instructions: rule.instructions ?? "",
+        // Static outcomes survive to the final match record when the AI
+        // confirms (an AND rule's static leg passed to get here)
+        pendingMatchReasons: matchReasons,
+        // Thread continuity is evidence the AI should see (the loader
+        // memoizes, so this is one query per message)
+        previouslyMatchedThread: isThread
+          ? (await previousRulesLoader.getRuleIds()).has(rule.id)
+          : false,
       });
     }
   }
@@ -621,7 +630,7 @@ async function findMatchingRulesWithReasons(
 
 function mergeMatchesWithAiResults(
   matches: { rule: RuleWithActions; matchReasons?: MatchReason[] }[],
-  aiRules: RuleWithActions[],
+  aiRules: PotentialAiMatchRule[],
 ) {
   const aiRuleIds = new Set(aiRules.map((rule) => rule.id));
   const existingRuleIds = new Set(matches.map((match) => match.rule.id));
@@ -637,7 +646,12 @@ function mergeMatchesWithAiResults(
       .filter((rule) => !existingRuleIds.has(rule.id))
       .map((rule) => ({
         rule,
-        matchReasons: [{ type: ConditionType.AI }],
+        // An AND rule reached the AI with its static leg already passed —
+        // keep that in the record so history shows "static + AI", not AI
+        matchReasons: [
+          ...(rule.pendingMatchReasons ?? []),
+          { type: ConditionType.AI },
+        ],
       })),
   ];
 }

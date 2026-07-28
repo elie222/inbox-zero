@@ -10,6 +10,7 @@ import {
   isOllamaProvider,
 } from "@/utils/llms/ollama-guidance";
 import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
+import { staticConditionsToString } from "@/utils/condition";
 import { sortRulesForAutomation } from "@/utils/rule/sort";
 import type { Logger } from "@/utils/logger";
 import type { ClassificationFeedbackItem } from "@/utils/rule/classification-feedback";
@@ -32,6 +33,7 @@ export async function aiChooseRule<
     subject?: string | null;
     body?: string | null;
     conditionalOperator?: string | null;
+    previouslyMatchedThread?: boolean;
   },
 >({
   email,
@@ -56,7 +58,7 @@ export async function aiChooseRule<
   const orderedRules = sortRulesForAutomation(rules);
   const promptRules = orderedRules.map((rule) => ({
     ...rule,
-    instructions: withUnmatchedSenderNote(rule),
+    instructions: withRuleEvidenceNotes(rule),
   }));
 
   const { result: aiResponse } = await getAiResponse({
@@ -449,27 +451,61 @@ These are hints from past user actions. Still evaluate the current email on its 
 </classification_feedback>`;
 }
 
-// The AI pool only sees a rule's name and instructions. An OR rule whose
-// explicit senders didn't match still lands in the pool, and without this
-// note the model can't tell the rule is scoped to senders that don't
-// include this email — so it picks purely on semantics and misroutes.
-// Only from-only rules get the note: with other static fields present, a
-// failed static match doesn't prove the sender was the mismatch.
-function withUnmatchedSenderNote(rule: {
+// The AI pool only sees a rule's name and instructions — these notes carry
+// what the engine already established so the model doesn't judge blind.
+function withRuleEvidenceNotes(rule: {
   instructions: string;
   from?: string | null;
   to?: string | null;
   subject?: string | null;
   body?: string | null;
   conditionalOperator?: string | null;
+  previouslyMatchedThread?: boolean;
 }): string {
-  const senderScopedOnly = rule.from && !rule.to && !rule.subject && !rule.body;
-  if (!senderScopedOnly || rule.conditionalOperator !== LogicalOperator.OR) {
-    return rule.instructions;
-  }
-  return `${rule.instructions}
+  const notes: string[] = [];
 
-Note: this rule also matches specific senders directly (${rule.from}). This email's sender is NOT one of them — that check already ran. Only select this rule if the email clearly fits the criteria above in its own right.`;
+  const staticNote = getStaticConditionNote(rule);
+  if (staticNote) notes.push(staticNote);
+
+  if (rule.previouslyMatchedThread) {
+    notes.push(
+      "Note: this rule already matched earlier messages in this same conversation. Prefer it for this reply unless the email clearly belongs elsewhere.",
+    );
+  }
+
+  if (!notes.length) return rule.instructions;
+  return [rule.instructions, ...notes].join("\n\n");
+}
+
+// A rule only reaches the AI pool after its static conditions ran, and the
+// operator tells us how they came out (see evaluateRuleConditions):
+// - OR + static ⇒ the static leg FAILED (a pass would have matched outright).
+//   Only from-only rules get the note: with other static fields present, a
+//   failed static match doesn't prove the sender was the mismatch.
+// - AND + static ⇒ the static leg PASSED (a failure never reaches the pool),
+//   so tell the model the scope is satisfied and only content judgment is
+//   left — without this it can't tell the sender already matched and rejects
+//   rules whose instructions don't describe the email's sender.
+function getStaticConditionNote(rule: {
+  from?: string | null;
+  to?: string | null;
+  subject?: string | null;
+  body?: string | null;
+  conditionalOperator?: string | null;
+}): string | null {
+  const hasStatic = !!(rule.from || rule.to || rule.subject || rule.body);
+  if (!hasStatic) return null;
+
+  if (rule.conditionalOperator === LogicalOperator.AND) {
+    return `Note: this rule also has static conditions (${staticConditionsToString(rule)}) which ALREADY MATCHED this email. Judge only whether the email fits the criteria above — the sender/recipient/subject scope is already satisfied.`;
+  }
+
+  const senderScopedOnly = rule.from && !rule.to && !rule.subject && !rule.body;
+  if (senderScopedOnly && rule.conditionalOperator === LogicalOperator.OR) {
+    return `Note: this rule also matches specific senders directly (${rule.from}). This email's sender is NOT one of them — that check already ran. Only select this rule if the email clearly fits the criteria above in its own right.`;
+  }
+
+  return null;
 }
 
 const OLLAMA_MULTI_RULE_SELECTION_GUIDANCE = [

@@ -2359,6 +2359,77 @@ describe("findMatchingRules - Integration Tests", () => {
     expect(result.reasoning).toBe("This is a promotional email");
   });
 
+  it("records static + AI match reasons when an AND rule is AI-confirmed", async () => {
+    const andRule = getRule({
+      id: "and-rule",
+      from: "@example.com",
+      instructions: "Replies to daily report emails",
+      conditionalOperator: LogicalOperator.AND,
+    });
+
+    // Return the pooled rule the engine passed in, as the real AI does
+    vi.mocked(aiChooseRule).mockImplementation(async ({ rules }) => ({
+      rules: [{ rule: rules[0], isPrimary: true }],
+      reason: "Content matches",
+    }));
+
+    const result = await findMatchingRules({
+      rules: [andRule],
+      message: getMessage({
+        headers: getHeaders({ from: "shawn@example.com" }),
+      }),
+      emailAccount: getEmailAccount(),
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(result.matches[0]?.rule.id).toBe("and-rule");
+    expect(result.matches[0]?.matchReasons).toEqual([
+      { type: ConditionType.STATIC },
+      { type: ConditionType.AI },
+    ]);
+  });
+
+  it("flags pooled rules that previously filed this thread", async () => {
+    const aiRule = getRule({
+      id: "thread-continuity-rule",
+      instructions: "Replies to daily report emails",
+      runOnThreads: true,
+    });
+
+    const threadProvider = getProvider({ isThread: true });
+    prisma.executedRule.findMany.mockResolvedValue([
+      { ruleId: "thread-continuity-rule" },
+    ] as any);
+    vi.mocked(aiChooseRule).mockResolvedValue({
+      rules: [],
+      reason: "no match",
+    });
+
+    await findMatchingRules({
+      rules: [aiRule],
+      message: getMessage({
+        headers: getHeaders({ from: "shawn@example.com" }),
+      }),
+      emailAccount: getEmailAccount(),
+      provider: threadProvider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(aiChooseRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rules: [
+          expect.objectContaining({
+            id: "thread-continuity-rule",
+            previouslyMatchedThread: true,
+          }),
+        ],
+      }),
+    );
+  });
+
   it("should prioritize learned patterns over AI rules", async () => {
     const learnedPatternRule = getRule({
       id: "learned-rule",
