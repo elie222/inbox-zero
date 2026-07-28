@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 // CardDAV clients (iOS/macOS Contacts) speak WebDAV verbs that Next.js
-// route handlers can't receive. This middleware — scoped strictly to
-// CardDAV paths — tunnels PROPFIND/REPORT to the route as POST with the
-// real verb in x-webdav-method, and serves the .well-known redirect.
+// route handlers can't receive. This proxy — scoped strictly to CardDAV
+// paths — tunnels PROPFIND/REPORT to the route as POST with the real verb
+// in x-webdav-method, and serves the .well-known redirect.
 export const config = {
   matcher: ["/.well-known/carddav", "/api/carddav/:path*", "/api/carddav"],
 };
@@ -16,7 +16,7 @@ const TUNNELED_METHODS = new Set(["PROPFIND", "REPORT"]);
 // is a required, build-inlined env, so it's always present here.
 const SELF_ORIGIN = process.env.NEXT_PUBLIC_BASE_URL;
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === "/.well-known/carddav") {
     return NextResponse.redirect(new URL("/api/carddav", request.url), 301);
   }
@@ -49,6 +49,29 @@ export async function middleware(request: NextRequest) {
 
   return new NextResponse(response.body, {
     status: response.status,
-    headers: response.headers,
+    headers: forwardableResponseHeaders(response.headers),
   });
+}
+
+// fetch transparently decompresses the body, so forwarding the inner
+// response's content-encoding/content-length verbatim describes bytes the
+// client never receives — the client then fails to parse the multistatus XML
+// and iOS reports "account verification failed". Connection-level headers
+// belong to the hop we just terminated, so they go too.
+const NON_FORWARDABLE_HEADERS = new Set([
+  "content-encoding",
+  "content-length",
+  "transfer-encoding",
+  "connection",
+  "keep-alive",
+]);
+
+function forwardableResponseHeaders(headers: Headers) {
+  const forwarded = new Headers();
+  headers.forEach((value, name) => {
+    if (!NON_FORWARDABLE_HEADERS.has(name.toLowerCase())) {
+      forwarded.set(name, value);
+    }
+  });
+  return forwarded;
 }
