@@ -417,6 +417,26 @@ async function updateBookingForEvent({
   if (!CHANGEABLE_STATUSES.includes(recording.status)) return true;
   if (!recording.externalBotId) return true;
 
+  // A cancelling row retains the dedup slot until the provider confirms that
+  // its bot is gone. Wait for that cleanup before moving this bot, otherwise
+  // the database update collides after the provider has already been changed.
+  const cancellationInProgress = await prisma.meetingRecording.findFirst({
+    where: {
+      id: { not: recording.id },
+      normalizedMeetingUrl: recording.normalizedMeetingUrl,
+      meetingStartTime: event.startTime,
+      status: MeetingRecordingStatus.CANCELLING,
+    },
+    select: { id: true },
+  });
+  if (cancellationInProgress) {
+    logger.info("Waiting for conflicting meeting recording cancellation", {
+      recordingId: recording.id,
+      conflictingRecordingId: cancellationInProgress.id,
+    });
+    return true;
+  }
+
   const provider = createMeetingBotProvider(recording.botProvider, logger);
   const updatedBot = await provider.updateBot(recording.externalBotId, {
     joinAt: event.startTime,

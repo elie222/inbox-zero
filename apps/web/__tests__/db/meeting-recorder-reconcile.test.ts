@@ -234,6 +234,69 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(recording.externalBotId).toBe("replacement_bot");
     });
 
+    test("waits to reschedule while a conflicting recording is cancelling", async () => {
+      const event = calendarEvent();
+      const emailAccount = account(accountAId, ACCOUNT_A);
+      await reconcile.reconcileSingleEvent({ emailAccount, event, logger });
+      const original = await prisma.meetingRecording.findFirstOrThrow();
+      const movedTo = addMinutes(event.startTime, 45);
+
+      const cancelling = await prisma.meetingRecording.create({
+        data: {
+          botProvider: original.botProvider,
+          externalBotId: "cancelling_bot",
+          meetingUrl: original.meetingUrl,
+          normalizedMeetingUrl: original.normalizedMeetingUrl,
+          activeKey: original.activeKey,
+          meetingStartTime: movedTo,
+          status: MeetingRecordingStatus.CANCELLING,
+        },
+      });
+
+      await reconcile.reconcileSingleEvent({
+        emailAccount,
+        event: {
+          ...event,
+          startTime: movedTo,
+          endTime: addMinutes(movedTo, 30),
+        },
+        logger,
+      });
+
+      expect(fakeProvider.updated).toHaveLength(0);
+      expect(
+        (
+          await prisma.meetingRecording.findUniqueOrThrow({
+            where: { id: original.id },
+          })
+        ).meetingStartTime,
+      ).toEqual(event.startTime);
+
+      await prisma.meetingRecording.update({
+        where: { id: cancelling.id },
+        data: {
+          status: MeetingRecordingStatus.CANCELLED,
+          activeKey: null,
+        },
+      });
+      await reconcile.reconcileSingleEvent({
+        emailAccount,
+        event: {
+          ...event,
+          startTime: movedTo,
+          endTime: addMinutes(movedTo, 30),
+        },
+        logger,
+      });
+
+      expect(fakeProvider.updated).toContainEqual(
+        expect.objectContaining({
+          botId: original.externalBotId,
+          joinAt: movedTo,
+        }),
+      );
+    });
+
     test("retries a claim whose provider call failed transiently", async () => {
       const event = calendarEvent();
       const emailAccount = account(accountAId, ACCOUNT_A);
@@ -376,7 +439,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
 
       const cancelling = await prisma.meetingRecording.findFirstOrThrow();
-      expect(cancelling.status).toBe("CANCELLING");
+      expect(cancelling.status).toBe(MeetingRecordingStatus.CANCELLING);
       expect(fakeProvider.cancelled).toHaveLength(0);
 
       await reconcile.sweepRecordings({ logger });

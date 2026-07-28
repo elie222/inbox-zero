@@ -71,6 +71,7 @@ export interface RecallEmulator {
   close(): Promise<void>;
   getBot(botId: string): RecallEmulatorBot | undefined;
   rejectNextJoinAtUpdate(): void;
+  rejectNextLeaveCallAsUnstarted(): void;
   requests: RecallEmulatorRequest[];
   reset(): void;
   /** Build the Svix-signed request Recall would POST to our webhook route. */
@@ -106,6 +107,7 @@ export async function createRecallEmulator({
   const requests: RecallEmulatorRequest[] = [];
   let nextId = 1;
   let rejectNextJoinAtUpdate = false;
+  let rejectNextLeaveCallAsUnstarted = false;
 
   const server = createServer((req, res) => {
     const chunks: Buffer[] = [];
@@ -184,6 +186,13 @@ export async function createRecallEmulator({
     if (leaveCall && method === "POST") {
       const botId = leaveCall[1] as string;
       const bot = bots.get(botId);
+      if (rejectNextLeaveCallAsUnstarted) {
+        rejectNextLeaveCallAsUnstarted = false;
+        return {
+          status: 400,
+          body: { code: "cannot_command_unstarted_bot" },
+        };
+      }
       if (!bot) {
         return {
           status: 400,
@@ -367,6 +376,10 @@ export async function createRecallEmulator({
       rejectNextJoinAtUpdate = true;
     },
 
+    rejectNextLeaveCallAsUnstarted() {
+      rejectNextLeaveCallAsUnstarted = true;
+    },
+
     advance(botId, code, subCode) {
       const bot = bots.get(botId);
       if (!bot) throw new Error(`Unknown bot ${botId}`);
@@ -419,6 +432,7 @@ export async function createRecallEmulator({
       requests.length = 0;
       nextId = 1;
       rejectNextJoinAtUpdate = false;
+      rejectNextLeaveCallAsUnstarted = false;
     },
 
     close: () =>

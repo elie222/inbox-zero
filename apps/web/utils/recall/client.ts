@@ -230,10 +230,7 @@ function isAlreadyGoneFromCall(error: unknown): boolean {
   if (!(error instanceof RecallApiError) || error.status !== 400) return false;
 
   const code = getRecallErrorCode(error);
-  return (
-    code === "cannot_command_completed_bot" ||
-    code === "cannot_command_unstarted_bot"
-  );
+  return code === "cannot_command_completed_bot";
 }
 
 function getRecallErrorCode(error: RecallApiError): string | null {

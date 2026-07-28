@@ -177,6 +177,20 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(emulator.getBot(externalBotId)).toBeUndefined();
     });
 
+    test("does not treat an unstarted leave response as a successful cancellation", async () => {
+      const { externalBotId } = await provider.scheduleBot({
+        meetingUrl: "https://meet.google.com/abc-defg-hij",
+        joinAt: new Date("2026-05-04T09:00:00.000Z"),
+      });
+      emulator.advance(externalBotId, "in_call_recording");
+      emulator.rejectNextLeaveCallAsUnstarted();
+
+      await expect(provider.cancelBot(externalBotId)).rejects.toThrow(
+        "cannot_command_unstarted_bot",
+      );
+      expect(emulator.getBot(externalBotId)).toBeDefined();
+    });
+
     test("fetches a fresh download URL and normalizes the transcript", async () => {
       const { externalBotId } = await provider.scheduleBot({
         meetingUrl: "https://meet.google.com/abc-defg-hij",
