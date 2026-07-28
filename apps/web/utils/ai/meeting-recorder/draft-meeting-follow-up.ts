@@ -29,7 +29,7 @@ const draftSchema = z.object({
   body: z.string().describe("The plain-text body of the follow-up email"),
 });
 
-export type MeetingFollowUpDraft = z.infer<typeof draftSchema>;
+type MeetingFollowUpDraft = z.infer<typeof draftSchema>;
 
 export async function aiDraftMeetingFollowUp({
   emailAccount,

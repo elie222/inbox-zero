@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { parseMeetingSummary } from "@/utils/ai/meeting-recorder/summarize-meeting";
+import type { NormalizedTranscript } from "@/utils/meeting-recorder/bot-provider";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 
@@ -36,7 +38,7 @@ async function getMeeting({
   meetingId: string;
   emailAccountId: string;
 }) {
-  return prisma.meeting.findFirst({
+  const meeting = await prisma.meeting.findFirst({
     where: { id: meetingId, emailAccountId },
     select: {
       id: true,
@@ -57,4 +59,16 @@ async function getMeeting({
       },
     },
   });
+  if (!meeting) return null;
+
+  // Narrowed here rather than in the client so the response type carries the
+  // real shape of these two JSON columns.
+  return {
+    ...meeting,
+    summary: parseMeetingSummary(meeting.summary),
+    recording: meeting.recording && {
+      ...meeting.recording,
+      transcript: meeting.recording.transcript as NormalizedTranscript | null,
+    },
+  };
 }

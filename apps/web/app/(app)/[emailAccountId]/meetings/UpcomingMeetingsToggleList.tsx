@@ -1,31 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastError } from "@/components/Toast";
 import { Toggle } from "@/components/Toggle";
 import { TypographyH3 } from "@/components/Typography";
-import { Badge } from "@/components/ui/badge";
 import {
   Empty,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemTitle,
-} from "@/components/ui/item";
+import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { GetMeetingRecorderUpcomingResponse } from "@/app/api/user/meeting-recorder/upcoming/route";
-import { getRecordingStatusBadge } from "@/app/(app)/[emailAccountId]/meetings/recording-status";
+import { MeetingListItem } from "@/app/(app)/[emailAccountId]/meetings/MeetingListItem";
 import { useMeetingRecorderUpcoming } from "@/hooks/useMeetingRecorder";
 import { setMeetingJoinOverrideAction } from "@/utils/actions/meeting-recorder";
 import { getActionErrorMessage } from "@/utils/error";
@@ -82,36 +73,23 @@ export function UpcomingMeetingsToggleList({
           </Empty>
         ) : (
           <ItemGroup className="mt-4 gap-2">
-            {data.events.map((event) => {
-              const badge = getRecordingStatusBadge(event.recordingStatus);
-
-              return (
-                <Item key={event.id} variant="outline">
-                  <ItemContent>
-                    <ItemTitle>{event.title}</ItemTitle>
-                    <ItemDescription>
-                      {format(
-                        new Date(event.startTime),
-                        "EEE, MMM d 'at' h:mm a",
-                      )}
-                      {event.failureReason ? ` • ${event.failureReason}` : ""}
-                    </ItemDescription>
-                  </ItemContent>
-                  <ItemActions className="gap-3">
-                    {badge && (
-                      <Badge variant={badge.variant}>{badge.label}</Badge>
-                    )}
-                    <Toggle
-                      name={`join-${event.id}`}
-                      ariaLabel={`Record ${event.title}`}
-                      enabled={event.willRecord}
-                      disabled={pendingEventId === event.id}
-                      onChange={(join) => toggleEvent(event, join)}
-                    />
-                  </ItemActions>
-                </Item>
-              );
-            })}
+            {data.events.map((event) => (
+              <MeetingListItem
+                key={event.id}
+                title={event.title}
+                startTime={event.startTime}
+                status={event.recordingStatus}
+                failureReason={event.failureReason}
+              >
+                <Toggle
+                  name={`join-${event.id}`}
+                  ariaLabel={`Record ${event.title}`}
+                  enabled={event.willRecord}
+                  disabled={pendingEventId === event.id}
+                  onChange={(join) => toggleEvent(event, join)}
+                />
+              </MeetingListItem>
+            ))}
           </ItemGroup>
         )}
       </LoadingContent>

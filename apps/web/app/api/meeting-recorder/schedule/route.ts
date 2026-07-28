@@ -4,6 +4,7 @@ import { runWithBoundedConcurrency } from "@/utils/async";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
+import { MEETING_RECORDER_MIN_TIER } from "@/utils/meeting-recorder/config";
 import {
   reconcileAccount,
   sweepRecordings,
@@ -46,7 +47,7 @@ async function scheduleAllMeetingRecordings(logger: Logger) {
   const emailAccounts = await prisma.emailAccount.findMany({
     where: {
       meetingRecorderEnabled: true,
-      ...getPremiumUserFilter(),
+      ...getPremiumUserFilter({ minimumTier: MEETING_RECORDER_MIN_TIER }),
       calendarConnections: { some: { isConnected: true } },
     },
     select: {

@@ -10,16 +10,15 @@ import {
 import { fetchCalendarEventsInWindow } from "@/utils/calendar/fetch-events-in-window";
 import { SafeError } from "@/utils/error";
 import {
+  MAX_EVENTS_PER_PROVIDER,
+  MEETING_LOOKAHEAD_HOURS,
   RECONCILE_WINDOW_MINUTES,
+} from "@/utils/meeting-recorder/config";
+import {
   reconcileSingleEvent,
   upsertMeeting,
 } from "@/utils/meeting-recorder/reconcile";
 import prisma from "@/utils/prisma";
-
-// Matches the lookahead of the upcoming-meetings API, which is what the toggle
-// list is built from.
-const OVERRIDE_LOOKAHEAD_HOURS = 48;
-const MAX_EVENTS_PER_PROVIDER = 50;
 
 export const updateMeetingRecorderSettingsAction = actionClient
   .metadata({ name: "updateMeetingRecorderSettings" })
@@ -62,7 +61,7 @@ export const setMeetingJoinOverrideAction = actionClient
       const events = await fetchCalendarEventsInWindow({
         emailAccountId,
         timeMin,
-        timeMax: addHours(timeMin, OVERRIDE_LOOKAHEAD_HOURS),
+        timeMax: addHours(timeMin, MEETING_LOOKAHEAD_HOURS),
         maxResultsPerProvider: MAX_EVENTS_PER_PROVIDER,
         logger,
       });

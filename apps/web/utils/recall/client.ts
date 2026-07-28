@@ -1,5 +1,4 @@
 import { env } from "@/env";
-import type { MeetingRecordingStatus } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import {
   MEETING_BOT_DISPLAY_NAME,
@@ -13,11 +12,15 @@ import {
   recallTranscriptDownloadSchema,
   recallTranscriptSchema,
 } from "@/utils/recall/types";
-import { recallCodeToStatus } from "@/utils/recall/status";
 
 const RECALL_API_BASE = "https://us-west-2.recall.ai/api/v1";
 
-export class RecallApiError extends MeetingBotProviderError {
+// Overridden only to point at the local emulator, same as GOOGLE_BASE_URL.
+function getRecallApiBase(): string {
+  return env.RECALL_BASE_URL?.replace(/\/+$/, "") || RECALL_API_BASE;
+}
+
+class RecallApiError extends MeetingBotProviderError {
   readonly status: number;
   readonly body: string;
 
@@ -98,23 +101,6 @@ export class RecallBotProvider implements MeetingBotProvider {
     }
   }
 
-  async getBotStatus(externalBotId: string): Promise<MeetingRecordingStatus> {
-    const response = await this.request(`/bot/${externalBotId}/`, {
-      method: "GET",
-    });
-    const bot = recallBotSchema.parse(response);
-
-    const latestCode = bot.status_changes?.at(-1)?.code;
-    const status = latestCode ? recallCodeToStatus(latestCode) : null;
-    if (!status) {
-      throw new Error(
-        `Recall bot ${externalBotId} reported unknown status ${latestCode}`,
-      );
-    }
-
-    return status;
-  }
-
   async fetchTranscript(
     externalTranscriptId: string,
   ): Promise<NormalizedTranscript> {
@@ -169,7 +155,7 @@ export class RecallBotProvider implements MeetingBotProvider {
       throw new Error("RECALL_API_KEY is not configured");
     }
 
-    const response = await fetch(`${RECALL_API_BASE}${path}`, {
+    const response = await fetch(`${getRecallApiBase()}${path}`, {
       method,
       headers: {
         Authorization: `Token ${env.RECALL_API_KEY}`,

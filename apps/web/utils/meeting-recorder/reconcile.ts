@@ -14,9 +14,15 @@ import type { Logger } from "@/utils/logger";
 import { toAttendeeSnapshot } from "@/utils/meeting-recorder/attendees";
 import { MeetingBotProviderError } from "@/utils/meeting-recorder/bot-provider";
 import {
+  MAX_EVENTS_PER_PROVIDER,
+  RECONCILE_WINDOW_MINUTES,
+  STUCK_PROCESSING_MINUTES,
+} from "@/utils/meeting-recorder/config";
+import {
   createMeetingBotProvider,
   DEFAULT_MEETING_BOT_PROVIDER,
 } from "@/utils/meeting-recorder/create-bot-provider";
+import { deleteRecordingMedia } from "@/utils/meeting-recorder/delete-media";
 import { enqueueMeetingProcessing } from "@/utils/meeting-recorder/enqueue-processing";
 import { shouldAutoJoin } from "@/utils/meeting-recorder/join-rule";
 import {
@@ -28,20 +34,13 @@ import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
 import { normalizeMeetingUrl } from "@/utils/recall/normalize-meeting-url";
 
-// The bot has to be booked before the call starts, so we look one cron interval
-// further ahead than the lead time we want.
-export const RECONCILE_WINDOW_MINUTES = 35;
-const MAX_EVENTS_PER_PROVIDER = 50;
 // Recurring instances are at least an hour apart, so a generous tolerance for
 // matching "the same meeting" across accounts cannot collide across instances.
 const SAME_MEETING_TOLERANCE_MINUTES = 30;
 const STALE_CLAIM_MINUTES = 10;
 const ABANDONED_RECORDING_HOURS = 24;
-// Longer than the process route's maxDuration, so a slow run is never requeued
-// while it is still going.
-const STUCK_PROCESSING_MINUTES = 15;
 
-export interface RecorderAccount {
+interface RecorderAccount {
   email: string;
   id: string;
   meetingRecorderJoinRule: MeetingJoinRule;
@@ -118,7 +117,11 @@ export async function reconcileSingleEvent({
   });
 
   if (!wantsRecording) {
-    await releaseMeeting({ meetingId: meeting.id, logger: eventLogger });
+    await releaseMeeting({
+      meetingId: meeting.id,
+      recordingId: meeting.recordingId,
+      logger: eventLogger,
+    });
     return;
   }
 
@@ -271,7 +274,7 @@ async function bookBot({
     await provider.cancelBot(externalBotId);
   }
 
-  return prisma.meetingRecording.findUnique({ where: { id: recording.id } });
+  return recording;
 }
 
 function findLiveRecording({
@@ -402,18 +405,15 @@ async function mergeIntoExistingRecording({
 /** Detaches a meeting from its recording, cancelling the bot if nobody else wants it. */
 async function releaseMeeting({
   meetingId,
+  recordingId,
   logger,
 }: {
   meetingId: string;
+  recordingId: string | null;
   logger: Logger;
 }): Promise<void> {
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: meetingId },
-    select: { recordingId: true },
-  });
-  if (!meeting?.recordingId) return;
+  if (!recordingId) return;
 
-  const recordingId = meeting.recordingId;
   await prisma.meeting.update({
     where: { id: meetingId },
     data: { recordingId: null },
@@ -479,14 +479,18 @@ async function releaseUnseenMeetings({
       startTime: { gte: timeMin, lte: timeMax },
       recording: { status: { in: CHANGEABLE_STATUSES } },
     },
-    select: { id: true, calendarEventId: true },
+    select: { id: true, calendarEventId: true, recordingId: true },
   });
 
   for (const meeting of booked) {
     if (seenEventIds.has(meeting.calendarEventId)) continue;
 
     try {
-      await releaseMeeting({ meetingId: meeting.id, logger });
+      await releaseMeeting({
+        meetingId: meeting.id,
+        recordingId: meeting.recordingId,
+        logger,
+      });
     } catch (error) {
       logger.error("Failed to release meeting for a vanished event", {
         meetingId: meeting.id,
@@ -557,18 +561,19 @@ async function requeueStuckMeetings({
     select: { id: true },
     take: 50,
   });
+  if (stuck.length === 0) return;
 
-  for (const meeting of stuck) {
-    await prisma.meeting.update({
-      where: { id: meeting.id },
-      data: { processingStatus: MeetingProcessingStatus.PENDING },
-    });
-    await enqueueMeetingProcessing({ meetingId: meeting.id, logger });
+  const meetingIds = stuck.map((meeting) => meeting.id);
+  await prisma.meeting.updateMany({
+    where: { id: { in: meetingIds } },
+    data: { processingStatus: MeetingProcessingStatus.PENDING },
+  });
+
+  for (const meetingId of meetingIds) {
+    await enqueueMeetingProcessing({ meetingId, logger });
   }
 
-  if (stuck.length > 0) {
-    logger.info("Requeued stuck meeting processing", { count: stuck.length });
-  }
+  logger.info("Requeued stuck meeting processing", { count: stuck.length });
 }
 
 async function retryPendingMediaDeletion({
@@ -586,25 +591,12 @@ async function retryPendingMediaDeletion({
       mediaDeletedAt: null,
       externalBotId: { not: null },
     },
+    // Anything more pulls the stored transcript blob for every row.
+    select: { id: true, botProvider: true, externalBotId: true },
     take: 50,
   });
 
   for (const recording of recordings) {
-    if (!recording.externalBotId) continue;
-
-    try {
-      const provider = createMeetingBotProvider(recording.botProvider, logger);
-      await provider.deleteMedia(recording.externalBotId);
-      await prisma.meetingRecording.update({
-        where: { id: recording.id },
-        data: { mediaDeletedAt: new Date() },
-      });
-    } catch (error) {
-      logger.error("Failed to delete meeting recording media", {
-        recordingId: recording.id,
-        error,
-      });
-      captureException(error);
-    }
+    await deleteRecordingMedia({ recording, logger });
   }
 }

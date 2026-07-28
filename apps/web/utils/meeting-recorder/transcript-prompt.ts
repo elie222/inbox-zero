@@ -16,9 +16,9 @@ export function transcriptToPromptText(
 ): string {
   const lines = transcript.map(
     (utterance) =>
-      `[${formatTimestamp(utterance.startTime)}] ${utterance.speakerName}: ${
-        utterance.text
-      }`,
+      `[${formatTranscriptTimestamp(utterance.startTime)}] ${
+        utterance.speakerName
+      }: ${utterance.text}`,
   );
 
   const full = lines.join("\n");
@@ -54,7 +54,8 @@ function takeLinesWithinBudget(
   return (from === "head" ? taken : taken.reverse()).join("\n");
 }
 
-function formatTimestamp(seconds: number): string {
+/** Seconds from the start of the recording, as `mm:ss`. */
+export function formatTranscriptTimestamp(seconds: number): string {
   const total = Math.max(0, Math.floor(seconds));
   const minutes = Math.floor(total / 60);
   const remaining = total % 60;

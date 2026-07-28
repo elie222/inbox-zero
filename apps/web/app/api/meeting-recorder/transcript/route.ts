@@ -3,6 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { MeetingRecordingStatus } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import { createMeetingBotProvider } from "@/utils/meeting-recorder/create-bot-provider";
+import { deleteRecordingMedia } from "@/utils/meeting-recorder/delete-media";
 import { enqueueProcessingForRecording } from "@/utils/meeting-recorder/enqueue-processing";
 import { recordingStatusData } from "@/utils/meeting-recorder/recording-lifecycle";
 import { withError } from "@/utils/middleware";
@@ -85,35 +86,8 @@ async function storeTranscript({
       throw error;
     }
 
-    await deleteMedia({ recordingId: recording.id, logger });
+    await deleteRecordingMedia({ recording, logger });
   }
 
   await enqueueProcessingForRecording({ recordingId: recording.id, logger });
-}
-
-// We keep transcripts, never media. Best effort here; the cron sweep retries
-// anything left behind.
-async function deleteMedia({
-  recordingId,
-  logger,
-}: {
-  recordingId: string;
-  logger: Logger;
-}): Promise<void> {
-  const recording = await prisma.meetingRecording.findUnique({
-    where: { id: recordingId },
-    select: { botProvider: true, externalBotId: true },
-  });
-  if (!recording?.externalBotId) return;
-
-  try {
-    const provider = createMeetingBotProvider(recording.botProvider, logger);
-    await provider.deleteMedia(recording.externalBotId);
-    await prisma.meetingRecording.update({
-      where: { id: recordingId },
-      data: { mediaDeletedAt: new Date() },
-    });
-  } catch (error) {
-    logger.error("Failed to delete meeting media", { error });
-  }
 }

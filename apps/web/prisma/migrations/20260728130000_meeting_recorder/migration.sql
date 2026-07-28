@@ -77,6 +77,9 @@ CREATE INDEX "Meeting_emailAccountId_startTime_idx" ON "Meeting"("emailAccountId
 CREATE INDEX "Meeting_recordingId_idx" ON "Meeting"("recordingId");
 
 -- CreateIndex
+CREATE INDEX "Meeting_processingStatus_updatedAt_idx" ON "Meeting"("processingStatus", "updatedAt");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Meeting_emailAccountId_calendarEventId_key" ON "Meeting"("emailAccountId", "calendarEventId");
 
 -- CreateIndex

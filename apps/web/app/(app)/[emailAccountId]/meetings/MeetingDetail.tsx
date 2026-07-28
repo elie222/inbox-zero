@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MeetingRecordingStatus } from "@/generated/prisma/enums";
 import { useMeetingRecorderMeeting } from "@/hooks/useMeetingRecorder";
 import type { MeetingSummary } from "@/utils/ai/meeting-recorder/summarize-meeting";
-import type { NormalizedTranscript } from "@/utils/meeting-recorder/bot-provider";
+import { formatTranscriptTimestamp } from "@/utils/meeting-recorder/transcript-prompt";
 
 export function MeetingDetail({
   meetingId,
@@ -25,11 +25,8 @@ export function MeetingDetail({
 }) {
   const { data, isLoading, error } = useMeetingRecorderMeeting(meetingId);
 
-  const summary = data?.summary as MeetingSummary | null | undefined;
-  const transcript = data?.recording?.transcript as
-    | NormalizedTranscript
-    | null
-    | undefined;
+  const summary = data?.summary;
+  const transcript = data?.recording?.transcript;
 
   return (
     <Dialog open={!!meetingId} onOpenChange={(open) => !open && onClose()}>
@@ -80,7 +77,7 @@ export function MeetingDetail({
                   <div key={`${utterance.startTime}-${index}`}>
                     <p className="text-xs font-medium text-muted-foreground">
                       {utterance.speakerName} ·{" "}
-                      {formatOffset(utterance.startTime)}
+                      {formatTranscriptTimestamp(utterance.startTime)}
                     </p>
                     <p className="text-sm">{utterance.text}</p>
                   </div>
@@ -143,10 +140,4 @@ function SummarySection({ title, items }: { title: string; items: string[] }) {
       </ul>
     </div>
   );
-}
-
-function formatOffset(seconds: number): string {
-  const total = Math.max(0, Math.floor(seconds));
-  const minutes = Math.floor(total / 60);
-  return `${String(minutes).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }

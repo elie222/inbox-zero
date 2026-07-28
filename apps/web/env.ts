@@ -272,6 +272,8 @@ const parsedEnv = createEnv({
 
     RECALL_API_KEY: z.string().optional(),
     RECALL_WEBHOOK_SECRET: z.string().optional(),
+    // Local Recall emulation only; points the bot provider at a stand-in API.
+    RECALL_BASE_URL: z.string().url().optional(),
 
     RESEND_API_KEY: z.string().optional(),
     RESEND_AUDIENCE_ID: z.string().optional(),

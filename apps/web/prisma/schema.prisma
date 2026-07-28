@@ -1460,6 +1460,8 @@ model Meeting {
   @@unique([emailAccountId, recordingId])
   @@index([emailAccountId, startTime])
   @@index([recordingId])
+  // The stuck-processing sweep looks these up across every account.
+  @@index([processingStatus, updatedAt])
 }
 
 model MessagingChannel {

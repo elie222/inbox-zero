@@ -15,48 +15,10 @@ const RECALL_CODE_TO_STATUS: Record<string, MeetingRecordingStatus> = {
   fatal: MeetingRecordingStatus.FAILED,
 };
 
-// Rank orders the lifecycle so replayed or out-of-order webhooks can only ever
-// move a recording forwards.
-const STATUS_RANK: Record<MeetingRecordingStatus, number> = {
-  [MeetingRecordingStatus.PENDING]: 0,
-  [MeetingRecordingStatus.SCHEDULED]: 1,
-  [MeetingRecordingStatus.JOINING]: 2,
-  [MeetingRecordingStatus.IN_WAITING_ROOM]: 3,
-  [MeetingRecordingStatus.IN_CALL]: 4,
-  [MeetingRecordingStatus.RECORDING]: 5,
-  [MeetingRecordingStatus.CALL_ENDED]: 6,
-  // Terminal outcomes: nothing may move a recording out of them. A late failure
-  // event must not wipe a recording we already have a transcript for.
-  [MeetingRecordingStatus.DONE]: 7,
-  [MeetingRecordingStatus.FAILED]: 7,
-  [MeetingRecordingStatus.CANCELLED]: 7,
-};
-
-const TERMINAL_STATUSES: MeetingRecordingStatus[] = [
-  MeetingRecordingStatus.DONE,
-  MeetingRecordingStatus.FAILED,
-  MeetingRecordingStatus.CANCELLED,
-];
-
 export function recallCodeToStatus(
   code: string,
 ): MeetingRecordingStatus | null {
   return RECALL_CODE_TO_STATUS[code] ?? null;
-}
-
-/**
- * Statuses a recording may currently be in for a move to `next` to be a step
- * forwards. Used as the `where` clause of a monotonic `updateMany`.
- */
-export function getStatusesBelow(
-  next: MeetingRecordingStatus,
-): MeetingRecordingStatus[] {
-  const nextRank = STATUS_RANK[next];
-
-  return Object.values(MeetingRecordingStatus).filter(
-    (status) =>
-      STATUS_RANK[status] < nextRank && !TERMINAL_STATUSES.includes(status),
-  );
 }
 
 // Copy shown to the user for the failure sub-codes we expect to see in practice.

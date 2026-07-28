@@ -54,6 +54,16 @@ const summarySchema = z.object({
 
 export type MeetingSummary = z.infer<typeof summarySchema>;
 
+/**
+ * Reads back a summary we stored as JSON. Parsed rather than cast so a row
+ * written before a schema change is re-summarized instead of rendered with
+ * fields the UI no longer expects.
+ */
+export function parseMeetingSummary(value: unknown): MeetingSummary | null {
+  const parsed = summarySchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
 export async function aiSummarizeMeeting({
   emailAccount,
   eventTitle,

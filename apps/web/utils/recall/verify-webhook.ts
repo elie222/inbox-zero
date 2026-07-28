@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { secureCompareBuffers } from "@/utils/crypto-compare";
 
 // Recall delivers webhooks through Svix. Rather than pull in the Svix SDK we
 // verify the signature by hand: it is a documented, stable HMAC scheme.
@@ -44,8 +45,5 @@ function matchesSignature(entry: string, expected: Buffer): boolean {
   const [version, signature] = entry.split(",");
   if (version !== "v1" || !signature) return false;
 
-  const provided = Buffer.from(signature, "base64");
-  if (provided.length !== expected.length) return false;
-
-  return crypto.timingSafeEqual(provided, expected);
+  return secureCompareBuffers(Buffer.from(signature, "base64"), expected);
 }

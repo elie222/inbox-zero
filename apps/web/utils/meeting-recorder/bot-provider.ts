@@ -1,9 +1,7 @@
-import type { MeetingRecordingStatus } from "@/generated/prisma/enums";
-
 // Product-facing name of the bot that appears in the participant list.
 export const MEETING_BOT_DISPLAY_NAME = "Inbox Zero Notetaker";
 
-export interface TranscriptUtterance {
+interface TranscriptUtterance {
   email?: string;
   endTime: number;
   isHost: boolean;
@@ -37,7 +35,6 @@ export interface MeetingBotProvider {
   /** Tolerant: media that is already gone is not an error. */
   deleteMedia(externalBotId: string): Promise<void>;
   fetchTranscript(externalTranscriptId: string): Promise<NormalizedTranscript>;
-  getBotStatus(externalBotId: string): Promise<MeetingRecordingStatus>;
   readonly name: string;
   rescheduleBot(externalBotId: string, params: { joinAt: Date }): Promise<void>;
   scheduleBot(params: {

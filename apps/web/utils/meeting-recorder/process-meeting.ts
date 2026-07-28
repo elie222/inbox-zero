@@ -1,9 +1,9 @@
 import { subMinutes } from "date-fns/subMinutes";
-import { z } from "zod";
 import { MeetingProcessingStatus } from "@/generated/prisma/enums";
 import { aiDraftMeetingFollowUp } from "@/utils/ai/meeting-recorder/draft-meeting-follow-up";
 import {
   aiSummarizeMeeting,
+  parseMeetingSummary,
   type MeetingSummary,
 } from "@/utils/ai/meeting-recorder/summarize-meeting";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -16,25 +16,15 @@ import {
   type MeetingAttendee,
 } from "@/utils/meeting-recorder/attendees";
 import type { NormalizedTranscript } from "@/utils/meeting-recorder/bot-provider";
+import {
+  MEETING_RECORDER_MIN_TIER,
+  STUCK_PROCESSING_MINUTES,
+} from "@/utils/meeting-recorder/config";
 import { sendMeetingRecapEmail } from "@/utils/meeting-recorder/send-recap";
 import { checkHasAccess } from "@/utils/premium/server";
 import prisma from "@/utils/prisma";
 import { escapeHtml } from "@/utils/string";
 import { getEmailAccountWithAi, getWritingStyle } from "@/utils/user/get";
-
-// Longer than the route's maxDuration, so a run that is merely slow is never
-// picked up a second time in parallel.
-const STALE_CLAIM_MINUTES = 15;
-
-const summaryValueSchema = z.object({
-  overview: z.string(),
-  keyDecisions: z.array(z.string()),
-  actionItems: z.array(
-    z.object({ description: z.string(), owner: z.string().optional() }),
-  ),
-  openQuestions: z.array(z.string()).optional(),
-  nextSteps: z.array(z.string()).optional(),
-});
 
 /**
  * Turns one account's copy of a finished recording into a summary, a follow-up
@@ -65,7 +55,7 @@ export async function processMeetingForAccount({
         // guarded by the field it writes, so picking it back up is safe.
         {
           processingStatus: MeetingProcessingStatus.PROCESSING,
-          updatedAt: { lt: subMinutes(new Date(), STALE_CLAIM_MINUTES) },
+          updatedAt: { lt: subMinutes(new Date(), STUCK_PROCESSING_MINUTES) },
         },
       ],
     },
@@ -110,7 +100,15 @@ async function runProcessingSteps({
 }): Promise<void> {
   const meeting = await prisma.meeting.findUnique({
     where: { id: meetingId },
-    include: { recording: { select: { transcript: true } } },
+    include: {
+      recording: { select: { transcript: true } },
+      emailAccount: {
+        select: {
+          meetingRecorderRecapEmailEnabled: true,
+          meetingRecorderFollowUpDraftEnabled: true,
+        },
+      },
+    },
   });
   if (!meeting) throw new Error("Meeting not found");
 
@@ -130,28 +128,17 @@ async function runProcessingSteps({
 
   const hasAccess = await checkHasAccess({
     userId: emailAccount.userId,
-    minimumTier: "PLUS_MONTHLY",
+    minimumTier: MEETING_RECORDER_MIN_TIER,
   });
   if (!hasAccess) {
     logger.info("Skipping meeting because the plan does not include it");
     return;
   }
 
-  const settings = await prisma.emailAccount.findUnique({
-    where: { id: meeting.emailAccountId },
-    select: {
-      meetingRecorderRecapEmailEnabled: true,
-      meetingRecorderFollowUpDraftEnabled: true,
-      timezone: true,
-      account: { select: { provider: true } },
-    },
-  });
-  if (!settings) throw new Error("Email account settings not found");
-
   const attendees = parseAttendeeSnapshot(meeting.attendees);
 
   const summary =
-    parseStoredSummary(meeting.summary) ??
+    parseMeetingSummary(meeting.summary) ??
     (await summarizeAndSave({
       meetingId,
       emailAccount,
@@ -162,7 +149,7 @@ async function runProcessingSteps({
 
   const recipients = getFollowUpRecipients(attendees, emailAccount.email);
   const wantsDraft =
-    settings.meetingRecorderFollowUpDraftEnabled &&
+    meeting.emailAccount.meetingRecorderFollowUpDraftEnabled &&
     recipients.length > 0 &&
     !meeting.followUpDraftStartedAt;
 
@@ -179,7 +166,7 @@ async function runProcessingSteps({
       await createFollowUpDraft({
         meetingId,
         emailAccount,
-        provider: settings.account.provider,
+        provider: emailAccount.account.provider,
         eventTitle: meeting.eventTitle,
         summary,
         recipients,
@@ -188,7 +175,10 @@ async function runProcessingSteps({
     }
   }
 
-  if (settings.meetingRecorderRecapEmailEnabled && !meeting.recapSentAt) {
+  if (
+    meeting.emailAccount.meetingRecorderRecapEmailEnabled &&
+    !meeting.recapSentAt
+  ) {
     // Claim the send before doing it: a duplicate recap is worse than a missing
     // one, and the user can always open the meeting in the app.
     const claim = await prisma.meeting.updateMany({
@@ -200,8 +190,8 @@ async function runProcessingSteps({
       await sendMeetingRecapEmail({
         emailAccountId: meeting.emailAccountId,
         userEmail: emailAccount.email,
-        provider: settings.account.provider,
-        timezone: settings.timezone,
+        provider: emailAccount.account.provider,
+        timezone: emailAccount.timezone,
         meetingTitle: meeting.eventTitle,
         startTime: meeting.startTime,
         summary,
@@ -287,11 +277,6 @@ async function createFollowUpDraft({
   });
 
   logger.info("Created meeting follow-up draft", { draftId: id });
-}
-
-function parseStoredSummary(value: unknown): MeetingSummary | null {
-  const parsed = summaryValueSchema.safeParse(value);
-  return parsed.success ? parsed.data : null;
 }
 
 // The model writes plain text; the draft APIs take HTML.

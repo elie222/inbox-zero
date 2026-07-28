@@ -3,12 +3,13 @@ import { NextResponse } from "next/server";
 import { MeetingJoinRule } from "@/generated/prisma/enums";
 import { fetchCalendarEventsInWindow } from "@/utils/calendar/fetch-events-in-window";
 import type { Logger } from "@/utils/logger";
+import {
+  MAX_EVENTS_PER_PROVIDER,
+  MEETING_LOOKAHEAD_HOURS,
+} from "@/utils/meeting-recorder/config";
 import { shouldAutoJoin } from "@/utils/meeting-recorder/join-rule";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-
-const LOOKAHEAD_HOURS = 48;
-const MAX_EVENTS_PER_PROVIDER = 50;
 
 export type GetMeetingRecorderUpcomingResponse = Awaited<
   ReturnType<typeof getData>
@@ -39,7 +40,7 @@ async function getData({
   });
 
   const timeMin = new Date();
-  const timeMax = addHours(timeMin, LOOKAHEAD_HOURS);
+  const timeMax = addHours(timeMin, MEETING_LOOKAHEAD_HOURS);
 
   const events = await fetchCalendarEventsInWindow({
     emailAccountId,
@@ -57,10 +58,8 @@ async function getData({
       calendarEventId: { in: videoEvents.map((event) => event.id) },
     },
     select: {
-      id: true,
       calendarEventId: true,
       joinOverride: true,
-      recordingId: true,
       recording: { select: { status: true, failureReason: true } },
     },
   });
@@ -73,7 +72,6 @@ async function getData({
     emailAccount?.meetingRecorderJoinRule ?? MeetingJoinRule.EXTERNAL_ONLY;
 
   return {
-    joinRule: rule,
     events: videoEvents.map((event) => {
       const meeting = meetingsByEventId.get(event.id);
 
@@ -81,11 +79,6 @@ async function getData({
         id: event.id,
         title: event.title,
         startTime: event.startTime,
-        endTime: event.endTime,
-        videoConferenceLink: event.videoConferenceLink,
-        organizerEmail: event.organizerEmail,
-        isOrganizer: event.isOrganizer,
-        attendees: event.attendees,
         // Decided server-side with the same helper the cron uses, so the toggle
         // can never disagree with what actually happens.
         willRecord: shouldAutoJoin({
@@ -94,21 +87,9 @@ async function getData({
           userEmail: emailAccount?.email ?? "",
           joinOverride: meeting?.joinOverride,
         }),
-        source: getSource(meeting),
-        meetingId: meeting?.id,
         recordingStatus: meeting?.recording?.status,
         failureReason: meeting?.recording?.failureReason,
       };
     }),
   };
-}
-
-function getSource(
-  meeting:
-    | { joinOverride: boolean | null; recordingId: string | null }
-    | undefined,
-) {
-  if (meeting?.recordingId) return "scheduled" as const;
-  if (meeting?.joinOverride != null) return "override" as const;
-  return "rule" as const;
 }

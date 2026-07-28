@@ -19,7 +19,3 @@ export const setMeetingJoinOverrideBody = z.object({
   calendarEventId: z.string(),
   join: z.boolean(),
 });
-
-export type SetMeetingJoinOverrideBody = z.infer<
-  typeof setMeetingJoinOverrideBody
->;

@@ -2,12 +2,14 @@ import type { MeetingRecordingStatus } from "@/generated/prisma/enums";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
-import { recordingStatusData } from "@/utils/meeting-recorder/recording-lifecycle";
+import {
+  getStatusesBelow,
+  recordingStatusData,
+} from "@/utils/meeting-recorder/recording-lifecycle";
 import prisma from "@/utils/prisma";
-import { getStatusesBelow } from "@/utils/recall/status";
 import type { MeetingRecorderTranscriptBody } from "@/app/api/meeting-recorder/transcript/validation";
 
-export const MEETING_RECORDER_TRANSCRIPT_TOPIC = "meeting-recorder-transcript";
+const MEETING_RECORDER_TRANSCRIPT_TOPIC = "meeting-recorder-transcript";
 
 /**
  * Provider-agnostic handlers that each bot provider's webhook route translates
