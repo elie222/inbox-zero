@@ -263,9 +263,9 @@ describe("process-label-added-event", () => {
       });
 
       it("should not learn any sender when the thread has replies from others", async () => {
-        mockThreadSenders("cold@vendor.com", "colleague@test.com");
+        mockThreadSenders("cold@vendor.com", "replier@othercorp.com");
         vi.mocked(fetchSenderFromMessage).mockResolvedValue(
-          "colleague@test.com",
+          "replier@othercorp.com",
         );
 
         await handleLabelAddedEvent(
@@ -274,6 +274,8 @@ describe("process-label-added-event", () => {
           logger,
         );
 
+        // Guards against passing via an earlier check instead of the thread inspection.
+        expect(mockProvider.getThreadMessages).toHaveBeenCalled();
         expect(saveLearnedPattern).not.toHaveBeenCalled();
       });
 
@@ -288,6 +290,38 @@ describe("process-label-added-event", () => {
         );
 
         expect(saveLearnedPattern).not.toHaveBeenCalled();
+      });
+
+      it("should not read the thread when the account has no cold email rule", async () => {
+        vi.mocked(prisma.rule.findFirst).mockResolvedValue(null);
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");
+
+        await handleLabelAddedEvent(
+          createLabelAddedItem(),
+          defaultOptions,
+          logger,
+        );
+
+        expect(mockProvider.getThreadMessages).not.toHaveBeenCalled();
+      });
+
+      it("should not read the thread when the sender is already known", async () => {
+        vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+          id: "rule-123",
+          groupId: "group-123",
+        } as any);
+        vi.mocked(prisma.groupItem.findUnique).mockResolvedValue({
+          id: "existing-item",
+        } as any);
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");
+
+        await handleLabelAddedEvent(
+          createLabelAddedItem(),
+          defaultOptions,
+          logger,
+        );
+
+        expect(mockProvider.getThreadMessages).not.toHaveBeenCalled();
       });
 
       it("should learn the sole sender of a one-way thread", async () => {

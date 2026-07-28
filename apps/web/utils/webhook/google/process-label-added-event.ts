@@ -115,17 +115,6 @@ async function learnColdEmailFromSpam({
     return;
   }
 
-  // Gmail applies SPAM to every message in a thread, so this runs once per message.
-  // Junking a conversation is not a claim about everyone who replied in it.
-  if (
-    !(await isOneWayThreadFromSender({ sender, threadId, provider, logger }))
-  ) {
-    logger.info(
-      "Skipping cold email learning - junked thread is a conversation",
-    );
-    return;
-  }
-
   const coldEmailRule = await prisma.rule.findFirst({
     where: {
       emailAccountId,
@@ -159,6 +148,18 @@ async function learnColdEmailFromSpam({
       });
       return;
     }
+  }
+
+  // Left until last: Gmail applies SPAM to every message in a thread, so this runs once
+  // per message and each run costs a provider call. Junking a conversation is not a claim
+  // about everyone who replied in it.
+  if (
+    !(await isOneWayThreadFromSender({ sender, threadId, provider, logger }))
+  ) {
+    logger.info(
+      "Skipping cold email learning - junked thread is a conversation",
+    );
+    return;
   }
 
   logger.trace("Saving cold email learned pattern from SPAM action", {
