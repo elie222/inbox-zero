@@ -127,8 +127,8 @@ export async function saveAiUsage({
     totalTokens,
   });
 
-  try {
-    return Promise.all([
+  const [analyticsResult, redisResult] = await Promise.allSettled([
+    Promise.resolve().then(() =>
       publishAiCall({
         userId: userId ?? email,
         emailAccountId,
@@ -150,10 +150,21 @@ export async function saveAiUsage({
         stepCount,
         toolCallCount,
       }),
+    ),
+    Promise.resolve().then(() =>
       saveUsage({ userId, emailAccountId, cost: platformCost, usage }),
-    ]);
-  } catch (error) {
-    logger.error("Failed to save usage", { error });
+    ),
+  ]);
+
+  if (analyticsResult.status === "rejected") {
+    logger.error("Failed to publish AI usage analytics", {
+      error: analyticsResult.reason,
+    });
+  }
+  if (redisResult.status === "rejected") {
+    logger.error("Failed to save AI usage to Redis", {
+      error: redisResult.reason,
+    });
   }
 }
 
@@ -175,13 +186,12 @@ export function calculateUsageCost(options: {
   const cachedInputTokens = Math.min(inputTokens, normalizedCachedInputTokens);
   const uncachedInputTokens = Math.max(0, inputTokens - cachedInputTokens);
   const outputTokens = Math.max(0, usage.outputTokens ?? 0);
-  const reasoningTokens = Math.max(0, usage.reasoningTokens ?? 0);
   const cachedInputTokenPrice = pricing.cachedInput ?? pricing.input;
 
   return (
     uncachedInputTokens * pricing.input +
     cachedInputTokens * cachedInputTokenPrice +
-    (outputTokens + reasoningTokens) * pricing.output
+    outputTokens * pricing.output
   );
 }
 

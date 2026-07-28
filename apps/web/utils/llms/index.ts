@@ -361,11 +361,6 @@ export function createGenerateText({
         ...restArgs,
       );
 
-      await onModelUsed?.({
-        provider: candidate.provider,
-        modelName: candidate.modelName,
-      });
-
       if (result.usage) {
         await saveUsageWithMetadata({
           result,
@@ -379,6 +374,11 @@ export function createGenerateText({
           hasUserApiKey: effectiveModelOptions.hasUserApiKey,
         });
       }
+
+      await onModelUsed?.({
+        provider: candidate.provider,
+        modelName: candidate.modelName,
+      });
 
       if (options.tools) {
         const toolCallInput = result.toolCalls?.[0]?.input;
@@ -555,12 +555,30 @@ export function createGenerateObject({
         typeof generateObject<SCHEMA, OUTPUT, RESULT>
       >[0];
 
-      const result = await generateObject<SCHEMA, OUTPUT, RESULT>(request);
+      let result: GenerateObjectResult<RESULT>;
 
-      await onModelUsed?.({
-        provider: candidate.provider,
-        modelName: candidate.modelName,
-      });
+      try {
+        result = await generateObject<SCHEMA, OUTPUT, RESULT>(request);
+      } catch (error) {
+        if (
+          NoObjectGeneratedError.isInstance(error) &&
+          error.usage !== undefined
+        ) {
+          await saveUsageWithMetadata({
+            result: error,
+            usage: error.usage,
+            userId: emailAccount.userId,
+            email: emailAccount.email,
+            emailAccountId: emailAccount.id,
+            provider: candidate.provider,
+            model: candidate.modelName,
+            label,
+            hasUserApiKey: effectiveModelOptions.hasUserApiKey,
+          });
+        }
+
+        throw error;
+      }
 
       if (result.usage) {
         await saveUsageWithMetadata({
@@ -575,6 +593,11 @@ export function createGenerateObject({
           hasUserApiKey: effectiveModelOptions.hasUserApiKey,
         });
       }
+
+      await onModelUsed?.({
+        provider: candidate.provider,
+        modelName: candidate.modelName,
+      });
 
       logger.trace("Generated object", {
         label,
