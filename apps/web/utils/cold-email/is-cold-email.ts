@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Group, GroupItem, Rule } from "@/generated/prisma/client";
-import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
+import { GroupItemType } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { stringifyEmail } from "@/utils/stringify-email";
@@ -22,7 +22,7 @@ type ColdEmailBlockerReason =
 
 export type ColdEmailPatternMatch = {
   group: Pick<Group, "id" | "name">;
-  groupItem: Pick<GroupItem, "id" | "type" | "value" | "exclude" | "source">;
+  groupItem: Pick<GroupItem, "id" | "type" | "value" | "exclude">;
 };
 
 export async function isColdEmail({
@@ -55,7 +55,7 @@ export async function isColdEmail({
   // Check if we marked it as a cold email already
   const groupId = coldEmailRule?.groupId;
   let patternMatch:
-    | (Pick<GroupItem, "id" | "type" | "value" | "exclude" | "source"> & {
+    | (Pick<GroupItem, "id" | "type" | "value" | "exclude"> & {
         group: Pick<Group, "id" | "name"> | null;
       })
     | null = null;
@@ -73,10 +73,19 @@ export async function isColdEmail({
         type: true,
         value: true,
         exclude: true,
-        source: true,
         group: { select: { id: true, name: true } },
       },
     });
+  }
+
+  if (patternMatch && !patternMatch.exclude) {
+    logger.info("Known cold email sender", { from: email.from });
+    const { group, ...groupItem } = patternMatch;
+    return {
+      isColdEmail: true,
+      reason: "ai-already-labeled",
+      ...(group ? { patternMatch: { group, groupItem } } : {}),
+    };
   }
 
   if (patternMatch?.exclude) {
@@ -86,34 +95,18 @@ export async function isColdEmail({
     return { isColdEmail: false, reason: "excluded" };
   }
 
-  // Spam-learned patterns are the one path that never ran this check when created.
-  const needsPriorCommunicationCheck =
-    !patternMatch || patternMatch.source === GroupItemSource.LABEL_ADDED;
+  const hasPreviousEmail =
+    email.date && email.id
+      ? await provider.hasPreviousCommunicationsWithSenderOrDomain({
+          from: extractEmailAddress(email.from) || email.from,
+          date: email.date,
+          messageId: email.id,
+        })
+      : false;
 
-  if (needsPriorCommunicationCheck) {
-    const hasPreviousEmail =
-      email.date && email.id
-        ? await provider.hasPreviousCommunicationsWithSenderOrDomain({
-            from: extractEmailAddress(email.from) || email.from,
-            date: email.date,
-            messageId: email.id,
-          })
-        : false;
-
-    if (hasPreviousEmail) {
-      logger.info("Has previous email");
-      return { isColdEmail: false, reason: "hasPreviousEmail" };
-    }
-  }
-
-  if (patternMatch) {
-    logger.info("Known cold email sender", { from: email.from });
-    const { group, ...groupItem } = patternMatch;
-    return {
-      isColdEmail: true,
-      reason: "ai-already-labeled",
-      ...(group ? { patternMatch: { group, groupItem } } : {}),
-    };
+  if (hasPreviousEmail) {
+    logger.info("Has previous email");
+    return { isColdEmail: false, reason: "hasPreviousEmail" };
   }
 
   // run through ai to see if it's a cold email

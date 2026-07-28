@@ -716,14 +716,11 @@ describe("runActionFunction", () => {
       );
     });
 
-    it("does not notify a colleague on the account owner's domain", async () => {
-      await runNotifySender("ceo@example.com");
-
-      expect(sendColdEmailNotification).not.toHaveBeenCalled();
-    });
-
-    it("does not notify the account owner", async () => {
-      await runNotifySender(emailAccount.email);
+    it.each([
+      ["a colleague on the account owner's domain", "ceo@example.com"],
+      ["the account owner", "user@example.com"],
+    ])("does not notify %s", async (_name, from) => {
+      await runNotifySender(from);
 
       expect(sendColdEmailNotification).not.toHaveBeenCalled();
     });

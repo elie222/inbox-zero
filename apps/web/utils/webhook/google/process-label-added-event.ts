@@ -9,7 +9,6 @@ import {
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
-import type { ParsedMessage } from "@/utils/types";
 import { GMAIL_SYSTEM_LABELS, GmailLabel } from "@/utils/gmail/label";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -19,7 +18,8 @@ import {
   saveClassificationFeedback,
 } from "@/utils/rule/classification-feedback";
 import { fetchSenderFromMessage } from "@/utils/webhook/google/fetch-sender-from-message";
-import { canonicalizeEmailAddress, isSameOrganization } from "@/utils/email";
+import { isSameEmailAddress, isSameOrganization } from "@/utils/email";
+import { internalDateToDate } from "@/utils/date";
 
 /**
  * When labels are added to an email:
@@ -151,14 +151,37 @@ async function learnColdEmailFromSpam({
   }
 
   // Left until last: Gmail applies SPAM to every message in a thread, so this runs once
-  // per message and each run costs a provider call. Junking a conversation is not a claim
-  // about everyone who replied in it.
+  // per message and each of these steps costs a provider call.
+  const threadMessages = await getThreadMessages({
+    threadId,
+    provider,
+    logger,
+  });
+  if (!threadMessages?.length) return;
+
+  // Junking a conversation is not a claim about everyone who replied in it.
   if (
-    !(await isOneWayThreadFromSender({ sender, threadId, provider, logger }))
+    !threadMessages.every((m) => isSameEmailAddress(m.headers.from, sender))
   ) {
     logger.info(
       "Skipping cold email learning - junked thread is a conversation",
     );
+    return;
+  }
+
+  // The check every other pattern writer runs. Junking one message from someone you
+  // already correspond with does not make them a cold emailer.
+  const junkedMessage = threadMessages.find((m) => m.id === messageId);
+  const hasPreviousEmail = junkedMessage
+    ? await provider.hasPreviousCommunicationsWithSenderOrDomain({
+        from: sender,
+        date: internalDateToDate(junkedMessage.internalDate),
+        messageId,
+      })
+    : true;
+
+  if (hasPreviousEmail) {
+    logger.info("Skipping cold email learning - sender is a known contact");
     return;
   }
 
@@ -225,38 +248,20 @@ async function recordClassificationFromLabelAdd({
   });
 }
 
-/** Fails closed: an unreadable thread never teaches us a pattern. */
-async function isOneWayThreadFromSender({
-  sender,
+/** Returns null on failure, so an unreadable thread never teaches us a pattern. */
+async function getThreadMessages({
   threadId,
   provider,
   logger,
 }: {
-  sender: string;
   threadId: string;
   provider: EmailProvider;
   logger: Logger;
-}): Promise<boolean> {
-  let messages: ParsedMessage[];
-
-  try {
-    messages = await provider.getThreadMessages(threadId);
-  } catch (error) {
-    logger.warn("Could not read junked thread to check for a conversation", {
-      threadId,
-      error,
-    });
-    return false;
-  }
-
-  if (!messages.length) return false;
-
-  const expectedSender = canonicalizeEmailAddress(sender);
-
-  return messages.every(
-    (message) =>
-      canonicalizeEmailAddress(message.headers.from) === expectedSender,
-  );
+}) {
+  return provider.getThreadMessages(threadId).catch((error) => {
+    logger.warn("Could not read junked thread", { threadId, error });
+    return null;
+  });
 }
 
 async function wasLabelAppliedBySystem({
