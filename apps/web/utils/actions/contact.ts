@@ -13,6 +13,7 @@ import {
   enrichContactBody,
   extractContactsBody,
   researchCompanyBody,
+  scanBusinessCardBody,
   updateCompanyLabelBody,
   setCarddavAccessBody,
   setContactIgnoredBody,
@@ -44,6 +45,7 @@ import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiEnrichContact } from "@/utils/ai/contacts/enrich-contact";
 import { aiExtractContactsFromEmail } from "@/utils/ai/contacts/extract-contacts-from-email";
+import { aiScanBusinessCard } from "@/utils/ai/contacts/scan-business-card";
 import { aiResearchCompany } from "@/utils/ai/companies/research-company";
 import type { EmailForLLM } from "@/utils/types";
 import prisma from "@/utils/prisma";
@@ -221,6 +223,32 @@ export const setContactInboxPriorityAction = actionClient
 // Scans an opened email's body for people (rosters, intro lists, forwarded
 // signatures) so each can be added as a contact with one click. Returns the
 // extracted people annotated with whether they're already saved.
+// Reads a photo of a paper business card into draft fields. The dialog
+// prefills its form with the result so every value is reviewed before it's
+// saved — the model transcribes, it doesn't decide.
+export const scanBusinessCardAction = actionClient
+  .metadata({ name: "scanBusinessCard" })
+  .inputSchema(scanBusinessCardBody)
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { imageDataUrl } }) => {
+      const emailAccount = await getEmailAccountWithAiAndTokens({
+        emailAccountId,
+      });
+      if (!emailAccount) throw new SafeError("Email account not found");
+
+      const card = await aiScanBusinessCard({ emailAccount, imageDataUrl });
+
+      return {
+        name: card.name?.trim() || null,
+        title: card.title?.trim() || null,
+        companyName: card.companyName?.trim() || null,
+        email: card.email?.trim().toLowerCase() || null,
+        phones: cleanPhones(card.phones),
+        website: card.website?.trim() || null,
+      };
+    },
+  );
+
 export const extractContactsFromEmailAction = actionClient
   .metadata({ name: "extractContactsFromEmail" })
   .inputSchema(extractContactsBody)
