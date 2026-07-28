@@ -4,7 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
 import { formatDistanceToNow } from "date-fns";
-import { PlusIcon, RefreshCwIcon, StickyNoteIcon, TagIcon } from "lucide-react";
+import {
+  IdCardIcon,
+  PlusIcon,
+  RefreshCwIcon,
+  StickyNoteIcon,
+  TagIcon,
+} from "lucide-react";
 import type { ContactsResponse } from "@/app/api/contacts/route";
 import type { ContactDomainsResponse } from "@/app/api/contacts/domains/route";
 import {
@@ -37,6 +43,7 @@ import { CompanyDetails } from "./CompanyDetails";
 import { DomainSuggestions } from "./DomainSuggestions";
 import { AddContactDialog } from "./AddContactDialog";
 import { ManageLabelsDialog } from "./ManageLabelsDialog";
+import { MyCardDialog } from "./MyCardDialog";
 import { SyncSettingsDialog } from "./SyncSettingsDialog";
 
 const DEFAULT_LIMIT = 100;
@@ -54,6 +61,7 @@ export function ContactsList() {
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [showSync, setShowSync] = useState(false);
+  const [showMyCard, setShowMyCard] = useState(false);
   const [managingLabels, setManagingLabels] = useState(false);
 
   // Tabs sync selection to the URL, so view and sort live there too;
@@ -250,6 +258,14 @@ export function ContactsList() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setShowMyCard(true)}
+            >
+              <IdCardIcon className="mr-1.5 size-3.5" />
+              My card
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setShowSync(true)}
             >
               <RefreshCwIcon className="mr-1.5 size-3.5" />
@@ -438,6 +454,8 @@ export function ContactsList() {
           mutateContacts={mutate}
         />
       )}
+
+      <MyCardDialog open={showMyCard} onClose={() => setShowMyCard(false)} />
     </div>
   );
 }

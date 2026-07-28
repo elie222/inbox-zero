@@ -245,6 +245,7 @@ model EmailAccount {
   companies              Company[]
   companyLabels          CompanyLabel[]
   tasks                  Task[]
+  contactCard            ContactCard?
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -994,6 +995,49 @@ model Contact {
 
   @@unique([emailAccountId, email])
   @@index([emailAccountId, googleResourceName])
+}
+
+// The user's own digital business card, served at /card/<slug> to anyone
+// with the link. One per email account.
+model ContactCard {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  slug     String  @unique
+  isActive Boolean @default(true)
+
+  displayName String
+  headline    String?
+  title       String?
+  companyName String?
+  email       String?
+  phone       String?
+  website     String?
+  photoUrl    String?
+
+  emailAccountId String       @unique
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  views ContactCardView[]
+}
+
+// One row per view. Keeping them per-day per-visitor gives a trend and a
+// unique-visitor count; visitorHash is a salted digest, never a raw IP.
+model ContactCardView {
+  id       String   @id @default(cuid())
+  viewedAt DateTime @default(now())
+  // Date the view landed on, so a refresh the same day doesn't recount
+  day      DateTime @db.Date
+
+  visitorHash String
+  referrer    String?
+
+  contactCardId String      @map("cardId")
+  contactCard   ContactCard @relation(fields: [contactCardId], references: [id], onDelete: Cascade)
+
+  @@unique([contactCardId, visitorHash, day])
+  @@index([contactCardId, day])
 }
 
 // A company groups contacts by its email domains. Contacts with a matching
