@@ -1,7 +1,7 @@
 import prisma from "@/utils/prisma";
 import { generalizeSubject } from "@/utils/string";
 import type { ParsedMessage } from "@/utils/types";
-import { GroupItemType } from "@/generated/prisma/enums";
+import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
 import type { GroupItem } from "@/generated/prisma/client";
 
 export type GroupsWithRules = Awaited<ReturnType<typeof getGroupsWithRules>>;
@@ -26,20 +26,17 @@ export function findMatchingGroup(
   message: ParsedMessage,
   group: GroupsWithRules[number],
 ) {
-  // First check for exclude patterns
-  const excludeMatch = findExclusionMatch(message.headers, group.items);
-  if (excludeMatch) {
-    // If any exclusion pattern matches, this rule is completely excluded
+  const matchingItem = findBestMatchingItem(message.headers, group.items);
+
+  if (matchingItem?.exclude) {
     return {
       group,
       matchingItem: null,
       excluded: true,
-      excludedItem: excludeMatch,
+      excludedItem: matchingItem,
     };
   }
 
-  // If no exclusion patterns matched, check for inclusion patterns
-  const matchingItem = findInclusionMatch(message.headers, group.items);
   if (matchingItem)
     return { group, matchingItem, excluded: false, excludedItem: null };
 
@@ -82,28 +79,39 @@ function matchesPattern<T extends Pick<GroupItem, "type" | "value">>(
   return false;
 }
 
-function findExclusionMatch<
-  T extends Pick<GroupItem, "type" | "value" | "exclude">,
->(headers: { from: string; subject: string }, groupItems: T[]) {
-  return groupItems.find(
-    (item) => item.exclude && matchesPattern(item, headers),
-  );
-}
-
-function findInclusionMatch<
-  T extends Pick<GroupItem, "type" | "value" | "exclude">,
->(headers: { from: string; subject: string }, groupItems: T[]) {
-  return groupItems.find(
-    (item) => !item.exclude && matchesPattern(item, headers),
-  );
-}
-
 // Keep this for backward compatibility
 export function findMatchingGroupItem<
-  T extends Pick<GroupItem, "type" | "value" | "exclude">,
+  T extends Pick<GroupItem, "type" | "value" | "exclude"> &
+    Partial<Pick<GroupItem, "source" | "updatedAt">>,
 >(headers: { from: string; subject: string }, groupItems: T[]) {
-  const hasExclusion = findExclusionMatch(headers, groupItems);
-  if (hasExclusion) return null;
+  const matchingItem = findBestMatchingItem(headers, groupItems);
+  return matchingItem?.exclude ? null : matchingItem;
+}
 
-  return findInclusionMatch(headers, groupItems);
+function findBestMatchingItem<
+  T extends Pick<GroupItem, "type" | "value" | "exclude"> &
+    Partial<Pick<GroupItem, "source" | "updatedAt">>,
+>(headers: { from: string; subject: string }, groupItems: T[]) {
+  const matches = groupItems.filter((item) => matchesPattern(item, headers));
+  if (!matches.length) return;
+
+  const userMatches = matches.filter(
+    (item) => item.source === GroupItemSource.USER,
+  );
+  const candidates = userMatches.length ? userMatches : matches;
+
+  return candidates.reduce((best, item) => {
+    const bestUpdatedAt = best.updatedAt?.getTime();
+    const itemUpdatedAt = item.updatedAt?.getTime();
+
+    if (itemUpdatedAt !== undefined && bestUpdatedAt !== undefined) {
+      if (itemUpdatedAt > bestUpdatedAt) return item;
+      if (itemUpdatedAt < bestUpdatedAt) return best;
+    }
+
+    if (itemUpdatedAt !== undefined && bestUpdatedAt === undefined) return item;
+    if (itemUpdatedAt === undefined && bestUpdatedAt !== undefined) return best;
+
+    return item.exclude && !best.exclude ? item : best;
+  });
 }

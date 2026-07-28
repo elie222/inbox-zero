@@ -7,6 +7,7 @@ import {
   matchesStaticRule,
 } from "./match-rules";
 import {
+  GroupItemSource,
   GroupItemType,
   LogicalOperator,
   SystemType,
@@ -2573,6 +2574,93 @@ describe("findMatchingRules - Integration Tests", () => {
         },
       ]);
       expect(result.selectionMetadata.remainingAiRuleNames).toEqual([]);
+    });
+
+    it("lets a complete static match override an automatic learned exclusion", async () => {
+      const notificationRule = getRule({
+        id: "notification-rule",
+        name: "Notification",
+        groupId: "notification-group",
+        from: "updates@example.com",
+      });
+
+      prisma.group.findMany.mockResolvedValue([
+        getGroup({
+          id: "notification-group",
+          name: "Notification",
+          items: [
+            getGroupItem({
+              groupId: "notification-group",
+              type: GroupItemType.FROM,
+              value: "updates@example.com",
+              exclude: true,
+              source: GroupItemSource.LABEL_REMOVED,
+            }),
+          ],
+          rule: notificationRule,
+        }),
+      ]);
+
+      const result = await findMatchingRules({
+        rules: [notificationRule],
+        message: getMessage({
+          headers: getHeaders({ from: "updates@example.com" }),
+        }),
+        emailAccount: getEmailAccount(),
+        provider: getProvider(),
+        modelType: "default",
+        logger,
+      });
+
+      expect(result.matches).toEqual([
+        expect.objectContaining({
+          rule: notificationRule,
+          matchReasons: [{ type: ConditionType.STATIC }],
+        }),
+      ]);
+      expect(result.selectionMetadata.learnedPatternExcludedRules).toEqual([]);
+    });
+
+    it("keeps an explicit user exclusion ahead of a static match", async () => {
+      const notificationRule = getRule({
+        id: "notification-rule",
+        name: "Notification",
+        groupId: "notification-group",
+        from: "updates@example.com",
+      });
+
+      prisma.group.findMany.mockResolvedValue([
+        getGroup({
+          id: "notification-group",
+          name: "Notification",
+          items: [
+            getGroupItem({
+              groupId: "notification-group",
+              type: GroupItemType.FROM,
+              value: "updates@example.com",
+              exclude: true,
+              source: GroupItemSource.USER,
+            }),
+          ],
+          rule: notificationRule,
+        }),
+      ]);
+
+      const result = await findMatchingRules({
+        rules: [notificationRule],
+        message: getMessage({
+          headers: getHeaders({ from: "updates@example.com" }),
+        }),
+        emailAccount: getEmailAccount(),
+        provider: getProvider(),
+        modelType: "default",
+        logger,
+      });
+
+      expect(result.matches).toHaveLength(0);
+      expect(result.selectionMetadata.learnedPatternExcludedRules).toHaveLength(
+        1,
+      );
     });
 
     it("should allow learned pattern match in thread when runOnThreads=true", async () => {

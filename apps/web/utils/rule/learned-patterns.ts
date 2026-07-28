@@ -1,7 +1,8 @@
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
-import { GroupItemType, type GroupItemSource } from "@/generated/prisma/enums";
+import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
+import { saveGroupItem } from "@/utils/group/group-item";
 
 /**
  * Saves a learned pattern for a rule
@@ -47,31 +48,15 @@ export async function saveLearnedPattern({
     logger,
   });
 
-  await prisma.groupItem.upsert({
-    where: {
-      groupId_type_value: {
-        groupId,
-        type: GroupItemType.FROM,
-        value: from,
-      },
-    },
-    update: {
-      exclude,
-      reason,
-      threadId,
-      messageId,
-      source,
-    },
-    create: {
-      groupId,
-      type: GroupItemType.FROM,
-      value: from,
-      exclude,
-      reason,
-      threadId,
-      messageId,
-      source,
-    },
+  await saveGroupItem({
+    groupId,
+    type: GroupItemType.FROM,
+    value: from,
+    exclude,
+    reason,
+    threadId,
+    messageId,
+    source,
   });
 }
 
@@ -128,23 +113,12 @@ export async function saveLearnedPatterns({
   // Process all patterns in a single function
   for (const pattern of patterns) {
     try {
-      await prisma.groupItem.upsert({
-        where: {
-          groupId_type_value: {
-            groupId,
-            type: pattern.type,
-            value: pattern.value,
-          },
-        },
-        update: {
-          exclude: pattern.exclude || false,
-        },
-        create: {
-          groupId,
-          type: pattern.type,
-          value: pattern.value,
-          exclude: pattern.exclude || false,
-        },
+      await saveGroupItem({
+        groupId,
+        type: pattern.type,
+        value: pattern.value,
+        exclude: pattern.exclude ?? false,
+        source: GroupItemSource.USER,
       });
     } catch (error) {
       const message = `${pattern.value} (${pattern.type}) ${

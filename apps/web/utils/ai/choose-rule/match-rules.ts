@@ -7,6 +7,7 @@ import {
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import {
   ExecutedRuleStatus,
+  GroupItemSource,
   LogicalOperator,
   SystemType,
 } from "@/generated/prisma/enums";
@@ -235,8 +236,23 @@ async function findPotentialMatchingRules({
         const { matchingItem, group, excludedItem, ruleExcluded } =
           matchesGroupRule(rule, groups, message);
 
-        // If this rule is excluded by an exclusion pattern, skip it entirely
         if (ruleExcluded) {
+          if (excludedItem?.source !== GroupItemSource.USER) {
+            const conditionResult = evaluateRuleConditions({
+              rule,
+              message,
+              logger,
+            });
+
+            if (conditionResult.matched) {
+              matches.push({
+                rule,
+                matchReasons: conditionResult.matchReasons,
+              });
+              continue;
+            }
+          }
+
           if (group && excludedItem) {
             learnedPatternExcludedRules.push({
               ruleId: rule.id,
