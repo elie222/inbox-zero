@@ -397,6 +397,82 @@ describe.skipIf(!RUN_DB_TESTS)(
       ).not.toBeNull();
     });
 
+    test("shares one recording when two accounts hold different raw links to it", async () => {
+      // A Teams meetup-join URL carries a per-invitee `context` parameter, so
+      // the same call legitimately looks different to each attendee.
+      const base =
+        "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc123%40thread.v2/0";
+      const event = calendarEvent({
+        videoConferenceLink: `${base}?context=%7b%22Tid%22%3a%22tenant-a%22%7d`,
+      });
+      const otherEvent = {
+        ...event,
+        id: "event-b",
+        videoConferenceLink: `${base}?context=%7b%22Tid%22%3a%22tenant-b%22%7d`,
+      };
+
+      await reconcile.reconcileSingleEvent({
+        emailAccount: account(accountAId, ACCOUNT_A),
+        event,
+        logger,
+      });
+      await reconcile.reconcileSingleEvent({
+        emailAccount: account(accountBId, ACCOUNT_B),
+        event: otherEvent,
+        logger,
+      });
+
+      expect(fakeProvider.scheduled).toHaveLength(1);
+
+      // Moving the event proves which branch ran. Treating the differing raw
+      // link as a changed meeting releases and rebooks, so the bot is never
+      // moved; recognising it as the same meeting reschedules it. The release
+      // path is also what lets a concurrent release by the other account cancel
+      // the shared bot while this one still wants it.
+      const movedTo = addMinutes(otherEvent.startTime, 45);
+      await reconcile.reconcileSingleEvent({
+        emailAccount: account(accountBId, ACCOUNT_B),
+        event: { ...otherEvent, startTime: movedTo },
+        logger,
+      });
+
+      expect(fakeProvider.rescheduled).toEqual([
+        { botId: fakeProvider.scheduled[0]?.botId, joinAt: movedTo },
+      ]);
+      expect(fakeProvider.cancelled).toHaveLength(0);
+      expect(fakeProvider.scheduled).toHaveLength(1);
+    });
+
+    test("stops retrying a meeting that keeps failing to process", async () => {
+      const event = calendarEvent();
+      await reconcile.reconcileSingleEvent({
+        emailAccount: account(accountAId, ACCOUNT_A),
+        event,
+        logger,
+      });
+
+      const meeting = await prisma.meeting.findFirstOrThrow({
+        where: { emailAccountId: accountAId },
+      });
+      await prisma.meetingRecording.update({
+        where: { id: meeting.recordingId ?? "" },
+        data: { transcript: [], status: MeetingRecordingStatus.DONE },
+      });
+      await prisma.meeting.update({
+        where: { id: meeting.id },
+        data: {
+          processingStatus: "FAILED",
+          // Every attempt runs the summarization model, so this has to stop.
+          processingAttempts: 5,
+          updatedAt: subHours(new Date(), 1),
+        },
+      });
+
+      await reconcile.sweepRecordings({ logger });
+
+      expect(enqueueMock).not.toHaveBeenCalled();
+    });
+
     test("re-requests transcription when the first request never produced one", async () => {
       const recording = await prisma.meetingRecording.create({
         data: {

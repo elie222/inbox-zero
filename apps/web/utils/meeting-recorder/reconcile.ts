@@ -15,6 +15,8 @@ import { toAttendeeSnapshot } from "@/utils/meeting-recorder/attendees";
 import { MeetingBotProviderError } from "@/utils/meeting-recorder/bot-provider";
 import {
   MAX_EVENTS_PER_PROVIDER,
+  MAX_PROCESSING_ATTEMPTS,
+  PROCESSING_RETRY_WINDOW_HOURS,
   RECONCILE_WINDOW_MINUTES,
   STUCK_PROCESSING_MINUTES,
   STUCK_TRANSCRIPT_REQUEST_MINUTES,
@@ -342,10 +344,8 @@ async function linkMeetingToRecording({
 /**
  * Brings an existing booking in line with the event.
  *
- * Returns false when the booking was released because the join link changed,
- * which tells the caller to book again from scratch: a new link (or even just a
- * new Zoom password) means the existing bot would join the wrong meeting, or
- * fail to join at all.
+ * Returns false when the booking was released because the event now points at a
+ * different meeting, which tells the caller to book again from scratch.
  */
 async function updateBookingForEvent({
   meetingId,
@@ -363,10 +363,31 @@ async function updateBookingForEvent({
   });
   if (!recording) return false;
 
-  if (recording.meetingUrl !== event.videoConferenceLink) {
+  // Compare the dedup key, not the raw link. Two accounts in the same call
+  // legitimately hold different raw links for it (a Teams `meetup-join` URL
+  // carries a per-invitee `context` parameter), so comparing raw links would
+  // detach and re-link the second account's meeting on every pass, and a
+  // concurrent release by the first account during that window would cancel the
+  // shared bot out from under it.
+  const isDifferentMeeting =
+    normalizeMeetingUrl(recording.meetingUrl) !==
+    normalizeMeetingUrl(event.videoConferenceLink ?? "");
+
+  if (isDifferentMeeting) {
     logger.info("Meeting link changed, rebooking", { recordingId });
     await releaseMeeting({ meetingId, recordingId, logger });
     return false;
+  }
+
+  // Same meeting, fresher link: normalization drops credentials, so this is
+  // where a rotated Zoom password shows up. Keep the newest link so a bot not
+  // yet booked, or one rebooked later, joins with credentials that still work.
+  // A bot already booked keeps the link it was created with.
+  if (recording.meetingUrl !== event.videoConferenceLink) {
+    await prisma.meetingRecording.updateMany({
+      where: { id: recordingId, status: { in: CHANGEABLE_STATUSES } },
+      data: { meetingUrl: event.videoConferenceLink },
+    });
   }
 
   const startTimeUnchanged =
@@ -692,16 +713,34 @@ async function retryStuckTranscriptRequests({
     take: 50,
   });
 
+  let retried = 0;
+
   for (const recording of stuck) {
     if (!recording.externalRecordingId) continue;
+
+    // Re-claim before calling the provider, on the same staleness predicate the
+    // read used. Two overlapping cron runs would otherwise both pass the read
+    // and both pay for a transcript. The refreshed claim is kept even when the
+    // call fails, so a permanently failing recording waits out the window again
+    // instead of being retried every five minutes.
+    const claim = await prisma.meetingRecording.updateMany({
+      where: {
+        id: recording.id,
+        externalTranscriptId: null,
+        status: { in: LIVE_STATUSES },
+        transcriptRequestedAt: {
+          lt: subMinutes(now, STUCK_TRANSCRIPT_REQUEST_MINUTES),
+        },
+      },
+      data: { transcriptRequestedAt: now },
+    });
+    if (claim.count === 0) continue;
+
+    retried++;
 
     try {
       const provider = createMeetingBotProvider(recording.botProvider, logger);
       await provider.createTranscript(recording.externalRecordingId);
-      await prisma.meetingRecording.update({
-        where: { id: recording.id },
-        data: { transcriptRequestedAt: now },
-      });
     } catch (error) {
       logger.error("Failed to re-request transcription", {
         recordingId: recording.id,
@@ -711,8 +750,8 @@ async function retryStuckTranscriptRequests({
     }
   }
 
-  if (stuck.length > 0) {
-    logger.info("Re-requested stuck transcriptions", { count: stuck.length });
+  if (retried > 0) {
+    logger.info("Re-requested stuck transcriptions", { count: retried });
   }
 }
 
@@ -773,12 +812,19 @@ async function requeueStuckMeetings({
 }: {
   logger: Logger;
 }): Promise<void> {
-  const staleBefore = subMinutes(new Date(), STUCK_PROCESSING_MINUTES);
+  const now = new Date();
+  const staleBefore = subMinutes(now, STUCK_PROCESSING_MINUTES);
 
   const stuck = await prisma.meeting.findMany({
     where: {
       // Only meetings whose recording is actually ready to summarize.
       recording: { transcript: { not: Prisma.DbNull } },
+      // Each attempt runs the summarization model, so a meeting that keeps
+      // failing has to stop rather than bill on every tick.
+      processingAttempts: { lt: MAX_PROCESSING_ATTEMPTS },
+      // Nothing this old is worth summarizing any more, and bounding it stops
+      // dead rows crowding out meetings that are genuinely stuck.
+      startTime: { gt: subHours(now, PROCESSING_RETRY_WINDOW_HOURS) },
       OR: [
         { processingStatus: MeetingProcessingStatus.PENDING },
         {
@@ -793,6 +839,7 @@ async function requeueStuckMeetings({
       ],
     },
     select: { id: true },
+    orderBy: { startTime: "desc" },
     take: 50,
   });
   if (stuck.length === 0) return;

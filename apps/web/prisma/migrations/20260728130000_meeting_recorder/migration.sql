@@ -49,6 +49,7 @@ CREATE TABLE "Meeting" (
     "organizerEmail" TEXT,
     "joinOverride" BOOLEAN,
     "processingStatus" "MeetingProcessingStatus" NOT NULL DEFAULT 'PENDING',
+    "processingAttempts" INTEGER NOT NULL DEFAULT 0,
     "summary" JSONB,
     "followUpDraftStartedAt" TIMESTAMP(3),
     "followUpDraftId" TEXT,

@@ -22,3 +22,11 @@ export const STUCK_PROCESSING_MINUTES = 15;
 // transcript would normally have arrived before asking for one again. Retrying
 // too eagerly risks paying for the same transcript twice.
 export const STUCK_TRANSCRIPT_REQUEST_MINUTES = 90;
+
+// Each processing attempt runs the summarization model, so a meeting that fails
+// every time has to stop being retried rather than bill forever.
+export const MAX_PROCESSING_ATTEMPTS = 5;
+
+// Nothing older than this is worth retrying, and bounding the sweep stops a
+// build-up of dead rows from crowding out meetings that are genuinely stuck.
+export const PROCESSING_RETRY_WINDOW_HOURS = 48;

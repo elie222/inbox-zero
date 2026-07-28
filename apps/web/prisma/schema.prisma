@@ -1446,6 +1446,9 @@ model Meeting {
   joinOverride    Boolean? // null follows the account's join rule
 
   processingStatus       MeetingProcessingStatus @default(PENDING)
+  // Bounds retries. Summarizing calls a model, so a meeting that fails every
+  // time would otherwise cost real money on every cron tick, forever.
+  processingAttempts     Int                     @default(0)
   summary                Json?
   // Claimed before the draft is created, so a retry that crashed mid-write
   // cannot leave a second draft in the user's mailbox.

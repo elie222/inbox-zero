@@ -17,6 +17,7 @@ import {
 } from "@/utils/meeting-recorder/attendees";
 import type { NormalizedTranscript } from "@/utils/meeting-recorder/bot-provider";
 import {
+  MAX_PROCESSING_ATTEMPTS,
   MEETING_RECORDER_MIN_TIER,
   STUCK_PROCESSING_MINUTES,
 } from "@/utils/meeting-recorder/config";
@@ -42,6 +43,9 @@ export async function processMeetingForAccount({
   const claim = await prisma.meeting.updateMany({
     where: {
       id: meetingId,
+      // Summarizing runs a model, so a meeting that fails every time has to
+      // stop rather than bill on every cron tick.
+      processingAttempts: { lt: MAX_PROCESSING_ATTEMPTS },
       OR: [
         {
           processingStatus: {
@@ -59,10 +63,13 @@ export async function processMeetingForAccount({
         },
       ],
     },
-    data: { processingStatus: MeetingProcessingStatus.PROCESSING },
+    data: {
+      processingStatus: MeetingProcessingStatus.PROCESSING,
+      processingAttempts: { increment: 1 },
+    },
   });
   if (claim.count === 0) {
-    logger.info("Meeting is already being processed");
+    logger.info("Meeting is not claimable for processing");
     return;
   }
 
@@ -201,7 +208,9 @@ async function runProcessingSteps({
         meetingTitle: meeting.eventTitle,
         startTime: meeting.startTime,
         summary,
-        followUpDraftCreated: wantsDraft,
+        // A retry of a run that created the draft and then failed later has
+        // `wantsDraft` false, so the id is what says a draft is really waiting.
+        followUpDraftCreated: wantsDraft || !!meeting.followUpDraftId,
         logger,
       });
     }
