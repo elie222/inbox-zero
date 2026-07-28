@@ -8,7 +8,7 @@ import { ClientOnly } from "@/components/ClientOnly";
 import { GroupedTable } from "@/components/GroupedTable";
 import { TopBar } from "@/components/TopBar";
 import { CreateCategoryButton } from "@/app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton";
-import { getUserCategoriesWithRules } from "@/utils/category.server";
+import { getUserCategorySummaries } from "@/utils/category.server";
 import { CategorizeWithAiButton } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton";
 import {
   Card,
@@ -49,7 +49,7 @@ export default async function CategoriesPage({
         category: { select: { id: true, description: true, name: true } },
       },
     }),
-    getUserCategoriesWithRules({ emailAccountId }),
+    getUserCategorySummaries({ emailAccountId }),
     prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
       select: { autoCategorizeSenders: true },

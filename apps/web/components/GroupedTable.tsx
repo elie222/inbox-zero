@@ -51,7 +51,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { CategoryWithRules } from "@/utils/category.server";
+import type { CategorySummary } from "@/utils/category.server";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { CategorySelect } from "@/components/CategorySelect";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -61,7 +61,7 @@ const COLUMNS = 4;
 type EmailGroup = {
   address: string;
   name?: string | null;
-  category: CategoryWithRules | null;
+  category: CategorySummary | null;
   meta?: { width?: string };
 };
 
@@ -70,14 +70,14 @@ export function GroupedTable({
   categories,
 }: {
   emailGroups: EmailGroup[];
-  categories: CategoryWithRules[];
+  categories: CategorySummary[];
 }) {
   const { emailAccountId, userEmail } = useAccount();
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
 
   const categoryMap = useMemo(
     () =>
-      categories.reduce<Record<string, CategoryWithRules>>((acc, category) => {
+      categories.reduce<Record<string, CategorySummary>>((acc, category) => {
         acc[category.name] = category;
         return acc;
       }, {}),
@@ -291,7 +291,7 @@ export function SendersTable({
   categories,
 }: {
   senders: EmailGroup[];
-  categories: CategoryWithRules[];
+  categories: CategorySummary[];
 }) {
   const { emailAccountId, userEmail } = useAccount();
 
@@ -372,7 +372,7 @@ function GroupRow({
   onEditCategory,
   onRemoveAllFromCategory,
 }: {
-  category: CategoryWithRules;
+  category: CategorySummary;
   count: number;
   isExpanded: boolean;
   onToggle: () => void;

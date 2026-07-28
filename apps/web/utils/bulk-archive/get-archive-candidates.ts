@@ -1,16 +1,16 @@
-import type { CategoryWithRules } from "@/utils/category.server";
+import type { CategorySummary } from "@/utils/category.server";
 
 export type EmailGroup = {
   address: string;
   name: string | null;
-  category: CategoryWithRules | null;
+  category: CategorySummary | null;
 };
 
 export type ConfidenceLevel = "high" | "medium" | "low";
 
 export type ArchiveCandidate = {
   address: string;
-  category: CategoryWithRules | null;
+  category: CategorySummary | null;
   confidence: ConfidenceLevel;
   reason: string;
 };

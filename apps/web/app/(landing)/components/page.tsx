@@ -984,7 +984,6 @@ function getRule(): Rule {
     createdAt: new Date(),
     updatedAt: new Date(),
     enabled: true,
-    automate: true,
     runOnThreads: true,
     excludeKnownContacts: false,
     fromExclude: false,
@@ -994,7 +993,6 @@ function getRule(): Rule {
     organizationRuleId: null,
     organizationRuleMemberEnabled: null,
     promptText: null,
-    categoryFilterType: null,
     systemType: null,
   };
 }

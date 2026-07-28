@@ -153,7 +153,6 @@ export function Rules({
         fromExclude: false,
         toExclude: false,
         subjectExclude: false,
-        automate: true,
         actions: getDefaultActions(systemType, provider).map((action) => ({
           ...action,
           emailAccountId,
@@ -163,7 +162,6 @@ export function Rules({
         emailAccountId: emailAccountId,
         createdAt: new Date(),
         updatedAt: new Date(),
-        categoryFilterType: null,
         conditionalOperator: LogicalOperator.OR,
         groupId: null,
         systemType,

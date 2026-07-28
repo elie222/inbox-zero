@@ -46,7 +46,7 @@ import {
   getActionLabels,
 } from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal";
 import { getEmailUrl } from "@/utils/url";
-import type { CategoryWithRules } from "@/utils/category.server";
+import type { CategorySummary } from "@/utils/category.server";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getCategoryStyle } from "@/components/bulk-archive/categoryIcons";
 import { defaultCategory } from "@/utils/categories";
@@ -59,7 +59,7 @@ export function BulkArchiveCards({
   onCategoryChange,
 }: {
   emailGroups: EmailGroup[];
-  categories: CategoryWithRules[];
+  categories: CategorySummary[];
   bulkAction: BulkActionType;
   onCategoryChange?: () => Promise<unknown>;
 }) {
@@ -81,7 +81,7 @@ export function BulkArchiveCards({
 
   const categoryMap = useMemo(
     () =>
-      categories.reduce<Record<string, CategoryWithRules>>((acc, category) => {
+      categories.reduce<Record<string, CategorySummary>>((acc, category) => {
         acc[category.name] = category;
         return acc;
       }, {}),
@@ -459,7 +459,7 @@ function SenderRow({
   onToggle: () => void;
   onToggleSelection: () => void;
   userEmail: string;
-  categories: CategoryWithRules[];
+  categories: CategorySummary[];
   emailAccountId: string;
   bulkAction: BulkActionType;
   onCategoryChange?: () => Promise<unknown>;
@@ -557,7 +557,7 @@ function EditCategoryDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sender: EmailGroup;
-  categories: CategoryWithRules[];
+  categories: CategorySummary[];
   emailAccountId: string;
   onCategoryChange?: () => Promise<unknown>;
 }) {

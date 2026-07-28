@@ -115,7 +115,6 @@ export default async function RuleHistoryPage(props: {
                         <dt className="font-medium">Status:</dt>
                         <dd>
                           {history.enabled ? "Enabled" : "Disabled"}
-                          {history.automate && " • Automated"}
                           {history.runOnThreads && " • Runs on threads"}
                         </dd>
                       </div>

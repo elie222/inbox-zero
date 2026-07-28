@@ -105,7 +105,6 @@ export async function ensureCatchAllTestRule(
         name: "E2E Test Catch-All Rule",
         emailAccountId,
         enabled: true,
-        automate: true,
         instructions:
           "This is a test rule that should match all emails. Draft a brief acknowledgment reply.",
         actions: {

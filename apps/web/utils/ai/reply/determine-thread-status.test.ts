@@ -23,7 +23,6 @@ function createMockRule(
     enabled,
     systemType,
     runOnThreads: true,
-    automate: true,
     actions: [],
     conditions: [],
     conditionalOperator: "AND",
