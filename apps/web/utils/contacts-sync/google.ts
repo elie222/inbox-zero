@@ -24,19 +24,28 @@ export type PullResult = {
 
 // Pulls Google Contacts into Contact rows. Incremental when a sync token is
 // stored; falls back to a full sync when Google reports the token expired.
+//
+// A stored token only replays what changed since it was issued, so anyone the
+// previous pull skipped stays invisible forever — Google has no reason to send
+// them again. Pass full: true when the caller means "fetch everything", which
+// is what someone clicking Sync because a contact is missing wants.
 export async function pullGoogleContacts({
   emailAccountId,
+  full = false,
   logger,
 }: {
   emailAccountId: string;
+  full?: boolean;
   logger: Logger;
 }): Promise<PullResult> {
   const client = await getPeopleClient({ emailAccountId, logger });
 
-  const account = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: { googleContactsSyncToken: true },
-  });
+  const account = full
+    ? null
+    : await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: { googleContactsSyncToken: true },
+      });
 
   try {
     return await pullWithToken({

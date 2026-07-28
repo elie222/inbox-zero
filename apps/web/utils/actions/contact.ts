@@ -407,7 +407,13 @@ export const syncGoogleContactsAction = actionClient
   .metadata({ name: "syncGoogleContacts" })
   .inputSchema(z.object({}))
   .action(async ({ ctx: { emailAccountId, logger } }) => {
-    const result = await pullGoogleContacts({ emailAccountId, logger });
+    // Clicking Sync by hand means "go and get everything" — usually because
+    // something is missing. The hourly job stays incremental.
+    const result = await pullGoogleContacts({
+      emailAccountId,
+      full: true,
+      logger,
+    });
     return result;
   });
 
