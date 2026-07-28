@@ -217,8 +217,8 @@ export function RuleStep({
   extraOptions?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-3">
-      <div className="relative flex-1">
+    <div className="flex min-w-0 items-start gap-3">
+      <div className="relative min-w-0 flex-1">
         <CardLayout>
           {leftContent && <div className="shrink-0">{leftContent}</div>}
           <CardLayoutRight>{rightContent}</CardLayoutRight>

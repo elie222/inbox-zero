@@ -73,7 +73,7 @@ export function RuleDialog({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="max-h-[90vh] max-w-3xl overflow-y-auto"
+        className="max-h-[90dvh] max-w-3xl overflow-y-auto p-4 sm:p-6"
         aria-describedby={undefined}
       >
         <DialogHeader className={ruleId ? "sr-only" : ""}>

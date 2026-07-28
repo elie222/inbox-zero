@@ -444,7 +444,7 @@ export function ConditionSteps({
 
                 if (uiType === "subject") {
                   return (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Select
                         value={
                           currentCondition?.subjectMatchMode ??
@@ -469,7 +469,7 @@ export function ConditionSteps({
                           </SelectItem>
                         </SelectContent>
                       </Select>
-                      <div className="relative flex-1">
+                      <div className="relative min-w-[10rem] flex-1">
                         <Input
                           type="text"
                           name={`conditions.${index}.subject`}
