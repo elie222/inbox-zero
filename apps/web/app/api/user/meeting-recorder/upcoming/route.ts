@@ -42,7 +42,7 @@ async function getData({
   const timeMin = new Date();
   const timeMax = addHours(timeMin, MEETING_LOOKAHEAD_HOURS);
 
-  const events = await fetchCalendarEventsInWindow({
+  const { events } = await fetchCalendarEventsInWindow({
     emailAccountId,
     timeMin,
     timeMax,

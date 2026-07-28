@@ -2,6 +2,16 @@ import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
 
+export interface CalendarEventsInWindow {
+  /**
+   * False when a provider errored or hit the result cap, so the event list is
+   * only part of what is really on the calendar. Callers that infer deletion
+   * from absence must not act on an incomplete list.
+   */
+  complete: boolean;
+  events: CalendarEvent[];
+}
+
 /**
  * Fetches events from every connected calendar in a time window, merged and
  * sorted by start time. A provider that fails is skipped rather than failing
@@ -20,9 +30,9 @@ export async function fetchCalendarEventsInWindow({
   timeMax: Date;
   maxResultsPerProvider: number;
   logger: Logger;
-}): Promise<CalendarEvent[]> {
+}): Promise<CalendarEventsInWindow> {
   const providers = await createCalendarEventProviders(emailAccountId, logger);
-  if (providers.length === 0) return [];
+  if (providers.length === 0) return { events: [], complete: true };
 
   const results = await Promise.allSettled(
     providers.map((provider) =>
@@ -34,11 +44,25 @@ export async function fetchCalendarEventsInWindow({
     ),
   );
 
-  const events = results
-    .filter(
-      (result): result is PromiseFulfilledResult<CalendarEvent[]> =>
-        result.status === "fulfilled",
-    )
+  const fulfilled = results.filter(
+    (result): result is PromiseFulfilledResult<CalendarEvent[]> =>
+      result.status === "fulfilled",
+  );
+
+  const failedProviders = results.length - fulfilled.length;
+  if (failedProviders > 0) {
+    logger.warn("Calendar fetch returned partial results", {
+      failedProviders,
+      totalProviders: results.length,
+    });
+  }
+
+  // A provider that filled the page may have more beyond it.
+  const truncated = fulfilled.some(
+    (result) => result.value.length >= maxResultsPerProvider,
+  );
+
+  const events = fulfilled
     .flatMap((result) => result.value)
     .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
@@ -53,7 +77,10 @@ export async function fetchCalendarEventsInWindow({
     });
   }
 
-  return filteredEvents;
+  return {
+    events: filteredEvents,
+    complete: failedProviders === 0 && !truncated,
+  };
 }
 
 // Some clients keep a cancelled event on the calendar with a renamed title

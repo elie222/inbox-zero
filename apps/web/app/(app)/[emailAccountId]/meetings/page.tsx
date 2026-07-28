@@ -14,7 +14,7 @@ import { UpcomingMeetingsToggleList } from "@/app/(app)/[emailAccountId]/meeting
 export default function MeetingsPage() {
   const { emailAccountId } = useAccount();
   const { data: calendarsData, isLoading, error } = useCalendars();
-  const { data: settings } = useMeetingRecorderSettings();
+  const { data: settings } = useMeetingRecorderSettings(emailAccountId);
 
   const hasCalendarConnected = !!calendarsData?.connections?.length;
 

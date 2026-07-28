@@ -1,15 +1,12 @@
 import type { MeetingRecordingStatus } from "@/generated/prisma/enums";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
-import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
+import { enqueueTranscriptFetch } from "@/utils/meeting-recorder/enqueue-processing";
 import {
   getStatusesBelow,
   recordingStatusData,
 } from "@/utils/meeting-recorder/recording-lifecycle";
 import prisma from "@/utils/prisma";
-import type { MeetingRecorderTranscriptBody } from "@/app/api/meeting-recorder/transcript/validation";
-
-const MEETING_RECORDER_TRANSCRIPT_TOPIC = "meeting-recorder-transcript";
 
 /**
  * Provider-agnostic handlers that each bot provider's webhook route translates
@@ -86,14 +83,5 @@ export async function handleTranscriptReady({
     data: { externalTranscriptId },
   });
 
-  await enqueueBackgroundJob<MeetingRecorderTranscriptBody>({
-    topic: MEETING_RECORDER_TRANSCRIPT_TOPIC,
-    body: { recordingId: recording.id },
-    qstash: {
-      queueName: MEETING_RECORDER_TRANSCRIPT_TOPIC,
-      parallelism: 2,
-      path: "/api/meeting-recorder/transcript",
-    },
-    logger,
-  });
+  await enqueueTranscriptFetch({ recordingId: recording.id, logger });
 }

@@ -28,7 +28,8 @@ export function UpcomingMeetingsToggleList({
 }: {
   emailAccountId: string;
 }) {
-  const { data, isLoading, error, mutate } = useMeetingRecorderUpcoming();
+  const { data, isLoading, error, mutate } =
+    useMeetingRecorderUpcoming(emailAccountId);
   const [pendingEventId, setPendingEventId] = useState<string | null>(null);
 
   const { execute } = useAction(

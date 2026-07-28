@@ -45,8 +45,10 @@ export const POST = withError("recall/webhook", async (request) => {
     return NextResponse.json({ ok: true });
   }
 
-  // Always acknowledge: Svix retries on any non-2xx, and a payload we cannot
-  // act on will not become actionable on the next attempt.
+  // A payload we cannot act on is acknowledged inside the handler, because it
+  // will not become actionable on a retry. An unexpected failure here is a
+  // different thing: a database or queue blip would lose the event for good, so
+  // answer non-2xx and let the provider redeliver.
   try {
     await processRecallEvent(parsed.data, logger);
   } catch (error) {
@@ -55,6 +57,7 @@ export const POST = withError("recall/webhook", async (request) => {
       error,
     });
     captureException(error);
+    return new Response("Processing failed", { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

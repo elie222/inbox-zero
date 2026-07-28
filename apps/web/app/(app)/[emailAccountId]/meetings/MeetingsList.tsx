@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccount } from "@/providers/EmailAccountProvider";
 import { useState } from "react";
 import { MicIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -18,7 +19,8 @@ import { MeetingListItem } from "@/app/(app)/[emailAccountId]/meetings/MeetingLi
 import { useMeetingRecorderMeetings } from "@/hooks/useMeetingRecorder";
 
 export function MeetingsList() {
-  const { data, isLoading, error } = useMeetingRecorderMeetings();
+  const { emailAccountId } = useAccount();
+  const { data, isLoading, error } = useMeetingRecorderMeetings(emailAccountId);
   const [openMeetingId, setOpenMeetingId] = useState<string | null>(null);
 
   return (

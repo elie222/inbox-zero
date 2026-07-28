@@ -5,7 +5,10 @@ import type { Logger } from "@/utils/logger";
 import { createMeetingBotProvider } from "@/utils/meeting-recorder/create-bot-provider";
 import { deleteRecordingMedia } from "@/utils/meeting-recorder/delete-media";
 import { enqueueProcessingForRecording } from "@/utils/meeting-recorder/enqueue-processing";
-import { recordingStatusData } from "@/utils/meeting-recorder/recording-lifecycle";
+import {
+  getStatusesBelow,
+  recordingStatusData,
+} from "@/utils/meeting-recorder/recording-lifecycle";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { withQstashOrInternal } from "@/utils/qstash";
@@ -68,14 +71,23 @@ async function storeTranscript({
         recording.externalTranscriptId,
       );
 
+      // Store the transcript unconditionally, but only advance the status from
+      // a non-terminal one: a late transcript must not revive a recording that
+      // already failed or was cancelled.
       await prisma.meetingRecording.update({
         where: { id: recording.id },
         data: {
           // Prisma's JSON input type rejects optional properties even though the
           // transcript is plain JSON-safe data.
           transcript: transcript as unknown as Prisma.InputJsonValue,
-          ...recordingStatusData(MeetingRecordingStatus.DONE),
         },
+      });
+      await prisma.meetingRecording.updateMany({
+        where: {
+          id: recording.id,
+          status: { in: getStatusesBelow(MeetingRecordingStatus.DONE) },
+        },
+        data: recordingStatusData(MeetingRecordingStatus.DONE),
       });
     } catch (error) {
       // Release the claim so the queue retry can try the download again.

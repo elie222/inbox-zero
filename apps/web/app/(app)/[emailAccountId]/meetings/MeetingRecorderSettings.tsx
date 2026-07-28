@@ -32,7 +32,8 @@ export function MeetingRecorderSettings({
   emailAccountId: string;
   hasCalendarConnected: boolean;
 }) {
-  const { data, isLoading, error, mutate } = useMeetingRecorderSettings();
+  const { data, isLoading, error, mutate } =
+    useMeetingRecorderSettings(emailAccountId);
 
   const { execute } = useAction(
     updateMeetingRecorderSettingsAction.bind(null, emailAccountId),

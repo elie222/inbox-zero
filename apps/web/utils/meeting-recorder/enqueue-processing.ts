@@ -1,4 +1,5 @@
 import type { MeetingRecorderProcessBody } from "@/app/api/meeting-recorder/process/validation";
+import type { MeetingRecorderTranscriptBody } from "@/app/api/meeting-recorder/transcript/validation";
 import type { Logger } from "@/utils/logger";
 import { MEETING_RECORDER_MIN_TIER } from "@/utils/meeting-recorder/config";
 import { getPremiumUserFilter } from "@/utils/premium";
@@ -6,6 +7,26 @@ import prisma from "@/utils/prisma";
 import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
 
 const MEETING_RECORDER_PROCESS_TOPIC = "meeting-recorder-process";
+const MEETING_RECORDER_TRANSCRIPT_TOPIC = "meeting-recorder-transcript";
+
+export async function enqueueTranscriptFetch({
+  recordingId,
+  logger,
+}: {
+  recordingId: string;
+  logger: Logger;
+}): Promise<void> {
+  await enqueueBackgroundJob<MeetingRecorderTranscriptBody>({
+    topic: MEETING_RECORDER_TRANSCRIPT_TOPIC,
+    body: { recordingId },
+    qstash: {
+      queueName: MEETING_RECORDER_TRANSCRIPT_TOPIC,
+      parallelism: 2,
+      path: "/api/meeting-recorder/transcript",
+    },
+    logger,
+  });
+}
 
 export async function enqueueMeetingProcessing({
   meetingId,

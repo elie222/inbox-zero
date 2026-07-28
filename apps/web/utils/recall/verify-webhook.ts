@@ -16,9 +16,12 @@ export function verifyRecallWebhook({
   headers: Headers;
   rawBody: string;
 }): boolean {
-  const id = headers.get("svix-id");
-  const timestamp = headers.get("svix-timestamp");
-  const signatureHeader = headers.get("svix-signature");
+  // Svix sends `svix-*`; the vendor-neutral standard-webhooks names are
+  // `webhook-*`. The signature is computed identically either way, so accept
+  // both rather than 401 on a delivery we could have verified.
+  const id = getHeader(headers, "id");
+  const timestamp = getHeader(headers, "timestamp");
+  const signatureHeader = getHeader(headers, "signature");
 
   if (!(id && timestamp && signatureHeader)) return false;
 
@@ -46,4 +49,8 @@ function matchesSignature(entry: string, expected: Buffer): boolean {
   if (version !== "v1" || !signature) return false;
 
   return secureCompareBuffers(Buffer.from(signature, "base64"), expected);
+}
+
+function getHeader(headers: Headers, suffix: string): string | null {
+  return headers.get(`svix-${suffix}`) ?? headers.get(`webhook-${suffix}`);
 }

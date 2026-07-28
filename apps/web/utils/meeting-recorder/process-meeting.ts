@@ -88,6 +88,12 @@ export async function processMeetingForAccount({
           error instanceof Error ? error.message : "Unknown error",
       },
     });
+
+    // Record the failure for the UI, then let the queue see it too. Swallowing
+    // here would report success and burn the only retry a transient AI or
+    // mailbox failure gets. Each sub-step is separately guarded, so a retry
+    // resumes rather than repeating work.
+    throw error;
   }
 }
 

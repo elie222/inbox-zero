@@ -6,7 +6,7 @@ import {
   MeetingProcessingStatus,
   MeetingRecordingStatus,
 } from "@/generated/prisma/enums";
-import type { MeetingRecording } from "@/generated/prisma/client";
+import { Prisma, type MeetingRecording } from "@/generated/prisma/client";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { fetchCalendarEventsInWindow } from "@/utils/calendar/fetch-events-in-window";
 import { captureException } from "@/utils/error";
@@ -23,7 +23,10 @@ import {
   DEFAULT_MEETING_BOT_PROVIDER,
 } from "@/utils/meeting-recorder/create-bot-provider";
 import { deleteRecordingMedia } from "@/utils/meeting-recorder/delete-media";
-import { enqueueMeetingProcessing } from "@/utils/meeting-recorder/enqueue-processing";
+import {
+  enqueueMeetingProcessing,
+  enqueueTranscriptFetch,
+} from "@/utils/meeting-recorder/enqueue-processing";
 import { shouldAutoJoin } from "@/utils/meeting-recorder/join-rule";
 import {
   CHANGEABLE_STATUSES,
@@ -56,7 +59,7 @@ export async function reconcileAccount({
   const timeMin = new Date();
   const timeMax = addMinutes(timeMin, RECONCILE_WINDOW_MINUTES);
 
-  const events = await fetchCalendarEventsInWindow({
+  const { events, complete } = await fetchCalendarEventsInWindow({
     emailAccountId: emailAccount.id,
     timeMin,
     timeMax,
@@ -76,6 +79,14 @@ export async function reconcileAccount({
       });
       captureException(error, { emailAccountId: emailAccount.id });
     }
+  }
+
+  // Releasing infers "deleted" from "absent", which is only sound when we know
+  // we saw the whole calendar. A provider outage would otherwise cancel every
+  // bot this account has booked.
+  if (!complete) {
+    logger.warn("Skipping release sweep after an incomplete calendar fetch");
+    return;
   }
 
   await releaseUnseenMeetings({
@@ -126,13 +137,14 @@ export async function reconcileSingleEvent({
   }
 
   if (meeting.recordingId) {
-    await rescheduleIfMoved({
+    const stillBooked = await updateBookingForEvent({
       meetingId: meeting.id,
       recordingId: meeting.recordingId,
       event,
       logger: eventLogger,
     });
-    return;
+    // A released booking falls through to book again against the new link.
+    if (stillBooked) return;
   }
 
   const recording = await findOrCreateRecording({ event, logger: eventLogger });
@@ -326,7 +338,15 @@ async function linkMeetingToRecording({
   }
 }
 
-async function rescheduleIfMoved({
+/**
+ * Brings an existing booking in line with the event.
+ *
+ * Returns false when the booking was released because the join link changed,
+ * which tells the caller to book again from scratch: a new link (or even just a
+ * new Zoom password) means the existing bot would join the wrong meeting, or
+ * fail to join at all.
+ */
+async function updateBookingForEvent({
   meetingId,
   recordingId,
   event,
@@ -336,19 +356,25 @@ async function rescheduleIfMoved({
   recordingId: string;
   event: CalendarEvent;
   logger: Logger;
-}): Promise<void> {
+}): Promise<boolean> {
   const recording = await prisma.meetingRecording.findUnique({
     where: { id: recordingId },
   });
-  if (!recording) return;
+  if (!recording) return false;
+
+  if (recording.meetingUrl !== event.videoConferenceLink) {
+    logger.info("Meeting link changed, rebooking", { recordingId });
+    await releaseMeeting({ meetingId, recordingId, logger });
+    return false;
+  }
 
   const startTimeUnchanged =
     recording.meetingStartTime.getTime() === event.startTime.getTime();
-  if (startTimeUnchanged) return;
+  if (startTimeUnchanged) return true;
 
   // Once the bot is joining or in the call there is nothing left to move.
-  if (!CHANGEABLE_STATUSES.includes(recording.status)) return;
-  if (!recording.externalBotId) return;
+  if (!CHANGEABLE_STATUSES.includes(recording.status)) return true;
+  if (!recording.externalBotId) return true;
 
   const provider = createMeetingBotProvider(recording.botProvider, logger);
   await provider.rescheduleBot(recording.externalBotId, {
@@ -367,6 +393,8 @@ async function rescheduleIfMoved({
     // this meeting into that recording instead of retrying into the same clash.
     await mergeIntoExistingRecording({ meetingId, recording, event, logger });
   }
+
+  return true;
 }
 
 async function mergeIntoExistingRecording({
@@ -400,6 +428,48 @@ async function mergeIntoExistingRecording({
   });
   await releaseRecording({ recording, logger });
   await linkMeetingToRecording({ meetingId, recordingId: target.id, logger });
+}
+
+/**
+ * Releases every booking an account still holds. Turning the notetaker off also
+ * removes the account from the cron's query, so without this its already-booked
+ * bots would still turn up to the calls.
+ */
+export async function releaseAccountBookings({
+  emailAccountId,
+  logger,
+}: {
+  emailAccountId: string;
+  logger: Logger;
+}): Promise<void> {
+  const booked = await prisma.meeting.findMany({
+    where: {
+      emailAccountId,
+      recordingId: { not: null },
+      recording: { status: { in: CHANGEABLE_STATUSES } },
+    },
+    select: { id: true, recordingId: true },
+  });
+
+  for (const meeting of booked) {
+    try {
+      await releaseMeeting({
+        meetingId: meeting.id,
+        recordingId: meeting.recordingId,
+        logger,
+      });
+    } catch (error) {
+      logger.error("Failed to release booking", {
+        meetingId: meeting.id,
+        error,
+      });
+      captureException(error, { emailAccountId });
+    }
+  }
+
+  if (booked.length > 0) {
+    logger.info("Released bookings for the account", { count: booked.length });
+  }
 }
 
 /** Detaches a meeting from its recording, cancelling the bot if nobody else wants it. */
@@ -526,24 +596,107 @@ export async function sweepRecordings({
     });
   }
 
-  const abandoned = await prisma.meetingRecording.updateMany({
+  await failAbandonedRecordings({ now, logger });
+  await requeueStuckTranscripts({ now, logger });
+  await requeueStuckMeetings({ logger });
+  await retryPendingMediaDeletion({ logger });
+}
+
+/**
+ * Fails recordings that never reported an outcome. The bot is cancelled first:
+ * marking the row terminal releases its dedup slot, so leaving a live bot
+ * behind would let a replacement be booked for a call it is already in.
+ */
+async function failAbandonedRecordings({
+  now,
+  logger,
+}: {
+  now: Date;
+  logger: Logger;
+}): Promise<void> {
+  const abandoned = await prisma.meetingRecording.findMany({
     where: {
       status: { in: LIVE_STATUSES },
       meetingStartTime: { lt: subHours(now, ABANDONED_RECORDING_HOURS) },
     },
-    data: {
-      ...recordingStatusData(MeetingRecordingStatus.FAILED),
-      failureReason: "The notetaker never reported back for this meeting.",
-    },
+    take: 50,
   });
-  if (abandoned.count > 0) {
-    logger.info("Failed abandoned meeting recordings", {
-      count: abandoned.count,
+
+  for (const recording of abandoned) {
+    if (recording.externalBotId) {
+      try {
+        const provider = createMeetingBotProvider(
+          recording.botProvider,
+          logger,
+        );
+        await provider.cancelBot(recording.externalBotId);
+      } catch (error) {
+        // Leave the row live so the next sweep tries the cancel again.
+        logger.error("Failed to cancel an abandoned bot", {
+          recordingId: recording.id,
+          error,
+        });
+        captureException(error);
+        continue;
+      }
+    }
+
+    await prisma.meetingRecording.update({
+      where: { id: recording.id },
+      data: {
+        ...recordingStatusData(MeetingRecordingStatus.FAILED),
+        failureReason: "The notetaker never reported back for this meeting.",
+      },
     });
   }
 
-  await requeueStuckMeetings({ logger });
-  await retryPendingMediaDeletion({ logger });
+  if (abandoned.length > 0) {
+    logger.info("Swept abandoned meeting recordings", {
+      count: abandoned.length,
+    });
+  }
+}
+
+/**
+ * Re-queues transcripts whose fetch never completed. The webhook has already
+ * acknowledged the provider by this point, so nothing else would retry them.
+ */
+async function requeueStuckTranscripts({
+  now,
+  logger,
+}: {
+  now: Date;
+  logger: Logger;
+}): Promise<void> {
+  const stuck = await prisma.meetingRecording.findMany({
+    where: {
+      externalTranscriptId: { not: null },
+      transcript: { equals: Prisma.DbNull },
+      OR: [
+        { transcriptFetchedAt: null },
+        {
+          transcriptFetchedAt: {
+            lt: subMinutes(now, STUCK_PROCESSING_MINUTES),
+          },
+        },
+      ],
+    },
+    select: { id: true },
+    take: 50,
+  });
+
+  for (const recording of stuck) {
+    // Release the claim so the queued job can take it again.
+    await prisma.meetingRecording.update({
+      where: { id: recording.id },
+      data: { transcriptFetchedAt: null },
+    });
+    await enqueueTranscriptFetch({ recordingId: recording.id, logger });
+  }
+
+  if (stuck.length > 0) {
+    logger.info("Requeued stuck transcript fetches", { count: stuck.length });
+  }
 }
 
 // A run killed mid-flight leaves the Meeting claimed. Once the queue has given

@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccount } from "@/providers/EmailAccountProvider";
 import { format } from "date-fns";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -23,7 +24,11 @@ export function MeetingDetail({
   meetingId: string | null;
   onClose: () => void;
 }) {
-  const { data, isLoading, error } = useMeetingRecorderMeeting(meetingId);
+  const { emailAccountId } = useAccount();
+  const { data, isLoading, error } = useMeetingRecorderMeeting(
+    meetingId,
+    emailAccountId,
+  );
 
   const summary = data?.summary;
   const transcript = data?.recording?.transcript;

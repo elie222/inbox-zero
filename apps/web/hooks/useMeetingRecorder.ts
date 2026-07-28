@@ -4,26 +4,42 @@ import type { GetMeetingRecorderMeetingsResponse } from "@/app/api/user/meeting-
 import type { GetMeetingRecorderMeetingResponse } from "@/app/api/user/meeting-recorder/meetings/[meetingId]/route";
 import type { GetMeetingRecorderUpcomingResponse } from "@/app/api/user/meeting-recorder/upcoming/route";
 
-export function useMeetingRecorderSettings() {
+export function useMeetingRecorderSettings(emailAccountId?: string | null) {
   return useSWR<GetMeetingRecorderSettingsResponse>(
-    "/api/user/meeting-recorder",
+    getAccountScopedKey("/api/user/meeting-recorder", emailAccountId),
   );
 }
 
-export function useMeetingRecorderMeetings() {
+export function useMeetingRecorderMeetings(emailAccountId?: string | null) {
   return useSWR<GetMeetingRecorderMeetingsResponse>(
-    "/api/user/meeting-recorder/meetings",
+    getAccountScopedKey("/api/user/meeting-recorder/meetings", emailAccountId),
   );
 }
 
-export function useMeetingRecorderMeeting(meetingId: string | null) {
+export function useMeetingRecorderMeeting(
+  meetingId: string | null,
+  emailAccountId?: string | null,
+) {
   return useSWR<GetMeetingRecorderMeetingResponse>(
-    meetingId ? `/api/user/meeting-recorder/meetings/${meetingId}` : null,
+    meetingId
+      ? getAccountScopedKey(
+          `/api/user/meeting-recorder/meetings/${meetingId}`,
+          emailAccountId,
+        )
+      : null,
   );
 }
 
-export function useMeetingRecorderUpcoming() {
+export function useMeetingRecorderUpcoming(emailAccountId?: string | null) {
   return useSWR<GetMeetingRecorderUpcomingResponse>(
-    "/api/user/meeting-recorder/upcoming",
+    getAccountScopedKey("/api/user/meeting-recorder/upcoming", emailAccountId),
   );
+}
+
+// These routes are all scoped by the authenticated email account, so the cache
+// key has to carry the account or a switch would serve another account's data.
+function getAccountScopedKey(path: string, emailAccountId?: string | null) {
+  if (emailAccountId === undefined) return path;
+
+  return emailAccountId ? ([path, emailAccountId] as const) : null;
 }

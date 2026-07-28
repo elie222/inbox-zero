@@ -70,6 +70,19 @@ describe("verifyRecallWebhook", () => {
     ).toBe(false);
   });
 
+  it("accepts the vendor-neutral webhook-* header names", () => {
+    const svixHeaders = signedHeaders();
+    const headers = new Headers({
+      "webhook-id": svixHeaders.get("svix-id") ?? "",
+      "webhook-timestamp": svixHeaders.get("svix-timestamp") ?? "",
+      "webhook-signature": svixHeaders.get("svix-signature") ?? "",
+    });
+
+    expect(
+      verifyRecallWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
+    ).toBe(true);
+  });
+
   it("rejects a payload with missing Svix headers", () => {
     const headers = signedHeaders();
     headers.delete("svix-id");

@@ -24,13 +24,17 @@ export async function fetchUpcomingEvents({
 }): Promise<CalendarEvent[]> {
   const timeMin = new Date();
 
-  return fetchCalendarEventsInWindow({
+  // Briefings only ever act on the events they can see, so a partial fetch is
+  // harmless here.
+  const { events } = await fetchCalendarEventsInWindow({
     emailAccountId,
     timeMin,
     timeMax: addMinutes(timeMin, minutesBefore + CRON_INTERVAL_MINUTES),
     maxResultsPerProvider: MAX_EVENTS_PER_PROVIDER,
     logger,
   });
+
+  return events;
 }
 
 export function filterEventsWithExternalGuests(

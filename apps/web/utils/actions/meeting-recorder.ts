@@ -16,6 +16,7 @@ import {
 } from "@/utils/meeting-recorder/config";
 import {
   reconcileSingleEvent,
+  releaseAccountBookings,
   upsertMeeting,
 } from "@/utils/meeting-recorder/reconcile";
 import prisma from "@/utils/prisma";
@@ -23,7 +24,7 @@ import prisma from "@/utils/prisma";
 export const updateMeetingRecorderSettingsAction = actionClient
   .metadata({ name: "updateMeetingRecorderSettings" })
   .inputSchema(updateMeetingRecorderSettingsBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+  .action(async ({ ctx: { emailAccountId, logger }, parsedInput }) => {
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
       data: {
@@ -33,6 +34,12 @@ export const updateMeetingRecorderSettingsAction = actionClient
         meetingRecorderFollowUpDraftEnabled: parsedInput.followUpDraftEnabled,
       },
     });
+
+    // Turning the notetaker off also drops this account from the cron's query,
+    // so nothing else would ever cancel the bots it has already booked.
+    if (parsedInput.enabled === false) {
+      await releaseAccountBookings({ emailAccountId, logger });
+    }
   });
 
 export const setMeetingJoinOverrideAction = actionClient
@@ -58,7 +65,7 @@ export const setMeetingJoinOverrideAction = actionClient
       }
 
       const timeMin = new Date();
-      const events = await fetchCalendarEventsInWindow({
+      const { events } = await fetchCalendarEventsInWindow({
         emailAccountId,
         timeMin,
         timeMax: addHours(timeMin, MEETING_LOOKAHEAD_HOURS),

@@ -263,7 +263,7 @@ describe.skipIf(!RUN_DB_TESTS)(
 
     test("cancels the bot when the event disappears from the calendar", async () => {
       const event = calendarEvent();
-      fetchEventsMock.mockResolvedValue([event]);
+      fetchEventsMock.mockResolvedValue({ events: [event], complete: true });
 
       await reconcile.reconcileAccount({
         emailAccount: account(accountAId, ACCOUNT_A),
@@ -272,7 +272,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(fakeProvider.scheduled).toHaveLength(1);
 
       // The event is gone from the calendar on the next pass.
-      fetchEventsMock.mockResolvedValue([]);
+      fetchEventsMock.mockResolvedValue({ events: [], complete: true });
       await reconcile.reconcileAccount({
         emailAccount: account(accountAId, ACCOUNT_A),
         logger,
@@ -281,6 +281,79 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(fakeProvider.cancelled).toEqual([
         fakeProvider.scheduled[0]?.botId,
       ]);
+    });
+
+    test("keeps bots booked when the calendar fetch came back incomplete", async () => {
+      const event = calendarEvent();
+      fetchEventsMock.mockResolvedValue({ events: [event], complete: true });
+
+      await reconcile.reconcileAccount({
+        emailAccount: account(accountAId, ACCOUNT_A),
+        logger,
+      });
+      expect(fakeProvider.scheduled).toHaveLength(1);
+
+      // A provider outage looks identical to "every meeting was deleted", so
+      // an incomplete fetch must not be treated as deletion.
+      fetchEventsMock.mockResolvedValue({ events: [], complete: false });
+      await reconcile.reconcileAccount({
+        emailAccount: account(accountAId, ACCOUNT_A),
+        logger,
+      });
+
+      expect(fakeProvider.cancelled).toHaveLength(0);
+      const meeting = await prisma.meeting.findFirstOrThrow({
+        where: { emailAccountId: accountAId },
+      });
+      expect(meeting.recordingId).not.toBeNull();
+    });
+
+    test("rebooks when the organizer changes the join link", async () => {
+      const event = calendarEvent();
+      const emailAccount = account(accountAId, ACCOUNT_A);
+      await reconcile.reconcileSingleEvent({ emailAccount, event, logger });
+
+      const relinked = {
+        ...event,
+        videoConferenceLink: "https://meet.google.com/xyz-uvwx-rst",
+      };
+      await reconcile.reconcileSingleEvent({
+        emailAccount,
+        event: relinked,
+        logger,
+      });
+
+      // The old bot is stood down and a new one booked against the new link.
+      expect(fakeProvider.cancelled).toEqual([
+        fakeProvider.scheduled[0]?.botId,
+      ]);
+      expect(fakeProvider.scheduled).toHaveLength(2);
+      expect(fakeProvider.scheduled[1]?.meetingUrl).toBe(
+        relinked.videoConferenceLink,
+      );
+    });
+
+    test("releases every booking when the recorder is switched off", async () => {
+      const event = calendarEvent();
+      await reconcile.reconcileSingleEvent({
+        emailAccount: account(accountAId, ACCOUNT_A),
+        event,
+        logger,
+      });
+      expect(fakeProvider.scheduled).toHaveLength(1);
+
+      await reconcile.releaseAccountBookings({
+        emailAccountId: accountAId,
+        logger,
+      });
+
+      expect(fakeProvider.cancelled).toEqual([
+        fakeProvider.scheduled[0]?.botId,
+      ]);
+      const meeting = await prisma.meeting.findFirstOrThrow({
+        where: { emailAccountId: accountAId },
+      });
+      expect(meeting.recordingId).toBeNull();
     });
 
     test("only deletes media once the transcript has been stored", async () => {
