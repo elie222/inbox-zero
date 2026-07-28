@@ -25,12 +25,7 @@ class RecallApiError extends MeetingBotProviderError {
   readonly body: string;
 
   constructor(status: number, body: string, path: string) {
-    // 4xx means the request itself is wrong (bad meeting URL, unsupported
-    // platform); replaying it would fail the same way.
-    super(
-      `Recall API ${status} for ${path}: ${body}`,
-      status >= 400 && status < 500,
-    );
+    super(`Recall API ${status} for ${path}: ${body}`, isPermanent(status));
     this.name = "RecallApiError";
     this.status = status;
     this.body = body;
@@ -179,4 +174,15 @@ function isTolerableCancelError(error: unknown): boolean {
   if (!(error instanceof RecallApiError)) return false;
   // Recall answers 400 with an explanatory body when the bot has already joined.
   return error.status === 404 || error.status === 400;
+}
+
+/**
+ * Whether replaying the same request could ever succeed. Most 4xx responses
+ * mean the request itself is wrong (bad meeting URL, unsupported platform), but
+ * throttling and timeouts are 4xx and clear on their own, and treating those as
+ * permanent would drop the claim and skip the meeting.
+ */
+function isPermanent(status: number): boolean {
+  if (status === 408 || status === 425 || status === 429) return false;
+  return status >= 400 && status < 500;
 }

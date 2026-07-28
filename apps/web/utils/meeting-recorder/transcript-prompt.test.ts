@@ -29,6 +29,18 @@ describe("transcriptToPromptText", () => {
     expect(text).toContain("Transcript truncated");
   });
 
+  it("stays within the limit even when it is too small for the notice", () => {
+    const transcript = Array.from({ length: 50 }, (_, index) =>
+      utterance({ startTime: index, text: `Line ${index}` }),
+    );
+
+    for (const maxChars of [0, 10, 40]) {
+      expect(
+        transcriptToPromptText(transcript, maxChars).length,
+      ).toBeLessThanOrEqual(maxChars);
+    }
+  });
+
   it("returns the transcript untouched when it fits", () => {
     const transcript = [utterance({ text: "Short" })];
 

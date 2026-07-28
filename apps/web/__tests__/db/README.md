@@ -24,9 +24,8 @@ DIRECT_URL="postgresql://postgres:password@localhost:5432/inboxzero_test?schema=
   pnpm exec prisma migrate deploy
 
 # Run
-RUN_DB_TESTS=true \
 DATABASE_URL="postgresql://postgres:password@localhost:5432/inboxzero_test?schema=public" \
-  pnpm exec vitest --run __tests__/db
+  pnpm test-db
 ```
 
 Point `DATABASE_URL` at a throwaway database. These tests delete rows in

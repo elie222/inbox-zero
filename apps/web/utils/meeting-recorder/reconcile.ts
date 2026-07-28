@@ -699,31 +699,47 @@ async function requeueStuckTranscripts({
   }
 }
 
-// A run killed mid-flight leaves the Meeting claimed. Once the queue has given
-// up retrying, this is the only thing that gets it moving again.
+/**
+ * Re-queues meetings whose summary never ran: a run killed mid-flight, or a
+ * hand-off whose enqueue never landed.
+ *
+ * It deliberately does not move the status first. Writing PENDING and then
+ * enqueueing would strand the row if the enqueue failed, because the next pass
+ * would no longer recognise it. Instead the row is left alone and the job is
+ * re-sent; `processMeetingForAccount` claims it, and re-sending a job for a
+ * meeting already in flight is harmless because that claim is what decides.
+ */
 async function requeueStuckMeetings({
   logger,
 }: {
   logger: Logger;
 }): Promise<void> {
+  const staleBefore = subMinutes(new Date(), STUCK_PROCESSING_MINUTES);
+
   const stuck = await prisma.meeting.findMany({
     where: {
-      processingStatus: MeetingProcessingStatus.PROCESSING,
-      updatedAt: { lt: subMinutes(new Date(), STUCK_PROCESSING_MINUTES) },
+      // Only meetings whose recording is actually ready to summarize.
+      recording: { transcript: { not: Prisma.DbNull } },
+      OR: [
+        { processingStatus: MeetingProcessingStatus.PENDING },
+        {
+          processingStatus: {
+            in: [
+              MeetingProcessingStatus.PROCESSING,
+              MeetingProcessingStatus.FAILED,
+            ],
+          },
+          updatedAt: { lt: staleBefore },
+        },
+      ],
     },
     select: { id: true },
     take: 50,
   });
   if (stuck.length === 0) return;
 
-  const meetingIds = stuck.map((meeting) => meeting.id);
-  await prisma.meeting.updateMany({
-    where: { id: { in: meetingIds } },
-    data: { processingStatus: MeetingProcessingStatus.PENDING },
-  });
-
-  for (const meetingId of meetingIds) {
-    await enqueueMeetingProcessing({ meetingId, logger });
+  for (const meeting of stuck) {
+    await enqueueMeetingProcessing({ meetingId: meeting.id, logger });
   }
 
   logger.info("Requeued stuck meeting processing", { count: stuck.length });

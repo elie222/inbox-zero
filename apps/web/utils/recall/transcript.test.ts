@@ -64,6 +64,37 @@ describe("normalizeRecallTranscript", () => {
     });
   });
 
+  it("keeps two participants apart when they share a name and have no email", () => {
+    const result = normalizeRecallTranscript([
+      {
+        participant: { id: 1, name: "Alex", is_host: false, email: null },
+        words: [
+          {
+            text: "Mine",
+            start_timestamp: { relative: 0 },
+            end_timestamp: { relative: 0.3 },
+          },
+        ],
+      },
+      {
+        participant: { id: 2, name: "Alex", is_host: false, email: null },
+        words: [
+          {
+            text: "Theirs",
+            start_timestamp: { relative: 0.4 },
+            end_timestamp: { relative: 0.8 },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(2);
+    expect(result.map((utterance) => utterance.text)).toEqual([
+      "Mine",
+      "Theirs",
+    ]);
+  });
+
   it("keeps turns separate when the same display name has different emails", () => {
     const result = normalizeRecallTranscript([
       turn({ name: "Alex", email: "alex@one.com", words: [["Hi", 0, 0.2]] }),

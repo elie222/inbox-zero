@@ -11,5 +11,8 @@ describe("recallCodeToStatus", () => {
       MeetingRecordingStatus.FAILED,
     );
     expect(recallCodeToStatus("some_future_code")).toBeNull();
+    // Inherited properties are not statuses.
+    expect(recallCodeToStatus("constructor")).toBeNull();
+    expect(recallCodeToStatus("toString")).toBeNull();
   });
 });

@@ -37,7 +37,7 @@ export const POST = withError("recall/webhook", async (request) => {
     return new Response("Invalid signature", { status: 401 });
   }
 
-  const parsed = recallWebhookPayloadSchema.safeParse(JSON.parse(rawBody));
+  const parsed = recallWebhookPayloadSchema.safeParse(safeJsonParse(rawBody));
   if (!parsed.success) {
     logger.warn("Ignored malformed Recall webhook", {
       errors: parsed.error.issues,
@@ -112,4 +112,14 @@ async function processRecallEvent(
         : undefined,
     logger: eventLogger,
   });
+}
+
+// A signed but malformed body is still malformed on redelivery, so it has to
+// reach the acknowledge-and-drop path rather than throwing into the 500 branch.
+function safeJsonParse(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }

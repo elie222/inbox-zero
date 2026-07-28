@@ -104,10 +104,15 @@ async function main() {
     console.log(USAGE);
   });
 
-  process.on("SIGINT", async () => {
-    await emulator.close();
-    process.exit(0);
-  });
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    process.on(signal, async () => {
+      await emulator.close();
+      process.exit(0);
+    });
+  }
 }
 
-main();
+main().catch((error) => {
+  console.error("Failed to start the Recall emulator", error);
+  process.exit(1);
+});

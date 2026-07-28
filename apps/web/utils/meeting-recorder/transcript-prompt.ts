@@ -24,7 +24,11 @@ export function transcriptToPromptText(
   const full = lines.join("\n");
   if (full.length <= maxChars) return full;
 
-  const budget = Math.max(0, maxChars - TRUNCATION_NOTICE.length);
+  // Too small to say anything useful and still explain the truncation, so just
+  // stay inside the limit rather than overflowing it with the notice.
+  if (maxChars <= TRUNCATION_NOTICE.length) return full.slice(0, maxChars);
+
+  const budget = maxChars - TRUNCATION_NOTICE.length;
   const headBudget = Math.floor(budget * 0.6);
   const tailBudget = budget - headBudget;
 

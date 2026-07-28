@@ -33,7 +33,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     let provider: import("@/utils/recall/client").RecallBotProvider;
 
     beforeAll(async () => {
-      emulator = await createRecallEmulator({ port: 4097 });
+      emulator = await createRecallEmulator();
       envMock.RECALL_BASE_URL = emulator.apiBase;
       envMock.RECALL_API_KEY = emulator.apiKey;
 

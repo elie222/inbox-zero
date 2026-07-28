@@ -64,7 +64,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     let webhookRoute: typeof import("@/app/api/recall/webhook/route");
 
     beforeAll(async () => {
-      emulator = await createRecallEmulator({ port: 4096 });
+      emulator = await createRecallEmulator();
       envMock.RECALL_BASE_URL = emulator.apiBase;
       envMock.RECALL_API_KEY = emulator.apiKey;
       envMock.RECALL_WEBHOOK_SECRET = emulator.webhookSecret;

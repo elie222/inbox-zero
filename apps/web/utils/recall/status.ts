@@ -18,6 +18,9 @@ const RECALL_CODE_TO_STATUS: Record<string, MeetingRecordingStatus> = {
 export function recallCodeToStatus(
   code: string,
 ): MeetingRecordingStatus | null {
+  // Own-property check: a code like `constructor` would otherwise resolve an
+  // inherited property and be treated as a real status.
+  if (!Object.hasOwn(RECALL_CODE_TO_STATUS, code)) return null;
   return RECALL_CODE_TO_STATUS[code] ?? null;
 }
 

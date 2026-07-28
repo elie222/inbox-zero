@@ -170,9 +170,10 @@ const envMock = vi.hoisted(() => ({ RECALL_API_KEY: "", RECALL_BASE_URL: "" }));
 vi.mock("@/env", () => ({ env: envMock }));
 
 let emulator: RecallEmulator;
+let provider: import("@/utils/recall/client").RecallBotProvider;
 
 beforeAll(async () => {
-  emulator = await createRecallEmulator({ port: 4097 });
+  emulator = await createRecallEmulator();
   envMock.RECALL_BASE_URL = emulator.apiBase;
   envMock.RECALL_API_KEY = emulator.apiKey;
 
@@ -186,7 +187,7 @@ beforeAll(async () => {
 
 **Webhooks**: `emulator.signWebhook(payload)` returns a Svix-signed `Request` to hand straight to the webhook route's `POST` (mirrors `createSignedSlackRequest`). Use `recallWebhookPayloads.statusChange(botId, code, subCode?)` and `recallWebhookPayloads.transcriptDone(botId, transcriptId)` to build bodies. Pass `{ secret }` to sign with the wrong key and assert the route rejects it.
 
-**Ports**: Google 4099, Slack 4098, Recall 4097 / 4096.
+**Ports**: the Recall emulator binds an ephemeral port by default (`createRecallEmulator()`), so parallel test files cannot collide. Pass `{ port }` only when something external needs a fixed address.
 
 **Manual use**: `pnpm emulate:recall` runs it standalone and prints the env vars to paste into `.env.local`. Type `advance <botId> <code>` or `transcript <botId>` to emit a webhook body you can POST at `/api/recall/webhook`.
 
