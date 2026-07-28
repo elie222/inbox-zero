@@ -245,12 +245,14 @@ export async function runRules({
     // that a rule WOULD have matched — name the skipped rules and the fix
     const skippedThreadRuleNames =
       results.selectionMetadata?.skippedThreadRuleNames ?? [];
+    // Appended even when the AI ran: a rule the thread guard hid is
+    // otherwise indistinguishable from one the AI rejected
+    const threadSkipNote = skippedThreadRuleNames.length
+      ? ` This is a reply in a conversation, so ${skippedThreadRuleNames.join(", ")} ${skippedThreadRuleNames.length === 1 ? "was" : "were"} not checked at all — enable "Apply to threads" on a rule to run it on replies.`
+      : "";
     const reason =
-      skippedConversationReason ||
-      results.reasoning ||
-      (skippedThreadRuleNames.length
-        ? `No rules matched. This is a reply in a conversation, so ${skippedThreadRuleNames.join(", ")} ${skippedThreadRuleNames.length === 1 ? "was" : "were"} not checked — enable "Apply to threads" on a rule to run it on replies.`
-        : "No rules matched");
+      (skippedConversationReason || results.reasoning || "No rules matched") +
+      threadSkipNote;
     if (!isTest) {
       await withPrismaRetry(
         () =>
