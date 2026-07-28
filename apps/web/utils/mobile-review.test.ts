@@ -67,7 +67,7 @@ describe("mobile review access", () => {
     vi.clearAllMocks();
     mockedEnv.APP_REVIEW_DEMO_ENABLED = true;
     mockedEnv.APP_REVIEW_DEMO_ACCOUNTS = JSON.stringify([
-      { email: "review@example.com", code: "review-code" },
+      { email: "review@example.com", code: "review-code-0123456789abcd" },
     ]);
     makeSignatureMock.mockResolvedValue("signed-token");
     createSessionMock.mockResolvedValue({
@@ -111,7 +111,7 @@ describe("mobile review access", () => {
 
     await expect(
       createMobileReviewSession({
-        code: "review-code",
+        code: "review-code-0123456789abcd",
         email: "review@example.com",
         logger: createTestLogger(),
       } as never),
@@ -124,8 +124,14 @@ describe("mobile review access", () => {
   it("creates a session for the matching configured review account", async () => {
     const logger = createTestLogger();
     mockedEnv.APP_REVIEW_DEMO_ACCOUNTS = JSON.stringify([
-      { email: "active-review@example.com", code: "active-code" },
-      { email: "expired-review@example.com", code: "expired-code" },
+      {
+        email: "active-review@example.com",
+        code: "active-code-0123456789abcd",
+      },
+      {
+        email: "expired-review@example.com",
+        code: "expired-code-0123456789abcd",
+      },
     ]);
     emailAccountFindManyMock.mockResolvedValueOnce([
       {
@@ -139,7 +145,7 @@ describe("mobile review access", () => {
     ]);
 
     const result = await createMobileReviewSession({
-      code: "expired-code",
+      code: "expired-code-0123456789abcd",
       email: "Expired-Review@Example.com",
       logger,
     } as never);

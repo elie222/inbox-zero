@@ -115,14 +115,15 @@ describe("mobile auth OAuth code", () => {
     });
   });
 
-  it("defaults missing return URL mode state records to app links for old flows", async () => {
+  // Accepting a state we never issued would let anyone mint an auth code
+  it("rejects a state with no stored record", async () => {
     prismaMock.verificationToken.findUnique.mockResolvedValue(null);
 
     await expect(
       consumeMobileAuthState({
         state: "state-1234567890",
       }),
-    ).resolves.toEqual({ returnUrlMode: "app-link" });
+    ).rejects.toThrow("Invalid authentication state");
   });
 
   it("rejects malformed return URL mode records", async () => {
