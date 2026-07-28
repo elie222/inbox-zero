@@ -408,6 +408,40 @@ describe("createGenerateObject repairText", () => {
     );
   });
 
+  it("retries object validation when failed-attempt usage accounting errors", async () => {
+    const failedUsage = {
+      inputTokens: 1000,
+      outputTokens: 100,
+      totalTokens: 1100,
+    };
+    const validationError = Object.assign(new Error("Invalid object"), {
+      usage: failedUsage,
+    });
+
+    mockNoObjectGeneratedErrorIsInstance.mockImplementation(
+      (error) => error === validationError,
+    );
+    mockSaveAiUsage.mockRejectedValueOnce(new Error("Usage accounting failed"));
+    mockGenerateObject
+      .mockRejectedValueOnce(validationError)
+      .mockResolvedValueOnce({
+        object: { ok: true },
+        usage: null,
+      });
+
+    const generateObject = await createTestGenerateObject();
+
+    await expect(
+      generateObject({
+        system: "Return JSON.",
+        prompt: "Return JSON.",
+        schema: {} as any,
+      } as any),
+    ).resolves.toEqual({ object: { ok: true }, usage: null });
+
+    expect(mockGenerateObject).toHaveBeenCalledTimes(2);
+  });
+
   it("logs the successful model and sanitized fallback path", async () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const contentFilterError = mockContentFilterRefusal();
