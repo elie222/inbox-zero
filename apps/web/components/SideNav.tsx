@@ -56,7 +56,6 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
-import { NavUser } from "@/components/NavUser";
 import { PremiumCard } from "@/components/PremiumCard";
 import { Tooltip } from "@/components/Tooltip";
 import { cn } from "@/utils";
@@ -160,7 +159,6 @@ function SideNavBody({ path }: { path: string }) {
 
       <SidebarFooter className="pb-4">
         <SyncedStatus />
-        <NavUser />
       </SidebarFooter>
     </>
   );
