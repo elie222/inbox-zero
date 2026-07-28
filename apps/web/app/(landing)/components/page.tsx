@@ -677,6 +677,8 @@ export default function Components() {
                       "Marketing",
                     ],
                     continuedThreadRuleNames: [],
+                    knownContactSkippedRuleNames: [],
+                    staticFailedRuleNames: [],
                     learnedPatternExcludedRules: [],
                     filteredConversationRuleNames: [],
                     conversationFilterReason: undefined,
@@ -697,6 +699,8 @@ export default function Components() {
                     isThread: false,
                     skippedThreadRuleNames: [],
                     continuedThreadRuleNames: [],
+                    knownContactSkippedRuleNames: [],
+                    staticFailedRuleNames: [],
                     learnedPatternExcludedRules: [
                       {
                         ruleId: "notification-rule",

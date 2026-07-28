@@ -327,6 +327,57 @@ describe("matchesStaticRule", () => {
     ).toBe(false);
   });
 
+  it("starts-with subject mode ignores reply/forward prefixes", () => {
+    const rule = getStaticRule({
+      subject: "Daily Report",
+      subjectMatchMode: "STARTS_WITH",
+    });
+
+    for (const subject of [
+      "Re: Daily Report",
+      "RE: RE: Daily Report",
+      "Fwd: Daily Report",
+      "FW: Daily Report",
+      "Re[2]: Daily Report",
+    ]) {
+      expect(
+        matchesStaticRule(
+          rule,
+          getMessage({ headers: getHeaders({ subject }) }),
+          logger,
+        ),
+      ).toBe(true);
+    }
+
+    // A non-prefix lead-in still fails starts-with
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ subject: "About the Daily Report" }),
+        }),
+        logger,
+      ),
+    ).toBe(false);
+  });
+
+  it("does not treat reply-like words mid-subject as prefixes", () => {
+    const rule = getStaticRule({
+      subject: "Daily Report",
+      subjectMatchMode: "STARTS_WITH",
+    });
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ subject: "Summary re: Daily Report" }),
+        }),
+        logger,
+      ),
+    ).toBe(false);
+  });
+
   it("contains subject mode still matches mid-string", () => {
     const rule = getStaticRule({
       subject: "Invoice",
@@ -1033,6 +1084,7 @@ describe("findMatchingRule", () => {
 
   it("skips a rule that excludes known contacts when the sender is a contact", async () => {
     const rule = getRule({
+      name: "GM Responses",
       from: "test@example.com",
       excludeKnownContacts: true,
     });
@@ -1050,6 +1102,36 @@ describe("findMatchingRule", () => {
     });
 
     expect(result.matches).toHaveLength(0);
+    // The skip must be visible: it's otherwise indistinguishable from the
+    // rule never existing
+    expect(result.selectionMetadata.knownContactSkippedRuleNames).toEqual([
+      "GM Responses",
+    ]);
+  });
+
+  it("names rules dropped because their static conditions failed", async () => {
+    const rule = getRule({
+      name: "GM Responses",
+      conditionalOperator: LogicalOperator.AND,
+      from: "@nucar.com",
+      instructions: "Replies to daily reports",
+    });
+
+    const result = await findMatchingRules({
+      rules: [rule],
+      message: getMessage({
+        headers: getHeaders({ from: "other@elsewhere.com" }),
+      }),
+      emailAccount: getEmailAccount(),
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(result.matches).toHaveLength(0);
+    expect(result.selectionMetadata.staticFailedRuleNames).toEqual([
+      "GM Responses",
+    ]);
   });
 
   it("matches normally when the exclude-contacts rule sender is not a contact", async () => {
@@ -3188,6 +3270,40 @@ describe("evaluateRuleConditions", () => {
     expect(result.matched).toBe(false);
     expect(result.potentialAiMatch).toBe(false);
     expect(result.matchReasons).toEqual([]);
+    expect(result.staticFailed).toBe(true);
+  });
+
+  it("AND: flags staticFailed when the static leg drops the rule", () => {
+    const rule = getRule({
+      conditionalOperator: LogicalOperator.AND,
+      from: "@nucar.com",
+      instructions: "Replies to daily reports",
+    });
+    const message = getMessage({
+      headers: getHeaders({ from: "other@elsewhere.com" }),
+    });
+
+    const result = evaluateRuleConditions({ rule, message, logger });
+
+    expect(result.matched).toBe(false);
+    expect(result.potentialAiMatch).toBe(false);
+    expect(result.staticFailed).toBe(true);
+  });
+
+  it("OR: does not flag staticFailed when the AI leg keeps the rule in play", () => {
+    const rule = getRule({
+      conditionalOperator: LogicalOperator.OR,
+      from: "test@example.com",
+      instructions: "Some AI instructions",
+    });
+    const message = getMessage({
+      headers: getHeaders({ from: "other@example.com" }),
+    });
+
+    const result = evaluateRuleConditions({ rule, message, logger });
+
+    expect(result.potentialAiMatch).toBe(true);
+    expect(result.staticFailed).toBe(false);
   });
 
   it("should return potentialAiMatch for AI-only rule", () => {

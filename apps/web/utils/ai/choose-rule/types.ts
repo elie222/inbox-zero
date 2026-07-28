@@ -51,6 +51,11 @@ export type RuleSelectionMetadata = {
   isThread: boolean;
   skippedThreadRuleNames: string[];
   continuedThreadRuleNames: string[];
+  // Rules skipped because the sender is a saved contact (excludeKnownContacts)
+  knownContactSkippedRuleNames: string[];
+  // Rules dropped because their static conditions (from/to/subject) didn't
+  // match — AND rules whose static leg failed, or static-only rules
+  staticFailedRuleNames: string[];
   filteredConversationRuleNames: string[];
   conversationFilterReason?: string;
   remainingAiRuleNames: string[];

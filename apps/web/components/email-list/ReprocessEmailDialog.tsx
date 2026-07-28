@@ -44,6 +44,8 @@ export function ReprocessEmailDialog({
     reason: string | null;
     consideredRuleNames: string[];
     threadSkippedRuleNames: string[];
+    knownContactSkippedRuleNames: string[];
+    staticFailedRuleNames: string[];
     learnedExclusions: string[];
   } | null>(null);
   const [checking, setChecking] = useState(true);
@@ -111,6 +113,9 @@ export function ReprocessEmailDialog({
           reason: result.data.find((entry) => !entry.rule)?.reason ?? null,
           consideredRuleNames: metadata?.remainingAiRuleNames ?? [],
           threadSkippedRuleNames: metadata?.skippedThreadRuleNames ?? [],
+          knownContactSkippedRuleNames:
+            metadata?.knownContactSkippedRuleNames ?? [],
+          staticFailedRuleNames: metadata?.staticFailedRuleNames ?? [],
           learnedExclusions: (metadata?.learnedPatternExcludedRules ?? []).map(
             (entry) => `${entry.ruleName} (learned: ${entry.itemValue})`,
           ),
@@ -215,6 +220,8 @@ export function ReprocessEmailDialog({
             </DialogHeader>
             {(proposal.consideredRuleNames.length > 0 ||
               proposal.threadSkippedRuleNames.length > 0 ||
+              proposal.knownContactSkippedRuleNames.length > 0 ||
+              proposal.staticFailedRuleNames.length > 0 ||
               proposal.learnedExclusions.length > 0) && (
               <div className="space-y-1 rounded-md bg-muted p-3 text-left text-xs text-muted-foreground">
                 {proposal.consideredRuleNames.length > 0 && (
@@ -226,6 +233,20 @@ export function ReprocessEmailDialog({
                   <p>
                     Not checked (doesn't apply to thread replies):{" "}
                     {proposal.threadSkippedRuleNames.join(", ")}
+                  </p>
+                )}
+                {proposal.knownContactSkippedRuleNames.length > 0 && (
+                  <p>
+                    Skipped (sender is in your contacts):{" "}
+                    {proposal.knownContactSkippedRuleNames.join(", ")} — turn
+                    off "Skip known contacts" in that folder's settings to let
+                    it match.
+                  </p>
+                )}
+                {proposal.staticFailedRuleNames.length > 0 && (
+                  <p>
+                    Sender/subject conditions didn't match:{" "}
+                    {proposal.staticFailedRuleNames.join(", ")}
                   </p>
                 )}
                 {proposal.learnedExclusions.length > 0 && (

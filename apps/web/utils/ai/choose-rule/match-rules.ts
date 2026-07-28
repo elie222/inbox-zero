@@ -190,6 +190,8 @@ async function findPotentialMatchingRules({
   const potentialAiMatches: PotentialAiMatchRule[] = [];
   const skippedThreadRuleNames: string[] = [];
   const continuedThreadRuleNames: string[] = [];
+  const knownContactSkippedRuleNames: string[] = [];
+  const staticFailedRuleNames: string[] = [];
   const learnedPatternExcludedRules: RuleSelectionMetadata["learnedPatternExcludedRules"] =
     [];
 
@@ -242,6 +244,7 @@ async function findPotentialMatchingRules({
         logger.info("Skipping rule: sender is a known contact", {
           ruleName: rule.name,
         });
+        knownContactSkippedRuleNames.push(rule.name);
         continue;
       }
     }
@@ -287,14 +290,19 @@ async function findPotentialMatchingRules({
     }
 
     // AI + Static conditions
-    const { matched, potentialAiMatch, matchReasons } = evaluateRuleConditions({
-      rule,
-      message,
-      logger,
-    });
+    const { matched, potentialAiMatch, matchReasons, staticFailed } =
+      evaluateRuleConditions({
+        rule,
+        message,
+        logger,
+      });
 
     if (matched) {
       matches.push({ rule, matchReasons });
+    }
+
+    if (staticFailed) {
+      staticFailedRuleNames.push(rule.name);
     }
 
     if (potentialAiMatch) {
@@ -333,6 +341,8 @@ async function findPotentialMatchingRules({
     isThread,
     skippedThreadRuleNames,
     continuedThreadRuleNames,
+    knownContactSkippedRuleNames,
+    staticFailedRuleNames,
     learnedPatternExcludedRules,
     filteredConversationRuleNames: conversationStatusFilter.filteredRuleNames,
     conversationFilterReason: conversationStatusFilter.filterReason,
@@ -363,6 +373,8 @@ async function findPotentialMatchingRules({
       skippedThreadRuleNames: joinLogValues(skippedThreadRuleNames),
       continuedThreadRuleCount: continuedThreadRuleNames.length,
       continuedThreadRuleNames: joinLogValues(continuedThreadRuleNames),
+      knownContactSkippedRuleNames: joinLogValues(knownContactSkippedRuleNames),
+      staticFailedRuleNames: joinLogValues(staticFailedRuleNames),
       learnedPatternExcludedRuleCount: learnedPatternExcludedRules.length,
       filteredConversationRuleCount:
         conversationStatusFilter.filteredRuleNames.length,
@@ -405,6 +417,9 @@ export function evaluateRuleConditions({
   matched: boolean;
   potentialAiMatch: boolean;
   matchReasons: MatchReason[];
+  // The rule was dropped from selection because its static conditions
+  // didn't match — surfaced so the drop is diagnosable, not silent
+  staticFailed: boolean;
 } {
   const { conditionalOperator: operator } = rule;
   const conditionTypes = getConditionTypes(rule);
@@ -426,27 +441,58 @@ export function evaluateRuleConditions({
     // OR logic
     if (staticMatch) {
       // Found a match, no need for AI
-      return { matched: true, potentialAiMatch: false, matchReasons };
+      return {
+        matched: true,
+        potentialAiMatch: false,
+        matchReasons,
+        staticFailed: false,
+      };
     }
     if (hasAiCondition) {
-      // No static match, but have AI - need to check AI
-      return { matched: false, potentialAiMatch: true, matchReasons };
+      // No static match, but have AI - need to check AI (the rule stays in
+      // play, so a failed static leg isn't a drop)
+      return {
+        matched: false,
+        potentialAiMatch: true,
+        matchReasons,
+        staticFailed: false,
+      };
     }
     // No conditions means no match
-    return { matched: false, potentialAiMatch: false, matchReasons };
+    return {
+      matched: false,
+      potentialAiMatch: false,
+      matchReasons,
+      staticFailed: hasStaticCondition && !staticMatch,
+    };
   } else {
     // AND logic
     if (hasStaticCondition && !staticMatch) {
       // Static failed, so AND fails
-      return { matched: false, potentialAiMatch: false, matchReasons: [] };
+      return {
+        matched: false,
+        potentialAiMatch: false,
+        matchReasons: [],
+        staticFailed: true,
+      };
     }
     if (hasAiCondition) {
       // Static passed (or doesn't exist), but need AI to complete AND
-      return { matched: false, potentialAiMatch: true, matchReasons };
+      return {
+        matched: false,
+        potentialAiMatch: true,
+        matchReasons,
+        staticFailed: false,
+      };
     }
     // Only static (and it passed), or no conditions (no match)
     const matched = hasStaticCondition ? staticMatch : false;
-    return { matched, potentialAiMatch: false, matchReasons };
+    return {
+      matched,
+      potentialAiMatch: false,
+      matchReasons,
+      staticFailed: false,
+    };
   }
 }
 
@@ -545,6 +591,8 @@ function createRuleSelectionMetadata({
   isThread,
   skippedThreadRuleNames = [],
   continuedThreadRuleNames = [],
+  knownContactSkippedRuleNames = [],
+  staticFailedRuleNames = [],
   learnedPatternExcludedRules = [],
   filteredConversationRuleNames = [],
   conversationFilterReason,
@@ -553,6 +601,8 @@ function createRuleSelectionMetadata({
   isThread: boolean;
   skippedThreadRuleNames?: string[];
   continuedThreadRuleNames?: string[];
+  knownContactSkippedRuleNames?: string[];
+  staticFailedRuleNames?: string[];
   learnedPatternExcludedRules?: RuleSelectionMetadata["learnedPatternExcludedRules"];
   filteredConversationRuleNames?: string[];
   conversationFilterReason?: string;
@@ -562,6 +612,8 @@ function createRuleSelectionMetadata({
     isThread,
     skippedThreadRuleNames,
     continuedThreadRuleNames,
+    knownContactSkippedRuleNames,
+    staticFailedRuleNames,
     learnedPatternExcludedRules,
     filteredConversationRuleNames,
     conversationFilterReason,
@@ -718,7 +770,7 @@ export function matchesStaticRule(
       })
     : true;
   const subjectMatch = subject
-    ? matchesTextPattern(subject, message.headers.subject, log, {
+    ? matchesSubjectPattern(subject, message.headers.subject, log, {
         anchorStart: rule.subjectMatchMode === SubjectMatchMode.STARTS_WITH,
       })
     : true;
@@ -979,6 +1031,25 @@ function matchesTextPattern(
     logger.error("Invalid regex pattern", { pattern, error });
     return false;
   }
+}
+
+// Stacked reply/forward markers mailers prepend: "Re:", "RE: RE:", "Fwd:",
+// "Fw:", "Re[2]:" — a subject rule describes the conversation topic, so
+// replies must keep matching it (a "starts with Daily Report" rule has to
+// catch "Re: Daily Report")
+const REPLY_PREFIX_REGEX = /^(?:\s*(?:re|fwd?)(?:\[\d+\])?:\s*)+/i;
+
+function matchesSubjectPattern(
+  pattern: string,
+  subject: string,
+  logger: Logger,
+  options?: { anchorStart?: boolean },
+) {
+  if (matchesTextPattern(pattern, subject, logger, options)) return true;
+
+  const withoutReplyPrefixes = subject.replace(REPLY_PREFIX_REGEX, "");
+  if (withoutReplyPrefixes === subject) return false;
+  return matchesTextPattern(pattern, withoutReplyPrefixes, logger, options);
 }
 
 function matchesRulePattern(
