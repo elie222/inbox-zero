@@ -1109,7 +1109,7 @@ describe("findMatchingRule", () => {
     ]);
   });
 
-  it("names rules dropped because their static conditions failed", async () => {
+  it("names rules dropped because their static conditions failed, with the failing condition", async () => {
     const rule = getRule({
       name: "GM Responses",
       conditionalOperator: LogicalOperator.AND,
@@ -1130,7 +1130,37 @@ describe("findMatchingRule", () => {
 
     expect(result.matches).toHaveLength(0);
     expect(result.selectionMetadata.staticFailedRuleNames).toEqual([
-      "GM Responses",
+      "GM Responses (requires From: @nucar.com)",
+    ]);
+  });
+
+  it("only names the conditions that actually failed", async () => {
+    const rule = getRule({
+      name: "GM Responses",
+      conditionalOperator: LogicalOperator.AND,
+      from: "@nucar.com",
+      subject: "Daily Report",
+      instructions: "Replies to daily reports",
+    });
+
+    // Sender matches, subject doesn't — the report should blame the subject
+    const result = await findMatchingRules({
+      rules: [rule],
+      message: getMessage({
+        headers: getHeaders({
+          from: "shawn@nucar.com",
+          subject: "Totally different topic",
+        }),
+      }),
+      emailAccount: getEmailAccount(),
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(result.matches).toHaveLength(0);
+    expect(result.selectionMetadata.staticFailedRuleNames).toEqual([
+      'GM Responses (requires Subject: "Daily Report")',
     ]);
   });
 
