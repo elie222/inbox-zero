@@ -1015,11 +1015,47 @@ model ContactCard {
   phone       String?
   website     String?
   photoUrl    String?
+  // Shown as the "HQ" row, linking out to a map
+  location    String?
+
+  linkedinUrl  String?
+  xUrl         String?
+  instagramUrl String?
 
   emailAccountId String       @unique
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  views ContactCardView[]
+  views     ContactCardView[]
+  exchanges ContactCardExchange[]
+}
+
+// Someone who opened the card and handed their own details back. Held apart
+// from Contact so an anonymous submission can't write into the address book
+// until the card's owner accepts it.
+model ContactCardExchange {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  name         String
+  email        String
+  phone        String?
+  companyTitle String?
+  // How they say you met — free text from a stranger, so it is only ever
+  // rendered as text
+  note         String?
+
+  status ContactCardExchangeStatus @default(PENDING)
+
+  contactCardId String      @map("cardId")
+  contactCard   ContactCard @relation(fields: [contactCardId], references: [id], onDelete: Cascade)
+
+  @@index([contactCardId, status])
+}
+
+enum ContactCardExchangeStatus {
+  PENDING
+  ACCEPTED
+  IGNORED
 }
 
 // One row per view. Keeping them per-day per-visitor gives a trend and a

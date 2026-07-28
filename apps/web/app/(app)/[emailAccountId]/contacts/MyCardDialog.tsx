@@ -69,6 +69,10 @@ function MyCardForm({
     phone: string;
     website: string;
     photoUrl: string;
+    location: string;
+    linkedinUrl: string;
+    xUrl: string;
+    instagramUrl: string;
   }>({
     defaultValues: {
       slug: card?.slug ?? defaults?.slug ?? "",
@@ -80,6 +84,10 @@ function MyCardForm({
       phone: card?.phone ?? "",
       website: card?.website ?? "",
       photoUrl: card?.photoUrl ?? "",
+      location: card?.location ?? "",
+      linkedinUrl: card?.linkedinUrl ?? "",
+      xUrl: card?.xUrl ?? "",
+      instagramUrl: card?.instagramUrl ?? "",
     },
   });
 
@@ -108,6 +116,10 @@ function MyCardForm({
           phone: values.phone,
           website: values.website,
           photoUrl: values.photoUrl,
+          location: values.location,
+          linkedinUrl: values.linkedinUrl,
+          xUrl: values.xUrl,
+          instagramUrl: values.instagramUrl,
         }),
       )}
     >
@@ -165,6 +177,42 @@ function MyCardForm({
             className="mt-2"
             placeholder="https://"
             {...register("website")}
+          />
+        </div>
+        <div>
+          <Label htmlFor="card-location">Location</Label>
+          <Input
+            id="card-location"
+            className="mt-2"
+            placeholder="Norwood, MA"
+            {...register("location")}
+          />
+        </div>
+        <div>
+          <Label htmlFor="card-linkedin">LinkedIn</Label>
+          <Input
+            id="card-linkedin"
+            className="mt-2"
+            placeholder="linkedin.com/in/you"
+            {...register("linkedinUrl")}
+          />
+        </div>
+        <div>
+          <Label htmlFor="card-x">X / Twitter</Label>
+          <Input
+            id="card-x"
+            className="mt-2"
+            placeholder="x.com/you"
+            {...register("xUrl")}
+          />
+        </div>
+        <div>
+          <Label htmlFor="card-instagram">Instagram</Label>
+          <Input
+            id="card-instagram"
+            className="mt-2"
+            placeholder="instagram.com/you"
+            {...register("instagramUrl")}
           />
         </div>
         <div className="sm:col-span-2">

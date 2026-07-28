@@ -43,6 +43,7 @@ import { CompanyDetails } from "./CompanyDetails";
 import { DomainSuggestions } from "./DomainSuggestions";
 import { AddContactDialog } from "./AddContactDialog";
 import { ManageLabelsDialog } from "./ManageLabelsDialog";
+import { ExchangeSuggestions } from "./ExchangeSuggestions";
 import { MyCardDialog } from "./MyCardDialog";
 import { SyncSettingsDialog } from "./SyncSettingsDialog";
 
@@ -220,7 +221,10 @@ export function ContactsList() {
     isWide && !selectedGroup && displayed ? contactKey(displayed) : null;
 
   const companyCount = companies.length;
-  const suggestedCount = pendingSuggestions.length;
+  // Someone who handed their details back is waiting on a decision, so they
+  // count towards the tab badge alongside the domain suggestions
+  const pendingExchanges = data?.pendingExchanges ?? [];
+  const suggestedCount = pendingSuggestions.length + pendingExchanges.length;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -343,16 +347,22 @@ export function ContactsList() {
                     onSelectCompany={setSelectedGroup}
                   />
                 ) : view === "suggested" ? (
-                  <DomainSuggestions
-                    stats={pendingSuggestions}
-                    ignoredDomains={data.ignoredDomains}
-                    ignoredEmails={data.ignoredEmails}
-                    companies={companies}
-                    search={search}
-                    activeContactKey={activeContactKey}
-                    onSelectContact={setSelected}
-                    mutate={mutate}
-                  />
+                  <>
+                    <ExchangeSuggestions
+                      mutateContacts={mutate}
+                      pending={pendingExchanges}
+                    />
+                    <DomainSuggestions
+                      stats={pendingSuggestions}
+                      ignoredDomains={data.ignoredDomains}
+                      ignoredEmails={data.ignoredEmails}
+                      companies={companies}
+                      search={search}
+                      activeContactKey={activeContactKey}
+                      onSelectContact={setSelected}
+                      mutate={mutate}
+                    />
+                  </>
                 ) : (
                   <>
                     <PeopleTable

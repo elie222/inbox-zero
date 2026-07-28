@@ -34,6 +34,10 @@ export const upsertContactCardBody = z.object({
   phone: optionalText(50),
   website: urlWithOptionalScheme.nullish(),
   photoUrl: urlWithOptionalScheme.nullish(),
+  location: optionalText(120),
+  linkedinUrl: urlWithOptionalScheme.nullish(),
+  xUrl: urlWithOptionalScheme.nullish(),
+  instagramUrl: urlWithOptionalScheme.nullish(),
 });
 export type UpsertContactCardBody = z.infer<typeof upsertContactCardBody>;
 
@@ -43,3 +47,23 @@ export const sendMyCardBody = z.object({
   recipientName: optionalText(200),
 });
 export type SendMyCardBody = z.infer<typeof sendMyCardBody>;
+
+// What a visitor types into the card's Exchange form. Unauthenticated input,
+// so every field is length-capped before it reaches the database.
+export const contactCardExchangeBody = z.object({
+  name: z.string().trim().min(1).max(200),
+  email: z.string().trim().email().max(320),
+  phone: optionalText(50),
+  companyTitle: optionalText(200),
+  note: optionalText(2000),
+});
+export type ContactCardExchangeBody = z.infer<typeof contactCardExchangeBody>;
+
+// The card owner accepting or dismissing one of those submissions
+export const resolveContactCardExchangeBody = z.object({
+  exchangeId: z.string().min(1),
+  accept: z.boolean(),
+});
+export type ResolveContactCardExchangeBody = z.infer<
+  typeof resolveContactCardExchangeBody
+>;
