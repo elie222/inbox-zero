@@ -10,6 +10,12 @@ export function summarizeSelectionMetadata(
     skippedThreadRuleNames: allSelectionMetadata
       .flatMap((metadata) => metadata.skippedThreadRuleNames)
       .join(", "),
+    knownContactSkippedRuleNames: allSelectionMetadata
+      .flatMap((metadata) => metadata.knownContactSkippedRuleNames)
+      .join(", "),
+    staticFailedRuleNames: allSelectionMetadata
+      .flatMap((metadata) => metadata.staticFailedRuleNames)
+      .join(", "),
     learnedPatternExcludedRules: allSelectionMetadata
       .flatMap((metadata) =>
         metadata.learnedPatternExcludedRules.map(

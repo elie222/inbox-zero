@@ -61,6 +61,8 @@ describe("ResultDisplayContent", () => {
             isThread: true,
             skippedThreadRuleNames: ["Notification", "Newsletter"],
             continuedThreadRuleNames: [],
+            knownContactSkippedRuleNames: [],
+            staticFailedRuleNames: [],
             learnedPatternExcludedRules: [],
             filteredConversationRuleNames: [],
             conversationFilterReason: undefined,
@@ -92,6 +94,8 @@ describe("ResultDisplayContent", () => {
             isThread: true,
             skippedThreadRuleNames: [],
             continuedThreadRuleNames: [],
+            knownContactSkippedRuleNames: [],
+            staticFailedRuleNames: [],
             learnedPatternExcludedRules: [],
             filteredConversationRuleNames: [],
             conversationFilterReason: undefined,
@@ -122,6 +126,8 @@ describe("ResultDisplayContent", () => {
             isThread: false,
             skippedThreadRuleNames: [],
             continuedThreadRuleNames: [],
+            knownContactSkippedRuleNames: [],
+            staticFailedRuleNames: [],
             learnedPatternExcludedRules: [
               {
                 ruleId: "rule-1",
@@ -170,6 +176,8 @@ describe("ResultDisplayContent", () => {
             isThread: false,
             skippedThreadRuleNames: [],
             continuedThreadRuleNames: [],
+            knownContactSkippedRuleNames: [],
+            staticFailedRuleNames: [],
             learnedPatternExcludedRules: [
               {
                 ruleId: "rule-1",
