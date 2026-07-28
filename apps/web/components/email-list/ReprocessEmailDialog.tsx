@@ -246,7 +246,8 @@ export function ReprocessEmailDialog({
                 {proposal.staticFailedRuleNames.length > 0 && (
                   <p>
                     Sender/subject conditions didn't match:{" "}
-                    {proposal.staticFailedRuleNames.join(", ")}
+                    {proposal.staticFailedRuleNames.join(", ")} — edit that
+                    rule's conditions if it should match this email.
                   </p>
                 )}
                 {proposal.learnedExclusions.length > 0 && (

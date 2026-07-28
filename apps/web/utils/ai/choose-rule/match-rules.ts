@@ -290,19 +290,28 @@ async function findPotentialMatchingRules({
     }
 
     // AI + Static conditions
-    const { matched, potentialAiMatch, matchReasons, staticFailed } =
-      evaluateRuleConditions({
-        rule,
-        message,
-        logger,
-      });
+    const {
+      matched,
+      potentialAiMatch,
+      matchReasons,
+      staticFailed,
+      failedStaticConditions,
+    } = evaluateRuleConditions({
+      rule,
+      message,
+      logger,
+    });
 
     if (matched) {
       matches.push({ rule, matchReasons });
     }
 
     if (staticFailed) {
-      staticFailedRuleNames.push(rule.name);
+      staticFailedRuleNames.push(
+        failedStaticConditions.length
+          ? `${rule.name} (requires ${failedStaticConditions.join("; ")})`
+          : rule.name,
+      );
     }
 
     if (potentialAiMatch) {
@@ -420,6 +429,9 @@ export function evaluateRuleConditions({
   // The rule was dropped from selection because its static conditions
   // didn't match — surfaced so the drop is diagnosable, not silent
   staticFailed: boolean;
+  // Which conditions rejected the email (e.g. `From: @gm.com`), so the
+  // user sees what the rule requires without opening the editor
+  failedStaticConditions: string[];
 } {
   const { conditionalOperator: operator } = rule;
   const conditionTypes = getConditionTypes(rule);
@@ -429,9 +441,11 @@ export function evaluateRuleConditions({
   const matchReasons: MatchReason[] = [];
 
   // Check STATIC condition
-  const staticMatch = hasStaticCondition
-    ? matchesStaticRule(rule, message, logger)
-    : false;
+  const staticResult = hasStaticCondition
+    ? getStaticConditionFailures(rule, message, logger)
+    : { matched: false, failedConditions: [] };
+  const staticMatch = staticResult.matched;
+  const failedStaticConditions = staticResult.failedConditions;
   if (staticMatch) {
     matchReasons.push({ type: ConditionType.STATIC });
   }
@@ -446,6 +460,7 @@ export function evaluateRuleConditions({
         potentialAiMatch: false,
         matchReasons,
         staticFailed: false,
+        failedStaticConditions,
       };
     }
     if (hasAiCondition) {
@@ -456,6 +471,7 @@ export function evaluateRuleConditions({
         potentialAiMatch: true,
         matchReasons,
         staticFailed: false,
+        failedStaticConditions,
       };
     }
     // No conditions means no match
@@ -464,6 +480,7 @@ export function evaluateRuleConditions({
       potentialAiMatch: false,
       matchReasons,
       staticFailed: hasStaticCondition && !staticMatch,
+      failedStaticConditions,
     };
   } else {
     // AND logic
@@ -474,6 +491,7 @@ export function evaluateRuleConditions({
         potentialAiMatch: false,
         matchReasons: [],
         staticFailed: true,
+        failedStaticConditions,
       };
     }
     if (hasAiCondition) {
@@ -483,6 +501,7 @@ export function evaluateRuleConditions({
         potentialAiMatch: true,
         matchReasons,
         staticFailed: false,
+        failedStaticConditions,
       };
     }
     // Only static (and it passed), or no conditions (no match)
@@ -492,6 +511,7 @@ export function evaluateRuleConditions({
       potentialAiMatch: false,
       matchReasons,
       staticFailed: false,
+      failedStaticConditions,
     };
   }
 }
@@ -731,10 +751,24 @@ export function matchesStaticRule(
   message: ParsedMessage,
   logger: Logger,
 ) {
+  return getStaticConditionFailures(rule, message, logger).matched;
+}
+
+// Per-field results so a failed rule can say WHICH condition rejected the
+// email and what that condition requires — "conditions didn't match" alone
+// sends the user hunting through the rule editor blind
+export function getStaticConditionFailures(
+  rule: Pick<RuleWithActions, "from" | "to" | "subject" | "body"> & {
+    subjectMatchMode?: SubjectMatchMode | null;
+  },
+  message: ParsedMessage,
+  logger: Logger,
+): { matched: boolean; failedConditions: string[] } {
   const log = logger.with({ module: MODULE });
   const { from, to, subject, body } = rule;
 
-  if (!from && !to && !subject && !body) return false;
+  if (!from && !to && !subject && !body)
+    return { matched: false, failedConditions: [] };
 
   const {
     fromAddressHeader,
@@ -742,6 +776,8 @@ export function matchesStaticRule(
     fromDisplayNameHeader,
     toDisplayNameHeader,
   } = getNormalizedEmailMatchHeaders(message);
+
+  const failedConditions: string[] = [];
 
   const fromMatch = from
     ? matchesEmailFieldPattern({
@@ -756,6 +792,8 @@ export function matchesStaticRule(
           }),
       })
     : true;
+  if (!fromMatch && from) failedConditions.push(`From: ${from}`);
+
   const toMatch = to
     ? matchesEmailFieldPattern({
         pattern: to,
@@ -769,16 +807,24 @@ export function matchesStaticRule(
           }),
       })
     : true;
+  if (!toMatch && to) failedConditions.push(`To: ${to}`);
+
   const subjectMatch = subject
     ? matchesSubjectPattern(subject, message.headers.subject, log, {
         anchorStart: rule.subjectMatchMode === SubjectMatchMode.STARTS_WITH,
       })
     : true;
+  if (!subjectMatch && subject) failedConditions.push(`Subject: "${subject}"`);
+
   const bodyMatch = body
     ? matchesTextPattern(body, message.textPlain || "", log)
     : true;
+  if (!bodyMatch && body) failedConditions.push(`Body: "${body}"`);
 
-  return fromMatch && toMatch && subjectMatch && bodyMatch;
+  return {
+    matched: fromMatch && toMatch && subjectMatch && bodyMatch,
+    failedConditions,
+  };
 }
 
 function matchesGroupRule(
