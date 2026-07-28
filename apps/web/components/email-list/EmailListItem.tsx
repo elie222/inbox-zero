@@ -280,7 +280,6 @@ export const EmailListItem = forwardRef(
                     <ActionButtons
                       threadId={thread.id!}
                       isPlanning={isPlanning}
-                      onPlanAiAction={() => props.onReprocess(thread)}
                       onArchive={() => {
                         props.onArchive(thread);
                         props.closePanel();
