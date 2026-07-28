@@ -75,7 +75,7 @@ export function LearnedPatternsDialog({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="top-4 max-h-[calc(100dvh-2rem)] max-w-2xl translate-y-0 overflow-y-auto p-4 sm:top-[50%] sm:max-h-[90dvh] sm:translate-y-[-50%] sm:p-6">
         <DialogHeader>
           <DialogTitle>Learned patterns</DialogTitle>
           <DialogDescription>
