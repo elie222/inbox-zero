@@ -96,11 +96,11 @@ export async function executeAct({
           actionId: action.id,
           status: ExecutedActionStatus.FAILED,
           error: {
-            errorCode: actionFailure.errorCode,
-            errorMessage: actionFailure.errorMessage,
-            errorStack: null,
-            errorStatusCode: null,
-            errorRequestId: null,
+            code: actionFailure.errorCode,
+            message: actionFailure.errorMessage,
+            stack: null,
+            statusCode: null,
+            requestId: null,
           },
           logger: log,
         });

@@ -689,11 +689,7 @@ model ExecutedAction {
   type                   ActionType
   executionStatus        ExecutedActionStatus?
   executedAt             DateTime?
-  errorCode              String?
-  errorMessage           String?                 @db.Text
-  errorStack             String?                 @db.Text
-  errorStatusCode        Int?
-  errorRequestId         String?
+  executionError         Json?
   executedRuleId         String
   executedRule           ExecutedRule            @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
   messagingChannelId     String?

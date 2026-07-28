@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 import {
   ActionType,
   ExecutedActionStatus,
@@ -79,11 +80,7 @@ describe("executor", () => {
         data: {
           executionStatus: ExecutedActionStatus.SUCCEEDED,
           executedAt: expect.any(Date),
-          errorCode: null,
-          errorMessage: null,
-          errorStack: null,
-          errorStatusCode: null,
-          errorRequestId: null,
+          executionError: Prisma.DbNull,
         },
       });
       expectExecutedRuleStatus(ExecutedRuleStatus.APPLIED);
@@ -193,11 +190,13 @@ describe("executor", () => {
         data: {
           executionStatus: ExecutedActionStatus.FAILED,
           executedAt: expect.any(Date),
-          errorCode: "ErrorTimeout",
-          errorMessage: "Execution failed",
-          errorStack: expect.stringContaining("Execution failed"),
-          errorStatusCode: 504,
-          errorRequestId: "graph-request-456",
+          executionError: {
+            code: "ErrorTimeout",
+            message: "Execution failed",
+            stack: expect.stringContaining("Execution failed"),
+            statusCode: 504,
+            requestId: "graph-request-456",
+          },
         },
       });
       expectExecutedRuleStatus(

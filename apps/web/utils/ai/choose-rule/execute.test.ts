@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { runActionFunction } from "@/utils/ai/actions";
@@ -123,11 +124,7 @@ describe("executeAct", () => {
       data: {
         executionStatus: "SUCCEEDED",
         executedAt: expect.any(Date),
-        errorCode: null,
-        errorMessage: null,
-        errorStack: null,
-        errorStatusCode: null,
-        errorRequestId: null,
+        executionError: Prisma.DbNull,
       },
     });
     expect(mockExecutedActionUpdate).toHaveBeenNthCalledWith(2, {
@@ -135,11 +132,7 @@ describe("executeAct", () => {
       data: {
         executionStatus: "SKIPPED",
         executedAt: expect.any(Date),
-        errorCode: null,
-        errorMessage: null,
-        errorStack: null,
-        errorStatusCode: null,
-        errorRequestId: null,
+        executionError: Prisma.DbNull,
       },
     });
     expect(mockExecutedRuleUpdate).toHaveBeenCalledWith({
@@ -182,11 +175,13 @@ describe("executeAct", () => {
       data: {
         executionStatus: "FAILED",
         executedAt: expect.any(Date),
-        errorCode: "RESEND_NOT_CONFIGURED",
-        errorMessage: "Action reported failure",
-        errorStack: null,
-        errorStatusCode: null,
-        errorRequestId: null,
+        executionError: {
+          code: "RESEND_NOT_CONFIGURED",
+          message: "Action reported failure",
+          stack: null,
+          statusCode: null,
+          requestId: null,
+        },
       },
     });
   });
@@ -330,11 +325,13 @@ describe("executeAct", () => {
       data: {
         executionStatus: "FAILED",
         executedAt: expect.any(Date),
-        errorCode: "ErrorMoveCopyFailed",
-        errorMessage: "Graph move failed",
-        errorStack: expect.stringContaining("Graph move failed"),
-        errorStatusCode: 503,
-        errorRequestId: "graph-request-123",
+        executionError: {
+          code: "ErrorMoveCopyFailed",
+          message: "Graph move failed",
+          stack: expect.stringContaining("Graph move failed"),
+          statusCode: 503,
+          requestId: "graph-request-123",
+        },
       },
     });
   });

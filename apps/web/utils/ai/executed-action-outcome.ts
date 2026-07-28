@@ -1,14 +1,15 @@
 import type { ExecutedActionStatus } from "@/generated/prisma/enums";
+import { Prisma } from "@/generated/prisma/client";
 import { getErrorMessage } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
 export type PersistedActionError = {
-  errorCode: string;
-  errorMessage: string;
-  errorStack: string | null;
-  errorStatusCode: number | null;
-  errorRequestId: string | null;
+  code: string;
+  message: string;
+  stack: string | null;
+  statusCode: number | null;
+  requestId: string | null;
 };
 
 export async function persistExecutedActionOutcome({
@@ -28,11 +29,7 @@ export async function persistExecutedActionOutcome({
       data: {
         executionStatus: status,
         executedAt: new Date(),
-        errorCode: error?.errorCode ?? null,
-        errorMessage: error?.errorMessage ?? null,
-        errorStack: error?.errorStack ?? null,
-        errorStatusCode: error?.errorStatusCode ?? null,
-        errorRequestId: error?.errorRequestId ?? null,
+        executionError: error ?? Prisma.DbNull,
       },
     });
   } catch (persistenceError) {
@@ -50,23 +47,23 @@ export function getPersistedActionError(error: unknown): PersistedActionError {
   const headers = asRecord(outer?.headers);
 
   return {
-    errorCode:
+    code:
       getString(outer, "code") ||
       getString(nested, "code") ||
       (error instanceof Error ? error.name : "UNKNOWN_ACTION_ERROR"),
-    errorMessage: truncate(
+    message: truncate(
       getErrorMessage(error) || "Unknown action execution error",
       4000,
     ),
-    errorStack:
+    stack:
       error instanceof Error && error.stack
         ? truncate(error.stack, 12_000)
         : null,
-    errorStatusCode:
+    statusCode:
       getNumber(outer, "statusCode") ||
       getNumber(outer, "status") ||
       getNumber(nested, "statusCode"),
-    errorRequestId:
+    requestId:
       getString(outer, "requestId") ||
       getString(nested, "requestId") ||
       getString(headers, "request-id") ||
