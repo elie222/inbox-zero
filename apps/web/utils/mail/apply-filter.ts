@@ -148,7 +148,12 @@ async function applyFilterToExistingMail({
           : `from:${parts[0]?.replace(/^@/, "")}`
         : `subject:"${value.replace(/"/g, "")}"`;
 
-  logger.info("Filter backfill searching", { query });
+  // The query string embeds sender addresses — PII stays at trace level
+  logger.info("Filter backfill searching", {
+    matchType,
+    patternCount: parts.length,
+  });
+  logger.trace("Filter backfill query", { query });
 
   const targetLabelId = await resolveTargetLabelId({
     emailProvider,

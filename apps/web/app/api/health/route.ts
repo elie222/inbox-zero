@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
+import { secureCompare } from "@/utils/crypto-compare";
 
 export const GET = withError("health", async (request) => {
   const logger = request.logger;
@@ -13,8 +14,10 @@ export const GET = withError("health", async (request) => {
     return NextResponse.json({ status: "ok" });
   }
 
-  // If API key header provided but doesn't match, reject
-  if (expectedKey && healthApiKey !== expectedKey) {
+  // Fail closed: the deep check (a live DB probe) requires a configured key
+  // AND a constant-time match — previously an unset HEALTH_API_KEY let any
+  // header value through
+  if (!expectedKey || !secureCompare(healthApiKey, expectedKey)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

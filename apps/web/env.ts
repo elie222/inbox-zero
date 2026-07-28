@@ -283,10 +283,22 @@ const parsedEnv = createEnv({
     ADMINS: z
       .string()
       .optional()
-      .transform((value) => value?.split(",")),
+      // Same normalization as AUTH_ALLOWED_EMAILS: "a@x.com, b@y.com" must
+      // grant both — an untrimmed entry silently never matches
+      .transform((value) =>
+        value
+          ?.split(",")
+          .map((entry) => entry.trim().toLowerCase())
+          .filter(Boolean),
+      ),
     WEBHOOK_URL: z.string().optional(),
     INTERNAL_API_URL: z.string().optional(),
-    INTERNAL_API_KEY: z.string(),
+    INTERNAL_API_KEY: z
+      .string()
+      .min(
+        32,
+        "INTERNAL_API_KEY must be at least 32 characters (openssl rand -hex 32)",
+      ),
     WHITELIST_FROM: z.string().optional(),
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),

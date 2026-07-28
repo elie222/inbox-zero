@@ -85,6 +85,45 @@ describe("matchesStaticRule", () => {
     expect(matchesStaticRule(rule, message, logger)).toBe(false);
   });
 
+  it("matches wildcard-heavy patterns in linear time (no regex backtracking)", () => {
+    // The old `.*`-regex implementation hung for minutes on this shape:
+    // many wildcards + an almost-matching body any sender could craft
+    const rule = getStaticRule({
+      body: "a*a*a*a*a*a*a*a*a*a*a*a*never-present",
+    });
+    const message = getMessage({
+      headers: getHeaders(),
+      textPlain: `${"a".repeat(10_000)}!`,
+    });
+
+    const start = Date.now();
+    expect(matchesStaticRule(rule, message, logger)).toBe(false);
+    expect(Date.now() - start).toBeLessThan(1000);
+  });
+
+  it("wildcard segments must appear in order", () => {
+    const rule = getStaticRule({ subject: "alpha*beta*gamma" });
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ subject: "x alpha y beta z gamma w" }),
+        }),
+        logger,
+      ),
+    ).toBe(true);
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ subject: "gamma beta alpha" }),
+        }),
+        logger,
+      ),
+    ).toBe(false);
+  });
+
   it("should return false when no conditions are provided", () => {
     const rule = getStaticRule({});
     const message = getMessage({

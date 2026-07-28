@@ -4,6 +4,7 @@ import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { GroupItemSource, SystemType } from "@/generated/prisma/enums";
 import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
 import { learnFromOutlookLabelRemoval } from "@/utils/webhook/outlook/learn-label-removal";
+import { isLabelLearningSuppressed } from "@/utils/redis/label-learning-suppression";
 import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/prisma", () => ({
@@ -21,6 +22,10 @@ vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPattern: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/utils/redis/label-learning-suppression", () => ({
+  isLabelLearningSuppressed: vi.fn().mockResolvedValue(false),
+}));
+
 const logger = createTestLogger();
 
 describe("learnFromOutlookLabelRemoval", () => {
@@ -29,6 +34,44 @@ describe("learnFromOutlookLabelRemoval", () => {
     vi.mocked(prisma.executedRule.findMany).mockResolvedValue([]);
     vi.mocked(prisma.action.findMany).mockResolvedValue([]);
     vi.mocked(saveLearnedPattern).mockResolvedValue(undefined);
+    vi.mocked(isLabelLearningSuppressed).mockResolvedValue(false);
+  });
+
+  it("skips learning when the removal was system-initiated (suppressed)", async () => {
+    vi.mocked(isLabelLearningSuppressed).mockResolvedValue(true);
+    vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
+      {
+        rule: {
+          id: "rule-1",
+          systemType: SystemType.NEWSLETTER,
+        },
+        actionItems: [
+          { type: "LABEL", labelId: "label-newsletter", label: "Newsletter" },
+        ],
+      },
+    ] as any);
+
+    const message = getMockParsedMessage({
+      id: "message-1",
+      threadId: "thread-1",
+      labelIds: [],
+      headers: { from: "sender@example.com" },
+    });
+
+    await learnFromOutlookLabelRemoval({
+      message,
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    expect(isLabelLearningSuppressed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "email-account-1",
+        threadId: "thread-1",
+        labelId: "label-newsletter",
+      }),
+    );
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
 
   it("learns exclusion when a previously applied label is removed", async () => {

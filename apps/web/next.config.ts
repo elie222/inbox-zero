@@ -321,8 +321,25 @@ const nextConfig: NextConfig = {
         key: "Content-Security-Policy",
         value: [
           "default-src 'self'",
-          // Next.js needs these
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
+          // Scripts are pinned to origins we actually load from — a bare
+          // `https:` here would let any future XSS pull attacker scripts,
+          // in an app that holds mail OAuth tokens. `unsafe-inline` stays
+          // until nonce support is wired in; `unsafe-eval` is dev-only
+          // (React Fast Refresh needs it).
+          [
+            "script-src 'self' 'unsafe-inline'",
+            process.env.NODE_ENV === "development" ? "'unsafe-eval'" : "",
+            "https://widget.senja.io",
+            process.env.NEXT_PUBLIC_GTM_ID
+              ? "https://www.googletagmanager.com"
+              : "",
+            process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID
+              ? "https://client.crisp.chat"
+              : "",
+            process.env.NEXT_PUBLIC_POSTHOG_API_HOST || "",
+          ]
+            .filter(Boolean)
+            .join(" "),
           // Needed for Tailwind/Shadcn
           "style-src 'self' 'unsafe-inline' https:",
           // Add this line to allow data: fonts
@@ -333,17 +350,40 @@ const nextConfig: NextConfig = {
           "media-src 'self' blob: https://*.mux.com",
           // If you use web workers or service workers
           "worker-src 'self' blob:",
-          // For API calls, SWR, external services, and Mux
-          "connect-src 'self' https: wss: https://*.mux.com https://*.litix.io",
-          // iframes for Mux player
-          "frame-src 'self' https:",
+          // Pinned like script-src: exfiltration needs connect-src, so a
+          // bare `https:` defeats the point of a CSP
+          [
+            "connect-src 'self' wss: https://*.mux.com https://*.litix.io",
+            process.env.NEXT_PUBLIC_POSTHOG_API_HOST || "",
+            process.env.NEXT_PUBLIC_SENTRY_DSN
+              ? "https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://sentry.io"
+              : "",
+            process.env.NEXT_PUBLIC_GTM_ID
+              ? "https://www.googletagmanager.com https://*.google-analytics.com"
+              : "",
+            process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID
+              ? "https://client.crisp.chat wss://client.relay.crisp.chat"
+              : "",
+            process.env.NEXT_PUBLIC_AXIOM_TOKEN ? "https://api.axiom.co" : "",
+          ]
+            .filter(Boolean)
+            .join(" "),
+          // iframes: embedded video players and the Crisp widget only
+          [
+            "frame-src 'self' https://www.youtube.com https://*.mux.com",
+            process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID
+              ? "https://client.crisp.chat https://game.crisp.chat"
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" "),
           // Prevent embedding in iframes
           "frame-ancestors 'none'",
         ].join("; "),
       },
       {
         key: "Strict-Transport-Security",
-        value: "max-age=31536000",
+        value: "max-age=31536000; includeSubDomains",
       },
     ];
 

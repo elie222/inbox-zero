@@ -2,6 +2,7 @@ import { ActionType, type SystemType } from "@/generated/prisma/enums";
 import { extractEmailAddress } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { isLabelLearningSuppressed } from "@/utils/redis/label-learning-suppression";
 import { recordLabelRemovalLearning } from "@/utils/rule/record-label-removal-learning";
 import type { ParsedMessage } from "@/utils/types";
 
@@ -81,6 +82,7 @@ export async function learnFromOutlookLabelRemoval({
     string,
     {
       systemType: SystemType | null | undefined;
+      removedLabelIds: string[];
     }
   >();
 
@@ -88,13 +90,22 @@ export async function learnFromOutlookLabelRemoval({
     const ruleId = executedRule.rule?.id;
     if (!ruleId) continue;
 
-    const hasRemovedLabel = executedRule.actionItems.some((action) => {
+    const removedLabelIds: string[] = [];
+    let movedOutOfFolder = false;
+
+    for (const action of executedRule.actionItems) {
       if (action.type === ActionType.MOVE_FOLDER) {
-        if (!action.folderId || !currentFolderId) return false;
-        return action.folderId !== currentFolderId;
+        if (
+          action.folderId &&
+          currentFolderId &&
+          action.folderId !== currentFolderId
+        ) {
+          movedOutOfFolder = true;
+        }
+        continue;
       }
 
-      if (!hasCurrentLabels) return false;
+      if (!hasCurrentLabels) continue;
 
       const resolvedLabelIds = resolveActionLabelIds({
         action,
@@ -104,7 +115,7 @@ export async function learnFromOutlookLabelRemoval({
 
       // Without a stable ID for this action label we cannot tell if the label
       // was removed or if message labels are represented as IDs.
-      if (resolvedLabelIds.length === 0) return false;
+      if (resolvedLabelIds.length === 0) continue;
 
       const hasMatchingLabelId = resolvedLabelIds.some((labelId) =>
         currentLabels.has(labelId),
@@ -112,19 +123,42 @@ export async function learnFromOutlookLabelRemoval({
       const hasMatchingLabelName =
         !!action.label && currentLabels.has(action.label);
 
-      return !hasMatchingLabelId && !hasMatchingLabelName;
-    });
+      if (!hasMatchingLabelId && !hasMatchingLabelName) {
+        removedLabelIds.push(...resolvedLabelIds);
+      }
+    }
 
-    if (hasRemovedLabel) {
+    if (movedOutOfFolder || removedLabelIds.length > 0) {
       removedRules.set(ruleId, {
         systemType: executedRule.rule?.systemType,
+        removedLabelIds,
       });
     }
   }
 
   if (removedRules.size === 0) return;
 
-  for (const [ruleId, { systemType }] of removedRules) {
+  for (const [ruleId, { systemType, removedLabelIds }] of removedRules) {
+    // Our own strips (reprocess finalize, reconcile, backfill, cold-email
+    // undo) look exactly like user corrections here — same guard as the
+    // Gmail label-removed webhook, or system actions poison learning
+    const suppressionChecks = await Promise.all(
+      removedLabelIds.map((labelId) =>
+        isLabelLearningSuppressed({
+          emailAccountId,
+          threadId: message.threadId,
+          labelId,
+          logger,
+        }),
+      ),
+    );
+    if (suppressionChecks.some(Boolean)) {
+      logger.info("Label removal was system-initiated, skipping learning", {
+        ruleId,
+      });
+      continue;
+    }
+
     await recordLabelRemovalLearning({
       sender,
       ruleId,

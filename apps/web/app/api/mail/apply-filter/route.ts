@@ -15,22 +15,22 @@ import {
 export const maxDuration = 300;
 
 export const POST = withError("api/mail/apply-filter", async (request) => {
-  const json = await request.json();
-
   const logger = request.logger;
 
+  // Authenticate before doing ANY work — this route can rewrite mailboxes
   if (!isValidInternalApiKey(await headers(), logger)) {
     logger.error("Invalid API key for filter apply");
     return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
   }
 
+  const json = await request.json();
   const body = applyFilterBodySchema.parse(json);
 
   const account = await prisma.emailAccount.findUnique({
     where: { id: body.emailAccountId },
-    select: { email: true },
+    select: { email: true, account: { select: { provider: true } } },
   });
-  if (!account?.email) {
+  if (!account?.email || !account.account?.provider) {
     logger.error("Filter apply: email account not found", {
       emailAccountId: body.emailAccountId,
     });
@@ -39,7 +39,8 @@ export const POST = withError("api/mail/apply-filter", async (request) => {
 
   const emailProvider = await createEmailProvider({
     emailAccountId: body.emailAccountId,
-    provider: body.provider,
+    // The stored provider is authoritative — never trust the body's copy
+    provider: account.account.provider,
     logger,
   });
 

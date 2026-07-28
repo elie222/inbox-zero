@@ -8,7 +8,10 @@ export type ReviewDemoAccount = {
 
 const reviewDemoAccountsSchema = z.array(
   z.object({
-    code: z.string().trim().min(1),
+    // The code is the ONLY credential guarding a real mailbox session and
+    // the sign-in route has no rate limiting — a human-typeable code would
+    // be brute-forceable
+    code: z.string().trim().min(24),
     email: z.string().trim().toLowerCase().email(),
   }),
 );

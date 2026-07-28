@@ -67,7 +67,9 @@ export default defineConfig({
           process.env.GOOGLE_PUBSUB_VERIFICATION_TOKEN ?? "smoke-test-token",
         EMAIL_ENCRYPT_SECRET: process.env.EMAIL_ENCRYPT_SECRET ?? "secret",
         EMAIL_ENCRYPT_SALT: process.env.EMAIL_ENCRYPT_SALT ?? "salt",
-        INTERNAL_API_KEY: process.env.INTERNAL_API_KEY ?? "secret",
+        INTERNAL_API_KEY:
+          process.env.INTERNAL_API_KEY ??
+          "smoke-test-internal-api-key-0123456789",
         DEFAULT_LLMS: process.env.DEFAULT_LLMS ?? "openai:gpt-5.4-mini",
         SMOKE_TEST_EMAIL: smokeTestEmail,
       },
