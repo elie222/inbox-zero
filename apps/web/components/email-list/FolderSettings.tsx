@@ -322,6 +322,7 @@ function FolderRuleSetting({
           labelId={labelId}
           labelName={labelName}
           rule={data.rule}
+          otherRuleNames={data.otherRuleNames ?? []}
           mutateRule={mutate}
           onEditRule={onEditRule}
         />
@@ -336,12 +337,14 @@ function FolderRuleForm({
   labelId,
   labelName,
   rule,
+  otherRuleNames,
   mutateRule,
   onEditRule,
 }: {
   labelId: string;
   labelName: string;
   rule: FolderRuleResponse["rule"];
+  otherRuleNames: string[];
   mutateRule: () => void;
   onEditRule: (config: RuleEditorConfig) => void;
 }) {
@@ -412,6 +415,14 @@ function FolderRuleForm({
               </>
             )}
           </p>
+          {otherRuleNames.length > 0 && (
+            <p className="mt-1 text-sm text-amber-600 dark:text-amber-500">
+              Also filed into by: {otherRuleNames.join(", ")}. Turning this rule
+              off won't stop {otherRuleNames.length === 1 ? "it" : "them"} —
+              manage {otherRuleNames.length === 1 ? "it" : "them"} on the
+              Assistant page.
+            </p>
+          )}
         </div>
         {rule && (
           <Switch

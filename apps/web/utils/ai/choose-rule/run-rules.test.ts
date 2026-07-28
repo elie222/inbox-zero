@@ -860,6 +860,39 @@ describe("limitFolderLabelActions", () => {
     ]);
   });
 
+  it("prefers the custom folder rule when a category system rule also files", () => {
+    const matches = [
+      {
+        rule: createRule("rule-notification", SystemType.NOTIFICATION, [
+          getAction({
+            id: "label-sys",
+            type: ActionType.LABEL,
+            label: "Notification",
+            ruleId: "rule-notification",
+          }),
+        ]),
+      },
+      {
+        rule: createRule("rule-custom", null, [
+          getAction({
+            id: "label-custom",
+            type: ActionType.LABEL,
+            label: "GM Responses",
+            ruleId: "rule-custom",
+          }),
+        ]),
+      },
+    ];
+
+    const result = limitFolderLabelActions(matches, logger);
+
+    // The built-in category loses its filing action; the user's folder wins
+    expect(result[0].rule.actions).toHaveLength(0);
+    expect(result[1].rule.actions.map((action) => action.type)).toStrictEqual([
+      ActionType.LABEL,
+    ]);
+  });
+
   it("leaves system-rule status labels alone", () => {
     const matches = [
       {

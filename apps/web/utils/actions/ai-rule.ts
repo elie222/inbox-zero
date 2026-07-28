@@ -122,7 +122,14 @@ export const runRulesAction = actionClient
         executedRuleCount: executedRules.length,
       });
 
-      if (executedRules.length > 0) {
+      // A stored decision whose rule has since been disabled isn't the
+      // answer anymore — echoing it back makes "turned off" look ignored.
+      // Fall through and decide fresh instead.
+      const hasStaleExecution = executedRules.some(
+        (executedRule) => executedRule.rule && !executedRule.rule.enabled,
+      );
+
+      if (executedRules.length > 0 && !hasStaleExecution) {
         logger.info("Skipping. Rule already exists.");
 
         return executedRules.map((executedRule) => ({
@@ -133,6 +140,10 @@ export const runRulesAction = actionClient
           createdAt: executedRule.createdAt,
           status: executedRule.status,
         }));
+      }
+
+      if (hasStaleExecution) {
+        logger.info("Prior execution references a disabled rule, re-running");
       }
 
       logger.info("Loading enabled rules for execution");

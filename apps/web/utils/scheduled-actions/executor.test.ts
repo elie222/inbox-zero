@@ -76,6 +76,28 @@ describe("executor", () => {
       expectExecutedRuleStatus(ExecutedRuleStatus.APPLIED);
     });
 
+    it("skips execution when the owning rule was disabled", async () => {
+      prisma.executedRule.findUnique.mockResolvedValue({
+        rule: { enabled: false },
+      } as any);
+      mockScheduledActionUpdate(ScheduledActionStatus.COMPLETED);
+      mockCompletionCounts({ pendingActions: 0, failedActions: 0 });
+      mockExecutedRuleUpdate(ExecutedRuleStatus.APPLIED);
+
+      const result = await executeScheduledAction(
+        mockScheduledAction,
+        await getMockEmailProvider(),
+        logger,
+      );
+
+      expect(result).toMatchObject({
+        success: true,
+        reason: "Rule disabled before execution",
+      });
+      expect(runActionFunction).not.toHaveBeenCalled();
+      expect(prisma.executedAction.create).not.toHaveBeenCalled();
+    });
+
     it("forwards selectedAttachments into the executed action", async () => {
       const selectedAttachments = [
         {
