@@ -150,6 +150,9 @@ export function Rules({
         enabled: false,
         runOnThreads: false,
         excludeKnownContacts: systemType === "COLD_EMAIL",
+        fromExclude: false,
+        toExclude: false,
+        subjectExclude: false,
         automate: true,
         actions: getDefaultActions(systemType, provider).map((action) => ({
           ...action,

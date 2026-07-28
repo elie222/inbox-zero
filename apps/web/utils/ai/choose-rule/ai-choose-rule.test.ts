@@ -100,6 +100,26 @@ describe("aiChooseRule", () => {
     expect(system).not.toContain("ALREADY MATCHED");
   });
 
+  it("adds no unmatched-sender note for negated-from OR rules", async () => {
+    await aiChooseRule({
+      email: getEmail({ from: "shawn@nucar.com" }),
+      rules: [
+        {
+          name: "External mail",
+          instructions: "Emails from outside the company",
+          from: "@nucar.com",
+          fromExclude: true,
+          conditionalOperator: "OR",
+        },
+      ],
+      emailAccount: getEmailAccount(),
+      logger: createTestLogger(),
+    });
+
+    const { system } = generate.mock.calls[0][0];
+    expect(system).not.toContain("NOT one of them");
+  });
+
   it("tells the AI when a rule previously filed this conversation", async () => {
     await aiChooseRule({
       email: getEmail(),

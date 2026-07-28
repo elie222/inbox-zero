@@ -106,9 +106,12 @@ const zodAiCondition = z.object({
 
 const zodStaticCondition = z.object({
   to: z.string().nullish(),
+  toExclude: z.boolean().nullish(),
   from: z.string().nullish(),
+  fromExclude: z.boolean().nullish(),
   subject: z.string().nullish(),
   subjectMatchMode: z.nativeEnum(SubjectMatchMode).nullish(),
+  subjectExclude: z.boolean().nullish(),
   body: z.string().nullish(),
 });
 

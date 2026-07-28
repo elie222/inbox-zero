@@ -109,6 +109,12 @@ export function outboundActionsNeedChatRiskConfirmation(
   };
 }
 
+export type StaticExcludes = {
+  fromExclude?: boolean;
+  toExclude?: boolean;
+  subjectExclude?: boolean;
+};
+
 type RuleRecordData = {
   name?: string;
   systemType?: SystemType | null;
@@ -119,9 +125,12 @@ type RuleRecordData = {
   conditionalOperator?: Rule["conditionalOperator"] | null;
   categoryFilterType?: Rule["categoryFilterType"] | null;
   from?: string | null;
+  fromExclude?: boolean;
   to?: string | null;
+  toExclude?: boolean;
   subject?: string | null;
   subjectMatchMode?: SubjectMatchMode | null;
+  subjectExclude?: boolean;
   body?: string | null;
   groupId?: string | null;
 };
@@ -168,7 +177,10 @@ export async function partialUpdateRule({
     await assertNoSenderOnlyOverlap({
       emailAccountId,
       excludeRuleId: ruleId,
-      rule: mergeRuleScope(data, existingRule),
+      rule: {
+        ...mergeRuleScope(data, existingRule),
+        fromExclude: data.fromExclude ?? existingRule.fromExclude,
+      },
     });
   }
 
@@ -267,9 +279,12 @@ export async function createRuleWithResolvedActions({
       conditionalOperator: data.conditionalOperator ?? undefined,
       categoryFilterType: data.categoryFilterType ?? undefined,
       from: data.from ?? undefined,
+      fromExclude: data.fromExclude ?? undefined,
       to: data.to ?? undefined,
+      toExclude: data.toExclude ?? undefined,
       subject: data.subject ?? undefined,
       subjectMatchMode: data.subjectMatchMode ?? undefined,
+      subjectExclude: data.subjectExclude ?? undefined,
       body: data.body ?? undefined,
       groupId: data.groupId ?? undefined,
       actions: {
@@ -308,7 +323,12 @@ export async function replaceRuleWithResolvedActions({
   await assertNoSenderOnlyOverlap({
     emailAccountId,
     excludeRuleId: ruleId,
-    rule: existingRule ? mergeRuleScope(data, existingRule) : data,
+    rule: existingRule
+      ? {
+          ...mergeRuleScope(data, existingRule),
+          fromExclude: data.fromExclude ?? existingRule.fromExclude,
+        }
+      : data,
   });
 
   validateLowTrustStaticFromOutboundActions({
@@ -330,9 +350,12 @@ export async function replaceRuleWithResolvedActions({
       conditionalOperator: data.conditionalOperator ?? undefined,
       categoryFilterType: data.categoryFilterType,
       from: data.from,
+      fromExclude: data.fromExclude ?? undefined,
       to: data.to,
+      toExclude: data.toExclude ?? undefined,
       subject: data.subject,
       subjectMatchMode: data.subjectMatchMode ?? undefined,
+      subjectExclude: data.subjectExclude ?? undefined,
       body: data.body,
       groupId: data.groupId,
       actions: {
@@ -361,6 +384,7 @@ export async function createRule({
   provider,
   runOnThreads,
   subjectMatchMode,
+  staticExcludes,
   logger,
   enablement = { source: "default" } satisfies CreateRuleEnablement,
 }: {
@@ -370,6 +394,7 @@ export async function createRule({
   provider: string;
   runOnThreads: boolean;
   subjectMatchMode?: SubjectMatchMode | null;
+  staticExcludes?: StaticExcludes;
   logger: Logger;
   enablement?: CreateRuleEnablement;
 }) {
@@ -384,6 +409,7 @@ export async function createRule({
       rule: {
         instructions: result.condition.aiInstructions,
         from: result.condition.static?.from,
+        fromExclude: staticExcludes?.fromExclude,
         to: result.condition.static?.to,
         subject: result.condition.static?.subject,
       },
@@ -425,6 +451,7 @@ export async function createRule({
         to: result.condition.static?.to,
         subject: result.condition.static?.subject,
         subjectMatchMode,
+        ...staticExcludes,
       },
       actions: mappedActions,
       skipSenderOnlyOverlapCheck: true,
@@ -447,6 +474,7 @@ export async function updateRule({
   logger,
   runOnThreads,
   subjectMatchMode,
+  staticExcludes,
 }: {
   ruleId: string;
   result: CreateOrUpdateRuleSchema;
@@ -455,6 +483,7 @@ export async function updateRule({
   logger: Logger;
   runOnThreads?: boolean;
   subjectMatchMode?: SubjectMatchMode | null;
+  staticExcludes?: StaticExcludes;
 }) {
   try {
     logger.info("Updating rule", {
@@ -486,6 +515,7 @@ export async function updateRule({
         subject: result.condition.static?.subject,
         ...(subjectMatchMode !== undefined && { subjectMatchMode }),
         ...(runOnThreads !== undefined && { runOnThreads }),
+        ...staticExcludes,
       },
       actions: mappedActions,
     });
@@ -742,6 +772,7 @@ const RULE_SCOPE_KEYS = [
 const RULE_SCOPE_SELECT = {
   instructions: true,
   from: true,
+  fromExclude: true,
   to: true,
   subject: true,
   body: true,
