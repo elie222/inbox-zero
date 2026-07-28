@@ -210,6 +210,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       const event = calendarEvent();
       const emailAccount = account(accountAId, ACCOUNT_A);
       await reconcile.reconcileSingleEvent({ emailAccount, event, logger });
+      fakeProvider.replacementBotIdOnNextUpdate = "replacement_bot";
 
       const movedTo = addMinutes(event.startTime, 45);
       await reconcile.reconcileSingleEvent({
@@ -222,11 +223,15 @@ describe.skipIf(!RUN_DB_TESTS)(
         logger,
       });
 
-      expect(fakeProvider.updated).toEqual([
-        { botId: fakeProvider.scheduled[0]?.botId, joinAt: movedTo },
-      ]);
+      expect(fakeProvider.updated).toContainEqual(
+        expect.objectContaining({
+          botId: fakeProvider.scheduled[0]?.botId,
+          joinAt: movedTo,
+        }),
+      );
       const recording = await prisma.meetingRecording.findFirstOrThrow();
       expect(recording.meetingStartTime).toEqual(movedTo);
+      expect(recording.externalBotId).toBe("replacement_bot");
     });
 
     test("retries a claim whose provider call failed transiently", async () => {
@@ -356,6 +361,100 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(meeting.recordingId).toBeNull();
     });
 
+    test("retries provider cancellation after a transient failure", async () => {
+      const event = calendarEvent();
+      await reconcile.reconcileSingleEvent({
+        emailAccount: account(accountAId, ACCOUNT_A),
+        event,
+        logger,
+      });
+      fakeProvider.failNextCancel = true;
+
+      await reconcile.releaseAccountBookings({
+        emailAccountId: accountAId,
+        logger,
+      });
+
+      const cancelling = await prisma.meetingRecording.findFirstOrThrow();
+      expect(cancelling.status).toBe("CANCELLING");
+      expect(fakeProvider.cancelled).toHaveLength(0);
+
+      await reconcile.sweepRecordings({ logger });
+
+      const cancelled = await prisma.meetingRecording.findFirstOrThrow();
+      expect(cancelled.status).toBe(MeetingRecordingStatus.CANCELLED);
+      expect(fakeProvider.cancelled).toEqual([
+        fakeProvider.scheduled[0]?.botId,
+      ]);
+    });
+
+    test("removes a bot that has already started joining", async () => {
+      const event = calendarEvent();
+      await reconcile.reconcileSingleEvent({
+        emailAccount: account(accountAId, ACCOUNT_A),
+        event,
+        logger,
+      });
+      await prisma.meetingRecording.updateMany({
+        data: { status: MeetingRecordingStatus.JOINING },
+      });
+
+      await reconcile.releaseAccountBookings({
+        emailAccountId: accountAId,
+        logger,
+      });
+
+      expect(fakeProvider.cancelled).toEqual([
+        fakeProvider.scheduled[0]?.botId,
+      ]);
+      expect((await prisma.meetingRecording.findFirstOrThrow()).status).toBe(
+        MeetingRecordingStatus.CANCELLED,
+      );
+    });
+
+    test("releases only automatic bookings when automatic joining is turned off", async () => {
+      const automaticEvent = calendarEvent();
+      const explicitEvent = calendarEvent({
+        id: "explicit-event",
+        videoConferenceLink: "https://meet.google.com/explicit-join",
+      });
+      const emailAccount = account(accountAId, ACCOUNT_A);
+
+      await reconcile.reconcileSingleEvent({
+        emailAccount,
+        event: automaticEvent,
+        logger,
+      });
+      await reconcile.upsertMeeting({
+        emailAccountId: accountAId,
+        event: explicitEvent,
+        joinOverride: true,
+      });
+      await reconcile.reconcileSingleEvent({
+        emailAccount,
+        event: explicitEvent,
+        logger,
+      });
+
+      await reconcile.releaseAutomaticAccountBookings({
+        emailAccountId: accountAId,
+        logger,
+      });
+
+      const meetings = await prisma.meeting.findMany({
+        where: { emailAccountId: accountAId },
+      });
+      expect(
+        meetings.find(
+          (meeting) => meeting.calendarEventId === automaticEvent.id,
+        )?.recordingId,
+      ).toBeNull();
+      expect(
+        meetings.find((meeting) => meeting.calendarEventId === explicitEvent.id)
+          ?.recordingId,
+      ).not.toBeNull();
+    });
+
     test("only deletes media once the transcript has been stored", async () => {
       const withoutTranscript = await prisma.meetingRecording.create({
         data: {
@@ -425,9 +524,10 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(fakeProvider.cancelled).toHaveLength(0);
     });
 
-    test("updates a shared bot when the meeting password changes", async () => {
+    test("does not rewrite a shared bot for account-specific meeting URLs", async () => {
       const event = calendarEvent({
-        videoConferenceLink: "https://acme.zoom.us/j/8123456789?pwd=old",
+        videoConferenceLink:
+          "https://teams.microsoft.com/l/meetup-join/19%3ameeting_A%40thread.v2/0?context=account-a",
       });
       await reconcile.reconcileSingleEvent({
         emailAccount: account(accountAId, ACCOUNT_A),
@@ -436,21 +536,27 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
       await reconcile.reconcileSingleEvent({
         emailAccount: account(accountBId, ACCOUNT_B),
-        event: { ...event, id: "event-b" },
+        event: {
+          ...event,
+          id: "event-b",
+          videoConferenceLink:
+            "https://teams.microsoft.com/l/meetup-join/19%3ameeting_A%40thread.v2/0?context=account-b",
+        },
         logger,
       });
 
-      const meetingUrl = "https://acme.zoom.us/j/8123456789?pwd=new";
       await reconcile.reconcileSingleEvent({
-        emailAccount: account(accountAId, ACCOUNT_A),
-        event: { ...event, videoConferenceLink: meetingUrl },
+        emailAccount: account(accountBId, ACCOUNT_B),
+        event: {
+          ...event,
+          id: "event-b",
+          videoConferenceLink:
+            "https://teams.microsoft.com/l/meetup-join/19%3ameeting_A%40thread.v2/0?context=account-b",
+        },
         logger,
       });
 
-      expect(fakeProvider.updated).toContainEqual({
-        botId: fakeProvider.scheduled[0]?.botId,
-        meetingUrl,
-      });
+      expect(fakeProvider.updated).toHaveLength(0);
       expect(fakeProvider.cancelled).toHaveLength(0);
       expect(fakeProvider.scheduled).toHaveLength(1);
     });
@@ -557,10 +663,12 @@ describe.skipIf(!RUN_DB_TESTS)(
         logger,
       });
 
-      expect(fakeProvider.updated).toContainEqual({
-        botId: fakeProvider.scheduled[0]?.botId,
-        joinAt: movedTo,
-      });
+      expect(fakeProvider.updated).toContainEqual(
+        expect.objectContaining({
+          botId: fakeProvider.scheduled[0]?.botId,
+          joinAt: movedTo,
+        }),
+      );
       expect(fakeProvider.cancelled).toHaveLength(0);
       expect(fakeProvider.scheduled).toHaveLength(1);
     });

@@ -30,7 +30,7 @@ export class MeetingBotProviderError extends Error {
 }
 
 export interface MeetingBotProvider {
-  /** Tolerant: a bot that is already gone or already in the call is not an error. */
+  /** Tolerant: a bot that is already gone is not an error. */
   cancelBot(externalBotId: string): Promise<void>;
   /**
    * Asks the provider to start producing a transcript for a finished
@@ -50,5 +50,5 @@ export interface MeetingBotProvider {
   updateBot(
     externalBotId: string,
     params: { joinAt?: Date; meetingUrl?: string },
-  ): Promise<void>;
+  ): Promise<{ externalBotId: string }>;
 }

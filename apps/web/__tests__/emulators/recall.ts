@@ -70,6 +70,7 @@ export interface RecallEmulator {
   ): string;
   close(): Promise<void>;
   getBot(botId: string): RecallEmulatorBot | undefined;
+  rejectNextJoinAtUpdate(): void;
   requests: RecallEmulatorRequest[];
   reset(): void;
   /** Build the Svix-signed request Recall would POST to our webhook route. */
@@ -104,6 +105,7 @@ export async function createRecallEmulator({
   const recordingToBot = new Map<string, string>();
   const requests: RecallEmulatorRequest[] = [];
   let nextId = 1;
+  let rejectNextJoinAtUpdate = false;
 
   const server = createServer((req, res) => {
     const chunks: Buffer[] = [];
@@ -175,6 +177,26 @@ export async function createRecallEmulator({
       const bot = bots.get(deleteMedia[1] as string);
       if (!bot) return { status: 404, body: { detail: "Not found." } };
       bot.media_deleted = true;
+      return { status: 200, body: {} };
+    }
+
+    const leaveCall = /^\/bot\/([^/]+)\/leave_call\/$/.exec(apiPath);
+    if (leaveCall && method === "POST") {
+      const botId = leaveCall[1] as string;
+      const bot = bots.get(botId);
+      if (!bot) {
+        return {
+          status: 400,
+          body: { code: "cannot_command_completed_bot" },
+        };
+      }
+      if (isScheduled(bot)) {
+        return {
+          status: 400,
+          body: { code: "cannot_command_unstarted_bot" },
+        };
+      }
+      bots.delete(botId);
       return { status: 200, body: {} };
     }
 
@@ -292,7 +314,20 @@ export async function createRecallEmulator({
       if (!isScheduled(bot)) {
         return {
           status: 400,
-          body: { detail: "Bot has already joined the call." },
+          body: {
+            code: "update_bot_failed",
+            detail: "Only non-dispatched bots can be updated",
+          },
+        };
+      }
+      if (payload?.join_at && rejectNextJoinAtUpdate) {
+        rejectNextJoinAtUpdate = false;
+        return {
+          status: 400,
+          body: {
+            code: "update_bot_failed",
+            detail: "Not enough time to launch new bot",
+          },
         };
       }
       if (payload?.join_at) bot.join_at = payload.join_at;
@@ -305,7 +340,11 @@ export async function createRecallEmulator({
       if (!isScheduled(bot)) {
         return {
           status: 400,
-          body: { detail: "Bot has already joined the call." },
+          body: {
+            code: "cannot_delete_bot",
+            detail:
+              "Only scheduled bots which have not joined a call can be deleted.",
+          },
         };
       }
       bots.delete(botId);
@@ -323,6 +362,10 @@ export async function createRecallEmulator({
     requests,
 
     getBot: (botId) => bots.get(botId),
+
+    rejectNextJoinAtUpdate() {
+      rejectNextJoinAtUpdate = true;
+    },
 
     advance(botId, code, subCode) {
       const bot = bots.get(botId);
@@ -375,6 +418,7 @@ export async function createRecallEmulator({
       recordingToBot.clear();
       requests.length = 0;
       nextId = 1;
+      rejectNextJoinAtUpdate = false;
     },
 
     close: () =>

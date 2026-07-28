@@ -1,18 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MeetingJoinRule } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
-import { setMeetingJoinOverrideAction } from "./meeting-recorder";
+import {
+  setMeetingJoinOverrideAction,
+  updateMeetingRecorderSettingsAction,
+} from "./meeting-recorder";
 
 const {
   mockAuth,
   mockCheckHasAccess,
   mockFetchEvents,
   mockReconcileSingleEvent,
+  mockReleaseAutomaticAccountBookings,
   mockUpsertMeeting,
 } = vi.hoisted(() => ({
   mockAuth: vi.fn(),
   mockCheckHasAccess: vi.fn(),
   mockFetchEvents: vi.fn(),
   mockReconcileSingleEvent: vi.fn(),
+  mockReleaseAutomaticAccountBookings: vi.fn(),
   mockUpsertMeeting: vi.fn(),
 }));
 
@@ -30,6 +36,7 @@ vi.mock("@/utils/calendar/fetch-events-in-window", () => ({
 vi.mock("@/utils/meeting-recorder/reconcile", () => ({
   reconcileSingleEvent: mockReconcileSingleEvent,
   releaseAccountBookings: vi.fn(),
+  releaseAutomaticAccountBookings: mockReleaseAutomaticAccountBookings,
   upsertMeeting: mockUpsertMeeting,
 }));
 
@@ -113,6 +120,65 @@ describe("setMeetingJoinOverrideAction", () => {
       joinOverride: false,
     });
     expect(mockReconcileSingleEvent).toHaveBeenCalled();
+    expect(result?.serverError).toBeUndefined();
+  });
+
+  it("reconciles an existing booking after the event moves outside the cron window", async () => {
+    mockFetchEvents.mockResolvedValue({
+      complete: true,
+      events: [
+        {
+          id: "event-1",
+          title: "Moved sync",
+          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          videoConferenceLink: "https://meet.google.com/abc-defg-hij",
+          attendees: [{ email: "guest@other.com" }],
+        },
+      ],
+    });
+    mockUpsertMeeting.mockResolvedValue({
+      id: "meeting-1",
+      recordingId: "recording-1",
+    });
+    mockCheckHasAccess.mockResolvedValue(true);
+
+    const result = await setMeetingJoinOverrideAction(EMAIL_ACCOUNT_ID, {
+      join: true,
+      calendarEventId: "event-1",
+    });
+
+    expect(mockReconcileSingleEvent).toHaveBeenCalled();
+    expect(result?.serverError).toBeUndefined();
+  });
+});
+
+describe("updateMeetingRecorderSettingsAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuth.mockResolvedValue({
+      user: { id: "user-1", email: "user@example.com" },
+    });
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      account: { userId: "user-1", provider: "google" },
+    } as never);
+    prisma.emailAccount.update.mockResolvedValue({
+      id: EMAIL_ACCOUNT_ID,
+      meetingRecorderEnabled: true,
+      meetingRecorderJoinRule: MeetingJoinRule.OFF,
+    } as never);
+  });
+
+  it("releases automatic bookings immediately when automatic joining is turned off", async () => {
+    const result = await updateMeetingRecorderSettingsAction(EMAIL_ACCOUNT_ID, {
+      joinRule: MeetingJoinRule.OFF,
+    });
+
+    expect(mockReleaseAutomaticAccountBookings).toHaveBeenCalledWith({
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      logger: expect.anything(),
+    });
     expect(result?.serverError).toBeUndefined();
   });
 });

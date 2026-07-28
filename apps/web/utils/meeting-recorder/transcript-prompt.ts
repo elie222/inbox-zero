@@ -50,7 +50,15 @@ function takeLinesWithinBudget(
 
   for (const line of ordered) {
     const cost = line.length + 1;
-    if (used + cost > budget) break;
+    if (used + cost > budget) {
+      const remaining = budget - used;
+      if (taken.length === 0 && remaining > 0) {
+        taken.push(
+          from === "head" ? line.slice(0, remaining) : line.slice(-remaining),
+        );
+      }
+      break;
+    }
     taken.push(line);
     used += cost;
   }

@@ -2,6 +2,7 @@
 
 import { addHours } from "date-fns/addHours";
 import { differenceInMinutes } from "date-fns/differenceInMinutes";
+import { MeetingJoinRule } from "@/generated/prisma/enums";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   setMeetingJoinOverrideBody,
@@ -19,6 +20,7 @@ import { checkHasAccess } from "@/utils/premium/server";
 import {
   reconcileSingleEvent,
   releaseAccountBookings,
+  releaseAutomaticAccountBookings,
   upsertMeeting,
 } from "@/utils/meeting-recorder/reconcile";
 import prisma from "@/utils/prisma";
@@ -41,6 +43,8 @@ export const updateMeetingRecorderSettingsAction = actionClient
     // so nothing else would ever cancel the bots it has already booked.
     if (parsedInput.enabled === false) {
       await releaseAccountBookings({ emailAccountId, logger });
+    } else if (parsedInput.joinRule === MeetingJoinRule.OFF) {
+      await releaseAutomaticAccountBookings({ emailAccountId, logger });
     }
   });
 
@@ -99,19 +103,20 @@ export const setMeetingJoinOverrideAction = actionClient
         throw new SafeError("This meeting has no video link to join");
       }
 
-      await upsertMeeting({
+      const meeting = await upsertMeeting({
         emailAccountId,
         event,
         joinOverride: join,
       });
 
-      // The cron picks this up on its next pass, unless the meeting starts
-      // before then, in which case waiting would mean missing the call.
+      // New future bookings can wait for the cron. Removals and existing
+      // bookings reconcile now so a moved event cannot strand the old bot
+      // outside the cron window.
       const startsBeforeNextPass =
         differenceInMinutes(event.startTime, new Date()) <
         RECONCILE_WINDOW_MINUTES;
 
-      if (startsBeforeNextPass) {
+      if (!join || meeting.recordingId || startsBeforeNextPass) {
         await reconcileSingleEvent({ emailAccount, event, logger });
       }
     },

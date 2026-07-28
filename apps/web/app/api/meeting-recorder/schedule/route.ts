@@ -69,7 +69,6 @@ async function scheduleAllMeetingRecordings(logger: Logger) {
         emailAccount,
         logger: logger.with({
           emailAccountId: emailAccount.id,
-          email: emailAccount.email,
         }),
       }),
   });
@@ -84,7 +83,7 @@ async function scheduleAllMeetingRecordings(logger: Logger) {
     }
 
     logger
-      .with({ emailAccountId: emailAccount.id, email: emailAccount.email })
+      .with({ emailAccountId: emailAccount.id })
       .error("Failed to reconcile meeting recordings for user", {
         error: result.reason,
       });

@@ -29,6 +29,17 @@ describe("transcriptToPromptText", () => {
     expect(text).toContain("Transcript truncated");
   });
 
+  it("keeps content when a single utterance exceeds the budget", () => {
+    const text = transcriptToPromptText(
+      [utterance({ text: `Important opening ${"detail ".repeat(100)}` })],
+      200,
+    );
+
+    expect(text.length).toBeLessThanOrEqual(200);
+    expect(text).toContain("Important opening");
+    expect(text).toContain("Transcript truncated");
+  });
+
   it("stays within the limit even when it is too small for the notice", () => {
     const transcript = Array.from({ length: 50 }, (_, index) =>
       utterance({ startTime: index, text: `Line ${index}` }),

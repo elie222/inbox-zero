@@ -16,6 +16,10 @@ const STATUS_BADGES: Record<MeetingRecordingStatus, StatusBadge> = {
     label: "Scheduled",
     variant: "secondary",
   },
+  [MeetingRecordingStatus.CANCELLING]: {
+    label: "Cancelling",
+    variant: "secondary",
+  },
   [MeetingRecordingStatus.JOINING]: { label: "Joining", variant: "secondary" },
   [MeetingRecordingStatus.IN_WAITING_ROOM]: {
     label: "Waiting to be let in",

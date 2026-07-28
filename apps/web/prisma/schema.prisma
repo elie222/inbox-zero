@@ -1371,6 +1371,7 @@ enum MeetingJoinRule {
 enum MeetingRecordingStatus {
   PENDING
   SCHEDULED
+  CANCELLING
   JOINING
   IN_WAITING_ROOM
   IN_CALL

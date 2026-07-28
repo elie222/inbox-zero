@@ -12,6 +12,10 @@ export const LIVE_STATUSES: MeetingRecordingStatus[] = [
   MeetingRecordingStatus.CALL_ENDED,
 ];
 
+export const CANCELLABLE_STATUSES = LIVE_STATUSES.filter(
+  (status) => status !== MeetingRecordingStatus.CALL_ENDED,
+);
+
 // Once the bot is on its way to the call there is nothing useful left to change.
 export const CHANGEABLE_STATUSES: MeetingRecordingStatus[] = [
   MeetingRecordingStatus.PENDING,
@@ -28,17 +32,23 @@ const STATUS_RANK: Record<MeetingRecordingStatus, number> = {
   [MeetingRecordingStatus.IN_CALL]: 4,
   [MeetingRecordingStatus.RECORDING]: 5,
   [MeetingRecordingStatus.CALL_ENDED]: 6,
+  [MeetingRecordingStatus.CANCELLING]: 7,
   // Terminal outcomes: nothing may move a recording out of them. A late failure
   // event must not wipe a recording we already have a transcript for.
-  [MeetingRecordingStatus.DONE]: 7,
-  [MeetingRecordingStatus.FAILED]: 7,
-  [MeetingRecordingStatus.CANCELLED]: 7,
+  [MeetingRecordingStatus.DONE]: 8,
+  [MeetingRecordingStatus.FAILED]: 8,
+  [MeetingRecordingStatus.CANCELLED]: 8,
 };
 
 const TERMINAL_STATUSES: MeetingRecordingStatus[] = [
   MeetingRecordingStatus.DONE,
   MeetingRecordingStatus.FAILED,
   MeetingRecordingStatus.CANCELLED,
+];
+
+const LOCKED_STATUSES: MeetingRecordingStatus[] = [
+  MeetingRecordingStatus.CANCELLING,
+  ...TERMINAL_STATUSES,
 ];
 
 /**
@@ -64,6 +74,6 @@ export function getStatusesBelow(
 
   return Object.values(MeetingRecordingStatus).filter(
     (status) =>
-      STATUS_RANK[status] < nextRank && !TERMINAL_STATUSES.includes(status),
+      STATUS_RANK[status] < nextRank && !LOCKED_STATUSES.includes(status),
   );
 }

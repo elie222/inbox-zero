@@ -28,6 +28,8 @@ export class FakeBotProvider implements MeetingBotProvider {
 
   /** Set to make the next scheduleBot fail. */
   failNextSchedule: { permanent: boolean } | null = null;
+  failNextCancel = false;
+  replacementBotIdOnNextUpdate: string | null = null;
 
   private nextId = 1;
   private transcript: NormalizedTranscript = [];
@@ -56,11 +58,19 @@ export class FakeBotProvider implements MeetingBotProvider {
   async updateBot(
     externalBotId: string,
     params: { joinAt?: Date; meetingUrl?: string },
-  ): Promise<void> {
+  ): Promise<{ externalBotId: string }> {
     this.updated.push({ botId: externalBotId, ...params });
+    const updatedExternalBotId =
+      this.replacementBotIdOnNextUpdate ?? externalBotId;
+    this.replacementBotIdOnNextUpdate = null;
+    return { externalBotId: updatedExternalBotId };
   }
 
   async cancelBot(externalBotId: string): Promise<void> {
+    if (this.failNextCancel) {
+      this.failNextCancel = false;
+      throw new MeetingBotProviderError("cancelBot failed", false);
+    }
     this.cancelled.push(externalBotId);
   }
 
@@ -87,6 +97,8 @@ export class FakeBotProvider implements MeetingBotProvider {
     this.deletedMedia.length = 0;
     this.transcriptsRequested.length = 0;
     this.failNextSchedule = null;
+    this.failNextCancel = false;
+    this.replacementBotIdOnNextUpdate = null;
     this.nextId = 1;
   }
 }

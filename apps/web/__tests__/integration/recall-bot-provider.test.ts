@@ -110,9 +110,33 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
 
       const movedTo = new Date("2026-05-04T10:00:00.000Z");
-      await provider.updateBot(externalBotId, { joinAt: movedTo });
+      await provider.updateBot(externalBotId, {
+        joinAt: movedTo,
+        meetingUrl: "https://meet.google.com/abc-defg-hij",
+      });
 
       expect(emulator.getBot(externalBotId)?.join_at).toBe(
+        movedTo.toISOString(),
+      );
+    });
+
+    test("replaces a bot when Recall rejects a near-term reschedule", async () => {
+      const meetingUrl = "https://meet.google.com/abc-defg-hij";
+      const { externalBotId } = await provider.scheduleBot({
+        meetingUrl,
+        joinAt: new Date("2026-05-04T09:00:00.000Z"),
+      });
+      emulator.rejectNextJoinAtUpdate();
+
+      const movedTo = new Date("2026-05-04T08:05:00.000Z");
+      const updated = await provider.updateBot(externalBotId, {
+        joinAt: movedTo,
+        meetingUrl,
+      });
+
+      expect(updated.externalBotId).not.toBe(externalBotId);
+      expect(emulator.getBot(externalBotId)).toBeUndefined();
+      expect(emulator.getBot(updated.externalBotId)?.join_at).toBe(
         movedTo.toISOString(),
       );
     });
@@ -140,7 +164,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(emulator.getBot(externalBotId)).toBeUndefined();
     });
 
-    test("treats cancelling an unknown or already-joined bot as a no-op", async () => {
+    test("treats cancelling an unknown bot as a no-op and removes a joined bot", async () => {
       await expect(provider.cancelBot("bot_missing")).resolves.toBeUndefined();
 
       const { externalBotId } = await provider.scheduleBot({
@@ -149,10 +173,8 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
       emulator.advance(externalBotId, "in_call_recording");
 
-      // The bot is in the call, so Recall refuses the delete. A reconciler pass
-      // must not blow up over that.
       await expect(provider.cancelBot(externalBotId)).resolves.toBeUndefined();
-      expect(emulator.getBot(externalBotId)).toBeDefined();
+      expect(emulator.getBot(externalBotId)).toBeUndefined();
     });
 
     test("fetches a fresh download URL and normalizes the transcript", async () => {

@@ -32,6 +32,7 @@ import {
 } from "@/utils/meeting-recorder/enqueue-processing";
 import { shouldAutoJoin } from "@/utils/meeting-recorder/join-rule";
 import {
+  CANCELLABLE_STATUSES,
   CHANGEABLE_STATUSES,
   LIVE_STATUSES,
   recordingStatusData,
@@ -381,10 +382,16 @@ async function updateBookingForEvent({
   }
 
   // Same meeting, fresher link: normalization drops credentials, so this is
-  // where a rotated meeting password shows up. Recall can update a scheduled
-  // bot's URL in place, which preserves a recording shared by several accounts.
+  // where a rotated meeting password shows up. Raw links from different
+  // accounts can also carry different per-invitee context, so only a sole owner
+  // can establish that its new link is actually fresher.
   if (recording.meetingUrl !== event.videoConferenceLink) {
+    const linkedMeetings = await prisma.meeting.count({
+      where: { recordingId },
+    });
+
     if (
+      linkedMeetings === 1 &&
       recording.externalBotId &&
       CHANGEABLE_STATUSES.includes(recording.status)
     ) {
@@ -394,10 +401,12 @@ async function updateBookingForEvent({
       });
     }
 
-    await prisma.meetingRecording.updateMany({
-      where: { id: recordingId, status: { in: CHANGEABLE_STATUSES } },
-      data: { meetingUrl: event.videoConferenceLink },
-    });
+    if (linkedMeetings === 1) {
+      await prisma.meetingRecording.updateMany({
+        where: { id: recordingId, status: { in: CHANGEABLE_STATUSES } },
+        data: { meetingUrl: event.videoConferenceLink },
+      });
+    }
   }
 
   const startTimeUnchanged =
@@ -409,21 +418,33 @@ async function updateBookingForEvent({
   if (!recording.externalBotId) return true;
 
   const provider = createMeetingBotProvider(recording.botProvider, logger);
-  await provider.updateBot(recording.externalBotId, {
+  const updatedBot = await provider.updateBot(recording.externalBotId, {
     joinAt: event.startTime,
+    meetingUrl: event.videoConferenceLink ?? recording.meetingUrl,
   });
 
   try {
     await prisma.meetingRecording.update({
       where: { id: recording.id },
-      data: { meetingStartTime: event.startTime },
+      data: {
+        meetingStartTime: event.startTime,
+        externalBotId: updatedBot.externalBotId,
+      },
     });
   } catch (error) {
     if (!isDuplicateError(error)) throw error;
 
     // The event was moved onto a slot another recording already holds. Fold
     // this meeting into that recording instead of retrying into the same clash.
-    await mergeIntoExistingRecording({ meetingId, recording, event, logger });
+    await mergeIntoExistingRecording({
+      meetingId,
+      recording: {
+        ...recording,
+        externalBotId: updatedBot.externalBotId,
+      },
+      event,
+      logger,
+    });
   }
 
   return true;
@@ -474,11 +495,45 @@ export async function releaseAccountBookings({
   emailAccountId: string;
   logger: Logger;
 }): Promise<void> {
+  await releaseAccountBookingsMatching({
+    emailAccountId,
+    automaticOnly: false,
+    logger,
+  });
+}
+
+/** Releases rule-driven bookings while preserving meetings the user enabled explicitly. */
+export async function releaseAutomaticAccountBookings({
+  emailAccountId,
+  logger,
+}: {
+  emailAccountId: string;
+  logger: Logger;
+}): Promise<void> {
+  await releaseAccountBookingsMatching({
+    emailAccountId,
+    automaticOnly: true,
+    logger,
+  });
+}
+
+async function releaseAccountBookingsMatching({
+  emailAccountId,
+  automaticOnly,
+  logger,
+}: {
+  emailAccountId: string;
+  automaticOnly: boolean;
+  logger: Logger;
+}): Promise<void> {
   const booked = await prisma.meeting.findMany({
     where: {
       emailAccountId,
       recordingId: { not: null },
-      recording: { status: { in: CHANGEABLE_STATUSES } },
+      recording: { status: { in: CANCELLABLE_STATUSES } },
+      ...(automaticOnly
+        ? { OR: [{ joinOverride: null }, { joinOverride: false }] }
+        : {}),
     },
     select: { id: true, recordingId: true },
   });
@@ -500,7 +555,10 @@ export async function releaseAccountBookings({
   }
 
   if (booked.length > 0) {
-    logger.info("Released bookings for the account", { count: booked.length });
+    logger.info("Released meeting recorder bookings for the account", {
+      automaticOnly,
+      count: booked.length,
+    });
   }
 }
 
@@ -545,21 +603,38 @@ async function releaseRecording({
   recording: MeetingRecording;
   logger: Logger;
 }): Promise<void> {
-  const cancelled = await prisma.meetingRecording.updateMany({
+  const claimed = await prisma.meetingRecording.updateMany({
     where: {
       id: recording.id,
-      status: { in: CHANGEABLE_STATUSES },
+      status: { in: CANCELLABLE_STATUSES },
       meetings: { none: {} },
     },
-    data: recordingStatusData(MeetingRecordingStatus.CANCELLED),
+    data: recordingStatusData(MeetingRecordingStatus.CANCELLING),
   });
-  if (cancelled.count === 0) return;
+  if (claimed.count === 0) return;
 
+  await finishCancellation({ recording, logger });
+}
+
+async function finishCancellation({
+  recording,
+  logger,
+}: {
+  recording: MeetingRecording;
+  logger: Logger;
+}): Promise<void> {
   if (recording.externalBotId) {
     const provider = createMeetingBotProvider(recording.botProvider, logger);
     await provider.cancelBot(recording.externalBotId);
   }
 
+  await prisma.meetingRecording.updateMany({
+    where: {
+      id: recording.id,
+      status: MeetingRecordingStatus.CANCELLING,
+    },
+    data: recordingStatusData(MeetingRecordingStatus.CANCELLED),
+  });
   logger.info("Cancelled meeting recording", { recordingId: recording.id });
 }
 
@@ -583,7 +658,7 @@ async function releaseUnseenMeetings({
       emailAccountId: emailAccount.id,
       recordingId: { not: null },
       startTime: { gte: timeMin, lte: timeMax },
-      recording: { status: { in: CHANGEABLE_STATUSES } },
+      recording: { status: { in: CANCELLABLE_STATUSES } },
     },
     select: { id: true, calendarEventId: true, recordingId: true },
   });
@@ -632,11 +707,35 @@ export async function sweepRecordings({
     });
   }
 
+  await retryPendingCancellations({ logger });
   await failAbandonedRecordings({ now, logger });
   await retryStuckTranscriptRequests({ now, logger });
   await requeueStuckTranscripts({ now, logger });
   await requeueStuckMeetings({ logger });
   await retryPendingMediaDeletion({ logger });
+}
+
+async function retryPendingCancellations({
+  logger,
+}: {
+  logger: Logger;
+}): Promise<void> {
+  const recordings = await prisma.meetingRecording.findMany({
+    where: { status: MeetingRecordingStatus.CANCELLING },
+    take: 50,
+  });
+
+  for (const recording of recordings) {
+    try {
+      await finishCancellation({ recording, logger });
+    } catch (error) {
+      logger.error("Failed to retry meeting recording cancellation", {
+        recordingId: recording.id,
+        error,
+      });
+      captureException(error);
+    }
+  }
 }
 
 /**

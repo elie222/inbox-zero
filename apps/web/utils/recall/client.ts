@@ -67,30 +67,55 @@ export class RecallBotProvider implements MeetingBotProvider {
   async updateBot(
     externalBotId: string,
     { joinAt, meetingUrl }: { joinAt?: Date; meetingUrl?: string },
-  ): Promise<void> {
-    await this.request(`/bot/${externalBotId}/`, {
-      method: "PATCH",
-      body: {
-        ...(joinAt && { join_at: joinAt.toISOString() }),
-        ...(meetingUrl && { meeting_url: meetingUrl }),
-      },
-    });
+  ): Promise<{ externalBotId: string }> {
+    try {
+      await this.request(`/bot/${externalBotId}/`, {
+        method: "PATCH",
+        body: {
+          ...(joinAt && { join_at: joinAt.toISOString() }),
+          ...(meetingUrl && { meeting_url: meetingUrl }),
+        },
+      });
+      return { externalBotId };
+    } catch (error) {
+      if (
+        !(
+          joinAt &&
+          meetingUrl &&
+          (isRejectedReschedule(error) || isMissing(error))
+        )
+      ) {
+        throw error;
+      }
+
+      await this.cancelBot(externalBotId);
+      return this.scheduleBot({ meetingUrl, joinAt });
+    }
   }
 
   async cancelBot(externalBotId: string): Promise<void> {
     try {
       await this.request(`/bot/${externalBotId}/`, { method: "DELETE" });
     } catch (error) {
-      // A bot that is gone or already in the call cannot be cancelled, and
-      // neither case is worth failing a reconciler pass over.
-      if (isTolerableCancelError(error)) {
-        this.logger.info("Recall bot could not be cancelled", {
+      if (isMissing(error)) {
+        this.logger.info("Recall bot was already gone", {
           externalBotId,
-          error,
         });
         return;
       }
-      throw error;
+
+      if (!isAlreadyJoining(error)) throw error;
+
+      try {
+        await this.request(`/bot/${externalBotId}/leave_call/`, {
+          method: "POST",
+        });
+      } catch (leaveError) {
+        if (!isAlreadyGoneFromCall(leaveError)) throw leaveError;
+        this.logger.info("Recall bot had already left the call", {
+          externalBotId,
+        });
+      }
     }
   }
 
@@ -180,10 +205,44 @@ export class RecallBotProvider implements MeetingBotProvider {
   }
 }
 
-function isTolerableCancelError(error: unknown): boolean {
-  if (!(error instanceof RecallApiError)) return false;
-  // Recall answers 400 with an explanatory body when the bot has already joined.
-  return error.status === 404 || error.status === 400;
+function isRejectedReschedule(error: unknown): boolean {
+  return (
+    error instanceof RecallApiError &&
+    error.status === 400 &&
+    getRecallErrorCode(error) === "update_bot_failed"
+  );
+}
+
+function isMissing(error: unknown): boolean {
+  return error instanceof RecallApiError && error.status === 404;
+}
+
+function isAlreadyJoining(error: unknown): boolean {
+  return (
+    error instanceof RecallApiError &&
+    error.status === 400 &&
+    getRecallErrorCode(error) === "cannot_delete_bot"
+  );
+}
+
+function isAlreadyGoneFromCall(error: unknown): boolean {
+  if (isMissing(error)) return true;
+  if (!(error instanceof RecallApiError) || error.status !== 400) return false;
+
+  const code = getRecallErrorCode(error);
+  return (
+    code === "cannot_command_completed_bot" ||
+    code === "cannot_command_unstarted_bot"
+  );
+}
+
+function getRecallErrorCode(error: RecallApiError): string | null {
+  try {
+    const body = JSON.parse(error.body) as { code?: unknown };
+    return typeof body.code === "string" ? body.code : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

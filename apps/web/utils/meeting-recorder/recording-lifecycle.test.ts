@@ -21,6 +21,7 @@ describe("getStatusesBelow", () => {
       expect(below).not.toContain(MeetingRecordingStatus.DONE);
       expect(below).not.toContain(MeetingRecordingStatus.FAILED);
       expect(below).not.toContain(MeetingRecordingStatus.CANCELLED);
+      expect(below).not.toContain(MeetingRecordingStatus.CANCELLING);
     }
   });
 
@@ -41,6 +42,9 @@ describe("recordingStatusData", () => {
     });
     expect(recordingStatusData(MeetingRecordingStatus.RECORDING)).toEqual({
       status: MeetingRecordingStatus.RECORDING,
+    });
+    expect(recordingStatusData(MeetingRecordingStatus.CANCELLING)).toEqual({
+      status: MeetingRecordingStatus.CANCELLING,
     });
   });
 });
