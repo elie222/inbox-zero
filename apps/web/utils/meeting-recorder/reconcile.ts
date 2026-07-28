@@ -40,9 +40,6 @@ import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
 import { normalizeMeetingUrl } from "@/utils/recall/normalize-meeting-url";
 
-// Recurring instances are at least an hour apart, so a generous tolerance for
-// matching "the same meeting" across accounts cannot collide across instances.
-const SAME_MEETING_TOLERANCE_MINUTES = 30;
 const STALE_CLAIM_MINUTES = 10;
 const ABANDONED_RECORDING_HOURS = 24;
 
@@ -299,16 +296,20 @@ function findLiveRecording({
   normalizedMeetingUrl: string;
   startTime: Date;
 }) {
+  // Matched on the exact start time, which is what the unique constraint
+  // covers. A tolerance window would be unsound in both directions: two
+  // meetings in the same permanent room (a personal Zoom room, a standing team
+  // room) minutes apart would share one recording and one of them would get the
+  // other's transcript, and because the constraint only protects exact
+  // timestamps, two racing inserts inside the window would both succeed and
+  // book two bots. Every attendee's copy of the same calendar event carries the
+  // same instant, so exact matching is what actually identifies "one meeting".
   return prisma.meetingRecording.findFirst({
     where: {
       normalizedMeetingUrl,
-      meetingStartTime: {
-        gte: subMinutes(startTime, SAME_MEETING_TOLERANCE_MINUTES),
-        lte: addMinutes(startTime, SAME_MEETING_TOLERANCE_MINUTES),
-      },
+      meetingStartTime: startTime,
       status: { in: LIVE_STATUSES },
     },
-    orderBy: { meetingStartTime: "asc" },
   });
 }
 
@@ -380,10 +381,22 @@ async function updateBookingForEvent({
   }
 
   // Same meeting, fresher link: normalization drops credentials, so this is
-  // where a rotated Zoom password shows up. Keep the newest link so a bot not
-  // yet booked, or one rebooked later, joins with credentials that still work.
-  // A bot already booked keeps the link it was created with.
+  // where a rotated meeting password shows up. A bot already booked holds the
+  // old one and would be turned away at the door, so rebook it, but only when
+  // nobody else is relying on this recording. When the recording is shared we
+  // cannot rebook without cancelling someone else's bot, so the newest link is
+  // stored for whoever books next and the existing bot is left alone.
   if (recording.meetingUrl !== event.videoConferenceLink) {
+    const sharedWith = await prisma.meeting.count({
+      where: { recordingId, id: { not: meetingId } },
+    });
+
+    if (sharedWith === 0 && recording.externalBotId) {
+      logger.info("Meeting credentials changed, rebooking", { recordingId });
+      await releaseMeeting({ meetingId, recordingId, logger });
+      return false;
+    }
+
     await prisma.meetingRecording.updateMany({
       where: { id: recordingId, status: { in: CHANGEABLE_STATUSES } },
       data: { meetingUrl: event.videoConferenceLink },

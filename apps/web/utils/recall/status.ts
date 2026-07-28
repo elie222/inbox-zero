@@ -16,6 +16,10 @@ const RECALL_CODE_TO_STATUS: Record<string, MeetingRecordingStatus> = {
   done: MeetingRecordingStatus.CALL_ENDED,
   recording_permission_denied: MeetingRecordingStatus.FAILED,
   fatal: MeetingRecordingStatus.FAILED,
+  // `recording.failed` and `transcript.failed` both carry this code. Leaving it
+  // unmapped strands the recording in a live status until the 24-hour sweep and
+  // never tells the user anything went wrong.
+  failed: MeetingRecordingStatus.FAILED,
 };
 
 export function recallCodeToStatus(

@@ -11,6 +11,10 @@ describe("recallCodeToStatus", () => {
       MeetingRecordingStatus.FAILED,
     );
     expect(recallCodeToStatus("some_future_code")).toBeNull();
+    // `recording.failed` and `transcript.failed` both carry code "failed".
+    // Leaving it unmapped strands the recording in a live status until the
+    // 24-hour sweep, and hides the failure from the user entirely.
+    expect(recallCodeToStatus("failed")).toBe(MeetingRecordingStatus.FAILED);
     // Inherited properties are not statuses.
     expect(recallCodeToStatus("constructor")).toBeNull();
     expect(recallCodeToStatus("toString")).toBeNull();

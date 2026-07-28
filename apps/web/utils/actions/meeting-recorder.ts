@@ -12,8 +12,10 @@ import { SafeError } from "@/utils/error";
 import {
   MAX_EVENTS_PER_PROVIDER,
   MEETING_LOOKAHEAD_HOURS,
+  MEETING_RECORDER_MIN_TIER,
   RECONCILE_WINDOW_MINUTES,
 } from "@/utils/meeting-recorder/config";
+import { checkHasAccess } from "@/utils/premium/server";
 import {
   reconcileSingleEvent,
   releaseAccountBookings,
@@ -55,6 +57,7 @@ export const setMeetingJoinOverrideAction = actionClient
         select: {
           id: true,
           email: true,
+          userId: true,
           meetingRecorderEnabled: true,
           meetingRecorderJoinRule: true,
         },
@@ -62,6 +65,17 @@ export const setMeetingJoinOverrideAction = actionClient
       if (!emailAccount) throw new SafeError("Email account not found");
       if (!emailAccount.meetingRecorderEnabled) {
         throw new SafeError("The notetaker is turned off for this account");
+      }
+
+      // The cron filters on the paid tier before it books anything, and this
+      // path books too, so it has to apply the same entitlement. A bot costs
+      // money and is visible to everyone in the call.
+      const hasAccess = await checkHasAccess({
+        userId: emailAccount.userId,
+        minimumTier: MEETING_RECORDER_MIN_TIER,
+      });
+      if (!hasAccess) {
+        throw new SafeError("The notetaker is not included in your plan");
       }
 
       const timeMin = new Date();

@@ -397,6 +397,98 @@ describe.skipIf(!RUN_DB_TESTS)(
       ).not.toBeNull();
     });
 
+    test("rebooks a sole-owner bot when only the meeting password changes", async () => {
+      const event = calendarEvent({
+        videoConferenceLink: "https://acme.zoom.us/j/8123456789?pwd=old",
+      });
+      const emailAccount = account(accountAId, ACCOUNT_A);
+      await reconcile.reconcileSingleEvent({ emailAccount, event, logger });
+      expect(fakeProvider.scheduled).toHaveLength(1);
+
+      // The organizer rotates the passcode. Normalization drops it, so this is
+      // the same meeting, but the booked bot still holds the old link and would
+      // be turned away at the door.
+      await reconcile.reconcileSingleEvent({
+        emailAccount,
+        event: {
+          ...event,
+          videoConferenceLink: "https://acme.zoom.us/j/8123456789?pwd=new",
+        },
+        logger,
+      });
+
+      expect(fakeProvider.scheduled).toHaveLength(2);
+      expect(fakeProvider.scheduled[1]?.meetingUrl).toContain("pwd=new");
+      expect(fakeProvider.cancelled).toEqual([
+        fakeProvider.scheduled[0]?.botId,
+      ]);
+    });
+
+    test("stores the join link encrypted at rest", async () => {
+      // The raw link carries the meeting password for Zoom and Teams, so anyone
+      // with a database read or a backup could join users' calls.
+      const meetingUrl = "https://acme.zoom.us/j/8123456789?pwd=SuPerSecret";
+      const recording = await prisma.meetingRecording.create({
+        data: {
+          meetingUrl,
+          normalizedMeetingUrl: "zoom.us/j/8123456789",
+          activeKey: "zoom.us/j/8123456789",
+          meetingStartTime: new Date(),
+        },
+      });
+
+      const [stored] = await prisma.$queryRawUnsafe<{ meetingUrl: string }[]>(
+        'SELECT "meetingUrl" FROM "MeetingRecording" WHERE id = $1',
+        recording.id,
+      );
+      expect(stored?.meetingUrl).not.toContain("SuPerSecret");
+
+      // Still readable through the client, which is what the bot provider uses.
+      const read = await prisma.meetingRecording.findUniqueOrThrow({
+        where: { id: recording.id },
+      });
+      expect(read.meetingUrl).toBe(meetingUrl);
+    });
+
+    test("keeps back-to-back meetings in the same room separate", async () => {
+      // A personal room or standing team room has a permanent link, so two
+      // different meetings in it differ only by start time.
+      const room = "https://acme.zoom.us/j/8123456789";
+      const first = calendarEvent({
+        id: "event-first",
+        videoConferenceLink: room,
+        startTime: addMinutes(new Date(), 10),
+      });
+      const second = calendarEvent({
+        id: "event-second",
+        videoConferenceLink: room,
+        startTime: addMinutes(new Date(), 30),
+      });
+
+      const emailAccount = account(accountAId, ACCOUNT_A);
+      await reconcile.reconcileSingleEvent({
+        emailAccount,
+        event: first,
+        logger,
+      });
+      await reconcile.reconcileSingleEvent({
+        emailAccount,
+        event: second,
+        logger,
+      });
+
+      // Sharing one recording would put the first meeting's transcript on the
+      // second meeting, and leave one of them with no notes at all.
+      const recordings = await prisma.meetingRecording.findMany();
+      expect(recordings).toHaveLength(2);
+      expect(fakeProvider.scheduled).toHaveLength(2);
+
+      const meetings = await prisma.meeting.findMany({
+        orderBy: { startTime: "asc" },
+      });
+      expect(meetings[0]?.recordingId).not.toBe(meetings[1]?.recordingId);
+    });
+
     test("shares one recording when two accounts hold different raw links to it", async () => {
       // A Teams meetup-join URL carries a per-invitee `context` parameter, so
       // the same call legitimately looks different to each attendee.

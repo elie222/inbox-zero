@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MeetingRecordingStatus } from "@/generated/prisma/enums";
+import { getMeetingDetailState } from "@/app/(app)/[emailAccountId]/meetings/meeting-detail-state";
 import { useMeetingRecorderMeeting } from "@/hooks/useMeetingRecorder";
 import type { MeetingSummary } from "@/utils/ai/meeting-recorder/summarize-meeting";
 import { formatTranscriptTimestamp } from "@/utils/meeting-recorder/transcript-prompt";
@@ -33,6 +33,13 @@ export function MeetingDetail({
   const summary = data?.summary;
   const transcript = data?.recording?.transcript;
 
+  const state = getMeetingDetailState({
+    hasSummary: !!summary,
+    hasTranscript: !!transcript?.length,
+    recordingStatus: data?.recording?.status,
+    processingStatus: data?.processingStatus,
+  });
+
   return (
     <Dialog open={!!meetingId} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl">
@@ -45,25 +52,36 @@ export function MeetingDetail({
           error={error}
           loadingComponent={<Skeleton className="h-64 w-full" />}
         >
-          {data?.recording?.status === MeetingRecordingStatus.FAILED && (
+          {state === "recording-failed" && (
             <Alert variant="destructive">
               <AlertTitle>This meeting was not recorded</AlertTitle>
               <AlertDescription>
-                {data.recording.failureReason}
+                {data?.recording?.failureReason}
               </AlertDescription>
             </Alert>
           )}
 
-          {/* Meetings appear in the list as soon as a bot is booked, so this
-              dialog opens well before there is anything to show. */}
-          {!(summary || transcript?.length) &&
-            data?.recording?.status !== MeetingRecordingStatus.FAILED && (
-              <p className="text-sm text-muted-foreground">
-                {data?.recording?.status === MeetingRecordingStatus.DONE
-                  ? "The notes are still being written. Check back in a minute."
-                  : "This meeting has not been recorded yet."}
-              </p>
-            )}
+          {state === "processing-failed" && (
+            <Alert variant="destructive">
+              <AlertTitle>The notes could not be written</AlertTitle>
+              <AlertDescription>
+                The recording is there, but summarizing it kept failing. The
+                transcript is still available below.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {state === "processing" && (
+            <p className="text-sm text-muted-foreground">
+              The notes are still being written. Check back in a minute.
+            </p>
+          )}
+
+          {state === "not-recorded" && (
+            <p className="text-sm text-muted-foreground">
+              This meeting has not been recorded yet.
+            </p>
+          )}
 
           {(summary || transcript?.length) && (
             <Tabs defaultValue="summary">
