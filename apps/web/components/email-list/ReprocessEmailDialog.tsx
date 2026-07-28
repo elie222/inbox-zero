@@ -42,6 +42,9 @@ export function ReprocessEmailDialog({
     ruleName: string | null;
     folderName: string | null;
     reason: string | null;
+    consideredRuleNames: string[];
+    threadSkippedRuleNames: string[];
+    learnedExclusions: string[];
   } | null>(null);
   const [checking, setChecking] = useState(true);
   const [applying, setApplying] = useState(false);
@@ -99,10 +102,18 @@ export function ReprocessEmailDialog({
           onClose();
           return;
         }
+        const metadata = result.data.find(
+          (entry) => entry.selectionMetadata,
+        )?.selectionMetadata;
         setProposal({
           ruleName: matched?.rule?.name ?? null,
           folderName,
           reason: result.data.find((entry) => !entry.rule)?.reason ?? null,
+          consideredRuleNames: metadata?.remainingAiRuleNames ?? [],
+          threadSkippedRuleNames: metadata?.skippedThreadRuleNames ?? [],
+          learnedExclusions: (metadata?.learnedPatternExcludedRules ?? []).map(
+            (entry) => `${entry.ruleName} (learned: ${entry.itemValue})`,
+          ),
         });
       } finally {
         setChecking(false);
@@ -201,6 +212,30 @@ export function ReprocessEmailDialog({
                 )}
               </DialogDescription>
             </DialogHeader>
+            {(proposal.consideredRuleNames.length > 0 ||
+              proposal.threadSkippedRuleNames.length > 0 ||
+              proposal.learnedExclusions.length > 0) && (
+              <div className="space-y-1 rounded-md bg-muted p-3 text-left text-xs text-muted-foreground">
+                {proposal.consideredRuleNames.length > 0 && (
+                  <p>
+                    AI considered: {proposal.consideredRuleNames.join(", ")}
+                  </p>
+                )}
+                {proposal.threadSkippedRuleNames.length > 0 && (
+                  <p>
+                    Not checked (doesn't apply to thread replies):{" "}
+                    {proposal.threadSkippedRuleNames.join(", ")}
+                  </p>
+                )}
+                {proposal.learnedExclusions.length > 0 && (
+                  <p>
+                    Blocked by a learned exclusion:{" "}
+                    {proposal.learnedExclusions.join(", ")} — remove it in the
+                    rule's Learned patterns.
+                  </p>
+                )}
+              </div>
+            )}
             <DialogFooter>
               <Button variant="ghost" onClick={onClose}>
                 Leave it
