@@ -371,8 +371,15 @@ export async function getOrCreateInboxZeroLabel({
   const { name, color, messageListVisibility } = inboxZeroLabels[key];
   const labels = await getLabels(gmail);
 
-  // Create parent label if it doesn't exist
-  const parentLabel = labels?.find((label) => PARENT_LABEL === label.name);
+  // Create parent label if it doesn't exist (normalized compare, same as
+  // every other label lookup — a raw compare misses name-form variants and
+  // triggers duplicate creation attempts)
+  const parentLabel = findLabelByName({
+    labels,
+    name: PARENT_LABEL,
+    getLabelName: (label) => label.name,
+    normalize: normalizeLabelName,
+  });
   if (!parentLabel) {
     try {
       await createLabel({ gmail, name: PARENT_LABEL });
@@ -382,7 +389,12 @@ export async function getOrCreateInboxZeroLabel({
   }
 
   // Return child label if it exists
-  const label = labels?.find((label) => label.name === name);
+  const label = findLabelByName({
+    labels,
+    name,
+    getLabelName: (existing) => existing.name,
+    normalize: normalizeLabelName,
+  });
   if (label) return label;
 
   // Create child label if it doesn't exist

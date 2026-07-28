@@ -12,7 +12,11 @@ export function hasCronSecret(request: RequestWithLogger) {
   const valid = secureCompare(authHeader, `Bearer ${env.CRON_SECRET}`);
 
   if (!valid)
-    request.logger.error("Unauthorized cron request:", { authHeader });
+    // Field name matters: "authorization" is in REDACTED_FIELD_NAMES, so a
+    // stale-but-real secret from a misconfigured caller never reaches logs
+    request.logger.error("Unauthorized cron request:", {
+      authorization: authHeader,
+    });
 
   return valid;
 }

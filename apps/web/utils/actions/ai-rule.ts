@@ -23,6 +23,8 @@ import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { suppressLabelLearning } from "@/utils/redis/label-learning-suppression";
 import { recordReprocessLearning } from "@/utils/rule/reprocess-learning";
+import { findLabelByName } from "@/utils/label/find-label-by-name";
+import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 
 export const runRulesAction = actionClient
   .metadata({ name: "runRules" })
@@ -249,10 +251,16 @@ export const finalizeReprocessAction = actionClient
           .filter((label) => label.type === "user")
           .map((label) => label.id),
       );
+      // Normalized lookup: a raw compare here silently yields null on any
+      // name-form mismatch, which makes the strip below remove the very
+      // label the user asked to keep
       const keepLabelId = keepLabelName
-        ? (labels.find(
-            (label) => label.type === "user" && label.name === keepLabelName,
-          )?.id ?? null)
+        ? (findLabelByName({
+            labels: labels.filter((label) => label.type === "user"),
+            name: keepLabelName,
+            getLabelName: (label) => label.name,
+            normalize: normalizeLabelName,
+          })?.id ?? null)
         : null;
 
       const messages = await emailProvider.getThreadMessages(threadId);

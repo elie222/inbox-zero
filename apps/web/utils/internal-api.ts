@@ -48,12 +48,20 @@ export function getInternalApiHeaders(): Record<string, string> {
   };
 }
 
+// This key is the only thing standing between the internet and internal
+// routes that mutate arbitrary accounts' mailboxes — a weak key would be
+// brute-forceable (there is no rate limiting on these routes)
+const MIN_INTERNAL_API_KEY_LENGTH = 32;
+
 export const isValidInternalApiKey = (
   headers: Headers,
   logger: Logger,
 ): boolean => {
-  if (!env.INTERNAL_API_KEY) {
-    logger.error("No internal API key set");
+  if (
+    !env.INTERNAL_API_KEY ||
+    env.INTERNAL_API_KEY.length < MIN_INTERNAL_API_KEY_LENGTH
+  ) {
+    logger.error("Internal API key missing or too short; rejecting request");
     return false;
   }
   const apiKey = headers.get(INTERNAL_API_KEY_HEADER);

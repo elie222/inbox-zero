@@ -73,7 +73,10 @@ Analyze the data and identify:
     emailAccount,
     label: "email-report-user-persona",
     modelOptions,
-    promptHardening: { trust: "untrusted", level: "none" },
+    // The persona is PERSISTED and later fed into reply-drafting prompts,
+    // so an injected instruction here outlives this call — unlike the
+    // read-only report paths, this one needs hardening
+    promptHardening: { trust: "untrusted", level: "compact" },
   });
 
   const result = await generateObject({

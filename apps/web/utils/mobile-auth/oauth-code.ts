@@ -78,7 +78,9 @@ export async function consumeMobileAuthState(input: {
     select: { identifier: true, expires: true },
   });
   if (!record) {
-    return { returnUrlMode: "app-link" };
+    // Fail closed: a state we never issued must not pass validation —
+    // accepting it turned this into a CSRF-able code-minting endpoint
+    throw new SafeError("Invalid authentication state", 401);
   }
 
   const returnUrlMode = parseStateIdentifier(record.identifier);
